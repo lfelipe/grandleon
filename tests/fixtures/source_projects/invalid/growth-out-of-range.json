@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "9c3e70a2-4b58-4f16-a9d3-1e42b7c05836",
+  "gameId": "grandleon.growth.range",
+  "title": "Grandleon Growth Range",
+  "contentRevision": "0.1.0",
+  "notes": "A growth chance above a hundred is not a very promising recruit; it is an author meaning something the rules cannot express, and the roll would silently read it as certainty. A chance below zero is the same mistake pointing the other way. And a level that costs nothing is a threshold no total ever crosses and a division with no answer. All three are refused where the author can still see them.",
+  "classes": [
+    {
+      "id": "footman",
+      "name": "Footman",
+      "baseStats": {
+        "health": 18,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "overconfident_recruit",
+      "name": "Overconfident Recruit",
+      "classId": "footman",
+      "startingWeaponIds": ["sword"],
+      "growthRates": {
+        "health": 140,
+        "strength": -20
+      }
+    },
+    {
+      "id": "free_veteran",
+      "name": "Free Veteran",
+      "classId": "footman",
+      "startingWeaponIds": ["sword"],
+      "experiencePerLevel": 0
+    }
+  ],
+  "weapons": [
+    {
+      "id": "sword",
+      "name": "Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "muster_field",
+      "name": "Muster Field",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

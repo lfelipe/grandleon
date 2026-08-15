@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "5f2b8a10-9c31-4f7e-8c2a-4b6d1e9f0a37",
+  "gameId": "surviving.waves",
+  "title": "Surviving Waves",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": {
+        "health": 10,
+        "movement": 3,
+        "strength": 2,
+        "defense": 1
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter"
+    }
+  ],
+  "weapons": [],
+  "items": [],
+  "objectives": [
+    {
+      "id": "hold_the_ford",
+      "name": "Hold the ford",
+      "kind": "surviveRounds",
+      "side": "first",
+      "rounds": 7
+    }
+  ],
+  "maps": [
+    {
+      "id": "ford",
+      "name": "Ford",
+      "width": 5,
+      "height": 3,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "main",
+      "name": "Main",
+      "roster": [
+        {
+          "id": "hero",
+          "name": "Hero of the Ford",
+          "unitTypeId": "guardian"
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "battle",
+        "nodes": [
+          {
+            "id": "battle",
+            "name": "The Ford",
+            "kind": "encounter",
+            "mapId": "ford",
+            "objectiveIds": [
+              "hold_the_ford"
+            ],
+            "placements": [
+              {
+                "id": "hero",
+                "memberId": "hero",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "picket",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 4,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "wave",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 4,
+                "y": 0,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 3,
+                  "every": 3,
+                  "times": 2
+                }
+              }
+            ],
+            "transitions": [
+              {
+                "id": "finish",
+                "targetNodeId": "end",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "end",
+            "name": "End",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

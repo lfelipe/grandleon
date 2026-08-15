@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "7f1d3a6b-52c8-4e07-9b44-0a6c2d8e5f31",
+  "gameId": "game.wide.turn.order",
+  "title": "Game Wide Turn Order",
+  "contentRevision": "1.0.0",
+  "defaultTurnOrder": "initiative",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": { "health": 10, "movement": 3, "strength": 2, "defense": 1 }
+    }
+  ],
+  "unitTypes": [
+    { "id": "guardian", "name": "Guardian", "classId": "fighter" }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": [
+    {
+      "id": "field",
+      "name": "Field",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "main",
+      "name": "Main",
+      "roster": [
+        { "id": "hero", "name": "Hero of the Field", "unitTypeId": "guardian" }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "opening",
+        "nodes": [
+          {
+            "id": "opening",
+            "name": "Opening",
+            "kind": "encounter",
+            "mapId": "field",
+            "placements": [
+              {
+                "id": "hero",
+                "memberId": "hero",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              { "id": "rival", "unitTypeId": "guardian", "side": "second", "x": 1, "y": 1 }
+            ],
+            "transitions": [
+              { "id": "onward", "targetNodeId": "duel", "priority": 0 }
+            ]
+          },
+          {
+            "id": "duel",
+            "name": "Duel",
+            "kind": "encounter",
+            "mapId": "field",
+            "turnOrder": "alternating",
+            "placements": [
+              {
+                "id": "hero",
+                "memberId": "hero",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 1
+              },
+              { "id": "champion", "unitTypeId": "guardian", "side": "second", "x": 1, "y": 0 }
+            ],
+            "transitions": [
+              { "id": "finish", "targetNodeId": "end", "priority": 0 }
+            ]
+          },
+          {
+            "id": "end",
+            "name": "End",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "3e7b91a5-62d0-4c48-9f13-7a05be4c8d29",
+  "gameId": "grandleon.unknown.crossing",
+  "title": "Grandleon Unknown Crossing",
+  "contentRevision": "0.1.0",
+  "classes": [
+    {
+      "id": "burrower",
+      "name": "Burrower",
+      "baseStats": {
+        "health": 18,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5
+      },
+      "traversal": {
+        "crossings": ["lava"]
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_soldier",
+      "name": "Demo Soldier",
+      "classId": "burrower",
+      "startingWeaponIds": ["training_sword"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "training_sword",
+      "name": "Training Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

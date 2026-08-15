@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "7b3e51c8-9d24-4f60-9a17-2c86be4013df",
+  "gameId": "grandleon.stats.damage.cap",
+  "title": "Grandleon Damage Stat Cap",
+  "contentRevision": "0.1.0",
+  "notes": "Every number the damage arithmetic reads stops at 16383, and this project writes one past it in each of the seven places one can be written: a class's strength, defense, resistance and magic, and a weapon's, a cast's and an item's power. The bound is not a taste. A blow is max(1, strength + power - defense) computed wide and narrowed back to the int16 health is kept in, so a strength of twenty thousand carrying a power of twenty thousand narrows to a negative and being hit heals the target. The engine refuses such a unit at both gates that build an encounter, which means a compiler that admitted these would hand an author a package the game turns away with board_rejected. All seven are refused here instead, while the author can still see the file. The four stats beside them that are only checked non-negative — skill, luck and evasion — are percentage points on a hit chance the rules clamp before reading, and they keep the whole of what an int16 holds; a project pinning that is richer-stat-line.json.",
+  "itemTypes": [{ "id": "consumable", "name": "Consumable" }],
+  "classes": [
+    {
+      "id": "unplayable",
+      "name": "Unplayable",
+      "baseStats": {
+        "health": 20,
+        "movement": 4,
+        "strength": 20000,
+        "defense": 16384,
+        "resistance": 32767,
+        "magic": 20000,
+        "skill": 32767,
+        "luck": 32767,
+        "evasion": 32767
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "unplayable_recruit",
+      "name": "Unplayable Recruit",
+      "classId": "unplayable",
+      "startingWeaponIds": ["worldbreaker"],
+      "startingItemIds": ["impossible_draught"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "worldbreaker",
+      "name": "Worldbreaker",
+      "power": 20000,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "impossible_draught",
+      "name": "Impossible Draught",
+      "itemTypeId": "consumable",
+      "stackLimit": 1,
+      "kind": "restore",
+      "power": 20000
+    }
+  ],
+  "abilities": [
+    {
+      "id": "unmaking",
+      "name": "Unmaking",
+      "kind": "damage",
+      "power": 20000,
+      "minimumRange": 1,
+      "maximumRange": 2
+    }
+  ],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

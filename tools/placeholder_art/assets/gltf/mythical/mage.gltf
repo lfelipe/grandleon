@@ -1,0 +1,1276 @@
+{
+  "accessors": [
+    {
+      "bufferView": 0,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        14.0,
+        20.0,
+        8.0
+      ],
+      "min": [
+        -14.0,
+        0.0,
+        -8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 0,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 288,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        12.0,
+        44.0,
+        7.0
+      ],
+      "min": [
+        -12.0,
+        18.0,
+        -7.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 288,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 72,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 576,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        4.0,
+        64.0,
+        10.0
+      ],
+      "min": [
+        -4.0,
+        4.0,
+        8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 576,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 144,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 864,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -12.0,
+        44.0,
+        8.0
+      ],
+      "min": [
+        -17.0,
+        34.0,
+        2.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 864,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 216,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 1152,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        17.0,
+        44.0,
+        8.0
+      ],
+      "min": [
+        12.0,
+        34.0,
+        2.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 1152,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 288,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 1440,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -8.0,
+        58.0,
+        5.0
+      ],
+      "min": [
+        -14.0,
+        40.0,
+        -5.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 1440,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 360,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 1728,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        14.0,
+        58.0,
+        5.0
+      ],
+      "min": [
+        8.0,
+        40.0,
+        -5.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 1728,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 432,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2016,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        10.0,
+        64.0,
+        6.0
+      ],
+      "min": [
+        -10.0,
+        42.0,
+        -6.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2016,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 504,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2304,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        9.0,
+        66.0,
+        7.0
+      ],
+      "min": [
+        -9.0,
+        58.0,
+        -7.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2304,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 576,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2592,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        8.0,
+        86.0,
+        8.0
+      ],
+      "min": [
+        -8.0,
+        60.0,
+        -4.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2592,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 648,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2880,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        6.0,
+        78.0,
+        10.0
+      ],
+      "min": [
+        -6.0,
+        72.0,
+        8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2880,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 720,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 3168,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        8.0,
+        92.0,
+        -6.0
+      ],
+      "min": [
+        -8.0,
+        84.0,
+        -11.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 3168,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 792,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 3456,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -7.0,
+        97.0,
+        -6.0
+      ],
+      "min": [
+        -17.0,
+        87.0,
+        -11.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 3456,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 864,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 3744,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        17.0,
+        97.0,
+        -6.0
+      ],
+      "min": [
+        7.0,
+        87.0,
+        -11.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 3744,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 936,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 4032,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -13.0,
+        117.0,
+        -6.0
+      ],
+      "min": [
+        -19.0,
+        95.0,
+        -11.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 4032,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 1008,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 4320,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        19.0,
+        117.0,
+        -6.0
+      ],
+      "min": [
+        13.0,
+        95.0,
+        -11.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 4320,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 1080,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 4608,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -7.0,
+        125.0,
+        -6.0
+      ],
+      "min": [
+        -17.0,
+        115.0,
+        -11.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 4608,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 1152,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 4896,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        17.0,
+        125.0,
+        -6.0
+      ],
+      "min": [
+        7.0,
+        115.0,
+        -11.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 4896,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 1224,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 5184,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        8.0,
+        128.0,
+        -6.0
+      ],
+      "min": [
+        -8.0,
+        121.0,
+        -11.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 5184,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 1296,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "generator": "Grandleon placeholder art generator",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 5472,
+      "byteOffset": 0,
+      "byteStride": 12,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 5472,
+      "byteOffset": 5472,
+      "byteStride": 12,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1368,
+      "byteOffset": 10944,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 12312,
+      "uri": "mage.bin"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "name": "neutral_ramp_rung_1",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.198069,
+          0.068478,
+          0.030713,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "name": "neutral_ramp_rung_2",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.508881,
+          0.23074,
+          0.022174,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "name": "neutral_ramp_rung_3",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.930111,
+          0.617207,
+          0.147027,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 1
+      },
+      "name": "faction_ramp_rung_1",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.005182,
+          0.084376,
+          0.198069,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 2
+      },
+      "name": "faction_ramp_rung_2",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.015209,
+          0.171441,
+          0.417885,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "name": "faction_ramp_rung_3",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.084376,
+          0.376262,
+          0.730461,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "00_robe_hem",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0
+          },
+          "indices": 2,
+          "material": 3,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "01_robe_skirt",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 4,
+            "POSITION": 3
+          },
+          "indices": 5,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "02_rune_placket",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 7,
+            "POSITION": 6
+          },
+          "indices": 8,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "03_left_hand_open",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 10,
+            "POSITION": 9
+          },
+          "indices": 11,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "04_right_hand_open",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 13,
+            "POSITION": 12
+          },
+          "indices": 14,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "05_left_sleeve",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 16,
+            "POSITION": 15
+          },
+          "indices": 17,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "06_right_sleeve",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 19,
+            "POSITION": 18
+          },
+          "indices": 20,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "07_robe",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 22,
+            "POSITION": 21
+          },
+          "indices": 23,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "08_collar",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 25,
+            "POSITION": 24
+          },
+          "indices": 26,
+          "material": 5,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "09_face",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 28,
+            "POSITION": 27
+          },
+          "indices": 29,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "10_rune_eyes",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 31,
+            "POSITION": 30
+          },
+          "indices": 32,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "11_rune_ring_foot",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 34,
+            "POSITION": 33
+          },
+          "indices": 35,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "12_rune_ring_lower_left",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 37,
+            "POSITION": 36
+          },
+          "indices": 38,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "13_rune_ring_lower_right",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 40,
+            "POSITION": 39
+          },
+          "indices": 41,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "14_rune_ring_left",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 43,
+            "POSITION": 42
+          },
+          "indices": 44,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "15_rune_ring_right",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 46,
+            "POSITION": 45
+          },
+          "indices": 47,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "16_rune_ring_upper_left",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 49,
+            "POSITION": 48
+          },
+          "indices": 50,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "17_rune_ring_upper_right",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 52,
+            "POSITION": 51
+          },
+          "indices": 53,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "18_rune_ring_crown",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 55,
+            "POSITION": 54
+          },
+          "indices": 56,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "extras": {
+        "archetype": "mage",
+        "axes": "figure space is x right, y up, z away and is left-handed; glTF is y up, right-handed, -z forward, so z is negated and nothing else is",
+        "bakedFaction": "blue",
+        "partCount": 19,
+        "partOrder": "authored far-to-near at the shipped pitch; node order and the index prefix on every node name both carry it",
+        "pitchDegrees": 60,
+        "rampFaction": 1,
+        "rampNeutral": 0,
+        "rungCount": 4,
+        "silhouetteArea": 377,
+        "silhouetteHeight": 32,
+        "silhouetteWidth": 18,
+        "style": "mythical",
+        "triangleCount": 228,
+        "unitWorld": 64,
+        "worldHeight": 128
+      },
+      "name": "mage",
+      "scale": [
+        0.015625,
+        0.015625,
+        0.015625
+      ]
+    },
+    {
+      "extras": {
+        "part": 0,
+        "partName": "robe hem",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 1
+      },
+      "mesh": 0,
+      "name": "00_robe_hem"
+    },
+    {
+      "extras": {
+        "part": 1,
+        "partName": "robe skirt",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 2
+      },
+      "mesh": 1,
+      "name": "01_robe_skirt"
+    },
+    {
+      "extras": {
+        "part": 2,
+        "partName": "rune placket",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 2,
+      "name": "02_rune_placket"
+    },
+    {
+      "extras": {
+        "part": 3,
+        "partName": "left hand, open",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 3,
+      "name": "03_left_hand_open"
+    },
+    {
+      "extras": {
+        "part": 4,
+        "partName": "right hand, open",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 4,
+      "name": "04_right_hand_open"
+    },
+    {
+      "extras": {
+        "part": 5,
+        "partName": "left sleeve",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 2
+      },
+      "mesh": 5,
+      "name": "05_left_sleeve"
+    },
+    {
+      "extras": {
+        "part": 6,
+        "partName": "right sleeve",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 2
+      },
+      "mesh": 6,
+      "name": "06_right_sleeve"
+    },
+    {
+      "extras": {
+        "part": 7,
+        "partName": "robe",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 2
+      },
+      "mesh": 7,
+      "name": "07_robe"
+    },
+    {
+      "extras": {
+        "part": 8,
+        "partName": "collar",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 8,
+      "name": "08_collar"
+    },
+    {
+      "extras": {
+        "part": 9,
+        "partName": "face",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 9,
+      "name": "09_face"
+    },
+    {
+      "extras": {
+        "part": 10,
+        "partName": "rune eyes",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 10,
+      "name": "10_rune_eyes"
+    },
+    {
+      "extras": {
+        "part": 11,
+        "partName": "rune ring, foot",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 11,
+      "name": "11_rune_ring_foot"
+    },
+    {
+      "extras": {
+        "part": 12,
+        "partName": "rune ring, lower left",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 12,
+      "name": "12_rune_ring_lower_left"
+    },
+    {
+      "extras": {
+        "part": 13,
+        "partName": "rune ring, lower right",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 13,
+      "name": "13_rune_ring_lower_right"
+    },
+    {
+      "extras": {
+        "part": 14,
+        "partName": "rune ring, left",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 14,
+      "name": "14_rune_ring_left"
+    },
+    {
+      "extras": {
+        "part": 15,
+        "partName": "rune ring, right",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 15,
+      "name": "15_rune_ring_right"
+    },
+    {
+      "extras": {
+        "part": 16,
+        "partName": "rune ring, upper left",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 16,
+      "name": "16_rune_ring_upper_left"
+    },
+    {
+      "extras": {
+        "part": 17,
+        "partName": "rune ring, upper right",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 17,
+      "name": "17_rune_ring_upper_right"
+    },
+    {
+      "extras": {
+        "part": 18,
+        "partName": "rune ring, crown",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 18,
+      "name": "18_rune_ring_crown"
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "mage",
+      "nodes": [
+        0
+      ]
+    }
+  ]
+}

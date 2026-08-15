@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "6b1f9c40-3d52-47ae-9c18-5f0a2e7b8d31",
+  "gameId": "grandleon.item.effects",
+  "title": "Grandleon Item Effects",
+  "contentRevision": "0.1.0",
+  "notes": "One item a character can drink and one it can only carry. The two states an item's effect has — authored and omitted — are distinct here on purpose: omitted is what every item written before items could be spent says, and a character asked to spend one is refused rather than spending it for nothing.",
+  "weaponTypes": [{ "id": "blade", "name": "Blade" }],
+  "itemTypes": [
+    { "id": "consumable", "name": "Consumable" },
+    { "id": "keepsake", "name": "Keepsake" }
+  ],
+  "classes": [
+    {
+      "id": "outrider",
+      "name": "Outrider",
+      "allowedWeaponTypeIds": ["blade"],
+      "baseStats": {
+        "health": 16,
+        "movement": 4,
+        "strength": 5,
+        "defense": 3
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_outrider",
+      "name": "Demo Outrider",
+      "classId": "outrider",
+      "startingWeaponIds": ["riding_sword"],
+      "startingItemIds": ["field_tonic", "signet"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "riding_sword",
+      "name": "Riding Sword",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "itemTypeId": "consumable",
+      "stackLimit": 5,
+      "kind": "restore",
+      "power": 4
+    },
+    {
+      "id": "signet",
+      "name": "Signet",
+      "itemTypeId": "keepsake",
+      "stackLimit": 1
+    }
+  ],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

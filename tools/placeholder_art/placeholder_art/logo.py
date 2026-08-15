@@ -1,0 +1,163 @@
+# SPDX-License-Identifier: MIT
+"""The project logo: a sword over the name in the gallery's own pixel font.
+
+Drawn programmatically like everything else here, so it is deterministic,
+palette-constrained, and regenerates byte-identically under ``--check``. The
+sword is built from the ``steel``, ``gold``, and ``leather`` ramps; the
+wordmark reuses :mod:`placeholder_art.pixelfont`, which is what makes the text
+read as 8-bit rather than as a rasterised font.
+
+To change the mark, edit the numbers below and re-run the generator; there is
+no source image anywhere.
+"""
+
+from __future__ import annotations
+
+from typing import List, Tuple
+
+from . import palette
+from .raster import Canvas
+
+#: Native pixel grid, before upscaling. Kept intentionally small: the logo is
+#: pixel art, and detail belongs to the upscale, not the grid.
+WIDTH = 65
+HEIGHT = 60
+
+#: Integer upscale factor for the emitted PNG.
+SCALE = 6
+
+_NAME = "GRANDLEON"
+
+#: Dedicated 5x7 letterforms for the wordmark. The shared 3x5 gallery font is
+#: made for tiny labels and smears when scaled; a wordmark earns its own
+#: glyphs. Only the letters the name needs exist.
+_LETTERS = {
+    "G": (".###.", "#...#", "#....", "#.###", "#...#", "#...#", ".###."),
+    "R": ("####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"),
+    "A": (".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"),
+    "N": ("#...#", "##..#", "##..#", "#.#.#", "#..##", "#..##", "#...#"),
+    "D": ("####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####."),
+    "L": ("#....", "#....", "#....", "#....", "#....", "#....", "#####"),
+    "E": ("#####", "#....", "#....", "####.", "#....", "#....", "#####"),
+    "O": (".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."),
+}
+
+_LETTER_WIDTH = 5
+_LETTER_HEIGHT = 7
+_LETTER_TRACKING = 1
+
+
+def _draw_name(canvas: Canvas, x: int, y: int, index: int, shadow: int) -> None:
+    for pass_index, (dx, dy, colour) in enumerate(
+        ((1, 1, shadow), (0, 0, index))
+    ):
+        del pass_index
+        cursor = x
+        for character in _NAME:
+            rows = _LETTERS[character]
+            for row, pattern in enumerate(rows):
+                for column, cell in enumerate(pattern):
+                    if cell == "#":
+                        canvas.put(
+                            cursor + column + dx, y + row + dy, colour
+                        )
+            cursor += _LETTER_WIDTH + _LETTER_TRACKING
+
+
+def _sword(canvas: Canvas) -> None:
+    steel = palette.ramp("steel")
+    gold = palette.ramp("gold")
+    leather = palette.ramp("leather")
+    cx = WIDTH // 2
+
+    # Blade: a tapered point, then parallel edges with a bright fuller down
+    # the centre so the blade reads as steel rather than as a grey bar.
+    tip = 2
+    guard_y = 30
+    canvas.put(cx, tip, steel[3])
+    for y in range(tip + 1, tip + 4):
+        canvas.put(cx - 1, y, steel[1])
+        canvas.put(cx, y, steel[3])
+        canvas.put(cx + 1, y, steel[2])
+    for y in range(tip + 4, guard_y):
+        canvas.put(cx - 2, y, steel[0])
+        canvas.put(cx - 1, y, steel[1])
+        canvas.put(cx, y, steel[3])
+        canvas.put(cx + 1, y, steel[2])
+        canvas.put(cx + 2, y, steel[1])
+
+    # Crossguard: gold, with dark undersides so it sits over the blade.
+    for x in range(cx - 7, cx + 8):
+        canvas.put(x, guard_y, gold[1])
+        canvas.put(x, guard_y + 1, gold[0])
+    canvas.put(cx - 7, guard_y - 1, gold[1])
+    canvas.put(cx + 7, guard_y - 1, gold[1])
+
+    # Grip: leather, slightly narrower than the blade, with banding.
+    for y in range(guard_y + 2, guard_y + 9):
+        band = leather[2] if (y - guard_y) % 2 == 0 else leather[1]
+        canvas.put(cx - 1, y, leather[0])
+        canvas.put(cx, y, band)
+        canvas.put(cx + 1, y, leather[0])
+
+    # Pommel: a gold knob.
+    for x in (cx - 1, cx, cx + 1):
+        canvas.put(x, guard_y + 9, gold[0])
+    canvas.put(cx, guard_y + 10, gold[1])
+    canvas.put(cx, guard_y + 9, gold[1])
+
+
+def compose() -> Canvas:
+    """The logo at native resolution: sword above the wordmark."""
+    canvas = Canvas(WIDTH, HEIGHT)
+    _sword(canvas)
+    text_width = len(_NAME) * (_LETTER_WIDTH + _LETTER_TRACKING) - _LETTER_TRACKING
+    gold = palette.ramp("gold")
+    leather = palette.ramp("leather")
+    _draw_name(
+        canvas, (WIDTH - text_width) // 2, HEIGHT - _LETTER_HEIGHT - 4,
+        gold[1], leather[0]
+    )
+    return canvas
+
+
+def header() -> str:
+    """The logo as a C++ header, for clients that embed it.
+
+    The Nintendo 64 title screen includes this, which is what keeps the mark
+    single-sourced: the ROM cannot drift from the README because both are this
+    module's output.
+    """
+    canvas = compose()
+    indices = ",".join(str(value) for value in canvas.data)
+    colours = ",".join(
+        "{%d,%d,%d}" % colour for colour in palette.RGB
+    )
+    return (
+        "// Generated by tools/placeholder_art/generate.py from"
+        " placeholder_art/logo.py.\n"
+        "// Do not edit.\n"
+        "#pragma once\n"
+        f"inline constexpr int grandleon_logo_width = {canvas.width};\n"
+        f"inline constexpr int grandleon_logo_height = {canvas.height};\n"
+        "inline constexpr unsigned char grandleon_logo_indices[] = {"
+        f"{indices}}};\n"
+        "inline constexpr unsigned char grandleon_logo_palette[][3] = {"
+        f"{colours}}};\n"
+    )
+
+
+def rendered() -> Tuple[int, int, List[Tuple[int, int, int, int]]]:
+    """The logo upscaled for the gallery and the README, as RGBA pixels."""
+    canvas = compose()
+    width = canvas.width * SCALE
+    height = canvas.height * SCALE
+    pixels: List[Tuple[int, int, int, int]] = [(0, 0, 0, 0)] * (width * height)
+    for y in range(height):
+        for x in range(width):
+            index = canvas.get(x // SCALE, y // SCALE)
+            if index == palette.TRANSPARENT:
+                continue
+            colour = palette.RGB[index]
+            pixels[y * width + x] = (colour[0], colour[1], colour[2], 255)
+    return width, height, pixels

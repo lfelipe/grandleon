@@ -1,0 +1,40 @@
+{
+  "name": "@grandleon/editor",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "preview": "vite preview",
+    "generate:source-types": "node scripts/generate-source-types.mjs",
+    "check:source-types": "node scripts/generate-source-types.mjs --check",
+    "typecheck": "vue-tsc --noEmit && vue-tsc --noEmit -p tsconfig.browser.json",
+    "test": "vitest run",
+    "test:dev": "node scripts/dev-server-smoke.mjs",
+    "test:startup": "vite build && node scripts/browser-startup-smoke.mjs",
+    "test:deployment": "node scripts/deployment-smoke.mjs",
+    "test:offline": "node scripts/offline-smoke.mjs",
+    "build": "npm run check:source-types && npm run typecheck && npm run test && vite build",
+    "test:browser": "vite build && playwright test"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "vue": "3.5.40"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "26.1.2",
+    "@vitejs/plugin-vue": "6.0.8",
+    "fake-indexeddb": "6.2.5",
+    "happy-dom": "20.11.1",
+    "json-schema-to-typescript": "15.0.4",
+    "typescript": "6.0.3",
+    "vite": "8.2.0",
+    "vitest": "4.1.10",
+    "vue-tsc": "3.3.8"
+  }
+}

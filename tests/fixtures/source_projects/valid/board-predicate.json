@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "6f2b6a51-3d5c-4a80-9d1f-7c0a4f19b2ea",
+  "gameId": "encounter.board.predicate",
+  "title": "Board Predicate",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": {
+        "health": 10,
+        "movement": 3,
+        "strength": 2,
+        "defense": 1
+      }
+    }
+  ],
+  "factions": [
+    {
+      "id": "causeway_watch",
+      "name": "Causeway Watch"
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter",
+      "factionId": "causeway_watch"
+    }
+  ],
+  "weapons": [],
+  "items": [],
+  "objectives": [
+    {
+      "id": "hold_the_causeway",
+      "name": "Hold the causeway",
+      "kind": "surviveRounds",
+      "side": "first",
+      "rounds": 9
+    }
+  ],
+  "maps": [
+    {
+      "id": "causeway",
+      "name": "Causeway",
+      "width": 6,
+      "height": 3,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "main",
+      "name": "Main",
+      "roster": [
+        {
+          "id": "captain",
+          "name": "Captain of the Causeway",
+          "unitTypeId": "guardian"
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "battle",
+        "nodes": [
+          {
+            "id": "battle",
+            "name": "Battle",
+            "kind": "encounter",
+            "mapId": "causeway",
+            "objectiveIds": [
+              "hold_the_causeway"
+            ],
+            "placements": [
+              {
+                "id": "outrider",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 0,
+                "y": 1,
+                "arrival": {
+                  "round": 3
+                }
+              },
+              {
+                "id": "captain",
+                "memberId": "captain",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 4,
+                "y": 0
+              },
+              {
+                "id": "envoy",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 5,
+                "y": 0,
+                "talk": {
+                  "flagId": "envoy-heard-out"
+                }
+              },
+              {
+                "id": "brute",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 5,
+                "y": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "finish",
+                "targetNodeId": "end",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "end",
+            "name": "End",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

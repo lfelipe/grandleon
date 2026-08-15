@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
+  "gameId": "typed.demo",
+  "title": "Typed Content Demo",
+  "contentRevision": "1.0.0",
+  "weaponTypes": [
+    { "id": "blade", "name": "Blade" },
+    { "id": "bow", "name": "Bow" }
+  ],
+  "itemTypes": [
+    { "id": "healing", "name": "Healing" }
+  ],
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "allowedWeaponTypeIds": ["blade"],
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "soldier",
+      "name": "Soldier",
+      "classId": "vanguard",
+      "startingWeaponIds": ["sword"],
+      "startingItemIds": ["tonic"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "sword",
+      "name": "Sword",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "tonic",
+      "name": "Tonic",
+      "itemTypeId": "healing",
+      "stackLimit": 5
+    }
+  ],
+  "maps": []
+}

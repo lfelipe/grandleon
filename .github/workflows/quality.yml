@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: MIT
+name: Quality
+
+# Manual dispatch only. `scripts/local-ci.sh` is the gate, because the hosted
+# runners' compiler versions differ from the ones this project pins and the
+# difference shows up as failures that say nothing about the change.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - c++
+          - clang++
+    runs-on: ubuntu-latest
+    env:
+      CXX: ${{ matrix.compiler }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            tools/source_schema/package-lock.json
+            editor/package-lock.json
+      - name: Install source-schema test dependencies
+        run: npm ci --prefix tools/source_schema
+      - name: Install editor dependencies
+        run: npm ci --prefix editor
+      - name: Configure
+        run: cmake -S . -B build -DGRANDLEON_BUILD_TESTS=ON -DGRANDLEON_WERROR=ON
+      - name: Build
+        run: cmake --build build --parallel 2
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  webassembly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: editor/package-lock.json
+      - name: Install editor dependencies
+        run: npm ci --prefix editor
+      - name: Configure
+        run: cmake -S . -B build -DGRANDLEON_BUILD_TESTS=OFF
+      # Rebuilds the engine under the pinned Emscripten SDK and fails when the
+      # module checked in to the editor is not what that toolchain produces.
+      - name: Verify the checked-in WebAssembly module
+        run: cmake --build build --target grandleon_wasm_check
+      - name: Run browser/native conformance tests
+        run: npm test --prefix editor
+
+  browser:
+    runs-on: ubuntu-latest
+    env:
+      # Must match the repository-local default in editor/playwright.config.ts.
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: editor/package-lock.json
+      - name: Install editor dependencies
+        run: npm ci --prefix editor
+      - name: Install Chromium
+        run: npx --prefix editor playwright install --with-deps chromium
+      # Chromium enforces the Content Security Policy against WebAssembly
+      # compilation. The happy-dom suites cannot observe that, so this job is
+      # the only place a CSP regression is caught.
+      - name: Verify the editor in a real browser
+        run: npm run --prefix editor test:browser

@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "0a4d1c72-9b8e-4f35-8ad6-2c9f5b3e7104",
+  "gameId": "grandleon.weapon.accuracy",
+  "title": "Grandleon Weapon Accuracy",
+  "contentRevision": "0.1.0",
+  "notes": "One weapon that always lands, one that lands nine times in ten, one that never lands at all, and a cast that can fizzle. The three states an accuracy has — omitted, authored, and zero — are distinct here on purpose: omitted and 100 mean the same certainty, and 0 means an attempt that can never connect.",
+  "classes": [
+    {
+      "id": "skirmisher",
+      "name": "Skirmisher",
+      "baseStats": {
+        "health": 18,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5
+      }
+    }
+  ],
+  "abilities": [
+    {
+      "id": "wild_swing",
+      "name": "Wild Swing",
+      "kind": "damage",
+      "power": 6,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 85
+    },
+    {
+      "id": "mend",
+      "name": "Mend",
+      "kind": "restore",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 2
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_skirmisher",
+      "name": "Demo Skirmisher",
+      "classId": "skirmisher",
+      "startingWeaponIds": ["certain_blade", "long_bow", "broken_sling"],
+      "abilityIds": ["wild_swing", "mend"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "certain_blade",
+      "name": "Certain Blade",
+      "power": 3,
+      "range": 1
+    },
+    {
+      "id": "long_bow",
+      "name": "Long Bow",
+      "power": 2,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 90
+    },
+    {
+      "id": "broken_sling",
+      "name": "Broken Sling",
+      "power": 9,
+      "minimumRange": 2,
+      "maximumRange": 2,
+      "accuracy": 0
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

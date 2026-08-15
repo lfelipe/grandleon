@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/item.schema.json",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/stableId" },
+    "name": { "$ref": "common.schema.json#/$defs/displayName" },
+    "itemTypeId": {
+      "$ref": "common.schema.json#/$defs/stableId",
+      "description": "Item type identity. Omitted only for legacy unclassified content."
+    },
+    "stackLimit": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "kind": {
+      "enum": ["restore"],
+      "description": "What spending this item in battle does. Omitted means nothing does: the item may be carried, listed and counted, and a character asked to use it is refused. That is what every item authored before items could be spent says, so no existing content becomes usable by accident."
+    },
+    "power": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16383,
+      "description": "How much a restoring item gives back, clamped to the health the character is missing. Required by kind restore and read by nothing else; the number a player is shown before spending is exactly this one, because using an item rolls nothing. The floor is one rather than the nought every other number in the damage arithmetic has, because an item that restores nothing is an item with no kind; the ceiling is theirs."
+    },
+    "notes": { "$ref": "common.schema.json#/$defs/notes" },
+    "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+  },
+  "required": ["id", "name", "stackLimit"],
+  "additionalProperties": false
+}

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "b21f7ec4-0d63-4d81-8a55-c0e93f0a7b16",
+  "gameId": "grandleon.unknown.style",
+  "title": "Grandleon Unknown Character Style",
+  "contentRevision": "0.1.0",
+  "characterStyleId": "gothic",
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_soldier",
+      "name": "Demo Soldier",
+      "classId": "vanguard",
+      "startingWeaponIds": ["training_sword"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "training_sword",
+      "name": "Training Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "stackLimit": 5
+    }
+  ],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

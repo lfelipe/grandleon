@@ -1,0 +1,107 @@
+# Boot a ROM the export path built for a *different* game, and require it to
+# say so.
+#
+# This lane exists because of the one failure a host check structurally cannot
+# see: a template with a patchable content slot can carry one game's bytes and
+# behave as the game it was compiled for, when the slot is a `constexpr` array
+# and the optimiser has folded the header into immediates. Every host check
+# passes, **byte identity included**. Bytes agree; behaviour does not.
+#
+# This route cannot fail in that particular way, because nothing is patched.
+# But it can fail in the analogous way, by embedding the author's project and
+# then playing a campaign named by something else, and a host has no instrument
+# for that at all. Only a boot can say which campaign the running
+# program actually asked for.
+#
+# So: build `games/demo` through the export path, boot it under ares, and
+# require the machine's own words to name that game's campaign and slot.
+
+set(ENV{GRANDLEON_LIBDRAGON_BASE_IMAGE} "@GRANDLEON_LIBDRAGON_BASE_IMAGE@")
+set(ENV{GRANDLEON_LIBDRAGON_BASE_DIGEST} "@GRANDLEON_LIBDRAGON_BASE_DIGEST@")
+set(ENV{GRANDLEON_LIBDRAGON_COMMIT} "@GRANDLEON_LIBDRAGON_COMMIT@")
+set(ENV{GRANDLEON_DOCKER} "@GRANDLEON_DOCKER@")
+set(ENV{GRANDLEON_N64_BUILD_DIR} "@GRANDLEON_N64_BUILD_DIR@")
+
+set(source_root "@PROJECT_SOURCE_DIR@")
+set(build_dir "@GRANDLEON_N64_BUILD_DIR@")
+set(work "${build_dir}/other-game")
+file(REMOVE_RECURSE "${work}")
+file(MAKE_DIRECTORY "${work}")
+
+# What the other game is, read from its own project rather than written here,
+# so a lane cannot go on asserting a campaign the content has renamed.
+file(READ "${source_root}/games/demo/source/project.json" other_project)
+string(JSON other_campaign GET "${other_project}" campaigns 0 id)
+string(JSON other_game_id GET "${other_project}" gameId)
+string(REGEX REPLACE "^.*\\." "" other_slot "${other_game_id}")
+
+file(READ "${source_root}/games/tarnholt/source/project.json" shipped_project)
+string(JSON shipped_campaign GET "${shipped_project}" campaigns 0 id)
+if(other_campaign STREQUAL shipped_campaign)
+    message(FATAL_ERROR
+        "the two games name the same campaign ('${other_campaign}'), so this "
+        "lane could not tell them apart")
+endif()
+
+execute_process(
+    COMMAND node "${source_root}/tools/rom_service/build-rom.mjs"
+            "${source_root}/games/demo/source/project.json"
+            "${work}/other-game.z64"
+    WORKING_DIRECTORY "${source_root}"
+    RESULT_VARIABLE build_result
+)
+if(NOT build_result EQUAL 0)
+    message(FATAL_ERROR "the export path could not build the other game")
+endif()
+
+# The ROM has no autopilot script. It is an ordinary interactive campaign ROM
+# of somebody else's game, so it never ends and never prints a verdict. What
+# it does print, before the title screen, is which campaign it loaded. That is
+# the line this run is judged on, and the timeout is how it stops.
+set(ENV{GRANDLEON_N64_ARES_SECONDS} "120")
+set(ENV{GRANDLEON_N64_ARES_ALLOW_TIMEOUT} "1")
+set(ENV{GRANDLEON_N64_ARES_REQUIRE}
+    "game campaign=${other_campaign} slot=${other_slot}")
+set(ENV{GRANDLEON_N64_ARES_LOG} "other-game.log")
+set(ENV{GRANDLEON_N64_ARES_SHOT} "other-game.png")
+execute_process(
+    COMMAND "${source_root}/platform/nintendo64/ares/run-ares.sh"
+            "${work}/other-game.z64"
+    WORKING_DIRECTORY "${source_root}"
+    RESULT_VARIABLE run_result
+)
+if(NOT run_result EQUAL 0)
+    message(FATAL_ERROR
+        "the ROM built for games/demo did not report that game's campaign "
+        "under ares")
+endif()
+
+# The negative control, and the one that catches that failure: the shipped
+# game's campaign must be nowhere in what this ROM said. A
+# ROM carrying one game's content while running another's campaign would
+# satisfy the requirement above and fail here.
+file(READ "${build_dir}/ares/other-game.log" boot_log)
+string(FIND "${boot_log}" "campaign=${shipped_campaign}" shipped_named)
+if(NOT shipped_named EQUAL -1)
+    message(FATAL_ERROR
+        "a ROM built for games/demo named the shipped game's campaign "
+        "('${shipped_campaign}'); it is running content it was not built for")
+endif()
+
+# And the console really did do the work: it parsed and compiled the author's
+# project on the machine, rather than falling back to something baked in.
+foreach(line "ok   embedded source project parses"
+             "ok   source project compiles on target"
+             "ok   package loads on target")
+    string(FIND "${boot_log}" "${line}" found)
+    if(found EQUAL -1)
+        message(FATAL_ERROR
+            "the ROM did not report '${line}'; it did not compile the project "
+            "it was built for")
+    endif()
+endforeach()
+
+message(STATUS
+    "RESULT PASS a ROM built through the export path for games/demo booted "
+    "under ares and reported campaign '${other_campaign}' in slot "
+    "'${other_slot}', and never named '${shipped_campaign}'")

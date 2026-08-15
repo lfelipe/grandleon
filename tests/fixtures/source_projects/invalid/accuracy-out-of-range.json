@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "6b1f4e83-0d27-4a19-b5c6-8e73f2a94d51",
+  "gameId": "grandleon.accuracy.range",
+  "title": "Grandleon Accuracy Range",
+  "contentRevision": "0.1.0",
+  "notes": "An accuracy above a hundred is not a very accurate weapon; it is an author meaning something the rules cannot express, and the roll would silently read it as certainty. It is refused where the author can still see it.",
+  "classes": [
+    {
+      "id": "skirmisher",
+      "name": "Skirmisher",
+      "baseStats": {
+        "health": 18,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5
+      }
+    }
+  ],
+  "abilities": [
+    {
+      "id": "wild_swing",
+      "name": "Wild Swing",
+      "kind": "damage",
+      "power": 6,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": -5
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_skirmisher",
+      "name": "Demo Skirmisher",
+      "classId": "skirmisher",
+      "startingWeaponIds": ["overconfident_blade"],
+      "abilityIds": ["wild_swing"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "overconfident_blade",
+      "name": "Overconfident Blade",
+      "power": 3,
+      "range": 1,
+      "accuracy": 120
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

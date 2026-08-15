@@ -1,0 +1,26 @@
+// The browser suite's typechecker.
+//
+// Playwright transpiles a spec with esbuild, which strips types without
+// checking them, so a spec is not typechecked by running it: only a *syntax*
+// error stops the run. Nor is it typechecked by `tsconfig.json`, whose
+// `include` is the application, or by vitest, whose include is
+// `src/**/*.test.ts`. Without this file the specs are checked by nothing at
+// all: a `page.getByRole("buton")` compiles, runs, and fails at whatever the
+// locator eventually times out on rather than at the typo.
+//
+// It is a second project rather than three more globs in `tsconfig.json`
+// because the two need different ambient types and cannot share one. The
+// application is checked with `types: ["vitest/globals"]`, which keeps Node's
+// globals out of code that runs in a browser. `playwright-core`'s own
+// `types.d.ts` is written against them (`Buffer`, `fs`, `stream`,
+// `Symbol.asyncDispose`) and produces about sixty errors of its own under
+// that setting. Everything else, `strict` and `exactOptionalPropertyTypes`
+// included, is inherited so the specs are held to the application's standard.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["tests/browser/**/*.ts", "playwright.config.ts"]
+}

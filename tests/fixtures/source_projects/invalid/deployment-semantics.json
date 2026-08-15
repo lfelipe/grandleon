@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "3f0a1b62-88c2-4a7e-8f31-9c4d2e6b70aa",
+  "gameId": "deployment.semantics",
+  "title": "Deployment Semantics",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": {
+        "health": 10,
+        "movement": 3,
+        "strength": 2,
+        "defense": 1
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter"
+    }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": [
+    {
+      "id": "field",
+      "name": "Field",
+      "width": 3,
+      "height": 2,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "main",
+      "name": "Main",
+      "roster": [
+        {
+          "id": "hero",
+          "name": "Hero of the Field",
+          "unitTypeId": "guardian"
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "battle",
+        "nodes": [
+          {
+            "id": "battle",
+            "name": "Battle",
+            "kind": "encounter",
+            "mapId": "field",
+            "deployment": {
+              "id": "bad_bank",
+              "tiles": [
+                { "x": 0, "y": 0 },
+                { "x": 0, "y": 0 },
+                { "x": 9, "y": 0 }
+              ]
+            },
+            "placements": [
+              {
+                "id": "hero",
+                "memberId": "hero",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "rival",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 2,
+                "y": 1
+              }
+            ],
+            "transitions": [
+              {
+                "id": "finish",
+                "targetNodeId": "end",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "end",
+            "name": "End",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

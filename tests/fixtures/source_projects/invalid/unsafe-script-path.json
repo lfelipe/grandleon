@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "95ee0e62-1de3-4fa4-afd5-72000b64c8e9",
+  "gameId": "invalid.script.path",
+  "title": "Unsafe Script Path",
+  "contentRevision": "1.0.0",
+  "classes": [],
+  "unitTypes": [],
+  "weapons": [],
+  "items": [],
+  "maps": [],
+  "abilities": [
+    {
+      "id": "rally",
+      "name": "Rally",
+      "scriptBindings": [
+        {
+          "slot": "on_use",
+          "apiVersion": "1.0.0",
+          "scriptPath": "../outside.lua",
+          "entryPoint": "activate",
+          "parameters": []
+        }
+      ],
+      "kind": "damage",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1
+    }
+  ]
+}

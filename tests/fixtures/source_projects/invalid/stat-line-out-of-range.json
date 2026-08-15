@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "1d9f47ae-3c02-4b58-8e61-5a7c93d02f4b",
+  "gameId": "grandleon.stats.range",
+  "title": "Grandleon Stat Line Range",
+  "contentRevision": "0.1.0",
+  "notes": "A negative skill, evasion, luck or magic is an author meaning something the rules cannot express. The hit chance is a sum clamped to nought and a hundred, so a negative skill would read as a striker who is worse than their own weapon and a negative evasion as a target who is easier to hit than open air — neither of which is a thing the vocabulary says. They are refused where the author can still see them, exactly as an out-of-range accuracy or growth chance is, and the growth chance for the same stats is bounded on its own terms beside them.",
+  "classes": [
+    {
+      "id": "backwards",
+      "name": "Backwards",
+      "baseStats": {
+        "health": 18,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5,
+        "skill": -4,
+        "luck": -1,
+        "evasion": -2,
+        "magic": -9
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "impossible_recruit",
+      "name": "Impossible Recruit",
+      "classId": "backwards",
+      "startingWeaponIds": ["sword"],
+      "growthRates": {
+        "skill": 180,
+        "magic": -5
+      }
+    }
+  ],
+  "weapons": [
+    {
+      "id": "sword",
+      "name": "Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "muster_field",
+      "name": "Muster Field",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

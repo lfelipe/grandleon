@@ -1,0 +1,155 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "3f0a5c17-8e2b-4d55-9a0e-2b7c4e1d9f36",
+  "gameId": "campaign.invalid-roster",
+  "title": "Invalid Campaign Roster",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": { "health": 12, "movement": 4, "strength": 4, "defense": 2 }
+    },
+    {
+      "id": "mender",
+      "name": "Mender",
+      "baseStats": { "health": 8, "movement": 4, "strength": 1, "defense": 1 }
+    }
+  ],
+  "unitTypes": [
+    { "id": "guardian", "name": "Guardian", "classId": "fighter" },
+    { "id": "healer", "name": "Healer", "classId": "mender" }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": [
+    {
+      "id": "yard",
+      "name": "Yard",
+      "width": 4,
+      "height": 4,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "unfounded",
+      "name": "Unfounded",
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "prologue",
+        "nodes": [
+          {
+            "id": "prologue",
+            "name": "Prologue",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "misfielded",
+      "name": "Misfielded",
+      "roster": [
+        { "id": "vanguard", "name": "Vanguard Rilla", "unitTypeId": "guardian" },
+        { "id": "mender_kel", "name": "Kel the Mender", "unitTypeId": "healer" },
+        { "id": "ghost", "name": "Nobody's Shape", "unitTypeId": "missing_unit" }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "battle",
+        "nodes": [
+          {
+            "id": "battle",
+            "name": "Battle",
+            "kind": "encounter",
+            "mapId": "yard",
+            "recruits": [
+              {
+                "id": "vanguard",
+                "name": "Vanguard Again",
+                "unitTypeId": "guardian"
+              }
+            ],
+            "placements": [
+              {
+                "id": "vanguard_tile",
+                "memberId": "vanguard",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "nameless_tile",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 1,
+                "y": 0
+              },
+              {
+                "id": "stranger_tile",
+                "memberId": "stranger",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 2,
+                "y": 0
+              },
+              {
+                "id": "enemy_tile",
+                "memberId": "vanguard",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 3,
+                "y": 0
+              },
+              {
+                "id": "twice_tile",
+                "memberId": "vanguard",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "mismatch_tile",
+                "memberId": "mender_kel",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              }
+            ],
+            "transitions": [
+              { "id": "finish", "targetNodeId": "end", "priority": 0 }
+            ]
+          },
+          {
+            "id": "end",
+            "name": "End",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

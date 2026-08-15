@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "2e7b0951-83ca-4f6d-b214-70d95c8ea3f1",
+  "gameId": "typed.demo",
+  "title": "Half Authored Drop",
+  "contentRevision": "1.0.0",
+  "notes": "Both halves of the pair refused, one per unit type. The sentry names something to leave and no chance of leaving it; the runner names a chance and nothing to leave. The scout is the control: neither field, and nothing to say about it. A chance below one is refused by the schema rather than here, because 'never' and 'authored nothing' would otherwise be two spellings of one statement.",
+  "weaponTypes": [],
+  "itemTypes": [
+    {
+      "id": "consumable",
+      "name": "Consumable"
+    }
+  ],
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "sentry",
+      "name": "Sentry",
+      "classId": "vanguard",
+      "dropItemId": "field_tonic"
+    },
+    {
+      "id": "runner",
+      "name": "Runner",
+      "classId": "vanguard",
+      "dropChance": 40
+    },
+    {
+      "id": "scout",
+      "name": "Scout",
+      "classId": "vanguard"
+    }
+  ],
+  "weapons": [],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "itemTypeId": "consumable",
+      "stackLimit": 5,
+      "kind": "restore",
+      "power": 4
+    }
+  ],
+  "maps": []
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "5d81c0af-3e47-4a1b-9c62-71f0b8d4e2c9",
+  "gameId": "campaign.grant.semantics",
+  "title": "Campaign Grant Semantics",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": { "health": 12, "movement": 4, "strength": 4, "defense": 2 }
+    }
+  ],
+  "unitTypes": [
+    { "id": "guardian", "name": "Guardian", "classId": "fighter" }
+  ],
+  "weapons": [],
+  "items": [
+    { "id": "bandage", "name": "Bandage", "stackLimit": 9 }
+  ],
+  "maps": [],
+  "campaigns": [
+    {
+      "id": "muster_road",
+      "name": "The Muster Road",
+      "roster": [
+        { "id": "muster_vanguard", "name": "Vanguard Rilla", "unitTypeId": "guardian" }
+      ],
+      "startingStore": [
+        { "itemId": "lantern", "quantity": 1 },
+        { "itemId": "bandage", "quantity": 2 },
+        { "itemId": "bandage", "quantity": 5 }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "muster",
+        "nodes": [
+          {
+            "id": "muster",
+            "name": "The Muster",
+            "kind": "story",
+            "grants": [
+              { "itemId": "rope", "quantity": 1 },
+              { "itemId": "bandage", "quantity": 1 },
+              { "itemId": "bandage", "quantity": 3 }
+            ],
+            "transitions": [
+              { "id": "march", "targetNodeId": "dawn", "priority": 0 }
+            ]
+          },
+          {
+            "id": "dawn",
+            "name": "Dawn",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+# Builds the PlayStation conformance executable in the pinned Nugget container
+# and runs it in the pinned PCSX-Redux container. Both scripts read their pins
+# from the environment, which is what the block below sets.
+
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_IMAGE} "@GRANDLEON_PCSX_REDUX_BUILD_IMAGE@")
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_DIGEST} "@GRANDLEON_PCSX_REDUX_BUILD_DIGEST@")
+set(ENV{GRANDLEON_NUGGET_REVISION} "@GRANDLEON_NUGGET_REVISION@")
+set(ENV{GRANDLEON_PCSX_REDUX_REVISION} "@GRANDLEON_PCSX_REDUX_REVISION@")
+set(ENV{GRANDLEON_DOCKER} "@GRANDLEON_DOCKER@")
+set(ENV{GRANDLEON_PLAYSTATION_BUILD_DIR} "@GRANDLEON_PLAYSTATION_BUILD_DIR@")
+# And the floor the conformance table has to clear, which is the same number the
+# CMake target names. A lane that left it at the default would run the same
+# executable under a weaker predicate than the target does, and two ways to run
+# one check that disagree about what passes is the drift the floor exists to
+# stop.
+set(ENV{GRANDLEON_PLAYSTATION_MIN_CHECKS} "58")
+
+execute_process(
+    COMMAND "@PROJECT_SOURCE_DIR@/platform/playstation/scripts/build-playstation.sh"
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE build_result
+)
+if(NOT build_result EQUAL 0)
+    message(FATAL_ERROR "PlayStation conformance build failed")
+endif()
+
+execute_process(
+    COMMAND "@PROJECT_SOURCE_DIR@/platform/playstation/scripts/run-playstation.sh"
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE run_result
+)
+if(NOT run_result EQUAL 0)
+    message(FATAL_ERROR
+        "PlayStation conformance executable did not report a pass")
+endif()

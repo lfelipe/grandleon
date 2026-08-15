@@ -1,0 +1,81 @@
+# Reproducible ares emulator, for validating the conformance ROM on the
+# accurate emulator, the one libdragon's README actually recommends.
+#
+# ares is the only harness this console has. mupen64plus is the obvious
+# alternative, and the only configuration of it that boots libdragon ROMs is
+# also the least accurate one (cached interpreter, dummy video, no RDP), which
+# can see nothing the RDP draws. ares runs its real pipeline instead: the
+# CPU/RSP recompilers and the paraLLEl-RDP renderer.
+#
+# Running ares headless looks impossible at first: paraLLEl-RDP needs Vulkan
+# and the GUI needs a display, neither of which exists in a headless container.
+# Both turn out to be solvable in software:
+#
+#   - Vulkan:  Mesa's lavapipe (CPU Vulkan driver), selected with
+#              VK_ICD_FILENAMES so no GPU is touched.
+#   - Display: Xvfb, with Mesa's llvmpipe providing the GLX the ares window
+#              draws through. ImageMagick captures frames from it.
+#
+# ares is pinned to the release-tag commit and built from source. One honest
+# deviation from full pinning, beyond the apt layer (unpinned here exactly as
+# it is in the toolchain and mupen64plus images): ares' configure step
+# downloads a prebuilt dependency archive (librashader and friends). The
+# archive is not pinned *here*, but it is SHA256-pinned in deps.json at the
+# pinned ares commit, and CMake verifies that hash before using it, so the
+# transitive result is still fixed by ARES_COMMIT.
+
+FROM ubuntu@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+
+# v148
+ARG ARES_COMMIT=0aafd85789215e84e1e43415c07d4c88461b7899
+
+# Build dependencies are ares' own ubuntu-ci list plus git; runtime
+# dependencies are the software rendering stack:
+#   mesa-vulkan-drivers  lavapipe, the CPU Vulkan driver paraLLEl-RDP runs on
+#   libgl1-mesa-dri      llvmpipe, the CPU GL driver the ares window runs on
+#   xvfb, x11-utils      the virtual display, and xwininfo to probe it
+#   imagemagick          `import`, which captures the display to PNG
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        ccache \
+        cmake \
+        fonts-dejavu-core \
+        git \
+        imagemagick \
+        libao-dev \
+        libgl1-mesa-dri \
+        libgtk-3-dev \
+        libopenal-dev \
+        libsdl2-dev \
+        libvulkan1 \
+        mesa-vulkan-drivers \
+        ninja-build \
+        vulkan-tools \
+        x11-utils \
+        xvfb \
+        && rm -rf /var/lib/apt/lists/*
+
+RUN set -eu \
+    && mkdir -p /tmp/ares && cd /tmp/ares \
+    && git init --quiet \
+    && git remote add origin https://github.com/ares-emulator/ares.git \
+    && git fetch --quiet --depth 1 origin "${ARES_COMMIT}" \
+    && git checkout --quiet FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "${ARES_COMMIT}" \
+    && cmake --preset ubuntu-ci \
+    && cmake --build build --parallel "$(nproc)" \
+    && mkdir -p /opt/ares \
+    && cp -a build/rundir/. /opt/ares/ \
+    && test -x /opt/ares/bin/ares \
+    && printf '%s\n' "${ARES_COMMIT}" > /opt/ares/ARES_COMMIT \
+    && cd / && rm -rf /tmp/ares /root/.cache
+
+# The rundir layout is a prefix (bin/ares beside share/ares), and ares finds
+# its Database and Shaders relative to the binary, so it is kept intact.
+ENV PATH="/opt/ares/bin:${PATH}"
+# lavapipe only: an accidental GPU on the host must never be picked up, or the
+# run would stop being reproducible. (Ubuntu 24.04's Mesa names the ICD
+# manifest lvp_icd.json, without the architecture infix Mesa upstream uses.)
+ENV VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json

@@ -1,0 +1,55 @@
+set(install_prefix "@CMAKE_CURRENT_BINARY_DIR@/package-sdk-install")
+set(consumer_build "@CMAKE_CURRENT_BINARY_DIR@/package-sdk-consumer")
+
+execute_process(
+    COMMAND
+        "@CMAKE_COMMAND@" --install "@CMAKE_BINARY_DIR@"
+        --prefix "${install_prefix}"
+    RESULT_VARIABLE install_result
+    OUTPUT_VARIABLE install_output
+    ERROR_VARIABLE install_error
+)
+if(NOT install_result EQUAL 0)
+    message(FATAL_ERROR
+        "Package SDK install failed:\n${install_output}\n${install_error}")
+endif()
+
+execute_process(
+    COMMAND
+        "@CMAKE_COMMAND@"
+        -S "@CMAKE_CURRENT_SOURCE_DIR@/fixtures/package_sdk_consumer"
+        -B "${consumer_build}"
+        "-DCMAKE_PREFIX_PATH=${install_prefix}"
+        "-DCMAKE_CXX_FLAGS=@CMAKE_CXX_FLAGS@"
+        "-DCMAKE_EXE_LINKER_FLAGS=@CMAKE_EXE_LINKER_FLAGS@"
+    RESULT_VARIABLE configure_result
+    OUTPUT_VARIABLE configure_output
+    ERROR_VARIABLE configure_error
+)
+if(NOT configure_result EQUAL 0)
+    message(FATAL_ERROR
+        "External consumer configure failed:\n"
+        "${configure_output}\n${configure_error}")
+endif()
+
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" --build "${consumer_build}"
+    RESULT_VARIABLE build_result
+    OUTPUT_VARIABLE build_output
+    ERROR_VARIABLE build_error
+)
+if(NOT build_result EQUAL 0)
+    message(FATAL_ERROR
+        "External consumer build failed:\n${build_output}\n${build_error}")
+endif()
+
+execute_process(
+    COMMAND "${consumer_build}/package_sdk_consumer"
+    RESULT_VARIABLE run_result
+    OUTPUT_VARIABLE run_output
+    ERROR_VARIABLE run_error
+)
+if(NOT run_result EQUAL 0)
+    message(FATAL_ERROR
+        "External consumer run failed:\n${run_output}\n${run_error}")
+endif()

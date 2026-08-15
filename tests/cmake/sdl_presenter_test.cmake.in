@@ -1,0 +1,412 @@
+# Verifies the SDL renderer without a display.
+#
+# SDL's offscreen video driver renders into memory, so the client can draw a
+# real frame and read it back. Sampling the centre of every board cell proves
+# the renderer drew the board, placed each side correctly, and used the colours
+# it claims. None of that is provable by reading the code, and none of it
+# should wait for somebody to look at a window.
+#
+# The same campaign is drawn twice: once as its author wrote it, and once with
+# a season and two faction colours chosen. The second run proves the author's
+# choices survive compilation into a package and reach the framebuffer, and the
+# two runs together prove that choosing them changes the ground and nothing
+# about where anybody stands.
+
+set(compiler "@CMAKE_BINARY_DIR@/grandleon_content_compile")
+set(player "@CMAKE_BINARY_DIR@/grandleon_play")
+set(project "@CMAKE_SOURCE_DIR@/games/tarnholt/source/project.json")
+
+set(ENV{SDL_VIDEODRIVER} "offscreen")
+
+# The cells of the first map that a character is deployed on, as row-major
+# indices. Terrain under a character may not be replaced with something that
+# character could not stand in, because a mountain is a climb now, not a shade
+# of ground. So the relief runs below leave those cells in the valley.
+function(deployed_cells json out_var)
+    string(JSON map_id GET "${json}" maps 0 id)
+    string(JSON map_width GET "${json}" maps 0 width)
+    string(JSON node_count LENGTH "${json}" campaigns 0 flow nodes)
+    math(EXPR last_node "${node_count} - 1")
+    set(cells "")
+    foreach(node_index RANGE ${last_node})
+        string(
+            JSON node_map ERROR_VARIABLE missing
+            GET "${json}" campaigns 0 flow nodes ${node_index} mapId
+        )
+        if(missing OR NOT node_map STREQUAL map_id)
+            continue()
+        endif()
+        string(
+            JSON placement_count LENGTH
+            "${json}" campaigns 0 flow nodes ${node_index} placements
+        )
+        math(EXPR last_placement "${placement_count} - 1")
+        foreach(placement_index RANGE ${last_placement})
+            string(
+                JSON x GET "${json}"
+                campaigns 0 flow nodes ${node_index}
+                placements ${placement_index} x
+            )
+            string(
+                JSON y GET "${json}"
+                campaigns 0 flow nodes ${node_index}
+                placements ${placement_index} y
+            )
+            math(EXPR cell "${y} * ${map_width} + ${x}")
+            list(APPEND cells ${cell})
+        endforeach()
+    endforeach()
+    set(${out_var} "${cells}" PARENT_SCOPE)
+endfunction()
+
+# Compiles one source project and draws its opening frame, leaving the parsed
+# probe summary in the variables named after each reported field.
+function(probe source label)
+    set(package "@CMAKE_CURRENT_BINARY_DIR@/sdl-presenter-${label}.gpk")
+    execute_process(
+        COMMAND "${compiler}" "${source}" "${package}"
+        RESULT_VARIABLE compile_result
+        OUTPUT_QUIET
+    )
+    if(NOT compile_result EQUAL 0)
+        message(FATAL_ERROR "The ${label} campaign failed to compile")
+    endif()
+
+    execute_process(
+        COMMAND "${player}" "${package}" --campaign=tarnholt_line --probe
+        OUTPUT_VARIABLE output
+        ERROR_VARIABLE errors
+        RESULT_VARIABLE probe_result
+        TIMEOUT 60
+    )
+    if(NOT probe_result EQUAL 0)
+        message(
+            FATAL_ERROR
+            "The ${label} probe exited ${probe_result}:\n${output}\n${errors}"
+        )
+    endif()
+
+    # CMake keeps nine capture groups, and the summary now reports twelve
+    # fields, so the board and the paint are read in two passes.
+    set(board "PROBE board=([0-9]+)x([0-9]+) blue=([0-9]+) red=([0-9]+)")
+    string(APPEND board " terrain=([0-9]+) unknown=([0-9]+)")
+    string(APPEND board " firstblue=([0-9]+,[0-9]+) firstred=([0-9]+,[0-9]+)")
+    if(NOT output MATCHES "${board}")
+        message(
+            FATAL_ERROR
+            "The ${label} probe did not report a framebuffer:\n${output}"
+        )
+    endif()
+    set(width ${CMAKE_MATCH_1} PARENT_SCOPE)
+    set(height ${CMAKE_MATCH_2} PARENT_SCOPE)
+    set(blue ${CMAKE_MATCH_3} PARENT_SCOPE)
+    set(red ${CMAKE_MATCH_4} PARENT_SCOPE)
+    set(terrain ${CMAKE_MATCH_5} PARENT_SCOPE)
+    set(unknown ${CMAKE_MATCH_6} PARENT_SCOPE)
+    set(first_blue ${CMAKE_MATCH_7} PARENT_SCOPE)
+    set(first_red ${CMAKE_MATCH_8} PARENT_SCOPE)
+
+    set(paint "theme=([a-z]+) firstcolours=([a-z+]+)")
+    string(APPEND paint " secondcolours=([a-z+]+) ground=([0-9a-f]+)")
+    if(NOT output MATCHES "${paint}")
+        message(
+            FATAL_ERROR
+            "The ${label} probe did not report how it painted:\n${output}"
+        )
+    endif()
+    set(theme ${CMAKE_MATCH_1} PARENT_SCOPE)
+    set(first_colours ${CMAKE_MATCH_2} PARENT_SCOPE)
+    set(second_colours ${CMAKE_MATCH_3} PARENT_SCOPE)
+    set(ground ${CMAKE_MATCH_4} PARENT_SCOPE)
+
+    set(geometry "PROBE step=([0-9]+) tile=([0-9]+) headroom=([0-9]+)")
+    string(APPEND geometry " raised=([0-9]+)")
+    if(NOT output MATCHES "${geometry}")
+        message(
+            FATAL_ERROR
+            "The ${label} probe did not report its geometry:\n${output}"
+        )
+    endif()
+    set(step ${CMAKE_MATCH_1} PARENT_SCOPE)
+    set(cell_size ${CMAKE_MATCH_2} PARENT_SCOPE)
+    set(board_headroom ${CMAKE_MATCH_3} PARENT_SCOPE)
+    set(raised ${CMAKE_MATCH_4} PARENT_SCOPE)
+endfunction()
+
+# Everything about the board that must hold however the game is painted: a
+# season and a colour change what a cell looks like and never who is on it.
+function(check_board label)
+    # The Fordlight is ten by eight and deploys four units a side.
+    if(NOT width EQUAL 10 OR NOT height EQUAL 8)
+        message(
+            FATAL_ERROR
+            "The ${label} board drew as ${width}x${height}, expected 10x8"
+        )
+    endif()
+    if(NOT blue EQUAL 4 OR NOT red EQUAL 4)
+        message(
+            FATAL_ERROR
+            "The ${label} board drew ${blue} first-side and ${red} second-side "
+            "units, expected 4 each"
+        )
+    endif()
+    # Every unoccupied cell must sample as textured terrain in exact master-
+    # palette colours; an unclassified cell means the renderer drew something
+    # nobody asked for.
+    math(EXPR expected_terrain "${width} * ${height} - ${blue} - ${red}")
+    if(NOT terrain EQUAL expected_terrain)
+        message(
+            FATAL_ERROR
+            "The ${label} board drew ${terrain} terrain cells, "
+            "expected ${expected_terrain}"
+        )
+    endif()
+    if(NOT unknown EQUAL 0)
+        message(
+            FATAL_ERROR
+            "${unknown} ${label} cells were an unrecognised colour"
+        )
+    endif()
+    # Positions must agree with the authored placements, not merely exist.
+    if(NOT first_blue STREQUAL "1,2")
+        message(
+            FATAL_ERROR
+            "The ${label} first-side unit drew at ${first_blue}, expected 1,2"
+        )
+    endif()
+    if(NOT first_red STREQUAL "8,2")
+        message(
+            FATAL_ERROR
+            "The ${label} second-side unit drew at ${first_red}, expected 8,2"
+        )
+    endif()
+endfunction()
+
+# The campaign as its author wrote it: no season, no colours. Both must resolve
+# to what the client drew before a package carried any of this.
+probe("${project}" "authored")
+check_board("authored")
+if(NOT theme STREQUAL "temperate")
+    message(FATAL_ERROR "An unthemed project drew in ${theme}")
+endif()
+if(NOT first_colours STREQUAL "blue" OR NOT second_colours STREQUAL "red")
+    message(
+        FATAL_ERROR
+        "A project choosing no colours drew ${first_colours} against "
+        "${second_colours}, expected blue against red"
+    )
+endif()
+set(authored_ground "${ground}")
+
+# The same campaign with a season and two colours chosen. Nothing about the
+# source changes except those three fields, so anything that moves below is the
+# author's choice arriving.
+file(READ "${project}" json)
+string(JSON json SET "${json}" themeId "\"winter\"")
+string(JSON json SET "${json}" factions 0 color "\"amber\"")
+string(JSON json SET "${json}" factions 1 color "\"bone\"")
+set(themed_project "@CMAKE_CURRENT_BINARY_DIR@/sdl-presenter-themed.json")
+file(WRITE "${themed_project}" "${json}")
+
+probe("${themed_project}" "themed")
+check_board("themed")
+if(NOT theme STREQUAL "winter")
+    message(FATAL_ERROR "A project choosing winter drew in ${theme}")
+endif()
+if(NOT first_colours STREQUAL "amber" OR NOT second_colours STREQUAL "bone")
+    message(
+        FATAL_ERROR
+        "A project choosing amber and bone drew ${first_colours} against "
+        "${second_colours}"
+    )
+endif()
+# The ground's digest is never compared against a constant, only against the
+# same board painted in another season. Equal digests would mean the theme
+# reached the reported name and not a single pixel.
+if(ground STREQUAL authored_ground)
+    message(
+        FATAL_ERROR
+        "Winter and temperate drew the same ground (${ground}); the theme "
+        "reached the report and not the framebuffer"
+    )
+endif()
+
+# The same campaign again, with mountains authored across the Fordlight's open
+# ground. Nothing shipped stands above the valley: every map the desktop client
+# draws today is level. Without this the 2.5D lift would be code no gate ever
+# runs.
+#
+# The lift is asserted against the art library's own elevation for mountains,
+# not against what the renderer sampled back through its own projection: a
+# renderer that agrees with its probe about a wrong position would still
+# satisfy the cell counts above. `raised` and `board_headroom` come from what
+# the presenter decided before drawing; the counts come from the framebuffer.
+# Both must hold at once.
+file(READ "${project}" json)
+string(JSON terrain_json GET "${json}" maps 0 terrain)
+string(JSON cells LENGTH "${terrain_json}")
+math(EXPR last_cell "${cells} - 1")
+deployed_cells("${json}" deployed)
+set(expected_raised 0)
+foreach(cell_index RANGE ${last_cell})
+    if(cell_index IN_LIST deployed)
+        continue()
+    endif()
+    string(JSON kind GET "${terrain_json}" ${cell_index})
+    # Only open ground is raised: replacing water or road would move a unit's
+    # footing or the map's shape, and this run must differ from the authored
+    # one in elevation alone.
+    if(kind STREQUAL "grass")
+        string(JSON terrain_json SET "${terrain_json}" ${cell_index} "\"mountain\"")
+        math(EXPR expected_raised "${expected_raised} + 1")
+    endif()
+endforeach()
+string(JSON json SET "${json}" maps 0 terrain "${terrain_json}")
+set(raised_project "@CMAKE_CURRENT_BINARY_DIR@/sdl-presenter-raised.json")
+file(WRITE "${raised_project}" "${json}")
+
+probe("${raised_project}" "raised")
+check_board("raised")
+if(NOT raised EQUAL expected_raised)
+    message(
+        FATAL_ERROR
+        "The raised board lifted ${raised} cells, expected ${expected_raised}"
+    )
+endif()
+# Mountains stand two levels in the art library, a level is a quarter of a
+# cell, and the drawn lift is bounded at three eighths of a cell so a raised
+# cell can never cover the centre of the cell behind it. Every number is the
+# model's, restated here rather than copied out of a passing run: two levels of
+# a quarter step ask for half a cell, the bound answers three eighths, and the
+# smaller of the two is what a renderer may draw.
+math(EXPR asked "2 * ${step}")
+math(EXPR cap "3 * ${cell_size} / 8")
+set(expected_headroom ${asked})
+if(cap LESS asked)
+    set(expected_headroom ${cap})
+endif()
+if(NOT board_headroom EQUAL expected_headroom)
+    message(
+        FATAL_ERROR
+        "A board of two-level mountains reserved ${board_headroom}px of "
+        "headroom over a ${step}px step on a ${cell_size}px cell, expected "
+        "${expected_headroom}"
+    )
+endif()
+# And the bound holds where it is supposed to: strictly above the covered band
+# of the cell behind, which reaches the centre row at half a cell. A reservation
+# that grew back to half a cell would be the boundary case returning.
+math(EXPR half "${cell_size} / 2")
+if(NOT board_headroom LESS half)
+    message(
+        FATAL_ERROR
+        "The tallest lift reserved ${board_headroom}px on a ${cell_size}px cell, "
+        "which reaches the centre row of the cell behind it at ${half}px"
+    )
+endif()
+# check_board already proved every unit and every terrain cell was found at
+# its projected position with nothing unclassifiable. That is the lift reaching
+# the framebuffer: a cell sampled at a height it was not drawn at reads as
+# background.
+
+# The same campaign once more, with the relief alternating row by row: open
+# ground in every odd row becomes mountain and the even rows stay in the
+# valley. Every deployment stands either two levels above the cell behind it or
+# two levels below it, which no other board in the repository draws, and which
+# is the configuration that tells a whole-cell scan for faction colours from a
+# scan of what a cell actually owns. Two rows at
+# different heights share the band between them, and whichever unit is drawn
+# there owns it: a probe reading that band as the other cell's would report an
+# empty cell as occupied, and the wrong cell as the first of its side. Both
+# directions appear on this board, several times each.
+file(READ "${project}" json)
+string(JSON terrain_json GET "${json}" maps 0 terrain)
+string(JSON cells LENGTH "${terrain_json}")
+string(JSON map_width GET "${json}" maps 0 width)
+math(EXPR last_cell "${cells} - 1")
+deployed_cells("${json}" deployed)
+set(expected_raised 0)
+foreach(cell_index RANGE ${last_cell})
+    math(EXPR row "${cell_index} / ${map_width}")
+    math(EXPR odd "${row} % 2")
+    if(NOT odd EQUAL 1 OR cell_index IN_LIST deployed)
+        continue()
+    endif()
+    string(JSON kind GET "${terrain_json}" ${cell_index})
+    if(kind STREQUAL "grass")
+        string(JSON terrain_json SET "${terrain_json}" ${cell_index} "\"mountain\"")
+        math(EXPR expected_raised "${expected_raised} + 1")
+    endif()
+endforeach()
+string(JSON json SET "${json}" maps 0 terrain "${terrain_json}")
+set(stepped_project "@CMAKE_CURRENT_BINARY_DIR@/sdl-presenter-stepped.json")
+file(WRITE "${stepped_project}" "${json}")
+
+probe("${stepped_project}" "stepped")
+check_board("stepped")
+if(NOT raised EQUAL expected_raised)
+    message(
+        FATAL_ERROR
+        "The stepped board lifted ${raised} cells, expected ${expected_raised}"
+    )
+endif()
+
+# And the level board it started from reserves nothing, so authoring no raised
+# terrain leaves the layout exactly where it was.
+probe("${project}" "authored-again")
+if(NOT raised EQUAL 0 OR NOT board_headroom EQUAL 0)
+    message(
+        FATAL_ERROR
+        "A board with no raised terrain reserved ${board_headroom}px for "
+        "${raised} lifted cells, expected none of either"
+    )
+endif()
+
+# The same campaign once more, with every terrain renamed to something the art
+# library is not itself named after. This is the gap the package's terrain join
+# closes, and the only place it is observable.
+#
+# A cell carries a hash of its authored name, so without the join this client
+# could recognise a board only if its terrain happened to be called `grass`,
+# `water`, `road` and `forest`, the art library's own words. A map named
+# `river` would draw as water in the editor and on the console and as open
+# ground here.
+#
+# Each name below resolves, by the art library's keyword convention, to exactly
+# the kind it replaces. So the board's ground must come out byte-identical to
+# the authored run's: the identities all changed, the picture did not.
+file(READ "${project}" json)
+string(JSON terrain_json GET "${json}" maps 0 terrain)
+string(JSON cells LENGTH "${terrain_json}")
+math(EXPR last_cell "${cells} - 1")
+foreach(cell_index RANGE ${last_cell})
+    string(JSON kind GET "${terrain_json}" ${cell_index})
+    set(renamed "")
+    if(kind STREQUAL "grass")
+        set(renamed "Open Plain")
+    elseif(kind STREQUAL "water")
+        set(renamed "Fordlight River")
+    elseif(kind STREQUAL "road")
+        set(renamed "Stone Bridge")
+    elseif(kind STREQUAL "forest")
+        set(renamed "Birch Wood")
+    endif()
+    if(NOT renamed STREQUAL "")
+        string(JSON terrain_json SET "${terrain_json}" ${cell_index} "\"${renamed}\"")
+    endif()
+endforeach()
+string(JSON json SET "${json}" maps 0 terrain "${terrain_json}")
+set(renamed_project "@CMAKE_CURRENT_BINARY_DIR@/sdl-presenter-renamed.json")
+file(WRITE "${renamed_project}" "${json}")
+
+probe("${renamed_project}" "renamed")
+check_board("renamed")
+if(NOT ground STREQUAL authored_ground)
+    message(
+        FATAL_ERROR
+        "A board whose terrain was renamed to authored words drew ${ground} "
+        "where the same board named after the art library drew "
+        "${authored_ground}; the package's terrain join did not reach the "
+        "framebuffer"
+    )
+endif()

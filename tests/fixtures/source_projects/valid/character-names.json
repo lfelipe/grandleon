@@ -1,0 +1,200 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "3f2b7c41-6d5e-4a90-8b21-c0d4e5f6a7b8",
+  "gameId": "character.names",
+  "title": "Character Names",
+  "contentRevision": "1.0.0",
+  "notes": "Every character has a name, and this board authors one of each way it can come by one. The company's archer is named by the campaign roster. The captain is named on the placement, which is the only way anybody on the second side is named at all. The three levies are named by nobody, so they are named after their unit type and numbered - which is what makes 'always' true.",
+  "weaponTypes": [
+    {
+      "id": "blade",
+      "name": "Blade"
+    }
+  ],
+  "classes": [
+    {
+      "id": "archer",
+      "name": "Archer",
+      "baseStats": {
+        "health": 8,
+        "movement": 4,
+        "strength": 3,
+        "defense": 1
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "footman",
+      "name": "Footman",
+      "baseStats": {
+        "health": 10,
+        "movement": 3,
+        "strength": 2,
+        "defense": 2
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "dawn_archer",
+      "name": "Dawn Archer",
+      "classId": "archer",
+      "factionId": "dawn",
+      "startingWeaponIds": [
+        "sword"
+      ]
+    },
+    {
+      "id": "ashen_levy",
+      "name": "Ashen Levy",
+      "classId": "footman",
+      "factionId": "ashen",
+      "startingWeaponIds": [
+        "sword"
+      ]
+    },
+    {
+      "id": "ashen_captain",
+      "name": "Ashen Captain",
+      "classId": "footman",
+      "factionId": "ashen",
+      "startingWeaponIds": [
+        "sword"
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "id": "rout",
+      "name": "Rout the levies",
+      "kind": "defeatAllOpponents",
+      "side": "first"
+    }
+  ],
+  "weapons": [
+    {
+      "id": "sword",
+      "name": "Sword",
+      "weaponTypeId": "blade",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 1
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "yard",
+      "name": "Yard",
+      "width": 5,
+      "height": 2,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "main",
+      "name": "Main",
+      "roster": [
+        {
+          "id": "wren",
+          "name": "Wren Ashdown",
+          "unitTypeId": "dawn_archer"
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "battle",
+        "nodes": [
+          {
+            "id": "battle",
+            "name": "Battle",
+            "kind": "encounter",
+            "mapId": "yard",
+            "placements": [
+              {
+                "id": "wren",
+                "memberId": "wren",
+                "unitTypeId": "dawn_archer",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "captain",
+                "name": "Warden Kesh",
+                "unitTypeId": "ashen_captain",
+                "side": "second",
+                "x": 4,
+                "y": 0
+              },
+              {
+                "id": "levy_west",
+                "unitTypeId": "ashen_levy",
+                "side": "second",
+                "x": 2,
+                "y": 1
+              },
+              {
+                "id": "levy_middle",
+                "unitTypeId": "ashen_levy",
+                "side": "second",
+                "x": 3,
+                "y": 1
+              },
+              {
+                "id": "levy_east",
+                "unitTypeId": "ashen_levy",
+                "side": "second",
+                "x": 4,
+                "y": 1
+              }
+            ],
+            "objectiveIds": [
+              "rout"
+            ],
+            "transitions": [
+              {
+                "id": "finish",
+                "targetNodeId": "end",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "end",
+            "name": "End",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ],
+  "factions": [
+    {
+      "id": "dawn",
+      "name": "Dawn"
+    },
+    {
+      "id": "ashen",
+      "name": "Ashen"
+    }
+  ]
+}

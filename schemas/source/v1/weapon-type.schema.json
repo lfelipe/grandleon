@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/weapon-type.schema.json",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/stableId" },
+    "name": { "$ref": "common.schema.json#/$defs/displayName" },
+    "notes": { "$ref": "common.schema.json#/$defs/notes" },
+    "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+  },
+  "required": ["id", "name"],
+  "additionalProperties": false
+}

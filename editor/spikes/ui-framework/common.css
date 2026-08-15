@@ -1,0 +1,52 @@
+:root {
+  color: #172033;
+  background: #f5f7fb;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -5rem;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+header,
+main {
+  padding: 1rem 2rem;
+}
+
+nav ul {
+  display: flex;
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+}
+
+form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 32rem;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  padding: 0.5rem;
+}
+
+[aria-invalid="true"] {
+  border: 2px solid #a20d21;
+}
+
+dialog {
+  min-width: 20rem;
+}

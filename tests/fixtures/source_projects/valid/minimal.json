@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "3f38d330-5688-4a44-a17a-3369632a4545",
+  "gameId": "grandleon.demo",
+  "title": "Grandleon Schema Demo",
+  "contentRevision": "0.1.0",
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_soldier",
+      "name": "Demo Soldier",
+      "classId": "vanguard",
+      "startingWeaponIds": ["training_sword"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "training_sword",
+      "name": "Training Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "stackLimit": 5
+    }
+  ],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

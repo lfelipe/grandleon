@@ -1,0 +1,303 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/common.schema.json",
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 96,
+      "description": "Stable, case-sensitive source identity. Renaming requires reference migration."
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "Durable lowercase UUID identifying a package across names and revisions."
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "extensions": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9._-]*:[a-z][a-z0-9._-]*$"
+      },
+      "additionalProperties": true,
+      "description": "Namespaced experimental data preserved by compatible tools."
+    },
+    "damageStat": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16383,
+      "description": "A number the damage arithmetic reads. The maximum is half of what the field holds, and it is an overflow bound rather than a design budget: a blow adds two of these together before subtracting a third, and the total has to fit the number health is kept in. Twice 16383 is one short of that number, so no pair can overflow it. A game wanting larger numbers than this wants a wider health field, which is a different change; the largest number in any shipped project is 55."
+    },
+    "statBlock": {
+      "type": "object",
+      "properties": {
+        "health": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "movement": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "strength": {
+          "$ref": "#/$defs/damageStat"
+        },
+        "defense": {
+          "$ref": "#/$defs/damageStat"
+        },
+        "resistance": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16383,
+          "description": "Subtracted from magical damage the way defense is subtracted from physical damage. Omitted means 0. Capped where every number the damage arithmetic reads is capped, so that no pair of them can overflow the number health is kept in."
+        },
+        "skill": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767,
+          "description": "Percentage points added to the chance a strike this character makes lands. The chance rolled is the weapon's or cast's accuracy, plus the striker's skill and luck, minus the target's evasion and luck, clamped to 0-100. Omitted means 0, which leaves the chance exactly at the authored accuracy."
+        },
+        "luck": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767,
+          "description": "Percentage points on this character's side of every hit roll: added when they swing, subtracted when they are swung at. That symmetry is its whole role: there are no critical hits to avoid. Omitted means 0."
+        },
+        "evasion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767,
+          "description": "Percentage points subtracted from the chance a strike against this character lands. Omitted means 0."
+        },
+        "magic": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16383,
+          "description": "The magical counterpart to strength. A magical ability deals max(1, magic + power - resistance). A physical ability is not affected: strength already prices every basic attack, and adding it to an ability too would make the ability a swing under another name. Omitted means 0, which is the ability's power alone. Capped where strength is and for the same reason."
+        },
+        "actionPoints": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255,
+          "description": "Commands the unit may issue in one activation. Two lets it move and then attack, which is what the genre means by a turn. One is a character finished by its own first step: walking is a command and a command costs a point, so it may move or strike and never both. That is authorable on purpose, and a heavy thing that chooses between arriving and swinging is a real design. But it is a choice to make deliberately, because nothing on a board shows it and a player who walks into reach and is then refused a strike has met a rule they could not read. Omitted means one, as every omitted number in this block means the least this field admits."
+        },
+        "speed": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255,
+          "description": "Higher acts earlier when the encounter uses an ordered turn. Omitted means one."
+        }
+      },
+      "required": [
+        "health",
+        "movement",
+        "strength",
+        "defense"
+      ],
+      "additionalProperties": false
+    },
+    "statDelta": {
+      "type": "integer",
+      "minimum": -32767,
+      "maximum": 32767,
+      "description": "A signed number added to whatever the unit type says, at the moment the character takes the field. Omitted says nothing; zero is refused, because an author who wrote a number meant to change something. The sum must land inside the range this stat's own statBlock field admits: an author may make a character anything they could have made a class, and nothing they could not."
+    },
+    "statDeltaBlock": {
+      "type": "object",
+      "description": "Signed adjustments over a unit type's stat line, one per stat, all optional. These are deltas and not totals, which is what lets an author rebalance the class underneath the character: the character keeps what was written about them and inherits everything that changed beneath it. They stack with what a character earns from levelling, because both are addends over the same authored line. Unlike growthRates this admits speed, because an authored delta is not a roll: it is fixed before the campaign is founded, identical on every playthrough and every platform, and read off the info sheet before the player commits to anything, so it reshuffles no turn order anybody was standing in.",
+      "properties": {
+        "health": { "$ref": "#/$defs/statDelta" },
+        "movement": { "$ref": "#/$defs/statDelta" },
+        "strength": { "$ref": "#/$defs/statDelta" },
+        "defense": { "$ref": "#/$defs/statDelta" },
+        "resistance": { "$ref": "#/$defs/statDelta" },
+        "skill": { "$ref": "#/$defs/statDelta" },
+        "luck": { "$ref": "#/$defs/statDelta" },
+        "evasion": { "$ref": "#/$defs/statDelta" },
+        "magic": { "$ref": "#/$defs/statDelta" },
+        "actionPoints": { "$ref": "#/$defs/statDelta" },
+        "speed": { "$ref": "#/$defs/statDelta" }
+      },
+      "additionalProperties": false
+    },
+    "growthChance": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "How often this stat gains a point on a level-up, as a whole percentage. The authored number is the rolled number: it is not averaged, weighted, or scaled by anything. Omitted means 0, which never rolls and never grows."
+    },
+    "growthRates": {
+      "type": "object",
+      "description": "What a level-up may add. Each level gained rolls every stat named here exactly once, in the order health, strength, defense, resistance, movement, actionPoints, skill, luck, evasion, magic, and a success adds one point permanently. The last four are last because the order is the roll order and it is append-only: a growth seed already in use keeps producing the draws it produced. A unit type that authors nothing here never grows and never draws a number.",
+      "properties": {
+        "health": { "$ref": "#/$defs/growthChance" },
+        "strength": { "$ref": "#/$defs/growthChance" },
+        "defense": { "$ref": "#/$defs/growthChance" },
+        "resistance": { "$ref": "#/$defs/growthChance" },
+        "movement": { "$ref": "#/$defs/growthChance" },
+        "actionPoints": { "$ref": "#/$defs/growthChance" },
+        "skill": { "$ref": "#/$defs/growthChance" },
+        "luck": { "$ref": "#/$defs/growthChance" },
+        "evasion": { "$ref": "#/$defs/growthChance" },
+        "magic": { "$ref": "#/$defs/growthChance" }
+      },
+      "additionalProperties": false
+    },
+    "scriptParameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/stableId"
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "boolean"
+                },
+                "value": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "kind",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "integer"
+                },
+                "value": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "kind",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "string"
+                },
+                "value": {
+                  "type": "string",
+                  "maxLength": 65536
+                }
+              },
+              "required": [
+                "kind",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "contentRef"
+                },
+                "category": {
+                  "enum": [
+                    "class",
+                    "unit_type",
+                    "weapon_type",
+                    "weapon",
+                    "item_type",
+                    "item",
+                    "map",
+                    "faction",
+                    "ability",
+                    "objective",
+                    "campaign",
+                    "dialogue"
+                  ]
+                },
+                "sourceKey": {
+                  "$ref": "#/$defs/stableId"
+                }
+              },
+              "required": [
+                "kind",
+                "category",
+                "sourceKey"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "scriptBinding": {
+      "type": "object",
+      "properties": {
+        "slot": {
+          "$ref": "#/$defs/stableId"
+        },
+        "apiVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
+        },
+        "scriptPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*\\\\)[A-Za-z0-9._/-]+$",
+          "description": "Lexically validated project-relative path. The editor stores but never executes this script."
+        },
+        "entryPoint": {
+          "$ref": "#/$defs/stableId"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scriptParameter"
+          },
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "slot",
+        "apiVersion",
+        "scriptPath",
+        "entryPoint",
+        "parameters"
+      ],
+      "additionalProperties": false
+    },
+    "scriptBindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scriptBinding"
+      },
+      "maxItems": 64,
+      "description": "Typed inert bindings retained for a future script ABI; imported code is never executed by authoring tools."
+    }
+  }
+}

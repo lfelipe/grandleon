@@ -1,0 +1,51 @@
+# Plays a scripted battle through the terminal client.
+#
+# The client reads commands a line at a time precisely so this is possible: a
+# playthrough becomes something a test asserts rather than something a person
+# watches.
+
+set(package "@CMAKE_CURRENT_BINARY_DIR@/desktop-client.gpk")
+set(script "@CMAKE_CURRENT_BINARY_DIR@/desktop-client-input.txt")
+
+execute_process(
+    COMMAND
+        "@CMAKE_BINARY_DIR@/grandleon_content_compile"
+        "@CMAKE_SOURCE_DIR@/games/tarnholt/source/project.json"
+        "${package}"
+    RESULT_VARIABLE compile_result
+    OUTPUT_QUIET
+)
+if(NOT compile_result EQUAL 0)
+    message(FATAL_ERROR "Sample campaign failed to compile")
+endif()
+
+# Move a knight onto the bridge road, then read the engine's own state back.
+file(WRITE "${script}" "units\nmove 3 1 3\nstate\nquit\n")
+
+execute_process(
+    COMMAND "@CMAKE_BINARY_DIR@/grandleon_play" "${package}"
+        --campaign=tarnholt_line --no-colour
+    INPUT_FILE "${script}"
+    OUTPUT_VARIABLE output
+    RESULT_VARIABLE play_result
+)
+if(NOT play_result EQUAL 0)
+    message(FATAL_ERROR "Terminal client exited ${play_result}:\n${output}")
+endif()
+
+# Authored dialogue reaches the player at a story node.
+if(NOT output MATCHES "Wake the guard")
+    message(FATAL_ERROR "Story dialogue was not presented:\n${output}")
+endif()
+# Reach is resolved from the equipped weapon, so the archer's band shows.
+if(NOT output MATCHES "reach 2-3")
+    message(FATAL_ERROR "Weapon reach band was not reported:\n${output}")
+endif()
+# The move was accepted and the board redrawn.
+if(NOT output MATCHES "3 moved to 1,3")
+    message(FATAL_ERROR "Move was not applied:\n${output}")
+endif()
+# The engine's canonical hash is reachable from the client.
+if(NOT output MATCHES "canonical hash: [0-9a-f]+")
+    message(FATAL_ERROR "Canonical hash was not reported:\n${output}")
+endif()

@@ -1,0 +1,18 @@
+{
+  "name": "Grandleon Editor",
+  "short_name": "Grandleon",
+  "description": "Local-first authoring for Grandleon tactical RPG projects.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1f7",
+  "theme_color": "#172033",
+  "icons": [
+    {
+      "src": "./grandleon-editor.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

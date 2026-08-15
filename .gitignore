@@ -1,0 +1,35 @@
+/build/
+/build-*/
+/build-*.lock
+/out/
+/cmake-build-*/
+node_modules/
+/editor/dist/
+/editor/spikes/ui-framework/dist/
+# No trailing slash on the next two: in a worktree scripts/setup.sh borrows
+# them from the primary checkout as symlinks, and a directory-only pattern
+# would leave those symlinks showing as untracked.
+/.playwright-browsers
+/editor/test-results/
+/editor/playwright-report/
+/tools/placeholder_art/.venv
+__pycache__/
+platform/playstation/scratch/evidence/*.gif
+
+# Working notes kept on this machine only. Never tracked, so never in the
+# public export: `git archive HEAD` carries tracked files and nothing else.
+/notes/
+
+# Editor detritus. A swap file was committed once by a broad `git add -A`
+# during an edit; the public export is made from tracked files, so keeping
+# these untracked is what keeps them out of it.
+# A gate transcript is a local record of one run on one machine: it names a
+# commit, a port and a wall-clock time, none of which mean anything to anybody
+# else reading this repository.
+*.log
+*.swp
+*.swo
+*~
+*.orig
+*.rej
+.DS_Store

@@ -1,0 +1,2840 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "7c1f4a2e-9b3d-4f61-a8c2-5d0e7b419af3",
+  "gameId": "grandleon.tarnholt",
+  "title": "The Tarnholt Line",
+  "contentRevision": "0.2.0",
+  "defaultTurnOrder": "sideBlocks",
+  "notes": "A six-map campaign with a branch that reconverges, a survive-rounds middle, and a final boss. Exercises the whole authoring vocabulary: a starting store, item grants, recruits, deployment regions and a capacity, member specificities, the talk gesture and the world flag it raises, and recurring waves that come at the player. See games/tarnholt/README.md.\n\nEvery battle runs in side blocks: the whole guard acts, then the whole Coil. It is set here rather than on each board because it is a fact about how this game plays and not about any one map, and because a company of seven that had to hand the turn back after every single step would read as a broken board rather than as a rule. No board overrides it.",
+  "weaponTypes": [
+    {
+      "id": "blade",
+      "name": "Blade"
+    },
+    {
+      "id": "bow",
+      "name": "Bow"
+    },
+    {
+      "id": "staff",
+      "name": "Staff"
+    },
+    {
+      "id": "sigil",
+      "name": "Sigil"
+    }
+  ],
+  "itemTypes": [
+    {
+      "id": "consumable",
+      "name": "Consumable"
+    }
+  ],
+  "classes": [
+    {
+      "id": "knight",
+      "name": "Knight",
+      "baseStats": {
+        "health": 12,
+        "movement": 3,
+        "strength": 5,
+        "defense": 3,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ],
+      "notes": "Melee line holder. Reaches one tile, which is the only reach the v0 simulation implements."
+    },
+    {
+      "id": "archer",
+      "name": "Archer",
+      "baseStats": {
+        "health": 8,
+        "movement": 4,
+        "strength": 4,
+        "defense": 1,
+        "skill": 5,
+        "evasion": 3,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "bow"
+      ],
+      "notes": "Ranged. Strikes at two to three tiles and cannot answer anything standing on top of it. The steadiest hand in either army: five points of skill carry the Long Bow's ninety to ninety-five in an archer's hands, and three of evasion make the archer the one target on the field that a certain sword is not certain against."
+    },
+    {
+      "id": "mage",
+      "name": "Mage",
+      "baseStats": {
+        "health": 7,
+        "movement": 3,
+        "strength": 5,
+        "defense": 1,
+        "magic": 2,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "staff"
+      ],
+      "notes": "Single-target magic, resolved against resistance. Two of the damage a Dawn Mage's spells deal comes from the mage rather than from the spell: Ember Bolt and Cinder Arc were each lowered by exactly that, so the mage deals what it always dealt while a level-up in magic finally buys something. Somebody else casting the same spell deals less, which is the point."
+    },
+    {
+      "id": "stormcaller",
+      "name": "Stormcaller",
+      "baseStats": {
+        "health": 8,
+        "movement": 3,
+        "strength": 4,
+        "defense": 1,
+        "magic": 2,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "sigil"
+      ],
+      "notes": "Area effect. Two of Chain Storm's damage comes from the caller, on the same terms as the Dawn Mage: the spell's authored power was lowered by exactly that, so nothing on the board deals a different number than it did."
+    },
+    {
+      "id": "healer",
+      "name": "Healer",
+      "baseStats": {
+        "health": 8,
+        "movement": 3,
+        "strength": 2,
+        "defense": 1,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "staff"
+      ],
+      "notes": "Support. Restoring health is not an expressible effect; this unit currently only makes a weak attack."
+    },
+    {
+      "id": "commander",
+      "name": "Commander",
+      "baseStats": {
+        "health": 14,
+        "movement": 4,
+        "strength": 6,
+        "defense": 3,
+        "luck": 3,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ],
+      "notes": "Named leader. The second map's win and loss conditions are written against commanders. Three points of luck, which is the only stat that helps whichever half of a fight you are in: a commander swinging a blade that already always lands gains nothing visible, and an archer shooting at one drops from ninety-five to ninety-two. Leaders are the people arrows miss."
+    },
+    {
+      "id": "marshal",
+      "name": "Marshal",
+      "baseStats": {
+        "health": 24,
+        "movement": 4,
+        "strength": 5,
+        "defense": 5,
+        "resistance": 3,
+        "skill": 4,
+        "luck": 4,
+        "evasion": 1,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ],
+      "notes": "The Iron Vow's own rank, written for one character and nobody else. Two numbers are the whole of the last board. Five defence means the guard's sword takes three off him and its hardest swing takes six, so twenty-four health has to be spent rather than burned through. Three resistance is the first any character in this campaign has carried, and it is aimed at the balance note this project has always had to make: with nothing resisting it, magic here was strictly better than steel. Against the Marshal it is not. He steps and strikes in one activation like everybody else on the field; what makes a leader who never moves off his gate dangerous to walk up to is that he does it with five defence behind him."
+    }
+  ],
+  "weapons": [
+    {
+      "id": "guard_sword",
+      "name": "Guard Sword",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "range": 1
+    },
+    {
+      "id": "warden_blade",
+      "name": "Warden Blade",
+      "weaponTypeId": "blade",
+      "power": 4,
+      "range": 1
+    },
+    {
+      "id": "long_bow",
+      "name": "Long Bow",
+      "weaponTypeId": "bow",
+      "power": 2,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 90,
+      "notes": "A true bow: it cannot strike an adjacent enemy, so an archer caught in melee has to step back first. Nine shots in ten find their mark; the tenth is the price of shooting from where nothing can answer."
+    },
+    {
+      "id": "ember_staff",
+      "name": "Ember Staff",
+      "weaponTypeId": "staff",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 2
+    },
+    {
+      "id": "storm_sigil",
+      "name": "Storm Sigil",
+      "weaponTypeId": "sigil",
+      "power": 2,
+      "minimumRange": 1,
+      "maximumRange": 2
+    },
+    {
+      "id": "mending_staff",
+      "name": "Mending Staff",
+      "weaponTypeId": "staff",
+      "power": 0,
+      "minimumRange": 1,
+      "maximumRange": 2
+    },
+    {
+      "id": "vow_glaive",
+      "name": "Vow Glaive",
+      "weaponTypeId": "blade",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 95,
+      "notes": "A blade on a shaft: it answers from one tile away and from two, so stepping back out of a sword's reach does not step out of this one. Ninety-five in a hundred, because a Marshal is not a picket."
+    },
+    {
+      "id": "boat_hook",
+      "name": "Boat Hook",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 95,
+      "notes": "A mill hand's tool, which is why the reach is two: it is a pole with an iron beak, and the man carrying it learned to keep barges at arm's length rather than to fence. The only weapon in the Dawn Guard's hands that strikes a tile away and a tile beyond it, and the only reason to take the road that brings it."
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "itemTypeId": "consumable",
+      "stackLimit": 5,
+      "kind": "restore",
+      "power": 4,
+      "notes": "Four back, drunk on the spot, for the whole of an activation. Less than Mend's six and it cannot reach an ally, so the healer's spell is still the better answer for somebody else; this is what the healer has when the healer is the one bleeding."
+    }
+  ],
+  "factions": [
+    {
+      "id": "dawn_guard",
+      "name": "Dawn Guard",
+      "notes": "Blue side. Holds the river road."
+    },
+    {
+      "id": "ashen_coil",
+      "name": "Ashen Coil",
+      "notes": "Red side. Holds the highland tower."
+    }
+  ],
+  "abilities": [
+    {
+      "id": "power_strike",
+      "name": "Power Strike",
+      "kind": "damage",
+      "damageType": "physical",
+      "areaShape": "single",
+      "power": 6,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 85,
+      "notes": "The knight winds up: the hardest single blow in the guard's book, and the one most likely to hit nothing at all. Six damage against a sword's three, bought at fifteen swings in a hundred."
+    },
+    {
+      "id": "volley",
+      "name": "Volley",
+      "kind": "damage",
+      "damageType": "physical",
+      "areaShape": "single",
+      "power": 5,
+      "minimumRange": 2,
+      "maximumRange": 3
+    },
+    {
+      "id": "ember_bolt",
+      "name": "Ember Bolt",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "single",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "notes": "The mage's close spell: the hardest single hit in the Dawn Guard's book, and it only reaches two tiles, so landing it means standing where the Ashen can answer. Four of its six damage is the spell and two is the mage; a Dawn Mage therefore still takes six off an unresisting target, and a better mage will take more."
+    },
+    {
+      "id": "cinder_arc",
+      "name": "Cinder Arc",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "cross",
+      "power": 2,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "notes": "The mage's far spell, and the other half of a decision. It reaches a tile Ember Bolt cannot and cannot be cast at arm's length, so neither spell replaces the other; where the two bands overlap the choice is four to everything standing around the tile against six to one. The two-tile floor is what keeps it off the mage's own neighbours' tiles as a place to aim, though nobody on the guard's side would be hurt if it did land there: a damaging cast takes health off the other side alone. Two of its four is the spell and two is the mage."
+    },
+    {
+      "id": "chain_storm",
+      "name": "Chain Storm",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "diamond",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "radius": 1,
+      "notes": "Three of its five damage is the sigil and two is the Stormcaller holding it."
+    },
+    {
+      "id": "mend",
+      "name": "Mend",
+      "kind": "restore",
+      "damageType": "physical",
+      "areaShape": "single",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 2
+    },
+    {
+      "id": "rally",
+      "name": "Rally",
+      "kind": "damage",
+      "damageType": "physical",
+      "areaShape": "single",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 1
+    },
+    {
+      "id": "iron_vow",
+      "name": "Iron Vow",
+      "kind": "damage",
+      "damageType": "physical",
+      "areaShape": "single",
+      "power": 5,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 80,
+      "notes": "What the Marshal's whole order is named after, and the one swing on the last board that takes a knight from whole to nearly gone. Eighty in a hundred is the trade: the Iron Vow is the reason to fight him at reach and the reason a healer is worth a place in the gate."
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Clear the Ford",
+      "notes": "Defeat every Ashen Coil unit.",
+      "kind": "defeatAllOpponents",
+      "side": "first"
+    },
+    {
+      "id": "fell_the_warden",
+      "name": "Fell the Warden",
+      "notes": "Defeat Warden Kesh specifically. Other Ashen Coil units may still be standing.",
+      "kind": "defeatTarget",
+      "side": "first",
+      "targetPlacementId": "ashen_commander_kesh"
+    },
+    {
+      "id": "keep_mirea_alive",
+      "name": "Keep Captain Mirea Alive",
+      "notes": "Losing Captain Mirea loses the encounter, however well the rest of the line holds.",
+      "kind": "protectTarget",
+      "side": "first",
+      "targetPlacementId": "dawn_commander_mirea"
+    },
+    {
+      "id": "clear_the_burn",
+      "name": "Clear the Burn",
+      "notes": "Defeat every Ashen Coil unit standing in Harrow. A levy talked off the board counts: he is departed, not defeated, and there is nobody left to fight either way.",
+      "kind": "defeatAllOpponents",
+      "side": "first"
+    },
+    {
+      "id": "clear_the_mill",
+      "name": "Take the Mill",
+      "notes": "Defeat the mill's guard. A small board and a short fight; the point of it is the road that leads here.",
+      "kind": "defeatAllOpponents",
+      "side": "first"
+    },
+    {
+      "id": "hold_the_yard",
+      "name": "Hold the Yard Until Light",
+      "notes": "Survive six rounds in the yard at Emberhall. Nobody has to be beaten; the guard has to still be standing when the count runs out.",
+      "kind": "surviveRounds",
+      "side": "first",
+      "rounds": 6
+    },
+    {
+      "id": "fell_the_marshal",
+      "name": "Fell Marshal Vorne",
+      "notes": "Defeat Marshal Vorne. His escort may still be standing; the column behind him is not the guard's problem once he is not leading it.",
+      "kind": "defeatTarget",
+      "side": "first",
+      "targetPlacementId": "ashen_marshal_vorne"
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "prologue_lines",
+      "name": "Prologue",
+      "backgroundId": "throne_hall",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "They have the far bank of the Fordlight. They are not asking for toll."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Then they want the valley."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Wake the guard."
+        }
+      ]
+    },
+    {
+      "id": "valley_lines",
+      "name": "The Valley",
+      "backgroundId": "night_camp",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "I ran the whole road. Nobody stopped me. Nobody was on it."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Two rivers, one road, and every farm in Tarnholt hanging off it. Whoever holds the crossings eats in winter."
+        },
+        {
+          "speaker": "Runner",
+          "text": "And the Dawn Guard?"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Forty people and a promise that the road stays open. That is all we have ever been."
+        }
+      ]
+    },
+    {
+      "id": "muster_lines",
+      "name": "Waking the Guard",
+      "backgroundId": "throne_hall",
+      "cast": [
+        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Dawn Mage",
+          "text": "The Coil burned the granaries at Harrow. They did not take them. They burned them."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "I know what they did at Harrow."
+        },
+        {
+          "speaker": "Dawn Mage",
+          "text": "They say a Warden runs them now. The kind who counts his dead and keeps coming."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Then we make the counting slow. The ford first. Everything else after."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Form on the bridge road. Bows behind the water."
+        }
+      ]
+    },
+    {
+      "id": "crossing_cost_lines",
+      "name": "The Cost of the Crossing",
+      "backgroundId": "night_camp",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "The far bank is ours. Three of ours stayed on it."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Names."
+        },
+        {
+          "speaker": "Runner",
+          "text": "Teller. Bram. The archer from Southmead — I never learned hers."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Lys. Her name was Lys."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Dig where the ground is soft. We march within the hour."
+        }
+      ]
+    },
+    {
+      "id": "interlude_lines",
+      "name": "Between the Rivers",
+      "backgroundId": "night_camp",
+      "cast": [
+        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Dawn Mage",
+          "text": "There was a marching order in a satchel on the bank. A good one."
+        },
+        {
+          "speaker": "Dawn Mage",
+          "text": "Sealed by a Warden Kesh."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Then we go and find him."
+        }
+      ]
+    },
+    {
+      "id": "climb_lines",
+      "name": "The Climb",
+      "backgroundId": "mountain_dusk",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "The road climbs from here. Snow past the third milestone, marsh on both shoulders."
+        },
+        {
+          "speaker": "Dawn Mage",
+          "text": "They will watch us the whole way up."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Let them. Let Kesh count us coming and wonder why so few keep walking."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Save your breath. It is a long climb."
+        }
+      ]
+    },
+    {
+      "id": "tower_taken_lines",
+      "name": "The Tower Taken",
+      "backgroundId": "mountain_dusk",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" },
+        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "The tower is ours. What was left of the Coil went north over the snow."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Let them go. Winter will do our chasing."
+        },
+        {
+          "speaker": "Dawn Mage",
+          "text": "Kesh?"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "By the stair. He did not run."
+        }
+      ]
+    },
+    {
+      "id": "tower_cost_lines",
+      "name": "The Names",
+      "backgroundId": "night_camp",
+      "cast": [
+        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Dawn Mage",
+          "text": "The ford, the burn, the yard, the tower, the gate. Five lists."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "One list. In the order they fell, and do not sort it."
+        },
+        {
+          "speaker": "Dawn Mage",
+          "text": "And when it is written?"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Then the guard stands where it has always stood. Between the valley and whatever comes down the road."
+        }
+      ]
+    },
+    {
+      "id": "victory_lines",
+      "name": "The Watch Falls",
+      "backgroundId": "throne_hall",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "Two rivers. Both ours again."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "For now."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Sit down. That is an order."
+        }
+      ]
+    },
+    {
+      "id": "valley_falls_lines",
+      "name": "The Valley Falls",
+      "backgroundId": "mountain_dusk",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "The ford, the road, the hall, the tower. Theirs by first snow."
+        },
+        {
+          "speaker": "Runner",
+          "text": "There is no one left to carry word to. The valley already knows."
+        }
+      ]
+    },
+    {
+      "id": "harrow_road_lines",
+      "name": "The Road to Harrow",
+      "backgroundId": "night_camp",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Sister Nemet", "unitTypeId": "dawn_healer" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "Harrow is over the next rise. There is smoke on it, and the smoke is old."
+        },
+        {
+          "speaker": "Sister Nemet",
+          "text": "They burned it in the spring. What is left to burn?"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Nothing. That is why they are still standing in it."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "They are not raiding. They are holding a road open, and something is coming down it."
+        }
+      ]
+    },
+    {
+      "id": "colls_word_lines",
+      "name": "What the Levy Says",
+      "backgroundId": "night_camp",
+      "cast": [
+        { "speaker": "Coll Rankin", "unitTypeId": "dawn_levy" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Coll Rankin",
+          "text": "Ellsmoor. Two rivers down. They took the mill, and then they took me."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "You were wearing their grey."
+        },
+        {
+          "speaker": "Coll Rankin",
+          "text": "I wore it or my sister wore a rope. That was the whole of the offer."
+        },
+        {
+          "speaker": "Coll Rankin",
+          "text": "The mill still grinds for them. Burn it and the column at the gate eats snow."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Then take us to the mill. And find something blue to put on."
+        }
+      ]
+    },
+    {
+      "id": "mill_burned_lines",
+      "name": "The Mill",
+      "backgroundId": "crypt",
+      "cast": [
+        { "speaker": "Coll Rankin", "unitTypeId": "dawn_levy" },
+        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Coll Rankin",
+          "text": "Four hundred sacks. They will feel that at the gate by the tenth day."
+        },
+        {
+          "speaker": "Dawn Mage",
+          "text": "There is a floor under the floor. Tonics, mostly. Ours now."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Take all of it. We are going a long way on short rations and short numbers."
+        }
+      ]
+    },
+    {
+      "id": "long_way_lines",
+      "name": "The Long Way",
+      "backgroundId": "deep_wood",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Sister Nemet", "unitTypeId": "dawn_healer" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "There is no road east that is not watched. We go round, over the shoulder."
+        },
+        {
+          "speaker": "Sister Nemet",
+          "text": "That is two days."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Then it is two days. Nobody in that burn had a word in them."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Walk. We will take it back out of the dark."
+        }
+      ]
+    },
+    {
+      "id": "emberhall_road_lines",
+      "name": "Emberhall",
+      "backgroundId": "night_camp",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" },
+        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "Emberhall. The hall is a shell, but the yard still has walls and a well."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Then that is where we sleep."
+        },
+        {
+          "speaker": "Dawn Mage",
+          "text": "They will know we are in it by dark."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Yes. Bar what is left of the gates. The rest of you on the wall."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "We do not have to beat what is coming. We have to still be here in the morning."
+        }
+      ]
+    },
+    {
+      "id": "dark_falls_lines",
+      "name": "Morning at Emberhall",
+      "backgroundId": "night_camp",
+      "cast": [
+        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Runner",
+          "text": "It is light. What is left of them went back up the road."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Count."
+        },
+        {
+          "speaker": "Runner",
+          "text": "Ours or theirs?"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Ours first. Always ours first."
+        }
+      ]
+    },
+    {
+      "id": "keshs_orders_lines",
+      "name": "The Second Seal",
+      "backgroundId": "throne_hall",
+      "cast": [
+        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
+        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+      ],
+      "lines": [
+        {
+          "speaker": "Dawn Mage",
+          "text": "There is a second seal on the Warden's table. It is not his."
+        },
+        {
+          "speaker": "Dawn Mage",
+          "text": "Marshal Vorne, of the Iron Vow. Kesh was not the army. Kesh was clearing its road."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "How far behind him?"
+        },
+        {
+          "speaker": "Dawn Mage",
+          "text": "The order names the tenth. That is tomorrow."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Then we do not sit in this tower. We go to the Coldgate and we stand in it."
+        }
+      ]
+    }
+  ],
+  "maps": [
+    {
+      "id": "fordlight_crossing",
+      "name": "Fordlight Crossing",
+      "width": 10,
+      "height": 8,
+      "terrain": [
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "water",
+        "water",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "grass",
+        "water",
+        "water",
+        "grass",
+        "grass",
+        "grass",
+        "forest",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "water",
+        "water",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "water",
+        "water",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "forest",
+        "grass",
+        "grass",
+        "grass",
+        "water",
+        "water",
+        "grass",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "water",
+        "water",
+        "grass",
+        "grass",
+        "forest",
+        "forest"
+      ],
+      "notes": "The Fordlight runs north to south. Only the double span at rows three and four crosses it, which is the whole tactical point of the map: melee has to funnel while bows and staves can work across the water."
+    },
+    {
+      "id": "ashen_watch",
+      "name": "The Ashen Watch",
+      "width": 12,
+      "height": 9,
+      "terrain": [
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "snow",
+        "snow",
+        "swamp",
+        "swamp",
+        "road",
+        "road",
+        "swamp",
+        "swamp",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "swamp",
+        "swamp",
+        "road",
+        "road",
+        "road",
+        "road",
+        "swamp",
+        "swamp",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "swamp",
+        "road",
+        "road",
+        "mountain",
+        "mountain",
+        "road",
+        "road",
+        "swamp",
+        "swamp",
+        "snow",
+        "snow",
+        "snow",
+        "swamp",
+        "swamp",
+        "road",
+        "road",
+        "road",
+        "road",
+        "swamp",
+        "swamp",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "swamp",
+        "swamp",
+        "road",
+        "road",
+        "swamp",
+        "swamp",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain"
+      ],
+      "notes": "Approach roads converge on the tower footing at the centre. The marsh shoulders are the fast way in and the dangerous way out; the snow field is open ground under the tower."
+    },
+    {
+      "id": "harrow_burn",
+      "name": "The Harrow Burn",
+      "width": 11,
+      "height": 8,
+      "terrain": [
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "ruin",
+        "ruin",
+        "ruin",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "forest",
+        "grass",
+        "grass",
+        "ruin",
+        "ruin",
+        "grass",
+        "grass",
+        "grass",
+        "ruin",
+        "ruin",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "ruin",
+        "ruin",
+        "grass",
+        "grass",
+        "grass",
+        "ruin",
+        "ruin",
+        "grass",
+        "grass",
+        "forest",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "ruin",
+        "ruin",
+        "ruin",
+        "grass",
+        "grass",
+        "forest",
+        "forest"
+      ],
+      "notes": "What the Coil left of a granary village: two roads straight through it and the footings of the granaries either side. Nothing on this board is closed, and that is the point of it. Every other map in the campaign is shaped by ground somebody cannot cross; this one is open in every direction, so the only thing deciding how it goes is who the guard walks up to and what they do when they get there."
+    },
+    {
+      "id": "sunken_mill",
+      "name": "The Sunken Mill",
+      "width": 9,
+      "height": 7,
+      "terrain": [
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "water",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "road",
+        "water",
+        "road",
+        "grass",
+        "grass",
+        "forest",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "water",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "water",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "forest",
+        "grass",
+        "grass",
+        "road",
+        "water",
+        "road",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "water",
+        "grass",
+        "grass",
+        "forest",
+        "forest"
+      ],
+      "notes": "The millrace runs the whole height of the board and the mill floor is the only thing over it: one row, dead centre, and no Tarnholt class can enter water. A smaller and meaner Fordlight, reached only by somebody who told the guard it was here."
+    },
+    {
+      "id": "emberhall_yard",
+      "name": "The Yard at Emberhall",
+      "width": 12,
+      "height": 9,
+      "terrain": [
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "ruin",
+        "ruin",
+        "ruin",
+        "ruin",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "ruin",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "ruin",
+        "ruin",
+        "snow",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "snow",
+        "ruin",
+        "road",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "road",
+        "ruin",
+        "snow",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "snow",
+        "ruin",
+        "ruin",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "ruin",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "ruin",
+        "ruin",
+        "ruin",
+        "ruin",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain"
+      ],
+      "notes": "A walled yard with four ways in and a well in the middle of it. The corners are mountain, which is closed, so everything that comes for the guard comes through the four gaps in the wall - west, east, north and south - and the ruined footings inside are cover in the sense that they are somewhere to stand, not in the sense that the rules know what cover is."
+    },
+    {
+      "id": "the_coldgate",
+      "name": "The Coldgate",
+      "width": 13,
+      "height": 9,
+      "terrain": [
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "snow",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain"
+      ],
+      "notes": "The head of the pass. Mountain on every edge and a spur of it down the middle, broken by three tiles of road: that is the gate, and it is the only way from one half of this board to the other. A finale shaped so that everything has to meet in a doorway three tiles wide."
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "dawn_knight",
+      "name": "Dawn Knight",
+      "classId": "knight",
+      "factionId": "dawn_guard",
+      "startingWeaponIds": [
+        "guard_sword"
+      ],
+      "abilityIds": [
+        "power_strike"
+      ]
+    },
+    {
+      "id": "dawn_archer",
+      "name": "Dawn Archer",
+      "classId": "archer",
+      "factionId": "dawn_guard",
+      "startingWeaponIds": [
+        "long_bow"
+      ],
+      "abilityIds": [
+        "volley"
+      ]
+    },
+    {
+      "id": "dawn_mage",
+      "name": "Dawn Mage",
+      "classId": "mage",
+      "factionId": "dawn_guard",
+      "startingWeaponIds": [
+        "ember_staff"
+      ],
+      "abilityIds": [
+        "ember_bolt",
+        "cinder_arc"
+      ],
+      "startingItemIds": [
+        "field_tonic"
+      ]
+    },
+    {
+      "id": "dawn_healer",
+      "name": "Dawn Healer",
+      "classId": "healer",
+      "factionId": "dawn_guard",
+      "startingWeaponIds": [
+        "mending_staff"
+      ],
+      "abilityIds": [
+        "mend"
+      ],
+      "startingItemIds": [
+        "field_tonic"
+      ]
+    },
+    {
+      "id": "dawn_commander",
+      "name": "Dawn Commander",
+      "classId": "commander",
+      "factionId": "dawn_guard",
+      "startingWeaponIds": [
+        "guard_sword"
+      ],
+      "abilityIds": [
+        "rally"
+      ]
+    },
+    {
+      "id": "ashen_knight",
+      "name": "Ashen Knight",
+      "classId": "knight",
+      "factionId": "ashen_coil",
+      "startingWeaponIds": [
+        "guard_sword"
+      ],
+      "abilityIds": [
+        "power_strike"
+      ]
+    },
+    {
+      "id": "ashen_archer",
+      "name": "Ashen Archer",
+      "classId": "archer",
+      "factionId": "ashen_coil",
+      "startingWeaponIds": [
+        "long_bow"
+      ],
+      "abilityIds": [
+        "volley"
+      ],
+      "dropItemId": "field_tonic",
+      "dropChance": 60,
+      "notes": "A picket on a long watch keeps a tonic on their belt, and leaves it three times in five. Sixty rather than a hundred deliberately: a certainty rolls nothing at all, and this is the content the drop stream is actually drawn from. It is the archer rather than the knight because an archer is the one the Dawn Guard reaches first and fells cleanly, so the roll happens in an ordinary turn rather than at the end of a siege."
+    },
+    {
+      "id": "ashen_stormcaller",
+      "name": "Ashen Stormcaller",
+      "classId": "stormcaller",
+      "factionId": "ashen_coil",
+      "startingWeaponIds": [
+        "storm_sigil"
+      ],
+      "abilityIds": [
+        "chain_storm"
+      ]
+    },
+    {
+      "id": "ashen_commander",
+      "name": "Ashen Commander",
+      "classId": "commander",
+      "factionId": "ashen_coil",
+      "startingWeaponIds": [
+        "warden_blade"
+      ],
+      "abilityIds": [
+        "rally"
+      ]
+    },
+    {
+      "id": "ashen_levy",
+      "name": "Ashen Levy",
+      "classId": "knight",
+      "factionId": "ashen_coil",
+      "startingWeaponIds": [
+        "boat_hook"
+      ],
+      "notes": "Coil grey over somebody else's clothes. A levy carries what he came with, which is why this unit type has a boat hook and no ability: he was never taught a swing, he was handed a line and a rank. The only Ashen Coil unit type in the campaign that can be talked to instead of felled."
+    },
+    {
+      "id": "dawn_levy",
+      "name": "Dawn Levy",
+      "classId": "knight",
+      "factionId": "dawn_guard",
+      "startingWeaponIds": [
+        "boat_hook"
+      ],
+      "notes": "The same man, the same hook, blue instead of grey. He is authored twice on purpose: a placement is not a member, and a character who is talked off a board has departed rather than changed sides. What the story does next is recruit him, which is a different act with a different record."
+    },
+    {
+      "id": "ashen_marshal",
+      "name": "Ashen Marshal",
+      "classId": "marshal",
+      "factionId": "ashen_coil",
+      "startingWeaponIds": [
+        "vow_glaive"
+      ],
+      "abilityIds": [
+        "iron_vow"
+      ],
+      "notes": "One character, one unit type, one class. An enemy-side placement cannot name a roster member, so a boss cannot carry a member specificity; what he carries instead is the same idea one layer down. He authors no talk, which is what every placement written before the talk gesture already meant, and is why no client offers a talk row beside him."
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "tarnholt_line",
+      "name": "The Tarnholt Line",
+      "roster": [
+        {
+          "id": "dawn_knight_north",
+          "name": "Ser Halvard",
+          "unitTypeId": "dawn_knight"
+        },
+        {
+          "id": "dawn_knight_south",
+          "name": "Ser Ondrey",
+          "unitTypeId": "dawn_knight"
+        },
+        {
+          "id": "dawn_archer_ford",
+          "name": "Wren Ashdown",
+          "unitTypeId": "dawn_archer",
+          "specificity": {
+            "stats": {
+              "skill": 2
+            },
+            "rangeBonus": 1
+          },
+          "notes": "The best eye in the valley, and the campaign's one worked example of a character being more than the class they belong to. Two more skill on an archer who already had the steadiest hand in either army, and a range bonus of one: her Long Bow's band is two to four where every other archer's is two to three. The bonus is a fact about Wren rather than about the bow, so it travels with her onto every board she stands on and stays behind when somebody else picks the bow up."
+        },
+        {
+          "id": "dawn_mage_ford",
+          "name": "Emrik Vayle",
+          "unitTypeId": "dawn_mage"
+        }
+      ],
+      "objectiveIds": [
+        "defeat_all_opponents",
+        "clear_the_burn",
+        "clear_the_mill",
+        "hold_the_yard",
+        "fell_the_warden",
+        "keep_mirea_alive",
+        "fell_the_marshal"
+      ],
+      "dialogueIds": [
+        "prologue_lines",
+        "valley_lines",
+        "muster_lines",
+        "crossing_cost_lines",
+        "interlude_lines",
+        "harrow_road_lines",
+        "colls_word_lines",
+        "mill_burned_lines",
+        "long_way_lines",
+        "emberhall_road_lines",
+        "dark_falls_lines",
+        "climb_lines",
+        "tower_taken_lines",
+        "keshs_orders_lines",
+        "tower_cost_lines",
+        "victory_lines",
+        "valley_falls_lines"
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "prologue",
+        "nodes": [
+          {
+            "id": "prologue",
+            "name": "Word from the Ford",
+            "kind": "story",
+            "dialogueIds": [
+              "prologue_lines"
+            ],
+            "notes": "Captain Mirea reads the runner's message twice before she believes it. The Ashen Coil have taken the far bank of the Fordlight, and they are not asking for toll. They are not asking for anything.\n\n\"They want the crossing,\" says the runner.\n\n\"Then they want the valley,\" Mirea says. \"Wake the guard.\"",
+            "transitions": [
+              {
+                "id": "prologue_to_valley",
+                "targetNodeId": "the_valley",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "the_valley",
+            "name": "The Valley Between",
+            "kind": "story",
+            "dialogueIds": [
+              "valley_lines"
+            ],
+            "notes": "Tarnholt is not a place anyone fights over on a map of the world. It is two rivers, one road, and every farm in the valley hanging off that road. The Dawn Guard are forty people and a promise that the road stays open. They have never needed to be more than that, until tonight.",
+            "transitions": [
+              {
+                "id": "valley_to_muster",
+                "targetNodeId": "the_muster",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "the_muster",
+            "name": "Waking the Guard",
+            "kind": "story",
+            "dialogueIds": [
+              "muster_lines"
+            ],
+            "notes": "The guard musters in the dark. Everyone has heard what the Coil did at Harrow: they did not take the granaries, they burned them. The mage repeats the rumour that a Warden runs the Coil now — one who counts his dead and keeps coming. Mirea sets the shape of the fight to come: hold the ford, bows behind the water.",
+            "transitions": [
+              {
+                "id": "muster_to_ford",
+                "targetNodeId": "fordlight_battle",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "fordlight_battle",
+            "name": "The Fordlight Crossing",
+            "kind": "encounter",
+            "mapId": "fordlight_crossing",
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "notes": "Win by defeating every Ashen Coil unit. Chapter one, and the board is exactly the board it has always been: not a placement, an objective or a tile of it moved when the campaign grew around it.",
+            "placements": [
+              {
+                "id": "dawn_knight_north",
+                "memberId": "dawn_knight_north",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 0,
+                "y": 3
+              },
+              {
+                "id": "dawn_knight_south",
+                "memberId": "dawn_knight_south",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 0,
+                "y": 4
+              },
+              {
+                "id": "dawn_archer_ford",
+                "memberId": "dawn_archer_ford",
+                "unitTypeId": "dawn_archer",
+                "side": "first",
+                "x": 1,
+                "y": 2
+              },
+              {
+                "id": "dawn_mage_ford",
+                "memberId": "dawn_mage_ford",
+                "unitTypeId": "dawn_mage",
+                "side": "first",
+                "x": 1,
+                "y": 5
+              },
+              {
+                "id": "ashen_knight_north",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 9,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ashen_knight_south",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 9,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ashen_archer_ford",
+                "unitTypeId": "ashen_archer",
+                "side": "second",
+                "x": 8,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "ashen_storm_ford",
+                "unitTypeId": "ashen_stormcaller",
+                "side": "second",
+                "x": 8,
+                "y": 5,
+                "behavior": "patrol",
+                "patrolPoints": [
+                  {
+                    "x": 8,
+                    "y": 5
+                  },
+                  {
+                    "x": 6,
+                    "y": 5
+                  }
+                ]
+              }
+            ],
+            "transitions": [
+              {
+                "id": "ford_won",
+                "targetNodeId": "interlude",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "ford_lost",
+                "targetNodeId": "valley_falls",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "defeat"
+                }
+              },
+              {
+                "id": "ford_continue",
+                "targetNodeId": "interlude",
+                "priority": 2,
+                "notes": "Unconditional fallback, deliberately lowest precedence: a client that cannot decide still advances."
+              }
+            ]
+          },
+          {
+            "id": "interlude",
+            "name": "The Cost of the Crossing",
+            "kind": "story",
+            "dialogueIds": [
+              "crossing_cost_lines"
+            ],
+            "notes": "The ford is won and the far bank is theirs, and three of the guard stayed on it. Mirea asks for the names, and supplies the one the runner never learned. The dead are buried where the ground is soft, and the guard marches within the hour.",
+            "transitions": [
+              {
+                "id": "interlude_to_order",
+                "targetNodeId": "marching_order",
+                "priority": 0
+              }
+            ],
+            "grants": [
+              {
+                "itemId": "field_tonic",
+                "quantity": 1,
+                "notes": "What the far bank had on it. A grant is an event rather than a state: pass this node twice and the guard is a tonic better off twice."
+              }
+            ]
+          },
+          {
+            "id": "marching_order",
+            "name": "The Road Uphill",
+            "kind": "story",
+            "dialogueIds": [
+              "interlude_lines"
+            ],
+            "recruits": [
+              {
+                "id": "dawn_commander_mirea",
+                "name": "Captain Mirea",
+                "unitTypeId": "dawn_commander"
+              },
+              {
+                "id": "dawn_healer_watch",
+                "name": "Sister Nemet",
+                "unitTypeId": "dawn_healer"
+              }
+            ],
+            "notes": "They find the Coil's marching order in a satchel on the bank. It is a good order. It is a very good order, written by somebody who expected to be followed.\n\n\"Warden Kesh,\" the mage reads off the seal.\n\nMirea looks up the road, to where the Ashen Watch sits in the snow like a bad tooth. \"Then we go and find him.\"",
+            "transitions": [
+              {
+                "id": "order_to_harrow_road",
+                "targetNodeId": "harrow_road",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "harrow_road",
+            "name": "The Road to Harrow",
+            "kind": "story",
+            "dialogueIds": [
+              "harrow_road_lines"
+            ],
+            "notes": "Harrow was burned in the spring and there is still smoke on it, which is the wrong kind of fact. Mirea reads it correctly: nobody garrisons ash for its own sake. The Coil are holding a road open, and a road is held open for something that has not come down it yet.",
+            "transitions": [
+              {
+                "id": "harrow_road_to_burn",
+                "targetNodeId": "harrow_burn_battle",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "harrow_burn_battle",
+            "name": "The Harrow Burn",
+            "kind": "encounter",
+            "mapId": "harrow_burn",
+            "objectiveIds": [
+              "clear_the_burn"
+            ],
+            "notes": "Win by clearing the burn. One of the four standing in it is not an enemy, and the whole shape of the rest of the campaign turns on whether anybody finds that out. Talking to him takes him off the board alive, raises a world flag, and satisfies this objective just as felling him would - the difference is not in this board, it is in the road out of it.",
+            "placements": [
+              {
+                "id": "dawn_knight_harrow",
+                "memberId": "dawn_knight_north",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 0,
+                "y": 3
+              },
+              {
+                "id": "dawn_knight_harrow_south",
+                "memberId": "dawn_knight_south",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 0,
+                "y": 4
+              },
+              {
+                "id": "dawn_archer_harrow",
+                "memberId": "dawn_archer_ford",
+                "unitTypeId": "dawn_archer",
+                "side": "first",
+                "x": 1,
+                "y": 2
+              },
+              {
+                "id": "dawn_mage_harrow",
+                "memberId": "dawn_mage_ford",
+                "unitTypeId": "dawn_mage",
+                "side": "first",
+                "x": 1,
+                "y": 5
+              },
+              {
+                "id": "dawn_commander_harrow",
+                "memberId": "dawn_commander_mirea",
+                "unitTypeId": "dawn_commander",
+                "side": "first",
+                "x": 0,
+                "y": 2
+              },
+              {
+                "id": "dawn_healer_harrow",
+                "memberId": "dawn_healer_watch",
+                "unitTypeId": "dawn_healer",
+                "side": "first",
+                "x": 0,
+                "y": 5
+              },
+              {
+                "id": "ashen_knight_harrow_north",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 10,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ashen_knight_harrow_south",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 10,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ashen_archer_harrow",
+                "unitTypeId": "ashen_archer",
+                "side": "second",
+                "x": 9,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "ashen_levy_coll",
+                "unitTypeId": "ashen_levy",
+                "side": "second",
+                "x": 7,
+                "y": 4,
+                "behavior": "hold",
+                "talk": {
+                  "flagId": "coll_rankin_heard"
+                }
+              }
+            ],
+            "transitions": [
+              {
+                "id": "burn_talked",
+                "targetNodeId": "colls_word",
+                "priority": 0,
+                "when": {
+                  "kind": "worldFlagEquals",
+                  "flagId": "coll_rankin_heard",
+                  "value": true
+                },
+                "notes": "The branch. The flag is raised by talking to the levy and by nothing else, so this edge is the conversation, read back."
+              },
+              {
+                "id": "burn_lost",
+                "targetNodeId": "valley_falls",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "clear_the_burn",
+                  "result": "defeat"
+                }
+              },
+              {
+                "id": "burn_continue",
+                "targetNodeId": "the_long_way",
+                "priority": 2,
+                "notes": "The other thread, and the unconditional fallback: a guard that cleared the burn without hearing anybody out takes the long way round, and nothing failed for it to do so."
+              }
+            ]
+          },
+          {
+            "id": "colls_word",
+            "name": "What the Levy Says",
+            "kind": "story",
+            "dialogueIds": [
+              "colls_word_lines"
+            ],
+            "recruits": [
+              {
+                "id": "dawn_levy_coll",
+                "name": "Coll Rankin",
+                "unitTypeId": "dawn_levy",
+                "specificity": {
+                  "stats": {
+                    "health": 2,
+                    "defense": -1
+                  }
+                },
+                "notes": "The branch's whole reward, and the reason it is a choice rather than scenery: he is on the roster for every board after this one. Two more health than a knight and one less defence, because he is a miller's son in somebody else's coat."
+              }
+            ],
+            "notes": "Coll Rankin of Ellsmoor, who wore Coil grey because the alternative was offered to his sister. He knows where the mill that feeds the column is. He is not the placement that stood on the burn - that character departed - he is a member the campaign recruits, which is the honest shape of a man changing sides.",
+            "transitions": [
+              {
+                "id": "word_to_mill",
+                "targetNodeId": "sunken_mill_battle",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "sunken_mill_battle",
+            "name": "The Sunken Mill",
+            "kind": "encounter",
+            "mapId": "sunken_mill",
+            "objectiveIds": [
+              "clear_the_mill"
+            ],
+            "notes": "The board no other route reaches. Five go, not six: this is a raid rather than a battle line, and the mill floor is one row over a race nobody can wade.",
+            "placements": [
+              {
+                "id": "dawn_commander_mill",
+                "memberId": "dawn_commander_mirea",
+                "unitTypeId": "dawn_commander",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "dawn_knight_mill",
+                "memberId": "dawn_knight_north",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 1,
+                "y": 2
+              },
+              {
+                "id": "dawn_archer_mill",
+                "memberId": "dawn_archer_ford",
+                "unitTypeId": "dawn_archer",
+                "side": "first",
+                "x": 0,
+                "y": 2
+              },
+              {
+                "id": "dawn_mage_mill",
+                "memberId": "dawn_mage_ford",
+                "unitTypeId": "dawn_mage",
+                "side": "first",
+                "x": 0,
+                "y": 4
+              },
+              {
+                "id": "dawn_levy_mill",
+                "memberId": "dawn_levy_coll",
+                "unitTypeId": "dawn_levy",
+                "side": "first",
+                "x": 1,
+                "y": 4
+              },
+              {
+                "id": "ashen_knight_mill",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 7,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ashen_storm_mill",
+                "unitTypeId": "ashen_stormcaller",
+                "side": "second",
+                "x": 7,
+                "y": 1,
+                "behavior": "patrol",
+                "patrolPoints": [
+                  {
+                    "x": 7,
+                    "y": 1
+                  },
+                  {
+                    "x": 5,
+                    "y": 1
+                  }
+                ]
+              },
+              {
+                "id": "ashen_archer_mill",
+                "unitTypeId": "ashen_archer",
+                "side": "second",
+                "x": 7,
+                "y": 5,
+                "behavior": "hold"
+              }
+            ],
+            "transitions": [
+              {
+                "id": "mill_lost",
+                "targetNodeId": "valley_falls",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "clear_the_mill",
+                  "result": "defeat"
+                }
+              },
+              {
+                "id": "mill_taken",
+                "targetNodeId": "mill_burned",
+                "priority": 1
+              }
+            ]
+          },
+          {
+            "id": "mill_burned",
+            "name": "The Mill",
+            "kind": "story",
+            "dialogueIds": [
+              "mill_burned_lines"
+            ],
+            "grants": [
+              {
+                "itemId": "field_tonic",
+                "quantity": 3,
+                "notes": "The floor under the floor. The branch pays in supplies as well as in a person."
+              }
+            ],
+            "notes": "Four hundred sacks and a cellar of tonics. The column at the Coldgate will feel this by the tenth day, which is the day it is going to be met.",
+            "transitions": [
+              {
+                "id": "mill_to_emberhall",
+                "targetNodeId": "emberhall_road",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "the_long_way",
+            "name": "The Long Way",
+            "kind": "story",
+            "dialogueIds": [
+              "long_way_lines"
+            ],
+            "notes": "The other thread. Nobody in the burn had a word in them, so there is no mill and no road east that is not watched: the guard goes over the shoulder of the valley and arrives two days later with the same people it set out with. Nothing failed. It is simply the campaign somebody gets for fighting the man in the road instead of asking him.",
+            "transitions": [
+              {
+                "id": "long_way_to_emberhall",
+                "targetNodeId": "emberhall_road",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "emberhall_road",
+            "name": "The Road to Emberhall",
+            "kind": "story",
+            "dialogueIds": [
+              "emberhall_road_lines"
+            ],
+            "notes": "Where the two threads rejoin: two edges naming one node, which is all reconvergence has ever needed to be. Whatever road brought the guard here, the hall is a shell with a yard and a well, and what is coming up the road does not care which way they came.",
+            "transitions": [
+              {
+                "id": "emberhall_road_to_yard",
+                "targetNodeId": "emberhall_battle",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "emberhall_battle",
+            "name": "The Yard at Emberhall",
+            "kind": "encounter",
+            "mapId": "emberhall_yard",
+            "objectiveIds": [
+              "hold_the_yard"
+            ],
+            "deployment": {
+              "id": "emberhall_muster",
+              "tiles": [
+                {
+                  "x": 4,
+                  "y": 4
+                },
+                {
+                  "x": 5,
+                  "y": 3
+                },
+                {
+                  "x": 5,
+                  "y": 4
+                },
+                {
+                  "x": 5,
+                  "y": 5
+                },
+                {
+                  "x": 6,
+                  "y": 3
+                },
+                {
+                  "x": 6,
+                  "y": 4
+                },
+                {
+                  "x": 6,
+                  "y": 5
+                }
+              ],
+              "capacity": 5,
+              "notes": "The middle of the yard, around the well, and the campaign's one capacity. Seven members can stand here and the yard holds five, so somebody sits this one out - which is a choice rather than an obstacle, because this is the board where who is on it decides how it goes. The two threads meet it with different companies: six on the long way, seven if Coll Rankin came back with them. The region is the centre rather than a corner on purpose: a company backed into a wall is a company only one gate can reach, and the point of this board is that four can."
+            },
+            "notes": "Won by outlasting six rounds rather than by beating anybody, under sideBlocks turn order so that a round is everybody acting rather than one activation each side. Four waves keep arriving, one per gate: the east and north gates from the second round and every second round after, three times each; the south gap from the third and the west gate from the fourth, twice each. Eleven of the Coil against five of the guard over six rounds, and every one of them authored `pursue`, so they come at the company in the middle rather than standing in the gateways they came through. The picket already in the yard pursues too: this is not a board where anybody is waiting to be come to.",
+            "placements": [
+              {
+                "id": "dawn_knight_yard",
+                "memberId": "dawn_knight_north",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 6,
+                "y": 3
+              },
+              {
+                "id": "dawn_knight_yard_south",
+                "memberId": "dawn_knight_south",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 6,
+                "y": 5
+              },
+              {
+                "id": "dawn_commander_yard",
+                "memberId": "dawn_commander_mirea",
+                "unitTypeId": "dawn_commander",
+                "side": "first",
+                "x": 6,
+                "y": 4
+              },
+              {
+                "id": "dawn_archer_yard",
+                "memberId": "dawn_archer_ford",
+                "unitTypeId": "dawn_archer",
+                "side": "first",
+                "x": 5,
+                "y": 3
+              },
+              {
+                "id": "dawn_mage_yard",
+                "memberId": "dawn_mage_ford",
+                "unitTypeId": "dawn_mage",
+                "side": "first",
+                "x": 5,
+                "y": 5
+              },
+              {
+                "id": "dawn_healer_yard",
+                "memberId": "dawn_healer_watch",
+                "unitTypeId": "dawn_healer",
+                "side": "first",
+                "x": 5,
+                "y": 4
+              },
+              {
+                "id": "dawn_levy_yard",
+                "memberId": "dawn_levy_coll",
+                "unitTypeId": "dawn_levy",
+                "side": "first",
+                "x": 4,
+                "y": 4
+              },
+              {
+                "id": "ashen_knight_yard",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 9,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ashen_archer_yard",
+                "unitTypeId": "ashen_archer",
+                "side": "second",
+                "x": 8,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "ashen_storm_yard",
+                "unitTypeId": "ashen_stormcaller",
+                "side": "second",
+                "x": 8,
+                "y": 6,
+                "behavior": "patrol",
+                "patrolPoints": [
+                  {
+                    "x": 8,
+                    "y": 6
+                  },
+                  {
+                    "x": 6,
+                    "y": 6
+                  }
+                ]
+              },
+              {
+                "id": "ashen_wave_east",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 11,
+                "y": 4,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 2,
+                  "every": 2,
+                  "times": 3
+                }
+              },
+              {
+                "id": "ashen_wave_north",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 3,
+                  "every": 2,
+                  "times": 2
+                }
+              }
+            ],
+            "transitions": [
+              {
+                "id": "yard_lost",
+                "targetNodeId": "valley_falls",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "hold_the_yard",
+                  "result": "defeat"
+                }
+              },
+              {
+                "id": "yard_held",
+                "targetNodeId": "dark_falls",
+                "priority": 1
+              }
+            ]
+          },
+          {
+            "id": "dark_falls",
+            "name": "Morning at Emberhall",
+            "kind": "story",
+            "dialogueIds": [
+              "dark_falls_lines"
+            ],
+            "notes": "The yard held. What is left of the night's waves has gone back up the road, and Mirea counts her own before she counts theirs.",
+            "transitions": [
+              {
+                "id": "dark_to_climb",
+                "targetNodeId": "the_climb",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "the_climb",
+            "name": "The Climb to the Watch",
+            "kind": "story",
+            "dialogueIds": [
+              "climb_lines"
+            ],
+            "notes": "The road climbs out of the valley into snow, with marsh on both shoulders — the fast way in and the bad way out. The Watch can see the whole approach, and Mirea does not care. Let Kesh count them coming.",
+            "transitions": [
+              {
+                "id": "climb_to_watch",
+                "targetNodeId": "ashen_watch_battle",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "ashen_watch_battle",
+            "name": "The Ashen Watch",
+            "kind": "encounter",
+            "mapId": "ashen_watch",
+            "objectiveIds": [
+              "fell_the_warden",
+              "keep_mirea_alive"
+            ],
+            "notes": "Win by defeating Warden Kesh while Captain Mirea survives. Both halves are now evaluated by the runtime.",
+            "placements": [
+              {
+                "id": "dawn_commander_mirea",
+                "memberId": "dawn_commander_mirea",
+                "unitTypeId": "dawn_commander",
+                "side": "first",
+                "x": 0,
+                "y": 4
+              },
+              {
+                "id": "dawn_knight_watch",
+                "memberId": "dawn_knight_north",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "dawn_healer_watch",
+                "memberId": "dawn_healer_watch",
+                "unitTypeId": "dawn_healer",
+                "side": "first",
+                "x": 0,
+                "y": 5
+              },
+              {
+                "id": "dawn_archer_watch",
+                "memberId": "dawn_archer_ford",
+                "unitTypeId": "dawn_archer",
+                "side": "first",
+                "x": 1,
+                "y": 5
+              },
+              {
+                "id": "ashen_commander_kesh",
+                "name": "Warden Kesh",
+                "unitTypeId": "ashen_commander",
+                "side": "second",
+                "x": 11,
+                "y": 4,
+                "behavior": "hold"
+              },
+              {
+                "id": "ashen_knight_watch",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 10,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ashen_storm_watch",
+                "unitTypeId": "ashen_stormcaller",
+                "side": "second",
+                "x": 10,
+                "y": 5,
+                "behavior": "patrol",
+                "patrolPoints": [
+                  {
+                    "x": 10,
+                    "y": 5
+                  },
+                  {
+                    "x": 8,
+                    "y": 5
+                  }
+                ]
+              },
+              {
+                "id": "ashen_archer_watch",
+                "unitTypeId": "ashen_archer",
+                "side": "second",
+                "x": 11,
+                "y": 3,
+                "behavior": "hold"
+              }
+            ],
+            "transitions": [
+              {
+                "id": "watch_won",
+                "targetNodeId": "watch_falls",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "fell_the_warden",
+                      "result": "victory"
+                    },
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "keep_mirea_alive",
+                      "result": "victory"
+                    }
+                  ]
+                },
+                "notes": "The authored intent, now executable: fell the Warden AND keep Mirea alive."
+              },
+              {
+                "id": "watch_lost",
+                "targetNodeId": "valley_falls",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "keep_mirea_alive",
+                  "result": "defeat"
+                },
+                "notes": "Losing the commander ends the campaign badly."
+              },
+              {
+                "id": "watch_continue",
+                "targetNodeId": "watch_falls",
+                "priority": 2,
+                "notes": "Unconditional fallback for a runtime that cannot decide."
+              }
+            ]
+          },
+          {
+            "id": "watch_falls",
+            "name": "The Watch Falls",
+            "kind": "story",
+            "dialogueIds": [
+              "tower_taken_lines"
+            ],
+            "notes": "The tower is taken. What was left of the Coil went north over the snow, and Mirea lets them go — winter will do her chasing. Kesh is by the stair. He did not run.",
+            "transitions": [
+              {
+                "id": "watch_falls_to_orders",
+                "targetNodeId": "keshs_orders",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "keshs_orders",
+            "name": "The Second Seal",
+            "kind": "story",
+            "dialogueIds": [
+              "keshs_orders_lines"
+            ],
+            "notes": "The turn the whole campaign has been walking towards. Kesh is dead and the tower is taken and it does not matter: there is a second seal on his table, the Iron Vow's, and Kesh was never the army. He was clearing its road. The Marshal's own order names the tenth, which is tomorrow, so the guard leaves the tower it just took and goes to stand in a doorway.",
+            "transitions": [
+              {
+                "id": "orders_to_gate",
+                "targetNodeId": "coldgate_battle",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "coldgate_battle",
+            "name": "The Coldgate",
+            "kind": "encounter",
+            "mapId": "the_coldgate",
+            "objectiveIds": [
+              "fell_the_marshal",
+              "keep_mirea_alive"
+            ],
+            "deployment": {
+              "id": "coldgate_mouth",
+              "tiles": [
+                {
+                  "x": 1,
+                  "y": 3
+                },
+                {
+                  "x": 2,
+                  "y": 3
+                },
+                {
+                  "x": 1,
+                  "y": 4
+                },
+                {
+                  "x": 2,
+                  "y": 4
+                },
+                {
+                  "x": 3,
+                  "y": 4
+                },
+                {
+                  "x": 1,
+                  "y": 5
+                },
+                {
+                  "x": 2,
+                  "y": 5
+                }
+              ],
+              "notes": "The west mouth of the pass. A region and no capacity, deliberately: a finale is everybody who is left."
+            },
+            "notes": "The Captain's protect-target is the campaign's existing one, reused rather than copied, and that is a fact about identity rather than thrift: an objective names a placement, but a placement bound to a roster member is registered under the member, because the member is the identity that lasts past one board. So 'keep Captain Mirea alive' is one objective that means the same thing wherever she is standing. The last board. Won by felling Marshal Vorne and lost by losing Captain Mirea; his escort may still be standing when it ends. He holds his gate rather than coming out of it, so the guard has to cross the board and come through three tiles of road to reach him, and his glaive answers from two tiles as well as from one.",
+            "placements": [
+              {
+                "id": "dawn_commander_coldgate",
+                "memberId": "dawn_commander_mirea",
+                "unitTypeId": "dawn_commander",
+                "side": "first",
+                "x": 2,
+                "y": 4
+              },
+              {
+                "id": "dawn_knight_coldgate",
+                "memberId": "dawn_knight_north",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 3,
+                "y": 4
+              },
+              {
+                "id": "dawn_knight_coldgate_south",
+                "memberId": "dawn_knight_south",
+                "unitTypeId": "dawn_knight",
+                "side": "first",
+                "x": 1,
+                "y": 4
+              },
+              {
+                "id": "dawn_archer_coldgate",
+                "memberId": "dawn_archer_ford",
+                "unitTypeId": "dawn_archer",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "dawn_mage_coldgate",
+                "memberId": "dawn_mage_ford",
+                "unitTypeId": "dawn_mage",
+                "side": "first",
+                "x": 1,
+                "y": 5
+              },
+              {
+                "id": "dawn_healer_coldgate",
+                "memberId": "dawn_healer_watch",
+                "unitTypeId": "dawn_healer",
+                "side": "first",
+                "x": 2,
+                "y": 5
+              },
+              {
+                "id": "dawn_levy_coldgate",
+                "memberId": "dawn_levy_coll",
+                "unitTypeId": "dawn_levy",
+                "side": "first",
+                "x": 2,
+                "y": 3
+              },
+              {
+                "id": "ashen_marshal_vorne",
+                "name": "Marshal Vorne",
+                "unitTypeId": "ashen_marshal",
+                "side": "second",
+                "x": 10,
+                "y": 4,
+                "behavior": "hold"
+              },
+              {
+                "id": "ashen_knight_gate_north",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 8,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ashen_knight_gate_south",
+                "unitTypeId": "ashen_knight",
+                "side": "second",
+                "x": 8,
+                "y": 5,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ashen_archer_gate",
+                "unitTypeId": "ashen_archer",
+                "side": "second",
+                "x": 11,
+                "y": 3,
+                "behavior": "hold"
+              },
+              {
+                "id": "ashen_storm_gate",
+                "unitTypeId": "ashen_stormcaller",
+                "side": "second",
+                "x": 11,
+                "y": 5,
+                "behavior": "patrol",
+                "patrolPoints": [
+                  {
+                    "x": 11,
+                    "y": 5
+                  },
+                  {
+                    "x": 9,
+                    "y": 5
+                  }
+                ]
+              }
+            ],
+            "transitions": [
+              {
+                "id": "gate_won",
+                "targetNodeId": "tower_cost",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "fell_the_marshal",
+                      "result": "victory"
+                    },
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "keep_mirea_alive",
+                      "result": "victory"
+                    }
+                  ]
+                },
+                "notes": "Fell the Marshal and keep the Captain. Both, or it is not a win."
+              },
+              {
+                "id": "gate_lost",
+                "targetNodeId": "valley_falls",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "keep_mirea_alive",
+                  "result": "defeat"
+                }
+              },
+              {
+                "id": "gate_continue",
+                "targetNodeId": "tower_cost",
+                "priority": 2,
+                "notes": "Unconditional fallback for a client that cannot decide."
+              }
+            ]
+          },
+          {
+            "id": "tower_cost",
+            "name": "The Names",
+            "kind": "story",
+            "dialogueIds": [
+              "tower_cost_lines"
+            ],
+            "notes": "The campaign's closing count, taken past the gate rather than past the tower: five boards' worth of names in one list, in the order they fell.",
+            "transitions": [
+              {
+                "id": "cost_to_held",
+                "targetNodeId": "valley_held",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "valley_held",
+            "name": "The Valley Holds",
+            "kind": "terminal",
+            "dialogueIds": [
+              "victory_lines"
+            ],
+            "notes": "The tower is quiet. Somebody has already started a fire in the guardroom, which Mirea decides not to have an opinion about.\n\n\"Two rivers,\" the runner says. \"Both ours again.\"\n\n\"For now,\" says Mirea. But she lets herself sit down.",
+            "transitions": []
+          },
+          {
+            "id": "valley_falls",
+            "name": "The Valley Falls",
+            "kind": "terminal",
+            "dialogueIds": [
+              "valley_falls_lines"
+            ],
+            "notes": "The Coil take the crossing, and then the road, and then everything the road touches.\n\nThe losing end. Both battles can route here: the ford by losing outright, the Watch by losing Captain Mirea.",
+            "transitions": []
+          }
+        ]
+      },
+      "startingStore": [
+        {
+          "itemId": "field_tonic",
+          "quantity": 2,
+          "notes": "What the guard marches out with: two tonics in the company's own hands rather than anybody's. Nothing else. Forty people and a promise does not run to a baggage train."
+        }
+      ]
+    }
+  ]
+}

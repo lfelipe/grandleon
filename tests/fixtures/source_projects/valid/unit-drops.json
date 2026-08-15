@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "6b1d4f27-0a93-4e58-9c31-2f7d8e5a40b6",
+  "gameId": "grandleon.unit.drops",
+  "title": "Grandleon Unit Drops",
+  "contentRevision": "0.1.0",
+  "notes": "Three unit types, three ways of saying what a defeated character leaves behind. The courier always leaves its satchel — a hundred is a certainty and rolls nothing at all. The picket leaves its tonic three times in five, which is the only case that draws from the drop stream. The conscript authors neither field, which is what every unit type written before drops existed says: it leaves nothing and never rolls. The drop names an item nobody carries, deliberately: a drop is recorded rather than handed over, so the thing that falls need not be something anyone on the board was holding.",
+  "weaponTypes": [],
+  "itemTypes": [
+    {
+      "id": "consumable",
+      "name": "Consumable"
+    }
+  ],
+  "classes": [
+    {
+      "id": "footman",
+      "name": "Footman",
+      "baseStats": {
+        "health": 18,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "courier",
+      "name": "Courier",
+      "classId": "footman",
+      "startingWeaponIds": ["sword"],
+      "dropItemId": "satchel",
+      "dropChance": 100
+    },
+    {
+      "id": "picket",
+      "name": "Picket",
+      "classId": "footman",
+      "startingWeaponIds": ["sword"],
+      "dropItemId": "field_tonic",
+      "dropChance": 60
+    },
+    {
+      "id": "conscript",
+      "name": "Conscript",
+      "classId": "footman",
+      "startingWeaponIds": ["sword"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "sword",
+      "name": "Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "itemTypeId": "consumable",
+      "stackLimit": 5,
+      "kind": "restore",
+      "power": 4
+    },
+    {
+      "id": "satchel",
+      "name": "Satchel",
+      "itemTypeId": "consumable",
+      "stackLimit": 1
+    }
+  ],
+  "maps": [
+    {
+      "id": "muster_field",
+      "name": "Muster Field",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

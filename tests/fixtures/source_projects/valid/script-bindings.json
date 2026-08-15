@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "e8ce43d6-c832-45b0-8172-daa6a12ec106",
+  "gameId": "script.binding.demo",
+  "title": "Script Binding Demo",
+  "contentRevision": "1.0.0",
+  "classes": [],
+  "unitTypes": [],
+  "weapons": [],
+  "items": [],
+  "maps": [],
+  "factions": [
+    {
+      "id": "allies",
+      "name": "Allies"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "rally",
+      "name": "Rally",
+      "scriptBindings": [
+        {
+          "slot": "on_use",
+          "apiVersion": "1.0.0",
+          "scriptPath": "scripts/rally.lua",
+          "entryPoint": "activate",
+          "parameters": [
+            {
+              "name": "enabled",
+              "value": {
+                "kind": "boolean",
+                "value": true
+              }
+            },
+            {
+              "name": "owner",
+              "value": {
+                "kind": "contentRef",
+                "category": "faction",
+                "sourceKey": "allies"
+              }
+            }
+          ]
+        }
+      ],
+      "kind": "damage",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1
+    }
+  ]
+}

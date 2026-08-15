@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/class.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/stableId"
+    },
+    "name": {
+      "$ref": "common.schema.json#/$defs/displayName"
+    },
+    "notes": {
+      "$ref": "common.schema.json#/$defs/notes"
+    },
+    "extensions": {
+      "$ref": "common.schema.json#/$defs/extensions"
+    },
+    "baseStats": {
+      "$ref": "common.schema.json#/$defs/statBlock"
+    },
+    "allowedWeaponTypeIds": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/stableId"
+      },
+      "uniqueItems": true,
+      "description": "Allowed weapon types. Omitted means legacy unrestricted; an empty array permits none."
+    },
+    "actsAfterAttacking": {
+      "type": "boolean",
+      "description": "Whether the unit keeps its remaining action points after attacking or using an ability. Omitted means striking ends the activation."
+    },
+    "traversal": {
+      "type": "object",
+      "description": "What this class can cross that open ground is not. Omitted means it walks: open ground only, which is what every class did before terrain could stop anyone.",
+      "properties": {
+        "flying": {
+          "type": "boolean",
+          "description": "Whether the class flies. A flier crosses every terrain there is, including any added later, so it never needs listing them. Omitted means it does not fly."
+        },
+        "crossings": {
+          "type": "array",
+          "description": "Terrain this class may enter on its own account, beside anything flight already grants. 'water' is river and sea; 'heights' is mountain and rock.",
+          "items": {
+            "type": "string",
+            "enum": ["water", "heights"]
+          },
+          "uniqueItems": true,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "baseStats"
+  ],
+  "additionalProperties": false
+}

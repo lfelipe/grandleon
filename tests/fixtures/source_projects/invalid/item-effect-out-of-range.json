@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "0f27b6d9-4c81-4a35-8e02-71b9c4d5f3a6",
+  "gameId": "grandleon.item.effect.range",
+  "title": "Grandleon Item Effect Range",
+  "contentRevision": "0.1.0",
+  "notes": "An item's effect vocabulary is closed and its power is a number a rule reads. A kind the engine has no verb for would compile into an item that claims to do something and does nothing, and a restore of nothing is an item authored to be wasted. Both are refused where the author can still see them.",
+  "itemTypes": [{ "id": "consumable", "name": "Consumable" }],
+  "classes": [
+    {
+      "id": "outrider",
+      "name": "Outrider",
+      "baseStats": {
+        "health": 16,
+        "movement": 4,
+        "strength": 5,
+        "defense": 3
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_outrider",
+      "name": "Demo Outrider",
+      "classId": "outrider",
+      "startingWeaponIds": ["riding_sword"],
+      "startingItemIds": ["bitter_draught", "empty_flask"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "riding_sword",
+      "name": "Riding Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "bitter_draught",
+      "name": "Bitter Draught",
+      "itemTypeId": "consumable",
+      "stackLimit": 1,
+      "kind": "poison",
+      "power": 4
+    },
+    {
+      "id": "empty_flask",
+      "name": "Empty Flask",
+      "itemTypeId": "consumable",
+      "stackLimit": 1,
+      "kind": "restore",
+      "power": 0
+    }
+  ],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

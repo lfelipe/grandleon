@@ -1,0 +1,341 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "f643c13e-ce8d-41d4-b6de-0d69ba5fcade",
+  "gameId": "grandleon.demo",
+  "title": "The Bridge at Dawn",
+  "contentRevision": "0.1.0",
+  "weaponTypes": [
+    {
+      "id": "blade",
+      "name": "Blade"
+    }
+  ],
+  "itemTypes": [
+    {
+      "id": "consumable",
+      "name": "Consumable"
+    }
+  ],
+  "classes": [
+    {
+      "id": "guard",
+      "name": "Guard",
+      "baseStats": {
+        "health": 7,
+        "movement": 3,
+        "strength": 4,
+        "defense": 1,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": ["blade"],
+      "notes": "Two action points, so a picket that steps off its tile can still swing. One would make the walk the whole turn, and a demo whose first lesson is that moving forfeits the strike teaches the wrong game. Seven health for the reason the heron rider has seven: the two classes are deliberately the same stat line, so the board turns on position and on who opens rather than on a number one side was handed."
+    },
+    {
+      "id": "heron_rider",
+      "name": "Heron Rider",
+      "baseStats": {
+        "health": 7,
+        "movement": 3,
+        "strength": 4,
+        "defense": 1,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": ["blade"],
+      "traversal": {
+        "flying": true
+      },
+      "notes": "The Dawn Guard ride herons. The bridge is the only way over the water for anyone on foot — which is what the River Watch is standing on — and the heron goes over it instead, so the crossing is a choice rather than a corridor. Two action points, so the crossing and the strike are one turn: a rider who had to spend the turn arriving would make the flight worth nothing. Seven health, matching the picket's, because a blow is three: four strength against one defence, the same either way, and a counter is free. Whoever opens an exchange takes three from the counter and three more on the other side's turn, so four health would make every meeting one exchange long and hand it to whoever swung second: the rider who flew across and struck would be dead before its own second blow. Seven buys three exchanges instead of one, which is what lets flying across and striking be the move that wins rather than the move that loses."
+    }
+  ],
+  "weapons": [
+    {
+      "id": "training_sword",
+      "name": "Training Sword",
+      "weaponTypeId": "blade",
+      "power": 0,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "itemTypeId": "consumable",
+      "stackLimit": 5,
+      "kind": "restore",
+      "power": 2,
+      "notes": "Two back, drunk on the spot. A rider carries one and a picket leaves one, which is the whole of the demo's inventory: one thing to spend in a battle and one thing to win from it, so the campaign's store can be shown both going down and going up across a save."
+    }
+  ],
+  "factions": [
+    {
+      "id": "dawn_guard",
+      "name": "Dawn Guard"
+    },
+    {
+      "id": "river_watch",
+      "name": "River Watch"
+    }
+  ],
+  "abilities": [],
+  "unitTypes": [
+    {
+      "id": "dawn_guard_unit",
+      "name": "Dawn Guard",
+      "classId": "heron_rider",
+      "factionId": "dawn_guard",
+      "startingWeaponIds": ["training_sword"],
+      "startingItemIds": ["field_tonic"],
+      "experiencePerLevel": 50,
+      "growthRates": {
+        "health": 90,
+        "strength": 55,
+        "defense": 45,
+        "resistance": 20,
+        "movement": 10,
+        "actionPoints": 5
+      },
+      "notes": "A rider who survives the crossing has felled a picket, which is sixty experience against fifty a level, so the muster road is one level long. None of the six chances is a hundred, so every one of them is rolled: what the level gives is what the growth stream said, not what the author hoped."
+    },
+    {
+      "id": "river_watch_unit",
+      "name": "River Watch",
+      "classId": "guard",
+      "factionId": "river_watch",
+      "startingWeaponIds": ["training_sword"],
+      "experienceAward": 60,
+      "dropItemId": "field_tonic",
+      "dropChance": 60,
+      "notes": "A picket leaves its tonic three times in five. Sixty rather than a hundred on purpose: a certainty rolls nothing at all, and the point of the muster road is that the drop stream is really drawn from. What falls goes to the campaign's store when the battle ends, not into the rider's pack mid-fight."
+    }
+  ],
+  "maps": [
+    {
+      "id": "dawn_bridge",
+      "name": "Dawn Bridge",
+      "width": 6,
+      "height": 4,
+      "terrain": [
+        "forest",
+        "grass",
+        "water",
+        "water",
+        "mountain",
+        "mountain",
+        "grass",
+        "bridge",
+        "bridge",
+        "road",
+        "grass",
+        "mountain",
+        "grass",
+        "grass",
+        "water",
+        "water",
+        "grass",
+        "grass",
+        "forest",
+        "grass",
+        "grass",
+        "sand",
+        "sand",
+        "grass"
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Defeat all opponents"
+    }
+  ],
+  "dialogues": [],
+  "campaigns": [
+    {
+      "id": "demo_campaign",
+      "name": "The Bridge at Dawn",
+      "roster": [
+        {
+          "id": "dawn_guard_leader",
+          "name": "Corporal Isen",
+          "unitTypeId": "dawn_guard_unit"
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "bridge_encounter",
+        "nodes": [
+          {
+            "id": "bridge_encounter",
+            "name": "A Friendly Rivalry",
+            "kind": "encounter",
+            "mapId": "dawn_bridge",
+            "placements": [
+              {
+                "id": "dawn_guard_leader",
+                "memberId": "dawn_guard_leader",
+                "unitTypeId": "dawn_guard_unit",
+                "side": "first",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "river_watch_leader",
+                "unitTypeId": "river_watch_unit",
+                "side": "second",
+                "x": 2,
+                "y": 1
+              }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "transitions": [
+              {
+                "id": "finish_demo",
+                "targetNodeId": "demo_complete",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "demo_complete",
+            "name": "The Road Opens",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "muster_road",
+      "name": "The Muster Road",
+      "roster": [
+        {
+          "id": "muster_vanguard",
+          "name": "Vanguard Rilla",
+          "unitTypeId": "dawn_guard_unit"
+        },
+        {
+          "id": "muster_outrider",
+          "name": "Outrider Bevan",
+          "unitTypeId": "dawn_guard_unit"
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "river_skirmish",
+        "nodes": [
+          {
+            "id": "river_skirmish",
+            "name": "The Skirmish at the Crossing",
+            "kind": "encounter",
+            "mapId": "dawn_bridge",
+            "deployment": {
+              "id": "muster_west_bank",
+              "tiles": [
+                { "x": 0, "y": 0 },
+                { "x": 0, "y": 1 },
+                { "x": 0, "y": 2 },
+                { "x": 1, "y": 1 },
+                { "x": 1, "y": 2 },
+                { "x": 2, "y": 1 }
+              ]
+            },
+            "placements": [
+              {
+                "id": "muster_vanguard",
+                "memberId": "muster_vanguard",
+                "unitTypeId": "dawn_guard_unit",
+                "side": "first",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "muster_outrider",
+                "memberId": "muster_outrider",
+                "unitTypeId": "dawn_guard_unit",
+                "side": "first",
+                "x": 2,
+                "y": 1
+              },
+              {
+                "id": "muster_picket",
+                "unitTypeId": "river_watch_unit",
+                "side": "second",
+                "x": 3,
+                "y": 1
+              }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "recruits": [
+              {
+                "id": "muster_ferryman",
+                "name": "Torvald the Ferryman",
+                "unitTypeId": "dawn_guard_unit"
+              }
+            ],
+            "transitions": [
+              {
+                "id": "ride_on",
+                "targetNodeId": "road_watch",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "road_watch",
+            "name": "The Watch on the Road",
+            "kind": "encounter",
+            "mapId": "dawn_bridge",
+            "placements": [
+              {
+                "id": "muster_vanguard",
+                "memberId": "muster_vanguard",
+                "unitTypeId": "dawn_guard_unit",
+                "side": "first",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "muster_outrider",
+                "memberId": "muster_outrider",
+                "unitTypeId": "dawn_guard_unit",
+                "side": "first",
+                "x": 2,
+                "y": 1
+              },
+              {
+                "id": "muster_ferryman_post",
+                "memberId": "muster_ferryman",
+                "unitTypeId": "dawn_guard_unit",
+                "side": "first",
+                "x": 0,
+                "y": 2
+              },
+              {
+                "id": "muster_picket",
+                "unitTypeId": "river_watch_unit",
+                "side": "second",
+                "x": 3,
+                "y": 1
+              }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "transitions": [
+              {
+                "id": "muster_reached",
+                "targetNodeId": "muster_complete",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "muster_complete",
+            "name": "The Muster",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

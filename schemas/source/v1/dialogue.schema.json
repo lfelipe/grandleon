@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/dialogue.schema.json",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/stableId" },
+    "name": { "$ref": "common.schema.json#/$defs/displayName" },
+    "lines": {
+      "type": "array",
+      "maxItems": 4096,
+      "description": "Ordered lines. Array order is presentation order.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "speaker": { "type": "string", "minLength": 1, "maxLength": 160 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "required": ["speaker", "text"],
+        "additionalProperties": false
+      }
+    },
+    "cast": {
+      "type": "array",
+      "maxItems": 255,
+      "description": "Who each speaker in this scene actually is, stated once for the scene rather than repeated on every line. Each entry names a speaker string exactly as the lines spell it and the unit type whose character that speaker is, and a client that draws a face draws the same character the board draws for that unit type: the same style, the same figure, the same archetype and the same faction colour. It says nothing about the words: the speaker string stays exactly what it is, and a speaker called 'Evil Dragon' still reads 'Evil Dragon'. Presentation only: no rule reads it and it never enters the canonical state hash. A speaker no entry names, and a scene with no cast at all, is drawn the way each client drew a speaker before a scene could name one.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "speaker": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "description": "The speaker string this entry is about, matched against a line's own speaker exactly and case-sensitively. Spell it the way the lines spell it."
+          },
+          "unitTypeId": {
+            "$ref": "common.schema.json#/$defs/stableId",
+            "description": "The unit type whose character this speaker is. A reference into this project's unitTypes."
+          }
+        },
+        "required": ["speaker", "unitTypeId"],
+        "additionalProperties": false
+      }
+    },
+    "backgroundId": {
+      "type": "string",
+      "enum": ["throne_hall", "night_camp", "deep_wood", "mountain_dusk", "open_sea", "star_field", "crypt"],
+      "description": "What this scene is drawn against, chosen from the backdrops the art library provides. A backdrop is a run of flat horizontal bands rather than a picture, so it costs no client a texture; a client with too few colours for the bands draws the one colour the backdrop names as its wash. It belongs to the scene rather than to the story node, so a cutscene that moves from the hall to the wall names two. Presentation only: no rule reads it and it never enters the canonical state hash. Omit it and the scene is drawn on the flat fill each client already used, which is what a scene looked like before backdrops existed."
+    },
+    "scriptBindings": { "$ref": "common.schema.json#/$defs/scriptBindings" },
+    "notes": { "$ref": "common.schema.json#/$defs/notes" },
+    "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+  },
+  "required": ["id", "name"],
+  "additionalProperties": false
+}

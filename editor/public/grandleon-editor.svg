@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img"
+  aria-labelledby="title">
+  <title id="title">Grandleon Editor</title>
+  <rect width="128" height="128" rx="20" fill="#172033"/>
+  <path d="M25 27h78v18H43v38h42V69H61V53h42v48H25z" fill="#f2c14e"/>
+</svg>

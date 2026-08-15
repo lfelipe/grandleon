@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "9f3c6a80-45de-4b71-8c0a-1d62b7e594af",
+  "gameId": "typed.demo",
+  "title": "Missing Drop Item",
+  "contentRevision": "1.0.0",
+  "weaponTypes": [],
+  "itemTypes": [],
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "soldier",
+      "name": "Soldier",
+      "classId": "vanguard",
+      "dropItemId": "tonic",
+      "dropChance": 60
+    }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": []
+}

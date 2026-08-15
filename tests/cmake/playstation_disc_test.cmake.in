@@ -1,0 +1,40 @@
+# Builds the PlayStation campaign executable in the pinned Nugget container,
+# writes it onto a disc image with the pinned mkpsxiso, and boots that disc in
+# the pinned PCSX-Redux through the drive, not through `-loadexe`. The three
+# scripts read their pins from the environment, which is what the block below
+# sets.
+
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_IMAGE} "@GRANDLEON_PCSX_REDUX_BUILD_IMAGE@")
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_DIGEST} "@GRANDLEON_PCSX_REDUX_BUILD_DIGEST@")
+set(ENV{GRANDLEON_NUGGET_REVISION} "@GRANDLEON_NUGGET_REVISION@")
+set(ENV{GRANDLEON_MKPSXISO_REVISION} "@GRANDLEON_MKPSXISO_REVISION@")
+set(ENV{GRANDLEON_PCSX_REDUX_REVISION} "@GRANDLEON_PCSX_REDUX_REVISION@")
+set(ENV{GRANDLEON_DOCKER} "@GRANDLEON_DOCKER@")
+set(ENV{GRANDLEON_PLAYSTATION_BUILD_DIR} "@GRANDLEON_PLAYSTATION_BUILD_DIR@")
+
+execute_process(
+    COMMAND "@PROJECT_SOURCE_DIR@/platform/playstation/scripts/build-playstation.sh"
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE build_result
+)
+if(NOT build_result EQUAL 0)
+    message(FATAL_ERROR "PlayStation build failed")
+endif()
+
+execute_process(
+    COMMAND "@PROJECT_SOURCE_DIR@/platform/playstation/scripts/build-disc.sh"
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE disc_result
+)
+if(NOT disc_result EQUAL 0)
+    message(FATAL_ERROR "the PlayStation disc image was not written")
+endif()
+
+execute_process(
+    COMMAND "@PROJECT_SOURCE_DIR@/platform/playstation/scripts/run-playstation-disc.sh"
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE run_result
+)
+if(NOT run_result EQUAL 0)
+    message(FATAL_ERROR "the PlayStation did not boot its own disc")
+endif()

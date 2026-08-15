@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "5f2a83b1-6c47-4d92-b0e5-8137a4c9d260",
+  "gameId": "grandleon.unit.growth",
+  "title": "Grandleon Unit Growth",
+  "contentRevision": "0.1.0",
+  "notes": "Three unit types, three ways of saying how a character grows. The recruit authors every chance and a level that costs less than a hundred. The veteran authors a partial block: the stats it does not name never roll and never grow, which is a different statement from naming them at zero. The conscript authors nothing at all, which is what every unit type written before growth existed says — worth nothing to defeat, a hundred experience a level, and growing no stat ever. The quarry is the other half: something worth defeating, which is the only way any of the above is ever reached.",
+  "classes": [
+    {
+      "id": "footman",
+      "name": "Footman",
+      "baseStats": {
+        "health": 18,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "recruit",
+      "name": "Recruit",
+      "classId": "footman",
+      "startingWeaponIds": ["sword"],
+      "experienceAward": 10,
+      "experiencePerLevel": 40,
+      "growthRates": {
+        "health": 100,
+        "strength": 65,
+        "defense": 45,
+        "resistance": 30,
+        "movement": 10,
+        "actionPoints": 0
+      }
+    },
+    {
+      "id": "veteran",
+      "name": "Veteran",
+      "classId": "footman",
+      "startingWeaponIds": ["sword"],
+      "experiencePerLevel": 120,
+      "growthRates": {
+        "health": 55,
+        "strength": 25
+      }
+    },
+    {
+      "id": "conscript",
+      "name": "Conscript",
+      "classId": "footman",
+      "startingWeaponIds": ["sword"]
+    },
+    {
+      "id": "quarry",
+      "name": "Quarry",
+      "classId": "footman",
+      "startingWeaponIds": ["sword"],
+      "experienceAward": 60
+    }
+  ],
+  "weapons": [
+    {
+      "id": "sword",
+      "name": "Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "muster_field",
+      "name": "Muster Field",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "b1d3f6c8-0f1a-4a2e-9a41-6c9f0f5a7c21",
+  "gameId": "campaign.roster",
+  "title": "Campaign Roster",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": { "health": 12, "movement": 4, "strength": 4, "defense": 2 }
+    },
+    {
+      "id": "mender",
+      "name": "Mender",
+      "baseStats": { "health": 8, "movement": 4, "strength": 1, "defense": 1 }
+    }
+  ],
+  "unitTypes": [
+    { "id": "guardian", "name": "Guardian", "classId": "fighter" },
+    { "id": "healer", "name": "Healer", "classId": "mender" },
+    { "id": "raider", "name": "Raider", "classId": "fighter" }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": [
+    {
+      "id": "ford",
+      "name": "Ford",
+      "width": 3,
+      "height": 3,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "muster_road",
+      "name": "The Muster Road",
+      "roster": [
+        {
+          "id": "muster_vanguard",
+          "name": "Vanguard Rilla",
+          "unitTypeId": "guardian"
+        },
+        {
+          "id": "muster_outrider",
+          "name": "Outrider Bevan",
+          "unitTypeId": "guardian",
+          "notes": "Rides ahead, and is the same rider on every board."
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "river_skirmish",
+        "nodes": [
+          {
+            "id": "river_skirmish",
+            "name": "River Skirmish",
+            "kind": "encounter",
+            "mapId": "ford",
+            "placements": [
+              {
+                "id": "vanguard_at_ford",
+                "memberId": "muster_vanguard",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "outrider_at_ford",
+                "memberId": "muster_outrider",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 1,
+                "y": 0
+              },
+              {
+                "id": "river_raider",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 2,
+                "y": 2
+              }
+            ],
+            "recruits": [
+              {
+                "id": "muster_ferryman",
+                "name": "Torvald the Ferryman",
+                "unitTypeId": "healer"
+              }
+            ],
+            "transitions": [
+              { "id": "cross", "targetNodeId": "hill_road", "priority": 0 }
+            ]
+          },
+          {
+            "id": "hill_road",
+            "name": "Hill Road",
+            "kind": "encounter",
+            "mapId": "ford",
+            "placements": [
+              {
+                "id": "vanguard_on_road",
+                "memberId": "muster_vanguard",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "ferryman_on_road",
+                "memberId": "muster_ferryman",
+                "unitTypeId": "healer",
+                "side": "first",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "road_raider",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 2,
+                "y": 2
+              }
+            ],
+            "transitions": [
+              { "id": "arrive", "targetNodeId": "watch", "priority": 0 }
+            ]
+          },
+          {
+            "id": "watch",
+            "name": "The Watch",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

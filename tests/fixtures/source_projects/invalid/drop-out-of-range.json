@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "4a80d3f6-19bc-4e02-a7d5-6c31be92f708",
+  "gameId": "typed.demo",
+  "title": "Drop Out Of Range",
+  "contentRevision": "1.0.0",
+  "notes": "A drop chance is a whole percentage the roll divides by, so anything outside [1, 100] is an author meaning something the rules cannot express. A hundred and one would read as certainty and a nought as impossibility, and neither would say so.",
+  "weaponTypes": [],
+  "itemTypes": [
+    {
+      "id": "consumable",
+      "name": "Consumable"
+    }
+  ],
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "sentry",
+      "name": "Sentry",
+      "classId": "vanguard",
+      "dropItemId": "field_tonic",
+      "dropChance": 101
+    },
+    {
+      "id": "runner",
+      "name": "Runner",
+      "classId": "vanguard",
+      "dropItemId": "field_tonic",
+      "dropChance": 0
+    }
+  ],
+  "weapons": [],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "itemTypeId": "consumable",
+      "stackLimit": 5,
+      "kind": "restore",
+      "power": 4
+    }
+  ],
+  "maps": []
+}

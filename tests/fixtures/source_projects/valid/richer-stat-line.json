@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "7b41c0d5-2e86-4a37-9f14-6d20b8e5a913",
+  "gameId": "grandleon.richer.stats",
+  "title": "Grandleon Richer Stat Line",
+  "contentRevision": "0.1.0",
+  "notes": "Four classes, four things an author can say with the stats that decide whether a blow lands. The duellist is precise and evasive: five points of skill carry the bow's ninety to ninety-five in its hands, and four of evasion take four off anything swung at it. The fortunate authors luck alone, which is the one stat that helps whichever half of a fight its owner is in — it adds to the strikes they make and subtracts from the strikes made at them. The adept authors magic, which reaches the board only through a magical cast: max(1, magic + power - resistance). The plain authors none of the four, and that is the point of it being here — at zero every number is the number it was before these stats existed, so a class written against the old schema is not a class that plays differently. The adept's growth block names all ten stats in the one order a level-up rolls them, with the four new ones appended at the end where the roll order puts them.",
+  "classes": [
+    {
+      "id": "duellist",
+      "name": "Duellist",
+      "baseStats": {
+        "health": 16,
+        "movement": 4,
+        "strength": 5,
+        "defense": 3,
+        "skill": 5,
+        "evasion": 4
+      }
+    },
+    {
+      "id": "fortunate",
+      "name": "Fortunate",
+      "baseStats": {
+        "health": 15,
+        "movement": 4,
+        "strength": 4,
+        "defense": 3,
+        "luck": 6
+      }
+    },
+    {
+      "id": "adept",
+      "name": "Adept",
+      "baseStats": {
+        "health": 12,
+        "movement": 3,
+        "strength": 3,
+        "defense": 1,
+        "resistance": 4,
+        "magic": 7
+      }
+    },
+    {
+      "id": "plain",
+      "name": "Plain",
+      "baseStats": {
+        "health": 14,
+        "movement": 3,
+        "strength": 4,
+        "defense": 2
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "duellist_unit",
+      "name": "Duellist",
+      "classId": "duellist",
+      "startingWeaponIds": ["long_bow"]
+    },
+    {
+      "id": "fortunate_unit",
+      "name": "Fortunate",
+      "classId": "fortunate",
+      "startingWeaponIds": ["long_bow"]
+    },
+    {
+      "id": "adept_unit",
+      "name": "Adept",
+      "classId": "adept",
+      "startingWeaponIds": ["long_bow"],
+      "abilityIds": ["ember"],
+      "experienceAward": 20,
+      "experiencePerLevel": 50,
+      "growthRates": {
+        "health": 70,
+        "strength": 20,
+        "defense": 25,
+        "resistance": 40,
+        "movement": 10,
+        "actionPoints": 0,
+        "skill": 45,
+        "luck": 30,
+        "evasion": 35,
+        "magic": 60
+      }
+    },
+    {
+      "id": "plain_unit",
+      "name": "Plain",
+      "classId": "plain",
+      "startingWeaponIds": ["long_bow"]
+    }
+  ],
+  "abilities": [
+    {
+      "id": "ember",
+      "name": "Ember",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "single",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 2
+    }
+  ],
+  "weapons": [
+    {
+      "id": "long_bow",
+      "name": "Long Bow",
+      "power": 2,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 90
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "practice_yard",
+      "name": "Practice Yard",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ]
+}

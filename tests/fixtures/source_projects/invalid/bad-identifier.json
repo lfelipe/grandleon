@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "3f38d330-5688-4a44-a17a-3369632a4545",
+  "gameId": "grandleon.demo",
+  "title": "Invalid Identifier",
+  "contentRevision": "0.1.0",
+  "classes": [
+    {
+      "id": "Invalid ID",
+      "name": "Invalid",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [],
+  "weapons": [],
+  "items": [],
+  "maps": []
+}

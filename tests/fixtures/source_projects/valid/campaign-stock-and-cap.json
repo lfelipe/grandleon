@@ -1,0 +1,269 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "7a4c1e90-2b6d-4f18-9d55-0e3a8c7b41f2",
+  "gameId": "campaign.stock",
+  "title": "Campaign Stock and Cap",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": {
+        "health": 12,
+        "movement": 4,
+        "strength": 4,
+        "defense": 2
+      }
+    },
+    {
+      "id": "mender",
+      "name": "Mender",
+      "baseStats": {
+        "health": 8,
+        "movement": 4,
+        "strength": 1,
+        "defense": 1
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter"
+    },
+    {
+      "id": "healer",
+      "name": "Healer",
+      "classId": "mender"
+    },
+    {
+      "id": "raider",
+      "name": "Raider",
+      "classId": "fighter"
+    }
+  ],
+  "weapons": [],
+  "itemTypes": [
+    {
+      "id": "supply",
+      "name": "Supply"
+    }
+  ],
+  "items": [
+    {
+      "id": "bandage",
+      "name": "Bandage",
+      "itemTypeId": "supply",
+      "stackLimit": 9,
+      "kind": "restore",
+      "power": 6
+    },
+    {
+      "id": "torch",
+      "name": "Torch",
+      "itemTypeId": "supply",
+      "stackLimit": 3
+    }
+  ],
+  "maps": [
+    {
+      "id": "ford",
+      "name": "Ford",
+      "width": 3,
+      "height": 3,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "muster_road",
+      "name": "The Muster Road",
+      "roster": [
+        {
+          "id": "muster_vanguard",
+          "name": "Vanguard Rilla",
+          "unitTypeId": "guardian"
+        },
+        {
+          "id": "muster_outrider",
+          "name": "Outrider Bevan",
+          "unitTypeId": "guardian"
+        },
+        {
+          "id": "muster_mender",
+          "name": "Kel the Mender",
+          "unitTypeId": "healer"
+        }
+      ],
+      "startingStore": [
+        {
+          "itemId": "bandage",
+          "quantity": 2,
+          "notes": "What the company was founded with, in the store rather than anybody's hands."
+        },
+        {
+          "itemId": "torch",
+          "quantity": 1
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "muster",
+        "nodes": [
+          {
+            "id": "muster",
+            "name": "The Muster",
+            "kind": "story",
+            "grants": [
+              {
+                "itemId": "bandage",
+                "quantity": 3
+              }
+            ],
+            "transitions": [
+              {
+                "id": "march",
+                "targetNodeId": "river_crossing",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "river_crossing",
+            "name": "River Crossing",
+            "kind": "encounter",
+            "mapId": "ford",
+            "deployment": {
+              "id": "west_bank",
+              "tiles": [
+                {
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "x": 1,
+                  "y": 0
+                },
+                {
+                  "x": 0,
+                  "y": 1
+                }
+              ],
+              "capacity": 2
+            },
+            "placements": [
+              {
+                "id": "vanguard_at_ford",
+                "memberId": "muster_vanguard",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "outrider_at_ford",
+                "memberId": "muster_outrider",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 1,
+                "y": 0
+              },
+              {
+                "id": "mender_at_ford",
+                "memberId": "muster_mender",
+                "unitTypeId": "healer",
+                "side": "first",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "river_raider",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 2,
+                "y": 2
+              }
+            ],
+            "grants": [
+              {
+                "itemId": "torch",
+                "quantity": 1
+              },
+              {
+                "itemId": "bandage",
+                "quantity": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "cross",
+                "targetNodeId": "night_watch",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "night_watch",
+            "name": "Night Watch",
+            "kind": "encounter",
+            "mapId": "ford",
+            "deployment": {
+              "id": "picket_line",
+              "capacity": 1,
+              "notes": "A cap and no region: one of the two is enough to state."
+            },
+            "placements": [
+              {
+                "id": "vanguard_on_watch",
+                "memberId": "muster_vanguard",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "mender_on_watch",
+                "memberId": "muster_mender",
+                "unitTypeId": "healer",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "watch_raider",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 2,
+                "y": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "hold",
+                "targetNodeId": "dawn",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "dawn",
+            "name": "Dawn",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

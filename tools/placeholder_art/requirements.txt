@@ -1,0 +1,4 @@
+# Pinned so a regenerated library stays byte-identical: Pillow performs the box
+# filter the legibility reduction downscales with, and a resampling change
+# would move what that pass measures.
+Pillow==12.1.1

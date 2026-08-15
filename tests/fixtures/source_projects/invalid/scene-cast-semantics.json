@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "0e5d9a71-6b34-4c28-9d10-5a2f7e8c3b64",
+  "gameId": "grandleon.scene.cast.invalid",
+  "title": "Grandleon Scene Cast Semantics",
+  "contentRevision": "0.1.0",
+  "notes": "One scene making every mistake a cast can make that JSON Schema cannot see: a unit type nothing declares, one speaker answered twice, and an entry that speaks no line — which is what renaming a speaker leaves behind.",
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_soldier",
+      "name": "Demo Soldier",
+      "classId": "vanguard",
+      "startingWeaponIds": ["training_sword"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "training_sword",
+      "name": "Training Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "stackLimit": 5
+    }
+  ],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "before_the_gate",
+      "name": "Before the Gate",
+      "cast": [
+        { "speaker": "Halvard", "unitTypeId": "demo_soldier" },
+        { "speaker": "Halvard", "unitTypeId": "demo_soldier" },
+        { "speaker": "Briar", "unitTypeId": "nobody_declares_this" }
+      ],
+      "lines": [
+        { "speaker": "Halvard", "text": "The gate is barred from the inside." }
+      ]
+    }
+  ]
+}

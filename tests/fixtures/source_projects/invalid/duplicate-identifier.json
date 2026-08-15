@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "3f38d330-5688-4a44-a17a-3369632a4545",
+  "gameId": "grandleon.demo",
+  "title": "Duplicate Identifier",
+  "contentRevision": "0.1.0",
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "First Vanguard",
+      "baseStats": { "health": 20, "movement": 5, "strength": 7, "defense": 6 }
+    },
+    {
+      "id": "vanguard",
+      "name": "Second Vanguard",
+      "baseStats": { "health": 21, "movement": 4, "strength": 6, "defense": 7 }
+    }
+  ],
+  "unitTypes": [],
+  "weapons": [],
+  "items": [],
+  "maps": []
+}

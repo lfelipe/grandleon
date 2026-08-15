@@ -1,0 +1,972 @@
+{
+  "accessors": [
+    {
+      "bufferView": 0,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        16.0,
+        8.0,
+        9.0
+      ],
+      "min": [
+        -16.0,
+        0.0,
+        -9.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 0,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 288,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        14.0,
+        50.0,
+        8.0
+      ],
+      "min": [
+        -14.0,
+        7.0,
+        -8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 288,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 72,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 576,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        5.0,
+        50.0,
+        10.0
+      ],
+      "min": [
+        -5.0,
+        7.0,
+        8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 576,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 144,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 864,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        11.0,
+        82.0,
+        7.0
+      ],
+      "min": [
+        -11.0,
+        48.0,
+        -7.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 864,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 216,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 1152,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        20.0,
+        112.0,
+        6.0
+      ],
+      "min": [
+        15.0,
+        14.0,
+        2.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 1152,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 288,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 1440,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        5.0,
+        82.0,
+        9.0
+      ],
+      "min": [
+        -5.0,
+        48.0,
+        7.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 1440,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 360,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 1728,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -11.0,
+        84.0,
+        6.0
+      ],
+      "min": [
+        -15.0,
+        56.0,
+        -6.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 1728,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 432,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2016,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        15.0,
+        84.0,
+        7.0
+      ],
+      "min": [
+        11.0,
+        56.0,
+        -5.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2016,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 504,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2304,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        13.0,
+        92.0,
+        8.0
+      ],
+      "min": [
+        -13.0,
+        82.0,
+        -2.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2304,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 576,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2592,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        6.0,
+        108.0,
+        6.0
+      ],
+      "min": [
+        -6.0,
+        92.0,
+        -6.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2592,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 648,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2880,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        7.0,
+        118.0,
+        5.0
+      ],
+      "min": [
+        -7.0,
+        102.0,
+        -7.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2880,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 720,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 3168,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        27.0,
+        121.0,
+        6.0
+      ],
+      "min": [
+        8.0,
+        112.0,
+        2.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 3168,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 792,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 3456,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        20.0,
+        121.0,
+        14.0
+      ],
+      "min": [
+        15.0,
+        112.0,
+        -6.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 3456,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 864,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 3744,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        20.0,
+        128.0,
+        6.0
+      ],
+      "min": [
+        15.0,
+        119.0,
+        2.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 3744,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 936,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "generator": "Grandleon placeholder art generator",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 4032,
+      "byteOffset": 0,
+      "byteStride": 12,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4032,
+      "byteOffset": 4032,
+      "byteStride": 12,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1008,
+      "byteOffset": 8064,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 9072,
+      "uri": "healer.bin"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 0
+      },
+      "name": "neutral_ramp_rung_0",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.005182,
+          0.005182,
+          0.009134,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "name": "neutral_ramp_rung_1",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.262251,
+          0.147027,
+          0.05448,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "name": "neutral_ramp_rung_2",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.863157,
+          0.564712,
+          0.376262,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "name": "neutral_ramp_rung_3",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.930111,
+          0.930111,
+          0.930111,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "name": "faction_ramp_rung_3",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.084376,
+          0.376262,
+          0.730461,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "00_hem_shadow",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0
+          },
+          "indices": 2,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "01_robe_hem",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 4,
+            "POSITION": 3
+          },
+          "indices": 5,
+          "material": 3,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "02_stole_skirt",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 7,
+            "POSITION": 6
+          },
+          "indices": 8,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "03_robe_body",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 10,
+            "POSITION": 9
+          },
+          "indices": 11,
+          "material": 3,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "04_staff",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 13,
+            "POSITION": 12
+          },
+          "indices": 14,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "05_stole_chest",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 16,
+            "POSITION": 15
+          },
+          "indices": 17,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "06_left_sleeve",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 19,
+            "POSITION": 18
+          },
+          "indices": 20,
+          "material": 3,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "07_right_sleeve",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 22,
+            "POSITION": 21
+          },
+          "indices": 23,
+          "material": 3,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "08_mantle",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 25,
+            "POSITION": 24
+          },
+          "indices": 26,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "09_head",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 28,
+            "POSITION": 27
+          },
+          "indices": 29,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "10_wimple",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 31,
+            "POSITION": 30
+          },
+          "indices": 32,
+          "material": 3,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "11_cross_arms",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 34,
+            "POSITION": 33
+          },
+          "indices": 35,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "12_cross_stem",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 37,
+            "POSITION": 36
+          },
+          "indices": 38,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "13_cross_head",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 40,
+            "POSITION": 39
+          },
+          "indices": 41,
+          "material": 3,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "extras": {
+        "archetype": "healer",
+        "axes": "figure space is x right, y up, z away and is left-handed; glTF is y up, right-handed, -z forward, so z is negated and nothing else is",
+        "bakedFaction": "blue",
+        "partCount": 14,
+        "partOrder": "authored far-to-near at the shipped pitch; node order and the index prefix on every node name both carry it",
+        "pitchDegrees": 60,
+        "rampFaction": 1,
+        "rampNeutral": 0,
+        "rungCount": 4,
+        "silhouetteArea": 447,
+        "silhouetteHeight": 31,
+        "silhouetteWidth": 20,
+        "style": "medieval",
+        "triangleCount": 168,
+        "unitWorld": 64,
+        "worldHeight": 128
+      },
+      "name": "healer",
+      "scale": [
+        0.015625,
+        0.015625,
+        0.015625
+      ]
+    },
+    {
+      "extras": {
+        "part": 0,
+        "partName": "hem shadow",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 0
+      },
+      "mesh": 0,
+      "name": "00_hem_shadow"
+    },
+    {
+      "extras": {
+        "part": 1,
+        "partName": "robe, hem",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 1,
+      "name": "01_robe_hem"
+    },
+    {
+      "extras": {
+        "part": 2,
+        "partName": "stole, skirt",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 2,
+      "name": "02_stole_skirt"
+    },
+    {
+      "extras": {
+        "part": 3,
+        "partName": "robe, body",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 3,
+      "name": "03_robe_body"
+    },
+    {
+      "extras": {
+        "part": 4,
+        "partName": "staff",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 4,
+      "name": "04_staff"
+    },
+    {
+      "extras": {
+        "part": 5,
+        "partName": "stole, chest",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 5,
+      "name": "05_stole_chest"
+    },
+    {
+      "extras": {
+        "part": 6,
+        "partName": "left sleeve",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 6,
+      "name": "06_left_sleeve"
+    },
+    {
+      "extras": {
+        "part": 7,
+        "partName": "right sleeve",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 7,
+      "name": "07_right_sleeve"
+    },
+    {
+      "extras": {
+        "part": 8,
+        "partName": "mantle",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 8,
+      "name": "08_mantle"
+    },
+    {
+      "extras": {
+        "part": 9,
+        "partName": "head",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 9,
+      "name": "09_head"
+    },
+    {
+      "extras": {
+        "part": 10,
+        "partName": "wimple",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 10,
+      "name": "10_wimple"
+    },
+    {
+      "extras": {
+        "part": 11,
+        "partName": "cross, arms",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 11,
+      "name": "11_cross_arms"
+    },
+    {
+      "extras": {
+        "part": 12,
+        "partName": "cross, stem",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 12,
+      "name": "12_cross_stem"
+    },
+    {
+      "extras": {
+        "part": 13,
+        "partName": "cross, head",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 13,
+      "name": "13_cross_head"
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "healer",
+      "nodes": [
+        0
+      ]
+    }
+  ]
+}

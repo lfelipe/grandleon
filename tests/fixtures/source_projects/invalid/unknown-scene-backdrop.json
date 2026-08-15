@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "3f0a8b16-5c2d-4e79-b1a4-7d6e0c93f251",
+  "gameId": "grandleon.unknown.backdrop",
+  "title": "Grandleon Unknown Scene Backdrop",
+  "contentRevision": "0.1.0",
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_soldier",
+      "name": "Demo Soldier",
+      "classId": "vanguard",
+      "startingWeaponIds": ["training_sword"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "training_sword",
+      "name": "Training Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "stackLimit": 5
+    }
+  ],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "in_the_observatory",
+      "name": "In the Observatory",
+      "backgroundId": "observatory",
+      "lines": [
+        { "speaker": "Warden", "text": "A backdrop the library does not hold." }
+      ]
+    }
+  ]
+}

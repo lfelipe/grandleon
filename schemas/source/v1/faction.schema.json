@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/faction.schema.json",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/stableId" },
+    "name": { "$ref": "common.schema.json#/$defs/displayName" },
+    "color": {
+      "type": "string",
+      "enum": ["blue", "red", "green", "violet", "amber", "bone"],
+      "description": "The colour this faction's characters wear on every board and in every ROM. Omit it and the faction takes the menu colour matching its position in the faction list."
+    },
+    "notes": { "$ref": "common.schema.json#/$defs/notes" },
+    "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+  },
+  "required": ["id", "name"],
+  "additionalProperties": false
+}

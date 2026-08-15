@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "9ec9ff7e-7544-4d8f-99e7-61a28c62dde8",
+  "gameId": "registry.demo",
+  "title": "Authoring Registry Demo",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "hero",
+      "name": "Hero",
+      "baseStats": {
+        "health": 10,
+        "movement": 4,
+        "strength": 3,
+        "defense": 2
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "protagonist",
+      "name": "Protagonist",
+      "classId": "hero",
+      "factionId": "allies",
+      "abilityIds": [
+        "rally"
+      ]
+    }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": [],
+  "factions": [
+    {
+      "id": "allies",
+      "name": "Allies"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "rally",
+      "name": "Rally",
+      "kind": "damage",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1
+    }
+  ],
+  "objectives": [
+    {
+      "id": "survive",
+      "name": "Survive"
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "opening",
+      "name": "Opening"
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "demo_campaign",
+      "name": "Demo Campaign",
+      "roster": [
+        {
+          "id": "lead",
+          "name": "The Protagonist",
+          "unitTypeId": "protagonist"
+        }
+      ],
+      "objectiveIds": [
+        "survive"
+      ],
+      "dialogueIds": [
+        "opening"
+      ]
+    }
+  ]
+}

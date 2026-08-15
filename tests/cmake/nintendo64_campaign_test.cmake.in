@@ -1,0 +1,29 @@
+# Builds the Nintendo 64 ROMs in the pinned libdragon container and proves the
+# kept campaign survives the power switch: two ares processes over one
+# cartridge, the first founding and saving, the second resuming and checking
+# what it found against what the host derived. The only claim in this
+# repository that a host cannot make.
+#
+# Through `check-n64.sh`, which is where a check gets defined: here, the
+# two-boot harness and its 75-second linger. So this lane and
+# `grandleon_n64_campaign_check` cannot come to mean different things.
+
+set(ENV{GRANDLEON_LIBDRAGON_BASE_IMAGE} "@GRANDLEON_LIBDRAGON_BASE_IMAGE@")
+set(ENV{GRANDLEON_LIBDRAGON_BASE_DIGEST} "@GRANDLEON_LIBDRAGON_BASE_DIGEST@")
+set(ENV{GRANDLEON_LIBDRAGON_COMMIT} "@GRANDLEON_LIBDRAGON_COMMIT@")
+set(ENV{GRANDLEON_DOCKER} "@GRANDLEON_DOCKER@")
+set(ENV{GRANDLEON_N64_BUILD_DIR} "@GRANDLEON_N64_BUILD_DIR@")
+
+execute_process(
+    COMMAND
+        "@PROJECT_SOURCE_DIR@/platform/nintendo64/scripts/check-n64.sh"
+        --check campaign
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE run_result
+)
+if(NOT run_result EQUAL 0)
+    message(
+        FATAL_ERROR
+        "the Nintendo 64 campaign did not survive a restarted emulator"
+    )
+endif()

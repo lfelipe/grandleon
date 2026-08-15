@@ -1,0 +1,762 @@
+:root {
+  color: #192238;
+  background: #eef1f7;
+  font: 16px/1.5 Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.visually-hidden {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0 0 0 0);
+}
+
+a {
+  color: #254f9b;
+}
+
+.skip-link {
+  background: white;
+  left: 1rem;
+  padding: 0.75rem;
+  position: fixed;
+  top: -5rem;
+  z-index: 2;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+.app-header {
+  align-items: center;
+  background: #172033;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.project-status {
+  margin: 0 0 0.5rem;
+  text-align: right;
+}
+
+.project-commands {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.project-commands button {
+  background: #f2c14e;
+  color: #172033;
+}
+
+.project-commands button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) 1fr;
+  min-height: calc(100vh - 7rem);
+}
+
+/* The rail belongs to an open game. On the way in there is none, and the
+   screen that asks what to make gets the whole width rather than the column
+   the rail would have stood in. */
+.app-layout.without-rail {
+  grid-template-columns: 1fr;
+}
+
+.project-nav {
+  background: white;
+  border-right: 1px solid #cbd2e0;
+  padding: 2rem;
+}
+
+.project-nav ul {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+}
+
+.project-nav [aria-current="page"] {
+  font-weight: 700;
+}
+
+main {
+  padding: 3rem;
+}
+
+section {
+  background: white;
+  border: 1px solid #cbd2e0;
+  border-radius: 0.5rem;
+  max-width: 48rem;
+  padding: 2rem;
+}
+
+section + section {
+  margin-top: 1.5rem;
+}
+
+.diagnostic-heading {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.diagnostic-heading [role="status"] {
+  font-weight: 700;
+}
+
+.diagnostic-list {
+  display: grid;
+  gap: 0.75rem;
+  padding-left: 1.5rem;
+}
+
+.diagnostic-list li {
+  align-items: center;
+  border-left: 0.25rem solid #a20d21;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.diagnostic-list button {
+  justify-self: start;
+}
+
+.diagnostic-severity {
+  color: #8d0b1d;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 28rem;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+}
+
+/*
+ * A checkbox and the words naming it are one control, so they stand on one
+ * line, unlike every other field, which stacks its label above its input.
+ *
+ * The rule is here rather than in a component because three forms draw one:
+ * the schema-driven record form, the game settings page and the placement
+ * editor. Scoped to any of them, the other two inherit the 0.65rem padding
+ * above instead, which draws a box the size of a text field with a tick lost
+ * in the middle of it and the words floating clear of the thing they name.
+ */
+.boolean-field {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.boolean-field input[type="checkbox"] {
+  flex: none;
+  margin: 0;
+  padding: 0;
+}
+
+button {
+  background: #254f9b;
+  border: 0;
+  border-radius: 0.25rem;
+  color: white;
+  cursor: pointer;
+}
+
+.save-status {
+  min-height: 1.5rem;
+  margin-top: 1rem;
+}
+
+.content-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(9rem, 0.7fr) minmax(12rem, 1fr) minmax(18rem, 2fr);
+  margin-top: 1.5rem;
+}
+
+/* A section owning one collection draws no category strip, so the record list
+   and the editor take the width it would have had. The editor column is what
+   holds the map grid and the whole campaign flow surface, and it was the
+   narrowest of the three. */
+.content-layout.one-collection {
+  grid-template-columns: minmax(12rem, 1fr) minmax(18rem, 3fr);
+}
+
+.content-categories {
+  display: grid;
+  gap: 0.4rem;
+  /* The strip is as tall as its entries, not as tall as the record editor
+     beside it. Without this the implicit rows stretch to fill the column and
+     four categories are drawn as four full-height blue slabs. */
+  align-content: start;
+}
+
+.content-categories button,
+.record-list button {
+  background: #e8edf7;
+  color: #172033;
+  text-align: left;
+}
+
+.content-categories button {
+  display: flex;
+  justify-content: space-between;
+}
+
+.content-categories [aria-current],
+.record-list [aria-current] {
+  background: #254f9b;
+  color: white;
+}
+
+.record-list ul {
+  display: grid;
+  gap: 0.35rem;
+  list-style: none;
+  max-height: 30rem;
+  overflow: auto;
+  padding: 0;
+}
+
+.record-list li button {
+  display: grid;
+  width: 100%;
+}
+
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.schema-form,
+.schema-field,
+.field-group {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.advanced-fields {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed #b6c0d4;
+  border-radius: 0.5rem;
+}
+
+.advanced-fields summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* The record columns behind a door, drawn the same way the field fold above is
+   so that "Advanced" means one thing everywhere in the editor. */
+.records-fold {
+  margin-top: 1.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed #b6c0d4;
+  border-radius: 0.5rem;
+}
+
+.records-fold > summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* The margin belongs to the fold when there is one; two would stack. */
+.records-fold .content-layout {
+  margin-top: 0.75rem;
+}
+
+.schema-form {
+  max-width: none;
+}
+
+.schema-field fieldset {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.reference-choices {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.reference-choices label {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: auto 1fr;
+}
+
+.reference-choices small {
+  grid-column: 2;
+}
+
+.reference-choices .incompatible {
+  opacity: 0.7;
+}
+
+.field-help {
+  color: #4b566d;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.field-error {
+  color: #8d0b1d;
+  margin: 0;
+}
+
+.secondary {
+  background: #e8edf7;
+  color: #172033;
+  justify-self: start;
+}
+
+.history-commands {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.danger {
+  background: #a20d21;
+  margin-top: 1rem;
+}
+
+.campaign-flow {
+  background: #f7f9fd;
+  margin-top: 1.5rem;
+  padding: 1rem;
+}
+
+.map-editor {
+  background: #f7f9fd;
+  margin-top: 1.5rem;
+  padding: 1rem;
+}
+
+.terrain-palette {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.terrain-palette button {
+  align-items: center;
+  background: #e8edf7;
+  color: #172033;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.terrain-palette button[aria-pressed="true"] {
+  box-shadow: 0 0 0 0.2rem #254f9b;
+}
+
+.terrain-palette button span {
+  background: var(--terrain-color);
+  border: 1px solid #596274;
+  display: inline-block;
+  height: 1rem;
+  width: 1rem;
+}
+
+.terrain-palette label {
+  flex-basis: 100%;
+}
+
+/* The lid takes the whole width under the brushes, so inventing one reads as a
+   thing you go and do rather than as a fifteenth brush. */
+.invent-terrain {
+  flex-basis: 100%;
+  display: grid;
+  gap: 0.35rem;
+  justify-items: start;
+}
+
+.invent-terrain > summary {
+  cursor: pointer;
+}
+
+/* The brush buttons are laid out by the flex rule above; this one is inside a
+   grid and would otherwise stretch across it. */
+.invent-terrain button {
+  justify-self: start;
+}
+
+.terrain-grid {
+  background: #172033;
+  display: grid;
+  gap: 0.12rem;
+  max-width: 44rem;
+  overflow: auto;
+  padding: 0.2rem;
+}
+
+.terrain-grid .terrain-row {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.terrain-grid button {
+  aspect-ratio: 1;
+  border-radius: 0;
+  color: #172033;
+  font-size: 0.7rem;
+  min-width: 2.5rem;
+  overflow: hidden;
+  padding: 0.2rem;
+  position: relative;
+  text-overflow: ellipsis;
+}
+
+/* The ground the game is played on, drawn behind the cell's own controls: the
+   same autotiled sheet region the play board and the consoles draw. The cell's
+   colour stays underneath it, because a terrain the art library has no sheet
+   for has no sprite to fall back on. */
+.terrain-grid .terrain-art {
+  height: 100%;
+  inset: 0;
+  position: absolute;
+  width: 100%;
+}
+
+/* Pixel art must scale by texel duplication; smoothing melts a 32-pixel tile
+   into mush. */
+.terrain-grid .terrain-art,
+.terrain-grid .terrain-image {
+  image-rendering: pixelated;
+}
+
+/* The mark is a legibility requirement rather than a stand-in for the art, so
+   it stays, and it has to stay readable over a drawing rather than over a
+   flat colour. */
+.terrain-grid .terrain-glyph {
+  font-weight: 700;
+  position: relative;
+  text-shadow:
+    0 0 0.14rem #f7f9fd,
+    0 0 0.28rem #f7f9fd;
+}
+
+.map-history {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.map-history p {
+  margin: 0;
+}
+
+.map-resize {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: max-content minmax(6rem, 12rem);
+  margin-top: 1rem;
+}
+
+.map-resize button,
+.map-resize p,
+.map-resize .crop-confirm {
+  grid-column: 1 / -1;
+}
+
+.crop-warning {
+  color: #8d0b1d;
+  font-weight: 700;
+}
+
+.campaign-flow-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(10rem, 0.8fr) minmax(18rem, 2fr);
+}
+
+.campaign-node-list {
+  display: grid;
+  gap: 0.35rem;
+  list-style: none;
+  padding: 0;
+}
+
+.campaign-node-list button {
+  background: #e8edf7;
+  color: #172033;
+  display: grid;
+  text-align: left;
+  width: 100%;
+}
+
+.campaign-node-list [aria-current] {
+  background: #254f9b;
+  color: white;
+}
+
+.campaign-node-editor {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.campaign-node-editor fieldset {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.error-boundary {
+  border-color: #a20d21;
+}
+
+.playtest-panel {
+  background: #f7f9fd;
+  margin-top: 2rem;
+  max-width: none;
+  padding: 1rem;
+}
+
+.playtest-layout {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(20rem, 2fr) minmax(12rem, 1fr);
+  margin-top: 1rem;
+}
+
+.playtest-status {
+  font-weight: 700;
+}
+
+.playtest-map {
+  background: #172033;
+  border: 0.25rem solid #172033;
+  display: grid;
+  gap: 0.15rem;
+  max-width: 36rem;
+}
+
+.playtest-map button {
+  aspect-ratio: 1;
+  background: #d7dfc1;
+  color: #172033;
+  min-width: 0;
+  padding: 0.25rem;
+}
+
+.playtest-map .terrain-bridge {
+  background: #c99c65;
+}
+
+.playtest-map .legal {
+  box-shadow: inset 0 0 0 0.25rem #2f7d32;
+}
+
+.playtest-map .target {
+  box-shadow: inset 0 0 0 0.25rem #a20d21;
+}
+
+.playtest-map .selected {
+  outline: 0.25rem solid #f2c14e;
+  outline-offset: -0.25rem;
+}
+
+.playtest-map span {
+  display: grid;
+  font-weight: 700;
+}
+
+.playtest-map .unit-first {
+  color: #123f87;
+}
+
+.playtest-map .unit-second {
+  color: #8d0b1d;
+}
+
+.playtest-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.playtest-actions [aria-pressed="true"] {
+  background: #172033;
+}
+
+.playtest-layout aside ol {
+  max-height: 24rem;
+  overflow: auto;
+  padding-left: 1.5rem;
+}
+
+.targeting-grid {
+  background: #f6f8fc;
+  border: 1px solid #ccd4e4;
+  border-radius: 0.25rem;
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+  padding: 0.75rem;
+}
+
+.targeting-grid h4 {
+  margin: 0;
+}
+
+.targeting-summary {
+  font-weight: 600;
+  margin: 0;
+}
+
+.targeting-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.targeting-modes label {
+  font-size: 0.875rem;
+}
+
+.targeting-cells {
+  background: #d7deeb;
+  display: grid;
+  gap: 0.1rem;
+  justify-self: start;
+  max-width: 100%;
+  overflow: auto;
+  padding: 0.1rem;
+}
+
+.targeting-row {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.targeting-cell {
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 0;
+  font-size: 0.7rem;
+  line-height: 1;
+  min-width: 1.4rem;
+  padding: 0;
+}
+
+/*
+ * The band's two exclusions are drawn apart on purpose. "Too close to strike"
+ * is a hole an author authored; "out of reach" is simply the end of the shape,
+ * and reading one as the other is the mistake the whole grid exists to stop.
+ */
+.targeting-cell.is-outside {
+  background: #eef1f7;
+}
+
+.targeting-cell.is-hole {
+  background: repeating-linear-gradient(
+    45deg, #f6d6da, #f6d6da 3px, #eef1f7 3px, #eef1f7 6px
+  );
+}
+
+.targeting-cell.is-covered {
+  background: #4b7bd4;
+}
+
+.targeting-cell.is-origin {
+  background: #192238;
+  color: #f6f8fc;
+}
+
+.targeting-cell.is-aim {
+  background: #8d0b1d;
+  color: #f6f8fc;
+}
+
+.targeting-cell.is-impact {
+  background: #d98a2b;
+}
+
+.targeting-cell:focus-visible {
+  outline: 3px solid #192238;
+  outline-offset: -3px;
+}
+
+@media (max-width: 42rem) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .project-nav {
+    border-bottom: 1px solid #cbd2e0;
+    border-right: 0;
+  }
+
+  main {
+    padding: 1rem;
+  }
+
+  .content-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .campaign-flow-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .playtest-layout {
+    grid-template-columns: 1fr;
+  }
+}

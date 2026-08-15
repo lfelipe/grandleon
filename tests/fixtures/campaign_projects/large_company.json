@@ -1,0 +1,306 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "9f4d1c22-6e5a-4f8b-9a03-2b7c6d1e4a55",
+  "gameId": "test.large.company",
+  "title": "A Company Larger Than The Screen",
+  "contentRevision": "1.0.0",
+  "notes": "A test fixture, not a golden. Twelve members and nine distinct carried items, so a console roster window of seven rows and a member menu window of eight both have to scroll to reach their last row. Nothing compares its bytes to anything: it is compiled at test time and thrown away.",
+  "itemTypes": [
+    {
+      "id": "relic",
+      "name": "Relic"
+    }
+  ],
+  "classes": [
+    {
+      "id": "wanderer",
+      "name": "Wanderer",
+      "baseStats": {
+        "health": 10,
+        "movement": 4,
+        "strength": 3,
+        "defense": 2
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "bearer_01",
+      "name": "Bearer One",
+      "classId": "wanderer",
+      "startingItemIds": [
+        "relic_lantern"
+      ]
+    },
+    {
+      "id": "bearer_02",
+      "name": "Bearer Two",
+      "classId": "wanderer",
+      "startingItemIds": [
+        "relic_whetstone"
+      ]
+    },
+    {
+      "id": "bearer_03",
+      "name": "Bearer Three",
+      "classId": "wanderer",
+      "startingItemIds": [
+        "relic_tonic"
+      ]
+    },
+    {
+      "id": "bearer_04",
+      "name": "Bearer Four",
+      "classId": "wanderer",
+      "startingItemIds": [
+        "relic_salve"
+      ]
+    },
+    {
+      "id": "bearer_05",
+      "name": "Bearer Five",
+      "classId": "wanderer",
+      "startingItemIds": [
+        "relic_compass"
+      ]
+    },
+    {
+      "id": "bearer_06",
+      "name": "Bearer Six",
+      "classId": "wanderer",
+      "startingItemIds": [
+        "relic_rope"
+      ]
+    },
+    {
+      "id": "bearer_07",
+      "name": "Bearer Seven",
+      "classId": "wanderer",
+      "startingItemIds": [
+        "relic_flask"
+      ]
+    },
+    {
+      "id": "bearer_08",
+      "name": "Bearer Eight",
+      "classId": "wanderer",
+      "startingItemIds": [
+        "relic_charm"
+      ]
+    },
+    {
+      "id": "bearer_09",
+      "name": "Bearer Nine",
+      "classId": "wanderer",
+      "startingItemIds": [
+        "relic_ember"
+      ]
+    },
+    {
+      "id": "bearer_10",
+      "name": "Bearer Ten",
+      "classId": "wanderer"
+    },
+    {
+      "id": "bearer_11",
+      "name": "Bearer Eleven",
+      "classId": "wanderer"
+    },
+    {
+      "id": "bearer_12",
+      "name": "Bearer Twelve",
+      "classId": "wanderer"
+    },
+    {
+      "id": "brigand",
+      "name": "Brigand",
+      "classId": "wanderer"
+    }
+  ],
+  "weapons": [],
+  "items": [
+    {
+      "id": "relic_lantern",
+      "name": "Storm Lantern",
+      "stackLimit": 9,
+      "itemTypeId": "relic"
+    },
+    {
+      "id": "relic_whetstone",
+      "name": "Field Whetstone",
+      "stackLimit": 9,
+      "itemTypeId": "relic"
+    },
+    {
+      "id": "relic_tonic",
+      "name": "Field Tonic",
+      "stackLimit": 9,
+      "itemTypeId": "relic"
+    },
+    {
+      "id": "relic_salve",
+      "name": "Binding Salve",
+      "stackLimit": 9,
+      "itemTypeId": "relic"
+    },
+    {
+      "id": "relic_compass",
+      "name": "Brass Compass",
+      "stackLimit": 9,
+      "itemTypeId": "relic"
+    },
+    {
+      "id": "relic_rope",
+      "name": "Anchor Rope",
+      "stackLimit": 9,
+      "itemTypeId": "relic"
+    },
+    {
+      "id": "relic_flask",
+      "name": "Waking Flask",
+      "stackLimit": 9,
+      "itemTypeId": "relic"
+    },
+    {
+      "id": "relic_charm",
+      "name": "Ward Charm",
+      "stackLimit": 9,
+      "itemTypeId": "relic"
+    },
+    {
+      "id": "relic_ember",
+      "name": "Banked Ember",
+      "stackLimit": 9,
+      "itemTypeId": "relic"
+    }
+  ],
+  "maps": [
+    {
+      "id": "yard",
+      "name": "The Yard",
+      "width": 3,
+      "height": 3,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "the_long_company",
+      "name": "The Long Company",
+      "roster": [
+        {
+          "id": "company_01",
+          "name": "Adair Coldwell",
+          "unitTypeId": "bearer_01"
+        },
+        {
+          "id": "company_02",
+          "name": "Brannoch Vale",
+          "unitTypeId": "bearer_02"
+        },
+        {
+          "id": "company_03",
+          "name": "Cerian Duskrow",
+          "unitTypeId": "bearer_03"
+        },
+        {
+          "id": "company_04",
+          "name": "Dolan Ward",
+          "unitTypeId": "bearer_04"
+        },
+        {
+          "id": "company_05",
+          "name": "Eirlys Fenn",
+          "unitTypeId": "bearer_05"
+        },
+        {
+          "id": "company_06",
+          "name": "Faelan Grove",
+          "unitTypeId": "bearer_06"
+        },
+        {
+          "id": "company_07",
+          "name": "Gwenna Thistle",
+          "unitTypeId": "bearer_07"
+        },
+        {
+          "id": "company_08",
+          "name": "Hollis Reed",
+          "unitTypeId": "bearer_08"
+        },
+        {
+          "id": "company_09",
+          "name": "Isolde Wray",
+          "unitTypeId": "bearer_09"
+        },
+        {
+          "id": "company_10",
+          "name": "Jarreth Combe",
+          "unitTypeId": "bearer_10"
+        },
+        {
+          "id": "company_11",
+          "name": "Kerra Linden",
+          "unitTypeId": "bearer_11"
+        },
+        {
+          "id": "company_12",
+          "name": "Lowry Penhale",
+          "unitTypeId": "bearer_12"
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "the_yard",
+        "nodes": [
+          {
+            "id": "the_yard",
+            "name": "The Yard",
+            "kind": "encounter",
+            "mapId": "yard",
+            "placements": [
+              {
+                "id": "first_at_yard",
+                "memberId": "company_01",
+                "unitTypeId": "bearer_01",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "brigand_at_yard",
+                "unitTypeId": "brigand",
+                "side": "second",
+                "x": 2,
+                "y": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "done",
+                "targetNodeId": "the_gate",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "the_gate",
+            "name": "The Gate",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

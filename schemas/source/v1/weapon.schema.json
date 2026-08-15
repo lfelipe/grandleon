@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/weapon.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/stableId"
+    },
+    "name": {
+      "$ref": "common.schema.json#/$defs/displayName"
+    },
+    "weaponTypeId": {
+      "$ref": "common.schema.json#/$defs/stableId",
+      "description": "Weapon type identity. Omitted only for legacy unclassified content."
+    },
+    "power": {
+      "$ref": "common.schema.json#/$defs/damageStat"
+    },
+    "range": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255,
+      "description": "Legacy single reach. Prefer minimumRange and maximumRange; when only this is present it means a band of 1 to range."
+    },
+    "notes": {
+      "$ref": "common.schema.json#/$defs/notes"
+    },
+    "extensions": {
+      "$ref": "common.schema.json#/$defs/extensions"
+    },
+    "minimumRange": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255,
+      "description": "Closest tile distance this weapon can strike. A bow with minimumRange 3 cannot hit an adjacent enemy."
+    },
+    "maximumRange": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255,
+      "description": "Furthest tile distance this weapon can strike."
+    },
+    "accuracy": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "How often this weapon lands, as a whole percentage. Omitted means 100: it always lands and rolls nothing. Anything below rolls once per strike, and the number a player is shown is this number."
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "power"
+  ],
+  "additionalProperties": false
+}

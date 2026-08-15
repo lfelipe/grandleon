@@ -1,0 +1,40 @@
+# Builds the PlayStation executables in the pinned Nugget container and asks
+# the pinned emulator what the two play executables actually drew.
+#
+# The conformance test beside this one reads an executable's text over the BIOS
+# teletype. This one reads pixels, from the same emulator and the same pin: a
+# Lua script loaded with -dofile takes the composited display at an instant the
+# executable names, and a joiner compares it against the executable's own
+# per-cell claims.
+#
+# Two boards, because they answer different questions. The Fordlight is level
+# ground throughout and is the board the Nintendo 64's probe also draws; the
+# Ashen Watch has mountains, and is the only content that exercises the lift and
+# the headroom the projection offers.
+
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_IMAGE} "@GRANDLEON_PCSX_REDUX_BUILD_IMAGE@")
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_DIGEST} "@GRANDLEON_PCSX_REDUX_BUILD_DIGEST@")
+set(ENV{GRANDLEON_NUGGET_REVISION} "@GRANDLEON_NUGGET_REVISION@")
+set(ENV{GRANDLEON_PCSX_REDUX_REVISION} "@GRANDLEON_PCSX_REDUX_REVISION@")
+set(ENV{GRANDLEON_DOCKER} "@GRANDLEON_DOCKER@")
+set(ENV{GRANDLEON_PLAYSTATION_BUILD_DIR} "@GRANDLEON_PLAYSTATION_BUILD_DIR@")
+
+execute_process(
+    COMMAND "@PROJECT_SOURCE_DIR@/platform/playstation/scripts/build-playstation.sh"
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE build_result
+)
+if(NOT build_result EQUAL 0)
+    message(FATAL_ERROR "PlayStation build failed")
+endif()
+
+execute_process(
+    COMMAND
+        "@PROJECT_SOURCE_DIR@/platform/playstation/scripts/run-playstation-render.sh"
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE run_result
+)
+if(NOT run_result EQUAL 0)
+    message(FATAL_ERROR
+        "a PlayStation play executable did not draw what it said it would")
+endif()

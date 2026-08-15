@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "4d61bc0c-210c-49e0-9838-2d6c03ea5d53",
+  "gameId": "campaign.nonlinear",
+  "title": "Non-linear Campaign",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "wayfarer",
+      "name": "Wayfarer",
+      "baseStats": { "health": 10, "movement": 4, "strength": 3, "defense": 2 }
+    }
+  ],
+  "unitTypes": [
+    { "id": "scout", "name": "Scout", "classId": "wayfarer" }
+  ],
+  "weapons": [],
+  "items": [{ "id": "key", "name": "Key", "stackLimit": 1 }],
+  "maps": [],
+  "objectives": [{ "id": "victory", "name": "Victory" }],
+  "dialogues": [],
+  "campaigns": [
+    {
+      "id": "main",
+      "name": "Main",
+      "roster": [
+        { "id": "lead_scout", "name": "Lead Scout", "unitTypeId": "scout" }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "opening",
+        "nodes": [
+          {
+            "id": "opening",
+            "name": "Opening",
+            "kind": "story",
+            "transitions": [
+              {
+                "id": "victory_route",
+                "targetNodeId": "north",
+                "priority": 10,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "victory",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "key_route",
+                "targetNodeId": "south",
+                "priority": 20,
+                "when": {
+                  "kind": "inventoryAtLeast",
+                  "itemId": "key",
+                  "quantity": 1
+                }
+              },
+              {
+                "id": "fallback",
+                "targetNodeId": "opening",
+                "priority": 30
+              }
+            ]
+          },
+          {
+            "id": "north",
+            "name": "North",
+            "kind": "story",
+            "transitions": [
+              { "id": "recombine", "targetNodeId": "finale", "priority": 0 }
+            ]
+          },
+          {
+            "id": "south",
+            "name": "South",
+            "kind": "story",
+            "transitions": [
+              { "id": "recombine", "targetNodeId": "finale", "priority": 0 }
+            ]
+          },
+          {
+            "id": "finale",
+            "name": "Finale",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

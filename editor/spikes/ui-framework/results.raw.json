@@ -1,0 +1,102 @@
+{
+  "commit": "working-tree",
+  "measuredAt": "2026-07-30T23:17:25.230Z",
+  "environment": {
+    "node": "v22.22.2",
+    "npm": "10.9.7",
+    "os": "linux 7.0.0-22-generic x64",
+    "cpu": "Intel(R) Core(TM) i9-10940X CPU @ 3.30GHz"
+  },
+  "candidates": [
+    {
+      "name": "react",
+      "version": "see package-lock.json",
+      "initialJsGzipBytes": 59748,
+      "initialCssGzipBytes": 293,
+      "buildMilliseconds": [
+        375,
+        367,
+        376
+      ],
+      "testsPassed": true,
+      "accessibilitySeriousOrCritical": 0,
+      "productionHighOrCriticalAdvisories": 0,
+      "assets": [
+        {
+          "filename": "index-C-_afNp3.css",
+          "type": "css",
+          "rawBytes": 409,
+          "gzipBytes": 293,
+          "brotliBytes": 212
+        },
+        {
+          "filename": "index-EYmUJvaq.js",
+          "type": "js",
+          "rawBytes": 192068,
+          "gzipBytes": 59748,
+          "brotliBytes": 51513
+        }
+      ]
+    },
+    {
+      "name": "vue",
+      "version": "see package-lock.json",
+      "initialJsGzipBytes": 24942,
+      "initialCssGzipBytes": 293,
+      "buildMilliseconds": [
+        406,
+        423,
+        412
+      ],
+      "testsPassed": true,
+      "accessibilitySeriousOrCritical": 0,
+      "productionHighOrCriticalAdvisories": 0,
+      "assets": [
+        {
+          "filename": "index-C-_afNp3.css",
+          "type": "css",
+          "rawBytes": 409,
+          "gzipBytes": 293,
+          "brotliBytes": 212
+        },
+        {
+          "filename": "index-D3FQLQq5.js",
+          "type": "js",
+          "rawBytes": 63486,
+          "gzipBytes": 24942,
+          "brotliBytes": 22768
+        }
+      ]
+    },
+    {
+      "name": "svelte",
+      "version": "see package-lock.json",
+      "initialJsGzipBytes": 13098,
+      "initialCssGzipBytes": 293,
+      "buildMilliseconds": [
+        533,
+        537,
+        529
+      ],
+      "testsPassed": true,
+      "accessibilitySeriousOrCritical": 0,
+      "productionHighOrCriticalAdvisories": 0,
+      "assets": [
+        {
+          "filename": "index-Bk4midfR.js",
+          "type": "js",
+          "rawBytes": 33440,
+          "gzipBytes": 13098,
+          "brotliBytes": 11828
+        },
+        {
+          "filename": "index-C-_afNp3.css",
+          "type": "css",
+          "rawBytes": 409,
+          "gzipBytes": 293,
+          "brotliBytes": 212
+        }
+      ]
+    }
+  ]
+}

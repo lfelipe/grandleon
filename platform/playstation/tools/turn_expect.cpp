@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: MIT
+// What the rules say the PlayStation turn executable's run should look like,
+// derived on the host before that executable is built.
+//
+// It compiles the same `platform/client/src/turn_client.cpp` the R3000A
+// compiles, drives it through
+// the same `client::run_campaign`, over the same board, with the same viewport,
+// replaying the same `platform/client/autopilot/fordlight_pad.h`, and writes
+// out the transcript the console is then required to reproduce. The
+// expectations are produced by a different compiler for a different
+// architecture, ahead of the run that is checked against them, so neither side
+// can quietly agree with itself.
+//
+// It draws nothing and reads no port. `paint` is empty, `next_press` reads a
+// table, and the three animation hooks are left at their do-nothing defaults,
+// which is why an animated console needs no expectation re-derived.
+//
+// The board comes from no baked header. This compiles
+// `games/tarnholt/source/project.json` here, through `grandleon::game_content`,
+// with nothing between the authored source and the session, so the derivation
+// depends on no console build at all and can be run, and disbelieved, on its
+// own.
+
+#include <grandleon/client/session.hpp>
+#include <grandleon/client/turn_client.hpp>
+#include <grandleon/core/content_identity.hpp>
+#include <grandleon/game_content/compiler.hpp>
+#include <grandleon/game_content/source_project.hpp>
+#include <grandleon/package_format/package.hpp>
+
+#include <cstddef>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <iterator>
+#include <string>
+
+#include "fordlight_pad.h"
+
+namespace client = grandleon::client;
+namespace core = grandleon::core;
+namespace gc = grandleon::game_content;
+namespace pf = grandleon::package_format;
+namespace sim = grandleon::simulation;
+namespace turn = grandleon::client::turn;
+
+namespace {
+
+// The campaign the executable plays, named by its authored identity through the
+// same function the console names it by. One string, two machines.
+constexpr const char* campaign_path = "tarnholt_line";
+
+// Only the lines a machine is compared on reach the file. Everything else the
+// client says (the paint lines, the settles, the animation reports) goes to
+// the standard error for a person, because a transcript that carried them would
+// be comparing how fast a console is rather than what it decided.
+class FileSink final : public turn::ReportSink {
+public:
+    explicit FileSink(std::ostream& out) noexcept : out_(out) {}
+
+    void line(const char* text) override {
+        const std::string value(text);
+        if (value.rfind("CHECKPOINT ", 0) == 0 || value.rfind("FACT ", 0) == 0) {
+            out_ << value << '\n';
+        } else {
+            std::cerr << "  " << value << '\n';
+        }
+    }
+
+private:
+    std::ostream& out_;
+};
+
+class HostClient final : public turn::TurnClient {
+public:
+    HostClient(
+        turn::ReportSink& sink, const std::uint16_t* presses, std::size_t count
+    ) noexcept
+        : TurnClient(sink), presses_(presses), count_(count) {}
+
+    void paint(const sim::EncounterSnapshot&, const turn::Overlay&) override {}
+
+    std::uint16_t next_press() override {
+        if (index_ >= count_) return turn::pad_end_of_script;
+        return presses_[index_++];
+    }
+
+    [[nodiscard]] std::size_t consumed() const noexcept { return index_; }
+
+private:
+    const std::uint16_t* presses_;
+    std::size_t count_;
+    std::size_t index_ = 0;
+};
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    if (argc != 3) {
+        std::cerr << "usage: " << (argc > 0 ? argv[0] : "grandleon_playstation_expect")
+                  << " <project.json> <expectations.txt>\n";
+        return 64;
+    }
+
+    std::ifstream input(argv[1], std::ios::binary);
+    if (!input) {
+        std::cerr << "cannot open " << argv[1] << '\n';
+        return 66;
+    }
+    const std::string json{
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()
+    };
+    const gc::SourceParseResult parsed = gc::parse_source_project_json(json);
+    if (!parsed) {
+        std::cerr << "the project did not parse\n";
+        return 65;
+    }
+    const gc::CompileResult compiled = gc::compile(parsed.source);
+    if (!compiled) {
+        std::cerr << "the project did not compile\n";
+        return 65;
+    }
+    pf::LoadOptions options{};
+    options.engine_version = {0, 1, 0};
+    options.target = pf::TargetProfile::desktop;
+    options.supported_features = 0;
+    options.maximum_sections = 32;
+    options.maximum_records_per_section = 4096;
+    const pf::LoadResult loaded = pf::load_mock_package(compiled.package, options);
+    if (loaded.error != pf::Error::none) {
+        std::cerr << "the compiled package did not open\n";
+        return 65;
+    }
+
+    std::ofstream out(argv[2], std::ios::trunc);
+    if (!out) {
+        std::cerr << "cannot open " << argv[2] << '\n';
+        return 73;
+    }
+
+    out << "# Generated by grandleon_playstation_expect. Do not edit.\n"
+           "#\n"
+           "# The autopilot's controller script, and what the rules say every\n"
+           "# press adds up to. Derived on the host from the engine's own\n"
+           "# queries over the state the shared session actually reaches.\n"
+           "# The script is compiled into grandleon_psx_turn.ps-exe and paced\n"
+           "# by counting frames; platform/playstation/harness joins the\n"
+           "# executable's transcript, its pixel claims, the GPU's readback and\n"
+           "# the emulator's own frames against this file.\n";
+    out << "SCRIPT\n";
+    for (std::size_t i = 0; i < turn::fordlight_press_count; ++i) {
+        out << "PRESS " << turn::fordlight_presses[i] << '\n';
+    }
+    out << "TRANSCRIPT\n";
+
+    FileSink sink(out);
+    HostClient host(sink, turn::fordlight_presses, turn::fordlight_press_count);
+    // The same window the executable has, from the one place both read it. It
+    // is the screen's number rather than the board's, and the client needs it
+    // before the first battle because how much of a board fits decides where
+    // the camera starts and when it scrolls.
+    host.set_viewport(turn::viewport_cols, turn::viewport_rows);
+    // And the package, from the same place the ROM gets it: every name this
+    // client draws is the author's own word, so a derivation that did not hand
+    // one over would derive the shipped table's word and disagree with the
+    // machine about what a character is called.
+    host.set_package(&loaded.package);
+
+    const std::uint64_t campaign_id = core::stable_content_id_v1(campaign_path);
+    const client::SessionError status = client::run_campaign(
+        loaded.package, campaign_id, sim::Side::first, host
+    );
+    if (status != client::SessionError::none) {
+        std::cerr << "the session stopped: " << client::error_name(status) << '\n';
+        return 70;
+    }
+    if (host.consumed() != turn::fordlight_press_count) {
+        std::cerr << "the script was not played out: " << host.consumed() << " of "
+                  << turn::fordlight_press_count << " presses\n";
+        return 70;
+    }
+    if (host.checkpoints() == 0) {
+        std::cerr << "the script settled on nothing worth photographing\n";
+        return 70;
+    }
+
+    std::cout << "derived " << host.checkpoints() << " checkpoints from "
+              << turn::fordlight_press_count << " presses -> " << argv[2] << '\n';
+    return 0;
+}

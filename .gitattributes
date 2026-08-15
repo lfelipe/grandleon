@@ -1,0 +1,14 @@
+# A patch file's whitespace is the patched project's, not this one's.
+#
+# A patch against a tab-indented C tree carries context lines from that tree,
+# and a diff prefixes every context line with a space, so every one of them
+# reads as "space before tab in indent" to `git diff --check`. Reindenting them
+# would stop the patch applying, which is the one thing it has to do.
+*.patch -whitespace
+*.diff -whitespace
+
+# A PlayStation boot descriptor's line endings are the console's, not this
+# repository's. SYSTEM.CNF goes onto the disc byte for byte, and the convention
+# every pressed disc follows is CRLF. The carriage returns are content, not
+# trailing whitespace, and no checkout may convert them away.
+platform/playstation/disc/SYSTEM.CNF -whitespace -text

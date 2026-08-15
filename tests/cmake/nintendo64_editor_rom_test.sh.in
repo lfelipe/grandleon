@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# The ROM an author downloads is the ROM this repository checks.
+#
+# On a route where the editor patched a pre-built template, that sentence would
+# be a property somebody had to enforce, and this lane would be the enforcement.
+# On this route it is not a property at all, because the export path runs the
+# same `build-n64.sh` the gate runs. So the honest description of what this
+# checks is narrower and worth stating plainly:
+#
+#   1. that the export path really does reach the toolchain, rather than
+#      returning something it kept, and
+#   2. that the toolchain is deterministic, so that "the same project gives the
+#      same ROM" is a fact about the build rather than a hope.
+#
+# Both matter. (2) is measurable and was measured: ten of ten ROMs came out
+# byte-identical from two independent trees. (1) is what the ordering below is
+# for.
+#
+# **The ordering is the part that makes this non-trivial.** A different game is
+# built through the export path *first*, into the same request area, and only
+# then is the shipped project built and compared. So a service that cached, or
+# a build tree that had gone stale, or a configure step that failed to notice
+# the project had changed back, would all produce the other game's ROM here and
+# fail on the bytes. Building only the shipped project would prove nothing
+# except that the toolchain can run twice.
+#
+# **What is ordered and what is not.** That ordering is between the export
+# path's two builds and involves nothing else. The toolchain's own ROM is built
+# from the repository, in the repository's own build directory, by a script that
+# takes a lock on it; the export path builds each request in a fresh tree of its
+# own under `build-n64/requests/`. So the reference build shares nothing with
+# the two it is compared against and runs beside them instead of before them,
+# which is a third of this lane's wall clock and no part of its meaning. That is
+# also why this lane is a shell script and not a `cmake -P` one: CMake's script
+# mode runs one process at a time.
+
+set -euo pipefail
+
+export GRANDLEON_LIBDRAGON_BASE_IMAGE="@GRANDLEON_LIBDRAGON_BASE_IMAGE@"
+export GRANDLEON_LIBDRAGON_BASE_DIGEST="@GRANDLEON_LIBDRAGON_BASE_DIGEST@"
+export GRANDLEON_LIBDRAGON_COMMIT="@GRANDLEON_LIBDRAGON_COMMIT@"
+export GRANDLEON_DOCKER="@GRANDLEON_DOCKER@"
+export GRANDLEON_N64_BUILD_DIR="@GRANDLEON_N64_BUILD_DIR@"
+
+source_root="@PROJECT_SOURCE_DIR@"
+build_dir="@GRANDLEON_N64_BUILD_DIR@"
+work="${build_dir}/editor-rom"
+rm -rf "${work}"
+mkdir -p "${work}"
+
+cd "${source_root}"
+
+# The toolchain's own ROM of the shipped project, built the ordinary way and
+# beside the two below rather than before them. Its output is kept and printed
+# when it is done, so a failure here reads the same as it did when this ran in
+# the foreground.
+toolchain_log="${work}/toolchain-build.log"
+"${source_root}/platform/nintendo64/scripts/build-n64.sh" \
+    --targets grandleon_n64_campaign > "${toolchain_log}" 2>&1 &
+toolchain_pid=$!
+
+# A different game through the export path, so the shipped project's ROM below
+# cannot be something that was already lying about.
+if ! node "${source_root}/tools/rom_service/build-rom.mjs" \
+        "${source_root}/games/demo/source/project.json" \
+        "${work}/other-game.z64"; then
+    # Let the reference build finish rather than killing it: it holds a lock on
+    # the repository's Nintendo 64 build directory, and a half-killed container
+    # build is a worse thing to leave behind than ninety seconds.
+    wait "${toolchain_pid}" || true
+    echo "error: the export path could not build the other game" >&2
+    exit 1
+fi
+
+# And now the shipped project, through that same export path.
+if ! node "${source_root}/tools/rom_service/build-rom.mjs" \
+        "${source_root}/games/tarnholt/source/project.json" \
+        "${work}/shipped.z64"; then
+    wait "${toolchain_pid}" || true
+    echo "error: the export path could not build the shipped project" >&2
+    exit 1
+fi
+
+echo "== The toolchain's own build =="
+if ! wait "${toolchain_pid}"; then
+    cat "${toolchain_log}" >&2
+    echo "error: the toolchain's own Nintendo 64 build failed" >&2
+    exit 1
+fi
+cat "${toolchain_log}"
+
+toolchain_rom="${build_dir}/platform/nintendo64/grandleon_n64_campaign.z64"
+if [ ! -f "${toolchain_rom}" ]; then
+    echo "error: the toolchain built no ROM at ${toolchain_rom}" >&2
+    exit 1
+fi
+
+md5_of() { md5sum "$1" | cut -d' ' -f1; }
+toolchain_md5="$(md5_of "${toolchain_rom}")"
+shipped_md5="$(md5_of "${work}/shipped.z64")"
+other_md5="$(md5_of "${work}/other-game.z64")"
+toolchain_size="$(wc -c < "${toolchain_rom}")"
+shipped_size="$(wc -c < "${work}/shipped.z64")"
+
+# The negative control. If the two games produced the same ROM, the comparison
+# below would be passing for the wrong reason: the export path would be
+# ignoring the project it was given, and every ROM would match everything.
+if [ "${shipped_md5}" = "${other_md5}" ]; then
+    echo "error: two different games produced the same ROM (${shipped_md5});" \
+         "the export path is not reading the project it is given" >&2
+    exit 1
+fi
+
+if [ "${shipped_md5}" != "${toolchain_md5}" ]; then
+    echo "error: the ROM the export path built is not the ROM the toolchain builds" >&2
+    echo "  toolchain: ${toolchain_md5} (${toolchain_size} bytes)" >&2
+    echo "  export:    ${shipped_md5} (${shipped_size} bytes)" >&2
+    exit 1
+fi
+
+echo "RESULT PASS the export path's ROM is the toolchain's, byte for byte:" \
+     "${shipped_md5} (${shipped_size} bytes); a different game built first in" \
+     "the same area gave ${other_md5}"

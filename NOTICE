@@ -1,0 +1,19 @@
+Grandleon is distributed under the MIT Licence; see LICENSE.
+
+Two generated files carry third-party code.
+
+`editor/src/generated/simulation-module.ts` is the engine compiled to
+WebAssembly by the pinned Emscripten SDK, and the module it embeds links parts
+of the LLVM runtime that Emscripten ships (libc++, libc++abi and compiler-rt),
+licensed under the Apache License 2.0 with the LLVM exception:
+
+    https://llvm.org/LICENSE.txt
+
+`editor/src/generated/source-v1-validator.ts` is this project's schema compiled
+by Ajv, and carries Ajv's runtime helpers with it. Ajv is MIT, Copyright (c)
+2015-2021 Evgeny Poberezkin:
+
+    https://github.com/ajv-validator/ajv/blob/master/LICENSE
+
+Everything else in this repository is the project's own work, generated art and
+the console font included.

@@ -1,0 +1,1143 @@
+{
+  "accessors": [
+    {
+      "bufferView": 0,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -15.0,
+        42.0,
+        -6.0
+      ],
+      "min": [
+        -22.0,
+        0.0,
+        -14.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 0,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 288,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        6.0,
+        42.0,
+        -6.0
+      ],
+      "min": [
+        -1.0,
+        0.0,
+        -14.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 288,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 72,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 576,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -15.0,
+        42.0,
+        16.0
+      ],
+      "min": [
+        -22.0,
+        0.0,
+        8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 576,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 144,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 864,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        6.0,
+        42.0,
+        16.0
+      ],
+      "min": [
+        -1.0,
+        0.0,
+        8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 864,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 216,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 1152,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -19.0,
+        56.0,
+        2.0
+      ],
+      "min": [
+        -25.0,
+        44.0,
+        -6.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 1152,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 288,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 1440,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -22.0,
+        60.0,
+        0.0
+      ],
+      "min": [
+        -28.0,
+        48.0,
+        -8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 1440,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 360,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 1728,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        14.0,
+        76.0,
+        14.0
+      ],
+      "min": [
+        -26.0,
+        38.0,
+        -12.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 1728,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 432,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2016,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        34.0,
+        64.0,
+        18.0
+      ],
+      "min": [
+        24.0,
+        48.0,
+        8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2016,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 504,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2304,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        32.0,
+        82.0,
+        12.0
+      ],
+      "min": [
+        16.0,
+        44.0,
+        -8.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2304,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 576,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2592,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        34.0,
+        74.0,
+        8.0
+      ],
+      "min": [
+        28.0,
+        60.0,
+        2.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2592,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 648,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 2880,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        32.0,
+        68.0,
+        20.0
+      ],
+      "min": [
+        26.0,
+        56.0,
+        16.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2880,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 720,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 3168,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        24.0,
+        78.0,
+        14.0
+      ],
+      "min": [
+        18.0,
+        72.0,
+        12.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 3168,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 792,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 3456,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -20.0,
+        104.0,
+        4.0
+      ],
+      "min": [
+        -24.0,
+        76.0,
+        -4.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 3456,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 864,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 3744,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -11.0,
+        104.0,
+        4.0
+      ],
+      "min": [
+        -15.0,
+        76.0,
+        -4.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 3744,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 936,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 4032,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        -2.0,
+        128.0,
+        4.0
+      ],
+      "min": [
+        -6.0,
+        76.0,
+        -4.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 4032,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 1008,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 4320,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        7.0,
+        128.0,
+        4.0
+      ],
+      "min": [
+        3.0,
+        76.0,
+        -4.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 4320,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 1080,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 4608,
+      "componentType": 5126,
+      "count": 24,
+      "max": [
+        16.0,
+        128.0,
+        4.0
+      ],
+      "min": [
+        12.0,
+        76.0,
+        -4.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 4608,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 1152,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "generator": "Grandleon placeholder art generator",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 4896,
+      "byteOffset": 0,
+      "byteStride": 12,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4896,
+      "byteOffset": 4896,
+      "byteStride": 12,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1224,
+      "byteOffset": 9792,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 11016,
+      "uri": "beast.bin"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 0
+      },
+      "name": "neutral_ramp_rung_0",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.005182,
+          0.005182,
+          0.009134,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "name": "neutral_ramp_rung_1",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.068478,
+          0.030713,
+          0.05448,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "name": "neutral_ramp_rung_2",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.508881,
+          0.376262,
+          0.084376,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "name": "neutral_ramp_rung_3",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.930111,
+          0.930111,
+          0.930111,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    },
+    {
+      "doubleSided": false,
+      "extras": {
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "name": "faction_ramp_rung_3",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.084376,
+          0.376262,
+          0.730461,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 1.0
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "00_rear_leg_far",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0
+          },
+          "indices": 2,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "01_front_leg_far",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 4,
+            "POSITION": 3
+          },
+          "indices": 5,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "02_rear_leg_near",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 7,
+            "POSITION": 6
+          },
+          "indices": 8,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "03_front_leg_near",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 10,
+            "POSITION": 9
+          },
+          "indices": 11,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "04_tail",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 13,
+            "POSITION": 12
+          },
+          "indices": 14,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "05_tail_tuft",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 16,
+            "POSITION": 15
+          },
+          "indices": 17,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "06_body",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 19,
+            "POSITION": 18
+          },
+          "indices": 20,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "07_snout",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 22,
+            "POSITION": 21
+          },
+          "indices": 23,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "08_head",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 25,
+            "POSITION": 24
+          },
+          "indices": 26,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "09_tusk_far",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 28,
+            "POSITION": 27
+          },
+          "indices": 29,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "10_tusk_near",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 31,
+            "POSITION": 30
+          },
+          "indices": 32,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "11_eye",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 34,
+            "POSITION": 33
+          },
+          "indices": 35,
+          "material": 3,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "12_bristle_rump",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 37,
+            "POSITION": 36
+          },
+          "indices": 38,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "13_bristle_loin",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 40,
+            "POSITION": 39
+          },
+          "indices": 41,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "14_bristle_back",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 43,
+            "POSITION": 42
+          },
+          "indices": 44,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "15_bristle_shoulder",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 46,
+            "POSITION": 45
+          },
+          "indices": 47,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "16_bristle_nape",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 49,
+            "POSITION": 48
+          },
+          "indices": 50,
+          "material": 4,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "extras": {
+        "archetype": "beast",
+        "axes": "figure space is x right, y up, z away and is left-handed; glTF is y up, right-handed, -z forward, so z is negated and nothing else is",
+        "bakedFaction": "blue",
+        "partCount": 17,
+        "partOrder": "authored far-to-near at the shipped pitch; node order and the index prefix on every node name both carry it",
+        "pitchDegrees": 60,
+        "rampFaction": 1,
+        "rampNeutral": 0,
+        "rungCount": 4,
+        "silhouetteArea": 442,
+        "silhouetteHeight": 23,
+        "silhouetteWidth": 29,
+        "style": "nature",
+        "triangleCount": 204,
+        "unitWorld": 64,
+        "worldHeight": 128
+      },
+      "name": "beast",
+      "scale": [
+        0.015625,
+        0.015625,
+        0.015625
+      ]
+    },
+    {
+      "extras": {
+        "part": 0,
+        "partName": "rear leg, far",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 0
+      },
+      "mesh": 0,
+      "name": "00_rear_leg_far"
+    },
+    {
+      "extras": {
+        "part": 1,
+        "partName": "front leg, far",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 0
+      },
+      "mesh": 1,
+      "name": "01_front_leg_far"
+    },
+    {
+      "extras": {
+        "part": 2,
+        "partName": "rear leg, near",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 2,
+      "name": "02_rear_leg_near"
+    },
+    {
+      "extras": {
+        "part": 3,
+        "partName": "front leg, near",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 3,
+      "name": "03_front_leg_near"
+    },
+    {
+      "extras": {
+        "part": 4,
+        "partName": "tail",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 4,
+      "name": "04_tail"
+    },
+    {
+      "extras": {
+        "part": 5,
+        "partName": "tail tuft",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 5,
+      "name": "05_tail_tuft"
+    },
+    {
+      "extras": {
+        "part": 6,
+        "partName": "body",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 6,
+      "name": "06_body"
+    },
+    {
+      "extras": {
+        "part": 7,
+        "partName": "snout",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 7,
+      "name": "07_snout"
+    },
+    {
+      "extras": {
+        "part": 8,
+        "partName": "head",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
+      "mesh": 8,
+      "name": "08_head"
+    },
+    {
+      "extras": {
+        "part": 9,
+        "partName": "tusk, far",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 9,
+      "name": "09_tusk_far"
+    },
+    {
+      "extras": {
+        "part": 10,
+        "partName": "tusk, near",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 2
+      },
+      "mesh": 10,
+      "name": "10_tusk_near"
+    },
+    {
+      "extras": {
+        "part": 11,
+        "partName": "eye",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 11,
+      "name": "11_eye"
+    },
+    {
+      "extras": {
+        "part": 12,
+        "partName": "bristle, rump",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 12,
+      "name": "12_bristle_rump"
+    },
+    {
+      "extras": {
+        "part": 13,
+        "partName": "bristle, loin",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 13,
+      "name": "13_bristle_loin"
+    },
+    {
+      "extras": {
+        "part": 14,
+        "partName": "bristle, back",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 14,
+      "name": "14_bristle_back"
+    },
+    {
+      "extras": {
+        "part": 15,
+        "partName": "bristle, shoulder",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 15,
+      "name": "15_bristle_shoulder"
+    },
+    {
+      "extras": {
+        "part": 16,
+        "partName": "bristle, nape",
+        "ramp": 1,
+        "rampName": "faction",
+        "rung": 3
+      },
+      "mesh": 16,
+      "name": "16_bristle_nape"
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "beast",
+      "nodes": [
+        0
+      ]
+    }
+  ]
+}

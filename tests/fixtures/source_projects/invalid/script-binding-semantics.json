@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "95ee0e62-1de3-4fa4-afd5-72000b64c8e9",
+  "gameId": "invalid.script.bindings",
+  "title": "Invalid Script Bindings",
+  "contentRevision": "1.0.0",
+  "classes": [],
+  "unitTypes": [],
+  "weapons": [],
+  "items": [],
+  "maps": [],
+  "abilities": [
+    {
+      "id": "rally",
+      "name": "Rally",
+      "scriptBindings": [
+        {
+          "slot": "on_use",
+          "apiVersion": "1.0.0",
+          "scriptPath": "scripts/rally.lua",
+          "entryPoint": "activate",
+          "parameters": [
+            {
+              "name": "target",
+              "value": {
+                "kind": "string",
+                "value": "nearby"
+              }
+            },
+            {
+              "name": "target",
+              "value": {
+                "kind": "contentRef",
+                "category": "faction",
+                "sourceKey": "missing_faction"
+              }
+            }
+          ]
+        },
+        {
+          "slot": "on_use",
+          "apiVersion": "1.0.0",
+          "scriptPath": "scripts/alternate.lua",
+          "entryPoint": "activate",
+          "parameters": []
+        }
+      ],
+      "kind": "damage",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1
+    }
+  ]
+}

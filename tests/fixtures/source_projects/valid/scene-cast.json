@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "b7c4e015-2a68-4d13-8f57-3c9b0e6a41d2",
+  "gameId": "grandleon.scene.cast",
+  "title": "Grandleon Scene Cast",
+  "contentRevision": "0.1.0",
+  "characterStyleId": "medieval",
+  "characterFigureId": "first",
+  "notes": "A scene naming who each of its speakers is. The three cases a client has to tell apart are all here: a speaker the cast names and whose character draws as the game does, a speaker the cast names and whose character names a style and a figure of its own, and a speaker the cast does not name at all — which must be drawn exactly as a speaker was drawn before a scene could name one. The second scene casts nobody, which is every scene ever authored before this field.",
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    },
+    {
+      "id": "field_mage",
+      "name": "Mage",
+      "baseStats": {
+        "health": 16,
+        "movement": 4,
+        "strength": 4,
+        "defense": 3,
+        "magic": 8
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_soldier",
+      "name": "Demo Soldier",
+      "classId": "vanguard",
+      "startingWeaponIds": ["training_sword"],
+      "notes": "Names no style and no figure, so the cast resolves to the game's own drawing."
+    },
+    {
+      "id": "wild_mage",
+      "name": "Wild Mage",
+      "classId": "field_mage",
+      "characterStyleId": "nature",
+      "characterFigureId": "second",
+      "startingWeaponIds": ["training_sword"],
+      "notes": "Names both, so a portrait that read only the archetype would draw the wrong hand and the wrong build."
+    }
+  ],
+  "weapons": [
+    {
+      "id": "training_sword",
+      "name": "Training Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "stackLimit": 5
+    }
+  ],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "before_the_gate",
+      "name": "Before the Gate",
+      "backgroundId": "throne_hall",
+      "cast": [
+        { "speaker": "Halvard", "unitTypeId": "demo_soldier" },
+        { "speaker": "Briar", "unitTypeId": "wild_mage" }
+      ],
+      "lines": [
+        { "speaker": "Halvard", "text": "The gate is barred from the inside." },
+        { "speaker": "Briar", "text": "Then we will ask it to stop being a gate." },
+        { "speaker": "Halvard", "text": "That is not how gates work." },
+        { "speaker": "A Voice Behind the Gate", "text": "It is how this one works." }
+      ]
+    },
+    {
+      "id": "after_the_gate",
+      "name": "After the Gate",
+      "lines": [
+        { "speaker": "Halvard", "text": "A scene that casts nobody, and names no backdrop either." }
+      ]
+    }
+  ]
+}

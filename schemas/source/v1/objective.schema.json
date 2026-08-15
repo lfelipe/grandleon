@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/objective.schema.json",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/stableId" },
+    "name": { "$ref": "common.schema.json#/$defs/displayName" },
+    "kind": {
+      "enum": ["defeatAllOpponents", "defeatTarget", "protectTarget", "surviveRounds"],
+      "description": "How the objective is decided. Omitted means defeatAllOpponents. 'surviveRounds' is satisfied the moment the authored round completes, and failed when the objective's own side has nobody left in the battle."
+    },
+    "side": {
+      "enum": ["first", "second"],
+      "description": "The side the objective belongs to. Satisfying it favours that side."
+    },
+    "targetPlacementId": {
+      "$ref": "common.schema.json#/$defs/stableId",
+      "description": "Encounter placement the objective is about. Required by defeatTarget and protectTarget."
+    },
+    "rounds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "How many rounds a surviveRounds objective is about. A round is one pass through the turn order: everybody still standing having acted under sideBlocks and initiative, and one turn for each side under alternating. Required by surviveRounds and refused on every other kind, because a count nothing can read is a number an author meant something by."
+    },
+    "scriptBindings": { "$ref": "common.schema.json#/$defs/scriptBindings" },
+    "notes": { "$ref": "common.schema.json#/$defs/notes" },
+    "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+  },
+  "required": ["id", "name"],
+  "additionalProperties": false
+}

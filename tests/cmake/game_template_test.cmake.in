@@ -1,0 +1,53 @@
+set(install_prefix "@CMAKE_CURRENT_BINARY_DIR@/template-sdk-install")
+set(template_build "@CMAKE_CURRENT_BINARY_DIR@/game-template-build")
+set(package_path "@CMAKE_CURRENT_BINARY_DIR@/template-test.gpk")
+
+execute_process(
+    COMMAND
+        "@CMAKE_COMMAND@" --install "@CMAKE_BINARY_DIR@"
+        --prefix "${install_prefix}"
+    RESULT_VARIABLE install_result
+)
+if(NOT install_result EQUAL 0)
+    message(FATAL_ERROR "SDK install failed")
+endif()
+
+execute_process(
+    COMMAND
+        "@CMAKE_COMMAND@"
+        -S "@CMAKE_SOURCE_DIR@/games/template"
+        -B "${template_build}"
+        "-DCMAKE_PREFIX_PATH=${install_prefix}"
+        "-DCMAKE_CXX_FLAGS=@CMAKE_CXX_FLAGS@"
+        "-DCMAKE_EXE_LINKER_FLAGS=@CMAKE_EXE_LINKER_FLAGS@"
+    RESULT_VARIABLE configure_result
+)
+if(NOT configure_result EQUAL 0)
+    message(FATAL_ERROR "Template configure failed")
+endif()
+
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" --build "${template_build}"
+    RESULT_VARIABLE build_result
+)
+if(NOT build_result EQUAL 0)
+    message(FATAL_ERROR "Template build failed")
+endif()
+
+execute_process(
+    COMMAND "${template_build}/grandleon_template_builder" "${package_path}"
+    RESULT_VARIABLE package_result
+)
+if(NOT package_result EQUAL 0)
+    message(FATAL_ERROR "Template package build failed")
+endif()
+
+execute_process(
+    COMMAND
+        "${install_prefix}/@CMAKE_INSTALL_BINDIR@/grandleon_package_check"
+        "${package_path}"
+    RESULT_VARIABLE check_result
+)
+if(NOT check_result EQUAL 0)
+    message(FATAL_ERROR "Installed runtime rejected template package")
+endif()

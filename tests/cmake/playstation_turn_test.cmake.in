@@ -1,0 +1,58 @@
+# Plays a controller script into the PlayStation turn executable and requires
+# the R3000A to reach, step for step, the state the rules say it should, and to
+# draw it.
+#
+# Three steps, and the order is the argument. The expectations are derived on
+# the host first, by `grandleon_playstation_expect`, which compiles the same
+# `platform/client/src/turn_client.cpp` the console runs and replays the same
+# presses against the real engine and the real shared session. Then the
+# executable is built. Then it is run. The expectations exist before the
+# executable does, so no run can be made to pass by adjusting one.
+#
+# `grandleon.nintendo64_autopilot` is the same three steps on the other console,
+# over the same board and the same script. That is deliberate: two consoles
+# proving different things while looking like they proved the same one is the
+# failure this arrangement exists to make impossible.
+
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_IMAGE} "@GRANDLEON_PCSX_REDUX_BUILD_IMAGE@")
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_DIGEST} "@GRANDLEON_PCSX_REDUX_BUILD_DIGEST@")
+set(ENV{GRANDLEON_NUGGET_REVISION} "@GRANDLEON_NUGGET_REVISION@")
+set(ENV{GRANDLEON_PCSX_REDUX_REVISION} "@GRANDLEON_PCSX_REDUX_REVISION@")
+set(ENV{GRANDLEON_DOCKER} "@GRANDLEON_DOCKER@")
+set(ENV{GRANDLEON_PLAYSTATION_BUILD_DIR} "@GRANDLEON_PLAYSTATION_BUILD_DIR@")
+# And the floor the observer has to clear, which is the same number the CMake
+# target names. A lane that left it at the default would run the same script
+# under a weaker predicate than the target does, and two ways to run one check
+# that disagree about what passes is the drift the floor exists to stop.
+set(ENV{GRANDLEON_PLAYSTATION_TURN_MIN_CHECKS} "280")
+
+execute_process(
+    COMMAND
+        "${CMAKE_COMMAND}" --build "@CMAKE_BINARY_DIR@"
+        --target grandleon_playstation_turn_expectations
+    RESULT_VARIABLE expectations_result
+)
+if(NOT expectations_result EQUAL 0)
+    message(FATAL_ERROR
+        "the PlayStation turn run's expectations could not be derived")
+endif()
+
+execute_process(
+    COMMAND "@PROJECT_SOURCE_DIR@/platform/playstation/scripts/build-playstation.sh"
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE build_result
+)
+if(NOT build_result EQUAL 0)
+    message(FATAL_ERROR "PlayStation build failed")
+endif()
+
+execute_process(
+    COMMAND
+        "@PROJECT_SOURCE_DIR@/platform/playstation/scripts/run-playstation-turn.sh"
+    WORKING_DIRECTORY "@PROJECT_SOURCE_DIR@"
+    RESULT_VARIABLE run_result
+)
+if(NOT run_result EQUAL 0)
+    message(FATAL_ERROR
+        "the turn executable did not reach the state the rules say it should")
+endif()

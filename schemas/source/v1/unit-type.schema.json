@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/unit-type.schema.json",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/stableId" },
+    "name": { "$ref": "common.schema.json#/$defs/displayName" },
+    "classId": { "$ref": "common.schema.json#/$defs/stableId" },
+    "factionId": {
+      "$ref": "common.schema.json#/$defs/stableId",
+      "description": "Optional authoring default; runtime team semantics are not yet defined."
+    },
+    "abilityIds": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/stableId" },
+      "uniqueItems": true
+    },
+    "startingWeaponIds": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/stableId" },
+      "uniqueItems": true,
+      "description": "Every weapon the character carries, in order. The first is the one in hand and defines the character's reach and power; the rest are choices an attack may name."
+    },
+    "startingItemIds": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/stableId" },
+      "uniqueItems": true
+    },
+    "characterStyleId": {
+      "type": "string",
+      "enum": ["medieval", "scifi", "mythical", "nature", "sengoku", "undead", "pirates"],
+      "description": "The style this character alone is drawn in, overriding the game's. The menu is the project's menu: a game may field a character from any setting the library holds, so a medieval campaign may raise an undead enemy without becoming an undead game. A style supplies one drawing per archetype and nothing else: it never changes which archetype this character draws as, which colour its faction is drawn in, or any rule. Omit it and the character follows the game's characterStyleId, which is what every character did before this field existed.",
+      "$comment": "Same menu, same order, as project.schema.json's characterStyleId."
+    },
+    "characterFigureId": {
+      "type": "string",
+      "enum": ["first", "second"],
+      "description": "The body this character alone is drawn with, overriding the game's. Every figure draws every archetype in every style, so a figure is free to combine with any style: a mage drawn at the second build is the same mage. Choosing one changes no stat, no reach and no rule. Omit it and the character follows the game's characterFigureId, which is what every character did before this field existed.",
+      "$comment": "Same menu, same order, as project.schema.json's characterFigureId."
+    },
+    "growthRates": { "$ref": "common.schema.json#/$defs/growthRates" },
+    "experienceAward": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "description": "The experience defeating one of these grants to whoever struck the felling blow. Omitted means 0, so a unit type nobody authored an award for is worth nothing and changes no campaign.",
+      "default": 0
+    },
+    "experiencePerLevel": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "How much lifetime experience one of these needs for each level. Level is 1 + experience / experiencePerLevel, capped at 99. Omitted means 100.",
+      "default": 100
+    },
+    "dropItemId": {
+      "$ref": "common.schema.json#/$defs/stableId",
+      "description": "What one of these leaves behind when it falls. Authored together with dropChance or not at all: a drop with no chance of falling is refused, so 'leaves nothing' has one spelling."
+    },
+    "dropChance": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "How often the drop falls, as a whole percentage rolled at the moment of defeat. The authored number is the rolled number. 100 always drops and rolls nothing. Authored together with dropItemId or not at all.",
+      "default": 0
+    },
+    "notes": { "$ref": "common.schema.json#/$defs/notes" },
+    "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+  },
+  "required": ["id", "name", "classId"],
+  "additionalProperties": false
+}

@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "9e6b0d24-1a75-4c83-bf40-2d81c5e7a903",
+  "gameId": "campaign.invalid-specificity",
+  "title": "Invalid Campaign Member Specificity",
+  "contentRevision": "1.0.0",
+  "notes": "Every way a specificity can say nothing or say the impossible, one member each. A character may be anything an author could have made a class and nothing they could not, so the bounds each delta is measured against are the class's own field's, over the line the member's unit type reaches through its class.",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": {
+        "health": 12,
+        "movement": 4,
+        "strength": 4,
+        "defense": 2
+      }
+    },
+    {
+      "id": "archer",
+      "name": "Archer",
+      "baseStats": {
+        "health": 9,
+        "movement": 4,
+        "strength": 3,
+        "defense": 1
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter"
+    },
+    {
+      "id": "ranger",
+      "name": "Ranger",
+      "classId": "archer"
+    }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": [
+    {
+      "id": "yard",
+      "name": "Yard",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "unspecific",
+      "name": "Unspecific",
+      "roster": [
+        {
+          "id": "hollow",
+          "name": "Stated To Be Someone",
+          "unitTypeId": "ranger",
+          "specificity": {},
+          "notes": "Claims a character is specific and never says how."
+        },
+        {
+          "id": "unchanged",
+          "name": "Luckless By Nought",
+          "unitTypeId": "ranger",
+          "specificity": {
+            "stats": {
+              "luck": 0
+            }
+          },
+          "notes": "An author who wrote a number meant to change something; leaving the stat out is how a member says nothing about it."
+        },
+        {
+          "id": "felled",
+          "name": "Felled Before The First Blow",
+          "unitTypeId": "guardian",
+          "specificity": {
+            "stats": {
+              "health": -12
+            }
+          },
+          "notes": "Twelve health taken from twelve: a character who is already dead is not a character a class could have been."
+        },
+        {
+          "id": "overreaching",
+          "name": "Faster Than The Field",
+          "unitTypeId": "guardian",
+          "specificity": {
+            "stats": {
+              "movement": 252
+            }
+          },
+          "notes": "Above the ceiling the class's own movement is held to."
+        },
+        {
+          "id": "footsore",
+          "name": "Rooted Where He Stands",
+          "unitTypeId": "guardian",
+          "specificity": {
+            "stats": {
+              "movement": -4
+            }
+          },
+          "notes": "Movement at nought, which no class may be authored with either."
+        },
+        {
+          "id": "stranger",
+          "name": "Nobody's Shape",
+          "unitTypeId": "missing_unit",
+          "specificity": {
+            "stats": {
+              "health": -99
+            }
+          },
+          "notes": "No unit type, so no line to measure a delta against: the unresolved reference is reported and the delta is not, because a bad reference must never reach an author as a bad delta."
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "muster",
+        "nodes": [
+          {
+            "id": "muster",
+            "name": "The Muster",
+            "kind": "story",
+            "recruits": [
+              {
+                "id": "latecomer",
+                "name": "Slower Than Standing Still",
+                "unitTypeId": "ranger",
+                "specificity": {
+                  "stats": {
+                    "speed": -1
+                  }
+                },
+                "notes": "A recruit is held to every rule a founding member is. The archer never mentions speed, so the delta lands on the one the stat block gives a line that omits it, and takes it to nought."
+              }
+            ],
+            "transitions": [
+              {
+                "id": "march",
+                "targetNodeId": "watch",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "watch",
+            "name": "The Watch",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

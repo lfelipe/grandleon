@@ -1,0 +1,229 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "5c2e9b41-7d38-4a6f-8b12-3e9f0a5d7c64",
+  "gameId": "campaign.specificity",
+  "title": "Campaign Member Specificity",
+  "contentRevision": "1.0.0",
+  "notes": "Two characters who are more than their class, beside one who is exactly hers. The ranger's numbers are deltas over the archer's line, so rebalancing the archer moves her with it; her range bonus is on her rather than on the longbow, because the bow is the same bow the scout carries.",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": {
+        "health": 12,
+        "movement": 4,
+        "strength": 4,
+        "defense": 2
+      }
+    },
+    {
+      "id": "archer",
+      "name": "Archer",
+      "baseStats": {
+        "health": 9,
+        "movement": 4,
+        "strength": 3,
+        "defense": 1,
+        "skill": 5
+      },
+      "allowedWeaponTypeIds": ["bow"]
+    }
+  ],
+  "weaponTypes": [
+    {
+      "id": "bow",
+      "name": "Bow"
+    },
+    {
+      "id": "blade",
+      "name": "Blade"
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter",
+      "startingWeaponIds": ["sword"]
+    },
+    {
+      "id": "ranger",
+      "name": "Ranger",
+      "classId": "archer",
+      "startingWeaponIds": ["longbow"]
+    },
+    {
+      "id": "raider",
+      "name": "Raider",
+      "classId": "fighter",
+      "startingWeaponIds": ["sword"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "sword",
+      "name": "Sword",
+      "weaponTypeId": "blade",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 1
+    },
+    {
+      "id": "longbow",
+      "name": "Longbow",
+      "weaponTypeId": "bow",
+      "power": 5,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "notes": "A band a range bonus can widen: the ceiling moves and the floor stays, so a bonus never lets an archer answer somebody standing on top of her."
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "ford",
+      "name": "Ford",
+      "width": 3,
+      "height": 3,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "muster_road",
+      "name": "The Muster Road",
+      "roster": [
+        {
+          "id": "muster_ranger",
+          "name": "Ranger Iselle",
+          "unitTypeId": "ranger",
+          "specificity": {
+            "stats": {
+              "health": 3,
+              "defense": -1,
+              "skill": 4,
+              "speed": 2
+            },
+            "rangeBonus": 2
+          },
+          "notes": "Hardier and steadier than the archer she is, lighter in the armour, quicker to act, and written to shoot further than the bow she carries."
+        },
+        {
+          "id": "muster_vanguard",
+          "name": "Vanguard Rilla",
+          "unitTypeId": "guardian",
+          "notes": "Exactly her class, which is what every member authored before specificities says."
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "river_skirmish",
+        "nodes": [
+          {
+            "id": "river_skirmish",
+            "name": "River Skirmish",
+            "kind": "encounter",
+            "mapId": "ford",
+            "placements": [
+              {
+                "id": "ranger_at_ford",
+                "memberId": "muster_ranger",
+                "unitTypeId": "ranger",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "vanguard_at_ford",
+                "memberId": "muster_vanguard",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 1,
+                "y": 0
+              },
+              {
+                "id": "river_raider",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 2,
+                "y": 2
+              }
+            ],
+            "recruits": [
+              {
+                "id": "muster_scout",
+                "name": "Scout Aldren",
+                "unitTypeId": "ranger",
+                "specificity": {
+                  "rangeBonus": 3
+                },
+                "notes": "A recruit is a member of the company from the moment he joins, so the same shape says what he is beyond his class: further-sighted than any archer, and otherwise one of them."
+              }
+            ],
+            "transitions": [
+              {
+                "id": "cross",
+                "targetNodeId": "hill_road",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "hill_road",
+            "name": "Hill Road",
+            "kind": "encounter",
+            "mapId": "ford",
+            "placements": [
+              {
+                "id": "vanguard_on_road",
+                "memberId": "muster_vanguard",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "scout_on_road",
+                "memberId": "muster_scout",
+                "unitTypeId": "ranger",
+                "side": "first",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "road_raider",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 2,
+                "y": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "arrive",
+                "targetNodeId": "watch",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "watch",
+            "name": "The Watch",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

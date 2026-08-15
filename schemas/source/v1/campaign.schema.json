@@ -1,0 +1,637 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/campaign.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/stableId"
+    },
+    "name": {
+      "$ref": "common.schema.json#/$defs/displayName"
+    },
+    "flow": {
+      "$ref": "#/$defs/campaignFlow"
+    },
+    "roster": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/campaignRosterMember"
+      },
+      "maxItems": 512,
+      "description": "The company this campaign begins with. Every member is a distinct persistent character even when two share a unit type, and a first-side placement fields one of them by naming it. A campaign played as a kept campaign needs at least one member; omitting the roster leaves a campaign that can only be walked without persistence."
+    },
+    "startingStore": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/campaignItemGrant"
+      },
+      "maxItems": 256,
+      "description": "What the company's shared store holds the day it is founded, put there by the founding batch beside the members and their kits. This is the store rather than anybody's hands: a member's own satchel is their unit type's startingItemIds. Omitted and empty both mean a store that begins empty, which is what every campaign authored before this says, because a company that owns nothing and a company stated to own nothing are the same company."
+    },
+    "scriptBindings": {
+      "$ref": "common.schema.json#/$defs/scriptBindings"
+    },
+    "objectiveIds": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/stableId"
+      },
+      "uniqueItems": true,
+      "description": "Objective membership set; array order does not define execution order."
+    },
+    "dialogueIds": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/stableId"
+      },
+      "uniqueItems": true,
+      "description": "Dialogue membership set; array order does not define execution order."
+    },
+    "notes": {
+      "$ref": "common.schema.json#/$defs/notes"
+    },
+    "extensions": {
+      "$ref": "common.schema.json#/$defs/extensions"
+    }
+  },
+  "required": [
+    "id",
+    "name"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "campaignFlow": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "1.0.0"
+        },
+        "entryNodeId": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/campaignNode"
+          },
+          "minItems": 1,
+          "maxItems": 10000
+        }
+      },
+      "required": [
+        "contractVersion",
+        "entryNodeId",
+        "nodes"
+      ],
+      "additionalProperties": false
+    },
+    "campaignNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "name": {
+          "$ref": "common.schema.json#/$defs/displayName"
+        },
+        "kind": {
+          "enum": [
+            "encounter",
+            "story",
+            "terminal"
+          ]
+        },
+        "mapId": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/encounterPlacement"
+          },
+          "maxItems": 4096,
+          "description": "Initial unit instances for an encounter. Order is not gameplay-significant."
+        },
+        "objectiveIds": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/stableId"
+          },
+          "uniqueItems": true
+        },
+        "dialogueIds": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/stableId"
+          },
+          "uniqueItems": true
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/campaignTransition"
+          },
+          "maxItems": 256
+        },
+        "recruits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/campaignRosterMember"
+          },
+          "maxItems": 64,
+          "description": "Members who join the company when this node completes, in the same batch as the node's other consequences. A recruit is defined where they join and is a stranger to every earlier board."
+        },
+        "grants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/campaignItemGrant"
+          },
+          "maxItems": 64,
+          "description": "What passing this node puts in the company's store, in the same batch as the node's other consequences. Passing the node a second time grants again, because a grant is an event rather than a statement about how much the store should hold. Omitted and empty both mean the node gives nothing."
+        },
+        "notes": {
+          "$ref": "common.schema.json#/$defs/notes"
+        },
+        "extensions": {
+          "$ref": "common.schema.json#/$defs/extensions"
+        },
+        "turnOrder": {
+          "enum": [
+            "alternating",
+            "sideBlocks",
+            "initiative"
+          ],
+          "description": "Who acts next on this board, overriding the game's default. 'alternating' lets each side pick any unit in turn. 'sideBlocks' runs one whole side then the other and lets whoever holds a block act with any of its characters in any order. 'initiative' interleaves every unit by speed. Omitted means the project's 'defaultTurnOrder', which is alternating when the project states none."
+        },
+        "deployment": {
+          "$ref": "#/$defs/deploymentZone"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "transitions"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "encounter"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "placements": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "deployment": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "terminal"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "transitions": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "transitions": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "campaignItemGrant": {
+      "type": "object",
+      "description": "A quantity of one item, put into the company's shared store. The store is what the campaign holds beyond what its members carry, and it is the one owner an author can name without knowing who is still alive.",
+      "properties": {
+        "itemId": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "Which item. Each identity may appear once in a list: two entries for one item are an author saying the same thing twice with two different answers about how many."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "How many. One is not the default and must be written, so that a list of things a company owns never has an omitted number in it."
+        },
+        "notes": {
+          "$ref": "common.schema.json#/$defs/notes"
+        }
+      },
+      "required": [
+        "itemId",
+        "quantity"
+      ],
+      "additionalProperties": false
+    },
+    "deploymentZone": {
+      "type": "object",
+      "description": "What an encounter says about the player's own troops before the first activation: the region they are arranged in, how many of them may take the field, or both. Omitted means neither: no deployment phase, every character opens on the tile its placement names, and every member the board places who is fit to fight goes out. A stated deployment must say at least one of the two; one that states neither is refused by the compiler and both analyzers, where every other thing that is wrong with a deployment is also refused.",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "The deployment's own identity, so a diagnostic and an editor can name it."
+        },
+        "tiles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "description": "The tiles of the region. Each must be on the encounter's map, must be ground a character can stand on, and must appear once; at least one first-side placement must stand on one of them, or the region is one nobody can be arranged in.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "capacity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4095,
+          "description": "How many of the company may take this field, at most. Omitted means no cap and is what every encounter says by default: every member the board has a placement for, and who is fit to fight, goes out. A cap is a maximum rather than a quota, so fewer is legal and the engine never benches anybody to make a party fit; a player who has fielded too many is refused by name and answers by benching somebody. Zero is not authorable: a board nobody may field onto is one with no first-side placements."
+        },
+        "notes": {
+          "$ref": "common.schema.json#/$defs/notes"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "campaignRosterMember": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "The member's persistent identity, unique across this campaign's roster and every node's recruits. A first-side placement names it to say who stands there."
+        },
+        "name": {
+          "$ref": "common.schema.json#/$defs/displayName"
+        },
+        "unitTypeId": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "What this member is. Every placement fielding them must name the same unit type."
+        },
+        "specificity": {
+          "$ref": "#/$defs/campaignMemberSpecificity"
+        },
+        "notes": {
+          "$ref": "common.schema.json#/$defs/notes"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "unitTypeId"
+      ],
+      "additionalProperties": false
+    },
+    "campaignMemberSpecificity": {
+      "type": "object",
+      "description": "What makes this character more than their unit type: this archer shoots further, this knight is tougher. Applied where a character's earned level-up gains are applied, one step earlier, so an authored specificity and an earned gain are the same kind of thing to everything downstream and stack rather than replacing each other. Omitted is a character who is exactly their class, which is what every member authored before this says. Stating the object and then saying nothing in it is refused: it claims a character is specific without saying how. The whole shape serves the founding roster and every node's recruits alike, because a recruit is a member of the company from the moment they join.",
+      "properties": {
+        "stats": {
+          "$ref": "common.schema.json#/$defs/statDeltaBlock"
+        },
+        "rangeBonus": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32,
+          "description": "Added to the maximum of the band of every weapon this character strikes with. On the character rather than on the weapon, because it is a fact about the archer and not about the bow: two archers carrying one authored bow have one bow between them, and only one of them was written to shoot further. It raises the ceiling and leaves the floor, so an archer written to outrange a swordsman still cannot answer one standing on top of her. Everything that reads a band follows it: striking, countering, the danger overlay, and the range a client's info sheet prints. An ability's reach is not affected: an ability's power and shape come from the ability rather than from the caster. Omitted is no bonus; zero is refused."
+        }
+      },
+      "additionalProperties": false
+    },
+    "encounterPlacement": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "memberId": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "The roster member standing here, for a first-side placement in a campaign that authors a roster. The same member may stand on many boards under different placements, and is the same character on all of them. A second-side placement never names one."
+        },
+        "name": {
+          "$ref": "common.schema.json#/$defs/displayName",
+          "description": "What to call this character on this board: a boss, a captain worth talking to, anybody the player should be able to refer to by name. Omitted is a character named after their unit type, with an ordinal when more than one of that type stands on the board - so a name is never absent, only derived. A placement that names a memberId does not need one: the roster member's own name already answers this, and outranks it."
+        },
+        "unitTypeId": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "side": {
+          "enum": [
+            "first",
+            "second"
+          ]
+        },
+        "x": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "behavior": {
+          "enum": [
+            "hold",
+            "patrol",
+            "pursue"
+          ],
+          "description": "How an unattended unit acts on its own turn. Omitted means hold."
+        },
+        "talk": {
+          "type": "object",
+          "description": "Makes this character talkable on this board, and names the world flag that talking to them raises. Omitted means a character no talk may reach, which is what every placement authored before the talk gesture means. Authored here rather than on the unit type because being talkable is a fact about one character on one board.",
+          "properties": {
+            "flagId": {
+              "$ref": "common.schema.json#/$defs/stableId",
+              "description": "The world flag set to true when this character is talked off the board. A campaign transition reads it with a worldFlagEquals predicate. It is authored rather than derived because a battle-local character identity is a different number every time the character appears."
+            }
+          },
+          "required": [
+            "flagId"
+          ],
+          "additionalProperties": false
+        },
+        "arrival": {
+          "type": "object",
+          "description": "Makes this placement a reinforcement: it is not on the board when the battle opens, and enters as its round begins. Omitted is a character standing on the board from the opening, which is what every placement authored before waves means. Everything else about the placement still applies - its stance above most of all, which is how a wave is authored to come at the player rather than stand where it spawned. Its tile is judged in bounds and passable exactly as any placement's is, but not against the tiles other placements hold: a character who comes in on the sixth round does not share the board with the opening arrangement, and where its tile is taken when its round comes it takes the nearest one it could stand on instead. A placement that names a memberId cannot author one.",
+          "properties": {
+            "round": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 4095,
+              "description": "The round in progress this character enters on, one based. The earliest is the second, because the first round is the round the battle opens in and somebody who is there when it opens is an ordinary placement."
+            },
+            "every": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4095,
+              "description": "How many rounds separate one arrival from the next. Authored together with 'times' or not at all: a gap with no number of arrivals is a stream no battle could outlast."
+            },
+            "times": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 64,
+              "description": "How many arrivals this placement makes in all. Authored together with 'every' or not at all: several arrivals with no gap between them would land on one round, which is a stack rather than a wave. The first arrival is this placement; every later one is a character of the same shape with an identifier the engine allocates."
+            }
+          },
+          "required": [
+            "round"
+          ],
+          "dependentRequired": {
+            "every": [
+              "times"
+            ],
+            "times": [
+              "every"
+            ]
+          },
+          "additionalProperties": false
+        },
+        "patrolPoints": {
+          "type": "array",
+          "maxItems": 32,
+          "description": "Visited in order by the patrol behaviour.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "id",
+        "unitTypeId",
+        "side",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "campaignTransition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "targetNodeId": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "when": {
+          "$ref": "#/$defs/campaignCondition"
+        },
+        "notes": {
+          "$ref": "common.schema.json#/$defs/notes"
+        }
+      },
+      "required": [
+        "id",
+        "targetNodeId",
+        "priority"
+      ],
+      "additionalProperties": false
+    },
+    "campaignCondition": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/campaignPredicate"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "all"
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/campaignPredicate"
+              },
+              "minItems": 1,
+              "maxItems": 64
+            }
+          },
+          "required": [
+            "kind",
+            "conditions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "any"
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/campaignPredicate"
+              },
+              "minItems": 1,
+              "maxItems": 64
+            }
+          },
+          "required": [
+            "kind",
+            "conditions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "not"
+            },
+            "condition": {
+              "$ref": "#/$defs/campaignPredicate"
+            }
+          },
+          "required": [
+            "kind",
+            "condition"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "campaignPredicate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "objectiveResult"
+            },
+            "objectiveId": {
+              "$ref": "common.schema.json#/$defs/stableId"
+            },
+            "result": {
+              "$ref": "common.schema.json#/$defs/stableId"
+            }
+          },
+          "required": [
+            "kind",
+            "objectiveId",
+            "result"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "inventoryAtLeast"
+            },
+            "itemId": {
+              "$ref": "common.schema.json#/$defs/stableId"
+            },
+            "quantity": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "itemId",
+            "quantity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "worldFlagEquals"
+            },
+            "flagId": {
+              "$ref": "common.schema.json#/$defs/stableId"
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string",
+                  "maxLength": 1024
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "flagId",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

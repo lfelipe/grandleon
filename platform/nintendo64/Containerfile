@@ -1,0 +1,41 @@
+# Reproducible Nintendo 64 toolchain.
+#
+# libdragon publishes a container image, but it holds the mips64-elf GCC cross
+# compiler only: there is no libdragon in it, no n64.mk, no libdragon.a, no
+# n64tool and no linker script. So the published image is pinned by digest and
+# used as a base, and this file adds one pinned libdragon commit on top.
+#
+# Built by platform/nintendo64/scripts/build-n64.sh, which verifies the base
+# image digest before the build and refuses to continue if the tag has moved.
+
+FROM ghcr.io/dragonminded/libdragon@sha256:cf979424d0c2d3e281fda0820e8244def9b2debea2ab140c6513e41c8b66cdd0
+
+# The exact DragonMinded/libdragon commit installed below. Keep this in step
+# with GRANDLEON_LIBDRAGON_COMMIT in cmake/GrandleonNintendo64.cmake; the build
+# script passes it in and the image is tagged with it.
+ARG LIBDRAGON_COMMIT=35f85a0797324a5ed0c723203e33ab3c1da94fdd
+
+# The base image carries the cross compiler and host GCC, but no CMake, and the
+# engine is a CMake build.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+        ca-certificates \
+        cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV N64_INST=/n64_toolchain
+
+# A shallow fetch of one commit, so the image does not carry libdragon history.
+RUN mkdir -p /tmp/libdragon \
+    && cd /tmp/libdragon \
+    && git init --quiet \
+    && git remote add origin https://github.com/DragonMinded/libdragon.git \
+    && git fetch --quiet --depth 1 origin "${LIBDRAGON_COMMIT}" \
+    && git checkout --quiet FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "${LIBDRAGON_COMMIT}" \
+    && make -j"$(nproc)" install-mk \
+    && make -j"$(nproc)" libdragon tools \
+    && make -j"$(nproc)" install tools-install \
+    && printf '%s\n' "${LIBDRAGON_COMMIT}" > "${N64_INST}/LIBDRAGON_COMMIT" \
+    && cd / \
+    && rm -rf /tmp/libdragon

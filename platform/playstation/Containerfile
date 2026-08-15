@@ -1,0 +1,132 @@
+# Reproducible PlayStation toolchain.
+#
+# The base is upstream PCSX-Redux's own build image, which is where the
+# toolchain story for this console gets easy: it is Ubuntu 24.04 with Debian's
+# `g++-mipsel-linux-gnu` cross compiler, and that package depends on
+# `libstdc++-12-dev-mipsel-cross`, so a *hosted* libstdc++ for the R3000A's ABI
+# arrives from apt rather than from a toolchain this repository has to build.
+# That is less work than the libdragon arrangement, where the SDK is built on
+# top of the published image, and it is the fact this whole target rests on.
+#
+# Three things are added here.
+#
+# CMake, because the base image is built around a Makefile and has none.
+#
+# Nugget, pinned by commit. It is not in the base image, it is MIT, and it is
+# what supplies the four things a `-nostdlib` R3000A link cannot supply itself:
+# a reset entry point that zeroes .bss and walks the init array, the `.ps-exe`
+# linker script, byte-level `memcpy`/`memmove`/`memset`/`memcmp`, and the C++
+# ABI glue (`__cxa_guard_acquire`, `std::terminate`) that GCC emits calls to
+# whether or not a standard library is present.
+#
+# mkpsxiso, pinned by commit. It turns the executable into a disc.
+#
+# Built by platform/playstation/scripts/build-playstation.sh, which verifies
+# the base image digest before the build and refuses to continue if the tag has
+# moved.
+
+FROM ghcr.io/grumpycoders/pcsx-redux-build@sha256:e8db332e2b2d035cb0bbc5aeec2c134b9daac60c6f787e91c94cf03194eb7a5b
+
+ARG NUGGET_REVISION=e5d63b8e5eeadaa04cc5a534c671ea5b252afc70
+ARG MKPSXISO_REVISION=54fb1644ed8741223583e2dcda358b75a205e214
+ARG LIBSTDCXX_TREE_SHA256=84e45369e6bf696758c719419f26ab44663790ac697f284cf93a1e3dacc42647
+
+USER root
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+        ca-certificates \
+        cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+# A shallow clone cannot be pinned to an arbitrary commit, so the repository is
+# fetched at that commit explicitly and the checkout is verified against it
+# afterwards. The .git directory is discarded so the image cannot silently
+# become a different revision later.
+RUN set -eu \
+    && mkdir -p /nugget \
+    && cd /nugget \
+    && git init --quiet . \
+    && git remote add origin https://github.com/pcsx-redux/nugget.git \
+    && git fetch --quiet --depth 1 origin "${NUGGET_REVISION}" \
+    && git checkout --quiet FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "${NUGGET_REVISION}" \
+    && rm -rf /nugget/.git \
+    && printf '%s\n' "${NUGGET_REVISION}" > /nugget/NUGGET_REVISION \
+    && chmod -R a+rX /nugget
+
+# libstdc++'s red-black tree rebalancing, as source.
+#
+# `std::set` and `std::map` need four functions that live in
+# libstdc++'s src/c++98/tree.cc rather than in any header, and the built
+# `tree.o` in the image cannot be used: like every other prebuilt object here
+# it is compiled for the toolchain's default ISA, and
+# `mipsel-linux-gnu-readelf -h` reports `mips32r2`. It contains a `movn`, which
+# the R3000A does not implement, in the middle of `_Rb_tree_increment`, so a
+# tree walk takes a Reserved Instruction exception, resumes with a stale
+# register, and follows a garbage pointer.
+#
+# So the file is compiled here from source with `-march=mips1`. It is
+# GPLv3 **with the GCC Runtime Library Exception**, which explicitly permits
+# this; the licence text is in the file's own header. It is fetched at the
+# GCC 12.3.0 release tag, the same release as the compiler this image carries,
+# and pinned by the SHA-256 of the file itself, so the build fails closed if
+# those bytes ever change.
+RUN set -eu \
+    && mkdir -p /libstdcxx \
+    && curl --fail --location --silent --show-error \
+        --output /libstdcxx/tree.cc \
+        "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/libstdc%2B%2B-v3/src/c%2B%2B98/tree.cc" \
+    && printf '%s  %s\n' "${LIBSTDCXX_TREE_SHA256}" /libstdcxx/tree.cc \
+        | sha256sum --check --strict - \
+    && chmod -R a+rX /libstdcxx
+
+# mkpsxiso, which writes the disc.
+#
+# A PlayStation disc is not an ISO 9660 filesystem in 2048-byte sectors: it is
+# Mode 2 Form 1, 2352 bytes to the sector, with a sixteen-sector area at the
+# front and its own EDC/ECC. `mkisofs` and `xorriso` cannot write that, so the
+# choice is this tool or hand-rolling a sector writer. It is the tool the
+# PlayStation homebrew world already uses, it is pinned by commit at v2.30,
+# and it takes an XML description of the disc rather than a directory, which is
+# what lets `scripts/build-disc.sh` say exactly what goes on the image.
+#
+# It is GPL-2.0, the same licence as PCSX-Redux, which this target already
+# builds and runs. Nothing links it and nothing it emits is derived from it:
+# it is a program the build runs, like the compiler.
+#
+# `MKPSXISO_NO_LIBFLAC=ON` drops the libFLAC submodule, which exists to decode
+# CD audio tracks this disc has none of. Only the `mkpsxiso` target is built;
+# `dumpsxiso` is the other half of the repository and reads discs rather than
+# writing them, and it is the half libFLAC is linked into.
+#
+# **No Sony material is fetched here or anywhere else.** mkpsxiso can inject the
+# licence sector if it is handed the file, and it is deliberately never handed
+# one; see platform/playstation/README.md for what that costs.
+RUN set -eu \
+    && mkdir -p /mkpsxiso \
+    && cd /mkpsxiso \
+    && git init --quiet . \
+    && git remote add origin https://github.com/Lameguy64/mkpsxiso.git \
+    && git fetch --quiet --depth 1 origin "${MKPSXISO_REVISION}" \
+    && git checkout --quiet FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "${MKPSXISO_REVISION}" \
+    && git submodule update --quiet --init --recursive --depth 1 -- \
+        tinyxml2 miniaudio ghc threadpool \
+    && cmake -S /mkpsxiso -B /mkpsxiso/build \
+        -DCMAKE_BUILD_TYPE=Release -DMKPSXISO_NO_LIBFLAC=ON \
+    && cmake --build /mkpsxiso/build --parallel --target mkpsxiso \
+    && install -D --mode=0755 /mkpsxiso/build/mkpsxiso /usr/local/bin/mkpsxiso \
+    && printf '%s\n' "${MKPSXISO_REVISION}" > /MKPSXISO_REVISION \
+    && cd / \
+    && rm -rf /mkpsxiso
+
+# Recorded so the build script can prove the local tag is the pinned image and
+# not a stale rebuild that happens to share its name.
+RUN printf '%s\n' \
+    "sha256:e8db332e2b2d035cb0bbc5aeec2c134b9daac60c6f787e91c94cf03194eb7a5b" \
+    > /PCSX_REDUX_BUILD_DIGEST
+
+ENV NUGGET=/nugget
+ENV LIBSTDCXX_SOURCE=/libstdcxx
+ENTRYPOINT []
+CMD ["/bin/bash"]

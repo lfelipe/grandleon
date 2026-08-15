@@ -1,0 +1,71 @@
+# Reproducible PlayStation emulator, for running the conformance executable
+# headlessly, plus the MIT OpenBIOS it boots.
+#
+# PCSX-Redux rather than the alternatives, and the reason is the opposite of
+# the usual one: it is explicitly *not* accuracy-first. Its README says it aims
+# "at development and reverse engineering", which is what a conformance harness
+# wants. It is the only PlayStation emulator that has all four of the
+# things this gate needs already built in: a no-op UI with no GL and no window,
+# an interception of the BIOS teletype calls that writes them to its own
+# stdout, a control port that turns a guest exit code into the emulator's own
+# process exit code, and a reverse-engineered BIOS with a licence this
+# repository can check.
+#
+# ares is this repository's authoritative Nintendo 64 emulator and cannot be
+# the authority here. Its PlayStation core is marked Experimental by its own
+# authors, under the heading "Systems marked as 'Experimental' are supported,
+# but are not yet recommended for everyday use". Mednafen documents a
+# `psx.dbg_mask=stdout` BIOS-TTY snoop and would be the accuracy second opinion
+# the day one is wanted; it is not built here.
+#
+# The base is the same digest-pinned image the toolchain layer uses, because it
+# is upstream's own build image and already carries every dependency
+# PCSX-Redux's Makefile asks pkg-config for. That is a real saving: it means
+# this file installs nothing and pins nothing twice.
+#
+# There is no published PCSX-Redux image or release to pin, so the source is
+# pinned by commit and built here. OpenBIOS is built from the same commit
+# deliberately: openbios.bin lives inside that repository, and an emulator and
+# a BIOS from different revisions is exactly the kind of skew a pin is for.
+
+FROM ghcr.io/grumpycoders/pcsx-redux-build@sha256:e8db332e2b2d035cb0bbc5aeec2c134b9daac60c6f787e91c94cf03194eb7a5b
+
+ARG PCSX_REDUX_REVISION=a415a98e6c347b41ca5a1d3f23bbc4eb26059687
+
+# `make` refuses to start without the submodules. The check is explicit and its
+# only message is "You need to clone this repository recursively", which is not
+# much to go on. There are thirty-five of them and the full-history clone
+# is multiple gigabytes, so everything here is shallow.
+#
+# `make all` builds the emulator. `make -C src/mips/openbios all` builds the
+# BIOS with the same mipsel cross compiler the engine is built with; it needs
+# nothing else, because PACK_SHELL is unset so the shell builds as a plain
+# binary and the host-side ps1-packer is never invoked.
+RUN set -eu \
+    && mkdir -p /pcsx-redux \
+    && cd /pcsx-redux \
+    && git init --quiet . \
+    && git remote add origin https://github.com/grumpycoders/pcsx-redux.git \
+    && git fetch --quiet --depth 1 origin "${PCSX_REDUX_REVISION}" \
+    && git checkout --quiet FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "${PCSX_REDUX_REVISION}" \
+    && git submodule update --quiet --init --recursive --depth 1 \
+    && make -j"$(nproc)" all \
+    && make -C src/mips/openbios -j"$(nproc)" all \
+    && install -D --mode=0755 pcsx-redux /usr/local/bin/pcsx-redux \
+    && install -D --mode=0644 src/mips/openbios/openbios.bin \
+        /usr/local/share/pcsx-redux/openbios.bin \
+    && printf '%s\n' "${PCSX_REDUX_REVISION}" > /usr/local/PCSX_REDUX_REVISION \
+    && chmod -R a+rX /usr/local/share/pcsx-redux \
+    && cd / \
+    && rm -rf /pcsx-redux
+
+# PCSX-Redux resolves its configuration from HOME and will write a pcsx.json
+# beside itself if it has nowhere else to put one. A default HOME keeps that
+# inside the container even when the caller runs as an arbitrary uid with no
+# home directory, so a bind-mounted build directory is never written to. The
+# run script also passes -testmode, which enables safe mode and skips reading
+# any configuration at all; this is the belt to that pair of braces.
+ENV HOME=/tmp
+ENTRYPOINT []
+CMD ["/bin/bash"]

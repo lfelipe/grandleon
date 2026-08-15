@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grandleon.dev/schemas/source/v1/ability.schema.json",
+  "type": "object",
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/stableId" },
+    "name": { "$ref": "common.schema.json#/$defs/displayName" },
+    "kind": {
+      "enum": ["damage", "restore"],
+      "description": "What the area does to whoever it covers. Damage falls on the caster's opponents alone; restore mends whoever is standing in it."
+    },
+    "damageType": {
+      "enum": ["physical", "magical"],
+      "description": "Physical damage is reduced by defense, magical by resistance. Ignored when kind is restore."
+    },
+    "areaShape": {
+      "enum": ["single", "cross", "diamond"],
+      "description": "Tiles affected around the targeted position."
+    },
+    "radius": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "description": "Used only by the diamond shape."
+    },
+    "power": { "$ref": "common.schema.json#/$defs/damageStat" },
+    "minimumRange": { "type": "integer", "minimum": 1, "maximum": 255 },
+    "maximumRange": { "type": "integer", "minimum": 1, "maximum": 255 },
+    "accuracy": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "How often this cast lands, as a whole percentage. Omitted means 100: it always lands and rolls nothing. A damaging area rolls once per opposing unit it covers, and not at all for the caster's own side, which it cannot harm; a restoring ability never rolls."
+    },
+    "scriptBindings": { "$ref": "common.schema.json#/$defs/scriptBindings" },
+    "notes": { "$ref": "common.schema.json#/$defs/notes" },
+    "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+  },
+  "required": ["id", "name", "kind", "power", "minimumRange", "maximumRange"],
+  "additionalProperties": false
+}

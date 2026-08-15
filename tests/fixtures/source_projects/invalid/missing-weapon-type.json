@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
+  "gameId": "typed.demo",
+  "title": "Missing Weapon Type",
+  "contentRevision": "1.0.0",
+  "weaponTypes": [],
+  "itemTypes": [],
+  "classes": [],
+  "unitTypes": [],
+  "weapons": [
+    {
+      "id": "sword",
+      "name": "Sword",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [],
+  "maps": []
+}

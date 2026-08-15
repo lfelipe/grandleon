@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "29b977b7-ed71-4eb5-92d9-8287341e6282",
+  "gameId": "campaign.invalid",
+  "title": "Invalid Campaign Flow",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "wayfarer",
+      "name": "Wayfarer",
+      "baseStats": { "health": 10, "movement": 4, "strength": 3, "defense": 2 }
+    }
+  ],
+  "unitTypes": [
+    { "id": "scout", "name": "Scout", "classId": "wayfarer" }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": [],
+  "objectives": [],
+  "dialogues": [],
+  "campaigns": [
+    {
+      "id": "main",
+      "name": "Main",
+      "roster": [
+        { "id": "lead_scout", "name": "Lead Scout", "unitTypeId": "scout" }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "missing_entry",
+        "nodes": [
+          {
+            "id": "start",
+            "name": "Start",
+            "kind": "encounter",
+            "mapId": "missing_map",
+            "objectiveIds": ["missing_objective"],
+            "dialogueIds": ["missing_dialogue"],
+            "transitions": [
+              {
+                "id": "route",
+                "targetNodeId": "missing_target",
+                "priority": 10,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "missing_condition_objective",
+                      "result": "won"
+                    },
+                    {
+                      "kind": "inventoryAtLeast",
+                      "itemId": "missing_item",
+                      "quantity": 1
+                    }
+                  ]
+                }
+              },
+              { "id": "route", "targetNodeId": "orphan", "priority": 10 },
+              { "id": "fallback_two", "targetNodeId": "orphan", "priority": 20 }
+            ]
+          },
+          {
+            "id": "orphan",
+            "name": "Orphan",
+            "kind": "terminal",
+            "transitions": []
+          },
+          {
+            "id": "orphan",
+            "name": "Duplicate Orphan",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "unreachable_example",
+      "name": "Unreachable Example",
+      "roster": [
+        { "id": "walker", "name": "Walker", "unitTypeId": "scout" }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "entry",
+        "nodes": [
+          {
+            "id": "entry",
+            "name": "Entry",
+            "kind": "terminal",
+            "transitions": []
+          },
+          {
+            "id": "unreachable",
+            "name": "Unreachable",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

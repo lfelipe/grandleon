@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "109ae078-12eb-4de9-939a-d9e8e0bff31c",
+  "gameId": "encounter.placements",
+  "title": "Encounter Placements",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": {
+        "health": 10,
+        "movement": 3,
+        "strength": 2,
+        "defense": 1
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter"
+    }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": [
+    {
+      "id": "field",
+      "name": "Field",
+      "width": 2,
+      "height": 2,
+      "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain"
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "main",
+      "name": "Main",
+      "roster": [
+        {
+          "id": "hero",
+          "name": "Hero of the Field",
+          "unitTypeId": "guardian"
+        }
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "battle",
+        "nodes": [
+          {
+            "id": "battle",
+            "name": "Battle",
+            "kind": "encounter",
+            "mapId": "field",
+            "placements": [
+              {
+                "id": "hero",
+                "memberId": "hero",
+                "unitTypeId": "guardian",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "rival",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 1,
+                "y": 1,
+                "talk": {}
+              }
+            ],
+            "transitions": [
+              {
+                "id": "finish",
+                "targetNodeId": "end",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "end",
+            "name": "End",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

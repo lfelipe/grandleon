@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "9ec9ff7e-7544-4d8f-99e7-61a28c62dde8",
+  "gameId": "registry.demo",
+  "title": "Missing Authoring References",
+  "contentRevision": "1.0.0",
+  "classes": [
+    {
+      "id": "hero",
+      "name": "Hero",
+      "baseStats": {
+        "health": 10,
+        "movement": 4,
+        "strength": 3,
+        "defense": 2
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "protagonist",
+      "name": "Protagonist",
+      "classId": "hero",
+      "factionId": "missing_faction",
+      "abilityIds": ["missing_ability"]
+    }
+  ],
+  "weapons": [],
+  "items": [],
+  "maps": [],
+  "factions": [],
+  "abilities": [],
+  "objectives": [],
+  "dialogues": [],
+  "campaigns": [
+    {
+      "id": "demo_campaign",
+      "name": "Demo Campaign",
+      "roster": [
+        {
+          "id": "lead",
+          "name": "The Protagonist",
+          "unitTypeId": "protagonist"
+        }
+      ],
+      "objectiveIds": ["missing_objective"],
+      "dialogueIds": ["missing_dialogue"]
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "6d9a1c02-4b57-4f2e-9a30-1f7c5b8e2d41",
+  "gameId": "grandleon.presentation",
+  "title": "Grandleon Presentation Choices",
+  "contentRevision": "0.1.0",
+  "themeId": "winter",
+  "characterStyleId": "medieval",
+  "characterFigureId": "first",
+  "classes": [
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 20,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "demo_soldier",
+      "name": "Demo Soldier",
+      "classId": "vanguard",
+      "startingWeaponIds": ["training_sword"]
+    },
+    {
+      "id": "risen_soldier",
+      "name": "Risen Soldier",
+      "classId": "vanguard",
+      "characterStyleId": "undead",
+      "characterFigureId": "second",
+      "startingWeaponIds": ["training_sword"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "training_sword",
+      "name": "Training Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "stackLimit": 5
+    }
+  ],
+  "maps": [
+    {
+      "id": "training_ground",
+      "name": "Training Ground",
+      "width": 2,
+      "height": 2,
+      "terrain": ["plain", "plain", "plain", "plain"]
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "in_the_hall",
+      "name": "In the Hall",
+      "backgroundId": "throne_hall",
+      "lines": [
+        { "speaker": "Warden", "text": "The line holds while we speak." }
+      ]
+    },
+    {
+      "id": "on_the_road",
+      "name": "On the Road",
+      "lines": [
+        { "speaker": "Runner", "text": "A scene that names no backdrop." }
+      ]
+    }
+  ]
+}

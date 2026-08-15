@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "1.0.0",
+  "packageId": "8f2c5d61-7a04-4e93-b1c8-5d2e9a70f314",
+  "gameId": "grandleon.traversal",
+  "title": "Grandleon Character Traversal",
+  "contentRevision": "0.1.0",
+  "classes": [
+    {
+      "id": "footguard",
+      "name": "Footguard",
+      "baseStats": {
+        "health": 18,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5
+      }
+    },
+    {
+      "id": "heron_rider",
+      "name": "Heron Rider",
+      "baseStats": {
+        "health": 14,
+        "movement": 5,
+        "strength": 5,
+        "defense": 3
+      },
+      "traversal": {
+        "flying": true
+      }
+    },
+    {
+      "id": "fordwader",
+      "name": "Fordwader",
+      "baseStats": {
+        "health": 16,
+        "movement": 4,
+        "strength": 5,
+        "defense": 4
+      },
+      "traversal": {
+        "crossings": ["water", "heights"]
+      }
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "guard_on_foot",
+      "name": "Guard on Foot",
+      "classId": "footguard",
+      "startingWeaponIds": ["training_sword"]
+    },
+    {
+      "id": "guard_on_wing",
+      "name": "Guard on Wing",
+      "classId": "heron_rider",
+      "startingWeaponIds": ["training_sword"]
+    },
+    {
+      "id": "guard_in_the_shallows",
+      "name": "Guard in the Shallows",
+      "classId": "fordwader",
+      "startingWeaponIds": ["training_sword"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "training_sword",
+      "name": "Training Sword",
+      "power": 3,
+      "range": 1
+    }
+  ],
+  "items": [],
+  "maps": [
+    {
+      "id": "the_ford",
+      "name": "The Ford",
+      "width": 3,
+      "height": 2,
+      "terrain": ["grass", "river", "mountain", "grass", "road", "grass"]
+    }
+  ]
+}

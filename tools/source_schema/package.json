@@ -1,0 +1,17 @@
+{
+  "name": "@grandleon/source-schema-tools",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "node test.mjs",
+    "validate": "node validate.mjs",
+    "roundtrip": "node roundtrip.mjs",
+    "upgrade": "node upgrade.mjs"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "json-source-map": "0.6.1"
+  }
+}
