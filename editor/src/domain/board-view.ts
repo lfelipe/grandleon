@@ -50,6 +50,105 @@ export interface ViewOrigin {
 /** A board with no camera: every cell is visible at its own coordinates. */
 export const NO_CAMERA: ViewOrigin = { x: 0, y: 0 };
 
+// ---------------------------------------------------------------------------
+// Fitting a board to a screen
+// ---------------------------------------------------------------------------
+
+/**
+ * What a machine will spend on a board, in that machine's own pixels.
+ *
+ * A console arrives at these four numbers from its own hardware: how much of
+ * the frame is left after the interface has taken its share, how large a cell
+ * its art is worth drawing at, and how small a cell is still a cell. They are
+ * properties of a screen and a sprite sheet, so they differ per machine and the
+ * rule below does not. `console-fit.ts` holds the numbers each console declares
+ * and is where a reader should go for them.
+ */
+export interface FitRule {
+  /** Pixels the board may use, across and down. */
+  readonly frameW: number;
+  readonly frameH: number;
+  /**
+   * Never draw a cell larger than this. A small board would otherwise be drawn
+   * at whatever size divides the frame, which on a two-by-two board is an
+   * enormous cell made of a handful of texels.
+   */
+  readonly largestTile: number;
+  /**
+   * Never shrink a cell below this. Past it the board scrolls instead, because
+   * a board nobody can read is worse than a board with edges.
+   */
+  readonly smallestTile: number;
+  /**
+   * The cell a board too large to fit is drawn at. A separate number from
+   * `smallestTile` on purpose: the smallest readable cell is the point at which
+   * fitting stops being worth it, and a machine may reasonably give a scrolling
+   * board a more comfortable cell than that at the cost of a narrower window.
+   */
+  readonly scrollingTile: number;
+}
+
+/** A cell size and a window, in cells. */
+export interface BoardFit {
+  readonly tile: number;
+  readonly viewW: number;
+  readonly viewH: number;
+  /**
+   * True when the window is smaller than the board in either direction, so a
+   * caller can say plainly whether this board has edges the player must travel
+   * to.
+   */
+  readonly scrolling: boolean;
+}
+
+/**
+ * Chooses the largest cell that shows the whole board, or falls back to a
+ * window that scrolls.
+ *
+ * The order matters and is the part worth reading. The cell is the *smaller* of
+ * what the two dimensions allow, because a cell is square and the tighter axis
+ * decides. It is then capped, and only then compared against the floor: capping
+ * first means a board small enough to want a huge cell is not also judged to
+ * have failed the floor, which it obviously has not.
+ *
+ * Board sizes are whole cells and are expected to arrive that way; a caller
+ * holding something an author is still typing should say so itself rather than
+ * ask this what half a cell fits in. Zero and negative are treated as one, the
+ * way the C++ does, where the reason is that an integer division by zero on a
+ * console is a trap the machine does not come back from.
+ */
+export function fitBoard(rule: FitRule, mapW: number, mapH: number): BoardFit {
+  const width = mapW > 0 ? mapW : 1;
+  const height = mapH > 0 ? mapH : 1;
+
+  let tile = Math.floor(rule.frameW / width);
+  const down = Math.floor(rule.frameH / height);
+  if (down < tile) tile = down;
+  if (tile > rule.largestTile) tile = rule.largestTile;
+  if (tile >= rule.smallestTile) {
+    return { tile, viewW: width, viewH: height, scrolling: false };
+  }
+
+  const scrolling = rule.scrollingTile;
+  let viewW = width;
+  let viewH = height;
+  if (scrolling > 0) {
+    const across = Math.floor(rule.frameW / scrolling);
+    const downCells = Math.floor(rule.frameH / scrolling);
+    if (across < viewW) viewW = across;
+    if (downCells < viewH) viewH = downCells;
+  }
+  // A window of no cells would draw nothing and divide by zero downstream.
+  if (viewW < 1) viewW = 1;
+  if (viewH < 1) viewH = 1;
+  return {
+    tile: scrolling,
+    viewW,
+    viewH,
+    scrolling: viewW < width || viewH < height
+  };
+}
+
 /**
  * How far a cell rises per level of elevation, for a given cell size. A quarter
  * of the tile reads as a step without lifting a cell clear of the row behind

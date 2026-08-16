@@ -49,6 +49,21 @@ A note carries no severity, no path, and nothing to navigate to,
 because a game that overruns a console is still a game: nothing here reaches
 Save, Export, Play, or the schema, and the menus stay whole whatever it says.
 
+`console-fit.ts` says how much of a map each console draws at once, and is the
+same shape of answer as `target-budget.ts`: a fact about old hardware an author
+cannot see from here, told as guidance and never as a refusal. A board larger
+than a console's window scrolls, which is a board with edges the player travels
+to rather than a board that is wrong, so nothing here disables a control or
+blocks a resize. The rule is `fitBoard` in `board-view.ts`, restated from
+`platform/view/include/grandleon/view/board_view.hpp`; the two machines'
+numbers are declared in `platform/nintendo64/src/play_rom.cpp` and
+`platform/client/include/grandleon/client/turn_client.hpp`. The editor cannot
+call either, so `console-fit.test.ts` reads those two declarations and requires
+them to agree with what is here — an editor that is confidently wrong about
+what fits is worse than one that says nothing. Today that is 21x14 on the
+cartridge and 20x13 on the disc, and neither number is written down here: they
+are found by asking the rule.
+
 `ProjectStore` exposes a virtual tree of ordinary project files with canonical
 relative paths, defensive byte ownership, monotonic revisions, optimistic
 write/delete checks, deterministic listing, and complete snapshots. Every storage
