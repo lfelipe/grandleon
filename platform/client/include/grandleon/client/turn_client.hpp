@@ -93,17 +93,43 @@ namespace pr = grandleon::package_runtime;
 // derivation made against a taller window would put the camera somewhere the
 // console never puts it, and every coordinate downstream would differ.
 //
-// It is ten columns by six rows, and a console arrives at it from its own
-// hardware rather than from this line. The PlayStation is 320x240 with a
-// 32-pixel cell, less the four eight-pixel rows the message bar takes, which
-// leaves 208 lines: six whole rows and sixteen lines over. The sixteen become
-// the headroom a raised cell lifts into rather than a seventh row a shorter
-// screen could not match. `platform/playstation/src/turn_exe.cpp`
-// derives the two numbers and asserts they match these, so this is one
-// definition rather than a copy per machine.
+// At the native cell it is ten columns by six rows, and a console arrives at
+// that from its own hardware rather than from this line. The PlayStation is
+// 320x240 with a 32-pixel cell, less the four eight-pixel rows the message bar
+// takes, which leaves 208 lines: six whole rows and sixteen lines over. The
+// sixteen become the headroom a raised cell lifts into rather than a seventh
+// row a shorter screen could not match.
+// `platform/playstation/src/turn_exe.cpp` derives the two numbers and asserts
+// they match these, so this is one definition rather than a copy per machine.
 // ---------------------------------------------------------------------------
 inline constexpr int viewport_cols = 10;
 inline constexpr int viewport_rows = 6;
+
+// What the PlayStation actually gives a board, once the cell is allowed to
+// shrink.
+//
+// The window above is what ten by six of the *native* cell buys, and every map
+// this repository ships is larger than it in at least one direction. So the
+// cell shrinks to fit the board and the window only appears when shrinking
+// would stop the art being readable, which is the Nintendo 64's arrangement
+// and the reason `view::fit_board` is shared rather than copied.
+//
+// The four numbers, and why each is what it is:
+//
+//   320 x 208  the whole display across, and what the message bar leaves down.
+//    32        the largest cell: the art is 32 texels, and drawing it larger
+//              than it is enlarges nothing. It also means a board that already
+//              fitted is drawn exactly as it was.
+//    16        the smallest cell: half the texels, which on a GPU with no
+//              filter is the one reduction that drops every other texel evenly
+//              rather than unevenly. Below that the board scrolls.
+//    16        and a scrolling board draws at that same smallest cell, which
+//              buys the widest window a readable cell allows: twenty by
+//              thirteen.
+//
+// It lives here, next to the window it replaces, because the executable and
+// the host derivation both read it and a second copy is a second answer.
+inline constexpr view::FitRule board_fit{320, 208, 32, 16, 16};
 
 // ---------------------------------------------------------------------------
 // The pad
@@ -848,10 +874,33 @@ public:
 
     // How wide the viewport is, in cells. Set by the platform before the first
     // battle, because how much of a board fits is a property of the screen.
+    //
+    // A platform that sets a fit rule instead does not call this: the window
+    // is then a property of the board as well as of the screen, and is worked
+    // out per battle.
     void set_viewport(int cells_wide, int cells_high) noexcept {
         viewport_w_ = cells_wide;
         viewport_h_ = cells_high;
     }
+
+    // Fit each board to the screen rather than showing a fixed window of it.
+    //
+    // The cell size and the window then both fall out of `view::fit_board`
+    // once the board's size is known, and `tile()` reports what this battle
+    // was given. A platform that sets one is saying its renderer can draw a
+    // cell at whatever size comes back.
+    //
+    // This lives here, rather than in each platform, for the reason the window
+    // always lived here: the camera scrolls when the cursor reaches the edge,
+    // so a host derivation that worked the window out differently from the
+    // console would put the camera somewhere the console never puts it, and
+    // every coordinate downstream would differ. One rule, applied in one
+    // place, cannot disagree with itself.
+    void set_fit_rule(const view::FitRule& rule) noexcept { fit_ = rule; }
+
+    // The cell size this battle is drawn at, in pixels, or zero where no fit
+    // rule was set and the platform is drawing at a size of its own choosing.
+    [[nodiscard]] int tile() const noexcept { return tile_; }
 
 protected:
     // A check the client makes about itself, reported in the format the harness
@@ -1117,6 +1166,10 @@ private:
     view::Camera camera_{};
     int viewport_w_{10};
     int viewport_h_{7};
+    // Zero frame width means no rule, which is what keeps every platform that
+    // sets a viewport outright working exactly as it did.
+    view::FitRule fit_{};
+    int tile_{0};
 
     std::int16_t cursor_x_{0};
     std::int16_t cursor_y_{0};

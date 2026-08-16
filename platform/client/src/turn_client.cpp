@@ -521,10 +521,22 @@ void TurnClient::battle_begins(
 
     camera_.map_w = snapshot.width;
     camera_.map_h = snapshot.height;
-    camera_.view_w =
-        snapshot.width < viewport_w_ ? snapshot.width : viewport_w_;
-    camera_.view_h =
-        snapshot.height < viewport_h_ ? snapshot.height : viewport_h_;
+    if (fit_.frame_w > 0) {
+        // The platform fits each board to its screen. Both the cell size and
+        // the window come from the one rule, so the derivation on the host and
+        // the executable on the console reach the same numbers by running the
+        // same arithmetic rather than by agreeing to.
+        const view::BoardFit fit =
+            view::fit_board(fit_, snapshot.width, snapshot.height);
+        tile_ = fit.tile;
+        camera_.view_w = fit.view_w;
+        camera_.view_h = fit.view_h;
+    } else {
+        camera_.view_w =
+            snapshot.width < viewport_w_ ? snapshot.width : viewport_w_;
+        camera_.view_h =
+            snapshot.height < viewport_h_ ? snapshot.height : viewport_h_;
+    }
     camera_.x = 0;
     camera_.y = 0;
     camera_.clamp();

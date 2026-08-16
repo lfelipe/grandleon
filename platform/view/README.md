@@ -43,6 +43,7 @@ client that ignores them draws a correct board.
 | | |
 |---|---|
 | `Camera` | the top-left visible cell of a board larger than the screen, clamped to the map and following a cursor with a margin |
+| `FitRule` / `fit_board` | the largest cell that shows a whole board, given what a machine will spend on one, and the window a board too large for that scrolls in |
 | `Projection` | cell → pixel, with a per-level vertical lift and the matching centre-sampling positions |
 | `max_lift_for` | the bound on how far up the screen a cell may be drawn |
 | `headroom` | the room a board needs above its first row so the tallest lift stays in frame |
