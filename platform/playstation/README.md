@@ -22,6 +22,7 @@ card, a frame, and the pixel claims that make a picture checkable.
 - [The renderer](#the-renderer)
 - [How a run is checked](#how-a-run-is-checked)
 - [What is verified, and what is not](#what-is-verified-and-what-is-not)
+- [How a board is fitted to the screen](#how-a-board-is-fitted-to-the-screen)
 - [Still owed](#still-owed)
 - [Alignment](#alignment)
 - [Deliberately not here](#deliberately-not-here)
@@ -589,20 +590,50 @@ Not verified, and not claimed:
   the host can read a file; a real one is a 2x CD reader, and how long the
   black screen before the title lasts on one is a number nobody here has.
 
+## How a board is fitted to the screen
+
+A cell is drawn as large as the board allows, up to the thirty-two pixels the
+art is drawn at, and never smaller than sixteen. Below that the board scrolls
+instead. `turn::board_fit` states those four numbers, `view::fit_board` applies
+them, and the Nintendo 64 asks the same function with its own four — so the two
+consoles share the rule and not a copy of it.
+
+The consequence worth stating: every map the Tarnholt Line ships is larger than
+ten by six, so before this every one of them was played through a window. All
+of them now render whole, at cells between twenty-three and twenty-six pixels.
+Twenty by thirteen is the largest board that fits; past that a cell would be
+smaller than half the art and the camera scrolls.
+
+**Sixteen is half of thirty-two on purpose.** This GPU has no filter, so a cell
+drawn smaller drops texels rather than blending them, and half is the one
+reduction that drops every other texel evenly. A board drawn at the native size
+is unchanged, down to the primitive: `draw_cell_scaled` hands that case to
+`draw_cell`.
+
+Shrinking needs a different primitive, and that is why it was owed for so long.
+`gpu::draw_cell` issues GP0(0x65), a textured *rectangle*, and this GPU samples
+a rectangle's texture one texel to one pixel — so a smaller rectangle crops the
+sprite rather than shrinking it. `gpu::draw_cell_scaled` issues GP0(0x2D)
+instead, a textured quad whose four vertices carry their own texture
+coordinates, which the hardware interpolates between.
+
+### What a pixel claim has to know
+
+A probe claims that one pixel holds one colour, and on a shrunk cell it can no
+longer assume that pixel is one texel. It asks which texel a *pixel* shows,
+never where a texel lands: thirty-two texels over twenty-six pixels means six
+texels are drawn nowhere at all, so the inverse question has no answer for
+them and inventing one claims a neighbour's colour.
+
+The forward answer is `((2 * screen + 1) * 31) / (2 * drawn)`, and both halves
+of it were got wrong once here before the hardware was asked: the quad carries
+thirty-one texels of span rather than thirty-two, and the GPU samples at a
+pixel's centre rather than its near edge. Dropping either reads a texel early
+over most of the cell.
+
 ## Still owed
 
-**The board is drawn at a fixed thirty-two pixels a cell, so a board wider than
-ten cells or taller than six scrolls.** Every map the Tarnholt Line ships is
-larger than that in at least one direction, so on this console every one of them
-is played through a window. The Nintendo 64 shrinks the cell to fit the board
-instead and only scrolls when shrinking would make a tile unreadable, which is
-why the same battle is whole on the cartridge and windowed on the disc.
-
-The cell size is fixed here because of how a cell is drawn: `gpu::draw_cell`
-issues GP0(0x65), a textured *rectangle*, and this GPU samples a rectangle's
-texture one texel to one pixel. A smaller rectangle therefore crops the sprite
-rather than shrinking it. Drawing a cell at any other size means a textured
-quad, GP0(0x2D), whose four vertices carry their own texture coordinates.
+Nothing on the list this section used to carry.
 
 ## Alignment
 

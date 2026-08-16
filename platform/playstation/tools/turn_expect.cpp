@@ -155,11 +155,12 @@ int main(int argc, char** argv) {
 
     FileSink sink(out);
     HostClient host(sink, turn::fordlight_presses, turn::fordlight_press_count);
-    // The same window the executable has, from the one place both read it. It
-    // is the screen's number rather than the board's, and the client needs it
-    // before the first battle because how much of a board fits decides where
-    // the camera starts and when it scrolls.
-    host.set_viewport(turn::viewport_cols, turn::viewport_rows);
+    // The same fit rule the executable has, from the one place both read it.
+    // The client needs it before the first battle because the cell size and
+    // the window both fall out of it, and how much of a board fits decides
+    // where the camera starts and when it scrolls. Handing over the rule
+    // rather than the answer is what stops the two working it out differently.
+    host.set_fit_rule(turn::board_fit);
     // And the package, from the same place the ROM gets it: every name this
     // client draws is the author's own word, so a derivation that did not hand
     // one over would derive the shipped table's word and disagree with the

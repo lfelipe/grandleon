@@ -224,19 +224,37 @@ constexpr int harness_slot = 14;
 constexpr int harness_screen_slot = 12;
 constexpr int harness_done_slot = 15;
 
-// The board's cell, and the screen's own numbers.
-constexpr int tile = art::cell_size;
+// The board's cell at its native size, and the screen's own numbers.
+//
+// `native_tile` is how many texels the art is drawn with, and so the largest
+// cell worth putting on screen. It is no longer *the* cell: a board is fitted
+// to the frame by `turn::board_fit` and may be drawn at anything between the
+// smallest readable cell and this one. What it still fixes is the window a
+// board gets when no shrinking is needed, which is the window every
+// expectation was derived against before boards were fitted.
+constexpr int native_tile = art::cell_size;
 constexpr int glyph = gpu::glyph_texels;
 constexpr int screen_cols = gpu::screen_width / glyph;
 constexpr int screen_rows = gpu::screen_height / glyph;
 constexpr int bar_rows = 4;
 constexpr int bar_top = gpu::screen_height - bar_rows * glyph;
-constexpr int view_cols = gpu::screen_width / tile;
-constexpr int view_rows = bar_top / tile;
+constexpr int view_cols = gpu::screen_width / native_tile;
+constexpr int view_rows = bar_top / native_tile;
 
 static_assert(
     view_cols == turn::viewport_cols && view_rows == turn::viewport_rows,
     "the window the bar left is not the window the expectations assume"
+);
+// The fit rule the shared client is handed has to describe this screen, or the
+// board would be fitted to a frame this executable does not have.
+static_assert(
+    turn::board_fit.frame_w == gpu::screen_width &&
+        turn::board_fit.frame_h == bar_top,
+    "the fit rule's frame is not the frame the bar leaves"
+);
+static_assert(
+    turn::board_fit.largest_tile == native_tile,
+    "the fit rule would draw a cell larger than the art is"
 );
 static_assert(
     screen_cols == grandleon::sheet::unit_sheet_columns,
@@ -265,8 +283,13 @@ constexpr int sheet_footer_row = screen_rows - 2;
 // centre-sampling probe idiom `play_exe.cpp` established untouched.
 constexpr int wash_thickness = 3;
 
-// The cursor's four corner brackets: how long an arm is and how thick.
-constexpr int bracket_arm = tile / 4;
+// The cursor's four corner brackets: how long an arm is and how thick. The arm
+// is a quarter of whatever cell this board is drawn at, so the bracket stays
+// the same shape on a shrunk board rather than closing up into a box.
+[[nodiscard]] constexpr int bracket_arm_for(int cell) noexcept {
+    const int arm = cell / 4;
+    return arm > 0 ? arm : 1;
+}
 constexpr int bracket_thickness = 2;
 
 #ifdef GRANDLEON_PSX_AUTOPILOT
@@ -541,15 +564,52 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
     seen.flush();
 }
 
+// Which texel of a cell a screen pixel shows, when the cell is drawn `drawn`
+// pixels across.
+//
+// This direction and not its inverse, and that is the whole of a mistake worth
+// recording. Asking "where does texel T land" has no answer when a cell is
+// shrunk: 32 texels over 26 pixels means six texels are drawn nowhere at all,
+// so an inverse either invents a pixel for them or quietly claims a
+// neighbour's. Asking "what does pixel P show" is always answerable, and it is
+// also the question the probe is really making a claim about.
+//
+// At the native size a cell is drawn by a textured rectangle, which samples one
+// texel per pixel, so the answer is the pixel itself and every claim this
+// executable made before boards were fitted is unmoved.
+[[nodiscard]] constexpr int texel_under(int screen, int drawn) noexcept {
+    if (drawn >= native_tile) return screen;
+    // The quad carries `u` at its near edge and `u + native_tile - 1` at its
+    // far one, and the hardware samples at a pixel's *centre*, half a pixel in.
+    // Both halves of that matter and each was got wrong once here: dropping the
+    // half-pixel reads a texel early over most of the cell, and spanning 32
+    // texels rather than 31 reads past the cell's own last column.
+    return ((2 * screen + 1) * (native_tile - 1)) / (2 * drawn);
+}
+
 // The opaque texel of a cell nearest its centre, searched outward in rings and
 // confined to the middle half so the texel it finds can never be one the
 // cursor's brackets or a wash's frame is drawn over. `play_exe.cpp` searches
 // the whole cell because it draws neither.
+//
+// On a shrunk cell it wants more than an opaque texel: it wants one whose
+// neighbours are the same colour. The reason is that a probe claims an exact
+// pixel, and on a quad which texel a pixel samples is decided by the hardware's
+// own interpolation rounding rather than by arithmetic this file can reproduce
+// exactly. A texel sitting in a patch of one colour is claimed correctly
+// whichever of its neighbours the GPU actually reaches, so the claim stays
+// exact about the picture while ceasing to be a claim about the rounding. One
+// texel of margin is enough: the smallest cell this rule allows is half the
+// art, so a pixel spans two texels and the sampling can be off by one.
+//
+// At the native size no margin is asked for, so the texel found is the texel
+// that was always found.
 [[nodiscard]] bool opaque_near_centre(
-    const art::Asset& asset, int& out_x, int& out_y
+    const art::Asset& asset, int drawn, int& out_sx, int& out_sy,
+    int& out_tx, int& out_ty
 ) {
-    const int centre = tile / 2;
-    const int inset = tile / 4;
+    const int centre = drawn / 2;
+    const int inset = drawn / 4;
     for (int radius = 0; radius < inset; ++radius) {
         for (int dy = -radius; dy <= radius; ++dy) {
             for (int dx = -radius; dx <= radius; ++dx) {
@@ -557,15 +617,28 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
                     dy < radius) {
                     continue;
                 }
-                const int x = centre + dx;
-                const int y = centre + dy;
-                if (x < inset || y < inset || x >= tile - inset ||
-                    y >= tile - inset) {
+                const int sx = centre + dx;
+                const int sy = centre + dy;
+                if (sx < inset || sy < inset || sx >= drawn - inset ||
+                    sy >= drawn - inset) {
                     continue;
                 }
-                if (art::colour_at(asset, x, y) != 0) {
-                    out_x = x;
-                    out_y = y;
+                // Never the quad's own diagonal. A shrunk cell is two
+                // triangles meeting along `sx == sy`, and a pixel on that seam
+                // may be rasterised by either of them; which one decides what
+                // it samples, to a texel or two. Every other pixel is inside
+                // one triangle and is not a question. The native cell is a
+                // rectangle with no seam, so nothing is skipped there.
+                if (drawn < native_tile && sx - sy <= 1 && sy - sx <= 1) {
+                    continue;
+                }
+                const int tx = texel_under(sx, drawn);
+                const int ty = texel_under(sy, drawn);
+                if (art::colour_at(asset, tx, ty) != 0) {
+                    out_sx = sx;
+                    out_sy = sy;
+                    out_tx = tx;
+                    out_ty = ty;
                     return true;
                 }
             }
@@ -587,10 +660,11 @@ struct MenuBox final {
     int width{0};
     int height{0};
 
-    [[nodiscard]] bool covers(int column, int row) const noexcept {
+    [[nodiscard]] bool covers(int column, int row, int drawn) const noexcept {
         if (width <= 0 || height <= 0) return false;
-        return column + tile / glyph > left && column < left + width &&
-               row + tile / glyph > top && row < top + height;
+        const int span = drawn / glyph > 0 ? drawn / glyph : 1;
+        return column + span > left && column < left + width &&
+               row + span > top && row < top + height;
     }
 
     // Whether one *pixel* is under the box, rather than one cell. A cell is
@@ -605,10 +679,22 @@ struct MenuBox final {
     }
 };
 
-// Storage for the draw list. Sized from the window rather than rounded up: one
-// item per visible cell and one per visible living unit, and ten by six is
-// sixty.
-constexpr int draw_capacity = view_cols * view_rows + 16;
+// Storage for the draw list: one item per visible cell and one per visible
+// living unit.
+//
+// Sized from the *widest* window this executable can be asked for rather than
+// from the native cell's ten by six, because a board is fitted now and a
+// shrunk cell shows more of it. The widest window is what the smallest cell
+// buys, which is twenty by thirteen, and a window can never exceed that
+// because no board is ever drawn at a smaller cell than the rule's floor.
+//
+// The unit allowance is not scaled with it. A unit needs a cell to stand on,
+// so a window's cells already bound how many units can be in it; the sixteen
+// covers the units drawn beside their cell rather than on it, and that is a
+// property of the drawing rather than of the window's size.
+constexpr int widest_view = turn::board_fit.frame_w / turn::board_fit.smallest_tile;
+constexpr int tallest_view = turn::board_fit.frame_h / turn::board_fit.smallest_tile;
+constexpr int draw_capacity = widest_view * tallest_view + 16;
 view::DrawItem draw_storage[draw_capacity];
 
 // ---------------------------------------------------------------------------
@@ -951,8 +1037,8 @@ public:
         const int resolve = landed ? view::flinch_frames : view::miss_frames;
         for (int frame = 0; frame < resolve; ++frame) {
             if (landed) {
-                flinch_dx_ = view::flinch_offset(frame, toward_x, tile);
-                flinch_dy_ = view::flinch_offset(frame, toward_y, tile);
+                flinch_dx_ = view::flinch_offset(frame, toward_x, drawn_tile());
+                flinch_dy_ = view::flinch_offset(frame, toward_y, drawn_tile());
             }
             flash_lit_ = (frame % 2) == 0;
             psx::wait_vblank();
@@ -1010,7 +1096,7 @@ public:
                 if (x == overlay.cursor_x && y == overlay.cursor_y) continue;
                 const int left = cell_left(x);
                 const int top = cell_top(x, y);
-                if (box.covers(left / glyph, top / glyph)) continue;
+                if (box.covers(left / glyph, top / glyph, drawn_tile())) continue;
                 Line label;
                 label.text(splash ? "s" : danger ? "d" : "m")
                     .decimal(static_cast<std::uint32_t>(x))
@@ -1032,9 +1118,12 @@ public:
             const art::Asset asset = unit_asset(unit);
             int px = 0;
             int py = 0;
-            if (!opaque_near_centre(asset, px, py)) continue;
-            const int at_x = cell_left(unit.position.x) + px;
-            const int at_y = cell_top(unit.position.x, unit.position.y) + py;
+            const int drawn = drawn_tile();
+            int sx = 0;
+            int sy = 0;
+            if (!opaque_near_centre(asset, drawn, sx, sy, px, py)) continue;
+            const int at_x = cell_left(unit.position.x) + sx;
+            const int at_y = cell_top(unit.position.x, unit.position.y) + sy;
             // Claiming a texel the menu is drawn over would be claiming a
             // pixel the interface is deliberately hiding. That is the reason a
             // lit tile under the box is skipped a few lines above, and the
@@ -1153,17 +1242,18 @@ private:
             const int elevation = elevation_of_kind(kind_of(terrain()[i]));
             if (elevation > highest) highest = elevation;
         }
-        const int step = view::elevation_step_for(tile);
-        int reserved = view::headroom(highest, step, tile);
-        int slack = bar_top - tile * camera().view_h;
+        const int drawn = drawn_tile();
+        const int step = view::elevation_step_for(drawn);
+        int reserved = view::headroom(highest, step, drawn);
+        int slack = bar_top - drawn * camera().view_h;
         if (slack < 0) slack = 0;
         if (reserved > slack) reserved = slack;
         // No rounding. A primitive here is positioned per pixel, so the
         // projection's own origin is used, with nothing snapped to a grid.
-        const int origin_x = (gpu::screen_width - tile * camera().view_w) / 2;
+        const int origin_x = (gpu::screen_width - drawn * camera().view_w) / 2;
         const int origin_y =
-            reserved + (bar_top - reserved - tile * camera().view_h) / 2;
-        projection_ = view::Projection{origin_x, origin_y, tile, step};
+            reserved + (bar_top - reserved - drawn * camera().view_h) / 2;
+        projection_ = view::Projection{origin_x, origin_y, drawn, step};
     }
 
     void compose(const sim::EncounterSnapshot& snapshot) {
@@ -1215,7 +1305,9 @@ private:
                 const int cell = terrain_cell_of[kind][item.variant];
                 const int clut = terrain_clut_of[kind];
                 if (cell >= 0 && clut >= 0) {
-                    gpu::draw_cell(item.x, item.y, cell, clut);
+                    gpu::draw_cell_scaled(
+                        item.x, item.y, drawn_tile(), cell, clut
+                    );
                 }
                 // The wash, drawn where the cell was so the depth order the
                 // list computed is the depth order it is painted in. A lit
@@ -1236,7 +1328,7 @@ private:
                     );
                 }
                 if (flash_lit_ && item.cell_x == flash_x_ && item.cell_y == flash_y_) {
-                    gpu::fill(item.x, item.y, tile, tile, flash_colour);
+                    gpu::fill(item.x, item.y, drawn_tile(), drawn_tile(), flash_colour);
                 }
             } else if (item.layer == view::Layer::unit) {
                 const sim::UnitSnapshot& unit = snapshot.units[item.subject];
@@ -1277,19 +1369,22 @@ private:
         const int cell = character_cell_of[archetype][colour];
         const int clut = character_clut_of[archetype][colour];
         if (cell < 0 || clut < 0) return;
-        gpu::draw_cell(x, y, cell, clut);
+        gpu::draw_cell_scaled(x, y, drawn_tile(), cell, clut);
     }
 
     void draw_wash(int left, int top, std::uint16_t colour) {
-        gpu::fill(left, top, tile, wash_thickness, colour);
-        gpu::fill(left, top + tile - wash_thickness, tile, wash_thickness, colour);
+        const int drawn = drawn_tile();
+        const int side = drawn - 2 * wash_thickness;
+        gpu::fill(left, top, drawn, wash_thickness, colour);
         gpu::fill(
-            left, top + wash_thickness, wash_thickness,
-            tile - 2 * wash_thickness, colour
+            left, top + drawn - wash_thickness, drawn, wash_thickness, colour
         );
         gpu::fill(
-            left + tile - wash_thickness, top + wash_thickness, wash_thickness,
-            tile - 2 * wash_thickness, colour
+            left, top + wash_thickness, wash_thickness, side, colour
+        );
+        gpu::fill(
+            left + drawn - wash_thickness, top + wash_thickness,
+            wash_thickness, side, colour
         );
     }
 
@@ -1299,19 +1394,21 @@ private:
     // centre-sampling probe reads.
     void draw_cursor(const turn::Overlay& overlay, bool emphasised) {
         if (!camera().visible(overlay.cursor_x, overlay.cursor_y)) return;
-        const int inset = emphasised ? view::cursor_emphasis_inset(tile) : 0;
+        const int drawn = drawn_tile();
+        const int arm = bracket_arm_for(drawn);
+        const int inset = emphasised ? view::cursor_emphasis_inset(drawn) : 0;
         const int left = cell_left(overlay.cursor_x) + inset;
         const int top = cell_top(overlay.cursor_x, overlay.cursor_y) + inset;
-        const int span = tile - 2 * inset;
+        const int span = drawn - 2 * inset;
         for (int corner = 0; corner < 4; ++corner) {
             const bool right = (corner & 1) != 0;
             const bool bottom = (corner & 2) != 0;
-            const int x = right ? left + span - bracket_arm : left;
+            const int x = right ? left + span - arm : left;
             const int y = bottom ? top + span - bracket_thickness : top;
-            gpu::fill(x, y, bracket_arm, bracket_thickness, cursor_colour);
+            gpu::fill(x, y, arm, bracket_thickness, cursor_colour);
             const int vx = right ? left + span - bracket_thickness : left;
-            const int vy = bottom ? top + span - bracket_arm : top;
-            gpu::fill(vx, vy, bracket_thickness, bracket_arm, cursor_colour);
+            const int vy = bottom ? top + span - arm : top;
+            gpu::fill(vx, vy, bracket_thickness, arm, cursor_colour);
         }
     }
 
@@ -1665,9 +1762,20 @@ private:
         }
     }
 
+    // What this board is drawn at. The shared client works it out from the
+    // fit rule when the battle opens, so this asks rather than deciding: a
+    // renderer that decided for itself would be the second answer the fit rule
+    // exists to prevent.
+    [[nodiscard]] int drawn_tile() const noexcept {
+        const int given = tile();
+        return given > 0 ? given : native_tile;
+    }
+
     const pr::Presentation* shown_;
     int board_width_ = 0;
-    view::Projection projection_{0, 0, tile, view::elevation_step_for(tile)};
+    view::Projection projection_{
+        0, 0, native_tile, view::elevation_step_for(native_tile)
+    };
     view::DrawList list_{draw_storage, draw_capacity};
 
     const sim::EncounterSnapshot* held_ = nullptr;
@@ -1916,11 +2024,17 @@ int main() {
     // missing field.
     Line()
         .text("LAYOUT tile ")
-        .decimal(static_cast<std::uint32_t>(tile))
+        .decimal(static_cast<std::uint32_t>(native_tile))
+        .text("..")
+        .decimal(static_cast<std::uint32_t>(turn::board_fit.smallest_tile))
         .text(" view ")
         .decimal(static_cast<std::uint32_t>(view_cols))
         .text("x")
         .decimal(static_cast<std::uint32_t>(view_rows))
+        .text("..")
+        .decimal(static_cast<std::uint32_t>(widest_view))
+        .text("x")
+        .decimal(static_cast<std::uint32_t>(tallest_view))
         .text(" bar ")
         .decimal(static_cast<std::uint32_t>(bar_top))
         .text(" script ")
@@ -1939,7 +2053,10 @@ int main() {
     // toolchain's `cxxglue.c` supplies `__cxa_guard_acquire` and
     // `__cxa_guard_release`, which is exactly what one costs.
     static PlayStationClient game(sink, presentation.presentation);
-    game.set_viewport(view_cols, view_rows);
+    // Fitted rather than windowed: the client works the cell and the window
+    // out per board from this rule, and the host derivation is handed the same
+    // one. `set_viewport` is what a platform calls when its cell cannot move.
+    game.set_fit_rule(turn::board_fit);
     // The cartridge's own package, so every name this client draws is the name
     // its author wrote rather than the shipped table's guess at it.
     game.set_package(&loaded.package);

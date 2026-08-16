@@ -466,7 +466,7 @@ int main(int argc, char** argv) {
     QuietSink quiet;
     if (mode == "record") {
         RecordingClient recorder(quiet);
-        recorder.set_viewport(turn::viewport_cols, turn::viewport_rows);
+        recorder.set_fit_rule(turn::board_fit);
         recorder.set_package(&loaded.package);
         const client::CampaignSessionError played = play(
             loaded.package, campaign_id, title.c_str(), slot_base.c_str(),
@@ -497,7 +497,7 @@ int main(int argc, char** argv) {
     }
     if (mode == "resume") {
         HostClient warm(quiet, founding, founding_count);
-        warm.set_viewport(turn::viewport_cols, turn::viewport_rows);
+        warm.set_fit_rule(turn::board_fit);
         warm.set_package(&loaded.package);
         const client::CampaignSessionError first = play(
             loaded.package, campaign_id, title.c_str(), slot_base.c_str(),
@@ -524,7 +524,7 @@ int main(int argc, char** argv) {
     FileSink sink(out);
     HostClient host(sink, presses, count);
     // The same window the executable has, from the one place both read it.
-    host.set_viewport(turn::viewport_cols, turn::viewport_rows);
+    host.set_fit_rule(turn::board_fit);
     // And the package, from the same place the executable gets it: every name
     // this client draws is the author's own word, so a derivation that did not
     // hand one over would derive the shipped table's word and disagree with the
