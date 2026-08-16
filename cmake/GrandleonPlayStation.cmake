@@ -326,15 +326,27 @@ add_custom_target(grandleon_playstation_disc
 # same host derivation is the cheapest way to say that worked rather than
 # nearly worked. The second boot, over the card the first one wrote, is also
 # the only place a disc and a memory card meet.
+#
+# It boots a disc of its own, cut from the autopilot campaign rather than from
+# the played one, and that is the one compromise here worth naming. The shipped
+# disc waits on the pad, which under a headless emulator means it waits for
+# ever, so booting it would hang rather than check anything. What this check is
+# the authority on is the boot path — the shell reading SYSTEM.CNF off the
+# filesystem and loading MAIN.EXE sector by sector — and that path is the same
+# bytes for both discs, because they are cut by the same script from the same
+# ISO 9660 description and differ only in which executable is called MAIN.EXE.
 add_custom_target(grandleon_playstation_disc_check
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_playstation_build_env}
         "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-playstation.sh"
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_playstation_disc_env}
+        "GRANDLEON_PLAYSTATION_DISC_EXECUTABLE=grandleon_psx_campaign_autopilot.ps-exe"
+        "GRANDLEON_PLAYSTATION_DISC_NAME=grandleon-autopilot"
         "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-disc.sh"
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_playstation_run_env}
+        "GRANDLEON_PLAYSTATION_DISC_NAME=grandleon-autopilot"
         "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/run-playstation-disc.sh"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMENT "Booting the PlayStation disc image and playing the campaign off it"

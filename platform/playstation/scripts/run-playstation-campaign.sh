@@ -120,10 +120,14 @@ exe_dir="${build_dir}/target/platform/playstation"
 
 # Which executable carries which campaign. One build of `src/turn_exe.cpp` per
 # project, because a console build carries one project's bytes.
+#
+# The autopilot builds, for the reason `run-playstation-turn.sh` gives at
+# greater length: the played builds of these wait on a pad this emulator does
+# not have, so booting one here would hang instead of failing.
 executable_for() {
     case "$1" in
-        tarnholt_line) echo "grandleon_psx_campaign" ;;
-        demo_campaign) echo "grandleon_psx_campaign_demo" ;;
+        tarnholt_line) echo "grandleon_psx_campaign_autopilot" ;;
+        demo_campaign) echo "grandleon_psx_campaign_demo_autopilot" ;;
         *) echo "error: no executable carries '$1'." >&2; exit 2 ;;
     esac
 }

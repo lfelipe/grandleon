@@ -55,7 +55,12 @@ build_dir="${GRANDLEON_PLAYSTATION_BUILD_DIR:-${repository_root}/build-playstati
 # A whole scripted session under the interpreter, with a full repaint every
 # frame the board moves. A hang detector rather than a budget.
 timeout_seconds="${GRANDLEON_PLAYSTATION_TURN_TIMEOUT:-2400}"
-name="${GRANDLEON_PLAYSTATION_TURN_EXECUTABLE:-grandleon_psx_turn}"
+# The autopilot build, because a check needs a run that presses its own buttons.
+# `grandleon_psx_turn` is the same translation unit with no script linked into
+# it: it waits on the pad, which under this headless emulator means it waits for
+# ever. Booting it here would hang rather than fail, which is the worst way for
+# a check to be wrong.
+name="${GRANDLEON_PLAYSTATION_TURN_EXECUTABLE:-grandleon_psx_turn_autopilot}"
 # The number of checks the observer must have made for this run to count, and
 # what stops `HARNESS RESULT PASS 0/0` being read as a pass. It is a floor, not
 # a number to match: the count is a function of how many checkpoints the script

@@ -50,7 +50,7 @@
 // client's.
 //
 // ---------------------------------------------------------------------------
-// The script, and why it is compiled in
+// The script, and which builds carry one
 //
 // A harness that presses buttons needs an emulator with pad ports. This one is
 // headless and offers none, so the script is compiled into the executable and
@@ -58,12 +58,18 @@
 // `platform/client/autopilot/fordlight_pad.h` carries the script, and the host
 // derivation replays the same file.
 //
-// It has a consequence worth having on purpose: **the live pad is polled every
-// frame and wins.** Left alone, this executable plays the script and reports;
-// pressed, it hands over to whoever pressed and never goes back. So the
-// artifact demonstrates itself to anybody who boots it and is a game to
-// anybody who picks up a controller. The checked run is headless with no pad
-// attached, so it is the scripted one, exactly.
+// `GRANDLEON_PSX_AUTOPILOT` is what decides whether this build has one, and it
+// is a build-time question rather than something detected at run time. An
+// autopilot build plays the script and reports; a played build has no script
+// linked into it at all and waits on the pad, so it stops on the title screen
+// and on every screen after it, exactly as the cartridge does.
+//
+// Deciding it at build time rather than by asking the machine is the whole
+// point. A run-time test — is a pad plugged in, is this an emulator — would
+// have to be right on hardware nobody here can try, and would leave the played
+// build carrying a script it must never reach. Two builds of one translation
+// unit is the arrangement the Nintendo 64 already uses for the same reason,
+// and it keeps the checked artifact and the played one the same code.
 
 #include "grandleon/view/board_view.hpp"
 
@@ -88,7 +94,9 @@
 #include "psx_runtime.h"
 #include "themes.h"
 
+#ifdef GRANDLEON_PSX_AUTOPILOT
 #include "fordlight_pad.h"
+#endif
 
 // Which project's bytes this executable carries. Tarnholt's board, unless a
 // campaign build says otherwise, because a turn executable's subject is a
@@ -113,7 +121,9 @@
 // frame for the board.
 #include "backdrops.h"
 
+#ifdef GRANDLEON_PSX_AUTOPILOT
 #include "campaign_pad.h"
+#endif
 #endif
 
 namespace core = grandleon::core;
@@ -259,6 +269,7 @@ constexpr int wash_thickness = 3;
 constexpr int bracket_arm = tile / 4;
 constexpr int bracket_thickness = 2;
 
+#ifdef GRANDLEON_PSX_AUTOPILOT
 // How many frames a scripted press waits before it is made. Twenty is two
 // thirds of the cursor's own pulse period, so a person watching the executable
 // play itself sees the pulse rather than a cursor that only ever steps.
@@ -272,6 +283,7 @@ constexpr int bracket_thickness = 2;
 constexpr int script_dwell_frames = 6;
 #else
 constexpr int script_dwell_frames = 20;
+#endif
 #endif
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
@@ -357,6 +369,7 @@ int checks = 0;
 int failures = 0;
 int probes = 0;
 
+#ifdef GRANDLEON_PSX_AUTOPILOT
 // The script this run plays, and how long it is.
 //
 // A turn executable has one script and knows it at compile time. A campaign
@@ -380,6 +393,7 @@ const std::size_t resume_press_count = turn::tarnholt_campaign_resume_count;
 #else
 const std::uint16_t* const script_presses = turn::fordlight_presses;
 const std::size_t script_press_count = turn::fordlight_press_count;
+#endif
 #endif
 
 void expect(bool condition, const char* name) {
@@ -639,20 +653,29 @@ public:
             psx::wait_vblank();
             const std::uint16_t live = pad::pressed();
             if (live != 0) {
-                // Somebody has picked up a controller. From here the script is
-                // over and the board is theirs; a run under the harness never
-                // reaches this, because a headless emulator has no pad to press.
+#ifdef GRANDLEON_PSX_AUTOPILOT
+                // Somebody has picked up a controller during a scripted run.
+                // From here the script is over and the board is theirs; a run
+                // under the harness never reaches this, because a headless
+                // emulator has no pad to press.
                 steered_ = true;
+#endif
                 if (emphasised) draw_held(false);
                 return live;
             }
-            if (!steered_ && frame >= static_cast<std::uint32_t>(script_dwell_frames)) {
+#ifdef GRANDLEON_PSX_AUTOPILOT
+            if (!steered_ &&
+                frame >= static_cast<std::uint32_t>(script_dwell_frames)) {
                 if (emphasised) draw_held(false);
                 if (consumed_ >= script_press_count) {
                     return turn::pad_end_of_script;
                 }
                 return script_presses[consumed_++];
             }
+#endif
+            // A played build falls through to here and waits, which is the
+            // whole of the difference: no press is invented, so a screen that
+            // asks a question keeps asking it until somebody answers.
             ++frame;
             const bool now = view::cursor_emphasised(frame);
             if (now == emphasised) continue;
@@ -1863,10 +1886,16 @@ int main() {
         holds[row] = device.contains(name);
     }
 
-    // Which script plays, decided by the card and by nothing this executable
-    // carries. `holds[0]` is the first slot, which is the row the caret opens
-    // on and the row a card with one campaign on it always uses.
+    // Whether this run is picking a campaign up rather than founding one.
+    // `holds[0]` is the first slot, which is the row the caret opens on and the
+    // row a card with one campaign on it always uses. It is a fact about the
+    // card rather than about this build, and both builds' end-of-run
+    // assertions turn on it.
     const bool resuming = holds[0];
+
+#ifdef GRANDLEON_PSX_AUTOPILOT
+    // Which script plays, decided by the card and by nothing this executable
+    // carries.
     if (resuming) {
         script_presses = resume_presses;
         script_press_count = resume_press_count;
@@ -1877,9 +1906,14 @@ int main() {
         .text(" presses ")
         .decimal(static_cast<std::uint32_t>(script_press_count))
         .flush();
+#endif
 
 #endif
 
+    // How long the script is, and zero where there is not one. A played build
+    // reports the same line with a zero in it rather than a shorter line, so
+    // one reader parses both and the difference is a number rather than a
+    // missing field.
     Line()
         .text("LAYOUT tile ")
         .decimal(static_cast<std::uint32_t>(tile))
@@ -1890,7 +1924,11 @@ int main() {
         .text(" bar ")
         .decimal(static_cast<std::uint32_t>(bar_top))
         .text(" script ")
+#ifdef GRANDLEON_PSX_AUTOPILOT
         .decimal(static_cast<std::uint32_t>(script_press_count))
+#else
+        .decimal(0u)
+#endif
         .flush();
 
     static TeletypeSink sink;
@@ -2016,10 +2054,12 @@ int main() {
     expect(game.checkpoints() > 0, "the run settled somewhere");
 #endif
     expect(game.failures() == 0, "every check the client made passed");
+#ifdef GRANDLEON_PSX_AUTOPILOT
     expect(
         game.steered() || game.consumed() == script_press_count,
         "the script was played to its last press"
     );
+#endif
 
     checks += game.checks();
     failures += game.failures();

@@ -379,6 +379,10 @@ endfunction()
 grandleon_playstation_played_executable(
     grandleon_playstation_turn grandleon_psx_turn
 )
+grandleon_playstation_played_executable(
+    grandleon_playstation_turn_autopilot grandleon_psx_turn_autopilot
+    GRANDLEON_PSX_AUTOPILOT
+)
 
 # The campaign executable: the same board, played, with the rest of the game
 # around it. Two files would have been two renderers of one board, which is
@@ -386,6 +390,10 @@ grandleon_playstation_played_executable(
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign grandleon_psx_campaign
     GRANDLEON_TURN_CLIENT_CAMPAIGN
+)
+grandleon_playstation_played_executable(
+    grandleon_playstation_campaign_autopilot grandleon_psx_campaign_autopilot
+    GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_AUTOPILOT
 )
 
 # The other shipped campaign, on the same executable.
@@ -422,6 +430,12 @@ grandleon_require_single_character_combination(
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign_demo grandleon_psx_campaign_demo
     GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_DEMO_CAMPAIGN
+)
+grandleon_playstation_played_executable(
+    grandleon_playstation_campaign_demo_autopilot
+    grandleon_psx_campaign_demo_autopilot
+    GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_DEMO_CAMPAIGN
+    GRANDLEON_PSX_AUTOPILOT
 )
 
 # The scratch measurement program, and why it is behind an option.

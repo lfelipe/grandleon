@@ -37,10 +37,32 @@ card, a frame, and the pixel claims that make a picture checkable.
 | `grandleon_psx_card.ps-exe` | the memory card protocol, including refusing a card it cannot read |
 | `grandleon_psx_campaign.ps-exe` | the Tarnholt Line campaign, founded and resumed across processes |
 | `grandleon_psx_campaign_demo.ps-exe` | The Bridge at Dawn campaign, likewise |
+| `grandleon_psx_turn_autopilot.ps-exe` | the turn executable, playing a recorded script instead of waiting on a pad |
+| `grandleon_psx_campaign_autopilot.ps-exe` | the Tarnholt Line campaign, likewise |
+| `grandleon_psx_campaign_demo_autopilot.ps-exe` | The Bridge at Dawn campaign, likewise |
 
 Each check prints `RESULT PASS n/n` counts; the gate is the authority on the
 numbers. The Tarnholt Line campaign is also written onto a disc image somebody
 can burn; see [The disc](#the-disc).
+
+### Played and autopilot are the same code
+
+The last three are `src/turn_exe.cpp` again with `GRANDLEON_PSX_AUTOPILOT`
+defined, and that macro decides one thing: whether a recorded script is linked
+in. Without it there is no script in the image at all and every screen waits on
+the controller, which is what makes the first set a game. With it the executable
+paces itself by counting frames and reports what it saw, which is what makes the
+second set checkable on an emulator that offers no pad ports.
+
+**The checks run the autopilot builds and the disc carries a played one.** A
+check pointed at a played build would not fail, it would hang, which is the
+worst way for a check to be wrong; `run-playstation-turn.sh` says so where it
+picks the name.
+
+Deciding this at build time rather than by asking the machine at run time is
+deliberate. A run-time test — is a pad plugged in, is this an emulator — would
+have to be right on hardware nobody here can try, and would leave the shipped
+executable carrying a script it must never reach.
 
 ## Building and running
 
@@ -569,20 +591,18 @@ Not verified, and not claimed:
 
 ## Still owed
 
-This port is behind the Nintendo 64 in one way a player notices immediately.
+**The board is drawn at a fixed thirty-two pixels a cell, so a board wider than
+ten cells or taller than six scrolls.** Every map the Tarnholt Line ships is
+larger than that in at least one direction, so on this console every one of them
+is played through a window. The Nintendo 64 shrinks the cell to fit the board
+instead and only scrolls when shrinking would make a tile unreadable, which is
+why the same battle is whole on the cartridge and windowed on the disc.
 
-**It boots into the script and plays itself.** The Nintendo 64 opens on a title
-screen, then a slot screen that asks which save this run reads and writes, then
-a controls screen, and waits at each. This one starts the recorded run and hands
-over when somebody presses a button, and never goes back. That is why the checks
-work: the headless emulator has no pad ports, so the scripted run *is* the
-unattended run, exactly.
-
-It should stop and ask, the way the cartridge does. Doing that means the
-executable has to tell a checked run from a played one before it draws anything,
-and every transcript this directory compares against moves with it. Until then
-the disc is an attract mode that yields to a controller rather than a game that
-opens on a menu.
+The cell size is fixed here because of how a cell is drawn: `gpu::draw_cell`
+issues GP0(0x65), a textured *rectangle*, and this GPU samples a rectangle's
+texture one texel to one pixel. A smaller rectangle therefore crops the sprite
+rather than shrinking it. Drawing a cell at any other size means a textured
+quad, GP0(0x2D), whose four vertices carry their own texture coordinates.
 
 ## Alignment
 

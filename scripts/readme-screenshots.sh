@@ -38,7 +38,9 @@ export PLAYWRIGHT_BROWSERS_PATH="${repository_root}/.playwright-browsers"
 # The three PlayStation arms decode raw 15-bit frames, and share one decoder
 # rather than carrying three copies of the widening rule.
 export PYTHONPATH="${repository_root}/scripts${PYTHONPATH:+:${PYTHONPATH}}"
-playstation_log="${repository_root}/build-playstation/turn-grandleon_psx_turn.log"
+# The autopilot build's log, because a screenshot needs a run that played
+# itself: `run-playstation-turn.sh` names the log after the executable it boots.
+playstation_log="${repository_root}/build-playstation/turn-grandleon_psx_turn_autopilot.log"
 
 want() {
     [ "$#" -eq 1 ] || return 0

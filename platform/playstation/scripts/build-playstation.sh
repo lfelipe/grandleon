@@ -181,10 +181,18 @@ flock 9
         targets="${targets} grandleon_playstation_turn"
         targets="${targets} grandleon_playstation_campaign"
         targets="${targets} grandleon_playstation_campaign_demo"
+        # The three played builds above wait on the pad. These three carry the
+        # script and are what the checks run; see platform/playstation/README.md.
+        targets="${targets} grandleon_playstation_turn_autopilot"
+        targets="${targets} grandleon_playstation_campaign_autopilot"
+        targets="${targets} grandleon_playstation_campaign_demo_autopilot"
         reported="grandleon_psx grandleon_psx_card grandleon_psx_play"
         reported="${reported} grandleon_psx_play_raised grandleon_psx_turn"
         reported="${reported} grandleon_psx_campaign"
         reported="${reported} grandleon_psx_campaign_demo"
+        reported="${reported} grandleon_psx_turn_autopilot"
+        reported="${reported} grandleon_psx_campaign_autopilot"
+        reported="${reported} grandleon_psx_campaign_demo_autopilot"
         if [ "${GRANDLEON_SCRATCH3D}" = "ON" ]; then
             targets="${targets} grandleon_playstation_scratch3d"
             reported="${reported} grandleon_psx_scratch3d"
@@ -203,6 +211,9 @@ expected_executables="${expected_executables} grandleon_psx_play_raised"
 expected_executables="${expected_executables} grandleon_psx_turn"
 expected_executables="${expected_executables} grandleon_psx_campaign"
 expected_executables="${expected_executables} grandleon_psx_campaign_demo"
+expected_executables="${expected_executables} grandleon_psx_turn_autopilot"
+expected_executables="${expected_executables} grandleon_psx_campaign_autopilot"
+expected_executables="${expected_executables} grandleon_psx_campaign_demo_autopilot"
 if [ "${scratch3d}" = "ON" ]; then
     expected_executables="${expected_executables} grandleon_psx_scratch3d"
 fi
