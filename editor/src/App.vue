@@ -739,7 +739,23 @@ function warnBeforeUnload(event: BeforeUnloadEvent) {
 onMounted(async () => {
   window.addEventListener("beforeunload", warnBeforeUnload);
   if (typeof Worker !== "undefined" && !props.analyzeProject) {
-    analysisWorker = createAnalysisWorkerClient();
+    // A worker that will not construct costs a slower Validate and nothing
+    // else. `analyzeCurrentProject` already falls back to running the same
+    // function on this thread when there is no worker, so the only thing a
+    // throw here can take away is everything below it — the ROM check, the
+    // engine, and the author's own stored draft. That is what it used to do:
+    // the browser refuses a worker whose script is not same-origin, and this
+    // was the first statement of the hook.
+    try {
+      analysisWorker = createAnalysisWorkerClient();
+    } catch (reason: unknown) {
+      analysisWorker = undefined;
+      console.warn(
+        "The analysis worker could not start; checking on the main thread " +
+          "instead.",
+        reason
+      );
+    }
   }
   // Whether this machine can build a ROM at all, asked before the control is
   // offered rather than after it is pressed. A deliberately unawaited promise:

@@ -42,7 +42,14 @@ assert.ok(
     process.env.GRANDLEON_EDITOR_DEV_PORT
   }'`
 );
-const origin = `http://127.0.0.1:${port}`;
+// The address the browser will use, and it has to be the one the server
+// advertises. `server.origin` is stamped into every module URL the page asks
+// for, including the analysis worker's, and a browser refuses a worker whose
+// script is not same-origin — so a check that visits one name while the server
+// names another is measuring a broken editor and calling it broken, or worse,
+// pinning the name that hides the fault. `localhost` and `127.0.0.1` are two
+// names here, not one.
+const origin = `http://localhost:${port}`;
 
 // Refuse to measure a server this script did not start. `--strictPort` makes
 // the spawn below fail when the port is taken, and without this the wait loop
@@ -67,17 +74,20 @@ try {
 // `npx` wrapper in front of it. An orphaned listener holds the port, which the
 // check above then reads as a stranger and refuses to run against.
 //
-// The advertised hostname is pinned to the loopback address the browser will
-// use. Left at the machine's own name, this would be measuring whether mDNS
-// resolves on the machine running the check, which is not the question and is
-// not true everywhere.
+// The environment is left alone, deliberately. This check used to pin
+// `GRANDLEON_EDITOR_HOSTNAME`, which meant the configuration a person actually
+// runs was the one configuration never exercised: the default advertised the
+// machine's own name, every worker on a `localhost` page was cross-origin, and
+// the editor threw on mount while this check stayed green. The default is now
+// `localhost` and pinning anything here would hide the next such fault as
+// effectively as it hid that one.
 const server = spawn(
   "npx", ["vite", "--port", String(port), "--strictPort"],
   {
     cwd: editorDirectory,
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
-    env: { ...process.env, GRANDLEON_EDITOR_HOSTNAME: "127.0.0.1" }
+    env: process.env
   }
 );
 let banner = "";
@@ -171,6 +181,19 @@ try {
     [],
     `the development server's page violates its Content Security Policy:\n` +
     refusals.join("\n")
+  );
+
+  // Nothing threw while the page started up. This is the assertion that would
+  // have caught the origin fault directly: the worker's constructor throwing
+  // took the rest of `onMounted` with it, so the draft was never opened, the
+  // engine never started and the ROM service was never asked — none of which
+  // shows up as a failed request or a policy refusal, and all of which a
+  // person sees immediately.
+  const thrown = consoleLines.filter((line) => line.startsWith("pageerror:"));
+  assert.deepEqual(
+    thrown,
+    [],
+    `the development server's page threw while starting up:\n${thrown.join("\n")}`
   );
 
   // The worker's origin comes from the server's configuration rather than from

@@ -3,21 +3,38 @@ import { hostname } from "node:os";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
+// The name this server prints at startup. It advertises an address; it does
+// not decide one.
+//
+// Nothing below stamps it into what the browser is served. That distinction is
+// the whole of a fault this configuration used to carry: `server.origin` was
+// pinned to a name, every module URL was stamped with it, and the URL
+// `new Worker(new URL(...))` builds was therefore cross-origin for anybody who
+// had reached the editor by any *other* name. The browser refuses such a
+// worker, the refusal throws out of the application's mounted hook, and the
+// editor comes up with no stored draft, no engine and no ROM button — while
+// reporting no problems, because the thing that reports problems is what
+// failed to start.
+//
+// One name cannot be right here. This machine answers to at least three
+// (`localhost`, its own hostname, and that name with `.local` on the end), a
+// person may reach it by any of them, and which one they used is a fact only
+// the request knows. So the request decides, and this is a label.
 const machineHostname = hostname();
 const editorHostname =
-  process.env.GRANDLEON_EDITOR_HOSTNAME ??
-  `${machineHostname}.local`;
+  process.env.GRANDLEON_EDITOR_HOSTNAME ?? machineHostname;
 
 // `--port` on the command line, read here rather than left to Vite alone.
 //
 // Vite merges its own command-line options over this file after it has been
 // evaluated, so `--port` moves the listening socket whatever this file says.
-// Three things below are derived from the port instead of read back from it:
-// the origin the dev server stamps into module URLs, the address the HMR
-// client dials, and the line printed at startup. Left to Vite, all three keep
-// the value here while the socket moves, which prints a dead address, points
-// HMR at nothing, and makes `new Worker(new URL(...))` cross-origin, so the
-// analysis worker refuses to construct.
+// Two things below are derived from the port instead of read back from it: the
+// port the HMR client dials, and the line printed at startup. Left to Vite,
+// both keep the value here while the socket moves, which prints a dead address
+// and points HMR at nothing.
+//
+// The *host* half of each is deliberately not derived from anything, and the
+// comment above `editorHostname` says why.
 function portFromCommandLine(argv: readonly string[]): number | null {
   let stated: string | null = null;
   for (let index = 0; index < argv.length; index += 1) {
@@ -176,6 +193,14 @@ export default defineConfig({
       name: "grandleon-editor-network-url",
       configureServer(server) {
         server.httpServer?.once("listening", () => {
+          // This machine's own name, because that is the address somebody
+          // editing from a second computer types, and Vite's own lines name
+          // only loopback and the raw interface addresses.
+          //
+          // Whether a ROM can be built from here is deliberately not claimed:
+          // it depends on which names the ROM service was started with, which
+          // this server has no way to know. The editor asks the service and
+          // labels its own button with the answer.
           server.config.logger.info(
             `  ➜  Editor:  http://${editorHostname}:${editorPort}/`
           );
@@ -187,12 +212,18 @@ export default defineConfig({
     host: "0.0.0.0",
     port: editorPort,
     strictPort: true,
-    origin: `http://${editorHostname}:${editorPort}`,
+    // No `origin` and no `hmr.host`. Both would pin a name, and the name that
+    // is right is the one in the address bar, which only the request knows.
+    // Left unset, Vite serves module URLs relative to the request and the HMR
+    // client dials the page's own host, so `localhost`, `cruncher` and
+    // `cruncher.local` each work as themselves. `connect-src 'self'` in the
+    // page's policy then holds for all three, where a pinned name violated it
+    // for two.
+    //
+    // The port is still pinned, and has to be: it is read from the command
+    // line above precisely so the HMR client dials the socket that moved.
+    hmr: { port: editorPort },
     allowedHosts: allowedEditorHosts,
-    hmr: {
-      host: editorHostname,
-      port: editorPort
-    },
     proxy: romServiceProxy
   },
   preview: {
