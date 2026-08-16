@@ -85,13 +85,14 @@ covered too.
 
 ## Who is allowed to ask
 
-Everything is refused except the editor addressed as localhost. The machine's
-own hostname is refused too: a peer on the network reaching the editor sends
-exactly that `Host`, and nothing here can tell the two apart.
+Everything is refused except the editor addressed as localhost, or as a name
+this service was started with. The machine's own hostname is refused by
+default: a peer on the network reaching the editor sends exactly that `Host`,
+and nothing here can tell the two apart.
 
 | code | when |
 |---|---|
-| `request_not_addressed_locally` | a `Host` that is not `localhost`, `127.x` or `[::1]` |
+| `request_not_addressed_locally` | a `Host` that is not `localhost`, `127.x`, `[::1]`, or a name given to `--allow-host` |
 | `request_from_another_site` | `Sec-Fetch-Site` other than `same-origin`/`none`, or an `Origin` that is not the `Host` |
 
 This is not paranoia about the network; it is about the browser. Left alone,
@@ -109,6 +110,27 @@ here, in the one place that can tell. It is also what stops DNS rebinding: a
 page served from a name the attacker controls, resolved to `127.0.0.1`, would
 otherwise share this service's origin and read every answer it gives, including
 the build log and the ROM.
+
+### Editing from another computer
+
+Authoring from a second machine is an ordinary way to work, and the default
+refuses it. Name the address you use:
+
+```sh
+node tools/rom_service/serve.mjs --allow-host cruncher
+GRANDLEON_ROM_SERVICE_ALLOWED_HOSTS=cruncher,cruncher.local node …/serve.mjs
+```
+
+Only the hostname is compared; the editor may serve on any port. The service
+prints the names it will answer to, every time it starts, because widening this
+should never be something the operator has to remember they did.
+
+**It stays an allow-list rather than becoming a switch, and that is what keeps
+the rebinding defence.** A page served from a name an attacker controls is
+still refused, because what is compared is the name and not where it resolved
+to. Widening `Host` also widens nothing else: `Sec-Fetch-Site` is the check a
+page cannot forge, and a cross-site request to an allowed name is still refused
+by that.
 
 ## What it does when things go wrong
 

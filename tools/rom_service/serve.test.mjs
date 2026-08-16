@@ -27,6 +27,8 @@ import {
     projectSizeBudget,
     refuseForeignRequest,
     refuseProject,
+    configuredHosts,
+    setAllowedHosts,
     refuseUncompilable,
     servedCharacterStyles
 } from "./serve.mjs";
@@ -625,6 +627,70 @@ function refusalOfRequest(headers) {
     }
     return null;
 }
+
+test("a name the service was not started with is refused", () => {
+    setAllowedHosts([]);
+    const refusal = refusalOfRequest({ host: "cruncher:5173" });
+    assert.ok(refusal, "a request addressed to a bare hostname was accepted");
+    assert.equal(refusal.code, "request_not_addressed_locally");
+});
+
+test("a name the service was started with is answered", () => {
+    setAllowedHosts(["cruncher"]);
+    try {
+        // The editor may serve on any port; only the name was allowed.
+        assert.equal(refusalOfRequest({ host: "cruncher:5173" }), null);
+        assert.equal(refusalOfRequest({ host: "cruncher:4173" }), null);
+        // And loopback still works, which is the case nobody configures.
+        assert.equal(refusalOfRequest({ host: "localhost:5173" }), null);
+    } finally {
+        setAllowedHosts([]);
+    }
+});
+
+test("allowing one name does not allow another", () => {
+    setAllowedHosts(["cruncher"]);
+    try {
+        // The whole point of an allow-list over a switch: a rebinding page
+        // resolves its own name to 127.0.0.1 and is still refused, because
+        // what is compared is the name and not where it pointed.
+        const refusal = refusalOfRequest({ host: "attacker.example:5173" });
+        assert.ok(refusal, "an unnamed host was accepted");
+        assert.equal(refusal.code, "request_not_addressed_locally");
+    } finally {
+        setAllowedHosts([]);
+    }
+});
+
+test("a named host is still refused when another site drove the request", () => {
+    setAllowedHosts(["cruncher"]);
+    try {
+        // Widening `Host` must not widen anything else: `Sec-Fetch-Site` is
+        // the check a page cannot forge, and it still decides.
+        const refusal = refusalOfRequest({
+            host: "cruncher:5173",
+            "sec-fetch-site": "cross-site"
+        });
+        assert.ok(refusal, "a cross-site request to a named host was accepted");
+        assert.equal(refusal.code, "request_from_another_site");
+    } finally {
+        setAllowedHosts([]);
+    }
+});
+
+test("hosts are read from the command line and the environment", () => {
+    assert.deepEqual(
+        configuredHosts({}, ["--allow-host", "cruncher"]), ["cruncher"]
+    );
+    assert.deepEqual(
+        configuredHosts({}, ["--allow-host=Cruncher.Local"]), ["cruncher.local"]
+    );
+    assert.deepEqual(
+        configuredHosts({ GRANDLEON_ROM_SERVICE_ALLOWED_HOSTS: "a, b ," }, []),
+        ["a", "b"]
+    );
+    assert.deepEqual(configuredHosts({}, []), []);
+});
 
 test("a request another site drove is refused by name, before any build",
     async () => {

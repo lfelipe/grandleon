@@ -181,8 +181,9 @@ export const refusals = {
     request_from_another_site:
         "That request did not come from the editor running on this machine.",
     request_not_addressed_locally:
-        "This service answers only requests addressed to localhost. Open the " +
-        "editor at a localhost address, on whatever port it is serving, to " +
+        "This service answers only requests addressed to localhost, or to a " +
+        "name it was started with. Open the editor at a localhost address, " +
+        "or start the service with --allow-host <the name you use>, to " +
         "build a ROM."
 };
 
@@ -193,11 +194,57 @@ export const refusals = {
 // `schemas/source/v1/common.schema.json` states.
 const stableIdentifier = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
 
+// Names this machine may be reached by, beyond loopback, because whoever
+// started the service said so.
+//
+// Editing from a second computer is an ordinary way to use this: the editor
+// binds every interface, and a person opens it at this machine's name. Their
+// browser is then on the editor's own origin, so `Sec-Fetch-Site` below still
+// says `same-origin` and still refuses another site's page — the only test
+// such a request fails is the `Host` one, because the proxy forwards the name
+// they typed.
+//
+// It is an allow-list and not a switch, which is what keeps the rebinding
+// defence intact: a name an attacker controls is refused because it is not in
+// this list, not because of where it resolved to. Naming a wildcard is not
+// possible, deliberately.
+//
+//     node tools/rom_service/serve.mjs --allow-host cruncher
+//     GRANDLEON_ROM_SERVICE_ALLOWED_HOSTS=cruncher,cruncher.local
+//
+// Only the hostname is compared; a port is not part of the question, since the
+// editor may serve on any.
+function configuredHosts(environment = process.env, argv = []) {
+    const named = [];
+    for (let index = 0; index < argv.length; index += 1) {
+        if (argv[index] === "--allow-host") named.push(argv[index + 1] ?? "");
+        else if (argv[index]?.startsWith("--allow-host=")) {
+            named.push(argv[index].slice("--allow-host=".length));
+        }
+    }
+    named.push(...(environment.GRANDLEON_ROM_SERVICE_ALLOWED_HOSTS ?? "")
+        .split(","));
+    return named
+        .map((name) => name.trim().toLowerCase())
+        .filter((name) => name !== "");
+}
+
+let allowedHosts = configuredHosts();
+
+export function setAllowedHosts(hosts) {
+    allowedHosts = hosts.map((name) => name.trim().toLowerCase())
+        .filter((name) => name !== "");
+    return allowedHosts;
+}
+
+export { configuredHosts };
+
 // Hostnames that mean "this machine". A request addressed to anything else is
 // either a DNS-rebinding page (a name the attacker controls, resolved to
 // 127.0.0.1) or a peer on the network reaching the editor's own proxy, which
 // forwards the browser's `Host` verbatim. Both are refused here, in the one
-// place that can tell, rather than in the proxy that cannot.
+// place that can tell, rather than in the proxy that cannot — unless the
+// operator has named the host themselves, above.
 function addressedLocally(host) {
     if (typeof host !== "string" || host === "") return false;
     // `URL` is the parser rather than a split on ':', because an IPv6 literal
@@ -210,7 +257,8 @@ function addressedLocally(host) {
     }
     if (hostname === "localhost") return true;
     if (hostname === "[::1]" || hostname === "::1") return true;
-    return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname);
+    if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
+    return allowedHosts.includes(hostname.toLowerCase());
 }
 
 // Refuse a request that some other page drove, and answer with the origin this
@@ -861,6 +909,7 @@ if (invokedDirectly) {
     const port = portIndex >= 0
         ? Number(process.argv[portIndex + 1])
         : Number(process.env.GRANDLEON_ROM_SERVICE_PORT ?? 4699);
+    setAllowedHosts(configuredHosts(process.env, process.argv.slice(2)));
     const queue = new BuildQueue();
     const server = createRomService({ queue });
     // Once at startup as well as every minute afterwards: this queue holds no
@@ -872,5 +921,14 @@ if (invokedDirectly) {
             `ROM service on http://127.0.0.1:${port} ` +
             `(${console64.id}, target ${console64.target})\n`
         );
+        // Said out loud, every time. Answering a name other than loopback is
+        // the operator widening a deliberate refusal, and it should never be
+        // something they have to remember they did.
+        if (allowedHosts.length > 0) {
+            process.stdout.write(
+                `  also answering requests addressed to: ` +
+                `${allowedHosts.join(", ")}\n`
+            );
+        }
     });
 }
