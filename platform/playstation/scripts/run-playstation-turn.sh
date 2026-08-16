@@ -16,7 +16,10 @@
 #
 # The order is the argument. The expectations are derived on the host from the
 # engine's own queries *before* the executable exists, so no run can be made to
-# pass by adjusting one.
+# pass by adjusting one. That order is checked rather than trusted: a derivation
+# older than the sources it was derived from is refused by name before the
+# emulator starts, because comparing this build against last week's answer
+# prints a transcript mismatch in the exact shape a real regression takes.
 #
 # Four channels have to agree, and the run fails if any of them dissents:
 #
@@ -127,6 +130,11 @@ fi
 # It costs no emulator and about a hundredth of a second.
 echo "== Proving the verdict check can still fail =="
 "${repository_root}/scripts/assert-harness-verdict.sh" --self-test
+# And the same for the other predicate that can quietly pass everything. The
+# freshness guard below decides whether the transcript this run is compared
+# against still answers for the code under it; a guard nobody has watched refuse
+# is a guard nobody should trust.
+"${repository_root}/scripts/assert-expectations-fresh.sh" --self-test
 
 exe_dir="${build_dir}/target/platform/playstation"
 executable="${exe_dir}/${name}.ps-exe"
@@ -138,12 +146,17 @@ if [ ! -f "${executable}" ]; then
     echo "Build it first: cmake --build build --target grandleon_playstation" >&2
     exit 1
 fi
-if [ ! -f "${expectations}" ]; then
-    echo "error: ${expectations} does not exist." >&2
-    echo "Derive it first:" >&2
-    echo "    cmake --build build --target grandleon_playstation_turn_expectations" >&2
-    exit 1
-fi
+# That the file exists is not the question. A derivation older than the client
+# it compiles answers for a build that is no longer here, and comparing this run
+# against it prints a transcript mismatch that looks exactly like a regression
+# in whatever was just changed. The CMake target regenerates before comparing;
+# this path, the one the header above recommends for iterating, could not until
+# now. `scripts/assert-expectations-fresh.sh` says why it refuses rather than
+# deriving the file itself.
+"${repository_root}/scripts/assert-expectations-fresh.sh" \
+    --expectation "${expectations}" \
+    --project "${repository_root}/games/tarnholt/source/project.json" \
+    --regenerate grandleon_playstation_turn_expectations
 
 rm -rf "${frame_dir}"
 mkdir -p "${frame_dir}"

@@ -16,7 +16,11 @@
 #
 # The order is the argument, and it is `run-playstation-turn.sh`'s: the
 # expectations are derived on the host from the engine's own queries *before*
-# the executable exists, so no run can be made to pass by adjusting one.
+# the executable exists, so no run can be made to pass by adjusting one. That
+# order is checked rather than trusted: a derivation older than the sources it
+# was derived from is refused by name before the emulator starts, because
+# comparing this build against last week's answer prints a transcript mismatch
+# in the exact shape a real regression takes.
 #
 # ---------------------------------------------------------------------------
 # Two passes, because a campaign is the thing a save is for
@@ -115,6 +119,11 @@ fi
 # emulator and about a hundredth of a second.
 echo "== Proving the verdict check can still fail =="
 "${repository_root}/scripts/assert-harness-verdict.sh" --self-test
+# And the same for the other predicate that can quietly pass everything. The
+# freshness guard below decides whether the transcripts these two passes are
+# compared against still answer for the code under them; a guard nobody has
+# watched refuse is a guard nobody should trust.
+"${repository_root}/scripts/assert-expectations-fresh.sh" --self-test
 
 exe_dir="${build_dir}/target/platform/playstation"
 
@@ -129,6 +138,16 @@ executable_for() {
         tarnholt_line) echo "grandleon_psx_campaign_autopilot" ;;
         demo_campaign) echo "grandleon_psx_campaign_demo_autopilot" ;;
         *) echo "error: no executable carries '$1'." >&2; exit 2 ;;
+    esac
+}
+
+# And which project each was derived from, which the freshness guard below needs
+# and CMake already knows: the campaign expectation rule passes the same JSON.
+project_for() {
+    case "$1" in
+        tarnholt_line) echo "games/tarnholt/source/project.json" ;;
+        demo_campaign) echo "games/demo/source/project.json" ;;
+        *) echo "error: no project carries '$1'." >&2; exit 2 ;;
     esac
 }
 
@@ -167,13 +186,18 @@ for campaign in ${campaigns}; do
         echo "Build it first: cmake --build build --target grandleon_playstation" >&2
         exit 1
     fi
+    # That the four files exist is not the question. A derivation older than the
+    # client it compiles answers for a build that is no longer here, and both
+    # passes would be compared against it line for line and print a mismatch in
+    # the exact shape a regression takes. The CMake target regenerates before
+    # comparing; this path, the one the header above recommends for iterating,
+    # could not until now. `scripts/assert-expectations-fresh.sh` says why it
+    # refuses rather than deriving the files itself.
     for mode in found resume; do
-        if [ ! -f "${build_dir}/${campaign}_${mode}.txt" ]; then
-            echo "error: ${build_dir}/${campaign}_${mode}.txt does not exist." >&2
-            echo "Derive it first:" >&2
-            echo "    cmake --build build --target grandleon_playstation_campaign_expectations" >&2
-            exit 1
-        fi
+        "${repository_root}/scripts/assert-expectations-fresh.sh" \
+            --expectation "${build_dir}/${campaign}_${mode}.txt" \
+            --project "${repository_root}/$(project_for "${campaign}")" \
+            --regenerate grandleon_playstation_campaign_expectations
     done
 done
 

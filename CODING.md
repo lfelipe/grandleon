@@ -247,6 +247,21 @@ and `check-n64.sh` runs it before it builds anything. It is the decision for
 every console here, not this one: the PlayStation's six run scripts state
 their own floors and run the same self-test before they start an emulator.
 
+**A check compared against a stale answer is worse than no check.** The
+PlayStation's two run scripts compare a run against a transcript derived on the
+host beforehand, and a derivation older than the client it compiles answers for
+a build that is no longer here: the comparison then prints dozens of mismatched
+checkpoints in the exact shape a real regression takes, and a stale run that
+happens to still match reports a green check that proved nothing. It has cost an
+afternoon.
+[scripts/assert-expectations-fresh.sh](scripts/assert-expectations-fresh.sh)
+refuses the run rather than deriving the file itself, because a check that
+quietly fixes its own inputs is a check that can hide a change; the refusal
+prints the one command that puts it right. It carries the same `--self-test`
+negative control, for the same reason. The CMake targets already regenerate
+before comparing and are unchanged — it is the scripts, the path their own
+headers recommend for iterating, that were unguarded.
+
 **A change that shortens the gate leaves every check, every budget and every
 wait intact**, and is justified by a before-and-after measurement of the same
 lanes on the same host rather than by the argument for it. One that measures
