@@ -1620,27 +1620,17 @@ public:
         // keeps a readable tile and scrolls instead: the camera follows the
         // cursor and clamps at the map edge.
         //
-        // The divisors are floored at one. `create_encounter` refuses a board
-        // of no width or no height, so no encounter this renderer is handed
-        // can carry a zero. But on this CPU an integer division by zero is a
-        // trap the ROM does not come back from, and stopping the machine over
-        // a number this file does not have to trust is a poor trade against
-        // one comparison per battle.
-        const int fit_w = 300 / (snapshot.width > 0 ? snapshot.width : 1);
-        const int fit_h = 200 / (snapshot.height > 0 ? snapshot.height : 1);
-        tile_ = fit_w < fit_h ? fit_w : fit_h;
-        if (tile_ > 26) tile_ = 26;
-        if (tile_ >= 14) {
-            camera_ = {0, 0, snapshot.width, snapshot.height,
-                       snapshot.width, snapshot.height};
-        } else {
-            tile_ = 18;
-            camera_ = {0, 0, 0, 0, snapshot.width, snapshot.height};
-            camera_.view_w = 300 / tile_ < snapshot.width
-                                 ? 300 / tile_ : snapshot.width;
-            camera_.view_h = 200 / tile_ < snapshot.height
-                                 ? 200 / tile_ : snapshot.height;
-        }
+        // The four numbers are this machine's; the rule that reads them is
+        // `view::fit_board`, which the PlayStation asks with its own four.
+        // Three hundred by two hundred is what the status line leaves, a cell
+        // is never larger than 26 nor smaller than 14, and a board too large
+        // for that draws at 18.
+        constexpr view::FitRule frame{300, 200, 26, 14, 18};
+        const view::BoardFit fit =
+            view::fit_board(frame, snapshot.width, snapshot.height);
+        tile_ = fit.tile;
+        camera_ = {0, 0, fit.view_w, fit.view_h,
+                   snapshot.width, snapshot.height};
         board_width_ = snapshot.width;
         // High ground is drawn above the row it stands in, so the board needs
         // headroom for its tallest terrain or the first row's peaks would

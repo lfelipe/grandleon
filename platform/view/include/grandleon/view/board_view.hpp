@@ -76,6 +76,90 @@ struct Camera final {
 };
 
 // ---------------------------------------------------------------------------
+// Fitting a board to a screen
+// ---------------------------------------------------------------------------
+
+// What a machine will spend on a board, in that machine's own pixels.
+//
+// A console arrives at these four numbers from its own hardware: how much of
+// the frame is left after the interface has taken its share, how large a cell
+// its art is worth drawing at, and how small a cell is still a cell. They are
+// properties of a screen and a sprite sheet, so they differ per machine and the
+// *rule* below does not.
+struct FitRule final {
+    // Pixels the board may use, across and down.
+    int frame_w{0};
+    int frame_h{0};
+    // Never draw a cell larger than this. A small board would otherwise be
+    // drawn at whatever size divides the frame, which on a two-by-two board is
+    // an enormous cell made of a handful of texels.
+    int largest_tile{0};
+    // Never shrink a cell below this. Past it the board scrolls instead,
+    // because a board nobody can read is worse than a board with edges.
+    int smallest_tile{0};
+    // The cell a board too large to fit is drawn at. It is a separate number
+    // from `smallest_tile` on purpose: the smallest readable cell is the point
+    // at which fitting stops being worth it, and a machine may reasonably give
+    // a scrolling board a more comfortable cell than that at the cost of a
+    // narrower window.
+    int scrolling_tile{0};
+};
+
+// A cell size and a window, in cells.
+struct BoardFit final {
+    int tile{0};
+    int view_w{0};
+    int view_h{0};
+    // True when the window is smaller than the board in either direction, so a
+    // caller can say plainly whether this board has edges the player must
+    // travel to.
+    bool scrolling{false};
+};
+
+// Chooses the largest cell that shows the whole board, or falls back to a
+// window that scrolls.
+//
+// The order matters and is the part worth reading. The cell is the *smaller*
+// of what the two dimensions allow, because a cell is square and the tighter
+// axis decides. It is then capped, and only then compared against the floor:
+// capping first means a board small enough to want a huge cell is not also
+// judged to have failed the floor, which it obviously has not.
+//
+// Zero and negative board sizes are treated as one rather than refused. No
+// encounter reaches a renderer with either — `create_encounter` refuses a board
+// of no width or no height — but on a console an integer division by zero is a
+// trap the machine does not come back from, and stopping over a number this
+// function does not have to trust is a poor trade against one comparison.
+[[nodiscard]] constexpr BoardFit fit_board(
+    const FitRule& rule, int map_w, int map_h
+) noexcept {
+    const int width = map_w > 0 ? map_w : 1;
+    const int height = map_h > 0 ? map_h : 1;
+
+    int tile = rule.frame_w / width;
+    const int down = rule.frame_h / height;
+    if (down < tile) tile = down;
+    if (tile > rule.largest_tile) tile = rule.largest_tile;
+    if (tile >= rule.smallest_tile) {
+        return BoardFit{tile, width, height, false};
+    }
+
+    const int scrolling = rule.scrolling_tile;
+    int view_w = width;
+    int view_h = height;
+    if (scrolling > 0) {
+        const int across = rule.frame_w / scrolling;
+        const int down_cells = rule.frame_h / scrolling;
+        if (across < view_w) view_w = across;
+        if (down_cells < view_h) view_h = down_cells;
+    }
+    // A window of no cells would draw nothing and divide by zero downstream.
+    if (view_w < 1) view_w = 1;
+    if (view_h < 1) view_h = 1;
+    return BoardFit{scrolling, view_w, view_h, view_w < width || view_h < height};
+}
+
+// ---------------------------------------------------------------------------
 // Projection
 // ---------------------------------------------------------------------------
 
