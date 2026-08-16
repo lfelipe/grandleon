@@ -339,6 +339,31 @@ static_assert(
     "the page's panel and the footer cannot share a row"
 );
 
+// The speaker's face, in the band the panel leaves above itself.
+//
+// It is drawn at the size the art is drawn at rather than scaled to whatever
+// room is left: the character standing on a board is thirty-two texels and this
+// is that same drawing, so a face scaled to fit would be the same person drawn
+// at two sizes on one machine. The band above the panel is exactly thirty-two
+// pixels, which is why the page starts on the row it does; the `static_assert`
+// below is what stops that being a coincidence somebody moves.
+//
+// Left-aligned with the page's own text, so the face sits over the name that
+// names it. Column zero is left alone deliberately: the backdrop is claimed
+// there, and a face that covered it would take away the probe that proves the
+// scene behind it was drawn.
+constexpr int screen_face_size = 32;
+constexpr int screen_face_left = screen_page_left * glyph;
+constexpr int screen_face_top = screen_panel_top * glyph - screen_face_size;
+static_assert(
+    screen_face_top >= 0,
+    "the speaker's face has to fit in the band above the page's panel"
+);
+static_assert(
+    screen_face_left > 0,
+    "the face cannot cover column zero, where the backdrop is claimed"
+);
+
 // A backdrop row scaled to this display's height, by the same arithmetic the
 // Nintendo 64 scales it by, so the band a probe looks at and the band the
 // screen paints are one calculation rather than two copies of one.
@@ -870,6 +895,26 @@ public:
             );
         } else {
             probe("nobackdrop", 0, 0, backdrop);
+        }
+
+        // The speaker's face, claimed by the texel the art library says is
+        // there rather than by the fact that something was drawn. A console
+        // that drew the wrong character fails on the colour, which is the whole
+        // reason this is claimed at all: the words already name the speaker, so
+        // a face nobody checks could be anybody and the page would still read
+        // correctly.
+        if (view.speaker != nullptr) {
+            const art::Asset asset = speaker_asset(*view.speaker);
+            int px = 0;
+            int py = 0;
+            int sx = 0;
+            int sy = 0;
+            if (opaque_near_centre(asset, screen_face_size, sx, sy, px, py)) {
+                probe(
+                    "face", screen_face_left + sx, screen_face_top + sy,
+                    art::colour_at(asset, px, py)
+                );
+            }
         }
 
         close_probes(before, harness_screen_slot);
@@ -1519,6 +1564,7 @@ private:
     // hundred glyphs, which is less than the board costs.
     void draw_screen(const turn::ScreenView& view) {
         draw_scene_backdrop(view.backdrop);
+        draw_speaker_face(view);
         gpu::fill(
             0, screen_panel_top * glyph, gpu::screen_width,
             screen_panel_rows * glyph, paper_colour
@@ -1548,6 +1594,28 @@ private:
             );
             write_at(screen_page_left, screen_footer_row, view.footer);
         }
+    }
+
+    // Who is talking, drawn over the scene and above the words they say.
+    //
+    // Nothing when the page names nobody, which is every screen that is not a
+    // story page and every scene authored before a scene could cast its
+    // speakers. Those pages draw exactly as they always drew, which is the
+    // contract `ScreenView::speaker` states.
+    //
+    // It costs no new art and no VRAM: this executable already holds the
+    // style's roster because the board draws units from it, and the cell and
+    // CLUT were uploaded once at start-up alongside every other character.
+    void draw_speaker_face(const turn::ScreenView& view) {
+        if (view.speaker == nullptr) return;
+        const int archetype = archetype_of(*view.speaker);
+        const int colour = speaker_colour_of(*view.speaker);
+        const int cell = character_cell_of[archetype][colour];
+        const int clut = character_clut_of[archetype][colour];
+        if (cell < 0 || clut < 0) return;
+        gpu::draw_cell_scaled(
+            screen_face_left, screen_face_top, screen_face_size, cell, clut
+        );
     }
 
     // Flat horizontal bands out of the art library's own table, or the house
@@ -1680,6 +1748,31 @@ private:
     }
     [[nodiscard]] art::Asset unit_asset(const sim::UnitSnapshot& unit) const {
         return art::character(archetype_of(unit.unit_type_id), colour_of(unit));
+    }
+    // The colour a speaker's face is drawn in.
+    //
+    // A character belonging to no faction has no colour in the package on
+    // purpose. On a board the client draws it in the column of whichever side
+    // it turned up on, which is what `colour_of` above does with the snapshot
+    // it has; a speaker stands on no board and there is no side to ask, so it
+    // takes the first column. That is the same answer the cartridge gives, and
+    // the same one an uncast speaker gets there.
+    [[nodiscard]] int speaker_colour_of(std::uint64_t unit_type) const {
+        const std::uint8_t colour = shown_->colour_of_unit_type(unit_type);
+        if (colour == pr::colour_unresolved ||
+            colour >= art::faction_colour_count) {
+            return 0;
+        }
+        return static_cast<int>(colour);
+    }
+    // The drawing the scene cast for this page's saying, or nothing when it
+    // cast nobody. The same `art::character` grid the board draws units from,
+    // so a speaker and the figure of that same character standing on a board
+    // are one drawing rather than two that have to agree.
+    [[nodiscard]] art::Asset speaker_asset(std::uint64_t unit_type) const {
+        return art::character(
+            archetype_of(unit_type), speaker_colour_of(unit_type)
+        );
     }
     [[nodiscard]] static const sim::UnitSnapshot* unit_of(
         const sim::EncounterSnapshot& snapshot, sim::UnitId unit
