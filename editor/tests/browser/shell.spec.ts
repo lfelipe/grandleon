@@ -435,8 +435,15 @@ test("will not stand one person on the same board twice", async ({ page }) => {
 
 
 // The ROM export, seen from a real browser with no build service behind the
-// proxy, which is the state this gate always runs in, and the state an author
-// who has never started the service will meet.
+// proxy: the state an author who has never started the service will meet.
+//
+// That state is arranged rather than assumed. This used to read whatever was on
+// 4699, the port a person's own ROM service listens on, and it is often up
+// because running it is how the editor is used — so this test went red on
+// exactly the machines where a ROM *can* be built here, which is a failure of
+// the suite and not of the editor. `playwright.config.ts` points the proxy at a
+// port of this suite's own and `tests/browser/global-setup.ts` refuses to start
+// if anything answers there.
 //
 // Two things are only observable here. The Content-Security-Policy is real in
 // Chromium and nowhere else, so this is the only place that can prove the
