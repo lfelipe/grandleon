@@ -171,8 +171,8 @@ project_for() {
 # the check and reading that pass's own `HARNESS RESULT PASS n/n` line.
 min_checks_for() {
     case "$1 $2" in
-        "tarnholt_line found") echo 321 ;;
-        "tarnholt_line resume") echo 27 ;;
+        "tarnholt_line found") echo 337 ;;
+        "tarnholt_line resume") echo 29 ;;
         "demo_campaign found") echo 65 ;;
         "demo_campaign resume") echo 25 ;;
         *) echo "error: no assertion floor is recorded for '$1 $2'." >&2; exit 2 ;;
