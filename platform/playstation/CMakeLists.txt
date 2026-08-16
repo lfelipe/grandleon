@@ -306,86 +306,87 @@ grandleon_playstation_play_executable(
     "tarnholt_line/ashen_watch_battle"
 )
 
-# The turn executable: the same board, played.
+# The played executables, which are all one translation unit
 #
-# It links `grandleon::client` on top of everything the play executables link,
-# because the campaign flow, the turn order and the opposing side all live
-# there and a console that reimplemented any of them would be a second set of
-# rules; and `grandleon::sheet`, which composes the information sheet the
-# menu's INFO row opens and owns the display names both consoles draw their
-# menu rows from.
+# `src/turn_exe.cpp` is a board played from a controller, and every executable
+# below is a build of it. They differ only in preprocessor definitions: whether
+# the rest of the game is around the board, which project's bytes it carries,
+# and whether a script is compiled in. Writing the recipe once rather than six
+# times is the same reasoning `grandleon_playstation_executable` above is
+# written once for.
 #
-# Its interactive half is `platform/client/src/turn_client.cpp`, the *same*
+# They link `grandleon::client`, because the campaign flow, the turn order and
+# the opposing side all live there and a console that reimplemented any of them
+# would be a second set of rules; and `grandleon::sheet`, which composes the
+# information sheet the menu's INFO row opens and owns the display names both
+# consoles draw their menu rows from.
+#
+# The interactive half is `platform/client/src/turn_client.cpp`, the *same*
 # translation unit `grandleon_playstation_expect` compiles on the host. That is
 # the whole verification argument and the reason the file is not in this
 # directory.
 #
-# `platform/client/autopilot` carries the controller script, which is compiled
-# in here rather than pressed from outside: this emulator's headless mode offers
-# no pad ports, so the executable paces itself by counting frames, exactly as
-# the Nintendo 64's autopilot ROM does. `src/turn_exe.cpp` says what that buys.
-grandleon_playstation_executable(
-    grandleon_playstation_turn grandleon_psx_turn
-    src/turn_exe.cpp src/psx_gpu.cpp src/psx_pad.cpp
-)
-target_link_libraries(
-    grandleon_playstation_turn
-    PRIVATE grandleon::view grandleon::client grandleon::sheet
-)
-target_sources(
-    grandleon_playstation_turn
-    PRIVATE "${CMAKE_SOURCE_DIR}/platform/client/src/turn_client.cpp"
-)
-target_include_directories(
-    grandleon_playstation_turn
-    PRIVATE
+# `GRANDLEON_TURN_CLIENT_CAMPAIGN` in the definitions makes it a campaign build:
+# the title, the slot screen, the company, the story pages, the aftermath and
+# the save. That one word also decides what this function links, because a
+# campaign is the only thing here that needs a memory card.
+function(grandleon_playstation_played_executable target output)
+    set(campaign FALSE)
+    if("GRANDLEON_TURN_CLIENT_CAMPAIGN" IN_LIST ARGN)
+        set(campaign TRUE)
+    endif()
+
+    # The slot device and the wire under it are a campaign's alone.
+    # `grandleon_playstation_card_check` proves that pair against a real card
+    # image across three emulator processes; what a campaign target adds is a
+    # campaign on top of it.
+    #
+    # The lists are assembled in the order they are because a link line's order
+    # decides the executable's layout: written any other way these targets still
+    # work and no longer reproduce their own bytes, which would cost every
+    # comparison in this directory its meaning.
+    set(sources src/turn_exe.cpp src/psx_gpu.cpp src/psx_pad.cpp)
+    set(libraries grandleon::view grandleon::client)
+    set(includes
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${CMAKE_SOURCE_DIR}/platform/client/autopilot"
+    )
+    if(campaign)
+        list(APPEND sources src/psx_card.cpp)
+        list(APPEND libraries grandleon::client_campaign)
+    endif()
+    list(APPEND libraries grandleon::sheet)
+    if(campaign)
+        list(APPEND libraries grandleon::storage)
+        # A scene's backdrop bands, which only a campaign draws.
+        list(APPEND includes "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets")
+    endif()
+
+    grandleon_playstation_executable(${target} ${output} ${sources})
+    target_link_libraries(${target} PRIVATE ${libraries})
+    target_sources(
+        ${target}
+        PRIVATE "${CMAKE_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+    )
+    if(ARGN)
+        target_compile_definitions(${target} PRIVATE ${ARGN})
+    endif()
+    target_include_directories(${target} PRIVATE ${includes})
+    grandleon_playstation_art(${target})
+endfunction()
+
+# The turn executable: the Fordlight Crossing, played, and nothing around it.
+grandleon_playstation_played_executable(
+    grandleon_playstation_turn grandleon_psx_turn
 )
-grandleon_playstation_art(grandleon_playstation_turn)
 
 # The campaign executable: the same board, played, with the rest of the game
-# around it.
-#
-# It is the *same translation unit* as the turn executable with one macro added.
-# `GRANDLEON_TURN_CLIENT_CAMPAIGN` is what the shared client puts its second
-# half behind: the title, the slot screen, the company, the story pages, the
-# aftermath and the save. `src/turn_exe.cpp` puts the placement of those pages
-# behind the same macro. Two files would have been two renderers of one board,
-# which is exactly the thing this repository refuses everywhere else.
-#
-# It links `grandleon::storage` for the slot device and `src/psx_card.cpp` for
-# the wire under it. `grandleon_playstation_card_check` proves that pair against
-# a real card image across three emulator processes; what this target adds is a
-# campaign on top of it.
-grandleon_playstation_executable(
+# around it. Two files would have been two renderers of one board, which is
+# exactly the thing this repository refuses everywhere else.
+grandleon_playstation_played_executable(
     grandleon_playstation_campaign grandleon_psx_campaign
-    src/turn_exe.cpp src/psx_gpu.cpp src/psx_pad.cpp src/psx_card.cpp
+    GRANDLEON_TURN_CLIENT_CAMPAIGN
 )
-target_link_libraries(
-    grandleon_playstation_campaign
-    PRIVATE
-        grandleon::view
-        grandleon::client
-        grandleon::client_campaign
-        grandleon::sheet
-        grandleon::storage
-)
-target_sources(
-    grandleon_playstation_campaign
-    PRIVATE "${CMAKE_SOURCE_DIR}/platform/client/src/turn_client.cpp"
-)
-target_compile_definitions(
-    grandleon_playstation_campaign PRIVATE GRANDLEON_TURN_CLIENT_CAMPAIGN
-)
-target_include_directories(
-    grandleon_playstation_campaign
-    PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src"
-        "${CMAKE_SOURCE_DIR}/platform/client/autopilot"
-        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
-)
-grandleon_playstation_art(grandleon_playstation_campaign)
 
 # The other shipped campaign, on the same executable.
 #
@@ -418,35 +419,10 @@ grandleon_require_single_character_combination(
     "the PlayStation demo campaign build"
 )
 
-grandleon_playstation_executable(
+grandleon_playstation_played_executable(
     grandleon_playstation_campaign_demo grandleon_psx_campaign_demo
-    src/turn_exe.cpp src/psx_gpu.cpp src/psx_pad.cpp src/psx_card.cpp
+    GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_DEMO_CAMPAIGN
 )
-target_link_libraries(
-    grandleon_playstation_campaign_demo
-    PRIVATE
-        grandleon::view
-        grandleon::client
-        grandleon::client_campaign
-        grandleon::sheet
-        grandleon::storage
-)
-target_sources(
-    grandleon_playstation_campaign_demo
-    PRIVATE "${CMAKE_SOURCE_DIR}/platform/client/src/turn_client.cpp"
-)
-target_compile_definitions(
-    grandleon_playstation_campaign_demo
-    PRIVATE GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_DEMO_CAMPAIGN
-)
-target_include_directories(
-    grandleon_playstation_campaign_demo
-    PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src"
-        "${CMAKE_SOURCE_DIR}/platform/client/autopilot"
-        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
-)
-grandleon_playstation_art(grandleon_playstation_campaign_demo)
 
 # The scratch measurement program, and why it is behind an option.
 #
