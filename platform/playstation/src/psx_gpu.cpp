@@ -187,6 +187,65 @@ void draw_cell(int screen_x, int screen_y, int cell, int clut) {
     coordinates(cell_texels, cell_texels);
 }
 
+void draw_cell_scaled(int screen_x, int screen_y, int size, int cell,
+                      int clut) {
+    if (size <= 0) return;
+    // The native size goes through the rectangle it always went through, so a
+    // board that needs no scaling draws the pixels it has always drawn.
+    if (size == cell_texels) {
+        draw_cell(screen_x, screen_y, cell, clut);
+        return;
+    }
+
+    const int page = first_texture_page + cell / cells_per_page;
+    const int within = cell % cells_per_page;
+    const int u = (within % cells_per_page_row) * cell_texels;
+    const int v = (within / cells_per_page_row) * cell_texels;
+    // The far texture coordinate is the cell's last texel, not the first of
+    // the next cell. See the header: this is what keeps a shrunk cell from
+    // fringing with its neighbour's art.
+    const int u_far = u + cell_texels - 1;
+    const int v_far = v + cell_texels - 1;
+
+    // The texture page, as a polygon attribute rather than as a draw-mode
+    // command. The field is the same one GP0(0xE1) takes: bits 0..3 the X
+    // base, bit 4 the Y base, bits 7..8 the colour depth, which is 0 for 4bpp.
+    // Bit 10 is not set here and does not need to be: it is a draw-mode
+    // permission the mode command carries, and the drawing area already
+    // excludes the display.
+    const std::uint32_t texpage =
+        static_cast<std::uint32_t>(page) |
+        (static_cast<std::uint32_t>(texture_page_y / page_lines) << 4);
+    const std::uint32_t palette =
+        (static_cast<std::uint32_t>(clut_y_of(clut)) << 6) |
+        static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries);
+
+    // GP0(0x2D): textured four-point polygon, opaque, raw texture. The colour
+    // word is present and ignored by a raw draw, and carries the neutral value
+    // for the same reason `draw_cell`'s does.
+    command(0x2Du << 24 | 0x808080u);
+    // The four corners, in the order the hardware reads them: top left, top
+    // right, bottom left, bottom right. It draws two triangles from that, and
+    // any other order folds the quad.
+    //
+    // The far corners are at `screen + size`, one past the last pixel drawn,
+    // because this rasteriser fills up to but not including its right and
+    // bottom edges. Placing them on the last pixel instead would drop a row
+    // and a column of every cell on the board.
+    coordinates(screen_x, screen_y);
+    *gp0 = (palette << 16) | (static_cast<std::uint32_t>(v) << 8) |
+           static_cast<std::uint32_t>(u);
+    coordinates(screen_x + size, screen_y);
+    *gp0 = (texpage << 16) | (static_cast<std::uint32_t>(v) << 8) |
+           static_cast<std::uint32_t>(u_far);
+    coordinates(screen_x, screen_y + size);
+    *gp0 = (static_cast<std::uint32_t>(v_far) << 8) |
+           static_cast<std::uint32_t>(u);
+    coordinates(screen_x + size, screen_y + size);
+    *gp0 = (static_cast<std::uint32_t>(v_far) << 8) |
+           static_cast<std::uint32_t>(u_far);
+}
+
 void fill(int screen_x, int screen_y, int width, int height,
           std::uint16_t colour) {
     if (width <= 0 || height <= 0) return;

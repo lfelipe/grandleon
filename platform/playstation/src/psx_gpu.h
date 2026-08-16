@@ -191,6 +191,37 @@ void upload(int x, int y, int halfwords_across, int lines,
 // becomes transparency here.
 void draw_cell(int screen_x, int screen_y, int cell, int clut);
 
+// Draws one cell into a `size` by `size` square, shrinking or enlarging the
+// art to fit it.
+//
+// This exists because `draw_cell` cannot do it, and the reason is the
+// primitive rather than the code. A textured *rectangle* has no scale: the
+// hardware walks one texel across for every pixel across, so a rectangle
+// asked for twenty pixels draws the sprite's first twenty columns and throws
+// the rest away. Cropping a character is not shrinking one.
+//
+// So this issues GP0(0x2D) instead: a textured four-point polygon, opaque and
+// raw, whose four vertices each carry their own texture coordinate. The
+// hardware interpolates between them, which is what makes the picture fit the
+// square rather than be cut to it. A polygon also carries its own texture page
+// field, so unlike `draw_cell` this needs no separate draw-mode command.
+//
+// The sampling is nearest-neighbour, because this GPU has no filter. A cell
+// drawn smaller therefore drops texels rather than blending them, and the
+// result is crunchier than the same board on a machine that filters. That is
+// a property of the console and not something to fix here.
+//
+// **A cell never samples past its own thirty-two columns.** The texture
+// coordinates span `u` to `u + 31` rather than `u + 32`, so the far edge lands
+// on this cell's last texel instead of the first texel of whichever sprite is
+// stored next to it. Getting that wrong would not look like a bug, it would
+// look like a one-pixel seam of somebody else's art.
+//
+// `size` at or below zero draws nothing. `size` equal to `cell_texels` is
+// handed to `draw_cell`, so a board drawn at the native size is drawn by the
+// primitive it has always used and its pixels are unchanged.
+void draw_cell_scaled(int screen_x, int screen_y, int size, int cell, int clut);
+
 // Where a cell lives, so a caller can upload into it and a probe can name it.
 [[nodiscard]] constexpr int cell_texture_x(int cell) noexcept {
     const int page = cell / cells_per_page;
