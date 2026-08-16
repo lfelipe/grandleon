@@ -37,6 +37,7 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace pr = grandleon::package_runtime;
@@ -79,6 +80,13 @@ public:
         pages_.push_back(rows_of(view));
         backdrops_.push_back(view.backdrop);
         screens_.push_back(view.screen);
+        // Kept as "was there one, and which", because the client hands over a
+        // pointer: a test that stored the pointer would be reading the client's
+        // own member after it had moved on to the next page.
+        speakers_.emplace_back(
+            view.speaker != nullptr,
+            view.speaker != nullptr ? *view.speaker : 0
+        );
     }
 
     // A runaway guard rather than a script: nothing here needs a particular
@@ -101,6 +109,11 @@ public:
     }
     [[nodiscard]] const std::vector<turn::Screen>& screens() const noexcept {
         return screens_;
+    }
+    // Whether each page named a speaker, and which unit type it named.
+    [[nodiscard]] const std::vector<std::pair<bool, std::uint64_t>>& speakers()
+        const noexcept {
+        return speakers_;
     }
     [[nodiscard]] bool stalled() const noexcept { return stalled_; }
 
@@ -132,6 +145,7 @@ private:
     std::vector<std::vector<std::string>> pages_{};
     std::vector<std::uint8_t> backdrops_{};
     std::vector<turn::Screen> screens_{};
+    std::vector<std::pair<bool, std::uint64_t>> speakers_{};
     int presses_{0};
     bool stalled_{false};
 };
@@ -325,12 +339,150 @@ void the_predicted_height_is_the_emitted_height() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// One saying to a page, and the face that page carries
+// ---------------------------------------------------------------------------
+
+// A scene of several short sayings, cast to characters.
+//
+// Short on purpose: four of these would have been packed onto one page before a
+// page carried a face, which is the arrangement this replaces. The cast joins
+// each speaker to a unit type by position, exactly as the compiler writes it.
+pr::Dialogue a_conversation() {
+    pr::Dialogue dialogue;
+    dialogue.id = 2;
+    dialogue.name = "the conversation";
+    dialogue.backdrop = 3;
+    dialogue.cast = {1111, 2222};
+    dialogue.lines.push_back(pr::DialogueLine{"MIREA", "hold the ford", 1});
+    dialogue.lines.push_back(pr::DialogueLine{"RUNNER", "they are across", 2});
+    dialogue.lines.push_back(pr::DialogueLine{"MIREA", "then we go", 1});
+    return dialogue;
+}
+
+// The property the face rests on: a page shows one person, so the one face it
+// can draw is never the wrong one.
+//
+// Before this, pages were packed until the next saying would not fit, which put
+// all three of these on one page. A page carries a single speaker, so a packed
+// page could only ever have named one of the three — and there is nowhere on a
+// 320x208 display to draw three.
+void one_saying_to_a_page_and_one_speaker_on_it() {
+    QuietSink sink;
+    Reader reader(sink);
+    const pr::Dialogue dialogue = a_conversation();
+    reader.present_dialogue(dialogue);
+
+    the_pages_are_pages(reader, dialogue.backdrop);
+    expect(
+        reader.pages().size() == dialogue.lines.size(),
+        "a scene of three sayings is three pages"
+    );
+    // Each page names exactly one speaker, which is the row `push_wrapped`
+    // lays down before the words. Counting the rows that end in a colon counts
+    // them without this test knowing how the words below were wrapped.
+    for (const std::vector<std::string>& page : reader.pages()) {
+        std::size_t named = 0;
+        for (const std::string& row : page) {
+            if (!row.empty() && row.back() == ':') ++named;
+        }
+        expect(named == 1, "and every page names exactly one speaker");
+    }
+    // And no word is lost by the arrangement, which is the same property the
+    // taller-than-a-page case pins, asked of a scene rather than a speech.
+    std::vector<std::string> expected;
+    for (const pr::DialogueLine& spoken : dialogue.lines) {
+        expected.push_back(shouted(spoken.speaker) + ":");
+        for (std::string& word : words_of(spoken.text)) {
+            expected.push_back(std::move(word));
+        }
+    }
+    expect(
+        words_of(reader.read()) == expected,
+        "and the scene reads back in order, every word of it"
+    );
+}
+
+// Who each page says is talking, which is what a front end draws a face from.
+//
+// The identity and not the name: two characters may be called the same thing,
+// and a face chosen from a name string is the defect this replaced.
+void every_page_carries_the_speaker_the_scene_cast() {
+    QuietSink sink;
+    Reader reader(sink);
+    reader.present_dialogue(a_conversation());
+
+    const std::vector<std::uint64_t> expected = {1111, 2222, 1111};
+    expect(
+        reader.speakers().size() == expected.size(),
+        "a page per saying carries a speaker per saying"
+    );
+    for (std::size_t index = 0;
+         index < expected.size() && index < reader.speakers().size(); ++index) {
+        expect(
+            reader.speakers()[index].first,
+            "every page of a cast scene names somebody"
+        );
+        expect(
+            reader.speakers()[index].second == expected[index],
+            "and names the unit type the scene cast, not the one before it"
+        );
+    }
+}
+
+// A scene that cast nobody, which is every scene authored before a cast
+// existed. It must draw exactly as it always drew: no speaker, and a front end
+// that reads one has nothing to draw.
+void an_uncast_scene_names_nobody() {
+    QuietSink sink;
+    Reader reader(sink);
+    reader.present_dialogue(one_speech("MIREA", "no cast here"));
+    expect(!reader.speakers().empty(), "the scene still pages");
+    for (const std::pair<bool, std::uint64_t>& held : reader.speakers()) {
+        expect(!held.first, "an uncast scene leaves every page without one");
+    }
+}
+
+// A saying taller than a page is continued onto the next, and the face has to
+// survive that break: a continuation page that lost it would take the speaker
+// away mid-sentence, which reads as somebody else finishing it.
+void a_continued_saying_keeps_its_face() {
+    std::string speech;
+    for (int i = 0; i < 150; ++i) {
+        if (!speech.empty()) speech.push_back(' ');
+        speech += "road";
+        speech.push_back(static_cast<char>('a' + (i % 26)));
+    }
+    pr::Dialogue dialogue;
+    dialogue.id = 3;
+    dialogue.name = "the long saying";
+    dialogue.backdrop = 2;
+    dialogue.cast = {4242};
+    dialogue.lines.push_back(pr::DialogueLine{"MIREA", speech, 1});
+
+    QuietSink sink;
+    Reader reader(sink);
+    reader.present_dialogue(dialogue);
+
+    expect(reader.pages().size() > 1, "the saying is taller than a page");
+    for (const std::pair<bool, std::uint64_t>& held : reader.speakers()) {
+        expect(
+            held.first && held.second == 4242,
+            "and every page of it, continuation included, keeps the speaker"
+        );
+    }
+}
+
 }  // namespace
 
 int main() {
     a_speech_taller_than_a_page_is_paged_and_not_cut();
     a_word_wider_than_the_page_is_broken_and_not_cut();
     the_predicted_height_is_the_emitted_height();
+    one_saying_to_a_page_and_one_speaker_on_it();
+    every_page_carries_the_speaker_the_scene_cast();
+    an_uncast_scene_names_nobody();
+    a_continued_saying_keeps_its_face();
     if (failures != 0) {
         std::cerr << failures << " check(s) failed\n";
         return 1;

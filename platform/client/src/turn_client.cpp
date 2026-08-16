@@ -448,36 +448,41 @@ void TurnClient::present_dialogue(const package_runtime::Dialogue& dialogue) {
     }
     sink_.line(line.c_str());
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
-    begin_page();
-    // Set after the page is begun, and again after every flush, because
-    // `begin_page` clears it: a backdrop belongs to the scene rather than to
-    // the run, and a page of a *later* scene must not inherit this one's.
-    page_backdrop_ = dialogue.backdrop;
+    // One saying to a page, because a page carries one face.
+    //
+    // Pages used to be packed: sayings went on until the next would not fit,
+    // which put three or four speakers on most pages of the shipped scenes. A
+    // page showing one face while four people talk on it would be telling the
+    // player something false about three of them, and there is no room to draw
+    // four — the panel is the display's full width and the band above it is one
+    // portrait wide. Given the choice between a packed page that cannot say who
+    // is speaking and a page per saying that can, this takes the second, which
+    // is also what the cartridge's own cutscene screen has always done.
+    //
+    // What it costs is presses: a five-line scene is five pages where it was
+    // two. What it buys is that every page names and shows exactly one person.
     for (const package_runtime::DialogueLine& spoken : dialogue.lines) {
-        // A speaker, its lines wrapped, and a blank row after. Held when the
-        // next entry would not fit, so a page is full rather than truncated.
-        // The number of pages is a consequence of the authored text rather
-        // than a constant somebody has to keep in step with it.
-        //
-        // This break is where a speaker *prefers* to start, and it is only a
-        // preference: a saying taller than a whole page cannot be given one,
-        // and `push_wrapped` holds and continues inside itself for that. So a
-        // speaker starts on a fresh page whenever one is enough, and spills
-        // over as many as it takes when one is not.
-        const int needed = 2 + wrapped_rows(spoken.text.c_str());
-        if (page_.count > 0 && page_.count + needed > page_capacity) {
-            hold_page(Screen::story, "A  GO ON");
-            begin_page();
-            page_backdrop_ = dialogue.backdrop;
-        }
+        begin_page();
+        // Set after the page is begun, because `begin_page` clears both: a
+        // backdrop belongs to the scene and a speaker to the saying, and
+        // neither may be inherited by whatever page comes next.
+        page_backdrop_ = dialogue.backdrop;
+        // Who the scene cast for this saying, if it cast anybody. A scene
+        // authored before casts existed names nobody, and this stays false, and
+        // the page draws exactly as it drew before.
+        const std::uint64_t* who = dialogue.speaker_unit_type(spoken);
+        story_has_speaker_ = who != nullptr;
+        story_speaker_ = who != nullptr ? *who : 0;
+        page_has_speaker_ = story_has_speaker_;
+        page_speaker_ = story_speaker_;
+        // A saying taller than one page is still held and continued inside
+        // `push_wrapped`, which is the one break a page per saying cannot make
+        // unnecessary.
         push_wrapped(
             spoken.speaker.c_str(), spoken.text.c_str(), dialogue.backdrop
         );
-        // Not paged: a blank row is a separator, and a separator alone at the
-        // top of a page separates nothing.
-        push_line("");
+        hold_page(Screen::story, "A  GO ON");
     }
-    if (page_.count > 0) hold_page(Screen::story, "A  GO ON");
 #endif
 }
 
@@ -2260,6 +2265,8 @@ const char* screen_name(Screen screen) noexcept {
 void TurnClient::begin_page() {
     page_.count = 0;
     page_backdrop_ = 0;
+    page_speaker_ = 0;
+    page_has_speaker_ = false;
     page_first_choice_ = 0;
     page_choices_ = 0;
     verb_count_ = 0;
@@ -2322,6 +2329,11 @@ void TurnClient::push_story_line(
         // continuation page that dropped it would change the picture halfway
         // through a sentence.
         page_backdrop_ = backdrop;
+        // And the speaker belongs to the saying, which is what is being
+        // continued. A continuation page that dropped it would take the face
+        // away mid-sentence, which reads as somebody else finishing it.
+        page_speaker_ = story_speaker_;
+        page_has_speaker_ = story_has_speaker_;
     }
     push_line(text, length);
 }
@@ -2716,6 +2728,7 @@ ScreenView TurnClient::view_of(Screen screen, const char* footer) const {
     view.company = company_;
     view.verbs = verb_count_ > 0 ? verbs_ : nullptr;
     view.backdrop = page_backdrop_;
+    view.speaker = page_has_speaker_ ? &page_speaker_ : nullptr;
     return view;
 }
 

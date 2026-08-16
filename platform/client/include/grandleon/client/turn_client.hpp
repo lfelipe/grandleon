@@ -586,6 +586,21 @@ struct ScreenView final {
     // rule reads it, and a front end that ignores it draws the page it always
     // drew.
     std::uint8_t backdrop{0};
+    // Who is speaking on this page, as the unit type the scene cast for them.
+    // Null on every screen that is not a story page and on a saying whose
+    // scene cast nobody, which is every scene authored before a cast existed.
+    //
+    // A pointer rather than a sentinel, for the reason
+    // `Dialogue::speaker_unit_type` gives: a unit type identity is a hash and
+    // there is no value of it that means "nobody" and could not also be some
+    // project's character.
+    //
+    // A front end draws the character this names by asking the package what it
+    // wears, which is what the board already asks to draw the same character
+    // standing on it. Presentation and nothing else, on the same terms as the
+    // backdrop above: no rule reads it, and a front end that ignores it draws
+    // the page it always drew.
+    const std::uint64_t* speaker{nullptr};
 };
 #endif
 
@@ -1077,6 +1092,21 @@ private:
     // page that is not a scene. Cleared by `begin_page`, so a screen has to
     // say it has a backdrop rather than inherit the last one's.
     std::uint8_t page_backdrop_{0};
+    // Who is speaking on this page, as the unit type the scene cast for them.
+    // Cleared by `begin_page` for the same reason the backdrop is: a screen
+    // says who is on it rather than inheriting the last one's speaker.
+    //
+    // A flag beside the value rather than a reserved number, because a unit
+    // type identity is a hash and no value of it means "nobody" — the same
+    // reason `Dialogue::speaker_unit_type` hands back a pointer.
+    std::uint64_t page_speaker_{0};
+    bool page_has_speaker_{false};
+    // The saying being laid down, which outlives the page it started on: a
+    // saying taller than a page is continued onto the next by
+    // `push_story_line`, and the speaker has to survive the `begin_page` that
+    // does it, exactly as the backdrop does.
+    std::uint64_t story_speaker_{0};
+    bool story_has_speaker_{false};
     // Where the visible part of the list starts on the page, and how many rows
     // of it are drawn. `page_choices_` is the window's height, never the list's
     // length, which `list_` holds.
