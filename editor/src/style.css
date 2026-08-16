@@ -522,6 +522,21 @@ button {
   font-weight: 700;
 }
 
+/* Guidance, not a warning. A board larger than a console's window scrolls, and
+   a scrolling board is a board with edges rather than a board that is wrong, so
+   this reads in the same quiet grey as any other field help and never in the
+   crop warning's red beside it. */
+.console-fit {
+  color: #4b566d;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.console-fit-note {
+  display: block;
+  opacity: 0.85;
+}
+
 .campaign-flow-layout {
   display: grid;
   gap: 1rem;

@@ -15,6 +15,7 @@ import {
 } from "../domain/terrain-presentation";
 import { terrainPassability } from "../domain/terrain-passability";
 import { terrainSprite } from "../domain/board-art";
+import { consoleFitFor } from "../domain/console-fit";
 import {
   BLOB_SHEET_HEIGHT,
   BLOB_SHEET_WIDTH,
@@ -44,6 +45,18 @@ const resizeWidth = ref(snapshot.value.width);
 const resizeHeight = ref(snapshot.value.height);
 const fillTerrain = ref(selectedTerrain.value);
 const confirmClipping = ref(false);
+
+// What the two consoles make of the size in the fields, which is the size this
+// map already is until somebody types over it. An author cannot see a telly
+// from here and the answer is exact, so it is shown rather than left to be
+// discovered on hardware.
+//
+// It is guidance and never a refusal: a board past a console's window scrolls,
+// which is a board with edges to travel to rather than a board that is wrong.
+// Nothing here disables the resize.
+const consoleFit = computed(
+  () => consoleFitFor(resizeWidth.value, resizeHeight.value)
+);
 
 /** Whether two boards are the same board, field for field. */
 function sameBoard(one: SourceMap, other: SourceMap): boolean {
@@ -375,6 +388,13 @@ function applyResize() {
       <input id="map-width" v-model.number="resizeWidth" type="number" min="1" max="4096">
       <label for="map-height">Height</label>
       <input id="map-height" v-model.number="resizeHeight" type="number" min="1" max="4096">
+      <p v-if="consoleFit" class="console-fit" data-testid="console-fit"
+        aria-live="polite">
+        {{ consoleFit.summary }}
+        <span v-if="consoleFit.scrollsAnywhere" class="console-fit-note">
+          A board that scrolls is fine — the player travels to its edges.
+        </span>
+      </p>
       <!-- The brushes this board already has, and nothing typed: a name typed
            here is painted across every new cell at once, so a slip fills the
            board with a terrain nothing else in the game shares. Inventing one

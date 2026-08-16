@@ -378,4 +378,89 @@ describe("MapEditor", () => {
     expect(host.querySelector('[aria-label="Column 2, row 1: grass"]')).not.toBeNull();
     app.unmount();
   });
+
+  // What each console makes of the size in the fields. `console-fit.test.ts`
+  // holds the arithmetic against the C++ the machines compile; this holds that
+  // an author is shown it, that it follows what they type, and — the part worth
+  // guarding — that it never becomes a refusal.
+  describe("what fits on a console", () => {
+    function fitText(host: HTMLElement): string {
+      return host.querySelector('[data-testid="console-fit"]')
+        ?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    }
+
+    it("says a small board is drawn whole on both", () => {
+      const { app, host } = mount();
+      expect(fitText(host)).toBe("Drawn whole on both consoles.");
+      app.unmount();
+    });
+
+    it("follows the fields as they are typed, before any resize is applied",
+      async () => {
+        const { app, host, onSave } = mount();
+        const width = host.querySelector<HTMLInputElement>("#map-width")!;
+        width.value = "40";
+        width.dispatchEvent(new Event("input", { bubbles: true }));
+        await nextTick();
+        expect(fitText(host)).toContain("Scrolls on both consoles");
+        expect(fitText(host)).toContain("21×14");
+        expect(fitText(host)).toContain("20×13");
+        // Guidance about what would happen, not a report of what has: nothing
+        // was saved by typing.
+        expect(onSave).not.toHaveBeenCalled();
+        app.unmount();
+      });
+
+    it("names the cartridge alone in the band between the two windows",
+      async () => {
+        const { app, host } = mount();
+        const width = host.querySelector<HTMLInputElement>("#map-width")!;
+        const height = host.querySelector<HTMLInputElement>("#map-height")!;
+        width.value = "21";
+        width.dispatchEvent(new Event("input", { bubbles: true }));
+        height.value = "14";
+        height.dispatchEvent(new Event("input", { bubbles: true }));
+        await nextTick();
+        expect(fitText(host))
+          .toContain("Drawn whole on the Nintendo 64. Scrolls on PlayStation");
+        app.unmount();
+      });
+
+    // The whole point of the surface. A board that scrolls is valid and ships,
+    // so nothing here may stop an author making one.
+    it("never refuses a board a console has to scroll", async () => {
+      const { app, host, onSave } = mount();
+      const width = host.querySelector<HTMLInputElement>("#map-width")!;
+      const height = host.querySelector<HTMLInputElement>("#map-height")!;
+      width.value = "40";
+      width.dispatchEvent(new Event("input", { bubbles: true }));
+      height.value = "30";
+      height.dispatchEvent(new Event("input", { bubbles: true }));
+      await nextTick();
+      expect(fitText(host)).toContain("Scrolls on both consoles");
+      // Not an alert, and not styled as the crop warning beside it is.
+      const notice = host.querySelector('[data-testid="console-fit"]')!;
+      expect(notice.getAttribute("role")).toBeNull();
+      expect(notice.classList.contains("crop-warning")).toBe(false);
+
+      const apply = [...host.querySelectorAll<HTMLButtonElement>("button")]
+        .find((candidate) => candidate.textContent === "Apply resize")!;
+      expect(apply.disabled).toBe(false);
+      apply.click();
+      await nextTick();
+      const result = onSave.mock.calls[0]![0] as SourceMap;
+      expect([result.width, result.height]).toEqual([40, 30]);
+      app.unmount();
+    });
+
+    it("says nothing at all about a field mid-edit", async () => {
+      const { app, host } = mount();
+      const width = host.querySelector<HTMLInputElement>("#map-width")!;
+      width.value = "";
+      width.dispatchEvent(new Event("input", { bubbles: true }));
+      await nextTick();
+      expect(host.querySelector('[data-testid="console-fit"]')).toBeNull();
+      app.unmount();
+    });
+  });
 });

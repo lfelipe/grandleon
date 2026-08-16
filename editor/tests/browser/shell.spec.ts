@@ -198,6 +198,23 @@ test("draws a map in one section, sets a Stage up in another, and plays it",
     await page.locator(".record-list").getByRole("button", { name: /New Map/ })
       .click();
     await expect(page.locator(".terrain-grid")).toBeVisible();
+    // What the consoles make of this ground, beside the fields that size it.
+    // An author cannot see a telly from here and the answer is exact.
+    const consoleFit = page.getByTestId("console-fit");
+    await expect(consoleFit).toBeVisible();
+    await expect(consoleFit).toContainText("Drawn whole on both consoles");
+    // And it follows the field rather than the saved map: a size still being
+    // typed is the size worth answering about.
+    await page.locator("#map-width").fill("40");
+    await expect(consoleFit).toContainText("Scrolls on both consoles");
+    await expect(consoleFit).toContainText("21×14");
+    // Guidance and not a refusal. Nothing is disabled, and it is not an alert.
+    await expect(page.getByRole("button", { name: "Apply resize" }))
+      .toBeEnabled();
+    await expect(page.locator('[data-testid="console-fit"][role="alert"]'))
+      .toHaveCount(0);
+    await page.locator("#map-width").fill("3");
+    await expect(consoleFit).toContainText("Drawn whole on both consoles");
     // A map with no Stage on it is a normal thing to have, not a warning.
     await expect(page.locator(".map-stages"))
       .toContainText("No Stage uses this ground yet");
