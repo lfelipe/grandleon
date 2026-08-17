@@ -752,6 +752,25 @@ export function validateProject(filename) {
             );
           }
         }
+        // A Stage nothing decides cannot be opened at all. The package format
+        // writes the count of a board's objectives before anything else and
+        // every runtime refuses a board declaring none, so a campaign that
+        // reaches such a node stops there and reports a board it could not
+        // decode. The compiler refuses to emit one; this refuses it earlier,
+        // where an author can still be told which Stage it is.
+        if (node.kind === "encounter" && (node.objectiveIds ?? []).length === 0) {
+          const instancePath = `${nodePath}/objectiveIds`;
+          diagnostics.push(
+            diagnostic(
+              filename,
+              "SOURCE_CAMPAIGN_STAGE_UNDECIDED",
+              instancePath,
+              `Stage '${node.id}' states no way to be won or lost, so it ` +
+                "cannot be played: a campaign that reaches it stops there",
+              document.pointers[instancePath]?.value
+            )
+          );
+        }
         for (const [index, objectiveId] of (node.objectiveIds ?? []).entries()) {
           requireReference(
             "objective",

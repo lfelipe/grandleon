@@ -365,6 +365,7 @@ describe("source analysis", () => {
   it("reports malformed campaign graph identities, routing, and reachability", () => {
     const project = {
       ...validProject,
+      objectives: [{ id: "victory", name: "Victory" }],
       campaigns: [{
         id: "broken",
         name: "Broken",
@@ -433,6 +434,7 @@ describe("source analysis", () => {
   it("rejects encounter placements that occupy the same map tile", () => {
     const project = {
       ...validProject,
+      objectives: [{ id: "victory", name: "Victory" }],
       campaigns: [{
         id: "overlap",
         name: "Overlap",
@@ -443,6 +445,7 @@ describe("source analysis", () => {
             id: "battle",
             name: "Battle",
             kind: "encounter",
+            objectiveIds: ["victory"],
             mapId: "field",
             placements: [
               { id: "left", unitTypeId: "soldier", side: "first", x: 0, y: 0 },
@@ -475,6 +478,7 @@ describe("source analysis", () => {
         ...validProject.unitTypes,
         { id: "medic", name: "Medic", classId: "vanguard" }
       ],
+      objectives: [{ id: "victory", name: "Victory" }],
       campaigns: [{
         id: "muster",
         name: "Muster",
@@ -491,6 +495,7 @@ describe("source analysis", () => {
               id: "battle",
               name: "Battle",
               kind: "encounter",
+              objectiveIds: ["victory"],
               mapId: "field",
               recruits: [{
                 id: "torvald",
@@ -571,6 +576,7 @@ describe("source analysis", () => {
   it("reports a member identity claimed twice and a member made of nothing", () => {
     const project = {
       ...validProject,
+      objectives: [{ id: "victory", name: "Victory" }],
       campaigns: [{
         id: "muster",
         name: "Muster",
@@ -623,6 +629,7 @@ describe("source analysis", () => {
         height: 2,
         terrain: ["grass", "grass", "grass", "grass", "grass", "grass"]
       }],
+      objectives: [{ id: "victory", name: "Victory" }],
       campaigns: [{
         id: "misfielded",
         name: "Misfielded",
@@ -638,6 +645,7 @@ describe("source analysis", () => {
               id: "battle",
               name: "Battle",
               kind: "encounter",
+              objectiveIds: ["victory"],
               mapId: "yard",
               placements: [
                 {

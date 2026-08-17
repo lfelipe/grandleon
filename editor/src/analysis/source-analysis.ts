@@ -59,6 +59,7 @@ export interface SourceDiagnostic {
     | "SOURCE_CAMPAIGN_STAT_DELTA_OUT_OF_RANGE"
     | "SOURCE_CAMPAIGN_ARRIVAL_MEMBER"
     | "SOURCE_CAMPAIGN_OBJECTIVE_RESULT_UNKNOWN"
+    | "SOURCE_CAMPAIGN_STAGE_UNDECIDED"
     | "SOURCE_OBJECTIVE_ROUNDS_MISMATCH"
     | "SOURCE_DIALOGUE_SPEAKER_CAST_TWICE"
     | "SOURCE_DIALOGUE_CAST_SPEAKS_NO_LINE";
@@ -1256,6 +1257,24 @@ export function analyzeSourceProject(
               `${fieldable} first-side placement${fieldable === 1 ? "" : "s"}`
           });
         }
+      }
+      // A Stage nothing decides cannot be opened, which is a harder fact than
+      // it sounds. The package format writes the count of a board's objectives
+      // before anything else and every client refuses a board declaring none,
+      // so a campaign that reaches this node stops there and reports a board it
+      // could not decode. The compiler refuses to emit one; this says so before
+      // an author has built a ROM and met it on a console.
+      if (node.kind === "encounter" &&
+          (node.objectiveIds ?? []).length === 0) {
+        diagnostics.push({
+          severity: "error",
+          code: "SOURCE_CAMPAIGN_STAGE_UNDECIDED",
+          sourcePath,
+          instancePath: `${nodePath}/objectiveIds`,
+          message:
+            `Stage '${node.id}' states no way to be won or lost, so it ` +
+            "cannot be played: a campaign that reaches it stops there"
+        });
       }
       (node.objectiveIds ?? []).forEach((objectiveId, objectiveIndex) =>
         requireReference(
