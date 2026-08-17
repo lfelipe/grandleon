@@ -353,6 +353,12 @@ static_assert(
     screen_panel_top + screen_panel_rows < screen_footer_row,
     "the page's panel and the footer cannot share a row"
 );
+static_assert(
+    screen_page_left + turn::footer_columns <= screen_cols,
+    "a footer has to fit the display. `write_at` stops at the edge, so one that "
+    "does not is cut in the middle of its last word rather than reported, and "
+    "the last word is where a footer puts the button a player has yet to meet"
+);
 
 // The speaker's face, in the band the panel leaves above itself.
 //

@@ -12,6 +12,25 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(GRANDLEON_BUILD_TESTS "Build the Grandleon test suite" ON)
+# A campaign a player may jump around inside, for testing a late Stage on a
+# console without playing every Stage before it.
+#
+# OFF, and a build input rather than a project setting, because it is an aid for
+# an image somebody makes to debug with. The Nintendo 64's autopilot ROMs are
+# selected the same way and for the same reason: a project cannot carry it, so
+# it cannot be left switched on in a game somebody shares, and no shipped
+# package's bytes move for a testing aid.
+#
+# A jump moves the campaign and nothing else, so a Stage reached this way has
+# not recorded the objectives, set the flags or gained the characters the
+# ordinary route would have. A jumped-into battle can be unwinnable and a flow
+# can reach a Stage it cannot leave. That is tolerable in a debug image and is
+# why no other kind can ask for it.
+option(
+    GRANDLEON_STAGE_PICKER
+    "Build the in-game Stage picker, a debugging aid, into the campaign client"
+    OFF
+)
 option(
     GRANDLEON_WERROR
     "Treat engine and tool compiler warnings as errors"
@@ -293,6 +312,17 @@ target_link_libraries(
 target_compile_options(
     grandleon_client_campaign PRIVATE ${GRANDLEON_WARNING_FLAGS}
 )
+# The Stage picker, for an image somebody builds to debug with.
+#
+# PUBLIC and not PRIVATE, because `stage_picker_built` is a constant in
+# `campaign_session.hpp` and every translation unit that reads it has to agree
+# about its value. A define on this library alone would give the session one
+# answer and each client's own compilation another.
+if(GRANDLEON_STAGE_PICKER)
+    target_compile_definitions(
+        grandleon_client_campaign PUBLIC GRANDLEON_STAGE_PICKER
+    )
+endif()
 
 # The board's presentation model: the camera, the elevation-offset
 # projection, the autotile lookup and the depth-ordered draw list the three

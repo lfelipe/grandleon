@@ -47,6 +47,18 @@ enum class IntentKind : std::uint8_t {
     // does name somebody: a talk reaches a neighbour rather than the hand that
     // holds it, so the front end has a target to collect before it commits.
     talk,
+    // Leave this battle for another Stage of the campaign being played, which
+    // `stage_id` names. A testing aid, offered only by a front end that a
+    // campaign handed a list of Stages to, which a campaign does only when its
+    // author asked for it.
+    //
+    // It is `quit` with somewhere to go, and the battle loop treats it exactly
+    // so: it stops, and it reports the number without looking at it. A campaign
+    // node identity means nothing to a board, and a battle that is not part of
+    // a campaign has nobody who could have produced one. What to do with it is
+    // `client::CampaignSession::jump_to_stage`, which is the only thing in this
+    // library that reads the field.
+    jump_to_stage,
 };
 
 struct Intent final {
@@ -62,6 +74,11 @@ struct Intent final {
     // pack has no first entry the rules read, so a use naming nothing is
     // refused by the engine rather than guessed at here.
     simulation::ContentId item_id{};
+    // Which Stage a `jump_to_stage` is leaving for, as the campaign node
+    // identity the session published. Zero on every other intent, and a
+    // campaign node is the one thing in this record that is not the board's:
+    // nothing below the presenter seam reads it.
+    std::uint64_t stage_id{};
 };
 
 // Which of `side`'s characters still owes the board an activation, or zero

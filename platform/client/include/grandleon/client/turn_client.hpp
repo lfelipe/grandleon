@@ -148,9 +148,16 @@ inline constexpr view::FitRule board_fit{320, 208, 32, 16, 16};
 //                          menu row, aim a strike at the tile under the cursor
 //     pad_b      circle    back out: drop a selection, close the menu, put the
 //                          sheet down, abandon an aim
-//     pad_c      triangle  open the unit action menu
+//     pad_c      triangle  open the unit action menu, and on the company
+//                          screen open the Stage picker where a game has one
 //     pad_start  start     "I am done": open the battle from the arranging
 //                          stage, end an activation
+//
+// The company screen's use of C is the one place a button does something a row
+// does not also do, and the footer names it there whenever it does anything at
+// all. It is a button rather than a row because that screen's caret walks the
+// company, and a row that was not a member would be a row the member menu below
+// has nothing to open for.
 //
 // Cross confirms and circle cancels, which is the Western PlayStation
 // convention and the one a player who has used this console will already have
@@ -242,6 +249,16 @@ struct MenuChoice final {
     // sits below WAIT and above CANCEL rather than among the rows that spend a
     // turn.
     bool info{false};
+    // Opens the Stage picker over the battle, and leaves the battle for
+    // whichever Stage is chosen. A board-menu row only, and only on a campaign
+    // whose author asked for the picker: the row is built when the session
+    // handed this client a list of Stages, and that list is empty otherwise.
+    //
+    // A flag rather than a ninth thing squeezed into `content`, for the reason
+    // `wait` is a flag: which row a press took has to be readable without
+    // consulting the label, or the two menus that share this array come to
+    // disagree about what a row means.
+    bool stage{false};
     bool cancel{false};
 };
 
@@ -450,6 +467,22 @@ inline constexpr int page_columns = 38;
 // whatever `.bss` leaves.
 inline constexpr int page_capacity = 16;
 
+// How wide a footer this client will ever compose.
+//
+// A footer is not page text: it is drawn on its own row by the platform, so
+// `push_line` never sees it and nothing cuts it to `page_columns`. What cuts it
+// is the display, silently, in the middle of whichever word ran off the edge —
+// and the word that runs off is the last one, which is where a footer puts the
+// button a player has not met before. That is exactly how a hint for a new
+// button comes to read `C S`.
+//
+// So the number is here and every platform asserts its own screen holds it, on
+// the same terms `page_columns` is asserted, and every footer literal in
+// `turn_client.cpp` is asserted against it. One character narrower than the
+// widest display's row, because the narrowest platform indents the footer by
+// one column to line it up with the page above.
+inline constexpr int footer_columns = 39;
+
 // How many rows `text` becomes once it is wrapped to the display, counting the
 // rows a word wider than the page is broken across. `present_dialogue` asks
 // this before it commits to a page, so that a speaker who would fit on a page
@@ -497,6 +530,10 @@ enum class Screen : std::uint8_t {
     refusal,
     // Who an authored recruitment brought in.
     joined,
+    // The Stages of the campaign, offered to somebody checking the game. Only
+    // ever reachable in a build that carries the picker, so it is a screen
+    // most games have no way to open.
+    stages,
     // The end.
     ended,
 };
@@ -529,6 +566,15 @@ enum class Screen : std::uint8_t {
 inline constexpr int company_roster_rows = 7;
 inline constexpr int company_store_rows = 4;
 inline constexpr int member_menu_rows = 8;
+// The Stage picker's window. Twelve of sixteen, which is what is left once its
+// heading, the line saying what an unseen Stage costs, and a blank have taken
+// theirs:
+//
+//   heading 1 + warning 1 + blank 1 + stages 12  =  15
+//
+// One row spare rather than none, because a campaign of exactly twelve Stages
+// should not be the campaign that discovers the arithmetic was tight.
+inline constexpr int stage_menu_rows = 12;
 
 // How far the caret is kept from a window's edge where the list allows it. One
 // row of context: the board's camera asks for two out of eleven, and a
@@ -843,6 +889,7 @@ public:
     ) override;
     void management_opened(const client::CompanyManagement& company) override;
     void management_committed(const client::ManagementCommit& result) override;
+    void stage_jumped(const client::StageJump& jump) override;
     [[nodiscard]] client::ManagementIntent next_management_intent(
         const client::CompanyManagement& company
     ) override;
@@ -1057,6 +1104,16 @@ private:
         const client::CompanyManagement* company = nullptr
     );
     void compose_member_menu(const client::CompanyManagement& company, int row);
+    // The campaign's Stages as a page, one row each, marked with where the
+    // campaign is and where it has been. `stages_` is what it reads and is
+    // borrowed from whichever surface opened the picker.
+    void compose_stages();
+    // Puts the picker on the display and returns the campaign node the player
+    // chose, or zero when they backed out. Shared by the two surfaces that
+    // offer it — the board menu inside a battle and the company screen between
+    // them — because it is one list and one choice, and two copies of a screen
+    // is how two screens come to say different things about one campaign.
+    [[nodiscard]] std::uint64_t choose_a_stage();
     // The slot screen as a page. Recomposed on every press, because arming a
     // row rewrites it.
     void compose_slot_page();
@@ -1069,7 +1126,7 @@ private:
     // a `.bss` block on a machine whose global constructors do not run, and a
     // `std::function` would be a heap allocation per screen on a machine that
     // counts them.
-    enum class ListPage : std::uint8_t { none, company, member };
+    enum class ListPage : std::uint8_t { none, company, member, stages };
     void recompose_page();
 
     TextPage page_{};
@@ -1163,6 +1220,13 @@ private:
     // it. Nothing outside that window reads it, and `battle_aftermath` clears it
     // so that nothing can.
     const client::CampaignBoard* board_{nullptr};
+    // The Stages the picker is offering, borrowed from whichever surface opened
+    // it: the board's list inside a battle, the company's between them. Null
+    // whenever the picker is not on screen, and null for the whole of every game
+    // whose author did not ask for it, because both of those lists are empty
+    // then and this client offers the row only when the list it was handed is
+    // not. Nothing here reads a setting.
+    const std::vector<client::CampaignStage>* stages_{nullptr};
     bool resumed_{false};
     bool leaving_{false};
     int saves_{0};

@@ -1886,6 +1886,23 @@ void TurnClient::open_board_menu() {
     MenuChoice& leave = menu_[menu_rows_++];
     leave = MenuChoice{};
     leave.label = "LEAVE - THIS BATTLE IS NOT KEPT";
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+    // And the Stage picker, when there is one. The row exists exactly when the
+    // session handed this board a list of Stages, which it does only in a build
+    // that carries the picker: nothing here reads the define, and an ordinary
+    // image never draws this row.
+    //
+    // Last, under the way out, because it is a testing aid and not one of the
+    // two questions this menu exists to answer. Its label says what it costs in
+    // the row rather than behind it, exactly as the row above it does: leaving
+    // for another Stage abandons this battle the same way leaving does.
+    if (board_ != nullptr && !board_->stages.empty()) {
+        MenuChoice& jump = menu_[menu_rows_++];
+        jump = MenuChoice{};
+        jump.label = "GO TO ANOTHER STAGE - TESTING";
+        jump.stage = true;
+    }
+#endif
     menu_open_ = true;
     board_menu_open_ = true;
 }
@@ -1917,6 +1934,20 @@ void TurnClient::commit_board_row(const sim::EncounterSnapshot& snapshot) {
         drain_side(snapshot);
         return;
     }
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+    if (row.stage) {
+        stages_ = board_ != nullptr ? &board_->stages : nullptr;
+        const std::uint64_t chosen = choose_a_stage();
+        stages_ = nullptr;
+        // Backing out of the picker puts the player back on the board with
+        // whatever they had in hand, exactly as backing out of this menu does.
+        // Only a Stage actually chosen leaves the battle.
+        if (chosen == 0U) return;
+        pending_.kind = client::IntentKind::jump_to_stage;
+        pending_.stage_id = chosen;
+        return;
+    }
+#endif
     pending_.kind = client::IntentKind::quit;
 }
 
@@ -2253,6 +2284,7 @@ const char* screen_name(Screen screen) noexcept {
         case Screen::aftermath: return "aftermath";
         case Screen::refusal: return "refusal";
         case Screen::joined: return "joined";
+        case Screen::stages: return "stages";
         case Screen::ended: return "ended";
     }
     return "none";
@@ -2496,6 +2528,21 @@ void TurnClient::compose_company(
         refused.text("REFUSED ").text(pending_refusal_);
         push_line(refused.c_str());
         pending_refusal_ = nullptr;
+    } else if (company != nullptr &&
+               company->refused != campaign_runtime::RosterError::none) {
+        // And a refusal the *session* decided, in the same place and the same
+        // words. `prepare_board` publishes nothing when the roster refuses a
+        // board and says why in the roster's own vocabulary; until there was a
+        // way to reach a board the company cannot be arranged into, the only
+        // refusals a player could cause were ones this screen caught first, and
+        // this line had nothing to draw. A Stage picker makes the session's
+        // refusal ordinary, and a screen that showed a player nothing but the
+        // board failing to open would be telling them their game was broken.
+        Text refused;
+        refused.text("REFUSED ").text(
+            campaign_runtime::roster_error_name(company->refused).data()
+        );
+        push_line(refused.c_str());
     }
     push_line("");
     page_first_choice_ = page_.count;
@@ -2684,8 +2731,80 @@ void TurnClient::compose_member_menu(
 // it was asked with before, because the window it builds is a function of where
 // the caret now is. A page nobody rebuilt would be a page whose rows
 // disagreed with its caret.
+// The campaign's Stages, one row each, in the order the session published them.
+//
+// Two words carry the whole of what a player needs before they choose. HERE is
+// where the campaign is standing; SEEN is somewhere this playthrough has
+// actually stood. A Stage with neither is one the campaign has never reached,
+// and jumping to it is the risky move: nothing that would have happened on the
+// way has happened, so its board may name a character the company has not got
+// and refuse to open at all. The line under the heading says that once, in the
+// words an author was shown the setting under, rather than leaving a player to
+// find it out by being stuck.
+void TurnClient::compose_stages() {
+    begin_page();
+    list_page_ = ListPage::stages;
+    const int total =
+        stages_ == nullptr ? 0 : static_cast<int>(stages_->size());
+    list_.rows = stage_menu_rows;
+    list_.total = total;
+    list_.top = list_top_;
+    list_.follow(list_caret_, company_scroll_margin);
+    list_top_ = list_.top;
+    {
+        Text line;
+        line.text("GO TO ANOTHER STAGE");
+        char legend[view::scroll_legend_size];
+        if (view::scroll_legend(list_, legend, sizeof legend) > 0) {
+            line.text("   ").text(legend);
+        }
+        push_line(line.c_str());
+    }
+    push_line("A STAGE YOU HAVE NOT SEEN MAY NOT OPEN");
+    push_line("");
+    page_first_choice_ = page_.count;
+    page_choices_ = list_.shown();
+    for (int index = list_.top; index < list_.end(); ++index) {
+        const client::CampaignStage& stage =
+            (*stages_)[static_cast<std::size_t>(index)];
+        Text row;
+        row.number(index + 1).space();
+        // The author's name for the board, and the board's number when the
+        // package has no name for it. A number is not much, but it is the
+        // Stage's place in the flow and it is never nothing.
+        push_padded(
+            row,
+            stage.name.empty() ? "STAGE" : stage.name.c_str(),
+            28
+        );
+        if (stage.standing) {
+            row.text("HERE");
+        } else if (stage.reached) {
+            row.text("SEEN");
+        }
+        push_line(row.c_str());
+    }
+}
+
+std::uint64_t TurnClient::choose_a_stage() {
+    if (stages_ == nullptr || stages_->empty()) return 0U;
+    // A new list, so the caret starts at the top of it and so does the window.
+    // Deliberately not where it was left: this screen is opened rarely and from
+    // two places, and a caret remembering a row from the last time it was open
+    // would be pointing at a Stage the player did not choose to look at.
+    list_caret_ = 0;
+    list_top_ = 0;
+    compose_stages();
+    const int chosen = choose_on_page(Screen::stages, "A GO  B BACK", pad_b);
+    if (chosen < 0 || chosen >= static_cast<int>(stages_->size())) return 0U;
+    return (*stages_)[static_cast<std::size_t>(chosen)].node_id;
+}
+
 void TurnClient::recompose_page() {
     switch (list_page_) {
+        case ListPage::stages:
+            compose_stages();
+            break;
         case ListPage::company:
             if (company_ != nullptr) {
                 compose_company(
@@ -3201,6 +3320,37 @@ void TurnClient::management_committed(const client::ManagementCommit& result) {
     note(line.c_str());
 }
 
+// A jump, taken or refused.
+//
+// Two things happen here and both are obligations rather than reporting. The
+// borrowed board is dropped, because a jump ends the board it came out of
+// without an aftermath and this is the far end of that window: leaving the
+// pointer set would leave it dangling across every screen between here and the
+// next board. And a refusal is put where the next company screen will draw it,
+// in the campaign's own word, because nothing else happens after a refused jump
+// — the battle is gone and the player is standing where they stood, and with
+// nothing said that reads as the console having lost their game.
+void TurnClient::stage_jumped(const client::StageJump& jump) {
+    board_ = nullptr;
+    Text line;
+    line.text("jumped to ")
+        .number(static_cast<std::int32_t>(jump.target.stable_id))
+        .text(" moved ")
+        .number(jump.completion.advanced ? 1 : 0)
+        .text(" error ")
+        .text(campaign::progression_error_name(jump.completion.error).data());
+    note(line.c_str());
+    if (static_cast<bool>(jump)) return;
+    // Whichever layer refused it, in that layer's own word. The campaign has
+    // one for every way a move through a graph can fail; the session has its
+    // own for the one refusal that is not the campaign's, which is a Stage this
+    // game does not offer.
+    pending_refusal_ =
+        jump.completion.error != campaign::ProgressionError::none
+            ? campaign::progression_error_name(jump.completion.error).data()
+            : client::campaign_session_error_name(jump.error).data();
+}
+
 // The company, between battles. One screen, one caret, and a menu per member
 // holding every verb the stage has. That is the same shape the unit action
 // menu already taught: nothing is aimed at, the rows say what taking them
@@ -3226,12 +3376,61 @@ client::ManagementIntent TurnClient::next_management_intent(
     compose_company(
         "BEFORE THE BATTLE", company.roster, company.store, &company
     );
+    // The Stage picker is on this screen too, and on a button rather than a row
+    // because the caret here walks the company: a row that was not a member
+    // would be a row the member menu below has nothing to open for.
+    //
+    // **It has to be reachable from here, and that is not a convenience.** A
+    // jump recruits nobody on behalf of the Stages it passed over, so a board
+    // whose objective names a late-joining character refuses to open — and a
+    // refused board is exactly what sends a player to this screen. There is
+    // nothing they could do here to recruit anybody, and the jump has already
+    // written the slot. Without this the aid could leave a saved campaign
+    // standing at a Stage nothing can open.
+    //
+    // Both footers are named and measured. A footer is cut by the display
+    // rather than by `push_line`, silently, in the middle of the last word —
+    // which is where the button a player has not met yet is written. `START
+    // BATTLE` says what `START TO BATTLE` said in two characters fewer,
+    // because those two characters are what the hint needs; `C GO` is the verb
+    // beside `A CHOOSE` and `B LEAVE`, and it reads into the title of the
+    // screen it opens.
+    static constexpr char company_footer[] =
+        "A CHOOSE  START BATTLE  B LEAVE";
+    static constexpr char company_footer_with_stages[] =
+        "A CHOOSE  START BATTLE  B LEAVE  C GO";
+    static_assert(
+        sizeof(company_footer) - 1U <= footer_columns,
+        "the company screen's footer has to fit on the narrowest display"
+    );
+    static_assert(
+        sizeof(company_footer_with_stages) - 1U <= footer_columns,
+        "and so does the one that names the Stage picker's button, which is "
+        "the whole of the point: a hint cut in half is a hint that has taught "
+        "a player nothing"
+    );
+    const bool offers_stages = !company.stages.empty();
+    const std::uint16_t leaves = static_cast<std::uint16_t>(
+        offers_stages ? (pad_b | pad_start | pad_c) : (pad_b | pad_start)
+    );
     const int chosen = choose_on_page(
-        Screen::company, "A CHOOSE  START TO BATTLE  B LEAVE",
-        static_cast<std::uint16_t>(pad_b | pad_start)
+        Screen::company,
+        offers_stages ? company_footer_with_stages : company_footer,
+        leaves
     );
     roster_top_ = list_top_;
     if (chosen < 0) {
+        if ((back_pressed_ & pad_c) != 0U) {
+            stages_ = &company.stages;
+            const std::uint64_t going = choose_a_stage();
+            stages_ = nullptr;
+            company_ = nullptr;
+            if (going == 0U) return {client::ManagementVerb::none, {}, {}, 0U};
+            client::ManagementIntent jump;
+            jump.verb = client::ManagementVerb::jump;
+            jump.stage = going;
+            return jump;
+        }
         company_ = nullptr;
         // Leaving loses nothing and the footer says so: every gesture committed
         // and saved when it was made, so there is no state here for a

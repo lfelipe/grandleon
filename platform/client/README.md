@@ -165,6 +165,44 @@ objective protects (`unavailable_objective_target`) is told the roster's own
 word for it and stands where it stood. `run_persistent_campaign` runs the stage
 and the board in one loop for exactly that reason.
 
+**A player checking a game can stand on any Stage without playing the ones
+before it, and only if the project said so.** `CampaignSession::stages()`
+publishes the campaign's encounter nodes in the order the flow reaches them
+(breadth first from the entry, edges in `select_transition`'s own order, which
+for a campaign without branches is the order the author wrote them), each marked
+with whether this playthrough has stood there. `jump_to_stage` commits an empty
+batch through `campaign::jump_to_node` and writes the slot at once. It is
+offered on two screens and both draw from the same list: in a battle, through
+`IntentKind::jump_to_stage` and `BattleReport::jump_to_stage`, which the battle
+loop carries out without reading; and between battles, through
+`ManagementVerb::jump`.
+
+**The list is empty unless this was built with `GRANDLEON_STAGE_PICKER`**, and
+that is the whole gate. `CampaignSessionOptions::stage_picker` defaults from that
+define, so an image carries what it was built with. A front end offers the row
+when the list it was handed is not empty and never reads the define itself, so
+one place decides whether an image has the picker.
+
+It is a build option and not a project field on purpose. A project that could
+carry it could be shared with it left switched on, and a testing aid should not
+move the bytes of anything anybody plays. `grandleon.stage_picker_absent` is
+compiled without the define and holds the default down.
+
+**What a jump does not do is the half that matters.** It moves the campaign and
+changes nothing else: no objective recorded, no world flag set, nobody recruited
+on behalf of the Stages passed over. So a transition out of a jumped-to Stage
+can match nothing, a battle there can be unwinnable, and a board can refuse to
+open at all. Tarnholt is the worked example: its last board carries "keep
+Captain Mirea alive", and Mirea joins at a cutscene after the first battle, so
+jumping straight there is `unavailable_objective_target`. **That is why the
+picker is on the company screen as well as the pause menu** — a refused board
+sends the player to the company, nothing they can do there recruits anybody, and
+a jump has already written the slot. Without the second surface a jump could
+leave a saved campaign standing at a Stage nothing can open. Inventing the
+author's facts instead would be wrong differently at every branch;
+`CampaignStage::reached` is what lets a screen tell a safe jump from a risky one
+before the player takes it.
+
 **The session derives nothing and a front end derives less.** Experience,
 levels, growth rolls, what a battle left behind and what it spent are all one
 function's answer, carried to the narrator exactly as that function returned it.
@@ -211,6 +249,17 @@ One file, a compiler per machine, no archive that could hold only one of them.
 The PlayStation compiles it twice, once with the macro and once without, which
 is the clearest statement of why: the two builds are the same source and
 different programs.
+
+**The Stage picker is one screen and two ways in.** START over a battle opens
+the board menu, which grows a fourth row — `GO TO ANOTHER STAGE - TESTING`,
+under the way out, because it is an aid and not one of the two questions that
+menu exists to answer. C on the company screen opens the same picker, on a
+button rather than a row because that screen's caret walks the company. Both
+build the row only when the list they were handed is not empty, which is only
+in a `GRANDLEON_STAGE_PICKER` build; neither reads the define. The screen
+itself lists the Stages under the author's own names, marks the one the campaign
+is standing on `HERE` and every one it has stood on `SEEN`, and says once, under
+its heading, that a Stage with neither mark may not open.
 
 A machine supplies `paint` and `next_press`, plus `paint_screen` in a campaign
 build, and then three animation hooks, a checkpoint hold and an after-screen

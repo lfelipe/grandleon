@@ -13,12 +13,20 @@
 #                                                     build a ROM of that game
 #   platform/nintendo64/scripts/build-n64.sh --targets grandleon_n64_campaign
 #                                                     build fewer than all of them
+#   platform/nintendo64/scripts/build-n64.sh --stage-picker
+#                                                     ROMs that can jump Stages
 #
 # `--project` is what makes this script serve an authoring surface as well as
 # the gate: the ROM's content is a build input, so a ROM of an author's own game
 # is this same build with one path changed rather than a second pipeline. It
 # pairs with `--targets`, because a request wants one ROM and waiting for
 # thirteen would be most of the wait.
+#
+# `--stage-picker` builds ROMs whose pause menu can leave a battle for any Stage
+# of the campaign. It is for looking at one thing in a late Stage without playing
+# to it, and a Stage reached that way has recorded nothing the ordinary route
+# would have, so a battle there can be unwinnable. Off unless asked for, and a
+# project cannot ask: it is a property of the image, not of the game.
 #
 # The published libdragon container carries the mips64-elf cross compiler only;
 # libdragon itself is not in it. So the base image is pinned by digest and
@@ -44,9 +52,10 @@ image="grandleon/n64-toolchain:${libdragon_commit}"
 rebuild_image=0
 project="${GRANDLEON_N64_PROJECT:-}"
 targets="${GRANDLEON_N64_TARGETS:-}"
+stage_picker=0
 usage() {
     echo "usage: $(basename "$0") [--rebuild-image] [--project PATH]" \
-         "[--targets t1,t2,...]" >&2
+         "[--targets t1,t2,...] [--stage-picker]" >&2
     exit 2
 }
 while [ "$#" -gt 0 ]; do
@@ -54,6 +63,7 @@ while [ "$#" -gt 0 ]; do
         --rebuild-image) rebuild_image=1; shift ;;
         --project) [ "$#" -ge 2 ] || usage; project="$2"; shift 2 ;;
         --targets) [ "$#" -ge 2 ] || usage; targets="$2"; shift 2 ;;
+        --stage-picker) stage_picker=1; shift ;;
         *) usage ;;
     esac
 done
@@ -93,6 +103,12 @@ if [ -n "${project}" ]; then
     esac
     project_arg="-DGRANDLEON_N64_PROJECT=/src/${project#"${repository_root}"/}"
 fi
+
+# Written as OFF rather than removed when it was not asked for, because unlike
+# the project this has a default worth stating: a tree in which somebody once
+# built a picker ROM must not go on building them.
+picker_arg="-DGRANDLEON_STAGE_PICKER=OFF"
+[ "${stage_picker}" -eq 0 ] || picker_arg="-DGRANDLEON_STAGE_PICKER=ON"
 
 if ! command -v "${docker}" >/dev/null 2>&1; then
     echo "error: '${docker}' is not on PATH." >&2
@@ -177,6 +193,7 @@ flock 9
     --env HOME=/tmp \
     --env "GRANDLEON_CONTAINER_BUILD_DIR=${container_build_dir}" \
     --env "GRANDLEON_CONTAINER_PROJECT_ARG=${project_arg}" \
+    --env "GRANDLEON_CONTAINER_PICKER_ARG=${picker_arg}" \
     --env "GRANDLEON_CONTAINER_TARGETS=${targets//,/ }" \
     --volume "${repository_root}:/src" \
     --workdir /src \
@@ -188,6 +205,7 @@ flock 9
             -DGRANDLEON_N64=ON \
             -DGRANDLEON_BUILD_TESTS=OFF \
             -DGRANDLEON_WERROR=ON \
+            ${GRANDLEON_CONTAINER_PICKER_ARG} \
             ${GRANDLEON_CONTAINER_PROJECT_ARG}
         cmake --build "${GRANDLEON_CONTAINER_BUILD_DIR}" --parallel \
             --target ${GRANDLEON_CONTAINER_TARGETS}

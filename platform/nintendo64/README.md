@@ -449,6 +449,27 @@ the field or sit out, one GIVE row per thing the store holds, one TAKE row per
 thing carried, CANCEL. START opens the board. B leaves nothing behind: every
 gesture commits and writes the cartridge as it is made.
 
+**The Stage picker**, on a ROM built with `GRANDLEON_STAGE_PICKER`. It is
+a testing aid, and reaching a late Stage on real hardware to look at one thing
+in it should not cost playing every Stage before it. START over a battle opens
+the board menu, which grows a fourth row, `GO TO ANOTHER STAGE`, under the way
+out; Z on the management stage opens the same screen, named in that screen's
+footer whenever it does anything. Both are built only when the session handed
+this ROM a list of Stages, which it does only in such a build, so neither reads
+the define and an ordinary ROM has neither.
+
+The screen lists the Stages under the author's own names, marks the one the
+campaign is standing on `HERE` and every one it has stood on `SEEN`, and says
+under its heading that a Stage with neither mark may not open. That is the
+honest half: a jump moves the campaign and changes nothing else, so a Stage
+reached this way has not recorded the objectives, set the flags or gained the
+characters the ordinary route would have. Tarnholt is the worked example — its
+last board carries "keep Captain Mirea alive", and Mirea joins at a cutscene
+after the first battle, so jumping straight there makes the roster refuse the
+board. That refusal sends the player to the management stage, which is why the
+picker is reachable from there too: nothing a player can do on that screen
+recruits anybody, and the jump has already written the cartridge.
+
 The company scrolls: a screen holds seven roster rows, a campaign may have
 five hundred and twelve members, so the roster is a window:
 `grandleon::view::ListWindow`, `view::Camera` in one dimension, one-row margin,

@@ -3,6 +3,7 @@
 
 #include <grandleon/client/session.hpp>
 #include <grandleon/package_runtime/campaign.hpp>
+#include <grandleon/package_runtime/names.hpp>
 
 #include <algorithm>
 #include <utility>
@@ -30,6 +31,27 @@ campaign::SavePackageRequirement requirement_of(
     requirement.package = package.game_id;
     requirement.content_revision = package.content_revision;
     return requirement;
+}
+
+// A jump, said to the front end on both channels it has.
+//
+// `stage_jumped` carries what the campaign made of it, and is the only place a
+// *refused* jump can be reported: nothing else happens afterwards, so a front
+// end that was not told would drop the player back on a screen with no
+// explanation for why the battle they were in has gone.
+//
+// `campaign_saved` carries the slot, on the same channel every other commit
+// reports it. A jump writes the campaign the moment it commits, and a write
+// that failed has to reach the same toast a failed write after a battle
+// reaches. A tester who believes a jump was kept and finds it was not has lost
+// exactly the work this aid exists to save them.
+void narrate_jump(
+    CampaignNarrator& narrator,
+    const StageJump& jump,
+    std::string_view slot
+) {
+    narrator.stage_jumped(jump);
+    if (jump.saved) narrator.campaign_saved(slot, jump.save);
 }
 
 campaign::MountedContent mounted_content(
@@ -314,6 +336,15 @@ const pr::CampaignNode* CampaignSession::node_at(
     return found;
 }
 
+const pr::CampaignNode* CampaignSession::node_by_id(
+    std::uint64_t node_id
+) const noexcept {
+    for (const pr::CampaignNode& candidate : authored_.nodes) {
+        if (candidate.id == node_id) return &candidate;
+    }
+    return nullptr;
+}
+
 CampaignSession::Standing CampaignSession::standing() const {
     Standing where;
     if (!loaded_ || !live_.state.progress.active) {
@@ -424,6 +455,11 @@ CampaignSession::PreparedBoard CampaignSession::prepare_board() {
     prepared.board.store = live_.state.store;
     prepared.board.binding = board.binding;
     prepared.board.character_loss = authored_.character_loss;
+    // And the Stages, so a menu that opens in the middle of this battle has
+    // them without reaching back through the seam. Empty on every campaign
+    // whose author did not ask for the picker, which is what makes the row
+    // absent rather than each client having to know not to draw it.
+    prepared.board.stages = stages();
     prepared_binding_ = board.binding;
     prepared_unit_types_ =
         cr::board_unit_types(board.encounter.definition);
@@ -433,6 +469,178 @@ CampaignSession::PreparedBoard CampaignSession::prepare_board() {
     // rather than a second whole encounter.
     prepared.encounter = std::move(board);
     return prepared;
+}
+
+// ---------------------------------------------------------------------------
+// The Stage picker
+// ---------------------------------------------------------------------------
+
+std::vector<CampaignStage> CampaignSession::stages() const {
+    std::vector<CampaignStage> listed;
+    // The gate, and the only place it is asked. A build that did not ask for the
+    // picker has no Stages to offer, which is what leaves every front end with
+    // nothing to draw and nothing to decide.
+    //
+    // It is a build define rather than a setting in the project, and the
+    // difference is the point. This is an aid for an image somebody makes to
+    // debug with: the Nintendo 64's autopilot ROMs are selected the same way,
+    // by `GRANDLEON_N64_AUTOPILOT`, and for the same reason. A project cannot
+    // carry it, so it cannot be left switched on in a game somebody shares, and
+    // no shipped package's bytes move for the sake of a testing aid.
+    //
+    // A jump moves the campaign and nothing else, so a Stage reached this way
+    // has not recorded the objectives, set the flags or gained the characters
+    // the ordinary route would have. That makes a jumped-into battle able to be
+    // unwinnable and a flow able to reach a Stage it cannot leave, which is
+    // tolerable in a debug image and is why it cannot reach any other kind.
+    if (!options_.stage_picker || !live_.state.progress.active) {
+        return listed;
+    }
+
+    // The order the flow reaches them in, walked breadth first from the entry
+    // node, and it is derived rather than read because there is nothing to
+    // read. A compiled campaign's nodes arrive sorted by identity, which is a
+    // hash and therefore an order no person would recognise; the record carries
+    // no ordinal, and adding one would change the bytes of every package ever
+    // written for the sake of a testing aid.
+    //
+    // So the graph is asked instead, and its answer is better than the array
+    // order would have been: this is the order a player *meets* the Stages,
+    // with a branch listed where the branch happens. Deterministic, because
+    // each node's edges are taken in exactly the order `select_transition`
+    // considers them — conditional edges by ascending priority, then the single
+    // unconditional fallback — and `validate_graph` refuses a repeated
+    // priority, so there is never a tie to break. A campaign with no branches
+    // at all comes out in the order it was written, which is Tarnholt's and
+    // most games'.
+    //
+    // The walk is linear scans over a list of nodes, and the management stage
+    // asks for it once per keystroke. That is deliberate rather than overlooked:
+    // the whole of it is skipped by the return above for every build that was
+    // not asked for the picker, so what pays for it is an image somebody makes to
+    // debug with, and what it costs there is a graph of a few dozen nodes beside
+    // a roster copy that screen was already making per keystroke.
+    //
+    // `queued` is both the queue and the record of what has been reached, which
+    // is what makes a recombining flow list each Stage once and a cycle
+    // terminate.
+    std::vector<std::uint64_t> queued{authored_.entry_node_id};
+    for (std::size_t at = 0; at < queued.size(); ++at) {
+        const pr::CampaignNode* const node = node_by_id(queued[at]);
+        if (node == nullptr) continue;
+        std::vector<const pr::CampaignBranch*> ordered;
+        ordered.reserve(node->branches.size());
+        for (const pr::CampaignBranch& branch : node->branches) {
+            ordered.push_back(&branch);
+        }
+        std::stable_sort(
+            ordered.begin(), ordered.end(),
+            [](const pr::CampaignBranch* lhs, const pr::CampaignBranch* rhs) {
+                return lhs->priority < rhs->priority;
+            }
+        );
+        const auto reach = [&queued](std::uint64_t target) {
+            if (std::find(queued.begin(), queued.end(), target) != queued.end()) {
+                return;
+            }
+            queued.push_back(target);
+        };
+        for (const pr::CampaignBranch* branch : ordered) reach(branch->target_id);
+        if (node->has_unconditional_target) {
+            reach(node->unconditional_target_id);
+        }
+    }
+
+    for (const std::uint64_t node_id : queued) {
+        const pr::CampaignNode* const found = node_by_id(node_id);
+        // A Stage is a board somebody fights. Jumping to a story node would be
+        // asking to watch a cutscene rather than to be anywhere, and the
+        // campaign walks past one of its own accord the moment it stands there.
+        if (found == nullptr ||
+            found->kind != pr::CampaignNodeKind::encounter) {
+            continue;
+        }
+        const pr::CampaignNode& node = *found;
+        CampaignStage stage;
+        stage.node_id = node.id;
+        stage.encounter_id = node.encounter_id;
+        // Through the campaign runtime's own derivation rather than a
+        // reference assembled here, so a Stage's identity is the identity every
+        // other part of this session compares against.
+        stage.node = cr::campaign_node_ref(package_->game_id, node.id);
+        const std::string_view name = pr::content_name(
+            *package_, package_format::SectionType::encounters, node.encounter_id
+        );
+        stage.name.assign(name.begin(), name.end());
+        // Where this campaign has been, out of the route it keeps. Not a count
+        // and not a guess: the same record a save carries, so a resumed
+        // campaign marks exactly the Stages the one that wrote it had stood on.
+        for (const campaign::ProgressionEntry& step :
+             live_.state.progress.history) {
+            if (step.node == stage.node) {
+                stage.reached = true;
+                break;
+            }
+        }
+        stage.standing = live_.state.progress.active_node == stage.node;
+        listed.push_back(std::move(stage));
+    }
+    return listed;
+}
+
+StageJump CampaignSession::jump_to_stage(std::uint64_t node_id) {
+    StageJump jump;
+    if (!loaded_ || !live_.state.progress.active) {
+        jump.error = CampaignSessionError::progression_rejected;
+        return jump;
+    }
+    // Asked of the published list rather than of the graph, so that the one
+    // gate above holds here too: a campaign whose author did not ask for the
+    // picker offers no Stages, and therefore no Stage can be jumped to however
+    // a front end came by a number.
+    const std::vector<CampaignStage> listed = stages();
+    const auto found = std::find_if(
+        listed.begin(), listed.end(),
+        [node_id](const CampaignStage& stage) { return stage.node_id == node_id; }
+    );
+    if (found == listed.end()) {
+        jump.error = CampaignSessionError::progression_rejected;
+        return jump;
+    }
+    jump.target = found->node;
+
+    // Identified the way a management batch is, and for the same reasons: the
+    // node the campaign is leaving as its content reference, a zero battle hash
+    // because no battle produced this, and the count of committed outcomes so
+    // that the second jump is a second move rather than a retry of the first.
+    // Nothing here keeps a counter; that count is already campaign state and
+    // already saved.
+    //
+    // It can never collide with a management batch at the same node and count,
+    // because a management gesture always carries operations and this carries
+    // none. That is the whole of the difference, and it is the honest one: a
+    // jump records that the campaign moved and nothing else happened.
+    const campaign::OutcomeSource source{
+        live_.state.progress.active_node,
+        0U,
+        static_cast<std::uint64_t>(live_.state.applied_outcomes.size())
+    };
+    const campaign::CampaignOutcomeBatch batch =
+        campaign::make_outcome_batch(source, {});
+    jump.completion = campaign::jump_to_node(
+        live_.state, graph_, batch, found->node
+    );
+    if (!jump.completion) {
+        jump.error = CampaignSessionError::progression_rejected;
+        return jump;
+    }
+    // The board the session was holding was the one at the node it has just
+    // left. Dropping it here is what stops a commit arriving afterwards and
+    // being charged to a Stage the player is no longer standing on.
+    prepared_ready_ = false;
+    jump.save = save();
+    jump.saved = true;
+    return jump;
 }
 
 CampaignSessionError CampaignSession::commit_battle(
@@ -579,6 +787,10 @@ CompanyManagement CampaignSession::management() {
     company.encounter_id = where.encounter_id;
     company.roster = roster_now();
     company.store = live_.state.store;
+    // The same list the board carries, on the screen a refused board sends the
+    // player back to. Empty on every campaign whose author did not ask for the
+    // picker, which is the one gate.
+    company.stages = stages();
 
     // Which members the next board has somewhere to stand. A property of the
     // board rather than of the campaign, so it is decoded once per node and
@@ -710,6 +922,12 @@ CampaignSessionError run_persistent_campaign(
         session.roster(), session.store(), options.slot, resumed
     );
 
+    // The bound is on the *graph*, not on the sitting: it catches a flow that
+    // neither ends nor moves and would otherwise spin with nobody touching a
+    // button. So the two places below that move the campaign because a player
+    // asked for a Stage give the count back before going round again. A jump is
+    // a press, and a press is not a stall; a tester who takes two hundred of
+    // them should not be told their campaign's flow has stopped working.
     for (int guard = 0; guard < 256; ++guard) {
         const CampaignSession::Standing where = session.standing();
         if (where.error != CampaignSessionError::none) return where.error;
@@ -742,7 +960,8 @@ CampaignSessionError run_persistent_campaign(
         // somebody again.
         CampaignSession::PreparedBoard prepared;
         bool published = false;
-        for (int attempts = 0; attempts < 64 && !published; ++attempts) {
+        bool jumped = false;
+        for (int attempts = 0; attempts < 64 && !published && !jumped; ++attempts) {
             bool proceeding = false;
             bool leaving = false;
             for (int gestures = 0; gestures < 4096 && !proceeding; ++gestures) {
@@ -762,6 +981,19 @@ CampaignSessionError run_persistent_campaign(
                         proceeding = true;
                         continue;
                     case ManagementVerb::proceed:
+                        proceeding = true;
+                        continue;
+                    case ManagementVerb::jump:
+                        // The campaign moves, so this stage is over whatever it
+                        // said about the company. Both flags are set: the inner
+                        // loop stops asking about a company that is about to be
+                        // standing somewhere else, and the outer one stops
+                        // trying to publish the board it could not publish.
+                        narrate_jump(
+                            narrator, session.jump_to_stage(intent.stage),
+                            options.slot
+                        );
+                        jumped = true;
                         proceeding = true;
                         continue;
                     case ManagementVerb::give:
@@ -787,6 +1019,10 @@ CampaignSessionError run_persistent_campaign(
                 }
             }
             if (leaving) return CampaignSessionError::none;
+            // A jump left this node, so there is no board here to publish and
+            // no company here to manage. The outer loop stands the player
+            // wherever they went.
+            if (jumped) break;
 
             prepared = session.prepare_board();
             published = prepared.error == CampaignSessionError::none;
@@ -799,6 +1035,10 @@ CampaignSessionError run_persistent_campaign(
                 return prepared.error;
             }
         }
+        if (jumped) {
+            --guard;
+            continue;
+        }
         if (!published) return prepared.error;
         narrator.board_prepared(prepared.board);
 
@@ -808,6 +1048,23 @@ CampaignSessionError run_persistent_campaign(
                 battle
             ) != SessionError::none) {
             return CampaignSessionError::board_rejected;
+        }
+        // A player who left for another Stage left this battle too, so the
+        // paragraph below applies to them in full: this fight committed
+        // nothing. What is different is that they said where they were going,
+        // and the campaign goes there before the loop comes round again.
+        //
+        // A refusal is narrated and not fatal. The campaign stands where it
+        // stood, which is the Stage whose battle was just abandoned, and the
+        // player is handed their company back rather than the session ending
+        // under an error nobody asked for.
+        if (battle.jump_to_stage != 0U) {
+            narrate_jump(
+                narrator, session.jump_to_stage(battle.jump_to_stage),
+                options.slot
+            );
+            --guard;
+            continue;
         }
         // An unfinished fight is not an outcome. The slot still holds the
         // campaign as it stood after the last battle, which is the honest

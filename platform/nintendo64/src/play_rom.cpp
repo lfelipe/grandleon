@@ -2428,6 +2428,37 @@ public:
         }
     }
 
+    // A jump, taken or refused.
+    //
+    // Two things happen here and both are obligations rather than reporting.
+    // The borrowed board is dropped, because a jump ends the board it came out
+    // of without an aftermath and this is the far end of that window: leaving
+    // the pointer set would leave it dangling across every screen between here
+    // and the next board. And a refusal gets the banner a refused gesture gets,
+    // in the campaign's own word, because nothing else happens after a refused
+    // jump — the battle is gone and the campaign stands where it stood, and
+    // with nothing said that reads as the cartridge having lost the game.
+    void stage_jumped(const client::StageJump& jump) override {
+        board_ = nullptr;
+        report_line(
+            "jumped node=%llu moved=%d error=%d saved=%d\n",
+            static_cast<unsigned long long>(jump.target.stable_id),
+            jump.completion.advanced ? 1 : 0,
+            static_cast<int>(jump.completion.error),
+            jump.saved ? 1 : 0
+        );
+        if (static_cast<bool>(jump)) return;
+        // Whichever layer refused it, in that layer's own word. The campaign
+        // has one for every way a move through a graph can fail; the session
+        // has its own for the one refusal that is not the campaign's, which is
+        // a Stage this game does not offer.
+        campaign_refusal_banner(
+            jump.completion.error != campaign::ProgressionError::none
+                ? campaign::progression_error_name(jump.completion.error)
+                : client::campaign_session_error_name(jump.error)
+        );
+    }
+
     // The company, between battles. One screen, one caret, and a menu per
     // member holding every verb the stage has. That is the same shape the unit
     // action menu already taught: nothing is aimed at, the rows say what taking
@@ -2483,6 +2514,28 @@ public:
                 // committed and saved when it was made, so there is no state
                 // here for a confirmation screen to protect.
                 return {client::ManagementVerb::quit, {}, {}};
+            }
+            // Z is this machine's name for the button that opens a menu, which
+            // is what the slot screen already taught and what the unit action
+            // menu uses. The footer names it whenever it does anything.
+            //
+            // **The picker has to be reachable from here, and that is not a
+            // convenience.** A jump recruits nobody on behalf of the Stages it
+            // passed over, so a board whose objective names a late-joining
+            // character refuses to open — and a refused board is exactly what
+            // sends a player to this screen. There is nothing they could do here
+            // to recruit anybody, and the jump has already written the
+            // cartridge. Without this the aid could leave a save standing at a
+            // Stage nothing can open.
+            if (pressed.z && !company.stages.empty()) {
+                const std::uint64_t going = run_stage_picker(company.stages);
+                if (going != 0U) {
+                    client::ManagementIntent jump;
+                    jump.verb = client::ManagementVerb::jump;
+                    jump.stage = going;
+                    return jump;
+                }
+                dirty = true;
             }
             if (pressed.a) {
                 client::ManagementIntent chosen;
@@ -3808,7 +3861,14 @@ private:
         }
         graphics_set_color(colour(125, 138, 133), 0);
         graphics_draw_text(disp, 20, 212, "A CHOOSE   START TO BATTLE");
-        graphics_draw_text(disp, 20, 224, "B SAVE AND LEAVE");
+        // Z is named only when it does something, which is only on a campaign
+        // whose author asked for the Stage picker. A footer that listed a
+        // button doing nothing would be a footer a player learns to distrust.
+        graphics_draw_text(
+            disp, 20, 224,
+            company.stages.empty() ? "B SAVE AND LEAVE"
+                                   : "B SAVE AND LEAVE   Z GO TO A STAGE"
+        );
     }
 
     // One member's menu: every verb the stage has, aimed at nothing, in the
@@ -3998,6 +4058,105 @@ private:
                 chosen.member = entry.member;
                 chosen.item = rows[caret].item;
                 return true;
+            }
+            wait_ms(16);
+        }
+    }
+
+    // The campaign's Stages, and the one the player picks out of them.
+    //
+    // A screen of its own rather than a box over whatever was underneath,
+    // because it is opened from two places that look nothing alike — the board
+    // menu in the middle of a battle, and the company screen between battles —
+    // and a box drawn over both would be a box a player met in two shapes.
+    //
+    // Two words carry the whole of what to know before choosing. HERE is where
+    // the campaign stands; SEEN is somewhere this playthrough has actually
+    // stood. A Stage with neither has never been reached, and nothing that would
+    // have happened on the way there has happened, so its board may name a
+    // character the company has not got and refuse to open at all. The line
+    // under the heading says that once rather than leaving a player to find it
+    // out by being stuck.
+    //
+    // Returns the campaign node the player chose, or zero when they backed out.
+    [[nodiscard]] std::uint64_t run_stage_picker(
+        const std::vector<client::CampaignStage>& stages
+    ) {
+        if (stages.empty()) return 0U;
+        const int count = static_cast<int>(stages.size());
+        int caret = 0;
+        // As many rows as the band has room for, on the same terms the
+        // company's seven are: the window follows the caret, so a campaign with
+        // more Stages than fit is reachable to its last one rather than cut
+        // with nothing on screen to say so. The count comes from
+        // `screen::stage_band` rather than from a number written here, because
+        // libdragon clips nothing and a row past the last scanline is written
+        // into the heap the campaign session is allocating out of.
+        view::ListWindow visible;
+        visible.rows = screen::stage_band.rows();
+        visible.total = count;
+        visible.top = 0;
+        bool dirty = true;
+        while (true) {
+            if (dirty) {
+                surface_t* disp = display_get();
+                graphics_fill_screen(disp, colour(16, 26, 27));
+                graphics_set_color(colour(242, 193, 78), 0);
+                graphics_draw_text(disp, 20, 22, "GO TO ANOTHER STAGE");
+                char legend[view::scroll_legend_size];
+                if (view::scroll_legend(visible, legend, sizeof legend) > 0) {
+                    graphics_set_color(colour(125, 168, 133), 0);
+                    graphics_draw_text(disp, 232, 22, legend);
+                }
+                graphics_set_color(colour(196, 84, 74), 0);
+                graphics_draw_text(
+                    disp, 20, 36, "A STAGE YOU HAVE NOT SEEN MAY NOT OPEN"
+                );
+                int y = screen::stage_band.top;
+                for (int index = visible.top; index < visible.end(); ++index) {
+                    if (!screen::stage_band.holds(y)) break;
+                    const client::CampaignStage& stage =
+                        stages[static_cast<std::size_t>(index)];
+                    const bool on = index == caret;
+                    graphics_set_color(
+                        on ? colour(242, 193, 78) : colour(245, 234, 210), 0
+                    );
+                    graphics_draw_text(disp, 20, y, on ? ">" : " ");
+                    char line[48];
+                    // The author's own name for the board, and its place in the
+                    // flow in front of it. A package with no name for a board
+                    // leaves the number, which is not much and is never nothing.
+                    std::snprintf(
+                        line, sizeof line, "%-2d %-24.24s %s", index + 1,
+                        stage.name.empty() ? "STAGE" : stage.name.c_str(),
+                        stage.standing ? "HERE" : (stage.reached ? "SEEN" : "")
+                    );
+                    graphics_draw_text(disp, 36, y, line);
+                    y += screen::stage_band.step;
+                }
+                graphics_set_color(colour(125, 138, 133), 0);
+                graphics_draw_text(
+                    disp, 20, screen::stage_prompt_y, "A GO   B BACK"
+                );
+                show(disp);
+                dirty = false;
+            }
+            grandleon::n64audio::pump();
+            const joypad_buttons_t pressed = poll_buttons();
+            if (pressed.d_up && caret > 0) {
+                --caret;
+                visible.follow(caret, company_scroll_margin);
+                dirty = true;
+            }
+            if (pressed.d_down && caret + 1 < count) {
+                ++caret;
+                visible.follow(caret, company_scroll_margin);
+                dirty = true;
+            }
+            if (pressed.b) return 0U;
+            if (pressed.a) {
+                grandleon::n64audio::play(grandleon::n64audio::Sfx::select);
+                return stages[static_cast<std::size_t>(caret)].node_id;
             }
             wait_ms(16);
         }
@@ -5831,7 +5990,11 @@ private:
         // undo that before it says anything else. B backs out of it too, as B
         // backs out of everything here, but a row a player can read is not the
         // same as a button they have to already know.
-        MenuChoice rows[3];
+        // Four slots because a campaign whose author asked for the Stage picker
+        // adds a row to this menu; a game that did not builds the three it has
+        // always built, into the same array.
+        MenuChoice rows[4]{};
+        int count = 3;
         rows[0] = {
             "BACK TO BATTLE", false, false, false, 0, 0, 0, false, false
         };
@@ -5849,8 +6012,24 @@ private:
         rows[2] = {
             "LEAVE BATTLE", false, false, false, 0, 0, 0, false, false
         };
+#ifdef GRANDLEON_N64_CAMPAIGN
+        // And the Stage picker, when there is one. The row exists exactly when
+        // the session handed this board a list of Stages, which it does only
+        // for a campaign whose author asked for the picker: nothing here reads a
+        // setting, and a player who never turned it on never sees this row.
+        //
+        // Last, under the way out, because it is a testing aid and not one of
+        // the two questions this menu exists to answer.
+        if (board_ != nullptr && !board_->stages.empty()) {
+            rows[count] = {
+                "GO TO ANOTHER STAGE", false, false, false, 0, 0, 0, false,
+                false
+            };
+            ++count;
+        }
+#endif
         board_menu_open_ = true;
-        const int chosen = run_menu(snapshot, rows, 3, 0);
+        const int chosen = run_menu(snapshot, rows, count, 0);
         board_menu_open_ = false;
         client::Intent intent;
         if (chosen == 1) {
@@ -5871,6 +6050,21 @@ private:
             intent.kind = client::IntentKind::quit;
             return intent;
         }
+#ifdef GRANDLEON_N64_CAMPAIGN
+        if (chosen == 3 && board_ != nullptr) {
+            const std::uint64_t going = run_stage_picker(board_->stages);
+            // Backing out of the picker puts the player back on the board with
+            // whatever they had in hand, exactly as backing out of this menu
+            // does. Only a Stage actually chosen leaves the battle, and it
+            // leaves it on the same terms LEAVE BATTLE does: this fight is not
+            // kept, because no format describes a board mid-fight.
+            if (going != 0U) {
+                intent.kind = client::IntentKind::jump_to_stage;
+                intent.stage_id = going;
+            }
+            return intent;
+        }
+#endif
         return intent;
     }
 

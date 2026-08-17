@@ -39,6 +39,16 @@ struct BattleReport final {
     // The player left before the battle ended. There is no outcome, and a
     // caller must not pretend there is one.
     bool quit{false};
+    // They left for another Stage of the campaign, and this is the campaign
+    // node they named. Zero when they simply left, which is every battle played
+    // outside a campaign and every campaign whose author did not ask for the
+    // Stage picker. Only ever set alongside `quit`: leaving is leaving, and
+    // this says where to next rather than instead.
+    //
+    // The battle loop fills it and reads nothing out of it. A caller that keeps
+    // a campaign hands it to `CampaignSession::jump_to_stage`; one that does not
+    // ignores it, exactly as it ignores the rest of a quit.
+    std::uint64_t jump_to_stage{};
 };
 
 // Play one already-loaded board to its end through a presenter.

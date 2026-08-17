@@ -90,6 +90,24 @@ void a_band_stops_before_its_floor() {
     );
 }
 
+// The Stage picker's band is the one whose list is *expected* to be longer than
+// the band: a picker exists to reach a late Stage, and a long game is the game
+// somebody wants it for. So the band bounds a window that scrolls, and what has
+// to hold is that the window has room to be a window and that the prompt under
+// it is not one of the rows.
+void the_stage_band_is_a_window_with_room_to_scroll() {
+    expect(
+        screen::stage_band.rows() >= 4,
+        "the Stage picker shows enough rows at once to be read as a list rather "
+        "than as a caret with a neighbour"
+    );
+    expect(
+        screen::stage_band.bottom() <= screen::stage_prompt_y,
+        "and its last row ends above the prompt, which is not a Stage and must "
+        "not be drawn over by one"
+    );
+}
+
 void every_band_ends_inside_the_frame() {
     const struct {
         const char* name;
@@ -100,6 +118,7 @@ void every_band_ends_inside_the_frame() {
         {"the aftermath's fallen band", screen::aftermath_fallen_band},
         {"the aftermath's roster band", screen::aftermath_roster_band},
         {"the aftermath's store band", screen::aftermath_store_band},
+        {"the Stage picker's band", screen::stage_band},
     };
     for (const auto& entry : bands) {
         expect(
@@ -492,6 +511,7 @@ void the_heading_and_the_prompt_are_centred_by_their_own_length() {
 int main() {
     a_band_stops_before_its_floor();
     every_band_ends_inside_the_frame();
+    the_stage_band_is_a_window_with_room_to_scroll();
     an_authored_paragraph_would_have_left_the_buffer();
     the_dialogue_screen_pages_rather_than_overruns();
     a_wrapped_row_stays_inside_the_safe_area();

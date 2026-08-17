@@ -192,6 +192,21 @@ inline constexpr TextBand aftermath_fallen_band{61, 13, 148};
 inline constexpr TextBand aftermath_roster_band{48, 13, 170};
 inline constexpr TextBand aftermath_store_band{198, 12, 208};
 
+// The Stage picker, on a ROM built with it. One row per Stage,
+// under the heading and the line saying what an unseen Stage costs, and above
+// the button prompt.
+//
+// A campaign may hold more Stages than this band has rows, and unlike every
+// other list here that is *ordinary* rather than exotic: a picker exists to
+// reach a late Stage, and a long game is exactly the game somebody wants it
+// for. So the rows here bound a window and never the list, and the screen
+// scrolls the window under the caret. What the band is for is the same thing it
+// is for everywhere else: libdragon clips nothing, so a window one row taller
+// than the display would be written into the heap the campaign session is
+// allocating out of, and the machine would carry on.
+inline constexpr int stage_prompt_y = 218;
+inline constexpr TextBand stage_band = TextBand::above(56, 13, stage_prompt_y);
+
 // ---------------------------------------------------------------------------
 // The controls screen, whose words are this ROM's own
 // ---------------------------------------------------------------------------

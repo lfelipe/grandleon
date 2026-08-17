@@ -198,6 +198,66 @@ add_test(
     COMMAND grandleon_campaign_management_tests
 )
 
+# Leaving a battle for another Stage, on the larger sample campaign, at the
+# level a client drives: `client::CampaignSession` and `run_persistent_campaign`
+# over a real compiled package and a real device. It proves both halves of the
+# aid at once: the last of six boards is reachable in one move, and the Stages
+# that move passed over are still unreached, with the company exactly as it was.
+#
+# Two executables, because the gate is a build define and one binary can only be
+# one side of it. This one carries `GRANDLEON_STAGE_PICKER` however the tree was
+# configured, so the picker is checked on a machine that never asks for it; the
+# one below is compiled without it and is the only thing that can say what a
+# build lacking it does.
+add_executable(grandleon_stage_picker_tests
+    client/stage_picker_test.cpp
+)
+target_link_libraries(
+    grandleon_stage_picker_tests
+    PRIVATE
+        grandleon::client_campaign
+        grandleon::game_content
+        grandleon::storage
+)
+target_compile_definitions(
+    grandleon_stage_picker_tests
+    PRIVATE
+        GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+        GRANDLEON_STAGE_PICKER
+)
+add_test(
+    NAME grandleon.stage_picker
+    COMMAND grandleon_stage_picker_tests
+)
+
+# The other side of that gate: no define, no Stages, and no jump that will be
+# taken even by a front end that produced a Stage's name some other way.
+#
+# Only in a tree that did not ask for the picker, because the library's define is
+# PUBLIC and would reach this too. So the ordinary configuration is the one that
+# checks the ordinary build, which is the way round that matters; a tree
+# configured for a debug image has no absent side to check.
+if(NOT GRANDLEON_STAGE_PICKER)
+add_executable(grandleon_stage_picker_absent_tests
+    client/stage_picker_absent_test.cpp
+)
+target_link_libraries(
+    grandleon_stage_picker_absent_tests
+    PRIVATE
+        grandleon::client_campaign
+        grandleon::game_content
+        grandleon::storage
+)
+target_compile_definitions(
+    grandleon_stage_picker_absent_tests
+    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+add_test(
+    NAME grandleon.stage_picker_absent
+    COMMAND grandleon_stage_picker_absent_tests
+)
+endif()
+
 # What a fall costs the company, under both rules, over one identical battle.
 # The load-bearing claim of `project.characterLoss` is that it changes what the
 # campaign records and nothing else, so the same source is compiled twice and
@@ -401,6 +461,46 @@ target_compile_features(grandleon_client_company_scroll_tests PRIVATE cxx_std_17
 add_test(
     NAME grandleon.client_company_scroll
     COMMAND grandleon_client_company_scroll_tests
+)
+
+# The Stage picker as a console offers it, driven by a thumb.
+#
+# Same arrangement and for the same reason as the walk above: it compiles
+# `platform/client/src/turn_client.cpp` under the campaign define, so the board
+# menu it opens and the picker it draws are the console's own. It presses START
+# in a battle, takes the picker's row, chooses a Stage five ahead, finds the
+# board there refuses to open, and takes the picker again off the company screen
+# that refusal landed on. A session that was not given the picker is run first,
+# and its board menu has the three rows it always had.
+add_executable(grandleon_client_stage_menu_tests
+    client/stage_menu_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(
+    grandleon_client_stage_menu_tests
+    PRIVATE
+        grandleon::client
+        grandleon::client_campaign
+        grandleon::game_content
+        grandleon::package_format
+        grandleon::sheet
+        grandleon::storage
+        grandleon::view
+)
+target_compile_definitions(
+    grandleon_client_stage_menu_tests
+    PRIVATE
+        GRANDLEON_TURN_CLIENT_CAMPAIGN
+        GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+        # However the tree was configured: this executable is the one that
+        # presses the picker's rows, so it carries the define that builds them.
+        # `grandleon.stage_picker_absent` is what asserts the other side.
+        GRANDLEON_STAGE_PICKER
+)
+target_compile_features(grandleon_client_stage_menu_tests PRIVATE cxx_std_17)
+add_test(
+    NAME grandleon.client_stage_menu
+    COMMAND grandleon_client_stage_menu_tests
 )
 
 # Who the client says is standing on the board, against who the engine says is.

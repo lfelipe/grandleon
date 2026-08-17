@@ -11,6 +11,8 @@
 #                                                              force the image
 #   platform/playstation/scripts/build-playstation.sh --project games/demo/source/project.json
 #                                                              build that game
+#   platform/playstation/scripts/build-playstation.sh --stage-picker
+#                                                     images that can jump Stages
 #   platform/playstation/scripts/build-playstation.sh --targets grandleon_playstation_campaign
 #                                                              build fewer than all of them
 #
@@ -75,9 +77,15 @@ done
 image="grandleon/playstation-toolchain:${base_digest#sha256:}"
 
 rebuild_image=0
+# `--stage-picker` builds images whose pause menu can leave a battle for any
+# Stage of the campaign. It is for looking at one thing in a late Stage without
+# playing to it, and a Stage reached that way has recorded nothing the ordinary
+# route would have, so a battle there can be unwinnable. Off unless asked for,
+# and a project cannot ask: it is a property of the image, not of the game.
+stage_picker=0
 usage() {
     echo "usage: $(basename "$0") [--rebuild-image] [--project PATH]" \
-         "[--targets t1,t2,...]" >&2
+         "[--targets t1,t2,...] [--stage-picker]" >&2
     exit 2
 }
 while [ "$#" -gt 0 ]; do
@@ -85,9 +93,12 @@ while [ "$#" -gt 0 ]; do
         --rebuild-image) rebuild_image=1; shift ;;
         --project) [ "$#" -ge 2 ] || usage; project="$2"; shift 2 ;;
         --targets) [ "$#" -ge 2 ] || usage; targets="$2"; shift 2 ;;
+        --stage-picker) stage_picker=1; shift ;;
         *) usage ;;
     esac
 done
+picker_arg=OFF
+[ "${stage_picker}" -eq 0 ] || picker_arg=ON
 
 # Every executable this repository checks, which is what an unqualified run
 # builds. The engine libraries come first because the cross build needs them,
@@ -227,6 +238,7 @@ flock 9
     --env "GRANDLEON_CONTAINER_BUILD_DIR=${container_build_dir}" \
     --env "GRANDLEON_CONTAINER_PROJECT=${container_project}" \
     --env "GRANDLEON_CONTAINER_TARGETS=${targets//,/ }" \
+    --env "GRANDLEON_CONTAINER_PICKER=${picker_arg}" \
     --env "GRANDLEON_CONTAINER_EXECUTABLES=${executables}" \
     --env "GRANDLEON_SCRATCH3D=${scratch3d}" \
     --env "GRANDLEON_SCRATCH3D_STYLE=${scratch3d_style}" \
@@ -258,6 +270,7 @@ flock 9
             -DGRANDLEON_WERROR=ON \
             -DGRANDLEON_PLAYSTATION_SCRATCH3D="${GRANDLEON_SCRATCH3D}" \
             -DGRANDLEON_PLAYSTATION_SCRATCH3D_STYLE="${GRANDLEON_SCRATCH3D_STYLE}" \
+            -DGRANDLEON_STAGE_PICKER="${GRANDLEON_CONTAINER_PICKER}" \
             -DGRANDLEON_PLAYSTATION_PROJECT="${GRANDLEON_CONTAINER_PROJECT}" \
             -DPLAYSTATION_DEMO_PACKAGE="${GRANDLEON_CONTAINER_BUILD_DIR}/demo.gpk" \
             -DPLAYSTATION_BOARD_PACKAGE="${GRANDLEON_CONTAINER_BUILD_DIR}/board.gpk"

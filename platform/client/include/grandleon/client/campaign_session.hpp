@@ -200,6 +200,58 @@ struct SlotFailure final {
     return nullptr;
 }
 
+// One Stage of a campaign, as a picker offers it.
+//
+// A Stage is an encounter node: a board somebody fights. A story node is not
+// one, and is not listed, because jumping to a cutscene is asking to watch it
+// rather than to be anywhere.
+// Whether this build carries the Stage picker.
+//
+// A define rather than a setting in a project, and the difference is the point.
+// This is an aid for an image somebody makes to debug with: the Nintendo 64's
+// autopilot ROMs are selected the same way, by `GRANDLEON_N64_AUTOPILOT`, and
+// for the same reason. A project cannot carry it, so it cannot be left switched
+// on in a game somebody shares, and no shipped package's bytes move for the sake
+// of a testing aid.
+//
+// A constant rather than an `#ifdef` at each use, so both halves compile in every
+// build and a change to either is caught by the ordinary gate rather than only by
+// the one configuration that happens to include it.
+#ifdef GRANDLEON_STAGE_PICKER
+inline constexpr bool stage_picker_built = true;
+#else
+inline constexpr bool stage_picker_built = false;
+#endif
+
+struct CampaignStage final {
+    campaign::DefinitionRef node{};
+    // The authored node identity, which is what an intent carries and what
+    // `jump_to_stage` is asked for. The reference above is the same thing under
+    // a content category, and both are here so a front end never has to build
+    // one out of the other.
+    std::uint64_t node_id{};
+    std::uint64_t encounter_id{};
+    // What the author called the board fought here, copied out of the package
+    // because a front end holds this for the length of a battle and the view a
+    // decode borrows is not something to keep. Empty for a board the package has
+    // no name for, and a front end then says the Stage's number instead.
+    std::string name;
+    // This playthrough has stood here. Read out of the progression history,
+    // which is the campaign's own record of where it has been, so it survives a
+    // save exactly as the route does.
+    //
+    // It is the one thing that separates a safe jump from a risky one, and it
+    // is published rather than left to a screen to work out: a Stage already
+    // reached is one whose objectives this campaign recorded and whose recruits
+    // it has, and a Stage never reached is one where a jumped-to battle may be
+    // unwinnable. A picker that could not say which is which would be offering
+    // two different moves under one word.
+    bool reached{false};
+    // The campaign is standing here now. Jumping to it is that Stage begun
+    // again, which is an ordinary thing to want and not an edge case.
+    bool standing{false};
+};
+
 // The board about to be fought, and who the roster kept off it.
 struct CampaignBoard final {
     campaign::DefinitionRef node{};
@@ -225,6 +277,19 @@ struct CampaignBoard final {
     package_runtime::CharacterLoss character_loss{
         package_runtime::CharacterLoss::permanent
     };
+    // Every Stage this campaign has, in the order its flow reaches them, or
+    // empty when its author did not ask for the Stage picker. `stages()` says
+    // what that order is and why it is not the order of the array.
+    //
+    // **Empty is the gate, and it is here rather than in each client.** A front
+    // end offers the row when this list is not empty and never asks a project
+    // anything, so there is exactly one place that decides whether a game has
+    // the picker, and a game that never turned it on cannot show the row on any
+    // machine. It is handed over with the board, before the first frame, for
+    // the reason the weapon and ability definitions are: the menu that offers it
+    // opens in the middle of a battle, and a client should not have to reach
+    // back through the seam to draw one.
+    std::vector<CampaignStage> stages;
 };
 
 // What a finished battle did to the campaign.
@@ -367,6 +432,21 @@ struct CompanyManagement final {
     // now ordinary things a player can do and undo. So the stage says which,
     // in the roster's own word for it, and stands where it stood.
     campaign_runtime::RosterError refused{campaign_runtime::RosterError::none};
+    // Every Stage this campaign has, exactly as `CampaignBoard::stages` carries
+    // them, or empty when its author did not ask for the Stage picker.
+    //
+    // **The picker is here as well as on the board menu, and it is here because
+    // of `refused` above.** A jump moves the campaign and recruits nobody on
+    // behalf of the Stages it passed over, so a board whose objective names a
+    // character the skipped Stages would have brought in cannot be published:
+    // Tarnholt's last board is exactly that, because Captain Mirea joins at a
+    // cutscene after its first battle. The stage that a refused board sends the
+    // player back to is this one, and there is nothing they can do here to
+    // recruit somebody — so if the only way to jump were out of a battle, a
+    // player who jumped somewhere unplayable would be standing at a Stage they
+    // cannot leave, in a slot that has already been written. The way out has to
+    // be on the screen the refusal lands on.
+    std::vector<CampaignStage> stages;
 };
 
 // What a player asked the management stage to do.
@@ -386,6 +466,15 @@ enum class ManagementVerb : std::uint8_t {
     bench,
     // Publish the board for the company as it stands.
     proceed,
+    // Stand the campaign on the Stage `stage` names, without playing the ones
+    // between. Only ever offered when `CompanyManagement::stages` is not empty,
+    // which is only in a build that carries the picker.
+    //
+    // Unlike the four above it this is not a gesture about the company; it is
+    // the same move the board menu's picker makes, offered here as well because
+    // this screen is where a board the roster refuses sends the player, and it
+    // is the only way off a Stage a jump landed on and cannot open.
+    jump,
     // Leave. Nothing is lost: every gesture was committed and saved when it was
     // made.
     quit,
@@ -395,6 +484,9 @@ struct ManagementIntent final {
     ManagementVerb verb{ManagementVerb::none};
     campaign::PersistentEntityId member{};
     campaign::DefinitionRef item{};
+    // Which Stage a `jump` is for, as the campaign node identity the session
+    // published. Zero for every other verb.
+    std::uint64_t stage{};
 };
 
 // Why a management gesture did not become a campaign fact.
@@ -447,6 +539,30 @@ struct ManagementCommit final {
     }
 };
 
+// What a jump between Stages did to the campaign, or why it did nothing.
+//
+// `completion` is `campaign::jump_to_node`'s own answer, untouched, for the
+// reason a management gesture carries `campaign::OutcomeApplication`: the
+// campaign has vocabulary for every way this can fail and none of it should be
+// re-spelled here.
+struct StageJump final {
+    CampaignSessionError error{CampaignSessionError::none};
+    // Where the player asked to go, and what the campaign said about going
+    // there.
+    campaign::DefinitionRef target{};
+    campaign::NodeCompletion completion{};
+    // The slot, written because the campaign moved. A jump is a campaign fact
+    // like any other, so it is saved the moment it commits: a tester who jumps,
+    // switches the console off and comes back is standing where they jumped to.
+    storage::StorageError save{storage::StorageError::none};
+    bool saved{false};
+
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return error == CampaignSessionError::none &&
+               completion.error == campaign::ProgressionError::none;
+    }
+};
+
 // Everything a front end says about a campaign, as opposed to about a battle.
 //
 // Separate from `Presenter` on purpose. `Presenter` is what a console ROM
@@ -486,6 +602,26 @@ public:
     // driver calls this for a story node's recruits; a battle's arrive in the
     // aftermath, and a front end says the same sentence about both.
     virtual void members_joined(const std::vector<RosterEntry>& joined) = 0;
+
+    // A player took the Stage picker, and this is what the campaign made of it.
+    // Said whether it moved or was refused, because a refused jump that said
+    // nothing would look exactly like a battle abandoned for no reason.
+    //
+    // **It is also the far end of the window `board_prepared` opened**, when the
+    // jump came out of a battle. A jump ends a board without an aftermath, so
+    // this is the last moment a front end holding the prepared board is entitled
+    // to it; one that borrows it must drop it here exactly as it drops it in
+    // `battle_aftermath`.
+    //
+    // The slot arrives separately, through `campaign_saved`, because a jump
+    // writes the campaign the moment it commits and a write that failed has to
+    // reach the same place a failed write after a battle reaches.
+    //
+    // Defaulted to nothing rather than made pure, unlike everything else on this
+    // interface. A front end that never offers the picker can never cause one,
+    // so requiring it to say something about one would be requiring an empty
+    // function of every campaign client for the sake of a testing aid.
+    virtual void stage_jumped(const StageJump& jump) { (void)jump; }
 
     // The campaign was written to its slot, or was not.
     virtual void campaign_saved(
@@ -529,6 +665,17 @@ struct CampaignSessionOptions final {
     // the freshly founded campaign is played instead.
     bool resume{false};
     simulation::Side player_side{simulation::Side::first};
+    // Whether this session offers the Stage picker. Defaulted from the build, so
+    // a console image carries whatever it was built with and nothing has to be
+    // passed at every call site.
+    //
+    // Carried here rather than read from `stage_picker_built` inside the session
+    // for one practical reason: the constant is decided where this library is
+    // compiled, so a test cannot ask for the other side of the gate by defining
+    // it in its own translation unit. An option can be set, and both halves are
+    // then checked by the ordinary gate rather than by whichever configuration
+    // the machine happened to use.
+    bool stage_picker{stage_picker_built};
 };
 
 
@@ -650,6 +797,58 @@ public:
     [[nodiscard]] PreparedBoard prepare_board();
 
     // -----------------------------------------------------------------------
+    // The Stage picker
+    //
+    // A testing aid, and the one place in this session that exists to be used
+    // by somebody checking a game rather than playing one. Reaching a late
+    // Stage on a console to look at one thing in it costs playing every Stage
+    // before it, every time, and this is what stops it costing that.
+    // -----------------------------------------------------------------------
+
+    // Every Stage of this campaign, with the ones this playthrough has reached
+    // marked, in the order its flow reaches them: breadth first from the entry
+    // node, each node's edges taken in the order `select_transition` considers
+    // them. That is the order a player meets the Stages, and for a campaign
+    // without branches it is the order the author wrote them. It is derived
+    // rather than read because a compiled campaign's nodes arrive sorted by
+    // identity, which is a hash, and the record carries no ordinal.
+    //
+    // **Empty unless this was built with the picker**, which is the whole of
+    // the gate and is decided here rather than by each client. A front end
+    // offers the row when the list is not empty; it never reads a setting, and
+    // a game that never turned the setting on cannot show the row on any
+    // machine.
+    [[nodiscard]] std::vector<CampaignStage> stages() const;
+
+    // Stand the campaign on the Stage `node_id` names, without playing the ones
+    // between.
+    //
+    // The batch is empty and that is the design rather than a shortcut. A jump
+    // moves the campaign and changes nothing else: no objective is recorded, no
+    // world flag is set, nobody is recruited on behalf of the Stages that were
+    // passed over. So a Stage reached this way has not done what the route to it
+    // would have done, and the battle there can be unwinnable while the
+    // transition out of it can match nothing. The alternative is inventing the
+    // author's facts, which would be wrong differently at every branch; what is
+    // done instead is `CampaignStage::reached`, so a player can see which jumps
+    // are the safe ones before they take one.
+    //
+    // Committed and saved on the spot, exactly as a management gesture is. A
+    // jump is a campaign fact, and the route records it: there is no undo, and
+    // the way back is another jump.
+    //
+    // **Every jump costs the save a route step and an outcome id, and nothing
+    // prunes them.** That is what makes a jump resumable and idempotent, and it
+    // is the same growth a battle causes; what is different is that a battle
+    // takes minutes and a jump takes a press, so a very long checking session
+    // is the one way a campaign's save grows towards a slot's limit without the
+    // campaign getting anywhere. A slot too small to take the write refuses it
+    // by name, and `campaign_saved` carries that refusal to the player, which is
+    // why the driver reports the slot after a jump rather than only after a
+    // battle.
+    [[nodiscard]] StageJump jump_to_stage(std::uint64_t node_id);
+
+    // -----------------------------------------------------------------------
     // The company, between battles
     //
     // Four gestures and a view. Each gesture builds one
@@ -708,6 +907,14 @@ public:
 private:
     [[nodiscard]] const package_runtime::CampaignNode* node_at(
         const campaign::DefinitionRef& standing
+    ) const noexcept;
+
+    // The same lookup by the authored identity rather than by the reference
+    // built from it. The Stage picker walks the flow by node id, and turning
+    // each one into a reference only to compare it back would be doing the
+    // derivation twice per edge.
+    [[nodiscard]] const package_runtime::CampaignNode* node_by_id(
+        std::uint64_t node_id
     ) const noexcept;
 
     // One authored member, and the node that brings them in. A member the

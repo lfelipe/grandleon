@@ -496,6 +496,15 @@ SessionError play_battle(
 
         const Intent intent = presenter.next_intent(snapshot, roster);
         switch (intent.kind) {
+            case IntentKind::jump_to_stage:
+                // Carried out, not acted on. Where the campaign goes is the
+                // campaign's business, and this loop does not know one exists;
+                // what it knows is that the player has left this battle, which
+                // is what `quit` already means and why the flag is set too. A
+                // caller that keeps no campaign sees an ordinary quit and a
+                // number it has no use for.
+                report.jump_to_stage = intent.stage_id;
+                [[fallthrough]];
             case IntentKind::quit:
                 report.quit = true;
                 report.final_snapshot = created.encounter.snapshot();
