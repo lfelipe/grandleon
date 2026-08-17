@@ -133,6 +133,67 @@ describe("PlacementEditor", () => {
     app.unmount();
   });
 
+  // The gesture the owner asked for: the same drag that moves somebody is the
+  // one that takes them off, instead of selecting them and finding a button at
+  // the bottom of their own fieldset.
+  it("takes somebody off the board when they are dragged off it", async () => {
+    const { app, host, placements } = mount();
+    button(host, "Add character placement").click();
+    await nextTick();
+    cell(host, 1, 0).click();
+    await nextTick();
+    expect(placements.value).toHaveLength(1);
+
+    const unit = host.querySelector<HTMLElement>(".placed-unit")!;
+    const transfer = { setData: () => {}, effectAllowed: "" };
+    const dragStart = new Event("dragstart", { bubbles: true });
+    Object.defineProperty(dragStart, "dataTransfer", { value: transfer });
+    unit.dispatchEvent(dragStart);
+    await nextTick();
+
+    // The strip says what it is for while something is in the air, and says
+    // what the gesture is when nothing is.
+    const bin = host.querySelector<HTMLElement>('[data-testid="placement-bin"]')!;
+    expect(bin.textContent).toContain("Drop here");
+
+    const drop = new Event("drop", { bubbles: true });
+    Object.defineProperty(drop, "dataTransfer", { value: transfer });
+    bin.dispatchEvent(drop);
+    await nextTick();
+
+    expect(placements.value).toHaveLength(0);
+    // And it says who it took: a drag is easy to make by accident, and a board
+    // that quietly lost somebody is worse than one that says so.
+    expect(host.textContent).toContain("is off the board");
+    app.unmount();
+  });
+
+  it("says what the gesture is before anybody drags anything", async () => {
+    const { app, host } = mount();
+    const bin = host.querySelector<HTMLElement>('[data-testid="placement-bin"]')!;
+    expect(bin.textContent).toContain("Drag somebody off the board");
+    // On the page whether or not a drag is happening: a target that appeared
+    // mid-drag would move the layout under the pointer.
+    expect(bin.className).not.toContain("armed");
+    app.unmount();
+  });
+
+  it("drops nothing when the strip is dropped on with nothing in the air",
+    async () => {
+      const { app, host, placements } = mount();
+      button(host, "Add character placement").click();
+      await nextTick();
+      cell(host, 1, 0).click();
+      await nextTick();
+      const bin = host.querySelector<HTMLElement>('[data-testid="placement-bin"]')!;
+      const drop = new Event("drop", { bubbles: true });
+      Object.defineProperty(drop, "dataTransfer", { value: {} });
+      bin.dispatchEvent(drop);
+      await nextTick();
+      expect(placements.value).toHaveLength(1);
+      app.unmount();
+    });
+
   it("keeps clicking as a route for anyone who cannot drag", async () => {
     const { app, host, placements } = mount();
     button(host, "Add character placement").click();

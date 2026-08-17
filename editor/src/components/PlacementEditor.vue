@@ -561,6 +561,36 @@ function dropOn(x: number, y: number, event: DragEvent) {
   selectedIndex.value = index;
 }
 
+/**
+ * Dragging somebody off the board takes them off it.
+ *
+ * The same gesture that moves a character is the one that removes them, which
+ * is what an author expects of a board they can already drag on: pick a
+ * character up, and put them back somewhere or put them away. Before this, a
+ * removal was a button at the bottom of that character's own fieldset, which
+ * meant selecting them first and reading a form to undo a placement made with
+ * one drag.
+ *
+ * The strip this drops onto is on the page whether or not anything is being
+ * dragged, and says what the gesture is when nothing is. That is deliberate on
+ * two counts: a target that appears mid-drag moves the page under the pointer,
+ * which some browsers take as a reason to cancel the drag, and a gesture nobody
+ * is told about is a gesture nobody uses.
+ *
+ * It says who it took, because a drag is easy to make by accident and a board
+ * that quietly lost somebody is worse than one that says so.
+ */
+function dropOffBoard(event: DragEvent) {
+  event.preventDefault();
+  const index = draggingIndex.value;
+  draggingIndex.value = -1;
+  const placement = draftPlacements.value[index];
+  if (index < 0 || !placement) return;
+  const who = placement.name?.trim() || derivedName(index);
+  removePlacement(index);
+  notice.value = `${who} is off the board. Put them back from the palette.`;
+}
+
 function terrainAt(x: number, y: number): string {
   if (!props.map) return "grass";
   return props.map.terrain[y * props.map.width + x] ?? "grass";
@@ -1284,6 +1314,18 @@ function pressTile(x: number, y: number) {
     <p v-else-if="map" class="map-summary">
       The map is too large for the overview; use coordinates below.
     </p>
+    <!-- Where a character goes to stop being on the board. It is here when
+         nothing is being dragged as well, saying what the gesture is: a target
+         that appeared mid-drag would move the page under the pointer, and a
+         gesture nobody is told about is one nobody finds. -->
+    <p v-if="map" class="placement-bin" :class="{ armed: draggingIndex >= 0 }"
+      data-testid="placement-bin"
+      @dragover.prevent
+      @drop="dropOffBoard">
+      {{ draggingIndex >= 0
+        ? "Drop here to take them off the board"
+        : "Drag somebody off the board to take them out." }}
+    </p>
     <p class="placement-notice" role="status">{{ notice }}</p>
 
     <!-- Every problem on this board, not only the selected token's. One panel
@@ -1653,6 +1695,26 @@ function pressTile(x: number, y: number) {
   outline: 2px solid #b78c23;
   outline-offset: -1px;
 }
+/* Quiet until something is being dragged, because it is an instruction most of
+   the time and a target only while one is in the air. It never moves or
+   resizes between those two states: a target that changed the layout under a
+   pointer mid-drag is one some browsers cancel the drag over. */
+.placement-bin {
+  margin: 0.35rem 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px dashed #b8c2b8;
+  border-radius: 0.35rem;
+  color: #4b566d;
+  font-size: 0.875rem;
+  text-align: center;
+}
+.placement-bin.armed {
+  border-color: #a02c2c;
+  border-style: solid;
+  color: #a02c2c;
+  font-weight: 700;
+}
+
 .placement-notice {
   min-height: 1.2rem;
   margin: 0.25rem 0;

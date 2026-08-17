@@ -439,6 +439,38 @@ test("puts three bandits down without a bandit having been made first",
     await play.getByRole("button", { name: /Back to editing/ }).click();
   });
 
+// Taking somebody off the board with the same gesture that moves them, in a
+// real browser: happy-dom has no drag-and-drop, so the component suite has to
+// synthesise the events and this is the only place the real one is exercised.
+test("takes a character off the board by dragging them off it", async ({
+  page
+}) => {
+  await page.getByRole("button", { name: "Start a new game" }).click();
+  const rail = page.locator('nav[aria-label="Project"]');
+  await rail.getByRole("button", { name: "Maps" }).click();
+  await page.getByRole("button", { name: "Create map" }).click();
+  await page.locator(".record-list").getByRole("button", { name: /New Map/ })
+    .click();
+  await page.getByRole("button", { name: "Make a Stage on this ground" }).click();
+  await page.getByRole("button", { name: "Make the Stage" }).click();
+  const stage = page.locator(".stage-editor");
+
+  await stage.locator('[data-palette="new:medieval_rogue"]').click();
+  await stage.locator("#palette-new-name").fill("Bandit");
+  await stage.locator('[data-cell="0"]').click();
+  await expect(stage.locator(".placed-unit")).toHaveCount(1);
+
+  // The strip says what the gesture is before anybody makes it.
+  const bin = stage.getByTestId("placement-bin");
+  await expect(bin).toBeVisible();
+  await expect(bin).toContainText("Drag somebody off the board");
+
+  await stage.locator(".placed-unit").first().dragTo(bin);
+  await expect(stage.locator(".placed-unit")).toHaveCount(0);
+  // And it says who it took, because a drag is easy to make by accident.
+  await expect(stage.locator(".placement-notice")).toContainText("off the board");
+});
+
 test("will not stand one person on the same board twice", async ({ page }) => {
   // A member of the company is one person, and a person is in one place. The
   // editor is never told which characters those are: `characterIsOnePerson`
