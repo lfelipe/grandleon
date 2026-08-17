@@ -142,8 +142,8 @@ checked on a machine with no screen:
 ```sh
 SDL_VIDEODRIVER=offscreen ./build/grandleon_play game.gpk \
     --campaign=tarnholt_line --probe
-PROBE board=10x8 blue=4 red=4 terrain=72 unknown=0 firstblue=1,2 firstred=8,2 \
-    theme=temperate firstcolours=blue secondcolours=red ground=1244e15bfab22685
+PROBE board=32x8 blue=4 red=4 terrain=248 unknown=0 firstblue=1,2 firstred=8,2 \
+    theme=temperate firstcolours=blue secondcolours=red ground=7150f872f9c71b51
 PROBE step=16 tile=64 headroom=0 raised=0
 ```
 

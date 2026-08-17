@@ -168,10 +168,15 @@ project_for() {
 # on time. There is no run-to-run drift for a floor to have to allow for, and a
 # pass that comes in under one has either stopped part way or stopped asserting.
 # Content that adds a checkpoint moves the count: re-derive a number by running
-# the check and reading that pass's own `HARNESS RESULT PASS n/n` line.
+# the check and reading that pass's own `HARNESS RESULT PASS n/n` line. Content
+# that changes a *battle* moves it too, in either direction, because these
+# scripts are recorded rather than written: widening the Fordlight moved the
+# board's derived seed and therefore its dice, the recorded policy needed nine
+# fewer presses to finish the fight it now fights, and a script that settles
+# fewer times asserts fewer things. The number below came from that pass.
 min_checks_for() {
     case "$1 $2" in
-        "tarnholt_line found") echo 337 ;;
+        "tarnholt_line found") echo 319 ;;
         "tarnholt_line resume") echo 29 ;;
         "demo_campaign found") echo 65 ;;
         "demo_campaign resume") echo 25 ;;

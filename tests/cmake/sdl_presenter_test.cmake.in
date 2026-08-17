@@ -136,11 +136,14 @@ endfunction()
 # Everything about the board that must hold however the game is painted: a
 # season and a colour change what a cell looks like and never who is on it.
 function(check_board label)
-    # The Fordlight is ten by eight and deploys four units a side.
-    if(NOT width EQUAL 10 OR NOT height EQUAL 8)
+    # The Fordlight is thirty-two by eight and deploys four units a side. It is
+    # wider than either console screen on purpose, so the earliest board anybody
+    # plays is one that scrolls; this renderer has a window of its own and draws
+    # the whole of it, which is what keeps this a whole-board assertion.
+    if(NOT width EQUAL 32 OR NOT height EQUAL 8)
         message(
             FATAL_ERROR
-            "The ${label} board drew as ${width}x${height}, expected 10x8"
+            "The ${label} board drew as ${width}x${height}, expected 32x8"
         )
     endif()
     if(NOT blue EQUAL 4 OR NOT red EQUAL 4)

@@ -633,6 +633,27 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
     return ((2 * screen + 1) * (native_tile - 1)) / (2 * drawn);
 }
 
+// Whether every texel touching this one carries the same colour, so that a
+// claim about it stays true whichever of them the hardware's interpolation
+// actually reaches. One texel of margin, because the smallest cell the fit rule
+// allows is half the art and a pixel therefore spans two texels.
+[[nodiscard]] bool neighbours_agree(
+    const art::Asset& asset, int tx, int ty
+) noexcept {
+    const std::uint16_t here = art::colour_at(asset, tx, ty);
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            const int x = tx + dx;
+            const int y = ty + dy;
+            if (x < 0 || y < 0 || x >= native_tile || y >= native_tile) {
+                return false;
+            }
+            if (art::colour_at(asset, x, y) != here) return false;
+        }
+    }
+    return true;
+}
+
 // The opaque texel of a cell nearest its centre, searched outward in rings and
 // confined to the middle half so the texel it finds can never be one the
 // cursor's brackets or a wash's frame is drawn over. `play_exe.cpp` searches
@@ -680,13 +701,22 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
                 }
                 const int tx = texel_under(sx, drawn);
                 const int ty = texel_under(sy, drawn);
-                if (art::colour_at(asset, tx, ty) != 0) {
-                    out_sx = sx;
-                    out_sy = sy;
-                    out_tx = tx;
-                    out_ty = ty;
-                    return true;
+                const std::uint16_t here = art::colour_at(asset, tx, ty);
+                if (here == 0) continue;
+                // The margin the note above this function describes, which
+                // until a board scrolled was described and not taken: on a
+                // shrunk cell a pixel spans more than one texel and which of
+                // them the hardware reaches is its own rounding, so a texel is
+                // only claimable when its neighbours carry the same colour. At
+                // the native size a pixel is a texel and nothing is asked.
+                if (drawn < native_tile && !neighbours_agree(asset, tx, ty)) {
+                    continue;
                 }
+                out_sx = sx;
+                out_sy = sy;
+                out_tx = tx;
+                out_ty = ty;
+                return true;
             }
         }
     }

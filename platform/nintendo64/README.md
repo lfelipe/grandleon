@@ -364,11 +364,20 @@ animation and audio entirely.
 
 Boards larger than the screen scroll: a cell-grid camera follows the cursor
 with a two-cell margin, clamping at the map edge. A board that fits renders
-whole and never engages the camera, which keeps the render probe's full-frame
-assertions valid. The camera arithmetic lives in `src/camera.h` with no
-libdragon dependency, so the host suite pins its edge behaviour
-(`grandleon.n64_camera`); no current map is large enough to scroll, so the
-on-console path is untested until content needs it.
+whole and never engages the camera. The camera arithmetic lives in
+`src/camera.h` with no libdragon dependency, so the host suite pins its edge
+behaviour (`grandleon.n64_camera`).
+
+**The first board of the sample campaign scrolls**, which is why: a path
+nothing shipped took was a path no console check exercised, and the earliest it
+would have been found wanting is the day somebody's own game needed a bigger
+board. The Fordlight is thirty-two columns against a sixteen-column window, so
+the probe and the autopilot classify what the window holds rather than the
+whole authored board. Both still count every cell they can see and both still
+find both sides' units, because the crossing and the two lines sit inside the
+window the board opens at; the whole-board claim is made by the desktop
+renderer instead, which has a window of its own and draws all thirty-two
+columns (`grandleon.sdl_presenter`).
 
 **A board that scrolls is shown across before it is played on.** It opens at
 the column showing its right edge and travels to the left, so how much board

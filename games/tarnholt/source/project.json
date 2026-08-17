@@ -390,8 +390,14 @@
       "name": "Prologue",
       "backgroundId": "throne_hall",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -413,8 +419,14 @@
       "name": "The Valley",
       "backgroundId": "night_camp",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -440,8 +452,14 @@
       "name": "Waking the Guard",
       "backgroundId": "throne_hall",
       "cast": [
-        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Dawn Mage",
+          "unitTypeId": "dawn_mage"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -471,8 +489,14 @@
       "name": "The Cost of the Crossing",
       "backgroundId": "night_camp",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -485,7 +509,7 @@
         },
         {
           "speaker": "Runner",
-          "text": "Teller. Bram. The archer from Southmead — I never learned hers."
+          "text": "Teller. Bram. The archer from Southmead \u2014 I never learned hers."
         },
         {
           "speaker": "Captain Mirea",
@@ -502,8 +526,14 @@
       "name": "Between the Rivers",
       "backgroundId": "night_camp",
       "cast": [
-        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Dawn Mage",
+          "unitTypeId": "dawn_mage"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -525,9 +555,18 @@
       "name": "The Climb",
       "backgroundId": "mountain_dusk",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Dawn Mage",
+          "unitTypeId": "dawn_mage"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -553,9 +592,18 @@
       "name": "The Tower Taken",
       "backgroundId": "mountain_dusk",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" },
-        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        },
+        {
+          "speaker": "Dawn Mage",
+          "unitTypeId": "dawn_mage"
+        }
       ],
       "lines": [
         {
@@ -581,8 +629,14 @@
       "name": "The Names",
       "backgroundId": "night_camp",
       "cast": [
-        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Dawn Mage",
+          "unitTypeId": "dawn_mage"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -608,8 +662,14 @@
       "name": "The Watch Falls",
       "backgroundId": "throne_hall",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -631,7 +691,10 @@
       "name": "The Valley Falls",
       "backgroundId": "mountain_dusk",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        }
       ],
       "lines": [
         {
@@ -649,9 +712,18 @@
       "name": "The Road to Harrow",
       "backgroundId": "night_camp",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Sister Nemet", "unitTypeId": "dawn_healer" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Sister Nemet",
+          "unitTypeId": "dawn_healer"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -677,8 +749,14 @@
       "name": "What the Levy Says",
       "backgroundId": "night_camp",
       "cast": [
-        { "speaker": "Coll Rankin", "unitTypeId": "dawn_levy" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Coll Rankin",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -708,9 +786,18 @@
       "name": "The Mill",
       "backgroundId": "crypt",
       "cast": [
-        { "speaker": "Coll Rankin", "unitTypeId": "dawn_levy" },
-        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Coll Rankin",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Dawn Mage",
+          "unitTypeId": "dawn_mage"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -732,9 +819,18 @@
       "name": "The Long Way",
       "backgroundId": "deep_wood",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Sister Nemet", "unitTypeId": "dawn_healer" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Sister Nemet",
+          "unitTypeId": "dawn_healer"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -760,9 +856,18 @@
       "name": "Emberhall",
       "backgroundId": "night_camp",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" },
-        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        },
+        {
+          "speaker": "Dawn Mage",
+          "unitTypeId": "dawn_mage"
+        }
       ],
       "lines": [
         {
@@ -792,8 +897,14 @@
       "name": "Morning at Emberhall",
       "backgroundId": "night_camp",
       "cast": [
-        { "speaker": "Runner", "unitTypeId": "dawn_levy" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Runner",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -819,8 +930,14 @@
       "name": "The Second Seal",
       "backgroundId": "throne_hall",
       "cast": [
-        { "speaker": "Dawn Mage", "unitTypeId": "dawn_mage" },
-        { "speaker": "Captain Mirea", "unitTypeId": "dawn_commander" }
+        {
+          "speaker": "Dawn Mage",
+          "unitTypeId": "dawn_mage"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
       ],
       "lines": [
         {
@@ -850,7 +967,7 @@
     {
       "id": "fordlight_crossing",
       "name": "Fordlight Crossing",
-      "width": 10,
+      "width": 32,
       "height": 8,
       "terrain": [
         "forest",
@@ -864,55 +981,27 @@
         "forest",
         "forest",
         "forest",
-        "grass",
-        "grass",
-        "grass",
-        "water",
-        "water",
-        "grass",
-        "grass",
-        "grass",
         "forest",
-        "grass",
-        "grass",
-        "grass",
-        "road",
-        "water",
-        "water",
-        "road",
-        "grass",
-        "grass",
-        "grass",
-        "grass",
-        "grass",
-        "road",
-        "road",
-        "road",
-        "road",
-        "road",
-        "road",
-        "grass",
-        "grass",
-        "grass",
-        "grass",
-        "road",
-        "road",
-        "road",
-        "road",
-        "road",
-        "road",
-        "grass",
-        "grass",
-        "grass",
-        "grass",
-        "grass",
-        "road",
-        "water",
-        "water",
-        "road",
-        "grass",
-        "grass",
-        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
         "forest",
         "grass",
         "grass",
@@ -927,14 +1016,218 @@
         "forest",
         "grass",
         "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "water",
+        "water",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "water",
+        "water",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "forest",
+        "grass",
+        "grass",
+        "grass",
         "water",
         "water",
         "grass",
         "grass",
+        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "water",
+        "water",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
         "forest",
         "forest"
       ],
-      "notes": "The Fordlight runs north to south. Only the double span at rows three and four crosses it, which is the whole tactical point of the map: melee has to funnel while bows and staves can work across the water."
+      "notes": "The Fordlight runs north to south. Only the double span at rows three and four crosses it, which is the whole tactical point of the map: melee has to funnel while bows and staves can work across the water. The far bank runs out into the open country the Coil came down, so the board is wider than either console screen and is shown across before it is played on."
     },
     {
       "id": "ashen_watch",
@@ -1723,7 +2016,7 @@
             "dialogueIds": [
               "muster_lines"
             ],
-            "notes": "The guard musters in the dark. Everyone has heard what the Coil did at Harrow: they did not take the granaries, they burned them. The mage repeats the rumour that a Warden runs the Coil now — one who counts his dead and keeps coming. Mirea sets the shape of the fight to come: hold the ford, bows behind the water.",
+            "notes": "The guard musters in the dark. Everyone has heard what the Coil did at Harrow: they did not take the granaries, they burned them. The mage repeats the rumour that a Warden runs the Coil now \u2014 one who counts his dead and keeps coming. Mirea sets the shape of the fight to come: hold the ford, bows behind the water.",
             "transitions": [
               {
                 "id": "muster_to_ford",
@@ -2428,7 +2721,7 @@
             "dialogueIds": [
               "climb_lines"
             ],
-            "notes": "The road climbs out of the valley into snow, with marsh on both shoulders — the fast way in and the bad way out. The Watch can see the whole approach, and Mirea does not care. Let Kesh count them coming.",
+            "notes": "The road climbs out of the valley into snow, with marsh on both shoulders \u2014 the fast way in and the bad way out. The Watch can see the whole approach, and Mirea does not care. Let Kesh count them coming.",
             "transitions": [
               {
                 "id": "climb_to_watch",
@@ -2572,7 +2865,7 @@
             "dialogueIds": [
               "tower_taken_lines"
             ],
-            "notes": "The tower is taken. What was left of the Coil went north over the snow, and Mirea lets them go — winter will do her chasing. Kesh is by the stair. He did not run.",
+            "notes": "The tower is taken. What was left of the Coil went north over the snow, and Mirea lets them go \u2014 winter will do her chasing. Kesh is by the stair. He did not run.",
             "transitions": [
               {
                 "id": "watch_falls_to_orders",

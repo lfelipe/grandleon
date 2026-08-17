@@ -17,7 +17,7 @@ clearing a road for the Iron Vow, whose Marshal is a week behind them.
 | | `prologue` | story | A runner brings word that the ford has fallen. |
 | | `the_valley` | story | What the valley is, and what the guard promised it. |
 | | `the_muster` | story | The order to march. |
-| **1** | `fordlight_battle` | encounter | **Fordlight Crossing**, 10×8. Clear the far bank. |
+| **1** | `fordlight_battle` | encounter | **Fordlight Crossing**, 32×8. Clear the far bank. |
 | | `interlude` | story | Grants a tonic. |
 | | `marching_order` | story | **Recruits** Captain Mirea and Sister Nemet. |
 | | `harrow_road` | story | Old smoke on a village burned in the spring. |
@@ -146,7 +146,11 @@ beyond the story to take the road that brings it.
 ## What the boards are shaped by
 
 - **Fordlight Crossing.** The water is terrain nobody in this campaign can
-  enter, so the two road rows across the middle are the ford.
+  enter, so the two road rows across the middle are the ford. The far bank runs
+  out into open country, which makes the board wider than either console
+  screen: the first board anybody plays is one that scrolls, and so is the
+  first one shown across before it is played on. Everything the battle uses is
+  inside the window either console opens at.
 - **The Harrow Burn.** Nothing is closed; the only thing deciding how it goes
   is who the guard walks up to.
 - **The Sunken Mill.** The millrace runs the whole height of the board and the
@@ -168,7 +172,7 @@ of hard road, so the lane is worth holding.
 
 The Fordlight Crossing and the Ashen Watch are the plainest boards in the
 campaign, and their golden canonical hashes are pinned:
-`16c55fae2cc11fea` and `bc4cee0e403c3366`. Everything the later chapters
+`f0e720363089e7d3` and `bc4cee0e403c3366`. Everything the later chapters
 author belongs on a board that serves it, and none of those boards is these
 two; a canonical hash is a fact about an arrangement of characters, so the
 package growing around them does not reach it.

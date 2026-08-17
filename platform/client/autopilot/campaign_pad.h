@@ -118,9 +118,8 @@ inline constexpr std::uint16_t tarnholt_campaign_found[] = {
     pad_up, pad_up, pad_a, pad_b, pad_right, pad_down,
     pad_a, pad_left, pad_up, pad_a, pad_b, pad_right,
     pad_right, pad_right, pad_down, pad_a, pad_a, pad_b,
-    pad_down, pad_down, pad_down, pad_a, pad_left, pad_left,
-    pad_up, pad_up, pad_a, pad_b, pad_down, pad_down,
-    pad_a, pad_a, pad_a, pad_a, pad_a,
+    pad_down, pad_down, pad_down, pad_a, pad_a, pad_a,
+    pad_a, pad_a,
 };
 
 inline constexpr std::size_t tarnholt_campaign_found_count =

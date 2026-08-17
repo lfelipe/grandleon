@@ -176,8 +176,10 @@ test("Play runs the authored campaign: scenes from the engine, then the Stage", 
   await expect(headline).toHaveText("Before The Fordlight Crossing");
   await play.getByRole("button", { name: "To the Stage" }).click();
 
-  // Fordlight Crossing is 10 x 8: the Stage the campaign cursor named.
-  await expect(play.locator('[role="gridcell"]')).toHaveCount(80);
+  // Fordlight Crossing is 32 x 8: the Stage the campaign cursor named. Play
+  // draws every cell of it, having a page to draw on rather than a console
+  // screen, which is why this board scrolls on both consoles and not here.
+  await expect(play.locator('[role="gridcell"]')).toHaveCount(256);
   await expect(headline).toHaveText("Your turn. Pick someone.");
 
   await play.getByRole("button", { name: /Back to editing/ }).click();

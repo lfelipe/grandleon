@@ -2821,8 +2821,14 @@ public:
                 return;
             case ap::Check::battle_open:
                 expect(has_previous_, "the board has been drawn");
+                // The window this machine opens the Fordlight at, which is
+                // sixteen columns of a thirty-two column board. The crossing and
+                // both lines are inside it, so this still asks the question it
+                // always asked: the water and the road are the same counts they
+                // were when the whole board fitted, and only the open terrain
+                // either side of them grew.
                 expect(
-                    classified.grass == 32 && classified.forest == 12 &&
+                    classified.grass == 64 && classified.forest == 28 &&
                         classified.water == 12 && classified.road == 16,
                     "the authored Fordlight terrain is on screen"
                 );
@@ -4942,6 +4948,35 @@ private:
         return {coord >> 10, (coord >> 5) & 31};
     }
 
+    // The same coordinate, rounded to the nearest thirty-second instead of
+    // truncated, which is what the *filtered* comparison needs.
+    //
+    // `coord` carries five bits below the fraction a tap holds. Point sampling
+    // wants them thrown away: the texture unit takes the texel a coordinate
+    // falls in, and that is the one `centre_tap` names. The three-point filter
+    // does not work that way. At a coordinate all but arrived at the next
+    // texel it writes that texel, and a tap that truncated asks instead for a
+    // blend most of the way back to the one below.
+    //
+    // On the 25-pixel cell a board that fits draws at, the discarded bits hold
+    // 8/32 and the two agree, which is why one tap served both for as long as
+    // every board fitted. On the 18-pixel cell a scrolling board draws at they
+    // hold 28/32: the sample stands at texel 15 and 31.875 thirty-seconds, the
+    // console writes the texel at 16 exactly, and the truncated tap predicted a
+    // blend that differed from it in red.
+    //
+    // Measured, not reasoned: the probe was made to report what the framebuffer
+    // held against both candidates, and the framebuffer held the texel at 16.
+    // Water is where it shows, its neighbouring texels being the furthest apart
+    // of any terrain drawn here; on grass, road and forest the two answers agree
+    // and a wrong tap is invisible.
+    [[nodiscard]] FilterTap filter_tap() const {
+        if (tile_ <= 0) return {0, 0};
+        const int step = ((32 * 32) << 7) / (tile_ * 4);
+        const int coord = (tile_ / 2) * step + 16;
+        return {coord >> 10, (coord >> 5) & 31};
+    }
+
     // The lower texel of the block the sampled pixel can land in, in both
     // axes, for a point-sampled rectangle.
     //
@@ -4970,7 +5005,7 @@ private:
         int s_origin,
         int t_origin
     ) const {
-        const FilterTap tap = centre_tap();
+        const FilterTap tap = filter_tap();
         const int s = tap.texel > 30 ? 30 : tap.texel;
         const int t = tap.texel > 30 ? 30 : tap.texel;
         const std::uint16_t t00 = texel16(sprite, s_origin + s, t_origin + t);
@@ -7070,10 +7105,16 @@ private:
         if (probe_step_ >= spent_probe_step) return spent_probe(snapshot);
         if (probe_step_ == 0) {
             ++probe_step_;
-            // The Fordlight's authored terrain, minus the eight cells covered
-            // by units (all of which stand on grass).
-            expect(classified.grass == 32, "framebuffer shows 32 grass cells");
-            expect(classified.forest == 12, "framebuffer shows 12 forest cells");
+            // The Fordlight's terrain inside this machine's window, minus the
+            // eight cells covered by units (all of which stand on grass). The
+            // board is wider than the window, so this is what the camera holds
+            // at rest rather than the whole authored board: sixteen columns by
+            // eight, which is a hundred and twenty-eight cells and every one of
+            // them classified. The crossing itself is entirely inside it, which
+            // is why the water and the road below did not move when the board
+            // grew and the two open terrains did.
+            expect(classified.grass == 64, "framebuffer shows 64 grass cells");
+            expect(classified.forest == 28, "framebuffer shows 28 forest cells");
             expect(classified.water == 12, "framebuffer shows 12 water cells");
             expect(classified.road == 16, "framebuffer shows 16 road cells");
             expect(classified.blue == 4, "framebuffer shows 4 blue units");

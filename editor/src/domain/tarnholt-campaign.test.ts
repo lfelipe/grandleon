@@ -42,7 +42,7 @@ describe("The Tarnholt Line sample campaign", () => {
       "emberhall_yard",
       "the_coldgate"
     ]);
-    expect(decoded.maps[0]!.terrain).toHaveLength(80);
+    expect(decoded.maps[0]!.terrain).toHaveLength(256);
     expect(decoded.maps[1]!.terrain).toHaveLength(108);
     expect(decoded.maps[2]!.terrain).toHaveLength(88);
     expect(decoded.maps[3]!.terrain).toHaveLength(63);
@@ -265,7 +265,7 @@ describe("The Tarnholt Line sample campaign", () => {
     // The campaign entry node is a story node, so the playtest has to skip past
     // it to the first encounter.
     expect(state.nodeId).toBe("fordlight_battle");
-    expect(state.width).toBe(10);
+    expect(state.width).toBe(32);
     expect(state.height).toBe(8);
     expect(state.units).toHaveLength(8);
     expect(state.units.filter((unit) => unit.side === "first")).toHaveLength(4);

@@ -20,9 +20,11 @@ const demoSource = resolve(process.cwd(), "../games/demo/source/project.json");
 // either compiler has to be a deliberate change to this number.
 // A figure that moves is content, not compiler: naming who speaks in each of
 // the campaign's seventeen scenes is worth about four hundred bytes of the
-// total below, and the host and WebAssembly compilers agree on it either way.
-const tarnholtPackageBytes = 18584;
-const tarnholtPackageMd5 = "ebe4b3620184f6a53e9b5782eee9ad67";
+// total below, and widening the Fordlight from ten columns to thirty-two is
+// worth about seventeen hundred more, because a map's terrain is a byte a cell.
+// The host and WebAssembly compilers agree on it either way.
+const tarnholtPackageBytes = 20344;
+const tarnholtPackageMd5 = "d22f8c0ccf094aefd8faa0a2966c1c35";
 
 beforeAll(async () => {
   await initEncounterEngine();

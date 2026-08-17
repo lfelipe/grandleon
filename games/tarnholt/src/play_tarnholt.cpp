@@ -1064,6 +1064,14 @@ int main(int argc, char** argv) {
     //   double in size while these two arrangements of characters stay exactly
     //   as they are, and hash them exactly the same.
     //
+    //   *The board itself was widened.* A map's terrain is canonical, so
+    //   growing the ford's own board moves its hash and touches nothing else.
+    //   The Fordlight was drawn ten columns across, which fits every console
+    //   screen, and now runs to thirty-two: the crossing is exactly where it
+    //   was and every character stands on the tile it always did, with open
+    //   country added east of the far bank. The watch did not move, which is
+    //   what a change to one board should look like.
+    //
     // Two more facts about where these particular values are taken. The ford's
     // is insensitive to counterattacks, because that sequence walks and casts
     // and never issues a basic attack, and an ability provokes no counter. And
@@ -1074,7 +1082,7 @@ int main(int argc, char** argv) {
     // fifth reason to read a moved value is that the script above reached a
     // different place, which is what a changed turn order does to it.
     expect(
-        ford_created.encounter.canonical_hash() == 0x16c55fae2cc11feaULL,
+        ford_created.encounter.canonical_hash() == 0xf0e720363089e7d3ULL,
         "the ford reaches its golden canonical hash, got " +
             hex(ford_created.encounter.canonical_hash())
     );
