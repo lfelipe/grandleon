@@ -63,9 +63,28 @@ if (!Number.isInteger(editorPort) || editorPort < 1 || editorPort > 65535) {
   );
 }
 
+// Which names this server will answer to, beyond loopback.
+//
+// Vite refuses a request whose `Host` is not on this list and answers 403 with
+// a sentence naming the host it refused. That is worth keeping — it is what
+// stops a page on another site resolving to this machine — but the guess below
+// it is only a guess: `.local` is mDNS, and a network whose domain is anything
+// else hands out a name this list has never heard of. On a `.lan` network the
+// machine's own FQDN is refused, and the symptom is an editor that "does not
+// show" from the second machine it exists to be reachable from.
+//
+// So the guess stays and a way past it is added, spelled the way the ROM
+// service beside it spells the same idea (`--allow-host`, or
+// `GRANDLEON_ROM_SERVICE_ALLOWED_HOSTS`). One name or a comma-separated list.
 const allowedEditorHosts = [machineHostname, `${machineHostname}.local`];
 if (!allowedEditorHosts.includes(editorHostname)) {
   allowedEditorHosts.push(editorHostname);
+}
+for (const named of (process.env.GRANDLEON_EDITOR_ALLOWED_HOSTS ?? "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter((entry) => entry !== "")) {
+  if (!allowedEditorHosts.includes(named)) allowedEditorHosts.push(named);
 }
 
 // The local ROM build service, proxied rather than fetched across origins.
