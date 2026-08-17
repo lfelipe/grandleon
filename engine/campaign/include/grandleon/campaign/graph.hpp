@@ -281,6 +281,10 @@ enum class ProgressionError : std::uint8_t {
     // The advance would have left a campaign no sequence of legal steps could
     // reach. `NodeCompletion::state_error` says which invariant.
     invalid_candidate,
+    // A jump named a node this graph does not hold. Only `jump_to_node`
+    // produces it: `complete_node` never names a target, it selects one, and
+    // `validate_graph` has already refused a graph whose edges point nowhere.
+    unknown_target,
 };
 
 [[nodiscard]] std::string_view progression_error_name(
@@ -327,6 +331,52 @@ struct NodeCompletion final {
     CampaignState& state,
     const CampaignGraph& graph,
     const CampaignOutcomeBatch& batch
+);
+
+// Stand the campaign on `target` without walking an edge to it.
+//
+// **What this is for.** Checking a game on a console means reaching the fifth
+// battle to look at one thing in it, and reaching it the ordinary way means
+// playing the four before it, every time. This is the move that skips them. It
+// is a mechanism and not a permission: whether a game offers it is a setting
+// the project declares (`invulnerableForTesting`'s neighbour), and no rule in
+// this module reads that setting. What lives here is only the guarantee that a
+// campaign moved this way is still a campaign every other function in this
+// header will accept.
+//
+// **It is the second half of `complete_node` with the choosing taken out.**
+// The same preamble refuses the same things, the same batch commits first on
+// its own terms, the same completion already in the route moves the campaign no
+// further, and the same atomic second commit writes the active node and the
+// history together. What differs is one line: where `complete_node` reads an
+// edge out of the graph, this is told. So a jump is recorded exactly as an
+// ordinary step is, cites the batch that caused it exactly as an ordinary step
+// does, and a save written after one resumes exactly as any other does. There
+// is no second kind of history entry and nothing downstream has to learn that
+// jumping exists.
+//
+// **`target` may be any node of the graph**, including the one the campaign is
+// already standing on, one it has already left behind, and a terminal one. None
+// of those is an edge, so none of them is `validate_graph`'s business: a jump
+// to a terminal node is a campaign standing at its end, and a jump to the
+// standing node is that stage begun again. A node this graph does not hold is
+// `unknown_target` and nothing at all is committed.
+//
+// **What a jump does not do is the honest half.** It moves the campaign and
+// changes nothing else. The batch is the caller's, and a caller with nothing to
+// record passes an empty one; no objective is recorded, no world flag is set,
+// and nobody is recruited on behalf of the stages that were passed over. A
+// campaign standing on a node it jumped to is therefore a campaign that did not
+// do what the route to that node would have done, and a transition out of it
+// that asks about any of that will not match. That is a limit and not a defect:
+// the alternative is inventing facts the author never wrote, which would be
+// wrong differently at every branch. Whoever offers the jump says so to the
+// player; this function only refuses to pretend.
+[[nodiscard]] NodeCompletion jump_to_node(
+    CampaignState& state,
+    const CampaignGraph& graph,
+    const CampaignOutcomeBatch& batch,
+    const DefinitionRef& target
 );
 
 }  // namespace grandleon::campaign

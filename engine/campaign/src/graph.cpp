@@ -175,6 +175,8 @@ std::string_view progression_error_name(ProgressionError error) noexcept {
             return "blocked";
         case ProgressionError::invalid_candidate:
             return "invalid_candidate";
+        case ProgressionError::unknown_target:
+            return "unknown_target";
     }
     return "unknown";
 }
@@ -437,30 +439,41 @@ ProgressionError begin_campaign(
     return ProgressionError::none;
 }
 
-NodeCompletion complete_node(
-    CampaignState& state,
+namespace {
+
+// Everything a move through a graph refuses before it commits anything, in the
+// order it refuses it, and the node the campaign is standing on when it does
+// not.
+//
+// Shared by `complete_node` and `jump_to_node` rather than written twice,
+// because these are not two functions' checks that happen to agree: they are
+// one question, "may this campaign move at all", and two answers to it is how
+// one of the two comes to accept a state the other refuses. Null is returned
+// with `completion.error` already set, so a caller returns what it was handed.
+[[nodiscard]] const CampaignGraphNode* node_a_move_starts_from(
+    const CampaignState& state,
     const CampaignGraph& graph,
-    const CampaignOutcomeBatch& batch
+    const CampaignOutcomeBatch& batch,
+    NodeCompletion& completion
 ) {
-    NodeCompletion completion;
     completion.graph_error = validate_graph(graph);
     if (completion.graph_error != GraphError::none) {
         completion.error = ProgressionError::invalid_graph;
-        return completion;
+        return nullptr;
     }
     if (!state.progress.active) {
         completion.error = ProgressionError::not_started;
-        return completion;
+        return nullptr;
     }
     if (!(state.progress.campaign == graph.campaign)) {
         completion.error = ProgressionError::wrong_campaign;
-        return completion;
+        return nullptr;
     }
     const CampaignGraphNode* const node =
         find_graph_node(graph, state.progress.active_node);
     if (node == nullptr) {
         completion.error = ProgressionError::unknown_active_node;
-        return completion;
+        return nullptr;
     }
 
     // A completion already in the route moved the campaign once and moves it
@@ -471,9 +484,49 @@ NodeCompletion complete_node(
         if (entry.cause.value != 0U && entry.cause == batch.id) {
             completion.already_advanced = true;
             completion.outcome.already_applied = true;
-            return completion;
+            return nullptr;
         }
     }
+    return node;
+}
+
+// The second commit: the active node and the history, together or not at all.
+//
+// Shared for the reason the preamble above is shared. The atomicity claim this
+// module makes is about the candidate being complete and validated before it is
+// swapped in, and a second copy of the swap is a second place that claim can
+// quietly stop being true.
+void stand_on(
+    CampaignState& state,
+    const DefinitionRef& target,
+    OutcomeId cause,
+    NodeCompletion& completion
+) {
+    CampaignState candidate = state;
+    candidate.progress.active_node = target;
+    candidate.progress.history.push_back({target, cause});
+    const StateError state_error = validate(candidate);
+    if (state_error != StateError::none) {
+        completion.error = ProgressionError::invalid_candidate;
+        completion.state_error = state_error;
+        return;
+    }
+    state = std::move(candidate);
+    completion.advanced = true;
+    completion.target = target;
+}
+
+}  // namespace
+
+NodeCompletion complete_node(
+    CampaignState& state,
+    const CampaignGraph& graph,
+    const CampaignOutcomeBatch& batch
+) {
+    NodeCompletion completion;
+    const CampaignGraphNode* const node =
+        node_a_move_starts_from(state, graph, batch, completion);
+    if (node == nullptr) return completion;
 
     if (node->terminal) {
         // Refused before the batch is committed, so a caller that mistakes the
@@ -503,20 +556,52 @@ NodeCompletion complete_node(
     }
 
     // Second commit: the edge, the active node and the history, together.
-    CampaignState candidate = state;
-    candidate.progress.active_node = choice.target;
-    candidate.progress.history.push_back({choice.target, batch.id});
-    const StateError state_error = validate(candidate);
-    if (state_error != StateError::none) {
-        completion.error = ProgressionError::invalid_candidate;
-        completion.state_error = state_error;
-        return completion;
-    }
-    state = std::move(candidate);
-    completion.advanced = true;
+    stand_on(state, choice.target, batch.id, completion);
+    if (!completion.advanced) return completion;
     completion.used_fallback = choice.fallback;
     completion.priority = choice.priority;
-    completion.target = choice.target;
+    return completion;
+}
+
+NodeCompletion jump_to_node(
+    CampaignState& state,
+    const CampaignGraph& graph,
+    const CampaignOutcomeBatch& batch,
+    const DefinitionRef& target
+) {
+    NodeCompletion completion;
+    // The node the campaign is standing on is not read for anything a jump
+    // decides, and is asked for all the same: every refusal above it is a
+    // refusal a jump has to make too, and this is the call that makes them.
+    // Standing on a terminal node is the one refusal a jump does not inherit,
+    // which is why it is `complete_node`'s and not this preamble's: a terminal
+    // node has nowhere to go *next*, and a jump was told where to go.
+    if (node_a_move_starts_from(state, graph, batch, completion) == nullptr) {
+        return completion;
+    }
+    if (find_graph_node(graph, target) == nullptr) {
+        // Refused before the batch is committed, so a caller that named a node
+        // this content does not have changes nothing at all.
+        completion.error = ProgressionError::unknown_target;
+        return completion;
+    }
+
+    // First commit: whatever the caller is recording alongside the jump, on the
+    // same terms `complete_node` commits a battle's consequences. An empty
+    // batch is the ordinary case and still commits: it is what makes the jump
+    // identifiable, so a jump repeated is recognised as the jump it already
+    // made rather than walked a second time.
+    completion.outcome = apply_outcome(state, batch);
+    if (!completion.outcome) {
+        completion.error = ProgressionError::outcome_rejected;
+        return completion;
+    }
+
+    // Second commit: the node the caller named, and the history, together. No
+    // transition was selected, so `used_fallback` and `priority` say nothing
+    // and are left as they are: a jump took no edge, and reporting one it did
+    // not take would be inventing the route it deliberately did not walk.
+    stand_on(state, target, batch.id, completion);
     return completion;
 }
 

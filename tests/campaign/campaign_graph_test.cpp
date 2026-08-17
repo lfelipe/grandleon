@@ -951,6 +951,178 @@ void an_impossible_route_is_not_a_route() {
     );
 }
 
+// A jump stands the campaign on a node no edge out of where it stood leads to,
+// and leaves a campaign every other function here still accepts.
+//
+// The route is what is being pinned. A jump is not a special kind of history
+// entry, so the whole of what the rest of the engine has to believe about it is
+// that it is a step like any other: it names a node, it cites a batch this
+// campaign committed, and it is the last step, which is what `validate` means
+// by an active node.
+void a_jump_stands_on_a_node_no_edge_reaches() {
+    const campaign::CampaignGraph graph = tarnholt_graph();
+    campaign::CampaignState state = started();
+    expect(state.progress.active_node == ford, "the campaign begins at the ford");
+
+    // The muster is three edges away: no transition out of the ford names it,
+    // under any predicate, so nothing `complete_node` could decide would land
+    // there in one move.
+    const auto skipped = batch(0U, 0U, {});
+    const campaign::NodeCompletion jumped =
+        campaign::jump_to_node(state, graph, skipped, muster);
+    expect(static_cast<bool>(jumped), "a jump to a node of the graph is accepted");
+    expect(jumped.advanced && jumped.target == muster, "and it moves the campaign");
+    expect(
+        !jumped.used_fallback && jumped.priority == 0U,
+        "and reports no edge, because it took none"
+    );
+    expect(
+        state.progress.active_node == muster,
+        "the campaign stands where it was sent"
+    );
+    expect(
+        campaign::validate(state) == campaign::StateError::none,
+        "and the campaign it stands in is still a campaign"
+    );
+    expect(
+        state.progress.history.size() == 2U &&
+            state.progress.history[1].node == muster &&
+            state.progress.history[1].cause == skipped.id,
+        "the route records the jump as one step, caused by its own batch"
+    );
+    expect(
+        campaign::outcome_applied(state, skipped.id),
+        "whose batch this campaign committed, empty though it was"
+    );
+
+    // Ordinary progression carries on from there: the muster falls back to the
+    // ending exactly as it would have for a campaign that walked to it.
+    const campaign::NodeCompletion onward =
+        campaign::complete_node(state, graph, batch(0x1111ULL, 1U, {}));
+    expect(
+        onward.advanced && onward.target == ending,
+        "and an edge out of a jumped-to node is walked like any other"
+    );
+}
+
+// Backwards is the same move. A tester who has gone too far goes back, and the
+// route says they did rather than pretending the campaign never left.
+void a_jump_goes_backwards_as_readily_as_forwards() {
+    const campaign::CampaignGraph graph = tarnholt_graph();
+    campaign::CampaignState state = started();
+    expect(
+        campaign::complete_node(state, graph, batch(0x2222ULL, 0U, {})).advanced,
+        "the campaign walks its fallback out of the ford"
+    );
+    expect(state.progress.active_node == watch, "and stands at the watch");
+
+    expect(
+        campaign::jump_to_node(state, graph, batch(0U, 1U, {}), ford).advanced,
+        "a jump back to the entry node is accepted"
+    );
+    expect(state.progress.active_node == ford, "and the campaign stands there");
+    expect(
+        state.progress.history.size() == 3U &&
+            state.progress.history[0].node == ford &&
+            state.progress.history[2].node == ford,
+        "with the route holding both visits rather than forgetting the first"
+    );
+    expect(
+        campaign::validate(state) == campaign::StateError::none,
+        "and the campaign still validates"
+    );
+
+    // The same stage again. A tester who wants to replay the board they are on
+    // is asking for the ordinary case, not an edge one.
+    expect(
+        campaign::jump_to_node(state, graph, batch(0U, 2U, {}), ford).advanced,
+        "and a jump to the node already stood on is a jump like any other"
+    );
+    expect(state.progress.history.size() == 4U, "recorded as its own step");
+
+    // The end of the campaign is somewhere to jump back from. It is not an
+    // edge, so `terminal_has_edges` has nothing to say about it.
+    campaign::CampaignState finished = started();
+    for (std::uint64_t step = 0; step < 3U; ++step) {
+        expect(
+            campaign::complete_node(
+                finished, graph, batch(0x3000ULL + step, step, {})
+            ).advanced,
+            "the campaign walks to its end"
+        );
+    }
+    expect(finished.progress.active_node == ending, "and stands at the ending");
+    expect(
+        campaign::complete_node(finished, graph, batch(0x4444ULL, 3U, {}))
+                .error == campaign::ProgressionError::node_is_terminal,
+        "which cannot be completed"
+    );
+    expect(
+        campaign::jump_to_node(finished, graph, batch(0U, 4U, {}), ford)
+            .advanced,
+        "and can still be jumped out of, because a jump was told where to go"
+    );
+}
+
+// What a jump refuses, and what it leaves behind when it does.
+void a_jump_that_is_refused_changes_nothing() {
+    const campaign::CampaignGraph graph = tarnholt_graph();
+    campaign::CampaignState state = started();
+    const std::uint64_t before = campaign::canonical_hash(state);
+
+    const campaign::DefinitionRef stranger = node("stranger");
+    const auto elsewhere = batch(0U, 0U, {campaign::add_item(store, torch, 1U)});
+    const campaign::NodeCompletion refused =
+        campaign::jump_to_node(state, graph, elsewhere, stranger);
+    expect(
+        refused.error == campaign::ProgressionError::unknown_target,
+        "a jump to a node this graph does not hold is refused by name"
+    );
+    expect(!refused.advanced, "and moves nothing");
+    expect(
+        campaign::canonical_hash(state) == before,
+        "and does not commit the batch it was handed, either"
+    );
+
+    // A campaign that has not entered a graph, and one standing in a different
+    // graph, are refused by the same names `complete_node` refuses them under,
+    // because they are the same refusals asked once.
+    campaign::CampaignState unstarted;
+    expect(
+        campaign::jump_to_node(unstarted, graph, batch(0U, 0U, {}), muster)
+                .error == campaign::ProgressionError::not_started,
+        "a campaign that has entered no graph cannot jump inside one"
+    );
+
+    const campaign::DefinitionRef other_campaign =
+        reference(core::ContentCategory::campaign, "other");
+    const campaign::CampaignGraph elsewhere_graph = campaign::make_campaign_graph(
+        other_campaign, ford, {branching(ford, {}, &watch), terminal(watch)}
+    );
+    expect(
+        campaign::jump_to_node(state, elsewhere_graph, batch(0U, 0U, {}), watch)
+                .error == campaign::ProgressionError::wrong_campaign,
+        "and a graph that is not the one the campaign stands in cannot move it"
+    );
+
+    // A jump already in the route is the jump it already made. The same batch
+    // twice is one step, exactly as a retried battle is.
+    const auto once = batch(0U, 0U, {});
+    expect(
+        campaign::jump_to_node(state, graph, once, muster).advanced,
+        "a jump moves the campaign"
+    );
+    const std::uint64_t after = campaign::canonical_hash(state);
+    const campaign::NodeCompletion retried =
+        campaign::jump_to_node(state, graph, once, muster);
+    expect(static_cast<bool>(retried), "the same jump repeated is not an error");
+    expect(retried.already_advanced && !retried.advanced, "and moves nothing");
+    expect(
+        campaign::canonical_hash(state) == after,
+        "leaving the campaign exactly as the jump left it"
+    );
+}
+
 }  // namespace
 
 int main() {
@@ -963,5 +1135,8 @@ int main() {
     a_graph_that_is_not_a_graph_is_refused();
     a_position_is_only_moved_by_its_own_graph();
     an_impossible_route_is_not_a_route();
+    a_jump_stands_on_a_node_no_edge_reaches();
+    a_jump_goes_backwards_as_readily_as_forwards();
+    a_jump_that_is_refused_changes_nothing();
     return failures == 0 ? 0 : 1;
 }

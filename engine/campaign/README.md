@@ -143,6 +143,19 @@ the flat record an encoding detail.
   names the outcome id that caused it, and a completion already in the route
   advances nothing. A retry after a crash is recognised and the edge back is
   not taken twice.
+- **`jump_to_node` is the same move with the choosing taken out.** It stands
+  the campaign on a node it was told, rather than one it selected, and shares
+  every refusal and both commits with `complete_node`. It exists for checking
+  a game on hardware: reaching the fifth battle to look at one thing should
+  not cost the four before it. It records the jump as an ordinary route step,
+  caused by its own batch, so a save written after one resumes like any other
+  and nothing downstream learns that jumping exists. **What it does not do is
+  the honest half:** it moves the campaign and changes nothing else, so a
+  stage reached this way has not recorded the objectives, set the world flags
+  or gained the recruits the ordinary route would have. A transition out of it
+  that asks about any of that will not match, and the battle itself may be
+  unwinnable. Inventing those facts would be wrong differently at every
+  branch; whoever offers the jump says so to the player.
 
 The predicate vocabulary is the source schema's: an objective's recorded
 result, an inventory count, a typed world value. The inventory count has no
