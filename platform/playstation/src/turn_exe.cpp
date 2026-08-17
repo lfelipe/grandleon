@@ -99,13 +99,20 @@
 #include "fordlight_pad.h"
 #endif
 
-// Which project's bytes this executable carries. Tarnholt's board, unless a
-// campaign build says otherwise, because a turn executable's subject is a
-// board with two sides, real terrain and mountains on it, and the demo is a
-// teaching board.
+// Which project's bytes this executable carries, and which game those bytes
+// are. Tarnholt's board, unless a campaign build says otherwise, because a
+// turn executable's subject is a board with two sides, real terrain and
+// mountains on it, and the demo is a teaching board.
+//
+// Both headers are generated from a project by the build: the package by
+// `grandleon_content_compile`, the identity by
+// `cmake/GrandleonProjectIdentity.cmake`. The two identity headers declare the
+// same two symbols, so exactly one of them can be here.
 #ifdef GRANDLEON_PSX_DEMO_CAMPAIGN
+#include "generated/demo_identity.h"
 #include "generated/demo_package.h"
 #else
+#include "generated/board_identity.h"
 #include "generated/board_package.h"
 #endif
 
@@ -151,23 +158,29 @@ using psx::Line;
 // The campaign this executable plays, by authored path, and the bytes it plays
 // it out of.
 //
+// The path is `project_campaign_key` out of the identity header above rather
+// than a name written here, because the two have to be the same project: an
+// executable carrying one game's package and asking it for another game's
+// campaign loads nothing, and there is no line of C++ in this file that could
+// notice.
+//
 // Two projects, and one of them is only ever a campaign build: the turn
 // executable's subject is the Fordlight Crossing, the board
 // `fordlight_pad.h`'s script was written against. `campaign_pad.h` carries a
 // script for each.
+constexpr const char* campaign_path = project_campaign_key;
 #ifdef GRANDLEON_PSX_DEMO_CAMPAIGN
-constexpr const char* campaign_path = "demo_campaign";
 constexpr const std::uint8_t* campaign_package_bytes = demo_package_bytes;
 constexpr std::size_t campaign_package_size = demo_package_size;
 #else
-constexpr const char* campaign_path = "tarnholt_line";
 constexpr const std::uint8_t* campaign_package_bytes = board_package_bytes;
 constexpr std::size_t campaign_package_size = board_package_size;
 #endif
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
-// What the campaign is kept under on the card. A storage name: lower case,
-// digits, `_` and `-`. `view::slot_name_at` makes rows two to four out of it.
+// What the campaign is kept under on the card, out of the same generated
+// header. A storage name: lower case, digits, `_` and `-`.
+// `view::slot_name_at` makes rows two to four out of it.
 //
 // What the title screen calls the project is *not* here, and its absence is the
 // point: it is read off the package this executable is holding, through
@@ -176,11 +189,7 @@ constexpr std::size_t campaign_package_size = board_package_size;
 // would also be the one string on this machine that cannot be checked against
 // anything, because a title is free text an author wrote rather than an
 // identifier the source contract constrains.
-#ifdef GRANDLEON_PSX_DEMO_CAMPAIGN
-constexpr const char* campaign_slot_base = "demo";
-#else
-constexpr const char* campaign_slot_base = "tarnholt";
-#endif
+constexpr const char* campaign_slot_base = project_campaign_slot;
 #endif
 
 // The backdrop, and why it is this colour: nothing the art library can draw is

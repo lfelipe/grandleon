@@ -56,63 +56,14 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/project_source.h"
 
 # Which game this ROM is, derived from the project rather than named in C++.
 #
-# Neither is read out of `games/tarnholt/autopilot/campaign_expectations.h`,
-# which is about what a scripted run of Tarnholt should *observe*. Taking the
-# running game's identity from that is a category error that goes unnoticed only
-# while there is one game, and it is what would make a ROM of anybody else's
-# project impossible.
-#
-# The campaign is the project's first. A console ROM plays one campaign and the
-# authored order is the only ordering the project offers, so "the first one" is
-# the only answer that does not require a second authored field to select it.
-file(READ "${GRANDLEON_N64_PROJECT}" project_document)
-string(JSON project_campaign_count ERROR_VARIABLE project_campaign_error
-    LENGTH "${project_document}" campaigns)
-if(project_campaign_error OR project_campaign_count EQUAL 0)
-    message(FATAL_ERROR
-        "the project ${GRANDLEON_N64_PROJECT} carries no campaign; the "
-        "Nintendo 64 play and campaign ROMs run one")
-endif()
-string(JSON project_campaign_key GET "${project_document}" campaigns 0 id)
-
-# The id is written into a C++ string literal below, so it is code by the time
-# the ROM compiles rather than data the ROM reads. A project is content people
-# share, and an id carrying a quote or a `#include` would make opening somebody
-# else's project and pressing Build a way to put their C++ in your cartridge.
-# The source contract's identifier grammar is what a campaign id is allowed to
-# be, so anything else is refused here, before a single line is generated.
-if(NOT project_campaign_key MATCHES "^[a-z][a-z0-9]*([._-][a-z0-9]+)*$")
-    message(FATAL_ERROR
-        "the project ${GRANDLEON_N64_PROJECT} names its first campaign "
-        "'${project_campaign_key}', which is not a source identifier; the "
-        "Nintendo 64 build writes that id into the ROM's own code")
-endif()
-
-# The save slot's base name, out of the game's identity. The storage contract
-# allows lower-case letters, digits, `_` and `-`, and `view::slot_name_at`
-# spends three more characters on a row suffix, so twenty-nine is the budget.
-# `grandleon.tarnholt` is `tarnholt`, which is the name every cartridge already
-# carries, so a save keeps being readable.
-string(JSON project_game_id GET "${project_document}" gameId)
-string(REGEX REPLACE "^.*\\." "" project_slot "${project_game_id}")
-string(TOLOWER "${project_slot}" project_slot)
-string(REGEX REPLACE "[^a-z0-9_-]" "_" project_slot "${project_slot}")
-string(SUBSTRING "${project_slot}" 0 29 project_slot)
-if(project_slot STREQUAL "")
-    message(FATAL_ERROR
-        "the project ${GRANDLEON_N64_PROJECT} has a gameId that spells no save "
-        "slot name: '${project_game_id}'")
-endif()
-message(STATUS
-    "Nintendo 64 game identity: campaign '${project_campaign_key}' in slot "
-    "'${project_slot}'")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/project_identity.h"
-    "// Generated from the project GRANDLEON_N64_PROJECT names. Do not edit.\n"
-    "#pragma once\n"
-    "// The campaign this ROM runs, and the cartridge slot it keeps it in.\n"
-    "inline constexpr const char* project_campaign_key =\n"
-    "    \"${project_campaign_key}\";\n"
-    "inline constexpr const char* project_campaign_slot = \"${project_slot}\";\n"
+# `cmake/GrandleonProjectIdentity.cmake` holds the derivation and the two
+# refusals around it, because the other console asks the same question of the
+# same project and two answers to it would be two games.
+include("${CMAKE_SOURCE_DIR}/cmake/GrandleonProjectIdentity.cmake")
+grandleon_write_project_identity(
+    "${GRANDLEON_N64_PROJECT}"
+    "the Nintendo 64 play and campaign ROMs"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/project_identity.h"
 )
 
 # The generated CI4 art the board is drawn from, converted with the pinned

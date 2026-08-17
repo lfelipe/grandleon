@@ -89,6 +89,26 @@ cross toolchain image and build an emulator from source on first use. Every
 target is excluded from `ALL`. The scripts under `scripts/` can also be run
 directly and take `--rebuild-image` to force a container rebuild.
 
+### Which game the executables carry
+
+`scripts/build-playstation.sh --project PATH` builds the play, turn and
+campaign executables for that project instead of `games/tarnholt`, and
+`--targets a,b,c` builds fewer than all of them. The content is a build input,
+so a disc of an author's own game is this build with one path changed rather
+than a second pipeline; the editor's build service is the caller that uses
+both, and asks for the campaign executable alone.
+
+Two things are untouched by `--project`, on purpose. The conformance
+executable replays `games/demo` to a hash this repository fixed, and the demo
+campaign executable is the second shipped game: both are statements about *this*
+repository's content rather than about somebody's game, so both keep their own
+project and their own character style.
+
+The autopilot builds are the gate's and not an author's: their scripts were
+recorded against the shipped boards, and replaying one into a different game
+would press buttons at screens that are not there. Ask for them only with a
+project whose boards they were recorded on.
+
 `grandleon_playstation_showcase` is the turn check's own run with a second
 camera on: it still compares every transcript line and every claimed pixel and
 still must reach `RESULT PASS`. It adds `build-playstation/showcase/`: one file
@@ -481,9 +501,12 @@ does. Generation-time checks hold every asset to a sixteen-entry CLUT, require
 transparency (where present) at slot 0, and round-trip the packing.
 
 The character style is resolved at build time: the art library emits one
-character header per style, `CMakeLists.txt` resolves the project's
-`characterStyleId` and includes exactly one, and `art::character` has no style
-parameter. Within the embedded style, the archetype and faction-colour
+character header per style, `CMakeLists.txt` resolves each project's
+`characterStyleId` and gives every executable exactly one, and `art::character`
+has no style parameter. It is resolved per project rather than per directory,
+because this tree builds two games and they need not be drawn in the same hand;
+what an executable may not carry is two. Within the embedded style, the
+archetype and faction-colour
 dimensions are still pointer tables and cells a board never stands on are
 still linked. A board that could scroll would want a different subset, so no
 further trimming is chosen.

@@ -63,62 +63,130 @@ grandleon_playstation_embed_package(
     "games/demo/source/project.json" demo_package.h
 )
 
-# The board the play executables draw. A different project from the conformance
-# executable's on purpose: the demo campaign is a teaching board, and Tarnholt
-# is the one with two sides, real terrain and a map with mountains on it, which
-# is what a renderer has to be shown to get right.
-grandleon_playstation_embed_package(
-    PLAYSTATION_BOARD_PACKAGE board_package
-    "games/tarnholt/source/project.json" board_package.h
+# Which campaign a played executable runs and what the card keeps it under,
+# derived from the project rather than named in this directory's C++.
+#
+# `cmake/GrandleonProjectIdentity.cmake` is the derivation, shared with the
+# other console so that a cartridge and a disc of one game cannot decide they
+# are holding different games. It also carries the refusal that matters when
+# the project is somebody else's: a campaign id is written into a string
+# literal here, so an id that is not a source identifier is code injection and
+# is refused before a line is generated.
+#
+# Two headers declaring the same two symbols, exactly as the two package
+# headers above carry the same shape under different names, and for the same
+# reason the art library's character headers do: an executable includes one, so
+# including two is a link error rather than a silent choice.
+include("${CMAKE_SOURCE_DIR}/cmake/GrandleonProjectIdentity.cmake")
+grandleon_write_project_identity(
+    "${CMAKE_SOURCE_DIR}/games/demo/source/project.json"
+    "the PlayStation demo campaign executable"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/demo_identity.h"
 )
 
-# The character style that project names, resolved by the same function the
-# other console uses, so that no console can answer this question
-# differently. It is the whole of the mechanism on this machine: the art library
-# emits one character header per style, every one of them declaring the same
-# symbols, and naming one here is what keeps the others out of the executable.
-# A hand-written `constexpr int character_style = 0` in the source would still
-# pay for all of them, because the cost is never the index: it is a pointer
-# table that names every style's texels.
-include("${CMAKE_SOURCE_DIR}/cmake/GrandleonCharacterStyle.cmake")
-grandleon_resolve_character_style(
-    "${CMAKE_SOURCE_DIR}/games/tarnholt/source/project.json"
-    "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/n64_ci4/manifest.json"
-    playstation_character_style
-)
-# The same refusal, from the same function: this executable includes one
-# character header, and the headers all declare the same symbols so two cannot
-# be included at once.
-grandleon_require_single_character_combination(
-    "${CMAKE_SOURCE_DIR}/games/tarnholt/source/project.json"
-    "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/n64_ci4/manifest.json"
-    "the PlayStation build"
-)
-set(playstation_character_header
-    "playstation_characters_${playstation_character_style}.h")
-if(NOT EXISTS
-    "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/${playstation_character_header}")
+# The project the play, turn and campaign executables carry.
+#
+# Which project, is a build input rather than a constant, exactly as it is on
+# the other console. It defaults to the project the repository ships, so every
+# checked executable is built from the bytes it always was; an authoring
+# surface asking for a disc of the author's own game points this at the
+# author's project instead. That is the whole mechanism. There is no second
+# content path for an authored game, because there was never a first one for
+# the shipped game.
+#
+# A different project from the conformance executable's on purpose: the demo
+# campaign is a teaching board, and Tarnholt is the one with two sides, real
+# terrain and a map with mountains on it, which is what a renderer has to be
+# shown to get right. Point this elsewhere and the conformance and demo
+# executables are untouched; they are the two that are about *this*
+# repository's content rather than about somebody's game.
+#
+# It is required rather than defaulted, in the same shape and for the same
+# reason the package above is: this directory is only ever configured by
+# `platform/playstation/scripts/build-playstation.sh`, which has to name the
+# project anyway because it is the thing that compiles it into the package.
+# A default here would be a second home for one answer, and the two would
+# eventually name different games.
+if(NOT DEFINED GRANDLEON_PLAYSTATION_PROJECT)
     message(FATAL_ERROR
-        "the art library holds character style '${playstation_character_style}' "
-        "but emitted no ${playstation_character_header}; regenerate the "
-        "placeholder art")
+        "GRANDLEON_PLAYSTATION_PROJECT is not set; "
+        "platform/playstation/scripts/build-playstation.sh names it")
 endif()
-message(STATUS
-    "PlayStation character style: ${playstation_character_style} "
-    "(${playstation_character_header})")
+if(NOT EXISTS "${GRANDLEON_PLAYSTATION_PROJECT}")
+    message(FATAL_ERROR
+        "GRANDLEON_PLAYSTATION_PROJECT does not exist: "
+        "${GRANDLEON_PLAYSTATION_PROJECT}")
+endif()
+message(STATUS "PlayStation source project: ${GRANDLEON_PLAYSTATION_PROJECT}")
+
+grandleon_playstation_embed_package(
+    PLAYSTATION_BOARD_PACKAGE board_package
+    "${GRANDLEON_PLAYSTATION_PROJECT}" board_package.h
+)
+grandleon_write_project_identity(
+    "${GRANDLEON_PLAYSTATION_PROJECT}"
+    "the PlayStation turn and campaign executables"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/board_identity.h"
+)
+
+# The character style a project names, resolved by the same function the other
+# console uses, so that no console can answer this question differently. It is
+# the whole of the mechanism on this machine: the art library emits one
+# character header per style, every one of them declaring the same symbols, and
+# naming one here is what keeps the others out of the executable. A
+# hand-written `constexpr int character_style = 0` in the source would still pay
+# for all of them, because the cost is never the index: it is a pointer table
+# that names every style's texels.
+#
+# It is resolved *per project* rather than once for the directory, because this
+# tree configures two of them: the project above and the demo campaign, which
+# has always been a second game here and is now a second game that need not
+# agree with the first about how a character is drawn. An executable still
+# carries exactly one style; what has stopped being true is that the directory
+# does.
+include("${CMAKE_SOURCE_DIR}/cmake/GrandleonCharacterStyle.cmake")
+function(grandleon_playstation_character_header project what header_var style_var)
+    set(manifest
+        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/n64_ci4/manifest.json")
+    grandleon_resolve_character_style("${project}" "${manifest}" style)
+    # The same refusal, from the same function: an executable includes one
+    # character header, and the headers all declare the same symbols so two
+    # cannot be included at once.
+    grandleon_require_single_character_combination(
+        "${project}" "${manifest}" "${what}")
+    set(header "playstation_characters_${style}.h")
+    if(NOT EXISTS
+        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/${header}")
+        message(FATAL_ERROR
+            "the art library holds character style '${style}' but emitted no "
+            "${header}; regenerate the placeholder art")
+    endif()
+    message(STATUS "${what} character style: ${style} (${header})")
+    set(${header_var} "${header}" PARENT_SCOPE)
+    set(${style_var} "${style}" PARENT_SCOPE)
+endfunction()
+
+grandleon_playstation_character_header(
+    "${GRANDLEON_PLAYSTATION_PROJECT}"
+    "the PlayStation turn and campaign executables"
+    playstation_character_header playstation_character_style
+)
+grandleon_playstation_character_header(
+    "${CMAKE_SOURCE_DIR}/games/demo/source/project.json"
+    "the PlayStation demo campaign executable"
+    playstation_demo_character_header playstation_demo_character_style
+)
 
 # The art library's headers, and the name of the one character header a target
 # may include. Written once so a second drawing executable cannot forget it.
 #
-# An optional second argument names a style other than the project's. Nothing
-# shipped passes it and nothing shipped may: a console build carries one project
-# and therefore one style. It exists for the measurement program alone, whose
-# subject is the *library* rather than a game. See the scratch target below.
-function(grandleon_playstation_art target)
-    set(header "${playstation_character_header}")
-    if(ARGC GREATER 1 AND NOT "${ARGV1}" STREQUAL "")
-        set(header "playstation_characters_${ARGV1}.h")
-    endif()
+# The header is an argument and has no default, because there is no longer a
+# single right answer to give: the executables of the project above draw that
+# project's style, the demo campaign draws the demo's, and the measurement
+# program draws whichever style is being measured. A default here would be the
+# board project's, which is the wrong answer for two of the three and silently
+# so.
+function(grandleon_playstation_art target header)
     target_include_directories(
         ${target} PRIVATE "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
     )
@@ -291,7 +359,7 @@ function(grandleon_playstation_play_executable target output encounter)
         ${target} ${output} src/play_exe.cpp src/psx_gpu.cpp
     )
     target_link_libraries(${target} PRIVATE grandleon::view)
-    grandleon_playstation_art(${target})
+    grandleon_playstation_art(${target} "${playstation_character_header}")
     target_compile_definitions(
         ${target} PRIVATE "GRANDLEON_PLAYSTATION_ENCOUNTER=\"${encounter}\""
     )
@@ -330,7 +398,10 @@ grandleon_playstation_play_executable(
 # the title, the slot screen, the company, the story pages, the aftermath and
 # the save. That one word also decides what this function links, because a
 # campaign is the only thing here that needs a memory card.
-function(grandleon_playstation_played_executable target output)
+# The character header is the first argument because it is the one thing here
+# that is not the same for every build of this file: the demo campaign draws
+# the demo project's style, and the rest draw the project's above.
+function(grandleon_playstation_played_executable target output header)
     set(campaign FALSE)
     if("GRANDLEON_TURN_CLIENT_CAMPAIGN" IN_LIST ARGN)
         set(campaign TRUE)
@@ -372,15 +443,17 @@ function(grandleon_playstation_played_executable target output)
         target_compile_definitions(${target} PRIVATE ${ARGN})
     endif()
     target_include_directories(${target} PRIVATE ${includes})
-    grandleon_playstation_art(${target})
+    grandleon_playstation_art(${target} "${header}")
 endfunction()
 
 # The turn executable: the Fordlight Crossing, played, and nothing around it.
 grandleon_playstation_played_executable(
     grandleon_playstation_turn grandleon_psx_turn
+    "${playstation_character_header}"
 )
 grandleon_playstation_played_executable(
     grandleon_playstation_turn_autopilot grandleon_psx_turn_autopilot
+    "${playstation_character_header}"
     GRANDLEON_PSX_AUTOPILOT
 )
 
@@ -389,10 +462,12 @@ grandleon_playstation_played_executable(
 # exactly the thing this repository refuses everywhere else.
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign grandleon_psx_campaign
+    "${playstation_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN
 )
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign_autopilot grandleon_psx_campaign_autopilot
+    "${playstation_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_AUTOPILOT
 )
 
@@ -405,35 +480,22 @@ grandleon_playstation_played_executable(
 # because a save path that works on one campaign and not the other is a save
 # path nobody has tested.
 #
-# It shares the character header, and that is checked rather than assumed: the
-# resolver below is the same function the board's style comes from, and it
-# refuses here if the two projects ever ask for different styles, because a
-# console build carries one style and this executable includes one header.
-grandleon_resolve_character_style(
-    "${CMAKE_SOURCE_DIR}/games/demo/source/project.json"
-    "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/n64_ci4/manifest.json"
-    playstation_demo_character_style
-)
-if(NOT playstation_demo_character_style STREQUAL playstation_character_style)
-    message(FATAL_ERROR
-        "the demo project is drawn in character style "
-        "'${playstation_demo_character_style}' and the board project in "
-        "'${playstation_character_style}'; a second style needs a second "
-        "character header, which this executable cannot include")
-endif()
-grandleon_require_single_character_combination(
-    "${CMAKE_SOURCE_DIR}/games/demo/source/project.json"
-    "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/n64_ci4/manifest.json"
-    "the PlayStation demo campaign build"
-)
-
+# It carries the demo project's own character header, resolved above by the
+# same function the project's is. The two used to be required to be the same
+# style, which was true while the other project was always Tarnholt and stopped
+# being true the moment it could be somebody else's: it would have made a
+# perfectly ordinary game refuse to build a disc because the repository's demo
+# is drawn in a different hand. What has to hold is that each executable
+# includes one header, and that is what the resolver refuses on, per project.
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign_demo grandleon_psx_campaign_demo
+    "${playstation_demo_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_DEMO_CAMPAIGN
 )
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign_demo_autopilot
     grandleon_psx_campaign_demo_autopilot
+    "${playstation_demo_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_DEMO_CAMPAIGN
     GRANDLEON_PSX_AUTOPILOT
 )
@@ -499,7 +561,8 @@ if(GRANDLEON_PLAYSTATION_SCRATCH3D)
         PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
     )
     grandleon_playstation_art(
-        grandleon_playstation_scratch3d "${scratch3d_style}")
+        grandleon_playstation_scratch3d
+        "playstation_characters_${scratch3d_style}.h")
     # The mesh half of the same style, which only this target draws. It is
     # defined here rather than in `grandleon_playstation_art` so that the three
     # shipped executables gain not one byte from meshes existing: nothing they

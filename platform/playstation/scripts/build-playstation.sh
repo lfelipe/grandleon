@@ -9,6 +9,18 @@
 #   platform/playstation/scripts/build-playstation.sh          build it
 #   platform/playstation/scripts/build-playstation.sh --rebuild-image
 #                                                              force the image
+#   platform/playstation/scripts/build-playstation.sh --project games/demo/source/project.json
+#                                                              build that game
+#   platform/playstation/scripts/build-playstation.sh --targets grandleon_playstation_campaign
+#                                                              build fewer than all of them
+#
+# `--project` is what makes this script serve an authoring surface as well as
+# the gate: the executable's content is a build input, so a disc of an author's
+# own game is this same build with one path changed rather than a second
+# pipeline. It pairs with `--targets`, because a request wants one executable
+# and waiting for ten would be most of the wait — and because the autopilot
+# builds carry scripts recorded against the shipped boards, so they are the
+# gate's and not an author's.
 #
 # The base image is upstream PCSX-Redux's own build image, which carries the
 # Debian mipsel cross compiler and a hosted libstdc++ for that ABI. It is
@@ -18,8 +30,8 @@
 #
 # Two builds happen in here, in this order and in the same container:
 #
-#   1. a *host* build of grandleon_content_compile, used once to compile
-#      games/demo/source/project.json into a package;
+#   1. a *host* build of grandleon_content_compile, used to compile the demo
+#      project and the project of `--project` into packages;
 #   2. the cross build, which embeds those package bytes.
 #
 # The host step exists because this target cannot run the content path itself.
@@ -44,9 +56,15 @@ scratch3d="${GRANDLEON_PLAYSTATION_SCRATCH3D:-OFF}"
 # Which character style the scratch draws. Empty is the board project's own, and
 # that is the only value any shipped executable ever sees: this names a style for
 # the measurement program alone, so that measuring the other six costs nobody an
-# edit to games/tarnholt/source/project.json and a revert afterwards. Passed to
-# cmake either way, for the same cache reason the option above is.
+# edit to the project below and a revert afterwards. Passed to cmake either way,
+# for the same cache reason the option above is.
 scratch3d_style="${GRANDLEON_PLAYSTATION_SCRATCH3D_STYLE:-}"
+# The project the play, turn and campaign executables carry, and the one this
+# script compiles into their package. The default lives here and nowhere else:
+# platform/playstation/CMakeLists.txt refuses without it rather than keeping a
+# second copy that could name a different game.
+project="${GRANDLEON_PLAYSTATION_PROJECT:-${repository_root}/games/tarnholt/source/project.json}"
+targets="${GRANDLEON_PLAYSTATION_TARGETS:-}"
 
 for name in base_digest nugget_revision; do
     if [ -z "${!name}" ]; then
@@ -57,12 +75,56 @@ done
 image="grandleon/playstation-toolchain:${base_digest#sha256:}"
 
 rebuild_image=0
-if [ "${1:-}" = "--rebuild-image" ]; then
-    rebuild_image=1
-elif [ "$#" -gt 0 ]; then
-    echo "usage: $(basename "$0") [--rebuild-image]" >&2
+usage() {
+    echo "usage: $(basename "$0") [--rebuild-image] [--project PATH]" \
+         "[--targets t1,t2,...]" >&2
     exit 2
+}
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --rebuild-image) rebuild_image=1; shift ;;
+        --project) [ "$#" -ge 2 ] || usage; project="$2"; shift 2 ;;
+        --targets) [ "$#" -ge 2 ] || usage; targets="$2"; shift 2 ;;
+        *) usage ;;
+    esac
+done
+
+# Every executable this repository checks, which is what an unqualified run
+# builds. The engine libraries come first because the cross build needs them,
+# and naming them is how a partial run still gets them. The last three carry a
+# controller script; the played builds above them wait on the pad, which under
+# a headless emulator means for ever. See platform/playstation/README.md.
+default_targets="grandleon_core,grandleon_simulation,grandleon_tactics,\
+grandleon_package_format,grandleon_package_runtime,\
+grandleon_playstation_conformance,grandleon_playstation_card,\
+grandleon_playstation_play,grandleon_playstation_play_raised,\
+grandleon_playstation_turn,grandleon_playstation_campaign,\
+grandleon_playstation_campaign_demo,grandleon_playstation_turn_autopilot,\
+grandleon_playstation_campaign_autopilot,\
+grandleon_playstation_campaign_demo_autopilot"
+[ -n "${targets}" ] || targets="${default_targets}"
+if [ "${scratch3d}" = "ON" ]; then
+    targets="${targets},grandleon_playstation_scratch3d"
 fi
+
+# The container sees the repository at /src and nothing else, so a project it
+# is asked to build has to be inside the repository. Said here, with the path,
+# rather than discovered as a file-not-found inside the container.
+if [ ! -f "${project}" ]; then
+    echo "error: --project is not a file: ${project}" >&2
+    exit 1
+fi
+project="$(cd "$(dirname "${project}")" && pwd)/$(basename "${project}")"
+case "${project}" in
+    "${repository_root}"/*) ;;
+    *)
+        echo "error: --project must be inside the repository." >&2
+        echo "  repository: ${repository_root}" >&2
+        echo "  project:    ${project}" >&2
+        exit 1
+        ;;
+esac
+container_project="/src/${project#"${repository_root}"/}"
 
 if ! command -v "${docker}" >/dev/null 2>&1; then
     echo "error: '${docker}' is not on PATH." >&2
@@ -140,6 +202,8 @@ flock 9
     --user "$(id -u):$(id -g)" \
     --env HOME=/tmp \
     --env "GRANDLEON_CONTAINER_BUILD_DIR=${container_build_dir}" \
+    --env "GRANDLEON_CONTAINER_PROJECT=${container_project}" \
+    --env "GRANDLEON_CONTAINER_TARGETS=${targets//,/ }" \
     --env "GRANDLEON_SCRATCH3D=${scratch3d}" \
     --env "GRANDLEON_SCRATCH3D_STYLE=${scratch3d_style}" \
     --volume "${repository_root}:/src" \
@@ -148,7 +212,7 @@ flock 9
     /bin/bash -euo pipefail -c '
         # 1. The host content compiler, and the two packages it produces: the
         #    demo campaign the conformance executable replays to a golden hash,
-        #    and the Tarnholt project the play executables draw.
+        #    and the project the play, turn and campaign executables draw.
         cmake -S /src -B "${GRANDLEON_CONTAINER_BUILD_DIR}/host" \
             -DCMAKE_BUILD_TYPE=Release \
             -DGRANDLEON_BUILD_TESTS=OFF
@@ -158,8 +222,8 @@ flock 9
             /src/games/demo/source/project.json \
             "${GRANDLEON_CONTAINER_BUILD_DIR}/demo.gpk"
         "${GRANDLEON_CONTAINER_BUILD_DIR}/host/grandleon_content_compile" \
-            /src/games/tarnholt/source/project.json \
-            "${GRANDLEON_CONTAINER_BUILD_DIR}/tarnholt.gpk"
+            "${GRANDLEON_CONTAINER_PROJECT}" \
+            "${GRANDLEON_CONTAINER_BUILD_DIR}/board.gpk"
 
         # 2. The cross build.
         cmake -S /src -B "${GRANDLEON_CONTAINER_BUILD_DIR}/target" \
@@ -170,54 +234,36 @@ flock 9
             -DGRANDLEON_WERROR=ON \
             -DGRANDLEON_PLAYSTATION_SCRATCH3D="${GRANDLEON_SCRATCH3D}" \
             -DGRANDLEON_PLAYSTATION_SCRATCH3D_STYLE="${GRANDLEON_SCRATCH3D_STYLE}" \
+            -DGRANDLEON_PLAYSTATION_PROJECT="${GRANDLEON_CONTAINER_PROJECT}" \
             -DPLAYSTATION_DEMO_PACKAGE="${GRANDLEON_CONTAINER_BUILD_DIR}/demo.gpk" \
-            -DPLAYSTATION_BOARD_PACKAGE="${GRANDLEON_CONTAINER_BUILD_DIR}/tarnholt.gpk"
-        targets="grandleon_core grandleon_simulation grandleon_tactics"
-        targets="${targets} grandleon_package_format grandleon_package_runtime"
-        targets="${targets} grandleon_playstation_conformance"
-        targets="${targets} grandleon_playstation_card"
-        targets="${targets} grandleon_playstation_play"
-        targets="${targets} grandleon_playstation_play_raised"
-        targets="${targets} grandleon_playstation_turn"
-        targets="${targets} grandleon_playstation_campaign"
-        targets="${targets} grandleon_playstation_campaign_demo"
-        # The three played builds above wait on the pad. These three carry the
-        # script and are what the checks run; see platform/playstation/README.md.
-        targets="${targets} grandleon_playstation_turn_autopilot"
-        targets="${targets} grandleon_playstation_campaign_autopilot"
-        targets="${targets} grandleon_playstation_campaign_demo_autopilot"
-        reported="grandleon_psx grandleon_psx_card grandleon_psx_play"
-        reported="${reported} grandleon_psx_play_raised grandleon_psx_turn"
-        reported="${reported} grandleon_psx_campaign"
-        reported="${reported} grandleon_psx_campaign_demo"
-        reported="${reported} grandleon_psx_turn_autopilot"
-        reported="${reported} grandleon_psx_campaign_autopilot"
-        reported="${reported} grandleon_psx_campaign_demo_autopilot"
-        if [ "${GRANDLEON_SCRATCH3D}" = "ON" ]; then
-            targets="${targets} grandleon_playstation_scratch3d"
-            reported="${reported} grandleon_psx_scratch3d"
-        fi
+            -DPLAYSTATION_BOARD_PACKAGE="${GRANDLEON_CONTAINER_BUILD_DIR}/board.gpk"
         # shellcheck disable=SC2086
         cmake --build "${GRANDLEON_CONTAINER_BUILD_DIR}/target" --parallel \
-            --target ${targets}
-        for elf in ${reported}; do
+            --target ${GRANDLEON_CONTAINER_TARGETS}
+        for target in ${GRANDLEON_CONTAINER_TARGETS}; do
+            case "${target}" in
+                grandleon_playstation_conformance) elf="grandleon_psx" ;;
+                grandleon_playstation_*)
+                    elf="grandleon_psx_${target#grandleon_playstation_}" ;;
+                *) continue ;;
+            esac
             mipsel-linux-gnu-size \
                 "${GRANDLEON_CONTAINER_BUILD_DIR}/target/platform/playstation/${elf}.elf"
         done
     '
 
-expected_executables="grandleon_psx grandleon_psx_card grandleon_psx_play"
-expected_executables="${expected_executables} grandleon_psx_play_raised"
-expected_executables="${expected_executables} grandleon_psx_turn"
-expected_executables="${expected_executables} grandleon_psx_campaign"
-expected_executables="${expected_executables} grandleon_psx_campaign_demo"
-expected_executables="${expected_executables} grandleon_psx_turn_autopilot"
-expected_executables="${expected_executables} grandleon_psx_campaign_autopilot"
-expected_executables="${expected_executables} grandleon_psx_campaign_demo_autopilot"
-if [ "${scratch3d}" = "ON" ]; then
-    expected_executables="${expected_executables} grandleon_psx_scratch3d"
-fi
-for name in ${expected_executables}; do
+# Report every executable the requested targets should have produced. Derived
+# from the target list rather than written out again, so a run asked for one
+# executable is not failed for the nine it was not asked for. The two names
+# differ by one prefix and the conformance executable is the one exception,
+# which is why this is a case and not a substitution.
+for target in ${targets//,/ }; do
+    case "${target}" in
+        grandleon_playstation_conformance) name="grandleon_psx" ;;
+        grandleon_playstation_*)
+            name="grandleon_psx_${target#grandleon_playstation_}" ;;
+        *) continue ;;
+    esac
     executable="${build_dir}/target/platform/playstation/${name}.ps-exe"
     if [ ! -f "${executable}" ]; then
         echo "error: expected ${executable} to exist after the build." >&2
