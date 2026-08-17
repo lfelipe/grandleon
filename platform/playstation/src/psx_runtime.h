@@ -68,8 +68,8 @@ void print(const char* message);
 void signal_host(int slot);
 
 // What the heap has been asked for, and what it gave back. The peak is the
-// figure §10 of the evaluation asks for: the console-side counterpart to the
-// ~159 KiB the host-side instrumented allocator measured for the content path.
+// console-side counterpart to the ~159 KiB the host-side instrumented allocator
+// measured for the content path.
 struct HeapCensus {
     std::uint32_t free_bytes;
     std::uint32_t allocated_bytes;

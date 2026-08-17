@@ -357,7 +357,7 @@ class Gunner(Archetype):
 class Surgeon(Archetype):
     """Support, and the widest hem in the roster: a heavy canvas apron.
 
-    §13.3 named the apron as this role's answer to the coat problem before the
+    The apron was named as this role's answer to the coat problem before the
     style was drawn, and the pass agreed with it. The apron is the only garment
     here that reaches the deck at full width, it is the only pale mass, and it
     is what a healer with no offensive weapon has instead of one.
@@ -457,7 +457,7 @@ class Captain(Archetype):
 class Cutpurse(Archetype):
     """Fast, acts after striking: the crouch, and a purse still on its string.
 
-    §13.3 named the crouch as this role's answer, and it is the same answer the
+    The crouch was named as this role's answer, and it is the same answer the
     rogue has in every style, kept because it is the only one that puts a head
     below everybody else's shoulder line. What is this style's is the pair of
     scarf tails streaming off the back, a direction that a crouch on its own

@@ -69,8 +69,8 @@ void begin() noexcept;
 [[nodiscard]] std::uint16_t pressed() noexcept;
 
 // ---------------------------------------------------------------------------
-// What the polling cost, so the number in §5.1 is re-measured rather than
-// quoted. All of these are over the run so far.
+// What the polling cost, measured here rather than quoted from anywhere. All
+// of these are over the run so far.
 // ---------------------------------------------------------------------------
 
 // How many polls have been made, and what they cost in microseconds.
@@ -87,8 +87,8 @@ void begin() noexcept;
 [[nodiscard]] std::uint8_t identifier() noexcept;
 
 // How many acknowledgement waits were made and how many of them saw the level.
-// §5.1 measured 0 of 4 per poll under PCSX-Redux; a machine that differs says
-// so here.
+// Under PCSX-Redux this came out at 0 of 4 per poll; a machine that differs
+// says so here.
 [[nodiscard]] std::uint32_t acknowledgement_waits() noexcept;
 [[nodiscard]] std::uint32_t acknowledgements() noexcept;
 

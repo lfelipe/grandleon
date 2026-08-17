@@ -36,8 +36,8 @@ rather than as a character.
 No new palette entries
 ----------------------
 None, for the reason *Adding a style* in ``tools/placeholder_art/README.md``
-gives. §13.3 priced the look at five materials, lacquer, cloth, steel, skin and
-straw, and two of them turn out cheaper than that:
+gives. The look was priced at five materials — lacquer, cloth, steel, skin and
+straw — and two of them turn out cheaper than that:
 
 ``ink``
     **Lacquer.** Black lacquer over iron is what this armour is, and every

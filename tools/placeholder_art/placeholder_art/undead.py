@@ -63,7 +63,7 @@ brought:
     discipline: marks at the ends of things and never a body, because under the
     autumn theme it is the canopy and a unit that reads as ground is not a unit.
 ``WISP``
-    two steps of ``ash_water``, the cold green §13.3 names. Eyes and small
+    two steps of ``ash_water``, the cold green. Eyes and small
     flames, so it stays a mark and never a mass.
 
 ``BONE`` is extended **downward** rather than upward, which is new here and worth

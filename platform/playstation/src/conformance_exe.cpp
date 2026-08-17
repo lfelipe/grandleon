@@ -15,16 +15,17 @@
 //   5. does pcsx_exit() set the emulator's process exit code;
 //   6. what does it cost in code, in heap, and in cycles.
 //
-// It answers one question §10 did not ask, because the answer turned out to
+// It answers one question the evaluation did not ask, because the answer
+// turned out to
 // change what a port would look like: whether this machine can run the
 // *on-console content path*: parsing and compiling the checked-in source
-// project the way the Nintendo 64 play ROM does. §5.5 of the evaluation
-// predicted it could, on a RAM budget. The budget was never the binding
+// project the way the Nintendo 64 play ROM does. The evaluation predicted it
+// could, on a RAM budget. The budget was never the binding
 // constraint. See platform/playstation/README.md; the short version is that
 // the content path's JSON parser throws, and the pinned toolchain's
 // exception-handling archives cannot be linked into a freestanding R3000A
-// executable at all. So this executable takes the escape hatch §1.4 of the
-// evaluation describes instead: the demo campaign is compiled on the host and
+// executable at all. So this executable takes the escape hatch the evaluation
+// describes instead: the demo campaign is compiled on the host and
 // shipped as a package, and the executable replays it from those bytes to the
 // golden hash games/demo/src/play_demo.cpp pins.
 //
@@ -74,9 +75,9 @@ bool emulator_present() {
 }  // namespace
 
 // Nugget's assembly thunk to the kernel's own printf (A0 table entry 0x3f).
-// It exists here for exactly one check: §10 asked whether printf reaches
-// stdout headlessly under OpenBIOS, and the honest way to answer that is to
-// call it rather than to reason about it. Everything else this executable
+// It exists here for exactly one check: whether printf reaches stdout
+// headlessly under OpenBIOS, and the honest way to answer that is to call it
+// rather than to reason about it. Everything else this executable
 // prints goes through the putchar path in psx_runtime.cpp, so a defect in the
 // kernel's varargs formatter cannot corrupt the report.
 extern "C" int ramsyscall_printf(const char* format, ...);
@@ -389,7 +390,7 @@ void rejects_commands_atomically() {
 }
 
 // The board searches in engine/simulation and engine/tactics are the only
-// places the engine allocates per command, and §5.6 of the evaluation named
+// places the engine allocates per command, and the evaluation named
 // node-based containers on a machine with no data cache as this target's one
 // real risk. Running them is what turns that from a worry into a number. The
 // movement field's bucket queue, a vector of vectors, is the newest thing on
@@ -482,7 +483,7 @@ void round_trips_a_package() {
 
 // Real content, end to end, from a package rather than from source.
 //
-// This is the escape hatch §1.4 of the evaluation describes: compile on the
+// This is the escape hatch the evaluation describes: compile on the
 // host, ship the package. On this target it is not an optimisation but the
 // only route available, because the content path cannot be linked here at
 // all. The bytes below are `games/demo/source/project.json` as
@@ -576,8 +577,8 @@ void replays_the_demo_package() {
         .flush();
 }
 
-// §10 asked whether printf reaches stdout headlessly under the MIT OpenBIOS.
-// It is a separate question from whether putchar does, because the kernel's
+// Whether printf reaches stdout headlessly under the MIT OpenBIOS is a
+// separate question from whether putchar does, because the kernel's
 // printf is a reimplemented varargs formatter rather than a byte channel, and
 // OpenBIOS is a reimplementation of a reimplementation.
 void reaches_the_teletype_through_printf() {
@@ -589,7 +590,7 @@ void reaches_the_teletype_through_printf() {
     );
 }
 
-// Cost, measured rather than modelled. §5.4 of the evaluation estimated 25 to
+// Cost, measured rather than modelled. The evaluation estimated 25 to
 // 30 cycles per FNV step on this CPU against 13 measured on the VR4300; this
 // is the measurement that replaces the estimate.
 //

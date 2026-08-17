@@ -133,7 +133,7 @@ STYLE = "sengoku"
 #   top face is lit at 255 streaking the entire figure. It is the sprite's own
 #   read, and it costs the figure its whole authored width: 65 world units
 #   against the 64 this sprite's silhouette asks, which is the knight's own
-#   +1 in §5.5 arrived at again. The sprite fills its cell edge to edge, 32
+#   +1 arrived at again. The sprite fills its cell edge to edge, 32
 #   texels of 32, and nothing but the haft is why.
 # * The **sode are two hard squares at the shoulders**, wider than the torso,
 #   each capped by a faction plate along its top edge. Every other style's
@@ -426,7 +426,7 @@ TEMPLE_MONK: Tuple[Part, ...] = (
 # is the sprite's own arrangement: a squared-off flag standing over a helmet.
 #
 # The price is the measured one and it is paid by the whole figure. y and z
-# ride the same scale in §5.5's match, so sixteen units of depth on one part is
+# ride the same scale in the height match, so sixteen units of depth on one part is
 # sixteen units the height fit then shrinks away from every other. The rest of
 # this model is therefore held inside twenty-two units of z, tachi to maedate,
 # and the banner and its staff are the only things that spend any of the budget.

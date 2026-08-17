@@ -71,14 +71,14 @@ KNIGHT: Tuple[Part, ...] = (
 # ---------------------------------------------------------------------------
 # The archer
 #
-# The second archetype, built for §5.4's fit, and chosen because its silhouette
+# The second archetype, and chosen because its silhouette
 # is the knight's opposite: where a knight is a rectangle with a head, an archer
 # is a figure holding a tall thin arc. The bow is what the silhouette rule says
 # has to survive, so it is the tallest thing in the model: two thin limbs and a
 # grip, offset toward the viewer the way the knight's sword is. The quiver sits
 # behind the shoulder for the same reason.
 #
-# §5.5's measurement of it is worth keeping beside the table, because it is a
+# The measurement of it is worth keeping beside the table, because it is a
 # shape difference and not a defect: the archer *sprite* paints its bow as a
 # filled arc where the model's bow is honestly two thin limbs, so the model's
 # drawn mass runs lighter than the sprite's at the middle and far rows inside a

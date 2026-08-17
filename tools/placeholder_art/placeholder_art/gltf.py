@@ -67,7 +67,7 @@ the cheaper of the two prices.
 
 Flat shading, by construction rather than by request
 ----------------------------------------------------
-The renderer flat-shades and §5.3 measured that choice against a stretched
+The renderer flat-shades, and that choice was measured against a stretched
 texture. glTF has no "shade this flat" flag in core. Smoothness is a property
 of whether faces *share* vertices and of what normals those vertices carry, so
 the export makes smoothing impossible instead of asking for it to be off: each

@@ -34,7 +34,7 @@ constexpr std::uint32_t stat_ack = 1u << 7;
 // pad that is answering and cheap for one that is not.
 constexpr int transfer_spins = 2000;
 
-// The budget §5.1 measured. psx_pad.h says why it is this and not the other.
+// The measured budget. psx_pad.h says why it is this and not the other.
 constexpr int ack_spins = 128;
 
 // The device identifier a digital pad answers with. A dual-shock in digital

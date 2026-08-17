@@ -165,9 +165,9 @@ RAMP_NEUTRAL = 0
 RAMP_FACTION = 1
 RAMP_COUNT = 2
 
-#: Rungs on a ramp, sampled by luminance. Four is what §5.3 measured the
-#: thinnest faction ramp in the whole roster (mage, stormcaller, healer,
-#: commander and beast, at three entries) can still be sampled at.
+#: Rungs on a ramp, sampled by luminance. Four is the most the thinnest faction
+#: ramp in the whole roster (mage, stormcaller, healer, commander and beast, at
+#: three entries) can still be sampled at.
 RUNG_COUNT = 4
 
 #: Corners and quad faces of one box. A box is the only primitive here.
@@ -176,10 +176,13 @@ FACES_PER_PART = 6
 TRIANGLES_PER_PART = FACES_PER_PART * 2
 
 #: The triangle count a figure must land inside, measured rather than chosen:
-#: §5.3's knight is 240 and §5.4's archer 204, sixteen of either is inside
-#: §5.2's 2,400–4,800 band and nowhere near §1.3's 9,400-triangle break. The
-#: floor is as real as the ceiling: a figure below it is not a figure, it is a
-#: box with a head.
+#: the knight came out at 240 triangles and the archer at 204. Sixteen figures
+#: anywhere in this band is 2,400 to 4,800 triangles, against the 9,400 a
+#: thirty-frames-a-second budget allows on the PlayStation.
+#: ``platform/playstation/scratch/scratch3d_exe.cpp`` measures that budget and
+#: prints what a board of sixteen actually submits against it. The floor is as
+#: real as the ceiling: a figure below it is not a figure, it is a box with a
+#: head.
 TRIANGLE_BAND = (150, 300)
 
 #: Values a part contributes to the generated flat array, in this order.
@@ -275,8 +278,9 @@ def _corner_terms(part: Part) -> Tuple[int, ...]:
 
     A corner at world ``(x, y, z)`` is projected to depth
     ``(TRZ*4096 - sin*y + cos*z) >> 12``. The ``x`` is absent because the camera
-    has no yaw (§3.1 forbids it), so a box's eight corners take only four
-    distinct values, each twice.
+    has no yaw — the projection has none by decision, rather than the camera
+    happening to sit square — so a box's eight corners take only four distinct
+    values, each twice.
     """
     return tuple(
         term
@@ -327,8 +331,8 @@ def machine_order_margin(before: Part, after: Part) -> int:
     The units are units of the eight-corner sum, which is four times a
     :func:`depth_key` difference: eight corners, each carrying a quarter of the
     box's doubled centre. So the eight units a truncation is worth are two units
-    of :func:`depth_key`, which is where §5.16's "a margin under two units is
-    not a margin" came from, measured here rather than remembered.
+    of :func:`depth_key`, which is where "a margin under two units is not a
+    margin" came from, measured here rather than remembered.
 
     The worst of :data:`STANDING_PHASES` is returned, because a figure is
     authored once and stands wherever the board puts it.
@@ -422,8 +426,8 @@ def target_width(silhouette: Silhouette) -> int:
     The billboard is the 32x32 cell stretched to a ``side x side`` square, so
     the sprite's opaque box is drawn ``side*sw/32`` wide; a figure built
     ``unit_world`` tall is therefore asked for ``unit_world*sw/32`` of authored
-    width. It is a *target*, not a constraint the emitter enforces: §5.5
-    measured the knight authored at 45 where the rule asks 44 and the archer at
+    width. It is a *target*, not a constraint the emitter enforces: the knight
+    was authored at 45 where the rule asks 44, and the archer at
     38 against 42, found the defect was never the boxes' proportions, and
     reproportioned neither.
     """
@@ -442,7 +446,7 @@ def authored_width(parts: Sequence[Part]) -> int:
 #: How far an authored width may sit from what the silhouette rule asks before
 #: it stops being a proportion and starts being a mistake. Measured rather than
 #: picked: the two shipped models sit +1 and -4 world units off their targets,
-#: and §5.5 established by drawing them that the fit closes that gap without
+#: and drawing them established that the fit closes that gap without
 #: reproportioning anything. A model twice as far out is one whose scales would
 #: be doing the work its boxes should have done.
 WIDTH_TOLERANCE = 8

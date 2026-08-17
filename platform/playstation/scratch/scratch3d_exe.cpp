@@ -10,6 +10,15 @@
 // built by an opt-in target only and is part of no gate. Nothing depends on a
 // number it prints; run it when a 3D board is being considered again.
 //
+// **The `§n` references below are to a companion analysis that is not in this
+// repository, and nothing here needs it.** They are kept because they are
+// structure rather than citation: the scenes are laid out in that document's
+// order, and each one hashes what its section recorded, so the numbering says
+// which scene is which and in what order they were argued. A reader who cannot
+// open it loses the argument and keeps everything this program is for, because
+// every figure it rests on is printed by the run itself rather than quoted from
+// anywhere. That is the whole reason it exists.
+//
 // It is looser than the code around it in exactly two places, both named here
 // rather than left to be discovered:
 //
