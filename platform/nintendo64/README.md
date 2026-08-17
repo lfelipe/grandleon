@@ -370,6 +370,20 @@ libdragon dependency, so the host suite pins its edge behaviour
 (`grandleon.n64_camera`); no current map is large enough to scroll, so the
 on-console path is untested until content needs it.
 
+**A board that scrolls is shown across before it is played on.** It opens at
+the column showing its right edge and travels to the left, so how much board
+there is arrives as a picture rather than as a surprise when the cursor walks
+off the screen. Where play begins is the left edge on this machine, since the
+cursor opens at a corner and the camera has not been asked to follow it yet; a
+board whose play began further in would reach the left edge first and come
+back, which is what `view::sweep_at` decides for both consoles. Three frames a
+column, capped at ninety, and the ground only — no cursor, no highlights, no
+panel. It happens on the first drawn frame of a board and no later one, so a
+Stage reopened by the picker is shown again and a board redrawn mid-turn is
+not. It is not interruptible: a press read inside it and then not acted on
+would desync every recorded pad script. The probe build skips it with the rest
+of the animation, and since no shipped board scrolls, no check draws one.
+
 One lesson recorded so it is not relearned: libdragon routes **stderr** to
 the debug channels and stdout to the video console. A ROM that prints with
 `printf` and never calls `console_init` reports nothing anywhere. Newlib's

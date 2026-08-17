@@ -695,6 +695,30 @@ public:
     // Every one of them must return with the board settled: a checkpoint
     // always follows a `paint`, and a `paint` always follows these.
 
+    // One frame of the reveal a board too wide for its screen opens with: the
+    // camera has already been moved, and this draws the board where it now
+    // stands and waits for the display. A board that fits its screen has
+    // nothing to reveal and this is never called.
+    //
+    // The odd one out among the four, in that this client counts the frames and
+    // the three gestures below let the platform count its own. The reason is
+    // ownership rather than taste: those move a token, which is the platform's
+    // own pixel state, and this moves `camera_`, which is this client's and is
+    // reachable from a platform only through the const `camera()`. Handing out a
+    // mutable camera to save a virtual call per frame would give every platform
+    // the ability to scroll the board at any other moment too.
+    //
+    // Handed the snapshot and the overlay because this fires *before* the first
+    // `paint` of a board rather than after an event, so a platform that draws
+    // from the last painted overlay has not been given one yet. The reveal has
+    // to come before the settled board, not a frame after it.
+    virtual void sweep_frame(
+        const sim::EncounterSnapshot& snapshot, const Overlay& overlay
+    ) {
+        static_cast<void>(snapshot);
+        static_cast<void>(overlay);
+    }
+
     // Walks a token from where it stood to where it landed, along `route`:
     // `length` tiles, each a tile the engine's own reachability query returned.
     // An empty route means the route could not be planned inside that query's
@@ -1351,6 +1375,13 @@ private:
     bool last_sheet_open_{false};
     Aim last_aim_{Aim::none};
     bool opened_{false};
+
+    // The opening sweep this board asked for, planned when the board opened and
+    // spent on the frame it first becomes visible. Zero frames is a board with
+    // nothing to reveal, which is every board that fits its screen.
+    int sweep_from_{0};
+    int sweep_to_{0};
+    int sweep_frames_{0};
 
     // The last snapshot the client settled on. A refusal arrives without one:
     // the engine rejected the command, so there is no new state. The client

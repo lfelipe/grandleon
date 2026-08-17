@@ -108,6 +108,26 @@ int main() {
                "one row more scrolls");
     }
     {
+        // Where an opening sweep starts. It is the same number `clamp` stops
+        // at, asked for by name so both consoles reveal a board from the same
+        // column instead of each working the edge out.
+        Camera fits{0, 0, 21, 14, 21, 14};
+        expect(fits.rightmost_x() == 0,
+               "a board that fits has nowhere to sweep from");
+        Camera wide{0, 0, 21, 14, 40, 14};
+        expect(wide.rightmost_x() == 19,
+               "a forty-column board is revealed from column nineteen");
+        wide.x = wide.rightmost_x();
+        wide.clamp();
+        expect(wide.x == 19, "which is a column the camera is allowed to sit at");
+        wide.x = wide.rightmost_x() + 1;
+        wide.clamp();
+        expect(wide.x == 19, "and the first one past it clamps back to it");
+        Camera tall{0, 0, 21, 14, 21, 40};
+        expect(tall.rightmost_x() == 0,
+               "a board that scrolls only downward is not swept sideways");
+    }
+    {
         // A scrolling board takes the scrolling cell and the window it buys:
         // 300/18 is 16 across, 200/18 is 11 down.
         const BoardFit fit = fit_board(cartridge, 30, 20);

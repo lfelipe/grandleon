@@ -964,6 +964,21 @@ public:
     // cost in microseconds beside the frames it took, so a gesture that overran
     // a frame would say so rather than be assumed not to.
 
+    // One frame of the reveal a wide board opens with. The client has moved the
+    // camera and counts the frames; this draws where it now stands.
+    //
+    // `layout` is called here and not once before the sweep because it reads the
+    // camera to work out where a cell lands on the screen, and the camera is the
+    // thing that is moving. It draws from the snapshot and overlay it is handed
+    // rather than from the last painted ones, which this board has not got yet.
+    void sweep_frame(
+        const sim::EncounterSnapshot& snapshot, const turn::Overlay& overlay
+    ) override {
+        layout(snapshot);
+        psx::wait_vblank();
+        draw(snapshot, overlay, false);
+    }
+
     void animate_move(
         const sim::EncounterSnapshot& before,
         sim::UnitId unit,

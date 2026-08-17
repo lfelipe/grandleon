@@ -73,6 +73,14 @@ struct Camera final {
         return cell_x >= x && cell_x < x + view_w &&
                cell_y >= y && cell_y < y + view_h;
     }
+
+    // The leftmost column the viewport can sit at and still show the board's
+    // right edge; zero when the board is no wider than the window, which is the
+    // same answer `clamp` reaches and is why an opening sweep on a board that
+    // fits has nowhere to travel from.
+    [[nodiscard]] int rightmost_x() const {
+        return map_w > view_w ? map_w - view_w : 0;
+    }
 };
 
 // ---------------------------------------------------------------------------

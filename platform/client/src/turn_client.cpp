@@ -560,6 +560,23 @@ void TurnClient::battle_begins(
     }
     camera_.follow(cursor_x_, cursor_y_, 1);
 
+    // A board too wide for the window is shown across before it is played on.
+    // The plan is made here rather than on the console so that both builds of
+    // this file agree about it, on the same terms as a route: the sweep starts
+    // at the column that shows the board's right edge and ends where play
+    // begins, which is the column the camera has just settled at.
+    //
+    // Ending there rather than at the left edge is what keeps the gesture from
+    // being followed by a cut. On a board whose player opens at the left it is
+    // the left edge, which is the reveal as asked for; on one whose player opens
+    // inland it stops where the board was about to be drawn anyway.
+    //
+    // Recorded rather than performed here, because a board is not drawn until
+    // the first `paint` and a reveal after the settled board is not a reveal.
+    sweep_from_ = camera_.rightmost_x();
+    sweep_to_ = camera_.x;
+    sweep_frames_ = view::sweep_frames_total(sweep_from_, sweep_to_);
+
     expect(
         terrain_.size() ==
             static_cast<std::size_t>(snapshot.width) * snapshot.height,
@@ -629,6 +646,29 @@ void TurnClient::draw(
     }
     refresh_queries(snapshot);
     build_overlay(snapshot);
+
+    // The reveal, once, immediately before the board is first drawn. `opened_`
+    // is the same flag that names this frame `Reason::open` below, so the sweep
+    // happens exactly on the frame a board becomes visible and on no later one.
+    // Cleared as it is taken, so a board reopened by a jump is swept again and a
+    // board redrawn mid-turn is not.
+    if (!opened_ && sweep_frames_ > 0) {
+        // Counted from zero, and the arrival is not drawn here: the `paint`
+        // below is that frame. Where the camera stands on each of them is
+        // `view::sweep_at`, so this loop and the Nintendo 64's own presenter run
+        // one rule rather than two that agree today.
+        for (int frame = 0; frame < sweep_frames_; ++frame) {
+            camera_.x = view::sweep_at(sweep_from_, sweep_to_, frame);
+            camera_.clamp();
+            sweep_frame(snapshot, overlay_);
+        }
+        // Said again rather than trusted to the last frame's arithmetic: the
+        // board has to be settled before it is painted, and `slide_between`
+        // landing exactly on `to` is a property this does not need to lean on.
+        camera_.x = sweep_to_;
+        camera_.clamp();
+        sweep_frames_ = 0;
+    }
     paint(snapshot, overlay_);
 
     // Whose command produced this frame, told by whose turn it was when the

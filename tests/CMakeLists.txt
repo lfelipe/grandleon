@@ -535,6 +535,37 @@ add_test(
     COMMAND grandleon_client_board_predicate_tests
 )
 
+# The reveal a board too wide for its screen opens with.
+#
+# The same composer again, on a screen deliberately narrower than the fixture
+# board: every board this repository ships or fixtures fits every console screen,
+# so a narrow viewport is the only way to reach the one condition the sweep exists
+# for. It records the column the camera stood at for every frame it was asked to
+# draw, which is what a renderer would have drawn.
+add_executable(grandleon_client_opening_sweep_tests
+    client/opening_sweep_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(
+    grandleon_client_opening_sweep_tests
+    PRIVATE
+        grandleon::client
+        grandleon::game_content
+        grandleon::package_format
+        grandleon::package_runtime
+        grandleon::sheet
+        grandleon::view
+)
+target_compile_definitions(
+    grandleon_client_opening_sweep_tests
+    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+target_compile_features(grandleon_client_opening_sweep_tests PRIVATE cxx_std_17)
+add_test(
+    NAME grandleon.client_opening_sweep
+    COMMAND grandleon_client_opening_sweep_tests
+)
+
 # What the player sees while the side nobody is steering plays its turn.
 #
 # The session's own loop, driven by a presenter that paints nothing and records

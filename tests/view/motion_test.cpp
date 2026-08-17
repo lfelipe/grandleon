@@ -818,6 +818,113 @@ int main() {
         }
     }
 
+    // ----- the opening sweep ------------------------------------------
+    //
+    // A board wider than the screen is shown across once before it is played
+    // on. What has to hold is that a board with nothing to reveal asks for no
+    // frames at all, that the duration carries the board's width until the cap
+    // takes over, and that the travel itself lands exactly on where play begins.
+    {
+        expect(sweep_frames_for(0) == 0, "a board with nowhere to travel is not swept");
+        expect(sweep_frames_for(-4) == 0, "and neither is a negative width");
+        expect(
+            sweep_frames_for(1) == sweep_frames_per_cell,
+            "one cell of travel costs one cell's frames"
+        );
+        expect(
+            sweep_frames_for(10) == 10 * sweep_frames_per_cell,
+            "and ten cost ten of them, so a wider board takes visibly longer"
+        );
+        expect(
+            sweep_frames_for(20) == 2 * sweep_frames_for(10),
+            "twice the board is twice the sweep, which is what the gesture says"
+        );
+
+        // The cap, from both sides of it.
+        const int at_cap = sweep_frames_most / sweep_frames_per_cell;
+        expect(
+            sweep_frames_for(at_cap) == sweep_frames_most,
+            "the widest board that fits under the cap reaches it exactly"
+        );
+        expect(
+            sweep_frames_for(at_cap * 4) == sweep_frames_most,
+            "and no board, however wide, is swept for longer"
+        );
+        expect(
+            sweep_frames_most == 90 && sweep_frames_per_cell == 3,
+            "the numbers themselves, so a change to either is a change here"
+        );
+
+        // ----- the common board: play begins at the left edge -------------
+        //
+        // One leg, right edge to left, which is the reveal as asked for. The
+        // second leg is empty because there is nowhere to come back to.
+        {
+            const int frames = sweep_frames_total(19, 0);
+            expect(frames == 57, "nineteen columns of board is under a second");
+            expect(frames == sweep_frames_for(19), "and is one leg, not two");
+            expect(sweep_at(19, 0, 0) == 19, "it opens at the right edge");
+            expect(
+                sweep_at(19, 0, frames) == 0,
+                "and the frame past its last is the left one, which is where play "
+                "begins and so is the frame the board is painted at"
+            );
+            expect(
+                sweep_at(19, 0, frames + 40) == 0,
+                "and it stays there, so an overrun cannot drift"
+            );
+            int previous = 20;
+            for (int frame = 0; frame < frames; ++frame) {
+                const int at = sweep_at(19, 0, frame);
+                expect(at <= previous, "travelling one way and never back");
+                expect(at >= 0 && at <= 19, "and never leaving the board");
+                previous = at;
+            }
+        }
+
+        // ----- a board whose player opens further in ----------------------
+        //
+        // The turn is at the left edge rather than at the opening column,
+        // because the width is the thing being shown. Without the second leg a
+        // board like this would be revealed by barely moving.
+        {
+            const int out = sweep_frames_for(19);
+            const int back = sweep_frames_for(6);
+            expect(
+                sweep_frames_total(19, 6) == out + back,
+                "two legs: out to the edge and back to where play begins"
+            );
+            expect(sweep_at(19, 6, 0) == 19, "still opening at the right edge");
+            expect(sweep_at(19, 6, out) == 0, "reaching the left edge on the turn");
+            expect(
+                sweep_at(19, 6, out + back) == 6,
+                "and arriving at the opening column, which the paint draws"
+            );
+            int lowest = 19;
+            for (int frame = 0; frame < out; ++frame) {
+                lowest = sweep_at(19, 6, frame) < lowest ? sweep_at(19, 6, frame)
+                                                         : lowest;
+            }
+            expect(
+                lowest < 6,
+                "the first leg goes past the opening column, which is the whole "
+                "reason it exists"
+            );
+            for (int frame = out; frame <= out + back; ++frame) {
+                const int at = sweep_at(19, 6, frame);
+                expect(at >= 0 && at <= 6, "and the return leg stays between them");
+            }
+        }
+
+        // A board that cannot scroll sideways is never swept, whatever column
+        // its play begins at. This is the guard every fitting board takes.
+        expect(sweep_frames_total(0, 0) == 0, "a board that fits asks for nothing");
+        expect(
+            sweep_frames_total(0, 4) == 0,
+            "and so does one whose camera cannot move sideways at all"
+        );
+    }
+
     if (failures == 0) {
         std::cout << "board motion model: all checks passed\n";
         return 0;

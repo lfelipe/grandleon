@@ -1728,6 +1728,41 @@ public:
         // board rather than of how long the machine has been on.
         pulse_frame_ = 0;
 #endif
+#ifndef GRANDLEON_N64_PROBE
+        // A board too wide for this screen is shown across once, before it is
+        // played on, so that a player is told how much board there is rather
+        // than finding out by walking into it. It travels from the column that
+        // shows the right edge to the column play begins at, which on this
+        // machine is the left edge: the cursor opens at the corner and the camera
+        // has not been asked to follow it yet.
+        //
+        // `!has_previous_` is the first drawn frame of a board and no other, the
+        // same test the banner above uses, so a board reopened by a jump is
+        // revealed again and a board repainted mid-turn is not. A board that fits
+        // asks for no frames and this loop does not run.
+        //
+        // The ground only: no cursor, no highlights, no panel. The cursor is at a
+        // corner the camera has not reached, and a reveal is about the board.
+        if (!has_previous_) {
+            const int settles_at = camera_.x;
+            const int opens_at = camera_.rightmost_x();
+            const int frames = view::sweep_frames_total(opens_at, settles_at);
+            // From zero, and the arrival is the settled frame below rather than
+            // the last frame of this loop. Where the camera stands on each of
+            // them is `view::sweep_at`, the same rule the shared client's own
+            // sweep runs.
+            for (int frame = 0; frame < frames; ++frame) {
+                camera_.x = view::sweep_at(opens_at, settles_at, frame);
+                camera_.clamp();
+                surface_t* sweeping = display_get();
+                render(sweeping, snapshot, 0);
+                grandleon::n64audio::pump();
+                show(sweeping);
+            }
+            camera_.x = settles_at;
+            camera_.clamp();
+        }
+#endif
         surface_t* disp = display_get();
         render(disp, snapshot, 0);
 #ifndef GRANDLEON_N64_PROBE

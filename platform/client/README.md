@@ -261,8 +261,27 @@ itself lists the Stages under the author's own names, marks the one the campaign
 is standing on `HERE` and every one it has stood on `SEEN`, and says once, under
 its heading, that a Stage with neither mark may not open.
 
+**A board that scrolls is shown across before it is played on.** When the window
+is narrower than the board, the camera opens at the column showing its right edge
+and travels to the left, so a player is told how much board there is rather than
+finding out by walking off the screen. It ends where play begins, reaching the
+left edge first and coming back if play begins further in, because the width is
+what the gesture is for. Three frames a column, capped at ninety, on the first
+drawn frame of a board and no later one — so a Stage reopened by the picker is
+shown again, and a board redrawn mid-turn is not. A board that fits asks for no
+frames and none are drawn.
+
+It is the one gesture this client counts the frames for itself, and the reason is
+ownership: the other three move a token, which is the platform's own pixel state,
+while this moves `camera_`, which a platform can only read through the const
+`camera()`. So the client walks the columns and asks the platform for one frame at
+a time through `sweep_frame`, rather than handing out a mutable camera and the
+ability to scroll the board at any other moment. It is deliberately not
+interruptible: a press read inside it and then not acted on would desync every
+recorded pad script in this repository.
+
 A machine supplies `paint` and `next_press`, plus `paint_screen` in a campaign
-build, and then three animation hooks, a checkpoint hold and an after-screen
+build, and then four animation hooks, a checkpoint hold and an after-screen
 hook, all with do-nothing defaults. The
 three that are required are required because a client that defaulted them would
 be a client that could pass without drawing anything. That last

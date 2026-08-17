@@ -99,6 +99,22 @@ inline constexpr int cast_hold_frames = flinch_frames;
 inline constexpr int cursor_pulse_period = 32;
 inline constexpr int cursor_pulse_rest_frames = 16;
 
+// How long the camera spends crossing one cell of an opening sweep: three
+// frames, half what a body spends walking one. A pan is not a body and may
+// outrun one; at three frames a cell the board travels twenty cells a second,
+// which reads as a look across rather than a drift.
+inline constexpr int sweep_frames_per_cell = projectile_frames_per_tile;
+
+// And the longest a sweep may take however wide the board is. Ninety frames is
+// a second and a half at 60 Hz.
+//
+// The cap is a patience limit and nothing more principled: below it a board
+// twice as wide takes twice as long to cross, which is the whole of what the
+// gesture says, and past it that stops being true rather than becoming a wait
+// nobody asked for. A board wide enough to reach the cap is thirty cells of
+// travel, which is half again the widest window either console offers.
+inline constexpr int sweep_frames_most = 90;
+
 // ---------------------------------------------------------------------------
 // Sliding
 // ---------------------------------------------------------------------------
@@ -123,6 +139,67 @@ inline constexpr int cursor_pulse_rest_frames = 16;
     if (frame >= frames) return to;
     if (frame <= 0) return from;
     return from + ((to - from) * frame) / frames;
+}
+
+// ---------------------------------------------------------------------------
+// The opening sweep
+// ---------------------------------------------------------------------------
+//
+// A board too wide for the screen opens at its right edge and travels to the
+// left, so a player is shown how much board there is before being asked to play
+// on it. A board that fits has no edges to reveal and no sweep: the whole of it
+// is already on the screen.
+//
+// It ends where play begins, which on most boards is the left edge it was
+// travelling to anyway. On a board whose player opens further in, the reveal
+// reaches the left edge first and then comes back, rather than stopping short of
+// the edge or cutting to the column play begins at. A reveal that cut would be
+// two pictures where the gesture is meant to be one.
+//
+// This is the one gesture in this file with no mirror in
+// `editor/src/domain/board-motion.ts`, and the reason is not an omission. The
+// browser draws every board whole at whatever size the page gives it, so Play
+// has no camera, no edges, and nothing to sweep. The mirror exists where both
+// draw the same motion; here only the consoles draw any.
+//
+// It is not interruptible, which is a decision rather than a simplification. A
+// press that skipped it would have to be read inside the sweep and then not
+// acted on, and every recorded pad script in this repository counts its presses
+// from the first one the client asks for. A gesture bounded at a second and a
+// half, once when a board opens, is the cheaper side of that trade.
+
+// How many frames one leg of `cells` takes, capped. A leg of no cells takes no
+// frames, which is what lets a client ask this before deciding whether to sweep
+// at all: a board whose camera cannot move horizontally answers zero.
+[[nodiscard]] constexpr int sweep_frames_for(int cells) noexcept {
+    if (cells <= 0) return 0;
+    const int frames = cells * sweep_frames_per_cell;
+    return frames < sweep_frames_most ? frames : sweep_frames_most;
+}
+
+// A reveal is up to two legs: out to the left edge, and back to the column play
+// begins at. The turn is at the left edge and not at `to`, because the point is
+// the width of the board rather than the way to where the player stands: a board
+// whose player opens on the right would otherwise be revealed by not moving at
+// all, which is the board they could already see.
+//
+// The second leg is empty for every board whose play begins at the left edge,
+// which is the common one and is the single right-to-left travel that was asked
+// for. It costs nothing to ask for when it is not there.
+[[nodiscard]] constexpr int sweep_frames_total(int from, int to) noexcept {
+    if (from <= 0) return 0;
+    return sweep_frames_for(from) + sweep_frames_for(to);
+}
+
+// Which column the camera stands at on `frame` of that reveal, counted from
+// zero so the first drawn frame is `from` itself: a sweep starts at a column
+// nothing has been drawn at, unlike a slide whose token already stands where it
+// starts. A frame at or past the end is `to`, so an overrun cannot drift.
+[[nodiscard]] constexpr int sweep_at(int from, int to, int frame) noexcept {
+    const int out = sweep_frames_for(from);
+    if (frame < out) return slide_between(from, 0, frame, out);
+    const int back = sweep_frames_for(to);
+    return slide_between(0, to, frame - out, back);
 }
 
 // ---------------------------------------------------------------------------
