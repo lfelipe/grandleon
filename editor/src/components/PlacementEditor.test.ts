@@ -572,6 +572,34 @@ describe("PlacementEditor", () => {
     app.unmount();
   });
 
+  it("refuses one person twice on the author's own side too", async () => {
+    // The same rule, on the side the last one dodged. A placement on the
+    // player's own side used to be exempt: the argument was that each such
+    // placement fields a *different* member of the company, so a second one is
+    // a second person. It is not - the palette stamps one unit type, and a
+    // second stamp of Warden Kesh is Warden Kesh in two places, numbered.
+    const { app, host, placements } = mount(
+      [],
+      [{ id: "kesh", name: "Warden Kesh", unitTypeId: "warden" }],
+      { unitTypes: [{ id: "warden", name: "Warden", onePerson: true }] }
+    );
+    host.querySelector<HTMLButtonElement>('[data-unit-type="warden"]')!.click();
+    await nextTick();
+    button(host, "Your side").click();
+    await nextTick();
+    cell(host, 0, 0).click();
+    await nextTick();
+    expect(placements.value).toHaveLength(1);
+
+    const entry = host.querySelector('[data-palette="unit:warden"]')!;
+    expect(entry.getAttribute("aria-disabled")).toBe("true");
+    cell(host, 1, 0).click();
+    await nextTick();
+    expect(placements.value).toHaveLength(1);
+    expect(host.textContent).toContain("Warden already stands on this board");
+    app.unmount();
+  });
+
   it("stands as many of a kind as the author likes", async () => {
     // The other half of the same rule: nothing in this game depends on which
     // bandit is which, so there is no reason to stop at one.
@@ -588,6 +616,32 @@ describe("PlacementEditor", () => {
     await nextTick();
     expect(placements.value).toHaveLength(3);
     expect(host.querySelector('[data-palette="unit:bandit"]')
+      ?.getAttribute("aria-disabled")).toBeNull();
+    app.unmount();
+  });
+
+  it("still stands many of a kind on the author's own side", async () => {
+    // The case the removed exemption was defending, asked directly. Temporary
+    // bodies on the player's side for one map name nobody, so they are a kind
+    // and not a person, and the rule about one person in one place has nothing
+    // to say about them.
+    const { app, host, placements } = mount(
+      [],
+      [{ id: "kesh", name: "Warden Kesh", unitTypeId: "warden" }],
+      { unitTypes: [{ id: "levy", name: "Levy" }] }
+    );
+    host.querySelector<HTMLButtonElement>('[data-unit-type="levy"]')!.click();
+    await nextTick();
+    button(host, "Your side").click();
+    await nextTick();
+    cell(host, 0, 0).click();
+    await nextTick();
+    cell(host, 1, 0).click();
+    await nextTick();
+    cell(host, 2, 0).click();
+    await nextTick();
+    expect(placements.value).toHaveLength(3);
+    expect(host.querySelector('[data-palette="unit:levy"]')
       ?.getAttribute("aria-disabled")).toBeNull();
     app.unmount();
   });

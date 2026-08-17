@@ -742,12 +742,23 @@ interface PaletteEntry {
 /**
  * Why a character cannot be put down again, if they cannot.
  *
- * A person stands in one place. Where a placement fields a member of the
- * company, on the player's own side and on a board belonging to a campaign,
- * every placement names a *different* member, so a second one is a second
- * person and there is nothing to refuse. Everywhere else a placement names
- * nobody, so a second placement of one person is that person standing twice,
- * which is the thing that cannot happen.
+ * A person stands in one place. A second placement of one person is that
+ * person standing twice, which is the thing that cannot happen, and it does not
+ * become possible by being on the author's own side.
+ *
+ * **It used to.** A placement on the player's own side, on a board belonging to
+ * a campaign, was exempt, and the argument was that each such placement fields
+ * a *different* member of the company, so a second one is a second person. The
+ * argument does not survive contact with the palette: what an author stamps is
+ * a unit *type*, so a second stamp of Warden Kesh is Warden Kesh again, and the
+ * board enrolled a numbered second body for her. The owner has ruled that a
+ * mistake — main units are unique to a Stage.
+ *
+ * What that rule does not touch is the case the exemption was defending:
+ * temporary bodies on the player's side for one map. Those are placements that
+ * name nobody, so they are a kind rather than a person, `onePerson` is false for
+ * them, and an author may still stand as many as they like. The rule is about
+ * who somebody is and never about which side they are on.
  */
 function blockedReason(unitType: {
   readonly id: string;
@@ -756,8 +767,6 @@ function blockedReason(unitType: {
   readonly onePerson?: boolean;
 }): string {
   if (!unitType.onePerson) return "";
-  const side = knownSide(unitType.factionId) ?? paletteSide.value;
-  if (side === "first" && props.members !== undefined) return "";
   if (!draftPlacements.value.some(
     (placement) => placement.unitTypeId === unitType.id
   )) {
