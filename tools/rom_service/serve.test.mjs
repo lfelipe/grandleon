@@ -21,10 +21,10 @@ import {
     toolchainEnvironment,
     BuildQueue,
     RefusalError,
+    consoles,
     createRomService,
     health,
     locateCompiler,
-    projectSizeBudget,
     refuseForeignRequest,
     refuseProject,
     configuredHosts,
@@ -32,6 +32,13 @@ import {
     refuseUncompilable,
     servedCharacterStyles
 } from "./serve.mjs";
+
+// The console every unqualified assertion below is about. The refusals that
+// differ between consoles have their own tests and name the console they are
+// about; the rest are the same question asked of one of them.
+const n64 = consoles.n64;
+const playstation = consoles.playstation;
+const projectSizeBudget = n64.projectSizeBudget;
 
 const repositoryRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -48,9 +55,9 @@ const otherProject = path.join(
 
 const styles = await servedCharacterStyles(repositoryRoot);
 
-function refusalOf(text) {
+function refusalOf(text, target = n64) {
     try {
-        refuseProject(text, styles);
+        refuseProject(text, styles, target);
     } catch (error) {
         assert.ok(error instanceof RefusalError, `not a refusal: ${error}`);
         return error;
@@ -356,7 +363,9 @@ test("one build runs at a time and a second is told it is queued", async () => {
         runBuild: async (job) => {
             started.push(job.id);
             await new Promise((resolve) => { release = resolve; });
-            return { romPath: "/dev/null", bytes: 1, md5: "x" };
+            return [
+                { name: "one.z64", path: "/dev/null", bytes: 1, md5: "x" }
+            ];
         }
     });
 
@@ -534,7 +543,9 @@ test("finished jobs are reaped and unfinished ones are not", async () => {
 // -- the HTTP surface --------------------------------------------------------
 
 async function withService(queue, body) {
-    const server = createRomService({ root: repositoryRoot, queue });
+    const server = createRomService({
+        root: repositoryRoot, queues: { n64: queue }
+    });
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
     const base = `http://127.0.0.1:${server.address().port}`;
     try {
@@ -566,7 +577,9 @@ test("a refused project answers 400 with the code, before any build", async () =
 test("an accepted project answers 202 and can then be polled", async () => {
     const queue = new BuildQueue({
         root: repositoryRoot,
-        runBuild: async () => ({ romPath: "/dev/null", bytes: 42, md5: "abc" })
+        runBuild: async (job) => [{
+            name: `${job.base}.z64`, path: "/dev/null", bytes: 42, md5: "abc"
+        }]
     });
     await withService(queue, async (base) => {
         const accepted = await fetch(`${base}/api/n64/build`, {
@@ -578,7 +591,9 @@ test("an accepted project answers 202 and can then be polled", async () => {
         await new Promise((resolve) => setTimeout(resolve, 20));
         const polled = await (await fetch(`${base}/api/n64/build/${id}`)).json();
         assert.equal(polled.state, "done");
-        assert.equal(polled.bytes, 42);
+        assert.deepEqual(polled.artifacts, [
+            { name: "grandleon.x.z64", bytes: 42, md5: "abc" }
+        ]);
     });
 });
 
@@ -594,7 +609,7 @@ test("a build nobody started is not one this service will pretend to hold",
         });
     });
 
-test("an unfinished build refuses to hand over a ROM", async () => {
+test("an unfinished build refuses to hand over a file", async () => {
     const queue = new BuildQueue({
         root: repositoryRoot,
         runBuild: () => new Promise(() => {})
@@ -604,7 +619,9 @@ test("an unfinished build refuses to hand over a ROM", async () => {
             method: "POST",
             body: validText
         })).json();
-        const response = await fetch(`${base}/api/n64/build/${id}/rom`);
+        const response = await fetch(
+            `${base}/api/n64/build/${id}/artifact/grandleon.x.z64`
+        );
         assert.equal(response.status, 409);
         assert.equal((await response.json()).code, "rom_build_unfinished");
     });
@@ -775,7 +792,9 @@ test("the editor on this machine, proxied or direct, is answered", () => {
 });
 
 test("health says whether this machine can build at all", async () => {
-    const answer = await health(repositoryRoot, { docker: "definitely-not-docker" });
+    const answer = await health(
+        n64, repositoryRoot, { docker: "definitely-not-docker" }
+    );
     assert.equal(answer.ready, false);
     assert.equal(answer.code, "container_runtime_missing");
     assert.match(answer.message, /container/i);
@@ -786,7 +805,7 @@ test("takes the toolchain pins from the file that owns them", () => {
     // A service reading only the environment would let somebody following the
     // README accept a job, spend two minutes on it, and then hand the author an
     // environment variable in a browser.
-    const pinned = toolchainEnvironment({});
+    const pinned = toolchainEnvironment(n64, {});
     assert.match(
         pinned.GRANDLEON_LIBDRAGON_COMMIT,
         /^[0-9a-f]{40}$/,
@@ -808,8 +827,195 @@ test("takes the toolchain pins from the file that owns them", () => {
     // An override still wins, so a contributor can test a bump without editing
     // the pin everything else builds against.
     assert.equal(
-        toolchainEnvironment({ GRANDLEON_LIBDRAGON_COMMIT: "abc" })
+        toolchainEnvironment(n64, { GRANDLEON_LIBDRAGON_COMMIT: "abc" })
             .GRANDLEON_LIBDRAGON_COMMIT,
         "abc"
     );
+});
+
+// -- the second console ------------------------------------------------------
+
+test("every console names a path, a script and the words it refuses in", () => {
+    for (const [route, target] of Object.entries(consoles)) {
+        assert.ok(
+            existsSync(path.join(repositoryRoot, target.buildScript)),
+            `${route} names a build script that is not there`
+        );
+        assert.ok(
+            existsSync(path.join(repositoryRoot, target.artManifest)),
+            `${route} names an art manifest that is not there`
+        );
+        // Every refusal this service can make has words for this console, and
+        // they are this console's words. A table filled in from the other
+        // console would read perfectly and be wrong.
+        for (const [code, said] of Object.entries(target.refusals)) {
+            assert.equal(
+                typeof said, "string", `${route} says nothing for ${code}`
+            );
+            assert.notEqual(said, "", `${route} says nothing for ${code}`);
+        }
+        for (const other of Object.values(consoles)) {
+            if (other === target) continue;
+            for (const [code, said] of Object.entries(target.refusals)) {
+                if (said === other.refusals[code]) continue;
+                assert.ok(
+                    !said.includes(other.name),
+                    `${route} says '${said}' for ${code}, about ${other.name}`
+                );
+            }
+        }
+    }
+});
+
+test("the PlayStation takes its pins from the file that owns them", () => {
+    const pinned = toolchainEnvironment(playstation, {});
+    assert.match(
+        pinned.GRANDLEON_PCSX_REDUX_BUILD_DIGEST, /^sha256:[0-9a-f]{64}$/
+    );
+    assert.match(pinned.GRANDLEON_NUGGET_REVISION, /^[0-9a-f]{40}$/);
+    assert.match(pinned.GRANDLEON_MKPSXISO_REVISION, /^[0-9a-f]{40}$/);
+    const cmake = readFileSync(
+        path.join(repositoryRoot, "cmake", "GrandleonPlayStation.cmake"),
+        "utf8"
+    );
+    for (const pin of Object.values(pinned)) {
+        assert.ok(
+            cmake.includes(pin),
+            `the pin '${pin}' is not in the file this service claims to read`
+        );
+    }
+    // And the digest is what the toolchain image is tagged with, which is the
+    // thing health() asks docker about.
+    assert.equal(
+        playstation.toolchainImage(pinned),
+        `grandleon/playstation-toolchain:${
+            pinned.GRANDLEON_PCSX_REDUX_BUILD_DIGEST.slice("sha256:".length)
+        }`
+    );
+});
+
+test("both shipped projects are served for a disc as well", async () => {
+    for (const project of [shippedProject, otherProject]) {
+        assert.equal(
+            refusalOf(await readFile(project, "utf8"), playstation),
+            null,
+            `${project} is built onto a disc by the gate and was refused here`
+        );
+    }
+});
+
+// The one refusal the two consoles genuinely disagree about, and it is not a
+// preference. The PlayStation consumes the art library as one generated header
+// per style, all declaring the same symbols, so an executable includes exactly
+// one and `grandleon_require_single_character_combination` fails the configure
+// on a project that draws two. This is that refusal, minutes earlier.
+test("a project drawn by two hands is refused for a disc", async () => {
+    const schema = JSON.parse(await readFile(
+        path.join(
+            repositoryRoot, "schemas", "source", "v1", "unit-type.schema.json"
+        ),
+        "utf8"
+    ));
+    assert.ok(
+        "characterStyleId" in schema.properties,
+        "a character can no longer name a style, so this test means nothing"
+    );
+    const [first, second] = styles.menu;
+    const twoHands = JSON.stringify({
+        gameId: "g",
+        campaigns: [{ id: "c" }],
+        characterStyleId: first,
+        unitTypes: [{ id: "u", characterStyleId: second }]
+    });
+    // Served by the cartridge, which embeds the drawings its content draws.
+    assert.equal(refusalOf(twoHands, n64), null);
+    const refusal = refusalOf(twoHands, playstation);
+    assert.equal(refusal.code, "character_art_is_not_one_combination");
+    assert.match(refusal.detail, new RegExp(first));
+    assert.match(refusal.detail, new RegExp(second));
+});
+
+test("a project drawn at two figures is refused for a disc", () => {
+    const [first, second] = styles.figures;
+    const twoFigures = JSON.stringify({
+        gameId: "g",
+        campaigns: [{ id: "c" }],
+        characterFigureId: first,
+        unitTypes: [{ id: "u", characterFigureId: second }]
+    });
+    assert.equal(refusalOf(twoFigures, n64), null);
+    assert.equal(
+        refusalOf(twoFigures, playstation).code,
+        "character_art_is_not_one_combination"
+    );
+});
+
+test("one hand named twice is one hand", () => {
+    const [only] = styles.menu;
+    assert.equal(
+        refusalOf(JSON.stringify({
+            gameId: "g",
+            campaigns: [{ id: "c" }],
+            characterStyleId: only,
+            unitTypes: [
+                { id: "u", characterStyleId: only },
+                { id: "v" }
+            ]
+        }), playstation),
+        null
+    );
+});
+
+test("a disc build asks its own routes and hands back two files", async () => {
+    const queue = new BuildQueue({
+        root: repositoryRoot,
+        target: playstation,
+        // No container: what is under test is that the service routes a
+        // second console at all, and reports what that console produced.
+        runBuild: async (job) => [
+            { name: `${job.base}.bin`, path: "/nowhere.bin", bytes: 7, md5: "a" },
+            { name: `${job.base}.cue`, path: "/nowhere.cue", bytes: 3, md5: "b" }
+        ]
+    });
+    const server = createRomService({
+        root: repositoryRoot, queues: { playstation: queue }
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    try {
+        const accepted = await fetch(`${base}/api/playstation/build`, {
+            method: "POST",
+            body: JSON.stringify({
+                gameId: "grandleon.probe", campaigns: [{ id: "c" }]
+            })
+        });
+        assert.equal(accepted.status, 202);
+        const { id, console: named } = await accepted.json();
+        assert.equal(named, "playstation");
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const status = await (
+            await fetch(`${base}/api/playstation/build/${id}`)
+        ).json();
+        assert.equal(status.state, "done");
+        assert.deepEqual(
+            status.artifacts.map((one) => one.name),
+            ["grandleon.probe.bin", "grandleon.probe.cue"]
+        );
+        // A file this build did not produce is a 404 rather than a path this
+        // service is asked to open.
+        const missing = await fetch(
+            `${base}/api/playstation/build/${id}/artifact/..%2Fetc%2Fpasswd`
+        );
+        assert.equal(missing.status, 404);
+    } finally {
+        await new Promise((resolve) => server.close(resolve));
+    }
+});
+
+test("a console this service does not name has no routes at all", async () => {
+    await withService(new BuildQueue({ root: repositoryRoot }), async (base) => {
+        const response = await fetch(`${base}/api/megadrive/health`);
+        assert.equal(response.status, 404);
+        assert.equal((await response.json()).code, "not_found");
+    });
 });

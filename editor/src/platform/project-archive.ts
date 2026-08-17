@@ -87,26 +87,45 @@ interface EncodedFile {
   localOffset: number;
 }
 
-export function exportProjectArchive(snapshot: ProjectSnapshot): Uint8Array {
+/** One file on its way into an archive. */
+export interface ArchiveEntry {
+  readonly path: string;
+  readonly bytes: Uint8Array;
+}
+
+/**
+ * A ZIP archive of these files, stored rather than compressed.
+ *
+ * Split out of `exportProjectArchive` below because the editor now hands out
+ * two kinds of archive and neither is a special case of the other: a project's
+ * source tree, and the pair of files a console build produces. What they share
+ * is this container, and a second implementation of it would be a second place
+ * a central directory offset can be wrong. The paths are taken as given; a
+ * project's are normalised by the caller, because that normalisation is about
+ * project paths rather than about ZIP.
+ *
+ * Stored and not deflated, for the reason the reader below gives: the editor
+ * is the only producer this repository has to be able to read back, and a
+ * container with no compressor in it is a container with no compressor to be
+ * wrong.
+ */
+export function writeArchive(entries: readonly ArchiveEntry[]): Uint8Array {
   const encoder = new TextEncoder();
-  const files: EncodedFile[] = [...snapshot.files]
-    .map((file) => {
-      const path = normalizeProjectPath(file.path);
-      return {
-        path,
-        name: encoder.encode(path),
-        bytes: file.bytes.slice(),
-        crc: crc32(file.bytes),
-        localOffset: 0
-      };
-    })
+  const files: EncodedFile[] = [...entries]
+    .map((entry) => ({
+      path: entry.path,
+      name: encoder.encode(entry.path),
+      bytes: entry.bytes.slice(),
+      crc: crc32(entry.bytes),
+      localOffset: 0
+    }))
     .sort((left, right) => left.path.localeCompare(right.path));
 
   for (let index = 1; index < files.length; ++index) {
     if (files[index - 1]!.path === files[index]!.path) {
       throw new ProjectArchiveError(
         "ARCHIVE_DUPLICATE_PATH",
-        `duplicate project path '${files[index]!.path}'`
+        `duplicate archive path '${files[index]!.path}'`
       );
     }
   }
@@ -173,6 +192,13 @@ export function exportProjectArchive(snapshot: ProjectSnapshot): Uint8Array {
   writeU32(view, cursor + 16, centralOffset);
   writeU16(view, cursor + 20, 0);
   return output;
+}
+
+export function exportProjectArchive(snapshot: ProjectSnapshot): Uint8Array {
+  return writeArchive(snapshot.files.map((file) => ({
+    path: normalizeProjectPath(file.path),
+    bytes: file.bytes
+  })));
 }
 
 function checkedEnd(offset: number, length: number, maximum: number): number {

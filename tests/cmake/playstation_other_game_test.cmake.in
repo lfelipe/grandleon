@@ -1,0 +1,179 @@
+# Boot a disc the export path cut for a *different* game, and require it to say
+# so.
+#
+# The two shipped campaigns are checked to the last pixel elsewhere, and that
+# tells you nothing about a disc of somebody else's project: everything about
+# which game a PlayStation image is — the package it carries, the campaign it
+# asks that package for, the slot the card keeps it in, the character header it
+# draws with — is decided at build time, and until this lane existed every one
+# of those decisions had only ever been made for `games/tarnholt` and
+# `games/demo`. A build that quietly kept naming one of them would satisfy
+# every host check there is.
+#
+# So: build a third game through the *export path*, the same POST-poll-collect
+# the editor uses, boot the disc it produced in the pinned emulator through the
+# drive rather than with `-loadexe`, and require the machine's own words to name
+# that game's campaign and title and neither shipped one's.
+#
+# The disc carries the played campaign, which waits on the controller, so this
+# run has no end and no verdict of its own. What it does print, before the
+# title screen, is which campaign it loaded, and what it draws on that screen is
+# the name it read off its own package. Those are the two lines this lane is
+# about, and the timeout is how it stops.
+
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_IMAGE} "@GRANDLEON_PCSX_REDUX_BUILD_IMAGE@")
+set(ENV{GRANDLEON_PCSX_REDUX_BUILD_DIGEST} "@GRANDLEON_PCSX_REDUX_BUILD_DIGEST@")
+set(ENV{GRANDLEON_NUGGET_REVISION} "@GRANDLEON_NUGGET_REVISION@")
+set(ENV{GRANDLEON_MKPSXISO_REVISION} "@GRANDLEON_MKPSXISO_REVISION@")
+set(ENV{GRANDLEON_PCSX_REDUX_REVISION} "@GRANDLEON_PCSX_REDUX_REVISION@")
+set(ENV{GRANDLEON_DOCKER} "@GRANDLEON_DOCKER@")
+
+set(source_root "@PROJECT_SOURCE_DIR@")
+set(build_dir "@GRANDLEON_PLAYSTATION_BUILD_DIR@")
+set(work "${build_dir}/other-game")
+file(REMOVE_RECURSE "${work}")
+file(MAKE_DIRECTORY "${work}")
+
+# The third game, made here rather than checked in.
+#
+# It is `games/demo` with every mention of its campaign renamed and a game id
+# and title of its own, which makes it a project this repository does not ship
+# while keeping it one the compiler has already agreed is valid. Checking a
+# third sample in instead would mean maintaining a game whose only purpose is
+# to be different from two others.
+file(READ "${source_root}/games/demo/source/project.json" other_project)
+string(REPLACE "demo_campaign" "longford_march" other_project "${other_project}")
+string(JSON other_project SET "${other_project}" gameId "\"grandleon.longford\"")
+string(JSON other_project SET "${other_project}" title "\"The Long Ford\"")
+file(WRITE "${work}/project.json" "${other_project}")
+
+string(JSON other_campaign GET "${other_project}" campaigns 0 id)
+string(JSON other_title GET "${other_project}" title)
+string(TOUPPER "${other_title}" other_title_drawn)
+
+# Neither shipped game, and said with their own ids rather than with names
+# written here, so a lane cannot go on asserting a campaign the content has
+# renamed.
+set(shipped_campaigns "")
+foreach(shipped tarnholt demo)
+    file(READ "${source_root}/games/${shipped}/source/project.json" document)
+    string(JSON campaign GET "${document}" campaigns 0 id)
+    if(campaign STREQUAL other_campaign)
+        message(FATAL_ERROR
+            "the third game and games/${shipped} name the same campaign "
+            "('${campaign}'), so this lane could not tell them apart")
+    endif()
+    list(APPEND shipped_campaigns "${campaign}")
+endforeach()
+
+# A build directory of its own, because the export path stages a whole host
+# build and a whole cross build under it and must not disturb the tree the
+# other PlayStation lanes share.
+set(ENV{GRANDLEON_PLAYSTATION_BUILD_DIR} "${work}/build")
+
+execute_process(
+    COMMAND node "${source_root}/tools/rom_service/build-rom.mjs"
+            --console playstation
+            "${work}/project.json"
+            "${work}/disc"
+    WORKING_DIRECTORY "${source_root}"
+    RESULT_VARIABLE build_result
+)
+if(NOT build_result EQUAL 0)
+    message(FATAL_ERROR "the export path could not build the other game's disc")
+endif()
+
+# Both files, and the cue is what the emulator is handed, because the cue is
+# the disc and the bin is one track of it. It is also the file a burning
+# program is given, so pointing the emulator at it means the emulator read the
+# thing that would be burned.
+file(GLOB other_cues "${work}/disc/*.cue")
+file(GLOB other_bins "${work}/disc/*.bin")
+list(LENGTH other_cues other_cue_count)
+list(LENGTH other_bins other_bin_count)
+if(NOT other_cue_count EQUAL 1 OR NOT other_bin_count EQUAL 1)
+    message(FATAL_ERROR
+        "the export path wrote ${other_bin_count} bin(s) and "
+        "${other_cue_count} cue(s); a disc is one of each")
+endif()
+list(GET other_cues 0 other_cue)
+get_filename_component(other_cue_name "${other_cue}" NAME)
+
+# The licence area, proved empty on this disc too. `build-disc.sh` asserts it
+# on the disc it writes; this asserts it on the one an author would download,
+# which is the one nobody in this repository looks at.
+file(READ "${other_bins}" licence_area HEX LIMIT 37632)
+foreach(sector RANGE 15)
+    math(EXPR user_data_at "(${sector} * 2352 + 24) * 2")
+    string(SUBSTRING "${licence_area}" ${user_data_at} 4096 sector_bytes)
+    string(REGEX REPLACE "0" "" sector_remainder "${sector_bytes}")
+    if(NOT sector_remainder STREQUAL "")
+        message(FATAL_ERROR
+            "sector ${sector} of the exported disc is not blank; this image is "
+            "supposed to carry no licence sector at all")
+    endif()
+endforeach()
+
+# Boot it. No `-loadexe` anywhere: the BIOS shell reads SYSTEM.CNF off the
+# filesystem, loads MAIN.EXE sector by sector and jumps into it, which is the
+# only path an author's disc will ever take.
+#
+# The container runs as the invoking user, as every other run on this console
+# does, so what it writes is not root-owned.
+set(emulator "grandleon/playstation-emulator:@GRANDLEON_PCSX_REDUX_REVISION@")
+set(boot_log "${work}/boot.log")
+execute_process(COMMAND id -u OUTPUT_VARIABLE user_id OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND id -g OUTPUT_VARIABLE group_id OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(
+    COMMAND "@GRANDLEON_DOCKER@" run --rm
+            --user "${user_id}:${group_id}"
+            --env HOME=/tmp
+            --volume "${work}/disc:/disc:ro"
+            --workdir /tmp
+            "${emulator}"
+            stdbuf -oL -eL pcsx-redux -no-ui -run -softgpu
+            -bios /usr/local/share/pcsx-redux/openbios.bin
+            -testmode -interpreter
+            -iso "/disc/${other_cue_name}"
+    # A hang detector rather than a budget: the lines this lane reads are the
+    # first two the machine prints, seconds after the shell hands over. This is
+    # how the run *ends*, since a played campaign waits on a pad for ever.
+    TIMEOUT 120
+    OUTPUT_FILE "${boot_log}"
+    ERROR_FILE "${boot_log}"
+    RESULT_VARIABLE run_result
+)
+# The exit status is deliberately not checked. This disc carries the played
+# campaign, which waits on a pad that a headless emulator has none of, so the
+# run is always ended by the timeout above. What it said before it stopped is
+# the whole of the evidence.
+file(READ "${boot_log}" boot_text)
+
+foreach(required
+    "GRANDLEON PLAYSTATION CAMPAIGN ${other_campaign}"
+    "FACT pageline 2 ${other_title_drawn}"
+)
+    string(FIND "${boot_text}" "${required}" found)
+    if(found EQUAL -1)
+        message(FATAL_ERROR
+            "the disc built for the third game never said '${required}'. "
+            "Log: ${boot_log}")
+    endif()
+endforeach()
+
+# The negative control, and the one that catches the failure this lane exists
+# for: a disc carrying one game's content while running another's campaign, or
+# drawing another's name, would satisfy the requirement above and fail here.
+foreach(shipped_campaign IN LISTS shipped_campaigns)
+    string(FIND "${boot_text}" "${shipped_campaign}" named)
+    if(NOT named EQUAL -1)
+        message(FATAL_ERROR
+            "a disc built for the third game named the shipped campaign "
+            "'${shipped_campaign}'; it is running content it was not built for")
+    endif()
+endforeach()
+
+message(STATUS
+    "RESULT PASS a disc built through the export path for a third game booted "
+    "through the BIOS shell and reported campaign '${other_campaign}' under "
+    "the name '${other_title_drawn}', naming neither shipped campaign")

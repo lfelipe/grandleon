@@ -90,7 +90,7 @@ for (const named of (process.env.GRANDLEON_EDITOR_ALLOWED_HOSTS ?? "")
 // The local ROM build service, proxied rather than fetched across origins.
 //
 // `index.html` declares `connect-src 'self'` and this is what keeps it that
-// way: the editor asks for `/api/n64/...`, which is same-origin, and the
+// way: the editor asks for `/api/<console>/...`, which is same-origin, and the
 // request is forwarded here. Naming a localhost port in the policy instead
 // would have been one line, and would have spent a real security property to
 // save this one.
@@ -100,7 +100,7 @@ for (const named of (process.env.GRANDLEON_EDITOR_ALLOWED_HOSTS ?? "")
 // suite runs against `vite preview`. A dev-only proxy would be invisible to
 // the only gate that can observe a CSP violation at all.
 // This dev server binds every interface, so the proxy below is reachable from
-// the network and forwards `/api/n64` with the browser's own `Host` intact.
+// the network and forwards `/api` with the browser's own `Host` intact.
 // What keeps that from publishing a container build service to the LAN is the
 // service itself: it refuses any `Host` that is not loopback, by name, and a
 // peer reaching the editor over the network is told the ROM build is
@@ -126,8 +126,13 @@ const romServiceAbsent = {
     "`node tools/rom_service/serve.mjs`."
 };
 
+// `/api` and not `/api/n64`: the service owns every path under it, one segment
+// per console, and the editor has no other `/api` of its own. A list of console
+// segments here would be a second place a console has to be named, and the
+// editor would silently stop being able to build for one the day it was
+// forgotten.
 const romServiceProxy = {
-  "/api/n64": {
+  "/api": {
     // Loopback by default, because the ordinary way to run both is two
     // processes on one machine. `GRANDLEON_ROM_SERVICE_HOST` is for the case
     // where they are not: under `compose.yaml` the service is a container of

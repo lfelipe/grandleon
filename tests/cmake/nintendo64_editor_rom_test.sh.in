@@ -61,9 +61,11 @@ toolchain_pid=$!
 
 # A different game through the export path, so the shipped project's ROM below
 # cannot be something that was already lying about.
+# The export path writes each file under the name it gave it, into a directory
+# of its own, so nothing here has to restate how a download is named.
 if ! node "${source_root}/tools/rom_service/build-rom.mjs" \
         "${source_root}/games/demo/source/project.json" \
-        "${work}/other-game.z64"; then
+        "${work}/other-game"; then
     # Let the reference build finish rather than killing it: it holds a lock on
     # the repository's Nintendo 64 build directory, and a half-killed container
     # build is a worse thing to leave behind than ninety seconds.
@@ -75,7 +77,7 @@ fi
 # And now the shipped project, through that same export path.
 if ! node "${source_root}/tools/rom_service/build-rom.mjs" \
         "${source_root}/games/tarnholt/source/project.json" \
-        "${work}/shipped.z64"; then
+        "${work}/shipped"; then
     wait "${toolchain_pid}" || true
     echo "error: the export path could not build the shipped project" >&2
     exit 1
@@ -95,12 +97,27 @@ if [ ! -f "${toolchain_rom}" ]; then
     exit 1
 fi
 
+# Exactly one ROM per build, found rather than named: the export path decides
+# what a download is called and a lane that spelled the answer out again would
+# be the second copy of that rule.
+only_rom() {
+    local -a found
+    found=("$1"/*.z64)
+    if [ "${#found[@]}" -ne 1 ] || [ ! -f "${found[0]}" ]; then
+        echo "error: the export path wrote ${#found[@]} ROMs into $1" >&2
+        exit 1
+    fi
+    printf '%s\n' "${found[0]}"
+}
+shipped_rom="$(only_rom "${work}/shipped")"
+other_rom="$(only_rom "${work}/other-game")"
+
 md5_of() { md5sum "$1" | cut -d' ' -f1; }
 toolchain_md5="$(md5_of "${toolchain_rom}")"
-shipped_md5="$(md5_of "${work}/shipped.z64")"
-other_md5="$(md5_of "${work}/other-game.z64")"
+shipped_md5="$(md5_of "${shipped_rom}")"
+other_md5="$(md5_of "${other_rom}")"
 toolchain_size="$(wc -c < "${toolchain_rom}")"
-shipped_size="$(wc -c < "${work}/shipped.z64")"
+shipped_size="$(wc -c < "${shipped_rom}")"
 
 # The negative control. If the two games produced the same ROM, the comparison
 # below would be passing for the wrong reason: the export path would be

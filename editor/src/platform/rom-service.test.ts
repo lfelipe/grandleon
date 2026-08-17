@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   RomService,
   RomServiceError,
+  romTargets,
   type RomBuildStatus
 } from "./rom-service";
 
@@ -38,8 +39,7 @@ const building = (over: Partial<RomBuildStatus> = {}): RomBuildStatus => ({
   campaign: "a_campaign",
   position: 0,
   waiting: 1,
-  bytes: 0,
-  md5: "",
+  artifacts: [],
   log: "",
   error: null,
   ...over
@@ -86,11 +86,16 @@ describe("the editor's side of the ROM build service", () => {
 
   it("follows a build to its end and reports every state on the way", async () => {
     const rom = new Uint8Array([0x80, 0x37, 0x12, 0x40]);
+    const finished = building({
+      state: "done",
+      artifacts: [{ name: "a.z64", bytes: 4, md5: "ab" }]
+    });
     const { fetchMock } = scriptedFetch({
-      "/api/n64/build/job-1/rom": [{ status: 200, body: null, blob: rom }],
+      "/api/n64/build/job-1/artifact/a.z64":
+        [{ status: 200, body: null, blob: rom }],
       "/api/n64/build/job-1": [
         { status: 200, body: building({ state: "building" }) },
-        { status: 200, body: building({ state: "done", bytes: 4, md5: "ab" }) }
+        { status: 200, body: finished }
       ],
       "/api/n64/build": [{ status: 202, body: building({ state: "queued" }) }]
     });
@@ -100,8 +105,44 @@ describe("the editor's side of the ROM build service", () => {
       "{}", (status) => progress.push(status.state), noSleep
     );
     expect(progress).toEqual(["queued", "building", "done"]);
-    expect(result.rom).toEqual(rom);
-    expect(result.status.md5).toBe("ab");
+    expect(result.files).toEqual([{ name: "a.z64", bytes: rom }]);
+    expect(result.status.artifacts[0]!.md5).toBe("ab");
+  });
+
+  // A disc is two files and the editor collects both, in the order the console
+  // produced them. Collecting only the first would hand somebody a `.bin` with
+  // no table of contents, which no burning program will read.
+  it("collects every file a build produced, by the name it gave it", async () => {
+    const bin = new Uint8Array([1, 2, 3]);
+    const cue = new Uint8Array([4, 5]);
+    const finished = building({
+      state: "done",
+      console: "playstation",
+      artifacts: [
+        { name: "a.bin", bytes: 3, md5: "aa" },
+        { name: "a.cue", bytes: 2, md5: "bb" }
+      ]
+    });
+    const { fetchMock, seen } = scriptedFetch({
+      "/api/playstation/build/job-1/artifact/a.bin":
+        [{ status: 200, body: null, blob: bin }],
+      "/api/playstation/build/job-1/artifact/a.cue":
+        [{ status: 200, body: null, blob: cue }],
+      "/api/playstation/build/job-1": [{ status: 200, body: finished }],
+      "/api/playstation/build": [{ status: 202, body: building({}) }]
+    });
+    const service = new RomService({
+      fetch: fetchMock,
+      pollMilliseconds: 0,
+      target: romTargets.playstation!
+    });
+    const result = await service.build("{}", () => {}, noSleep);
+    expect(result.files).toEqual([
+      { name: "a.bin", bytes: bin },
+      { name: "a.cue", bytes: cue }
+    ]);
+    // And it asked the second console's own paths, never the first's.
+    for (const url of seen) expect(url).toMatch(/^\/api\/playstation\//);
   });
 
   it("raises a refusal with the service's own code and words", async () => {

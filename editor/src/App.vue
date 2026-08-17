@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import {
+  onBeforeUnmount, onMounted, ref, shallowReactive, shallowRef
+} from "vue";
 import {
   createAnalysisWorkerClient,
   type AnalysisWorkerClient
@@ -36,9 +38,11 @@ import { IndexedDbProjectStore } from "./platform/indexeddb-project-store";
 import {
   RomService,
   RomServiceError,
+  romTargets,
   type RomBuildStatus,
   type RomServiceHealth
 } from "./platform/rom-service";
+import { writeArchive } from "./platform/project-archive";
 
 type AnalyzeProject = (sourcePath: string, text: string) => Promise<SourceAnalysis>;
 type DownloadArchive = (
@@ -51,7 +55,7 @@ const props = defineProps<{
   projectStore?: ProjectStore;
   analyzeProject?: AnalyzeProject;
   downloadArchive?: DownloadArchive;
-  romService?: RomService;
+  consoleServices?: RomService[];
 }>();
 
 function browserStore(): ProjectStore {
@@ -414,11 +418,11 @@ async function validateProject() {
   }
 }
 
-// The Nintendo 64 ROM, built by the machine rather than by this page.
+// The console images, built by the machine rather than by this page.
 //
-// The editor does not assemble a ROM and does not patch one. It hands the
-// project to a local service that runs the pinned container build, the same
-// one the gate runs, so what an author downloads is the checked build.
+// The editor does not assemble a ROM or a disc and does not patch one. It
+// hands the project to a local service that runs the pinned container build,
+// the same one the gate runs, so what an author downloads is the checked build.
 //
 // Everything below exists because that build takes minutes, not seconds. An
 // author is owed four things a spinner cannot give them: whether it can be
@@ -432,69 +436,112 @@ async function validateProject() {
 // seconds is not. The service reports no start time, so the clock is the
 // editor's own: it counts from the press, which is what the author is
 // actually waiting on anyway.
-const rom = props.romService ?? new RomService();
-const romHealth = ref<RomServiceHealth | null>(null);
-const romStatus = ref<RomBuildStatus | null>(null);
-const romBuilding = ref(false);
-const romMessage = ref("");
-const romDetail = ref("");
-const romElapsed = ref(0);
-let romClock: ReturnType<typeof setInterval> | undefined;
+//
+// **One of these per console, and none of it written twice.** The two consoles
+// differ in what they are called, how long they take, where they run, and how
+// many files come back; they do not differ in any of the above. So this is a
+// list, the template walks it, and a third console is an entry in
+// `romTargets` rather than a second copy of this block.
+interface ConsoleBuild {
+  service: RomService;
+  health: RomServiceHealth | null;
+  status: RomBuildStatus | null;
+  building: boolean;
+  message: string;
+  detail: string;
+  elapsed: number;
+  clock: ReturnType<typeof setInterval> | undefined;
+}
+
+// Shallow rather than deep, and the array is a plain one. Every field a render
+// reads is assigned whole — a health, a status, a message — so there is
+// nothing below the surface for a proxy to be watching, and the list itself
+// never grows or shrinks. It also keeps the service a service rather than a
+// proxy of one.
+const consoleBuilds: ConsoleBuild[] =
+  (props.consoleServices ?? Object.values(romTargets).map(
+    (target) => new RomService({ target })
+  )).map((service) => shallowReactive<ConsoleBuild>({
+    service,
+    health: null,
+    status: null,
+    building: false,
+    message: "",
+    detail: "",
+    elapsed: 0,
+    clock: undefined
+  }));
 
 // The clock rewrites the line it is part of, so the message keeps ticking
 // between the service's own two-second polls. `aria-live` is deliberately not
 // re-announced by this: the status paragraph is polite, and a screen reader
 // that read a new second aloud every second would be unusable. What a
 // listener gets is the phase changes, and the clock is for the eye.
-function startRomClock() {
-  stopRomClock();
-  romClock = setInterval(() => {
-    romElapsed.value += 1;
-    const status = romStatus.value;
-    if (status) romMessage.value = romProgressText(status, romElapsed.value);
+function startRomClock(build: ConsoleBuild) {
+  stopRomClock(build);
+  build.clock = setInterval(() => {
+    build.elapsed += 1;
+    if (build.status) {
+      build.message = romProgressText(build, build.status, build.elapsed);
+    }
   }, 1000);
 }
 
-function stopRomClock() {
-  if (romClock !== undefined) clearInterval(romClock);
-  romClock = undefined;
+function stopRomClock(build: ConsoleBuild) {
+  if (build.clock !== undefined) clearInterval(build.clock);
+  build.clock = undefined;
 }
 
-onBeforeUnmount(stopRomClock);
+onBeforeUnmount(() => {
+  for (const build of consoleBuilds) stopRomClock(build);
+});
 
 async function checkRomService() {
-  romHealth.value = await rom.health();
+  await Promise.all(consoleBuilds.map(async (build) => {
+    build.health = await build.service.health();
+  }));
 }
 
-// What the button says about itself when it cannot be pressed. Named rather
+// What a button says about itself when it cannot be pressed. Named rather
 // than inlined because the browser suite asserts on it: the gate runs with no
 // service behind the proxy, which is the `container_runtime_missing` path, and
 // the editor has to say so in words rather than spin.
-const romUnavailableReason = () =>
-  romHealth.value === null
-    ? "Checking whether this machine can build a ROM…"
-    : romHealth.value.ready
+const romUnavailableReason = (build: ConsoleBuild) =>
+  build.health === null
+    ? `Checking whether this machine can build a ${
+      build.service.target.platform} ${build.service.target.image}…`
+    : build.health.ready
       ? ""
-      : romHealth.value.message ?? "ROM builds are not available here.";
+      : build.health.message ??
+        `${build.service.target.platform} builds are not available here.`;
 
 /**
  * The waiting time, as measured rather than as hoped.
  *
  * `tools/rom_service/README.md` records 1 m 55 s and 1 m 59 s for a cold
- * container build of every target, and under a minute for one campaign ROM
- * into a warm tree. "About a minute" was the warm number offered to somebody
- * who by definition has the cold one, which is the way round that makes an
- * author think the build has hung.
+ * container build of every Nintendo 64 target, and under a minute for one
+ * campaign ROM into a warm tree. "About a minute" was the warm number offered
+ * to somebody who by definition has the cold one, which is the way round that
+ * makes an author think the build has hung.
+ *
+ * A disc costs more than that and is deliberately not given a number here.
+ * Every request builds the content compiler on the host and then the
+ * executable for the R3000A, in a tree of its own, so nothing is warm the way
+ * a second ROM is warm.
  */
-const romDurationSentence =
-  "The first one takes about two minutes; later ones are quicker.";
+const romDurationSentence: Record<string, string> = {
+  n64: "The first one takes about two minutes; later ones are quicker.",
+  playstation: "A disc is a host build and a cross build, so it takes several minutes."
+};
 
 /** Seconds since the press, as m:ss. */
 function romElapsedText(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-function romProgressText(status: RomBuildStatus, seconds: number): string {
+function romProgressText(
+  build: ConsoleBuild, status: RomBuildStatus, seconds: number
+): string {
   const clock = ` ${romElapsedText(seconds)} so far.`;
   if (status.state === "queued") {
     return (status.position > 0
@@ -503,59 +550,104 @@ function romProgressText(status: RomBuildStatus, seconds: number): string {
       : "Waiting for the build to start.") + clock;
   }
   if (status.state === "building") {
-    return `Building the Nintendo 64 ROM. ${romDurationSentence}${clock}`;
+    const target = build.service.target;
+    return `Building the ${target.platform} ${target.image}. ${
+      romDurationSentence[target.route] ?? ""}${clock}`;
   }
   return "";
 }
 
-async function downloadRom() {
-  if (romBuilding.value) return;
+// What an author is handed, and why a disc is an archive.
+//
+// One file goes out as itself. Two or more go out as one ZIP, because a
+// PlayStation disc is a `.bin` and the `.cue` that is its table of contents,
+// and a browser cannot hand over two files from one press without asking
+// permission it should not have to ask for. The names inside the archive are
+// the ones the build gave them, unchanged: a cue sheet names its own bin, so a
+// pair renamed on the way out is a table of contents pointing at nothing.
+function handOver(
+  build: ConsoleBuild, files: { name: string; bytes: Uint8Array }[]
+) {
+  const download = props.downloadArchive ?? browserDownload;
+  if (files.length === 1) {
+    download(files[0]!.bytes, files[0]!.name, "application/octet-stream");
+    return;
+  }
+  download(
+    writeArchive(files.map((file) => ({ path: file.name, bytes: file.bytes }))),
+    `${project.value.gameId.replace(/[^a-z0-9._-]+/gi, "-")}-${
+      build.service.target.route}.zip`,
+    "application/zip"
+  );
+}
+
+async function downloadConsoleImage(build: ConsoleBuild) {
+  if (build.building) return;
   // Saving first is a courtesy, never a toll gate. A refused save is exactly
   // the moment an author most needs a way to get their work off this machine,
   // and the service is handed the project on screen rather than the stored
   // copy, so a failure here costs the convenience and nothing else.
   await saveProject();
-  romBuilding.value = true;
-  romStatus.value = null;
-  romMessage.value = "";
-  romDetail.value = "";
-  romElapsed.value = 0;
-  startRomClock();
+  const target = build.service.target;
+  build.building = true;
+  build.status = null;
+  build.message = "";
+  build.detail = "";
+  build.elapsed = 0;
+  startRomClock(build);
   try {
     const projectJson = new TextDecoder().decode(
       encodeSourceProject(project.value)
     );
-    const { rom: bytes, status } = await rom.build(projectJson, (progress) => {
-      romStatus.value = progress;
-      romMessage.value = romProgressText(progress, romElapsed.value);
-    });
-    (props.downloadArchive ?? browserDownload)(
-      bytes,
-      `${project.value.gameId.replace(/[^a-z0-9._-]+/gi, "-")}.z64`,
-      "application/octet-stream"
+    const { files, status } = await build.service.build(
+      projectJson,
+      (progress) => {
+        build.status = progress;
+        build.message = romProgressText(build, progress, build.elapsed);
+      }
     );
-    romMessage.value =
-      `Nintendo 64 ROM ready: ${bytes.length.toLocaleString()} bytes.`;
-    romDetail.value = `Built from campaign "${status.campaign}".`;
+    handOver(build, files);
+    const total = files.reduce((sum, file) => sum + file.bytes.length, 0);
+    build.message =
+      `${target.platform} ${target.image} ready: ` +
+      `${total.toLocaleString()} bytes in ${files.length} file${
+        files.length === 1 ? "" : "s"}.`;
+    build.detail = `Built from campaign "${status.campaign}".` +
+      (target.route === "playstation" ? ` ${playstationWhereItRuns}` : "");
   } catch (error) {
     if (error instanceof RomServiceError) {
       // The service's own words, and the toolchain's underneath them. A
       // message composed here would be throwing away the only part of a
       // compiler diagnostic an author can act on.
-      romMessage.value = error.refusal.message;
-      romDetail.value = error.refusal.detail ?? "";
+      build.message = error.refusal.message;
+      build.detail = error.refusal.detail ?? "";
     } else {
-      romMessage.value =
-        `The ROM build failed: ${
+      build.message =
+        `The ${target.platform} build failed: ${
           error instanceof Error ? error.message : String(error)}`;
-      romDetail.value = "";
+      build.detail = "";
     }
   } finally {
-    stopRomClock();
-    romBuilding.value = false;
-    romStatus.value = null;
+    stopRomClock(build);
+    build.building = false;
+    build.status = null;
   }
 }
+
+// Where a disc runs, said once and said exactly.
+//
+// This is the sentence `platform/playstation/README.md` already carries, and
+// it is here rather than paraphrased because the temptation to round it off is
+// the whole problem. The image carries no licence sector, because that data is
+// Sony's and none of it is fetched or vendored; a stock PlayStation reads that
+// area, finds nothing, and refuses the disc. Nothing in this repository has
+// ever run on real hardware of either console, so what any *other* machine
+// does with the disc is not something anybody here can say.
+const playstationWhereItRuns =
+  "It boots in PCSX-Redux. It carries no licence sector — that data is " +
+  "Sony's — so a stock PlayStation will refuse it, and nothing here has run " +
+  "on real hardware, so no claim is made about anything else that reads a " +
+  "disc.";
 
 async function exportProject() {
   // The way out that must never be closed. Export tries to save first, because
@@ -849,16 +941,21 @@ onBeforeUnmount(() => {
           Export
         </button>
         <!--
-          The cartridge, beside the source archive. Disabled with a reason on
-          it rather than hidden: an author who cannot build a ROM here is
-          better served by knowing why than by the control quietly not
-          existing.
+          The console images, beside the source archive. One per console, each
+          disabled with a reason on it rather than hidden: an author who cannot
+          build here is better served by knowing why than by the control
+          quietly not existing.
         -->
-        <button type="button" data-testid="download-n64-rom"
-          :disabled="busy || romBuilding || !(romHealth?.ready ?? false)"
-          :title="romUnavailableReason() || 'Build a Nintendo 64 ROM of this project'"
-          @click="downloadRom">
-          {{ romBuilding ? "Building ROM…" : "Nintendo 64 ROM" }}
+        <button v-for="build in consoleBuilds" :key="build.service.target.route"
+          type="button" :data-testid="`build-${build.service.target.route}`"
+          :disabled="busy || build.building || !(build.health?.ready ?? false)"
+          :title="romUnavailableReason(build) ||
+            `Build a ${build.service.target.platform} ` +
+            `${build.service.target.image} of this project`"
+          @click="downloadConsoleImage(build)">
+          {{ build.building
+            ? `Building ${build.service.target.image}…`
+            : `${build.service.target.platform} ${build.service.target.image}` }}
         </button>
         <button type="button" class="secondary" :disabled="busy"
           @click="goToStartScreen">
@@ -873,14 +970,19 @@ onBeforeUnmount(() => {
         accept=".zip,.grandleon.zip,application/zip,.json,application/json"
         @change="importProject">
       <!--
-        What the ROM build is doing, or why it cannot. `aria-live` because the
-        interesting part of a build this long is that it keeps changing, and a
-        screen reader should hear it change without being asked.
+        What each console build is doing, or why it cannot. `aria-live` because
+        the interesting part of a build this long is that it keeps changing,
+        and a screen reader should hear it change without being asked. One line
+        per console rather than one shared line, because the two builds run in
+        queues of their own and a shared line would show whichever spoke last.
       -->
-      <p v-if="romMessage || romUnavailableReason()" class="rom-status"
-        data-testid="rom-status" aria-live="polite">
-        <span>{{ romMessage || romUnavailableReason() }}</span>
-        <span v-if="romDetail" class="rom-detail">{{ romDetail }}</span>
+      <p v-for="build in consoleBuilds" :key="build.service.target.route"
+        v-show="build.message || romUnavailableReason(build)"
+        class="rom-status"
+        :data-testid="`build-status-${build.service.target.route}`"
+        aria-live="polite">
+        <span>{{ build.message || romUnavailableReason(build) }}</span>
+        <span v-if="build.detail" class="rom-detail">{{ build.detail }}</span>
       </p>
     </div>
   </header>

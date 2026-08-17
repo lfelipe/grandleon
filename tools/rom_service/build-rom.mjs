@@ -1,24 +1,31 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: MIT
 
-// Ask the ROM service for a ROM, from a shell instead of from a browser.
+// Ask the build service for a console image, from a shell instead of from a
+// browser.
 //
-//   node tools/rom_service/build-rom.mjs <project.json> <output.z64>
+//   node tools/rom_service/build-rom.mjs [--console n64|playstation] \
+//       <project.json> <output-directory>
 //
-// This is not a second path to a ROM. It starts the service in this process
+// This is not a second path to an image. It starts the service in this process
 // and then does exactly what `editor/src/platform/rom-service.ts` does: POST,
 // poll, collect over HTTP. So a check that runs this is checking the surface
 // the editor uses, not a convenient shortcut past it. That distinction is the
-// whole value of the two lanes it exists for: a lane that called the build
-// script directly would prove the toolchain works and say nothing about the
-// path an author's project actually takes.
+// whole value of the lanes it exists for: a lane that called the build script
+// directly would prove the toolchain works and say nothing about the path an
+// author's project actually takes.
+//
+// The output is a directory rather than a file name, and every file keeps the
+// name the service gave it. A disc is two files whose cue sheet names its own
+// bin, so a caller that renamed the pair would hand somebody a table of
+// contents pointing at a file that is not there.
 
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { BuildQueue, createRomService } from "./serve.mjs";
+import { BuildQueue, consoles, createRomService } from "./serve.mjs";
 
 const repositoryRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -26,16 +33,29 @@ const repositoryRoot = path.resolve(
     ".."
 );
 
-const [projectPath, outputPath] = process.argv.slice(2);
-if (projectPath === undefined || outputPath === undefined) {
+const argv = process.argv.slice(2);
+let route = "n64";
+const consoleIndex = argv.indexOf("--console");
+if (consoleIndex >= 0) {
+    route = argv[consoleIndex + 1] ?? "";
+    argv.splice(consoleIndex, 2);
+}
+const [projectPath, outputDir] = argv;
+if (projectPath === undefined || outputDir === undefined ||
+    consoles[route] === undefined) {
     process.stderr.write(
-        "usage: build-rom.mjs <project.json> <output.z64>\n"
+        "usage: build-rom.mjs [--console " +
+        `${Object.keys(consoles).join("|")}] <project.json> ` +
+        "<output-directory>\n"
     );
     process.exit(2);
 }
 
-const queue = new BuildQueue({ root: repositoryRoot });
-const server = createRomService({ root: repositoryRoot, queue });
+const queue = new BuildQueue({ root: repositoryRoot, target: consoles[route] });
+const server = createRomService({
+    root: repositoryRoot,
+    queues: { [route]: queue }
+});
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const base = `http://127.0.0.1:${server.address().port}`;
 
@@ -50,7 +70,7 @@ function fail(message, detail = "") {
 }
 
 const text = await readFile(projectPath, "utf8");
-const accepted = await fetch(`${base}/api/n64/build`, {
+const accepted = await fetch(`${base}/api/${route}/build`, {
     method: "POST",
     body: text
 });
@@ -59,14 +79,16 @@ if (accepted.status !== 202) {
     fail(`refused ${body.code}: ${body.message}`, body.detail);
 }
 process.stdout.write(
-    `building ${path.basename(projectPath)} ` +
+    `building ${path.basename(projectPath)} for ${consoles[route].name} ` +
     `(${body.title || "untitled"}, campaign ${body.campaign})\n`
 );
 
 let status = body;
 while (status.state === "queued" || status.state === "building") {
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    status = await (await fetch(`${base}/api/n64/build/${body.id}`)).json();
+    status = await (
+        await fetch(`${base}/api/${route}/build/${body.id}`)
+    ).json();
     process.stdout.write(`  ${elapsed()} ${status.state}\n`);
 }
 if (status.state !== "done") {
@@ -76,11 +98,23 @@ if (status.state !== "done") {
     );
 }
 
-const rom = Buffer.from(
-    await (await fetch(`${base}/api/n64/build/${body.id}/rom`)).arrayBuffer()
-);
-await writeFile(outputPath, rom);
+await mkdir(outputDir, { recursive: true });
+for (const artifact of status.artifacts) {
+    const collected = Buffer.from(
+        await (await fetch(
+            `${base}/api/${route}/build/${body.id}/artifact/${
+                encodeURIComponent(artifact.name)
+            }`
+        )).arrayBuffer()
+    );
+    const target = path.join(outputDir, artifact.name);
+    await writeFile(target, collected);
+    process.stdout.write(
+        `FILE ${target} ${collected.length} bytes md5 ${artifact.md5}\n`
+    );
+}
 process.stdout.write(
-    `RESULT PASS ${outputPath} ${rom.length} bytes md5 ${status.md5} in ${elapsed()}\n`
+    `RESULT PASS ${status.artifacts.length} file(s) in ${outputDir} ` +
+    `in ${elapsed()}\n`
 );
 server.close();

@@ -247,7 +247,7 @@ test("draws a map in one section, sets a Stage up in another, and plays it",
 
     // And it plays. A fresh campaign has no scene to sit through, so Play opens
     // on the company and the board is one press away.
-    await page.getByRole("button", { name: /Play/ }).click();
+    await page.getByRole("button", { name: "▶ Play" }).click();
     const play = page.locator(".play-mode");
     await expect(play).toBeVisible();
     const toTheStage = play.getByRole("button", { name: "To the Stage" });
@@ -428,7 +428,7 @@ test("puts three bandits down without a bandit having been made first",
     );
 
     // And it plays: the board the author just filled, running under the engine.
-    await page.getByRole("button", { name: /Play/ }).click();
+    await page.getByRole("button", { name: "▶ Play" }).click();
     const play = page.locator(".play-mode");
     const toTheStage = play.getByRole("button", { name: "To the Stage" });
     await expect(toTheStage).toBeVisible({ timeout: 30_000 });
@@ -535,7 +535,7 @@ test("will not stand one person on the same board twice", async ({ page }) => {
 // differently. And `vite preview` answers the unproxied path with HTML rather
 // than refusing the connection, so this is the only place the editor's
 // handling of *that* particular shape of nothing is exercised.
-test("offers the Nintendo 64 ROM, and says why it cannot build one here",
+test("offers both consoles, and says why it cannot build for either here",
   async ({ page }) => {
     const violations: string[] = [];
     page.on("console", (message) => {
@@ -545,14 +545,19 @@ test("offers the Nintendo 64 ROM, and says why it cannot build one here",
     });
 
     await page.getByRole("button", { name: "Start a new game" }).click();
-    const button = page.getByTestId("download-n64-rom");
-    await expect(button).toBeVisible();
-    // Present and disabled with a reason, rather than absent or failing on a
-    // press.
-    await expect(button).toBeDisabled();
-    await expect(page.getByTestId("rom-status")).toContainText(
-      "ROM build service is not running"
-    );
+    // Both consoles, because the proxy forwards `/api` as a whole and a
+    // console whose path had been forgotten would look here exactly like a
+    // service that is not running.
+    for (const route of ["n64", "playstation"]) {
+      const button = page.getByTestId(`build-${route}`);
+      await expect(button).toBeVisible();
+      // Present and disabled with a reason, rather than absent or failing on a
+      // press.
+      await expect(button).toBeDisabled();
+      await expect(page.getByTestId(`build-status-${route}`)).toContainText(
+        "ROM build service is not running"
+      );
+    }
     // And the editor got that answer without the policy stopping it.
     expect(violations).toEqual([]);
   });

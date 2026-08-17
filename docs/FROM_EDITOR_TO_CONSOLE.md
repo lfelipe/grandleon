@@ -79,28 +79,48 @@ The PlayStation cannot compile the content path at all, for want of a linkable
 unwinder, so the Nintendo 64's is the repository's only target-side test of the
 JSON parser.
 
-## Back the other way: from the editor to a cartridge
+## Back the other way: from the editor to a cartridge or a disc
 
 An author's own game, in a file they can run, is the same chain again with the
 real build on the end rather than a patched template ROM:
 
 ```
  the editor's project.json
-      │  POST /api/n64/build   (relative path; connect-src stays 'self')
+      │  POST /api/<console>/build  (relative path; connect-src stays 'self')
       ▼
  tools/rom_service           refuses what it cannot serve before a container
       │                        starts, and compiles on the host first, because
-      │                        this console compiles on the machine and a bad
-      ▼                        project would otherwise die at boot
- platform/nintendo64/scripts/build-n64.sh --project <staged> --targets …
-      ▼
-   a .z64
+      │                        one console compiles on the machine and the
+      │                        other embeds what the host compiled — either way
+      ▼                        a bad project would otherwise cost a build
+ build-n64.sh --project <staged> --targets grandleon_n64_campaign
+      ▼                        │
+   a .z64                      │  build-playstation.sh --project <staged>
+                               ▼  then build-disc.sh
+                            a .bin and its .cue
 ```
 
-The ROM belongs to no particular game: a generated `project_identity.h` derives
-the campaign key and save slot from whichever project was built.
-`tools/rom_service/README.md` gives the argument against patching, every
-refusal by name, and the two lanes that hold the build route up.
+Neither image belongs to a particular game: a generated `project_identity.h`
+derives the campaign key and save slot from whichever project was built, from
+one derivation both consoles share
+(`cmake/GrandleonProjectIdentity.cmake`), and each reads the name to draw off
+the package it is holding. `tools/rom_service/README.md` gives the argument
+against patching, every refusal by name, and the lanes that hold the build
+route up.
+
+**The two consoles do not accept the same projects, and the difference is one
+refusal.** The Nintendo 64 embeds the drawings its content actually draws, so a
+project drawing characters in two styles is served. The PlayStation includes one
+generated character header, so the same project is refused by name before a
+container starts. That is an art-library limit rather than a console one, and
+`cmake/GrandleonCharacterStyle.cmake` says what lifting it would take.
+
+**A disc is offered on different terms from a ROM, and the surface says so.**
+The image carries no licence sector, because that data is Sony's. PCSX-Redux
+boots it and `grandleon_playstation_disc_check` proves that; a stock
+PlayStation reads the licence area, finds nothing, and refuses the disc; and
+nothing here has ever run on real hardware of either console, so no claim is
+made about anything else that reads a disc.
 
 **The browser compiles too.** `gl_content_compile` binds `tools/game_content`
 through the web ABI: the same `parse_source_project_json` and `compile` the

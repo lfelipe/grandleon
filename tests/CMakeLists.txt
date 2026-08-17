@@ -1186,11 +1186,35 @@ if(GRANDLEON_PLAYSTATION_TESTS)
             -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_disc_test.cmake"
     )
     set_tests_properties(grandleon.playstation_disc PROPERTIES TIMEOUT 7200)
+
+    # A disc of a game this repository does not ship, built through the path an
+    # author's project actually takes and booted the way a console boots one.
+    #
+    # A seventh test because it is the only one whose subject is *whose game*
+    # the image is. Every other run here is one of the two shipped campaigns,
+    # and every decision that makes an image a particular game — the package it
+    # carries, the campaign it asks that package for, the slot the card keeps
+    # it in — is made at build time, so a build that quietly kept naming
+    # Tarnholt would pass all six.
+    configure_file(
+        cmake/playstation_other_game_test.cmake.in
+        "${CMAKE_CURRENT_BINARY_DIR}/playstation_other_game_test.cmake"
+        @ONLY
+    )
+    add_test(
+        NAME grandleon.playstation_other_game
+        COMMAND
+            "${CMAKE_COMMAND}"
+            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_other_game_test.cmake"
+    )
+    set_tests_properties(
+        grandleon.playstation_other_game PROPERTIES TIMEOUT 7200
+    )
 else()
     message(
         STATUS
         "ctest holds no PlayStation lane: -DGRANDLEON_PLAYSTATION_TESTS=ON "
-        "adds six, or scripts/local-ci.sh --playstation runs the checks "
+        "adds seven, or scripts/local-ci.sh --playstation runs the checks "
         "without reconfiguring"
     )
 endif()

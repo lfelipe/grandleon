@@ -10,23 +10,29 @@ import {
   sourceProjectPath
 } from "./domain/source-project-document";
 import type { SourceAnalysis } from "./analysis/source-analysis";
-import { RomService } from "./platform/rom-service";
+import { RomService, romTargets } from "./platform/rom-service";
 
 // A ROM service that is simply not there, which is what every test that is
 // not about ROMs should meet. Without it each mount would ask a real relative
 // URL, happy-dom would resolve it against its own origin and try to open a
 // socket, and the suite would fill with connection errors it does not care
 // about, and would depend on nothing listening on that port.
-const absentRomService = () => new RomService({
-  fetch: (async () => {
-    throw new TypeError("Failed to fetch");
-  }) as unknown as typeof globalThis.fetch
-});
+// One per console, all of them answering as though nothing is listening.
+const absentConsoleServices = () => Object.values(romTargets).map(
+  (target) => new RomService({
+    target,
+    fetch: (async () => {
+      throw new TypeError("Failed to fetch");
+    }) as unknown as typeof globalThis.fetch
+  })
+);
 
 function mountEditor(props: Record<string, unknown> = {}) {
   const host = document.createElement("div");
   document.body.append(host);
-  const app = createApp(App, { romService: absentRomService(), ...props });
+  const app = createApp(App, {
+    consoleServices: absentConsoleServices(), ...props
+  });
   app.mount(host);
   return { host, app };
 }
@@ -146,6 +152,7 @@ describe("editor shell", () => {
         "Validate",
         "Export",
         "Nintendo 64 ROM",
+        "PlayStation disc",
         "Start screen"
       ]);
       app.unmount();
@@ -878,38 +885,42 @@ describe("editor shell", () => {
     expect(host.querySelector("button")?.textContent).toBe("Try workspace again");
     app.unmount();
   });
-  it("offers the Nintendo 64 ROM disabled, with a reason, when no service is running",
+  it("offers every console disabled, with a reason, when no service is running",
     async () => {
       // The state the browser gate runs in, and the one an author who has
       // never started the service will meet: the control is present and says
       // why it cannot be used, rather than being absent or failing on a press.
-      const romService = new RomService({
-        fetch: (async () => { throw new TypeError("Failed to fetch"); }) as
-          unknown as typeof globalThis.fetch
-      });
       const { host, app } = mountEditor({
-        projectStore: new MemoryProjectStore("rom-unavailable"),
-        romService
+        projectStore: new MemoryProjectStore("rom-unavailable")
       });
       await startNewGame(host);
       await nextTick();
       await nextTick();
 
-      const button = host.querySelector<HTMLButtonElement>(
-        '[data-testid="download-n64-rom"]'
-      );
-      expect(button).not.toBeNull();
-      expect(button!.disabled).toBe(true);
-      expect(button!.title).toMatch(/serve\.mjs/);
-      expect(
-        host.querySelector('[data-testid="rom-status"]')?.textContent
-      ).toMatch(/not running/);
+      // Both consoles, not just the first: a second console that quietly had
+      // no button would look exactly like a service that was not running.
+      expect(Object.keys(romTargets)).toHaveLength(2);
+      for (const target of Object.values(romTargets)) {
+        const button = host.querySelector<HTMLButtonElement>(
+          `[data-testid="build-${target.route}"]`
+        );
+        expect(button, `no button for ${target.platform}`).not.toBeNull();
+        expect(button!.disabled).toBe(true);
+        expect(button!.textContent).toContain(target.platform);
+        expect(button!.title).toMatch(/serve\.mjs/);
+        expect(
+          host.querySelector(
+            `[data-testid="build-status-${target.route}"]`
+          )?.textContent
+        ).toMatch(/not running/);
+      }
       app.unmount();
     });
 
   it("hands the built ROM to the download surface with a .z64 name", async () => {
     const bytes = new Uint8Array([0x80, 0x37, 0x12, 0x40]);
     const romService = {
+      target: romTargets.nintendo64,
       health: async () => ({ ready: true }),
       build: async (
         _json: string,
@@ -922,15 +933,18 @@ describe("editor shell", () => {
         onProgress({ state: "building", position: 0 });
         await nextTick();
         return {
-          rom: bytes,
-          status: { campaign: "a_campaign", md5: "ab", bytes: 4 }
+          files: [{ name: "a-game.z64", bytes }],
+          status: {
+            campaign: "a_campaign",
+            artifacts: [{ name: "a-game.z64", bytes: 4, md5: "ab" }]
+          }
         };
       }
     } as unknown as RomService;
     const downloaded: Array<[Uint8Array, string, string | undefined]> = [];
     const { host, app } = mountEditor({
       projectStore: new MemoryProjectStore("rom-download"),
-      romService,
+      consoleServices: [romService],
       downloadArchive: (
         data: Uint8Array, filename: string, contentType?: string
       ) => { downloaded.push([data, filename, contentType]); }
@@ -940,7 +954,7 @@ describe("editor shell", () => {
     await nextTick();
 
     const button = host.querySelector<HTMLButtonElement>(
-      '[data-testid="download-n64-rom"]'
+      '[data-testid="build-n64"]'
     )!;
     expect(button.disabled).toBe(false);
     const progress: string[] = [];
@@ -950,7 +964,9 @@ describe("editor shell", () => {
     // than counting ticks.
     for (let turn = 0; turn < 30 && downloaded.length === 0; turn += 1) {
       await nextTick();
-      const said = host.querySelector('[data-testid="rom-status"]')?.textContent;
+      const said = host.querySelector(
+        '[data-testid="build-status-n64"]'
+      )?.textContent;
       if (said) progress.push(said.trim());
     }
 

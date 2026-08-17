@@ -1,21 +1,44 @@
-# The ROM build service
+# The build service
 
-Builds a console ROM of an author's own project, on this machine, with the
+Builds a console image of an author's own project, on this machine, with the
 pinned toolchain this repository already uses for every checked image.
 
 ```
 node tools/rom_service/serve.mjs [--port 4699]
 ```
 
-The editor talks to it through Vite's proxy at `/api/n64`. With it running, the
-**Nintendo 64 ROM** button beside *Export* is enabled; without it, the button is
-disabled and says why.
+Two consoles, one process, a path segment each:
 
-There is also a shell form, which is what the two console lanes use:
+| segment | what it builds | what comes back |
+|---|---|---|
+| `/api/n64` | `grandleon_n64_campaign` | one `.z64` |
+| `/api/playstation` | `grandleon_playstation_campaign`, then a disc | a `.bin` and its `.cue` |
+
+The editor talks to it through Vite's proxy at `/api`. With it running, the
+**Nintendo 64 ROM** and **PlayStation disc** buttons beside *Export* are
+enabled; without it, each is disabled and says why. A disc arrives as one ZIP
+of the two files, because a `.bin` without the `.cue` that is its table of
+contents is not something a burning program can read, and the names inside are
+the ones the build used: a cue sheet names its own bin.
+
+**A console is a table entry in `serve.mjs`, not a branch.** What it is called,
+the words its refusals are said in, the pins its script demands, what it
+builds and what it hands back are one object; the routes, the queues and the
+health checks are written once over the table. Each console gets a queue of its
+own, so a disc and a ROM can be building at once — one build per console, which
+is the promise a queue makes about the machine.
+
+There is also a shell form, which is what the console lanes use:
 
 ```
-node tools/rom_service/build-rom.mjs games/demo/source/project.json out.z64
+node tools/rom_service/build-rom.mjs games/demo/source/project.json out/
+node tools/rom_service/build-rom.mjs --console playstation \
+    games/demo/source/project.json out/
 ```
+
+It writes each file under the name the service gave it and prints one `FILE`
+line per file. It is not a second path to an image: it starts the service in
+its own process and then does exactly what the editor does, over HTTP.
 
 ## Why this and not a patchable template
 
@@ -46,32 +69,62 @@ make. On this route it is not a property at all. It is the same build.
 Everything decidable from the project alone is decided in milliseconds, before
 a container starts.
 
-| code | when |
-|---|---|
-| `project_unreadable` | not JSON, or not a JSON object |
-| `project_without_campaign` | no campaigns, or a first campaign with no id (the ROM runs one) |
-| `campaign_id_not_an_identifier` | a first campaign whose id is not a source identifier |
-| `character_style_not_served` | a style or figure the art library does not hold, whether the game's or a character's |
-| `project_too_large_for_the_console` | source past the embed budget |
-| `project_does_not_compile` | the host compiler's own diagnostics, verbatim |
+| code | when | consoles |
+|---|---|---|
+| `project_unreadable` | not JSON, or not a JSON object | both |
+| `project_without_campaign` | no campaigns, or a first campaign with no id (an image runs one) | both |
+| `campaign_id_not_an_identifier` | a first campaign whose id is not a source identifier | both |
+| `character_style_not_served` | a style or figure the art library does not hold, whether the game's or a character's | both |
+| `character_art_is_not_one_combination` | characters drawn in more than one style or at more than one figure | PlayStation |
+| `project_too_large_for_the_console` | source past the accepted size | both |
+| `project_does_not_compile` | the host compiler's own diagnostics, verbatim | both |
 
-`project_does_not_compile` earns its place more than the others. The Nintendo 64
-compiles its project *on the console*, so a project the compiler rejects yields
-a ROM that builds perfectly, boots, and stops on an assertion an author cannot
-read. The host compiler answers the same question in two seconds.
+`project_does_not_compile` earns its place more than the others, differently on
+each console. The Nintendo 64 compiles its project *on the console*, so a
+project the compiler rejects yields a ROM that builds perfectly, boots, and
+stops on an assertion an author cannot read. The PlayStation compiles it in the
+container and embeds the result, so the same project spends a host build and a
+cross build to arrive at the same diagnostic. The host compiler answers the
+question in two seconds either way.
 
-**There is deliberately no mixed-style refusal.** The Nintendo 64 build embeds
-the drawings a project's content actually draws, so a project drawing a
-`medieval` knight, a `medieval` mage at the second figure and two `nature`
-archers is served. What is checked instead is that every style and every
-figure the content names (the game's own and each character's) is art the
-library holds, with the path of the character that named it. Without that
-check, art the library does not hold reaches the build's configure and fails
-it with a fatal error the author sees as a container exiting non-zero.
+**The mixed-style refusal is the PlayStation's alone, and its absence on the
+other console is deliberate.** The Nintendo 64 build embeds the drawings a
+project's content actually draws, so a project drawing a `medieval` knight, a
+`medieval` mage at the second figure and two `nature` archers is served. The
+PlayStation consumes the art library as one generated header per style, all of
+them declaring the same symbols, so an executable includes exactly one:
+`grandleon_require_single_character_combination` fails that build's configure,
+and `character_art_is_not_one_combination` is the same refusal minutes earlier.
+Lifting it is an art-library change, described in
+`cmake/GrandleonCharacterStyle.cmake`.
+
+What is checked on both is that every style and every figure the content names
+(the game's own and each character's) is art the library holds, with the path of
+the character that named it. Without that check, art the library does not hold
+reaches the build's configure and fails it with a fatal error the author sees as
+a container exiting non-zero.
 
 This is also the reason the route is a real build rather than a patched
 template: a template could never have served the combination, because there is
 one per style-and-figure pairing and templates cannot be built for all of them.
+
+### How large a project may be
+
+512 KiB on both, and on both it is *declared* rather than derived, for two
+different reasons.
+
+The Nintendo 64 embeds the source project and parses it into RDRAM on the
+console. The shipped project is 87,287 bytes and is known to parse and compile
+there; the ceiling has never been measured, so the bound is six times the
+largest project known to work, and it exists to turn a project that would
+almost certainly fail on the machine into a refusal that costs a second.
+
+The PlayStation does not embed the source at all: it compiles it on the host
+and embeds the package. What binds there is the executable fitting in the
+console's main RAM, and that is refused where it can be measured —
+`platform/playstation/scripts/check-heap-room.sh`, over the image the linker
+has just produced, which reports the heap that remains on every build. The
+bound here is only so that a request is bounded before it is read.
 
 `campaign_id_not_an_identifier` is the one refusal that is not about whether the
 console can play the project. The build writes that id straight into a C++
@@ -94,6 +147,9 @@ and nothing here can tell the two apart.
 |---|---|
 | `request_not_addressed_locally` | a `Host` that is not `localhost`, `127.x`, `[::1]`, or a name given to `--allow-host` |
 | `request_from_another_site` | `Sec-Fetch-Site` other than `same-origin`/`none`, or an `Origin` that is not the `Host` |
+
+Both are decided before the path has been read, so they are the same words
+whichever console was asked for.
 
 This is not paranoia about the network; it is about the browser. Left alone,
 `POST /api/n64/build` needs no header a page has to be given permission to send,
@@ -139,7 +195,8 @@ by that.
 | no container runtime | `container_runtime_missing`, told apart from a failed build, with the script's own message |
 | a build that fails | the job goes to `failed` carrying the last of the toolchain's own output |
 | a build that never finishes | killed and failed as `rom_build_timed_out` past `GRANDLEON_ROM_BUILD_TIMEOUT_MS`, default forty-five minutes |
-| two builds at once | one runs; the rest queue and are told their position; past the depth, `rom_build_queue_full` |
+| two builds for one console at once | one runs; the rest queue and are told their position; past the depth, `rom_build_queue_full` |
+| a ROM and a disc at once | both run: a queue is one per console |
 | a client that goes away | finished jobs and their build trees are reaped after an idle window |
 | a service that was killed | its staged trees belong to no job, and the next service's reaper takes them |
 
@@ -158,24 +215,43 @@ hang, so a build is enqueued, polled and collected, and the editor shows the
 state.
 
 ```
-POST /api/n64/build          the project as the body -> 202 { id, state, ... }
-GET  /api/n64/build/:id      queued | building | done | failed
-GET  /api/n64/build/:id/rom  the .z64
-GET  /api/n64/health         whether this machine can build at all
+POST /api/<console>/build                     the project as the body -> 202
+GET  /api/<console>/build/:id                 queued | building | done | failed
+GET  /api/<console>/build/:id/artifact/:name  one finished file
+GET  /api/<console>/health                    whether this machine can build
 ```
+
+A finished build reports `artifacts`, each with the name it will be downloaded
+under, its size and its md5. The artifact is addressed by that name rather than
+by an index or by a fixed word, because a disc is two files whose names refer
+to each other and a caller has to be able to ask for the one it means. A name
+the job did not produce is a 404 and never a path this service opens.
+
+A PlayStation disc costs more than a ROM and it is worth knowing why: every
+request builds the content compiler on the host and then the executable for the
+R3000A, inside the request's own tree, so nothing is warm the way a second ROM
+is warm.
 
 ## Where a build happens
 
-Under `build-n64/requests/<job>/`, inside the repository. `build-n64.sh`
-requires that, because only the repository is mounted into the container. The
-author's `project.json` is staged there too, so a request never writes over a
-checked-in game.
+Under `<console staging>/requests/<job>/` — `build-n64/` or
+`build-playstation/` — inside the repository. Both build scripts require that,
+because only the repository is mounted into the container. The author's
+`project.json` is staged there too, so a request never writes over a
+checked-in game. Each queue sweeps its own console's staging and no other's.
 
 ## What checks it
 
 - `node --test tools/rom_service/serve.test.mjs` covers every refusal and every
   failure path, with no container involved. That is deliberate: the service's
-  job is to have said no to everything it can before a container exists.
+  job is to have said no to everything it can before a container exists. It
+  also holds every console to having its own words for every refusal, so a
+  table filled in from the other console — which would read perfectly — fails
+  there.
+- `editor/src/platform/rom-refusals.test.ts` holds the editor's list of codes
+  and its list of consoles against the service's own, so a console added to one
+  side and not the other is a failing test rather than a button that asks a
+  path nobody answers.
 - `grandleon.nintendo64_editor_rom` builds a *different* game through this
   path first, then the shipped project, and requires the second to be the
   toolchain's own ROM byte for byte. The ordering is what makes it non-trivial:

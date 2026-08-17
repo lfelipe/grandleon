@@ -43,16 +43,26 @@ if(other_campaign STREQUAL shipped_campaign)
         "lane could not tell them apart")
 endif()
 
+# The export path writes each file under the name it gave it, into a directory
+# of its own, so nothing here has to restate how a download is named.
 execute_process(
     COMMAND node "${source_root}/tools/rom_service/build-rom.mjs"
             "${source_root}/games/demo/source/project.json"
-            "${work}/other-game.z64"
+            "${work}/other-game"
     WORKING_DIRECTORY "${source_root}"
     RESULT_VARIABLE build_result
 )
 if(NOT build_result EQUAL 0)
     message(FATAL_ERROR "the export path could not build the other game")
 endif()
+file(GLOB other_roms "${work}/other-game/*.z64")
+list(LENGTH other_roms other_rom_count)
+if(NOT other_rom_count EQUAL 1)
+    message(FATAL_ERROR
+        "the export path wrote ${other_rom_count} ROMs into "
+        "${work}/other-game")
+endif()
+list(GET other_roms 0 other_rom)
 
 # The ROM has no autopilot script. It is an ordinary interactive campaign ROM
 # of somebody else's game, so it never ends and never prints a verdict. What
@@ -66,7 +76,7 @@ set(ENV{GRANDLEON_N64_ARES_LOG} "other-game.log")
 set(ENV{GRANDLEON_N64_ARES_SHOT} "other-game.png")
 execute_process(
     COMMAND "${source_root}/platform/nintendo64/ares/run-ares.sh"
-            "${work}/other-game.z64"
+            "${other_rom}"
     WORKING_DIRECTORY "${source_root}"
     RESULT_VARIABLE run_result
 )

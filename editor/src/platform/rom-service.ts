@@ -1,24 +1,46 @@
 // SPDX-License-Identifier: MIT
-// The editor's side of the local ROM build service.
+// The editor's side of the local console build service.
 //
-// The editor does not build a ROM and does not patch one. It hands the project
-// to `tools/rom_service/serve.mjs`, which runs the same pinned container build
-// the gate runs, and collects what comes back. So the ROM an author downloads
-// is the checked build rather than something required to resemble it.
+// The editor does not build a ROM or a disc and does not patch one. It hands
+// the project to `tools/rom_service/serve.mjs`, which runs the same pinned
+// container build the gate runs, and collects what comes back. So what an
+// author downloads is the checked build rather than something required to
+// resemble it.
 //
-// Two shapes here are consequences of that decision rather than preferences.
+// Three shapes here are consequences of that decision rather than preferences.
 //
 // **Everything is fetched from a relative path.** `editor/index.html` declares
-// `connect-src 'self'`, and it stays that way: the requests go to `/api/n64`,
-// which Vite proxies to the service in both `server` and `preview`. Widening
-// the policy to name a localhost port would have been the easy way and would
-// have spent a real security property on a development convenience.
+// `connect-src 'self'`, and it stays that way: the requests go to
+// `/api/<console>`, which Vite proxies to the service in both `server` and
+// `preview`. Widening the policy to name a localhost port would have been the
+// easy way and would have spent a real security property on a development
+// convenience.
 //
 // **A build is polled, not awaited.** It takes tens of seconds to minutes on
 // the machine that measured it. A promise that settled at the end would give
 // the surface nothing to say in between, which is how a wait becomes a hang.
+//
+// **A build produces files, not a file.** A Nintendo 64 ROM is one; a
+// PlayStation disc is a `.bin` and the `.cue` that is its table of contents,
+// and handing over the first without the second hands over something no
+// burning program can read. So a finished build is a list, and every file
+// keeps the name the service built it under, because a cue sheet names its own
+// bin.
 
 export type RomBuildState = "queued" | "building" | "done" | "failed";
+
+// A console this service builds for, as the editor addresses it. The path
+// segment is the service's own; `platform` is what the button says.
+export interface RomTarget {
+  readonly route: string;
+  readonly platform: string;
+  readonly image: string;
+}
+
+export const romTargets: Record<string, RomTarget> = {
+  nintendo64: { route: "n64", platform: "Nintendo 64", image: "ROM" },
+  playstation: { route: "playstation", platform: "PlayStation", image: "disc" }
+};
 
 // Every refusal the service can make, in the order its own table names them,
 // followed by the two this side raises. Kept as a list rather than a string so
@@ -38,6 +60,7 @@ export const romRefusalCodes = [
   "rom_build_timed_out",
   "rom_build_queue_full",
   "rom_build_unknown",
+  "character_art_is_not_one_combination",
   "request_from_another_site",
   "request_not_addressed_locally",
   // Raised where the ROM is asked for rather than where it is built: a build
@@ -55,6 +78,13 @@ export interface RomRefusal {
   detail?: string | undefined;
 }
 
+// One file a finished build produced, named as it will be downloaded.
+export interface RomArtifact {
+  name: string;
+  bytes: number;
+  md5: string;
+}
+
 export interface RomBuildStatus {
   id: string;
   state: RomBuildState;
@@ -63,10 +93,16 @@ export interface RomBuildStatus {
   campaign: string;
   position: number;
   waiting: number;
-  bytes: number;
-  md5: string;
+  artifacts: RomArtifact[];
   log: string;
   error: RomRefusal | null;
+}
+
+// A finished build, as the surface receives it: every file, in the order the
+// console produced them, each with the bytes and the name it is saved under.
+export interface RomBuildResult {
+  files: { name: string; bytes: Uint8Array }[];
+  status: RomBuildStatus;
 }
 
 export interface RomServiceHealth {
@@ -106,15 +142,26 @@ export interface RomServiceOptions {
   // How often to ask. Two seconds against a hundred-second build is fifty
   // requests, which is nothing, and it keeps the surface honest about moving.
   pollMilliseconds?: number;
+  // Which console this instance builds for. One instance per console rather
+  // than a console argument on every call: the surface holds one of these per
+  // button, and a call that could be pointed at the wrong console is a call
+  // that eventually is.
+  target?: RomTarget;
 }
 
 export class RomService {
   readonly #fetch: typeof globalThis.fetch;
   readonly #pollMilliseconds: number;
+  readonly #target: RomTarget;
 
   constructor(options: RomServiceOptions = {}) {
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#pollMilliseconds = options.pollMilliseconds ?? 2000;
+    this.#target = options.target ?? romTargets.nintendo64!;
+  }
+
+  get target(): RomTarget {
+    return this.#target;
   }
 
   async #json(path: string, init?: RequestInit): Promise<unknown> {
@@ -161,7 +208,9 @@ export class RomService {
   // than one that fails after it is pressed.
   async health(): Promise<RomServiceHealth> {
     try {
-      return await this.#json("/api/n64/health") as RomServiceHealth;
+      return await this.#json(
+        `/api/${this.#target.route}/health`
+      ) as RomServiceHealth;
     } catch (error) {
       if (error instanceof RomServiceError) {
         return {
@@ -176,7 +225,7 @@ export class RomService {
   }
 
   async start(projectJson: string): Promise<RomBuildStatus> {
-    return await this.#json("/api/n64/build", {
+    return await this.#json(`/api/${this.#target.route}/build`, {
       method: "POST",
       body: projectJson
     }) as RomBuildStatus;
@@ -184,15 +233,17 @@ export class RomService {
 
   async status(id: string): Promise<RomBuildStatus> {
     return await this.#json(
-      `/api/n64/build/${encodeURIComponent(id)}`
+      `/api/${this.#target.route}/build/${encodeURIComponent(id)}`
     ) as RomBuildStatus;
   }
 
-  async collect(id: string): Promise<Uint8Array> {
+  async collect(id: string, name: string): Promise<Uint8Array> {
     let response: Response;
     try {
       response = await this.#fetch(
-        `/api/n64/build/${encodeURIComponent(id)}/rom`
+        `/api/${this.#target.route}/build/${
+          encodeURIComponent(id)
+        }/artifact/${encodeURIComponent(name)}`
       );
     } catch {
       throw new RomServiceError(unreachable);
@@ -200,7 +251,8 @@ export class RomService {
     if (!response.ok) {
       throw new RomServiceError({
         code: "rom_build_failed",
-        message: "The finished ROM could not be collected."
+        message: `The finished ${this.#target.image} could not be collected.`,
+        detail: name
       });
     }
     return new Uint8Array(await response.arrayBuffer());
@@ -217,7 +269,7 @@ export class RomService {
     onProgress: (status: RomBuildStatus) => void,
     sleep: (ms: number) => Promise<void> = (ms) =>
       new Promise((resolve) => setTimeout(resolve, ms))
-  ): Promise<{ rom: Uint8Array; status: RomBuildStatus }> {
+  ): Promise<RomBuildResult> {
     let status = await this.start(projectJson);
     onProgress(status);
     while (status.state === "queued" || status.state === "building") {
@@ -228,9 +280,16 @@ export class RomService {
     if (status.state === "failed") {
       throw new RomServiceError(status.error ?? {
         code: "rom_build_failed",
-        message: "The ROM build failed."
+        message: `The ${this.#target.platform} build failed.`
       });
     }
-    return { rom: await this.collect(status.id), status };
+    const files = [];
+    for (const artifact of status.artifacts) {
+      files.push({
+        name: artifact.name,
+        bytes: await this.collect(status.id, artifact.name)
+      });
+    }
+    return { files, status };
   }
 }

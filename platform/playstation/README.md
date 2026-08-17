@@ -84,10 +84,20 @@ Run these from the repository root. Artifacts land in the gitignored
 `build-playstation/`, including a portable pixmap of each frame the render
 check sampled. `-DGRANDLEON_PLAYSTATION_TESTS=ON` adds the runs to `ctest` as
 `grandleon.playstation`, `grandleon.playstation_render`,
-`grandleon.playstation_turn`, `grandleon.playstation_card` and
-`grandleon.playstation_campaign`; they are off by default because they pull a
+`grandleon.playstation_turn`, `grandleon.playstation_card`,
+`grandleon.playstation_campaign`, `grandleon.playstation_disc` and
+`grandleon.playstation_other_game`; they are off by default because they pull a
 cross toolchain image and build an emulator from source on first use. Every
-target is excluded from `ALL`. The scripts under `scripts/` can also be run
+target is excluded from `ALL`.
+
+`grandleon.playstation_other_game` is the only one whose subject is *whose
+game* the image is. It builds a third project — one this repository does not
+ship — through `tools/rom_service`, the same POST-poll-collect the editor uses,
+boots the disc that comes out through the BIOS shell, and requires the run to
+name that game's campaign and draw that game's title and to name neither
+shipped campaign anywhere. It has no target of its own for the same reason
+`grandleon.nintendo64_other_game` has none: its subject is the export path
+rather than this directory. The scripts under `scripts/` can also be run
 directly and take `--rebuild-image` to force a container rebuild.
 
 ### Which game the executables carry

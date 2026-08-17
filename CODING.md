@@ -310,9 +310,17 @@ Artifacts land in the gitignored `build-playstation/`. Nothing produced by this
 target is committed. Configure with `-DGRANDLEON_PLAYSTATION_TESTS=ON` to add
 the runs to `ctest` as `grandleon.playstation`, `grandleon.playstation_render`,
 `grandleon.playstation_turn`, `grandleon.playstation_card`,
-`grandleon.playstation_campaign` and `grandleon.playstation_disc`; they are off
-by default because they pull a cross toolchain image and build an emulator from
-source on first use.
+`grandleon.playstation_campaign`, `grandleon.playstation_disc` and
+`grandleon.playstation_other_game`; they are off by default because they pull a
+cross toolchain image and build an emulator from source on first use.
+
+The last of those is the export path's lane, and it is the pair of
+`grandleon.nintendo64_other_game`: it builds a game this repository does not
+ship through the service the editor talks to, boots the disc that comes out
+through the BIOS shell, and requires the machine to name that game's campaign
+and title and neither shipped one's. Which game an image is, is decided at
+build time, so nothing a host can check would catch a build that quietly kept
+naming Tarnholt.
 
 The disc image carries **no licence sector**. That data is Sony's, and none of
 it is fetched or vendored. `platform/playstation/scripts/build-disc.sh` reads

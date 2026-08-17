@@ -124,10 +124,20 @@ WebAssembly: the same rules, the same numbers, the same board.
   machine.
 - **Export** downloads it as a `.grandleon.zip`, which **Open a project file**
   reads back.
-- **Nintendo 64 ROM** builds a `.z64`. It needs the local ROM build service
-  running (`node tools/rom_service/serve.mjs`) and the editor opened at a
-  `localhost` address rather than at the machine's network name; the port does
-  not matter. Without either the button is disabled and says why.
+- **Nintendo 64 ROM** builds a `.z64`, and **PlayStation disc** builds a `.bin`
+  and the `.cue` that goes with it, downloaded together as one zip. Both need
+  the local build service running (`node tools/rom_service/serve.mjs`) and the
+  editor opened at a `localhost` address rather than at the machine's network
+  name; the port does not matter. Without either, the buttons are disabled and
+  say why.
+
+  **A disc is not the same offer as a cartridge, and the difference is worth
+  reading before you burn one.** The image carries no licence sector, because
+  that data is Sony's and none of it is fetched or vendored here. It boots in
+  PCSX-Redux, which is what the gate proves; a stock PlayStation reads the
+  licence area, finds nothing, and refuses the disc. Nothing in this repository
+  has ever run on real hardware of either console, so what any other machine
+  that reads a disc does with it is not something this project says.
 
 [FROM_EDITOR_TO_CONSOLE.md](FROM_EDITOR_TO_CONSOLE.md) is the rest of that road.
 
