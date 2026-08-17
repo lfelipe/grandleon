@@ -49,7 +49,7 @@
 // re-recording is one command:
 //
 //     grandleon_playstation_campaign_expect <project.json>
-//         tarnholt_line TARNHOLT tarnholt record out.txt
+//         tarnholt_line tarnholt record out.txt
 //
 // which writes the array body below, ready to paste. It steers by what the
 // client itself put on screen rather than by counting presses, so a board that

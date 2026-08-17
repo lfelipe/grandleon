@@ -78,6 +78,7 @@
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
+#include <grandleon/package_runtime/manifest.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
 #include <grandleon/sheet/unit_sheet.hpp>
 #include <grandleon/simulation/encounter.hpp>
@@ -165,15 +166,20 @@ constexpr std::size_t campaign_package_size = board_package_size;
 #endif
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
-// What the campaign is kept under on the card, and what the title screen calls
-// the project. The slot base is a storage name: lower case, digits, `_` and
-// `-`. `view::slot_name_at` makes rows two to four out of it.
+// What the campaign is kept under on the card. A storage name: lower case,
+// digits, `_` and `-`. `view::slot_name_at` makes rows two to four out of it.
+//
+// What the title screen calls the project is *not* here, and its absence is the
+// point: it is read off the package this executable is holding, through
+// `package_runtime::project_title`. A name compiled in beside the package would
+// be one binary telling every author's disc it was somebody else's game, and it
+// would also be the one string on this machine that cannot be checked against
+// anything, because a title is free text an author wrote rather than an
+// identifier the source contract constrains.
 #ifdef GRANDLEON_PSX_DEMO_CAMPAIGN
 constexpr const char* campaign_slot_base = "demo";
-constexpr const char* project_title = "THE BRIDGE AT DAWN";
 #else
 constexpr const char* campaign_slot_base = "tarnholt";
-constexpr const char* project_title = "TARNHOLT";
 #endif
 #endif
 
@@ -2167,7 +2173,8 @@ int main() {
     // what the block above added is the device the campaign is kept on, and
     // what this one adds is the question a player answers before it starts.
     const turn::TurnClient::SlotChoice chosen = game.open_campaign(
-        project_title, campaign_slot_base, holds, view::slot_menu_rows
+        pr::project_title(loaded.package), campaign_slot_base, holds,
+        view::slot_menu_rows
     );
     Line()
         .text("SLOT ")

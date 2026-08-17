@@ -130,8 +130,9 @@ target_link_libraries(
     grandleon_playstation_campaign_expect
     PRIVATE
         grandleon::client grandleon::client_campaign grandleon::core
-        grandleon::game_content grandleon::package_format grandleon::sheet
-        grandleon::storage grandleon::view
+        grandleon::game_content grandleon::package_format
+        grandleon::package_runtime grandleon::sheet grandleon::storage
+        grandleon::view
 )
 target_include_directories(
     grandleon_playstation_campaign_expect
@@ -153,7 +154,7 @@ set_target_properties(
 # transcript is a function of what the founding pass left on the device, and
 # the tool plays the first to derive the second. See its header.
 set(grandleon_playstation_campaign_expectations "")
-function(grandleon_playstation_campaign_expectation campaign title base mode)
+function(grandleon_playstation_campaign_expectation campaign base mode game)
     set(output
         "${GRANDLEON_PLAYSTATION_BUILD_DIR}/${campaign}_${mode}.txt")
     add_custom_command(
@@ -162,11 +163,11 @@ function(grandleon_playstation_campaign_expectation campaign title base mode)
             "${GRANDLEON_PLAYSTATION_BUILD_DIR}"
         COMMAND
             grandleon_playstation_campaign_expect
-            "${CMAKE_CURRENT_SOURCE_DIR}/games/${ARGV4}/source/project.json"
-            "${campaign}" "${title}" "${base}" "${mode}" "${output}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/games/${game}/source/project.json"
+            "${campaign}" "${base}" "${mode}" "${output}"
         DEPENDS
             grandleon_playstation_campaign_expect
-            "${CMAKE_CURRENT_SOURCE_DIR}/games/${ARGV4}/source/project.json"
+            "${CMAKE_CURRENT_SOURCE_DIR}/games/${game}/source/project.json"
         COMMENT
             "Deriving the PlayStation ${campaign} ${mode} run's expectations"
         VERBATIM
@@ -176,14 +177,19 @@ function(grandleon_playstation_campaign_expectation campaign title base mode)
         PARENT_SCOPE)
 endfunction()
 
+# What the slot screen calls the game is deliberately not among these
+# arguments: the tool reads it off the package it compiled, exactly as the
+# executable reads it off the package it carries. A title named here would be
+# this file's opinion of a game's name deriving the screen the console is then
+# required to draw.
 grandleon_playstation_campaign_expectation(
-    tarnholt_line TARNHOLT tarnholt found tarnholt)
+    tarnholt_line tarnholt found tarnholt)
 grandleon_playstation_campaign_expectation(
-    tarnholt_line TARNHOLT tarnholt resume tarnholt)
+    tarnholt_line tarnholt resume tarnholt)
 grandleon_playstation_campaign_expectation(
-    demo_campaign "THE BRIDGE AT DAWN" demo found demo)
+    demo_campaign demo found demo)
 grandleon_playstation_campaign_expectation(
-    demo_campaign "THE BRIDGE AT DAWN" demo resume demo)
+    demo_campaign demo resume demo)
 add_custom_target(grandleon_playstation_campaign_expectations
     DEPENDS ${grandleon_playstation_campaign_expectations}
 )
