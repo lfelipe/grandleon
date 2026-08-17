@@ -270,8 +270,17 @@ function addWayToWin(recipe: typeof WAYS_TO_WIN[number]) {
       Anything ticked decides this fight; anything unticked belongs to another
       Stage.
     </p>
-    <p v-if="objectives.length === 0" class="field-help" role="status">
-      Nothing decides this Stage yet, so it could go on for ever.
+    <!-- Not a note about a long battle. A Stage with nothing ticked cannot be
+         opened at all: the package format writes the count of these first and
+         every client refuses a board that declares none, so the campaign stops
+         dead when it reaches this Stage. That was a real afternoon on a real
+         console, so the wording says what actually happens and is an alert
+         rather than a status. -->
+    <p v-if="objectives.length === 0" class="win-conditions-undecided"
+      data-testid="win-conditions-undecided" role="alert">
+      This Stage cannot be played until something here is ticked. A Stage with
+      no way to win or lose is refused by the game, so a campaign that reaches
+      it stops there.
     </p>
 
     <!-- Stating how a Stage is won and making the record that says so are the
@@ -397,6 +406,18 @@ function addWayToWin(recipe: typeof WAYS_TO_WIN[number]) {
   padding: 0.75rem;
   border: 1px solid #ccd5ce;
   border-radius: 0.5rem;
+}
+
+/* Drawn as the refusal it is, and not as the field help it used to be: this
+   Stage will not open, which is a different fact from a battle running long. */
+.win-conditions-undecided {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.6rem;
+  border-left: 4px solid #8d0b1d;
+  background: #fdf2f3;
+  color: #8d0b1d;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 .win-conditions-add {
   display: flex;
