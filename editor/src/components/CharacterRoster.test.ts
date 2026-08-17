@@ -201,4 +201,29 @@ describe("CharacterRoster", () => {
     expect(host.textContent).toContain("Nobody here is called that.");
     app.unmount();
   });
+
+  // A card that drew every character at the default body would show a woman as
+  // a man on her own card, which is the one screen an author looks at to see
+  // who they have. Seeing which figure somebody is *is* the roster's half of
+  // making the choice reachable.
+  it("draws each character at the body they are, not the game's", () => {
+    const { app, host } = mount(populated({
+      unitTypes: [
+        { id: "wren", name: "Wren", classId: "guard" },
+        {
+          id: "isolde",
+          name: "Isolde",
+          classId: "guard",
+          characterFigureId: "second"
+        }
+      ]
+    }));
+    const pictures = [...host.querySelectorAll<HTMLImageElement>(
+      ".character-card img"
+    )].map((entry) => entry.getAttribute("src") ?? "");
+    expect(pictures).toHaveLength(2);
+    expect(pictures[0]).not.toContain("second");
+    expect(pictures[1]).toContain("second");
+    app.unmount();
+  });
 });

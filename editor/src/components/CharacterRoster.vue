@@ -83,11 +83,15 @@ const cards = computed<readonly Card[]>(() =>
       // character, and the card is not a board: a character on nobody's side is
       // drawn the way the first side is drawn, which is what the editor has
       // always drawn an unclaimed character as.
+      // The figure this character is, not the game's: a card that drew every
+      // character at the default body would show a woman as a man on her own
+      // card, which is the one screen an author looks at to see who they have.
       sprite: assetBase + unitSprite(
         unit.classId,
         "first",
         colour,
-        props.project.characterStyleId
+        props.project.characterStyleId,
+        unit.characterFigureId ?? props.project.characterFigureId
       )
     };
   })

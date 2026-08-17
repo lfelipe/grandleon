@@ -16,8 +16,12 @@
 // nothing, and nothing at all exists until the last press.
 
 import { computed, nextTick, onMounted, ref } from "vue";
-import type { SourceProject } from "../generated/source-v1";
-import { unitSprite } from "../domain/board-art";
+import type { SourceProject, SourceUnitType } from "../generated/source-v1";
+import {
+  CHARACTER_FIGURES,
+  DEFAULT_CHARACTER_FIGURE,
+  unitSprite
+} from "../domain/board-art";
 import {
   CATALOGUE_SETTINGS,
   characterRecipes,
@@ -44,6 +48,13 @@ const emit = defineEmits<{
     name: string;
     /** The side faction to put them on, or "" for neither. */
     sideId: string;
+    /**
+     * The body they are drawn at, or undefined for the game's own. Undefined
+     * rather than the default's id: a character that names no figure follows
+     * the game, and writing the default as an override would be saying
+     * something the author did not.
+     */
+    figureId?: SourceUnitType["characterFigureId"];
   }];
 }>();
 
@@ -66,6 +77,13 @@ const setting = ref<CatalogueSetting>(
 );
 const recipeId = ref(characterRecipes[0]!.id);
 const name = ref("");
+// Which body the drawings show. It is asked on the step that already shows a
+// drawing, so it is one press against a picture rather than a question of its
+// own, and the shelf redraws as it is pressed because that is the whole of
+// what this choice does.
+const figureId = ref<NonNullable<SourceUnitType["characterFigureId"]>>(
+  DEFAULT_CHARACTER_FIGURE as NonNullable<SourceUnitType["characterFigureId"]>
+);
 
 const heading = ref<HTMLElement>();
 const assetBase = import.meta.env.BASE_URL;
@@ -100,7 +118,13 @@ const weaponPhrase = computed(() => {
 function recipeSprite(entry: CharacterRecipe): string {
   return (
     assetBase +
-    unitSprite(entry.role, "first", undefined, props.project.characterStyleId)
+    unitSprite(
+      entry.role,
+      "first",
+      undefined,
+      props.project.characterStyleId,
+      figureId.value
+    )
   );
 }
 
@@ -133,7 +157,10 @@ function finish() {
     role: recipe.value.role,
     setting: recipe.value.setting,
     name: name.value,
-    sideId: sideId.value
+    sideId: sideId.value,
+    ...(figureId.value === DEFAULT_CHARACTER_FIGURE
+      ? {}
+      : { figureId: figureId.value })
   });
 }
 
@@ -150,7 +177,10 @@ function makeRandom() {
     role: chosen.role,
     setting: chosen.setting,
     name: chosen.name,
-    sideId: chosen.sideId
+    sideId: chosen.sideId,
+    ...(figureId.value === DEFAULT_CHARACTER_FIGURE
+      ? {}
+      : { figureId: figureId.value })
   });
 }
 
@@ -224,6 +254,25 @@ onMounted(() => {
           <span>{{ entry.summary }}</span>
         </button>
       </div>
+
+      <!-- The body, on the step that already shows a drawing rather than on a
+           step of its own. A game whose characters are all one figure should
+           not answer this once per character, so it is one press beside the
+           picture and never a fourth question. The shelf redraws as it is
+           pressed, which is the whole of what the choice does. -->
+      <fieldset class="wizard-figures">
+        <legend>Body</legend>
+        <div role="radiogroup" aria-label="Body">
+          <button v-for="entry in CHARACTER_FIGURES" :key="entry.id"
+            type="button" role="radio" :data-figure="entry.id"
+            :aria-checked="figureId === entry.id ? 'true' : 'false'"
+            :tabindex="figureId === entry.id ? 0 : -1"
+            @click="figureId = entry.id as typeof figureId">
+            {{ entry.label }}
+          </button>
+        </div>
+        <p class="field-help">Only the picture changes.</p>
+      </fieldset>
     </div>
 
     <div v-else class="wizard-panel">
@@ -277,6 +326,30 @@ onMounted(() => {
 .character-wizard h3 {
   margin: 0 0 0.5rem;
 }
+.wizard-figures {
+  border: 1px solid #ccd5ce;
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.wizard-figures div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.wizard-figures button {
+  background: #e8edf7;
+  color: #172033;
+}
+
+.wizard-figures button[aria-checked="true"] {
+  background: #254f9b;
+  color: white;
+}
+
 .wizard-steps {
   display: flex;
   flex-wrap: wrap;

@@ -1,7 +1,12 @@
 <!-- SPDX-License-Identifier: MIT -->
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, toRaw, watch } from "vue";
-import type { CampaignFlow, SourceMap, SourceProject } from "../generated/source-v1";
+import type {
+  CampaignFlow,
+  SourceMap,
+  SourceProject,
+  SourceUnitType
+} from "../generated/source-v1";
 import {
   htmlPattern,
   identifierFromName,
@@ -388,6 +393,7 @@ function makeCharacter(choice: {
   setting: CatalogueSetting;
   name: string;
   sideId: string;
+  figureId?: SourceUnitType["characterFigureId"];
 }) {
   try {
     const chain = buildCharacterChain(
@@ -419,7 +425,12 @@ function makeCharacter(choice: {
         collection: "unitTypes",
         record: {
           ...chain.unitType,
-          ...(side.factionId ? { factionId: side.factionId } : {})
+          ...(side.factionId ? { factionId: side.factionId } : {}),
+          // Written only when the author chose the one the game does not
+          // already give them. A character that names no figure follows the
+          // game, and an override equal to the default says nothing while
+          // looking like a decision.
+          ...(choice.figureId ? { characterFigureId: choice.figureId } : {})
         }
       }
     ]);

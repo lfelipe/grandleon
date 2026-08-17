@@ -115,7 +115,9 @@ describe("CharacterWizard", () => {
   it("shows every role with its own picture, on one tab stop", async () => {
     const { app, host } = mount();
     await press(host, "Next");
-    const library = host.querySelector<HTMLElement>('[role="radiogroup"]')!;
+    // Named rather than "the first radiogroup on the page": this step has two,
+    // the eight roles and the body beneath them.
+    const library = host.querySelector<HTMLElement>(".shelf")!;
     const cards = [...library.querySelectorAll<HTMLElement>('[role="radio"]')];
     expect(cards).toHaveLength(8);
     expect(cards.map((card) => card.querySelector("strong")?.textContent?.trim()))
@@ -285,5 +287,78 @@ describe("CharacterWizard", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onCreate).not.toHaveBeenCalled();
     app.unmount();
+  });
+
+  // The body, asked on the step that already shows a drawing. The owner's
+  // words: "character wizard, and we need to allow it to be changed afterwards
+  // if needed" - the record form is the afterwards half and already worked.
+  describe("the body a character is drawn at", () => {
+    function figureButton(host: HTMLElement, id: string): HTMLButtonElement {
+      const found = host.querySelector<HTMLButtonElement>(`[data-figure="${id}"]`);
+      if (!found) throw new Error(`no figure button '${id}'`);
+      return found;
+    }
+
+    it("is offered on the kind step, in the words the art library uses",
+      async () => {
+        const { app, host } = mount();
+        await press(host, "Next");
+        expect([...host.querySelectorAll("[data-figure]")]
+          .map((entry) => entry.textContent?.trim()))
+          .toEqual(["Male", "Female"]);
+        // Male is where it opens, because that is the figure a character that
+        // names none is drawn at.
+        expect(figureButton(host, "first").getAttribute("aria-checked"))
+          .toBe("true");
+        app.unmount();
+      });
+
+    it("redraws the shelf as it is pressed", async () => {
+      const { app, host } = mount();
+      await press(host, "Next");
+      const picture = () => host.querySelector<HTMLImageElement>(
+        '[data-recipe] img'
+      )!.getAttribute("src");
+      const male = picture();
+      figureButton(host, "second").click();
+      await nextTick();
+      const female = picture();
+      expect(female).not.toBe(male);
+      expect(female).toContain("second");
+      app.unmount();
+    });
+
+    // An override equal to the default says nothing while looking like a
+    // decision, so it is not written.
+    it("says nothing about a character drawn the way the game draws them",
+      async () => {
+        const { app, host, onCreate } = mount();
+        await press(host, "Next");
+        await press(host, "Next");
+        await press(host, "Make them");
+        expect(onCreate.mock.lastCall?.[0]).not.toHaveProperty("figureId");
+        app.unmount();
+      });
+
+    it("carries the choice through to the character it makes", async () => {
+      const { app, host, onCreate } = mount();
+      await press(host, "Next");
+      figureButton(host, "second").click();
+      await nextTick();
+      await press(host, "Next");
+      await press(host, "Make them");
+      expect(onCreate.mock.lastCall?.[0]).toMatchObject({ figureId: "second" });
+      app.unmount();
+    });
+
+    it("carries it through Create random too", async () => {
+      const { app, host, onCreate } = mount();
+      await press(host, "Next");
+      figureButton(host, "second").click();
+      await nextTick();
+      await press(host, "Create random");
+      expect(onCreate.mock.lastCall?.[0]).toMatchObject({ figureId: "second" });
+      app.unmount();
+    });
   });
 });
