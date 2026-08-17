@@ -2151,6 +2151,74 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                 encounter.placements.push_back(output_placement);
                         }
                     }
+                    // What is said while this battle is on. Absent is the
+                    // overwhelmingly common case and costs nothing: no field
+                    // is materialised and no section is written, so a battle
+                    // nobody speaks during is the package it always was.
+                    {
+                        const std::string moments_path = node_path + ".moments";
+                        const Array* moments =
+                            mapper.array(*node, "moments", node_path, false);
+                        if (moments != nullptr) {
+                            std::size_t at = 0;
+                            for (const Json& entry : *moments) {
+                                const std::string moment_path =
+                                    moments_path + "[" + std::to_string(at++) + "]";
+                                const Object* moment =
+                                    mapper.object(entry, moment_path);
+                                if (moment == nullptr) continue;
+                                Moment output_moment;
+                                output_moment.id =
+                                    mapper.reference(*moment, "id", moment_path);
+                                output_moment.dialogue_id = mapper.reference(
+                                    *moment, "dialogueId", moment_path
+                                );
+                                const Json* when = mapper.member(
+                                    *moment, "when", moment_path, true
+                                );
+                                if (when != nullptr) {
+                                    const std::string when_path =
+                                        moment_path + ".when";
+                                    const Object* when_object =
+                                        mapper.object(*when, when_path);
+                                    if (when_object != nullptr) {
+                                        const auto kind = mapper.string(
+                                            *when_object, "kind", when_path
+                                        );
+                                        // The schema's enum has already
+                                        // refused anything else; this is the
+                                        // join from its word to the byte.
+                                        if (kind && *kind == "characterTalked") {
+                                            output_moment.trigger =
+                                                MomentTrigger::character_talked;
+                                        } else if (kind &&
+                                                   *kind == "characterFalls") {
+                                            output_moment.trigger =
+                                                MomentTrigger::character_falls;
+                                        } else {
+                                            output_moment.trigger =
+                                                MomentTrigger::stage_opens;
+                                        }
+                                        // Named by the author's own placement
+                                        // key, hashed the way a placement's own
+                                        // identity is hashed, so the two are
+                                        // the same number.
+                                        const auto about = mapper.string(
+                                            *when_object, "placementId",
+                                            when_path, false
+                                        );
+                                        if (about) {
+                                            output_moment.placement_id =
+                                                core::stable_content_id_v1(
+                                                    encounter_key + "/" + *about
+                                                );
+                                        }
+                                    }
+                                }
+                                encounter.moments.push_back(output_moment);
+                            }
+                        }
+                    }
                     // The region the player arranges their own troops in. An
                     // encounter that says nothing here has no deployment phase
                     // and every character opens on the tile its placement

@@ -536,6 +536,34 @@ struct DeploymentZone final {
     std::uint16_t capacity{};
 };
 
+// What has to happen on the board for a moment's scene to play.
+//
+// Three occasions, and they are the three a battle reports events for: the
+// board being drawn, a character talked off it, and a character defeated. The
+// last two are separate on purpose and are separate everywhere else too -
+// leaving and dying are different facts, and `unit_talked` is emitted instead
+// of `unit_defeated` rather than beside it.
+enum class MomentTrigger : std::uint8_t {
+    stage_opens = 1,
+    character_talked = 2,
+    character_falls = 3,
+};
+
+// A scene played while a battle is on.
+//
+// A node's own dialogues are presented on arrival, before the node acts, which
+// is around a battle. These are inside one. The placement this is about is
+// named by the author's own placement key rather than by a battle-local unit
+// identifier, which is derived per encounter and is a different number every
+// time the character appears: the same reason a talk's flag is authored.
+struct Moment final {
+    StableId id{};
+    MomentTrigger trigger{MomentTrigger::stage_opens};
+    // Zero for a moment about the board rather than about anybody.
+    StableId placement_id{};
+    StableId dialogue_id{};
+};
+
 struct Encounter final {
     StableId id{};
     std::string name;
@@ -544,6 +572,7 @@ struct Encounter final {
     std::vector<Placement> placements;
     TurnOrder turn_order{TurnOrder::alternating};
     DeploymentZone deployment;
+    std::vector<Moment> moments;
 };
 
 enum class CampaignNodeKind : std::uint8_t {

@@ -951,6 +951,87 @@ std::vector<std::uint8_t> package_with_record_replaced(
 // Who can be talked to, out of a section of its own rather than out of the
 // encounter record. That is what lets a package where nobody is talkable be
 // the package it always was.
+void carries_what_is_said_during_a_battle() {
+    // The ordinary case first, and the one that matters most: a project that
+    // authors no moment decodes through the same path with nothing to say,
+    // having had no section to read. That is what keeps every package written
+    // before moments existed byte for byte the package it was.
+    const pf::LoadedPackage silent = compile_and_load(ranked_source());
+    const auto quiet = pr::load_encounter(silent, 100);
+    expect(static_cast<bool>(quiet), "a battle nobody speaks during loads");
+    expect(
+        silent.find(pf::SectionType::moments) == nullptr,
+        "and its package has no moments section at all"
+    );
+    expect(quiet.moments.empty(), "so the board carries no words");
+
+    // Then the authored case, one moment of each occasion a battle has.
+    auto authored = ranked_source();
+    const auto about = authored.encounters.front().placements.back().id;
+    authored.encounters.front().moments = {
+        {11U, gc::MomentTrigger::stage_opens, 0U, 101U},
+        {12U, gc::MomentTrigger::character_talked, about, 102U},
+        {13U, gc::MomentTrigger::character_falls, about, 103U},
+    };
+    const pf::LoadedPackage spoken = compile_and_load(authored);
+    expect(
+        spoken.find(pf::SectionType::moments) != nullptr,
+        "an authored moment gives the package a moments section"
+    );
+    const auto decoded = pr::load_encounter(spoken, 100);
+    expect(static_cast<bool>(decoded), "the speaking board loads");
+    expect(decoded.moments.size() == 3, "carrying every moment authored");
+    if (decoded.moments.size() == 3) {
+        expect(
+            decoded.moments[0].trigger == pr::MomentTrigger::stage_opens &&
+                decoded.moments[0].placement_id == 0U &&
+                decoded.moments[0].dialogue_id == 101U,
+            "the one about the board is about nobody, and names its scene"
+        );
+        expect(
+            decoded.moments[1].trigger == pr::MomentTrigger::character_talked &&
+                decoded.moments[1].placement_id == about,
+            "the one about a character talked away names that character"
+        );
+        expect(
+            decoded.moments[2].trigger == pr::MomentTrigger::character_falls &&
+                decoded.moments[2].placement_id == about,
+            "and so does the one about a character falling, which is a "
+            "different occasion and a different event"
+        );
+    }
+
+    // In the order they were authored, because that is the only order there is:
+    // two moments on one occasion play in the order somebody wrote them.
+    expect(
+        decoded.moments.size() == 3 && decoded.moments[0].id == 11U &&
+            decoded.moments[1].id == 12U && decoded.moments[2].id == 13U,
+        "in the order they were authored"
+    );
+
+    // And the board is otherwise the board it was. A moment says what is heard,
+    // never who stands where.
+    expect(
+        decoded.definition.units.size() == quiet.definition.units.size(),
+        "the same characters are on it"
+    );
+}
+
+void refuses_a_moment_that_names_nobody_on_this_board() {
+    // A moment about a character the board does not field is a package
+    // disagreeing with itself, and saying so beats going quiet at the moment
+    // the words were due. The same rule a talk mark is held to.
+    auto authored = ranked_source();
+    authored.encounters.front().moments = {
+        {14U, gc::MomentTrigger::character_falls, 999999U, 104U},
+    };
+    const auto decoded = pr::load_encounter(compile_and_load(authored), 100);
+    expect(
+        !decoded && decoded.error == pr::EncounterLoadError::missing_reference,
+        "a moment about nobody on this board is refused by name"
+    );
+}
+
 void carries_the_talk_marks_onto_the_board() {
     // First the ordinary case, and the one that matters most: a project where
     // nobody authors a talk decodes with nobody talkable, through the same code
@@ -1995,6 +2076,8 @@ int main() {
     compiled_package_reaches_outcome();
     carries_the_deployment_region_onto_the_board();
     carries_the_talk_marks_onto_the_board();
+    carries_what_is_said_during_a_battle();
+    refuses_a_moment_that_names_nobody_on_this_board();
     carries_the_arrivals_onto_the_board();
     carries_the_survive_count_onto_the_objective();
     carries_the_deployment_capacity_beside_the_board();

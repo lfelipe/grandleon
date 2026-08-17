@@ -45,12 +45,43 @@ struct PlacementIdentity final {
     std::uint64_t source_key_id{};
 };
 
+// What has to happen on the board for a moment's scene to play. The three a
+// battle reports events for: the board being drawn, a character talked off it,
+// and a character defeated. Leaving and dying are different facts and are
+// reported by different events, so they are different triggers here.
+enum class MomentTrigger : std::uint8_t {
+    stage_opens = 1,
+    character_talked = 2,
+    character_falls = 3,
+};
+
+// A scene played while a battle is on, and its occasion.
+//
+// It travels beside the encounter rather than inside the definition, on the
+// same terms as terrain identities and placement identities: the rules never
+// ask what a moment is, and a rule that could would be a rule that behaved
+// differently because somebody wrote a line of dialogue. `talk_record_id` is
+// already opaque to the simulation for that reason, and this is the same
+// argument one layer out.
+struct EncounterMoment final {
+    std::uint64_t id{};
+    MomentTrigger trigger{MomentTrigger::stage_opens};
+    // The placement this is about, as the author's own placement identity.
+    // Zero for a moment about the board rather than about anybody.
+    std::uint64_t placement_id{};
+    std::uint64_t dialogue_id{};
+};
+
 struct EncounterLoadResult final {
     EncounterLoadError error{EncounterLoadError::none};
     simulation::EncounterDefinition definition;
     std::vector<UnitBehaviorBinding> behaviors;
     // One entry per unit in `definition.units`, in the same order.
     std::vector<PlacementIdentity> placements;
+    // What is said while this battle is on, in the order it was authored. Empty
+    // for an encounter nobody speaks during, which is every encounter written
+    // before moments existed.
+    std::vector<EncounterMoment> moments;
     // Row-major terrain identities for the encounter's map, width x height.
     // What a cell *is*, for a client that draws it: the identity resolves
     // through the package's presentation join into a picture. What a cell

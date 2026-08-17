@@ -833,6 +833,64 @@ EncounterLoadResult load_encounter(
         }
     }
 
+    // What is said while this battle is on, out of the moments section. Optional
+    // where talks and arrivals are required: a runtime that cannot read this
+    // plays the same battle in silence, so a package holding none simply has no
+    // such section and every encounter keeps the empty list it decoded with.
+    if (const RecordView* moments = package.find(SectionType::moments, encounter_id)) {
+        Reader moment_reader(package, *moments);
+        std::uint16_t moment_count = 0;
+        if (!moment_reader.u16(moment_count) || moment_count == 0) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        for (std::uint16_t index = 0; index < moment_count; ++index) {
+            std::uint64_t moment_id = 0;
+            std::uint8_t trigger = 0;
+            std::uint64_t placement_id = 0;
+            std::uint64_t dialogue_id = 0;
+            if (!moment_reader.u64(moment_id) || !moment_reader.u8(trigger) ||
+                !moment_reader.u64(placement_id) ||
+                !moment_reader.u64(dialogue_id) || moment_id == 0 ||
+                dialogue_id == 0) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+            if (trigger < static_cast<std::uint8_t>(MomentTrigger::stage_opens) ||
+                trigger > static_cast<std::uint8_t>(MomentTrigger::character_falls)) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+            const auto kind = static_cast<MomentTrigger>(trigger);
+            // A moment about somebody has to be about somebody this board
+            // fields, on the terms a talk mark is held to: naming a placement
+            // the board does not have is a package disagreeing with itself, and
+            // saying so beats staying silent at the moment the words were due.
+            if (kind == MomentTrigger::stage_opens) {
+                if (placement_id != 0) {
+                    return fail(EncounterLoadError::malformed_payload);
+                }
+            } else {
+                if (placement_id == 0) {
+                    return fail(EncounterLoadError::malformed_payload);
+                }
+                const auto stands = std::find_if(
+                    result.definition.units.begin(),
+                    result.definition.units.end(),
+                    [placement_id](const simulation::UnitDefinition& unit) {
+                        return unit.id == placement_id;
+                    }
+                );
+                if (stands == result.definition.units.end()) {
+                    return fail(EncounterLoadError::missing_reference);
+                }
+            }
+            result.moments.push_back(
+                EncounterMoment{moment_id, kind, placement_id, dialogue_id}
+            );
+        }
+        if (!moment_reader.finished()) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+    }
+
     // When a placement comes in, out of the arrivals section rather than out of
     // this record, for the reason the talks section is read this way. A package
     // no encounter of which authors a wave has no such section, so the lookup

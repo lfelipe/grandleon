@@ -105,6 +105,18 @@ enum class SectionType : std::uint32_t {
     // or a wave would play a different battle; a runtime that skips this draws
     // the same battle under a derived name. Nothing here is read by a rule.
     placement_names = 18,
+    // What is said during a battle and what has to happen for it to be said,
+    // per encounter. A section of its own for the reason `talks` is one: the
+    // encounter record already ends in a positional deployment tail that only
+    // "are there bytes left" tells apart, so nothing further can be appended to
+    // it and be read back. Pruned the same way, so an encounter nobody speaks
+    // during has no record and a project with none has no directory entry.
+    //
+    // **Optional**, where `talks` and `arrivals` are required, and on the same
+    // test those two are judged by: a runtime skipping a talk or a wave plays a
+    // different battle, and one skipping this plays the same battle in silence.
+    // Nothing here is read by a rule; the engine never learns a moment exists.
+    moments = 19,
 };
 
 // The presentation section holds records about the whole game, the way the

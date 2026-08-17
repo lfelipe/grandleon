@@ -2250,6 +2250,47 @@ CompileResult compile(const GameSource& source) {
             }
             return section;
         }(),
+        // What is said during a battle, per encounter. Built by hand and pruned
+        // for the talks section's reasons, and optional where that one is
+        // required: a runtime that skips this plays the same battle without the
+        // words, which is a quieter game rather than a different one.
+        //
+        // The placement a moment is about is written as the author's own
+        // placement identity, not as a unit identifier: the latter is derived
+        // per encounter and is a different number every time the character
+        // appears, which is the same reason a talk's flag is authored.
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::moments;
+            // Optional, and said here because the default is required: a
+            // runtime that cannot read this plays the same battle in silence.
+            section.flags = 0;
+            std::vector<const Encounter*> ordered;
+            for (const Encounter& encounter : source.encounters) {
+                if (!encounter.moments.empty()) ordered.push_back(&encounter);
+            }
+            std::sort(
+                ordered.begin(),
+                ordered.end(),
+                [](const Encounter* lhs, const Encounter* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Encounter* encounter : ordered) {
+                Bytes bytes;
+                put_u16(
+                    bytes, static_cast<std::uint16_t>(encounter->moments.size())
+                );
+                for (const Moment& moment : encounter->moments) {
+                    put_u64(bytes, moment.id);
+                    bytes.push_back(static_cast<std::uint8_t>(moment.trigger));
+                    put_u64(bytes, moment.placement_id);
+                    put_u64(bytes, moment.dialogue_id);
+                }
+                section.records.push_back({encounter->id, std::move(bytes)});
+            }
+            return section;
+        }(),
         // When a placement comes in, per encounter. Built by hand for the
         // reason the talks section is, and pruned the same way: a record exists
         // only for an encounter something arrives on, and the section only when
