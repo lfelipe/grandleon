@@ -219,6 +219,15 @@ skeleton.
 campaign as a disc image. Both files, because burning software needs the cue to
 know what the bin is.
 
+**A disc of your own game** is the same build with one path changed. The editor's
+**PlayStation disc** button asks the local build service for one, exactly as
+**Nintendo 64 ROM** asks it for a cartridge; from a shell it is
+`platform/playstation/scripts/build-playstation.sh --project <your project.json>`
+followed by `build-disc.sh`. Nothing is patched into a pre-built image, so what
+comes out is the checked build rather than something required to resemble it.
+[tools/rom_service/README.md](tools/rom_service/README.md) has the route and
+every refusal it makes by name.
+
 It needs **a container runtime**, like every console and WebAssembly target: the
 PlayStation toolchain is a pinned, digest-verified image rather than something
 to install. [docs/SETUP.md](docs/SETUP.md) has the details, including how to

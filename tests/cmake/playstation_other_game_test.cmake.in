@@ -19,7 +19,7 @@
 # run has no end and no verdict of its own. What it does print, before the
 # title screen, is which campaign it loaded, and what it draws on that screen is
 # the name it read off its own package. Those are the two lines this lane is
-# about, and the timeout is how it stops.
+# about, and a timeout is how it stops.
 
 set(ENV{GRANDLEON_PCSX_REDUX_BUILD_IMAGE} "@GRANDLEON_PCSX_REDUX_BUILD_IMAGE@")
 set(ENV{GRANDLEON_PCSX_REDUX_BUILD_DIGEST} "@GRANDLEON_PCSX_REDUX_BUILD_DIGEST@")
@@ -66,11 +66,10 @@ foreach(shipped tarnholt demo)
     list(APPEND shipped_campaigns "${campaign}")
 endforeach()
 
-# A build directory of its own, because the export path stages a whole host
-# build and a whole cross build under it and must not disturb the tree the
-# other PlayStation lanes share.
-set(ENV{GRANDLEON_PLAYSTATION_BUILD_DIR} "${work}/build")
-
+# Nothing here says where the build happens, and nothing here should: the
+# service stages every request under `build-playstation/requests/<job>/` of its
+# own accord, which is already not the tree the other PlayStation lanes share,
+# and it drops that tree when the files have been written out.
 execute_process(
     COMMAND node "${source_root}/tools/rom_service/build-rom.mjs"
             --console playstation
@@ -119,13 +118,31 @@ endforeach()
 # only path an author's disc will ever take.
 #
 # The container runs as the invoking user, as every other run on this console
-# does, so what it writes is not root-owned.
+# does, so what it writes is not root-owned. It is also *named*, and that is
+# what stops this lane from leaving an emulator behind: a timeout ends the
+# `docker run` client, and a container is not its client. A SIGKILL cannot be
+# proxied into one, so the only way to be sure is to ask docker to remove it by
+# name — before the run, in case an earlier one survived, and after it, whether
+# or not it finished on its own.
+#
+# `timeout` in front of the run, as every run script on this console has,
+# because that sends SIGTERM first and `docker run` proxies a SIGTERM into the
+# container: the emulator exits and `--rm` takes the container with it. CMake's
+# own TIMEOUT is the backstop for `timeout` itself failing, and it is set above
+# the inner one so the graceful path is the one that normally ends this run.
 set(emulator "grandleon/playstation-emulator:@GRANDLEON_PCSX_REDUX_REVISION@")
+set(container "grandleon-playstation-other-game")
 set(boot_log "${work}/boot.log")
 execute_process(COMMAND id -u OUTPUT_VARIABLE user_id OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND id -g OUTPUT_VARIABLE group_id OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(
-    COMMAND "@GRANDLEON_DOCKER@" run --rm
+    COMMAND "@GRANDLEON_DOCKER@" rm -f "${container}"
+    OUTPUT_QUIET ERROR_QUIET
+)
+execute_process(
+    COMMAND timeout --kill-after=10 120
+            "@GRANDLEON_DOCKER@" run --rm
+            --name "${container}"
             --user "${user_id}:${group_id}"
             --env HOME=/tmp
             --volume "${work}/disc:/disc:ro"
@@ -136,16 +153,21 @@ execute_process(
             -testmode -interpreter
             -iso "/disc/${other_cue_name}"
     # A hang detector rather than a budget: the lines this lane reads are the
-    # first two the machine prints, seconds after the shell hands over. This is
-    # how the run *ends*, since a played campaign waits on a pad for ever.
-    TIMEOUT 120
+    # first two the machine prints, seconds after the shell hands over. The
+    # timeouts are how the run *ends*, since a played campaign waits on a pad
+    # for ever.
+    TIMEOUT 180
     OUTPUT_FILE "${boot_log}"
     ERROR_FILE "${boot_log}"
     RESULT_VARIABLE run_result
 )
+execute_process(
+    COMMAND "@GRANDLEON_DOCKER@" rm -f "${container}"
+    OUTPUT_QUIET ERROR_QUIET
+)
 # The exit status is deliberately not checked. This disc carries the played
 # campaign, which waits on a pad that a headless emulator has none of, so the
-# run is always ended by the timeout above. What it said before it stopped is
+# run is always ended by a timeout. What it said before it stopped is
 # the whole of the evidence.
 file(READ "${boot_log}" boot_text)
 

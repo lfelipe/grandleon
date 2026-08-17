@@ -170,7 +170,7 @@ to:
 | Flag | Leg | Needs |
 |---|---|---|
 | `--n64` | Nintendo 64: every check, over one build of the ROMs | **a container runtime** |
-| `--playstation` | PlayStation: conformance, what it drew, a played turn, the memory card, and both campaigns | **a container runtime** |
+| `--playstation` | PlayStation: conformance, what it drew, a played turn, the memory card, both campaigns, and the disc booted | **a container runtime** |
 | `--consoles` | both of the above | **a container runtime** |
 
 `--n64` runs all four Nintendo 64 checks (the conformance ROM, the render

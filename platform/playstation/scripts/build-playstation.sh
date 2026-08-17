@@ -107,6 +107,24 @@ if [ "${scratch3d}" = "ON" ]; then
     targets="${targets},grandleon_playstation_scratch3d"
 fi
 
+# What each requested target is called once it is an executable, derived from
+# the target list rather than written out again, so a run asked for one
+# executable neither reports nor demands the nine it was not asked for. The two
+# names differ by one prefix and the conformance executable is the exception,
+# which is why this is a case and not a substitution. Derived once, here,
+# because both the size report inside the container and the check after it are
+# about the same list.
+executables=""
+for target in ${targets//,/ }; do
+    case "${target}" in
+        grandleon_playstation_conformance) name="grandleon_psx" ;;
+        grandleon_playstation_*)
+            name="grandleon_psx_${target#grandleon_playstation_}" ;;
+        *) continue ;;
+    esac
+    executables="${executables} ${name}"
+done
+
 # The container sees the repository at /src and nothing else, so a project it
 # is asked to build has to be inside the repository. Said here, with the path,
 # rather than discovered as a file-not-found inside the container.
@@ -209,6 +227,7 @@ flock 9
     --env "GRANDLEON_CONTAINER_BUILD_DIR=${container_build_dir}" \
     --env "GRANDLEON_CONTAINER_PROJECT=${container_project}" \
     --env "GRANDLEON_CONTAINER_TARGETS=${targets//,/ }" \
+    --env "GRANDLEON_CONTAINER_EXECUTABLES=${executables}" \
     --env "GRANDLEON_SCRATCH3D=${scratch3d}" \
     --env "GRANDLEON_SCRATCH3D_STYLE=${scratch3d_style}" \
     --volume "${repository_root}:/src" \
@@ -245,30 +264,14 @@ flock 9
         # shellcheck disable=SC2086
         cmake --build "${GRANDLEON_CONTAINER_BUILD_DIR}/target" --parallel \
             --target ${GRANDLEON_CONTAINER_TARGETS}
-        for target in ${GRANDLEON_CONTAINER_TARGETS}; do
-            case "${target}" in
-                grandleon_playstation_conformance) elf="grandleon_psx" ;;
-                grandleon_playstation_*)
-                    elf="grandleon_psx_${target#grandleon_playstation_}" ;;
-                *) continue ;;
-            esac
+        for elf in ${GRANDLEON_CONTAINER_EXECUTABLES}; do
             mipsel-linux-gnu-size \
                 "${GRANDLEON_CONTAINER_BUILD_DIR}/target/platform/playstation/${elf}.elf"
         done
     '
 
-# Report every executable the requested targets should have produced. Derived
-# from the target list rather than written out again, so a run asked for one
-# executable is not failed for the nine it was not asked for. The two names
-# differ by one prefix and the conformance executable is the one exception,
-# which is why this is a case and not a substitution.
-for target in ${targets//,/ }; do
-    case "${target}" in
-        grandleon_playstation_conformance) name="grandleon_psx" ;;
-        grandleon_playstation_*)
-            name="grandleon_psx_${target#grandleon_playstation_}" ;;
-        *) continue ;;
-    esac
+# And require every one of them to be there afterwards.
+for name in ${executables}; do
     executable="${build_dir}/target/platform/playstation/${name}.ps-exe"
     if [ ! -f "${executable}" ]; then
         echo "error: expected ${executable} to exist after the build." >&2

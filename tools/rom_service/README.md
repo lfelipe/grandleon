@@ -152,7 +152,8 @@ Both are decided before the path has been read, so they are the same words
 whichever console was asked for.
 
 This is not paranoia about the network; it is about the browser. Left alone,
-`POST /api/n64/build` needs no header a page has to be given permission to send,
+`POST /api/<console>/build` needs no header a page has to be given permission to
+send,
 which makes it a CORS *simple* request: any page an author has open could launch
 a two-minute container build on their machine with no preflight and no consent.
 Listening on the loopback interface is not a defence, because loopback is
@@ -160,12 +161,12 @@ exactly where such a request comes from.
 
 The `Host` check is what the editor's own Vite proxy relies on. That proxy binds
 every interface, so the editor is reachable from a tablet on the same desk, and
-forwards `/api/n64` here with the browser's `Host` intact. A peer on the
+forwards `/api` here with the browser's `Host` intact. A peer on the
 network therefore arrives with a `Host` that is not local and is refused
 here, in the one place that can tell. It is also what stops DNS rebinding: a
 page served from a name the attacker controls, resolved to `127.0.0.1`, would
 otherwise share this service's origin and read every answer it gives, including
-the build log and the ROM.
+the build log and the image.
 
 ### Editing from another computer
 

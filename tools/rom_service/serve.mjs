@@ -930,8 +930,7 @@ export class BuildQueue {
         const cutoff = this.now() - idleMilliseconds;
         for (const [id, job] of [...this.jobs]) {
             if (job.finishedAt === 0 || job.finishedAt > cutoff) continue;
-            this.jobs.delete(id);
-            await this.#discard(id);
+            await this.forget(job);
         }
         const staged = await readdir(this.#requests(), { withFileTypes: true })
             .catch(() => []);
@@ -939,6 +938,19 @@ export class BuildQueue {
             if (!entry.isDirectory() || this.jobs.has(entry.name)) continue;
             await this.#discard(entry.name);
         }
+    }
+
+    // Drop one job and its build tree, now, because whoever wanted it has it.
+    //
+    // Separate from `reap` and public, for the caller that knows something the
+    // reaper cannot: `build-rom.mjs` has already written every file out, so its
+    // job's tree — a whole host build and a whole cross build on one console —
+    // has no further use the moment it returns. Reaping instead would also
+    // sweep trees this process does not own, which for a one-shot tool means
+    // deleting a running service's build.
+    async forget(job) {
+        this.jobs.delete(job.id);
+        await this.#discard(job.id);
     }
 
     #requests() {
@@ -1159,8 +1171,14 @@ export function createRomService(options = {}) {
             const origin = refuseForeignRequest(request);
             const url = new URL(request.url ?? "/", origin);
             const parts = url.pathname.split("/").filter(Boolean);
-            const target = parts[0] === "api" ? consoles[parts[1]] : undefined;
-            if (target !== undefined) {
+            // `Object.hasOwn` rather than a lookup, because the segment is
+            // whatever was typed: `/api/constructor/health` finds a function on
+            // the prototype and would reach the routes below holding something
+            // that is not a console at all.
+            const named = parts[0] === "api" && parts[1] !== undefined &&
+                Object.hasOwn(consoles, parts[1]);
+            if (named) {
+                const target = consoles[parts[1]];
                 const queue = queues[parts[1]];
                 // GET /api/<console>/health
                 if (request.method === "GET" && parts.length === 3 &&

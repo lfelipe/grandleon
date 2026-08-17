@@ -11,8 +11,8 @@
 # environment. `docs/SETUP.md` lists that dependency and how to get it.
 #
 #   editor        http://localhost:5173
-#   ROM service   not published; the editor proxies /api/n64 to it, so the
-#                 ROM button works and nothing else can reach it
+#   build service not published; the editor proxies /api to it, so the
+#                 ROM and disc buttons work and nothing else can reach it
 #
 # These are development servers. This is the way *in*, not the way the gate
 # runs: `scripts/local-ci.sh` is still the answer to "is it correct", and

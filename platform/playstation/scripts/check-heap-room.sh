@@ -90,11 +90,20 @@ fi
 readelf="$1"
 executable="$2"
 
-# The stack reserve `psx_runtime.cpp` keeps below `__sp`, in bytes. Stated in
-# both places because neither can read the other: that file cannot run a shell
-# and this one cannot include a header. It is asserted rather than trusted —
-# a mismatch is caught by `grandleon.playstation` conformance, which reports
-# the heap the runtime actually computed.
+# The stack reserve `psx_runtime.cpp` keeps below `__sp`, in bytes.
+#
+# Stated in both places because neither can read the other: that file cannot
+# run a shell and this one cannot include a header. **Nothing compares them**,
+# and the consequence is worth saying rather than leaving to be discovered. A
+# reserve that grew there and not here would make this check accept an image
+# the runtime then computes a negative heap for — which is exactly the failure
+# this exists to refuse.
+#
+# What keeps that visible rather than silent is that the console says the same
+# number back: the conformance executable prints `info heap start: capacity=…`,
+# the heap the runtime actually computed over the same image, and it is this
+# number less the eight bytes of the sentinel block. Two numbers that no longer
+# nearly agree are a reserve that has moved.
 stack_reserve=$(( 32 * 1024 ))
 
 address_of() {

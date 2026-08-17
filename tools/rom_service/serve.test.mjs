@@ -629,9 +629,9 @@ test("an unfinished build refuses to hand over a file", async () => {
 
 // -- who is allowed to ask ---------------------------------------------------
 //
-// `POST /api/n64/build` carries nothing a browser needs permission to send, so
-// without these checks it is a CORS simple request: no preflight, no consent,
-// and a two-minute container build for any page an author happens to have open.
+// `POST /api/<console>/build` carries nothing a browser needs permission to
+// send, so without these checks it is a CORS simple request: no preflight, no
+// consent, and a container build for any page an author happens to have open.
 // Binding to the loopback interface is not a defence: loopback is where the
 // request comes from.
 
@@ -754,7 +754,7 @@ test("a request addressed to a name that is not this machine is refused", () => 
     assert.match(rebound.detail, /evil\.example/);
 
     // And the LAN shape: the editor's dev server binds every interface and
-    // proxies `/api/n64` here with the browser's own Host, so a peer on the
+    // proxies `/api` here with the browser's own Host, so a peer on the
     // network would otherwise read the same answers.
     assert.equal(
         refusalOfRequest({ host: "workshop.local:5173" }).code,
@@ -1014,8 +1014,17 @@ test("a disc build asks its own routes and hands back two files", async () => {
 
 test("a console this service does not name has no routes at all", async () => {
     await withService(new BuildQueue({ root: repositoryRoot }), async (base) => {
-        const response = await fetch(`${base}/api/megadrive/health`);
-        assert.equal(response.status, 404);
-        assert.equal((await response.json()).code, "not_found");
+        // A name nobody has implemented, and the two that are on every
+        // object's prototype. The second pair are why the table is asked
+        // whether it *owns* the segment rather than simply indexed by it:
+        // `consoles.constructor` is a function, which is not undefined, and
+        // would otherwise reach the routes as though it were a console.
+        for (const segment of [
+            "megadrive", "constructor", "__proto__", "toString"
+        ]) {
+            const response = await fetch(`${base}/api/${segment}/health`);
+            assert.equal(response.status, 404, `/api/${segment} answered`);
+            assert.equal((await response.json()).code, "not_found");
+        }
     });
 });

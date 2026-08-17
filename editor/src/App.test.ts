@@ -12,12 +12,12 @@ import {
 import type { SourceAnalysis } from "./analysis/source-analysis";
 import { RomService, romTargets } from "./platform/rom-service";
 
-// A ROM service that is simply not there, which is what every test that is
-// not about ROMs should meet. Without it each mount would ask a real relative
-// URL, happy-dom would resolve it against its own origin and try to open a
-// socket, and the suite would fill with connection errors it does not care
-// about, and would depend on nothing listening on that port.
-// One per console, all of them answering as though nothing is listening.
+// A build service that is simply not there, which is what every test that is
+// not about console images should meet. Without it each mount would ask a real
+// relative URL, happy-dom would resolve it against its own origin and try to
+// open a socket, and the suite would fill with connection errors it does not
+// care about, and would depend on nothing listening on that port. One per
+// console, because the editor asks each of them.
 const absentConsoleServices = () => Object.values(romTargets).map(
   (target) => new RomService({
     target,
@@ -916,6 +916,43 @@ describe("editor shell", () => {
       }
       app.unmount();
     });
+
+  // A disc is offered on terms a cartridge is not offered on, and the terms
+  // have to be readable before somebody burns one rather than after. The words
+  // are `platform/playstation/README.md`'s own: no licence sector, because that
+  // data is Sony's; PCSX-Redux boots it; a stock console refuses it; and
+  // nothing here has run on real hardware, so nothing is claimed about anything
+  // else.
+  it("says where a disc runs before the disc is asked for", async () => {
+    const ready = (target: unknown) => ({
+      target,
+      health: async () => ({ ready: true }),
+      build: async () => { throw new Error("not asked for"); }
+    }) as unknown as RomService;
+    const { host, app } = mountEditor({
+      projectStore: new MemoryProjectStore("disc-terms"),
+      consoleServices: [
+        ready(romTargets.nintendo64), ready(romTargets.playstation)
+      ]
+    });
+    await startNewGame(host);
+    await nextTick();
+    await nextTick();
+
+    const said = host.querySelector(
+      '[data-testid="build-status-playstation"]'
+    )?.textContent ?? "";
+    expect(said).toMatch(/PCSX-Redux/);
+    expect(said).toMatch(/licence sector/);
+    expect(said).toMatch(/stock PlayStation will refuse it/);
+    expect(said).toMatch(/real hardware/);
+    // And a cartridge is not given terms it does not have: the ROM's line is
+    // silent while nothing is happening.
+    expect(
+      host.querySelector('[data-testid="build-status-n64"]')?.textContent ?? ""
+    ).toBe("");
+    app.unmount();
+  });
 
   it("hands the built ROM to the download surface with a .z64 name", async () => {
     const bytes = new Uint8Array([0x80, 0x37, 0x12, 0x40]);

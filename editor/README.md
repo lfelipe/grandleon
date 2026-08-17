@@ -13,10 +13,10 @@ npm run --prefix editor dev
 The development server listens on all local-network interfaces and advertises
 the machine hostname. Open
 `http://<machine-name>.local:5173/` from this computer or another device on the
-same network. Building a Nintendo 64 ROM is the one thing that address cannot
-do: the ROM build service answers only a `localhost` address, whatever port the
-editor is on, because the machine's own hostname is also what a peer on the
-network sends.
+same network. Building a console image — a Nintendo 64 ROM or a PlayStation
+disc — is the one thing that address cannot do: the build service answers only
+a `localhost` address, whatever port the editor is on, because the machine's own
+hostname is also what a peer on the network sends.
 
 `--port` moves the server, and the advertised address, the HMR connection and
 the printed line move with it:

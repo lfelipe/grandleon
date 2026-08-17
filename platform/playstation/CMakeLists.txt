@@ -12,7 +12,8 @@
 #                 coordinate and colour of every pixel it believes it drew and
 #                 what the GPU actually stored there
 #   turn          that board, played from a controller
-#   campaign, x2  a whole shipped game, founded and resumed off a card
+#   campaign, x2  a whole game, founded and resumed off a card: the project
+#                 this build was pointed at, and the shipped demo
 #
 # The last three are one translation unit: `src/turn_exe.cpp`, built with and
 # without `GRANDLEON_TURN_CLIENT_CAMPAIGN` and with and without a second

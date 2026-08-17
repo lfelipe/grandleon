@@ -502,6 +502,35 @@ async function checkRomService() {
   }));
 }
 
+// Where a disc runs, said once and said exactly.
+//
+// This is `platform/playstation/README.md`'s own sentence, here rather than
+// paraphrased because the temptation to round it off is the whole problem. The
+// image carries no licence sector, because that data is Sony's and none of it
+// is fetched or vendored; a stock PlayStation reads that area, finds nothing,
+// and refuses the disc. Nothing in this repository has ever run on real
+// hardware of either console, so what any *other* machine does with the disc is
+// not something anybody here can say.
+//
+// It is on screen before the button is pressed and again on the line that hands
+// the files over, because those are the two moments somebody decides what to do
+// with a disc. A note only shown afterwards is a note read after burning.
+const whereAnImageRuns: Record<string, string> = {
+  playstation:
+    "A disc boots in PCSX-Redux. It carries no licence sector — that data is " +
+    "Sony's — so a stock PlayStation will refuse it, and nothing here has run " +
+    "on real hardware, so no claim is made about anything else that reads a " +
+    "disc."
+};
+
+// What the status line says when a console is ready and idle: its standing
+// note, or nothing. This is how a disc's terms reach somebody *before* they
+// press the button rather than only after.
+const romStandingNote = (build: ConsoleBuild) =>
+  (build.health?.ready ?? false)
+    ? whereAnImageRuns[build.service.target.route] ?? ""
+    : "";
+
 // What a button says about itself when it cannot be pressed. Named rather
 // than inlined because the browser suite asserts on it: the gate runs with no
 // service behind the proxy, which is the `container_runtime_missing` path, and
@@ -612,8 +641,10 @@ async function downloadConsoleImage(build: ConsoleBuild) {
       `${target.platform} ${target.image} ready: ` +
       `${total.toLocaleString()} bytes in ${files.length} file${
         files.length === 1 ? "" : "s"}.`;
-    build.detail = `Built from campaign "${status.campaign}".` +
-      (target.route === "playstation" ? ` ${playstationWhereItRuns}` : "");
+    build.detail = [
+      `Built from campaign "${status.campaign}".`,
+      whereAnImageRuns[target.route] ?? ""
+    ].join(" ").trim();
   } catch (error) {
     if (error instanceof RomServiceError) {
       // The service's own words, and the toolchain's underneath them. A
@@ -633,21 +664,6 @@ async function downloadConsoleImage(build: ConsoleBuild) {
     build.status = null;
   }
 }
-
-// Where a disc runs, said once and said exactly.
-//
-// This is the sentence `platform/playstation/README.md` already carries, and
-// it is here rather than paraphrased because the temptation to round it off is
-// the whole problem. The image carries no licence sector, because that data is
-// Sony's and none of it is fetched or vendored; a stock PlayStation reads that
-// area, finds nothing, and refuses the disc. Nothing in this repository has
-// ever run on real hardware of either console, so what any *other* machine
-// does with the disc is not something anybody here can say.
-const playstationWhereItRuns =
-  "It boots in PCSX-Redux. It carries no licence sector — that data is " +
-  "Sony's — so a stock PlayStation will refuse it, and nothing here has run " +
-  "on real hardware, so no claim is made about anything else that reads a " +
-  "disc.";
 
 async function exportProject() {
   // The way out that must never be closed. Export tries to save first, because
@@ -977,11 +993,13 @@ onBeforeUnmount(() => {
         queues of their own and a shared line would show whichever spoke last.
       -->
       <p v-for="build in consoleBuilds" :key="build.service.target.route"
-        v-show="build.message || romUnavailableReason(build)"
+        v-show="build.message || romUnavailableReason(build) ||
+          romStandingNote(build)"
         class="rom-status"
         :data-testid="`build-status-${build.service.target.route}`"
         aria-live="polite">
-        <span>{{ build.message || romUnavailableReason(build) }}</span>
+        <span>{{ build.message || romUnavailableReason(build) ||
+          romStandingNote(build) }}</span>
         <span v-if="build.detail" class="rom-detail">{{ build.detail }}</span>
       </p>
     </div>

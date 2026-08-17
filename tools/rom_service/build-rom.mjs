@@ -117,4 +117,13 @@ process.stdout.write(
     `RESULT PASS ${status.artifacts.length} file(s) in ${outputDir} ` +
     `in ${elapsed()}\n`
 );
+
+// And drop the build tree, which nothing is coming back for: every file is
+// written out above. A service left running keeps a finished job for half an
+// hour so a browser can collect it; this process is about to exit, and a
+// PlayStation request stages a host build and a cross build — a quarter of a
+// gigabyte — under its own directory. A lane that ran this three times and
+// left three of them behind is how a machine fills up.
+const job = queue.get(body.id);
+if (job !== null) await queue.forget(job);
 server.close();
