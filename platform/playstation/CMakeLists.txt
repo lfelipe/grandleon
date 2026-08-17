@@ -308,6 +308,15 @@ function(grandleon_playstation_executable target output)
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check-mips1.sh"
             "${CMAKE_READELF}"
             "$<TARGET_FILE:${target}>"
+        # And that there is a machine left for it to run in. This console has
+        # no loader that can refuse an image too large for its RAM, and the
+        # heap is whatever is above the last byte of .bss, so an image that
+        # overruns it computes a nonsense heap rather than failing. The size
+        # an image may be is refused here rather than written down.
+        COMMAND
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check-heap-room.sh"
+            "${CMAKE_READELF}"
+            "$<TARGET_FILE:${target}>"
         COMMAND
             "${CMAKE_OBJCOPY}" -O binary
             "$<TARGET_FILE:${target}>"

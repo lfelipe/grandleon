@@ -189,6 +189,11 @@ case "${build_dir}/" in
 esac
 container_build_dir="/src/${build_dir#"${repository_root}"/}"
 
+# The negative control over the one post-build check that would otherwise
+# never have been seen to fail. Before the container, because a check that
+# measures nothing should be found out in a second rather than after a build.
+"${repository_root}/platform/playstation/scripts/check-heap-room.sh" --self-test
+
 # Two of these configuring one build tree at once corrupt it. Every check
 # target funnels through this script, and a parallel gate runs several. The
 # build therefore takes a file lock beside the tree; emulator runs above this

@@ -14,6 +14,7 @@ card, a frame, and the pixel claims that make a picture checkable.
 - [The disc](#the-disc)
 - [The toolchain](#the-toolchain)
 - [The ISA trap](#the-isa-trap)
+- [How large an image may be](#how-large-an-image-may-be)
 - [No exceptions, and what that costs the content path](#no-exceptions-and-what-that-costs-the-content-path)
 - [The runtime seam](#the-runtime-seam)
 - [The emulator](#the-emulator)
@@ -218,6 +219,27 @@ executable's ELF header says `mips1`. The header check works because GNU ld
 merges the ISA level of every input object into `e_flags` by taking the highest,
 so one bad object anywhere raises the whole image. The header cannot be fooled
 the way a denylist of mnemonics can.
+
+### How large an image may be
+
+Two megabytes, less the kilobyte the BIOS keeps and the stack the linker script
+places, and the console has no loader that can say no. The shell copies the
+image to its load address and jumps into it; whatever is above the last byte of
+`.bss` is the heap. An image that ends *above* the stack makes
+`psx_runtime.cpp` compute that extent in unsigned arithmetic, get a heap of
+nearly four gigabytes, and hand out pointers into its own stack. Nothing fails.
+
+`scripts/check-heap-room.sh` is the second post-build step, beside the ISA
+check, and it refuses that image rather than writing a maximum size down
+anywhere: every number it uses (`__heap_base`, `__sp`, the reserve) comes out
+of the image the linker just produced. It prints the heap that remains on every
+build — the campaign executables leave about 1.2 MB — and it carries a
+`--self-test` that `build-playstation.sh` runs before any build, because a
+check that passes on everything here has never been seen to fail.
+
+It does not claim that an image which passes will run: a heap of one kilobyte
+is a heap. There is no measured floor to hold it to, so it reports the number
+rather than inventing one.
 
 ## No exceptions, and what that costs the content path
 
