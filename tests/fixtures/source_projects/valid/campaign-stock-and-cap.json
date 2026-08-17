@@ -211,6 +211,9 @@
                 "targetNodeId": "night_watch",
                 "priority": 0
               }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -254,6 +257,9 @@
                 "targetNodeId": "dawn",
                 "priority": 0
               }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -264,6 +270,13 @@
           }
         ]
       }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Defeat everyone on the other side",
+      "kind": "defeatAllOpponents"
     }
   ]
 }

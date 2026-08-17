@@ -667,6 +667,8 @@ std::string_view diagnostic_name(DiagnosticCode code) noexcept {
         case DiagnosticCode::invalid_specificity:
             return "invalid_specificity";
         case DiagnosticCode::invalid_transition: return "invalid_transition";
+        case DiagnosticCode::undecided_encounter:
+            return "undecided_encounter";
     }
     return "unknown";
 }
@@ -1049,6 +1051,18 @@ CompileResult compile(const GameSource& source) {
             definition.objective_ids, objective_ids,
             path + ".objective_ids", result.diagnostics
         );
+        // A board has to say how it is won or lost. The runtime reads the
+        // objective count before anything else and refuses a payload that
+        // declares none, so emitting one would be emitting a Stage that cannot
+        // be opened at all -- and the author would not find out until a console
+        // reached it. `undecided_encounter` says why.
+        if (definition.objective_ids.empty()) {
+            result.diagnostics.push_back(
+                {DiagnosticCode::undecided_encounter,
+                 path + ".objective_ids",
+                 definition.id}
+            );
+        }
         // Who this board's objectives are about. `encounter_loader` resolves an
         // objective's target against the placements of the encounter that names
         // it and refuses the whole encounter when it cannot, so a target

@@ -8,11 +8,20 @@
     {
       "id": "fighter",
       "name": "Fighter",
-      "baseStats": { "health": 10, "movement": 3, "strength": 2, "defense": 1 }
+      "baseStats": {
+        "health": 10,
+        "movement": 3,
+        "strength": 2,
+        "defense": 1
+      }
     }
   ],
   "unitTypes": [
-    { "id": "guardian", "name": "Guardian", "classId": "fighter" }
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter"
+    }
   ],
   "weapons": [],
   "items": [],
@@ -37,8 +46,16 @@
       "id": "main",
       "name": "Main",
       "roster": [
-        { "id": "hero", "name": "Hero of the Field", "unitTypeId": "guardian" },
-        { "id": "second", "name": "Second of the Field", "unitTypeId": "guardian" }
+        {
+          "id": "hero",
+          "name": "Hero of the Field",
+          "unitTypeId": "guardian"
+        },
+        {
+          "id": "second",
+          "name": "Second of the Field",
+          "unitTypeId": "guardian"
+        }
       ],
       "flow": {
         "contractVersion": "1.0.0",
@@ -52,8 +69,14 @@
             "deployment": {
               "id": "west_bank",
               "tiles": [
-                { "x": 0, "y": 0 },
-                { "x": 0, "y": 1 }
+                {
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "x": 0,
+                  "y": 1
+                }
               ],
               "capacity": 2
             },
@@ -83,7 +106,14 @@
               }
             ],
             "transitions": [
-              { "id": "climb", "targetNodeId": "ridge", "priority": 0 }
+              {
+                "id": "climb",
+                "targetNodeId": "ridge",
+                "priority": 0
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -113,7 +143,14 @@
               }
             ],
             "transitions": [
-              { "id": "finish", "targetNodeId": "end", "priority": 0 }
+              {
+                "id": "finish",
+                "targetNodeId": "end",
+                "priority": 0
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -124,6 +161,13 @@
           }
         ]
       }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Defeat everyone on the other side",
+      "kind": "defeatAllOpponents"
     }
   ]
 }

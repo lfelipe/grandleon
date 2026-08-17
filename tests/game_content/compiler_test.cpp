@@ -1970,6 +1970,34 @@ void checks_an_objective_target_against_the_board() {
     );
 }
 
+// A board has to say how it is won or lost, because the runtime will not open
+// one that does not.
+//
+// This is the shape of a real report. Two Stages of an authored campaign were
+// built without a win condition; the package compiled, a ROM was built from it,
+// and the campaign stopped dead at the second Stage with the console redrawing
+// its company screen. The loader reads the objective count first and refuses a
+// payload declaring none, so what shipped was a board nothing could open.
+void refuses_a_board_that_nothing_decides() {
+    auto undecided = campaign_source();
+    undecided.encounters.front().objective_ids.clear();
+    expect(
+        has_diagnostic(
+            gc::compile(undecided),
+            gc::DiagnosticCode::undecided_encounter,
+            "encounters[100].objective_ids"
+        ),
+        "an encounter naming no objective is refused here"
+    );
+
+    // And the same board with one is emitted, so the refusal is about the
+    // absence rather than about anything else on the board.
+    expect(
+        static_cast<bool>(gc::compile(campaign_source())),
+        "and a board that says how it is won compiles"
+    );
+}
+
 // A class that says nothing about weapon types permits every one of them, which
 // is what `SOURCE_FORMAT.md` says an omitted `allowedWeaponTypeIds` means. A
 // class that states an empty one has said something, and is held to it.
@@ -2032,6 +2060,7 @@ int main() {
     validates_node_dialogue_references();
     refuses_transitions_that_leave_the_route_to_authoring_order();
     checks_an_objective_target_against_the_board();
+    refuses_a_board_that_nothing_decides();
     an_unstated_weapon_allowance_permits_every_weapon();
     a_weapon_or_item_may_name_no_type();
     resolves_faction_colour_from_position();

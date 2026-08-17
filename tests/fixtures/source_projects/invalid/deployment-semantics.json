@@ -64,9 +64,18 @@
             "deployment": {
               "id": "bad_bank",
               "tiles": [
-                { "x": 0, "y": 0 },
-                { "x": 0, "y": 0 },
-                { "x": 9, "y": 0 }
+                {
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "x": 9,
+                  "y": 0
+                }
               ]
             },
             "placements": [
@@ -92,6 +101,9 @@
                 "targetNodeId": "end",
                 "priority": 0
               }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -102,6 +114,13 @@
           }
         ]
       }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Defeat everyone on the other side",
+      "kind": "defeatAllOpponents"
     }
   ]
 }

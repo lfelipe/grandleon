@@ -8,17 +8,35 @@
     {
       "id": "fighter",
       "name": "Fighter",
-      "baseStats": { "health": 12, "movement": 4, "strength": 4, "defense": 2 }
+      "baseStats": {
+        "health": 12,
+        "movement": 4,
+        "strength": 4,
+        "defense": 2
+      }
     },
     {
       "id": "mender",
       "name": "Mender",
-      "baseStats": { "health": 8, "movement": 4, "strength": 1, "defense": 1 }
+      "baseStats": {
+        "health": 8,
+        "movement": 4,
+        "strength": 1,
+        "defense": 1
+      }
     }
   ],
   "unitTypes": [
-    { "id": "guardian", "name": "Guardian", "classId": "fighter" },
-    { "id": "healer", "name": "Healer", "classId": "mender" }
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter"
+    },
+    {
+      "id": "healer",
+      "name": "Healer",
+      "classId": "mender"
+    }
   ],
   "weapons": [],
   "items": [],
@@ -69,9 +87,21 @@
       "id": "misfielded",
       "name": "Misfielded",
       "roster": [
-        { "id": "vanguard", "name": "Vanguard Rilla", "unitTypeId": "guardian" },
-        { "id": "mender_kel", "name": "Kel the Mender", "unitTypeId": "healer" },
-        { "id": "ghost", "name": "Nobody's Shape", "unitTypeId": "missing_unit" }
+        {
+          "id": "vanguard",
+          "name": "Vanguard Rilla",
+          "unitTypeId": "guardian"
+        },
+        {
+          "id": "mender_kel",
+          "name": "Kel the Mender",
+          "unitTypeId": "healer"
+        },
+        {
+          "id": "ghost",
+          "name": "Nobody's Shape",
+          "unitTypeId": "missing_unit"
+        }
       ],
       "flow": {
         "contractVersion": "1.0.0",
@@ -139,7 +169,14 @@
               }
             ],
             "transitions": [
-              { "id": "finish", "targetNodeId": "end", "priority": 0 }
+              {
+                "id": "finish",
+                "targetNodeId": "end",
+                "priority": 0
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -150,6 +187,13 @@
           }
         ]
       }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Defeat everyone on the other side",
+      "kind": "defeatAllOpponents"
     }
   ]
 }

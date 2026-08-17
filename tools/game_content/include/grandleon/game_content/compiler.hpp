@@ -957,6 +957,20 @@ enum class DiagnosticCode : std::uint8_t {
     // all, because it stable-sorts on priority, so a tie silently resolves to
     // whichever transition was authored first.
     invalid_transition,
+    // A board nothing decides: an encounter naming no objective at all.
+    //
+    // This is not a battle that runs long. `package_runtime`'s encounter
+    // loader reads the objective count first and refuses a payload declaring
+    // none, so an encounter compiled without one is a board that cannot be
+    // *opened* — the campaign standing on it stops there, and every client
+    // reports it as a board it could not decode rather than as a Stage its
+    // author left unfinished.
+    //
+    // It is refused here because this compiler's promise is that it emits
+    // nothing the runtime will not read. A package holding such a board has
+    // already lost that promise, and the loss is invisible until somebody
+    // reaches the Stage on a console.
+    undecided_encounter,
 };
 
 [[nodiscard]] std::string_view diagnostic_name(

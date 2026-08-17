@@ -26,7 +26,9 @@
         "defense": 1,
         "skill": 5
       },
-      "allowedWeaponTypeIds": ["bow"]
+      "allowedWeaponTypeIds": [
+        "bow"
+      ]
     }
   ],
   "weaponTypes": [
@@ -44,19 +46,25 @@
       "id": "guardian",
       "name": "Guardian",
       "classId": "fighter",
-      "startingWeaponIds": ["sword"]
+      "startingWeaponIds": [
+        "sword"
+      ]
     },
     {
       "id": "ranger",
       "name": "Ranger",
       "classId": "archer",
-      "startingWeaponIds": ["longbow"]
+      "startingWeaponIds": [
+        "longbow"
+      ]
     },
     {
       "id": "raider",
       "name": "Raider",
       "classId": "fighter",
-      "startingWeaponIds": ["sword"]
+      "startingWeaponIds": [
+        "sword"
+      ]
     }
   ],
   "weapons": [
@@ -176,6 +184,9 @@
                 "targetNodeId": "hill_road",
                 "priority": 0
               }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -214,6 +225,9 @@
                 "targetNodeId": "watch",
                 "priority": 0
               }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -224,6 +238,13 @@
           }
         ]
       }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Defeat everyone on the other side",
+      "kind": "defeatAllOpponents"
     }
   ]
 }

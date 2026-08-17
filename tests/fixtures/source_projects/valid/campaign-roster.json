@@ -8,18 +8,40 @@
     {
       "id": "fighter",
       "name": "Fighter",
-      "baseStats": { "health": 12, "movement": 4, "strength": 4, "defense": 2 }
+      "baseStats": {
+        "health": 12,
+        "movement": 4,
+        "strength": 4,
+        "defense": 2
+      }
     },
     {
       "id": "mender",
       "name": "Mender",
-      "baseStats": { "health": 8, "movement": 4, "strength": 1, "defense": 1 }
+      "baseStats": {
+        "health": 8,
+        "movement": 4,
+        "strength": 1,
+        "defense": 1
+      }
     }
   ],
   "unitTypes": [
-    { "id": "guardian", "name": "Guardian", "classId": "fighter" },
-    { "id": "healer", "name": "Healer", "classId": "mender" },
-    { "id": "raider", "name": "Raider", "classId": "fighter" }
+    {
+      "id": "guardian",
+      "name": "Guardian",
+      "classId": "fighter"
+    },
+    {
+      "id": "healer",
+      "name": "Healer",
+      "classId": "mender"
+    },
+    {
+      "id": "raider",
+      "name": "Raider",
+      "classId": "fighter"
+    }
   ],
   "weapons": [],
   "items": [],
@@ -101,7 +123,14 @@
               }
             ],
             "transitions": [
-              { "id": "cross", "targetNodeId": "hill_road", "priority": 0 }
+              {
+                "id": "cross",
+                "targetNodeId": "hill_road",
+                "priority": 0
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -135,7 +164,14 @@
               }
             ],
             "transitions": [
-              { "id": "arrive", "targetNodeId": "watch", "priority": 0 }
+              {
+                "id": "arrive",
+                "targetNodeId": "watch",
+                "priority": 0
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
             ]
           },
           {
@@ -146,6 +182,13 @@
           }
         ]
       }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Defeat everyone on the other side",
+      "kind": "defeatAllOpponents"
     }
   ]
 }
