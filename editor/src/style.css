@@ -522,6 +522,18 @@ button {
   font-weight: 700;
 }
 
+/* People a company holds that no board fields. A note and not a refusal: the
+   project is valid and will build, and what to do about them is the author's
+   call. */
+.unfielded-company {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.6rem;
+  border-left: 4px solid #b78c23;
+  background: #fdf8ec;
+  color: #6b5310;
+  font-size: 0.875rem;
+}
+
 /* Guidance, not a warning. A board larger than a console's window scrolls, and
    a scrolling board is a board with edges rather than a board that is wrong, so
    this reads in the same quiet grey as any other field help and never in the

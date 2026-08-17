@@ -39,6 +39,11 @@ import {
 import { planStageOnMap, type StageIntent } from "../domain/stage-setup";
 import { planCharacterOnBoard, type CastAsk } from "../domain/stage-cast";
 import { COLLECTION_WORD } from "../domain/author-words";
+import {
+  membersFieldedByNode,
+  unenrolMembersNoLongerFielded,
+  unfieldedMembers
+} from "../domain/campaign-company";
 import CharacterRoster from "./CharacterRoster.vue";
 import CharacterWizard from "./CharacterWizard.vue";
 import SchemaRecordForm, { type ReferenceChoice } from "./SchemaRecordForm.vue";
@@ -1013,6 +1018,14 @@ const flowCampaign = computed(() => {
 });
 
 /**
+ * Company members no board fields, which is what a project authored before a
+ * placement took its member away with it is already carrying.
+ */
+const unfieldedCompany = computed(() =>
+  flowCampaign.value === undefined ? [] : unfieldedMembers(flowCampaign.value)
+);
+
+/**
  * Makes sure there is a campaign to show, without asking.
  *
  * **Flow does not open on "create a campaign".** A campaign is the record the
@@ -1258,14 +1271,31 @@ function makeStage(intent: StageIntent = "findOrMake") {
 function saveStageNode(campaignId: string, node: CampaignNode) {
   const plain = JSON.parse(JSON.stringify(node)) as CampaignNode;
   try {
+    let left: readonly string[] = [];
     session.update("campaigns", campaignId, (campaign) => {
       const flow = campaign.flow;
       if (!flow) return;
+      // Whom this Stage was fielding before the save, so that anybody it stops
+      // fielding can leave the company with their placement. Standing somebody
+      // on the author's own side enrols them; this is the other half of that
+      // gesture, and without it every arrangement an author tried and cleared
+      // left a person behind. `campaign-company.ts` says why it is safe to be
+      // this direct.
+      const wereFielded = membersFieldedByNode(
+        flow.nodes.find((candidate) => candidate.id === plain.id)
+      );
       flow.nodes = flow.nodes.map(
         (candidate) => candidate.id === plain.id ? plain : candidate
       ) as typeof flow.nodes;
+      left = unenrolMembersNoLongerFielded(campaign, wereFielded);
     });
-    refresh(`Saved ${plain.name}`);
+    // Said out loud, for the same reason enrolling is: a company that quietly
+    // shrank is as much a surprise as one that quietly grew.
+    refresh(
+      left.length === 0
+        ? `Saved ${plain.name}`
+        : `Saved ${plain.name}. ${left.join(", ")} left the company.`
+    );
   } catch (error) {
     feedback.value = error instanceof SourceProjectEditError
       ? error.message
@@ -2538,6 +2568,21 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
         <button type="button" class="secondary" @click="selectSection('stages')">
           Go to Stages
         </button>
+      </p>
+
+      <!-- People the company holds that no board fields. Reported and not
+           removed: a project authored before a placement took its member away
+           with it is already carrying them, and deleting somebody from a
+           company without being asked would be a second surprise on top of the
+           first. Taking a placement off now takes its member too, so this only
+           ever names what is already there. -->
+      <p v-if="flowCampaign && unfieldedCompany.length" class="unfielded-company"
+        data-testid="unfielded-company" role="status">
+        {{ unfieldedCompany.length }} in this company
+        {{ unfieldedCompany.length === 1 ? "stands" : "stand" }} on no board:
+        {{ unfieldedCompany.map((member) => member.name).join(", ") }}.
+        They are carried into the game and shown on the company screen. Remove
+        any you did not mean to keep.
       </p>
 
       <RosterMemberEditor v-if="flowCampaign"
