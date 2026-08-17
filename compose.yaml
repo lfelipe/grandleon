@@ -20,7 +20,7 @@
 # itself".
 #
 # ---------------------------------------------------------------------------
-# Two things in here are load-bearing and look odd
+# Two things in here look odd and are not decoration
 #
 # **The checkout is mounted at its own absolute path** — `${PWD}:${PWD}` — not
 # at some tidy `/workspace`. A ROM build is not run by these containers. The
@@ -39,8 +39,8 @@
 # **The containers run as the invoking user** — `${GRANDLEON_UID}` — because
 # they write into that checkout. The image's own user is uid 1001, the checkout
 # belongs to whoever cloned it, and without this the first write is EACCES.
-# `.env` carries those two numbers; `docker compose up` reads it without being
-# told to, and `scripts/setup.sh` writes it.
+# `scripts/start.sh` supplies that id and the two beside it; they are facts
+# about one machine, so nothing here commits them.
 #
 # ---------------------------------------------------------------------------
 # The socket, said plainly
