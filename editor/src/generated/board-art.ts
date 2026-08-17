@@ -251,8 +251,8 @@ export const DEFAULT_CHARACTER_STYLE = "medieval";
  */
 export const CHARACTER_FIGURES:
   readonly { id: string; label: string; summary: string }[] = [
-  { id: "first", label: "First", summary: "The body exactly as its archetype drew it, and the sprite that shipped before there was a second one." },
-  { id: "second", label: "Second", summary: "The same role, the same kit, a second person carrying it: a different line from shoulder to hem, and hair where the headgear leaves room." }
+  { id: "first", label: "Male", summary: "The male body, and the sprite that shipped before there was a second one." },
+  { id: "second", label: "Female", summary: "The female body: the same role and the same kit, carried by a woman \u2014 a different line from shoulder to hem, and hair where the headgear leaves room." }
 ];
 
 /** The figure a project that names none is drawn with. */

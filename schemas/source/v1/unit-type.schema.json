@@ -35,7 +35,7 @@
     "characterFigureId": {
       "type": "string",
       "enum": ["first", "second"],
-      "description": "The body this character alone is drawn with, overriding the game's. Every figure draws every archetype in every style, so a figure is free to combine with any style: a mage drawn at the second build is the same mage. Choosing one changes no stat, no reach and no rule. Omit it and the character follows the game's characterFigureId, which is what every character did before this field existed.",
+      "description": "The body this character alone is drawn with, overriding the game's. 'first' is drawn male and 'second' female. Every figure draws every archetype in every style, so a figure is free to combine with any style: a mage drawn at the second figure is the same mage. Choosing one changes no stat, no reach and no rule. Omit it and the character follows the game's characterFigureId, which is what every character did before this field existed.",
       "$comment": "Same menu, same order, as project.schema.json's characterFigureId."
     },
     "growthRates": { "$ref": "common.schema.json#/$defs/growthRates" },

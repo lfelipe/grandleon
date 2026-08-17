@@ -121,7 +121,7 @@ export interface SourceProject {
   characterStyleId?:
     "medieval" | "scifi" | "mythical" | "nature" | "sengoku" | "undead" | "pirates";
   /**
-   * The body this game's characters are drawn with wherever a character names none of its own. A figure is the build a role is drawn at, not the role: every figure draws all eight archetypes, in every style and every faction colour, and choosing one changes no stat, no reach and no rule. It is a default and never a gate, exactly as characterStyleId is. Omit it and the characters that name no figure of their own are drawn with the first, which is what they looked like before figures existed.
+   * The body this game's characters are drawn with wherever a character names none of its own. 'first' is drawn male and 'second' female; the stored values are positions in a menu every client indexes by, and the words a person reads for them are the art library's. A figure is the body a role is drawn at, not the role: every figure draws all eight archetypes, in every style and every faction colour, and choosing one changes no stat, no reach and no rule. It is a default and never a gate, exactly as characterStyleId is. Omit it and the characters that name no figure of their own are drawn with the first, which is what they looked like before figures existed.
    */
   characterFigureId?: "first" | "second";
   /**
@@ -310,7 +310,7 @@ export interface SourceUnitType {
   characterStyleId?:
     "medieval" | "scifi" | "mythical" | "nature" | "sengoku" | "undead" | "pirates";
   /**
-   * The body this character alone is drawn with, overriding the game's. Every figure draws every archetype in every style, so a figure is free to combine with any style: a mage drawn at the second build is the same mage. Choosing one changes no stat, no reach and no rule. Omit it and the character follows the game's characterFigureId, which is what every character did before this field existed.
+   * The body this character alone is drawn with, overriding the game's. 'first' is drawn male and 'second' female. Every figure draws every archetype in every style, so a figure is free to combine with any style: a mage drawn at the second figure is the same mage. Choosing one changes no stat, no reach and no rule. Omit it and the character follows the game's characterFigureId, which is what every character did before this field existed.
    */
   characterFigureId?: "first" | "second";
   growthRates?: GrowthRates;

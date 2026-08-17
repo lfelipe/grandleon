@@ -384,9 +384,15 @@ describe("source form model", () => {
     }));
     expect(field?.options?.map((option) => option.value))
       .toEqual(["first", "second"]);
+    // Said plainly. These two are drawn male and female, and an author looking
+    // for a female character has to have something to look for.
     expect(field?.options?.map((option) => option.label))
-      .toEqual(["Broad", "Narrow"]);
+      .toEqual(["Male", "Female"]);
     expect(field?.label.toLowerCase()).not.toContain("build");
+    // And a character that names none follows the game rather than being told
+    // it is the default figure, which would put "Male" twice in one menu and
+    // invite an override the moment it was touched.
+    expect(field?.unsetLabel).toBe("Follow the game setting");
     // And with the name honest, the help is four words rather than the
     // schema's own paragraph about sheet indices.
     expect(field?.description).toBe("Only the picture changes.");

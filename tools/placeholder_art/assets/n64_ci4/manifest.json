@@ -22446,16 +22446,16 @@
       "default": "first",
       "menu": [
         {
-          "label": "First",
+          "label": "Male",
           "name": "first",
           "suffix": "",
-          "summary": "The body exactly as its archetype drew it, and the sprite that shipped before there was a second one."
+          "summary": "The male body, and the sprite that shipped before there was a second one."
         },
         {
-          "label": "Second",
+          "label": "Female",
           "name": "second",
           "suffix": "_second",
-          "summary": "The same role, the same kit, a second person carrying it: a different line from shoulder to hem, and hair where the headgear leaves room."
+          "summary": "The female body: the same role and the same kit, carried by a woman \u2014 a different line from shoulder to hem, and hair where the headgear leaves room."
         }
       ]
     },

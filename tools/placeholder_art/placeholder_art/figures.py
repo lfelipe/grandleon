@@ -189,17 +189,28 @@ def _pinch(body: Canvas) -> Canvas:
 #: Appending is the only safe way to grow this: a client indexes the menu by
 #: position, and the first entry is the sprite that shipped before figures
 #: existed.
+#:
+#: **The names and the labels say different things on purpose.** ``name`` is the
+#: stored identity: it reaches asset filenames, the source schema's enum and
+#: every package built from one, so it is ``first`` and ``second`` and moving it
+#: would rewrite five thousand files and every project on disk for nothing a
+#: reader would see. ``label`` is what a person is shown, and these two figures
+#: are drawn male and female — the second has the narrower line and the hair the
+#: headgear leaves room for — so that is what it says. The neutral wording that
+#: used to stand here described the drawings without naming them, which left an
+#: author looking for a female character with nothing to search for.
 FIGURE_ORDER: Tuple[Figure, ...] = (
     Figure(
-        "first", "First",
-        "The body exactly as its archetype drew it, and the sprite that "
-        "shipped before there was a second one.",
+        "first", "Male",
+        "The male body, and the sprite that shipped before there was a second "
+        "one.",
         FIRST_ROUTINE,
     ),
     Figure(
-        "second", "Second",
-        "The same role, the same kit, a second person carrying it: a different "
-        "line from shoulder to hem, and hair where the headgear leaves room.",
+        "second", "Female",
+        "The female body: the same role and the same kit, carried by a woman "
+        "— a different line from shoulder to hem, and hair where the headgear "
+        "leaves room.",
         SECOND_ROUTINE,
         _pinch,
     ),

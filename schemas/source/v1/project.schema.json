@@ -24,7 +24,7 @@
     "characterFigureId": {
       "type": "string",
       "enum": ["first", "second"],
-      "description": "The body this game's characters are drawn with wherever a character names none of its own. A figure is the build a role is drawn at, not the role: every figure draws all eight archetypes, in every style and every faction colour, and choosing one changes no stat, no reach and no rule. It is a default and never a gate, exactly as characterStyleId is. Omit it and the characters that name no figure of their own are drawn with the first, which is what they looked like before figures existed."
+      "description": "The body this game's characters are drawn with wherever a character names none of its own. 'first' is drawn male and 'second' female; the stored values are positions in a menu every client indexes by, and the words a person reads for them are the art library's. A figure is the body a role is drawn at, not the role: every figure draws all eight archetypes, in every style and every faction colour, and choosing one changes no stat, no reach and no rule. It is a default and never a gate, exactly as characterStyleId is. Omit it and the characters that name no figure of their own are drawn with the first, which is what they looked like before figures existed."
     },
     "defaultTurnOrder": {
       "type": "string",

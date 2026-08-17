@@ -426,10 +426,21 @@ const presentations: Readonly<Record<string, FieldPresentation>> = {
   // touch, so the old name sent an author looking for numbers and the help
   // had to spend its whole length denying them. A name that has to be
   // contradicted is the wrong name.
+  //
+  // The options say what they are. They were "Broad" and "Narrow", which
+  // described the drawings without naming them and left an author looking for
+  // a female character with nothing to search for. The art library draws these
+  // two male and female and now says so, and this agrees with it rather than
+  // keeping a second vocabulary for the same menu.
   "unit-type.schema.json:characterFigureId": {
     label: "Body",
-    unsetLabel: "Broad",
-    optionLabels: { first: "Broad", second: "Narrow" },
+    // Not "Male". A character that names no figure is not male, it *follows the
+    // game*, which is what this field's own contract says an unset value means
+    // and what `characterStyleId` beside it already says. Naming the default
+    // here put the word twice in one menu and invited an author to pick the
+    // value they already had, writing an override the moment it was touched.
+    unsetLabel: "Follow the game setting",
+    optionLabels: { first: "Male", second: "Female" },
     // Overriding the schema's own paragraph, which names the stored field and
     // the sheet index. Four words say the whole of it.
     help: "Only the picture changes."
