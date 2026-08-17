@@ -29,6 +29,7 @@ import {
   UNALIGNED_LABEL,
   UNALIGNED_SUMMARY
 } from "../domain/character-standing";
+import { randomCharacter } from "../domain/random-character";
 
 const props = defineProps<{
   /** For the drawing a role gets: this game's style, not the shelf's setting. */
@@ -136,6 +137,23 @@ function finish() {
   });
 }
 
+/**
+ * Every choice made, and the last press pressed.
+ *
+ * It emits the same `create` this wizard's own last button emits, so a random
+ * character is built by the same builder into the same four records. Nothing
+ * here writes a project, for the same reason nothing else in this file does.
+ */
+function makeRandom() {
+  const chosen = randomCharacter(props.project);
+  emit("create", {
+    role: chosen.role,
+    setting: chosen.setting,
+    name: chosen.name,
+    sideId: chosen.sideId
+  });
+}
+
 onMounted(() => {
   heading.value?.focus();
 });
@@ -226,6 +244,13 @@ onMounted(() => {
     <div class="wizard-commands" role="group" aria-label="Wizard">
       <button type="button" class="secondary" @click="emit('cancel')">
         Cancel
+      </button>
+      <!-- For filling a board to try something out, when none of the three
+           questions is the one being asked. It answers them rather than
+           skipping them: the same last press, the same chain. -->
+      <button type="button" class="secondary" data-testid="wizard-random"
+        @click="makeRandom">
+        Create random
       </button>
       <button v-if="step > 0" type="button" @click="goTo(step - 1)">
         Back

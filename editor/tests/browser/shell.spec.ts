@@ -262,6 +262,40 @@ test("draws a map in one section, sets a Stage up in another, and plays it",
     await play.getByRole("button", { name: /Back to editing/ }).click();
   });
 
+// One press, for an author filling a board to try something out rather than
+// making somebody in particular. What comes out has to be an ordinary
+// character: the same four records, on a side, drawn as its own role.
+test("makes a whole character in one press", async ({ page }) => {
+  await page.getByRole("button", { name: "Start a new game" }).click();
+  const rail = page.locator('nav[aria-label="Project"]');
+  await rail.getByRole("button", { name: "Characters" }).click();
+  await page.getByRole("button", { name: "New character" }).click();
+
+  // No question answered, and the wizard still on its first step.
+  await expect(page.locator(".wizard-steps li").nth(0))
+    .toHaveAttribute("aria-current", "step");
+  await page.getByTestId("wizard-random").click();
+
+  const card = page.locator(".character-card");
+  await expect(card).toHaveCount(1);
+  // On one of the two sides, never on neither: somebody who is on no side is
+  // the one thing an author filling a board cannot put down.
+  await expect(card).toContainText(/One of yours|An enemy/);
+  // And drawn as a real figure in a real colour, which is the trap this
+  // feature was warned about: the picture follows the class, not the name.
+  await expect(card.locator("img")).toHaveAttribute(
+    "src",
+    /\/(knight|archer|mage|stormcaller|healer|commander|rogue|beast)_(blue|red)\.png$/
+  );
+
+  // Pressing it again makes a second person rather than the same one twice.
+  await page.getByRole("button", { name: "New character" }).click();
+  await page.getByTestId("wizard-random").click();
+  await expect(card).toHaveCount(2);
+  const names = await page.locator(".character-card strong").allInnerTexts();
+  expect(new Set(names).size).toBe(2);
+});
+
 test("makes a Stage on chosen ground, and fills it from the board",
   async ({ page }) => {
     // The whole of what the Stages section is for, in a real browser: ground

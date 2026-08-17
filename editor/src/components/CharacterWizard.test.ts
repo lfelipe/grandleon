@@ -245,4 +245,45 @@ describe("CharacterWizard", () => {
     });
     app.unmount();
   });
+
+  // The one press for an author who is filling a board rather than making
+  // somebody in particular. It is the wizard's own last press with the three
+  // questions already answered, so what comes out is an ordinary character.
+  it("makes a whole character in one press, from the first step", async () => {
+    const { app, host, onCreate } = mount();
+    expect(host.querySelector('[data-testid="wizard-random"]')).not.toBeNull();
+    await press(host, "Create random");
+
+    const choice = onCreate.mock.lastCall?.[0] as {
+      role: string;
+      setting: string;
+      name: string;
+      sideId: string;
+    };
+    expect(onCreate).toHaveBeenCalledTimes(1);
+    expect(choice.name.length).toBeGreaterThan(0);
+    // A side, and one of the two the game has: an author filling a board wants
+    // somebody who is on one, which is the question the wizard opens on and
+    // the one a blank answer would leave them to go back for.
+    expect(["your_side", "the_enemy"]).toContain(choice.sideId);
+    expect(choice.setting).toBe("medieval");
+    app.unmount();
+  });
+
+  it("is reachable from every step, and never on its own creates twice", async () => {
+    const { app, host, onCreate } = mount();
+    await press(host, "Next");
+    await press(host, "Next");
+    await press(host, "Create random");
+    expect(onCreate).toHaveBeenCalledTimes(1);
+    app.unmount();
+  });
+
+  it("creates nothing when the author cancels instead", async () => {
+    const { app, host, onCreate, onCancel } = mount();
+    await press(host, "Cancel");
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onCreate).not.toHaveBeenCalled();
+    app.unmount();
+  });
 });
