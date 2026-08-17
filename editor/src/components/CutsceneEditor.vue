@@ -260,6 +260,7 @@ function updateLines(dialogueId: string, lines: DialogueLine[]) {
         <DialogueLinesEditor v-if="openIndex === index && entry.dialogue"
           :id-prefix="`cutscene-${index}`"
           :lines="entry.dialogue.lines ?? []"
+          :cast-speakers="(entry.dialogue.cast ?? []).map((cast) => cast.speaker)"
           @update="updateLines(entry.id, $event)" />
       </li>
     </ol>

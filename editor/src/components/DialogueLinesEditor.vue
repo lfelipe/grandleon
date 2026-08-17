@@ -35,6 +35,18 @@ const props = defineProps<{
   lines: readonly DialogueLine[];
   /** Distinguishes control ids when several line editors share a page. */
   idPrefix: string;
+  /**
+   * Who this scene has cast, if anybody, so a line can be given one of them
+   * rather than typed at.
+   *
+   * A cast entry is joined to a line by its speaker string, exactly and case
+   * sensitively, and that join is what puts a face on the screen. Two places
+   * spelling the same person is a face lost to a capital letter, and nothing
+   * says so: the scene still plays, the words are still right, and the portrait
+   * is simply the fallback. Offering the names the cast already holds is how
+   * the two agree by construction rather than by careful typing.
+   */
+  castSpeakers?: readonly string[];
 }>();
 
 const emit = defineEmits<{
@@ -42,6 +54,22 @@ const emit = defineEmits<{
   /** A keystroke that is not in the project yet, so the header can say so. */
   dirty: [];
 }>();
+
+/**
+ * Whether this line names somebody the scene has not cast.
+ *
+ * Silent about a line nobody has named yet: a line being written is not a
+ * mistake, and a warning that appears on the first keystroke is a warning an
+ * author learns to ignore. Silent too when the scene casts nobody at all, which
+ * is a scene that shows no faces by choice rather than by accident.
+ */
+function uncast(speaker: string): boolean {
+  const cast = props.castSpeakers;
+  if (cast === undefined || cast.length === 0) return false;
+  const named = speaker.trim();
+  if (named.length === 0) return false;
+  return !cast.includes(named);
+}
 
 function copyLines(lines: readonly DialogueLine[]): DialogueLine[] {
   return lines.map((line) => ({ ...line }));
@@ -157,13 +185,23 @@ function moveLine(index: number, delta: number) {
            work in progress, and when that work becomes a step an author can
            undo. -->
       <input :id="`${idPrefix}-line-${index}-speaker`" :value="line.speaker"
-        maxlength="160" required
+        maxlength="160" required :list="`${idPrefix}-cast`"
+        :aria-describedby="uncast(line.speaker)
+          ? `${idPrefix}-line-${index}-uncast` : undefined"
         @input="typeInto(index, {
           speaker: ($event.target as HTMLInputElement).value
         })"
         @change="leaveField(index, {
           speaker: ($event.target as HTMLInputElement).value
         })">
+      <!-- Said where the name was typed, and only once a name has been. A face
+           is drawn for a speaker this scene has cast and not for one it has
+           not, which is a thing an author should learn here rather than on a
+           console. -->
+      <p v-if="uncast(line.speaker)" :id="`${idPrefix}-line-${index}-uncast`"
+        class="field-help line-uncast">
+        Nobody is cast as {{ line.speaker }}, so this line shows no face.
+      </p>
       <label :for="`${idPrefix}-line-${index}-text`">What they say</label>
       <textarea :id="`${idPrefix}-line-${index}-text`" :value="line.text"
         maxlength="4096" required rows="2"
@@ -189,6 +227,14 @@ function moveLine(index: number, delta: number) {
       </div>
     </fieldset>
     <button type="button" @click="addLine">Add a line</button>
+
+    <!-- The cast, offered rather than remembered. A datalist and not a select,
+         because a name this scene has not cast is a legitimate thing to type:
+         it is how somebody new arrives, and casting them is the next gesture
+         rather than a precondition for this one. -->
+    <datalist v-if="castSpeakers && castSpeakers.length" :id="`${idPrefix}-cast`">
+      <option v-for="speaker in castSpeakers" :key="speaker" :value="speaker" />
+    </datalist>
   </div>
 </template>
 
@@ -197,9 +243,53 @@ function moveLine(index: number, delta: number) {
   display: grid;
   gap: 0.5rem;
 }
+/* A conversation should read like one. Each line laid its two fields and its
+ * three buttons out one under another, so ten lines of dialogue photographed as
+ * ten forms and an author scrolled a page to read a scene they could have read
+ * at a glance. Wide enough, the name sits beside the words it belongs to; too
+ * narrow for that, it goes back to stacking, which is the only thing that fits.
+ *
+ * The container is asked, not the window: this editor sits inside a rail, a
+ * record list and a section, and what the window is wide enough for says
+ * nothing about what is left over here.
+ */
+.dialogue-lines {
+  container-type: inline-size;
+}
+
 .dialogue-line {
   display: grid;
   gap: 0.35rem;
+}
+
+@container (min-width: 32rem) {
+  .dialogue-line {
+    grid-template-columns: 11rem minmax(0, 1fr);
+    align-items: start;
+  }
+
+  /* The label of a field on the right belongs over that field, not over the
+     name to its left, so each label takes the column its control does. */
+  .dialogue-line > label:first-of-type {
+    grid-column: 1;
+  }
+
+  .dialogue-line > input {
+    grid-column: 1;
+  }
+
+  .dialogue-line > label:nth-of-type(2),
+  .dialogue-line > textarea,
+  .dialogue-line > .line-uncast,
+  .dialogue-line > .dialogue-line-commands {
+    grid-column: 2;
+  }
+}
+
+/* Said quietly. A face that will not be drawn is worth knowing and is not an
+   error: the scene plays, and the words are still the words. */
+.line-uncast {
+  margin: 0;
 }
 .dialogue-line-commands {
   display: flex;

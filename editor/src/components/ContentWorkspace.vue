@@ -2324,6 +2324,8 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
           </p>
           <DialogueLinesEditor ref="sceneLines" id-prefix="dialogue"
             :lines="selectedRawDialogue?.lines ?? []"
+            :cast-speakers="(selectedRawDialogue?.cast ?? [])
+              .map((entry) => entry.speaker)"
             @update="saveDialogueLines" @dirty="emit('dirty')" />
           <h4 id="dialogue-cast-title">Who is speaking</h4>
           <p class="field-help">
