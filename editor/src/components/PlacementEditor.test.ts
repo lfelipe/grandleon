@@ -413,7 +413,11 @@ describe("PlacementEditor", () => {
       app.unmount();
     });
 
-  it("refuses to stamp onto a tile somebody already holds, and says so",
+  // A press on an occupied tile used to be refused with "somebody already
+  // stands here". It is not a refusal any more: it picks that character up,
+  // which is what an author pressing somebody means, and what the mode switch
+  // used to have to be set for. Nobody is stamped on top either way.
+  it("picks up whoever holds a tile rather than stamping onto them",
     async () => {
       const { app, host, placements } = mount(
         [{ id: "unit", unitTypeId: "guardian", side: "second", x: 0, y: 0 }],
@@ -427,9 +431,13 @@ describe("PlacementEditor", () => {
       cell(host, 0, 0).click();
       await nextTick();
       expect(placements.value).toHaveLength(1);
-      expect(host.textContent).toContain(
-        "Somebody already stands on column 1, row 1"
-      );
+      expect(host.textContent).toContain("Guardian is selected");
+      // And the next press on empty ground moves them, rather than making a
+      // second Guardian, because pressing somebody is picking them up.
+      cell(host, 1, 1).click();
+      await nextTick();
+      expect(placements.value).toHaveLength(1);
+      expect(placements.value[0]).toMatchObject({ x: 1, y: 1 });
       app.unmount();
     });
 
@@ -498,34 +506,35 @@ describe("PlacementEditor", () => {
       app.unmount();
     });
 
-  it("opens on putting somebody down, and follows what the author last did",
+  it("puts somebody down on empty ground and picks up whoever is on a tile",
     async () => {
-      // An empty board has nothing to move, and a palette that looked armed
-      // while a press moved something instead would be a trap.
+      // No mode to set. What a press means is decided by what is under it,
+      // which is the whole of what the two buttons here used to ask about.
       const { app, host, placements } = mount();
-      expect(button(host, "Puts a character down").getAttribute("aria-pressed"))
-        .toBe("true");
       cell(host, 1, 1).click();
       await nextTick();
       expect(placements.value).toHaveLength(1);
 
-      // Adding a placement from the list below is a statement that this one is
-      // the one being arranged, so the next press moves it.
-      button(host, "Add character placement").click();
+      // Pressing somebody picks them up rather than stamping a second body on
+      // top of them, even with a character still armed from the palette.
+      cell(host, 1, 1).click();
       await nextTick();
-      expect(button(host, "Moves the selected character")
-        .getAttribute("aria-pressed")).toBe("true");
+      expect(placements.value).toHaveLength(1);
+      expect(host.textContent).toContain("is selected");
+
+      // And now empty ground moves them, rather than making another.
       cell(host, 2, 0).click();
       await nextTick();
-      expect(placements.value).toHaveLength(2);
-      expect(placements.value[1]).toMatchObject({ x: 2, y: 0 });
+      expect(placements.value).toHaveLength(1);
+      expect(placements.value[0]).toMatchObject({ x: 2, y: 0 });
 
-      // And picking somebody out of the palette says the opposite again.
+      // Picking out of the palette arms putting one down again.
       host.querySelector<HTMLButtonElement>('[data-unit-type="guardian"]')!
         .click();
       await nextTick();
-      expect(button(host, "Puts a character down").getAttribute("aria-pressed"))
-        .toBe("true");
+      cell(host, 0, 1).click();
+      await nextTick();
+      expect(placements.value).toHaveLength(2);
       app.unmount();
     });
 
@@ -774,27 +783,40 @@ describe("PlacementEditor", () => {
 
   it("says why a press did nothing rather than doing nothing quietly",
     async () => {
-      const { app, host, placements } = mount([], undefined, { unitTypes: [] });
-      button(host, "Moves the selected character").click();
+      // A board that had somebody and has nobody now: the last press was a
+      // removal, so the next one has nothing to move. A press that changes
+      // nothing and says nothing is the worst answer there is.
+      const { app, host, placements } = mount(
+        [{ id: "unit", unitTypeId: "guardian", side: "second", x: 0, y: 0 }],
+        undefined,
+        { unitTypes: [] }
+      );
+      button(host, "Remove unit placement").click();
       await nextTick();
-      // Nobody on the board, so there is nobody for a press to move, and a
-      // press that changes nothing and says nothing is the worst answer there
-      // is.
-      cell(host, 0, 0).click();
+      expect(placements.value).toEqual([]);
+      cell(host, 1, 1).click();
       await nextTick();
       expect(placements.value).toEqual([]);
       expect(host.textContent).toContain("There is nobody on this board to move");
       app.unmount();
     });
 
-  it("opens on moving when the board already has somebody on it", () => {
-    const { app, host } = mount(
-      [{ id: "unit", unitTypeId: "guardian", side: "second", x: 0, y: 0 }]
-    );
-    expect(button(host, "Moves the selected character")
-      .getAttribute("aria-pressed")).toBe("true");
-    app.unmount();
-  });
+  // Patrol is the one meaning nothing about a tile can tell you, so it is the
+  // one switch left on this board.
+  it("keeps a switch for patrol points and none for the other two",
+    async () => {
+      const { app, host } = mount(
+        [{ id: "unit", unitTypeId: "guardian", side: "second", x: 0, y: 0 }]
+      );
+      const labels = [...host.querySelectorAll(".grid-mode button")]
+        .map((entry) => entry.textContent?.trim());
+      expect(labels).toEqual(["Add patrol points"]);
+      button(host, "Add patrol points").click();
+      await nextTick();
+      expect(button(host, "Stop adding patrol points")
+        .getAttribute("aria-pressed")).toBe("true");
+      app.unmount();
+    });
 
   it("draws a question rather than a knight for a character nobody defined",
     async () => {

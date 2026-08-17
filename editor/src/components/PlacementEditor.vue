@@ -1132,21 +1132,46 @@ const placementSummary = computed(() => {
  * "this one". Moving a character onto a tile somebody else already holds
  * is the collision the board draws in red, never a thing an author meant.
  */
+/**
+ * What a press means, decided by what is under it rather than by a mode.
+ *
+ * There used to be a switch with "Puts a character down" and "Moves the
+ * selected character" on it, and an author had to set it before every gesture.
+ * It is gone: pressing somebody picks them up and pressing empty ground puts
+ * down or moves, which is what the two buttons were asking about anyway.
+ *
+ * Pressing an occupied tile therefore selects whoever is on it, even with a
+ * character armed from the palette. What that costs is stamping a second body
+ * onto an occupied tile by pressing, and that is a collision this editor
+ * already draws in red and reports as a problem: it was never a thing to make
+ * on purpose. Everything else the palette can do it still does, and dragging
+ * does the same two jobs for whoever would rather drag.
+ *
+ * Patrol keeps a mode of its own, because dropping a marker on a tile is a
+ * third meaning that nothing about the tile can tell you.
+ */
 function pressTile(x: number, y: number) {
+  if (gridMode.value !== "patrol") {
+    // Anybody at all, not merely somebody other than the selection: pressing
+    // the tile a character already stands on is picking that character up,
+    // whether or not they were the one in hand. Stamping refused an occupied
+    // tile anyway, so nothing that used to work stops working.
+    const here = occupants(x, y);
+    const standing = here.find(({ index }) => index !== selectedIndex.value)
+      ?? here[0];
+    if (standing) {
+      selectedIndex.value = standing.index;
+      gridMode.value = "place";
+      notice.value = `${
+        unitTypeName(standing.placement.unitTypeId) ?? standing.placement.id
+      } is selected. Press an empty tile to move them, or drag them off the ` +
+        "board to take them out.";
+      return;
+    }
+  }
   if (gridMode.value === "stamp") {
     stamp(x, y);
     return;
-  }
-  if (gridMode.value === "place") {
-    const here = occupants(x, y);
-    const other = here.find(({ index }) => index !== selectedIndex.value);
-    if (other) {
-      selectedIndex.value = other.index;
-      notice.value = `${
-        unitTypeName(other.placement.unitTypeId) ?? other.placement.id
-      } is selected. Press an empty tile to move them.`;
-      return;
-    }
   }
   moveSelected(x, y);
 }
@@ -1224,19 +1249,15 @@ function pressTile(x: number, y: number) {
       <p class="field-help">Every press puts down another one.</p>
     </fieldset>
 
+    <!-- One button, not three. Putting somebody down and moving them are
+         decided by what is under the press, so neither needs asking about;
+         dropping a patrol marker is a third meaning nothing on the tile can
+         tell you, so it keeps a switch. `pressTile` says the whole rule. -->
     <fieldset class="grid-mode" role="group" aria-label="What pressing a tile does">
       <legend>Pressing a tile</legend>
-      <button type="button" :aria-pressed="gridMode === 'stamp'"
-        @click="gridMode = 'stamp'">
-        Puts a character down
-      </button>
-      <button type="button" :aria-pressed="gridMode === 'place'"
-        @click="gridMode = 'place'">
-        Moves the selected character
-      </button>
       <button type="button" :aria-pressed="gridMode === 'patrol'"
-        @click="gridMode = 'patrol'">
-        Adds a patrol point
+        @click="gridMode = gridMode === 'patrol' ? 'place' : 'patrol'">
+        {{ gridMode === "patrol" ? "Stop adding patrol points" : "Add patrol points" }}
       </button>
     </fieldset>
     <p id="placement-gesture" class="field-help">{{ gestureHelp }}</p>
