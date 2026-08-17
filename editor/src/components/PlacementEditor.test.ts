@@ -803,20 +803,99 @@ describe("PlacementEditor", () => {
 
   // Patrol is the one meaning nothing about a tile can tell you, so it is the
   // one switch left on this board.
-  it("keeps a switch for patrol points and none for the other two",
+  it("offers a route only to a character that walks one, and on that character",
     async () => {
+      // A patrol is one character's own path. The switch that draws it lives in
+      // the panel about them rather than over the board, so it names whose route
+      // is being drawn and cannot be left on for somebody else.
       const { app, host } = mount(
         [{ id: "unit", unitTypeId: "guardian", side: "second", x: 0, y: 0 }]
       );
-      const labels = [...host.querySelectorAll(".grid-mode button")]
-        .map((entry) => entry.textContent?.trim());
-      expect(labels).toEqual(["Add patrol points"]);
-      button(host, "Add patrol points").click();
+      host.querySelector(".placement-cell")!.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
       await nextTick();
-      expect(button(host, "Stop adding patrol points")
+      expect(host.querySelector(".patrol-route")).toBeNull();
+
+      // A character that holds its ground has no route to draw. Saying it walks
+      // one is what asks for the surface.
+      const behavior = host.querySelector<HTMLSelectElement>(
+        "#placement-0-behavior"
+      )!;
+      behavior.value = "patrol";
+      behavior.dispatchEvent(new Event("change"));
+      await nextTick();
+      expect(host.querySelector(".patrol-route")).not.toBeNull();
+      expect(host.textContent).toContain("No route yet");
+
+      button(host, "Draw the route on the board").click();
+      await nextTick();
+      expect(button(host, "Done drawing the route")
         .getAttribute("aria-pressed")).toBe("true");
       app.unmount();
     });
+
+  it("walks a route, says what the engine will do with it, and takes legs out",
+    async () => {
+      // What the editor says about a route has to be what `tactics::decide`
+      // does with it, which is not what the word patrol suggests: the leg is
+      // `activation_count % points`, so the route runs back to its first point
+      // rather than turning round, and a character aims at the next point every
+      // time it acts whether or not it reached the one before.
+      const { app, host, placements } = mount([{
+        id: "unit",
+        unitTypeId: "guardian",
+        side: "second",
+        x: 0,
+        y: 0,
+        behavior: "patrol",
+        patrolPoints: [{ x: 1, y: 0 }, { x: 2, y: 0 }]
+      }]);
+      host.querySelector(".placement-cell")!.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+      await nextTick();
+
+      const route = host.querySelector(".patrol-route")!;
+      expect(route.textContent).toContain("walks 2 points");
+      expect(route.textContent).toContain("back to the first");
+      expect(route.textContent).toContain("every time it acts");
+
+      // Each leg is named where it is, in the order it is walked.
+      const legs = [...route.querySelectorAll(".patrol-points li")]
+        .map((entry) => entry.textContent?.replace(/\s+/g, " ").trim());
+      expect(legs[0]).toContain("column 2, row 1");
+      expect(legs[1]).toContain("column 3, row 1");
+
+      // Taking one out leaves the rest in the order they were walked in.
+      route.querySelectorAll<HTMLButtonElement>(".patrol-points button")[0]!
+        .click();
+      await nextTick();
+      expect(placements.value[0]!.patrolPoints).toEqual([{ x: 2, y: 0 }]);
+      app.unmount();
+    });
+
+  it("clears a route to no field at all, not to an empty one", async () => {
+    // A placement that authors no route is what every placement before this
+    // behaviour existed was, and the two should compile to the same bytes.
+    const { app, host, placements } = mount([{
+      id: "unit",
+      unitTypeId: "guardian",
+      side: "second",
+      x: 0,
+      y: 0,
+      behavior: "patrol",
+      patrolPoints: [{ x: 1, y: 0 }]
+    }]);
+    host.querySelector(".placement-cell")!.dispatchEvent(
+      new MouseEvent("click", { bubbles: true })
+    );
+    await nextTick();
+    button(host, "Clear the route").click();
+    await nextTick();
+    expect(placements.value[0]!.patrolPoints).toBeUndefined();
+    app.unmount();
+  });
 
   it("draws a question rather than a knight for a character nobody defined",
     async () => {

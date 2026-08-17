@@ -539,7 +539,12 @@ function moveSelected(x: number, y: number) {
     // Clicking a point again removes it, so a mistake costs one click.
     if (existing >= 0) patrol.splice(existing, 1);
     else patrol.push({ x, y });
-    replace(selectedIndex.value, { patrolPoints: patrol });
+    // Taking the last point off the board is clearing the route, and a cleared
+    // route is an absent field rather than an empty list: the same thing every
+    // placement said before this behaviour existed.
+    replace(selectedIndex.value, {
+      patrolPoints: patrol.length > 0 ? patrol : undefined
+    });
     return;
   }
   replace(selectedIndex.value, { x, y });
@@ -609,6 +614,67 @@ function patrolLeg(x: number, y: number): number {
   return selectedPatrol.value.findIndex(
     (point) => point.x === x && point.y === y
   );
+}
+
+/**
+ * Drawing a route belongs to the character whose panel switched it on, so
+ * choosing somebody who does not patrol puts the board back to moving people
+ * about. Otherwise a switch left on quietly redraws the next character's route,
+ * which is the defect the switch above the board had in the first place.
+ *
+ * Only ever out of patrol. Stamping is a mode as well, and a rule that reset
+ * every mode on every selection would end a stamp after one press - which it
+ * did, until six checks said so.
+ */
+watch(
+  () => [selectedIndex.value, draftPlacements.value[selectedIndex.value]?.behavior],
+  () => {
+    if (gridMode.value !== "patrol") return;
+    const placement = draftPlacements.value[selectedIndex.value];
+    if ((placement?.behavior ?? "hold") !== "patrol") gridMode.value = "place";
+  }
+);
+
+/** The same points, for the panel that authors them rather than the grid. */
+const patrolPoints = computed(() => selectedPatrol.value);
+
+/**
+ * Who the route belongs to, named the way the rest of this panel names them.
+ *
+ * A route is one character's, and the sentence above it says whose. "Nobody" is
+ * not reachable from the panel, which only exists while somebody is selected,
+ * but the computed is read before the template's own guard on some renders.
+ */
+const patrolWho = computed(() => {
+  const placement = draftPlacements.value[selectedIndex.value];
+  if (placement === undefined) return "Nobody";
+  return (
+    placement.name ??
+    unitTypeName(placement.unitTypeId) ??
+    placement.unitTypeId
+  );
+});
+
+/** Takes one leg out, leaving the rest in the order they were walked in. */
+function dropPatrolLeg(leg: number): void {
+  const placement = draftPlacements.value[selectedIndex.value];
+  if (placement === undefined) return;
+  const points = [...(placement.patrolPoints ?? [])];
+  if (leg < 0 || leg >= points.length) return;
+  points.splice(leg, 1);
+  replace(selectedIndex.value, {
+    patrolPoints: points.length > 0 ? points : undefined
+  });
+}
+
+/**
+ * Every point at once. The field goes away rather than becoming an empty list,
+ * because a placement that authors no route is what every placement before the
+ * patrol behaviour existed was, and the two should compile to the same bytes.
+ */
+function clearPatrol(): void {
+  if (draftPlacements.value[selectedIndex.value] === undefined) return;
+  replace(selectedIndex.value, { patrolPoints: undefined });
 }
 
 /**
@@ -1249,17 +1315,6 @@ function pressTile(x: number, y: number) {
       <p class="field-help">Every press puts down another one.</p>
     </fieldset>
 
-    <!-- One button, not three. Putting somebody down and moving them are
-         decided by what is under the press, so neither needs asking about;
-         dropping a patrol marker is a third meaning nothing on the tile can
-         tell you, so it keeps a switch. `pressTile` says the whole rule. -->
-    <fieldset class="grid-mode" role="group" aria-label="What pressing a tile does">
-      <legend>Pressing a tile</legend>
-      <button type="button" :aria-pressed="gridMode === 'patrol'"
-        @click="gridMode = gridMode === 'patrol' ? 'place' : 'patrol'">
-        {{ gridMode === "patrol" ? "Stop adding patrol points" : "Add patrol points" }}
-      </button>
-    </fieldset>
     <p id="placement-gesture" class="field-help">{{ gestureHelp }}</p>
     <p v-if="map" class="map-summary">
       {{ map.name }} · {{ map.width }}×{{ map.height }}
@@ -1467,10 +1522,51 @@ function pressTile(x: number, y: number) {
         <option value="patrol">Walks its patrol points</option>
         <option value="pursue">Chases the nearest enemy</option>
       </select>
-      <p v-if="(selectedPlacement.behavior ?? 'hold') === 'patrol'" class="field-help">
-        {{ (selectedPlacement.patrolPoints ?? []).length }} patrol points. Add them
-        with the tile mode above.
-      </p>
+      <!-- The route, on the character it belongs to.
+           A patrol is one character's own path, and it used to be authored by a
+           switch above the board that changed what pressing a tile did for
+           whoever happened to be selected. Several characters' routes over one
+           board, behind a mode with no owner, is what made this unusable. It is
+           theirs now: the switch is here, it names them, and the board draws
+           this route while it is on.
+           What the engine does with the points is said out loud, because it is
+           not what the word patrol suggests. `tactics::decide` takes the leg as
+           `activation_count % points`, so the route runs back to its first
+           point rather than turning round at the last, and a character aims at
+           the next point every time it acts whether or not it reached the one
+           before. -->
+      <template v-if="(selectedPlacement.behavior ?? 'hold') === 'patrol'">
+        <div class="patrol-route">
+          <p class="field-help">
+            <template v-if="patrolPoints.length === 0">
+              No route yet. {{ patrolWho }} stands still until one is drawn.
+            </template>
+            <template v-else>
+              {{ patrolWho }} walks {{ patrolPoints.length }}
+              {{ patrolPoints.length === 1 ? "point" : "points" }} in order and
+              then back to the first, aiming at the next one every time it acts.
+            </template>
+          </p>
+          <ol v-if="patrolPoints.length" class="patrol-points">
+            <li v-for="(point, leg) in patrolPoints" :key="`${point.x}:${point.y}:${leg}`">
+              column {{ point.x + 1 }}, row {{ point.y + 1 }}
+              <button type="button" class="secondary"
+                :aria-label="`Take point ${leg + 1} out of the route`"
+                @click="dropPatrolLeg(leg)">Take out</button>
+            </li>
+          </ol>
+          <div class="patrol-verbs">
+            <button type="button" :aria-pressed="gridMode === 'patrol'"
+              @click="gridMode = gridMode === 'patrol' ? 'place' : 'patrol'">
+              {{ gridMode === "patrol"
+                ? "Done drawing the route"
+                : "Draw the route on the board" }}
+            </button>
+            <button v-if="patrolPoints.length" type="button" class="secondary"
+              @click="clearPatrol()">Clear the route</button>
+          </div>
+        </div>
+      </template>
       <!-- The checkbox, what it means, and, only once it is on, the flag it
            raises with the one thing the checkbox could never say: what reads a
            flag. The explanation sits under the control it explains rather than
@@ -1639,14 +1735,29 @@ function pressTile(x: number, y: number) {
   max-width: 28rem;
 }
 
-.grid-mode {
+/* The route a character walks, in the panel about that character. */
+.patrol-route {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border: 1px solid #cbd2e0;
+  border-radius: 0.4rem;
+  background: #f7f9fd;
+}
+
+.patrol-points {
+  margin: 0.35rem 0;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.patrol-verbs {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin: 0.5rem 0;
-  padding: 0.5rem;
 }
-.grid-mode button[aria-pressed="true"] {
+
+.patrol-verbs button[aria-pressed="true"] {
   outline: 3px solid #b78c23;
   outline-offset: 1px;
 }
