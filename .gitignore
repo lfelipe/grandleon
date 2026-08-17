@@ -33,3 +33,9 @@ platform/playstation/scratch/evidence/*.gif
 *.orig
 *.rej
 .DS_Store
+
+# Written by nothing and read by `docker compose` if it happens to exist. The
+# three ids `compose.yaml` needs are facts about one machine, so `start.sh`
+# computes them rather than committing them, and a stray file here would
+# silently override that.
+/.env

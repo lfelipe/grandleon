@@ -1,5 +1,42 @@
 # Setting up
 
+## Just want to make a game? One command
+
+If you are here to *use* the editor and build a ROM rather than to work on the
+repository itself, none of the rest of this page is for you:
+
+```sh
+scripts/start.sh
+```
+
+Clone, run that, open <http://localhost:5173>. The editor and the ROM build
+service come up together, the ROM button works, and nothing is installed on
+your machine.
+
+**It needs Docker and the Compose plugin, and nothing else** — no Node, no
+Python, no CMake, no virtual environment. On Ubuntu:
+
+```sh
+sudo apt-get install docker.io docker-compose-v2
+```
+
+Elsewhere, <https://docs.docker.com/compose/install/>. `scripts/start.sh`
+refuses by name, with the install line, if either is missing.
+
+Two things worth knowing before you run it. It **mounts the checkout into the
+containers and runs them as you**, so what they write belongs to you and shows
+up in your working tree. And it **mounts the Docker socket**, because a ROM
+build starts the pinned toolchain image as a sibling container — which gives
+those containers control of this machine's daemon. `compose.yaml` says why both
+are necessary and neither is decoration.
+
+Reaching it from another machine works without configuration: every name this
+one answers to is passed to both servers. Set `GRANDLEON_HOST` if you reach it
+by some name it cannot work out for itself, and `GRANDLEON_EDITOR_PORT` to move
+it off 5173.
+
+## Working on the repository
+
 From a bare machine to a green gate. The gate is one command:
 
 ```sh

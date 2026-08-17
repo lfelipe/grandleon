@@ -1,0 +1,117 @@
+# SPDX-License-Identifier: MIT
+#
+# Clone the repository, run one command, be editing and able to build a ROM:
+#
+#     docker compose up
+#
+# That is the whole of what this file is for. It brings up the editor and the
+# ROM build service together, at addresses that work, with both told which names
+# they may be reached by. Docker and its Compose plugin are the only things that
+# have to be installed first: no Node, no Python, no CMake, no virtual
+# environment. `docs/SETUP.md` lists that dependency and how to get it.
+#
+#   editor        http://localhost:5173
+#   ROM service   not published; the editor proxies /api/n64 to it, so the
+#                 ROM button works and nothing else can reach it
+#
+# These are development servers. This is the way *in*, not the way the gate
+# runs: `scripts/local-ci.sh` is still the answer to "is it correct", and
+# `docs/SETUP.md` is still the answer to "how do I work on the repository
+# itself".
+#
+# ---------------------------------------------------------------------------
+# Two things in here are load-bearing and look odd
+#
+# **The checkout is mounted at its own absolute path** — `${PWD}:${PWD}` — not
+# at some tidy `/workspace`. A ROM build is not run by these containers. The
+# service shells out to the host's Docker daemon through the mounted socket and
+# starts the toolchain container as a *sibling*, and a sibling's `-v` paths are
+# resolved by the host daemon rather than by the container asking. Mount the
+# checkout anywhere else and the daemon cannot find it.
+# `.devcontainer/README.md` records that failure from the other side: the dev
+# container mounts at `/workspaces/grandleon`, the host daemon cannot resolve
+# it, and every console build has to be run from the host instead. Mounting the
+# checkout as itself is what makes a ROM build work from in here.
+#
+# It follows that this has to be run from the checkout, because `${PWD}` is
+# read from where the command is. That is also the only way anybody would.
+#
+# **The containers run as the invoking user** — `${GRANDLEON_UID}` — because
+# they write into that checkout. The image's own user is uid 1001, the checkout
+# belongs to whoever cloned it, and without this the first write is EACCES.
+# `.env` carries those two numbers; `docker compose up` reads it without being
+# told to, and `scripts/setup.sh` writes it.
+#
+# ---------------------------------------------------------------------------
+# The socket, said plainly
+#
+# Mounting the host's Docker socket gives the ROM service control of the host
+# daemon, which is effectively root on this machine. It is the same trade
+# `.devcontainer/devcontainer.json` already makes, for the same reason: the
+# console toolchains are pinned images started as siblings. Do not run this on a
+# machine where that matters.
+
+name: grandleon
+
+x-runtime: &runtime
+  build: .devcontainer
+  working_dir: ${PWD}
+  user: "${GRANDLEON_UID:-1000}:${GRANDLEON_GID:-1000}"
+  environment: &runtime-env
+    # The image's user has a home; the invoking user has none in here, and npm
+    # and cmake both want one.
+    HOME: /tmp
+  volumes:
+    - ${PWD}:${PWD}
+
+services:
+  # `npm ci` once, before either server starts, rather than twice at the same
+  # time into one directory. Compose waits for this to exit 0.
+  install:
+    <<: *runtime
+    command: npm ci --prefix editor --no-audit --no-fund
+
+  editor:
+    <<: *runtime
+    depends_on:
+      install:
+        condition: service_completed_successfully
+    environment:
+      <<: *runtime-env
+      # Which names this server answers to beyond loopback. Vite refuses a Host
+      # it does not know with a 403 that reads, from a browser, as an editor
+      # that never appeared. It already allows this machine's own hostname and
+      # `<name>.local`; set GRANDLEON_HOST when the name you reach it by is
+      # neither, which a `.lan` or `.home` network is.
+      GRANDLEON_EDITOR_ALLOWED_HOSTS: ${GRANDLEON_HOST:-}
+      GRANDLEON_EDITOR_PORT: "5173"
+      # The service is a container of its own here, so loopback is nobody.
+      GRANDLEON_ROM_SERVICE_HOST: rom-service
+      GRANDLEON_ROM_SERVICE_PORT: "4699"
+    ports:
+      - "${GRANDLEON_EDITOR_PORT:-5173}:5173"
+    command: npm run dev --prefix editor
+
+  rom-service:
+    <<: *runtime
+    depends_on:
+      install:
+        condition: service_completed_successfully
+    environment:
+      <<: *runtime-env
+      # The Host that arrives is the one the browser used, because the editor
+      # proxies without rewriting it.
+      GRANDLEON_ROM_SERVICE_ALLOWED_HOSTS: ${GRANDLEON_HOST:-}
+      GRANDLEON_ROM_SERVICE_PORT: "4699"
+      # The editor is a different container, so loopback is nobody. The port is
+      # not published and the Host refusal is unchanged.
+      GRANDLEON_ROM_SERVICE_BIND: "0.0.0.0"
+    volumes:
+      - ${PWD}:${PWD}
+      # The daemon that builds the ROM. See the note at the top.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # The socket is owned by a group, and the invoking user is not this
+    # container's user, so the group has to be added rather than inherited.
+    group_add:
+      - "${GRANDLEON_DOCKER_GID:-999}"
+    command: node tools/rom_service/serve.mjs

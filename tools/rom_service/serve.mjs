@@ -916,9 +916,20 @@ if (invokedDirectly) {
     // jobs yet, so every tree under `build-n64/requests/` belongs to a service
     // process that has already exited.
     void queue.reap();
-    server.listen(port, "127.0.0.1", () => {
+    // Loopback, because a build service is a thing you run for yourself and
+    // binding every interface by accident is how it stops being that.
+    //
+    // `GRANDLEON_ROM_SERVICE_BIND` is for the one arrangement where loopback is
+    // the wrong answer: under `compose.yaml` the editor is a *different
+    // container*, so it reaches this one by service name over the compose
+    // network and 127.0.0.1 here is nobody. What keeps that from publishing a
+    // build service is unchanged and is the part that matters — the `Host`
+    // check still refuses anything that is not loopback or a name this process
+    // was started with, and compose does not publish this port.
+    const bind = process.env.GRANDLEON_ROM_SERVICE_BIND ?? "127.0.0.1";
+    server.listen(port, bind, () => {
         process.stdout.write(
-            `ROM service on http://127.0.0.1:${port} ` +
+            `ROM service on http://${bind}:${port} ` +
             `(${console64.id}, target ${console64.target})\n`
         );
         // Said out loud, every time. Answering a name other than loopback is

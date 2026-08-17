@@ -128,7 +128,14 @@ const romServiceAbsent = {
 
 const romServiceProxy = {
   "/api/n64": {
-    target: `http://127.0.0.1:${
+    // Loopback by default, because the ordinary way to run both is two
+    // processes on one machine. `GRANDLEON_ROM_SERVICE_HOST` is for the case
+    // where they are not: under `compose.yaml` the service is a container of
+    // its own, reached by service name, and 127.0.0.1 there is this container
+    // rather than that one.
+    target: `http://${
+      process.env.GRANDLEON_ROM_SERVICE_HOST ?? "127.0.0.1"
+    }:${
       process.env.GRANDLEON_ROM_SERVICE_PORT ?? "4699"
     }`,
     changeOrigin: false,
