@@ -306,7 +306,15 @@ function addWayToWin(recipe: typeof WAYS_TO_WIN[number]) {
           <strong>{{ objective.name }}</strong>
         </label>
 
-        <div class="condition-fields">
+        <!-- The fields belong to a condition this Stage actually uses. Every
+             objective in the campaign is offered here, because switching one on
+             is how a Stage takes it, but a condition this Stage has not taken is
+             a line to read rather than a form to fill: seven objectives drew
+             seven forms, which was over two thousand pixels of a Stage and the
+             largest single thing on it. The same rule the board's own panel
+             follows, where one selected character has fields and the others are
+             tokens. -->
+        <div v-if="selectedIds.includes(objective.id)" class="condition-fields">
           <label :for="`objective-${objective.id}-kind`">What decides it</label>
           <select :id="`objective-${objective.id}-kind`"
             :value="objective.kind ?? 'defeatAllOpponents'"
@@ -383,8 +391,13 @@ function addWayToWin(recipe: typeof WAYS_TO_WIN[number]) {
             </p>
           </template>
 
-          <p class="condition-summary" role="status">{{ describe(objective) }}</p>
         </div>
+
+        <!-- The sentence stays whether or not this Stage has taken the
+             condition: it is what the condition *is*, and a list of names with
+             no words on it would be a list nobody could read. It is the fields
+             that follow the tick. -->
+        <p class="condition-summary" role="status">{{ describe(objective) }}</p>
       </li>
     </ul>
 

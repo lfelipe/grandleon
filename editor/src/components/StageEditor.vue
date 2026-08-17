@@ -556,6 +556,10 @@ function saveDeploymentNotes(raw: string) {
 
 <style scoped>
 .stage-editor {
+  /* A Stage holds a board, and a board is the one thing here worth the window's
+   * width. Held to the reading width every other section takes, the board, the
+   * palette and the panel about the selected character could only stack. */
+  max-width: none;
   margin: 0.75rem 0;
   padding: 0.75rem;
   border: 1px solid #c7d2ca;

@@ -77,7 +77,9 @@ describe("WinConditionEditor", () => {
   });
 
   it("offers a target only for the targeted kinds", () => {
-    const { app, host } = mount();
+    // Both taken by this Stage, because the fields belong to a condition a
+    // Stage uses: one it has not taken is a sentence and a tick.
+    const { app, host } = mount(["clear_them_out", "fell_the_warden"]);
     // The first objective is defeat-everyone, so it has no target selector.
     expect(host.querySelector("#objective-clear_them_out-target")).toBeNull();
     expect(host.querySelector("#objective-fell_the_warden-target")).not.toBeNull();
@@ -85,7 +87,7 @@ describe("WinConditionEditor", () => {
   });
 
   it("names a target when switching to a targeted kind", async () => {
-    const { app, host, updates } = mount();
+    const { app, host, updates } = mount(["clear_them_out"]);
     const kind = host.querySelector<HTMLSelectElement>(
       "#objective-clear_them_out-kind"
     )!;
@@ -101,7 +103,7 @@ describe("WinConditionEditor", () => {
   });
 
   it("drops a stale target when switching back to defeat-everyone", async () => {
-    const { app, host, updates } = mount();
+    const { app, host, updates } = mount(["fell_the_warden"]);
     const kind = host.querySelector<HTMLSelectElement>(
       "#objective-fell_the_warden-kind"
     )!;

@@ -2059,7 +2059,10 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
        fields, which a reading measure suits; a graph is a picture of a whole
        campaign, and a picture squeezed into a text column is not one. -->
   <section id="content" aria-labelledby="content-title"
-    :class="{ 'content-wide': activeSection.kind === 'flow' }">
+    :class="{
+      'content-wide':
+        activeSection.kind === 'flow' || activeSection.kind === 'stages'
+    }">
     <h2 id="content-title">{{ activeSection.label }}</h2>
     <p class="section-hint">{{ activeSection.hint }}</p>
     <div class="history-commands" role="group" aria-label="Edit history">
@@ -2821,6 +2824,11 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
   padding: 1rem;
   background: #f7f9fd;
 }
+/* Flow and Stages are the two sections holding a picture rather than a form.
+ * A picture put in a record column is a picture nobody can see, and a Stage's
+ * board is a picture: held to the reading width every other section takes, the
+ * board, the palette and the panel about the selected character had nowhere to
+ * go but under one another, and the column ran to thousands of pixels. */
 #content.content-wide {
   max-width: none;
 }

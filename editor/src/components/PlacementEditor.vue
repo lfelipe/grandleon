@@ -1268,6 +1268,15 @@ function pressTile(x: number, y: number) {
       Choose a map before placing characters.
     </p>
 
+    <!-- The board, and beside it the one panel that is about what the board has
+         selected. Side by side rather than stacked, because a panel underneath a
+         board is a panel an author scrolls away from the thing it describes: the
+         column this editor used to be ran to some four thousand pixels, and the
+         board and this panel were most of it. On a window too narrow to seat
+         them side by side the panel drops below, which is the same order it
+         always had. -->
+    <div class="placement-work" :class="{ 'with-panel': selectedPlacement }">
+    <div class="placement-board-side">
     <div v-if="canDrawGrid && map" class="placement-grid-wrap">
       <div ref="gridRoot" class="placement-grid" role="grid"
         aria-describedby="placement-gesture"
@@ -1347,6 +1356,8 @@ function pressTile(x: number, y: number) {
         ? "Drop here to take them off the board"
         : "Drag somebody off the board to take them out." }}
     </p>
+    <button type="button" @click="addPlacement">Add character placement</button>
+
     <p class="placement-notice" role="status">{{ notice }}</p>
 
     <!-- Every problem on this board, not only the selected token's. One panel
@@ -1363,7 +1374,7 @@ function pressTile(x: number, y: number) {
       </li>
     </ul>
 
-    <button type="button" @click="addPlacement">Add character placement</button>
+    </div>
 
     <!-- One panel, about the one token the board has selected.
          A fieldset per placement stacked a form for every person on the
@@ -1593,6 +1604,7 @@ function pressTile(x: number, y: number) {
         Remove unit placement
       </button>
     </fieldset>
+    </div>
   </section>
 </template>
 
@@ -1651,10 +1663,63 @@ function pressTile(x: number, y: number) {
   outline: 3px solid #b78c23;
   outline-offset: 1px;
 }
+/* A board is the one thing in this editor that is worth the window's width, so
+ * this section opts out of the 48rem every other section is held to. Held at
+ * that width the board, the palette and the panel had nowhere to go but under
+ * one another, which is the whole of why the column ran to four thousand
+ * pixels. Nothing else here is any wider than it was: the panel is capped, the
+ * fields inside it are capped, and prose is still measured in a readable line.
+ */
+.placement-editor {
+  max-width: none;
+}
+
+/* One row that scrolls sideways, not a wrapping block that grows downward.
+ * Eight characters wrapped into a column of eight before the board began, so
+ * the first thing this editor showed was a list and the board was below the
+ * fold. A strip is as tall as one character however many there are. */
 .palette-units {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.palette-unit {
+  flex: 0 0 auto;
+}
+
+/* The board and the panel about what it has selected, side by side wherever
+ * there is room for both. Below 60rem there is not, and the panel goes back
+ * under the board, which is where it always was. */
+.placement-work {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+/* Two columns when there is something to put in the second one and room to put
+ * it, and the room asked about is this editor's own rather than the window's.
+ * A window is a poor proxy here: this surface sits inside a rail, a record list
+ * and a section, so a 1280-wide window had left it 519 px, and a media query
+ * that read the window happily seated a panel that squeezed the board to two
+ * hundred. The strip a character is dragged to came out a hundred and fifty
+ * pixels wide and below the fold, which is a gesture nobody can make.
+ *
+ * A column is also only reserved when a panel is open, because width taken for
+ * a panel nobody has asked for is width taken from the board. */
+.placement-editor {
+  container-type: inline-size;
+}
+
+@container (min-width: 46rem) {
+  .placement-work.with-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
+  }
+}
+
+.placement-board-side {
+  min-width: 0;
 }
 .palette-unit {
   display: flex;
@@ -1768,6 +1833,7 @@ function pressTile(x: number, y: number) {
   margin: 0.75rem 0;
   overflow: auto;
 }
+
 
 .placement-grid {
   display: grid;

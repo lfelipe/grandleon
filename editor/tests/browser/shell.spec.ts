@@ -460,8 +460,11 @@ test("takes a character off the board by dragging them off it", async ({
   await stage.locator('[data-cell="0"]').click();
   await expect(stage.locator(".placed-unit")).toHaveCount(1);
 
-  // The strip says what the gesture is before anybody makes it.
+  // The strip says what the gesture is before anybody makes it. It sits under
+  // the board, so on a board taller than the window it is scrolled to first:
+  // a drag cannot cross a scroll, for a pointer or for a person.
   const bin = stage.getByTestId("placement-bin");
+  await bin.scrollIntoViewIfNeeded();
   await expect(bin).toBeVisible();
   await expect(bin).toContainText("Drag somebody off the board");
 
