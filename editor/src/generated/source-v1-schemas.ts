@@ -249,6 +249,14 @@ export const sourceV1Schemas: readonly object[] = [
           },
           "deployment": {
             "$ref": "#/$defs/deploymentZone"
+          },
+          "moments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/encounterMoment"
+            },
+            "maxItems": 32,
+            "description": "Scenes that play during this encounter, in the order they are authored. Only an encounter node may carry them: a story node has no board for anything to happen on."
           }
         },
         "required": [
@@ -716,6 +724,50 @@ export const sourceV1Schemas: readonly object[] = [
             "additionalProperties": false
           }
         ]
+      },
+      "encounterMoment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "when",
+          "dialogueId"
+        ],
+        "description": "A scene that plays during a battle, when something happens on the board. A node's own dialogueIds are presented on arrival, before the node acts, which is around a battle rather than inside one; these are inside it. Omitted means a battle nobody speaks during, which is what every encounter before this said.",
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/$defs/stableId",
+            "description": "This moment's own name, unique within the encounter."
+          },
+          "when": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "description": "What has to happen for the scene to play.",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "stageOpens",
+                  "characterTalked",
+                  "characterFalls"
+                ],
+                "description": "stageOpens: once, as the board is first drawn. characterTalked: when the named character is talked off the board. characterFalls: when the named character is defeated, which is a different fact from being talked away and is reported by a different event."
+              },
+              "placementId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "description": "Which character on this board the moment is about. Required by characterTalked and characterFalls, and refused by stageOpens, which is about the board rather than about anybody. It names a placement's own id, the only identity stable across a battle."
+              }
+            }
+          },
+          "dialogueId": {
+            "$ref": "common.schema.json#/$defs/stableId",
+            "description": "The scene to play. It is an ordinary dialogue, so it carries a cast and draws faces like any other."
+          }
+        }
       }
     }
   },
@@ -1427,7 +1479,7 @@ export const sourceV1Schemas: readonly object[] = [
     "type": "object",
     "properties": {
       "schemaVersion": {
-        "const": "1.0.0"
+        "const": "1.1.0"
       },
       "packageId": {
         "$ref": "common.schema.json#/$defs/packageId"

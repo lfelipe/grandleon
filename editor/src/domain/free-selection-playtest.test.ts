@@ -29,7 +29,7 @@ import {
 
 function lineProject(): SourceProject {
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.1.0",
     packageId: "7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f",
     gameId: "free.selection.fixture",
     title: "Free selection fixture",

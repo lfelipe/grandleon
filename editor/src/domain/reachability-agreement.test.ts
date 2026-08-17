@@ -29,7 +29,7 @@ import {
 // cannot move at all.
 function keepProject(): SourceProject {
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.1.0",
     packageId: "1a5b0f9c-2d3e-4a5b-8c7d-9e0f1a2b3c4d",
     gameId: "reachability.fixture",
     title: "Reachability fixture",
@@ -115,7 +115,7 @@ function keepProject(): SourceProject {
 // can cross.
 function riverProject(): SourceProject {
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.1.0",
     packageId: "2b6c1e0d-3f4a-4b6c-9d8e-0f1a2b3c4d5e",
     gameId: "passability.fixture",
     title: "Passability fixture",

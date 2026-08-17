@@ -34,7 +34,7 @@ function stage(id: string, placements: EncounterPlacement[]): CampaignNode {
 
 function project(patch: Partial<SourceProject> = {}): SourceProject {
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.1.0",
     packageId: "5f0d7b0e-8f2b-4a58-9d0f-1c2b3a4d5e6f",
     gameId: "standing.test",
     title: "Standing Test",

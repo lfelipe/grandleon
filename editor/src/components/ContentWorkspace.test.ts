@@ -414,7 +414,7 @@ describe("ContentWorkspace", () => {
 
   it("keeps a 10,000-record library bounded and searchable", async () => {
     const largeProject: SourceProject = {
-      schemaVersion: "1.0.0",
+      schemaVersion: "1.1.0",
       packageId: "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
       gameId: "large.fixture",
       title: "Large Fixture",
@@ -482,7 +482,7 @@ describe("ContentWorkspace", () => {
 
   it("creates a scene inline from the campaign editor without losing unsaved flow edits", async () => {
     const project: SourceProject = {
-      schemaVersion: "1.0.0",
+      schemaVersion: "1.1.0",
       packageId: "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
       gameId: "cutscene.fixture",
       title: "Cutscene Fixture",
@@ -897,7 +897,7 @@ describe("ContentWorkspace", () => {
 
   it("refuses a delete by naming who still uses the record, in plain words", async () => {
     const project: SourceProject = {
-      schemaVersion: "1.0.0",
+      schemaVersion: "1.1.0",
       packageId: "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
       gameId: "delete.fixture",
       title: "Delete Fixture",

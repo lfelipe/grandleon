@@ -24,7 +24,7 @@ import {
 // victory transition has the lower priority.
 function branchingProject(): SourceProject {
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.1.0",
     packageId: "0e9cbb5a-3d54-4b6b-857d-52c05df6b6b6",
     gameId: "campaign.fixture",
     title: "Campaign fixture",

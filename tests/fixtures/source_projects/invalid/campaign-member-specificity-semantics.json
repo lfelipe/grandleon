@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "packageId": "9e6b0d24-1a75-4c83-bf40-2d81c5e7a903",
   "gameId": "campaign.invalid-specificity",
   "title": "Invalid Campaign Member Specificity",

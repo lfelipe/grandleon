@@ -730,7 +730,7 @@ describe("editor shell", () => {
 
   it("keeps an unreadable stored draft downloadable and never overwrites it", async () => {
     const store = new MemoryProjectStore("recovery");
-    const garbage = new TextEncoder().encode('{"schemaVersion": "1.0.0", "title"');
+    const garbage = new TextEncoder().encode('{"schemaVersion": "1.1.0", "title"');
     await store.write(sourceProjectPath, garbage);
     const downloadArchive = vi.fn();
     const { host, app } = mountEditor({ projectStore: store, downloadArchive });
@@ -784,7 +784,7 @@ describe("editor shell", () => {
     }));
     await store.write(
       sourceProjectPath,
-      new TextEncoder().encode('{"schemaVersion": "1.0.0", "title"')
+      new TextEncoder().encode('{"schemaVersion": "1.1.0", "title"')
     );
     const { host, app } = mountEditor({ projectStore: store });
     await settle();

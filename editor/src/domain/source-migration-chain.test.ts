@@ -23,7 +23,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const example = await vi.hoisted(
   async () => import("../../../tools/source_schema/migration-example.mjs")
 );
-const { EXAMPLE_OLDEST, EXAMPLE_STEPS, FIRST_CHANGE, SECOND_CHANGE } = example;
+const {
+  EXAMPLE_OLDEST, EXAMPLE_STEPS, FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE
+} = example;
 
 vi.mock("../../../tools/source_schema/migration.mjs", async (importOriginal) => {
   const actual = await importOriginal<
@@ -93,7 +95,7 @@ describe("a game two versions out of date", () => {
     // Every step's sentence, in the order the steps run. This is the list the
     // dialog puts in front of the author, and its order is the order things
     // would happen in: a step that runs second cannot be described first.
-    expect(age.changed).toEqual([FIRST_CHANGE, SECOND_CHANGE]);
+    expect(age.changed).toEqual([FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE]);
   });
 
   it("becomes a game this build can open, and the original is untouched", () => {
@@ -107,7 +109,7 @@ describe("a game two versions out of date", () => {
     expect(upgraded.project.schemaVersion).toBe(CURRENT_SOURCE_VERSION);
     expect(upgraded.project.themeId).toBe("temperate");
     expect(upgraded.project.defaultTurnOrder).toBe("sideBlocks");
-    expect(upgraded.changed).toEqual([FIRST_CHANGE, SECOND_CHANGE]);
+    expect(upgraded.changed).toEqual([FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE]);
     // The result is not merely different, it is a game: it goes through the
     // same gate every save goes through. A step that produced something the
     // editor could not read would otherwise be discovered at the author's next
@@ -147,7 +149,7 @@ describe("the editor's answer to a stored game that is out of date", () => {
     expect(question?.textContent).toContain("What changed");
     const listed = [...question!.querySelectorAll(".version-changes li")]
       .map((item) => item.textContent?.trim());
-    expect(listed).toEqual([FIRST_CHANGE, SECOND_CHANGE]);
+    expect(listed).toEqual([FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE]);
     expect(host.querySelector("#workspace .content-workspace")).toBeNull();
 
     commandButton(host, "Bring it up to date").click();

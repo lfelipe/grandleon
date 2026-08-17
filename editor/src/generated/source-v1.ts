@@ -55,6 +55,12 @@ export type CampaignNode = {
    */
   turnOrder?: "alternating" | "sideBlocks" | "initiative";
   deployment?: DeploymentZone;
+  /**
+   * Scenes that play during this encounter, in the order they are authored. Only an encounter node may carry them: a story node has no board for anything to happen on.
+   *
+   * @maxItems 32
+   */
+  moments?: EncounterMoment[];
 } & {
   /**
    * Stable, case-sensitive source identity. Renaming requires reference migration.
@@ -97,10 +103,16 @@ export type CampaignNode = {
    */
   turnOrder?: "alternating" | "sideBlocks" | "initiative";
   deployment?: DeploymentZone;
+  /**
+   * Scenes that play during this encounter, in the order they are authored. Only an encounter node may carry them: a story node has no board for anything to happen on.
+   *
+   * @maxItems 32
+   */
+  moments?: EncounterMoment[];
 };
 
 export interface SourceProject {
-  schemaVersion: "1.0.0";
+  schemaVersion: "1.1.0";
   /**
    * Durable lowercase UUID identifying a package across names and revisions.
    */
@@ -1006,6 +1018,32 @@ export interface DeploymentZone {
    */
   capacity?: number;
   notes?: string;
+}
+/**
+ * A scene that plays during a battle, when something happens on the board. A node's own dialogueIds are presented on arrival, before the node acts, which is around a battle rather than inside one; these are inside it. Omitted means a battle nobody speaks during, which is what every encounter before this said.
+ */
+export interface EncounterMoment {
+  /**
+   * Stable, case-sensitive source identity. Renaming requires reference migration.
+   */
+  id: string;
+  /**
+   * What has to happen for the scene to play.
+   */
+  when: {
+    /**
+     * stageOpens: once, as the board is first drawn. characterTalked: when the named character is talked off the board. characterFalls: when the named character is defeated, which is a different fact from being talked away and is reported by a different event.
+     */
+    kind: "stageOpens" | "characterTalked" | "characterFalls";
+    /**
+     * Which character on this board the moment is about. Required by characterTalked and characterFalls, and refused by stageOpens, which is about the board rather than about anybody. It names a placement's own id, the only identity stable across a battle.
+     */
+    placementId?: string;
+  };
+  /**
+   * Stable, case-sensitive source identity. Renaming requires reference migration.
+   */
+  dialogueId: string;
 }
 export interface SourceDialogue {
   /**

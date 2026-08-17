@@ -13,7 +13,7 @@ import PlayMode from "./PlayMode.vue";
 afterEach(() => document.body.replaceChildren());
 
 const project: SourceProject = {
-  schemaVersion: "1.0.0",
+  schemaVersion: "1.1.0",
   packageId: "f643c13e-ce8d-41d4-b6de-0d69ba5fcade",
   gameId: "playmode.fixture",
   title: "Play mode fixture",

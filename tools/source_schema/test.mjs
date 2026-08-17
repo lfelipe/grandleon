@@ -23,7 +23,8 @@ import {
   EXAMPLE_STEPS_THAT_THROW,
   EXAMPLE_STEPS_WITH_A_HOLE,
   FIRST_CHANGE,
-  SECOND_CHANGE
+  SECOND_CHANGE,
+  THIRD_CHANGE
 } from "./migration-example.mjs";
 import { main as upgradeMain, refusalMessage } from "./upgrade.mjs";
 
@@ -1171,31 +1172,55 @@ assert.ok(
 }
 
 {
-  // The registry, proved on a chain that does not exist.
+  // The registry, on the chain this build actually ships and on one that does
+  // not.
   //
-  // There is one version of the source format today, so `sourceMigrations()`
-  // ships no steps and nothing real runs. That makes these the whole proof: the
-  // rules are exercised against `migration-example.mjs`, whose steps describe
-  // changes the format never made and which nothing outside a test may import.
+  // The shipped chain is one step long, so the rules themselves are still
+  // exercised against `migration-example.mjs`, whose steps describe changes the
+  // format never made and which nothing outside a test may import. What is
+  // checked here is that the real chain is walkable and arrives where every
+  // other site says it does.
   assert.equal(
     sourceMigrations().size,
-    0,
-    "1.0.0 is the first version, so there is nothing to come from yet"
+    1,
+    "one step ships: the one that reaches 1.1.0"
   );
   assert.deepEqual(
     sourceMigrations().versions(),
-    [FIRST_SOURCE_VERSION],
-    "and therefore exactly one version a project may declare"
+    [FIRST_SOURCE_VERSION, "1.1.0"],
+    "and therefore two versions a project may have been written at"
   );
+
+  // A project written before moments existed walks up and is left alone on the
+  // way. `moments` is optional and absent means a battle nobody speaks during,
+  // which is what that project already said, so the step moves the version and
+  // touches nothing else.
+  {
+    const old = { schemaVersion: FIRST_SOURCE_VERSION, title: "An Old Game" };
+    const walked = upgradeProject(sourceMigrations(), old);
+    assert.equal(walked.ok, true, "the shipped chain is walkable");
+    assert.deepEqual(
+      walked.applied.map((step) => `${step.from}->${step.to}`),
+      ["1.0.0->1.1.0"],
+      "one step, and it is the one that exists"
+    );
+    assert.equal(walked.project.schemaVersion, "1.1.0", "arriving at the version");
+    assert.equal(walked.project.title, "An Old Game", "with the game untouched");
+    assert.equal(
+      old.schemaVersion,
+      FIRST_SOURCE_VERSION,
+      "and the caller's own project left where it was"
+    );
+  }
 
   // A chain runs in order, and the project it produces is the one the last step
   // left behind rather than the one any earlier step did.
   const project = { schemaVersion: EXAMPLE_OLDEST, title: "An Old Game" };
   const walked = upgradeProject(exampleMigrations(), project);
-  assert.equal(walked.ok, true, "two registered steps make a walkable chain");
+  assert.equal(walked.ok, true, "the registered steps make a walkable chain");
   assert.deepEqual(
     walked.applied.map((step) => `${step.from}->${step.to}`),
-    ["0.8.0->0.9.0", "0.9.0->1.0.0"],
+    ["0.8.0->0.9.0", "0.9.0->1.0.0", "1.0.0->1.1.0"],
     "one version at a time, in order, and never in a leap"
   );
   assert.equal(walked.to, CURRENT_SOURCE_VERSION);
@@ -1216,18 +1241,18 @@ assert.ok(
   // the editor's dialog shows, so its order is the order things happened in.
   assert.deepEqual(
     walked.changed,
-    [FIRST_CHANGE, SECOND_CHANGE],
+    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE],
     "what changed, in the order it changed, in words an author can read"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), EXAMPLE_OLDEST)),
-    [FIRST_CHANGE, SECOND_CHANGE],
+    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE],
     "and the same list before anything has run, which is what the dialog asks "
       + "the author to agree to"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), "0.9.0")),
-    [SECOND_CHANGE],
+    [SECOND_CHANGE, THIRD_CHANGE],
     "a project part of the way up is told only what is left to do to it"
   );
 
@@ -1390,8 +1415,10 @@ assert.ok(
   );
 
   // A project already at the current version is not an upgrade with no steps in
-  // it, it is a project that needs nothing. It comes back unchanged.
-  const current = { schemaVersion: FIRST_SOURCE_VERSION, title: "Now" };
+  // it, it is a project that needs nothing. It comes back unchanged. Written as
+  // the registry's own answer rather than as a literal, so this stays about
+  // "already current" when the format moves again.
+  const current = { schemaVersion: CURRENT_SOURCE_VERSION, title: "Now" };
   const nothing = upgradeProject(sourceMigrations(), current);
   assert.equal(nothing.ok, true);
   assert.deepEqual(nothing.changed, []);
@@ -1415,7 +1442,7 @@ assert.ok(
   }
   assert.equal(verdict, 0, "a project at the current version is already up to date");
   assert.equal(fs.readFileSync(demo, "utf8"), before, "and was not rewritten");
-  assert.match(said.join("\n"), /already made with Grandleon 1\.0\.0/);
+  assert.match(said.join("\n"), new RegExp(`already made with Grandleon ${CURRENT_SOURCE_VERSION}`));
 
   // What a person is told when the file is from the future. The compiler and
   // this tool must not disagree about which direction the problem is in.

@@ -297,7 +297,7 @@ describe("SourceProjectDocument", () => {
 
   it("hands back the raw bytes of a stored draft that no longer loads", async () => {
     const store = new MemoryProjectStore("recovery");
-    const bytes = new TextEncoder().encode('{"schemaVersion": "1.0.0", "title"');
+    const bytes = new TextEncoder().encode('{"schemaVersion": "1.1.0", "title"');
     await store.write(sourceProjectPath, bytes);
 
     const loaded = await new SourceProjectDocument(store).load();

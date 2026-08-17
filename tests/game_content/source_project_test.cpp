@@ -32,7 +32,7 @@ void expect(bool condition, std::string_view message) {
 }
 
 constexpr std::string_view source = R"json({
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "packageId": "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
   "gameId": "vertical.demo",
   "title": "Vertical Demo",
@@ -1767,7 +1767,7 @@ void names_both_versions_when_it_refuses_one() {
              Case{"nonsense", "", "upgrade.mjs"},
          }) {
         const auto parsed = gc::parse_source_project_json(
-            source_with(R"json("schemaVersion": "1.0.0")json",
+            source_with(R"json("schemaVersion": "1.1.0")json",
                         std::string(R"json("schemaVersion": ")json") +
                             std::string(item.declared) + "\"")
         );
@@ -1793,7 +1793,7 @@ void names_both_versions_when_it_refuses_one() {
         );
     }
     expect(
-        gc::supported_source_schema == "1.0.0",
+        gc::supported_source_schema == "1.1.0",
         "the version this compiler reads; tools/source_schema/test.mjs holds "
         "it level with the schema and the migration registry"
     );

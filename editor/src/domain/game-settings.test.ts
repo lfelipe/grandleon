@@ -30,7 +30,7 @@ function project(
   nodes: CampaignNode[]
 ): SourceProject {
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.1.0",
     packageId: "0f0d7b0e-8f2b-4a58-9d0f-1c2b3a4d5e6f",
     gameId: "settings.test",
     title: "Settings Test",

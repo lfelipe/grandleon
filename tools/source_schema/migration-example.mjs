@@ -41,9 +41,18 @@ export const FIRST_CHANGE = "a game says which season its maps are drawn in";
 /** What the second step tells the author. */
 export const SECOND_CHANGE = "who acts first is written down rather than assumed";
 
+/** What the third step tells the author. */
+export const THIRD_CHANGE = "a game may be spoken over while it is being played";
+
 /**
- * Two steps ending at the current version. Each does something a test can see
+ * Three steps ending at the current version. Each does something a test can see
  * and each leaves a project the schema still accepts.
+ *
+ * Ending at the current version is the point rather than an accident: a chain
+ * stopping short would leave a project declaring a version the bundled schema
+ * refuses, and then the only thing a test could say is that the steps ran. So
+ * this grows by one step every time the format does, which is the cheapest
+ * possible reminder that a format change costs something.
  */
 export const EXAMPLE_STEPS = [
   {
@@ -61,6 +70,15 @@ export const EXAMPLE_STEPS = [
     changed: SECOND_CHANGE,
     apply: (project) => {
       project.defaultTurnOrder ??= "sideBlocks";
+      return project;
+    }
+  },
+  {
+    from: "1.0.0",
+    to: "1.1.0",
+    changed: THIRD_CHANGE,
+    apply: (project) => {
+      project.notes ??= "";
       return project;
     }
   }

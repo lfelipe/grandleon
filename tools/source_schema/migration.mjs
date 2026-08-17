@@ -412,17 +412,39 @@ export function upgradeProject(registry, project) {
 }
 
 /**
+/**
+ * What an author reads before a project of theirs is touched.
+ *
+ * One sentence, in their words rather than the format's: they are being asked
+ * whether to upgrade a game, not shown a field name.
+ */
+const TALK_IN_A_BATTLE =
+  "characters can speak during a battle, not only before and after it";
+
+/**
  * Every step this build ships.
  *
- * There are none. `1.0.0` is the first version of the source format, so there
- * is nothing to come from. The seam is here, tested, and waiting for the first
- * schema change to register the step that answers for it. `CONTRIBUTING.md`
- * says what that costs.
+ * One, and it exists because `1.1.0` exists: an encounter may carry moments,
+ * which are scenes that play while the battle is on. Nothing is added to an
+ * older project by the step, and that is the point of it being here rather than
+ * nowhere: `moments` is optional and absent means a battle nobody speaks
+ * during, which is exactly what every project written before it said. The step
+ * moves the version and leaves the game alone.
+ *
+ * It is registered all the same, because the schemas set
+ * `additionalProperties: false`: a file this editor writes is one an older
+ * editor refuses, so a version exists whether or not anything had to be
+ * rewritten to reach it. `CONTRIBUTING.md` says what that costs.
  *
  * @returns {SourceMigrationRegistry}
  */
 export function sourceMigrations() {
-  return new SourceMigrationRegistry();
+  return new SourceMigrationRegistry().add({
+    from: FIRST_SOURCE_VERSION,
+    to: "1.1.0",
+    changed: TALK_IN_A_BATTLE,
+    apply: (project) => project
+  });
 }
 
 /** The version this build writes into a new project and demands of an old one. */
