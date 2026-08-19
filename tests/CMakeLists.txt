@@ -535,6 +535,35 @@ add_test(
     COMMAND grandleon_client_board_predicate_tests
 )
 
+# What a battle says while it is being played.
+#
+# The same composer both consoles build their board from, on a fixture that
+# authors one moment of each occasion. It records every scene the client asked
+# to present, which is what a console would have drawn.
+add_executable(grandleon_client_battle_moments_tests
+    client/battle_moments_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(
+    grandleon_client_battle_moments_tests
+    PRIVATE
+        grandleon::client
+        grandleon::game_content
+        grandleon::package_format
+        grandleon::package_runtime
+        grandleon::sheet
+        grandleon::view
+)
+target_compile_definitions(
+    grandleon_client_battle_moments_tests
+    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+target_compile_features(grandleon_client_battle_moments_tests PRIVATE cxx_std_17)
+add_test(
+    NAME grandleon.client_battle_moments
+    COMMAND grandleon_client_battle_moments_tests
+)
+
 # The reveal a board too wide for its screen opens with.
 #
 # The same composer again, on a screen deliberately narrower than the fixture

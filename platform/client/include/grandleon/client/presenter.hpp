@@ -2,6 +2,7 @@
 #pragma once
 
 #include <grandleon/package_runtime/dialogue.hpp>
+#include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/simulation/encounter.hpp>
 
 #include <cstdint>
@@ -278,6 +279,27 @@ public:
         (void)abilities;
         (void)items;
         (void)objectives;
+    }
+    // What is said while this battle is on, and who each moment is about.
+    // Handed over once, before the first frame, for the reason the definitions
+    // are: a front end that speaks should not have to read this out of every
+    // snapshot, and one that does not speak says so by not overriding it.
+    //
+    // The placement identities come with them because that is the join. An
+    // event names a battle-local unit, a moment names the author's own
+    // placement, and these two are the only thing that turns one into the
+    // other. A front end handed the moments without them could match nothing.
+    //
+    // Not pure, and the default is the load-bearing half: the host tools that
+    // derive a console's expectations override nothing here, so a scene played
+    // during a battle changes no transcript and no expectation had to be
+    // re-derived to admit one.
+    virtual void battle_moments(
+        const std::vector<package_runtime::EncounterMoment>& moments,
+        const std::vector<package_runtime::PlacementIdentity>& placements
+    ) {
+        (void)moments;
+        (void)placements;
     }
     // The battle opens in the deployment phase, and here is the region. Handed
     // over once, before the first frame of it, for the reason the definitions

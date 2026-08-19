@@ -16,22 +16,52 @@
       }
     }
   ],
+  "factions": [
+    {
+      "id": "causeway_watch",
+      "name": "Causeway Watch"
+    }
+  ],
   "unitTypes": [
     {
       "id": "guardian",
       "name": "Guardian",
-      "classId": "fighter"
+      "classId": "fighter",
+      "factionId": "causeway_watch"
     }
   ],
   "weapons": [],
   "items": [],
+  "objectives": [
+    {
+      "id": "hold_the_causeway",
+      "name": "Hold the causeway",
+      "kind": "surviveRounds",
+      "side": "first",
+      "rounds": 9
+    }
+  ],
   "maps": [
     {
-      "id": "field",
-      "name": "Field",
-      "width": 2,
-      "height": 2,
+      "id": "causeway",
+      "name": "Causeway",
+      "width": 6,
+      "height": 3,
       "terrain": [
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
+        "plain",
         "plain",
         "plain",
         "plain",
@@ -45,8 +75,8 @@
       "name": "Main",
       "roster": [
         {
-          "id": "hero",
-          "name": "Hero of the Field",
+          "id": "captain",
+          "name": "Captain of the Causeway",
           "unitTypeId": "guardian"
         }
       ],
@@ -58,25 +88,45 @@
             "id": "battle",
             "name": "Battle",
             "kind": "encounter",
-            "mapId": "field",
+            "mapId": "causeway",
+            "objectiveIds": [
+              "hold_the_causeway"
+            ],
             "placements": [
               {
-                "id": "hero",
-                "memberId": "hero",
+                "id": "outrider",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 0,
+                "y": 1,
+                "arrival": {
+                  "round": 3
+                }
+              },
+              {
+                "id": "captain",
+                "memberId": "captain",
                 "unitTypeId": "guardian",
                 "side": "first",
-                "x": 0,
+                "x": 4,
                 "y": 0
               },
               {
-                "id": "rival",
+                "id": "envoy",
                 "unitTypeId": "guardian",
                 "side": "second",
-                "x": 1,
-                "y": 1,
+                "x": 5,
+                "y": 0,
                 "talk": {
-                  "flagId": "rival-heard-out"
+                  "flagId": "envoy-heard-out"
                 }
+              },
+              {
+                "id": "brute",
+                "unitTypeId": "guardian",
+                "side": "second",
+                "x": 5,
+                "y": 2
               }
             ],
             "transitions": [
@@ -85,9 +135,6 @@
                 "targetNodeId": "end",
                 "priority": 0
               }
-            ],
-            "objectiveIds": [
-              "defeat_all_opponents"
             ],
             "moments": [
               {
@@ -98,18 +145,18 @@
                 "dialogueId": "the-bell"
               },
               {
-                "id": "rival-heard",
+                "id": "envoy-heard",
                 "when": {
                   "kind": "characterTalked",
-                  "placementId": "rival"
+                  "placementId": "envoy"
                 },
                 "dialogueId": "heard-out"
               },
               {
-                "id": "rival-down",
+                "id": "envoy-down",
                 "when": {
                   "kind": "characterFalls",
-                  "placementId": "rival"
+                  "placementId": "envoy"
                 },
                 "dialogueId": "the-fall"
               }
@@ -125,26 +172,19 @@
       }
     }
   ],
-  "objectives": [
-    {
-      "id": "defeat_all_opponents",
-      "name": "Defeat everyone on the other side",
-      "kind": "defeatAllOpponents"
-    }
-  ],
   "dialogues": [
     {
       "id": "the-bell",
       "name": "As the bell rings",
       "cast": [
         {
-          "speaker": "Rival",
+          "speaker": "Envoy",
           "unitTypeId": "guardian"
         }
       ],
       "lines": [
         {
-          "speaker": "Rival",
+          "speaker": "Envoy",
           "text": "You should not have come."
         }
       ]
@@ -154,13 +194,13 @@
       "name": "Heard out",
       "cast": [
         {
-          "speaker": "Rival",
+          "speaker": "Envoy",
           "unitTypeId": "guardian"
         }
       ],
       "lines": [
         {
-          "speaker": "Rival",
+          "speaker": "Envoy",
           "text": "Then I will stand aside."
         }
       ]
@@ -170,7 +210,7 @@
       "name": "The fall",
       "lines": [
         {
-          "speaker": "Hero",
+          "speaker": "Captain",
           "text": "It did not have to end here."
         }
       ]

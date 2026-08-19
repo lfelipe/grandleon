@@ -486,6 +486,57 @@ void TurnClient::present_dialogue(const package_runtime::Dialogue& dialogue) {
 #endif
 }
 
+void TurnClient::battle_moments(
+    const std::vector<package_runtime::EncounterMoment>& moments,
+    const std::vector<package_runtime::PlacementIdentity>& placements
+) {
+    moments_ = moments;
+    moment_placements_ = placements;
+    // A board opens once however many times it is drawn, and a board opened
+    // again by a jump or a replay opens again.
+    opening_moments_played_ = false;
+}
+
+std::uint64_t TurnClient::placement_of(sim::UnitId unit) const {
+    // A placement's identity *is* the unit's identity on the board: the loader
+    // gives a unit the encounter-scoped hash of the placement that put it
+    // there, which is the same number a moment names. So this asks whether the
+    // board knows this unit rather than translating anything.
+    //
+    // It is not `source_key_id`, which is the bare key without the encounter in
+    // front of it. That one exists for the campaign's own join - a roster
+    // member against a board - and is the same number for the same character on
+    // every board they appear on, which is exactly what a moment must not match
+    // on.
+    for (const package_runtime::PlacementIdentity& identity : moment_placements_) {
+        if (identity.unit_id == unit) return identity.unit_id;
+    }
+    return 0;
+}
+
+void TurnClient::play_moments(
+    package_runtime::MomentTrigger when, std::uint64_t about
+) {
+    if (moments_.empty() || package_ == nullptr) return;
+    for (const package_runtime::EncounterMoment& moment : moments_) {
+        if (moment.trigger != when) continue;
+        if (when != package_runtime::MomentTrigger::stage_opens &&
+            moment.placement_id != about) {
+            continue;
+        }
+        // A scene named by a moment the package does not hold is a package
+        // disagreeing with itself. The loader has already refused a moment
+        // about nobody on the board; this is the same claim about the words,
+        // and it is checked here rather than asserted because a client that
+        // stopped a battle over a missing line would be a client that turned a
+        // silent scene into an unplayable board.
+        const package_runtime::DialogueLoadResult scene =
+            package_runtime::load_dialogue(*package_, moment.dialogue_id);
+        if (!scene) continue;
+        present_dialogue(scene.dialogue);
+    }
+}
+
 void TurnClient::battle_begins(
     const sim::EncounterSnapshot& snapshot,
     const client::Roster& roster,
@@ -668,6 +719,15 @@ void TurnClient::draw(
         camera_.x = sweep_to_;
         camera_.clamp();
         sweep_frames_ = 0;
+    }
+
+    // The scene a board opens with, after the reveal and before the board is
+    // played on. After, because the reveal is how a player is shown the ground
+    // somebody is about to speak over; a scene played first would be words
+    // about a board nobody had seen.
+    if (!opened_ && !opening_moments_played_) {
+        opening_moments_played_ = true;
+        play_moments(package_runtime::MomentTrigger::stage_opens, 0);
     }
     paint(snapshot, overlay_);
 
@@ -907,6 +967,14 @@ void TurnClient::report(
                 sink_.line(line.c_str());
             }
             write_message(who.c_str(), what);
+            // And whatever this board has to say about them going down. After
+            // the line that reports it, so the transcript reads in the order it
+            // happened, and never instead of it: a scene is what a battle says
+            // about a fall, not the record that one occurred.
+            play_moments(
+                package_runtime::MomentTrigger::character_falls,
+                placement_of(event.unit_id)
+            );
             continue;
         }
         if (event.type == sim::EventType::unit_endured) {
@@ -948,6 +1016,13 @@ void TurnClient::report(
                 .space()
                 .number(event.position.y);
             sink_.line(left.c_str());
+            // And what they had to say on the way. This is the gesture the
+            // whole feature was asked for: a character who could be talked to
+            // raised a flag and said nothing.
+            play_moments(
+                package_runtime::MomentTrigger::character_talked,
+                placement_of(event.unit_id)
+            );
             continue;
         }
         if (event.type == sim::EventType::unit_deployed) {

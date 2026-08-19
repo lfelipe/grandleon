@@ -406,6 +406,7 @@ SessionError play_battle(
         created.encounter.weapons(), created.encounter.abilities(),
         created.encounter.items(), created.encounter.objectives()
     );
+    presenter.battle_moments(loaded.moments, loaded.placements);
     // The phase before the first activation, where there is one. It is run
     // here rather than inside the battle loop because it is not a turn: no side
     // is acting, no activation is open, and the opposing side has nothing to do

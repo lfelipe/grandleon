@@ -805,6 +805,10 @@ public:
         sim::Side player_side,
         const std::vector<std::uint64_t>& terrain
     ) override;
+    void battle_moments(
+        const std::vector<package_runtime::EncounterMoment>& moments,
+        const std::vector<package_runtime::PlacementIdentity>& placements
+    ) override;
     void battle_definitions(
         const std::vector<sim::WeaponDefinition>& weapons,
         const std::vector<sim::AbilityDefinition>& abilities,
@@ -1375,6 +1379,26 @@ private:
     bool last_sheet_open_{false};
     Aim last_aim_{Aim::none};
     bool opened_{false};
+
+    // What is said while this battle is on, and the join that turns the unit an
+    // event names into the placement a moment is about. Both empty for a battle
+    // nobody speaks during, which is every battle authored before moments.
+    std::vector<package_runtime::EncounterMoment> moments_;
+    std::vector<package_runtime::PlacementIdentity> moment_placements_;
+    // Whether the scene a board opens with has been played. A board is drawn
+    // many times and opens once.
+    bool opening_moments_played_{false};
+
+    // Plays every moment of one occasion, in the order they were authored.
+    // `about` is the placement a character-shaped occasion is about, and zero
+    // for the board's own.
+    void play_moments(
+        package_runtime::MomentTrigger when, std::uint64_t about
+    );
+
+    // The placement identity behind a battle-local unit, or zero when this
+    // board's identities were never handed over.
+    [[nodiscard]] std::uint64_t placement_of(sim::UnitId unit) const;
 
     // The opening sweep this board asked for, planned when the board opened and
     // spent on the frame it first becomes visible. Zero frames is a board with
