@@ -30,12 +30,14 @@ import type {
   CampaignItemGrant,
   CampaignNode,
   CampaignRosterMember,
+  EncounterMoment,
   EncounterPlacement,
   SourceDialogue,
   SourceObjective,
   SourceProject
 } from "../generated/source-v1";
 import CutsceneEditor from "./CutsceneEditor.vue";
+import StageMomentsEditor from "./StageMomentsEditor.vue";
 import ItemGrantEditor from "./ItemGrantEditor.vue";
 import PlacementEditor from "./PlacementEditor.vue";
 import RosterMemberEditor from "./RosterMemberEditor.vue";
@@ -274,6 +276,22 @@ function saveDialogueIds(ids: string[]) {
   emit("saveNode", next);
 }
 
+function saveMoments(moments: EncounterMoment[]) {
+  const next = plainNode();
+  if (!next) return;
+  // An absent field rather than an empty list, because a battle nobody speaks
+  // during is what every Stage authored before moments existed was, and the two
+  // should compile to the same bytes.
+  if (moments.length > 0) next.moments = moments;
+  else delete next.moments;
+  emit("saveNode", next);
+}
+
+/** What the author called a character, for a sentence that names one. */
+function nameOfUnitType(id: string): string | undefined {
+  return (props.project.unitTypes ?? []).find((type) => type.id === id)?.name;
+}
+
 function saveObjectiveIds(ids: string[]) {
   const next = plainNode();
   if (!next) return;
@@ -426,6 +444,7 @@ function saveDeploymentNotes(raw: string) {
         @update-dialogues="emit('updateDialogues', $event)" />
     </section>
 
+
     <PlacementEditor
       ref="placements"
       @dirty="emit('dirty')"
@@ -439,6 +458,18 @@ function saveDeploymentNotes(raw: string) {
       @update="savePlacements"
       @enroll="emit('enrollMember', $event)"
       @add-character="emit('castCharacter', $event)" />
+
+    <!-- During. A node's own scenes play on arrival, before the node acts,
+         which is around a battle; these are inside one. Authored after the
+         board, because every occasion but one is about somebody standing on
+         it. -->
+    <StageMomentsEditor
+      :moments="node.moments ?? []"
+      :placements="node.placements ?? []"
+      :dialogues="project.dialogues ?? []"
+      :unit-type-name="nameOfUnitType"
+      @update="saveMoments"
+      @update-dialogues="emit('updateDialogues', $event)" />
 
     <WinConditionEditor
       ref="winConditions"

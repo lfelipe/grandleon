@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { expect, test, type Page } from "@playwright/test";
+// The version this build writes, asked of the registry rather than written
+// again: a literal here is a site that drifts the next time the format moves.
+import { CURRENT_SOURCE_VERSION } from "../../../tools/source_schema/migration.mjs";
 
 // What the shipped editor does with a game file made by another Grandleon.
 //
@@ -10,9 +13,9 @@ import { expect, test, type Page } from "@playwright/test";
 // it cannot show that an author picking a file off their disk meets a sentence
 // rather than a stack trace.
 //
-// The build under test ships no migration steps, because `1.0.0` is the first
-// version of the source format and there is nothing to come from. So what a
-// real browser can be held to here is the half that does not need one: a game
+// The chain this build ships is one step long, and a real browser is a poor
+// place to walk it. So what is held to here is the half that needs no step: a
+// game
 // is *placed* before it is validated, and a game this build will not open is
 // refused by name, in words an author can act on, with nothing opened and
 // nothing written. The chain itself, dialog to agreement to upgrade to play,
@@ -73,7 +76,7 @@ test("refuses a game made with a newer Grandleon, by name", async ({ page }) => 
   await expect(question).toContainText("from-the-future.json was made with");
   await expect(question).toContainText("2.0.0");
   await expect(question).toContainText("newer Grandleon");
-  await expect(question).toContainText("1.0.0");
+  await expect(question).toContainText(CURRENT_SOURCE_VERSION);
 
   // Refused, not offered. Opening what this build can see of a newer game means
   // dropping the rest, and the author would find out at the save that did it.
@@ -139,7 +142,7 @@ test("opens a game made with this Grandleon without asking", async ({
   // go straight in.
   const failures = watchForFailures(page);
 
-  await openFile(page, "ordinary.json", "1.0.0");
+  await openFile(page, "ordinary.json", CURRENT_SOURCE_VERSION);
 
   await expect(page.getByTestId("version-question")).toHaveCount(0);
   await expect(page.locator('nav[aria-label="Project"]')).toBeVisible();
