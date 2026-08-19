@@ -112,6 +112,75 @@ function(grandleon_resolve_character_figure project_json manifest_json out_var)
     set(${out_var} "${_figure}" PARENT_SCOPE)
 endfunction()
 
+# Fails the configure unless `geometry` is a way the art library draws.
+#
+# The third axis, asked exactly as the two above are. Unlike them it is a
+# statement about the **whole game** rather than about one character: "this
+# unit is a model and that one is a sprite" is not a board anything here can
+# draw coherently, so there is no per-character override to resolve and no set
+# to accumulate.
+function(grandleon_require_character_geometry geometry manifest_json)
+    file(READ "${manifest_json}" _geometry_manifest)
+    string(JSON _geometry_menu_count LENGTH
+        "${_geometry_manifest}" character_styles geometries menu)
+    math(EXPR _geometry_last "${_geometry_menu_count} - 1")
+    foreach(_geometry_index RANGE ${_geometry_last})
+        string(JSON _geometry_name GET
+            "${_geometry_manifest}" character_styles geometries menu
+            ${_geometry_index} name)
+        if(_geometry_name STREQUAL geometry)
+            return()
+        endif()
+    endforeach()
+    message(FATAL_ERROR
+        "character geometry '${geometry}' is not one the art library draws")
+endfunction()
+
+# Sets `<out_var>` in the caller's scope to the geometry `project_json` names,
+# validated against the art library's menu in `manifest_json`.
+function(grandleon_resolve_character_geometry project_json manifest_json out_var)
+    file(READ "${project_json}" _geometry_project)
+    string(JSON _geometry ERROR_VARIABLE _geometry_error
+        GET "${_geometry_project}" "characterGeometry")
+    if(_geometry_error)
+        # A project that names nothing is drawn as sprites, which is what every
+        # board showed before the models were drawn. The default comes from the
+        # art library rather than from a literal here, so the two cannot drift.
+        set(_geometry "")
+    endif()
+
+    file(READ "${manifest_json}" _geometry_manifest)
+    if(_geometry STREQUAL "")
+        string(JSON _geometry GET
+            "${_geometry_manifest}" character_styles geometries default)
+    endif()
+
+    grandleon_require_character_geometry("${_geometry}" "${manifest_json}")
+    set(${out_var} "${_geometry}" PARENT_SCOPE)
+endfunction()
+
+# Sets `<out_var>` to the mesh header a build of this style, figure and
+# geometry must include.
+#
+# The one place the naming convention in
+# `tools/placeholder_art/placeholder_art/playstation_header.py` is mirrored, so
+# a rename there breaks one line here rather than several. `sprites` resolves
+# to the empty string: a build drawing sprites includes no mesh header at all,
+# and the caller is expected to treat that as "draw no solids" rather than as a
+# missing file.
+function(grandleon_mesh_header style figure geometry out_var)
+    if(NOT geometry STREQUAL "models")
+        set(${out_var} "" PARENT_SCOPE)
+        return()
+    endif()
+    if(figure STREQUAL "first")
+        set(${out_var} "playstation_meshes_${style}_models.h" PARENT_SCOPE)
+    else()
+        set(${out_var} "playstation_meshes_${style}_models_${figure}.h"
+            PARENT_SCOPE)
+    endif()
+endfunction()
+
 # Sets `<styles_var>` and `<figures_var>` to the sorted, de-duplicated sets of
 # character styles and figures `project_json`'s content actually draws.
 #

@@ -13,7 +13,7 @@ FROM ghcr.io/dragonminded/libdragon@sha256:cf979424d0c2d3e281fda0820e8244def9b2d
 # The exact DragonMinded/libdragon commit installed below. Keep this in step
 # with GRANDLEON_LIBDRAGON_COMMIT in cmake/GrandleonNintendo64.cmake; the build
 # script passes it in and the image is tagged with it.
-ARG LIBDRAGON_COMMIT=35f85a0797324a5ed0c723203e33ab3c1da94fdd
+ARG LIBDRAGON_COMMIT=c79a52b42ac790e06e797aede43914dd8754cd5f
 
 # The base image carries the cross compiler and host GCC, but no CMake, and the
 # engine is a CMake build.
@@ -39,3 +39,23 @@ RUN mkdir -p /tmp/libdragon \
     && printf '%s\n' "${LIBDRAGON_COMMIT}" > "${N64_INST}/LIBDRAGON_COMMIT" \
     && cd / \
     && rm -rf /tmp/libdragon
+
+# Tiny3D on top, pinned the same way and for the same reason. It is what moves
+# vertex transform off the CPU and onto the RSP, which is the whole reason the
+# libdragon pin is on `preview`: `rdpq_triangle` transforms on the CPU whichever
+# branch it comes from. It installs into the same N64_INST, so a target links it
+# with -lt3d and nothing else changes.
+ARG TINY3D_COMMIT=517156d9464aaab95bf9531336d9a57624405ca7
+
+RUN mkdir -p /tmp/tiny3d \
+    && cd /tmp/tiny3d \
+    && git init --quiet \
+    && git remote add origin https://github.com/HailToDodongo/tiny3d.git \
+    && git fetch --quiet --depth 1 origin "${TINY3D_COMMIT}" \
+    && git checkout --quiet FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "${TINY3D_COMMIT}" \
+    && make -j"$(nproc)" \
+    && make install \
+    && printf '%s\n' "${TINY3D_COMMIT}" > "${N64_INST}/TINY3D_COMMIT" \
+    && cd / \
+    && rm -rf /tmp/tiny3d

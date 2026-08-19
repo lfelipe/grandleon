@@ -183,6 +183,23 @@ TRIANGLES_PER_PART = FACES_PER_PART * 2
 #: prints what a board of sixteen actually submits against it. The floor is as
 #: real as the ceiling: a figure below it is not a figure, it is a box with a
 #: head.
+#:
+#: **Both consoles now afford this band, and the Nintendo 64 only just started
+#: to.** The 9,400 figure above is the PlayStation's. The Nintendo 64 was
+#: re-measured on the `preview` pin (``platform/nintendo64/scratch/``) and the
+#: answer depends entirely on how a triangle is submitted:
+#:
+#:   ``rdpq_triangle``   12.9 us each   2,586 in a 30 fps frame
+#:   Tiny3D               4.3 us each   7,701 in a 30 fps frame
+#:
+#: Sixteen figures at this band's ceiling is 4,800 triangles. That does not fit
+#: the first row and does fit the second, so the band is affordable on that
+#: console only through Tiny3D, which is why the toolchain pins it.
+#:
+#: The band has not been widened on the strength of it. 7,701 is a whole frame
+#: and a board has to come out of it too, the measurement is submission cost
+#: rather than fill, and nothing here has run on real hardware. A band widened
+#: ahead of a scene that has actually been drawn is not a budget.
 TRIANGLE_BAND = (150, 300)
 
 #: Values a part contributes to the generated flat array, in this order.

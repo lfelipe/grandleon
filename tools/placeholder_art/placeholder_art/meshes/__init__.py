@@ -65,8 +65,8 @@ from __future__ import annotations
 import contextlib
 from typing import Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 
-from .. import styles
-from . import (medieval, mythical, nature, pirates, rules, scifi,
+from .. import figures, styles
+from . import (authored, medieval, mythical, nature, pirates, rules, scifi,
                sengoku, undead)
 from .rules import (FACES_PER_PART, MESH_WORLD_HEIGHT, PART_FIELDS,
                     PITCH_DEGREES, RAMP_COUNT, RAMP_FACTION, RAMP_NEUTRAL,
@@ -79,9 +79,9 @@ __all__ = [
     "PITCH_DEGREES", "RAMP_COUNT", "RAMP_FACTION", "RAMP_NEUTRAL",
     "RUNG_COUNT", "TRIANGLE_BAND", "TRIANGLES_PER_PART", "UNIT_WORLD",
     "VALUES_PER_PART", "VERTICES_PER_PART", "WIDTH_TOLERANCE", "Part",
-    "Silhouette", "authored_width", "check", "commission", "commissioned_styles",
-    "depth_key", "has_meshes", "parts_for", "provided", "rules",
-    "target_width",
+    "Silhouette", "authored", "authored_width", "check", "commission",
+    "commissioned_styles", "depth_key", "has_meshes", "parts_for", "provided",
+    "roster", "rules", "target_width",
 ]
 
 #: Every style module that holds a commission, in :data:`..styles.STYLES`
@@ -115,6 +115,68 @@ assert list(COMMISSIONS) == [entry.name for entry in styles.STYLES
 #: length of one build. Keyed ``(style name, archetype)`` and empty except
 #: inside :func:`provided`, which is the only thing that writes it.
 _PROVIDED: Dict[Tuple[str, str], Tuple[Part, ...]] = {}
+
+
+#: The authored roster, keyed ``(style, archetype, figure)`` and empty except
+#: inside :func:`roster`. Separate from :data:`_PROVIDED` because the two answer
+#: different questions: a *provided* model is one author replacing one figure,
+#: and the roster is a whole second commission that a build either draws or does
+#: not. Keeping them apart is what lets a provided model still win over the
+#: roster, which is the precedence an author expects.
+_ROSTER: Dict[Tuple[str, str, str], Tuple[Part, ...]] = {}
+
+#: The figure a caller that names none is asking for. Read from the library
+#: rather than spelled here, so this cannot drift from the menu order every
+#: client indexes by.
+_DEFAULT_FIGURE = figures.DEFAULT_FIGURE.name
+
+
+@contextlib.contextmanager
+def roster(units: Optional[Mapping[Tuple[str, str, str],
+                                   Tuple[Part, ...]]] = None) -> Iterator[None]:
+    """Draw the authored roster (:mod:`.authored`) for the length of one build.
+
+    The seam the 3D build is selected through. Inside it, :func:`parts_for`
+    answers with an authored table wherever the roster holds one, including for
+    the **second figure**, which :data:`COMMISSIONS` has none of; outside it,
+    every lookup misses and the commissioned figures answer exactly as they
+    always have. That is the whole of what "default to the 3D build" costs the
+    rest of this package: one context manager, and no consumer told anything.
+
+    A context manager rather than a flag threaded through the header emitters,
+    the glTF export and the roster page, for the reason :func:`provided` is one:
+    those consumers already reach a mesh through :func:`parts_for`, and a
+    build-wide choice of drawing is the shape :func:`..terrain.rendering`
+    established.
+
+    ``units`` defaults to whatever :func:`.authored.load` finds on disk. Passing
+    a mapping is for tests and for a caller that has already read and filtered
+    the roster, so this need not read the disk twice.
+
+    Unlike :func:`provided` this does **not** refuse a unit the library holds no
+    commission for, because the roster is not a replacement: it is a second
+    drawing of the same 56 roles, and its second figure is by definition a
+    figure no commission covers. It does refuse a style or archetype the
+    character library does not hold, which would be a table bound to nothing.
+    """
+    units = authored.load() if units is None else units
+    for style_name, archetype, figure in units:
+        assert style_name in styles.STYLES_BY_NAME, (
+            f"the authored roster holds {style_name}/{archetype}, and "
+            f"{style_name} is not a style this library draws")
+        assert archetype in styles.STYLES_BY_NAME[style_name].archetypes, (
+            f"the authored roster holds {style_name}/{archetype}, which that "
+            f"style has no such role in")
+        assert figure in figures.FIGURES_BY_NAME, (
+            f"the authored roster holds {style_name}/{archetype} as figure "
+            f"'{figure}', which is not one this library draws")
+    previous = dict(_ROSTER)
+    _ROSTER.update(units)
+    try:
+        yield
+    finally:
+        _ROSTER.clear()
+        _ROSTER.update(previous)
 
 
 @contextlib.contextmanager
@@ -167,8 +229,31 @@ def has_meshes(style: styles.Style) -> bool:
     return style.name in COMMISSIONS
 
 
-def commission(style: styles.Style) -> Mapping[str, Tuple[Part, ...]]:
-    """One style's whole commission, or an empty mapping if it has none."""
+def commission(style: styles.Style,
+               figure: Optional[str] = None) -> Mapping[str, Tuple[Part, ...]]:
+    """One style's whole commission, or an empty mapping if it has none.
+
+    ``figure`` selects which body, defaulting to the first — which is the only
+    one :data:`COMMISSIONS` holds, so a caller that names none gets the mapping
+    this function has always returned. Naming the second figure outside
+    :func:`roster` returns an empty mapping rather than the first figure's
+    tables: a style has not drawn a second figure as solids unless the roster
+    says so, and answering with the wrong body would be a lie the rule checker
+    would then certify.
+    """
+    wanted = _DEFAULT_FIGURE if figure is None else figure
+    if _ROSTER:
+        held = {archetype: parts
+                for (name, archetype, shape), parts in _ROSTER.items()
+                if name == style.name and shape == wanted}
+        if held:
+            # A provided model still wins: it is one author replacing one
+            # figure, which is a narrower and more deliberate statement than
+            # "this build draws the roster".
+            return {archetype: _PROVIDED.get((style.name, archetype), parts)
+                    for archetype, parts in held.items()}
+    if wanted != _DEFAULT_FIGURE:
+        return {}
     drawn = COMMISSIONS.get(style.name, {})
     if not _PROVIDED:
         return drawn
@@ -176,8 +261,8 @@ def commission(style: styles.Style) -> Mapping[str, Tuple[Part, ...]]:
             for archetype, parts in drawn.items()}
 
 
-def parts_for(style: styles.Style,
-              archetype: str) -> Optional[Tuple[Part, ...]]:
+def parts_for(style: styles.Style, archetype: str,
+              figure: Optional[str] = None) -> Optional[Tuple[Part, ...]]:
     """One figure, or ``None`` when this style has not commissioned it.
 
     The one accessor every consumer should use. It answers for an
@@ -191,15 +276,33 @@ def parts_for(style: styles.Style,
     repository already reaches a mesh through here, and a second accessor for
     "the one this build is actually drawing" would be a second answer to one
     question.
+
+    ``figure`` names the body, and defaults to the first. Three sources answer,
+    in this order, and the order is the point:
+
+    1. a **provided** model, one author replacing one figure deliberately;
+    2. the **authored roster**, when :func:`roster` is open — the only source
+       that holds a second figure;
+    3. the **commission**, the figures this package draws.
+
+    Asking for the second figure outside :func:`roster` is ``None``: no style
+    has drawn one as solids, and that is the same fact to every consumer as an
+    uncommissioned archetype, which is why it is the same answer.
     """
-    drawn = COMMISSIONS.get(style.name, {}).get(archetype)
-    if drawn is None or not _PROVIDED:
-        return drawn
-    return _PROVIDED.get((style.name, archetype), drawn)
+    wanted = _DEFAULT_FIGURE if figure is None else figure
+    replacement = _PROVIDED.get((style.name, archetype))
+    if replacement is not None:
+        return replacement
+    written = _ROSTER.get((style.name, archetype, wanted))
+    if written is not None:
+        return written
+    if wanted != _DEFAULT_FIGURE:
+        return None
+    return COMMISSIONS.get(style.name, {}).get(archetype)
 
 
-def check(measured_silhouettes: Sequence[Silhouette],
-          style: styles.Style) -> List[str]:
+def check(measured_silhouettes: Sequence[Silhouette], style: styles.Style,
+          figure: Optional[str] = None) -> List[str]:
     """Every mesh rule, checked over one style. Returns what it accepted.
 
     ``measured_silhouettes`` is one entry per archetype in
@@ -212,5 +315,5 @@ def check(measured_silhouettes: Sequence[Silhouette],
     A style with no commission accepts nothing and raises nothing: it is a
     complete style that has not been drawn as solids.
     """
-    return rules.check_commission(commission(style), measured_silhouettes,
-                                  style.name)
+    return rules.check_commission(commission(style, figure),
+                                  measured_silhouettes, style.name)

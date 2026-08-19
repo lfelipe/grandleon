@@ -275,6 +275,25 @@ def _styles_manifest() -> Dict[str, object]:
                 for shape in figures.FIGURE_ORDER
             ],
         },
+        # The two ways a character can be drawn, published for the same reason
+        # the figures above are: a console build resolves the project's
+        # `characterGeometry` against this menu rather than against a list
+        # written a second time in CMake, so a way of drawing this library does
+        # not offer is refused by the library that would have to draw it.
+        # `sprites` is first because it is the default and because a menu index
+        # is what every client agrees on.
+        "geometries": {
+            "default": "sprites",
+            "menu": [
+                {"name": "sprites", "label": "Sprites",
+                 "summary": "The painted figure every board has always shown.",
+                 "suffix": ""},
+                {"name": "models", "label": "Models",
+                 "summary": "The same roster drawn as solids, a few hundred "
+                            "triangles a figure.",
+                 "suffix": "_models"},
+            ],
+        },
         "menu": [
             {
                 "name": style.name,
@@ -693,6 +712,20 @@ def build(output: Path, quiet: bool = False,
     both sit in front of everything, so a provided drawing reaches every
     profile, every console header, the exported models and the roster page by
     exactly the route a generated one reaches them.
+
+    The **authored roster** (:mod:`.meshes.authored`) enters in front of both,
+    through :func:`.meshes.roster`, and is what makes the second figure exist
+    as solids at all — :data:`.meshes.COMMISSIONS` holds only the first. A
+    provided model still wins over it, because one author replacing one figure
+    is a narrower statement than "this build draws the roster".
+
+    The **authored roster** (:mod:`.meshes.authored`) is not selected here and
+    has no switch: every build emits it beside the commissioned meshes, as its
+    own headers, one per figure. Which of the two a ROM carries is the
+    project's choice (``characterGeometry``), resolved at configure time. A
+    build-wide flag here was tried and removed: it made the committed art a
+    function of the flags the last person ran with, and the art gate a question
+    about that rather than about the art.
     """
     accepted = replacements or {}
     with meshes.provided(provided.mesh_replacements(accepted)):
@@ -899,8 +932,44 @@ def _build(output: Path, quiet: bool,
         (output / "assets"
          / playstation_header.meshes_header_name(style)).write_text(
             playstation_header.emit_meshes(style, measured), encoding="utf-8")
-    summary["files"] = int(summary["files"]) + len(styles.STYLES)
+    mesh_files = len(styles.STYLES)
+
+    # And the authored roster, as its own headers, once per figure.
+    #
+    # *Both* drawings are emitted by every build rather than one being selected
+    # here, and that is the whole design: which one a ROM carries is a property
+    # of the project (`characterGeometry`) resolved at configure time, so
+    # committed art that held only the drawing this build happened to prefer
+    # would make the other one unbuildable. It would also make the art gate a
+    # question about which flags the last person ran with, which is exactly the
+    # thing generated-and-committed art exists to stop being.
+    #
+    # Each figure is measured against **its own** sprites: a mesh is held to
+    # the body it is drawn as, and the second figure is a different line from
+    # shoulder to hem.
+    roster_units = meshes.authored.load()
+    roster_summary: Dict[str, object] = {}
+    for shape in figures.FIGURE_ORDER:
+        held = {key: parts for key, parts in roster_units.items()
+                if key[2] == shape.name}
+        if not held:
+            continue
+        with meshes.roster(held):
+            for style in styles.STYLES:
+                if not any(key[0] == style.name for key in held):
+                    continue
+                measured = playstation_header.silhouettes(
+                    converted_by_profile[source], style, shape.name)
+                accepted = meshes.check(measured, style, shape.name)
+                roster_summary[f"{style.name}/{shape.name}"] = accepted
+                (output / "assets" / playstation_header.meshes_header_name(
+                    style, shape.name)).write_text(
+                    playstation_header.emit_meshes(style, measured, shape.name),
+                    encoding="utf-8")
+                mesh_files += 1
+    summary["files"] = int(summary["files"]) + mesh_files
     summary["meshes"] = mesh_summary
+    summary["roster_meshes"] = roster_summary
 
     # The same meshes again as glTF 2.0, which is an *export* and nothing else:
     # the route to a modelling tool, the half of it that needs no importer and

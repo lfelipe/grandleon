@@ -578,8 +578,36 @@ if(GRANDLEON_PLAYSTATION_SCRATCH3D)
     # shipped executables gain not one byte from meshes existing: nothing they
     # draw is a solid, and a header they include is a header `--gc-sections` has
     # to be trusted to take apart again.
-    set(playstation_mesh_header
-        "playstation_meshes_${scratch3d_style}.h")
+    #
+    # Which of the two drawings of the solids it carries is the **project's**
+    # choice, resolved here from `characterGeometry` exactly as the style and
+    # the figure above are, and against the art library's own menu rather than
+    # a list repeated in CMake. A project that asks for models gets the
+    # authored roster (`tools/placeholder_art/units/`), which is the only one
+    # of the two holding a second figure; a project that asks for nothing gets
+    # the commissioned table, which is what this target has always drawn.
+    grandleon_resolve_character_geometry(
+        "${GRANDLEON_PLAYSTATION_PROJECT}"
+        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/n64_ci4/manifest.json"
+        scratch3d_geometry)
+    grandleon_resolve_character_figure(
+        "${GRANDLEON_PLAYSTATION_PROJECT}"
+        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/n64_ci4/manifest.json"
+        scratch3d_figure)
+    grandleon_mesh_header("${scratch3d_style}" "${scratch3d_figure}"
+        "${scratch3d_geometry}" playstation_mesh_header)
+    if(playstation_mesh_header STREQUAL "")
+        # Drawing sprites. This target exists to measure solids, so it has
+        # nothing to measure and falls back to the commissioned table rather
+        # than failing the configure: the scratch is not the game, and a
+        # project that draws sprites has said nothing about what a measurement
+        # program should photograph.
+        set(playstation_mesh_header
+            "playstation_meshes_${scratch3d_style}.h")
+    endif()
+    message(STATUS
+        "PlayStation scratch character geometry: ${scratch3d_geometry} "
+        "(${playstation_mesh_header})")
     if(NOT EXISTS
         "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/${playstation_mesh_header}")
         message(FATAL_ERROR

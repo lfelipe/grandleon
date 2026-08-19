@@ -22501,6 +22501,23 @@
       ],
       "sheet_suffix": "_frames"
     },
+    "geometries": {
+      "default": "sprites",
+      "menu": [
+        {
+          "label": "Sprites",
+          "name": "sprites",
+          "suffix": "",
+          "summary": "The painted figure every board has always shown."
+        },
+        {
+          "label": "Models",
+          "name": "models",
+          "suffix": "_models",
+          "summary": "The same roster drawn as solids, a few hundred triangles a figure."
+        }
+      ]
+    },
     "menu": [
       {
         "label": "Medieval",

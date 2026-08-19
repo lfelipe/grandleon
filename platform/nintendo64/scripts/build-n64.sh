@@ -40,6 +40,7 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 base_image="${GRANDLEON_LIBDRAGON_BASE_IMAGE:-ghcr.io/dragonminded/libdragon:trunk}"
 base_digest="${GRANDLEON_LIBDRAGON_BASE_DIGEST:-}"
 libdragon_commit="${GRANDLEON_LIBDRAGON_COMMIT:-}"
+tiny3d_commit="${GRANDLEON_TINY3D_COMMIT:-}"
 docker="${GRANDLEON_DOCKER:-docker}"
 build_dir="${GRANDLEON_N64_BUILD_DIR:-${repository_root}/build-n64}"
 
@@ -47,15 +48,23 @@ if [ -z "${libdragon_commit}" ]; then
     echo "error: GRANDLEON_LIBDRAGON_COMMIT is not set." >&2
     exit 1
 fi
-image="grandleon/n64-toolchain:${libdragon_commit}"
+if [ -z "${tiny3d_commit}" ]; then
+    echo "error: GRANDLEON_TINY3D_COMMIT is not set." >&2
+    exit 1
+fi
+# Both pins are in the tag. The image is two libraries built from source, so a
+# tag naming only one of them would let a Tiny3D change reuse an image that does
+# not contain it -- silently, and with a ROM to show for it.
+image="grandleon/n64-toolchain:${libdragon_commit}-t3d${tiny3d_commit:0:8}"
 
 rebuild_image=0
 project="${GRANDLEON_N64_PROJECT:-}"
 targets="${GRANDLEON_N64_TARGETS:-}"
 stage_picker=0
+scratch3d=0
 usage() {
     echo "usage: $(basename "$0") [--rebuild-image] [--project PATH]" \
-         "[--targets t1,t2,...] [--stage-picker]" >&2
+         "[--targets t1,t2,...] [--stage-picker] [--scratch3d]" >&2
     exit 2
 }
 while [ "$#" -gt 0 ]; do
@@ -64,6 +73,7 @@ while [ "$#" -gt 0 ]; do
         --project) [ "$#" -ge 2 ] || usage; project="$2"; shift 2 ;;
         --targets) [ "$#" -ge 2 ] || usage; targets="$2"; shift 2 ;;
         --stage-picker) stage_picker=1; shift ;;
+        --scratch3d) scratch3d=1; shift ;;
         *) usage ;;
     esac
 done
@@ -109,6 +119,10 @@ fi
 # built a picker ROM must not go on building them.
 picker_arg="-DGRANDLEON_STAGE_PICKER=OFF"
 [ "${stage_picker}" -eq 0 ] || picker_arg="-DGRANDLEON_STAGE_PICKER=ON"
+# The measurement ROM is off unless asked for: it is in no gate, and a target
+# that exists only when a flag is passed cannot be built by accident.
+scratch_arg="-DGRANDLEON_N64_SCRATCH3D=OFF"
+[ "${scratch3d}" -eq 0 ] || scratch_arg="-DGRANDLEON_N64_SCRATCH3D=ON"
 
 if ! command -v "${docker}" >/dev/null 2>&1; then
     echo "error: '${docker}' is not on PATH." >&2
@@ -145,6 +159,7 @@ if [ "${rebuild_image}" -eq 1 ] || ! "${docker}" image inspect "${image}" >/dev/
     "${docker}" build \
         --file "${repository_root}/platform/nintendo64/Containerfile" \
         --build-arg "LIBDRAGON_COMMIT=${libdragon_commit}" \
+        --build-arg "TINY3D_COMMIT=${tiny3d_commit}" \
         --tag "${image}" \
         "${repository_root}/platform/nintendo64"
 fi
@@ -194,6 +209,7 @@ flock 9
     --env "GRANDLEON_CONTAINER_BUILD_DIR=${container_build_dir}" \
     --env "GRANDLEON_CONTAINER_PROJECT_ARG=${project_arg}" \
     --env "GRANDLEON_CONTAINER_PICKER_ARG=${picker_arg}" \
+    --env "GRANDLEON_CONTAINER_SCRATCH_ARG=${scratch_arg}" \
     --env "GRANDLEON_CONTAINER_TARGETS=${targets//,/ }" \
     --volume "${repository_root}:/src" \
     --workdir /src \
@@ -206,6 +222,7 @@ flock 9
             -DGRANDLEON_BUILD_TESTS=OFF \
             -DGRANDLEON_WERROR=ON \
             ${GRANDLEON_CONTAINER_PICKER_ARG} \
+            ${GRANDLEON_CONTAINER_SCRATCH_ARG} \
             ${GRANDLEON_CONTAINER_PROJECT_ARG}
         cmake --build "${GRANDLEON_CONTAINER_BUILD_DIR}" --parallel \
             --target ${GRANDLEON_CONTAINER_TARGETS}

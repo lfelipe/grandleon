@@ -59,9 +59,10 @@ and let the tables be collected.
 
 from __future__ import annotations
 
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
-from . import characters, meshes, profiles, styles, terrain, themes
+from . import (characters, figures, meshes, profiles, styles, terrain,
+               themes)
 from .profiles import Converted
 
 #: The profile whose converted assets this header repacks. The PlayStation has
@@ -149,15 +150,25 @@ def silhouette_of(source: Converted) -> meshes.Silhouette:
     return meshes.Silhouette(right - left + 1, bottom - top + 1, area)
 
 
-def silhouettes(converted: Dict[str, Converted],
-                style: styles.Style) -> List[meshes.Silhouette]:
+def silhouettes(converted: Dict[str, Converted], style: styles.Style,
+                figure: Optional[str] = None) -> List[meshes.Silhouette]:
     """Every archetype's silhouette, in `characters.ARCHETYPE_ORDER`.
 
     Measured on faction colour zero, which is the colour the scratch program
     measures and the one every faction recolours inside: the drawing routine is
     the same for all six and only the ramp differs.
+
+    ``figure`` names the body to measure, and defaults to the first. It matters
+    because a mesh is held to *its own* sprite: the second figure is a different
+    line from shoulder to hem, so holding its solid to the first figure's
+    silhouette would be checking it against a body it is not drawn as. Naming
+    none measures the first figure, whose files carry no suffix and are the ones
+    this function has always read.
     """
-    suffix = styles.asset_suffix(style)
+    style_suffix = styles.asset_suffix(style)
+    shape = (figures.DEFAULT_FIGURE if figure is None
+             else figures.FIGURES_BY_NAME[figure])
+    suffix = f"{style_suffix}{shape.suffix}"
     colour = characters.FACTION_COLOURS[0].name
     return [
         silhouette_of(converted[f"characters/{archetype}_{colour}{suffix}.png"])
@@ -480,7 +491,8 @@ def emit_characters(style: styles.Style,
     return "\n".join(lines) + "\n"
 
 
-def meshes_header_name(style: styles.Style) -> str:
+def meshes_header_name(style: styles.Style,
+                       figure: Optional[str] = None) -> str:
     """The file one style's character *meshes* are emitted to.
 
     Named once here for the reason :func:`characters_header_name` is: a build
@@ -490,7 +502,10 @@ def meshes_header_name(style: styles.Style) -> str:
     same mechanism, and a build that included one style's sprites and another's
     meshes would be a build nothing here could describe.
     """
-    return f"playstation_meshes_{style.name}.h"
+    if figure is None:
+        return f"playstation_meshes_{style.name}.h"
+    shape = figures.FIGURES_BY_NAME[figure]
+    return f"playstation_meshes_{style.name}_models{shape.suffix}.h"
 
 
 def _short_array(name: str, payload: Sequence[int]) -> str:
@@ -503,8 +518,8 @@ def _int_array(name: str, payload: Sequence[int]) -> str:
             + ",".join(str(value) for value in payload) + "};")
 
 
-def emit_meshes(style: styles.Style,
-                measured: Sequence[meshes.Silhouette]) -> str:
+def emit_meshes(style: styles.Style, measured: Sequence[meshes.Silhouette],
+                figure: Optional[str] = None) -> str:
     """One style's character meshes, and the silhouettes they are held to.
 
     Two kinds of number, and the difference is the whole point of the file:
@@ -595,7 +610,7 @@ def emit_meshes(style: styles.Style,
     symbols: List[str] = []
     counts: List[int] = []
     for archetype in archetype_names:
-        parts = meshes.parts_for(style, archetype)
+        parts = meshes.parts_for(style, archetype, figure)
         if not parts:
             symbols.append("nullptr")
             counts.append(0)

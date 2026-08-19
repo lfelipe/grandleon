@@ -578,6 +578,63 @@ grandleon_package_rom(
     grandleon_n64_conformance grandleon_n64.z64 "Grandleon N64 test"
 )
 
+# The measurement scratch: what a triangle costs on this pin.
+#
+# Behind a flag and off by default, because it is not a check and is in no gate:
+# it draws no game, asserts nothing about the engine, and exists to be run when
+# somebody wants the number rather than on every build. The PlayStation's
+# equivalent lives in platform/playstation/scratch/ and is off for the same
+# reason.
+option(GRANDLEON_N64_SCRATCH3D
+    "Build the Nintendo 64 triangle-cost measurement ROM" OFF)
+
+if(GRANDLEON_N64_SCRATCH3D)
+    add_executable(grandleon_n64_scratch3d scratch/scratch3d_rom.cpp)
+    target_link_libraries(
+        grandleon_n64_scratch3d
+        # -lt3d ahead of -ldragon: Tiny3D calls into libdragon, and an archive
+        # resolves only what is asked for after it.
+        PRIVATE -lc -lt3d -ldragon -lm -ldragonsys
+    )
+    target_compile_features(grandleon_n64_scratch3d PRIVATE cxx_std_17)
+    target_compile_options(
+        grandleon_n64_scratch3d
+        PRIVATE ${GRANDLEON_WARNING_FLAGS} -fno-exceptions -fno-rtti
+    )
+    set_target_properties(
+        grandleon_n64_scratch3d
+        PROPERTIES OUTPUT_NAME grandleon_n64_scratch3d SUFFIX ".elf"
+    )
+    grandleon_package_rom(
+        grandleon_n64_scratch3d grandleon_n64_scratch3d.z64
+        "Grandleon N64 scratch"
+    )
+
+    # The roster itself, drawn as solids. Reads the generated part tables and
+    # the archetypes' own CLUTs, so what it draws is the shipped art rather
+    # than a stand-in.
+    add_executable(grandleon_n64_figures scratch/figures_rom.cpp)
+    target_link_libraries(
+        grandleon_n64_figures PRIVATE -lc -lt3d -ldragon -lm -ldragonsys
+    )
+    target_compile_features(grandleon_n64_figures PRIVATE cxx_std_17)
+    target_include_directories(
+        grandleon_n64_figures
+        PRIVATE "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
+    )
+    target_compile_options(
+        grandleon_n64_figures
+        PRIVATE ${GRANDLEON_WARNING_FLAGS} -fno-exceptions -fno-rtti
+    )
+    set_target_properties(
+        grandleon_n64_figures
+        PROPERTIES OUTPUT_NAME grandleon_n64_figures SUFFIX ".elf"
+    )
+    grandleon_package_rom(
+        grandleon_n64_figures grandleon_n64_figures.z64 "Grandleon N64 figures"
+    )
+endif()
+
 # The play ROM: the Tarnholt campaign through the shared client session,
 # rendering the embedded CI4 art through the RDP and driven by a controller.
 # The probe variant replaces input with a scripted playthrough and framebuffer

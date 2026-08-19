@@ -212,6 +212,19 @@ engine. See [games/demo/README.md](games/demo/README.md) and
 games, and [games/template/README.md](games/template/README.md) for the reusable
 skeleton.
 
+### A Nintendo 64 cartridge
+
+`cmake --build build --target grandleon_n64` writes the ROMs to `build-n64/`,
+and the editor's **Nintendo 64 ROM** button asks the local build service for
+one.
+
+**The ROMs need an emulator that executes the RSP, and will not boot without
+one.** The cartridge decompresses itself at boot on the RSP, and the board is
+drawn through the RDP on libdragon's `rspq` microcode. An emulator with a
+high-level RSP produces no output at all. ares is the one this project verifies
+against ([docs/ARES_VALIDATION.md](docs/ARES_VALIDATION.md)); mupen64plus with
+its pinned `rsp-hle` was tried and cannot run these.
+
 ### A PlayStation disc
 
 `cmake --build build --target grandleon_playstation_disc` writes
@@ -263,7 +276,7 @@ the version that produced the ROMs.
 
 | | | Pinned at |
 |---|---|---|
-| [libdragon](https://github.com/DragonMinded/libdragon) | the Nintendo 64 toolchain and runtime | `35f85a07` |
+| [libdragon](https://github.com/DragonMinded/libdragon) | the Nintendo 64 toolchain and runtime | `c79a52b4` |
 | [ares](https://github.com/ares-emulator/ares) | the emulator every Nintendo 64 check runs under | `0aafd857` |
 | [Nugget](https://github.com/pcsx-redux/nugget) | the PlayStation SDK | `e5d63b8e` |
 | [mkpsxiso](https://github.com/Lameguy64/mkpsxiso) | writes the PlayStation disc image | `54fb1644` |

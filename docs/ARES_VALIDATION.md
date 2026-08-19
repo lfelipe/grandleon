@@ -8,6 +8,31 @@ verdict, so the harness reads a result instead of guessing at pixels. That is a
 Nintendo 64 affordance and does not travel to other consoles;
 `platform/playstation/README.md` records how that one answers the same problem.
 
+## What it executes
+
+ares runs **the real pipeline**: CPU and RSP recompilers, and paraLLEl-RDP on a
+software Vulkan driver. It executes the RSP rather than pattern-matching what
+runs on it, which is why it is the only pinned harness that can run a ROM that
+draws through the RDP at all — the board is drawn on libdragon's `rspq`
+microcode, and an emulator that cannot execute that microcode sees nothing the
+RDP draws. `platform/nintendo64/README.md` and
+`platform/nintendo64/ares/run-ares.sh` say the same thing where they need it.
+
+That is also why there is deliberately no second Nintendo 64 emulator.
+mupen64plus was evaluated and rejected: its pinned `rsp-hle` is high-level and
+cannot execute `rspq`, so it is not a weaker check on the same thing but a
+harness that can observe nothing. The cross-check that carries weight here is
+host against console, not emulator against emulator.
+
+**This is load-bearing beyond the checks, so it is stated here rather than left
+to be inferred.** The libdragon pin is on the `preview` branch, which rewrites
+IPL3 to decompress the ROM at boot, and that decompression runs on the RSP: a
+ROM built here produces no output at all under a high-level-RSP emulator. The
+pin could only move because ares executes the RSP for real, and it can only stay
+there while that holds. `cmake/GrandleonNintendo64.cmake` records what the move
+was measured to cost, and README.md states the restriction where an author
+downloading a ROM will meet it.
+
 ## Versions
 
 | | |

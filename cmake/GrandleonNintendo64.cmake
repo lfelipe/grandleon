@@ -21,25 +21,109 @@ set(GRANDLEON_LIBDRAGON_BASE_DIGEST
     CACHE STRING
     "Expected image digest for GRANDLEON_LIBDRAGON_BASE_IMAGE"
 )
-# Moving this pin to libdragon's `preview` branch was costed by trial and is
-# affordable in every way but one. The build itself is a one-line change: no
-# source here changes, every target builds under `-Werror`, and the pinned
-# emulator passes with trunk's verdicts. Loaded code grows 3-9% and RAM by one
-# and a half to four kilobytes, while the cartridge nearly halves, because
-# `preview` rewrites IPL3 to decompress the ROM at boot.
+# This pin is on libdragon's `preview` branch, moved there on 2026-08-19 after
+# the move was measured rather than argued about. `preview` rewrites IPL3 to
+# decompress the ROM at boot, and the cartridge saving is most of why it is
+# worth having:
 #
-# **That boot decompression runs on the RSP**, so a `preview` ROM cannot run at
-# all under an emulator whose RSP is high-level: it logs `RSP Fallback
-# disabled !` and then produces no output, ever. The `n64tool` escape hatch
-# needs a copyrighted Nintendo boot ROM this repository will not ship, and
-# forfeits the size win. So the pin is movable exactly as long as the
-# authoritative emulator executes the RSP for real. That is a platform
-# decision, not a rendering one.
+#   conformance    507,904 -> 344,064 bytes   -32%
+#   play         1,425,408 -> 786,432         -45%
+#   probe        1,343,488 -> 737,280         -45%
+#   autopilot    1,458,176 -> 802,816         -45%
+#   campaign     1,916,928 -> 1,015,808       -47%
+#
+# It cost no source change: every target built under `-Werror` untouched, and
+# all four ares checks passed with the assertion counts trunk produced --
+# conformance 39/39, play 29/29, autopilot 134/134, campaign 52/52 -- with both
+# canonical hashes (`0e41227fef2c075f`, `9090072b2c0a69c5`) reproduced exactly,
+# so the engine computes the same answers here as on the host and in
+# WebAssembly. Loaded code grows 3-9% and RAM by one and a half to four
+# kilobytes, which the cartridge saving pays for many times over.
+#
+# **The condition this move turns on, and the answer.** That boot decompression
+# runs on the RSP, so a `preview` ROM cannot run at all under an emulator whose
+# RSP is high-level: it logs `RSP Fallback disabled !` and then produces no
+# output, ever. The `n64tool` escape hatch needs a copyrighted Nintendo boot ROM
+# this repository will not ship. So the pin is movable exactly as long as the
+# authoritative emulator executes the RSP for real -- and ares does, on CPU and
+# RSP recompilers with paraLLEl-RDP (docs/ARES_VALIDATION.md, "What it
+# executes"), which is the same property that makes it the only harness able to
+# run a ROM drawing through the RDP at all. The hazard is about emulators this
+# repository does not use: mupen64plus's pinned `rsp-hle` was evaluated and
+# rejected for exactly this inability. README.md states the restriction where an
+# author downloading a ROM will meet it.
+#
+# This paragraph once stopped at the condition without answering it, and a
+# reader concluded the Nintendo 64 could never draw 3D and did not write the
+# renderer. Two other files held the answer and this one pointed at neither. If
+# the condition is ever re-opened, answer it here or move the answer to
+# docs/ARES_VALIDATION.md and cite it -- do not leave it hanging.
+#
+# **What the move bought, measured.** `preview` on its own does not make this
+# console cheaper at triangles -- `rdpq_triangle` transforms on the CPU whichever
+# branch it comes from. What it allows is **Tiny3D**, which hands a packed vertex
+# buffer to an RSP microcode, and that is where the cost goes.
+# `platform/nintendo64/scratch/` measures both arms in one ROM, one run, so the
+# comparison is not across binaries:
+#
+#   rdpq_triangle   12.9 us a triangle   2,586 at 30 fps   1,293 at 60
+#   Tiny3D           4.3 us a triangle   7,701 at 30 fps   3,850 at 60
+#
+# Three times cheaper, and the number that matters: sixteen figures at
+# TRIANGLE_BAND's ceiling of 300 is 4,800 triangles, which fits inside 7,701
+# with a board's worth of room to spare. The Nintendo 64 can draw this roster.
+# It could not before -- the same sweep puts plain `rdpq_triangle` short of it.
+#
+# Two things the numbers do not say. They are **submission cost on the CPU**;
+# the triangles in the sweep are about fourteen pixels a side, so a frame drawn
+# much larger could be limited by fill instead, and nothing has measured that.
+# And they are one emulator's: ares is deterministic here (repeated runs agree
+# exactly) but no result in this repository has run on real hardware.
+#
+set(GRANDLEON_LIBDRAGON_PINNED_COMMIT
+    "c79a52b42ac790e06e797aede43914dd8754cd5f")
+
 set(GRANDLEON_LIBDRAGON_COMMIT
-    "35f85a0797324a5ed0c723203e33ab3c1da94fdd"
+    "${GRANDLEON_LIBDRAGON_PINNED_COMMIT}"
     CACHE STRING
     "Pinned DragonMinded/libdragon commit built into the toolchain image"
 )
+
+# Overriding the pin is a legitimate thing to do -- it is how a move is measured
+# before it is made -- so this says so rather than refusing. It is a warning and
+# not a status line because the failure it catches is silent: a stale cache
+# builds the wrong libdragon and says nothing at all.
+if(NOT GRANDLEON_LIBDRAGON_COMMIT STREQUAL GRANDLEON_LIBDRAGON_PINNED_COMMIT)
+    message(WARNING
+        "libdragon pin mismatch: this build directory is configured for "
+        "${GRANDLEON_LIBDRAGON_COMMIT} but the source tree pins "
+        "${GRANDLEON_LIBDRAGON_PINNED_COMMIT}. If that is deliberate, carry "
+        "on; if the pin moved under you, re-run cmake with "
+        "-DGRANDLEON_LIBDRAGON_COMMIT=${GRANDLEON_LIBDRAGON_PINNED_COMMIT} "
+        "or configure a fresh build directory, or the ROMs will be built "
+        "against the libdragon this cache remembers.")
+endif()
+# Tiny3D, pinned beside libdragon and built into the same toolchain image. It
+# is the library that moves vertex transform onto the RSP; the measurement in
+# platform/nintendo64/scratch/ is what says whether that is worth having.
+set(GRANDLEON_TINY3D_PINNED_COMMIT
+    "517156d9464aaab95bf9531336d9a57624405ca7")
+
+set(GRANDLEON_TINY3D_COMMIT
+    "${GRANDLEON_TINY3D_PINNED_COMMIT}"
+    CACHE STRING
+    "Pinned HailToDodongo/tiny3d commit built into the toolchain image"
+)
+
+if(NOT GRANDLEON_TINY3D_COMMIT STREQUAL GRANDLEON_TINY3D_PINNED_COMMIT)
+    message(WARNING
+        "Tiny3D pin mismatch: this build directory is configured for "
+        "${GRANDLEON_TINY3D_COMMIT} but the source tree pins "
+        "${GRANDLEON_TINY3D_PINNED_COMMIT}. Re-run cmake with "
+        "-DGRANDLEON_TINY3D_COMMIT=${GRANDLEON_TINY3D_PINNED_COMMIT} or "
+        "configure a fresh build directory.")
+endif()
+
 set(GRANDLEON_DOCKER
     "docker"
     CACHE STRING
@@ -60,6 +144,7 @@ set(grandleon_n64_build_env
     "GRANDLEON_LIBDRAGON_BASE_IMAGE=${GRANDLEON_LIBDRAGON_BASE_IMAGE}"
     "GRANDLEON_LIBDRAGON_BASE_DIGEST=${GRANDLEON_LIBDRAGON_BASE_DIGEST}"
     "GRANDLEON_LIBDRAGON_COMMIT=${GRANDLEON_LIBDRAGON_COMMIT}"
+    "GRANDLEON_TINY3D_COMMIT=${GRANDLEON_TINY3D_COMMIT}"
     "GRANDLEON_DOCKER=${GRANDLEON_DOCKER}"
     "GRANDLEON_N64_BUILD_DIR=${GRANDLEON_N64_BUILD_DIR}"
 )

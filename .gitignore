@@ -15,6 +15,7 @@ node_modules/
 /tools/placeholder_art/.venv
 __pycache__/
 platform/playstation/scratch/evidence/*.gif
+platform/nintendo64/scratch/evidence/*.gif
 
 # Working notes kept on this machine only. Never tracked, so never in the
 # public export: `git archive HEAD` carries tracked files and nothing else.
