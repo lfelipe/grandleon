@@ -217,7 +217,8 @@ describe("The Tarnholt Line sample campaign", () => {
       "ashen_knight_north",
       "ashen_knight_south",
       "ashen_archer_ford",
-      "ashen_storm_ford"
+      "ashen_storm_ford",
+      "ashen_levy_road"
     ]);
     expect(ford.objectiveIds).toEqual(["defeat_all_opponents"]);
     const watch = node("ashen_watch_battle");
@@ -267,9 +268,11 @@ describe("The Tarnholt Line sample campaign", () => {
     expect(state.nodeId).toBe("fordlight_battle");
     expect(state.width).toBe(32);
     expect(state.height).toBe(8);
-    expect(state.units).toHaveLength(8);
+    // Nine, not eight: the fifth of theirs stands out on the east road, in the
+    // ground the board was widened into.
+    expect(state.units).toHaveLength(9);
     expect(state.units.filter((unit) => unit.side === "first")).toHaveLength(4);
-    expect(state.units.filter((unit) => unit.side === "second")).toHaveLength(4);
+    expect(state.units.filter((unit) => unit.side === "second")).toHaveLength(5);
 
     // A knight on the west bank can step onto the bridge road, and the guard's
     // block stays open behind him: this game runs one whole side at a time, so

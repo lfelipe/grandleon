@@ -851,7 +851,7 @@ int main() {
             "and no board, however wide, is swept for longer"
         );
         expect(
-            sweep_frames_most == 90 && sweep_frames_per_cell == 3,
+            sweep_frames_most == 150 && sweep_frames_per_cell == 5,
             "the numbers themselves, so a change to either is a change here"
         );
 
@@ -861,7 +861,7 @@ int main() {
         // second leg is empty because there is nowhere to come back to.
         {
             const int frames = sweep_frames_total(19, 0);
-            expect(frames == 57, "nineteen columns of board is under a second");
+            expect(frames == 95, "nineteen columns of board is under two seconds");
             expect(frames == sweep_frames_for(19), "and is one leg, not two");
             expect(sweep_at(19, 0, 0) == 19, "it opens at the right edge");
             expect(

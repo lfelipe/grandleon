@@ -458,7 +458,7 @@ describe("the Tarnholt campaign plays its authored story", () => {
     ]);
     expect(session.phase).toBe("battle");
     expect(session.battle!.nodeId).toBe("fordlight_battle");
-    expect(session.battle!.units).toHaveLength(8);
+    expect(session.battle!.units).toHaveLength(9);
     endCampaignPlaytest(session);
   });
 

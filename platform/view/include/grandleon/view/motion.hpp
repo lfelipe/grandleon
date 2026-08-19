@@ -99,21 +99,28 @@ inline constexpr int cast_hold_frames = flinch_frames;
 inline constexpr int cursor_pulse_period = 32;
 inline constexpr int cursor_pulse_rest_frames = 16;
 
-// How long the camera spends crossing one cell of an opening sweep: three
-// frames, half what a body spends walking one. A pan is not a body and may
-// outrun one; at three frames a cell the board travels twenty cells a second,
-// which reads as a look across rather than a drift.
-inline constexpr int sweep_frames_per_cell = projectile_frames_per_tile;
+// How long the camera spends crossing one cell of an opening sweep: five
+// frames, a shade under what a body spends walking one.
+//
+// It was three, which is what a loosed arrow costs, on the argument that a pan
+// is not a body and may outrun one. Played on hardware it read as a flick
+// rather than a look: twenty cells a second is faster than an eye tracks
+// ground it has not seen before. Twelve is slow enough to read the board and
+// still short of a body's own pace, so the sweep does not read as somebody
+// walking the camera across.
+inline constexpr int sweep_frames_per_cell = 5;
 
-// And the longest a sweep may take however wide the board is. Ninety frames is
-// a second and a half at 60 Hz.
+// And the longest a sweep may take however wide the board is. A hundred and
+// fifty frames is two and a half seconds at 60 Hz.
 //
 // The cap is a patience limit and nothing more principled: below it a board
 // twice as wide takes twice as long to cross, which is the whole of what the
 // gesture says, and past it that stops being true rather than becoming a wait
-// nobody asked for. A board wide enough to reach the cap is thirty cells of
-// travel, which is half again the widest window either console offers.
-inline constexpr int sweep_frames_most = 90;
+// nobody asked for. It moved with the pace above so that the boards this
+// repository can actually draw stay under it: thirty cells of travel is half
+// again the widest window either console offers, and it is the width at which
+// the cap starts to bind.
+inline constexpr int sweep_frames_most = 150;
 
 // ---------------------------------------------------------------------------
 // Sliding

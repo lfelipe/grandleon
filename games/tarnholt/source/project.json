@@ -2132,6 +2132,14 @@
                     "y": 5
                   }
                 ]
+              },
+              {
+                "id": "ashen_levy_road",
+                "unitTypeId": "ashen_levy",
+                "side": "second",
+                "x": 24,
+                "y": 4,
+                "behavior": "pursue"
               }
             ],
             "transitions": [

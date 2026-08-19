@@ -2668,10 +2668,22 @@ public:
         const client::Roster& roster,
         const std::vector<sim::Position>& zone
     ) override {
-        static_cast<void>(snapshot);
         static_cast<void>(roster);
         static_cast<void>(zone);
         selected_ = 0;
+#ifdef GRANDLEON_N64_PROBE
+        static_cast<void>(snapshot);
+#endif
+#ifndef GRANDLEON_N64_PROBE
+        // Said out loud, because this phase is not the battle and does not
+        // behave like it: A picks somebody up and puts them down, the lit tiles
+        // are where they may stand rather than where they may walk, and there
+        // is no action menu because there are no actions yet. A player meeting
+        // that unannounced reads it as a board that will not respond.
+        phase_words(
+            snapshot, "ARRANGE YOUR COMPANY", "A MOVE THEM   START BEGIN"
+        );
+#endif
     }
 
     // The same thumb, a different phase: A picks a character up and puts it
@@ -6646,6 +6658,39 @@ private:
 
     // A full-screen beat announcing whose turn it is, over a settled frame of
     // the new state.
+    // A banner in the turn banner's own shape, for a phase rather than a side.
+    //
+    // It exists because the deployment phase announced itself nowhere: a player
+    // who reached one met a board where pressing A picked somebody up, lit some
+    // tiles and opened no menu, with nothing on the screen saying why. That is a
+    // player who thinks the game is broken, and the report that it looked broken
+    // is what this is here to answer.
+    void phase_words(
+        const sim::EncounterSnapshot& snapshot, const char* text,
+        const char* under
+    ) {
+        // Drawn over the snapshot it is handed rather than over the last one
+        // drawn: this phase opens before the board has ever been painted, so
+        // there is no previous frame to put a banner on.
+        const int left = (320 - static_cast<int>(std::strlen(text)) * 8) / 2;
+        const int under_left =
+            (320 - static_cast<int>(std::strlen(under)) * 8) / 2;
+        surface_t* disp = display_get();
+        render(disp, snapshot, 0);
+        graphics_draw_box(disp, 0, 100, 320, 46, colour(16, 26, 27));
+        graphics_draw_box(disp, 0, 100, 320, 2, colour(183, 140, 35));
+        graphics_draw_box(disp, 0, 144, 320, 2, colour(183, 140, 35));
+        graphics_set_color(colour(245, 234, 210), 0);
+        graphics_draw_text(disp, left, 110, text);
+        graphics_set_color(colour(198, 205, 200), 0);
+        graphics_draw_text(disp, under_left, 128, under);
+        show(disp);
+        for (int i = 0; i < 90; ++i) {
+            grandleon::n64audio::pump();
+            wait_ms(16);
+        }
+    }
+
     void phase_banner(const sim::EncounterSnapshot& snapshot) {
         // The stripe is the side's own colour, which is a fact about the board:
         // the first side is drawn blue and the second red wherever either

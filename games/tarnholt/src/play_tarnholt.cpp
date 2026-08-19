@@ -272,7 +272,7 @@ int main(int argc, char** argv) {
 
     {
         const auto snapshot = ford_created.encounter.snapshot();
-        expect(snapshot.units.size() == 8, "the ford deploys eight units");
+        expect(snapshot.units.size() == 9, "the ford deploys nine units");
         const auto archer = placement(ford, "dawn_archer_ford");
         for (const sim::UnitSnapshot& unit : snapshot.units) {
             if (unit.id != archer) continue;
@@ -1064,6 +1064,11 @@ int main(int argc, char** argv) {
     //   double in size while these two arrangements of characters stay exactly
     //   as they are, and hash them exactly the same.
     //
+    //   *Somebody was placed on it.* Where a character stands is canonical and
+    //   so is that they are there at all, so adding the levy on the east road
+    //   moved this value and no other. It is the same shape as the widening
+    //   below and for the same reason.
+    //
     //   *The board itself was widened.* A map's terrain is canonical, so
     //   growing the ford's own board moves its hash and touches nothing else.
     //   The Fordlight was drawn ten columns across, which fits every console
@@ -1082,7 +1087,7 @@ int main(int argc, char** argv) {
     // fifth reason to read a moved value is that the script above reached a
     // different place, which is what a changed turn order does to it.
     expect(
-        ford_created.encounter.canonical_hash() == 0xf0e720363089e7d3ULL,
+        ford_created.encounter.canonical_hash() == 0x6e5193aeb71f1033ULL,
         "the ford reaches its golden canonical hash, got " +
             hex(ford_created.encounter.canonical_hash())
     );

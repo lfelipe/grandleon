@@ -146,11 +146,14 @@ function(check_board label)
             "The ${label} board drew as ${width}x${height}, expected 32x8"
         )
     endif()
-    if(NOT blue EQUAL 4 OR NOT red EQUAL 4)
+    # Four of ours and five of theirs: the fifth stands out on the east road,
+    # which is the ground the board was widened into and the first thing a
+    # console's opening reveal shows.
+    if(NOT blue EQUAL 4 OR NOT red EQUAL 5)
         message(
             FATAL_ERROR
             "The ${label} board drew ${blue} first-side and ${red} second-side "
-            "units, expected 4 each"
+            "units, expected 4 and 5"
         )
     endif()
     # Every unoccupied cell must sample as textured terrain in exact master-
