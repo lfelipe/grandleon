@@ -967,7 +967,14 @@ export const withheldProjectFields: Readonly<Record<string, string>> = {
   extensions: "the compiler refuses any non-empty value",
   // A picture choice about a person, asked before the author has made one.
   // It lives on the character, where there is somebody to look at.
-  characterFigureId: "belongs to a character, not to the game"
+  characterFigureId: "belongs to a character, not to the game",
+  // The format carries it and the compiler reads it, so a project may ask to be
+  // drawn with models today. Nothing draws them yet: no shipped ROM has a mesh
+  // path, and the roster of solids is not good enough to offer. A control for a
+  // setting that changes nothing an author can see is worse than no control --
+  // it reads as a feature and behaves as a no-op. It goes on the settings page
+  // the day a build honours it.
+  characterGeometry: "nothing draws models yet; the control would do nothing"
 };
 
 export function sourceProjectFieldNames(): readonly string[] {

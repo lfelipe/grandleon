@@ -417,6 +417,7 @@ export class SourceProjectSession {
         | "themeId"
         | "characterStyleId"
         | "characterFigureId"
+        | "characterGeometry"
         | "defaultTurnOrder"
         | "characterLoss"
         | "invulnerableForTesting"
@@ -437,6 +438,7 @@ export class SourceProjectSession {
       "themeId",
       "characterStyleId",
       "characterFigureId",
+      "characterGeometry",
       "defaultTurnOrder",
       "characterLoss",
       "invulnerableForTesting",

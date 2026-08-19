@@ -1525,6 +1525,14 @@ export const sourceV1Schemas: readonly object[] = [
         ],
         "description": "The body this game's characters are drawn with wherever a character names none of its own. 'first' is drawn male and 'second' female; the stored values are positions in a menu every client indexes by, and the words a person reads for them are the art library's. A figure is the body a role is drawn at, not the role: every figure draws all eight archetypes, in every style and every faction colour, and choosing one changes no stat, no reach and no rule. It is a default and never a gate, exactly as characterStyleId is. Omit it and the characters that name no figure of their own are drawn with the first, which is what they looked like before figures existed."
       },
+      "characterGeometry": {
+        "type": "string",
+        "enum": [
+          "sprites",
+          "models"
+        ],
+        "description": "What this game's characters are drawn as. 'sprites' is the painted figure every board has always shown. 'models' is the same roster drawn as solids: the same eight archetypes, in the same style and the same faction colours, built as a few hundred triangles a console can draw without a depth buffer. It is a default and never a gate, exactly as characterStyleId and characterFigureId are, and it changes no stat, no reach and no rule — a character occupies the same cell and fights the same battle either way, and two people holding the same package still get the same battles out of it. A style whose solids have not been drawn falls back to its sprites rather than refusing to build, because a missing model is a drawing that has not been made and not a broken game. Omit it and the characters are drawn as sprites, which is what every board showed before this setting existed."
+      },
       "defaultTurnOrder": {
         "type": "string",
         "enum": [
