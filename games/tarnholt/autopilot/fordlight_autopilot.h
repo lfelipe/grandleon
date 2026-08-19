@@ -156,6 +156,14 @@ inline constexpr Step fordlight_autopilot[] = {
     {Op::wait, 10, 0, 0, nullptr},
     {Op::press, button_a, 0, 0, nullptr},
 
+    // The Fordlight opens with words: two sayings, a press each, before the
+    // board is drawn at all. A scene during a battle is paged exactly as a
+    // scene between them is, so the script reads it the same way.
+    {Op::wait, 20, 0, 0, nullptr},
+    {Op::press, button_a, 0, 0, nullptr},
+    {Op::wait, 10, 0, 0, nullptr},
+    {Op::press, button_a, 0, 0, nullptr},
+
     // The battle opens behind its banner. Verify the authored board.
     {Op::wait, 30, 0, 0, nullptr},
     {Op::checkpoint, static_cast<std::uint16_t>(Check::battle_open), 0, 0,

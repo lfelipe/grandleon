@@ -485,6 +485,30 @@
       ]
     },
     {
+      "id": "fordlight_open_lines",
+      "name": "At the Ford",
+      "cast": [
+        {
+          "speaker": "Dawn Mage",
+          "unitTypeId": "dawn_mage"
+        },
+        {
+          "speaker": "Ashen Stormcaller",
+          "unitTypeId": "ashen_stormcaller"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Dawn Mage",
+          "text": "Only the span crosses. They know that as well as we do."
+        },
+        {
+          "speaker": "Ashen Stormcaller",
+          "text": "Then come across it."
+        }
+      ]
+    },
+    {
       "id": "crossing_cost_lines",
       "name": "The Cost of the Crossing",
       "backgroundId": "night_camp",
@@ -2136,6 +2160,15 @@
                 "targetNodeId": "interlude",
                 "priority": 2,
                 "notes": "Unconditional fallback, deliberately lowest precedence: a client that cannot decide still advances."
+              }
+            ],
+            "moments": [
+              {
+                "id": "fordlight_opening",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "fordlight_open_lines"
               }
             ]
           },

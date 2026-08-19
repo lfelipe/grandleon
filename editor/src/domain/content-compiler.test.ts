@@ -23,8 +23,8 @@ const demoSource = resolve(process.cwd(), "../games/demo/source/project.json");
 // total below, and widening the Fordlight from ten columns to thirty-two is
 // worth about seventeen hundred more, because a map's terrain is a byte a cell.
 // The host and WebAssembly compilers agree on it either way.
-const tarnholtPackageBytes = 20344;
-const tarnholtPackageMd5 = "d22f8c0ccf094aefd8faa0a2966c1c35";
+const tarnholtPackageBytes = 20572;
+const tarnholtPackageMd5 = "52a9fd30e6038938ae83c45b7c23a112";
 
 beforeAll(async () => {
   await initEncounterEngine();

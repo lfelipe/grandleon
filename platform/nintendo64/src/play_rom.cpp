@@ -55,6 +55,8 @@
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/game_content/source_project.hpp>
 #include <grandleon/package_format/package.hpp>
+#include <grandleon/package_runtime/dialogue.hpp>
+#include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
 #include <grandleon/sheet/unit_sheet.hpp>
@@ -1656,6 +1658,51 @@ public:
 
     // Kept so the danger zone counts every band a unit could use, not only the
     // weapon in its hand. A snapshot names identities; these resolve them.
+    // What this board says while it is being fought, and the join that turns
+    // the unit an event names into the placement a moment is about. A
+    // placement's identity *is* the unit's identity on the board, so the table
+    // is a membership test rather than a translation.
+    void battle_moments(
+        const std::vector<grandleon::package_runtime::EncounterMoment>& moments,
+        const std::vector<grandleon::package_runtime::PlacementIdentity>&
+            placements
+    ) override {
+        moments_ = moments;
+        moment_placements_ = placements;
+        opening_moments_played_ = false;
+    }
+
+    // Plays every moment of one occasion, in the order they were authored.
+    // `about` is zero for the board's own.
+    void play_moments(
+        grandleon::package_runtime::MomentTrigger when, std::uint64_t about
+    ) {
+        if (moments_.empty() || package_ == nullptr) return;
+        for (const auto& moment : moments_) {
+            if (moment.trigger != when) continue;
+            if (when !=
+                    grandleon::package_runtime::MomentTrigger::stage_opens &&
+                moment.placement_id != about) {
+                continue;
+            }
+            const auto scene = grandleon::package_runtime::load_dialogue(
+                *package_, moment.dialogue_id
+            );
+            // Skipped rather than stopped: the loader already refuses a moment
+            // about nobody on the board, and a ROM that halted over a missing
+            // line would turn a silent scene into an unplayable board.
+            if (!scene) continue;
+            present_dialogue(scene.dialogue);
+        }
+    }
+
+    [[nodiscard]] std::uint64_t placement_of(sim::UnitId unit) const {
+        for (const auto& identity : moment_placements_) {
+            if (identity.unit_id == unit) return identity.unit_id;
+        }
+        return 0;
+    }
+
     void battle_definitions(
         const std::vector<sim::WeaponDefinition>& weapons,
         const std::vector<sim::AbilityDefinition>& abilities,
@@ -1761,6 +1808,17 @@ public:
             }
             camera_.x = settles_at;
             camera_.clamp();
+        }
+#endif
+#ifndef GRANDLEON_N64_PROBE
+        // And what this board opens with, after the reveal and before it is
+        // played on: a scene before the sweep would be words about ground
+        // nobody had been shown.
+        if (!has_previous_ && !opening_moments_played_) {
+            opening_moments_played_ = true;
+            play_moments(
+                grandleon::package_runtime::MomentTrigger::stage_opens, 0
+            );
         }
 #endif
         surface_t* disp = display_get();
@@ -1913,6 +1971,24 @@ public:
                 // reason the screen says it.
                 report_line(
                     "fall %s\n", character_called(event.unit_id).c_str()
+                );
+                play_moments(
+                    grandleon::package_runtime::MomentTrigger::character_falls,
+                    placement_of(event.unit_id)
+                );
+            }
+            if (event.type == sim::EventType::unit_talked) {
+                // Somebody walked off the board alive, and whatever this board
+                // has to say about it. Deliberately not spelled like a defeat:
+                // leaving and falling are two facts the engine reports with two
+                // events, and a channel that called them one thing would undo
+                // the distinction every rule underneath it keeps.
+                report_line(
+                    "left %s\n", character_called(event.unit_id).c_str()
+                );
+                play_moments(
+                    grandleon::package_runtime::MomentTrigger::character_talked,
+                    placement_of(event.unit_id)
                 );
             }
             if (event.type == sim::EventType::unit_endured) {
@@ -7763,6 +7839,11 @@ private:
     std::uint32_t rounds_to_survive_{0};
     surface_t* last_buffer_{nullptr};
     sim::EncounterSnapshot previous_{};
+    // What this board says while it is fought, empty for a board nobody speaks
+    // over, which is every board authored before moments existed.
+    std::vector<grandleon::package_runtime::EncounterMoment> moments_;
+    std::vector<grandleon::package_runtime::PlacementIdentity> moment_placements_;
+    bool opening_moments_played_{false};
     bool has_previous_{false};
     view::Camera camera_{};
     // The frame's draw list, rebuilt from the snapshot every frame and put
