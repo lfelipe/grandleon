@@ -55,8 +55,8 @@
     {
       "name": "pole",
       "slot": "prop.main",
-      "x0": 18,
-      "x1": 23,
+      "x0": -23,
+      "x1": -18,
       "y0": 4,
       "y1": 68,
       "z0": -6,
@@ -77,10 +77,10 @@
       "rung": 3
     },
     {
-      "name": "left arm",
-      "slot": "arm.l",
-      "x0": -17,
-      "x1": -10,
+      "name": "right arm",
+      "slot": "arm.r",
+      "x0": 10,
+      "x1": 17,
       "y0": 43,
       "y1": 61,
       "z0": -4,
@@ -89,10 +89,10 @@
       "rung": 2
     },
     {
-      "name": "right arm, raised to the pole",
+      "name": "left arm, raised to the pole",
       "slot": "prop.main",
-      "x0": 10,
-      "x1": 17,
+      "x0": -17,
+      "x1": -10,
       "y0": 45,
       "y1": 65,
       "z0": -5,
@@ -103,8 +103,8 @@
     {
       "name": "hand on the pole",
       "slot": "prop.main",
-      "x0": 14,
-      "x1": 20,
+      "x0": -20,
+      "x1": -14,
       "y0": 50,
       "y1": 57,
       "z0": -6,
@@ -139,8 +139,8 @@
     {
       "name": "bowl, belly",
       "slot": "prop.main",
-      "x0": 5,
-      "x1": 35,
+      "x0": -35,
+      "x1": -5,
       "y0": 65,
       "y1": 74,
       "z0": -9,
@@ -149,10 +149,10 @@
       "rung": 1
     },
     {
-      "name": "smoke, drifting left",
+      "name": "smoke, drifting right",
       "slot": "head",
-      "x0": -32,
-      "x1": -10,
+      "x0": 10,
+      "x1": 32,
       "y0": 71,
       "y1": 85,
       "z0": 4,
@@ -163,26 +163,14 @@
     {
       "name": "bowl, rim",
       "slot": "prop.main",
-      "x0": 3,
-      "x1": 37,
+      "x0": -37,
+      "x1": -3,
       "y0": 72,
       "y1": 77,
       "z0": -9,
       "z1": -1,
       "ramp": 0,
       "rung": 0
-    },
-    {
-      "name": "left horn",
-      "slot": "crest",
-      "x0": -11,
-      "x1": -5,
-      "y0": 74,
-      "y1": 84,
-      "z0": -1,
-      "z1": 4,
-      "ramp": 0,
-      "rung": 3
     },
     {
       "name": "right horn",
@@ -197,10 +185,22 @@
       "rung": 3
     },
     {
-      "name": "flame, right tongue",
+      "name": "left horn",
+      "slot": "crest",
+      "x0": -11,
+      "x1": -5,
+      "y0": 74,
+      "y1": 84,
+      "z0": -1,
+      "z1": 4,
+      "ramp": 0,
+      "rung": 3
+    },
+    {
+      "name": "flame, left tongue",
       "slot": "head",
-      "x0": 32,
-      "x1": 38,
+      "x0": -38,
+      "x1": -32,
       "y0": 77,
       "y1": 84,
       "z0": -6,
@@ -209,10 +209,10 @@
       "rung": 3
     },
     {
-      "name": "flame, left tongue",
+      "name": "flame, right tongue",
       "slot": "head",
-      "x0": 2,
-      "x1": 8,
+      "x0": -8,
+      "x1": -2,
       "y0": 77,
       "y1": 85,
       "z0": -6,
@@ -223,8 +223,8 @@
     {
       "name": "flame, centre tongue",
       "slot": "head",
-      "x0": 16,
-      "x1": 24,
+      "x0": -24,
+      "x1": -16,
       "y0": 77,
       "y1": 91,
       "z0": -6,

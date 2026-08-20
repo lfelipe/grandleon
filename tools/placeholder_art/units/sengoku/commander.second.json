@@ -5,18 +5,6 @@
   "plan": "legged",
   "parts": [
     {
-      "name": "left sabaton",
-      "slot": "foot.l",
-      "x0": -19,
-      "x1": 3,
-      "y0": 0,
-      "y1": 5,
-      "z0": -5,
-      "z1": 5,
-      "ramp": 0,
-      "rung": 1
-    },
-    {
       "name": "right sabaton",
       "slot": "foot.r",
       "x0": -3,
@@ -29,14 +17,14 @@
       "rung": 1
     },
     {
-      "name": "left suneate",
-      "slot": "leg.l",
-      "x0": -10,
-      "x1": -3,
-      "y0": 5,
-      "y1": 26,
-      "z0": -4,
-      "z1": 4,
+      "name": "left sabaton",
+      "slot": "foot.l",
+      "x0": -19,
+      "x1": 3,
+      "y0": 0,
+      "y1": 5,
+      "z0": -5,
+      "z1": 5,
       "ramp": 0,
       "rung": 1
     },
@@ -45,6 +33,18 @@
       "slot": "leg.r",
       "x0": 3,
       "x1": 10,
+      "y0": 5,
+      "y1": 26,
+      "z0": -4,
+      "z1": 4,
+      "ramp": 0,
+      "rung": 1
+    },
+    {
+      "name": "left suneate",
+      "slot": "leg.l",
+      "x0": -10,
+      "x1": -3,
       "y0": 5,
       "y1": 26,
       "z0": -4,
@@ -65,10 +65,10 @@
       "rung": 1
     },
     {
-      "name": "tachi, right hip",
+      "name": "tachi, left hip",
       "slot": "waist",
-      "x0": 6,
-      "x1": 26,
+      "x0": -26,
+      "x1": -6,
       "y0": 30,
       "y1": 34,
       "z0": -7,
@@ -127,8 +127,8 @@
     {
       "name": "sashimono pole",
       "slot": "prop.main",
-      "x0": 7,
-      "x1": 12,
+      "x0": -12,
+      "x1": -7,
       "y0": 44,
       "y1": 84,
       "z0": 8,
@@ -137,10 +137,10 @@
       "rung": 1
     },
     {
-      "name": "left sode, small",
-      "slot": "arm.l",
-      "x0": -16,
-      "x1": -11,
+      "name": "right sode, small",
+      "slot": "arm.r",
+      "x0": 11,
+      "x1": 16,
       "y0": 55,
       "y1": 64,
       "z0": -4,
@@ -149,10 +149,10 @@
       "rung": 1
     },
     {
-      "name": "right sode, small",
-      "slot": "arm.r",
-      "x0": 11,
-      "x1": 16,
+      "name": "left sode, small",
+      "slot": "arm.l",
+      "x0": -16,
+      "x1": -11,
       "y0": 55,
       "y1": 64,
       "z0": -4,
@@ -175,8 +175,8 @@
     {
       "name": "sashimono flag",
       "slot": "waist",
-      "x0": -10,
-      "x1": 12,
+      "x0": -12,
+      "x1": 10,
       "y0": 64,
       "y1": 81,
       "z0": 8,
@@ -233,10 +233,10 @@
       "rung": 0
     },
     {
-      "name": "kuwagata, left horn",
+      "name": "kuwagata, right horn",
       "slot": "crest",
-      "x0": -14,
-      "x1": -10,
+      "x0": 10,
+      "x1": 14,
       "y0": 75,
       "y1": 84,
       "z0": -2,
@@ -245,10 +245,10 @@
       "rung": 3
     },
     {
-      "name": "kuwagata, right horn",
+      "name": "kuwagata, left horn",
       "slot": "crest",
-      "x0": 10,
-      "x1": 14,
+      "x0": -14,
+      "x1": -10,
       "y0": 75,
       "y1": 84,
       "z0": -2,

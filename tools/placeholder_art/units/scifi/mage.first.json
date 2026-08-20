@@ -5,18 +5,6 @@
   "plan": "legged",
   "parts": [
     {
-      "name": "left boot",
-      "slot": "foot.l",
-      "x0": -10,
-      "x1": -3,
-      "y0": 0,
-      "y1": 5,
-      "z0": -5,
-      "z1": 5,
-      "ramp": 0,
-      "rung": 0
-    },
-    {
       "name": "right boot",
       "slot": "foot.r",
       "x0": 3,
@@ -29,8 +17,20 @@
       "rung": 0
     },
     {
+      "name": "left boot",
+      "slot": "foot.l",
+      "x0": -10,
+      "x1": -3,
+      "y0": 0,
+      "y1": 5,
+      "z0": -5,
+      "z1": 5,
+      "ramp": 0,
+      "rung": 0
+    },
+    {
       "name": "long coat",
-      "slot": "leg.r",
+      "slot": "leg.l",
       "x0": -13,
       "x1": 13,
       "y0": 8,
@@ -42,7 +42,7 @@
     },
     {
       "name": "coat glow seam",
-      "slot": "leg.r",
+      "slot": "leg.l",
       "x0": -2,
       "x1": 2,
       "y0": 11,
@@ -55,8 +55,8 @@
     {
       "name": "control gauntlet",
       "slot": "torso",
-      "x0": 12,
-      "x1": 19,
+      "x0": -19,
+      "x1": -12,
       "y0": 41,
       "y1": 50,
       "z0": -6,
@@ -65,10 +65,10 @@
       "rung": 3
     },
     {
-      "name": "right sleeve",
-      "slot": "arm.r",
-      "x0": 11,
-      "x1": 16,
+      "name": "left sleeve",
+      "slot": "arm.l",
+      "x0": -16,
+      "x1": -11,
       "y0": 49,
       "y1": 66,
       "z0": -4,
@@ -77,10 +77,10 @@
       "rung": 1
     },
     {
-      "name": "left sleeve",
-      "slot": "arm.l",
-      "x0": -16,
-      "x1": -11,
+      "name": "right sleeve",
+      "slot": "arm.r",
+      "x0": 11,
+      "x1": 16,
       "y0": 50,
       "y1": 69,
       "z0": -4,
@@ -115,8 +115,8 @@
     {
       "name": "drone hover glow",
       "slot": "torso",
-      "x0": -21,
-      "x1": -17,
+      "x0": 17,
+      "x1": 21,
       "y0": 60,
       "y1": 64,
       "z0": -3,
@@ -127,8 +127,8 @@
     {
       "name": "drone hull",
       "slot": "torso",
-      "x0": -24,
-      "x1": -14,
+      "x0": 14,
+      "x1": 24,
       "y0": 66,
       "y1": 74,
       "z0": -5,
@@ -139,8 +139,8 @@
     {
       "name": "drone eye",
       "slot": "head",
-      "x0": -22,
-      "x1": -16,
+      "x0": 16,
+      "x1": 22,
       "y0": 68,
       "y1": 72,
       "z0": -6,
@@ -211,8 +211,8 @@
     {
       "name": "hat step",
       "slot": "head",
-      "x0": -2,
-      "x1": 4,
+      "x0": -4,
+      "x1": 2,
       "y0": 93,
       "y1": 97,
       "z0": -2,
@@ -223,8 +223,8 @@
     {
       "name": "cap antenna",
       "slot": "head",
-      "x0": -1,
-      "x1": 3,
+      "x0": -3,
+      "x1": 1,
       "y0": 93,
       "y1": 101,
       "z0": -2,

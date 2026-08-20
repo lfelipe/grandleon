@@ -5,10 +5,10 @@
   "plan": "robed",
   "parts": [
     {
-      "name": "left sandal",
-      "slot": "foot.l",
-      "x0": -12,
-      "x1": -4,
+      "name": "right sandal",
+      "slot": "foot.r",
+      "x0": 4,
+      "x1": 12,
       "y0": 0,
       "y1": 4,
       "z0": -5,
@@ -17,10 +17,10 @@
       "rung": 2
     },
     {
-      "name": "right sandal",
-      "slot": "foot.r",
-      "x0": 4,
-      "x1": 12,
+      "name": "left sandal",
+      "slot": "foot.l",
+      "x0": -12,
+      "x1": -4,
       "y0": 0,
       "y1": 4,
       "z0": -5,
@@ -55,8 +55,8 @@
     {
       "name": "shakujo staff",
       "slot": "prop.main",
-      "x0": 16,
-      "x1": 21,
+      "x0": -21,
+      "x1": -16,
       "y0": 8,
       "y1": 77,
       "z0": -1,
@@ -65,10 +65,10 @@
       "rung": 1
     },
     {
-      "name": "right hand on staff",
+      "name": "left hand on staff",
       "slot": "prop.main",
-      "x0": 13,
-      "x1": 20,
+      "x0": -20,
+      "x1": -13,
       "y0": 42,
       "y1": 48,
       "z0": -2,
@@ -77,10 +77,10 @@
       "rung": 2
     },
     {
-      "name": "left sleeve",
-      "slot": "arm.l",
-      "x0": -19,
-      "x1": -13,
+      "name": "right sleeve",
+      "slot": "arm.r",
+      "x0": 13,
+      "x1": 19,
       "y0": 39,
       "y1": 57,
       "z0": -4,
@@ -101,10 +101,10 @@
       "rung": 3
     },
     {
-      "name": "kesa, lower right",
+      "name": "kesa, lower left",
       "slot": "torso",
-      "x0": -4,
-      "x1": 18,
+      "x0": -18,
+      "x1": 4,
       "y0": 39,
       "y1": 53,
       "z0": -10,
@@ -113,10 +113,10 @@
       "rung": 2
     },
     {
-      "name": "kesa, upper left",
+      "name": "kesa, upper right",
       "slot": "torso",
-      "x0": -17,
-      "x1": 5,
+      "x0": -5,
+      "x1": 17,
       "y0": 52,
       "y1": 64,
       "z0": -8,
@@ -163,8 +163,8 @@
     {
       "name": "shakujo, ring head",
       "slot": "head",
-      "x0": 9,
-      "x1": 29,
+      "x0": -29,
+      "x1": -9,
       "y0": 75,
       "y1": 87,
       "z0": -1,
@@ -175,8 +175,8 @@
     {
       "name": "shakujo, finial",
       "slot": "crest",
-      "x0": 17,
-      "x1": 21,
+      "x0": -21,
+      "x1": -17,
       "y0": 85,
       "y1": 89,
       "z0": -1,

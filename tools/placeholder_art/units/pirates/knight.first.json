@@ -5,18 +5,6 @@
   "plan": "legged",
   "parts": [
     {
-      "name": "left boot",
-      "slot": "foot.l",
-      "x0": -14,
-      "x1": -6,
-      "y0": 0,
-      "y1": 6,
-      "z0": -5,
-      "z1": 5,
-      "ramp": 0,
-      "rung": 0
-    },
-    {
       "name": "right boot",
       "slot": "foot.r",
       "x0": 6,
@@ -29,10 +17,22 @@
       "rung": 0
     },
     {
-      "name": "left leg",
-      "slot": "leg.l",
-      "x0": -13,
+      "name": "left boot",
+      "slot": "foot.l",
+      "x0": -14,
       "x1": -6,
+      "y0": 0,
+      "y1": 6,
+      "z0": -5,
+      "z1": 5,
+      "ramp": 0,
+      "rung": 0
+    },
+    {
+      "name": "right leg",
+      "slot": "leg.r",
+      "x0": 6,
+      "x1": 13,
       "y0": 5,
       "y1": 30,
       "z0": -4,
@@ -41,10 +41,10 @@
       "rung": 1
     },
     {
-      "name": "right leg",
-      "slot": "leg.r",
-      "x0": 6,
-      "x1": 13,
+      "name": "left leg",
+      "slot": "leg.l",
+      "x0": -13,
+      "x1": -6,
       "y0": 5,
       "y1": 30,
       "z0": -4,
@@ -89,10 +89,10 @@
       "rung": 2
     },
     {
-      "name": "right arm, bare",
-      "slot": "arm.r",
-      "x0": 13,
-      "x1": 20,
+      "name": "left arm, bare",
+      "slot": "arm.l",
+      "x0": -20,
+      "x1": -13,
       "y0": 43,
       "y1": 62,
       "z0": -4,
@@ -113,10 +113,10 @@
       "rung": 0
     },
     {
-      "name": "left arm, sword arm",
+      "name": "right arm, sword arm",
       "slot": "prop.main",
-      "x0": -20,
-      "x1": -13,
+      "x0": 13,
+      "x1": 20,
       "y0": 46,
       "y1": 66,
       "z0": -4,
@@ -139,8 +139,8 @@
     {
       "name": "cutlass grip",
       "slot": "prop.main",
-      "x0": -24,
-      "x1": -18,
+      "x0": 18,
+      "x1": 24,
       "y0": 59,
       "y1": 66,
       "z0": -4,
@@ -163,8 +163,8 @@
     {
       "name": "bandana tail",
       "slot": "waist",
-      "x0": 8,
-      "x1": 16,
+      "x0": -16,
+      "x1": -8,
       "y0": 72,
       "y1": 80,
       "z0": 4,
@@ -175,8 +175,8 @@
     {
       "name": "brass earring",
       "slot": "crest",
-      "x0": 8,
-      "x1": 11,
+      "x0": -11,
+      "x1": -8,
       "y0": 69,
       "y1": 72,
       "z0": -6,
@@ -199,8 +199,8 @@
     {
       "name": "cutlass blade",
       "slot": "prop.main",
-      "x0": -27,
-      "x1": -21,
+      "x0": 21,
+      "x1": 27,
       "y0": 64,
       "y1": 87,
       "z0": -4,

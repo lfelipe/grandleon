@@ -29,10 +29,10 @@
       "rung": 1
     },
     {
-      "name": "left sleeve",
-      "slot": "arm.l",
-      "x0": -15,
-      "x1": -9,
+      "name": "right sleeve",
+      "slot": "arm.r",
+      "x0": 9,
+      "x1": 15,
       "y0": 39,
       "y1": 57,
       "z0": -5,
@@ -41,10 +41,10 @@
       "rung": 1
     },
     {
-      "name": "right sleeve",
-      "slot": "arm.r",
-      "x0": 9,
-      "x1": 15,
+      "name": "left sleeve",
+      "slot": "arm.l",
+      "x0": -15,
+      "x1": -9,
       "y0": 39,
       "y1": 57,
       "z0": -5,
@@ -125,10 +125,10 @@
       "rung": 3
     },
     {
-      "name": "hair, left lock",
+      "name": "hair, right lock",
       "slot": "crest",
-      "x0": -8,
-      "x1": -5,
+      "x0": 5,
+      "x1": 8,
       "y0": 69,
       "y1": 83,
       "z0": -6,
@@ -137,10 +137,10 @@
       "rung": 0
     },
     {
-      "name": "hair, right lock",
+      "name": "hair, left lock",
       "slot": "crest",
-      "x0": 5,
-      "x1": 8,
+      "x0": -8,
+      "x1": -5,
       "y0": 69,
       "y1": 83,
       "z0": -6,
@@ -163,8 +163,8 @@
     {
       "name": "ofuda",
       "slot": "head",
-      "x0": 16,
-      "x1": 22,
+      "x0": -22,
+      "x1": -16,
       "y0": 74,
       "y1": 87,
       "z0": -2,

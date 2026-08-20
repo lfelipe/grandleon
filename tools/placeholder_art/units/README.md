@@ -65,6 +65,44 @@ bands it writes are invisible. Nine authored face parts elsewhere still are --
 socket behind its skull -- and those are art to fix rather than a rule to
 change.
 
+## Which side things are on was never asked
+
+Rule 4 holds a mesh to the **width** of its sprite's opaque box. A mirrored
+figure is exactly as wide as an unmirrored one, so nothing ever asked which side
+a staff, a shield or a banner was on -- and measured, nothing had. Mirroring a
+roster figure matched its sprite better on 29 of 56 units, which is a coin toss.
+The medieval mage carried its staff on the mesh's left and on the sprite's
+right.
+
+Worse, and separately: **32 of 56 roles had their two bodies facing opposite
+ways.** `figures.py` states the rule they broke -- "the role's identifying
+equipment is drawn by one routine for both figures and does not move by a
+pixel" -- and the sprites keep it, agreeing on 52 of 56 roles and disagreeing on
+none. Only the solids drifted. A player switching bodies would have watched the
+shield change hands.
+
+`face_the_sprite.py` turns each figure to its own sprite, which makes a role's
+two bodies agree by construction; where a body is too symmetric for its sprite
+to have an opinion, it is turned to agree with the role's other body rather than
+left to disagree silently. Thirty-six of 112 figures turned.
+
+| | before | after |
+|---|---|---|
+| silhouette match against its own sprite | 0.628 | **0.664** |
+| roles whose two bodies face opposite ways | 32 | **14** |
+| reads as its own class, whole picture | 9/56 | **15/56** |
+
+The fourteen that still disagree are figures neither sprite has an opinion
+about; they are symmetric enough that it does not show, and turning them would
+be churn rather than a fix.
+
+**This is what a reverted experiment was worth.** Painting each part the colour
+its sprite spends in that place improved three metrics and looked worse, and was
+reverted. The reason it looked worse is here: it read the sprite *positionally*,
+and for half the roster the positions did not correspond. The paint idea is not
+refuted, but it cannot be tried again honestly until this is true, and now it
+is.
+
 ## Rule 1 was wrong, and every figure was rebuilt
 
 Every figure here used to be built a flat 128 units tall, which rule 1 stated as

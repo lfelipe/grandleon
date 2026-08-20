@@ -19,8 +19,8 @@
     {
       "name": "staff, lower",
       "slot": "prop.main",
-      "x0": -20,
-      "x1": -14,
+      "x0": 14,
+      "x1": 20,
       "y0": 0,
       "y1": 41,
       "z0": -4,
@@ -77,10 +77,10 @@
       "rung": 2
     },
     {
-      "name": "right arm",
-      "slot": "arm.r",
-      "x0": 9,
-      "x1": 15,
+      "name": "left arm",
+      "slot": "arm.l",
+      "x0": -15,
+      "x1": -9,
       "y0": 44,
       "y1": 61,
       "z0": -5,
@@ -89,10 +89,10 @@
       "rung": 2
     },
     {
-      "name": "left arm",
-      "slot": "arm.l",
-      "x0": -15,
-      "x1": -9,
+      "name": "right arm",
+      "slot": "arm.r",
+      "x0": 9,
+      "x1": 15,
       "y0": 44,
       "y1": 61,
       "z0": -5,
@@ -103,8 +103,8 @@
     {
       "name": "staff, upper",
       "slot": "prop.main",
-      "x0": -20,
-      "x1": -14,
+      "x0": 14,
+      "x1": 20,
       "y0": 41,
       "y1": 81,
       "z0": -4,
@@ -197,18 +197,6 @@
       "rung": 0
     },
     {
-      "name": "antler beam left",
-      "slot": "crest",
-      "x0": -14,
-      "x1": -6,
-      "y0": 81,
-      "y1": 88,
-      "z0": -1,
-      "z1": 4,
-      "ramp": 0,
-      "rung": 3
-    },
-    {
       "name": "antler beam right",
       "slot": "crest",
       "x0": 6,
@@ -221,28 +209,28 @@
       "rung": 3
     },
     {
+      "name": "antler beam left",
+      "slot": "crest",
+      "x0": -14,
+      "x1": -6,
+      "y0": 81,
+      "y1": 88,
+      "z0": -1,
+      "z1": 4,
+      "ramp": 0,
+      "rung": 3
+    },
+    {
       "name": "staff gnarl",
       "slot": "prop.main",
-      "x0": -29,
-      "x1": -5,
+      "x0": 5,
+      "x1": 29,
       "y0": 79,
       "y1": 87,
       "z0": -4,
       "z1": 1,
       "ramp": 0,
       "rung": 2
-    },
-    {
-      "name": "antler prong left",
-      "slot": "crest",
-      "x0": -12,
-      "x1": -8,
-      "y0": 87,
-      "y1": 93,
-      "z0": -1,
-      "z1": 4,
-      "ramp": 0,
-      "rung": 3
     },
     {
       "name": "antler prong right",
@@ -257,10 +245,22 @@
       "rung": 3
     },
     {
+      "name": "antler prong left",
+      "slot": "crest",
+      "x0": -12,
+      "x1": -8,
+      "y0": 87,
+      "y1": 93,
+      "z0": -1,
+      "z1": 4,
+      "ramp": 0,
+      "rung": 3
+    },
+    {
       "name": "hat step",
       "slot": "crest",
-      "x0": -14,
-      "x1": -6,
+      "x0": 6,
+      "x1": 14,
       "y0": 89,
       "y1": 92,
       "z0": -1,

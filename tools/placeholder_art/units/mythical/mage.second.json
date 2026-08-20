@@ -41,10 +41,10 @@
       "rung": 0
     },
     {
-      "name": "left sleeve, short",
-      "slot": "arm.l",
-      "x0": -12,
-      "x1": -8,
+      "name": "right sleeve, short",
+      "slot": "arm.r",
+      "x0": 8,
+      "x1": 12,
       "y0": 34,
       "y1": 46,
       "z0": -4,
@@ -53,10 +53,10 @@
       "rung": 3
     },
     {
-      "name": "right sleeve, short",
-      "slot": "arm.r",
-      "x0": 8,
-      "x1": 12,
+      "name": "left sleeve, short",
+      "slot": "arm.l",
+      "x0": -12,
+      "x1": -8,
       "y0": 34,
       "y1": 46,
       "z0": -4,
@@ -79,8 +79,8 @@
     {
       "name": "staff hand",
       "slot": "prop.main",
-      "x0": -17,
-      "x1": -10,
+      "x0": 10,
+      "x1": 17,
       "y0": 40,
       "y1": 48,
       "z0": -4,
@@ -91,8 +91,8 @@
     {
       "name": "horn staff",
       "slot": "crest",
-      "x0": -16,
-      "x1": -12,
+      "x0": 12,
+      "x1": 16,
       "y0": 9,
       "y1": 85,
       "z0": -2,
@@ -115,8 +115,8 @@
     {
       "name": "hair tail",
       "slot": "crest",
-      "x0": 2,
-      "x1": 8,
+      "x0": -8,
+      "x1": -2,
       "y0": 49,
       "y1": 68,
       "z0": 4,
@@ -173,18 +173,6 @@
       "rung": 0
     },
     {
-      "name": "curved horn, left",
-      "slot": "crest",
-      "x0": -11,
-      "x1": -6,
-      "y0": 68,
-      "y1": 83,
-      "z0": -1,
-      "z1": 3,
-      "ramp": 0,
-      "rung": 3
-    },
-    {
       "name": "curved horn, right",
       "slot": "crest",
       "x0": 6,
@@ -197,28 +185,28 @@
       "rung": 3
     },
     {
+      "name": "curved horn, left",
+      "slot": "crest",
+      "x0": -11,
+      "x1": -6,
+      "y0": 68,
+      "y1": 83,
+      "z0": -1,
+      "z1": 3,
+      "ramp": 0,
+      "rung": 3
+    },
+    {
       "name": "hat step",
       "slot": "crest",
-      "x0": -26,
-      "x1": -2,
+      "x0": 2,
+      "x1": 26,
       "y0": 57,
       "y1": 95,
       "z0": -2,
       "z1": 1,
       "ramp": 0,
       "rung": 1
-    },
-    {
-      "name": "horn tip, left",
-      "slot": "crest",
-      "x0": -7,
-      "x1": -2,
-      "y0": 82,
-      "y1": 95,
-      "z0": -1,
-      "z1": 4,
-      "ramp": 0,
-      "rung": 3
     },
     {
       "name": "horn tip, right",
@@ -233,10 +221,22 @@
       "rung": 3
     },
     {
+      "name": "horn tip, left",
+      "slot": "crest",
+      "x0": -7,
+      "x1": -2,
+      "y0": 82,
+      "y1": 95,
+      "z0": -1,
+      "z1": 4,
+      "ramp": 0,
+      "rung": 3
+    },
+    {
       "name": "ember orb",
       "slot": "head",
-      "x0": -18,
-      "x1": -10,
+      "x0": 10,
+      "x1": 18,
       "y0": 83,
       "y1": 92,
       "z0": -4,

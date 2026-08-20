@@ -5,18 +5,6 @@
   "plan": "legged",
   "parts": [
     {
-      "name": "left boot",
-      "slot": "foot.l",
-      "x0": -12,
-      "x1": -4,
-      "y0": 0,
-      "y1": 4,
-      "z0": -4,
-      "z1": 4,
-      "ramp": 0,
-      "rung": 0
-    },
-    {
       "name": "right boot",
       "slot": "foot.r",
       "x0": 4,
@@ -29,16 +17,16 @@
       "rung": 0
     },
     {
-      "name": "left shin",
-      "slot": "leg.l",
-      "x0": -11,
-      "x1": -5,
-      "y0": 4,
-      "y1": 21,
-      "z0": -3,
-      "z1": 3,
+      "name": "left boot",
+      "slot": "foot.l",
+      "x0": -12,
+      "x1": -4,
+      "y0": 0,
+      "y1": 4,
+      "z0": -4,
+      "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "right shin",
@@ -53,16 +41,16 @@
       "rung": 1
     },
     {
-      "name": "left thigh",
+      "name": "left shin",
       "slot": "leg.l",
       "x0": -11,
-      "x1": -4,
-      "y0": 19,
-      "y1": 34,
-      "z0": -4,
-      "z1": 4,
+      "x1": -5,
+      "y0": 4,
+      "y1": 21,
+      "z0": -3,
+      "z1": 3,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right thigh",
@@ -77,10 +65,22 @@
       "rung": 2
     },
     {
+      "name": "left thigh",
+      "slot": "leg.l",
+      "x0": -11,
+      "x1": -4,
+      "y0": 19,
+      "y1": 34,
+      "z0": -4,
+      "z1": 4,
+      "ramp": 0,
+      "rung": 2
+    },
+    {
       "name": "slab shield",
       "slot": "prop.off",
-      "x0": 12,
-      "x1": 28,
+      "x0": -28,
+      "x1": -12,
       "y0": 5,
       "y1": 46,
       "z0": -9,
@@ -91,8 +91,8 @@
     {
       "name": "shield lit chevron",
       "slot": "prop.off",
-      "x0": 12,
-      "x1": 28,
+      "x0": -28,
+      "x1": -12,
       "y0": 22,
       "y1": 27,
       "z0": -10,
@@ -101,10 +101,10 @@
       "rung": 3
     },
     {
-      "name": "rifle, stock upright",
+      "name": "rifle, stock upleft",
       "slot": "prop.main",
-      "x0": -22,
-      "x1": -16,
+      "x0": 16,
+      "x1": 22,
       "y0": 22,
       "y1": 40,
       "z0": -7,
@@ -125,10 +125,10 @@
       "rung": 1
     },
     {
-      "name": "right arm",
-      "slot": "arm.r",
-      "x0": 12,
-      "x1": 16,
+      "name": "left arm",
+      "slot": "arm.l",
+      "x0": -16,
+      "x1": -12,
       "y0": 40,
       "y1": 56,
       "z0": -3,
@@ -137,10 +137,10 @@
       "rung": 1
     },
     {
-      "name": "left arm",
-      "slot": "arm.l",
-      "x0": -16,
-      "x1": -12,
+      "name": "right arm",
+      "slot": "arm.r",
+      "x0": 12,
+      "x1": 16,
       "y0": 41,
       "y1": 57,
       "z0": -3,
@@ -163,8 +163,8 @@
     {
       "name": "rifle, receiver",
       "slot": "prop.main",
-      "x0": -23,
-      "x1": -15,
+      "x0": 15,
+      "x1": 23,
       "y0": 39,
       "y1": 56,
       "z0": -7,
@@ -197,10 +197,10 @@
       "rung": 0
     },
     {
-      "name": "left pauldron",
-      "slot": "arm.l",
-      "x0": -17,
-      "x1": -10,
+      "name": "right pauldron",
+      "slot": "arm.r",
+      "x0": 10,
+      "x1": 17,
       "y0": 56,
       "y1": 62,
       "z0": -5,
@@ -209,10 +209,10 @@
       "rung": 2
     },
     {
-      "name": "right pauldron",
-      "slot": "arm.r",
-      "x0": 10,
-      "x1": 17,
+      "name": "left pauldron",
+      "slot": "arm.l",
+      "x0": -17,
+      "x1": -10,
       "y0": 56,
       "y1": 62,
       "z0": -5,
@@ -235,8 +235,8 @@
     {
       "name": "rifle, muzzle glow",
       "slot": "prop.main",
-      "x0": -22,
-      "x1": -16,
+      "x0": 16,
+      "x1": 22,
       "y0": 55,
       "y1": 65,
       "z0": -7,
