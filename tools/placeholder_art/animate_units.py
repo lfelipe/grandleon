@@ -43,16 +43,27 @@ from placeholder_art import (characters, frames, gallery, playstation_header,
 from placeholder_art.meshes import Part, authored, rules
 import roster_comparison as rc
 
-#: World units per sprite row. A figure stands `GROUND_Y` rows tall in its cell
-#: and `MESH_WORLD_HEIGHT` units tall in the world, so this is the one number
-#: that carries a pose from one to the other.
-PER_ROW = rules.MESH_WORLD_HEIGHT / characters.GROUND_Y
+def per_row(parts) -> float:
+    """World units per sprite row, for this figure.
 
-#: The sprite's landmarks, in world height. A sprite counts rows downward from
-#: the top of the cell and a figure counts units upward from its feet, so these
-#: are measured from the ground line rather than converted directly.
-KNEE = (characters.GROUND_Y - frames.KNEE_Y) * PER_ROW
-SHOULDER = (characters.GROUND_Y - frames.SHOULDER_Y) * PER_ROW
+    A pose is written in the sprite's rows and applied in the figure's units,
+    so something has to carry one to the other. It used to be a constant,
+    because every figure was built the same 128 units tall. Rule 1 now builds
+    each figure to be *drawn* its own sprite's height, so a figure's units per
+    row are its own: a beast built 40 tall and a knight built 93 tall do not
+    move a limb the same distance for the same row of pose.
+    """
+    crown = max(part.y1 for part in parts)
+    return crown / characters.GROUND_Y
+
+def shoulder(scale: float) -> float:
+    """The sprite's shoulder line, in this figure's world height.
+
+    A sprite counts rows downward from the top of the cell and a figure counts
+    units upward from its feet, so both landmarks are measured from the ground
+    line rather than converted directly.
+    """
+    return (characters.GROUND_Y - frames.SHOULDER_Y) * scale
 
 #: Slots that are a leg. A part-based figure can say which boxes are legs, where
 #: a sprite can only say which rows are low, so the stride is applied to the
@@ -103,10 +114,11 @@ def posed(parts: Sequence[Part], slots: Sequence[str], frame: str) -> List[Part]
     high = max(p.x1 for p in parts)
     centre = (low + high) / 2.0
     tall = max(p.y1 for p in parts) - min(p.y0 for p in parts)
-    bob = frames.WALK_BOB * PER_ROW
-    lift = frames.WALK_LIFT * PER_ROW
-    stride = frames.WALK_STRIDE_OUT * PER_ROW
-    swing = frames.WALK_SWING_IN * PER_ROW
+    scale = per_row(parts)
+    bob = frames.WALK_BOB * scale
+    lift = frames.WALK_LIFT * scale
+    stride = frames.WALK_STRIDE_OUT * scale
+    swing = frames.WALK_SWING_IN * scale
 
     out: List[Part] = []
     lifted: set = set()
@@ -148,17 +160,17 @@ def posed(parts: Sequence[Part], slots: Sequence[str], frame: str) -> List[Part]
             # Coiled into a blow: a squash, not a sink. Legs planted, the torso
             # settling and the shoulders settling further.
             if not leg:
-                dy = -(frames.LUNGE_SQUASH if middle > SHOULDER
-                       else frames.LUNGE_CROUCH) * PER_ROW
+                dy = -(frames.LUNGE_SQUASH if middle > shoulder(scale)
+                       else frames.LUNGE_CROUCH) * scale
             if held or arm:
-                dz = -frames.LUNGE_CROUCH * PER_ROW
+                dz = -frames.LUNGE_CROUCH * scale
         elif frame == "cast":
             # Gathered, and what is carried raised: the one pose where the prop
             # is the whole of the read at this size.
             if held or arm:
-                dy = frames.CAST_LIFT * PER_ROW
+                dy = frames.CAST_LIFT * scale
             elif not leg:
-                dy = -frames.CAST_GATHER * PER_ROW
+                dy = -frames.CAST_GATHER * scale
 
         raise_floor = lift if len(out) in lifted else 0.0
         low = int(round(part.y0 + dy + raise_floor))

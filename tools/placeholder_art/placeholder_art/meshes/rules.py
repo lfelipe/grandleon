@@ -21,13 +21,23 @@ for a UV to be.
 
 The four rules, and every one of them was learned by measurement
 ---------------------------------------------------------------
-1. **A figure is built at** ``unit_world / cos φ``, **not at** ``unit_world``.
-   A world-vertical extent H is drawn ``focal·H·cos φ / depth`` pixels tall, so
-   at the shipped sixty-degree pitch a figure one tile tall is drawn *half* a
-   tile tall. :data:`MESH_WORLD_HEIGHT` is that compensation computed rather
-   than typed. This is the world-stretch that is wrong for a *billboard* and
-   right for a mesh, for the same reason: a billboard's stretch runs away with
-   the pitch, and at the one pitch this camera uses a solid's is bounded.
+1. **A figure is built to be drawn the height its own sprite is drawn.** A
+   world-vertical extent H is drawn ``focal·H·cos φ / depth`` pixels tall, so at
+   the shipped sixty-degree pitch a figure must be built taller than it is meant
+   to appear. :func:`build_scale` is that compensation computed rather than
+   typed. This is the world-stretch that is wrong for a *billboard* and right
+   for a mesh, for the same reason: a billboard's stretch runs away with the
+   pitch, and at the one pitch this camera uses a solid's is bounded.
+
+   For a long time this rule read "built at ``unit_world / cos φ``", a flat 128
+   for all 112 figures, and it was wrong twice over. It sized the figure to a
+   **tile**, 32 rows, where a sprite's figure is the 28 above the faction disc;
+   and it ignored that the pitch sends **depth** to screen height as well, at
+   ``tan φ`` per unit -- which the paragraph below already said, and which the
+   rule did not do. The two compound to 1.39, and that is exactly how much
+   narrower than its own sprite every mesh in this repository measured. The
+   height was wrong, not the width. What replaces it is rule 4 applied to the
+   other axis of the same box, so the two are now one measurement.
 
 2. **Every face names a ramp and a rung, never a colour.** A mesh carries no
    colour at all. The ramp resolves with no table and no naming convention: an
@@ -55,9 +65,10 @@ The four rules, and every one of them was learned by measurement
    strip gives up against that mass's centre is very nearly what its own
    proudness buys back. :func:`machine_order_margin` is the second reading.
 
-4. **The silhouette is the sprite's, measured.** The width and height a mesh is
-   held to are the opaque box of the archetype's own generated sprite **in that
-   same style**, in texels of its cell, read from the very arrays the console
+4. **The silhouette is the sprite's, measured.** The width a mesh is authored
+   to and the height it is *drawn* at are the opaque box of the archetype's own
+   generated sprite **in that same style**, the height taken above the faction
+   disc so that four rows of ground are not counted as part of the person, in texels of its cell, read from the very arrays the console
    uploads to VRAM by :func:`..playstation_header.silhouettes`. They are
    *emitted* into the generated header so that redrawing a sprite moves its
    mesh's target with it and no renderer, document or hand-written constant has
@@ -152,11 +163,24 @@ PITCH_DEGREES = 60
 #: unit is drawn the size of.
 UNIT_WORLD = 64
 
-#: How tall a figure is built, from rule 1 rather than from taste:
-#: ``unit_world / cos φ``. At sixty degrees this is 128: two tiles, to be drawn
-#: one tile tall.
+#: The tallest a figure may be **built**, which is what a figure of no depth at
+#: all would be built to stand its sprite's full height: ``unit_world / cos φ``.
+#: It is a ceiling and not the build height. This used to be the build height,
+#: applied flat to all 112 figures, and that was wrong twice over -- see
+#: :func:`build_scale`.
 MESH_WORLD_HEIGHT = round(UNIT_WORLD / math.cos(math.radians(PITCH_DEGREES)))
-assert MESH_WORLD_HEIGHT == 128, "the shipped pitch builds a figure two tiles tall"
+assert MESH_WORLD_HEIGHT == 128, "the shipped pitch bounds a figure at two tiles"
+
+#: What ``sin φ`` and ``cos φ`` are, once, for the two places that project.
+PITCH_COSINE = math.cos(math.radians(PITCH_DEGREES))
+PITCH_SINE = math.sin(math.radians(PITCH_DEGREES))
+
+#: How far a figure's drawn height may sit from its sprite's before it stops
+#: being a rounding and starts being a mistake. Integer corners cannot land the
+#: projection exactly; the worst rounding over all 112 figures is 0.38 units,
+#: so two is slack enough to never fire on arithmetic and tight enough to fire
+#: on a figure built to the wrong height.
+HEIGHT_TOLERANCE = 2
 
 #: The two ramps a face may name. Neutral is the archetype's own colours, which
 #: every faction shares; faction is the ramp the six factions differ on. The
@@ -435,6 +459,14 @@ class Silhouette:
     width: int
     height: int
     area: int
+    #: The opaque box of the **figure alone**, in texels: the same measurement
+    #: as :attr:`height` taken above :data:`..characters.GROUND_Y`, so the
+    #: faction disc under the feet is not counted as part of the person. The
+    #: disc is four rows of every cell and identical for every class, and
+    #: measuring through it is a mistake this repository has now made four
+    #: separate times -- in ``fit_silhouette.py``, in ``taper_headgear.py``, in
+    #: the recognisability metric, and in rule 1 itself.
+    figure_height: int
 
 
 def target_width(silhouette: Silhouette) -> int:
@@ -449,6 +481,76 @@ def target_width(silhouette: Silhouette) -> int:
     reproportioned neither.
     """
     return (UNIT_WORLD * silhouette.width) // characters.SPRITE
+
+
+def target_height(silhouette: Silhouette) -> int:
+    """The world height the silhouette rule asks a mesh to be **drawn**.
+
+    Rule 4's other half, and for years the missing one. It is the same
+    arithmetic as :func:`target_width` on the same box, and it is a *drawn*
+    height rather than a built one: what a figure must be built to is whatever
+    projects to this, which is :func:`build_scale`.
+
+    Measured on :attr:`Silhouette.figure_height`, so the faction disc is not
+    counted. A beast's sprite is nineteen rows where a knight's is twenty-eight,
+    and holding both to one number is what made every beast in the roster half
+    again too tall for its own drawing.
+    """
+    return (UNIT_WORLD * silhouette.figure_height) // characters.SPRITE
+
+
+def projected_height(parts: Sequence[Part], scale: float = 1.0) -> float:
+    """How tall this figure is actually drawn, in world units of screen height.
+
+    The camera sends world y to screen vertical through ``cos φ`` and world z
+    through ``sin φ``. Both, which is the whole of what rule 1 used to miss: a
+    figure's drawn height is not its y-extent, it is the extent of ``y·cos φ +
+    z·sin φ`` over every corner it has. A part pushed away raises the crown
+    and a part pulled forward lowers the feet, so the top and the bottom are not
+    in general the topmost and bottommost boxes.
+
+    ``scale`` multiplies y only, because that is the one axis
+    :func:`build_scale` is allowed to move: the width is rule 4's and the depth
+    is what the ordering in rule 3 is built out of.
+    """
+    top = max(part.y1 * scale * PITCH_COSINE + part.z1 * PITCH_SINE
+              for part in parts)
+    bottom = min(part.y0 * scale * PITCH_COSINE + part.z0 * PITCH_SINE
+                 for part in parts)
+    return top - bottom
+
+
+def build_scale(parts: Sequence[Part], silhouette: Silhouette) -> float:
+    """What to multiply this figure's y **and z** by to draw it its own height.
+
+    Rule 1 used to build every figure ``unit_world / cos φ`` = 128 units tall
+    and say why: "two tiles, to be drawn one tile tall". It was not drawn one
+    tile tall, for two reasons that multiply to 1.39 -- which is exactly the
+    factor by which every mesh in this repository measured narrower than its
+    sprite when the two were brought to the same height.
+
+    * **A tile is 32 rows and the sprite's figure is 28 of them.** The other
+      four are the faction disc. Sized to the tile, a figure stands 32/28
+      taller than the sprite beside it.
+    * **Depth buys screen height and was never paid for.** The paragraph above
+      rule 1 has always said so -- "depth spent on one part is height the whole
+      figure gives back" -- but rule 1 pinned the height to a constant, so the
+      figure never gave it back. A 16-unit z-span adds 22%.
+
+    **Both axes, and that is the whole of why it is one number.** The projection
+    is ``y·cos φ + z·sin φ``, so scaling y and z together scales the drawn
+    height by exactly that factor and nothing has to be solved. Scaling y alone
+    would also land the height -- and it was tried -- but it changes every box's
+    ``dy/dz``, which is the one ratio the paragraph above rule 1 says decides
+    whether a part reads as a wall or as a plate. Measured over the roster,
+    y alone turns 41% of parts into plates into 70%, and the figures go flat:
+    a staircase of bright top faces, which is exactly the failure that
+    paragraph was written about. Scaling both leaves the ratio alone, and
+    leaves the plate share where the author put it.
+
+    x is not scaled, because the width is rule 4's and is already right.
+    """
+    return target_height(silhouette) / projected_height(parts)
 
 
 def authored_width(parts: Sequence[Part]) -> int:
@@ -517,12 +619,15 @@ def _check_figure(parts: Tuple[Part, ...], silhouette: Silhouette,
         assert part.x0 < part.x1 and part.y0 < part.y1 and part.z0 < part.z1, (
             f"{where}: part '{part.name}' is not a box with volume")
 
-    # Rule 1: built at unit_world / cos, feet on the ground.
+    # Rule 1: feet on the ground, and drawn the height its own sprite is drawn.
+    # Measured on the projection rather than on the y-extent, because the pitch
+    # sends depth to screen height too and a figure that ignores that is drawn
+    # taller than the sprite it stands in for.
     assert min(part.y0 for part in parts) == 0, (
         f"{where}: the figure's feet are not at y = 0")
-    assert max(part.y1 for part in parts) == MESH_WORLD_HEIGHT, (
-        f"{where}: the figure is not built {MESH_WORLD_HEIGHT} units tall, "
-        f"which is unit_world / cos({PITCH_DEGREES})")
+    assert max(part.y1 for part in parts) <= MESH_WORLD_HEIGHT, (
+        f"{where}: built {max(part.y1 for part in parts)} units tall, past the "
+        f"{MESH_WORLD_HEIGHT}-unit ceiling a figure of no depth would need")
 
     # Rule 2: a ramp and a rung, never a colour. There is nowhere for a
     # colour to be, so what is checkable is that both indices exist.
@@ -577,3 +682,15 @@ def _check_figure(parts: Tuple[Part, ...], silhouette: Silhouette,
         f"silhouette asks {asked}, past the {WIDTH_TOLERANCE}-unit "
         f"tolerance. Reproportion the boxes rather than widening the "
         f"tolerance")
+
+    # Rule 4, the other half: drawn the height its sprite is drawn. This is
+    # rule 1's second sentence, measured here because it is the same
+    # measurement on the same box.
+    assert silhouette.figure_height > 0, (
+        f"{where}: the sprite has no figure above the faction disc to target")
+    wants = target_height(silhouette)
+    drawn = projected_height(parts)
+    assert abs(drawn - wants) <= HEIGHT_TOLERANCE, (
+        f"{where}: drawn {drawn:.1f} world units tall where its sprite's "
+        f"figure asks {wants}. Scale the figure's y by "
+        f"build_scale(parts, silhouette) rather than moving the tolerance")

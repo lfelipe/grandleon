@@ -134,6 +134,11 @@ def silhouette_of(source: Converted) -> meshes.Silhouette:
     words = [clut_word(colour) for colour in source.colours]
     left, right = source.width, -1
     top, bottom = source.height, -1
+    # The figure's own box, taken above the faction disc. The disc is the four
+    # rows of ground a unit stands on, identical for every class, and it is not
+    # part of the person -- a mesh held to a height measured through it is held
+    # to a figure an eighth taller than the one drawn.
+    figure_top, figure_bottom = source.height, -1
     area = 0
     for y in range(source.height):
         row = y * source.width
@@ -144,10 +149,15 @@ def silhouette_of(source: Converted) -> meshes.Silhouette:
             right = max(right, x)
             top = min(top, y)
             bottom = max(bottom, y)
+            if y < characters.GROUND_Y:
+                figure_top = min(figure_top, y)
+                figure_bottom = max(figure_bottom, y)
             area += 1
     if right < left:
-        return meshes.Silhouette(0, 0, 0)
-    return meshes.Silhouette(right - left + 1, bottom - top + 1, area)
+        return meshes.Silhouette(0, 0, 0, 0)
+    return meshes.Silhouette(right - left + 1, bottom - top + 1, area,
+                             0 if figure_bottom < 0
+                             else figure_bottom - figure_top + 1)
 
 
 def silhouettes(converted: Dict[str, Converted], style: styles.Style,
@@ -646,5 +656,12 @@ def emit_meshes(style: styles.Style, measured: Sequence[meshes.Silhouette],
                    [entry.height for entry in measured]),
         _int_array(_identifier("mesh_silhouette_area"),
                    [entry.area for entry in measured]),
+        "// The figure's own height, above the faction disc: what rule 1 builds"
+        " a mesh to be",
+        "// drawn, as opposed to the cell height above, which counts the four"
+        " rows of ground",
+        "// a unit stands on.",
+        _int_array(_identifier("mesh_silhouette_figure_height"),
+                   [entry.figure_height for entry in measured]),
     ]
     return "\n".join(lines) + "\n"

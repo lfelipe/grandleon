@@ -7,13 +7,13 @@
       "count": 24,
       "max": [
         15.0,
-        20.0,
-        9.0
+        12.0,
+        5.0
       ],
       "min": [
         -15.0,
         0.0,
-        -9.0
+        -5.0
       ],
       "type": "VEC3"
     },
@@ -38,13 +38,13 @@
       "count": 24,
       "max": [
         13.0,
-        52.0,
-        8.0
+        31.0,
+        5.0
       ],
       "min": [
         -13.0,
-        18.0,
-        -8.0
+        11.0,
+        -5.0
       ],
       "type": "VEC3"
     },
@@ -69,13 +69,13 @@
       "count": 24,
       "max": [
         4.0,
-        84.0,
-        10.0
+        50.0,
+        6.0
       ],
       "min": [
         -4.0,
-        6.0,
-        8.0
+        4.0,
+        5.0
       ],
       "type": "VEC3"
     },
@@ -100,13 +100,13 @@
       "count": 24,
       "max": [
         -16.0,
-        76.0,
-        -2.0
+        45.0,
+        -1.0
       ],
       "min": [
         -30.0,
-        46.0,
-        -10.0
+        27.0,
+        -6.0
       ],
       "type": "VEC3"
     },
@@ -131,13 +131,13 @@
       "count": 24,
       "max": [
         30.0,
-        76.0,
-        -2.0
+        45.0,
+        -1.0
       ],
       "min": [
         16.0,
-        46.0,
-        -10.0
+        27.0,
+        -6.0
       ],
       "type": "VEC3"
     },
@@ -162,13 +162,13 @@
       "count": 24,
       "max": [
         -11.0,
-        76.0,
-        6.0
+        45.0,
+        4.0
       ],
       "min": [
         -15.0,
-        50.0,
-        -6.0
+        30.0,
+        -4.0
       ],
       "type": "VEC3"
     },
@@ -193,13 +193,13 @@
       "count": 24,
       "max": [
         15.0,
-        76.0,
-        6.0
+        45.0,
+        4.0
       ],
       "min": [
         11.0,
-        50.0,
-        -6.0
+        30.0,
+        -4.0
       ],
       "type": "VEC3"
     },
@@ -224,13 +224,13 @@
       "count": 24,
       "max": [
         11.0,
-        84.0,
-        8.0
+        50.0,
+        5.0
       ],
       "min": [
         -11.0,
-        50.0,
-        -8.0
+        30.0,
+        -5.0
       ],
       "type": "VEC3"
     },
@@ -255,13 +255,13 @@
       "count": 24,
       "max": [
         -16.0,
-        86.0,
-        4.0
+        51.0,
+        2.0
       ],
       "min": [
         -30.0,
-        72.0,
-        -8.0
+        43.0,
+        -5.0
       ],
       "type": "VEC3"
     },
@@ -286,13 +286,13 @@
       "count": 24,
       "max": [
         30.0,
-        86.0,
-        4.0
+        51.0,
+        2.0
       ],
       "min": [
         16.0,
-        72.0,
-        -8.0
+        43.0,
+        -5.0
       ],
       "type": "VEC3"
     },
@@ -317,13 +317,13 @@
       "count": 24,
       "max": [
         -20.0,
-        92.0,
-        6.0
+        55.0,
+        4.0
       ],
       "min": [
         -30.0,
-        82.0,
-        -2.0
+        49.0,
+        -1.0
       ],
       "type": "VEC3"
     },
@@ -348,13 +348,13 @@
       "count": 24,
       "max": [
         30.0,
-        92.0,
-        6.0
+        55.0,
+        4.0
       ],
       "min": [
         20.0,
-        82.0,
-        -2.0
+        49.0,
+        -1.0
       ],
       "type": "VEC3"
     },
@@ -379,13 +379,13 @@
       "count": 24,
       "max": [
         -20.0,
-        98.0,
-        8.0
+        59.0,
+        5.0
       ],
       "min": [
         -32.0,
-        88.0,
-        -2.0
+        53.0,
+        -1.0
       ],
       "type": "VEC3"
     },
@@ -410,13 +410,13 @@
       "count": 24,
       "max": [
         32.0,
-        98.0,
-        8.0
+        59.0,
+        5.0
       ],
       "min": [
         20.0,
-        88.0,
-        -2.0
+        53.0,
+        -1.0
       ],
       "type": "VEC3"
     },
@@ -440,14 +440,14 @@
       "componentType": 5126,
       "count": 24,
       "max": [
-        -23.0,
-        106.0,
-        -2.0
+        -25.0,
+        57.0,
+        6.0
       ],
       "min": [
-        -31.0,
-        98.0,
-        -8.0
+        -30.0,
+        55.0,
+        5.0
       ],
       "type": "VEC3"
     },
@@ -471,14 +471,14 @@
       "componentType": 5126,
       "count": 24,
       "max": [
-        31.0,
-        106.0,
-        -2.0
+        30.0,
+        57.0,
+        6.0
       ],
       "min": [
-        23.0,
-        98.0,
-        -8.0
+        25.0,
+        55.0,
+        5.0
       ],
       "type": "VEC3"
     },
@@ -502,14 +502,14 @@
       "componentType": 5126,
       "count": 24,
       "max": [
-        -25.0,
-        96.0,
-        10.0
+        -23.0,
+        63.0,
+        -1.0
       ],
       "min": [
-        -30.0,
-        92.0,
-        8.0
+        -31.0,
+        59.0,
+        -5.0
       ],
       "type": "VEC3"
     },
@@ -533,14 +533,14 @@
       "componentType": 5126,
       "count": 24,
       "max": [
-        30.0,
-        96.0,
-        10.0
+        31.0,
+        63.0,
+        -1.0
       ],
       "min": [
-        25.0,
-        92.0,
-        8.0
+        23.0,
+        59.0,
+        -5.0
       ],
       "type": "VEC3"
     },
@@ -565,13 +565,13 @@
       "count": 24,
       "max": [
         8.0,
-        112.0,
-        7.0
+        67.0,
+        4.0
       ],
       "min": [
         -8.0,
-        92.0,
-        -7.0
+        55.0,
+        -4.0
       ],
       "type": "VEC3"
     },
@@ -596,13 +596,13 @@
       "count": 24,
       "max": [
         10.0,
-        120.0,
-        4.0
+        72.0,
+        2.0
       ],
       "min": [
         -10.0,
-        102.0,
-        -10.0
+        61.0,
+        -6.0
       ],
       "type": "VEC3"
     },
@@ -627,13 +627,13 @@
       "count": 24,
       "max": [
         9.0,
-        128.0,
-        6.0
+        76.0,
+        4.0
       ],
       "min": [
         -9.0,
-        118.0,
-        -6.0
+        71.0,
+        -4.0
       ],
       "type": "VEC3"
     },
@@ -1017,7 +1017,7 @@
       ]
     },
     {
-      "name": "14_left_wyrmling_crest",
+      "name": "14_left_wyrmling_eye",
       "primitives": [
         {
           "attributes": {
@@ -1031,7 +1031,7 @@
       ]
     },
     {
-      "name": "15_right_wyrmling_crest",
+      "name": "15_right_wyrmling_eye",
       "primitives": [
         {
           "attributes": {
@@ -1045,7 +1045,7 @@
       ]
     },
     {
-      "name": "16_left_wyrmling_eye",
+      "name": "16_left_wyrmling_crest",
       "primitives": [
         {
           "attributes": {
@@ -1059,7 +1059,7 @@
       ]
     },
     {
-      "name": "17_right_wyrmling_eye",
+      "name": "17_right_wyrmling_crest",
       "primitives": [
         {
           "attributes": {
@@ -1322,46 +1322,46 @@
     {
       "extras": {
         "part": 14,
-        "partName": "left wyrmling, crest",
-        "ramp": 0,
-        "rampName": "neutral",
-        "rung": 3
-      },
-      "mesh": 14,
-      "name": "14_left_wyrmling_crest"
-    },
-    {
-      "extras": {
-        "part": 15,
-        "partName": "right wyrmling, crest",
-        "ramp": 0,
-        "rampName": "neutral",
-        "rung": 3
-      },
-      "mesh": 15,
-      "name": "15_right_wyrmling_crest"
-    },
-    {
-      "extras": {
-        "part": 16,
         "partName": "left wyrmling, eye",
         "ramp": 0,
         "rampName": "neutral",
         "rung": 3
       },
-      "mesh": 16,
-      "name": "16_left_wyrmling_eye"
+      "mesh": 14,
+      "name": "14_left_wyrmling_eye"
     },
     {
       "extras": {
-        "part": 17,
+        "part": 15,
         "partName": "right wyrmling, eye",
         "ramp": 0,
         "rampName": "neutral",
         "rung": 3
       },
+      "mesh": 15,
+      "name": "15_right_wyrmling_eye"
+    },
+    {
+      "extras": {
+        "part": 16,
+        "partName": "left wyrmling, crest",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
+      "mesh": 16,
+      "name": "16_left_wyrmling_crest"
+    },
+    {
+      "extras": {
+        "part": 17,
+        "partName": "right wyrmling, crest",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
       "mesh": 17,
-      "name": "17_right_wyrmling_eye"
+      "name": "17_right_wyrmling_crest"
     },
     {
       "extras": {

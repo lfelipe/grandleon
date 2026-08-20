@@ -7,13 +7,13 @@
       "count": 24,
       "max": [
         -10.0,
-        44.0,
-        -4.0
+        24.0,
+        -2.0
       ],
       "min": [
         -18.0,
         0.0,
-        -12.0
+        -7.0
       ],
       "type": "VEC3"
     },
@@ -38,13 +38,13 @@
       "count": 24,
       "max": [
         14.0,
-        44.0,
-        -4.0
+        24.0,
+        -2.0
       ],
       "min": [
         6.0,
         0.0,
-        -12.0
+        -7.0
       ],
       "type": "VEC3"
     },
@@ -69,13 +69,13 @@
       "count": 24,
       "max": [
         -6.0,
-        44.0,
-        14.0
+        24.0,
+        8.0
       ],
       "min": [
         -14.0,
         0.0,
-        6.0
+        3.0
       ],
       "type": "VEC3"
     },
@@ -100,13 +100,13 @@
       "count": 24,
       "max": [
         18.0,
-        44.0,
-        14.0
+        24.0,
+        8.0
       ],
       "min": [
         10.0,
         0.0,
-        6.0
+        3.0
       ],
       "type": "VEC3"
     },
@@ -131,13 +131,13 @@
       "count": 24,
       "max": [
         20.0,
-        76.0,
-        14.0
+        42.0,
+        8.0
       ],
       "min": [
         -20.0,
-        40.0,
-        -10.0
+        22.0,
+        -6.0
       ],
       "type": "VEC3"
     },
@@ -161,13 +161,13 @@
       "componentType": 5126,
       "count": 24,
       "max": [
-        24.0,
-        72.0,
-        12.0
+        -12.0,
+        44.0,
+        0.0
       ],
       "min": [
-        14.0,
-        46.0,
+        -24.0,
+        27.0,
         -4.0
       ],
       "type": "VEC3"
@@ -192,14 +192,14 @@
       "componentType": 5126,
       "count": 24,
       "max": [
-        -12.0,
-        80.0,
-        0.0
+        24.0,
+        40.0,
+        7.0
       ],
       "min": [
-        -24.0,
-        48.0,
-        -8.0
+        14.0,
+        26.0,
+        -2.0
       ],
       "type": "VEC3"
     },
@@ -224,13 +224,13 @@
       "count": 24,
       "max": [
         28.0,
-        64.0,
-        16.0
+        36.0,
+        9.0
       ],
       "min": [
         16.0,
-        48.0,
-        10.0
+        27.0,
+        6.0
       ],
       "type": "VEC3"
     },
@@ -254,14 +254,14 @@
       "componentType": 5126,
       "count": 24,
       "max": [
-        36.0,
-        70.0,
-        18.0
+        34.0,
+        44.0,
+        7.0
       ],
       "min": [
-        26.0,
-        60.0,
-        12.0
+        19.0,
+        34.0,
+        -1.0
       ],
       "type": "VEC3"
     },
@@ -285,14 +285,14 @@
       "componentType": 5126,
       "count": 24,
       "max": [
-        34.0,
-        80.0,
-        12.0
+        36.0,
+        39.0,
+        10.0
       ],
       "min": [
-        19.0,
-        62.0,
-        -2.0
+        26.0,
+        33.0,
+        7.0
       ],
       "type": "VEC3"
     },
@@ -317,13 +317,13 @@
       "count": 24,
       "max": [
         14.0,
-        78.0,
-        10.0
+        43.0,
+        6.0
       ],
       "min": [
         -14.0,
-        72.0,
-        -8.0
+        40.0,
+        -4.0
       ],
       "type": "VEC3"
     },
@@ -348,13 +348,13 @@
       "count": 24,
       "max": [
         24.0,
-        94.0,
+        52.0,
         0.0
       ],
       "min": [
         19.0,
-        78.0,
-        -6.0
+        43.0,
+        -3.0
       ],
       "type": "VEC3"
     },
@@ -379,13 +379,13 @@
       "count": 24,
       "max": [
         34.0,
-        94.0,
+        52.0,
         0.0
       ],
       "min": [
         29.0,
-        78.0,
-        -6.0
+        43.0,
+        -3.0
       ],
       "type": "VEC3"
     },
@@ -410,13 +410,13 @@
       "count": 24,
       "max": [
         -19.0,
-        108.0,
-        -2.0
+        60.0,
+        -1.0
       ],
       "min": [
         -27.0,
-        76.0,
-        -10.0
+        42.0,
+        -6.0
       ],
       "type": "VEC3"
     },
@@ -441,13 +441,13 @@
       "count": 24,
       "max": [
         -23.0,
-        128.0,
-        -4.0
+        71.0,
+        -2.0
       ],
       "min": [
         -29.0,
-        106.0,
-        -12.0
+        59.0,
+        -7.0
       ],
       "type": "VEC3"
     },
@@ -686,7 +686,7 @@
       ]
     },
     {
-      "name": "05_chest",
+      "name": "05_tail_root",
       "primitives": [
         {
           "attributes": {
@@ -700,7 +700,7 @@
       ]
     },
     {
-      "name": "06_tail_root",
+      "name": "06_chest",
       "primitives": [
         {
           "attributes": {
@@ -728,7 +728,7 @@
       ]
     },
     {
-      "name": "08_muzzle",
+      "name": "08_skull",
       "primitives": [
         {
           "attributes": {
@@ -736,13 +736,13 @@
             "POSITION": 24
           },
           "indices": 26,
-          "material": 3,
+          "material": 2,
           "mode": 4
         }
       ]
     },
     {
-      "name": "09_skull",
+      "name": "09_muzzle",
       "primitives": [
         {
           "attributes": {
@@ -750,7 +750,7 @@
             "POSITION": 27
           },
           "indices": 29,
-          "material": 2,
+          "material": 3,
           "mode": 4
         }
       ]
@@ -928,24 +928,24 @@
     {
       "extras": {
         "part": 5,
-        "partName": "chest",
-        "ramp": 0,
-        "rampName": "neutral",
-        "rung": 1
-      },
-      "mesh": 5,
-      "name": "05_chest"
-    },
-    {
-      "extras": {
-        "part": 6,
         "partName": "tail, root",
         "ramp": 0,
         "rampName": "neutral",
         "rung": 1
       },
+      "mesh": 5,
+      "name": "05_tail_root"
+    },
+    {
+      "extras": {
+        "part": 6,
+        "partName": "chest",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 1
+      },
       "mesh": 6,
-      "name": "06_tail_root"
+      "name": "06_chest"
     },
     {
       "extras": {
@@ -961,24 +961,24 @@
     {
       "extras": {
         "part": 8,
-        "partName": "muzzle",
-        "ramp": 0,
-        "rampName": "neutral",
-        "rung": 3
-      },
-      "mesh": 8,
-      "name": "08_muzzle"
-    },
-    {
-      "extras": {
-        "part": 9,
         "partName": "skull",
         "ramp": 0,
         "rampName": "neutral",
         "rung": 2
       },
+      "mesh": 8,
+      "name": "08_skull"
+    },
+    {
+      "extras": {
+        "part": 9,
+        "partName": "muzzle",
+        "ramp": 0,
+        "rampName": "neutral",
+        "rung": 3
+      },
       "mesh": 9,
-      "name": "09_skull"
+      "name": "09_muzzle"
     },
     {
       "extras": {

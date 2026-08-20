@@ -793,6 +793,26 @@ def _silhouette_refusal(style_name: str, archetype: str, canvas: Canvas,
     asked = meshes.target_width(silhouette)
     actual = meshes.authored_width(parts)
     if abs(actual - asked) <= meshes.WIDTH_TOLERANCE:
+        # Width first, then the height half of the same rule on the same box.
+        # In that order because a replaced sprite moves both targets at once,
+        # and a mesh author told to reproportion a figure whose width is
+        # already right has been told the wrong thing.
+        #
+        # A figure is built to be *drawn* its sprite's height, which is not the
+        # same as being built that tall: the pitch sends world y to screen
+        # through cos and world z through sin, so a figure's own depth buys
+        # screen height and has to be paid for out of its build height.
+        drawn = meshes.projected_height(parts)
+        wants = meshes.target_height(silhouette)
+        if abs(drawn - wants) > meshes.HEIGHT_TOLERANCE:
+            return Refusal(
+                mesh_label or sprite_label, "mesh-height",
+                f"the {style_name} {archetype} is drawn {drawn:.1f} world "
+                f"units tall where its own sprite's figure asks {wants}. Scale "
+                f"the figure's y until meshes.projected_height matches; a "
+                f"figure of no depth would be built "
+                f"{meshes.MESH_WORLD_HEIGHT} tall and every unit of depth it "
+                f"does have costs it tan({meshes.PITCH_DEGREES}) units of that")
         return None
     if mesh_label:
         return Refusal(
@@ -810,7 +830,8 @@ def _silhouette_refusal(style_name: str, archetype: str, canvas: Canvas,
     allowed = [texels for texels in range(1, canvas.width + 1)
                if abs(actual - meshes.target_width(
                    meshes.Silhouette(texels, silhouette.height,
-                                     silhouette.area)))
+                                     silhouette.area,
+                                     silhouette.figure_height)))
                <= meshes.WIDTH_TOLERANCE]
     span = (f"between {allowed[0]} and {allowed[-1]} texels wide"
             if allowed else "no width at all, at this mesh's proportions")
@@ -913,15 +934,19 @@ def _mesh_refusals(file_label: str, parts: Sequence[meshes.Part],
 
     feet = min(part.y0 for part in parts)
     crown = max(part.y1 for part in parts)
-    if (feet, crown) != (0, meshes.MESH_WORLD_HEIGHT):
+    if feet != 0:
         out.append(Refusal(
             file_label, "mesh-height",
-            f"{where} stands from y = {feet} to y = {crown}, and a figure is "
-            f"built from y = 0 to y = {meshes.MESH_WORLD_HEIGHT}. That height "
-            f"is unit_world / cos({meshes.PITCH_DEGREES}) rather than "
-            f"unit_world, because a world-vertical extent is drawn "
-            f"focal*H*cos(pitch)/depth pixels tall, so a figure one tile tall "
-            f"is drawn half a tile tall"))
+            f"{where} stands from y = {feet} rather than from y = 0, and a "
+            f"figure's feet are its origin"))
+    elif crown > meshes.MESH_WORLD_HEIGHT:
+        out.append(Refusal(
+            file_label, "mesh-height",
+            f"{where} reaches y = {crown}, past the "
+            f"{meshes.MESH_WORLD_HEIGHT}-unit ceiling, which is what a figure "
+            f"of no depth at all would be built to to stand its sprite's "
+            f"height"))
+
 
     triangles = len(parts) * meshes.TRIANGLES_PER_PART
     low, high = meshes.TRIANGLE_BAND

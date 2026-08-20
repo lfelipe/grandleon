@@ -576,9 +576,9 @@ def document(style_name: str, archetype: str, parts: Sequence[meshes.Part],
 # re-encoding with this repository's own writer.
 # ---------------------------------------------------------------------------
 
-#: How far from the origin a coordinate may sit, on any axis. A figure is built
-#: :data:`~.meshes.MESH_WORLD_HEIGHT` tall, so nothing in it may reach further
-#: from the origin than the figure is tall. That is measured against the
+#: How far from the origin a coordinate may sit, on any axis.
+#: :data:`~.meshes.MESH_WORLD_HEIGHT` is the ceiling a figure is built under,
+#: so nothing in one may reach further from the origin than that. That is measured against the
 #: shipped library, whose widest coordinate is 38 in x and 34 in z against
 #: exactly this number in y. It is also what keeps every emitted value inside
 #: the ``short`` the generated console header declares.

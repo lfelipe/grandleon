@@ -71,14 +71,18 @@ from . import (authored, medieval, mythical, nature, pirates, rules, scifi,
 from .rules import (FACES_PER_PART, MESH_WORLD_HEIGHT, PART_FIELDS,
                     PITCH_DEGREES, RAMP_COUNT, RAMP_FACTION, RAMP_NEUTRAL,
                     RUNG_COUNT, TRIANGLE_BAND, TRIANGLES_PER_PART, UNIT_WORLD,
+                    HEIGHT_TOLERANCE, PITCH_COSINE, PITCH_SINE,
                     VALUES_PER_PART, VERTICES_PER_PART, WIDTH_TOLERANCE, Part,
+                    build_scale, projected_height, target_height,
                     Silhouette, authored_width, depth_key, target_width)
 
 __all__ = [
     "COMMISSIONS", "FACES_PER_PART", "MESH_WORLD_HEIGHT", "PART_FIELDS",
     "PITCH_DEGREES", "RAMP_COUNT", "RAMP_FACTION", "RAMP_NEUTRAL",
     "RUNG_COUNT", "TRIANGLE_BAND", "TRIANGLES_PER_PART", "UNIT_WORLD",
+    "HEIGHT_TOLERANCE", "PITCH_COSINE", "PITCH_SINE",
     "VALUES_PER_PART", "VERTICES_PER_PART", "WIDTH_TOLERANCE", "Part",
+    "build_scale", "projected_height", "target_height",
     "Silhouette", "authored", "authored_width", "check", "commission",
     "commissioned_styles", "depth_key", "has_meshes", "parts_for", "provided",
     "roster", "rules", "target_width",

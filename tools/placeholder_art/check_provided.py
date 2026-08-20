@@ -174,7 +174,7 @@ def _model(parts: Tuple[meshes.Part, ...],
     """One model as the two files it is: the document and its buffer."""
     words = [[0] * meshes.RUNG_COUNT for _ in range(meshes.RAMP_COUNT)]
     text, buffer = gltf.document(
-        MODEL_STYLE, archetype, parts, meshes.Silhouette(0, 0, 0), words,
+        MODEL_STYLE, archetype, parts, meshes.Silhouette(0, 0, 0, 0), words,
         characters.FACTION_COLOURS[gltf.BAKED_FACTION].name, _stub_channels)
     return text.encode("utf-8"), buffer
 
@@ -286,7 +286,7 @@ def _model_cases() -> List[Tuple[str, str, Dict[str, object]]]:
                  "rung", 9))}),
         ("mesh-ramp", "no part wearing the faction ramp",
          dict(zip((MODEL_DOCUMENT, MODEL_BUFFER), _model(colourless)))),
-        ("mesh-height", "a figure that does not reach its build height",
+        ("mesh-height", "a figure not drawn the height its own sprite is",
          dict(zip((MODEL_DOCUMENT, MODEL_BUFFER),
                   _model(_moved(parts, len(parts) - 1,
                                 y1=meshes.MESH_WORLD_HEIGHT - 8))))),

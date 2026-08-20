@@ -65,6 +65,42 @@ bands it writes are invisible. Nine authored face parts elsewhere still are --
 socket behind its skull -- and those are art to fix rather than a rule to
 change.
 
+## Rule 1 was wrong, and every figure was rebuilt
+
+Every figure here used to be built a flat 128 units tall, which rule 1 stated as
+`unit_world / cos 60` and justified as "two tiles, to be drawn one tile tall".
+It was not drawn one tile tall. Measured over this roster it was drawn **1.20
+tiles**, and the reason is two mistakes that multiply:
+
+* **A tile is 32 rows and a sprite's figure is 28 of them.** The other four are
+  the faction disc. That is 1.14x on its own, and it is the *fourth* bug this
+  disc has caused here -- after `fit_silhouette.py`, `taper_headgear.py` and the
+  recognisability metric.
+* **Depth buys screen height and was never paid for.** The paragraph above rule 1
+  has always said "depth spent on one part is height the whole figure gives
+  back", but rule 1 pinned the height to a constant, so it never gave it back.
+  A 16-unit z-span adds 22%.
+
+1.14 x 1.22 = 1.39, which is exactly how much narrower than its own sprite every
+mesh here measured once the two were brought to the same height. **The width was
+never wrong.** Rule 1 now asks that a figure be *drawn* its own sprite's height,
+which is rule 4 applied to the other axis of the same box, and
+`rescale_to_projection.py` is the one-line derivation that rebuilt all 112.
+
+Two things worth keeping from doing it:
+
+* **Scale y and z together, never y alone.** Both land the height, because the
+  projection is `y cos + z sin`. But y alone changes every box's `dy/dz`, which
+  is what decides whether a part reads as a wall or as a plate: it took the
+  roster from 41% plates to 70%, and the figures went flat -- the staircase of
+  bright top faces the rules module warns about. Drawn and looked at, not
+  inferred.
+* **The class-read metric went 15/56 to 11/56 and that is not evidence of
+  harm.** It squashes both shapes into a 24x24 box, so it cannot see height at
+  all; what little it does see is lattice sampling. Silhouette match at *true*
+  aspect went 0.557 to 0.625, improving on 50 of 56. The two measures disagree
+  because one of them is blind to the thing that changed.
+
 ## What the metrics say, and which of them to trust
 
 Pixel-difference metrics say this roster is doing well: models differ from each
