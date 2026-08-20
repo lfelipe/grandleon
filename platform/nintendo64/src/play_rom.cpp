@@ -3671,13 +3671,21 @@ public:
                 return;
             }
             case ap::Check::after_ability: {
-                // Three a side. Cinder Arc took the knight the archer had
-                // already worn to one, and the Coil took the southern knight
-                // in the block before this one. See the script's header for
-                // the round-by-round derivation.
+                // Three of ours and four of theirs. Cinder Arc took the knight
+                // the archer had already worn to one, and the Coil took the
+                // southern knight in the block before this one. See the
+                // script's header for the round-by-round derivation.
+                //
+                // Four rather than three because a fifth of theirs is on this
+                // board: the levy that opens far out on the east road, pursuing
+                // at three tiles an activation. By this checkpoint it has
+                // walked the twenty-odd columns of open ground into the window
+                // this counts, which is what a pursuing character does and the
+                // reason it was placed out there rather than left as scenery.
                 expect(
-                    classified.blue == 3 && classified.red == 3,
-                    "the arc took the wounded knight, and the guard is three"
+                    classified.blue == 3 && classified.red == 4,
+                    "the arc took the wounded knight, the guard is three, and "
+                    "the levy has come down the road"
                 );
                 // Alive, and deliberately not `sim::on_board`. The claim is
                 // that the cast *killed* whoever stood here, and `on_board` is
