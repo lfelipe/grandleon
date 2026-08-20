@@ -925,6 +925,64 @@ int main() {
         );
     }
 
+    // ----- a held direction -------------------------------------------
+    //
+    // The rule both consoles read, so the two poll loops that implement it
+    // cannot drift. What matters is the shape: nothing before the delay, then
+    // exactly one step per period and never two on adjacent frames.
+    {
+        expect(
+            held_repeat_delay_frames == 20 && held_repeat_period_frames == 6,
+            "the numbers themselves, so a change to either is a change here"
+        );
+        expect(
+            held_repeat_period_frames == slide_frames_per_tile,
+            "the cursor crosses a tile at the pace a character walks one, which "
+            "is a speed the player has already been taught"
+        );
+
+        for (int frame = 0; frame < held_repeat_delay_frames; ++frame) {
+            expect(
+                !repeat_due(frame),
+                "a direction held for less than the delay steps once and no more"
+            );
+        }
+        expect(
+            repeat_due(held_repeat_delay_frames),
+            "and steps the moment the delay is up"
+        );
+
+        // One step a period, counted over a long hold rather than asserted at
+        // two points: a rule that fired twice in a period would cross a board
+        // at double the speed it claims.
+        int steps = 0;
+        int since = 0;
+        bool spaced = true;
+        for (int frame = held_repeat_delay_frames; frame < 200; ++frame) {
+            if (!repeat_due(frame)) {
+                ++since;
+                continue;
+            }
+            if (steps > 0 && since != held_repeat_period_frames - 1) {
+                spaced = false;
+            }
+            since = 0;
+            ++steps;
+        }
+        expect(spaced, "every step is a whole period after the one before it");
+        expect(
+            steps == (200 - held_repeat_delay_frames + held_repeat_period_frames - 1)
+                / held_repeat_period_frames,
+            "and the count over a long hold is the periods it contains"
+        );
+
+        // Ten cells a second, said as the number a player would feel.
+        expect(
+            60 / held_repeat_period_frames == 10,
+            "a held direction crosses ten cells a second at 60 Hz"
+        );
+    }
+
     if (failures == 0) {
         std::cout << "board motion model: all checks passed\n";
         return 0;

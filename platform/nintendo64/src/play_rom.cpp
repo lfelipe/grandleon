@@ -8054,9 +8054,49 @@ void probe_the_spent_figure(
 
 #if !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
 
+// Edge triggered, plus a held direction that keeps stepping.
+//
+// One press moved the cursor one cell, so crossing a board the width of the
+// Fordlight cost twenty presses of the same direction. A direction leaned on
+// now repeats: after a third of a second, ten cells a second, which is the pace
+// a character walks a tile at and so a speed the player has already been
+// taught. `view::repeat_due` holds both numbers, because the PlayStation reads
+// its own pad and two copies of this rule would drift.
+//
+// Directions only. A repeating A would confirm things nobody chose and a
+// repeating START would open and close a menu as fast as it could draw one.
+//
+// Here rather than in the client, and this build is the only one that compiles
+// it: a probe and an autopilot have their own `poll_buttons` above, so a
+// recorded script cannot meet a repeat and every expectation derived from one
+// stays exactly what it was.
 joypad_buttons_t poll_buttons() {
     joypad_poll();
-    return joypad_get_buttons_pressed(JOYPAD_PORT_1);
+    joypad_buttons_t edges = joypad_get_buttons_pressed(JOYPAD_PORT_1);
+    const joypad_buttons_t held = joypad_get_buttons(JOYPAD_PORT_1);
+    const unsigned leaning =
+        (held.d_up ? 1U : 0U) | (held.d_down ? 2U : 0U) |
+        (held.d_left ? 4U : 0U) | (held.d_right ? 8U : 0U);
+    // Static, because a hold is a fact about the thumb rather than about
+    // whichever loop happens to be asking: the cursor, the company rows and the
+    // board menu all poll through here and a lean carries across them.
+    static unsigned leaned_on = 0;
+    static int leaned_frames = 0;
+    const bool stepped =
+        edges.d_up || edges.d_down || edges.d_left || edges.d_right;
+    if (leaning != leaned_on || stepped) {
+        leaned_on = leaning;
+        leaned_frames = 0;
+    } else if (leaning != 0) {
+        ++leaned_frames;
+        if (view::repeat_due(leaned_frames)) {
+            edges.d_up = held.d_up;
+            edges.d_down = held.d_down;
+            edges.d_left = held.d_left;
+            edges.d_right = held.d_right;
+        }
+    }
+    return edges;
 }
 
 #elif defined(GRANDLEON_N64_AUTOPILOT)

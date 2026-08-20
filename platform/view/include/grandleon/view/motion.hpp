@@ -147,6 +147,44 @@ inline constexpr int pan_frames_most = 24;
 }
 
 // ---------------------------------------------------------------------------
+// A held direction
+// ---------------------------------------------------------------------------
+//
+// One press moved the cursor one cell, so crossing a board the width of the
+// Fordlight cost twenty presses of the same direction. A held direction now
+// keeps it moving.
+//
+// The two numbers are here and the mechanism is not, and that split is the
+// point. Each console polls its own pad, so the *rule* has to live somewhere
+// both read or it becomes two rules that drift; but the repeat itself has to
+// happen where the pad is read, because every console check in this repository
+// replays a recorded list of discrete presses and derives its expectations by
+// replaying that same list on the host. A repeat that reached the client would
+// change what a script means. A repeat that lives at the pad leaves every
+// recorded script exactly as valid as it was, and a headless run - which has no
+// pad at all - never sees one.
+
+// How long a direction is held before it starts repeating: twenty frames, a
+// third of a second. Long enough that an ordinary press is one cell and nobody
+// overshoots by leaning on the pad, short enough that somebody who means to
+// cross the board is not made to wait for permission.
+inline constexpr int held_repeat_delay_frames = 20;
+
+// And how often it repeats after that: every six frames, ten cells a second.
+// The same six a body spends walking one tile, deliberately - the cursor
+// crossing the board at the pace a character walks it is a speed the player has
+// already been taught, and it is fast enough that twenty cells is two seconds.
+inline constexpr int held_repeat_period_frames = slide_frames_per_tile;
+
+// Whether a direction held for `frames` should step this frame. False for every
+// frame before the delay, and true on exactly one frame in each period after
+// it, so a caller polls this once a frame and needs no state but the count.
+[[nodiscard]] constexpr bool repeat_due(int frames) noexcept {
+    if (frames < held_repeat_delay_frames) return false;
+    return (frames - held_repeat_delay_frames) % held_repeat_period_frames == 0;
+}
+
+// ---------------------------------------------------------------------------
 // Sliding
 // ---------------------------------------------------------------------------
 

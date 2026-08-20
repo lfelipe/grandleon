@@ -811,6 +811,12 @@ public:
     std::uint16_t next_press() override {
         std::uint32_t frame = 0;
         bool emphasised = false;
+        // Which direction is being leaned on, and for how many frames. Held
+        // across calls would be wrong: every call starts a fresh question, and
+        // a thumb still resting on a direction from the last answer should have
+        // to hold it again rather than run away with the next screen.
+        std::uint16_t leaning = 0;
+        int leaned_frames = 0;
         for (;;) {
             psx::wait_vblank();
             const std::uint16_t live = pad::pressed();
@@ -835,6 +841,30 @@ public:
                 return script_presses[consumed_++];
             }
 #endif
+            // A direction still held keeps the cursor moving, so crossing a
+            // board is one lean rather than twenty presses. Directions only:
+            // a repeating A would confirm things nobody chose, and a repeating
+            // START would open and close a menu as fast as it could draw it.
+            //
+            // Counted here rather than in the client because the client is
+            // handed a list of presses by a script under the harness, and a
+            // repeat that reached it would change what that list means.
+            const std::uint16_t held = static_cast<std::uint16_t>(
+                pad::read() &
+                (turn::pad_up | turn::pad_down | turn::pad_left |
+                 turn::pad_right)
+            );
+            if (held != leaning) {
+                leaning = held;
+                leaned_frames = 0;
+            } else if (held != 0) {
+                ++leaned_frames;
+                if (view::repeat_due(leaned_frames)) {
+                    if (emphasised) draw_held(false);
+                    return held;
+                }
+            }
+
             // A played build falls through to here and waits, which is the
             // whole of the difference: no press is invented, so a screen that
             // asks a question keeps asking it until somebody answers.

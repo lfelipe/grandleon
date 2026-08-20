@@ -64,8 +64,13 @@ void begin() noexcept;
 [[nodiscard]] std::uint16_t read() noexcept;
 
 // Every button that went down since the last call to this function. Edge
-// triggered, so a held direction is one cursor step, and a script's meaning
-// never depends on how long a thumb rested.
+// triggered, so one press is one step and a script's meaning never depends on
+// how long a thumb rested.
+//
+// A held direction repeating is built on top of this rather than into it: the
+// poll loop in `turn_exe.cpp` counts frames against `read()` and decides,
+// because the repeat must not reach a client that is being handed a recorded
+// list of presses. See `view::repeat_due`.
 [[nodiscard]] std::uint16_t pressed() noexcept;
 
 // ---------------------------------------------------------------------------
