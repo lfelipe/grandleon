@@ -1762,6 +1762,111 @@ private:
         }
     }
 
+    // ----- a word said during a fight --------------------------------------
+
+    // How wide and how tall a bubble is, on the glyph grid this executable
+    // writes text on. Narrower and shorter than the sheet the story pages use,
+    // and deliberately: this one sits on the board with the fight still under
+    // it, so it has to leave the fight visible and fit beside a character
+    // standing anywhere on the screen.
+    static constexpr int bubble_columns = 30;
+    static constexpr int bubble_rows = 3;
+
+    // One saying over the board, beside whoever is speaking.
+    //
+    // The full-screen page is right for a story node, which has the screen to
+    // itself between battles. It is wrong for a word said during a fight: the
+    // board is what the words are about, and a page hides it at the moment
+    // somebody is talking about it. The client has already brought the camera
+    // to the speaker, so the cell this is drawn against is on the screen.
+    bool hold_saying(
+        const sim::EncounterSnapshot& snapshot,
+        const turn::Overlay& overlay,
+        std::uint64_t speaker,
+        const char* who,
+        const char* what
+    ) override {
+        if (last_overlay_ == nullptr && held_ == nullptr) return false;
+
+        // Where the speaker stands, if the scene cast somebody who is here. A
+        // scene that cast nobody still gets its words; the bubble simply takes
+        // the foot of the screen rather than a cell.
+        int against_column = -1;
+        int against_row = -1;
+        if (speaker != 0) {
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (!sim::on_board(unit)) continue;
+                if (unit.unit_type_id != speaker) continue;
+                against_column = cell_left(unit.position.x) / glyph;
+                against_row =
+                    cell_top(unit.position.x, unit.position.y) / glyph;
+                break;
+            }
+        }
+
+        // Wrapped here rather than by the client, because how many columns fit
+        // is this display's business and the two consoles have different ones.
+        char rows[bubble_rows][bubble_columns + 1] = {};
+        int row_count = 0;
+        int at = 0;
+        for (int i = 0; what != nullptr && what[i] != '\0';) {
+            // The next word, and whether it still fits on this row.
+            int word = 0;
+            while (what[i + word] != '\0' && what[i + word] != ' ') ++word;
+            if (at > 0 && at + 1 + word > bubble_columns) {
+                if (++row_count >= bubble_rows) break;
+                at = 0;
+            }
+            if (at > 0) rows[row_count][at++] = ' ';
+            for (int c = 0; c < word && at < bubble_columns; ++c) {
+                rows[row_count][at++] = what[i + c];
+            }
+            i += word;
+            while (what[i] == ' ') ++i;
+        }
+        if (at > 0) ++row_count;
+        if (row_count == 0) row_count = 1;
+
+        // Against the speaker, and never off the screen: above them when they
+        // are low on the board and below when they are high, so the bubble does
+        // not cover the character it is about.
+        const int height = row_count + 1;
+        int left = 1;
+        int top = screen_rows - height - bar_rows - 1;
+        if (against_column >= 0) {
+            left = against_column - bubble_columns / 2;
+            top = against_row > screen_rows / 2 ? against_row - height - 1
+                                                : against_row + 2;
+        }
+        if (left < 0) left = 0;
+        if (left + bubble_columns > screen_cols) {
+            left = screen_cols - bubble_columns;
+        }
+        if (top < 1) top = 1;
+        if (top + height > screen_rows - bar_rows) {
+            top = screen_rows - bar_rows - height;
+        }
+
+        psx::wait_vblank();
+        gpu::begin(paper_colour);
+        draw(snapshot, overlay, false);
+        gpu::fill(
+            left * glyph - 2, top * glyph - 2, bubble_columns * glyph + 4,
+            height * glyph + 4, ink_colour
+        );
+        gpu::fill(
+            left * glyph, top * glyph, bubble_columns * glyph, height * glyph,
+            paper_colour
+        );
+        write_at(left, top, who);
+        for (int row = 0; row < row_count; ++row) {
+            write_at(left, top + 1 + row, rows[row]);
+        }
+        gpu::show();
+        next_press();
+        return true;
+    }
+
     // ----- what motion needs -----------------------------------------------
 
     // One leg of a slide: six frames a tile, and the last of them is the

@@ -52,6 +52,9 @@ enum class Check : std::uint16_t {
     title = 1,
     controls,
     cutscene,
+    // A word said over the board while the battle is on, which is a different
+    // surface from `cutscene`: the board is still underneath it.
+    saying,
     battle_open,
     unit_panel,
     move_range,

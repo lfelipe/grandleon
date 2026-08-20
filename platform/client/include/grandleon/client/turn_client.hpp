@@ -695,6 +695,35 @@ public:
     // Every one of them must return with the board settled: a checkpoint
     // always follows a `paint`, and a `paint` always follows these.
 
+    // One saying, drawn over the board beside whoever is speaking, and held
+    // until somebody presses on. Returns false when this platform has no such
+    // surface, and the full-screen page is used instead - which is what every
+    // platform did before this existed and what the host tools still do.
+    //
+    // The page is the right surface for a story node, which happens between
+    // battles and has the screen to itself. It is the wrong one for a word said
+    // *during* a fight: the board is what the words are about, and replacing it
+    // with a portrait hides the thing being talked about at the moment somebody
+    // is talking about it.
+    //
+    // `speaker` is the unit type the scene cast for this saying, or zero when it
+    // cast nobody. Which character on the board that is, and whether they are on
+    // the screen at all, is settled before this is called.
+    virtual bool hold_saying(
+        const sim::EncounterSnapshot& snapshot,
+        const Overlay& overlay,
+        std::uint64_t speaker,
+        const char* who,
+        const char* what
+    ) {
+        (void)snapshot;
+        (void)overlay;
+        (void)speaker;
+        (void)who;
+        (void)what;
+        return false;
+    }
+
     // One frame drawn while this client is moving the camera: the camera has
     // already been moved, and this draws the board where it now stands and
     // waits for the display.
@@ -1413,6 +1442,10 @@ private:
     // The placement identity behind a battle-local unit, or zero when this
     // board's identities were never handed over.
     [[nodiscard]] std::uint64_t placement_of(sim::UnitId unit) const;
+
+    // Whether the scene being presented is happening during a battle, in which
+    // case it is said over the board rather than staged on a page of its own.
+    bool saying_over_board_{false};
 
     // The opening sweep this board asked for, planned when the board opened and
     // spent on the frame it first becomes visible. Zero frames is a board with

@@ -157,11 +157,18 @@ inline constexpr Step fordlight_autopilot[] = {
     {Op::press, button_a, 0, 0, nullptr},
 
     // The Fordlight opens with words: two sayings, a press each, before the
-    // board is drawn at all. A scene during a battle is paged exactly as a
-    // scene between them is, so the script reads it the same way.
+    // board is settled. They are said *over* the board rather than on a page of
+    // their own, so the checkpoint here is about a surface no other one covers:
+    // the words, and the fight still visible underneath them.
     {Op::wait, 20, 0, 0, nullptr},
     {Op::press, button_a, 0, 0, nullptr},
     {Op::wait, 10, 0, 0, nullptr},
+    // Photographed between the two, where a bubble is certainly on the screen.
+    // Before the first press it is not: the ops are consumed by whichever wait
+    // polls next, and the cutscene's own last press is still ahead of the board
+    // being drawn at all.
+    {Op::checkpoint, static_cast<std::uint16_t>(Check::saying), 0, 0,
+     "saying"},
     {Op::press, button_a, 0, 0, nullptr},
 
     // The battle opens behind its banner. Verify the authored board.

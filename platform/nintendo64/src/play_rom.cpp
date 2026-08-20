@@ -1597,6 +1597,109 @@ public:
         }
     }
 
+#ifndef GRANDLEON_N64_PROBE
+    // A saying drawn over the board, beside whoever is speaking.
+    //
+    // The cutscene page is the right surface for a story node, which happens
+    // between battles and has the screen to itself. It is the wrong one for a
+    // word said during a fight: the board is what the words are about, and
+    // replacing it with a portrait hides the thing being talked about at the
+    // moment somebody is talking about it.
+    //
+    // So the board keeps its screen and the words sit on it. Who is speaking is
+    // said by *where* the bubble is rather than only by a name: it is drawn
+    // against the speaker's own cell, and the camera is brought to them first,
+    // which on a board with edges is the difference between a bubble about
+    // somebody and a bubble about nobody visible.
+    void say_over_board(
+        const sim::EncounterSnapshot& snapshot,
+        const grandleon::package_runtime::Dialogue& dialogue,
+        const grandleon::package_runtime::DialogueLine& line
+    ) {
+
+        // Whoever on this board is the character the scene cast for this
+        // saying. A scene that cast nobody, or cast somebody who is not
+        // standing here, still gets its words: the bubble simply has no cell to
+        // sit against and takes the foot of the screen.
+        sim::UnitId who = 0;
+        sim::Position stands{};
+        const std::uint64_t* const cast = dialogue.speaker_unit_type(line);
+        if (cast != nullptr) {
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (!sim::on_board(unit)) continue;
+                if (unit.unit_type_id != *cast) continue;
+                who = unit.id;
+                stands = unit.position;
+                break;
+            }
+        }
+        if (who != 0) bring_into_view(stands);
+
+        const std::vector<std::string> rows =
+            wrap_text(ascii_only(line.text), screen::bubble_columns);
+        const int per_page = screen::bubble_rows;
+        const int pages = pages_of(static_cast<int>(rows.size()), per_page);
+        for (int page = 0; page < pages; ++page) {
+            const auto shown = screen::page_of(rows.size(), per_page, page);
+            const int lines = static_cast<int>(shown.last - shown.first);
+            const int height = 8 * (lines + 1) + 10;
+            const int width = screen::bubble_columns * 8 + 10;
+
+            // Against the speaker, and never off the screen. Above them when
+            // they are low on the board and below when they are high, so the
+            // bubble does not cover the character it is about.
+            int left = 8;
+            int top = 200 - height;
+            if (who != 0) {
+                const int cell_x = px(stands.x);
+                const int cell_y = py(stands.x, stands.y);
+                left = cell_x + tile_ / 2 - width / 2;
+                top = cell_y > 120 ? cell_y - height - 4 : cell_y + tile_ + 4;
+            }
+            if (left < 4) left = 4;
+            if (left + width > 316) left = 316 - width;
+            if (top < 16) top = 16;
+            if (top + height > 232) top = 232 - height;
+
+            // Kept so a checkpoint can assert what was drawn and where: that
+            // the bubble is on the screen at all, and that it is not sitting on
+            // top of the character it is about.
+            said_left_ = left;
+            said_top_ = top;
+            said_width_ = width;
+            said_height_ = height;
+            said_about_ = who;
+            said_at_x_ = who != 0 ? px(stands.x) + tile_ / 2 : -1;
+            said_at_y_ = who != 0 ? py(stands.x, stands.y) + tile_ / 2 : -1;
+
+            surface_t* disp = display_get();
+            render(disp, snapshot, 0);
+            draw_highlights(disp, snapshot);
+            draw_cursor(disp, snapshot);
+            graphics_draw_box(disp, left, top, width, height, colour(242, 193, 78));
+            graphics_draw_box(
+                disp, left + 2, top + 2, width - 4, height - 4, colour(16, 26, 27)
+            );
+            graphics_set_color(colour(242, 193, 78), 0);
+            graphics_draw_text(
+                disp, left + 5, top + 5, ascii_only(line.speaker).c_str()
+            );
+            graphics_set_color(colour(245, 234, 210), 0);
+            for (std::size_t index = shown.first; index < shown.last; ++index) {
+                graphics_draw_text(
+                    disp, left + 5,
+                    top + 5 + 8 * static_cast<int>(index - shown.first + 1),
+                    rows[index].c_str()
+                );
+            }
+            grandleon::n64audio::pump();
+            show(disp);
+            wait_for_a();
+        }
+    }
+
+#endif
+
     void battle_begins(
         const sim::EncounterSnapshot& snapshot,
         const client::Roster& roster,
@@ -1675,8 +1778,14 @@ public:
     // Plays every moment of one occasion, in the order they were authored.
     // `about` is zero for the board's own.
     void play_moments(
+        const sim::EncounterSnapshot& snapshot,
         grandleon::package_runtime::MomentTrigger when, std::uint64_t about
     ) {
+#ifdef GRANDLEON_N64_PROBE
+        // A probe says nothing over a board, so the board it would have said it
+        // over is unread here.
+        static_cast<void>(snapshot);
+#endif
         if (moments_.empty() || package_ == nullptr) return;
         for (const auto& moment : moments_) {
             if (moment.trigger != when) continue;
@@ -1692,7 +1801,29 @@ public:
             // about nobody on the board, and a ROM that halted over a missing
             // line would turn a silent scene into an unplayable board.
             if (!scene) continue;
-            present_dialogue(scene.dialogue);
+            // Over the board rather than over a page. A moment is a word said
+            // during a fight, and the fight is what it is about; a story node
+            // between battles still takes the whole screen, through
+            // `present_dialogue` above.
+            //
+            // The channel still reports the scene the way every other one is
+            // reported, so a headless run records that it played and the
+            // expectation this run is compared against does not move.
+            report_line(
+                "say  scene %d lines\n",
+                static_cast<int>(scene.dialogue.lines.size())
+            );
+            for (const auto& line : scene.dialogue.lines) {
+                report_line(
+                    "say  %s: %s\n", line.speaker.c_str(), line.text.c_str()
+                );
+#ifndef GRANDLEON_N64_PROBE
+                // A probe draws no scene: it has no player to press on, and
+                // every surface it photographs is a board rather than a word
+                // said over one. The channel still records what was said.
+                say_over_board(snapshot, scene.dialogue, line);
+#endif
+            }
         }
     }
 
@@ -1817,9 +1948,23 @@ public:
         if (!has_previous_ && !opening_moments_played_) {
             opening_moments_played_ = true;
             play_moments(
+                snapshot,
                 grandleon::package_runtime::MomentTrigger::stage_opens, 0
             );
         }
+#endif
+#ifndef GRANDLEON_N64_PROBE
+        // A settled board is always framed on the cursor, whatever the camera
+        // was doing while something was being animated. The pan that follows
+        // the action leaves the camera wherever the action was, and without
+        // this that framing would persist into the next settled frame - and a
+        // checkpoint that counts what the window holds would count a different
+        // board depending on where somebody had just walked.
+        //
+        // The shared client gets this from `refresh_queries`, which re-follows
+        // before every paint. This is the same guarantee, said once here rather
+        // than after each animation.
+        camera_.follow(cursor_x_, cursor_y_, 2);
 #endif
         surface_t* disp = display_get();
         render(disp, snapshot, 0);
@@ -1973,6 +2118,7 @@ public:
                     "fall %s\n", character_called(event.unit_id).c_str()
                 );
                 play_moments(
+                    previous_,
                     grandleon::package_runtime::MomentTrigger::character_falls,
                     placement_of(event.unit_id)
                 );
@@ -1987,6 +2133,7 @@ public:
                     "left %s\n", character_called(event.unit_id).c_str()
                 );
                 play_moments(
+                    previous_,
                     grandleon::package_runtime::MomentTrigger::character_talked,
                     placement_of(event.unit_id)
                 );
@@ -3670,6 +3817,51 @@ public:
                 );
                 return;
             }
+            case ap::Check::saying:
+                // The two claims this surface exists to make, and neither is made
+                // by any other checkpoint.
+                //
+                // First: there is a bubble. Its border is the panel's own amber,
+                // sampled at the corner the ROM recorded when it drew it, so a
+                // bubble that moved is checked where it moved to rather than where
+                // it used to be.
+                expect(said_width_ > 0, "a saying was drawn over the board");
+                expect(
+                    surface_pixel(autopilot_screen, said_left_, said_top_) ==
+                        pack16(242, 193, 78),
+                    "the bubble is framed on the screen"
+                );
+                // Second, and the whole point of drawing this here rather than
+                // on a page: the speaker is still on the screen, in their own
+                // cell, with the board around them. A page would have replaced
+                // every pixel of it, so the tile the speaker stands on showing
+                // anything but the bubble's own paper is the claim - and it is
+                // read off the framebuffer rather than off `classified`, which
+                // is filled by the settled frame this checkpoint precedes.
+                //
+                // It doubles as the other thing a bubble placed against a
+                // character can get wrong: sitting on top of them. If it did,
+                // this samples paper and says so.
+                expect(
+                    said_at_x_ >= 0,
+                    "the saying names somebody standing on this board"
+                );
+                if (said_at_x_ >= 0) {
+                    expect(
+                        !(said_at_x_ >= said_left_ &&
+                          said_at_x_ < said_left_ + said_width_ &&
+                          said_at_y_ >= said_top_ &&
+                          said_at_y_ < said_top_ + said_height_),
+                        "and never covers the character it is about"
+                    );
+                    expect(
+                        surface_pixel(autopilot_screen, said_at_x_, said_at_y_) !=
+                            pack16(16, 26, 27),
+                        "and the speaker is still drawn on the board under the "
+                        "words"
+                    );
+                }
+                return;
             case ap::Check::after_ability: {
                 // Three of ours and four of theirs. Cinder Arc took the knight
                 // the archer had already worn to one, and the Coil took the
@@ -7937,6 +8129,19 @@ private:
     std::uint32_t rounds_to_survive_{0};
     surface_t* last_buffer_{nullptr};
     sim::EncounterSnapshot previous_{};
+    // Where the last saying was drawn, and who it was about. Zero width is a
+    // board nobody has spoken over yet.
+    int said_left_{0};
+    int said_top_{0};
+    int said_width_{0};
+    int said_height_{0};
+    sim::UnitId said_about_{0};
+    // Where on the screen the speaker stood when the bubble was drawn. Kept
+    // rather than looked up again, because a checkpoint fires against whatever
+    // board it is handed and a board's own opening scene precedes that board.
+    int said_at_x_{-1};
+    int said_at_y_{-1};
+
     // What this board says while it is fought, empty for a board nobody speaks
     // over, which is every board authored before moments existed.
     std::vector<grandleon::package_runtime::EncounterMoment> moments_;

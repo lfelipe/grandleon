@@ -7,7 +7,7 @@
 #   scripts/readme-screenshots.sh editor     just one surface
 #
 # Surfaces: editor, terminal, n64, psx, autopilot, psx-turn, n64-showcase,
-#           psx-showcase.
+#           psx-showcase, n64-saying.
 #
 # Everything is driven, nothing is hand-cropped: the editor shot comes from
 # Chromium against a production build, the terminal shot from the real client's
@@ -220,6 +220,32 @@ quantised[0].save(
     disposal=2,
 )
 print(f"  {len(frames)} frames, {sum(holds) / 1000:.1f}s")
+PYEOF
+fi
+
+if [ "${surface}" = "all" ] || [ "${surface}" = "n64-saying" ]; then
+    echo "== n64-saying"
+    # A word said during a battle, taken out of the autopilot's own checkpoint
+    # trail rather than staged: the run photographs itself at the `saying`
+    # checkpoint, which is the frame it asserts the bubble on. So this picture
+    # cannot show something the check did not also verify - the bubble is
+    # framed, it does not cover the character it is about, and that character
+    # is still drawn on the board underneath the words.
+    cmake --build "${repository_root}/build" \
+        --target grandleon_n64_autopilot_check >/dev/null
+    "${repository_root}/tools/placeholder_art/.venv/bin/python" - <<'PYEOF'
+import glob
+from PIL import Image
+
+found = sorted(glob.glob("build-n64/ares/trail-autopilot/*-saying.png"))
+if not found:
+    raise SystemExit("no saying checkpoint to photograph")
+# The same crop every Nintendo 64 still uses: ares window chrome off, viewport
+# kept.
+Image.open(found[0]).crop((108, 82, 876, 656)).save(
+    "docs/screenshots/n64-saying.png"
+)
+print("  docs/screenshots/n64-saying.png")
 PYEOF
 fi
 

@@ -533,7 +533,12 @@ void TurnClient::play_moments(
         const package_runtime::DialogueLoadResult scene =
             package_runtime::load_dialogue(*package_, moment.dialogue_id);
         if (!scene) continue;
+        // Said over the board rather than staged on a page: this is a scene
+        // inside a battle, and a story node between battles still takes the
+        // whole screen through the same call.
+        saying_over_board_ = true;
         present_dialogue(scene.dialogue);
+        saying_over_board_ = false;
     }
 }
 

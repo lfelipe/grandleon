@@ -55,6 +55,11 @@ browser and in a terminal, with the same rules, the same numbers, the same board
 | **The same map, Nintendo 64** | **The same map, PlayStation** |
 | ![The Fordlight running on a Nintendo 64 emulator](docs/screenshots/n64.png) | ![The Fordlight running on a PlayStation emulator](docs/screenshots/psx.png) |
 
+A character can speak while the battle is on, over the board rather than on a
+page of its own, beside whoever is talking:
+
+![The Ashen Stormcaller speaking over the Fordlight](docs/screenshots/n64-saying.png)
+
 No screenshot above was recorded by hand: every still and animation of a
 running client is produced by `scripts/readme-screenshots.sh`, and the console
 imagery comes out of the checks themselves, so it cannot show something the

@@ -170,6 +170,18 @@ inline constexpr int dialogue_prompt_y = 210;
 inline constexpr TextBand dialogue_band =
     TextBand::above(124, 11, dialogue_prompt_y);
 
+// A saying drawn over the board rather than over a page of its own: the words
+// somebody speaks while a battle is on.
+//
+// Narrower and shorter than the cutscene band, and deliberately. This one sits
+// against the speaker's own cell with the board still underneath it, so it must
+// be small enough to leave the fight visible and to fit beside a character
+// standing anywhere on the screen. Twenty-eight columns is a comfortable line
+// at eight pixels a glyph, and three rows is two ordinary sentences; a longer
+// saying pages exactly as the cutscene's does.
+inline constexpr int bubble_columns = 28;
+inline constexpr int bubble_rows = 3;
+
 // The names of the people who just joined the company, under the heading and
 // above the same prompt.
 inline constexpr int joined_prompt_y = 210;
