@@ -38,7 +38,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right suneate",
@@ -61,7 +61,7 @@
       "y1": 39,
       "z0": -6,
       "z1": 6,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 1
     },
     {
@@ -121,8 +121,8 @@
       "y1": 57,
       "z0": -5,
       "z1": 5,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "right sode, lace hem",
@@ -133,8 +133,8 @@
       "y1": 57,
       "z0": -5,
       "z1": 5,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "left sode",
@@ -182,7 +182,7 @@
       "z0": -8,
       "z1": -1,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "mempo visor",
@@ -194,7 +194,7 @@
       "z0": -8,
       "z1": -7,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "naginata blade",
@@ -218,7 +218,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "maedate crest",
@@ -229,8 +229,8 @@
       "y1": 83,
       "z0": -6,
       "z1": -5,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     }
   ]
 }

@@ -14,7 +14,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right paw",
@@ -38,7 +38,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right leg",
@@ -49,8 +49,8 @@
       "y1": 25,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "cape",
@@ -73,8 +73,8 @@
       "y1": 42,
       "z0": -7,
       "z1": 7,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "banner pole",
@@ -86,7 +86,7 @@
       "z0": 2,
       "z1": 7,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "gold belt",
@@ -98,7 +98,7 @@
       "z0": -8,
       "z1": -7,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "torso",
@@ -110,7 +110,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "chest emblem",
@@ -121,8 +121,8 @@
       "y1": 63,
       "z0": -8,
       "z1": -6,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "hair tail",
@@ -158,7 +158,7 @@
       "z0": -6,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "right shoulder",
@@ -182,7 +182,7 @@
       "z0": 0,
       "z1": 1,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "helm",
@@ -194,7 +194,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "visor",
@@ -206,7 +206,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "banner finial",
@@ -218,7 +218,7 @@
       "z0": 2,
       "z1": 7,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "left ear",
@@ -242,7 +242,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "hat step",
@@ -254,7 +254,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "crest",
@@ -265,7 +265,7 @@
       "y1": 93,
       "z0": -7,
       "z1": 4,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     }
   ]

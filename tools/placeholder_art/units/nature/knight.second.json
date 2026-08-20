@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "right paw",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "tail stub",
@@ -50,7 +50,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right leg",
@@ -62,7 +62,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "flared skirt",
@@ -86,7 +86,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "bodice",
@@ -98,7 +98,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "shield rim",
@@ -110,7 +110,7 @@
       "z0": -9,
       "z1": -7,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "shield field",
@@ -121,8 +121,8 @@
       "y1": 57,
       "z0": -12,
       "z1": -9,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 1
     },
     {
       "name": "sword grip",
@@ -194,7 +194,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "sword blade",
@@ -206,7 +206,7 @@
       "z0": -3,
       "z1": -1,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "muzzle",
@@ -218,7 +218,7 @@
       "z0": -9,
       "z1": -5,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "hair, left",
@@ -230,7 +230,7 @@
       "z0": -4,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "hair, right",
@@ -242,7 +242,7 @@
       "z0": -4,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "nose",
@@ -254,7 +254,7 @@
       "z0": -10,
       "z1": -9,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "left ear",
@@ -278,7 +278,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "hat step",
@@ -290,7 +290,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "hair fringe",
@@ -302,7 +302,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     }
   ]
 }

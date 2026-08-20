@@ -14,7 +14,7 @@
       "z0": 1,
       "z1": 5,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "far fore leg",
@@ -38,7 +38,7 @@
       "z0": -6,
       "z1": -2,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "near fore leg",
@@ -50,7 +50,7 @@
       "z0": -6,
       "z1": -2,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "rib, aft",
@@ -86,7 +86,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "haunch",
@@ -98,7 +98,7 @@
       "z0": -4,
       "z1": 3,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "shoulder",
@@ -110,7 +110,7 @@
       "z0": -4,
       "z1": 3,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "spine",
@@ -134,7 +134,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "spine ridge",
@@ -145,7 +145,7 @@
       "y1": 41,
       "z0": -3,
       "z1": 1,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     },
     {
@@ -157,8 +157,8 @@
       "y1": 44,
       "z0": -5,
       "z1": -2,
-      "ramp": 0,
-      "rung": 3
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "neck, rising",
@@ -181,8 +181,8 @@
       "y1": 51,
       "z0": -2,
       "z1": 1,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "hat step",
@@ -205,8 +205,8 @@
       "y1": 63,
       "z0": -4,
       "z1": 1,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "eye socket",
@@ -230,7 +230,7 @@
       "z0": -3,
       "z1": 0,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "mouth gap",

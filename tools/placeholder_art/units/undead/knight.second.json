@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left shin",
@@ -37,8 +37,8 @@
       "y1": 27,
       "z0": -3,
       "z1": 3,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "right shin",
@@ -50,7 +50,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "skirt hem ink",
@@ -61,8 +61,8 @@
       "y1": 31,
       "z0": -6,
       "z1": -5,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "armour skirt, flared",
@@ -109,8 +109,8 @@
       "y1": 64,
       "z0": -5,
       "z1": 5,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "sword arm",
@@ -134,7 +134,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "hair tail",
@@ -170,7 +170,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "bare skull face",
@@ -194,7 +194,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "hair fringe",
@@ -218,7 +218,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     }
   ]
 }

@@ -65,49 +65,6 @@ bands it writes are invisible. Nine authored face parts elsewhere still are --
 socket behind its skull -- and those are art to fix rather than a rule to
 change.
 
-## The insides are the sprite's too
-
-Rule 4 holds a mesh's outline to its sprite's, measured. Nothing held its
-*insides* to anything: rule 2 says a face names a ramp and a rung rather than a
-colour, and says nothing about which. Measured, that showed. A figure's interior
-identified its own archetype **eight times in fifty-six**, against a floor of
-seven for guessing, because the outline was the only part of a solid ever aimed
-at the drawing it replaces.
-
-`paint_from_sprite.py` takes the ramp and the rung the same way the width is
-taken. Each part is drawn on its own into an ownership buffer at the shipped
-camera, so what is known for each part is exactly the pixels a viewer sees of
-it; those pixels are mapped into the sprite's own figure box, and the part takes
-what the sprite spends there -- the ramp by majority, the rung by least error.
-It moves no box: the geometry is rules 1, 3 and 4's and is settled.
-
-**Match the value after the light, not before it.** The first version compared a
-sprite texel against the ramp's own colour and every figure came out too dark,
-because the renderer multiplies a face by its normal's light before drawing it:
-a front face at 178/256, a top at 255. What has to look like the sprite is what
-lands on screen, so each pixel is scored against `shade(rung, light of the face
-it belongs to)`, and which face a pixel came from is recorded beside which part
-for exactly that. Found by drawing it and looking, not by reasoning about it.
-
-| | picture match | reads own class |
-|---|---|---|
-| commissioned (hand-authored) | 0.777 | 32/56 |
-| this roster, before | 0.750 | 9/56 |
-| this roster, painted from its sprites | **0.799** | **27/56** |
-
-Measured over the whole picture, shape and paint together, an unpainted cell
-counting as background so that being the wrong shape and being the wrong colour
-lose in the same currency. The interior alone went 0.511 to 0.624 and 8/56 to
-21/56.
-
-**What it costs, stated plainly.** Value spread falls, 54.9 to 43.1 against the
-sprites' 63.5 and the commissioned meshes' 50.9. That is not a bug to fix: a
-sprite carries much of its contrast *inside* features a box is bigger than -- a
-strap, an eye, a buckle -- and one box carries one value. Fitting a part to its
-region's value necessarily averages that away. The hand-authored meshes keep
-more contrast because their authors chose contrasting rungs rather than matching
-what is there.
-
 ## Rule 1 was wrong, and every figure was rebuilt
 
 Every figure here used to be built a flat 128 units tall, which rule 1 stated as

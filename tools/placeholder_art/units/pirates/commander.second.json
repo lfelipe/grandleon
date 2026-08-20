@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "right boot",
@@ -38,7 +38,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right leg",
@@ -49,8 +49,8 @@
       "y1": 26,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "cape",
@@ -74,7 +74,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 1,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "banner pole",
@@ -97,8 +97,8 @@
       "y1": 47,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "belt buckle",
@@ -109,7 +109,7 @@
       "y1": 46,
       "z0": -7,
       "z1": -6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -121,8 +121,8 @@
       "y1": 65,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "right sleeve",
@@ -134,7 +134,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 1,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "coat body",
@@ -146,7 +146,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 1,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "shirt front",
@@ -157,7 +157,7 @@
       "y1": 69,
       "z0": -7,
       "z1": -6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -170,7 +170,7 @@
       "z0": -5,
       "z1": -1,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "right cuff",
@@ -181,7 +181,7 @@
       "y1": 65,
       "z0": -5,
       "z1": -1,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -206,7 +206,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "banner cloth",
@@ -230,7 +230,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "banner device, skull",
@@ -241,8 +241,8 @@
       "y1": 78,
       "z0": 1,
       "z1": 2,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "brow shadow",
@@ -254,7 +254,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "visor band",
@@ -266,7 +266,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "brass helm",
@@ -278,7 +278,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "helm crest",
@@ -289,8 +289,8 @@
       "y1": 92,
       "z0": -4,
       "z1": 6,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "hat step",
@@ -301,8 +301,8 @@
       "y1": 91,
       "z0": -4,
       "z1": 6,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     }
   ]
 }

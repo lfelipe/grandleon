@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "right boot",
@@ -25,8 +25,8 @@
       "y1": 5,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "left shin",
@@ -38,7 +38,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "right shin",
@@ -50,7 +50,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "flared coat skirt",
@@ -62,7 +62,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 1,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "coat glow seam",
@@ -73,8 +73,8 @@
       "y1": 43,
       "z0": -8,
       "z1": -6,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "control gauntlet",
@@ -86,7 +86,7 @@
       "z0": -5,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "right arm, bare",
@@ -98,7 +98,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "left sleeve",
@@ -110,7 +110,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 1,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "torso",
@@ -122,7 +122,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 1,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "drone hover glow",
@@ -134,7 +134,7 @@
       "z0": -2,
       "z1": 1,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "tool pack",
@@ -146,7 +146,7 @@
       "z0": 5,
       "z1": 8,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "drone hull",
@@ -158,7 +158,7 @@
       "z0": -4,
       "z1": 2,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "drone eye",
@@ -170,7 +170,7 @@
       "z0": -5,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "hair tail",
@@ -194,7 +194,7 @@
       "z0": -6,
       "z1": 2,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "head",
@@ -218,7 +218,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "tech cap",
@@ -229,8 +229,8 @@
       "y1": 92,
       "z0": -5,
       "z1": 5,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 1
     },
     {
       "name": "face band",
@@ -242,7 +242,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "hat step",
@@ -266,7 +266,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     }
   ]
 }

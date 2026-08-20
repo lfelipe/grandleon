@@ -14,7 +14,7 @@
       "z0": -6,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -6,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left shin",
@@ -37,7 +37,7 @@
       "y1": 25,
       "z0": -3,
       "z1": 3,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -49,8 +49,8 @@
       "y1": 25,
       "z0": -3,
       "z1": 3,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "back shroud",
@@ -61,8 +61,8 @@
       "y1": 50,
       "z0": 3,
       "z1": 6,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 1
     },
     {
       "name": "left cuisse",
@@ -73,8 +73,8 @@
       "y1": 41,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "right cuisse",
@@ -86,7 +86,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "rusted fauld",
@@ -98,7 +98,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "kite shield board",
@@ -109,8 +109,8 @@
       "y1": 63,
       "z0": -3,
       "z1": 3,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "shield boss",
@@ -121,8 +121,8 @@
       "y1": 50,
       "z0": -4,
       "z1": -3,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "faction cuirass",
@@ -133,8 +133,8 @@
       "y1": 68,
       "z0": -6,
       "z1": 6,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "sword arm",
@@ -146,7 +146,7 @@
       "z0": -3,
       "z1": 2,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "pitting",
@@ -158,7 +158,7 @@
       "z0": -8,
       "z1": -6,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "shield chip",
@@ -170,7 +170,7 @@
       "z0": -4,
       "z1": -3,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "sword guard",
@@ -194,7 +194,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "notched blade, raised",
@@ -206,7 +206,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "great helm",
@@ -218,7 +218,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "visor slit",
@@ -242,7 +242,7 @@
       "z0": -8,
       "z1": -7,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "eye gleam, right",
@@ -254,7 +254,7 @@
       "z0": -8,
       "z1": -7,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "helm spike",

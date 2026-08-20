@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "right foot",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left boot, tall",
@@ -74,7 +74,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "skirt, short flare",
@@ -85,7 +85,7 @@
       "y1": 33,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 1
     },
     {
@@ -97,8 +97,8 @@
       "y1": 36,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "short cloak",
@@ -109,7 +109,7 @@
       "y1": 59,
       "z0": 4,
       "z1": 7,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 0
     },
     {
@@ -121,8 +121,8 @@
       "y1": 54,
       "z0": -3,
       "z1": 3,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "left arm",
@@ -146,7 +146,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "hair tail",
@@ -170,7 +170,7 @@
       "z0": -5,
       "z1": -2,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "right dagger, guard",
@@ -182,7 +182,7 @@
       "z0": -5,
       "z1": -2,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "scarf",
@@ -205,8 +205,8 @@
       "y1": 63,
       "z0": -3,
       "z1": 3,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "left dagger, blade",
@@ -242,7 +242,7 @@
       "z0": -3,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "face band",
@@ -254,7 +254,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "hat step",
@@ -266,7 +266,7 @@
       "z0": 1,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "hood point",
@@ -278,7 +278,7 @@
       "z0": 1,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     }
   ]
 }

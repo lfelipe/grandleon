@@ -14,7 +14,7 @@
       "z0": -7,
       "z1": 7,
       "ramp": 1,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "hakama",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 1,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "sash bow, back",
@@ -50,7 +50,7 @@
       "z0": -1,
       "z1": 3,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "left furisode",
@@ -62,7 +62,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "obi",
@@ -73,7 +73,7 @@
       "y1": 46,
       "z0": -7,
       "z1": -5,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     },
     {
@@ -98,7 +98,7 @@
       "z0": 4,
       "z1": 7,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "right arm, raised",
@@ -122,7 +122,7 @@
       "z0": -2,
       "z1": 3,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "hair, left frame",
@@ -158,7 +158,7 @@
       "z0": -7,
       "z1": -1,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "face band",
@@ -170,7 +170,7 @@
       "z0": -9,
       "z1": -7,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "fire bowl, ink",
@@ -194,7 +194,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "flame",
@@ -205,8 +205,8 @@
       "y1": 86,
       "z0": -3,
       "z1": 3,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no leg.r and needs a human pass before it can be animated"

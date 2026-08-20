@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "tail",
@@ -38,7 +38,7 @@
       "z0": 3,
       "z1": 7,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "left shin",
@@ -50,7 +50,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right shin",
@@ -62,7 +62,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "left thigh",
@@ -74,7 +74,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right thigh",
@@ -85,8 +85,8 @@
       "y1": 33,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "flared skirt",
@@ -97,7 +97,7 @@
       "y1": 40,
       "z0": -5,
       "z1": 5,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 2
     },
     {
@@ -110,7 +110,7 @@
       "z0": -1,
       "z1": 1,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "left arm, bare",
@@ -122,7 +122,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "right arm, bare",
@@ -146,7 +146,7 @@
       "z0": 4,
       "z1": 9,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "bow grip wrap",
@@ -169,8 +169,8 @@
       "y1": 58,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 3
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "right hand on bow",
@@ -182,7 +182,7 @@
       "z0": -5,
       "z1": -1,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "baldric",
@@ -194,7 +194,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "hair fall",
@@ -218,7 +218,7 @@
       "z0": 5,
       "z1": 9,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "face",
@@ -242,7 +242,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "scaled hood",
@@ -253,8 +253,8 @@
       "y1": 73,
       "z0": -3,
       "z1": 5,
-      "ramp": 0,
-      "rung": 3
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "hat step",
@@ -265,7 +265,7 @@
       "y1": 75,
       "z0": 1,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -278,7 +278,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "hood point",
@@ -289,7 +289,7 @@
       "y1": 80,
       "z0": 1,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     }
   ]

@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "left leg",
@@ -61,8 +61,8 @@
       "y1": 43,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "left arm, along the stock",
@@ -74,7 +74,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "right arm, at the trigger",
@@ -110,7 +110,7 @@
       "z0": -8,
       "z1": -4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "musket barrel",
@@ -122,7 +122,7 @@
       "z0": -9,
       "z1": -6,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "cartridge row",
@@ -157,8 +157,8 @@
       "y1": 62,
       "z0": -9,
       "z1": -8,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "musket lock",
@@ -170,7 +170,7 @@
       "z0": -9,
       "z1": -7,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "tied queue",
@@ -193,7 +193,7 @@
       "y1": 72,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -205,8 +205,8 @@
       "y1": 68,
       "z0": -7,
       "z1": -5,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "tarred hair",

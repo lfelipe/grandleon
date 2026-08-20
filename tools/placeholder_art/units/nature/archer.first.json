@@ -14,7 +14,7 @@
       "z0": -6,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "right foot",
@@ -26,7 +26,7 @@
       "z0": -6,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left leg",
@@ -38,7 +38,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "right leg",
@@ -62,7 +62,7 @@
       "z0": 4,
       "z1": 9,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "bow, lower limb",
@@ -74,7 +74,7 @@
       "z0": -5,
       "z1": -1,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "woven shorts",
@@ -86,7 +86,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "belt",
@@ -98,7 +98,7 @@
       "z0": -7,
       "z1": -6,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "tunic",
@@ -109,8 +109,8 @@
       "y1": 62,
       "z0": -6,
       "z1": 6,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "arm, drawing",
@@ -134,7 +134,7 @@
       "z0": 4,
       "z1": 9,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "bow arm",
@@ -146,7 +146,7 @@
       "z0": -6,
       "z1": -1,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "bow, upper limb",
@@ -169,7 +169,7 @@
       "y1": 65,
       "z0": -8,
       "z1": -6,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 2
     },
     {
@@ -182,7 +182,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "muzzle",
@@ -194,7 +194,7 @@
       "z0": -9,
       "z1": -6,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "nose",
@@ -205,8 +205,8 @@
       "y1": 69,
       "z0": -11,
       "z1": -9,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "hat step",
