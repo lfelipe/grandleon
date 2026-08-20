@@ -14,7 +14,7 @@
       "z0": -6,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "right foot",
@@ -26,7 +26,7 @@
       "z0": -6,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "left leg",
@@ -50,7 +50,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "tail, out",
@@ -62,7 +62,7 @@
       "z0": 4,
       "z1": 9,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "tail, tip",
@@ -74,7 +74,7 @@
       "z0": 5,
       "z1": 11,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "bow, lower limb",
@@ -86,7 +86,7 @@
       "z0": -4,
       "z1": 0,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "flared skirt",
@@ -110,7 +110,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "bodice",
@@ -121,7 +121,7 @@
       "y1": 63,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -134,7 +134,7 @@
       "z0": -8,
       "z1": -3,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "quiver, basket",
@@ -158,7 +158,7 @@
       "z0": -6,
       "z1": -1,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "hair, back",
@@ -182,7 +182,7 @@
       "z0": -4,
       "z1": 0,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "head",
@@ -206,7 +206,7 @@
       "z0": -9,
       "z1": -5,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "nose",
@@ -218,7 +218,7 @@
       "z0": -10,
       "z1": -9,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "hair fringe",
@@ -230,7 +230,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "hat step",

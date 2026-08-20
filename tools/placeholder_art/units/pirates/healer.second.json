@@ -13,8 +13,8 @@
       "y1": 16,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "tar stain, low",
@@ -49,8 +49,8 @@
       "y1": 39,
       "z0": -7,
       "z1": -1,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "waist tie",
@@ -62,7 +62,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "left arm, empty hand",
@@ -74,7 +74,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "canvas apron, bib",
@@ -86,7 +86,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "tar stain, high",
@@ -98,7 +98,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right arm, empty hand",
@@ -110,7 +110,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "satchel strap",
@@ -121,8 +121,8 @@
       "y1": 63,
       "z0": -7,
       "z1": -5,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "hair fall",
@@ -169,8 +169,8 @@
       "y1": 71,
       "z0": -6,
       "z1": -5,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "hood kerchief",

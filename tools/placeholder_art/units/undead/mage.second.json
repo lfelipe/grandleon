@@ -37,8 +37,8 @@
       "y1": 69,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "sash",
@@ -49,8 +49,8 @@
       "y1": 44,
       "z0": -5,
       "z1": -4,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "bone staff shaft",
@@ -62,7 +62,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "staff arm",
@@ -74,7 +74,7 @@
       "z0": -3,
       "z1": 2,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "rib light",
@@ -97,8 +97,8 @@
       "y1": 65,
       "z0": -5,
       "z1": -4,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "hair fall",
@@ -110,7 +110,7 @@
       "z0": 4,
       "z1": 8,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "hair fringe",
@@ -121,8 +121,8 @@
       "y1": 71,
       "z0": -5,
       "z1": -4,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "cowl",
@@ -134,7 +134,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 1,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "hood hollow",
@@ -145,8 +145,8 @@
       "y1": 82,
       "z0": -5,
       "z1": -4,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "eye glow, left",
@@ -157,8 +157,8 @@
       "y1": 79,
       "z0": -7,
       "z1": -5,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "eye glow, right",
@@ -170,7 +170,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 1,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "staff orb",
@@ -181,8 +181,8 @@
       "y1": 94,
       "z0": -3,
       "z1": 2,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "hood peak",
@@ -194,7 +194,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 1,
-      "rung": 1
+      "rung": 2
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no arm.l, arm.r and needs a human pass before it can be animated"

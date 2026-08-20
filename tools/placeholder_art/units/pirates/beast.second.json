@@ -26,7 +26,7 @@
       "z0": -6,
       "z1": 2,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "tail, tip",
@@ -37,8 +37,8 @@
       "y1": 9,
       "z0": -1,
       "z1": 4,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "left shank",
@@ -50,7 +50,7 @@
       "z0": -3,
       "z1": 2,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "right shank",
@@ -62,7 +62,7 @@
       "z0": -3,
       "z1": 2,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "tail, middle",
@@ -73,8 +73,8 @@
       "y1": 18,
       "z0": -1,
       "z1": 4,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "tail, root",
@@ -86,7 +86,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 1,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "far wing, folded",
@@ -122,7 +122,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 1,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "wing bar",
@@ -133,8 +133,8 @@
       "y1": 37,
       "z0": -9,
       "z1": -7,
-      "ramp": 0,
-      "rung": 3
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "neck",
@@ -146,7 +146,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 1,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "skull",
@@ -157,8 +157,8 @@
       "y1": 67,
       "z0": -5,
       "z1": 6,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "beak",

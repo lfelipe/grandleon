@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "right sabaton",
@@ -37,8 +37,8 @@
       "y1": 29,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "right shin",
@@ -49,7 +49,7 @@
       "y1": 29,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 1
     },
     {
@@ -73,7 +73,7 @@
       "y1": 44,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 1
     },
     {
@@ -86,7 +86,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "ebira quiver, right hip",
@@ -98,7 +98,7 @@
       "z0": 4,
       "z1": 9,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "do, narrow",
@@ -121,8 +121,8 @@
       "y1": 54,
       "z0": -7,
       "z1": -5,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "hair tail",
@@ -146,7 +146,7 @@
       "z0": 6,
       "z1": 10,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "yumi, upper limb",
@@ -170,7 +170,7 @@
       "z0": -8,
       "z1": -1,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "face band",
@@ -182,7 +182,7 @@
       "z0": -9,
       "z1": -7,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "hair frame",
@@ -194,7 +194,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "ribbon",
@@ -205,7 +205,7 @@
       "y1": 86,
       "z0": -6,
       "z1": -4,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     }
   ]

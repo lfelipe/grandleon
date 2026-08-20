@@ -14,7 +14,7 @@
       "z0": -6,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -6,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "left greave",
@@ -37,8 +37,8 @@
       "y1": 24,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "right greave",
@@ -49,7 +49,7 @@
       "y1": 24,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 2
     },
     {
@@ -62,7 +62,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 1,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "right cuisse",
@@ -73,8 +73,8 @@
       "y1": 41,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "fauld",
@@ -97,8 +97,8 @@
       "y1": 48,
       "z0": -8,
       "z1": -4,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "left arm, sword side",
@@ -145,8 +145,8 @@
       "y1": 68,
       "z0": -6,
       "z1": -5,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "breastplate",
@@ -158,7 +158,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "left pauldron",
@@ -169,7 +169,7 @@
       "y1": 73,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 1
     },
     {
@@ -181,8 +181,8 @@
       "y1": 73,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "gorget",
@@ -194,7 +194,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "sword blade",
@@ -205,7 +205,7 @@
       "y1": 91,
       "z0": -8,
       "z1": -5,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     },
     {
@@ -242,7 +242,7 @@
       "z0": -7,
       "z1": -6,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "hat step",
@@ -253,8 +253,8 @@
       "y1": 88,
       "z0": 0,
       "z1": 7,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "helm plume, swept back",
@@ -266,7 +266,7 @@
       "z0": 0,
       "z1": 7,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     }
   ]
 }

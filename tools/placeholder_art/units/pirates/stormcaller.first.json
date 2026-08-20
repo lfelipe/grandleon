@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "right boot",
@@ -38,7 +38,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right leg",
@@ -61,8 +61,8 @@
       "y1": 41,
       "z0": -6,
       "z1": 6,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "brazier pole",
@@ -86,7 +86,7 @@
       "z0": -7,
       "z1": 7,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "left arm, close",
@@ -98,7 +98,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "shirt stripe",
@@ -122,7 +122,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "right arm, on the pole",
@@ -146,7 +146,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "brow shadow",
@@ -158,7 +158,7 @@
       "z0": -8,
       "z1": -6,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "brazier bowl",
@@ -182,7 +182,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "knitted cap",
@@ -206,7 +206,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "flame, low",
@@ -229,8 +229,8 @@
       "y1": 98,
       "z0": -2,
       "z1": 2,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no arm.r and needs a human pass before it can be animated"

@@ -38,7 +38,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right suneate",
@@ -61,8 +61,8 @@
       "y1": 42,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "naginata haft, upright",
@@ -74,7 +74,7 @@
       "z0": 0,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "obi",
@@ -97,7 +97,7 @@
       "y1": 62,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -122,7 +122,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 1,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "right sode, lace hem",
@@ -133,8 +133,8 @@
       "y1": 58,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "hair tail",
@@ -182,7 +182,7 @@
       "z0": -7,
       "z1": -1,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "naginata blade",
@@ -206,7 +206,7 @@
       "z0": -8,
       "z1": -3,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "hair crown",
@@ -218,7 +218,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     }
   ]
 }

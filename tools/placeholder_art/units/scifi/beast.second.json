@@ -38,7 +38,7 @@
       "z0": -9,
       "z1": -4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "front leg, near",
@@ -50,7 +50,7 @@
       "z0": -9,
       "z1": -4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "underjaw",
@@ -86,7 +86,7 @@
       "z0": -8,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "vent glow strip",
@@ -98,7 +98,7 @@
       "z0": -9,
       "z1": -8,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "sensor head",
@@ -110,7 +110,7 @@
       "z0": -5,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "tail fin",
@@ -134,7 +134,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "face band",
@@ -146,7 +146,7 @@
       "z0": -10,
       "z1": -9,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "armour plate, rear",
@@ -157,7 +157,7 @@
       "y1": 50,
       "z0": -5,
       "z1": 3,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -169,7 +169,7 @@
       "y1": 50,
       "z0": -5,
       "z1": 3,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -181,8 +181,8 @@
       "y1": 60,
       "z0": -3,
       "z1": 1,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "hat step",
@@ -194,7 +194,7 @@
       "z0": -2,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "mast rod",
@@ -206,7 +206,7 @@
       "z0": -2,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "mast beacon",

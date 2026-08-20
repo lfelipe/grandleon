@@ -14,7 +14,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 1,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "underskirt",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 1,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "rune sash",
@@ -37,8 +37,8 @@
       "y1": 48,
       "z0": -7,
       "z1": -5,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "left sleeve, short",
@@ -74,7 +74,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "staff hand",
@@ -86,7 +86,7 @@
       "z0": -4,
       "z1": 1,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "horn staff",
@@ -97,8 +97,8 @@
       "y1": 85,
       "z0": -2,
       "z1": 1,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "collar",
@@ -109,7 +109,7 @@
       "y1": 55,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -134,7 +134,7 @@
       "z0": -7,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "face",
@@ -146,7 +146,7 @@
       "z0": -5,
       "z1": 3,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "ember eyes",
@@ -158,7 +158,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "hair crown",
@@ -194,7 +194,7 @@
       "z0": -1,
       "z1": 3,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "hat step",
@@ -206,7 +206,7 @@
       "z0": -2,
       "z1": 1,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "horn tip, left",
@@ -218,7 +218,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "horn tip, right",
@@ -230,7 +230,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "ember orb",
@@ -242,7 +242,7 @@
       "z0": -4,
       "z1": 2,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no torso and needs a human pass before it can be animated"

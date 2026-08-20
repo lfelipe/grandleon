@@ -86,7 +86,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "muzzle",
@@ -121,8 +121,8 @@
       "y1": 40,
       "z0": -8,
       "z1": 4,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "votive cloth",
@@ -134,7 +134,7 @@
       "z0": -8,
       "z1": 4,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "skull",
@@ -194,7 +194,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "hat step",
@@ -218,7 +218,7 @@
       "z0": 0,
       "z1": 5,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     }
   ]
 }

@@ -26,7 +26,7 @@
       "z0": -4,
       "z1": 1,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "robe skirt",
@@ -37,8 +37,8 @@
       "y1": 39,
       "z0": -6,
       "z1": 6,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "placket",
@@ -61,8 +61,8 @@
       "y1": 44,
       "z0": -7,
       "z1": -6,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "bodice",
@@ -73,8 +73,8 @@
       "y1": 64,
       "z0": -6,
       "z1": 6,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "right arm",
@@ -86,7 +86,7 @@
       "z0": -5,
       "z1": 2,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "left arm",
@@ -97,8 +97,8 @@
       "y1": 61,
       "z0": -5,
       "z1": 1,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "staff, upper",
@@ -110,7 +110,7 @@
       "z0": -4,
       "z1": 1,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "hair, back",
@@ -133,8 +133,8 @@
       "y1": 65,
       "z0": -8,
       "z1": -6,
-      "ramp": 0,
-      "rung": 3
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "head",
@@ -158,7 +158,7 @@
       "z0": -9,
       "z1": -5,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "nose",
@@ -170,7 +170,7 @@
       "z0": -10,
       "z1": -9,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "headdress band",
@@ -182,7 +182,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "hair fringe",
@@ -194,7 +194,7 @@
       "z0": -7,
       "z1": -5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "antler beam left",
@@ -218,7 +218,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "staff gnarl",
@@ -254,7 +254,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "hat step",
@@ -266,7 +266,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     }
   ]
 }

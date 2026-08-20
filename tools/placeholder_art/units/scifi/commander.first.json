@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "left shin",
@@ -37,8 +37,8 @@
       "y1": 28,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "right shin",
@@ -50,7 +50,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "command cape",
@@ -62,7 +62,7 @@
       "z0": 5,
       "z1": 11,
       "ramp": 1,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "left thigh",
@@ -73,7 +73,7 @@
       "y1": 44,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 2
     },
     {
@@ -86,7 +86,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "standard pole",
@@ -97,8 +97,8 @@
       "y1": 86,
       "z0": -1,
       "z1": 4,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "ink belt",
@@ -145,8 +145,8 @@
       "y1": 73,
       "z0": -7,
       "z1": 7,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "rank lights",
@@ -158,7 +158,7 @@
       "z0": -8,
       "z1": -7,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "left pauldron",
@@ -169,7 +169,7 @@
       "y1": 77,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -193,7 +193,7 @@
       "y1": 84,
       "z0": 0,
       "z1": 4,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -218,7 +218,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "face recess",
@@ -230,7 +230,7 @@
       "z0": -7,
       "z1": -6,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "pole finial",
@@ -254,7 +254,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "command crest",

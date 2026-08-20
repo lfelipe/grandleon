@@ -14,7 +14,7 @@
       "z0": 2,
       "z1": 7,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "hind leg, far",
@@ -86,7 +86,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "muzzle",
@@ -122,7 +122,7 @@
       "z0": -10,
       "z1": -7,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "shimenawa collar",
@@ -133,8 +133,8 @@
       "y1": 39,
       "z0": -8,
       "z1": 4,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "votive cloth",
@@ -146,7 +146,7 @@
       "z0": -7,
       "z1": 4,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "skull",
@@ -170,7 +170,7 @@
       "z0": -9,
       "z1": -8,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "tail, brush",
@@ -182,7 +182,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "far ear",
@@ -194,7 +194,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "near ear",
@@ -206,7 +206,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "hat step",
@@ -218,7 +218,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "tail, pale tip",
@@ -230,7 +230,7 @@
       "z0": 0,
       "z1": 5,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     }
   ]
 }

@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 2,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right paw",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 2,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "tail",
@@ -38,7 +38,7 @@
       "z0": 2,
       "z1": 7,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "left shin",
@@ -62,7 +62,7 @@
       "z0": -5,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "tail tip",
@@ -74,7 +74,7 @@
       "z0": 3,
       "z1": 8,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "skirted tunic",
@@ -85,8 +85,8 @@
       "y1": 30,
       "z0": -5,
       "z1": 3,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "belt",
@@ -98,7 +98,7 @@
       "z0": -6,
       "z1": 1,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "torso",
@@ -109,8 +109,8 @@
       "y1": 49,
       "z0": -5,
       "z1": 3,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "left arm, bare",
@@ -134,7 +134,7 @@
       "z0": -6,
       "z1": -1,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "guard, left",
@@ -158,7 +158,7 @@
       "z0": -5,
       "z1": -3,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "hair spill",
@@ -194,7 +194,7 @@
       "z0": -5,
       "z1": -3,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "head",
@@ -206,7 +206,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "hood",
@@ -217,8 +217,8 @@
       "y1": 66,
       "z0": -2,
       "z1": 5,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "muzzle",
@@ -229,7 +229,7 @@
       "y1": 58,
       "z0": -7,
       "z1": -4,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     },
     {
@@ -254,7 +254,7 @@
       "z0": -5,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "hood point",
@@ -278,7 +278,7 @@
       "z0": -1,
       "z1": 3,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "right ear",
@@ -302,7 +302,7 @@
       "z0": -1,
       "z1": 3,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     }
   ]
 }

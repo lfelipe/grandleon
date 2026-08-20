@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "tail",
@@ -38,7 +38,7 @@
       "z0": 4,
       "z1": 8,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left shin",
@@ -50,7 +50,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right shin",
@@ -62,7 +62,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "left thigh",
@@ -74,7 +74,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right thigh",
@@ -97,7 +97,7 @@
       "y1": 42,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -110,7 +110,7 @@
       "z0": -1,
       "z1": 1,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "bow grip wrap",
@@ -146,7 +146,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right arm",
@@ -158,7 +158,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left hand on bow",
@@ -170,7 +170,7 @@
       "z0": -3,
       "z1": 1,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "jerkin",
@@ -181,7 +181,7 @@
       "y1": 60,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -194,7 +194,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "face",
@@ -218,7 +218,7 @@
       "z0": 5,
       "z1": 9,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "eye band",
@@ -230,7 +230,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "scale cap",
@@ -254,7 +254,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "hat step",
@@ -265,7 +265,7 @@
       "y1": 79,
       "z0": -1,
       "z1": 5,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     },
     {
@@ -277,7 +277,7 @@
       "y1": 82,
       "z0": -1,
       "z1": 5,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     }
   ]

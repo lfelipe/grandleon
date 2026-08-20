@@ -13,8 +13,8 @@
       "y1": 4,
       "z0": -5,
       "z1": 5,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 1
     },
     {
       "name": "right boot",
@@ -25,8 +25,8 @@
       "y1": 4,
       "z0": -5,
       "z1": 5,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 1
     },
     {
       "name": "left shin",
@@ -37,8 +37,8 @@
       "y1": 23,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "right shin",
@@ -61,8 +61,8 @@
       "y1": 37,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "right thigh",
@@ -73,8 +73,8 @@
       "y1": 37,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 1
     },
     {
       "name": "slab shield",
@@ -85,8 +85,8 @@
       "y1": 52,
       "z0": -10,
       "z1": -5,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "shield lit band",
@@ -109,8 +109,8 @@
       "y1": 45,
       "z0": -8,
       "z1": -4,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "waist seal",
@@ -122,7 +122,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "right arm",
@@ -157,7 +157,7 @@
       "y1": 64,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -169,8 +169,8 @@
       "y1": 61,
       "z0": -8,
       "z1": -3,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "reactor strip",
@@ -182,7 +182,7 @@
       "z0": -7,
       "z1": -6,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "left pauldron",
@@ -205,7 +205,7 @@
       "y1": 67,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -229,8 +229,8 @@
       "y1": 70,
       "z0": -8,
       "z1": -4,
-      "ramp": 0,
-      "rung": 3
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "sealed helm",
@@ -242,7 +242,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "ink visor",
@@ -265,8 +265,8 @@
       "y1": 81,
       "z0": -5,
       "z1": 4,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     }
   ]
 }

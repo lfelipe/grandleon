@@ -37,8 +37,8 @@
       "y1": 34,
       "z0": -4,
       "z1": 3,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "right thigh",
@@ -62,7 +62,7 @@
       "z0": -6,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "obi knot",
@@ -73,8 +73,8 @@
       "y1": 37,
       "z0": -8,
       "z1": -6,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "left arm",
@@ -134,7 +134,7 @@
       "z0": -8,
       "z1": -6,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "left hand",
@@ -146,7 +146,7 @@
       "z0": -6,
       "z1": -2,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "right hand",
@@ -170,7 +170,7 @@
       "z0": -7,
       "z1": 2,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "left tanto, upright",
@@ -194,7 +194,7 @@
       "z0": -5,
       "z1": -2,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "zukin hood",
@@ -218,7 +218,7 @@
       "z0": -8,
       "z1": -4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "face band",
@@ -230,7 +230,7 @@
       "z0": -9,
       "z1": -7,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "zukin, crown",

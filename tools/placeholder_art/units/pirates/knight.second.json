@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "right boot",
@@ -38,7 +38,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "right leg",
@@ -49,8 +49,8 @@
       "y1": 29,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "flared skirt",
@@ -61,7 +61,7 @@
       "y1": 40,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 1
     },
     {
@@ -73,8 +73,8 @@
       "y1": 44,
       "z0": -6,
       "z1": 6,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "left arm, bare",
@@ -86,7 +86,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "right arm, sword arm",
@@ -121,7 +121,7 @@
       "y1": 66,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -133,8 +133,8 @@
       "y1": 59,
       "z0": -7,
       "z1": -6,
-      "ramp": 1,
-      "rung": 0
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "cutlass grip",
@@ -146,7 +146,7 @@
       "z0": -4,
       "z1": 0,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "ponytail",
@@ -194,7 +194,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "cutlass blade",
@@ -206,7 +206,7 @@
       "z0": -4,
       "z1": 1,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "bandana",
@@ -218,7 +218,7 @@
       "z0": -5,
       "z1": 2,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no arm.r and needs a human pass before it can be animated"

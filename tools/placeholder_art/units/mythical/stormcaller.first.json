@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 1,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "robe",
@@ -37,8 +37,8 @@
       "y1": 49,
       "z0": -6,
       "z1": -4,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "brazier pole",
@@ -61,8 +61,8 @@
       "y1": 57,
       "z0": 2,
       "z1": 7,
-      "ramp": 1,
-      "rung": 0
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "left arm",
@@ -74,7 +74,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "right arm",
@@ -86,7 +86,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "torso",
@@ -134,7 +134,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "face band",
@@ -145,8 +145,8 @@
       "y1": 61,
       "z0": -7,
       "z1": -5,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "scale hood",
@@ -170,7 +170,7 @@
       "z0": -1,
       "z1": 2,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "horn, right",
@@ -182,7 +182,7 @@
       "z0": -1,
       "z1": 2,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "brazier bowl",
@@ -194,7 +194,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "flame",
@@ -206,7 +206,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "flame tongue",

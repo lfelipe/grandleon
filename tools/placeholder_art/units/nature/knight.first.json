@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "right paw",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "tail stub",
@@ -50,7 +50,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right leg",
@@ -62,7 +62,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "kilt",
@@ -74,7 +74,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "belt",
@@ -98,7 +98,7 @@
       "z0": -10,
       "z1": -7,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "left arm",
@@ -109,8 +109,8 @@
       "y1": 58,
       "z0": -4,
       "z1": 3,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "torso, studded",
@@ -122,7 +122,7 @@
       "z0": -8,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "shield field",
@@ -133,8 +133,8 @@
       "y1": 61,
       "z0": -12,
       "z1": -10,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "shield boss",
@@ -146,7 +146,7 @@
       "z0": -13,
       "z1": -12,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "sword grip",
@@ -157,8 +157,8 @@
       "y1": 57,
       "z0": -3,
       "z1": 1,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "crossguard",
@@ -170,7 +170,7 @@
       "z0": -3,
       "z1": -1,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "left shoulder",
@@ -206,7 +206,7 @@
       "z0": -3,
       "z1": -1,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "head",
@@ -218,7 +218,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "muzzle",
@@ -242,7 +242,7 @@
       "z0": -11,
       "z1": -10,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "mask stripe left",
@@ -254,7 +254,7 @@
       "z0": -8,
       "z1": -6,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "mask stripe right",
@@ -266,7 +266,7 @@
       "z0": -8,
       "z1": -6,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "left ear",
@@ -290,7 +290,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "hat step",
@@ -302,7 +302,7 @@
       "z0": -1,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     }
   ]
 }

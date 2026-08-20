@@ -38,7 +38,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 1,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "iron pole",
@@ -50,7 +50,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "pole arm",
@@ -62,7 +62,7 @@
       "z0": -3,
       "z1": 1,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "rib light",
@@ -86,7 +86,7 @@
       "z0": -5,
       "z1": -3,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "hair stream, low",
@@ -98,7 +98,7 @@
       "z0": 2,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "shawl",
@@ -109,8 +109,8 @@
       "y1": 59,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "hair stream, high",
@@ -122,7 +122,7 @@
       "z0": 1,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "skull",
@@ -146,7 +146,7 @@
       "z0": -5,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "ember drift",
@@ -157,8 +157,8 @@
       "y1": 74,
       "z0": -1,
       "z1": 1,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "hair crown",
@@ -170,7 +170,7 @@
       "z0": -5,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "flame bowl",
@@ -193,7 +193,7 @@
       "y1": 81,
       "z0": -2,
       "z1": 2,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -205,8 +205,8 @@
       "y1": 83,
       "z0": -3,
       "z1": 3,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no arm.l, arm.r and needs a human pass before it can be animated"

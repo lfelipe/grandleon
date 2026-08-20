@@ -14,7 +14,7 @@
       "z0": -2,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "left boot ink",
@@ -38,7 +38,7 @@
       "z0": -1,
       "z1": 5,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "left leg, forward",
@@ -50,7 +50,7 @@
       "z0": -5,
       "z1": 1,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "low dagger blade",
@@ -62,7 +62,7 @@
       "z0": -5,
       "z1": -2,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "low dagger guard",
@@ -74,7 +74,7 @@
       "z0": -5,
       "z1": -2,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "left arm, low",
@@ -86,7 +86,7 @@
       "z0": -5,
       "z1": -1,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "kilt",
@@ -97,8 +97,8 @@
       "y1": 28,
       "z0": -4,
       "z1": 3,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "rib bar",
@@ -121,8 +121,8 @@
       "y1": 48,
       "z0": -4,
       "z1": 3,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "short cloak",
@@ -134,7 +134,7 @@
       "z0": 3,
       "z1": 7,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "bandolier ink",
@@ -146,7 +146,7 @@
       "z0": -5,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "right arm, raised",
@@ -194,7 +194,7 @@
       "z0": -5,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "eye light, left",
@@ -205,7 +205,7 @@
       "y1": 60,
       "z0": -6,
       "z1": -5,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     },
     {
@@ -217,7 +217,7 @@
       "y1": 60,
       "z0": -6,
       "z1": -5,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     },
     {
@@ -230,7 +230,7 @@
       "z0": -2,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "hood point, swept left",

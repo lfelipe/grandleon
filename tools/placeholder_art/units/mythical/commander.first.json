@@ -14,7 +14,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "left greave",
@@ -37,8 +37,8 @@
       "y1": 30,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "right greave",
@@ -49,8 +49,8 @@
       "y1": 30,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "long cape",
@@ -61,7 +61,7 @@
       "y1": 69,
       "z0": 4,
       "z1": 8,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 1
     },
     {
@@ -74,7 +74,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "right thigh",
@@ -97,8 +97,8 @@
       "y1": 92,
       "z0": 0,
       "z1": 3,
-      "ramp": 0,
-      "rung": 3
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "hip fauld",
@@ -109,7 +109,7 @@
       "y1": 49,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -181,8 +181,8 @@
       "y1": 66,
       "z0": -8,
       "z1": -6,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "banner tail",
@@ -194,7 +194,7 @@
       "z0": 0,
       "z1": 3,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "left pauldron",
@@ -218,7 +218,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "gorget",
@@ -230,7 +230,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "face band",
@@ -242,7 +242,7 @@
       "z0": -8,
       "z1": -6,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "banner cloth",
@@ -253,8 +253,8 @@
       "y1": 89,
       "z0": 0,
       "z1": 3,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "crested helm",
@@ -266,7 +266,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "visor band",
@@ -278,7 +278,7 @@
       "z0": -7,
       "z1": -6,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "helm crest",
@@ -290,7 +290,7 @@
       "z0": -4,
       "z1": 6,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "hat step",
@@ -302,7 +302,7 @@
       "z0": -4,
       "z1": 6,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     }
   ]
 }

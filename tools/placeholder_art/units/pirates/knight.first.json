@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "left leg",
@@ -38,7 +38,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right leg",
@@ -61,7 +61,7 @@
       "y1": 36,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 1
     },
     {
@@ -85,8 +85,8 @@
       "y1": 64,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "right arm, bare",
@@ -98,7 +98,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "baldric strap",
@@ -109,8 +109,8 @@
       "y1": 64,
       "z0": -8,
       "z1": -6,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "left arm, sword arm",
@@ -133,8 +133,8 @@
       "y1": 54,
       "z0": -8,
       "z1": -6,
-      "ramp": 1,
-      "rung": 0
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "cutlass grip",
@@ -146,7 +146,7 @@
       "z0": -4,
       "z1": 0,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "head",
@@ -169,8 +169,8 @@
       "y1": 80,
       "z0": 4,
       "z1": 8,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "brass earring",
@@ -194,7 +194,7 @@
       "z0": -7,
       "z1": -6,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "cutlass blade",
@@ -218,7 +218,7 @@
       "z0": -5,
       "z1": 2,
       "ramp": 1,
-      "rung": 2
+      "rung": 3
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no arm.l and needs a human pass before it can be animated"

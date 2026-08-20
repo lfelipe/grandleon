@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left shin",
@@ -37,7 +37,7 @@
       "y1": 31,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 1
     },
     {
@@ -73,8 +73,8 @@
       "y1": 42,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "right arm to grip",
@@ -86,7 +86,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 1,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "ebira quiver, left hip",
@@ -98,7 +98,7 @@
       "z0": 4,
       "z1": 9,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left sleeve",
@@ -109,8 +109,8 @@
       "y1": 60,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "do",
@@ -121,7 +121,7 @@
       "y1": 67,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -133,8 +133,8 @@
       "y1": 55,
       "z0": -8,
       "z1": -6,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "fletching",
@@ -146,7 +146,7 @@
       "z0": 6,
       "z1": 10,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "yumi, upper limb",
@@ -182,7 +182,7 @@
       "z0": -10,
       "z1": -8,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "hachimaki band",
@@ -193,8 +193,8 @@
       "y1": 79,
       "z0": -9,
       "z1": -1,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "hair",
@@ -206,7 +206,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "topknot",

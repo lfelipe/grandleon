@@ -14,7 +14,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "tail",
@@ -38,7 +38,7 @@
       "z0": 3,
       "z1": 7,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left shin",
@@ -50,7 +50,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right shin",
@@ -85,7 +85,7 @@
       "y1": 31,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 1
     },
     {
@@ -97,8 +97,8 @@
       "y1": 35,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 2
     },
     {
       "name": "short cloak",
@@ -134,7 +134,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "right arm",
@@ -146,7 +146,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "torso",
@@ -169,7 +169,7 @@
       "y1": 49,
       "z0": -6,
       "z1": -5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -217,8 +217,8 @@
       "y1": 54,
       "z0": -5,
       "z1": -4,
-      "ramp": 0,
-      "rung": 3
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "left dagger, up",
@@ -242,7 +242,7 @@
       "z0": -4,
       "z1": -2,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "hood",
@@ -265,7 +265,7 @@
       "y1": 63,
       "z0": -6,
       "z1": -5,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     },
     {
@@ -278,7 +278,7 @@
       "z0": 1,
       "z1": 7,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "hat step",

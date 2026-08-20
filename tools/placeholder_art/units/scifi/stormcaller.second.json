@@ -14,7 +14,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 1,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "storm shroud",
@@ -37,7 +37,7 @@
       "y1": 39,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -50,7 +50,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "pole",
@@ -62,7 +62,7 @@
       "z0": -2,
       "z1": 2,
       "ramp": 0,
-      "rung": 1
+      "rung": 0
     },
     {
       "name": "left arm, close",
@@ -73,7 +73,7 @@
       "y1": 58,
       "z0": -3,
       "z1": 3,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 1
     },
     {
@@ -97,7 +97,7 @@
       "y1": 59,
       "z0": -3,
       "z1": 3,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 1
     },
     {
@@ -109,7 +109,7 @@
       "y1": 52,
       "z0": -6,
       "z1": -4,
-      "ramp": 0,
+      "ramp": 1,
       "rung": 3
     },
     {
@@ -158,7 +158,7 @@
       "z0": -5,
       "z1": -4,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "storm cowl",
@@ -169,8 +169,8 @@
       "y1": 80,
       "z0": -4,
       "z1": 5,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "face band",
@@ -182,7 +182,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "cowl peak",
@@ -193,8 +193,8 @@
       "y1": 87,
       "z0": -1,
       "z1": 4,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "brazier bowl",
@@ -206,7 +206,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "plasma flame",
@@ -218,7 +218,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "hat step",
@@ -230,7 +230,7 @@
       "z0": -1,
       "z1": 1,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "flame tip",
@@ -242,7 +242,7 @@
       "z0": -1,
       "z1": 1,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no arm.r and needs a human pass before it can be animated"

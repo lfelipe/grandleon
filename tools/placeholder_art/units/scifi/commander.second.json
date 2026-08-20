@@ -14,7 +14,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "right boot",
@@ -26,7 +26,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "left shin",
@@ -38,7 +38,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 2
     },
     {
       "name": "right shin",
@@ -50,7 +50,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "command cape",
@@ -73,8 +73,8 @@
       "y1": 46,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "standard pole",
@@ -85,8 +85,8 @@
       "y1": 86,
       "z0": -1,
       "z1": 4,
-      "ramp": 0,
-      "rung": 1
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "ink belt",
@@ -98,7 +98,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "left arm",
@@ -133,8 +133,8 @@
       "y1": 71,
       "z0": -6,
       "z1": 6,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 1
     },
     {
       "name": "rank lights",
@@ -146,7 +146,7 @@
       "z0": -7,
       "z1": -6,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "hair tail",
@@ -169,7 +169,7 @@
       "y1": 75,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -193,7 +193,7 @@
       "y1": 83,
       "z0": 0,
       "z1": 4,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -206,7 +206,7 @@
       "z0": -3,
       "z1": 3,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "head",
@@ -218,7 +218,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "face recess",
@@ -230,7 +230,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 1
     },
     {
       "name": "pole finial",
@@ -254,7 +254,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "command plume",
@@ -265,8 +265,8 @@
       "y1": 95,
       "z0": -4,
       "z1": 5,
-      "ramp": 1,
-      "rung": 3
+      "ramp": 0,
+      "rung": 0
     }
   ]
 }

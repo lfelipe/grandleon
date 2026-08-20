@@ -14,7 +14,7 @@
       "z0": -6,
       "z1": 6,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "robe",
@@ -25,8 +25,8 @@
       "y1": 33,
       "z0": -5,
       "z1": 5,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "apron",
@@ -37,7 +37,7 @@
       "y1": 33,
       "z0": -7,
       "z1": -5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -50,7 +50,7 @@
       "z0": -4,
       "z1": 3,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "shawl fringe",
@@ -61,7 +61,7 @@
       "y1": 34,
       "z0": -7,
       "z1": -5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 3
     },
     {
@@ -74,7 +74,7 @@
       "z0": -5,
       "z1": 3,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "herb bundle",
@@ -86,7 +86,7 @@
       "z0": -3,
       "z1": 2,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "shawl, woven",
@@ -97,8 +97,8 @@
       "y1": 54,
       "z0": -5,
       "z1": 5,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "left arm",
@@ -109,8 +109,8 @@
       "y1": 50,
       "z0": -4,
       "z1": 1,
-      "ramp": 0,
-      "rung": 2
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "right arm",
@@ -122,7 +122,7 @@
       "z0": -5,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "braid",
@@ -146,7 +146,7 @@
       "z0": -5,
       "z1": 5,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "muzzle",
@@ -169,8 +169,8 @@
       "y1": 60,
       "z0": -9,
       "z1": -8,
-      "ramp": 0,
-      "rung": 0
+      "ramp": 1,
+      "rung": 3
     },
     {
       "name": "hood",
@@ -181,8 +181,8 @@
       "y1": 78,
       "z0": -3,
       "z1": 7,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "round ear right",
@@ -194,7 +194,7 @@
       "z0": -3,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 1
     },
     {
       "name": "round ear left",
@@ -206,7 +206,7 @@
       "z0": -3,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 3
     },
     {
       "name": "hair fringe",
@@ -218,7 +218,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "hood peak",
@@ -229,7 +229,7 @@
       "y1": 85,
       "z0": -1,
       "z1": 5,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     }
   ]

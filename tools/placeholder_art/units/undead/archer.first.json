@@ -14,7 +14,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 1
     },
     {
       "name": "right shin",
@@ -25,8 +25,8 @@
       "y1": 27,
       "z0": -4,
       "z1": 4,
-      "ramp": 0,
-      "rung": 3
+      "ramp": 1,
+      "rung": 2
     },
     {
       "name": "bow, lower limb",
@@ -38,7 +38,7 @@
       "z0": -3,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "hip wrap",
@@ -49,7 +49,7 @@
       "y1": 37,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
+      "ramp": 0,
       "rung": 2
     },
     {
@@ -74,7 +74,7 @@
       "z0": -5,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "bow grip wrap",
@@ -85,8 +85,8 @@
       "y1": 53,
       "z0": -4,
       "z1": 1,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "spine",
@@ -98,7 +98,7 @@
       "z0": -4,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "rib gap, low",
@@ -122,7 +122,7 @@
       "z0": 2,
       "z1": 6,
       "ramp": 0,
-      "rung": 1
+      "rung": 3
     },
     {
       "name": "bow arm",
@@ -134,7 +134,7 @@
       "z0": -4,
       "z1": 1,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "ribcage",
@@ -158,7 +158,7 @@
       "z0": -6,
       "z1": -4,
       "ramp": 0,
-      "rung": 0
+      "rung": 3
     },
     {
       "name": "bow, upper limb",
@@ -170,7 +170,7 @@
       "z0": -3,
       "z1": 1,
       "ramp": 0,
-      "rung": 2
+      "rung": 0
     },
     {
       "name": "arrow fletch",
@@ -182,7 +182,7 @@
       "z0": 3,
       "z1": 6,
       "ramp": 0,
-      "rung": 3
+      "rung": 0
     },
     {
       "name": "collar",
@@ -193,8 +193,8 @@
       "y1": 72,
       "z0": -5,
       "z1": 4,
-      "ramp": 1,
-      "rung": 2
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "jaw",
@@ -218,7 +218,7 @@
       "z0": -5,
       "z1": 4,
       "ramp": 0,
-      "rung": 3
+      "rung": 2
     },
     {
       "name": "sockets",
@@ -230,7 +230,7 @@
       "z0": -6,
       "z1": -5,
       "ramp": 0,
-      "rung": 0
+      "rung": 2
     },
     {
       "name": "ragged coif",
@@ -241,8 +241,8 @@
       "y1": 92,
       "z0": -4,
       "z1": 4,
-      "ramp": 1,
-      "rung": 1
+      "ramp": 0,
+      "rung": 0
     }
   ]
 }
