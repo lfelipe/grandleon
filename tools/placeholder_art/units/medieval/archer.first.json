@@ -233,18 +233,6 @@
       "rung": 1
     },
     {
-      "name": "face band",
-      "slot": "head",
-      "x0": -8,
-      "x1": 8,
-      "y0": 112,
-      "y1": 115,
-      "z0": -9,
-      "z1": -6,
-      "ramp": 0,
-      "rung": 3
-    },
-    {
       "name": "hood point",
       "slot": "crest",
       "x0": -3,
@@ -255,6 +243,18 @@
       "z1": 8,
       "ramp": 1,
       "rung": 1
+    },
+    {
+      "name": "face band",
+      "slot": "head",
+      "x0": -6,
+      "x1": 6,
+      "y0": 112,
+      "y1": 115,
+      "z0": -10,
+      "z1": -7,
+      "ramp": 0,
+      "rung": 3
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no arm.r and needs a human pass before it can be animated"

@@ -185,18 +185,6 @@
       "rung": 3
     },
     {
-      "name": "face band",
-      "slot": "head",
-      "x0": -9,
-      "x1": 9,
-      "y0": 99,
-      "y1": 102,
-      "z0": -7,
-      "z1": -4,
-      "ramp": 0,
-      "rung": 3
-    },
-    {
       "name": "face",
       "slot": "head",
       "x0": -9,
@@ -207,6 +195,18 @@
       "z1": -1,
       "ramp": 0,
       "rung": 2
+    },
+    {
+      "name": "face band",
+      "slot": "head",
+      "x0": -7,
+      "x1": 7,
+      "y0": 99,
+      "y1": 102,
+      "z0": -14,
+      "z1": -11,
+      "ramp": 0,
+      "rung": 3
     },
     {
       "name": "kabuto",

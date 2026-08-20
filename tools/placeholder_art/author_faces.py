@@ -34,7 +34,9 @@ from typing import Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from placeholder_art.meshes import authored, rules
+from placeholder_art import playstation_header, preview3d, styles
+from placeholder_art.meshes import Part, authored, rules
+import roster_comparison as rc
 
 #: How far the band stands proud of the head's front face, in world units. Two,
 #: which is one screen pixel at the size a figure is drawn and enough for the
@@ -92,8 +94,25 @@ def has_face(parts: List[dict], head: dict) -> bool:
                for part in parts)
 
 
-def band_for(head: dict) -> dict:
-    """A face band measured off one head box."""
+def frontmost_at(parts: List[dict], head: dict) -> int:
+    """The nearest z of anything standing in front of the head's own band.
+
+    A band placed two units in front of the *head* is not in front of the
+    *face* if a mask, a muzzle or a hood hollow reaches further forward, and it
+    is then drawn inside another box and never seen. Three of the sixty-one
+    bands this tool wrote did exactly that -- `sengoku/commander`'s sits at
+    z -7..-4 while its face box reaches -11 -- and geometry alone could not tell,
+    because the band was correctly two units in front of the box it was measured
+    from. So the whole head region is asked, not just the part chosen.
+    """
+    low, high = head["y0"], head["y1"]
+    reaching = [part["z0"] for part in parts
+                if part["y1"] >= low and part["y0"] <= high]
+    return min(reaching) if reaching else head["z0"]
+
+
+def band_for(head: dict, front: int) -> dict:
+    """A face band measured off one head box, in front of everything near it."""
     width = head["x1"] - head["x0"]
     height = head["y1"] - head["y0"]
     centre_x = (head["x0"] + head["x1"]) / 2.0
@@ -108,8 +127,8 @@ def band_for(head: dict) -> dict:
         "x1": int(round(centre_x)) + half,
         "y0": y0,
         "y1": y0 + thickness,
-        "z0": head["z0"] - PROUD,
-        "z1": head["z0"] + 1,
+        "z0": front - PROUD,
+        "z1": front + 1,
         # The neutral ramp, never the faction one: a face is not a thing that
         # should change colour when the banner does.
         "ramp": rules.RAMP_NEUTRAL,
@@ -126,6 +145,48 @@ def band_for(head: dict) -> dict:
     }
 
 
+def drawn_pixels(entries: List[dict], style_name: str, archetype: str,
+                 cells) -> set:
+    """What a part table actually puts on screen, at the shipped camera."""
+    style = styles.STYLES_BY_NAME[style_name]
+    parts = [Part(e["x0"], e["x1"], e["y0"], e["y1"], e["z0"], e["z1"],
+                  e["ramp"], e["rung"], str(e.get("name", "")))
+             for e in entries]
+    parts.sort(key=rules.depth_key, reverse=True)
+    ramps = preview3d.ramp_colours(
+        playstation_header.mesh_ramp_words(cells, style, archetype, rc.FACTION),
+        playstation_header.clut_channels)
+    drawn = preview3d.render(rc.faces_from(parts), ramps)
+    return {(x, y, drawn.at(x, y))
+            for y in range(drawn.height) for x in range(drawn.width)
+            if drawn.at(x, y) is not None
+            and drawn.at(x, y) != preview3d.TILE_COLOUR}
+
+
+def visible_band(entries: List[dict], head: dict, style_name: str,
+                 archetype: str, cells) -> Optional[dict]:
+    """A band placed so that it can actually be seen, or None.
+
+    Geometry was not enough, twice. Placing two units in front of the head left
+    three bands buried inside a face box that reached further forward; placing
+    them in front of everything in the head's y-range moved the failure to three
+    different units rather than removing it. Occlusion at this pitch depends on
+    the whole scene and the draw order, not on one comparison of two boxes.
+
+    So the band is *rendered* and kept only if it changed the picture, stepping
+    forward until it does. That is the same discipline every other lesson here
+    ended in: look at the output rather than reason about the input.
+    """
+    without = drawn_pixels(entries, style_name, archetype, cells)
+    front = frontmost_at(entries, head)
+    for extra in range(0, 7):
+        band = band_for(head, front - extra)
+        if drawn_pixels(entries + [band], style_name, archetype,
+                        cells) != without:
+            return band
+    return None
+
+
 def main() -> int:
     dry_run = "--dry-run" in sys.argv
     root = authored.ROSTER_DIRECTORY
@@ -133,6 +194,7 @@ def main() -> int:
     per_part = rules.TRIANGLES_PER_PART
 
     added, skipped, already = [], [], 0
+    seen: Dict[str, object] = {}
     for path in sorted(root.glob("*/*.json")):
         document = json.loads(path.read_text())
         parts = document["parts"]
@@ -150,7 +212,16 @@ def main() -> int:
                            f"pass {ceiling} triangles")
             continue
 
-        parts.append(band_for(head))
+        cells = seen.setdefault(document["style"],
+                                rc.converted_for(
+                                    styles.STYLES_BY_NAME[document["style"]]))
+        band = visible_band(parts, head, document["style"],
+                            document["archetype"], cells)
+        if band is None:
+            skipped.append(f"{where}: no room in front of the head for a face "
+                           f"that can be seen")
+            continue
+        parts.append(band)
         added.append(where)
         if not dry_run:
             document["parts"] = parts

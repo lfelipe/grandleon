@@ -161,6 +161,18 @@
       "rung": 1
     },
     {
+      "name": "face band",
+      "slot": "head",
+      "x0": -8,
+      "x1": 8,
+      "y0": 84,
+      "y1": 88,
+      "z0": -10,
+      "z1": -7,
+      "ramp": 0,
+      "rung": 0
+    },
+    {
       "name": "hat, brim",
       "slot": "head",
       "x0": -14,
@@ -171,18 +183,6 @@
       "z1": 3,
       "ramp": 1,
       "rung": 2
-    },
-    {
-      "name": "face band",
-      "slot": "head",
-      "x0": -13,
-      "x1": 13,
-      "y0": 92,
-      "y1": 94,
-      "z0": -10,
-      "z1": -7,
-      "ramp": 0,
-      "rung": 0
     },
     {
       "name": "hat, crown",

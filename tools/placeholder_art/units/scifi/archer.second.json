@@ -185,18 +185,6 @@
       "rung": 2
     },
     {
-      "name": "face band",
-      "slot": "head",
-      "x0": -8,
-      "x1": 8,
-      "y0": 99,
-      "y1": 103,
-      "z0": -7,
-      "z1": -4,
-      "ramp": 0,
-      "rung": 0
-    },
-    {
       "name": "scanning visor",
       "slot": "head",
       "x0": -9,
@@ -207,6 +195,18 @@
       "z1": -5,
       "ramp": 0,
       "rung": 3
+    },
+    {
+      "name": "face band",
+      "slot": "head",
+      "x0": -5,
+      "x1": 5,
+      "y0": 99,
+      "y1": 103,
+      "z0": -9,
+      "z1": -6,
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "hair fringe",

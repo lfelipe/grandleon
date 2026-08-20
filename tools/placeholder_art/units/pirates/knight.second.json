@@ -219,18 +219,6 @@
       "z1": 3,
       "ramp": 1,
       "rung": 2
-    },
-    {
-      "name": "face band",
-      "slot": "head",
-      "x0": -11,
-      "x1": 11,
-      "y0": 118,
-      "y1": 123,
-      "z0": -9,
-      "z1": -6,
-      "ramp": 0,
-      "rung": 0
     }
   ],
   "review": "slots were inferred from part names during migration; this figure has no arm.r and needs a human pass before it can be animated"

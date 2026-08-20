@@ -257,18 +257,6 @@
       "rung": 2
     },
     {
-      "name": "face band",
-      "slot": "head",
-      "x0": -5,
-      "x1": 5,
-      "y0": 107,
-      "y1": 111,
-      "z0": -7,
-      "z1": -4,
-      "ramp": 0,
-      "rung": 0
-    },
-    {
       "name": "hat step",
       "slot": "crest",
       "x0": -5,
@@ -279,6 +267,18 @@
       "z1": 10,
       "ramp": 0,
       "rung": 3
+    },
+    {
+      "name": "face band",
+      "slot": "head",
+      "x0": -4,
+      "x1": 4,
+      "y0": 107,
+      "y1": 111,
+      "z0": -10,
+      "z1": -7,
+      "ramp": 0,
+      "rung": 0
     },
     {
       "name": "hood point",

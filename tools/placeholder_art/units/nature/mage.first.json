@@ -209,18 +209,6 @@
       "rung": 3
     },
     {
-      "name": "face band",
-      "slot": "head",
-      "x0": -9,
-      "x1": 10,
-      "y0": 112,
-      "y1": 114,
-      "z0": -11,
-      "z1": -8,
-      "ramp": 0,
-      "rung": 3
-    },
-    {
       "name": "hat step",
       "slot": "crest",
       "x0": -17,

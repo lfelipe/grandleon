@@ -30,7 +30,7 @@
     },
     {
       "name": "hind leg, near",
-      "slot": "crest",
+      "slot": "leg.r",
       "x0": 5,
       "x1": 10,
       "y0": 0,
@@ -42,7 +42,7 @@
     },
     {
       "name": "fore leg, near",
-      "slot": "crest",
+      "slot": "leg.l",
       "x0": -15,
       "x1": -10,
       "y0": 0,
@@ -151,10 +151,10 @@
     {
       "name": "face band",
       "slot": "head",
-      "x0": -15,
-      "x1": -10,
-      "y0": 62,
-      "y1": 65,
+      "x0": -24,
+      "x1": -8,
+      "y0": 65,
+      "y1": 71,
       "z0": -16,
       "z1": -13,
       "ramp": 0,

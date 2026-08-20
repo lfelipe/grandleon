@@ -30,7 +30,7 @@
     },
     {
       "name": "hind leg, near",
-      "slot": "crest",
+      "slot": "leg.r",
       "x0": 5,
       "x1": 11,
       "y0": 0,
@@ -42,7 +42,7 @@
     },
     {
       "name": "fore leg, near",
-      "slot": "crest",
+      "slot": "leg.l",
       "x0": -14,
       "x1": -8,
       "y0": 0,

@@ -42,8 +42,28 @@ Two things were measured while fixing it, and both are worth keeping:
   one, which is what `textures/README.md` already says about painting: value
   contrast is what makes a figure legible at this size, more than hue.
 
-After the rule: **no unit has an invisible face**, and the bands cost about 3.7%
-of a figure's drawn pixels for twelve triangles each.
+After the rule the bands cost about 3.7% of a figure's drawn pixels for twelve
+triangles each.
+
+**A claim that was made here and was wrong.** This said "no unit has an
+invisible face". It was checked on eight units in three styles and stated about
+all 112, and it did not hold: rendering every face-ish part across the roster and
+removing it one at a time, **13 of 150 changed nothing on screen**. Three were
+bands this tool wrote.
+
+Two attempts to fix it geometrically both failed, and the way they failed is the
+point. Placing the band two units in front of the *head* buried it inside face
+boxes that reach further forward -- `sengoku/commander`'s band sits at z -7..-4
+while its face box reaches -11. Placing it in front of everything in the head's
+y-range moved the failure to three *different* units. Occlusion at this pitch
+depends on the whole scene and the draw order, not on a comparison of two boxes.
+
+`author_faces.py` now **renders the figure with and without the band and keeps it
+only if the picture changed**, stepping it forward until it does. Zero of the
+bands it writes are invisible. Nine authored face parts elsewhere still are --
+`undead/healer`'s two eye lights sit behind its hood hollow, `undead/beast`'s eye
+socket behind its skull -- and those are art to fix rather than a rule to
+change.
 
 ## What the metrics say, and which of them to trust
 

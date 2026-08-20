@@ -173,6 +173,18 @@
       "rung": 2
     },
     {
+      "name": "face band",
+      "slot": "head",
+      "x0": -7,
+      "x1": 7,
+      "y0": 98,
+      "y1": 103,
+      "z0": -14,
+      "z1": -11,
+      "ramp": 0,
+      "rung": 0
+    },
+    {
       "name": "hachimaki band",
       "slot": "head",
       "x0": -9,
@@ -183,18 +195,6 @@
       "z1": -2,
       "ramp": 1,
       "rung": 3
-    },
-    {
-      "name": "face band",
-      "slot": "head",
-      "x0": -8,
-      "x1": 8,
-      "y0": 106,
-      "y1": 108,
-      "z0": -14,
-      "z1": -11,
-      "ramp": 0,
-      "rung": 0
     },
     {
       "name": "hair",

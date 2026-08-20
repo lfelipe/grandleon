@@ -233,6 +233,18 @@
       "rung": 1
     },
     {
+      "name": "face band",
+      "slot": "head",
+      "x0": -7,
+      "x1": 7,
+      "y0": 104,
+      "y1": 107,
+      "z0": -9,
+      "z1": -6,
+      "ramp": 0,
+      "rung": 3
+    },
+    {
       "name": "circlet helm",
       "slot": "head",
       "x0": -10,
@@ -243,18 +255,6 @@
       "z1": 7,
       "ramp": 0,
       "rung": 3
-    },
-    {
-      "name": "face band",
-      "slot": "head",
-      "x0": -9,
-      "x1": 9,
-      "y0": 112,
-      "y1": 114,
-      "z0": -9,
-      "z1": -6,
-      "ramp": 0,
-      "rung": 0
     },
     {
       "name": "banner finial",

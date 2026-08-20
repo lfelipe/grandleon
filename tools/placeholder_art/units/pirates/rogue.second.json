@@ -233,18 +233,6 @@
       "rung": 1
     },
     {
-      "name": "face band",
-      "slot": "head",
-      "x0": -10,
-      "x1": 10,
-      "y0": 113,
-      "y1": 118,
-      "z0": -8,
-      "z1": -5,
-      "ramp": 0,
-      "rung": 3
-    },
-    {
       "name": "hood peak",
       "slot": "head",
       "x0": -4,

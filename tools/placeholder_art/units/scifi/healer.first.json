@@ -173,18 +173,6 @@
       "rung": 2
     },
     {
-      "name": "face band",
-      "slot": "head",
-      "x0": -12,
-      "x1": 12,
-      "y0": 94,
-      "y1": 97,
-      "z0": -11,
-      "z1": -8,
-      "ramp": 0,
-      "rung": 0
-    },
-    {
       "name": "head",
       "slot": "head",
       "x0": -11,

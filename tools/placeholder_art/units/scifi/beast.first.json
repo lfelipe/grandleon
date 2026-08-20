@@ -6,7 +6,7 @@
   "parts": [
     {
       "name": "rear leg, far",
-      "slot": "crest",
+      "slot": "leg.l",
       "x0": -14,
       "x1": -8,
       "y0": 0,
@@ -30,7 +30,7 @@
     },
     {
       "name": "rear leg, near",
-      "slot": "crest",
+      "slot": "leg.l",
       "x0": -14,
       "x1": -8,
       "y0": 0,
@@ -42,7 +42,7 @@
     },
     {
       "name": "front leg, near",
-      "slot": "crest",
+      "slot": "leg.r",
       "x0": 11,
       "x1": 18,
       "y0": 0,
@@ -139,12 +139,12 @@
     {
       "name": "face band",
       "slot": "head",
-      "x0": 22,
-      "x1": 27,
+      "x0": 16,
+      "x1": 34,
       "y0": 65,
       "y1": 70,
-      "z0": -12,
-      "z1": -9,
+      "z0": -18,
+      "z1": -15,
       "ramp": 0,
       "rung": 0
     },

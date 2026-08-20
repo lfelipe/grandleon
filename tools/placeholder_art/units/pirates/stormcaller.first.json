@@ -221,18 +221,6 @@
       "rung": 3
     },
     {
-      "name": "face band",
-      "slot": "head",
-      "x0": -5,
-      "x1": 5,
-      "y0": 114,
-      "y1": 119,
-      "z0": -9,
-      "z1": -6,
-      "ramp": 0,
-      "rung": 3
-    },
-    {
       "name": "flame, high",
       "slot": "head",
       "x0": 17,
