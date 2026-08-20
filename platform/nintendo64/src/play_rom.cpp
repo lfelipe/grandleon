@@ -5511,8 +5511,20 @@ private:
             case sim::EventType::unit_moved: {
                 if (actor == nullptr) return;
                 grandleon::n64audio::play(grandleon::n64audio::Sfx::move);
+                // The camera goes to whoever is walking, rather than this
+                // returning and drawing nothing. A side the player is not
+                // steering walks wherever the rules send it, and on a board
+                // with edges that is regularly out of view: what this used to
+                // do was skip the animation entirely, so a whole turn happened
+                // somewhere the player could not see and the board simply
+                // changed under them.
+                bring_into_view(actor->position);
                 if (!camera_.visible(actor->position.x, actor->position.y) ||
                     !camera_.visible(event.position.x, event.position.y)) {
+                    // Still not both on the screen: a walk whose ends are
+                    // further apart than the window is one no single camera
+                    // position can hold, and a token drawn half off the edge is
+                    // worse than the board changing.
                     return;
                 }
                 // The token walks the route rather than crossing the board in
@@ -6666,6 +6678,39 @@ private:
 
     // A full-screen beat announcing whose turn it is, over a settled frame of
     // the new state.
+    // Moves the camera until a tile is on the screen, drawing the frames it
+    // takes. Nothing at all when it is already there, which is every board that
+    // fits its screen and most events on one that does not.
+    //
+    // The same act as the opening reveal and drawn the same way; only the pace
+    // differs, because a reveal is the board introducing itself and a pan is
+    // the camera catching up with something already happening.
+    void bring_into_view(sim::Position where) {
+        if (!has_previous_) return;
+        if (camera_.visible(where.x, where.y)) return;
+        view::Camera settled = camera_;
+        settled.follow(where.x, where.y, 2);
+        const int from_x = camera_.x;
+        const int from_y = camera_.y;
+        const int to_x = settled.x;
+        const int to_y = settled.y;
+        const int across = to_x > from_x ? to_x - from_x : from_x - to_x;
+        const int down = to_y > from_y ? to_y - from_y : from_y - to_y;
+        const int frames = view::pan_frames_for(across > down ? across : down);
+        for (int frame = 0; frame < frames; ++frame) {
+            camera_.x = view::slide_between(from_x, to_x, frame, frames);
+            camera_.y = view::slide_between(from_y, to_y, frame, frames);
+            camera_.clamp();
+            surface_t* disp = display_get();
+            render(disp, previous_, 0);
+            grandleon::n64audio::pump();
+            show(disp);
+        }
+        camera_.x = to_x;
+        camera_.y = to_y;
+        camera_.clamp();
+    }
+
     // A banner in the turn banner's own shape, for a phase rather than a side.
     //
     // It exists because the deployment phase announced itself nowhere: a player

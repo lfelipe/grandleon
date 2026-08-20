@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-// The reveal a board too wide for its screen opens with.
+// The two occasions this client moves the camera itself: the reveal a board
+// too wide for its screen opens with, and the pan that follows the action when
+// something happens where the player is not looking.
 //
 // A player handed a board with edges cannot see how much board there is, and
 // finding out by walking into it is a poor way to be told. So a board whose
@@ -75,13 +77,18 @@ public:
         painted_at_.push_back(camera().x);
     }
 
-    void sweep_frame(
+    void camera_frame(
         const sim::EncounterSnapshot&, const turn::Overlay&
     ) override {
         swept_at_.push_back(camera().x);
     }
 
     std::uint16_t next_press() override { return turn::pad_end_of_script; }
+
+    // The pan is this client's own; a test drives it the way an event would.
+    void bring_into_view_for_test(sim::Position where) {
+        bring_into_view(where);
+    }
 
     [[nodiscard]] const std::vector<int>& swept_at() const noexcept {
         return swept_at_;
@@ -297,6 +304,64 @@ int main() {
         expect(
             host.swept_at().size() == opening,
             "opening the board again sweeps it again, for the same frames"
+        );
+    }
+
+    // ----- the camera follows the action ----------------------------------
+    //
+    // A side the player is not steering walks wherever the rules send it, and on
+    // a board with edges that is regularly out of view. Without a pan the whole
+    // turn happens off the screen and the board simply changes.
+    {
+        Silence quiet;
+        HostClient host{quiet};
+        auto created = sim::create_encounter(board.definition.definition);
+        expect(static_cast<bool>(created), "the fixture board is valid content");
+        if (!created) return 1;
+        sim::Encounter& encounter = created.encounter;
+        client::Roster roster;
+        // Three columns of a six-column board, so there is an elsewhere to be.
+        settle_opening(board, host, encounter, roster, 3, 3);
+        host.forget();
+
+        // Both ends of a board wider than the window. Whichever end the board
+        // settled at, the other one is off the screen, so this needs no
+        // knowledge of where the fixture put anybody.
+        const sim::Position west{0, 0};
+        const sim::Position east{
+            static_cast<std::int16_t>(board.definition.definition.width - 1), 0
+        };
+
+        // Nothing has moved yet, so nothing has been drawn.
+        expect(host.swept_at().empty(), "settling on a board draws no pan");
+
+        host.bring_into_view_for_test(west);
+        const std::size_t to_the_west = host.swept_at().size();
+        expect(
+            host.camera().visible(west.x, west.y),
+            "the western end is on the screen once it has been panned to"
+        );
+
+        host.bring_into_view_for_test(east);
+        expect(
+            host.camera().visible(east.x, east.y),
+            "and so is the eastern one"
+        );
+        expect(
+            host.swept_at().size() > to_the_west,
+            "crossing to the other end drew the frames it took"
+        );
+
+        // A tile already on the screen costs nothing at all. Every board that
+        // fits its screen is nothing but this case, so it must be free.
+        host.forget();
+        host.bring_into_view_for_test(
+            {static_cast<std::int16_t>(host.camera().x),
+             static_cast<std::int16_t>(host.camera().y)}
+        );
+        expect(
+            host.swept_at().empty(),
+            "a tile already in view is not panned to"
         );
     }
 

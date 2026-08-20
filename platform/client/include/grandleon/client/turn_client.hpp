@@ -695,10 +695,15 @@ public:
     // Every one of them must return with the board settled: a checkpoint
     // always follows a `paint`, and a `paint` always follows these.
 
-    // One frame of the reveal a board too wide for its screen opens with: the
-    // camera has already been moved, and this draws the board where it now
-    // stands and waits for the display. A board that fits its screen has
-    // nothing to reveal and this is never called.
+    // One frame drawn while this client is moving the camera: the camera has
+    // already been moved, and this draws the board where it now stands and
+    // waits for the display.
+    //
+    // Two occasions call it and they are the same act. A board too wide for its
+    // screen is revealed as it opens, and the camera follows the action when
+    // something happens out of view - an enemy walking somewhere the player is
+    // not looking is a turn of the game the player never sees. A board that fits
+    // its screen has neither, and this is never called.
     //
     // The odd one out among the four, in that this client counts the frames and
     // the three gestures below let the platform count its own. The reason is
@@ -712,7 +717,7 @@ public:
     // `paint` of a board rather than after an event, so a platform that draws
     // from the last painted overlay has not been given one yet. The reveal has
     // to come before the settled board, not a frame after it.
-    virtual void sweep_frame(
+    virtual void camera_frame(
         const sim::EncounterSnapshot& snapshot, const Overlay& overlay
     ) {
         static_cast<void>(snapshot);
@@ -938,6 +943,15 @@ public:
 
     // ----- what a platform reads ----------------------------------------
     [[nodiscard]] const view::Camera& camera() const noexcept { return camera_; }
+
+    // Moves the camera until `where` is on the screen, drawing the frames it
+    // takes through `camera_frame`. Does nothing at all when it is already
+    // there, which is the common case: a board that fits has no elsewhere to be.
+    //
+    // Protected rather than private because it is the one camera gesture a
+    // front end could reasonably need to ask for; `camera_` itself stays out of
+    // reach, so nobody can move the board without drawing the movement.
+    void bring_into_view(sim::Position where);
     [[nodiscard]] const std::vector<std::uint64_t>& terrain() const noexcept {
         return terrain_;
     }

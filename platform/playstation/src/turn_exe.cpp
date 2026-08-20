@@ -994,14 +994,17 @@ public:
     // cost in microseconds beside the frames it took, so a gesture that overran
     // a frame would say so rather than be assumed not to.
 
-    // One frame of the reveal a wide board opens with. The client has moved the
-    // camera and counts the frames; this draws where it now stands.
+    // One frame drawn while the client is moving the camera - the reveal a wide
+    // board opens with, or the pan that follows the action out of view. The
+    // client has moved the camera and counts the frames; this draws where it
+    // now stands.
     //
-    // `layout` is called here and not once before the sweep because it reads the
-    // camera to work out where a cell lands on the screen, and the camera is the
-    // thing that is moving. It draws from the snapshot and overlay it is handed
-    // rather than from the last painted ones, which this board has not got yet.
-    void sweep_frame(
+    // `layout` is called here and not once before, because it reads the camera
+    // to work out where a cell lands on the screen and the camera is the thing
+    // that is moving. It draws from the snapshot and overlay it is handed rather
+    // than from the last painted ones, which a board being revealed has not got
+    // yet.
+    void camera_frame(
         const sim::EncounterSnapshot& snapshot, const turn::Overlay& overlay
     ) override {
         layout(snapshot);

@@ -711,7 +711,7 @@ void TurnClient::draw(
         for (int frame = 0; frame < sweep_frames_; ++frame) {
             camera_.x = view::sweep_at(sweep_from_, sweep_to_, frame);
             camera_.clamp();
-            sweep_frame(snapshot, overlay_);
+            camera_frame(snapshot, overlay_);
         }
         // Said again rather than trusted to the last frame's arithmetic: the
         // board has to be settled before it is painted, and `slide_between`
@@ -896,6 +896,41 @@ view::AttackGesture TurnClient::gesture_for(
     return client::gesture_for(striker, abilities_, separation);
 }
 
+void TurnClient::bring_into_view(sim::Position where) {
+    // Already on the screen is the overwhelmingly common case, and every board
+    // that fits its screen is nothing but that case.
+    if (camera_.visible(where.x, where.y)) return;
+
+    // Where the camera would settle if it were following this tile, asked of
+    // the same `follow` the cursor uses so a pan lands where the cursor landing
+    // there would have. The margin is the cursor's own: a tile brought to the
+    // very edge is a tile whose surroundings are still off the screen.
+    view::Camera settled = camera_;
+    settled.follow(where.x, where.y, 1);
+    const int from_x = camera_.x;
+    const int from_y = camera_.y;
+    const int to_x = settled.x;
+    const int to_y = settled.y;
+    const int across = to_x > from_x ? to_x - from_x : from_x - to_x;
+    const int down = to_y > from_y ? to_y - from_y : from_y - to_y;
+    const int frames = view::pan_frames_for(across > down ? across : down);
+    if (frames <= 0) return;
+
+    // Counted from zero for the sweep's reason: the first drawn frame is where
+    // the camera already was, so the movement reads as continuous from what the
+    // player is looking at. The arrival is the frame after this loop, which the
+    // animation about to be drawn will paint.
+    for (int frame = 0; frame < frames; ++frame) {
+        camera_.x = view::slide_between(from_x, to_x, frame, frames);
+        camera_.y = view::slide_between(from_y, to_y, frame, frames);
+        camera_.clamp();
+        camera_frame(last_snapshot_, overlay_);
+    }
+    camera_.x = to_x;
+    camera_.y = to_y;
+    camera_.clamp();
+}
+
 void TurnClient::report(
     const sim::CommandResult& result, const client::Roster& roster
 ) {
@@ -906,6 +941,18 @@ void TurnClient::report(
             // planned before the platform is asked to draw it, so the plan is
             // the same plan on the console and in the host build that derives
             // this run's expectations. The host simply draws nothing with it.
+            // The camera goes to whoever is moving before they move. A side
+            // the player is not steering walks wherever the rules send it, and
+            // on a board with edges that is regularly somewhere the player is
+            // not looking: without this, a whole turn happens off the screen
+            // and the board simply changes.
+            //
+            // To where they are standing rather than where they are going, so
+            // the walk is watched from its start; a move is short beside a
+            // window, so its end is almost always in view as well.
+            for (const sim::UnitSnapshot& mover : last_snapshot_.units) {
+                if (mover.id == event.unit_id) bring_into_view(mover.position);
+            }
             const int length = plan_move_route(event.unit_id, event.position);
             animate_move(
                 last_snapshot_, event.unit_id, route_tiles(), length,

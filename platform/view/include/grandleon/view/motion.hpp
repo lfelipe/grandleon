@@ -122,6 +122,30 @@ inline constexpr int sweep_frames_per_cell = 5;
 // the cap starts to bind.
 inline constexpr int sweep_frames_most = 150;
 
+// How long the camera spends crossing one cell when it follows the action
+// rather than revealing a board: two frames, which is thirty cells a second.
+//
+// Faster than the opening sweep on purpose, and the two are different acts. A
+// reveal is the board introducing itself and is worth reading; a pan is the
+// camera catching up with something already happening, and every frame of it is
+// a frame the player is waiting to see the thing rather than seeing it. A side
+// of six moving out of view would otherwise cost six reveals.
+inline constexpr int pan_frames_per_cell = 2;
+
+// And the longest a pan may take. Twenty-four frames is four tenths of a
+// second: past that a board is not catching up, it is travelling, and the
+// player is watching the ground go by instead of the fight.
+inline constexpr int pan_frames_most = 24;
+
+// How many frames a pan of `cells` takes, capped. A pan of nothing takes no
+// frames, which is what lets a caller ask before deciding whether to move at
+// all: the overwhelmingly common case is action already on the screen.
+[[nodiscard]] constexpr int pan_frames_for(int cells) noexcept {
+    if (cells <= 0) return 0;
+    const int frames = cells * pan_frames_per_cell;
+    return frames < pan_frames_most ? frames : pan_frames_most;
+}
+
 // ---------------------------------------------------------------------------
 // Sliding
 // ---------------------------------------------------------------------------
