@@ -205,8 +205,35 @@ const grantHelp =
   "Put in the company's store as this Stage completes. A road that loops past " +
   "here twice is given it twice.";
 
-const capacityHelp =
-  "A maximum and not a quota: sending fewer is legal. Leave it empty for no cap.";
+/**
+ * The largest cap that can ever refuse anybody.
+ *
+ * A cap at or above the number of characters this Stage stands on the field
+ * can never bind, because the board has nobody else to send. The compiler
+ * refuses one, and a child's first campaign hit it: a cap of thirty over eight
+ * characters. So the control states the real bound rather than the format's
+ * 4095, which is the shape the store's add gesture was given for the same
+ * reason - a surface that offers what the format refuses is a surface that
+ * needs the validator to apologise for it.
+ *
+ * Zero when a Stage fields one character or none, since no cap can bind there.
+ * The control is still reachable in that case if a cap is already written, or
+ * an author who arrived at one by deleting placements could never clear it.
+ */
+const capacityMost = computed(() => {
+  const fieldable = (node.value?.placements ?? []).filter(
+    (placement) => placement.side === "first"
+  ).length;
+  return Math.max(0, fieldable - 1);
+});
+
+const capacityHelp = computed(() =>
+  capacityMost.value === 0
+    ? "This Stage fields too few for a cap to mean anything. Leave it empty."
+    : "A maximum and not a quota: sending fewer is legal. Leave it empty for " +
+      `no cap. At most ${capacityMost.value}, since this Stage fields ` +
+      `${capacityMost.value + 1}.`
+);
 
 const notesHelp = "For you, not for the game. No rule ever reads it.";
 
@@ -482,7 +509,9 @@ function saveDeploymentNotes(raw: string) {
       @add="emit('addWayToWin', $event)" />
 
     <label for="stage-deployment-capacity">How many may take the field</label>
-    <input id="stage-deployment-capacity" type="number" min="1" max="4095"
+    <input id="stage-deployment-capacity" type="number" min="1"
+      :max="capacityMost"
+      :disabled="capacityMost === 0 && node.deployment?.capacity === undefined"
       step="1"
       :value="keystrokes.shown(
         'stage-capacity', String(node.deployment?.capacity ?? '')

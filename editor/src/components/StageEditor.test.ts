@@ -288,15 +288,27 @@ describe("StageEditor", () => {
             id: "wren_here", memberId: "wren", unitTypeId: "guardian",
             side: "first", x: 0, y: 0
           },
+          {
+            id: "brand_here", memberId: "brand", unitTypeId: "guardian",
+            side: "first", x: 1, y: 0
+          },
+          {
+            id: "ivy_here", memberId: "ivy", unitTypeId: "guardian",
+            side: "first", x: 2, y: 0
+          },
           { id: "enemy", unitTypeId: "outrider", side: "second", x: 3, y: 2 }
         ]
       }));
       const capacity = host.querySelector<HTMLInputElement>(
         "#stage-deployment-capacity"
       )!;
-      // A maximum and not a quota, said where the number is written.
+      // A maximum and not a quota, said where the number is written, along
+      // with the largest one that can ever refuse anybody: a cap at or above
+      // what a Stage fields cannot bind and the compiler refuses it.
       expect(host.textContent).toContain("A maximum and not a quota");
       expect(host.textContent).toContain("sending fewer is legal");
+      expect(host.textContent).toContain("At most 2, since this Stage fields 3");
+      expect(capacity.max).toBe("2");
       // No cap is what a Stage says by default, and the control shows nothing
       // rather than a zero nobody may author.
       expect(capacity.value).toBe("");
@@ -321,12 +333,67 @@ describe("StageEditor", () => {
       app.unmount();
     });
 
+  it("offers no cap where a Stage fields too few for one to bind", async () => {
+    const { app, host } = mount(stageNode({
+      placements: [
+        {
+          id: "wren_here", memberId: "wren", unitTypeId: "guardian",
+          side: "first", x: 0, y: 0
+        },
+        { id: "enemy", unitTypeId: "outrider", side: "second", x: 3, y: 2 }
+      ]
+    }));
+    const capacity = host.querySelector<HTMLInputElement>(
+      "#stage-deployment-capacity"
+    )!;
+    // One character on the field, so every cap of one or more is at or above
+    // what the Stage sends and can refuse nobody. There is no number to offer.
+    expect(capacity.disabled).toBe(true);
+    expect(host.textContent).toContain("too few for a cap to mean anything");
+    app.unmount();
+  });
+
+  it("lets a cap already written be cleared even where none could bind",
+    async () => {
+      const { app, host, onSaveNode } = mount(stageNode({
+        placements: [
+          {
+            id: "wren_here", memberId: "wren", unitTypeId: "guardian",
+            side: "first", x: 0, y: 0
+          },
+          { id: "enemy", unitTypeId: "outrider", side: "second", x: 3, y: 2 }
+        ],
+        deployment: { id: "east_bank", capacity: 30 }
+      }));
+      const capacity = host.querySelector<HTMLInputElement>(
+        "#stage-deployment-capacity"
+      )!;
+      // An author who deleted placements until no cap could bind is left
+      // holding one the compiler refuses. Locking the control would leave them
+      // no way out of it, so it stays reachable while there is a number in it.
+      expect(capacity.disabled).toBe(false);
+      expect(capacity.value).toBe("30");
+      capacity.value = "";
+      capacity.dispatchEvent(new Event("change", { bubbles: true }));
+      await nextTick();
+      expect(saved(onSaveNode)).not.toHaveProperty("deployment");
+      app.unmount();
+    });
+
   it("keeps a region a cleared cap stood beside", async () => {
     const { app, host, onSaveNode } = mount(stageNode({
       placements: [
         {
           id: "wren_here", memberId: "wren", unitTypeId: "guardian",
           side: "first", x: 0, y: 0
+        },
+        {
+          id: "brand_here", memberId: "brand", unitTypeId: "guardian",
+          side: "first", x: 1, y: 0
+        },
+        {
+          id: "ivy_here", memberId: "ivy", unitTypeId: "guardian",
+          side: "first", x: 2, y: 0
         },
         { id: "enemy", unitTypeId: "outrider", side: "second", x: 3, y: 2 }
       ],
