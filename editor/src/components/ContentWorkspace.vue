@@ -67,6 +67,7 @@ import MapEditor from "./MapEditor.vue";
 import StageEditor from "./StageEditor.vue";
 import PlaytestPanel from "./PlaytestPanel.vue";
 import ItemGrantEditor from "./ItemGrantEditor.vue";
+import WeaponTriangleEditor from "./WeaponTriangleEditor.vue";
 import RosterMemberEditor from "./RosterMemberEditor.vue";
 import { useKeystrokeDraft } from "./keystroke-draft";
 import { diagnosticTarget } from "../domain/diagnostic-target";
@@ -115,6 +116,7 @@ const flowEditor = ref<InstanceType<typeof CampaignFlowEditor>>();
 const sceneLines = ref<InstanceType<typeof DialogueLinesEditor>>();
 const campaignRoster = ref<InstanceType<typeof RosterMemberEditor>>();
 const campaignStore = ref<InstanceType<typeof ItemGrantEditor>>();
+const weaponTriangle = ref<InstanceType<typeof WeaponTriangleEditor>>();
 const stageEditor = ref<InstanceType<typeof StageEditor>>();
 
 /**
@@ -143,6 +145,7 @@ function flushDrafts(): boolean {
   // keystrokes, for the same reason and by the same contract.
   flushed = (campaignRoster.value?.flush() ?? true) && flushed;
   flushed = (campaignStore.value?.flush() ?? true) && flushed;
+  flushed = (weaponTriangle.value?.flush() ?? true) && flushed;
   flushed = (stageEditor.value?.flush() ?? true) && flushed;
   // The scene's lines are edited beside the record form rather than inside it,
   // and a list editor holds a draft exactly as the form does: a Save that
@@ -1835,6 +1838,53 @@ function saveMetadata(
 }
 
 /**
+ * Which kinds of weapon beat which, saved as whole records.
+ *
+ * The panel hands back every weapon type rather than the one that changed,
+ * because an edge is a fact about a pair: ticking one direction clears the
+ * other, so two records move on one press and a saver that took one of them
+ * would write half a change.
+ */
+function saveWeaponTypes(types: SourceRecord<"weaponTypes">[]) {
+  const plain = JSON.parse(
+    JSON.stringify(types)
+  ) as SourceRecord<"weaponTypes">[];
+  try {
+    for (const type of plain) {
+      session.update("weaponTypes", type.id, (draft) => {
+        // Assigned over rather than merged: an edge cleared from a record is
+        // an absent `strongAgainst`, and a merge would leave the old list in
+        // place and quietly keep an edge the author just unticked.
+        const held = draft as unknown as Record<string, unknown>;
+        for (const key of Object.keys(held)) {
+          if (!(key in type)) delete held[key];
+        }
+        Object.assign(draft, type);
+      });
+    }
+    refresh("Saved the weapon triangle");
+  } catch (error) {
+    feedback.value = error instanceof SourceProjectEditError
+      ? error.message
+      : String(error);
+  }
+}
+
+/** What the better weapon is worth, saved on the game itself. */
+function saveWeaponAdvantage(
+  advantage: { damage: number; accuracy: number } | undefined
+) {
+  try {
+    session.updateMetadata({ weaponAdvantage: advantage });
+    refresh("Saved what the better weapon is worth");
+  } catch (error) {
+    feedback.value = error instanceof SourceProjectEditError
+      ? error.message
+      : String(error);
+  }
+}
+
+/**
  * The game's settings, with the name the file carries kept level with the name
  * a player reads.
  *
@@ -2131,6 +2181,19 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
         {{ selectedAbility.label }}: {{ selectedAbility.summary }}
       </p>
     </section>
+
+    <!-- Beside the weapon types themselves, because that is where an author
+         is already looking at the kinds and is the only page where the whole
+         rule fits on one screen. -->
+    <WeaponTriangleEditor
+      v-if="activeSection.id === 'equipment'
+        && selectedCollection === 'weaponTypes'"
+      ref="weaponTriangle"
+      :weapon-types="project.weaponTypes ?? []"
+      :advantage="project.weaponAdvantage"
+      @update-types="saveWeaponTypes"
+      @update-advantage="saveWeaponAdvantage"
+      @dirty="emit('dirty')" />
 
     <section
       v-if="activeSection.id === 'equipment' && selectedCollection === 'weapons'"

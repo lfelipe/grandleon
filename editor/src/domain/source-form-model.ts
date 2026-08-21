@@ -982,7 +982,7 @@ export const withheldProjectFields: Readonly<Record<string, string>> = {
   // when they have written one without the other. A number here on the
   // settings page, a long way from the ticks that give it something to price,
   // would be a rule an author had to assemble from two rooms.
-  weaponAdvantage: "half a rule; it belongs beside the kinds it prices"
+  weaponAdvantage: "authored on the weapon triangle, beside the kinds it prices"
 };
 
 export function sourceProjectFieldNames(): readonly string[] {
