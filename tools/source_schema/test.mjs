@@ -984,6 +984,27 @@ assert.deepEqual(
 assert.deepEqual(
   validateProject(path.join(
     fixtures,
+    "invalid/weapon-advantage-semantics.json"
+  )).map(({ code, instancePath }) => ({ code, instancePath })),
+  [
+    {
+      code: "SOURCE_WEAPON_TYPE_SELF_ADVANTAGE",
+      instancePath: "/weaponTypes/1/strongAgainst/1"
+    },
+    {
+      code: "SOURCE_REF_MISSING",
+      instancePath: "/weaponTypes/2/strongAgainst/0"
+    }
+  ],
+  "a weapon type strong against itself is refused where it says so, and one "
+    + "strong against a type nothing defines is a missing reference like any "
+    + "other. The legal edge on the first type is left alone, a triangle "
+    + "being the point of the field"
+);
+
+assert.deepEqual(
+  validateProject(path.join(
+    fixtures,
     "invalid/deployment-on-a-story-node.json"
   )).map(({ code, instancePath }) => ({ code, instancePath })),
   [

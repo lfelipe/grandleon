@@ -1553,6 +1553,29 @@ export const sourceV1Schemas: readonly object[] = [
         ],
         "description": "What becomes of a character in this game who falls in battle. 'permanent' is a death: the company never fields that character again, and their kit is what is left of them. 'recoverable' is a wound: they are carried off the field and rejoin the company once the battle is over, still holding whatever they were carrying when they went down. Under either, a character reduced to no health leaves the battlefield the moment they reach it, so this decides only what the campaign records after the battle and never what the battle itself does. Omit it and a character who falls is gone for good, which is what a fall meant before this setting existed."
       },
+      "weaponAdvantage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "damage",
+          "accuracy"
+        ],
+        "description": "What holding the better weapon is worth in this game. A strike whose weapon type names the defender's type in its strongAgainst list gains these, and a strike made into the teeth of one loses them. One pair of numbers for the whole game rather than a number for each pair of types: the point of a triangle is that a player can hold the whole rule in their head before they commit, and a matrix cannot be held in anybody's head. Omit it and no weapon has an advantage over any other, which is what every game meant before this existed. A game that states it while no weapon type names a strongAgainst has written a rule that can never fire.",
+        "properties": {
+          "damage": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999,
+            "description": "Added to the damage of a strike made with the advantage and taken from one made into it, alongside the striker's strength and before the defender's armour. Zero is legal and means an advantage felt only in how often the blow lands."
+          },
+          "accuracy": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Whole percentage points added to the chance a strike made with the advantage lands, and taken from one made into it. The result is held inside nought to a hundred, so a certain weapon stays certain and no chance is ever negative."
+          }
+        }
+      },
       "invulnerableForTesting": {
         "type": "boolean",
         "description": "Whether the members of the player's own company cannot be reduced below one health, so that a blow that would defeat one leaves them standing at one instead. This is a testing aid and not a way to play: it is here so that somebody walking their own campaign through can read the writing and follow the flow without having to deal with dying on the way. It is deliberately not a third value of characterLoss, because it is not an answer to the question that setting asks. It is compiled into the package like every other rule, and it changes what the battles do: the same project with it on and the same project with it off play differently, and two people holding the same package always get the same battles out of it. Omit it and nobody is protected from anything, which is what every character faced before this setting existed."
@@ -1777,6 +1800,15 @@ export const sourceV1Schemas: readonly object[] = [
       },
       "name": {
         "$ref": "common.schema.json#/$defs/displayName"
+      },
+      "strongAgainst": {
+        "type": "array",
+        "items": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "uniqueItems": true,
+        "maxItems": 32,
+        "description": "Every weapon type this one has the advantage over. A strike made with this type against a character holding one of these is worth the game's weaponAdvantage more, and the strike coming back the other way is worth that much less. It is a list rather than a single type so that a game may draw a triangle, a four-cornered ring, or one type that simply beats two others. Naming this type itself is refused, since a type cannot have the advantage over somebody holding what it holds. Omitted means a type with no advantage anywhere, which is what every weapon type authored before this means, and the list does nothing at all in a game that states no weaponAdvantage."
       },
       "notes": {
         "$ref": "common.schema.json#/$defs/notes"

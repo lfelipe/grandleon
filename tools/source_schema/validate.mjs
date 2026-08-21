@@ -996,6 +996,32 @@ export function validateProject(filename) {
       }
     }
 
+    // Which types a type beats. Each must be a type the project defines, and
+    // none of them may be the type itself: a weapon cannot have the advantage
+    // over somebody holding what it holds, and a game whose triangle said so
+    // would price every mirror match twice.
+    for (const [index, weaponType] of (project.weaponTypes ?? []).entries()) {
+      for (const [beatenIndex, beatenId] of (
+        weaponType.strongAgainst ?? []
+      ).entries()) {
+        const instancePath =
+          `/weaponTypes/${index}/strongAgainst/${beatenIndex}`;
+        if (beatenId === weaponType.id) {
+          diagnostics.push(
+            diagnostic(
+              filename,
+              "SOURCE_WEAPON_TYPE_SELF_ADVANTAGE",
+              instancePath,
+              `weapon type '${weaponType.id}' is strong against itself`,
+              document.pointers[instancePath]?.value
+            )
+          );
+          continue;
+        }
+        requireReference("weapon_type", beatenId, instancePath);
+      }
+    }
+
     for (const [index, sourceClass] of (project.classes ?? []).entries()) {
       for (const [typeIndex, typeId] of (
         sourceClass.allowedWeaponTypeIds ?? []

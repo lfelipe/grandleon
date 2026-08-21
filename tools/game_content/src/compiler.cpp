@@ -679,6 +679,8 @@ std::string_view diagnostic_name(DiagnosticCode code) noexcept {
         case DiagnosticCode::invalid_transition: return "invalid_transition";
         case DiagnosticCode::undecided_encounter:
             return "undecided_encounter";
+        case DiagnosticCode::invalid_weapon_type:
+            return "invalid_weapon_type";
     }
     return "unknown";
 }
@@ -764,6 +766,24 @@ CompileResult compile(const GameSource& source) {
     }
     for (const Weapon& definition : source.weapons) {
         weapon_type_by_weapon_id.emplace(definition.id, definition.type_id);
+    }
+
+    // Which types a type beats. Each names a type the project defines, and none
+    // of them is the type itself.
+    for (const WeaponType& definition : source.weapon_types) {
+        const std::string path =
+            "weapon_types[" + std::to_string(definition.id) + "].strong_against";
+        for (const StableId beaten : definition.strong_against) {
+            if (beaten == definition.id) {
+                result.diagnostics.push_back(
+                    {DiagnosticCode::invalid_weapon_type, path, definition.id}
+                );
+                continue;
+            }
+            validate_reference(
+                beaten, weapon_type_ids, path, result.diagnostics
+            );
+        }
     }
 
     for (const UnitClass& definition : source.classes) {

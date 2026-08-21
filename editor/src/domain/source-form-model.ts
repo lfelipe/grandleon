@@ -974,7 +974,16 @@ export const withheldProjectFields: Readonly<Record<string, string>> = {
   // setting that changes nothing an author can see is worse than no control --
   // it reads as a feature and behaves as a no-op. It goes on the settings page
   // the day a build honours it.
-  characterGeometry: "nothing draws models yet; the control would do nothing"
+  characterGeometry: "nothing draws models yet; the control would do nothing",
+  // The format carries it and the compiler checks it against every weapon
+  // type's strongAgainst, so a game may state what the better weapon is worth.
+  // The battle does not read it yet: `attack_damage` prices a strike from
+  // strength, the weapon's power and the defender's armour, and knows nothing
+  // about which type is in whose hand. A control for a rule no blow obeys
+  // would read as a feature and behave as a no-op, which is the reason
+  // `characterGeometry` is withheld above. It goes on the settings page the
+  // day a strike is priced by it.
+  weaponAdvantage: "no strike is priced by it yet; the control would do nothing"
 };
 
 export function sourceProjectFieldNames(): readonly string[] {

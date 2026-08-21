@@ -1081,6 +1081,9 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                 result.id = mapper.id(value, "weaponTypes", path);
                 const auto name = mapper.string(value, "name", path);
                 if (name) result.name = *name;
+                result.strong_against = mapper.references(
+                    value, "strongAgainst", path
+                );
                 return result;
             }
         );

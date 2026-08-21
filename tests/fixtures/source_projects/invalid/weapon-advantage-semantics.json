@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.2.0",
+  "packageId": "b7f4c210-95ae-4d63-8a1f-2c6e07d5b834",
+  "gameId": "weapon.advantage.semantics",
+  "title": "Weapon Advantage Semantics",
+  "contentRevision": "1.0.0",
+  "weaponAdvantage": { "damage": 1, "accuracy": 15 },
+  "weaponTypes": [
+    {
+      "id": "blade",
+      "name": "Blade",
+      "strongAgainst": ["haft"]
+    },
+    {
+      "id": "haft",
+      "name": "Haft",
+      "strongAgainst": ["blade", "haft"]
+    },
+    {
+      "id": "point",
+      "name": "Point",
+      "strongAgainst": ["cudgel"]
+    }
+  ],
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "baseStats": { "health": 12, "movement": 4, "strength": 4, "defense": 2 }
+    }
+  ],
+  "unitTypes": [
+    { "id": "guardian", "name": "Guardian", "classId": "fighter" }
+  ],
+  "weapons": [
+    { "id": "iron_sword", "name": "Iron Sword", "power": 5, "range": 1, "weaponTypeId": "blade" }
+  ],
+  "items": [],
+  "maps": []
+}

@@ -5,6 +5,13 @@
   "properties": {
     "id": { "$ref": "common.schema.json#/$defs/stableId" },
     "name": { "$ref": "common.schema.json#/$defs/displayName" },
+    "strongAgainst": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/stableId" },
+      "uniqueItems": true,
+      "maxItems": 32,
+      "description": "Every weapon type this one has the advantage over. A strike made with this type against a character holding one of these is worth the game's weaponAdvantage more, and the strike coming back the other way is worth that much less. It is a list rather than a single type so that a game may draw a triangle, a four-cornered ring, or one type that simply beats two others. Naming this type itself is refused, since a type cannot have the advantage over somebody holding what it holds. Omitted means a type with no advantage anywhere, which is what every weapon type authored before this means, and the list does nothing at all in a game that states no weaponAdvantage."
+    },
     "notes": { "$ref": "common.schema.json#/$defs/notes" },
     "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
   },

@@ -47,6 +47,10 @@ struct StatModifiers final {
 struct WeaponType final {
     StableId id{};
     std::string name;
+    // Every type this one has the advantage over, in authored order. Empty is
+    // a type with no advantage anywhere, which is every weapon type authored
+    // before a game could draw a triangle.
+    std::vector<StableId> strong_against;
 };
 
 struct ItemType final {
@@ -1040,6 +1044,13 @@ enum class DiagnosticCode : std::uint8_t {
     // already lost that promise, and the loss is invisible until somebody
     // reaches the Stage on a console.
     undecided_encounter,
+    // A weapon type strong against itself.
+    //
+    // A type cannot have the advantage over somebody holding what it holds:
+    // the same edge would be read once in each direction and price every
+    // mirror match twice, once up and once down. An author who wrote one meant
+    // a different type.
+    invalid_weapon_type,
 };
 
 [[nodiscard]] std::string_view diagnostic_name(

@@ -429,6 +429,7 @@ export class SourceProjectSession {
         | "characterGeometry"
         | "defaultTurnOrder"
         | "characterLoss"
+        | "weaponAdvantage"
         | "invulnerableForTesting"
         | "notes"
         | "extensions"
@@ -450,6 +451,7 @@ export class SourceProjectSession {
       "characterGeometry",
       "defaultTurnOrder",
       "characterLoss",
+      "weaponAdvantage",
       "invulnerableForTesting",
       "notes",
       "extensions"
