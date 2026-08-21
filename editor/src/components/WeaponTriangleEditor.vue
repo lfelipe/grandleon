@@ -16,6 +16,11 @@ import { useKeystrokeDraft } from "./keystroke-draft";
 
 const props = defineProps<{
   weaponTypes: readonly SourceWeaponType[];
+  /**
+   * The weapons this game holds, which is what decides the kinds worth
+   * drawing: a kind nothing in the game *is* can never meet another hand.
+   */
+  weapons: readonly { readonly id: string; readonly weaponTypeId?: string }[];
   /** What the better weapon is worth, or nothing if the game states none. */
   advantage: { readonly damage: number; readonly accuracy: number } | undefined;
 }>();
@@ -31,7 +36,43 @@ const emit = defineEmits<{
 const keystrokes = useKeystrokeDraft(() => emit("dirty"));
 defineExpose({ flush: keystrokes.flush });
 
-const enough = computed(() => props.weaponTypes.length >= 2);
+/** Every kind some weapon in this game actually is. */
+const inPlay = computed(
+  () =>
+    new Set(
+      props.weapons.flatMap((weapon) =>
+        weapon.weaponTypeId === undefined ? [] : [weapon.weaponTypeId]
+      )
+    )
+);
+
+/**
+ * The kinds this page draws.
+ *
+ * Only the kinds some weapon in this game is, because a kind nothing is can
+ * never be in anybody's hand and a row for it is a row about a fight that
+ * cannot happen. A project can easily hold more: the weapon shelf mints a kind
+ * beside every weapon it adds, and a weapon deleted afterwards leaves its kind
+ * behind.
+ *
+ * A kind that is already written to beat something is drawn even when nothing
+ * is one, because it is a live rule: hiding it would leave an author holding
+ * an edge they can neither see nor clear. It is named as unused beneath the
+ * grid rather than quietly listed.
+ */
+const shown = computed(() =>
+  props.weaponTypes.filter(
+    (type) =>
+      inPlay.value.has(type.id) || (type.strongAgainst ?? []).length > 0
+  )
+);
+
+/** Kinds drawn only because they carry an edge, which nothing can ever use. */
+const idle = computed(() =>
+  shown.value.filter((type) => !inPlay.value.has(type.id))
+);
+
+const enough = computed(() => shown.value.length >= 2);
 
 /** Whether one kind is written to beat another. */
 function beats(one: SourceWeaponType, other: SourceWeaponType): boolean {
@@ -74,14 +115,20 @@ function setEdge(oneId: string, otherId: string, on: boolean) {
  * The classic case in one press: each kind beats the next, and the last beats
  * the first. Any number of kinds makes a ring; three of them make the triangle
  * everybody means when they say one.
+ *
+ * The ring runs through the kinds this game's weapons actually are, and every
+ * other kind is left beating nothing. This press states the whole rule, so a
+ * kind nothing is has no place in it, and an edge left over from a kind whose
+ * last weapon was deleted would be a rule nobody could see firing.
  */
 function makeRing() {
   keystrokes.flush();
   const types = copyTypes();
-  types.forEach((type, index) => {
-    const next = types[(index + 1) % types.length];
-    if (!next || next.id === type.id) delete type.strongAgainst;
-    else type.strongAgainst = [next.id];
+  const ring = types.filter((type) => inPlay.value.has(type.id));
+  for (const type of types) delete type.strongAgainst;
+  ring.forEach((type, index) => {
+    const next = ring[(index + 1) % ring.length];
+    if (next && next.id !== type.id) type.strongAgainst = [next.id];
   });
   emit("updateTypes", types);
   if (props.advantage === undefined) {
@@ -161,8 +208,8 @@ const problems = computed(() => {
     </p>
 
     <p v-if="!enough" class="triangle-warning" role="status">
-      A triangle needs at least two kinds of weapon. Add another weapon of a
-      different kind and this fills in.
+      A triangle needs weapons of at least two different kinds. Add another
+      weapon of a kind this game does not have yet and this fills in.
     </p>
 
     <template v-else>
@@ -182,15 +229,15 @@ const problems = computed(() => {
         <thead>
           <tr>
             <td />
-            <th v-for="column in weaponTypes" :key="column.id" scope="col">
+            <th v-for="column in shown" :key="column.id" scope="col">
               {{ column.name }}
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in weaponTypes" :key="row.id">
+          <tr v-for="row in shown" :key="row.id">
             <th scope="row">{{ row.name }}</th>
-            <td v-for="column in weaponTypes" :key="column.id">
+            <td v-for="column in shown" :key="column.id">
               <!-- A kind cannot beat itself: the same edge would be read once
                    in each direction and price every mirror match twice. -->
               <span v-if="row.id === column.id" class="triangle-self">—</span>
@@ -239,6 +286,14 @@ const problems = computed(() => {
       </p>
       <ul v-else class="triangle-spelled" role="status">
         <li v-for="line in spelled" :key="line">{{ line }}</li>
+      </ul>
+
+      <ul v-if="idle.length" class="triangle-warning" role="status">
+        <li v-for="type in idle" :key="type.id">
+          Nothing in this game is {{ type.name }}, so nothing it beats can ever
+          happen. It is drawn because it is already written to beat something;
+          untick that, or give some weapon this kind.
+        </li>
       </ul>
 
       <ul v-if="problems.length" class="triangle-warning" role="alert">

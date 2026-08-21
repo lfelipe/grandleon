@@ -2190,6 +2190,7 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
         && selectedCollection === 'weaponTypes'"
       ref="weaponTriangle"
       :weapon-types="project.weaponTypes ?? []"
+      :weapons="project.weapons"
       :advantage="project.weaponAdvantage"
       @update-types="saveWeaponTypes"
       @update-advantage="saveWeaponAdvantage"
