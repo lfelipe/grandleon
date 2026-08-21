@@ -1998,8 +1998,9 @@ public:
     // One frame of the board's own periodic presentation, counted rather than
     // timed. The cursor's emphasis and the water's shimmer both read this
     // counter, and the board is repainted only on the frames one of them
-    // changes: twice a period for the pulse and four times for the shimmer,
-    // six of thirty-two rather than sixty times a second.
+    // changes: the pulse changes twice a period and the shimmer four times,
+    // and the pulse's two land on frames the shimmer already changes on, so
+    // four of thirty-two rather than sixty times a second.
     //
     // Sharing one counter is not an economy, it is the settle rule. The
     // checkpoint puts this counter back to zero, and both effects are at rest
