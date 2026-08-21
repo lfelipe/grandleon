@@ -255,27 +255,55 @@ export function validateProject(filename) {
 
     // What a company is handed, in one list: the store it is founded with, or
     // what one node puts in that store. Each identity is named once, and each
-    // must name an item the project defines, exactly as a member's unit type
-    // must. Two entries for one item are an author saying the same thing twice
+    // must name something the project defines, exactly as a member's unit type
+    // must. Two entries for one thing are an author saying the same thing twice
     // with two different answers about how many.
+    //
+    // A grant names an item or a weapon and never both, which the schema does
+    // not say: expressing an exclusive pair there costs a discriminated pair of
+    // whole objects, and this is where the deployment's "state at least one of
+    // the two" is already answered. An item and a weapon sharing a name are two
+    // different grants, so the identities are counted apart.
     function validateItemGrants(grants, listPath, owner) {
-      const granted = new Set();
+      const grantedItems = new Set();
+      const grantedWeapons = new Set();
       for (const [index, grant] of (grants ?? []).entries()) {
-        const instancePath = `${listPath}/${index}/itemId`;
-        if (granted.has(grant.itemId)) {
+        const grantPath = `${listPath}/${index}`;
+        const namesItem = grant.itemId !== undefined;
+        const namesWeapon = grant.weaponId !== undefined;
+        if (namesItem === namesWeapon) {
+          const instancePath = `${grantPath}/${namesItem ? "itemId" : "quantity"}`;
           diagnostics.push(
             diagnostic(
               filename,
-              "SOURCE_CAMPAIGN_GRANT_ITEM_DUPLICATE",
+              "SOURCE_CAMPAIGN_GRANT_SUBJECT_INVALID",
               instancePath,
-              `${owner} names item '${grant.itemId}' twice`,
+              namesItem
+                ? `${owner} names both an item and a weapon in one grant`
+                : `${owner} has a grant naming neither an item nor a weapon`,
               document.pointers[instancePath]?.value
             )
           );
           continue;
         }
-        granted.add(grant.itemId);
-        requireReference("item", grant.itemId, instancePath);
+        const kind = namesItem ? "item" : "weapon";
+        const identity = namesItem ? grant.itemId : grant.weaponId;
+        const granted = namesItem ? grantedItems : grantedWeapons;
+        const instancePath = `${grantPath}/${kind}Id`;
+        if (granted.has(identity)) {
+          diagnostics.push(
+            diagnostic(
+              filename,
+              "SOURCE_CAMPAIGN_GRANT_ITEM_DUPLICATE",
+              instancePath,
+              `${owner} names ${kind} '${identity}' twice`,
+              document.pointers[instancePath]?.value
+            )
+          );
+          continue;
+        }
+        granted.add(identity);
+        requireReference(kind, identity, instancePath);
       }
     }
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "packageId": "6f2b6a51-3d5c-4a80-9d1f-7c0a4f19b2ea",
   "gameId": "encounter.board.predicate",
   "title": "Board Predicate",

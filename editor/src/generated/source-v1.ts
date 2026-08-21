@@ -112,7 +112,7 @@ export type CampaignNode = {
 };
 
 export interface SourceProject {
-  schemaVersion: "1.1.0";
+  schemaVersion: "1.2.0";
   /**
    * Durable lowercase UUID identifying a package across names and revisions.
    */
@@ -980,13 +980,17 @@ export interface StatDeltaBlock {
   speed?: number;
 }
 /**
- * A quantity of one item, put into the company's shared store. The store is what the campaign holds beyond what its members carry, and it is the one owner an author can name without knowing who is still alive.
+ * A quantity of one item or one weapon, put into the company's shared store. The store is what the campaign holds beyond what its members carry, and it is the one owner an author can name without knowing who is still alive. That is also why a weapon put here is checked against no class's allowed types: at the moment it is stocked nobody knows whose hands it will reach.
  */
 export interface CampaignItemGrant {
   /**
    * Stable, case-sensitive source identity. Renaming requires reference migration.
    */
-  itemId: string;
+  itemId?: string;
+  /**
+   * Stable, case-sensitive source identity. Renaming requires reference migration.
+   */
+  weaponId?: string;
   /**
    * How many. One is not the default and must be written, so that a list of things a company owns never has an omitted number in it.
    */

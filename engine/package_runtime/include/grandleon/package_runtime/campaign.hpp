@@ -111,9 +111,26 @@ struct CampaignMember final {
 // moments, so they are one table. `join_node_id` is zero for the founding
 // stock and otherwise the node whose completion grants it.
 struct CampaignItemGrant final {
+    // What is handed over. Exactly one of these is set: a grant names an item
+    // or it names a weapon. They are two fields rather than one field and a
+    // kind byte because the package writes them into two tables, and every
+    // record of a table that means one thing needs no tag saying which.
+    //
+    // An identity is unique only within a category, so an item and a weapon
+    // may share a source key and therefore share a stable id. Which field
+    // holds it is the only thing that says which registry to resolve it
+    // against.
     std::uint64_t item_id{};
     std::uint32_t quantity{};
     std::uint64_t join_node_id{};
+    // Last, and deliberately: this is an aggregate that callers brace-initialise
+    // by position, so a field added in the middle would quietly become whatever
+    // the next one used to be.
+    std::uint64_t weapon_id{};
+
+    [[nodiscard]] bool grants_a_weapon() const noexcept {
+        return weapon_id != 0U;
+    }
 };
 
 // What this campaign does with a character who falls in battle.

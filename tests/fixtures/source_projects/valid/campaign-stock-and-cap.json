@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "packageId": "7a4c1e90-2b6d-4f18-9d55-0e3a8c7b41f2",
   "gameId": "campaign.stock",
   "title": "Campaign Stock and Cap",
@@ -43,7 +43,14 @@
       "classId": "fighter"
     }
   ],
-  "weapons": [],
+  "weapons": [
+    {
+      "id": "iron_sword",
+      "name": "Iron Sword",
+      "power": 5,
+      "range": 1
+    }
+  ],
   "itemTypes": [
     {
       "id": "supply",
@@ -111,6 +118,11 @@
           "itemId": "bandage",
           "quantity": 2,
           "notes": "What the company was founded with, in the store rather than anybody's hands."
+        },
+        {
+          "weaponId": "iron_sword",
+          "quantity": 1,
+          "notes": "A weapon in the store rather than in anybody's hands, which is the whole of what a company being handed a weapon means."
         },
         {
           "itemId": "torch",

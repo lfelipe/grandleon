@@ -22,7 +22,7 @@ import { areaOffsets, areaRadius } from "./targeting-geometry";
 
 function project(): SourceProject {
   return {
-    schemaVersion: "1.1.0",
+    schemaVersion: "1.2.0",
     packageId: "8a1f4c2e-9b3d-4f61-a8c2-5d0e7b419af3",
     gameId: "recipe.fixture",
     title: "Recipe fixture",

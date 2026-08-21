@@ -5,7 +5,7 @@ import { planStageOnMap } from "./stage-setup";
 
 function project(overrides: Partial<SourceProject> = {}): SourceProject {
   return {
-    schemaVersion: "1.1.0",
+    schemaVersion: "1.2.0",
     packageId: "1a5b0f9c-2d3e-4a5b-8c7d-9e0f1a2b3c4d",
     gameId: "stage.setup.fixture",
     title: "The Long Road",

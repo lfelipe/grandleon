@@ -102,12 +102,29 @@ const props = defineProps<{
   dialogues: readonly SourceDialogue[];
   items: readonly { readonly id: string; readonly name: string }[];
   /**
+   * What this project's weapons are, for the same reason the items are: a node
+   * may hand the company a weapon, and a grant naming one nothing defines has
+   * to be caught here rather than at the compiler.
+   */
+  weapons?: readonly { readonly id: string; readonly name: string }[];
+  /**
    * The company this campaign begins with, owned and saved by the surface
    * around this one. The flow only reads it: a Stage here fields one of these
    * people, and a node here may hand the company somebody new.
    */
   roster?: readonly CampaignRosterMember[] | undefined;
 }>();
+
+/**
+ * What one grant is about, for a message that names it.
+ *
+ * A grant names an item or a weapon. Neither is a fault reported beside this
+ * one, and this still has to say something rather than print "undefined" at
+ * an author.
+ */
+function grantSubject(grant: { itemId?: string; weaponId?: string }): string {
+  return grant.itemId ?? grant.weaponId ?? "nothing";
+}
 
 const emit = defineEmits<{
   updateObjectives: [objectives: SourceObjective[]];
@@ -481,29 +498,52 @@ function flowProblems(flow: EditableFlow): string[] {
       );
     }
     for (const grant of node.grants ?? []) {
-      if (!props.items.some((item) => item.id === grant.itemId)) {
+      const namesItem = grant.itemId !== undefined;
+      const namesWeapon = grant.weaponId !== undefined;
+      if (namesItem === namesWeapon) {
         found.push(
-          `${nodeLabel(node)} grants '${grant.itemId}', which is not an item ` +
-          "in this project. Choose another, or create the item."
+          `${nodeLabel(node)} has a grant naming ` +
+          (namesItem ? "both an item and a weapon" : "neither an item nor a weapon") +
+          ". One grant hands over one thing."
+        );
+      } else if (namesItem) {
+        if (!props.items.some((item) => item.id === grant.itemId)) {
+          found.push(
+            `${nodeLabel(node)} grants '${grant.itemId}', which is not an ` +
+            "item in this project. Choose another, or create the item."
+          );
+        }
+      } else if (!(props.weapons ?? []).some((w) => w.id === grant.weaponId)) {
+        found.push(
+          `${nodeLabel(node)} grants '${grant.weaponId}', which is not a ` +
+          "weapon in this project. Choose another, or create the weapon."
         );
       }
       if (!Number.isInteger(grant.quantity) || grant.quantity < 1 ||
           grant.quantity > 65535) {
         found.push(
           `${nodeLabel(node)} grants ${grant.quantity} of ` +
-          `'${grant.itemId}'. Say how many, as a whole number from 1 to 65535.`
+          `'${grantSubject(grant)}'. Say how many, as a whole number from 1 ` +
+          "to 65535."
         );
       }
     }
-    const granted = new Set<string>();
+    // Counted apart by what a grant names, because an item and a weapon that
+    // happen to share a name are two different things being handed over.
+    const grantedItems = new Set<string>();
+    const grantedWeapons = new Set<string>();
     for (const grant of node.grants ?? []) {
-      if (granted.has(grant.itemId)) {
+      const granted = grant.weaponId !== undefined
+        ? grantedWeapons
+        : grantedItems;
+      const subject = grantSubject(grant);
+      if (granted.has(subject)) {
         found.push(
-          `${nodeLabel(node)} grants '${grant.itemId}' twice. Say how many ` +
-          "once: two entries for one item are two answers to one question."
+          `${nodeLabel(node)} grants '${subject}' twice. Say how many ` +
+          "once: two entries for one thing are two answers to one question."
         );
       }
-      granted.add(grant.itemId);
+      granted.add(subject);
     }
     // What decides this Stage, checked against who is actually on it. A
     // targeted objective names a placement rather than a project record, so
@@ -932,6 +972,7 @@ defineExpose({ flush, selectNode });
               grant-word="grant"
               :grants="selectedNode.grants ?? []"
               :items="items"
+              :weapons="weapons ?? []"
               @update="updateGrants(selectedNode, $event)"
               @dirty="emit('dirty')"
               @create-item="emit('createItem')" />

@@ -7,7 +7,7 @@ import PlaytestPanel from "./PlaytestPanel.vue";
 afterEach(() => document.body.replaceChildren());
 
 const project: SourceProject = {
-  schemaVersion: "1.1.0",
+  schemaVersion: "1.2.0",
   packageId: "f643c13e-ce8d-41d4-b6de-0d69ba5fcade",
   gameId: "playtest.fixture",
   title: "Playtest fixture",

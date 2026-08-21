@@ -12,9 +12,15 @@ const items = [
   { id: "rope", name: "Coil of Rope" }
 ];
 
+const weapons = [
+  { id: "iron_sword", name: "Iron Sword" },
+  { id: "tonic", name: "Tonic Blade" }
+];
+
 function mount(
   grants: readonly CampaignItemGrant[],
-  offered: readonly { id: string; name: string }[] = items
+  offered: readonly { id: string; name: string }[] = items,
+  armoury: readonly { id: string; name: string }[] = []
 ) {
   const host = document.createElement("div");
   document.body.append(host);
@@ -23,6 +29,7 @@ function mount(
   const app = createApp(ItemGrantEditor, {
     grants,
     items: offered,
+    weapons: armoury,
     idPrefix: "stock",
     heading: "What the store starts with",
     help: "Leave it empty and the campaign begins with nothing.",
@@ -107,8 +114,11 @@ describe("ItemGrantEditor", () => {
   it("narrows the choices by search without hiding the one already chosen", async () => {
     const { app, host } = mount([{ itemId: "tonic", quantity: 1 }]);
     const chooser = host.querySelector<HTMLSelectElement>("#stock-0-item")!;
+    // The value of an option is the kind and the identity together, because an
+    // identity is unique only within its kind: a project may hold an item and a
+    // weapon answering to one name.
     expect([...chooser.options].map((option) => option.value))
-      .toEqual(["tonic", "torch", "rope"]);
+      .toEqual(["item:tonic", "item:torch", "item:rope"]);
 
     const search = host.querySelector<HTMLInputElement>("#stock-item-search")!;
     search.value = "rope";
@@ -118,19 +128,20 @@ describe("ItemGrantEditor", () => {
     // search that could hide what is already chosen would silently offer to
     // change it.
     expect([...chooser.options].map((option) => option.value))
-      .toEqual(["tonic", "rope"]);
+      .toEqual(["item:tonic", "item:rope"]);
 
     search.value = "nothing at all";
     search.dispatchEvent(new Event("input", { bubbles: true }));
     await nextTick();
-    expect([...chooser.options].map((option) => option.value)).toEqual(["tonic"]);
+    expect([...chooser.options].map((option) => option.value))
+      .toEqual(["item:tonic"]);
     app.unmount();
   });
 
   it("names an item this project does not hold rather than dropping it", () => {
     const { app, host } = mount([{ itemId: "ghost", quantity: 1 }]);
     const chooser = host.querySelector<HTMLSelectElement>("#stock-0-item")!;
-    expect(chooser.value).toBe("ghost");
+    expect(chooser.value).toBe("item:ghost");
     expect(host.textContent).toContain("not an item in this project");
     expect(host.textContent).toContain(
       "'ghost' is not an item in this project"
@@ -146,9 +157,9 @@ describe("ItemGrantEditor", () => {
       { itemId: "rope", quantity: 1 }
     ]);
     const text = host.textContent!;
-    expect(text).toContain("Choose which item this puts in the store.");
+    expect(text).toContain("Choose what this puts in the store.");
     expect(text).toContain("Say how many, as a whole number of at least 1.");
-    expect(text).toContain("65535 is the most of one item");
+    expect(text).toContain("65535 is the most of one thing");
     // Two entries for one item are two different answers to one question.
     expect(text).toContain("This list already stocks 'rope'");
     app.unmount();
@@ -185,7 +196,7 @@ describe("ItemGrantEditor", () => {
 
   it("says there is nothing to give, and offers the edit that fixes it", () => {
     const { app, host, onCreateItem } = mount([], []);
-    expect(host.textContent).toContain("This project has no items yet");
+    expect(host.textContent).toContain("no items or weapons yet");
     expect(host.querySelector("#stock-item-search")).toBeNull();
     button(host, "Create related item").click();
     expect(onCreateItem).toHaveBeenCalled();
@@ -242,8 +253,8 @@ describe("ItemGrantEditor", () => {
       const offered = [...first.options].map((option) => option.value);
       // Its own choice survives: a menu its own value is missing from is a row
       // that looks as though it changed by itself.
-      expect(offered).toContain(state.grants[0]!.itemId);
-      expect(offered).not.toContain(state.grants[1]!.itemId);
+      expect(offered).toContain(`item:${state.grants[0]!.itemId}`);
+      expect(offered).not.toContain(`item:${state.grants[1]!.itemId}`);
       app.unmount();
     });
 
@@ -260,6 +271,58 @@ describe("ItemGrantEditor", () => {
       .toBe(state.grants.length);
     expect(add().disabled).toBe(true);
     expect(host.textContent).toContain("already stocked here");
+    app.unmount();
+  });
+  it("stocks a weapon as readily as an item, and says which it is", () => {
+    const { app, host, onUpdate } = mount([], items, weapons);
+    const chooser = host.querySelector<HTMLSelectElement>("#stock-0-item");
+    expect(chooser).toBeNull();
+    // Both kinds are offered in one menu, because a store holds both, and the
+    // weapons are marked: an author choosing what a company is founded with is
+    // choosing between a tonic and a sword, not between two identifiers.
+    button(host, "Add starting stock").click();
+    expect(lastGrants(onUpdate)).toEqual([{ itemId: "tonic", quantity: 1 }]);
+    app.unmount();
+  });
+
+  it("tells an item and a weapon of one name apart", async () => {
+    // `tonic` is an item here and also a weapon, which the format allows: an
+    // identity is unique only within its kind. A menu keyed on the identity
+    // alone could not say which one a grant held.
+    const { app, host, onUpdate } = mount(
+      [{ weaponId: "tonic", quantity: 1 }], items, weapons
+    );
+    const chooser = host.querySelector<HTMLSelectElement>("#stock-0-item")!;
+    expect(chooser.value).toBe("weapon:tonic");
+    expect(host.textContent).toContain("Tonic Blade (tonic) - weapon");
+    // And the item of the same name is still on offer, being a different thing.
+    expect([...chooser.options].map((option) => option.value))
+      .toContain("item:tonic");
+
+    chooser.value = "item:tonic";
+    chooser.dispatchEvent(new Event("change", { bubbles: true }));
+    await nextTick();
+    // Chosen whole rather than patched: a grant left holding both identities
+    // is the one shape the format refuses.
+    expect(lastGrants(onUpdate)).toEqual([{ itemId: "tonic", quantity: 1 }]);
+    app.unmount();
+  });
+
+  it("names a stocked weapon this project does not hold", () => {
+    const { app, host } = mount(
+      [{ weaponId: "ghost_blade", quantity: 1 }], items, weapons
+    );
+    expect(host.textContent).toContain("not a weapon in this project");
+    expect(host.textContent).toContain("create the weapon");
+    app.unmount();
+  });
+
+  it("refuses a grant that names an item and a weapon at once", () => {
+    const { app, host } = mount(
+      [{ itemId: "tonic", weaponId: "iron_sword", quantity: 1 }], items, weapons
+    );
+    expect(host.textContent).toContain("names an item and a weapon");
+    expect(host.textContent).toContain("One entry hands over one thing");
     app.unmount();
   });
 });

@@ -1471,22 +1471,43 @@ CompileResult compile(const GameSource& source) {
         // item granted at the abbey and again at the ford is two grants and not
         // a duplicate, while one list naming an item twice is an author
         // answering "how many" twice with two different numbers.
+        //
+        // An item and a weapon are counted apart, because an identity is only
+        // unique within a category: an item and a weapon may share a source key
+        // and therefore share a stable id, and one store holding both is not
+        // holding the same thing twice.
         std::set<std::pair<StableId, StableId>> granted;
+        std::set<std::pair<StableId, StableId>> granted_weapons;
         for (const CampaignItemGrant& grant : definition.grants) {
             const std::string grant_path =
                 grant.join_node_id == 0 ? path + ".starting_store"
                                         : path + ".nodes.grants";
-            if (grant.item_id == 0 || grant.quantity == 0 ||
-                !granted.emplace(grant.join_node_id, grant.item_id).second) {
+            // Naming both is naming two things in one grant, and naming
+            // neither is naming none: either way there is no one thing being
+            // handed over, which is what a grant is.
+            const bool names_one =
+                (grant.item_id == 0) != (grant.weapon_id == 0);
+            const StableId subject =
+                grant.grants_a_weapon() ? grant.weapon_id : grant.item_id;
+            auto& seen = grant.grants_a_weapon() ? granted_weapons : granted;
+            if (!names_one || grant.quantity == 0 ||
+                !seen.emplace(grant.join_node_id, subject).second) {
                 result.diagnostics.push_back(
-                    {DiagnosticCode::invalid_grant, grant_path, grant.item_id}
+                    {DiagnosticCode::invalid_grant, grant_path, subject}
                 );
                 continue;
             }
-            validate_reference(
-                grant.item_id, item_ids, grant_path + ".item_id",
-                result.diagnostics
-            );
+            if (grant.grants_a_weapon()) {
+                validate_reference(
+                    grant.weapon_id, weapon_ids, grant_path + ".weapon_id",
+                    result.diagnostics
+                );
+            } else {
+                validate_reference(
+                    grant.item_id, item_ids, grant_path + ".item_id",
+                    result.diagnostics
+                );
+            }
             if (grant.join_node_id != 0) {
                 validate_reference(
                     grant.join_node_id, node_ids,
@@ -2127,12 +2148,22 @@ CompileResult compile(const GameSource& source) {
                 const bool states_a_loss_rule =
                     source.character_loss != CharacterLoss::permanent ||
                     source.invulnerable_for_testing;
-                if (!value.grants.empty() || specific_members != 0 ||
-                    states_a_loss_rule) {
-                    put_u16(
-                        bytes, static_cast<std::uint16_t>(value.grants.size())
-                    );
+                // Item grants and weapon grants are two tables, not one table
+                // of tagged records. The store's table is exactly the table it
+                // has always been, so every campaign that hands over no weapon
+                // writes the bytes it always wrote and every golden built on
+                // one still holds; weapons take a tail of their own at the end,
+                // which is how each of the three tails before it was added.
+                std::size_t item_grants = 0;
+                std::size_t weapon_grants = 0;
+                for (const CampaignItemGrant& grant : value.grants) {
+                    (grant.grants_a_weapon() ? weapon_grants : item_grants)++;
+                }
+                if (item_grants != 0 || specific_members != 0 ||
+                    states_a_loss_rule || weapon_grants != 0) {
+                    put_u16(bytes, static_cast<std::uint16_t>(item_grants));
                     for (const CampaignItemGrant& grant : value.grants) {
+                        if (grant.grants_a_weapon()) continue;
                         put_u64(bytes, grant.join_node_id);
                         put_u64(bytes, grant.item_id);
                         put_u32(bytes, grant.quantity);
@@ -2161,7 +2192,8 @@ CompileResult compile(const GameSource& source) {
                 // the tail after this one is positional and needs this one's
                 // place held. A count of zero reads back as nobody authored,
                 // which is the same campaign either way.
-                if (specific_members != 0 || states_a_loss_rule) {
+                if (specific_members != 0 || states_a_loss_rule ||
+                    weapon_grants != 0) {
                     put_u16(
                         bytes, static_cast<std::uint16_t>(specific_members)
                     );
@@ -2202,11 +2234,30 @@ CompileResult compile(const GameSource& source) {
                 // that states neither setting produces the campaign records it
                 // always produced, down to the last byte, and every golden and
                 // every console expectation built on them still holds.
-                if (states_a_loss_rule) {
+                if (states_a_loss_rule || weapon_grants != 0) {
                     bytes.push_back(
                         static_cast<std::uint8_t>(source.character_loss)
                     );
                     bytes.push_back(source.invulnerable_for_testing ? 1U : 0U);
+                }
+                // The weapons the company is handed, after the loss rule for
+                // the reason the loss rule came after the characters. Written
+                // only when a weapon is handed over at all, so a campaign that
+                // hands over none - which is every campaign written before a
+                // weapon could be handed over - writes not one byte of this.
+                //
+                // The record is the store's record exactly: which node, which
+                // identity, how many. It needs no tag saying it names a weapon
+                // because everything in this table does, which is the whole
+                // reason there are two tables rather than one.
+                if (weapon_grants != 0) {
+                    put_u16(bytes, static_cast<std::uint16_t>(weapon_grants));
+                    for (const CampaignItemGrant& grant : value.grants) {
+                        if (!grant.grants_a_weapon()) continue;
+                        put_u64(bytes, grant.join_node_id);
+                        put_u64(bytes, grant.weapon_id);
+                        put_u32(bytes, grant.quantity);
+                    }
                 }
                 return bytes;
             }

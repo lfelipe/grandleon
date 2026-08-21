@@ -44,8 +44,11 @@ export const SECOND_CHANGE = "who acts first is written down rather than assumed
 /** What the third step tells the author. */
 export const THIRD_CHANGE = "a game may be spoken over while it is being played";
 
+/** What the fourth step tells the author. */
+export const FOURTH_CHANGE = "a company may be handed a weapon and not only an item";
+
 /**
- * Three steps ending at the current version. Each does something a test can see
+ * Four steps ending at the current version. Each does something a test can see
  * and each leaves a project the schema still accepts.
  *
  * Ending at the current version is the point rather than an accident: a chain
@@ -79,6 +82,15 @@ export const EXAMPLE_STEPS = [
     changed: THIRD_CHANGE,
     apply: (project) => {
       project.notes ??= "";
+      return project;
+    }
+  },
+  {
+    from: "1.1.0",
+    to: "1.2.0",
+    changed: FOURTH_CHANGE,
+    apply: (project) => {
+      project.contentRevision ??= "0.0.0";
       return project;
     }
   }

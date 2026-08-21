@@ -2500,16 +2500,23 @@ export interface CampaignMemberDefinition {
 }
 
 /**
- * One quantity of one item the campaign puts in its own store by authoring,
- * exactly as the campaign record carries it.
+ * One quantity of one item or one weapon the campaign puts in its own store by
+ * authoring, exactly as the campaign record carries it.
  *
  * `joinNodeId` is 0 for the founding stock and otherwise the node whose
  * completion grants it, on the same convention a founding member carries. A
  * grant is an event rather than an assertion about the store: passing the node
  * a second time grants a second time.
+ *
+ * Exactly one of `itemId` and `weaponId` is set, which is the shape the source
+ * has and the shape the package writes: two identity fields with one of them
+ * zero, rather than one field and a tag saying how to read it. A grant written
+ * before a weapon could be granted sets `itemId` alone and means what it
+ * always meant.
  */
 export interface CampaignItemGrantDefinition {
-  itemId: bigint;
+  itemId?: bigint;
+  weaponId?: bigint;
   quantity: number;
   joinNodeId?: bigint;
 }
@@ -2759,18 +2766,32 @@ function encodeCampaignRecord(definition: CampaignFlowDefinition): Uint8Array {
   const loss = definition.characterLoss ?? "permanent";
   const testing = definition.invulnerableForTesting === true;
   const statesARule = loss !== "permanent" || testing;
-  if (grants.length > 0 || statesARule) {
-    writer.u16(grants.length);
-    for (const grant of grants) {
+  // Item grants and weapon grants are two tables, exactly as the compiler
+  // writes them: the store's own table holds the items and is the table it has
+  // always been, and weapons take a tail of their own past the loss rule. That
+  // way a campaign handing over no weapon writes the bytes it always wrote.
+  const itemGrants = grants.filter((grant) => grant.itemId !== undefined);
+  const weaponGrants = grants.filter((grant) => grant.weaponId !== undefined);
+  if (itemGrants.length > 0 || statesARule || weaponGrants.length > 0) {
+    writer.u16(itemGrants.length);
+    for (const grant of itemGrants) {
       writer.u64(grant.joinNodeId ?? 0n);
-      writer.u64(grant.itemId);
+      writer.u64(grant.itemId as bigint);
       writer.u32(grant.quantity);
     }
   }
-  if (statesARule) {
+  if (statesARule || weaponGrants.length > 0) {
     writer.u16(0);
     writer.u8(loss === "recoverable" ? 2 : 1);
     writer.u8(testing ? 1 : 0);
+  }
+  if (weaponGrants.length > 0) {
+    writer.u16(weaponGrants.length);
+    for (const grant of weaponGrants) {
+      writer.u64(grant.joinNodeId ?? 0n);
+      writer.u64(grant.weaponId as bigint);
+      writer.u32(grant.quantity);
+    }
   }
   return writer.toBytes();
 }

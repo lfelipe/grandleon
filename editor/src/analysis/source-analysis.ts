@@ -2,6 +2,7 @@
 import type { ErrorObject, ValidateFunction } from "ajv";
 import type {
   DefinitionCategory,
+  DefinitionReference,
   IndexedDefinition,
   IndexDiagnostic
 } from "../domain/project-index";
@@ -49,6 +50,7 @@ export interface SourceDiagnostic {
     | "SOURCE_CAMPAIGN_PLACEMENT_MEMBER_DUPLICATE"
     | "SOURCE_CAMPAIGN_PLACEMENT_MEMBER_TYPE_MISMATCH"
     | "SOURCE_CAMPAIGN_GRANT_ITEM_DUPLICATE"
+    | "SOURCE_CAMPAIGN_GRANT_SUBJECT_INVALID"
     | "SOURCE_CAMPAIGN_DEPLOYMENT_TILE_DUPLICATE"
     | "SOURCE_CAMPAIGN_DEPLOYMENT_OUT_OF_BOUNDS"
     | "SOURCE_CAMPAIGN_DEPLOYMENT_UNOCCUPIED"
@@ -331,6 +333,39 @@ function conditionReferences(
   return references;
 }
 
+/**
+ * What one grant points at, as a reference the rename and delete passes read.
+ *
+ * A grant names an item or a weapon, so it indexes under one category or the
+ * other: renaming the weapon a store stocks has to rewrite the grant, and
+ * deleting it has to be refused, on exactly the terms an item already gets. A
+ * grant naming neither points at nothing and is left out; the analysis
+ * refuses it separately, and an index entry with no identity in it would
+ * refuse every deletion in the project.
+ */
+function grantReferences(
+  grants: readonly CampaignItemGrant[] | undefined,
+  listPath: string
+): IndexedDefinition["references"] {
+  return (grants ?? []).flatMap<DefinitionReference>((grant, index) => {
+    if (grant.itemId !== undefined) {
+      return [{
+        category: "item",
+        sourceKey: grant.itemId,
+        semanticPath: `${listPath}/${index}/itemId`
+      }];
+    }
+    if (grant.weaponId !== undefined) {
+      return [{
+        category: "weapon",
+        sourceKey: grant.weaponId,
+        semanticPath: `${listPath}/${index}/weaponId`
+      }];
+    }
+    return [];
+  });
+}
+
 function campaignFlowReferences(
   flow: CampaignFlow | undefined,
   semanticPath: string
@@ -357,14 +392,10 @@ function campaignFlowReferences(
         sourceKey: member.unitTypeId,
         semanticPath: `${nodePath}/recruits/${index}/unitTypeId`
       })),
-      // What a node hands the company names an item the same way a member
-      // names a unit type: deleting that item must be refused here, and
-      // renaming it must rewrite the grant.
-      ...(node.grants ?? []).map((grant, index) => ({
-        category: "item" as const,
-        sourceKey: grant.itemId,
-        semanticPath: `${nodePath}/grants/${index}/itemId`
-      })),
+      // What a node hands the company names an item or a weapon the same way
+      // a member names a unit type: deleting the thing named must be refused
+      // here, and renaming it must rewrite the grant.
+      ...grantReferences(node.grants, `${nodePath}/grants`),
       ...(node.objectiveIds ?? []).map((sourceKey, index) => ({
         category: "objective" as const,
         sourceKey,
@@ -511,11 +542,10 @@ export function analyzeSourceProject(
           sourceKey: member.unitTypeId,
           semanticPath: `/campaigns/${index}/roster/${memberIndex}/unitTypeId`
         })),
-        ...(item.startingStore ?? []).map((grant, grantIndex) => ({
-          category: "item" as const,
-          sourceKey: grant.itemId,
-          semanticPath: `/campaigns/${index}/startingStore/${grantIndex}/itemId`
-        })),
+        ...grantReferences(
+          item.startingStore,
+          `/campaigns/${index}/startingStore`
+        ),
         ...campaignFlowReferences(
           item.flow,
           `/campaigns/${index}/flow`
@@ -671,29 +701,53 @@ export function analyzeSourceProject(
   };
   // What a company is handed, in one list: the store it is founded with, or
   // what one node puts in that store. Each identity is named once, two entries
-  // for one item being an author saying the same thing twice with two different
-  // answers about how many, and each must name an item the project defines,
-  // exactly as a member's unit type must.
+  // for one thing being an author saying the same thing twice with two
+  // different answers about how many, and each must name something the project
+  // defines, exactly as a member's unit type must.
+  //
+  // A grant names an item or a weapon and never both. The schema does not say
+  // so, an exclusive pair costing a discriminated pair of whole objects there,
+  // so it is said here beside the rest of what a grant has to be. An item and
+  // a weapon sharing a name are two different grants, counted apart.
   const requireItemGrants = (
     grants: readonly CampaignItemGrant[] | undefined,
     listPath: string,
     owner: string
   ) => {
-    const granted = new Set<string>();
+    const grantedItems = new Set<string>();
+    const grantedWeapons = new Set<string>();
     (grants ?? []).forEach((grant, grantIndex) => {
-      const instancePath = `${listPath}/${grantIndex}/itemId`;
-      if (granted.has(grant.itemId)) {
+      const grantPath = `${listPath}/${grantIndex}`;
+      const namesItem = grant.itemId !== undefined;
+      const namesWeapon = grant.weaponId !== undefined;
+      if (namesItem === namesWeapon) {
+        diagnostics.push({
+          severity: "error",
+          code: "SOURCE_CAMPAIGN_GRANT_SUBJECT_INVALID",
+          sourcePath,
+          instancePath: `${grantPath}/${namesItem ? "itemId" : "quantity"}`,
+          message: namesItem
+            ? `${owner} names both an item and a weapon in one grant`
+            : `${owner} has a grant naming neither an item nor a weapon`
+        });
+        return;
+      }
+      const kind = namesItem ? "item" : "weapon";
+      const identity = (namesItem ? grant.itemId : grant.weaponId) as string;
+      const granted = namesItem ? grantedItems : grantedWeapons;
+      const instancePath = `${grantPath}/${kind}Id`;
+      if (granted.has(identity)) {
         diagnostics.push({
           severity: "error",
           code: "SOURCE_CAMPAIGN_GRANT_ITEM_DUPLICATE",
           sourcePath,
           instancePath,
-          message: `${owner} names item '${grant.itemId}' twice`
+          message: `${owner} names ${kind} '${identity}' twice`
         });
         return;
       }
-      granted.add(grant.itemId);
-      requireReference("item", grant.itemId, instancePath);
+      granted.add(identity);
+      requireReference(kind, identity, instancePath);
     });
   };
   // The stat line an authored delta lands on. A unit type keeps no line of its

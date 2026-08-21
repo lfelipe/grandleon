@@ -3,7 +3,7 @@
   "$id": "https://grandleon.dev/schemas/source/v1/project.schema.json",
   "type": "object",
   "properties": {
-    "schemaVersion": { "const": "1.1.0" },
+    "schemaVersion": { "const": "1.2.0" },
     "packageId": { "$ref": "common.schema.json#/$defs/packageId" },
     "gameId": { "$ref": "common.schema.json#/$defs/stableId" },
     "title": { "$ref": "common.schema.json#/$defs/displayName" },

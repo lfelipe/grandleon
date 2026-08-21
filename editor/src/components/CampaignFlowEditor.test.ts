@@ -363,7 +363,7 @@ describe("CampaignFlowEditor", () => {
     await nextTick();
     // The picker offers the item category and nothing else.
     const chooser = select(host, "#node-grant-0-item");
-    expect([...chooser.options].map((option) => option.value)).toEqual(["key"]);
+    expect([...chooser.options].map((option) => option.value)).toEqual(["item:key"]);
 
     const quantity = host.querySelector<HTMLInputElement>(
       "#node-grant-0-quantity"

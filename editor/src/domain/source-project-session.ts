@@ -190,7 +190,8 @@ type CrossReferenceCollection =
   | "unitTypes"
   | "objectives"
   | "dialogues"
-  | "items";
+  | "items"
+  | "weapons";
 
 interface CampaignConditionShape {
   readonly kind: string;
@@ -212,7 +213,8 @@ interface CampaignMemberShape {
 // quantity is a number rather than a reference, so what a rename or a delete
 // has to follow here is the item the grant names.
 interface CampaignItemGrantShape {
-  itemId: string;
+  itemId?: string;
+  weaponId?: string;
 }
 
 interface CampaignFlowShape {
@@ -259,6 +261,24 @@ function visitCrossReferences(
       );
     });
   });
+  // What a company is handed. A grant names an item or a weapon, so it is
+  // followed into whichever collection it names: renaming a weapon a store
+  // stocks has to rewrite the grant, and deleting one has to be refused, on
+  // exactly the terms an item has always been given. A grant naming neither is
+  // a fault the analysis reports, and there is nothing here to follow.
+  const visitGrant = (grant: CampaignItemGrantShape, path: string): void => {
+    if (grant.itemId !== undefined) {
+      visit("items", grant.itemId, `${path}/itemId`, (nextId) => {
+        grant.itemId = nextId;
+      });
+      return;
+    }
+    if (grant.weaponId !== undefined) {
+      visit("weapons", grant.weaponId, `${path}/weaponId`, (nextId) => {
+        grant.weaponId = nextId;
+      });
+    }
+  };
   const visitCondition = (
     condition: CampaignConditionShape,
     path: string
@@ -306,13 +326,9 @@ function visitCrossReferences(
       startingStore?: CampaignItemGrantShape[];
     }).startingStore;
     (startingStore ?? []).forEach((grant, grantIndex) => {
-      visit(
-        "items",
-        grant.itemId,
-        `/campaigns/${campaignIndex}/startingStore/${grantIndex}/itemId`,
-        (nextId) => {
-          grant.itemId = nextId;
-        }
+      visitGrant(
+        grant,
+        `/campaigns/${campaignIndex}/startingStore/${grantIndex}`
       );
     });
     const flow = (campaign as SourceCampaign & { flow?: CampaignFlowShape }).flow;
@@ -344,14 +360,7 @@ function visitCrossReferences(
         );
       });
       (node.grants ?? []).forEach((grant, grantIndex) => {
-        visit(
-          "items",
-          grant.itemId,
-          `${nodePath}/grants/${grantIndex}/itemId`,
-          (nextId) => {
-            grant.itemId = nextId;
-          }
-        );
+        visitGrant(grant, `${nodePath}/grants/${grantIndex}`);
       });
       (node.objectiveIds ?? []).forEach((objectiveId, objectiveIndex) => {
         visit(

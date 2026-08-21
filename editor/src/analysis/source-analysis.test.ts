@@ -11,7 +11,7 @@ import {
 } from "./analysis-worker-client";
 
 const validProject = {
-  schemaVersion: "1.1.0",
+  schemaVersion: "1.2.0",
   packageId: "123e4567-e89b-12d3-a456-426614174000",
   gameId: "demo",
   title: "Demo",

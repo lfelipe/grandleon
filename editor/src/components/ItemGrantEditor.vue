@@ -21,6 +21,12 @@ import { useKeystrokeDraft } from "./keystroke-draft";
 const props = defineProps<{
   grants: readonly CampaignItemGrant[];
   items: readonly { readonly id: string; readonly name: string }[];
+  /**
+   * What this project arms people with. A store holds weapons as well as
+   * items: a better sword found on the road is the point of a store, and the
+   * format lets one grant name either.
+   */
+  weapons?: readonly { readonly id: string; readonly name: string }[];
   /** Distinguishes control ids when several grant lists share a page. */
   idPrefix: string;
   heading: string;
@@ -57,7 +63,67 @@ defineExpose({ flush: keystrokes.flush });
 // filtered away, so searching cannot hide what is already chosen.
 const search = ref("");
 
-const anyItems = computed(() => props.items.length > 0);
+/**
+ * One thing a store can be given, of either kind.
+ *
+ * A grant names an item or a weapon, so everything this list does - offering,
+ * refusing a second helping, naming what is missing - is asked about a pair
+ * and not about an identifier. An identity is unique only within its kind, so
+ * an item and a weapon may share one and `key` is what tells them apart.
+ */
+interface Stockable {
+  readonly kind: "item" | "weapon";
+  readonly id: string;
+  readonly name: string;
+  readonly key: string;
+}
+
+const stockables = computed<readonly Stockable[]>(() => [
+  ...props.items.map((item) => ({
+    kind: "item" as const, id: item.id, name: item.name,
+    key: `item:${item.id}`
+  })),
+  ...(props.weapons ?? []).map((weapon) => ({
+    kind: "weapon" as const, id: weapon.id, name: weapon.name,
+    key: `weapon:${weapon.id}`
+  }))
+]);
+
+const anyItems = computed(() => stockables.value.length > 0);
+
+/**
+ * What one grant names, as a key of the same shape a stockable carries.
+ *
+ * A grant naming neither is a fault the problem list reports; it answers as
+ * the empty string so that every caller here has one thing to compare.
+ */
+function subjectKey(grant: CampaignItemGrant): string {
+  if (grant.itemId !== undefined) return `item:${grant.itemId}`;
+  if (grant.weaponId !== undefined) return `weapon:${grant.weaponId}`;
+  return "";
+}
+
+/** The identifier a grant names, of whichever kind, for a message. */
+function subjectId(grant: CampaignItemGrant): string {
+  return grant.itemId ?? grant.weaponId ?? "";
+}
+
+/** The record a key names, if this project still holds it. */
+function stockableFor(key: string): Stockable | undefined {
+  return stockables.value.find((candidate) => candidate.key === key);
+}
+
+/** A grant rewritten to name one stockable, dropping the kind it is not. */
+function named(grant: CampaignItemGrant, key: string): CampaignItemGrant {
+  const chosen = stockableFor(key);
+  const next: CampaignItemGrant = { ...grant };
+  delete next.itemId;
+  delete next.weaponId;
+  if (chosen === undefined) return next;
+  if (chosen.kind === "weapon") next.weaponId = chosen.id;
+  else next.itemId = chosen.id;
+  return next;
+}
 
 function copyGrants(): CampaignItemGrant[] {
   return props.grants.map((grant) => ({ ...grant }));
@@ -99,13 +165,13 @@ function patchQuantity(index: number, raw: string) {
 // is keyed by position, so it is committed before the list moves under it.
 /** Whether there is anything left to stock, for the add button to ask. */
 const everythingStocked = computed(
-  () => props.items.length > 0 && unstocked().length === 0
+  () => stockables.value.length > 0 && unstocked().length === 0
 );
 
-/** Everything this list does not already stock. */
-function unstocked(): readonly { readonly id: string; readonly name: string }[] {
-  const stocked = new Set(props.grants.map((grant) => grant.itemId));
-  return props.items.filter((item) => !stocked.has(item.id));
+/** Everything this list does not already stock, of either kind. */
+function unstocked(): readonly Stockable[] {
+  const stocked = new Set(props.grants.map(subjectKey));
+  return stockables.value.filter((candidate) => !stocked.has(candidate.key));
 }
 
 function addGrant() {
@@ -117,9 +183,28 @@ function addGrant() {
   // reported - so the surface offered a gesture whose only outcome was a
   // mistake. One is the quantity an author is most likely to keep and the one
   // they will most obviously change.
-  const next = unstocked()[0]?.id;
+  const next = unstocked()[0];
   if (next === undefined) return;
-  grants.push({ itemId: next, quantity: 1 });
+  grants.push(
+    next.kind === "weapon"
+      ? { weaponId: next.id, quantity: 1 }
+      : { itemId: next.id, quantity: 1 }
+  );
+  emit("update", grants);
+}
+
+/**
+ * What one grant hands over, replaced whole.
+ *
+ * Whole rather than patched, because the two identity fields are exclusive:
+ * writing the new one without removing the old would leave a grant naming an
+ * item and a weapon at once, which is the one shape the format refuses.
+ */
+function replaceGrant(index: number, key: string) {
+  const grants = copyGrants();
+  const grant = grants[index];
+  if (!grant) return;
+  grants[index] = named(grant, key);
   emit("update", grants);
 }
 
@@ -130,69 +215,75 @@ function removeGrant(index: number) {
   emit("update", grants);
 }
 
-function itemName(id: string): string | undefined {
-  return props.items.find((item) => item.id === id)?.name;
-}
-
 /**
- * The items offered for one grant: the search, plus its own choice, minus
+ * What is offered for one grant: the search, plus its own choice, minus
  * whatever another row already stocks.
  *
  * Its own choice always survives the filter. A row showing a menu its own value
  * is not in is a row that appears to have changed by itself, and an author who
  * opens it has no way back to what they had.
  */
-function itemChoices(
-  grant: CampaignItemGrant
-): readonly { readonly id: string; readonly name: string }[] {
+function itemChoices(grant: CampaignItemGrant): readonly Stockable[] {
+  const mine = subjectKey(grant);
   const elsewhere = new Set(
-    props.grants
-      .filter((other) => other !== grant)
-      .map((other) => other.itemId)
+    props.grants.filter((other) => other !== grant).map(subjectKey)
   );
-  const offered = props.items.filter(
-    (item) => item.id === grant.itemId || !elsewhere.has(item.id)
+  const offered = stockables.value.filter(
+    (candidate) => candidate.key === mine || !elsewhere.has(candidate.key)
   );
   const query = search.value.trim().toLocaleLowerCase();
   if (query === "") return offered;
-  return offered.filter((item) =>
-    item.id === grant.itemId ||
-    item.id.toLocaleLowerCase().includes(query) ||
-    item.name.toLocaleLowerCase().includes(query)
+  return offered.filter((candidate) =>
+    candidate.key === mine ||
+    candidate.id.toLocaleLowerCase().includes(query) ||
+    candidate.name.toLocaleLowerCase().includes(query)
   );
 }
 
-/** A stored item this project does not hold, named rather than hidden. */
+/** A stored thing this project does not hold, named rather than hidden. */
 function missingItem(grant: CampaignItemGrant): string | undefined {
-  if (grant.itemId === "") return undefined;
-  return itemName(grant.itemId) === undefined ? grant.itemId : undefined;
+  const key = subjectKey(grant);
+  if (key === "" || subjectId(grant) === "") return undefined;
+  return stockableFor(key) === undefined ? subjectId(grant) : undefined;
+}
+
+/** The word for what one grant hands over, for a message about it. */
+function subjectWord(grant: CampaignItemGrant): string {
+  return grant.weaponId !== undefined ? "weapon" : "item";
 }
 
 /** Everything wrong with one grant, beside the grant, in plain words. */
 function grantProblems(grant: CampaignItemGrant, index: number): string[] {
   const problems: string[] = [];
-  if (grant.itemId === "") {
-    problems.push("Choose which item this puts in the store.");
+  const key = subjectKey(grant);
+  if (grant.itemId !== undefined && grant.weaponId !== undefined) {
+    problems.push(
+      "This names an item and a weapon. One entry hands over one thing."
+    );
+  } else if (key === "" || subjectId(grant) === "") {
+    problems.push("Choose what this puts in the store.");
   } else if (missingItem(grant) !== undefined) {
     problems.push(
-      `'${grant.itemId}' is not an item in this project. Choose another, or ` +
-      "create the item."
+      `'${subjectId(grant)}' is not ${
+        grant.weaponId !== undefined ? "a weapon" : "an item"
+      } in this project. Choose another, or create the ${subjectWord(grant)}.`
     );
   } else if (
     props.grants.some(
       (candidate, candidateIndex) =>
-        candidateIndex !== index && candidate.itemId === grant.itemId
+        candidateIndex !== index && subjectKey(candidate) === key
     )
   ) {
     problems.push(
-      `This list already stocks '${grant.itemId}'. Say how many once: two ` +
-      "entries for one item are two different answers to one question."
+      `This list already stocks '${subjectId(grant)}'. Say how many once: two ` +
+      `entries for one ${subjectWord(grant)} are two different answers to one ` +
+      "question."
     );
   }
   if (!Number.isInteger(grant.quantity) || grant.quantity < 1) {
     problems.push("Say how many, as a whole number of at least 1.");
   } else if (grant.quantity > 65535) {
-    problems.push("65535 is the most of one item a store can be given at once.");
+    problems.push("65535 is the most of one thing a store can be given at once.");
   }
   return problems;
 }
@@ -204,11 +295,11 @@ function grantProblems(grant: CampaignItemGrant, index: number): string[] {
     <p class="field-help">{{ help }}</p>
 
     <p v-if="!anyItems" class="grant-warning" role="status">
-      This project has no items yet, so there is nothing to give. Create an item
-      first.
+      This project has no items or weapons yet, so there is nothing to give.
+      Create one first.
     </p>
     <template v-else>
-      <label :for="`${idPrefix}-item-search`">Search items</label>
+      <label :for="`${idPrefix}-item-search`">Search what it can give</label>
       <input :id="`${idPrefix}-item-search`" v-model="search" type="search">
     </template>
     <button type="button" class="secondary" @click="emit('createItem')">
@@ -226,20 +317,26 @@ function grantProblems(grant: CampaignItemGrant, index: number): string[] {
         {{ grantWord.charAt(0).toLocaleUpperCase() + grantWord.slice(1) }}
         {{ index + 1 }}
       </legend>
-      <label :for="`${idPrefix}-${index}-item`">Which item</label>
-      <select :id="`${idPrefix}-${index}-item`" :value="grant.itemId"
-        @change="patchGrant(index, {
-          itemId: ($event.target as HTMLSelectElement).value
-        })">
-        <option v-if="grant.itemId === ''" value="" disabled>
-          Choose an item
+      <label :for="`${idPrefix}-${index}-item`">What this gives</label>
+      <!-- The value is the kind and the identity together, because an identity
+           is unique only within its kind: a project may hold an item and a
+           weapon that answer to one name, and a menu keyed on the name alone
+           could not tell an author which one they had chosen. -->
+      <select :id="`${idPrefix}-${index}-item`" :value="subjectKey(grant)"
+        @change="replaceGrant(index, ($event.target as HTMLSelectElement).value)">
+        <option v-if="subjectKey(grant) === ''" value="" disabled>
+          Choose what this gives
         </option>
-        <option v-if="missingItem(grant)" :value="grant.itemId" disabled>
-          {{ missingItem(grant) }}: not an item in this project
+        <option v-if="missingItem(grant)" :value="subjectKey(grant)" disabled>
+          {{ missingItem(grant) }}: not
+          {{ grant.weaponId !== undefined ? "a weapon" : "an item" }}
+          in this project
         </option>
-        <option v-for="item in itemChoices(grant)" :key="item.id"
-          :value="item.id">
-          {{ item.name }} ({{ item.id }})
+        <option v-for="choice in itemChoices(grant)" :key="choice.key"
+          :value="choice.key">
+          {{ choice.name }} ({{ choice.id }}){{
+            choice.kind === "weapon" ? " - weapon" : ""
+          }}
         </option>
       </select>
       <label :for="`${idPrefix}-${index}-quantity`">How many</label>

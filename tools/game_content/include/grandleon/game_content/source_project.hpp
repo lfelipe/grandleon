@@ -20,7 +20,7 @@ namespace grandleon::game_content {
 // it found, the version it wants, and the command that closes the gap;
 // `tools/source_schema/migration.mjs` is the other end, and
 // `tools/source_schema/test.mjs` pins this string to it.
-inline constexpr std::string_view supported_source_schema = "1.1.0";
+inline constexpr std::string_view supported_source_schema = "1.2.0";
 
 enum class SourceDiagnosticCode : std::uint8_t {
     invalid_json,

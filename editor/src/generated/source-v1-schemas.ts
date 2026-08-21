@@ -314,11 +314,15 @@ export const sourceV1Schemas: readonly object[] = [
       },
       "campaignItemGrant": {
         "type": "object",
-        "description": "A quantity of one item, put into the company's shared store. The store is what the campaign holds beyond what its members carry, and it is the one owner an author can name without knowing who is still alive.",
+        "description": "A quantity of one item or one weapon, put into the company's shared store. The store is what the campaign holds beyond what its members carry, and it is the one owner an author can name without knowing who is still alive. That is also why a weapon put here is checked against no class's allowed types: at the moment it is stocked nobody knows whose hands it will reach.",
         "properties": {
           "itemId": {
             "$ref": "common.schema.json#/$defs/stableId",
             "description": "Which item. Each identity may appear once in a list: two entries for one item are an author saying the same thing twice with two different answers about how many."
+          },
+          "weaponId": {
+            "$ref": "common.schema.json#/$defs/stableId",
+            "description": "Which weapon, for a grant that hands over a weapon rather than an item. Exactly one of itemId and weaponId is written: a grant naming both says two things at once and a grant naming neither says nothing. An identity may appear once in a list on the same terms as an item's, and an item and a weapon that happen to share a name are two different grants."
           },
           "quantity": {
             "type": "integer",
@@ -331,7 +335,6 @@ export const sourceV1Schemas: readonly object[] = [
           }
         },
         "required": [
-          "itemId",
           "quantity"
         ],
         "additionalProperties": false
@@ -1479,7 +1482,7 @@ export const sourceV1Schemas: readonly object[] = [
     "type": "object",
     "properties": {
       "schemaVersion": {
-        "const": "1.1.0"
+        "const": "1.2.0"
       },
       "packageId": {
         "$ref": "common.schema.json#/$defs/packageId"

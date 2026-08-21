@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "packageId": "5d81c0af-3e47-4a1b-9c62-71f0b8d4e2c9",
   "gameId": "campaign.grant.semantics",
   "title": "Campaign Grant Semantics",
@@ -14,7 +14,9 @@
   "unitTypes": [
     { "id": "guardian", "name": "Guardian", "classId": "fighter" }
   ],
-  "weapons": [],
+  "weapons": [
+    { "id": "iron_sword", "name": "Iron Sword", "power": 5, "range": 1 }
+  ],
   "items": [
     { "id": "bandage", "name": "Bandage", "stackLimit": 9 }
   ],
@@ -29,7 +31,11 @@
       "startingStore": [
         { "itemId": "lantern", "quantity": 1 },
         { "itemId": "bandage", "quantity": 2 },
-        { "itemId": "bandage", "quantity": 5 }
+        { "itemId": "bandage", "quantity": 5 },
+        { "itemId": "bandage", "weaponId": "iron_sword", "quantity": 1 },
+        { "quantity": 1 },
+        { "weaponId": "iron_sword", "quantity": 1 },
+        { "weaponId": "iron_sword", "quantity": 2 }
       ],
       "flow": {
         "contractVersion": "1.0.0",

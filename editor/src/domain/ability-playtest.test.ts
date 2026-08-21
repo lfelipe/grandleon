@@ -17,7 +17,7 @@ import {
 // does with it.
 function castingProject(): SourceProject {
   return {
-    schemaVersion: "1.1.0",
+    schemaVersion: "1.2.0",
     packageId: "6f7ad2d1-40cb-4a15-84a4-cbb1d2a26e6d",
     gameId: "ability.fixture",
     title: "Ability fixture",

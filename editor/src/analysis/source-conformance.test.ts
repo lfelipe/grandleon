@@ -341,6 +341,18 @@ describe("source-tool conformance fixtures", () => {
         "SOURCE_CAMPAIGN_GRANT_ITEM_DUPLICATE",
         "/campaigns/0/startingStore/2/itemId"
       ],
+      [
+        "SOURCE_CAMPAIGN_GRANT_SUBJECT_INVALID",
+        "/campaigns/0/startingStore/3/itemId"
+      ],
+      [
+        "SOURCE_CAMPAIGN_GRANT_SUBJECT_INVALID",
+        "/campaigns/0/startingStore/4/quantity"
+      ],
+      [
+        "SOURCE_CAMPAIGN_GRANT_ITEM_DUPLICATE",
+        "/campaigns/0/startingStore/6/weaponId"
+      ],
       ["SOURCE_REF_MISSING", "/campaigns/0/flow/nodes/0/grants/0/itemId"],
       [
         "SOURCE_CAMPAIGN_GRANT_ITEM_DUPLICATE",

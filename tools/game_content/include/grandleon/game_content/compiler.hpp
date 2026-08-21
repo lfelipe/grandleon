@@ -757,9 +757,25 @@ struct CampaignMember final {
 // node whose completion puts it there. One table answers both authored fields
 // because they are the same fact told at two moments.
 struct CampaignItemGrant final {
+    // What is handed over. Exactly one of `item_id` and `weapon_id` is set,
+    // which is the shape the source has: a grant names an item or it names a
+    // weapon. Two fields rather than one field and a kind byte because the
+    // package writes them into two tables, and a table whose records all mean
+    // the same thing needs no tag on each record.
     StableId item_id{};
     std::uint32_t quantity{};
     StableId join_node_id{};
+    // Last, and deliberately: this is an aggregate that callers brace-initialise
+    // by position, so a field added in the middle would quietly become whatever
+    // the next one used to be.
+    StableId weapon_id{};
+
+    // Whether this grant hands over a weapon. The pair is exclusive, so the
+    // one question answers both, and asking it by name keeps every caller from
+    // deciding for itself what an unset identity means.
+    [[nodiscard]] bool grants_a_weapon() const noexcept {
+        return weapon_id != 0U;
+    }
 };
 
 struct Campaign final {

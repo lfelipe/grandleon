@@ -729,20 +729,38 @@ export function buildCampaignFlow(
   // rather than two, because founding a campaign and completing a node put
   // things in the same store by the same operation. The join node is what
   // says which moment did it, and zero is the founding.
-  const grants: CampaignItemGrantDefinition[] = (campaign.startingStore ?? []).map(
-    (stock) => ({
-      itemId: stableContentId(stock.itemId),
-      quantity: stock.quantity,
-      joinNodeId: 0n
-    })
-  );
-  for (const node of flow.nodes) {
-    for (const grant of node.grants ?? []) {
-      grants.push({
+  //
+  // A grant names an item or a weapon and exactly one identity is written, so
+  // the far side is told which without being told how to read a tag. A grant
+  // naming neither is refused by the analysis before a playtest can reach
+  // here, and is skipped rather than sent as a grant of nothing.
+  const grantDefinition = (
+    grant: { itemId?: string; weaponId?: string; quantity: number },
+    joinNodeId: bigint
+  ): CampaignItemGrantDefinition | undefined => {
+    if (grant.itemId !== undefined) {
+      return {
         itemId: stableContentId(grant.itemId),
         quantity: grant.quantity,
-        joinNodeId: stableContentId(node.id)
-      });
+        joinNodeId
+      };
+    }
+    if (grant.weaponId !== undefined) {
+      return {
+        weaponId: stableContentId(grant.weaponId),
+        quantity: grant.quantity,
+        joinNodeId
+      };
+    }
+    return undefined;
+  };
+  const grants: CampaignItemGrantDefinition[] = (campaign.startingStore ?? [])
+    .map((stock) => grantDefinition(stock, 0n))
+    .filter((grant): grant is CampaignItemGrantDefinition => grant !== undefined);
+  for (const node of flow.nodes) {
+    for (const grant of node.grants ?? []) {
+      const definition = grantDefinition(grant, stableContentId(node.id));
+      if (definition !== undefined) grants.push(definition);
     }
   }
   return {

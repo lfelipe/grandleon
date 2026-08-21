@@ -423,7 +423,24 @@ const TALK_IN_A_BATTLE =
   "and a game can be drawn with models instead of sprites";
 
 /**
+ * What 1.2.0 adds, in one sentence for the same reason.
+ */
+const WEAPONS_CHANGE_HANDS =
+  "a weapon can be given to a company the way an item can, and a weapon " +
+  "type can be made strong against others";
+
+/**
  * Every step this build ships.
+ *
+ * Two, and each exists because its version exists.
+ *
+ * `1.2.0` carries two additions, both optional and both absent from every
+ * project written before it. A grant may name a `weaponId` instead of an
+ * `itemId`, which is how a weapon reaches a company that was not authored
+ * holding it; and a weapon type may name the types it is `strongAgainst`,
+ * which does nothing until the game also states a `weaponAdvantage` saying
+ * what the advantage is worth. A project stating neither fights exactly as it
+ * fought before, so this step moves the version and leaves the game alone.
  *
  * One, and it exists because `1.1.0` exists. That version carries two additions
  * an author can see: an encounter may carry moments, which are scenes that play
@@ -446,12 +463,19 @@ const TALK_IN_A_BATTLE =
  * @returns {SourceMigrationRegistry}
  */
 export function sourceMigrations() {
-  return new SourceMigrationRegistry().add({
-    from: FIRST_SOURCE_VERSION,
-    to: "1.1.0",
-    changed: TALK_IN_A_BATTLE,
-    apply: (project) => project
-  });
+  return new SourceMigrationRegistry()
+    .add({
+      from: FIRST_SOURCE_VERSION,
+      to: "1.1.0",
+      changed: TALK_IN_A_BATTLE,
+      apply: (project) => project
+    })
+    .add({
+      from: "1.1.0",
+      to: "1.2.0",
+      changed: WEAPONS_CHANGE_HANDS,
+      apply: (project) => project
+    });
 }
 
 /** The version this build writes into a new project and demands of an old one. */

@@ -24,7 +24,8 @@ import {
   EXAMPLE_STEPS_WITH_A_HOLE,
   FIRST_CHANGE,
   SECOND_CHANGE,
-  THIRD_CHANGE
+  THIRD_CHANGE,
+  FOURTH_CHANGE
 } from "./migration-example.mjs";
 import { main as upgradeMain, refusalMessage } from "./upgrade.mjs";
 
@@ -953,6 +954,18 @@ assert.deepEqual(
       instancePath: "/campaigns/0/startingStore/2/itemId"
     },
     {
+      code: "SOURCE_CAMPAIGN_GRANT_SUBJECT_INVALID",
+      instancePath: "/campaigns/0/startingStore/3/itemId"
+    },
+    {
+      code: "SOURCE_CAMPAIGN_GRANT_SUBJECT_INVALID",
+      instancePath: "/campaigns/0/startingStore/4/quantity"
+    },
+    {
+      code: "SOURCE_CAMPAIGN_GRANT_ITEM_DUPLICATE",
+      instancePath: "/campaigns/0/startingStore/6/weaponId"
+    },
+    {
       code: "SOURCE_REF_MISSING",
       instancePath: "/campaigns/0/flow/nodes/0/grants/0/itemId"
     },
@@ -961,8 +974,11 @@ assert.deepEqual(
       instancePath: "/campaigns/0/flow/nodes/0/grants/2/itemId"
     }
   ],
-  "a store or a grant naming an item nothing defines, or naming one item "
-    + "twice, must be refused at the entry that names it"
+  "a store or a grant naming an item nothing defines, naming one thing twice, "
+    + "or naming both an item and a weapon or neither, must be refused at the "
+    + "entry that names it. A weapon and an item are counted apart: the legal "
+    + "weapon grant at index five is what makes the duplicate at six a "
+    + "duplicate and not the first of its kind"
 );
 
 assert.deepEqual(
@@ -1175,37 +1191,46 @@ assert.ok(
   // The registry, on the chain this build actually ships and on one that does
   // not.
   //
-  // The shipped chain is one step long, so the rules themselves are still
-  // exercised against `migration-example.mjs`, whose steps describe changes the
-  // format never made and which nothing outside a test may import. What is
-  // checked here is that the real chain is walkable and arrives where every
-  // other site says it does.
+  // The shipped chain is short, so the rules themselves are still exercised
+  // against `migration-example.mjs`, whose steps describe changes the format
+  // never made and which nothing outside a test may import. What is checked
+  // here is that the real chain is walkable and arrives where every other site
+  // says it does.
   assert.equal(
     sourceMigrations().size,
-    1,
-    "one step ships: the one that reaches 1.1.0"
+    2,
+    "two steps ship: the ones that reach 1.1.0 and 1.2.0"
   );
   assert.deepEqual(
     sourceMigrations().versions(),
-    [FIRST_SOURCE_VERSION, "1.1.0"],
-    "and therefore two versions a project may have been written at"
+    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0"],
+    "and therefore three versions a project may have been written at"
   );
 
-  // A project written before moments existed walks up and is left alone on the
-  // way. `moments` is optional and absent means a battle nobody speaks during,
-  // which is what that project already said, so the step moves the version and
-  // touches nothing else.
+  // A project written before moments existed walks all the way up and is left
+  // alone on the way. Every field either step is about is optional, and absent
+  // means what that project already said - a battle nobody speaks during,
+  // drawn as sprites, with no weapon better than any other - so the steps move
+  // the version and touch nothing else.
+  //
+  // Both steps in one walk is the property that matters here: an author who
+  // skipped a release is not asked to upgrade twice.
   {
     const old = { schemaVersion: FIRST_SOURCE_VERSION, title: "An Old Game" };
     const walked = upgradeProject(sourceMigrations(), old);
     assert.equal(walked.ok, true, "the shipped chain is walkable");
     assert.deepEqual(
       walked.applied.map((step) => `${step.from}->${step.to}`),
-      ["1.0.0->1.1.0"],
-      "one step, and it is the one that exists"
+      ["1.0.0->1.1.0", "1.1.0->1.2.0"],
+      "both steps, in the order the chain holds them"
     );
-    assert.equal(walked.project.schemaVersion, "1.1.0", "arriving at the version");
+    assert.equal(walked.project.schemaVersion, "1.2.0", "arriving at the version");
     assert.equal(walked.project.title, "An Old Game", "with the game untouched");
+    assert.equal(
+      walked.changed.length,
+      2,
+      "and one sentence for each step, which is what the author is shown"
+    );
     assert.equal(
       old.schemaVersion,
       FIRST_SOURCE_VERSION,
@@ -1220,7 +1245,7 @@ assert.ok(
   assert.equal(walked.ok, true, "the registered steps make a walkable chain");
   assert.deepEqual(
     walked.applied.map((step) => `${step.from}->${step.to}`),
-    ["0.8.0->0.9.0", "0.9.0->1.0.0", "1.0.0->1.1.0"],
+    ["0.8.0->0.9.0", "0.9.0->1.0.0", "1.0.0->1.1.0", "1.1.0->1.2.0"],
     "one version at a time, in order, and never in a leap"
   );
   assert.equal(walked.to, CURRENT_SOURCE_VERSION);
@@ -1241,18 +1266,18 @@ assert.ok(
   // the editor's dialog shows, so its order is the order things happened in.
   assert.deepEqual(
     walked.changed,
-    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE],
+    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE],
     "what changed, in the order it changed, in words an author can read"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), EXAMPLE_OLDEST)),
-    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE],
+    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE],
     "and the same list before anything has run, which is what the dialog asks "
       + "the author to agree to"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), "0.9.0")),
-    [SECOND_CHANGE, THIRD_CHANGE],
+    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE],
     "a project part of the way up is told only what is left to do to it"
   );
 

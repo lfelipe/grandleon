@@ -414,7 +414,7 @@ describe("ContentWorkspace", () => {
 
   it("keeps a 10,000-record library bounded and searchable", async () => {
     const largeProject: SourceProject = {
-      schemaVersion: "1.1.0",
+      schemaVersion: "1.2.0",
       packageId: "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
       gameId: "large.fixture",
       title: "Large Fixture",
@@ -482,7 +482,7 @@ describe("ContentWorkspace", () => {
 
   it("creates a scene inline from the campaign editor without losing unsaved flow edits", async () => {
     const project: SourceProject = {
-      schemaVersion: "1.1.0",
+      schemaVersion: "1.2.0",
       packageId: "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
       gameId: "cutscene.fixture",
       title: "Cutscene Fixture",
@@ -720,8 +720,10 @@ describe("ContentWorkspace", () => {
     const chooser = host.querySelector<HTMLSelectElement>(
       "#starting-store-0-item"
     )!;
+    // The value carries the kind as well as the identity, a store holding
+    // weapons as well as items and an identity being unique only within one.
     expect([...chooser.options].map((option) => option.value))
-      .toEqual(["tonic", "torch"]);
+      .toEqual(["item:tonic", "item:torch"]);
     const search = host.querySelector<HTMLInputElement>(
       "#starting-store-item-search"
     )!;
@@ -729,9 +731,9 @@ describe("ContentWorkspace", () => {
     search.dispatchEvent(new Event("input", { bubbles: true }));
     await nextTick();
     expect([...chooser.options].map((option) => option.value))
-      .toEqual(["tonic", "torch"]);
+      .toEqual(["item:tonic", "item:torch"]);
 
-    chooser.value = "torch";
+    chooser.value = "item:torch";
     chooser.dispatchEvent(new Event("change", { bubbles: true }));
     await nextTick();
     const quantity = host.querySelector<HTMLInputElement>(
@@ -777,7 +779,7 @@ describe("ContentWorkspace", () => {
     const store = host.querySelector<HTMLElement>(
       'section[aria-labelledby="starting-store-title"]'
     )!;
-    expect(store.textContent).toContain("This project has no items yet");
+    expect(store.textContent).toContain("no items or weapons yet");
     button(store, "Create related item").click();
     await nextTick();
     expect(host.textContent).toContain("Created related item");
@@ -811,7 +813,7 @@ describe("ContentWorkspace", () => {
     );
     expect(
       host.querySelector<HTMLSelectElement>("#starting-store-0-item")?.value
-    ).toBe("ghost");
+    ).toBe("item:ghost");
     expect(store.textContent).toContain(
       "Say how many, as a whole number of at least 1."
     );
@@ -897,7 +899,7 @@ describe("ContentWorkspace", () => {
 
   it("refuses a delete by naming who still uses the record, in plain words", async () => {
     const project: SourceProject = {
-      schemaVersion: "1.1.0",
+      schemaVersion: "1.2.0",
       packageId: "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
       gameId: "delete.fixture",
       title: "Delete Fixture",

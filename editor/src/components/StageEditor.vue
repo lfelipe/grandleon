@@ -580,6 +580,7 @@ function saveDeploymentNotes(raw: string) {
       grant-word="grant"
       :grants="node.grants ?? []"
       :items="project.items"
+      :weapons="project.weapons"
       @update="saveGrants"
       @create-item="emit('createItem')" />
 

@@ -842,7 +842,12 @@ CampaignItemGrant read_grant(
     CampaignItemGrant grant;
     const Object* object = mapper.object(value, path);
     if (object == nullptr) return grant;
-    grant.item_id = mapper.reference(*object, "itemId", path);
+    // An item or a weapon, and never both. Neither is read as required
+    // separately: a grant naming nothing is refused by the compiler where
+    // every other thing wrong with a grant is refused, in a sentence rather
+    // than as two missing fields.
+    grant.item_id = mapper.reference(*object, "itemId", path, false);
+    grant.weapon_id = mapper.reference(*object, "weaponId", path, false);
     const auto quantity = mapper.integer(*object, "quantity", path, 1, 65535);
     if (quantity) grant.quantity = static_cast<std::uint32_t>(*quantity);
     grant.join_node_id = join_node_id;

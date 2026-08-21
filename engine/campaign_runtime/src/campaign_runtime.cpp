@@ -338,6 +338,43 @@ void apply_roster_kit(
 
     unit.item_ids = std::move(identities);
     unit.item_counts = std::move(counts);
+
+    // And the same pass over what they are armed with.
+    //
+    // A weapon carries no count into a battle: `weapon_ids` is a list of what
+    // is in the pack and the first of them is what is in hand, so a campaign
+    // holding three of one weapon arms the character with it once. That is not
+    // a loss of information - the store still holds three - it is that a
+    // second copy of the same weapon is nothing a battle can express.
+    //
+    // The authored order comes first for the reason it does above: a character
+    // the campaign has not re-armed takes the field holding exactly what their
+    // unit type says, which is what makes a board with nobody from the roster
+    // on it the board the package alone produces. Anything the campaign holds
+    // for them beyond that follows, and the first authored weapon stays the
+    // one in hand.
+    std::vector<simulation::ContentId> armed;
+    armed.reserve(unit.weapon_ids.size());
+    std::vector<bool> claimed(record.carried.size(), false);
+    for (const simulation::ContentId authored : unit.weapon_ids) {
+        armed.push_back(authored);
+        for (std::size_t index = 0; index < record.carried.size(); ++index) {
+            const campaign::InventoryStack& stack = record.carried[index];
+            if (claimed[index] || stack.item.stable_id != authored ||
+                stack.item.category != core::ContentCategory::weapon) {
+                continue;
+            }
+            claimed[index] = true;
+            break;
+        }
+    }
+    for (std::size_t index = 0; index < record.carried.size(); ++index) {
+        if (claimed[index]) continue;
+        const campaign::InventoryStack& stack = record.carried[index];
+        if (stack.item.category != core::ContentCategory::weapon) continue;
+        armed.push_back(stack.item.stable_id);
+    }
+    unit.weapon_ids = std::move(armed);
 }
 
 // What the roster brings to the board: what a member has become, and what the
@@ -791,13 +828,25 @@ std::vector<campaign::CampaignOutcomeOperation> node_item_grants(
     std::vector<campaign::CampaignOutcomeOperation> operations;
     for (const package_runtime::CampaignItemGrant& grant : definition.grants) {
         if (grant.join_node_id != node_id) continue;
-        if (grant.item_id == 0U || grant.quantity == 0U) continue;
+        if (grant.quantity == 0U) continue;
+        // Which category the identity belongs to is the grant's own answer:
+        // an identity is unique only within one, so the same stable id may
+        // name an item and a weapon both, and the field it arrived in is what
+        // says which.
+        const bool weapon = grant.grants_a_weapon();
+        const std::uint64_t identity = weapon ? grant.weapon_id : grant.item_id;
+        if (identity == 0U) continue;
         // The reserved zero owner is the shared store. It is the one owner an
         // author can name without knowing who is still alive, which is the
-        // whole reason a grant lands there rather than in somebody's hands.
+        // whole reason a grant lands there rather than in somebody's hands -
+        // and, for a weapon, the whole reason no class's allowed types are
+        // consulted here. Nobody knows yet whose hands it will reach.
         operations.push_back(campaign::add_item(
             campaign::PersistentEntityId{},
-            {package, core::ContentCategory::item, grant.item_id},
+            {package,
+             weapon ? core::ContentCategory::weapon
+                    : core::ContentCategory::item,
+             identity},
             grant.quantity
         ));
     }

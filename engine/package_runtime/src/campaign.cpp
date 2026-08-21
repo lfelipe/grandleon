@@ -450,6 +450,42 @@ CampaignLoadResult load_campaign(
                     result.definition.character_loss =
                         static_cast<CharacterLoss>(loss);
                     result.definition.invulnerable_for_testing = testing != 0U;
+                    // And the weapons the company is handed, if the package
+                    // carries any. A campaign compiled before a weapon could
+                    // be handed over ends at its loss rule and decodes exactly
+                    // as it always did, as a campaign handed none.
+                    //
+                    // Nested inside the loss tail for the reason that tail is
+                    // nested inside the specificities: these are positional
+                    // and "the bytes ran out" is how each says it is absent. A
+                    // campaign that hands over a weapon and states no loss
+                    // rule therefore writes the rule it already meant to hold
+                    // this tail's place, exactly as one that authors a
+                    // specificity and no grants writes a grant count of zero.
+                    //
+                    // The records join the store's own table rather than
+                    // sitting apart: a grant is a grant, and which of the two
+                    // tables it was written in is a fact about the bytes and
+                    // not about the campaign.
+                    if (reader.remaining() != 0U) {
+                        std::uint16_t weapon_grant_count = 0;
+                        if (!reader.u16(weapon_grant_count) ||
+                            static_cast<std::size_t>(weapon_grant_count) >
+                                reader.remaining() / grant_minimum_size) {
+                            return fail(CampaignError::malformed_payload);
+                        }
+                        for (std::uint16_t index = 0;
+                             index < weapon_grant_count; ++index) {
+                            CampaignItemGrant grant;
+                            if (!reader.u64(grant.join_node_id) ||
+                                !reader.u64(grant.weapon_id) ||
+                                !reader.u32(grant.quantity) ||
+                                grant.weapon_id == 0U || grant.quantity == 0U) {
+                                return fail(CampaignError::malformed_payload);
+                            }
+                            result.definition.grants.push_back(grant);
+                        }
+                    }
                 }
             }
         }
