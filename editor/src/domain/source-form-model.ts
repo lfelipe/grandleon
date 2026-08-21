@@ -975,15 +975,14 @@ export const withheldProjectFields: Readonly<Record<string, string>> = {
   // it reads as a feature and behaves as a no-op. It goes on the settings page
   // the day a build honours it.
   characterGeometry: "nothing draws models yet; the control would do nothing",
-  // The format carries it and the compiler checks it against every weapon
-  // type's strongAgainst, so a game may state what the better weapon is worth.
-  // The battle does not read it yet: `attack_damage` prices a strike from
-  // strength, the weapon's power and the defender's armour, and knows nothing
-  // about which type is in whose hand. A control for a rule no blow obeys
-  // would read as a feature and behave as a no-op, which is the reason
-  // `characterGeometry` is withheld above. It goes on the settings page the
-  // day a strike is priced by it.
-  weaponAdvantage: "no strike is priced by it yet; the control would do nothing"
+  // Half of one rule, and the half on its own is meaningless: what the better
+  // weapon is worth says nothing until some kind of weapon beats another. So
+  // it is authored where the edges are, on the weapon triangle beside the
+  // weapon types, where an author sets both halves in one place and is told
+  // when they have written one without the other. A number here on the
+  // settings page, a long way from the ticks that give it something to price,
+  // would be a rule an author had to assemble from two rooms.
+  weaponAdvantage: "half a rule; it belongs beside the kinds it prices"
 };
 
 export function sourceProjectFieldNames(): readonly string[] {

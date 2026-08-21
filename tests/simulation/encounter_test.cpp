@@ -1408,6 +1408,108 @@ void one_walk_per_activation() {
     );
 }
 
+// The triangle: a kind of weapon that beats another is worth more in the hand,
+// and worth less against it. The forecast and the blow are checked together on
+// every case, because the whole promise of pricing them in one function is
+// that they cannot disagree.
+void the_better_weapon_is_worth_the_advantage() {
+    // Two kinds, one beating the other, worth two damage and fifteen points of
+    // accuracy. Both characters carry a weapon of power three and accuracy
+    // eighty, so that the only difference between the boards below is which
+    // kind is in whose hand. The accuracy is on the weapons because that is
+    // where a battle reads it: the weapon in hand replaces whatever the
+    // character was defined with.
+    const auto board = [](sim::ContentId first_kind, sim::ContentId second_kind) {
+        sim::EncounterDefinition definition;
+        definition.width = 4;
+        definition.height = 3;
+        definition.weapons = {
+            {501, 3, 1, 1, 80, first_kind},
+            {502, 3, 1, 1, 80, second_kind},
+        };
+        definition.weapon_types = {{901, {902}, 2, 15}};
+        definition.units = {
+            {10, 100, sim::Side::first, {0, 1}, 20, 4, 0, 0, 0, 0, 0, 0, 0, 1,
+             1, 1, false, 1, 1, {}},
+            {20, 200, sim::Side::second, {1, 1}, 20, 4, 0, 0, 0, 0, 0, 0, 0, 1,
+             1, 1, false, 1, 1, {}},
+        };
+        definition.units[0].weapon_ids = {501};
+        definition.units[1].weapon_ids = {502};
+        return definition;
+    };
+
+    // strength 4 + power 3 - defense 0 is seven, and that is the blow when
+    // neither hand holds an edge.
+    {
+        auto created = sim::create_encounter(board(0, 0));
+        expect(static_cast<bool>(created), "a board with no kinds is valid");
+        const auto even =
+            sim::forecast_attack(created.encounter.snapshot(), 10, 20);
+        expect(
+            even.damage == 7 && even.hit_chance == 80,
+            "no kind in either hand is the fight there always was"
+        );
+    }
+
+    // The same board with the winning kind in the attacker's hand: two more
+    // damage and fifteen more points of the chance, on the strike and on the
+    // forecast alike.
+    {
+        auto created = sim::create_encounter(board(901, 902));
+        expect(static_cast<bool>(created), "a board with a triangle is valid");
+        const auto snapshot = created.encounter.snapshot();
+        const auto up = sim::forecast_attack(snapshot, 10, 20);
+        expect(
+            up.damage == 9 && up.hit_chance == 95,
+            "the better weapon is worth the advantage in both numbers"
+        );
+        // And the counter it provokes is worth as much less, because the
+        // defender is answering into the kind that beats theirs.
+        expect(
+            up.counter && up.counter_damage == 5 && up.counter_chance == 65,
+            "and the answer to it is worth as much less"
+        );
+        const auto struck = created.encounter.apply(
+            {sim::CommandType::attack, 10, {}, 20, 0}
+        );
+        expect(
+            static_cast<bool>(struck) &&
+                struck.events.front().amount == up.damage,
+            "and the blow spends exactly what the forecast showed"
+        );
+    }
+
+    // The edges are directed. With the kinds the other way round the attacker
+    // is striking into the advantage and is worth that much less, which is the
+    // same table read from the other end rather than a second rule.
+    {
+        auto created = sim::create_encounter(board(902, 901));
+        expect(static_cast<bool>(created), "the mirrored board is valid");
+        const auto down =
+            sim::forecast_attack(created.encounter.snapshot(), 10, 20);
+        expect(
+            down.damage == 5 && down.hit_chance == 65,
+            "striking into the advantage costs exactly what holding it pays"
+        );
+    }
+
+    // A blow can never be driven below one by the advantage: a spear meeting
+    // the weapon it beats still hurts.
+    {
+        sim::EncounterDefinition definition = board(902, 901);
+        definition.weapon_types = {{901, {902}, 999, 100}};
+        auto created = sim::create_encounter(definition);
+        expect(static_cast<bool>(created), "a crushing advantage is valid");
+        const auto crushed =
+            sim::forecast_attack(created.encounter.snapshot(), 10, 20);
+        expect(
+            crushed.damage == 1 && crushed.hit_chance == 0,
+            "the floor of one holds and the chance stops at never"
+        );
+    }
+}
+
 void weapon_power_joins_the_attack_formula() {
     // strength 4 + power 3 - defense 5 = 2: power is added to strength, and a
     // powerless weapon leaves the v0 formula untouched.
@@ -6698,6 +6800,7 @@ int main() {
     a_sub_certain_lethal_strike_is_still_answered();
     an_ability_rolls_once_per_unit_it_damages();
     weapon_power_joins_the_attack_formula();
+    the_better_weapon_is_worth_the_advantage();
     caps_board_area();
     has_acted_is_false_under_alternating_order();
     has_acted_tracks_rounds_under_ordered_turns();

@@ -44,6 +44,21 @@ struct StatModifiers final {
     std::int16_t movement{};
 };
 
+// What holding the better weapon is worth, for the whole game.
+//
+// One pair of numbers rather than a number for each pair of types: a player
+// has to be able to hold the whole rule in their head before they commit.
+// Both zero means no weapon has an advantage over any other, which is what
+// every game meant before this existed.
+struct WeaponAdvantage final {
+    std::int16_t damage{};
+    std::uint8_t accuracy{};
+
+    [[nodiscard]] bool states_a_rule() const noexcept {
+        return damage != 0 || accuracy != 0;
+    }
+};
+
 struct WeaponType final {
     StableId id{};
     std::string name;
@@ -909,6 +924,11 @@ struct GameSource final {
     //: on for itself would be a client whose battles nobody else could
     //: reproduce.
     bool invulnerable_for_testing{false};
+    // What the better weapon is worth in this game. Both zero is no advantage
+    // anywhere, and is what every game written before a triangle could be
+    // drawn means. It is resolved onto every weapon type that has an edge,
+    // where a runtime that never sees a project can read it.
+    WeaponAdvantage weapon_advantage{};
     package_format::VersionRange required_engine{};
     package_format::TargetProfile target{
         package_format::TargetProfile::portable

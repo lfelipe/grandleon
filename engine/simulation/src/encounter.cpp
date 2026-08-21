@@ -246,6 +246,10 @@ struct StrikeProfile final {
     // How often this strike lands, as a percentage. One hundred is certain and
     // consumes no number; see `roll_hit`.
     std::uint8_t accuracy{100};
+    // The kind of the weapon this strike is made with, which is not always the
+    // kind in hand: a character may strike with any weapon they carry, and the
+    // triangle reads the one they chose.
+    ContentId weapon_type{};
 };
 
 // The bound every hit chance is rolled against. Chances are authored as whole
@@ -360,9 +364,14 @@ bool roll_drop(core::RandomState& random, std::uint8_t chance) noexcept {
 std::uint8_t hit_chance_for(
     const UnitSnapshot& striker,
     const UnitSnapshot& struck,
-    std::uint8_t accuracy
+    std::uint8_t accuracy,
+    std::int8_t advantage
 ) noexcept {
+    // Held inside nought and a hundred by the clamp below, exactly as every
+    // other term is, so a certain weapon striking with the advantage stays
+    // certain and one striking into it can never go below never.
     const std::int32_t folded = static_cast<std::int32_t>(accuracy) +
+                                advantage +
                                 striker.skill + striker.luck -
                                 struck.evasion - struck.luck;
     const std::int32_t bounded = std::min<std::int32_t>(
@@ -377,10 +386,15 @@ std::uint8_t hit_chance_for(
 std::int16_t attack_damage(
     const UnitSnapshot& attacker,
     const UnitSnapshot& target,
-    const StrikeProfile& strike
+    const StrikeProfile& strike,
+    std::int16_t advantage
 ) noexcept {
+    // The advantage lands beside the striker's strength and the weapon's own
+    // power, before the defender's armour, which is where the schema says it
+    // does. It cannot drive a blow below one: a spear meeting the weapon it
+    // beats still hurts, and the floor of one is the floor every blow has had.
     const auto raw = static_cast<std::int32_t>(attacker.strength) +
-                     strike.power - target.defense;
+                     strike.power + advantage - target.defense;
     return static_cast<std::int16_t>(std::max<std::int32_t>(1, raw));
 }
 
@@ -485,7 +499,8 @@ std::int16_t ability_damage(
 // would make the gate depend on a choice no player made.
 StrikeProfile equipped_strike(const UnitSnapshot& unit) noexcept {
     return {
-        unit.power, unit.minimum_reach, unit.maximum_reach, unit.accuracy
+        unit.power, unit.minimum_reach, unit.maximum_reach, unit.accuracy,
+        unit.weapon_type
     };
 }
 
@@ -565,9 +580,58 @@ CommandError resolve_strike(
         weapon->power,
         weapon->minimum_reach,
         widened_reach(weapon->maximum_reach, unit.reach_bonus),
-        weapon->accuracy
+        weapon->accuracy,
+        weapon->weapon_type
     };
     return CommandError::none;
+}
+
+// What holding the better weapon is worth in this blow: nothing, the game's
+// advantage, or that advantage the other way round.
+//
+// **One function, called wherever a blow is priced and wherever one is
+// forecast**, for the reason `floor_of` is one function: a number shown and a
+// number spent that were worked out in two places are two rules, and the day
+// they disagree a player is shown a forecast the blow does not deliver.
+//
+// The edges are directed and never name their own type, so at most one of the
+// two lookups can answer: a strike is made with the advantage, or into it, and
+// never both. A weapon of no kind, a defender holding nothing, and a game
+// stating no advantage all come out as nothing, which is what every battle
+// fought before a triangle could be drawn does.
+struct Advantage final {
+    std::int16_t damage{};
+    std::int8_t accuracy{};
+};
+
+[[nodiscard]] Advantage advantage_of(
+    const std::vector<WeaponTypeDefinition>& types,
+    ContentId striking_with,
+    ContentId struck_holding
+) noexcept {
+    if (striking_with == 0 || struck_holding == 0) return {};
+    const auto beats = [&types](ContentId one, ContentId other) {
+        const auto found = std::find_if(
+            types.begin(),
+            types.end(),
+            [one](const WeaponTypeDefinition& type) { return type.id == one; }
+        );
+        if (found == types.end()) return static_cast<const WeaponTypeDefinition*>(nullptr);
+        const auto& edges = found->strong_against;
+        return std::find(edges.begin(), edges.end(), other) != edges.end()
+                   ? &*found
+                   : static_cast<const WeaponTypeDefinition*>(nullptr);
+    };
+    if (const WeaponTypeDefinition* up = beats(striking_with, struck_holding)) {
+        return {up->damage, static_cast<std::int8_t>(up->accuracy)};
+    }
+    if (const WeaponTypeDefinition* down = beats(struck_holding, striking_with)) {
+        return {
+            static_cast<std::int16_t>(-down->damage),
+            static_cast<std::int8_t>(-static_cast<int>(down->accuracy))
+        };
+    }
+    return {};
 }
 
 const ItemDefinition* find_item(
@@ -1171,6 +1235,7 @@ Encounter::CreateResult create_encounter(
     // Terrain is deliberately not consulted: a region tile nobody could stand
     // on is refused by the compiler, where the author is.
     state.deployment_tiles = definition.deployment_tiles;
+    state.weapon_types = definition.weapon_types;
     std::sort(
         state.deployment_tiles.begin(),
         state.deployment_tiles.end(),
@@ -1336,7 +1401,8 @@ Encounter::CreateResult create_encounter(
         // definition of "equipped" instead of one per caller; a unit that
         // carries nothing keeps the power and band it was defined with.
         StrikeProfile equipped{
-            unit.power, unit.minimum_reach, unit.maximum_reach, unit.accuracy
+            unit.power, unit.minimum_reach, unit.maximum_reach, unit.accuracy,
+            ContentId{}
         };
         if (!unit.weapon_ids.empty()) {
             const WeaponDefinition* in_hand =
@@ -1351,7 +1417,8 @@ Encounter::CreateResult create_encounter(
                 in_hand->power,
                 in_hand->minimum_reach,
                 in_hand->maximum_reach,
-                in_hand->accuracy
+                in_hand->accuracy,
+                in_hand->weapon_type
             };
         }
         // And then whatever the unit itself adds to what it is holding. Done
@@ -1422,7 +1489,10 @@ Encounter::CreateResult create_encounter(
                 // Whether this character's health has a floor of one. Carried
                 // across unchanged, like every other authored fact here: what
                 // decides it is a campaign's business and the rules only obey it.
-                unit.endures
+                unit.endures,
+                // And the kind of what is in hand, resolved beside the power
+                // and the band it came with.
+                equipped.weapon_type
             }
         );
     }
@@ -2120,13 +2190,22 @@ CommandResult Encounter::apply(const Command& command) {
             result.error = CommandError::target_out_of_range;
             return result;
         }
+        // What the pair of weapons is worth before either number is worked
+        // out, because both of them read it: the blow this makes and the
+        // chance of its landing are the same weapon against the same weapon.
+        const Advantage swung = advantage_of(
+            state_.weapon_types, strike.weapon_type, target->weapon_type
+        );
         // The one roll this strike gets, taken here: after every refusal, so
         // an attack the engine would not accept never moves the stream, and
         // before any damage, so the roll cannot depend on its own outcome. The
         // chance is the weapon's accuracy with both units folded into it, and a
         // folded hundred draws nothing at all.
         if (!roll_hit(
-                state_.random, hit_chance_for(*unit, *target, strike.accuracy)
+                state_.random,
+                hit_chance_for(
+                    *unit, *target, strike.accuracy, swung.accuracy
+                )
             )) {
             result.events.push_back(
                 {
@@ -2139,7 +2218,8 @@ CommandResult Encounter::apply(const Command& command) {
                 }
             );
         } else {
-            const std::int16_t damage = attack_damage(*unit, *target, strike);
+            const std::int16_t damage =
+                attack_damage(*unit, *target, strike, swung.damage);
             take_damage(*target, unit->id, damage, result);
             if (target->health == 0) {
                 record_defeat(state_, *target, unit->id, result);
@@ -2174,9 +2254,17 @@ CommandResult Encounter::apply(const Command& command) {
             // already says it answers with, folded the other way round, with
             // the defender now the striker and the attacker now the struck.
             const StrikeProfile answer = equipped_strike(*target);
+            // The same pair the other way round, worked out again rather than
+            // negated: the defender answers with whatever is in their hand,
+            // which is not always the weapon the attack was made against.
+            const Advantage answered = advantage_of(
+                state_.weapon_types, answer.weapon_type, unit->weapon_type
+            );
             if (!roll_hit(
                     state_.random,
-                    hit_chance_for(*target, *unit, answer.accuracy)
+                    hit_chance_for(
+                        *target, *unit, answer.accuracy, answered.accuracy
+                    )
                 )) {
                 result.events.push_back(
                     {
@@ -2190,7 +2278,7 @@ CommandResult Encounter::apply(const Command& command) {
                 );
             } else {
                 const std::int16_t back =
-                    attack_damage(*target, *unit, answer);
+                    attack_damage(*target, *unit, answer, answered.damage);
                 take_damage(*unit, target->id, back, result);
                 if (unit->health == 0) {
                     record_defeat(state_, *unit, target->id, result);
@@ -2315,7 +2403,7 @@ CommandResult Encounter::apply(const Command& command) {
             // is not in the exchange at all, and it moves no stream.
             if (!roll_hit(
                     state_.random,
-                    hit_chance_for(caster, affected, ability->accuracy)
+                    hit_chance_for(caster, affected, ability->accuracy, 0)
                 )) {
                 result.events.push_back(
                     {
@@ -2759,8 +2847,13 @@ AttackForecast forecast_attack(
     // while apply rolled the folded number would be the two-roll dishonesty
     // this repository refused, reached by a different road. A surface that
     // draws this draws the rule.
-    forecast.hit_chance = hit_chance_for(*attacker, *target, strike.accuracy);
-    forecast.damage = attack_damage(*attacker, *target, strike);
+    const Advantage swung =
+        advantage_of(
+        snapshot.weapon_types, strike.weapon_type, target->weapon_type
+    );
+    forecast.hit_chance =
+        hit_chance_for(*attacker, *target, strike.accuracy, swung.accuracy);
+    forecast.damage = attack_damage(*attacker, *target, strike, swung.damage);
     // The floor is asked for here rather than assumed to be zero, and it is
     // asked of the same function `take_damage` asks. A character who cannot be
     // reduced below one health is forecast as ending at one and not as lethal,
@@ -2792,9 +2885,19 @@ AttackForecast forecast_attack(
     if (counters(*target, survivor_health, separation)) {
         forecast.counter = true;
         const StrikeProfile answer = equipped_strike(*target);
+        // The same pair the other way round, worked out again rather than
+        // negated, exactly as `apply` works it out: the defender answers with
+        // whatever is in their hand, which is not always the weapon the attack
+        // was made with.
+        const Advantage answered = advantage_of(
+            snapshot.weapon_types, answer.weapon_type, attacker->weapon_type
+        );
         forecast.counter_chance =
-            hit_chance_for(*target, *attacker, answer.accuracy);
-        forecast.counter_damage = attack_damage(*target, *attacker, answer);
+            hit_chance_for(
+                *target, *attacker, answer.accuracy, answered.accuracy
+            );
+        forecast.counter_damage =
+            attack_damage(*target, *attacker, answer, answered.damage);
         forecast.attacker_health_after = static_cast<std::int16_t>(
             std::max<std::int32_t>(
                 floor_of(*attacker), attacker->health - forecast.counter_damage

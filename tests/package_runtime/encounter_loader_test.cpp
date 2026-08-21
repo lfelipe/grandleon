@@ -2061,6 +2061,98 @@ void carries_the_survive_count_onto_the_objective() {
 
 }  // namespace
 
+// A triangle authored in a project reaches the blow, through every layer
+// between: the compiler writes it, the package carries it, the loader resolves
+// only the kinds the board actually uses, and the rules price a strike by it.
+//
+// The two boards differ in one thing - whether one kind is written to beat the
+// other - so whatever the absolute numbers are, the difference between them is
+// the advantage and nothing else.
+void a_triangle_reaches_the_blow() {
+    const auto board = [](bool with_an_edge) {
+        auto authored = source();
+        // Two kinds, and one weapon of each, so the two characters face each
+        // other holding different kinds.
+        authored.weapon_types = {
+            {10, "Blade", with_an_edge ? std::vector<gc::StableId>{11}
+                                       : std::vector<gc::StableId>{}},
+            {11, "Haft", {}},
+        };
+        // Reach two, because this fixture stands the two of them two tiles
+        // apart. Both the same, so the only difference between the boards
+        // stays the edge between the kinds.
+        // Seventy, because a weapon that says nothing about accuracy always
+        // lands, and fifteen points added to certainty is still certainty: the
+        // clamp would hide the very thing this is measuring.
+        authored.weapons = {
+            {40, "Sword", 10, 3, 1, 2, 70},
+            {41, "Pike", 11, 3, 1, 2, 70},
+        };
+        authored.classes[0].allowed_weapon_types = {10, 11};
+        authored.classes[1].allowed_weapon_types = {10, 11};
+        authored.unit_types[0].starting_weapons = {40};
+        authored.unit_types[1].starting_weapons = {41};
+        authored.weapon_advantage = {2, 15};
+        return authored;
+    };
+
+    const auto priced = [](const gc::GameSource& authored) {
+        const auto compiled = gc::compile(authored);
+        expect(static_cast<bool>(compiled), "the triangle fixture compiles");
+        const pf::LoadOptions options{
+            {0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000
+        };
+        const auto loaded = pf::load_mock_package(compiled.package, options);
+        expect(static_cast<bool>(loaded), "the triangle package loads");
+        const auto decoded = pr::load_encounter(loaded.package, 100);
+        expect(static_cast<bool>(decoded), "the triangle encounter decodes");
+        auto created = sim::create_encounter(decoded.definition);
+        expect(static_cast<bool>(created), "the triangle board is valid");
+        const auto snapshot = created.encounter.snapshot();
+        expect(snapshot.units.size() == 2, "two characters face each other");
+        return sim::forecast_attack(
+            snapshot, snapshot.units[0].id, snapshot.units[1].id
+        );
+    };
+
+    const auto without = priced(board(false));
+    const auto with = priced(board(true));
+    expect(
+        static_cast<bool>(without) && static_cast<bool>(with),
+        "both boards price the same strike"
+    );
+    expect(
+        with.damage == static_cast<std::int16_t>(without.damage + 2),
+        "a kind written to beat the other is worth the authored damage"
+    );
+    expect(
+        with.hit_chance == static_cast<std::uint8_t>(without.hit_chance + 15),
+        "and the authored points of accuracy beside it"
+    );
+    // And the table only carries the kinds the board can actually produce: the
+    // kind that beats nothing is not worth a row every blow walks past.
+    {
+        const auto compiled = gc::compile(board(true));
+        const pf::LoadOptions options{
+            {0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000
+        };
+        const auto loaded = pf::load_mock_package(compiled.package, options);
+        const auto decoded = pr::load_encounter(loaded.package, 100);
+        expect(
+            decoded.definition.weapon_types.size() == 1 &&
+                decoded.definition.weapon_types[0].id == 10 &&
+                decoded.definition.weapon_types[0].strong_against ==
+                    std::vector<sim::ContentId>{11},
+            "only the kinds that beat something are carried onto the board"
+        );
+        expect(
+            decoded.definition.weapon_types[0].damage == 2 &&
+                decoded.definition.weapon_types[0].accuracy == 15,
+            "and each carries what the game says the advantage is worth"
+        );
+    }
+}
+
 int main() {
     decodes_compiled_encounter();
     carries_every_weapon_a_unit_type_lists();
@@ -2080,6 +2172,7 @@ int main() {
     refuses_a_moment_that_names_nobody_on_this_board();
     carries_the_arrivals_onto_the_board();
     carries_the_survive_count_onto_the_objective();
+    a_triangle_reaches_the_blow();
     carries_the_deployment_capacity_beside_the_board();
     carries_a_capacity_with_no_region();
     carries_authored_grants_onto_the_campaign();

@@ -148,6 +148,23 @@ struct AbilityDefinition final {
     std::uint8_t accuracy{100};
 };
 
+// One kind of weapon, and what holding it is worth against the other kinds.
+//
+// The edges are directed: a type names what it beats, and the strike coming
+// back the other way is worth as much less. A type never names itself, which
+// both analyzers and the compiler refuse, because the same edge would then be
+// read once in each direction and price every mirror match twice.
+struct WeaponTypeDefinition final {
+    ContentId id{};
+    std::vector<ContentId> strong_against;
+    // What the advantage is worth, in damage and in whole percentage points of
+    // accuracy. Both zero means an edge that changes nothing, which is what a
+    // game states by omitting `weaponAdvantage` while a type still names what
+    // it beats.
+    std::int16_t damage{};
+    std::uint8_t accuracy{};
+};
+
 // The numbers the rules read off a weapon record. No damage type: a weapon's
 // damage is mitigated by defence, and only an ability carries a type.
 struct WeaponDefinition final {
@@ -161,6 +178,14 @@ struct WeaponDefinition final {
     // once, from `core::RandomStream::hit`, against exactly the number a
     // forecast shows.
     std::uint8_t accuracy{100};
+    // Which kind of weapon this is. Zero is a weapon of no kind, which is what
+    // every weapon authored without one is, and a weapon of no kind gets
+    // nothing out of a triangle.
+    //
+    // Last, and deliberately: this is an aggregate the tests and the loader
+    // brace-initialise by position, so a field added in the middle would
+    // quietly become whatever the next one used to be.
+    ContentId weapon_type{};
 };
 
 // What using an item does. Append-only: the value is hashed through a unit's
@@ -495,6 +520,15 @@ struct EncounterDefinition final {
     // Every weapon any unit in this encounter may carry, by identity. A unit
     // names the ones it carries; this is where those names resolve.
     std::vector<WeaponDefinition> weapons;
+    // Which kinds of weapon beat which, and what beating them is worth.
+    //
+    // Empty is a battle with no triangle in it, which is every battle written
+    // before one could be drawn, and every battle in a game that draws none.
+    // The advantage each entry carries is the project's own and is the same on
+    // every one of them: it rides with the edges for the reason an encounter
+    // carries its turn order, which is that a runtime reads one record at a
+    // time and never sees a project.
+    std::vector<WeaponTypeDefinition> weapon_types;
     // Every item any unit in this encounter may carry, by identity, for the
     // same reason weapons are here: a unit names the ones it carries and this
     // is where those names resolve.
@@ -773,6 +807,18 @@ struct UnitSnapshot final {
     // `arrival_round` already set, so a board on which nobody endures spends
     // nothing on it beyond a bit that stays clear.
     bool endures{false};
+    // The kind of the weapon in hand, resolved from the first carried weapon
+    // exactly as `power`, the reach band and `accuracy` are. Zero is a bare
+    // hand or a weapon of no kind, and gets nothing out of a triangle.
+    //
+    // Last in the struct, and deliberately: `create_encounter` builds one of
+    // these by position, so a field added in the middle would quietly become
+    // whatever the next one used to be.
+    //
+    // Not folded into `canonical_hash`. It is derived from the weapon in hand
+    // and the weapons a unit carries are folded already, so folding this too
+    // would move every board's hash to say a thing already said.
+    ContentId weapon_type{};
 };
 
 // Whether a character is still this battle's to lose: alive, and not talked off
@@ -951,6 +997,17 @@ struct EncounterSnapshot final {
     // is a client's only view of the deployment rule, and it cannot answer
     // without knowing the region.
     std::vector<Position> deployment_tiles;
+    // Which kinds of weapon beat which, and what beating them is worth.
+    //
+    // Carried in the snapshot for the reason `deployment_tiles` is: it is a
+    // client's only view of the rule, and a surface that must say *why* one
+    // strike is worth more than another cannot work it out from a number. It
+    // is also what `forecast_attack` reads, so the forecast and the blow price
+    // an edge from one table rather than two.
+    //
+    // Empty is a battle with no triangle in it, which is every battle written
+    // before one could be drawn.
+    std::vector<WeaponTypeDefinition> weapon_types;
     // Whether the deployment phase is open. True from `create_encounter` until
     // a `begin_battle` command closes it, and only ever true for an encounter
     // that authors a region. While it is open the ordinary command vocabulary
@@ -1756,6 +1813,13 @@ public:
     [[nodiscard]] const std::vector<WeaponDefinition>& weapons(
     ) const noexcept {
         return weapons_;
+    }
+    // Which kinds of weapon beat which, and what beating them is worth, for
+    // the same reason again: pricing a strike needs to know what the two hands
+    // are holding and what that is worth, and a snapshot names only a kind.
+    [[nodiscard]] const std::vector<WeaponTypeDefinition>& weapon_types(
+    ) const noexcept {
+        return state_.weapon_types;
     }
     // The items this encounter was created with, in declaration order, for the
     // same reason again: a snapshot names the identities a unit carries and how

@@ -1071,6 +1071,29 @@ SourceParseResult parse_source_project_json(std::string_view json) {
             mapper.result.source.invulnerable_for_testing = *flag;
         }
     }
+    // What the better weapon is worth. Both halves are required together by
+    // the schema, so a stated advantage always has both and an omitted one has
+    // neither, which is the zero every game meant before this existed.
+    const Json* advantage = mapper.member(*root, "weaponAdvantage", "$", false);
+    if (advantage != nullptr) {
+        const Object* fields = mapper.object(*advantage, "$.weaponAdvantage");
+        if (fields != nullptr) {
+            const auto damage = mapper.integer(
+                *fields, "damage", "$.weaponAdvantage", 0, 999
+            );
+            const auto accuracy = mapper.integer(
+                *fields, "accuracy", "$.weaponAdvantage", 0, 100
+            );
+            if (damage) {
+                mapper.result.source.weapon_advantage.damage =
+                    static_cast<std::int16_t>(*damage);
+            }
+            if (accuracy) {
+                mapper.result.source.weapon_advantage.accuracy =
+                    static_cast<std::uint8_t>(*accuracy);
+            }
+        }
+    }
     mapper.result.source.required_engine = {{0, 1, 0}, {0, 1, 99}};
 
     mapper.result.source.weapon_types =

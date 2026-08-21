@@ -262,6 +262,19 @@ std::uint32_t write_definition(const sim::EncounterDefinition& definition) {
         writer.u8(weapon.minimum_reach);
         writer.u8(weapon.maximum_reach);
         writer.u8(weapon.accuracy);
+        writer.u64(weapon.weapon_type);
+    }
+    // Which kinds of weapon beat which, and what beating them is worth. A
+    // board with no triangle in it writes a count of zero.
+    writer.u32(static_cast<std::uint32_t>(definition.weapon_types.size()));
+    for (const sim::WeaponTypeDefinition& kind : definition.weapon_types) {
+        writer.u64(kind.id);
+        writer.u32(static_cast<std::uint32_t>(kind.strong_against.size()));
+        for (const sim::ContentId beaten : kind.strong_against) {
+            writer.u64(beaten);
+        }
+        writer.i16(kind.damage);
+        writer.u8(kind.accuracy);
     }
     writer.u32(static_cast<std::uint32_t>(definition.items.size()));
     for (const sim::ItemDefinition& item : definition.items) {
@@ -341,8 +354,11 @@ void unit_record_size_is_exact() {
     // two checks below fails.
     const auto definition = reference_definition();
     const std::uint32_t exact = write_definition(definition);
+    // The trailing counts are one per list the definition carries, and each is
+    // four bytes when the list is empty. A list added to the wire adds one of
+    // them here, which is what makes this arithmetic worth writing out.
     expect(
-        exact == 8U + 2U * 82U + 4U + 4U + 4U + 4U + 1U + 4U + 4U + 4U,
+        exact == 8U + 2U * 82U + 4U + 4U + 4U + 4U + 4U + 1U + 4U + 4U + 4U,
         "the encoded unit record is 82 bytes"
     );
     const std::uint32_t handle = gl_sim_create(exact);

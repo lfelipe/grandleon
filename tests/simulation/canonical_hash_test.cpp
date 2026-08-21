@@ -139,13 +139,14 @@ void every_field_of_a_battle_is_folded() {
 
     sim::EncounterSnapshot battle = baseline;
     // **This binding is the canary.** It names exactly as many fields as
-    // `EncounterSnapshot` has; an eighteenth stops the build right here, and
+    // `EncounterSnapshot` has; a nineteenth stops the build right here, and
     // the line that fixes it is a line below saying what the new field does to
     // a battle's identity.
     auto& [
         width, height, active_side, active_unit_id, remaining_action_points,
         round, activation_count, outcome, turn_order, units, objectives,
-        terrain, movement_cost, drops, random, deployment_tiles, deploying
+        terrain, movement_cost, drops, random, deployment_tiles, weapon_types,
+        deploying
     ] = battle;
 
     // Mutate one field, ask whether the hash noticed, put it back.
@@ -217,9 +218,26 @@ void every_field_of_a_battle_is_folded() {
     folded("the region a player arranges in");
     deploying = false;
     folded("whether the arranging phase is still open");
+
+    // And the one field of a battle that is deliberately not folded.
+    //
+    // Which kinds of weapon beat which is content the battle names, on exactly
+    // the terms the three registries below are: a package can gain a triangle
+    // while an arrangement of characters stays exactly as it is. What the
+    // triangle *does* to a blow is priced from the kinds in the two hands, and
+    // the weapons a character carries are folded already.
+    weapon_types.clear();
+    expect(
+        sim::canonical_hash(battle) == named,
+        "two battles differing only in which kinds of weapon beat which share "
+        "a canonical hash: the table is content the battle names rather than "
+        "state it holds"
+    );
+    battle = baseline;
 }
 
-// The thirty-seven fields of `UnitSnapshot`, every one of them folded.
+// The thirty-eight fields of `UnitSnapshot`: thirty-seven folded, and one that
+// is deliberately not.
 void every_field_of_a_character_is_folded() {
     const sim::EncounterSnapshot board = open_battle();
     const std::uint64_t named = sim::canonical_hash(board);
@@ -236,7 +254,7 @@ void every_field_of_a_character_is_folded() {
         minimum_reach, maximum_reach, ability_ids, has_acted, has_moved,
         weapon_ids, crossings, accuracy, item_ids, item_counts, drop_item_id,
         drop_chance, reach_bonus, talk_record_id, departed, arrival_round,
-        arrived, endures
+        arrived, endures, weapon_type
     ] = character;
 
     const auto folded = [&](std::string_view field) {
@@ -349,6 +367,23 @@ void every_field_of_a_character_is_folded() {
     folded("whether it has");
     endures = false;
     folded("whether it can be felled at all");
+
+    // And the one that is deliberately not folded.
+    //
+    // The kind of the weapon in hand is that weapon's own, unmodified: no
+    // bonus widens it and nothing saturates, so the arrangement restates it
+    // exactly from `weapon_ids`, which is folded above. That is the same
+    // standard the accuracies of the weapons *not* in hand are held to, and
+    // folding this too would move every hash this repository pins to say a
+    // thing already said.
+    character = baseline;
+    weapon_type = 909;
+    expect(
+        sim::canonical_hash(board) == named,
+        "the kind of the weapon in hand is restated by the weapons the "
+        "character carries, so it is not folded a second time"
+    );
+    character = baseline;
 }
 
 // Every combination of the six optional parts of a character, on a board where
@@ -541,13 +576,13 @@ void every_field_of_a_definition_reaches_the_snapshot() {
     expect(static_cast<bool>(created), "the definition under test is valid");
     const sim::EncounterSnapshot battle = created.encounter.snapshot();
 
-    // The same canary a third time. A thirteenth field stops the build here,
+    // The same canary a third time. A fourteenth field stops the build here,
     // and the line that fixes it says where in the snapshot the new field
-    // lands, or, for the three registries below, why it deliberately lands
-    // nowhere.
+    // lands, or, for the registries below, why it deliberately lands nowhere.
     const auto& [
-        width, height, units, abilities, objectives, turn_order, weapons, items,
-        terrain, movement_cost, random_seed, deployment_tiles
+        width, height, units, abilities, objectives, turn_order, weapons,
+        weapon_types, items, terrain, movement_cost, random_seed,
+        deployment_tiles
     ] = definition;
 
     expect(battle.width == width, "the width reaches the snapshot");
@@ -595,6 +630,16 @@ void every_field_of_a_definition_reaches_the_snapshot() {
         abilities.empty() && weapons.empty() && items.empty(),
         "the registries are content the battle names rather than state it "
         "holds, and this definition names none"
+    );
+    // Which kinds of weapon beat which reaches the snapshot, and is content
+    // there too: a client draws a forecast from it and the rules price a blow
+    // from it, and neither is state the arrangement holds. It is carried
+    // rather than resolved away because the kinds in the two hands are not
+    // known until the two characters face each other.
+    expect(
+        battle.weapon_types.size() == weapon_types.size(),
+        "the triangle reaches the snapshot, where a forecast and a blow read "
+        "the one table"
     );
 }
 

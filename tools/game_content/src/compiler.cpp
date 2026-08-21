@@ -1763,9 +1763,32 @@ CompileResult compile(const GameSource& source) {
         make_section(
             package_format::SectionType::weapon_types,
             source.weapon_types,
-            [](const WeaponType& value) {
+            [source_advantage = source.weapon_advantage](const WeaponType& value) {
                 Bytes bytes;
                 put_string(bytes, value.name);
+                // Which types this one has the advantage over, and what that
+                // advantage is worth. Written only when there are any, so a
+                // type with no advantage anywhere - which is every weapon type
+                // authored before a game could draw a triangle - is the record
+                // it always was, down to the byte.
+                //
+                // The two numbers are the project's and are the same on every
+                // type that carries them. They are written here rather than
+                // once somewhere else for the reason a campaign carries the
+                // loss rule and an encounter carries its turn order: a package
+                // is read one record at a time by runtimes that never see a
+                // project, so a rule has to be where the thing it governs is.
+                if (!value.strong_against.empty()) {
+                    put_u16(
+                        bytes,
+                        static_cast<std::uint16_t>(value.strong_against.size())
+                    );
+                    for (const StableId beaten : value.strong_against) {
+                        put_u64(bytes, beaten);
+                    }
+                    put_i16(bytes, source_advantage.damage);
+                    bytes.push_back(source_advantage.accuracy);
+                }
                 return bytes;
             }
         ),

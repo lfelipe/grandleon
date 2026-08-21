@@ -723,7 +723,29 @@ constexpr std::uint32_t unit_record_size =
         weapon.minimum_reach = reader.u8();
         weapon.maximum_reach = reader.u8();
         weapon.accuracy = reader.u8();
+        weapon.weapon_type = reader.u64();
         definition.weapons.push_back(weapon);
+    }
+
+    // Which kinds of weapon beat which, and what beating them is worth. A
+    // board with no triangle in it writes a count of zero, which is what every
+    // board the browser has ever handed this side wrote before there was one.
+    const std::uint32_t kind_count = reader.u32();
+    if (reader.overflowed() || kind_count > (io_capacity / 12u)) {
+        return false;
+    }
+    for (std::uint32_t index = 0; index < kind_count; ++index) {
+        sim::WeaponTypeDefinition kind;
+        kind.id = reader.u64();
+        const std::uint32_t beaten = reader.u32();
+        if (reader.overflowed() || beaten > (io_capacity / 8u)) return false;
+        kind.strong_against.reserve(beaten);
+        for (std::uint32_t edge = 0; edge < beaten; ++edge) {
+            kind.strong_against.push_back(reader.u64());
+        }
+        kind.damage = reader.i16();
+        kind.accuracy = reader.u8();
+        definition.weapon_types.push_back(kind);
     }
 
     const std::uint32_t item_count = reader.u32();

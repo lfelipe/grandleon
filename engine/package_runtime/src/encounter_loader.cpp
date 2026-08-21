@@ -280,9 +280,8 @@ bool read_weapon(
     const RecordView* record = package.find(SectionType::weapons, weapon_id);
     if (record == nullptr) return false;
     Reader reader(package, *record);
-    std::uint64_t type_id = 0;
     weapon.id = weapon_id;
-    if (!reader.skip_string() || !reader.u64(type_id) ||
+    if (!reader.skip_string() || !reader.u64(weapon.weapon_type) ||
         !reader.i16(weapon.power) ||
         !reader.u8(weapon.minimum_reach) || !reader.u8(weapon.maximum_reach)) {
         return false;
@@ -357,6 +356,39 @@ bool read_carried_items(
 // Decodes every weapon a unit carries into the encounter's registry, adding
 // each identity once however many units carry it, and reports the reach and
 // power of the first, the one in hand.
+// One weapon-type record: the kinds this kind beats, and what beating them is
+// worth. Data selection with no arithmetic, like `read_weapon` beside it.
+//
+// The tail is absent from every type that beats nothing, which is every weapon
+// type in every package written before a triangle could be drawn, so a record
+// that ends after its name is a kind with no advantage anywhere and decodes
+// exactly as it always did.
+bool read_weapon_type(
+    const LoadedPackage& package,
+    std::uint64_t type_id,
+    simulation::WeaponTypeDefinition& type
+) {
+    const RecordView* record = package.find(SectionType::weapon_types, type_id);
+    if (record == nullptr) return false;
+    Reader reader(package, *record);
+    type.id = type_id;
+    if (!reader.skip_string()) return false;
+    if (reader.finished()) return true;
+    std::uint16_t beaten = 0;
+    if (!reader.u16(beaten) || beaten == 0U) return false;
+    type.strong_against.reserve(beaten);
+    for (std::uint16_t index = 0; index < beaten; ++index) {
+        std::uint64_t other = 0;
+        // A kind that beats itself would be read once in each direction and
+        // price every mirror match twice. Both analyzers and the compiler
+        // refuse one; a package carrying one anyway is malformed.
+        if (!reader.u64(other) || other == 0U || other == type_id) return false;
+        type.strong_against.push_back(other);
+    }
+    return reader.i16(type.damage) && reader.u8(type.accuracy) &&
+           reader.finished() && type.accuracy <= 100U;
+}
+
 bool read_carried_weapons(
     const LoadedPackage& package,
     const std::vector<std::uint64_t>& carried,
@@ -977,6 +1009,32 @@ EncounterLoadResult load_encounter(
 
     if (!reader.finished()) {
         return fail(EncounterLoadError::malformed_payload);
+    }
+
+    // The kinds of every weapon this board can produce, and what one kind
+    // beating another is worth. Read last, because the set of kinds is not
+    // known until every carried weapon has been: a board resolves the kinds
+    // that are actually on it and nothing else, which is the same economy the
+    // weapon and item registries above are built on.
+    //
+    // A board on which no weapon names a kind loads no kinds at all and is the
+    // board it always was.
+    std::set<std::uint64_t> kinds;
+    for (const simulation::WeaponDefinition& weapon :
+         result.definition.weapons) {
+        if (weapon.weapon_type != 0U) kinds.insert(weapon.weapon_type);
+    }
+    for (const std::uint64_t kind : kinds) {
+        simulation::WeaponTypeDefinition type;
+        if (!read_weapon_type(package, kind, type)) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        // A kind that beats nothing is not carried: the table is consulted by
+        // identity on every blow, and a row that can never answer is a row
+        // every blow walks past.
+        if (!type.strong_against.empty()) {
+            result.definition.weapon_types.push_back(type);
+        }
     }
     return result;
 }

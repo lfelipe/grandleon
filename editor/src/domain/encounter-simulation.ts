@@ -198,6 +198,25 @@ export interface WeaponDefinition {
    * nothing at all.
    */
   accuracy?: number;
+  /**
+   * Which kind of weapon this is. Omitted is a weapon of no kind, which gets
+   * nothing out of a triangle.
+   */
+  weaponType?: bigint;
+}
+
+/**
+ * One kind of weapon, and what holding it is worth against the other kinds.
+ *
+ * The edges are directed: a kind names what it beats, and the strike coming
+ * back the other way is worth as much less. The two numbers are the game's own
+ * and are the same on every entry.
+ */
+export interface WeaponTypeDefinition {
+  id: bigint;
+  strongAgainst: readonly bigint[];
+  damage: number;
+  accuracy: number;
 }
 
 export type ObjectiveKind =
@@ -237,6 +256,11 @@ export interface EncounterDefinition {
   abilities?: readonly AbilityDefinition[];
   /** Every weapon any unit here may carry, resolved by identity. */
   weapons?: readonly WeaponDefinition[];
+  /**
+   * Which kinds of weapon beat which. Omitted is a battle with no triangle in
+   * it, which is every battle written before one could be drawn.
+   */
+  weaponTypes?: readonly WeaponTypeDefinition[];
   /** Every item any unit here may carry, resolved by identity. */
   items?: readonly ItemDefinition[];
   objectives?: readonly ObjectiveDefinition[];
@@ -1710,6 +1734,18 @@ function writeEncounterDefinition(
     cursor.u8(weapon.minimumReach);
     cursor.u8(weapon.maximumReach);
     cursor.u8(weapon.accuracy ?? 100);
+    cursor.u64(weapon.weaponType ?? 0n);
+  }
+  // Which kinds of weapon beat which, and what beating them is worth. A board
+  // with no triangle in it writes a count of zero.
+  const weaponTypes = definition.weaponTypes ?? [];
+  cursor.u32(weaponTypes.length);
+  for (const kind of weaponTypes) {
+    cursor.u64(kind.id);
+    cursor.u32(kind.strongAgainst.length);
+    for (const beaten of kind.strongAgainst) cursor.u64(beaten);
+    cursor.i16(kind.damage);
+    cursor.u8(kind.accuracy);
   }
   const items = definition.items ?? [];
   cursor.u32(items.length);
