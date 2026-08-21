@@ -97,13 +97,29 @@ function patchQuantity(index: number, raw: string) {
 
 // Adding or removing a grant renumbers the ones after it, and a held keystroke
 // is keyed by position, so it is committed before the list moves under it.
+/** Whether there is anything left to stock, for the add button to ask. */
+const everythingStocked = computed(
+  () => props.items.length > 0 && unstocked().length === 0
+);
+
+/** Everything this list does not already stock. */
+function unstocked(): readonly { readonly id: string; readonly name: string }[] {
+  const stocked = new Set(props.grants.map((grant) => grant.itemId));
+  return props.items.filter((item) => !stocked.has(item.id));
+}
+
 function addGrant() {
   keystrokes.flush();
   const grants = copyGrants();
-  // A fresh grant starts as one of the first item in the project rather than as
-  // an empty form. One is the quantity an author is most likely to keep and the
-  // one they will most obviously change.
-  grants.push({ itemId: props.items[0]?.id ?? "", quantity: 1 });
+  // A fresh grant starts as the first item this list does *not* already stock,
+  // rather than as the first item in the project. Pressing add twice used to
+  // stock the same thing twice, which the format refuses and a validator then
+  // reported - so the surface offered a gesture whose only outcome was a
+  // mistake. One is the quantity an author is most likely to keep and the one
+  // they will most obviously change.
+  const next = unstocked()[0]?.id;
+  if (next === undefined) return;
+  grants.push({ itemId: next, quantity: 1 });
   emit("update", grants);
 }
 
@@ -118,13 +134,28 @@ function itemName(id: string): string | undefined {
   return props.items.find((item) => item.id === id)?.name;
 }
 
-/** The items offered for one grant: the search, plus its own choice. */
+/**
+ * The items offered for one grant: the search, plus its own choice, minus
+ * whatever another row already stocks.
+ *
+ * Its own choice always survives the filter. A row showing a menu its own value
+ * is not in is a row that appears to have changed by itself, and an author who
+ * opens it has no way back to what they had.
+ */
 function itemChoices(
   grant: CampaignItemGrant
 ): readonly { readonly id: string; readonly name: string }[] {
+  const elsewhere = new Set(
+    props.grants
+      .filter((other) => other !== grant)
+      .map((other) => other.itemId)
+  );
+  const offered = props.items.filter(
+    (item) => item.id === grant.itemId || !elsewhere.has(item.id)
+  );
   const query = search.value.trim().toLocaleLowerCase();
-  if (query === "") return props.items;
-  return props.items.filter((item) =>
+  if (query === "") return offered;
+  return offered.filter((item) =>
     item.id === grant.itemId ||
     item.id.toLocaleLowerCase().includes(query) ||
     item.name.toLocaleLowerCase().includes(query)
@@ -256,7 +287,16 @@ function grantProblems(grant: CampaignItemGrant, index: number): string[] {
         Remove {{ grantWord }} {{ index + 1 }}
       </button>
     </fieldset>
-    <button type="button" @click="addGrant">Add {{ grantWord }}</button>
+    <!-- Offered only while there is something left to stock. A button whose
+         only possible outcome is a list the format refuses is a button that
+         should not be pressable, and saying why beats going quietly grey. -->
+    <button type="button" :disabled="everythingStocked" @click="addGrant">
+      Add {{ grantWord }}
+    </button>
+    <p v-if="everythingStocked" class="field-help">
+      Every item this game has is already stocked here. Make another item, or
+      change how many of one of these.
+    </p>
   </section>
 </template>
 

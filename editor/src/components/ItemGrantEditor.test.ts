@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { createApp, nextTick } from "vue";
+import { createApp, h, nextTick, reactive } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CampaignItemGrant } from "../generated/source-v1";
 import ItemGrantEditor from "./ItemGrantEditor.vue";
@@ -32,6 +32,37 @@ function mount(
   });
   app.mount(host);
   return { app, host, onUpdate, onCreateItem };
+}
+
+/**
+ * The same editor under a parent that applies `update` back into props, the way
+ * ContentWorkspace does. The single-step cases above do not need it; a gesture
+ * made twice does, because the second press has to see the first one's result.
+ */
+function mountLive(
+  grants: CampaignItemGrant[] = [],
+  offered: readonly { id: string; name: string }[] = items
+) {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const state = reactive({ grants });
+  const app = createApp({
+    setup() {
+      return () => h(ItemGrantEditor, {
+        grants: state.grants,
+        items: offered,
+        idPrefix: "stock",
+        heading: "What the store starts with",
+        help: "Leave it empty and the campaign begins with nothing.",
+        grantWord: "starting stock",
+        onUpdate: (next: CampaignItemGrant[]) => {
+          state.grants = next;
+        }
+      });
+    }
+  });
+  app.mount(host);
+  return { app, host, state };
 }
 
 function button(host: HTMLElement, text: string): HTMLButtonElement {
@@ -175,6 +206,60 @@ describe("ItemGrantEditor", () => {
     expect(host.querySelector("#stock-0-quantity")).toBe(quantity);
     expect(document.activeElement).toBe(quantity);
     expect(quantity.value).toBe("123");
+    app.unmount();
+  });
+
+  it("cannot stock the same item twice, however the author presses", async () => {
+    // The fault this prevents was met in a real project: a store naming one
+    // item twice, refused by the format and reported by a validator after the
+    // fact. Pressing add twice was all it took, because a fresh grant used to
+    // start as the *first item in the project* rather than the first one this
+    // list had not already taken.
+    const { app, host, state } = mountLive();
+
+    button(host, "Add starting stock").click();
+    await nextTick();
+    button(host, "Add starting stock").click();
+    await nextTick();
+
+    const stocked = state.grants.map((grant) => grant.itemId);
+    expect(stocked).toHaveLength(2);
+    expect(new Set(stocked).size).toBe(2);
+    app.unmount();
+  });
+
+  it("offers no item another row has already taken, but keeps its own",
+    async () => {
+      const { app, host, state } = mountLive();
+      button(host, "Add starting stock").click();
+      await nextTick();
+      button(host, "Add starting stock").click();
+      await nextTick();
+
+      const first = host.querySelector<HTMLSelectElement>(
+        "#stock-0-item"
+      )!;
+      const offered = [...first.options].map((option) => option.value);
+      // Its own choice survives: a menu its own value is missing from is a row
+      // that looks as though it changed by itself.
+      expect(offered).toContain(state.grants[0]!.itemId);
+      expect(offered).not.toContain(state.grants[1]!.itemId);
+      app.unmount();
+    });
+
+  it("stops offering to add once every item is stocked", async () => {
+    const { app, host, state } = mountLive();
+    const add = () => button(host, "Add starting stock");
+    for (let i = 0; i < 20 && !add().disabled; ++i) {
+      add().click();
+      await nextTick();
+    }
+    // Every item, once each, and then the gesture withdraws rather than
+    // offering a press whose only outcome is a list the format refuses.
+    expect(new Set(state.grants.map((g) => g.itemId)).size)
+      .toBe(state.grants.length);
+    expect(add().disabled).toBe(true);
+    expect(host.textContent).toContain("already stocked here");
     app.unmount();
   });
 });
