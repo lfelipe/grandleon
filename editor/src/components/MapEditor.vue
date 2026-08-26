@@ -5,6 +5,7 @@ import type { SourceMap } from "../generated/source-v1";
 import {
   MapEditError,
   MapEditSession,
+  MAP_MAX_SIDE,
   type MapResizeRequest
 } from "../domain/map-edit-session";
 import {
@@ -385,9 +386,11 @@ function applyResize() {
     <fieldset class="map-resize">
       <legend>Resize map</legend>
       <label for="map-width">Width</label>
-      <input id="map-width" v-model.number="resizeWidth" type="number" min="1" max="4096">
+      <input id="map-width" v-model.number="resizeWidth" type="number"
+        min="1" :max="MAP_MAX_SIDE">
       <label for="map-height">Height</label>
-      <input id="map-height" v-model.number="resizeHeight" type="number" min="1" max="4096">
+      <input id="map-height" v-model.number="resizeHeight" type="number"
+        min="1" :max="MAP_MAX_SIDE">
       <p v-if="consoleFit" class="console-fit" data-testid="console-fit"
         aria-live="polite">
         {{ consoleFit.summary }}

@@ -1,5 +1,47 @@
 // SPDX-License-Identifier: MIT
 import type { SourceMap } from "../generated/source-v1";
+import { sourceV1Schemas } from "../generated/source-v1-schemas";
+
+/**
+ * The largest board the *format* allows, read out of the schema rather than
+ * restated here.
+ *
+ * **This used to disagree with the format, and the disagreement went one way
+ * only.** The bound written here was 4096 a side and a million cells, against a
+ * schema that caps each side at 256 and an engine that refuses any board past
+ * 65,536 cells. So the editor would resize a map to something it could not save
+ * as a valid project, could not compile, and would then try to draw a cell at a
+ * time: a million buttons is not a slow grid, it is a tab that stops.
+ *
+ * Derived rather than typed, so the two cannot drift apart again. A schema that
+ * raises the ceiling raises it here on the same build.
+ */
+function schemaMapBound(): number {
+  for (const schema of sourceV1Schemas) {
+    const document = schema as {
+      $id?: string;
+      properties?: { width?: { maximum?: number } };
+    };
+    if (!document.$id?.endsWith("map.schema.json")) continue;
+    const maximum = document.properties?.width?.maximum;
+    if (typeof maximum === "number") return maximum;
+  }
+  throw new Error("the source schema states no maximum map width");
+}
+
+/** The longest a board may be on either side. */
+export const MAP_MAX_SIDE = schemaMapBound();
+
+/**
+ * The most cells a board may hold, which is the engine's own ceiling.
+ *
+ * `simulation::maximum_board_cells`, and it is not merely the square of the
+ * side: every command may allocate a visited grid of width by height, and the
+ * engine refuses a board past this whatever shape it is. The square of 256 is
+ * exactly this number, so today the two bounds meet; stating both is what keeps
+ * a future rectangle honest.
+ */
+export const MAP_MAX_CELLS = 65_536;
 
 export interface MapCoordinate {
   readonly x: number;
@@ -187,15 +229,17 @@ export class MapEditSession {
       !Number.isInteger(request.height) ||
       request.width < 1 ||
       request.height < 1 ||
-      request.width > 4096 ||
-      request.height > 4096 ||
-      request.width * request.height > 1_048_576 ||
+      request.width > MAP_MAX_SIDE ||
+      request.height > MAP_MAX_SIDE ||
+      request.width * request.height > MAP_MAX_CELLS ||
       !Number.isInteger(request.offsetX) ||
       !Number.isInteger(request.offsetY)
     ) {
       throw new MapEditError(
         "MAP_RESIZE_INVALID",
-        "resize dimensions, area, and offsets must remain within source limits"
+        `a board is at most ${MAP_MAX_SIDE} cells on a side and ` +
+        `${MAP_MAX_CELLS} cells in all, and every dimension and offset is a ` +
+        "whole number"
       );
     }
 

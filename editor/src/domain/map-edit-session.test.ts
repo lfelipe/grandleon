@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from "vitest";
 import type { SourceMap } from "../generated/source-v1";
-import { MapEditError, MapEditSession } from "./map-edit-session";
+import {
+  MAP_MAX_CELLS,
+  MAP_MAX_SIDE,
+  MapEditError,
+  MapEditSession
+} from "./map-edit-session";
+import { sourceV1Schemas } from "../generated/source-v1-schemas";
 
 function fixture(): SourceMap {
   return {
@@ -160,4 +166,73 @@ describe("bounded history", () => {
     expect(session.discardedEdits()).toBe(0);
   });
 });
+});
+
+describe("the biggest board this editor will make", () => {
+  /** What the source schema itself says a map may be. */
+  function schemaMaximum(field: "width" | "height"): number {
+    for (const schema of sourceV1Schemas) {
+      const document = schema as {
+        $id?: string;
+        properties?: Record<string, { maximum?: number }>;
+      };
+      if (!document.$id?.endsWith("map.schema.json")) continue;
+      const maximum = document.properties?.[field]?.maximum;
+      if (typeof maximum === "number") return maximum;
+    }
+    throw new Error(`the source schema states no maximum map ${field}`);
+  }
+
+  /**
+   * **The bound this editor enforces is the bound the format states.**
+   *
+   * It was not. The session refused a resize past 4096 a side and a million
+   * cells, against a schema that caps a side at 256 and an engine that refuses
+   * any board past 65,536 cells. Everything in between was a board an author
+   * could draw, could not save as a valid project, could not compile, and which
+   * the editor would meanwhile try to render one button per cell of.
+   */
+  it("is the size the source schema allows, on both sides", () => {
+    expect(MAP_MAX_SIDE).toBe(schemaMaximum("width"));
+    expect(MAP_MAX_SIDE).toBe(schemaMaximum("height"));
+  });
+
+  it("is no more cells than the engine will open", () => {
+    // `simulation::maximum_board_cells`. Every command may allocate a visited
+    // grid of width by height, so this is a bound on the product and not only
+    // on the sides.
+    expect(MAP_MAX_CELLS).toBe(65_536);
+    expect(MAP_MAX_SIDE * MAP_MAX_SIDE).toBeLessThanOrEqual(MAP_MAX_CELLS);
+  });
+
+  it("accepts a board at the limit and refuses the one past it", () => {
+    const session = new MapEditSession({
+      id: "field", name: "Field", width: 1, height: 1, terrain: ["plain"]
+    } as SourceMap);
+    const request = (width: number, height: number) => ({
+      width, height, offsetX: 0, offsetY: 0, fillTerrain: "plain"
+    });
+    expect(() => session.previewResize(request(MAP_MAX_SIDE, 1))).not.toThrow();
+    expect(() => session.previewResize(request(MAP_MAX_SIDE + 1, 1)))
+      .toThrow(MapEditError);
+    expect(() => session.previewResize(request(1, MAP_MAX_SIDE + 1)))
+      .toThrow(MapEditError);
+  });
+
+  it("says the numbers in the refusal, because they are what to act on", () => {
+    const session = new MapEditSession({
+      id: "field", name: "Field", width: 1, height: 1, terrain: ["plain"]
+    } as SourceMap);
+    try {
+      session.previewResize({
+        width: MAP_MAX_SIDE + 1, height: 1,
+        offsetX: 0, offsetY: 0, fillTerrain: "plain"
+      });
+      throw new Error("the resize was accepted");
+    } catch (error) {
+      expect(error).toBeInstanceOf(MapEditError);
+      expect((error as MapEditError).message).toContain(String(MAP_MAX_SIDE));
+      expect((error as MapEditError).message).toContain(String(MAP_MAX_CELLS));
+    }
+  });
 });
