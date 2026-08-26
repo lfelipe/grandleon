@@ -693,6 +693,16 @@ export type UnitBehavior = "hold" | "patrol" | "pursue";
  * apply() would return for the same attack in the same state; when it is
  * "none", the numbers are exactly what apply() would inflict.
  */
+/**
+ * Which way a pair of weapons leans, for a surface that wants to say so.
+ *
+ * The triangle moves both `damage` and `hitChance` and moves them silently, so
+ * a player sees a smaller blow without being told a rule caused it. The lean is
+ * the direction only: the size of it is already spent in the two numbers, and
+ * reporting it again would invite a surface to apply it twice.
+ */
+export type WeaponLean = "none" | "advantage" | "disadvantage";
+
 export interface AttackForecast {
   error: CommandError;
   /**
@@ -715,6 +725,16 @@ export interface AttackForecast {
   counterChance: number;
   /** What the counter strikes for, raw, exactly as `damage` is. Zero if none. */
   counterDamage: number;
+  /**
+   * Which way the weapon in the attacker's hand leans against the weapon in the
+   * target's, already folded into `damage` and `hitChance`.
+   */
+  lean: WeaponLean;
+  /**
+   * The same for the answering blow, which is its own pairing rather than this
+   * one reversed. Meaningless when `counter` is false.
+   */
+  counterLean: WeaponLean;
   /** The attacker's health once the exchange is over, counter or not. */
   attackerHealthAfter: number;
   /** Whether the counter fells the attacker. */
@@ -1873,6 +1893,25 @@ function createErrorName(active: Engine, code: number): CreateError {
   return (active.createErrors[code] ?? "invalid_unit") as CreateError;
 }
 
+// The lean byte, as the word for it.
+//
+// Spelled out here rather than asked of the module the way a refusal is: a
+// refusal is one of a long and growing list whose names belong to the engine,
+// while this is three cases that exist to be branched on. An unknown byte
+// reads as `none`, which draws nothing -- the safe direction to be wrong in,
+// since the alternative is an arrow claiming a rule applied when nobody knows
+// whether it did.
+function weaponLeanName(code: number): WeaponLean {
+  switch (code) {
+    case 1:
+      return "advantage";
+    case 2:
+      return "disadvantage";
+    default:
+      return "none";
+  }
+}
+
 function commandErrorName(active: Engine, code: number): CommandError {
   return (active.commandErrors[code] ?? "invalid_command") as CommandError;
 }
@@ -2147,7 +2186,12 @@ class WasmEncounter implements Encounter {
       counter: false,
       counterDamage: 0,
       attackerHealthAfter: 0,
-      counterLethal: false
+      counterLethal: false,
+      // A refused forecast leans nowhere. There is no pairing to lean, and a
+      // surface that drew an arrow over a refusal would be illustrating a
+      // strike that is not on offer.
+      lean: "none" as const,
+      counterLean: "none" as const
     };
     if (!representableId(attackerId)) {
       return { error: "unknown_unit", ...refused };
@@ -2187,7 +2231,12 @@ class WasmEncounter implements Encounter {
       counterChance: result.readU8(),
       counterDamage,
       attackerHealthAfter,
-      counterLethal
+      counterLethal,
+      // Last in the payload, so last here: these two reads must stay after
+      // `counterChance` above, because the cursor is positional and the object
+      // literal is what advances it.
+      lean: weaponLeanName(result.readU8()),
+      counterLean: weaponLeanName(result.readU8())
     };
   }
 

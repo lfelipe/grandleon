@@ -746,7 +746,12 @@ describe("simulation v0 commands", () => {
       counter: true,
       counterDamage: 2,
       attackerHealthAfter: 6,
-      counterLethal: false
+      counterLethal: false,
+      // This board authors no kinds of weapon, so neither hand holds an edge
+      // and nothing leans. A surface reading this draws no arrow, which is the
+      // answer for every board in a game that never wrote a triangle.
+      lean: "none",
+      counterLean: "none"
     });
     expect(simulation.canonicalHash()).toBe(before);
 
@@ -776,7 +781,11 @@ describe("simulation v0 commands", () => {
       counter: false,
       counterDamage: 0,
       attackerHealthAfter: 6,
-      counterLethal: false
+      counterLethal: false,
+      // No kinds here either, and the answering half leans nowhere for the
+      // second reason as well: there is no answer to lean.
+      lean: "none",
+      counterLean: "none"
     });
   });
 

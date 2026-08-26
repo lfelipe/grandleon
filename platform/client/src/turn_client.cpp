@@ -1549,6 +1549,28 @@ void TurnClient::build_overlay(const sim::EncounterSnapshot& snapshot) {
                 sim::forecast_attack(snapshot, selected_, hovered->id);
             Text line;
             if (forecast) {
+                // Which way the weapons lean, first, because it is the reason
+                // the numbers after it are the numbers they are. The triangle
+                // moves both the chance and the blow and moves them silently:
+                // without this the same bow reads 95% HIT 3 against a staff
+                // and 80% HIT 2 against a blade, and nothing on the bar says
+                // the difference is a rule rather than the target.
+                //
+                // A caret up and a vee down, which is the shape the genre has
+                // taught and the closest the sixty-four glyph console font
+                // comes to an arrow -- it carries no lowercase, so the down
+                // marker is a capital. It leads the line because nothing else
+                // ever does, which is what keeps it from reading as a letter
+                // of the words behind it.
+                //
+                // Asked of the forecast rather than worked out from the two
+                // weapons here: which weapon beats which is a rule, and a
+                // client that answered it would be the second place it lived.
+                if (forecast.lean == sim::WeaponLean::advantage) {
+                    line.text("^ ");
+                } else if (forecast.lean == sim::WeaponLean::disadvantage) {
+                    line.text("V ");
+                }
                 // The chance leads, because the numbers after it are what
                 // lands only when it does. Drawn from the forecast, never
                 // derived here, and omitted entirely at a hundred so a line

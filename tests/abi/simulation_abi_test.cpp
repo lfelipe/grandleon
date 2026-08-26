@@ -625,7 +625,7 @@ void forecasts_across_the_boundary() {
             sim::forecast_attack(native.encounter.snapshot(), attacker, target);
         const std::uint32_t written =
             gl_sim_forecast_attack(handle, attacker, target, 0);
-        expect(written == 15U, "forecast writes its fixed-size record");
+        expect(written == 17U, "forecast writes its fixed-size record");
         Reader reader;
         expect(reader.u8() == abi_ok, "forecast status is ok");
         expect(
@@ -650,6 +650,15 @@ void forecasts_across_the_boundary() {
             reader.u8() == promise.hit_chance &&
                 reader.u8() == promise.counter_chance,
             "forecast carries both chances across the boundary"
+        );
+        // And which way each half leans, which is the only part of the
+        // triangle a browser cannot recover from the numbers above: they are
+        // the folded ones, so a smaller blow is indistinguishable from a
+        // weaker character without this.
+        expect(
+            reader.u8() == static_cast<std::uint8_t>(promise.lean) &&
+                reader.u8() == static_cast<std::uint8_t>(promise.counter_lean),
+            "forecast carries the lean of both halves across the boundary"
         );
     };
     check(10, 20);

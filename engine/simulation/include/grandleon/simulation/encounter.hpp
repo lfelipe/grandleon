@@ -1400,6 +1400,30 @@ struct CommandResult final {
 // The second half is the counterattack, and it is here because a forecast that
 // priced only the outgoing half would be a broken promise: apply resolves both
 // halves under one command, so both belong to the same prediction.
+// Which way a pair of weapons leans, for a surface that wants to say so.
+//
+// The triangle moves both numbers a forecast already reports, and moves them
+// silently: a bow priced against a blade shows a smaller blow and a worse
+// chance than the same bow against a staff, and nothing on screen says why.
+// A player who is not told is left to infer a rule from two numbers they
+// cannot compare side by side, which is the one thing the triangle needs them
+// to learn.
+//
+// It is a lean and not a pair of deltas because the deltas are already spent:
+// `damage` and `hit_chance` are the folded numbers, so repeating what went
+// into them would invite a surface to add them a second time. What a surface
+// cannot work out for itself is the *direction*, and that is what this is.
+//
+// Read from the numbers the advantage actually carried rather than from the
+// edge alone. An edge authored at nothing changes no forecast, and an arrow
+// over a strike that is priced exactly as it would be without one says the
+// rule is doing something it is not.
+enum class WeaponLean : std::uint8_t {
+    none = 0,
+    advantage = 1,
+    disadvantage = 2,
+};
+
 struct AttackForecast final {
     CommandError error{CommandError::none};
     // How often this strike lands, as a percentage in [0, 100]: the accuracy
@@ -1437,6 +1461,14 @@ struct AttackForecast final {
     std::int16_t attacker_health_after{};
     // Whether the counter fells the attacker when it lands.
     bool counter_lethal{};
+    // Which way the weapon in the attacker's hand leans against the weapon in
+    // the target's, already folded into `damage` and `hit_chance` above.
+    WeaponLean lean{WeaponLean::none};
+    // The same for the answering blow, which is a different pairing and not
+    // merely this one reversed: a target answers with whatever it is holding,
+    // which need not be the weapon the attack was made with. Meaningless when
+    // `counter` is false, and left at `none` there.
+    WeaponLean counter_lean{WeaponLean::none};
 
     [[nodiscard]] explicit operator bool() const noexcept {
         return error == CommandError::none;

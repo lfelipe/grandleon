@@ -1250,6 +1250,11 @@ EMSCRIPTEN_KEEPALIVE std::uint32_t gl_sim_forecast_attack(
     // these is drawing a promise the engine stopped making.
     writer.u8(forecast.hit_chance);
     writer.u8(forecast.counter_chance);
+    // Which way each half leans, appended last for the same reason the chances
+    // were: it is already folded into the numbers above, and a browser without
+    // it can only show that a strike is worth less without ever showing why.
+    writer.u8(static_cast<std::uint8_t>(forecast.lean));
+    writer.u8(static_cast<std::uint8_t>(forecast.counter_lean));
     return writer.size();
 }
 

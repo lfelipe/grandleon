@@ -691,6 +691,20 @@ struct Advantage final {
     return {};
 }
 
+// The direction an advantage carried, from what it was worth rather than from
+// the edge that produced it. Both terms are signed together by `advantage_of`
+// -- it negates the pair when the strike is made *into* the advantage -- so
+// either one answers, and an edge authored at nothing correctly leans nowhere.
+[[nodiscard]] WeaponLean lean_of(Advantage advantage) noexcept {
+    if (advantage.damage > 0 || advantage.accuracy > 0) {
+        return WeaponLean::advantage;
+    }
+    if (advantage.damage < 0 || advantage.accuracy < 0) {
+        return WeaponLean::disadvantage;
+    }
+    return WeaponLean::none;
+}
+
 const ItemDefinition* find_item(
     const std::vector<ItemDefinition>& items,
     ContentId id
@@ -3006,6 +3020,7 @@ AttackForecast forecast_attack(
     forecast.hit_chance =
         hit_chance_for(*attacker, *target, strike.accuracy, swung.accuracy);
     forecast.damage = attack_damage(*attacker, *target, strike, swung.damage);
+    forecast.lean = lean_of(swung);
     // The floor is asked for here rather than assumed to be zero, and it is
     // asked of the same function `take_damage` asks. A character who cannot be
     // reduced below one health is forecast as ending at one and not as lethal,
@@ -3050,6 +3065,7 @@ AttackForecast forecast_attack(
             );
         forecast.counter_damage =
             attack_damage(*target, *attacker, answer, answered.damage);
+        forecast.counter_lean = lean_of(answered);
         forecast.attacker_health_after = static_cast<std::int16_t>(
             std::max<std::int32_t>(
                 floor_of(*attacker), attacker->health - forecast.counter_damage

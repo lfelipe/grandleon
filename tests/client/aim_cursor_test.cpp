@@ -499,8 +499,136 @@ void a_cast_over_an_ally_says_it_costs_them_nothing() {
     }
 }
 
+// The triangle, on the bar a player reads before they commit.
+//
+// A weapon kind that beats another moves both numbers the bar already shows,
+// and moves them silently: the same archer reads one blow against a staff and
+// a smaller one against a blade, with nothing saying the difference is a rule
+// rather than a sturdier target. These cases are about the one mark that says
+// so, and about the thing it must not do -- appear over a pairing the table
+// never touched.
+namespace {
+
+const sim::ContentId blade_kind = 0x7b01;
+const sim::ContentId bow_kind = 0x7b02;
+
+// Two characters at arm's length, each holding a weapon of the kind named.
+// `blade_kind` beats `bow_kind` and nothing else does, so which hand holds
+// which is the whole of what changes between the boards below.
+sim::EncounterDefinition a_board_of_two_kinds(
+    sim::ContentId ours, sim::ContentId theirs
+) {
+    sim::EncounterDefinition definition;
+    definition.width = 5;
+    definition.height = 3;
+    definition.turn_order = sim::TurnOrder::side_blocks;
+    definition.weapon_types = {{blade_kind, {bow_kind}, 1, 15}};
+    definition.weapons = {
+        {0x7c01, 3, 1, 1, 80, ours},
+        {0x7c02, 3, 1, 1, 80, theirs},
+    };
+
+    sim::UnitDefinition mine;
+    mine.id = 10;
+    mine.unit_type_id = 1;
+    mine.side = sim::Side::first;
+    mine.position = {1, 1};
+    mine.health = 12;
+    mine.strength = 4;
+    mine.action_points = 2;
+    mine.movement = 1;
+    mine.weapon_ids = {0x7c01};
+
+    sim::UnitDefinition theirs_unit;
+    theirs_unit.id = 20;
+    theirs_unit.unit_type_id = 2;
+    theirs_unit.side = sim::Side::second;
+    theirs_unit.position = {2, 1};
+    theirs_unit.health = 12;
+    theirs_unit.strength = 4;
+    theirs_unit.action_points = 2;
+    theirs_unit.movement = 1;
+    theirs_unit.weapon_ids = {0x7c02};
+
+    definition.units = {mine, theirs_unit};
+    return definition;
+}
+
+// Opens the menu and takes ATTACK, which lands the cursor on the only target,
+// then reports the line under the board.
+std::string what_a_strike_says(sim::ContentId ours, sim::ContentId theirs) {
+    auto created = sim::create_encounter(a_board_of_two_kinds(ours, theirs));
+    expect(static_cast<bool>(created), "the two-kind board is valid content");
+    if (!created) return {};
+    Transcript sink;
+    // The caret opens on WALK, so one press down is ATTACK.
+    WatchingClient host(
+        sink, {turn::pad_a, turn::pad_down, turn::pad_a}
+    );
+    client::Roster roster;
+    roster.rebuild(created.encounter.snapshot());
+    host.set_viewport(20, 10);
+    host.battle_begins(
+        created.encounter.snapshot(), roster, sim::Side::first, {}
+    );
+    host.battle_definitions(
+        created.encounter.weapons(), created.encounter.abilities(),
+        created.encounter.items(), created.encounter.objectives()
+    );
+    host.draw(created.encounter.snapshot(), roster);
+    (void)host.next_intent(created.encounter.snapshot(), roster);
+    return host.said;
+}
+
+}  // namespace
+
+void the_bar_says_which_way_the_weapons_lean() {
+    // Holding the kind that beats theirs. The mark leads the line, ahead of the
+    // chance, because it is the reason the chance is what it is.
+    const std::string holding = what_a_strike_says(blade_kind, bow_kind);
+    expect(
+        holding.rfind("^ ", 0) == 0,
+        "a strike made with the better weapon says so before its numbers"
+    );
+    if (holding.rfind("^ ", 0) != 0) {
+        std::cerr << "  said: " << holding << "\n";
+    }
+
+    // Striking into it. The same table read from the other end, and the other
+    // mark: a capital vee, because the console font this line is drawn in
+    // carries no lowercase at all.
+    const std::string into = what_a_strike_says(bow_kind, blade_kind);
+    expect(
+        into.rfind("V ", 0) == 0,
+        "and a strike made into one says that before its numbers"
+    );
+    if (into.rfind("V ", 0) != 0) {
+        std::cerr << "  said: " << into << "\n";
+    }
+
+    // And the numbers really did move, so the mark is reporting a rule that
+    // fired rather than decorating a pairing the table left alone.
+    expect(
+        holding.find("HIT 8") != std::string::npos &&
+            into.find("HIT 6") != std::string::npos,
+        "and the two are worth the advantage apart"
+    );
+
+    // A board whose weapons share a kind is a board the table never touches,
+    // and it reads exactly as it did before there was a table.
+    const std::string even = what_a_strike_says(bow_kind, bow_kind);
+    expect(
+        even.rfind("^ ", 0) != 0 && even.rfind("V ", 0) != 0,
+        "a pairing the table does not name carries no mark at all"
+    );
+    if (even.rfind("^ ", 0) == 0 || even.rfind("V ", 0) == 0) {
+        std::cerr << "  said: " << even << "\n";
+    }
+}
+
 int main() {
     an_aim_opens_on_the_nearest_lit_tile();
+    the_bar_says_which_way_the_weapons_lean();
     a_press_moves_to_the_next_lit_tile();
     only_a_gesture_that_names_somebody_takes_the_cursor();
     the_cursor_only_rests_on_a_target();

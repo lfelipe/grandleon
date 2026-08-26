@@ -1450,6 +1450,11 @@ void the_better_weapon_is_worth_the_advantage() {
             even.damage == 7 && even.hit_chance == 80,
             "no kind in either hand is the fight there always was"
         );
+        expect(
+            even.lean == sim::WeaponLean::none &&
+                even.counter_lean == sim::WeaponLean::none,
+            "and it leans nowhere, so no surface draws an arrow over it"
+        );
     }
 
     // The same board with the winning kind in the attacker's hand: two more
@@ -1469,6 +1474,16 @@ void the_better_weapon_is_worth_the_advantage() {
         expect(
             up.counter && up.counter_damage == 5 && up.counter_chance == 65,
             "and the answer to it is worth as much less"
+        );
+        // And the lean says which way, so a bar can show the reason those
+        // numbers are those numbers rather than leaving a player to infer a
+        // rule from two figures they cannot see side by side. The two halves
+        // lean opposite ways because they are the same pairing struck from
+        // opposite ends.
+        expect(
+            up.lean == sim::WeaponLean::advantage &&
+                up.counter_lean == sim::WeaponLean::disadvantage,
+            "and the forecast says which way the pair leans, on both halves"
         );
         const auto struck = created.encounter.apply(
             {sim::CommandType::attack, 10, {}, 20, 0}
@@ -1491,6 +1506,27 @@ void the_better_weapon_is_worth_the_advantage() {
         expect(
             down.damage == 5 && down.hit_chance == 65,
             "striking into the advantage costs exactly what holding it pays"
+        );
+        expect(
+            down.lean == sim::WeaponLean::disadvantage &&
+                down.counter_lean == sim::WeaponLean::advantage,
+            "and the lean is mirrored with it"
+        );
+
+        // An edge worth nothing leans nowhere. The table is read for what it
+        // carried and not for the fact that an edge was found, because an
+        // arrow over a strike priced exactly as it would be without one would
+        // be announcing a rule that did nothing.
+        sim::EncounterDefinition idle = board(901, 902);
+        idle.weapon_types = {{901, {902}, 0, 0}};
+        auto nothing = sim::create_encounter(idle);
+        expect(static_cast<bool>(nothing), "an edge worth nothing is valid");
+        const auto flat =
+            sim::forecast_attack(nothing.encounter.snapshot(), 10, 20);
+        expect(
+            flat.damage == 7 && flat.hit_chance == 80 &&
+                flat.lean == sim::WeaponLean::none,
+            "an edge that moves neither number leans nowhere"
         );
     }
 
