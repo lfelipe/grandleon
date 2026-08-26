@@ -1161,6 +1161,54 @@ EMSCRIPTEN_KEEPALIVE std::uint32_t gl_sim_snapshot(std::uint32_t handle) {
 // Prices one attack without committing it. The error byte is exactly the
 // refusal gl_sim_apply would return for the same attack in the same state;
 // when it is zero, the numbers are what apply would inflict. `weapon_id` names
+// What one cast would do to one character it covers, before it is committed.
+//
+// The browser asks about one character per call for the reason the engine
+// answers about one: a cast names ground and the area decides who is caught, so
+// two characters under one blast are two different numbers and no single answer
+// describes both. A surface wanting the whole picture walks the splash it is
+// already drawing and asks about each occupant.
+//
+// A zero `affected_id` is a question about the ground alone: the refusals still
+// come back, and `covered` is false because nobody is there.
+//
+// Payload out: u8 status, u8 command error, u8 kind, u8 covered, u8 spared,
+// u8 hit chance, i16 damage, i16 restored, i16 target health after, u8 lethal.
+EMSCRIPTEN_KEEPALIVE std::uint32_t gl_sim_forecast_ability(
+    std::uint32_t handle,
+    std::uint64_t caster_id,
+    std::uint64_t ability_id,
+    std::int32_t centre_x,
+    std::int32_t centre_y,
+    std::uint64_t affected_id
+) {
+    const sim::Encounter* encounter = resolve(handle);
+    if (encounter == nullptr) {
+        Writer writer;
+        writer.u8(static_cast<std::uint8_t>(AbiStatus::unknown_handle));
+        return 0u;
+    }
+    const sim::Position centre{
+        static_cast<std::int16_t>(centre_x), static_cast<std::int16_t>(centre_y)
+    };
+    const sim::AbilityForecast forecast = sim::forecast_ability(
+        encounter->snapshot(), caster_id, ability_id, centre, affected_id,
+        encounter->abilities()
+    );
+    Writer writer;
+    writer.u8(static_cast<std::uint8_t>(AbiStatus::ok));
+    writer.u8(static_cast<std::uint8_t>(forecast.error));
+    writer.u8(static_cast<std::uint8_t>(forecast.kind));
+    writer.u8(forecast.covered ? 1u : 0u);
+    writer.u8(forecast.spared ? 1u : 0u);
+    writer.u8(forecast.hit_chance);
+    writer.i16(forecast.damage);
+    writer.i16(forecast.restored);
+    writer.i16(forecast.target_health_after);
+    writer.u8(forecast.lethal ? 1u : 0u);
+    return writer.size();
+}
+
 // which carried weapon to price, zero meaning the weapon in hand.
 //
 // Payload out: u8 status, u8 command error, i16 damage,

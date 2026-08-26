@@ -483,6 +483,109 @@ describe("simulation v0 commands", () => {
     simulation.dispose();
   });
 
+  it("prices a cast the way the engine does, per character it covers", () => {
+    // The gesture the browser could not price at all: it could light a splash
+    // and say nothing about what standing in one cost. Three characters under
+    // one blast, and each has to come back with its own answer.
+    const board = createEncounter({
+      width: 6,
+      height: 3,
+      abilities: [{
+        id: 700n,
+        kind: "damage",
+        damageType: "magical",
+        area: "diamond",
+        radius: 1,
+        power: 6,
+        minimumReach: 1,
+        maximumReach: 3,
+        accuracy: 100
+      }],
+      units: [
+        {
+          id: 10n, unitTypeId: 100n, side: "first",
+          position: { x: 0, y: 1 }, health: 12,
+          strength: 2, defense: 0, magic: 3,
+          abilityIds: [700n]
+        },
+        // An ally standing in the blast: covered and untouched.
+        {
+          id: 11n, unitTypeId: 100n, side: "first",
+          position: { x: 3, y: 0 }, health: 12, strength: 2, defense: 0
+        },
+        // Two opponents who differ in what the cast has to price separately.
+        {
+          id: 20n, unitTypeId: 200n, side: "second",
+          position: { x: 3, y: 1 }, health: 12,
+          strength: 2, defense: 0, resistance: 4
+        },
+        {
+          id: 21n, unitTypeId: 200n, side: "second",
+          position: { x: 3, y: 2 }, health: 5, strength: 2, defense: 0
+        }
+      ]
+    });
+    expect(board.error).toBe("none");
+    if (board.error !== "none") throw new Error(board.error);
+    const simulation = board.encounter;
+    const centre = { x: 3, y: 1 };
+
+    // magic 3 + power 6 - resistance 4 is five.
+    const onSturdy = simulation.forecastAbility(10n, 700n, centre, 20n);
+    expect(onSturdy.error).toBe("none");
+    expect(onSturdy.covered).toBe(true);
+    expect(onSturdy.spared).toBe(false);
+    expect(onSturdy.damage).toBe(5);
+    expect(onSturdy.targetHealthAfter).toBe(7);
+    expect(onSturdy.lethal).toBe(false);
+
+    // Against nothing it is nine, which is past five health.
+    const onFrail = simulation.forecastAbility(10n, 700n, centre, 21n);
+    expect(onFrail.damage).toBe(9);
+    expect(onFrail.targetHealthAfter).toBe(0);
+    expect(onFrail.lethal).toBe(true);
+
+    // Covered and spared, which the splash alone cannot show.
+    const onAlly = simulation.forecastAbility(10n, 700n, centre, 11n);
+    expect(onAlly.covered).toBe(true);
+    expect(onAlly.spared).toBe(true);
+    expect(onAlly.damage).toBe(0);
+    expect(onAlly.targetHealthAfter).toBe(12);
+
+    // The caster stands outside this one: uncovered, which is a different fact
+    // from being spared, and reported as ending on the health it has.
+    const onCaster = simulation.forecastAbility(10n, 700n, centre, 10n);
+    expect(onCaster.covered).toBe(false);
+    expect(onCaster.spared).toBe(false);
+    expect(onCaster.targetHealthAfter).toBe(12);
+
+    // Ground alone is a legal question and carries no character.
+    const onGround = simulation.forecastAbility(10n, 700n, centre, 0n);
+    expect(onGround.error).toBe("none");
+    expect(onGround.covered).toBe(false);
+
+    // And the refusals are the cast's own, in apply's own words.
+    expect(simulation.forecastAbility(10n, 999n, centre, 20n).error)
+      .toBe("unknown_ability");
+    expect(simulation.forecastAbility(20n, 700n, centre, 10n).error)
+      .toBe("wrong_side");
+    expect(simulation.forecastAbility(10n, 700n, { x: 0, y: 1 }, 10n).error)
+      .toBe("target_out_of_range");
+
+    // The promise: committing the cast leaves every character where its
+    // forecast said it would.
+    const applied = simulation.apply({
+      type: "ability", unitId: 10n, destination: centre, abilityId: 700n
+    });
+    expect(applied.error).toBe("none");
+    const after = simulation.snapshot();
+    const healthOf = (id: bigint) =>
+      after.units.find((unit) => unit.id === id)?.health;
+    expect(healthOf(20n)).toBe(onSturdy.targetHealthAfter);
+    expect(healthOf(11n)).toBe(onAlly.targetHealthAfter);
+    expect(healthOf(10n)).toBe(onCaster.targetHealthAfter);
+  });
+
   it("carries a sub-certain chance across the boundary and rolls it", () => {
     // Accuracy crosses the ABI on the weapon, on the ability and on the unit,
     // and the browser rolls it with the same generator the native build does.

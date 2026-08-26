@@ -736,6 +736,47 @@ export interface ItemForecast {
 }
 
 /**
+ * What one cast would do to one character it covers, before it is committed.
+ *
+ * One character per call, because a cast names a tile and the area decides who
+ * is caught: the chance is priced against the struck character's own evasion
+ * and the damage against its own defence or resistance, so two characters under
+ * one blast are two different numbers and no single answer describes both. A
+ * surface wanting the whole picture walks the splash it is already drawing and
+ * asks about each occupant.
+ *
+ * `error` is about the *cast* and is the refusal apply() would give it. Whether
+ * the area reaches a particular character is not a refusal at all: that is
+ * `covered`, and `spared` is the other half of the same distinction, because a
+ * damaging cast covers the caster's own side and takes nothing from it.
+ */
+export interface AbilityForecast {
+  error: CommandError;
+  kind: AbilityKind;
+  /** Whether the area covers this character at all. */
+  covered: boolean;
+  /**
+   * Whether the cast passes over this character without touching them: a
+   * damaging cast and somebody on the caster's own side. A restoring cast
+   * spares nobody, because mercy asks no side.
+   */
+  spared: boolean;
+  /**
+   * How often this cast lands on *this* character, as a whole percentage:
+   * exactly the chance the engine rolls against. The weapon triangle does not
+   * price a cast, so no advantage enters it. Meaningless for a restoring cast,
+   * which never rolls, and 100 there.
+   */
+  hitChance: number;
+  /** Health lost when the cast lands. Zero on a spared ally or a heal. */
+  damage: number;
+  /** Health gained from a restoring cast, clamped to what is missing. */
+  restored: number;
+  targetHealthAfter: number;
+  lethal: boolean;
+}
+
+/**
  * What one talk would do, before it is committed.
  *
  * The easiest promise in the engine to keep, by design: a talk that is accepted
@@ -832,6 +873,12 @@ export interface Encounter {
    * second copy of.
    */
   forecastTalk(unitId: bigint, targetId: bigint): TalkForecast;
+  forecastAbility(
+    casterId: bigint,
+    abilityId: bigint,
+    centre: Position,
+    affectedId: bigint
+  ): AbilityForecast;
   /**
    * Every tile the unit could occupy after one accepted move command, from
    * the engine's own traversal, the same one apply() judges a move against.
@@ -930,6 +977,14 @@ interface SimulationExports {
     attackerId: bigint,
     targetId: bigint,
     weaponId: bigint
+  ) => number;
+  readonly gl_sim_forecast_ability: (
+    handle: number,
+    casterId: bigint,
+    abilityId: bigint,
+    centreX: number,
+    centreY: number,
+    affectedId: bigint
   ) => number;
   readonly gl_sim_forecast_item: (
     handle: number,
@@ -2009,6 +2064,72 @@ class WasmEncounter implements Encounter {
     const departingId = result.readU64();
     const recordId = result.readU64();
     return { error, departingId, recordId };
+  }
+
+  forecastAbility(
+    casterId: bigint,
+    abilityId: bigint,
+    centre: Position,
+    affectedId: bigint
+  ): AbilityForecast {
+    const active = this.#live();
+    // The shape a refusal answers in, so a caller reading the numbers off a
+    // refused forecast reads zeroes rather than stale ones.
+    const refused = {
+      kind: "damage" as AbilityKind,
+      covered: false,
+      spared: false,
+      hitChance: 100,
+      damage: 0,
+      restored: 0,
+      targetHealthAfter: 0,
+      lethal: false
+    };
+    if (!representableId(casterId)) {
+      return { error: "unknown_unit", ...refused };
+    }
+    if (!representableId(abilityId)) {
+      return { error: "unknown_ability", ...refused };
+    }
+    // A zero affected id is a question about the ground alone and is legal;
+    // anything else has to be a character this battle could carry.
+    if (affectedId !== 0n && !representableId(affectedId)) {
+      return { error: "unknown_target", ...refused };
+    }
+    const written = active.exports.gl_sim_forecast_ability(
+      this.#handle,
+      casterId,
+      abilityId,
+      centre.x,
+      centre.y,
+      affectedId
+    );
+    const result = new Cursor(view(active));
+    const status = result.readU8();
+    if (written === 0 || status !== abiOk) {
+      throw new Error(
+        `The simulation could not forecast a cast (status ${status}).`
+      );
+    }
+    const error = commandErrorName(active, result.readU8());
+    const kind: AbilityKind = result.readU8() === 1 ? "restore" : "damage";
+    const covered = result.readU8() !== 0;
+    const spared = result.readU8() !== 0;
+    const hitChance = result.readU8();
+    const damage = result.readI16();
+    const restored = result.readI16();
+    const targetHealthAfter = result.readI16();
+    return {
+      error,
+      kind,
+      covered,
+      spared,
+      hitChance,
+      damage,
+      restored,
+      targetHealthAfter,
+      lethal: result.readU8() !== 0
+    };
   }
 
   forecastAttack(
