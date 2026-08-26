@@ -100,15 +100,26 @@ unit type is a kind of soldier, and this is the one soldier of that kind.
 | `commander` (Kesh, Mirea) | 14 | 4 | 6 | 3 | | | 3 | | 2 |
 | `marshal` (Vorne) | 24 | 4 | 5 | 5 | 3 | 4 | 4 | 1 | 2 |
 
-Five defence means a Guard Sword takes three off him and a Power Strike six,
-so twenty-four health has to be spent rather than burned through. Three
-resistance is the campaign's first, aimed at its own balance note: with
-nothing resisting it, magic was strictly better than steel; against the
-Marshal, Ember Bolt lands three where a Power Strike lands six. Two action
-points let him step and strike in one activation, and the Vow Glaive answers
-from two tiles as well as one, so stepping back does not solve him. He
-carries no `talk`, so no client offers a talk row and the engine refuses one
-as `not_talkable`.
+Five defence means twenty-four health has to be spent rather than burned
+through. Against him a Guard Sword takes three, a Power Strike five, an Ember
+Staff four and a Long Bow one; three resistance holds Ember Bolt to three, so
+no single thing in the guard's hands answers him and the board is a question of
+who gets to swing rather than of which swing is best.
+
+That resistance is the campaign's first, and it is aimed at a balance note:
+with nothing resisting it, magic was strictly better than steel. **The
+triangle is aimed at the same thing from the other side.** He holds a blade, so
+the mage's staff is worth a damage and fifteen points of the chance against
+him, and the archer's bow is worth that much less. An ability is not priced by
+the triangle at all — it comes out of the ability rather than out of what the
+caster is holding — so Ember Bolt lands its three whoever it is aimed at, and
+the choice between casting and swinging is a real one on this board rather than
+a habit.
+
+Two action points let him step and strike in one activation, and the Vow Glaive
+answers from two tiles as well as one, so stepping back does not solve him. He
+carries no `talk`, so no client offers a talk row and the engine refuses one as
+`not_talkable`.
 
 ## The company
 
@@ -142,6 +153,91 @@ everybody has is a class:
 The Dawn Levy is a `knight` carrying a **Boat Hook**: the only weapon in the
 guard's hands that strikes a tile away and a tile beyond it, and the reason
 beyond the story to take the road that brings it.
+
+### What an ability is worth
+
+A physical ability is priced by **its own power alone**, `max(1, power −
+defence)`; a weapon adds the arm swinging it, `strength + power − defence`. That
+asymmetry is deliberate in the engine and is argued at `ability_damage`: a
+physical ability priced by strength would be a swing under another name, with
+the authored number meaning "how much better than your sword this is" rather
+than "what this does".
+
+**This campaign's numbers were written as though it did add strength, and every
+physical ability was therefore worse than the wielder's own basic attack against
+every target in the game.** Power Strike took three off an armoured knight where
+the sword that knight was already holding took five, and its own description
+claimed it was the hardest blow in the guard's book. Volley was never worth
+taking over a plain bow shot. Iron Vow, the swing the Marshal's order is named
+after, took two off a guard knight where the Vow Glaive took six.
+
+They are re-authored against the formula the engine actually applies:
+
+| Ability | Who | Power | Chance | Against `def 3` | The same wielder's basic attack |
+|---|---|---|---|---|---|
+| Power Strike | `knight` | 10 | 85% | 7 | 5 |
+| Volley | `archer` | 8 | 80% | 5 | 3 |
+| Rallying Blow | `commander` | 11 | 85% | 8 | 6 |
+| Iron Vow | `marshal` | 12 | 80% | 9 | 6 |
+
+Each is now two more than the basic attack it competes with, bought with the
+swings it misses, and **an ability provokes no counterattack**, which is the
+other half of what those misses buy. That is the trade a player is choosing
+between, and it is a trade rather than a trap.
+
+Two consequences worth stating because they are not obvious. A physical ability
+does **not** grow as its wielder does, so a knight who gains strength swings
+harder and Power-Strikes exactly as hard as before; against a heavily armoured
+target the ability pulls further ahead, because the fixed power is spent against
+the same defence the smaller weapon number is. And `rally` is a damaging blow
+rather than a banner, renamed **Rallying Blow** to stop the name promising a
+rule this engine does not have: nothing here buffs anybody.
+
+## The triangle
+
+Four kinds of weapon, and a ring rather than a strict triangle, because this
+campaign fields four kinds and not three:
+
+```text
+    blade ──beats──▶ bow ──beats──▶ staff ──beats──▶ blade
+                       └──beats──▶ sigil ──beats──▶ blade
+```
+
+`weaponAdvantage` is **one damage and fifteen points of the chance**, stated
+once for the whole game, which is the point of a triangle: a player can hold
+the whole rule in their head before they commit. Holding the better weapon is
+worth that much, and striking into it costs exactly as much, so the swing
+between the two ends of one edge is two damage and thirty points.
+
+At this campaign's scale that is a real number without being the only number. A
+blade meeting a bow takes six where the same blade meeting a blade takes five;
+a bow answering a blade takes three at three-quarters where it would otherwise
+take four at nine-tenths.
+
+What each edge is for:
+
+- **blade beats bow.** Steel closes. An archer caught at arm's length is
+  holding the wrong thing, which is already true of the reach bands and is now
+  true of the numbers as well.
+- **bow beats staff and sigil.** An arrow reaches a caster before a caster
+  reaches back and there is nothing under the robe to stop it. Both kinds of
+  casting, because which side is doing it changes nothing about how soft it is:
+  the Coil's archers are the reason the guard's mage needs screening, and the
+  guard's archer is the answer to the Coil's stormcaller.
+- **staff and sigil beat blade.** Fire does not care how much of it you are
+  wearing. It is why the mage earns a place on the ford, and why the Coil's
+  stormcaller is the placement on that board worth walking around.
+
+**A cast is not priced by it.** An ability's damage comes out of the ability
+and the caster's own magic, not out of what is in either hand, so Ember Bolt
+lands the same three against the Marshal whatever anybody is holding. That is
+the trade the triangle creates rather than an omission: swinging is worth more
+when the pair is right and worth less when it is wrong, and casting is worth
+the same either way.
+
+Every kind here already existed and every weapon already named one. What the
+triangle added is the four `strongAgainst` lists and the one pair of numbers
+that prices them, which is sixty-four bytes of compiled package.
 
 ## What the boards are shaped by
 

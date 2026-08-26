@@ -22,9 +22,12 @@ const demoSource = resolve(process.cwd(), "../games/demo/source/project.json");
 // the campaign's seventeen scenes is worth about four hundred bytes of the
 // total below, and widening the Fordlight from ten columns to thirty-two is
 // worth about seventeen hundred more, because a map's terrain is a byte a cell.
+// Drawing the weapon triangle over the four kinds the campaign already had is
+// worth the last sixty-four: four kinds' worth of edges, and the one pair of
+// numbers the whole game prices an edge with.
 // The host and WebAssembly compilers agree on it either way.
-const tarnholtPackageBytes = 20604;
-const tarnholtPackageMd5 = "fde8a938004552ab76c91c43ae79c29d";
+const tarnholtPackageBytes = 20668;
+const tarnholtPackageMd5 = "09c49b89324338fae8d7c8143591a65a";
 
 beforeAll(async () => {
   await initEncounterEngine();

@@ -5,23 +5,44 @@
   "title": "The Tarnholt Line",
   "contentRevision": "0.2.0",
   "defaultTurnOrder": "sideBlocks",
+  "weaponAdvantage": {
+    "damage": 1,
+    "accuracy": 15
+  },
   "notes": "A six-map campaign with a branch that reconverges, a survive-rounds middle, and a final boss. Exercises the whole authoring vocabulary: a starting store, item grants, recruits, deployment regions and a capacity, member specificities, the talk gesture and the world flag it raises, and recurring waves that come at the player. See games/tarnholt/README.md.\n\nEvery battle runs in side blocks: the whole guard acts, then the whole Coil. It is set here rather than on each board because it is a fact about how this game plays and not about any one map, and because a company of seven that had to hand the turn back after every single step would read as a broken board rather than as a rule. No board overrides it.",
   "weaponTypes": [
     {
       "id": "blade",
-      "name": "Blade"
+      "name": "Blade",
+      "strongAgainst": [
+        "bow"
+      ],
+      "notes": "Steel closes. An archer caught at arm's length is holding the wrong thing, which is the whole reason a knight walks at one."
     },
     {
       "id": "bow",
-      "name": "Bow"
+      "name": "Bow",
+      "strongAgainst": [
+        "staff",
+        "sigil"
+      ],
+      "notes": "An arrow reaches a caster before a caster reaches back, and there is nothing under the robe to stop it. It answers both kinds of casting, because which side is doing it changes nothing about how soft it is."
     },
     {
       "id": "staff",
-      "name": "Staff"
+      "name": "Staff",
+      "strongAgainst": [
+        "blade"
+      ],
+      "notes": "Fire does not care how much of it you are wearing. This is the guard's answer to an armoured line and the reason the mage earns a place on the ford."
     },
     {
       "id": "sigil",
-      "name": "Sigil"
+      "name": "Sigil",
+      "strongAgainst": [
+        "blade"
+      ],
+      "notes": "The same answer in the Coil's hands. A rule a player learns from one side of the field has to mean the same thing from the other, or it is not a rule, it is a surprise."
     }
   ],
   "itemTypes": [
@@ -246,11 +267,11 @@
       "kind": "damage",
       "damageType": "physical",
       "areaShape": "single",
-      "power": 6,
+      "power": 10,
       "minimumRange": 1,
       "maximumRange": 1,
       "accuracy": 85,
-      "notes": "The knight winds up: the hardest single blow in the guard's book, and the one most likely to hit nothing at all. Six damage against a sword's three, bought at fifteen swings in a hundred."
+      "notes": "The knight winds up. It takes two more off an armoured line than the same knight's sword does, and it is answered by nobody: an ability provokes no counterattack, so this is the blow to spend when the thing in front of you can hit back. The fifteen swings in a hundred it misses are what both of those are bought with. Note that a physical ability is priced by its own power alone, where a sword adds the arm swinging it, so this does not grow as the knight does."
     },
     {
       "id": "volley",
@@ -258,9 +279,11 @@
       "kind": "damage",
       "damageType": "physical",
       "areaShape": "single",
-      "power": 5,
+      "power": 8,
       "minimumRange": 2,
-      "maximumRange": 3
+      "maximumRange": 3,
+      "accuracy": 80,
+      "notes": "The archer's heavy shot, and the one that cares about armour. A bow adds the archer's own arm to a light head and this does not, so the two are close against somebody wearing nothing and a long way apart against a shield wall: two more than the bow at every defence, which is a fifth more against leather and three times as much against plate. The band is the bow's, so nothing inside it answers either shot."
     },
     {
       "id": "ember_bolt",
@@ -308,13 +331,15 @@
     },
     {
       "id": "rally",
-      "name": "Rally",
+      "name": "Rallying Blow",
       "kind": "damage",
       "damageType": "physical",
       "areaShape": "single",
-      "power": 4,
+      "power": 11,
       "minimumRange": 1,
-      "maximumRange": 1
+      "maximumRange": 1,
+      "accuracy": 85,
+      "notes": "What a captain does when the line needs it done now: two more than their own sword takes, with nothing striking back. Named for the moment rather than for a rule, and it is a blow rather than a banner. Nothing in this engine buffs anybody."
     },
     {
       "id": "iron_vow",
@@ -322,11 +347,11 @@
       "kind": "damage",
       "damageType": "physical",
       "areaShape": "single",
-      "power": 5,
+      "power": 12,
       "minimumRange": 1,
       "maximumRange": 1,
       "accuracy": 80,
-      "notes": "What the Marshal's whole order is named after, and the one swing on the last board that takes a knight from whole to nearly gone. Eighty in a hundred is the trade: the Iron Vow is the reason to fight him at reach and the reason a healer is worth a place in the gate."
+      "notes": "What the Marshal's whole order is named after, and the one swing on the last board that takes a knight from whole to nearly gone: nine off a guard knight where the Vow Glaive takes six. Eighty in a hundred is the trade, and it is the reason to fight him at reach and the reason a healer is worth a place in the gate."
     }
   ],
   "objectives": [
@@ -533,7 +558,7 @@
         },
         {
           "speaker": "Runner",
-          "text": "Teller. Bram. The archer from Southmead \u2014 I never learned hers."
+          "text": "Teller. Bram. The archer from Southmead — I never learned hers."
         },
         {
           "speaker": "Captain Mirea",
@@ -2040,7 +2065,7 @@
             "dialogueIds": [
               "muster_lines"
             ],
-            "notes": "The guard musters in the dark. Everyone has heard what the Coil did at Harrow: they did not take the granaries, they burned them. The mage repeats the rumour that a Warden runs the Coil now \u2014 one who counts his dead and keeps coming. Mirea sets the shape of the fight to come: hold the ford, bows behind the water.",
+            "notes": "The guard musters in the dark. Everyone has heard what the Coil did at Harrow: they did not take the granaries, they burned them. The mage repeats the rumour that a Warden runs the Coil now — one who counts his dead and keeps coming. Mirea sets the shape of the fight to come: hold the ford, bows behind the water.",
             "transitions": [
               {
                 "id": "muster_to_ford",
@@ -2762,7 +2787,7 @@
             "dialogueIds": [
               "climb_lines"
             ],
-            "notes": "The road climbs out of the valley into snow, with marsh on both shoulders \u2014 the fast way in and the bad way out. The Watch can see the whole approach, and Mirea does not care. Let Kesh count them coming.",
+            "notes": "The road climbs out of the valley into snow, with marsh on both shoulders — the fast way in and the bad way out. The Watch can see the whole approach, and Mirea does not care. Let Kesh count them coming.",
             "transitions": [
               {
                 "id": "climb_to_watch",
@@ -2906,7 +2931,7 @@
             "dialogueIds": [
               "tower_taken_lines"
             ],
-            "notes": "The tower is taken. What was left of the Coil went north over the snow, and Mirea lets them go \u2014 winter will do her chasing. Kesh is by the stair. He did not run.",
+            "notes": "The tower is taken. What was left of the Coil went north over the snow, and Mirea lets them go — winter will do her chasing. Kesh is by the stair. He did not run.",
             "transitions": [
               {
                 "id": "watch_falls_to_orders",
