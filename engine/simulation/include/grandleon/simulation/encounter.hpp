@@ -1727,6 +1727,35 @@ struct TalkForecast final {
     const std::vector<AbilityDefinition>& abilities
 );
 
+// The same warning, asked only about the tiles a caller already has in hand.
+//
+// **This is the shape a board being played actually needs.** A client lights
+// where a character may walk and shades which of those tiles would be dangerous
+// to stand on. That is the reach set: a couple of dozen tiles. Asked through
+// the overload above it computed a warning about every cell of the board, from
+// every character on the opposing side, and kept two dozen of it.
+//
+// The answer is exactly the overload above narrowed to `among`, and it is
+// reached by not doing the work rather than by doing less of it. No cell costs
+// less than one to enter, so a stance a character can afford is at most its
+// allowance away in a straight line and a strike from there reaches at most its
+// widest band further; a character with no tile of `among` inside allowance plus
+// band cannot threaten one, whatever the ground does, and is skipped before its
+// movement search. On a board where the opposition is spread out, that is most
+// of them.
+//
+// `among` is the caller's own set and needs no order or uniqueness. An empty one
+// answers empty, and a tile off the board is ignored rather than refused: this
+// is a filter, not a gate. The result is row-major, like every other tile list
+// this engine returns.
+[[nodiscard]] std::vector<Position> danger_tiles(
+    const EncounterSnapshot& snapshot,
+    Side side,
+    const std::vector<WeaponDefinition>& weapons,
+    const std::vector<AbilityDefinition>& abilities,
+    const std::vector<Position>& among
+);
+
 // Which gesture a character took out of its menu and is now pointing at the
 // board.
 //

@@ -3400,6 +3400,125 @@ std::uint8_t stance_allowance(
     return unit.movement;
 }
 
+// One character's whole contribution to a warning: where it could be standing,
+// and what each thing it carries covers from there.
+//
+// Factored out because two overloads make it. The one that answers about the
+// whole board and the one that answers about a caller's own tiles differ in
+// which characters they bother asking, and in nothing else; a second copy of
+// the sweep would be a second answer to what an archer threatens.
+void sweep_threat(
+    const EncounterSnapshot& snapshot,
+    const UnitSnapshot& unit,
+    std::uint8_t allowance,
+    const std::vector<WeaponDefinition>& weapons,
+    const std::vector<AbilityDefinition>& abilities,
+    MovementScratch& scratch,
+    std::vector<std::uint8_t>& threatened
+) {
+    fill_movement_field(
+        snapshot, unit.position, allowance, unit.crossings, unit.side, scratch
+    );
+    const std::vector<std::uint32_t>& stances = scratch.spent;
+    // Bare-handed, or carrying only identities this caller cannot resolve, the
+    // unit still threatens the band it snapshots with.
+    bool any_weapon = false;
+    for (const ContentId id : unit.weapon_ids) {
+        const WeaponDefinition* weapon = find_weapon(weapons, id);
+        if (weapon == nullptr) continue;
+        any_weapon = true;
+        // Widened by the unit's own bonus, exactly as the strike this tile is a
+        // warning about would be. A danger overlay that drew the authored band
+        // would understate the archer it is warning about.
+        mark_threatened_band(
+            snapshot, stances, weapon->minimum_reach,
+            widened_reach(weapon->maximum_reach, unit.reach_bonus), threatened
+        );
+    }
+    if (!any_weapon) {
+        mark_threatened_band(
+            snapshot, stances, unit.minimum_reach, unit.maximum_reach,
+            threatened
+        );
+    }
+    for (const ContentId id : unit.ability_ids) {
+        const AbilityDefinition* ability = find_ability(abilities, id);
+        if (ability == nullptr) continue;
+        // Restoring is not a danger, whatever it can reach.
+        if (ability->kind != AbilityKind::damage) continue;
+        const std::uint8_t spill = area_spill(ability->area, ability->radius);
+        const auto minimum = static_cast<std::uint8_t>(
+            ability->minimum_reach > spill ? ability->minimum_reach - spill : 0U
+        );
+        const auto maximum = static_cast<std::uint8_t>(std::min<int>(
+            255, static_cast<int>(ability->maximum_reach) + spill
+        ));
+        mark_threatened_band(snapshot, stances, minimum, maximum, threatened);
+    }
+}
+
+// The widest band any of a character's own strikes or damaging casts covers.
+//
+// A ceiling rather than an answer: it is what the sweep below would mark at
+// most, and it is used only to decide whether a character can be skipped
+// without sweeping at all. Overstating it costs a sweep that finds nothing;
+// understating it would drop a warning, so every term errs upward.
+[[nodiscard]] std::uint8_t widest_threat(
+    const UnitSnapshot& unit,
+    const std::vector<WeaponDefinition>& weapons,
+    const std::vector<AbilityDefinition>& abilities
+) noexcept {
+    std::uint8_t widest = 0U;
+    bool any_weapon = false;
+    for (const ContentId id : unit.weapon_ids) {
+        const WeaponDefinition* weapon = find_weapon(weapons, id);
+        if (weapon == nullptr) continue;
+        any_weapon = true;
+        widest = std::max(
+            widest, widened_reach(weapon->maximum_reach, unit.reach_bonus)
+        );
+    }
+    if (!any_weapon) widest = std::max(widest, unit.maximum_reach);
+    for (const ContentId id : unit.ability_ids) {
+        const AbilityDefinition* ability = find_ability(abilities, id);
+        if (ability == nullptr) continue;
+        if (ability->kind != AbilityKind::damage) continue;
+        const std::uint8_t spill = area_spill(ability->area, ability->radius);
+        widest = std::max(widest, static_cast<std::uint8_t>(std::min<int>(
+            255, static_cast<int>(ability->maximum_reach) + spill
+        )));
+    }
+    return widest;
+}
+
+// Whether this character could threaten any tile of `among`, decided without
+// searching the board.
+//
+// **The bound is exact and it is why this is sound.** No cell costs less than
+// one to enter, so a stance this character can afford is at most its allowance
+// away in a straight line; a strike from that stance reaches at most its widest
+// band further. So a tile further than allowance plus band from where the
+// character stands cannot be threatened, whatever the ground does. A character
+// with nothing within that of `among` is skipped whole: no movement search, no
+// band sweep.
+//
+// It answers true where it is unsure, which is the only direction it may be
+// wrong in: a needless sweep costs time, and a skipped one would lose a warning
+// the board has promised.
+[[nodiscard]] bool could_reach_any(
+    const UnitSnapshot& unit,
+    std::uint8_t allowance,
+    std::uint8_t widest,
+    const std::vector<Position>& among
+) noexcept {
+    const std::uint32_t span =
+        static_cast<std::uint32_t>(allowance) + static_cast<std::uint32_t>(widest);
+    for (const Position tile : among) {
+        if (distance(unit.position, tile) <= span) return true;
+    }
+    return false;
+}
+
 std::vector<Position> collect_threatened(
     const EncounterSnapshot& snapshot,
     const std::vector<std::uint8_t>& threatened
@@ -3492,52 +3611,70 @@ std::vector<Position> danger_tiles(
         if (unit.side != side || !on_board(unit)) continue;
         const std::uint8_t points = coming_action_points(snapshot, unit);
         if (points == 0U) continue;
-        fill_movement_field(
-            snapshot, unit.position, stance_allowance(unit, points),
-            unit.crossings, unit.side, scratch
+        sweep_threat(
+            snapshot, unit, stance_allowance(unit, points), weapons, abilities,
+            scratch, threatened
         );
-        const std::vector<std::uint32_t>& stances = scratch.spent;
-        // Bare-handed, or carrying only identities this caller cannot
-        // resolve, the unit still threatens the band it snapshots with.
-        bool any_weapon = false;
-        for (const ContentId id : unit.weapon_ids) {
-            const WeaponDefinition* weapon = find_weapon(weapons, id);
-            if (weapon == nullptr) continue;
-            any_weapon = true;
-            // Widened by the unit's own bonus, exactly as the strike this tile
-            // is a warning about would be. A danger overlay that drew the
-            // authored band would understate the archer it is warning about.
-            mark_threatened_band(
-                snapshot, stances, weapon->minimum_reach,
-                widened_reach(weapon->maximum_reach, unit.reach_bonus),
-                threatened
-            );
-        }
-        if (!any_weapon) {
-            mark_threatened_band(
-                snapshot, stances, unit.minimum_reach, unit.maximum_reach,
-                threatened
-            );
-        }
-        for (const ContentId id : unit.ability_ids) {
-            const AbilityDefinition* ability = find_ability(abilities, id);
-            if (ability == nullptr) continue;
-            // Restoring is not a danger, whatever it can reach.
-            if (ability->kind != AbilityKind::damage) continue;
-            const std::uint8_t spill =
-                area_spill(ability->area, ability->radius);
-            const auto minimum = static_cast<std::uint8_t>(
-                ability->minimum_reach > spill
-                    ? ability->minimum_reach - spill
-                    : 0U
-            );
-            const auto maximum = static_cast<std::uint8_t>(std::min<int>(
-                255, static_cast<int>(ability->maximum_reach) + spill
-            ));
-            mark_threatened_band(
-                snapshot, stances, minimum, maximum, threatened
-            );
-        }
+    }
+    return collect_threatened(snapshot, threatened);
+}
+
+// The same warning, asked only about the tiles a caller has in hand.
+//
+// **The caller that needs this is the board being played.** A client lights the
+// tiles a character may walk to and shades the ones that would be dangerous to
+// stand on, which is the reach set and nothing else: a couple of dozen tiles.
+// Asked for the whole zone it computed a warning about every cell of the board,
+// from every character on the other side, and then threw all but those two
+// dozen away. On a board of ninety opponents that is ninety movement searches
+// to answer a question about twenty tiles.
+//
+// The answer is identical to the full sweep narrowed to `among`, and it is
+// reached by not doing the work rather than by doing less of it: a character
+// whose allowance and widest band together cannot span the gap to the nearest
+// tile of `among` is skipped before its movement search, because no ground can
+// make a walk shorter than a straight line. Everything else is swept exactly as
+// before.
+//
+// `among` is a caller's own set and needs no order; the result is row-major
+// like every other tile list this engine returns.
+std::vector<Position> danger_tiles(
+    const EncounterSnapshot& snapshot,
+    Side side,
+    const std::vector<WeaponDefinition>& weapons,
+    const std::vector<AbilityDefinition>& abilities,
+    const std::vector<Position>& among
+) {
+    if (snapshot.width == 0 || snapshot.height == 0) return {};
+    if (among.empty()) return {};
+    const std::size_t cells =
+        static_cast<std::size_t>(snapshot.width) * snapshot.height;
+    std::vector<std::uint8_t> wanted(cells, 0U);
+    for (const Position tile : among) {
+        if (!in_bounds(tile, snapshot.width, snapshot.height)) continue;
+        wanted[static_cast<std::size_t>(tile.y) * snapshot.width +
+               static_cast<std::size_t>(tile.x)] = 1U;
+    }
+    std::vector<std::uint8_t> threatened(cells, 0U);
+    MovementScratch scratch;
+
+    for (const UnitSnapshot& unit : snapshot.units) {
+        if (unit.side != side || !on_board(unit)) continue;
+        const std::uint8_t points = coming_action_points(snapshot, unit);
+        if (points == 0U) continue;
+        const std::uint8_t allowance = stance_allowance(unit, points);
+        const std::uint8_t widest = widest_threat(unit, weapons, abilities);
+        if (!could_reach_any(unit, allowance, widest, among)) continue;
+        sweep_threat(
+            snapshot, unit, allowance, weapons, abilities, scratch, threatened
+        );
+    }
+
+    // Kept to what was asked about. The sweep marks a board-sized grid because
+    // that is the shape a band is swept into; this is where it becomes the
+    // caller's question.
+    for (std::size_t slot = 0; slot < cells; ++slot) {
+        if (wanted[slot] == 0U) threatened[slot] = 0U;
     }
     return collect_threatened(snapshot, threatened);
 }

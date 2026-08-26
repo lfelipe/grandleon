@@ -1626,6 +1626,152 @@ void a_malformed_weapon_triangle_is_refused() {
     );
 }
 
+// The narrowed warning is the whole warning, kept to what was asked about.
+//
+// It exists to skip characters without searching the board, so the thing worth
+// pinning is that skipping changes no answer. Asked about every tile of the
+// board it must equal the full sweep exactly; asked about a handful it must
+// equal that sweep intersected with the handful, character by character and
+// board by board.
+void a_narrowed_danger_zone_is_the_zone_it_narrows() {
+    // A board wide enough that most of the opposition is out of reach of any
+    // one corner, which is the case the skip is for.
+    sim::EncounterDefinition definition;
+    definition.width = 24;
+    definition.height = 12;
+    definition.weapons = {{501, 3, 1, 1, 100, 0}, {502, 2, 2, 3, 90, 0}};
+    sim::AbilityDefinition blast;
+    blast.id = 601;
+    blast.kind = sim::AbilityKind::damage;
+    blast.area = sim::AreaShape::diamond;
+    blast.radius = 2;
+    blast.power = 4;
+    blast.minimum_reach = 1;
+    blast.maximum_reach = 3;
+    definition.abilities = {blast};
+
+    // One of ours in a corner, and a line of theirs spread across the board so
+    // that some are plainly in range of it and most are plainly not.
+    sim::UnitDefinition mine;
+    mine.id = 1;
+    mine.unit_type_id = 1;
+    mine.side = sim::Side::first;
+    mine.position = {1, 1};
+    mine.health = 20;
+    mine.strength = 4;
+    mine.movement = 3;
+    mine.action_points = 2;
+    mine.weapon_ids = {501};
+    definition.units.push_back(mine);
+
+    for (int index = 0; index < 11; ++index) {
+        sim::UnitDefinition theirs;
+        theirs.id = static_cast<sim::UnitId>(10 + index);
+        theirs.unit_type_id = 2;
+        theirs.side = sim::Side::second;
+        theirs.position = {
+            static_cast<std::int16_t>(2 + index * 2),
+            static_cast<std::int16_t>(3 + (index % 6))
+        };
+        theirs.health = 12;
+        theirs.strength = 4;
+        theirs.movement = static_cast<std::uint8_t>(2 + (index % 3));
+        theirs.action_points = 2;
+        // A mixture, so the widest-band ceiling has to consider all three
+        // sources: a sword, a bow, and a character who also knows a blast.
+        theirs.weapon_ids = (index % 2) == 0 ? std::vector<sim::ContentId>{501}
+                                             : std::vector<sim::ContentId>{502};
+        if (index % 3 == 0) theirs.ability_ids = {601};
+        definition.units.push_back(theirs);
+    }
+
+    auto created = sim::create_encounter(definition);
+    expect(static_cast<bool>(created), "the crowded board is valid content");
+    if (!created) return;
+    const auto snapshot = created.encounter.snapshot();
+    const auto& weapons = created.encounter.weapons();
+    const auto& abilities = created.encounter.abilities();
+
+    const std::vector<sim::Position> whole =
+        sim::danger_tiles(snapshot, sim::Side::second, weapons, abilities);
+    expect(!whole.empty(), "the opposing side threatens something");
+
+    // Asked about the whole board, the narrowed answer is the whole answer.
+    std::vector<sim::Position> every_tile;
+    for (std::uint16_t y = 0; y < snapshot.height; ++y) {
+        for (std::uint16_t x = 0; x < snapshot.width; ++x) {
+            every_tile.push_back(
+                {static_cast<std::int16_t>(x), static_cast<std::int16_t>(y)}
+            );
+        }
+    }
+    expect(
+        sim::danger_tiles(
+            snapshot, sim::Side::second, weapons, abilities, every_tile
+        ) == whole,
+        "asked about every tile, the narrowed warning is the whole warning"
+    );
+
+    // And asked about any subset, it is that warning intersected with it. Swept
+    // over every tile of the board one at a time, so the claim is checked at a
+    // tile the skip keeps as well as at every tile it drops.
+    const auto threatens = [&whole](sim::Position tile) {
+        for (const sim::Position& marked : whole) {
+            if (marked == tile) return true;
+        }
+        return false;
+    };
+    int checked = 0;
+    for (const sim::Position tile : every_tile) {
+        const std::vector<sim::Position> asked{tile};
+        const auto narrowed = sim::danger_tiles(
+            snapshot, sim::Side::second, weapons, abilities, asked
+        );
+        const bool expected = threatens(tile);
+        if (narrowed.size() != (expected ? 1U : 0U)) {
+            expect(false, "one tile's warning disagrees with the whole board's");
+            return;
+        }
+        if (expected && !(narrowed.front() == tile)) {
+            expect(false, "the narrowed warning named a tile nobody asked about");
+            return;
+        }
+        ++checked;
+    }
+    expect(
+        checked == static_cast<int>(every_tile.size()),
+        "every tile of the board was compared against the full sweep"
+    );
+
+    // The reach set is the caller this exists for, so it is checked as one.
+    const auto reach = sim::reachable_tiles(snapshot, 1);
+    expect(!reach.empty(), "our character can go somewhere");
+    std::vector<sim::Position> expected_reach;
+    for (const sim::Position tile : reach) {
+        if (threatens(tile)) expected_reach.push_back(tile);
+    }
+    expect(
+        sim::danger_tiles(
+            snapshot, sim::Side::second, weapons, abilities, reach
+        ) == expected_reach,
+        "and a character's own reach narrows exactly as the client narrows it"
+    );
+
+    // Two edges the filter has to take rather than refuse.
+    expect(
+        sim::danger_tiles(snapshot, sim::Side::second, weapons, abilities, {})
+            .empty(),
+        "asked about nothing, it answers nothing"
+    );
+    const std::vector<sim::Position> off_board{{-1, -1}, {99, 99}};
+    expect(
+        sim::danger_tiles(
+            snapshot, sim::Side::second, weapons, abilities, off_board
+        ).empty(),
+        "a tile off the board is ignored rather than refused"
+    );
+}
+
 void weapon_power_joins_the_attack_formula() {
     // strength 4 + power 3 - defense 5 = 2: power is added to strength, and a
     // powerless weapon leaves the v0 formula untouched.
@@ -6918,6 +7064,7 @@ int main() {
     weapon_power_joins_the_attack_formula();
     the_better_weapon_is_worth_the_advantage();
     a_malformed_weapon_triangle_is_refused();
+    a_narrowed_danger_zone_is_the_zone_it_narrows();
     caps_board_area();
     has_acted_is_false_under_alternating_order();
     has_acted_tracks_rounds_under_ordered_turns();

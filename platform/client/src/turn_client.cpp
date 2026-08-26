@@ -96,24 +96,6 @@ void release(std::vector<sim::Position>& tiles) {
     tiles.swap(empty);
 }
 
-void keep_only_reachable(
-    std::vector<sim::Position>& threat,
-    const std::vector<sim::Position>& reach
-) {
-    std::size_t kept = 0;
-    for (std::size_t i = 0; i < threat.size(); ++i) {
-        bool within = false;
-        for (const sim::Position& tile : reach) {
-            if (tile == threat[i]) {
-                within = true;
-                break;
-            }
-        }
-        if (within) threat[kept++] = threat[i];
-    }
-    threat.resize(kept);
-}
-
 // One line into a fixed buffer, truncated rather than overrunning. Three sites
 // wrote this loop out; the fourth is what turned it into a function.
 void copy_line(char* out, std::size_t capacity, const char* text) noexcept {
@@ -1400,10 +1382,12 @@ void TurnClient::refresh_queries(const sim::EncounterSnapshot& snapshot) {
                                                 ? sim::Side::second
                                                 : sim::Side::first;
         release(danger_);
+        // Asked about the tiles under the marker rather than about the board:
+        // the region is what a warning here is about, and the engine skips
+        // every character too far from it to matter.
         danger_ = sim::danger_tiles(
-            snapshot, arranging_against, weapons_, abilities_
+            snapshot, arranging_against, weapons_, abilities_, moves_
         );
-        keep_only_reachable(danger_, moves_);
         queried_for_ = 0;
         queried_at_ = ~std::uint64_t{0};
         queried_aim_ = Aim::none;
@@ -1431,9 +1415,13 @@ void TurnClient::refresh_queries(const sim::EncounterSnapshot& snapshot) {
                 const sim::Side opposing = player_side_ == sim::Side::first
                                                ? sim::Side::second
                                                : sim::Side::first;
-                danger_ =
-                    sim::danger_tiles(snapshot, opposing, weapons_, abilities_);
-                keep_only_reachable(danger_, moves_);
+                // The lit tiles are the whole of what this wash is about, so
+                // they are what the engine is asked about. It used to answer
+                // for every cell of the board, from every character on the
+                // opposing side, and this line kept two dozen of it.
+                danger_ = sim::danger_tiles(
+                    snapshot, opposing, weapons_, abilities_, moves_
+                );
             }
             queried_for_ = selected_;
             queried_at_ = snapshot.activation_count;
