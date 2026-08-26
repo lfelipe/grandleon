@@ -8693,15 +8693,20 @@ int main() {
     // this console refuses it.
     //
     // **Measured on this machine's own clock rather than chosen.** The `cost`
-    // line below reports what the queries a single press triggers actually take
-    // here; run over one board with only the character count varied, that comes
-    // out at 6.7 ms for twenty characters, 35.5 ms for forty-eight, and 489.8 ms
-    // for a hundred and eight. A press that answers inside two frames is a board
-    // that plays; half a second is a machine that reads as broken.
+    // line below reports what the queries a single press actually trigger.
+    //
+    // The number is taken from the worst case, which is a board whose sides are
+    // engaged: the warning skips a character too far from the lit tiles to
+    // threaten one, so an opposition standing off costs almost nothing however
+    // many of them there are. Packed around a line with room to walk, one press
+    // costs 9.5 ms at twenty characters, 28.2 ms at thirty-two and 34.5 ms at
+    // forty-eight. A press that answers inside two frames is a board that
+    // plays; the 98-character board that prompted all this loaded, opened, and
+    // would not take a press at all.
     //
     // Forty-eight is the last measured point still inside two frames, and it is
     // four times the largest board either shipped game fields, so it refuses
-    // nothing anybody has written. The full table and the reasoning are at
+    // nothing anybody has written. The reasoning is at
     // `package_format::LoadOptions::maximum_units_per_encounter`.
     //
     // It is a number about this console and it is stated here, beside the load
@@ -8787,34 +8792,47 @@ int main() {
                     ? sim::Side::second
                     : sim::Side::first;
 
+            // Exactly the pair of queries picking a character up triggers, in
+            // the order `refresh_queries` triggers them: where this character
+            // may walk, and which of *those* tiles the other side threatens.
+            //
+            // The reach first, because the warning is asked about its answer.
+            // Timing the whole-board warning instead would be timing a query
+            // the board being played does not make: the overlay is asked about
+            // the lit tiles, and the engine skips every character too far from
+            // them to matter.
+            sim::UnitId chosen = 0;
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (!sim::on_board(unit) || unit.side != snapshot.active_side) {
+                    continue;
+                }
+                chosen = unit.id;
+                break;
+            }
+            const std::uint32_t before_reach = TICKS_READ();
+            const std::vector<sim::Position> reach =
+                sim::reachable_tiles(snapshot, chosen);
+            const std::uint32_t reach_ticks =
+                TICKS_DISTANCE(before_reach, TICKS_READ());
+
             const std::uint32_t before_danger = TICKS_READ();
             const std::vector<sim::Position> zone = sim::danger_tiles(
                 snapshot, opposing, opening.encounter.weapons(),
-                opening.encounter.abilities()
+                opening.encounter.abilities(), reach
             );
             const std::uint32_t danger_ticks =
                 TICKS_DISTANCE(before_danger, TICKS_READ());
 
-            // The other half of what one press asks for, so the pair adds up to
-            // what selecting a character costs.
-            std::uint32_t reach_ticks = 0;
-            for (const sim::UnitSnapshot& unit : snapshot.units) {
-                if (!sim::on_board(unit)) continue;
-                const std::uint32_t before = TICKS_READ();
-                const std::vector<sim::Position> tiles =
-                    sim::reachable_tiles(snapshot, unit.id);
-                reach_ticks += TICKS_DISTANCE(before, TICKS_READ());
-                static_cast<void>(tiles.size());
-                break;
-            }
             report_line(
-                "cost characters=%u board=%ux%u danger=%uus reach=%uus "
-                "threatened=%u\n",
+                "cost characters=%u board=%ux%u lit=%u reach=%uus "
+                "danger=%uus press=%uus threatened=%u\n",
                 static_cast<unsigned>(characters),
                 static_cast<unsigned>(snapshot.width),
                 static_cast<unsigned>(snapshot.height),
-                static_cast<unsigned>(TIMER_MICROS(danger_ticks)),
+                static_cast<unsigned>(reach.size()),
                 static_cast<unsigned>(TIMER_MICROS(reach_ticks)),
+                static_cast<unsigned>(TIMER_MICROS(danger_ticks)),
+                static_cast<unsigned>(TIMER_MICROS(reach_ticks + danger_ticks)),
                 static_cast<unsigned>(zone.size())
             );
         }

@@ -93,16 +93,19 @@ export interface TargetBudget {
  * asset set measures 14% of base RAM.
  *
  * Its **characters per Stage** is measured on the machine's own clock, through
- * COP0's count register under the pinned emulator, over one board with nothing
- * varied but the number of characters standing on it:
+ * COP0's count register under the pinned emulator, timing the pair of queries
+ * picking a character up triggers.
  *
- *     characters   danger overlay   frames at 60Hz
- *         20            6.7 ms           0.4
- *         32           19.0 ms           1.1
- *         48           35.5 ms           2.1
- *         68          115.9 ms           7.0
- *         88          276.0 ms          16.5
- *        108          489.8 ms          29.4
+ * Set from the worst case, which is a Stage whose two sides are engaged: the
+ * danger overlay skips a character too far from the lit tiles to threaten one,
+ * so an opposition standing off costs almost nothing however many of them there
+ * are. Packed around a line that still has room to walk, on one 20x14 board with
+ * only the character count varied:
+ *
+ *     characters   per press   frames at 60Hz
+ *         20          9.5 ms        0.6
+ *         32         28.2 ms        1.7
+ *         48         34.5 ms        2.1
  *
  * Forty-eight is the last measured point still inside two frames. It is the
  * same number `platform/nintendo64/src/play_rom.cpp` declares to the loader,

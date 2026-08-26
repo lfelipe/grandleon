@@ -220,22 +220,28 @@ struct LoadOptions final {
     // standing on the board.
     //
     // Measured on Nintendo 64 hardware timing, through the console's own COP0
-    // clock under the pinned emulator, on one 20x14 board with only the
-    // character count varied:
+    // clock under the pinned emulator, timing the pair of queries picking a
+    // character up actually triggers: where it may walk, and which of those
+    // tiles the other side threatens.
     //
-    //     characters   danger_tiles   frames at 60Hz
-    //         20           6.7 ms          0.4
-    //         32          19.0 ms          1.1
-    //         48          35.5 ms          2.1
-    //         68         115.9 ms          7.0
-    //         88         276.0 ms         16.5
-    //        108         489.8 ms         29.4
+    // **Set from the worst case, which is a board whose two sides are
+    // engaged.** The warning skips a character too far from the lit tiles to
+    // threaten one, so a board where the opposition stands off costs almost
+    // nothing however many of them there are: the same 20x14 board with the
+    // sides on opposite edges answers a press in well under a millisecond at
+    // every count measured. That is the common case and it is not what a budget
+    // is for. Packed around a line that still has room to walk, on one 20x14
+    // board with only the character count varied:
     //
-    // At the bottom of that table a board answers a press inside a frame. At
-    // the top, choosing a character takes the board away for half a second, and
-    // the machine reads as broken rather than as slow: this is the failure a
-    // 98-character board actually produced, where the package loaded, the
-    // battle opened, and the cursor would not answer.
+    //     characters   per press   frames at 60Hz
+    //         20          9.5 ms        0.6
+    //         32         28.2 ms        1.7
+    //         48         34.5 ms        2.1
+    //
+    // Past that the board stops answering: a 98-character board loaded, opened,
+    // and would not take a press, which is the failure this bound exists for. A
+    // machine that answers in two frames is slow; one that answers in half a
+    // second reads as broken.
     //
     // Appended last, so every caller that brace-initialises this by position
     // keeps meaning what it meant.
