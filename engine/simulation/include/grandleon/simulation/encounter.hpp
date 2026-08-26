@@ -873,70 +873,6 @@ struct UnitSnapshot final {
     return in_the_battle(unit) && unit.arrived;
 }
 
-// Whether an area of `shape` and `radius` centred on `centre` covers
-// `candidate`.
-//
-// The membership test `Encounter::apply` walks a cast's covered characters
-// with, and the one `area_tiles` draws a splash from.
-//
-// **It is public for the reason `on_board` and `floor_of` are.**
-// `engine/tactics` proposes casts this engine then judges, and it asks this of
-// every tile of the board for every ability a character knows, so `area_tiles`
-// is the wrong shape for it: that query answers with a list, and a policy
-// scoring candidate centres wants one predicate and no allocation. Given only
-// the list, a policy keeps its own copy of the shape instead, which is a second
-// answer to "what does this cast reach" and the exact divergence a shape added
-// to `AreaShape` tomorrow would expose.
-[[nodiscard]] constexpr bool area_covers(
-    AreaShape shape,
-    std::uint8_t radius,
-    Position centre,
-    Position candidate
-) noexcept {
-    const auto dx = static_cast<std::int32_t>(centre.x) - candidate.x;
-    const auto dy = static_cast<std::int32_t>(centre.y) - candidate.y;
-    const auto separation = static_cast<std::uint32_t>(
-        (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy)
-    );
-    switch (shape) {
-        case AreaShape::single: return separation == 0U;
-        case AreaShape::cross: return separation <= 1U;
-        case AreaShape::diamond: return separation <= radius;
-    }
-    return false;
-}
-
-// What a damaging cast takes off whoever it covers, before any floor is
-// applied:
-//
-//   magical:  max(1, caster magic + power - resistance)
-//   physical: max(1, power - defence)
-//
-// The asymmetry is deliberate and is argued at the definition: `strength`
-// already reaches the board through every basic attack, so a physical ability
-// priced by it would be a swing under another name.
-//
-// Public for the reason `area_covers` above is. `engine/tactics` prices a cast
-// to decide whether it beats the best weapon, and there is no `forecast_ability`
-// for it to ask the way `forecast_attack` answers a strike. Without this it
-// re-derives the formula, which is a second copy of the one rule that decides
-// what a cast is worth.
-[[nodiscard]] std::int16_t ability_damage(
-    const UnitSnapshot& caster,
-    const AbilityDefinition& ability,
-    const UnitSnapshot& affected
-) noexcept;
-
-// What a restoring cast gives back to whoever it covers: its power, or the
-// health they are missing, whichever is less. Never negative.
-//
-// Public for the same reason, and it is the other half of what one cast does to
-// one character.
-[[nodiscard]] std::int16_t ability_restored(
-    const AbilityDefinition& ability,
-    const UnitSnapshot& affected
-) noexcept;
-
 // The lowest health a blow may leave this unit holding.
 //
 // One function, called by `Encounter::apply` and by `forecast_attack` alike,
@@ -1511,6 +1447,83 @@ struct AttackForecast final {
     const EncounterSnapshot& snapshot,
     UnitId attacker_id,
     UnitId target_id
+) noexcept;
+
+// What one cast would do to one character it covers, before it is committed.
+//
+// **The gesture the forecast family had no answer for.** A strike is priced, an
+// item is priced, a talk is promised, and a cast -- the one gesture that can
+// touch several characters at once and the one whose numbers a player is least
+// able to work out in their head -- showed nothing at all. A client aiming a
+// blast could light the tiles it covers and say nothing about what standing in
+// it costs.
+//
+// **One character per call, and that is the shape rather than a shortcut.** A
+// cast names a tile and the area decides who is caught, so a forecast carrying
+// every caught character would carry a list, and a list is an allocation on
+// every move of a cursor on a machine that counts its heap in kilobytes. It
+// would also be inexact where it mattered: hit chance is priced against the
+// struck character's own evasion and luck, and damage against its own defence
+// or resistance, so two characters under one blast are two different numbers
+// and any single summary of them is a number the engine will not deliver. A
+// caller wanting the whole picture walks `area_tiles` and asks about each
+// occupant, which is the same walk it makes to draw them.
+//
+// `error` is the refusal `Encounter::apply` would give the same cast in the
+// same state, asked in apply's order, and it is about the *cast* rather than
+// about `affected_id`: a cast aimed at ground the caster cannot reach is
+// refused, and a character the area misses is not a refusal at all. That is
+// what `covered` says. `spared` is the other half of the same distinction: a
+// damaging cast covers the caster's own side and takes nothing from them, so an
+// ally under the blast is covered, spared, and costs nothing -- which is
+// exactly what the rule delivers and what a client must be able to show rather
+// than guess.
+//
+// A character this encounter does not carry, or one not `on_board`, is
+// uncovered: the cast lands, and it lands on somebody who is not there.
+struct AbilityForecast final {
+    CommandError error{CommandError::none};
+    AbilityKind kind{AbilityKind::damage};
+    // Whether the area covers this character at all. Everything below is zero
+    // when it does not.
+    bool covered{false};
+    // Whether the cast passes over this character without touching them: a
+    // damaging cast and somebody on the caster's own side, the caster included.
+    // A restoring cast spares nobody, because mercy asks no side.
+    bool spared{false};
+    // How often this cast lands on *this* character, as a percentage in
+    // [0, 100]: the ability's accuracy with both characters folded into it,
+    // exactly as `Encounter::apply` folds it. The weapon triangle does not
+    // price a cast, so no advantage enters here. Meaningless for a restoring
+    // cast, which never rolls, and left at a hundred there.
+    std::uint8_t hit_chance{100};
+    // What this character loses when the cast lands. Zero on a miss, on a
+    // spared ally, and on a restoring cast.
+    std::int16_t damage{};
+    // What this character gains from a restoring cast, clamped to the health
+    // they are missing, so a full-health character forecasts zero. Zero for a
+    // damaging cast.
+    std::int16_t restored{};
+    // This character's health once the cast has resolved and landed. Equal to
+    // their current health where nothing reaches them, so a client may show it
+    // either way.
+    std::int16_t target_health_after{};
+    // Whether the cast fells this character when it lands. False for anybody a
+    // health floor catches, exactly as `forecast_attack` reports it.
+    bool lethal{};
+
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return error == CommandError::none;
+    }
+};
+
+[[nodiscard]] AbilityForecast forecast_ability(
+    const EncounterSnapshot& snapshot,
+    UnitId caster_id,
+    ContentId ability_id,
+    Position centre,
+    UnitId affected_id,
+    const std::vector<AbilityDefinition>& abilities
 ) noexcept;
 
 // The same forecast for a named carried weapon. A zero `weapon_id` means the

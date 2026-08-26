@@ -1772,6 +1772,240 @@ void a_narrowed_danger_zone_is_the_zone_it_narrows() {
     );
 }
 
+// A cast forecast is a promise, on the terms every other forecast here is.
+//
+// The whole value of a forecast is that applying the same gesture in the same
+// state delivers what was shown, so the case that matters is not "the numbers
+// look right" but "the numbers are the ones apply spends". Every character a
+// blast covers is forecast, the cast is then committed, and the two are held to
+// each other character by character.
+void a_cast_forecast_is_what_the_cast_delivers() {
+    sim::EncounterDefinition definition;
+    definition.width = 7;
+    definition.height = 5;
+    definition.random_seed = 99;
+
+    sim::AbilityDefinition blast;
+    blast.id = 700;
+    blast.kind = sim::AbilityKind::damage;
+    blast.damage_type = sim::DamageType::magical;
+    blast.area = sim::AreaShape::diamond;
+    blast.radius = 1;
+    blast.power = 6;
+    blast.minimum_reach = 1;
+    blast.maximum_reach = 3;
+    blast.accuracy = 100;
+    definition.abilities = {blast};
+
+    // The caster, an ally standing in its own blast, and three opponents who
+    // differ in the things a forecast has to price separately: resistance,
+    // health, and a floor that catches a killing blow.
+    sim::UnitDefinition caster;
+    caster.id = 1;
+    caster.unit_type_id = 1;
+    caster.side = sim::Side::first;
+    caster.position = {0, 2};
+    caster.health = 20;
+    caster.magic = 3;
+    caster.action_points = 2;
+    caster.movement = 1;
+
+    sim::UnitDefinition ally;
+    ally.id = 2;
+    ally.unit_type_id = 1;
+    ally.side = sim::Side::first;
+    ally.position = {3, 2};
+    ally.health = 20;
+    ally.action_points = 2;
+    ally.movement = 1;
+
+    sim::UnitDefinition sturdy;
+    sturdy.id = 3;
+    sturdy.unit_type_id = 2;
+    sturdy.side = sim::Side::second;
+    sturdy.position = {3, 1};
+    sturdy.health = 20;
+    sturdy.resistance = 4;
+    sturdy.action_points = 2;
+    sturdy.movement = 1;
+
+    sim::UnitDefinition frail;
+    frail.id = 4;
+    frail.unit_type_id = 2;
+    frail.side = sim::Side::second;
+    frail.position = {3, 3};
+    frail.health = 4;
+    frail.action_points = 2;
+    frail.movement = 1;
+
+    sim::UnitDefinition enduring;
+    enduring.id = 5;
+    enduring.unit_type_id = 2;
+    enduring.side = sim::Side::second;
+    enduring.position = {4, 2};
+    enduring.health = 3;
+    enduring.endures = true;
+    enduring.action_points = 2;
+    enduring.movement = 1;
+
+    definition.units = {caster, ally, sturdy, frail, enduring};
+    definition.units[0].ability_ids = {700};
+
+    auto created = sim::create_encounter(definition);
+    expect(static_cast<bool>(created), "the blast board is valid content");
+    if (!created) return;
+    const auto before = created.encounter.snapshot();
+    const sim::Position centre{3, 2};
+    const auto& abilities = created.encounter.abilities();
+
+    const auto forecast_of = [&](sim::UnitId who) {
+        return sim::forecast_ability(before, 1, 700, centre, who, abilities);
+    };
+
+    // The ally is covered and spared: the tile is in the blast and the rule
+    // takes nothing from it. Both facts, because a client has to draw both.
+    const auto on_ally = forecast_of(2);
+    expect(
+        on_ally && on_ally.covered && on_ally.spared && on_ally.damage == 0 &&
+            on_ally.target_health_after == 20,
+        "an ally under the blast is covered, spared and costs nothing"
+    );
+    // The caster stands outside this one, so it is not covered at all: a
+    // different fact from being spared, and the two must not be confused.
+    const auto on_caster = forecast_of(1);
+    expect(
+        on_caster && !on_caster.covered && !on_caster.spared,
+        "a character the area misses is uncovered rather than spared"
+    );
+
+    // magic 3 + power 6 - resistance 4 is five, and against nothing it is nine.
+    const auto on_sturdy = forecast_of(3);
+    expect(
+        on_sturdy.covered && !on_sturdy.spared && on_sturdy.damage == 5 &&
+            on_sturdy.target_health_after == 15 && !on_sturdy.lethal,
+        "resistance is priced per character"
+    );
+    const auto on_frail = forecast_of(4);
+    expect(
+        on_frail.damage == 9 && on_frail.target_health_after == 0 &&
+            on_frail.lethal,
+        "and a blow past a character's health is forecast as lethal"
+    );
+    // A floor of one catches it, so it is not lethal however hard it lands.
+    const auto on_enduring = forecast_of(5);
+    expect(
+        on_enduring.damage == 9 && on_enduring.target_health_after == 1 &&
+            !on_enduring.lethal,
+        "a character who endures is forecast as left standing"
+    );
+
+    // And now the promise. The cast is committed and every forecast above has
+    // to be what it spent.
+    const auto result = created.encounter.apply(
+        {sim::CommandType::ability, 1, centre, 0, 700}
+    );
+    expect(static_cast<bool>(result), "the cast is accepted");
+    const auto after = created.encounter.snapshot();
+    for (const sim::UnitId who : {sim::UnitId{1}, sim::UnitId{2}, sim::UnitId{3},
+                                  sim::UnitId{4}, sim::UnitId{5}}) {
+        const auto predicted = forecast_of(who);
+        const sim::UnitSnapshot* landed = nullptr;
+        for (const sim::UnitSnapshot& unit : after.units) {
+            if (unit.id == who) landed = &unit;
+        }
+        expect(landed != nullptr, "every character is still in the battle");
+        if (landed == nullptr) return;
+        expect(
+            landed->health == predicted.target_health_after,
+            "the health a cast leaves is the health its forecast showed"
+        );
+    }
+}
+
+// The refusals a cast forecast gives are the refusals the cast would earn.
+void a_cast_forecast_refuses_what_apply_refuses() {
+    sim::EncounterDefinition definition;
+    definition.width = 8;
+    definition.height = 3;
+    sim::AbilityDefinition bolt;
+    bolt.id = 700;
+    bolt.kind = sim::AbilityKind::damage;
+    bolt.power = 4;
+    bolt.minimum_reach = 1;
+    bolt.maximum_reach = 2;
+    definition.abilities = {bolt};
+
+    sim::UnitDefinition caster;
+    caster.id = 1;
+    caster.unit_type_id = 1;
+    caster.side = sim::Side::first;
+    caster.position = {0, 1};
+    caster.health = 10;
+    caster.action_points = 2;
+    caster.movement = 1;
+    caster.ability_ids = {700};
+
+    sim::UnitDefinition foe;
+    foe.id = 2;
+    foe.unit_type_id = 2;
+    foe.side = sim::Side::second;
+    foe.position = {7, 1};
+    foe.health = 10;
+    foe.action_points = 2;
+    foe.movement = 1;
+    definition.units = {caster, foe};
+
+    auto created = sim::create_encounter(definition);
+    expect(static_cast<bool>(created), "the refusal board is valid content");
+    if (!created) return;
+    const auto snapshot = created.encounter.snapshot();
+    const auto& abilities = created.encounter.abilities();
+
+    // Each of these is a refusal `apply` gives for the same cast, and the
+    // forecast has to give it rather than pricing a cast nothing would land.
+    const auto refused = [&](sim::ContentId ability, sim::Position centre,
+                             sim::UnitId caster_id, sim::CommandError expected,
+                             std::string_view why) {
+        const auto forecast = sim::forecast_ability(
+            snapshot, caster_id, ability, centre, 2, abilities
+        );
+        expect(forecast.error == expected, why);
+        // A refused forecast describes no consequence.
+        expect(
+            !forecast.covered && forecast.damage == 0,
+            "and a refused cast forecasts nothing about anybody"
+        );
+    };
+
+    refused(700, {1, 1}, 99, sim::CommandError::unknown_unit,
+            "a caster this battle does not carry is refused");
+    refused(700, {1, 1}, 2, sim::CommandError::wrong_side,
+            "the side that is not acting is refused");
+    refused(999, {1, 1}, 1, sim::CommandError::unknown_ability,
+            "an ability nothing defines is refused");
+    refused(700, {-1, 1}, 1, sim::CommandError::invalid_destination,
+            "a tile off the board is refused");
+    refused(700, {7, 1}, 1, sim::CommandError::target_out_of_range,
+            "ground past the ability's band is refused");
+    refused(700, {0, 1}, 1, sim::CommandError::target_out_of_range,
+            "and ground inside its minimum is refused too");
+
+    // An ability the caster does not know, held by the encounter.
+    sim::EncounterDefinition unknown = definition;
+    unknown.units[0].ability_ids = {};
+    auto without = sim::create_encounter(unknown);
+    expect(static_cast<bool>(without), "a caster who knows nothing is valid");
+    if (without) {
+        expect(
+            sim::forecast_ability(
+                without.encounter.snapshot(), 1, 700, {1, 1}, 2,
+                without.encounter.abilities()
+            ).error == sim::CommandError::unavailable_ability,
+            "an ability the caster does not know is refused by name"
+        );
+    }
+}
+
 void weapon_power_joins_the_attack_formula() {
     // strength 4 + power 3 - defense 5 = 2: power is added to strength, and a
     // powerless weapon leaves the v0 formula untouched.
@@ -7065,6 +7299,8 @@ int main() {
     the_better_weapon_is_worth_the_advantage();
     a_malformed_weapon_triangle_is_refused();
     a_narrowed_danger_zone_is_the_zone_it_narrows();
+    a_cast_forecast_is_what_the_cast_delivers();
+    a_cast_forecast_refuses_what_apply_refuses();
     caps_board_area();
     has_acted_is_false_under_alternating_order();
     has_acted_tracks_rounds_under_ordered_turns();

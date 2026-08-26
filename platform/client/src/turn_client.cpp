@@ -1493,10 +1493,56 @@ void TurnClient::build_overlay(const sim::EncounterSnapshot& snapshot) {
     } else {
         overlay_.round = nullptr;
     }
-    // The message under the board: what the strike the cursor rests on would
+    // The message under the board: what the gesture the cursor rests on would
     // cost, priced by the engine. A refusal already written there survives
     // until the cursor gives it something else to say.
-    if (selected_ != 0) {
+    //
+    // A cast is priced where the cursor is aiming one, and a strike otherwise.
+    // The two are asked separately because they are aimed at different things:
+    // a strike names a character and a cast names ground, so a cast is priced
+    // over an empty tile as readily as over an occupied one and the character
+    // it reports on is whoever the splash catches under the cursor.
+    if (selected_ != 0 && aim_ == Aim::cast) {
+        const sim::UnitSnapshot* under =
+            unit_at(snapshot, cursor_x_, cursor_y_);
+        const sim::Position centre{
+            static_cast<std::int16_t>(cursor_x_),
+            static_cast<std::int16_t>(cursor_y_)
+        };
+        const sim::AbilityForecast forecast = sim::forecast_ability(
+            snapshot, selected_, aim_ability_, centre,
+            under != nullptr ? under->id : sim::UnitId{0}, abilities_
+        );
+        Text line;
+        if (!forecast) {
+            line.text(refusal_text(forecast.error));
+        } else if (!forecast.covered) {
+            // Aimable ground with nobody on it. The splash is already drawn, so
+            // the line says the cast is available rather than repeating it.
+            line.text("CAST");
+        } else if (forecast.spared) {
+            // Covered and untouched, which is a thing a player has to be able
+            // to see: the tile is in the blast and standing there costs this
+            // character nothing.
+            line.text("SAFE");
+        } else if (forecast.kind == sim::AbilityKind::restore) {
+            line.text("MEND ").number(forecast.restored);
+            line.text(" TO ").number(forecast.target_health_after);
+        } else {
+            // The chance leads for the reason it leads on a strike: the numbers
+            // after it are what lands only when it does.
+            if (forecast.hit_chance < 100U) {
+                line.number(forecast.hit_chance).text("% ");
+            }
+            line.text("CAST ").number(forecast.damage);
+            if (forecast.lethal) {
+                line.text(" KO");
+            } else {
+                line.text(" LEFT ").number(forecast.target_health_after);
+            }
+        }
+        copy_line(message_, sizeof message_, line.c_str());
+    } else if (selected_ != 0) {
         const sim::UnitSnapshot* hovered = unit_at(snapshot, cursor_x_, cursor_y_);
         if (hovered != nullptr && hovered->side != player_side_) {
             const sim::AttackForecast forecast =

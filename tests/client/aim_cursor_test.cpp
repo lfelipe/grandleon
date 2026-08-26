@@ -325,11 +325,187 @@ void a_walk_still_moves_one_square_at_a_time() {
 
 }  // namespace
 
+// A cast says what it would do, which is the one gesture that used to say
+// nothing.
+//
+// The board prices a strike under it: the chance, the damage, and whether the
+// blow fells. A cast showed a splash and no numbers at all, because the engine
+// had no forecast to ask -- so the gesture a player is least able to work out
+// in their head was the gesture the board was quietest about.
+//
+// The client keeps its message in the overlay, so that is what these read: the
+// line a person sees, taken off the same structure a renderer draws.
+class WatchingClient final : public turn::TurnClient {
+public:
+    WatchingClient(turn::ReportSink& sink, std::vector<std::uint16_t> script)
+        : TurnClient(sink), script_(std::move(script)) {}
+
+    void paint(const sim::EncounterSnapshot&, const turn::Overlay& overlay)
+        override {
+        said = overlay.message == nullptr ? std::string{} : overlay.message;
+    }
+
+    std::uint16_t next_press() override {
+        if (at_ >= script_.size()) return turn::pad_end_of_script;
+        return script_[at_++];
+    }
+
+    std::string said;
+
+private:
+    std::vector<std::uint16_t> script_;
+    std::size_t at_{0};
+};
+
+// A mage at 1,1 who knows one damaging blast of a single tile, an opponent at
+// 3,1 inside its band, and an ally at 1,2 who is also inside it.
+//
+//     y=0  .  .  .  .  .
+//     y=1  .  M  .  E  .      M the mage, E the opponent
+//     y=2  .  A  .  .  .      A an ally of the mage
+const sim::ContentId blast_id = 0x6c01;
+
+sim::EncounterDefinition a_board_with_a_cast() {
+    sim::EncounterDefinition definition;
+    definition.width = 5;
+    definition.height = 3;
+    definition.turn_order = sim::TurnOrder::side_blocks;
+
+    sim::AbilityDefinition blast;
+    blast.id = blast_id;
+    blast.kind = sim::AbilityKind::damage;
+    blast.damage_type = sim::DamageType::magical;
+    blast.area = sim::AreaShape::single;
+    blast.power = 5;
+    blast.minimum_reach = 1;
+    blast.maximum_reach = 3;
+    blast.accuracy = 100;
+    definition.abilities = {blast};
+
+    sim::UnitDefinition mage;
+    mage.id = 10;
+    mage.unit_type_id = 1;
+    mage.side = sim::Side::first;
+    mage.position = {1, 1};
+    mage.health = 12;
+    mage.magic = 2;
+    mage.action_points = 2;
+    mage.movement = 1;
+    mage.ability_ids = {blast_id};
+
+    sim::UnitDefinition ally;
+    ally.id = 11;
+    ally.unit_type_id = 1;
+    ally.side = sim::Side::first;
+    ally.position = {1, 2};
+    ally.health = 12;
+    ally.action_points = 2;
+    ally.movement = 1;
+
+    sim::UnitDefinition foe;
+    foe.id = 20;
+    foe.unit_type_id = 2;
+    foe.side = sim::Side::second;
+    foe.position = {3, 1};
+    foe.health = 12;
+    foe.action_points = 2;
+    foe.movement = 1;
+
+    definition.units = {mage, ally, foe};
+    return definition;
+}
+
+// Drives the mage into aiming its cast, then applies `after` and reports what
+// the board says.
+std::string what_the_board_says(std::vector<std::uint16_t> after) {
+    auto created = sim::create_encounter(a_board_with_a_cast());
+    expect(static_cast<bool>(created), "the casting board is valid content");
+    if (!created) return {};
+    Transcript sink;
+    // A opens the menu on the mage. The caret opens on WALK; one press down is
+    // ATTACK and a second is CAST, which A then takes.
+    std::vector<std::uint16_t> script{
+        turn::pad_a, turn::pad_down, turn::pad_down, turn::pad_a
+    };
+    script.insert(script.end(), after.begin(), after.end());
+    WatchingClient host(sink, std::move(script));
+    client::Roster roster;
+    roster.rebuild(created.encounter.snapshot());
+    host.set_viewport(20, 10);
+    host.battle_begins(
+        created.encounter.snapshot(), roster, sim::Side::first, {}
+    );
+    host.battle_definitions(
+        created.encounter.weapons(), created.encounter.abilities(),
+        created.encounter.items(), created.encounter.objectives()
+    );
+    host.draw(created.encounter.snapshot(), roster);
+    (void)host.next_intent(created.encounter.snapshot(), roster);
+    return host.said;
+}
+
+void a_cast_prices_itself_under_the_board() {
+    // Taking the row leaves the cursor on the caster, which is ground the cast
+    // may not be aimed at: a cast names a place rather than a character, so the
+    // cursor is handed back where it stood and the player walks it. The board
+    // says so meanwhile, which is the refusal the engine would give.
+    expect(
+        what_the_board_says({}).find("OUT OF RANGE") != std::string::npos,
+        "a cast still resting on its own caster says it cannot be aimed there"
+    );
+
+    // Two squares right is the opponent at 3,1. Magic 2 plus power 5 against no
+    // resistance is seven, off twelve health.
+    const std::string over_a_foe =
+        what_the_board_says({turn::pad_right, turn::pad_right});
+    expect(
+        over_a_foe.find("CAST 7") != std::string::npos,
+        "a cast aimed at an opponent says what it would take off them"
+    );
+    expect(
+        over_a_foe.find("LEFT 5") != std::string::npos,
+        "and what they would be left standing on"
+    );
+    if (over_a_foe.find("CAST 7") == std::string::npos) {
+        std::cerr << "  said: " << over_a_foe << "\n";
+    }
+}
+
+void a_cast_over_an_ally_says_it_costs_them_nothing() {
+    // A damaging cast covers the caster's own side and takes nothing from it.
+    // That is a rule a player cannot see from the splash alone, so the board
+    // has to say it rather than leave the tile looking dangerous.
+    //
+    // One square down is the ally at 1,2, inside the cast's own band.
+    const std::string over_an_ally = what_the_board_says({turn::pad_down});
+    expect(
+        over_an_ally.find("SAFE") != std::string::npos,
+        "a cast over one of your own says standing there costs nothing"
+    );
+    if (over_an_ally.find("SAFE") == std::string::npos) {
+        std::cerr << "  said: " << over_an_ally << "\n";
+    }
+
+    // And empty ground inside the band is aimable and costs nobody anything,
+    // which is a different fact again from being spared.
+    const std::string over_ground =
+        what_the_board_says({turn::pad_right, turn::pad_down});
+    expect(
+        over_ground == "CAST",
+        "a cast over empty ground says only that it may be aimed there"
+    );
+    if (over_ground != "CAST") {
+        std::cerr << "  said: " << over_ground << "\n";
+    }
+}
+
 int main() {
     an_aim_opens_on_the_nearest_lit_tile();
     a_press_moves_to_the_next_lit_tile();
     only_a_gesture_that_names_somebody_takes_the_cursor();
     the_cursor_only_rests_on_a_target();
+    a_cast_prices_itself_under_the_board();
+    a_cast_over_an_ally_says_it_costs_them_nothing();
     a_walk_still_moves_one_square_at_a_time();
     if (failures == 0) {
         std::cout << "aim cursor: a strike chooses between targets\n";

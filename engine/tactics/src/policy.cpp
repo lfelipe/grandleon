@@ -245,50 +245,43 @@ const simulation::AbilityDefinition* find_ability(
 // currency every candidate is compared in: what the rule would really deliver,
 // so overkill and overhealing count for nothing.
 //
-// **Every number here is the engine's own.** This used to re-derive the cast
-// formula: the caster's magic against resistance for a magical cast, nothing
-// against defence for a physical one, and the missing-health clamp for a
-// restoring one. That was a second copy of the one rule that decides what a
-// cast is worth, kept in step with the first by a comment asking it to be. A
-// policy that drifted would score casts the engine prices differently and
-// propose the wrong one, and nothing would fail: the command is legal either
-// way, it is merely the worse move.
+// **Read off the engine's own forecast, exactly as `best_strike` below reads
+// `forecast_attack`.** This used to re-derive the cast formula, then to ask the
+// engine for the two numbers behind it and do the clamping itself. Both were a
+// policy holding a piece of a rule. Now it asks what the cast would do and
+// subtracts: health removed is health the character had less the health the
+// forecast says it ends on, which is the same subtraction `best_strike` makes
+// and is right without this file knowing why. Overkill, a health floor, a
+// spared ally and a full-health character drinking a heal all fall out of the
+// forecast rather than being cases here.
 //
-// There is no `forecast_ability` to ask the way `best_strike` below asks
-// `forecast_attack`, so what the engine publishes instead is the two functions
-// that decide the numbers. Asking them is the whole of the difference.
+// A cast the engine would refuse scores nothing. `best_cast` only ever asks
+// about tiles inside the ability's band, so that is a belt-and-braces zero
+// rather than a live path, and it is the same shape `best_strike` gives a
+// refused strike.
 std::int32_t swing(
-    const simulation::AbilityDefinition& ability,
+    const simulation::AbilityForecast& forecast,
     const UnitSnapshot& actor,
     const UnitSnapshot& affected
 ) noexcept {
-    const bool friendly = affected.side == actor.side;
-    if (ability.kind == simulation::AbilityKind::restore) {
-        const std::int32_t restored =
-            simulation::ability_restored(ability, affected);
-        return friendly ? restored : -restored;
+    if (!forecast || !forecast.covered || forecast.spared) return 0;
+    const std::int32_t moved = forecast.kind == simulation::AbilityKind::restore
+        ? forecast.target_health_after - affected.health
+        : affected.health - forecast.target_health_after;
+    // **Whose health moved is the policy's question, not the engine's.** A
+    // restoring cast mends whoever is standing in it and asks no side, which is
+    // the rule and is right; whether mending *that* character is worth doing is
+    // exactly the judgement this file exists to make. So the forecast supplies
+    // the number and the sign is applied here: health put back into the other
+    // side is health this side has to take off again.
+    //
+    // The damaging half needs no such clause, because the rule already spares
+    // the caster's own side and the forecast says so.
+    if (forecast.kind == simulation::AbilityKind::restore &&
+        affected.side != actor.side) {
+        return -moved;
     }
-    // A damaging cast takes nothing off the caster's own side, so an ally
-    // standing in the blast is worth exactly nothing: neither a gain nor a
-    // cost. The number here has to be what the rule really delivers, and the
-    // rule delivers zero. Charging the cast for a splash that never touches
-    // this side would have it walk the long way round its own line to avoid
-    // one.
-    if (friendly) return 0;
-    const std::int32_t damage =
-        simulation::ability_damage(actor, ability, affected);
-    // What the cast would really take, which is never more health than the unit
-    // can be brought down through. A character with a health floor of one can be
-    // taken to one and no further, so a cast aimed at somebody already standing
-    // there is worth nothing and the policy is not tempted to spend an
-    // activation on it. `simulation::floor_of` is the same function the rule
-    // itself clamps with, so this cannot come to disagree with what the cast
-    // would deliver.
-    const std::int32_t landed = std::min<std::int32_t>(
-        damage, affected.health - simulation::floor_of(affected)
-    );
-    if (landed <= 0) return 0;
-    return landed;
+    return moved;
 }
 
 struct Cast final {
@@ -321,20 +314,19 @@ Cast best_cast(
                 }
                 std::int32_t score = 0;
                 for (const UnitSnapshot& affected : snapshot.units) {
-                    // Exactly who `Encounter::apply` sweeps into the area: a
-                    // cast names a tile, and somebody who is not on the board
-                    // is not standing in it. Scoring them would price a cast by
-                    // health it is never going to move.
-                    if (!simulation::on_board(affected)) continue;
-                    if (!simulation::area_covers(
-                            ability->area,
-                            ability->radius,
-                            centre,
-                            affected.position
-                        )) {
-                        continue;
-                    }
-                    score += swing(*ability, actor, affected);
+                    // Who the area catches, whether they are spared and what it
+                    // costs them are all the forecast's answers now. A cast
+                    // names a tile, so somebody not on the board is simply not
+                    // covered, and the forecast says so rather than this loop
+                    // testing it.
+                    score += swing(
+                        simulation::forecast_ability(
+                            snapshot, actor.id, id, centre, affected.id,
+                            abilities
+                        ),
+                        actor,
+                        affected
+                    );
                 }
                 if (score > best.score) best = {id, centre, score};
             }

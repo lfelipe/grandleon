@@ -489,8 +489,6 @@ void take_damage(
     }
 }
 
-}  // namespace
-
 // What a damaging cast takes off whoever it covers:
 //
 //   magical:  max(1, caster magic + power - resistance)
@@ -550,8 +548,6 @@ std::int16_t ability_restored(
         std::min<std::int32_t>(missing, ability.power);
     return static_cast<std::int16_t>(std::max<std::int32_t>(0, given));
 }
-
-namespace {
 
 // The profile a unit defends with: the weapon in hand, which is what
 // `create_encounter` already resolved into unit state. A counter is struck with
@@ -742,6 +738,27 @@ CommandError resolve_use(
     if (unit.item_counts[slot] == 0U) return CommandError::depleted_item;
     if (item->kind == ItemKind::none) return CommandError::unusable_item;
     return CommandError::none;
+}
+
+// Membership test for an enumerated area shape centred on `centre`.
+//
+// The rule `Encounter::apply` walks a cast's covered characters with, the one
+// `area_tiles` draws a splash from, and the one `forecast_ability` asks before
+// it prices anything. Internal again: it was published so `engine/tactics`
+// could stop keeping a copy, and `forecast_ability` answers that now.
+bool area_covers(
+    AreaShape shape,
+    std::uint8_t radius,
+    Position centre,
+    Position candidate
+) noexcept {
+    const std::uint32_t separation = distance(centre, candidate);
+    switch (shape) {
+        case AreaShape::single: return separation == 0U;
+        case AreaShape::cross: return separation <= 1U;
+        case AreaShape::diamond: return separation <= radius;
+    }
+    return false;
 }
 
 const AbilityDefinition* find_ability(
@@ -3040,6 +3057,137 @@ AttackForecast forecast_attack(
         );
         forecast.counter_lethal = forecast.attacker_health_after == 0;
     }
+    return forecast;
+}
+
+// apply()'s refusals in apply()'s order, and then what the cast really does to
+// the one character asked about.
+//
+// The gate is the ability branch's own, up to and including the ability the
+// caster does not know and the tile it may not reach. What follows is not a
+// gate: a cast names ground, so a character the area misses is described rather
+// than refused, and an ally under a damaging blast is covered and spared. Both
+// are facts a client has to be able to draw.
+AbilityForecast forecast_ability(
+    const EncounterSnapshot& snapshot,
+    UnitId caster_id,
+    ContentId ability_id,
+    Position centre,
+    UnitId affected_id,
+    const std::vector<AbilityDefinition>& abilities
+) noexcept {
+    AbilityForecast forecast;
+    if (snapshot.outcome != Outcome::ongoing) {
+        forecast.error = CommandError::encounter_complete;
+        return forecast;
+    }
+    if (snapshot.deploying) {
+        forecast.error = CommandError::wrong_phase;
+        return forecast;
+    }
+    const UnitSnapshot* caster = find_unit(snapshot.units, caster_id);
+    if (caster == nullptr) {
+        forecast.error = CommandError::unknown_unit;
+        return forecast;
+    }
+    if (caster->health <= 0) {
+        forecast.error = CommandError::defeated_unit;
+        return forecast;
+    }
+    if (caster->departed) {
+        forecast.error = CommandError::departed_unit;
+        return forecast;
+    }
+    if (!caster->arrived) {
+        forecast.error = CommandError::unarrived_unit;
+        return forecast;
+    }
+    if (caster->side != snapshot.active_side) {
+        forecast.error = CommandError::wrong_side;
+        return forecast;
+    }
+    if (caster->has_acted) {
+        forecast.error = CommandError::already_acted;
+        return forecast;
+    }
+    if (snapshot.active_unit_id != 0 && snapshot.active_unit_id != caster->id) {
+        forecast.error = CommandError::activation_in_progress;
+        return forecast;
+    }
+    if (points_left(snapshot, *caster) == 0) {
+        forecast.error = CommandError::no_action_points;
+        return forecast;
+    }
+    const AbilityDefinition* ability = find_ability(abilities, ability_id);
+    if (ability == nullptr) {
+        forecast.error = CommandError::unknown_ability;
+        return forecast;
+    }
+    if (!owns_ability(*caster, ability_id)) {
+        forecast.error = CommandError::unavailable_ability;
+        return forecast;
+    }
+    if (!in_bounds(centre, snapshot.width, snapshot.height)) {
+        forecast.error = CommandError::invalid_destination;
+        return forecast;
+    }
+    if (!within_reach(
+            distance(caster->position, centre),
+            ability->minimum_reach,
+            ability->maximum_reach
+        )) {
+        forecast.error = CommandError::target_out_of_range;
+        return forecast;
+    }
+
+    forecast.kind = ability->kind;
+    const UnitSnapshot* affected = find_unit(snapshot.units, affected_id);
+    // Somebody this encounter does not carry, or somebody who is not standing
+    // on the board, is not caught by anything: the cast lands, and it lands on
+    // a character who is not there. `on_board` is the same predicate `apply`
+    // sweeps the area with.
+    if (affected == nullptr || !on_board(*affected)) return forecast;
+    // The health this character ends on, said before anything is worked out
+    // about the cast, so that somebody the area misses is reported as ending on
+    // the health they have rather than on nothing. A client may draw the number
+    // either way round, which it can only do if it is always the truth.
+    forecast.target_health_after = affected->health;
+    if (!area_covers(
+            ability->area, ability->radius, centre, affected->position
+        )) {
+        return forecast;
+    }
+    forecast.covered = true;
+
+    if (ability->kind == AbilityKind::restore) {
+        // Mercy asks no side, so nothing is spared and nothing rolls.
+        forecast.restored = ability_restored(*ability, *affected);
+        forecast.target_health_after = static_cast<std::int16_t>(
+            affected->health + forecast.restored
+        );
+        return forecast;
+    }
+
+    // A damaging cast takes nothing off the caster's own side. Reported rather
+    // than hidden: the tile is still covered and a client still draws it, and
+    // what changed is only who the cover costs anything.
+    if (affected->side == caster->side) {
+        forecast.spared = true;
+        return forecast;
+    }
+
+    forecast.hit_chance =
+        hit_chance_for(*caster, *affected, ability->accuracy, 0);
+    forecast.damage = ability_damage(*caster, *ability, *affected);
+    // The floor is asked of the same function `take_damage` clamps with, so a
+    // character who cannot be reduced below one health is forecast as ending at
+    // one and not as lethal, which is what applying the same cast will do.
+    forecast.target_health_after = static_cast<std::int16_t>(
+        std::max<std::int32_t>(
+            floor_of(*affected), affected->health - forecast.damage
+        )
+    );
+    forecast.lethal = forecast.target_health_after == 0;
     return forecast;
 }
 
