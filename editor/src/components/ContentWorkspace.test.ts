@@ -2787,3 +2787,106 @@ describe("what winning means, where it is decided", () => {
     app.unmount();
   });
 });
+
+describe("finding a Stage in a game that has many", () => {
+  /** A game of `count` Stages, named so a search can tell them apart. */
+  function manyStages(count: number): SourceProject {
+    const nodes = Array.from({ length: count }, (_, index) => ({
+      id: `stage_${index}`,
+      name: index === count - 1 ? "The Coldgate" : `Skirmish ${index}`,
+      kind: "encounter" as const,
+      mapId: "field",
+      transitions: [],
+      placements: []
+    }));
+    return {
+      ...createSourceProject(),
+      maps: [{ id: "field", name: "The Long Field", width: 4, height: 4,
+               terrain: Array.from({ length: 16 }, () => "grass") }],
+      campaigns: [{
+        id: "main",
+        name: "The March",
+        roster: [],
+        flow: {
+          contractVersion: "1.0.0",
+          entryNodeId: "stage_0",
+          nodes: [...nodes,
+                  { id: "end", name: "After", kind: "terminal" as const,
+                    transitions: [] }]
+        }
+      }]
+    } as unknown as SourceProject;
+  }
+
+  const rows = (host: HTMLElement) =>
+    [...host.querySelectorAll(".record-list li button strong")]
+      .map((node) => node.textContent?.trim());
+
+  it("windows a long list rather than drawing all of it", async () => {
+    // A hundred and twenty Stages against a hundred-a-page window. The rail was
+    // the one list in this workspace that drew every row it had.
+    const { app, host } = mount(manyStages(120), "stages");
+    await nextTick();
+    expect(rows(host)).toHaveLength(100);
+    expect(host.textContent).toContain("120 Stages in this game");
+    expect(host.textContent).toContain("Page 1 of 2");
+
+    button(host, "Next").click();
+    await nextTick();
+    expect(rows(host)).toHaveLength(20);
+    // The last Stage is reachable, which is the whole point of the window.
+    expect(rows(host)).toContain("The Coldgate");
+    app.unmount();
+  });
+
+  it("narrows to what an author typed, and says how many matched", async () => {
+    const { app, host } = mount(manyStages(120), "stages");
+    await nextTick();
+    const search = host.querySelector<HTMLInputElement>("#stage-search")!;
+    search.value = "coldgate";
+    search.dispatchEvent(new Event("input"));
+    await nextTick();
+    expect(rows(host)).toEqual(["The Coldgate"]);
+    expect(host.textContent).toContain("1 of 120 Stages match");
+    app.unmount();
+  });
+
+  it("finds a Stage by the ground it is fought on", async () => {
+    // The row prints the map's name, so a search that could not find it would
+    // be a search that fails on what is in front of somebody.
+    const { app, host } = mount(manyStages(3), "stages");
+    await nextTick();
+    const search = host.querySelector<HTMLInputElement>("#stage-search")!;
+    search.value = "long field";
+    search.dispatchEvent(new Event("input"));
+    await nextTick();
+    expect(rows(host)).toHaveLength(3);
+    app.unmount();
+  });
+
+  it("does not strand an author on a page a narrowed list no longer has",
+     async () => {
+    const { app, host } = mount(manyStages(120), "stages");
+    await nextTick();
+    button(host, "Next").click();
+    await nextTick();
+    expect(host.textContent).toContain("Page 2 of 2");
+
+    const search = host.querySelector<HTMLInputElement>("#stage-search")!;
+    search.value = "coldgate";
+    search.dispatchEvent(new Event("input"));
+    await nextTick();
+    // One match is one page, and the row is on screen rather than behind a
+    // page that no longer exists.
+    expect(rows(host)).toEqual(["The Coldgate"]);
+    app.unmount();
+  });
+
+  it("offers neither control to a game with no Stages", async () => {
+    const { app, host } = mount(manyStages(0), "stages");
+    await nextTick();
+    expect(host.querySelector("#stage-search")).toBeNull();
+    expect(host.textContent).toContain("No Stages yet");
+    app.unmount();
+  });
+});

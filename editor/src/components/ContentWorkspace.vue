@@ -949,6 +949,54 @@ function selectRecord(id: string) {
 const stages = computed(() => stagesInProject(toRaw(project.value)));
 
 /**
+ * The Stages rail, narrowed and paged on exactly the terms the catalogue's own
+ * shelves are.
+ *
+ * It is the rail an author lives in, and it was the one list in this workspace
+ * with neither: a game of a hundred Stages drew all hundred, in authored order,
+ * with no way to find one but to scroll. The collections beside it have had a
+ * search and a hundred-a-page window since they were written, so this is the
+ * same two controls rather than a new idea, and an author who has used one has
+ * used the other.
+ *
+ * Matched on the Stage's own name, on the ground it is fought over and on the
+ * campaign it belongs to, because those are the three things the row already
+ * shows: a search that could not find what is printed in front of somebody
+ * would be a search they stop trusting.
+ */
+const stageQuery = ref("");
+const stagePage = ref(0);
+
+const filteredStages = computed(() => {
+  const search = stageQuery.value.trim().toLocaleLowerCase();
+  if (search === "") return stages.value;
+  return stages.value.filter((stage) =>
+    stage.nodeName.toLocaleLowerCase().includes(search) ||
+    (stage.mapName ?? "").toLocaleLowerCase().includes(search) ||
+    stage.campaignName.toLocaleLowerCase().includes(search) ||
+    stage.nodeId.toLocaleLowerCase().includes(search)
+  );
+});
+
+const stagePageCount = computed(() =>
+  Math.max(1, Math.ceil(filteredStages.value.length / pageSize))
+);
+
+const visibleStages = computed(() =>
+  filteredStages.value.slice(
+    stagePage.value * pageSize, (stagePage.value + 1) * pageSize
+  )
+);
+
+// A narrowed list can be shorter than the page somebody is standing on, which
+// would leave them looking at nothing with no way back but clearing the search.
+// Reset by watching rather than in the input handler, because the list also
+// shortens when a Stage is deleted.
+watch(stagePageCount, (count) => {
+  if (stagePage.value >= count) stagePage.value = 0;
+});
+
+/**
  * Every way a Stage can be won in this game, and the fights each one decides.
  *
  * This is the whole of what Stages shows about objectives, and it is a report
@@ -2442,13 +2490,18 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
         <button type="button" class="make-stage" @click="openStage = undefined">
           New Stage
         </button>
+        <label v-if="stages.length > 0" for="stage-search">Search Stages</label>
+        <input v-if="stages.length > 0" id="stage-search" v-model="stageQuery"
+          type="search" @input="stagePage = 0">
         <p aria-live="polite">
           {{ stages.length === 0
             ? "No Stages yet. Set the first one up beside this list."
-            : `${stages.length} ${stages.length === 1 ? "Stage" : "Stages"} in this game` }}
+            : stageQuery.trim() === ""
+              ? `${stages.length} ${stages.length === 1 ? "Stage" : "Stages"} in this game`
+              : `${filteredStages.length} of ${stages.length} ${stages.length === 1 ? "Stage" : "Stages"} match` }}
         </p>
         <ul>
-          <li v-for="stage in stages" :key="`${stage.campaignId}/${stage.nodeId}`">
+          <li v-for="stage in visibleStages" :key="`${stage.campaignId}/${stage.nodeId}`">
             <button type="button"
               :aria-current="openStageNode &&
                 openStageNode.campaignId === stage.campaignId &&
@@ -2461,6 +2514,17 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
             </button>
           </li>
         </ul>
+        <div v-if="stagePageCount > 1" class="pagination" role="group"
+          aria-label="Stage pages">
+          <button type="button" :disabled="stagePage === 0" @click="stagePage -= 1">
+            Previous
+          </button>
+          <span>Page {{ stagePage + 1 }} of {{ stagePageCount }}</span>
+          <button type="button" :disabled="stagePage + 1 >= stagePageCount"
+            @click="stagePage += 1">
+            Next
+          </button>
+        </div>
       </div>
 
       <div class="record-editor">
