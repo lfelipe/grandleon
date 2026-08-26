@@ -22,7 +22,7 @@
 // acts with a mouse, running through the same state, so neither route can do
 // something the other cannot. Escape puts it back.
 
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { CampaignFlow, SourceProject } from "../generated/source-v1";
 import {
   FLOW_NODE_HEIGHT,
@@ -55,6 +55,93 @@ const emit = defineEmits<{
 }>();
 
 const layout = computed(() => layOutFlow(props.flow));
+
+/**
+ * How far out this picture is drawn.
+ *
+ * **A campaign is wider than a screen long before it is a large campaign.** The
+ * layout gives every rank a fixed pitch, which is what keeps a stop readable and
+ * a line followable; the cost is that the picture grows with the campaign and
+ * the panel does not. The six-Stage campaign this repository ships is already
+ * about three screens across, so the one surface whose whole purpose is showing
+ * the shape of a branching campaign could not show the shape of the campaign
+ * beside it.
+ *
+ * Zooming is the answer rather than a smaller pitch, because the two questions
+ * a reader has are different questions. *Where does this branch go* is asked of
+ * the whole road at once and does not need the words; *what is this stop* is
+ * asked of one box and does. A fixed middle size would answer neither.
+ *
+ * A CSS transform rather than a second layout: the geometry the lines are drawn
+ * from stays in one place and one unit, so a line and the box it touches cannot
+ * come to disagree about where either of them is at some scale. The wrapper is
+ * sized to the scaled picture so the scrollbars stay honest.
+ */
+const ZOOM_STEPS = [
+  { value: "100", label: "100%", scale: 1 },
+  { value: "75", label: "75%", scale: 0.75 },
+  { value: "50", label: "50%", scale: 0.5 },
+  { value: "33", label: "33%", scale: 1 / 3 },
+  { value: "25", label: "25%", scale: 0.25 }
+] as const;
+
+const zoomChoice = ref<string>("fit");
+const scroller = ref<HTMLElement | undefined>();
+const availableWidth = ref(0);
+
+/**
+ * The scale that puts the whole road on screen, never enlarging past life size.
+ *
+ * Zero available width means nothing has been measured yet, which is the first
+ * frame and every environment with no layout at all. Life size is the honest
+ * answer there: it is what the panel drew before this existed.
+ */
+const fitScale = computed(() => {
+  const width = layout.value.width;
+  if (availableWidth.value <= 0 || width <= 0) return 1;
+  return Math.min(1, availableWidth.value / width);
+});
+
+const zoom = computed(() => {
+  if (zoomChoice.value === "fit") return fitScale.value;
+  const step = ZOOM_STEPS.find((entry) => entry.value === zoomChoice.value);
+  return step ? step.scale : 1;
+});
+
+/** What the picture occupies once it is scaled, which is what scrolls. */
+const scaledSize = computed(() => ({
+  width: `${Math.ceil(layout.value.width * zoom.value)}px`,
+  height: `${Math.ceil(layout.value.height * zoom.value)}px`
+}));
+
+function measure(): void {
+  const element = scroller.value;
+  if (!element) return;
+  // The padding is the panel's own and is not part of the room a picture has.
+  availableWidth.value = Math.max(0, element.clientWidth - 8);
+}
+
+let observer: ResizeObserver | undefined;
+onMounted(() => {
+  measure();
+  // Both, rather than one or the other. The observer catches the panel being
+  // resized by something other than the window -- a rail opening beside it, a
+  // section changing -- and the window event catches the case where there is no
+  // observer to have. Measuring twice costs a clientWidth read.
+  if (typeof ResizeObserver !== "undefined" && scroller.value) {
+    observer = new ResizeObserver(() => measure());
+    observer.observe(scroller.value);
+  }
+  if (typeof window !== "undefined") {
+    window.addEventListener("resize", measure);
+  }
+});
+onBeforeUnmount(() => {
+  observer?.disconnect();
+  if (typeof window !== "undefined") {
+    window.removeEventListener("resize", measure);
+  }
+});
 
 /** The way out currently in the author's hand, if they have picked one up. */
 const held = ref<{ nodeId: string; transitionId: string } | undefined>();
@@ -189,10 +276,28 @@ const instruction = computed(() => {
       No stops yet. The first Stage you make puts itself on the road.
     </p>
 
-    <div v-else class="flow-graph-scroll">
-      <div class="flow-graph" :style="{
-        width: `${layout.width}px`, height: `${layout.height}px`
-      }">
+    <template v-else>
+      <div class="flow-zoom">
+        <label for="flow-zoom">Show</label>
+        <select id="flow-zoom" v-model="zoomChoice">
+          <option value="fit">The whole road</option>
+          <option v-for="step in ZOOM_STEPS" :key="step.value" :value="step.value">
+            {{ step.label }}
+          </option>
+        </select>
+        <span aria-live="polite">
+          {{ layout.boxes.length }}
+          {{ layout.boxes.length === 1 ? "stop" : "stops" }}<template
+            v-if="zoom < 1">, drawn at {{ Math.round(zoom * 100) }}%</template>
+        </span>
+      </div>
+
+      <div ref="scroller" class="flow-graph-scroll">
+        <div class="flow-graph-scale" :style="scaledSize">
+          <div class="flow-graph" :style="{
+            width: `${layout.width}px`, height: `${layout.height}px`,
+            transform: `scale(${zoom})`
+          }">
         <!-- The lines, behind the stops. They are drawn from the geometry the
              layout worked out, so a line and the box it touches can never
              disagree about where either of them is. -->
@@ -281,9 +386,11 @@ const instruction = computed(() => {
               </button>
             </li>
           </ul>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <p v-if="layout.stranded.length" class="flow-graph-warning" role="status">
       Nothing on this road reaches
@@ -307,8 +414,29 @@ const instruction = computed(() => {
   border-radius: 0.65rem;
   background: #f7f9f5;
 }
+/* What actually scrolls: the picture's size *after* the scale, so a scrollbar
+   measures the drawing on screen rather than the geometry behind it. */
+.flow-graph-scale {
+  position: relative;
+  overflow: hidden;
+}
 .flow-graph {
   position: relative;
+  /* Scaled from the corner the layout's own origin is, so a box's position on
+     screen is its authored position times the scale and nothing else. */
+  transform-origin: top left;
+}
+/* The control sits above the picture rather than inside it: it is about how the
+   road is drawn, not a place on the road. */
+.flow-zoom {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+.flow-zoom span {
+  color: #55605a;
 }
 .flow-graph-lines {
   position: absolute;
