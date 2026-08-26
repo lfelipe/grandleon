@@ -233,8 +233,9 @@ add_custom_target(grandleon_playstation
 # check passed. This is the target that turns "it links" into "it runs".
 #
 # The floor is stated here rather than in the run script because the run script
-# is also how the scratch measurement below is started, and a measurement has no
-# number of assertions to require. 58 is the size of the conformance
+# is also how a program that measures rather than checks is started, and a
+# measurement has no number of assertions to require. 58 is the size of the
+# conformance
 # executable's assertion table, counted from the `ok` lines of its own report:
 # the ABI facts, the engine's containers and the rules it can reach on the
 # R3000A. A run that reports fewer has either lost assertions or stopped part
@@ -315,10 +316,10 @@ add_custom_target(grandleon_playstation_disc
 )
 
 # Boots that disc, and this is in the gate's PlayStation lane rather than beside
-# the showcase and the scratch measurement.
+# the showcase.
 #
-# The argument is what the artifact is for. The showcase and the scratch produce
-# a picture and a number for a person to look at; the disc is the thing somebody
+# The argument is what the artifact is for. The showcase produces a picture for
+# a person to look at; the disc is the thing somebody
 # downloads and burns, and a disc that builds and does not boot is worse than no
 # disc, because it looks finished. Nothing else on this console touches one byte
 # of the path it exercises: every other run injects the executable straight
@@ -374,35 +375,6 @@ add_dependencies(
 # frame against the executable's own per-cell claims. It also runs the
 # render-less conformance executable through the same harness and requires it to
 # fail, so a harness that had stopped measuring anything would say so.
-# The throwaway measurement program of platform/playstation/scratch, built and
-# run.
-#
-# It is not a check and it is in no gate: it draws a tactics board through the
-# Geometry Transformation Engine, times it, and prints what it found. The
-# way to find out what a 3D board would cost this console is to run it.
-#
-# It is invoked exactly like the conformance run because it reports on the same
-# two channels, so run-playstation.sh needs nothing added to it but the name
-# of a different executable. The wall-clock bound is raised well past what the
-# run needs (measured at about three seconds, most of it the deepest rungs of
-# the ladder) because that bound is a hang detector rather than a budget, and
-# somebody extending the ladder should not have to remember to raise it.
-add_custom_target(grandleon_playstation_scratch3d
-    COMMAND
-        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_build_env}
-        "GRANDLEON_PLAYSTATION_SCRATCH3D=ON"
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-playstation.sh"
-    COMMAND
-        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_run_env}
-        "GRANDLEON_PLAYSTATION_EXECUTABLE=grandleon_psx_scratch3d.ps-exe"
-        "GRANDLEON_PLAYSTATION_TIMEOUT=1800"
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/run-playstation.sh"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Measuring a 3D tactics board on the PlayStation's GTE"
-    USES_TERMINAL
-    VERBATIM
-)
-
 # Plays a controller script into the turn executable, and requires the R3000A
 # to reach the state the rules say it should, and to draw it.
 #
@@ -459,9 +431,8 @@ add_dependencies(
 # instead. If that assertion fires, re-choose the window from the run's own
 # checkpoint list and rewrite the sentence above to say what it now shows.
 #
-# It reuses the check's run script rather than carrying a copy, which is the
-# arrangement `grandleon_playstation_scratch3d` above already uses: the
-# invocation is the same one, and only the observer's settings differ.
+# It reuses the check's run script rather than carrying a copy: the invocation
+# is the same one, and only the observer's settings differ.
 add_custom_target(grandleon_playstation_showcase
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_playstation_build_env}

@@ -50,24 +50,6 @@ base_digest="${GRANDLEON_PCSX_REDUX_BUILD_DIGEST:-}"
 nugget_revision="${GRANDLEON_NUGGET_REVISION:-}"
 docker="${GRANDLEON_DOCKER:-docker}"
 build_dir="${GRANDLEON_PLAYSTATION_BUILD_DIR:-${repository_root}/build-playstation}"
-# The throwaway GTE measurement program of platform/playstation/scratch. Off
-# unless asked for, and passed to cmake either way rather than only when on: a
-# cache remembers an option, so a tree configured once with it would go on
-# building it for every gate afterwards.
-scratch3d="${GRANDLEON_PLAYSTATION_SCRATCH3D:-OFF}"
-# Which character style the scratch draws. Empty is the board project's own, and
-# that is the only value any shipped executable ever sees: this names a style for
-# the measurement program alone, so that measuring the other six costs nobody an
-# edit to the project below and a revert afterwards. Passed to cmake either way,
-# for the same cache reason the option above is.
-scratch3d_style="${GRANDLEON_PLAYSTATION_SCRATCH3D_STYLE:-}"
-# The project the play, turn and campaign executables carry, and the one this
-# script compiles into their package. The default lives here and nowhere else:
-# platform/playstation/CMakeLists.txt refuses without it rather than keeping a
-# second copy that could name a different game.
-project="${GRANDLEON_PLAYSTATION_PROJECT:-${repository_root}/games/tarnholt/source/project.json}"
-targets="${GRANDLEON_PLAYSTATION_TARGETS:-}"
-
 for name in base_digest nugget_revision; do
     if [ -z "${!name}" ]; then
         echo "error: ${name} is not set." >&2
@@ -114,9 +96,6 @@ grandleon_playstation_campaign_demo,grandleon_playstation_turn_autopilot,\
 grandleon_playstation_campaign_autopilot,\
 grandleon_playstation_campaign_demo_autopilot"
 [ -n "${targets}" ] || targets="${default_targets}"
-if [ "${scratch3d}" = "ON" ]; then
-    targets="${targets},grandleon_playstation_scratch3d"
-fi
 
 # What each requested target is called once it is an executable, derived from
 # the target list rather than written out again, so a run asked for one
@@ -240,8 +219,6 @@ flock 9
     --env "GRANDLEON_CONTAINER_TARGETS=${targets//,/ }" \
     --env "GRANDLEON_CONTAINER_PICKER=${picker_arg}" \
     --env "GRANDLEON_CONTAINER_EXECUTABLES=${executables}" \
-    --env "GRANDLEON_SCRATCH3D=${scratch3d}" \
-    --env "GRANDLEON_SCRATCH3D_STYLE=${scratch3d_style}" \
     --volume "${repository_root}:/src" \
     --workdir /src \
     "${image}" \
@@ -268,8 +245,6 @@ flock 9
             -DGRANDLEON_PLAYSTATION=ON \
             -DGRANDLEON_BUILD_TESTS=OFF \
             -DGRANDLEON_WERROR=ON \
-            -DGRANDLEON_PLAYSTATION_SCRATCH3D="${GRANDLEON_SCRATCH3D}" \
-            -DGRANDLEON_PLAYSTATION_SCRATCH3D_STYLE="${GRANDLEON_SCRATCH3D_STYLE}" \
             -DGRANDLEON_STAGE_PICKER="${GRANDLEON_CONTAINER_PICKER}" \
             -DGRANDLEON_PLAYSTATION_PROJECT="${GRANDLEON_CONTAINER_PROJECT}" \
             -DPLAYSTATION_DEMO_PACKAGE="${GRANDLEON_CONTAINER_BUILD_DIR}/demo.gpk" \

@@ -63,12 +63,9 @@ Narrow is a proportion, not a size
 ----------------------------------
 The psion is the style's narrow figure, and drawing it *small* instead is the
 easy mistake: 294 opaque texels where the other seven mean 474, and an opaque
-box bounded entirely by the faction disc every unit shares. Two things follow
-from that and only one of them is about appearance. On a board it reads as a
-unit a size smaller than the units beside it; and because
-:func:`.meshes.target_width` derives a mesh's authored world width from its own
-sprite's measured box, it asks a sci-fi mesh commission for 36 world units where
-the rest of this style asks 42 to 60. So the figure is drawn at the style's own
+box bounded entirely by the faction disc every unit shares. What follows from
+that is that on a board it reads as a unit a size smaller than the units beside
+it. So the figure is drawn at the style's own
 scale, and the narrowness is carried by the robe's taper and the gap under its
 hem.
 """
@@ -202,9 +199,8 @@ class Psion(Archetype):
     review is where that distinction was paid for. Drawn as a body alone this
     figure painted 294 opaque texels against its style's other seven at a mean
     of 474, and its opaque box was **entirely** the shared faction disc. So it
-    read as a unit a size smaller than everything it stands beside, and it asked
-    a future mesh for a world width its whole style would have had to be scaled
-    against (``meshes.target_width``). The vanes are the fix: the figure now
+    read as a unit a size smaller than everything it stands beside. The vanes
+    are the fix: the figure now
     reaches past the disc on both sides, at chest height where nothing else in
     this style is wide, while the body inside them stays the taper it was.
     """

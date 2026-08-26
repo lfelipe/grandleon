@@ -65,7 +65,7 @@ BARE = re.compile(r"(?<![\w/.\-])((?:%s)/[\w./\-]+)" % "|".join(
     re.escape(t) for t in sorted(TOP)))
 
 BINARY = (".png", ".jpg", ".gif", ".webp", ".woff", ".woff2", ".ico", ".z64",
-          ".bin", ".exe", ".gz", ".zip", ".pdf", ".svg", ".gltf")
+          ".bin", ".exe", ".gz", ".zip", ".pdf", ".svg")
 
 
 def tracked():

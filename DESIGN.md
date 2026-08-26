@@ -206,8 +206,6 @@ Measurements behind the two shipped console targets:
   board's projection is axis-aligned rather than isometric. The generated tiles
   are top-down squares, and no runtime transform makes a top-down tree read as
   an isometric one ([platform/view/README.md](platform/view/README.md)).
-  A 3D mesh pipeline would additionally require libdragon's preview branch,
-  which publishes nothing to pin against.
 * **The emulator is part of the contract.** ares is the authoritative
   Nintendo 64 emulator, and [docs/ARES_VALIDATION.md](docs/ARES_VALIDATION.md)
   has the evaluation. The PlayStation gate is PCSX-Redux with OpenBIOS,

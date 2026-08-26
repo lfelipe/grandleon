@@ -542,16 +542,6 @@ std::uint8_t character_figure_index(std::string_view name) noexcept {
     return character_figure_count;
 }
 
-std::uint8_t character_geometry_index(std::string_view name) noexcept {
-    constexpr std::string_view menu[character_geometry_count] = {
-        "sprites", "models"
-    };
-    for (std::uint8_t index = 0; index < character_geometry_count; ++index) {
-        if (menu[index] == name) { return index; }
-    }
-    return character_geometry_count;
-}
-
 // The art library's scene backdrop menu, in its own order
 // (tools/placeholder_art/placeholder_art/backdrops.py). Presentation only,
 // like the two menus above: a backdrop says what a conversation between maps

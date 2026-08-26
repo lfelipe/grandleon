@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Tuple
 
 from . import (autotile, backdrops, characters, figures, frames, gallery,
-               gltf, logo, meshes, playstation_header, pngio,
+               logo, playstation_header, pngio,
                profiles, provided, scene, shimmer, sprites_header, styles,
                terrain, themes, verify)
 from .palette import PALETTE_SIZE, RGB, TRANSPARENT
@@ -685,18 +685,13 @@ def build(output: Path, quiet: bool = False,
     manifest path each one stands in for. Passing none is the default and is
     byte-for-byte the build this repository has always run.
 
-    A submission holds two kinds of thing and they enter by two seams, because
-    a sheet and a solid are not the same shape of artefact: sheets go through
-    :func:`substitute` onto the native canvas list, and figures go through
-    :func:`.meshes.provided`, which is what :func:`.meshes.parts_for` answers
-    with for the length of the build. Both seams are one statement deep and
-    both sit in front of everything, so a provided drawing reaches every
-    profile, every console header, the exported models and the roster page by
-    exactly the route a generated one reaches them.
+    Sheets go through :func:`substitute` onto the native canvas list. That seam
+    is one statement deep and sits in front of everything, so a provided drawing
+    reaches every profile, every console header and the roster page by exactly
+    the route a generated one reaches them.
     """
     accepted = replacements or {}
-    with meshes.provided(provided.mesh_replacements(accepted)):
-        return _build(output, quiet, accepted)
+    return _build(output, quiet, accepted)
 
 
 def _reduces_as_sprite(asset: Asset) -> bool:
@@ -712,7 +707,7 @@ def _reduces_as_sprite(asset: Asset) -> bool:
 def _build(output: Path, quiet: bool,
            replacements: Mapping[str, provided.Replacement]
            ) -> Dict[str, object]:
-    """The build itself, inside whatever mesh commission it is drawing."""
+    """The build itself."""
     assets = native_assets()
     assets, replaced = substitute(assets,
                                   provided.canvas_replacements(replacements))
@@ -812,9 +807,8 @@ def _build(output: Path, quiet: bool,
         # indistinguishable
         # from generated art by design, because a client that had to tell them
         # apart would be a client a replacement could break.
-        # Every accepted file, not only the sheets: a provided model stands in
-        # for a generated one just as squarely, and the record of what stood in
-        # for what is the one place either is visible as a replacement.
+        # The record of what stood in for what is the one place a replacement
+        # is visible at all.
         if replacements:
             manifest["provided"] = provided.manifest_block(replacements)
         palettes_document: Dict[str, object] = {
@@ -879,39 +873,6 @@ def _build(output: Path, quiet: bool,
         )
     summary["files"] = int(summary["files"]) + 1 + len(styles.STYLES)
 
-    # The same style seam again, for the roster drawn as solids rather than as
-    # sprites. A mesh is another drawing of the same archetype, so it is chosen
-    # by the same style, by the same mechanism, and every style declares the
-    # same symbols: a style with no commission emits a header whose rows are
-    # null rather than emitting no header at all.
-    #
-    # The silhouettes are measured here rather than in the mesh module because
-    # they are a question about the *sprite*: the opaque box of the very texels
-    # `emit_characters` just repacked. Measuring them beside that emission is
-    # what makes "the mesh targets its own sprite's silhouette" a fact about
-    # this build rather than a rule somebody has to remember.
-    mesh_summary: Dict[str, object] = {}
-    for style in styles.STYLES:
-        measured = playstation_header.silhouettes(
-            converted_by_profile[source], style)
-        accepted = meshes.check(measured, style)
-        mesh_summary[style.name] = accepted
-        (output / "assets"
-         / playstation_header.meshes_header_name(style)).write_text(
-            playstation_header.emit_meshes(style, measured), encoding="utf-8")
-    summary["files"] = int(summary["files"]) + len(styles.STYLES)
-    summary["meshes"] = mesh_summary
-
-    # The same meshes again as glTF 2.0, which is an *export* and nothing else:
-    # the route to a modelling tool, the half of it that needs no importer and
-    # no new source of truth. The headers above are still what a
-    # console reads and the `meshes` package is still what a mesh is; these are
-    # written for a human with Blender open, and read straight back by
-    # `verify.check_gltf_round_trip` so the claim that they carry the contract
-    # is a measurement rather than a hope.
-    summary["files"] = int(summary["files"]) + _write_gltf(
-        output, converted_by_profile[source])
-
     blobs = [asset for asset in assets
              if asset.kind == "terrain-blob"
              and asset.metadata["theme"] == themes.DEFAULT_THEME.name]
@@ -947,46 +908,6 @@ def _build(output: Path, quiet: bool,
     written = gallery.write(output, assets, converted_by_profile)
     summary["files"] = int(summary["files"]) + written
     return summary
-
-
-def _write_gltf(output: Path,
-                converted: Dict[str, profiles.Converted]) -> int:
-    """Every commissioned mesh as a glTF 2.0 model. Returns the file count.
-
-    Two files an archetype, the document and its buffer, under
-    ``assets/gltf/<style>/``, and only for a style that has a mesh commission:
-    an empty directory would be an artefact claiming something that does not
-    exist, where an absent one says exactly what is true.
-
-    The round trip runs here, on the files as they were written, rather than on
-    the objects that wrote them, and it is load-bearing: what a future converter
-    will open is the bytes, so the bytes are what has to be proved to reconstruct
-    the part table.
-    """
-    written = 0
-    for style in styles.STYLES:
-        if not meshes.has_meshes(style):
-            continue
-        measured = playstation_header.silhouettes(converted, style)
-        silhouettes = dict(zip(characters.ARCHETYPE_ORDER, measured))
-        faction = characters.FACTION_COLOURS[gltf.BAKED_FACTION].name
-        directory = output / gltf.relative_directory(style.name)
-        directory.mkdir(parents=True, exist_ok=True)
-        for archetype in characters.ARCHETYPE_ORDER:
-            parts = meshes.parts_for(style, archetype)
-            if not parts:
-                continue
-            ramps = playstation_header.mesh_ramp_words(
-                converted, style, archetype, gltf.BAKED_FACTION)
-            text, buffer = gltf.document(
-                style.name, archetype, parts, silhouettes[archetype], ramps,
-                faction, playstation_header.clut_channels)
-            stem = gltf.model_name(archetype)
-            (directory / f"{stem}.gltf").write_text(text, encoding="utf-8")
-            (directory / f"{stem}.bin").write_bytes(buffer)
-            written += 2
-        verify.check_gltf_round_trip(output, style)
-    return written
 
 
 def _write_json(path: Path, payload: Dict[str, object]) -> None:

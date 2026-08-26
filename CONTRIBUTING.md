@@ -84,9 +84,10 @@ stops making sense, replace it with one that pins the new truth just as tightly.
 
 ## Art
 
-The replacement mechanism works and is checked, but it still needs work to be
-done in a way that is future proof: animation and the 3D mesh story have to be
-settled before this repository can say what a submission would have to be.
+The replacement mechanism works and is checked. What it is not yet is a
+published contract: `tools/placeholder_art/check_provided.py` states every rule
+a submission is held to and refuses by name, and those rules are what a
+submission has to satisfy today rather than a promise about what they will be.
 
 ## Style
 

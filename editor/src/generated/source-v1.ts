@@ -137,10 +137,6 @@ export interface SourceProject {
    */
   characterFigureId?: "first" | "second";
   /**
-   * What this game's characters are drawn as. 'sprites' is the painted figure every board has always shown. 'models' is the same roster drawn as solids: the same eight archetypes, in the same style and the same faction colours, built as a few hundred triangles a console can draw without a depth buffer. It is a default and never a gate, exactly as characterStyleId and characterFigureId are, and it changes no stat, no reach and no rule — a character occupies the same cell and fights the same battle either way, and two people holding the same package still get the same battles out of it. A style whose solids have not been drawn falls back to its sprites rather than refusing to build, because a missing model is a drawing that has not been made and not a broken game. Omit it and the characters are drawn as sprites, which is what every board showed before this setting existed.
-   */
-  characterGeometry?: "sprites" | "models";
-  /**
    * Who acts next in every battle in this game that does not say otherwise. 'alternating' lets each side pick any unit in turn. 'sideBlocks' runs one whole side then the other and lets whoever holds a block act with any of its characters in any order. 'initiative' interleaves every unit by speed. A battle that states its own turn order overrides this and is never rewritten by changing it. Omit it and battles that state nothing are alternating, which is what they were before this setting existed.
    */
   defaultTurnOrder?: "alternating" | "sideBlocks" | "initiative";

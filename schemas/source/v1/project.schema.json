@@ -3,48 +3,77 @@
   "$id": "https://grandleon.dev/schemas/source/v1/project.schema.json",
   "type": "object",
   "properties": {
-    "schemaVersion": { "const": "1.2.0" },
-    "packageId": { "$ref": "common.schema.json#/$defs/packageId" },
-    "gameId": { "$ref": "common.schema.json#/$defs/stableId" },
-    "title": { "$ref": "common.schema.json#/$defs/displayName" },
+    "schemaVersion": {
+      "const": "1.2.0"
+    },
+    "packageId": {
+      "$ref": "common.schema.json#/$defs/packageId"
+    },
+    "gameId": {
+      "$ref": "common.schema.json#/$defs/stableId"
+    },
+    "title": {
+      "$ref": "common.schema.json#/$defs/displayName"
+    },
     "contentRevision": {
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
     },
     "themeId": {
       "type": "string",
-      "enum": ["temperate", "autumn", "winter", "ashland"],
+      "enum": [
+        "temperate",
+        "autumn",
+        "winter",
+        "ashland"
+      ],
       "description": "The season the ground of every map in this game is drawn in, on every board and in every ROM. Omit it and the game is drawn in the temperate theme, which is what it looked like before themes existed."
     },
     "characterStyleId": {
       "type": "string",
-      "enum": ["medieval", "scifi", "mythical", "nature", "sengoku", "undead", "pirates"],
+      "enum": [
+        "medieval",
+        "scifi",
+        "mythical",
+        "nature",
+        "sengoku",
+        "undead",
+        "pirates"
+      ],
       "description": "The style this game's characters are drawn in wherever a character names none of its own, on every board and in every ROM. It is a default and a theme, never a gate: a unit type may name any style on this menu, so a medieval game may field an undead enemy or a pirate captain drawn as such. A style supplies one drawing per archetype and nothing else: it never changes which archetype a class draws as, which colour a faction is drawn in, or any rule. Omit it and the characters that name no style of their own are drawn in the medieval style, which is what they looked like before styles existed."
     },
     "characterFigureId": {
       "type": "string",
-      "enum": ["first", "second"],
+      "enum": [
+        "first",
+        "second"
+      ],
       "description": "The body this game's characters are drawn with wherever a character names none of its own. 'first' is drawn male and 'second' female; the stored values are positions in a menu every client indexes by, and the words a person reads for them are the art library's. A figure is the body a role is drawn at, not the role: every figure draws all eight archetypes, in every style and every faction colour, and choosing one changes no stat, no reach and no rule. It is a default and never a gate, exactly as characterStyleId is. Omit it and the characters that name no figure of their own are drawn with the first, which is what they looked like before figures existed."
-    },
-    "characterGeometry": {
-      "type": "string",
-      "enum": ["sprites", "models"],
-      "description": "What this game's characters are drawn as. 'sprites' is the painted figure every board has always shown. 'models' is the same roster drawn as solids: the same eight archetypes, in the same style and the same faction colours, built as a few hundred triangles a console can draw without a depth buffer. It is a default and never a gate, exactly as characterStyleId and characterFigureId are, and it changes no stat, no reach and no rule \u2014 a character occupies the same cell and fights the same battle either way, and two people holding the same package still get the same battles out of it. A style whose solids have not been drawn falls back to its sprites rather than refusing to build, because a missing model is a drawing that has not been made and not a broken game. Omit it and the characters are drawn as sprites, which is what every board showed before this setting existed."
     },
     "defaultTurnOrder": {
       "type": "string",
-      "enum": ["alternating", "sideBlocks", "initiative"],
+      "enum": [
+        "alternating",
+        "sideBlocks",
+        "initiative"
+      ],
       "description": "Who acts next in every battle in this game that does not say otherwise. 'alternating' lets each side pick any unit in turn. 'sideBlocks' runs one whole side then the other and lets whoever holds a block act with any of its characters in any order. 'initiative' interleaves every unit by speed. A battle that states its own turn order overrides this and is never rewritten by changing it. Omit it and battles that state nothing are alternating, which is what they were before this setting existed."
     },
     "characterLoss": {
       "type": "string",
-      "enum": ["permanent", "recoverable"],
+      "enum": [
+        "permanent",
+        "recoverable"
+      ],
       "description": "What becomes of a character in this game who falls in battle. 'permanent' is a death: the company never fields that character again, and their kit is what is left of them. 'recoverable' is a wound: they are carried off the field and rejoin the company once the battle is over, still holding whatever they were carrying when they went down. Under either, a character reduced to no health leaves the battlefield the moment they reach it, so this decides only what the campaign records after the battle and never what the battle itself does. Omit it and a character who falls is gone for good, which is what a fall meant before this setting existed."
     },
     "weaponAdvantage": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["damage", "accuracy"],
+      "required": [
+        "damage",
+        "accuracy"
+      ],
       "description": "What holding the better weapon is worth in this game. A strike whose weapon type names the defender's type in its strongAgainst list gains these, and a strike made into the teeth of one loses them. One pair of numbers for the whole game rather than a number for each pair of types: the point of a triangle is that a player can hold the whole rule in their head before they commit, and a matrix cannot be held in anybody's head. Omit it and no weapon has an advantage over any other, which is what every game meant before this existed. A game that states it while no weapon type names a strongAgainst has written a rule that can never fire.",
       "properties": {
         "damage": {
@@ -67,66 +96,94 @@
     },
     "classes": {
       "type": "array",
-      "items": { "$ref": "class.schema.json" },
+      "items": {
+        "$ref": "class.schema.json"
+      },
       "maxItems": 100000
     },
     "weaponTypes": {
       "type": "array",
-      "items": { "$ref": "weapon-type.schema.json" },
+      "items": {
+        "$ref": "weapon-type.schema.json"
+      },
       "maxItems": 100000
     },
     "itemTypes": {
       "type": "array",
-      "items": { "$ref": "item-type.schema.json" },
+      "items": {
+        "$ref": "item-type.schema.json"
+      },
       "maxItems": 100000
     },
     "unitTypes": {
       "type": "array",
-      "items": { "$ref": "unit-type.schema.json" },
+      "items": {
+        "$ref": "unit-type.schema.json"
+      },
       "maxItems": 100000
     },
     "weapons": {
       "type": "array",
-      "items": { "$ref": "weapon.schema.json" },
+      "items": {
+        "$ref": "weapon.schema.json"
+      },
       "maxItems": 100000
     },
     "items": {
       "type": "array",
-      "items": { "$ref": "item.schema.json" },
+      "items": {
+        "$ref": "item.schema.json"
+      },
       "maxItems": 100000
     },
     "maps": {
       "type": "array",
-      "items": { "$ref": "map.schema.json" },
+      "items": {
+        "$ref": "map.schema.json"
+      },
       "maxItems": 10000
     },
     "factions": {
       "type": "array",
-      "items": { "$ref": "faction.schema.json" },
+      "items": {
+        "$ref": "faction.schema.json"
+      },
       "maxItems": 100000
     },
     "abilities": {
       "type": "array",
-      "items": { "$ref": "ability.schema.json" },
+      "items": {
+        "$ref": "ability.schema.json"
+      },
       "maxItems": 100000
     },
     "objectives": {
       "type": "array",
-      "items": { "$ref": "objective.schema.json" },
+      "items": {
+        "$ref": "objective.schema.json"
+      },
       "maxItems": 100000
     },
     "campaigns": {
       "type": "array",
-      "items": { "$ref": "campaign.schema.json" },
+      "items": {
+        "$ref": "campaign.schema.json"
+      },
       "maxItems": 10000
     },
     "dialogues": {
       "type": "array",
-      "items": { "$ref": "dialogue.schema.json" },
+      "items": {
+        "$ref": "dialogue.schema.json"
+      },
       "maxItems": 100000
     },
-    "notes": { "$ref": "common.schema.json#/$defs/notes" },
-    "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
+    "notes": {
+      "$ref": "common.schema.json#/$defs/notes"
+    },
+    "extensions": {
+      "$ref": "common.schema.json#/$defs/extensions"
+    }
   },
   "required": [
     "schemaVersion",

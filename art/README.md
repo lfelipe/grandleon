@@ -7,7 +7,7 @@ where a drawing that stands in for part of that set lives.
 - **`provided/`**: the tree the generator reads before it writes, keyed by the
   path of the asset each file stands in for. Absent here, because this
   repository provides nothing.
-- **`examples/`**: two worked replacements, one sheet and one mesh, used by
+- **`examples/`**: one worked replacement, a character sheet, used by
   `tools/placeholder_art/check_provided.py` as the submissions that must be
   accepted. Deliberately *not* read by the generator: an example that took
   effect would be a replacement, and the shipped default set has to stay the

@@ -35,10 +35,9 @@ That single decision is what makes everything else fall out:
 The key is the manifest's own
 -----------------------------
 The unit of replacement is already decided by the key and needs no new
-addressing scheme: sprites are keyed by archetype, style and faction colour and
-meshes by archetype and style, so what a submission stands in for is one
-archetype's sheet in one style, or one mesh: the manifest key the consoles and
-the editor already resolve art through. So the path of a provided file *is* the
+addressing scheme: sprites are keyed by archetype, style and faction colour,
+so what a submission stands in for is one archetype's sheet in one style: the
+manifest key the consoles and the editor already resolve art through. So the path of a provided file *is* the
 manifest ``path`` of the asset it stands in for:
 ``art/provided/characters/knight_blue_pirates.png`` replaces the manifest entry
 whose path is ``characters/knight_blue_pirates.png``. There is nothing to
@@ -51,27 +50,9 @@ matches a key.
 
 What is checkable today, and what is not
 ----------------------------------------
-Character sprites are, and so are character **meshes**. A provided
-``character`` or ``character-frames`` sheet is held to every sheet rule in
-:data:`RULES`, and both files of a key must arrive together; a provided
-``mesh``, which is a glTF 2.0 document and the buffer beside it, is held to
-every mesh rule and likewise arrives as a pair.
-
-The interchange format was the open question and is not one any more: **it is
-the format this repository already writes**. ``assets/gltf/<style>/`` holds
-every commissioned figure as glTF 2.0, and ``verify.check_gltf_round_trip``
-reads those files back and rebuilds every part's integers from geometry alone.
-What was missing was the *reading* direction as a supported input, which
-:func:`.gltf.read_model` now is.
-
-One thing glTF cannot carry, and it is worth stating rather than discovering:
-**the file carries the model and cannot carry the contract.** The silhouette
-rule holds a mesh to the opaque box of *its own archetype's sprite*, a
-measurement of a different artefact, so no model file can state it and this
-module measures the sprite itself. Two more of the mesh rules survive a file
-only by a naming convention this repository invented (the ramp and the rung in a
-material's name and ``extras``), which is why both routes are required to agree
-rather than either being read.
+Character sprites are. A provided ``character`` or ``character-frames`` sheet is
+held to every sheet rule in :data:`RULES`, and both files of a key must arrive
+together.
 
 Terrain sheets, the shadow and the sample map are still **not** accepted, not
 because the tree could not hold them but because the checks that would make
@@ -94,24 +75,9 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from PIL import Image
 
-from . import (characters, figures, frames, gltf, meshes, palette,
-               playstation_header, preview3d, profiles, styles, terrain, themes)
-from .meshes import rules
+from . import (characters, figures, frames, palette,
+               profiles, styles, terrain, themes)
 from .raster import Canvas
-
-#: File extensions that name a 3D model this repository does not read. glTF 2.0
-#: is deliberately absent: it is the interchange format, because it is the one
-#: ``assets/gltf/`` is already written in. The rest are refused **by name**,
-#: because arriving with a ``.blend`` is a reasonable thing to have done and
-#: "it does not name an asset" would be the wrong answer to it.
-MODEL_SUFFIXES = (".glb", ".obj", ".fbx", ".blend", ".dae", ".stl", ".ply",
-                  ".3ds", ".usd", ".usdz")
-
-#: The two files one provided model is, by suffix: the document and the buffer
-#: it references. Both are required, for the reason a character sheet requires
-#: its sequence strip: half a submission is not one.
-MODEL_DOCUMENT_SUFFIX = ".gltf"
-MODEL_BUFFER_SUFFIX = ".bin"
 
 #: Where a contributor puts a replacement, relative to the repository root.
 #: Absent by default: this repository provides nothing, and an absent directory
@@ -124,19 +90,14 @@ PROVIDED_DIRECTORY = "art/provided"
 EXAMPLES_DIRECTORY = "art/examples"
 
 #: The largest a submitted file may be, before anything reads past its first
-#: byte. The largest character sheet this repository generates is 1,082 bytes
-#: and the largest model document 28,351, so 64 KiB is sixty times the honest
-#: need for a sheet and twice it for a model. A legal model is bounded, not
-#: merely observed: the triangle band caps a figure at 25 parts and the widest
-#: part this library writes costs 1,302 bytes of document, so 32,550 is the most
-#: a model obeying the mesh rules can spend on geometry. Small enough, either
-#: way, that a hostile file cannot cost memory worth measuring.
+#: byte. The largest character sheet this repository generates is 1,082 bytes,
+#: so 64 KiB is sixty times the honest need. Small enough that a hostile file
+#: cannot cost memory worth measuring.
 MAX_FILE_BYTES = 64 * 1024
 
 #: How deep the scan will descend. A sheet's key is two components, a directory
-#: and a filename, and a model's is three, because its directory is keyed by
-#: style. Four is one past the deepest honest need, and it is what stops a
-#: pathological tree from being walked forever.
+#: and a filename. Four is well past the deepest honest need, and it is what
+#: stops a pathological tree from being walked forever.
 MAX_TREE_DEPTH = 4
 
 #: A ceiling on decoded pixels, as defence in depth behind the exact dimension
@@ -181,10 +142,9 @@ RULES: Tuple[Tuple[str, str], ...] = (
     ("too-large", f"a provided file is at most {MAX_FILE_BYTES} bytes"),
     ("unknown-key",
      "a provided file's path is exactly the path of the asset it replaces: "
-     "the manifest's for a sheet, the export's for a model"),
+     "the manifest's own"),
     ("unsupported-kind",
-     "only character sheets and character meshes are replaceable today, and a "
-     "mesh only as glTF 2.0"),
+     "only character sheets are replaceable today"),
     ("collision",
      "two provided files whose paths differ only in case claim one asset"),
     ("not-a-png", "a provided file is a PNG"),
@@ -212,46 +172,6 @@ RULES: Tuple[Tuple[str, str], ...] = (
     ("ci4-cost",
      f"the Nintendo 64's sixteen-colour subset moves at most "
      f"{MAX_CI4_LOSS:.0%} of a sheet's opaque texels"),
-    ("mesh-silhouette",
-     "an archetype's sprite and its mesh are two drawings of one figure: the "
-     "sprite's opaque box and the mesh's authored width stay within the "
-     "tolerance of each other, whichever of the two was provided"),
-    ("incomplete-sequence",
-     "a character key is replaced as a pair: the standing sprite and its "
-     "sequence sheet"),
-    # ---- and the same discipline for a mesh, which is a part list and not a
-    # sheet. The mesh rules, in the order the reader applies them.
-    ("not-a-gltf",
-     "a provided model is a glTF 2.0 document, which is the format "
-     "assets/gltf/ is already written in"),
-    ("malformed-gltf",
-     "a provided model's document is structurally sound: every index inside "
-     "its array, every accessor inside its buffer, every coordinate a whole "
-     "world unit"),
-    ("unsupported-gltf",
-     "a provided model uses no glTF feature this format does not carry: no "
-     "extension, animation, skin, camera, texture, sparse accessor or node "
-     "transform but the root's one scale"),
-    ("mesh-not-a-box",
-     "every part is a convex axis-aligned box: twenty-four corners, six axis "
-     "normals four corners each, every triangle wound outward"),
-    ("mesh-extent",
-     f"no coordinate sits further than {gltf.MAX_COORDINATE} world units from "
-     f"the origin, which is a figure's own height"),
-    ("mesh-ramp",
-     "every face names a ramp and a rung and never a colour, spelled the same "
-     "way in the material's name, the material's extras and the node's, and at "
-     "least one part wears the faction ramp"),
-    ("mesh-height",
-     "a figure is built at MESH_WORLD_HEIGHT with its feet at y = 0"),
-    ("mesh-triangle-band",
-     "a figure lands inside the measured triangle band"),
-    ("mesh-order",
-     "parts are authored far-to-near as the *console* evaluates it: the sum of "
-     "eight projected corner depths, each truncated by the coprocessor"),
-    ("incomplete-model",
-     "a mesh key is replaced as a pair: the glTF document and the buffer it "
-     "references"),
 )
 
 RULE_CODES: Tuple[str, ...] = tuple(code for code, _ in RULES)
@@ -311,9 +231,8 @@ class Specification:
     partner: Optional[str] = None
     #: Set for the kinds this mechanism cannot check yet, with the reason.
     unsupported: str = ""
-    #: Which drawing this key is, where the key names one. Carried so a rule can
-    #: ask the rest of the library about it, and the mesh rule below is the
-    #: case that needed it.
+    #: Which drawing this key is, where the key names one. Carried so a rule
+    #: can ask the rest of the library about it.
     style: str = ""
     archetype: str = ""
     faction: str = ""
@@ -327,11 +246,9 @@ class Specification:
 class Replacement:
     """One accepted file, and what was measured while accepting it.
 
-    Exactly one of :attr:`canvas` and :attr:`parts` is set, and which one is
-    what ``kind`` says. Both are this repository's own representations,
-    master-palette indices and authored integers, because that is the property
-    the whole mechanism rests on: **not one byte of a submitted file reaches a
-    generated artefact.**
+    :attr:`canvas` holds this repository's own representation, master-palette
+    indices, because that is the property the whole mechanism rests on: **not
+    one byte of a submitted file reaches a generated artefact.**
     """
 
     key: str
@@ -340,9 +257,6 @@ class Replacement:
     size_bytes: int
     #: A sheet's pixels, for a ``character`` or ``character-frames`` key.
     canvas: Optional[Canvas] = None
-    #: A figure's part list, for a ``mesh`` key.
-    parts: Optional[Tuple[meshes.Part, ...]] = None
-    #: Which figure a ``mesh`` key stands in for.
     style: str = ""
     archetype: str = ""
     measurements: Dict[str, object] = field(default_factory=dict)
@@ -353,18 +267,6 @@ def canvas_replacements(accepted: Mapping[str, Replacement]
     """The accepted sheets, keyed by the manifest path they stand in for."""
     return {key: replacement for key, replacement in accepted.items()
             if replacement.canvas is not None}
-
-
-def mesh_replacements(accepted: Mapping[str, Replacement]
-                      ) -> Dict[Tuple[str, str], Tuple[meshes.Part, ...]]:
-    """The accepted figures, keyed the way :func:`.meshes.provided` wants them.
-
-    Keyed by style and archetype rather than by path, because that is what a
-    mesh *is* addressed by everywhere downstream; the path is how it arrived.
-    """
-    return {(replacement.style, replacement.archetype): replacement.parts
-            for replacement in accepted.values()
-            if replacement.parts is not None}
 
 
 def specifications() -> Dict[str, Specification]:
@@ -394,27 +296,6 @@ def specifications() -> Dict[str, Specification]:
                     cell * frames.FRAME_COUNT, cell, frames.FRAME_COUNT,
                     partner=standing, style=style.name, archetype=archetype,
                     faction=colour.name)
-
-    # The meshes. A key here is exactly the path the export writes under
-    # `assets/`, so the same sentence covers both halves of the library: the
-    # path of a provided file is the path of the thing it stands in for. The
-    # table is built from the commission rather than from the roster, because a
-    # model for an archetype nobody has commissioned would be an *addition* and
-    # not a replacement, and additions want rules of their own.
-    for style in styles.STYLES:
-        for archetype in characters.ARCHETYPE_ORDER:
-            if not meshes.parts_for(style, archetype):
-                continue
-            stem = (f"{gltf.key_directory(style.name)}/"
-                    f"{gltf.model_name(archetype)}")
-            document = f"{stem}{MODEL_DOCUMENT_SUFFIX}"
-            buffer = f"{stem}{MODEL_BUFFER_SUFFIX}"
-            table[document] = Specification(
-                document, "mesh", 0, 0, 1, partner=buffer,
-                style=style.name, archetype=archetype)
-            table[buffer] = Specification(
-                buffer, "mesh-buffer", 0, 0, 1, partner=document,
-                style=style.name, archetype=archetype)
 
     # The keys that exist and are not replaceable yet, named rather than left
     # to fall through to "it does not name an asset". A contributor who drops a
@@ -757,322 +638,6 @@ def _contract_refusals(file_label: str, canvas: Canvas,
     return out
 
 
-def _silhouette_refusal(style_name: str, archetype: str, canvas: Canvas,
-                        parts: Sequence[meshes.Part],
-                        sprite_label: str,
-                        mesh_label: str) -> Optional[Refusal]:
-    """A mesh is held to its own sprite's box, whichever side was provided.
-
-    Found by replacing a sprite: the sprite is not the only drawing of an
-    archetype. The solid is held to *that sprite's* own opaque box, measured
-    off the CI4 texels, on faction colour zero, by the build itself, so
-    replacing either drawing moves the other's target. Without this rule a
-    sprite submission validated and the build then failed a hundred seconds
-    later inside `meshes/rules.py`, with a message written for a mesh author
-    telling them to reproportion boxes they never touched.
-
-    **This is the rule no interchange format can carry**, and it is why the
-    export wave's finding is load-bearing here rather than a remark: glTF
-    carries the model and cannot carry the contract. The number a mesh is held
-    to is a measurement of a *different artefact*, so it can be neither written
-    into a model file nor read out of one; the sprite is measured, here, on the
-    same texels the console uploads.
-
-    The refusal is addressed to the file that arrived, and says the thing that
-    file's author can act on: a sprite's author gets the range of silhouette
-    widths their drawing may have, a mesh's author the range of world widths
-    their figure may be. Only the faction-zero sprite is measured; every other
-    faction recolours inside the same silhouette.
-    """
-    silhouette = _silhouette_of(canvas)
-    if silhouette.width <= 0 or silhouette.height <= 0:
-        return Refusal(
-            mesh_label or sprite_label, "mesh-silhouette",
-            f"the {style_name} {archetype} sprite has no opaque silhouette for "
-            f"a solid to be held to")
-    asked = meshes.target_width(silhouette)
-    actual = meshes.authored_width(parts)
-    if abs(actual - asked) <= meshes.WIDTH_TOLERANCE:
-        return None
-    if mesh_label:
-        return Refusal(
-            mesh_label, "mesh-silhouette",
-            f"the {style_name} {archetype} is authored {actual} world units "
-            f"wide and its own sprite's opaque box is {silhouette.width} "
-            f"texels, which asks for {asked}. That is past the "
-            f"{meshes.WIDTH_TOLERANCE}-unit tolerance. This archetype is drawn "
-            f"twice, as a sprite and as a solid, and the solid is held to the "
-            f"sprite of its own style. Author it between "
-            f"{asked - meshes.WIDTH_TOLERANCE} and "
-            f"{asked + meshes.WIDTH_TOLERANCE} units wide. No model file can "
-            f"state this rule, because it is a measurement of the sprite and "
-            f"not of the model, so the sprite is measured here")
-    allowed = [texels for texels in range(1, canvas.width + 1)
-               if abs(actual - meshes.target_width(
-                   meshes.Silhouette(texels, silhouette.height,
-                                     silhouette.area)))
-               <= meshes.WIDTH_TOLERANCE]
-    span = (f"between {allowed[0]} and {allowed[-1]} texels wide"
-            if allowed else "no width at all, at this mesh's proportions")
-    return Refusal(
-        sprite_label, "mesh-silhouette",
-        f"its opaque box is {silhouette.width} texels wide, which asks the "
-        f"{style_name} {archetype} mesh for {asked} world units where it "
-        f"is authored {actual}. That is past the {meshes.WIDTH_TOLERANCE}-unit "
-        f"tolerance. This archetype is drawn twice: as this sprite and as a "
-        f"solid held to this sprite's own silhouette. Draw it {span}, or "
-        f"provide the mesh with it (a model at "
-        f"gltf/{style_name}/{archetype}.gltf is replaceable too), or the "
-        f"commission in placeholder_art/meshes/{style_name}.py has to be "
-        f"reproportioned. "
-        f"Only this faction colour is measured; the other five recolour inside "
-        f"the same silhouette")
-
-
-# ---------------------------------------------------------------------------
-# A provided mesh
-#
-# The mesh rules, applied to a part list that came out of a file somebody else
-# wrote. They live here rather than in `meshes/rules.py` for the reason the
-# sheet rules live here rather than in `characters.py`: that module states what
-# the *shipped* art is and raises an AssertionError naming an authored table
-# when it is wrong, which is exactly the message an outside contributor should
-# never be shown. The rules are the same rules; the audience, and therefore the
-# sentence, is not.
-#
-# Two of them are stronger here than there, and deliberately:
-#
-# * the order is checked the way the **machine** evaluates it rather than the
-#   way the generator does. See `_order_refusal`;
-# * the silhouette is checked in the direction a mesh author can act on, which
-#   is the same rule `_mesh_refusal` above applies to a provided sprite from the
-#   other side.
-# ---------------------------------------------------------------------------
-
-#: How much of the console's eight-corner depth sum the coprocessor's own
-#: truncation can be worth. Each of the eight projected corner depths is
-#: truncated to a whole unit by the shift the GTE applies, so eight truncations
-#: are worth up to eight units of the sum, which is exactly the margin the
-#: console refused a `pirates` commission over, on gaps of 1.4 and 2.6 units
-#: that the generator's own exact arithmetic on part centres had accepted. A
-#: margin of one or two units in exact arithmetic is therefore noise: give a
-#: part that overlaps another on screen at least two units, and check the pair
-#: rather than the figure.
-def _order_refusal(file_label: str,
-                   parts: Sequence[meshes.Part]) -> Optional[Refusal]:
-    """Far-to-near order, asked of the machine rather than of exact arithmetic.
-
-    Two readings, and a submission has to survive both. `meshes.rules` owns the
-    arithmetic, the console's eight truncated corner depths, and offers it at
-    the focus, where the scratch photographs, and as the worst of every phase a
-    board can stand a figure at. A pair inverted **at the focus** is refused
-    whatever it overlaps, because that is the picture a reader is shown. A pair
-    inverted only at some other phase is refused when the two are **drawn over
-    one another**, because an order between parts that never share a pixel is
-    an order that decides nothing, and holding a contributor to more than that
-    would hold them to a rule three of the seven shipped commissions break.
-    """
-    for index, (before, after) in enumerate(zip(parts, parts[1:])):
-        focus = rules.machine_order_margin_at_focus(before, after)
-        worst = rules.machine_order_margin(before, after)
-        overlaps = rules.drawn_over_one_another(before, after)
-        if focus >= 0 and not (worst < 0 and overlaps):
-            continue
-        margin = focus if focus < 0 else worst
-        where = ("at the camera the scratch photographs"
-                 if focus < 0 else
-                 "at one of the elevations a board can stand it at, where the "
-                 "two are drawn over one another")
-        exact = meshes.depth_key(before) - meshes.depth_key(after)
-        return Refusal(
-            file_label, "mesh-order",
-            f"part {index + 1} '{after.name}' draws in front of part {index} "
-            f"'{before.name}' on the console {where}, by {-margin} units of "
-            f"the sum of eight projected corner depths. So the array is not "
-            f"far-to-near and the scene would need a depth buffer, an ordering "
-            f"table and an AVSZ4. The generator's own rule is "
-            f"exact arithmetic on part centres and puts these "
-            f"{exact:+.2f} apart; the machine truncates each of the eight "
-            f"corners, which is worth up to {meshes.VERTICES_PER_PART} units "
-            f"of the sum, so a pair this close is decided by the truncation. "
-            f"Move the nearer part further forward in z or lower in y, or "
-            f"author it earlier in the list")
-    return None
-
-
-def _mesh_refusals(file_label: str, parts: Sequence[meshes.Part],
-                   spec: Specification) -> List[Refusal]:
-    """Every mesh rule that is about the figure rather than about the file.
-
-    The silhouette rule is not here: it is a measurement of the archetype's
-    *sprite*, so it is applied once per figure by :func:`_silhouette_refusal`,
-    after both halves of a submission have been read.
-    """
-    out: List[Refusal] = []
-    where = f"the {spec.style} {spec.archetype}"
-
-    feet = min(part.y0 for part in parts)
-    crown = max(part.y1 for part in parts)
-    if (feet, crown) != (0, meshes.MESH_WORLD_HEIGHT):
-        out.append(Refusal(
-            file_label, "mesh-height",
-            f"{where} stands from y = {feet} to y = {crown}, and a figure is "
-            f"built from y = 0 to y = {meshes.MESH_WORLD_HEIGHT}. That height "
-            f"is unit_world / cos({meshes.PITCH_DEGREES}) rather than "
-            f"unit_world, because a world-vertical extent is drawn "
-            f"focal*H*cos(pitch)/depth pixels tall, so a figure one tile tall "
-            f"is drawn half a tile tall"))
-
-    triangles = len(parts) * meshes.TRIANGLES_PER_PART
-    low, high = meshes.TRIANGLE_BAND
-    if not low <= triangles <= high:
-        out.append(Refusal(
-            file_label, "mesh-triangle-band",
-            f"{where} is {len(parts)} boxes, which is {triangles} triangles, "
-            f"outside the measured {low}-{high} band. A part costs "
-            f"{meshes.TRIANGLES_PER_PART} triangles, so a figure is between "
-            f"{-(-low // meshes.TRIANGLES_PER_PART)} and "
-            f"{high // meshes.TRIANGLES_PER_PART} parts. The floor is as real "
-            f"as the ceiling: a figure below it is a box with a head"))
-
-    if not any(part.ramp == meshes.RAMP_FACTION for part in parts):
-        out.append(Refusal(
-            file_label, "mesh-ramp",
-            f"no part of {where} wears the faction ramp (ramp "
-            f"{meshes.RAMP_FACTION}), so all six factions would draw the same "
-            f"figure. A mesh carries no colour: a face names a ramp and a rung "
-            f"and the drawing resolves it from that faction's own CLUT"))
-
-    order = _order_refusal(file_label, parts)
-    if order is not None:
-        out.append(order)
-    return out
-
-
-def _measure_mesh(parts: Sequence[meshes.Part]) -> Dict[str, object]:
-    """What an accepted model reports, whether or not anything was refused.
-
-    ``order_margin`` and ``order_close_pairs`` are the numbers a mesh author
-    most wants and has no other way to see: the tightest adjacent gap in the
-    console's own quantity, and how many adjacent pairs sit inside the
-    :data:`meshes.VERTICES_PER_PART` units the coprocessor's truncation is worth.
-    A pair inside that band draws in the authored order at the camera this
-    checks and is not *guaranteed* to at every other, which is why the number is
-    reported rather than assumed away. The margins are the worst standing phase,
-    which is the reading that answers "wherever the board puts this figure".
-    """
-    margins = [rules.machine_order_margin(before, after)
-               for before, after in zip(parts, parts[1:])]
-    return {
-        "parts": len(parts),
-        "triangles": len(parts) * meshes.TRIANGLES_PER_PART,
-        "width": meshes.authored_width(parts),
-        "rungs": sorted({(part.ramp, part.rung) for part in parts}),
-        "order_margin": min(margins) if margins else 0,
-        "order_close_pairs": sum(1 for margin in margins
-                                 if margin < meshes.VERTICES_PER_PART),
-    }
-
-
-def _read_mesh(label: str, spec: Specification, document: bytes, buffer: bytes
-               ) -> Tuple[Optional[Tuple[meshes.Part, ...]],
-                          Dict[str, object], List[Refusal]]:
-    """One submitted model, parsed and then held to the mesh rules.
-
-    Parsing and rule-checking are two steps rather than one because the first
-    answers "is this a model at all" about a file nobody trusts, and the second
-    answers "is this figure inside the contract" about a part list of integers
-    that no longer holds anything of the submission.
-    """
-    try:
-        parts = gltf.read_model(document, buffer, spec.style, spec.archetype)
-    except gltf.ModelRefused as error:
-        return None, {}, [Refusal(label, error.code, error.reason)]
-    refusals = _mesh_refusals(label, parts, spec)
-    if refusals:
-        return None, {}, refusals
-    return parts, _measure_mesh(parts), []
-
-
-def _silhouette_of(canvas: Canvas) -> meshes.Silhouette:
-    """One sprite's opaque box, by the route the build itself measures it.
-
-    The CI4 conversion of the faction-zero sprite, read through
-    :func:`.playstation_header.silhouette_of`, which is the same texels the
-    console uploads to VRAM, so a provided mesh is held to the number the
-    generated header will carry rather than to a second opinion of it.
-    """
-    return playstation_header.silhouette_of(
-        profiles.convert(canvas, profiles.PROFILES_BY_NAME["n64_ci4"],
-                         is_sprite=True))
-
-
-def _sprite_of(style_name: str, archetype: str,
-               provided_sheets: Mapping[str, Canvas]) -> Canvas:
-    """The faction-zero sprite a mesh of this archetype is held to.
-
-    A **provided** sheet where one arrived in the same submission, and the
-    generated one otherwise. Replacing a sprite and its own mesh together has to
-    be a thing that works: the two are drawings of one figure, and holding a new
-    solid to the old drawing's silhouette would refuse exactly the submission
-    that got both right.
-    """
-    style = styles.STYLES_BY_NAME[style_name]
-    faction = characters.FACTION_COLOURS[0].name
-    key = (f"characters/{archetype}_{faction}"
-           f"{styles.asset_suffix(style)}.png")
-    provided_sheet = provided_sheets.get(key)
-    if provided_sheet is not None:
-        return provided_sheet
-    return styles.sprite(style, archetype, faction)
-
-
-def _silhouette_refusals(accepted: Mapping[str, Replacement],
-                         table: Mapping[str, Specification]) -> List[Refusal]:
-    """The silhouette rule over every figure this submission touches.
-
-    A submission can move the sprite, the solid, or both, and the rule is one
-    rule about the pair. So the figures are gathered first and each is measured
-    once, with whichever drawings arrived standing in for the ones that did not.
-    """
-    sheets = {key: replacement.canvas
-              for key, replacement in accepted.items()
-              if replacement.canvas is not None}
-    figures: Dict[Tuple[str, str], Dict[str, str]] = {}
-    for key, replacement in accepted.items():
-        if not replacement.style:
-            continue
-        spec = table[key]
-        if spec.kind == "character" and \
-                spec.faction == characters.FACTION_COLOURS[0].name:
-            side = "sprite"
-        elif spec.kind == "mesh":
-            side = "mesh"
-        else:
-            continue
-        figures.setdefault((replacement.style, replacement.archetype),
-                           {})[side] = key
-
-    out: List[Refusal] = []
-    for (style_name, archetype), keys in sorted(figures.items()):
-        style = styles.STYLES_BY_NAME.get(style_name)
-        if style is None:
-            continue
-        mesh_key = keys.get("mesh")
-        parts = (accepted[mesh_key].parts if mesh_key
-                 else meshes.parts_for(style, archetype))
-        if not parts:
-            # A style with no commission has nothing to hold this sprite to.
-            continue
-        refusal = _silhouette_refusal(
-            style_name, archetype,
-            _sprite_of(style_name, archetype, sheets), parts,
-            _label(keys.get("sprite")), _label(mesh_key))
-        if refusal is not None:
-            out.append(refusal)
-    return out
-
-
 def _label(key: Optional[str]) -> str:
     """A key as the path a refusal names, or the empty string for no file."""
     return f"{PROVIDED_DIRECTORY}/{key}" if key else ""
@@ -1115,12 +680,6 @@ def read(root: Path) -> Tuple[Dict[str, Replacement], List[Refusal]]:
     colliding = {key for group in folded.values() if len(group) > 1
                  for key in group}
 
-    #: A model's two files, held until both have passed every rule that is
-    #: about a file rather than about a figure. A document cannot be read
-    #: without the buffer it describes, and the buffer cannot be read without
-    #: the document that says what is in it.
-    model_bytes: Dict[str, bytes] = {}
-
     for key, path in entries:
         label = f"{PROVIDED_DIRECTORY}/{key}"
         if key in colliding:
@@ -1148,12 +707,12 @@ def read(root: Path) -> Tuple[Dict[str, Replacement], List[Refusal]]:
             refusals.append(Refusal(
                 label, "not-a-regular-file",
                 f"it is a directory nested more than {MAX_TREE_DEPTH} deep, or "
-                f"one that could not be listed. The deepest key is three "
-                f"components (a directory, a style and a filename), so the "
-                f"scan stops there"
+                f"one that could not be listed. The deepest key is two "
+                f"components (a directory and a filename), so the scan stops "
+                f"there"
                 if stat.S_ISDIR(info.st_mode) else
-                "it is not a regular file. A provided file is a PNG or a model "
-                "on disk, not a device, a socket or a pipe"))
+                "it is not a regular file. A provided file is a PNG on disk, "
+                "not a device, a socket or a pipe"))
             continue
         if info.st_size > MAX_FILE_BYTES:
             refusals.append(Refusal(
@@ -1164,29 +723,12 @@ def read(root: Path) -> Tuple[Dict[str, Replacement], List[Refusal]]:
             continue
 
         spec = table.get(key)
-        if spec is None and key.lower().endswith(MODEL_SUFFIXES):
-            refusals.append(Refusal(
-                label, "unsupported-kind",
-                f"a model is provided as glTF 2.0 and this is not one. The "
-                f"interchange format is the one this repository already writes "
-                f"and reads back: assets/gltf/<style>/<archetype>.gltf and the "
-                f".bin beside it, which "
-                f"verify.check_gltf_round_trip reconstructs every authored "
-                f"integer from. Export from your tool to glTF 2.0 with a "
-                f"separate buffer, or start from the exported model of the "
-                f"figure you are replacing"))
-            continue
         if spec is None:
             near = lowered.get(key.lower())
             hint = (f" Did you mean {near}? A key is exactly the manifest path, "
                     "letter for letter." if near else
                     " Run generate.py --list-keys for every key a replacement "
                     "may name.")
-            if near is None and key.lower().endswith(
-                    (MODEL_DOCUMENT_SUFFIX, MODEL_BUFFER_SUFFIX)):
-                hint = (" A model's key is gltf/<style>/<archetype>.gltf and "
-                        "the .bin beside it, which is where the export writes "
-                        "it under assets/.")
             refusals.append(Refusal(
                 label, "unknown-key",
                 f"it does not name an asset. The path under "
@@ -1221,15 +763,6 @@ def read(root: Path) -> Tuple[Dict[str, Replacement], List[Refusal]]:
                 label, "too-large",
                 f"it is more than {MAX_FILE_BYTES} bytes. The largest sheet "
                 f"this repository generates is 1,082"))
-            continue
-
-        # A model is two files and neither is a sheet, so it leaves the sheet
-        # path here with its bytes and is read below, once both halves of it
-        # have arrived. Everything above this line applied to it exactly as it
-        # applied to a PNG: the link, the file kind, the two byte caps and the
-        # whitelisted key, because none of that was ever about pixels.
-        if spec.kind in ("mesh", "mesh-buffer"):
-            model_bytes[key] = data
             continue
 
         if not data.startswith(_PNG_SIGNATURE):
@@ -1269,66 +802,14 @@ def read(root: Path) -> Tuple[Dict[str, Replacement], List[Refusal]]:
             size_bytes=len(data), measurements=dict(measured),
             style=spec.style, archetype=spec.archetype)
 
-    # The models, once both halves of each are in hand. A document without its
-    # buffer is not read at all, because there is nothing to read it against;
-    # and a buffer without its document is not read at all, because nothing says
-    # what is in it. Both are named here rather than in the missing-partner pass
-    # below, which only looks at what was accepted, and half a model never is.
     submitted = {key for key, _ in entries}
-    for key, data in sorted(model_bytes.items()):
-        spec = table[key]
-        partner = str(spec.partner)
-        if partner not in submitted:
-            refusals.append(Refusal(
-                _label(key), "incomplete-model",
-                f"it is provided without {partner}. A model is replaced as a "
-                f"pair (the glTF document and the buffer it references) "
-                f"because the document is a description of bytes that are not "
-                f"in it: every corner, normal and triangle lives in the .bin, "
-                f"and neither file says anything without the other"))
-            continue
-        if partner not in model_bytes or spec.kind != "mesh":
-            # Half of this model arrived and was refused by its own rule, which
-            # has already said so. Repeating it as an absence would send its
-            # author looking for a file they can see.
-            continue
-        buffer = model_bytes[partner]
-        parts, measured, broken = _read_mesh(
-            f"{PROVIDED_DIRECTORY}/{key}", spec, data, buffer)
-        if broken:
-            refusals.extend(broken)
-            continue
-        assert parts is not None
-        accepted[key] = Replacement(
-            key=key, kind=spec.kind, parts=parts,
-            digest=hashlib.sha256(data).hexdigest(),
-            size_bytes=len(data), measurements=dict(measured),
-            style=spec.style, archetype=spec.archetype)
-        # The buffer is accepted as the half of the model it is, and carries no
-        # measurement of its own: everything it holds has already been read out
-        # of it as integers, and none of its bytes goes anywhere.
-        accepted[str(spec.partner)] = Replacement(
-            key=str(spec.partner), kind="mesh-buffer",
-            digest=hashlib.sha256(buffer).hexdigest(),
-            size_bytes=len(buffer), style=spec.style,
-            archetype=spec.archetype)
-
-    # The silhouette rule, once per figure, after both drawings of it are known.
-    # It is the one rule that spans two artefacts, since a solid is held to *its
-    # own sprite's* opaque box, so it cannot be applied while reading either
-    # one, and no interchange format can carry it. Every archetype either half
-    # of a submission touches is measured, against the provided drawing where
-    # one arrived and the generated one otherwise.
-    refusals.extend(_silhouette_refusals(accepted, table))
 
     # Only a partner that was never *submitted* is missing. One that arrived and
     # was refused has already been reported by its own rule, and saying it is
-    # absent as well would send its author looking for a file they can see. A
-    # model's pair is settled above, where half of one is never accepted at all.
+    # absent as well would send its author looking for a file they can see.
     for key in sorted(accepted):
         partner = table[key].partner
-        if not partner or partner in submitted \
-                or table[key].kind in ("mesh", "mesh-buffer"):
+        if not partner or partner in submitted:
             continue
         refusals.append(Refusal(
             f"{PROVIDED_DIRECTORY}/{key}", "incomplete-sequence",
@@ -1376,17 +857,6 @@ def manifest_block(replacements: Mapping[str, Replacement]) -> Dict[str, object]
 def describe(replacement: Replacement) -> str:
     """One line of measurement for an accepted file."""
     measured = replacement.measurements
-    if replacement.kind == "mesh-buffer":
-        return (f"{replacement.key}: {replacement.size_bytes} bytes of "
-                f"geometry, read as integers and re-emitted")
-    if replacement.kind == "mesh":
-        return (f"{replacement.key}: {measured['parts']} parts, "
-                f"{measured['triangles']} triangles, {measured['width']} world "
-                f"units wide, {len(list(measured['rungs']))} ramp/rung pairs, "
-                f"tightest far-to-near margin {measured['order_margin']} of "
-                f"the {meshes.VERTICES_PER_PART} units the console's truncation "
-                f"is worth ({measured['order_close_pairs']} adjacent pairs "
-                f"inside it)")
     ramps = list(measured["ramps"])  # type: ignore[arg-type]
     return (f"{replacement.key}: {measured['colours']} colours, "
             f"{len(ramps)} ramps ({', '.join(ramps)}), "

@@ -990,20 +990,6 @@ SourceParseResult parse_source_project_json(std::string_view json) {
             );
         }
     }
-    const auto character_geometry =
-        mapper.string(*root, "characterGeometry", "$", false);
-    if (character_geometry) {
-        const auto index = character_geometry_index(*character_geometry);
-        if (index < character_geometry_count) {
-            mapper.result.source.character_geometry = index;
-        } else {
-            mapper.error(
-                SourceDiagnosticCode::invalid_value,
-                "$.characterGeometry",
-                "not a way the art library draws a character"
-            );
-        }
-    }
     // The order every battle takes that does not state one of its own. It is
     // resolved here and carried no further than the encounters below: the
     // package records each encounter's resolved order and nothing about how it

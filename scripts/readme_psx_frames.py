@@ -10,7 +10,7 @@ A captured frame is `width * height` little-endian halfwords of
 `SBBBBBGG GGGRRRRR`, which is the PlayStation's own storage and not a claim
 about a digital-to-analogue converter. Five-bit channels are widened to eight
 the usual way, by repeating the top bits, so a full channel stays full. That is
-the same widening `platform/playstation/scratch/scratch3d_evidence.py` does.
+the same widening the PlayStation's own evidence tooling does.
 
 Nothing here assumes a display size. The harness prints the size it captured on
 its own `FRAMES` line and `playstation_turn_probe.c` reads the size from there

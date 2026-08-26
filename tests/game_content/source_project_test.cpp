@@ -770,52 +770,6 @@ void maps_a_characters_own_style() {
         "drawn exactly as it was before figures existed"
     );
 
-    // Geometry: the third axis of the same choice, and the only one that is a
-    // statement about the whole game rather than about one character. It is
-    // asserted here on the project root for exactly that reason -- there is no
-    // per-character override to sweep, because "this unit is a model and that
-    // one is a sprite" is not a thing a board can draw coherently.
-    const std::string geometry_needle = R"json("schemaVersion": "1.2.0",)json";
-    const auto with_geometry = [&geometry_needle](const char* name) {
-        std::string project{source};
-        const auto at = project.find(geometry_needle) + geometry_needle.size();
-        project.insert(
-            at, std::string(R"json("characterGeometry":")json") + name + "\","
-        );
-        return project;
-    };
-    expect(
-        plain.source.character_geometry == gc::default_character_geometry,
-        "a project that names no geometry is drawn as sprites, which is what "
-        "every board showed before models existed"
-    );
-    for (const auto* named : {"sprites", "models"}) {
-        const auto parsed = gc::parse_source_project_json(with_geometry(named));
-        expect(
-            static_cast<bool>(parsed) &&
-                parsed.source.character_geometry ==
-                    gc::character_geometry_index(named),
-            "either way of drawing a character may be named by a project"
-        );
-    }
-    const auto bad_geometry =
-        gc::parse_source_project_json(with_geometry("voxels"));
-    expect(
-        !static_cast<bool>(bad_geometry) &&
-            has_source_diagnostic(
-                bad_geometry, gc::SourceDiagnosticCode::invalid_value
-            ),
-        "a way of drawing the art library does not offer is refused by name"
-    );
-    constexpr std::array<std::string_view, gc::character_geometry_count>
-        geometry_menu = {"sprites", "models"};
-    for (std::uint8_t index = 0; index < gc::character_geometry_count; ++index) {
-        expect(
-            gc::character_geometry_index(geometry_menu[index]) == index,
-            "every way of drawing holds the index its position gives it"
-        );
-    }
-
     const auto refused = gc::parse_source_project_json(with_unit_style("gothic"));
     expect(
         !static_cast<bool>(refused),

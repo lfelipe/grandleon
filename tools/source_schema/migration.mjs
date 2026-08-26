@@ -419,8 +419,7 @@ export function upgradeProject(registry, project) {
  * whether to upgrade a game, not shown a field name.
  */
 const TALK_IN_A_BATTLE =
-  "characters can speak during a battle, not only before and after it, " +
-  "and a game can be drawn with models instead of sprites";
+  "characters can speak during a battle, not only before and after it";
 
 /**
  * What 1.2.0 adds, in one sentence for the same reason.
@@ -442,18 +441,13 @@ const WEAPONS_CHANGE_HANDS =
  * what the advantage is worth. A project stating neither fights exactly as it
  * fought before, so this step moves the version and leaves the game alone.
  *
- * One, and it exists because `1.1.0` exists. That version carries two additions
+ * One, and it exists because `1.1.0` exists. That version carries one addition
  * an author can see: an encounter may carry moments, which are scenes that play
- * while the battle is on, and a project may ask to be drawn as models rather
- * than as sprites (`characterGeometry`). Nothing is added to an older project
- * by the step, and that is the point of it being here rather than nowhere: both
- * are optional, and absent means a battle nobody speaks during drawn with the
- * sprites, which is exactly what every project written before them said. The
- * step moves the version and leaves the game alone.
- *
- * The sentence names both, because it is the whole of what an author is told
- * before their game is touched: a step that described only the first would be
- * asking them to agree to something it had not mentioned.
+ * while the battle is on. Nothing is added to an older project by the step, and
+ * that is the point of it being here rather than nowhere: it is optional, and
+ * absent means a battle nobody speaks during, which is exactly what every
+ * project written before it said. The step moves the version and leaves the
+ * game alone.
  *
  * It is registered all the same, because the schemas set
  * `additionalProperties: false`: a file this editor writes is one an older

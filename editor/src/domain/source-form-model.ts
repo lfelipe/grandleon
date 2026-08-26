@@ -968,13 +968,6 @@ export const withheldProjectFields: Readonly<Record<string, string>> = {
   // A picture choice about a person, asked before the author has made one.
   // It lives on the character, where there is somebody to look at.
   characterFigureId: "belongs to a character, not to the game",
-  // The format carries it and the compiler reads it, so a project may ask to be
-  // drawn with models today. Nothing draws them yet: no shipped ROM has a mesh
-  // path, and the roster of solids is not good enough to offer. A control for a
-  // setting that changes nothing an author can see is worse than no control --
-  // it reads as a feature and behaves as a no-op. It goes on the settings page
-  // the day a build honours it.
-  characterGeometry: "nothing draws models yet; the control would do nothing",
   // Half of one rule, and the half on its own is meaningless: what the better
   // weapon is worth says nothing until some kind of weapon beats another. So
   // it is authored where the edges are, on the weapon triangle beside the

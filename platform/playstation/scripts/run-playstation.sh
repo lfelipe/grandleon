@@ -29,9 +29,9 @@
 # assertion table's `RESULT PASS 0/0` being read as a pass. It is a floor
 # rather than a number to match; `scripts/assert-harness-verdict.sh` holds the
 # reasoning and makes the decision. Zero, the default, is no floor at all, which
-# is right because this script is also how a *measurement* program is run:
-# `grandleon_playstation_scratch3d` reports on these same two channels, and the
-# size of its count is the thing being measured rather than a thing to require.
+# is right because this script is also how a program that *measures* rather than
+# checks is run: such a program reports on these same two channels, and the size
+# of its count is the thing being measured rather than a thing to require.
 # Every caller that is a check names a floor; `grandleon_playstation_check`
 # names 58.
 #

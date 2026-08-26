@@ -426,7 +426,6 @@ export class SourceProjectSession {
         | "themeId"
         | "characterStyleId"
         | "characterFigureId"
-        | "characterGeometry"
         | "defaultTurnOrder"
         | "characterLoss"
         | "weaponAdvantage"
@@ -448,7 +447,6 @@ export class SourceProjectSession {
       "themeId",
       "characterStyleId",
       "characterFigureId",
-      "characterGeometry",
       "defaultTurnOrder",
       "characterLoss",
       "weaponAdvantage",

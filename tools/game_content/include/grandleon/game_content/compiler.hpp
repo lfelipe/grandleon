@@ -231,25 +231,6 @@ inline constexpr std::uint8_t character_figure_unnamed = character_figure_count;
 //: menu does not hold.
 [[nodiscard]] std::uint8_t character_figure_index(std::string_view name) noexcept;
 
-//: How many ways a character can be drawn: as the painted sprite, or as the
-//: solid model of the same figure. The third axis of the same choice, and the
-//: only one of the three that is not about *whose* body or *whose* hand: a
-//: style says who drew the role, a figure says at what build, and this says
-//: which of the two drawings of that figure the board shows.
-//:
-//: A project may name either today; whether a given style has had its solids
-//: drawn is a question for the art library and not for this menu, exactly as a
-//: style that ships no second figure is still a style that offers one.
-inline constexpr std::uint8_t character_geometry_count = 2;
-
-//: What a project that names nothing is drawn as: the sprites, which is what
-//: every board showed before the models were drawn.
-inline constexpr std::uint8_t default_character_geometry = 0;
-
-//: The menu index of a geometry name, or `character_geometry_count` for a name
-//: the menu does not hold.
-[[nodiscard]] std::uint8_t character_geometry_index(std::string_view name) noexcept;
-
 struct UnitType final {
     StableId id{};
     std::string name;
@@ -900,11 +881,6 @@ struct GameSource final {
     //: The body this game's characters are drawn with wherever a character
     //: names none of its own. Presentation only, like the style beside it.
     std::uint8_t character_figure{default_character_figure};
-    //: Whether this game's characters are drawn as sprites or as models.
-    //: Presentation only, like the style and the figure above it: no rule
-    //: reads it, so it never enters canonical state, and a console build
-    //: resolves it once at build time and embeds only the art it chose.
-    std::uint8_t character_geometry{default_character_geometry};
     //: What a fall costs this game's company. Not presentation: it is resolved
     //: into every campaign record the way the project's default turn order is
     //: resolved into every encounter's one turn-order byte, and it sits on the

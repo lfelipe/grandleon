@@ -13,8 +13,8 @@ and the compiler resolves those to indices into what is generated here.
 Nothing outside this folder is touched.
 
 [`GALLERY.md`](GALLERY.md) shows the generated art cut by asset kind;
-[`ROSTER.md`](ROSTER.md) is the same library cut by unit: sprite, motion,
-recolourings and mesh side by side.
+[`ROSTER.md`](ROSTER.md) is the same library cut by unit: sprite, motion and
+recolourings side by side.
 
 ## Contents
 
@@ -73,8 +73,6 @@ assets/<profile>/palette.png                      shared-palette profiles only
 assets/<profile>/palettes.json                    palette(s) for the profile
 assets/<profile>/manifest.json                    sizes, layouts, mask tables
 assets/palette_usage.json                         what each drawing costs
-assets/gltf/<style>/<archetype>.gltf              one mesh as a Blender-openable model
-assets/gltf/<style>/<archetype>.bin               its vertex buffer
 gallery/*.png, GALLERY.md, ROSTER.md              generated, do not hand-edit
 ```
 
@@ -185,34 +183,6 @@ same symbols, keyed by archetype and faction colour, which is what makes the
 choice an include rather than an index. A `[style][archetype][colour]` pointer
 table would be one data section naming every style's arrays, and no call-site
 care would let the linker drop the unused ones.
-
-### The meshes also come out as glTF
-
-`meshes/` is what a character mesh *is*; the consoles read the integer
-tables in `assets/playstation_meshes_<style>.h`. Beside them, `gltf.py`
-writes every commissioned figure as glTF 2.0 so a mesh opens in Blender. No
-console links the glTF; three readers, deliberately separate:
-`verify.check_gltf_round_trip` reconstructs every part's eight integers from
-the geometry alone and fails the build if one differs from the table;
-`preview3d.load` draws the roster's picture; `gltf.read_model` reads a file
-somebody else wrote. A provided mesh is this format, at
-`art/provided/gltf/<style>/<archetype>.gltf`, held to every rule
-`meshes/rules.py` states for a commissioned figure and refused by name with
-its measurement (`check_provided.py`). A submission is just a file at
-exactly the path of the asset it stands in for: there is no upload surface
-and no registration step, `generate.py --validate-provided` answers yes or no
-with the measurement that failed, and not one byte of a submitted file
-reaches a generated artefact. A sheet is decoded to palette indices and a
-model to a part list of integers, then both are re-emitted by this
-repository's own writer.
-
-Conventions, all decided in `gltf.py`: z is negated (figure space is
-left-handed, glTF is not) and nothing else; the root node carries a uniform
-1/64 so one board tile is one Blender unit; no vertex is shared between
-faces, so a viewer cannot smooth what the renderer flat-shades; a mesh
-carries no colour (each material's name and `extras` say which ramp and
-rung, with `baseColorFactor` a courtesy); parts are authored far-to-near and
-the export keeps that order.
 
 ## Adding a terrain type
 
@@ -385,18 +355,6 @@ has written it is a migration rather than an edit.
    picture, the catalogue gives them a unit, and a test asserts the two
    menus are the same menu.
 
-A **mesh commission is optional and separate**; a style is complete without
-one. To add one: write `meshes/<style>.py` declaring `STYLE` and a `MESHES`
-mapping, register it in `meshes/__init__.py`. Everything reaches a figure
-through `meshes.parts_for(style, archetype)` and already answers for a style
-that has none. Read `meshes/rules.py` before authoring; it holds the rules
-and the measurement behind each. In one line: a figure is a short list of
-convex axis-aligned boxes, built at `MESH_WORLD_HEIGHT` with its feet at
-y = 0, authored far-to-near, every face naming a ramp and a rung and never a
-colour, 150 to 300 triangles in all, and held on both screen axes to its own
-style's sprite's opaque box within `rules.WIDTH_TOLERANCE`, 8 world units.
-The rules are necessary rather than sufficient.
-
 Brief a sprite commission at **sixteen colours per sprite** (the `n64_ci4`
 cap, which binds in practice) and therefore at **about five materials**: a
 shading ramp costs three to five entries once it covers more than a few
@@ -504,8 +462,6 @@ palette, and it lands on a measurement rather than on a shipped file.
 | `characters.py` | one class per archetype, plus the factions |
 | `styles.py` | the character style menu |
 | `figures.py` | the figure menu |
-| `meshes/rules.py` | what a character mesh is, and every rule one is held to |
-| `meshes/<style>.py` | one style's mesh commission |
 | `backdrops.py` | the scene backdrop menu |
 | `scene.py` | the composed sample map |
 | `profiles.py` | output targets and their quantisation rules |
@@ -514,7 +470,6 @@ palette, and it lands on a measurement rather than on a shipped file.
 | `pixelfont.py` | a 3x5 bitmap font for gallery labels |
 | `verify.py` | seam, adjacency and legibility assertions, every build |
 | `gallery.py` | contact sheets, `GALLERY.md` and `ROSTER.md` |
-| `preview3d.py` | draws an exported mesh at the shipped camera |
 | `build.py` | orchestration |
 
 ## Known limitations
