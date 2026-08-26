@@ -1030,6 +1030,99 @@ void a_departed_character_is_neither_struck_nor_chased() {
 // And the actor side of the same rule: a driver walking the roster by health
 // alone will hand `decide` somebody who is not on the board, and the honest
 // answer is no plan rather than one the engine throws away.
+// A wall longer than one allowance, with a gap at one end: the shape both
+// shipped campaigns draw and both are careful to draw wide.
+//
+// Measuring "closer" as the crow flies, the pursuer walked up to the wall and
+// stopped there for good. From against it no reachable tile was any nearer in a
+// straight line, so `pursue` fell through to `wait`, and did so again every
+// round for the rest of the battle. The board deadlocked.
+//
+// Measured through the ground, the tile towards the gap really is nearer, so
+// the march goes round. Walked out over several turns rather than asserted one
+// step at a time, because the whole failure was that the *next* step did not
+// exist: one step in a promising direction proves nothing on its own.
+void a_wall_is_walked_around_rather_than_stared_at() {
+    const std::uint16_t width = 9;
+    const std::uint16_t height = 7;
+    sim::EncounterDefinition definition{
+        width, height,
+        {unit(10, sim::Side::first, {8, 6}, 3),
+         unit(20, sim::Side::second, {0, 6}, 3)},
+        {},
+        {}};
+    definition.terrain.assign(
+        static_cast<std::size_t>(width) * height, sim::Terrain::open
+    );
+    // A spur down the middle, broken only at the very top, six rows from where
+    // the pursuer stands and well beyond one allowance.
+    for (std::uint16_t y = 1; y < height; ++y) {
+        definition.terrain[static_cast<std::size_t>(y) * width + 4] =
+            sim::Terrain::heights;
+    }
+
+    const auto opening = tac::decide(
+        snapshot_of(definition), 10, tac::Behavior::pursue, {}
+    );
+    expect(
+        opening.actionable && opening.command.type == sim::CommandType::move,
+        "a pursuer with a wall in the way still has somewhere to go"
+    );
+    engine_accepts(definition, opening.command, "the engine accepts the detour");
+
+    // And it keeps going, turn after turn, until it is through the gap.
+    sim::EncounterDefinition walked = definition;
+    bool crossed = false;
+    for (int turn = 0; turn < 12 && !crossed; ++turn) {
+        const auto plan = tac::decide(
+            snapshot_of(walked), 10, tac::Behavior::pursue, {}
+        );
+        if (!plan.actionable ||
+            plan.command.type != sim::CommandType::move) {
+            break;
+        }
+        walked.units[0].position = plan.command.destination;
+        crossed = walked.units[0].position.x < 4;
+    }
+    expect(
+        crossed,
+        "and the march carries on through the gap instead of stalling at the wall"
+    );
+}
+
+// The other half of the same rule: where there is genuinely no way round, the
+// straight line is still the answer. A goal walled off completely leaves the
+// character closing what distance the ground allows, which is what it always
+// did and the most sensible thing left to do.
+void a_goal_with_no_way_round_is_still_approached() {
+    const std::uint16_t width = 7;
+    const std::uint16_t height = 3;
+    sim::EncounterDefinition definition{
+        width, height,
+        {unit(10, sim::Side::first, {6, 1}, 3),
+         unit(20, sim::Side::second, {0, 1}, 3)},
+        {},
+        {}};
+    definition.terrain.assign(
+        static_cast<std::size_t>(width) * height, sim::Terrain::open
+    );
+    // A wall clean across the board: nothing can cross it anywhere.
+    for (std::uint16_t y = 0; y < height; ++y) {
+        definition.terrain[static_cast<std::size_t>(y) * width + 3] =
+            sim::Terrain::heights;
+    }
+    const auto plan = tac::decide(
+        snapshot_of(definition), 10, tac::Behavior::pursue, {}
+    );
+    expect(
+        plan.actionable && plan.command.type == sim::CommandType::move &&
+            plan.command.destination.x < 6 &&
+            plan.command.destination.x > 3,
+        "a walled-off goal is still approached as far as the ground allows"
+    );
+    engine_accepts(definition, plan.command, "the engine accepts the approach");
+}
+
 void a_character_off_the_board_gets_no_plan() {
     sim::EncounterDefinition definition{
         6, 3,
@@ -1110,6 +1203,8 @@ int main() {
     a_cast_must_still_beat_the_best_weapon();
     a_wave_still_marching_is_neither_struck_nor_chased();
     a_departed_character_is_neither_struck_nor_chased();
+    a_wall_is_walked_around_rather_than_stared_at();
+    a_goal_with_no_way_round_is_still_approached();
     a_character_off_the_board_gets_no_plan();
     return failures == 0 ? 0 : 1;
 }

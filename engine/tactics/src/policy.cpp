@@ -60,6 +60,85 @@ const UnitSnapshot* nearest_enemy(
     return best;
 }
 
+// Cannot be reached from the goal through ground this character crosses.
+constexpr std::uint32_t no_way_round = 0xFFFFFFFFU;
+
+// How far every cell is from `goal`, counted in tiles through ground this
+// character can actually cross.
+//
+// **This is a heuristic and not a rule, and the distinction is the whole reason
+// it may live here.** It answers "how far round is it", which is a question
+// about the shape of the ground; it says nothing about where a character may
+// go, what a step costs, or who is in the way. Those are
+// `simulation::movement_field`'s and the caller still asks it for all three, so
+// nothing here can propose a move the engine would refuse.
+//
+// It is deliberately blind to who is standing where. Occupancy is a fact about
+// this instant and this is a fact about the board: routing a march around a
+// character who will have moved by the time anybody gets there would make the
+// path jitter every turn. The engine still refuses a walk that ends on
+// somebody, because the caller still asks it.
+//
+// Unpriced, for the reason the caller does not weigh price against progress:
+// the allowance is spent either way, and a marsh two tiles wide is still the
+// short way round a mountain ten tiles long. Breadth-first in the same fixed
+// neighbour order everything else here uses, so the field is a fact about the
+// board rather than about the order it was walked in.
+void terrain_distance_from(
+    const EncounterSnapshot& snapshot,
+    Position goal,
+    std::uint8_t crossings,
+    std::vector<std::uint32_t>& field
+) {
+    const std::size_t cells =
+        static_cast<std::size_t>(snapshot.width) * snapshot.height;
+    field.assign(cells, no_way_round);
+    if (cells == 0) return;
+    const auto index_of = [&snapshot](Position position) {
+        return static_cast<std::size_t>(position.y) * snapshot.width +
+               static_cast<std::size_t>(position.x);
+    };
+    const auto inside = [&snapshot](Position position) {
+        return position.x >= 0 && position.y >= 0 &&
+               static_cast<std::uint16_t>(position.x) < snapshot.width &&
+               static_cast<std::uint16_t>(position.y) < snapshot.height;
+    };
+    if (!inside(goal)) return;
+    // The goal itself is entered whatever stands on it: it is where the march
+    // is going, and a character is standing there by definition.
+    field[index_of(goal)] = 0U;
+    std::vector<Position> frontier{goal};
+    std::vector<Position> next_frontier;
+    constexpr std::pair<std::int16_t, std::int16_t> steps[] = {
+        {0, -1}, {1, 0}, {0, 1}, {-1, 0}
+    };
+    for (std::uint32_t away = 1; !frontier.empty(); ++away) {
+        next_frontier.clear();
+        for (const Position position : frontier) {
+            for (const auto& [dx, dy] : steps) {
+                const Position neighbour{
+                    static_cast<std::int16_t>(position.x + dx),
+                    static_cast<std::int16_t>(position.y + dy)
+                };
+                if (!inside(neighbour)) continue;
+                const std::size_t slot = index_of(neighbour);
+                if (field[slot] != no_way_round) continue;
+                const std::size_t terrain_slot = slot;
+                if (!snapshot.terrain.empty() &&
+                    (terrain_slot >= snapshot.terrain.size() ||
+                     !simulation::can_enter(
+                         snapshot.terrain[terrain_slot], crossings
+                     ))) {
+                    continue;
+                }
+                field[slot] = away;
+                next_frontier.push_back(neighbour);
+            }
+        }
+        frontier.swap(next_frontier);
+    }
+}
+
 // The tile this unit can walk to that gets closest to `goal`.
 //
 // Where it may go is not decided here. `simulation::movement_field` is the
@@ -70,14 +149,31 @@ const UnitSnapshot* nearest_enemy(
 // rule is. It is asked with `actor.side`, so a unit files past its own fellows
 // and is stopped by the opposition, exactly as the accepted command will be.
 //
-// What is decided here is only which of those tiles to take: "closest" is
-// straight-line separation from the goal, so a unit whose way is blocked walks
-// to the near bank and stops there rather than rounding an obstacle it cannot
-// see past. That is the same greedy rule this applies to a line of opponents,
-// and ground can be a wall too. Its own side is neither, and it files
-// through. It does not weigh price against progress: a tile one closer is
-// taken whether the ground charged one to reach it or four, because the
-// allowance is spent either way and nothing is saved by hoarding it.
+// What is decided here is only which of those tiles to take, and "closest"
+// means closest **through the ground** rather than across it.
+//
+// **It used to mean straight-line separation, and that was a march that could
+// stop for good.** A character whose goal lay behind a wall walked up to the
+// wall, and from there no tile it could reach was any nearer as the crow flies,
+// so `pursue` fell through to `wait` and did so again every turn for the rest
+// of the battle. Both shipped campaigns dodge it by construction: every gap in
+// every wall they draw is wide and sits on the line of approach, so the detour
+// always fitted inside one allowance. That is board discipline standing in for
+// a pathfinder, and it protects only the boards somebody already drew carefully.
+//
+// Measuring round the wall instead costs one breadth-first sweep of the board
+// per decision, next to the sweep `movement_field` already does, and it makes
+// the greedy step honest: a tile that is nearer through the ground really is
+// progress, so a character walks to the gap, through it, and on.
+//
+// The straight line is still the answer where there is genuinely no way round.
+// A goal walled off entirely leaves every cell unreachable in the field, and
+// then closing the distance as far as the ground allows is the most sensible
+// thing left to do, which is exactly what the old rule did everywhere.
+//
+// It still does not weigh price against progress: a tile one nearer is taken
+// whether the ground charged one to reach it or four, because the allowance is
+// spent either way and nothing is saved by hoarding it.
 //
 // Ties go to the lowest cell index, which is row-major order, so the choice is
 // a fact about the board rather than about the order it was walked in.
@@ -94,9 +190,21 @@ bool step_toward(
     const std::vector<std::uint32_t> spent = simulation::movement_field(
         snapshot, actor.position, actor.movement, actor.crossings, actor.side
     );
+    std::vector<std::uint32_t> round_the_ground;
+    terrain_distance_from(snapshot, goal, actor.crossings, round_the_ground);
+    const auto index_of = [&snapshot](Position position) {
+        return static_cast<std::size_t>(position.y) * snapshot.width +
+               static_cast<std::size_t>(position.x);
+    };
+    // Where the character stands now, measured the same way the candidates are,
+    // so "nearer" compares like with like. A character standing somewhere the
+    // goal cannot be reached from at all falls back to the straight line.
+    const std::uint32_t standing = round_the_ground[index_of(actor.position)];
+    const bool through_the_ground = standing != no_way_round;
 
     bool found = false;
-    std::uint32_t best_distance = distance(actor.position, goal);
+    std::uint32_t best_distance =
+        through_the_ground ? standing : distance(actor.position, goal);
     for (std::uint16_t y = 0; y < snapshot.height; ++y) {
         for (std::uint16_t x = 0; x < snapshot.width; ++x) {
             const std::size_t slot =
@@ -109,7 +217,10 @@ bool step_toward(
             // The tile it is already standing on is where it would end up by
             // not moving at all, so it is never a proposal.
             if (next == actor.position) continue;
-            const std::uint32_t away = distance(next, goal);
+            const std::uint32_t away =
+                through_the_ground ? round_the_ground[slot]
+                                   : distance(next, goal);
+            if (away == no_way_round) continue;
             if (away < best_distance) {
                 best_distance = away;
                 chosen = next;

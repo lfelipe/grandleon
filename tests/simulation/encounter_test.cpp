@@ -1508,6 +1508,122 @@ void the_better_weapon_is_worth_the_advantage() {
             "the floor of one holds and the chance stops at never"
         );
     }
+
+    // And the same crushing advantage struck *with* rather than *into*, which
+    // is the direction the case above does not cover and the direction the
+    // arithmetic could go wrong in. The floor cannot catch this one: a bounded
+    // strength and a bounded weapon already sum to one short of what `int16`
+    // holds, so an advantage on top of them is the third term nothing was left
+    // for. Narrowed rather than wrapped, the blow is enormous; wrapped, it was
+    // negative, and being hit healed the target by thirty-one thousand.
+    {
+        sim::EncounterDefinition definition = board(901, 902);
+        definition.weapon_types = {{901, {902}, 999, 100}};
+        definition.weapons = {{501, sim::maximum_stat, 1, 1, 100, 901},
+                              {502, 3, 1, 1, 80, 902}};
+        definition.units[0].strength = sim::maximum_stat;
+        auto created = sim::create_encounter(definition);
+        expect(
+            static_cast<bool>(created),
+            "a board at the stat bound with a triangle on it is valid content"
+        );
+        const auto snapshot = created.encounter.snapshot();
+        const auto huge = sim::forecast_attack(snapshot, 10, 20);
+        expect(
+            huge.damage > 0,
+            "a blow at the stat bound is damage rather than healing"
+        );
+        expect(
+            huge.target_health_after == 0 && huge.lethal,
+            "and it fells what it hits instead of restoring it"
+        );
+        // The promise is the point: the forecast and the blow come out of one
+        // function, so a saturated number shown is the saturated number spent.
+        const auto struck = created.encounter.apply(
+            {sim::CommandType::attack, 10, {}, 20, 0}
+        );
+        expect(
+            static_cast<bool>(struck) &&
+                struck.events.front().amount == huge.damage,
+            "and the blow spends exactly what the forecast showed"
+        );
+    }
+}
+
+// The triangle is content like any other content, and `create_encounter` is
+// where content is judged.
+//
+// Every one of these is refused by the package loader as it decodes a kind and
+// by the compiler where the author is. None of them was refused here, which
+// left the two routes that do not go through a package -- the WebAssembly
+// binding and a direct call -- running boards a cartridge would have turned
+// down.
+void a_malformed_weapon_triangle_is_refused() {
+    const auto board = [](std::vector<sim::WeaponTypeDefinition> types) {
+        sim::EncounterDefinition definition;
+        definition.width = 4;
+        definition.height = 3;
+        definition.weapons = {{501, 3, 1, 1, 80, 901}, {502, 3, 1, 1, 80, 902}};
+        definition.weapon_types = std::move(types);
+        definition.units = {
+            {10, 100, sim::Side::first, {0, 1}, 20, 4, 0, 0, 0, 0, 0, 0, 0, 1,
+             1, 1, false, 1, 1, {}},
+            {20, 200, sim::Side::second, {1, 1}, 20, 4, 0, 0, 0, 0, 0, 0, 0, 1,
+             1, 1, false, 1, 1, {}},
+        };
+        definition.units[0].weapon_ids = {501};
+        definition.units[1].weapon_ids = {502};
+        return definition;
+    };
+    const auto refused = [&](std::vector<sim::WeaponTypeDefinition> types,
+                             std::string_view why) {
+        expect(
+            sim::create_encounter(board(std::move(types))).error ==
+                sim::CreateError::invalid_weapon_type,
+            why
+        );
+    };
+
+    // The one that changes what a blow is worth. A kind that beats itself is
+    // read once in each direction, so a mirror match collects the bonus twice:
+    // a blade meeting a blade struck for twenty where the same pair with no
+    // triangle at all struck for ten.
+    refused({{901, {901}, 10, 0}}, "a kind that beats itself is refused");
+
+    // An accuracy above a hundred is not a bigger advantage, it is a negative
+    // one: it narrows to `int8` on its way into the hit chance, so two hundred
+    // arrived as minus fifty-six and a weapon that always landed became one
+    // that landed a third of the time.
+    refused(
+        {{901, {902}, 0, 200}},
+        "an accuracy a percentage cannot hold is refused"
+    );
+
+    // The rest are the ordinary content checks every other list here already
+    // had, and their absence is why the two above could reach a board.
+    refused({{0, {902}, 1, 10}}, "a kind with no identity is refused");
+    refused(
+        {{901, {902}, 1, 10}, {901, {}, 2, 20}},
+        "one identity carrying two kinds is refused"
+    );
+    refused({{901, {0}, 1, 10}}, "an edge naming nothing is refused");
+    refused(
+        {{901, {902}, -1, 10}},
+        "an advantage that costs its holder damage is refused"
+    );
+    refused(
+        {{901, {902}, static_cast<std::int16_t>(sim::maximum_stat + 1), 10}},
+        "an advantage past the bound the damage arithmetic reads is refused"
+    );
+
+    // And the shape every shipped game is actually in: weapons that name kinds
+    // where no kind has an advantage anywhere, so the table arrives empty. It
+    // is not a malformed triangle, it is a game with no triangle in it, and
+    // refusing it would refuse both games in this repository.
+    expect(
+        static_cast<bool>(sim::create_encounter(board({}))),
+        "weapons naming kinds no table describes is a board with no triangle"
+    );
 }
 
 void weapon_power_joins_the_attack_formula() {
@@ -6801,6 +6917,7 @@ int main() {
     an_ability_rolls_once_per_unit_it_damages();
     weapon_power_joins_the_attack_formula();
     the_better_weapon_is_worth_the_advantage();
+    a_malformed_weapon_triangle_is_refused();
     caps_board_area();
     has_acted_is_false_under_alternating_order();
     has_acted_tracks_rounds_under_ordered_turns();

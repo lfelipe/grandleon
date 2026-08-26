@@ -206,6 +206,40 @@ struct LoadOptions final {
     std::uint64_t supported_features{};
     std::uint32_t maximum_sections{1024};
     std::uint32_t maximum_records_per_section{1'000'000};
+    // How many characters one board may put on the field before this target
+    // refuses it. Zero is the default and means no budget at all, which is what
+    // a host with four gigabytes wants and what every caller written before
+    // this said.
+    //
+    // **This is the working-set budget DESIGN.md §6 promises and nothing here
+    // used to supply.** The two numbers above bound what a package *is*; this
+    // bounds what playing one *costs*, which is a different question and the
+    // one a console actually loses on. `simulation::danger_tiles` runs one
+    // movement search per character on a side, so the cost of the queries a
+    // single button press triggers climbs steeply with the number of characters
+    // standing on the board.
+    //
+    // Measured on Nintendo 64 hardware timing, through the console's own COP0
+    // clock under the pinned emulator, on one 20x14 board with only the
+    // character count varied:
+    //
+    //     characters   danger_tiles   frames at 60Hz
+    //         20           6.7 ms          0.4
+    //         32          19.0 ms          1.1
+    //         48          35.5 ms          2.1
+    //         68         115.9 ms          7.0
+    //         88         276.0 ms         16.5
+    //        108         489.8 ms         29.4
+    //
+    // At the bottom of that table a board answers a press inside a frame. At
+    // the top, choosing a character takes the board away for half a second, and
+    // the machine reads as broken rather than as slow: this is the failure a
+    // 98-character board actually produced, where the package loaded, the
+    // battle opened, and the cursor would not answer.
+    //
+    // Appended last, so every caller that brace-initialises this by position
+    // keeps meaning what it meant.
+    std::uint32_t maximum_units_per_encounter{0};
 };
 
 struct RecordView final {
@@ -256,6 +290,16 @@ struct LoadedPackage final {
     // the two is what makes a `LoadedPackage` safe to copy.
     PackageBytes borrowed{};
     std::vector<SectionView> sections;
+    // The working-set budget this package was opened under, carried forward
+    // from `LoadOptions` so that whatever decodes a board out of it can hold
+    // the board to the same limit. Zero is no budget, which is every caller
+    // that names none.
+    //
+    // Carried rather than passed again because it is a fact about the machine
+    // that opened the package, not about the board being asked for, and a
+    // second parameter on every decoder would be the same number asked for
+    // twice with two chances to disagree.
+    std::uint32_t maximum_units_per_encounter{0};
 
     // Where this package's bytes are, whoever owns them. Every offset in every
     // `RecordView` is relative to this pointer.

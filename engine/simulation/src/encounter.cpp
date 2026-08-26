@@ -381,6 +381,44 @@ std::uint8_t hit_chance_for(
     return static_cast<std::uint8_t>(bounded);
 }
 
+// One blow's arithmetic brought back to the type health is kept in.
+//
+// Damage is computed wide, in `int32`, because the terms that build it sum past
+// `int16`; health is `int16`; so every formula below ends in a narrowing. This
+// is that narrowing, written once, with the floor and the ceiling both in it.
+//
+// The floor of one is the rule every blow has always had: a spear meeting the
+// weapon it beats still hurts.
+//
+// **The ceiling is here because the argument that used to stand in for it
+// stopped being true.** `maximum_stat` bounds every stat that reaches this
+// arithmetic at half of `int16`'s range precisely so that *two* of them sum to
+// 32 766 and the narrowing cannot wrap. The weapon triangle put a third term
+// into `attack_damage`, and at that moment the guarantee quietly became false:
+// a strength of 16 383 swinging a weapon of power 16 383 with an advantage of
+// 999 narrowed to −31 771, the forecast promised it, `apply` delivered it, and
+// being hit healed the target by thirty-one thousand. Both halves called the
+// same wrapping function, so the promise survived and the rule did not.
+//
+// Saturating makes the narrowing total instead of conditional on an argument
+// about which terms happen to be in the sum today. A term added tomorrow cannot
+// reopen it, which is the difference between a bound that is kept and a bound
+// that has to be re-proved by whoever adds the next one. The stat bounds stay
+// where they are: they are what keep authored numbers sane and refuse absurd
+// content at the gate, and this is what keeps the arithmetic honest whatever
+// gets past one.
+//
+// Nothing a shipped board can reach changes value. Saturation differs from the
+// old narrowing only where the old one wrapped, and every such case was already
+// a blow that healed.
+[[nodiscard]] std::int16_t narrowed_damage(std::int32_t raw) noexcept {
+    constexpr std::int32_t ceiling =
+        static_cast<std::int32_t>(std::numeric_limits<std::int16_t>::max());
+    return static_cast<std::int16_t>(
+        std::min<std::int32_t>(ceiling, std::max<std::int32_t>(1, raw))
+    );
+}
+
 // The basic-attack formula, shared by apply() and forecast_attack() so a
 // forecast can never promise a number the attack would not deliver.
 std::int16_t attack_damage(
@@ -391,11 +429,10 @@ std::int16_t attack_damage(
 ) noexcept {
     // The advantage lands beside the striker's strength and the weapon's own
     // power, before the defender's armour, which is where the schema says it
-    // does. It cannot drive a blow below one: a spear meeting the weapon it
-    // beats still hurts, and the floor of one is the floor every blow has had.
+    // does.
     const auto raw = static_cast<std::int32_t>(attacker.strength) +
                      strike.power + advantage - target.defense;
-    return static_cast<std::int16_t>(std::max<std::int32_t>(1, raw));
+    return narrowed_damage(raw);
 }
 
 // One landed blow, spent against a unit's health and reported.
@@ -489,7 +526,11 @@ std::int16_t ability_damage(
     const std::int32_t mitigation =
         magical ? affected.resistance : affected.defense;
     const std::int32_t raw = offence + ability.power - mitigation;
-    return static_cast<std::int16_t>(std::max<std::int32_t>(1, raw));
+    // Two bounded terms rather than three, so this one does still fit by the
+    // old argument. It narrows through the same function anyway: a formula that
+    // is safe because of what it happens to add today is one term away from not
+    // being, and that is exactly how `attack_damage` came to heal what it hit.
+    return narrowed_damage(raw);
 }
 
 // The profile a unit defends with: the weapon in hand, which is what
@@ -740,20 +781,47 @@ std::uint8_t authored_cost(
     return movement_cost[slot];
 }
 
-}  // namespace
+// The working memory one movement search needs, kept so that a caller making
+// many of them in a row can make them all out of one allocation each.
+//
+// **This is a console concern and it is a real one.** `danger_tiles` runs one
+// search per character on a side; the sweep below allocates a cost grid and a
+// bucket per payable total, so a board of ninety opponents asked for a warning
+// spent several hundred trips through the heap on a machine whose campaign ROM
+// has already run out of contiguous memory on tens of bytes
+// (`platform/client/include/grandleon/client/turn_client.hpp`). Measured on the
+// host at 98 characters, the client averaged 276 allocations per button press
+// against 60 on the largest board either shipped game has.
+//
+// It changes no answer. The buffers are cleared to exactly the state a fresh
+// search would have found them in, so a field computed through a reused scratch
+// and a field computed through a new one are the same field, and the canonical
+// hash never sees either.
+struct MovementScratch final {
+    std::vector<std::uint32_t> spent;
+    std::vector<std::vector<Position>> buckets;
+};
 
-std::vector<std::uint32_t> movement_field(
+// The movement sweep itself, writing into `scratch.spent`.
+//
+// Split out of `movement_field` rather than duplicated: this is the single
+// definition of movement that `movement_field`'s own comment describes, and the
+// public function below is now a thin allocating wrapper over it. Nothing about
+// the rule moved.
+void fill_movement_field(
     const EncounterSnapshot& snapshot,
     Position origin,
     std::uint8_t allowance,
     std::uint8_t crossings,
-    Side mover
+    Side mover,
+    MovementScratch& scratch
 ) {
     const std::size_t cells =
         static_cast<std::size_t>(snapshot.width) * snapshot.height;
-    std::vector<std::uint32_t> spent(cells, unreachable_cost);
-    if (cells == 0U) return spent;
-    if (!in_bounds(origin, snapshot.width, snapshot.height)) return spent;
+    scratch.spent.assign(cells, unreachable_cost);
+    if (cells == 0U) return;
+    if (!in_bounds(origin, snapshot.width, snapshot.height)) return;
+    std::vector<std::uint32_t>& spent = scratch.spent;
     const auto index_of = [&snapshot](Position position) {
         return static_cast<std::size_t>(position.y) * snapshot.width +
                static_cast<std::size_t>(position.x);
@@ -775,9 +843,15 @@ std::vector<std::uint32_t> movement_field(
     // else in this file uses, though nothing here depends on it: the least a
     // cell can cost is the least it can cost whatever order the board is walked
     // in, so this answer is a fact about the board and not about the traversal.
-    std::vector<std::vector<Position>> buckets(
-        static_cast<std::size_t>(allowance) + 1U
-    );
+    //
+    // Reused rather than rebuilt: `clear()` on each keeps the storage a
+    // previous search grew, which is the whole of what this scratch is for. The
+    // outer vector only ever grows, so a caller sweeping characters of
+    // different allowances settles at the widest one it has seen.
+    const std::size_t wanted = static_cast<std::size_t>(allowance) + 1U;
+    std::vector<std::vector<Position>>& buckets = scratch.buckets;
+    if (buckets.size() < wanted) buckets.resize(wanted);
+    for (std::size_t index = 0; index < wanted; ++index) buckets[index].clear();
     buckets[0].push_back(origin);
     constexpr std::pair<std::int16_t, std::int16_t> steps[] = {
         {0, -1}, {1, 0}, {0, 1}, {-1, 0}
@@ -834,7 +908,22 @@ std::vector<std::uint32_t> movement_field(
         }
         spent[index_of(unit.position)] = unreachable_cost;
     }
-    return spent;
+}
+
+}  // namespace
+
+std::vector<std::uint32_t> movement_field(
+    const EncounterSnapshot& snapshot,
+    Position origin,
+    std::uint8_t allowance,
+    std::uint8_t crossings,
+    Side mover
+) {
+    MovementScratch scratch;
+    fill_movement_field(
+        snapshot, origin, allowance, crossings, mover, scratch
+    );
+    return std::move(scratch.spent);
 }
 
 namespace {
@@ -1124,6 +1213,7 @@ std::string_view error_name(CreateError error) noexcept {
         case CreateError::invalid_item: return "invalid_item";
         case CreateError::invalid_deployment: return "invalid_deployment";
         case CreateError::invalid_arrival: return "invalid_arrival";
+        case CreateError::invalid_weapon_type: return "invalid_weapon_type";
     }
     return "unknown";
 }
@@ -1235,7 +1325,6 @@ Encounter::CreateResult create_encounter(
     // Terrain is deliberately not consulted: a region tile nobody could stand
     // on is refused by the compiler, where the author is.
     state.deployment_tiles = definition.deployment_tiles;
-    state.weapon_types = definition.weapon_types;
     std::sort(
         state.deployment_tiles.begin(),
         state.deployment_tiles.end(),
@@ -1274,6 +1363,52 @@ Encounter::CreateResult create_encounter(
             return {CreateError::invalid_weapon, Encounter(std::move(state))};
         }
     }
+
+    // Which kinds of weapon beat which, judged on the terms every other content
+    // list here is judged on.
+    //
+    // **It is the one list that used to reach a board unexamined.** The package
+    // loader vets a kind as it decodes it (`read_weapon_type`) and the compiler
+    // refuses a malformed one where the author is, so the route a console takes
+    // was covered; the two routes a caller takes, the WebAssembly binding and a
+    // direct call, were not, and the browser therefore ran content a cartridge
+    // would have turned down. A gate every route passes through belongs here,
+    // which is the only place all of them meet.
+    //
+    // A kind naming itself is the live one. The edges are directed and at most
+    // one of `advantage_of`'s two lookups may answer; a kind that beats itself
+    // makes both answer, so every mirror match is priced twice and a blade
+    // collects a bonus for meeting the thing it is holding.
+    //
+    // `strong_against` is deliberately *not* resolved against this list. A kind
+    // that beats nothing carries no edges and is not carried here at all, so
+    // requiring every named kind to appear would refuse every board whose
+    // weapons name kinds that simply have no advantage anywhere -- which is
+    // every board in both shipped games.
+    std::set<ContentId> weapon_type_ids;
+    for (const WeaponTypeDefinition& type : definition.weapon_types) {
+        // `bounded_stat` because the advantage is a number the damage
+        // arithmetic reads, exactly as a strength or a weapon's power is, and
+        // it is bounded on the same terms. A negative one is refused here too:
+        // an edge that *costs* its holder damage is the table read backwards,
+        // and the schema has never offered one.
+        if (type.id == 0 || type.accuracy > 100U ||
+            !bounded_stat(type.damage) ||
+            !weapon_type_ids.insert(type.id).second) {
+            return {
+                CreateError::invalid_weapon_type, Encounter(std::move(state))
+            };
+        }
+        for (const ContentId beaten : type.strong_against) {
+            if (beaten == 0 || beaten == type.id) {
+                return {
+                    CreateError::invalid_weapon_type,
+                    Encounter(std::move(state))
+                };
+            }
+        }
+    }
+    state.weapon_types = definition.weapon_types;
 
     std::set<ContentId> item_ids;
     for (const ItemDefinition& item : definition.items) {
@@ -3297,6 +3432,10 @@ std::vector<Position> danger_tiles(
     const std::size_t cells =
         static_cast<std::size_t>(snapshot.width) * snapshot.height;
     std::vector<std::uint8_t> threatened(cells, 0U);
+    // One scratch for every character on the side rather than one each. On a
+    // crowded board this is the difference between a warning that costs a few
+    // hundred trips through the heap and one that costs a few.
+    MovementScratch scratch;
 
     for (const UnitSnapshot& unit : snapshot.units) {
         // `on_board` rather than a health test, because a warning is about
@@ -3314,10 +3453,11 @@ std::vector<Position> danger_tiles(
         // afford to walk to and still have a point left to strike
         // with. The same field a walk is judged against, so the warning and the
         // walk cannot come to different answers about what the ground costs.
-        const std::vector<std::uint32_t> stances = movement_field(
+        fill_movement_field(
             snapshot, unit.position, stance_allowance(unit, points),
-            unit.crossings, unit.side
+            unit.crossings, unit.side, scratch
         );
+        const std::vector<std::uint32_t>& stances = scratch.spent;
         mark_threatened_band(
             snapshot, stances, unit.minimum_reach, unit.maximum_reach,
             threatened
@@ -3336,6 +3476,10 @@ std::vector<Position> danger_tiles(
     const std::size_t cells =
         static_cast<std::size_t>(snapshot.width) * snapshot.height;
     std::vector<std::uint8_t> threatened(cells, 0U);
+    // One scratch for every character on the side rather than one each. On a
+    // crowded board this is the difference between a warning that costs a few
+    // hundred trips through the heap and one that costs a few.
+    MovementScratch scratch;
 
     for (const UnitSnapshot& unit : snapshot.units) {
         // `on_board` rather than a health test, because a warning is about
@@ -3348,10 +3492,11 @@ std::vector<Position> danger_tiles(
         if (unit.side != side || !on_board(unit)) continue;
         const std::uint8_t points = coming_action_points(snapshot, unit);
         if (points == 0U) continue;
-        const std::vector<std::uint32_t> stances = movement_field(
+        fill_movement_field(
             snapshot, unit.position, stance_allowance(unit, points),
-            unit.crossings, unit.side
+            unit.crossings, unit.side, scratch
         );
+        const std::vector<std::uint32_t>& stances = scratch.spent;
         // Bare-handed, or carrying only identities this caller cannot
         // resolve, the unit still threatens the band it snapshots with.
         bool any_weapon = false;

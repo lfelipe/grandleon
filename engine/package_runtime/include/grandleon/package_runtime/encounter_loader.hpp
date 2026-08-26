@@ -19,6 +19,16 @@ enum class EncounterLoadError : std::uint8_t {
     malformed_payload,
     missing_reference,
     unsupported_objective,
+    // The board puts more characters on the field than the target profile this
+    // package was opened under will carry.
+    //
+    // A refusal before play with a diagnostic, which is what DESIGN.md §3.4
+    // asks of a console that cannot support something: the alternative is a
+    // board that loads, opens and then answers a button press half a second
+    // later, which reads as a broken machine rather than as a limit. See
+    // `package_format::LoadOptions::maximum_units_per_encounter` for the
+    // measurement the number comes from.
+    exceeds_target_budget,
 };
 
 [[nodiscard]] std::string_view error_name(

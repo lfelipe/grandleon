@@ -36,7 +36,7 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 16383,
-      "description": "A number the damage arithmetic reads. The maximum is half of what the field holds, and it is an overflow bound rather than a design budget: a blow adds two of these together before subtracting a third, and the total has to fit the number health is kept in. Twice 16383 is one short of that number, so no pair can overflow it. A game wanting larger numbers than this wants a wider health field, which is a different change; the largest number in any shipped project is 55."
+      "description": "A number the damage arithmetic reads. The maximum is half of what the field holds, which is where the number came from: twice 16383 is one short of what health is kept in. It is a sanity bound on authored content rather than a design budget, and it is no longer what keeps the arithmetic from overflowing — a blow adds the striker's strength, the weapon's power and any weapon-kind advantage before subtracting armour, which is three terms rather than two, and the engine now saturates the result instead of proving the sum small enough. A game wanting larger numbers than this wants a wider health field, which is a different change; the largest number in any shipped project is 55."
     },
     "statBlock": {
       "type": "object",

@@ -308,7 +308,20 @@ export type CreateError =
    * An arrival is malformed: a recurrence half-stated, a first arrival in the
    * round the battle opens in, or more arrivals than the engine will expand.
    */
-  | "invalid_arrival";
+  | "invalid_arrival"
+  /**
+   * A kind of weapon is malformed or duplicated, names an advantage over
+   * nothing or over itself, or carries a number the damage arithmetic cannot
+   * read.
+   *
+   * The browser used to be the one route that could not be told this. It
+   * builds an encounter definition here and hands it straight to the engine,
+   * skipping the package loader that vets a kind as it decodes one, so a
+   * triangle a cartridge refused played in Play mode instead. The engine
+   * refuses it now, and this name arrives the way every refusal does, read
+   * back out of the engine rather than restated here.
+   */
+  | "invalid_weapon_type";
 
 export interface UnitSnapshot extends UnitDefinition {
   maximumHealth: number;

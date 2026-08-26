@@ -479,6 +479,10 @@ LoadResult load_mock_package_in_place(
         return fail(Error::truncated);
     }
     result.package.target = static_cast<TargetProfile>(target);
+    // The working-set budget travels with the package it was opened under, so
+    // that a decoder holding a board to it needs no second copy of the number.
+    result.package.maximum_units_per_encounter =
+        options.maximum_units_per_encounter;
     if (result.package.target != TargetProfile::portable &&
         result.package.target != options.target) {
         return fail(Error::incompatible_target);

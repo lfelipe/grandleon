@@ -614,6 +614,8 @@ std::string_view error_name(EncounterLoadError error) noexcept {
         case EncounterLoadError::missing_reference: return "missing_reference";
         case EncounterLoadError::unsupported_objective:
             return "unsupported_objective";
+        case EncounterLoadError::exceeds_target_budget:
+            return "exceeds_target_budget";
     }
     return "unknown";
 }
@@ -1034,6 +1036,32 @@ EncounterLoadResult load_encounter(
         // every blow walks past.
         if (!type.strong_against.empty()) {
             result.definition.weapon_types.push_back(type);
+        }
+    }
+
+    // And what playing this board will cost the machine that opened the
+    // package, which is the last thing asked and the only one that is about the
+    // target rather than about the bytes.
+    //
+    // **Counted after the waves are expanded, not before.** A board of ten
+    // placements can be a board of two hundred characters, because a recurrence
+    // turns one authored line into as many as `maximum_arrivals` of them, and a
+    // budget that counted the authored lines would wave through exactly the
+    // content it exists to refuse. `simulation::expand_arrivals` is the rules'
+    // own answer to "who does this board actually field", asked here rather
+    // than restated, so the number this is held to is the number
+    // `create_encounter` is about to build.
+    if (package.maximum_units_per_encounter != 0U) {
+        std::vector<simulation::UnitDefinition> fielded;
+        if (!simulation::expand_arrivals(result.definition.units, fielded)) {
+            // A malformed wave. `create_encounter` refuses it by name a moment
+            // later, and the budget has nothing to say about a board that is
+            // not going to open; leaving it to the rules keeps one refusal for
+            // one fact.
+            return result;
+        }
+        if (fielded.size() > package.maximum_units_per_encounter) {
+            return fail(EncounterLoadError::exceeds_target_budget);
         }
     }
     return result;

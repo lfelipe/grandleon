@@ -473,29 +473,34 @@ inline constexpr std::uint32_t maximum_board_cells = 65536;
 
 // The largest value a stat that reaches the damage arithmetic may carry.
 //
-// **This is an overflow bound rather than a taste, and it is the reason a
-// number this shape is a refusal at creation instead of a surprise at the
-// board.** Damage is computed wide, `attack_damage` being
-// `max(1, strength + power - defense)` in `int32`, and then narrowed back to
-// the `int16` that health is kept in. Two unbounded `int16` stats sum past
-// `int16`'s range, so a `strength` of twenty thousand carrying a `power` of
-// twenty thousand narrows to −25 536: the forecast promises it, `apply`
-// delivers it, and being hit *heals* the target. The promise survives, because
-// both halves call the same wrapping function; the rule does not.
+// **This is a sanity bound on authored content, and it is the reason a number
+// this shape is a refusal at creation instead of a surprise at the board.** It
+// bounds every stat that can appear on either side of that arithmetic: a unit's
+// `strength`, `power`, `defense`, `resistance` and `magic`, an ability's and a
+// weapon's `power`, and the damage a weapon-kind advantage is worth. Both gates
+// that build an encounter enforce it, `create_encounter` and the package
+// loader.
 //
-// Half of `int16`'s range, rounded down, so that any two bounded stats sum to
-// at most 32 766 and the narrowing cannot wrap. Subtracting a defence only
-// lowers the result, and the `max(1, …)` floor catches the bottom. It bounds
-// every stat that can appear on either side of that arithmetic: a unit's
-// `strength`, `power`, `defense`, `resistance` and `magic`, and an ability's
-// and a weapon's `power`. Both gates that build an encounter enforce it,
-// `create_encounter` and the package loader.
+// Half of `int16`'s range, rounded down, which is where the number comes from:
+// two of these sum to 32 766, one short of what `int16` holds.
 //
-// The largest number in any shipped project's content is 55, so the bound is
-// nearly three hundred times what content uses and refuses no board anybody has
-// written. It is not a design budget and nothing should read it as one: a
-// project wanting bigger numbers than this wants a wider health type, and that
-// is a different change.
+// **It is no longer what keeps the narrowing safe, and the history is worth
+// knowing.** It used to be: damage is computed wide, in `int32`, and narrowed
+// back to the `int16` health is kept in, and "two bounded stats cannot sum past
+// the type" was the whole proof. Then the weapon triangle put a third term into
+// `attack_damage` and the proof lapsed without a line of this comment changing:
+// a strength of 16 383 swinging a power of 16 383 with an advantage of 999
+// narrowed to −31 771, the forecast promised it, `apply` delivered it, and being
+// hit healed the target. What keeps the narrowing safe now is the narrowing
+// itself, which saturates (`narrowed_damage` in `encounter.cpp`), so a fourth
+// term cannot reopen this the way the third one did. A bound that has to be
+// re-proved by whoever adds the next term is a bound that will eventually be
+// wrong.
+//
+// The largest number in any shipped project's content is 55, so this refuses no
+// board anybody has written. It is not a design budget and nothing should read
+// it as one: a project wanting bigger numbers than this wants a wider health
+// type, and that is a different change.
 inline constexpr std::int16_t maximum_stat = 16383;
 
 // The last round a wave may be authored to arrive on.
@@ -609,6 +614,20 @@ enum class CreateError : std::uint8_t {
     // An arrival is malformed: a recurrence half-stated, more arrivals than
     // `maximum_arrivals`, or a wave whose expansion the board cannot hold.
     invalid_arrival,
+    // A kind of weapon is malformed or duplicated, names an advantage over
+    // nothing or over itself, or carries a number the damage arithmetic cannot
+    // read.
+    //
+    // Its own refusal rather than `invalid_weapon`, on the standard the rest of
+    // this list keeps: a kind is not a weapon, and an author told "a weapon is
+    // invalid" would go looking through the wrong records. The triangle is the
+    // one table an author writes about the relationships *between* records, so
+    // it is the one whose refusal most needs to say which table it means.
+    //
+    // Appended, like every enumerator here: the WebAssembly binding reads these
+    // names out of the engine rather than restating them, so a value that
+    // renumbered would re-mean every refusal a browser has ever shown.
+    invalid_weapon_type,
 };
 
 [[nodiscard]] std::string_view error_name(CreateError error) noexcept;
