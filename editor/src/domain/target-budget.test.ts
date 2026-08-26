@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from "vitest";
-import type { SourceProject } from "../generated/source-v1";
+import type { SourceCampaign, SourceProject } from "../generated/source-v1";
 import { createSampleProject } from "../sample-projects";
 import { CHARACTER_ROLES, buildCharacterChain } from "./character-recipe";
 import { createSourceProject } from "./source-project-document";
@@ -32,7 +32,12 @@ const cramped: TargetBudget = {
   label: "Cramped",
   paletteBanks: 4,
   bankEntries: 16,
-  channelBits: 3
+  channelBits: 3,
+  // Not exercised through this fixture. `targetNotes` reads the shipped
+  // budgets rather than taking one, so the crowding cases below are written
+  // against the Nintendo 64's real forty-eight, which is the number the
+  // console's own loader refuses at.
+  unitsPerEncounter: 48
 };
 
 const ARCHETYPES = [
@@ -99,6 +104,111 @@ const groundOf = (spend: TargetSpend) =>
   spend.groups.find((group) => group.label === "the ground")!;
 const blueOf = (spend: TargetSpend) =>
   spend.groups.find((group) => group.label === "the blue side")!;
+
+describe("what a Stage costs a console", () => {
+  /** The Nintendo 64's declared characters-per-Stage, read rather than typed. */
+  const BUDGET = TARGET_BUDGETS[0]!.unitsPerEncounter;
+
+  /** A Stage of `placements` characters, plus one wave of `waveTimes`. */
+  function withStage(placements: number, waveTimes?: number): SourceProject {
+    const base = game({ sides: 1, roles: 1, terrain: 1 });
+    const stage = {
+      id: "battle",
+      name: "The Long Field",
+      kind: "encounter",
+      mapId: "field",
+      transitions: [],
+      placements: [
+        ...Array.from({ length: placements }, (_, index) => ({
+          id: `p_${index}`,
+          unitTypeId: "knight_0",
+          side: index === 0 ? "first" : "second",
+          x: index,
+          y: 0
+        })),
+        ...(waveTimes === undefined ? [] : [{
+          id: "wave",
+          unitTypeId: "knight_0",
+          side: "second",
+          x: 0,
+          y: 0,
+          arrival: { round: 2, every: 2, times: waveTimes }
+        }])
+      ]
+    } as unknown as NonNullable<SourceCampaign["flow"]>["nodes"][number];
+    return {
+      ...base,
+      campaigns: [{
+        id: "main",
+        name: "Main",
+        roster: [],
+        flow: {
+          contractVersion: "1.0.0",
+          entryNodeId: "battle",
+          nodes: [stage]
+        }
+      }]
+    };
+  }
+
+  const crowding = (project: SourceProject) =>
+    targetNotes(project).filter(
+      (note) => note.code === "TARGET_CHARACTERS_EXCEEDED");
+
+  it("says nothing about a Stage inside the budget", () => {
+    // Exactly at the limit is not over it, which is the boundary
+    // `load_encounter` draws too: it refuses a count *greater* than the budget.
+    expect(crowding(withStage(BUDGET))).toHaveLength(0);
+  });
+
+  it("names the Stage and the count once it is over", () => {
+    const [note] = crowding(withStage(BUDGET + 1));
+    expect(note).toBeDefined();
+    expect(note!.message).toContain("The Long Field");
+    expect(note!.message).toContain(`${BUDGET + 1} characters`);
+    // The refusal is named as a refusal. A note that called it slow would be
+    // describing something the machine does not do: it declines the board.
+    expect(note!.message).toContain("refuses the Stage before play");
+  });
+
+  /**
+   * **The load-bearing case.** A wave turns one authored placement into as many
+   * characters as it names, and `simulation::expand_arrivals` is what the
+   * loader counts before it refuses. A budget that counted the authored list
+   * would pass exactly the Stage the console turns down.
+   */
+  it("counts a wave as the characters it becomes, not as one placement", () => {
+    // Forty-seven placements and a wave of six is fifty-three characters, over
+    // the budget. As authored it is forty-eight placements, which is inside it:
+    // a count that read the list would pass exactly the Stage the console
+    // turns down.
+    const project = withStage(BUDGET - 1, 6);
+    expect(project.campaigns![0]!.flow!.nodes[0]!.placements)
+      .toHaveLength(BUDGET);
+    expect(crowding(withStage(BUDGET))).toHaveLength(0);
+    const [note] = crowding(project);
+    expect(note).toBeDefined();
+    expect(note!.message).toContain(`${BUDGET + 5} characters`);
+  });
+
+  it("treats a half-authored recurrence as the one character it is", () => {
+    // `every` without `times` is a placement the engine refuses outright, and
+    // a budget is not the surface that should be first to mention it.
+    const project = withStage(BUDGET - 1, 6);
+    const wave = project.campaigns![0]!.flow!.nodes[0]!.placements!.at(-1)!;
+    (wave as { arrival?: unknown }).arrival = { round: 2, every: 2 };
+    expect(crowding(project)).toHaveLength(0);
+  });
+
+  it("is said about a game that has chosen no art yet", () => {
+    // The palette notes return early on a project that draws nothing. This one
+    // must not: a Stage can be crowded long before anybody picks a style, and
+    // the refusal it will meet is about the characters rather than their art.
+    const project = withStage(BUDGET + 12);
+    expect(project.characterStyleId).toBeUndefined();
+    expect(crowding(project)).toHaveLength(1);
+  });
+});
 
 describe("target budgets", () => {
   it("reproduces the palette arithmetic measured off the art", () => {

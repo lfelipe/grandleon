@@ -65,6 +65,18 @@ export interface TargetBudget {
   readonly bankEntries: number;
   /** Bits the machine stores per colour channel. */
   readonly channelBits: number;
+  /**
+   * How many characters one Stage may put on the field before this machine
+   * refuses to play it.
+   *
+   * Unlike the three above, this is not a limit on what the machine can *hold*.
+   * The package loads at any size measured; what climbs is how long the queries
+   * a single button press triggers take, because the danger overlay runs one
+   * movement search per character on the opposing side. Past a point the board
+   * stops answering the cursor, which reads as a broken machine rather than as
+   * a slow one.
+   */
+  readonly unitsPerEncounter: number;
 }
 
 /**
@@ -79,6 +91,24 @@ export interface TargetBudget {
  * renderer streams past that, so residency is not a limit an authored game can
  * exceed, and the machine's memory is not a measured budget: the whole CI4
  * asset set measures 14% of base RAM.
+ *
+ * Its **characters per Stage** is measured on the machine's own clock, through
+ * COP0's count register under the pinned emulator, over one board with nothing
+ * varied but the number of characters standing on it:
+ *
+ *     characters   danger overlay   frames at 60Hz
+ *         20            6.7 ms           0.4
+ *         32           19.0 ms           1.1
+ *         48           35.5 ms           2.1
+ *         68          115.9 ms           7.0
+ *         88          276.0 ms          16.5
+ *        108          489.8 ms          29.4
+ *
+ * Forty-eight is the last measured point still inside two frames. It is the
+ * same number `platform/nintendo64/src/play_rom.cpp` declares to the loader,
+ * which is what actually refuses the board; this is that refusal said early,
+ * while the Stage is being written, so an author meets it here rather than on
+ * a cartridge.
  */
 export const TARGET_BUDGETS: readonly TargetBudget[] = [
   {
@@ -86,7 +116,8 @@ export const TARGET_BUDGETS: readonly TargetBudget[] = [
     label: "Nintendo 64",
     paletteBanks: 16,
     bankEntries: 16,
-    channelBits: 5
+    channelBits: 5,
+    unitsPerEncounter: 48
   }
 ];
 
@@ -146,7 +177,8 @@ export interface TargetNote {
   readonly code:
     | "TARGET_PALETTES_EXCEEDED"
     | "TARGET_PALETTES_FULL"
-    | "TARGET_COLOURS_MERGE";
+    | "TARGET_COLOURS_MERGE"
+    | "TARGET_CHARACTERS_EXCEEDED";
   readonly message: string;
 }
 
@@ -339,6 +371,44 @@ function palettesSpent(spend: TargetSpend): string {
 }
 
 /**
+ * A Stage with more characters on it than a console will play.
+ *
+ * The number and the Stage, because both are actionable and neither is on its
+ * own: an author told only that a game is too crowded has forty Stages to look
+ * through, and one told only a number does not know what the machine will do
+ * about it. What the machine does is refuse the board before play, so the
+ * sentence says that plainly rather than calling it slow.
+ *
+ * The remedy is offered rather than imposed, on the terms the palette note is
+ * already written on: everywhere else the Stage plays exactly as it is.
+ */
+function crowdedSentence(
+  target: TargetBudget,
+  crowded: readonly { readonly name: string; readonly characters: number }[]
+): string {
+  const worst = crowded[0];
+  if (worst === undefined) return "";
+  const others = crowded.length - 1;
+  const where = others > 0
+    ? `${worst.name} puts ${worst.characters} characters on the field, and ` +
+      `${others} other ${others === 1 ? "Stage does" : "Stages do"} the same`
+    : `${worst.name} puts ${worst.characters} characters on the field`;
+  return (
+    `A ${target.label} plays a Stage of at most ` +
+    `${target.unitsPerEncounter} characters, and ${where}. It is not a ` +
+    "question of memory: the game loads at any size, and what grows is how " +
+    "long the board takes to answer a button press, because the danger " +
+    "overlay searches the ground once for every character on the other " +
+    `side. Past ${target.unitsPerEncounter} the cursor stops answering, so a ` +
+    `${target.label} build refuses the Stage before play rather than opening ` +
+    "one that cannot be steered. Fewer characters on the field, or waves that " +
+    "arrive and are beaten before the next comes, would fit. Everywhere else " +
+    "the Stage plays exactly as it is: the editor, the browser and the " +
+    "desktop client all play it."
+  );
+}
+
+/**
  * What a game over the machine's palettes is asked to change.
  *
  * Its own variety, because that is what spends the palettes: a side more than
@@ -399,6 +469,64 @@ function mergeSentence(spend: TargetSpend): string {
 }
 
 /**
+ * One node of a campaign's flow, taken off the project's own type rather than
+ * named, so a generated symbol this file does not otherwise use cannot go stale
+ * against it.
+ */
+type FlowNode = NonNullable<
+  NonNullable<SourceProject["campaigns"]>[number]["flow"]
+>["nodes"][number];
+type EncounterNode = FlowNode;
+
+/**
+ * How many characters one Stage actually puts on the field.
+ *
+ * **Counted with the waves expanded**, which is the whole of why this is a
+ * function rather than `placements.length`. A recurrence turns one authored
+ * placement into as many characters as it names, so a Stage of ten placements
+ * can be a Stage of two hundred characters, and a count that read the authored
+ * list would wave through exactly the board this budget exists to catch. It is
+ * the rule `simulation::expand_arrivals` applies, which is the same rule the
+ * loader counts against before it refuses.
+ *
+ * A half-authored recurrence (a gap with no count, or a count with no gap) is
+ * one character here. The engine refuses such a placement outright, and a
+ * budget is not the surface that should be first to mention it.
+ */
+function charactersFielded(node: EncounterNode): number {
+  const placements = node.placements ?? [];
+  let total = 0;
+  for (const placement of placements) {
+    const arrival = placement.arrival;
+    const recurs = arrival !== undefined &&
+      arrival.every !== undefined && arrival.times !== undefined;
+    total += recurs ? Math.max(1, arrival.times as number) : 1;
+  }
+  return total;
+}
+
+/**
+ * Every Stage this game holds, with what it fields, biggest first.
+ *
+ * Named by the Stage rather than by the campaign, because a Stage is the thing
+ * an author opens and the thing the console refuses.
+ */
+function stagesOverBudget(
+  project: SourceProject, allowed: number
+): readonly { readonly name: string; readonly characters: number }[] {
+  const over: { name: string; characters: number }[] = [];
+  for (const campaign of project.campaigns ?? []) {
+    for (const node of campaign.flow?.nodes ?? []) {
+      if (node.kind !== "encounter") continue;
+      const characters = charactersFielded(node);
+      if (characters <= allowed) continue;
+      over.push({ name: node.name ?? node.id, characters });
+    }
+  }
+  return over.sort((left, right) => right.characters - left.characters);
+}
+
+/**
  * What each console would make of this game, said while it is being written
  * rather than at export.
  *
@@ -410,6 +538,18 @@ function mergeSentence(spend: TargetSpend): string {
 export function targetNotes(project: SourceProject): readonly TargetNote[] {
   const notes: TargetNote[] = [];
   for (const target of TARGET_BUDGETS) {
+    // Said whether or not the game draws anything yet, and so asked before the
+    // palette spend below returns early on an artless project: a Stage can be
+    // crowded long before anybody has chosen a style, and the refusal it will
+    // meet is about the characters standing on it rather than about their art.
+    const crowded = stagesOverBudget(project, target.unitsPerEncounter);
+    if (crowded.length > 0) {
+      notes.push({
+        targetId: target.id,
+        code: "TARGET_CHARACTERS_EXCEEDED",
+        message: crowdedSentence(target, crowded)
+      });
+    }
     const spend = targetSpend(project, target);
     if (spend.groups.length === 0) continue;
     const over: TargetNote[] = [];
