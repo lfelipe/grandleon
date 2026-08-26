@@ -109,9 +109,10 @@ campaigns, and scenes.
   a library this repository generates; archetypes are drawn in every
   combination, and the choice travels inside the compiled package, so a console
   draws the game you chose without being told separately what it looks like.
-  Replacing that art with your own drawing works as a mechanism, but still
-  needs work to be done in a way that is future proof. **TODO**: animation and
-  the 3D mesh story have to be settled first.
+  Replacing that art with your own drawing works as a mechanism, but not yet in
+  a way that is future proof: what a replacement must supply cannot be settled
+  before authored animation and the mesh story are, and both are deferred. See
+  [docs/DEFERRED_3D.md](docs/DEFERRED_3D.md).
 
 ## What a Stage does
 
