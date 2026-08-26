@@ -8689,9 +8689,29 @@ int main() {
     const auto compiled = gc::compile(parsed.source);
     expect(static_cast<bool>(compiled), "source project compiles on target");
 
+    // How many characters one board of this game may put on the field before
+    // this console refuses it.
+    //
+    // **Measured on this machine's own clock rather than chosen.** The `cost`
+    // line below reports what the queries a single press triggers actually take
+    // here; run over one board with only the character count varied, that comes
+    // out at 6.7 ms for twenty characters, 35.5 ms for forty-eight, and 489.8 ms
+    // for a hundred and eight. A press that answers inside two frames is a board
+    // that plays; half a second is a machine that reads as broken.
+    //
+    // Forty-eight is the last measured point still inside two frames, and it is
+    // four times the largest board either shipped game fields, so it refuses
+    // nothing anybody has written. The full table and the reasoning are at
+    // `package_format::LoadOptions::maximum_units_per_encounter`.
+    //
+    // It is a number about this console and it is stated here, beside the load
+    // that enforces it, rather than in the portable engine: another target with
+    // another processor has another answer, and the engine has none at all.
+    constexpr std::uint32_t console_units_per_board = 48U;
     const auto loaded = pf::load_mock_package(
         compiled.package,
-        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000,
+         console_units_per_board}
     );
     expect(static_cast<bool>(loaded), "package loads on target");
 
@@ -8707,6 +8727,98 @@ int main() {
         project_campaign_slot,
         static_cast<unsigned>(project_source_json_size)
     );
+
+    // What this project's opening board costs the engine, on this machine's own
+    // clock.
+    //
+    // **Measured rather than budgeted, on the terms the stack watermark beside
+    // it already sets, and for a reason a host cannot serve.** The queries a
+    // press triggers grow with the number of characters on the board:
+    // `danger_tiles` runs one movement search per character on a side, so a
+    // board of ninety opponents costs some hundred times what a board of nine
+    // does. On a host that is a millisecond nobody notices. Here it is the
+    // difference between a cursor that answers and one that does not, and it is
+    // the failure a 98-character board actually produced: the package loaded,
+    // the battle opened, and the board would not take a press.
+    //
+    // COP0's count register, which libdragon exposes as `TICKS_READ`, runs at
+    // half the CPU clock whatever the emulator's own speed is. So this is what
+    // the hardware would take, not what the machine running the emulator took,
+    // and a number read out of a run under ares is a number about a Nintendo
+    // 64.
+    //
+    // Reported and never asserted. A board is expensive or it is not; what a
+    // project may spend is a decision to be taken with these numbers in hand,
+    // not one to be discovered by a ROM refusing to boot.
+    {
+        // The first board the package carries, by its own directory rather than
+        // by a name built here. An encounter's identity is `campaign/node`
+        // hashed, which this file has no business reconstructing: the package
+        // already lists what it holds, and the first record is a board of this
+        // game whichever one it is. A package with no encounters reports
+        // nothing, which is right, because there is nothing to price.
+        const pf::SectionView* boards =
+            loaded.package.find(pf::SectionType::encounters);
+        const auto board =
+            boards == nullptr || boards->records.empty()
+                ? pr::EncounterLoadResult{}
+                : pr::load_encounter(
+                      loaded.package, boards->records.front().stable_id
+                  );
+        // A board this console will not carry, named before anything tries to
+        // play it. DESIGN.md §3.4: a target either supports a thing or rejects
+        // it before play with a diagnostic, and a board that loaded and then
+        // would not answer a button press is neither.
+        if (board.error == pr::EncounterLoadError::exceeds_target_budget) {
+            report_line(
+                "refused board=too-many-characters budget=%u\n",
+                static_cast<unsigned>(console_units_per_board)
+            );
+        }
+        auto opening = sim::create_encounter(board.definition);
+        if (board && opening) {
+            const sim::EncounterSnapshot snapshot = opening.encounter.snapshot();
+            std::uint32_t characters = 0;
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (sim::on_board(unit)) ++characters;
+            }
+            const sim::Side opposing =
+                snapshot.units.empty() || snapshot.units.front().side == sim::Side::first
+                    ? sim::Side::second
+                    : sim::Side::first;
+
+            const std::uint32_t before_danger = TICKS_READ();
+            const std::vector<sim::Position> zone = sim::danger_tiles(
+                snapshot, opposing, opening.encounter.weapons(),
+                opening.encounter.abilities()
+            );
+            const std::uint32_t danger_ticks =
+                TICKS_DISTANCE(before_danger, TICKS_READ());
+
+            // The other half of what one press asks for, so the pair adds up to
+            // what selecting a character costs.
+            std::uint32_t reach_ticks = 0;
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (!sim::on_board(unit)) continue;
+                const std::uint32_t before = TICKS_READ();
+                const std::vector<sim::Position> tiles =
+                    sim::reachable_tiles(snapshot, unit.id);
+                reach_ticks += TICKS_DISTANCE(before, TICKS_READ());
+                static_cast<void>(tiles.size());
+                break;
+            }
+            report_line(
+                "cost characters=%u board=%ux%u danger=%uus reach=%uus "
+                "threatened=%u\n",
+                static_cast<unsigned>(characters),
+                static_cast<unsigned>(snapshot.width),
+                static_cast<unsigned>(snapshot.height),
+                static_cast<unsigned>(TIMER_MICROS(danger_ticks)),
+                static_cast<unsigned>(TIMER_MICROS(reach_ticks)),
+                static_cast<unsigned>(zone.size())
+            );
+        }
+    }
 #if defined(GRANDLEON_N64_AUTOPILOT) && defined(GRANDLEON_N64_CAMPAIGN)
     // The scripted run is a run of the shipped game, and the expectations
     // header beside it says which game that is. So this build, and only this
