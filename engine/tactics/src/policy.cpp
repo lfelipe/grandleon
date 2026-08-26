@@ -231,23 +231,6 @@ bool step_toward(
     return found;
 }
 
-// Membership test for an enumerated area shape, mirroring the simulation's own
-// so that a proposal aims where the rule will actually land.
-bool covered_by(
-    simulation::AreaShape shape,
-    std::uint8_t radius,
-    Position centre,
-    Position candidate
-) noexcept {
-    const std::uint32_t separation = distance(centre, candidate);
-    switch (shape) {
-        case simulation::AreaShape::single: return separation == 0U;
-        case simulation::AreaShape::cross: return separation <= 1U;
-        case simulation::AreaShape::diamond: return separation <= radius;
-    }
-    return false;
-}
-
 const simulation::AbilityDefinition* find_ability(
     const std::vector<simulation::AbilityDefinition>& abilities,
     simulation::ContentId id
@@ -261,6 +244,19 @@ const simulation::AbilityDefinition* find_ability(
 // Health swung in `actor`'s favour by one landed effect on `affected`, in the
 // currency every candidate is compared in: what the rule would really deliver,
 // so overkill and overhealing count for nothing.
+//
+// **Every number here is the engine's own.** This used to re-derive the cast
+// formula: the caster's magic against resistance for a magical cast, nothing
+// against defence for a physical one, and the missing-health clamp for a
+// restoring one. That was a second copy of the one rule that decides what a
+// cast is worth, kept in step with the first by a comment asking it to be. A
+// policy that drifted would score casts the engine prices differently and
+// propose the wrong one, and nothing would fail: the command is legal either
+// way, it is merely the worse move.
+//
+// There is no `forecast_ability` to ask the way `best_strike` below asks
+// `forecast_attack`, so what the engine publishes instead is the two functions
+// that decide the numbers. Asking them is the whole of the difference.
 std::int32_t swing(
     const simulation::AbilityDefinition& ability,
     const UnitSnapshot& actor,
@@ -268,9 +264,8 @@ std::int32_t swing(
 ) noexcept {
     const bool friendly = affected.side == actor.side;
     if (ability.kind == simulation::AbilityKind::restore) {
-        const std::int32_t restored = std::min<std::int32_t>(
-            ability.power, affected.maximum_health - affected.health
-        );
+        const std::int32_t restored =
+            simulation::ability_restored(ability, affected);
         return friendly ? restored : -restored;
     }
     // A damaging cast takes nothing off the caster's own side, so an ally
@@ -280,20 +275,8 @@ std::int32_t swing(
     // this side would have it walk the long way round its own line to avoid
     // one.
     if (friendly) return 0;
-    // The caster's own contribution, exactly as the simulation prices it: a
-    // magical cast adds the caster's magic against resistance, a physical one
-    // adds nothing against defence. A policy that priced a magical cast by its
-    // power alone would undervalue every caster that had grown, and would be a
-    // second damage formula the engine never agreed to.
-    const bool magical =
-        ability.damage_type == simulation::DamageType::magical;
-    const std::int16_t mitigation =
-        magical ? affected.resistance : affected.defense;
-    const std::int16_t offence = magical ? actor.magic : 0;
-    const std::int32_t damage = std::max<std::int32_t>(
-        1, static_cast<std::int32_t>(offence) +
-               static_cast<std::int32_t>(ability.power) - mitigation
-    );
+    const std::int32_t damage =
+        simulation::ability_damage(actor, ability, affected);
     // What the cast would really take, which is never more health than the unit
     // can be brought down through. A character with a health floor of one can be
     // taken to one and no further, so a cast aimed at somebody already standing
@@ -343,7 +326,7 @@ Cast best_cast(
                     // is not standing in it. Scoring them would price a cast by
                     // health it is never going to move.
                     if (!simulation::on_board(affected)) continue;
-                    if (!covered_by(
+                    if (!simulation::area_covers(
                             ability->area,
                             ability->radius,
                             centre,

@@ -873,6 +873,70 @@ struct UnitSnapshot final {
     return in_the_battle(unit) && unit.arrived;
 }
 
+// Whether an area of `shape` and `radius` centred on `centre` covers
+// `candidate`.
+//
+// The membership test `Encounter::apply` walks a cast's covered characters
+// with, and the one `area_tiles` draws a splash from.
+//
+// **It is public for the reason `on_board` and `floor_of` are.**
+// `engine/tactics` proposes casts this engine then judges, and it asks this of
+// every tile of the board for every ability a character knows, so `area_tiles`
+// is the wrong shape for it: that query answers with a list, and a policy
+// scoring candidate centres wants one predicate and no allocation. Given only
+// the list, a policy keeps its own copy of the shape instead, which is a second
+// answer to "what does this cast reach" and the exact divergence a shape added
+// to `AreaShape` tomorrow would expose.
+[[nodiscard]] constexpr bool area_covers(
+    AreaShape shape,
+    std::uint8_t radius,
+    Position centre,
+    Position candidate
+) noexcept {
+    const auto dx = static_cast<std::int32_t>(centre.x) - candidate.x;
+    const auto dy = static_cast<std::int32_t>(centre.y) - candidate.y;
+    const auto separation = static_cast<std::uint32_t>(
+        (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy)
+    );
+    switch (shape) {
+        case AreaShape::single: return separation == 0U;
+        case AreaShape::cross: return separation <= 1U;
+        case AreaShape::diamond: return separation <= radius;
+    }
+    return false;
+}
+
+// What a damaging cast takes off whoever it covers, before any floor is
+// applied:
+//
+//   magical:  max(1, caster magic + power - resistance)
+//   physical: max(1, power - defence)
+//
+// The asymmetry is deliberate and is argued at the definition: `strength`
+// already reaches the board through every basic attack, so a physical ability
+// priced by it would be a swing under another name.
+//
+// Public for the reason `area_covers` above is. `engine/tactics` prices a cast
+// to decide whether it beats the best weapon, and there is no `forecast_ability`
+// for it to ask the way `forecast_attack` answers a strike. Without this it
+// re-derives the formula, which is a second copy of the one rule that decides
+// what a cast is worth.
+[[nodiscard]] std::int16_t ability_damage(
+    const UnitSnapshot& caster,
+    const AbilityDefinition& ability,
+    const UnitSnapshot& affected
+) noexcept;
+
+// What a restoring cast gives back to whoever it covers: its power, or the
+// health they are missing, whichever is less. Never negative.
+//
+// Public for the same reason, and it is the other half of what one cast does to
+// one character.
+[[nodiscard]] std::int16_t ability_restored(
+    const AbilityDefinition& ability,
+    const UnitSnapshot& affected
+) noexcept;
+
 // The lowest health a blow may leave this unit holding.
 //
 // One function, called by `Encounter::apply` and by `forecast_attack` alike,

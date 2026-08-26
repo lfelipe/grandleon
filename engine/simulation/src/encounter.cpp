@@ -489,6 +489,8 @@ void take_damage(
     }
 }
 
+}  // namespace
+
 // What a damaging cast takes off whoever it covers:
 //
 //   magical:  max(1, caster magic + power - resistance)
@@ -532,6 +534,24 @@ std::int16_t ability_damage(
     // being, and that is exactly how `attack_damage` came to heal what it hit.
     return narrowed_damage(raw);
 }
+
+
+// The other half of what one cast does to one character, and the one place the
+// clamp is written. `Encounter::apply` restores through this, so a policy
+// pricing a heal and the heal itself cannot come to different answers about
+// what a full-health character gains.
+std::int16_t ability_restored(
+    const AbilityDefinition& ability,
+    const UnitSnapshot& affected
+) noexcept {
+    const std::int32_t missing =
+        static_cast<std::int32_t>(affected.maximum_health) - affected.health;
+    const std::int32_t given =
+        std::min<std::int32_t>(missing, ability.power);
+    return static_cast<std::int16_t>(std::max<std::int32_t>(0, given));
+}
+
+namespace {
 
 // The profile a unit defends with: the weapon in hand, which is what
 // `create_encounter` already resolved into unit state. A counter is struck with
@@ -722,22 +742,6 @@ CommandError resolve_use(
     if (unit.item_counts[slot] == 0U) return CommandError::depleted_item;
     if (item->kind == ItemKind::none) return CommandError::unusable_item;
     return CommandError::none;
-}
-
-// Membership test for an enumerated area shape centred on `centre`.
-bool covered_by(
-    AreaShape shape,
-    std::uint8_t radius,
-    Position centre,
-    Position candidate
-) noexcept {
-    const std::uint32_t separation = distance(centre, candidate);
-    switch (shape) {
-        case AreaShape::single: return separation == 0U;
-        case AreaShape::cross: return separation <= 1U;
-        case AreaShape::diamond: return separation <= radius;
-    }
-    return false;
 }
 
 const AbilityDefinition* find_ability(
@@ -2465,7 +2469,7 @@ CommandResult Encounter::apply(const Command& command) {
             // refusal here: they are simply not there to be caught, which is
             // the same thing the tile-occupancy rule already says about them.
             if (!on_board(affected)) continue;
-            if (!covered_by(
+            if (!area_covers(
                     ability->area,
                     ability->radius,
                     command.destination,
@@ -2509,12 +2513,8 @@ CommandResult Encounter::apply(const Command& command) {
                 // anybody from, so the reason the damaging half asks does not
                 // arise, and an author who wants a cast that heals only one
                 // side is asking for a shape rather than for a rule.
-                const std::int16_t missing = static_cast<std::int16_t>(
-                    affected.maximum_health - affected.health
-                );
-                const std::int16_t restored = static_cast<std::int16_t>(
-                    std::min<std::int32_t>(missing, ability->power)
-                );
+                const std::int16_t restored =
+                    ability_restored(*ability, affected);
                 if (restored <= 0) continue;
                 affected.health = static_cast<std::int16_t>(
                     affected.health + restored
@@ -3759,7 +3759,7 @@ std::vector<Position> area_tiles(
                 static_cast<std::int16_t>(centre.y + dy)
             };
             if (!in_bounds(tile, snapshot.width, snapshot.height)) continue;
-            if (!covered_by(ability->area, ability->radius, centre, tile)) {
+            if (!area_covers(ability->area, ability->radius, centre, tile)) {
                 continue;
             }
             tiles.push_back(tile);
