@@ -183,18 +183,47 @@ std::uint64_t encounter_of_node(
 
 namespace {
 
+// The ceiling a stat that stands in the damage arithmetic stops at.
+//
+// **`simulation::maximum_stat` and not the storage type's own maximum, and the
+// difference is a battle that opens against one that does not.**
+// `create_encounter` refuses a unit whose strength, defence, resistance or
+// magic is above that bound, so a character grown or written past it is not a
+// very strong character: it is a board the engine will not build. Saturating at
+// `int16`'s 32 767 produced exactly that, and produced it *mid-campaign*, on
+// the level-up that crossed the line, with `invalid_unit` and nothing anywhere
+// naming growth.
+//
+// The stats this applies to are the four `bounded_stat` judges. Health has no
+// upper bound in the rules, and movement, action points, skill, luck, evasion
+// and speed are bounded by their own storage or not at all, so each of those
+// stops where it always did.
+constexpr std::int64_t rules_stat_ceiling =
+    static_cast<std::int64_t>(simulation::maximum_stat);
+
 // Add one member's earned points to one board unit, saturating rather than
 // wrapping. A saturating add is the honest one here: a stat that wrapped would
 // hand a player a weaker character for having grown, and there is no number
 // above the ceiling to show them instead.
+//
+// `ceiling` is where this stat actually stops. It defaults to what the field
+// holds, which is right for every stat the rules do not bound; the four they do
+// bound pass `rules_stat_ceiling` and stop there instead.
 template <typename Value>
-void add_saturating(Value& target, std::uint16_t gain) noexcept {
-    constexpr auto ceiling = static_cast<std::int64_t>(
+void add_saturating(
+    Value& target,
+    std::uint16_t gain,
+    std::int64_t ceiling = static_cast<std::int64_t>(
+        std::numeric_limits<Value>::max()
+    )
+) noexcept {
+    const std::int64_t held = static_cast<std::int64_t>(
         std::numeric_limits<Value>::max()
     );
+    const std::int64_t stop = ceiling < held ? ceiling : held;
     const std::int64_t total =
         static_cast<std::int64_t>(target) + static_cast<std::int64_t>(gain);
-    target = static_cast<Value>(total > ceiling ? ceiling : total);
+    target = static_cast<Value>(total > stop ? stop : total);
 }
 
 // Add one authored delta to one board unit, saturating at both ends.
@@ -215,14 +244,18 @@ template <typename Value>
 void add_signed_saturating(
     Value& target,
     std::int16_t delta,
-    std::int64_t floor
+    std::int64_t floor,
+    std::int64_t ceiling = static_cast<std::int64_t>(
+        std::numeric_limits<Value>::max()
+    )
 ) noexcept {
-    constexpr auto ceiling = static_cast<std::int64_t>(
+    const std::int64_t held = static_cast<std::int64_t>(
         std::numeric_limits<Value>::max()
     );
+    const std::int64_t stop = ceiling < held ? ceiling : held;
     const std::int64_t total =
         static_cast<std::int64_t>(target) + static_cast<std::int64_t>(delta);
-    const std::int64_t landed = total > ceiling ? ceiling : total;
+    const std::int64_t landed = total > stop ? stop : total;
     target = static_cast<Value>(landed < floor ? floor : landed);
 }
 
@@ -252,9 +285,15 @@ void apply_authored_specificity(
     // inferred, so the two cannot drift into disagreeing about what a legal
     // character is.
     add_signed_saturating(unit.health, delta(SpecificStat::health), 1);
-    add_signed_saturating(unit.strength, delta(SpecificStat::strength), 0);
-    add_signed_saturating(unit.defense, delta(SpecificStat::defense), 0);
-    add_signed_saturating(unit.resistance, delta(SpecificStat::resistance), 0);
+    add_signed_saturating(
+        unit.strength, delta(SpecificStat::strength), 0, rules_stat_ceiling
+    );
+    add_signed_saturating(
+        unit.defense, delta(SpecificStat::defense), 0, rules_stat_ceiling
+    );
+    add_signed_saturating(
+        unit.resistance, delta(SpecificStat::resistance), 0, rules_stat_ceiling
+    );
     add_signed_saturating(unit.movement, delta(SpecificStat::movement), 1);
     add_signed_saturating(
         unit.action_points, delta(SpecificStat::action_points), 1
@@ -262,7 +301,9 @@ void apply_authored_specificity(
     add_signed_saturating(unit.skill, delta(SpecificStat::skill), 0);
     add_signed_saturating(unit.luck, delta(SpecificStat::luck), 0);
     add_signed_saturating(unit.evasion, delta(SpecificStat::evasion), 0);
-    add_signed_saturating(unit.magic, delta(SpecificStat::magic), 0);
+    add_signed_saturating(
+        unit.magic, delta(SpecificStat::magic), 0, rules_stat_ceiling
+    );
     // Speed is delta-able although it is not growable. Growth refuses it
     // because a level-up is a roll that would reshuffle turn order inside a
     // battle the player is already standing in; an authored delta draws from no
@@ -459,14 +500,17 @@ void apply_roster_join(
             unit.health, progression.gain_in(campaign::GrowableStat::health)
         );
         add_saturating(
-            unit.strength, progression.gain_in(campaign::GrowableStat::strength)
+            unit.strength, progression.gain_in(campaign::GrowableStat::strength),
+            rules_stat_ceiling
         );
         add_saturating(
-            unit.defense, progression.gain_in(campaign::GrowableStat::defense)
+            unit.defense, progression.gain_in(campaign::GrowableStat::defense),
+            rules_stat_ceiling
         );
         add_saturating(
             unit.resistance,
-            progression.gain_in(campaign::GrowableStat::resistance)
+            progression.gain_in(campaign::GrowableStat::resistance),
+            rules_stat_ceiling
         );
         add_saturating(
             unit.movement, progression.gain_in(campaign::GrowableStat::movement)
@@ -485,7 +529,8 @@ void apply_roster_join(
             unit.evasion, progression.gain_in(campaign::GrowableStat::evasion)
         );
         add_saturating(
-            unit.magic, progression.gain_in(campaign::GrowableStat::magic)
+            unit.magic, progression.gain_in(campaign::GrowableStat::magic),
+            rules_stat_ceiling
         );
         apply_roster_kit(unit, *record);
     }

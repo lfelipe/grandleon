@@ -1099,8 +1099,9 @@ void an_authored_delta_and_an_earned_gain_compose() {
 // end playing uncompiled content does and what some other tool writing a
 // package could do. What it must not produce is a character the rules have no
 // reading for. So the add saturates at each stat's own authored floor and at
-// the storage ceiling, rather than wrapping to a character who is weaker for
-// having been written stronger.
+// the ceiling *the rules* impose, rather than wrapping to a character who is
+// weaker for having been written stronger — or landing above a bound that would
+// make the board unbuildable, which saturating at the storage ceiling did.
 void an_out_of_range_delta_saturates_rather_than_wrapping() {
     const pf::LoadedPackage package = compile_and_load();
     const campaign::CampaignState state = full_roster(package);
@@ -1152,12 +1153,20 @@ void an_out_of_range_delta_saturates_rather_than_wrapping() {
         "and a stat whose floor is zero lands on zero rather than going "
         "negative"
     );
-    // The class authors strength 4, and 4 + 32000 is inside the ceiling; the
-    // point is that it did not wrap.
+    // The class authors strength 4, and 4 + 32000 is past what the rules admit.
+    // It stops at `simulation::maximum_stat` rather than at what an `int16`
+    // holds, and the difference is the whole point: 32 004 fits the field and is
+    // refused by `create_encounter`, so the old ceiling turned a written-too-
+    // strong character into a board that would not open.
     expect(
-        written->strength == 32004,
-        "and a delta upward is the number it says until the ceiling, which it "
-        "saturates at rather than wrapping past"
+        written->strength == sim::maximum_stat,
+        "and a delta upward stops where the rules stop rather than where the "
+        "field does"
+    );
+    expect(
+        static_cast<bool>(sim::create_encounter(joined.encounter.definition)),
+        "so the engine still builds the board, which is what saturating at the "
+        "storage ceiling gave up"
     );
 }
 
@@ -1547,6 +1556,86 @@ void a_character_at_the_ceiling_earns_nothing() {
 
 // The second half of growth: what the roster adds to the board, and what it
 // does not add to a board nobody's roster claims.
+// However far a character grows, the board they stand on still opens.
+//
+// **The two ceilings have to be the same ceiling.** `create_encounter` refuses
+// a unit whose strength, defence, resistance or magic is above
+// `simulation::maximum_stat`; the join used to saturate those at what an
+// `int16` holds, which is twice as high. A character grown past the rules'
+// bound was therefore not a very strong character but a board the engine would
+// not build, and it failed *mid-campaign*, on the level-up that crossed the
+// line, reporting `invalid_unit` with nothing anywhere naming growth.
+//
+// Reaching it needs a stat within ninety-eight of the bound, since a level
+// grants at most one point and the level cap is ninety-nine, so no shipped
+// content comes near it. That is exactly why it is worth a test: it is the sort
+// of edge nobody meets until somebody does, a long way into a campaign, with no
+// way to read what went wrong off the refusal.
+void a_character_who_grows_past_the_rules_still_takes_the_field() {
+    const pf::LoadedPackage package = compile_and_load();
+    campaign::CampaignState state = full_roster(package);
+
+    // Every point the rules could ever grant, in the four stats they bound.
+    // `grow_stat` takes a total rather than one level's worth, so this is the
+    // whole of a ninety-nine level career in one batch.
+    const auto grew = campaign::make_outcome_batch(
+        battle_source(package, 0x7777ULL, 0U),
+        {campaign::grow_stat(
+             kestrel, campaign::GrowableStat::strength,
+             static_cast<std::uint16_t>(sim::maximum_stat)),
+         campaign::grow_stat(
+             kestrel, campaign::GrowableStat::defense,
+             static_cast<std::uint16_t>(sim::maximum_stat)),
+         campaign::grow_stat(
+             kestrel, campaign::GrowableStat::resistance,
+             static_cast<std::uint16_t>(sim::maximum_stat)),
+         campaign::grow_stat(
+             kestrel, campaign::GrowableStat::magic,
+             static_cast<std::uint16_t>(sim::maximum_stat))}
+    );
+    expect(
+        static_cast<bool>(campaign::apply_outcome(state, grew)),
+        "a career's worth of growth commits"
+    );
+
+    const cr::CampaignEncounter joined = cr::load_encounter_for_campaign(
+        package, ford_encounter, state, assignments()
+    );
+    expect(
+        static_cast<bool>(joined),
+        "and the board still loads for a character who grew past the bound"
+    );
+    if (!joined) return;
+
+    const sim::UnitDefinition* stood = nullptr;
+    for (const sim::UnitDefinition& unit : joined.encounter.definition.units) {
+        if (unit.id == 1000U) stood = &unit;
+    }
+    expect(stood != nullptr, "the grown member is on the board");
+    if (stood == nullptr) return;
+    expect(
+        stood->strength == sim::maximum_stat &&
+            stood->defense == sim::maximum_stat &&
+            stood->resistance == sim::maximum_stat &&
+            stood->magic == sim::maximum_stat,
+        "each of the four stops exactly where the rules stop rather than where "
+        "the field does"
+    );
+
+    // The claim that matters, and the one the old ceiling failed: the engine
+    // builds it. A stat one past the bound is `invalid_unit` and no battle.
+    const auto created =
+        sim::create_encounter(joined.encounter.definition);
+    expect(
+        static_cast<bool>(created),
+        "and the engine opens the battle rather than refusing the board"
+    );
+    if (!created) {
+        std::cerr << "  create_encounter said "
+                  << sim::error_name(created.error) << "\n";
+    }
+}
+
 void a_levelled_member_takes_the_field_as_who_they_became() {
     const pf::LoadedPackage package = compile_and_load();
     campaign::CampaignState state = full_roster(package);
@@ -2331,6 +2420,7 @@ int main() {
     the_same_completion_rolls_the_same_numbers();
     a_character_at_the_ceiling_earns_nothing();
     a_levelled_member_takes_the_field_as_who_they_became();
+    a_character_who_grows_past_the_rules_still_takes_the_field();
     a_unit_type_table_derives_what_the_whole_board_derives();
     a_wave_pays_for_every_character_it_lands();
     return failures == 0 ? 0 : 1;
