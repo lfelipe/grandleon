@@ -464,3 +464,127 @@ describe("MapEditor", () => {
     });
   });
 });
+
+describe("a board too big to draw all of", () => {
+  /** A square board of `side` cells a side, all one terrain. */
+  function board(side: number): SourceMap {
+    return {
+      id: "field", name: "Field", width: side, height: side,
+      terrain: Array.from({ length: side * side }, () => "grass")
+    } as SourceMap;
+  }
+
+  const cells = (host: HTMLElement) =>
+    host.querySelectorAll('[role="gridcell"]').length;
+  const grid = (host: HTMLElement) =>
+    host.querySelector<HTMLElement>(".terrain-grid")!;
+
+  /** jsdom lays nothing out, so the room the grid has is stated. */
+  function withViewport(host: HTMLElement, width = 800, height = 600) {
+    const element = grid(host);
+    Object.defineProperty(element, "clientWidth", { value: width, configurable: true });
+    Object.defineProperty(element, "clientHeight", { value: height, configurable: true });
+    element.dispatchEvent(new Event("scroll"));
+    return element;
+  }
+
+  it("draws a small board whole, exactly as it always did", async () => {
+    // Under the threshold nothing changes: every cell is present and the
+    // stretch-to-fit sizing a small map has is kept.
+    const { app, host } = mount(board(16));
+    await nextTick();
+    expect(cells(host)).toBe(16 * 16);
+    const row = host.querySelector<HTMLElement>(".terrain-row")!;
+    expect(row.style.gridTemplateColumns).toContain("minmax(2.5rem, 1fr)");
+    app.unmount();
+  });
+
+  it("draws only what fits, once a board is past the threshold", async () => {
+    // 64x64 is 4096 cells and four DOM nodes each. Drawn whole that is what
+    // made a big map stop a tab.
+    const { app, host } = mount(board(64));
+    await nextTick();
+    withViewport(host);
+    await nextTick();
+    const drawn = cells(host);
+    expect(drawn).toBeGreaterThan(0);
+    expect(drawn).toBeLessThan(64 * 64 / 4);
+    app.unmount();
+  });
+
+  it("stays bounded as the board grows, not proportional to it", async () => {
+    // The point of a window: the same viewport draws about the same number of
+    // cells whether the board is 64 a side or the format's own ceiling.
+    const { app: smallApp, host: smallHost } = mount(board(64));
+    await nextTick();
+    withViewport(smallHost);
+    await nextTick();
+    const small = cells(smallHost);
+    smallApp.unmount();
+
+    const { app: bigApp, host: bigHost } = mount(board(256));
+    await nextTick();
+    withViewport(bigHost);
+    await nextTick();
+    const big = cells(bigHost);
+    bigApp.unmount();
+
+    expect(big).toBe(small);
+    // And the ceiling of the format is drawn at all, which it was not before:
+    // 256 a side is 65,536 cells and a quarter of a million nodes.
+    expect(big).toBeLessThan(2000);
+  });
+
+  it("declares every track, so the board is the size it says it is", async () => {
+    // The window fills only the visible tracks. The grid still declares them
+    // all, which is what keeps the scrollbars honest with no spacer element.
+    const { app, host } = mount(board(64));
+    await nextTick();
+    withViewport(host);
+    await nextTick();
+    expect(grid(host).style.gridTemplateRows).toBe("repeat(64, 40px)");
+    const row = host.querySelector<HTMLElement>(".terrain-row")!;
+    expect(row.style.gridTemplateColumns).toBe("repeat(64, 40px)");
+    app.unmount();
+  });
+
+  it("puts a drawn cell in its own column, not in the order it was drawn",
+     async () => {
+    // A windowed row holds a slice of its cells. Placed by order they would sit
+    // at the left edge; placed by column they sit where the board says.
+    const { app, host } = mount(board(64));
+    await nextTick();
+    const element = withViewport(host);
+    element.scrollLeft = 40 * 20;
+    element.dispatchEvent(new Event("scroll"));
+    await nextTick();
+    const first = host.querySelector<HTMLElement>('[role="gridcell"]')!;
+    expect(Number(first.style.gridColumn)).toBeGreaterThan(1);
+    app.unmount();
+  });
+
+  it("follows the keyboard past the edge of what is drawn", async () => {
+    // The case a window breaks if it is careless: an arrow key steps to a cell
+    // that has not been drawn yet, and focusing nothing would strand the
+    // keyboard at the edge of the viewport.
+    const { app, host } = mount(board(64));
+    await nextTick();
+    withViewport(host, 400, 400);
+    await nextTick();
+
+    const start = host.querySelector<HTMLButtonElement>('[data-cell="0"]')!;
+    start.focus();
+    // Walk right well past the drawn window.
+    for (let step = 0; step < 30; step += 1) {
+      const at = document.activeElement as HTMLElement | null;
+      at?.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "ArrowRight", bubbles: true, cancelable: true
+      }));
+      await nextTick();
+    }
+    const landed = document.activeElement as HTMLElement | null;
+    expect(landed?.getAttribute("role")).toBe("gridcell");
+    expect(Number(landed?.getAttribute("data-cell"))).toBe(30);
+    app.unmount();
+  });
+});

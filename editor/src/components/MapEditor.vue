@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: MIT -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import type { SourceMap } from "../generated/source-v1";
 import {
   MapEditError,
@@ -127,6 +127,144 @@ function terrainArt(x: number, y: number) {
   };
 }
 
+/**
+ * How large a board has to get before this grid stops drawing all of it.
+ *
+ * **A cell is four DOM nodes** -- a button, an SVG, its image and a glyph -- so
+ * a board at the format's ceiling of 256 a side is a quarter of a million
+ * nodes. That is not a slow grid; it is a tab that stops. Under this a board is
+ * drawn whole, exactly as it always was, and the stretch-to-fit sizing every
+ * small map has is kept.
+ *
+ * A thousand cells is about a 32x32 board, which is four times the largest map
+ * either shipped game draws and comfortably more than a browser minds.
+ */
+const WINDOWED_ABOVE_CELLS = 1024;
+
+/**
+ * The pitch a windowed board is drawn at, in pixels.
+ *
+ * Fixed rather than measured, and stated here rather than in the stylesheet,
+ * because the window arithmetic and the drawing have to agree exactly: a cell
+ * whose size the stylesheet decides and this file guesses would put the tiles
+ * under the cursor one row off the tiles under the pointer. The stretch sizing
+ * is what a small board keeps and a windowed one gives up; a board this size
+ * scrolls either way.
+ */
+const CELL_PX = 40;
+const CELL_GAP_PX = 2;
+const CELL_PITCH_PX = CELL_PX + CELL_GAP_PX;
+
+/** Rows and columns drawn beyond the viewport, so a scroll is not a redraw. */
+const OVERSCAN = 3;
+
+const windowed = computed(
+  () => snapshot.value.width * snapshot.value.height > WINDOWED_ABOVE_CELLS
+);
+
+const viewport = ref({ top: 0, left: 0, height: 0, width: 0 });
+
+onMounted(() => {
+  readViewport();
+  if (typeof window !== "undefined") window.addEventListener("resize", readViewport);
+});
+onBeforeUnmount(() => {
+  if (typeof window !== "undefined") window.removeEventListener("resize", readViewport);
+});
+
+function readViewport(): void {
+  const element = gridRoot.value;
+  if (!element) return;
+  viewport.value = {
+    top: element.scrollTop,
+    left: element.scrollLeft,
+    height: element.clientHeight,
+    width: element.clientWidth
+  };
+}
+
+/**
+ * How much of a windowed board to draw before anything has been measured.
+ *
+ * A first paint happens before layout, and so does every environment with no
+ * layout engine. Falling back to the whole board there would draw the quarter
+ * of a million nodes this window exists to avoid, at the one moment nothing has
+ * asked for them yet -- which is how the fallback was first written and what it
+ * did to a 256-cell-square board. A screenful is the safe direction to be wrong
+ * in: too few cells are drawn for an instant, and the first scroll or resize
+ * corrects it.
+ */
+const UNMEASURED_TRACKS = 24;
+
+/** A half-open range of tracks, clamped to the board. */
+function visibleRange(offset: number, extent: number, total: number) {
+  const room = extent > 0 ? extent : UNMEASURED_TRACKS * CELL_PITCH_PX;
+  const first = Math.max(0, Math.floor(offset / CELL_PITCH_PX) - OVERSCAN);
+  const last = Math.min(
+    total, Math.ceil((offset + room) / CELL_PITCH_PX) + OVERSCAN
+  );
+  return { first, last };
+}
+
+const visibleRows = computed(() => {
+  if (!windowed.value) return { first: 0, last: snapshot.value.height };
+  return visibleRange(
+    viewport.value.top, viewport.value.height, snapshot.value.height
+  );
+});
+
+const visibleColumns = computed(() => {
+  if (!windowed.value) return { first: 0, last: snapshot.value.width };
+  return visibleRange(
+    viewport.value.left, viewport.value.width, snapshot.value.width
+  );
+});
+
+/**
+ * The grid declares every track and only the visible ones are filled.
+ *
+ * That is what keeps the scrollbars honest without a spacer element: an empty
+ * track of an explicit size occupies its space and costs no nodes, so the board
+ * is the size it says it is and the cursor lands where the pointer is.
+ */
+const gridStyle = computed(() => windowed.value ? {
+  gap: `${CELL_GAP_PX}px`,
+  gridTemplateRows: `repeat(${snapshot.value.height}, ${CELL_PX}px)`,
+  maxWidth: "none"
+} : {});
+
+const rowStyle = (row: number) => windowed.value ? {
+  gap: `${CELL_GAP_PX}px`,
+  gridRow: `${row}`,
+  gridTemplateColumns: `repeat(${snapshot.value.width}, ${CELL_PX}px)`
+} : {
+  gridTemplateColumns: `repeat(${snapshot.value.width}, minmax(2.5rem, 1fr))`
+};
+
+const cellStyle = (column: number, terrain: string) => ({
+  backgroundColor: terrainColor(terrain, props.themeId),
+  ...(windowed.value ? { gridColumn: `${column}` } : {})
+});
+
+/** Brings a cell into view before anything tries to focus it. */
+function revealCell(index: number): void {
+  const element = gridRoot.value;
+  if (!element || !windowed.value) return;
+  const x = index % snapshot.value.width;
+  const y = Math.floor(index / snapshot.value.width);
+  const left = x * CELL_PITCH_PX;
+  const top = y * CELL_PITCH_PX;
+  if (left < element.scrollLeft) element.scrollLeft = left;
+  if (left + CELL_PITCH_PX > element.scrollLeft + element.clientWidth) {
+    element.scrollLeft = left + CELL_PITCH_PX - element.clientWidth;
+  }
+  if (top < element.scrollTop) element.scrollTop = top;
+  if (top + CELL_PITCH_PX > element.scrollTop + element.clientHeight) {
+    element.scrollTop = top + CELL_PITCH_PX - element.clientHeight;
+  }
+  readViewport();
+}
+
 function moveFocus(x: number, y: number, dx: number, dy: number) {
   const nextX = x + dx;
   const nextY = y + dy;
@@ -135,9 +273,18 @@ function moveFocus(x: number, y: number, dx: number, dy: number) {
     nextX >= snapshot.value.width || nextY >= snapshot.value.height
   ) return;
   focusIndex.value = nextY * snapshot.value.width + nextX;
-  gridRoot.value
+  // Scrolled into view first: on a windowed board the cell an arrow key just
+  // moved to may not be drawn yet, and focusing nothing would strand the
+  // keyboard at the edge of the window.
+  revealCell(focusIndex.value);
+  const focusCell = () => gridRoot.value
     ?.querySelector<HTMLButtonElement>(`[data-cell="${focusIndex.value}"]`)
     ?.focus();
+  if (gridRoot.value?.querySelector(`[data-cell="${focusIndex.value}"]`)) {
+    focusCell();
+  } else {
+    void nextTick(focusCell);
+  }
 }
 
 /**
@@ -348,18 +495,19 @@ function applyResize() {
       Selected brush: <strong>{{ selectedTerrain }}</strong>. Click or drag to
       paint.
     </p>
-    <div ref="gridRoot" class="terrain-grid" role="grid" aria-label="Terrain map">
-      <div v-for="row in snapshot.height" :key="row" class="terrain-row"
-        role="row"
-        :style="{ gridTemplateColumns: `repeat(${snapshot.width}, minmax(2.5rem, 1fr))` }">
-        <button v-for="column in snapshot.width"
-          :key="(row - 1) * snapshot.width + (column - 1)"
+    <div ref="gridRoot" class="terrain-grid" role="grid" aria-label="Terrain map"
+      :style="gridStyle" @scroll.passive="readViewport">
+      <template v-for="row in snapshot.height" :key="row">
+      <div v-if="row > visibleRows.first && row <= visibleRows.last"
+        class="terrain-row" role="row" :style="rowStyle(row)">
+        <template v-for="column in snapshot.width" :key="(row - 1) * snapshot.width + (column - 1)">
+        <button v-if="column > visibleColumns.first && column <= visibleColumns.last"
           type="button" role="gridcell"
           :data-cell="(row - 1) * snapshot.width + (column - 1)"
           :tabindex="(row - 1) * snapshot.width + (column - 1) === focusIndex ? 0 : -1"
           :aria-label="`Column ${column}, row ${row}: ${terrainAt(column - 1, row - 1)}`"
           :title="terrainAt(column - 1, row - 1)"
-          :style="{ backgroundColor: terrainColor(terrainAt(column - 1, row - 1), props.themeId) }"
+          :style="cellStyle(column, terrainAt(column - 1, row - 1))"
           @pointerdown="focusIndex = (row - 1) * snapshot.width + (column - 1);
             startPainting(column - 1, row - 1, $event)"
           @pointerenter="continuePainting(column - 1, row - 1, $event)"
@@ -380,7 +528,9 @@ function applyResize() {
             {{ terrainGlyph(terrainAt(column - 1, row - 1)) }}
           </span>
         </button>
+        </template>
       </div>
+      </template>
     </div>
 
     <fieldset class="map-resize">
