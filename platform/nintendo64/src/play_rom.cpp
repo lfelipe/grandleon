@@ -3775,22 +3775,29 @@ public:
                 );
                 if (check == ap::Check::forecast) {
                     expect(
-                        forecast.damage == 3 &&
-                            forecast.target_health_after == 9 &&
+                        forecast.damage == 2 &&
+                            forecast.target_health_after == 10 &&
                             !forecast.lethal,
-                        "the bow's forecast promises three off a knight's "
-                        "twelve"
+                        "the bow's forecast promises two off a knight's twelve"
                     );
-                    // And promises it nineteen times in twenty, which is the
-                    // whole of what the panel says. The Long Bow is
-                    // authored at 90 and the Archer carries five points of
-                    // skill, and the chance a forecast states is the folded
-                    // one: 90 + 5 against a stormcaller that dodges nothing.
+                    // And promises it four times in five, which is the whole
+                    // of what the panel says.
+                    //
+                    // Both numbers are the triangle's. The Long Bow is power
+                    // two authored at 90, the Archer carries five points of
+                    // skill, and an Ashen Knight holds a blade -- which the
+                    // shipped table makes strong against a bow. So the archer
+                    // strikes *into* the advantage and pays the game's
+                    // `weaponAdvantage` twice over: one off the blow and
+                    // fifteen off the chance. Three and 95 without the table,
+                    // two and 80 with it.
+                    //
                     // Re-derived on the host, never eyeballed:
-                    // `grandleon_playstation_expect` writes `95% HIT 5 LEFT 3`
-                    // for the same board off the same rules.
+                    // `grandleon_playstation_expect` writes `80% HIT 2 LEFT 10`
+                    // for the same board off the same rules, and the console
+                    // prints the same three numbers under ares.
                     expect(
-                        forecast.hit_chance == 95,
+                        forecast.hit_chance == 80,
                         "the bow's forecast states the chance it will be rolled"
                     );
                 } else {

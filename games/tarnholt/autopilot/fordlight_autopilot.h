@@ -93,10 +93,14 @@
 // All of these are `grandleon_playstation_expect`'s output over this itinerary,
 // and the way to challenge one is to run it rather than to read a screen:
 //
-//   - the bow forecasts `95% HIT 3 LEFT 9` against an Ashen Knight on twelve.
-//     The Long Bow is authored at 90 and the Archer carries five points of
-//     skill, and the chance a forecast states is the folded one: 90 + 5 against
-//     a knight that dodges nothing.
+//   - the bow forecasts `80% HIT 2 LEFT 10` against an Ashen Knight on twelve.
+//     The Long Bow is power two authored at 90 and the Archer carries five
+//     points of skill, so the folded chance would be 90 + 5 against a knight
+//     that dodges nothing -- except that a knight holds a blade, and the
+//     shipped table makes a blade strong against a bow. The archer is striking
+//     into the advantage, so the game's `weaponAdvantage` comes off both
+//     numbers rather than going on: one off the blow and fifteen off the
+//     chance. It read `95% HIT 3 LEFT 9` before there was a table.
 //   - a Guard Sword forecasts `HIT 5`, and against the knight the line has worn
 //     down to three it forecasts `HIT 5 KO`: lethal, and therefore unanswered.
 //   - Cinder Arc takes the knight the archer had already left on one, so the
