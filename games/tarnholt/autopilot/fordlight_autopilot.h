@@ -527,27 +527,47 @@ inline constexpr Step fordlight_autopilot[] = {
     // end of its turn, and taking that row commits on the press because an
     // item reaches the hand that holds it.
     //
-    // The knight walks first, into the square the Coil's own fallen left at
-    // (3,3), because the one it has worn down to three is standing beside that
-    // square and not beside the knight. So this is the two-point turn spelled
-    // out in full: WALK from the menu, then Z to open the menu again, where
-    // ATTACK is now the first row because a character that has walked is
-    // offered no second walk.
-    {Op::cursor_to, 0, 2, 3, nullptr},
+    // The knight at (1,2) walks first, to (2,3), because the one the line has
+    // worn down to three is standing at (2,4) and (2,3) is the empty square
+    // above it -- empty because one of the company fell there. So this is the
+    // two-point turn spelled out in full: WALK from the menu, then Z to open
+    // the menu again, where ATTACK is now the first row because a character
+    // that has walked is offered no second walk.
+    //
+    // The round used to be the same shape a few squares over: a knight at
+    // (2,3) walked into (3,3), which the Coil's own fallen had left empty, and
+    // struck the worn one at (3,4). The weapon triangle moved every square of
+    // it. The archer's shots into a blade take two rather than three now, so a
+    // knight the line used to fell stays up long enough to take one of the
+    // company with it, and the survivors and the worn one all ended up
+    // somewhere else. Pressing the old buttons on the new board selected an
+    // empty square and aimed at another one, which is why the checkpoint could
+    // not find so much as a pairing to price.
+    //
+    // Re-planned rather than re-aimed. The point of the round is a strike the
+    // forecast calls lethal before it is thrown, and a cursor nudged onto
+    // whatever happens to be nearby would have kept the checkpoint green while
+    // quietly making it about something else.
+    {Op::cursor_to, 0, 1, 2, nullptr},
     {Op::wait, 10, 0, 0, nullptr},
     {Op::press, button_a, 0, 0, nullptr},
     {Op::wait, 20, 0, 0, nullptr},
     {Op::press, button_a, 0, 0, nullptr},
     {Op::wait, 10, 0, 0, nullptr},
-    {Op::cursor_to, 0, 3, 3, nullptr},
+    {Op::cursor_to, 0, 2, 3, nullptr},
     {Op::wait, 10, 0, 0, nullptr},
     {Op::press, button_a, 0, 0, nullptr},
-    {Op::wait, 30, 0, 0, nullptr},
+    // Sixty rather than the thirty the old walk was given. This one crosses two
+    // squares where that one crossed one, and the token walks its route a tile
+    // at a time: a menu press that lands while it is still walking is a press
+    // the client is not listening for, and the round arrives at its checkpoint
+    // with nobody selected.
+    {Op::wait, 60, 0, 0, nullptr},
     {Op::press, button_z, 0, 0, nullptr},
     {Op::wait, 20, 0, 0, nullptr},
     {Op::press, button_a, 0, 0, nullptr},
     {Op::wait, 10, 0, 0, nullptr},
-    {Op::cursor_to, 0, 3, 4, nullptr},
+    {Op::cursor_to, 0, 2, 4, nullptr},
     {Op::wait, 20, 0, 0, nullptr},
     {Op::checkpoint, static_cast<std::uint16_t>(Check::forecast_lethal), 0, 0,
      "forecast-lethal"},

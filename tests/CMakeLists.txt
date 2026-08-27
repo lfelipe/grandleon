@@ -376,6 +376,35 @@ add_test(
     COMMAND grandleon_n64_campaign_expectation_tests
 )
 
+# What the Fordlight autopilot is allowed to believe about a blow, derived on
+# the host from the real engine and the real board before the ROM is built. The
+# ROM includes the same header this test pins, so a rule that moves a number
+# fails here -- in the ordinary gate, in a fraction of a second -- rather than in
+# a console run that nobody is required to make.
+add_executable(grandleon_n64_fordlight_expectation_tests
+    nintendo64/fordlight_expectations_test.cpp
+)
+target_link_libraries(
+    grandleon_n64_fordlight_expectation_tests
+    PRIVATE
+        grandleon::campaign_runtime
+        grandleon::game_content
+        grandleon::package_runtime
+        grandleon::simulation
+)
+target_include_directories(
+    grandleon_n64_fordlight_expectation_tests
+    PRIVATE "${PROJECT_SOURCE_DIR}/games/tarnholt/autopilot"
+)
+target_compile_definitions(
+    grandleon_n64_fordlight_expectation_tests
+    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+add_test(
+    NAME grandleon.n64_fordlight_expectations
+    COMMAND grandleon_n64_fordlight_expectation_tests
+)
+
 # Where the Nintendo 64's rows of text are allowed to land.
 #
 # libdragon does not clip: `graphics_draw_character` computes

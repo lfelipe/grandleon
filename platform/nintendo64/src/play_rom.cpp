@@ -117,6 +117,12 @@
 #include "campaign_autopilot.h"
 #else
 #include "fordlight_autopilot.h"
+// The numbers that script's checkpoints price a blow against, derived on the
+// host by `tests/nintendo64/fordlight_expectations_test.cpp` from this same
+// project through this same engine. Included here for the reason
+// `campaign_expectations.h` is included above: so the only way to change what
+// the console checks is to change what the host derives.
+#include "fordlight_expectations.h"
 #endif
 #endif
 
@@ -3775,9 +3781,10 @@ public:
                 );
                 if (check == ap::Check::forecast) {
                     expect(
-                        forecast.damage == 2 &&
-                            forecast.target_health_after == 10 &&
-                            !forecast.lethal,
+                        forecast.damage == grandleon::tarnholt::bow_at_knight_damage &&
+                            forecast.target_health_after ==
+                                grandleon::tarnholt::bow_at_knight_health_after &&
+                            forecast.lethal == grandleon::tarnholt::bow_at_knight_lethal,
                         "the bow's forecast promises two off a knight's twelve"
                     );
                     // And promises it four times in five, which is the whole
@@ -3792,12 +3799,17 @@ public:
                     // fifteen off the chance. Three and 95 without the table,
                     // two and 80 with it.
                     //
-                    // Re-derived on the host, never eyeballed:
-                    // `grandleon_playstation_expect` writes `80% HIT 2 LEFT 10`
-                    // for the same board off the same rules, and the console
-                    // prints the same three numbers under ares.
+                    // None of those four numbers is written down here. They
+                    // come from `fordlight_expectations.h`, which
+                    // `tests/nintendo64/fordlight_expectations_test.cpp`
+                    // derives on the host from this same project through this
+                    // same engine, in the ordinary gate and with no emulator.
+                    // They were literals until the weapon triangle shipped and
+                    // silently made every one of them wrong, and a literal on
+                    // this side of the machine is a number no host test can
+                    // fail on your behalf.
                     expect(
-                        forecast.hit_chance == 80,
+                        forecast.hit_chance == grandleon::tarnholt::bow_at_knight_chance,
                         "the bow's forecast states the chance it will be rolled"
                     );
                 } else {
@@ -3871,10 +3883,22 @@ public:
                 }
                 return;
             case ap::Check::after_ability: {
-                // Three of ours and four of theirs. Cinder Arc took the knight
-                // the archer had already worn to one, and the Coil took the
-                // southern knight in the block before this one. See the
-                // script's header for the round-by-round derivation.
+                // Two of ours and four of theirs. Cinder Arc took the knight
+                // the archer had worn down, and the Coil took the southern
+                // knight in the block before this one. See the script's header
+                // for the round-by-round derivation.
+                //
+                // Two rather than three, and the missing one is the weapon
+                // triangle's doing. A knight holds a blade and the shipped
+                // table makes a blade strong against a bow, so every arrow the
+                // Archer puts into one takes two rather than three. The knights
+                // reach the line with more left in them than they used to, and
+                // one of the company does not survive the meeting. A scripted
+                // run does not adapt: it opens with the bow because that is
+                // what it was written to press, where a player who has read the
+                // table answers armour with the mage, whose staff beats a
+                // blade. The cost of the wrong opening is what this number now
+                // records.
                 //
                 // Four rather than three because a fifth of theirs is on this
                 // board: the levy that opens far out on the east road, pursuing
@@ -3883,8 +3907,8 @@ public:
                 // this counts, which is what a pursuing character does and the
                 // reason it was placed out there rather than left as scenery.
                 expect(
-                    classified.blue == 3 && classified.red == 4,
-                    "the arc took the wounded knight, the guard is three, and "
+                    classified.blue == 2 && classified.red == 4,
+                    "the arc took the wounded knight, the guard is two, and "
                     "the levy has come down the road"
                 );
                 // Alive, and deliberately not `sim::on_board`. The claim is
