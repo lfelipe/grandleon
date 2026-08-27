@@ -3,11 +3,29 @@
 
 # The local CI runner, in place of the disabled GitHub workflow.
 #
-#   scripts/local-ci.sh                    verify HEAD in a clean clone
-#   scripts/local-ci.sh --n64              additionally run every Nintendo 64 check
-#   scripts/local-ci.sh --playstation      additionally run every PlayStation check
-#   scripts/local-ci.sh --consoles         both of the above
+#   scripts/local-ci.sh                    verify HEAD in a clean clone, consoles
+#                                          included when their runtime is here
+#   scripts/local-ci.sh --no-consoles      skip both consoles deliberately
+#   scripts/local-ci.sh --n64              only the Nintendo 64 of the two
+#   scripts/local-ci.sh --playstation      only the PlayStation of the two
+#   scripts/local-ci.sh --consoles         both, and insist on them
 #   scripts/local-ci.sh --preview-port N   serve the browser suite on port N
+#
+# **The consoles are on by default, and that is a change.** They were behind a
+# flag, and the comment beside them argued against the flag without removing it:
+# "A console reachable only by somebody remembering to type a CMake target is a
+# console whose claims nothing verifies." Nobody remembered. The PlayStation
+# port stopped building on 2026-08-17 and nothing said so for fifty commits;
+# the weapon triangle shipped four days into that silence and left both
+# consoles' scripts asserting numbers the rules had stopped producing. Every one
+# of those was found by hand, late, by somebody going to look.
+#
+# So the default is to run them, and the opt-out is a flag somebody types on
+# purpose. Where the container runtime is absent they are skipped rather than
+# failed -- not everybody has one, and a gate that cannot run at all teaches
+# people to stop running it -- but the skip is reported at the end, by name, so
+# that a run which proved nothing about either console never looks like one that
+# did.
 #
 # The point of the clean clone is honesty: it catches work that only passes
 # because of untracked files, stale generated output, or state accumulated in
@@ -27,22 +45,31 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-run_n64=0
-run_playstation=0
+# Unset rather than 0 or 1: a flag has to be able to say "only this one", which
+# means telling "nobody chose" apart from "chose no".
+run_n64=""
+run_playstation=""
 preview_port=4521
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --n64)
             run_n64=1
+            [ -n "${run_playstation}" ] || run_playstation=0
             shift
             ;;
         --playstation)
             run_playstation=1
+            [ -n "${run_n64}" ] || run_n64=0
             shift
             ;;
         --consoles)
             run_n64=1
             run_playstation=1
+            shift
+            ;;
+        --no-consoles)
+            run_n64=0
+            run_playstation=0
             shift
             ;;
         --preview-port)
@@ -52,7 +79,7 @@ while [ "$#" -gt 0 ]; do
             ;;
         *)
             echo "usage: $(basename "$0") [--n64] [--playstation] [--consoles]" >&2
-            echo "                        [--preview-port N]" >&2
+            echo "                        [--no-consoles] [--preview-port N]" >&2
             exit 2
             ;;
     esac
@@ -63,6 +90,30 @@ case "${preview_port}" in
         exit 2
         ;;
 esac
+
+# What nobody chose, decided here rather than defaulted to nothing.
+#
+# Both consoles build inside a pinned container, so the one thing that decides
+# whether they *can* run is whether a container runtime answers. Asked once,
+# recorded once, and reported at the end: a skip that is never mentioned again
+# is how fifty commits of a port that would not build went unnoticed.
+consoles_skipped=""
+container_runtime="${GRANDLEON_DOCKER:-docker}"
+if [ -z "${run_n64}" ] || [ -z "${run_playstation}" ]; then
+    if command -v "${container_runtime}" >/dev/null 2>&1 &&
+       "${container_runtime}" info >/dev/null 2>&1; then
+        [ -n "${run_n64}" ] || run_n64=1
+        [ -n "${run_playstation}" ] || run_playstation=1
+    else
+        [ -n "${run_n64}" ] || run_n64=0
+        [ -n "${run_playstation}" ] || run_playstation=0
+        consoles_skipped="no container runtime: '${container_runtime}' did not answer"
+    fi
+fi
+if [ "${run_n64}" -eq 0 ] && [ "${run_playstation}" -eq 0 ] &&
+   [ -z "${consoles_skipped}" ]; then
+    consoles_skipped="asked for with --no-consoles"
+fi
 
 # Prefer this checkout's copy of a borrowed artefact, fall back to the primary
 # checkout's, and say plainly where to get one when neither exists.
@@ -326,5 +377,25 @@ python3 "${clone}/scripts/check_links.py"
 
 step "whitespace"
 git -C "${clone}" diff --check
+
+# What this run did not prove, said last, where it is read.
+#
+# A gate that quietly covers less than usual is worse than one that fails: the
+# green line at the bottom is what people remember, and it should not be able to
+# mean two different things. Named consoles rather than a count, because "1 of 2
+# skipped" is a sentence somebody has to decode.
+if [ -n "${consoles_skipped}" ]; then
+    skipped_names=""
+    [ "${run_n64}" -eq 0 ] && skipped_names="Nintendo 64"
+    if [ "${run_playstation}" -eq 0 ]; then
+        [ -n "${skipped_names}" ] && skipped_names="${skipped_names} and "
+        skipped_names="${skipped_names}PlayStation"
+    fi
+    printf '\n  NOT VERIFIED: %s (%s)\n' \
+        "${skipped_names}" "${consoles_skipped}"
+    printf '  Nothing in this run played either ROM or executable. Run\n'
+    printf '  %s --consoles once a container runtime is available.\n' \
+        "$(basename "$0")"
+fi
 
 printf '\nLocal CI passed for %s\n' "${head_sha}"

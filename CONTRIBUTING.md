@@ -68,11 +68,16 @@ It clones `HEAD` into a temporary directory and runs the whole gate there, so
 untracked files and stale generated output cannot make a change look ready. Give
 it a preview port nobody else on the machine is using.
 
-The console checks build cross toolchains and emulators from source, so they are
-behind flags:
+The console checks run too, whenever a container runtime answers. They build
+cross toolchains and emulators from source the first time, so the first run is
+slow and later ones are not. Where no runtime is installed they are skipped, and
+the run says so by name at the end rather than looking like a full one.
+
+To skip them on purpose, or to run only one:
 
 ```sh
-scripts/local-ci.sh --preview-port 4521 --consoles
+scripts/local-ci.sh --preview-port 4521 --no-consoles
+scripts/local-ci.sh --preview-port 4521 --n64
 ```
 
 Run them from the repository root. From a subdirectory, `build` resolves

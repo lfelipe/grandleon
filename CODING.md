@@ -172,15 +172,22 @@ difference shows up as failures that say nothing about the change.
 directory and runs everything there, so untracked files and stale generated
 output cannot make a change look ready. Run it before every push.
 
-The consoles are behind flags, because each builds a cross toolchain and an
-emulator from source the first time it is asked to:
+The consoles run as part of it, whenever a container runtime answers. Each
+builds a cross toolchain and an emulator from source the first time it is asked
+to, so the first run is slow; where no runtime is installed they are skipped and
+the run names what it did not verify.
 
 ```sh
-scripts/local-ci.sh --preview-port 4531                # the host gate
-scripts/local-ci.sh --preview-port 4531 --n64          # and every N64 check
-scripts/local-ci.sh --preview-port 4531 --playstation  # and every PlayStation one
-scripts/local-ci.sh --preview-port 4531 --consoles     # both
+scripts/local-ci.sh --preview-port 4531                 # everything available
+scripts/local-ci.sh --preview-port 4531 --no-consoles   # the host gate alone
+scripts/local-ci.sh --preview-port 4531 --n64           # only the N64 of the two
+scripts/local-ci.sh --preview-port 4531 --playstation   # only the PlayStation
 ```
+
+They were behind flags until 2026-08-27, and the cost of that is on the record:
+the PlayStation port stopped building on 2026-08-17 and nothing said so for
+fifty commits, over which the weapon triangle shipped and left both consoles'
+scripts asserting numbers the rules had stopped producing.
 
 ## Reproducible toolchains
 
