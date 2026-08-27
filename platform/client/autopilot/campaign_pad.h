@@ -91,6 +91,20 @@ namespace grandleon::client::turn {
 // re-recording is one command whenever the board underneath it moves. The
 // transcript is derived from it, so a losing pass is checked exactly as tightly
 // as a winning one.
+//
+// The Tarnholt founding script below is the second recording. The first stopped
+// being playable when the weapon triangle shipped: the policy's own walk ran
+// into a square the new board no longer had free, the founding pass refused
+// `invalid_destination` and saved nothing, and a founding pass that saves
+// nothing is a campaign no second pass can resume. That is this file's
+// paragraph above working exactly as it says it does -- a content change did
+// not quietly change what was proved, it changed what the script reached, and
+// the derivation refused rather than agreeing with it.
+//
+// It went unnoticed for six days only because the PlayStation port could not be
+// built at all over the same stretch, which is its own entry in the list. The
+// run is still a losing one and the company still falls; what moved is which
+// squares it falls on.
 // ---------------------------------------------------------------------------
 
 inline constexpr std::uint16_t tarnholt_campaign_found[] = {
@@ -103,23 +117,22 @@ inline constexpr std::uint16_t tarnholt_campaign_found[] = {
     pad_down, pad_a, pad_b, pad_right, pad_right, pad_right,
     pad_a, pad_left, pad_left, pad_down, pad_a, pad_b,
     pad_right, pad_right, pad_a, pad_up, pad_up, pad_up,
-    pad_a, pad_b, pad_right, pad_right, pad_right, pad_right,
-    pad_a, pad_left, pad_left, pad_left, pad_left, pad_left,
+    pad_a, pad_b, pad_right, pad_right, pad_right, pad_down,
+    pad_a, pad_left, pad_left, pad_left, pad_left, pad_up,
     pad_a, pad_b, pad_right, pad_right, pad_down, pad_a,
     pad_left, pad_down, pad_a, pad_b, pad_right, pad_right,
+    pad_up, pad_a, pad_a, pad_b, pad_a, pad_left,
+    pad_left, pad_left, pad_down, pad_down, pad_a, pad_b,
+    pad_right, pad_right, pad_up, pad_a, pad_a, pad_b,
+    pad_up, pad_a, pad_left, pad_left, pad_left, pad_up,
+    pad_a, pad_b, pad_right, pad_right, pad_right, pad_down,
     pad_a, pad_a, pad_b, pad_a, pad_left, pad_left,
-    pad_left, pad_down, pad_a, pad_b, pad_right, pad_up,
-    pad_a, pad_a, pad_b, pad_a, pad_left, pad_left,
-    pad_left, pad_up, pad_up, pad_a, pad_b, pad_right,
-    pad_right, pad_right, pad_a, pad_left, pad_left, pad_down,
-    pad_a, pad_b, pad_right, pad_right, pad_a, pad_a,
-    pad_b, pad_a, pad_left, pad_left, pad_down, pad_down,
-    pad_a, pad_b, pad_right, pad_right, pad_a, pad_left,
-    pad_left, pad_left, pad_up, pad_up, pad_a, pad_b,
-    pad_right, pad_down, pad_a, pad_left, pad_up, pad_a,
-    pad_b, pad_right, pad_right, pad_right, pad_down, pad_a,
-    pad_a, pad_b, pad_down, pad_down, pad_down, pad_a,
-    pad_a, pad_a, pad_a, pad_a,
+    pad_up, pad_up, pad_a, pad_b, pad_right, pad_down,
+    pad_a, pad_a, pad_b, pad_a, pad_left, pad_up,
+    pad_a, pad_b, pad_right, pad_right, pad_up, pad_a,
+    pad_a, pad_b, pad_a, pad_left, pad_a, pad_b,
+    pad_down, pad_down, pad_down, pad_a, pad_a, pad_b,
+    pad_a, pad_a, pad_a, pad_a, pad_a,
 };
 
 inline constexpr std::size_t tarnholt_campaign_found_count =
