@@ -3928,6 +3928,19 @@ public:
                 // walked the twenty-odd columns of open ground into the window
                 // this counts, which is what a pursuing character does and the
                 // reason it was placed out there rather than left as scenery.
+                // These two stay written down here, where the forecast's four
+                // numbers moved out to a host-derived header. The difference is
+                // what they are claims about. A forecast is an answer the
+                // engine gives, so the host can ask the same question and the
+                // console can be held to the answer. `classified` is a census
+                // of what this machine actually *painted*: it counts what
+                // survived `sim::on_board`, the draw list, and
+                // `camera_.visible`. Deriving it on the host would mean
+                // standing up this console's camera and draw predicate over
+                // there, which is a second copy of a console's own rule and the
+                // one thing this repository will not have. So the number lives
+                // where the rule does, and what keeps it honest is that the
+                // census and the draw share a predicate a few hundred lines up.
                 expect(
                     classified.blue == 2 && classified.red == 4,
                     "the arc took the wounded knight, the guard is two, and "

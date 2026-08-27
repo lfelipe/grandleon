@@ -120,8 +120,19 @@
 // derived on the host by replaying exactly these presses through
 // `grandleon_playstation_expect`, and re-derived rather than edited whenever
 // this script or the content under it moves. That covers the bow's
-// `95% HIT 3 LEFT 9`, the sword's `HIT 5`, and the `HIT 5 KO` the fifth round
-// opens with.
+// `V 80% HIT 2 LEFT 10`, the sword's `HIT 5`, and the `^ HIT 6 KO` the fifth
+// round ends on.
+//
+// Those two marks are the weapon triangle, and they are worth reading as a
+// pair. The bow is fired into a blade, which beats it, so the shot is worth a
+// damage and fifteen points of chance less than it looks and the bar leads with
+// a vee. The staff that ends the run beats the blade it meets, so that blow is
+// worth as much more and leads with a caret. The same table, from both ends,
+// inside one run.
+//
+// It read `95% HIT 3 LEFT 9` and `HIT 5 KO` before the triangle shipped, and
+// this script went on playing as though it still did. The fifth round is
+// re-authored below and the reason is in the comment on it.
 
 #include <grandleon/client/turn_client.hpp>
 
@@ -191,15 +202,32 @@ inline constexpr std::uint16_t fordlight_presses[] = {
     pad_right, pad_up,
     pad_a,
 
-    pad_left, pad_up,
-    pad_a, pad_a, pad_right, pad_a,
-    pad_c, pad_a, pad_a,
+    // Round five, re-authored. The weapon triangle took both of the company's
+    // knights: the archer's shots into a blade take two rather than three now,
+    // so the Coil's knights reach the line with more left in them. What is
+    // standing is the archer and the mage, and the old presses selected a
+    // square where somebody had died and aimed at one nobody was on -- the run
+    // fought on to no KO at all and lost the mage.
+    //
+    // So: the archer walks from (1,2) to (2,3), which is a walk and nothing
+    // more, because a bow cannot be fired at arm's length and the worn knight
+    // is now adjacent. Then the mage drinks, and then the mage finishes the
+    // knight with a staff that beats the blade it holds.
+    //
+    // The Nintendo 64's own script was re-planned to this same course, which is
+    // the point: one board, one itinerary, two vocabularies. They had drifted,
+    // and a drifted pair is what this file's header warns about -- two machines
+    // proving different things while looking like they proved the same one.
+    pad_left, pad_left, pad_up, pad_up,
+    pad_a, pad_a,
+    pad_right, pad_down,
+    pad_a,
 
-    pad_left, pad_down,
+    pad_down, pad_down,
     pad_a, pad_down, pad_down, pad_down, pad_down, pad_a,
 
-    pad_left, pad_up, pad_up, pad_up,
-    pad_a, pad_up, pad_up, pad_up, pad_a,
+    pad_a, pad_down, pad_a,
+    pad_up, pad_a,
 
     pad_start, pad_down, pad_a,
 };
