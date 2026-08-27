@@ -224,6 +224,75 @@ int main() {
         "and the shot leans the way the table says it does"
     );
 
+    // ------------------------------------------------------------------
+    // And the blow that ends the Fordlight run: the mage's staff into the
+    // knight the line has worn down to three.
+    //
+    // The other side of the same table. A staff is strong against a blade, so
+    // this one is struck *with* the advantage where the bow's was struck into
+    // it, and the rule that cost the company its knights is the rule that
+    // finishes this knight.
+    const sim::ContentId staff = core::stable_content_id_v1("staff");
+    const sim::UnitDefinition* mage = nullptr;
+    for (const sim::UnitDefinition& unit : board.definition.units) {
+        if (unit.side != sim::Side::first) continue;
+        if (kind_in_hand(board.definition, unit) != staff) continue;
+        mage = &unit;
+        break;
+    }
+    expect(mage != nullptr, "somebody on the company carries a staff");
+
+    bool staff_beats_blade = false;
+    for (const sim::WeaponTypeDefinition& type : board.definition.weapon_types) {
+        if (type.id != staff) continue;
+        for (const sim::ContentId beaten : type.strong_against) {
+            if (beaten == blade) staff_beats_blade = true;
+        }
+    }
+    expect(
+        staff_beats_blade,
+        "and the shipped table makes a staff strong against a blade"
+    );
+
+    if (mage != nullptr && staff_beats_blade) {
+        // Worn to three and standing next to the mage, which is where the run
+        // leaves the two of them.
+        sim::EncounterDefinition endgame = board.definition;
+        const sim::UnitId mage_id = mage->id;
+        std::int16_t moved = 0;
+        for (sim::UnitDefinition& unit : endgame.units) {
+            if (unit.id == mage_id) {
+                unit.position = {1, 1};
+            } else if (unit.id == knight_id) {
+                unit.position = {1, 2};
+                unit.health = expect_ns::worn_knight_health;
+            } else if ((unit.position.x == 1 && unit.position.y == 1) ||
+                       (unit.position.x == 1 && unit.position.y == 2)) {
+                unit.position = {moved++, 0};
+            }
+        }
+        auto ending = sim::create_encounter(endgame);
+        expect(static_cast<bool>(ending), "the endgame board opens");
+        if (ending) {
+            const sim::AttackForecast blow = sim::forecast_attack(
+                ending.encounter.snapshot(), mage_id, knight_id
+            );
+            expect(static_cast<bool>(blow), "and the staff's blow prices itself");
+            expect(
+                blow.damage == expect_ns::staff_at_worn_knight_damage,
+                "the header's staff damage is what the rules answer"
+            );
+            expect(
+                blow.lethal == expect_ns::staff_at_worn_knight_lethal,
+                "and the header agrees that it fells"
+            );
+            expect(
+                blow.lean == sim::WeaponLean::advantage,
+                "and that the staff strikes with the advantage, not into it"
+            );
+        }
+    }
+
     if (failures == 0) {
         std::cout << "fordlight expectations: the bow is priced against the "
                      "blade it meets\n";

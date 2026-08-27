@@ -117,13 +117,19 @@
 #include "campaign_autopilot.h"
 #else
 #include "fordlight_autopilot.h"
-// The numbers that script's checkpoints price a blow against, derived on the
+#endif
+// The numbers the Fordlight checkpoints price a blow against, derived on the
 // host by `tests/nintendo64/fordlight_expectations_test.cpp` from this same
 // project through this same engine. Included here for the reason
 // `campaign_expectations.h` is included above: so the only way to change what
 // the console checks is to change what the host derives.
+//
+// Outside the branch above, not inside it. Both autopilot ROMs compile the
+// checkpoint code that reads these -- the campaign one defines
+// `GRANDLEON_N64_AUTOPILOT` as well and simply carries a different script --
+// so a header included only on the Fordlight side leaves the other ROM
+// compiling names nothing declared.
 #include "fordlight_expectations.h"
-#endif
 #endif
 
 #ifndef GRANDLEON_N64_PROBE
@@ -3814,12 +3820,28 @@ public:
                     );
                 } else {
                     expect(
-                        hovered->health == 3,
+                        hovered->health ==
+                            grandleon::tarnholt::worn_knight_health,
                         "the line has worn this one down to three"
                     );
+                    // A staff, not a sword. Both of the company's knights fall
+                    // on this board now, so the blow that ends the run is the
+                    // mage's -- and an Ember Staff is strong against the blade
+                    // the knight holds, which makes this the one gesture in the
+                    // run struck *with* the advantage rather than into it.
                     expect(
-                        forecast.damage == 5 && forecast.lethal,
-                        "and the sword's forecast says so before it is thrown"
+                        forecast.damage ==
+                                grandleon::tarnholt::staff_at_worn_knight_damage &&
+                            forecast.lethal ==
+                                grandleon::tarnholt::staff_at_worn_knight_lethal,
+                        "and the staff's forecast says so before it is thrown"
+                    );
+                    // And the console agrees with the host about which way it
+                    // leans, which is what a player is shown: the bar leads
+                    // this one with a caret and the Archer's with a vee.
+                    expect(
+                        forecast.lean == sim::WeaponLean::advantage,
+                        "and says the staff strikes with the advantage"
                     );
                 }
                 // Beside the target, wherever that put it. The panel is placed

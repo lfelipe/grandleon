@@ -44,4 +44,15 @@ inline constexpr std::uint8_t bow_at_knight_chance = 80;
 // panel says and the reason the round goes on.
 inline constexpr bool bow_at_knight_lethal = false;
 
+// What the line has worn the last Ashen Knight down to by the end of the run,
+// and what the mage's staff does to it.
+//
+// The other side of the same table. An Ember Staff is a staff and the knight
+// holds a blade, so this blow is struck *with* the advantage where the Archer's
+// was struck into it: the rule that cost the company both of its knights is the
+// rule that finishes this one.
+inline constexpr std::int16_t worn_knight_health = 3;
+inline constexpr std::int16_t staff_at_worn_knight_damage = 6;
+inline constexpr bool staff_at_worn_knight_lethal = true;
+
 }  // namespace grandleon::tarnholt

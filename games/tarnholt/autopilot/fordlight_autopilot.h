@@ -522,32 +522,37 @@ inline constexpr Step fordlight_autopilot[] = {
      "after-ability"},
     {Op::wait, 60, 0, 0, nullptr},
 
-    // Round five. A strike the forecast calls lethal before it is thrown, and
-    // then the draught: the mage's menu holds it between the spells and the
-    // end of its turn, and taking that row commits on the press because an
-    // item reaches the hand that holds it.
+    // Round five. The archer walks, and then the mage spends a whole turn: the
+    // draught out of the fifth row of its menu, and then a strike the forecast
+    // calls lethal before it is thrown.
     //
-    // The knight at (1,2) walks first, to (2,3), because the one the line has
-    // worn down to three is standing at (2,4) and (2,3) is the empty square
-    // above it -- empty because one of the company fell there. So this is the
-    // two-point turn spelled out in full: WALK from the menu, then Z to open
-    // the menu again, where ATTACK is now the first row because a character
-    // that has walked is offered no second walk.
+    // It used to be a knight's round, a few squares over: a knight at (2,3)
+    // walked into (3,3), which the Coil's own fallen had left empty, and struck
+    // the worn one at (3,4). The weapon triangle took the round apart. The
+    // archer's shots into a blade take two rather than three now, so the
+    // knights the line used to fell stay up long enough to take *both* of the
+    // company's own knights with them -- what is left standing at this point is
+    // the archer and the mage, and there is no sword on the board to write a
+    // sword's round for.
     //
-    // The round used to be the same shape a few squares over: a knight at
-    // (2,3) walked into (3,3), which the Coil's own fallen had left empty, and
-    // struck the worn one at (3,4). The weapon triangle moved every square of
-    // it. The archer's shots into a blade take two rather than three now, so a
-    // knight the line used to fell stays up long enough to take one of the
-    // company with it, and the survivors and the worn one all ended up
-    // somewhere else. Pressing the old buttons on the new board selected an
-    // empty square and aimed at another one, which is why the checkpoint could
-    // not find so much as a pairing to price.
+    // So the round is the mage's. It is the one still holding both of its
+    // points, it is already standing at (2,5) beside the worn knight at (2,4),
+    // and an Ember Staff is a staff: the shipped table makes a staff strong
+    // against a blade, so the blow that finishes the knight is made *with* the
+    // advantage rather than into it. The same rule that cost the company its
+    // knights is the one that ends this.
     //
-    // Re-planned rather than re-aimed. The point of the round is a strike the
-    // forecast calls lethal before it is thrown, and a cursor nudged onto
-    // whatever happens to be nearby would have kept the checkpoint green while
-    // quietly making it about something else.
+    // The archer's walk stays because it is still a walk worth watching, but it
+    // is only a walk now. A bow cannot be fired at arm's length, so an archer
+    // standing next to the worn knight has nothing to aim, and the walk is the
+    // whole of what it does with its turn.
+    //
+    // The draught keeps its place ahead of the strike rather than following it.
+    // Everything the item checkpoints assert -- eight rows, the fifth of them,
+    // the row still there once the bottle is gone -- is asserted against a menu
+    // the mage has not yet attacked out of, and reordering the two to put the
+    // more interesting gesture first would have quietly changed what those
+    // checkpoints were looking at.
     {Op::cursor_to, 0, 1, 2, nullptr},
     {Op::wait, 10, 0, 0, nullptr},
     {Op::press, button_a, 0, 0, nullptr},
@@ -559,20 +564,9 @@ inline constexpr Step fordlight_autopilot[] = {
     {Op::press, button_a, 0, 0, nullptr},
     // Sixty rather than the thirty the old walk was given. This one crosses two
     // squares where that one crossed one, and the token walks its route a tile
-    // at a time: a menu press that lands while it is still walking is a press
-    // the client is not listening for, and the round arrives at its checkpoint
-    // with nobody selected.
+    // at a time: a press that lands while it is still walking is a press the
+    // client is not listening for.
     {Op::wait, 60, 0, 0, nullptr},
-    {Op::press, button_z, 0, 0, nullptr},
-    {Op::wait, 20, 0, 0, nullptr},
-    {Op::press, button_a, 0, 0, nullptr},
-    {Op::wait, 10, 0, 0, nullptr},
-    {Op::cursor_to, 0, 2, 4, nullptr},
-    {Op::wait, 20, 0, 0, nullptr},
-    {Op::checkpoint, static_cast<std::uint16_t>(Check::forecast_lethal), 0, 0,
-     "forecast-lethal"},
-    {Op::press, button_a, 0, 0, nullptr},
-    {Op::wait, 30, 0, 0, nullptr},
     {Op::cursor_to, 0, 2, 5, nullptr},
     {Op::wait, 10, 0, 0, nullptr},
     {Op::press, button_a, 0, 0, nullptr},
@@ -591,6 +585,29 @@ inline constexpr Step fordlight_autopilot[] = {
     {Op::wait, 30, 0, 0, nullptr},
     {Op::checkpoint, static_cast<std::uint16_t>(Check::after_item), 0, 0,
      "after-item"},
+
+    // And the mage's second point: ATTACK out of the same menu, aimed at the
+    // knight the line has worn down to three, one square below. A staff against
+    // a blade is the advantage, and the forecast says the blow fells before it
+    // is thrown -- which is the whole of what this checkpoint is for, and the
+    // reason it is worth carrying a round that had to be re-planned rather than
+    // dropping it.
+    {Op::cursor_to, 0, 2, 5, nullptr},
+    {Op::wait, 10, 0, 0, nullptr},
+    {Op::press, button_a, 0, 0, nullptr},
+    {Op::wait, 20, 0, 0, nullptr},
+    // One row down from WALK, which the mage still has: it has drunk, but it
+    // has not moved.
+    {Op::press, button_d_down, 0, 0, nullptr},
+    {Op::wait, 10, 0, 0, nullptr},
+    {Op::press, button_a, 0, 0, nullptr},
+    {Op::wait, 10, 0, 0, nullptr},
+    {Op::cursor_to, 0, 2, 4, nullptr},
+    {Op::wait, 20, 0, 0, nullptr},
+    {Op::checkpoint, static_cast<std::uint16_t>(Check::forecast_lethal), 0, 0,
+     "forecast-lethal"},
+    {Op::press, button_a, 0, 0, nullptr},
+    {Op::wait, 30, 0, 0, nullptr},
 
     // And the side is ended from the board menu one last time, over a board
     // neither company is finished with.
