@@ -35,19 +35,24 @@
 # questions into one, needs no build directory to be found, and is caught by a
 # `git pull` as much as by an edit, because a checkout stamps what it changed.
 #
-# CMake's own path needs none of this and is left alone. It declares each
-# expectation as a custom command depending on the tool, and the tool depends on
-# its sources, so `cmake --build build --target ..._expectations` rebuilds what
-# it must. The scripts are the unguarded path, and they are the ergonomic one:
-# their headers document running them directly, because the CMake target rebuilds
-# the whole container image chain and the script does not.
+# CMake's own path is narrower than this one, and the two disagree in a way
+# worth knowing. It declares each expectation as a custom command depending on
+# the tool, and the tool on its sources, so an edit that genuinely feeds a
+# transcript rebuilds it. But this sweep looks at whole source roots rather than
+# at translation units, so an edit that *cannot* feed a given transcript still
+# marks it stale — and for exactly those, `--target ..._expectations` finds its
+# output newer than everything it declares and does nothing. The refusal below
+# therefore says to remove the file first; see `rederive_it`. The scripts are
+# the unguarded path, and they are the ergonomic one: their headers document
+# running them directly, because the CMake target rebuilds the whole container
+# image chain and the script does not.
 #
 # The sweep is deliberately a little wide — it is every source root the two
 # derivation tools compile or link, not the exact translation units — and it is
 # narrowed to C and C++ files plus the named project. A README inside one of
 # those roots does not move a transcript, and a refusal it caused would teach
-# people to distrust this. A refusal that is wide by one file still costs only
-# the one command it prints.
+# people to distrust this. A refusal that is wide by one file costs the two
+# commands it prints, which is the price of never being wrong the other way.
 #
 # It reads timestamps, so it is wide in one more way worth knowing before it
 # surprises somebody: a checkout or a rebase that rewrites a file with the bytes
@@ -152,6 +157,30 @@ if [ "${self_test}" -eq 1 ]; then
             failures=$((failures + 1))
         fi
     }
+    # Refuses, *and* says the thing that puts it right. The two refusals need
+    # different instructions -- an absent file is one the regenerate target
+    # always writes, a stale one is one it can believe current and skip -- and
+    # printing the absent one's advice for a stale file is a loop with no exit.
+    # Asserted rather than described, because wording is what rots quietest.
+    refuse_saying() {
+        local name="$1"
+        local phrase="$2"
+        shift 2
+        local said
+        if said="$("${self}" "$@" 2>&1)"; then
+            echo "error: the freshness check accepted ${name}." >&2
+            failures=$((failures + 1))
+            return
+        fi
+        refusals=$((refusals + 1))
+        case "${said}" in
+            *"${phrase}"*) ;;
+            *)
+                echo "error: refusing ${name} never said '${phrase}'." >&2
+                failures=$((failures + 1))
+                ;;
+        esac
+    }
 
     mkdir -p "${scratch}/src" "${scratch}/other"
     printf 'int main(void) { return 0; }\n' > "${scratch}/src/client.cpp"
@@ -172,6 +201,16 @@ if [ "${self_test}" -eq 1 ]; then
         --source "${scratch}/src"
     refuse "an expectation older than a source it is derived from" \
         --expectation "${scratch}/stale.txt" --regenerate t \
+        --source "${scratch}/src"
+    # And each is told how to fix the one it has. A file that is merely absent
+    # is derived; a file that is stale is removed first, because the sweep here
+    # is wider than the dependencies CMake tracks and the target will otherwise
+    # look at an output it has no reason to rewrite and report success.
+    refuse_saying "a stale expectation" "rm ${scratch}/stale.txt" \
+        --expectation "${scratch}/stale.txt" --regenerate t \
+        --source "${scratch}/src"
+    refuse_saying "an absent expectation" "Derive it first" \
+        --expectation "${scratch}/absent.txt" --regenerate t \
         --source "${scratch}/src"
     refuse "an expectation older than the project it compiled" \
         --expectation "${scratch}/stale.txt" --regenerate t \
@@ -234,6 +273,31 @@ derive_it() {
     echo "    cmake --build build --target ${regenerate}" >&2
 }
 
+# The same, for a file that is stale rather than absent -- which is a different
+# instruction, and printing the other one is a loop with no way out of it.
+#
+# The sweep above is deliberately wider than any one expectation's own
+# dependencies: it looks at whole source roots, so editing a file that could not
+# possibly move a given transcript still marks it stale. That is the
+# conservative direction and it is the right one. But CMake's dependencies are
+# the narrow, accurate ones, so for exactly those edits the regenerate target
+# looks at its output, finds it newer than the tool and the project it declares,
+# and does nothing at all. The guard then refuses again on a file nothing moved.
+#
+# Observed on 2026-08-27: an edit to `platform/client/autopilot/campaign_pad.h`
+# -- which the turn run does not even read -- left `fordlight_autopilot.txt`
+# refused, and `--target grandleon_playstation_turn_expectations` reported
+# "Built target" without writing anything. Removing the file first is what
+# breaks the tie, because an output that is absent is one CMake always rebuilds.
+rederive_it() {
+    echo "Remove it and derive it again:" >&2
+    echo "    rm ${expectation}" >&2
+    echo "    cmake --build build --target ${regenerate}" >&2
+    echo "The removal is not ceremony. This sweep is wider than the" >&2
+    echo "dependencies CMake tracks, so the target can believe an output it" >&2
+    echo "will not rewrite is current, and building it again changes nothing." >&2
+}
+
 if [ "${#source_roots[@]}" -eq 0 ]; then
     while IFS= read -r root; do
         source_roots+=("${repository_root}/${root}")
@@ -278,6 +342,6 @@ if [ -n "${newer}" ]; then
         "${newer#"${repository_root}/"}" >&2
     echo "It answers for a build that is no longer here, so a mismatch against" >&2
     echo "it would say nothing about this one." >&2
-    derive_it
+    rederive_it
     exit 1
 fi
