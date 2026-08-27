@@ -50,6 +50,16 @@ base_digest="${GRANDLEON_PCSX_REDUX_BUILD_DIGEST:-}"
 nugget_revision="${GRANDLEON_NUGGET_REVISION:-}"
 docker="${GRANDLEON_DOCKER:-docker}"
 build_dir="${GRANDLEON_PLAYSTATION_BUILD_DIR:-${repository_root}/build-playstation}"
+# Both of these are set by a flag further down and read before it, so they are
+# declared here rather than left to `--project` and `--targets` to bring into
+# existence. This script runs under `set -u`, where reading a name nothing has
+# assigned is not an empty string but the end of the run: an unqualified
+# `build-playstation.sh` died at the `[ -n "${targets}" ]` default with
+# `targets: unbound variable` and built nothing at all. Declared the way
+# `build-n64.sh` declares its own pair, from the environment with an empty
+# fallback, so the two scripts answer to the same names in the same way.
+project="${GRANDLEON_PLAYSTATION_PROJECT:-}"
+targets="${GRANDLEON_PLAYSTATION_TARGETS:-}"
 for name in base_digest nugget_revision; do
     if [ -z "${!name}" ]; then
         echo "error: ${name} is not set." >&2
@@ -97,6 +107,18 @@ grandleon_playstation_campaign_autopilot,\
 grandleon_playstation_campaign_demo_autopilot"
 [ -n "${targets}" ] || targets="${default_targets}"
 
+# And the game an unqualified run builds, which is the one this repository
+# ships. `--project` names another; naming none used to mean the container was
+# handed an empty path and answered "cannot open source project:" with nothing
+# after the colon. Defaulted here rather than in `platform/playstation/
+# CMakeLists.txt` because the container compiles the board package itself,
+# before any CMake on that side has an opinion -- and defaulted at all because
+# `platform/nintendo64/CMakeLists.txt` defaults its own to the same file, and
+# two consoles that ship the same game should not disagree about whether that
+# is worth saying out loud.
+[ -n "${project}" ] || \
+    project="${repository_root}/games/tarnholt/source/project.json"
+
 # What each requested target is called once it is an executable, derived from
 # the target list rather than written out again, so a run asked for one
 # executable neither reports nor demands the nine it was not asked for. The two
@@ -118,6 +140,7 @@ done
 # The container sees the repository at /src and nothing else, so a project it
 # is asked to build has to be inside the repository. Said here, with the path,
 # rather than discovered as a file-not-found inside the container.
+#
 if [ ! -f "${project}" ]; then
     echo "error: --project is not a file: ${project}" >&2
     exit 1
