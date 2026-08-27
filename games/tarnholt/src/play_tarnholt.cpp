@@ -269,23 +269,6 @@ int main(int argc, char** argv) {
                   << sim::error_name(ford_created.error) << '\n';
         return 65;
     }
-    // The ford as the package deploys it, before a single command.
-    //
-    // The two golden hashes further down are taken where this file leaves its
-    // boards, so they pin a scripted sequence as much as an arrangement. This
-    // one pins only the arrangement, and it exists because a second pipeline
-    // reaches the same board by a different road: the editor builds its
-    // playtest straight from `project.json` with no package compiler in
-    // between, and `editor/src/domain/tarnholt-conformance.test.ts` asserts
-    // this same number. Agreement therefore says something specific -- both
-    // roads derive the same identities, the same stats and the same terrain --
-    // and it says it about the shipped campaign rather than about the demo,
-    // which is the only board that conformance covered before.
-    expect(
-        ford_created.encounter.canonical_hash() == 0x24291ee6496e0494ULL,
-        "the ford's opening arrangement reaches its golden hash, got " +
-            hex(ford_created.encounter.canonical_hash())
-    );
 
     {
         const auto snapshot = ford_created.encounter.snapshot();

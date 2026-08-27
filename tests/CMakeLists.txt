@@ -376,6 +376,30 @@ add_test(
     COMMAND grandleon_n64_campaign_expectation_tests
 )
 
+# Every board the shipped campaign fights, as the compiler builds it, so that
+# the browser's own build of the same six can be held to it. The four that were
+# never pinned are the ones carrying what the engine has grown since; the first
+# thing this caught was that the browser could not build the last Stage at all.
+add_executable(grandleon_tarnholt_boards_tests
+    game_content/tarnholt_boards_test.cpp
+)
+target_link_libraries(
+    grandleon_tarnholt_boards_tests
+    PRIVATE
+        grandleon::campaign_runtime
+        grandleon::game_content
+        grandleon::package_runtime
+        grandleon::simulation
+)
+target_compile_definitions(
+    grandleon_tarnholt_boards_tests
+    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+add_test(
+    NAME grandleon.tarnholt_boards
+    COMMAND grandleon_tarnholt_boards_tests
+)
+
 # What the Fordlight autopilot is allowed to believe about a blow, derived on
 # the host from the real engine and the real board before the ROM is built. The
 # ROM includes the same header this test pins, so a rule that moves a number

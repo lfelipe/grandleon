@@ -995,9 +995,29 @@ export function planEncounterNode(
               ? "survive_rounds"
               : "defeat_all_opponents") as ObjectiveKind,
         side: (objective.side ?? "first") as PlaytestSide,
-        ...(target !== undefined && unitIds.has(target)
-          ? { targetUnitId: unitIds.get(target)! }
-          : {}),
+        // Matched on the key the compiler matches on, which for a placement
+        // that fields a roster member is *the member's* and not the tile's.
+        // `tools/game_content/src/compiler.cpp` says why: the character is who
+        // the objective is about, and they are the same character on every
+        // board that places them.
+        //
+        // Keying on the placement's own id instead was enough for every board
+        // that happens to name its placement after the member standing on it,
+        // and wrong for the one that does not. The Coldgate fields Captain
+        // Mirea as `dawn_commander_coldgate` while `keep_mirea_alive` names her
+        // by her member id, so the target resolved to nobody, the objective
+        // went out with no target on it, and `create_encounter` refused the
+        // whole board as `invalid_objective`. The campaign's last Stage could
+        // not be played in the browser at all.
+        ...(() => {
+          if (target === undefined) return {};
+          const stands = typedUnits.find(
+            (unit) => (memberIds.get(unit.id) ?? unit.id) === target
+          );
+          return stands === undefined
+            ? {}
+            : { targetUnitId: unitIds.get(stands.id)! };
+        })(),
         ...(kind === "surviveRounds" ? { roundCount: objective.rounds ?? 1 } : {})
       }];
     }),
