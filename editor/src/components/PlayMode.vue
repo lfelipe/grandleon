@@ -74,6 +74,7 @@ import {
   moveUnit,
   pointsLeft,
   strikeChance,
+  strikeLean,
   weaponsFor,
   takeAutomaticTurn,
   talk,
@@ -905,6 +906,22 @@ const chanceToHit = computed(() => {
   const current = state.value;
   if (!current || !selectedUnitId.value || aimingAbility.value) return null;
   return strikeChance(
+    current,
+    selectedUnitId.value,
+    activeWeaponId.value || undefined
+  );
+});
+
+// Which way the weapon matchup leans on that same strike.
+//
+// Read separately from the chance rather than folded into it, because the two
+// are not the same fact: a certain strike shows no chance at all and its blow
+// can still be worth a point more or less for the weapon it meets. Both come
+// off one forecast in the session; nothing here works the table out.
+const weaponLean = computed(() => {
+  const current = state.value;
+  if (!current || !selectedUnitId.value || aimingAbility.value) return "none";
+  return strikeLean(
     current,
     selectedUnitId.value,
     activeWeaponId.value || undefined
@@ -2015,6 +2032,14 @@ onBeforeUnmount(() => {
             </template>
             <template v-if="chanceToHit !== null">
               The shot lands {{ chanceToHit }} times in 100.
+            </template>
+            <template v-if="weaponLean === 'advantage'">
+              Your weapon beats theirs, so the blow is bigger and surer than the
+              weapon on its own would make it.
+            </template>
+            <template v-else-if="weaponLean === 'disadvantage'">
+              Theirs beats yours, so the blow is smaller and less sure than the
+              weapon on its own would make it.
             </template>
             <template v-if="dangerTileKeys.size">
               Red squares are places you can go where the enemy can reach you.

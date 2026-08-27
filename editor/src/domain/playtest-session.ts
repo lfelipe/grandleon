@@ -39,7 +39,8 @@ import {
   type ObjectiveKind,
   type SimulationEvent,
   type TurnOrder,
-  type UnitBehavior
+  type UnitBehavior,
+  type WeaponLean
 } from "./encounter-simulation";
 import { terrainMovementCost, terrainPassability } from "./terrain-passability";
 
@@ -938,9 +939,37 @@ export function planEncounterNode(
         power: band.power,
         minimumReach: band.minimumReach,
         maximumReach: band.maximumReach,
-        accuracy: band.accuracy
+        accuracy: band.accuracy,
+        // Which kind it is, so the triangle can fire here as it does on every
+        // other surface. Without it every weapon in a playtest was a weapon of
+        // no kind, and an author testing a game whose table they had just
+        // written watched it do nothing.
+        ...(weapon.weaponTypeId === undefined
+          ? {}
+          : { weaponType: stableContentId(weapon.weaponTypeId) })
       };
     }),
+    // The table itself, folded the way the engine wants it.
+    //
+    // A project states one `weaponAdvantage` for the whole game and lets each
+    // kind name what it beats; the engine carries the pair on every entry,
+    // because a blow is priced from the kind in hand and never goes looking for
+    // a game-wide setting. That fold is the compiler's job in a shipped
+    // package, and it has to be done here too or the browser plays a different
+    // game from the one it is compiling. A project with no advantage stated
+    // carries no table at all, which is what every game written before there
+    // was one means.
+    weaponTypes:
+      project.weaponAdvantage === undefined
+        ? []
+        : (project.weaponTypes ?? []).map((kind) => ({
+            id: stableContentId(kind.id),
+            strongAgainst: (kind.strongAgainst ?? []).map((beaten) =>
+              stableContentId(beaten)
+            ),
+            damage: project.weaponAdvantage!.damage,
+            accuracy: project.weaponAdvantage!.accuracy
+          })),
     items: (project.items ?? []).flatMap((item) => {
       const kind = item.kind ?? "none";
       return [{
@@ -2103,6 +2132,43 @@ export function strikeChance(
   );
   if (forecast.error !== "none" || forecast.hitChance >= 100) return null;
   return forecast.hitChance;
+}
+
+/**
+ * Which way the weapon matchup leans on the next strike, or "none" when the
+ * table does not name this pairing and when there is no strike to price.
+ *
+ * The same forecast `strikeChance` reads, and for the same reason: the triangle
+ * moves that chance and the damage behind it, silently. An author playtesting a
+ * game they wrote the table for should see the rule fire, and until this they
+ * saw a percentage change with nothing saying why -- which is the gap the
+ * consoles' own bars had before they grew a mark for it.
+ *
+ * Asked of the engine rather than worked out from the two weapons here. Which
+ * kind beats which is a rule, and a second place it lived would be a second
+ * rule.
+ */
+export function strikeLean(
+  state: PlaytestState,
+  unitId: string,
+  weaponId?: string
+): WeaponLean {
+  const targets = legalTargets(state, unitId, weaponId);
+  const first = targets[0];
+  if (first === undefined) return "none";
+  const unit = state.units.find((candidate) => candidate.id === unitId);
+  if (!unit) return "none";
+  const named =
+    weaponId !== undefined && weaponId !== unit.weapons[0]?.id
+      ? stableContentId(weaponId)
+      : 0n;
+  const forecast = state.encounter.forecastAttack(
+    state.unitIds.get(unitId)!,
+    state.unitIds.get(first)!,
+    named
+  );
+  if (forecast.error !== "none") return "none";
+  return forecast.lean;
 }
 
 export function attackUnit(
