@@ -935,6 +935,75 @@ void a_migration_that_fails_leaves_the_live_session_alone() {
 
 }  // namespace
 
+// What a content revision is on each side of the boundary, and what that costs.
+//
+// The two layers model the same number differently, each self-consistently, and
+// the disagreement only shows up when somebody tries to use it.
+//
+// `AppliedMigration` states this layer's contract outright: "`to` is always
+// `from + 1`". So `plan_content_migration` walks the gap one integer at a time
+// and wants a registered step at every one of them, and refuses a gap longer
+// than `maximum_migration_steps`.
+//
+// The compiler packs a revision as a version triple --
+// `tools/game_content/src/source_project.cpp` returns
+// `(major << 20) | (minor << 10) | patch` -- so consecutive integers are
+// consecutive *patch* numbers, and 0.1.0 to 0.2.0 is a gap of 1024.
+//
+// Put together: a content migration can only ever be written across a patch
+// bump. A game that moves its minor version can never ship one, because it
+// would have to register 1024 steps and the limit is 64. The refusal it gets
+// instead blames the step limit, which is true in this layer's own terms and
+// tells the author nothing about what to do.
+//
+// Nobody is hurt by it today: the shipped campaign registers no content
+// migration at all, so a save from an older revision is refused either way and
+// the player outcome is the same. It is pinned here because it is the kind of
+// thing that gets rediscovered expensively, and because deciding it either way
+// -- dense counters in the compiler, or steps that declare their target here --
+// is a format decision rather than a bug fix.
+void a_content_migration_can_only_span_a_patch_bump() {
+    const core::PackageId subject = package(3);
+    campaign::SaveMigrationRegistry registry = campaign::standard_save_migrations();
+
+    // A patch bump is one integer, so one step spans it.
+    constexpr std::uint32_t v0_1_0 = (0U << 20U) | (1U << 10U) | 0U;
+    constexpr std::uint32_t v0_1_1 = (0U << 20U) | (1U << 10U) | 1U;
+    constexpr std::uint32_t v0_2_0 = (0U << 20U) | (2U << 10U) | 0U;
+    expect(v0_1_1 - v0_1_0 == 1U, "a patch bump is one integer apart");
+    expect(
+        v0_2_0 - v0_1_0 == 1024U,
+        "and a minor bump is a thousand and twenty-four"
+    );
+    expect(
+        v0_2_0 - v0_1_0 > campaign::maximum_migration_steps,
+        "which is further than the chain is allowed to be walked"
+    );
+
+    expect(
+        registry.add_content_migration(
+            subject, v0_1_0, fixture_package_renames_at_revision_1
+        ),
+        "a step registers at the patch boundary"
+    );
+
+    const campaign::MigrationReport across_patch =
+        campaign::plan_content_migration(registry, subject, v0_1_0, v0_1_1);
+    expect(
+        static_cast<bool>(across_patch),
+        "and the patch bump plans, because its gap is exactly one step"
+    );
+
+    // The same registered step, asked to reach the next minor version.
+    const campaign::MigrationReport across_minor =
+        campaign::plan_content_migration(registry, subject, v0_1_0, v0_2_0);
+    expect(
+        !across_minor &&
+            across_minor.error == campaign::MigrationError::step_limit_exceeded,
+        "a minor bump refuses, and blames the step limit rather than the model"
+    );
+}
+
 int main() {
     the_registry_walks_one_version_at_a_time();
     a_save_at_an_older_section_schema_loads_through_the_registry();
@@ -942,5 +1011,6 @@ int main() {
     the_content_axis_refuses_what_it_cannot_do();
     a_specific_company_is_saved_and_resumed_with_no_migration();
     a_migration_that_fails_leaves_the_live_session_alone();
+    a_content_migration_can_only_span_a_patch_bump();
     return failures == 0 ? 0 : 1;
 }
