@@ -16,6 +16,7 @@
 #include <grandleon/storage/memory_storage.hpp>
 
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <cstdint>
 #include <cstring>
@@ -117,6 +118,15 @@ std::uint32_t gl_campaign_save_error_name(std::uint32_t error);
 std::uint32_t gl_campaign_operation_name(std::uint32_t kind);
 std::uint32_t gl_campaign_session_company(std::uint32_t handle);
 std::uint32_t gl_campaign_session_board(std::uint32_t handle);
+std::uint32_t gl_campaign_session_add_unit_type(
+    std::uint32_t handle,
+    std::uint32_t payload_size
+);
+std::uint32_t gl_campaign_session_commit(std::uint32_t handle);
+std::uint32_t gl_campaign_session_manage(
+    std::uint32_t handle,
+    std::uint32_t payload_size
+);
 std::uint32_t gl_campaign_dialogue_error_name(std::uint32_t error);
 }
 
@@ -1348,6 +1358,16 @@ void put_string(std::vector<std::uint8_t>& bytes, std::string_view value) {
     }
 }
 
+// A counted list of identities, which is how every record in the package
+// writes one: a count and then that many identities, never a terminator.
+void put_ids(
+    std::vector<std::uint8_t>& bytes,
+    const std::vector<std::uint64_t>& ids
+) {
+    put_u16(bytes, static_cast<std::uint16_t>(ids.size()));
+    for (const std::uint64_t id : ids) put_u64(bytes, id);
+}
+
 // One founding member of a campaign's company. `join_node` is zero for
 // somebody the campaign is founded with, which is what every member below is.
 struct TestMember final {
@@ -1363,7 +1383,18 @@ std::vector<std::uint8_t> encode_campaign_record(
     // The company, if the campaign has one. Empty writes the record a campaign
     // compiled before rosters were authorable writes -- no tail at all -- which
     // is what every existing caller here wants and gets by saying nothing.
-    const std::vector<TestMember>& members = {}
+    const std::vector<TestMember>& members = {},
+    // What this campaign does when somebody falls, as
+    // `package_runtime::CharacterLoss` numbers it. Zero says nothing, which is
+    // the record every caller here wrote before this parameter existed and
+    // still decodes as the permanent rule -- the only thing a campaign written
+    // before an author could choose one ever meant.
+    //
+    // Stating it costs the two counted tails it is nested behind, because these
+    // are positional and "the bytes ran out" is how each one says it is absent:
+    // a campaign that states a rule and grants nothing writes a grant count of
+    // zero to hold the place.
+    std::uint8_t character_loss = 0
 ) {
     std::vector<std::uint8_t> bytes;
     put_string(bytes, "Reference Campaign");
@@ -1402,6 +1433,12 @@ std::vector<std::uint8_t> encode_campaign_record(
             put_string(bytes, member.name);
             put_u64(bytes, member.unit_type_id);
             put_u64(bytes, member.join_node);
+        }
+        if (character_loss != 0U) {
+            put_u16(bytes, 0);  // grants: this campaign authors none
+            put_u16(bytes, 0);  // specificities: nor any of those
+            bytes.push_back(character_loss);
+            bytes.push_back(0);  // and it is not a testing campaign
         }
     }
     return bytes;
@@ -2055,6 +2092,20 @@ void compiles_content_across_the_boundary() {
 // So this drives both: the same flow, the same board, the same options, a
 // device of the same shape, and asks each side the same questions.
 
+// The reference flow, with the encounter node's unconditional fallback routed
+// away from the branch its objective satisfies.
+//
+// In `reference_flow` both lead to node three, which makes the objective
+// unobservable: a campaign that settled it and one that resolved nothing end up
+// in the same place, so a board that recorded no objective at all would complete
+// to the same node and say nothing about it. Here the fallback goes to the
+// terminal instead, so where the campaign ends up *is* what the battle settled.
+std::vector<TestNode> session_reference_flow() {
+    std::vector<TestNode> flow = reference_flow();
+    flow[1].unconditional_targets = {4};
+    return flow;
+}
+
 // The identity the session's synthetic package is built under. Any sixteen
 // bytes will do; they only have to be the same sixteen on both sides.
 core::PackageId session_package_id() {
@@ -2102,6 +2153,137 @@ std::uint32_t write_session_board_payload(
     return writer.size();
 }
 
+// One authored unit type, in the record layout `tools/game_content` writes and
+// the three decoders that read one expect: the name, the class and faction, the
+// three counted identity lists, and then the two tails that were appended after
+// the fact -- the growth block a level-up rolls against, and the drop.
+//
+// It is written here in full rather than only as far as the field under test,
+// because every decoder that reads one discriminates on what is *left* of the
+// record rather than on a flag. A record short by one tail is a different unit
+// type to `load_unit_progression`, not a malformed one, so a fixture that wrote
+// a short one would be testing a unit type nobody authored.
+struct TestUnitType final {
+    std::string_view name;
+    std::uint64_t class_id{};
+    std::uint64_t faction_id{};
+    std::vector<std::uint64_t> starting_weapons;
+    std::vector<std::uint64_t> starting_items;
+    std::vector<std::uint64_t> abilities;
+    std::uint16_t experience_award{};
+    std::uint16_t experience_per_level{};
+    std::array<std::uint8_t, campaign::growable_stat_count> growth{};
+    std::uint64_t drop_item{};
+    std::uint8_t drop_chance{};
+};
+
+std::vector<std::uint8_t> encode_unit_type_record(const TestUnitType& type) {
+    std::vector<std::uint8_t> bytes;
+    put_string(bytes, type.name);
+    put_u64(bytes, type.class_id);
+    put_u64(bytes, type.faction_id);
+    put_ids(bytes, type.starting_weapons);
+    put_ids(bytes, type.starting_items);
+    put_ids(bytes, type.abilities);
+    put_u16(bytes, type.experience_award);
+    put_u16(bytes, type.experience_per_level);
+    for (const std::uint8_t chance : type.growth) bytes.push_back(chance);
+    put_u64(bytes, type.drop_item);
+    bytes.push_back(type.drop_chance);
+    return bytes;
+}
+
+// One compiled unit type on its way across, under the identity it will be
+// found by.
+struct TestUnitTypeRecord final {
+    std::uint64_t id{};
+    std::vector<std::uint8_t> bytes;
+};
+
+std::uint32_t write_session_unit_type_payload(const TestUnitTypeRecord& type) {
+    Writer writer;
+    writer.u64(type.id);
+    writer.u32(static_cast<std::uint32_t>(type.bytes.size()));
+    for (const std::uint8_t byte : type.bytes) writer.u8(byte);
+    return writer.size();
+}
+
+// The inventory list every session reply ends an owner with: a count, and then
+// an identity and a quantity each.
+void expect_stacks(
+    Reader& reader,
+    const std::vector<campaign::InventoryStack>& stacks,
+    std::string_view what
+) {
+    const std::uint32_t said = reader.u32();
+    expect(
+        said == stacks.size(),
+        std::string{what} + " holds as many stacks as the library"
+    );
+    for (const campaign::InventoryStack& stack : stacks) {
+        expect(
+            reader.u64() == stack.item.stable_id &&
+                reader.u32() == stack.quantity,
+            std::string{what} + " holds the same items in the same counts"
+        );
+    }
+}
+
+// One roster, in the layout `write_roster` gives every session reply that
+// carries one: the state call, the commit call and every management gesture.
+//
+// Read in one place because the boundary writes it in one place. Three tests
+// each spelling out these fields for themselves would be three chances to
+// disagree about a member, and the one that was written differently would be
+// the one that kept passing.
+void expect_roster(
+    Reader& reader,
+    const std::vector<client::RosterEntry>& roster,
+    std::string_view what
+) {
+    const std::uint32_t said = reader.u32();
+    expect(
+        said == roster.size(),
+        std::string{what} + " is a company of the same size"
+    );
+    for (const client::RosterEntry& member : roster) {
+        expect(
+            reader.u64() == member.member.value &&
+                reader.u64() == member.placement_source_key,
+            std::string{what} + " names the member the library names"
+        );
+        // The name is the author's and is carried across as a string, so it is
+        // read here rather than skipped: a narrator that showed a different one
+        // would be showing a different character.
+        const std::uint16_t letters = reader.u16();
+        expect(
+            letters == member.name.size(),
+            std::string{what} + " under the name the author wrote"
+        );
+        for (const char letter : member.name) {
+            expect(
+                reader.u8() == static_cast<std::uint8_t>(letter),
+                "letter for letter"
+            );
+        }
+        expect(
+            reader.u64() == member.unit_type.stable_id &&
+                reader.u8() ==
+                    static_cast<std::uint8_t>(member.availability) &&
+                reader.u16() == member.progression.level &&
+                reader.u32() == member.progression.experience,
+            std::string{what} + " as the same character, at the same level"
+        );
+        for (const std::uint16_t gain : member.progression.gained) {
+            expect(
+                reader.u16() == gain,
+                std::string{what} + " carrying the same permanent gains"
+            );
+        }
+        expect_stacks(reader, member.carried, what);
+    }
+}
+
 std::uint32_t write_session_begin_payload(bool resume, std::string_view slot) {
     Writer writer;
     writer.u8(resume ? 1U : 0U);
@@ -2120,7 +2302,12 @@ pf::LoadedPackage session_reference_package(
     std::uint32_t content_revision,
     std::uint64_t campaign_id,
     const std::vector<std::uint8_t>& record,
-    const std::vector<std::uint64_t>& encounter_ids
+    const std::vector<std::uint64_t>& encounter_ids,
+    // The unit types, in the order `add_unit_type` was called with them. Their
+    // bytes land at the offsets that order produces and their records are then
+    // sorted by identity, because that is exactly what the boundary does: it
+    // appends to the package's bytes and binary-searches the section.
+    const std::vector<TestUnitTypeRecord>& unit_type_records = {}
 ) {
     pf::LoadedPackage package;
     package.game_id = package_id;
@@ -2144,6 +2331,22 @@ pf::LoadedPackage session_reference_package(
     unit_types.type = pf::SectionType::unit_types;
     unit_types.schema_major = 1U;
     unit_types.flags = pf::section_flag_required;
+    for (const TestUnitTypeRecord& type : unit_type_records) {
+        const auto offset = static_cast<std::uint32_t>(package.bytes.size());
+        package.bytes.insert(
+            package.bytes.end(), type.bytes.begin(), type.bytes.end()
+        );
+        unit_types.records.push_back(
+            {type.id, offset, static_cast<std::uint32_t>(type.bytes.size())}
+        );
+    }
+    std::sort(
+        unit_types.records.begin(),
+        unit_types.records.end(),
+        [](const pf::RecordView& lhs, const pf::RecordView& rhs) {
+            return lhs.stable_id < rhs.stable_id;
+        }
+    );
     package.sections.push_back(campaigns);
     package.sections.push_back(encounters);
     package.sections.push_back(unit_types);
@@ -2182,12 +2385,97 @@ void campaign_sessions_across_the_boundary() {
         {8001U, "Reference Rider", 100U, 0U},
         {8002U, "Reference Picket", 200U, 0U},
     };
-    const auto record = encode_campaign_record(1, reference_flow(), founding);
+    // And a rule about what a fall means, stated rather than inherited. The
+    // recoverable rule is the one worth driving across a boundary: it is spelled
+    // by *omitting* the death operation rather than by adding a reviving one, so
+    // the only thing that distinguishes "Mirea died" from "Mirea fell and is
+    // back" on the far side is the one byte the commit reply ends with. A
+    // browser that read it wrong would tell a player somebody had died and then
+    // show them on the next board.
+    //
+    // It is also the only way that byte is worth comparing at all here. Under
+    // the permanent rule it is a one, and so is the outcome of the battle below,
+    // and a reply that wrote the outcome into the loss rule's place would agree
+    // with the library on both.
+    const auto record = encode_campaign_record(
+        1,
+        session_reference_flow(),
+        founding,
+        static_cast<std::uint8_t>(pr::CharacterLoss::recoverable)
+    );
     const core::PackageId package_id = session_package_id();
     constexpr std::uint32_t revision = 3U;
     constexpr std::uint64_t campaign_id = 7100U;
     constexpr std::uint64_t encounter_id = 500U;
-    const sim::EncounterDefinition definition = reference_definition();
+    sim::EncounterDefinition definition = reference_definition();
+    // Something for the picket to leave behind. A drop is the only way an item
+    // reaches this company's store here -- the campaign record this fixture
+    // writes authors no grants -- so without one the commit's store and every
+    // management gesture after it would move nothing and compare nothing.
+    definition.units[0].drop_item_id = 7003U;
+    definition.units[0].drop_chance = 100U;
+    // And the two the company carries on, because a board refuses a unit
+    // holding an identity it does not define, and what a member carries is put
+    // into their hands on the way in.
+    //
+    // The drop above is deliberately not among them. A drop is recorded and
+    // handed to nobody while the battle runs, so `create_encounter` does not
+    // ask for it; requiring it would force every board a dropper can stand on
+    // to register an item nothing on it carries.
+    definition.items = {
+        {7001U, sim::ItemKind::none, 0},
+        {7002U, sim::ItemKind::none, 0},
+    };
+    // And the objective the flow above branches on, so that the battle settles
+    // something the campaign asked about. Without it the board resolves no
+    // objective, the commit records none, and `BattleReport::objectives` is a
+    // field this test would hand across empty on both sides and prove nothing
+    // about. `session_reference_flow` routes the fallback elsewhere, so which
+    // node the commit below completes to is the campaign's own answer to
+    // whether this objective was settled.
+    definition.objectives = {
+        {900U, sim::ObjectiveKind::defeat_all_opponents, sim::Side::first, 0U,
+         0U},
+    };
+
+    // The two unit types the board's units are, as the author compiled them.
+    //
+    // These are what `add_unit_type` exists for, and nothing below works
+    // without them: `derive_battle_progression` reads the *defeated* type for
+    // what felling it is worth and the *killer's* for what a level costs, and a
+    // type it cannot find is `unreadable_unit_type`, which refuses the whole
+    // commit. A session that never attached one could take a board and never
+    // finish it.
+    //
+    // Every growth chance is a hundred, as is the picket's drop chance above. A
+    // certainty is the one roll `core::RandomState` answers without drawing, so
+    // the level-up below grows every stat, the drop always falls, neither
+    // consumes anything from its stream, and both say the same thing on a
+    // machine that shuffles differently. What is being compared here is the
+    // marshalling, not the dice.
+    TestUnitType rider;
+    rider.name = "Rider";
+    rider.class_id = 300U;
+    rider.faction_id = 400U;
+    rider.starting_items = {7001U};
+    rider.experience_award = 10U;
+    rider.experience_per_level = 50U;
+    rider.growth.fill(100U);
+    TestUnitType picket;
+    picket.name = "Picket";
+    picket.class_id = 301U;
+    picket.faction_id = 401U;
+    picket.starting_items = {7002U};
+    // Sixty against a fifty-point level is one level and change: enough that
+    // the killer crosses a threshold rather than merely banking a number, so
+    // the commit's level-up list has an entry in it to compare.
+    picket.experience_award = 60U;
+    picket.experience_per_level = 50U;
+    picket.growth.fill(100U);
+    const std::vector<TestUnitTypeRecord> unit_type_records{
+        {100U, encode_unit_type_record(rider)},
+        {200U, encode_unit_type_record(picket)},
+    };
     // One source key per unit, in the definition's own order, because that is
     // the pairing `add_board` makes.
     // The member each placement fields. A roster is joined to a board through
@@ -2202,6 +2490,28 @@ void campaign_sessions_across_the_boundary() {
     );
     expect(handle != 0U, "the reference campaign creates a session");
     if (handle == 0U) return;
+
+    // Attached before the founding, because founding reads them: a member's
+    // starting kit is their unit type's, and a type attached afterwards would
+    // found a company with empty hands.
+    for (const TestUnitTypeRecord& type : unit_type_records) {
+        expect(
+            gl_campaign_session_add_unit_type(
+                handle, write_session_unit_type_payload(type)
+            ) != 0U,
+            "the boundary takes each unit type the board's units are"
+        );
+    }
+    // And refuses a second record under an identity it already holds. A
+    // duplicate would shadow the first in the section's binary search, which is
+    // a unit type quietly becoming a different unit type -- exactly the drift
+    // this surface exists to prevent, and worth one line to hold it to.
+    expect(
+        gl_campaign_session_add_unit_type(
+            handle, write_session_unit_type_payload(unit_type_records.front())
+        ) == 0U,
+        "and refuses a second record under an identity it already holds"
+    );
 
     expect(
         gl_campaign_session_add_board(
@@ -2223,7 +2533,8 @@ void campaign_sessions_across_the_boundary() {
 
     // The same session, built the way the boundary built it.
     pf::LoadedPackage native = session_reference_package(
-        package_id, revision, campaign_id, record, {encounter_id}
+        package_id, revision, campaign_id, record, {encounter_id},
+        unit_type_records
     );
     RecordedBoards boards;
     pr::EncounterLoadResult native_board;
@@ -2273,55 +2584,7 @@ void campaign_sessions_across_the_boundary() {
     }
 
     const std::vector<client::RosterEntry> roster = session.roster();
-    const std::uint32_t said_members = state.u32();
-    expect(
-        said_members == roster.size(),
-        "and founds a company of the same size"
-    );
-    for (const client::RosterEntry& member : roster) {
-        expect(
-            state.u64() == member.member.value &&
-                state.u64() == member.placement_source_key,
-            "and each member is the member the library founded"
-        );
-        // The name is the author's and is carried across as a string, so it is
-        // read here rather than skipped: a narrator that showed a different one
-        // would be showing a different character.
-        const std::uint16_t letters = state.u16();
-        expect(
-            letters == member.name.size(),
-            "under the name the author wrote"
-        );
-        for (const char letter : member.name) {
-            expect(
-                state.u8() == static_cast<std::uint8_t>(letter),
-                "letter for letter"
-            );
-        }
-        expect(
-            state.u64() == member.unit_type.stable_id &&
-                state.u8() ==
-                    static_cast<std::uint8_t>(member.availability) &&
-                state.u16() == member.progression.level &&
-                state.u32() == member.progression.experience,
-            "as the same character, at the same level"
-        );
-        for (const std::uint16_t gain : member.progression.gained) {
-            expect(state.u16() == gain, "carrying the same permanent gains");
-        }
-        const std::uint32_t stacks = state.u32();
-        expect(
-            stacks == member.carried.size(),
-            "and the same satchel"
-        );
-        for (const campaign::InventoryStack& stack : member.carried) {
-            expect(
-                state.u64() == stack.item.stable_id &&
-                    state.u32() == stack.quantity,
-                "holding the same items in the same counts"
-            );
-        }
-    }
+    expect_roster(state, roster, "the company the state reports");
 
     // Past the opening story node, so that the company question is asked
     // somewhere it has an answer. A story node fields nobody: placeable,
@@ -2431,6 +2694,354 @@ void campaign_sessions_across_the_boundary() {
         prepared.board.binding.size() != 0U,
         "and somebody is bound to somebody, so this compares something"
     );
+
+    // -----------------------------------------------------------------------
+    // The battle path
+    // -----------------------------------------------------------------------
+    //
+    // Everything above compares a campaign standing still. The three entry
+    // points left cannot be compared standing still: `commit` turns a finished
+    // board into campaign facts and `manage` moves what it left behind, so both
+    // need a battle that actually happened, fought identically on each side.
+    //
+    // The boundary's battle is the handle `gl_campaign_session_board` returned,
+    // driven through the same `gl_sim_apply` a bare encounter is -- which is the
+    // point of that entry point returning a battle handle at all. The library's
+    // is `opened`, created above from the very definition the board prepared. So
+    // the two are the same board by construction, and the loop below holds them
+    // to being the same battle command by command rather than only at the end.
+    std::vector<sim::Event> native_events;
+    for (const sim::Command& command : reference_commands) {
+        const sim::CommandResult native_result =
+            opened.encounter.apply(command);
+        native_events.insert(
+            native_events.end(),
+            native_result.events.begin(),
+            native_result.events.end()
+        );
+        const std::uint32_t applied =
+            gl_sim_apply(board_written, write_command(command));
+        expect(applied != 0U, "the campaign's battle takes the command");
+        Reader move;
+        expect(move.u8() == abi_ok, "the command status is ok");
+        expect(
+            move.u8() == static_cast<std::uint8_t>(native_result.error),
+            "and both sides accept or refuse it alike"
+        );
+        const std::uint32_t events = move.u32();
+        expect(
+            events == native_result.events.size(),
+            "and emit the same number of events"
+        );
+        for (const sim::Event& event : native_result.events) {
+            expect(
+                move.u8() == static_cast<std::uint8_t>(event.type) &&
+                    move.u64() == event.unit_id &&
+                    move.u64() == event.related_unit_id &&
+                    move.i16() == event.position.x &&
+                    move.i16() == event.position.y &&
+                    move.i16() == event.amount &&
+                    move.u8() == static_cast<std::uint8_t>(event.outcome) &&
+                    move.u64() == event.content_id,
+                "and the same event, field for field"
+            );
+        }
+    }
+    expect(
+        gl_sim_canonical_hash(board_written) ==
+            opened.encounter.canonical_hash(),
+        "and the two battles end on the same hash"
+    );
+
+    // What the library will be told about that battle, assembled exactly as
+    // `gl_campaign_session_commit` assembles its own: nothing is read in from
+    // the caller, because the snapshot, the hash, the objective results and
+    // every event are the engine's own and have been held since the board
+    // started.
+    client::BattleReport report;
+    report.final_snapshot = opened.encounter.snapshot();
+    report.outcome = report.final_snapshot.outcome;
+    report.objectives = report.final_snapshot.objectives;
+    report.canonical_hash = opened.encounter.canonical_hash();
+    report.events = native_events;
+
+    const std::uint32_t committed = gl_campaign_session_commit(handle);
+    expect(committed != 0U, "the boundary commits the battle");
+    Reader commit;
+    expect(commit.u8() == abi_ok, "the commit status is ok");
+    client::BattleAftermath aftermath;
+    const client::CampaignSessionError native_commit =
+        session.commit_battle(report, aftermath);
+    expect(
+        commit.u8() == static_cast<std::uint8_t>(native_commit),
+        "and both commit or refuse it for the same reason"
+    );
+    // Guarded, and this is the guard the rest of this section stands on: a
+    // refused commit reports an empty aftermath, and every loop below would run
+    // over the library's own empty answer and agree with an empty reply. A
+    // commit that never committed is the vacuous pass this whole test is shaped
+    // to avoid.
+    expect(
+        native_commit == client::CampaignSessionError::none,
+        "and the reference battle is one that commits"
+    );
+
+    const std::uint8_t said_save = commit.u8();
+    const storage::StorageError native_save =
+        aftermath.encounter_id == 0U ? storage::StorageError::none
+                                     : session.save();
+    expect(
+        said_save == static_cast<std::uint8_t>(native_save),
+        "and each writes its slot with the same answer"
+    );
+    expect(
+        commit.u8() == static_cast<std::uint8_t>(aftermath.outcome) &&
+            commit.u8() ==
+                static_cast<std::uint8_t>(aftermath.progression.error) &&
+            commit.u64() == aftermath.canonical_hash,
+        "about the same outcome, derived without complaint, on the same hash"
+    );
+
+    // Each list below is guarded before it is walked, for the reason the
+    // company was: every loop runs over the library's own answer, so a battle
+    // nobody fell in and nobody grew in would compare an empty reply against an
+    // empty expectation and call it agreement.
+    expect(
+        !aftermath.fallen.empty(),
+        "somebody did not get up, so the fallen compare something"
+    );
+    const std::uint32_t said_fallen = commit.u32();
+    expect(
+        said_fallen == aftermath.fallen.size(),
+        "the same number did not get up"
+    );
+    for (const campaign::PersistentEntityId member : aftermath.fallen) {
+        expect(commit.u64() == member.value, "and the same ones by name");
+    }
+
+    expect(
+        !aftermath.progression.level_ups.empty(),
+        "and somebody crossed a level, so the level-ups compare something"
+    );
+    const std::uint32_t said_level_ups = commit.u32();
+    expect(
+        said_level_ups == aftermath.progression.level_ups.size(),
+        "the same number grew"
+    );
+    for (const cr::LevelUp& level_up : aftermath.progression.level_ups) {
+        expect(
+            commit.u64() == level_up.member.value &&
+                commit.u16() == level_up.from_level &&
+                commit.u16() == level_up.to_level,
+            "each from the level they were to the level they reached"
+        );
+        for (const std::uint16_t points : level_up.points) {
+            expect(
+                commit.u16() == points,
+                "with the same points in the same stats"
+            );
+        }
+    }
+
+    expect(
+        !aftermath.progression.operations.empty(),
+        "and the batch is not empty, so the operations compare something"
+    );
+    const std::uint32_t said_operations = commit.u32();
+    expect(
+        said_operations == aftermath.progression.operations.size(),
+        "the batch carries the same number of operations"
+    );
+    for (const campaign::CampaignOutcomeOperation& operation :
+         aftermath.progression.operations) {
+        expect(
+            commit.u8() == static_cast<std::uint8_t>(operation.kind) &&
+                commit.u8() == operation.selector &&
+                commit.u64() == operation.subject.value &&
+                commit.u8() ==
+                    static_cast<std::uint8_t>(operation.definition.category) &&
+                commit.u64() == operation.definition.stable_id &&
+                commit.u64() ==
+                    static_cast<std::uint64_t>(operation.amount),
+            "each on the same subject, the same definition and the same amount"
+        );
+    }
+
+    expect(
+        commit.u8() == (aftermath.completion.advanced ? 1U : 0U) &&
+            commit.u8() ==
+                (aftermath.completion.already_advanced ? 1U : 0U) &&
+            commit.u8() ==
+                static_cast<std::uint8_t>(aftermath.completion.error) &&
+            commit.u64() == aftermath.completion.target.stable_id,
+        "and the campaign moved to the same node, or stayed for the same reason"
+    );
+    expect_roster(commit, aftermath.recruited, "the commit's recruits");
+    expect_roster(commit, aftermath.roster, "the commit's roster");
+    expect(
+        !aftermath.store.empty(),
+        "and the battle left something in the store, so it compares something"
+    );
+    expect_stacks(commit, aftermath.store, "the commit's store");
+    // Last, and read rather than skipped: which of two sentences a narrator may
+    // say about the people in `fallen` above is a fact about the campaign, and a
+    // browser that read the wrong byte would tell a player somebody had died and
+    // then show them on the next board.
+    expect(
+        commit.u8() == static_cast<std::uint8_t>(aftermath.character_loss),
+        "under the same rule about what a fall meant"
+    );
+    // And the rule is the one the campaign authored, holding the roster it
+    // reported. Checked because the byte is only worth carrying if it says
+    // something: under the recoverable rule everybody who fell above is still
+    // on the roster and still available, and a commit that buried them anyway
+    // would report a rule its own roster contradicts.
+    for (const campaign::PersistentEntityId member : aftermath.fallen) {
+        const auto entry = std::find_if(
+            aftermath.roster.begin(),
+            aftermath.roster.end(),
+            [member](const client::RosterEntry& candidate) {
+                return candidate.member.value == member.value;
+            }
+        );
+        expect(
+            entry != aftermath.roster.end() &&
+                entry->availability == campaign::Availability::available,
+            "and everybody who fell was carried off rather than buried"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // The gestures between battles
+    // -----------------------------------------------------------------------
+    //
+    // One gesture, driven on both sides and compared reply for reply. The whole
+    // company rides back on every one of them, because a screen redraws after
+    // each gesture and a second call to ask what changed would be a second
+    // chance to disagree about it -- so that is what has to agree.
+    const auto gesture = [&](std::uint8_t verb,
+                             std::uint64_t who,
+                             std::uint64_t what,
+                             std::string_view label) {
+        Writer payload;
+        payload.u8(verb);
+        payload.u64(who);
+        payload.u64(what);
+        const std::uint32_t managed =
+            gl_campaign_session_manage(handle, payload.size());
+        expect(managed != 0U, std::string{label} + " is answered at all");
+        Reader reply;
+        expect(
+            reply.u8() == abi_ok,
+            std::string{label} + " answers with an ok status"
+        );
+
+        const campaign::PersistentEntityId member{who};
+        const campaign::DefinitionRef thing{
+            package_id, core::ContentCategory::item, what
+        };
+        client::ManagementCommit native_result;
+        switch (verb) {
+            case 0U: native_result = session.give_item(member, thing); break;
+            case 1U: native_result = session.take_item(member, thing); break;
+            case 2U: native_result = session.set_fielded(member, true); break;
+            default: native_result = session.set_fielded(member, false); break;
+        }
+
+        expect(
+            reply.u8() == static_cast<std::uint8_t>(native_result.error) &&
+                reply.u8() ==
+                    static_cast<std::uint8_t>(native_result.application.error) &&
+                reply.u8() == static_cast<std::uint8_t>(
+                                  native_result.application.state_error
+                              ) &&
+                reply.u8() ==
+                    (native_result.application.already_applied ? 1U : 0U) &&
+                reply.u8() == (native_result.saved ? 1U : 0U) &&
+                reply.u8() == static_cast<std::uint8_t>(native_result.save),
+            std::string{label} + " is committed or refused in every vocabulary"
+        );
+        const std::uint32_t said_moved = reply.u32();
+        expect(
+            said_moved == native_result.batch.operations.size(),
+            std::string{label} + " moves the same number of things"
+        );
+        for (const campaign::CampaignOutcomeOperation& operation :
+             native_result.batch.operations) {
+            expect(
+                reply.u8() == static_cast<std::uint8_t>(operation.kind) &&
+                    reply.u8() == operation.selector &&
+                    reply.u64() == operation.subject.value &&
+                    reply.u64() == operation.definition.stable_id &&
+                    reply.u64() ==
+                        static_cast<std::uint64_t>(operation.amount),
+                std::string{label} + " moves the same thing for the same owner"
+            );
+        }
+        expect_roster(reply, session.roster(), std::string{label} + "'s roster");
+        expect_stacks(reply, session.store(), std::string{label} + "'s store");
+        return native_result;
+    };
+
+    // Who is left to manage, and what there is to manage. Read off the library
+    // rather than assumed: the commit above buried somebody, and a gesture
+    // aimed at them would be comparing two refusals, which proves the vocabulary
+    // and not the move.
+    const std::vector<client::RosterEntry> after = session.roster();
+    const auto standing = std::find_if(
+        after.begin(),
+        after.end(),
+        [](const client::RosterEntry& entry) {
+            return entry.availability == campaign::Availability::available;
+        }
+    );
+    expect(
+        standing != after.end() && !session.store().empty(),
+        "somebody is still standing and the store is not empty"
+    );
+    if (standing != after.end() && !session.store().empty()) {
+        const std::uint64_t member = standing->member.value;
+        const std::uint64_t from_store = session.store().front().item.stable_id;
+        // Out of the store and into their hands, and then a different identity
+        // back the other way, so the two moves are not each other's undo and a
+        // reply that transposed the giver and the taker could not pass both.
+        expect(
+            static_cast<bool>(gesture(0U, member, from_store, "a give")),
+            "the give commits, so it moved something to compare"
+        );
+        const std::vector<client::RosterEntry> holding = session.roster();
+        const auto carrier = std::find_if(
+            holding.begin(),
+            holding.end(),
+            [member](const client::RosterEntry& entry) {
+                return entry.member.value == member && !entry.carried.empty();
+            }
+        );
+        expect(
+            carrier != holding.end(),
+            "and they are holding something to hand back"
+        );
+        if (carrier != holding.end()) {
+            expect(
+                static_cast<bool>(gesture(
+                    1U, member, carrier->carried.front().item.stable_id, "a take"
+                )),
+                "the take commits, so it moved something to compare"
+            );
+        }
+        // And the two availability verbs, benched and then fielded again, so
+        // the company this test leaves behind is the company it found. Each is
+        // a campaign fact that saves, which is why they are gestures and not a
+        // screen's own flag.
+        expect(
+            static_cast<bool>(gesture(3U, member, 0U, "a bench")),
+            "the bench commits"
+        );
+        expect(
+            static_cast<bool>(gesture(2U, member, 0U, "a fielding")),
+            "the fielding commits"
+        );
+    }
 
     gl_campaign_session_destroy(handle);
 }
