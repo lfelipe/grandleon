@@ -7,13 +7,16 @@
 // in the loop. The reference results come from the simulation library itself,
 // never from restated constants, so this suite cannot drift from the engine.
 
+#include <grandleon/client/campaign_session.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/simulation/encounter.hpp>
+#include <grandleon/storage/memory_storage.hpp>
 
 #include <algorithm>
+#include <functional>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -22,10 +25,14 @@
 #include <utility>
 #include <vector>
 
+namespace campaign = grandleon::campaign;
+namespace client = grandleon::client;
 namespace core = grandleon::core;
 namespace pf = grandleon::package_format;
+namespace cr = grandleon::campaign_runtime;
 namespace pr = grandleon::package_runtime;
 namespace sim = grandleon::simulation;
+namespace storage = grandleon::storage;
 
 extern "C" {
 std::uintptr_t gl_sim_io_buffer(void);
@@ -90,6 +97,26 @@ std::uint32_t gl_campaign_dialogue(
     std::uint64_t dialogue_id
 );
 std::uint32_t gl_campaign_error_name(std::uint32_t error);
+std::uint32_t gl_campaign_session_create(std::uint32_t payload_size);
+void gl_campaign_session_destroy(std::uint32_t handle);
+std::uint32_t gl_campaign_session_add_board(
+    std::uint32_t handle,
+    std::uint32_t payload_size
+);
+std::uint32_t gl_campaign_session_begin(
+    std::uint32_t handle,
+    std::uint32_t payload_size
+);
+std::uint32_t gl_campaign_session_state(std::uint32_t handle);
+std::uint32_t gl_campaign_session_advance_story(std::uint32_t handle);
+std::uint32_t gl_campaign_session_error_name(std::uint32_t error);
+std::uint32_t gl_campaign_migration_error_name(std::uint32_t error);
+std::uint32_t gl_campaign_outcome_error_name(std::uint32_t error);
+std::uint32_t gl_campaign_roster_error_name(std::uint32_t error);
+std::uint32_t gl_campaign_save_error_name(std::uint32_t error);
+std::uint32_t gl_campaign_operation_name(std::uint32_t kind);
+std::uint32_t gl_campaign_session_company(std::uint32_t handle);
+std::uint32_t gl_campaign_session_board(std::uint32_t handle);
 std::uint32_t gl_campaign_dialogue_error_name(std::uint32_t error);
 }
 
@@ -235,8 +262,17 @@ void write_unit(Writer& writer, const sim::UnitDefinition& unit) {
 // the payload size. 82 fixed bytes per unit record plus 8 per ability id, 8 per
 // carried weapon id and 10 per carried item, then the board's passability after
 // the turn order.
-std::uint32_t write_definition(const sim::EncounterDefinition& definition) {
-    Writer writer;
+// The definition's own bytes, written into a caller's cursor.
+//
+// Split out from `write_definition` so a payload that carries a definition
+// *after* something else can compose one: `Writer` starts every instance at the
+// top of the shared buffer, so a second one would overwrite the first rather
+// than follow it. The session's board payload leads with an encounter identity
+// and needs exactly that.
+void write_definition_into(
+    Writer& writer,
+    const sim::EncounterDefinition& definition
+) {
     writer.u16(definition.width);
     writer.u16(definition.height);
     writer.u32(static_cast<std::uint32_t>(definition.units.size()));
@@ -308,6 +344,11 @@ std::uint32_t write_definition(const sim::EncounterDefinition& definition) {
         writer.i16(tile.x);
         writer.i16(tile.y);
     }
+}
+
+std::uint32_t write_definition(const sim::EncounterDefinition& definition) {
+    Writer writer;
+    write_definition_into(writer, definition);
     return writer.size();
 }
 
@@ -1307,9 +1348,22 @@ void put_string(std::vector<std::uint8_t>& bytes, std::string_view value) {
     }
 }
 
+// One founding member of a campaign's company. `join_node` is zero for
+// somebody the campaign is founded with, which is what every member below is.
+struct TestMember final {
+    std::uint64_t id{};
+    std::string_view name;
+    std::uint64_t unit_type_id{};
+    std::uint64_t join_node{};
+};
+
 std::vector<std::uint8_t> encode_campaign_record(
     std::uint64_t entry_node_id,
-    const std::vector<TestNode>& nodes
+    const std::vector<TestNode>& nodes,
+    // The company, if the campaign has one. Empty writes the record a campaign
+    // compiled before rosters were authorable writes -- no tail at all -- which
+    // is what every existing caller here wants and gets by saying nothing.
+    const std::vector<TestMember>& members = {}
 ) {
     std::vector<std::uint8_t> bytes;
     put_string(bytes, "Reference Campaign");
@@ -1339,6 +1393,15 @@ std::vector<std::uint8_t> encode_campaign_record(
                 put_u64(bytes, predicate.objective_id);
                 bytes.push_back(predicate.result);
             }
+        }
+    }
+    if (!members.empty()) {
+        put_u16(bytes, static_cast<std::uint16_t>(members.size()));
+        for (const TestMember& member : members) {
+            put_u64(bytes, member.id);
+            put_string(bytes, member.name);
+            put_u64(bytes, member.unit_type_id);
+            put_u64(bytes, member.join_node);
         }
     }
     return bytes;
@@ -1785,6 +1848,109 @@ void campaign_boundary_failures() {
     gl_campaign_destroy(handle);  // Double destroy is a no-op.
 }
 
+// The six name tables the campaign session refuses through.
+//
+// A refusal crosses this boundary as a name, so a table the browser can index
+// past -- or one that answers a different word than the library does -- is a
+// player told the wrong thing about why their campaign would not load. Each is
+// walked to its own last value and compared to the library's own function, and
+// each is asked one past that to prove the bound is a bound.
+void exposes_every_campaign_session_error_name() {
+    const auto read_name = [](std::uint32_t length) {
+        return std::string(
+            reinterpret_cast<const char*>(buffer()),
+            static_cast<std::size_t>(length)
+        );
+    };
+    const auto walk = [&](
+        std::string_view table,
+        std::uint32_t first,
+        std::uint32_t last,
+        std::uint32_t (*boundary)(std::uint32_t),
+        const std::function<std::string_view(std::uint32_t)>& library
+    ) {
+        for (std::uint32_t code = first; code <= last; ++code) {
+            const std::uint32_t length = boundary(code);
+            expect(length != 0U, std::string(table) + ": every code has a name");
+            expect(
+                read_name(length) == library(code),
+                std::string(table) + ": and it is the library's own word"
+            );
+        }
+        expect(
+            boundary(last + 1U) == 0U,
+            std::string(table) + ": and one past the last is refused"
+        );
+    };
+
+    walk(
+        "session", 0U,
+        static_cast<std::uint32_t>(client::CampaignSessionError::flow_stalled),
+        gl_campaign_session_error_name,
+        [](std::uint32_t code) {
+            return client::campaign_session_error_name(
+                static_cast<client::CampaignSessionError>(code)
+            );
+        }
+    );
+    walk(
+        "migration", 0U,
+        static_cast<std::uint32_t>(campaign::MigrationError::invalid_result),
+        gl_campaign_migration_error_name,
+        [](std::uint32_t code) {
+            return campaign::migration_error_name(
+                static_cast<campaign::MigrationError>(code)
+            );
+        }
+    );
+    walk(
+        "outcome", 0U,
+        static_cast<std::uint32_t>(campaign::OutcomeError::invalid_candidate),
+        gl_campaign_outcome_error_name,
+        [](std::uint32_t code) {
+            return campaign::outcome_error_name(
+                static_cast<campaign::OutcomeError>(code)
+            );
+        }
+    );
+    walk(
+        "roster", 0U,
+        static_cast<std::uint32_t>(cr::RosterError::over_deployment_capacity),
+        gl_campaign_roster_error_name,
+        [](std::uint32_t code) {
+            return cr::roster_error_name(
+                static_cast<cr::RosterError>(code)
+            );
+        }
+    );
+    walk(
+        "save", 0U,
+        static_cast<std::uint32_t>(campaign::SaveError::invalid_state),
+        gl_campaign_save_error_name,
+        [](std::uint32_t code) {
+            return campaign::save_error_name(
+                static_cast<campaign::SaveError>(code)
+            );
+        }
+    );
+    // The operation table starts at one: zero is not an operation, and a caller
+    // that asked for it would be asking what nothing is called.
+    expect(
+        gl_campaign_operation_name(0U) == 0U,
+        "operation: zero is not an operation and is refused"
+    );
+    walk(
+        "operation", 1U,
+        static_cast<std::uint32_t>(campaign::OutcomeOperationKind::grow_stat),
+        gl_campaign_operation_name,
+        [](std::uint32_t code) {
+            return campaign::outcome_operation_name(
+                static_cast<campaign::OutcomeOperationKind>(code)
+            );
+        }
+    );
+}
+
 void exposes_every_campaign_error_name() {
     const auto read_name = [](std::uint32_t length) {
         return std::string(
@@ -1872,6 +2038,403 @@ void compiles_content_across_the_boundary() {
 
 }  // namespace
 
+// ---------------------------------------------------------------------------
+// The campaign session across the boundary
+// ---------------------------------------------------------------------------
+//
+// The cursor entry points above had a library-side reference and the session
+// ones did not. Seventeen of the twenty-six campaign entry points were driven
+// only from the browser, and the session family is the rich one: it carries the
+// roster, the store, the standing, the capacity and who a board can field.
+//
+// Browser-side tests can say those answers are *sensible*. They cannot say they
+// are the same answers `client::CampaignSession` gives, because they have
+// nothing to compare against, and marshalling is exactly where two fields of
+// one width swap places without anybody noticing.
+//
+// So this drives both: the same flow, the same board, the same options, a
+// device of the same shape, and asks each side the same questions.
+
+// The identity the session's synthetic package is built under. Any sixteen
+// bytes will do; they only have to be the same sixteen on both sides.
+core::PackageId session_package_id() {
+    core::PackageId id{};
+    for (std::size_t index = 0; index < id.size(); ++index) {
+        id[index] = static_cast<std::uint8_t>(0xA0U + index);
+    }
+    return id;
+}
+
+std::uint32_t write_session_create_payload(
+    const core::PackageId& package_id,
+    std::uint32_t content_revision,
+    std::uint64_t campaign_id,
+    const std::vector<std::uint8_t>& record,
+    const std::vector<std::uint64_t>& encounter_ids
+) {
+    Writer writer;
+    for (const std::uint8_t byte : package_id) writer.u8(byte);
+    writer.u32(content_revision);
+    writer.u64(campaign_id);
+    writer.u32(static_cast<std::uint32_t>(record.size()));
+    for (const std::uint8_t byte : record) writer.u8(byte);
+    writer.u16(static_cast<std::uint16_t>(encounter_ids.size()));
+    for (const std::uint64_t id : encounter_ids) writer.u64(id);
+    return writer.size();
+}
+
+// A board, with the tail the session reads beside it: who each placement is,
+// how many the board lets out, and what the author wrote about them beyond
+// their unit types.
+std::uint32_t write_session_board_payload(
+    std::uint64_t encounter_id,
+    const sim::EncounterDefinition& definition,
+    const std::vector<std::uint64_t>& source_keys,
+    std::uint16_t capacity
+) {
+    Writer writer;
+    writer.u64(encounter_id);
+    write_definition_into(writer, definition);
+    writer.u32(static_cast<std::uint32_t>(source_keys.size()));
+    for (const std::uint64_t key : source_keys) writer.u64(key);
+    writer.u16(capacity);
+    writer.u32(0U);
+    return writer.size();
+}
+
+std::uint32_t write_session_begin_payload(bool resume, std::string_view slot) {
+    Writer writer;
+    writer.u8(resume ? 1U : 0U);
+    writer.u8(static_cast<std::uint8_t>(sim::Side::first));
+    writer.u16(static_cast<std::uint16_t>(slot.size()));
+    for (const char letter : slot) {
+        writer.u8(static_cast<std::uint8_t>(letter));
+    }
+    return writer.size();
+}
+
+// The same package the boundary builds, in the section order it builds it:
+// campaigns, encounters, unit types.
+pf::LoadedPackage session_reference_package(
+    const core::PackageId& package_id,
+    std::uint32_t content_revision,
+    std::uint64_t campaign_id,
+    const std::vector<std::uint8_t>& record,
+    const std::vector<std::uint64_t>& encounter_ids
+) {
+    pf::LoadedPackage package;
+    package.game_id = package_id;
+    package.content_revision = content_revision;
+    package.bytes = record;
+    pf::SectionView campaigns;
+    campaigns.type = pf::SectionType::campaigns;
+    campaigns.schema_major = 1U;
+    campaigns.flags = pf::section_flag_required;
+    campaigns.records.push_back(
+        {campaign_id, 0U, static_cast<std::uint32_t>(record.size())}
+    );
+    pf::SectionView encounters;
+    encounters.type = pf::SectionType::encounters;
+    encounters.schema_major = 1U;
+    encounters.flags = pf::section_flag_required;
+    for (const std::uint64_t id : encounter_ids) {
+        encounters.records.push_back({id, 0U, 0U});
+    }
+    pf::SectionView unit_types;
+    unit_types.type = pf::SectionType::unit_types;
+    unit_types.schema_major = 1U;
+    unit_types.flags = pf::section_flag_required;
+    package.sections.push_back(campaigns);
+    package.sections.push_back(encounters);
+    package.sections.push_back(unit_types);
+    return package;
+}
+
+// The library-side boards provider, holding exactly what `add_board` handed the
+// boundary's own.
+class RecordedBoards final : public client::CampaignBoards {
+public:
+    void add(std::uint64_t encounter_id, pr::EncounterLoadResult board) {
+        ids_.push_back(encounter_id);
+        boards_.push_back(std::move(board));
+    }
+
+    [[nodiscard]] pr::EncounterLoadResult board(
+        std::uint64_t encounter_id
+    ) const override {
+        for (std::size_t index = 0; index < ids_.size(); ++index) {
+            if (ids_[index] == encounter_id) return boards_[index];
+        }
+        pr::EncounterLoadResult missing;
+        missing.error = pr::EncounterLoadError::missing_record;
+        return missing;
+    }
+
+private:
+    std::vector<std::uint64_t> ids_;
+    std::vector<pr::EncounterLoadResult> boards_;
+};
+
+void campaign_sessions_across_the_boundary() {
+    // A company, because a roster nobody is on compares nothing: every loop
+    // below would run zero times and the test would pass on an empty answer.
+    const std::vector<TestMember> founding{
+        {8001U, "Reference Rider", 100U, 0U},
+        {8002U, "Reference Picket", 200U, 0U},
+    };
+    const auto record = encode_campaign_record(1, reference_flow(), founding);
+    const core::PackageId package_id = session_package_id();
+    constexpr std::uint32_t revision = 3U;
+    constexpr std::uint64_t campaign_id = 7100U;
+    constexpr std::uint64_t encounter_id = 500U;
+    const sim::EncounterDefinition definition = reference_definition();
+    // One source key per unit, in the definition's own order, because that is
+    // the pairing `add_board` makes.
+    // The member each placement fields. A roster is joined to a board through
+    // this key and nothing else, so keys nobody is on would field nobody and
+    // leave every company answer empty.
+    const std::vector<std::uint64_t> source_keys{8002U, 8001U};
+
+    const std::uint32_t handle = gl_campaign_session_create(
+        write_session_create_payload(
+            package_id, revision, campaign_id, record, {encounter_id}
+        )
+    );
+    expect(handle != 0U, "the reference campaign creates a session");
+    if (handle == 0U) return;
+
+    expect(
+        gl_campaign_session_add_board(
+            handle,
+            write_session_board_payload(
+                encounter_id, definition, source_keys, 0U
+            )
+        ) != 0U,
+        "and takes the board its flow refers to"
+    );
+
+    const std::uint32_t begun = gl_campaign_session_begin(
+        handle, write_session_begin_payload(false, "abi")
+    );
+    expect(begun != 0U, "and begins");
+    Reader begin_reader;
+    expect(begin_reader.u8() == abi_ok, "the begin status is ok");
+    const auto begin_error = begin_reader.u8();
+
+    // The same session, built the way the boundary built it.
+    pf::LoadedPackage native = session_reference_package(
+        package_id, revision, campaign_id, record, {encounter_id}
+    );
+    RecordedBoards boards;
+    pr::EncounterLoadResult native_board;
+    native_board.definition = definition;
+    for (std::size_t index = 0; index < definition.units.size(); ++index) {
+        native_board.placements.push_back(
+            {definition.units[index].id, source_keys[index]}
+        );
+    }
+    boards.add(encounter_id, std::move(native_board));
+    storage::MemorySlotStorage device{
+        storage::StorageBudget{64U * 1024U, 4U * 1024U * 1024U, 64U}
+    };
+    client::CampaignSession session{
+        native, campaign_id, boards, device, client::CampaignSessionOptions{}
+    };
+    client::SlotFailure failure{};
+    bool refused = false;
+    bool resumed = false;
+    const client::CampaignSessionError native_begin =
+        session.begin(failure, refused, resumed);
+    expect(
+        begin_error == static_cast<std::uint8_t>(native_begin),
+        "and both sides refuse or accept the founding for the same reason"
+    );
+
+    // Where each says it stands, and who each says is on the roster.
+    const std::uint32_t written = gl_campaign_session_state(handle);
+    expect(written != 0U, "the boundary reports where it stands");
+    Reader state;
+    expect(state.u8() == abi_ok, "the state status is ok");
+    const client::CampaignSession::Standing where = session.standing();
+    expect(
+        state.u8() == static_cast<std::uint8_t>(where.error) &&
+            state.u64() == where.node.stable_id &&
+            state.u8() == static_cast<std::uint8_t>(where.kind) &&
+            state.u64() == where.encounter_id,
+        "and stands exactly where the library stands"
+    );
+    const std::uint16_t said_dialogues = state.u16();
+    expect(
+        said_dialogues == where.dialogue_ids.size(),
+        "with the same lines to read"
+    );
+    for (const std::uint64_t dialogue_id : where.dialogue_ids) {
+        expect(state.u64() == dialogue_id, "and the same line, in order");
+    }
+
+    const std::vector<client::RosterEntry> roster = session.roster();
+    const std::uint32_t said_members = state.u32();
+    expect(
+        said_members == roster.size(),
+        "and founds a company of the same size"
+    );
+    for (const client::RosterEntry& member : roster) {
+        expect(
+            state.u64() == member.member.value &&
+                state.u64() == member.placement_source_key,
+            "and each member is the member the library founded"
+        );
+        // The name is the author's and is carried across as a string, so it is
+        // read here rather than skipped: a narrator that showed a different one
+        // would be showing a different character.
+        const std::uint16_t letters = state.u16();
+        expect(
+            letters == member.name.size(),
+            "under the name the author wrote"
+        );
+        for (const char letter : member.name) {
+            expect(
+                state.u8() == static_cast<std::uint8_t>(letter),
+                "letter for letter"
+            );
+        }
+        expect(
+            state.u64() == member.unit_type.stable_id &&
+                state.u8() ==
+                    static_cast<std::uint8_t>(member.availability) &&
+                state.u16() == member.progression.level &&
+                state.u32() == member.progression.experience,
+            "as the same character, at the same level"
+        );
+        for (const std::uint16_t gain : member.progression.gained) {
+            expect(state.u16() == gain, "carrying the same permanent gains");
+        }
+        const std::uint32_t stacks = state.u32();
+        expect(
+            stacks == member.carried.size(),
+            "and the same satchel"
+        );
+        for (const campaign::InventoryStack& stack : member.carried) {
+            expect(
+                state.u64() == stack.item.stable_id &&
+                    state.u32() == stack.quantity,
+                "holding the same items in the same counts"
+            );
+        }
+    }
+
+    // Past the opening story node, so that the company question is asked
+    // somewhere it has an answer. A story node fields nobody: placeable,
+    // fielded and capacity are all zero there, and comparing them would compare
+    // three empty answers and call it agreement. It also puts
+    // `gl_campaign_session_advance_story` under the same comparison as the
+    // rest, which is the point of the exercise.
+    expect(
+        static_cast<int>(where.kind) == 3,
+        "the campaign opens on a story node"
+    );
+    const std::uint32_t advanced = gl_campaign_session_advance_story(handle);
+    expect(advanced != 0U, "the boundary advances past it");
+    Reader story;
+    expect(story.u8() == abi_ok, "the advance status is ok");
+    std::vector<client::RosterEntry> joined;
+    const client::CampaignSessionError native_advance =
+        session.advance_story(joined);
+    expect(
+        story.u8() == static_cast<std::uint8_t>(native_advance),
+        "and both advance for the same reason"
+    );
+    expect(
+        static_cast<int>(session.standing().kind) == 1,
+        "and both now stand on the encounter the flow leads to"
+    );
+
+    // And what the company is, which is the answer a management screen draws.
+    const std::uint32_t company_written = gl_campaign_session_company(handle);
+    expect(company_written != 0U, "the boundary reports the company");
+    Reader company;
+    expect(company.u8() == abi_ok, "the company status is ok");
+    const client::CompanyManagement management = session.management();
+    expect(
+        company.u8() == static_cast<std::uint8_t>(management.error) &&
+            company.u64() == management.node.stable_id &&
+            company.u64() == management.encounter_id,
+        "about the same node"
+    );
+    // Guarded, because every loop below runs over the library's own answer: if
+    // that answer were empty they would compare nothing and pass. This test was
+    // written once with a story node standing and did exactly that.
+    expect(
+        !management.placeable.empty() && !roster.empty(),
+        "and there is a company to compare at all"
+    );
+    const std::uint32_t said_placeable = company.u32();
+    expect(
+        said_placeable == management.placeable.size(),
+        "with the same number who could take this board"
+    );
+    for (const campaign::PersistentEntityId member : management.placeable) {
+        expect(company.u64() == member.value, "and the same ones");
+    }
+    const std::uint32_t said_fielded = company.u32();
+    expect(
+        said_fielded == management.fielded.size(),
+        "and the same number who would actually field it"
+    );
+    for (const campaign::PersistentEntityId member : management.fielded) {
+        expect(company.u64() == member.value, "and the same ones again");
+    }
+    expect(
+        company.u16() == management.capacity,
+        "and the same cap on how many are let out"
+    );
+
+    // And the board itself, which is the whole reason a campaign session exists:
+    // the standing node's encounter, taken through the roster, with whoever the
+    // company cannot field left off it.
+    const std::uint32_t board_written = gl_campaign_session_board(handle);
+    expect(board_written != 0U, "the boundary takes the board");
+    Reader taken;
+    expect(taken.u8() == abi_ok, "the board status is ok");
+    const client::CampaignSession::PreparedBoard prepared =
+        session.prepare_board();
+    expect(
+        taken.u8() == static_cast<std::uint8_t>(prepared.error) &&
+            taken.u8() == static_cast<std::uint8_t>(prepared.roster_error) &&
+            taken.u8() ==
+                static_cast<std::uint8_t>(prepared.encounter.load_error),
+        "and refuses or accepts it in all three vocabularies at once"
+    );
+    auto opened =
+        sim::create_encounter(prepared.encounter.encounter.definition);
+    expect(
+        taken.u8() == static_cast<std::uint8_t>(opened.error),
+        "and the board opens on both sides or on neither"
+    );
+    expect(
+        taken.u64() == prepared.board.encounter_id,
+        "and it is the same board"
+    );
+    const std::uint32_t said_excluded = taken.u32();
+    expect(
+        said_excluded == prepared.board.excluded.size(),
+        "with the same people left off it"
+    );
+    for (const campaign::PersistentEntityId member : prepared.board.excluded) {
+        expect(taken.u64() == member.value, "and the same ones by name");
+    }
+    // The binding is what joins a character on the board to the member the
+    // campaign remembers, and it is the one thing a commit cannot be right
+    // without: a battle that bound the wrong member would award the wrong
+    // character's experience and bury the wrong one.
+    expect(
+        prepared.board.binding.size() != 0U,
+        "and somebody is bound to somebody, so this compares something"
+    );
+
+    gl_campaign_session_destroy(handle);
+}
+
 int main() {
     unit_record_size_is_exact();
     replays_the_reference_vector();
@@ -1886,8 +2449,10 @@ int main() {
     campaign_cursor_matches_the_library();
     campaign_dialogues_round_trip();
     campaign_boundary_failures();
+    campaign_sessions_across_the_boundary();
     exposes_every_error_name();
     exposes_every_campaign_error_name();
+    exposes_every_campaign_session_error_name();
     maps_stable_content_identity();
     compiles_content_across_the_boundary();
     return failures == 0 ? 0 : 1;
