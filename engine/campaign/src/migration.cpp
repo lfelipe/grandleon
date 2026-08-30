@@ -286,13 +286,18 @@ bool SaveMigrationRegistry::add_section_migration(
 bool SaveMigrationRegistry::add_content_migration(
     const core::PackageId& package,
     std::uint32_t from_revision,
+    std::uint32_t to_revision,
     ContentMigrationFunction apply
 ) {
-    if (apply == nullptr ||
+    // A step that does not move forward is refused at registration rather than
+    // discovered at load. Landing where it started is a chain with no end, and
+    // landing earlier is a downgrade that would walk past the check meant to
+    // refuse one.
+    if (apply == nullptr || to_revision <= from_revision ||
         find_content_migration(package, from_revision) != nullptr) {
         return false;
     }
-    contents_.push_back({package, from_revision, apply});
+    contents_.push_back({package, from_revision, to_revision, apply});
     return true;
 }
 
@@ -318,6 +323,18 @@ ContentMigrationFunction SaveMigrationRegistry::find_content_migration(
         }
     }
     return nullptr;
+}
+
+std::uint32_t SaveMigrationRegistry::content_step_target(
+    const core::PackageId& package,
+    std::uint32_t from_revision
+) const noexcept {
+    for (const ContentEntry& entry : contents_) {
+        if (entry.package == package && entry.from_revision == from_revision) {
+            return entry.to_revision;
+        }
+    }
+    return 0U;
 }
 
 // ---------------------------------------------------------------------------
@@ -382,28 +399,54 @@ MigrationReport plan_content_migration(
             {}
         );
     }
-    if (to_revision - from_revision > maximum_migration_steps) {
-        return package_failure(
-            MigrationError::step_limit_exceeded,
-            package,
-            from_revision,
-            to_revision,
-            {}
-        );
-    }
-
     MigrationReport report;
     report.package = package;
     report.from = from_revision;
     report.to = to_revision;
-    for (std::uint32_t revision = from_revision; revision < to_revision;
-         ++revision) {
-        if (registry.find_content_migration(package, revision) == nullptr) {
+    // Edge by edge, because a content revision is a packed version and its
+    // neighbours are patch numbers. Walking the integers between two revisions
+    // and demanding a step at each one made every chain a chain of patch steps:
+    // 0.1.0 to 0.2.0 is a gap of 1024, so a game that moved its minor version
+    // could not write a migration at all, and was told it had exceeded a step
+    // limit rather than that the chain could not be spelled.
+    //
+    // The loop is bounded by the step count rather than by the distance, which
+    // is what the distance check used to be for. A hostile save naming a
+    // revision far away now costs at most `maximum_migration_steps` lookups
+    // instead of one comparison, which is the price of the axis meaning what
+    // the compiler says it means.
+    std::uint32_t revision = from_revision;
+    while (revision < to_revision) {
+        if (report.applied.size() >= maximum_migration_steps) {
+            return package_failure(
+                MigrationError::step_limit_exceeded,
+                package,
+                revision,
+                to_revision,
+                std::move(report.applied)
+            );
+        }
+        const std::uint32_t next =
+            registry.content_step_target(package, revision);
+        if (next == 0U) {
             return package_failure(
                 MigrationError::missing_step,
                 package,
                 revision,
-                revision + 1U,
+                to_revision,
+                std::move(report.applied)
+            );
+        }
+        // A step that lands past the revision actually mounted is as much a
+        // hole as no step at all: nothing in the registry reaches the version
+        // this build is holding, and running it would leave the save claiming
+        // to be something the package is not.
+        if (next > to_revision) {
+            return package_failure(
+                MigrationError::missing_step,
+                package,
+                revision,
+                next,
                 std::move(report.applied)
             );
         }
@@ -411,8 +454,9 @@ MigrationReport plan_content_migration(
         step.content = true;
         step.package = package;
         step.from = revision;
-        step.to = revision + 1U;
+        step.to = next;
         report.applied.push_back(step);
+        revision = next;
     }
     return report;
 }

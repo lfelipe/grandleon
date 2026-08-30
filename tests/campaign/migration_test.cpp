@@ -224,13 +224,13 @@ void the_registry_walks_one_version_at_a_time() {
     campaign::SaveMigrationRegistry content;
     expect(
         content.add_content_migration(
-            package(2), 1, fixture_package_renames_at_revision_1
+            package(2), 1, 2, fixture_package_renames_at_revision_1
         ),
         "a content step registers"
     );
     expect(
         !content.add_content_migration(
-            package(2), 1, fixture_package_renames_at_revision_1
+            package(2), 1, 2, fixture_package_renames_at_revision_1
         ),
         "and cannot be registered twice"
     );
@@ -474,7 +474,7 @@ void a_renamed_definition_is_repointed_and_nobody_changes_identity() {
     campaign::SaveMigrationRegistry registry = campaign::standard_save_migrations();
     expect(
         registry.add_content_migration(
-            package(2), 1, fixture_package_renames_at_revision_1
+            package(2), 1, 2, fixture_package_renames_at_revision_1
         ),
         "the package's own rename mapping registers"
     );
@@ -623,7 +623,7 @@ void the_content_axis_refuses_what_it_cannot_do() {
 
     campaign::SaveMigrationRegistry refusing = campaign::standard_save_migrations();
     expect(
-        refusing.add_content_migration(package(2), 1, refusing_content_step),
+        refusing.add_content_migration(package(2), 1, 2, refusing_content_step),
         "a step that refuses registers like any other"
     );
     expect(
@@ -635,7 +635,7 @@ void the_content_axis_refuses_what_it_cannot_do() {
 
     campaign::SaveMigrationRegistry colliding = campaign::standard_save_migrations();
     expect(
-        colliding.add_content_migration(package(2), 1, colliding_renames),
+        colliding.add_content_migration(package(2), 1, 2, colliding_renames),
         "so does one that maps two keys onto one"
     );
     expect(
@@ -647,7 +647,7 @@ void the_content_axis_refuses_what_it_cannot_do() {
 
     campaign::SaveMigrationRegistry nowhere = campaign::standard_save_migrations();
     expect(
-        nowhere.add_content_migration(package(2), 1, renames_into_nothing),
+        nowhere.add_content_migration(package(2), 1, 2, renames_into_nothing),
         "and one that points at content that is not there"
     );
     expect(
@@ -935,72 +935,96 @@ void a_migration_that_fails_leaves_the_live_session_alone() {
 
 }  // namespace
 
-// What a content revision is on each side of the boundary, and what that costs.
+// A content chain is followed edge by edge, because a revision is a version
+// rather than a counter.
 //
-// The two layers model the same number differently, each self-consistently, and
-// the disagreement only shows up when somebody tries to use it.
+// The two axes count differently and used to be walked the same way. A schema
+// major really is a dense counter, so `from + 1` is the whole truth there. But
+// `tools/game_content/src/source_project.cpp` packs a content revision as
+// `(major << 20) | (minor << 10) | patch`, so the integer after 0.1.0 is 0.1.1.
+// Walking the integers between two revisions therefore made every chain a chain
+// of patch steps, and put 1024 of them between 0.1.0 and 0.2.0 -- past
+// `maximum_migration_steps`. A game that moved its minor version could not
+// write a migration at all, and was told it had exceeded a step limit, which
+// was true in the planner's own terms and no help to anybody.
 //
-// `AppliedMigration` states this layer's contract outright: "`to` is always
-// `from + 1`". So `plan_content_migration` walks the gap one integer at a time
-// and wants a registered step at every one of them, and refuses a gap longer
-// than `maximum_migration_steps`.
-//
-// The compiler packs a revision as a version triple --
-// `tools/game_content/src/source_project.cpp` returns
-// `(major << 20) | (minor << 10) | patch` -- so consecutive integers are
-// consecutive *patch* numbers, and 0.1.0 to 0.2.0 is a gap of 1024.
-//
-// Put together: a content migration can only ever be written across a patch
-// bump. A game that moves its minor version can never ship one, because it
-// would have to register 1024 steps and the limit is 64. The refusal it gets
-// instead blames the step limit, which is true in this layer's own terms and
-// tells the author nothing about what to do.
-//
-// Nobody is hurt by it today: the shipped campaign registers no content
-// migration at all, so a save from an older revision is refused either way and
-// the player outcome is the same. It is pinned here because it is the kind of
-// thing that gets rediscovered expensively, and because deciding it either way
-// -- dense counters in the compiler, or steps that declare their target here --
-// is a format decision rather than a bug fix.
-void a_content_migration_can_only_span_a_patch_bump() {
+// So a step says where it lands. These cases are the four answers that gives.
+void a_content_chain_is_followed_edge_by_edge() {
     const core::PackageId subject = package(3);
-    campaign::SaveMigrationRegistry registry = campaign::standard_save_migrations();
-
-    // A patch bump is one integer, so one step spans it.
     constexpr std::uint32_t v0_1_0 = (0U << 20U) | (1U << 10U) | 0U;
-    constexpr std::uint32_t v0_1_1 = (0U << 20U) | (1U << 10U) | 1U;
     constexpr std::uint32_t v0_2_0 = (0U << 20U) | (2U << 10U) | 0U;
-    expect(v0_1_1 - v0_1_0 == 1U, "a patch bump is one integer apart");
+    constexpr std::uint32_t v1_0_0 = (1U << 20U) | (0U << 10U) | 0U;
+
+    // Stated rather than assumed, because the whole defect was an assumption
+    // about this arithmetic.
     expect(
-        v0_2_0 - v0_1_0 == 1024U,
-        "and a minor bump is a thousand and twenty-four"
-    );
-    expect(
-        v0_2_0 - v0_1_0 > campaign::maximum_migration_steps,
-        "which is further than the chain is allowed to be walked"
+        v0_2_0 - v0_1_0 == 1024U && v0_2_0 - v0_1_0 > campaign::maximum_migration_steps,
+        "a minor bump is further apart than a chain may be walked"
     );
 
+    // One step across a minor bump, which is the case that could not be
+    // expressed at all before.
+    campaign::SaveMigrationRegistry registry = campaign::standard_save_migrations();
     expect(
         registry.add_content_migration(
-            subject, v0_1_0, fixture_package_renames_at_revision_1
+            subject, v0_1_0, v0_2_0, fixture_package_renames_at_revision_1
         ),
-        "a step registers at the patch boundary"
+        "a step may be registered across a minor bump"
     );
-
-    const campaign::MigrationReport across_patch =
-        campaign::plan_content_migration(registry, subject, v0_1_0, v0_1_1);
-    expect(
-        static_cast<bool>(across_patch),
-        "and the patch bump plans, because its gap is exactly one step"
-    );
-
-    // The same registered step, asked to reach the next minor version.
-    const campaign::MigrationReport across_minor =
+    const campaign::MigrationReport minor =
         campaign::plan_content_migration(registry, subject, v0_1_0, v0_2_0);
     expect(
-        !across_minor &&
-            across_minor.error == campaign::MigrationError::step_limit_exceeded,
-        "a minor bump refuses, and blames the step limit rather than the model"
+        static_cast<bool>(minor) && minor.applied.size() == 1U &&
+            minor.applied[0].from == v0_1_0 && minor.applied[0].to == v0_2_0,
+        "and it is one step, from where it was written to where it lands"
+    );
+
+    // Two of them in a row, so the walk is a walk and not a special case.
+    expect(
+        registry.add_content_migration(
+            subject, v0_2_0, v1_0_0, fixture_package_renames_at_revision_1
+        ),
+        "a second step registers behind the first"
+    );
+    const campaign::MigrationReport both =
+        campaign::plan_content_migration(registry, subject, v0_1_0, v1_0_0);
+    expect(
+        static_cast<bool>(both) && both.applied.size() == 2U &&
+            both.applied[1].to == v1_0_0,
+        "and a chain of two crosses a major bump"
+    );
+
+    // A hole is a hole, and says so. This is the answer the old planner gave as
+    // `step_limit_exceeded`, which named the wrong thing entirely.
+    campaign::SaveMigrationRegistry empty = campaign::standard_save_migrations();
+    const campaign::MigrationReport hole =
+        campaign::plan_content_migration(empty, subject, v0_1_0, v0_2_0);
+    expect(
+        !hole && hole.error == campaign::MigrationError::missing_step,
+        "a chain with no step at all is a missing step, not a step limit"
+    );
+
+    // A step that overshoots what is mounted is the same answer: nothing in the
+    // registry reaches the version this build is actually holding.
+    const campaign::MigrationReport overshoot =
+        campaign::plan_content_migration(registry, subject, v0_1_0, v0_1_0 + 1U);
+    expect(
+        !overshoot && overshoot.error == campaign::MigrationError::missing_step,
+        "and a step that lands past the mounted revision is a hole too"
+    );
+
+    // And a step that does not move forward is refused where it is written,
+    // rather than found at load: one that lands where it started is a chain
+    // with no end.
+    campaign::SaveMigrationRegistry bad = campaign::standard_save_migrations();
+    expect(
+        !bad.add_content_migration(
+            subject, v0_2_0, v0_2_0, fixture_package_renames_at_revision_1
+        ) &&
+            !bad.add_content_migration(
+                subject, v0_2_0, v0_1_0, fixture_package_renames_at_revision_1
+            ),
+        "a step that stands still or goes backwards is refused at registration"
     );
 }
 
@@ -1011,6 +1035,6 @@ int main() {
     the_content_axis_refuses_what_it_cannot_do();
     a_specific_company_is_saved_and_resumed_with_no_migration();
     a_migration_that_fails_leaves_the_live_session_alone();
-    a_content_migration_can_only_span_a_patch_bump();
+    a_content_chain_is_followed_edge_by_edge();
     return failures == 0 ? 0 : 1;
 }

@@ -178,7 +178,11 @@ struct AppliedMigration final {
     std::uint32_t section{};
     // The package a content step upgraded; all zero for a section step.
     core::PackageId package{};
-    // Schema major, or content revision. `to` is always `from + 1`.
+    // Schema major, or content revision. On the section axis `to` is always
+    // `from + 1`, because a schema major is a dense counter. On the content
+    // axis it is whatever the registered step said it lands on, because a
+    // content revision is a packed version and its neighbours are patch
+    // numbers.
     std::uint32_t from{};
     std::uint32_t to{};
 };
@@ -267,11 +271,23 @@ using ContentMigrationFunction = bool (*)(
 
 // Every step this build knows, on both axes.
 //
-// Registration is by (what moved, which version it moved from), and the
-// destination is always the next version. Registering the same step twice is
-// refused rather than overwritten: two functions claiming one version is an
-// ambiguity nobody could resolve later, and the second one silently winning is
-// the worst of the three possible answers.
+// Registration is by (what moved, which version it moved from). Registering the
+// same step twice is refused rather than overwritten: two functions claiming one
+// version is an ambiguity nobody could resolve later, and the second one
+// silently winning is the worst of the three possible answers.
+//
+// **A section step's destination is the next major; a content step names its
+// own.** The two axes count differently and used to be treated the same. A
+// schema major really is a dense counter, so `from + 1` is the whole truth
+// there. A content revision is a version this project packs as
+// `(major << 20) | (minor << 10) | patch`, so the integer after 0.1.0 is 0.1.1
+// and the one after that is 0.1.2: assuming the destination made every step a
+// patch step, and put a thousand and twenty-four of them between 0.1.0 and
+// 0.2.0 -- further than `maximum_migration_steps` allows a chain to be walked.
+// A game that moved its minor version could therefore never write a migration
+// at all, and the refusal it got named the step limit, which is true and
+// useless. So a content step says where it lands and the chain is followed
+// edge by edge.
 class SaveMigrationRegistry final {
 public:
     // Returns false when a step is already registered for this section and
@@ -283,10 +299,13 @@ public:
     );
 
     // Returns false when a step is already registered for this package and
-    // revision, or when `apply` is null.
+    // revision, when `apply` is null, or when `to_revision` does not move
+    // forward: a step that lands where it started is a chain that never ends,
+    // and one that lands earlier is a downgrade wearing a migration's clothes.
     bool add_content_migration(
         const core::PackageId& package,
         std::uint32_t from_revision,
+        std::uint32_t to_revision,
         ContentMigrationFunction apply
     );
 
@@ -296,6 +315,14 @@ public:
     ) const noexcept;
 
     [[nodiscard]] ContentMigrationFunction find_content_migration(
+        const core::PackageId& package,
+        std::uint32_t from_revision
+    ) const noexcept;
+
+    // Where the step registered at `from_revision` lands, or zero when there is
+    // none. Zero is not a revision anything can migrate *to*, which is what
+    // makes it usable as "no step" without a second return value.
+    [[nodiscard]] std::uint32_t content_step_target(
         const core::PackageId& package,
         std::uint32_t from_revision
     ) const noexcept;
@@ -314,6 +341,7 @@ private:
     struct ContentEntry final {
         core::PackageId package{};
         std::uint32_t from_revision{};
+        std::uint32_t to_revision{};
         ContentMigrationFunction apply{};
     };
 

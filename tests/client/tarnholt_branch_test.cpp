@@ -669,19 +669,24 @@ int main() {
             campaign::standard_save_migrations(),
             mounted
         );
-        // The name is `step_limit_exceeded` rather than `missing_step`, and
-        // that is worth writing down rather than papering over. A revision is
+        // `missing_step`, which is the true thing: nobody registered a step
+        // from the revision this save was written at.
+        //
+        // It used to be `step_limit_exceeded`, and the note that stood here
+        // called that a diagnostic-quality question about the packing rather
+        // than about this content. It was, and it is settled. A revision is
         // packed `(major << 20) | (minor << 10) | patch`, so 0.1.0 to 0.2.0 is
-        // 1024 packed revisions apart and the planner hits its 64-step ceiling
-        // before it reaches the revision that has no step registered. Both are
-        // refusals by the registry's own name and both reach every client as
-        // one, which is what a save from an older campaign has to meet; which
-        // of the two a player sees is a diagnostic-quality question about the
-        // packing rather than about this content.
+        // 1024 apart; the planner walked those integers one at a time and hit
+        // its 64-step ceiling long before it reached the revision with nothing
+        // registered, so it reported a limit it had genuinely exceeded while
+        // saying nothing about the hole that was actually there. A content step
+        // now declares where it lands and the chain is followed edge by edge,
+        // so the first thing the walk finds is the missing step, and it says
+        // so.
         expect(
             !restored &&
                 restored.migration.error ==
-                    campaign::MigrationError::step_limit_exceeded,
+                    campaign::MigrationError::missing_step,
             std::string("and this build refuses it by the registry's own name, "
                         "got ") + std::string(campaign::migration_error_name(
                             restored.migration.error))
