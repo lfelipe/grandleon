@@ -422,7 +422,7 @@ class Infiltrator(Archetype):
                        RAMPS["ink"], 0.35)
         raster.rect(canvas, 13, 12, 7, 2, colours[2])  # faction throat plate
         raster.rect(canvas, 13, 12, 7, 1, colours[3])
-        eyes(canvas, cy=10, spread=2, colour=ENERGY[4])
+        eyes(canvas, cy=10, spread=2, colour=ENERGY[4], deep=True)
 
 
 class Xenoform(Archetype):

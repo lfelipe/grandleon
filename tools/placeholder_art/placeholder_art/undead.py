@@ -103,7 +103,8 @@ the Dragon, and a picture is a name rather than a number.
 from __future__ import annotations
 
 from . import raster
-from .characters import Archetype, FactionColour, arm, boots, cloak, legs, torso
+from .characters import (Archetype, FactionColour, arm, boots, cloak, eye,
+                         legs, torso)
 from .palette import RAMPS
 from .raster import Canvas
 
@@ -146,8 +147,18 @@ def cowl(canvas: Canvas, cx: float, cy: float, radius: float = 4.2) -> None:
     raster.disc(canvas, cx, cy, radius, SHROUD, ambient=0.36)
     raster.disc(canvas, cx, cy + radius * 0.30, radius * 0.58, RAMPS["ink"],
                 ambient=0.12)
+    # Two texels square, and both axes are load-bearing. A hollow with no face
+    # in it puts everything on these lights, so the console's sampler dropping
+    # them costs the whole read; and unlike the marks :func:`~.characters.eye`
+    # alone fixes, one column here is not enough either -- the two columns this
+    # lands on are dropped together at five of the thirteen cell sizes a board
+    # can produce. Grown outward from the hollow's own edge so the gap between
+    # the lights, which is what makes them a pair, is the part that is kept.
     for side in (-1, 1):
-        canvas.put(int(cx + side * radius * 0.30), int(cy + radius * 0.30), WISP[1])
+        x = int(cx + side * radius * 0.30)
+        y = int(cy + radius * 0.30)
+        for column in (x, x + side):
+            eye(canvas, column, y, WISP[1])
 
 
 def bone_hand(canvas: Canvas, x: float, y: float) -> None:
@@ -209,7 +220,7 @@ class BarrowKnight(Archetype):
                        RUST, 0.52)
         raster.rect(canvas, 13, 8, 6, 2, RAMPS["ink"][0])
         for side in (-1, 1):
-            canvas.put(16 + side * 2, 8, WISP[1])
+            eye(canvas, 16 + side * 2, 8, WISP[1])
 
 
 class Bonepicker(Archetype):
@@ -289,7 +300,7 @@ class Wraith(Archetype):
         raster.disc(canvas, 16, 8.4, 3.0, SHROUD, ambient=0.30)
         raster.disc(canvas, 16, 8.8, 2.1, RAMPS["ink"], ambient=0.12)
         for side in (-1, 1):
-            canvas.put(16 + side * 1, 9, WISP[1])
+            eye(canvas, 16 + side * 1, 9, WISP[1])
         # A cold light cupped in each hand, low and out to the sides. They are
         # the third and fourth points of the hem: a bell hangs to one edge and
         # this hangs to three, which is what separates it from the mourner once
@@ -386,7 +397,7 @@ class Mourner(Archetype):
         raster.rect(canvas, 11, 11, 10, 1, colours[2])
         raster.disc(canvas, 16, 9.6, 2.5, RAMPS["ink"], ambient=0.16)  # under the veil
         for side in (-1, 1):
-            canvas.put(16 + side * 1, 9, WISP[1])
+            eye(canvas, 16 + side * 1, 9, WISP[1])
         raster.capsule(canvas, 11.0, 14.5, 8.5, 17.5, 1.5, BONE, ambient=0.50)
         bone_hand(canvas, 8.2, 18.0)
         # The lamp: a hook, a cage, and a cold light in it. Small and held out
@@ -518,7 +529,8 @@ class BoneHound(Archetype):
         raster.capsule(canvas, 27.0, 13.0, 30.0, 14.2, 1.5, BONE,
                        ambient=0.40)  # the long muzzle
         raster.rect(canvas, 27, 15, 4, 1, RAMPS["ink"][1])  # the jaw's gap
-        canvas.put(26, 12, WISP[1])
+        eye(canvas, 25, 12, WISP[1])
+        eye(canvas, 26, 12, WISP[1])
         canvas.put(25, 12, WISP[0])
 
 

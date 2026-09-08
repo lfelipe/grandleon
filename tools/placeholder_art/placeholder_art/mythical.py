@@ -451,7 +451,7 @@ class Scalethief(Archetype):
                        0.35)
         raster.rect(canvas, 13, 12, 7, 2, colours[2])
         raster.rect(canvas, 13, 12, 7, 1, colours[3])
-        eyes(canvas, cy=10, spread=2, colour=EMBER[1])
+        eyes(canvas, cy=10, spread=2, colour=EMBER[1], deep=True)
         crest(canvas, 8.4, reach=6.4, lean=-1)
 
 

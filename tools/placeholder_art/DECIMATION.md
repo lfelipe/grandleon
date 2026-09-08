@@ -14,19 +14,19 @@ A cell size is reachable when a board's width divides the frame to it, so all of
 
 | cell | worst | losing | heaviest sheet |
 |---:|---:|---:|---|
-| 14px | 16.03% | 3174 | `characters/healer_amber_undead_second_frames.png` |
+| 14px | 16.03% | 3168 | `characters/healer_amber_undead_second_frames.png` |
 | 15px | 8.47% | 3108 | `characters/mage_amber_sengoku_frames.png` |
 | 16px | 12.53% | 3258 | `characters/beast_amber_sengoku_frames.png` |
-| 17px | 8.77% | 3120 | `characters/stormcaller_amber_undead_second_frames.png` |
-| 18px | 7.04% | 3090 | `characters/archer_amber_mythical_frames.png` |
-| 19px | 4.66% | 2622 | `characters/archer_amber_pirates_frames.png` |
-| 20px | 5.25% | 2874 | `characters/archer_amber_nature_frames.png` |
-| 21px | 5.91% | 2484 | `characters/archer_amber_frames.png` |
-| 22px | 4.38% | 2412 | `characters/archer_amber_mythical.png` |
-| 23px | 5.73% | 1734 | `characters/archer_amber_undead_frames.png` |
-| 24px | 5.12% | 1758 | `characters/archer_amber_frames.png` |
-| 25px | 4.13% | 2130 | `characters/archer_amber_mythical_frames.png` |
-| 26px | 3.53% | 1716 | `characters/archer_amber_sengoku_frames.png` |
+| 17px | 7.62% | 3120 | `characters/beast_amber_pirates_second_frames.png` |
+| 18px | 7.04% | 3072 | `characters/archer_amber_mythical_frames.png` |
+| 19px | 4.66% | 2574 | `characters/archer_amber_pirates_frames.png` |
+| 20px | 5.25% | 2820 | `characters/archer_amber_nature_frames.png` |
+| 21px | 5.91% | 2430 | `characters/archer_amber_frames.png` |
+| 22px | 4.38% | 2370 | `characters/archer_amber_mythical.png` |
+| 23px | 5.73% | 1650 | `characters/archer_amber_undead_frames.png` |
+| 24px | 5.12% | 1716 | `characters/archer_amber_frames.png` |
+| 25px | 4.13% | 2118 | `characters/archer_amber_mythical_frames.png` |
+| 26px | 3.53% | 1656 | `characters/archer_amber_sengoku_frames.png` |
 
 ## The heaviest cells in the library
 

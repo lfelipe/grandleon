@@ -342,24 +342,29 @@ def hand(canvas: Canvas, x: float, y: float) -> None:
 
 
 def eyes(canvas: Canvas, cy: int = 9, spread: int = 2,
-         colour: int = RAMPS["ink"][0]) -> None:
-    """A pair of eyes, one row deep.
+         colour: int = RAMPS["ink"][0], deep: bool = False) -> None:
+    """A pair of eyes. One row by default, :data:`EYE_ROWS` when ``deep``.
 
-    Deliberately *not* :func:`eye`, though it is the same mark and exposed to
-    the same loss. These are the ink eyes punched into a drawn face, and the
-    face around them -- the skin disc, the brow, the hood cut back over it --
-    survives the console's sampler whatever happens to the two texels inside
-    it, so a cell size that drops them costs an expression rather than an
-    identity. Drawing them two rows deep reads as a visor at this size, on
-    every humanoid in the library at once, which is a poor trade for a mark
-    the surrounding geometry already carries.
+    The default is one row and that is a decision rather than an oversight.
+    These are the ink eyes punched into a drawn face, and the face around them
+    -- the skin disc, the brow, the hood cut back over it -- survives the
+    console's sampler whatever happens to the two texels inside it, so a cell
+    size that drops them costs an expression rather than an identity. Drawn two
+    rows deep they read as a visor at this size, on every humanoid in the
+    library at once, which is a poor trade for a mark the geometry around it
+    already carries.
 
-    :func:`eye` is for the marks with nothing behind them: the gold eye of an
-    animal, the pair under a rogue's hood. Those are the whole of what says
-    which unit this is, and they are worth the row.
+    Pass ``deep`` when the eyes are the mark rather than a detail on one: a
+    glow in an empty socket, a pair of lit slits under a mask. Those have
+    nothing behind them, so the sampler dropping their row drops the whole of
+    what says which unit this is. The rule of thumb is the colour: an accent
+    ramp here almost always means the second kind.
     """
     for side in (-1, 1):
-        canvas.put(16 + side * spread, cy, colour)
+        if deep:
+            eye(canvas, 16 + side * spread, cy, colour)
+        else:
+            canvas.put(16 + side * spread, cy, colour)
 
 
 def face(canvas: Canvas, cy: float, radius: float = 2.9) -> None:
