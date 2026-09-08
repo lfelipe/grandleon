@@ -125,7 +125,12 @@ class Figure(Protocol):
     stand_in: Optional[Pose]
 
 
-#: Ground line: where feet and the faction disc sit.
+#: Ground line: where feet sit, and what the faction disc is placed against.
+#:
+#: The disc is drawn a little *above* this rather than centred on it, so that
+#: its ink ring stops at row 30. Row 31 is the console's dead margin and no
+#: cell size samples it (:func:`.decimation.always_dropped`); the disc used to
+#: be the one drawing in the library that reached it.
 GROUND_Y = 28
 
 
@@ -265,10 +270,21 @@ def drop_shadow() -> Canvas:
 def faction_disc(canvas: Canvas, faction: FactionColour) -> None:
     """The faction-coloured stand under the unit, drawn before anything else."""
     colours = faction.colours
-    raster.ground_shadow(canvas, 16, GROUND_Y + 0.8, 9.2, 3.4, RAMPS["ink"][1])
-    raster.ground_shadow(canvas, 16, GROUND_Y + 0.8, 8.1, 2.7, colours[1])
-    raster.ground_shadow(canvas, 16, GROUND_Y + 0.5, 6.1, 1.9, colours[2])
-    raster.ground_shadow(canvas, 15, GROUND_Y + 0.2, 3.2, 1.0, colours[3])
+    # Lifted one row clear of the cell's last row, which is the dead margin:
+    # the console samples row 31 at no cell size it can draw a board at, so
+    # anything drawn there is drawn, stored, uploaded and seen by nobody (see
+    # `decimation.always_dropped`). The disc's ink ring was the only thing in
+    # the library that reached it, and it reached it in every one of the 3,361
+    # figure cells, which made a twelve-texel band of the unit's own faction
+    # marker invisible on the machine the marker matters most on.
+    #
+    # A lift rather than a flattening. The ring reads as a contact edge because
+    # it is as deep as it is wide, and taking the depth out to buy the same
+    # clearance would have kept the pixels and spent the shape.
+    raster.ground_shadow(canvas, 16, GROUND_Y - 0.2, 9.2, 3.4, RAMPS["ink"][1])
+    raster.ground_shadow(canvas, 16, GROUND_Y - 0.2, 8.1, 2.7, colours[1])
+    raster.ground_shadow(canvas, 16, GROUND_Y - 0.5, 6.1, 1.9, colours[2])
+    raster.ground_shadow(canvas, 15, GROUND_Y - 0.8, 3.2, 1.0, colours[3])
 
 
 def legs(canvas: Canvas, ramp: Ramp, top: int = 20, bottom: int = 27,

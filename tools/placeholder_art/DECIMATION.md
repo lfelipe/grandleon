@@ -6,7 +6,7 @@ The console draws a 32-texel cell into a cell of 14 to 26 pixels and **point sam
 
 ## The dead margin
 
-Column and row **31** are sampled at no cell size at all, and 3361 of 3361 figure cells draw on them. Every texel there is drawn, stored, uploaded and seen by nobody on this console.
+Column and row **31** are sampled at no cell size at all, and 1021 of 3361 figure cells draw on them. Every texel there is drawn, stored, uploaded and seen by nobody on this console.
 
 ## Worst loss, by cell size
 
@@ -14,43 +14,43 @@ A cell size is reachable when a board's width divides the frame to it, so all of
 
 | cell | worst | losing | heaviest sheet |
 |---:|---:|---:|---|
-| 14px | 17.44% | 3258 | `characters/stormcaller_amber_undead_second_frames.png` |
-| 15px | 9.67% | 3144 | `characters/stormcaller_amber_scifi_frames.png` |
-| 16px | 12.03% | 3228 | `characters/beast_amber_sengoku_frames.png` |
-| 17px | 7.91% | 3090 | `characters/stormcaller_amber_undead_second_frames.png` |
-| 18px | 6.78% | 3012 | `characters/archer_amber_mythical_frames.png` |
-| 19px | 5.38% | 2526 | `characters/healer_amber_pirates_second_frames.png` |
-| 20px | 5.05% | 2874 | `characters/archer_amber_nature_frames.png` |
-| 21px | 5.69% | 2490 | `characters/archer_amber_frames.png` |
-| 22px | 4.27% | 2424 | `characters/archer_amber_mythical_frames.png` |
-| 23px | 5.58% | 1872 | `characters/archer_amber_undead_frames.png` |
-| 24px | 5.00% | 1884 | `characters/archer_amber_frames.png` |
-| 25px | 4.02% | 2034 | `characters/archer_amber_mythical_frames.png` |
-| 26px | 3.41% | 1710 | `characters/archer_amber_sengoku_frames.png` |
+| 14px | 16.03% | 3174 | `characters/healer_amber_undead_second_frames.png` |
+| 15px | 8.47% | 3108 | `characters/mage_amber_sengoku_frames.png` |
+| 16px | 12.53% | 3258 | `characters/beast_amber_sengoku_frames.png` |
+| 17px | 8.77% | 3120 | `characters/stormcaller_amber_undead_second_frames.png` |
+| 18px | 7.04% | 3090 | `characters/archer_amber_mythical_frames.png` |
+| 19px | 4.66% | 2646 | `characters/archer_amber_pirates_frames.png` |
+| 20px | 5.25% | 2874 | `characters/archer_amber_nature_frames.png` |
+| 21px | 5.91% | 2514 | `characters/archer_amber_frames.png` |
+| 22px | 4.38% | 2442 | `characters/archer_amber_mythical.png` |
+| 23px | 5.73% | 1866 | `characters/archer_amber_undead_frames.png` |
+| 24px | 5.12% | 1860 | `characters/archer_amber_frames.png` |
+| 25px | 4.13% | 2130 | `characters/archer_amber_mythical_frames.png` |
+| 26px | 3.53% | 1716 | `characters/archer_amber_sengoku_frames.png` |
 
 ## The heaviest cells in the library
 
-Bound: a figure may lose at most **35%** of its own opaque texels. The worst below is 17.44%.
+Bound: a figure may lose at most **35%** of its own opaque texels. The worst below is 16.03%.
 
 | loss | texels | cell | sheet |
 |---:|---:|---:|---|
-| 17.44% | 86 | 14px #2 | `characters/stormcaller_amber_undead_second_frames.png` |
-| 17.44% | 86 | 14px #2 | `characters/stormcaller_blue_undead_second_frames.png` |
-| 17.44% | 86 | 14px #2 | `characters/stormcaller_bone_undead_second_frames.png` |
-| 17.44% | 86 | 14px #2 | `characters/stormcaller_green_undead_second_frames.png` |
-| 17.44% | 86 | 14px #2 | `characters/stormcaller_red_undead_second_frames.png` |
-| 17.44% | 86 | 14px #2 | `characters/stormcaller_violet_undead_second_frames.png` |
-| 17.08% | 55 | 14px #0 | `characters/beast_amber_pirates_second_frames.png` |
-| 17.08% | 55 | 14px #0 | `characters/beast_blue_pirates_second_frames.png` |
-| 17.08% | 55 | 14px #0 | `characters/beast_bone_pirates_second_frames.png` |
-| 17.08% | 55 | 14px #0 | `characters/beast_green_pirates_second_frames.png` |
-| 17.08% | 55 | 14px #0 | `characters/beast_red_pirates_second_frames.png` |
-| 17.08% | 55 | 14px #0 | `characters/beast_violet_pirates_second_frames.png` |
-| 15.82% | 53 | 14px #1 | `characters/beast_amber_pirates_second_frames.png` |
-| 15.82% | 53 | 14px #1 | `characters/beast_blue_pirates_second_frames.png` |
-| 15.82% | 53 | 14px #1 | `characters/beast_bone_pirates_second_frames.png` |
-| 15.82% | 53 | 14px #1 | `characters/beast_green_pirates_second_frames.png` |
-| 15.82% | 53 | 14px #1 | `characters/beast_red_pirates_second_frames.png` |
-| 15.82% | 53 | 14px #1 | `characters/beast_violet_pirates_second_frames.png` |
-| 15.63% | 53 | 14px #0 | `characters/beast_amber_pirates_second.png` |
-| 15.63% | 53 | 14px #0 | `characters/beast_blue_pirates_second.png` |
+| 16.03% | 55 | 14px #2 | `characters/healer_amber_undead_second_frames.png` |
+| 16.03% | 55 | 14px #2 | `characters/healer_blue_undead_second_frames.png` |
+| 16.03% | 55 | 14px #2 | `characters/healer_bone_undead_second_frames.png` |
+| 16.03% | 55 | 14px #2 | `characters/healer_green_undead_second_frames.png` |
+| 16.03% | 55 | 14px #2 | `characters/healer_red_undead_second_frames.png` |
+| 16.03% | 55 | 14px #2 | `characters/healer_violet_undead_second_frames.png` |
+| 15.20% | 62 | 14px #2 | `characters/healer_amber_second_frames.png` |
+| 15.20% | 62 | 14px #2 | `characters/healer_blue_second_frames.png` |
+| 15.20% | 62 | 14px #2 | `characters/healer_bone_second_frames.png` |
+| 15.20% | 62 | 14px #2 | `characters/healer_green_second_frames.png` |
+| 15.20% | 62 | 14px #2 | `characters/healer_red_second_frames.png` |
+| 15.20% | 62 | 14px #2 | `characters/healer_violet_second_frames.png` |
+| 14.69% | 57 | 14px #2 | `characters/healer_amber_frames.png` |
+| 14.69% | 57 | 14px #2 | `characters/healer_blue_frames.png` |
+| 14.69% | 57 | 14px #2 | `characters/healer_bone_frames.png` |
+| 14.69% | 57 | 14px #2 | `characters/healer_green_frames.png` |
+| 14.69% | 57 | 14px #2 | `characters/healer_red_frames.png` |
+| 14.69% | 57 | 14px #2 | `characters/healer_violet_frames.png` |
+| 13.95% | 66 | 14px #0 | `characters/mage_amber_nature.png` |
+| 13.95% | 66 | 14px #0 | `characters/mage_blue_nature.png` |
