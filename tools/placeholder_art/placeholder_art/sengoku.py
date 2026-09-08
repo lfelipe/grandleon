@@ -92,7 +92,7 @@ import math
 
 from . import raster
 from .characters import (GROUND_Y, Archetype, FactionColour, arm, boots, cloak,
-                         eyes, face, hand, head, legs, torso)
+                         eye, eyes, face, hand, head, legs, torso)
 from .palette import RAMPS
 from .raster import Canvas
 
@@ -462,7 +462,7 @@ class Shinobi(Archetype):
                                 (13.5, 16.5)), LACQUER, 0.34)
         raster.rect(canvas, 12, 13, 8, 2, colours[1])
         for side in (-1, 1):
-            canvas.put(16 + side * 2, 12, GOLD[1])
+            eye(canvas, 16 + side * 2, 11, GOLD[1])
 
 
 class ShrineFox(Archetype):
@@ -506,8 +506,8 @@ class ShrineFox(Archetype):
                                 (21.5, 22.5)), colours, 0.72)  # the bib
         raster.capsule(canvas, 21.0, 14.5, 21.5, GROUND_Y - 8.5, 1.3, colours,
                        ambient=0.55)
-        canvas.put(25, 15, GOLD[1])
-        canvas.put(26, 15, GOLD[0])
+        eye(canvas, 25, 14, GOLD[1])
+        eye(canvas, 26, 14, GOLD[0])
 
 
 #: One routine per name in ``characters.ARCHETYPE_ORDER``, in that order. The

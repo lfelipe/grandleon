@@ -65,7 +65,7 @@ from __future__ import annotations
 
 from . import raster
 from .characters import (GROUND_Y, Archetype, FactionColour, arm, boots, cloak,
-                         legs, torso)
+                         eye, legs, torso)
 from .palette import RAMPS
 from .raster import Canvas
 
@@ -441,8 +441,8 @@ class Boar(Archetype):
                            15.5 + side * 0.6, 1.0, HORN, ambient=0.55)
         raster.polygon(canvas, ((22.0, 13.5), (23.6, 9.5), (25.2, 13.5)),
                        bristle, 0.55)
-        canvas.put(25, 15, RAMPS["gold"][1])
-        canvas.put(26, 15, RAMPS["gold"][0])
+        eye(canvas, 25, 14, RAMPS["gold"][1])
+        eye(canvas, 26, 14, RAMPS["gold"][0])
         raster.capsule(canvas, 20.5, 14.5, 21.0, GROUND_Y - 8.5, 1.4, colours,
                        ambient=0.55)
 

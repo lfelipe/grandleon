@@ -87,8 +87,8 @@ from __future__ import annotations
 import math
 
 from . import raster
-from .characters import (Archetype, FactionColour, arm, boots, cloak, eyes,
-                         face, hand, head, legs, torso)
+from .characters import (Archetype, FactionColour, arm, boots, cloak, eye,
+                         eyes, face, hand, head, legs, torso)
 from .palette import RAMPS
 from .raster import Canvas
 
@@ -503,8 +503,8 @@ class Dragon(Archetype):
         raster.capsule(canvas, 26.5, 9.8, 29.0, 10.6, 1.7, SCALE, ambient=0.36)
         for offset in range(3):  # teeth
             canvas.put(27 + offset % 2, 12 + offset, HORN[3])
-        canvas.put(25, 8, EMBER[1])
-        canvas.put(26, 8, EMBER[0])
+        eye(canvas, 25, 8, EMBER[1])
+        eye(canvas, 26, 8, EMBER[0])
         horns(canvas, 6.0, cx=25.5, spread=3.2, sweep=3.2)
 
 

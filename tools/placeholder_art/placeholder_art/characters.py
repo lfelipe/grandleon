@@ -311,6 +311,27 @@ def head(canvas: Canvas, cy: float = 9.0, radius: float = 4.3) -> None:
     raster.disc(canvas, 16, cy, radius, RAMPS["skin"], ambient=0.34)
 
 
+#: How deep an eye is drawn, in rows.
+#:
+#: Two, and the second row is not decoration. The console point samples figures
+#: and drops whole native rows to fit a cell (:mod:`.decimation`), so a mark one
+#: row deep is a coin flip: the rows these faces put an eye on are sampled at
+#: eight of the thirteen cell sizes a board can produce, which loses the eye on
+#: about two boards in five. Two rows, at these positions, are sampled at all
+#: thirteen.
+#:
+#: It is worth the row. An eye is what makes a figure read as alive and as
+#: facing somewhere, it is the smallest mark in the vocabulary that does either,
+#: and being the smallest is exactly what put it at risk.
+EYE_ROWS = 2
+
+
+def eye(canvas: Canvas, x: int, top: int, index: int) -> None:
+    """One eye, drawn deep enough that no cell size can drop it whole."""
+    for y in range(top, top + EYE_ROWS):
+        canvas.put(x, y, index)
+
+
 def arm(canvas: Canvas, ramp: Ramp, x0: float, y0: float, x1: float, y1: float,
         radius: float = 1.8) -> None:
     raster.capsule(canvas, x0, y0, x1, y1, radius, ramp, ambient=0.32)
@@ -322,6 +343,21 @@ def hand(canvas: Canvas, x: float, y: float) -> None:
 
 def eyes(canvas: Canvas, cy: int = 9, spread: int = 2,
          colour: int = RAMPS["ink"][0]) -> None:
+    """A pair of eyes, one row deep.
+
+    Deliberately *not* :func:`eye`, though it is the same mark and exposed to
+    the same loss. These are the ink eyes punched into a drawn face, and the
+    face around them -- the skin disc, the brow, the hood cut back over it --
+    survives the console's sampler whatever happens to the two texels inside
+    it, so a cell size that drops them costs an expression rather than an
+    identity. Drawing them two rows deep reads as a visor at this size, on
+    every humanoid in the library at once, which is a poor trade for a mark
+    the surrounding geometry already carries.
+
+    :func:`eye` is for the marks with nothing behind them: the gold eye of an
+    animal, the pair under a rogue's hood. Those are the whole of what says
+    which unit this is, and they are worth the row.
+    """
     for side in (-1, 1):
         canvas.put(16 + side * spread, cy, colour)
 
@@ -1014,7 +1050,7 @@ class Rogue(Archetype):
         raster.rect(canvas, 13, 12, 7, 2, colours[2])
         raster.rect(canvas, 13, 12, 7, 1, colours[3])
         for side in (-1, 1):
-            canvas.put(16 + side * 2, 10, RAMPS["gold"][1])
+            eye(canvas, 16 + side * 2, 9, RAMPS["gold"][1])
 
     def draw_second(self, canvas: Canvas, faction: FactionColour) -> None:
         """The same two daggers over a crouch drawn from a longer cloak.
@@ -1039,7 +1075,7 @@ class Rogue(Archetype):
         raster.rect(canvas, 13, 12, 7, 2, colours[2])
         raster.rect(canvas, 13, 12, 7, 1, colours[3])
         for side in (-1, 1):
-            canvas.put(16 + side * 2, 10, RAMPS["gold"][1])
+            eye(canvas, 16 + side * 2, 9, RAMPS["gold"][1])
         braid(canvas, RAMPS["leather"], 13.0, 8.4, 10.4, 14.6, 1.6)
 
 
@@ -1088,8 +1124,8 @@ class Beast(Archetype):
         raster.capsule(canvas, 25.0, 16.0, 29.0, 17.0, 2.2, hide, ambient=0.36)
         raster.polygon(canvas, ((22.0, 11.5), (24.0, 6.5), (25.5, 11.5)), hide, 0.55)
         raster.polygon(canvas, ((22.8, 11.0), (24.0, 8.0), (25.0, 11.0)), colours, 0.60)
-        canvas.put(25, 14, RAMPS["gold"][1])
-        canvas.put(26, 14, RAMPS["gold"][0])
+        eye(canvas, 25, 13, RAMPS["gold"][1])
+        eye(canvas, 26, 13, RAMPS["gold"][0])
         for offset in range(3):
             canvas.put(27 + offset % 2, 18 + offset, RAMPS["ink"][3])
         self.collar(canvas, colours)
@@ -1124,8 +1160,8 @@ class Beast(Archetype):
         raster.capsule(canvas, 25.0, 16.0, 29.0, 17.0, 2.2, hide, ambient=0.36)
         raster.polygon(canvas, ((22.0, 11.5), (24.0, 6.5), (25.5, 11.5)), hide, 0.55)
         raster.polygon(canvas, ((22.8, 11.0), (24.0, 8.0), (25.0, 11.0)), colours, 0.60)
-        canvas.put(25, 14, RAMPS["gold"][1])
-        canvas.put(26, 14, RAMPS["gold"][0])
+        eye(canvas, 25, 13, RAMPS["gold"][1])
+        eye(canvas, 26, 13, RAMPS["gold"][0])
         for offset in range(3):
             canvas.put(27 + offset % 2, 18 + offset, RAMPS["ink"][3])
         self.collar(canvas, colours)
