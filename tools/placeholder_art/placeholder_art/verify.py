@@ -48,7 +48,7 @@ import pathlib
 import struct
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from . import (autotile, characters, figures, frames,
+from . import (autotile, characters, decimation, figures, frames,
                palette, playstation_header, profiles, raster, scene,
                shimmer, styles, terrain, themes)
 from .raster import Canvas
@@ -981,6 +981,197 @@ def check_legibility_refuses() -> None:
     _refuses(style, whole_body, "stopped reading as the role",
              "a figure pinched three columns over its whole body")
 
+
+
+
+# ---------------------------------------------------------------------------
+# The reduction the console actually performs
+# ---------------------------------------------------------------------------
+#
+# `check_legibility` above asks whether a figure reads at half size in four
+# tones, through a box filter. This asks a different question, about a
+# different transform, and the two are not substitutes: see
+# :mod:`.decimation` for why a box filter structurally cannot see what a point
+# sampler does to a one-texel detail.
+
+#: The most of a cell's drawn texels the console's point sampler may leave
+#: unsampled, as a fraction of that cell's own opaque texels.
+#:
+#: Measured over the shipped library before it was set: the worst single cell
+#: is ``undead``'s stormcaller second figure at its lunge, which loses 86 of its
+#: 493 opaque texels, or 17.44%, on the 14-pixel cell. The mean across every
+#: cell and every size is 1.28%.
+#:
+#: Thirty-five per cent is twice that worst case, which is the same headroom
+#: :data:`.provided.MAX_CI4_LOSS` is set with and for the same reason: this is a
+#: **regression bound, not a redraw mandate**. The library as it stands is well
+#: inside it, so what the number refuses is a change that makes the console
+#: picture materially worse, while the report below is what says where the
+#: existing losses are. Tightening it is a decision to redraw, and belongs
+#: taken deliberately rather than smuggled in by lowering a constant.
+MAX_DECIMATION_LOSS = 0.35
+
+
+def check_decimation(native: Dict[str, Canvas],
+                     provided_paths: Sequence[str] = (),
+                     ) -> Dict[str, object]:
+    """What the Nintendo 64's point sampler drops from every figure.
+
+    Runs over every character sheet at every cell size in
+    :data:`.decimation.CELL_SIZES`, because a figure does not choose the board
+    it is drawn on and 14 pixels is as real a cell as 25.
+
+    Two things are reported, and they answer different questions.
+
+    **The heaviest colour loss**, bounded by :data:`MAX_DECIMATION_LOSS`. A
+    colour that no sampled texel carries is drawn work that reaches nobody, and
+    the texel count is how much of it there was. This is the number a
+    regression moves.
+
+    **The dead margin.** Column and row 31 are sampled at *no* cell size: the
+    texture unit accumulates its step across the cell and the last screen pixel
+    lands on texel 30, which ``play_rom.cpp`` states in its own prose beside
+    ``centre_tap`` ("the last pixel of a cell, at ``tile_ - 1``, reaches texel
+    30 and 31") for the filtered case, where the pair is read. Point sampling
+    takes the lower of that pair and never the upper. So a figure's last column
+    and last row are, on this console, drawn and stored and uploaded and never
+    seen. That is reported rather than refused, because it is a fact about the
+    cell geometry that every sheet in the library shares and no single sheet
+    caused.
+
+    ``provided_paths`` names assets a project stood in for. They are measured
+    like any other: unlike the separation checks, this one asks nothing that
+    depends on a sheet being one of a matched set, so a replacement is held to
+    exactly the bound the art it replaced was.
+    """
+    check_decimation_refuses()
+    worst = {"fraction": 0.0, "texels": 0, "opaque": 0, "cell_size": 0,
+             "cell_index": 0, "path": ""}
+    by_size: Dict[int, Dict[str, object]] = {
+        size: {"worst_fraction": 0.0, "worst_texels": 0, "worst_path": "",
+               "cells_losing": 0}
+        for size in decimation.CELL_SIZES
+    }
+    heaviest: List[Tuple[float, int, int, int, str]] = []
+    margin_drawn = 0
+    cells_seen = 0
+
+    for path in sorted(native):
+        if not path.startswith("characters/"):
+            continue
+        sheet = native[path]
+        for cell_index, cell in enumerate(decimation.cells_of(sheet)):
+            cells_seen += 1
+            opaque = sum(1 for index in cell.data
+                         if index != palette.TRANSPARENT)
+            if not opaque:
+                continue
+            if _draws_on_dead_margin(cell):
+                margin_drawn += 1
+            for size, (_, texels) in decimation.losses_by_size(cell).items():
+                if not texels:
+                    continue
+                fraction = texels / opaque
+                row = by_size[size]
+                row["cells_losing"] = int(row["cells_losing"]) + 1
+                if fraction > float(row["worst_fraction"]):
+                    row.update(worst_fraction=fraction, worst_texels=texels,
+                               worst_path=path)
+                if fraction > worst["fraction"]:
+                    worst = {"fraction": fraction, "texels": texels,
+                             "opaque": opaque, "cell_size": size,
+                             "cell_index": cell_index, "path": path}
+                heaviest.append((fraction, texels, size, cell_index, path))
+
+    if worst["fraction"] > MAX_DECIMATION_LOSS:
+        raise VerificationError(
+            f"{worst['path']} cell {worst['cell_index']} loses "
+            f"{worst['texels']} of its {worst['opaque']} opaque texels "
+            f"({float(worst['fraction']):.2%}) to the console's point sampler "
+            f"on the {worst['cell_size']}-pixel cell, above the "
+            f"{MAX_DECIMATION_LOSS:.0%} a figure may spend. Those texels are "
+            "drawn, stored and uploaded, and no screen pixel samples them. "
+            "Move the detail onto a column the sampler keeps "
+            f"({', '.join(str(column) for column in decimation.surviving(int(worst['cell_size']))[:8])}, "
+            "...), or draw it wider than one texel"
+        )
+
+    heaviest.sort(key=lambda row: (-row[0], row[4], row[2]))
+    return {
+        "worst": worst,
+        "by_cell_size": by_size,
+        "cells_measured": cells_seen,
+        "cells_drawing_on_dead_margin": margin_drawn,
+        "dead_margin_columns": list(decimation.always_dropped()),
+        "bound": MAX_DECIMATION_LOSS,
+        "heaviest": [
+            {"fraction": fraction, "texels": texels, "cell_size": size,
+             "cell_index": cell_index, "path": path}
+            for fraction, texels, size, cell_index, path in heaviest[:20]
+        ],
+    }
+
+
+def _draws_on_dead_margin(cell: Canvas) -> bool:
+    """Whether a cell paints anything on a column no cell size ever samples."""
+    dead = decimation.always_dropped()
+    for column in dead:
+        for other in range(decimation.NATIVE_GRID):
+            if cell.data[other * decimation.NATIVE_GRID + column] != \
+                    palette.TRANSPARENT:
+                return True
+            if cell.data[column * decimation.NATIVE_GRID + other] != \
+                    palette.TRANSPARENT:
+                return True
+    return False
+
+
+def check_decimation_refuses() -> None:
+    """Provoke the bound, out of the real reduction rather than a mock.
+
+    A check that only ever saw the shipped figures would never have seen this
+    fail, and a bound that has never refused anything is a bound nobody has
+    tested. So a cell is built here that draws a solid block on columns the
+    sampler is known to drop, and the pass must refuse it by its own arithmetic.
+
+    The provocation is built from :func:`.decimation.dropped` rather than from a
+    hardcoded column list, so it stays a provocation if the cell geometry ever
+    moves.
+    """
+    decimation.check_centre_tap()
+
+    size = decimation.SMALLEST_CELL
+    gone = decimation.dropped(size)
+    kept = decimation.surviving(size)
+    grid = decimation.NATIVE_GRID
+    cell = Canvas(grid, grid)
+    # A body on the sampled columns, so the cell has opaque texels to measure
+    # a fraction against, and a second colour confined to dropped ones.
+    body = palette.RAMPS["bone"][2]
+    hidden = palette.RAMPS["red"][2]
+    for y in kept:
+        for x in kept:
+            cell.data[y * grid + x] = body
+    for y in range(grid):
+        for x in gone:
+            cell.data[y * grid + x] = hidden
+
+    lost = decimation.lost_colours(cell, size)
+    if hidden not in lost:
+        raise VerificationError(
+            "the decimation provocation drew a colour only on columns "
+            f"{gone} of a {size}-pixel cell and the pass still found it "
+            "sampled; the model and the provocation disagree about which "
+            "columns reach the screen"
+        )
+    opaque = sum(1 for index in cell.data if index != palette.TRANSPARENT)
+    fraction = sum(lost.values()) / opaque
+    if fraction <= MAX_DECIMATION_LOSS:
+        raise VerificationError(
+            f"the decimation provocation loses only {fraction:.2%}, which the "
+            f"{MAX_DECIMATION_LOSS:.0%} bound accepts. The bound cannot be "
+            "shown to refuse anything, so it is not a bound"
+        )
 
 def check_shimmer(profile: profiles.Profile,
                   converted: Dict[str, profiles.Converted]) -> None:

@@ -30,6 +30,7 @@ recolourings side by side.
 - [The terrain registry](#the-terrain-registry)
 - [The scene backdrop menu](#the-scene-backdrop-menu)
 - [The palette](#the-palette)
+- [What the console does not draw](#what-the-console-does-not-draw)
 - [Module map](#module-map)
 - [Known limitations](#known-limitations)
 
@@ -74,6 +75,7 @@ assets/<profile>/palettes.json                    palette(s) for the profile
 assets/<profile>/manifest.json                    sizes, layouts, mask tables
 assets/palette_usage.json                         what each drawing costs
 gallery/*.png, GALLERY.md, ROSTER.md              generated, do not hand-edit
+DECIMATION.md                                     what the console never samples
 ```
 
 `manifest.json` is the file a renderer should read: the tile grid of every
@@ -447,6 +449,47 @@ thing an append still moves is the legibility reduction, whose box filter
 resolves against the whole palette; that tone shift is the price of a growing
 palette, and it lands on a measurement rather than on a shipped file.
 
+## What the console does not draw
+
+The legibility reduction above asks whether a figure reads at 16x16 in four
+tones, and it asks through a **box filter**. That is not the transform a player
+sees. The Nintendo 64 draws a 32-texel cell into a cell of 14 to 26 pixels
+(`view::FitRule{300, 200, 26, 14, 18}` in `play_rom.cpp`, so the size follows
+from the board's width and the art has no say in it), and **figures are point
+sampled**: the ROM sets `FILTER_BILINEAR` for terrain and says in as many words
+that "the ground is filtered and the figures are not".
+
+The difference matters because the two reductions fail on opposite mistakes. A
+box filter carries some of every texel forward, so a one-texel highlight on a
+dropped column comes through dimmed. A point sampler deletes it. The library
+was measured against the filter that cannot see that happen.
+
+`decimation.py` is the other instrument. It reproduces the texture unit's own
+arithmetic rather than approximating it -- the same derivation `play_rom.cpp`
+carries for its probes -- and `check_centre_tap` asserts that it lands on the
+one value the ROM states in prose, texel 15 and 11/32 on the 25-pixel cell. It
+writes nothing; `verify.check_decimation` and `DECIMATION.md` are what read it.
+
+Two things come out of it, and they are different in kind:
+
+- **A regression bound.** A figure may lose at most 35% of its own opaque
+  texels to the sampler, at any cell size. The library's worst is `undead`'s
+  stormcaller at its lunge, 86 of 493 texels on the 14-pixel cell, or 17.44%;
+  the mean is 1.28%. The bound is twice the worst thing shipped, the same
+  headroom `provided.MAX_CI4_LOSS` is set with. **It is a regression bound and
+  not a redraw mandate**: tightening it is a decision to redraw the library and
+  belongs taken deliberately rather than smuggled in by lowering a constant.
+- **The dead margin.** Column and row 31 are sampled at no cell size at all,
+  because the texture unit accumulates from zero and the last screen pixel
+  lands on texel 30. All 3361 figure cells draw on them. Those texels are
+  drawn, stored, uploaded, and seen by nobody on this console. That is a
+  property of the cell geometry rather than of any one drawing, so it is
+  reported and not refused.
+
+`DECIMATION.md` is the per-sheet cut: worst loss by cell size, and the heaviest
+cells in the library. It is what a redraw should be read against, because a
+bound only says the art has not got worse.
+
 ## Module map
 
 | Module | Responsibility |
@@ -465,10 +508,11 @@ palette, and it lands on a measurement rather than on a shipped file.
 | `backdrops.py` | the scene backdrop menu |
 | `scene.py` | the composed sample map |
 | `profiles.py` | output targets and their quantisation rules |
+| `decimation.py` | what the Nintendo 64's point sampler drops from a figure |
 | `playstation_header.py` | `n64_ci4` repacked as PlayStation VRAM data |
 | `pngio.py` | the deterministic PNG encoder |
 | `pixelfont.py` | a 3x5 bitmap font for gallery labels |
-| `verify.py` | seam, adjacency and legibility assertions, every build |
+| `verify.py` | seam, adjacency, legibility and decimation assertions, every build |
 | `gallery.py` | contact sheets, `GALLERY.md` and `ROSTER.md` |
 | `build.py` | orchestration |
 

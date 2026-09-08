@@ -31,8 +31,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Tuple
 
-from . import (autotile, backdrops, characters, figures, frames, gallery,
-               logo, playstation_header, pngio,
+from . import (autotile, backdrops, characters, decimation, figures, frames,
+               gallery, logo, playstation_header, pngio,
                profiles, provided, scene, shimmer, sprites_header, styles,
                terrain, themes, verify)
 from .palette import PALETTE_SIZE, RGB, TRANSPARENT
@@ -841,6 +841,19 @@ def _build(output: Path, quiet: bool,
         {asset.path: asset.canvas for asset in assets},
         converted_by_profile[profiles.LEGIBILITY.name],
         sorted(replaced))
+
+    # The console's own reduction, on the same native canvases. It sits beside
+    # the legibility pass rather than inside it because it is a different
+    # question about a different transform: that one box-filters to 16x16 and
+    # asks whether two roles can still be told apart, this one models the point
+    # sampler the ROM actually draws figures with and asks what it throws away.
+    # A box filter carries some of every texel forward and so cannot see a
+    # one-texel detail land on a dropped column; see `decimation`.
+    summary["decimation"] = verify.check_decimation(
+        {asset.path: asset.canvas for asset in assets}, sorted(replaced))
+    (output / "DECIMATION.md").write_text(
+        decimation.report_markdown(summary["decimation"]), encoding="utf-8")
+    summary["files"] = int(summary["files"]) + 1
 
     (output / "assets" / "themes.h").write_text(
         _themes_header(water_cycle_slots), encoding="utf-8")

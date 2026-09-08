@@ -1743,6 +1743,23 @@ public:
         // is never larger than 26 nor smaller than 14, and a board too large
         // for that draws at 18.
         constexpr view::FitRule frame{300, 200, 26, 14, 18};
+        // The art generator models what this machine's point sampler drops
+        // from a figure, and to do that it has to know every cell size a
+        // figure can be drawn at. Those are the two numbers below, restated in
+        // `placeholder_art/decimation.py` as `SMALLEST_CELL` and
+        // `LARGEST_CELL`. Restating them is a drift risk, so it is asserted
+        // here rather than left to the comment above: widen this range and the
+        // build fails until the model that measures against it is widened too,
+        // instead of the model quietly measuring a cell nobody draws and
+        // missing one somebody does.
+        static_assert(
+            frame.smallest_tile == 14 && frame.largest_tile == 26,
+            "the Nintendo 64's cell range moved. "
+            "tools/placeholder_art/placeholder_art/decimation.py restates it "
+            "as SMALLEST_CELL and LARGEST_CELL to measure what point sampling "
+            "drops from a figure at every size a board can produce; update it "
+            "in the same change"
+        );
         const view::BoardFit fit =
             view::fit_board(frame, snapshot.width, snapshot.height);
         tile_ = fit.tile;
