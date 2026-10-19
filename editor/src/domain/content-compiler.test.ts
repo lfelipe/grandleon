@@ -26,8 +26,8 @@ const demoSource = resolve(process.cwd(), "../games/demo/source/project.json");
 // worth the last sixty-four: four kinds' worth of edges, and the one pair of
 // numbers the whole game prices an edge with.
 // The host and WebAssembly compilers agree on it either way.
-const tarnholtPackageBytes = 20668;
-const tarnholtPackageMd5 = "09c49b89324338fae8d7c8143591a65a";
+const tarnholtPackageBytes = 22212;
+const tarnholtPackageMd5 = "98d8a2ac2d5c8aa211db78e9163eac69";
 
 beforeAll(async () => {
   await initEncounterEngine();

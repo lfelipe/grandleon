@@ -65,7 +65,7 @@
       "allowedWeaponTypeIds": [
         "blade"
       ],
-      "notes": "Melee line holder. Reaches one tile, which is the only reach the v0 simulation implements."
+      "notes": "Melee line holder. Reaches one tile with a sword while holding the road for bows and staves behind."
     },
     {
       "id": "archer",
@@ -129,7 +129,7 @@
       "allowedWeaponTypeIds": [
         "staff"
       ],
-      "notes": "Support. Restoring health is not an expressible effect; this unit currently only makes a weak attack."
+      "notes": "Support. Carries Mend to restore four health at one to two tiles; the Mending Staff itself has zero power and only answers if forced to swing."
     },
     {
       "id": "commander",
@@ -1008,6 +1008,150 @@
         {
           "speaker": "Captain Mirea",
           "text": "Then we do not sit in this tower. We go to the Coldgate and we stand in it."
+        }
+      ]
+    },
+    {
+      "id": "harrow_open_lines",
+      "name": "Smoke on the Road",
+      "cast": [
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        },
+        {
+          "speaker": "Coll Rankin",
+          "unitTypeId": "ashen_levy"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Captain Mirea",
+          "text": "Hold your fire on the one by the south granary. That is a boat hook, not a Coil blade."
+        },
+        {
+          "speaker": "Coll Rankin",
+          "text": "I am not stepping forward, Captain. If you have a word for me, bring it here."
+        }
+      ]
+    },
+    {
+      "id": "harrow_coll_talk_lines",
+      "name": "A Word in the Burn",
+      "cast": [
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        },
+        {
+          "speaker": "Coll Rankin",
+          "unitTypeId": "ashen_levy"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Captain Mirea",
+          "text": "Drop the grey coat, Ellsmoor. The road behind us is clear."
+        },
+        {
+          "speaker": "Coll Rankin",
+          "text": "Meet me past the trees when the ash settles. I know where their flour is coming from."
+        }
+      ]
+    },
+    {
+      "id": "sunken_mill_open_lines",
+      "name": "Over the Millrace",
+      "cast": [
+        {
+          "speaker": "Coll Rankin",
+          "unitTypeId": "dawn_levy"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Coll Rankin",
+          "text": "The race is too deep to wade. Only the mill floor crosses it."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Then we take the floor before the stormcaller finds his range."
+        }
+      ]
+    },
+    {
+      "id": "emberhall_open_lines",
+      "name": "Four Gates",
+      "cast": [
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        },
+        {
+          "speaker": "Sister Nemet",
+          "unitTypeId": "dawn_healer"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Sister Nemet",
+          "text": "Torches on the east road and the north wall. They are coming through all four gaps."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "Keep to the well. Six rounds until first light—nobody chases them past the stones."
+        }
+      ]
+    },
+    {
+      "id": "coldgate_open_lines",
+      "name": "The Doorway in the Snow",
+      "cast": [
+        {
+          "speaker": "Marshal Vorne",
+          "unitTypeId": "ashen_marshal"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Marshal Vorne",
+          "text": "Kesh wrote that forty people held the river road. I see seven."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "The pass is three strides wide, Marshal. Seven is four more than it needs."
+        }
+      ]
+    },
+    {
+      "id": "coldgate_vorne_falls_lines",
+      "name": "The Pass Holds",
+      "cast": [
+        {
+          "speaker": "Marshal Vorne",
+          "unitTypeId": "ashen_marshal"
+        },
+        {
+          "speaker": "Captain Mirea",
+          "unitTypeId": "dawn_commander"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Marshal Vorne",
+          "text": "The snow will close this road before the next column reaches it."
+        },
+        {
+          "speaker": "Captain Mirea",
+          "text": "That was the idea."
         }
       ]
     }
@@ -2394,6 +2538,23 @@
                 "priority": 2,
                 "notes": "The other thread, and the unconditional fallback: a guard that cleared the burn without hearing anybody out takes the long way round, and nothing failed for it to do so."
               }
+            ],
+            "moments": [
+              {
+                "id": "harrow_opening",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "harrow_open_lines"
+              },
+              {
+                "id": "harrow_coll_talk",
+                "when": {
+                  "kind": "characterTalked",
+                  "placementId": "ashen_levy_coll"
+                },
+                "dialogueId": "harrow_coll_talk_lines"
+              }
             ]
           },
           {
@@ -2526,6 +2687,15 @@
                 "id": "mill_taken",
                 "targetNodeId": "mill_burned",
                 "priority": 1
+              }
+            ],
+            "moments": [
+              {
+                "id": "sunken_mill_opening",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "sunken_mill_open_lines"
               }
             ]
           },
@@ -2761,6 +2931,15 @@
                 "id": "yard_held",
                 "targetNodeId": "dark_falls",
                 "priority": 1
+              }
+            ],
+            "moments": [
+              {
+                "id": "emberhall_opening",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "emberhall_open_lines"
               }
             ]
           },
@@ -3146,6 +3325,23 @@
                 "targetNodeId": "tower_cost",
                 "priority": 2,
                 "notes": "Unconditional fallback for a client that cannot decide."
+              }
+            ],
+            "moments": [
+              {
+                "id": "coldgate_opening",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "coldgate_open_lines"
+              },
+              {
+                "id": "coldgate_vorne_falls",
+                "when": {
+                  "kind": "characterFalls",
+                  "placementId": "ashen_marshal_vorne"
+                },
+                "dialogueId": "coldgate_vorne_falls_lines"
               }
             ]
           },

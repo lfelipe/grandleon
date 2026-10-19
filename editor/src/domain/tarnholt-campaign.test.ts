@@ -518,4 +518,61 @@ describe("The Tarnholt Line sample campaign", () => {
       .toBeGreaterThan(legalMoves(state, "dawn_knight_north").length);
     endPlaytest(state);
   });
+
+  it("authors opening, talk, and fall moments on its encounter boards", () => {
+    const decoded = project();
+    const dialogueIds = new Set(decoded.dialogues?.map((entry) => entry.id) ?? []);
+    expect(node("fordlight_battle").moments).toEqual([
+      {
+        id: "fordlight_opening",
+        when: { kind: "stageOpens" },
+        dialogueId: "fordlight_open_lines"
+      }
+    ]);
+    expect(node("harrow_burn_battle").moments).toEqual([
+      {
+        id: "harrow_opening",
+        when: { kind: "stageOpens" },
+        dialogueId: "harrow_open_lines"
+      },
+      {
+        id: "harrow_coll_talk",
+        when: { kind: "characterTalked", placementId: "ashen_levy_coll" },
+        dialogueId: "harrow_coll_talk_lines"
+      }
+    ]);
+    expect(node("sunken_mill_battle").moments).toEqual([
+      {
+        id: "sunken_mill_opening",
+        when: { kind: "stageOpens" },
+        dialogueId: "sunken_mill_open_lines"
+      }
+    ]);
+    expect(node("emberhall_battle").moments).toEqual([
+      {
+        id: "emberhall_opening",
+        when: { kind: "stageOpens" },
+        dialogueId: "emberhall_open_lines"
+      }
+    ]);
+    expect(node("coldgate_battle").moments).toEqual([
+      {
+        id: "coldgate_opening",
+        when: { kind: "stageOpens" },
+        dialogueId: "coldgate_open_lines"
+      },
+      {
+        id: "coldgate_vorne_falls",
+        when: { kind: "characterFalls", placementId: "ashen_marshal_vorne" },
+        dialogueId: "coldgate_vorne_falls_lines"
+      }
+    ]);
+
+    for (const entry of campaign().flow!.nodes) {
+      for (const moment of entry.moments ?? []) {
+        expect(dialogueIds.has(moment.dialogueId)).toBe(true);
+      }
+    }
+  });
 });
+
