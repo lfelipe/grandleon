@@ -20,6 +20,7 @@ interface MountUnitType {
 interface MountOptions {
   readonly unitTypes?: readonly MountUnitType[];
   readonly factions?: readonly { readonly id: string; readonly color?: string }[];
+  readonly deploymentTiles?: readonly { readonly x: number; readonly y: number }[];
 }
 
 /** What the board asked the surface above it to make and put down. */
@@ -39,6 +40,7 @@ function mount(
   const host = document.createElement("div");
   document.body.append(host);
   const placements = ref(initial);
+  const deploymentTiles = ref(options.deploymentTiles);
   const enrolled = ref<CampaignRosterMember[]>([]);
   const asked = ref<CastAsk[]>([]);
   const unitTypes = ref<readonly MountUnitType[]>(
@@ -47,21 +49,31 @@ function mount(
   const factions = options.factions ?? [];
   const app = createApp({
     components: { PlacementEditor },
-    setup: () => ({ placements, members, enrolled, unitTypes, factions, asked }),
+    setup: () => ({
+      placements,
+      deploymentTiles,
+      members,
+      enrolled,
+      unitTypes,
+      factions,
+      asked
+    }),
     template: `
       <PlacementEditor
         :placements="placements"
+        :deployment-tiles="deploymentTiles"
         :map="{ id: 'field', name: 'Field', width: 3, height: 2, terrain: [] }"
         :unit-types="unitTypes"
         :factions="factions"
         :members="members"
         @update="placements = $event"
+        @update-deployment-tiles="deploymentTiles = $event"
         @enroll="enrolled.push($event)"
         @add-character="asked.push($event)" />
     `
   });
   app.mount(host);
-  return { app, host, placements, enrolled, asked, unitTypes };
+  return { app, host, placements, deploymentTiles, enrolled, asked, unitTypes };
 }
 
 function button(host: HTMLElement, text: string): HTMLButtonElement {
@@ -1104,6 +1116,47 @@ describe("PlacementEditor", () => {
       expect(palette[1]!.getAttribute("aria-checked")).toBe("true");
       expect(document.activeElement).toBe(palette[1]);
       expect(palette.filter((entry) => entry.tabIndex === 0)).toHaveLength(1);
+      app.unmount();
+    });
+
+  it("marks and clears starting tiles on the board and warns when unoccupied",
+    async () => {
+      const { app, host, deploymentTiles } = mount(
+        [{ id: "wren", unitTypeId: "guardian", side: "first", x: 0, y: 0 }],
+        undefined,
+        { deploymentTiles: [] }
+      );
+      button(host, "Mark starting tiles on the board").click();
+      await nextTick();
+      expect(button(host, "Done marking starting tiles")
+        .getAttribute("aria-pressed")).toBe("true");
+
+      // Mark (1, 0): nobody on our side stands there yet, so the board warns.
+      cell(host, 1, 0).click();
+      await nextTick();
+      expect(deploymentTiles.value).toEqual([{ x: 1, y: 0 }]);
+      expect(cell(host, 1, 0).classList.contains("deployment-tile")).toBe(true);
+      expect(cell(host, 1, 0).getAttribute("aria-label"))
+        .toContain("starting tile");
+      expect(host.textContent)
+        .toContain("The starting region holds nobody on your side");
+
+      // Include (0, 0) where our character stands: the warning clears.
+      cell(host, 0, 0).click();
+      await nextTick();
+      expect(deploymentTiles.value).toEqual([{ x: 1, y: 0 }, { x: 0, y: 0 }]);
+      expect(host.textContent)
+        .not.toContain("The starting region holds nobody on your side");
+
+      // Pressing (1, 0) again toggles it off.
+      cell(host, 1, 0).click();
+      await nextTick();
+      expect(deploymentTiles.value).toEqual([{ x: 0, y: 0 }]);
+
+      // Clearing removes all starting tiles and exits the marking mode.
+      button(host, "Clear starting tiles").click();
+      await nextTick();
+      expect(deploymentTiles.value).toEqual([]);
       app.unmount();
     });
 });

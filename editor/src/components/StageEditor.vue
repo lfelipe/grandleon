@@ -90,6 +90,8 @@ const emit = defineEmits<{
   drawMap: [];
   /** Close this Stage and go back to the list of them. */
   close: [];
+  /** Play this Stage directly in Play Mode. */
+  playStage: [];
   /** A keystroke that is not in the project yet, so the header can say so. */
   dirty: [];
 }>();
@@ -386,6 +388,28 @@ function saveCapacity(raw: string) {
 }
 
 /**
+ * Where the player may arrange their side before the Stage begins.
+ *
+ * Like `saveCapacity`, the deployment object is created around the region when
+ * there is none, and removed entirely when the last tile is cleared and no
+ * capacity remains. An empty `tiles` list is deleted rather than stored so a
+ * deployment that only caps the company carries no empty region.
+ */
+function saveDeploymentTiles(tiles: { x: number; y: number }[]) {
+  const next = plainNode();
+  if (!next) return;
+  if (tiles.length === 0) {
+    if (!next.deployment) return;
+    if (next.deployment.capacity !== undefined) delete next.deployment.tiles;
+    else delete next.deployment;
+  } else {
+    next.deployment = { ...(next.deployment ?? { id: `${next.id}_deployment` }) };
+    next.deployment.tiles = [tiles[0]!, ...tiles.slice(1)];
+  }
+  emit("saveNode", next);
+}
+
+/**
  * A note about where the author's own side stands, on the region that holds
  * it. An emptied note is removed rather than stored as an empty string, so a
  * region with nothing written on it reads exactly like one never annotated.
@@ -416,6 +440,9 @@ function saveDeploymentNotes(raw: string) {
         </p>
       </div>
       <div class="stage-verbs">
+        <button type="button" class="play-stage" @click="emit('playStage')">
+          ▶ Play this Stage
+        </button>
         <button type="button" class="secondary" @click="emit('openInFlow', nodeId)">
           Show where it comes in the campaign
         </button>
@@ -476,6 +503,7 @@ function saveDeploymentNotes(raw: string) {
       ref="placements"
       @dirty="emit('dirty')"
       :placements="node.placements ?? []"
+      :deployment-tiles="node.deployment?.tiles ?? []"
       :map="map"
       :unit-types="characters"
       :factions="project.factions ?? []"
@@ -483,6 +511,7 @@ function saveDeploymentNotes(raw: string) {
       :members="members"
       :theme-id="project.themeId"
       @update="savePlacements"
+      @update-deployment-tiles="saveDeploymentTiles"
       @enroll="emit('enrollMember', $event)"
       @add-character="emit('castCharacter', $event)" />
 
@@ -524,9 +553,9 @@ function saveDeploymentNotes(raw: string) {
       )">
     <p class="field-help">{{ capacityHelp }}</p>
 
-    <!-- The region itself has no tile picker yet, so its tiles are carried
-         through untouched; the note beside them is a field the format holds
-         and it would otherwise be a field no control writes. -->
+    <!-- The starting region's tiles are marked directly on the board above;
+         the note beside them is a field the format holds on the deployment
+         record and is editable whenever a starting region or capacity exists. -->
     <template v-if="node.deployment">
       <label for="stage-deployment-notes">
         Notes on where your side stands

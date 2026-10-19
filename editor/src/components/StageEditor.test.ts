@@ -98,6 +98,7 @@ function mount(
   });
   const onOpenInFlow = vi.fn();
   const onDrawMap = vi.fn();
+  const onPlayStage = vi.fn();
 
   const app = createApp(StageEditor, {
     project,
@@ -105,10 +106,11 @@ function mount(
     nodeId: node.id,
     onSaveNode,
     onOpenInFlow,
-    onDrawMap
+    onDrawMap,
+    onPlayStage
   });
   app.mount(host);
-  return { app, host, project, onSaveNode, onOpenInFlow, onDrawMap };
+  return { app, host, project, onSaveNode, onOpenInFlow, onDrawMap, onPlayStage };
 }
 
 function saved(onSaveNode: ReturnType<typeof vi.fn>): CampaignNode {
@@ -493,6 +495,36 @@ describe("StageEditor", () => {
     expect(read).not.toContain("encounter");
     expect(read).not.toContain("battle");
     expect(read).toContain("stage");
+    app.unmount();
+  });
+
+  it("marks and clears starting region tiles on the board and omits empty deployment",
+    async () => {
+      const { app, host, onSaveNode } = mount(stageNode({
+        placements: [{
+          id: "wren_here", memberId: "wren", unitTypeId: "guardian",
+          side: "first", x: 0, y: 0
+        }]
+      }));
+      button(host, "Mark starting tiles on the board").click();
+      await nextTick();
+      host.querySelector<HTMLButtonElement>('[data-cell="0"]')!.click();
+      await nextTick();
+      expect(saved(onSaveNode).deployment).toEqual({
+        id: "stage_deployment",
+        tiles: [{ x: 0, y: 0 }]
+      });
+
+      button(host, "Clear starting tiles").click();
+      await nextTick();
+      expect(saved(onSaveNode)).not.toHaveProperty("deployment");
+      app.unmount();
+    });
+
+  it("emits playStage when 'Play this Stage' is pressed", () => {
+    const { app, host, onPlayStage } = mount(stageNode());
+    button(host, "▶ Play this Stage").click();
+    expect(onPlayStage).toHaveBeenCalledTimes(1);
     app.unmount();
   });
 });

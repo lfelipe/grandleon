@@ -296,6 +296,8 @@ export interface CampaignPlayStart {
 export interface CampaignPlayOptions {
   /** Which authored campaign to play. The first with a flow when omitted. */
   campaignId?: string;
+  /** Which node inside that campaign to start at. The flow's entryNodeId when omitted. */
+  nodeId?: string;
   /**
    * Where to keep it. Derived from the package and campaign identities when
    * omitted, which is what a browser wants; named explicitly by tests that
@@ -706,7 +708,7 @@ export function startCampaignPlaySession(
   if (!campaign) {
     return { error: "No campaign Stage is available to play." };
   }
-  const built = buildCampaignFlow(project, campaign);
+  const built = buildCampaignFlow(project, campaign, options.nodeId);
   if (!built.definition || !built.nodesByStableId) {
     return { error: built.error ?? "No campaign Stage is available to play." };
   }

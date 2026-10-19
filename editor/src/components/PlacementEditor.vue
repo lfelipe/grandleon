@@ -93,10 +93,21 @@ const props = defineProps<{
     undefined;
   /** The style the game draws its characters in. */
   characterStyleId?: string | undefined;
+  /**
+   * Tiles where the player may arrange their side before the Stage begins,
+   * when this board belongs to a campaign Stage.
+   */
+  deploymentTiles?: readonly { readonly x: number; readonly y: number }[] |
+    undefined;
 }>();
 
 const emit = defineEmits<{
   update: [placements: EncounterPlacement[]];
+  /**
+   * The starting region where the player's side may be arranged before the
+   * Stage begins.
+   */
+  updateDeploymentTiles: [tiles: { x: number; y: number }[]];
   /**
    * Somebody the board had to put in the company for a placement on the
    * player's own side to be legal. The surface around this one owns the
@@ -148,8 +159,8 @@ const assetBase = import.meta.env.BASE_URL;
 
 const selectedIndex = ref(0);
 // Pressing a tile puts down a character from the palette, moves the one already
-// selected, or extends its patrol, so the same gesture serves all three and
-// the board never needs a second grid.
+// selected, extends its patrol, or marks a starting tile, so the same gesture
+// serves all four and the board never needs a second grid.
 //
 // The mode follows what the author last said they were doing rather than
 // standing still: picking somebody out of the palette means putting them down,
@@ -157,7 +168,7 @@ const selectedIndex = ref(0);
 // board opens on putting somebody down, because a board with nobody on it has
 // nothing to move and filling it is the only thing there is to do. A palette
 // that looked armed while a press moved something instead would be a trap.
-const gridMode = ref<"stamp" | "place" | "patrol">(
+const gridMode = ref<"stamp" | "place" | "patrol" | "deploy">(
   props.placements.length === 0 ? "stamp" : "place"
 );
 /** What the last board gesture did, for anyone who cannot see it happen. */
@@ -169,11 +180,25 @@ const draggingIndex = ref(-1);
 const draftPlacements = ref<EncounterPlacement[]>(
   props.placements.map((placement) => ({ ...placement }))
 );
+const draftDeploymentTiles = ref<{ x: number; y: number }[]>(
+  (props.deploymentTiles ?? []).map((tile) => ({ x: tile.x, y: tile.y }))
+);
 
 watch(
   () => props.placements,
   (placements) => {
     draftPlacements.value = placements.map((placement) => ({ ...placement }));
+  },
+  { deep: true }
+);
+
+watch(
+  () => props.deploymentTiles,
+  (tiles) => {
+    draftDeploymentTiles.value = (tiles ?? []).map((tile) => ({
+      x: tile.x,
+      y: tile.y
+    }));
   },
   { deep: true }
 );
@@ -732,6 +757,36 @@ function sideWord(side: "first" | "second"): string {
   return side === "first" ? "your side" : "the enemy";
 }
 
+function isDeploymentTile(x: number, y: number): boolean {
+  return draftDeploymentTiles.value.some((tile) => tile.x === x && tile.y === y);
+}
+
+function toggleDeploymentTile(x: number, y: number): void {
+  const tiles = draftDeploymentTiles.value.map((tile) => ({ ...tile }));
+  const existing = tiles.findIndex((tile) => tile.x === x && tile.y === y);
+  if (existing >= 0) {
+    tiles.splice(existing, 1);
+    notice.value =
+      `Took column ${x + 1}, row ${y + 1} out of the starting region.`;
+  } else {
+    tiles.push({ x, y });
+    notice.value =
+      `Added column ${x + 1}, row ${y + 1} to the starting region.`;
+  }
+  draftDeploymentTiles.value = tiles;
+  emit("updateDeploymentTiles", tiles);
+}
+
+function clearDeploymentTiles(): void {
+  if (draftDeploymentTiles.value.length === 0) return;
+  draftDeploymentTiles.value = [];
+  if (gridMode.value === "deploy") {
+    gridMode.value = draftPlacements.value.length === 0 ? "stamp" : "place";
+  }
+  notice.value = "Cleared the starting region.";
+  emit("updateDeploymentTiles", []);
+}
+
 /**
  * What a cell holds, as a screen reader hears it. The label describes the tile
  * rather than the gesture: what a press does is decided by the mode above the
@@ -741,13 +796,14 @@ function sideWord(side: "first" | "second"): string {
 function cellLabel(x: number, y: number): string {
   const here = occupants(x, y);
   const ground = `Column ${x + 1}, row ${y + 1}: ${terrainAt(x, y)}`;
-  if (here.length === 0) return `${ground}, empty`;
+  const region = isDeploymentTile(x, y) ? ", starting tile" : "";
+  if (here.length === 0) return `${ground}, empty${region}`;
   const who = here.map(({ placement }) => {
     const name = unitTypeName(placement.unitTypeId) ?? placement.unitTypeId;
     const member = memberName(placement.memberId);
     return `${member ? `${member}, ` : ""}${name} of ${sideWord(placement.side)}`;
   });
-  return `${ground}, ${who.join("; ")}`;
+  return `${ground}, ${who.join("; ")}${region}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1118,6 +1174,10 @@ function stamp(x: number, y: number) {
 
 /** What pressing a tile does now, said once above the board and in the modes. */
 const gestureHelp = computed(() => {
+  if (gridMode.value === "deploy") {
+    return "Pressing a tile marks it as a starting tile where your side can " +
+      "be arranged before the Stage begins, or clears it when it already is one.";
+  }
   if (gridMode.value === "stamp") {
     const entry = picked.value;
     if (!entry) return "Pressing a tile does nothing: nobody is picked.";
@@ -1143,6 +1203,42 @@ const gestureHelp = computed(() => {
       unitTypeName(selected.unitTypeId) ?? selected.unitTypeId} to it.`
     : "Pressing a tile moves the selected character to it. Nobody is on " +
       "this board yet.";
+});
+
+/**
+ * Problems with the starting region itself, reported beside the board so an
+ * author marking tiles knows immediately when nobody on their side stands in
+ * it or when a tile reaches outside the map.
+ */
+const deploymentProblems = computed<string[]>(() => {
+  const tiles = draftDeploymentTiles.value;
+  if (tiles.length === 0) return [];
+  const problems: string[] = [];
+  if (props.map) {
+    const out = tiles.find(
+      (tile) =>
+        tile.x < 0 || tile.y < 0 ||
+        tile.x >= props.map!.width || tile.y >= props.map!.height
+    );
+    if (out) {
+      problems.push(
+        `Starting tile at column ${out.x + 1}, row ${out.y + 1} is outside ` +
+        `${props.map.width}×${props.map.height} map bounds.`
+      );
+    }
+  }
+  const hasFirstSideInside = draftPlacements.value.some(
+    (placement) =>
+      placement.side === "first" && isDeploymentTile(placement.x, placement.y)
+  );
+  if (!hasFirstSideInside) {
+    problems.push(
+      "The starting region holds nobody on your side, so nobody can be " +
+      "arranged in it. Include a tile where one of your side stands, or " +
+      "stand one of your side inside the starting region."
+    );
+  }
+  return problems;
 });
 
 /**
@@ -1190,7 +1286,7 @@ const placementSummary = computed(() => {
 });
 
 /**
- * One press on a tile, whichever of the three things the board is set to do.
+ * One press on a tile, whichever of the things the board is set to do.
  *
  * Moving has one more rule than the other two: pressing somebody who is not
  * the character being moved picks *them* up instead. The board is the only way
@@ -1213,10 +1309,15 @@ const placementSummary = computed(() => {
  * on purpose. Everything else the palette can do it still does, and dragging
  * does the same two jobs for whoever would rather drag.
  *
- * Patrol keeps a mode of its own, because dropping a marker on a tile is a
- * third meaning that nothing about the tile can tell you.
+ * Patrol and the starting region keep modes of their own, because dropping a
+ * route marker or marking a starting tile is a meaning nothing about the tile
+ * can tell you.
  */
 function pressTile(x: number, y: number) {
+  if (gridMode.value === "deploy") {
+    toggleDeploymentTile(x, y);
+    return;
+  }
   if (gridMode.value !== "patrol") {
     // Anybody at all, not merely somebody other than the selection: pressing
     // the tile a character already stands on is picking that character up,
@@ -1323,6 +1424,34 @@ function pressTile(x: number, y: number) {
       Choose a map before placing characters.
     </p>
 
+    <div v-if="deploymentTiles !== undefined && canDrawGrid && map"
+      class="deployment-region-controls">
+      <div class="patrol-verbs">
+        <button type="button" :aria-pressed="gridMode === 'deploy'"
+          @click="gridMode = gridMode === 'deploy'
+            ? (draftPlacements.length === 0 ? 'stamp' : 'place')
+            : 'deploy'">
+          {{ gridMode === "deploy"
+            ? "Done marking starting tiles"
+            : "Mark starting tiles on the board" }}
+        </button>
+        <button v-if="draftDeploymentTiles.length > 0" type="button"
+          class="secondary" @click="clearDeploymentTiles()">
+          Clear starting tiles
+        </button>
+      </div>
+      <p class="field-help">
+        <template v-if="draftDeploymentTiles.length === 0">
+          No starting region marked: your side begins where their placements stand.
+        </template>
+        <template v-else>
+          {{ draftDeploymentTiles.length }}
+          {{ draftDeploymentTiles.length === 1 ? "starting tile" : "starting tiles" }}
+          marked where your side can be arranged before the Stage begins.
+        </template>
+      </p>
+    </div>
+
     <!-- The board, and beside it the one panel that is about what the board has
          selected. Side by side rather than stacked, because a panel underneath a
          board is a panel an author scrolls away from the thing it describes: the
@@ -1346,7 +1475,8 @@ function pressTile(x: number, y: number) {
             :tabindex="(row - 1) * map.width + (column - 1) === focusIndex ? 0 : -1"
             :class="{
               occupied: occupants(column - 1, row - 1).length,
-              collision: occupants(column - 1, row - 1).length > 1
+              collision: occupants(column - 1, row - 1).length > 1,
+              'deployment-tile': isDeploymentTile(column - 1, row - 1)
             }"
             :style="cellStyle(column - 1, row - 1)"
             :aria-label="cellLabel(column - 1, row - 1)"
@@ -1389,6 +1519,10 @@ function pressTile(x: number, y: number) {
             <span class="terrain-glyph" aria-hidden="true">
               {{ terrainGlyph(terrainAt(column - 1, row - 1)) }}
             </span>
+            <span v-if="isDeploymentTile(column - 1, row - 1)"
+              class="deployment-marker" aria-hidden="true">
+              S
+            </span>
             <span v-if="patrolLeg(column - 1, row - 1) >= 0" class="patrol-marker">
               {{ patrolLeg(column - 1, row - 1) + 1 }}
             </span>
@@ -1419,13 +1553,17 @@ function pressTile(x: number, y: number) {
          at a time is what makes the surface readable; it must not also make a
          problem invisible until somebody happens to press the right tile. Each
          line names who it is about and opens them. -->
-    <ul v-if="boardProblems.length" class="placement-warning" role="alert">
+    <ul v-if="boardProblems.length || deploymentProblems.length"
+      class="placement-warning" role="alert">
       <li v-for="entry in boardProblems" :key="`${entry.index}:${entry.problem}`">
         <button type="button" class="secondary"
           @click="selectedIndex = entry.index">
           {{ entry.who }}
         </button>
         {{ entry.problem }}
+      </li>
+      <li v-for="problem in deploymentProblems" :key="`deploy:${problem}`">
+        {{ problem }}
       </li>
     </ul>
 
@@ -1936,6 +2074,20 @@ function pressTile(x: number, y: number) {
   color: #f2c14e;
   font-size: 0.7rem;
 }
+.deployment-marker {
+  position: absolute;
+  left: 0.1rem;
+  bottom: 0.1rem;
+  padding: 0 0.2rem;
+  border-radius: 0.2rem;
+  background: #1d4e89;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.deployment-region-controls {
+  margin: 0.4rem 0;
+}
 .placement-cell {
   position: relative;
 }
@@ -1969,6 +2121,11 @@ function pressTile(x: number, y: number) {
 .placement-cell.occupied {
   border-color: #426c46;
   background: #dff0df;
+}
+
+.placement-cell.deployment-tile {
+  outline: 2px dashed #1d4e89;
+  outline-offset: -2px;
 }
 
 .placement-cell.collision {

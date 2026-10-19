@@ -830,6 +830,8 @@ async function discardUnreadableDraft() {
  * wrong, and a Stage of the last good numbers is a better answer than a button
  * that does nothing.
  */
+const playTarget = ref<{ campaignId: string; nodeId: string }>();
+
 function startPlaying() {
   const flushed = workspace.value?.flushDrafts() ?? true;
   if (!flushed) {
@@ -837,6 +839,18 @@ function startPlaying() {
       "Playing the last saved version of an open draft: it has problems, so " +
       "it could not be committed. Fix them and press Play again.";
   }
+  playTarget.value = undefined;
+  playing.value = true;
+}
+
+function startPlayingStage(campaignId: string, nodeId: string) {
+  const flushed = workspace.value?.flushDrafts() ?? true;
+  if (!flushed) {
+    savedStatus.value =
+      "Playing the last saved version of an open draft: it has problems, so " +
+      "it could not be committed. Fix them and press Play again.";
+  }
+  playTarget.value = { campaignId, nodeId };
   playing.value = true;
 }
 
@@ -1126,7 +1140,8 @@ onBeforeUnmount(() => {
             :target-notes="consoleNotes"
             @dirty="dirty = true"
             @change="projectChanged"
-            @section="activeSection = $event" />
+            @section="activeSection = $event"
+            @play-stage="startPlayingStage" />
         </EditorErrorBoundary>
       </div>
     </main>
@@ -1136,7 +1151,9 @@ onBeforeUnmount(() => {
     v-if="playing"
     :project="project"
     :ready="engineReady"
-    @exit="playing = false"
+    :initial-campaign-id="playTarget?.campaignId"
+    :initial-node-id="playTarget?.nodeId"
+    @exit="playing = false; playTarget = undefined"
   />
 </template>
 

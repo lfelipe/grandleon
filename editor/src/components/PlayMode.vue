@@ -139,6 +139,10 @@ const props = withDefaults(
   defineProps<{
     project: SourceProject;
     ready: boolean;
+    /** Optional campaign to open directly when Play starts from a Stage. */
+    initialCampaignId?: string | undefined;
+    /** Optional node inside that campaign to start at. */
+    initialNodeId?: string | undefined;
     /** Pause between enemy activations, so a turn reads as a sequence. */
     activationDelayMs?: number;
     /**
@@ -181,7 +185,8 @@ const keepError = ref("");
 // Which authored campaign Play runs. A game with one campaign never shows the
 // choice; a game with several would otherwise only ever be playable from its
 // first one, which is not a limit an authoring surface should have.
-const chosenCampaignId = ref("");
+const chosenCampaignId = ref(props.initialCampaignId ?? "");
+const chosenNodeId = ref(props.initialNodeId ?? "");
 const selectedUnitId = ref("");
 // Board taps are mode-free, but the keyboard panel still needs a move/attack
 // choice because it lists destinations and targets separately.
@@ -1058,6 +1063,7 @@ function start() {
   endCampaignPlaySession(session.value);
   const started = startCampaignPlaySession(props.project, {
     ...(chosenCampaignId.value ? { campaignId: chosenCampaignId.value } : {}),
+    ...(chosenNodeId.value ? { nodeId: chosenNodeId.value } : {}),
     // A fresh press of Play founds a fresh campaign. Picking one up again is
     // what "Pick up where I left off" is for, below.
     resume: false

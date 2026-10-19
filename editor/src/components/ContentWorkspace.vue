@@ -67,6 +67,7 @@ import MapEditor from "./MapEditor.vue";
 import StageEditor from "./StageEditor.vue";
 import PlaytestPanel from "./PlaytestPanel.vue";
 import ItemGrantEditor from "./ItemGrantEditor.vue";
+import MatchupPreview from "./MatchupPreview.vue";
 import WeaponTriangleEditor from "./WeaponTriangleEditor.vue";
 import RosterMemberEditor from "./RosterMemberEditor.vue";
 import { useKeystrokeDraft } from "./keystroke-draft";
@@ -90,6 +91,8 @@ const emit = defineEmits<{
    *  The navigation beside it draws itself from this and never from the click,
    *  so it can never claim a section the workspace declined to leave for. */
   section: [id: string];
+  /** Open Play Mode directly at a specific Stage. */
+  playStage: [campaignId: string, nodeId: string];
 }>();
 
 const props = defineProps<{
@@ -2177,11 +2180,16 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
       :project="project"
       @cancel="cancelCharacter"
       @create="makeCharacter" />
-    <CharacterRoster v-else-if="activeSection.id === 'characters'" ref="roster"
-      :project="project"
-      :selected-id="selectedCollection === 'unitTypes' ? selectedId : ''"
-      @create="makingCharacter = true"
-      @select="selectCharacter" />
+    <template v-else-if="activeSection.id === 'characters'">
+      <CharacterRoster ref="roster"
+        :project="project"
+        :selected-id="selectedCollection === 'unitTypes' ? selectedId : ''"
+        @create="makingCharacter = true"
+        @select="selectCharacter" />
+      <MatchupPreview
+        :project="project"
+        :selected-unit-id="selectedCollection === 'unitTypes' ? selectedId : ''" />
+    </template>
 
     <section
       v-if="activeSection.id === 'characters' && selectedCollection === 'abilities'"
@@ -2646,6 +2654,9 @@ const referenceChoices = computed<Readonly<Record<string, readonly ReferenceChoi
           @create-item="createRelated('item')"
           @open-in-flow="openNodeInFlow(openStageNode.campaignId, $event)"
           @draw-map="selectSection('maps')"
+          @play-stage="emit(
+            'playStage', openStageNode.campaignId, openStageNode.nodeId
+          )"
           @close="openStage = undefined" />
       </div>
     </div>
