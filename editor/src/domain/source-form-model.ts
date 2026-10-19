@@ -100,6 +100,7 @@ const collectionSchemas: Record<SourceCollectionName, string> = {
 
 const referenceCategories = new Map<string, SourceFieldDescriptor["referenceCategory"]>([
   ["class.schema.json:allowedWeaponTypeIds", "weapon_type"],
+  ["weapon-type.schema.json:strongAgainst", "weapon_type"],
   ["unit-type.schema.json:classId", "class"],
   ["unit-type.schema.json:startingWeaponIds", "weapon"],
   ["unit-type.schema.json:startingItemIds", "item"],
@@ -207,11 +208,19 @@ const presentations: Readonly<Record<string, FieldPresentation>> = {
   },
   "class.schema.json:traversal.crossings": {
     label: "Also crosses",
-    help: "Type water for rivers and lakes, or heights for mountains and rock."
+    optionLabels: {
+      water: "Water: rivers and lakes",
+      heights: "Heights: mountains and rock"
+    },
+    help: "Water is rivers and lakes; heights is mountains and rock."
   },
   "class.schema.json:allowedWeaponTypeIds": {
     label: "Allowed weapon types",
     help: "Unset allows any; an empty list allows none."
+  },
+  "weapon-type.schema.json:strongAgainst": {
+    label: "Beats",
+    help: "Weapon types this kind has an advantage over."
   },
   "unit-type.schema.json:classId": {
     label: "Class",
@@ -872,12 +881,17 @@ function flatten(
   }
   else if (resolved.type === "object") kind = "json";
 
-  const options = kind === "select"
-    ? (resolved.enum as readonly string[]).map((value) => ({
-      value,
-      label: presentation?.optionLabels?.[value] ?? value
-    }))
-    : undefined;
+  const itemSchema = resolved.items ? resolve(resolved.items) : undefined;
+  const enumValues = kind === "select"
+    ? (resolved.enum as readonly string[] | undefined)
+    : kind === "string-list" &&
+        itemSchema?.enum?.every((value) => typeof value === "string")
+      ? (itemSchema.enum as readonly string[])
+      : undefined;
+  const options = enumValues?.map((value) => ({
+    value,
+    label: presentation?.optionLabels?.[value] ?? value
+  }));
   const description = presentation && "help" in presentation
     ? presentation.help
     : resolved.description;

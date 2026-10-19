@@ -455,6 +455,85 @@ describe("SchemaRecordForm", () => {
     app.unmount();
   });
 
+  it("reorders starting weapons with In hand badge and removes missing references",
+    async () => {
+      const { app, host, onSubmit } = mount({
+        heading: "Warden",
+        fields: sourceRecordFields("unitTypes"),
+        modelValue: {
+          id: "warden",
+          name: "Warden",
+          classId: "vanguard",
+          startingWeaponIds: ["iron_spear", "javelin"]
+        },
+        referenceChoices: {
+          class: [{ id: "vanguard", name: "Vanguard" }],
+          weapon: [
+            { id: "iron_spear", name: "Iron Spear" },
+            { id: "javelin", name: "Javelin" }
+          ]
+        }
+      });
+      expect(host.querySelector(".in-hand-badge")?.textContent).toBe("In hand");
+      const moveDown = host.querySelector<HTMLButtonElement>(
+        'button[aria-label="Move Iron Spear down"]'
+      )!;
+      moveDown.click();
+      await nextTick();
+      host.querySelector("form")!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true })
+      );
+      await nextTick();
+      expect(onSubmit.mock.calls[0]?.[0].startingWeaponIds).toEqual([
+        "javelin",
+        "iron_spear"
+      ]);
+      app.unmount();
+    });
+
+  it("offers checkboxes for traversal crossings and omits empty traversal",
+    async () => {
+      const { app, host, onSubmit } = mount({
+        heading: "Swimmer",
+        fields: sourceRecordFields("classes"),
+        modelValue: {
+          id: "swimmer",
+          name: "Swimmer",
+          baseStats: { health: 10, movement: 4, strength: 3, defense: 2 }
+        },
+        referenceChoices: { weapon_type: [] }
+      });
+      const water = host.querySelector<HTMLInputElement>(
+        "#field-traversal-crossings-water"
+      )!;
+      const heights = host.querySelector<HTMLInputElement>(
+        "#field-traversal-crossings-heights"
+      )!;
+      expect(water).not.toBeNull();
+      expect(heights).not.toBeNull();
+
+      water.click();
+      await nextTick();
+      host.querySelector("form")!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true })
+      );
+      await nextTick();
+      expect(onSubmit.mock.calls[0]?.[0].traversal).toEqual({
+        crossings: ["water"]
+      });
+
+      // Unchecking the last crossing removes `traversal` entirely so the record
+      // matches one that never mentioned traversal.
+      water.click();
+      await nextTick();
+      host.querySelector("form")!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true })
+      );
+      await nextTick();
+      expect("traversal" in onSubmit.mock.calls[1]![0]).toBe(false);
+      app.unmount();
+    });
+
   // The fold's "a problem behind me must not hide behind me" rule is not
   // testable here. jsdom answers `checkValidity()` correctly but never matches
   // `:invalid`, which is the selector the rule is built on and verified

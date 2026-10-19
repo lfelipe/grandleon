@@ -205,14 +205,21 @@ function setValue(path: readonly string[], value: unknown) {
   for (const segment of path.slice(0, -1)) {
     const child = target[segment];
     if (!child || typeof child !== "object" || Array.isArray(child)) {
+      if (value === undefined) return;
       target[segment] = {};
     }
     target = target[segment] as Record<string, unknown>;
   }
   const name = path.at(-1);
   if (!name) return;
-  if (value === undefined) delete target[name];
-  else target[name] = value;
+  if (value === undefined) {
+    delete target[name];
+    if (path.length === 2 && Object.keys(target).length === 0) {
+      delete draft.value[path[0]!];
+    }
+  } else {
+    target[name] = value;
+  }
 }
 
 function textValue(field: SourceFieldDescriptor): string {
@@ -305,6 +312,61 @@ function missingReference(field: SourceFieldDescriptor): string | undefined {
 function selected(field: SourceFieldDescriptor, id: string): boolean {
   const value = getValue(field.path);
   return Array.isArray(value) && value.includes(id);
+}
+
+function selectedReferences(field: SourceFieldDescriptor): readonly {
+  readonly id: string;
+  readonly name: string;
+  readonly exists: boolean;
+}[] {
+  const current = getValue(field.path);
+  if (!Array.isArray(current)) return [];
+  const all = props.referenceChoices?.[field.referenceCategory ?? ""] ?? [];
+  return current.map((id) => {
+    const match = all.find((choice) => choice.id === id);
+    return {
+      id: String(id),
+      name: match?.name ?? String(id),
+      exists: match !== undefined
+    };
+  });
+}
+
+function moveReference(
+  field: SourceFieldDescriptor,
+  index: number,
+  delta: -1 | 1
+) {
+  const current = getValue(field.path);
+  if (!Array.isArray(current)) return;
+  const targetIndex = index + delta;
+  if (targetIndex < 0 || targetIndex >= current.length) return;
+  const values = [...current];
+  const [moved] = values.splice(index, 1);
+  values.splice(targetIndex, 0, moved);
+  setValue(field.path, values);
+}
+
+function removeReference(field: SourceFieldDescriptor, id: string) {
+  const current = getValue(field.path);
+  if (!Array.isArray(current)) return;
+  setValue(
+    field.path,
+    current.filter((entry) => entry !== id)
+  );
+}
+
+function toggleOptionInList(field: SourceFieldDescriptor, optionValue: string) {
+  const current = getValue(field.path);
+  const values = Array.isArray(current) ? [...current] : [];
+  const index = values.indexOf(optionValue);
+  if (index >= 0) values.splice(index, 1);
+  else values.push(optionValue);
+  if (values.length === 0 && !field.required) {
+    setValue(field.path, undefined);
+  } else {
+    setValue(field.path, values);
+  }
 }
 
 function toggleReference(field: SourceFieldDescriptor, id: string) {
@@ -524,6 +586,43 @@ defineExpose({ flush });
           Configure this field
         </label>
         <template v-if="field.required || getValue(field.path) !== undefined">
+          <ol v-if="selectedReferences(field).length > 0"
+            class="selected-references"
+            :aria-label="`Selected ${field.label}`">
+            <li v-for="(entry, index) in selectedReferences(field)"
+              :key="`${entry.id}:${index}`"
+              class="selected-reference-item">
+              <span>
+                <strong>{{ entry.name }}</strong> ({{ entry.id }})
+                <span v-if="field.path.join('.') === 'startingWeaponIds' && index === 0"
+                  class="in-hand-badge">In hand</span>
+                <span v-if="!entry.exists" class="field-error" role="alert">
+                  — Missing reference: '{{ entry.id }}' does not exist in this project.
+                </span>
+              </span>
+              <span class="selected-reference-verbs">
+                <button v-if="selectedReferences(field).length > 1"
+                  type="button" class="secondary"
+                  :disabled="index === 0"
+                  :aria-label="`Move ${entry.name} up`"
+                  @click="moveReference(field, index, -1)">
+                  Move up
+                </button>
+                <button v-if="selectedReferences(field).length > 1"
+                  type="button" class="secondary"
+                  :disabled="index === selectedReferences(field).length - 1"
+                  :aria-label="`Move ${entry.name} down`"
+                  @click="moveReference(field, index, 1)">
+                  Move down
+                </button>
+                <button type="button" class="secondary"
+                  :aria-label="`Remove ${entry.name}`"
+                  @click="removeReference(field, entry.id)">
+                  Remove
+                </button>
+              </span>
+            </li>
+          </ol>
           <label :for="`${controlId(field)}-search`">Search {{ field.label }}</label>
           <input :id="`${controlId(field)}-search`"
             v-model="search[field.path.join('.')]" type="search">
@@ -537,6 +636,10 @@ defineExpose({ flush });
               <small v-if="choice.explanation">{{ choice.explanation }}</small>
             </label>
           </div>
+          <button type="button" class="secondary"
+            @click="emit('createRelated', field.referenceCategory)">
+            Create related {{ categoryWord(field.referenceCategory) }}
+          </button>
         </template>
       </fieldset>
 
@@ -596,6 +699,22 @@ defineExpose({ flush });
         </select>
       </template>
 
+      <fieldset v-else-if="field.kind === 'string-list' && field.options"
+        class="option-list-field">
+        <legend>
+          {{ field.label }}<span v-if="field.required" aria-hidden="true"> *</span>
+        </legend>
+        <div class="reference-choices">
+          <label v-for="option in field.options" :key="option.value"
+            :for="`${controlId(field)}-${option.value}`">
+            <input :id="`${controlId(field)}-${option.value}`" type="checkbox"
+              :checked="selected(field, option.value)"
+              @change="toggleOptionInList(field, option.value)">
+            {{ option.label }}
+          </label>
+        </div>
+      </fieldset>
+
       <template v-else-if="field.kind === 'string-list'">
         <label :for="controlId(field)">
           {{ field.label }} (one value per line)
@@ -640,3 +759,42 @@ defineExpose({ flush });
     <button type="submit">Save {{ heading }}</button>
   </form>
 </template>
+
+<style scoped>
+.selected-references {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0.5rem;
+  padding-left: 1.25rem;
+}
+
+.selected-reference-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.45rem;
+  background: #f5f7f2;
+  border: 1px solid #c7d2ca;
+  border-radius: 0.35rem;
+}
+
+.selected-reference-verbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.in-hand-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1c3a27;
+  background: #dcefe2;
+  border: 1px solid #88b897;
+  border-radius: 0.25rem;
+}
+</style>
