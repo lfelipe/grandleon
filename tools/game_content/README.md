@@ -46,8 +46,8 @@ it, so an apparently valid package never silently loses gameplay. What it
 refuses today, all of it schema-valid and therefore unsupported rather than
 malformed, with a diagnostic that says so:
 
-- a campaign predicate over inventory, for which there is no runtime state to
-  evaluate it against;
+- a `worldFlagEquals` predicate comparing against a string value, since
+  persistent campaign world flags are typed as booleans or integers;
 - any non-empty `scriptBindings` or `extensions`, for which there is no runtime
   at all;
 - a campaign with no `flow`. The schema leaves it optional because a campaign

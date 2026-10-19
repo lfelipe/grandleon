@@ -52,11 +52,6 @@ const std::map<std::string, std::string> refused_though_valid = {
     // Runtime extension data, which has no runtime at all. Named in
     // `tools/game_content/README.md`.
     {"script-bindings", "$.abilities[0].scriptBindings"},
-    // A campaign predicate over inventory, for which there is no runtime state
-    // to evaluate it against. Also named in the README. This fixture is the
-    // corpus's one non-linear flow, which is why it is authored with the
-    // predicate rather than moved.
-    {"nonlinear-campaign", "when.kind"},
     // A campaign authored as a portable membership registry rather than as
     // something to play. `campaign::load_campaign` refuses a record holding no
     // node, so there is nothing to emit.

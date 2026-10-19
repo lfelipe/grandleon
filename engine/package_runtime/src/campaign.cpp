@@ -264,7 +264,8 @@ CampaignLoadResult load_campaign(
                     !reader.u8(encoded_kind)) {
                     return fail(CampaignError::malformed_payload);
                 }
-                // Three is a world flag, and it brings a tail. One and two are
+                // Three is a world flag, four is an inventory count in the
+                // shared store, and each brings its own tail. One and two are
                 // an objective's two results, exactly as they always were, and
                 // they bring nothing, so a package that asks only about
                 // objectives is read by byte-identical code paths.
@@ -283,6 +284,19 @@ CampaignLoadResult load_campaign(
                     predicate.kind = CampaignPredicateKind::world_flag_equals;
                     predicate.value_type = value_type;
                     predicate.value = static_cast<std::int64_t>(raw);
+                    branch.predicates.push_back(predicate);
+                    continue;
+                }
+                if (encoded_kind == 4U) {
+                    std::uint32_t quantity = 0;
+                    if (!reader.u32(quantity)) {
+                        return fail(CampaignError::malformed_payload);
+                    }
+                    if (predicate.subject == 0U || quantity == 0U) {
+                        return fail(CampaignError::unsupported_flow);
+                    }
+                    predicate.kind = CampaignPredicateKind::inventory_at_least;
+                    predicate.value = static_cast<std::int64_t>(quantity);
                     branch.predicates.push_back(predicate);
                     continue;
                 }
@@ -578,6 +592,9 @@ bool holds(
     const CampaignPredicate& predicate,
     const std::vector<simulation::ObjectiveResult>& objectives
 ) noexcept {
+    if (predicate.kind != CampaignPredicateKind::objective_result) {
+        return false;
+    }
     for (const simulation::ObjectiveResult& objective : objectives) {
         if (objective.id != predicate.subject) continue;
         return predicate.result == ObjectiveOutcome::satisfied

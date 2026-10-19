@@ -532,6 +532,8 @@ interface ConditionRecord {
   kind: string;
   objectiveId?: unknown;
   result?: unknown;
+  itemId?: unknown;
+  quantity?: unknown;
   flagId?: unknown;
   value?: unknown;
   condition?: unknown;
@@ -560,9 +562,21 @@ function mapPredicate(condition: ConditionRecord): PredicateOutcome {
     // state.
     return { unsupported: "a world flag compared against text" };
   }
+  if (condition.kind === "inventoryAtLeast") {
+    const itemId = stableContentId(String(condition.itemId ?? ""));
+    const quantity = condition.quantity;
+    if (
+      itemId === 0n ||
+      typeof quantity !== "number" ||
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 0xffffffff
+    ) {
+      return { unsupported: "an invalid inventory condition" };
+    }
+    return { predicate: { itemId, quantity } };
+  }
   if (condition.kind !== "objectiveResult") {
-    // `inventoryAtLeast` is the one left: authorable and schema-valid, with no
-    // encoding in a package. The same refusal the content compiler makes.
     return { unsupported: `a '${condition.kind}' condition` };
   }
   const objectiveId = stableContentId(String(condition.objectiveId ?? ""));
@@ -583,6 +597,7 @@ function mapCondition(when: TransitionCondition): BranchOutcome {
   const condition = when as ConditionRecord;
   if (
     condition.kind === "objectiveResult" ||
+    condition.kind === "inventoryAtLeast" ||
     condition.kind === "worldFlagEquals"
   ) {
     const mapped = mapPredicate(condition);
@@ -659,7 +674,8 @@ function castScene(dialogue: SourceDialogue): DialogueDefinition {
 
 export function buildCampaignFlow(
   project: SourceProject,
-  campaign: SourceCampaign
+  campaign: SourceCampaign,
+  entryNodeId?: string
 ): BuiltCampaignFlow {
   const flow = campaign.flow;
   if (!flow) return { error: "No campaign Stage is available to play." };
@@ -721,7 +737,9 @@ export function buildCampaignFlow(
         id: stableContentId(recruit.id),
         name: recruit.name,
         unitTypeId: stableContentId(recruit.unitTypeId),
-        joinNodeId: stableContentId(node.id)
+        joinNodeId: 0n === (entryNodeId ? stableContentId(entryNodeId) : 0n)
+          ? stableContentId(node.id)
+          : 0n
       });
     }
   }
@@ -768,7 +786,7 @@ export function buildCampaignFlow(
     definition: {
       id: stableContentId(campaign.id),
       name: campaign.name,
-      entryNodeId: stableContentId(flow.entryNodeId),
+      entryNodeId: stableContentId(entryNodeId ?? flow.entryNodeId),
       nodes,
       members,
       grants,

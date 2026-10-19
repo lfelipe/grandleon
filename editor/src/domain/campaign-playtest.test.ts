@@ -319,15 +319,33 @@ describe("campaign playtest over the engine cursor", () => {
     endPlaytest(state);
   });
 
-  it("refuses a condition the runtime cannot evaluate, like the compiler", () => {
+  it("evaluates an inventoryAtLeast condition against the campaign store", () => {
     const project = branchingProject();
+    project.items = [{ id: "rope", name: "Rope", stackLimit: 5 }];
+    project.campaigns![0]!.startingStore = [{ itemId: "rope", quantity: 2 }];
     const battle = project.campaigns![0]!.flow!.nodes.find(
       (node) => node.id === "battle"
     )!;
     battle.transitions[0]!.when = {
       kind: "inventoryAtLeast",
       itemId: "rope",
-      quantity: 1
+      quantity: 2
+    };
+    const started = startCampaignPlaytest(project);
+    expect(started.error).toBeUndefined();
+    expect(started.session).toBeDefined();
+    endCampaignPlaytest(started.session!);
+  });
+
+  it("refuses a condition the runtime cannot evaluate, like the compiler", () => {
+    const project = branchingProject();
+    const battle = project.campaigns![0]!.flow!.nodes.find(
+      (node) => node.id === "battle"
+    )!;
+    battle.transitions[0]!.when = {
+      kind: "worldFlagEquals",
+      flagId: "password",
+      value: "open_sesame"
     };
     const started = startCampaignPlaytest(project);
     expect(started.session).toBeUndefined();

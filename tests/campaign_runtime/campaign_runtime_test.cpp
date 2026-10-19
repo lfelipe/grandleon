@@ -2393,6 +2393,76 @@ void a_wave_pays_for_every_character_it_lands() {
     );
 }
 
+void an_inventory_grant_opens_a_graph_edge_that_reads_the_store() {
+    gc::GameSource authored = game_source();
+    gc::CampaignPredicate has_two_tonics;
+    has_two_tonics.kind = gc::CampaignPredicateKind::inventory_at_least;
+    has_two_tonics.subject = 50U;
+    has_two_tonics.value = 2;
+    authored.campaigns[0].nodes[0].conditional_targets = {
+        {watch_node, 1, gc::ConditionCombinator::all, {has_two_tonics}}
+    };
+    const pf::LoadedPackage package = compile_and_load(authored);
+    const cr::CampaignGraphLoad loaded =
+        cr::load_campaign_graph(package, tarnholt_campaign);
+    expect(
+        static_cast<bool>(loaded),
+        std::string_view{cr::graph_source_error_name(loaded.source.error)}
+    );
+
+    campaign::CampaignState state = full_roster(package);
+    expect(
+        campaign::begin_campaign(state, loaded.source.graph) ==
+            campaign::ProgressionError::none,
+        "the campaign enters at the ford"
+    );
+    // With only one tonic in the shared store, the inventory edge does not
+    // hold and the route falls back to the retreat.
+    campaign::CampaignState one_tonic = state;
+    const campaign::NodeCompletion fallback = campaign::complete_node(
+        one_tonic,
+        loaded.source.graph,
+        campaign::make_outcome_batch(
+            {ref(package, core::ContentCategory::encounter, ford_encounter),
+             0xc1ULL, 0U},
+            {campaign::add_item(
+                campaign::PersistentEntityId{},
+                ref(package, core::ContentCategory::item, 50U),
+                1U
+            )}
+        )
+    );
+    expect(
+        fallback.advanced && fallback.used_fallback &&
+            fallback.target ==
+                cr::campaign_node_ref(package.game_id, retreat_node),
+        "one tonic is not two, so the fallback is taken"
+    );
+
+    // With two tonics in the shared store, the inventory edge holds and takes
+    // the watch.
+    campaign::CampaignState two_tonics = state;
+    const campaign::NodeCompletion branch = campaign::complete_node(
+        two_tonics,
+        loaded.source.graph,
+        campaign::make_outcome_batch(
+            {ref(package, core::ContentCategory::encounter, ford_encounter),
+             0xc2ULL, 0U},
+            {campaign::add_item(
+                campaign::PersistentEntityId{},
+                ref(package, core::ContentCategory::item, 50U),
+                2U
+            )}
+        )
+    );
+    expect(
+        branch.advanced && !branch.used_fallback &&
+            branch.target == cr::campaign_node_ref(package.game_id, watch_node),
+        "an inventory_at_least predicate compiled into the package opens the "
+        "branch when the shared store holds enough"
+    );
+}
+
 int main() {
     an_authored_flow_becomes_a_graph();
     a_campaign_walks_the_graph_its_package_authored();
@@ -2400,6 +2470,7 @@ int main() {
     a_member_fields_the_kit_the_campaign_holds();
     a_spend_is_charged_to_whoever_spent_it();
     a_talk_raises_a_flag_a_graph_edge_reads();
+    an_inventory_grant_opens_a_graph_edge_that_reads_the_store();
     a_dead_member_is_left_off_every_later_map();
     a_board_that_cannot_be_fought_is_refused_rather_than_published();
     a_board_says_which_members_it_has_a_place_for();

@@ -354,10 +354,6 @@ refusal, and the browser offers "Start fresh" rather than doing it unasked.
 
 ## What is still not expressible
 
-- **Inventory conditions.** `inventoryAtLeast` is schema-valid and the
-  compiler refuses it by name; `worldFlagEquals` is what the branch runs on.
-- **Multiple dialogues per node.** A node carries one dialogue; extra
-  `dialogueIds` are ignored.
 - **A campaign-member reinforcement.** A placement naming a `memberId`
   cannot also author an `arrival`; the yard's waves are all Ashen Coil.
 

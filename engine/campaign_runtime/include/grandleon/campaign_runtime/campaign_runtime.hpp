@@ -46,15 +46,10 @@
 // for a graph the schema already authors, so it moves no schema, no package
 // byte, and no golden.
 //
-// What that leaves undone is stated plainly rather than implied. The source
-// schema's `inventoryAtLeast` and `worldFlagEquals` predicates are authorable
-// and schema-valid, and the compiler refuses them with "only objectiveResult
-// predicates are executable in the vertical runtime". That sentence is
-// inexact about the *runtime* (`campaign::predicate_holds` evaluates all
-// three) and exact about the *compiler*, which has no encoding for the other
-// two. Teaching it one is a package-format change and therefore its own piece
-// of work; until then a creator can ask two of the three questions only
-// through content this layer is handed directly.
+// All three predicate kinds in the source schema (`objectiveResult`,
+// `inventoryAtLeast`, and `worldFlagEquals`) compile into the package and are
+// translated here into `campaign::TransitionPredicate` records that
+// `campaign::predicate_holds` evaluates against persistent campaign state.
 //
 // ## The roster, into an encounter
 //

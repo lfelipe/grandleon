@@ -34,18 +34,22 @@ enum class ConditionCombinator : std::uint8_t {
 enum class CampaignPredicateKind : std::uint8_t {
     objective_result = 1,
     world_flag_equals = 3,
+    inventory_at_least = 4,
 };
 
-// One question. `subject` is the objective for `objective_result` and the flag
-// key for `world_flag_equals`: one slot in the record, with the tag saying
-// which identity is in it, mirroring `campaign::TransitionPredicate`.
+// One question. `subject` is the objective for `objective_result`, the flag key
+// for `world_flag_equals`, and the item for `inventory_at_least`: one slot in
+// the record, with the tag saying which identity is in it, mirroring
+// `campaign::TransitionPredicate`.
 struct CampaignPredicate final {
     CampaignPredicateKind kind{CampaignPredicateKind::objective_result};
     std::uint64_t subject{};
     ObjectiveOutcome result{ObjectiveOutcome::satisfied};
     // Only for `world_flag_equals`: the `campaign::WorldValueType` the flag
-    // must be, and the value it must equal.
+    // must be.
     std::uint8_t value_type{};
+    // For `world_flag_equals`, the value it must equal; for
+    // `inventory_at_least`, the minimum quantity in the shared store.
     std::int64_t value{};
 };
 

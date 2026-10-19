@@ -2647,12 +2647,9 @@ export type CampaignCombinator = "all" | "any" | "none";
 export type CampaignPredicateResult = "satisfied" | "failed";
 
 /**
- * One question a transition asks. Two kinds, mirroring the package record: an
- * objective's result, and a world flag's value.
- *
- * A world flag is the only campaign state a battle can raise by itself, and a
- * talk raises it. So it is what an edge reads when the road forks on something
- * the player did rather than on whether they won.
+ * One question a transition asks. Three kinds, mirroring the package record: an
+ * objective's result, a world flag's value, and an item quantity in the shared
+ * campaign store.
  */
 export type CampaignPredicateDefinition =
   | { objectiveId: bigint; result: CampaignPredicateResult }
@@ -2661,7 +2658,8 @@ export type CampaignPredicateDefinition =
       /** `campaign::WorldValueType`: 1 boolean, 2 integer. */
       valueType: 1 | 2;
       value: bigint;
-    };
+    }
+  | { itemId: bigint; quantity: number };
 
 export interface CampaignBranchDefinition {
   targetNodeId: bigint;
@@ -2860,6 +2858,8 @@ const predicateResultCodes: Readonly<Record<CampaignPredicateResult, number>> = 
 };
 /** `package_runtime::CampaignPredicateKind::world_flag_equals`. */
 const worldFlagPredicateCode = 3;
+/** `package_runtime::CampaignPredicateKind::inventory_at_least`. */
+const inventoryAtLeastPredicateCode = 4;
 
 function campaignErrorName(active: Engine, code: number): CampaignError {
   return (active.campaignErrors[code] ?? "malformed_payload") as CampaignError;
@@ -2942,12 +2942,18 @@ function encodeCampaignRecord(definition: CampaignFlowDefinition): Uint8Array {
         // nothing but a result, and its two existing values still mean what
         // they meant. A campaign whose every predicate asks about an objective
         // writes the bytes it always wrote, down to the last one, and only a
-        // world-flag predicate pays for the tail.
+        // world-flag or inventory predicate pays for the tail.
         if ("flagId" in predicate) {
           writer.u64(predicate.flagId);
           writer.u8(worldFlagPredicateCode);
           writer.u8(predicate.valueType);
           writer.u64(predicate.value);
+          continue;
+        }
+        if ("itemId" in predicate) {
+          writer.u64(predicate.itemId);
+          writer.u8(inventoryAtLeastPredicateCode);
+          writer.u32(predicate.quantity);
           continue;
         }
         writer.u64(predicate.objectiveId);

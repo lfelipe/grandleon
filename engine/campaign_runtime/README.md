@@ -50,18 +50,17 @@ package hash involved.
 
 Known edges of the translation:
 
-- **`inventoryAtLeast` has no package encoding.** `worldFlagEquals` does (the
-  compiled predicate's result byte is a kind tag); `campaign::predicate_holds`
-  can evaluate `inventoryAtLeast`, but the compiler refuses it by name.
-  Teaching it bytes means a new kind tag, a schema version step
-  (`CONTRIBUTING.md`), and a fixture the command-line and browser analyzers
-  both consume. A runtime that does not know a tag answers `unsupported_flow`
-  rather than evaluating it as something else.
+- **All three predicate kinds compile and translate.** `objectiveResult`,
+  `worldFlagEquals`, and `inventoryAtLeast` share the predicate's tag byte (with
+  objective results keeping their original `1` and `2` codes, `worldFlagEquals`
+  taking `3`, and `inventoryAtLeast` taking `4` over the shared campaign store).
+  A runtime that does not know a tag answers `unsupported_flow` rather than
+  evaluating it as something else.
 - **The compiled flow can express an ambiguity the graph refuses.** Two
-  conditional transitions out of one node may share a priority in a package;
-  `campaign::validate_graph` refuses that and `build_campaign_graph` answers
-  `invalid_graph` naming `duplicate_priority`. Compiler-side validation, where
-  the author would see it, is left with the item above.
+  conditional transitions out of one node may share a priority in a hand-built
+  package; `campaign::validate_graph` refuses that and `build_campaign_graph`
+  answers `invalid_graph` naming `duplicate_priority` (while the content
+  compiler refuses duplicate priorities at compile time).
 - **`CampaignCursor` exists beside the graph** and walks the flow against
   battle objectives, for a campaign played in a single sitting. Converging
   them is a client change, not an engine one.

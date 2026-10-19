@@ -2430,11 +2430,8 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                                 static_cast<std::uint16_t>(*priority);
                         }
 
-                        // Reads one predicate. Two of the schema's three kinds
-                        // compile: an objective's result, and a world flag's
-                        // value. `inventoryAtLeast` still has no bytes in a
-                        // package and is refused by name rather than silently
-                        // treated as false.
+                        // Reads one predicate: an objective's result, an item
+                        // count in the shared store, or a world flag's value.
                         const auto read_predicate =
                             [&mapper](
                                 const Object& source,
@@ -2487,13 +2484,28 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                                 );
                                 return false;
                             }
+                            if (*kind == "inventoryAtLeast") {
+                                predicate.kind =
+                                    CampaignPredicateKind::inventory_at_least;
+                                predicate.subject = mapper.reference(
+                                    source, "itemId", source_path
+                                );
+                                const auto quantity = mapper.integer(
+                                    source, "quantity", source_path, 1,
+                                    std::numeric_limits<std::uint32_t>::max()
+                                );
+                                if (predicate.subject == 0 || !quantity) {
+                                    return false;
+                                }
+                                predicate.value = *quantity;
+                                return true;
+                            }
                             if (*kind != "objectiveResult") {
                                 mapper.error(
-                                    SourceDiagnosticCode::unsupported_content,
+                                    SourceDiagnosticCode::invalid_value,
                                     source_path + ".kind",
-                                    "only objectiveResult and worldFlagEquals "
-                                    "predicates are executable in the vertical "
-                                    "runtime"
+                                    "expected 'objectiveResult', "
+                                    "'inventoryAtLeast', or 'worldFlagEquals'"
                                 );
                                 return false;
                             }
@@ -2522,6 +2534,7 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                         const std::string when_path = transition_path + ".when";
                         bool usable = true;
                         if (*condition_kind == "objectiveResult" ||
+                            *condition_kind == "inventoryAtLeast" ||
                             *condition_kind == "worldFlagEquals") {
                             branch.combinator = ConditionCombinator::all;
                             CampaignPredicate predicate;
@@ -2575,26 +2588,13 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                                 }
                                 if (branch.predicates.empty()) usable = false;
                             }
-                        } else if (*condition_kind == "inventoryAtLeast") {
-                            // Authorable and schema-valid, and still the one
-                            // predicate with no bytes in a package. Unsupported
-                            // rather than malformed, and refused by name so an
-                            // author is told rather than quietly answered
-                            // false.
-                            mapper.error(
-                                SourceDiagnosticCode::unsupported_content,
-                                when_path + ".kind",
-                                "only objectiveResult and worldFlagEquals "
-                                "predicates are executable in the vertical "
-                                "runtime"
-                            );
-                            usable = false;
                         } else {
                             mapper.error(
                                 SourceDiagnosticCode::invalid_value,
                                 when_path + ".kind",
-                                "expected 'objectiveResult', 'worldFlagEquals',"
-                                " 'all', 'any', or 'not'"
+                                "expected 'objectiveResult', "
+                                "'inventoryAtLeast', 'worldFlagEquals', "
+                                "'all', 'any', or 'not'"
                             );
                             usable = false;
                         }

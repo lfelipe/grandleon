@@ -620,6 +620,7 @@ enum class ConditionCombinator : std::uint8_t {
 enum class CampaignPredicateKind : std::uint8_t {
     objective_result = 1,
     world_flag_equals = 3,
+    inventory_at_least = 4,
 };
 
 // One question, as a flat record with a tag saying which fields carry meaning.
@@ -627,18 +628,21 @@ enum class CampaignPredicateKind : std::uint8_t {
 // built, mirrored here so the compiler and the runtime describe a predicate the
 // same way.
 //
-// `subject` is the objective for `objective_result` and the flag key for
-// `world_flag_equals`. It is one field rather than two because it is one slot
-// in the record, not one namespace: which identity it holds follows from the
-// tag, exactly as it does in the runtime's own record.
+// `subject` is the objective for `objective_result`, the flag key for
+// `world_flag_equals`, and the item for `inventory_at_least`. It is one field
+// rather than three because it is one slot in the record, not one namespace:
+// which identity it holds follows from the tag, exactly as it does in the
+// runtime's own record.
 struct CampaignPredicate final {
     CampaignPredicateKind kind{CampaignPredicateKind::objective_result};
     StableId subject{};
     ObjectiveOutcome result{ObjectiveOutcome::satisfied};
-    // Only for `world_flag_equals`: the `WorldValueType` the flag must be, and
-    // the value it must equal. A boolean is carried as zero or one, which is
-    // what the campaign state stores it as.
+    // Only for `world_flag_equals`: the `WorldValueType` the flag must be.
     std::uint8_t value_type{};
+    // For `world_flag_equals`, the value the flag must equal (a boolean is
+    // carried as zero or one, which is what the campaign state stores it as).
+    // For `inventory_at_least`, the minimum quantity required in the shared
+    // store.
     std::int64_t value{};
 };
 

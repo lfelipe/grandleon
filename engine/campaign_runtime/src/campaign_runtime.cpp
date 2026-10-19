@@ -107,10 +107,6 @@ CampaignGraphSource build_campaign_graph(
             transition.combinator = translate_combinator(branch.combinator);
             for (const package_runtime::CampaignPredicate& predicate :
                  branch.predicates) {
-                // Two of the schema's three kinds now have bytes in a package
-                // and are translated here. `inventoryAtLeast` is the one left:
-                // `campaign::predicate_holds` evaluates it, and the compiler
-                // still has no encoding for it, so it cannot arrive.
                 if (predicate.kind ==
                     package_runtime::CampaignPredicateKind::world_flag_equals) {
                     transition.predicates.push_back(campaign::world_flag_equals(
@@ -121,6 +117,22 @@ CampaignGraphSource build_campaign_graph(
                              : campaign::WorldValueType::boolean,
                          predicate.value}
                     ));
+                    continue;
+                }
+                if (predicate.kind ==
+                    package_runtime::CampaignPredicateKind::
+                        inventory_at_least) {
+                    transition.predicates.push_back(
+                        campaign::inventory_at_least(
+                            campaign::PersistentEntityId{},
+                            {package, core::ContentCategory::item,
+                             predicate.subject},
+                            predicate.value >= 1 &&
+                                    predicate.value <= 0xffffffffLL
+                                ? static_cast<std::uint32_t>(predicate.value)
+                                : 0U
+                        )
+                    );
                     continue;
                 }
                 transition.predicates.push_back(campaign::objective_result_is(

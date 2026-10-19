@@ -133,19 +133,15 @@ void compiles_canonical_vertical_project() {
 }
 
 void rejects_unsupported_gameplay() {
-    std::string conditional{source};
-    const std::string needle =
-        R"json("targetNodeId":"end","priority":0)json";
-    const auto position = conditional.find(needle);
-    // `inventoryAtLeast` is the one predicate the source schema names that
-    // still has no bytes in a package. It is refused by name rather than
-    // quietly answered false, which is what this asserts.
-    conditional.insert(
+    std::string extended{source};
+    const std::string needle = R"json("stackLimit":5)json";
+    const auto position = extended.find(needle);
+    extended.insert(
         position + needle.size(),
-        R"json(,"when":{"kind":"inventoryAtLeast","itemId":"x","quantity":1})json"
+        R"json(,"extensions":{"custom":true})json"
     );
-    const auto parsed = gc::parse_source_project_json(conditional);
-    expect(!static_cast<bool>(parsed), "unsupported condition rejects project");
+    const auto parsed = gc::parse_source_project_json(extended);
+    expect(!static_cast<bool>(parsed), "unsupported extension rejects project");
     expect(
         has_source_diagnostic(
             parsed, gc::SourceDiagnosticCode::unsupported_content
@@ -154,14 +150,15 @@ void rejects_unsupported_gameplay() {
     );
 }
 
-// The predicate beside it that is accepted, because a talk can raise a flag for
-// it to read. Both value types the campaign state has a home for.
+// Both persistent-state predicates (`worldFlagEquals` and `inventoryAtLeast`)
+// compile into the package.
 void compiles_a_world_flag_predicate() {
     const std::string needle =
         R"json("targetNodeId":"end","priority":0)json";
     const std::string conditions[] = {
         R"json(,"when":{"kind":"worldFlagEquals","flagId":"heard-him-out","value":true})json",
         R"json(,"when":{"kind":"worldFlagEquals","flagId":"heard-him-out","value":3})json",
+        R"json(,"when":{"kind":"inventoryAtLeast","itemId":"tonic","quantity":2})json",
     };
     for (const std::string& condition : conditions) {
         std::string conditional{source};
@@ -170,13 +167,18 @@ void compiles_a_world_flag_predicate() {
         const auto parsed = gc::parse_source_project_json(conditional);
         expect(
             static_cast<bool>(parsed),
-            "a world-flag predicate compiles rather than being refused"
+            "a world-flag or inventory predicate parses rather than being refused"
         );
         expect(
             !has_source_diagnostic(
                 parsed, gc::SourceDiagnosticCode::unsupported_content
             ),
             "and earns no unsupported diagnostic on the way"
+        );
+        const auto compiled = gc::compile(parsed.source);
+        expect(
+            static_cast<bool>(compiled),
+            "and compiles cleanly into a native package"
         );
     }
 

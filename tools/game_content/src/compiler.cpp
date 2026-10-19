@@ -1589,17 +1589,37 @@ CompileResult compile(const GameSource& source) {
                 );
                 for (const CampaignPredicate& predicate : branch.predicates) {
                     // A world flag names no record, so there is nothing to
-                    // resolve it against: the key *is* the identity. Only an
-                    // objective predicate has a reference to check.
-                    if (predicate.kind !=
+                    // resolve it against: the key *is* the identity. Objective
+                    // and inventory predicates name records in their own
+                    // sections and are resolved against them.
+                    if (predicate.kind ==
                         CampaignPredicateKind::objective_result) {
-                        continue;
+                        validate_reference(
+                            predicate.subject, objective_ids,
+                            path + ".nodes.transitions.when.objective_id",
+                            result.diagnostics
+                        );
+                    } else if (predicate.kind ==
+                               CampaignPredicateKind::inventory_at_least) {
+                        validate_reference(
+                            predicate.subject, item_ids,
+                            path + ".nodes.transitions.when.item_id",
+                            result.diagnostics
+                        );
+                        if (predicate.value < 1 ||
+                            predicate.value >
+                                static_cast<std::int64_t>(
+                                    std::numeric_limits<std::uint32_t>::max()
+                                )) {
+                            result.diagnostics.push_back(
+                                {
+                                    DiagnosticCode::invalid_range,
+                                    path + ".nodes.transitions.when.quantity",
+                                    node.id
+                                }
+                            );
+                        }
                     }
-                    validate_reference(
-                        predicate.subject, objective_ids,
-                        path + ".nodes.transitions.when.objective_id",
-                        result.diagnostics
-                    );
                 }
             }
             if (node.kind != CampaignNodeKind::encounter) continue;
@@ -2128,6 +2148,17 @@ CompileResult compile(const GameSource& source) {
                                 put_u64(
                                     bytes,
                                     static_cast<std::uint64_t>(predicate.value)
+                                );
+                                continue;
+                            }
+                            if (predicate.kind ==
+                                CampaignPredicateKind::inventory_at_least) {
+                                bytes.push_back(static_cast<std::uint8_t>(
+                                    CampaignPredicateKind::inventory_at_least
+                                ));
+                                put_u32(
+                                    bytes,
+                                    static_cast<std::uint32_t>(predicate.value)
                                 );
                                 continue;
                             }
