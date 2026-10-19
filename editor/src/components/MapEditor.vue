@@ -320,6 +320,24 @@ const clippedCount = computed(() => {
   }
 });
 
+type MapToolMode = "brush" | "fill" | "rectangle";
+const toolMode = ref<MapToolMode>("brush");
+const rectangleStart = ref<{ x: number; y: number } | null>(null);
+const showPassability = ref(false);
+
+function passabilityBadge(terrain: string): string {
+  const kind = terrainPassability(terrain);
+  if (kind === "water") return "Water";
+  if (kind === "heights") return "Heights";
+  return "Open";
+}
+
+function cellAriaLabel(column: number, row: number, terrain: string): string {
+  const base = `Column ${column}, row ${row}: ${terrain}`;
+  if (!showPassability.value) return base;
+  return `${base} (${passabilityBadge(terrain).toLowerCase()})`;
+}
+
 function publish(message: string) {
   snapshot.value = session.value.snapshot();
   feedback.value = message;
@@ -327,6 +345,27 @@ function publish(message: string) {
 }
 
 function paint(x: number, y: number) {
+  if (toolMode.value === "fill") {
+    const transaction = session.value.fill({ x, y }, selectedTerrain.value);
+    publish(transaction.label);
+    return;
+  }
+  if (toolMode.value === "rectangle") {
+    if (!rectangleStart.value) {
+      rectangleStart.value = { x, y };
+      feedback.value = `Rectangle corner set at (${x}, ${y}). Choose the opposite corner.`;
+      return;
+    }
+    const cornerA = rectangleStart.value;
+    rectangleStart.value = null;
+    const transaction = session.value.paintRectangle(
+      cornerA,
+      { x, y },
+      selectedTerrain.value
+    );
+    publish(transaction.label);
+    return;
+  }
   const transaction = session.value.paint([{ x, y }], selectedTerrain.value);
   publish(transaction.label);
 }
@@ -334,12 +373,26 @@ function paint(x: number, y: number) {
 function startPainting(x: number, y: number, event: PointerEvent) {
   if (event.button !== 0) return;
   event.preventDefault();
+  if (toolMode.value !== "brush") {
+    paint(x, y);
+    return;
+  }
   painting.value = true;
   paint(x, y);
 }
 
 function continuePainting(x: number, y: number, event: PointerEvent) {
-  if (painting.value && (event.buttons & 1) === 1) paint(x, y);
+  if (
+    toolMode.value === "brush" &&
+    painting.value &&
+    (event.buttons & 1) === 1
+  ) {
+    const transaction = session.value.extendLatestPaint(
+      [{ x, y }],
+      selectedTerrain.value
+    );
+    publish(transaction.label);
+  }
 }
 
 function stopPainting() {
@@ -491,9 +544,38 @@ function applyResize() {
       </details>
     </fieldset>
 
+    <div class="map-tools" role="group" aria-label="Painting tools">
+      <button type="button" :aria-pressed="toolMode === 'brush'"
+        @click="toolMode = 'brush'; rectangleStart = null">
+        Brush
+      </button>
+      <button type="button" :aria-pressed="toolMode === 'fill'"
+        @click="toolMode = 'fill'; rectangleStart = null">
+        Flood fill
+      </button>
+      <button type="button" :aria-pressed="toolMode === 'rectangle'"
+        @click="toolMode = 'rectangle'; rectangleStart = null">
+        Rectangle
+      </button>
+      <label class="passability-toggle">
+        <input v-model="showPassability" type="checkbox">
+        Show traversal lens (Open / Water / Heights)
+      </label>
+    </div>
+
     <p>
-      Selected brush: <strong>{{ selectedTerrain }}</strong>. Click or drag to
-      paint.
+      Selected brush: <strong>{{ selectedTerrain }}</strong>.
+      <template v-if="toolMode === 'fill'">
+        Click a cell to flood-fill its connected region.
+      </template>
+      <template v-else-if="toolMode === 'rectangle'">
+        {{ rectangleStart
+          ? `First corner at (${rectangleStart.x}, ${rectangleStart.y}) — click the opposite corner to fill the rectangle.`
+          : "Click two corners to fill a rectangle." }}
+      </template>
+      <template v-else>
+        Click or drag to paint.
+      </template>
     </p>
     <div ref="gridRoot" class="terrain-grid" role="grid" aria-label="Terrain map"
       :style="gridStyle" @scroll.passive="readViewport">
@@ -503,9 +585,12 @@ function applyResize() {
         <template v-for="column in snapshot.width" :key="(row - 1) * snapshot.width + (column - 1)">
         <button v-if="column > visibleColumns.first && column <= visibleColumns.last"
           type="button" role="gridcell"
+          :class="{
+            'rectangle-corner': rectangleStart?.x === column - 1 && rectangleStart?.y === row - 1
+          }"
           :data-cell="(row - 1) * snapshot.width + (column - 1)"
           :tabindex="(row - 1) * snapshot.width + (column - 1) === focusIndex ? 0 : -1"
-          :aria-label="`Column ${column}, row ${row}: ${terrainAt(column - 1, row - 1)}`"
+          :aria-label="cellAriaLabel(column, row, terrainAt(column - 1, row - 1))"
           :title="terrainAt(column - 1, row - 1)"
           :style="cellStyle(column, terrainAt(column - 1, row - 1))"
           @pointerdown="focusIndex = (row - 1) * snapshot.width + (column - 1);
@@ -526,6 +611,11 @@ function applyResize() {
           </svg>
           <span class="terrain-glyph" aria-hidden="true">
             {{ terrainGlyph(terrainAt(column - 1, row - 1)) }}
+          </span>
+          <span v-if="showPassability" class="terrain-passability"
+            :data-passability="terrainPassability(terrainAt(column - 1, row - 1))"
+            aria-hidden="true">
+            {{ passabilityBadge(terrainAt(column - 1, row - 1)) }}
           </span>
         </button>
         </template>

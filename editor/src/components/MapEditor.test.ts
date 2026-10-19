@@ -379,6 +379,79 @@ describe("MapEditor", () => {
     app.unmount();
   });
 
+  it("coalesces a continuous brush drag into a single undoable edit", async () => {
+    const { app, host, stored } = mountWired();
+    terrainButton(host, "sand").click();
+
+    const first = host.querySelector<HTMLButtonElement>('[aria-label="Column 1, row 1: grass"]')!;
+    const second = host.querySelector<HTMLButtonElement>('[aria-label="Column 2, row 1: grass"]')!;
+    const third = host.querySelector<HTMLButtonElement>('[aria-label="Column 3, row 1: water"]')!;
+
+    first.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0, buttons: 1 }));
+    await nextTick();
+    second.dispatchEvent(new MouseEvent("pointerenter", { bubbles: true, buttons: 1 }));
+    await nextTick();
+    third.dispatchEvent(new MouseEvent("pointerenter", { bubbles: true, buttons: 1 }));
+    await nextTick();
+    window.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
+    await nextTick();
+
+    expect(stored.value.terrain).toEqual([
+      "sand", "sand", "sand",
+      "grass", "rock", "water"
+    ]);
+    expect(host.querySelector(".map-history p")?.textContent).toContain("1 edit can be undone");
+
+    historyButton(host, "Undo").click();
+    await nextTick();
+    expect(stored.value.terrain).toEqual(fixture.terrain);
+    app.unmount();
+  });
+
+  it("supports flood fill, rectangle tool, and traversal lens overlay", async () => {
+    const { app, host, stored } = mountWired();
+    terrainButton(host, "sand").click();
+
+    const toolButton = (label: string) =>
+      [...host.querySelectorAll<HTMLButtonElement>(".map-tools button")]
+        .find((button) => button.textContent?.trim() === label)!;
+
+    // Flood fill connected grass region starting at (0, 0)
+    toolButton("Flood fill").click();
+    await nextTick();
+    host.querySelector<HTMLButtonElement>('[aria-label="Column 1, row 1: grass"]')!
+      .dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    await nextTick();
+    expect(stored.value.terrain).toEqual([
+      "sand", "sand", "water",
+      "sand", "rock", "water"
+    ]);
+
+    // Rectangle fill from (1, 0) to (2, 1) with paved
+    terrainButton(host, "paved").click();
+    toolButton("Rectangle").click();
+    await nextTick();
+    host.querySelector<HTMLButtonElement>('[aria-label="Column 2, row 1: sand"]')!
+      .dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    await nextTick();
+    expect(host.textContent).toContain("First corner at (1, 0)");
+    host.querySelector<HTMLButtonElement>('[aria-label="Column 3, row 2: water"]')!
+      .dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    await nextTick();
+    expect(stored.value.terrain).toEqual([
+      "sand", "paved", "paved",
+      "sand", "paved", "paved"
+    ]);
+
+    // Traversal lens toggle
+    const toggle = host.querySelector<HTMLInputElement>(".passability-toggle input")!;
+    toggle.click();
+    await nextTick();
+    expect(host.querySelectorAll(".terrain-passability").length).toBe(6);
+    expect(host.querySelector('[aria-label="Column 1, row 1: sand (open)"]')).not.toBeNull();
+    app.unmount();
+  });
+
   // What each console makes of the size in the fields. `console-fit.test.ts`
   // holds the arithmetic against the C++ the machines compile; this holds that
   // an author is shown it, that it follows what they type, and — the part worth

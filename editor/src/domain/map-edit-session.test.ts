@@ -58,6 +58,27 @@ describe("MapEditSession", () => {
     ]);
   });
 
+  it("paints a rectangle between two corners and coalesces brush extensions into one undo step", () => {
+    const session = new MapEditSession(fixture());
+    session.paintRectangle({ x: 2, y: 1 }, { x: 1, y: 0 }, "paved");
+    expect(session.snapshot().terrain).toEqual([
+      "grass", "paved", "paved",
+      "grass", "paved", "paved"
+    ]);
+    session.undo();
+    expect(session.snapshot()).toEqual(fixture());
+
+    session.paint([{ x: 0, y: 0 }], "sand");
+    session.extendLatestPaint([{ x: 1, y: 0 }, { x: 1, y: 1 }], "sand");
+    expect(session.historyDepth()).toBe(1);
+    expect(session.snapshot().terrain).toEqual([
+      "sand", "sand", "water",
+      "grass", "sand", "water"
+    ]);
+    session.undo();
+    expect(session.snapshot()).toEqual(fixture());
+  });
+
   it("rejects the complete paint transaction when any coordinate is invalid", () => {
     const session = new MapEditSession(fixture());
     expectCode(

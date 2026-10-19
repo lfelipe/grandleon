@@ -223,6 +223,63 @@ export class MapEditSession {
     return this.paint(affected, terrain);
   }
 
+  paintRectangle(
+    cornerA: MapCoordinate,
+    cornerB: MapCoordinate,
+    terrain: string
+  ): MapTransaction {
+    index(this.#map, cornerA);
+    index(this.#map, cornerB);
+    const minX = Math.min(cornerA.x, cornerB.x);
+    const maxX = Math.max(cornerA.x, cornerB.x);
+    const minY = Math.min(cornerA.y, cornerB.y);
+    const maxY = Math.max(cornerA.y, cornerB.y);
+    const affectedCells: MapCoordinate[] = [];
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        affectedCells.push({ x, y });
+      }
+    }
+    return this.#commit(
+      `Paint ${maxX - minX + 1}x${maxY - minY + 1} rectangle`,
+      affectedCells,
+      (map) => {
+        for (const coordinate of affectedCells) {
+          map.terrain[index(map, coordinate)] = terrain;
+        }
+      }
+    );
+  }
+
+  extendLatestPaint(
+    coordinates: readonly MapCoordinate[],
+    terrain: string
+  ): MapTransaction {
+    const latest = this.#undo[this.#undo.length - 1];
+    if (!latest) {
+      return this.paint(coordinates, terrain);
+    }
+    const unique = new Map<string, MapCoordinate>();
+    for (const coordinate of latest.transaction.affectedCells) {
+      unique.set(`${coordinate.x}:${coordinate.y}`, { ...coordinate });
+    }
+    for (const coordinate of coordinates) {
+      this.#map.terrain[index(this.#map, coordinate)] = terrain;
+      unique.set(`${coordinate.x}:${coordinate.y}`, { ...coordinate });
+    }
+    const affectedCells = [...unique.values()].sort(compareCoordinates);
+    const transaction = {
+      label: `Paint ${affectedCells.length} terrain cells`,
+      affectedCells
+    };
+    this.#undo[this.#undo.length - 1] = {
+      before: latest.before,
+      transaction,
+      after: copy(this.#map)
+    };
+    return transaction;
+  }
+
   previewResize(request: MapResizeRequest): MapResizePreview {
     if (
       !Number.isInteger(request.width) ||
