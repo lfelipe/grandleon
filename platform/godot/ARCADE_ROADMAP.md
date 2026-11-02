@@ -30,6 +30,7 @@ machine-specific model or graphics configuration.
 | Optional model tactics | The model selects an index from legal engine-generated candidates. Candidate zero is the built-in plan and remains the fallback for every failure mode. |
 | Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. Missing bindings or clips fall back asset by asset. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
+| Cabinet-safe exit | Start or Back opens a controller-native session menu; quitting requires an explicit second X press, while A, B, or Start resumes. |
 | SteamOS packaging | The release bundle runs without a system Godot install and keeps its writable state under its own `runtime/` directory. |
 | Privacy | The bundler rejects exact checkout paths and local override files. Endpoint, model, token environment name, and art overrides live only in ignored runtime files. |
 
@@ -53,7 +54,9 @@ Test the default `voxel-sprites` profile first, then compare `diorama` and
    zero.
 7. Watch contact shadows, sprite scale, health bars, text size, dark-detail
    visibility, and camera impulse at the actual viewing distance.
-8. Leave the game running through several rounds and check frame pacing,
+8. Open the session menu with Start and Back. Resume with A and B, then return
+   to Steam with X and confirm the launcher regains focus.
+9. Leave the game running through several rounds and check frame pacing,
    controller focus, heat, and memory on the cabinet hardware.
 
 Record the GPU, display mode, controller models, frame-pacing observations, and
@@ -66,8 +69,8 @@ addresses, usernames, or absolute install paths in project content or issues.
 
 - Fix any Gaming Mode focus, scaling, controller identity, or reconnect issue
   found tonight.
-- Add a controller-driven pause/settings surface for graphics profile, text
-  scale, camera impulse, and audio levels.
+- Extend the controller-driven session menu with graphics profile, text scale,
+  camera impulse, and audio-level settings.
 - Add explicit join/leave feedback and persistent controller glyphs rather
   than generic button letters.
 - Add an automated Godot smoke target to CI once a pinned headless display and

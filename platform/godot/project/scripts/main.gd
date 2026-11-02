@@ -27,6 +27,7 @@ var demo_reel := false
 var demo_reel_round := -1
 var demo_reel_phase := 0
 var demo_reel_next_msec := 0
+var menu_preview := false
 var board_preview := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
@@ -54,6 +55,8 @@ var dialogue_speaker: Label
 var dialogue_text: RichTextLabel
 var dialogue_portrait: TextureRect
 var dialogue_hint: Label
+var arcade_menu_layer: Control
+var arcade_menu_resume: Button
 var art = ArtLibrary.new()
 var graphics_profiles
 
@@ -102,14 +105,18 @@ func _process(_delta: float) -> void:
 		return
 	for event: Dictionary in session.poll():
 		_handle_event(event)
-	if demo_reel:
-		_run_demo_reel()
-	elif smoke_auto:
-		_run_smoke_auto()
-	elif coop_smoke:
-		_run_coop_smoke()
-	elif board_preview and _dialogue_visible():
-		_advance_dialogue()
+	if menu_preview and not snapshot.is_empty() and not _dialogue_visible():
+		menu_preview = false
+		_open_arcade_menu()
+	if not _arcade_menu_visible():
+		if demo_reel:
+			_run_demo_reel()
+		elif smoke_auto:
+			_run_smoke_auto()
+		elif coop_smoke:
+			_run_coop_smoke()
+		elif board_preview and _dialogue_visible():
+			_advance_dialogue()
 	var waits_for_board := board_preview or smoke_auto or coop_smoke or demo_reel
 	var capture_ready := not waits_for_board or (not snapshot.is_empty() and not _dialogue_visible())
 	if coop_smoke:
@@ -123,6 +130,9 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _arcade_menu_visible():
+		_handle_arcade_menu_input(event)
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if _dialogue_visible():
 			_advance_dialogue()
@@ -169,6 +179,8 @@ func _parse_arguments() -> void:
 			coop_smoke = true
 		elif argument == "--demo-reel":
 			demo_reel = true
+		elif argument == "--menu-preview":
+			menu_preview = true
 		elif argument == "--board-preview":
 			board_preview = true
 
@@ -417,6 +429,7 @@ func _create_interface() -> void:
 	layer.add_child(toast_label)
 
 	_create_dialogue(layer)
+	_create_arcade_menu(layer)
 
 
 func _create_dialogue(layer: CanvasLayer) -> void:
@@ -457,6 +470,113 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	dialogue_hint = _label("A / ENTER  CONTINUE", 15, Color("89a8b8"))
 	dialogue_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	words.add_child(dialogue_hint)
+
+
+func _create_arcade_menu(layer: CanvasLayer) -> void:
+	arcade_menu_layer = Control.new()
+	arcade_menu_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	arcade_menu_layer.visible = false
+	arcade_menu_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(arcade_menu_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.84)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	arcade_menu_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(590, 235)
+	panel.size = Vector2(740, 610)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(
+			Color(0.018, 0.032, 0.052, 0.99), 24,
+			Color(0.30, 0.76, 0.92, 0.65)
+		)
+	)
+	arcade_menu_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 22)
+	panel.add_child(column)
+	column.add_child(_label("GRANDLEON  /  SESSION MENU", 16, Color("69d9ff")))
+	column.add_child(_label("Continue the expedition?", 38, Color("f2f7f9")))
+	column.add_child(_label(
+		"ACTIVE PROFILE  /  " + graphics_profile.to_upper(), 18, Color("ffca63")
+	))
+	var explanation := _label(
+		"Player commands are held while this menu is open. "
+		+ "Any deterministic action already in flight may finish.",
+		20, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 86
+	column.add_child(explanation)
+	arcade_menu_resume = _menu_button("RESUME  /  A · ENTER")
+	arcade_menu_resume.pressed.connect(_close_arcade_menu)
+	column.add_child(arcade_menu_resume)
+	var quit_button := _menu_button("RETURN TO STEAM  /  X · Q")
+	quit_button.pressed.connect(_quit_to_launcher)
+	column.add_child(quit_button)
+	var hint := _label(
+		"B / ESC / START also resumes. Opening this menu is the first quit confirmation.",
+		16, Color("718896")
+	)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(hint)
+
+
+func _menu_button(value: String) -> Button:
+	var button := Button.new()
+	button.text = value
+	button.custom_minimum_size = Vector2(680, 82)
+	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_color_override("font_color", Color("dcebf0"))
+	button.add_theme_color_override("font_hover_color", Color("071018"))
+	button.add_theme_color_override("font_pressed_color", Color("071018"))
+	button.add_theme_color_override("font_focus_color", Color("071018"))
+	button.add_theme_stylebox_override(
+		"normal", _panel(Color("0d1e2a"), 12, Color(0.25, 0.62, 0.74, 0.34))
+	)
+	var active := _panel(Color("69d9ff"), 12, Color("b9f2ff"))
+	button.add_theme_stylebox_override("hover", active)
+	button.add_theme_stylebox_override("pressed", active)
+	button.add_theme_stylebox_override("focus", active)
+	return button
+
+
+func _open_arcade_menu() -> void:
+	if arcade_menu_layer == null or _dialogue_visible():
+		return
+	arcade_menu_layer.visible = true
+	arcade_menu_resume.grab_focus()
+
+
+func _close_arcade_menu() -> void:
+	if arcade_menu_layer != null:
+		arcade_menu_layer.visible = false
+	get_viewport().gui_release_focus()
+
+
+func _quit_to_launcher() -> void:
+	status_label.text = "RETURNING TO STEAM"
+	get_tree().quit()
+
+
+func _arcade_menu_visible() -> bool:
+	return arcade_menu_layer != null and arcade_menu_layer.visible
+
+
+func _handle_arcade_menu_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_Q:
+			_quit_to_launcher()
+		elif event.keycode in [KEY_ESCAPE, KEY_ENTER, KEY_SPACE]:
+			_close_arcade_menu()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventJoypadButton and event.pressed:
+		if event.button_index == JOY_BUTTON_X:
+			_quit_to_launcher()
+		elif event.button_index in [JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_START, JOY_BUTTON_BACK]:
+			_close_arcade_menu()
+		get_viewport().set_input_as_handled()
 
 
 func _configure_seats() -> void:
@@ -547,7 +667,11 @@ func _handle_key(event: InputEventKey) -> void:
 		KEY_UP, KEY_W: _move_cursor(0, Vector2i.UP)
 		KEY_DOWN, KEY_S: _move_cursor(0, Vector2i.DOWN)
 		KEY_ENTER, KEY_SPACE: _accept_at(0)
-		KEY_ESCAPE: _cancel(0)
+		KEY_ESCAPE:
+			if selected_units[0] != 0:
+				_cancel(0)
+			else:
+				_open_arcade_menu()
 		KEY_TAB: _cycle_mode(0, 1)
 		KEY_Q: _cycle_unit(0, -1)
 		KEY_E: _cycle_unit(0, 1)
@@ -579,6 +703,9 @@ func _handle_pad_button(event: InputEventJoypadButton) -> void:
 		JOY_BUTTON_START:
 			if snapshot.get("deploying", false):
 				_submit("begin")
+			else:
+				_open_arcade_menu()
+		JOY_BUTTON_BACK: _open_arcade_menu()
 
 
 func _handle_pad_motion(event: InputEventJoypadMotion) -> void:
@@ -868,7 +995,8 @@ func _help_text() -> String:
 		+ "[color=#ffca63][b]B / ESC[/b][/color]  CANCEL\n"
 		+ "[b]Y / TAB[/b]  MOVE · ATTACK · ABILITY · TALK\n"
 		+ "[b]X / F[/b]  END CHARACTER TURN\n"
-		+ "[b]LB / RB[/b]  PREVIOUS / NEXT CHARACTER\n\n"
+		+ "[b]LB / RB[/b]  PREVIOUS / NEXT CHARACTER\n"
+		+ "[b]START[/b]  SESSION MENU / RETURN TO STEAM\n\n"
 		+ "[color=#89a8b8]TEAM PHASE: both players command independently and movement animations overlap. Conflicting inputs are resolved deterministically by the battle.[/color]"
 	)
 

@@ -73,6 +73,11 @@ controllers, each owns one. With one controller, keyboard/mouse is Player 1 and
 the controller is Player 2. Connected pads are detected again after startup;
 both d-pad and left stick work.
 
+Outside deployment and dialogue, Start or Back opens a controller-native
+session menu. Resume takes A, B, Start, Enter, or Escape; returning to Steam
+requires opening that menu first and then pressing X or Q, preventing a single
+accidental gameplay press from closing the cabinet session.
+
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the
 first can then act. The Godot bridge accepts both players' commands while the
