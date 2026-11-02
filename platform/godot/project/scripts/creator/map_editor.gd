@@ -29,6 +29,11 @@ var pending_placement: Dictionary = {}
 var placement_side := "second"
 var placement_candidates: Array[Dictionary] = []
 var placement_candidate_index := 0
+var deployment_editing := false
+var deployment_id := ""
+var deployment_draft: Array[int] = []
+var deployment_original: Array[int] = []
+var tool_before_deployment := "brush"
 var dirty := false
 var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
@@ -56,6 +61,9 @@ var placement_side_button: Button
 var placement_candidate_label: Label
 var placement_apply_button: Button
 var placement_first_button: Button
+var deployment_button: Button
+var deployment_actions: HBoxContainer
+var deployment_apply_button: Button
 var resize_layer: Control
 var resize_width_label: Label
 var resize_height_label: Label
@@ -79,6 +87,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_add_placement()
 		elif resize_layer != null and resize_layer.visible:
 			_close_resize()
+		elif deployment_editing:
+			_cancel_deployment_edit()
 		else:
 			_request_projects()
 		get_viewport().set_input_as_handled()
@@ -130,6 +140,7 @@ func _select_map(index: int) -> void:
 	if index < 0 or index >= maps.size():
 		return
 	map_index = index
+	_reset_deployment_edit()
 	encounter_index = 0
 	rectangle_anchor = -1
 	selected_placement_id = ""
@@ -182,6 +193,7 @@ func _select_encounter(index: int) -> void:
 	if index < 0 or index >= encounters.size():
 		return
 	encounter_index = index
+	_reset_deployment_edit()
 	selected_placement_id = ""
 	pending_placement = {}
 	_refresh_grid(0)
@@ -239,6 +251,8 @@ func _select_terrain(name: String) -> void:
 
 
 func _select_tool(name: String) -> void:
+	if deployment_editing and name != "deployment":
+		_reset_deployment_edit()
 	active_tool = name
 	rectangle_anchor = -1
 	selected_placement_id = ""
@@ -252,7 +266,9 @@ func _select_tool(name: String) -> void:
 func _update_tool_selection() -> void:
 	for name: String in tool_buttons:
 		var button: Button = tool_buttons[name]
-		var display_names := {"unit": "MOVE", "remove_unit": "REMOVE"}
+		var display_names := {
+			"unit": "MOVE", "remove_unit": "REMOVE", "deployment": "ZONE",
+		}
 		var display := str(display_names.get(name, name.to_upper()))
 		button.text = ("● " if name == active_tool else "  ") + display
 
@@ -277,9 +293,15 @@ func _refresh_grid(focus_index := -1) -> void:
 	var height := maxi(1, int(map.get("height", 1)))
 	var terrain: Array = map.get("terrain", [])
 	var placements_by_cell: Dictionary = {}
+	var deployment_cells: Array[int] = []
 	var encounter := _current_encounter()
 	if not encounter.is_empty():
 		var node: Dictionary = encounter.node
+		deployment_cells = (
+			deployment_draft.duplicate()
+			if deployment_editing
+			else _deployment_indices(node, width)
+		)
 		for placement_value: Variant in node.get("placements", []):
 			if not placement_value is Dictionary:
 				continue
@@ -302,6 +324,8 @@ func _refresh_grid(focus_index := -1) -> void:
 		cell.tooltip_text = "%d, %d  /  %s" % [index % width, index / width, name]
 		if placements_by_cell.has(index):
 			_add_placement_badge(cell, placements_by_cell[index])
+		if deployment_cells.has(index):
+			_add_deployment_badge(cell, tile_size, deployment_editing)
 		cell.pressed.connect(_paint_cell.bind(index))
 		grid.add_child(cell)
 	if focus_index >= 0:
@@ -346,6 +370,25 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 			]
 		)
 	cell.tooltip_text += "\n" + "\n".join(details)
+
+
+func _add_deployment_badge(cell: Button, tile_size: int, pending: bool) -> void:
+	var label := Label.new()
+	label.text = "DRAFT" if pending else "ZONE"
+	label.position = Vector2(5, tile_size - 23)
+	label.size = Vector2(maxi(34, tile_size - 10), 18)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", Color("07111b"))
+	var badge := StyleBoxFlat.new()
+	badge.bg_color = Color("ffca63") if pending else Color("b58cff")
+	badge.set_corner_radius_all(4)
+	label.add_theme_stylebox_override("normal", badge)
+	cell.add_child(label)
+	cell.tooltip_text += "\n" + (
+		"PENDING DEPLOYMENT TILE" if pending else "DEPLOYMENT ZONE"
+	)
 
 
 func _terrain_mask(index: int, width: int, height: int, terrain: Array) -> int:
@@ -394,7 +437,9 @@ func _paint_cell(index: int) -> void:
 	if width <= 0 or index < 0 or index >= terrain.size():
 		_set_status("THAT CELL IS NOT EDITABLE", true)
 		return
-	if active_tool == "add_unit":
+	if active_tool == "deployment":
+		_toggle_deployment_cell(index)
+	elif active_tool == "add_unit":
 		_add_unit_at(index, width)
 	elif active_tool == "remove_unit":
 		_remove_unit_at(index, width)
@@ -502,6 +547,174 @@ func _unique_placement_id(base: String) -> String:
 	while existing.has("%s_%d" % [safe_base, sequence]):
 		sequence += 1
 	return "%s_%d" % [safe_base, sequence]
+
+
+func _deployment_indices(node: Dictionary, width: int) -> Array[int]:
+	var result: Array[int] = []
+	var deployment_value: Variant = node.get("deployment", {})
+	if not deployment_value is Dictionary:
+		return result
+	var deployment: Dictionary = deployment_value
+	for tile_value: Variant in deployment.get("tiles", []):
+		if not tile_value is Dictionary:
+			continue
+		var x := int(tile_value.get("x", -1))
+		var y := int(tile_value.get("y", -1))
+		if x >= 0 and y >= 0:
+			result.append(y * width + x)
+	result.sort()
+	return result
+
+
+func _unique_deployment_id() -> String:
+	var existing: Array[String] = []
+	for campaign_value: Variant in project.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var campaign: Dictionary = campaign_value
+		var flow_value: Variant = campaign.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if not node_value is Dictionary:
+				continue
+			var deployment_value: Variant = node_value.get("deployment", {})
+			if deployment_value is Dictionary:
+				var found := str(deployment_value.get("id", ""))
+				if not found.is_empty():
+					existing.append(found)
+	var candidate := "deployment"
+	var sequence := 2
+	while existing.has(candidate):
+		candidate = "deployment_%d" % sequence
+		sequence += 1
+	return candidate
+
+
+func _begin_deployment_edit() -> void:
+	var encounter := _current_encounter()
+	var map := _current_map()
+	if encounter.is_empty() or map.is_empty():
+		_set_status("ADD AN ENCOUNTER BEFORE EDITING ITS DEPLOYMENT ZONE", true)
+		return
+	var node: Dictionary = encounter.node
+	var width := int(map.get("width", 0))
+	if width <= 0:
+		_set_status("THIS MAP HAS NO EDITABLE CELLS", true)
+		return
+	var deployment_value: Variant = node.get("deployment", {})
+	deployment_id = (
+		str(deployment_value.get("id", ""))
+		if deployment_value is Dictionary
+		else ""
+	)
+	if deployment_id.is_empty():
+		deployment_id = _unique_deployment_id()
+	deployment_original = _deployment_indices(node, width)
+	deployment_draft.assign(deployment_original)
+	tool_before_deployment = active_tool if active_tool != "deployment" else "brush"
+	deployment_editing = true
+	active_tool = "deployment"
+	selected_placement_id = ""
+	pending_placement = {}
+	deployment_actions.visible = true
+	_update_deployment_actions()
+	_update_tool_selection()
+	_refresh_grid(0)
+	_set_status(
+		"DEPLOYMENT DRAFT  /  TOGGLE CELLS, THEN APPLY  /  INCLUDE AN ALLIED START",
+		false
+	)
+
+
+func _toggle_deployment_cell(index: int) -> void:
+	if not deployment_editing:
+		_set_status("CHOOSE ZONE BEFORE EDITING DEPLOYMENT", true)
+		return
+	var at := deployment_draft.find(index)
+	if at >= 0:
+		deployment_draft.remove_at(at)
+	elif deployment_draft.size() >= 256:
+		_set_status("DEPLOYMENT REGIONS ARE LIMITED TO 256 CELLS", true)
+		_focus_cell(index)
+		return
+	else:
+		deployment_draft.append(index)
+		deployment_draft.sort()
+	_update_deployment_actions()
+	_refresh_grid(index)
+	_set_status(
+		"DEPLOYMENT DRAFT  /  %d CELL%s  /  APPLY WHEN READY" % [
+			deployment_draft.size(), "" if deployment_draft.size() == 1 else "S",
+		],
+		false
+	)
+
+
+func _update_deployment_actions() -> void:
+	deployment_apply_button.disabled = deployment_draft == deployment_original
+
+
+func _apply_deployment_edit() -> void:
+	if not deployment_editing or deployment_apply_button.disabled:
+		return
+	var encounter := _current_encounter()
+	var map := _current_map()
+	if encounter.is_empty() or map.is_empty():
+		_set_status("DEPLOYMENT ENCOUNTER IS NO LONGER AVAILABLE", true)
+		return
+	var width := int(map.get("width", 0))
+	var coordinates := PackedInt32Array()
+	for index: int in deployment_draft:
+		coordinates.append(index % width)
+		coordinates.append(index / width)
+	var node: Dictionary = encounter.node
+	var updated: Dictionary = compiler.set_deployment_tiles(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(node.get("id", "")),
+		deployment_id,
+		coordinates
+	)
+	if not updated.ok:
+		_set_status("DEPLOYMENT REFUSED  /  %s" % _diagnostic_detail(updated), true)
+		return
+	var count := deployment_draft.size()
+	_push_undo(source)
+	source = updated.source
+	redo_stack.clear()
+	dirty = true
+	_reset_deployment_edit()
+	_read_source()
+	_refresh_maps_after_edit(0)
+	_set_status(
+		"UNSAVED  /  %s" % (
+			"CLEARED DEPLOYMENT ZONE"
+			if count == 0
+			else "DEPLOYMENT ZONE  /  %d CELL%s" % [count, "" if count == 1 else "S"]
+		),
+		false
+	)
+
+
+func _cancel_deployment_edit() -> void:
+	_reset_deployment_edit()
+	_refresh_grid(0)
+	_set_status("DEPLOYMENT DRAFT DISCARDED", false)
+	deployment_button.call_deferred("grab_focus")
+
+
+func _reset_deployment_edit() -> void:
+	if active_tool == "deployment":
+		active_tool = tool_before_deployment if not tool_before_deployment.is_empty() else "brush"
+	deployment_editing = false
+	deployment_id = ""
+	deployment_draft.clear()
+	deployment_original.clear()
+	if deployment_actions != null:
+		deployment_actions.visible = false
+	if not tool_buttons.is_empty():
+		_update_tool_selection()
 
 
 func _move_unit_at(index: int, width: int) -> void:
@@ -679,6 +892,7 @@ func _undo() -> void:
 	if undo_stack.is_empty():
 		return
 	redo_stack.append(source)
+	_reset_deployment_edit()
 	source = undo_stack.pop_back()
 	rectangle_anchor = -1
 	selected_placement_id = ""
@@ -693,6 +907,7 @@ func _redo() -> void:
 	if redo_stack.is_empty():
 		return
 	_push_undo(source)
+	_reset_deployment_edit()
 	source = redo_stack.pop_back()
 	rectangle_anchor = -1
 	selected_placement_id = ""
@@ -1016,6 +1231,14 @@ func _diagnostic_code(result: Dictionary) -> String:
 	return str(diagnostics[0].get("code", "PROJECT INCOMPLETE")).replace("_", " ").to_upper()
 
 
+func _diagnostic_detail(result: Dictionary) -> String:
+	var diagnostics: Array = result.get("diagnostics", [])
+	if diagnostics.is_empty() or not diagnostics[0] is Dictionary:
+		return "PROJECT INCOMPLETE"
+	var detail := str(diagnostics[0].get("detail", ""))
+	return detail.to_upper() if not detail.is_empty() else _diagnostic_code(result)
+
+
 func _focus_cell(index: int) -> void:
 	if grid.get_child_count() == 0:
 		return
@@ -1128,6 +1351,24 @@ func _build_interface() -> void:
 	remove_unit.pressed.connect(_select_tool.bind("remove_unit"))
 	unit_row.add_child(remove_unit)
 	tool_buttons["remove_unit"] = remove_unit
+	deployment_button = _button("ZONE", 330, 48)
+	deployment_button.add_theme_font_size_override("font_size", 14)
+	deployment_button.tooltip_text = "Draft and apply the selected encounter's deployment region"
+	deployment_button.pressed.connect(_begin_deployment_edit)
+	tools_column.add_child(deployment_button)
+	tool_buttons["deployment"] = deployment_button
+	deployment_actions = HBoxContainer.new()
+	deployment_actions.add_theme_constant_override("separation", 6)
+	deployment_actions.visible = false
+	tools_column.add_child(deployment_actions)
+	deployment_apply_button = _button("APPLY ZONE", 162, 46)
+	deployment_apply_button.add_theme_font_size_override("font_size", 13)
+	deployment_apply_button.pressed.connect(_apply_deployment_edit)
+	deployment_actions.add_child(deployment_apply_button)
+	var deployment_cancel := _button("CANCEL", 162, 46)
+	deployment_cancel.add_theme_font_size_override("font_size", 13)
+	deployment_cancel.pressed.connect(_cancel_deployment_edit)
+	deployment_actions.add_child(deployment_cancel)
 	_update_tool_selection()
 	tools_column.add_child(_label("TERRAIN", 17, Color("69d9ff")))
 	var palette_scroll := ScrollContainer.new()

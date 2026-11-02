@@ -35,6 +35,17 @@ func _run() -> void:
 		print("placement picker capture saved: %s" % placement_screenshot_path)
 		quit()
 		return
+	var deployment_screenshot_path := _argument_path("--deployment-screenshot=")
+	if not deployment_screenshot_path.is_empty():
+		editor._begin_deployment_edit()
+		editor._paint_cell(6)
+		editor._paint_cell(7)
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(deployment_screenshot_path)
+		print("deployment editor capture saved: %s" % deployment_screenshot_path)
+		quit()
+		return
 	var resize_screenshot_path := _argument_path("--resize-screenshot=")
 	if not resize_screenshot_path.is_empty():
 		editor._open_resize()
@@ -208,6 +219,45 @@ func _run() -> void:
 	await process_frame
 	_expect("remove redo removes unit", _parse(editor.source).campaigns[0].flow.nodes[0].placements.size(), 2)
 
+	var before_deployment: String = editor.source
+	editor._begin_deployment_edit()
+	_expect("deployment draft opens", editor.deployment_editing, true)
+	_expect("deployment tool becomes active", editor.active_tool, "deployment")
+	_expect("new deployment starts empty", editor.deployment_draft.size(), 0)
+	_expect("unchanged deployment cannot apply", editor.deployment_apply_button.disabled, true)
+	editor._paint_cell(0)
+	editor._paint_cell(1)
+	_expect("deployment draft has two cells", editor.deployment_draft, [0, 1])
+	_expect("deployment draft does not edit source", editor.source, before_deployment)
+	_expect("pending deployment is visible", editor.grid.get_child(0).tooltip_text.contains("PENDING DEPLOYMENT"), true)
+	_expect("changed deployment can apply", editor.deployment_apply_button.disabled, false)
+	editor._apply_deployment_edit()
+	await process_frame
+	var with_deployment: Dictionary = _parse(editor.source)
+	_expect("deployment is added", with_deployment.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
+	_expect("deployment receives portable id", with_deployment.campaigns[0].flow.nodes[0].deployment.id, "deployment")
+	_expect("deployment apply exits draft", editor.deployment_editing, false)
+	_expect("deployment is one undo command", editor.undo_stack.size(), 8)
+	_expect("saved deployment remains visible", editor.grid.get_child(0).tooltip_text.contains("DEPLOYMENT ZONE"), true)
+	editor._undo()
+	await process_frame
+	_expect("deployment undo removes rule", _parse(editor.source).campaigns[0].flow.nodes[0].has("deployment"), false)
+	editor._redo()
+	await process_frame
+	_expect("deployment redo restores rule", _parse(editor.source).campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
+
+	var before_invalid_deployment: String = editor.source
+	editor._begin_deployment_edit()
+	editor._paint_cell(0)
+	_expect("invalid draft leaves one unoccupied cell", editor.deployment_draft, [1])
+	editor._apply_deployment_edit()
+	_expect("unoccupied deployment is refused", editor.source, before_invalid_deployment)
+	_expect("refused deployment stays editable", editor.deployment_editing, true)
+	_expect("deployment refusal names semantic rule", editor.status_label.text.contains("INVALID_DEPLOYMENT"), true)
+	editor._cancel_deployment_edit()
+	_expect("deployment cancel exits draft", editor.deployment_editing, false)
+	_expect("deployment cancel preserves source", editor.source, before_invalid_deployment)
+
 	editor._create_map()
 	await process_frame
 	var with_new_map := _parse(editor.source)
@@ -219,7 +269,7 @@ func _run() -> void:
 	_expect("new map uses selected terrain", with_new_map.maps[2].terrain[47], "forest")
 	_expect("new map becomes selected", editor.map_index, 2)
 	_expect("new map board is editable", editor.grid.get_child_count(), 48)
-	_expect("new map is one undo command", editor.undo_stack.size(), 8)
+	_expect("new map is one undo command", editor.undo_stack.size(), 9)
 	editor._undo()
 	await process_frame
 	_expect("new map undo removes map", _parse(editor.source).maps.size(), 2)
@@ -238,6 +288,7 @@ func _run() -> void:
 	_expect("saved new map reopens", stored.project.maps[2].id, "map_1")
 	_expect("saved unit move reopens", int(stored.project.campaigns[0].flow.nodes[0].placements[0].y), 0)
 	_expect("saved unit removal reopens", stored.project.campaigns[0].flow.nodes[0].placements.size(), 2)
+	_expect("saved deployment reopens", stored.project.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 
