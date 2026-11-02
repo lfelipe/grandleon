@@ -16,7 +16,7 @@ fallbacks.
 The branch is ready for a first SteamOS PC validation, not for a content-complete
 release. The portable bundle includes pinned Godot, compiled demo content, the
 native extension, imported assets, and a two-player launcher. It contains no
-machine-specific model or graphics configuration.
+machine-specific model, graphics, or control configuration.
 
 ## What is already proven
 
@@ -25,7 +25,7 @@ machine-specific model or graphics configuration.
 | Portable rules | Godot submits intents to the same C++ session used by the other clients; `.gpk` content does not name Godot resources. |
 | Simultaneous co-op control | Both players have independent cursors and request queues. A smoke mode requires two friendly moves submitted together to be accepted before it captures a frame. |
 | Stable controller seats | A lone controller is Player 1. Reconciliation preserves every still-connected pad and cursor across enumeration changes, fills only a vacant seat on reconnect, and ignores extra devices. Keyboard/mouse can join a vacant second seat. A headless smoke covers launch, disconnect, reconnect, reorder, and assignment cases. |
-| Compact controls | Every essential flow uses one stick or d-pad plus A, B, X, Y, and Start. Shoulder buttons and Back are optional shortcuts. |
+| Compact controls | Every essential flow uses one stick or d-pad plus five configurable buttons. The default is A, B, X, Y, and Start; shoulders and Back are optional shortcuts that can be disabled. Invalid or ambiguous local profiles fall back atomically to the complete default. |
 | Deterministic conflict handling | Commands overlap visually but serialize at the simulation boundary; a stale or conflicting command is refused instead of mutating state out of order. |
 | Offline campaign | The Last Signal has authored opening, terms, talk outcome, battle outcome, and ending dialogue with the model disabled. |
 | Optional model dialogue | Model lines append only to allowlisted scenes and pass speaker, count, length, and markup validation. Authored lines are never replaced. |
@@ -48,6 +48,8 @@ Test the default `voxel-sprites` profile first, then compare `diorama` and
 3. Launch with one controller and confirm it controls Player 1 and can command
    the complete friendly team using only stick/d-pad, A, B, X, Y, and Start.
    Then connect a second controller and repeat after a disconnect/reconnect.
+   If the hardware layout differs, copy `controls.example.json` to
+   `controls.local.json`, remap it locally, and repeat without committing it.
 4. Move both friendly characters at once. Check that their animations overlap,
    each cursor remains responsive, and a destination conflict produces a clear
    refusal rather than a stuck unit.
@@ -78,8 +80,6 @@ addresses, usernames, or absolute install paths in project content or issues.
   authored.
 - Add explicit join/leave feedback and persistent controller glyphs rather
   than generic button letters.
-- Add configurable input remapping without expanding the required control set;
-  compact and limited-button PC installations remain a supported use case.
 - Add an automated Godot smoke target to CI once a pinned headless display and
   Godot cache are practical there.
 

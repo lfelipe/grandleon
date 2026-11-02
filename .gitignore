@@ -24,6 +24,7 @@ __pycache__/
 # choice is machine-local and must never enter an archive or commit.
 pc.local.json
 graphics.local.json
+controls.local.json
 
 # Editor detritus. A swap file was committed once by a broad `git add -A`
 # during an edit; the public export is made from tracked files, so keeping

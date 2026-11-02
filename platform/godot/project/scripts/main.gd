@@ -4,6 +4,7 @@ extends Node2D
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const BoardView = preload("res://scripts/board_view.gd")
 const BoardView3D = preload("res://scripts/board_view_3d.gd")
+const ControlProfile = preload("res://scripts/control_profile.gd")
 const ControllerSeats = preload("res://scripts/controller_seats.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const PLAYER_COLOURS := [Color("69d9ff"), Color("ffca63")]
@@ -17,6 +18,7 @@ var package_path := "res://game.gpk"
 var campaign_key := "tarnholt_line"
 var graphics_profile := ""
 var graphics_pack_path := ""
+var controls_path := ""
 var camera_impulse_enabled := true
 var text_scale := 1.0
 var screenshot_path := ""
@@ -36,6 +38,7 @@ var board_preview := false
 var graphics_cycle_smoke := false
 var graphics_cycle_smoke_index := 0
 var graphics_cycle_smoke_next_msec := 0
+var controls_smoke := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
 var keyboard_seat := -1
@@ -74,10 +77,12 @@ var session_menu_text: Button
 var session_menu_quit: Button
 var art = ArtLibrary.new()
 var graphics_profiles
+var controls
 
 
 func _ready() -> void:
 	_parse_arguments()
+	controls = ControlProfile.new(controls_path)
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
 	graphics_profile = graphics_profiles.resolve(graphics_profile)
 	var initial_profile: Dictionary = graphics_profiles.profile(graphics_profile)
@@ -87,8 +92,13 @@ func _ready() -> void:
 	_create_board(graphics_profile)
 	_create_interface()
 	_update_session_labels()
+	if not controls.warning().is_empty():
+		_show_toast(controls.warning())
 	if not graphics_profiles.warning().is_empty():
 		_show_toast(graphics_profiles.warning())
+	if controls_smoke:
+		_run_controls_smoke()
+		return
 	_configure_seats()
 	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	session = ClassDB.instantiate("GrandleonSession")
@@ -177,6 +187,8 @@ func _parse_arguments() -> void:
 			graphics_profile = argument.trim_prefix("--graphics=")
 		elif argument.begins_with("--graphics-pack="):
 			graphics_pack_path = argument.trim_prefix("--graphics-pack=")
+		elif argument.begins_with("--controls="):
+			controls_path = argument.trim_prefix("--controls=")
 		elif argument.begins_with("--players="):
 			player_count = clampi(int(argument.trim_prefix("--players=")), 1, 2)
 		elif argument == "--fullscreen":
@@ -198,6 +210,30 @@ func _parse_arguments() -> void:
 			board_preview = true
 		elif argument == "--graphics-cycle-smoke":
 			graphics_cycle_smoke = true
+		elif argument == "--controls-smoke":
+			controls_smoke = true
+
+
+func _run_controls_smoke() -> void:
+	var valid: bool = (
+		controls.binding("confirm") == "x"
+		and controls.binding("cancel") == "y"
+		and controls.binding("next_action") == "b"
+		and controls.binding("end_turn") == "a"
+		and controls.binding("menu") == "start"
+		and controls.button("previous_unit") < 0
+		and controls.warning().is_empty()
+		and help_label.text.contains("[b]X[/b][/color]  SELECT / CONFIRM")
+		and session_menu_resume.text.contains("X · ENTER")
+		and session_menu_quit.text.contains("X · A · Q")
+		and dialogue_hint.text.contains("X / ENTER")
+	)
+	if not valid:
+		push_error("control profile did not propagate through the PC interface")
+		get_tree().quit(2)
+		return
+	print("control profile integration smoke passed")
+	get_tree().quit()
 
 
 func _run_smoke_auto() -> void:
@@ -482,18 +518,19 @@ func _graphics_profile_name() -> String:
 
 func _update_session_labels() -> void:
 	var name := _graphics_profile_name()
+	var confirm_label: String = controls.label("confirm")
 	if title_label != null:
 		title_label.text = "GRANDLEON  /  " + name
 	if session_menu_graphics != null:
-		session_menu_graphics.text = "GRAPHICS  /  %s  /  A · ENTER" % name
+		session_menu_graphics.text = "GRAPHICS  /  %s  /  %s · ENTER" % [name, confirm_label]
 	if session_menu_camera != null:
-		session_menu_camera.text = "CAMERA IMPULSE  /  %s  /  A · ENTER" % (
-			"ON" if camera_impulse_enabled else "OFF"
-		)
+		session_menu_camera.text = "CAMERA IMPULSE  /  %s  /  %s · ENTER" % [
+			"ON" if camera_impulse_enabled else "OFF", confirm_label
+		]
 	if session_menu_text != null:
-		session_menu_text.text = "TEXT SIZE  /  %s  /  A · ENTER" % (
-			"LARGE" if text_scale > 1.05 else "NORMAL"
-		)
+		session_menu_text.text = "TEXT SIZE  /  %s  /  %s · ENTER" % [
+			"LARGE" if text_scale > 1.05 else "NORMAL", confirm_label
+		]
 
 
 func _board_matches_current_state() -> bool:
@@ -647,7 +684,10 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	_bind_font_size(dialogue_text, "normal_font_size", 25)
 	dialogue_text.add_theme_color_override("default_color", Color("e9f0f4"))
 	words.add_child(dialogue_text)
-	dialogue_hint = _label("A / ENTER  CONTINUE", 15, Color("89a8b8"))
+	dialogue_hint = _label(
+		"%s / ENTER  CONTINUE" % controls.label("confirm"),
+		15, Color("89a8b8")
+	)
 	dialogue_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	words.add_child(dialogue_hint)
 
@@ -686,7 +726,9 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 86
 	column.add_child(explanation)
-	session_menu_resume = _menu_button("RESUME  /  A · ENTER")
+	session_menu_resume = _menu_button(
+		"RESUME  /  %s · ENTER" % controls.label("confirm")
+	)
 	session_menu_resume.pressed.connect(_close_session_menu)
 	column.add_child(session_menu_resume)
 	session_menu_graphics = _menu_button("")
@@ -698,11 +740,16 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_text = _menu_button("")
 	session_menu_text.pressed.connect(_toggle_text_scale)
 	column.add_child(session_menu_text)
-	session_menu_quit = _menu_button("RETURN TO STEAM  /  A · X · Q")
+	session_menu_quit = _menu_button(
+		"RETURN TO STEAM  /  %s · %s · Q" % [
+			controls.label("confirm"), controls.label("end_turn")
+		]
+	)
 	session_menu_quit.pressed.connect(_quit_to_launcher)
 	column.add_child(session_menu_quit)
 	var hint := _label(
-		"Stick / d-pad chooses. B / ESC / START resumes. Opening the menu confirms the first quit step.",
+		"Stick / d-pad chooses. %s / ESC / %s resumes. Opening the menu confirms the first quit step."
+		% [controls.label("cancel"), controls.label("menu")],
 		16, Color("718896")
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -768,16 +815,23 @@ func _handle_session_menu_input(event: InputEvent) -> void:
 		if event.keycode in [KEY_Q, KEY_ESCAPE, KEY_ENTER, KEY_SPACE]:
 			get_viewport().set_input_as_handled()
 	elif event is InputEventJoypadButton and event.pressed:
-		if event.button_index == JOY_BUTTON_X:
+		if controls.matches("end_turn", event.button_index):
 			_quit_to_launcher()
-		elif event.button_index == JOY_BUTTON_A:
+		elif controls.matches("confirm", event.button_index):
 			_activate_session_menu_focus()
-		elif event.button_index in [JOY_BUTTON_B, JOY_BUTTON_START, JOY_BUTTON_BACK]:
+		elif (
+			controls.matches("cancel", event.button_index)
+			or controls.matches("menu", event.button_index)
+			or controls.matches("menu_alt", event.button_index)
+		):
 			_close_session_menu()
-		if event.button_index in [
-			JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_X,
-			JOY_BUTTON_START, JOY_BUTTON_BACK,
-		]:
+		if (
+			controls.matches("end_turn", event.button_index)
+			or controls.matches("confirm", event.button_index)
+			or controls.matches("cancel", event.button_index)
+			or controls.matches("menu", event.button_index)
+			or controls.matches("menu_alt", event.button_index)
+		):
 			get_viewport().set_input_as_handled()
 
 
@@ -960,26 +1014,44 @@ func _handle_pad_button(event: InputEventJoypadButton) -> void:
 	if seat < 0 or seat >= player_count:
 		return
 	if _dialogue_visible():
-		if event.button_index in [JOY_BUTTON_A, JOY_BUTTON_START]:
+		if (
+			controls.matches("confirm", event.button_index)
+			or controls.matches("menu", event.button_index)
+		):
 			_advance_dialogue()
 		return
 	match event.button_index:
-		JOY_BUTTON_DPAD_LEFT: _move_cursor(seat, Vector2i.LEFT)
-		JOY_BUTTON_DPAD_RIGHT: _move_cursor(seat, Vector2i.RIGHT)
-		JOY_BUTTON_DPAD_UP: _move_cursor(seat, Vector2i.UP)
-		JOY_BUTTON_DPAD_DOWN: _move_cursor(seat, Vector2i.DOWN)
-		JOY_BUTTON_A: _accept_at(seat)
-		JOY_BUTTON_B: _cancel(seat)
-		JOY_BUTTON_Y: _cycle_mode(seat, 1)
-		JOY_BUTTON_X: _wait_selected(seat)
-		JOY_BUTTON_LEFT_SHOULDER: _cycle_unit(seat, -1)
-		JOY_BUTTON_RIGHT_SHOULDER: _cycle_unit(seat, 1)
-		JOY_BUTTON_START:
-			if snapshot.get("deploying", false):
-				_submit("begin")
-			else:
-				_open_session_menu()
-		JOY_BUTTON_BACK: _open_session_menu()
+		JOY_BUTTON_DPAD_LEFT:
+			_move_cursor(seat, Vector2i.LEFT)
+			return
+		JOY_BUTTON_DPAD_RIGHT:
+			_move_cursor(seat, Vector2i.RIGHT)
+			return
+		JOY_BUTTON_DPAD_UP:
+			_move_cursor(seat, Vector2i.UP)
+			return
+		JOY_BUTTON_DPAD_DOWN:
+			_move_cursor(seat, Vector2i.DOWN)
+			return
+	if controls.matches("confirm", event.button_index):
+		_accept_at(seat)
+	elif controls.matches("cancel", event.button_index):
+		_cancel(seat)
+	elif controls.matches("next_action", event.button_index):
+		_cycle_mode(seat, 1)
+	elif controls.matches("end_turn", event.button_index):
+		_wait_selected(seat)
+	elif controls.matches("previous_unit", event.button_index):
+		_cycle_unit(seat, -1)
+	elif controls.matches("next_unit", event.button_index):
+		_cycle_unit(seat, 1)
+	elif controls.matches("menu", event.button_index):
+		if snapshot.get("deploying", false):
+			_submit("begin")
+		else:
+			_open_session_menu()
+	elif controls.matches("menu_alt", event.button_index):
+		_open_session_menu()
 
 
 func _handle_pad_motion(event: InputEventJoypadMotion) -> void:
@@ -1206,7 +1278,8 @@ func _show_dialogue_line() -> void:
 	dialogue_layer.visible = true
 	dialogue_speaker.text = String(line.get("speaker", ""))
 	dialogue_text.text = String(line.get("text", ""))
-	dialogue_hint.text = "A / ENTER  CONTINUE"
+	var confirm_label: String = controls.label("confirm")
+	dialogue_hint.text = "%s / ENTER  CONTINUE" % confirm_label
 	_set_dialogue_backdrop(int(line.get("backdrop", 0)))
 	if line.has("archetype"):
 		var portrait := AtlasTexture.new()
@@ -1267,11 +1340,11 @@ func _show_fatal(message: String) -> void:
 func _help_text() -> String:
 	return (
 		"[b]STICK / D-PAD[/b]  MOVE CURSOR\n"
-		+ "[color=#69d9ff][b]A[/b][/color]  SELECT / CONFIRM\n"
-		+ "[color=#ffca63][b]B[/b][/color]  CANCEL\n"
-		+ "[b]Y[/b]  NEXT ACTION\n"
-		+ "[b]X[/b]  END CHARACTER TURN\n"
-		+ "[b]START[/b]  BEGIN / SESSION MENU\n\n"
+		+ "[color=#69d9ff][b]%s[/b][/color]  SELECT / CONFIRM\n" % controls.label("confirm")
+		+ "[color=#ffca63][b]%s[/b][/color]  CANCEL\n" % controls.label("cancel")
+		+ "[b]%s[/b]  NEXT ACTION\n" % controls.label("next_action")
+		+ "[b]%s[/b]  END CHARACTER TURN\n" % controls.label("end_turn")
+		+ "[b]%s[/b]  BEGIN / SESSION MENU\n\n" % controls.label("menu")
 		+ "[color=#89a8b8]TEAM PHASE: both players command independently and movement animations overlap. Conflicting inputs are resolved deterministically by the battle.[/color]"
 	)
 

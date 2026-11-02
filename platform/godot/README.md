@@ -17,6 +17,7 @@ The separation is deliberate:
 | C++ extension | package loading, legal ranges, deterministic commands, AI fallback | rendering or controller layout |
 | Godot project | rendering, animation, two-player input, optional model requests | combat rules or campaign outcomes |
 | `pc.local.json` | one machine's model endpoint and feature switches | project content |
+| `controls.local.json` | one machine's controller button mapping | project content or portable rules |
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to
@@ -83,17 +84,31 @@ selects the next action, X ends a character's turn, and Start begins play or
 opens the session menu. Shoulder buttons and Back remain optional shortcuts,
 not requirements. Configurable remapping is a production requirement so the PC
 build can support compact controllers and other limited-button installations
-without creating a separate game mode; the current build provides the stable
-default mapping above.
+without creating a separate game mode. The current build implements that
+requirement through an optional local control profile while retaining the
+stable default mapping above.
 
-Outside deployment and dialogue, Start or the optional Back shortcut opens a
-controller-native session menu. The stick or d-pad chooses an action and A or Enter confirms it, including
+To remap buttons, copy `controls.example.json` to `controls.local.json` beside
+the launcher and change values under `buttons`. Essential actions must remain
+bound to distinct supported buttons; omitted values retain their defaults. Set
+`previous_unit`, `next_unit`, or `menu_alt` to `none` when the controller lacks
+those optional inputs. An unknown, disabled essential, or ambiguous mapping
+activates the complete default profile instead of leaving the game partly
+controllable. Supported button values are `a`, `b`, `x`, `y`, `start`, `back`,
+`left_shoulder`, and `right_shoulder`; `none` is valid only for optional
+actions. The local file is ignored by Git, excluded from bundles, and
+discovered only at launch time.
+
+Outside deployment and dialogue, the configured menu button (Start by default)
+or optional alternate (Back by default) opens a controller-native session menu.
+The stick or d-pad chooses an action and the configured confirm button (A by
+default) or Enter confirms it, including
 cycling all four graphics profiles against the live encounter without changing
 its simulation state, disabling camera impulse for motion-sensitive players,
 and switching all interface text between Normal and Large. B, Start, or Escape
-resumes directly, while X or Q returns to Steam. Opening the menu is the first
-confirmation, preventing a single accidental gameplay press from closing the
-PC session.
+resumes directly under the default mapping, while X or Q returns to Steam.
+Opening the menu is the first confirmation, preventing a single accidental
+gameplay press from closing the PC session.
 
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the
@@ -216,6 +231,12 @@ To record the paced, model-off campaign reel used for remote visual review:
 platform/godot/scripts/record-demo-reel.sh
 ```
 
+To validate default, remapped, disabled-optional, and rejected ambiguous
+controller profiles—including their live interface labels:
+
+```sh
+platform/godot/scripts/smoke-control-profile.sh
+```
 To verify stable controller seats through connect, disconnect, reconnect,
 keyboard-plus-pad, and extra-pad cases:
 

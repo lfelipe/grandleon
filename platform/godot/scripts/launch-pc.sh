@@ -24,5 +24,8 @@ fi
 if [[ -f "${bundle_dir}/graphics.local.json" ]]; then
     game_args+=("--graphics-pack=${bundle_dir}/graphics.local.json")
 fi
+if [[ -f "${bundle_dir}/controls.local.json" ]]; then
+    game_args+=("--controls=${bundle_dir}/controls.local.json")
+fi
 
 exec "${bundle_dir}/godot" --path "${bundle_dir}/project" -- "${game_args[@]}" "$@"

@@ -102,6 +102,9 @@ cmake -E copy \
 cmake -E copy \
     "${repo_root}/platform/godot/project/graphics.example.json" \
     "${temporary_dir}/graphics.example.json"
+cmake -E copy \
+    "${repo_root}/platform/godot/project/controls.example.json" \
+    "${temporary_dir}/controls.example.json"
 source_revision="$(git -C "${repo_root}" rev-parse HEAD)"
 source_state="clean"
 if [[ -n "$(git -C "${repo_root}" status --porcelain --untracked-files=normal)" ]]; then
@@ -117,7 +120,7 @@ godot_version="$("${godot_binary}" --version | head -n 1)"
     printf 'defaultGraphics=voxel-sprites\n'
 } >"${temporary_dir}/BUILD-INFO.txt"
 chmod +x "${temporary_dir}/godot" "${temporary_dir}/launch-pc.sh"
-for local_config in pc.local.json graphics.local.json; do
+for local_config in pc.local.json graphics.local.json controls.local.json; do
     if [[ -e "${temporary_dir}/${local_config}" || \
           -e "${temporary_dir}/project/${local_config}" ]]; then
         printf 'refusing bundle: private local config was staged: %s\n' \

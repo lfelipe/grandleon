@@ -1,0 +1,12 @@
+{
+  "buttons": {
+    "confirm": "x",
+    "cancel": "y",
+    "next_action": "b",
+    "end_turn": "a",
+    "menu": "start",
+    "previous_unit": "none",
+    "next_unit": "none",
+    "menu_alt": "none"
+  }
+}
