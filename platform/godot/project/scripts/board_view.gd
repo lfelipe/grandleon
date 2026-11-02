@@ -42,6 +42,7 @@ func _ready() -> void:
 
 func set_profile(_name: String, value: Dictionary) -> void:
 	profile_config = value
+	art.configure_profile(profile_config)
 
 
 func set_camera_impulse_enabled(value: bool) -> void:

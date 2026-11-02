@@ -305,6 +305,16 @@ events hold the attack or cast pose while their procedural or replaceable
 effects play. A higher-resolution pack may change cell dimensions without a
 package, simulation, or renderer change.
 
+The recommended profile now proves that contract with one 1772×886 Rook sheet:
+eight 443×443 cells supply independently timed idle, walk, weapon, cast, hurt,
+and defeat poses while every other character continues to use the generated
+32-pixel roster. `assets.characterSprites` keys a replacement by
+`archetype|faction-colour|style|figure`; its path, grid, pivot, and named frame
+sequences live entirely in the graphics profile. A missing path, invalid grid,
+or absent identity falls back to the generated character independently. Copy
+the example entry in `graphics.example.json` to exercise a different sheet
+without touching package data or simulation code.
+
 ## Developer build
 
 ```sh

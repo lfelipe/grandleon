@@ -32,6 +32,7 @@ var _manifest: Dictionary = {}
 var _textures: Dictionary = {}
 var _mask_to_variant: Array = []
 var _character_assets: Dictionary = {}
+var _character_sprite_overrides: Dictionary = {}
 
 
 func _init(manifest_override: Variant = null) -> void:
@@ -79,11 +80,14 @@ func character_texture(unit: Dictionary) -> Texture2D:
 
 
 func character_frame(unit: Dictionary, state := "idle", elapsed := 0.0) -> Dictionary:
-	var sequence := _resolved_sequence(String(state))
+	var override := _character_sprite_override(unit)
+	var sequence := _resolved_character_sequence(String(state), override)
 	var kind := String(sequence.get("asset_kind", "character"))
-	var entry := _character_asset(unit, kind)
+	var entry: Dictionary = override
 	if entry.is_empty():
-		entry = _legacy_character_asset(unit, kind)
+		entry = _character_asset(unit, kind)
+		if entry.is_empty():
+			entry = _legacy_character_asset(unit, kind)
 	var columns := maxi(1, int(entry.get("columns", 1)))
 	var rows := maxi(1, int(entry.get("rows", 1)))
 	var frames_value: Variant = sequence.get("frames", [0])
@@ -112,13 +116,81 @@ func character_frame(unit: Dictionary, state := "idle", elapsed := 0.0) -> Dicti
 		"tile_height", int(entry.get("height", 32)) / rows
 	)))
 	return {
-		"path": "res://assets/%s" % String(entry.get("path", "")),
+		"path": _character_path(entry),
 		"frame": safe_frames[frame_index],
 		"columns": columns,
 		"rows": rows,
 		"cell_size": Vector2i(cell_width, cell_height),
-		"pivot": _character_pivot(),
+		"pivot": _character_pivot(override),
 	}
+
+
+# A graphics profile may replace one generated character with a larger sheet
+# without modifying portable game content or the generated fallback manifest.
+# Invalid or missing resources are omitted here so each binding falls back
+# independently to the generated roster.
+func configure_profile(config: Dictionary) -> void:
+	_character_sprite_overrides.clear()
+	var assets_value: Variant = config.get("assets", {})
+	if not assets_value is Dictionary:
+		return
+	var sprites_value: Variant = assets_value.get("characterSprites", {})
+	if not sprites_value is Dictionary:
+		return
+	for key_value: Variant in sprites_value.keys():
+		var value: Variant = sprites_value[key_value]
+		if not value is Dictionary:
+			continue
+		var entry: Dictionary = value
+		if not _valid_character_sprite(entry):
+			continue
+		_character_sprite_overrides[String(key_value)] = entry.duplicate(true)
+
+
+func _valid_character_sprite(entry: Dictionary) -> bool:
+	var path := String(entry.get("path", ""))
+	var columns := int(entry.get("columns", 0))
+	var rows := int(entry.get("rows", 0))
+	var tile_width := int(entry.get("tile_width", 0))
+	var tile_height := int(entry.get("tile_height", 0))
+	if (
+		not path.begins_with("res://")
+		or not ResourceLoader.exists(path, "Texture2D")
+		or columns <= 0
+		or rows <= 0
+		or tile_width <= 0
+		or tile_height <= 0
+	):
+		return false
+	var image := ResourceLoader.load(path, "Texture2D") as Texture2D
+	return (
+		image != null
+		and image.get_width() == columns * tile_width
+		and image.get_height() == rows * tile_height
+	)
+
+
+func _character_sprite_override(unit: Dictionary) -> Dictionary:
+	return _character_sprite_overrides.get(_character_identity_key(unit), {})
+
+
+func _resolved_character_sequence(state: String, override: Dictionary) -> Dictionary:
+	if not override.is_empty():
+		var sequences_value: Variant = override.get("sequences", {})
+		if sequences_value is Dictionary:
+			var sequences: Dictionary = sequences_value
+			var value: Variant = sequences.get(state, sequences.get("idle", {}))
+			if value is Dictionary:
+				var candidate: Dictionary = value
+				var frames_value: Variant = candidate.get("frames", [])
+				if frames_value is Array and not frames_value.is_empty():
+					return candidate
+	return _resolved_sequence(state)
+
+
+func _character_path(entry: Dictionary) -> String:
+	var path := String(entry.get("path", ""))
+	return path if path.begins_with("res://") else "res://assets/%s" % path
 
 
 func _character_asset(unit: Dictionary, kind: String) -> Dictionary:
@@ -126,6 +198,10 @@ func _character_asset(unit: Dictionary, kind: String) -> Dictionary:
 
 
 func _character_asset_key(unit: Dictionary, kind: String) -> String:
+	return "%s|%s" % [kind, _character_identity_key(unit)]
+
+
+func _character_identity_key(unit: Dictionary) -> String:
 	var archetype := _resolved_name(
 		ARCHETYPE_NAMES, int(unit.get("archetype", 0)), 0
 	)
@@ -138,7 +214,7 @@ func _character_asset_key(unit: Dictionary, kind: String) -> String:
 		figure_index = 0
 	var style: String = STYLE_NAMES[style_index]
 	var figure: String = "first" if figure_index == 0 else "second"
-	return "%s|%s|%s|%s|%s" % [kind, archetype, colour, style, figure]
+	return "%s|%s|%s|%s" % [archetype, colour, style, figure]
 
 
 func _legacy_character_asset(unit: Dictionary, kind: String) -> Dictionary:
@@ -210,7 +286,18 @@ func _resolved_sequence(state: String) -> Dictionary:
 	return candidate
 
 
-func _character_pivot() -> Vector2:
+func _character_pivot(override := {}) -> Vector2:
+	if override is Dictionary and not override.is_empty():
+		var override_value: Variant = override.get("pivot", [])
+		if override_value is Array and override_value.size() == 2:
+			var override_pivot := Vector2(
+				float(override_value[0]), float(override_value[1])
+			)
+			if (
+				override_pivot.x >= 0.0 and override_pivot.x <= 1.0
+				and override_pivot.y >= 0.0 and override_pivot.y <= 1.0
+			):
+				return override_pivot
 	var animations_value: Variant = _manifest.get("character_animation", {})
 	if animations_value is Dictionary:
 		var value: Variant = animations_value.get("pivot", [])

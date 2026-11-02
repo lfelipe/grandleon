@@ -71,6 +71,7 @@ var _pulse := 0.0
 func set_profile(value: String, config := {}) -> void:
 	render_profile = value if value in ["diorama", "voxel-sprites", "voxel"] else "diorama"
 	profile_config = config if config is Dictionary else {}
+	art.configure_profile(profile_config)
 	_update_surrounding_background()
 
 

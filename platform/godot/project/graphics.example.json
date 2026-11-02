@@ -24,6 +24,26 @@
           "impact": "res://local-art/effects/impact.png"
         }
       },
+      "assets": {
+        "characterSprites": {
+          "commander|amber|scifi|first": {
+            "path": "res://local-art/characters/commander.png",
+            "columns": 4,
+            "rows": 2,
+            "tile_width": 256,
+            "tile_height": 256,
+            "pivot": [0.5, 0.94],
+            "sequences": {
+              "idle": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+              "move": {"frames": [2, 3], "frames_per_second": 7.0, "loop": true},
+              "attack": {"frames": [4, 5], "frames_per_second": 10.0},
+              "ability": {"frames": [6]},
+              "hurt": {"frames": [7]},
+              "defeat": {"frames": [7]}
+            }
+          }
+        }
+      },
       "palette": {
         "grass": "4a7650",
         "road": "8d6a45",

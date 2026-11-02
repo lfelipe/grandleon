@@ -82,6 +82,87 @@ func _init() -> void:
 	_expect("out-of-range pose is safe", art.character_frame(unit, "hurt").frame, 0)
 	_expect("unknown state uses idle", art.character_frame(unit, "missing").path, idle.path)
 
+	art.configure_profile({
+		"assets": {
+			"characterSprites": {
+				"knight|blue|medieval|first": {
+					"path": "res://art/characters/rook_commander_hd.png",
+					"columns": 4,
+					"rows": 2,
+					"tile_width": 443,
+					"tile_height": 443,
+					"pivot": [0.5, 0.94],
+					"sequences": {
+						"idle": {
+							"frames": [0, 1],
+							"frames_per_second": 2.0,
+							"loop": true,
+						},
+						"move": {
+							"frames": [2, 3],
+							"frames_per_second": 7.0,
+							"loop": true,
+						},
+						"attack": {
+							"frames": [4, 5],
+							"frames_per_second": 10.0,
+						},
+						"hurt": {"frames": [7]},
+					},
+				},
+			},
+		},
+	})
+	var replacement_idle: Dictionary = art.character_frame(unit, "idle", 0.6)
+	_expect(
+		"profile sprite path",
+		replacement_idle.path,
+		"res://art/characters/rook_commander_hd.png"
+	)
+	_expect("profile sprite cell", replacement_idle.cell_size, Vector2i(443, 443))
+	_expect("profile idle timing", replacement_idle.frame, 1)
+	_expect("profile walk timing", art.character_frame(unit, "move", 0.15).frame, 3)
+	_expect("profile attack timing", art.character_frame(unit, "attack", 0.11).frame, 5)
+	_expect("profile hurt pose", art.character_frame(unit, "hurt").frame, 7)
+	_expect("profile pivot", replacement_idle.pivot, Vector2(0.5, 0.94))
+
+	art.configure_profile({
+		"assets": {
+			"characterSprites": {
+				"knight|blue|medieval|first": {
+					"path": "res://art/characters/missing.png",
+					"columns": 4,
+					"rows": 2,
+					"tile_width": 443,
+					"tile_height": 443,
+				},
+			},
+		},
+	})
+	_expect(
+		"missing profile sprite falls back",
+		art.character_frame(unit, "idle").path,
+		"res://assets/characters/knight_blue.png"
+	)
+	art.configure_profile({
+		"assets": {
+			"characterSprites": {
+				"knight|blue|medieval|first": {
+					"path": "res://art/characters/rook_commander_hd.png",
+					"columns": 4,
+					"rows": 2,
+					"tile_width": 444,
+					"tile_height": 443,
+				},
+			},
+		},
+	})
+	_expect(
+		"misaligned profile grid falls back",
+		art.character_frame(unit, "idle").path,
+		"res://assets/characters/knight_blue.png"
+	)
+
 	var legacy = ArtLibrary.new({})
 	var legacy_move: Dictionary = legacy.character_frame(unit, "move", 0.2)
 	_expect("legacy sheet path", legacy_move.path, "res://assets/characters/knight_blue_frames.png")

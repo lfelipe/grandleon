@@ -89,6 +89,7 @@ func _ready() -> void:
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
 	graphics_profile = graphics_profiles.resolve(graphics_profile)
 	var initial_profile: Dictionary = graphics_profiles.profile(graphics_profile)
+	art.configure_profile(initial_profile)
 	camera_impulse_enabled = bool(initial_profile.get("cameraImpulse", true))
 	text_scale = clampf(float(initial_profile.get("textScale", 1.0)), 1.0, 1.20)
 	_create_background()
@@ -476,6 +477,7 @@ func _set_graphics_profile(requested: String) -> void:
 		remove_child(board)
 		board.queue_free()
 	graphics_profile = resolved
+	art.configure_profile(graphics_profiles.profile(graphics_profile))
 	_create_board(graphics_profile)
 	if not snapshot.is_empty() and not battle_terrain.is_empty():
 		board.configure(snapshot, battle_terrain, battle_theme, battle_surroundings)
