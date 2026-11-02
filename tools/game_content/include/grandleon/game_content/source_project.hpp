@@ -58,6 +58,14 @@ struct SourceTextResult final {
     }
 };
 
+// One author-facing map coordinate. Source edits keep these wider than the
+// compiled package representation so an out-of-range value can be refused
+// before any narrowing conversion changes what the caller supplied.
+struct SourceMapCell final {
+    std::int64_t x{};
+    std::int64_t y{};
+};
+
 // Parses canonical source schema v1 into the native semantic compiler model.
 // This is deliberately narrower than schema validation: unsupported gameplay
 // registries are rejected rather than silently omitted from the package.
@@ -157,6 +165,19 @@ struct SourceTextResult final {
     std::string_view campaign_id,
     std::string_view node_id,
     std::string_view placement_id
+);
+
+// Replaces an encounter's complete deployment region. The deployment identity
+// is created when no rule exists and must match an existing rule; capacity and
+// notes are preserved. An empty region removes the deployment object only when
+// it carries no capacity, so clearing tiles cannot silently clear another
+// authoring rule. A previously playable project remains playable.
+[[nodiscard]] SourceTextResult set_source_deployment_tiles_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view deployment_id,
+    const std::vector<SourceMapCell>& tiles
 );
 
 }  // namespace grandleon::game_content

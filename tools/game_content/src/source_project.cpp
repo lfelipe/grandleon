@@ -12,6 +12,7 @@
 #include <limits>
 #include <map>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -3120,19 +3121,28 @@ bool placement_destination_is_valid(
 void finish_encounter_edit(
     EditableEncounterDocument& editable,
     SourceTextResult& result,
-    const std::string& path
+    const std::string& path,
+    std::string_view edit_kind = "placement"
 ) {
     const bool was_playable = static_cast<bool>(compile(editable.before.source));
     finish_document_edit(editable.document, result);
     if (!result || !was_playable) return;
     const SourceParseResult after = parse_source_project_json(result.json);
-    if (after && compile(after.source)) return;
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return;
     result.json.clear();
+    std::string detail = std::string(edit_kind) +
+                         " edit would make this playable project invalid";
+    if (after && !compiled.diagnostics.empty()) {
+        detail += " (";
+        detail += diagnostic_name(compiled.diagnostics.front().code);
+        detail += ")";
+    }
     refuse_edit(
         result,
         SourceDiagnosticCode::invalid_value,
         path,
-        "placement edit would make this playable project invalid"
+        std::move(detail)
     );
 }
 
@@ -3620,6 +3630,118 @@ SourceTextResult remove_source_placement_json(
         static_cast<std::ptrdiff_t>(placement_index)
     );
     finish_encounter_edit(editable, result, placements_path);
+    return result;
+}
+
+SourceTextResult set_source_deployment_tiles_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view deployment_id,
+    const std::vector<SourceMapCell>& tiles
+) {
+    SourceTextResult result;
+    EditableEncounterDocument editable;
+    if (!open_editable_encounter(
+            source_json, campaign_id, node_id, editable, result
+        )) {
+        return result;
+    }
+    const std::string deployment_path = editable.node_path + ".deployment";
+    if (!valid_source_key(deployment_id)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            deployment_path,
+            "deployment id must be a stable source-key string"
+        );
+        return result;
+    }
+    if (tiles.size() > 256) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            deployment_path + ".tiles",
+            "deployment region cannot contain more than 256 tiles"
+        );
+        return result;
+    }
+    std::set<std::pair<std::int64_t, std::int64_t>> unique;
+    for (const SourceMapCell& tile : tiles) {
+        if (tile.x < 0 || tile.y < 0 || tile.x >= editable.width ||
+            tile.y >= editable.height) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                deployment_path + ".tiles",
+                "deployment tile is outside its map"
+            );
+            return result;
+        }
+        if (!unique.emplace(tile.x, tile.y).second) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                deployment_path + ".tiles",
+                "deployment region contains the same tile more than once"
+            );
+            return result;
+        }
+    }
+
+    auto found = editable.node->find("deployment");
+    Object* deployment = found == editable.node->end()
+                             ? nullptr
+                             : std::get_if<Object>(&found->second.value);
+    if (found != editable.node->end() && deployment == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            deployment_path,
+            "expected object"
+        );
+        return result;
+    }
+    if (deployment != nullptr) {
+        const std::string* existing_id = string_member(*deployment, "id");
+        if (existing_id == nullptr || *existing_id != deployment_id) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                deployment_path + ".id",
+                "deployment id does not match the encounter's existing rule"
+            );
+            return result;
+        }
+    } else if (tiles.empty()) {
+        result.json = std::string(source_json);
+        return result;
+    } else {
+        Object created;
+        created.emplace("id", Json{std::string(deployment_id)});
+        auto inserted = editable.node->emplace(
+            "deployment", Json{std::move(created)}
+        );
+        deployment = std::get_if<Object>(&inserted.first->second.value);
+    }
+
+    if (tiles.empty()) {
+        deployment->erase("tiles");
+        if (deployment->find("capacity") == deployment->end()) {
+            editable.node->erase("deployment");
+        }
+    } else {
+        Array output_tiles;
+        output_tiles.reserve(tiles.size());
+        for (const SourceMapCell& tile : tiles) {
+            Object output_tile;
+            output_tile.emplace("x", Json{tile.x});
+            output_tile.emplace("y", Json{tile.y});
+            output_tiles.push_back(Json{std::move(output_tile)});
+        }
+        (*deployment)["tiles"] = Json{std::move(output_tiles)};
+    }
+    finish_encounter_edit(editable, result, deployment_path, "deployment");
     return result;
 }
 

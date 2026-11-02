@@ -115,6 +115,13 @@ void GrandleonProjectCompiler::_bind_methods() {
         &GrandleonProjectCompiler::remove_placement
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "set_deployment_tiles", "source_json", "campaign_id", "node_id",
+            "deployment_id", "coordinates"
+        ),
+        &GrandleonProjectCompiler::set_deployment_tiles
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("supported_schema"),
         &GrandleonProjectCompiler::supported_schema
     );
@@ -388,6 +395,51 @@ gd::Dictionary GrandleonProjectCompiler::remove_placement(
     }
     result["ok"] = true;
     result["source"] = text(removed.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_deployment_tiles(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& node_id,
+    const gd::String& deployment_id,
+    const gd::PackedInt32Array& coordinates
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    if (coordinates.size() % 2 != 0) {
+        gd::Dictionary diagnostic;
+        diagnostic["phase"] = "source";
+        diagnostic["code"] = "invalid_value";
+        diagnostic["path"] = "$.campaigns.deployment.tiles";
+        diagnostic["detail"] =
+            "deployment coordinates must contain complete x/y pairs";
+        diagnostics.push_back(diagnostic);
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    std::vector<gc::SourceMapCell> tiles;
+    tiles.reserve(static_cast<std::size_t>(coordinates.size() / 2));
+    for (std::int64_t index = 0; index < coordinates.size(); index += 2) {
+        tiles.push_back({coordinates[index], coordinates[index + 1]});
+    }
+    const gc::SourceTextResult updated =
+        gc::set_source_deployment_tiles_json(
+            narrow(source_json), narrow(campaign_id), narrow(node_id),
+            narrow(deployment_id), tiles
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
     result["diagnostics"] = diagnostics;
     return result;
 }

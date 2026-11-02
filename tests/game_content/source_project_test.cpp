@@ -484,6 +484,87 @@ void updates_one_map_cell_without_retyping_the_project() {
         !removed_only_ally && removed_only_ally.json.empty(),
         "removing the only ally cannot break a playable encounter"
     );
+
+    const auto deployed = gc::set_source_deployment_tiles_json(
+        enlarged.json, "demo", "battle", "blue_start",
+        {{0, 0}, {0, 1}, {1, 1}}
+    );
+    const auto deployed_parsed = gc::parse_source_project_json(deployed.json);
+    expect(
+        deployed && deployed_parsed &&
+            deployed_parsed.source.encounters.front().deployment.id != 0 &&
+            deployed_parsed.source.encounters.front().deployment.tiles.size() ==
+                3 &&
+            gc::compile(deployed_parsed.source),
+        "a complete deployment region can be added atomically"
+    );
+    expect(
+        !gc::set_source_deployment_tiles_json(
+            deployed.json, "demo", "battle", "other_start", {{0, 0}}
+        ),
+        "an existing deployment cannot be edited through another identity"
+    );
+    expect(
+        !gc::set_source_deployment_tiles_json(
+            enlarged.json, "demo", "battle", "blue_start", {{2, 1}}
+        ),
+        "a playable project cannot gain a region containing no ally"
+    );
+    expect(
+        !gc::set_source_deployment_tiles_json(
+            enlarged.json, "demo", "battle", "blue_start", {{0, 0}, {0, 0}}
+        ),
+        "a deployment region cannot repeat a tile"
+    );
+    expect(
+        !gc::set_source_deployment_tiles_json(
+            enlarged.json, "demo", "battle", "blue_start", {{3, 0}}
+        ),
+        "a deployment tile cannot leave its encounter map"
+    );
+    const auto cleared = gc::set_source_deployment_tiles_json(
+        deployed.json, "demo", "battle", "blue_start", {}
+    );
+    const auto cleared_parsed = gc::parse_source_project_json(cleared.json);
+    expect(
+        cleared && cleared_parsed &&
+            cleared_parsed.source.encounters.front().deployment.id == 0 &&
+            cleared_parsed.source.encounters.front().deployment.tiles.empty() &&
+            gc::compile(cleared_parsed.source),
+        "clearing a region removes a capacity-free deployment rule"
+    );
+
+    const auto capacity_zone = gc::set_source_deployment_tiles_json(
+        added_ally.json, "demo", "battle", "ranked_start",
+        {{0, 0}, {2, 1}}
+    );
+    std::string with_capacity = capacity_zone.json;
+    const std::string id_field = R"json("id": "ranked_start",)json";
+    const auto id_at = with_capacity.find(id_field);
+    if (id_at != std::string::npos) {
+        with_capacity.insert(id_at, R"json("capacity": 1,
+          )json");
+    }
+    const auto capacity_parsed = gc::parse_source_project_json(with_capacity);
+    expect(
+        capacity_zone && id_at != std::string::npos && capacity_parsed &&
+            gc::compile(capacity_parsed.source),
+        "the fixture can carry a valid capacity beside its region"
+    );
+    const auto region_cleared = gc::set_source_deployment_tiles_json(
+        with_capacity, "demo", "battle", "ranked_start", {}
+    );
+    const auto region_cleared_parsed =
+        gc::parse_source_project_json(region_cleared.json);
+    expect(
+        region_cleared && region_cleared_parsed &&
+            region_cleared_parsed.source.encounters.front()
+                    .deployment.capacity == 1 &&
+            region_cleared_parsed.source.encounters.front()
+                .deployment.tiles.empty() &&
+            gc::compile(region_cleared_parsed.source),
+        "clearing region tiles preserves an independent deployment capacity"
+    );
 }
 
 void maps_authored_resistance() {

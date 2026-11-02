@@ -126,6 +126,30 @@ func _init() -> void:
 				"dawn_guard_unit", "first", "", 3, 1
 			)
 			_expect("ally without member refused", missing_member.ok, false)
+			var deployment_tiles := PackedInt32Array([0, 1, 1, 1])
+			var deployed: Dictionary = compiler.set_deployment_tiles(
+				source, "demo_campaign", "bridge_encounter", "bridge_start",
+				deployment_tiles
+			)
+			_expect("deployment region add succeeds", deployed.ok, true)
+			if deployed.ok:
+				var deployed_data: Dictionary = JSON.parse_string(deployed.source)
+				_expect("deployment tile count", deployed_data.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
+				_expect("deployed project compiles", compiler.compile_source_json(deployed.source).ok, true)
+				var cleared: Dictionary = compiler.set_deployment_tiles(
+					deployed.source, "demo_campaign", "bridge_encounter",
+					"bridge_start", PackedInt32Array()
+				)
+				_expect("deployment region clear succeeds", cleared.ok, true)
+				if cleared.ok:
+					var cleared_data: Dictionary = JSON.parse_string(cleared.source)
+					_expect("capacity-free deployment is removed", cleared_data.campaigns[0].flow.nodes[0].has("deployment"), false)
+			var malformed_tiles := PackedInt32Array([0, 1, 2])
+			var malformed_deployment: Dictionary = compiler.set_deployment_tiles(
+				source, "demo_campaign", "bridge_encounter", "bridge_start",
+				malformed_tiles
+			)
+			_expect("odd deployment coordinate is refused", malformed_deployment.ok, false)
 
 	var blank_path := ProjectSettings.globalize_path(
 		"res://content/templates/blank_project.json"

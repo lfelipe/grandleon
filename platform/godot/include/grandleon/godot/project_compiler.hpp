@@ -3,6 +3,7 @@
 
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/packed_string_array.hpp>
 #include <godot_cpp/variant/string.hpp>
 
@@ -79,6 +80,13 @@ public:
         const ::godot::String& campaign_id,
         const ::godot::String& node_id,
         const ::godot::String& placement_id
+    ) const;
+    [[nodiscard]] ::godot::Dictionary set_deployment_tiles(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& node_id,
+        const ::godot::String& deployment_id,
+        const ::godot::PackedInt32Array& coordinates
     ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
