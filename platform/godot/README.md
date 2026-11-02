@@ -51,6 +51,10 @@ starts the two-player `last_signal` campaign full-screen. No home-directory or
 host-specific path is compiled into the extension; the bundler checks the
 native binary and refuses it if the checkout path remains.
 
+`BUILD-INFO.txt` identifies the source commit, clean/dirty build state, pinned
+Godot version, and default campaign/profile without recording the checkout,
+user, hostname, endpoint, or other machine-specific values.
+
 Environment overrides are intentionally generic:
 
 ```sh

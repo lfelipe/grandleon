@@ -102,6 +102,20 @@ cmake -E copy \
 cmake -E copy \
     "${repo_root}/platform/godot/project/graphics.example.json" \
     "${temporary_dir}/graphics.example.json"
+source_revision="$(git -C "${repo_root}" rev-parse HEAD)"
+source_state="clean"
+if [[ -n "$(git -C "${repo_root}" status --porcelain --untracked-files=normal)" ]]; then
+    source_state="dirty"
+fi
+godot_version="$("${godot_binary}" --version | head -n 1)"
+{
+    printf 'Grand Leon SteamOS test bundle\n'
+    printf 'sourceRevision=%s\n' "${source_revision}"
+    printf 'sourceTree=%s\n' "${source_state}"
+    printf 'godotVersion=%s\n' "${godot_version}"
+    printf 'defaultCampaign=last_signal\n'
+    printf 'defaultGraphics=voxel-sprites\n'
+} >"${temporary_dir}/BUILD-INFO.txt"
 chmod +x "${temporary_dir}/godot" "${temporary_dir}/launch-arcade.sh"
 for local_config in arcade.local.json graphics.local.json; do
     if [[ -e "${temporary_dir}/${local_config}" || \
