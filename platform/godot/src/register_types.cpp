@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/godot/grandleon_session.hpp>
+#include <grandleon/godot/project_compiler.hpp>
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/class_db.hpp>
@@ -12,6 +13,7 @@ void initialize_grandleon_module(
 ) {
     if (level != godot::MODULE_INITIALIZATION_LEVEL_SCENE) return;
     GDREGISTER_CLASS(grandleon::godot_frontend::GrandleonSession);
+    GDREGISTER_CLASS(grandleon::godot_frontend::GrandleonProjectCompiler);
 }
 
 void uninitialize_grandleon_module(

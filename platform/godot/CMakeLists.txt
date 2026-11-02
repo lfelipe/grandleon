@@ -28,11 +28,13 @@ set_target_properties(
     grandleon_package_format
     grandleon_package_runtime
     grandleon_client
+    grandleon_game_content
     PROPERTIES POSITION_INDEPENDENT_CODE ON
 )
 
 add_library(grandleon_godot SHARED
     src/grandleon_session.cpp
+    src/project_compiler.cpp
     src/register_types.cpp
 )
 target_include_directories(
@@ -40,7 +42,11 @@ target_include_directories(
 )
 target_link_libraries(
     grandleon_godot
-    PRIVATE grandleon::client grandleon::package_runtime godot-cpp
+    PRIVATE
+        grandleon::client
+        grandleon::package_runtime
+        grandleon::game_content
+        godot-cpp
 )
 # Project warnings still apply to the bridge itself.  Treat the pinned binding
 # headers as third-party system headers so their warning policy does not become
@@ -66,6 +72,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         grandleon_package_format
         grandleon_package_runtime
         grandleon_client
+        grandleon_game_content
         godot-cpp
         grandleon_godot
     )
