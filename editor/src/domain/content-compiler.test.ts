@@ -59,11 +59,11 @@ describe("the content compiler through the WebAssembly boundary", () => {
     expect(ids.size).toBe(result.encounterIds.length);
   });
 
-  it("compiles the demo, which names no style, in the first style", () => {
+  it("compiles the demo in its console-portable science-fiction style", () => {
     const result = compileProject(readFileSync(demoSource, "utf8"));
     expect(result.compiled).toBe(true);
     if (!result.compiled) return;
-    expect(result.characterStyle).toBe(0);
+    expect(result.characterStyle).toBe(1);
   });
 
   it("does not leave the previous package behind on a later call", () => {

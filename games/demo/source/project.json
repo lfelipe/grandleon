@@ -4,6 +4,8 @@
   "gameId": "grandleon.demo",
   "title": "The Bridge at Dawn",
   "contentRevision": "0.2.0",
+  "characterStyleId": "scifi",
+  "characterFigureId": "first",
   "weaponTypes": [
     {
       "id": "blade",
@@ -161,6 +163,8 @@
       "factionId": "dawn_guard",
       "startingWeaponIds": ["training_sword"],
       "startingItemIds": ["field_tonic"],
+      "characterStyleId": "scifi",
+      "characterFigureId": "first",
       "experiencePerLevel": 50,
       "growthRates": {
         "health": 90,
@@ -178,6 +182,8 @@
       "classId": "guard",
       "factionId": "river_watch",
       "startingWeaponIds": ["training_sword"],
+      "characterStyleId": "scifi",
+      "characterFigureId": "first",
       "experienceAward": 60,
       "dropItemId": "field_tonic",
       "dropChance": 60,
@@ -190,7 +196,7 @@
       "factionId": "relay_crew",
       "startingWeaponIds": ["training_sword"],
       "characterStyleId": "scifi",
-      "characterFigureId": "second"
+      "characterFigureId": "first"
     },
     {
       "id": "rook_commander",
@@ -210,7 +216,7 @@
       "startingWeaponIds": ["training_sword"],
       "abilityIds": ["relay_arc"],
       "characterStyleId": "scifi",
-      "characterFigureId": "second"
+      "characterFigureId": "first"
     },
     {
       "id": "relay_beast_drone",

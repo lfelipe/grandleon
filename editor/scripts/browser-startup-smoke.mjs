@@ -142,8 +142,8 @@ try {
   const unitSprites = [...board.querySelectorAll(".unit .unit-sprite")]
     .map((unit) => unit.getAttribute("href"));
   assert.ok(
-    unitSprites.some((href) => href?.endsWith("_blue.png")) &&
-      unitSprites.some((href) => href?.endsWith("_red.png")),
+    unitSprites.some((href) => /_blue(?:_[a-z]+)?\.png$/.test(href ?? "")) &&
+      unitSprites.some((href) => /_red(?:_[a-z]+)?\.png$/.test(href ?? "")),
     "the two demo sides must render generated sprites in their faction colours"
   );
 
