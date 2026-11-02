@@ -56,6 +56,42 @@ func _run() -> void:
 		print("map resize capture saved: %s" % resize_screenshot_path)
 		quit()
 		return
+	var surroundings_screenshot_path := _argument_path("--surroundings-screenshot=")
+	if not surroundings_screenshot_path.is_empty():
+		editor._open_surroundings()
+		editor._cycle_surroundings_mode()
+		editor._cycle_surroundings_mode()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(surroundings_screenshot_path)
+		print("map surroundings capture saved: %s" % surroundings_screenshot_path)
+		quit()
+		return
+	var surroundings_board_path := _argument_path("--surroundings-board-screenshot=")
+	if not surroundings_board_path.is_empty():
+		editor._open_surroundings()
+		editor._cycle_surroundings_mode()
+		editor._cycle_surroundings_mode()
+		editor._apply_surroundings()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(surroundings_board_path)
+		print("map surroundings board capture saved: %s" % surroundings_board_path)
+		quit()
+		return
+	var surroundings_play_path := _argument_path("--surroundings-play-screenshot=")
+	if not surroundings_play_path.is_empty():
+		editor._open_surroundings()
+		editor._cycle_surroundings_mode()
+		editor._apply_surroundings()
+		await process_frame
+		editor._play_draft()
+		for frame in 90:
+			await process_frame
+		get_root().get_texture().get_image().save_png(surroundings_play_path)
+		print("map surroundings play capture saved: %s" % surroundings_play_path)
+		quit()
+		return
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
 		for frame in 12:
@@ -311,6 +347,46 @@ func _run() -> void:
 	_expect("new objective carries authored rounds", int(with_objective.objectives[-1].rounds), 4)
 	editor._close_objectives()
 	await process_frame
+
+	editor._open_surroundings()
+	_expect("outside-area editor opens", editor.surroundings_layer.visible, true)
+	_expect("solid colour is the initial outside mode", editor.surroundings_mode, "solid")
+	editor._cycle_surroundings_mode()
+	_expect("outside mode cycles to automatic terrain", editor.surroundings_mode, "automatic")
+	_expect("coverage guidance names the generated cell count", editor.surroundings_guidance_label.text.contains("78"), true)
+	editor._apply_surroundings()
+	await process_frame
+	var automatic_outside: Dictionary = _parse(editor.source).maps[0].surroundings
+	_expect("automatic outside mode is authored", automatic_outside.mode, "automatic")
+	_expect("recommended outside depth is authored", int(automatic_outside.depth), 3)
+	_expect("automatic ring is visible around the board", editor.grid.get_child_count(), 90)
+
+	editor._open_surroundings()
+	editor._cycle_surroundings_mode()
+	editor._apply_surroundings()
+	await process_frame
+	var manual_outside: Dictionary = _parse(editor.source).maps[0].surroundings
+	_expect("manual outside mode is authored", manual_outside.mode, "manual")
+	_expect("manual ring is fully populated before painting", manual_outside.terrain.size(), 78)
+	_expect("manual mode selects the outside paint tool", editor.active_tool, "surroundings")
+	editor._select_terrain("water")
+	editor._paint_surrounding_cell(0)
+	await process_frame
+	_expect("outside ring cells use the terrain palette", _parse(editor.source).maps[0].surroundings.terrain[0], "water")
+	_expect("outside tooltip states the cell is non-playable", editor.grid.get_child(0).tooltip_text.contains("can never enter"), true)
+
+	editor._open_surroundings()
+	editor._cycle_surroundings_mode()
+	editor._set_surroundings_channel(18, 0)
+	editor._set_surroundings_channel(52, 1)
+	editor._set_surroundings_channel(171, 2)
+	editor._apply_surroundings()
+	await process_frame
+	var solid_outside: Dictionary = _parse(editor.source).maps[0].surroundings
+	_expect("solid outside mode is authored", solid_outside.mode, "solid")
+	_expect("editor-selected outside colour is portable", solid_outside.color, "#1234ab")
+	_expect("solid outside colour does not add tactical cells", editor.grid.get_child_count(), 12)
+
 	editor._save()
 	_expect("save clears dirty state", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
@@ -322,6 +398,7 @@ func _run() -> void:
 	_expect("saved unit removal reopens", stored.project.campaigns[0].flow.nodes[0].placements.size(), 2)
 	_expect("saved deployment reopens", stored.project.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
 	_expect("saved objective reopens", stored.project.campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
+	_expect("saved outside presentation reopens", stored.project.maps[0].surroundings.color, "#1234ab")
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 
@@ -331,6 +408,9 @@ func _run() -> void:
 	_expect("edited draft opens in play scene", current_scene.name, "PC")
 	if current_scene.name == "PC":
 		_expect("edited draft campaign selected", current_scene.campaign_key, "demo_campaign")
+		_expect("draft publishes outside presentation", current_scene.battle_surroundings.get("mode", ""), "solid")
+		_expect("draft publishes selected outside colour", int(current_scene.battle_surroundings.get("colour", 0)), 0x1234ab)
+		_expect("active renderer receives outside presentation", current_scene.board.get("surroundings"), current_scene.battle_surroundings)
 		_expect("draft remembers creator return", creator_context.project_id, created.id)
 		current_scene._open_projects()
 		await process_frame

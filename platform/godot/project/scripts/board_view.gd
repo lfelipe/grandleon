@@ -12,6 +12,7 @@ const ATTACK_TINT := Color(1.0, 0.25, 0.31, 0.26)
 var art = ArtLibrary.new()
 var snapshot: Dictionary = {}
 var terrain: Array = []
+var surroundings: Dictionary = {}
 var theme := 0
 var profile_config: Dictionary = {}
 var seats: Array = []
@@ -47,10 +48,19 @@ func set_camera_impulse_enabled(value: bool) -> void:
 	camera_impulse_enabled = value
 
 
-func configure(new_snapshot: Dictionary, new_terrain: Array, new_theme: int) -> void:
+func configure(
+	new_snapshot: Dictionary, new_terrain: Array, new_theme: int,
+	new_surroundings: Dictionary = {}
+) -> void:
 	terrain = new_terrain
 	theme = new_theme
+	surroundings = new_surroundings.duplicate(true)
 	update_snapshot(new_snapshot)
+
+
+func set_surroundings(value: Dictionary) -> void:
+	surroundings = value.duplicate(true)
+	queue_redraw()
 
 
 func update_snapshot(value: Dictionary) -> void:
@@ -173,7 +183,9 @@ func _draw() -> void:
 	if snapshot.is_empty() or terrain.is_empty():
 		return
 	_fit_board()
+	_draw_surrounding_colour()
 	_draw_board_shadow()
+	_draw_surrounding_terrain()
 	_draw_terrain()
 	_draw_selected_tiles()
 	_draw_units()
@@ -302,8 +314,42 @@ func _fit_board() -> void:
 
 
 func _draw_board_shadow() -> void:
-	var size := Vector2(snapshot.width, snapshot.height) * tile_size
-	draw_style_box(_panel_style(Color(0.01, 0.015, 0.025, 0.72), 18), Rect2(origin - Vector2(18, 18), size + Vector2(36, 36)))
+	var depth := _surrounding_depth()
+	var size := Vector2(
+		int(snapshot.width) + depth * 2,
+		int(snapshot.height) + depth * 2
+	) * tile_size
+	var at := origin - Vector2(depth, depth) * tile_size
+	draw_style_box(
+		_panel_style(Color(0.01, 0.015, 0.025, 0.72), 18),
+		Rect2(at - Vector2(18, 18), size + Vector2(36, 36))
+	)
+
+
+func _draw_surrounding_colour() -> void:
+	var mode := String(surroundings.get("mode", "none"))
+	if mode != "solid":
+		return
+	var encoded := int(surroundings.get("colour", 0))
+	var colour := Color8(
+		(encoded >> 16) & 255, (encoded >> 8) & 255, encoded & 255
+	)
+	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), colour, true)
+
+
+func _draw_surrounding_terrain() -> void:
+	var depth := _surrounding_depth()
+	if depth == 0:
+		return
+	var width := int(snapshot.width)
+	var height := int(snapshot.height)
+	var ring_index := 0
+	for y in range(-depth, height + depth):
+		for x in range(-depth, width + depth):
+			if x >= 0 and y >= 0 and x < width and y < height:
+				continue
+			_draw_terrain_cell(x, y, _surrounding_kind(x, y, ring_index), 255)
+			ring_index += 1
 
 
 func _draw_terrain() -> void:
@@ -316,22 +362,56 @@ func _draw_terrain() -> void:
 			if kind == 255:
 				kind = 9
 			var mask := _neighbour_mask(x, y, kind, width, height)
-			var variant := art.terrain_variant(mask)
-			var source := Rect2(
-				float(variant % BLOB_COLUMNS) * TILE_SOURCE,
-				float(variant / BLOB_COLUMNS) * TILE_SOURCE,
-				TILE_SOURCE, TILE_SOURCE
-			)
-			var destination := Rect2(
-				origin + Vector2(x, y) * tile_size,
-				Vector2(tile_size, tile_size)
-			)
-			draw_texture_rect_region(
-				art.terrain_texture(kind, theme), destination, source
-			)
-			# A restrained bevel gives the 32px source art depth at PC display size.
-			draw_line(destination.position, destination.position + Vector2(tile_size, 0), Color(1, 1, 1, 0.035), 1.0)
-			draw_line(destination.end, destination.position + Vector2(tile_size, 0), Color(0, 0, 0, 0.09), 1.0)
+			_draw_terrain_cell(x, y, kind, mask)
+
+
+func _draw_terrain_cell(x: int, y: int, kind: int, mask: int) -> void:
+	var variant := art.terrain_variant(mask)
+	var source := Rect2(
+		float(variant % BLOB_COLUMNS) * TILE_SOURCE,
+		float(variant / BLOB_COLUMNS) * TILE_SOURCE,
+		TILE_SOURCE, TILE_SOURCE
+	)
+	var destination := Rect2(
+		origin + Vector2(x, y) * tile_size,
+		Vector2(tile_size, tile_size)
+	)
+	draw_texture_rect_region(art.terrain_texture(kind, theme), destination, source)
+	# A restrained bevel gives the 32px source art depth at PC display size.
+	draw_line(
+		destination.position,
+		destination.position + Vector2(tile_size, 0),
+		Color(1, 1, 1, 0.035), 1.0
+	)
+	draw_line(
+		destination.end,
+		destination.position + Vector2(tile_size, 0),
+		Color(0, 0, 0, 0.09), 1.0
+	)
+
+
+func _surrounding_depth() -> int:
+	var mode := String(surroundings.get("mode", "none"))
+	if mode not in ["automatic", "manual"]:
+		return 0
+	return clampi(int(surroundings.get("depth", 0)), 0, 8)
+
+
+func _surrounding_kind(x: int, y: int, ring_index: int) -> int:
+	if String(surroundings.get("mode", "none")) == "manual":
+		var outside: Array = surroundings.get("terrain", [])
+		if ring_index < outside.size():
+			var authored := int(outside[ring_index])
+			return 9 if authored == 255 else authored
+	var width := int(snapshot.width)
+	var height := int(snapshot.height)
+	var nearest_x := clampi(x, 0, width - 1)
+	var nearest_y := clampi(y, 0, height - 1)
+	var index := nearest_y * width + nearest_x
+	var edge_kind := int(terrain[index]) if index < terrain.size() else 9
+	# Continue the authored edge without making it part of the board. A road can
+	# leave the frame and a shore can keep flowing, but neither accepts input.
+	return 9 if edge_kind == 255 else edge_kind
 
 
 func _neighbour_mask(x: int, y: int, kind: int, width: int, height: int) -> int:

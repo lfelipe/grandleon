@@ -607,6 +607,39 @@ gc::GameSource campaign_source() {
     return source;
 }
 
+void writes_map_surroundings_only_when_authored() {
+    const auto plain = gc::compile(campaign_source());
+    const auto plain_loaded = load(plain.package);
+    expect(
+        plain_loaded.package.find(pf::SectionType::map_surroundings) ==
+            nullptr,
+        "an unframed map keeps the historical package section set"
+    );
+
+    auto framed = campaign_source();
+    auto& outside = framed.maps.front().surroundings;
+    outside.mode = gc::MapSurroundingMode::manual;
+    outside.depth = 1;
+    outside.terrain.assign(18, 1);
+    outside.terrain_kinds.assign(18, gc::terrain_kind_index("mountain"));
+    const auto compiled = gc::compile(framed);
+    expect(static_cast<bool>(compiled), "a complete manual map frame compiles");
+    const auto loaded = load(compiled.package);
+    expect(
+        loaded.package.find(pf::SectionType::map_surroundings, 75) != nullptr,
+        "authored surroundings are a sparse presentation section keyed by map"
+    );
+
+    framed.maps.front().surroundings.terrain.pop_back();
+    expect(
+        has_diagnostic(
+            gc::compile(framed), gc::DiagnosticCode::invalid_map,
+            "maps[75].surroundings"
+        ),
+        "a manual frame that cannot cover its outer rectangle is refused"
+    );
+}
+
 void validates_registries_and_campaign_references() {
     expect(
         static_cast<bool>(gc::compile(campaign_source())),
@@ -2102,6 +2135,7 @@ void a_weapon_or_item_may_name_no_type() {
 
 int main() {
     compiles_semantic_sections();
+    writes_map_surroundings_only_when_authored();
     validates_dialogue_identity();
     bounds_every_width_the_package_writes();
     validates_node_dialogue_references();

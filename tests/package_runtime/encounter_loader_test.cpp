@@ -156,6 +156,37 @@ void decodes_compiled_encounter() {
     );
 }
 
+void carries_map_surroundings_beside_the_tactical_board() {
+    auto authored = source();
+    auto& outside = authored.maps.front().surroundings;
+    outside.mode = gc::MapSurroundingMode::manual;
+    outside.depth = 1;
+    outside.terrain.assign(18, 700);
+    outside.terrain_kinds.assign(
+        18, gc::terrain_kind_index("mountain")
+    );
+    const auto compiled = gc::compile(authored);
+    expect(static_cast<bool>(compiled), "the framed runtime fixture compiles");
+    const auto loaded = pf::load_mock_package(
+        compiled.package,
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    const auto decoded = pr::load_encounter(loaded.package, 100);
+    expect(static_cast<bool>(decoded), "the framed encounter decodes");
+    expect(
+        decoded.surroundings.mode == pr::MapSurroundingMode::manual &&
+            decoded.surroundings.depth == 1 &&
+            decoded.surroundings.terrain ==
+                std::vector<std::uint64_t>(18, 700),
+        "the outside ring reaches presentation without becoming map terrain"
+    );
+    expect(
+        decoded.definition.width == 4 && decoded.definition.height == 3 &&
+            decoded.terrain.size() == 12,
+        "outside presentation never changes tactical dimensions"
+    );
+}
+
 // Every weapon identity a unit type lists survives into the definition rather
 // than only the first, the registry resolves each of them once, and the first
 // is still what the unit's own band describes.
@@ -2194,6 +2225,7 @@ void a_triangle_reaches_the_blow() {
 
 int main() {
     decodes_compiled_encounter();
+    carries_map_surroundings_beside_the_tactical_board();
     carries_every_weapon_a_unit_type_lists();
     carries_the_richer_stat_line();
     carries_passability_and_traversal();

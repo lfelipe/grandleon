@@ -49,6 +49,7 @@ var action_modes: Array[String] = ["move", "move"]
 var snapshot: Dictionary = {}
 var battle_terrain: Array = []
 var battle_theme := 0
+var battle_surroundings: Dictionary = {}
 var definitions: Dictionary = {"weapons": [], "abilities": [], "items": []}
 var dialogue_lines: Array = []
 var dialogue_index := -1
@@ -477,7 +478,7 @@ func _set_graphics_profile(requested: String) -> void:
 	graphics_profile = resolved
 	_create_board(graphics_profile)
 	if not snapshot.is_empty() and not battle_terrain.is_empty():
-		board.configure(snapshot, battle_terrain, battle_theme)
+		board.configure(snapshot, battle_terrain, battle_theme, battle_surroundings)
 	board.set_seats(seats)
 	for seat in min(2, seats.size()):
 		board.set_selected(seat, selected_units[seat], action_modes[seat])
@@ -548,6 +549,8 @@ func _board_matches_current_state() -> bool:
 	if board == null:
 		return false
 	if board.get("snapshot") != snapshot or board.get("terrain") != battle_terrain:
+		return false
+	if board.get("surroundings") != battle_surroundings:
 		return false
 	if board.get("seats") != seats or board.get("selected_units") != selected_units:
 		return false
@@ -967,9 +970,18 @@ func _handle_event(event: Dictionary) -> void:
 			snapshot = event.snapshot
 			battle_terrain = event.get("terrain", []).duplicate()
 			battle_theme = int(event.get("theme", 0))
-			board.configure(snapshot, battle_terrain, battle_theme)
+			battle_surroundings = {}
+			board.configure(snapshot, battle_terrain, battle_theme, battle_surroundings)
 			_seed_cursors()
 			_update_status()
+		"battle_surroundings":
+			battle_surroundings = {
+				"mode": String(event.get("mode", "none")),
+				"colour": int(event.get("colour", 0)),
+				"depth": int(event.get("depth", 0)),
+				"terrain": event.get("terrain", []).duplicate(),
+			}
+			board.set_surroundings(battle_surroundings)
 		"definitions":
 			definitions = event
 		"deployment_begins":

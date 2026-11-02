@@ -476,6 +476,26 @@ export interface SourceMap {
    * @maxItems 65536
    */
   terrain: string[];
+  /**
+   * How the non-playable area outside this map is drawn on clients that expose it. It never enlarges the tactical board and never changes movement or canonical state. Solid fills the exterior with one RGB colour. Automatic continues the nearest authored edge terrain without making it visitable. Manual stores a row-major perimeter, scanning the outer rectangle and omitting the playable interior. Three cells of depth cover the current PC camera at every scroll position; smaller depths are valid but the editor warns that background may remain visible.
+   */
+  surroundings?: {
+    mode: "solid" | "automatic" | "manual";
+    /**
+     * Exterior colour in #RRGGBB form. Required for solid mode.
+     */
+    color?: string;
+    /**
+     * Number of non-playable terrain cells drawn beyond every map edge. A depth of three guarantees coverage for the current PC camera.
+     */
+    depth?: number;
+    /**
+     * Manual perimeter terrain in row-major outer-rectangle order, omitting cells inside the playable map. Its exact required length is (width + 2*depth) * (height + 2*depth) - width * height. These cells are never visitable because they remain outside the tactical dimensions.
+     *
+     * @maxItems 8704
+     */
+    terrain?: string[];
+  };
   notes?: string;
   extensions?: Extensions;
 }

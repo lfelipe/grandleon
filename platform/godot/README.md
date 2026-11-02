@@ -38,18 +38,25 @@ atomic draft/apply flow, so several cells can be toggled before canonical
 source changes. The **2P** tool toggles an opposing placement between always
 present and a two-player addition; scaled enemies are labelled on the board.
 The **Goals** surface attaches existing objectives or authors complete defeat,
-protect, and survive conditions. Edits that collide, leave the map, remove the last ally, create
-an invalid deployment region, or make a previously playable project invalid
-are refused. Shrinks are blocked while any encounter placement or deployment
-tile would fall outside the new board. Saves pass through the validating native
-source layer, and the edited draft plays immediately.
+protect, and survive conditions. **Outside** chooses how exposed space beyond
+the tactical map is presented: one RGB colour, an automatic non-playable edge,
+or a manually painted terrain perimeter. The creator reports the exact manual
+cell count and recommends three cells of depth for complete PC camera coverage;
+these cells never enlarge the board or become reachable. Edits that collide,
+leave the map, remove the last ally, create an invalid deployment region, or
+make a previously playable project invalid are refused. Shrinks are blocked
+while any encounter placement or deployment tile would fall outside the new
+board, and resizing preserves matching manual-perimeter coordinates while
+filling newly exposed ones. Saves pass through the validating native source
+layer, and the edited draft plays immediately.
 Compilation and scene handoff stay in-process; draft package bytes are not
 written to the installation directory. Returning through the play-mode session
 menu reopens the same project.
 
-The current creator creates and resizes maps, edits terrain, arranges both sides
-of existing encounters, and authors deployment regions, player scaling, and
-objectives. Campaign, dialogue, and presentation editing arrive in the increments defined by
+The current creator creates and resizes maps, edits playable and surrounding
+terrain, arranges both sides of existing encounters, and authors deployment
+regions, player scaling, and objectives. Campaign, dialogue, and broader art
+pack editing arrive in the increments defined by
 [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated

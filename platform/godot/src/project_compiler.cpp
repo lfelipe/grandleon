@@ -95,6 +95,13 @@ void GrandleonProjectCompiler::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
+            "set_map_surroundings", "source_json", "map_id", "mode",
+            "colour", "depth", "terrain_ids"
+        ),
+        &GrandleonProjectCompiler::set_map_surroundings
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
             "move_placement", "source_json", "campaign_id", "node_id",
             "placement_id", "x", "y"
         ),
@@ -357,6 +364,41 @@ gd::Dictionary GrandleonProjectCompiler::move_placement(
     }
     result["ok"] = true;
     result["source"] = text(moved.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_map_surroundings(
+    const gd::String& source_json,
+    const gd::String& map_id,
+    const gd::String& mode,
+    const gd::String& colour,
+    std::int64_t depth,
+    const gd::PackedStringArray& terrain_ids
+) const {
+    std::vector<std::string> ids;
+    ids.reserve(static_cast<std::size_t>(terrain_ids.size()));
+    for (std::int64_t index = 0; index < terrain_ids.size(); ++index) {
+        ids.push_back(narrow(terrain_ids[index]));
+    }
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated =
+        gc::set_source_map_surroundings_json(
+            narrow(source_json), narrow(map_id), narrow(mode), narrow(colour),
+            depth, ids
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
     result["diagnostics"] = diagnostics;
     return result;
 }

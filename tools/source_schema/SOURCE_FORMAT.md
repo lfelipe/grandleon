@@ -107,6 +107,28 @@ class enters on its own account, from the closed vocabulary `water` and
 else. A placement standing on terrain its class cannot enter is
 `invalid_placement` at that placement's path.
 
+## Outside the tactical map
+
+A map's optional `surroundings` describes only what a client draws beyond the
+`width` by `height` tactical rectangle. It never appends simulation cells, so a
+manual perimeter using grass is just as unreachable as one using mountain art.
+Clients that do not expose an exterior may ignore the optional package section
+without changing a command, objective, movement range, or canonical hash.
+
+`solid` states one `#RRGGBB` colour and no depth. `automatic` states a depth and
+no cells; the PC renderer continues the nearest authored edge terrain without
+making those copies visitable. `manual` states both a depth and the complete outer
+perimeter in row-major order, skipping the playable interior. Its exact length
+is `(width + 2*depth) * (height + 2*depth) - width * height`. The creator uses
+the automatic result to seed a new manual ring and recommends depth three for
+the current PC camera. A smaller valid depth is an explicit choice that may
+leave the normal client background visible at an extreme camera position.
+
+Resizing preserves manual cells whose outside coordinates still exist. A
+playable cell exposed by a shrink keeps its terrain, and a newly introduced
+outside coordinate uses the resize fill terrain, leaving a complete perimeter
+that can be repainted rather than an invalid partial one.
+
 ## Rules the schema cannot express
 
 Everything below is enforced by the analyzers, the compiler, or both; the schema

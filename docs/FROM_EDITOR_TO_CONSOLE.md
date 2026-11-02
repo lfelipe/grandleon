@@ -91,6 +91,14 @@ behavior, reinforcement timing, and dialogue remain ordinary portable content.
 Allied roster placements and objective targets cannot be conditional, keeping
 campaign identity and win conditions stable between one- and two-player runs.
 
+Map surroundings are deliberately outside that rules path. A map may choose a
+solid exterior colour, ask the PC renderer to derive a non-playable border from
+the nearest edge, or carry a complete manually painted perimeter. The compiler
+writes this as an optional presentation section keyed by map identity. A client
+that ignores it keeps its ordinary background and plays the same board; a PC
+client that draws it still rejects every outside coordinate before input
+reaches the simulation.
+
 The PlayStation cannot compile the content path at all, for want of a linkable
 unwinder, so the Nintendo 64's is the repository's only target-side test of the
 JSON parser.

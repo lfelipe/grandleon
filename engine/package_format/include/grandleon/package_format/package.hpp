@@ -122,6 +122,11 @@ enum class SectionType : std::uint32_t {
     // battle, and pruned entirely when every placement is always present so
     // packages authored before player scaling remain byte-identical.
     placement_scaling = 20,
+    // Optional presentation around a tactical map: a solid colour, an
+    // automatically derived impassable border, or authored perimeter terrain.
+    // A runtime that skips it plays the same battle against its default
+    // background, so this section is never required.
+    map_surroundings = 21,
 };
 
 // The presentation section holds records about the whole game, the way the

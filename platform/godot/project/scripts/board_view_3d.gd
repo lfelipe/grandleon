@@ -24,6 +24,7 @@ var render_profile := "diorama"
 var profile_config: Dictionary = {}
 var snapshot: Dictionary = {}
 var terrain: Array = []
+var surroundings: Dictionary = {}
 var terrain_theme := 0
 var seats: Array = []
 var selected_units: Array[int] = [0, 0]
@@ -34,6 +35,7 @@ var camera_impulse_enabled := true
 var _viewport: SubViewport
 var _world: Node3D
 var _camera: Camera3D
+var _environment: Environment
 var _terrain_root: Node3D
 var _marker_root: Node3D
 var _unit_root: Node3D
@@ -69,6 +71,7 @@ var _pulse := 0.0
 func set_profile(value: String, config := {}) -> void:
 	render_profile = value if value in ["diorama", "voxel-sprites", "voxel"] else "diorama"
 	profile_config = config if config is Dictionary else {}
+	_update_surrounding_background()
 
 
 func set_camera_impulse_enabled(value: bool) -> void:
@@ -109,15 +112,16 @@ func _ready() -> void:
 func _create_environment() -> void:
 	var lighting: Dictionary = profile_config.get("lighting", {})
 	var world_environment := WorldEnvironment.new()
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = _configured_colour(lighting, "background", Color("07131d"))
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = _configured_colour(lighting, "ambient", Color("7693a1"))
-	environment.ambient_light_energy = float(lighting.get("ambientEnergy", 0.42))
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	world_environment.environment = environment
+	_environment = Environment.new()
+	_environment.background_mode = Environment.BG_COLOR
+	_environment.background_color = _configured_colour(lighting, "background", Color("07131d"))
+	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	_environment.ambient_light_color = _configured_colour(lighting, "ambient", Color("7693a1"))
+	_environment.ambient_light_energy = float(lighting.get("ambientEnergy", 0.42))
+	_environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	world_environment.environment = _environment
 	_world.add_child(world_environment)
+	_update_surrounding_background()
 
 	var key := DirectionalLight3D.new()
 	key.rotation_degrees = _configured_vector(lighting.get("keyRotation", []), Vector3(-54, -38, 0))
@@ -143,12 +147,23 @@ func _create_environment() -> void:
 	_camera.make_current()
 
 
-func configure(new_snapshot: Dictionary, new_terrain: Array, new_theme: int) -> void:
+func configure(
+	new_snapshot: Dictionary, new_terrain: Array, new_theme: int,
+	new_surroundings: Dictionary = {}
+) -> void:
 	snapshot = new_snapshot
 	terrain = new_terrain
 	terrain_theme = new_theme
+	surroundings = new_surroundings.duplicate(true)
+	_update_surrounding_background()
 	_rebuild_terrain()
 	update_snapshot(new_snapshot)
+
+
+func set_surroundings(value: Dictionary) -> void:
+	surroundings = value.duplicate(true)
+	_update_surrounding_background()
+	_rebuild_terrain()
 
 
 func update_snapshot(value: Dictionary) -> void:
@@ -322,11 +337,27 @@ func _rebuild_terrain() -> void:
 	_world.add_child(_terrain_root)
 	var width := int(snapshot.width)
 	var height := int(snapshot.height)
+	var depth := _surrounding_depth()
 	_box(
 		_terrain_root, Vector3(0, -0.30, 0),
-		Vector3(float(width) + 0.18, 0.18, float(height) + 0.18),
+		Vector3(
+			float(width + depth * 2) + 0.18,
+			0.18,
+			float(height + depth * 2) + 0.18
+		),
 		_material("foundation", _palette("foundation", Color("0d1820")), 1.0)
 	)
+	var ring_index := 0
+	for outside_y in range(-depth, height + depth):
+		for outside_x in range(-depth, width + depth):
+			if outside_x >= 0 and outside_y >= 0 and outside_x < width and outside_y < height:
+				continue
+			var outside_kind := _surrounding_kind(outside_x, outside_y, ring_index)
+			if String(profile_config.get("terrainRenderer", render_profile)) == "voxel":
+				_build_voxel_tile(outside_x, outside_y, outside_kind)
+			else:
+				_build_diorama_tile(outside_x, outside_y, outside_kind)
+			ring_index += 1
 	for y in height:
 		for x in width:
 			var index := y * width + x
@@ -339,6 +370,43 @@ func _rebuild_terrain() -> void:
 				_build_voxel_tile(x, y, kind)
 			else:
 				_build_diorama_tile(x, y, kind)
+
+
+func _surrounding_depth() -> int:
+	var mode := String(surroundings.get("mode", "none"))
+	if mode not in ["automatic", "manual"]:
+		return 0
+	return clampi(int(surroundings.get("depth", 0)), 0, 8)
+
+
+func _surrounding_kind(x: int, y: int, ring_index: int) -> int:
+	if String(surroundings.get("mode", "none")) == "manual":
+		var outside: Array = surroundings.get("terrain", [])
+		if ring_index < outside.size():
+			var authored := int(outside[ring_index])
+			return 9 if authored == 255 else authored
+	var width := int(snapshot.width)
+	var height := int(snapshot.height)
+	var nearest_x := clampi(x, 0, width - 1)
+	var nearest_y := clampi(y, 0, height - 1)
+	var index := nearest_y * width + nearest_x
+	var edge_kind := int(terrain[index]) if index < terrain.size() else 9
+	return 9 if edge_kind == 255 else edge_kind
+
+
+func _update_surrounding_background() -> void:
+	if _environment == null:
+		return
+	var lighting: Dictionary = profile_config.get("lighting", {})
+	if String(surroundings.get("mode", "none")) != "solid":
+		_environment.background_color = _configured_colour(
+			lighting, "background", Color("07131d")
+		)
+		return
+	var encoded := int(surroundings.get("colour", 0))
+	_environment.background_color = Color8(
+		(encoded >> 16) & 255, (encoded >> 8) & 255, encoded & 255
+	)
 
 
 func _build_diorama_tile(x: int, y: int, kind: int) -> void:

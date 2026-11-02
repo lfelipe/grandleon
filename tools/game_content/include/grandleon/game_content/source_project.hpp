@@ -131,6 +131,19 @@ struct SourceMapCell final {
     std::string_view fill_terrain
 );
 
+// Replaces the presentation outside one tactical map. Manual terrain is the
+// complete perimeter in row-major outer-rectangle order, omitting the playable
+// interior. It is never appended to the map itself and therefore cannot become
+// reachable. `none` removes the optional rule.
+[[nodiscard]] SourceTextResult set_source_map_surroundings_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::string_view mode,
+    std::string_view colour,
+    std::int64_t depth,
+    const std::vector<std::string>& terrain_ids
+);
+
 // Moves one encounter placement within the map used by its node. The nested
 // identities keep the command unambiguous without exposing array positions to
 // an authoring client. A project that compiled before the edit is never

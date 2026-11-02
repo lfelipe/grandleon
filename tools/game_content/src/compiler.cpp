@@ -1056,6 +1056,59 @@ CompileResult compile(const GameSource& source) {
                 );
             }
         }
+        const MapSurroundings& outside = definition.surroundings;
+        const std::uint64_t outer_width =
+            static_cast<std::uint64_t>(definition.width) +
+            2U * outside.depth;
+        const std::uint64_t outer_height =
+            static_cast<std::uint64_t>(definition.height) +
+            2U * outside.depth;
+        const std::uint64_t expected_perimeter =
+            outer_width * outer_height - cell_count;
+        const bool sound =
+            outside.mode == MapSurroundingMode::none
+                ? (!outside.states_colour && outside.depth == 0 &&
+                   outside.terrain.empty())
+            : outside.mode == MapSurroundingMode::solid
+                ? (outside.states_colour && outside.depth == 0 &&
+                   outside.terrain.empty())
+            : outside.mode == MapSurroundingMode::automatic
+                ? (!outside.states_colour && outside.depth >= 1 &&
+                   outside.depth <= 8 && outside.terrain.empty())
+            : outside.mode == MapSurroundingMode::manual
+                ? (!outside.states_colour && outside.depth >= 1 &&
+                   outside.depth <= 8 &&
+                   outside.terrain.size() == expected_perimeter &&
+                   outside.terrain_kinds.size() == outside.terrain.size())
+                : false;
+        if (!sound) {
+            result.diagnostics.push_back(
+                {
+                    DiagnosticCode::invalid_map,
+                    "maps[" + std::to_string(definition.id) +
+                        "].surroundings",
+                    definition.id
+                }
+            );
+        }
+        for (std::size_t cell = 0; cell < outside.terrain.size(); ++cell) {
+            if (cell >= outside.terrain_kinds.size()) break;
+            const std::uint8_t kind = outside.terrain_kinds[cell];
+            const auto placed = terrain_kinds.emplace(
+                outside.terrain[cell], kind
+            );
+            if (!placed.second && placed.first->second != kind) {
+                result.diagnostics.push_back(
+                    {
+                        DiagnosticCode::invalid_map,
+                        "maps[" + std::to_string(definition.id) +
+                            "].surroundings.terrain[" +
+                            std::to_string(cell) + "]",
+                        definition.id
+                    }
+                );
+            }
+        }
     }
     std::map<StableId, const Objective*> objectives_by_id;
     for (const Objective& definition : source.objectives) {
@@ -1969,6 +2022,47 @@ CompileResult compile(const GameSource& source) {
                 return bytes;
             }
         ),
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::map_surroundings;
+            section.flags = 0;
+            std::vector<const Map*> ordered;
+            for (const Map& map : source.maps) {
+                if (map.surroundings.mode != MapSurroundingMode::none) {
+                    ordered.push_back(&map);
+                }
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Map* lhs, const Map* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Map* map : ordered) {
+                const MapSurroundings& outside = map->surroundings;
+                Bytes bytes;
+                bytes.push_back(static_cast<std::uint8_t>(outside.mode));
+                bytes.push_back(outside.depth);
+                bytes.push_back(static_cast<std::uint8_t>(
+                    (outside.colour >> 16U) & 0xffU
+                ));
+                bytes.push_back(static_cast<std::uint8_t>(
+                    (outside.colour >> 8U) & 0xffU
+                ));
+                bytes.push_back(static_cast<std::uint8_t>(
+                    outside.colour & 0xffU
+                ));
+                put_u32(
+                    bytes,
+                    static_cast<std::uint32_t>(outside.terrain.size())
+                );
+                for (StableId terrain : outside.terrain) {
+                    put_u64(bytes, terrain);
+                }
+                section.records.push_back({map->id, std::move(bytes)});
+            }
+            return section;
+        }(),
         make_section(
             package_format::SectionType::factions,
             source.factions,

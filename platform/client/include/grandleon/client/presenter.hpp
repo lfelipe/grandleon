@@ -256,6 +256,14 @@ public:
         simulation::Side player_side,
         const std::vector<std::uint64_t>& terrain
     ) = 0;
+    // Optional presentation outside the tactical dimensions. A client that
+    // has no exposed exterior keeps its historical background and need not
+    // override this. No value here is a simulation cell.
+    virtual void battle_surroundings(
+        const package_runtime::MapSurroundings& surroundings
+    ) {
+        static_cast<void>(surroundings);
+    }
     // The weapon, ability and item definitions the encounter was created
     // with, handed over once before the first frame. A snapshot names only the
     // identities a unit holds, so a front end that draws a danger zone needs

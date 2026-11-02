@@ -1544,6 +1544,72 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                 if (height) result.height = static_cast<std::uint16_t>(*height);
                 result.terrain = mapper.references(value, "terrain", path);
                 result.terrain_kinds = mapper.terrain_kinds(value, "terrain", path);
+                const Json* surroundings = mapper.member(
+                    value, "surroundings", path, false
+                );
+                if (surroundings != nullptr) {
+                    const std::string surroundings_path =
+                        path + ".surroundings";
+                    const Object* outside =
+                        mapper.object(*surroundings, surroundings_path);
+                    if (outside != nullptr) {
+                        const auto mode = mapper.string(
+                            *outside, "mode", surroundings_path
+                        );
+                        if (mode && *mode == "solid") {
+                            result.surroundings.mode =
+                                MapSurroundingMode::solid;
+                        } else if (mode && *mode == "automatic") {
+                            result.surroundings.mode =
+                                MapSurroundingMode::automatic;
+                        } else if (mode && *mode == "manual") {
+                            result.surroundings.mode =
+                                MapSurroundingMode::manual;
+                        } else if (mode) {
+                            mapper.error(
+                                SourceDiagnosticCode::invalid_value,
+                                surroundings_path + ".mode",
+                                "expected 'solid', 'automatic', or 'manual'"
+                            );
+                        }
+                        const auto depth = mapper.integer(
+                            *outside, "depth", surroundings_path, 1, 8, false
+                        );
+                        if (depth) {
+                            result.surroundings.depth =
+                                static_cast<std::uint8_t>(*depth);
+                        }
+                        if (const auto colour = mapper.string(
+                                *outside, "color", surroundings_path, false
+                            )) {
+                            std::uint32_t rgb = 0;
+                            const bool shaped =
+                                colour->size() == 7 && (*colour)[0] == '#';
+                            const auto parsed = std::from_chars(
+                                colour->data() + (shaped ? 1 : 0),
+                                colour->data() + colour->size(), rgb, 16
+                            );
+                            if (!shaped || parsed.ec != std::errc{} ||
+                                parsed.ptr != colour->data() + colour->size()) {
+                                mapper.error(
+                                    SourceDiagnosticCode::invalid_value,
+                                    surroundings_path + ".color",
+                                    "expected colour in #RRGGBB form"
+                                );
+                            } else {
+                                result.surroundings.colour = rgb;
+                                result.surroundings.states_colour = true;
+                            }
+                        }
+                        result.surroundings.terrain = mapper.references(
+                            *outside, "terrain", surroundings_path
+                        );
+                        result.surroundings.terrain_kinds =
+                            mapper.terrain_kinds(
+                                *outside, "terrain", surroundings_path
+                            );
+                    }
+                }
                 return result;
             }
         );
@@ -3286,6 +3352,82 @@ SourceTextResult resize_source_map_json(
         return result;
     }
 
+    Array resized_surroundings;
+    Array* manual_surroundings = nullptr;
+    if (Object* outside = mutable_object(*editable.map, "surroundings")) {
+        const std::string* mode = string_member(*outside, "mode");
+        if (mode != nullptr && *mode == "manual") {
+            const std::int64_t* depth = integer_member(*outside, "depth");
+            manual_surroundings = mutable_array(*outside, "terrain");
+            if (depth == nullptr || *depth < 1 || *depth > 8 ||
+                manual_surroundings == nullptr) {
+                refuse_edit(
+                    result, SourceDiagnosticCode::invalid_value,
+                    path + ".surroundings",
+                    "manual surroundings must state a valid depth and terrain"
+                );
+                return result;
+            }
+            const auto old_outer_width = editable.width + 2 * *depth;
+            const auto old_outer_height = editable.height + 2 * *depth;
+            const auto old_expected = static_cast<std::uint64_t>(
+                old_outer_width * old_outer_height -
+                editable.width * editable.height
+            );
+            if (manual_surroundings->size() != old_expected) {
+                refuse_edit(
+                    result, SourceDiagnosticCode::invalid_value,
+                    path + ".surroundings.terrain",
+                    "manual surroundings length does not match map dimensions"
+                );
+                return result;
+            }
+
+            std::map<std::pair<std::int64_t, std::int64_t>, Json> old_ring;
+            std::size_t ring_index = 0;
+            for (std::int64_t y = -*depth;
+                 y < editable.height + *depth; ++y) {
+                for (std::int64_t x = -*depth;
+                     x < editable.width + *depth; ++x) {
+                    if (x >= 0 && y >= 0 && x < editable.width &&
+                        y < editable.height) {
+                        continue;
+                    }
+                    old_ring.emplace(
+                        std::pair{x, y}, (*manual_surroundings)[ring_index++]
+                    );
+                }
+            }
+            const auto new_outer_width = width + 2 * *depth;
+            const auto new_outer_height = height + 2 * *depth;
+            resized_surroundings.reserve(static_cast<std::size_t>(
+                new_outer_width * new_outer_height - width * height
+            ));
+            for (std::int64_t y = -*depth; y < height + *depth; ++y) {
+                for (std::int64_t x = -*depth; x < width + *depth; ++x) {
+                    if (x >= 0 && y >= 0 && x < width && y < height) {
+                        continue;
+                    }
+                    if (const auto found = old_ring.find({x, y});
+                        found != old_ring.end()) {
+                        resized_surroundings.push_back(found->second);
+                    } else if (x >= 0 && y >= 0 && x < editable.width &&
+                               y < editable.height) {
+                        resized_surroundings.push_back(
+                            (*editable.terrain)[static_cast<std::size_t>(
+                                y * editable.width + x
+                            )]
+                        );
+                    } else {
+                        resized_surroundings.push_back(
+                            Json{std::string(fill_terrain)}
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     Array resized;
     const auto new_size = static_cast<std::uint64_t>(width) *
                           static_cast<std::uint64_t>(height);
@@ -3305,6 +3447,9 @@ SourceTextResult resize_source_map_json(
     (*editable.map)["width"] = Json{width};
     (*editable.map)["height"] = Json{height};
     *editable.terrain = std::move(resized);
+    if (manual_surroundings != nullptr) {
+        *manual_surroundings = std::move(resized_surroundings);
+    }
     finish_map_edit(editable, result);
     return result;
 }
@@ -3429,6 +3574,98 @@ SourceTextResult add_source_map_json(
     added.emplace("terrain", Json{std::move(terrain)});
     maps->push_back(Json{std::move(added)});
     finish_document_edit(document, result);
+    return result;
+}
+
+SourceTextResult set_source_map_surroundings_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::string_view mode,
+    std::string_view colour,
+    std::int64_t depth,
+    const std::vector<std::string>& terrain_ids
+) {
+    SourceTextResult result;
+    EditableMapDocument editable;
+    if (!open_editable_map(source_json, map_id, editable, result)) return result;
+    const std::string path = "$.maps[" + std::to_string(editable.index) +
+                             "].surroundings";
+    if (mode == "none") {
+        editable.map->erase("surroundings");
+        finish_map_edit(editable, result);
+        return result;
+    }
+    if (mode != "solid" && mode != "automatic" && mode != "manual") {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, path,
+            "surroundings mode must be solid, automatic, manual, or none"
+        );
+        return result;
+    }
+    const bool colour_shaped =
+        colour.size() == 7 && colour.front() == '#' &&
+        std::all_of(
+            colour.begin() + 1, colour.end(),
+            [](unsigned char character) { return std::isxdigit(character); }
+        );
+    if ((mode == "solid" && (!colour_shaped || depth != 0 ||
+                              !terrain_ids.empty())) ||
+        (mode != "solid" && !colour.empty())) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, path,
+            "solid surroundings require only a #RRGGBB colour"
+        );
+        return result;
+    }
+    if (mode != "solid" && (depth < 1 || depth > 8)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, path + ".depth",
+            "terrain surroundings depth must be between 1 and 8"
+        );
+        return result;
+    }
+    const auto outer_width = static_cast<std::uint64_t>(editable.width) +
+                             2U * static_cast<std::uint64_t>(depth);
+    const auto outer_height = static_cast<std::uint64_t>(editable.height) +
+                              2U * static_cast<std::uint64_t>(depth);
+    const auto expected = outer_width * outer_height -
+                          static_cast<std::uint64_t>(editable.width) *
+                              static_cast<std::uint64_t>(editable.height);
+    if ((mode == "automatic" && !terrain_ids.empty()) ||
+        (mode == "manual" && terrain_ids.size() != expected)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, path + ".terrain",
+            "manual surroundings require exactly " +
+                std::to_string(expected) + " perimeter cells"
+        );
+        return result;
+    }
+    for (const std::string& terrain : terrain_ids) {
+        if (valid_source_key(terrain)) continue;
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, path + ".terrain",
+            "surrounding terrain ids must be stable source-key strings"
+        );
+        return result;
+    }
+
+    Object outside;
+    outside.emplace("mode", Json{std::string(mode)});
+    if (mode == "solid") {
+        outside.emplace("color", Json{std::string(colour)});
+    } else {
+        outside.emplace("depth", Json{depth});
+    }
+    if (mode == "manual") {
+        Array terrain;
+        terrain.reserve(terrain_ids.size());
+        for (const std::string& id : terrain_ids) {
+            terrain.push_back(Json{id});
+        }
+        outside.emplace("terrain", Json{std::move(terrain)});
+    }
+    (*editable.map)["surroundings"] = Json{std::move(outside)};
+    finish_map_edit(editable, result);
     return result;
 }
 

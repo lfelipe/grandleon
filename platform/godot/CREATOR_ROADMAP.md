@@ -133,7 +133,10 @@ This slice proves the whole ownership model before building a large editor.
   unoccupied, or impassable regions before source changes.
 - Resize preview and top-left-preserving resize are implemented. Shrinks are
   blocked when a placement or deployment tile would be clipped.
-- Objective placement.
+- Map surroundings are implemented as a solid colour, automatically derived
+  non-playable terrain, or a manually painted perimeter with exact coverage
+  guidance. They remain presentation-only in portable content.
+- Encounter objectives and two-player opponent scaling are implemented.
 - Immediate visual and console-budget feedback.
 - A single action to play the currently selected encounter.
 

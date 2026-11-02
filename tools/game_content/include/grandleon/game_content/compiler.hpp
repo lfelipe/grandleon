@@ -318,6 +318,24 @@ inline constexpr std::uint8_t movement_cost_step = 1U;
 //: than it should acquire a wall.
 [[nodiscard]] std::uint8_t terrain_movement_cost(std::uint8_t kind) noexcept;
 
+enum class MapSurroundingMode : std::uint8_t {
+    none = 0,
+    solid = 1,
+    automatic = 2,
+    manual = 3,
+};
+
+struct MapSurroundings final {
+    MapSurroundingMode mode{MapSurroundingMode::none};
+    std::uint32_t colour{0x07131dU};
+    bool states_colour{false};
+    std::uint8_t depth{};
+    // Manual perimeter cells in row-major outer-rectangle order, omitting the
+    // playable rectangle. They are presentation identities, never map cells.
+    std::vector<StableId> terrain;
+    std::vector<std::uint8_t> terrain_kinds;
+};
+
 struct Map final {
     StableId id{};
     std::string name;
@@ -328,6 +346,7 @@ struct Map final {
     //: `terrain`. Presentation only: the cell's identity is its stable id, and
     //: no rule reads this.
     std::vector<std::uint8_t> terrain_kinds;
+    MapSurroundings surroundings;
 };
 
 //: How many colours the art library's faction colour menu holds. The source

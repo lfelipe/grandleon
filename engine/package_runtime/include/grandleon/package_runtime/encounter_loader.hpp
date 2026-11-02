@@ -82,6 +82,23 @@ struct EncounterMoment final {
     std::uint64_t dialogue_id{};
 };
 
+enum class MapSurroundingMode : std::uint8_t {
+    none = 0,
+    solid = 1,
+    automatic = 2,
+    manual = 3,
+};
+
+// Presentation outside the tactical dimensions. These cells never enter the
+// simulation definition, so a renderer may draw them and can never make them
+// reachable. Empty is the historical/default client background.
+struct MapSurroundings final {
+    MapSurroundingMode mode{MapSurroundingMode::none};
+    std::uint32_t colour{0x07131dU};
+    std::uint8_t depth{};
+    std::vector<std::uint64_t> terrain;
+};
+
 struct EncounterLoadResult final {
     EncounterLoadError error{EncounterLoadError::none};
     simulation::EncounterDefinition definition;
@@ -98,6 +115,7 @@ struct EncounterLoadResult final {
     // *asks* of whoever stands in it travels inside the definition, as
     // `definition.terrain`, because that is a rule.
     std::vector<std::uint64_t> terrain;
+    MapSurroundings surroundings;
     // The identity of the deployment region this encounter authors, or zero
     // for one that authors none. The region's *tiles* travel inside the
     // definition, as `definition.deployment_tiles`, because they are a rule;

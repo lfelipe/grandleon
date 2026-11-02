@@ -309,6 +309,67 @@ void updates_one_map_cell_without_retyping_the_project() {
         "a short terrain replacement returns no partial project"
     );
 
+    const auto solid_outside = gc::set_source_map_surroundings_json(
+        source, "field", "solid", "#1234ab", 0, {}
+    );
+    const auto solid_parsed = gc::parse_source_project_json(
+        solid_outside.json
+    );
+    expect(
+        solid_parsed && solid_parsed.source.maps.front().surroundings.mode ==
+                            gc::MapSurroundingMode::solid &&
+            solid_parsed.source.maps.front().surroundings.colour == 0x1234abU,
+        "a map can choose the colour beyond its tactical dimensions"
+    );
+    const auto automatic_outside = gc::set_source_map_surroundings_json(
+        solid_outside.json, "field", "automatic", "", 3, {}
+    );
+    const auto automatic_parsed = gc::parse_source_project_json(
+        automatic_outside.json
+    );
+    expect(
+        automatic_parsed &&
+            automatic_parsed.source.maps.front().surroundings.mode ==
+                gc::MapSurroundingMode::automatic &&
+            automatic_parsed.source.maps.front().surroundings.depth == 3,
+        "a map can ask the renderer to continue its edge automatically"
+    );
+    const std::vector<std::string> manual_cells{
+        "water", "water", "mountain", "mountain", "water",
+        "mountain", "water", "mountain", "mountain", "water",
+    };
+    const auto manual_outside = gc::set_source_map_surroundings_json(
+        automatic_outside.json, "field", "manual", "", 1, manual_cells
+    );
+    const auto manual_parsed = gc::parse_source_project_json(
+        manual_outside.json
+    );
+    expect(
+        manual_parsed && manual_parsed.source.maps.front().surroundings.mode ==
+                             gc::MapSurroundingMode::manual &&
+            manual_parsed.source.maps.front().surroundings.terrain.size() ==
+                10,
+        "a one-cell manual ring has exactly its outer rectangle perimeter"
+    );
+    expect(
+        !gc::set_source_map_surroundings_json(
+            source, "field", "manual", "", 1, {"water"}
+        ),
+        "a partially populated manual ring is refused"
+    );
+    const auto resized_manual = gc::resize_source_map_json(
+        manual_outside.json, "field", 3, 2, "forest"
+    );
+    const auto resized_manual_parsed = gc::parse_source_project_json(
+        resized_manual.json
+    );
+    expect(
+        resized_manual_parsed &&
+            resized_manual_parsed.source.maps.front().surroundings.terrain
+                    .size() == 14,
+        "resizing a map preserves and fills a complete manual perimeter"
+    );
+
     const auto enlarged = gc::resize_source_map_json(
         source, "field", 3, 2, "forest"
     );

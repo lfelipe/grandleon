@@ -78,6 +78,8 @@ const char* event_name(FrontendEvent::Kind kind) {
     switch (kind) {
         case FrontendEvent::Kind::dialogue: return "dialogue";
         case FrontendEvent::Kind::battle_begins: return "battle_begins";
+        case FrontendEvent::Kind::battle_surroundings:
+            return "battle_surroundings";
         case FrontendEvent::Kind::definitions: return "definitions";
         case FrontendEvent::Kind::deployment_begins:
             return "deployment_begins";
@@ -156,6 +158,15 @@ void AsyncPresenter::battle_begins(
     event.snapshot = snapshot;
     event.terrain = terrain;
     event.player_side = player_side;
+    push(std::move(event));
+}
+
+void AsyncPresenter::battle_surroundings(
+    const pr::MapSurroundings& surroundings
+) {
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::battle_surroundings;
+    event.surroundings = surroundings;
     push(std::move(event));
 }
 
@@ -739,6 +750,28 @@ gd::Dictionary GrandleonSession::event_dictionary(
                 terrain.push_back(
                     presentation_.kind_of_terrain(id)
                 );
+            }
+            result["terrain"] = terrain;
+            break;
+        }
+        case FrontendEvent::Kind::battle_surroundings: {
+            result["mode"] = event.surroundings.mode ==
+                                     pr::MapSurroundingMode::solid
+                                 ? "solid"
+                             : event.surroundings.mode ==
+                                       pr::MapSurroundingMode::automatic
+                                 ? "automatic"
+                             : event.surroundings.mode ==
+                                       pr::MapSurroundingMode::manual
+                                 ? "manual"
+                                 : "none";
+            result["colour"] = static_cast<std::int64_t>(
+                event.surroundings.colour
+            );
+            result["depth"] = event.surroundings.depth;
+            gd::Array terrain;
+            for (const std::uint64_t id : event.surroundings.terrain) {
+                terrain.push_back(presentation_.kind_of_terrain(id));
             }
             result["terrain"] = terrain;
             break;

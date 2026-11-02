@@ -683,6 +683,57 @@ EncounterLoadResult load_encounter(
                   result.definition.movement_cost)) {
         return fail(EncounterLoadError::malformed_payload);
     }
+    if (const RecordView* outside =
+            package.find(SectionType::map_surroundings, map_id)) {
+        Reader outside_reader(package, *outside);
+        std::uint8_t mode = 0;
+        std::uint8_t depth = 0;
+        std::uint8_t red = 0;
+        std::uint8_t green = 0;
+        std::uint8_t blue = 0;
+        std::uint32_t count = 0;
+        if (!outside_reader.u8(mode) || !outside_reader.u8(depth) ||
+            !outside_reader.u8(red) || !outside_reader.u8(green) ||
+            !outside_reader.u8(blue) || !outside_reader.u32(count) ||
+            mode < 1U || mode > 3U ||
+            static_cast<std::size_t>(count) >
+                outside_reader.remaining() / 8U) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        const std::uint64_t outer_width =
+            static_cast<std::uint64_t>(result.definition.width) + 2U * depth;
+        const std::uint64_t outer_height =
+            static_cast<std::uint64_t>(result.definition.height) + 2U * depth;
+        const std::uint64_t expected =
+            outer_width * outer_height -
+            static_cast<std::uint64_t>(result.definition.width) *
+                result.definition.height;
+        const bool shape_is_valid =
+            mode == 1U ? (depth == 0U && count == 0U)
+            : mode == 2U ? (depth >= 1U && depth <= 8U && count == 0U)
+                         : (depth >= 1U && depth <= 8U && count == expected);
+        if (!shape_is_valid) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        result.surroundings.mode =
+            static_cast<MapSurroundingMode>(mode);
+        result.surroundings.depth = depth;
+        result.surroundings.colour =
+            (static_cast<std::uint32_t>(red) << 16U) |
+            (static_cast<std::uint32_t>(green) << 8U) |
+            static_cast<std::uint32_t>(blue);
+        result.surroundings.terrain.reserve(count);
+        for (std::uint32_t index = 0; index < count; ++index) {
+            std::uint64_t terrain_id = 0;
+            if (!outside_reader.u64(terrain_id) || terrain_id == 0) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+            result.surroundings.terrain.push_back(terrain_id);
+        }
+        if (!outside_reader.finished()) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+    }
     if (!read_abilities(package, result.definition.abilities)) {
         return fail(EncounterLoadError::malformed_payload);
     }

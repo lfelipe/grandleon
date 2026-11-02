@@ -56,6 +56,14 @@ public:
         std::int64_t height,
         const ::godot::String& fill_terrain
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_map_surroundings(
+        const ::godot::String& source_json,
+        const ::godot::String& map_id,
+        const ::godot::String& mode,
+        const ::godot::String& colour,
+        std::int64_t depth,
+        const ::godot::PackedStringArray& terrain_ids
+    ) const;
     [[nodiscard]] ::godot::Dictionary move_placement(
         const ::godot::String& source_json,
         const ::godot::String& campaign_id,

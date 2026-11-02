@@ -27,6 +27,7 @@ struct FrontendEvent final {
     enum class Kind : std::uint8_t {
         dialogue,
         battle_begins,
+        battle_surroundings,
         definitions,
         deployment_begins,
         presentation,
@@ -41,6 +42,7 @@ struct FrontendEvent final {
     Kind kind{Kind::snapshot};
     simulation::EncounterSnapshot snapshot;
     std::vector<std::uint64_t> terrain;
+    package_runtime::MapSurroundings surroundings;
     std::vector<simulation::Position> zone;
     std::vector<simulation::WeaponDefinition> weapons;
     std::vector<simulation::AbilityDefinition> abilities;
@@ -67,6 +69,9 @@ public:
         const client::Roster& roster,
         simulation::Side player_side,
         const std::vector<std::uint64_t>& terrain
+    ) override;
+    void battle_surroundings(
+        const package_runtime::MapSurroundings& surroundings
     ) override;
     void battle_definitions(
         const std::vector<simulation::WeaponDefinition>& weapons,
