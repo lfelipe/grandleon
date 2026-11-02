@@ -111,4 +111,16 @@ struct SourceTextResult final {
     std::string_view fill_terrain
 );
 
+// Appends a canonical map definition to a source project. The caller supplies
+// portable identities and presentation text only; no path or host detail can
+// enter the document through this authoring boundary.
+[[nodiscard]] SourceTextResult add_source_map_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::string_view name,
+    std::int64_t width,
+    std::int64_t height,
+    std::string_view fill_terrain
+);
+
 }  // namespace grandleon::game_content

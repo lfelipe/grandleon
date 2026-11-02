@@ -88,6 +88,32 @@ func _init() -> void:
 			_expect("oversize map refused", invalid_resize.ok, false)
 			_expect("oversize resize returns no source", invalid_resize.source, "")
 
+	var blank_path := ProjectSettings.globalize_path(
+		"res://content/templates/blank_project.json"
+	)
+	var blank := FileAccess.get_file_as_string(blank_path)
+	if blank.is_empty():
+		_fail("blank project template is empty or unreadable: %s" % blank_path)
+	else:
+		var added: Dictionary = compiler.add_map(
+			blank, "map_1", "New Map 1", 8, 6, "grass"
+		)
+		_expect("blank project accepts a map", added.ok, true)
+		if added.ok:
+			var added_data: Dictionary = JSON.parse_string(added.source)
+			_expect("new map count", added_data.maps.size(), 1)
+			_expect("new map width", added_data.maps[0].width, 8.0)
+			_expect("new map height", added_data.maps[0].height, 6.0)
+			_expect("new map terrain length", added_data.maps[0].terrain.size(), 48)
+			_expect("new map fill", added_data.maps[0].terrain[47], "grass")
+			_expect("project with new map compiles", compiler.compile_source_json(added.source).ok, true)
+		var duplicate: Dictionary = compiler.add_map(
+			added.source if added.ok else blank,
+			"map_1", "Duplicate", 8, 6, "grass"
+		)
+		_expect("duplicate map id refused", duplicate.ok, false)
+		_expect("duplicate map returns no source", duplicate.source, "")
+
 	if failures == 0:
 		print("project compiler smoke passed")
 	quit(1 if failures > 0 else 0)

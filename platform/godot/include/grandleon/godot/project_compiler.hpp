@@ -47,6 +47,14 @@ public:
         std::int64_t height,
         const ::godot::String& fill_terrain
     ) const;
+    [[nodiscard]] ::godot::Dictionary add_map(
+        const ::godot::String& source_json,
+        const ::godot::String& map_id,
+        const ::godot::String& name,
+        std::int64_t width,
+        std::int64_t height,
+        const ::godot::String& fill_terrain
+    ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
 protected:

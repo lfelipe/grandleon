@@ -341,6 +341,40 @@ void updates_one_map_cell_without_retyping_the_project() {
         !invalid_fill && invalid_fill.json.empty(),
         "an invalid fill identity cannot produce resized source"
     );
+
+    const auto added = gc::add_source_map_json(
+        source, "second_field", "Second Field", 3, 2, "forest"
+    );
+    expect(static_cast<bool>(added), "a canonical map can be appended");
+    const auto added_parsed = gc::parse_source_project_json(added.json);
+    expect(
+        added_parsed && added_parsed.source.maps.size() == 2 &&
+            added_parsed.source.maps.back().width == 3 &&
+            added_parsed.source.maps.back().height == 2 &&
+            added_parsed.source.maps.back().terrain_kinds ==
+                std::vector<std::uint8_t>(6, 2),
+        "a new map has the requested dimensions and fill terrain"
+    );
+    expect(
+        added.json.find("20.0") == std::string::npos &&
+            added.json.find(R"json("health": 20)json") !=
+                std::string::npos,
+        "map creation preserves unrelated integer tokens"
+    );
+    const auto duplicate = gc::add_source_map_json(
+        source, "field", "Other Field", 2, 2, "forest"
+    );
+    expect(
+        !duplicate && duplicate.json.empty(),
+        "a duplicate map identity cannot produce source"
+    );
+    const auto invalid_id = gc::add_source_map_json(
+        source, "Bad Map", "Bad Map", 2, 2, "forest"
+    );
+    expect(
+        !invalid_id && invalid_id.json.empty(),
+        "a non-portable map identity cannot produce source"
+    );
 }
 
 void maps_authored_resistance() {

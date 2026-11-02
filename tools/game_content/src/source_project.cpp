@@ -2867,17 +2867,21 @@ bool open_editable_map(
     return true;
 }
 
-void finish_map_edit(
-    EditableMapDocument& editable,
-    SourceTextResult& result
-) {
-    append_json(result.json, editable.document, 0);
+void finish_document_edit(Json& document, SourceTextResult& result) {
+    append_json(result.json, document, 0);
     result.json.push_back('\n');
     const SourceParseResult after = parse_source_project_json(result.json);
     if (!after) {
         result.diagnostics = after.diagnostics;
         result.json.clear();
     }
+}
+
+void finish_map_edit(
+    EditableMapDocument& editable,
+    SourceTextResult& result
+) {
+    finish_document_edit(editable.document, result);
 }
 
 }  // namespace
@@ -3032,6 +3036,129 @@ SourceTextResult resize_source_map_json(
     (*editable.map)["height"] = Json{height};
     *editable.terrain = std::move(resized);
     finish_map_edit(editable, result);
+    return result;
+}
+
+SourceTextResult add_source_map_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::string_view name,
+    std::int64_t width,
+    std::int64_t height,
+    std::string_view fill_terrain
+) {
+    SourceTextResult result;
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    if (!valid_source_key(map_id)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.maps",
+            "map id must be a stable source-key string"
+        );
+        return result;
+    }
+    if (name.empty() || name.size() > 160) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.maps",
+            "map name must contain between 1 and 160 characters"
+        );
+        return result;
+    }
+    if (width < 1 || width > maximum_map_side || height < 1 ||
+        height > maximum_map_side) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.maps",
+            "map width and height must be between 1 and 256"
+        );
+        return result;
+    }
+    if (!valid_source_key(fill_terrain)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.maps",
+            "fill terrain must be a stable source-key string"
+        );
+        return result;
+    }
+
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_json,
+            "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    if (root == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$",
+            "expected object"
+        );
+        return result;
+    }
+    const auto maps_member = root->find("maps");
+    auto* maps = maps_member == root->end()
+                     ? nullptr
+                     : std::get_if<Array>(&maps_member->second.value);
+    if (maps == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.maps",
+            "expected array"
+        );
+        return result;
+    }
+    for (const Json& map_value : *maps) {
+        const auto* map = std::get_if<Object>(&map_value.value);
+        if (map == nullptr) continue;
+        const auto found_id = map->find("id");
+        if (found_id == map->end()) continue;
+        const auto* existing = std::get_if<std::string>(&found_id->second.value);
+        if (existing != nullptr && *existing == map_id) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                "$.maps",
+                "map id already exists"
+            );
+            return result;
+        }
+    }
+
+    Array terrain;
+    const auto area = static_cast<std::uint64_t>(width) *
+                      static_cast<std::uint64_t>(height);
+    terrain.reserve(static_cast<std::size_t>(area));
+    for (std::uint64_t index = 0; index < area; ++index) {
+        terrain.push_back(Json{std::string(fill_terrain)});
+    }
+    Object added;
+    added.emplace("id", Json{std::string(map_id)});
+    added.emplace("name", Json{std::string(name)});
+    added.emplace("width", Json{width});
+    added.emplace("height", Json{height});
+    added.emplace("terrain", Json{std::move(terrain)});
+    maps->push_back(Json{std::move(added)});
+    finish_document_edit(document, result);
     return result;
 }
 
