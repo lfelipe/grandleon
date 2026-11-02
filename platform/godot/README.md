@@ -77,10 +77,11 @@ show which player became ready or is waiting; unassigned extra pads cannot
 control Player 1 or the session menu.
 
 Outside deployment and dialogue, Start or Back opens a controller-native
-session menu. The d-pad chooses an action and A or Enter confirms it; B, Start,
-or Escape resumes directly, while X or Q returns to Steam. Opening the menu is
-the first confirmation, preventing a single accidental gameplay press from
-closing the cabinet session.
+session menu. The d-pad chooses an action and A or Enter confirms it, including
+cycling all four graphics profiles against the live encounter without changing
+its simulation state. B, Start, or Escape resumes directly, while X or Q
+returns to Steam. Opening the menu is the first confirmation, preventing a
+single accidental gameplay press from closing the cabinet session.
 
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the
@@ -143,7 +144,9 @@ terrain with the real sheets as billboard characters, `voxel-sprites` uses
 box-built terrain with those same characters, and `voxel` builds both terrain
 and character blockouts from 3D boxes. Select one with
 `--graphics=PROFILE` in a developer run or `GRANDLEON_GRAPHICS=PROFILE` in the
-SteamOS bundle.
+SteamOS bundle. During play, the session menu can replace only the renderer and
+rebind the current board, cursors, selections, and highlights so the four
+directions can be compared from the cabinet without restarting the campaign.
 
 `content/graphics_profiles.json` is the versioned PC art contract for camera,
 lighting, sprite scale, renderer choice, and the terrain/material palette. To

@@ -79,4 +79,14 @@ capture diorama diorama-sprites.png
 capture voxel-sprites voxel-sprites.png
 capture voxel full-voxel.png
 
+XDG_DATA_HOME="${godot_state}/data" \
+XDG_CONFIG_HOME="${godot_state}/config" \
+XDG_CACHE_HOME="${godot_state}/cache" \
+    timeout 20s "${runner[@]}" --path "${stage_dir}" -- \
+    --package=res://game.gpk \
+    --campaign=last_signal \
+    --players=2 \
+    --graphics=voxel-sprites \
+    --graphics-cycle-smoke
+
 printf 'Godot-rendered prototype captures: %s\n' "${output_dir}"

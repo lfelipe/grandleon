@@ -8,6 +8,7 @@ const ControllerSeats = preload("res://scripts/controller_seats.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const PLAYER_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const MODES := ["move", "attack", "ability", "talk"]
+const GRAPHICS_PROFILES := ["pixel", "diorama", "voxel-sprites", "voxel"]
 
 var session
 var board: Node
@@ -30,12 +31,17 @@ var demo_reel_phase := 0
 var demo_reel_next_msec := 0
 var menu_preview := false
 var board_preview := false
+var graphics_cycle_smoke := false
+var graphics_cycle_smoke_index := 0
+var graphics_cycle_smoke_next_msec := 0
 var seats: Array = []
 var device_to_seat: Dictionary = {}
 var axis_latched: Array[Vector2i] = [Vector2i.ZERO, Vector2i.ZERO]
 var selected_units: Array[int] = [0, 0]
 var action_modes: Array[String] = ["move", "move"]
 var snapshot: Dictionary = {}
+var battle_terrain: Array = []
+var battle_theme := 0
 var definitions: Dictionary = {"weapons": [], "abilities": [], "items": []}
 var dialogue_lines: Array = []
 var dialogue_index := -1
@@ -58,6 +64,7 @@ var dialogue_portrait: TextureRect
 var dialogue_hint: Label
 var arcade_menu_layer: Control
 var arcade_menu_resume: Button
+var arcade_menu_graphics: Button
 var arcade_menu_quit: Button
 var art = ArtLibrary.new()
 var graphics_profiles
@@ -68,20 +75,9 @@ func _ready() -> void:
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
 	graphics_profile = graphics_profiles.resolve(graphics_profile)
 	_create_background()
-	if graphics_profile == "pixel":
-		board = BoardView.new()
-		board.set_profile(graphics_profile, graphics_profiles.profile(graphics_profile))
-	else:
-		board = BoardView3D.new()
-		board.set_profile(graphics_profile, graphics_profiles.profile(graphics_profile))
-	add_child(board)
+	_create_board(graphics_profile)
 	_create_interface()
-	title_label.text = "GRANDLEON  /  " + {
-		"pixel": "PIXEL 2D",
-		"diorama": "3D DIORAMA + SPRITES",
-		"voxel-sprites": "VOXEL TERRAIN + SPRITES",
-		"voxel": "FULL VOXEL",
-	}.get(graphics_profile, "ARCADE")
+	_update_graphics_labels()
 	if not graphics_profiles.warning().is_empty():
 		_show_toast(graphics_profiles.warning())
 	_configure_seats()
@@ -112,7 +108,9 @@ func _process(_delta: float) -> void:
 		menu_preview = false
 		_open_arcade_menu()
 	if not _arcade_menu_visible():
-		if demo_reel:
+		if graphics_cycle_smoke:
+			_run_graphics_cycle_smoke()
+		elif demo_reel:
 			_run_demo_reel()
 		elif smoke_auto:
 			_run_smoke_auto()
@@ -120,7 +118,9 @@ func _process(_delta: float) -> void:
 			_run_coop_smoke()
 		elif board_preview and _dialogue_visible():
 			_advance_dialogue()
-	var waits_for_board := board_preview or smoke_auto or coop_smoke or demo_reel
+	var waits_for_board := (
+		board_preview or smoke_auto or coop_smoke or demo_reel or graphics_cycle_smoke
+	)
 	var capture_ready := not waits_for_board or (not snapshot.is_empty() and not _dialogue_visible())
 	if coop_smoke:
 		capture_ready = capture_ready and coop_smoke_started and coop_smoke_accepted == coop_smoke_expected
@@ -186,6 +186,8 @@ func _parse_arguments() -> void:
 			menu_preview = true
 		elif argument == "--board-preview":
 			board_preview = true
+		elif argument == "--graphics-cycle-smoke":
+			graphics_cycle_smoke = true
 
 
 func _run_smoke_auto() -> void:
@@ -255,6 +257,31 @@ func _run_demo_reel() -> void:
 			_submit("wait", int(unit.id))
 		demo_reel_phase = 2
 		demo_reel_next_msec = now + 2400
+
+
+func _run_graphics_cycle_smoke() -> void:
+	if _dialogue_visible():
+		_advance_dialogue()
+		return
+	if snapshot.is_empty() or battle_terrain.is_empty():
+		return
+	var now := Time.get_ticks_msec()
+	if now < graphics_cycle_smoke_next_msec:
+		return
+	if graphics_cycle_smoke_index >= GRAPHICS_PROFILES.size():
+		print("live graphics profile cycle passed")
+		get_tree().quit()
+		return
+	if graphics_cycle_smoke_index == 0 and selected_units[0] == 0:
+		_cycle_unit(0, 1)
+	_set_graphics_profile(GRAPHICS_PROFILES[graphics_cycle_smoke_index])
+	if not _board_matches_current_state():
+		push_error("live graphics profile did not preserve the board state")
+		get_tree().quit(2)
+		return
+	print("live graphics profile: " + graphics_profile)
+	graphics_cycle_smoke_index += 1
+	graphics_cycle_smoke_next_msec = now + 450
 
 
 func _queue_two_friendly_actions() -> int:
@@ -368,6 +395,68 @@ func _distance_to_nearest_enemy(x: int, y: int) -> int:
 			continue
 		result = mini(result, absi(int(unit.x) - x) + absi(int(unit.y) - y))
 	return result
+
+
+func _create_board(profile: String) -> void:
+	if profile == "pixel":
+		board = BoardView.new()
+	else:
+		board = BoardView3D.new()
+	board.set_profile(profile, graphics_profiles.profile(profile))
+	add_child(board)
+
+
+func _set_graphics_profile(requested: String) -> void:
+	var resolved: String = graphics_profiles.resolve(requested)
+	if resolved == graphics_profile and board != null:
+		_update_graphics_labels()
+		return
+	if board != null:
+		remove_child(board)
+		board.queue_free()
+	graphics_profile = resolved
+	_create_board(graphics_profile)
+	if not snapshot.is_empty() and not battle_terrain.is_empty():
+		board.configure(snapshot, battle_terrain, battle_theme)
+	board.set_seats(seats)
+	for seat in min(2, seats.size()):
+		board.set_selected(seat, selected_units[seat], action_modes[seat])
+		_update_highlights(seat)
+	_update_graphics_labels()
+
+
+func _cycle_graphics_profile() -> void:
+	var index := GRAPHICS_PROFILES.find(graphics_profile)
+	_set_graphics_profile(
+		GRAPHICS_PROFILES[wrapi(index + 1, 0, GRAPHICS_PROFILES.size())]
+	)
+
+
+func _graphics_profile_name() -> String:
+	return {
+		"pixel": "PIXEL 2D",
+		"diorama": "3D DIORAMA + SPRITES",
+		"voxel-sprites": "VOXEL TERRAIN + SPRITES",
+		"voxel": "FULL VOXEL",
+	}.get(graphics_profile, "ARCADE")
+
+
+func _update_graphics_labels() -> void:
+	var name := _graphics_profile_name()
+	if title_label != null:
+		title_label.text = "GRANDLEON  /  " + name
+	if arcade_menu_graphics != null:
+		arcade_menu_graphics.text = "GRAPHICS  /  %s  /  A · ENTER" % name
+
+
+func _board_matches_current_state() -> bool:
+	if board == null:
+		return false
+	if board.get("snapshot") != snapshot or board.get("terrain") != battle_terrain:
+		return false
+	if board.get("seats") != seats or board.get("selected_units") != selected_units:
+		return false
+	return true
 
 
 func _create_background() -> void:
@@ -505,8 +594,8 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	arcade_menu_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(590, 235)
-	panel.size = Vector2(740, 610)
+	panel.position = Vector2(590, 165)
+	panel.size = Vector2(740, 750)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(
 			Color(0.018, 0.032, 0.052, 0.99), 24,
@@ -519,9 +608,6 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	panel.add_child(column)
 	column.add_child(_label("GRANDLEON  /  SESSION MENU", 16, Color("69d9ff")))
 	column.add_child(_label("Continue the expedition?", 38, Color("f2f7f9")))
-	column.add_child(_label(
-		"ACTIVE PROFILE  /  " + graphics_profile.to_upper(), 18, Color("ffca63")
-	))
 	var explanation := _label(
 		"Player commands are held while this menu is open. "
 		+ "Any deterministic action already in flight may finish.",
@@ -533,6 +619,9 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	arcade_menu_resume = _menu_button("RESUME  /  A · ENTER")
 	arcade_menu_resume.pressed.connect(_close_arcade_menu)
 	column.add_child(arcade_menu_resume)
+	arcade_menu_graphics = _menu_button("")
+	arcade_menu_graphics.pressed.connect(_cycle_graphics_profile)
+	column.add_child(arcade_menu_graphics)
 	arcade_menu_quit = _menu_button("RETURN TO STEAM  /  A · X · Q")
 	arcade_menu_quit.pressed.connect(_quit_to_launcher)
 	column.add_child(arcade_menu_quit)
@@ -542,6 +631,7 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint)
+	_update_graphics_labels()
 
 
 func _menu_button(value: String) -> Button:
@@ -616,8 +706,9 @@ func _handle_arcade_menu_input(event: InputEvent) -> void:
 
 
 func _activate_arcade_menu_focus() -> void:
-	if get_viewport().gui_get_focus_owner() == arcade_menu_quit:
-		_quit_to_launcher()
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is BaseButton:
+		focused.emit_signal("pressed")
 	else:
 		_close_arcade_menu()
 
@@ -696,7 +787,9 @@ func _handle_event(event: Dictionary) -> void:
 				_show_dialogue_line()
 		"battle_begins":
 			snapshot = event.snapshot
-			board.configure(snapshot, event.get("terrain", []), int(event.get("theme", 0)))
+			battle_terrain = event.get("terrain", []).duplicate()
+			battle_theme = int(event.get("theme", 0))
+			board.configure(snapshot, battle_terrain, battle_theme)
 			_seed_cursors()
 			_update_status()
 		"definitions":
