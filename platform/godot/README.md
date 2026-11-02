@@ -28,8 +28,9 @@ Open the session menu and choose **Projects / Create**. The native Projects
 screen can create an empty canonical project or a complete playable starter,
 lists projects stored under Godot's per-user data directory, and opens a native
 map creator. The map creator previews the same replaceable terrain atlas as play
-mode, paints canonical terrain cells, supports bounded undo/redo, saves through
-the validating native source layer, and plays the edited draft immediately.
+mode, provides brush, contiguous fill, and two-corner rectangle tools, supports
+bounded command-level undo/redo, saves through the validating native source
+layer, and plays the edited draft immediately.
 Compilation and scene handoff stay in-process; draft package bytes are not
 written to the installation directory. Returning through the play-mode session
 menu reopens the same project.

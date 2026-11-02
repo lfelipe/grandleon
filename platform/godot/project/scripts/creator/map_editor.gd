@@ -20,6 +20,8 @@ var project: Dictionary = {}
 var maps: Array = []
 var map_index := 0
 var selected_terrain := "grass"
+var active_tool := "brush"
+var rectangle_anchor := -1
 var dirty := false
 var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
@@ -27,6 +29,7 @@ var discard_armed_until := 0
 
 var title_label: Label
 var map_select: OptionButton
+var tool_buttons: Dictionary = {}
 var palette_list: VBoxContainer
 var palette_buttons: Dictionary = {}
 var grid: GridContainer
@@ -97,6 +100,7 @@ func _select_map(index: int) -> void:
 	if index < 0 or index >= maps.size():
 		return
 	map_index = index
+	rectangle_anchor = -1
 	_refresh_palette()
 	_refresh_grid(0)
 	_set_status("MAP  /  %s" % _current_map_name().to_upper(), false)
@@ -141,8 +145,22 @@ func _refresh_palette() -> void:
 func _select_terrain(name: String) -> void:
 	selected_terrain = name
 	_update_palette_selection()
-	_set_status("BRUSH  /  %s" % name.to_upper(), false)
+	_set_status("TERRAIN  /  %s" % name.to_upper(), false)
 	_focus_cell(0)
+
+
+func _select_tool(name: String) -> void:
+	active_tool = name
+	rectangle_anchor = -1
+	_update_tool_selection()
+	_set_status("TOOL  /  %s" % name.to_upper(), false)
+	_focus_cell(0)
+
+
+func _update_tool_selection() -> void:
+	for name: String in tool_buttons:
+		var button: Button = tool_buttons[name]
+		button.text = ("● " if name == active_tool else "  ") + name.to_upper()
 
 
 func _update_palette_selection() -> void:
@@ -224,12 +242,72 @@ func _paint_cell(index: int) -> void:
 	if width <= 0 or index < 0 or index >= terrain.size():
 		_set_status("THAT CELL IS NOT EDITABLE", true)
 		return
-	if str(terrain[index]) == selected_terrain:
+	if active_tool == "fill":
+		_fill_from(index, width, terrain)
+	elif active_tool == "rectangle":
+		_rectangle_at(index, width, terrain)
+	else:
+		var changed := terrain.duplicate()
+		changed[index] = selected_terrain
+		_apply_terrain(changed, index, "PAINTED %s" % selected_terrain.to_upper())
+
+
+func _fill_from(index: int, width: int, terrain: Array) -> void:
+	var target := str(terrain[index])
+	if target == selected_terrain:
 		_focus_cell(index)
 		return
-	var updated: Dictionary = compiler.update_map_cell(
-		source, str(map.get("id", "")), index % width, index / width,
-		selected_terrain
+	var changed := terrain.duplicate()
+	var pending: Array[int] = [index]
+	while not pending.is_empty():
+		var at: int = pending.pop_back()
+		if at < 0 or at >= changed.size() or str(changed[at]) != target:
+			continue
+		changed[at] = selected_terrain
+		var x: int = at % width
+		if x > 0:
+			pending.append(at - 1)
+		if x + 1 < width:
+			pending.append(at + 1)
+		if at >= width:
+			pending.append(at - width)
+		if at + width < changed.size():
+			pending.append(at + width)
+	_apply_terrain(changed, index, "FILLED %s" % selected_terrain.to_upper())
+
+
+func _rectangle_at(index: int, width: int, terrain: Array) -> void:
+	if rectangle_anchor < 0:
+		rectangle_anchor = index
+		_set_status("RECTANGLE  /  CHOOSE THE OPPOSITE CORNER", false)
+		_focus_cell(index)
+		return
+	var from_x: int = mini(rectangle_anchor % width, index % width)
+	var to_x: int = maxi(rectangle_anchor % width, index % width)
+	var from_y: int = mini(rectangle_anchor / width, index / width)
+	var to_y: int = maxi(rectangle_anchor / width, index / width)
+	var changed := terrain.duplicate()
+	for y in range(from_y, to_y + 1):
+		for x in range(from_x, to_x + 1):
+			changed[y * width + x] = selected_terrain
+	rectangle_anchor = -1
+	_apply_terrain(
+		changed, index,
+		"PAINTED RECTANGLE  /  %s" % selected_terrain.to_upper()
+	)
+
+
+func _apply_terrain(changed: Array, focus_index: int, message: String) -> void:
+	var map := _current_map()
+	var current: Array = map.get("terrain", [])
+	if changed == current:
+		_focus_cell(focus_index)
+		return
+	var terrain_ids := PackedStringArray()
+	for value: Variant in changed:
+		terrain_ids.append(str(value))
+	var updated: Dictionary = compiler.update_map_terrain(
+		source, str(map.get("id", "")), terrain_ids
 	)
 	if not updated.ok:
 		_set_status("EDIT REFUSED  /  %s" % _diagnostic_code(updated), true)
@@ -239,8 +317,8 @@ func _paint_cell(index: int) -> void:
 	redo_stack.clear()
 	dirty = true
 	_read_source()
-	_refresh_maps_after_edit(index)
-	_set_status("UNSAVED  /  PAINTED %s" % selected_terrain.to_upper(), false)
+	_refresh_maps_after_edit(focus_index)
+	_set_status("UNSAVED  /  %s" % message, false)
 
 
 func _refresh_maps_after_edit(focus_index: int) -> void:
@@ -260,6 +338,7 @@ func _undo() -> void:
 		return
 	redo_stack.append(source)
 	source = undo_stack.pop_back()
+	rectangle_anchor = -1
 	dirty = true
 	_read_source()
 	_refresh_maps_after_edit(0)
@@ -271,6 +350,7 @@ func _redo() -> void:
 		return
 	_push_undo(source)
 	source = redo_stack.pop_back()
+	rectangle_anchor = -1
 	dirty = true
 	_read_source()
 	_refresh_maps_after_edit(0)
@@ -375,7 +455,7 @@ func _build_interface() -> void:
 	var projects := _button("PROJECTS", 210, 58)
 	projects.pressed.connect(_request_projects)
 	toolbar.add_child(projects)
-	var toolbar_hint := _label("Confirm paints  •  Cancel returns", 17, Color("718896"))
+	var toolbar_hint := _label("Confirm applies tool  •  Cancel returns", 17, Color("718896"))
 	toolbar_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbar_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	toolbar_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -395,7 +475,18 @@ func _build_interface() -> void:
 	map_select.add_theme_font_size_override("font_size", 19)
 	map_select.item_selected.connect(_select_map)
 	tools_column.add_child(map_select)
-	tools_column.add_child(_label("TERRAIN BRUSH", 17, Color("69d9ff")))
+	tools_column.add_child(_label("TOOL", 17, Color("69d9ff")))
+	var tool_row := HBoxContainer.new()
+	tool_row.add_theme_constant_override("separation", 6)
+	tools_column.add_child(tool_row)
+	for tool_name: String in ["brush", "fill", "rectangle"]:
+		var tool_button := _button(tool_name.to_upper(), 102, 48)
+		tool_button.add_theme_font_size_override("font_size", 14)
+		tool_button.pressed.connect(_select_tool.bind(tool_name))
+		tool_row.add_child(tool_button)
+		tool_buttons[tool_name] = tool_button
+	_update_tool_selection()
+	tools_column.add_child(_label("TERRAIN", 17, Color("69d9ff")))
 	var palette_scroll := ScrollContainer.new()
 	palette_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	palette_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

@@ -119,8 +119,8 @@ This slice proves the whole ownership model before building a large editor.
 
 ### 2. Map and encounter creator
 
-- Terrain palette and controller/mouse painting are implemented. Fill and
-  rectangle tools remain.
+- Terrain palette plus controller/mouse brush, contiguous fill, and two-corner
+  rectangle tools are implemented. Map resize remains.
 - Resize preview that shows what would be clipped before it commits.
 - Unit placement for both sides, deployment zones, and objective placement.
 - Immediate visual and console-budget feedback.

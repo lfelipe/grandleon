@@ -55,10 +55,39 @@ func _run() -> void:
 	editor._redo()
 	await process_frame
 	_expect("redo restores paint", _parse(editor.source).maps[0].terrain[0], "water")
+
+	editor._select_tool("fill")
+	editor._select_terrain("ruins")
+	editor._paint_cell(2)
+	await process_frame
+	var filled: Array = _parse(editor.source).maps[0].terrain
+	_expect("fill replaces connected first cell", filled[2], "ruins")
+	_expect("fill replaces connected neighbour", filled[3], "ruins")
+	_expect("fill does not cross other terrain", filled[14], "water")
+	_expect("fill is one undo command", editor.undo_stack.size(), 2)
+
+	editor._select_tool("rectangle")
+	editor._select_terrain("forest")
+	var before_rectangle: String = editor.source
+	editor._paint_cell(0)
+	_expect("rectangle first corner does not edit", editor.source, before_rectangle)
+	editor._paint_cell(7)
+	await process_frame
+	var rectangle: Array = _parse(editor.source).maps[0].terrain
+	for index: int in [0, 1, 6, 7]:
+		_expect("rectangle paints cell %d" % index, rectangle[index], "forest")
+	_expect("rectangle is one undo command", editor.undo_stack.size(), 3)
+	editor._undo()
+	await process_frame
+	_expect("rectangle undo restores first cell", _parse(editor.source).maps[0].terrain[0], "water")
+	editor._redo()
+	await process_frame
+	_expect("rectangle redo restores first cell", _parse(editor.source).maps[0].terrain[0], "forest")
 	editor._save()
 	_expect("save clears dirty state", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
-	_expect("saved paint reopens", stored.project.maps[0].terrain[0], "water")
+	_expect("saved rectangle reopens", stored.project.maps[0].terrain[0], "forest")
+	_expect("saved fill reopens", stored.project.maps[0].terrain[2], "ruins")
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 
