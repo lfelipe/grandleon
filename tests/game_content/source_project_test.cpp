@@ -375,6 +375,38 @@ void updates_one_map_cell_without_retyping_the_project() {
         !invalid_id && invalid_id.json.empty(),
         "a non-portable map identity cannot produce source"
     );
+
+    const auto moved = gc::move_source_placement_json(
+        enlarged.json, "demo", "battle", "red_1", 2, 1
+    );
+    expect(static_cast<bool>(moved), "an encounter placement can move");
+    const auto moved_parsed = gc::parse_source_project_json(moved.json);
+    expect(
+        moved_parsed &&
+            moved_parsed.source.encounters.front().placements[1].x == 2 &&
+            moved_parsed.source.encounters.front().placements[1].y == 1,
+        "a placement move reaches the native encounter"
+    );
+    expect(
+        moved.json.find("20.0") == std::string::npos &&
+            moved.json.find(R"json("health": 20)json") !=
+                std::string::npos,
+        "placement movement preserves unrelated integer tokens"
+    );
+    const auto occupied = gc::move_source_placement_json(
+        enlarged.json, "demo", "battle", "red_1", 0, 0
+    );
+    expect(
+        !occupied && occupied.json.empty(),
+        "an opening placement cannot move onto another opening unit"
+    );
+    const auto placement_outside = gc::move_source_placement_json(
+        enlarged.json, "demo", "battle", "red_1", 3, 0
+    );
+    expect(
+        !placement_outside && placement_outside.json.empty(),
+        "a placement cannot move outside its encounter map"
+    );
 }
 
 void maps_authored_resistance() {

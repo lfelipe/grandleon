@@ -55,6 +55,14 @@ public:
         std::int64_t height,
         const ::godot::String& fill_terrain
     ) const;
+    [[nodiscard]] ::godot::Dictionary move_placement(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& node_id,
+        const ::godot::String& placement_id,
+        std::int64_t x,
+        std::int64_t y
+    ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
 protected:

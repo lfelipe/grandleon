@@ -123,4 +123,17 @@ struct SourceTextResult final {
     std::string_view fill_terrain
 );
 
+// Moves one encounter placement within the map used by its node. The nested
+// identities keep the command unambiguous without exposing array positions to
+// an authoring client. A project that compiled before the edit is never
+// returned in an uncompilable state after it.
+[[nodiscard]] SourceTextResult move_source_placement_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id,
+    std::int64_t x,
+    std::int64_t y
+);
+
 }  // namespace grandleon::game_content

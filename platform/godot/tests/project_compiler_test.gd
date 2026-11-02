@@ -87,6 +87,23 @@ func _init() -> void:
 			)
 			_expect("oversize map refused", invalid_resize.ok, false)
 			_expect("oversize resize returns no source", invalid_resize.source, "")
+			var moved: Dictionary = compiler.move_placement(
+				source, "demo_campaign", "bridge_encounter",
+				"dawn_guard_leader", 1, 0
+			)
+			_expect("placement move succeeds", moved.ok, true)
+			if moved.ok:
+				var moved_data: Dictionary = JSON.parse_string(moved.source)
+				var placement: Dictionary = moved_data.campaigns[0].flow.nodes[0].placements[0]
+				_expect("placement move changes x", placement.x, 1.0)
+				_expect("placement move changes y", placement.y, 0.0)
+				_expect("moved placement project compiles", compiler.compile_source_json(moved.source).ok, true)
+			var occupied_move: Dictionary = compiler.move_placement(
+				source, "demo_campaign", "bridge_encounter",
+				"river_watch_leader", 0, 1
+			)
+			_expect("occupied placement move refused", occupied_move.ok, false)
+			_expect("occupied move returns no source", occupied_move.source, "")
 
 	var blank_path := ProjectSettings.globalize_path(
 		"res://content/templates/blank_project.json"
