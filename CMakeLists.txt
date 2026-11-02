@@ -472,6 +472,20 @@ option(
     ON
 )
 
+# The arcade client is a Godot front end over the same presenter seam as the
+# terminal, SDL and console clients.  It is opt-in because building a native
+# Godot extension fetches the pinned C++ bindings and is not a prerequisite for
+# compiling the portable engine or either console port.
+option(
+    GRANDLEON_BUILD_GODOT
+    "Build the Godot 4 PC/SteamOS front end"
+    OFF
+)
+set(
+    GRANDLEON_GODOT_API_VERSION "4.7" CACHE STRING
+    "Godot API version used to generate the GDExtension bindings"
+)
+
 # How long a board's fight is, counted rather than guessed.
 #
 # Beside the client rather than inside it: it is the same session over the same
@@ -536,6 +550,10 @@ if(GRANDLEON_DESKTOP_SDL)
     else()
         message(STATUS "Desktop client: SDL2 not found, terminal only")
     endif()
+endif()
+
+if(GRANDLEON_BUILD_GODOT)
+    add_subdirectory(platform/godot)
 endif()
 
 add_executable(grandleon_package_check
