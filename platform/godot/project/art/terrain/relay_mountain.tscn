@@ -1,0 +1,100 @@
+[gd_scene load_steps=12 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_ground"]
+albedo_color = Color(0.29, 0.35, 0.37, 1)
+roughness = 0.88
+
+[sub_resource type="StandardMaterial3D" id="Material_rock_dark"]
+albedo_color = Color(0.22, 0.28, 0.31, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="Material_rock"]
+albedo_color = Color(0.38, 0.45, 0.48, 1)
+roughness = 0.76
+
+[sub_resource type="StandardMaterial3D" id="Material_rock_light"]
+albedo_color = Color(0.58, 0.64, 0.64, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_ground"]
+material = SubResource("Material_ground")
+size = Vector3(0.88, 0.22, 0.88)
+
+[sub_resource type="CylinderMesh" id="Mesh_peak_dark"]
+material = SubResource("Material_rock_dark")
+top_radius = 0.035
+bottom_radius = 0.36
+height = 0.66
+radial_segments = 7
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_peak"]
+material = SubResource("Material_rock")
+top_radius = 0.02
+bottom_radius = 0.27
+height = 0.52
+radial_segments = 7
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_cap"]
+material = SubResource("Material_rock_light")
+top_radius = 0.015
+bottom_radius = 0.12
+height = 0.18
+radial_segments = 7
+rings = 1
+
+[sub_resource type="BoxMesh" id="Mesh_stone"]
+material = SubResource("Material_rock")
+size = Vector3(0.18, 0.13, 0.16)
+
+[node name="RelayMountain" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.11, 0)
+mesh = SubResource("Mesh_ground")
+
+[node name="PeakA" type="MeshInstance3D" parent="."]
+position = Vector3(-0.12, 0.55, 0.07)
+rotation = Vector3(0.03, -0.2, 0.08)
+mesh = SubResource("Mesh_peak_dark")
+
+[node name="PeakACap" type="MeshInstance3D" parent="."]
+position = Vector3(-0.12, 0.89, 0.07)
+rotation = Vector3(0.03, -0.2, 0.08)
+mesh = SubResource("Mesh_cap")
+
+[node name="PeakB" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, 0.46, -0.18)
+rotation = Vector3(-0.04, 0.32, -0.05)
+scale = Vector3(0.82, 0.82, 0.82)
+mesh = SubResource("Mesh_peak")
+
+[node name="PeakBCap" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, 0.69, -0.18)
+rotation = Vector3(-0.04, 0.32, -0.05)
+scale = Vector3(0.82, 0.82, 0.82)
+mesh = SubResource("Mesh_cap")
+
+[node name="LooseStoneA" type="MeshInstance3D" parent="."]
+position = Vector3(-0.31, 0.29, -0.27)
+rotation = Vector3(0.08, 0.52, -0.1)
+mesh = SubResource("Mesh_stone")
+
+[node name="LooseStoneB" type="MeshInstance3D" parent="."]
+position = Vector3(0.28, 0.28, 0.25)
+rotation = Vector3(-0.06, -0.37, 0.08)
+scale = Vector3(0.72, 0.72, 0.72)
+mesh = SubResource("Mesh_stone")

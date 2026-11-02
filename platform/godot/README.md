@@ -192,8 +192,9 @@ remain explicit in the same profile. Missing or invalid bindings fall back per
 asset to procedural terrain or the existing sprite, so an artist can replace
 the roster incrementally instead of delivering an all-or-nothing pack.
 The recommended profile exercises this boundary with an authored low-poly
-forest grove and an animated relay ruin; the animation belongs to the scene,
-not the board renderer, so a replacement may remove or redesign it freely.
+forest grove, mountain edge, animated water surface, and relay ruin. Their
+animation and shaders belong to the scenes, not the board renderer, so a
+replacement may remove or redesign them freely.
 
 Authored character bindings may additionally name an `AnimationPlayer` and map
 semantic `idle`, `move`, `attack`, `ability`, `hurt`, and `defeat` states to the

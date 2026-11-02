@@ -11,7 +11,7 @@ demo package under the compatibility renderer, not concept renders.
 Scores are relative, from 1 (weak/slow) to 5 (strong/fast). “First build” is
 speed to a polished PC build, not the eventual production rate.
 
-| Direction | Visual ceiling | First build | Replaceability | Console compatibility | Shared art lineage | SteamOS headroom |
+| Direction | Visual ceiling | First build | Replaceability | Console compatibility | Shared art lineage | PC headroom |
 |---|---:|---:|---:|---:|---:|---:|
 | Enhanced 2D pixel art | 3 | 5 | 5 | 5 | 5 | 5 |
 | High-resolution illustrated 2D | 4 | 3 | 5 | 5 | 3 | 5 |
@@ -25,9 +25,9 @@ speed to a polished PC build, not the eventual production rate.
 
 | Profile | Already real | Still blockout work | Evidence from the capture |
 |---|---|---|---|
-| Enhanced 2D | asset lookup, autotiling, animation strips, selection, motion | higher-resolution pack, effects and authored animation metadata | most cohesive today, but depth and lighting remain limited |
-| 3D diorama + 2D characters | 3D camera, lit terrain, water, bridges, trees, mountains, billboard animation | authored meshes/materials, sprite pivots, sprite-facing and shadow polish | largest immediate upgrade while retaining the existing character library |
-| Voxel terrain + 2D characters | voxel terrain/props and billboard animation | authored voxel chunks, palette/material manifest, sprite-facing and shadow polish | clearest test of the recommended modular hybrid |
+| Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion | higher-resolution replacement pack and authored effects | most cohesive today, but depth and lighting remain limited |
+| 3D diorama + 2D characters | 3D camera, lit terrain, water, bridges, trees, mountains, manifest-defined sprite pivots and animation | authored meshes/materials, sprite-facing and shadow polish | largest immediate upgrade while retaining the existing character library |
+| Voxel terrain + 2D characters | scene-authored forest, animated relay, water shader, mountains, per-tile fallback, and manifest-driven billboard animation | authored ground/bridge variants, palette/material manifest, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
 | Full voxel | terrain, props, distinct humanoid/drone rigs, animation, lighting | authored voxel forms, palette/material manifest, richer silhouettes | technically clean and readable, but character art becomes a new production pipeline |
 
 All four retain the same board API, concurrent player cursors, legal-tile
@@ -37,9 +37,10 @@ fork campaign content.
 ## Selected sequence: voxel terrain, then multi-output
 
 The PC build now starts with an orthographic voxel board and retains the animated 2D
-characters. Terrain height, water, shadows, light, weather, and small props
-create the immediate PC upgrade while the existing character roster keeps the
-first build achievable and tactically legible.
+characters. Scene-authored forest, mountain, water, and relay tiles sit beside
+procedural fallbacks on the same board. Terrain height, water, shadows, light,
+weather, and small props create the immediate PC upgrade while the existing
+character roster keeps the first build achievable and tactically legible.
 
 If that look works on the target PC, make voxel character models optional and add
 a bake step that renders the same sources to sprite sheets for constrained
@@ -67,8 +68,8 @@ animation names, and fallbacks.
   particles, lighting overlays, camera motion, richer backdrops, and HD packs
   can take it further without a renderer rewrite.
 - **Illustrated 2D** has a high ceiling but makes animation the dominant art
-  cost. It needs manifest-defined pivots and animation clips before new art is
-  commissioned.
+  cost. Its dimensions, pivots, and animation clips now have a manifest
+  contract; the remaining proof is an actual higher-resolution replacement.
 - **3D diorama + 2D characters** gives the fastest dramatic lighting and depth.
   It requires careful billboard, shadow, and scale treatment so characters
   belong to the scene.

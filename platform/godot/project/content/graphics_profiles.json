@@ -105,6 +105,8 @@
       "assets": {
         "terrainScenes": {
           "forest": "res://art/terrain/relay_forest.tscn",
+          "mountain": "res://art/terrain/relay_mountain.tscn",
+          "water": "res://art/terrain/relay_water.tscn",
           "ruins": "res://art/terrain/relay_ruins.tscn"
         }
       }

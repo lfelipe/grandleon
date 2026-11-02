@@ -1,0 +1,44 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Shader" path="res://art/terrain/relay_water.gdshader" id="1_water"]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_depth"]
+albedo_color = Color(0.025, 0.19, 0.28, 1)
+metallic = 0.08
+roughness = 0.2
+
+[sub_resource type="ShaderMaterial" id="Material_surface"]
+render_priority = 1
+shader = ExtResource("1_water")
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_depth"]
+material = SubResource("Material_depth")
+size = Vector3(0.88, 0.07, 0.88)
+
+[sub_resource type="PlaneMesh" id="Mesh_surface"]
+material = SubResource("Material_surface")
+size = Vector2(0.88, 0.88)
+subdivide_width = 3
+subdivide_depth = 3
+
+[node name="RelayWater" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Depth" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.025, 0)
+mesh = SubResource("Mesh_depth")
+
+[node name="Surface" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.018, 0)
+mesh = SubResource("Mesh_surface")
