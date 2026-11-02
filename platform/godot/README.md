@@ -71,7 +71,10 @@ fallback, while `diorama` and `voxel` stay available for comparison.
 Each player has a cursor, selection, colour, and request queue. With two
 controllers, each owns one. With one controller, keyboard/mouse is Player 1 and
 the controller is Player 2. Connected pads are detected again after startup;
-both d-pad and left stick work.
+both d-pad and left stick work. A reconnect preserves every still-connected
+pad's player seat and both cursor positions. The side panel and a short toast
+show which player became ready or is waiting; unassigned extra pads cannot
+control Player 1 or the session menu.
 
 Outside deployment and dialogue, Start or Back opens a controller-native
 session menu. The d-pad chooses an action and A or Enter confirms it; B, Start,
@@ -196,6 +199,12 @@ To record the paced, model-off campaign reel used for remote visual review:
 platform/godot/scripts/record-demo-reel.sh
 ```
 
+To verify stable controller seats through connect, disconnect, reconnect,
+keyboard-plus-pad, and extra-pad cases:
+
+```sh
+platform/godot/scripts/smoke-controller-seats.sh
+```
 The reel is an actual 1280x720 Godot capture. It advances authored dialogue,
 queues two friendly moves without serial player turns, and lets the built-in
 opposition respond. Set `GRANDLEON_DEMO_SECONDS` or pass build and output paths

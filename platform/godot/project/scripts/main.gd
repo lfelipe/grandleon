@@ -4,6 +4,7 @@ extends Node2D
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const BoardView = preload("res://scripts/board_view.gd")
 const BoardView3D = preload("res://scripts/board_view_3d.gd")
+const ControllerSeats = preload("res://scripts/controller_seats.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const PLAYER_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const MODES := ["move", "attack", "ability", "talk"]
@@ -585,6 +586,12 @@ func _arcade_menu_visible() -> bool:
 
 
 func _handle_arcade_menu_input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton and not device_to_seat.has(event.device):
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventJoypadMotion and not device_to_seat.has(event.device):
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_Q:
 			_quit_to_launcher()
@@ -616,32 +623,65 @@ func _activate_arcade_menu_focus() -> void:
 
 
 func _configure_seats() -> void:
-	seats = []
+	var previous_devices: Array[int] = [-1, -1]
+	for index in min(2, seats.size()):
+		previous_devices[index] = int(seats[index].get("device", -1))
+	var assignments: Array[int] = ControllerSeats.assign(
+		previous_devices, Input.get_connected_joypads(), player_count
+	)
+	var next_seats: Array = []
 	device_to_seat.clear()
-	var devices := Input.get_connected_joypads()
 	for index in 2:
-		var device := -1
-		if player_count == 1 and index == 0 and not devices.is_empty():
-			device = int(devices[0])
-		elif player_count == 2 and devices.size() >= 2:
-			device = int(devices[index])
-		elif player_count == 2 and devices.size() == 1 and index == 1:
-			# With one pad, keyboard/mouse is Player 1 and the pad is Player 2.
-			device = int(devices[0])
+		var device := assignments[index]
 		var active := index < player_count and (index == 0 or device >= 0)
-		seats.append({
+		var cursor := Vector2i(index, index)
+		if index < seats.size():
+			cursor = Vector2i(seats[index].get("cursor", cursor))
+		next_seats.append({
 			"active": active,
 			"device": device,
-			"cursor": Vector2i(index, index),
+			"cursor": cursor,
 		})
 		if device >= 0:
 			device_to_seat[device] = index
+	seats = next_seats
+	_update_controller_label()
 	if board:
 		board.set_seats(seats)
 
 
-func _on_joy_connection_changed(_device: int, _connected: bool) -> void:
+func _on_joy_connection_changed(device: int, connected: bool) -> void:
+	var previous_seat := int(device_to_seat.get(device, -1))
+	axis_latched = [Vector2i.ZERO, Vector2i.ZERO]
 	_configure_seats()
+	var current_seat := int(device_to_seat.get(device, -1))
+	var seat := current_seat if connected else previous_seat
+	if seat < 0:
+		if connected:
+			_show_toast("EXTRA CONTROLLER IGNORED")
+		return
+	if connected:
+		_show_toast("PLAYER %d CONTROLLER READY" % (seat + 1))
+	elif seat == 0:
+		_show_toast("PLAYER 1 CONTROLLER DISCONNECTED  /  KEYBOARD READY")
+	else:
+		_show_toast("PLAYER 2 CONTROLLER DISCONNECTED  /  WAITING")
+
+
+func _update_controller_label() -> void:
+	if controller_label == null:
+		return
+	var lines: Array[String] = []
+	for index in min(player_count, seats.size()):
+		var seat: Dictionary = seats[index]
+		var colour: String = Color(PLAYER_COLOURS[index]).to_html()
+		var device := int(seat.get("device", -1))
+		var source := "KEYBOARD / MOUSE" if device < 0 and index == 0 else "CONNECT CONTROLLER"
+		if device >= 0:
+			source = "CONTROLLER"
+		var state := "READY" if seat.get("active", false) else "WAITING"
+		lines.append("[color=#%s][b]P%d[/b][/color]  %s\n[color=#718896]%s[/color]" % [colour, index + 1, source, state])
+	controller_label.text = "\n".join(lines)
 
 
 func _handle_event(event: Dictionary) -> void:
@@ -725,8 +765,8 @@ func _handle_key(event: InputEventKey) -> void:
 
 
 func _handle_pad_button(event: InputEventJoypadButton) -> void:
-	var seat := int(device_to_seat.get(event.device, 0))
-	if seat >= player_count:
+	var seat := int(device_to_seat.get(event.device, -1))
+	if seat < 0 or seat >= player_count:
 		return
 	if _dialogue_visible():
 		if event.button_index in [JOY_BUTTON_A, JOY_BUTTON_START]:
