@@ -101,7 +101,13 @@
     },
     "voxel-sprites": {
       "terrainRenderer": "voxel",
-      "characterRenderer": "sprites"
+      "characterRenderer": "sprites",
+      "assets": {
+        "terrainScenes": {
+          "forest": "res://art/terrain/relay_forest.tscn",
+          "ruins": "res://art/terrain/relay_ruins.tscn"
+        }
+      }
     },
     "voxel": {
       "terrainRenderer": "voxel",

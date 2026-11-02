@@ -1,0 +1,131 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://art/terrain/relay_ruins.gd" id="1_relay"]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_slab"]
+albedo_color = Color(0.34, 0.39, 0.38, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="Material_stone_dark"]
+albedo_color = Color(0.24, 0.29, 0.30, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Material_stone_light"]
+albedo_color = Color(0.48, 0.54, 0.53, 1)
+roughness = 0.76
+
+[sub_resource type="StandardMaterial3D" id="Material_metal"]
+albedo_color = Color(0.23, 0.31, 0.33, 1)
+metallic = 0.72
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="Material_glow"]
+albedo_color = Color(0.08, 0.39, 0.46, 1)
+metallic = 0.24
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.12, 0.62, 0.74, 1)
+emission_energy_multiplier = 1.25
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_slab"]
+material = SubResource("Material_slab")
+size = Vector3(0.88, 0.1, 0.88)
+
+[sub_resource type="BoxMesh" id="Mesh_rubble"]
+material = SubResource("Material_stone_dark")
+size = Vector3(0.28, 0.12, 0.2)
+
+[sub_resource type="CylinderMesh" id="Mesh_pedestal"]
+material = SubResource("Material_stone_light")
+top_radius = 0.2
+bottom_radius = 0.24
+height = 0.16
+radial_segments = 8
+rings = 1
+
+[sub_resource type="BoxMesh" id="Mesh_post"]
+material = SubResource("Material_metal")
+size = Vector3(0.075, 0.5, 0.075)
+
+[sub_resource type="BoxMesh" id="Mesh_crossbar"]
+material = SubResource("Material_metal")
+size = Vector3(0.52, 0.07, 0.09)
+
+[sub_resource type="CylinderMesh" id="Mesh_crystal"]
+material = SubResource("Material_glow")
+top_radius = 0.025
+bottom_radius = 0.105
+height = 0.3
+radial_segments = 6
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_ring"]
+material = SubResource("Material_glow")
+top_radius = 0.18
+bottom_radius = 0.18
+height = 0.025
+radial_segments = 12
+rings = 1
+
+[node name="RelayRuins" type="Node3D"]
+script = ExtResource("1_relay")
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Slab" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.05, 0)
+mesh = SubResource("Mesh_slab")
+
+[node name="RubbleA" type="MeshInstance3D" parent="."]
+position = Vector3(-0.29, 0.16, -0.24)
+rotation = Vector3(0.08, 0.36, -0.05)
+mesh = SubResource("Mesh_rubble")
+
+[node name="RubbleB" type="MeshInstance3D" parent="."]
+position = Vector3(0.28, 0.14, 0.25)
+rotation = Vector3(-0.04, -0.48, 0.08)
+scale = Vector3(0.82, 0.7, 0.72)
+mesh = SubResource("Mesh_rubble")
+
+[node name="Pedestal" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.18, 0)
+mesh = SubResource("Mesh_pedestal")
+
+[node name="PostLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.21, 0.42, 0)
+rotation = Vector3(0, 0, -0.13)
+mesh = SubResource("Mesh_post")
+
+[node name="PostRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.21, 0.42, 0)
+rotation = Vector3(0, 0, 0.13)
+mesh = SubResource("Mesh_post")
+
+[node name="Crossbar" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.67, 0)
+mesh = SubResource("Mesh_crossbar")
+
+[node name="Crystal" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.47, 0)
+mesh = SubResource("Mesh_crystal")
+
+[node name="SignalRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.7, 0)
+mesh = SubResource("Mesh_ring")
+
+[node name="SignalLight" type="OmniLight3D" parent="."]
+position = Vector3(0, 0.59, 0)
+light_color = Color(0.27, 0.88, 1, 1)
+light_energy = 0.32
+omni_range = 1.6
+shadow_enabled = false
