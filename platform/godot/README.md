@@ -140,8 +140,9 @@ may join the vacant Player 2 seat on its first gameplay input; a second
 controller takes Player 2 directly. Connected pads are detected again after
 startup, and a reconnect preserves every still-connected pad's player seat and
 both cursor positions. The side panel and a short toast show which player
-became ready or is waiting; unassigned extra pads cannot control either player
-or the session menu.
+became ready, fell back to keyboard, received a ready spare controller, or is
+waiting; unassigned extra pads cannot control either player or the session
+menu. Controller model names are deliberately not displayed or stored.
 
 Every essential flow is intentionally playable with one directional control
 and five buttons: stick or d-pad moves the cursor, A confirms, B cancels, Y

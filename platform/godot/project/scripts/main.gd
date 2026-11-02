@@ -1023,17 +1023,26 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 	axis_latched = [Vector2i.ZERO, Vector2i.ZERO]
 	_configure_seats()
 	var current_seat := int(device_to_seat.get(device, -1))
-	var seat := current_seat if connected else previous_seat
-	if seat < 0:
-		if connected:
+	var controllers: Array[int] = []
+	for seat: Dictionary in seats:
+		controllers.append(int(seat.get("device", -1)))
+	var notice := ControllerSeats.connection_notice(
+		connected, previous_seat, current_seat, controllers, keyboard_seat
+	)
+	var seat := int(notice.get("seat", -1))
+	match String(notice.get("kind", "none")):
+		"ready":
+			_show_toast("PLAYER %d CONTROLLER READY" % (seat + 1))
+		"ignored":
 			_show_toast("EXTRA CONTROLLER IGNORED")
-		return
-	if connected:
-		_show_toast("PLAYER %d CONTROLLER READY" % (seat + 1))
-	elif seat == keyboard_seat:
-		_show_toast("PLAYER %d CONTROLLER DISCONNECTED  /  KEYBOARD READY" % (seat + 1))
-	else:
-		_show_toast("PLAYER %d CONTROLLER DISCONNECTED  /  WAITING" % (seat + 1))
+		"replacement":
+			_show_toast("PLAYER %d REPLACEMENT CONTROLLER READY" % (seat + 1))
+		"keyboard":
+			_show_toast(
+				"PLAYER %d CONTROLLER DISCONNECTED  /  KEYBOARD READY" % (seat + 1)
+			)
+		"waiting":
+			_show_toast("PLAYER %d CONTROLLER DISCONNECTED  /  WAITING" % (seat + 1))
 
 
 func _update_controller_label() -> void:

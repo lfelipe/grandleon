@@ -50,3 +50,24 @@ static func assign_keyboard(previous: int, controllers: Array, player_count: int
 			if int(controllers[seat]) < 0:
 				return seat
 	return -1
+
+
+static func connection_notice(
+	connected: bool,
+	previous_seat: int,
+	current_seat: int,
+	controllers: Array,
+	keyboard_seat: int
+) -> Dictionary:
+	if connected:
+		return {
+			"kind": "ready" if current_seat >= 0 else "ignored",
+			"seat": current_seat,
+		}
+	if previous_seat < 0:
+		return {"kind": "none", "seat": -1}
+	if previous_seat < controllers.size() and int(controllers[previous_seat]) >= 0:
+		return {"kind": "replacement", "seat": previous_seat}
+	if previous_seat == keyboard_seat:
+		return {"kind": "keyboard", "seat": previous_seat}
+	return {"kind": "waiting", "seat": previous_seat}
