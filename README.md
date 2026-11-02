@@ -216,6 +216,11 @@ engine. See [games/demo/README.md](games/demo/README.md) and
 games, and [games/template/README.md](games/template/README.md) for the reusable
 skeleton.
 
+The PC arcade presentation is a Godot client over the same package and C++
+simulation. It adds simultaneous local team control, replaceable modern art,
+an offline-first AI demo, and a portable SteamOS bundle without changing the
+console runtimes. See [platform/godot/README.md](platform/godot/README.md).
+
 ### A PlayStation disc
 
 `cmake --build build --target grandleon_playstation_disc` writes
