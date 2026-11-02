@@ -30,7 +30,7 @@ machine-specific model or graphics configuration.
 | Optional model dialogue | Model lines append only to allowlisted scenes and pass speaker, count, length, and markup validation. Authored lines are never replaced. |
 | Optional model tactics | The model selects an index from legal engine-generated candidates. Candidate zero is the built-in plan and remains the fallback for every failure mode. |
 | Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. Missing bindings or clips fall back asset by asset. |
-| Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, and can disable camera impulse. The graphics capture smoke exercises the complete live cycle with both impulse states. |
+| Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Cabinet-safe exit | Start or Back opens a controller-native session menu; quitting requires an explicit second X press, while A, B, or Start resumes. |
 | SteamOS packaging | The release bundle runs without a system Godot install and keeps its writable state under its own `runtime/` directory. |
@@ -71,8 +71,9 @@ addresses, usernames, or absolute install paths in project content or issues.
 
 - Fix any Gaming Mode focus, scaling, controller identity, or reconnect issue
   found tonight.
-- Extend the controller-driven session menu beyond its live graphics-profile
-  and camera-impulse controls with text scale and audio-level settings.
+- Extend the controller-driven session menu beyond its live graphics-profile,
+  text-size, and camera-impulse controls with audio-level settings once audio is
+  authored.
 - Add explicit join/leave feedback and persistent controller glyphs rather
   than generic button letters.
 - Add an automated Godot smoke target to CI once a pinned headless display and

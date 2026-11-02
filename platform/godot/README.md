@@ -79,10 +79,11 @@ control Player 1 or the session menu.
 Outside deployment and dialogue, Start or Back opens a controller-native
 session menu. The d-pad chooses an action and A or Enter confirms it, including
 cycling all four graphics profiles against the live encounter without changing
-its simulation state and disabling camera impulse for motion-sensitive players.
-B, Start, or Escape resumes directly, while X or Q returns to Steam. Opening
-the menu is the first confirmation, preventing a single accidental gameplay
-press from closing the cabinet session.
+its simulation state, disabling camera impulse for motion-sensitive players,
+and switching all interface text between Normal and Large. B, Start, or Escape
+resumes directly, while X or Q returns to Steam. Opening the menu is the first
+confirmation, preventing a single accidental gameplay press from closing the
+cabinet session.
 
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the
@@ -153,10 +154,10 @@ directions can be compared from the cabinet without restarting the campaign.
 lighting, sprite scale, renderer choice, and the terrain/material palette. To
 tune one cabinet without changing a project or committing machine details, copy
 `graphics.example.json` beside the launcher as `graphics.local.json` and edit
-only the values to override. `cameraImpulse` supplies the session's initial
-accessibility setting; the controller menu may then change it for the current
-run. The launcher discovers that ignored file at run time; its path and
-contents are never compiled into the bundle.
+only the values to override. `cameraImpulse` and bounded `textScale` values
+supply the session's initial accessibility settings; the controller menu may
+then change either for the current run. The launcher discovers that ignored
+file at run time; its path and contents are never compiled into the bundle.
 
 An authored pack may also bind `assets.terrainScenes` by terrain name and
 `assets.characterScenes` by archetype to project resources. Imported `.glb`

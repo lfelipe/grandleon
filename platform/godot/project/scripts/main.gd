@@ -18,6 +18,7 @@ var campaign_key := "tarnholt_line"
 var graphics_profile := ""
 var graphics_pack_path := ""
 var camera_impulse_enabled := true
+var text_scale := 1.0
 var screenshot_path := ""
 var screenshot_frames := -1
 var smoke_auto := false
@@ -48,6 +49,7 @@ var dialogue_lines: Array = []
 var dialogue_index := -1
 var pending_requests: Dictionary = {}
 var next_request_id := 1
+var font_size_bindings: Array[Dictionary] = []
 
 var title_label: Label
 var status_label: Label
@@ -67,6 +69,7 @@ var arcade_menu_layer: Control
 var arcade_menu_resume: Button
 var arcade_menu_graphics: Button
 var arcade_menu_camera: Button
+var arcade_menu_text: Button
 var arcade_menu_quit: Button
 var art = ArtLibrary.new()
 var graphics_profiles
@@ -76,13 +79,13 @@ func _ready() -> void:
 	_parse_arguments()
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
 	graphics_profile = graphics_profiles.resolve(graphics_profile)
-	camera_impulse_enabled = bool(
-		graphics_profiles.profile(graphics_profile).get("cameraImpulse", true)
-	)
+	var initial_profile: Dictionary = graphics_profiles.profile(graphics_profile)
+	camera_impulse_enabled = bool(initial_profile.get("cameraImpulse", true))
+	text_scale = clampf(float(initial_profile.get("textScale", 1.0)), 1.0, 1.20)
 	_create_background()
 	_create_board(graphics_profile)
 	_create_interface()
-	_update_graphics_labels()
+	_update_session_labels()
 	if not graphics_profiles.warning().is_empty():
 		_show_toast(graphics_profiles.warning())
 	_configure_seats()
@@ -280,9 +283,10 @@ func _run_graphics_cycle_smoke() -> void:
 	if graphics_cycle_smoke_index == 0 and selected_units[0] == 0:
 		_cycle_unit(0, 1)
 	_set_camera_impulse_enabled(graphics_cycle_smoke_index >= 2)
+	_set_text_scale(1.15 if graphics_cycle_smoke_index >= 2 else 1.0)
 	_set_graphics_profile(GRAPHICS_PROFILES[graphics_cycle_smoke_index])
-	if not _board_matches_current_state():
-		push_error("live graphics profile did not preserve the board state")
+	if not _board_matches_current_state() or not _font_sizes_match():
+		push_error("live graphics profile did not preserve its display state")
 		get_tree().quit(2)
 		return
 	print("live graphics profile: " + graphics_profile)
@@ -416,7 +420,7 @@ func _create_board(profile: String) -> void:
 func _set_graphics_profile(requested: String) -> void:
 	var resolved: String = graphics_profiles.resolve(requested)
 	if resolved == graphics_profile and board != null:
-		_update_graphics_labels()
+		_update_session_labels()
 		return
 	if board != null:
 		remove_child(board)
@@ -429,7 +433,7 @@ func _set_graphics_profile(requested: String) -> void:
 	for seat in min(2, seats.size()):
 		board.set_selected(seat, selected_units[seat], action_modes[seat])
 		_update_highlights(seat)
-	_update_graphics_labels()
+	_update_session_labels()
 
 
 func _cycle_graphics_profile() -> void:
@@ -447,7 +451,22 @@ func _set_camera_impulse_enabled(value: bool) -> void:
 	camera_impulse_enabled = value
 	if board != null:
 		board.set_camera_impulse_enabled(camera_impulse_enabled)
-	_update_graphics_labels()
+	_update_session_labels()
+
+
+func _toggle_text_scale() -> void:
+	_set_text_scale(1.0 if text_scale > 1.05 else 1.15)
+
+
+func _set_text_scale(value: float) -> void:
+	text_scale = clampf(value, 1.0, 1.20)
+	for binding: Dictionary in font_size_bindings:
+		var control: Control = binding.control
+		if is_instance_valid(control):
+			control.add_theme_font_size_override(
+				StringName(binding.key), roundi(float(binding.base) * text_scale)
+			)
+	_update_session_labels()
 
 
 func _graphics_profile_name() -> String:
@@ -459,7 +478,7 @@ func _graphics_profile_name() -> String:
 	}.get(graphics_profile, "ARCADE")
 
 
-func _update_graphics_labels() -> void:
+func _update_session_labels() -> void:
 	var name := _graphics_profile_name()
 	if title_label != null:
 		title_label.text = "GRANDLEON  /  " + name
@@ -468,6 +487,10 @@ func _update_graphics_labels() -> void:
 	if arcade_menu_camera != null:
 		arcade_menu_camera.text = "CAMERA IMPULSE  /  %s  /  A · ENTER" % (
 			"ON" if camera_impulse_enabled else "OFF"
+		)
+	if arcade_menu_text != null:
+		arcade_menu_text.text = "TEXT SIZE  /  %s  /  A · ENTER" % (
+			"LARGE" if text_scale > 1.05 else "NORMAL"
 		)
 
 
@@ -480,6 +503,17 @@ func _board_matches_current_state() -> bool:
 		return false
 	if bool(board.get("camera_impulse_enabled")) != camera_impulse_enabled:
 		return false
+	return true
+
+
+func _font_sizes_match() -> bool:
+	for binding: Dictionary in font_size_bindings:
+		var control: Control = binding.control
+		var expected := roundi(float(binding.base) * text_scale)
+		if not is_instance_valid(control):
+			return false
+		if control.get_theme_font_size(StringName(binding.key)) != expected:
+			return false
 	return true
 
 
@@ -538,17 +572,27 @@ func _create_interface() -> void:
 	unit_stats.bbcode_enabled = true
 	unit_stats.fit_content = true
 	unit_stats.custom_minimum_size = Vector2(320, 150)
-	unit_stats.add_theme_font_size_override("normal_font_size", 17)
+	_bind_font_size(unit_stats, "normal_font_size", 17)
 	unit_stats.add_theme_color_override("default_color", Color("b9cbd5"))
 	column.add_child(unit_stats)
 	var separator := HSeparator.new()
 	separator.modulate = Color(0.4, 0.75, 0.9, 0.35)
 	column.add_child(separator)
+	controller_label = RichTextLabel.new()
+	controller_label.bbcode_enabled = true
+	controller_label.fit_content = true
+	controller_label.custom_minimum_size = Vector2(320, 82)
+	_bind_font_size(controller_label, "normal_font_size", 15)
+	controller_label.add_theme_color_override("default_color", Color("a9bdc9"))
+	column.add_child(controller_label)
+	var input_separator := HSeparator.new()
+	input_separator.modulate = Color(0.4, 0.75, 0.9, 0.22)
+	column.add_child(input_separator)
 	help_label = RichTextLabel.new()
 	help_label.bbcode_enabled = true
 	help_label.fit_content = true
-	help_label.custom_minimum_size = Vector2(320, 420)
-	help_label.add_theme_font_size_override("normal_font_size", 16)
+	help_label.custom_minimum_size = Vector2(320, 320)
+	_bind_font_size(help_label, "normal_font_size", 16)
 	help_label.add_theme_color_override("default_color", Color("a9bdc9"))
 	help_label.text = _help_text()
 	column.add_child(help_label)
@@ -598,7 +642,7 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	dialogue_text = RichTextLabel.new()
 	dialogue_text.bbcode_enabled = true
 	dialogue_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	dialogue_text.add_theme_font_size_override("normal_font_size", 25)
+	_bind_font_size(dialogue_text, "normal_font_size", 25)
 	dialogue_text.add_theme_color_override("default_color", Color("e9f0f4"))
 	words.add_child(dialogue_text)
 	dialogue_hint = _label("A / ENTER  CONTINUE", 15, Color("89a8b8"))
@@ -618,8 +662,8 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	arcade_menu_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(590, 165)
-	panel.size = Vector2(740, 750)
+	panel.position = Vector2(590, 90)
+	panel.size = Vector2(740, 900)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(
 			Color(0.018, 0.032, 0.052, 0.99), 24,
@@ -628,7 +672,7 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	)
 	arcade_menu_layer.add_child(panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 22)
+	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
 	column.add_child(_label("GRANDLEON  /  SESSION MENU", 16, Color("69d9ff")))
 	column.add_child(_label("Continue the expedition?", 38, Color("f2f7f9")))
@@ -649,6 +693,9 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	arcade_menu_camera = _menu_button("")
 	arcade_menu_camera.pressed.connect(_toggle_camera_impulse)
 	column.add_child(arcade_menu_camera)
+	arcade_menu_text = _menu_button("")
+	arcade_menu_text.pressed.connect(_toggle_text_scale)
+	column.add_child(arcade_menu_text)
 	arcade_menu_quit = _menu_button("RETURN TO STEAM  /  A · X · Q")
 	arcade_menu_quit.pressed.connect(_quit_to_launcher)
 	column.add_child(arcade_menu_quit)
@@ -658,14 +705,14 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint)
-	_update_graphics_labels()
+	_update_session_labels()
 
 
 func _menu_button(value: String) -> Button:
 	var button := Button.new()
 	button.text = value
 	button.custom_minimum_size = Vector2(680, 82)
-	button.add_theme_font_size_override("font_size", 22)
+	_bind_font_size(button, "font_size", 22)
 	button.add_theme_color_override("font_color", Color("dcebf0"))
 	button.add_theme_color_override("font_hover_color", Color("071018"))
 	button.add_theme_color_override("font_pressed_color", Color("071018"))
@@ -1205,10 +1252,17 @@ func _help_text() -> String:
 	)
 
 
+func _bind_font_size(control: Control, key: String, base: int) -> void:
+	font_size_bindings.append({"control": control, "key": key, "base": base})
+	control.add_theme_font_size_override(
+		StringName(key), roundi(float(base) * text_scale)
+	)
+
+
 func _label(value: String, size: int, colour: Color) -> Label:
 	var label := Label.new()
 	label.text = value
-	label.add_theme_font_size_override("font_size", size)
+	_bind_font_size(label, "font_size", size)
 	label.add_theme_color_override("font_color", colour)
 	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
 	label.add_theme_constant_override("shadow_offset_x", 2)

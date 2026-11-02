@@ -3,6 +3,7 @@
   "profiles": {
     "voxel-sprites": {
       "cameraImpulse": true,
+      "textScale": 1.0,
       "camera": {
         "size": 8.4
       },

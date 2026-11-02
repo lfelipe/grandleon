@@ -3,6 +3,7 @@
   "defaultProfile": "voxel-sprites",
   "common": {
     "cameraImpulse": true,
+    "textScale": 1.0,
     "camera": {
       "size": 8.4,
       "position": [7.7, 10.8, 8.8],
