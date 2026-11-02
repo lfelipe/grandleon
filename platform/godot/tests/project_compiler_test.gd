@@ -56,6 +56,20 @@ func _init() -> void:
 			)
 			_expect("outside map edit refused", outside.ok, false)
 			_expect("outside edit returns no source", outside.source, "")
+			var too_short := PackedStringArray()
+			too_short.append("water")
+			var filled: Dictionary = compiler.update_map_terrain(
+				source, "dawn_bridge", too_short
+			)
+			_expect("wrong terrain length refused", filled.ok, false)
+			var source_data: Dictionary = JSON.parse_string(source)
+			var terrain := PackedStringArray()
+			for terrain_id: Variant in source_data.maps[0].terrain:
+				terrain.append("water" if str(terrain_id) == "forest" else str(terrain_id))
+			filled = compiler.update_map_terrain(source, "dawn_bridge", terrain)
+			_expect("batch terrain edit succeeds", filled.ok, true)
+			if filled.ok:
+				_expect("batch edit compiles", compiler.compile_source_json(filled.source).ok, true)
 
 	if failures == 0:
 		print("project compiler smoke passed")

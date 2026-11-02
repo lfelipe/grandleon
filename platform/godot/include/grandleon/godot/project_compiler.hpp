@@ -3,6 +3,7 @@
 
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_string_array.hpp>
 #include <godot_cpp/variant/string.hpp>
 
 #include <cstdint>
@@ -33,6 +34,11 @@ public:
         std::int64_t x,
         std::int64_t y,
         const ::godot::String& terrain_id
+    ) const;
+    [[nodiscard]] ::godot::Dictionary update_map_terrain(
+        const ::godot::String& source_json,
+        const ::godot::String& map_id,
+        const ::godot::PackedStringArray& terrain_ids
     ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 

@@ -90,4 +90,13 @@ struct SourceTextResult final {
     std::string_view terrain_id
 );
 
+// Replaces a complete terrain array as one validated authoring command.  This
+// is the efficient boundary for flood fill, rectangle, resize, and undo/redo:
+// even a large edit parses and serializes the source once.
+[[nodiscard]] SourceTextResult update_source_map_terrain_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    const std::vector<std::string>& terrain_ids
+);
+
 }  // namespace grandleon::game_content

@@ -2723,50 +2723,73 @@ SourceTextResult instantiate_source_project_json(
     return result;
 }
 
-SourceTextResult update_source_map_cell_json(
+namespace {
+
+struct EditableMapDocument final {
+    Json document;
+    Array* terrain{};
+    std::int64_t width{};
+    std::int64_t height{};
+    std::size_t index{};
+};
+
+void refuse_edit(
+    SourceTextResult& result,
+    SourceDiagnosticCode code,
+    std::string path,
+    std::string detail
+) {
+    result.diagnostics.push_back(
+        {code, std::move(path), std::move(detail)}
+    );
+}
+
+bool open_editable_map(
     std::string_view source_json,
     std::string_view map_id,
-    std::int64_t x,
-    std::int64_t y,
-    std::string_view terrain_id
+    EditableMapDocument& editable,
+    SourceTextResult& result
 ) {
-    SourceTextResult result;
     const SourceParseResult before = parse_source_project_json(source_json);
     if (!before) {
         result.diagnostics = before.diagnostics;
-        return result;
+        return false;
     }
-
-    Json document;
     try {
-        document = JsonParser(source_json).parse();
+        editable.document = JsonParser(source_json).parse();
     } catch (const JsonError& error) {
-        // The semantic parse above already reports syntax failures.  Keep a
-        // complete fallback here because this routine owns its parse and must
-        // never depend on an unchecked assumption about that implementation.
-        result.diagnostics.push_back({
+        refuse_edit(
+            result,
             SourceDiagnosticCode::invalid_json,
             "$",
             "JSON parse error at byte " + std::to_string(error.offset()) +
                 ": " + error.what()
-        });
-        return result;
+        );
+        return false;
     }
 
-    auto* root = std::get_if<Object>(&document.value);
-    auto maps_member = root == nullptr ? Object::iterator{} : root->find("maps");
-    auto* maps = root == nullptr || maps_member == root->end()
+    auto* root = std::get_if<Object>(&editable.document.value);
+    if (root == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$", "expected object"
+        );
+        return false;
+    }
+    const auto maps_member = root->find("maps");
+    auto* maps = maps_member == root->end()
                      ? nullptr
                      : std::get_if<Array>(&maps_member->second.value);
     if (maps == nullptr) {
-        result.diagnostics.push_back({
-            SourceDiagnosticCode::invalid_value, "$.maps", "expected array"
-        });
-        return result;
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.maps",
+            "expected array"
+        );
+        return false;
     }
 
     Object* selected = nullptr;
-    std::size_t selected_index = 0;
     for (std::size_t index = 0; index < maps->size(); ++index) {
         auto* map = std::get_if<Object>(&(*maps)[index].value);
         if (map == nullptr) continue;
@@ -2775,20 +2798,21 @@ SourceTextResult update_source_map_cell_json(
         const auto* id = std::get_if<std::string>(&id_member->second.value);
         if (id != nullptr && *id == map_id) {
             selected = map;
-            selected_index = index;
+            editable.index = index;
             break;
         }
     }
     if (selected == nullptr) {
-        result.diagnostics.push_back({
+        refuse_edit(
+            result,
             SourceDiagnosticCode::invalid_value,
             "$.maps",
             "map '" + std::string(map_id) + "' was not found"
-        });
-        return result;
+        );
+        return false;
     }
 
-    const std::string path = "$.maps[" + std::to_string(selected_index) + "]";
+    const std::string path = "$.maps[" + std::to_string(editable.index) + "]";
     const auto width_member = selected->find("width");
     const auto height_member = selected->find("height");
     const auto terrain_member = selected->find("terrain");
@@ -2802,47 +2826,103 @@ SourceTextResult update_source_map_cell_json(
                              : std::get_if<std::int64_t>(
                                    &height_member->second.value
                                );
-    auto* terrain = terrain_member == selected->end()
-                        ? nullptr
-                        : std::get_if<Array>(&terrain_member->second.value);
-    if (width == nullptr || height == nullptr || terrain == nullptr) {
-        result.diagnostics.push_back({
+    editable.terrain = terrain_member == selected->end()
+                           ? nullptr
+                           : std::get_if<Array>(&terrain_member->second.value);
+    if (width == nullptr || height == nullptr || editable.terrain == nullptr) {
+        refuse_edit(
+            result,
             SourceDiagnosticCode::invalid_value,
             path,
             "map dimensions and terrain must be present"
-        });
-        return result;
+        );
+        return false;
     }
-    if (x < 0 || y < 0 || x >= *width || y >= *height) {
-        result.diagnostics.push_back({
-            SourceDiagnosticCode::invalid_value,
-            path + ".terrain",
-            "cell coordinate is outside the map"
-        });
-        return result;
-    }
-    const std::uint64_t linear =
-        static_cast<std::uint64_t>(y) * static_cast<std::uint64_t>(*width) +
-        static_cast<std::uint64_t>(x);
-    if (linear >= terrain->size()) {
-        result.diagnostics.push_back({
-            SourceDiagnosticCode::invalid_value,
-            path + ".terrain",
-            "terrain does not contain the requested cell"
-        });
-        return result;
-    }
+    editable.width = *width;
+    editable.height = *height;
+    return true;
+}
 
-    (*terrain)[static_cast<std::size_t>(linear)] =
-        Json{std::string(terrain_id)};
-    append_json(result.json, document, 0);
+void finish_map_edit(
+    EditableMapDocument& editable,
+    SourceTextResult& result
+) {
+    append_json(result.json, editable.document, 0);
     result.json.push_back('\n');
-
     const SourceParseResult after = parse_source_project_json(result.json);
     if (!after) {
         result.diagnostics = after.diagnostics;
         result.json.clear();
     }
+}
+
+}  // namespace
+
+SourceTextResult update_source_map_cell_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::int64_t x,
+    std::int64_t y,
+    std::string_view terrain_id
+) {
+    SourceTextResult result;
+    EditableMapDocument editable;
+    if (!open_editable_map(source_json, map_id, editable, result)) return result;
+    const std::string path = "$.maps[" + std::to_string(editable.index) +
+                             "].terrain";
+    if (x < 0 || y < 0 || x >= editable.width || y >= editable.height) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            path,
+            "cell coordinate is outside the map"
+        );
+        return result;
+    }
+    const std::uint64_t linear =
+        static_cast<std::uint64_t>(y) *
+            static_cast<std::uint64_t>(editable.width) +
+        static_cast<std::uint64_t>(x);
+    if (linear >= editable.terrain->size()) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            path,
+            "terrain does not contain the requested cell"
+        );
+        return result;
+    }
+    (*editable.terrain)[static_cast<std::size_t>(linear)] =
+        Json{std::string(terrain_id)};
+    finish_map_edit(editable, result);
+    return result;
+}
+
+SourceTextResult update_source_map_terrain_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    const std::vector<std::string>& terrain_ids
+) {
+    SourceTextResult result;
+    EditableMapDocument editable;
+    if (!open_editable_map(source_json, map_id, editable, result)) return result;
+    const auto expected = static_cast<std::uint64_t>(editable.width) *
+                          static_cast<std::uint64_t>(editable.height);
+    if (terrain_ids.size() != expected) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.maps[" + std::to_string(editable.index) + "].terrain",
+            "terrain length must equal map width times height"
+        );
+        return result;
+    }
+    editable.terrain->clear();
+    editable.terrain->reserve(terrain_ids.size());
+    for (const std::string& terrain_id : terrain_ids) {
+        editable.terrain->push_back(Json{terrain_id});
+    }
+    finish_map_edit(editable, result);
     return result;
 }
 

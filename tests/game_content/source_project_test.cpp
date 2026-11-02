@@ -288,6 +288,26 @@ void updates_one_map_cell_without_retyping_the_project() {
             missing.diagnostics.front().path == "$.maps",
         "an unknown map has a stable diagnostic location"
     );
+
+    const auto filled = gc::update_source_map_terrain_json(
+        source, "field", {"water", "water"}
+    );
+    expect(static_cast<bool>(filled), "a complete terrain edit is accepted");
+    expect(
+        filled.json.find(R"json("terrain": [
+        "water",
+        "water")json") != std::string::npos,
+        "a batch edit replaces the complete terrain array"
+    );
+    const auto wrong_length = gc::update_source_map_terrain_json(
+        source, "field", {"water"}
+    );
+    expect(!wrong_length, "a short terrain replacement is refused");
+    expect(
+        wrong_length.json.empty() && !wrong_length.diagnostics.empty() &&
+            wrong_length.diagnostics.front().path == "$.maps[0].terrain",
+        "a short terrain replacement returns no partial project"
+    );
 }
 
 void maps_authored_resistance() {

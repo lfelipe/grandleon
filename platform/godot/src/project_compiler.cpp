@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace grandleon::godot_frontend {
 namespace {
@@ -71,6 +72,12 @@ void GrandleonProjectCompiler::_bind_methods() {
             "terrain_id"
         ),
         &GrandleonProjectCompiler::update_map_cell
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "update_map_terrain", "source_json", "map_id", "terrain_ids"
+        ),
+        &GrandleonProjectCompiler::update_map_terrain
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD("supported_schema"),
@@ -159,6 +166,37 @@ gd::Dictionary GrandleonProjectCompiler::update_map_cell(
     gd::Array diagnostics;
     const gc::SourceTextResult updated = gc::update_source_map_cell_json(
         narrow(source_json), narrow(map_id), x, y, narrow(terrain_id)
+    );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::update_map_terrain(
+    const gd::String& source_json,
+    const gd::String& map_id,
+    const gd::PackedStringArray& terrain_ids
+) const {
+    std::vector<std::string> names;
+    names.reserve(static_cast<std::size_t>(terrain_ids.size()));
+    for (std::int64_t index = 0; index < terrain_ids.size(); ++index) {
+        names.push_back(narrow(terrain_ids[index]));
+    }
+
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated = gc::update_source_map_terrain_json(
+        narrow(source_json), narrow(map_id), names
     );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
