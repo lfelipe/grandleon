@@ -132,12 +132,35 @@ func _run() -> void:
 	editor._redo()
 	await process_frame
 	_expect("resize redo restores width", int(_parse(editor.source).maps[0].width), 4)
+
+	editor._create_map()
+	await process_frame
+	var with_new_map := _parse(editor.source)
+	_expect("new map is appended", with_new_map.maps.size(), 3)
+	_expect("new map receives portable id", with_new_map.maps[2].id, "map_1")
+	_expect("new map receives a useful name", with_new_map.maps[2].name, "New Map 1")
+	_expect("new map width", int(with_new_map.maps[2].width), 8)
+	_expect("new map height", int(with_new_map.maps[2].height), 6)
+	_expect("new map uses selected terrain", with_new_map.maps[2].terrain[47], "forest")
+	_expect("new map becomes selected", editor.map_index, 2)
+	_expect("new map board is editable", editor.grid.get_child_count(), 48)
+	_expect("new map is one undo command", editor.undo_stack.size(), 5)
+	editor._undo()
+	await process_frame
+	_expect("new map undo removes map", _parse(editor.source).maps.size(), 2)
+	_expect("new map undo refreshes selector", editor.map_select.item_count, 2)
+	editor._redo()
+	await process_frame
+	_expect("new map redo restores map", _parse(editor.source).maps.size(), 3)
+	_expect("new map redo refreshes selector", editor.map_select.item_count, 3)
+	editor._select_map(0)
 	editor._save()
 	_expect("save clears dirty state", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
 	_expect("saved rectangle reopens", stored.project.maps[0].terrain[0], "forest")
 	_expect("saved fill reopens", stored.project.maps[0].terrain[2], "ruins")
 	_expect("saved resize reopens", int(stored.project.maps[0].width), 4)
+	_expect("saved new map reopens", stored.project.maps[2].id, "map_1")
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 

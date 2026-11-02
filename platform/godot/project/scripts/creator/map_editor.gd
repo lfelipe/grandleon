@@ -190,7 +190,7 @@ func _refresh_grid(focus_index := -1) -> void:
 	empty_label.visible = map.is_empty()
 	grid.visible = not map.is_empty()
 	if map.is_empty():
-		empty_label.text = "This project has no maps yet.\nCreate from the playable starter to use terrain painting."
+		empty_label.text = "This project has no maps yet.\nChoose NEW MAP to begin creating it."
 		return
 	var width := maxi(1, int(map.get("width", 1)))
 	var height := maxi(1, int(map.get("height", 1)))
@@ -336,8 +336,39 @@ func _apply_terrain(changed: Array, focus_index: int, message: String) -> void:
 
 func _refresh_maps_after_edit(focus_index: int) -> void:
 	map_index = clampi(map_index, 0, maxi(0, maps.size() - 1))
-	_refresh_grid(focus_index)
-	_update_actions()
+	_refresh_maps()
+	if focus_index >= 0:
+		call_deferred("_focus_cell", focus_index)
+
+
+func _create_map() -> void:
+	if compiler == null:
+		_set_status("MAP CREATION IS NOT AVAILABLE", true)
+		return
+	var sequence := 1
+	var existing: Array[String] = []
+	for value: Variant in maps:
+		if value is Dictionary:
+			existing.append(str(value.get("id", "")))
+	while existing.has("map_%d" % sequence):
+		sequence += 1
+	var map_id := "map_%d" % sequence
+	var map_name := "New Map %d" % sequence
+	var added: Dictionary = compiler.add_map(
+		source, map_id, map_name, 8, 6, selected_terrain
+	)
+	if not added.ok:
+		_set_status("CREATE REFUSED  /  %s" % _diagnostic_code(added), true)
+		return
+	_push_undo(source)
+	source = added.source
+	redo_stack.clear()
+	dirty = true
+	_read_source()
+	map_index = maps.size() - 1
+	rectangle_anchor = -1
+	_refresh_maps_after_edit(0)
+	_set_status("UNSAVED  /  CREATED %s" % map_name.to_upper(), false)
 
 
 func _push_undo(value: String) -> void:
@@ -568,7 +599,7 @@ func _focus_cell(index: int) -> void:
 		return
 	var safe := clampi(index, 0, grid.get_child_count() - 1)
 	var child := grid.get_child(safe)
-	if child is Control:
+	if child is Control and child.is_inside_tree():
 		child.grab_focus()
 
 
@@ -609,6 +640,9 @@ func _build_interface() -> void:
 	redo_button = _button("REDO", 170, 58)
 	redo_button.pressed.connect(_redo)
 	toolbar.add_child(redo_button)
+	var new_map_button := _button("NEW MAP", 190, 58)
+	new_map_button.pressed.connect(_create_map)
+	toolbar.add_child(new_map_button)
 	var resize_button := _button("RESIZE", 190, 58)
 	resize_button.pressed.connect(_open_resize)
 	toolbar.add_child(resize_button)

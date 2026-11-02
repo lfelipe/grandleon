@@ -30,8 +30,9 @@ The first native seam is implemented:
 - The first native map creator paints canonical terrain with the same art atlas
   used by play mode. Edits pass through the native integer-preserving source
   layer, support bounded undo/redo and recoverable save, and can be compiled,
-  played, and reopened in the same project session. Map resize previews retained,
-  clipped, and added cells and refuses to strand encounter data.
+  played, and reopened in the same project session. Blank projects can create
+  maps without external tools. Map resize previews retained, clipped, and added
+  cells and refuses to strand encounter data.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
@@ -120,6 +121,8 @@ This slice proves the whole ownership model before building a large editor.
 
 ### 2. Map and encounter creator
 
+- Map creation from blank projects is implemented with portable generated IDs,
+  a useful initial size, and the selected terrain as its fill.
 - Terrain palette plus controller/mouse brush, contiguous fill, and two-corner
   rectangle tools are implemented.
 - Resize preview and top-left-preserving resize are implemented. Shrinks are

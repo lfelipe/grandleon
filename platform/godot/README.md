@@ -37,9 +37,9 @@ Compilation and scene handoff stay in-process; draft package bytes are not
 written to the installation directory. Returning through the play-mode session
 menu reopens the same project.
 
-The current creator deliberately edits terrain only. Map creation/resizing,
-unit placement, campaign, dialogue, and presentation editing arrive in the
-increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+The current creator creates and resizes maps and edits terrain. Unit placement,
+campaign, dialogue, and presentation editing arrive in the increments defined
+by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to
