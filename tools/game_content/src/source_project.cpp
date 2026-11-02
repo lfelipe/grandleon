@@ -2727,11 +2727,34 @@ namespace {
 
 struct EditableMapDocument final {
     Json document;
+    Object* map{};
     Array* terrain{};
     std::int64_t width{};
     std::int64_t height{};
     std::size_t index{};
 };
+
+bool valid_source_key(std::string_view value) noexcept {
+    if (value.empty() || value.size() > 96 || value.front() < 'a' ||
+        value.front() > 'z') {
+        return false;
+    }
+    bool after_separator = false;
+    for (std::size_t index = 1; index < value.size(); ++index) {
+        const char character = value[index];
+        const bool alphanumeric =
+            (character >= 'a' && character <= 'z') ||
+            (character >= '0' && character <= '9');
+        const bool separator =
+            character == '.' || character == '_' || character == '-';
+        if (!alphanumeric && !separator) return false;
+        if (separator && (after_separator || index + 1 == value.size())) {
+            return false;
+        }
+        after_separator = separator;
+    }
+    return true;
+}
 
 void refuse_edit(
     SourceTextResult& result,
@@ -2840,6 +2863,7 @@ bool open_editable_map(
     }
     editable.width = *width;
     editable.height = *height;
+    editable.map = selected;
     return true;
 }
 
@@ -2892,6 +2916,15 @@ SourceTextResult update_source_map_cell_json(
         );
         return result;
     }
+    if (!valid_source_key(terrain_id)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            path + "[" + std::to_string(linear) + "]",
+            "expected stable source-key string"
+        );
+        return result;
+    }
     (*editable.terrain)[static_cast<std::size_t>(linear)] =
         Json{std::string(terrain_id)};
     finish_map_edit(editable, result);
@@ -2919,9 +2952,85 @@ SourceTextResult update_source_map_terrain_json(
     }
     editable.terrain->clear();
     editable.terrain->reserve(terrain_ids.size());
-    for (const std::string& terrain_id : terrain_ids) {
+    for (std::size_t index = 0; index < terrain_ids.size(); ++index) {
+        const std::string& terrain_id = terrain_ids[index];
+        if (!valid_source_key(terrain_id)) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                "$.maps[" + std::to_string(editable.index) + "].terrain[" +
+                    std::to_string(index) + "]",
+                "expected stable source-key string"
+            );
+            return result;
+        }
         editable.terrain->push_back(Json{terrain_id});
     }
+    finish_map_edit(editable, result);
+    return result;
+}
+
+SourceTextResult resize_source_map_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::int64_t width,
+    std::int64_t height,
+    std::string_view fill_terrain
+) {
+    SourceTextResult result;
+    EditableMapDocument editable;
+    if (!open_editable_map(source_json, map_id, editable, result)) return result;
+    const std::string path = "$.maps[" + std::to_string(editable.index) + "]";
+    if (width < 1 || width > maximum_map_side || height < 1 ||
+        height > maximum_map_side) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            path,
+            "map width and height must be between 1 and 256"
+        );
+        return result;
+    }
+    const auto old_size = static_cast<std::uint64_t>(editable.width) *
+                          static_cast<std::uint64_t>(editable.height);
+    if (editable.terrain->size() != old_size) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            path + ".terrain",
+            "terrain length must equal map width times height"
+        );
+        return result;
+    }
+    if (!valid_source_key(fill_terrain)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            path + ".terrain",
+            "fill terrain must be a stable source-key string"
+        );
+        return result;
+    }
+
+    Array resized;
+    const auto new_size = static_cast<std::uint64_t>(width) *
+                          static_cast<std::uint64_t>(height);
+    resized.reserve(static_cast<std::size_t>(new_size));
+    for (std::int64_t y = 0; y < height; ++y) {
+        for (std::int64_t x = 0; x < width; ++x) {
+            if (x < editable.width && y < editable.height) {
+                const auto old_index = static_cast<std::size_t>(
+                    y * editable.width + x
+                );
+                resized.push_back((*editable.terrain)[old_index]);
+            } else {
+                resized.push_back(Json{std::string(fill_terrain)});
+            }
+        }
+    }
+    (*editable.map)["width"] = Json{width};
+    (*editable.map)["height"] = Json{height};
+    *editable.terrain = std::move(resized);
     finish_map_edit(editable, result);
     return result;
 }

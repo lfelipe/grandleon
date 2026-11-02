@@ -308,6 +308,39 @@ void updates_one_map_cell_without_retyping_the_project() {
             wrong_length.diagnostics.front().path == "$.maps[0].terrain",
         "a short terrain replacement returns no partial project"
     );
+
+    const auto enlarged = gc::resize_source_map_json(
+        source, "field", 3, 2, "forest"
+    );
+    expect(static_cast<bool>(enlarged), "a map can grow from its top-left origin");
+    const auto enlarged_parsed = gc::parse_source_project_json(enlarged.json);
+    expect(
+        enlarged_parsed && enlarged_parsed.source.maps.front().width == 3 &&
+            enlarged_parsed.source.maps.front().height == 2 &&
+            enlarged_parsed.source.maps.front().terrain_kinds ==
+                std::vector<std::uint8_t>({9, 9, 2, 2, 2, 2}),
+        "growth preserves old rows and fills newly exposed cells"
+    );
+    const auto reduced = gc::resize_source_map_json(
+        source, "field", 1, 1, "forest"
+    );
+    const auto reduced_parsed = gc::parse_source_project_json(reduced.json);
+    expect(
+        reduced_parsed && reduced_parsed.source.maps.front().width == 1 &&
+            reduced_parsed.source.maps.front().terrain.size() == 1,
+        "shrinkage clips terrain outside the new bounds"
+    );
+    expect(
+        !gc::resize_source_map_json(source, "field", 0, 1, "forest"),
+        "a zero-width resize is refused"
+    );
+    const auto invalid_fill = gc::resize_source_map_json(
+        source, "field", 3, 2, "not valid"
+    );
+    expect(
+        !invalid_fill && invalid_fill.json.empty(),
+        "an invalid fill identity cannot produce resized source"
+    );
 }
 
 void maps_authored_resistance() {

@@ -80,6 +80,13 @@ void GrandleonProjectCompiler::_bind_methods() {
         &GrandleonProjectCompiler::update_map_terrain
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "resize_map", "source_json", "map_id", "width", "height",
+            "fill_terrain"
+        ),
+        &GrandleonProjectCompiler::resize_map
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("supported_schema"),
         &GrandleonProjectCompiler::supported_schema
     );
@@ -207,6 +214,34 @@ gd::Dictionary GrandleonProjectCompiler::update_map_terrain(
     }
     result["ok"] = true;
     result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::resize_map(
+    const gd::String& source_json,
+    const gd::String& map_id,
+    std::int64_t width,
+    std::int64_t height,
+    const gd::String& fill_terrain
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult resized = gc::resize_source_map_json(
+        narrow(source_json), narrow(map_id), width, height,
+        narrow(fill_terrain)
+    );
+    if (!resized) {
+        for (const gc::SourceDiagnostic& diagnostic : resized.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(resized.json);
     result["diagnostics"] = diagnostics;
     return result;
 }

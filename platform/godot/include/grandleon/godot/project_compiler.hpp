@@ -40,6 +40,13 @@ public:
         const ::godot::String& map_id,
         const ::godot::PackedStringArray& terrain_ids
     ) const;
+    [[nodiscard]] ::godot::Dictionary resize_map(
+        const ::godot::String& source_json,
+        const ::godot::String& map_id,
+        std::int64_t width,
+        std::int64_t height,
+        const ::godot::String& fill_terrain
+    ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
 protected:

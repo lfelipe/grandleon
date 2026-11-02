@@ -70,6 +70,23 @@ func _init() -> void:
 			_expect("batch terrain edit succeeds", filled.ok, true)
 			if filled.ok:
 				_expect("batch edit compiles", compiler.compile_source_json(filled.source).ok, true)
+			var resized: Dictionary = compiler.resize_map(
+				source, "dawn_bridge", 7, 5, "grass"
+			)
+			_expect("map resize succeeds", resized.ok, true)
+			if resized.ok:
+				var resized_data: Dictionary = JSON.parse_string(resized.source)
+				_expect("resized width", resized_data.maps[0].width, 7.0)
+				_expect("resized height", resized_data.maps[0].height, 5.0)
+				_expect("resized terrain length", resized_data.maps[0].terrain.size(), 35)
+				_expect("existing first cell preserved", resized_data.maps[0].terrain[0], "forest")
+				_expect("new first-row cell filled", resized_data.maps[0].terrain[6], "grass")
+				_expect("resized project compiles", compiler.compile_source_json(resized.source).ok, true)
+			var invalid_resize: Dictionary = compiler.resize_map(
+				source, "dawn_bridge", 257, 4, "grass"
+			)
+			_expect("oversize map refused", invalid_resize.ok, false)
+			_expect("oversize resize returns no source", invalid_resize.source, "")
 
 	if failures == 0:
 		print("project compiler smoke passed")

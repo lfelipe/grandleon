@@ -99,4 +99,16 @@ struct SourceTextResult final {
     const std::vector<std::string>& terrain_ids
 );
 
+// Resizes a map from its top-left origin. Existing cells inside the new bounds
+// retain their authored identities and newly exposed cells use fill_terrain.
+// Encounter-aware clipping policy belongs to the creator preview; this narrow
+// source operation changes no placement or deployment data implicitly.
+[[nodiscard]] SourceTextResult resize_source_map_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::int64_t width,
+    std::int64_t height,
+    std::string_view fill_terrain
+);
+
 }  // namespace grandleon::game_content
