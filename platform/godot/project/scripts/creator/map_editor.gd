@@ -25,6 +25,10 @@ var selected_terrain := "grass"
 var active_tool := "brush"
 var rectangle_anchor := -1
 var selected_placement_id := ""
+var pending_placement: Dictionary = {}
+var placement_side := "second"
+var placement_candidates: Array[Dictionary] = []
+var placement_candidate_index := 0
 var dirty := false
 var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
@@ -46,6 +50,12 @@ var save_button: Button
 var undo_button: Button
 var redo_button: Button
 var play_button: Button
+var add_unit_button: Button
+var placement_layer: Control
+var placement_side_button: Button
+var placement_candidate_label: Label
+var placement_apply_button: Button
+var placement_first_button: Button
 var resize_layer: Control
 var resize_width_label: Label
 var resize_height_label: Label
@@ -65,7 +75,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if resize_layer != null and resize_layer.visible:
+		if placement_layer != null and placement_layer.visible:
+			_close_add_placement()
+		elif resize_layer != null and resize_layer.visible:
 			_close_resize()
 		else:
 			_request_projects()
@@ -121,6 +133,7 @@ func _select_map(index: int) -> void:
 	encounter_index = 0
 	rectangle_anchor = -1
 	selected_placement_id = ""
+	pending_placement = {}
 	_refresh_encounters()
 	_refresh_palette()
 	_refresh_grid(0)
@@ -147,6 +160,7 @@ func _refresh_encounters() -> void:
 			encounters.append({
 				"campaign_id": str(campaign.get("id", "")),
 				"campaign_name": str(campaign.get("name", campaign.get("id", "Campaign"))),
+				"campaign": campaign,
 				"node": node,
 			})
 			encounter_select.add_item(
@@ -169,6 +183,7 @@ func _select_encounter(index: int) -> void:
 		return
 	encounter_index = index
 	selected_placement_id = ""
+	pending_placement = {}
 	_refresh_grid(0)
 	var node: Dictionary = encounters[index].node
 	_set_status("ENCOUNTER  /  %s" % str(node.get("name", node.get("id", ""))).to_upper(), false)
@@ -227,6 +242,8 @@ func _select_tool(name: String) -> void:
 	active_tool = name
 	rectangle_anchor = -1
 	selected_placement_id = ""
+	if name != "add_unit":
+		pending_placement = {}
 	_update_tool_selection()
 	_set_status("TOOL  /  %s" % name.to_upper(), false)
 	_focus_cell(0)
@@ -235,7 +252,8 @@ func _select_tool(name: String) -> void:
 func _update_tool_selection() -> void:
 	for name: String in tool_buttons:
 		var button: Button = tool_buttons[name]
-		var display := "MOVE UNIT" if name == "unit" else name.to_upper()
+		var display_names := {"unit": "MOVE", "remove_unit": "REMOVE"}
+		var display := str(display_names.get(name, name.to_upper()))
 		button.text = ("● " if name == active_tool else "  ") + display
 
 
@@ -376,7 +394,11 @@ func _paint_cell(index: int) -> void:
 	if width <= 0 or index < 0 or index >= terrain.size():
 		_set_status("THAT CELL IS NOT EDITABLE", true)
 		return
-	if active_tool == "unit":
+	if active_tool == "add_unit":
+		_add_unit_at(index, width)
+	elif active_tool == "remove_unit":
+		_remove_unit_at(index, width)
+	elif active_tool == "unit":
 		_move_unit_at(index, width)
 	elif active_tool == "fill":
 		_fill_from(index, width, terrain)
@@ -386,6 +408,100 @@ func _paint_cell(index: int) -> void:
 		var changed := terrain.duplicate()
 		changed[index] = selected_terrain
 		_apply_terrain(changed, index, "PAINTED %s" % selected_terrain.to_upper())
+
+
+func _placement_at(index: int, width: int) -> Dictionary:
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return {}
+	var x := index % width
+	var y := index / width
+	var node: Dictionary = encounter.node
+	for placement_value: Variant in node.get("placements", []):
+		if placement_value is Dictionary and int(placement_value.get("x", -1)) == x and int(placement_value.get("y", -1)) == y:
+			return placement_value
+	return {}
+
+
+func _add_unit_at(index: int, width: int) -> void:
+	var encounter := _current_encounter()
+	if encounter.is_empty() or pending_placement.is_empty():
+		_set_status("CHOOSE ADD UNIT AND A CHARACTER FIRST", true)
+		return
+	var node: Dictionary = encounter.node
+	var placement_id := _unique_placement_id(
+		str(pending_placement.get("member_id", pending_placement.get("unit_type_id", "unit")))
+	)
+	var added: Dictionary = compiler.add_placement(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(node.get("id", "")),
+		placement_id,
+		str(pending_placement.get("unit_type_id", "")),
+		str(pending_placement.get("side", "second")),
+		str(pending_placement.get("member_id", "")),
+		index % width,
+		index / width
+	)
+	if not added.ok:
+		_set_status("ADD REFUSED  /  %s" % _diagnostic_code(added), true)
+		_focus_cell(index)
+		return
+	_push_undo(source)
+	source = added.source
+	redo_stack.clear()
+	dirty = true
+	pending_placement = {}
+	active_tool = "unit"
+	_read_source()
+	_refresh_maps_after_edit(index)
+	_update_tool_selection()
+	_set_status("UNSAVED  /  ADDED %s" % placement_id.to_upper(), false)
+
+
+func _remove_unit_at(index: int, width: int) -> void:
+	var encounter := _current_encounter()
+	var placement := _placement_at(index, width)
+	if encounter.is_empty() or placement.is_empty():
+		_set_status("CHOOSE A CELL THAT CONTAINS A UNIT", true)
+		_focus_cell(index)
+		return
+	var node: Dictionary = encounter.node
+	var placement_id := str(placement.get("id", ""))
+	var removed: Dictionary = compiler.remove_placement(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(node.get("id", "")),
+		placement_id
+	)
+	if not removed.ok:
+		_set_status("REMOVE REFUSED  /  %s" % _diagnostic_code(removed), true)
+		_focus_cell(index)
+		return
+	_push_undo(source)
+	source = removed.source
+	redo_stack.clear()
+	dirty = true
+	_read_source()
+	_refresh_maps_after_edit(index)
+	_set_status("UNSAVED  /  REMOVED %s  /  UNDO TO RESTORE" % placement_id.to_upper(), false)
+
+
+func _unique_placement_id(base: String) -> String:
+	var safe_base := base if not base.is_empty() else "unit"
+	var existing: Array[String] = []
+	var encounter := _current_encounter()
+	if not encounter.is_empty():
+		var node: Dictionary = encounter.node
+		for placement_value: Variant in node.get("placements", []):
+			if placement_value is Dictionary:
+				existing.append(str(placement_value.get("id", "")))
+	if not existing.has(safe_base):
+		return safe_base
+	var sequence := 2
+	while existing.has("%s_%d" % [safe_base, sequence]):
+		sequence += 1
+	return "%s_%d" % [safe_base, sequence]
 
 
 func _move_unit_at(index: int, width: int) -> void:
@@ -566,6 +682,7 @@ func _undo() -> void:
 	source = undo_stack.pop_back()
 	rectangle_anchor = -1
 	selected_placement_id = ""
+	pending_placement = {}
 	dirty = true
 	_read_source()
 	_refresh_maps_after_edit(0)
@@ -579,10 +696,131 @@ func _redo() -> void:
 	source = redo_stack.pop_back()
 	rectangle_anchor = -1
 	selected_placement_id = ""
+	pending_placement = {}
 	dirty = true
 	_read_source()
 	_refresh_maps_after_edit(0)
 	_set_status("REDO  /  UNSAVED", false)
+
+
+func _open_add_placement() -> void:
+	if _current_encounter().is_empty():
+		_set_status("ADD AN ENCOUNTER BEFORE PLACING UNITS", true)
+		return
+	pending_placement = {}
+	placement_side = "second"
+	placement_candidate_index = 0
+	placement_layer.visible = true
+	_refresh_placement_candidates()
+	placement_first_button.call_deferred("grab_focus")
+
+
+func _close_add_placement() -> void:
+	placement_layer.visible = false
+	placement_candidates.clear()
+	pending_placement = {}
+	add_unit_button.call_deferred("grab_focus")
+
+
+func _toggle_placement_side() -> void:
+	placement_side = "first" if placement_side == "second" else "second"
+	placement_candidate_index = 0
+	_refresh_placement_candidates()
+
+
+func _cycle_placement_candidate(delta: int) -> void:
+	if placement_candidates.is_empty():
+		return
+	placement_candidate_index = wrapi(
+		placement_candidate_index + delta, 0, placement_candidates.size()
+	)
+	_update_placement_candidate()
+
+
+func _refresh_placement_candidates() -> void:
+	placement_candidates.clear()
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		_update_placement_candidate()
+		return
+	if placement_side == "first":
+		var used_members: Array[String] = []
+		var node: Dictionary = encounter.node
+		for placement_value: Variant in node.get("placements", []):
+			if placement_value is Dictionary:
+				var used := str(placement_value.get("memberId", ""))
+				if not used.is_empty():
+					used_members.append(used)
+		var campaign: Dictionary = encounter.campaign
+		for member_value: Variant in campaign.get("roster", []):
+			if not member_value is Dictionary:
+				continue
+			var member_id := str(member_value.get("id", ""))
+			if member_id.is_empty() or used_members.has(member_id):
+				continue
+			placement_candidates.append({
+				"name": str(member_value.get("name", member_id)),
+				"unit_type_id": str(member_value.get("unitTypeId", "")),
+				"member_id": member_id,
+				"side": "first",
+			})
+	else:
+		for unit_value: Variant in project.get("unitTypes", []):
+			if not unit_value is Dictionary:
+				continue
+			var unit_type_id := str(unit_value.get("id", ""))
+			if unit_type_id.is_empty():
+				continue
+			placement_candidates.append({
+				"name": str(unit_value.get("name", unit_type_id)),
+				"unit_type_id": unit_type_id,
+				"member_id": "",
+				"side": "second",
+			})
+	placement_candidate_index = clampi(
+		placement_candidate_index, 0,
+		maxi(0, placement_candidates.size() - 1)
+	)
+	_update_placement_candidate()
+
+
+func _update_placement_candidate() -> void:
+	placement_side_button.text = (
+		"SIDE  /  ALLY" if placement_side == "first" else "SIDE  /  ENEMY"
+	)
+	placement_side_button.add_theme_color_override(
+		"font_color", Color("69d9ff") if placement_side == "first" else Color("ff7a83")
+	)
+	placement_apply_button.disabled = placement_candidates.is_empty()
+	if placement_candidates.is_empty():
+		placement_candidate_label.text = (
+			"No unused campaign members are available."
+			if placement_side == "first"
+			else "This project has no unit types yet."
+		)
+		return
+	var candidate: Dictionary = placement_candidates[placement_candidate_index]
+	placement_candidate_label.text = "%s\n%s  /  %d OF %d" % [
+		str(candidate.get("name", "Unit")),
+		str(candidate.get("unit_type_id", "")).to_upper(),
+		placement_candidate_index + 1,
+		placement_candidates.size(),
+	]
+
+
+func _begin_add_placement() -> void:
+	if placement_candidates.is_empty():
+		return
+	pending_placement = placement_candidates[placement_candidate_index].duplicate(true)
+	active_tool = "add_unit"
+	selected_placement_id = ""
+	placement_layer.visible = false
+	_update_tool_selection()
+	_set_status(
+		"ADD %s  /  CHOOSE AN EMPTY DESTINATION" % str(pending_placement.get("name", "UNIT")).to_upper(),
+		false
+	)
+	call_deferred("_focus_cell", 0)
 
 
 func _open_resize() -> void:
@@ -872,11 +1110,24 @@ func _build_interface() -> void:
 		tool_button.pressed.connect(_select_tool.bind(tool_name))
 		tool_row.add_child(tool_button)
 		tool_buttons[tool_name] = tool_button
-	var move_unit := _button("MOVE UNIT", 330, 48)
+	var unit_row := HBoxContainer.new()
+	unit_row.add_theme_constant_override("separation", 6)
+	tools_column.add_child(unit_row)
+	add_unit_button = _button("ADD", 104, 48)
+	add_unit_button.add_theme_font_size_override("font_size", 14)
+	add_unit_button.pressed.connect(_open_add_placement)
+	unit_row.add_child(add_unit_button)
+	tool_buttons["add_unit"] = add_unit_button
+	var move_unit := _button("MOVE", 104, 48)
 	move_unit.add_theme_font_size_override("font_size", 14)
 	move_unit.pressed.connect(_select_tool.bind("unit"))
-	tools_column.add_child(move_unit)
+	unit_row.add_child(move_unit)
 	tool_buttons["unit"] = move_unit
+	var remove_unit := _button("REMOVE", 104, 48)
+	remove_unit.add_theme_font_size_override("font_size", 14)
+	remove_unit.pressed.connect(_select_tool.bind("remove_unit"))
+	unit_row.add_child(remove_unit)
+	tool_buttons["remove_unit"] = remove_unit
 	_update_tool_selection()
 	tools_column.add_child(_label("TERRAIN", 17, Color("69d9ff")))
 	var palette_scroll := ScrollContainer.new()
@@ -922,7 +1173,66 @@ func _build_interface() -> void:
 	status_label.size = Vector2(1750, 44)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status_label)
+	_build_placement_overlay()
 	_build_resize_overlay()
+
+
+func _build_placement_overlay() -> void:
+	placement_layer = Control.new()
+	placement_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	placement_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	placement_layer.visible = false
+	add_child(placement_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.86)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	placement_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(520, 220)
+	panel.size = Vector2(880, 620)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
+	)
+	placement_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("ADD ENCOUNTER UNIT", 24, Color("69d9ff")))
+	var explanation := _label(
+		"Choose an unused campaign member for an ally, or any unit type for an "
+		+ "enemy. Then choose its starting cell on the board.",
+		19, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 72
+	column.add_child(explanation)
+	placement_first_button = _button("TOGGLE SIDE", 360, 64)
+	placement_first_button.pressed.connect(_toggle_placement_side)
+	placement_side_button = placement_first_button
+	column.add_child(placement_side_button)
+	placement_candidate_label = _label("", 25, Color("f2f7f9"))
+	placement_candidate_label.custom_minimum_size.y = 110
+	placement_candidate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	column.add_child(placement_candidate_label)
+	var candidate_row := HBoxContainer.new()
+	candidate_row.add_theme_constant_override("separation", 12)
+	column.add_child(candidate_row)
+	var previous := _button("PREVIOUS", 240, 60)
+	previous.pressed.connect(_cycle_placement_candidate.bind(-1))
+	candidate_row.add_child(previous)
+	var next := _button("NEXT", 240, 60)
+	next.pressed.connect(_cycle_placement_candidate.bind(1))
+	candidate_row.add_child(next)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 12)
+	column.add_child(actions)
+	placement_apply_button = _button("PLACE ON BOARD", 300, 64)
+	placement_apply_button.pressed.connect(_begin_add_placement)
+	actions.add_child(placement_apply_button)
+	var cancel := _button("CANCEL", 220, 64)
+	cancel.pressed.connect(_close_add_placement)
+	actions.add_child(cancel)
 
 
 func _build_resize_overlay() -> void:

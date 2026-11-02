@@ -31,18 +31,20 @@ map creator. The map creator previews the same replaceable terrain atlas as play
 mode, provides brush, contiguous fill, and two-corner rectangle tools, supports
 bounded command-level undo/redo, and resizes from the top-left origin with an
 explicit clipping preview. The selected encounter's allied and enemy placements
-are overlaid on the terrain and can be moved with a two-confirm controller
-action. Moves that collide, leave the map, or make a previously playable project
-invalid are refused. Shrinks are blocked while any encounter placement or
-deployment tile would fall outside the new board. Saves pass through the
-validating native source layer, and the edited draft plays immediately.
+are overlaid on the terrain and can be added, moved, or removed with compact
+controller actions. Allied additions use unused campaign members; enemies use
+portable unit types. Edits that collide, leave the map, remove the last ally, or
+make a previously playable project invalid are refused. Shrinks are blocked
+while any encounter placement or deployment tile would fall outside the new
+board. Saves pass through the validating native source layer, and the edited
+draft plays immediately.
 Compilation and scene handoff stay in-process; draft package bytes are not
 written to the installation directory. Returning through the play-mode session
 menu reopens the same project.
 
-The current creator creates and resizes maps and edits terrain. Unit placement,
-campaign, dialogue, and presentation editing arrive in the increments defined
-by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+The current creator creates and resizes maps, edits terrain, and arranges both
+sides of existing encounters. Campaign, dialogue, and presentation editing
+arrive in the increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to

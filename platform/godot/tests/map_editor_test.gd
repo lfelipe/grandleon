@@ -26,6 +26,15 @@ func _run() -> void:
 	current_scene = editor
 	await process_frame
 	await process_frame
+	var placement_screenshot_path := _argument_path("--placement-screenshot=")
+	if not placement_screenshot_path.is_empty():
+		editor._open_add_placement()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(placement_screenshot_path)
+		print("placement picker capture saved: %s" % placement_screenshot_path)
+		quit()
+		return
 	var resize_screenshot_path := _argument_path("--resize-screenshot=")
 	if not resize_screenshot_path.is_empty():
 		editor._open_resize()
@@ -164,6 +173,41 @@ func _run() -> void:
 		0
 	)
 
+	var before_protected_remove: String = editor.source
+	editor._select_tool("remove_unit")
+	editor._paint_cell(0)
+	_expect("last ally removal is refused", editor.source, before_protected_remove)
+
+	editor._open_add_placement()
+	_expect("add unit picker opens", editor.placement_layer.visible, true)
+	_expect("enemy is the default placement side", editor.placement_side, "second")
+	_expect("enemy unit types are available", editor.placement_candidates.is_empty(), false)
+	editor._toggle_placement_side()
+	_expect("used ally is unavailable", editor.placement_candidates.size(), 0)
+	_expect("empty ally picker disables placement", editor.placement_apply_button.disabled, true)
+	editor._toggle_placement_side()
+	editor._begin_add_placement()
+	_expect("unit picker closes for board placement", editor.placement_layer.visible, false)
+	_expect("add unit tool becomes active", editor.active_tool, "add_unit")
+	_expect("pending enemy has no member", editor.pending_placement.member_id, "")
+	editor._paint_cell(3)
+	await process_frame
+	var with_added_unit: Dictionary = _parse(editor.source)
+	_expect("enemy unit is added", with_added_unit.campaigns[0].flow.nodes[0].placements.size(), 3)
+	_expect("added enemy side", with_added_unit.campaigns[0].flow.nodes[0].placements[2].side, "second")
+	_expect("add unit is one undo command", editor.undo_stack.size(), 6)
+	editor._select_tool("remove_unit")
+	editor._paint_cell(3)
+	await process_frame
+	_expect("added enemy can be removed", _parse(editor.source).campaigns[0].flow.nodes[0].placements.size(), 2)
+	_expect("remove unit is one undo command", editor.undo_stack.size(), 7)
+	editor._undo()
+	await process_frame
+	_expect("remove undo restores unit", _parse(editor.source).campaigns[0].flow.nodes[0].placements.size(), 3)
+	editor._redo()
+	await process_frame
+	_expect("remove redo removes unit", _parse(editor.source).campaigns[0].flow.nodes[0].placements.size(), 2)
+
 	editor._create_map()
 	await process_frame
 	var with_new_map := _parse(editor.source)
@@ -175,7 +219,7 @@ func _run() -> void:
 	_expect("new map uses selected terrain", with_new_map.maps[2].terrain[47], "forest")
 	_expect("new map becomes selected", editor.map_index, 2)
 	_expect("new map board is editable", editor.grid.get_child_count(), 48)
-	_expect("new map is one undo command", editor.undo_stack.size(), 6)
+	_expect("new map is one undo command", editor.undo_stack.size(), 8)
 	editor._undo()
 	await process_frame
 	_expect("new map undo removes map", _parse(editor.source).maps.size(), 2)
@@ -193,6 +237,7 @@ func _run() -> void:
 	_expect("saved resize reopens", int(stored.project.maps[0].width), 4)
 	_expect("saved new map reopens", stored.project.maps[2].id, "map_1")
 	_expect("saved unit move reopens", int(stored.project.campaigns[0].flow.nodes[0].placements[0].y), 0)
+	_expect("saved unit removal reopens", stored.project.campaigns[0].flow.nodes[0].placements.size(), 2)
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 

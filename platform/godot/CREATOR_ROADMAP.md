@@ -126,10 +126,11 @@ This slice proves the whole ownership model before building a large editor.
 - Terrain palette plus controller/mouse brush, contiguous fill, and two-corner
   rectangle tools are implemented.
 - Encounter selection, allied/enemy placement preview, and safe two-confirm
-  placement movement are implemented.
+  placement movement are implemented. New allied roster members and enemy unit
+  types can be placed, and placements can be removed with undo recovery.
 - Resize preview and top-left-preserving resize are implemented. Shrinks are
   blocked when a placement or deployment tile would be clipped.
-- Unit placement for both sides, deployment zones, and objective placement.
+- Deployment zones and objective placement.
 - Immediate visual and console-budget feedback.
 - A single action to play the currently selected encounter.
 
