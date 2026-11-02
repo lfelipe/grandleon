@@ -324,8 +324,8 @@ describe("editor shell", () => {
     expect(host.querySelector<HTMLInputElement>("#field-title")?.value)
       .toBe("The Bridge at Dawn");
     await openSection(host, "Characters");
-    expect(host.textContent).toContain("Characters 2");
-    expect(host.textContent).toContain("Factions 2");
+    expect(host.textContent).toContain("Characters 6");
+    expect(host.textContent).toContain("Factions 4");
     app.unmount();
   });
 

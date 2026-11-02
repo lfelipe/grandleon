@@ -9,7 +9,9 @@ describe("maintained demo project", () => {
     expect(loaded).toEqual(maintainedDemoSource);
     expect((loaded.factions ?? []).map((faction) => faction.name)).toEqual([
       "Dawn Guard",
-      "River Watch"
+      "River Watch",
+      "Halcyon Recovery Crew",
+      "Relay Wardens"
     ]);
 
     loaded.title = "Working copy";

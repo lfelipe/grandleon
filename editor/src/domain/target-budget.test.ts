@@ -281,11 +281,14 @@ describe("target budgets", () => {
       inserted.unitTypes.push(chain.unitType);
     }
     const after = targetSpend(inserted, nintendo64);
-    // The demo starts as two knight drawings, one per side; afterwards all
-    // eight roles are drawn in both side colours, which is the truth about
-    // what the game now holds.
-    expect(before.drawings).toBe(2);
-    expect(after.drawings).toBe(CHARACTER_ROLES.length * 2);
+    // The maintained demo has its two default knight drawings plus four
+    // distinct sci-fi relay drawings. The insert adds the seven missing
+    // default roles in both side colours; its knight reuses the two drawings
+    // already present.
+    expect(before.drawings).toBe(6);
+    expect(after.drawings).toBe(
+      before.drawings + (CHARACTER_ROLES.length - 1) * 2
+    );
     // And the sides cost more colours for it, which is what the note would
     // report if the machine were the one running short.
     expect(blueOf(after).entries).toBeGreaterThan(blueOf(before).entries);

@@ -1006,7 +1006,8 @@ describe("PlayMode", () => {
       const picker = host.querySelector<HTMLSelectElement>(".play-campaign select")!;
       expect([...picker.options].map((option) => option.value)).toEqual([
         "demo_campaign",
-        "muster_road"
+        "muster_road",
+        "last_signal"
       ]);
       picker.value = "muster_road";
       picker.dispatchEvent(new Event("change"));

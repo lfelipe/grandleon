@@ -193,13 +193,13 @@ describe("a browser playtest that outlives the page", () => {
     reload(played);
 
     // The author edits the game and says so, which is what a content revision
-    // is for. The kept campaign was written against 0.1.0 and no step is
+    // is for. The kept campaign was written against 0.2.0 and no step is
     // registered that carries a save from that revision to the next, so the
     // migration registry refuses it by name, and the slot key deliberately
     // does not include the revision, which is what makes this a refusal the
     // author is told about rather than a slot that quietly is not found.
     const edited = createDemoProject();
-    edited.contentRevision = "0.1.1";
+    edited.contentRevision = "0.2.1";
     expect(keptCampaignSlot(edited, campaignId)).toBe(
       keptCampaignSlot(played, campaignId)
     );
