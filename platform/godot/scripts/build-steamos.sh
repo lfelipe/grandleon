@@ -60,7 +60,8 @@ cmake -S "${repo_root}" -B "${build_dir}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DGRANDLEON_BUILD_TESTS=OFF \
     -DGRANDLEON_BUILD_GODOT=ON \
-    -DGRANDLEON_GODOT_API_VERSION=4.7
+    -DGRANDLEON_GODOT_API_VERSION=4.7 \
+    -DGRANDLEON_WERROR=ON
 cmake --build "${build_dir}" --parallel --target \
     grandleon_content_compile grandleon_godot_project
 
@@ -102,6 +103,19 @@ cmake -E copy \
     "${repo_root}/platform/godot/project/graphics.example.json" \
     "${temporary_dir}/graphics.example.json"
 chmod +x "${temporary_dir}/godot" "${temporary_dir}/launch-arcade.sh"
+for local_config in arcade.local.json graphics.local.json; do
+    if [[ -e "${temporary_dir}/${local_config}" || \
+          -e "${temporary_dir}/project/${local_config}" ]]; then
+        printf 'refusing bundle: private local config was staged: %s\n' \
+            "${local_config}" >&2
+        exit 70
+    fi
+done
+if rg --hidden --no-ignore --text --fixed-strings --files-with-matches \
+    "${repo_root}" "${temporary_dir}" >/dev/null; then
+    printf 'refusing bundle: output contains the private checkout path\n' >&2
+    exit 70
+fi
 mv "${temporary_dir}" "${output_dir}"
 trap - EXIT
 
