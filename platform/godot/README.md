@@ -1,13 +1,13 @@
-# Godot arcade client
+# Godot PC client
 
 This is the PC presentation layer for Grandleon. Godot draws and accepts input;
 the existing C++ simulation, campaign loader, package format, and tactics policy
 remain authoritative. The SDL client stays as a small reference surface, and
 the Nintendo 64 and PlayStation builds are unchanged.
 
-See [ARCADE_ROADMAP.md](ARCADE_ROADMAP.md) for the current review, tonight's
-cabinet checklist, known risks, and the ordered path from this test bundle to a
-production PC surface.
+See [PC_ROADMAP.md](PC_ROADMAP.md) for the current review, SteamOS test
+checklist, known risks, and the ordered path from this test bundle to a
+production PC release.
 
 The separation is deliberate:
 
@@ -16,7 +16,7 @@ The separation is deliberate:
 | `.gpk` project | maps, characters, dialogue, rules, presentation choices | PC paths or local model settings |
 | C++ extension | package loading, legal ranges, deterministic commands, AI fallback | rendering or controller layout |
 | Godot project | rendering, animation, two-player input, optional model requests | combat rules or campaign outcomes |
-| `arcade.local.json` | one machine's model endpoint and feature switches | project content |
+| `pc.local.json` | one machine's model endpoint and feature switches | project content |
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to
@@ -30,12 +30,12 @@ export templates.
 
 ```sh
 platform/godot/scripts/build-steamos.sh
-GRANDLEON_WINDOWED=1 out/grandleon-arcade/launch-arcade.sh
+GRANDLEON_WINDOWED=1 out/grandleon-pc/launch-pc.sh
 ```
 
 The first command downloads the pinned Linux editor binary when necessary and
 verifies its SHA-512 checksum. Its output directory must not already exist, so
-an old cabinet build is never silently overwritten. Pass another source project
+an old PC build is never silently overwritten. Pass another source project
 or destination when needed:
 
 ```sh
@@ -45,7 +45,7 @@ platform/godot/scripts/build-steamos.sh \
 ```
 
 Copy that whole directory to the SteamOS machine. In desktop mode, add
-`launch-arcade.sh` as a non-Steam game, then return to gaming mode. The launcher
+`launch-pc.sh` as a non-Steam game, then return to gaming mode. The launcher
 keeps Godot's data, config, and cache in the bundle's `runtime/` directory and
 starts the two-player `last_signal` campaign full-screen. No home-directory or
 host-specific path is compiled into the extension; the bundler checks the
@@ -58,32 +58,42 @@ user, hostname, endpoint, or other machine-specific values.
 Environment overrides are intentionally generic:
 
 ```sh
-GRANDLEON_CAMPAIGN=last_signal GRANDLEON_PLAYERS=2 ./launch-arcade.sh
-GRANDLEON_GRAPHICS=diorama ./launch-arcade.sh
-GRANDLEON_WINDOWED=1 ./launch-arcade.sh
+GRANDLEON_CAMPAIGN=last_signal GRANDLEON_PLAYERS=2 ./launch-pc.sh
+GRANDLEON_GRAPHICS=diorama ./launch-pc.sh
+GRANDLEON_WINDOWED=1 ./launch-pc.sh
 ```
 
-The selected cabinet default is `voxel-sprites`. `pixel` remains the stable 2D
+The selected PC default is `voxel-sprites`. `pixel` remains the stable 2D
 fallback, while `diorama` and `voxel` stay available for comparison.
 
 ## Local co-op
 
-Each player has a cursor, selection, colour, and request queue. With two
-controllers, each owns one. With one controller, keyboard/mouse is Player 1 and
-the controller is Player 2. Connected pads are detected again after startup;
-both d-pad and left stick work. A reconnect preserves every still-connected
-pad's player seat and both cursor positions. The side panel and a short toast
-show which player became ready or is waiting; unassigned extra pads cannot
-control Player 1 or the session menu.
+Each player has a cursor, selection, colour, and request queue. A lone
+controller is Player 1 and can command the whole friendly team. Keyboard/mouse
+may join the vacant Player 2 seat on its first gameplay input; a second
+controller takes Player 2 directly. Connected pads are detected again after
+startup, and a reconnect preserves every still-connected pad's player seat and
+both cursor positions. The side panel and a short toast show which player
+became ready or is waiting; unassigned extra pads cannot control either player
+or the session menu.
 
-Outside deployment and dialogue, Start or Back opens a controller-native
-session menu. The d-pad chooses an action and A or Enter confirms it, including
+Every essential flow is intentionally playable with one directional control
+and five buttons: stick or d-pad moves the cursor, A confirms, B cancels, Y
+selects the next action, X ends a character's turn, and Start begins play or
+opens the session menu. Shoulder buttons and Back remain optional shortcuts,
+not requirements. Configurable remapping is a production requirement so the PC
+build can support compact controllers and other limited-button installations
+without creating a separate game mode; the current build provides the stable
+default mapping above.
+
+Outside deployment and dialogue, Start or the optional Back shortcut opens a
+controller-native session menu. The stick or d-pad chooses an action and A or Enter confirms it, including
 cycling all four graphics profiles against the live encounter without changing
 its simulation state, disabling camera impulse for motion-sensitive players,
 and switching all interface text between Normal and Large. B, Start, or Escape
 resumes directly, while X or Q returns to Steam. Opening the menu is the first
 confirmation, preventing a single accidental gameplay press from closing the
-cabinet session.
+PC session.
 
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the
@@ -105,10 +115,10 @@ To test an OpenAI-compatible local server, copy the example beside the bundle
 launcher and edit the copy:
 
 ```sh
-cp arcade.example.json arcade.local.json
+cp pc.example.json pc.local.json
 ```
 
-`arcade.local.json` is ignored by Git. The default endpoint is loopback, remote
+`pc.local.json` is ignored by Git. The default endpoint is loopback, remote
 endpoints are refused unless `allowRemote` is explicitly enabled, and an API
 token is read from the environment variable named by `tokenEnv` rather than
 stored in project content. No request is made while `enabled` is false.
@@ -148,11 +158,11 @@ and character blockouts from 3D boxes. Select one with
 `--graphics=PROFILE` in a developer run or `GRANDLEON_GRAPHICS=PROFILE` in the
 SteamOS bundle. During play, the session menu can replace only the renderer and
 rebind the current board, cursors, selections, and highlights so the four
-directions can be compared from the cabinet without restarting the campaign.
+directions can be compared on the target PC without restarting the campaign.
 
 `content/graphics_profiles.json` is the versioned PC art contract for camera,
 lighting, sprite scale, renderer choice, and the terrain/material palette. To
-tune one cabinet without changing a project or committing machine details, copy
+Tune one PC without changing a project or committing machine details by copying
 `graphics.example.json` beside the launcher as `graphics.local.json` and edit
 only the values to override. `cameraImpulse` and bounded `textScale` values
 supply the session's initial accessibility settings; the controller menu may

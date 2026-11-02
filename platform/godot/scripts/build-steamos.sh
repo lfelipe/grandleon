@@ -6,7 +6,7 @@ script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
 project_source="${repo_root}/games/demo/source/project.json"
 build_dir="${repo_root}/build-godot-release"
-output_dir="${repo_root}/out/grandleon-arcade"
+output_dir="${repo_root}/out/grandleon-pc"
 godot_binary=""
 
 usage() {
@@ -95,10 +95,10 @@ trap cleanup EXIT
 
 cmake -E copy_directory "${stage_dir}" "${temporary_dir}/project"
 cmake -E copy "${godot_binary}" "${temporary_dir}/godot"
-cmake -E copy "${script_dir}/launch-arcade.sh" "${temporary_dir}/launch-arcade.sh"
+cmake -E copy "${script_dir}/launch-pc.sh" "${temporary_dir}/launch-pc.sh"
 cmake -E copy \
-    "${repo_root}/platform/godot/project/arcade.example.json" \
-    "${temporary_dir}/arcade.example.json"
+    "${repo_root}/platform/godot/project/pc.example.json" \
+    "${temporary_dir}/pc.example.json"
 cmake -E copy \
     "${repo_root}/platform/godot/project/graphics.example.json" \
     "${temporary_dir}/graphics.example.json"
@@ -116,8 +116,8 @@ godot_version="$("${godot_binary}" --version | head -n 1)"
     printf 'defaultCampaign=last_signal\n'
     printf 'defaultGraphics=voxel-sprites\n'
 } >"${temporary_dir}/BUILD-INFO.txt"
-chmod +x "${temporary_dir}/godot" "${temporary_dir}/launch-arcade.sh"
-for local_config in arcade.local.json graphics.local.json; do
+chmod +x "${temporary_dir}/godot" "${temporary_dir}/launch-pc.sh"
+for local_config in pc.local.json graphics.local.json; do
     if [[ -e "${temporary_dir}/${local_config}" || \
           -e "${temporary_dir}/project/${local_config}" ]]; then
         printf 'refusing bundle: private local config was staged: %s\n' \
@@ -134,4 +134,4 @@ mv "${temporary_dir}" "${output_dir}"
 trap - EXIT
 
 printf 'SteamOS bundle: %s\n' "${output_dir}"
-printf 'Test locally: GRANDLEON_WINDOWED=1 %q/launch-arcade.sh\n' "${output_dir}"
+printf 'Test locally: GRANDLEON_WINDOWED=1 %q/launch-pc.sh\n' "${output_dir}"

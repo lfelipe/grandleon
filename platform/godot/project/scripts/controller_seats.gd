@@ -29,12 +29,24 @@ static func assign(previous: Array, connected: Array, player_count: int) -> Arra
 			result[0] = remaining.pop_front()
 		return result
 
-	# A lone pad complements Player 1's keyboard/mouse seat. If a second pad
-	# arrives later it fills Player 1 without displacing the first controller.
-	if result[0] < 0 and result[1] < 0 and remaining.size() == 1:
-		result[1] = remaining.pop_front()
-	else:
-		for seat in 2:
-			if result[seat] < 0 and not remaining.is_empty():
-				result[seat] = remaining.pop_front()
+	# Fill the lowest vacant player seat. A lone PC control is therefore
+	# Player 1; a later second control joins without displacing it.
+	for seat in 2:
+		if result[seat] < 0 and not remaining.is_empty():
+			result[seat] = remaining.pop_front()
 	return result
+
+
+static func assign_keyboard(previous: int, controllers: Array, player_count: int) -> int:
+	var limit := clampi(player_count, 1, 2)
+	if controllers.size() < limit:
+		return -1
+	if int(controllers[0]) < 0:
+		return 0
+	if previous >= 0 and previous < limit and int(controllers[previous]) < 0:
+		return previous
+	if previous >= 0:
+		for seat in limit:
+			if int(controllers[seat]) < 0:
+				return seat
+	return -1

@@ -38,6 +38,7 @@ var graphics_cycle_smoke_index := 0
 var graphics_cycle_smoke_next_msec := 0
 var seats: Array = []
 var device_to_seat: Dictionary = {}
+var keyboard_seat := -1
 var axis_latched: Array[Vector2i] = [Vector2i.ZERO, Vector2i.ZERO]
 var selected_units: Array[int] = [0, 0]
 var action_modes: Array[String] = ["move", "move"]
@@ -65,12 +66,12 @@ var dialogue_speaker: Label
 var dialogue_text: RichTextLabel
 var dialogue_portrait: TextureRect
 var dialogue_hint: Label
-var arcade_menu_layer: Control
-var arcade_menu_resume: Button
-var arcade_menu_graphics: Button
-var arcade_menu_camera: Button
-var arcade_menu_text: Button
-var arcade_menu_quit: Button
+var session_menu_layer: Control
+var session_menu_resume: Button
+var session_menu_graphics: Button
+var session_menu_camera: Button
+var session_menu_text: Button
+var session_menu_quit: Button
 var art = ArtLibrary.new()
 var graphics_profiles
 
@@ -114,8 +115,8 @@ func _process(_delta: float) -> void:
 		_handle_event(event)
 	if menu_preview and not snapshot.is_empty() and not _dialogue_visible():
 		menu_preview = false
-		_open_arcade_menu()
-	if not _arcade_menu_visible():
+		_open_session_menu()
+	if not _session_menu_visible():
 		if graphics_cycle_smoke:
 			_run_graphics_cycle_smoke()
 		elif demo_reel:
@@ -141,18 +142,19 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if _arcade_menu_visible():
-		_handle_arcade_menu_input(event)
+	if _session_menu_visible():
+		_handle_session_menu_input(event)
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if _dialogue_visible():
 			_advance_dialogue()
 		else:
+			var seat := _ensure_keyboard_seat()
 			var cell: Vector2i = board.cell_at(event.position)
-			if cell.x >= 0:
-				seats[0].cursor = cell
+			if seat >= 0 and cell.x >= 0:
+				seats[seat].cursor = cell
 				board.set_seats(seats)
-				_accept_at(0)
+				_accept_at(seat)
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -475,21 +477,21 @@ func _graphics_profile_name() -> String:
 		"diorama": "3D DIORAMA + SPRITES",
 		"voxel-sprites": "VOXEL TERRAIN + SPRITES",
 		"voxel": "FULL VOXEL",
-	}.get(graphics_profile, "ARCADE")
+	}.get(graphics_profile, "PC")
 
 
 func _update_session_labels() -> void:
 	var name := _graphics_profile_name()
 	if title_label != null:
 		title_label.text = "GRANDLEON  /  " + name
-	if arcade_menu_graphics != null:
-		arcade_menu_graphics.text = "GRAPHICS  /  %s  /  A · ENTER" % name
-	if arcade_menu_camera != null:
-		arcade_menu_camera.text = "CAMERA IMPULSE  /  %s  /  A · ENTER" % (
+	if session_menu_graphics != null:
+		session_menu_graphics.text = "GRAPHICS  /  %s  /  A · ENTER" % name
+	if session_menu_camera != null:
+		session_menu_camera.text = "CAMERA IMPULSE  /  %s  /  A · ENTER" % (
 			"ON" if camera_impulse_enabled else "OFF"
 		)
-	if arcade_menu_text != null:
-		arcade_menu_text.text = "TEXT SIZE  /  %s  /  A · ENTER" % (
+	if session_menu_text != null:
+		session_menu_text.text = "TEXT SIZE  /  %s  /  A · ENTER" % (
 			"LARGE" if text_scale > 1.05 else "NORMAL"
 		)
 
@@ -523,7 +525,7 @@ func _create_background() -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.z_index = -100
 	var shader := Shader.new()
-	shader.code = FileAccess.get_file_as_string("res://shaders/arcade_backdrop.gdshader")
+	shader.code = FileAccess.get_file_as_string("res://shaders/pc_backdrop.gdshader")
 	var material := ShaderMaterial.new()
 	material.shader = shader
 	background.material = material
@@ -546,7 +548,7 @@ func _create_interface() -> void:
 	var top_row := HBoxContainer.new()
 	top_row.add_theme_constant_override("separation", 22)
 	top.add_child(top_row)
-	title_label = _label("GRANDLEON  /  ARCADE", 25, Color("e9f7ff"))
+	title_label = _label("GRANDLEON  /  PC", 25, Color("e9f7ff"))
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title_label)
 	turn_label = _label("AWAITING BOARD", 21, Color("69d9ff"))
@@ -607,7 +609,7 @@ func _create_interface() -> void:
 	layer.add_child(toast_label)
 
 	_create_dialogue(layer)
-	_create_arcade_menu(layer)
+	_create_session_menu(layer)
 
 
 func _create_dialogue(layer: CanvasLayer) -> void:
@@ -650,17 +652,17 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	words.add_child(dialogue_hint)
 
 
-func _create_arcade_menu(layer: CanvasLayer) -> void:
-	arcade_menu_layer = Control.new()
-	arcade_menu_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	arcade_menu_layer.visible = false
-	arcade_menu_layer.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(arcade_menu_layer)
+func _create_session_menu(layer: CanvasLayer) -> void:
+	session_menu_layer = Control.new()
+	session_menu_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	session_menu_layer.visible = false
+	session_menu_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(session_menu_layer)
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.color = Color(0.003, 0.008, 0.014, 0.84)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
-	arcade_menu_layer.add_child(shade)
+	session_menu_layer.add_child(shade)
 	var panel := PanelContainer.new()
 	panel.position = Vector2(590, 90)
 	panel.size = Vector2(740, 900)
@@ -670,7 +672,7 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 			Color(0.30, 0.76, 0.92, 0.65)
 		)
 	)
-	arcade_menu_layer.add_child(panel)
+	session_menu_layer.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
@@ -684,23 +686,23 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 86
 	column.add_child(explanation)
-	arcade_menu_resume = _menu_button("RESUME  /  A · ENTER")
-	arcade_menu_resume.pressed.connect(_close_arcade_menu)
-	column.add_child(arcade_menu_resume)
-	arcade_menu_graphics = _menu_button("")
-	arcade_menu_graphics.pressed.connect(_cycle_graphics_profile)
-	column.add_child(arcade_menu_graphics)
-	arcade_menu_camera = _menu_button("")
-	arcade_menu_camera.pressed.connect(_toggle_camera_impulse)
-	column.add_child(arcade_menu_camera)
-	arcade_menu_text = _menu_button("")
-	arcade_menu_text.pressed.connect(_toggle_text_scale)
-	column.add_child(arcade_menu_text)
-	arcade_menu_quit = _menu_button("RETURN TO STEAM  /  A · X · Q")
-	arcade_menu_quit.pressed.connect(_quit_to_launcher)
-	column.add_child(arcade_menu_quit)
+	session_menu_resume = _menu_button("RESUME  /  A · ENTER")
+	session_menu_resume.pressed.connect(_close_session_menu)
+	column.add_child(session_menu_resume)
+	session_menu_graphics = _menu_button("")
+	session_menu_graphics.pressed.connect(_cycle_graphics_profile)
+	column.add_child(session_menu_graphics)
+	session_menu_camera = _menu_button("")
+	session_menu_camera.pressed.connect(_toggle_camera_impulse)
+	column.add_child(session_menu_camera)
+	session_menu_text = _menu_button("")
+	session_menu_text.pressed.connect(_toggle_text_scale)
+	column.add_child(session_menu_text)
+	session_menu_quit = _menu_button("RETURN TO STEAM  /  A · X · Q")
+	session_menu_quit.pressed.connect(_quit_to_launcher)
+	column.add_child(session_menu_quit)
 	var hint := _label(
-		"D-pad chooses. B / ESC / START resumes. Opening this menu is the first quit confirmation.",
+		"Stick / d-pad chooses. B / ESC / START resumes. Opening the menu confirms the first quit step.",
 		16, Color("718896")
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -727,16 +729,16 @@ func _menu_button(value: String) -> Button:
 	return button
 
 
-func _open_arcade_menu() -> void:
-	if arcade_menu_layer == null or _dialogue_visible():
+func _open_session_menu() -> void:
+	if session_menu_layer == null or _dialogue_visible():
 		return
-	arcade_menu_layer.visible = true
-	arcade_menu_resume.grab_focus()
+	session_menu_layer.visible = true
+	session_menu_resume.grab_focus()
 
 
-func _close_arcade_menu() -> void:
-	if arcade_menu_layer != null:
-		arcade_menu_layer.visible = false
+func _close_session_menu() -> void:
+	if session_menu_layer != null:
+		session_menu_layer.visible = false
 	get_viewport().gui_release_focus()
 
 
@@ -745,11 +747,11 @@ func _quit_to_launcher() -> void:
 	get_tree().quit()
 
 
-func _arcade_menu_visible() -> bool:
-	return arcade_menu_layer != null and arcade_menu_layer.visible
+func _session_menu_visible() -> bool:
+	return session_menu_layer != null and session_menu_layer.visible
 
 
-func _handle_arcade_menu_input(event: InputEvent) -> void:
+func _handle_session_menu_input(event: InputEvent) -> void:
 	if event is InputEventJoypadButton and not device_to_seat.has(event.device):
 		get_viewport().set_input_as_handled()
 		return
@@ -760,18 +762,18 @@ func _handle_arcade_menu_input(event: InputEvent) -> void:
 		if event.keycode == KEY_Q:
 			_quit_to_launcher()
 		elif event.keycode in [KEY_ENTER, KEY_SPACE]:
-			_activate_arcade_menu_focus()
+			_activate_session_menu_focus()
 		elif event.keycode == KEY_ESCAPE:
-			_close_arcade_menu()
+			_close_session_menu()
 		if event.keycode in [KEY_Q, KEY_ESCAPE, KEY_ENTER, KEY_SPACE]:
 			get_viewport().set_input_as_handled()
 	elif event is InputEventJoypadButton and event.pressed:
 		if event.button_index == JOY_BUTTON_X:
 			_quit_to_launcher()
 		elif event.button_index == JOY_BUTTON_A:
-			_activate_arcade_menu_focus()
+			_activate_session_menu_focus()
 		elif event.button_index in [JOY_BUTTON_B, JOY_BUTTON_START, JOY_BUTTON_BACK]:
-			_close_arcade_menu()
+			_close_session_menu()
 		if event.button_index in [
 			JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_X,
 			JOY_BUTTON_START, JOY_BUTTON_BACK,
@@ -779,15 +781,16 @@ func _handle_arcade_menu_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-func _activate_arcade_menu_focus() -> void:
+func _activate_session_menu_focus() -> void:
 	var focused := get_viewport().gui_get_focus_owner()
 	if focused is BaseButton:
 		focused.emit_signal("pressed")
 	else:
-		_close_arcade_menu()
+		_close_session_menu()
 
 
 func _configure_seats() -> void:
+	var previous_keyboard := keyboard_seat
 	var previous_devices: Array[int] = [-1, -1]
 	for index in min(2, seats.size()):
 		previous_devices[index] = int(seats[index].get("device", -1))
@@ -796,9 +799,12 @@ func _configure_seats() -> void:
 	)
 	var next_seats: Array = []
 	device_to_seat.clear()
+	keyboard_seat = ControllerSeats.assign_keyboard(
+		previous_keyboard, assignments, player_count
+	)
 	for index in 2:
 		var device := assignments[index]
-		var active := index < player_count and (index == 0 or device >= 0)
+		var active := index < player_count and (device >= 0 or index == keyboard_seat)
 		var cursor := Vector2i(index, index)
 		if index < seats.size():
 			cursor = Vector2i(seats[index].get("cursor", cursor))
@@ -815,6 +821,21 @@ func _configure_seats() -> void:
 		board.set_seats(seats)
 
 
+func _ensure_keyboard_seat() -> int:
+	if keyboard_seat >= 0 and keyboard_seat < player_count:
+		return keyboard_seat
+	for index in player_count:
+		if int(seats[index].get("device", -1)) < 0:
+			keyboard_seat = index
+			seats[index].active = true
+			_update_controller_label()
+			if board:
+				board.set_seats(seats)
+			_show_toast("PLAYER %d KEYBOARD READY" % (index + 1))
+			return index
+	return -1
+
+
 func _on_joy_connection_changed(device: int, connected: bool) -> void:
 	var previous_seat := int(device_to_seat.get(device, -1))
 	axis_latched = [Vector2i.ZERO, Vector2i.ZERO]
@@ -827,10 +848,10 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 		return
 	if connected:
 		_show_toast("PLAYER %d CONTROLLER READY" % (seat + 1))
-	elif seat == 0:
-		_show_toast("PLAYER 1 CONTROLLER DISCONNECTED  /  KEYBOARD READY")
+	elif seat == keyboard_seat:
+		_show_toast("PLAYER %d CONTROLLER DISCONNECTED  /  KEYBOARD READY" % (seat + 1))
 	else:
-		_show_toast("PLAYER 2 CONTROLLER DISCONNECTED  /  WAITING")
+		_show_toast("PLAYER %d CONTROLLER DISCONNECTED  /  WAITING" % (seat + 1))
 
 
 func _update_controller_label() -> void:
@@ -841,7 +862,7 @@ func _update_controller_label() -> void:
 		var seat: Dictionary = seats[index]
 		var colour: String = Color(PLAYER_COLOURS[index]).to_html()
 		var device := int(seat.get("device", -1))
-		var source := "KEYBOARD / MOUSE" if device < 0 and index == 0 else "CONNECT CONTROLLER"
+		var source := "KEYBOARD / MOUSE" if index == keyboard_seat else "CONNECT CONTROLLER"
 		if device >= 0:
 			source = "CONTROLLER"
 		var state := "READY" if seat.get("active", false) else "WAITING"
@@ -911,21 +932,24 @@ func _handle_key(event: InputEventKey) -> void:
 		_advance_dialogue()
 		get_viewport().set_input_as_handled()
 		return
+	var seat := _ensure_keyboard_seat()
+	if seat < 0:
+		return
 	match event.keycode:
-		KEY_LEFT, KEY_A: _move_cursor(0, Vector2i.LEFT)
-		KEY_RIGHT, KEY_D: _move_cursor(0, Vector2i.RIGHT)
-		KEY_UP, KEY_W: _move_cursor(0, Vector2i.UP)
-		KEY_DOWN, KEY_S: _move_cursor(0, Vector2i.DOWN)
-		KEY_ENTER, KEY_SPACE: _accept_at(0)
+		KEY_LEFT, KEY_A: _move_cursor(seat, Vector2i.LEFT)
+		KEY_RIGHT, KEY_D: _move_cursor(seat, Vector2i.RIGHT)
+		KEY_UP, KEY_W: _move_cursor(seat, Vector2i.UP)
+		KEY_DOWN, KEY_S: _move_cursor(seat, Vector2i.DOWN)
+		KEY_ENTER, KEY_SPACE: _accept_at(seat)
 		KEY_ESCAPE:
-			if selected_units[0] != 0:
-				_cancel(0)
+			if selected_units[seat] != 0:
+				_cancel(seat)
 			else:
-				_open_arcade_menu()
-		KEY_TAB: _cycle_mode(0, 1)
-		KEY_Q: _cycle_unit(0, -1)
-		KEY_E: _cycle_unit(0, 1)
-		KEY_F: _wait_selected(0)
+				_open_session_menu()
+		KEY_TAB: _cycle_mode(seat, 1)
+		KEY_Q: _cycle_unit(seat, -1)
+		KEY_E: _cycle_unit(seat, 1)
+		KEY_F: _wait_selected(seat)
 		KEY_B:
 			if snapshot.get("deploying", false):
 				_submit("begin")
@@ -954,8 +978,8 @@ func _handle_pad_button(event: InputEventJoypadButton) -> void:
 			if snapshot.get("deploying", false):
 				_submit("begin")
 			else:
-				_open_arcade_menu()
-		JOY_BUTTON_BACK: _open_arcade_menu()
+				_open_session_menu()
+		JOY_BUTTON_BACK: _open_session_menu()
 
 
 func _handle_pad_motion(event: InputEventJoypadMotion) -> void:
@@ -1235,19 +1259,19 @@ func _show_toast(message: String) -> void:
 
 func _show_fatal(message: String) -> void:
 	status_label.text = "CANNOT START"
-	unit_name.text = "Arcade client error"
+	unit_name.text = "PC client error"
 	unit_stats.text = "[color=#ff7182]%s[/color]" % message
 	_show_toast(message)
 
 
 func _help_text() -> String:
 	return (
-		"[color=#69d9ff][b]A / ENTER[/b][/color]  SELECT / CONFIRM\n"
-		+ "[color=#ffca63][b]B / ESC[/b][/color]  CANCEL\n"
-		+ "[b]Y / TAB[/b]  MOVE · ATTACK · ABILITY · TALK\n"
-		+ "[b]X / F[/b]  END CHARACTER TURN\n"
-		+ "[b]LB / RB[/b]  PREVIOUS / NEXT CHARACTER\n"
-		+ "[b]START[/b]  SESSION MENU / RETURN TO STEAM\n\n"
+		"[b]STICK / D-PAD[/b]  MOVE CURSOR\n"
+		+ "[color=#69d9ff][b]A[/b][/color]  SELECT / CONFIRM\n"
+		+ "[color=#ffca63][b]B[/b][/color]  CANCEL\n"
+		+ "[b]Y[/b]  NEXT ACTION\n"
+		+ "[b]X[/b]  END CHARACTER TURN\n"
+		+ "[b]START[/b]  BEGIN / SESSION MENU\n\n"
 		+ "[color=#89a8b8]TEAM PHASE: both players command independently and movement animations overlap. Conflicting inputs are resolved deterministically by the battle.[/color]"
 	)
 

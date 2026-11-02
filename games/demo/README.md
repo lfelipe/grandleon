@@ -82,7 +82,7 @@ playthrough are exercised from the repository CTest suite.
 
 ## The Last Signal
 
-The third campaign is the PC arcade integration demo, while remaining an
+The third campaign is the PC integration demo, while remaining an
 ordinary portable campaign. **Kestrel** and **Rook** enter the Halcyon Relay in
 one shared `sideBlocks` team phase, so two local players can move different
 characters without waiting for an exclusive activation. **Morrow** and two

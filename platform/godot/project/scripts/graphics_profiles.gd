@@ -26,7 +26,7 @@ func _init(override_path := "") -> void:
 		_warning = "GRAPHICS OVERRIDE CONTRACT IS INCOMPATIBLE"
 		return
 	# Machine-local overrides may tune common values or named profiles, but do
-	# not get to silently change which renderer an arcade installation starts.
+	# not get to silently change which renderer a PC installation starts.
 	if override.get("common", {}) is Dictionary:
 		_document["common"] = _deep_merge(
 			_document.get("common", {}), override.get("common", {})

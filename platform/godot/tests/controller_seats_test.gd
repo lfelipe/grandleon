@@ -7,7 +7,7 @@ var failures := 0
 
 
 func _init() -> void:
-	_expect("keyboard plus one pad", [-1, -1], [4], 2, [-1, 4])
+	_expect("one pad is Player 1", [-1, -1], [4], 2, [4, -1])
 	_expect("two pads at launch", [-1, -1], [4, 7], 2, [4, 7])
 	_expect("single-player pad", [-1, -1], [4], 1, [4, -1])
 	_expect("preserve Player 1", [4, 7], [4], 2, [4, -1])
@@ -17,7 +17,13 @@ func _init() -> void:
 	_expect("device enumeration may reorder", [4, 7], [7, 4], 2, [4, 7])
 	_expect("replace only missing pad", [4, 7], [4, 9], 2, [4, 9])
 	_expect("ignore extra pad", [4, 7], [4, 7, 9], 2, [4, 7])
-	_expect("deduplicate devices", [-1, -1], [4, 4], 2, [-1, 4])
+	_expect("deduplicate devices", [-1, -1], [4, 4], 2, [4, -1])
+	_expect_keyboard("no controllers gives keyboard Player 1", -1, [-1, -1], 2, 0)
+	_expect_keyboard("one controller does not auto-join keyboard", -1, [4, -1], 2, -1)
+	_expect_keyboard("active keyboard moves beside a hot-plugged pad", 0, [4, -1], 2, 1)
+	_expect_keyboard("keyboard seat survives reconciliation", 1, [4, -1], 2, 1)
+	_expect_keyboard("second pad replaces keyboard", 1, [4, 7], 2, -1)
+	_expect_keyboard("keyboard replaces disconnected Player 1", -1, [-1, 7], 2, 0)
 	if failures == 0:
 		print("controller seat smoke passed")
 	quit(1 if failures > 0 else 0)
@@ -30,3 +36,12 @@ func _expect(
 	if actual != expected:
 		failures += 1
 		push_error("%s: expected %s, got %s" % [label, expected, actual])
+
+
+func _expect_keyboard(
+	label: String, previous: int, controllers: Array, players: int, expected: int
+) -> void:
+	var actual := ControllerSeats.assign_keyboard(previous, controllers, players)
+	if actual != expected:
+		failures += 1
+		push_error("%s: expected %d, got %d" % [label, expected, actual])

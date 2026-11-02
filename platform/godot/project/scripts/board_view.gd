@@ -308,7 +308,7 @@ func _draw_terrain() -> void:
 			draw_texture_rect_region(
 				art.terrain_texture(kind, theme), destination, source
 			)
-			# A restrained bevel gives the 32px source art depth at cabinet size.
+			# A restrained bevel gives the 32px source art depth at PC display size.
 			draw_line(destination.position, destination.position + Vector2(tile_size, 0), Color(1, 1, 1, 0.035), 1.0)
 			draw_line(destination.end, destination.position + Vector2(tile_size, 0), Color(0, 0, 0, 0.09), 1.0)
 

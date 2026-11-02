@@ -9,7 +9,7 @@ It writes screenshots under the ignored build tree; they are captures of the
 demo package under the compatibility renderer, not concept renders.
 
 Scores are relative, from 1 (weak/slow) to 5 (strong/fast). “First build” is
-speed to a polished cabinet build, not the eventual production rate.
+speed to a polished PC build, not the eventual production rate.
 
 | Direction | Visual ceiling | First build | Replaceability | Console compatibility | Shared art lineage | SteamOS headroom |
 |---|---:|---:|---:|---:|---:|---:|
@@ -36,12 +36,12 @@ fork campaign content.
 
 ## Selected sequence: voxel terrain, then multi-output
 
-The cabinet build now starts with an orthographic voxel board and retains the animated 2D
+The PC build now starts with an orthographic voxel board and retains the animated 2D
 characters. Terrain height, water, shadows, light, weather, and small props
 create the immediate PC upgrade while the existing character roster keeps the
 first build achievable and tactically legible.
 
-If that look works on the cabinet, make voxel character models optional and add
+If that look works on the target PC, make voxel character models optional and add
 a bake step that renders the same sources to sprite sheets for constrained
 targets. That grows into the “voxel-authored, multi-output” option without
 making the initial deployment depend on a complete 3D character pipeline.

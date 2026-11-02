@@ -18,8 +18,8 @@ game_args=(
 if [[ "${GRANDLEON_WINDOWED:-0}" != "1" ]]; then
     game_args+=("--fullscreen")
 fi
-if [[ -f "${bundle_dir}/arcade.local.json" ]]; then
-    game_args+=("--config=${bundle_dir}/arcade.local.json")
+if [[ -f "${bundle_dir}/pc.local.json" ]]; then
+    game_args+=("--config=${bundle_dir}/pc.local.json")
 fi
 if [[ -f "${bundle_dir}/graphics.local.json" ]]; then
     game_args+=("--graphics-pack=${bundle_dir}/graphics.local.json")

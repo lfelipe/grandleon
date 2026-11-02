@@ -4,7 +4,7 @@ include(FetchContent)
 
 # v10 is versioned independently from Godot and can generate bindings for
 # several engine releases.  Pin both the release and the API below: a moving
-# branch would make an arcade bundle depend on when it happened to be built.
+# branch would make a PC bundle depend on when it happened to be built.
 set(GODOTCPP_API_VERSION "${GRANDLEON_GODOT_API_VERSION}" CACHE STRING "" FORCE)
 set(GODOTCPP_TARGET "template_release" CACHE STRING "" FORCE)
 set(GODOTCPP_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
@@ -55,7 +55,7 @@ target_compile_features(grandleon_godot PRIVATE cxx_std_17)
 target_compile_options(grandleon_godot PRIVATE ${GRANDLEON_WARNING_FLAGS})
 
 # Assertion strings and source locations in godot-cpp otherwise preserve the
-# absolute checkout path in the shared object.  A portable arcade bundle must
+# absolute checkout path in the shared object.  A portable PC bundle must
 # not disclose the workstation it was built on, and reproducible relative
 # names are more useful in a crash report anyway.
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

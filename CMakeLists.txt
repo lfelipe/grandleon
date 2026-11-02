@@ -472,7 +472,7 @@ option(
     ON
 )
 
-# The arcade client is a Godot front end over the same presenter seam as the
+# The PC client is a Godot front end over the same presenter seam as the
 # terminal, SDL and console clients.  It is opt-in because building a native
 # Godot extension fetches the pinned C++ bindings and is not a prerequisite for
 # compiling the portable engine or either console port.

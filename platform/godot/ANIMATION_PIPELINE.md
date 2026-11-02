@@ -1,6 +1,6 @@
 # 3D character animation path
 
-The selected first cabinet profile is voxel terrain with animated 2D
+The selected first PC profile is voxel terrain with animated 2D
 characters. It is deliberately compatible with a later authored 3D roster; it
 does not make sprite movement the permanent presentation contract.
 
@@ -78,7 +78,7 @@ Use one humanoid and one drone rather than converting the whole roster:
    run, attack, hurt, and defeat clips.
 2. Bind Kestrel's `rogue` archetype and one `beast` drone in a local art pack.
 3. Verify direction changes, simultaneous movement, shadow contact, and scale
-   at the fixed cabinet camera.
+   with the fixed PC camera.
 4. Tune semantic clip mappings and validate attack/impact alignment.
 5. Only then decide whether to author the full 3D roster or retain the hybrid
    as a deliberate visual style.

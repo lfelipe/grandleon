@@ -19,10 +19,10 @@ __pycache__/
 # public export: `git archive HEAD` carries tracked files and nothing else.
 /notes/
 
-# Portable arcade settings live beside a local build or installed executable.
+# Portable PC settings live beside a local build or installed executable.
 # The checked-in example documents every field; a real endpoint/model/token
 # choice is machine-local and must never enter an archive or commit.
-arcade.local.json
+pc.local.json
 graphics.local.json
 
 # Editor detritus. A swap file was committed once by a broad `git add -A`
