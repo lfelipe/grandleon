@@ -47,14 +47,23 @@ those events without changing or delaying the deterministic encounter:
 | Event | Presentation data | Animation use |
 |---|---|---|
 | `unit_moved` plus snapshot | unit and authoritative destination | run/walk, facing, overlapping per-unit interpolation |
-| `unit_damaged` / `attack_missed` | target, actor, damage result | attack and hurt clips, impact flash, short camera impulse |
-| `unit_restored` / `item_used` | target, actor, result | ability clip and recovery effect |
+| `unit_damaged` / `attack_missed` | target, actor, damage result, originating action | attack or cast clips, melee slash or ranged projectile, impact flash, short camera impulse |
+| `unit_restored` / `item_used` | target, actor, result, originating action | ability clip, travelling magic and recovery aura |
 | `unit_talked` / `unit_defeated` | departing unit and actor | semantic clip and delayed removal |
 
 The bridge emits stable IDs and simulation semantics, never Godot animation
 names. The graphics profile maps those semantics to clips. An absent scene,
 player, or clip falls back immediately, so animation can never block the
 encounter thread.
+
+The presentation event also carries the accepted action category and content
+identity. This is deliberately outside the deterministic simulation state: it
+lets every renderer tell a sword swing, projectile, spell, and item aura apart
+without guessing from damage numbers. Built-in effects are procedural and the
+`effects` block in a graphics profile can replace their colours and billboard
+textures independently for a local art pack. Missing effect textures fall back
+one by one to procedural marks. Imported character scenes still replace the
+matching semantic attack or ability clip through the existing clip map.
 
 The next fidelity step is an optional motion presentation record with a path
 and recommended duration. Destination snapshots remain authoritative, but that

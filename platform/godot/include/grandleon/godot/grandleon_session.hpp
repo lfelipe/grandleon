@@ -46,6 +46,8 @@ struct FrontendEvent final {
     std::vector<simulation::ItemDefinition> items;
     std::vector<simulation::ObjectiveDefinition> objectives;
     std::vector<simulation::Event> presentation_events;
+    std::string action;
+    simulation::ContentId action_content_id{};
     package_runtime::Dialogue dialogue;
     simulation::Side player_side{simulation::Side::first};
     std::uint64_t canonical_hash{};
@@ -123,6 +125,8 @@ private:
     std::deque<FrontendEvent> events_;
     std::deque<QueuedIntent> intents_;
     std::int64_t active_request_id_{};
+    std::string active_action_;
+    simulation::ContentId active_action_content_id_{};
     bool stopping_{false};
 };
 

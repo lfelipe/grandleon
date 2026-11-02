@@ -50,6 +50,13 @@
         "defeat": "defeat"
       }
     },
+    "effects": {
+      "weapon": "fff0b0",
+      "projectile": "ffca63",
+      "magic": "b58cff",
+      "restore": "75e7a0",
+      "textures": {}
+    },
     "palette": {
       "water": "236f91",
       "road": "8d6a45",

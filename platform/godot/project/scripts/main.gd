@@ -69,6 +69,7 @@ func _ready() -> void:
 	_create_background()
 	if graphics_profile == "pixel":
 		board = BoardView.new()
+		board.set_profile(graphics_profile, graphics_profiles.profile(graphics_profile))
 	else:
 		board = BoardView3D.new()
 		board.set_profile(graphics_profile, graphics_profiles.profile(graphics_profile))
@@ -267,15 +268,33 @@ func _queue_two_friendly_actions() -> int:
 			continue
 		if unit.get("has_acted", false) or _unit_is_pending(int(unit.id)):
 			continue
-		var attack_target := _first_enemy_on_tiles(session.query_tiles("attack", int(unit.id), 0))
-		if not attack_target.is_empty():
+		var ability_target: Dictionary = {}
+		var ability_id := 0
+		for candidate_id: Variant in unit.get("abilities", []):
+			ability_target = _first_enemy_on_tiles(
+				session.query_tiles("ability", int(unit.id), int(candidate_id))
+			)
+			if not ability_target.is_empty():
+				ability_id = int(candidate_id)
+				break
+		if ability_id != 0:
 			_submit(
-				"attack", int(unit.id), int(attack_target.id),
-				Vector2i(int(attack_target.x), int(attack_target.y))
+				"ability", int(unit.id), 0,
+				Vector2i(int(ability_target.x), int(ability_target.y)), ability_id
 			)
 			queued += 1
-		elif _queue_friendly_move(unit, occupied, reserved, false, true):
-			queued += 1
+		else:
+			var attack_target := _first_enemy_on_tiles(
+				session.query_tiles("attack", int(unit.id), 0)
+			)
+			if not attack_target.is_empty():
+				_submit(
+					"attack", int(unit.id), int(attack_target.id),
+					Vector2i(int(attack_target.x), int(attack_target.y))
+				)
+				queued += 1
+			elif _queue_friendly_move(unit, occupied, reserved, false, true):
+				queued += 1
 		if queued >= 2:
 			break
 	return queued
@@ -646,6 +665,13 @@ func _handle_event(event: Dictionary) -> void:
 			snapshot = event.snapshot
 			board.update_snapshot(snapshot)
 			status_label.text = "DEPLOYMENT  /  START TO BEGIN"
+		"presentation":
+			if board.has_method("present_events"):
+				board.present_events(
+					event.get("events", []),
+					String(event.get("action", "")),
+					int(event.get("action_content_id", 0))
+				)
 		"snapshot":
 			snapshot = event.snapshot
 			board.update_snapshot(snapshot)
@@ -788,12 +814,6 @@ func _accept_at(seat: int) -> void:
 		_submit("deploy", selected, 0, cursor)
 		return
 	var mode := action_modes[seat]
-	if not occupant.is_empty() and String(occupant.side) != "first":
-		if mode == "talk":
-			_submit("talk", selected, int(occupant.id), cursor)
-		else:
-			_submit("attack", selected, int(occupant.id), cursor)
-		return
 	if mode == "ability":
 		var actor := _unit_by_id(selected)
 		var abilities: Array = actor.get("abilities", [])
@@ -801,7 +821,14 @@ func _accept_at(seat: int) -> void:
 			_show_toast("THIS CHARACTER KNOWS NO ABILITY")
 			return
 		_submit("ability", selected, 0, cursor, int(abilities[0]))
-	elif mode == "talk":
+		return
+	if not occupant.is_empty() and String(occupant.side) != "first":
+		if mode == "talk":
+			_submit("talk", selected, int(occupant.id), cursor)
+		else:
+			_submit("attack", selected, int(occupant.id), cursor)
+		return
+	if mode == "talk":
 		_show_toast("TALK NEEDS A CHARACTER BESIDE YOU")
 	else:
 		_submit("move", selected, 0, cursor)

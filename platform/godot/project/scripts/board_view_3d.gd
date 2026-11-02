@@ -52,7 +52,11 @@ var _unit_flash_until: Dictionary = {}
 var _unit_flash_colours: Dictionary = {}
 var _materials: Dictionary = {}
 var _effects: Array[Dictionary] = []
-var _impact_texture: ImageTexture
+var _impact_texture: Texture2D
+var _slash_texture: Texture2D
+var _projectile_texture: Texture2D
+var _magic_texture: Texture2D
+var _aura_texture: Texture2D
 var _camera_base_position := Vector3.ZERO
 var _camera_shake_until := 0
 var _camera_shake_strength := 0.0
@@ -160,7 +164,7 @@ func update_snapshot(value: Dictionary) -> void:
 	_rebuild_markers()
 
 
-func present_events(events: Array) -> void:
+func present_events(events: Array, action := "", content_id := 0) -> void:
 	var now := Time.get_ticks_msec()
 	for event: Dictionary in events:
 		var kind := String(event.get("kind", ""))
@@ -168,16 +172,25 @@ func present_events(events: Array) -> void:
 		var related_id := int(event.get("related_unit_id", 0))
 		match kind:
 			"unit_damaged":
-				_play_unit_animation(related_id, "attack", 430, true)
+				_play_unit_animation(
+					related_id, "ability" if action == "ability" else "attack",
+					480 if action == "ability" else 430, true
+				)
 				_play_unit_animation(unit_id, "hurt", 300, true)
+				_spawn_combat_effect(related_id, unit_id, action, content_id, true)
 				_flash_unit(unit_id, Color("ff776f"), now + 260)
 				_spawn_impact(unit_id, Color("ff776f"), 440)
 				_shake_camera(220, 0.035)
 			"attack_missed":
-				_play_unit_animation(related_id, "attack", 430, true)
+				_play_unit_animation(
+					related_id, "ability" if action == "ability" else "attack",
+					480 if action == "ability" else 430, true
+				)
+				_spawn_combat_effect(related_id, unit_id, action, content_id, false)
 				_spawn_impact(unit_id, Color("d8edf2"), 300)
 			"unit_restored":
 				_play_unit_animation(related_id, "ability", 480, true)
+				_spawn_combat_effect(related_id, unit_id, action, content_id, true)
 				_flash_unit(unit_id, Color("75e7a0"), now + 360)
 				_spawn_impact(unit_id, Color("75e7a0"), 520)
 			"item_used":
@@ -665,17 +678,208 @@ func _flash_unit(id: int, colour: Color, until: int) -> void:
 	_unit_flash_until[id] = until
 
 
+func _spawn_combat_effect(
+	actor_id: int, target_id: int, action: String, content_id: int, landed: bool
+) -> void:
+	if not _unit_nodes.has(actor_id) or not _unit_nodes.has(target_id):
+		return
+	var origin: Vector3 = _unit_nodes[actor_id].position + Vector3(0, 0.72, 0)
+	var destination: Vector3 = _unit_nodes[target_id].position + Vector3(0, 0.72, 0)
+	var distance := origin.distance_to(destination)
+	var kind := "slash"
+	var duration := 420
+	var colour := _effect_colour("weapon", Color("fff0b0"))
+	var texture: Texture2D
+	var pixel_size := 0.023
+	if action == "ability":
+		kind = "magic"
+		duration = 540
+		colour = _effect_colour("magic", Color("b58cff"))
+		texture = _magic_texture_value()
+		pixel_size = 0.018
+	elif action == "item":
+		kind = "aura"
+		duration = 560
+		colour = _effect_colour("restore", Color("75e7a0"))
+		texture = _aura_texture_value()
+		pixel_size = 0.024
+	elif distance > 1.35:
+		kind = "projectile"
+		duration = 260 + int(distance * 90.0)
+		colour = _effect_colour("projectile", Color("ffca63"))
+		texture = _projectile_texture_value()
+		pixel_size = 0.021
+	else:
+		texture = _slash_texture_value()
+	if not landed:
+		colour = colour.lerp(Color("b7cbd3"), 0.62)
+	var sprite := _effect_sprite(texture, colour, pixel_size)
+	sprite.position = destination if kind in ["slash", "aura"] else origin
+	_effect_root.add_child(sprite)
+	var start := Time.get_ticks_msec()
+	_effects.append({
+		"kind": kind,
+		"node": sprite,
+		"origin": origin,
+		"destination": destination,
+		"colour": colour,
+		"landed": landed,
+		"content_id": content_id,
+		"start": start,
+		"end": start + duration,
+	})
+	if kind == "magic":
+		_spawn_cast_aura(origin, colour, start)
+
+
+func _spawn_cast_aura(origin: Vector3, colour: Color, start: int) -> void:
+	var sprite := _effect_sprite(_aura_texture_value(), colour, 0.021)
+	sprite.position = origin
+	_effect_root.add_child(sprite)
+	_effects.append({
+		"kind": "cast",
+		"node": sprite,
+		"origin": origin,
+		"destination": origin,
+		"colour": colour,
+		"start": start,
+		"end": start + 420,
+	})
+
+
+func _effect_sprite(texture: Texture2D, colour: Color, pixel_size: float) -> Sprite3D:
+	var sprite := Sprite3D.new()
+	sprite.texture = texture
+	sprite.pixel_size = pixel_size
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+	sprite.shaded = false
+	sprite.no_depth_test = true
+	sprite.modulate = colour
+	return sprite
+
+
+func _effect_colour(key: String, fallback: Color) -> Color:
+	return _configured_colour(profile_config.get("effects", {}), key, fallback)
+
+
+func _slash_texture_value() -> Texture2D:
+	if _slash_texture != null:
+		return _slash_texture
+	_slash_texture = _replacement_effect_texture("slash")
+	if _slash_texture != null:
+		return _slash_texture
+	var image := Image.create(80, 80, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in 80:
+		for x in 80:
+			var dx := float(x) - 36.0
+			var dy := float(y) - 40.0
+			var radius := sqrt(dx * dx + dy * dy)
+			var angle := atan2(dy, dx)
+			var in_sweep := angle > -1.48 and angle < 1.30
+			var blade := radius > 23.0 and radius < 31.5 and in_sweep
+			var trail := radius > 19.0 and radius <= 23.0 and in_sweep
+			if blade or trail:
+				var alpha := 1.0 - absf(radius - 27.0) / 8.5 if blade else 0.28
+				image.set_pixel(x, y, Color(1, 1, 1, clampf(alpha, 0.18, 1.0)))
+	_slash_texture = ImageTexture.create_from_image(image)
+	return _slash_texture
+
+
+func _projectile_texture_value() -> Texture2D:
+	if _projectile_texture != null:
+		return _projectile_texture
+	_projectile_texture = _replacement_effect_texture("projectile")
+	if _projectile_texture != null:
+		return _projectile_texture
+	var image := Image.create(48, 16, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in 16:
+		for x in 48:
+			var shaft := x >= 5 and x <= 37 and absf(float(y) - 7.5) < 1.8
+			var head := x >= 34 and x <= 44 and absf(float(y) - 7.5) < float(44 - x) * 0.55
+			var tail := x >= 3 and x <= 10 and absf(float(y) - 7.5) < float(x - 2) * 0.35
+			if shaft or head or tail:
+				image.set_pixel(x, y, Color.WHITE)
+	_projectile_texture = ImageTexture.create_from_image(image)
+	return _projectile_texture
+
+
+func _magic_texture_value() -> Texture2D:
+	if _magic_texture != null:
+		return _magic_texture
+	_magic_texture = _replacement_effect_texture("magic")
+	if _magic_texture != null:
+		return _magic_texture
+	var image := Image.create(40, 40, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in 40:
+		for x in 40:
+			var dx := float(x) - 19.5
+			var dy := float(y) - 19.5
+			var radius := sqrt(dx * dx + dy * dy)
+			var core := radius < 7.0
+			var ring := radius > 10.5 and radius < 13.5
+			var rays := (
+				(absf(dx) < 1.4 or absf(dy) < 1.4) and radius < 18.0
+			)
+			if core or ring or rays:
+				var alpha := 1.0 if core or ring else 0.72
+				image.set_pixel(x, y, Color(1, 1, 1, alpha))
+	_magic_texture = ImageTexture.create_from_image(image)
+	return _magic_texture
+
+
+func _aura_texture_value() -> Texture2D:
+	if _aura_texture != null:
+		return _aura_texture
+	_aura_texture = _replacement_effect_texture("aura")
+	if _aura_texture != null:
+		return _aura_texture
+	var image := Image.create(48, 48, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in 48:
+		for x in 48:
+			var dx := float(x) - 23.5
+			var dy := float(y) - 23.5
+			var radius := sqrt(dx * dx + dy * dy)
+			var ring := radius > 14.0 and radius < 17.5
+			var cross := (absf(dx) < 2.2 and absf(dy) < 11.0) or (absf(dy) < 2.2 and absf(dx) < 11.0)
+			if ring or cross:
+				image.set_pixel(x, y, Color.WHITE)
+	_aura_texture = ImageTexture.create_from_image(image)
+	return _aura_texture
+
+
+func _impact_texture_value() -> Texture2D:
+	if _impact_texture == null:
+		_impact_texture = _replacement_effect_texture("impact")
+		if _impact_texture == null:
+			_impact_texture = _make_impact_texture()
+	return _impact_texture
+
+
+func _replacement_effect_texture(key: String) -> Texture2D:
+	var effects: Dictionary = profile_config.get("effects", {})
+	var textures: Dictionary = effects.get("textures", {})
+	var path := String(textures.get(key, ""))
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return null
+	var resource: Resource = load(path)
+	return resource as Texture2D if resource is Texture2D else null
+
+
 func _spawn_impact(id: int, colour: Color, duration_msec: int) -> void:
 	if not _unit_nodes.has(id) or _effect_root == null:
 		return
-	if _impact_texture == null:
-		_impact_texture = _make_impact_texture()
 	var sprite := Sprite3D.new()
-	sprite.texture = _impact_texture
+	sprite.texture = _impact_texture_value()
 	sprite.pixel_size = 0.022
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
 	sprite.shaded = false
+	sprite.no_depth_test = true
 	sprite.modulate = colour
 	var origin: Vector3 = _unit_nodes[id].position + Vector3(0, 0.67, 0)
 	sprite.position = origin
@@ -683,6 +887,7 @@ func _spawn_impact(id: int, colour: Color, duration_msec: int) -> void:
 	_effect_root.add_child(sprite)
 	var start := Time.get_ticks_msec()
 	_effects.append({
+		"kind": "impact",
 		"node": sprite,
 		"origin": origin,
 		"colour": colour,
@@ -721,10 +926,37 @@ func _update_effects(now_msec: int) -> void:
 			float(maxi(1, int(effect.end) - int(effect.start))),
 			0.0, 1.0
 		)
-		node.position = Vector3(effect.origin) + Vector3(0, progress * 0.18, 0)
-		node.scale = Vector3.ONE * lerpf(0.45, 1.45, progress)
+		var kind := String(effect.get("kind", "impact"))
+		var origin := Vector3(effect.origin)
+		var destination := Vector3(effect.get("destination", origin))
+		if kind in ["projectile", "magic"]:
+			node.position = origin.lerp(destination, progress)
+			node.position.y += sin(progress * PI) * (0.45 if kind == "projectile" else 0.72)
+			node.scale = Vector3.ONE * (
+				lerpf(0.72, 1.08, sin(progress * PI)) if kind == "projectile"
+				else lerpf(0.58, 1.38, sin(progress * PI))
+			)
+			node.rotation.z = progress * (1.2 if kind == "projectile" else 4.8)
+		elif kind == "slash":
+			node.position = destination
+			node.scale = Vector3.ONE * lerpf(0.52, 1.34, minf(1.0, progress * 2.4))
+			node.rotation.z = lerpf(-0.72, 0.68, progress)
+		elif kind in ["aura", "cast"]:
+			node.position = destination + Vector3(0, progress * 0.24, 0)
+			node.scale = Vector3.ONE * lerpf(
+				0.38 if kind == "cast" else 0.55,
+				1.36 if kind == "cast" else 1.62,
+				progress
+			)
+			node.rotation.z = progress * (4.0 if kind == "cast" else 2.2)
+		else:
+			node.position = origin + Vector3(0, progress * 0.18, 0)
+			node.scale = Vector3.ONE * lerpf(0.45, 1.45, progress)
 		var colour: Color = effect.colour
-		colour.a = 1.0 - progress
+		colour.a = (
+			1.0 - progress if kind in ["impact", "slash", "aura", "cast"]
+			else 1.0 - maxf(0.0, progress - 0.76) / 0.24
+		)
 		node.modulate = colour
 
 

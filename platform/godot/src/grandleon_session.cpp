@@ -113,6 +113,28 @@ const char* presentation_event_name(sim::EventType type) {
     }
     return "unknown";
 }
+const char* intent_name(client::IntentKind kind) {
+    switch (kind) {
+        case client::IntentKind::move_to: return "move";
+        case client::IntentKind::attack: return "attack";
+        case client::IntentKind::ability: return "ability";
+        case client::IntentKind::use_item: return "item";
+        case client::IntentKind::wait: return "wait";
+        case client::IntentKind::deploy_to: return "deploy";
+        case client::IntentKind::begin_battle: return "begin";
+        case client::IntentKind::talk: return "talk";
+        default: return "";
+    }
+}
+
+sim::ContentId intent_content_id(const client::Intent& intent) {
+    switch (intent.kind) {
+        case client::IntentKind::attack: return intent.weapon_id;
+        case client::IntentKind::ability: return intent.ability_id;
+        case client::IntentKind::use_item: return intent.item_id;
+        default: return 0;
+    }
+}
 }  // namespace
 
 void AsyncPresenter::present_dialogue(const pr::Dialogue& dialogue) {
@@ -186,8 +208,15 @@ void AsyncPresenter::report(
     const client::Roster& roster
 ) {
     static_cast<void>(roster);
-    if (result.events.empty()) return;
     FrontendEvent event;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        event.action = active_action_;
+        event.action_content_id = active_action_content_id_;
+        active_action_.clear();
+        active_action_content_id_ = 0;
+    }
+    if (result.events.empty()) return;
     event.kind = FrontendEvent::Kind::presentation;
     event.presentation_events = result.events;
     push(std::move(event));
@@ -201,6 +230,8 @@ void AsyncPresenter::refused(sim::CommandError error) {
         std::lock_guard<std::mutex> lock(mutex_);
         event.request_id = active_request_id_;
         active_request_id_ = 0;
+        active_action_.clear();
+        active_action_content_id_ = 0;
     }
     push(std::move(event));
 }
@@ -271,6 +302,8 @@ client::Intent AsyncPresenter::wait_for_intent(
     const QueuedIntent queued = intents_.front();
     intents_.pop_front();
     active_request_id_ = queued.request_id;
+    active_action_ = intent_name(queued.intent.kind);
+    active_action_content_id_ = intent_content_id(queued.intent);
     return queued.intent;
 }
 
@@ -722,6 +755,8 @@ gd::Dictionary GrandleonSession::event_dictionary(
             result["zone"] = positions_array(event.zone);
             break;
         case FrontendEvent::Kind::presentation: {
+            result["action"] = text(event.action);
+            result["action_content_id"] = signed_id(event.action_content_id);
             gd::Array values;
             for (const sim::Event& source : event.presentation_events) {
                 gd::Dictionary value;

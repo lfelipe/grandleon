@@ -13,6 +13,7 @@ var art = ArtLibrary.new()
 var snapshot: Dictionary = {}
 var terrain: Array = []
 var theme := 0
+var profile_config: Dictionary = {}
 var seats: Array = []
 var tile_size := 64.0
 var origin := Vector2(54, 112)
@@ -26,11 +27,16 @@ var _motion_started: Dictionary = {}
 var _last_units: Dictionary = {}
 var _event_flash_until: Dictionary = {}
 var _event_flash_colours: Dictionary = {}
+var _combat_effects: Array[Dictionary] = []
 var _pulse := 0.0
 
 
 func _ready() -> void:
 	set_process(true)
+
+
+func set_profile(_name: String, value: Dictionary) -> void:
+	profile_config = value
 
 
 func configure(new_snapshot: Dictionary, new_terrain: Array, new_theme: int) -> void:
@@ -87,17 +93,22 @@ func set_highlights(seat: int, value: Array) -> void:
 	queue_redraw()
 
 
-func present_events(events: Array) -> void:
+func present_events(events: Array, action := "", content_id := 0) -> void:
 	var now := Time.get_ticks_msec()
 	for event: Dictionary in events:
 		var kind := String(event.get("kind", ""))
 		var unit_id := int(event.get("unit_id", 0))
+		var related_id := int(event.get("related_unit_id", 0))
 		if kind == "unit_damaged":
 			_event_flash_until[unit_id] = now + 260
 			_event_flash_colours[unit_id] = Color("ff776f")
+			_queue_combat_effect(related_id, unit_id, action, content_id, true)
+		elif kind == "attack_missed":
+			_queue_combat_effect(related_id, unit_id, action, content_id, false)
 		elif kind == "unit_restored":
 			_event_flash_until[unit_id] = now + 360
 			_event_flash_colours[unit_id] = Color("75e7a0")
+			_queue_combat_effect(related_id, unit_id, action, content_id, true)
 		elif kind in ["unit_defeated", "unit_endured"]:
 			_event_flash_until[unit_id] = now + 420
 			_event_flash_colours[unit_id] = Color("ffca63")
@@ -125,6 +136,10 @@ func unit_at(cell: Vector2i) -> Dictionary:
 
 func _process(delta: float) -> void:
 	_pulse += delta
+	var now := Time.get_ticks_msec()
+	for index in range(_combat_effects.size() - 1, -1, -1):
+		if now >= int(_combat_effects[index].end):
+			_combat_effects.remove_at(index)
 	queue_redraw()
 
 
@@ -136,7 +151,113 @@ func _draw() -> void:
 	_draw_terrain()
 	_draw_selected_tiles()
 	_draw_units()
+	_draw_combat_effects()
 	_draw_cursors()
+
+
+func _queue_combat_effect(
+	actor_id: int, target_id: int, action: String, content_id: int, landed: bool
+) -> void:
+	if not _last_units.has(actor_id) or not _last_units.has(target_id):
+		return
+	var actor: Dictionary = _last_units[actor_id]
+	var target: Dictionary = _last_units[target_id]
+	var from := Vector2(float(actor.x), float(actor.y))
+	var to := Vector2(float(target.x), float(target.y))
+	var distance := from.distance_to(to)
+	var kind := "slash"
+	var duration := 420
+	if action == "ability":
+		kind = "magic"
+		duration = 520
+	elif action == "item":
+		kind = "aura"
+		duration = 540
+	elif distance > 1.1:
+		kind = "projectile"
+		duration = 260 + int(distance * 70.0)
+	var start := Time.get_ticks_msec()
+	_combat_effects.append({
+		"kind": kind,
+		"from": from,
+		"to": to,
+		"landed": landed,
+		"content_id": content_id,
+		"start": start,
+		"end": start + duration,
+	})
+
+
+func _draw_combat_effects() -> void:
+	var now := Time.get_ticks_msec()
+	for effect: Dictionary in _combat_effects:
+		var progress := clampf(
+			float(now - int(effect.start)) /
+			float(maxi(1, int(effect.end) - int(effect.start))),
+			0.0, 1.0
+		)
+		var from := origin + (Vector2(effect.from) + Vector2(0.5, 0.5)) * tile_size
+		var to := origin + (Vector2(effect.to) + Vector2(0.5, 0.5)) * tile_size
+		var kind := String(effect.kind)
+		var landed := bool(effect.landed)
+		if kind == "magic":
+			_draw_magic_effect(from, to, progress, landed)
+		elif kind == "aura":
+			_draw_aura_effect(to, progress)
+		elif kind == "projectile":
+			_draw_projectile_effect(from, to, progress, landed)
+		else:
+			_draw_slash_effect(from, to, progress, landed)
+
+
+func _draw_slash_effect(from: Vector2, to: Vector2, progress: float, landed: bool) -> void:
+	var angle := (to - from).angle()
+	var colour := _effect_colour("weapon", Color("fff0b0")) if landed else Color("c5d5dc")
+	colour.a = 1.0 - progress
+	var sweep := lerpf(0.18, 1.55, minf(1.0, progress * 2.4))
+	draw_arc(
+		to, tile_size * lerpf(0.20, 0.48, progress),
+		angle - sweep, angle + sweep, 18, colour,
+		maxf(3.0, tile_size * 0.075)
+	)
+	draw_circle(to, tile_size * 0.07 * (1.0 - progress), colour)
+
+
+func _draw_projectile_effect(from: Vector2, to: Vector2, progress: float, landed: bool) -> void:
+	var direction := (to - from).normalized()
+	var at := from.lerp(to, progress)
+	at.y -= sin(progress * PI) * tile_size * 0.55
+	var colour := _effect_colour("projectile", Color("ffca63")) if landed else Color("b7cbd3")
+	colour.a = 1.0 - maxf(0.0, progress - 0.72) / 0.28
+	draw_line(
+		at - direction * tile_size * 0.30, at + direction * tile_size * 0.10,
+		colour, maxf(3.0, tile_size * 0.075), true
+	)
+	draw_circle(at, maxf(3.0, tile_size * 0.065), colour)
+
+
+func _draw_magic_effect(from: Vector2, to: Vector2, progress: float, landed: bool) -> void:
+	var at := from.lerp(to, progress)
+	at.y -= sin(progress * PI) * tile_size * 0.72
+	var colour := _effect_colour("magic", Color("b58cff")) if landed else Color("9cb9c8")
+	colour.a = 1.0 - maxf(0.0, progress - 0.78) / 0.22
+	draw_arc(from, tile_size * (0.22 + progress * 0.16), 0, TAU, 20, colour, maxf(2.0, tile_size * 0.045))
+	draw_circle(at, tile_size * (0.08 + sin(progress * PI) * 0.08), colour)
+	draw_arc(to, tile_size * lerpf(0.12, 0.48, progress), 0, TAU, 24, colour, maxf(2.0, tile_size * 0.055))
+
+
+func _draw_aura_effect(at: Vector2, progress: float) -> void:
+	var colour := _effect_colour("restore", Color("75e7a0"))
+	colour.a = 1.0 - progress
+	draw_arc(at, tile_size * lerpf(0.18, 0.55, progress), 0, TAU, 24, colour, maxf(2.0, tile_size * 0.055))
+	draw_line(at + Vector2(0, -tile_size * 0.35), at + Vector2(0, tile_size * 0.35), colour, maxf(3.0, tile_size * 0.07))
+	draw_line(at + Vector2(-tile_size * 0.35, 0), at + Vector2(tile_size * 0.35, 0), colour, maxf(3.0, tile_size * 0.07))
+
+
+func _effect_colour(key: String, fallback: Color) -> Color:
+	var values: Dictionary = profile_config.get("effects", {})
+	var encoded := String(values.get(key, ""))
+	return Color(encoded) if not encoded.is_empty() and Color.html_is_valid(encoded) else fallback
 
 
 func _fit_board() -> void:

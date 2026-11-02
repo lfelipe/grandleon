@@ -139,7 +139,20 @@
       "color": "violet"
     }
   ],
-  "abilities": [],
+  "abilities": [
+    {
+      "id": "relay_arc",
+      "name": "Relay Arc",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "single",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 3,
+      "accuracy": 100,
+      "notes": "A visible pulse routed through the relay conductors. It gives the PC presentation a real cast to animate while remaining ordinary portable ability content for every client."
+    }
+  ],
   "unitTypes": [
     {
       "id": "dawn_guard_unit",
@@ -185,6 +198,7 @@
       "classId": "relay_commander",
       "factionId": "relay_crew",
       "startingWeaponIds": ["training_sword"],
+      "abilityIds": ["relay_arc"],
       "characterStyleId": "scifi",
       "characterFigureId": "first"
     },
@@ -194,6 +208,7 @@
       "classId": "relay_stormcaller",
       "factionId": "relay_wardens",
       "startingWeaponIds": ["training_sword"],
+      "abilityIds": ["relay_arc"],
       "characterStyleId": "scifi",
       "characterFigureId": "second"
     },

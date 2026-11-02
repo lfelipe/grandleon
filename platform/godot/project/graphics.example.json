@@ -9,6 +9,19 @@
         "pixelSize": 0.025,
         "height": 0.47
       },
+      "effects": {
+        "weapon": "fff0b0",
+        "projectile": "ffca63",
+        "magic": "b58cff",
+        "restore": "75e7a0",
+        "textures": {
+          "slash": "res://local-art/effects/slash.png",
+          "projectile": "res://local-art/effects/projectile.png",
+          "magic": "res://local-art/effects/magic.png",
+          "aura": "res://local-art/effects/aura.png",
+          "impact": "res://local-art/effects/impact.png"
+        }
+      },
       "palette": {
         "grass": "4a7650",
         "road": "8d6a45",

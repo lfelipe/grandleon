@@ -9,6 +9,7 @@ output_path="${2:-${build_dir}/grandleon-demo-reel.mp4}"
 godot_binary="${GRANDLEON_GODOT_BINARY:-}"
 duration="${GRANDLEON_DEMO_SECONDS:-20}"
 config_path="${GRANDLEON_DEMO_CONFIG:-}"
+graphics_profile="${GRANDLEON_DEMO_GRAPHICS:-voxel-sprites}"
 
 absolute_path() {
     case "$1" in
@@ -69,6 +70,7 @@ if [[ "${GRANDLEON_DEMO_CAPTURE_CHILD:-0}" != 1 ]]; then
     GRANDLEON_GODOT_BINARY="${godot_binary}" \
     GRANDLEON_DEMO_SECONDS="${duration}" \
     GRANDLEON_DEMO_CONFIG="${config_path}" \
+    GRANDLEON_DEMO_GRAPHICS="${graphics_profile}" \
         xvfb-run -a -s '-screen 0 1280x720x24' \
         "${BASH_SOURCE[0]}" "${build_dir}" "${output_path}"
     printf 'Godot gameplay capture: %s\n' "${output_path}"
@@ -92,7 +94,7 @@ game_arguments=(
     --package=res://game.gpk
     --campaign=last_signal
     --players=2
-    --graphics=voxel-sprites
+    "--graphics=${graphics_profile}"
     --demo-reel
 )
 if [[ -n "${config_path}" ]]; then
