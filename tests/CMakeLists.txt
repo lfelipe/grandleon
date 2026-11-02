@@ -695,6 +695,28 @@ add_test(
     COMMAND grandleon_client_aim_cursor_tests
 )
 
+# Two local controllers keep independent cursor, selection, and menu state
+# while completed commands remain serial deterministic intents.
+add_executable(grandleon_client_local_coop_tests
+    client/local_coop_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(
+    grandleon_client_local_coop_tests
+    PRIVATE
+        grandleon::client
+        grandleon::package_format
+        grandleon::package_runtime
+        grandleon::sheet
+        grandleon::simulation
+        grandleon::view
+)
+target_compile_features(grandleon_client_local_coop_tests PRIVATE cxx_std_17)
+add_test(
+    NAME grandleon.client_local_coop
+    COMMAND grandleon_client_local_coop_tests
+)
+
 # When a character's turn ends itself, and the boards where it must not.
 add_executable(grandleon_client_spent_turn_tests
     client/spent_turn_test.cpp

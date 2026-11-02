@@ -257,6 +257,10 @@ void show(surface_t* disp) {
 // build substitutes the next scripted event (defined after the presenter,
 // whose cursor it steers).
 [[nodiscard]] joypad_buttons_t poll_buttons();
+// The local player whose edge `poll_buttons()` returned. Scripted and probe
+// builds always leave this at zero; the played build updates it when either of
+// the first two physical controller ports produces an edge.
+std::uint8_t polled_local_player = 0;
 #endif
 
 // The terrain vocabulary the renderer draws, generated with the art
@@ -1265,6 +1269,19 @@ using PresenterBase = client::Presenter;
 
 class N64Presenter final : public PresenterBase {
 public:
+#ifndef GRANDLEON_N64_PROBE
+    struct LocalPlayerState final {
+        std::int16_t cursor_x{0};
+        std::int16_t cursor_y{0};
+        sim::UnitId selected{0};
+        bool threat_view{false};
+        Aim aim{Aim::none};
+        sim::ContentId aim_weapon{0};
+        sim::ContentId aim_ability{0};
+        char aim_text[32]{};
+        sim::UnitId reopen_menu{0};
+    };
+#endif
     // The package's presentation section is what says which archetype and
     // which faction colour each unit type wears, which season its ground is
     // drawn in, and which terrain kind each of its cells draws as, so the
@@ -1732,6 +1749,9 @@ public:
         finishing_ = false;
         drain_last_ = 0;
         reopen_menu_ = 0;
+#ifndef GRANDLEON_N64_PROBE
+        reset_local_players(snapshot);
+#endif
         // Fit the board to a 320x240 frame, leaving room for the status line.
         // A board that fits at a readable size renders whole. A larger board
         // keeps a readable tile and scrolls instead: the camera follows the
@@ -1895,6 +1915,11 @@ public:
         }
 #endif
 #ifndef GRANDLEON_N64_PROBE
+        for (std::uint8_t player = 0;
+             player < participating_local_players_; ++player) {
+            if (player == active_local_player_) continue;
+            sanitise_local_player(local_players_[player], snapshot);
+        }
         // A character who is no longer standing on the board is not the
         // player's to hold, whether they fell or were talked away, and neither
         // is one the engine has finished with: its turn closed behind whatever
@@ -2885,6 +2910,9 @@ public:
         while (true) {
             grandleon::n64audio::pump();
             const joypad_buttons_t pressed = poll_buttons();
+            if (polled_local_player < 2) {
+                activate_local_player(snapshot, polled_local_player);
+            }
             bool moved = false;
             if (pressed.d_up && cursor_y_ > 0) { --cursor_y_; moved = true; }
             if (pressed.d_down && cursor_y_ + 1 < snapshot.height) {
@@ -7375,14 +7403,19 @@ private:
 
     // One cell's worth of cursor: the rectangle, and nothing that breathes.
     // Factored out because a splash draws several of them.
-    void draw_cursor_ring(surface_t* disp, std::int16_t tx, std::int16_t ty) {
+    void draw_cursor_ring(
+        surface_t* disp, std::int16_t tx, std::int16_t ty, std::uint32_t c
+    ) {
         const int x = px(tx);
         const int y = py(tx, ty);
-        const std::uint32_t c = cursor_colour();
         graphics_draw_box(disp, x, y, tile_ - 1, 1, c);
         graphics_draw_box(disp, x, y + tile_ - 2, tile_ - 1, 1, c);
         graphics_draw_box(disp, x, y, 1, tile_ - 1, c);
         graphics_draw_box(disp, x + tile_ - 2, y, 1, tile_ - 1, c);
+    }
+
+    void draw_cursor_ring(surface_t* disp, std::int16_t tx, std::int16_t ty) {
+        draw_cursor_ring(disp, tx, ty, cursor_colour());
     }
 
     void draw_cursor(surface_t* disp, const sim::EncounterSnapshot& snapshot) {
@@ -7415,6 +7448,18 @@ private:
         // there is never a splash to draw. The snapshot is still taken, because
         // one signature is easier to keep true than two.
         (void)snapshot;
+#endif
+#ifndef GRANDLEON_N64_PROBE
+        if (participating_local_players_ > 1) {
+            const LocalPlayerState& other =
+                local_players_[active_local_player_ == 0 ? 1 : 0];
+            if (camera_.visible(other.cursor_x, other.cursor_y)) {
+                draw_cursor_ring(
+                    disp, other.cursor_x, other.cursor_y,
+                    colour(75, 218, 255)
+                );
+            }
+        }
 #endif
         draw_cursor_ring(disp, cursor_x_, cursor_y_);
 #ifndef GRANDLEON_N64_PROBE
@@ -7820,6 +7865,88 @@ private:
         }
     }
 
+    void reset_local_players(const sim::EncounterSnapshot& snapshot) {
+        local_players_[0] = {};
+        local_players_[0].cursor_x = cursor_x_;
+        local_players_[0].cursor_y = cursor_y_;
+        local_players_[1] = local_players_[0];
+        bool found_one = false;
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (!sim::on_board(unit) || unit.side != player_side_) continue;
+            if (!found_one) {
+                found_one = true;
+                local_players_[1].cursor_x = unit.position.x;
+                local_players_[1].cursor_y = unit.position.y;
+                continue;
+            }
+            // Prefer a different allied character when the board has one, so
+            // both people begin somewhere useful rather than stacked together.
+            local_players_[1].cursor_x = unit.position.x;
+            local_players_[1].cursor_y = unit.position.y;
+            break;
+        }
+        active_local_player_ = 0;
+        participating_local_players_ = 1;
+    }
+
+    void save_local_player() {
+        LocalPlayerState& state = local_players_[active_local_player_];
+        state.cursor_x = cursor_x_;
+        state.cursor_y = cursor_y_;
+        state.selected = selected_;
+        state.threat_view = threat_view_;
+        state.aim = aim_;
+        state.aim_weapon = aim_weapon_;
+        state.aim_ability = aim_ability_;
+        std::snprintf(state.aim_text, sizeof state.aim_text, "%s", aim_text_);
+        state.reopen_menu = reopen_menu_;
+    }
+
+    void sanitise_local_player(
+        LocalPlayerState& state, const sim::EncounterSnapshot& snapshot
+    ) {
+        if (state.selected == 0) return;
+        const sim::UnitSnapshot* still = nullptr;
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (unit.id == state.selected) still = &unit;
+        }
+        if (still != nullptr && sim::on_board(*still) && !still->has_acted &&
+            still->side == snapshot.active_side) {
+            return;
+        }
+        state.selected = 0;
+        state.aim = Aim::none;
+        state.aim_weapon = 0;
+        state.aim_ability = 0;
+        state.aim_text[0] = '\0';
+        state.reopen_menu = 0;
+    }
+
+    void activate_local_player(
+        const sim::EncounterSnapshot& snapshot, std::uint8_t player
+    ) {
+        if (player > 1) player = 0;
+        if (player + 1U > participating_local_players_) {
+            participating_local_players_ =
+                static_cast<std::uint8_t>(player + 1U);
+        }
+        if (player == active_local_player_) return;
+        save_local_player();
+        LocalPlayerState& state = local_players_[player];
+        sanitise_local_player(state, snapshot);
+        active_local_player_ = player;
+        cursor_x_ = state.cursor_x;
+        cursor_y_ = state.cursor_y;
+        selected_ = state.selected;
+        threat_view_ = state.threat_view;
+        aim_ = state.aim;
+        aim_weapon_ = state.aim_weapon;
+        aim_ability_ = state.aim_ability;
+        std::snprintf(aim_text_, sizeof aim_text_, "%s", state.aim_text);
+        reopen_menu_ = state.reopen_menu;
+        camera_.follow(cursor_x_, cursor_y_, 2);
+    }
+
     // Opens `id`'s action menu, if `id` is still somebody the player may
     // command. Returns the intent the menu produced, or kind none when the
     // player backed out of it or when the character is no longer there.
@@ -7907,6 +8034,9 @@ private:
         while (true) {
             grandleon::n64audio::pump();
             const joypad_buttons_t pressed = poll_buttons();
+            if (polled_local_player < 2) {
+                activate_local_player(snapshot, polled_local_player);
+            }
             bool moved = false;
             if (aim_ != Aim::none &&
                 client::gesture_names_a_character(aimed_gesture().kind)) {
@@ -8141,6 +8271,11 @@ private:
     std::int16_t cursor_x_{0};
     std::int16_t cursor_y_{0};
     sim::UnitId selected_{0};
+#ifndef GRANDLEON_N64_PROBE
+    LocalPlayerState local_players_[2]{};
+    std::uint8_t active_local_player_{0};
+    std::uint8_t participating_local_players_{1};
+#endif
     // Whether the player has asked to see everything the opposing side
     // threatens, rather than only the part of it the selected character could
     // walk into. Off unless R has been pressed, because the default view is
@@ -8359,33 +8494,67 @@ void probe_the_spent_figure(
 // it: a probe and an autopilot have their own `poll_buttons` above, so a
 // recorded script cannot meet a repeat and every expectation derived from one
 // stays exactly what it was.
+[[nodiscard]] bool any_play_button(const joypad_buttons_t& value) {
+    return value.d_up || value.d_down || value.d_left || value.d_right ||
+           value.a || value.b || value.z || value.start || value.r;
+}
+
+void merge_play_buttons(
+    joypad_buttons_t& into, const joypad_buttons_t& from
+) {
+    into.d_up = into.d_up || from.d_up;
+    into.d_down = into.d_down || from.d_down;
+    into.d_left = into.d_left || from.d_left;
+    into.d_right = into.d_right || from.d_right;
+    into.a = into.a || from.a;
+    into.b = into.b || from.b;
+    into.z = into.z || from.z;
+    into.start = into.start || from.start;
+    into.r = into.r || from.r;
+}
+
 joypad_buttons_t poll_buttons() {
     joypad_poll();
-    joypad_buttons_t edges = joypad_get_buttons_pressed(JOYPAD_PORT_1);
-    const joypad_buttons_t held = joypad_get_buttons(JOYPAD_PORT_1);
-    const unsigned leaning =
-        (held.d_up ? 1U : 0U) | (held.d_down ? 2U : 0U) |
-        (held.d_left ? 4U : 0U) | (held.d_right ? 8U : 0U);
-    // Static, because a hold is a fact about the thumb rather than about
-    // whichever loop happens to be asking: the cursor, the company rows and the
-    // board menu all poll through here and a lean carries across them.
-    static unsigned leaned_on = 0;
-    static int leaned_frames = 0;
-    const bool stepped =
-        edges.d_up || edges.d_down || edges.d_left || edges.d_right;
-    if (leaning != leaned_on || stepped) {
-        leaned_on = leaning;
-        leaned_frames = 0;
-    } else if (leaning != 0) {
-        ++leaned_frames;
-        if (view::repeat_due(leaned_frames)) {
-            edges.d_up = held.d_up;
-            edges.d_down = held.d_down;
-            edges.d_left = held.d_left;
-            edges.d_right = held.d_right;
+    static joypad_buttons_t pending[2]{};
+    static unsigned leaned_on[2]{};
+    static int leaned_frames[2]{};
+    static unsigned priority = 0;
+    constexpr joypad_port_t ports[2] = {JOYPAD_PORT_1, JOYPAD_PORT_2};
+
+    for (unsigned player = 0; player < 2; ++player) {
+        joypad_buttons_t edges = joypad_get_buttons_pressed(ports[player]);
+        const joypad_buttons_t held = joypad_get_buttons(ports[player]);
+        const unsigned leaning =
+            (held.d_up ? 1U : 0U) | (held.d_down ? 2U : 0U) |
+            (held.d_left ? 4U : 0U) | (held.d_right ? 8U : 0U);
+        const bool stepped =
+            edges.d_up || edges.d_down || edges.d_left || edges.d_right;
+        if (leaning != leaned_on[player] || stepped) {
+            leaned_on[player] = leaning;
+            leaned_frames[player] = 0;
+        } else if (leaning != 0) {
+            ++leaned_frames[player];
+            if (view::repeat_due(leaned_frames[player])) {
+                edges.d_up = held.d_up;
+                edges.d_down = held.d_down;
+                edges.d_left = held.d_left;
+                edges.d_right = held.d_right;
+            }
         }
+        merge_play_buttons(pending[player], edges);
     }
-    return edges;
+
+    unsigned ready = priority;
+    if (!any_play_button(pending[ready])) ready = 1U - ready;
+    if (!any_play_button(pending[ready])) {
+        polled_local_player = 0xFFU;
+        return {};
+    }
+    joypad_buttons_t result = pending[ready];
+    pending[ready] = {};
+    polled_local_player = static_cast<std::uint8_t>(ready);
+    priority = 1U - ready;
+    return result;
 }
 
 #elif defined(GRANDLEON_N64_AUTOPILOT)

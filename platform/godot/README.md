@@ -164,7 +164,10 @@ portable answer. The board keeps one animation track per unit, so two accepted
 moves received in the same rendered frame animate together.
 
 This is not a second real-time simulation. It is concurrent local control of a
-team phase, preserving replays and package compatibility on every target.
+team phase, preserving replays and package compatibility on every target. The
+Nintendo 64 and PlayStation clients consume the same co-op maps and now keep an
+independent cursor and selection for each of their first two controller ports;
+only the richer overlapping presentation differs on PC.
 
 ## Optional local models
 
@@ -193,6 +196,12 @@ The model returns one index, the native session validates the selected command
 again, and a timeout, malformed response, out-of-range choice, or refused
 proposal uses candidate zero. The model never supplies arbitrary simulation
 state or bypasses `Encounter::apply`.
+
+This adapter is the only part of the campaign gated to PC. It is local
+configuration, is never written into project data or an export, and is absent
+from both console builds. Authored conversation, objectives, `sideBlocks`
+co-op, and the built-in tactics policy remain the same portable game when the
+adapter is absent.
 
 ## Replaceable graphics
 

@@ -178,6 +178,18 @@ inline constexpr std::uint16_t pad_start = 1U << 7;
 // script and never sends it, because a player cannot run out of thumbs.
 inline constexpr std::uint16_t pad_end_of_script = 1U << 15;
 
+// One edge-triggered pad sample, with the local player who produced it.
+//
+// A battle still commits one deterministic intent at a time. The player field
+// does not enter the simulation and is not part of a replay; it only lets the
+// front end preserve two independent cursors while either person is preparing
+// the next allied command. Platforms with one controller keep implementing
+// `next_press()` and get player zero through the default adapter below.
+struct ControllerPress final {
+    std::uint8_t player{0};
+    std::uint16_t buttons{0};
+};
+
 // ---------------------------------------------------------------------------
 // The report
 //
@@ -319,6 +331,17 @@ struct Overlay final {
     std::int16_t cursor_x{0};
     std::int16_t cursor_y{0};
     sim::UnitId selected{0};
+    // A second local player's cursor. It appears after that controller first
+    // participates in this battle and then remains independently movable while
+    // the other player selects, aims, or opens a menu. The active cursor above
+    // owns the detailed overlays; this one is deliberately only position and
+    // selection, which keeps two people visible without claiming two commands
+    // are being applied to the deterministic simulation at once.
+    bool second_cursor{false};
+    std::int16_t second_cursor_x{0};
+    std::int16_t second_cursor_y{0};
+    sim::UnitId second_selected{0};
+    std::uint8_t active_player{0};
     // The engine's answers, recomputed only when the selection or the pick
     // changes because `danger_tiles` is the most expensive query this client
     // makes.
@@ -673,6 +696,16 @@ public:
 
     // Blocks until a button goes down, and returns every button that did.
     virtual std::uint16_t next_press() = 0;
+
+    // The board asks this instead of `next_press()`. A two-controller platform
+    // overrides it and reports which controller moved; every existing one-pad
+    // platform and every scripted host test inherits the adapter unchanged.
+    // Campaign pages continue to accept either controller through the
+    // platform's `next_press()` implementation because they have one caret,
+    // not two board cursors.
+    virtual ControllerPress next_controller_press() {
+        return ControllerPress{0, next_press()};
+    }
 
     // Called once per settled checkpoint, before and after the facts, so a
     // platform that can photograph itself has somewhere to hold still. The
@@ -1041,6 +1074,42 @@ protected:
     void expect(bool condition, const char* name);
 
 private:
+    // The part of board interaction that belongs to one local person. Query
+    // vectors and menu rows are rebuilt on activation from the engine's current
+    // snapshot; keeping them once rather than twice matters on the consoles.
+    // The compact state below is enough to put a player back exactly where
+    // they were, including an open menu or an aimed gesture.
+    struct LocalPlayerState final {
+        std::int16_t cursor_x{0};
+        std::int16_t cursor_y{0};
+        sim::UnitId selected{0};
+        int menu_row{0};
+        bool menu_open{false};
+        bool board_menu_open{false};
+        bool sheet_open{false};
+        grandleon::sheet::UnitSheet sheet{};
+        Aim aim{Aim::none};
+        sim::ContentId aim_weapon{0};
+        sim::ContentId aim_ability{0};
+        char aim_text[40]{};
+        char message[48]{};
+        sim::UnitId reopen_menu{0};
+        sim::UnitId last_hovered{0};
+        sim::UnitId last_selected{0};
+        bool last_menu_open{false};
+        int last_menu_row{0};
+        bool last_sheet_open{false};
+        Aim last_aim{Aim::none};
+    };
+
+    void save_local_player() noexcept;
+    void activate_local_player(
+        const sim::EncounterSnapshot& snapshot, std::uint8_t player
+    );
+    void sanitise_local_player(
+        LocalPlayerState& state, const sim::EncounterSnapshot& snapshot
+    ) noexcept;
+    void reset_local_players(const sim::EncounterSnapshot& snapshot) noexcept;
     void settle(const sim::EncounterSnapshot& snapshot);
     void checkpoint(const sim::EncounterSnapshot& snapshot, Reason reason);
     void refresh_queries(const sim::EncounterSnapshot& snapshot);
@@ -1363,6 +1432,11 @@ private:
     // about to be asked about again, and being handed a bare board instead is
     // the half of the cartridge report this answers.
     sim::UnitId reopen_menu_{0};
+
+    static constexpr std::uint8_t local_player_capacity = 2;
+    LocalPlayerState local_players_[local_player_capacity]{};
+    std::uint8_t active_local_player_{0};
+    std::uint8_t participating_local_players_{1};
 
     // The package this platform is holding, or null. It is the first place
     // every name on screen is looked up: a class, a weapon, a spell, a draught.

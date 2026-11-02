@@ -352,12 +352,21 @@ channel, not a pass.
 | `pad_a` | **cross** | confirm: pick up, put down, take a menu row, aim a strike |
 | `pad_b` | **circle** | back out: drop a selection, close the menu, abandon an aim |
 | `pad_c` | **triangle** | open the unit action menu |
-| `pad_start` | **start** | open the battle from arranging, end an activation |
+| `pad_start` | **start** | open the battle from arranging, then open its menu |
 
 Cross confirms and circle cancels (the Western convention). Square, select and
 the shoulders are read and deliberately dropped. The names are the client's
 (`grandleon/client/turn_client.hpp`); each console maps its own buttons onto
 the same three, so a controller script means the same thing on every console.
+
+Both physical controller sockets are polled each frame through SIO0. Each
+controller owns an independent board cursor, selection, aim, and menu position;
+the parked cursor is cyan and remains visible while the active cursor pulses in
+white. Simultaneous edges are retained and served in alternating priority, so a
+press on one port cannot make a press on the other disappear. Commands remain
+serialized only where they enter the deterministic simulation. A co-op map is
+ordinary portable content and should use `sideBlocks` when both allied
+characters are meant to act before the computer-controlled side.
 
 ### Screen
 

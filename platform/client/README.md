@@ -26,6 +26,28 @@ set of key bindings, and a second player in co-operative play is another source
 of them again. "Which seat controls which units" is a question this seam is
 where to answer.
 
+### Concurrent local co-op
+
+The shared console board client accepts two `ControllerPress` sources. Each
+local player keeps an independent cursor, selection, aimed gesture, and menu
+position; changing which controller produced the latest edge does not erase the
+other player's preparation. Both can command the friendly team. A `sideBlocks`
+encounter is the authored rule intended for this mode, because the allied side
+may activate its characters in any order before control passes to the opposing
+side.
+
+Completed commands still cross the presenter seam one at a time. That is the
+deterministic boundary, not a turn assigned to one local player: both
+controllers are sampled every frame, simultaneous edges are retained, and the
+next completed legal intent is applied first. Conflicting destinations or a
+unit another player has already finished are refused by the same simulation
+rules on PC, Nintendo 64, and PlayStation.
+
+The project data has no PC-only co-op map type. Maps, `sideBlocks`, placements,
+deployment, objectives, and dialogue remain ordinary portable content. Only
+the optional local-model adapter is a PC capability; taking it away changes no
+campaign path or deterministic enemy fallback.
+
 `Intent` carries only choices, never consequences. An `ability` intent names a
 target tile; which tiles the area covers is the engine's business. An `attack`
 intent may name a carried weapon; zero means the weapon in hand, so a front end
@@ -280,9 +302,10 @@ ability to scroll the board at any other moment. It is deliberately not
 interruptible: a press read inside it and then not acted on would desync every
 recorded pad script in this repository.
 
-A machine supplies `paint` and `next_press`, plus `paint_screen` in a campaign
-build, and then four animation hooks, a checkpoint hold and an after-screen
-hook, all with do-nothing defaults. The
+A machine supplies `paint` and `next_press`, and may override
+`next_controller_press` to identify either local controller. Campaign builds
+also supply `paint_screen`; four animation hooks, a checkpoint hold and an
+after-screen hook have do-nothing defaults. The
 three that are required are required because a client that defaulted them would
 be a client that could pass without drawing anything. That last
 part is the verification argument: a host tool that implements `paint` as an

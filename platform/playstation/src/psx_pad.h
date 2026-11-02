@@ -50,6 +50,11 @@
 
 namespace grandleon::playstation::pad {
 
+// The two physical controller sockets. Their numeric values are array indexes,
+// not SIO register bits; the driver translates the second one to JOY_CTRL's
+// port-select bit.
+enum class Port : std::uint8_t { one = 0, two = 1 };
+
 // Prepares the port. Cheap, and idempotent; `read()` reconfigures the port on
 // every poll anyway, because a transfer that assumed the port was still as it
 // left it would be a transfer that broke the first time anything else touched
@@ -61,7 +66,7 @@ void begin() noexcept;
 // answer. All three are "no press" to a client, and are told apart by
 // `answered()` and `identifier()` in the report rather than in the state
 // machine.
-[[nodiscard]] std::uint16_t read() noexcept;
+[[nodiscard]] std::uint16_t read(Port port = Port::one) noexcept;
 
 // Every button that went down since the last call to this function. Edge
 // triggered, so one press is one step and a script's meaning never depends on
@@ -71,7 +76,7 @@ void begin() noexcept;
 // poll loop in `turn_exe.cpp` counts frames against `read()` and decides,
 // because the repeat must not reach a client that is being handed a recorded
 // list of presses. See `view::repeat_due`.
-[[nodiscard]] std::uint16_t pressed() noexcept;
+[[nodiscard]] std::uint16_t pressed(Port port = Port::one) noexcept;
 
 // ---------------------------------------------------------------------------
 // What the polling cost, measured here rather than quoted from anywhere. All
@@ -86,10 +91,12 @@ void begin() noexcept;
 
 // How many polls got the device identifier a digital pad answers with.
 [[nodiscard]] std::uint32_t answers() noexcept;
+[[nodiscard]] std::uint32_t answers(Port port) noexcept;
 
 // The last identifier byte seen, whatever it was, so a port that answered
 // something else is reported rather than silently treated as empty.
 [[nodiscard]] std::uint8_t identifier() noexcept;
+[[nodiscard]] std::uint8_t identifier(Port port) noexcept;
 
 // How many acknowledgement waits were made and how many of them saw the level.
 // Under PCSX-Redux this came out at 0 of 4 per poll; a machine that differs

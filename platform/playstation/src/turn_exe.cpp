@@ -207,6 +207,7 @@ constexpr std::uint16_t backdrop = 0x7C1F;
 constexpr std::uint16_t ink_colour = 0x7FFF;      // white
 constexpr std::uint16_t paper_colour = 0x0842;    // near-black, and opaque
 constexpr std::uint16_t cursor_colour = 0x7FFF;   // white
+constexpr std::uint16_t second_cursor_colour = 0x7FE0;  // cyan
 constexpr std::uint16_t move_colour = 0x7E86;     // cold blue
 // Where the pick in the player's hand can land, once a row has been taken out
 // of the menu. Amber because it is the one hue neither the blue above nor the
@@ -809,18 +810,33 @@ public:
     // Nothing is switched off to get it, so a player waiting here sees the
     // pulse, and so does the script.
     std::uint16_t next_press() override {
+        return next_controller_press().buttons;
+    }
+
+    turn::ControllerPress next_controller_press() override {
         std::uint32_t frame = 0;
         bool emphasised = false;
         // Which direction is being leaned on, and for how many frames. Held
         // across calls would be wrong: every call starts a fresh question, and
         // a thumb still resting on a direction from the last answer should have
         // to hold it again rather than run away with the next screen.
-        std::uint16_t leaning = 0;
-        int leaned_frames = 0;
+        std::uint16_t leaning[2]{};
+        int leaned_frames[2]{};
+        constexpr pad::Port ports[2] = {pad::Port::one, pad::Port::two};
         for (;;) {
             psx::wait_vblank();
-            const std::uint16_t live = pad::pressed();
-            if (live != 0) {
+            for (std::uint8_t player = 0; player < 2; ++player) {
+                pending_buttons_[player] = static_cast<std::uint16_t>(
+                    pending_buttons_[player] | pad::pressed(ports[player])
+                );
+            }
+            int ready = -1;
+            if (pending_buttons_[pad_priority_] != 0) {
+                ready = pad_priority_;
+            } else if (pending_buttons_[1U - pad_priority_] != 0) {
+                ready = 1U - pad_priority_;
+            }
+            if (ready >= 0) {
 #ifdef GRANDLEON_PSX_AUTOPILOT
                 // Somebody has picked up a controller during a scripted run.
                 // From here the script is over and the board is theirs; a run
@@ -829,16 +845,21 @@ public:
                 steered_ = true;
 #endif
                 if (emphasised) draw_held(false);
-                return live;
+                const std::uint16_t buttons = pending_buttons_[ready];
+                pending_buttons_[ready] = 0;
+                pad_priority_ = static_cast<std::uint8_t>(1 - ready);
+                return {
+                    static_cast<std::uint8_t>(ready), buttons
+                };
             }
 #ifdef GRANDLEON_PSX_AUTOPILOT
             if (!steered_ &&
                 frame >= static_cast<std::uint32_t>(script_dwell_frames)) {
                 if (emphasised) draw_held(false);
                 if (consumed_ >= script_press_count) {
-                    return turn::pad_end_of_script;
+                    return {0, turn::pad_end_of_script};
                 }
-                return script_presses[consumed_++];
+                return {0, script_presses[consumed_++]};
             }
 #endif
             // A direction still held keeps the cursor moving, so crossing a
@@ -849,19 +870,22 @@ public:
             // Counted here rather than in the client because the client is
             // handed a list of presses by a script under the harness, and a
             // repeat that reached it would change what that list means.
-            const std::uint16_t held = static_cast<std::uint16_t>(
-                pad::read() &
-                (turn::pad_up | turn::pad_down | turn::pad_left |
-                 turn::pad_right)
-            );
-            if (held != leaning) {
-                leaning = held;
-                leaned_frames = 0;
-            } else if (held != 0) {
-                ++leaned_frames;
-                if (view::repeat_due(leaned_frames)) {
-                    if (emphasised) draw_held(false);
-                    return held;
+            for (std::uint8_t player = 0; player < 2; ++player) {
+                const std::uint16_t held = static_cast<std::uint16_t>(
+                    pad::read(ports[player]) &
+                    (turn::pad_up | turn::pad_down | turn::pad_left |
+                     turn::pad_right)
+                );
+                if (held != leaning[player]) {
+                    leaning[player] = held;
+                    leaned_frames[player] = 0;
+                } else if (held != 0) {
+                    ++leaned_frames[player];
+                    if (view::repeat_due(leaned_frames[player])) {
+                        pending_buttons_[player] = static_cast<std::uint16_t>(
+                            pending_buttons_[player] | held
+                        );
+                    }
                 }
             }
 
@@ -1536,24 +1560,42 @@ private:
     // pulse moves them inward by `view::cursor_emphasis_inset`, which is
     // deliberately short of the centre so the pulse can never change what a
     // centre-sampling probe reads.
-    void draw_cursor(const turn::Overlay& overlay, bool emphasised) {
-        if (!camera().visible(overlay.cursor_x, overlay.cursor_y)) return;
+    void draw_cursor_at(
+        std::int16_t cell_x, std::int16_t cell_y, std::uint16_t colour,
+        bool emphasised
+    ) {
+        if (!camera().visible(cell_x, cell_y)) return;
         const int drawn = drawn_tile();
         const int arm = bracket_arm_for(drawn);
         const int inset = emphasised ? view::cursor_emphasis_inset(drawn) : 0;
-        const int left = cell_left(overlay.cursor_x) + inset;
-        const int top = cell_top(overlay.cursor_x, overlay.cursor_y) + inset;
+        const int left = cell_left(cell_x) + inset;
+        const int top = cell_top(cell_x, cell_y) + inset;
         const int span = drawn - 2 * inset;
         for (int corner = 0; corner < 4; ++corner) {
             const bool right = (corner & 1) != 0;
             const bool bottom = (corner & 2) != 0;
             const int x = right ? left + span - arm : left;
             const int y = bottom ? top + span - bracket_thickness : top;
-            gpu::fill(x, y, arm, bracket_thickness, cursor_colour);
+            gpu::fill(x, y, arm, bracket_thickness, colour);
             const int vx = right ? left + span - bracket_thickness : left;
             const int vy = bottom ? top + span - arm : top;
-            gpu::fill(vx, vy, bracket_thickness, arm, cursor_colour);
+            gpu::fill(vx, vy, bracket_thickness, arm, colour);
         }
+    }
+
+    void draw_cursor(const turn::Overlay& overlay, bool emphasised) {
+        // The parked player's cyan brackets remain on the board while the
+        // active player's white brackets pulse. Drawn first so two cursors on
+        // one tile still identify whose input is active.
+        if (overlay.second_cursor) {
+            draw_cursor_at(
+                overlay.second_cursor_x, overlay.second_cursor_y,
+                second_cursor_colour, false
+            );
+        }
+        draw_cursor_at(
+            overlay.cursor_x, overlay.cursor_y, cursor_colour, emphasised
+        );
     }
 
     void draw_bar(
@@ -2080,6 +2122,8 @@ private:
 
     std::size_t consumed_ = 0;
     bool steered_ = false;
+    std::uint16_t pending_buttons_[2]{};
+    std::uint8_t pad_priority_{0};
 
     sim::UnitId moving_ = 0;
     int move_px_ = 0;
@@ -2173,7 +2217,7 @@ int main() {
             }
         }
         const std::uint16_t interface_colours[] = {
-            ink_colour, paper_colour, cursor_colour,
+            ink_colour, paper_colour, cursor_colour, second_cursor_colour,
             move_colour, aim_colour, danger_colour, flash_colour
         };
         for (std::uint16_t colour : interface_colours) {

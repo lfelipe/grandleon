@@ -75,6 +75,14 @@ Not stages of one port; each answers a different question.
 | **The Nintendo 64** | the deepest console port (full campaign, title screen, cutscenes, controller, overlays, forecasts, abilities), and the only target that parses authored JSON *on the console* rather than consuming a package compiled on the host. |
 | **The PlayStation** | the widest architectural spread from the host: 32-bit little-endian MIPS-I, no `clz`, no `movn`, no 64-bit load. It plays both shipped campaigns end to end from a controller over bit-banged SIO0 and keeps them on a memory card. |
 
+Local co-op does not fork this chain. A `sideBlocks` encounter, its placements,
+deployment, objectives, and dialogue compile once and are consumed unchanged by
+PC, Nintendo 64, and PlayStation. The played console clients poll two controller
+ports and retain two cursor/selection contexts while completed intents enter the
+shared simulation deterministically. Optional local-model requests sit above
+this chain in the PC client and are the only co-op-adjacent capability omitted
+from console builds.
+
 The PlayStation cannot compile the content path at all, for want of a linkable
 unwinder, so the Nintendo 64's is the repository's only target-side test of the
 JSON parser.

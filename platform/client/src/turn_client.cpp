@@ -596,6 +596,7 @@ void TurnClient::battle_begins(
             break;
         }
     }
+    reset_local_players(snapshot);
     camera_.follow(cursor_x_, cursor_y_, 1);
 
     // A board too wide for the window is shown across before it is played on.
@@ -636,6 +637,150 @@ void TurnClient::battle_begins(
     sink_.line(line.c_str());
 }
 
+void TurnClient::reset_local_players(
+    const sim::EncounterSnapshot& snapshot
+) noexcept {
+    LocalPlayerState first{};
+    LocalPlayerState second{};
+    bool found_first = false;
+    bool found_second = false;
+    for (const sim::UnitSnapshot& unit : snapshot.units) {
+        if (!sim::on_board(unit) || unit.side != player_side_) continue;
+        if (!found_first) {
+            first.cursor_x = unit.position.x;
+            first.cursor_y = unit.position.y;
+            found_first = true;
+            continue;
+        }
+        second.cursor_x = unit.position.x;
+        second.cursor_y = unit.position.y;
+        found_second = true;
+        break;
+    }
+    if (!found_first) {
+        first.cursor_x = 0;
+        first.cursor_y = 0;
+    }
+    if (!found_second) {
+        second.cursor_x = first.cursor_x;
+        second.cursor_y = first.cursor_y;
+    }
+    local_players_[0] = first;
+    local_players_[1] = second;
+    active_local_player_ = 0;
+    participating_local_players_ = 1;
+    cursor_x_ = first.cursor_x;
+    cursor_y_ = first.cursor_y;
+}
+
+void TurnClient::save_local_player() noexcept {
+    LocalPlayerState& state = local_players_[active_local_player_];
+    state.cursor_x = cursor_x_;
+    state.cursor_y = cursor_y_;
+    state.selected = selected_;
+    state.menu_row = menu_row_;
+    state.menu_open = menu_open_;
+    state.board_menu_open = board_menu_open_;
+    state.sheet_open = sheet_open_;
+    state.sheet = sheet_;
+    state.aim = aim_;
+    state.aim_weapon = aim_weapon_;
+    state.aim_ability = aim_ability_;
+    copy_line(state.aim_text, sizeof state.aim_text, aim_text_);
+    copy_line(state.message, sizeof state.message, message_);
+    state.reopen_menu = reopen_menu_;
+    state.last_hovered = last_hovered_;
+    state.last_selected = last_selected_;
+    state.last_menu_open = last_menu_open_;
+    state.last_menu_row = last_menu_row_;
+    state.last_sheet_open = last_sheet_open_;
+    state.last_aim = last_aim_;
+}
+
+void TurnClient::sanitise_local_player(
+    LocalPlayerState& state, const sim::EncounterSnapshot& snapshot
+) noexcept {
+    if (state.selected == 0) return;
+    const sim::UnitSnapshot* still = unit_by_id(snapshot, state.selected);
+    if (still != nullptr && sim::on_board(*still) && !still->has_acted &&
+        still->side == snapshot.active_side) {
+        return;
+    }
+    state.selected = 0;
+    state.reopen_menu = 0;
+    state.aim = Aim::none;
+    state.aim_weapon = 0;
+    state.aim_ability = 0;
+    state.aim_text[0] = '\0';
+    if (!state.board_menu_open) {
+        state.menu_open = false;
+        state.sheet_open = false;
+    }
+}
+
+void TurnClient::activate_local_player(
+    const sim::EncounterSnapshot& snapshot, std::uint8_t player
+) {
+    if (player >= local_player_capacity) player = 0;
+    if (player + 1U > participating_local_players_) {
+        participating_local_players_ = static_cast<std::uint8_t>(player + 1U);
+    }
+    if (player == active_local_player_) return;
+
+    save_local_player();
+    LocalPlayerState& state = local_players_[player];
+    sanitise_local_player(state, snapshot);
+    active_local_player_ = player;
+
+    cursor_x_ = state.cursor_x;
+    cursor_y_ = state.cursor_y;
+    selected_ = state.selected;
+    sheet_ = state.sheet;
+    aim_ = state.aim;
+    aim_weapon_ = state.aim_weapon;
+    aim_ability_ = state.aim_ability;
+    copy_line(aim_text_, sizeof aim_text_, state.aim_text);
+    copy_line(message_, sizeof message_, state.message);
+    reopen_menu_ = state.reopen_menu;
+    last_hovered_ = state.last_hovered;
+    last_selected_ = state.last_selected;
+    last_menu_open_ = state.last_menu_open;
+    last_menu_row_ = state.last_menu_row;
+    last_sheet_open_ = state.last_sheet_open;
+    last_aim_ = state.last_aim;
+
+    const bool wanted_menu = state.menu_open;
+    const bool wanted_board_menu = state.board_menu_open;
+    const bool wanted_sheet = state.sheet_open;
+    const int wanted_row = state.menu_row;
+    menu_open_ = false;
+    board_menu_open_ = false;
+    menu_rows_ = 0;
+    menu_row_ = 0;
+    sheet_open_ = false;
+    if (wanted_menu && wanted_board_menu) {
+        open_board_menu();
+    } else if (wanted_menu && selected_ != 0) {
+        const sim::UnitSnapshot* actor = unit_by_id(snapshot, selected_);
+        if (actor != nullptr) open_menu(snapshot, *actor);
+    }
+    if (menu_open_ && menu_rows_ > 0) {
+        menu_row_ = wanted_row < 0
+            ? 0
+            : (wanted_row < menu_rows_ ? wanted_row : menu_rows_ - 1);
+        sheet_open_ = wanted_sheet;
+    }
+
+    release(moves_);
+    release(danger_);
+    release(splash_);
+    queried_for_ = 0;
+    queried_at_ = ~std::uint64_t{0};
+    queried_aim_ = Aim::none;
+    queried_identity_ = 0;
+    camera_.follow(cursor_x_, cursor_y_, 1);
+}
+
 void TurnClient::battle_definitions(
     const std::vector<sim::WeaponDefinition>& weapons,
     const std::vector<sim::AbilityDefinition>& abilities,
@@ -655,6 +800,11 @@ void TurnClient::draw(
     const sim::EncounterSnapshot& snapshot, const client::Roster& roster
 ) {
     static_cast<void>(roster);
+    for (std::uint8_t player = 0; player < participating_local_players_;
+         ++player) {
+        if (player == active_local_player_) continue;
+        sanitise_local_player(local_players_[player], snapshot);
+    }
     // A character who left the board may have been the selection, and a
     // selection the engine no longer recognises would light a stale range.
     // Whether they fell or were talked away makes no difference, since neither
@@ -1227,7 +1377,9 @@ client::Intent TurnClient::next_intent(
     }
     while (pending_.kind == client::IntentKind::none) {
         settle(snapshot);
-        press(snapshot, next_press());
+        const ControllerPress input = next_controller_press();
+        activate_local_player(snapshot, input.player);
+        press(snapshot, input.buttons);
     }
     return pending_;
 }
@@ -1261,7 +1413,9 @@ client::Intent TurnClient::next_deployment_intent(
     pending_ = client::Intent{};
     while (pending_.kind == client::IntentKind::none) {
         settle(snapshot);
-        deploy_press(snapshot, next_press());
+        const ControllerPress input = next_controller_press();
+        activate_local_player(snapshot, input.player);
+        deploy_press(snapshot, input.buttons);
     }
     return pending_;
 }
@@ -1614,6 +1768,19 @@ void TurnClient::build_overlay(const sim::EncounterSnapshot& snapshot) {
     overlay_.cursor_x = cursor_x_;
     overlay_.cursor_y = cursor_y_;
     overlay_.selected = selected_;
+    overlay_.second_cursor = participating_local_players_ > 1;
+    overlay_.active_player = active_local_player_;
+    if (overlay_.second_cursor) {
+        const LocalPlayerState& other =
+            local_players_[active_local_player_ == 0 ? 1 : 0];
+        overlay_.second_cursor_x = other.cursor_x;
+        overlay_.second_cursor_y = other.cursor_y;
+        overlay_.second_selected = other.selected;
+    } else {
+        overlay_.second_cursor_x = 0;
+        overlay_.second_cursor_y = 0;
+        overlay_.second_selected = 0;
+    }
     overlay_.moves = selected_ != 0 ? &moves_ : nullptr;
     overlay_.danger = selected_ != 0 ? &danger_ : nullptr;
     overlay_.splash = splash_.empty() ? nullptr : &splash_;

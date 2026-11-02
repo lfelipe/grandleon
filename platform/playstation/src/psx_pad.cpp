@@ -7,6 +7,8 @@
 
 #include <grandleon/client/turn_client.hpp>
 
+#include <cstddef>
+
 namespace grandleon::playstation::pad {
 namespace {
 
@@ -57,13 +59,14 @@ constexpr std::uint16_t raw_circle = 1u << 13;
 constexpr std::uint16_t raw_cross = 1u << 14;
 constexpr std::uint16_t raw_square = 1u << 15;
 
-std::uint16_t held_previously = 0;
+std::uint16_t held_previously[2]{};
 std::uint32_t poll_count = 0;
 std::uint32_t microseconds_total = 0;
 std::uint32_t microseconds_shortest = 0xFFFFFFFFu;
 std::uint32_t microseconds_longest = 0;
 std::uint32_t answered_count = 0;
-std::uint8_t last_identifier = 0;
+std::uint32_t answered_by_port[2]{};
+std::uint8_t last_identifier[2]{};
 std::uint32_t ack_waited = 0;
 std::uint32_t ack_seen = 0;
 
@@ -119,19 +122,29 @@ std::uint32_t ack_seen = 0;
 }  // namespace
 
 void begin() noexcept {
-    held_previously = 0;
-    (void)read();
-    held_previously = 0;
+    held_previously[0] = 0;
+    held_previously[1] = 0;
+    (void)read(Port::one);
+    (void)read(Port::two);
+    held_previously[0] = 0;
+    held_previously[1] = 0;
 }
 
-std::uint16_t read() noexcept {
+std::uint16_t read(Port port) noexcept {
+    const std::size_t slot = static_cast<std::size_t>(port);
     const std::uint32_t opened = clock_ticks();
 
     *joy_ctrl = 0x0040u;  // reset the port
     for (int i = 0; i < 16; ++i) (void)*joy_stat;
     *joy_mode = 0x000Du;  // eight bits, no parity, baud reload factor 1
     *joy_baud = 0x0088u;  // 250 kHz, which is the pad's rate
-    *joy_ctrl = 0x0003u;  // transmit enable, controller port one selected
+    // Bit 13 selects the second physical controller socket. The remaining bits
+    // are common: transmit enable and select. Reading the two sockets is two
+    // short serial transfers, one after the other; both still happen within
+    // the board's frame poll.
+    *joy_ctrl = static_cast<std::uint16_t>(
+        0x0003u | (port == Port::two ? 0x2000u : 0u)
+    );
     for (int i = 0; i < 64; ++i) (void)*joy_stat;
 
     static const std::uint8_t request[5] = {0x01, 0x42, 0x00, 0x00, 0x00};
@@ -158,9 +171,10 @@ std::uint16_t read() noexcept {
     if (microseconds < microseconds_shortest) microseconds_shortest = microseconds;
     if (microseconds > microseconds_longest) microseconds_longest = microseconds;
 
-    last_identifier = reply[1];
+    last_identifier[slot] = reply[1];
     if (lost || reply[1] != digital_pad) return 0;
     ++answered_count;
+    ++answered_by_port[slot];
 
     const std::uint16_t raw = static_cast<std::uint16_t>(
         static_cast<std::uint16_t>(reply[3]) |
@@ -171,11 +185,14 @@ std::uint16_t read() noexcept {
     return translate(static_cast<std::uint16_t>(~raw));
 }
 
-std::uint16_t pressed() noexcept {
-    const std::uint16_t now = read();
+std::uint16_t pressed(Port port) noexcept {
+    const std::size_t slot = static_cast<std::size_t>(port);
+    const std::uint16_t now = read(port);
     const std::uint16_t edges =
-        static_cast<std::uint16_t>(now & static_cast<std::uint16_t>(~held_previously));
-    held_previously = now;
+        static_cast<std::uint16_t>(
+            now & static_cast<std::uint16_t>(~held_previously[slot])
+        );
+    held_previously[slot] = now;
     return edges;
 }
 
@@ -186,7 +203,13 @@ std::uint32_t shortest_microseconds() noexcept {
 }
 std::uint32_t longest_microseconds() noexcept { return microseconds_longest; }
 std::uint32_t answers() noexcept { return answered_count; }
-std::uint8_t identifier() noexcept { return last_identifier; }
+std::uint32_t answers(Port port) noexcept {
+    return answered_by_port[static_cast<std::size_t>(port)];
+}
+std::uint8_t identifier() noexcept { return identifier(Port::one); }
+std::uint8_t identifier(Port port) noexcept {
+    return last_identifier[static_cast<std::size_t>(port)];
+}
 std::uint32_t acknowledgement_waits() noexcept { return ack_waited; }
 std::uint32_t acknowledgements() noexcept { return ack_seen; }
 

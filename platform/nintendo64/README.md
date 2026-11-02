@@ -199,8 +199,16 @@ drawing and controller input.
 
 Controls, through the same intent seam every client uses: d-pad moves the
 cursor, A selects / moves / attacks with the weapon in hand, B backs out one
-step, Start ends the selected character's activation, Z opens the **unit
-action menu**.
+step, Start opens the battle menu, and Z opens the **unit action menu**.
+
+Controller ports one and two are sampled on every played frame. Each player
+keeps a separate cursor, selection, threat toggle, and aimed action; the second
+cursor is cyan while the active cursor retains the normal amber/white state.
+If both pads produce an edge together, one is handled and the other remains
+pending for the next frame. Menus are shared pause surfaces, but outside them
+neither player waits for ownership of the board cursor. Authored `sideBlocks`
+encounters let both players combine their allied activations before the
+computer-controlled side begins.
 
 The menu is derived from the character, not from what the cursor rests on, so
 a `WAIT` row can sit in it. Rows, in order: `ATTACK` (or one row per carried
