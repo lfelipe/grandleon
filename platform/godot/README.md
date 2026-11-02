@@ -26,14 +26,17 @@ The separation is deliberate:
 
 Open the session menu and choose **Projects / Create**. The native Projects
 screen can create an empty canonical project or a complete playable starter,
-lists projects stored under Godot's per-user data directory, and plays a
-selected draft through the same runtime as the included game. Compilation and
-scene handoff stay in-process; draft package bytes are not written to the
-installation directory.
+lists projects stored under Godot's per-user data directory, and opens a native
+map creator. The map creator previews the same replaceable terrain atlas as play
+mode, paints canonical terrain cells, supports bounded undo/redo, saves through
+the validating native source layer, and plays the edited draft immediately.
+Compilation and scene handoff stay in-process; draft package bytes are not
+written to the installation directory. Returning through the play-mode session
+menu reopens the same project.
 
-The first surface intentionally concentrates on the project lifecycle. Map,
-campaign, dialogue, and presentation editing arrive in the increments defined
-by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+The current creator deliberately edits terrain only. Map creation/resizing,
+unit placement, campaign, dialogue, and presentation editing arrive in the
+increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to
@@ -294,6 +297,13 @@ legacy defaults, and a non-32-pixel replacement sheet:
 
 ```sh
 platform/godot/scripts/smoke-art-library.sh
+```
+
+To create a project, paint and undo/redo a real map cell, save and compile the
+result, play it, and return to the same editor session:
+
+```sh
+platform/godot/scripts/smoke-map-editor.sh
 ```
 The reel is an actual 1280x720 Godot capture. It advances authored dialogue,
 queues two friendly moves without serial player turns, and lets the built-in

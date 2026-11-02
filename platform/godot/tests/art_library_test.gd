@@ -59,6 +59,9 @@ func _init() -> void:
 	}
 	var art = ArtLibrary.new(manifest)
 	var unit := {"archetype": 0, "colour": 0, "style": 0, "figure": 0}
+	_expect("bridge previews as road", art.terrain_kind_for_source("bridge"), 1)
+	_expect("plain previews as grass", art.terrain_kind_for_source("plain"), 9)
+	_expect("custom terrain has visible fallback", art.terrain_kind_for_source("moon dust"), 9)
 
 	var idle: Dictionary = art.character_frame(unit, "idle")
 	_expect("idle uses standing asset", idle.path, "res://assets/characters/knight_blue.png")

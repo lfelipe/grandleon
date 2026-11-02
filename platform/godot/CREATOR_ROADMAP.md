@@ -27,6 +27,10 @@ The first native seam is implemented:
 - The controller-navigable Projects screen creates blank or playable starter
   projects, lists stored projects, compiles a selected project, and hands a
   playable draft back to the ordinary game scene without a temporary package.
+- The first native map creator paints canonical terrain with the same art atlas
+  used by play mode. Edits pass through the native integer-preserving source
+  layer, support bounded undo/redo and recoverable save, and can be compiled,
+  played, and reopened in the same project session.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
@@ -115,7 +119,8 @@ This slice proves the whole ownership model before building a large editor.
 
 ### 2. Map and encounter creator
 
-- Terrain palette, controller/mouse cursor, paint, fill, and rectangle tools.
+- Terrain palette and controller/mouse painting are implemented. Fill and
+  rectangle tools remain.
 - Resize preview that shows what would be clipped before it commits.
 - Unit placement for both sides, deployment zones, and objective placement.
 - Immediate visual and console-budget feedback.

@@ -171,13 +171,30 @@ func _refresh_projects() -> void:
 	for project: Dictionary in projects:
 		var title := str(project.get("title", "Untitled Game"))
 		var game_id := str(project.get("game_id", ""))
-		var button := _button("%s\n%s" % [title, game_id])
-		button.disabled = not bool(project.get("readable", false))
-		button.pressed.connect(_play_project.bind(str(project.id)))
-		project_list.add_child(button)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		project_list.add_child(row)
+		var edit := _button("EDIT  /  %s\n%s" % [title, game_id])
+		edit.disabled = not bool(project.get("readable", false))
+		edit.custom_minimum_size.x = 760
+		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		edit.pressed.connect(_edit_project.bind(str(project.id)))
+		row.add_child(edit)
+		var play := _button("PLAY")
+		play.disabled = edit.disabled
+		play.custom_minimum_size.x = 220
+		play.size_flags_horizontal = Control.SIZE_SHRINK_END
+		play.pressed.connect(_play_project.bind(str(project.id)))
+		row.add_child(play)
+
+
+func _edit_project(project_id: String) -> void:
+	CreatorContext.open_project(project_id)
+	get_tree().change_scene_to_file("res://map_editor.tscn")
 
 
 func _play_project(project_id: String) -> void:
+	CreatorContext.clear()
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
 		_set_status("OPEN FAILED  /  %s" % loaded.message, true)

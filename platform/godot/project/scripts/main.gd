@@ -808,10 +808,13 @@ func _quit_to_launcher() -> void:
 
 
 func _open_projects() -> void:
-	status_label.text = "OPENING PROJECTS"
+	status_label.text = "OPENING CREATOR"
 	if session:
 		session.stop()
-	get_tree().change_scene_to_file("res://creator.tscn")
+	if CreatorContext.project_id.is_empty():
+		get_tree().change_scene_to_file("res://creator.tscn")
+	else:
+		get_tree().change_scene_to_file("res://map_editor.tscn")
 
 
 func _session_menu_visible() -> bool:

@@ -10,6 +10,13 @@ const TERRAIN_NAMES := [
 	"water", "road", "forest", "mountain", "sand", "snow", "swamp",
 	"hills", "ruins", "grass", "farmland", "bamboo", "paved"
 ]
+const TERRAIN_KEYWORDS := [
+	["water", "river"], ["bridge", "road"], ["forest", "wood"],
+	["mountain", "rock"], ["sand", "desert"], ["snow", "ice"],
+	["swamp", "marsh"], ["hill", "highland"], ["ruin", "rubble"],
+	["grass", "plain"], ["farm", "field"], ["bamboo", "thicket"],
+	["pave", "cobble"],
+]
 const THEME_NAMES := ["temperate", "autumn", "winter", "ashland"]
 const ARCHETYPE_NAMES := [
 	"knight", "archer", "mage", "stormcaller", "healer", "commander",
@@ -53,6 +60,18 @@ func terrain_texture(kind: int, theme: int) -> Texture2D:
 	if theme > 0 and theme < THEME_NAMES.size():
 		suffix = "_" + THEME_NAMES[theme]
 	return texture("res://assets/terrain/%s_blob%s.png" % [terrain, suffix])
+
+
+# Mirrors the native content compiler's stable keyword order so creator tiles
+# use the same presentation as the compiled draft. Custom names deliberately
+# fall back to grass until their replacement art pack supplies a richer rule.
+func terrain_kind_for_source(name: String) -> int:
+	var lowered := name.to_lower()
+	for index in TERRAIN_KEYWORDS.size():
+		for keyword: String in TERRAIN_KEYWORDS[index]:
+			if lowered.contains(keyword):
+				return index
+	return TERRAIN_NAMES.find("grass")
 
 
 func character_texture(unit: Dictionary) -> Texture2D:
