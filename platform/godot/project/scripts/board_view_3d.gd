@@ -36,6 +36,7 @@ var _camera: Camera3D
 var _terrain_root: Node3D
 var _marker_root: Node3D
 var _unit_root: Node3D
+var _effect_root: Node3D
 var _unit_nodes: Dictionary = {}
 var _unit_targets: Dictionary = {}
 var _unit_sprites: Dictionary = {}
@@ -50,6 +51,11 @@ var _pending_unit_removal: Dictionary = {}
 var _unit_flash_until: Dictionary = {}
 var _unit_flash_colours: Dictionary = {}
 var _materials: Dictionary = {}
+var _effects: Array[Dictionary] = []
+var _impact_texture: ImageTexture
+var _camera_base_position := Vector3.ZERO
+var _camera_shake_until := 0
+var _camera_shake_strength := 0.0
 var _pulse := 0.0
 
 
@@ -75,9 +81,11 @@ func _ready() -> void:
 	_terrain_root = Node3D.new()
 	_marker_root = Node3D.new()
 	_unit_root = Node3D.new()
+	_effect_root = Node3D.new()
 	_world.add_child(_terrain_root)
 	_world.add_child(_marker_root)
 	_world.add_child(_unit_root)
+	_world.add_child(_effect_root)
 	_create_environment()
 	set_process(true)
 
@@ -114,6 +122,7 @@ func _create_environment() -> void:
 	_camera.size = float(camera_config.get("size", 8.4))
 	_world.add_child(_camera)
 	_camera.position = _configured_vector(camera_config.get("position", []), Vector3(7.7, 10.8, 8.8))
+	_camera_base_position = _camera.position
 	_camera.look_at(_configured_vector(camera_config.get("target", []), Vector3(0, 0.15, 0)), Vector3.UP)
 	_camera.make_current()
 
@@ -162,21 +171,29 @@ func present_events(events: Array) -> void:
 				_play_unit_animation(related_id, "attack", 430, true)
 				_play_unit_animation(unit_id, "hurt", 300, true)
 				_flash_unit(unit_id, Color("ff776f"), now + 260)
+				_spawn_impact(unit_id, Color("ff776f"), 440)
+				_shake_camera(220, 0.035)
 			"attack_missed":
 				_play_unit_animation(related_id, "attack", 430, true)
+				_spawn_impact(unit_id, Color("d8edf2"), 300)
 			"unit_restored":
 				_play_unit_animation(related_id, "ability", 480, true)
 				_flash_unit(unit_id, Color("75e7a0"), now + 360)
+				_spawn_impact(unit_id, Color("75e7a0"), 520)
 			"item_used":
 				_play_unit_animation(unit_id, "ability", 420, true)
 			"unit_talked":
 				_play_unit_animation(related_id, "ability", 480, true)
 				_play_unit_animation(unit_id, "defeat", 700, true)
+				_spawn_impact(unit_id, Color("68dce8"), 620)
 			"unit_defeated":
 				_play_unit_animation(unit_id, "defeat", 900, true)
 				_flash_unit(unit_id, Color("ff524f"), now + 420)
+				_spawn_impact(unit_id, Color("ff524f"), 780)
+				_shake_camera(320, 0.055)
 			"unit_endured":
 				_flash_unit(unit_id, Color("ffca63"), now + 420)
+				_spawn_impact(unit_id, Color("ffca63"), 520)
 
 
 func set_seats(value: Array) -> void:
@@ -226,6 +243,11 @@ func unit_at(cell: Vector2i) -> Dictionary:
 func _process(delta: float) -> void:
 	_pulse += delta
 	var now_msec := Time.get_ticks_msec()
+	_update_effects(now_msec)
+	_update_camera_shake(now_msec)
+	if _materials.has("relay_glow"):
+		var relay_material: StandardMaterial3D = _materials.relay_glow
+		relay_material.emission_energy_multiplier = 0.62 + sin(_pulse * 2.4) * 0.18
 	for id: Variant in _pending_unit_removal.keys():
 		if now_msec >= int(_pending_unit_removal[id]):
 			_remove_unit(int(id))
@@ -271,6 +293,11 @@ func _rebuild_terrain() -> void:
 	_world.add_child(_terrain_root)
 	var width := int(snapshot.width)
 	var height := int(snapshot.height)
+	_box(
+		_terrain_root, Vector3(0, -0.30, 0),
+		Vector3(float(width) + 0.18, 0.18, float(height) + 0.18),
+		_material("foundation", _palette("foundation", Color("0d1820")), 1.0)
+	)
 	for y in height:
 		for x in width:
 			var index := y * width + x
@@ -636,6 +663,87 @@ func _flash_unit(id: int, colour: Color, until: int) -> void:
 		return
 	_unit_flash_colours[id] = colour
 	_unit_flash_until[id] = until
+
+
+func _spawn_impact(id: int, colour: Color, duration_msec: int) -> void:
+	if not _unit_nodes.has(id) or _effect_root == null:
+		return
+	if _impact_texture == null:
+		_impact_texture = _make_impact_texture()
+	var sprite := Sprite3D.new()
+	sprite.texture = _impact_texture
+	sprite.pixel_size = 0.022
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+	sprite.shaded = false
+	sprite.modulate = colour
+	var origin: Vector3 = _unit_nodes[id].position + Vector3(0, 0.67, 0)
+	sprite.position = origin
+	sprite.scale = Vector3.ONE * 0.45
+	_effect_root.add_child(sprite)
+	var start := Time.get_ticks_msec()
+	_effects.append({
+		"node": sprite,
+		"origin": origin,
+		"colour": colour,
+		"start": start,
+		"end": start + duration_msec,
+	})
+
+
+func _make_impact_texture() -> ImageTexture:
+	var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in 32:
+		for x in 32:
+			var dx := absf(float(x) - 15.5)
+			var dy := absf(float(y) - 15.5)
+			var diagonal := absf(dx - dy) < 1.35 and maxf(dx, dy) < 13.5
+			var cross := (dx < 1.6 and dy < 14.5) or (dy < 1.6 and dx < 14.5)
+			var core := dx * dx + dy * dy < 19.0
+			if diagonal or cross or core:
+				var alpha := clampf(1.0 - maxf(dx, dy) / 18.0, 0.25, 1.0)
+				image.set_pixel(x, y, Color(1, 1, 1, alpha))
+	return ImageTexture.create_from_image(image)
+
+
+func _update_effects(now_msec: int) -> void:
+	for index in range(_effects.size() - 1, -1, -1):
+		var effect: Dictionary = _effects[index]
+		var node: Sprite3D = effect.node
+		if now_msec >= int(effect.end) or not is_instance_valid(node):
+			if is_instance_valid(node):
+				node.queue_free()
+			_effects.remove_at(index)
+			continue
+		var progress := clampf(
+			float(now_msec - int(effect.start)) /
+			float(maxi(1, int(effect.end) - int(effect.start))),
+			0.0, 1.0
+		)
+		node.position = Vector3(effect.origin) + Vector3(0, progress * 0.18, 0)
+		node.scale = Vector3.ONE * lerpf(0.45, 1.45, progress)
+		var colour: Color = effect.colour
+		colour.a = 1.0 - progress
+		node.modulate = colour
+
+
+func _shake_camera(duration_msec: int, strength: float) -> void:
+	_camera_shake_until = max(_camera_shake_until, Time.get_ticks_msec() + duration_msec)
+	_camera_shake_strength = maxf(_camera_shake_strength, strength)
+
+
+func _update_camera_shake(now_msec: int) -> void:
+	if _camera == null:
+		return
+	if now_msec < _camera_shake_until:
+		var offset := Vector3(
+			sin(_pulse * 77.0), sin(_pulse * 61.0 + 0.8), sin(_pulse * 71.0 + 1.6)
+		) * _camera_shake_strength
+		_camera.position = _camera_base_position + offset
+	else:
+		_camera.position = _camera.position.lerp(_camera_base_position, 0.28)
+		_camera_shake_strength = 0.0
 
 
 func _remove_unit(id: int) -> void:

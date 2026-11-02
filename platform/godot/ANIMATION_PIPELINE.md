@@ -38,23 +38,28 @@ interpolated, rotates the model toward travel, and returns to `idle` at the
 destination. Simulation coordinates remain authoritative; imported root motion
 must not decide where a unit ends.
 
-## Presentation events to add after cabinet validation
+## Implemented presentation stream
 
-Movement can be inferred from snapshots, but good combat animation needs an
-explicit presentation stream. Extend the native session bridge with events
-that describe accepted simulation results without changing them:
+The native session bridge now forwards every accepted simulation result as a
+semantic `presentation` event before the resulting snapshot. The renderer uses
+those events without changing or delaying the deterministic encounter:
 
 | Event | Presentation data | Animation use |
 |---|---|---|
-| `motion` | unit, path, duration | walk/run, facing, footstep timing |
-| `action` | actor, semantic verb, target, wind-up | attack or ability clip |
-| `impact` | target, damage/heal result | hit reaction, particles, camera impulse |
-| `defeat` | unit, removal timing | defeat clip before hiding the model |
+| `unit_moved` plus snapshot | unit and authoritative destination | run/walk, facing, overlapping per-unit interpolation |
+| `unit_damaged` / `attack_missed` | target, actor, damage result | attack and hurt clips, impact flash, short camera impulse |
+| `unit_restored` / `item_used` | target, actor, result | ability clip and recovery effect |
+| `unit_talked` / `unit_defeated` | departing unit and actor | semantic clip and delayed removal |
 
-The bridge should emit stable IDs and semantic verbs, never Godot animation
-names. The graphics profile maps those semantics to clips. A timeout or absent
-clip must advance presentation immediately, because animation can never block
-the deterministic encounter thread.
+The bridge emits stable IDs and simulation semantics, never Godot animation
+names. The graphics profile maps those semantics to clips. An absent scene,
+player, or clip falls back immediately, so animation can never block the
+encounter thread.
+
+The next fidelity step is an optional motion presentation record with a path
+and recommended duration. Destination snapshots remain authoritative, but that
+record would let authored rigs time footsteps and turns to a multi-cell route
+instead of inferring one straight interpolation.
 
 ## First authored 3D spike
 
@@ -65,6 +70,6 @@ Use one humanoid and one drone rather than converting the whole roster:
 2. Bind Kestrel's `rogue` archetype and one `beast` drone in a local art pack.
 3. Verify direction changes, simultaneous movement, shadow contact, and scale
    at the fixed cabinet camera.
-4. Add the presentation events above, then validate attack/impact alignment.
+4. Tune semantic clip mappings and validate attack/impact alignment.
 5. Only then decide whether to author the full 3D roster or retain the hybrid
    as a deliberate visual style.

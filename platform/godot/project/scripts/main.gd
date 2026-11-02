@@ -206,6 +206,7 @@ func _run_coop_smoke() -> void:
 		push_error("co-op smoke could not queue two independent moves")
 		get_tree().quit(2)
 		return
+	print("co-op smoke queued %d tracked moves" % coop_smoke_expected)
 	status_label.text = "CO-OP SMOKE / %d MOVES QUEUED" % queued
 
 
@@ -226,8 +227,8 @@ func _run_demo_reel() -> void:
 	if String(snapshot.get("active_side", "")) != "first" or now < demo_reel_next_msec:
 		return
 	if demo_reel_phase == 0:
-		var queued := _queue_two_friendly_moves(false)
-		status_label.text = "DEMO / %d CO-OP MOVES" % queued
+		var queued := _queue_two_friendly_actions()
+		status_label.text = "DEMO / %d TEAM ACTIONS" % queued
 		demo_reel_phase = 1
 		demo_reel_next_msec = now + 1400
 	elif demo_reel_phase == 1:
@@ -241,6 +242,32 @@ func _run_demo_reel() -> void:
 		demo_reel_next_msec = now + 2400
 
 
+func _queue_two_friendly_actions() -> int:
+	var occupied: Dictionary = {}
+	for unit: Dictionary in snapshot.get("units", []):
+		if unit.get("on_board", false):
+			occupied["%d,%d" % [int(unit.x), int(unit.y)]] = true
+	var reserved: Dictionary = {}
+	var queued := 0
+	for unit: Dictionary in snapshot.get("units", []):
+		if String(unit.get("side", "")) != "first" or not unit.get("on_board", false):
+			continue
+		if unit.get("has_acted", false) or _unit_is_pending(int(unit.id)):
+			continue
+		var attack_target := _first_enemy_on_tiles(session.query_tiles("attack", int(unit.id), 0))
+		if not attack_target.is_empty():
+			_submit(
+				"attack", int(unit.id), int(attack_target.id),
+				Vector2i(int(attack_target.x), int(attack_target.y))
+			)
+			queued += 1
+		elif _queue_friendly_move(unit, occupied, reserved, false, true):
+			queued += 1
+		if queued >= 2:
+			break
+	return queued
+
+
 func _queue_two_friendly_moves(track_smoke_requests: bool) -> int:
 	var occupied: Dictionary = {}
 	for unit: Dictionary in snapshot.get("units", []):
@@ -251,21 +278,63 @@ func _queue_two_friendly_moves(track_smoke_requests: bool) -> int:
 	for unit: Dictionary in snapshot.get("units", []):
 		if String(unit.get("side", "")) != "first" or not unit.get("on_board", false):
 			continue
-		var tiles: Array = session.query_tiles("move", int(unit.id), 0)
-		for tile_index in range(tiles.size() - 1, -1, -1):
-			var tile: Dictionary = tiles[tile_index]
-			var key := "%d,%d" % [int(tile.x), int(tile.y)]
-			if occupied.has(key) or reserved.has(key):
-				continue
-			reserved[key] = true
-			var request_id := _submit("move", int(unit.id), 0, Vector2i(int(tile.x), int(tile.y)))
-			if track_smoke_requests:
-				coop_smoke_requests[request_id] = true
+		if _queue_friendly_move(unit, occupied, reserved, track_smoke_requests, false):
 			queued += 1
-			break
 		if queued >= 2:
 			break
 	return queued
+
+
+func _queue_friendly_move(
+	unit: Dictionary, occupied: Dictionary, reserved: Dictionary,
+	track_smoke_request: bool, prefer_enemy: bool
+) -> bool:
+	var tiles: Array = session.query_tiles("move", int(unit.id), 0)
+	var chosen: Dictionary = {}
+	var chosen_distance := 1 << 30
+	for tile_index in range(tiles.size() - 1, -1, -1):
+		var tile: Dictionary = tiles[tile_index]
+		var key := "%d,%d" % [int(tile.x), int(tile.y)]
+		if occupied.has(key) or reserved.has(key):
+			continue
+		if not prefer_enemy:
+			chosen = tile
+			break
+		var distance := _distance_to_nearest_enemy(int(tile.x), int(tile.y))
+		if distance < chosen_distance:
+			chosen = tile
+			chosen_distance = distance
+	if chosen.is_empty():
+		return false
+	var chosen_key := "%d,%d" % [int(chosen.x), int(chosen.y)]
+	reserved[chosen_key] = true
+	var request_id := _submit(
+		"move", int(unit.id), 0, Vector2i(int(chosen.x), int(chosen.y))
+	)
+	if track_smoke_request:
+		coop_smoke_requests[request_id] = true
+	return true
+
+
+func _first_enemy_on_tiles(tiles: Array) -> Dictionary:
+	var cells: Dictionary = {}
+	for tile: Dictionary in tiles:
+		cells["%d,%d" % [int(tile.x), int(tile.y)]] = true
+	for unit: Dictionary in snapshot.get("units", []):
+		if String(unit.get("side", "")) == "first" or not unit.get("on_board", false):
+			continue
+		if cells.has("%d,%d" % [int(unit.x), int(unit.y)]):
+			return unit
+	return {}
+
+
+func _distance_to_nearest_enemy(x: int, y: int) -> int:
+	var result := 1 << 30
+	for unit: Dictionary in snapshot.get("units", []):
+		if String(unit.get("side", "")) == "first" or not unit.get("on_board", false):
+			continue
+		result = mini(result, absi(int(unit.x) - x) + absi(int(unit.y) - y))
+	return result
 
 
 func _create_background() -> void:
@@ -608,6 +677,7 @@ func _complete_request(event: Dictionary) -> void:
 		if coop_smoke and coop_smoke_requests.has(request_id):
 			coop_smoke_requests.erase(request_id)
 			coop_smoke_accepted += 1
+			print("co-op smoke accepted move %d/%d" % [coop_smoke_accepted, coop_smoke_expected])
 		pending_requests.erase(request_id)
 
 

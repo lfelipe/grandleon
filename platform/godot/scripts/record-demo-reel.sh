@@ -7,7 +7,7 @@ repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
 build_dir="${1:-${repo_root}/build-godot}"
 output_path="${2:-${build_dir}/grandleon-demo-reel.mp4}"
 godot_binary="${GRANDLEON_GODOT_BINARY:-}"
-duration="${GRANDLEON_DEMO_SECONDS:-26}"
+duration="${GRANDLEON_DEMO_SECONDS:-20}"
 config_path="${GRANDLEON_DEMO_CONFIG:-}"
 
 absolute_path() {
