@@ -2723,4 +2723,127 @@ SourceTextResult instantiate_source_project_json(
     return result;
 }
 
+SourceTextResult update_source_map_cell_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::int64_t x,
+    std::int64_t y,
+    std::string_view terrain_id
+) {
+    SourceTextResult result;
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        // The semantic parse above already reports syntax failures.  Keep a
+        // complete fallback here because this routine owns its parse and must
+        // never depend on an unchecked assumption about that implementation.
+        result.diagnostics.push_back({
+            SourceDiagnosticCode::invalid_json,
+            "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        });
+        return result;
+    }
+
+    auto* root = std::get_if<Object>(&document.value);
+    auto maps_member = root == nullptr ? Object::iterator{} : root->find("maps");
+    auto* maps = root == nullptr || maps_member == root->end()
+                     ? nullptr
+                     : std::get_if<Array>(&maps_member->second.value);
+    if (maps == nullptr) {
+        result.diagnostics.push_back({
+            SourceDiagnosticCode::invalid_value, "$.maps", "expected array"
+        });
+        return result;
+    }
+
+    Object* selected = nullptr;
+    std::size_t selected_index = 0;
+    for (std::size_t index = 0; index < maps->size(); ++index) {
+        auto* map = std::get_if<Object>(&(*maps)[index].value);
+        if (map == nullptr) continue;
+        const auto id_member = map->find("id");
+        if (id_member == map->end()) continue;
+        const auto* id = std::get_if<std::string>(&id_member->second.value);
+        if (id != nullptr && *id == map_id) {
+            selected = map;
+            selected_index = index;
+            break;
+        }
+    }
+    if (selected == nullptr) {
+        result.diagnostics.push_back({
+            SourceDiagnosticCode::invalid_value,
+            "$.maps",
+            "map '" + std::string(map_id) + "' was not found"
+        });
+        return result;
+    }
+
+    const std::string path = "$.maps[" + std::to_string(selected_index) + "]";
+    const auto width_member = selected->find("width");
+    const auto height_member = selected->find("height");
+    const auto terrain_member = selected->find("terrain");
+    const auto* width = width_member == selected->end()
+                            ? nullptr
+                            : std::get_if<std::int64_t>(
+                                  &width_member->second.value
+                              );
+    const auto* height = height_member == selected->end()
+                             ? nullptr
+                             : std::get_if<std::int64_t>(
+                                   &height_member->second.value
+                               );
+    auto* terrain = terrain_member == selected->end()
+                        ? nullptr
+                        : std::get_if<Array>(&terrain_member->second.value);
+    if (width == nullptr || height == nullptr || terrain == nullptr) {
+        result.diagnostics.push_back({
+            SourceDiagnosticCode::invalid_value,
+            path,
+            "map dimensions and terrain must be present"
+        });
+        return result;
+    }
+    if (x < 0 || y < 0 || x >= *width || y >= *height) {
+        result.diagnostics.push_back({
+            SourceDiagnosticCode::invalid_value,
+            path + ".terrain",
+            "cell coordinate is outside the map"
+        });
+        return result;
+    }
+    const std::uint64_t linear =
+        static_cast<std::uint64_t>(y) * static_cast<std::uint64_t>(*width) +
+        static_cast<std::uint64_t>(x);
+    if (linear >= terrain->size()) {
+        result.diagnostics.push_back({
+            SourceDiagnosticCode::invalid_value,
+            path + ".terrain",
+            "terrain does not contain the requested cell"
+        });
+        return result;
+    }
+
+    (*terrain)[static_cast<std::size_t>(linear)] =
+        Json{std::string(terrain_id)};
+    append_json(result.json, document, 0);
+    result.json.push_back('\n');
+
+    const SourceParseResult after = parse_source_project_json(result.json);
+    if (!after) {
+        result.diagnostics = after.diagnostics;
+        result.json.clear();
+    }
+    return result;
+}
+
 }  // namespace grandleon::game_content

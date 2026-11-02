@@ -76,4 +76,18 @@ struct SourceTextResult final {
     std::string_view title
 );
 
+// Replaces one terrain cell in a canonical source map and serializes the
+// complete document again.  Authoring clients use this rather than a generic
+// floating-point JSON round trip so every unrelated integer and field retains
+// the source schema's exact representation.  The returned text is fully
+// parsed before it is exposed; a bad map, coordinate, or terrain identifier
+// therefore cannot become a partially edited project.
+[[nodiscard]] SourceTextResult update_source_map_cell_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::int64_t x,
+    std::int64_t y,
+    std::string_view terrain_id
+);
+
 }  // namespace grandleon::game_content

@@ -41,6 +41,21 @@ func _init() -> void:
 					_fail("compiled package did not start: %s" % session.last_error())
 				else:
 					session.stop()
+			var edited: Dictionary = compiler.update_map_cell(
+				source, "dawn_bridge", 0, 0, "water"
+			)
+			_expect("map cell edit succeeds", edited.ok, true)
+			if edited.ok:
+				var parsed: Variant = JSON.parse_string(edited.source)
+				_expect("edited source remains readable", parsed is Dictionary, true)
+				if parsed is Dictionary:
+					_expect("selected cell changed", parsed.maps[0].terrain[0], "water")
+				_expect("edited project still compiles", compiler.compile_source_json(edited.source).ok, true)
+			var outside: Dictionary = compiler.update_map_cell(
+				source, "dawn_bridge", 99, 0, "water"
+			)
+			_expect("outside map edit refused", outside.ok, false)
+			_expect("outside edit returns no source", outside.source, "")
 
 	if failures == 0:
 		print("project compiler smoke passed")

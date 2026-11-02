@@ -243,6 +243,53 @@ void instantiates_a_template_without_float_round_tripping() {
     );
 }
 
+void updates_one_map_cell_without_retyping_the_project() {
+    const auto updated = gc::update_source_map_cell_json(
+        source, "field", 1, 0, "forest"
+    );
+    expect(static_cast<bool>(updated), "a canonical map cell is editable");
+    expect(
+        updated.json.find(R"json("terrain": [
+        "plain",
+        "forest")json") != std::string::npos,
+        "only the selected terrain cell changes"
+    );
+    expect(
+        updated.json.find("20.0") == std::string::npos &&
+            updated.json.find(R"json("health": 20)json") !=
+                std::string::npos,
+        "map editing preserves unrelated integer tokens"
+    );
+    const auto parsed = gc::parse_source_project_json(updated.json);
+    expect(static_cast<bool>(parsed), "an edited project parses again");
+    expect(
+        parsed && parsed.source.maps.front().terrain_kinds.size() == 2 &&
+            parsed.source.maps.front().terrain_kinds[1] == 2,
+        "the edited terrain reaches the native presentation mapping"
+    );
+
+    const auto outside = gc::update_source_map_cell_json(
+        source, "field", 2, 0, "forest"
+    );
+    expect(!outside, "a cell outside the map is refused");
+    expect(outside.json.empty(), "a refused edit returns no partial source");
+    expect(
+        !outside.diagnostics.empty() &&
+            outside.diagnostics.front().path == "$.maps[0].terrain",
+        "an out-of-map edit points at the terrain field"
+    );
+
+    const auto missing = gc::update_source_map_cell_json(
+        source, "elsewhere", 0, 0, "forest"
+    );
+    expect(!missing, "an unknown map is refused");
+    expect(
+        !missing.diagnostics.empty() &&
+            missing.diagnostics.front().path == "$.maps",
+        "an unknown map has a stable diagnostic location"
+    );
+}
+
 void maps_authored_resistance() {
     std::string with_resistance{source};
     const std::string needle = R"json("health":20,)json";
@@ -1854,6 +1901,7 @@ int main() {
     compiles_a_world_flag_predicate();
     rejects_malformed_json();
     instantiates_a_template_without_float_round_tripping();
+    updates_one_map_cell_without_retyping_the_project();
     maps_authored_resistance();
     refuses_a_stat_the_rules_cannot_execute();
     keeps_the_whole_range_for_the_chance_stats();

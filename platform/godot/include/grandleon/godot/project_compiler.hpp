@@ -5,6 +5,8 @@
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/string.hpp>
 
+#include <cstdint>
+
 namespace grandleon::godot_frontend {
 
 // The authoring boundary exposed to Godot.
@@ -24,6 +26,13 @@ public:
         const ::godot::String& package_id,
         const ::godot::String& game_id,
         const ::godot::String& title
+    ) const;
+    [[nodiscard]] ::godot::Dictionary update_map_cell(
+        const ::godot::String& source_json,
+        const ::godot::String& map_id,
+        std::int64_t x,
+        std::int64_t y,
+        const ::godot::String& terrain_id
     ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
