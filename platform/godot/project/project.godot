@@ -10,6 +10,10 @@ config/name="Grandleon PC"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
+[autoload]
+
+LaunchContext="*res://scripts/launch_context.gd"
+
 [display]
 
 window/size/viewport_width=1920

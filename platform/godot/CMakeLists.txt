@@ -109,6 +109,9 @@ add_custom_target(grandleon_godot_project ALL
     COMMAND "${CMAKE_COMMAND}" -E copy_directory
             "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/modern"
             "${CMAKE_CURRENT_BINARY_DIR}/project/app/assets"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/games/demo/source/project.json"
+            "${CMAKE_CURRENT_BINARY_DIR}/project/app/content/templates/starter_battle.json"
     COMMAND "${CMAKE_COMMAND}" -E make_directory
             "${CMAKE_CURRENT_BINARY_DIR}/project/app/bin"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different

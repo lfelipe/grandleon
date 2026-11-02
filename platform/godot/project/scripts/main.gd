@@ -71,6 +71,7 @@ var dialogue_portrait: TextureRect
 var dialogue_hint: Label
 var session_menu_layer: Control
 var session_menu_resume: Button
+var session_menu_projects: Button
 var session_menu_graphics: Button
 var session_menu_camera: Button
 var session_menu_text: Button
@@ -105,8 +106,15 @@ func _ready() -> void:
 	if session == null:
 		_show_fatal("The native Grandleon bridge did not load")
 		return
-	var absolute_package := ProjectSettings.globalize_path(package_path)
-	if not session.start(absolute_package, campaign_key):
+	var staged: Dictionary = LaunchContext.take_package()
+	var started := false
+	if staged.is_empty():
+		var absolute_package := ProjectSettings.globalize_path(package_path)
+		started = session.start(absolute_package, campaign_key)
+	else:
+		campaign_key = str(staged.campaign)
+		started = session.start_package(staged.package, campaign_key)
+	if not started:
 		_show_fatal(session.last_error())
 	else:
 		status_label.text = "LOADING CAMPAIGN"
@@ -731,6 +739,11 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	)
 	session_menu_resume.pressed.connect(_close_session_menu)
 	column.add_child(session_menu_resume)
+	session_menu_projects = _menu_button(
+		"PROJECTS / CREATE  /  %s · ENTER" % controls.label("confirm")
+	)
+	session_menu_projects.pressed.connect(_open_projects)
+	column.add_child(session_menu_projects)
 	session_menu_graphics = _menu_button("")
 	session_menu_graphics.pressed.connect(_cycle_graphics_profile)
 	column.add_child(session_menu_graphics)
@@ -792,6 +805,13 @@ func _close_session_menu() -> void:
 func _quit_to_launcher() -> void:
 	status_label.text = "RETURNING TO STEAM"
 	get_tree().quit()
+
+
+func _open_projects() -> void:
+	status_label.text = "OPENING PROJECTS"
+	if session:
+		session.stop()
+	get_tree().change_scene_to_file("res://creator.tscn")
 
 
 func _session_menu_visible() -> bool:

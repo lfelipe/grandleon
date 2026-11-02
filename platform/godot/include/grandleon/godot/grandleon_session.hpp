@@ -144,8 +144,7 @@ public:
     );
     [[nodiscard]] bool start_package(
         const ::godot::PackedByteArray& package_bytes,
-        const ::godot::String& campaign_key,
-        bool model_tactics = false
+        const ::godot::String& campaign_key
     );
     void stop();
     [[nodiscard]] bool running() const;
@@ -178,8 +177,7 @@ private:
     void reset_for_start();
     [[nodiscard]] bool start_bytes(
         const std::vector<std::uint8_t>& package_bytes,
-        const ::godot::String& campaign_key,
-        bool model_tactics
+        const ::godot::String& campaign_key
     );
     void join_worker();
 

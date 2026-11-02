@@ -22,6 +22,19 @@ The separation is deliberate:
 | `pc.local.json` | one machine's model endpoint and feature switches | project content |
 | `controls.local.json` | one machine's controller button mapping | project content or portable rules |
 
+## Create and play projects
+
+Open the session menu and choose **Projects / Create**. The native Projects
+screen can create an empty canonical project or a complete playable starter,
+lists projects stored under Godot's per-user data directory, and plays a
+selected draft through the same runtime as the included game. Compilation and
+scene handoff stay in-process; draft package bytes are not written to the
+installation directory.
+
+The first surface intentionally concentrates on the project lifecycle. Map,
+campaign, dialogue, and presentation editing arrive in the increments defined
+by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to
 cover a wider range of SteamOS hardware.

@@ -349,11 +349,8 @@ void GrandleonSession::_bind_methods() {
         &GrandleonSession::start
     );
     gd::ClassDB::bind_method(
-        gd::D_METHOD(
-            "start_package", "package_bytes", "campaign_key", "model_tactics"
-        ),
-        &GrandleonSession::start_package,
-        DEFVAL(false)
+        gd::D_METHOD("start_package", "package_bytes", "campaign_key"),
+        &GrandleonSession::start_package
     );
     gd::ClassDB::bind_method(gd::D_METHOD("stop"), &GrandleonSession::stop);
     gd::ClassDB::bind_method(
@@ -395,13 +392,12 @@ bool GrandleonSession::start(
         std::istreambuf_iterator<char>(input),
         std::istreambuf_iterator<char>()
     };
-    return start_bytes(bytes, campaign_key, model_tactics);
+    return start_bytes(bytes, campaign_key);
 }
 
 bool GrandleonSession::start_package(
     const gd::PackedByteArray& package_bytes,
-    const gd::String& campaign_key,
-    bool model_tactics
+    const gd::String& campaign_key
 ) {
     reset_for_start();
     std::vector<std::uint8_t> bytes(
@@ -411,7 +407,7 @@ bool GrandleonSession::start_package(
     for (std::size_t index = 0; index < bytes.size(); ++index) {
         bytes[index] = input[index];
     }
-    return start_bytes(bytes, campaign_key, model_tactics);
+    return start_bytes(bytes, campaign_key);
 }
 
 void GrandleonSession::reset_for_start() {
@@ -425,8 +421,7 @@ void GrandleonSession::reset_for_start() {
 
 bool GrandleonSession::start_bytes(
     const std::vector<std::uint8_t>& package_bytes,
-    const gd::String& campaign_key,
-    bool model_tactics
+    const gd::String& campaign_key
 ) {
     auto loaded = pf::load_mock_package(
         package_bytes,

@@ -24,6 +24,9 @@ The first native seam is implemented:
 - `ProjectLibrary` creates a canonical project from the native blank template,
   assigns a portable UUID, validates every save through the native parser, and
   keeps the prior source recoverable if replacement is interrupted.
+- The controller-navigable Projects screen creates blank or playable starter
+  projects, lists stored projects, compiles a selected project, and hands a
+  playable draft back to the ordinary game scene without a temporary package.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
