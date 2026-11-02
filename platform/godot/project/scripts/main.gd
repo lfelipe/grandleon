@@ -18,6 +18,15 @@ var graphics_pack_path := ""
 var screenshot_path := ""
 var screenshot_frames := -1
 var smoke_auto := false
+var coop_smoke := false
+var coop_smoke_started := false
+var coop_smoke_requests: Dictionary = {}
+var coop_smoke_expected := 0
+var coop_smoke_accepted := 0
+var demo_reel := false
+var demo_reel_round := -1
+var demo_reel_phase := 0
+var demo_reel_next_msec := 0
 var board_preview := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
@@ -93,11 +102,18 @@ func _process(_delta: float) -> void:
 		return
 	for event: Dictionary in session.poll():
 		_handle_event(event)
-	if smoke_auto:
+	if demo_reel:
+		_run_demo_reel()
+	elif smoke_auto:
 		_run_smoke_auto()
+	elif coop_smoke:
+		_run_coop_smoke()
 	elif board_preview and _dialogue_visible():
 		_advance_dialogue()
-	var capture_ready := not board_preview or (not snapshot.is_empty() and not _dialogue_visible())
+	var waits_for_board := board_preview or smoke_auto or coop_smoke or demo_reel
+	var capture_ready := not waits_for_board or (not snapshot.is_empty() and not _dialogue_visible())
+	if coop_smoke:
+		capture_ready = capture_ready and coop_smoke_started and coop_smoke_accepted == coop_smoke_expected
 	if screenshot_frames > 0 and capture_ready:
 		screenshot_frames -= 1
 	elif screenshot_frames == 0 and capture_ready:
@@ -149,6 +165,10 @@ func _parse_arguments() -> void:
 			screenshot_frames = int(argument.trim_prefix("--screenshot-frames="))
 		elif argument == "--smoke-auto":
 			smoke_auto = true
+		elif argument == "--coop-smoke":
+			coop_smoke = true
+		elif argument == "--demo-reel":
+			demo_reel = true
 		elif argument == "--board-preview":
 			board_preview = true
 
@@ -167,6 +187,85 @@ func _run_smoke_auto() -> void:
 		if unit.get("has_acted", false) or _unit_is_pending(int(unit.id)):
 			continue
 		_submit("wait", int(unit.id))
+
+
+func _run_coop_smoke() -> void:
+	if _dialogue_visible():
+		_advance_dialogue()
+		return
+	if snapshot.is_empty() or snapshot.get("deploying", false):
+		return
+	if String(snapshot.get("active_side", "")) != "first":
+		return
+	if coop_smoke_started:
+		return
+	var queued := _queue_two_friendly_moves(true)
+	coop_smoke_expected = mini(2, queued)
+	coop_smoke_started = queued == 2
+	if not coop_smoke_started:
+		push_error("co-op smoke could not queue two independent moves")
+		get_tree().quit(2)
+		return
+	status_label.text = "CO-OP SMOKE / %d MOVES QUEUED" % queued
+
+
+func _run_demo_reel() -> void:
+	var now := Time.get_ticks_msec()
+	if _dialogue_visible():
+		if now >= demo_reel_next_msec:
+			_advance_dialogue()
+			demo_reel_next_msec = now + 1150
+		return
+	if snapshot.is_empty() or snapshot.get("deploying", false):
+		return
+	var round := int(snapshot.get("round", 0))
+	if round != demo_reel_round:
+		demo_reel_round = round
+		demo_reel_phase = 0
+		demo_reel_next_msec = now + 700
+	if String(snapshot.get("active_side", "")) != "first" or now < demo_reel_next_msec:
+		return
+	if demo_reel_phase == 0:
+		var queued := _queue_two_friendly_moves(false)
+		status_label.text = "DEMO / %d CO-OP MOVES" % queued
+		demo_reel_phase = 1
+		demo_reel_next_msec = now + 1400
+	elif demo_reel_phase == 1:
+		for unit: Dictionary in snapshot.get("units", []):
+			if String(unit.get("side", "")) != "first" or not unit.get("on_board", false):
+				continue
+			if unit.get("has_acted", false) or _unit_is_pending(int(unit.id)):
+				continue
+			_submit("wait", int(unit.id))
+		demo_reel_phase = 2
+		demo_reel_next_msec = now + 2400
+
+
+func _queue_two_friendly_moves(track_smoke_requests: bool) -> int:
+	var occupied: Dictionary = {}
+	for unit: Dictionary in snapshot.get("units", []):
+		if unit.get("on_board", false):
+			occupied["%d,%d" % [int(unit.x), int(unit.y)]] = true
+	var reserved: Dictionary = {}
+	var queued := 0
+	for unit: Dictionary in snapshot.get("units", []):
+		if String(unit.get("side", "")) != "first" or not unit.get("on_board", false):
+			continue
+		var tiles: Array = session.query_tiles("move", int(unit.id), 0)
+		for tile_index in range(tiles.size() - 1, -1, -1):
+			var tile: Dictionary = tiles[tile_index]
+			var key := "%d,%d" % [int(tile.x), int(tile.y)]
+			if occupied.has(key) or reserved.has(key):
+				continue
+			reserved[key] = true
+			var request_id := _submit("move", int(unit.id), 0, Vector2i(int(tile.x), int(tile.y)))
+			if track_smoke_requests:
+				coop_smoke_requests[request_id] = true
+			queued += 1
+			break
+		if queued >= 2:
+			break
+	return queued
 
 
 func _create_background() -> void:
@@ -350,6 +449,10 @@ func _handle_event(event: Dictionary) -> void:
 			_update_highlights(0)
 			_update_highlights(1)
 		"refused":
+			if coop_smoke and coop_smoke_requests.has(int(event.get("request_id", 0))):
+				coop_smoke_requests.erase(int(event.get("request_id", 0)))
+				push_error("co-op smoke move was refused: " + String(event.get("message", "unknown")))
+				get_tree().quit(2)
 			_complete_request(event)
 			_show_toast("COMMAND REFUSED  /  " + String(event.get("message", "unknown")))
 		"battle_ended":
@@ -491,16 +594,20 @@ func _accept_at(seat: int) -> void:
 		_submit("move", selected, 0, cursor)
 
 
-func _submit(kind: String, unit_id := 0, target_id := 0, cell := Vector2i.ZERO, content_id := 0) -> void:
+func _submit(kind: String, unit_id := 0, target_id := 0, cell := Vector2i.ZERO, content_id := 0) -> int:
 	var request_id := next_request_id
 	next_request_id += 1
 	pending_requests[request_id] = unit_id
 	session.submit_intent(kind, unit_id, target_id, cell.x, cell.y, content_id, request_id)
+	return request_id
 
 
 func _complete_request(event: Dictionary) -> void:
 	var request_id := int(event.get("request_id", 0))
 	if request_id != 0:
+		if coop_smoke and coop_smoke_requests.has(request_id):
+			coop_smoke_requests.erase(request_id)
+			coop_smoke_accepted += 1
 		pending_requests.erase(request_id)
 
 

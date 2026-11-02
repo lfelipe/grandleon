@@ -175,3 +175,17 @@ To build and capture all four graphics profiles under the same campaign state:
 ```sh
 platform/godot/scripts/capture-graphics-prototypes.sh
 ```
+
+To record the paced, model-off campaign reel used for remote visual review:
+
+```sh
+platform/godot/scripts/record-demo-reel.sh
+```
+
+The reel is an actual 1280x720 Godot capture. It advances authored dialogue,
+queues two friendly moves without serial player turns, and lets the built-in
+opposition respond. Set `GRANDLEON_DEMO_SECONDS` or pass build and output paths
+as the first two arguments when a different duration or destination is useful.
+Set `GRANDLEON_DEMO_CONFIG` to an untracked local model configuration to record
+the same reel with conversation or opposing-side model hooks enabled. Model,
+host, and token settings stay outside both the project and the resulting video.
