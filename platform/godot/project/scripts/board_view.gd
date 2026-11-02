@@ -20,6 +20,7 @@ var origin := Vector2(54, 112)
 var selected_units: Array[int] = [0, 0]
 var action_modes: Array[String] = ["move", "move"]
 var highlight_tiles: Array = [[], []]
+var camera_impulse_enabled := true
 var _authoritative_positions: Dictionary = {}
 var _motion_from: Dictionary = {}
 var _motion_to: Dictionary = {}
@@ -37,6 +38,10 @@ func _ready() -> void:
 
 func set_profile(_name: String, value: Dictionary) -> void:
 	profile_config = value
+
+
+func set_camera_impulse_enabled(value: bool) -> void:
+	camera_impulse_enabled = value
 
 
 func configure(new_snapshot: Dictionary, new_terrain: Array, new_theme: int) -> void:

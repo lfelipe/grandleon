@@ -2,6 +2,7 @@
   "contractVersion": "1.0.0",
   "profiles": {
     "voxel-sprites": {
+      "cameraImpulse": true,
       "camera": {
         "size": 8.4
       },

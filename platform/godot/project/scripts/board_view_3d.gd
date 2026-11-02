@@ -29,6 +29,7 @@ var seats: Array = []
 var selected_units: Array[int] = [0, 0]
 var action_modes: Array[String] = ["move", "move"]
 var highlight_tiles: Array = [[], []]
+var camera_impulse_enabled := true
 
 var _viewport: SubViewport
 var _world: Node3D
@@ -66,6 +67,15 @@ var _pulse := 0.0
 func set_profile(value: String, config := {}) -> void:
 	render_profile = value if value in ["diorama", "voxel-sprites", "voxel"] else "diorama"
 	profile_config = config if config is Dictionary else {}
+
+
+func set_camera_impulse_enabled(value: bool) -> void:
+	camera_impulse_enabled = value
+	if not camera_impulse_enabled:
+		_camera_shake_until = 0
+		_camera_shake_strength = 0.0
+		if _camera != null:
+			_camera.position = _camera_base_position
 
 
 func _ready() -> void:
@@ -961,6 +971,8 @@ func _update_effects(now_msec: int) -> void:
 
 
 func _shake_camera(duration_msec: int, strength: float) -> void:
+	if not camera_impulse_enabled:
+		return
 	_camera_shake_until = max(_camera_shake_until, Time.get_ticks_msec() + duration_msec)
 	_camera_shake_strength = maxf(_camera_shake_strength, strength)
 

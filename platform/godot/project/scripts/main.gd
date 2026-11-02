@@ -17,6 +17,7 @@ var package_path := "res://game.gpk"
 var campaign_key := "tarnholt_line"
 var graphics_profile := ""
 var graphics_pack_path := ""
+var camera_impulse_enabled := true
 var screenshot_path := ""
 var screenshot_frames := -1
 var smoke_auto := false
@@ -65,6 +66,7 @@ var dialogue_hint: Label
 var arcade_menu_layer: Control
 var arcade_menu_resume: Button
 var arcade_menu_graphics: Button
+var arcade_menu_camera: Button
 var arcade_menu_quit: Button
 var art = ArtLibrary.new()
 var graphics_profiles
@@ -74,6 +76,9 @@ func _ready() -> void:
 	_parse_arguments()
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
 	graphics_profile = graphics_profiles.resolve(graphics_profile)
+	camera_impulse_enabled = bool(
+		graphics_profiles.profile(graphics_profile).get("cameraImpulse", true)
+	)
 	_create_background()
 	_create_board(graphics_profile)
 	_create_interface()
@@ -274,6 +279,7 @@ func _run_graphics_cycle_smoke() -> void:
 		return
 	if graphics_cycle_smoke_index == 0 and selected_units[0] == 0:
 		_cycle_unit(0, 1)
+	_set_camera_impulse_enabled(graphics_cycle_smoke_index >= 2)
 	_set_graphics_profile(GRAPHICS_PROFILES[graphics_cycle_smoke_index])
 	if not _board_matches_current_state():
 		push_error("live graphics profile did not preserve the board state")
@@ -404,6 +410,7 @@ func _create_board(profile: String) -> void:
 		board = BoardView3D.new()
 	board.set_profile(profile, graphics_profiles.profile(profile))
 	add_child(board)
+	board.set_camera_impulse_enabled(camera_impulse_enabled)
 
 
 func _set_graphics_profile(requested: String) -> void:
@@ -432,6 +439,17 @@ func _cycle_graphics_profile() -> void:
 	)
 
 
+func _toggle_camera_impulse() -> void:
+	_set_camera_impulse_enabled(not camera_impulse_enabled)
+
+
+func _set_camera_impulse_enabled(value: bool) -> void:
+	camera_impulse_enabled = value
+	if board != null:
+		board.set_camera_impulse_enabled(camera_impulse_enabled)
+	_update_graphics_labels()
+
+
 func _graphics_profile_name() -> String:
 	return {
 		"pixel": "PIXEL 2D",
@@ -447,6 +465,10 @@ func _update_graphics_labels() -> void:
 		title_label.text = "GRANDLEON  /  " + name
 	if arcade_menu_graphics != null:
 		arcade_menu_graphics.text = "GRAPHICS  /  %s  /  A · ENTER" % name
+	if arcade_menu_camera != null:
+		arcade_menu_camera.text = "CAMERA IMPULSE  /  %s  /  A · ENTER" % (
+			"ON" if camera_impulse_enabled else "OFF"
+		)
 
 
 func _board_matches_current_state() -> bool:
@@ -455,6 +477,8 @@ func _board_matches_current_state() -> bool:
 	if board.get("snapshot") != snapshot or board.get("terrain") != battle_terrain:
 		return false
 	if board.get("seats") != seats or board.get("selected_units") != selected_units:
+		return false
+	if bool(board.get("camera_impulse_enabled")) != camera_impulse_enabled:
 		return false
 	return true
 
@@ -622,6 +646,9 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	arcade_menu_graphics = _menu_button("")
 	arcade_menu_graphics.pressed.connect(_cycle_graphics_profile)
 	column.add_child(arcade_menu_graphics)
+	arcade_menu_camera = _menu_button("")
+	arcade_menu_camera.pressed.connect(_toggle_camera_impulse)
+	column.add_child(arcade_menu_camera)
 	arcade_menu_quit = _menu_button("RETURN TO STEAM  /  A · X · Q")
 	arcade_menu_quit.pressed.connect(_quit_to_launcher)
 	column.add_child(arcade_menu_quit)
