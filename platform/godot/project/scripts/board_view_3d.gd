@@ -39,10 +39,16 @@ var _unit_root: Node3D
 var _unit_nodes: Dictionary = {}
 var _unit_targets: Dictionary = {}
 var _unit_sprites: Dictionary = {}
+var _health_sprites: Dictionary = {}
+var _health_textures: Dictionary = {}
 var _unit_animators: Dictionary = {}
 var _unit_animation_clips: Dictionary = {}
 var _unit_animation_states: Dictionary = {}
+var _unit_animation_lock_until: Dictionary = {}
 var _authored_units: Dictionary = {}
+var _pending_unit_removal: Dictionary = {}
+var _unit_flash_until: Dictionary = {}
+var _unit_flash_colours: Dictionary = {}
 var _materials: Dictionary = {}
 var _pulse := 0.0
 
@@ -122,6 +128,7 @@ func configure(new_snapshot: Dictionary, new_terrain: Array, new_theme: int) -> 
 
 func update_snapshot(value: Dictionary) -> void:
 	snapshot = value
+	var now_msec := Time.get_ticks_msec()
 	var present: Dictionary = {}
 	for unit: Dictionary in snapshot.get("units", []):
 		if not unit.get("on_board", false):
@@ -133,17 +140,43 @@ func update_snapshot(value: Dictionary) -> void:
 		_unit_targets[id] = target
 		if not _unit_nodes.has(id):
 			_create_unit(unit, target)
+		_update_health_bar(unit)
 	for id: Variant in _unit_nodes.keys():
 		if not present.has(id):
-			_unit_nodes[id].queue_free()
-			_unit_nodes.erase(id)
-			_unit_targets.erase(id)
-			_unit_sprites.erase(id)
-			_unit_animators.erase(id)
-			_unit_animation_clips.erase(id)
-			_unit_animation_states.erase(id)
-			_authored_units.erase(id)
+			var remove_after := int(_unit_animation_lock_until.get(id, 0))
+			if remove_after > now_msec:
+				_pending_unit_removal[id] = remove_after
+			else:
+				_remove_unit(int(id))
 	_rebuild_markers()
+
+
+func present_events(events: Array) -> void:
+	var now := Time.get_ticks_msec()
+	for event: Dictionary in events:
+		var kind := String(event.get("kind", ""))
+		var unit_id := int(event.get("unit_id", 0))
+		var related_id := int(event.get("related_unit_id", 0))
+		match kind:
+			"unit_damaged":
+				_play_unit_animation(related_id, "attack", 430, true)
+				_play_unit_animation(unit_id, "hurt", 300, true)
+				_flash_unit(unit_id, Color("ff776f"), now + 260)
+			"attack_missed":
+				_play_unit_animation(related_id, "attack", 430, true)
+			"unit_restored":
+				_play_unit_animation(related_id, "ability", 480, true)
+				_flash_unit(unit_id, Color("75e7a0"), now + 360)
+			"item_used":
+				_play_unit_animation(unit_id, "ability", 420, true)
+			"unit_talked":
+				_play_unit_animation(related_id, "ability", 480, true)
+				_play_unit_animation(unit_id, "defeat", 700, true)
+			"unit_defeated":
+				_play_unit_animation(unit_id, "defeat", 900, true)
+				_flash_unit(unit_id, Color("ff524f"), now + 420)
+			"unit_endured":
+				_flash_unit(unit_id, Color("ffca63"), now + 420)
 
 
 func set_seats(value: Array) -> void:
@@ -192,6 +225,10 @@ func unit_at(cell: Vector2i) -> Dictionary:
 
 func _process(delta: float) -> void:
 	_pulse += delta
+	var now_msec := Time.get_ticks_msec()
+	for id: Variant in _pending_unit_removal.keys():
+		if now_msec >= int(_pending_unit_removal[id]):
+			_remove_unit(int(id))
 	for id: Variant in _unit_nodes.keys():
 		var node: Node3D = _unit_nodes[id]
 		var target: Vector3 = _unit_targets.get(id, node.position)
@@ -202,14 +239,15 @@ func _process(delta: float) -> void:
 		var settled := node.position.lerp(
 			target, minf(1.0, delta * float(animation_config.get("moveSpeed", 9.0)))
 		)
-		if moving and _authored_units.has(id):
+		var animation_locked := now_msec < int(_unit_animation_lock_until.get(id, 0))
+		if moving and _authored_units.has(id) and not animation_locked:
 			var wanted_rotation := atan2(travel.x, travel.z)
 			node.rotation.y = lerp_angle(
 				node.rotation.y, wanted_rotation,
 				minf(1.0, delta * float(animation_config.get("turnSpeed", 12.0)))
 			)
 			_play_unit_animation(int(id), "move")
-		elif _authored_units.has(id):
+		elif _authored_units.has(id) and not animation_locked:
 			_play_unit_animation(int(id), "idle")
 		else:
 			settled.y = target.y + sin(_pulse * 3.2 + float(int(id) % 13)) * 0.025
@@ -217,6 +255,10 @@ func _process(delta: float) -> void:
 		if _unit_sprites.has(id):
 			var sprite: Sprite3D = _unit_sprites[id]
 			sprite.frame = int(_pulse * 6.0) % 4
+			if now_msec < int(_unit_flash_until.get(id, 0)):
+				sprite.modulate = _unit_flash_colours.get(id, Color.WHITE)
+			else:
+				sprite.modulate = Color.WHITE
 	if _viewport and _viewport.size != Vector2i(size):
 		_viewport.size = Vector2i(size)
 
@@ -376,6 +418,8 @@ func _create_unit(unit: Dictionary, target: Vector3) -> void:
 	var shadow_colour := Color(0.01, 0.02, 0.025, float(sprite_config.get("shadowOpacity", 0.46)))
 	var shadow := _material("shadow", shadow_colour, 1.0, true)
 	_cylinder(root, Vector3(0, 0.015, 0), float(sprite_config.get("shadowRadius", 0.27)), 0.025, shadow, 24, Vector3(1.0, 1.0, 0.66))
+	_create_health_bar(root, id)
+	_update_health_bar(unit)
 
 
 func _create_sprite_figure(root: Node3D, unit: Dictionary, id: int) -> void:
@@ -392,6 +436,47 @@ func _create_sprite_figure(root: Node3D, unit: Dictionary, id: int) -> void:
 	sprite.shaded = true
 	root.add_child(sprite)
 	_unit_sprites[id] = sprite
+
+
+func _create_health_bar(root: Node3D, id: int) -> void:
+	var sprite_config: Dictionary = profile_config.get("sprite", {})
+	var health := Sprite3D.new()
+	health.position = Vector3(0, float(sprite_config.get("healthBarHeight", 1.03)), 0)
+	health.pixel_size = float(sprite_config.get("healthBarScale", 0.011))
+	health.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	health.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	health.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	health.shaded = false
+	root.add_child(health)
+	_health_sprites[id] = health
+
+
+func _update_health_bar(unit: Dictionary) -> void:
+	var id := int(unit.id)
+	if not _health_sprites.has(id):
+		return
+	var ratio := clampf(
+		float(unit.get("health", 0)) /
+		maxf(1.0, float(unit.get("maximum_health", 1))),
+		0.0, 1.0
+	)
+	var step := clampi(roundi(ratio * 20.0), 0, 20)
+	if not _health_textures.has(step):
+		_health_textures[step] = _make_health_texture(step)
+	var sprite: Sprite3D = _health_sprites[id]
+	sprite.texture = _health_textures[step]
+
+
+func _make_health_texture(step: int) -> ImageTexture:
+	var image := Image.create(64, 8, false, Image.FORMAT_RGBA8)
+	image.fill(Color("071018"))
+	image.fill_rect(Rect2i(2, 2, 60, 4), Color("21313a"))
+	var width := roundi(60.0 * float(step) / 20.0)
+	var colour := Color("72e08f") if step > 10 else (Color("ffca63") if step > 5 else Color("ff5267"))
+	if width > 0:
+		image.fill_rect(Rect2i(2, 2, width, 4), colour)
+	image.set_pixel(0, 0, Color(0, 0, 0, 0))
+	return ImageTexture.create_from_image(image)
 
 
 func _create_voxel_figure(root: Node3D, unit: Dictionary) -> void:
@@ -527,8 +612,15 @@ func _create_authored_character(parent: Node3D, unit: Dictionary) -> bool:
 	return true
 
 
-func _play_unit_animation(id: int, state: String) -> void:
-	if not _unit_animators.has(id) or _unit_animation_states.get(id, "") == state:
+func _play_unit_animation(id: int, state: String, lock_msec := 0, restart := false) -> void:
+	if lock_msec > 0:
+		_unit_animation_lock_until[id] = max(
+			int(_unit_animation_lock_until.get(id, 0)),
+			Time.get_ticks_msec() + lock_msec
+		)
+	if not _unit_animators.has(id):
+		return
+	if not restart and _unit_animation_states.get(id, "") == state:
 		return
 	var animator: AnimationPlayer = _unit_animators[id]
 	var clips: Dictionary = _unit_animation_clips.get(id, {})
@@ -537,6 +629,30 @@ func _play_unit_animation(id: int, state: String) -> void:
 		return
 	animator.play(StringName(clip))
 	_unit_animation_states[id] = state
+
+
+func _flash_unit(id: int, colour: Color, until: int) -> void:
+	if not _unit_nodes.has(id):
+		return
+	_unit_flash_colours[id] = colour
+	_unit_flash_until[id] = until
+
+
+func _remove_unit(id: int) -> void:
+	if _unit_nodes.has(id):
+		_unit_nodes[id].queue_free()
+	_unit_nodes.erase(id)
+	_unit_targets.erase(id)
+	_unit_sprites.erase(id)
+	_health_sprites.erase(id)
+	_unit_animators.erase(id)
+	_unit_animation_clips.erase(id)
+	_unit_animation_states.erase(id)
+	_unit_animation_lock_until.erase(id)
+	_authored_units.erase(id)
+	_pending_unit_removal.erase(id)
+	_unit_flash_until.erase(id)
+	_unit_flash_colours.erase(id)
 
 
 func _instantiate_art_scene(path: String, at: Vector3, assets: Dictionary) -> bool:

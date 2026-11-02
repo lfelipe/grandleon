@@ -24,6 +24,8 @@ var _motion_from: Dictionary = {}
 var _motion_to: Dictionary = {}
 var _motion_started: Dictionary = {}
 var _last_units: Dictionary = {}
+var _event_flash_until: Dictionary = {}
+var _event_flash_colours: Dictionary = {}
 var _pulse := 0.0
 
 
@@ -82,6 +84,23 @@ func set_selected(seat: int, unit_id: int, mode: String) -> void:
 
 func set_highlights(seat: int, value: Array) -> void:
 	highlight_tiles[seat] = value
+	queue_redraw()
+
+
+func present_events(events: Array) -> void:
+	var now := Time.get_ticks_msec()
+	for event: Dictionary in events:
+		var kind := String(event.get("kind", ""))
+		var unit_id := int(event.get("unit_id", 0))
+		if kind == "unit_damaged":
+			_event_flash_until[unit_id] = now + 260
+			_event_flash_colours[unit_id] = Color("ff776f")
+		elif kind == "unit_restored":
+			_event_flash_until[unit_id] = now + 360
+			_event_flash_colours[unit_id] = Color("75e7a0")
+		elif kind in ["unit_defeated", "unit_endured"]:
+			_event_flash_until[unit_id] = now + 420
+			_event_flash_colours[unit_id] = Color("ffca63")
 	queue_redraw()
 
 
@@ -227,6 +246,10 @@ func _draw_units() -> void:
 		)
 		var source := Rect2(frame * TILE_SOURCE, 0, TILE_SOURCE, TILE_SOURCE)
 		draw_texture_rect_region(art.character_texture(unit), destination, source)
+		if now < int(_event_flash_until.get(id, 0)):
+			var flash: Color = _event_flash_colours.get(id, Color.WHITE)
+			flash.a = 0.62 + sin(_pulse * 22.0) * 0.20
+			draw_rect(destination.grow(-4), flash, false, maxf(2.0, tile_size * 0.05))
 		_draw_health(unit, centre, sprite_size)
 		if unit.get("has_acted", false):
 			draw_circle(centre, tile_size * 0.39, Color(0.02, 0.03, 0.04, 0.38))

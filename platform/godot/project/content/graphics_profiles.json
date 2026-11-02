@@ -22,7 +22,9 @@
       "pixelSize": 0.025,
       "height": 0.47,
       "shadowRadius": 0.27,
-      "shadowOpacity": 0.46
+      "shadowOpacity": 0.46,
+      "healthBarHeight": 1.03,
+      "healthBarScale": 0.011
     },
     "surfaceHeights": {
       "default": 0.10,

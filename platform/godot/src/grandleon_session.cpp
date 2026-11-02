@@ -81,6 +81,7 @@ const char* event_name(FrontendEvent::Kind kind) {
         case FrontendEvent::Kind::definitions: return "definitions";
         case FrontendEvent::Kind::deployment_begins:
             return "deployment_begins";
+        case FrontendEvent::Kind::presentation: return "presentation";
         case FrontendEvent::Kind::snapshot: return "snapshot";
         case FrontendEvent::Kind::refused: return "refused";
         case FrontendEvent::Kind::battle_ended: return "battle_ended";
@@ -91,6 +92,27 @@ const char* event_name(FrontendEvent::Kind kind) {
     return "unknown";
 }
 
+const char* presentation_event_name(sim::EventType type) {
+    switch (type) {
+        case sim::EventType::unit_moved: return "unit_moved";
+        case sim::EventType::unit_waited: return "unit_waited";
+        case sim::EventType::unit_damaged: return "unit_damaged";
+        case sim::EventType::unit_defeated: return "unit_defeated";
+        case sim::EventType::encounter_completed:
+            return "encounter_completed";
+        case sim::EventType::unit_restored: return "unit_restored";
+        case sim::EventType::activation_ended: return "activation_ended";
+        case sim::EventType::attack_missed: return "attack_missed";
+        case sim::EventType::item_used: return "item_used";
+        case sim::EventType::item_dropped: return "item_dropped";
+        case sim::EventType::unit_deployed: return "unit_deployed";
+        case sim::EventType::deployment_ended: return "deployment_ended";
+        case sim::EventType::unit_talked: return "unit_talked";
+        case sim::EventType::unit_arrived: return "unit_arrived";
+        case sim::EventType::unit_endured: return "unit_endured";
+    }
+    return "unknown";
+}
 }  // namespace
 
 void AsyncPresenter::present_dialogue(const pr::Dialogue& dialogue) {
@@ -163,11 +185,12 @@ void AsyncPresenter::report(
     const sim::CommandResult& result,
     const client::Roster& roster
 ) {
-    static_cast<void>(result);
     static_cast<void>(roster);
-    // The session draws immediately after every accepted command.  Publishing
-    // that resulting snapshot is one complete event and avoids a transient
-    // frame in which the report and board disagree.
+    if (result.events.empty()) return;
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::presentation;
+    event.presentation_events = result.events;
+    push(std::move(event));
 }
 
 void AsyncPresenter::refused(sim::CommandError error) {
@@ -698,6 +721,24 @@ gd::Dictionary GrandleonSession::event_dictionary(
             result["snapshot"] = snapshot_dictionary(event.snapshot);
             result["zone"] = positions_array(event.zone);
             break;
+        case FrontendEvent::Kind::presentation: {
+            gd::Array values;
+            for (const sim::Event& source : event.presentation_events) {
+                gd::Dictionary value;
+                value["kind"] = presentation_event_name(source.type);
+                value["unit_id"] = signed_id(source.unit_id);
+                value["related_unit_id"] =
+                    signed_id(source.related_unit_id);
+                value["x"] = source.position.x;
+                value["y"] = source.position.y;
+                value["amount"] = source.amount;
+                value["content_id"] = signed_id(source.content_id);
+                value["outcome"] = outcome_name(source.outcome);
+                values.push_back(value);
+            }
+            result["events"] = values;
+            break;
+        }
         case FrontendEvent::Kind::snapshot:
         case FrontendEvent::Kind::battle_ended:
             result["snapshot"] = snapshot_dictionary(event.snapshot);

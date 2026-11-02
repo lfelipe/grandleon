@@ -28,6 +28,7 @@ struct FrontendEvent final {
         battle_begins,
         definitions,
         deployment_begins,
+        presentation,
         snapshot,
         refused,
         battle_ended,
@@ -44,6 +45,7 @@ struct FrontendEvent final {
     std::vector<simulation::AbilityDefinition> abilities;
     std::vector<simulation::ItemDefinition> items;
     std::vector<simulation::ObjectiveDefinition> objectives;
+    std::vector<simulation::Event> presentation_events;
     package_runtime::Dialogue dialogue;
     simulation::Side player_side{simulation::Side::first};
     std::uint64_t canonical_hash{};
