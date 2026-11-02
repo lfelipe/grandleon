@@ -473,6 +473,13 @@ export const sourceV1Schemas: readonly object[] = [
             ],
             "description": "How an unattended unit acts on its own turn. Omitted means hold."
           },
+          "minimumPlayers": {
+            "type": "integer",
+            "enum": [
+              2
+            ],
+            "description": "Fields this opposing placement only when two local players are participating. Omitted means the placement is always present. This adds authored enemies or reinforcements for co-op without changing their stats, and is portable to PC, Nintendo 64, and PlayStation. Allied roster placements cannot be conditional, and an objective cannot target a conditional placement."
+          },
           "talk": {
             "type": "object",
             "description": "Makes this character talkable on this board, and names the world flag that talking to them raises. Omitted means a character no talk may reach, which is what every placement authored before the talk gesture means. Authored here rather than on the unit type because being talkable is a fact about one character on one board.",

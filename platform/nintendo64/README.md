@@ -210,6 +210,10 @@ neither player waits for ownership of the board cursor. Authored `sideBlocks`
 encounters let both players combine their allied activations before the
 computer-controlled side begins.
 
+When controller port two is connected at session start, the encounter loader
+also includes opposing placements authored with `minimumPlayers: 2`. With one
+controller those placements are omitted; no unit stats are adjusted.
+
 The menu is derived from the character, not from what the cursor rests on, so
 a `WAIT` row can sit in it. Rows, in order: `ATTACK` (or one row per carried
 weapon, in the unit type's order, the first being the weapon in hand), then

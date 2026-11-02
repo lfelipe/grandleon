@@ -1098,7 +1098,13 @@ CompileResult compile(const GameSource& source) {
         // that places them.
         std::set<StableId> placement_keys;
         for (const Placement& placement : definition.placements) {
-            placement_keys.insert(placement.source_key_id);
+            // A target must exist in every supported player configuration.
+            // Conditional enemies may still speak and arrive, but making one
+            // the win condition would leave the one-player form without the
+            // character its objective names.
+            if (placement.minimum_players == 1) {
+                placement_keys.insert(placement.source_key_id);
+            }
         }
         for (StableId objective_id : definition.objective_ids) {
             const auto found_objective = objectives_by_id.find(objective_id);
@@ -1126,6 +1132,8 @@ CompileResult compile(const GameSource& source) {
         );
         std::set<StableId> placement_ids;
         std::set<std::pair<std::int16_t, std::int16_t>> placement_tiles;
+        bool has_unscaled_opponent = false;
+        bool has_scaled_placement = false;
         const auto found_map = maps_by_id.find(definition.map_id);
         for (const Placement& placement : definition.placements) {
             validate_count(
@@ -1159,6 +1167,12 @@ CompileResult compile(const GameSource& source) {
             // one it could stand on instead. So two waves may be authored onto
             // one tile, and a wave onto a tile somebody starts on.
             const bool arrives = placement.arrival_round != 0;
+            has_scaled_placement =
+                has_scaled_placement || placement.minimum_players > 1;
+            has_unscaled_opponent =
+                has_unscaled_opponent ||
+                (placement.side == EncounterSide::second &&
+                 placement.minimum_players == 1);
             const bool tile_taken =
                 !arrives &&
                 !placement_tiles.emplace(placement.x, placement.y).second;
@@ -1170,6 +1184,19 @@ CompileResult compile(const GameSource& source) {
                         DiagnosticCode::invalid_placement,
                         path + ".placements",
                         placement.id
+                    }
+                );
+                continue;
+            }
+            if (placement.minimum_players < 1 ||
+                placement.minimum_players > 2 ||
+                (placement.minimum_players > 1 &&
+                 (placement.side != EncounterSide::second ||
+                  placement.member_id != 0))) {
+                result.diagnostics.push_back(
+                    {
+                        DiagnosticCode::invalid_placement,
+                        path + ".placements.minimum_players", placement.id
                     }
                 );
                 continue;
@@ -1235,6 +1262,11 @@ CompileResult compile(const GameSource& source) {
             }
         }
         if (definition.placements.empty()) {
+            result.diagnostics.push_back(
+                {DiagnosticCode::invalid_placement, path + ".placements", 0}
+            );
+        }
+        if (has_scaled_placement && !has_unscaled_opponent) {
             result.diagnostics.push_back(
                 {DiagnosticCode::invalid_placement, path + ".placements", 0}
             );
@@ -2457,6 +2489,46 @@ CompileResult compile(const GameSource& source) {
                     put_u16(bytes, placement.arrival_round);
                     put_u16(bytes, placement.arrival_every);
                     put_u16(bytes, placement.arrival_times);
+                }
+                section.records.push_back({encounter->id, std::move(bytes)});
+            }
+            return section;
+        }(),
+        // Opposing placements that only join a battle for a larger local
+        // party. Required when present: a reader that ignored it would field
+        // every extra enemy in a one-player game. Like arrivals, the sparse
+        // section is omitted entirely when nobody authors the rule, preserving
+        // every older package byte for byte.
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::placement_scaling;
+            std::vector<const Encounter*> ordered;
+            for (const Encounter& encounter : source.encounters) {
+                const bool any = std::any_of(
+                    encounter.placements.begin(), encounter.placements.end(),
+                    [](const Placement& placement) {
+                        return placement.minimum_players > 1;
+                    }
+                );
+                if (any) ordered.push_back(&encounter);
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Encounter* lhs, const Encounter* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Encounter* encounter : ordered) {
+                Bytes bytes;
+                std::uint16_t count = 0;
+                for (const Placement& placement : encounter->placements) {
+                    if (placement.minimum_players > 1) ++count;
+                }
+                put_u16(bytes, count);
+                for (const Placement& placement : encounter->placements) {
+                    if (placement.minimum_players <= 1) continue;
+                    put_u64(bytes, placement.id);
+                    bytes.push_back(placement.minimum_players);
                 }
                 section.records.push_back({encounter->id, std::move(bytes)});
             }

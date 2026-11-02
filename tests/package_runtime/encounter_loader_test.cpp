@@ -2033,6 +2033,45 @@ void carries_the_arrivals_onto_the_board() {
     );
 }
 
+void scales_authored_opponents_with_the_local_party() {
+    auto authored = ranked_source();
+    gc::Placement extra{
+        1002, 2002, 0, 61, gc::EncounterSide::second, 3, 1
+    };
+    extra.minimum_players = 2;
+    authored.encounters.front().placements.push_back(extra);
+    const pf::LoadedPackage package = compile_and_load(authored);
+    expect(
+        package.find(pf::SectionType::placement_scaling, 100) != nullptr,
+        "the runtime fixture carries its player-scaling record"
+    );
+
+    const auto one = pr::load_encounter(package, 100);
+    const auto two = pr::load_encounter(package, 100, {2});
+    expect(one && two, "both local-party sizes decode the same encounter");
+    expect(
+        one.definition.units.size() + 1U == two.definition.units.size(),
+        "the authored extra opponent is absent for one and present for two"
+    );
+    const auto has_extra = [](const pr::EncounterLoadResult& board) {
+        return std::any_of(
+            board.definition.units.begin(), board.definition.units.end(),
+            [](const sim::UnitDefinition& unit) { return unit.id == 1002; }
+        );
+    };
+    expect(
+        !has_extra(one) && has_extra(two),
+        "the player-count rule filters the placement identity itself"
+    );
+    expect(
+        one.behaviors.size() == one.definition.units.size() &&
+            one.placements.size() == one.definition.units.size() &&
+            two.behaviors.size() == two.definition.units.size() &&
+            two.placements.size() == two.definition.units.size(),
+        "behavior and campaign joins stay aligned with the scaled board"
+    );
+}
+
 void carries_the_survive_count_onto_the_objective() {
     auto authored = ranked_source();
     authored.objectives.front().kind = gc::ObjectiveKind::survive_rounds;
@@ -2171,6 +2210,7 @@ int main() {
     carries_what_is_said_during_a_battle();
     refuses_a_moment_that_names_nobody_on_this_board();
     carries_the_arrivals_onto_the_board();
+    scales_authored_opponents_with_the_local_party();
     carries_the_survive_count_onto_the_objective();
     a_triangle_reaches_the_blow();
     carries_the_deployment_capacity_beside_the_board();

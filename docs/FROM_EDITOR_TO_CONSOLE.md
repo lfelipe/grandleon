@@ -83,6 +83,14 @@ shared simulation deterministically. Optional local-model requests sit above
 this chain in the PC client and are the only co-op-adjacent capability omitted
 from console builds.
 
+Player-count scaling follows the same path. The editor may mark an opposing
+placement `minimumPlayers: 2`; the compiler writes a required sparse scaling
+record, and each target fields that placement only when two local players are
+configured or two controller ports are present. The placement's unit type,
+behavior, reinforcement timing, and dialogue remain ordinary portable content.
+Allied roster placements and objective targets cannot be conditional, keeping
+campaign identity and win conditions stable between one- and two-player runs.
+
 The PlayStation cannot compile the content path at all, for want of a linkable
 unwinder, so the Nintendo 64's is the repository's only target-side test of the
 JSON parser.

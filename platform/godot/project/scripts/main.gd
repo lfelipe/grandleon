@@ -111,10 +111,10 @@ func _ready() -> void:
 	var started := false
 	if staged.is_empty():
 		var absolute_package := ProjectSettings.globalize_path(package_path)
-		started = session.start(absolute_package, campaign_key)
+		started = session.start(absolute_package, campaign_key, player_count)
 	else:
 		campaign_key = str(staged.campaign)
-		started = session.start_package(staged.package, campaign_key)
+		started = session.start_package(staged.package, campaign_key, player_count)
 	if not started:
 		_show_fatal(session.last_error())
 	else:

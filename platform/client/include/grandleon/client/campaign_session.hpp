@@ -676,6 +676,10 @@ struct CampaignSessionOptions final {
     // then checked by the ordinary gate rather than by whichever configuration
     // the machine happened to use.
     bool stage_picker{stage_picker_built};
+    // Selects portable encounter placement scaling. It is session
+    // configuration rather than save state: connecting a second controller
+    // changes the next board's authored opposition, not the campaign record.
+    std::uint8_t local_players{1};
 };
 
 
@@ -700,9 +704,10 @@ public:
 class PackageBoards final : public CampaignBoards {
 public:
     explicit PackageBoards(
-        const package_format::LoadedPackage& package
+        const package_format::LoadedPackage& package,
+        std::uint8_t local_players = 1
     ) noexcept
-        : package_{&package} {}
+        : package_{&package}, local_players_{local_players} {}
 
     [[nodiscard]] package_runtime::EncounterLoadResult board(
         std::uint64_t encounter_id
@@ -710,6 +715,7 @@ public:
 
 private:
     const package_format::LoadedPackage* package_;
+    std::uint8_t local_players_{1};
 };
 
 // The campaign a player keeps, as an object the caller pumps.

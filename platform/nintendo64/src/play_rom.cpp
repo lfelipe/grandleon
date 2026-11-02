@@ -8922,6 +8922,12 @@ int main() {
     joypad_init();
     grandleon::n64audio::init();
 #endif
+#if !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
+    const std::uint8_t local_players =
+        joypad_is_connected(JOYPAD_PORT_2) ? 2U : 1U;
+#else
+    constexpr std::uint8_t local_players = 1;
+#endif
 
     // The embedded source project, parsed and compiled on the console. The
     // same JSON the editor loads and the host compiler compiles; there is no
@@ -9210,6 +9216,7 @@ int main() {
         options.slot = decision.slot;
         options.resume = decision.resume;
         options.player_side = sim::Side::first;
+        options.local_players = local_players;
         const auto status = client::run_persistent_campaign(
             loaded.package,
             core::stable_content_id_v1(project_campaign_key),
@@ -9223,11 +9230,14 @@ int main() {
             "the kept campaign runs"
         );
 #else
+        client::SessionOptions options;
+        options.local_players = local_players;
         const auto status = client::run_campaign(
             loaded.package,
             core::stable_content_id_v1(project_campaign_key),
             sim::Side::first,
-            presenter
+            presenter,
+            options
         );
         expect(
             status == client::SessionError::none,

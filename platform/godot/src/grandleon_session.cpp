@@ -345,12 +345,18 @@ GrandleonSession::~GrandleonSession() {
 
 void GrandleonSession::_bind_methods() {
     gd::ClassDB::bind_method(
-        gd::D_METHOD("start", "package_path", "campaign_key"),
-        &GrandleonSession::start
+        gd::D_METHOD(
+            "start", "package_path", "campaign_key", "local_players"
+        ),
+        &GrandleonSession::start,
+        DEFVAL(1)
     );
     gd::ClassDB::bind_method(
-        gd::D_METHOD("start_package", "package_bytes", "campaign_key"),
-        &GrandleonSession::start_package
+        gd::D_METHOD(
+            "start_package", "package_bytes", "campaign_key", "local_players"
+        ),
+        &GrandleonSession::start_package,
+        DEFVAL(1)
     );
     gd::ClassDB::bind_method(gd::D_METHOD("stop"), &GrandleonSession::stop);
     gd::ClassDB::bind_method(
@@ -377,7 +383,8 @@ void GrandleonSession::_bind_methods() {
 
 bool GrandleonSession::start(
     const gd::String& package_path,
-    const gd::String& campaign_key
+    const gd::String& campaign_key,
+    std::int64_t local_players
 ) {
     reset_for_start();
 
@@ -392,12 +399,13 @@ bool GrandleonSession::start(
         std::istreambuf_iterator<char>(input),
         std::istreambuf_iterator<char>()
     };
-    return start_bytes(bytes, campaign_key);
+    return start_bytes(bytes, campaign_key, local_players);
 }
 
 bool GrandleonSession::start_package(
     const gd::PackedByteArray& package_bytes,
-    const gd::String& campaign_key
+    const gd::String& campaign_key,
+    std::int64_t local_players
 ) {
     reset_for_start();
     std::vector<std::uint8_t> bytes(
@@ -407,7 +415,7 @@ bool GrandleonSession::start_package(
     for (std::size_t index = 0; index < bytes.size(); ++index) {
         bytes[index] = input[index];
     }
-    return start_bytes(bytes, campaign_key);
+    return start_bytes(bytes, campaign_key, local_players);
 }
 
 void GrandleonSession::reset_for_start() {
@@ -421,7 +429,8 @@ void GrandleonSession::reset_for_start() {
 
 bool GrandleonSession::start_bytes(
     const std::vector<std::uint8_t>& package_bytes,
-    const gd::String& campaign_key
+    const gd::String& campaign_key,
+    std::int64_t local_players
 ) {
     auto loaded = pf::load_mock_package(
         package_bytes,
@@ -451,9 +460,13 @@ bool GrandleonSession::start_bytes(
         running_ = true;
     }
     const std::shared_ptr<AsyncPresenter> presenter = presenter_;
-    worker_ = std::thread([this, presenter, campaign_id] {
+    const std::uint8_t players = static_cast<std::uint8_t>(
+        std::clamp<std::int64_t>(local_players, 1, 2)
+    );
+    worker_ = std::thread([this, presenter, campaign_id, players] {
+        const client::SessionOptions options{players};
         const client::SessionError status = client::run_campaign(
-            package_, campaign_id, sim::Side::first, *presenter
+            package_, campaign_id, sim::Side::first, *presenter, options
         );
         FrontendEvent event;
         if (status == client::SessionError::none) {

@@ -2171,6 +2171,12 @@ int main() {
 
     psx::start_clock();
     pad::begin();
+#ifdef GRANDLEON_PSX_AUTOPILOT
+    constexpr std::uint8_t local_players = 1;
+#else
+    const std::uint8_t local_players =
+        pad::answers(pad::Port::two) > 0 ? 2U : 1U;
+#endif
 
     const auto loaded = [] {
         const std::vector<std::uint8_t> package_bytes(
@@ -2428,6 +2434,7 @@ int main() {
     options.slot = chosen.slot;
     options.resume = chosen.resume;
     options.player_side = sim::Side::first;
+    options.local_players = local_players;
     const client::CampaignSessionError outcome = client::run_persistent_campaign(
         loaded.package, campaign_id, game, game, device, options
     );
@@ -2501,8 +2508,10 @@ int main() {
         .text(" bytes")
         .flush();
 #else
+    client::SessionOptions session_options;
+    session_options.local_players = local_players;
     const client::SessionError status = client::run_campaign(
-        loaded.package, campaign_id, sim::Side::first, game
+        loaded.package, campaign_id, sim::Side::first, game, session_options
     );
     const std::uint32_t elapsed = psx::clock_ticks() - started;
 

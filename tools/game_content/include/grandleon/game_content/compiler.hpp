@@ -532,6 +532,12 @@ struct Placement final {
     // section, so a package where nobody is named is byte-identical to the
     // package it always was.
     std::string name;
+    // How many local players must be participating for this opposing
+    // placement to be fielded. One is the default and writes no scaling
+    // record; two adds difficulty through authored characters rather than an
+    // opaque stat multiplier. Allied roster placements may not be conditional.
+    // Appended to preserve aggregate initializers written before the rule.
+    std::uint8_t minimum_players{1};
 };
 
 // What an encounter says about the player's own troops before the first

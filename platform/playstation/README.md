@@ -368,6 +368,10 @@ serialized only where they enter the deterministic simulation. A co-op map is
 ordinary portable content and should use `sideBlocks` when both allied
 characters are meant to act before the computer-controlled side.
 
+When the second controller socket answers at session start, the encounter
+loader also includes opposing placements authored with `minimumPlayers: 2`.
+With one controller those placements are omitted; no unit stats are adjusted.
+
 ### Screen
 
 320x240, a 32-pixel cell, a four-row message bar in an eight-pixel font. The

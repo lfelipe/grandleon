@@ -144,6 +144,17 @@ struct SourceMapCell final {
     std::int64_t y
 );
 
+// Makes an opposing placement always present (one) or a two-player addition
+// (two). The source stores only the latter; restoring one removes the optional
+// field so older projects retain their canonical shape.
+[[nodiscard]] SourceTextResult set_source_placement_minimum_players_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id,
+    std::int64_t minimum_players
+);
+
 // Adds or removes an opening encounter placement by portable identities.
 // Allied placements name the campaign member they field; enemy placements
 // omit that identity. Both operations preserve playability when the input was

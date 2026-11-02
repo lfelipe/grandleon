@@ -51,6 +51,12 @@ struct BattleReport final {
     std::uint64_t jump_to_stage{};
 };
 
+struct SessionOptions final {
+    // Number of local people sharing the player side. This selects authored
+    // placement scaling while never changing a unit's rules or stats.
+    std::uint8_t local_players{1};
+};
+
 // Play one already-loaded board to its end through a presenter.
 //
 // Split out of `run_campaign` so that a session which loads its boards
@@ -86,6 +92,14 @@ void present_dialogue_sequence(
     std::uint64_t campaign_id,
     simulation::Side player_side,
     Presenter& presenter
+);
+
+[[nodiscard]] SessionError run_campaign(
+    const package_format::LoadedPackage& package,
+    std::uint64_t campaign_id,
+    simulation::Side player_side,
+    Presenter& presenter,
+    const SessionOptions& options
 );
 
 }  // namespace grandleon::client

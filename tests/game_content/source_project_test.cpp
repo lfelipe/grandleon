@@ -421,6 +421,34 @@ void updates_one_map_cell_without_retyping_the_project() {
             gc::compile(added_enemy_parsed.source),
         "an enemy placement can be added without a roster member"
     );
+    const auto scaled_enemy =
+        gc::set_source_placement_minimum_players_json(
+            added_enemy.json, "demo", "battle", "red_2", 2
+        );
+    const auto scaled_enemy_parsed =
+        gc::parse_source_project_json(scaled_enemy.json);
+    expect(
+        scaled_enemy && scaled_enemy_parsed &&
+            scaled_enemy_parsed.source.encounters.front()
+                    .placements.back().minimum_players == 2 &&
+            gc::compile(scaled_enemy_parsed.source),
+        "an opposing placement can be made a portable two-player addition"
+    );
+    const auto restored_enemy =
+        gc::set_source_placement_minimum_players_json(
+            scaled_enemy.json, "demo", "battle", "red_2", 1
+        );
+    expect(
+        restored_enemy &&
+            restored_enemy.json.find("minimumPlayers") == std::string::npos,
+        "restoring an always-present placement removes the optional field"
+    );
+    expect(
+        !gc::set_source_placement_minimum_players_json(
+            enlarged.json, "demo", "battle", "blue_1", 2
+        ),
+        "an allied roster placement cannot be made conditional"
+    );
     expect(
         !gc::add_source_placement_json(
             enlarged.json, "demo", "battle", "red_1", "red_unit", "second",

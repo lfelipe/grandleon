@@ -1692,6 +1692,53 @@ void writes_an_arrivals_section_only_when_authored() {
     );
 }
 
+void writes_player_scaling_only_for_authored_opponents() {
+    const auto plain = gc::compile(campaign_source());
+    expect(static_cast<bool>(plain), "the unscaled campaign compiles");
+
+    auto authored = campaign_source();
+    gc::Placement extra{
+        1002, 2002, 0, 61, gc::EncounterSide::second, 3, 1
+    };
+    extra.minimum_players = 2;
+    authored.encounters.front().placements.push_back(extra);
+    const auto scaled = gc::compile(authored);
+    expect(static_cast<bool>(scaled), "a two-player opponent compiles");
+    const auto plain_loaded = load(plain.package);
+    const auto scaled_loaded = load(scaled.package);
+    expect(
+        plain_loaded && scaled_loaded,
+        "the scaled and unscaled packages both load"
+    );
+    expect(
+        plain_loaded.package.find(pf::SectionType::placement_scaling) ==
+            nullptr,
+        "an unscaled project has no placement scaling section"
+    );
+    const pf::RecordView* record = scaled_loaded.package.find(
+        pf::SectionType::placement_scaling, 100
+    );
+    expect(
+        record != nullptr && record->payload_size == 2U + 8U + 1U,
+        "one scaled placement is a count, identity, and player minimum"
+    );
+
+    auto allied = campaign_source();
+    allied.encounters.front().placements.front().minimum_players = 2;
+    expect(
+        has_code(gc::compile(allied), gc::DiagnosticCode::invalid_placement),
+        "an allied roster placement cannot depend on player count"
+    );
+
+    auto targeted = authored;
+    targeted.objectives.front().kind = gc::ObjectiveKind::defeat_target;
+    targeted.objectives.front().target_placement_id = 2002;
+    expect(
+        has_code(gc::compile(targeted), gc::DiagnosticCode::missing_reference),
+        "an objective cannot name an opponent absent from the one-player map"
+    );
+}
+
 void a_wave_is_judged_like_a_placement_but_not_against_one() {
     auto stacked = campaign_source();
     stacked.encounters.front().placements.back().x =
@@ -2093,6 +2140,7 @@ int main() {
     writes_the_survive_count_only_for_the_kind_that_reads_it();
     a_survive_count_is_authored_with_its_kind_or_not_at_all();
     writes_an_arrivals_section_only_when_authored();
+    writes_player_scaling_only_for_authored_opponents();
     a_wave_is_judged_like_a_placement_but_not_against_one();
     supports_large_definition_sets();
     return failures == 0 ? 0 : 1;

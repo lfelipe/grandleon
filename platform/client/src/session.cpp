@@ -584,7 +584,8 @@ SessionError run_campaign(
     const package_format::LoadedPackage& package,
     std::uint64_t campaign_id,
     sim::Side player_side,
-    Presenter& presenter
+    Presenter& presenter,
+    const SessionOptions& options
 ) {
     auto campaign = pr::load_campaign(package, campaign_id);
     if (!campaign) return SessionError::campaign_rejected;
@@ -606,7 +607,9 @@ SessionError run_campaign(
         }
 
         present_if_present(package, node.dialogue_ids, presenter);
-        const auto loaded = pr::load_encounter(package, node.encounter_id);
+        const auto loaded = pr::load_encounter(
+            package, node.encounter_id, {options.local_players}
+        );
         if (!loaded) return SessionError::encounter_rejected;
         BattleReport battle;
         const SessionError status =
@@ -621,6 +624,15 @@ SessionError run_campaign(
         }
     }
     return SessionError::flow_stalled;
+}
+
+SessionError run_campaign(
+    const package_format::LoadedPackage& package,
+    std::uint64_t campaign_id,
+    sim::Side player_side,
+    Presenter& presenter
+) {
+    return run_campaign(package, campaign_id, player_side, presenter, {});
 }
 
 }  // namespace grandleon::client

@@ -622,7 +622,8 @@ std::string_view error_name(EncounterLoadError error) noexcept {
 
 EncounterLoadResult load_encounter(
     const LoadedPackage& package,
-    std::uint64_t encounter_id
+    std::uint64_t encounter_id,
+    const EncounterLoadOptions& options
 ) {
     auto fail = [](EncounterLoadError error) {
         EncounterLoadResult result;
@@ -685,7 +686,37 @@ EncounterLoadResult load_encounter(
     if (!read_abilities(package, result.definition.abilities)) {
         return fail(EncounterLoadError::malformed_payload);
     }
+    // Sparse placement minima live outside the encounter record so an
+    // unscaled encounter retains its historical bytes. The section is
+    // required when present: silently ignoring it would field the co-op extras
+    // in a one-player battle.
+    std::map<std::uint64_t, std::uint8_t> minimum_players;
+    if (const RecordView* scaling =
+            package.find(SectionType::placement_scaling, encounter_id)) {
+        Reader scaling_reader(package, *scaling);
+        std::uint16_t scaling_count = 0;
+        if (!scaling_reader.u16(scaling_count) || scaling_count == 0) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        for (std::uint16_t index = 0; index < scaling_count; ++index) {
+            std::uint64_t placement_id = 0;
+            std::uint8_t minimum = 0;
+            if (!scaling_reader.u64(placement_id) ||
+                !scaling_reader.u8(minimum) || placement_id == 0 ||
+                minimum != 2U ||
+                !minimum_players.emplace(placement_id, minimum).second) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+        }
+        if (!scaling_reader.finished()) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+    }
+    const std::uint8_t local_players =
+        options.local_players == 0 ? 1U : options.local_players;
     std::map<std::uint64_t, std::uint64_t> placement_instances;
+    std::set<std::uint64_t> scaled_placements_seen;
+    std::set<std::uint64_t> excluded_placements;
 
     std::uint16_t placement_count = 0;
     if (!reader.u16(placement_count) || placement_count == 0 ||
@@ -728,7 +759,6 @@ EncounterLoadResult load_encounter(
             }
             binding.patrol.push_back({px, py});
         }
-        result.behaviors.push_back(std::move(binding));
         const RecordView* unit_type =
             package.find(SectionType::unit_types, unit_type_id);
         if (unit_type == nullptr) {
@@ -767,6 +797,22 @@ EncounterLoadResult load_encounter(
         if (!read_class(package, *unit_class, stats)) {
             return fail(EncounterLoadError::malformed_payload);
         }
+        const auto scaling = minimum_players.find(instance_id);
+        const bool scaled = scaling != minimum_players.end();
+        if (scaled) {
+            scaled_placements_seen.insert(instance_id);
+            // Player-count scaling is deliberately an opposing-side rule.
+            // Conditional allies would make roster membership and save state
+            // depend on controller presence.
+            if (encoded_side != 2U) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+            if (local_players < scaling->second) {
+                excluded_placements.insert(instance_id);
+                continue;
+            }
+        }
+        result.behaviors.push_back(std::move(binding));
         placement_instances.emplace(source_key_id, instance_id);
         result.placements.push_back({instance_id, source_key_id});
         result.definition.units.push_back(
@@ -809,6 +855,9 @@ EncounterLoadResult load_encounter(
                 drop_chance
             }
         );
+    }
+    if (scaled_placements_seen.size() != minimum_players.size()) {
+        return fail(EncounterLoadError::missing_reference);
     }
     for (std::size_t index = 0; index < objectives.size(); ++index) {
         const bool needs_target =
@@ -858,6 +907,7 @@ EncounterLoadResult load_encounter(
                 }
             );
             if (found == result.definition.units.end()) {
+                if (excluded_placements.count(placement_id) != 0) continue;
                 return fail(EncounterLoadError::missing_reference);
             }
             found->talk_record_id = flag_id;
@@ -913,6 +963,9 @@ EncounterLoadResult load_encounter(
                     }
                 );
                 if (stands == result.definition.units.end()) {
+                    if (excluded_placements.count(placement_id) != 0) {
+                        continue;
+                    }
                     return fail(EncounterLoadError::missing_reference);
                 }
             }
@@ -956,6 +1009,7 @@ EncounterLoadResult load_encounter(
                 }
             );
             if (found == result.definition.units.end()) {
+                if (excluded_placements.count(placement_id) != 0) continue;
                 return fail(EncounterLoadError::missing_reference);
             }
             found->arrival_round = round;

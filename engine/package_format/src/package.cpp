@@ -197,6 +197,7 @@ bool is_known_section(std::uint32_t type) {
         case SectionType::arrivals:
         case SectionType::placement_names:
         case SectionType::moments:
+        case SectionType::placement_scaling:
             return true;
     }
     return false;

@@ -117,6 +117,11 @@ enum class SectionType : std::uint32_t {
     // different battle, and one skipping this plays the same battle in silence.
     // Nothing here is read by a rule; the engine never learns a moment exists.
     moments = 19,
+    // Which opposing placements are added when more local players take part,
+    // per encounter. Required when present because omitting it changes the
+    // battle, and pruned entirely when every placement is always present so
+    // packages authored before player scaling remain byte-identical.
+    placement_scaling = 20,
 };
 
 // The presentation section holds records about the whole game, the way the

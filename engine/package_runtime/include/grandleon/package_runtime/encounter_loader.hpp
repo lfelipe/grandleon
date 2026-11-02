@@ -158,11 +158,19 @@ struct EncounterLoadResult final {
     }
 };
 
+struct EncounterLoadOptions final {
+    // Number of local people sharing the player side. One preserves every
+    // package and call site authored before encounter scaling. Values above
+    // one enable placements whose portable minimum-player rule is met.
+    std::uint8_t local_players{1};
+};
+
 // Decodes one already structurally validated package encounter. No partially
 // decoded definition is published when any payload or reference is invalid.
 [[nodiscard]] EncounterLoadResult load_encounter(
     const package_format::LoadedPackage& package,
-    std::uint64_t encounter_id
+    std::uint64_t encounter_id,
+    const EncounterLoadOptions& options = {}
 );
 
 }  // namespace grandleon::package_runtime

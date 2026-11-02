@@ -140,11 +140,13 @@ public:
 
     [[nodiscard]] bool start(
         const ::godot::String& package_path,
-        const ::godot::String& campaign_key
+        const ::godot::String& campaign_key,
+        std::int64_t local_players = 1
     );
     [[nodiscard]] bool start_package(
         const ::godot::PackedByteArray& package_bytes,
-        const ::godot::String& campaign_key
+        const ::godot::String& campaign_key,
+        std::int64_t local_players = 1
     );
     void stop();
     [[nodiscard]] bool running() const;
@@ -177,7 +179,8 @@ private:
     void reset_for_start();
     [[nodiscard]] bool start_bytes(
         const std::vector<std::uint8_t>& package_bytes,
-        const ::godot::String& campaign_key
+        const ::godot::String& campaign_key,
+        std::int64_t local_players
     );
     void join_worker();
 

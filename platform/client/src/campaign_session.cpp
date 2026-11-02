@@ -92,7 +92,7 @@ std::string_view management_error_name(ManagementError error) noexcept {
 }
 
 pr::EncounterLoadResult PackageBoards::board(std::uint64_t encounter_id) const {
-    return pr::load_encounter(*package_, encounter_id);
+    return pr::load_encounter(*package_, encounter_id, {local_players_});
 }
 
 // ---------------------------------------------------------------------------
@@ -908,7 +908,7 @@ CampaignSessionError run_persistent_campaign(
     storage::SlotStorage& device,
     const CampaignSessionOptions& options
 ) {
-    const PackageBoards boards{package};
+    const PackageBoards boards{package, options.local_players};
     CampaignSession session{package, campaign_id, boards, device, options};
 
     SlotFailure failure;
