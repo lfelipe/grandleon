@@ -652,8 +652,38 @@ func _create_authored_tile(x: int, y: int, kind: int) -> bool:
 	var assets: Dictionary = profile_config.get("assets", {})
 	var scenes: Dictionary = assets.get("terrainScenes", {})
 	var key: String = String(TERRAIN_NAMES[clampi(kind, 0, TERRAIN_NAMES.size() - 1)])
-	var path := String(scenes.get(key, ""))
-	return _instantiate_art_scene(path, _cell_position(x, y), assets)
+	var binding: Variant = scenes.get(key, "")
+	var path := String(binding.get("scene", "")) if binding is Dictionary else String(binding)
+	var rotation_y := 0.0
+	if binding is Dictionary:
+		var variants_value: Variant = binding.get("whenAdjacent", {})
+		if variants_value is Dictionary:
+			for adjacent_name: Variant in variants_value.keys():
+				var offset := _adjacent_terrain_offset(x, y, String(adjacent_name))
+				if offset == Vector2i.ZERO:
+					continue
+				var variant: Variant = variants_value[adjacent_name]
+				path = String(variant.get("scene", "")) if variant is Dictionary else String(variant)
+				if variant is Dictionary and bool(variant.get("rotateToAdjacent", false)):
+					rotation_y = PI * 0.5 if offset.x != 0 else 0.0
+				break
+	return _instantiate_art_scene(path, _cell_position(x, y), assets, rotation_y)
+
+
+func _adjacent_terrain_offset(x: int, y: int, terrain_name: String) -> Vector2i:
+	var wanted := TERRAIN_NAMES.find(terrain_name)
+	if wanted < 0 or snapshot.is_empty():
+		return Vector2i.ZERO
+	var width := int(snapshot.width)
+	var height := int(snapshot.height)
+	for offset: Vector2i in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+		var nx := x + offset.x
+		var ny := y + offset.y
+		if nx < 0 or ny < 0 or nx >= width or ny >= height:
+			continue
+		if int(terrain[ny * width + nx]) == wanted:
+			return offset
+	return Vector2i.ZERO
 
 
 func _create_authored_character(parent: Node3D, unit: Dictionary) -> bool:
@@ -1056,7 +1086,9 @@ func _remove_unit(id: int) -> void:
 	_unit_flash_colours.erase(id)
 
 
-func _instantiate_art_scene(path: String, at: Vector3, assets: Dictionary) -> bool:
+func _instantiate_art_scene(
+	path: String, at: Vector3, assets: Dictionary, rotation_y := 0.0
+) -> bool:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return false
 	var resource: Resource = load(path)
@@ -1069,6 +1101,7 @@ func _instantiate_art_scene(path: String, at: Vector3, assets: Dictionary) -> bo
 		return false
 	var node3d := instance as Node3D
 	node3d.position = at
+	node3d.rotation.y = rotation_y
 	node3d.scale = Vector3.ONE * float(assets.get("sceneScale", 1.0))
 	_terrain_root.add_child(node3d)
 	return true

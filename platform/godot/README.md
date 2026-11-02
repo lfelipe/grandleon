@@ -196,6 +196,27 @@ forest grove, mountain edge, animated water surface, and relay ruin. Their
 animation and shaders belong to the scenes, not the board renderer, so a
 replacement may remove or redesign them freely.
 
+A terrain binding may be a direct scene path or a context-aware binding. The
+current road selects and rotates a bridge scene when a cardinal neighbour is
+water, without teaching the renderer an art filename:
+
+```json
+{
+  "road": {
+    "scene": "res://art/terrain/relay_road.tscn",
+    "whenAdjacent": {
+      "water": {
+        "scene": "res://art/terrain/relay_bridge.tscn",
+        "rotateToAdjacent": true
+      }
+    }
+  }
+}
+```
+
+An absent contextual scene still falls back to the binding's base scene; an
+absent or invalid binding falls back to the procedural tile.
+
 Authored character bindings may additionally name an `AnimationPlayer` and map
 semantic `idle`, `move`, `attack`, `ability`, `hurt`, and `defeat` states to the
 clips exported by that asset. Locomotion and facing already respond to accepted

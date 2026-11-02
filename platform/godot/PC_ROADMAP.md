@@ -30,7 +30,7 @@ machine-specific model, graphics, or control configuration.
 | Offline campaign | The Last Signal has authored opening, terms, talk outcome, battle outcome, and ending dialogue with the model disabled. |
 | Optional model dialogue | Model lines append only to allowlisted scenes and pass speaker, count, length, and markup validation. Authored lines are never replaced. |
 | Optional model tactics | The model selects an index from legal engine-generated candidates. Candidate zero is the built-in plan and remains the fallback for every failure mode. |
-| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile now binds an authored forest grove, mountain edge, animated water, and relay ruin while other terrain falls back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including non-32-pixel sheets. Missing bindings, clips, or metadata fall back asset by asset. |
+| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile now binds an authored forest grove, mountain edge, animated water, cobbled road, context-aware bridge, and relay ruin while other terrain falls back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including non-32-pixel sheets. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Controller-safe exit | Start or the optional Back shortcut opens a controller-native session menu; quitting requires an explicit second X press, while A, B, or Start resumes. |
@@ -88,8 +88,8 @@ controller, and quit without keyboard intervention.
 
 ### 2. Replace blockout terrain incrementally
 
-- Extend the authored forest, animated water, mountain, and relay scenes into
-  one cohesive Halcyon Relay pack with context-aware bridges and ground slabs.
+- Extend the authored forest, animated water, mountain, cobbled road/bridge,
+  and relay scenes into one cohesive Halcyon Relay pack with ground slabs.
 - Bind those scenes through `graphics_profiles.json`; do not add renderer-side
   filename rules.
 - Exercise the manifest-driven sprite contract with one higher-resolution

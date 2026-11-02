@@ -27,7 +27,7 @@ speed to a polished PC build, not the eventual production rate.
 |---|---|---|---|
 | Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion | higher-resolution replacement pack and authored effects | most cohesive today, but depth and lighting remain limited |
 | 3D diorama + 2D characters | 3D camera, lit terrain, water, bridges, trees, mountains, manifest-defined sprite pivots and animation | authored meshes/materials, sprite-facing and shadow polish | largest immediate upgrade while retaining the existing character library |
-| Voxel terrain + 2D characters | scene-authored forest, animated relay, water shader, mountains, per-tile fallback, and manifest-driven billboard animation | authored ground/bridge variants, palette/material manifest, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
+| Voxel terrain + 2D characters | scene-authored forest, animated relay, water shader, mountains, cobbled road/contextual bridge, per-tile fallback, and manifest-driven billboard animation | authored ground variants, palette/material manifest, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
 | Full voxel | terrain, props, distinct humanoid/drone rigs, animation, lighting | authored voxel forms, palette/material manifest, richer silhouettes | technically clean and readable, but character art becomes a new production pipeline |
 
 All four retain the same board API, concurrent player cursors, legal-tile

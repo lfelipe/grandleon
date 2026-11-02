@@ -106,6 +106,15 @@
         "terrainScenes": {
           "forest": "res://art/terrain/relay_forest.tscn",
           "mountain": "res://art/terrain/relay_mountain.tscn",
+          "road": {
+            "scene": "res://art/terrain/relay_road.tscn",
+            "whenAdjacent": {
+              "water": {
+                "scene": "res://art/terrain/relay_bridge.tscn",
+                "rotateToAdjacent": true
+              }
+            }
+          },
           "water": "res://art/terrain/relay_water.tscn",
           "ruins": "res://art/terrain/relay_ruins.tscn"
         }
