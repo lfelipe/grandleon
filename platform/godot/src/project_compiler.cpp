@@ -122,6 +122,21 @@ void GrandleonProjectCompiler::_bind_methods() {
         &GrandleonProjectCompiler::set_deployment_tiles
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "add_encounter_objective", "source_json", "campaign_id",
+            "node_id", "objective_id", "name", "kind", "side",
+            "target_placement_id", "rounds"
+        ),
+        &GrandleonProjectCompiler::add_encounter_objective
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "set_encounter_objectives", "source_json", "campaign_id",
+            "node_id", "objective_ids"
+        ),
+        &GrandleonProjectCompiler::set_encounter_objectives
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("supported_schema"),
         &GrandleonProjectCompiler::supported_schema
     );
@@ -430,6 +445,72 @@ gd::Dictionary GrandleonProjectCompiler::set_deployment_tiles(
         gc::set_source_deployment_tiles_json(
             narrow(source_json), narrow(campaign_id), narrow(node_id),
             narrow(deployment_id), tiles
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::add_encounter_objective(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& node_id,
+    const gd::String& objective_id,
+    const gd::String& name,
+    const gd::String& kind,
+    const gd::String& side,
+    const gd::String& target_placement_id,
+    std::int64_t rounds
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult added =
+        gc::add_source_encounter_objective_json(
+            narrow(source_json), narrow(campaign_id), narrow(node_id),
+            narrow(objective_id), narrow(name), narrow(kind), narrow(side),
+            narrow(target_placement_id), rounds
+        );
+    if (!added) {
+        for (const gc::SourceDiagnostic& diagnostic : added.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(added.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_encounter_objectives(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& node_id,
+    const gd::PackedStringArray& objective_ids
+) const {
+    std::vector<std::string> names;
+    names.reserve(static_cast<std::size_t>(objective_ids.size()));
+    for (std::int64_t index = 0; index < objective_ids.size(); ++index) {
+        names.push_back(narrow(objective_ids[index]));
+    }
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated =
+        gc::set_source_encounter_objectives_json(
+            narrow(source_json), narrow(campaign_id), narrow(node_id), names
         );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {

@@ -565,6 +565,86 @@ void updates_one_map_cell_without_retyping_the_project() {
             gc::compile(region_cleared_parsed.source),
         "clearing region tiles preserves an independent deployment capacity"
     );
+
+    const auto survived = gc::add_source_encounter_objective_json(
+        source, "demo", "battle", "hold_three", "Hold for three rounds",
+        "surviveRounds", "first", "", 3
+    );
+    const auto survived_parsed = gc::parse_source_project_json(survived.json);
+    expect(
+        survived && survived_parsed &&
+            survived_parsed.source.objectives.size() == 2 &&
+            survived_parsed.source.objectives.back().rounds == 3 &&
+            survived_parsed.source.encounters.front().objective_ids.size() ==
+                2 &&
+            gc::compile(survived_parsed.source),
+        "a survive objective is created and attached atomically"
+    );
+    const auto targeted = gc::add_source_encounter_objective_json(
+        source, "demo", "battle", "fell_red", "Defeat Red One",
+        "defeatTarget", "first", "red_1", 0
+    );
+    const auto targeted_parsed = gc::parse_source_project_json(targeted.json);
+    expect(
+        targeted && targeted_parsed &&
+            targeted_parsed.source.objectives.back().target_placement_id != 0 &&
+            gc::compile(targeted_parsed.source),
+        "a targeted objective can name a placement on its encounter"
+    );
+    expect(
+        !gc::add_source_encounter_objective_json(
+            source, "demo", "battle", "fell_missing", "Missing target",
+            "defeatTarget", "first", "nobody", 0
+        ),
+        "a playable encounter cannot gain an objective with no target"
+    );
+    expect(
+        !gc::add_source_encounter_objective_json(
+            source, "demo", "battle", "defeat_all_opponents", "Duplicate",
+            "defeatAllOpponents", "first", "", 0
+        ),
+        "an objective identity cannot replace an existing definition"
+    );
+    expect(
+        !gc::add_source_encounter_objective_json(
+            source, "demo", "battle", "bad_count", "Bad count",
+            "defeatAllOpponents", "first", "", 3
+        ),
+        "a round count is refused on a kind that cannot read it"
+    );
+
+    const auto selected = gc::set_source_encounter_objectives_json(
+        survived.json, "demo", "battle", {"hold_three"}
+    );
+    const auto selected_parsed = gc::parse_source_project_json(selected.json);
+    expect(
+        selected && selected_parsed &&
+            selected_parsed.source.encounters.front().objective_ids.size() ==
+                1 &&
+            selected_parsed.source.encounters.front().objective_ids.front() ==
+                survived_parsed.source.objectives.back().id &&
+            selected_parsed.source.objectives.size() == 2 &&
+            gc::compile(selected_parsed.source),
+        "encounter membership can select an existing shared objective"
+    );
+    expect(
+        !gc::set_source_encounter_objectives_json(
+            survived.json, "demo", "battle", {}
+        ),
+        "an encounter cannot remove its final objective"
+    );
+    expect(
+        !gc::set_source_encounter_objectives_json(
+            survived.json, "demo", "battle", {"missing"}
+        ),
+        "objective membership cannot name a missing definition"
+    );
+    expect(
+        !gc::set_source_encounter_objectives_json(
+            survived.json, "demo", "battle", {"hold_three", "hold_three"}
+        ),
+        "objective membership cannot repeat an identity"
+    );
 }
 
 void maps_authored_resistance() {

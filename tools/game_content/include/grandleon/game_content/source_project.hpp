@@ -180,4 +180,31 @@ struct SourceMapCell final {
     const std::vector<SourceMapCell>& tiles
 );
 
+// Creates one objective definition and attaches it to an encounter as one
+// validated edit. Target identity and round count follow the canonical kind's
+// exact vocabulary; values no selected kind can read are refused rather than
+// silently omitted. Existing objective definitions are never replaced.
+[[nodiscard]] SourceTextResult add_source_encounter_objective_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view objective_id,
+    std::string_view name,
+    std::string_view kind,
+    std::string_view side,
+    std::string_view target_placement_id,
+    std::int64_t rounds
+);
+
+// Replaces an encounter's objective membership with existing portable
+// objective identities. At least one objective is required, because a board
+// with no decision cannot be opened by any runtime. Shared definitions remain
+// in the project when one encounter stops using them.
+[[nodiscard]] SourceTextResult set_source_encounter_objectives_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    const std::vector<std::string>& objective_ids
+);
+
 }  // namespace grandleon::game_content

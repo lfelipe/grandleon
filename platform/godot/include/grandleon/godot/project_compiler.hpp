@@ -88,6 +88,23 @@ public:
         const ::godot::String& deployment_id,
         const ::godot::PackedInt32Array& coordinates
     ) const;
+    [[nodiscard]] ::godot::Dictionary add_encounter_objective(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& node_id,
+        const ::godot::String& objective_id,
+        const ::godot::String& name,
+        const ::godot::String& kind,
+        const ::godot::String& side,
+        const ::godot::String& target_placement_id,
+        std::int64_t rounds
+    ) const;
+    [[nodiscard]] ::godot::Dictionary set_encounter_objectives(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& node_id,
+        const ::godot::PackedStringArray& objective_ids
+    ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
 protected:

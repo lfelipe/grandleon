@@ -150,6 +150,31 @@ func _init() -> void:
 				malformed_tiles
 			)
 			_expect("odd deployment coordinate is refused", malformed_deployment.ok, false)
+			var added_objective: Dictionary = compiler.add_encounter_objective(
+				source, "demo_campaign", "bridge_encounter", "hold_three",
+				"Hold for three rounds", "surviveRounds", "first", "", 3
+			)
+			_expect("objective add succeeds", added_objective.ok, true)
+			if added_objective.ok:
+				var objective_data: Dictionary = JSON.parse_string(added_objective.source)
+				_expect("objective definition is added", objective_data.objectives.size(), source_data.objectives.size() + 1)
+				_expect("objective round count", int(objective_data.objectives[-1].rounds), 3)
+				_expect("objective is attached", objective_data.campaigns[0].flow.nodes[0].objectiveIds[-1], "hold_three")
+				_expect("objective project compiles", compiler.compile_source_json(added_objective.source).ok, true)
+				var only_hold := PackedStringArray(["hold_three"])
+				var selected_objective: Dictionary = compiler.set_encounter_objectives(
+					added_objective.source, "demo_campaign", "bridge_encounter", only_hold
+				)
+				_expect("objective membership update succeeds", selected_objective.ok, true)
+				if selected_objective.ok:
+					var selected_data: Dictionary = JSON.parse_string(selected_objective.source)
+					_expect("objective membership has one entry", selected_data.campaigns[0].flow.nodes[0].objectiveIds.size(), 1)
+					_expect("selected objective still compiles", compiler.compile_source_json(selected_objective.source).ok, true)
+			var no_objectives := PackedStringArray()
+			var empty_objectives: Dictionary = compiler.set_encounter_objectives(
+				source, "demo_campaign", "bridge_encounter", no_objectives
+			)
+			_expect("final objective removal is refused", empty_objectives.ok, false)
 
 	var blank_path := ProjectSettings.globalize_path(
 		"res://content/templates/blank_project.json"

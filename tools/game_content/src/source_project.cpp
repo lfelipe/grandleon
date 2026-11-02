@@ -3745,4 +3745,187 @@ SourceTextResult set_source_deployment_tiles_json(
     return result;
 }
 
+SourceTextResult add_source_encounter_objective_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view objective_id,
+    std::string_view name,
+    std::string_view kind,
+    std::string_view side,
+    std::string_view target_placement_id,
+    std::int64_t rounds
+) {
+    SourceTextResult result;
+    EditableEncounterDocument editable;
+    if (!open_editable_encounter(
+            source_json, campaign_id, node_id, editable, result
+        )) {
+        return result;
+    }
+    const std::string objectives_path = "$.objectives";
+    const std::string membership_path = editable.node_path + ".objectiveIds";
+    if (!valid_source_key(objective_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, objectives_path,
+            "objective id must be a stable source-key string"
+        );
+        return result;
+    }
+    if (name.empty() || name.size() > 160) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, objectives_path,
+            "objective name must contain between 1 and 160 characters"
+        );
+        return result;
+    }
+    const bool targeted = kind == "defeatTarget" || kind == "protectTarget";
+    const bool survives = kind == "surviveRounds";
+    if (kind != "defeatAllOpponents" && !targeted && !survives) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, objectives_path,
+            "objective kind is not part of the portable source vocabulary"
+        );
+        return result;
+    }
+    if (side != "first" && side != "second") {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, objectives_path,
+            "objective side must be 'first' or 'second'"
+        );
+        return result;
+    }
+    if ((targeted && !valid_source_key(target_placement_id)) ||
+        (!targeted && !target_placement_id.empty())) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, objectives_path,
+            "target objectives require a portable target and other kinds must omit it"
+        );
+        return result;
+    }
+    if ((survives && (rounds < 1 || rounds > 65535)) ||
+        (!survives && rounds != 0)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, objectives_path,
+            "surviveRounds requires 1 to 65535 rounds and other kinds must omit a count"
+        );
+        return result;
+    }
+
+    auto objectives_member = editable.root->find("objectives");
+    Array* objectives = nullptr;
+    if (objectives_member == editable.root->end()) {
+        auto inserted = editable.root->emplace("objectives", Json{Array{}});
+        objectives = std::get_if<Array>(&inserted.first->second.value);
+    } else {
+        objectives = std::get_if<Array>(&objectives_member->second.value);
+    }
+    if (objectives == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, objectives_path,
+            "expected array"
+        );
+        return result;
+    }
+    if (objectives->size() >= 100000) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, objectives_path,
+            "project cannot contain more than 100000 objectives"
+        );
+        return result;
+    }
+    if (find_object_by_id(*objectives, objective_id) != nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, objectives_path,
+            "objective id already exists"
+        );
+        return result;
+    }
+
+    Array* objective_ids = mutable_array(*editable.node, "objectiveIds");
+    if (objective_ids == nullptr) {
+        auto inserted = editable.node->emplace("objectiveIds", Json{Array{}});
+        objective_ids = std::get_if<Array>(&inserted.first->second.value);
+    }
+    if (objective_ids == nullptr || objective_ids->size() >= 65535) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, membership_path,
+            "encounter objective membership is not writable or is full"
+        );
+        return result;
+    }
+
+    Object added;
+    added.emplace("id", Json{std::string(objective_id)});
+    added.emplace("kind", Json{std::string(kind)});
+    added.emplace("name", Json{std::string(name)});
+    added.emplace("side", Json{std::string(side)});
+    if (targeted) {
+        added.emplace(
+            "targetPlacementId", Json{std::string(target_placement_id)}
+        );
+    }
+    if (survives) added.emplace("rounds", Json{rounds});
+    objectives->push_back(Json{std::move(added)});
+    objective_ids->push_back(Json{std::string(objective_id)});
+    finish_encounter_edit(editable, result, membership_path, "objective");
+    return result;
+}
+
+SourceTextResult set_source_encounter_objectives_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    const std::vector<std::string>& objective_ids
+) {
+    SourceTextResult result;
+    EditableEncounterDocument editable;
+    if (!open_editable_encounter(
+            source_json, campaign_id, node_id, editable, result
+        )) {
+        return result;
+    }
+    const std::string membership_path = editable.node_path + ".objectiveIds";
+    if (objective_ids.empty()) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, membership_path,
+            "an encounter must retain at least one objective"
+        );
+        return result;
+    }
+    if (objective_ids.size() > 65535) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, membership_path,
+            "encounter cannot reference more than 65535 objectives"
+        );
+        return result;
+    }
+    Array* definitions = mutable_array(*editable.root, "objectives");
+    std::set<std::string> unique;
+    Array output;
+    output.reserve(objective_ids.size());
+    for (const std::string& objective_id : objective_ids) {
+        if (!valid_source_key(objective_id) ||
+            !unique.insert(objective_id).second) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value, membership_path,
+                "objective ids must be unique stable source-key strings"
+            );
+            return result;
+        }
+        if (definitions == nullptr ||
+            find_object_by_id(*definitions, objective_id) == nullptr) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value, membership_path,
+                "objective '" + objective_id + "' was not found"
+            );
+            return result;
+        }
+        output.push_back(Json{objective_id});
+    }
+    (*editable.node)["objectiveIds"] = Json{std::move(output)};
+    finish_encounter_edit(editable, result, membership_path, "objective");
+    return result;
+}
+
 }  // namespace grandleon::game_content
