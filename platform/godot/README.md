@@ -5,6 +5,10 @@ the existing C++ simulation, campaign loader, package format, and tactics policy
 remain authoritative. The SDL client stays as a small reference surface, and
 the Nintendo 64 and PlayStation builds are unchanged.
 
+See [ARCADE_ROADMAP.md](ARCADE_ROADMAP.md) for the current review, tonight's
+cabinet checklist, known risks, and the ordered path from this test bundle to a
+production PC surface.
+
 The separation is deliberate:
 
 | Layer | Owns | Does not own |
