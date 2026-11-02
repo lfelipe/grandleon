@@ -1,0 +1,99 @@
+{
+  "contractVersion": "1.0.0",
+  "defaultProfile": "voxel-sprites",
+  "common": {
+    "camera": {
+      "size": 8.4,
+      "position": [7.7, 10.8, 8.8],
+      "target": [0.0, 0.15, 0.0]
+    },
+    "lighting": {
+      "background": "07131d",
+      "ambient": "7693a1",
+      "ambientEnergy": 0.42,
+      "key": "f1d7ad",
+      "keyEnergy": 1.08,
+      "keyRotation": [-54.0, -38.0, 0.0],
+      "fill": "6bbbd2",
+      "fillEnergy": 0.30,
+      "fillRotation": [-35.0, 142.0, 0.0]
+    },
+    "sprite": {
+      "pixelSize": 0.025,
+      "height": 0.47,
+      "shadowRadius": 0.27,
+      "shadowOpacity": 0.46
+    },
+    "surfaceHeights": {
+      "default": 0.10,
+      "water": 0.05,
+      "mountain": 0.22,
+      "hills": 0.16
+    },
+    "assets": {
+      "terrainScenes": {},
+      "characterScenes": {},
+      "sceneScale": 1.0
+    },
+    "animation": {
+      "playerPath": "AnimationPlayer",
+      "moveSpeed": 9.0,
+      "turnSpeed": 12.0,
+      "clips": {
+        "idle": "idle",
+        "move": "run",
+        "attack": "attack",
+        "ability": "ability",
+        "hurt": "hurt",
+        "defeat": "defeat"
+      }
+    },
+    "palette": {
+      "water": "236f91",
+      "road": "8d6a45",
+      "forest": "315f42",
+      "mountain": "647078",
+      "sand": "b88951",
+      "snow": "d5e2e5",
+      "swamp": "456655",
+      "hills": "718158",
+      "ruins": "76736d",
+      "grass": "4a7650",
+      "farmland": "8c704b",
+      "bamboo": "417059",
+      "paved": "737d83",
+      "edge": "16232d",
+      "waterFoam": "65cbd9",
+      "trunk": "60442f",
+      "leaves": "377449",
+      "leavesLight": "4d8b51",
+      "stoneDark": "505d65",
+      "stone": "6c7a81",
+      "stoneLight": "879397",
+      "sandstone": "8f6c44",
+      "ruin": "7c807a",
+      "grassTip": "729550",
+      "bridge": "94643a",
+      "bridgeRail": "59402c",
+      "relayGlow": "68dce8"
+    }
+  },
+  "profiles": {
+    "pixel": {
+      "terrainRenderer": "sprites",
+      "characterRenderer": "sprites"
+    },
+    "diorama": {
+      "terrainRenderer": "diorama",
+      "characterRenderer": "sprites"
+    },
+    "voxel-sprites": {
+      "terrainRenderer": "voxel",
+      "characterRenderer": "sprites"
+    },
+    "voxel": {
+      "terrainRenderer": "voxel",
+      "characterRenderer": "voxel"
+    }
+  }
+}

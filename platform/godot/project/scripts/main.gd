@@ -4,6 +4,7 @@ extends Node2D
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const BoardView = preload("res://scripts/board_view.gd")
 const BoardView3D = preload("res://scripts/board_view_3d.gd")
+const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const PLAYER_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const MODES := ["move", "attack", "ability", "talk"]
 
@@ -12,7 +13,8 @@ var board: Node
 var player_count := 2
 var package_path := "res://game.gpk"
 var campaign_key := "tarnholt_line"
-var graphics_profile := "pixel"
+var graphics_profile := ""
+var graphics_pack_path := ""
 var screenshot_path := ""
 var screenshot_frames := -1
 var smoke_auto := false
@@ -44,16 +46,19 @@ var dialogue_text: RichTextLabel
 var dialogue_portrait: TextureRect
 var dialogue_hint: Label
 var art = ArtLibrary.new()
+var graphics_profiles
 
 
 func _ready() -> void:
 	_parse_arguments()
+	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
+	graphics_profile = graphics_profiles.resolve(graphics_profile)
 	_create_background()
 	if graphics_profile == "pixel":
 		board = BoardView.new()
 	else:
 		board = BoardView3D.new()
-		board.set_profile(graphics_profile)
+		board.set_profile(graphics_profile, graphics_profiles.profile(graphics_profile))
 	add_child(board)
 	_create_interface()
 	title_label.text = "GRANDLEON  /  " + {
@@ -62,6 +67,8 @@ func _ready() -> void:
 		"voxel-sprites": "VOXEL TERRAIN + SPRITES",
 		"voxel": "FULL VOXEL",
 	}.get(graphics_profile, "ARCADE")
+	if not graphics_profiles.warning().is_empty():
+		_show_toast(graphics_profiles.warning())
 	_configure_seats()
 	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	session = ClassDB.instantiate("GrandleonSession")
@@ -129,8 +136,8 @@ func _parse_arguments() -> void:
 			campaign_key = argument.trim_prefix("--campaign=")
 		elif argument.begins_with("--graphics="):
 			graphics_profile = argument.trim_prefix("--graphics=")
-			if graphics_profile not in ["pixel", "diorama", "voxel-sprites", "voxel"]:
-				graphics_profile = "pixel"
+		elif argument.begins_with("--graphics-pack="):
+			graphics_pack_path = argument.trim_prefix("--graphics-pack=")
 		elif argument.begins_with("--players="):
 			player_count = clampi(int(argument.trim_prefix("--players=")), 1, 2)
 		elif argument == "--fullscreen":

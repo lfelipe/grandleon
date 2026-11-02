@@ -34,9 +34,9 @@ All four retain the same board API, concurrent player cursors, legal-tile
 queries, and package presentation indices. Switching renderer profiles does not
 fork campaign content.
 
-## Recommended sequence: voxel terrain, then multi-output
+## Selected sequence: voxel terrain, then multi-output
 
-Start with an orthographic voxel/diorama board and retain the animated 2D
+The cabinet build now starts with an orthographic voxel board and retains the animated 2D
 characters. Terrain height, water, shadows, light, weather, and small props
 create the immediate PC upgrade while the existing character roster keeps the
 first build achievable and tactically legible.

@@ -4,6 +4,14 @@ extends SubViewportContainer
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
+const TERRAIN_NAMES := [
+	"water", "road", "forest", "mountain", "sand", "snow", "swamp",
+	"hills", "ruins", "grass", "farmland", "bamboo", "paved"
+]
+const ARCHETYPE_NAMES := [
+	"knight", "archer", "mage", "stormcaller", "healer", "commander",
+	"rogue", "beast"
+]
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a87a4f"), Color("316b45"), Color("65717a"),
 	Color("c39a60"), Color("dce7e8"), Color("496c58"), Color("78915b"),
@@ -13,6 +21,7 @@ const TERRAIN_COLOURS := [
 
 var art = ArtLibrary.new()
 var render_profile := "diorama"
+var profile_config: Dictionary = {}
 var snapshot: Dictionary = {}
 var terrain: Array = []
 var terrain_theme := 0
@@ -30,12 +39,17 @@ var _unit_root: Node3D
 var _unit_nodes: Dictionary = {}
 var _unit_targets: Dictionary = {}
 var _unit_sprites: Dictionary = {}
+var _unit_animators: Dictionary = {}
+var _unit_animation_clips: Dictionary = {}
+var _unit_animation_states: Dictionary = {}
+var _authored_units: Dictionary = {}
 var _materials: Dictionary = {}
 var _pulse := 0.0
 
 
-func set_profile(value: String) -> void:
+func set_profile(value: String, config := {}) -> void:
 	render_profile = value if value in ["diorama", "voxel-sprites", "voxel"] else "diorama"
+	profile_config = config if config is Dictionary else {}
 
 
 func _ready() -> void:
@@ -63,36 +77,38 @@ func _ready() -> void:
 
 
 func _create_environment() -> void:
+	var lighting: Dictionary = profile_config.get("lighting", {})
 	var world_environment := WorldEnvironment.new()
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color("07131d")
+	environment.background_color = _configured_colour(lighting, "background", Color("07131d"))
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("8eb2c5")
-	environment.ambient_light_energy = 0.62
+	environment.ambient_light_color = _configured_colour(lighting, "ambient", Color("7693a1"))
+	environment.ambient_light_energy = float(lighting.get("ambientEnergy", 0.42))
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	world_environment.environment = environment
 	_world.add_child(world_environment)
 
 	var key := DirectionalLight3D.new()
-	key.rotation_degrees = Vector3(-54, -38, 0)
-	key.light_color = Color("f6ddb5")
-	key.light_energy = 1.55
+	key.rotation_degrees = _configured_vector(lighting.get("keyRotation", []), Vector3(-54, -38, 0))
+	key.light_color = _configured_colour(lighting, "key", Color("f1d7ad"))
+	key.light_energy = float(lighting.get("keyEnergy", 1.08))
 	key.shadow_enabled = true
 	_world.add_child(key)
 
 	var fill := DirectionalLight3D.new()
-	fill.rotation_degrees = Vector3(-35, 142, 0)
-	fill.light_color = Color("69cce8")
-	fill.light_energy = 0.42
+	fill.rotation_degrees = _configured_vector(lighting.get("fillRotation", []), Vector3(-35, 142, 0))
+	fill.light_color = _configured_colour(lighting, "fill", Color("6bbbd2"))
+	fill.light_energy = float(lighting.get("fillEnergy", 0.30))
 	_world.add_child(fill)
 
 	_camera = Camera3D.new()
 	_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	_camera.size = 8.4
+	var camera_config: Dictionary = profile_config.get("camera", {})
+	_camera.size = float(camera_config.get("size", 8.4))
 	_world.add_child(_camera)
-	_camera.position = Vector3(7.7, 10.8, 8.8)
-	_camera.look_at(Vector3(0, 0.15, 0), Vector3.UP)
+	_camera.position = _configured_vector(camera_config.get("position", []), Vector3(7.7, 10.8, 8.8))
+	_camera.look_at(_configured_vector(camera_config.get("target", []), Vector3(0, 0.15, 0)), Vector3.UP)
 	_camera.make_current()
 
 
@@ -123,6 +139,10 @@ func update_snapshot(value: Dictionary) -> void:
 			_unit_nodes.erase(id)
 			_unit_targets.erase(id)
 			_unit_sprites.erase(id)
+			_unit_animators.erase(id)
+			_unit_animation_clips.erase(id)
+			_unit_animation_states.erase(id)
+			_authored_units.erase(id)
 	_rebuild_markers()
 
 
@@ -175,8 +195,24 @@ func _process(delta: float) -> void:
 	for id: Variant in _unit_nodes.keys():
 		var node: Node3D = _unit_nodes[id]
 		var target: Vector3 = _unit_targets.get(id, node.position)
-		var settled := node.position.lerp(target, minf(1.0, delta * 9.0))
-		settled.y = target.y + sin(_pulse * 3.2 + float(int(id) % 13)) * 0.025
+		var travel := target - node.position
+		travel.y = 0
+		var moving := travel.length_squared() > 0.0004
+		var animation_config: Dictionary = profile_config.get("animation", {})
+		var settled := node.position.lerp(
+			target, minf(1.0, delta * float(animation_config.get("moveSpeed", 9.0)))
+		)
+		if moving and _authored_units.has(id):
+			var wanted_rotation := atan2(travel.x, travel.z)
+			node.rotation.y = lerp_angle(
+				node.rotation.y, wanted_rotation,
+				minf(1.0, delta * float(animation_config.get("turnSpeed", 12.0)))
+			)
+			_play_unit_animation(int(id), "move")
+		elif _authored_units.has(id):
+			_play_unit_animation(int(id), "idle")
+		else:
+			settled.y = target.y + sin(_pulse * 3.2 + float(int(id) % 13)) * 0.025
 		node.position = settled
 		if _unit_sprites.has(id):
 			var sprite: Sprite3D = _unit_sprites[id]
@@ -199,7 +235,9 @@ func _rebuild_terrain() -> void:
 			var kind := int(terrain[index]) if index < terrain.size() else 9
 			if kind == 255:
 				kind = 9
-			if render_profile in ["voxel-sprites", "voxel"]:
+			if _create_authored_tile(x, y, kind):
+				continue
+			if String(profile_config.get("terrainRenderer", render_profile)) == "voxel":
 				_build_voxel_tile(x, y, kind)
 			else:
 				_build_diorama_tile(x, y, kind)
@@ -207,12 +245,14 @@ func _rebuild_terrain() -> void:
 
 func _build_diorama_tile(x: int, y: int, kind: int) -> void:
 	var centre := _cell_position(x, y)
-	_box(_terrain_root, centre + Vector3(0, -0.12, 0), Vector3(0.97, 0.22, 0.97), _material("edge", Color("182733"), 0.92))
+	_box(_terrain_root, centre + Vector3(0, -0.12, 0), Vector3(0.97, 0.22, 0.97), _material("edge", _palette("edge", Color("182733")), 0.92))
 	var colour := _terrain_colour(kind)
 	var slab_height := 0.10
 	if kind == 0:
-		_box(_terrain_root, centre + Vector3(0, -0.015, 0), Vector3(0.92, 0.08, 0.92), _material("water", Color(0.10, 0.48, 0.67, 0.82), 0.12, true, true))
-		_box(_terrain_root, centre + Vector3(0.18, 0.035, -0.12), Vector3(0.34, 0.015, 0.045), _material("water_glint", Color("85e5f3"), 0.16, true, true))
+		var water := _palette("water", Color("287da3"))
+		water.a = 0.84
+		_box(_terrain_root, centre + Vector3(0, -0.015, 0), Vector3(0.92, 0.08, 0.92), _material("water", water, 0.12, true, true))
+		_box(_terrain_root, centre + Vector3(0.18, 0.035, -0.12), Vector3(0.34, 0.015, 0.045), _material("water_glint", _palette("waterFoam", Color("85e5f3")), 0.16, true, true))
 		return
 	if kind == 3:
 		slab_height = 0.22
@@ -223,27 +263,30 @@ func _build_diorama_tile(x: int, y: int, kind: int) -> void:
 		_tree(centre + Vector3(-0.18, slab_height, 0.12), 0.9, false)
 		_tree(centre + Vector3(0.20, slab_height, -0.18), 0.67, false)
 	elif kind == 3:
-		_cone(_terrain_root, centre + Vector3(-0.12, slab_height + 0.34, 0.08), 0.39, 0.03, 0.68, _material("stone", Color("7d8990"), 0.94), 6)
-		_cone(_terrain_root, centre + Vector3(0.22, slab_height + 0.24, -0.15), 0.28, 0.02, 0.48, _material("stone_dark", Color("59666e"), 0.96), 6)
+		_cone(_terrain_root, centre + Vector3(-0.12, slab_height + 0.34, 0.08), 0.39, 0.03, 0.68, _material("stone", _palette("stone", Color("7d8990")), 0.94), 6)
+		_cone(_terrain_root, centre + Vector3(0.22, slab_height + 0.24, -0.15), 0.28, 0.02, 0.48, _material("stone_dark", _palette("stoneDark", Color("59666e")), 0.96), 6)
 	elif kind == 4:
-		_sphere(_terrain_root, centre + Vector3(0.22, slab_height + 0.045, -0.17), Vector3(0.12, 0.07, 0.09), _material("sandstone", Color("947550"), 0.96))
+		_sphere(_terrain_root, centre + Vector3(0.22, slab_height + 0.045, -0.17), Vector3(0.12, 0.07, 0.09), _material("sandstone", _palette("sandstone", Color("947550")), 0.96))
 	elif kind == 8:
-		_box(_terrain_root, centre + Vector3(-0.26, slab_height + 0.20, -0.20), Vector3(0.13, 0.40, 0.13), _material("ruin", Color("8b8b82"), 0.96))
-		_box(_terrain_root, centre + Vector3(0.20, slab_height + 0.12, 0.20), Vector3(0.42, 0.10, 0.12), _material("ruin", Color("8b8b82"), 0.96))
+		_box(_terrain_root, centre + Vector3(-0.26, slab_height + 0.20, -0.20), Vector3(0.13, 0.40, 0.13), _material("ruin", _palette("ruin", Color("8b8b82")), 0.96))
+		_box(_terrain_root, centre + Vector3(0.20, slab_height + 0.12, 0.20), Vector3(0.42, 0.10, 0.12), _material("ruin", _palette("ruin", Color("8b8b82")), 0.96))
+		_relay_beacon(centre, slab_height, false)
 	elif kind == 1 and _touches_water(x, y):
 		_bridge(centre, slab_height, false)
 	elif kind in [9, 10] and (x * 5 + y * 3) % 4 == 0:
-		_cone(_terrain_root, centre + Vector3(0.24, slab_height + 0.10, -0.22), 0.06, 0.0, 0.20, _material("grass_tip", Color("80a95b"), 0.84), 4)
+		_cone(_terrain_root, centre + Vector3(0.24, slab_height + 0.10, -0.22), 0.06, 0.0, 0.20, _material("grass_tip", _palette("grassTip", Color("80a95b")), 0.84), 4)
 
 
 func _build_voxel_tile(x: int, y: int, kind: int) -> void:
 	var centre := _cell_position(x, y)
-	_box(_terrain_root, centre + Vector3(0, -0.14, 0), Vector3(0.94, 0.26, 0.94), _material("voxel_edge", Color("17232d"), 1.0))
+	_box(_terrain_root, centre + Vector3(0, -0.14, 0), Vector3(0.94, 0.26, 0.94), _material("voxel_edge", _palette("edge", Color("17232d")), 1.0))
 	var top := 0.10
 	if kind == 0:
-		_box(_terrain_root, centre + Vector3(0, -0.01, 0), Vector3(0.88, 0.08, 0.88), _material("voxel_water", Color(0.09, 0.47, 0.68, 0.88), 0.18, true, true))
+		var water := _palette("water", Color("287da3"))
+		water.a = 0.88
+		_box(_terrain_root, centre + Vector3(0, -0.01, 0), Vector3(0.88, 0.08, 0.88), _material("voxel_water", water, 0.18, true, true))
 		for offset: Vector3 in [Vector3(-0.22, 0.045, -0.22), Vector3(0.22, 0.055, 0.12)]:
-			_box(_terrain_root, centre + offset, Vector3(0.28, 0.025, 0.08), _material("voxel_foam", Color("77dfea"), 0.3, true, true))
+			_box(_terrain_root, centre + offset, Vector3(0.28, 0.025, 0.08), _material("voxel_foam", _palette("waterFoam", Color("77dfea")), 0.3, true, true))
 		return
 	if kind == 3:
 		top = 0.22
@@ -252,41 +295,55 @@ func _build_voxel_tile(x: int, y: int, kind: int) -> void:
 		_tree(centre + Vector3(-0.18, top, 0.12), 0.82, true)
 		_tree(centre + Vector3(0.22, top, -0.18), 0.62, true)
 	elif kind == 3:
-		_box(_terrain_root, centre + Vector3(-0.12, top + 0.16, 0.04), Vector3(0.60, 0.30, 0.58), _material("voxel_stone_dark", Color("58656d"), 1.0))
-		_box(_terrain_root, centre + Vector3(-0.16, top + 0.40, 0.02), Vector3(0.40, 0.20, 0.38), _material("voxel_stone", Color("75838a"), 1.0))
-		_box(_terrain_root, centre + Vector3(-0.20, top + 0.57, -0.02), Vector3(0.20, 0.14, 0.18), _material("voxel_stone_light", Color("929b9d"), 1.0))
+		_box(_terrain_root, centre + Vector3(-0.12, top + 0.16, 0.04), Vector3(0.60, 0.30, 0.58), _material("voxel_stone_dark", _palette("stoneDark", Color("58656d")), 1.0))
+		_box(_terrain_root, centre + Vector3(-0.16, top + 0.40, 0.02), Vector3(0.40, 0.20, 0.38), _material("voxel_stone", _palette("stone", Color("75838a")), 1.0))
+		_box(_terrain_root, centre + Vector3(-0.20, top + 0.57, -0.02), Vector3(0.20, 0.14, 0.18), _material("voxel_stone_light", _palette("stoneLight", Color("929b9d")), 1.0))
 	elif kind == 4:
-		_box(_terrain_root, centre + Vector3(0.23, top + 0.055, -0.18), Vector3(0.16, 0.11, 0.13), _material("voxel_sandstone", Color("99754c"), 1.0))
+		_box(_terrain_root, centre + Vector3(0.23, top + 0.055, -0.18), Vector3(0.16, 0.11, 0.13), _material("voxel_sandstone", _palette("sandstone", Color("99754c")), 1.0))
 	elif kind == 8:
-		_box(_terrain_root, centre + Vector3(-0.25, top + 0.22, -0.20), Vector3(0.16, 0.44, 0.16), _material("voxel_ruin", Color("85877f"), 1.0))
-		_box(_terrain_root, centre + Vector3(0.16, top + 0.10, 0.18), Vector3(0.45, 0.12, 0.15), _material("voxel_ruin", Color("85877f"), 1.0))
+		_box(_terrain_root, centre + Vector3(-0.25, top + 0.22, -0.20), Vector3(0.16, 0.44, 0.16), _material("voxel_ruin", _palette("ruin", Color("85877f")), 1.0))
+		_box(_terrain_root, centre + Vector3(0.16, top + 0.10, 0.18), Vector3(0.45, 0.12, 0.15), _material("voxel_ruin", _palette("ruin", Color("85877f")), 1.0))
+		_relay_beacon(centre, top, true)
 	elif kind == 1 and _touches_water(x, y):
 		_bridge(centre, top, true)
 	elif kind in [9, 10] and (x + y * 3) % 3 == 0:
 		for offset: Vector3 in [Vector3(-0.22, top + 0.08, 0.20), Vector3(0.24, top + 0.06, -0.18)]:
-			_box(_terrain_root, centre + offset, Vector3(0.06, 0.16, 0.06), _material("voxel_grass_tip", Color("86a95b"), 1.0))
+			_box(_terrain_root, centre + offset, Vector3(0.06, 0.16, 0.06), _material("voxel_grass_tip", _palette("grassTip", Color("86a95b")), 1.0))
 
 
 func _tree(at: Vector3, scale_value: float, voxel: bool) -> void:
-	var trunk := _material("trunk", Color("654733"), 1.0)
-	var leaves := _material("leaves", Color("3f8151"), 0.94)
+	var trunk := _material("trunk", _palette("trunk", Color("654733")), 1.0)
+	var leaves := _material("leaves", _palette("leaves", Color("3f8151")), 0.94)
 	if voxel:
 		_box(_terrain_root, at + Vector3(0, 0.19 * scale_value, 0), Vector3(0.12, 0.38, 0.12) * scale_value, trunk)
 		_box(_terrain_root, at + Vector3(0, 0.48 * scale_value, 0), Vector3(0.48, 0.36, 0.44) * scale_value, leaves)
-		_box(_terrain_root, at + Vector3(0, 0.69 * scale_value, 0), Vector3(0.30, 0.20, 0.28) * scale_value, _material("leaves_light", Color("5a9b5d"), 0.94))
+		_box(_terrain_root, at + Vector3(0, 0.69 * scale_value, 0), Vector3(0.30, 0.20, 0.28) * scale_value, _material("leaves_light", _palette("leavesLight", Color("5a9b5d")), 0.94))
 	else:
 		_cylinder(_terrain_root, at + Vector3(0, 0.18 * scale_value, 0), 0.065 * scale_value, 0.36 * scale_value, trunk, 7)
 		_cone(_terrain_root, at + Vector3(0, 0.52 * scale_value, 0), 0.34 * scale_value, 0.04, 0.55 * scale_value, leaves, 7)
 
 
 func _bridge(centre: Vector3, top: float, voxel: bool) -> void:
-	var wood := _material("bridge", Color("9b6d3f"), 0.96)
+	var wood := _material("bridge", _palette("bridge", Color("9b6d3f")), 0.96)
 	for step in 4:
 		var z := -0.33 + float(step) * 0.22
 		_box(_terrain_root, centre + Vector3(0, top + 0.09, z), Vector3(0.76, 0.10, 0.17), wood)
 	if not voxel:
 		for x_offset in [-0.38, 0.38]:
-			_box(_terrain_root, centre + Vector3(x_offset, top + 0.22, 0), Vector3(0.045, 0.28, 0.82), _material("bridge_rail", Color("60462f"), 0.96))
+			_box(_terrain_root, centre + Vector3(x_offset, top + 0.22, 0), Vector3(0.045, 0.28, 0.82), _material("bridge_rail", _palette("bridgeRail", Color("60462f")), 0.96))
+
+
+func _relay_beacon(centre: Vector3, top: float, voxel: bool) -> void:
+	var ruin := _material("relay_frame", _palette("ruin", Color("7c807a")), 0.72)
+	var glow := _material("relay_glow", _palette("relayGlow", Color("68dce8")), 0.18, false, true)
+	if voxel:
+		_box(_terrain_root, centre + Vector3(0, top + 0.24, 0), Vector3(0.22, 0.48, 0.22), ruin)
+		_box(_terrain_root, centre + Vector3(0, top + 0.53, 0), Vector3(0.38, 0.10, 0.12), ruin)
+		_box(_terrain_root, centre + Vector3(0, top + 0.69, 0), Vector3(0.12, 0.22, 0.12), glow)
+	else:
+		_cylinder(_terrain_root, centre + Vector3(0, top + 0.25, 0), 0.12, 0.50, ruin, 6)
+		_box(_terrain_root, centre + Vector3(0, top + 0.55, 0), Vector3(0.42, 0.08, 0.10), ruin)
+		_sphere(_terrain_root, centre + Vector3(0, top + 0.69, 0), Vector3(0.10, 0.10, 0.10), glow)
 
 
 func _touches_water(x: int, y: int) -> bool:
@@ -309,21 +366,26 @@ func _create_unit(unit: Dictionary, target: Vector3) -> void:
 	_unit_root.add_child(root)
 	var id := int(unit.id)
 	_unit_nodes[id] = root
-	if render_profile == "voxel":
+	if _create_authored_character(root, unit):
+		pass
+	elif String(profile_config.get("characterRenderer", render_profile)) == "voxel":
 		_create_voxel_figure(root, unit)
 	else:
 		_create_sprite_figure(root, unit, id)
-	var shadow := _material("shadow", Color(0.01, 0.02, 0.025, 0.48), 1.0, true)
-	_cylinder(root, Vector3(0, 0.015, 0), 0.27, 0.025, shadow, 24, Vector3(1.0, 1.0, 0.66))
+	var sprite_config: Dictionary = profile_config.get("sprite", {})
+	var shadow_colour := Color(0.01, 0.02, 0.025, float(sprite_config.get("shadowOpacity", 0.46)))
+	var shadow := _material("shadow", shadow_colour, 1.0, true)
+	_cylinder(root, Vector3(0, 0.015, 0), float(sprite_config.get("shadowRadius", 0.27)), 0.025, shadow, 24, Vector3(1.0, 1.0, 0.66))
 
 
 func _create_sprite_figure(root: Node3D, unit: Dictionary, id: int) -> void:
 	var sprite := Sprite3D.new()
+	var sprite_config: Dictionary = profile_config.get("sprite", {})
 	sprite.texture = art.character_texture(unit)
 	sprite.hframes = 4
 	sprite.frame = 0
-	sprite.pixel_size = 0.025
-	sprite.position = Vector3(0, 0.47, 0)
+	sprite.pixel_size = float(sprite_config.get("pixelSize", 0.025))
+	sprite.position = Vector3(0, float(sprite_config.get("height", 0.47)), 0)
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
@@ -414,17 +476,105 @@ func _surface_height(x: int, y: int) -> float:
 	if index < 0 or index >= terrain.size():
 		return 0.1
 	var kind := int(terrain[index])
-	if kind == 0:
-		return 0.05
-	if kind == 3:
-		return 0.22
-	if kind == 7:
-		return 0.16
-	return 0.10
+	if kind == 255:
+		kind = 9
+	var heights: Dictionary = profile_config.get("surfaceHeights", {})
+	var key: String = String(TERRAIN_NAMES[clampi(kind, 0, TERRAIN_NAMES.size() - 1)])
+	return float(heights.get(key, heights.get("default", 0.10)))
+
+
+func _create_authored_tile(x: int, y: int, kind: int) -> bool:
+	var assets: Dictionary = profile_config.get("assets", {})
+	var scenes: Dictionary = assets.get("terrainScenes", {})
+	var key: String = String(TERRAIN_NAMES[clampi(kind, 0, TERRAIN_NAMES.size() - 1)])
+	var path := String(scenes.get(key, ""))
+	return _instantiate_art_scene(path, _cell_position(x, y), assets)
+
+
+func _create_authored_character(parent: Node3D, unit: Dictionary) -> bool:
+	var assets: Dictionary = profile_config.get("assets", {})
+	var scenes: Dictionary = assets.get("characterScenes", {})
+	var index := clampi(int(unit.get("archetype", 0)), 0, ARCHETYPE_NAMES.size() - 1)
+	var binding: Variant = scenes.get(ARCHETYPE_NAMES[index], "")
+	var path := String(binding.get("scene", "")) if binding is Dictionary else String(binding)
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return false
+	var resource: Resource = load(path)
+	if not resource is PackedScene:
+		return false
+	var scene := resource as PackedScene
+	var instance: Node = scene.instantiate()
+	if not instance is Node3D:
+		instance.free()
+		return false
+	var node3d := instance as Node3D
+	var scene_scale := float(binding.get("scale", assets.get("sceneScale", 1.0))) if binding is Dictionary else float(assets.get("sceneScale", 1.0))
+	node3d.scale = Vector3.ONE * scene_scale
+	parent.add_child(node3d)
+	var id := int(unit.id)
+	_authored_units[id] = true
+	var animation_config: Dictionary = profile_config.get("animation", {})
+	var player_path := String(binding.get("animationPlayer", animation_config.get("playerPath", "AnimationPlayer"))) if binding is Dictionary else String(animation_config.get("playerPath", "AnimationPlayer"))
+	var animator := node3d.get_node_or_null(NodePath(player_path)) as AnimationPlayer
+	if animator != null:
+		var clips: Dictionary = animation_config.get("clips", {}).duplicate(true)
+		if binding is Dictionary and binding.get("clips", {}) is Dictionary:
+			for state: Variant in binding.get("clips", {}).keys():
+				clips[state] = binding.clips[state]
+		_unit_animators[id] = animator
+		_unit_animation_clips[id] = clips
+		_play_unit_animation(id, "idle")
+	return true
+
+
+func _play_unit_animation(id: int, state: String) -> void:
+	if not _unit_animators.has(id) or _unit_animation_states.get(id, "") == state:
+		return
+	var animator: AnimationPlayer = _unit_animators[id]
+	var clips: Dictionary = _unit_animation_clips.get(id, {})
+	var clip := String(clips.get(state, ""))
+	if clip.is_empty() or not animator.has_animation(StringName(clip)):
+		return
+	animator.play(StringName(clip))
+	_unit_animation_states[id] = state
+
+
+func _instantiate_art_scene(path: String, at: Vector3, assets: Dictionary) -> bool:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return false
+	var resource: Resource = load(path)
+	if not resource is PackedScene:
+		return false
+	var scene := resource as PackedScene
+	var instance: Node = scene.instantiate()
+	if not instance is Node3D:
+		instance.free()
+		return false
+	var node3d := instance as Node3D
+	node3d.position = at
+	node3d.scale = Vector3.ONE * float(assets.get("sceneScale", 1.0))
+	_terrain_root.add_child(node3d)
+	return true
 
 
 func _terrain_colour(kind: int) -> Color:
-	return TERRAIN_COLOURS[clampi(kind, 0, TERRAIN_COLOURS.size() - 1)]
+	var index := clampi(kind, 0, TERRAIN_COLOURS.size() - 1)
+	return _palette(TERRAIN_NAMES[index], TERRAIN_COLOURS[index])
+
+
+func _palette(key: String, fallback: Color) -> Color:
+	return _configured_colour(profile_config.get("palette", {}), key, fallback)
+
+
+func _configured_colour(values: Dictionary, key: String, fallback: Color) -> Color:
+	var encoded := String(values.get(key, ""))
+	return Color(encoded) if not encoded.is_empty() and Color.html_is_valid(encoded) else fallback
+
+
+func _configured_vector(value: Variant, fallback: Vector3) -> Vector3:
+	if value is Array and value.size() == 3:
+		return Vector3(float(value[0]), float(value[1]), float(value[2]))
+	return fallback
 
 
 func _material(key: String, colour: Color, roughness := 0.8, transparent := false, emissive := false) -> StandardMaterial3D:

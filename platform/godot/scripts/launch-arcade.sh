@@ -13,13 +13,16 @@ game_args=(
     "--package=res://game.gpk"
     "--campaign=${GRANDLEON_CAMPAIGN:-last_signal}"
     "--players=${GRANDLEON_PLAYERS:-2}"
-    "--graphics=${GRANDLEON_GRAPHICS:-pixel}"
+    "--graphics=${GRANDLEON_GRAPHICS:-voxel-sprites}"
 )
 if [[ "${GRANDLEON_WINDOWED:-0}" != "1" ]]; then
     game_args+=("--fullscreen")
 fi
 if [[ -f "${bundle_dir}/arcade.local.json" ]]; then
     game_args+=("--config=${bundle_dir}/arcade.local.json")
+fi
+if [[ -f "${bundle_dir}/graphics.local.json" ]]; then
+    game_args+=("--graphics-pack=${bundle_dir}/graphics.local.json")
 fi
 
 exec "${bundle_dir}/godot" --path "${bundle_dir}/project" -- "${game_args[@]}" "$@"

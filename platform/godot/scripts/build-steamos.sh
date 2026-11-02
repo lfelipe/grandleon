@@ -98,6 +98,9 @@ cmake -E copy "${script_dir}/launch-arcade.sh" "${temporary_dir}/launch-arcade.s
 cmake -E copy \
     "${repo_root}/platform/godot/project/arcade.example.json" \
     "${temporary_dir}/arcade.example.json"
+cmake -E copy \
+    "${repo_root}/platform/godot/project/graphics.example.json" \
+    "${temporary_dir}/graphics.example.json"
 chmod +x "${temporary_dir}/godot" "${temporary_dir}/launch-arcade.sh"
 mv "${temporary_dir}" "${output_dir}"
 trap - EXIT

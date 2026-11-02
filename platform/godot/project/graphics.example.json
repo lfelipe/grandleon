@@ -1,0 +1,20 @@
+{
+  "contractVersion": "1.0.0",
+  "profiles": {
+    "voxel-sprites": {
+      "camera": {
+        "size": 8.4
+      },
+      "sprite": {
+        "pixelSize": 0.025,
+        "height": 0.47
+      },
+      "palette": {
+        "grass": "4a7650",
+        "road": "8d6a45",
+        "water": "236f91",
+        "mountain": "647078"
+      }
+    }
+  }
+}
