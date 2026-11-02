@@ -26,7 +26,17 @@ func _run() -> void:
 	current_scene = editor
 	await process_frame
 	await process_frame
-	var screenshot_path := _screenshot_path()
+	var resize_screenshot_path := _argument_path("--resize-screenshot=")
+	if not resize_screenshot_path.is_empty():
+		editor._open_resize()
+		editor._set_resize_dimensions(2, 2)
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(resize_screenshot_path)
+		print("map resize capture saved: %s" % resize_screenshot_path)
+		quit()
+		return
+	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
 		for frame in 12:
 			await process_frame
@@ -83,11 +93,51 @@ func _run() -> void:
 	editor._redo()
 	await process_frame
 	_expect("rectangle redo restores first cell", _parse(editor.source).maps[0].terrain[0], "forest")
+
+	var before_resize: String = editor.source
+	editor._open_resize()
+	_expect("resize preview opens", editor.resize_layer.visible, true)
+	editor._set_resize_dimensions(2, 2)
+	_expect("unsafe shrink is blocked", editor.resize_preview.blocked, true)
+	_expect(
+		"unsafe shrink identifies placements",
+		int(editor.resize_preview.placement_clipped) > 0,
+		true
+	)
+	_expect(
+		"unsafe shrink identifies deployment tiles",
+		int(editor.resize_preview.deployment_clipped) > 0,
+		true
+	)
+	_expect("unsafe resize disables apply", editor.resize_apply_button.disabled, true)
+	editor._apply_resize()
+	_expect("blocked resize leaves source untouched", editor.source, before_resize)
+
+	editor._set_resize_dimensions(4, 3)
+	_expect("safe shrink is allowed", editor.resize_preview.blocked, false)
+	_expect("safe shrink previews clipped terrain", editor.resize_preview.terrain_clipped, 12)
+	_expect("safe shrink keeps encounter data", editor.resize_preview.placement_clipped, 0)
+	_expect("safe resize enables apply", editor.resize_apply_button.disabled, false)
+	editor._apply_resize()
+	await process_frame
+	var resized := _parse(editor.source)
+	_expect("resize changes map width", int(resized.maps[0].width), 4)
+	_expect("resize changes map height", int(resized.maps[0].height), 3)
+	_expect("resize changes terrain length", resized.maps[0].terrain.size(), 12)
+	_expect("resize preserves first row", resized.maps[0].terrain[2], "ruins")
+	_expect("resize is one undo command", editor.undo_stack.size(), 4)
+	editor._undo()
+	await process_frame
+	_expect("resize undo restores width", int(_parse(editor.source).maps[0].width), 6)
+	editor._redo()
+	await process_frame
+	_expect("resize redo restores width", int(_parse(editor.source).maps[0].width), 4)
 	editor._save()
 	_expect("save clears dirty state", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
 	_expect("saved rectangle reopens", stored.project.maps[0].terrain[0], "forest")
 	_expect("saved fill reopens", stored.project.maps[0].terrain[2], "ruins")
+	_expect("saved resize reopens", int(stored.project.maps[0].width), 4)
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 
@@ -118,10 +168,10 @@ func _parse(value: String) -> Dictionary:
 	return parsed
 
 
-func _screenshot_path() -> String:
+func _argument_path(prefix: String) -> String:
 	for argument: String in OS.get_cmdline_user_args():
-		if argument.begins_with("--screenshot="):
-			return argument.trim_prefix("--screenshot=")
+		if argument.begins_with(prefix):
+			return argument.trim_prefix(prefix)
 	return ""
 
 

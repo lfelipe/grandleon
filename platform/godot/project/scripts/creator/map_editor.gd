@@ -26,6 +26,9 @@ var dirty := false
 var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
 var discard_armed_until := 0
+var resize_width := 1
+var resize_height := 1
+var resize_preview: Dictionary = {}
 
 var title_label: Label
 var map_select: OptionButton
@@ -39,6 +42,13 @@ var save_button: Button
 var undo_button: Button
 var redo_button: Button
 var play_button: Button
+var resize_layer: Control
+var resize_width_label: Label
+var resize_height_label: Label
+var resize_fill_label: Label
+var resize_preview_label: Label
+var resize_apply_button: Button
+var resize_first_button: Button
 
 
 func _ready() -> void:
@@ -51,7 +61,10 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		_request_projects()
+		if resize_layer != null and resize_layer.visible:
+			_close_resize()
+		else:
+			_request_projects()
 		get_viewport().set_input_as_handled()
 
 
@@ -357,6 +370,153 @@ func _redo() -> void:
 	_set_status("REDO  /  UNSAVED", false)
 
 
+func _open_resize() -> void:
+	var map := _current_map()
+	if map.is_empty():
+		_set_status("ADD A MAP BEFORE RESIZING", true)
+		return
+	resize_width = int(map.get("width", 1))
+	resize_height = int(map.get("height", 1))
+	resize_layer.visible = true
+	_update_resize_preview()
+	resize_first_button.call_deferred("grab_focus")
+
+
+func _close_resize() -> void:
+	resize_layer.visible = false
+	map_select.call_deferred("grab_focus")
+
+
+func _change_resize_width(delta: int) -> void:
+	_set_resize_dimensions(resize_width + delta, resize_height)
+
+
+func _change_resize_height(delta: int) -> void:
+	_set_resize_dimensions(resize_width, resize_height + delta)
+
+
+func _set_resize_dimensions(width: int, height: int) -> void:
+	resize_width = clampi(width, 1, 256)
+	resize_height = clampi(height, 1, 256)
+	_update_resize_preview()
+
+
+func _update_resize_preview() -> void:
+	var map := _current_map()
+	if map.is_empty():
+		resize_preview = {}
+		resize_apply_button.disabled = true
+		return
+	var old_width := int(map.get("width", 1))
+	var old_height := int(map.get("height", 1))
+	var overlap_width := mini(old_width, resize_width)
+	var overlap_height := mini(old_height, resize_height)
+	var retained := overlap_width * overlap_height
+	var terrain_clipped := old_width * old_height - retained
+	var terrain_added := resize_width * resize_height - retained
+	var placement_clipped := 0
+	var deployment_clipped := 0
+	var encounters := 0
+	var map_id := str(map.get("id", ""))
+	for campaign_value: Variant in project.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var campaign: Dictionary = campaign_value
+		var flow_value: Variant = campaign.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		var flow: Dictionary = flow_value
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary:
+				continue
+			var node: Dictionary = node_value
+			if str(node.get("kind", "")) != "encounter" or str(node.get("mapId", "")) != map_id:
+				continue
+			encounters += 1
+			for placement_value: Variant in node.get("placements", []):
+				if placement_value is Dictionary and _coordinate_is_clipped(
+					placement_value, resize_width, resize_height
+				):
+					placement_clipped += 1
+			var deployment_value: Variant = node.get("deployment", {})
+			if deployment_value is Dictionary:
+				var deployment: Dictionary = deployment_value
+				for tile_value: Variant in deployment.get("tiles", []):
+					if tile_value is Dictionary and _coordinate_is_clipped(
+						tile_value, resize_width, resize_height
+					):
+						deployment_clipped += 1
+	var blocked := placement_clipped > 0 or deployment_clipped > 0
+	resize_preview = {
+		"old_width": old_width,
+		"old_height": old_height,
+		"width": resize_width,
+		"height": resize_height,
+		"retained": retained,
+		"terrain_clipped": terrain_clipped,
+		"terrain_added": terrain_added,
+		"encounters": encounters,
+		"placement_clipped": placement_clipped,
+		"deployment_clipped": deployment_clipped,
+		"blocked": blocked,
+	}
+	resize_width_label.text = str(resize_width)
+	resize_height_label.text = str(resize_height)
+	resize_fill_label.text = "NEW CELLS  /  %s" % selected_terrain.to_upper()
+	var lines := PackedStringArray([
+		"%d × %d  →  %d × %d" % [old_width, old_height, resize_width, resize_height],
+		"%d terrain cells retained  ·  %d clipped  ·  %d added" % [retained, terrain_clipped, terrain_added],
+		"%d encounter%s reference this map" % [encounters, "" if encounters == 1 else "s"],
+	])
+	if blocked:
+		lines.append(
+			"BLOCKED  /  %d placement%s and %d deployment tile%s would be outside" % [
+				placement_clipped, "" if placement_clipped == 1 else "s",
+				deployment_clipped, "" if deployment_clipped == 1 else "s",
+			]
+		)
+	else:
+		lines.append("SAFE TO APPLY  /  NO ENCOUNTER DATA IS CLIPPED")
+	resize_preview_label.text = "\n".join(lines)
+	resize_preview_label.add_theme_color_override(
+		"font_color", Color("ff7a83") if blocked else Color("72e08f")
+	)
+	resize_apply_button.disabled = blocked or (
+		old_width == resize_width and old_height == resize_height
+	)
+
+
+func _coordinate_is_clipped(value: Dictionary, width: int, height: int) -> bool:
+	var x := int(value.get("x", -1))
+	var y := int(value.get("y", -1))
+	return x < 0 or y < 0 or x >= width or y >= height
+
+
+func _apply_resize() -> void:
+	if resize_apply_button.disabled:
+		return
+	var map := _current_map()
+	var resized: Dictionary = compiler.resize_map(
+		source, str(map.get("id", "")), resize_width, resize_height,
+		selected_terrain
+	)
+	if not resized.ok:
+		_set_status("RESIZE REFUSED  /  %s" % _diagnostic_code(resized), true)
+		return
+	_push_undo(source)
+	source = resized.source
+	redo_stack.clear()
+	dirty = true
+	rectangle_anchor = -1
+	_read_source()
+	resize_layer.visible = false
+	_refresh_maps_after_edit(0)
+	_set_status(
+		"UNSAVED  /  RESIZED TO %d × %d" % [resize_width, resize_height],
+		false
+	)
+
+
 func _save() -> void:
 	var saved: Dictionary = library.save_source(project_id, source)
 	if not saved.ok:
@@ -449,6 +609,9 @@ func _build_interface() -> void:
 	redo_button = _button("REDO", 170, 58)
 	redo_button.pressed.connect(_redo)
 	toolbar.add_child(redo_button)
+	var resize_button := _button("RESIZE", 190, 58)
+	resize_button.pressed.connect(_open_resize)
+	toolbar.add_child(resize_button)
 	play_button = _button("PLAY DRAFT", 240, 58)
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
@@ -530,6 +693,96 @@ func _build_interface() -> void:
 	status_label.size = Vector2(1750, 44)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status_label)
+	_build_resize_overlay()
+
+
+func _build_resize_overlay() -> void:
+	resize_layer = Control.new()
+	resize_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	resize_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	resize_layer.visible = false
+	add_child(resize_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.86)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	resize_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(500, 190)
+	panel.size = Vector2(920, 700)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
+	)
+	resize_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("RESIZE MAP", 24, Color("69d9ff")))
+	var explanation := _label(
+		"The top-left origin stays fixed. New cells use the selected terrain. "
+		+ "A shrink cannot apply while encounter data would be clipped.",
+		19, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 70
+	column.add_child(explanation)
+
+	var dimensions := HBoxContainer.new()
+	dimensions.add_theme_constant_override("separation", 22)
+	column.add_child(dimensions)
+	var width_column := VBoxContainer.new()
+	width_column.add_theme_constant_override("separation", 8)
+	dimensions.add_child(width_column)
+	width_column.add_child(_label("WIDTH", 16, Color("718896")))
+	var width_row := HBoxContainer.new()
+	width_row.add_theme_constant_override("separation", 8)
+	width_column.add_child(width_row)
+	resize_first_button = _button("−", 92, 64)
+	resize_first_button.pressed.connect(_change_resize_width.bind(-1))
+	width_row.add_child(resize_first_button)
+	resize_width_label = _label("1", 28, Color("f2f7f9"))
+	resize_width_label.custom_minimum_size = Vector2(112, 64)
+	resize_width_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	resize_width_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	width_row.add_child(resize_width_label)
+	var width_plus := _button("+", 92, 64)
+	width_plus.pressed.connect(_change_resize_width.bind(1))
+	width_row.add_child(width_plus)
+
+	var height_column := VBoxContainer.new()
+	height_column.add_theme_constant_override("separation", 8)
+	dimensions.add_child(height_column)
+	height_column.add_child(_label("HEIGHT", 16, Color("718896")))
+	var height_row := HBoxContainer.new()
+	height_row.add_theme_constant_override("separation", 8)
+	height_column.add_child(height_row)
+	var height_minus := _button("−", 92, 64)
+	height_minus.pressed.connect(_change_resize_height.bind(-1))
+	height_row.add_child(height_minus)
+	resize_height_label = _label("1", 28, Color("f2f7f9"))
+	resize_height_label.custom_minimum_size = Vector2(112, 64)
+	resize_height_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	resize_height_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	height_row.add_child(resize_height_label)
+	var height_plus := _button("+", 92, 64)
+	height_plus.pressed.connect(_change_resize_height.bind(1))
+	height_row.add_child(height_plus)
+
+	resize_fill_label = _label("NEW CELLS", 17, Color("69d9ff"))
+	column.add_child(resize_fill_label)
+	resize_preview_label = _label("", 19, Color("72e08f"))
+	resize_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	resize_preview_label.custom_minimum_size.y = 180
+	column.add_child(resize_preview_label)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 12)
+	column.add_child(actions)
+	resize_apply_button = _button("APPLY RESIZE", 300, 64)
+	resize_apply_button.pressed.connect(_apply_resize)
+	actions.add_child(resize_apply_button)
+	var cancel := _button("CANCEL", 220, 64)
+	cancel.pressed.connect(_close_resize)
+	actions.add_child(cancel)
 
 
 func _set_status(message: String, failure: bool) -> void:

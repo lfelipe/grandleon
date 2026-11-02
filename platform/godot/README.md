@@ -29,8 +29,10 @@ screen can create an empty canonical project or a complete playable starter,
 lists projects stored under Godot's per-user data directory, and opens a native
 map creator. The map creator previews the same replaceable terrain atlas as play
 mode, provides brush, contiguous fill, and two-corner rectangle tools, supports
-bounded command-level undo/redo, saves through the validating native source
-layer, and plays the edited draft immediately.
+bounded command-level undo/redo, and resizes from the top-left origin with an
+explicit clipping preview. Shrinks are blocked while any encounter placement
+or deployment tile would fall outside the new board. Saves pass through the
+validating native source layer, and the edited draft plays immediately.
 Compilation and scene handoff stay in-process; draft package bytes are not
 written to the installation directory. Returning through the play-mode session
 menu reopens the same project.
