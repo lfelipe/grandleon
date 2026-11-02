@@ -28,14 +28,20 @@ func create_project(title: String, template_source: String) -> Dictionary:
 	if parsed.parse(template_source) != OK or not parsed.data is Dictionary:
 		return _failure("invalid_template", "The project template is not a JSON object.")
 
-	var project: Dictionary = parsed.data.duplicate(true)
 	var project_id := _new_uuid()
 	while DirAccess.dir_exists_absolute(_project_path(project_id)):
 		project_id = _new_uuid()
-	project["packageId"] = project_id
-	project["gameId"] = _game_id_from_title(clean_title)
-	project["title"] = clean_title
-	var source := JSON.stringify(project, "  ", true) + "\n"
+	var instantiated: Dictionary = compiler.instantiate_source_json(
+		template_source, project_id, _game_id_from_title(clean_title), clean_title
+	)
+	if not instantiated.ok:
+		return {
+			"ok": false,
+			"code": "invalid_template",
+			"message": "The project template is not valid canonical source.",
+			"diagnostics": instantiated.diagnostics,
+		}
+	var source: String = instantiated.source
 	var saved := save_source(project_id, source)
 	if not saved.ok:
 		return saved

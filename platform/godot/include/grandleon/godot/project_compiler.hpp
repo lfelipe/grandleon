@@ -19,6 +19,12 @@ public:
     [[nodiscard]] ::godot::Dictionary compile_source_json(
         const ::godot::String& source_json
     ) const;
+    [[nodiscard]] ::godot::Dictionary instantiate_source_json(
+        const ::godot::String& template_json,
+        const ::godot::String& package_id,
+        const ::godot::String& game_id,
+        const ::godot::String& title
+    ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
 protected:

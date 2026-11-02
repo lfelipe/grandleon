@@ -293,6 +293,78 @@ private:
     std::size_t depth_{};
 };
 
+void append_json_string(std::string& output, std::string_view value) {
+    static constexpr char hexadecimal[] = "0123456789abcdef";
+    output.push_back('"');
+    for (const unsigned char character : value) {
+        switch (character) {
+            case '"': output += "\\\""; break;
+            case '\\': output += "\\\\"; break;
+            case '\b': output += "\\b"; break;
+            case '\f': output += "\\f"; break;
+            case '\n': output += "\\n"; break;
+            case '\r': output += "\\r"; break;
+            case '\t': output += "\\t"; break;
+            default:
+                if (character < 0x20U) {
+                    output += "\\u00";
+                    output.push_back(hexadecimal[(character >> 4U) & 0x0fU]);
+                    output.push_back(hexadecimal[character & 0x0fU]);
+                } else {
+                    output.push_back(static_cast<char>(character));
+                }
+                break;
+        }
+    }
+    output.push_back('"');
+}
+
+void append_indent(std::string& output, std::size_t depth) {
+    output.append(depth * 2U, ' ');
+}
+
+void append_json(std::string& output, const Json& value, std::size_t depth) {
+    if (std::holds_alternative<std::nullptr_t>(value.value)) {
+        output += "null";
+    } else if (const auto* boolean = std::get_if<bool>(&value.value)) {
+        output += *boolean ? "true" : "false";
+    } else if (const auto* integer = std::get_if<std::int64_t>(&value.value)) {
+        output += std::to_string(*integer);
+    } else if (const auto* text = std::get_if<std::string>(&value.value)) {
+        append_json_string(output, *text);
+    } else if (const auto* values = std::get_if<Json::Array>(&value.value)) {
+        if (values->empty()) {
+            output += "[]";
+            return;
+        }
+        output += "[\n";
+        for (std::size_t index = 0; index < values->size(); ++index) {
+            append_indent(output, depth + 1U);
+            append_json(output, (*values)[index], depth + 1U);
+            output += index + 1U == values->size() ? "\n" : ",\n";
+        }
+        append_indent(output, depth);
+        output.push_back(']');
+    } else {
+        const auto& object = std::get<Json::Object>(value.value);
+        if (object.empty()) {
+            output += "{}";
+            return;
+        }
+        output += "{\n";
+        std::size_t index = 0;
+        for (const auto& [key, member] : object) {
+            append_indent(output, depth + 1U);
+            append_json_string(output, key);
+            output += ": ";
+            append_json(output, member, depth + 1U);
+            output += ++index == object.size() ? "\n" : ",\n";
+        }
+        append_indent(output, depth);
+        output.push_back('}');
+    }
+}
+
 using Object = Json::Object;
 using Array = Json::Array;
 
@@ -2609,6 +2681,46 @@ SourceParseResult parse_source_project_json(std::string_view json) {
     }
 
     return std::move(mapper.result);
+}
+
+SourceTextResult instantiate_source_project_json(
+    std::string_view template_json,
+    std::string_view package_id,
+    std::string_view game_id,
+    std::string_view title
+) {
+    SourceTextResult result;
+    Json document;
+    try {
+        document = JsonParser(template_json).parse();
+    } catch (const JsonError& error) {
+        result.diagnostics.push_back({
+            SourceDiagnosticCode::invalid_json,
+            "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        });
+        return result;
+    }
+    auto* root = std::get_if<Json::Object>(&document.value);
+    if (root == nullptr) {
+        result.diagnostics.push_back({
+            SourceDiagnosticCode::invalid_value, "$", "expected object"
+        });
+        return result;
+    }
+    (*root)["packageId"] = Json{std::string(package_id)};
+    (*root)["gameId"] = Json{std::string(game_id)};
+    (*root)["title"] = Json{std::string(title)};
+    append_json(result.json, document, 0);
+    result.json.push_back('\n');
+
+    const SourceParseResult parsed = parse_source_project_json(result.json);
+    if (!parsed) {
+        result.diagnostics = parsed.diagnostics;
+        result.json.clear();
+    }
+    return result;
 }
 
 }  // namespace grandleon::game_content

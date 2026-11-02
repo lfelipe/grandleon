@@ -209,6 +209,40 @@ void rejects_malformed_json() {
     );
 }
 
+void instantiates_a_template_without_float_round_tripping() {
+    const auto instantiated = gc::instantiate_source_project_json(
+        source,
+        "a4c74d57-4859-49d3-b44c-53f04451d65f",
+        "new.road",
+        "The \"New\" Road"
+    );
+    expect(static_cast<bool>(instantiated), "a canonical template instantiates");
+    expect(
+        instantiated.json.find(R"json("health": 20)json") !=
+            std::string::npos &&
+            instantiated.json.find("20.0") == std::string::npos,
+        "template integers remain integer tokens"
+    );
+    expect(
+        instantiated.json.find(R"json("title": "The \"New\" Road")json") !=
+            std::string::npos,
+        "template strings are escaped"
+    );
+    const auto parsed = gc::parse_source_project_json(instantiated.json);
+    expect(static_cast<bool>(parsed), "the instantiated template parses again");
+
+    const auto malformed = gc::instantiate_source_project_json(
+        "{", "a4c74d57-4859-49d3-b44c-53f04451d65f", "new.road", "New"
+    );
+    expect(!malformed, "a malformed template is refused");
+    expect(
+        !malformed.diagnostics.empty() &&
+            malformed.diagnostics.front().code ==
+                gc::SourceDiagnosticCode::invalid_json,
+        "a malformed template keeps its source diagnostic"
+    );
+}
+
 void maps_authored_resistance() {
     std::string with_resistance{source};
     const std::string needle = R"json("health":20,)json";
@@ -1819,6 +1853,7 @@ int main() {
     rejects_unsupported_gameplay();
     compiles_a_world_flag_predicate();
     rejects_malformed_json();
+    instantiates_a_template_without_float_round_tripping();
     maps_authored_resistance();
     refuses_a_stat_the_rules_cannot_execute();
     keeps_the_whole_range_for_the_chance_stats();

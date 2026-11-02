@@ -49,11 +49,31 @@ struct SourceParseResult final {
     }
 };
 
+struct SourceTextResult final {
+    std::string json;
+    std::vector<SourceDiagnostic> diagnostics;
+
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return diagnostics.empty();
+    }
+};
+
 // Parses canonical source schema v1 into the native semantic compiler model.
 // This is deliberately narrower than schema validation: unsupported gameplay
 // registries are rejected rather than silently omitted from the package.
 [[nodiscard]] SourceParseResult parse_source_project_json(
     std::string_view json
+);
+
+// Creates a new source project from a canonical template without passing its
+// integer tokens through a floating-point JSON representation. The result is
+// fully parsed before it is returned, so a caller cannot persist a malformed
+// template under a fresh identity.
+[[nodiscard]] SourceTextResult instantiate_source_project_json(
+    std::string_view template_json,
+    std::string_view package_id,
+    std::string_view game_id,
+    std::string_view title
 );
 
 }  // namespace grandleon::game_content

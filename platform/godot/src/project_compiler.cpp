@@ -59,6 +59,13 @@ void GrandleonProjectCompiler::_bind_methods() {
         &GrandleonProjectCompiler::compile_source_json
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "instantiate_source_json", "template_json", "package_id",
+            "game_id", "title"
+        ),
+        &GrandleonProjectCompiler::instantiate_source_json
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("supported_schema"),
         &GrandleonProjectCompiler::supported_schema
     );
@@ -99,6 +106,35 @@ gd::Dictionary GrandleonProjectCompiler::compile_source_json(
     }
     result["ok"] = true;
     result["package"] = package;
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::instantiate_source_json(
+    const gd::String& template_json,
+    const gd::String& package_id,
+    const gd::String& game_id,
+    const gd::String& title
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult instantiated =
+        gc::instantiate_source_project_json(
+            narrow(template_json), narrow(package_id), narrow(game_id),
+            narrow(title)
+        );
+    if (!instantiated) {
+        for (const gc::SourceDiagnostic& diagnostic :
+             instantiated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(instantiated.json);
     result["diagnostics"] = diagnostics;
     return result;
 }
