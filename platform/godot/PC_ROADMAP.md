@@ -25,7 +25,7 @@ machine-specific model, graphics, or control configuration.
 | Portable rules | Godot submits intents to the same C++ session used by the other clients; `.gpk` content does not name Godot resources. |
 | Simultaneous co-op control | Both players have independent cursors and request queues. A smoke mode requires two friendly moves submitted together to be accepted before it captures a frame. |
 | Stable controller seats | A lone controller is Player 1. Reconciliation preserves every still-connected pad and cursor across enumeration changes, fills only a vacant seat on reconnect, and ignores extra devices. Keyboard/mouse can join a vacant second seat. A headless smoke covers launch, disconnect, reconnect, reorder, and assignment cases. |
-| Compact controls | Every essential flow uses one stick or d-pad plus five configurable buttons. The default is A, B, X, Y, and Start; shoulders and Back are optional shortcuts that can be disabled. Invalid or ambiguous local profiles fall back atomically to the complete default. |
+| Compact controls | Every essential flow uses one stick or d-pad plus five configurable buttons. The default is A, B, X, Y, and Start; shoulders and Back are optional shortcuts that can be disabled. A local profile may replace physical button legends with short labels such as 1–4 and MENU throughout gameplay and menus without recording a controller identity. Invalid, ambiguous, or unsafe local profiles fall back atomically to the complete default. |
 | Deterministic conflict handling | Commands overlap visually but serialize at the simulation boundary; a stale or conflicting command is refused instead of mutating state out of order. |
 | Offline campaign | The Last Signal has authored opening, terms, talk outcome, battle outcome, and ending dialogue with the model disabled. |
 | Optional model dialogue | Model lines append only to allowlisted scenes and pass speaker, count, length, and markup validation. Authored lines are never replaced. |
@@ -79,8 +79,8 @@ addresses, usernames, or absolute install paths in project content or issues.
 - Extend the controller-driven session menu beyond its live graphics-profile,
   text-size, and camera-impulse controls with audio-level settings once audio is
   authored.
-- Add explicit join/leave feedback and persistent controller glyphs rather
-  than generic button letters.
+- Keep the existing join/leave toasts and persistent profile-driven button
+  legends visible while validating actual controller reconnect behavior.
 - Add an automated Godot smoke target to CI once a pinned headless display and
   Godot cache are practical there.
 

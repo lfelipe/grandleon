@@ -8,5 +8,15 @@
     "previous_unit": "left_shoulder",
     "next_unit": "right_shoulder",
     "menu_alt": "back"
+  },
+  "labels": {
+    "a": "A",
+    "b": "B",
+    "x": "X",
+    "y": "Y",
+    "start": "START",
+    "back": "BACK",
+    "left_shoulder": "LB",
+    "right_shoulder": "RB"
   }
 }

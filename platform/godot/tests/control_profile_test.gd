@@ -20,6 +20,14 @@ func _init() -> void:
 	_expect("remapped label", swapped.label("confirm"), "X")
 	_expect("remapped match", swapped.matches("confirm", JOY_BUTTON_X), true)
 
+	var numbered = ControlProfile.new({
+		"buttons": {"confirm": "x", "end_turn": "a"},
+		"labels": {"a": "4", "x": "1", "start": "MENU"},
+	})
+	_expect("physical label follows remapping", numbered.label("confirm"), "1")
+	_expect("numbered end-turn label", numbered.label("end_turn"), "4")
+	_expect("compact menu label", numbered.label("menu"), "MENU")
+
 	var compact = ControlProfile.new({
 		"buttons": {
 			"previous_unit": "none",
@@ -59,6 +67,26 @@ func _init() -> void:
 	_expect(
 		"misspelled root warns",
 		misspelled.warning(),
+		"CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+	)
+
+	var unsafe_label = ControlProfile.new({
+		"buttons": {}, "labels": {"a": "[A]"},
+	})
+	_expect("markup label falls back", unsafe_label.label("confirm"), "A")
+	_expect(
+		"markup label warns",
+		unsafe_label.warning(),
+		"CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+	)
+
+	var long_label = ControlProfile.new({
+		"buttons": {}, "labels": {"start": "BEGIN NOW"},
+	})
+	_expect("long label falls back", long_label.label("menu"), "START")
+	_expect(
+		"long label warns",
+		long_label.warning(),
 		"CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
 	)
 

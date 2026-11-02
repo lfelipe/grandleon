@@ -47,6 +47,7 @@ const LABELS := {
 }
 
 var _bindings: Dictionary = DEFAULT_BINDINGS.duplicate(true)
+var _labels: Dictionary = LABELS.duplicate(true)
 var _warning := ""
 
 
@@ -60,7 +61,11 @@ func _init(source: Variant = "") -> void:
 	if not FileAccess.file_exists(path):
 		_warning = "CONTROL PROFILE / UNAVAILABLE / DEFAULTS ACTIVE"
 		return
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var parser := JSON.new()
+	if parser.parse(FileAccess.get_file_as_string(path)) != OK:
+		_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+		return
+	var parsed: Variant = parser.data
 	if not parsed is Dictionary:
 		_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
 		return
@@ -77,7 +82,7 @@ func button(action: String) -> int:
 
 
 func label(action: String) -> String:
-	return String(LABELS.get(String(_bindings.get(action, "none")), "NONE"))
+	return String(_labels.get(String(_bindings.get(action, "none")), "NONE"))
 
 
 func binding(action: String) -> String:
@@ -117,4 +122,33 @@ func _apply_dictionary(source: Dictionary) -> void:
 			_warning = "CONTROL PROFILE / AMBIGUOUS / DEFAULTS ACTIVE"
 			return
 		claimed[button_name] = action
+	var candidate_labels: Dictionary = LABELS.duplicate(true)
+	if source.has("labels"):
+		var supplied_labels: Variant = source.get("labels", {})
+		if not supplied_labels is Dictionary:
+			_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+			return
+		for button: Variant in supplied_labels:
+			var button_name := String(button)
+			var display_label := String(supplied_labels[button])
+			if (
+				button_name == "none"
+				or not BUTTONS.has(button_name)
+				or not _valid_display_label(display_label)
+			):
+				_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+				return
+			candidate_labels[button_name] = display_label
 	_bindings = candidate
+	_labels = candidate_labels
+
+
+func _valid_display_label(value: String) -> bool:
+	if value.is_empty() or value.length() > 8 or value != value.strip_edges():
+		return false
+	if value.contains("[") or value.contains("]"):
+		return false
+	for index in value.length():
+		if value.unicode_at(index) < 32:
+			return false
+	return true

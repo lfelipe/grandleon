@@ -312,10 +312,11 @@ func _run_controls_smoke() -> void:
 		and controls.binding("menu") == "start"
 		and controls.button("previous_unit") < 0
 		and controls.warning().is_empty()
-		and help_label.text.contains("[b]X[/b][/color]  SELECT / CONFIRM")
-		and session_menu_resume.text.contains("X · ENTER")
-		and session_menu_quit.text.contains("X · A · Q")
-		and dialogue_hint.text.contains("X / ENTER")
+		and help_label.text.contains("[b]1[/b][/color]  SELECT / CONFIRM")
+		and help_label.text.contains("[b]MENU[/b]  BEGIN / SESSION MENU")
+		and session_menu_resume.text.contains("1 · ENTER")
+		and session_menu_quit.text.contains("1 · 4 · Q")
+		and dialogue_hint.text.contains("1 / ENTER")
 	)
 	if not valid:
 		push_error("control profile did not propagate through the PC interface")

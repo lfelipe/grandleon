@@ -154,15 +154,21 @@ requirement through an optional local control profile while retaining the
 stable default mapping above.
 
 To remap buttons, copy `controls.example.json` to `controls.local.json` beside
-the launcher and change values under `buttons`. Essential actions must remain
+the launcher and change values under `buttons`. The optional `labels` object
+maps physical buttons to the short legends shown throughout play, dialogue,
+and the session menu; a five-button setup may use `1`, `2`, `3`, `4`, and
+`MENU` without pretending its controls are lettered like a gamepad. Labels are
+limited to eight visible characters and cannot contain markup or control
+characters. Essential actions must remain
 bound to distinct supported buttons; omitted values retain their defaults. Set
 `previous_unit`, `next_unit`, or `menu_alt` to `none` when the controller lacks
 those optional inputs. An unknown, disabled essential, or ambiguous mapping
 activates the complete default profile instead of leaving the game partly
 controllable. Supported button values are `a`, `b`, `x`, `y`, `start`, `back`,
 `left_shoulder`, and `right_shoulder`; `none` is valid only for optional
-actions. The local file is ignored by Git, excluded from bundles, and
-discovered only at launch time.
+actions. Invalid labels reject the complete profile just like invalid bindings.
+The local file is ignored by Git, excluded from bundles, and discovered only
+at launch time; controller names and identities are never written into it.
 
 Outside deployment and dialogue, the configured menu button (Start by default)
 or optional alternate (Back by default) opens a controller-native session menu.
