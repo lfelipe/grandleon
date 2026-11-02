@@ -407,6 +407,83 @@ void updates_one_map_cell_without_retyping_the_project() {
         !placement_outside && placement_outside.json.empty(),
         "a placement cannot move outside its encounter map"
     );
+
+    const auto added_enemy = gc::add_source_placement_json(
+        enlarged.json, "demo", "battle", "red_2", "red_unit", "second",
+        "", 2, 1
+    );
+    const auto added_enemy_parsed =
+        gc::parse_source_project_json(added_enemy.json);
+    expect(
+        added_enemy && added_enemy_parsed &&
+            added_enemy_parsed.source.encounters.front().placements.size() ==
+                3 &&
+            gc::compile(added_enemy_parsed.source),
+        "an enemy placement can be added without a roster member"
+    );
+    expect(
+        !gc::add_source_placement_json(
+            enlarged.json, "demo", "battle", "red_1", "red_unit", "second",
+            "", 2, 1
+        ),
+        "a duplicate placement identity is refused"
+    );
+    expect(
+        !gc::add_source_placement_json(
+            enlarged.json, "demo", "battle", "red_2", "red_unit", "second",
+            "", 0, 0
+        ),
+        "a placement cannot be added onto an occupied opening tile"
+    );
+    expect(
+        !gc::add_source_placement_json(
+            enlarged.json, "demo", "battle", "blue_2", "blue_unit", "first",
+            "", 2, 1
+        ),
+        "an allied placement must name its campaign member"
+    );
+
+    std::string two_member_source{source};
+    const std::string one_member =
+        R"json("roster":[{"id":"blue_one","name":"Blue One","unitTypeId":"blue_unit"}])json";
+    const std::string two_members =
+        R"json("roster":[{"id":"blue_one","name":"Blue One","unitTypeId":"blue_unit"},{"id":"blue_two","name":"Blue Two","unitTypeId":"blue_unit"}])json";
+    two_member_source.replace(
+        two_member_source.find(one_member), one_member.size(), two_members
+    );
+    const auto two_member_map = gc::resize_source_map_json(
+        two_member_source, "field", 3, 2, "forest"
+    );
+    const auto added_ally = gc::add_source_placement_json(
+        two_member_map.json, "demo", "battle", "blue_2", "blue_unit",
+        "first", "blue_two", 2, 1
+    );
+    const auto added_ally_parsed = gc::parse_source_project_json(added_ally.json);
+    expect(
+        added_ally && added_ally_parsed &&
+            gc::compile(added_ally_parsed.source),
+        "an available campaign member can be added as an allied placement"
+    );
+
+    const auto removed_enemy = gc::remove_source_placement_json(
+        added_enemy.json, "demo", "battle", "red_1"
+    );
+    const auto removed_enemy_parsed =
+        gc::parse_source_project_json(removed_enemy.json);
+    expect(
+        removed_enemy && removed_enemy_parsed &&
+            removed_enemy_parsed.source.encounters.front().placements.size() ==
+                2 &&
+            gc::compile(removed_enemy_parsed.source),
+        "one enemy can be removed while another keeps the encounter playable"
+    );
+    const auto removed_only_ally = gc::remove_source_placement_json(
+        enlarged.json, "demo", "battle", "blue_1"
+    );
+    expect(
+        !removed_only_ally && removed_only_ally.json.empty(),
+        "removing the only ally cannot break a playable encounter"
+    );
 }
 
 void maps_authored_resistance() {

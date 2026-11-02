@@ -63,6 +63,23 @@ public:
         std::int64_t x,
         std::int64_t y
     ) const;
+    [[nodiscard]] ::godot::Dictionary add_placement(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& node_id,
+        const ::godot::String& placement_id,
+        const ::godot::String& unit_type_id,
+        const ::godot::String& side,
+        const ::godot::String& member_id,
+        std::int64_t x,
+        std::int64_t y
+    ) const;
+    [[nodiscard]] ::godot::Dictionary remove_placement(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& node_id,
+        const ::godot::String& placement_id
+    ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
 protected:

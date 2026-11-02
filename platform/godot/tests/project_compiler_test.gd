@@ -104,6 +104,28 @@ func _init() -> void:
 			)
 			_expect("occupied placement move refused", occupied_move.ok, false)
 			_expect("occupied move returns no source", occupied_move.source, "")
+			var added_enemy: Dictionary = compiler.add_placement(
+				source, "demo_campaign", "bridge_encounter", "river_watch_2",
+				"river_watch_unit", "second", "", 3, 1
+			)
+			_expect("enemy placement add succeeds", added_enemy.ok, true)
+			if added_enemy.ok:
+				var added_data: Dictionary = JSON.parse_string(added_enemy.source)
+				_expect("enemy placement count", added_data.campaigns[0].flow.nodes[0].placements.size(), 3)
+				_expect("added enemy project compiles", compiler.compile_source_json(added_enemy.source).ok, true)
+				var removed_enemy: Dictionary = compiler.remove_placement(
+					added_enemy.source, "demo_campaign", "bridge_encounter", "river_watch_leader"
+				)
+				_expect("enemy placement remove succeeds", removed_enemy.ok, true)
+				if removed_enemy.ok:
+					var removed_data: Dictionary = JSON.parse_string(removed_enemy.source)
+					_expect("enemy placement removal count", removed_data.campaigns[0].flow.nodes[0].placements.size(), 2)
+					_expect("removed enemy project compiles", compiler.compile_source_json(removed_enemy.source).ok, true)
+			var missing_member: Dictionary = compiler.add_placement(
+				source, "demo_campaign", "bridge_encounter", "ally_2",
+				"dawn_guard_unit", "first", "", 3, 1
+			)
+			_expect("ally without member refused", missing_member.ok, false)
 
 	var blank_path := ProjectSettings.globalize_path(
 		"res://content/templates/blank_project.json"

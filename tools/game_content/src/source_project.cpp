@@ -2935,6 +2935,207 @@ const std::int64_t* integer_member(
                : std::get_if<std::int64_t>(&found->second.value);
 }
 
+struct EditableEncounterDocument final {
+    Json document;
+    SourceParseResult before;
+    Object* root{};
+    Object* campaign{};
+    Object* node{};
+    Object* map{};
+    Array* placements{};
+    std::int64_t width{};
+    std::int64_t height{};
+    std::string node_path;
+};
+
+bool open_editable_encounter(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    EditableEncounterDocument& editable,
+    SourceTextResult& result
+) {
+    for (const auto& [value, label] : {
+             std::pair{campaign_id, "campaign"},
+             std::pair{node_id, "node"},
+         }) {
+        if (!valid_source_key(value)) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                "$.campaigns",
+                std::string(label) + " id must be a stable source-key string"
+            );
+            return false;
+        }
+    }
+    editable.before = parse_source_project_json(source_json);
+    if (!editable.before) {
+        result.diagnostics = editable.before.diagnostics;
+        return false;
+    }
+    try {
+        editable.document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_json,
+            "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return false;
+    }
+    editable.root = std::get_if<Object>(&editable.document.value);
+    Array* campaigns = editable.root == nullptr
+                           ? nullptr
+                           : mutable_array(*editable.root, "campaigns");
+    if (campaigns == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.campaigns",
+            "expected array"
+        );
+        return false;
+    }
+
+    std::size_t campaign_index = 0;
+    editable.campaign =
+        find_object_by_id(*campaigns, campaign_id, &campaign_index);
+    const std::string campaign_path =
+        "$.campaigns[" + std::to_string(campaign_index) + "]";
+    if (editable.campaign == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.campaigns",
+            "campaign '" + std::string(campaign_id) + "' was not found"
+        );
+        return false;
+    }
+    Object* flow = mutable_object(*editable.campaign, "flow");
+    Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+    if (nodes == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow.nodes",
+            "expected array"
+        );
+        return false;
+    }
+
+    std::size_t node_index = 0;
+    editable.node = find_object_by_id(*nodes, node_id, &node_index);
+    editable.node_path = campaign_path + ".flow.nodes[" +
+                         std::to_string(node_index) + "]";
+    if (editable.node == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow.nodes",
+            "node '" + std::string(node_id) + "' was not found"
+        );
+        return false;
+    }
+    const std::string* kind = string_member(*editable.node, "kind");
+    const std::string* map_id = string_member(*editable.node, "mapId");
+    editable.placements = mutable_array(*editable.node, "placements");
+    if (kind == nullptr || *kind != "encounter" || map_id == nullptr ||
+        editable.placements == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            editable.node_path,
+            "expected encounter node with map and placements"
+        );
+        return false;
+    }
+
+    Array* maps = mutable_array(*editable.root, "maps");
+    editable.map =
+        maps == nullptr ? nullptr : find_object_by_id(*maps, *map_id);
+    const std::int64_t* width = editable.map == nullptr
+                                    ? nullptr
+                                    : integer_member(*editable.map, "width");
+    const std::int64_t* height = editable.map == nullptr
+                                     ? nullptr
+                                     : integer_member(*editable.map, "height");
+    if (width == nullptr || height == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            editable.node_path + ".mapId",
+            "encounter map was not found"
+        );
+        return false;
+    }
+    editable.width = *width;
+    editable.height = *height;
+    return true;
+}
+
+bool placement_destination_is_valid(
+    const EditableEncounterDocument& editable,
+    std::int64_t x,
+    std::int64_t y,
+    const Object* ignored,
+    bool allows_occupied,
+    const std::string& path,
+    SourceTextResult& result
+) {
+    if (x < 0 || y < 0 || x >= editable.width || y >= editable.height) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            path,
+            "placement destination is outside its map"
+        );
+        return false;
+    }
+    if (allows_occupied) return true;
+    for (const Json& value : *editable.placements) {
+        const auto* other = std::get_if<Object>(&value.value);
+        if (other == nullptr || other == ignored ||
+            other->find("arrival") != other->end()) {
+            continue;
+        }
+        const std::int64_t* other_x = integer_member(*other, "x");
+        const std::int64_t* other_y = integer_member(*other, "y");
+        if (other_x != nullptr && other_y != nullptr && *other_x == x &&
+            *other_y == y) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                path,
+                "another opening placement already occupies that tile"
+            );
+            return false;
+        }
+    }
+    return true;
+}
+
+void finish_encounter_edit(
+    EditableEncounterDocument& editable,
+    SourceTextResult& result,
+    const std::string& path
+) {
+    const bool was_playable = static_cast<bool>(compile(editable.before.source));
+    finish_document_edit(editable.document, result);
+    if (!result || !was_playable) return;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    if (after && compile(after.source)) return;
+    result.json.clear();
+    refuse_edit(
+        result,
+        SourceDiagnosticCode::invalid_value,
+        path,
+        "placement edit would make this playable project invalid"
+    );
+}
+
 }  // namespace
 
 SourceTextResult update_source_map_cell_json(
@@ -3222,177 +3423,203 @@ SourceTextResult move_source_placement_json(
     std::int64_t y
 ) {
     SourceTextResult result;
-    const SourceParseResult before = parse_source_project_json(source_json);
-    if (!before) {
-        result.diagnostics = before.diagnostics;
+    EditableEncounterDocument editable;
+    if (!open_editable_encounter(
+            source_json, campaign_id, node_id, editable, result
+        )) {
         return result;
     }
-    for (const auto& [value, label] : {
-             std::pair{campaign_id, "campaign"},
-             std::pair{node_id, "node"},
-             std::pair{placement_id, "placement"},
-         }) {
-        if (!valid_source_key(value)) {
-            refuse_edit(
-                result,
-                SourceDiagnosticCode::invalid_value,
-                "$.campaigns",
-                std::string(label) + " id must be a stable source-key string"
-            );
-            return result;
-        }
-    }
-
-    Json document;
-    try {
-        document = JsonParser(source_json).parse();
-    } catch (const JsonError& error) {
-        refuse_edit(
-            result,
-            SourceDiagnosticCode::invalid_json,
-            "$",
-            "JSON parse error at byte " + std::to_string(error.offset()) +
-                ": " + error.what()
-        );
-        return result;
-    }
-    auto* root = std::get_if<Object>(&document.value);
-    Array* campaigns =
-        root == nullptr ? nullptr : mutable_array(*root, "campaigns");
-    if (root == nullptr || campaigns == nullptr) {
+    if (!valid_source_key(placement_id)) {
         refuse_edit(
             result,
             SourceDiagnosticCode::invalid_value,
-            "$.campaigns",
-            "expected array"
-        );
-        return result;
-    }
-
-    std::size_t campaign_index = 0;
-    Object* campaign =
-        find_object_by_id(*campaigns, campaign_id, &campaign_index);
-    const std::string campaign_path =
-        "$.campaigns[" + std::to_string(campaign_index) + "]";
-    if (campaign == nullptr) {
-        refuse_edit(
-            result,
-            SourceDiagnosticCode::invalid_value,
-            "$.campaigns",
-            "campaign '" + std::string(campaign_id) + "' was not found"
-        );
-        return result;
-    }
-    Object* flow = mutable_object(*campaign, "flow");
-    Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
-    if (nodes == nullptr) {
-        refuse_edit(
-            result,
-            SourceDiagnosticCode::invalid_value,
-            campaign_path + ".flow.nodes",
-            "expected array"
-        );
-        return result;
-    }
-
-    std::size_t node_index = 0;
-    Object* node = find_object_by_id(*nodes, node_id, &node_index);
-    const std::string node_path = campaign_path + ".flow.nodes[" +
-                                  std::to_string(node_index) + "]";
-    if (node == nullptr) {
-        refuse_edit(
-            result,
-            SourceDiagnosticCode::invalid_value,
-            campaign_path + ".flow.nodes",
-            "node '" + std::string(node_id) + "' was not found"
-        );
-        return result;
-    }
-    const std::string* kind = string_member(*node, "kind");
-    const std::string* map_id = string_member(*node, "mapId");
-    Array* placements = mutable_array(*node, "placements");
-    if (kind == nullptr || *kind != "encounter" || map_id == nullptr ||
-        placements == nullptr) {
-        refuse_edit(
-            result,
-            SourceDiagnosticCode::invalid_value,
-            node_path,
-            "expected encounter node with map and placements"
+            editable.node_path + ".placements",
+            "placement id must be a stable source-key string"
         );
         return result;
     }
 
     std::size_t placement_index = 0;
     Object* placement =
-        find_object_by_id(*placements, placement_id, &placement_index);
-    const std::string placement_path = node_path + ".placements[" +
+        find_object_by_id(
+            *editable.placements, placement_id, &placement_index
+        );
+    const std::string placement_path = editable.node_path + ".placements[" +
                                        std::to_string(placement_index) + "]";
     if (placement == nullptr) {
         refuse_edit(
             result,
             SourceDiagnosticCode::invalid_value,
-            node_path + ".placements",
+            editable.node_path + ".placements",
             "placement '" + std::string(placement_id) + "' was not found"
         );
         return result;
     }
 
-    Array* maps = mutable_array(*root, "maps");
-    Object* map = maps == nullptr ? nullptr : find_object_by_id(*maps, *map_id);
-    const std::int64_t* width =
-        map == nullptr ? nullptr : integer_member(*map, "width");
-    const std::int64_t* height =
-        map == nullptr ? nullptr : integer_member(*map, "height");
-    if (width == nullptr || height == nullptr || x < 0 || y < 0 ||
-        x >= *width || y >= *height) {
-        refuse_edit(
-            result,
-            SourceDiagnosticCode::invalid_value,
-            placement_path,
-            "placement destination is outside its map"
-        );
-        return result;
-    }
-
     const bool moving_arrival = placement->find("arrival") != placement->end();
-    if (!moving_arrival) {
-        for (std::size_t index = 0; index < placements->size(); ++index) {
-            if (index == placement_index) continue;
-            const auto* other =
-                std::get_if<Object>(&(*placements)[index].value);
-            if (other == nullptr || other->find("arrival") != other->end()) {
-                continue;
-            }
-            const std::int64_t* other_x = integer_member(*other, "x");
-            const std::int64_t* other_y = integer_member(*other, "y");
-            if (other_x != nullptr && other_y != nullptr && *other_x == x &&
-                *other_y == y) {
-                refuse_edit(
-                    result,
-                    SourceDiagnosticCode::invalid_value,
-                    placement_path,
-                    "another opening placement already occupies that tile"
-                );
-                return result;
-            }
-        }
+    if (!placement_destination_is_valid(
+            editable, x, y, placement, moving_arrival, placement_path, result
+        )) {
+        return result;
     }
 
     (*placement)["x"] = Json{x};
     (*placement)["y"] = Json{y};
-    finish_document_edit(document, result);
-    if (!result) return result;
+    finish_encounter_edit(editable, result, placement_path);
+    return result;
+}
 
-    const SourceParseResult after = parse_source_project_json(result.json);
-    if (compile(before.source) && after && !compile(after.source)) {
-        result.json.clear();
+SourceTextResult add_source_placement_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id,
+    std::string_view unit_type_id,
+    std::string_view side,
+    std::string_view member_id,
+    std::int64_t x,
+    std::int64_t y
+) {
+    SourceTextResult result;
+    EditableEncounterDocument editable;
+    if (!open_editable_encounter(
+            source_json, campaign_id, node_id, editable, result
+        )) {
+        return result;
+    }
+    const std::string placements_path = editable.node_path + ".placements";
+    if (!valid_source_key(placement_id) || !valid_source_key(unit_type_id)) {
         refuse_edit(
             result,
             SourceDiagnosticCode::invalid_value,
-            placement_path,
-            "placement destination would make this playable project invalid"
+            placements_path,
+            "placement and unit type ids must be stable source-key strings"
         );
+        return result;
     }
+    if (side != "first" && side != "second") {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "placement side must be 'first' or 'second'"
+        );
+        return result;
+    }
+    if ((side == "first" && !valid_source_key(member_id)) ||
+        (side == "second" && !member_id.empty())) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "allied placements require a member id and enemies must omit it"
+        );
+        return result;
+    }
+    if (find_object_by_id(*editable.placements, placement_id) != nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "placement id already exists"
+        );
+        return result;
+    }
+    if (editable.placements->size() >= 4096) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "encounter cannot contain more than 4096 placements"
+        );
+        return result;
+    }
+    if (!placement_destination_is_valid(
+            editable, x, y, nullptr, false, placements_path, result
+        )) {
+        return result;
+    }
+
+    Object added;
+    added.emplace("id", Json{std::string(placement_id)});
+    if (!member_id.empty()) {
+        added.emplace("memberId", Json{std::string(member_id)});
+    }
+    added.emplace("unitTypeId", Json{std::string(unit_type_id)});
+    added.emplace("side", Json{std::string(side)});
+    added.emplace("x", Json{x});
+    added.emplace("y", Json{y});
+    editable.placements->push_back(Json{std::move(added)});
+    finish_encounter_edit(editable, result, placements_path);
+    return result;
+}
+
+SourceTextResult remove_source_placement_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id
+) {
+    SourceTextResult result;
+    EditableEncounterDocument editable;
+    if (!open_editable_encounter(
+            source_json, campaign_id, node_id, editable, result
+        )) {
+        return result;
+    }
+    const std::string placements_path = editable.node_path + ".placements";
+    if (!valid_source_key(placement_id)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "placement id must be a stable source-key string"
+        );
+        return result;
+    }
+    std::size_t placement_index = 0;
+    Object* placement = find_object_by_id(
+        *editable.placements, placement_id, &placement_index
+    );
+    if (placement == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "placement '" + std::string(placement_id) + "' was not found"
+        );
+        return result;
+    }
+    const std::string* removed_side = string_member(*placement, "side");
+    if (removed_side != nullptr && *removed_side == "first") {
+        bool another_ally = false;
+        for (std::size_t index = 0; index < editable.placements->size();
+             ++index) {
+            if (index == placement_index) continue;
+            const auto* other =
+                std::get_if<Object>(&(*editable.placements)[index].value);
+            const std::string* other_side =
+                other == nullptr ? nullptr : string_member(*other, "side");
+            if (other_side != nullptr && *other_side == "first") {
+                another_ally = true;
+                break;
+            }
+        }
+        if (!another_ally) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                placements_path,
+                "an encounter must retain at least one allied placement"
+            );
+            return result;
+        }
+    }
+    editable.placements->erase(
+        editable.placements->begin() +
+        static_cast<std::ptrdiff_t>(placement_index)
+    );
+    finish_encounter_edit(editable, result, placements_path);
     return result;
 }
 

@@ -136,4 +136,27 @@ struct SourceTextResult final {
     std::int64_t y
 );
 
+// Adds or removes an opening encounter placement by portable identities.
+// Allied placements name the campaign member they field; enemy placements
+// omit that identity. Both operations preserve playability when the input was
+// already playable.
+[[nodiscard]] SourceTextResult add_source_placement_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id,
+    std::string_view unit_type_id,
+    std::string_view side,
+    std::string_view member_id,
+    std::int64_t x,
+    std::int64_t y
+);
+
+[[nodiscard]] SourceTextResult remove_source_placement_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id
+);
+
 }  // namespace grandleon::game_content
