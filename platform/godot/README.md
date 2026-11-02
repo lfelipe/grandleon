@@ -8,6 +8,9 @@ the Nintendo 64 and PlayStation builds are unchanged.
 See [PC_ROADMAP.md](PC_ROADMAP.md) for the current review, SteamOS test
 checklist, known risks, and the ordered path from this test bundle to a
 production PC release.
+[CREATOR_ROADMAP.md](CREATOR_ROADMAP.md) defines the native create/play
+architecture, standalone-game exports, Windows support, and console target
+builder direction.
 
 The separation is deliberate:
 
