@@ -74,9 +74,10 @@ the controller is Player 2. Connected pads are detected again after startup;
 both d-pad and left stick work.
 
 Outside deployment and dialogue, Start or Back opens a controller-native
-session menu. Resume takes A, B, Start, Enter, or Escape; returning to Steam
-requires opening that menu first and then pressing X or Q, preventing a single
-accidental gameplay press from closing the cabinet session.
+session menu. The d-pad chooses an action and A or Enter confirms it; B, Start,
+or Escape resumes directly, while X or Q returns to Steam. Opening the menu is
+the first confirmation, preventing a single accidental gameplay press from
+closing the cabinet session.
 
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the

@@ -57,6 +57,7 @@ var dialogue_portrait: TextureRect
 var dialogue_hint: Label
 var arcade_menu_layer: Control
 var arcade_menu_resume: Button
+var arcade_menu_quit: Button
 var art = ArtLibrary.new()
 var graphics_profiles
 
@@ -512,11 +513,11 @@ func _create_arcade_menu(layer: CanvasLayer) -> void:
 	arcade_menu_resume = _menu_button("RESUME  /  A · ENTER")
 	arcade_menu_resume.pressed.connect(_close_arcade_menu)
 	column.add_child(arcade_menu_resume)
-	var quit_button := _menu_button("RETURN TO STEAM  /  X · Q")
-	quit_button.pressed.connect(_quit_to_launcher)
-	column.add_child(quit_button)
+	arcade_menu_quit = _menu_button("RETURN TO STEAM  /  A · X · Q")
+	arcade_menu_quit.pressed.connect(_quit_to_launcher)
+	column.add_child(arcade_menu_quit)
 	var hint := _label(
-		"B / ESC / START also resumes. Opening this menu is the first quit confirmation.",
+		"D-pad chooses. B / ESC / START resumes. Opening this menu is the first quit confirmation.",
 		16, Color("718896")
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -568,15 +569,31 @@ func _handle_arcade_menu_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_Q:
 			_quit_to_launcher()
-		elif event.keycode in [KEY_ESCAPE, KEY_ENTER, KEY_SPACE]:
+		elif event.keycode in [KEY_ENTER, KEY_SPACE]:
+			_activate_arcade_menu_focus()
+		elif event.keycode == KEY_ESCAPE:
 			_close_arcade_menu()
-		get_viewport().set_input_as_handled()
+		if event.keycode in [KEY_Q, KEY_ESCAPE, KEY_ENTER, KEY_SPACE]:
+			get_viewport().set_input_as_handled()
 	elif event is InputEventJoypadButton and event.pressed:
 		if event.button_index == JOY_BUTTON_X:
 			_quit_to_launcher()
-		elif event.button_index in [JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_START, JOY_BUTTON_BACK]:
+		elif event.button_index == JOY_BUTTON_A:
+			_activate_arcade_menu_focus()
+		elif event.button_index in [JOY_BUTTON_B, JOY_BUTTON_START, JOY_BUTTON_BACK]:
 			_close_arcade_menu()
-		get_viewport().set_input_as_handled()
+		if event.button_index in [
+			JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_X,
+			JOY_BUTTON_START, JOY_BUTTON_BACK,
+		]:
+			get_viewport().set_input_as_handled()
+
+
+func _activate_arcade_menu_focus() -> void:
+	if get_viewport().gui_get_focus_owner() == arcade_menu_quit:
+		_quit_to_launcher()
+	else:
+		_close_arcade_menu()
 
 
 func _configure_seats() -> void:
