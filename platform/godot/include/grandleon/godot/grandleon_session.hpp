@@ -8,6 +8,7 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_byte_array.hpp>
 #include <godot_cpp/variant/string.hpp>
 
 #include <condition_variable>
@@ -141,6 +142,11 @@ public:
         const ::godot::String& package_path,
         const ::godot::String& campaign_key
     );
+    [[nodiscard]] bool start_package(
+        const ::godot::PackedByteArray& package_bytes,
+        const ::godot::String& campaign_key,
+        bool model_tactics = false
+    );
     void stop();
     [[nodiscard]] bool running() const;
     [[nodiscard]] ::godot::String last_error() const;
@@ -169,6 +175,12 @@ private:
     [[nodiscard]] ::godot::Dictionary snapshot_dictionary(
         const simulation::EncounterSnapshot& snapshot
     ) const;
+    void reset_for_start();
+    [[nodiscard]] bool start_bytes(
+        const std::vector<std::uint8_t>& package_bytes,
+        const ::godot::String& campaign_key,
+        bool model_tactics
+    );
     void join_worker();
 
     std::shared_ptr<AsyncPresenter> presenter_;

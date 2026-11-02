@@ -33,6 +33,14 @@ func _init() -> void:
 			_expect("demo has no diagnostics", compiled.diagnostics.size(), 0)
 			if compiled.package.size() < 64:
 				_fail("compiled package is unexpectedly small: %d" % compiled.package.size())
+			else:
+				var session = ClassDB.instantiate("GrandleonSession")
+				if session == null:
+					_fail("GrandleonSession is not registered")
+				elif not session.start_package(compiled.package, "demo_campaign"):
+					_fail("compiled package did not start: %s" % session.last_error())
+				else:
+					session.stop()
 
 	if failures == 0:
 		print("project compiler smoke passed")

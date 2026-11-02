@@ -348,6 +348,13 @@ void GrandleonSession::_bind_methods() {
         gd::D_METHOD("start", "package_path", "campaign_key"),
         &GrandleonSession::start
     );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "start_package", "package_bytes", "campaign_key", "model_tactics"
+        ),
+        &GrandleonSession::start_package,
+        DEFVAL(false)
+    );
     gd::ClassDB::bind_method(gd::D_METHOD("stop"), &GrandleonSession::stop);
     gd::ClassDB::bind_method(
         gd::D_METHOD("running"), &GrandleonSession::running
@@ -375,14 +382,7 @@ bool GrandleonSession::start(
     const gd::String& package_path,
     const gd::String& campaign_key
 ) {
-    stop();
-    {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        last_error_.clear();
-        has_snapshot_ = false;
-        latest_weapons_.clear();
-        latest_abilities_.clear();
-    }
+    reset_for_start();
 
     const std::string path = narrow(package_path);
     std::ifstream input(path, std::ios::binary);
@@ -395,8 +395,42 @@ bool GrandleonSession::start(
         std::istreambuf_iterator<char>(input),
         std::istreambuf_iterator<char>()
     };
+    return start_bytes(bytes, campaign_key, model_tactics);
+}
+
+bool GrandleonSession::start_package(
+    const gd::PackedByteArray& package_bytes,
+    const gd::String& campaign_key,
+    bool model_tactics
+) {
+    reset_for_start();
+    std::vector<std::uint8_t> bytes(
+        static_cast<std::size_t>(package_bytes.size())
+    );
+    const std::uint8_t* const input = package_bytes.ptr();
+    for (std::size_t index = 0; index < bytes.size(); ++index) {
+        bytes[index] = input[index];
+    }
+    return start_bytes(bytes, campaign_key, model_tactics);
+}
+
+void GrandleonSession::reset_for_start() {
+    stop();
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    last_error_.clear();
+    has_snapshot_ = false;
+    latest_weapons_.clear();
+    latest_abilities_.clear();
+}
+
+bool GrandleonSession::start_bytes(
+    const std::vector<std::uint8_t>& package_bytes,
+    const gd::String& campaign_key,
+    bool model_tactics
+) {
     auto loaded = pf::load_mock_package(
-        bytes, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+        package_bytes,
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
     );
     if (!loaded) {
         std::lock_guard<std::mutex> lock(state_mutex_);
