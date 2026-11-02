@@ -32,7 +32,6 @@ struct FrontendEvent final {
         refused,
         battle_ended,
         campaign_ended,
-        ai_turn,
         session_finished,
         session_failed,
     };
@@ -45,7 +44,6 @@ struct FrontendEvent final {
     std::vector<simulation::AbilityDefinition> abilities;
     std::vector<simulation::ItemDefinition> items;
     std::vector<simulation::ObjectiveDefinition> objectives;
-    std::vector<simulation::Command> candidates;
     package_runtime::Dialogue dialogue;
     simulation::Side player_side{simulation::Side::first};
     std::uint64_t canonical_hash{};
@@ -53,9 +51,9 @@ struct FrontendEvent final {
     std::string message;
 };
 
-class AsyncPresenter final : public client::Presenter, public client::OpposingAgent {
+class AsyncPresenter final : public client::Presenter {
 public:
-    explicit AsyncPresenter(bool model_tactics_enabled = false);
+    AsyncPresenter() = default;
     ~AsyncPresenter() override = default;
 
     void present_dialogue(const package_runtime::Dialogue& dialogue) override;
@@ -103,16 +101,7 @@ public:
         const simulation::EncounterSnapshot& snapshot,
         const client::Roster& roster
     ) override;
-    [[nodiscard]] std::optional<simulation::Command> choose_command(
-        const simulation::EncounterSnapshot& snapshot,
-        simulation::UnitId unit_id,
-        const simulation::Command& fallback,
-        const std::vector<simulation::WeaponDefinition>& weapons,
-        const std::vector<simulation::AbilityDefinition>& abilities
-    ) override;
-
     void submit(client::Intent intent, std::int64_t request_id);
-    void submit_ai_choice(std::int64_t request_id, std::int64_t choice);
     void stop();
     void push(FrontendEvent event);
     [[nodiscard]] std::deque<FrontendEvent> take_events();
@@ -132,10 +121,6 @@ private:
     std::deque<FrontendEvent> events_;
     std::deque<QueuedIntent> intents_;
     std::int64_t active_request_id_{};
-    std::int64_t next_ai_request_id_{1};
-    std::int64_t awaiting_ai_request_id_{};
-    std::int64_t ai_choice_{-1};
-    bool model_tactics_enabled_{false};
     bool stopping_{false};
 };
 
@@ -148,8 +133,7 @@ public:
 
     [[nodiscard]] bool start(
         const ::godot::String& package_path,
-        const ::godot::String& campaign_key,
-        bool model_tactics = false
+        const ::godot::String& campaign_key
     );
     void stop();
     [[nodiscard]] bool running() const;
@@ -169,8 +153,6 @@ public:
         std::int64_t content_id = 0,
         std::int64_t request_id = 0
     );
-    void submit_ai_choice(std::int64_t request_id, std::int64_t choice);
-
 protected:
     static void _bind_methods();
 

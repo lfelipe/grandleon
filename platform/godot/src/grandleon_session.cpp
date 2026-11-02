@@ -85,127 +85,13 @@ const char* event_name(FrontendEvent::Kind kind) {
         case FrontendEvent::Kind::refused: return "refused";
         case FrontendEvent::Kind::battle_ended: return "battle_ended";
         case FrontendEvent::Kind::campaign_ended: return "campaign_ended";
-        case FrontendEvent::Kind::ai_turn: return "ai_turn";
         case FrontendEvent::Kind::session_finished: return "session_finished";
         case FrontendEvent::Kind::session_failed: return "session_failed";
     }
     return "unknown";
 }
 
-const char* command_name(sim::CommandType type) {
-    switch (type) {
-        case sim::CommandType::move: return "move";
-        case sim::CommandType::attack: return "attack";
-        case sim::CommandType::ability: return "ability";
-        case sim::CommandType::use_item: return "item";
-        case sim::CommandType::wait: return "wait";
-        case sim::CommandType::deploy: return "deploy";
-        case sim::CommandType::begin_battle: return "begin";
-        case sim::CommandType::talk: return "talk";
-    }
-    return "wait";
-}
-
-gd::Dictionary command_dictionary(const sim::Command& command) {
-    gd::Dictionary result;
-    result["kind"] = command_name(command.type);
-    result["unit_id"] = signed_id(command.unit_id);
-    result["target_id"] = signed_id(command.target_id);
-    result["x"] = command.destination.x;
-    result["y"] = command.destination.y;
-    result["ability_id"] = signed_id(command.ability_id);
-    result["weapon_id"] = signed_id(command.weapon_id);
-    result["item_id"] = signed_id(command.item_id);
-    return result;
-}
-
-bool same_command(const sim::Command& lhs, const sim::Command& rhs) {
-    return lhs.type == rhs.type && lhs.unit_id == rhs.unit_id &&
-           lhs.destination == rhs.destination && lhs.target_id == rhs.target_id &&
-           lhs.ability_id == rhs.ability_id && lhs.weapon_id == rhs.weapon_id &&
-           lhs.item_id == rhs.item_id;
-}
-
-void append_candidate(
-    std::vector<sim::Command>& candidates, const sim::Command& command
-) {
-    if (candidates.size() >= 96U) return;
-    if (std::none_of(
-            candidates.begin(), candidates.end(),
-            [&command](const sim::Command& value) {
-                return same_command(value, command);
-            }
-        )) {
-        candidates.push_back(command);
-    }
-}
-
-std::vector<sim::Command> legal_candidates(
-    const sim::EncounterSnapshot& snapshot,
-    sim::UnitId unit_id,
-    const sim::Command& fallback,
-    const std::vector<sim::WeaponDefinition>& weapons,
-    const std::vector<sim::AbilityDefinition>& abilities
-) {
-    std::vector<sim::Command> result;
-    append_candidate(result, fallback);
-    append_candidate(result, {sim::CommandType::wait, unit_id});
-    for (const sim::Position position : sim::reachable_tiles(snapshot, unit_id)) {
-        sim::Command move{sim::CommandType::move, unit_id};
-        move.destination = position;
-        append_candidate(result, move);
-    }
-
-    const sim::UnitSnapshot* actor = nullptr;
-    for (const sim::UnitSnapshot& unit : snapshot.units) {
-        if (unit.id == unit_id) actor = &unit;
-    }
-    if (actor == nullptr) return result;
-
-    std::vector<sim::ContentId> weapon_ids{0};
-    if (actor->weapon_ids.size() > 1U) {
-        weapon_ids.insert(
-            weapon_ids.end(), actor->weapon_ids.begin() + 1,
-            actor->weapon_ids.end()
-        );
-    }
-    for (const sim::UnitSnapshot& target : snapshot.units) {
-        if (!sim::on_board(target) || target.id == unit_id) continue;
-        for (const sim::ContentId weapon_id : weapon_ids) {
-            const auto forecast = sim::forecast_attack(
-                snapshot, unit_id, target.id, weapons, weapon_id
-            );
-            if (!forecast) continue;
-            sim::Command attack{sim::CommandType::attack, unit_id};
-            attack.target_id = target.id;
-            attack.weapon_id = weapon_id;
-            append_candidate(result, attack);
-        }
-        if (sim::forecast_talk(snapshot, unit_id, target.id)) {
-            sim::Command talk{sim::CommandType::talk, unit_id};
-            talk.target_id = target.id;
-            append_candidate(result, talk);
-        }
-    }
-    for (const sim::ContentId ability_id : actor->ability_ids) {
-        const auto tiles = sim::aimable_tiles(
-            snapshot, unit_id, {sim::Gesture::cast, 0, ability_id}, weapons,
-            abilities
-        );
-        for (const sim::Position position : tiles) {
-            sim::Command ability{sim::CommandType::ability, unit_id};
-            ability.destination = position;
-            ability.ability_id = ability_id;
-            append_candidate(result, ability);
-        }
-    }
-    return result;
-}
-
 }  // namespace
-
-AsyncPresenter::AsyncPresenter(bool model_tactics_enabled)
-    : model_tactics_enabled_(model_tactics_enabled) {}
 
 void AsyncPresenter::present_dialogue(const pr::Dialogue& dialogue) {
     FrontendEvent event;
@@ -342,47 +228,6 @@ client::Intent AsyncPresenter::next_deployment_intent(
     return wait_for_intent(snapshot);
 }
 
-std::optional<sim::Command> AsyncPresenter::choose_command(
-    const sim::EncounterSnapshot& snapshot,
-    sim::UnitId unit_id,
-    const sim::Command& fallback,
-    const std::vector<sim::WeaponDefinition>& weapons,
-    const std::vector<sim::AbilityDefinition>& abilities
-) {
-    if (!model_tactics_enabled_) return std::nullopt;
-    FrontendEvent event;
-    event.kind = FrontendEvent::Kind::ai_turn;
-    event.snapshot = snapshot;
-    event.candidates = legal_candidates(
-        snapshot, unit_id, fallback, weapons, abilities
-    );
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (stopping_) return std::nullopt;
-        event.request_id = next_ai_request_id_++;
-        awaiting_ai_request_id_ = event.request_id;
-        ai_choice_ = -1;
-    }
-    push(event);
-
-    std::unique_lock<std::mutex> lock(mutex_);
-    const bool answered = condition_.wait_for(
-        lock, std::chrono::seconds(12), [this] {
-            return stopping_ || ai_choice_ >= 0;
-        }
-    );
-    if (!answered || stopping_ || ai_choice_ < 0 ||
-        static_cast<std::size_t>(ai_choice_) >= event.candidates.size()) {
-        awaiting_ai_request_id_ = 0;
-        return std::nullopt;
-    }
-    const sim::Command selected =
-        event.candidates[static_cast<std::size_t>(ai_choice_)];
-    awaiting_ai_request_id_ = 0;
-    ai_choice_ = -1;
-    return selected;
-}
-
 client::Intent AsyncPresenter::wait_for_intent(
     const sim::EncounterSnapshot& snapshot
 ) {
@@ -415,17 +260,6 @@ void AsyncPresenter::submit(client::Intent intent, std::int64_t request_id) {
     condition_.notify_one();
 }
 
-void AsyncPresenter::submit_ai_choice(
-    std::int64_t request_id, std::int64_t choice
-) {
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (stopping_ || request_id != awaiting_ai_request_id_) return;
-        ai_choice_ = choice;
-    }
-    condition_.notify_all();
-}
-
 void AsyncPresenter::stop() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -455,9 +289,8 @@ GrandleonSession::~GrandleonSession() {
 
 void GrandleonSession::_bind_methods() {
     gd::ClassDB::bind_method(
-        gd::D_METHOD("start", "package_path", "campaign_key", "model_tactics"),
-        &GrandleonSession::start,
-        DEFVAL(false)
+        gd::D_METHOD("start", "package_path", "campaign_key"),
+        &GrandleonSession::start
     );
     gd::ClassDB::bind_method(gd::D_METHOD("stop"), &GrandleonSession::stop);
     gd::ClassDB::bind_method(
@@ -480,16 +313,11 @@ void GrandleonSession::_bind_methods() {
         &GrandleonSession::submit_intent,
         DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0)
     );
-    gd::ClassDB::bind_method(
-        gd::D_METHOD("submit_ai_choice", "request_id", "choice"),
-        &GrandleonSession::submit_ai_choice
-    );
 }
 
 bool GrandleonSession::start(
     const gd::String& package_path,
-    const gd::String& campaign_key,
-    bool model_tactics
+    const gd::String& campaign_key
 ) {
     stop();
     {
@@ -530,7 +358,7 @@ bool GrandleonSession::start(
 
     package_ = std::move(loaded.package);
     presentation_ = std::move(presentation.presentation);
-    presenter_ = std::make_shared<AsyncPresenter>(model_tactics);
+    presenter_ = std::make_shared<AsyncPresenter>();
     const std::uint64_t campaign_id =
         core::stable_content_id_v1(narrow(campaign_key));
     {
@@ -538,12 +366,9 @@ bool GrandleonSession::start(
         running_ = true;
     }
     const std::shared_ptr<AsyncPresenter> presenter = presenter_;
-    worker_ = std::thread([this, presenter, campaign_id, model_tactics] {
-        const client::SessionOptions options{
-            model_tactics ? presenter.get() : nullptr
-        };
+    worker_ = std::thread([this, presenter, campaign_id] {
         const client::SessionError status = client::run_campaign(
-            package_, campaign_id, sim::Side::first, *presenter, options
+            package_, campaign_id, sim::Side::first, *presenter
         );
         FrontendEvent event;
         if (status == client::SessionError::none) {
@@ -595,8 +420,7 @@ gd::Array GrandleonSession::poll() {
             if (event.kind == FrontendEvent::Kind::battle_begins ||
                 event.kind == FrontendEvent::Kind::deployment_begins ||
                 event.kind == FrontendEvent::Kind::snapshot ||
-                event.kind == FrontendEvent::Kind::battle_ended ||
-                event.kind == FrontendEvent::Kind::ai_turn) {
+                event.kind == FrontendEvent::Kind::battle_ended) {
                 latest_snapshot_ = event.snapshot;
                 has_snapshot_ = true;
             }
@@ -694,12 +518,6 @@ void GrandleonSession::submit_intent(
         static_cast<std::int16_t>(x), static_cast<std::int16_t>(y)
     };
     presenter_->submit(intent, request_id);
-}
-
-void GrandleonSession::submit_ai_choice(
-    std::int64_t request_id, std::int64_t choice
-) {
-    if (presenter_) presenter_->submit_ai_choice(request_id, choice);
 }
 
 gd::Dictionary GrandleonSession::snapshot_dictionary(
@@ -888,15 +706,7 @@ gd::Dictionary GrandleonSession::event_dictionary(
             }
             break;
         case FrontendEvent::Kind::refused:
-        case FrontendEvent::Kind::campaign_ended:
-        case FrontendEvent::Kind::ai_turn: {
-            if (event.kind != FrontendEvent::Kind::ai_turn) break;
-            result["snapshot"] = snapshot_dictionary(event.snapshot);
-            gd::Array candidates;
-            for (const sim::Command& command : event.candidates) {
-                candidates.push_back(command_dictionary(command));
-            }
-            result["candidates"] = candidates;
+        case FrontendEvent::Kind::campaign_ended: {
             break;
         }
         case FrontendEvent::Kind::session_finished:
