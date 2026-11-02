@@ -19,6 +19,8 @@ var source := ""
 var project: Dictionary = {}
 var maps: Array = []
 var map_index := 0
+var encounters: Array[Dictionary] = []
+var encounter_index := 0
 var selected_terrain := "grass"
 var active_tool := "brush"
 var rectangle_anchor := -1
@@ -32,6 +34,7 @@ var resize_preview: Dictionary = {}
 
 var title_label: Label
 var map_select: OptionButton
+var encounter_select: OptionButton
 var tool_buttons: Dictionary = {}
 var palette_list: VBoxContainer
 var palette_buttons: Dictionary = {}
@@ -104,6 +107,7 @@ func _refresh_maps() -> void:
 	map_index = clampi(map_index, 0, maxi(0, maps.size() - 1))
 	if not maps.is_empty():
 		map_select.select(map_index)
+	_refresh_encounters()
 	_refresh_palette()
 	_refresh_grid()
 	_update_actions()
@@ -113,10 +117,64 @@ func _select_map(index: int) -> void:
 	if index < 0 or index >= maps.size():
 		return
 	map_index = index
+	encounter_index = 0
 	rectangle_anchor = -1
+	_refresh_encounters()
 	_refresh_palette()
 	_refresh_grid(0)
 	_set_status("MAP  /  %s" % _current_map_name().to_upper(), false)
+
+
+func _refresh_encounters() -> void:
+	encounters.clear()
+	encounter_select.clear()
+	var map_id := str(_current_map().get("id", ""))
+	for campaign_value: Variant in project.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var campaign: Dictionary = campaign_value
+		var flow_value: Variant = campaign.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if not node_value is Dictionary:
+				continue
+			var node: Dictionary = node_value
+			if str(node.get("kind", "")) != "encounter" or str(node.get("mapId", "")) != map_id:
+				continue
+			encounters.append({
+				"campaign_id": str(campaign.get("id", "")),
+				"campaign_name": str(campaign.get("name", campaign.get("id", "Campaign"))),
+				"node": node,
+			})
+			encounter_select.add_item(
+				"%s / %s" % [
+					str(campaign.get("name", "Campaign")),
+					str(node.get("name", node.get("id", "Encounter"))),
+				]
+			)
+	encounter_select.disabled = encounters.is_empty()
+	if encounters.is_empty():
+		encounter_select.add_item("NO ENCOUNTER ON THIS MAP")
+		encounter_index = 0
+	else:
+		encounter_index = clampi(encounter_index, 0, encounters.size() - 1)
+		encounter_select.select(encounter_index)
+
+
+func _select_encounter(index: int) -> void:
+	if index < 0 or index >= encounters.size():
+		return
+	encounter_index = index
+	_refresh_grid(0)
+	var node: Dictionary = encounters[index].node
+	_set_status("ENCOUNTER  /  %s" % str(node.get("name", node.get("id", ""))).to_upper(), false)
+
+
+func _current_encounter() -> Dictionary:
+	if encounter_index < 0 or encounter_index >= encounters.size():
+		return {}
+	return encounters[encounter_index]
 
 
 func _current_map() -> Dictionary:
@@ -195,6 +253,22 @@ func _refresh_grid(focus_index := -1) -> void:
 	var width := maxi(1, int(map.get("width", 1)))
 	var height := maxi(1, int(map.get("height", 1)))
 	var terrain: Array = map.get("terrain", [])
+	var placements_by_cell: Dictionary = {}
+	var encounter := _current_encounter()
+	if not encounter.is_empty():
+		var node: Dictionary = encounter.node
+		for placement_value: Variant in node.get("placements", []):
+			if not placement_value is Dictionary:
+				continue
+			var placement: Dictionary = placement_value
+			var placement_x := int(placement.get("x", -1))
+			var placement_y := int(placement.get("y", -1))
+			if placement_x < 0 or placement_y < 0 or placement_x >= width or placement_y >= height:
+				continue
+			var placement_cell := placement_y * width + placement_x
+			if not placements_by_cell.has(placement_cell):
+				placements_by_cell[placement_cell] = []
+			placements_by_cell[placement_cell].append(placement)
 	grid.columns = width
 	var tile_size := clampi(floori(minf(830.0 / width, 620.0 / height)), 46, 96)
 	for index in width * height:
@@ -203,10 +277,43 @@ func _refresh_grid(focus_index := -1) -> void:
 		cell.icon = _terrain_icon(name, _terrain_mask(index, width, height, terrain))
 		cell.expand_icon = true
 		cell.tooltip_text = "%d, %d  /  %s" % [index % width, index / width, name]
+		if placements_by_cell.has(index):
+			_add_placement_badge(cell, placements_by_cell[index])
 		cell.pressed.connect(_paint_cell.bind(index))
 		grid.add_child(cell)
 	if focus_index >= 0:
 		call_deferred("_focus_cell", focus_index)
+
+
+func _add_placement_badge(cell: Button, placements: Array) -> void:
+	var first: Dictionary = placements[0]
+	var first_side := str(first.get("side", "second")) == "first"
+	var colour := Color("69d9ff") if first_side else Color("ff7a83")
+	var label := Label.new()
+	label.text = "%d×" % placements.size() if placements.size() > 1 else ("ALLY" if first_side else "ENEMY")
+	label.position = Vector2(5, 5)
+	label.custom_minimum_size = Vector2(48, 20)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color("07111b"))
+	var badge := StyleBoxFlat.new()
+	badge.bg_color = colour
+	badge.set_corner_radius_all(5)
+	badge.content_margin_left = 5
+	badge.content_margin_right = 5
+	label.add_theme_stylebox_override("normal", badge)
+	cell.add_child(label)
+	var details := PackedStringArray()
+	for placement_value: Variant in placements:
+		var placement: Dictionary = placement_value
+		details.append(
+			"%s: %s" % [
+				str(placement.get("side", "unit")).to_upper(),
+				str(placement.get("name", placement.get("id", "unit"))),
+			]
+		)
+	cell.tooltip_text += "\n" + "\n".join(details)
 
 
 func _terrain_mask(index: int, width: int, height: int, terrain: Array) -> int:
@@ -672,6 +779,12 @@ func _build_interface() -> void:
 	map_select.add_theme_font_size_override("font_size", 19)
 	map_select.item_selected.connect(_select_map)
 	tools_column.add_child(map_select)
+	tools_column.add_child(_label("ENCOUNTER PREVIEW", 17, Color("69d9ff")))
+	encounter_select = OptionButton.new()
+	encounter_select.custom_minimum_size = Vector2(330, 52)
+	encounter_select.add_theme_font_size_override("font_size", 15)
+	encounter_select.item_selected.connect(_select_encounter)
+	tools_column.add_child(encounter_select)
 	tools_column.add_child(_label("TOOL", 17, Color("69d9ff")))
 	var tool_row := HBoxContainer.new()
 	tool_row.add_theme_constant_override("separation", 6)
