@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.2.0",
+  "packageId": "00000000-0000-4000-8000-000000000001",
+  "gameId": "untitled_game",
+  "title": "Untitled Game",
+  "contentRevision": "0.1.0",
+  "defaultTurnOrder": "sideBlocks",
+  "weaponTypes": [],
+  "itemTypes": [],
+  "classes": [],
+  "unitTypes": [],
+  "weapons": [],
+  "items": [],
+  "maps": [],
+  "factions": [],
+  "abilities": [],
+  "objectives": [],
+  "campaigns": [],
+  "dialogues": []
+}

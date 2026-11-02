@@ -21,6 +21,9 @@ The first native seam is implemented:
 - `GrandleonSession.start_package()` starts a campaign directly from those
   bytes. An edited project therefore has a complete in-memory
   `source -> compile -> play` path.
+- `ProjectLibrary` creates a canonical project from the native blank template,
+  assigns a portable UUID, validates every save through the native parser, and
+  keeps the prior source recoverable if replacement is interrupted.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
