@@ -177,7 +177,7 @@ directions can be compared on the target PC without restarting the campaign.
 
 `content/graphics_profiles.json` is the versioned PC art contract for camera,
 lighting, sprite scale, renderer choice, and the terrain/material palette. To
-Tune one PC without changing a project or committing machine details by copying
+tune one PC without changing a project or committing machine details, copy
 `graphics.example.json` beside the launcher as `graphics.local.json` and edit
 only the values to override. `cameraImpulse` and bounded `textScale` values
 supply the session's initial accessibility settings; the controller menu may
@@ -198,11 +198,15 @@ clips exported by that asset. Locomotion and facing already respond to accepted
 board movement. See [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md) for the
 presentation-event seam needed for timed attacks, impacts, and defeat.
 
-The current sprite contract is four 32×32 animation cells in a horizontal
-strip, plus 47-variant terrain blobs. Before accepting externally produced HD
-art, the next asset-contract change should move cell size, frame count, pivot,
-and animation timing into the manifest; the renderer must not acquire a second
-set of filename rules.
+The generated pack currently supplies four 32×32 pose cells plus a separate
+standing image. Their size is not a renderer rule: the art manifest publishes
+each sheet's cell dimensions and columns, a normalised ground pivot, and named
+idle, move, attack, ability, item, talk, hurt, and defeat sequences with their
+frame indices and timing. Both sprite renderers consume that data. Idle units
+use the standing image, moving units loop only the two walk poses, and combat
+events hold the attack or cast pose while their procedural or replaceable
+effects play. A higher-resolution pack may change cell dimensions without a
+package, simulation, or renderer change.
 
 ## Developer build
 
@@ -242,6 +246,13 @@ keyboard-plus-pad, and extra-pad cases:
 
 ```sh
 platform/godot/scripts/smoke-controller-seats.sh
+```
+
+To validate manifest-driven sprite dimensions, pivots, frame selection, timing,
+legacy defaults, and a non-32-pixel replacement sheet:
+
+```sh
+platform/godot/scripts/smoke-art-library.sh
 ```
 The reel is an actual 1280x720 Godot capture. It advances authored dialogue,
 queues two friendly moves without serial player turns, and lets the built-in

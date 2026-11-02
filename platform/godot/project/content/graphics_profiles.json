@@ -21,8 +21,8 @@
       "fillRotation": [-35.0, 142.0, 0.0]
     },
     "sprite": {
-      "pixelSize": 0.025,
-      "height": 0.47,
+      "worldHeight": 0.8,
+      "groundOffset": 0.118,
       "shadowRadius": 0.27,
       "shadowOpacity": 0.46,
       "healthBarHeight": 1.03,

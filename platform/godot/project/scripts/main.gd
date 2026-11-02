@@ -1282,9 +1282,11 @@ func _show_dialogue_line() -> void:
 	dialogue_hint.text = "%s / ENTER  CONTINUE" % confirm_label
 	_set_dialogue_backdrop(int(line.get("backdrop", 0)))
 	if line.has("archetype"):
+		var portrait_frame := art.character_frame(line, "idle")
 		var portrait := AtlasTexture.new()
-		portrait.atlas = art.character_texture(line)
-		portrait.region = Rect2(0, 0, 32, 32)
+		portrait.atlas = art.texture(String(portrait_frame.path))
+		var portrait_size: Vector2i = portrait_frame.cell_size
+		portrait.region = Rect2(Vector2.ZERO, Vector2(portrait_size))
 		dialogue_portrait.texture = portrait
 	else:
 		dialogue_portrait.texture = null

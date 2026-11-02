@@ -28,6 +28,9 @@ var _motion_started: Dictionary = {}
 var _last_units: Dictionary = {}
 var _event_flash_until: Dictionary = {}
 var _event_flash_colours: Dictionary = {}
+var _unit_animation_states: Dictionary = {}
+var _unit_animation_started: Dictionary = {}
+var _unit_animation_until: Dictionary = {}
 var _combat_effects: Array[Dictionary] = []
 var _pulse := 0.0
 
@@ -105,16 +108,34 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 		var unit_id := int(event.get("unit_id", 0))
 		var related_id := int(event.get("related_unit_id", 0))
 		if kind == "unit_damaged":
+			_set_unit_animation(
+				related_id, "ability" if action == "ability" else "attack",
+				480 if action == "ability" else 430
+			)
+			_set_unit_animation(unit_id, "hurt", 300)
 			_event_flash_until[unit_id] = now + 260
 			_event_flash_colours[unit_id] = Color("ff776f")
 			_queue_combat_effect(related_id, unit_id, action, content_id, true)
 		elif kind == "attack_missed":
+			_set_unit_animation(
+				related_id, "ability" if action == "ability" else "attack",
+				480 if action == "ability" else 430
+			)
 			_queue_combat_effect(related_id, unit_id, action, content_id, false)
 		elif kind == "unit_restored":
+			_set_unit_animation(related_id, "ability", 480)
 			_event_flash_until[unit_id] = now + 360
 			_event_flash_colours[unit_id] = Color("75e7a0")
 			_queue_combat_effect(related_id, unit_id, action, content_id, true)
-		elif kind in ["unit_defeated", "unit_endured"]:
+		elif kind == "item_used":
+			_set_unit_animation(unit_id, "item", 420)
+		elif kind == "unit_talked":
+			_set_unit_animation(related_id, "talk", 480)
+		elif kind == "unit_defeated":
+			_set_unit_animation(unit_id, "defeat", 900)
+			_event_flash_until[unit_id] = now + 420
+			_event_flash_colours[unit_id] = Color("ffca63")
+		elif kind == "unit_endured":
 			_event_flash_until[unit_id] = now + 420
 			_event_flash_colours[unit_id] = Color("ffca63")
 	queue_redraw()
@@ -354,7 +375,6 @@ func _draw_selected_tiles() -> void:
 
 func _draw_units() -> void:
 	var now := Time.get_ticks_msec()
-	var frame := int(Time.get_ticks_msec() / 170) % 4
 	for unit: Dictionary in snapshot.get("units", []):
 		if not unit.get("on_board", false):
 			continue
@@ -362,16 +382,32 @@ func _draw_units() -> void:
 		var board_position := _animated_position(id, now)
 		var centre := origin + (board_position + Vector2(0.5, 0.5)) * tile_size
 		var bob := sin(_pulse * 3.0 + float(id % 11)) * tile_size * 0.025
-		var sprite_size := tile_size * 0.88
+		var state := _unit_animation_state(id, now)
+		var elapsed := _unit_animation_elapsed(id, state, now)
+		var frame_info := art.character_frame(unit, state, elapsed)
+		var cell_size: Vector2i = frame_info.cell_size
+		var pivot: Vector2 = frame_info.pivot
+		var scale := minf(
+			tile_size * 0.88 / maxf(1.0, float(cell_size.x)),
+			tile_size * 0.88 / maxf(1.0, float(cell_size.y))
+		)
+		var sprite_dimensions := Vector2(cell_size) * scale
+		var sprite_size := maxf(sprite_dimensions.x, sprite_dimensions.y)
 		# Soft layered shadows make units sit on the board without changing art.
 		draw_circle(centre + Vector2(0, tile_size * 0.31), tile_size * 0.27, Color(0.01, 0.02, 0.025, 0.24))
 		draw_circle(centre + Vector2(0, tile_size * 0.30), tile_size * 0.18, Color(0.01, 0.02, 0.025, 0.32))
-		var destination := Rect2(
-			centre - Vector2(sprite_size * 0.5, sprite_size * 0.56 + bob),
-			Vector2(sprite_size, sprite_size)
+		var ground := centre + Vector2(0, tile_size * 0.34 - bob)
+		var destination := Rect2(ground - pivot * sprite_dimensions, sprite_dimensions)
+		var frame := int(frame_info.frame)
+		var columns := int(frame_info.columns)
+		var source := Rect2(
+			float(frame % columns) * float(cell_size.x),
+			float(frame / columns) * float(cell_size.y),
+			float(cell_size.x), float(cell_size.y)
 		)
-		var source := Rect2(frame * TILE_SOURCE, 0, TILE_SOURCE, TILE_SOURCE)
-		draw_texture_rect_region(art.character_texture(unit), destination, source)
+		draw_texture_rect_region(
+			art.texture(String(frame_info.path)), destination, source
+		)
 		if now < int(_event_flash_until.get(id, 0)):
 			var flash: Color = _event_flash_colours.get(id, Color.WHITE)
 			flash.a = 0.62 + sin(_pulse * 22.0) * 0.20
@@ -379,6 +415,32 @@ func _draw_units() -> void:
 		_draw_health(unit, centre, sprite_size)
 		if unit.get("has_acted", false):
 			draw_circle(centre, tile_size * 0.39, Color(0.02, 0.03, 0.04, 0.38))
+
+
+func _set_unit_animation(id: int, state: String, duration_msec: int) -> void:
+	if id == 0:
+		return
+	var now := Time.get_ticks_msec()
+	_unit_animation_states[id] = state
+	_unit_animation_started[id] = now
+	_unit_animation_until[id] = now + duration_msec
+
+
+func _unit_animation_state(id: int, now_msec: int) -> String:
+	if now_msec < int(_unit_animation_until.get(id, 0)):
+		return String(_unit_animation_states.get(id, "idle"))
+	if _motion_started.has(id):
+		return "move"
+	return "idle"
+
+
+func _unit_animation_elapsed(id: int, state: String, now_msec: int) -> float:
+	var started := 0
+	if now_msec < int(_unit_animation_until.get(id, 0)):
+		started = int(_unit_animation_started.get(id, now_msec))
+	elif state == "move":
+		started = int(_motion_started.get(id, now_msec))
+	return float(maxi(0, now_msec - started)) / 1000.0
 
 
 func _draw_health(unit: Dictionary, centre: Vector2, sprite_size: float) -> void:

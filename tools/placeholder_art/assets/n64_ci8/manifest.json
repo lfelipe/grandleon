@@ -22430,6 +22430,79 @@
       210
     ]
   },
+  "character_animation": {
+    "pivot": [
+      0.5,
+      0.94
+    ],
+    "sequences": {
+      "ability": {
+        "asset_kind": "character-frames",
+        "frames": [
+          3
+        ],
+        "frames_per_second": 0.0,
+        "loop": false
+      },
+      "attack": {
+        "asset_kind": "character-frames",
+        "frames": [
+          2
+        ],
+        "frames_per_second": 0.0,
+        "loop": false
+      },
+      "defeat": {
+        "asset_kind": "character",
+        "frames": [
+          0
+        ],
+        "frames_per_second": 0.0,
+        "loop": true
+      },
+      "hurt": {
+        "asset_kind": "character",
+        "frames": [
+          0
+        ],
+        "frames_per_second": 0.0,
+        "loop": true
+      },
+      "idle": {
+        "asset_kind": "character",
+        "frames": [
+          0
+        ],
+        "frames_per_second": 0.0,
+        "loop": true
+      },
+      "item": {
+        "asset_kind": "character-frames",
+        "frames": [
+          3
+        ],
+        "frames_per_second": 0.0,
+        "loop": false
+      },
+      "move": {
+        "asset_kind": "character-frames",
+        "frames": [
+          0,
+          1
+        ],
+        "frames_per_second": 6.0,
+        "loop": true
+      },
+      "talk": {
+        "asset_kind": "character",
+        "frames": [
+          0
+        ],
+        "frames_per_second": 0.0,
+        "loop": true
+      }
+    }
+  },
   "character_styles": {
     "archetypes": [
       "knight",

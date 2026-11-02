@@ -210,6 +210,59 @@ def _terrain_manifest() -> Dict[str, object]:
     }
 
 
+def _character_animation_manifest() -> Dict[str, object]:
+    """Publish the sprite-sheet layout as data rather than renderer lore.
+
+    The standing image remains a separate asset for console compatibility.
+    PC renderers can use the same contract without assuming a cell size, a
+    number of columns, or which pose happens to occupy a sheet cell.
+    """
+    frame_indexes = {
+        frame.name: index for index, frame in enumerate(frames.FRAME_ORDER)
+    }
+
+    def sequence(asset_kind: str, names: Tuple[str, ...], fps: float,
+                 loop: bool = False) -> Dict[str, object]:
+        return {
+            "asset_kind": asset_kind,
+            "frames": [frame_indexes[name] for name in names],
+            "frames_per_second": fps,
+            "loop": loop,
+        }
+
+    standing = {
+        "asset_kind": "character",
+        "frames": [0],
+        "frames_per_second": 0.0,
+        "loop": True,
+    }
+    return {
+        # Normalised coordinates measured from the top-left of a cell. The
+        # point sits on the ground line and lets differently sized replacement
+        # sheets stay planted without a renderer-specific offset table.
+        "pivot": [0.5, 0.94],
+        "sequences": {
+            "idle": standing,
+            "move": sequence(
+                "character-frames", frames.ANIMATION_FRAMES["walk"], 6.0,
+                True,
+            ),
+            "attack": sequence(
+                "character-frames", frames.ANIMATION_FRAMES["attack"], 0.0,
+            ),
+            "ability": sequence(
+                "character-frames", frames.ANIMATION_FRAMES["cast"], 0.0,
+            ),
+            "item": sequence(
+                "character-frames", frames.ANIMATION_FRAMES["cast"], 0.0,
+            ),
+            "talk": standing,
+            "hurt": standing,
+            "defeat": standing,
+        },
+    }
+
+
 def _themes_manifest() -> Dict[str, object]:
     """The theme menu, in the order every client indexes it by."""
     return {
@@ -796,6 +849,7 @@ def _build(output: Path, quiet: bool,
             "terrain": _terrain_manifest(),
             "themes": _themes_manifest(),
             "character_styles": _styles_manifest(),
+            "character_animation": _character_animation_manifest(),
             "backdrops": _backdrops_manifest(),
             "assets": entries,
         }

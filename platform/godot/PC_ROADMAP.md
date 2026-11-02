@@ -30,7 +30,7 @@ machine-specific model, graphics, or control configuration.
 | Offline campaign | The Last Signal has authored opening, terms, talk outcome, battle outcome, and ending dialogue with the model disabled. |
 | Optional model dialogue | Model lines append only to allowlisted scenes and pass speaker, count, length, and markup validation. Authored lines are never replaced. |
 | Optional model tactics | The model selects an index from legal engine-generated candidates. Candidate zero is the built-in plan and remains the fallback for every failure mode. |
-| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. Missing bindings or clips fall back asset by asset. |
+| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including non-32-pixel sheets. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Controller-safe exit | Start or the optional Back shortcut opens a controller-native session menu; quitting requires an explicit second X press, while A, B, or Start resumes. |
@@ -92,8 +92,8 @@ controller, and quit without keyboard intervention.
   tree, mountain edge, ruin, and relay beacon.
 - Bind those scenes through `graphics_profiles.json`; do not add renderer-side
   filename rules.
-- Move sprite cell size, frame count, pivot, and timing into the manifest
-  before accepting a higher-resolution character pack.
+- Exercise the manifest-driven sprite contract with one higher-resolution
+  replacement character; keep the generated 32-pixel roster as the fallback.
 - Measure the authored pack under the compatibility renderer on the target PC
   before adding MultiMesh batching. These boards are small enough that art
   direction and replaceability matter first.
@@ -146,6 +146,25 @@ configuration on screen or in the bundle.
 Exit criterion: the PC client is a maintainable product surface rather than a
 developer presentation harness, while the portable engine remains the source
 of gameplay truth.
+
+## Secondary console improvements
+
+PC presentation remains the first priority, but shared art and presentation
+work should improve the Nintendo 64 and PlayStation clients where their budgets
+allow it:
+
+- Audit both renderers against the shared standing, walk, attack, and cast pose
+  semantics; fill missing state transitions without changing simulation timing.
+- Down-convert new source terrain and character art through the generator, then
+  measure palette, texture-memory, and legibility costs independently for each
+  console profile.
+- Add palette-safe weapon, projectile, spell, and recovery marks where the
+  existing presentation stream provides enough timing information.
+- Extend deterministic render or frame probes before accepting a visual change
+  that is difficult to exercise in ordinary host tests.
+
+Console work must not narrow the PC renderer, and PC assets must not silently
+raise either console's memory or palette requirements.
 
 ## Known risks
 

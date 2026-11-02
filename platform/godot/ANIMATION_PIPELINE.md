@@ -65,6 +65,15 @@ textures independently for a local art pack. Missing effect textures fall back
 one by one to procedural marks. Imported character scenes still replace the
 matching semantic attack or ability clip through the existing clip map.
 
+The sprite fallback follows the same semantic states. Its generated manifest
+publishes the standing image and frame-sheet asset kinds, per-sheet cell size
+and column count, a normalised ground pivot, frame indices, loop policy, and
+frames per second. The 2D and 3D renderers therefore do not assume 32-pixel
+cells or four animation frames. Idle, walk, attack, and cast poses are selected
+by movement and presentation events rather than looping the complete sheet.
+Invalid or absent animation metadata falls back to the shipped layout without
+changing simulation behavior.
+
 The next fidelity step is an optional motion presentation record with a path
 and recommended duration. Destination snapshots remain authoritative, but that
 record would let authored rigs time footsteps and turns to a multi-cell route

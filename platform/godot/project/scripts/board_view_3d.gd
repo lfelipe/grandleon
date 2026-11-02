@@ -47,6 +47,8 @@ var _unit_animators: Dictionary = {}
 var _unit_animation_clips: Dictionary = {}
 var _unit_animation_states: Dictionary = {}
 var _unit_animation_lock_until: Dictionary = {}
+var _unit_sprite_states: Dictionary = {}
+var _unit_sprite_started: Dictionary = {}
 var _authored_units: Dictionary = {}
 var _pending_unit_removal: Dictionary = {}
 var _unit_flash_until: Dictionary = {}
@@ -298,8 +300,12 @@ func _process(delta: float) -> void:
 			settled.y = target.y + sin(_pulse * 3.2 + float(int(id) % 13)) * 0.025
 		node.position = settled
 		if _unit_sprites.has(id):
+			if not animation_locked:
+				_set_sprite_animation(int(id), "move" if moving else "idle")
 			var sprite: Sprite3D = _unit_sprites[id]
-			sprite.frame = int(_pulse * 6.0) % 4
+			var unit := _unit_by_id(int(id))
+			if not unit.is_empty():
+				_apply_sprite_frame(sprite, unit, int(id), now_msec)
 			if now_msec < int(_unit_flash_until.get(id, 0)):
 				sprite.modulate = _unit_flash_colours.get(id, Color.WHITE)
 			else:
@@ -474,18 +480,42 @@ func _create_unit(unit: Dictionary, target: Vector3) -> void:
 
 func _create_sprite_figure(root: Node3D, unit: Dictionary, id: int) -> void:
 	var sprite := Sprite3D.new()
-	var sprite_config: Dictionary = profile_config.get("sprite", {})
-	sprite.texture = art.character_texture(unit)
-	sprite.hframes = 4
-	sprite.frame = 0
-	sprite.pixel_size = float(sprite_config.get("pixelSize", 0.025))
-	sprite.position = Vector3(0, float(sprite_config.get("height", 0.47)), 0)
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	sprite.shaded = true
 	root.add_child(sprite)
 	_unit_sprites[id] = sprite
+	_set_sprite_animation(id, "idle", true)
+	_apply_sprite_frame(sprite, unit, id, Time.get_ticks_msec())
+
+
+func _apply_sprite_frame(
+	sprite: Sprite3D, unit: Dictionary, id: int, now_msec: int
+) -> void:
+	var state := String(_unit_sprite_states.get(id, "idle"))
+	var started := int(_unit_sprite_started.get(id, now_msec))
+	var info := art.character_frame(
+		unit, state, float(maxi(0, now_msec - started)) / 1000.0
+	)
+	sprite.texture = art.texture(String(info.path))
+	sprite.hframes = int(info.columns)
+	sprite.vframes = int(info.rows)
+	sprite.frame = int(info.frame)
+	var cell_size: Vector2i = info.cell_size
+	var pivot: Vector2 = info.pivot
+	var sprite_config: Dictionary = profile_config.get("sprite", {})
+	var world_height := float(sprite_config.get(
+		"worldHeight", float(cell_size.y) * float(sprite_config.get("pixelSize", 0.025))
+	))
+	sprite.pixel_size = world_height / maxf(1.0, float(cell_size.y))
+	var ground_offset := float(sprite_config.get("groundOffset", 0.118))
+	var world_width := float(cell_size.x) * sprite.pixel_size
+	sprite.position = Vector3(
+		(0.5 - pivot.x) * world_width,
+		ground_offset + (pivot.y - 0.5) * world_height,
+		0
+	)
 
 
 func _create_health_bar(root: Node3D, id: int) -> void:
@@ -668,6 +698,7 @@ func _play_unit_animation(id: int, state: String, lock_msec := 0, restart := fal
 			int(_unit_animation_lock_until.get(id, 0)),
 			Time.get_ticks_msec() + lock_msec
 		)
+	_set_sprite_animation(id, state, restart)
 	if not _unit_animators.has(id):
 		return
 	if not restart and _unit_animation_states.get(id, "") == state:
@@ -679,6 +710,22 @@ func _play_unit_animation(id: int, state: String, lock_msec := 0, restart := fal
 		return
 	animator.play(StringName(clip))
 	_unit_animation_states[id] = state
+
+
+func _set_sprite_animation(id: int, state: String, restart := false) -> void:
+	if not _unit_sprites.has(id):
+		return
+	if not restart and String(_unit_sprite_states.get(id, "")) == state:
+		return
+	_unit_sprite_states[id] = state
+	_unit_sprite_started[id] = Time.get_ticks_msec()
+
+
+func _unit_by_id(id: int) -> Dictionary:
+	for unit: Dictionary in snapshot.get("units", []):
+		if int(unit.get("id", 0)) == id:
+			return unit
+	return {}
 
 
 func _flash_unit(id: int, colour: Color, until: int) -> void:
@@ -1001,6 +1048,8 @@ func _remove_unit(id: int) -> void:
 	_unit_animation_clips.erase(id)
 	_unit_animation_states.erase(id)
 	_unit_animation_lock_until.erase(id)
+	_unit_sprite_states.erase(id)
+	_unit_sprite_started.erase(id)
 	_authored_units.erase(id)
 	_pending_unit_removal.erase(id)
 	_unit_flash_until.erase(id)
