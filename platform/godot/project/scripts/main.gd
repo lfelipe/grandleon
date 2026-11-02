@@ -7,6 +7,7 @@ const BoardView3D = preload("res://scripts/board_view_3d.gd")
 const ControlProfile = preload("res://scripts/control_profile.gd")
 const ControllerSeats = preload("res://scripts/controller_seats.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
+const PresentationSettings = preload("res://scripts/presentation_settings.gd")
 const PLAYER_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const MODES := ["move", "attack", "ability", "talk"]
 const GRAPHICS_PROFILES := ["pixel", "diorama", "voxel-sprites", "voxel"]
@@ -18,6 +19,8 @@ var package_path := "res://game.gpk"
 var campaign_key := "tarnholt_line"
 var creator_enabled := true
 var graphics_profile := ""
+var graphics_argument_explicit := false
+var persistent_graphics_profile := ""
 var graphics_pack_path := ""
 var controls_path := ""
 var camera_impulse_enabled := true
@@ -40,6 +43,7 @@ var graphics_cycle_smoke := false
 var graphics_cycle_smoke_index := 0
 var graphics_cycle_smoke_next_msec := 0
 var controls_smoke := false
+var presentation_settings_smoke := ""
 var seats: Array = []
 var device_to_seat: Dictionary = {}
 var keyboard_seat := -1
@@ -80,6 +84,7 @@ var session_menu_text: Button
 var session_menu_quit: Button
 var art = ArtLibrary.new()
 var graphics_profiles
+var presentation_settings
 var controls
 
 
@@ -87,11 +92,27 @@ func _ready() -> void:
 	_parse_arguments()
 	controls = ControlProfile.new(controls_path)
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
+	presentation_settings = PresentationSettings.new()
+	var stored_settings: Dictionary = {}
+	if _use_presentation_settings():
+		stored_settings = presentation_settings.load_settings(GRAPHICS_PROFILES)
+	if not graphics_argument_explicit and stored_settings.has("graphics_profile"):
+		graphics_profile = String(stored_settings.graphics_profile)
+	if stored_settings.has("graphics_profile"):
+		persistent_graphics_profile = String(stored_settings.graphics_profile)
 	graphics_profile = graphics_profiles.resolve(graphics_profile)
+	if persistent_graphics_profile.is_empty():
+		persistent_graphics_profile = graphics_profiles.resolve("")
 	var initial_profile: Dictionary = graphics_profiles.profile(graphics_profile)
 	art.configure_profile(initial_profile)
-	camera_impulse_enabled = bool(initial_profile.get("cameraImpulse", true))
-	text_scale = clampf(float(initial_profile.get("textScale", 1.0)), 1.0, 1.20)
+	camera_impulse_enabled = bool(
+		stored_settings.get("camera_impulse", initial_profile.get("cameraImpulse", true))
+	)
+	text_scale = clampf(
+		float(stored_settings.get("text_scale", initial_profile.get("textScale", 1.0))),
+		1.0,
+		1.20
+	)
 	_create_background()
 	_create_board(graphics_profile)
 	_create_interface()
@@ -100,6 +121,11 @@ func _ready() -> void:
 		_show_toast(controls.warning())
 	if not graphics_profiles.warning().is_empty():
 		_show_toast(graphics_profiles.warning())
+	if not presentation_settings.warning().is_empty():
+		_show_toast(presentation_settings.warning())
+	if not presentation_settings_smoke.is_empty():
+		_run_presentation_settings_smoke()
+		return
 	if controls_smoke:
 		_run_controls_smoke()
 		return
@@ -198,6 +224,7 @@ func _parse_arguments() -> void:
 			creator_enabled = false
 		elif argument.begins_with("--graphics="):
 			graphics_profile = argument.trim_prefix("--graphics=")
+			graphics_argument_explicit = true
 		elif argument.begins_with("--graphics-pack="):
 			graphics_pack_path = argument.trim_prefix("--graphics-pack=")
 		elif argument.begins_with("--controls="):
@@ -225,6 +252,55 @@ func _parse_arguments() -> void:
 			graphics_cycle_smoke = true
 		elif argument == "--controls-smoke":
 			controls_smoke = true
+		elif argument.begins_with("--presentation-settings-smoke="):
+			presentation_settings_smoke = argument.trim_prefix(
+				"--presentation-settings-smoke="
+			)
+
+
+func _use_presentation_settings() -> bool:
+	if not presentation_settings_smoke.is_empty():
+		return true
+	return not (
+		controls_smoke
+		or ai_smoke
+		or smoke_auto
+		or coop_smoke
+		or demo_reel
+		or menu_preview
+		or board_preview
+		or graphics_cycle_smoke
+		or not screenshot_path.is_empty()
+	)
+
+
+func _run_presentation_settings_smoke() -> void:
+	var expected_profile := "pixel" if presentation_settings_smoke == "cli" else "voxel"
+	var valid := (
+		graphics_profile == expected_profile
+		and not camera_impulse_enabled
+		and is_equal_approx(text_scale, 1.15)
+	)
+	if not valid:
+		push_error(
+			"presentation settings did not load with the expected argument precedence"
+		)
+		get_tree().quit(2)
+		return
+	if presentation_settings_smoke == "cli":
+		_set_camera_impulse_enabled(true)
+		var saved: Dictionary = presentation_settings.load_settings(GRAPHICS_PROFILES)
+		valid = (
+			String(saved.get("graphics_profile", "")) == "voxel"
+			and bool(saved.get("camera_impulse", false))
+			and is_equal_approx(float(saved.get("text_scale", 0.0)), 1.15)
+		)
+		if not valid:
+			push_error("a launch override replaced the stored graphics choice")
+			get_tree().quit(2)
+			return
+	print("presentation settings %s integration smoke passed" % presentation_settings_smoke)
+	get_tree().quit()
 
 
 func _run_controls_smoke() -> void:
@@ -470,8 +546,10 @@ func _create_board(profile: String) -> void:
 
 func _set_graphics_profile(requested: String) -> void:
 	var resolved: String = graphics_profiles.resolve(requested)
+	persistent_graphics_profile = resolved
 	if resolved == graphics_profile and board != null:
 		_update_session_labels()
+		_persist_presentation_settings()
 		return
 	if board != null:
 		remove_child(board)
@@ -486,6 +564,7 @@ func _set_graphics_profile(requested: String) -> void:
 		board.set_selected(seat, selected_units[seat], action_modes[seat])
 		_update_highlights(seat)
 	_update_session_labels()
+	_persist_presentation_settings()
 
 
 func _cycle_graphics_profile() -> void:
@@ -504,6 +583,7 @@ func _set_camera_impulse_enabled(value: bool) -> void:
 	if board != null:
 		board.set_camera_impulse_enabled(camera_impulse_enabled)
 	_update_session_labels()
+	_persist_presentation_settings()
 
 
 func _toggle_text_scale() -> void:
@@ -519,6 +599,19 @@ func _set_text_scale(value: float) -> void:
 				StringName(binding.key), roundi(float(binding.base) * text_scale)
 			)
 	_update_session_labels()
+	_persist_presentation_settings()
+
+
+func _persist_presentation_settings() -> void:
+	if presentation_settings == null or not _use_presentation_settings():
+		return
+	if not presentation_settings.save_settings(
+		persistent_graphics_profile,
+		camera_impulse_enabled,
+		text_scale,
+		GRAPHICS_PROFILES
+	):
+		_show_toast(presentation_settings.warning())
 
 
 func _graphics_profile_name() -> String:

@@ -122,6 +122,16 @@ GRANDLEON_WINDOWED=1 ./launch-pc.sh
 The selected PC default is `voxel-sprites`. `pixel` remains the stable 2D
 fallback, while `diorama` and `voxel` stay available for comparison.
 
+Graphics profile, camera impulse, and interface text size persist after they
+are changed in the session menu. The versioned document contains only those
+three presentation values and lives under Godot's `user://` data directory;
+in the portable bundle that remains below `runtime/data/`. It cannot contain a
+model endpoint, token name, controller identity, machine path, project field,
+or campaign state. `GRANDLEON_GRAPHICS` remains an explicit per-launch
+override and does not silently replace the stored choice. Remove
+`pc-presentation.json` and its optional `.previous` recovery file to reset the
+display choices.
+
 ## Local co-op
 
 Each player has a cursor, selection, colour, and request queue. A lone
@@ -333,6 +343,10 @@ cmake -S . -B build-godot \
   -DGRANDLEON_WERROR=ON
 cmake --build build-godot --target grandleon_godot_project
 ```
+
+`scripts/smoke-presentation-settings.sh` verifies atomic save/recovery, the
+strict presentation-only whitelist, restart persistence, and command-line
+override precedence under an isolated user-data directory.
 
 The runnable project is staged at
 `build-godot/platform/godot/project/app`. Compile a package into that directory,

@@ -18,8 +18,10 @@ game_args=(
     "--package=res://game.gpk"
     "--campaign=${GRANDLEON_CAMPAIGN:-${default_campaign}}"
     "--players=${GRANDLEON_PLAYERS:-2}"
-    "--graphics=${GRANDLEON_GRAPHICS:-voxel-sprites}"
 )
+if [[ -n "${GRANDLEON_GRAPHICS:-}" ]]; then
+    game_args+=("--graphics=${GRANDLEON_GRAPHICS}")
+fi
 if [[ -f "${bundle_dir}/PLAYER-ONLY" ]]; then
     game_args+=("--player-only")
 fi

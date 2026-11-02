@@ -32,6 +32,7 @@ machine-specific model, graphics, or control configuration.
 | Optional model tactics | The model selects an index from legal engine-generated candidates. Candidate zero is the built-in plan and remains the fallback for every failure mode. |
 | Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds an authored forest grove, mountain edge, animated water, cobbled road, context-aware bridge, and relay ruin while other terrain falls back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including the integrated 443-pixel-cell Rook sheet. The full-voxel profile additionally replaces commander and beast archetypes with authored animated 3D scenes while unbound characters fall back. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
+| Persistent presentation settings | Graphics profile, camera impulse, and text size survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Controller-safe exit | Start or the optional Back shortcut opens a controller-native session menu; quitting requires an explicit second X press, while A, B, or Start resumes. |
 | SteamOS packaging | The release bundle runs without a system Godot install and keeps its writable state under its own `runtime/` directory. |
@@ -138,8 +139,9 @@ configuration on screen or in the bundle.
 
 - Add music, action/UI audio, and per-player feedback with independent volume
   controls.
-- Persist campaign progress and user settings under the bundle runtime path,
-  with explicit reset and migration behavior.
+- Persist campaign progress under the bundle runtime path with explicit reset
+  and migration behavior. Presentation settings now persist independently with
+  a versioned contract and recovery file.
 - Add attract mode, clean return-to-launcher behavior, and controller-safe idle
   handling.
 - Review text scaling, colour contrast, camera impulse reduction, and input
