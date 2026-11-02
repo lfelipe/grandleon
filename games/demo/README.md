@@ -80,6 +80,22 @@ them could not go unnoticed.
 The demo is a package consumer, not part of the engine library. Its build and
 playthrough are exercised from the repository CTest suite.
 
+## The Last Signal
+
+The third campaign is the PC arcade integration demo, while remaining an
+ordinary portable campaign. **Kestrel** and **Rook** enter the Halcyon Relay in
+one shared `sideBlocks` team phase, so two local players can move different
+characters without waiting for an exclusive activation. **Morrow** and two
+relay drones exercise the unattended-side policy. Reaching Morrow with the talk
+gesture opens an authored conversation and a non-lethal branch; fighting
+through instead reaches a separate authored ending.
+
+Nothing in that route requires a model. The Godot client may append bounded
+local-model lines to three named scenes and may ask a local model to select from
+engine-generated tactical candidates, but absent, slow, or invalid model output
+leaves the authored story and deterministic tactics intact. The project itself
+contains no endpoint, model name, token, or machine-specific path.
+
 From a configured repository build, run:
 
 ```sh

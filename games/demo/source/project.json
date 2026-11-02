@@ -3,7 +3,7 @@
   "packageId": "f643c13e-ce8d-41d4-b6de-0d69ba5fcade",
   "gameId": "grandleon.demo",
   "title": "The Bridge at Dawn",
-  "contentRevision": "0.1.0",
+  "contentRevision": "0.2.0",
   "weaponTypes": [
     {
       "id": "blade",
@@ -45,6 +45,58 @@
         "flying": true
       },
       "notes": "The Dawn Guard ride herons. The bridge is the only way over the water for anyone on foot — which is what the River Watch is standing on — and the heron goes over it instead, so the crossing is a choice rather than a corridor. Two action points, so the crossing and the strike are one turn: a rider who had to spend the turn arriving would make the flight worth nothing. Seven health, matching the picket's, because a blow is three: four strength against one defence, the same either way, and a counter is free. Whoever opens an exchange takes three from the counter and three more on the other side's turn, so four health would make every meeting one exchange long and hand it to whoever swung second: the rider who flew across and struck would be dead before its own second blow. Seven buys three exchanges instead of one, which is what lets flying across and striking be the move that wins rather than the move that loses."
+    },
+    {
+      "id": "relay_rogue",
+      "name": "Relay Rogue",
+      "baseStats": {
+        "health": 10,
+        "movement": 4,
+        "strength": 4,
+        "defense": 2,
+        "resistance": 2,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": ["blade"],
+      "notes": "Fast field operator for the local co-op and conversation demo."
+    },
+    {
+      "id": "relay_commander",
+      "name": "Relay Commander",
+      "baseStats": {
+        "health": 12,
+        "movement": 3,
+        "strength": 4,
+        "defense": 3,
+        "resistance": 2,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": ["blade"]
+    },
+    {
+      "id": "relay_stormcaller",
+      "name": "Relay Stormcaller",
+      "baseStats": {
+        "health": 11,
+        "movement": 3,
+        "strength": 4,
+        "defense": 2,
+        "resistance": 4,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": ["blade"]
+    },
+    {
+      "id": "relay_beast",
+      "name": "Relay Beast",
+      "baseStats": {
+        "health": 6,
+        "movement": 4,
+        "strength": 3,
+        "defense": 1,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": ["blade"]
     }
   ],
   "weapons": [
@@ -75,6 +127,16 @@
     {
       "id": "river_watch",
       "name": "River Watch"
+    },
+    {
+      "id": "relay_crew",
+      "name": "Halcyon Recovery Crew",
+      "color": "amber"
+    },
+    {
+      "id": "relay_wardens",
+      "name": "Relay Wardens",
+      "color": "violet"
     }
   ],
   "abilities": [],
@@ -107,6 +169,42 @@
       "dropItemId": "field_tonic",
       "dropChance": 60,
       "notes": "A picket leaves its tonic three times in five. Sixty rather than a hundred on purpose: a certainty rolls nothing at all, and the point of the muster road is that the drop stream is really drawn from. What falls goes to the campaign's store when the battle ends, not into the rider's pack mid-fight."
+    },
+    {
+      "id": "kestrel_rogue",
+      "name": "Kestrel Rogue",
+      "classId": "relay_rogue",
+      "factionId": "relay_crew",
+      "startingWeaponIds": ["training_sword"],
+      "characterStyleId": "scifi",
+      "characterFigureId": "second"
+    },
+    {
+      "id": "rook_commander",
+      "name": "Rook Commander",
+      "classId": "relay_commander",
+      "factionId": "relay_crew",
+      "startingWeaponIds": ["training_sword"],
+      "characterStyleId": "scifi",
+      "characterFigureId": "first"
+    },
+    {
+      "id": "morrow_stormcaller",
+      "name": "Morrow Stormcaller",
+      "classId": "relay_stormcaller",
+      "factionId": "relay_wardens",
+      "startingWeaponIds": ["training_sword"],
+      "characterStyleId": "scifi",
+      "characterFigureId": "second"
+    },
+    {
+      "id": "relay_beast_drone",
+      "name": "Relay Beast Drone",
+      "classId": "relay_beast",
+      "factionId": "relay_wardens",
+      "startingWeaponIds": ["training_sword"],
+      "characterStyleId": "scifi",
+      "characterFigureId": "first"
     }
   ],
   "maps": [
@@ -141,6 +239,21 @@
         "sand",
         "grass"
       ]
+    },
+    {
+      "id": "halcyon_relay",
+      "name": "Halcyon Relay",
+      "width": 9,
+      "height": 6,
+      "terrain": [
+        "mountain", "mountain", "road", "road", "road", "mountain", "mountain", "mountain", "mountain",
+        "sand", "grass", "road", "forest", "road", "grass", "sand", "mountain", "mountain",
+        "grass", "grass", "road", "road", "road", "grass", "sand", "road", "mountain",
+        "grass", "forest", "road", "water", "road", "grass", "grass", "road", "mountain",
+        "sand", "grass", "road", "bridge", "road", "road", "road", "road", "mountain",
+        "mountain", "sand", "sand", "grass", "grass", "forest", "mountain", "mountain", "mountain"
+      ],
+      "notes": "A ruined signal station whose rules and content remain valid on the console builds; the PC client alone adds optional local-model presentation and policy."
     }
   ],
   "objectives": [
@@ -149,7 +262,80 @@
       "name": "Defeat all opponents"
     }
   ],
-  "dialogues": [],
+  "dialogues": [
+    {
+      "id": "relay_dead_frequency_lines",
+      "name": "The Dead Frequency",
+      "backgroundId": "star_field",
+      "cast": [
+        { "speaker": "Kestrel", "unitTypeId": "kestrel_rogue" },
+        { "speaker": "Rook", "unitTypeId": "rook_commander" },
+        { "speaker": "Morrow", "unitTypeId": "morrow_stormcaller" }
+      ],
+      "lines": [
+        { "speaker": "Kestrel", "text": "Halcyon Relay, this is Recovery Two. Your tower has been dark for eighty-three years." },
+        { "speaker": "Morrow", "text": "Incorrect. I have maintained the final watch for eighty-three years." },
+        { "speaker": "Rook", "text": "Your final order came from people who are gone." },
+        { "speaker": "Morrow", "text": "The order remains." }
+      ]
+    },
+    {
+      "id": "relay_opening_lines",
+      "name": "The Tower Wakes",
+      "cast": [
+        { "speaker": "Kestrel", "unitTypeId": "kestrel_rogue" },
+        { "speaker": "Morrow", "unitTypeId": "morrow_stormcaller" }
+      ],
+      "lines": [
+        { "speaker": "Morrow", "text": "Withdraw beyond the marker stones. I am required to make the warning once." },
+        { "speaker": "Kestrel", "text": "Then we only need to get close enough to give you a new answer." }
+      ]
+    },
+    {
+      "id": "relay_terms_lines",
+      "name": "Terms at the Relay",
+      "cast": [
+        { "speaker": "Kestrel", "unitTypeId": "kestrel_rogue" },
+        { "speaker": "Rook", "unitTypeId": "rook_commander" },
+        { "speaker": "Morrow", "unitTypeId": "morrow_stormcaller" }
+      ],
+      "lines": [
+        { "speaker": "Kestrel", "text": "Look past us. There is no army. There is no border. There are only villages that need the storm warning." },
+        { "speaker": "Morrow", "text": "My order protects the relay from every claimant." },
+        { "speaker": "Rook", "text": "We are not claiming it. We are asking you to keep watch for someone who can still hear it." },
+        { "speaker": "Morrow", "text": "That is not the same order." }
+      ]
+    },
+    {
+      "id": "relay_new_watch_lines",
+      "name": "A New Watch",
+      "backgroundId": "star_field",
+      "cast": [
+        { "speaker": "Kestrel", "unitTypeId": "kestrel_rogue" },
+        { "speaker": "Rook", "unitTypeId": "rook_commander" },
+        { "speaker": "Morrow", "unitTypeId": "morrow_stormcaller" }
+      ],
+      "lines": [
+        { "speaker": "Morrow", "text": "Weather front detected west of the valley. I can reach three settlements before it arrives." },
+        { "speaker": "Kestrel", "text": "Then the relay is not dead." },
+        { "speaker": "Rook", "text": "And this time, the watch is yours to choose." },
+        { "speaker": "Morrow", "text": "No. Its order has changed." }
+      ]
+    },
+    {
+      "id": "relay_silent_lines",
+      "name": "The Silent Relay",
+      "backgroundId": "star_field",
+      "cast": [
+        { "speaker": "Kestrel", "unitTypeId": "kestrel_rogue" },
+        { "speaker": "Rook", "unitTypeId": "rook_commander" }
+      ],
+      "lines": [
+        { "speaker": "Kestrel", "text": "The warning array still works. Morrow made sure of that." },
+        { "speaker": "Rook", "text": "Bring it online. We can regret the rest after the storm passes." }
+      ]
+    }
+  ],
   "campaigns": [
     {
       "id": "demo_campaign",
@@ -331,6 +517,141 @@
           {
             "id": "muster_complete",
             "name": "The Muster",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "last_signal",
+      "name": "The Last Signal",
+      "roster": [
+        { "id": "relay_kestrel", "name": "Kestrel", "unitTypeId": "kestrel_rogue" },
+        { "id": "relay_rook", "name": "Rook", "unitTypeId": "rook_commander" }
+      ],
+      "objectiveIds": ["defeat_all_opponents"],
+      "dialogueIds": [
+        "relay_dead_frequency_lines",
+        "relay_opening_lines",
+        "relay_terms_lines",
+        "relay_new_watch_lines",
+        "relay_silent_lines"
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "relay_approach",
+        "nodes": [
+          {
+            "id": "relay_approach",
+            "name": "The Dead Frequency",
+            "kind": "story",
+            "dialogueIds": ["relay_dead_frequency_lines"],
+            "transitions": [
+              { "id": "approach_the_relay", "targetNodeId": "halcyon_gate", "priority": 0 }
+            ]
+          },
+          {
+            "id": "halcyon_gate",
+            "name": "The Last Watch",
+            "kind": "encounter",
+            "mapId": "halcyon_relay",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "relay_kestrel",
+                "memberId": "relay_kestrel",
+                "unitTypeId": "kestrel_rogue",
+                "side": "first",
+                "x": 1,
+                "y": 2
+              },
+              {
+                "id": "relay_rook",
+                "memberId": "relay_rook",
+                "unitTypeId": "rook_commander",
+                "side": "first",
+                "x": 1,
+                "y": 4
+              },
+              {
+                "id": "relay_morrow",
+                "unitTypeId": "morrow_stormcaller",
+                "side": "second",
+                "x": 7,
+                "y": 2,
+                "behavior": "hold",
+                "talk": { "flagId": "morrow_reconsidered" }
+              },
+              {
+                "id": "relay_drone_north",
+                "unitTypeId": "relay_beast_drone",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "relay_drone_south",
+                "unitTypeId": "relay_beast_drone",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "moments": [
+              {
+                "id": "relay_wakes",
+                "when": { "kind": "stageOpens" },
+                "dialogueId": "relay_opening_lines"
+              },
+              {
+                "id": "morrow_answers",
+                "when": { "kind": "characterTalked", "placementId": "relay_morrow" },
+                "dialogueId": "relay_terms_lines"
+              }
+            ],
+            "transitions": [
+              {
+                "id": "relay_negotiated",
+                "targetNodeId": "relay_rekindled",
+                "priority": 0,
+                "when": {
+                  "kind": "worldFlagEquals",
+                  "flagId": "morrow_reconsidered",
+                  "value": true
+                }
+              },
+              {
+                "id": "relay_taken",
+                "targetNodeId": "relay_silenced",
+                "priority": 1
+              }
+            ]
+          },
+          {
+            "id": "relay_rekindled",
+            "name": "A New Watch",
+            "kind": "story",
+            "dialogueIds": ["relay_new_watch_lines"],
+            "transitions": [
+              { "id": "new_watch_begins", "targetNodeId": "signal_complete", "priority": 0 }
+            ]
+          },
+          {
+            "id": "relay_silenced",
+            "name": "The Silent Relay",
+            "kind": "story",
+            "dialogueIds": ["relay_silent_lines"],
+            "transitions": [
+              { "id": "silent_watch_begins", "targetNodeId": "signal_complete", "priority": 0 }
+            ]
+          },
+          {
+            "id": "signal_complete",
+            "name": "Signal Restored",
             "kind": "terminal",
             "transitions": []
           }
