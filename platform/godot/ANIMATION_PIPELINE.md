@@ -81,13 +81,24 @@ instead of inferring one straight interpolation.
 
 ## First authored 3D spike
 
-Use one humanoid and one drone rather than converting the whole roster:
+The full-voxel profile now binds one scene-authored humanoid commander and one
+scene-authored drone without changing the Last Signal package. Both are
+in-place hierarchical models with `idle`, `run`, `attack`, `ability`, `hurt`,
+and `defeat` clips. The common profile maps semantic `move` to `run`; the other
+clip names are direct. Rook and both beast units use the authored scenes while
+unbound archetypes keep the procedural voxel fallback.
 
-1. Export glTF/GLB with a shared humanoid skeleton and in-place idle, walk,
-   run, attack, hurt, and defeat clips.
-2. Bind Kestrel's `rogue` archetype and one `beast` drone in a local art pack.
-3. Verify direction changes, simultaneous movement, shadow contact, and scale
-   with the fixed PC camera.
-4. Tune semantic clip mappings and validate attack/impact alignment.
-5. Only then decide whether to author the full 3D roster or retain the hybrid
-   as a deliberate visual style.
+`scripts/smoke-animated-characters.sh` imports and instantiates both scenes,
+checks the complete clip vocabulary, and samples locomotion, weapon, ability,
+rotor, core, and defeat motion. The ordinary graphics capture additionally
+proves scale, contact overlays, facing, simultaneous board motion, impacts,
+delayed removal, and coexistence with fallback characters in the real
+campaign. The models remain intentional low-poly prototypes rather than a
+claim that the final 3D art pipeline is finished.
+
+The next fidelity gate is an imported humanoid and drone produced through a
+normal DCC-to-glTF/GLB workflow. They should replace these prototype scene
+paths, exercise explicit clip-name overrides, and be visibly better than the
+hybrid at the intended viewing distance before the rest of the roster is
+converted. A shared humanoid skeleton is desirable for production, but is not
+part of the gameplay or package contract.

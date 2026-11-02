@@ -241,7 +241,9 @@ Four launchable profiles exercise the choice without changing the
 package or rules: `pixel` uses the existing sheets, `diorama` uses lit 3D
 terrain with the real sheets as billboard characters, `voxel-sprites` uses
 box-built terrain with those same characters, and `voxel` builds both terrain
-and character blockouts from 3D boxes. Select one with
+and characters in 3D. The full-voxel profile binds an authored commander and
+drone scene with in-place idle, run, attack, ability, hurt, and defeat clips;
+other archetypes retain their procedural fallback. Select one with
 `--graphics=PROFILE` in a developer run or `GRANDLEON_GRAPHICS=PROFILE` in the
 SteamOS bundle. During play, the session menu can replace only the renderer and
 rebind the current board, cursors, selections, and highlights so the four
@@ -294,6 +296,13 @@ semantic `idle`, `move`, `attack`, `ability`, `hurt`, and `defeat` states to the
 clips exported by that asset. Locomotion and facing already respond to accepted
 board movement. See [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md) for the
 presentation-event seam needed for timed attacks, impacts, and defeat.
+
+The checked-in `relay_commander_3d.tscn` and `relay_drone_3d.tscn` scenes prove
+that boundary without changing a package or campaign. Their geometry,
+materials, hierarchy, and in-place clips belong to replaceable scenes; the
+board still owns destination, facing, health, shadows, effects, and removal.
+Run `scripts/smoke-animated-characters.sh` to instantiate both scenes and sample
+every required semantic clip after a headless import.
 
 The generated pack currently supplies four 32×32 pose cells plus a separate
 standing image. Their size is not a renderer rule: the art manifest publishes

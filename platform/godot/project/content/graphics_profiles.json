@@ -160,7 +160,21 @@
     },
     "voxel": {
       "terrainRenderer": "voxel",
-      "characterRenderer": "voxel"
+      "characterRenderer": "voxel",
+      "assets": {
+        "characterScenes": {
+          "commander": {
+            "scene": "res://art/characters/relay_commander_3d.tscn",
+            "scale": 1.0,
+            "animationPlayer": "AnimationPlayer"
+          },
+          "beast": {
+            "scene": "res://art/characters/relay_drone_3d.tscn",
+            "scale": 1.0,
+            "animationPlayer": "AnimationPlayer"
+          }
+        }
+      }
     }
   }
 }

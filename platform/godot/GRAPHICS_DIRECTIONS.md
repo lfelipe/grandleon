@@ -25,10 +25,10 @@ speed to a polished PC build, not the eventual production rate.
 
 | Profile | Already real | Still blockout work | Evidence from the capture |
 |---|---|---|---|
-| Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion | higher-resolution replacement pack and authored effects | most cohesive today, but depth and lighting remain limited |
+| Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion, and one integrated 443-pixel-cell replacement | a cohesive higher-resolution roster and authored effects | most cohesive today, but depth and lighting remain limited |
 | 3D diorama + 2D characters | 3D camera, lit terrain, water, bridges, trees, mountains, manifest-defined sprite pivots and animation | authored meshes/materials, sprite-facing and shadow polish | largest immediate upgrade while retaining the existing character library |
 | Voxel terrain + 2D characters | scene-authored forest, animated relay, water shader, mountains, cobbled road/contextual bridge, per-tile fallback, and manifest-driven billboard animation | authored ground variants, palette/material manifest, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
-| Full voxel | terrain, props, distinct humanoid/drone rigs, animation, lighting | authored voxel forms, palette/material manifest, richer silhouettes | technically clean and readable, but character art becomes a new production pipeline |
+| Full voxel | terrain, props, authored commander/drone scenes, semantic in-place animation, per-archetype fallback, lighting | imported production rigs, palette/material manifest, richer silhouettes | technically clean and readable, but character art becomes a new production pipeline |
 
 All four retain the same board API, concurrent player cursors, legal-tile
 queries, and package presentation indices. Switching renderer profiles does not
@@ -68,8 +68,9 @@ animation names, and fallbacks.
   particles, lighting overlays, camera motion, richer backdrops, and HD packs
   can take it further without a renderer rewrite.
 - **Illustrated 2D** has a high ceiling but makes animation the dominant art
-  cost. Its dimensions, pivots, and animation clips now have a manifest
-  contract; the remaining proof is an actual higher-resolution replacement.
+  cost. Its dimensions, pivots, and animation clips have a manifest contract,
+  and the integrated Rook sheet proves a non-32-pixel replacement in play. A
+  cohesive roster remains the production task.
 - **3D diorama + 2D characters** gives the fastest dramatic lighting and depth.
   It requires careful billboard, shadow, and scale treatment so characters
   belong to the scene.

@@ -30,7 +30,7 @@ machine-specific model, graphics, or control configuration.
 | Offline campaign | The Last Signal has authored opening, terms, talk outcome, battle outcome, and ending dialogue with the model disabled. |
 | Optional model dialogue | Model lines append only to allowlisted scenes and pass speaker, count, length, and markup validation. Authored lines are never replaced. |
 | Optional model tactics | The model selects an index from legal engine-generated candidates. Candidate zero is the built-in plan and remains the fallback for every failure mode. |
-| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile now binds an authored forest grove, mountain edge, animated water, cobbled road, context-aware bridge, and relay ruin while other terrain falls back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including non-32-pixel sheets. Missing bindings, clips, or metadata fall back asset by asset. |
+| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds an authored forest grove, mountain edge, animated water, cobbled road, context-aware bridge, and relay ruin while other terrain falls back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including the integrated 443-pixel-cell Rook sheet. The full-voxel profile additionally replaces commander and beast archetypes with authored animated 3D scenes while unbound characters fall back. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Controller-safe exit | Start or the optional Back shortcut opens a controller-native session menu; quitting requires an explicit second X press, while A, B, or Start resumes. |
@@ -103,10 +103,12 @@ Godot paths and still falls back cleanly when one asset is removed.
 
 ### 3. Prove one production 3D animation path
 
-- Import one humanoid and one drone with in-place idle, walk/run, attack, hurt,
-  and defeat clips.
-- Map semantic clips in the profile and validate facing, scale, shadow contact,
-  simultaneous locomotion, impacts, and removal timing.
+- The scene-authored humanoid/drone prototype now proves in-place idle, run,
+  attack, ability, hurt, and defeat clips, semantic mapping, per-archetype
+  replacement, fallback, scale, contact overlays, simultaneous locomotion,
+  impacts, and removal timing in the real campaign.
+- Replace the prototype scenes with one imported humanoid and drone from a
+  normal glTF/GLB production workflow and exercise explicit clip-name maps.
 - Add an optional motion record with route and recommended duration so a rig
   can time multi-cell locomotion without letting root motion own game state.
 - Decide on a full 3D roster only after this spike is visibly better than the
@@ -168,8 +170,9 @@ raise either console's memory or palette requirements.
 
 ## Known risks
 
-- The current terrain and voxel characters are deliberate blockouts; lighting
-  cannot substitute for authored silhouettes, materials, and animation.
+- The current terrain and scene-authored 3D characters are deliberate
+  prototypes; lighting and procedural geometry cannot substitute for final
+  silhouettes, materials, rigging, and animation polish.
 - Godot presentation has runtime smoke coverage but is not yet a first-class
   CTest target.
 - Controller behavior has been exercised under Linux/Xvfb, not yet on the
