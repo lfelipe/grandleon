@@ -74,6 +74,21 @@ starts the two-player `last_signal` campaign full-screen. No home-directory or
 host-specific path is compiled into the extension; the bundler checks the
 native binary and refuses it if the checkout path remains.
 
+The same builder can package one project as a player-only Linux PC game:
+
+```sh
+platform/godot/scripts/build-steamos.sh \
+  --project path/to/project.json \
+  --campaign campaign_id \
+  --player-only \
+  --output out/my-game
+```
+
+That form contains the compiled game but removes creator scenes and canonical
+source templates. Its session menu has no creator entry. The ordinary bundle
+retains both player and creator, so this is a packaging choice over the same
+project format rather than a separate kind of game.
+
 `BUILD-INFO.txt` identifies the source commit, clean/dirty build state, pinned
 Godot version, and default campaign/profile without recording the checkout,
 user, hostname, endpoint, or other machine-specific values.

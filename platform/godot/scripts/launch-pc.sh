@@ -9,12 +9,20 @@ export XDG_DATA_HOME="${runtime_dir}/data"
 export XDG_CONFIG_HOME="${runtime_dir}/config"
 export XDG_CACHE_HOME="${runtime_dir}/cache"
 
+default_campaign="last_signal"
+if [[ -f "${bundle_dir}/DEFAULT-CAMPAIGN" ]]; then
+    IFS= read -r default_campaign <"${bundle_dir}/DEFAULT-CAMPAIGN"
+fi
+
 game_args=(
     "--package=res://game.gpk"
-    "--campaign=${GRANDLEON_CAMPAIGN:-last_signal}"
+    "--campaign=${GRANDLEON_CAMPAIGN:-${default_campaign}}"
     "--players=${GRANDLEON_PLAYERS:-2}"
     "--graphics=${GRANDLEON_GRAPHICS:-voxel-sprites}"
 )
+if [[ -f "${bundle_dir}/PLAYER-ONLY" ]]; then
+    game_args+=("--player-only")
+fi
 if [[ "${GRANDLEON_WINDOWED:-0}" != "1" ]]; then
     game_args+=("--fullscreen")
 fi

@@ -8,16 +8,20 @@ project_source="${repo_root}/games/demo/source/project.json"
 build_dir="${repo_root}/build-godot-release"
 output_dir="${repo_root}/out/grandleon-pc"
 godot_binary=""
+campaign_key="last_signal"
+player_only=0
 
 usage() {
     printf '%s\n' \
-        "usage: $0 [--project FILE] [--build-dir DIR] [--output DIR] [--godot FILE]" \
-        "Builds a portable SteamOS test bundle. The output directory must not exist."
+        "usage: $0 [--project FILE] [--campaign KEY] [--player-only] [--build-dir DIR] [--output DIR] [--godot FILE]" \
+        "Builds a portable Linux PC bundle. The output directory must not exist."
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --project) project_source="$2"; shift 2 ;;
+        --campaign) campaign_key="$2"; shift 2 ;;
+        --player-only) player_only=1; shift ;;
         --build-dir) build_dir="$2"; shift 2 ;;
         --output) output_dir="$2"; shift 2 ;;
         --godot) godot_binary="$2"; shift 2 ;;
@@ -43,6 +47,10 @@ fi
 if [[ ! -f "${project_source}" ]]; then
     printf 'project not found: %s\n' "${project_source}" >&2
     exit 66
+fi
+if [[ ! "${campaign_key}" =~ ^[a-z][a-z0-9_]*$ ]]; then
+    printf 'campaign must be a portable source key: %s\n' "${campaign_key}" >&2
+    exit 64
 fi
 if [[ -e "${output_dir}" ]]; then
     printf 'output already exists; choose a new directory: %s\n' "${output_dir}" >&2
@@ -105,19 +113,35 @@ cmake -E copy \
 cmake -E copy \
     "${repo_root}/platform/godot/project/controls.example.json" \
     "${temporary_dir}/controls.example.json"
+if [[ "${player_only}" == "1" ]]; then
+    cmake -E rm -rf \
+        "${temporary_dir}/project/creator.tscn" \
+        "${temporary_dir}/project/map_editor.tscn" \
+        "${temporary_dir}/project/content/templates" \
+        "${temporary_dir}/project/scripts/creator/creator_screen.gd" \
+        "${temporary_dir}/project/scripts/creator/map_editor.gd" \
+        "${temporary_dir}/project/scripts/creator/project_library.gd"
+    printf 'Player-only Grand Leon game bundle.\n' >"${temporary_dir}/PLAYER-ONLY"
+fi
+printf '%s\n' "${campaign_key}" >"${temporary_dir}/DEFAULT-CAMPAIGN"
 source_revision="$(git -C "${repo_root}" rev-parse HEAD)"
 source_state="clean"
 if [[ -n "$(git -C "${repo_root}" status --porcelain --untracked-files=normal)" ]]; then
     source_state="dirty"
 fi
 godot_version="$("${godot_binary}" --version | head -n 1)"
+creator_included="yes"
+if [[ "${player_only}" == "1" ]]; then
+    creator_included="no"
+fi
 {
     printf 'Grand Leon SteamOS test bundle\n'
     printf 'sourceRevision=%s\n' "${source_revision}"
     printf 'sourceTree=%s\n' "${source_state}"
     printf 'godotVersion=%s\n' "${godot_version}"
-    printf 'defaultCampaign=last_signal\n'
+    printf 'defaultCampaign=%s\n' "${campaign_key}"
     printf 'defaultGraphics=voxel-sprites\n'
+    printf 'creatorIncluded=%s\n' "${creator_included}"
 } >"${temporary_dir}/BUILD-INFO.txt"
 chmod +x "${temporary_dir}/godot" "${temporary_dir}/launch-pc.sh"
 for local_config in pc.local.json graphics.local.json controls.local.json; do

@@ -170,6 +170,12 @@ paths or local configuration.
 A project can become a player-only game which does not expose creator UI and
 does not require Grand Leon to be installed.
 
+The Linux bundle builder already proves the first form of this boundary with
+`--player-only`: it compiles a selected canonical project, removes creator
+scenes and source templates, and suppresses the creator entry in the session
+menu. Moving that operation behind the native Export Center remains future UI
+work.
+
 The practical design is a signed, prebuilt player shell per operating system.
 The creator copies that shell into a new output directory and adds:
 

@@ -16,6 +16,7 @@ var board: Node
 var player_count := 2
 var package_path := "res://game.gpk"
 var campaign_key := "tarnholt_line"
+var creator_enabled := true
 var graphics_profile := ""
 var graphics_pack_path := ""
 var controls_path := ""
@@ -191,6 +192,8 @@ func _parse_arguments() -> void:
 			package_path = argument.trim_prefix("--package=")
 		elif argument.begins_with("--campaign="):
 			campaign_key = argument.trim_prefix("--campaign=")
+		elif argument == "--player-only":
+			creator_enabled = false
 		elif argument.begins_with("--graphics="):
 			graphics_profile = argument.trim_prefix("--graphics=")
 		elif argument.begins_with("--graphics-pack="):
@@ -739,11 +742,12 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	)
 	session_menu_resume.pressed.connect(_close_session_menu)
 	column.add_child(session_menu_resume)
-	session_menu_projects = _menu_button(
-		"PROJECTS / CREATE  /  %s · ENTER" % controls.label("confirm")
-	)
-	session_menu_projects.pressed.connect(_open_projects)
-	column.add_child(session_menu_projects)
+	if creator_enabled:
+		session_menu_projects = _menu_button(
+			"PROJECTS / CREATE  /  %s · ENTER" % controls.label("confirm")
+		)
+		session_menu_projects.pressed.connect(_open_projects)
+		column.add_child(session_menu_projects)
 	session_menu_graphics = _menu_button("")
 	session_menu_graphics.pressed.connect(_cycle_graphics_profile)
 	column.add_child(session_menu_graphics)
@@ -808,6 +812,8 @@ func _quit_to_launcher() -> void:
 
 
 func _open_projects() -> void:
+	if not creator_enabled:
+		return
 	status_label.text = "OPENING CREATOR"
 	if session:
 		session.stop()
