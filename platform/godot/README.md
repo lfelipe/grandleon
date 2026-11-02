@@ -31,10 +31,11 @@ map creator. The map creator previews the same replaceable terrain atlas as play
 mode, provides brush, contiguous fill, and two-corner rectangle tools, supports
 bounded command-level undo/redo, and resizes from the top-left origin with an
 explicit clipping preview. The selected encounter's allied and enemy placements
-are overlaid on the terrain, so map edits have gameplay context. Shrinks are
-blocked while any encounter placement or deployment tile would fall outside
-the new board. Saves pass through the validating native source layer, and the
-edited draft plays immediately.
+are overlaid on the terrain and can be moved with a two-confirm controller
+action. Moves that collide, leave the map, or make a previously playable project
+invalid are refused. Shrinks are blocked while any encounter placement or
+deployment tile would fall outside the new board. Saves pass through the
+validating native source layer, and the edited draft plays immediately.
 Compilation and scene handoff stay in-process; draft package bytes are not
 written to the installation directory. Returning through the play-mode session
 menu reopens the same project.

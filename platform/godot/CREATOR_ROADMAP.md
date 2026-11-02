@@ -125,7 +125,8 @@ This slice proves the whole ownership model before building a large editor.
   a useful initial size, and the selected terrain as its fill.
 - Terrain palette plus controller/mouse brush, contiguous fill, and two-corner
   rectangle tools are implemented.
-- Encounter selection and allied/enemy placement preview are implemented.
+- Encounter selection, allied/enemy placement preview, and safe two-confirm
+  placement movement are implemented.
 - Resize preview and top-left-preserving resize are implemented. Shrinks are
   blocked when a placement or deployment tile would be clipped.
 - Unit placement for both sides, deployment zones, and objective placement.

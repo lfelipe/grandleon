@@ -24,6 +24,7 @@ var encounter_index := 0
 var selected_terrain := "grass"
 var active_tool := "brush"
 var rectangle_anchor := -1
+var selected_placement_id := ""
 var dirty := false
 var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
@@ -119,6 +120,7 @@ func _select_map(index: int) -> void:
 	map_index = index
 	encounter_index = 0
 	rectangle_anchor = -1
+	selected_placement_id = ""
 	_refresh_encounters()
 	_refresh_palette()
 	_refresh_grid(0)
@@ -166,6 +168,7 @@ func _select_encounter(index: int) -> void:
 	if index < 0 or index >= encounters.size():
 		return
 	encounter_index = index
+	selected_placement_id = ""
 	_refresh_grid(0)
 	var node: Dictionary = encounters[index].node
 	_set_status("ENCOUNTER  /  %s" % str(node.get("name", node.get("id", ""))).to_upper(), false)
@@ -223,6 +226,7 @@ func _select_terrain(name: String) -> void:
 func _select_tool(name: String) -> void:
 	active_tool = name
 	rectangle_anchor = -1
+	selected_placement_id = ""
 	_update_tool_selection()
 	_set_status("TOOL  /  %s" % name.to_upper(), false)
 	_focus_cell(0)
@@ -231,7 +235,8 @@ func _select_tool(name: String) -> void:
 func _update_tool_selection() -> void:
 	for name: String in tool_buttons:
 		var button: Button = tool_buttons[name]
-		button.text = ("● " if name == active_tool else "  ") + name.to_upper()
+		var display := "MOVE UNIT" if name == "unit" else name.to_upper()
+		button.text = ("● " if name == active_tool else "  ") + display
 
 
 func _update_palette_selection() -> void:
@@ -289,8 +294,17 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 	var first: Dictionary = placements[0]
 	var first_side := str(first.get("side", "second")) == "first"
 	var colour := Color("69d9ff") if first_side else Color("ff7a83")
+	var selected := false
+	for placement_value: Variant in placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == selected_placement_id:
+			selected = true
+			break
+	if selected:
+		colour = Color("ffca63")
 	var label := Label.new()
-	label.text = "%d×" % placements.size() if placements.size() > 1 else ("ALLY" if first_side else "ENEMY")
+	label.text = "MOVE" if selected else (
+		"%d×" % placements.size() if placements.size() > 1 else ("ALLY" if first_side else "ENEMY")
+	)
 	label.position = Vector2(5, 5)
 	label.custom_minimum_size = Vector2(48, 20)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -362,7 +376,9 @@ func _paint_cell(index: int) -> void:
 	if width <= 0 or index < 0 or index >= terrain.size():
 		_set_status("THAT CELL IS NOT EDITABLE", true)
 		return
-	if active_tool == "fill":
+	if active_tool == "unit":
+		_move_unit_at(index, width)
+	elif active_tool == "fill":
 		_fill_from(index, width, terrain)
 	elif active_tool == "rectangle":
 		_rectangle_at(index, width, terrain)
@@ -370,6 +386,65 @@ func _paint_cell(index: int) -> void:
 		var changed := terrain.duplicate()
 		changed[index] = selected_terrain
 		_apply_terrain(changed, index, "PAINTED %s" % selected_terrain.to_upper())
+
+
+func _move_unit_at(index: int, width: int) -> void:
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		_set_status("THIS MAP HAS NO ENCOUNTER TO EDIT", true)
+		return
+	var node: Dictionary = encounter.node
+	var x := index % width
+	var y := index / width
+	var placements: Array = node.get("placements", [])
+	if selected_placement_id.is_empty():
+		for placement_value: Variant in placements:
+			if not placement_value is Dictionary:
+				continue
+			var placement: Dictionary = placement_value
+			if int(placement.get("x", -1)) == x and int(placement.get("y", -1)) == y:
+				selected_placement_id = str(placement.get("id", ""))
+				if selected_placement_id.is_empty():
+					break
+				_refresh_grid(index)
+				_set_status(
+					"MOVE %s  /  CHOOSE A DESTINATION" % selected_placement_id.to_upper(),
+					false
+				)
+				return
+		_set_status("CHOOSE A CELL THAT CONTAINS A UNIT", true)
+		_focus_cell(index)
+		return
+
+	for placement_value: Variant in placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == selected_placement_id:
+			if int(placement_value.get("x", -1)) == x and int(placement_value.get("y", -1)) == y:
+				selected_placement_id = ""
+				_refresh_grid(index)
+				_set_status("UNIT MOVE CANCELLED", false)
+				return
+			break
+	var moved: Dictionary = compiler.move_placement(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(node.get("id", "")),
+		selected_placement_id,
+		x,
+		y
+	)
+	if not moved.ok:
+		_set_status("MOVE REFUSED  /  %s" % _diagnostic_code(moved), true)
+		_focus_cell(index)
+		return
+	var moved_id := selected_placement_id
+	_push_undo(source)
+	source = moved.source
+	redo_stack.clear()
+	dirty = true
+	selected_placement_id = ""
+	_read_source()
+	_refresh_maps_after_edit(index)
+	_set_status("UNSAVED  /  MOVED %s" % moved_id.to_upper(), false)
 
 
 func _fill_from(index: int, width: int, terrain: Array) -> void:
@@ -490,6 +565,7 @@ func _undo() -> void:
 	redo_stack.append(source)
 	source = undo_stack.pop_back()
 	rectangle_anchor = -1
+	selected_placement_id = ""
 	dirty = true
 	_read_source()
 	_refresh_maps_after_edit(0)
@@ -502,6 +578,7 @@ func _redo() -> void:
 	_push_undo(source)
 	source = redo_stack.pop_back()
 	rectangle_anchor = -1
+	selected_placement_id = ""
 	dirty = true
 	_read_source()
 	_refresh_maps_after_edit(0)
@@ -795,6 +872,11 @@ func _build_interface() -> void:
 		tool_button.pressed.connect(_select_tool.bind(tool_name))
 		tool_row.add_child(tool_button)
 		tool_buttons[tool_name] = tool_button
+	var move_unit := _button("MOVE UNIT", 330, 48)
+	move_unit.add_theme_font_size_override("font_size", 14)
+	move_unit.pressed.connect(_select_tool.bind("unit"))
+	tools_column.add_child(move_unit)
+	tool_buttons["unit"] = move_unit
 	_update_tool_selection()
 	tools_column.add_child(_label("TERRAIN", 17, Color("69d9ff")))
 	var palette_scroll := ScrollContainer.new()

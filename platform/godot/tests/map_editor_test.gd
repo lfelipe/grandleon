@@ -137,6 +137,33 @@ func _run() -> void:
 	await process_frame
 	_expect("resize redo restores width", int(_parse(editor.source).maps[0].width), 4)
 
+	editor._select_tool("unit")
+	var before_unit_selection: String = editor.source
+	editor._paint_cell(4)
+	_expect("selecting a unit does not edit source", editor.source, before_unit_selection)
+	_expect("unit is selected by stable id", editor.selected_placement_id, "dawn_guard_leader")
+	editor._paint_cell(0)
+	await process_frame
+	var moved_placement: Dictionary = _parse(editor.source).campaigns[0].flow.nodes[0].placements[0]
+	_expect("unit move changes x", int(moved_placement.x), 0)
+	_expect("unit move changes y", int(moved_placement.y), 0)
+	_expect("unit move clears selection", editor.selected_placement_id, "")
+	_expect("unit move is one undo command", editor.undo_stack.size(), 5)
+	editor._undo()
+	await process_frame
+	_expect(
+		"unit move undo restores y",
+		int(_parse(editor.source).campaigns[0].flow.nodes[0].placements[0].y),
+		1
+	)
+	editor._redo()
+	await process_frame
+	_expect(
+		"unit move redo restores y",
+		int(_parse(editor.source).campaigns[0].flow.nodes[0].placements[0].y),
+		0
+	)
+
 	editor._create_map()
 	await process_frame
 	var with_new_map := _parse(editor.source)
@@ -148,7 +175,7 @@ func _run() -> void:
 	_expect("new map uses selected terrain", with_new_map.maps[2].terrain[47], "forest")
 	_expect("new map becomes selected", editor.map_index, 2)
 	_expect("new map board is editable", editor.grid.get_child_count(), 48)
-	_expect("new map is one undo command", editor.undo_stack.size(), 5)
+	_expect("new map is one undo command", editor.undo_stack.size(), 6)
 	editor._undo()
 	await process_frame
 	_expect("new map undo removes map", _parse(editor.source).maps.size(), 2)
@@ -165,6 +192,7 @@ func _run() -> void:
 	_expect("saved fill reopens", stored.project.maps[0].terrain[2], "ruins")
 	_expect("saved resize reopens", int(stored.project.maps[0].width), 4)
 	_expect("saved new map reopens", stored.project.maps[2].id, "map_1")
+	_expect("saved unit move reopens", int(stored.project.campaigns[0].flow.nodes[0].placements[0].y), 0)
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 
