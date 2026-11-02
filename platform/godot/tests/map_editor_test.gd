@@ -207,6 +207,20 @@ func _run() -> void:
 	_expect("enemy unit is added", with_added_unit.campaigns[0].flow.nodes[0].placements.size(), 3)
 	_expect("added enemy side", with_added_unit.campaigns[0].flow.nodes[0].placements[2].side, "second")
 	_expect("add unit is one undo command", editor.undo_stack.size(), 6)
+	editor._select_tool("scaling")
+	editor._paint_cell(3)
+	await process_frame
+	var scaled_placement: Dictionary = _parse(editor.source).campaigns[0].flow.nodes[0].placements[2]
+	_expect("2P tool authors the player minimum", int(scaled_placement.minimumPlayers), 2)
+	_expect("scaled enemy has a visible board badge", editor.grid.get_child(3).tooltip_text.contains("2 PLAYERS"), true)
+	_expect("player scaling is one undo command", editor.undo_stack.size(), 7)
+	editor._undo()
+	await process_frame
+	_expect(
+		"scaling undo restores an always-present enemy",
+		_parse(editor.source).campaigns[0].flow.nodes[0].placements[2].has("minimumPlayers"),
+		false
+	)
 	editor._select_tool("remove_unit")
 	editor._paint_cell(3)
 	await process_frame
@@ -279,6 +293,24 @@ func _run() -> void:
 	_expect("new map redo restores map", _parse(editor.source).maps.size(), 3)
 	_expect("new map redo refreshes selector", editor.map_select.item_count, 3)
 	editor._select_map(0)
+	var objective_count_before: int = _parse(editor.source).objectives.size()
+	editor._open_objectives()
+	_expect("objective editor opens", editor.objective_layer.visible, true)
+	_expect("assigned objectives are listed", editor.objective_candidates.is_empty(), false)
+	editor._cycle_objective_mode()
+	editor._cycle_objective_mode()
+	_expect("objective editor reaches new mode", editor.objective_mode, "new")
+	for step in 3:
+		editor._cycle_objective_kind()
+	editor._change_objective_rounds(1)
+	editor._apply_objective_action()
+	await process_frame
+	var with_objective := _parse(editor.source)
+	_expect("objective editor creates a definition", with_objective.objectives.size(), objective_count_before + 1)
+	_expect("new objective is attached to encounter", with_objective.campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
+	_expect("new objective carries authored rounds", int(with_objective.objectives[-1].rounds), 4)
+	editor._close_objectives()
+	await process_frame
 	editor._save()
 	_expect("save clears dirty state", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
@@ -289,6 +321,7 @@ func _run() -> void:
 	_expect("saved unit move reopens", int(stored.project.campaigns[0].flow.nodes[0].placements[0].y), 0)
 	_expect("saved unit removal reopens", stored.project.campaigns[0].flow.nodes[0].placements.size(), 2)
 	_expect("saved deployment reopens", stored.project.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
+	_expect("saved objective reopens", stored.project.campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 

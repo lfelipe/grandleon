@@ -10,6 +10,12 @@ const TERRAIN_PALETTE := [
 	"grass", "forest", "mountain", "water", "road", "bridge", "sand",
 	"ruins", "farmland", "snow", "swamp", "hills", "bamboo", "paved",
 ]
+const OBJECTIVE_KINDS := [
+	{"id": "defeatAllOpponents", "label": "DEFEAT ALL OPPONENTS"},
+	{"id": "defeatTarget", "label": "DEFEAT A TARGET"},
+	{"id": "protectTarget", "label": "PROTECT A TARGET"},
+	{"id": "surviveRounds", "label": "SURVIVE ROUNDS"},
+]
 
 var library
 var compiler
@@ -34,6 +40,14 @@ var deployment_id := ""
 var deployment_draft: Array[int] = []
 var deployment_original: Array[int] = []
 var tool_before_deployment := "brush"
+var objective_mode := "assigned"
+var objective_candidates: Array[Dictionary] = []
+var objective_candidate_index := 0
+var objective_kind_index := 0
+var objective_side := "first"
+var objective_targets: Array[Dictionary] = []
+var objective_target_index := 0
+var objective_rounds := 3
 var dirty := false
 var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
@@ -64,6 +78,20 @@ var placement_first_button: Button
 var deployment_button: Button
 var deployment_actions: HBoxContainer
 var deployment_apply_button: Button
+var objective_button: Button
+var objective_layer: Control
+var objective_mode_button: Button
+var objective_candidate_label: Label
+var objective_previous_button: Button
+var objective_next_button: Button
+var objective_options: VBoxContainer
+var objective_kind_button: Button
+var objective_side_button: Button
+var objective_target_button: Button
+var objective_rounds_row: HBoxContainer
+var objective_rounds_label: Label
+var objective_primary_button: Button
+var objective_first_button: Button
 var resize_layer: Control
 var resize_width_label: Label
 var resize_height_label: Label
@@ -83,7 +111,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if placement_layer != null and placement_layer.visible:
+		if objective_layer != null and objective_layer.visible:
+			_close_objectives()
+		elif placement_layer != null and placement_layer.visible:
 			_close_add_placement()
 		elif resize_layer != null and resize_layer.visible:
 			_close_resize()
@@ -268,6 +298,7 @@ func _update_tool_selection() -> void:
 		var button: Button = tool_buttons[name]
 		var display_names := {
 			"unit": "MOVE", "remove_unit": "REMOVE", "deployment": "ZONE",
+			"scaling": "2P",
 		}
 		var display := str(display_names.get(name, name.to_upper()))
 		button.text = ("● " if name == active_tool else "  ") + display
@@ -294,6 +325,7 @@ func _refresh_grid(focus_index := -1) -> void:
 	var terrain: Array = map.get("terrain", [])
 	var placements_by_cell: Dictionary = {}
 	var deployment_cells: Array[int] = []
+	var objective_targets_by_cell: Dictionary = {}
 	var encounter := _current_encounter()
 	if not encounter.is_empty():
 		var node: Dictionary = encounter.node
@@ -302,6 +334,7 @@ func _refresh_grid(focus_index := -1) -> void:
 			if deployment_editing
 			else _deployment_indices(node, width)
 		)
+		objective_targets_by_cell = _objective_target_cells(node, width)
 		for placement_value: Variant in node.get("placements", []):
 			if not placement_value is Dictionary:
 				continue
@@ -326,6 +359,8 @@ func _refresh_grid(focus_index := -1) -> void:
 			_add_placement_badge(cell, placements_by_cell[index])
 		if deployment_cells.has(index):
 			_add_deployment_badge(cell, tile_size, deployment_editing)
+		if objective_targets_by_cell.has(index):
+			_add_objective_marker(cell, objective_targets_by_cell[index])
 		cell.pressed.connect(_paint_cell.bind(index))
 		grid.add_child(cell)
 	if focus_index >= 0:
@@ -344,8 +379,11 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 	if selected:
 		colour = Color("ffca63")
 	var label := Label.new()
+	var two_player_only := int(first.get("minimumPlayers", 1)) >= 2
 	label.text = "MOVE" if selected else (
-		"%d×" % placements.size() if placements.size() > 1 else ("ALLY" if first_side else "ENEMY")
+		"%d×" % placements.size() if placements.size() > 1 else (
+			"ALLY" if first_side else ("2P" if two_player_only else "ENEMY")
+		)
 	)
 	label.position = Vector2(5, 5)
 	label.custom_minimum_size = Vector2(48, 20)
@@ -364,8 +402,9 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 	for placement_value: Variant in placements:
 		var placement: Dictionary = placement_value
 		details.append(
-			"%s: %s" % [
+			"%s%s: %s" % [
 				str(placement.get("side", "unit")).to_upper(),
+				" / 2 PLAYERS" if int(placement.get("minimumPlayers", 1)) >= 2 else "",
 				str(placement.get("name", placement.get("id", "unit"))),
 			]
 		)
@@ -389,6 +428,63 @@ func _add_deployment_badge(cell: Button, tile_size: int, pending: bool) -> void:
 	cell.tooltip_text += "\n" + (
 		"PENDING DEPLOYMENT TILE" if pending else "DEPLOYMENT ZONE"
 	)
+
+
+func _add_objective_marker(cell: Button, names: Array) -> void:
+	var outline := Panel.new()
+	outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.border_color = Color("ffca63")
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(8)
+	outline.add_theme_stylebox_override("panel", style)
+	cell.add_child(outline)
+	var details := PackedStringArray()
+	for value: Variant in names:
+		details.append(str(value))
+	cell.tooltip_text += "\nOBJECTIVE TARGET  /  " + ", ".join(details)
+
+
+func _objective_definitions_by_id() -> Dictionary:
+	var result := {}
+	for value: Variant in project.get("objectives", []):
+		if value is Dictionary:
+			var objective_id := str(value.get("id", ""))
+			if not objective_id.is_empty():
+				result[objective_id] = value
+	return result
+
+
+func _objective_target_cells(node: Dictionary, width: int) -> Dictionary:
+	var result := {}
+	var definitions := _objective_definitions_by_id()
+	var targets := {}
+	for id_value: Variant in node.get("objectiveIds", []):
+		var objective_id := str(id_value)
+		if not definitions.has(objective_id):
+			continue
+		var objective: Dictionary = definitions[objective_id]
+		var kind := str(objective.get("kind", "defeatAllOpponents"))
+		if kind != "defeatTarget" and kind != "protectTarget":
+			continue
+		var target := str(objective.get("targetPlacementId", ""))
+		if not target.is_empty():
+			if not targets.has(target):
+				targets[target] = []
+			targets[target].append(str(objective.get("name", objective_id)))
+	for placement_value: Variant in node.get("placements", []):
+		if not placement_value is Dictionary:
+			continue
+		var source_key := str(placement_value.get("memberId", placement_value.get("id", "")))
+		if not targets.has(source_key):
+			continue
+		var x := int(placement_value.get("x", -1))
+		var y := int(placement_value.get("y", -1))
+		if x >= 0 and y >= 0:
+			result[y * width + x] = targets[source_key]
+	return result
 
 
 func _terrain_mask(index: int, width: int, height: int, terrain: Array) -> int:
@@ -443,6 +539,8 @@ func _paint_cell(index: int) -> void:
 		_add_unit_at(index, width)
 	elif active_tool == "remove_unit":
 		_remove_unit_at(index, width)
+	elif active_tool == "scaling":
+		_toggle_placement_scaling_at(index, width)
 	elif active_tool == "unit":
 		_move_unit_at(index, width)
 	elif active_tool == "fill":
@@ -530,6 +628,47 @@ func _remove_unit_at(index: int, width: int) -> void:
 	_read_source()
 	_refresh_maps_after_edit(index)
 	_set_status("UNSAVED  /  REMOVED %s  /  UNDO TO RESTORE" % placement_id.to_upper(), false)
+
+
+func _toggle_placement_scaling_at(index: int, width: int) -> void:
+	var encounter := _current_encounter()
+	var placement := _placement_at(index, width)
+	if encounter.is_empty() or placement.is_empty():
+		_set_status("CHOOSE AN ENEMY PLACEMENT TO SCALE", true)
+		_focus_cell(index)
+		return
+	if str(placement.get("side", "second")) != "second":
+		_set_status("ALLIED ROSTER MEMBERS ARE PRESENT AT EVERY PLAYER COUNT", true)
+		_focus_cell(index)
+		return
+	var node: Dictionary = encounter.node
+	var placement_id := str(placement.get("id", ""))
+	var was_scaled := int(placement.get("minimumPlayers", 1)) >= 2
+	var minimum_players := 1 if was_scaled else 2
+	var updated: Dictionary = compiler.set_placement_minimum_players(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(node.get("id", "")),
+		placement_id,
+		minimum_players
+	)
+	if not updated.ok:
+		_set_status("SCALING REFUSED  /  %s" % _diagnostic_detail(updated), true)
+		_focus_cell(index)
+		return
+	_push_undo(source)
+	source = updated.source
+	redo_stack.clear()
+	dirty = true
+	_read_source()
+	_refresh_maps_after_edit(index)
+	_set_status(
+		"UNSAVED  /  %s %s" % [
+			placement_id.to_upper(),
+			"ALWAYS PRESENT" if was_scaled else "ADDED FOR 2 PLAYERS",
+		],
+		false
+	)
 
 
 func _unique_placement_id(base: String) -> String:
@@ -1038,6 +1177,354 @@ func _begin_add_placement() -> void:
 	call_deferred("_focus_cell", 0)
 
 
+func _open_objectives() -> void:
+	if deployment_editing:
+		_set_status("APPLY OR CANCEL THE DEPLOYMENT DRAFT FIRST", true)
+		return
+	if _current_encounter().is_empty():
+		_set_status("ADD AN ENCOUNTER BEFORE EDITING OBJECTIVES", true)
+		return
+	objective_mode = "assigned"
+	objective_candidate_index = 0
+	objective_kind_index = 0
+	objective_side = "first"
+	objective_target_index = 0
+	objective_rounds = 3
+	objective_layer.visible = true
+	_refresh_objective_targets()
+	_refresh_objective_candidates()
+	objective_first_button.call_deferred("grab_focus")
+
+
+func _close_objectives() -> void:
+	objective_layer.visible = false
+	objective_candidates.clear()
+	objective_targets.clear()
+	objective_button.call_deferred("grab_focus")
+
+
+func _cycle_objective_mode() -> void:
+	var modes := ["assigned", "available", "new"]
+	objective_mode = modes[(modes.find(objective_mode) + 1) % modes.size()]
+	objective_candidate_index = 0
+	_refresh_objective_candidates()
+
+
+func _cycle_objective_candidate(delta: int) -> void:
+	if objective_candidates.is_empty():
+		return
+	objective_candidate_index = wrapi(
+		objective_candidate_index + delta, 0, objective_candidates.size()
+	)
+	_update_objective_view()
+
+
+func _cycle_objective_kind(delta: int = 1) -> void:
+	objective_kind_index = wrapi(
+		objective_kind_index + delta, 0, OBJECTIVE_KINDS.size()
+	)
+	objective_target_index = 0
+	_update_objective_view()
+
+
+func _toggle_objective_side() -> void:
+	objective_side = "second" if objective_side == "first" else "first"
+	_update_objective_view()
+
+
+func _cycle_objective_target() -> void:
+	if objective_targets.is_empty():
+		return
+	objective_target_index = wrapi(
+		objective_target_index + 1, 0, objective_targets.size()
+	)
+	_update_objective_view()
+
+
+func _change_objective_rounds(delta: int) -> void:
+	objective_rounds = clampi(objective_rounds + delta, 1, 65535)
+	_update_objective_view()
+
+
+func _refresh_objective_targets() -> void:
+	objective_targets.clear()
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return
+	var member_names := {}
+	var campaign: Dictionary = encounter.campaign
+	for member_value: Variant in campaign.get("roster", []):
+		if member_value is Dictionary:
+			member_names[str(member_value.get("id", ""))] = str(
+				member_value.get("name", member_value.get("id", "Member"))
+			)
+	var node: Dictionary = encounter.node
+	var seen: Array[String] = []
+	for placement_value: Variant in node.get("placements", []):
+		if not placement_value is Dictionary:
+			continue
+		var placement: Dictionary = placement_value
+		if int(placement.get("minimumPlayers", 1)) >= 2:
+			continue
+		var member_id := str(placement.get("memberId", ""))
+		var source_key := member_id if not member_id.is_empty() else str(placement.get("id", ""))
+		if source_key.is_empty() or seen.has(source_key):
+			continue
+		seen.append(source_key)
+		objective_targets.append({
+			"id": source_key,
+			"name": str(member_names.get(
+				source_key,
+				placement.get("name", placement.get("id", "Unit"))
+			)),
+			"side": str(placement.get("side", "second")),
+		})
+	objective_target_index = clampi(
+		objective_target_index, 0, maxi(0, objective_targets.size() - 1)
+	)
+
+
+func _current_objective_ids() -> Array[String]:
+	var result: Array[String] = []
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return result
+	var node: Dictionary = encounter.node
+	for value: Variant in node.get("objectiveIds", []):
+		result.append(str(value))
+	return result
+
+
+func _objective_is_compatible(objective: Dictionary) -> bool:
+	var kind := str(objective.get("kind", "defeatAllOpponents"))
+	if kind != "defeatTarget" and kind != "protectTarget":
+		return true
+	var target_id := str(objective.get("targetPlacementId", ""))
+	for target: Dictionary in objective_targets:
+		if str(target.get("id", "")) == target_id:
+			return true
+	return false
+
+
+func _refresh_objective_candidates() -> void:
+	objective_candidates.clear()
+	var assigned := _current_objective_ids()
+	var definitions := _objective_definitions_by_id()
+	if objective_mode == "assigned":
+		for objective_id: String in assigned:
+			if definitions.has(objective_id):
+				objective_candidates.append(definitions[objective_id])
+	elif objective_mode == "available":
+		for value: Variant in project.get("objectives", []):
+			if not value is Dictionary:
+				continue
+			var objective_id := str(value.get("id", ""))
+			if not assigned.has(objective_id) and _objective_is_compatible(value):
+				objective_candidates.append(value)
+	objective_candidate_index = clampi(
+		objective_candidate_index, 0,
+		maxi(0, objective_candidates.size() - 1)
+	)
+	_update_objective_view()
+
+
+func _objective_kind_label(kind: String) -> String:
+	for value: Dictionary in OBJECTIVE_KINDS:
+		if str(value.id) == kind:
+			return str(value.label)
+	return kind.to_upper()
+
+
+func _objective_summary(objective: Dictionary) -> String:
+	var kind := str(objective.get("kind", "defeatAllOpponents"))
+	var lines := PackedStringArray([
+		str(objective.get("name", objective.get("id", "Objective"))),
+		"%s  /  SIDE %s" % [
+			_objective_kind_label(kind),
+			str(objective.get("side", "first")).to_upper(),
+		],
+		str(objective.get("id", "")).to_upper(),
+	])
+	if kind == "defeatTarget" or kind == "protectTarget":
+		lines.append("TARGET  /  %s" % str(objective.get("targetPlacementId", "")).to_upper())
+	elif kind == "surviveRounds":
+		lines.append("ROUNDS  /  %d" % int(objective.get("rounds", 1)))
+	return "\n".join(lines)
+
+
+func _new_objective_name() -> String:
+	var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
+	if kind == "defeatAllOpponents":
+		return "Defeat all opponents"
+	if kind == "surviveRounds":
+		return "Survive %d round%s" % [
+			objective_rounds, "" if objective_rounds == 1 else "s",
+		]
+	var target_name := "target"
+	if not objective_targets.is_empty():
+		target_name = str(objective_targets[objective_target_index].get("name", "target"))
+	return ("Defeat " if kind == "defeatTarget" else "Protect ") + target_name
+
+
+func _new_objective_summary() -> String:
+	var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
+	var lines := PackedStringArray([
+		_new_objective_name(),
+		"%s  /  SIDE %s" % [
+			str(OBJECTIVE_KINDS[objective_kind_index].label), objective_side.to_upper(),
+		],
+	])
+	if kind == "defeatTarget" or kind == "protectTarget":
+		lines.append(
+			"TARGET  /  %s" % (
+				str(objective_targets[objective_target_index].get("id", "")).to_upper()
+				if not objective_targets.is_empty()
+				else "NO PLACEMENT AVAILABLE"
+			)
+		)
+	elif kind == "surviveRounds":
+		lines.append("ROUNDS  /  %d" % objective_rounds)
+	return "\n".join(lines)
+
+
+func _update_objective_view() -> void:
+	var mode_labels := {
+		"assigned": "VIEW  /  ASSIGNED",
+		"available": "VIEW  /  AVAILABLE",
+		"new": "VIEW  /  CREATE NEW",
+	}
+	objective_mode_button.text = str(mode_labels.get(objective_mode, "OBJECTIVES"))
+	var browsing := objective_mode != "new"
+	objective_previous_button.visible = browsing
+	objective_next_button.visible = browsing
+	objective_options.visible = not browsing
+	if browsing:
+		objective_previous_button.disabled = objective_candidates.size() < 2
+		objective_next_button.disabled = objective_candidates.size() < 2
+		if objective_candidates.is_empty():
+			objective_candidate_label.text = (
+				"No objectives are assigned to this encounter."
+				if objective_mode == "assigned"
+				else "No compatible unassigned objectives are available."
+			)
+		else:
+			objective_candidate_label.text = _objective_summary(
+				objective_candidates[objective_candidate_index]
+			)
+		objective_primary_button.text = (
+			"REMOVE FROM ENCOUNTER" if objective_mode == "assigned" else "ATTACH TO ENCOUNTER"
+		)
+		objective_primary_button.disabled = objective_candidates.is_empty() or (
+			objective_mode == "assigned" and _current_objective_ids().size() <= 1
+		)
+		return
+
+	var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
+	objective_candidate_label.text = _new_objective_summary()
+	objective_kind_button.text = "KIND  /  %s" % str(OBJECTIVE_KINDS[objective_kind_index].label)
+	objective_side_button.text = "SIDE  /  %s" % objective_side.to_upper()
+	var targeted := kind == "defeatTarget" or kind == "protectTarget"
+	objective_target_button.visible = targeted
+	objective_rounds_row.visible = kind == "surviveRounds"
+	if targeted:
+		objective_target_button.text = (
+			"TARGET  /  %s" % str(objective_targets[objective_target_index].get("name", "Unit"))
+			if not objective_targets.is_empty()
+			else "TARGET  /  NONE AVAILABLE"
+		)
+	objective_rounds_label.text = str(objective_rounds)
+	objective_primary_button.text = "CREATE AND ATTACH"
+	objective_primary_button.disabled = targeted and objective_targets.is_empty()
+
+
+func _unique_objective_id(base: String) -> String:
+	var existing: Array[String] = []
+	for value: Variant in project.get("objectives", []):
+		if value is Dictionary:
+			existing.append(str(value.get("id", "")))
+	if not existing.has(base):
+		return base
+	var sequence := 2
+	while existing.has("%s_%d" % [base, sequence]):
+		sequence += 1
+	return "%s_%d" % [base, sequence]
+
+
+func _apply_objective_action() -> void:
+	if objective_primary_button.disabled:
+		return
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return
+	var node: Dictionary = encounter.node
+	if objective_mode == "new":
+		var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
+		var base_ids := {
+			"defeatAllOpponents": "defeat_all_opponents",
+			"defeatTarget": "defeat_target",
+			"protectTarget": "protect_target",
+			"surviveRounds": "survive_rounds",
+		}
+		var objective_id := _unique_objective_id(str(base_ids[kind]))
+		var target_id := ""
+		if kind == "defeatTarget" or kind == "protectTarget":
+			target_id = str(objective_targets[objective_target_index].get("id", ""))
+		var added: Dictionary = compiler.add_encounter_objective(
+			source,
+			str(encounter.get("campaign_id", "")),
+			str(node.get("id", "")),
+			objective_id,
+			_new_objective_name(),
+			kind,
+			objective_side,
+			target_id,
+			objective_rounds if kind == "surviveRounds" else 0
+		)
+		_accept_objective_edit(added, "CREATED %s" % objective_id.to_upper(), objective_id)
+		return
+
+	var objective: Dictionary = objective_candidates[objective_candidate_index]
+	var objective_id := str(objective.get("id", ""))
+	var ids := _current_objective_ids()
+	var message := ""
+	if objective_mode == "assigned":
+		ids.erase(objective_id)
+		message = "REMOVED %s FROM ENCOUNTER" % objective_id.to_upper()
+	else:
+		ids.append(objective_id)
+		message = "ATTACHED %s" % objective_id.to_upper()
+	var packed := PackedStringArray(ids)
+	var updated: Dictionary = compiler.set_encounter_objectives(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(node.get("id", "")),
+		packed
+	)
+	_accept_objective_edit(updated, message, objective_id)
+
+
+func _accept_objective_edit(updated: Dictionary, message: String, selected_id: String) -> void:
+	if not updated.ok:
+		_set_status("OBJECTIVE REFUSED  /  %s" % _diagnostic_detail(updated), true)
+		return
+	_push_undo(source)
+	source = updated.source
+	redo_stack.clear()
+	dirty = true
+	_read_source()
+	_refresh_maps_after_edit(0)
+	objective_mode = "assigned"
+	_refresh_objective_targets()
+	_refresh_objective_candidates()
+	for index in objective_candidates.size():
+		if str(objective_candidates[index].get("id", "")) == selected_id:
+			objective_candidate_index = index
+			break
+	_update_objective_view()
+	_set_status("UNSAVED  /  %s" % message, false)
+	objective_mode_button.call_deferred("grab_focus")
+
+
 func _open_resize() -> void:
 	var map := _current_map()
 	if map.is_empty():
@@ -1351,12 +1838,26 @@ func _build_interface() -> void:
 	remove_unit.pressed.connect(_select_tool.bind("remove_unit"))
 	unit_row.add_child(remove_unit)
 	tool_buttons["remove_unit"] = remove_unit
-	deployment_button = _button("ZONE", 330, 48)
+	var encounter_rules := HBoxContainer.new()
+	encounter_rules.add_theme_constant_override("separation", 6)
+	tools_column.add_child(encounter_rules)
+	deployment_button = _button("ZONE", 104, 48)
 	deployment_button.add_theme_font_size_override("font_size", 14)
 	deployment_button.tooltip_text = "Draft and apply the selected encounter's deployment region"
 	deployment_button.pressed.connect(_begin_deployment_edit)
-	tools_column.add_child(deployment_button)
+	encounter_rules.add_child(deployment_button)
 	tool_buttons["deployment"] = deployment_button
+	objective_button = _button("GOALS", 104, 48)
+	objective_button.add_theme_font_size_override("font_size", 14)
+	objective_button.tooltip_text = "Create and assign the selected encounter's objectives"
+	objective_button.pressed.connect(_open_objectives)
+	encounter_rules.add_child(objective_button)
+	var scaling_button := _button("2P", 104, 48)
+	scaling_button.add_theme_font_size_override("font_size", 14)
+	scaling_button.tooltip_text = "Toggle an enemy placement as a two-player addition"
+	scaling_button.pressed.connect(_select_tool.bind("scaling"))
+	encounter_rules.add_child(scaling_button)
+	tool_buttons["scaling"] = scaling_button
 	deployment_actions = HBoxContainer.new()
 	deployment_actions.add_theme_constant_override("separation", 6)
 	deployment_actions.visible = false
@@ -1415,6 +1916,7 @@ func _build_interface() -> void:
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status_label)
 	_build_placement_overlay()
+	_build_objective_overlay()
 	_build_resize_overlay()
 
 
@@ -1474,6 +1976,100 @@ func _build_placement_overlay() -> void:
 	var cancel := _button("CANCEL", 220, 64)
 	cancel.pressed.connect(_close_add_placement)
 	actions.add_child(cancel)
+
+
+func _build_objective_overlay() -> void:
+	objective_layer = Control.new()
+	objective_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	objective_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	objective_layer.visible = false
+	add_child(objective_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.86)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	objective_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(430, 130)
+	panel.size = Vector2(1060, 820)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 18, Color("ffca63"))
+	)
+	objective_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	panel.add_child(column)
+	column.add_child(_label("ENCOUNTER OBJECTIVES", 24, Color("ffca63")))
+	var explanation := _label(
+		"Attach reusable project objectives or create a complete win condition. "
+		+ "Targeted objectives use portable member or placement identities.",
+		19, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 66
+	column.add_child(explanation)
+	objective_first_button = _button("VIEW", 420, 60)
+	objective_first_button.pressed.connect(_cycle_objective_mode)
+	objective_mode_button = objective_first_button
+	column.add_child(objective_mode_button)
+	objective_candidate_label = _label("", 22, Color("f2f7f9"))
+	objective_candidate_label.custom_minimum_size.y = 150
+	objective_candidate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	column.add_child(objective_candidate_label)
+	var navigation := HBoxContainer.new()
+	navigation.add_theme_constant_override("separation", 12)
+	column.add_child(navigation)
+	objective_previous_button = _button("PREVIOUS", 240, 56)
+	objective_previous_button.pressed.connect(_cycle_objective_candidate.bind(-1))
+	navigation.add_child(objective_previous_button)
+	objective_next_button = _button("NEXT", 240, 56)
+	objective_next_button.pressed.connect(_cycle_objective_candidate.bind(1))
+	navigation.add_child(objective_next_button)
+
+	objective_options = VBoxContainer.new()
+	objective_options.add_theme_constant_override("separation", 10)
+	column.add_child(objective_options)
+	var kind_side := HBoxContainer.new()
+	kind_side.add_theme_constant_override("separation", 12)
+	objective_options.add_child(kind_side)
+	objective_kind_button = _button("KIND", 610, 56)
+	objective_kind_button.add_theme_font_size_override("font_size", 15)
+	objective_kind_button.pressed.connect(_cycle_objective_kind.bind(1))
+	kind_side.add_child(objective_kind_button)
+	objective_side_button = _button("SIDE", 300, 56)
+	objective_side_button.add_theme_font_size_override("font_size", 15)
+	objective_side_button.pressed.connect(_toggle_objective_side)
+	kind_side.add_child(objective_side_button)
+	objective_target_button = _button("TARGET", 922, 56)
+	objective_target_button.add_theme_font_size_override("font_size", 15)
+	objective_target_button.pressed.connect(_cycle_objective_target)
+	objective_options.add_child(objective_target_button)
+	objective_rounds_row = HBoxContainer.new()
+	objective_rounds_row.add_theme_constant_override("separation", 10)
+	objective_options.add_child(objective_rounds_row)
+	var rounds_minus := _button("−", 120, 56)
+	rounds_minus.pressed.connect(_change_objective_rounds.bind(-1))
+	objective_rounds_row.add_child(rounds_minus)
+	objective_rounds_label = _label("3", 25, Color("f2f7f9"))
+	objective_rounds_label.custom_minimum_size = Vector2(160, 56)
+	objective_rounds_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	objective_rounds_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	objective_rounds_row.add_child(objective_rounds_label)
+	var rounds_plus := _button("+", 120, 56)
+	rounds_plus.pressed.connect(_change_objective_rounds.bind(1))
+	objective_rounds_row.add_child(rounds_plus)
+	objective_rounds_row.add_child(_label("ROUNDS TO SURVIVE", 17, Color("718896")))
+
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 12)
+	column.add_child(actions)
+	objective_primary_button = _button("APPLY", 420, 62)
+	objective_primary_button.add_theme_font_size_override("font_size", 15)
+	objective_primary_button.pressed.connect(_apply_objective_action)
+	actions.add_child(objective_primary_button)
+	var close := _button("CLOSE", 220, 62)
+	close.pressed.connect(_close_objectives)
+	actions.add_child(close)
 
 
 func _build_resize_overlay() -> void:

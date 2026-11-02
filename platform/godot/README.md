@@ -3,7 +3,7 @@
 This is the PC presentation layer for Grandleon. Godot draws and accepts input;
 the existing C++ simulation, campaign loader, package format, and tactics policy
 remain authoritative. The SDL client stays as a small reference surface, and
-the Nintendo 64 and PlayStation builds are unchanged.
+the Nintendo 64 and PlayStation builds consume the same portable projects.
 
 See [PC_ROADMAP.md](PC_ROADMAP.md) for the current review, SteamOS test
 checklist, known risks, and the ordered path from this test bundle to a
@@ -35,7 +35,10 @@ are overlaid on the terrain and can be added, moved, or removed with compact
 controller actions. Allied additions use unused campaign members; enemies use
 portable unit types. Deployment regions have a visible board overlay and an
 atomic draft/apply flow, so several cells can be toggled before canonical
-source changes. Edits that collide, leave the map, remove the last ally, create
+source changes. The **2P** tool toggles an opposing placement between always
+present and a two-player addition; scaled enemies are labelled on the board.
+The **Goals** surface attaches existing objectives or authors complete defeat,
+protect, and survive conditions. Edits that collide, leave the map, remove the last ally, create
 an invalid deployment region, or make a previously playable project invalid
 are refused. Shrinks are blocked while any encounter placement or deployment
 tile would fall outside the new board. Saves pass through the validating native
@@ -45,8 +48,8 @@ written to the installation directory. Returning through the play-mode session
 menu reopens the same project.
 
 The current creator creates and resizes maps, edits terrain, arranges both sides
-of existing encounters, and authors deployment regions. Campaign, dialogue,
-objective, and presentation editing arrive in the increments defined by
+of existing encounters, and authors deployment regions, player scaling, and
+objectives. Campaign, dialogue, and presentation editing arrive in the increments defined by
 [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
@@ -162,6 +165,14 @@ previous visual action is still resolving. Commands are serialized only at the
 deterministic simulation boundary, where collisions and conflicts have one
 portable answer. The board keeps one animation track per unit, so two accepted
 moves received in the same rendered frame animate together.
+
+Encounter difficulty can be authored visibly rather than inferred from a stat
+multiplier. An opposing placement with `minimumPlayers: 2` is omitted from a
+one-player session and fielded unchanged when two local players participate.
+The in-game map editor authors this with its **2P** tool and does not offer a
+conditional placement as an objective target. The rule lives in the project
+and compiled package; local paths, controller identifiers, and machine details
+never enter it.
 
 This is not a second real-time simulation. It is concurrent local control of a
 team phase, preserving replays and package compatibility on every target. The
