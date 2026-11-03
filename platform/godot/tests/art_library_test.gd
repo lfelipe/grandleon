@@ -3,6 +3,7 @@ extends SceneTree
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
+const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
 
 var failures := 0
 
@@ -171,6 +172,7 @@ func _init() -> void:
 	_expect("legacy walk timing", legacy_move.frame, 1)
 	_expect("legacy pivot", legacy_move.pivot, Vector2(0.5, 0.94))
 	_test_relay_terrain_pack()
+	_test_terrain_scene_selector()
 
 	if failures == 0:
 		print("art library smoke passed")
@@ -194,6 +196,15 @@ func _test_relay_terrain_pack() -> void:
 		var binding: Variant = terrain_scenes[terrain_name]
 		var path := String(binding.get("scene", "")) if binding is Dictionary else String(binding)
 		_test_terrain_scene(terrain_name, path)
+		if binding is Dictionary:
+			var variants: Variant = binding.get("variants", [])
+			if variants is Array:
+				for variant_index in variants.size():
+					var variant: Dictionary = TerrainSceneSelector.decode(variants[variant_index])
+					_test_terrain_scene(
+						"%s variant %d" % [terrain_name, variant_index + 1],
+						String(variant.get("scene", ""))
+					)
 
 	var road: Dictionary = terrain_scenes.get("road", {})
 	var water_variant: Variant = road.get("whenAdjacent", {}).get("water", {})
@@ -207,6 +218,41 @@ func _test_relay_terrain_pack() -> void:
 	var inherited_scenes: Dictionary = voxel.get("assets", {}).get("terrainScenes", {})
 	_expect("full-voxel profile inherits the relay terrain pack", inherited_scenes, terrain_scenes)
 	_expect("full-voxel profile keeps 3D characters", voxel.get("characterRenderer"), "voxel")
+
+
+func _test_terrain_scene_selector() -> void:
+	var binding := {
+		"scene": "base.tscn",
+		"variants": [
+			{"scene": "quarter.tscn", "rotationYDegrees": 90},
+			{"scene": "half.tscn", "rotationYDegrees": 180},
+			{"scene": "three-quarter.tscn", "rotationYDegrees": 270},
+		],
+	}
+	var first: Dictionary = TerrainSceneSelector.select(binding, 0, 0, 2)
+	var repeat: Dictionary = TerrainSceneSelector.select(binding, 0, 0, 2)
+	_expect("terrain variant selection is deterministic", repeat, first)
+	_expect("terrain variant hashes its coordinate", first.get("scene"), "half.tscn")
+	_expect(
+		"terrain variant exposes its rotation",
+		is_equal_approx(float(first.get("rotation_y")), PI),
+		true
+	)
+	_expect(
+		"terrain variant changes across cells",
+		TerrainSceneSelector.select(binding, 1, 0, 2).get("scene"),
+		"three-quarter.tscn"
+	)
+	_expect(
+		"terrain variant handles negative surroundings",
+		TerrainSceneSelector.select(binding, -1, 0, 2).get("scene"),
+		"quarter.tscn"
+	)
+	_expect(
+		"direct terrain binding remains valid",
+		TerrainSceneSelector.select("direct.tscn", 5, 7, 3).get("scene"),
+		"direct.tscn"
+	)
 
 
 func _test_terrain_scene(label: String, path: String) -> void:

@@ -91,22 +91,25 @@ addresses, usernames, or absolute install paths in project content or issues.
 Exit criterion: two people can launch, join, finish Last Signal, reconnect a
 controller, and quit without keyboard intervention.
 
-### 2. Replace blockout terrain incrementally
+### 2. Polish and validate the authored relay terrain
 
-- Extend the authored forest, animated water, mountain, cobbled road/bridge,
-  and relay scenes into one cohesive Halcyon Relay pack with ground slabs.
-- Bind those scenes through `graphics_profiles.json`; do not add renderer-side
-  filename rules.
-- Exercise the manifest-driven sprite contract with one higher-resolution
-  replacement character; keep the generated 32-pixel roster as the fallback.
-- Measure the authored pack under the compatibility renderer on the target PC
+- The complete Last Signal vocabulary now resolves through one manifest-bound
+  Halcyon Relay pack: animated water, cobbled road and contextual bridge,
+  forest, mountain, sand, ruins, and grass all have one-cell authored scenes.
+- A deterministic variant list rotates asymmetric detail without adding
+  randomness to portable content. A replacement pack can point those entries
+  at genuinely different scenes without changing renderer code.
+- Full Voxel inherits the same terrain binding instead of duplicating it; an
+  absent or invalid scene still falls back per tile.
+- Measure both 3D profiles under the compatibility renderer on the target PC
   before adding MultiMesh batching. These boards are small enough that art
   direction and replaceability matter first.
 
-Exit criterion: the selected profile uses authored terrain with no per-project
-Godot paths and still falls back cleanly when one asset is removed.
+Exit criterion: the target PC confirms that the authored pack is readable and
+stable at its native display mode, with acceptable frame pacing and clean
+fallback when one replacement is removed.
 
-### 3. Prove one production 3D animation path
+### 3. Tune the production 3D animation path
 
 - The imported commander now proves a normal Blender-to-GLB path with a
   sixteen-bone skeleton, skinned mesh, seven material surfaces, six in-place
@@ -116,17 +119,21 @@ Godot paths and still falls back cleanly when one asset is removed.
   seven material surfaces, and six explicitly mapped clips. Both exporters use
   the same deterministic authoring helpers and remain independent replacements.
 - The rogue now reuses the commander's exact sixteen-bone hierarchy with a
-  distinct hooded mesh, dual weapons, seven materials, and six new clips. Both
-  co-op friendlies are imported while the stormcaller still proves per-asset
-  fallback in the same encounter.
+  distinct hooded mesh, dual weapons, seven materials, and six new clips.
+- The stormcaller reuses that hierarchy again with a distinct cowl, mantle,
+  signal glaive, arc focus, materials, and six-clip action set. The complete
+  Last Signal encounter roster is now imported while other unbound archetypes
+  continue to prove per-asset fallback.
 - The optional motion record now carries an engine-derived route and recommended
   duration; use it to tune imported rigs' gait and turn clips while keeping
   root motion in place.
-- Decide on a full 3D roster only after this spike is visibly better than the
-  hybrid at the intended viewing distance.
+- Compare the complete imported encounter against the hybrid at the intended
+  viewing distance, then tune gait, turn, attack timing, silhouette, and
+  material response from the target-PC observations.
 
-Exit criterion: the authored models can replace two archetypes without a rule,
-campaign, or package change and without degrading the sprite fallback.
+Exit criterion: the complete encounter roster remains legible in motion on the
+target PC without a rule, campaign, or package change and without degrading the
+sprite or procedural fallback paths.
 
 ### 4. Productize the local-model option
 

@@ -314,6 +314,13 @@ water, without teaching the renderer an art filename:
 An absent contextual scene still falls back to the binding's base scene; an
 absent or invalid binding falls back to the procedural tile.
 
+A binding may also provide a `variants` array. Each entry accepts the same
+scene form plus an optional `rotationYDegrees`; a stable hash of map coordinate
+and terrain kind selects one without saving randomness into the project. The
+relay pack rotates its asymmetric forest, mountain, sand, and grass detail to
+break repetition. A later pack can point those entries at entirely different
+scenes while retaining the same portable map.
+
 Profiles may name another profile with `inherits`; dictionaries are merged
 before the selected profile is applied over `common`. The full-voxel profile
 uses this to share the complete relay terrain pack with `voxel-sprites` while

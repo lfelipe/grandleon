@@ -4,6 +4,7 @@ extends SubViewportContainer
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
+const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const TERRAIN_NAMES := [
 	"water", "road", "forest", "mountain", "sand", "snow", "swamp",
@@ -775,8 +776,9 @@ func _create_authored_tile(x: int, y: int, kind: int) -> bool:
 	var scenes: Dictionary = assets.get("terrainScenes", {})
 	var key: String = String(TERRAIN_NAMES[clampi(kind, 0, TERRAIN_NAMES.size() - 1)])
 	var binding: Variant = scenes.get(key, "")
-	var path := String(binding.get("scene", "")) if binding is Dictionary else String(binding)
-	var rotation_y := 0.0
+	var selected: Dictionary = TerrainSceneSelector.select(binding, x, y, kind)
+	var path := String(selected.get("scene", ""))
+	var rotation_y := float(selected.get("rotation_y", 0.0))
 	if binding is Dictionary:
 		var variants_value: Variant = binding.get("whenAdjacent", {})
 		if variants_value is Dictionary:
@@ -785,7 +787,9 @@ func _create_authored_tile(x: int, y: int, kind: int) -> bool:
 				if offset == Vector2i.ZERO:
 					continue
 				var variant: Variant = variants_value[adjacent_name]
-				path = String(variant.get("scene", "")) if variant is Dictionary else String(variant)
+				var contextual: Dictionary = TerrainSceneSelector.decode(variant)
+				path = String(contextual.get("scene", ""))
+				rotation_y = float(contextual.get("rotation_y", 0.0))
 				if variant is Dictionary and bool(variant.get("rotateToAdjacent", false)):
 					rotation_y = PI * 0.5 if offset.x != 0 else 0.0
 				break

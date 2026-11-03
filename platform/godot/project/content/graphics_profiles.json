@@ -104,9 +104,30 @@
       "characterRenderer": "sprites",
       "assets": {
         "terrainScenes": {
-          "forest": "res://art/terrain/relay_forest.tscn",
-          "mountain": "res://art/terrain/relay_mountain.tscn",
-          "sand": "res://art/terrain/relay_sand.tscn",
+          "forest": {
+            "scene": "res://art/terrain/relay_forest.tscn",
+            "variants": [
+              {"scene": "res://art/terrain/relay_forest.tscn", "rotationYDegrees": 90},
+              {"scene": "res://art/terrain/relay_forest.tscn", "rotationYDegrees": 180},
+              {"scene": "res://art/terrain/relay_forest.tscn", "rotationYDegrees": 270}
+            ]
+          },
+          "mountain": {
+            "scene": "res://art/terrain/relay_mountain.tscn",
+            "variants": [
+              {"scene": "res://art/terrain/relay_mountain.tscn", "rotationYDegrees": 90},
+              {"scene": "res://art/terrain/relay_mountain.tscn", "rotationYDegrees": 180},
+              {"scene": "res://art/terrain/relay_mountain.tscn", "rotationYDegrees": 270}
+            ]
+          },
+          "sand": {
+            "scene": "res://art/terrain/relay_sand.tscn",
+            "variants": [
+              {"scene": "res://art/terrain/relay_sand.tscn", "rotationYDegrees": 90},
+              {"scene": "res://art/terrain/relay_sand.tscn", "rotationYDegrees": 180},
+              {"scene": "res://art/terrain/relay_sand.tscn", "rotationYDegrees": 270}
+            ]
+          },
           "road": {
             "scene": "res://art/terrain/relay_road.tscn",
             "whenAdjacent": {
@@ -118,7 +139,14 @@
           },
           "water": "res://art/terrain/relay_water.tscn",
           "ruins": "res://art/terrain/relay_ruins.tscn",
-          "grass": "res://art/terrain/relay_grass.tscn"
+          "grass": {
+            "scene": "res://art/terrain/relay_grass.tscn",
+            "variants": [
+              {"scene": "res://art/terrain/relay_grass.tscn", "rotationYDegrees": 90},
+              {"scene": "res://art/terrain/relay_grass.tscn", "rotationYDegrees": 180},
+              {"scene": "res://art/terrain/relay_grass.tscn", "rotationYDegrees": 270}
+            ]
+          }
         },
         "characterSprites": {
           "commander|amber|scifi|first": {
