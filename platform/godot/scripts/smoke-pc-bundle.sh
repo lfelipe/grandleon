@@ -46,6 +46,9 @@ for command in cmake file timeout; do
 done
 for required in \
     launch-pc.sh godot BUILD-INFO.txt grandleon-icon.png \
+    LICENSE.txt NOTICE.txt \
+    licenses/GODOT-LICENSE.txt licenses/GODOT-COPYRIGHT.txt \
+    licenses/GODOT-CPP-LICENSE.txt \
     project/game.gpk project/bin/libgrandleon_godot.so; do
     if [[ ! -s "${bundle_dir}/${required}" ]]; then
         printf 'PC bundle file is missing or empty: %s\n' "${required}" >&2

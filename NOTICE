@@ -1,4 +1,12 @@
-Grandleon is distributed under the MIT Licence; see LICENSE.
+Grand Leon is distributed under the MIT License; see LICENSE.
+
+The Linux PC build includes Godot Engine 4.7.2 and links godot-cpp 4.7.2.
+Both are distributed under the MIT License and retain their upstream
+copyrights. The release bundle includes their complete license files and the
+Godot Engine third-party copyright inventory in its `licenses` directory.
+
+    https://godotengine.org/license/
+    https://github.com/godotengine/godot-cpp
 
 Two generated files carry third-party code.
 

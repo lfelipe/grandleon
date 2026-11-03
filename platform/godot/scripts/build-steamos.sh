@@ -106,6 +106,18 @@ cmake -E copy "${godot_binary}" "${temporary_dir}/godot"
 cmake -E copy "${script_dir}/launch-pc.sh" "${temporary_dir}/launch-pc.sh"
 cmake -E copy "${script_dir}/control-pc.sh" "${temporary_dir}/control-pc.sh"
 cmake -E copy "${stage_dir}/icon.png" "${temporary_dir}/grandleon-icon.png"
+cmake -E make_directory "${temporary_dir}/licenses"
+cmake -E copy "${repo_root}/LICENSE" "${temporary_dir}/LICENSE.txt"
+cmake -E copy "${repo_root}/NOTICE" "${temporary_dir}/NOTICE.txt"
+cmake -E copy \
+    "${repo_root}/third_party/godot/4.7.2/LICENSE.txt" \
+    "${temporary_dir}/licenses/GODOT-LICENSE.txt"
+cmake -E copy \
+    "${repo_root}/third_party/godot/4.7.2/COPYRIGHT.txt" \
+    "${temporary_dir}/licenses/GODOT-COPYRIGHT.txt"
+cmake -E copy \
+    "${repo_root}/third_party/godot-cpp/4.7.2/LICENSE.md" \
+    "${temporary_dir}/licenses/GODOT-CPP-LICENSE.txt"
 cmake -E copy \
     "${repo_root}/platform/godot/project/graphics.example.json" \
     "${temporary_dir}/graphics.example.json"
