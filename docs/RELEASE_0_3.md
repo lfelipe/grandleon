@@ -292,8 +292,21 @@ are frozen.
   Godot integration smokes after adding contextual diagnostic repair. Tests
   cover field labels, exact placement/cell movement recovery, exact story-line
   focus, and affected Army and Gear selection without displaying stable source
-  identities. This is the current PC release-gate baseline; it does not replace
-  the final clean-revision all-target gate.
+  identities.
+- `175124d`: the exact committed tree passes all 68 native tests and all 23
+  Godot integration smokes after recording the actionable-diagnostics gate.
+- `a13a258`: the PlayStation conformance ROM passes all 60 cases in the pinned
+  emulator, including measured 20-, 32-, and 48-unit battle workloads. The
+  48-unit case completes the reachable-cell and opposing-danger calculations
+  in 21,842 microseconds with a 30,880-byte peak heap. The PlayStation play and
+  turn ROMs pass MIPS-I and heap checks, and the Nintendo 64 play ROM builds at
+  1,540,096 bytes. This focused measurement does not replace the final complete
+  console emulator gate.
+- `b0c16b5`: the exact committed tree passes all 68 native tests and all 23
+  Godot integration smokes after exposing the shared 48-unit console budget in
+  Map and Campaign authoring without limiting PC projects. Documentation links
+  report zero unresolved references. This is the current PC release-gate
+  baseline; it does not replace the final clean-revision all-target gate.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
