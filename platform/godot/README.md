@@ -216,6 +216,14 @@ without creating a separate game mode. The current build implements that
 requirement through an optional local control profile while retaining the
 stable default mapping above.
 
+The play HUD does not keep that complete control list on screen. It follows the
+last player to interact and shows only the current goal and usable buttons:
+select a character, place during deployment, choose the active action's target,
+wait for the opposing side, or choose somebody else. While one submitted action
+is animating, the prompt explicitly says that another character can be
+commanded, matching the concurrent team-phase rules instead of implying a turn
+lock. Player readiness remains two compact identity-free lines above it.
+
 To remap buttons, copy `controls.example.json` to `controls.local.json` beside
 the launcher and change values under `buttons`. The optional `labels` object
 maps physical buttons to the short legends shown throughout play, dialogue,
@@ -468,6 +476,10 @@ the included game and the minimal controller-first home actions.
 
 `scripts/smoke-frame-timing.sh` verifies the rolling frame-time calculation,
 its deliberately narrow data shape, and the session-menu integration.
+
+`scripts/smoke-control-profile.sh` also verifies that the contextual play HUD
+uses remapped labels for action selection and simultaneous-command guidance,
+rather than falling back to hard-coded gamepad letters.
 
 The runnable project is staged at
 `build-godot/platform/godot/project/app`. Compile a package into that directory,

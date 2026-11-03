@@ -66,6 +66,7 @@ var keyboard_seat := -1
 var axis_latched: Array[Vector2i] = [Vector2i.ZERO, Vector2i.ZERO]
 var selected_units: Array[int] = [0, 0]
 var action_modes: Array[String] = ["move", "move"]
+var hud_seat := 0
 var snapshot: Dictionary = {}
 var battle_terrain: Array = []
 var battle_theme := 0
@@ -412,8 +413,8 @@ func _run_controls_smoke() -> void:
 		"menu": controls.binding("menu") == "start",
 		"optional control": controls.button("previous_unit") < 0,
 		"profile warning": controls.warning().is_empty(),
-		"play help": help_label.text.contains("[b]1[/b][/color]  SELECT / CONFIRM"),
-		"menu help": help_label.text.contains("[b]MENU[/b]  BEGIN / SESSION MENU"),
+		"play help": help_label.text.contains("[b]1[/b][/color]  SELECT"),
+		"menu help": help_label.text.contains("[b]MENU[/b]  SESSION MENU"),
 		"resume label": session_menu_resume.text == "RESUME",
 		"save label": session_menu_save_load.text == "SAVE / LOAD",
 		"exit label": session_menu_quit.text == "EXIT GAME",
@@ -440,6 +441,31 @@ func _run_controls_smoke() -> void:
 	if session_menu_page != "settings" or not session_menu_graphics.visible:
 		failed.append("settings page")
 	_show_root_page()
+	snapshot = {
+		"active_side": "first",
+		"deploying": false,
+		"units": [{"id": 11, "has_acted": false}],
+	}
+	selected_units[0] = 11
+	action_modes[0] = "attack"
+	_update_context_help(0)
+	if (
+		not help_label.text.contains("CHOOSE AN ENEMY")
+		or not help_label.text.contains("3[/b]  NEXT: ABILITY")
+		or not help_label.text.contains("4[/b]  FINISH")
+	):
+		failed.append("action context")
+	pending_requests[1] = 11
+	_update_context_help(0)
+	if (
+		not help_label.text.contains("ACTION IN PROGRESS")
+		or not help_label.text.contains("COMMAND ANOTHER CHARACTER")
+	):
+		failed.append("simultaneous context")
+	pending_requests.clear()
+	selected_units = [0, 0]
+	action_modes = ["move", "move"]
+	snapshot = {}
 	if not failed.is_empty():
 		push_error("control profile did not propagate: " + ", ".join(failed))
 		get_tree().quit(2)
@@ -965,7 +991,7 @@ func _create_interface() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	side.add_child(column)
-	var panel_title := _label("TACTICAL LINK", 18, Color("69d9ff"))
+	var panel_title := _label("TEAM CONTROL", 18, Color("69d9ff"))
 	column.add_child(panel_title)
 	unit_name = _label("Select a character", 27, Color("f2f7f9"))
 	unit_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -973,7 +999,7 @@ func _create_interface() -> void:
 	unit_stats = RichTextLabel.new()
 	unit_stats.bbcode_enabled = true
 	unit_stats.fit_content = true
-	unit_stats.custom_minimum_size = Vector2(320, 150)
+	unit_stats.custom_minimum_size = Vector2(320, 126)
 	_bind_font_size(unit_stats, "normal_font_size", 17)
 	unit_stats.add_theme_color_override("default_color", Color("b9cbd5"))
 	column.add_child(unit_stats)
@@ -983,7 +1009,7 @@ func _create_interface() -> void:
 	controller_label = RichTextLabel.new()
 	controller_label.bbcode_enabled = true
 	controller_label.fit_content = true
-	controller_label.custom_minimum_size = Vector2(320, 82)
+	controller_label.custom_minimum_size = Vector2(320, 56)
 	_bind_font_size(controller_label, "normal_font_size", 15)
 	controller_label.add_theme_color_override("default_color", Color("a9bdc9"))
 	column.add_child(controller_label)
@@ -993,7 +1019,7 @@ func _create_interface() -> void:
 	help_label = RichTextLabel.new()
 	help_label.bbcode_enabled = true
 	help_label.fit_content = true
-	help_label.custom_minimum_size = Vector2(320, 320)
+	help_label.custom_minimum_size = Vector2(320, 190)
 	_bind_font_size(help_label, "normal_font_size", 16)
 	help_label.add_theme_color_override("default_color", Color("a9bdc9"))
 	help_label.text = _help_text()
@@ -1601,7 +1627,9 @@ func _update_controller_label() -> void:
 		if device >= 0:
 			source = "CONTROLLER"
 		var state := "READY" if seat.get("active", false) else "WAITING"
-		lines.append("[color=#%s][b]P%d[/b][/color]  %s\n[color=#718896]%s[/color]" % [colour, index + 1, source, state])
+		lines.append("[color=#%s][b]P%d[/b][/color]  %s  /  [color=#718896]%s[/color]" % [
+			colour, index + 1, state, source
+		])
 	controller_label.text = "\n".join(lines)
 
 
@@ -1992,6 +2020,7 @@ func _handle_pad_motion(event: InputEventJoypadMotion) -> void:
 func _move_cursor(seat: int, delta: Vector2i) -> void:
 	if snapshot.is_empty() or seat >= seats.size():
 		return
+	hud_seat = seat
 	var cursor: Vector2i = seats[seat].cursor + delta
 	cursor.x = wrapi(cursor.x, 0, int(snapshot.width))
 	cursor.y = wrapi(cursor.y, 0, int(snapshot.height))
@@ -2000,11 +2029,14 @@ func _move_cursor(seat: int, delta: Vector2i) -> void:
 	var hovered: Dictionary = board.unit_at(cursor)
 	if not hovered.is_empty():
 		_show_unit(hovered, seat)
+	else:
+		_update_context_help(seat)
 
 
 func _accept_at(seat: int) -> void:
 	if snapshot.is_empty():
 		return
+	hud_seat = seat
 	var cursor: Vector2i = seats[seat].cursor
 	var occupant: Dictionary = board.unit_at(cursor)
 	var selected := selected_units[seat]
@@ -2059,6 +2091,11 @@ func _submit(kind: String, unit_id := 0, target_id := 0, cell := Vector2i.ZERO, 
 	next_request_id += 1
 	pending_requests[request_id] = unit_id
 	session.submit_intent(kind, unit_id, target_id, cell.x, cell.y, content_id, request_id)
+	for seat in selected_units.size():
+		if selected_units[seat] == unit_id:
+			hud_seat = seat
+			_update_context_help(seat)
+			break
 	return request_id
 
 
@@ -2084,15 +2121,18 @@ func _selected_by_other_seat(seat: int, unit_id: int) -> int:
 
 
 func _cancel(seat: int) -> void:
+	hud_seat = seat
 	selected_units[seat] = 0
 	action_modes[seat] = "move"
 	board.set_selected(seat, 0, "move")
 	board.set_highlights(seat, [])
 	unit_name.text = "Select a character"
-	unit_stats.text = "[color=#89a8b8]Each player has an independent cursor. Either may command any friendly character.[/color]"
+	unit_stats.text = "[color=#89a8b8]Both players may command any available friendly character.[/color]"
+	_update_context_help(seat)
 
 
 func _cycle_mode(seat: int, direction: int) -> void:
+	hud_seat = seat
 	var at := MODES.find(action_modes[seat])
 	action_modes[seat] = MODES[wrapi(at + direction, 0, MODES.size())]
 	board.set_selected(seat, selected_units[seat], action_modes[seat])
@@ -2101,6 +2141,7 @@ func _cycle_mode(seat: int, direction: int) -> void:
 
 
 func _cycle_unit(seat: int, direction: int) -> void:
+	hud_seat = seat
 	var available: Array = []
 	for unit: Dictionary in snapshot.get("units", []):
 		if unit.get("on_board", false) and String(unit.side) == "first" and not unit.get("has_acted", false):
@@ -2139,8 +2180,11 @@ func _update_highlights(seat: int) -> void:
 
 
 func _wait_selected(seat: int) -> void:
+	hud_seat = seat
 	if selected_units[seat] != 0 and not _unit_is_pending(selected_units[seat]):
 		_submit("wait", selected_units[seat])
+	else:
+		_update_context_help(seat)
 
 
 func _seed_cursors() -> void:
@@ -2156,20 +2200,121 @@ func _seed_cursors() -> void:
 
 
 func _show_unit(unit: Dictionary, seat := 0) -> void:
+	hud_seat = seat
 	unit_name.text = String(unit.get("name", "Unit"))
-	var mode := action_modes[seat].to_upper()
+	var heading := "OPPOSITION"
+	var heading_colour := "#ff8a9a"
+	if String(unit.get("side", "")) == "first":
+		heading = "FRIENDLY"
+		heading_colour = "#89a8b8"
+		for owner in selected_units.size():
+			if selected_units[owner] == int(unit.get("id", 0)):
+				heading = "PLAYER %d  /  %s" % [
+					owner + 1, action_modes[owner].to_upper()
+				]
+				heading_colour = PLAYER_COLOURS[owner].to_html()
+				break
 	unit_stats.text = (
-		"[color=%s]PLAYER %d  /  %s[/color]\n" % [PLAYER_COLOURS[seat].to_html(), seat + 1, mode]
+		"[color=%s]%s[/color]\n" % [heading_colour, heading]
 		+ "[font_size=22][b]HP %d / %d[/b][/font_size]\n" % [unit.health, unit.maximum_health]
 		+ "MOVE %d    REACH %d–%d\n" % [unit.movement, unit.minimum_reach, unit.maximum_reach]
 		+ ("[color=#718896]ACTED[/color]" if unit.get("has_acted", false) else "[color=#72e08f]READY[/color]")
 	)
+	_update_context_help(seat)
 
 
-func _refresh_selected_panel(seat := 0) -> void:
+func _refresh_selected_panel(seat := -1) -> void:
+	if seat < 0:
+		seat = hud_seat
+	seat = clampi(seat, 0, selected_units.size() - 1)
 	var unit := _unit_by_id(selected_units[seat])
 	if not unit.is_empty():
 		_show_unit(unit, seat)
+	else:
+		_update_context_help(seat)
+
+
+func _update_context_help(seat := -1) -> void:
+	if help_label == null:
+		return
+	if seat < 0:
+		seat = hud_seat
+	seat = clampi(seat, 0, selected_units.size() - 1)
+	help_label.text = _context_help_text(seat)
+
+
+func _context_help_text(seat: int) -> String:
+	if snapshot.is_empty():
+		return _help_text()
+	var confirm: String = controls.label("confirm")
+	var cancel: String = controls.label("cancel")
+	var next_action: String = controls.label("next_action")
+	var finish: String = controls.label("end_turn")
+	var menu: String = controls.label("menu")
+	if String(snapshot.get("active_side", "")) != "first":
+		return (
+			"[color=#69d9ff][b]OPPOSITION MOVING[/b][/color]\n"
+			+ "Your controls return when the team phase begins.\n\n"
+			+ "[b]%s[/b]  SESSION MENU" % menu
+		)
+	var selected := selected_units[seat]
+	if selected == 0:
+		return (
+			"[color=#%s][b]PLAYER %d / SELECT A CHARACTER[/b][/color]\n" % [
+				PLAYER_COLOURS[seat].to_html(), seat + 1
+			]
+			+ "[b]STICK / D-PAD[/b]  CHOOSE\n"
+			+ "[color=#69d9ff][b]%s[/b][/color]  SELECT\n\n" % confirm
+			+ "[b]%s[/b]  %s" % [
+				menu, "BEGIN BATTLE" if snapshot.get("deploying", false) else "SESSION MENU"
+			]
+		)
+	var unit := _unit_by_id(selected)
+	if _unit_is_pending(selected):
+		return (
+			"[color=#69d9ff][b]ACTION IN PROGRESS[/b][/color]\n"
+			+ "COMMAND ANOTHER CHARACTER while this animation finishes.\n"
+			+ "[b]STICK / D-PAD[/b]  CHOOSE  ·  [b]%s[/b]  SELECT\n" % confirm
+			+ "[b]%s[/b]  CLEAR SELECTION  ·  [b]%s[/b]  SESSION MENU" % [cancel, menu]
+		)
+	if not unit.is_empty() and unit.get("has_acted", false):
+		return (
+			"[color=#69d9ff][b]CHARACTER FINISHED[/b][/color]\n"
+			+ "Choose another available character.\n"
+			+ "[b]STICK / D-PAD[/b]  CHOOSE  ·  [b]%s[/b]  SELECT\n" % confirm
+			+ "[b]%s[/b]  CLEAR SELECTION  ·  [b]%s[/b]  SESSION MENU" % [cancel, menu]
+		)
+	if snapshot.get("deploying", false):
+		return (
+			"[color=#69d9ff][b]CHOOSE A DEPLOYMENT TILE[/b][/color]\n"
+			+ "[b]STICK / D-PAD[/b]  TILE  ·  [b]%s[/b]  PLACE\n" % confirm
+			+ "[b]%s[/b]  CANCEL  ·  [b]%s[/b]  BEGIN BATTLE" % [cancel, menu]
+		)
+	var mode := action_modes[seat]
+	var prompt: String = {
+		"move": "CHOOSE A DESTINATION",
+		"attack": "CHOOSE AN ENEMY IN RANGE",
+		"ability": "CHOOSE AN ABILITY TARGET",
+		"talk": "CHOOSE AN ADJACENT CHARACTER",
+	}.get(mode, "CHOOSE A TARGET")
+	var action: String = {
+		"move": "MOVE",
+		"attack": "ATTACK",
+		"ability": "USE ABILITY",
+		"talk": "TALK",
+	}.get(mode, "CONFIRM")
+	var mode_index := MODES.find(mode)
+	var next_mode: String = MODES[wrapi(mode_index + 1, 0, MODES.size())].to_upper()
+	return (
+		"[color=#69d9ff][b]%s[/b][/color]\n" % prompt
+		+ "[b]STICK / D-PAD[/b]  TILE  ·  [color=#69d9ff][b]%s[/b][/color]  %s\n" % [
+			confirm, action
+		]
+		+ "[b]%s[/b]  NEXT: %s  ·  [b]%s[/b]  CANCEL\n" % [
+			next_action, next_mode, cancel
+		]
+		+ "[b]%s[/b]  FINISH  ·  [b]%s[/b]  SESSION MENU" % [finish, menu]
+	)
 
 
 func _unit_by_id(id: int) -> Dictionary:
@@ -2185,6 +2330,7 @@ func _update_status() -> void:
 	var phase := "TEAM PHASE" if String(snapshot.get("turn_order", "")) == "side_blocks" and String(snapshot.active_side) == "first" else (String(snapshot.active_side).to_upper() + " SIDE")
 	turn_label.text = "ROUND %d  /  %s" % [int(snapshot.round) + 1, phase]
 	status_label.text = "DEPLOYMENT" if snapshot.get("deploying", false) else ("YOUR MOVE" if String(snapshot.active_side) == "first" else "OPPOSITION THINKING")
+	_update_context_help()
 
 
 func _show_dialogue_line() -> void:
@@ -2259,13 +2405,10 @@ func _show_fatal(message: String) -> void:
 
 func _help_text() -> String:
 	return (
-		"[b]STICK / D-PAD[/b]  MOVE CURSOR\n"
-		+ "[color=#69d9ff][b]%s[/b][/color]  SELECT / CONFIRM\n" % controls.label("confirm")
-		+ "[color=#ffca63][b]%s[/b][/color]  CANCEL\n" % controls.label("cancel")
-		+ "[b]%s[/b]  NEXT ACTION\n" % controls.label("next_action")
-		+ "[b]%s[/b]  END CHARACTER TURN\n" % controls.label("end_turn")
-		+ "[b]%s[/b]  BEGIN / SESSION MENU\n\n" % controls.label("menu")
-		+ "[color=#89a8b8]TEAM PHASE: both players command independently and movement animations overlap. Conflicting inputs are resolved deterministically by the battle.[/color]"
+		"[color=#69d9ff][b]SELECT A CHARACTER[/b][/color]\n"
+		+ "[b]STICK / D-PAD[/b]  CHOOSE\n"
+		+ "[color=#69d9ff][b]%s[/b][/color]  SELECT\n\n" % controls.label("confirm")
+		+ "[b]%s[/b]  SESSION MENU" % controls.label("menu")
 	)
 
 
