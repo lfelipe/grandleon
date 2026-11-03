@@ -341,8 +341,15 @@ are frozen.
   removal, unshared-scene cleanup, and one-step undo at each author action.
   Focused source tests pass GCC and Clang, a real 1920×1080 render confirms the
   three-action screen, and documentation links report zero unresolved
-  references. This is the current PC release-gate baseline; it does not replace
-  the final clean-revision all-target gate.
+  references.
+- `7209c64`: the exact committed tree passes all 68 native tests and all 23
+  Godot integration smokes after adding the focused Multiple Requirements
+  outcome builder. Campaign tests cover portable all, any, and not rules over
+  named goal, item, and Talk facts, simple-condition promotion, compilation,
+  controller focus, and one-step undo. Real 1280×720 and 1920×1080 renders
+  confirm the modal scales without clipping, and documentation links report
+  zero unresolved references. This is the current PC release-gate baseline; it
+  does not replace the final clean-revision all-target gate.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
