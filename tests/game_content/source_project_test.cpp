@@ -2524,6 +2524,70 @@ void chooses_shared_presentation_without_changing_gameplay_source() {
     );
 }
 
+void authors_role_loadouts_without_retyping_unit_types() {
+    const auto without_weapon = gc::set_source_unit_type_kit_entry_json(
+        source, "blue_unit", "weapon", "sword", false
+    );
+    const auto with_weapon = gc::set_source_unit_type_kit_entry_json(
+        without_weapon.json, "blue_unit", "weapon", "sword", true
+    );
+    const auto with_item = gc::set_source_unit_type_kit_entry_json(
+        with_weapon.json, "blue_unit", "item", "tonic", true
+    );
+    const auto parsed = gc::parse_source_project_json(with_item.json);
+    expect(
+        without_weapon && with_weapon && with_item && parsed &&
+            parsed.source.unit_types.front().starting_weapons.size() == 1 &&
+            parsed.source.unit_types.front().starting_items.size() == 1 &&
+            gc::compile(parsed.source),
+        "a role's named starting weapons and items remain portable and playable"
+    );
+    const auto duplicate = gc::set_source_unit_type_kit_entry_json(
+        with_item.json, "blue_unit", "item", "tonic", true
+    );
+    const auto removed_item = gc::set_source_unit_type_kit_entry_json(
+        duplicate.json, "blue_unit", "item", "tonic", false
+    );
+    expect(
+        duplicate && duplicate.json == with_item.json && removed_item &&
+            removed_item.json.find("startingItemIds") == std::string::npos,
+        "role loadout toggles are idempotent and remove empty optional lists"
+    );
+
+    const std::string with_ability_definition = source_with(
+        R"json(  "maps": [{)json",
+        R"json(  "abilities": [{
+    "id":"spark","name":"Spark","kind":"damage",
+    "damageType":"magical","areaShape":"single","power":2,
+    "minimumRange":1,"maximumRange":2
+  }],
+  "maps": [{)json"
+    );
+    const auto with_ability = gc::set_source_unit_type_kit_entry_json(
+        with_ability_definition, "blue_unit", "ability", "spark", true
+    );
+    const auto parsed_ability =
+        gc::parse_source_project_json(with_ability.json);
+    expect(
+        with_ability && parsed_ability &&
+            parsed_ability.source.unit_types.front().abilities.size() == 1 &&
+            gc::compile(parsed_ability.source),
+        "a named ability can join the same portable role loadout"
+    );
+    expect(
+        !gc::set_source_unit_type_kit_entry_json(
+            source, "missing", "item", "tonic", true
+        ) &&
+            !gc::set_source_unit_type_kit_entry_json(
+                source, "blue_unit", "spell", "tonic", true
+            ) &&
+            !gc::set_source_unit_type_kit_entry_json(
+                source, "blue_unit", "item", "missing", true
+            ),
+        "role loadouts refuse unknown roles, categories, and assets"
+    );
+}
+
 void creates_and_attaches_one_portable_dialogue_scene() {
     const std::string with_story = source_with(
         R"json("entryNodeId":"battle",
@@ -2953,6 +3017,7 @@ int main() {
     adds_and_renames_campaign_members_without_retyping_the_project();
     authors_campaign_supplies_without_editing_grant_arrays();
     chooses_shared_presentation_without_changing_gameplay_source();
+    authors_role_loadouts_without_retyping_unit_types();
     creates_and_attaches_one_portable_dialogue_scene();
     maps_authored_resistance();
     refuses_a_stat_the_rules_cannot_execute();

@@ -5944,4 +5944,134 @@ SourceTextResult set_source_project_presentation_json(
     return result;
 }
 
+SourceTextResult set_source_unit_type_kit_entry_json(
+    std::string_view source_json,
+    std::string_view unit_type_id,
+    std::string_view kind,
+    std::string_view asset_id,
+    bool included
+) {
+    SourceTextResult result;
+    if (!valid_source_key(unit_type_id) || !valid_source_key(asset_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+            "role and loadout identities must be stable source-key strings"
+        );
+        return result;
+    }
+    std::string collection;
+    std::string field;
+    if (kind == "weapon") {
+        collection = "weapons";
+        field = "startingWeaponIds";
+    } else if (kind == "item") {
+        collection = "items";
+        field = "startingItemIds";
+    } else if (kind == "ability") {
+        collection = "abilities";
+        field = "abilityIds";
+    } else {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+            "role loadout kind must be weapon, item, or ability"
+        );
+        return result;
+    }
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* unit_types =
+        root == nullptr ? nullptr : mutable_array(*root, "unitTypes");
+    std::size_t unit_index = 0;
+    Object* unit = unit_types == nullptr
+                       ? nullptr
+                       : find_object_by_id(
+                             *unit_types, unit_type_id, &unit_index
+                         );
+    if (unit == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+            "role was not found"
+        );
+        return result;
+    }
+    Array* assets = root == nullptr
+                        ? nullptr
+                        : mutable_array(*root, collection);
+    if (assets == nullptr || find_object_by_id(*assets, asset_id) == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            "$.unitTypes[" + std::to_string(unit_index) + "]." + field,
+            "loadout choice was not found in the project's " + collection
+        );
+        return result;
+    }
+    Array* entries = mutable_array(*unit, field);
+    auto matching = entries == nullptr
+                        ? Array::iterator{}
+                        : std::find_if(
+                              entries->begin(), entries->end(),
+                              [&](const Json& value) {
+                                  const auto* identity =
+                                      std::get_if<std::string>(&value.value);
+                                  return identity != nullptr &&
+                                         *identity == asset_id;
+                              }
+                          );
+    if (included) {
+        if (entries != nullptr && matching != entries->end()) {
+            result.json = std::string(source_json);
+            return result;
+        }
+        if (entries == nullptr && unit->find(field) == unit->end()) {
+            auto inserted = unit->emplace(field, Json{Array{}});
+            entries = std::get_if<Array>(&inserted.first->second.value);
+        }
+        if (entries == nullptr || entries->size() >= 65535) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                "$.unitTypes[" + std::to_string(unit_index) + "]." + field,
+                "role loadout list is not writable or is full"
+            );
+            return result;
+        }
+        entries->push_back(Json{std::string(asset_id)});
+    } else {
+        if (entries == nullptr || matching == entries->end()) {
+            result.json = std::string(source_json);
+            return result;
+        }
+        entries->erase(matching);
+        if (entries->empty()) unit->erase(field);
+    }
+
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value,
+        "$.unitTypes[" + std::to_string(unit_index) + "]." + field,
+        "role loadout edit would make this playable project invalid"
+    );
+    return result;
+}
+
 }  // namespace grandleon::game_content

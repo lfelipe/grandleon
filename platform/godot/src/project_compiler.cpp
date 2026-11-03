@@ -229,6 +229,13 @@ void GrandleonProjectCompiler::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
+            "set_unit_type_kit_entry", "source_json", "unit_type_id",
+            "kind", "asset_id", "included"
+        ),
+        &GrandleonProjectCompiler::set_unit_type_kit_entry
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
             "insert_dialogue_line", "source_json", "dialogue_id",
             "after_line_index", "speaker", "line_text"
         ),
@@ -1035,6 +1042,35 @@ gd::Dictionary GrandleonProjectCompiler::set_project_presentation(
     const gc::SourceTextResult updated =
         gc::set_source_project_presentation_json(
             narrow(source_json), narrow(field), narrow(value)
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_unit_type_kit_entry(
+    const gd::String& source_json,
+    const gd::String& unit_type_id,
+    const gd::String& kind,
+    const gd::String& asset_id,
+    bool included
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated =
+        gc::set_source_unit_type_kit_entry_json(
+            narrow(source_json), narrow(unit_type_id), narrow(kind),
+            narrow(asset_id), included
         );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {

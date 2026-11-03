@@ -197,6 +197,13 @@ public:
         const ::godot::String& field,
         const ::godot::String& value
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_unit_type_kit_entry(
+        const ::godot::String& source_json,
+        const ::godot::String& unit_type_id,
+        const ::godot::String& kind,
+        const ::godot::String& asset_id,
+        bool included
+    ) const;
     [[nodiscard]] ::godot::Dictionary insert_dialogue_line(
         const ::godot::String& source_json,
         const ::godot::String& dialogue_id,

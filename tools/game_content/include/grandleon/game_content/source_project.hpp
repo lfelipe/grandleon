@@ -373,6 +373,17 @@ struct SourceMapCell final {
     std::string_view value
 );
 
+// Adds or removes one named weapon, item, or ability from an existing unit
+// type's portable starting kit. The compiler rechecks class restrictions and
+// all references before accepting a change.
+[[nodiscard]] SourceTextResult set_source_unit_type_kit_entry_json(
+    std::string_view source_json,
+    std::string_view unit_type_id,
+    std::string_view kind,
+    std::string_view asset_id,
+    bool included
+);
+
 // Creates one complete scene and attaches it to an existing story node as one
 // validated edit. The opening speaker may name a unit type for portable
 // portraits; backdrop may be empty to retain the ordinary flat presentation.

@@ -71,6 +71,15 @@ func _init() -> void:
 				var presentation_data: Dictionary = JSON.parse_string(presentation.source)
 				_expect("project presentation stores shared choice", presentation_data.themeId, "winter")
 				_expect("project presentation remains playable", compiler.compile_source_json(presentation.source).ok, true)
+			var role_item: Dictionary = compiler.set_unit_type_kit_entry(
+				source, str(source_data.unitTypes[1].id), "item",
+				str(source_data.items[0].id), true
+			)
+			_expect("role loadout edit succeeds", role_item.ok, true)
+			if role_item.ok:
+				var role_item_data: Dictionary = JSON.parse_string(role_item.source)
+				_expect("role loadout stores named item", role_item_data.unitTypes[1].startingItemIds[0], source_data.items[0].id)
+				_expect("role loadout remains playable", compiler.compile_source_json(role_item.source).ok, true)
 			var terrain := PackedStringArray()
 			for terrain_id: Variant in source_data.maps[0].terrain:
 				terrain.append("water" if str(terrain_id) == "forest" else str(terrain_id))
