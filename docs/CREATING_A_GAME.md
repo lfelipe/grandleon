@@ -1,154 +1,226 @@
 # Creating a game
 
-A game is characters, ground to fight on, **Stages** fought on that ground, and
-the order the Stages happen in. One pass through it, in the order you would
-do it.
+Grandleon's PC application is both the player and the campaign creator. A new
+campaign starts playable: it already has two heroes, opponents, a goal, a short
+conversation, co-op ownership and scaling, and an ending. Creation is therefore
+a loop of changing something, testing it, and keeping what is fun—not filling
+an empty database before anything can run.
 
-Every picture is taken by `scripts/guide-shots.mjs` driving the real editor
-through exactly these steps, and the gate fails if one stops matching.
+The essential creator flow is:
 
-## Open it
-
-```sh
-npm ci --prefix editor
-npm run --prefix editor dev
+```text
+New Campaign
+  → shape the first map and battle
+  → write its conversation
+  → test the campaign
+  → Continue Creating
+  → add or branch a chapter
+  → grow the army
+  → test again
+  → Finish & Export
 ```
 
-![The start screen: Start a new game, Start from an example offering The Tarnholt Line and The Bridge at Dawn, and Open a project file](screenshots/guide/01-start.png)
+Everything essential is reachable with a directional control, Confirm, and
+Cancel. A keyboard is useful for names and dialogue. The footer on each screen
+states what the available buttons do.
 
-To see a finished game instead of building one, open an example and press
-**▶ Play**. It opens as your own copy; the original is not touched.
+## Start a complete campaign
 
-## Name it
+From the main menu choose **Create / Edit Games**, then **New Campaign**. Enter
+the player-facing title and choose **Create & Open First Map**.
 
-**Start a new game** opens on Game.
+![The native New Campaign screen asks only for the adventure name and explains that it creates a complete playable start](screenshots/native-guide/01-new-campaign.png)
 
-![The game settings form: What the game is called reading The Salt Road, then Turn order, If a character falls, Character style and Season, and a closed Advanced fold below them](screenshots/guide/02-game.png)
+The title is not a file path or a machine identity. Grandleon creates portable
+stable identities behind the screen and keeps them unchanged when a visible
+name is edited later.
 
-Five questions, and every one of them can be answered before anything else
-exists. The three under the turn order (what happens when a character falls,
-the style the characters are drawn in, the season the ground is drawn in) are
-game-wide defaults, and none is a restriction: a medieval campaign can field an
-undead enemy.
+The starter is intentionally small but complete:
 
-**Advanced** holds the two names that are for a machine rather than for a
-player: the game id, which the exported file is named after and which follows
-the title until you write one yourself, and the content revision, which you
-raise when you change content a saved game reads. Neither needs an answer to
-make a game.
+- Player 1 and Player 2 each own a hero in two-player mode; solo mode fields
+  the whole allied company for Player 1.
+- A two-player-only opponent demonstrates encounter scaling.
+- The first goal ends the battle when all opponents are defeated.
+- A story scene leads into the battle, and the battle leads to an ending.
+- The map has an automatic non-playable surrounding edge, so the camera does
+  not reveal a black void beyond the tactical area.
 
-## Make somebody
+## Shape the map and battle
 
-Characters → **New character**. Whose side, what kind, what they are called.
+Creating the campaign opens its first map. Choose terrain, then paint with
+**Brush**, **Fill**, or **Rectangle**. Confirm applies the selected tool; Cancel
+returns from a focused action. **Undo** and **Save** operate on complete creator
+commands rather than individual implementation details.
 
-![The wizard's second step: seven settings across the top with Medieval chosen, and eight role cards below (Knight, Archer, Mage, Stormcaller, Healer, Commander, Rogue, Wolf), each a picture, a name and its reach, Commander selected](screenshots/guide/03-wizard-kind.png)
+![The native map creator shows terrain tools, the actual portable terrain art, and allied and enemy placements on the board](screenshots/native-guide/03-map-and-battle.png)
 
-A card says the one number that changes which role you pick. The rest of a
-character's numbers are read on the character. A setting changes the names and
-the picture, never what you may make.
+The map is reusable ground. **Encounter Preview** chooses the battle currently
+overlaid on it. The cyan **P1**, amber **P2**, and red **Enemy** badges identify
+ownership without adding permanent labels to the play HUD.
 
-![The wizard's third step: a Name field reading Wren, and a line saying the press also makes their class and an officer's blade](screenshots/guide/04-wizard-name.png)
+Open **Battle Setup** for the rules and pieces that belong to this encounter:
 
-Writing it is one act: one undo takes all of it back.
+- add, move, or remove allied and opposing placements;
+- assign each allied placement to Player 1 or Player 2;
+- mark extra opponents that appear only with two local players;
+- edit the deployment region and its optional capacity;
+- attach and author defeat, protect, and survive goals; or
+- deliberately copy another battle's placements, goals, deployment, co-op
+  ownership, scaling, and turn order while keeping this chapter's map and
+  campaign position.
 
-## Draw ground
+Open **More** for less-frequent map operations: rename the map and battle
+together, resize with a clipping preview, choose **Look & Feel**, add the next
+chapter, or edit **Outside**.
 
-Maps → **Create map**. Click or drag to paint, or arrow keys and Enter.
+**Outside** controls only the non-playable area beyond the map:
 
-![Undo and Redo above the terrain brush, reading 14 edits can be undone; fourteen terrains with rock selected and a closed Invent a terrain fold below them; and an eight by six grid painted with a river, a bridge, forest and rock](screenshots/guide/05-map.png)
+- **Solid** uses one chosen RGB colour.
+- **Automatic** continues nearby terrain without making it reachable.
+- **Manual** lets the author paint the exact perimeter. The screen reports the
+  required cell count; three cells of depth are recommended for complete PC
+  camera coverage.
 
-Maps can be reused in several Stages.
+Surrounding terrain never enlarges the tactical board. A resize is refused if
+it would silently discard a placement or deployment tile.
 
-Fourteen brushes cover everything the art library draws. **Invent a terrain**
-takes a name of your own, and says how it will be drawn and walked over before
-you use it. A name matching none of the fourteen is drawn flat and walked like
-open ground.
+## Write what players see
 
-A drag repaints every cell it crosses, so one careless stroke is dozens of
-edits. The undo depth is bounded, and the row above the grid says how much is
-still held.
+Choose **Next: Story** from the map, or open a story chapter from **Continue
+Creating**. The story screen keeps scene choice and character preview on the
+left and one editable line on the right.
 
-## Set up a Stage
+![The native story creator shows a portable character portrait, backdrop, speaker, line navigation, and the dialogue players will read](screenshots/native-guide/04-story.png)
 
-A **Stage** is a fight on a map. Pressing **Make a Stage on this ground** on the
-map you just drew carries the ground across, so it is not asked for twice.
+Use **Previous Line**, **Next Line**, and **Add Next Line** for the common path.
+Choose **Speaker / Character** to keep the visible speaker and portable portrait
+together. The backdrop preview uses the same resolved art as play. Reorder and
+delete stay under **More**; a scene always keeps at least one line.
 
-Then fill the board. You do not have to have made anybody first.
+Text changes follow line and scene navigation, so there is no separate Apply
+trap. **Save Changes** is the persistence action, and Undo/Redo cover complete
+line, cast, backdrop, and scene operations.
 
-![The placement palette: Wren in a solid box, then Knight, Archer, Mage, Stormcaller, Healer, Commander, Rogue and Wolf in dashed boxes, Rogue chosen, a name field reading Bandit, and The enemy chosen as the side](screenshots/guide/06-find-or-make.png)
+## Use the campaign outline
 
-The dashed entries are characters this game has not got. Press a tile holding
-one and it is made and standing there: one act, one undo. The next press puts
-down another of the same Bandit rather than a second Bandit.
+From Projects, choose a campaign's **Continue Creating** action. The outline is
+the main creator hub and reads in play order. Story opens its conversation,
+Battle opens its exact map and setup, and Ending opens a one-field rename
+action. **Test Campaign** and **Grow the Army** remain one action away.
 
-![The stage board: Wren on the left below a rock outcrop, and three bandits on the far side of the river, two of them standing in forest](screenshots/guide/07-board.png)
+![The campaign outline shows the main story, battle, ending, route counts, and Add Next Chapter without exposing source identifiers](screenshots/native-guide/02-campaign-outline.png)
 
-Four presses.
+Choose **Add Next Chapter** for the fastest linear workflow. It asks for a
+chapter name, then inserts a story moment, a fresh map, and a battle copied from
+the last working encounter before the current destination. The copied setup is
+immediately playable and remains one undoable edit; reshape it instead of
+rebuilding every placement and rule.
 
-![Two character cards: Wren, one of yours, Commander class, marches with a campaign's company and stands in one Stage; Bandit, an enemy, Rogue class, stands in one Stage three times in all and nothing depends on which of them is which](screenshots/guide/08-standing.png)
+## Grow the army without starting from zero
 
-Nobody was asked who matters. Wren is held by name in a company, so she is a
-person and stands in one place. The bandits are only ever placed, so they are
-extras, and three of them are three placements of one.
+**Grow the Army** lists founding heroes and later recruits. A character can be
+renamed without changing persistent identity, join at the opening or after a
+named chapter, and receive focused personal modifiers.
 
-## Say how it ends
+When a new role is needed, choose **Make a New Role**. Give it a visible name
+and start from the closest role that already works.
 
-![Winning and losing: four buttons (beat everyone on the other side, beat one particular character, keep one particular character alive, last a number of rounds), the first ticked and reading that your side wins by defeating every opposing character](screenshots/guide/09-winning.png)
+![The new-role screen asks for a name and an existing working starting point, then creates an independent portable role](screenshots/native-guide/05-army.png)
 
-A Stage can use more than one. Anything left unticked belongs to a different
-Stage and does nothing here.
+The copy receives an independent baseline. **Tune Role** exposes the portable
+class stats, side, terrain crossing, post-attack behavior, and allowed weapon
+families. **Role Gear & Skills** assigns compatible weapons, items, and
+abilities to every character using that role. **Campaign Supplies** and chapter
+rewards control the shared store. **Gear & Abilities** creates reusable combat
+choices from safe defaults or another working choice.
 
-## Put them in order
+Optional experience awards, level thresholds, growth chances, item drops, and
+per-role appearance stay behind **Growth & Rewards**. They do not clutter the
+ordinary add-and-tune path.
 
-Flow draws the campaign as stops on a road.
+## Add an outcome only when the story needs one
 
-![The flow graph: The crossing leads to Stage at The salt flats, which leads to the ending; After The Ford sits apart in red saying nothing leads here, and a warning below repeats it](screenshots/guide/10-flow.png)
+Each nonterminal outline row has **Outcomes**. Routes are tried in the visible
+order; the first matching condition chooses the named destination. The focused
+editor supports **Always**, **Goal Won**, **Goal Lost**, and **Have Item**,
+including destination changes, add/remove, and **Try Earlier / Try Later**.
 
-Making each Stage also made the stop after it, so the road is joined up before
-you touch it. Dragging is for changing it: here the first Stage has been sent
-straight at the second, and the story beat between them is now reached by
-nothing. The graph says so, in the stop and again underneath.
+Choose **Add Route** only when another path is needed.
 
-## Play it
+![Add Route offers an existing destination, a new playable chapter, or a new ending on one controller-focused screen](screenshots/native-guide/06-add-route.png)
 
-**▶ Play**, at the top of every screen.
+- **Existing Chapter** adds a condition and lets you choose something already
+  listed.
+- **New Playable Chapter** asks only for a name. It copies the current battle's
+  units, goals, deployment, co-op ownership and scaling onto a fresh map,
+  creates a story moment, and rejoins the selected destination.
+- **New Ending** creates and connects a named terminal chapter.
 
-![The Stage running: Wren picked up on the left, every tile she can reach lit across the near bank, three bandits waiting beyond the river, and a terrain key under the board](screenshots/guide/11-play.png)
+When a goal battle has one unconditional route, adding a playable alternative
+makes the original and new paths complementary win/loss results so both can
+actually be reached. The complete new path is compiler-checked and undoable as
+one change. Imported advanced conditions are kept intact and labelled instead
+of being silently simplified.
 
-The engine the Nintendo 64 and PlayStation builds run, compiled to
-WebAssembly: the same rules, the same numbers, the same board.
+## Test early and often
 
-## Take it away
+**Test Campaign** compiles the current source in memory and starts the same
+portable campaign rules used by the release targets. Draft play does not write
+the installed game's checkpoint, so testing an edit cannot replace a player's
+progress.
 
-- **Save** keeps the project in this browser. No account, and nothing leaves the
-  machine.
-- **Export** downloads it as a `.grandleon.zip`, which **Open a project file**
-  reads back.
-- **Nintendo 64 ROM** builds a `.z64`, and **PlayStation disc** builds a `.bin`
-  and the `.cue` that goes with it, downloaded together as one zip. Both need
-  the local build service running (`node tools/rom_service/serve.mjs`) and the
-  editor opened at a `localhost` address rather than at the machine's network
-  name; the port does not matter. Without either, the buttons are disabled and
-  say why.
+In battle, each local player has their own cursor and allied army. Both can
+navigate and submit movement at the same time. After a unit moves, the compact
+action menu opens beside it with Attack, available abilities or items, and
+Wait. Enemy turns use the same deterministic built-in policy on PC, Nintendo
+64, and PlayStation.
 
-  **A disc is not the same offer as a cartridge, and the difference is worth
-  reading before you burn one.** The image carries no licence sector, because
-  that data is Sony's and none of it is fetched or vendored here. It boots in
-  PCSX-Redux, which is what the gate proves; a stock PlayStation reads the
-  licence area, finds nothing, and refuses the disc. Nothing in this repository
-  has ever run on real hardware of either console, so what any other machine
-  that reads a disc does with it is not something this project says.
+If the compiler refuses the draft, the creator keeps the last valid source and
+names the relevant problem. It does not save a half-applied project.
 
-[FROM_EDITOR_TO_CONSOLE.md](FROM_EDITOR_TO_CONSOLE.md) is the rest of that road.
+## Keep, move, and export the project
 
-## Refreshing these pictures
+The Projects screen has a controller-native **Import Project Archive** inbox.
+Existing projects keep uncommon operations behind **More**:
+
+- **Rename** changes the title while preserving portable identities.
+- **Make a Copy** creates fresh project and game identities so saves cannot
+  collide.
+- **Finish & Export** opens the target center.
+
+Import reads compatible `.grandleon.zip` archives. An identity collision
+becomes a clearly labelled copy instead of overwriting another project. In the
+target center, **Portable Project** writes an editable archive containing
+canonical source and project-owned assets only. It is always available. A full
+Linux installation can also create a player-only PC game from its verified
+installed shell. Nintendo 64 and PlayStation targets become available only
+when their separately versioned builder payloads are installed; until that 0.3
+integration is complete, use the repository release commands in
+[RELEASE_0_3.md](RELEASE_0_3.md).
+
+Projects, imports, exports, creator recovery data, controls, presentation
+settings, and campaign saves live in per-user runtime storage—not the immutable
+Steam installation. No archive contains a username, hostname, absolute path,
+controller identity, credential, network endpoint, or machine-only setting.
+
+## What is still advanced or pending for 0.3
+
+The native creator intentionally preserves imported compound, negated, and
+world-state conditions but does not yet build them directly. Whole-chapter
+reordering, external replacement-art-pack import, measured target budget
+reports, and installed console builder integration remain release work. The
+current status and acceptance gates are in [RELEASE_0_3.md](RELEASE_0_3.md).
+
+## Refresh these screenshots
+
+The images above are captured from the real Godot creator under a rendering
+display; they are not mockups or generated concept art. From a source checkout:
 
 ```sh
-npm run --prefix editor build
-node scripts/guide-shots.mjs            # rewrite them
-node scripts/guide-shots.mjs --check    # or compare, which is what the gate runs
+platform/godot/scripts/capture-creator-guide.sh
 ```
 
-The walk is deterministic, so the check is byte for byte. It fails two ways, and
-both matter: a click that no longer lands means this page describes an editor
-that is gone, and a picture that no longer matches means it shows one.
+Pass `--player-shell path/to/pc-bundle` after building the final PC bundle to
+also capture the enabled Export Center. Each capture uses a fresh user-data
+directory, and the same scripted interactions are assertions in the creator
+smoke tests.

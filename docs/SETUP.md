@@ -1,39 +1,23 @@
 # Setting up
 
-## Just want to make a game? One command
+## Just want to make a game?
 
-If you are here to *use* the editor and build a ROM rather than to work on the
-repository itself, none of the rest of this page is for you:
+Use the Linux PC release. Launch it, choose **Create / Edit Games**, and follow
+[CREATING_A_GAME.md](CREATING_A_GAME.md). The installed application is both the
+player and the supported creator; it needs no source checkout, system-wide
+Godot, Node, container runtime, or network service.
 
-```sh
-scripts/start.sh
-```
-
-Clone, run that, open <http://localhost:5173>. The editor and the ROM build
-service come up together, the ROM button works, and nothing is installed on
-your machine.
-
-**It needs Docker and the Compose plugin, and nothing else** — no Node, no
-Python, no CMake, no virtual environment. On Ubuntu:
+From a checkout, build the same self-contained application with:
 
 ```sh
-sudo apt-get install docker.io docker-compose-v2
+platform/godot/scripts/build-steamos.sh --output out/grandleon-pc
+GRANDLEON_WINDOWED=1 out/grandleon-pc/launch-pc.sh
 ```
 
-Elsewhere, <https://docs.docker.com/compose/install/>. `scripts/start.sh`
-refuses by name, with the install line, if either is missing.
-
-Two things worth knowing before you run it. It **mounts the checkout into the
-containers and runs them as you**, so what they write belongs to you and shows
-up in your working tree. And it **mounts the Docker socket**, because a ROM
-build starts the pinned toolchain image as a sibling container — which gives
-those containers control of this machine's daemon. `compose.yaml` says why both
-are necessary and neither is decoration.
-
-Reaching it from another machine works without configuration: every name this
-one answers to is passed to both servers. Set `GRANDLEON_HOST` if you reach it
-by some name it cannot work out for itself, and `GRANDLEON_EDITOR_PORT` to move
-it off 5173.
+The builder downloads the pinned Godot runtime and verifies its checksum.
+Ordinary creation, portable project export, and player-only Linux export stay
+local. Nintendo 64 and PlayStation builds still use their pinned container
+toolchains until the separately installed 0.3 builder payloads are integrated.
 
 ## Working on the repository
 
@@ -43,8 +27,9 @@ From a bare machine to a green gate. The gate is one command:
 scripts/local-ci.sh --preview-port 4521
 ```
 
-The port is a parameter because the browser suite refuses to reuse a server it
-did not start; pick one nobody else on the machine is using.
+The port is a parameter because the retained pre-0.3 compatibility suite
+refuses to reuse a server it did not start; pick one nobody else on the machine
+is using.
 
 **The gate runs against a clone of HEAD in `/tmp`, not your working tree**, so
 uncommitted work is invisible to it: commit first, or the gate is reporting on
@@ -104,7 +89,7 @@ satisfies the requirement, Node included. No third-party apt source is needed.
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
     build-essential ca-certificates clang cmake git \
-    libsdl2-dev nodejs npm python3 python3-venv
+    libsdl2-dev nodejs npm python3 python3-venv xvfb
 ```
 
 | Package | 26.04 ships | Required |
@@ -115,6 +100,7 @@ sudo apt-get install -y --no-install-recommends \
 | `nodejs` + `npm` | 22.22.1 | 22.12 or newer |
 | `python3` + `python3-venv` | 3.14 | the placeholder-art virtual environment |
 | `libsdl2-dev` | 2.32 | optional, see below |
+| `xvfb` | distribution version | rendered native creator and PC capture smokes |
 
 Then the checkout:
 
@@ -150,14 +136,14 @@ sudo usermod -aG docker "$USER"
 | native gate, GCC `-Werror` | GCC, CMake, and Node, because `tests/CMakeLists.txt` will not configure without it |
 | native gate, Clang `-Werror` | Clang |
 | desktop client without SDL2 | GCC |
-| editor: production build, typecheck, unit tests | Node |
-| editor: real browser | Chromium **and its system libraries** |
-| editor: the development server is styled and error-free | Chromium, as above. Every other browser leg runs against a production build, so this is the only one that loads `npm run dev` |
-| editor: startup, deployment, offline smoke | Node |
+| retained pre-0.3 editor: production build, typecheck, unit tests | Node |
+| retained pre-0.3 editor: real browser | Chromium **and its system libraries** |
+| retained pre-0.3 development server compatibility | Chromium, as above |
+| retained pre-0.3 startup, deployment, offline smoke | Node |
 | ROM build service: refusals and failure paths | Node. It counts the tests, because `node --test` on an emptied file exits 0 reporting one passing test |
 | generated art is not stale | the Pillow venv |
-| editor board assets are not stale | the Pillow venv |
-| the Creating a Game pictures are not stale | Chromium, as above |
+| generated creator board assets are not stale | the Pillow venv |
+| native Creating a Game pictures | pinned Godot and Xvfb |
 | provided art: every rule refuses | the Pillow venv |
 | WebAssembly module is not stale | **a container runtime** |
 | every documented path and anchor resolves | Python3 |

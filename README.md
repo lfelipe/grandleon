@@ -7,58 +7,54 @@
 Grandleon is a tool for making tactical role-playing games, and a portable
 engine for playing them.
 
-> **0.3 development note:** the Godot PC application is now the supported
-> player-and-creator direction. The browser-editor walkthrough below describes
-> the earlier release and will be replaced with the final native flow and new
-> screenshots before 0.3 ships. Current scope and release gates are tracked in
-> [docs/RELEASE_0_3.md](docs/RELEASE_0_3.md).
-
 You draw maps, make characters, give them weapons, abilities and items, decide
-what winning means, and chain the Stages into a campaign, all in your local browser.
+what winning means, and connect battles and conversations into a campaign. The
+Godot PC application is both the supported player and the campaign creator.
+Projects remain local and portable; PC, Nintendo 64, and PlayStation consume
+the same authored rules.
 
 ## Make a game
 
-You need Node.js 22.12 or newer.
+Launch the installed PC application, choose **Create / Edit Games**, then **New
+Campaign**. Give the adventure a name and **Create & Open First Map** starts
+from a complete playable campaign rather than an empty schema.
+
+![The native creator asks for one campaign name and explains the complete playable start it will create](docs/screenshots/native-guide/01-new-campaign.png)
+
+From a source checkout, build and launch the same portable Linux application:
 
 ```sh
-npm ci --prefix editor
-npm run --prefix editor dev
+platform/godot/scripts/build-steamos.sh --output out/grandleon-pc
+GRANDLEON_WINDOWED=1 out/grandleon-pc/launch-pc.sh
 ```
 
-Open the `Editor` URL printed in the terminal, normally
-`http://<machine-name>.local:5173/`. The server listens on the local network, so
-a tablet on the same Wi-Fi can open that address too; if the hostname does not
-resolve, use one of the LAN IP addresses Vite prints beside it. Add
-`-- --port 4891` to that second command to move it off 5173.
+The starter includes two heroes, enemies, a goal, a conversation, co-op
+ownership and scaling, and an ending. Shape the map, write the story, then use
+**Test Campaign**. **Continue Creating** opens the readable campaign outline;
+**Add Next Chapter** copies a known-working battle into a fresh map and story,
+while **Outcomes** adds existing destinations, alternate playable chapters, or
+named endings only when the campaign needs them. Stick or d-pad, Confirm, and
+Cancel cover the complete flow; a keyboard enters names and dialogue.
 
-The start screen offers two example games beside **Open this example**:
-
-| | |
-|---|---|
-| **The Tarnholt Line** | Six maps, two sides, and a story in between. |
-| **The Bridge at Dawn** | One small fight, whole. The shortest game there is. |
-
-Either one opens as an unsaved working copy, so you can change anything in it
-without harming the original. Press **▶ Play** to play what is on the screen.
-**Start a new game** starts from nothing, **Open a project file** reads a
-project archive back in, **Save** keeps the working project in this browser,
-**Validate** checks the whole thing for schema errors and broken references, and
-**Export** downloads it as a portable archive you can move to another machine.
+Projects live in per-user runtime storage, never in the installation. Import
+and export use `.grandleon.zip` archives containing portable source and
+project-owned assets only. Machine paths, controls, saves, credentials, and
+local settings do not enter the archive.
 
 [docs/CREATING_A_GAME.md](docs/CREATING_A_GAME.md) walks the whole job in
-screenshots, from an empty game to a playable Stage.
+screenshots captured from the real native creator.
 
 ## One game, every screen
 
-One authored game, compiled once, plays on a Nintendo 64, on a PlayStation, in a
-browser and in a terminal, with the same rules, the same numbers, the same board.
+One authored game compiles into the same deterministic rules on PC, Nintendo
+64, PlayStation, the web runtime, and the terminal reference client.
 
 ![Nintendo 64: showcase of gameplay](docs/screenshots/n64-showcase.gif)
 
-| The map, in the editor | The same map, terminal client |
+| Native map creator | Terminal reference client |
 |---|---|
-| ![The Fordlight Crossing in the map editor](docs/screenshots/editor.png) | ![The terminal client playing the Fordlight](docs/screenshots/terminal.png) |
-| **The same map, Nintendo 64** | **The same map, PlayStation** |
+| ![The Godot map creator using the portable terrain art](docs/screenshots/native-guide/03-map-and-battle.png) | ![The terminal client playing a portable battle](docs/screenshots/terminal.png) |
+| **Nintendo 64** | **PlayStation** |
 | ![The Fordlight running on a Nintendo 64 emulator](docs/screenshots/n64.png) | ![The Fordlight running on a PlayStation emulator](docs/screenshots/psx.png) |
 
 A character can speak while the battle is on, over the board rather than on a
@@ -66,10 +62,9 @@ page of its own, beside whoever is talking:
 
 ![The Ashen Stormcaller speaking over the Fordlight](docs/screenshots/n64-saying.png)
 
-No screenshot above was recorded by hand: every still and animation of a
-running client is produced by `scripts/readme-screenshots.sh`, and the console
-imagery comes out of the checks themselves, so it cannot show something the
-code does not do.
+No interface image above is concept art. Native creator screens come from
+`platform/godot/scripts/capture-creator-guide.sh`; running-client and console
+imagery comes from the executable checks themselves.
 
 [docs/screenshots/README.md](docs/screenshots/README.md) has the rest of the
 pictures, including a whole turn played by the test that checks it.
@@ -79,11 +74,12 @@ layer of verification proves.
 
 ## What a game is made of
 
-Everything you author is grouped by what you are trying to do: **Game**,
-**Characters**, **Weapons & items**, **Maps**, **Stages**, **Scenes**, and
-**Flow**. Underneath those sit twelve collections: classes, characters, weapon
-types, weapons, item types, items, maps, factions, abilities, objectives,
-campaigns, and scenes.
+Everything you author is grouped by what you are trying to do: **Projects**,
+the **Campaign Outline**, **Map Creator**, **Story**, **Grow the Army**, **Gear
+& Abilities**, and **Finish & Export**. Optional details stay behind focused
+actions instead of living on one permanent form. Underneath those screens sit
+the portable maps, roles, characters, sides, weapon and item families, weapons,
+items, abilities, objectives, campaigns, and scenes.
 
 - A **map** is a grid of terrain. Every cell is open ground, water, or heights,
   and a character crosses water or heights only if it is the sort of character
@@ -106,10 +102,10 @@ campaigns, and scenes.
 - A **Stage** is a fight on a map: who stands where, what winning means, and
   what is said on the way in. The map is ground and holds nobody, so one map can
   carry several Stages.
-- A **campaign** strings Stages and story scenes together, and a Stage's exits
-  can be conditional on which objectives were satisfied and which failed (all
-  of these, any of these, none of these), so a campaign branches on what
-  actually happened rather than on a counter somebody remembered to increment.
+- A **campaign** strings Stages and story scenes together. Common exits are
+  authored by name as Always, Goal Won, Goal Lost, or Have Item. Imported
+  advanced compound and world-state predicates remain portable and are
+  preserved even where the focused 0.3 creator does not build them directly.
 - **Presentation** is a set of choices rather than a pile of files. A project
   picks a terrain theme, a character style, and a colour for each faction out of
   a library this repository generates; archetypes are drawn in every
@@ -191,8 +187,8 @@ C++17 compiler.
 ```sh
 cmake -S . -B build -DGRANDLEON_BUILD_TESTS=OFF
 cmake --build build
-./build/grandleon_content_compile games/demo/source/project.json build/grandleon-demo.gpk
-./build/grandleon_package_check build/grandleon-demo.gpk
+./build/grandleon_content_compile games/emberbound/source/project.json build/emberbound.gpk
+./build/grandleon_package_check build/emberbound.gpk
 ```
 
 `grandleon_play` plays a compiled package in a terminal, or in a window with
@@ -202,46 +198,52 @@ every board, the permanently dead left off later ones, levels and growth rolls
 and drops narrated between Stages:
 
 ```sh
-./build/grandleon_play build/grandleon-demo.gpk --campaign=demo_campaign
-./build/grandleon_play build/grandleon-demo.gpk --campaign=muster_road --slot=road
-./build/grandleon_play build/grandleon-demo.gpk --campaign=muster_road --slot=road --resume
+./build/grandleon_play build/emberbound.gpk --campaign=emberbound
+./build/grandleon_play build/emberbound.gpk --campaign=emberbound --slot=road
+./build/grandleon_play build/emberbound.gpk --campaign=emberbound --slot=road --resume
 ```
 
-The whole packaged demo (canonical source through compilation, loading, combat,
-victory, and campaign advancement) runs as one test. The test suite needs Node
-as well:
+The shipped campaign and the source-to-package path are covered by the native
+suite. The complete repository gate also retains compatibility checks for
+earlier tools and therefore needs Node:
 
 ```sh
 cmake -S . -B build -DGRANDLEON_BUILD_TESTS=ON && cmake --build build
-ctest --test-dir build -R grandleon.game_demo --output-on-failure
+ctest --test-dir build -R 'grandleon.(source_project|emberbound_campaign)' --output-on-failure
 ```
 
 A game is a separate package consumer rather than something linked into the
-engine. See [games/demo/README.md](games/demo/README.md) and
-[games/tarnholt/README.md](games/tarnholt/README.md) for the two maintained
-games, and [games/template/README.md](games/template/README.md) for the reusable
-skeleton.
+engine. See [games/emberbound/README.md](games/emberbound/README.md) for the
+shipped campaign and [games/template/README.md](games/template/README.md) for
+the reusable source skeleton.
 
 The PC presentation is a Godot client over the same package and C++
 simulation. It adds simultaneous local team control, replaceable modern art,
 an offline story campaign, and a portable Linux bundle without changing the
 console runtimes. See [platform/godot/README.md](platform/godot/README.md).
 
-### A PlayStation disc
+### Console images
 
-`cmake --build build --target grandleon_playstation_disc` writes
-`build-playstation/disc/grandleon.bin` and `grandleon.cue`: the Tarnholt Line
-campaign as a disc image. Both files, because burning software needs the cue to
-know what the bin is.
+The release tooling builds both console targets from the same portable source:
 
-**A disc of your own game** is the same build with one path changed. The editor's
-**PlayStation disc** button asks the local build service for one, exactly as
-**Nintendo 64 ROM** asks it for a cartridge; from a shell it is
-`platform/playstation/scripts/build-playstation.sh --project <your project.json>`
-followed by `build-disc.sh`. Nothing is patched into a pre-built image, so what
-comes out is the checked build rather than something required to resemble it.
-[tools/rom_service/README.md](tools/rom_service/README.md) has the route and
-every refusal it makes by name.
+```sh
+GRANDLEON_N64_BUILD_DIR="$PWD/build-n64-release" \
+  platform/nintendo64/scripts/build-n64.sh \
+  --project games/emberbound/source/project.json \
+  --targets grandleon_n64_campaign
+
+GRANDLEON_PLAYSTATION_BUILD_DIR="$PWD/build-playstation-release" \
+  platform/playstation/scripts/build-playstation.sh \
+  --project games/emberbound/source/project.json \
+  --targets grandleon_playstation_campaign
+GRANDLEON_PLAYSTATION_BUILD_DIR="$PWD/build-playstation-release" \
+  platform/playstation/scripts/build-disc.sh
+```
+
+Nothing is patched into a pre-built image: the source is compiled into the
+target that is then checked. In-app Nintendo 64 and PlayStation export remains
+disabled until the separately versioned builder payload for that target is
+installed; it never depends on a private hostname or developer checkout.
 
 It needs **a container runtime**, like every console and WebAssembly target: the
 PlayStation toolchain is a pinned, digest-verified image rather than something
@@ -255,7 +257,11 @@ look, and will refuse the disc.
 
 ## What is not here yet
 
-This is an early development version, not a finished engine. Plenty of work is still needed, including improving graphics and rendering, gameplay changes, etc. If you notice anything you think would be good to change, please file an issue with a request or, even better, submit an improvement.
+Version 0.3 is still being prepared. Remaining release work includes measured
+per-target authoring budgets, installed console-builder integration, external
+replacement-art packs, final native screenshots, and one clean-revision build
+and human playthrough of all three release targets. The exact status and gates
+are in [docs/RELEASE_0_3.md](docs/RELEASE_0_3.md).
 
 ## Where to go next
 
@@ -267,8 +273,9 @@ This is an early development version, not a finished engine. Plenty of work is s
 | understand why it is built this way | [DESIGN.md](DESIGN.md): the architecture and the reasoning behind it |
 | contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
-Every module under `engine/`, `platform/`, `tools/`, `games/` and `editor/`
-carries its own README describing what it owns.
+Every module under `engine/`, `platform/`, `tools/`, and `games/` carries its
+own README describing what it owns. `editor/` is retained only as the earlier
+compatibility and migration surface; it is not the supported 0.3 creator.
 
 ## Built on
 
@@ -284,8 +291,10 @@ the version that produced the ROMs.
 | [mkpsxiso](https://github.com/Lameguy64/mkpsxiso) | writes the PlayStation disc image | `54fb1644` |
 | [PCSX-Redux](https://github.com/grumpycoders/pcsx-redux) | the PlayStation emulator, and the OpenBIOS its checks boot | `a415a98e` |
 | [Emscripten](https://github.com/emscripten-core/emscripten) | the engine compiled to WebAssembly for the browser | `emsdk:4.0.23` |
+| [Godot](https://github.com/godotengine/godot) | the PC player and native creator | `4.7.2` |
+| [godot-cpp](https://github.com/godotengine/godot-cpp) | the native PC engine binding | `10.0.0-stable` |
 
-The editor and the tooling are built on
+The retained earlier-editor compatibility suite and supporting tooling use
 [Vue](https://github.com/vuejs/core),
 [Vite](https://github.com/vitejs/vite),
 [TypeScript](https://github.com/microsoft/TypeScript),

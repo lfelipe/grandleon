@@ -131,17 +131,27 @@ lists starting heroes and later recruits, previews their portable art, renames
 them without changing identity, and adds an existing role at campaign start or
 after a chosen chapter. A new named role can begin as a copy of any working
 role without exposing source identities. **Tune This Hero** adjusts focused
-portable traits, and **Campaign Supplies** gives the shared company named
+portable traits; **Tune Role** owns the complete portable baseline, side,
+traversal, post-attack rule, and gear-family allowances. **Growth & Rewards**
+keeps experience, level growth, drops, and per-role appearance behind a
+separate advanced action. **Campaign Supplies** gives the shared company named
 starting items or weapons and chapter rewards. **Role Gear & Skills** assigns
 compatible named weapons, items, and abilities to every character using a
-role. **Look & Feel** chooses
+role, while **Gear & Abilities** creates those reusable choices from safe
+defaults or a working copy. **Look & Feel** chooses
 the shared world theme and character style while previewing the actual terrain
 and character assets used by the ports. Placing a character in a battle stays
 an explicit Map → Battle Setup action. **Add Next Chapter** inserts a new story
 moment, cloned playable encounter, and fresh map after a selected linear battle
-as one undoable edit. General campaign branches, the remaining game-data
-definition editors, and replacement art-pack import remain in the increments
-defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+as one undoable edit. **Continue Creating** opens a readable campaign outline;
+story, battle, and ending rows open their exact focused action. **Outcomes**
+edits common goal and inventory routes, ordering, and named destinations.
+**Add Route** connects an existing chapter, creates a named ending, or creates
+an alternate playable story/map/battle by copying the current working setup
+and rejoining the selected destination as one compiler-checked undoable edit.
+Compound or world-state condition authoring, whole-chapter reordering,
+replacement art-pack import, and measured target budgets remain in the
+increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to
@@ -675,6 +685,21 @@ characters through the focused Army screen:
 
 ```sh
 platform/godot/scripts/smoke-army-editor.sh
+```
+
+To validate the campaign outline, common outcome editing, named endings,
+portable alternate playable chapters, hidden stable identities, persistence,
+and one-step undo/redo:
+
+```sh
+platform/godot/scripts/smoke-campaign-editor.sh
+```
+
+To regenerate the native creator screens used by the user guide from fresh
+per-capture project data and the actual rendered UI:
+
+```sh
+platform/godot/scripts/capture-creator-guide.sh
 ```
 
 The reel is an actual 1280x720 Godot capture. It advances authored dialogue,

@@ -1,8 +1,17 @@
 # README screenshots
 
-`guide/` belongs to [../CREATING_A_GAME.md](../CREATING_A_GAME.md) and is
-refreshed by `scripts/guide-shots.mjs`, which drives one editor session from an
-empty game to a playable Stage. Everything else here is the README's.
+`native-guide/` belongs to [../CREATING_A_GAME.md](../CREATING_A_GAME.md). Its
+screens are rendered by the real Godot creator under fresh per-capture user
+data:
+
+```sh
+platform/godot/scripts/capture-creator-guide.sh
+```
+
+Pass `--player-shell path/to/pc-bundle` after building a release candidate to
+also capture an enabled Export Center. `guide/` is the archived pre-0.3 creator
+walkthrough and is not referenced by current user documentation. Everything
+else here is the README's runtime evidence.
 
 Generated, never hand-taken:
 
@@ -15,7 +24,8 @@ scripts/readme-screenshots.sh editor   # or one: editor, terminal, n64,
 
 | File | Source |
 |---|---|
-| `editor.png` | Chromium over a production editor build, driven to the Fordlight map |
+| `native-guide/*.png` | Godot creator integration fixtures under Xvfb |
+| `editor.png` | archived pre-0.3 creator capture |
 | `terminal.png` | the real terminal client's ANSI output, rendered by Chromium |
 | `n64.png` | the render probe under ares, window chrome cropped |
 | `psx.png` | the first frame the PlayStation turn check compared |

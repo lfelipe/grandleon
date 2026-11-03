@@ -53,7 +53,7 @@ Every release decision should preserve these constraints:
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, and tunes seven named-hero traits. New roles copy a working role into an independent baseline. Tune Role edits all eleven portable baseline stats, side, terrain crossing, post-attack behavior, and allowed weapon families; incompatible removal is refused. New Side creates a portable named faction and color. Growth & Rewards keeps optional experience, level growth, item drops, and per-role appearance behind one advanced action. Campaign supplies, chapter rewards, role loadouts, and the separate reusable Gear & Abilities library are also native. |
 | Full native authoring parity | Blocking | Compound or world-state conditions, whole-chapter reordering, external replacement-art packs, and measured per-target authoring budgets still need focused native support. |
 | Native Export Center | Partial | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Synthetic and real packaged-shell smokes cover privacy, stripping, and compiled-content identity. Nintendo 64 and PlayStation still need separately installed builder payload integration. |
-| Documentation and screenshots | Blocking | README and `docs/CREATING_A_GAME.md` still describe the browser editor. Rewrite them only after the native flow and labels are frozen, then capture every documented screen from that build. |
+| Documentation and screenshots | In progress | README and `docs/CREATING_A_GAME.md` now describe the tested native flow and use six screens rendered from the real Godot creator. Recapture them after the final UI freeze and add the enabled Export Center from the final current-version player shell. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
 
 The provisional artifacts under `out/` prove that each current target can be
@@ -409,9 +409,10 @@ license sector and is not represented as a stock-console disc.
 
 ### Documentation and artifacts
 
-- Replace browser-editor README instructions with the native flow.
-- Rewrite `docs/CREATING_A_GAME.md` from a clean user-data directory.
-- Generate screenshots from the final UI and verify every caption/action.
+- Verify the native README instructions against the final installed bundle.
+- Regenerate `docs/CREATING_A_GAME.md` screenshots from the final UI and clean
+  user-data directories, including the enabled Export Center.
+- Verify every documented label, caption, and action against those captures.
 - Write release notes with known limitations and compatibility changes.
 - Rebuild all artifacts from the same clean release commit.
 - Create `SHA256SUMS` and `SOURCE-REVISION`, verify hashes after packaging, and
