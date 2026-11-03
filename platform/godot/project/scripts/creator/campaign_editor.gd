@@ -46,9 +46,14 @@ var outcome_later_button: Button
 var outcome_status: Label
 var outcome_node_id := ""
 var outcome_refreshing := false
+var add_route_layer: Control
+var add_route_button: Button
+var add_existing_button: Button
+var add_branch_button: Button
+var branch_layer: Control
+var branch_name: LineEdit
 var ending_layer: Control
 var ending_name: LineEdit
-var ending_button: Button
 
 
 func _ready() -> void:
@@ -61,8 +66,12 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if ending_layer != null and ending_layer.visible:
+		if branch_layer != null and branch_layer.visible:
+			_close_new_branch()
+		elif ending_layer != null and ending_layer.visible:
 			_close_new_ending()
+		elif add_route_layer != null and add_route_layer.visible:
+			_close_add_route()
 		elif outcome_layer != null and outcome_layer.visible:
 			_close_outcomes()
 		else:
@@ -648,6 +657,192 @@ func _adjust_outcome_quantity(amount: int) -> void:
 	outcome_quantity_label.text = str(value)
 
 
+func _open_add_route() -> void:
+	var choice := _branch_choice()
+	add_branch_button.disabled = choice.is_empty()
+	add_branch_button.text = (
+		"NEW PLAYABLE CHAPTER\nCOPY THIS BATTLE, THEN REJOIN THE SELECTED DESTINATION"
+		if not choice.is_empty()
+		else "NEW PLAYABLE CHAPTER\nNEEDS ONE GOAL WITH AN UNUSED WIN OR LOSS ROUTE"
+	)
+	add_route_layer.visible = true
+	add_existing_button.grab_focus()
+
+
+func _close_add_route() -> void:
+	add_route_layer.visible = false
+	add_route_button.grab_focus()
+
+
+func _choose_existing_route() -> void:
+	add_route_layer.visible = false
+	_add_outcome()
+
+
+func _choose_new_ending() -> void:
+	add_route_layer.visible = false
+	_open_new_ending()
+
+
+func _choose_new_branch() -> void:
+	if _branch_choice().is_empty():
+		return
+	add_route_layer.visible = false
+	_open_new_branch()
+
+
+func _branch_choice() -> Dictionary:
+	var node := _current_outcome_node()
+	if str(node.get("kind", "")) != "encounter":
+		return {}
+	var objective_ids: Array = node.get("objectiveIds", [])
+	if objective_ids.is_empty():
+		return {}
+	var objective_id := str(objective_ids[0])
+	var has_victory := false
+	var has_defeat := false
+	var unconditional_count := 0
+	var transitions: Array = node.get("transitions", [])
+	for value: Variant in transitions:
+		if not value is Dictionary:
+			continue
+		var transition: Dictionary = value
+		var when: Variant = transition.get("when", null)
+		if not when is Dictionary:
+			unconditional_count += 1
+			continue
+		if (
+			str(when.get("kind", "")) != "objectiveResult"
+			or str(when.get("objectiveId", "")) != objective_id
+		):
+			continue
+		has_victory = has_victory or str(when.get("result", "victory")) == "victory"
+		has_defeat = has_defeat or str(when.get("result", "victory")) == "defeat"
+	if has_victory and has_defeat:
+		return {}
+	if unconditional_count > 0 and transitions.size() != 1:
+		return {}
+	var selected := _selected_outcome()
+	var target_id := str(selected.get("targetNodeId", _default_outcome_target()))
+	if target_id.is_empty():
+		return {}
+	return {
+		"objective_id": objective_id,
+		"result": "victory" if has_defeat and not has_victory else "defeat",
+		"target_id": target_id,
+	}
+
+
+func _next_chapter_sequence() -> int:
+	var used: Array[String] = []
+	for value: Variant in project.get("maps", []):
+		if value is Dictionary:
+			used.append(str(value.get("id", "")))
+	var flow: Variant = campaign.get("flow", {})
+	if flow is Dictionary:
+		for value: Variant in flow.get("nodes", []):
+			if value is Dictionary:
+				used.append(str(value.get("id", "")))
+	var sequence := 1
+	while (
+		used.has("chapter_%d_map" % sequence)
+		or used.has("chapter_%d_story" % sequence)
+		or used.has("chapter_%d_battle" % sequence)
+	):
+		sequence += 1
+	return sequence
+
+
+func _branch_fill_terrain() -> String:
+	var node := _current_outcome_node()
+	var map_id := str(node.get("mapId", ""))
+	for value: Variant in project.get("maps", []):
+		if not value is Dictionary or str(value.get("id", "")) != map_id:
+			continue
+		var counts: Dictionary = {}
+		var best := ""
+		var best_count := 0
+		for terrain_value: Variant in value.get("terrain", []):
+			var terrain_id := str(terrain_value)
+			counts[terrain_id] = int(counts.get(terrain_id, 0)) + 1
+			if int(counts[terrain_id]) > best_count:
+				best = terrain_id
+				best_count = int(counts[terrain_id])
+		if not best.is_empty():
+			return best
+	return "grass"
+
+
+func _open_new_branch() -> void:
+	var sequence := _next_chapter_sequence()
+	branch_name.text = "Alternate Chapter %d" % sequence
+	branch_layer.visible = true
+	branch_name.grab_focus()
+	branch_name.select_all()
+
+
+func _close_new_branch() -> void:
+	branch_layer.visible = false
+	add_route_button.grab_focus()
+
+
+func _create_branch_from_text(_value: String) -> void:
+	_create_branch()
+
+
+func _create_branch() -> void:
+	var name := branch_name.text.strip_edges()
+	if name.is_empty():
+		_set_outcome_status("GIVE THE PLAYABLE CHAPTER A NAME", true)
+		branch_name.grab_focus()
+		return
+	var choice := _branch_choice()
+	if choice.is_empty():
+		branch_layer.visible = false
+		_set_outcome_status("ADD A GOAL OR FREE A WIN / LOSS ROUTE FIRST", true)
+		return
+	var sequence := _next_chapter_sequence()
+	var base := "chapter_%d" % sequence
+	var added: Dictionary = compiler.add_campaign_branch(
+		source,
+		str(campaign.get("id", "")),
+		outcome_node_id,
+		str(choice.target_id),
+		str(choice.objective_id),
+		str(choice.result),
+		base + "_map",
+		name,
+		base + "_story",
+		"Before %s" % name,
+		base + "_battle",
+		"%s Battle" % name,
+		_branch_fill_terrain()
+	)
+	if not added.ok:
+		var detail := "PROJECT INCOMPLETE"
+		if not added.diagnostics.is_empty():
+			detail = str(added.diagnostics[0].get(
+				"detail", added.diagnostics[0].get("code", detail)
+			))
+		_set_outcome_status("CHAPTER NOT CREATED  /  %s" % detail.to_upper(), true)
+		return
+	undo_stack.append(source)
+	if undo_stack.size() > HISTORY_LIMIT:
+		undo_stack.pop_front()
+	redo_stack.clear()
+	source = str(added.source)
+	dirty = source != saved_source
+	_read_source()
+	_collect_route()
+	_refresh_route()
+	_update_actions()
+	branch_layer.visible = false
+	_refresh_outcome_layer(base + "_story_begins")
+	_set_outcome_status(
+		"UNSAVED  /  %s IS READY TO SHAPE AND WRITE" % name.to_upper(), false
+	)
+
+
 func _open_new_ending() -> void:
 	ending_name.text = "New Ending"
 	ending_layer.visible = true
@@ -657,7 +852,7 @@ func _open_new_ending() -> void:
 
 func _close_new_ending() -> void:
 	ending_layer.visible = false
-	ending_button.grab_focus()
+	add_route_button.grab_focus()
 
 
 func _create_ending_from_text(_value: String) -> void:
@@ -1132,12 +1327,9 @@ func _build_outcome_layer() -> void:
 	outcome_apply_button = _button("APPLY OUTCOME", 300, 60)
 	outcome_apply_button.pressed.connect(_apply_outcome)
 	edit_actions.add_child(outcome_apply_button)
-	var add := _button("ADD OUTCOME", 280, 60)
-	add.pressed.connect(_add_outcome)
-	edit_actions.add_child(add)
-	ending_button = _button("ADD ENDING", 260, 60)
-	ending_button.pressed.connect(_open_new_ending)
-	edit_actions.add_child(ending_button)
+	add_route_button = _button("ADD ROUTE…", 300, 60)
+	add_route_button.pressed.connect(_open_add_route)
+	edit_actions.add_child(add_route_button)
 	outcome_remove_button = _button("REMOVE OUTCOME", 300, 60)
 	outcome_remove_button.pressed.connect(_remove_outcome)
 	edit_actions.add_child(outcome_remove_button)
@@ -1158,7 +1350,108 @@ func _build_outcome_layer() -> void:
 	outcome_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	outcome_status.custom_minimum_size.y = 44
 	column.add_child(outcome_status)
+	_build_add_route_layer()
+	_build_branch_layer()
 	_build_ending_layer()
+
+
+func _build_add_route_layer() -> void:
+	add_route_layer = Control.new()
+	add_route_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_route_layer.visible = false
+	add_route_layer.z_index = 40
+	add_child(add_route_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.96)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_route_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(430, 170)
+	panel.size = Vector2(1060, 740)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color("69d9ff"))
+	)
+	add_route_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("ADD ROUTE", 18, Color("69d9ff")))
+	column.add_child(_label("Where should players go next?", 32, Color("f2f7f9")))
+	var explanation := _label(
+		"Choose an existing destination, make another playable chapter from this battle, or finish at a new ending.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 62
+	column.add_child(explanation)
+	add_existing_button = _button(
+		"EXISTING CHAPTER\nADD A CONDITION, THEN CHOOSE ITS DESTINATION", 960, 96
+	)
+	add_existing_button.pressed.connect(_choose_existing_route)
+	column.add_child(add_existing_button)
+	add_branch_button = _button(
+		"NEW PLAYABLE CHAPTER\nCOPY THIS BATTLE, THEN REJOIN THE SELECTED DESTINATION",
+		960, 96
+	)
+	add_branch_button.pressed.connect(_choose_new_branch)
+	column.add_child(add_branch_button)
+	var ending := _button(
+		"NEW ENDING\nCREATE A NAMED PLACE WHERE THE CAMPAIGN STOPS", 960, 96
+	)
+	ending.pressed.connect(_choose_new_ending)
+	column.add_child(ending)
+	var cancel := _button("CANCEL", 260, 58)
+	cancel.pressed.connect(_close_add_route)
+	column.add_child(cancel)
+
+
+func _build_branch_layer() -> void:
+	branch_layer = Control.new()
+	branch_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	branch_layer.visible = false
+	branch_layer.z_index = 50
+	add_child(branch_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.96)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	branch_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(430, 240)
+	panel.size = Vector2(1060, 600)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color("69d9ff"))
+	)
+	branch_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("NEW PLAYABLE CHAPTER", 18, Color("69d9ff")))
+	column.add_child(_label("What is this path called?", 32, Color("f2f7f9")))
+	var explanation := _label(
+		"The new path copies this battle's working units, goals, co-op setup, and map size. It gets a fresh map and story moment, then rejoins the selected destination.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 92
+	column.add_child(explanation)
+	column.add_child(_label("CHAPTER NAME", 15, Color("69d9ff")))
+	branch_name = LineEdit.new()
+	branch_name.max_length = 140
+	branch_name.custom_minimum_size = Vector2(960, 64)
+	branch_name.add_theme_font_size_override("font_size", 22)
+	branch_name.text_submitted.connect(_create_branch_from_text)
+	column.add_child(branch_name)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	var create := _button("CREATE PLAYABLE PATH", 360, 66)
+	create.pressed.connect(_create_branch)
+	actions.add_child(create)
+	var cancel := _button("CANCEL", 240, 66)
+	cancel.pressed.connect(_close_new_branch)
+	actions.add_child(cancel)
 
 
 func _build_ending_layer() -> void:

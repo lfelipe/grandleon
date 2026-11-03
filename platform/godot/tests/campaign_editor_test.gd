@@ -45,6 +45,27 @@ func _run() -> void:
 		print("campaign outcomes capture saved: %s" % outcomes_screenshot_path)
 		quit()
 		return
+	var add_route_screenshot_path := _argument_path("--add-route-screenshot=")
+	if not add_route_screenshot_path.is_empty():
+		editor._open_outcomes("first_battle")
+		editor._open_add_route()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(add_route_screenshot_path)
+		print("campaign route choices capture saved: %s" % add_route_screenshot_path)
+		quit()
+		return
+	var branch_screenshot_path := _argument_path("--branch-screenshot=")
+	if not branch_screenshot_path.is_empty():
+		editor._open_outcomes("first_battle")
+		editor._open_add_route()
+		editor._choose_new_branch()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(branch_screenshot_path)
+		print("campaign playable branch capture saved: %s" % branch_screenshot_path)
+		quit()
+		return
 
 	_expect("project opens in campaign outline", editor.project_id, created.id)
 	_expect("starter route has story battle and ending", editor.route.size(), 3)
@@ -78,6 +99,12 @@ func _run() -> void:
 	_expect("starter battle has one route", editor.outcome_select.item_count, 1)
 	_expect("starter route begins unconditional", str(editor.outcome_condition.get_item_metadata(editor.outcome_condition.selected)), "always")
 	_expect("starter route names its ending", str(editor.outcome_target.get_item_metadata(editor.outcome_target.selected)), "chapter_complete")
+	editor._open_add_route()
+	await process_frame
+	_expect("adding a route uses one focused choice screen", editor.add_route_layer.visible, true)
+	_expect("existing destination is the first route choice", editor.add_existing_button.has_focus(), true)
+	_expect("a goal battle can create a playable alternate path", editor.add_branch_button.disabled, false)
+	editor._close_add_route()
 	editor._select_metadata(editor.outcome_condition, "victory")
 	editor._refresh_outcome_fields()
 	editor._apply_outcome()
@@ -93,7 +120,8 @@ func _run() -> void:
 	editor._redo()
 	_expect("outcome change is redoable", str(_parse(editor.source).campaigns[0].flow.nodes[1].transitions[0].when.result), "victory")
 	editor._open_outcomes("first_battle")
-	editor._add_outcome()
+	editor._open_add_route()
+	editor._choose_existing_route()
 	var with_branch: Dictionary = _parse(editor.source)
 	_expect("add outcome creates a second route", with_branch.campaigns[0].flow.nodes[1].transitions.size(), 2)
 	_expect("second goal route complements victory", str(with_branch.campaigns[0].flow.nodes[1].transitions[1].when.result), "defeat")
@@ -109,7 +137,31 @@ func _run() -> void:
 	editor._remove_outcome()
 	_expect("outcome can be removed without deleting chapter", _parse(editor.source).campaigns[0].flow.nodes[1].transitions.size(), 1)
 	_expect("last route cannot be accidentally removed", editor.outcome_remove_button.disabled, true)
-	editor._open_new_ending()
+	editor._open_add_route()
+	editor._choose_new_branch()
+	_expect("playable chapter asks only for its name", editor.branch_layer.visible, true)
+	_expect("playable chapter name receives focus", editor.branch_name.has_focus(), true)
+	editor.branch_name.text = "The Fallen Road"
+	editor._create_branch()
+	var with_playable_branch: Dictionary = _parse(editor.source)
+	_expect("playable branch adds a story and battle", with_playable_branch.campaigns[0].flow.nodes.size(), 5)
+	_expect("playable branch adds a fresh map", with_playable_branch.maps.size(), 2)
+	_expect("playable branch keeps the original result", str(with_playable_branch.campaigns[0].flow.nodes[1].transitions[0].when.result), "victory")
+	_expect("playable branch uses the complementary result", str(with_playable_branch.campaigns[0].flow.nodes[1].transitions[1].when.result), "defeat")
+	_expect("playable branch receives a hidden story identity", str(with_playable_branch.campaigns[0].flow.nodes[2].id), "chapter_1_story")
+	_expect("playable branch receives a hidden battle identity", str(with_playable_branch.campaigns[0].flow.nodes[3].id), "chapter_1_battle")
+	_expect("playable branch copies the working battle setup", with_playable_branch.campaigns[0].flow.nodes[3].placements.size(), with_playable_branch.campaigns[0].flow.nodes[1].placements.size())
+	_expect("playable branch rejoins the selected destination", str(with_playable_branch.campaigns[0].flow.nodes[3].transitions[0].targetNodeId), "chapter_complete")
+	_expect("playable branch appears outside the main path", editor.other_nodes.size(), 2)
+	editor._undo()
+	_expect("playable branch is one undo", _parse(editor.source).campaigns[0].flow.nodes.size(), 3)
+	_expect("playable branch undo removes its map", _parse(editor.source).maps.size(), 1)
+	editor._redo()
+	_expect("playable branch is redoable", _parse(editor.source).campaigns[0].flow.nodes.size(), 5)
+	editor._undo()
+	editor._refresh_outcome_layer()
+	editor._open_add_route()
+	editor._choose_new_ending()
 	_expect("new ending opens inside chapter flow", editor.ending_layer.visible, true)
 	_expect("new ending begins with its name", editor.ending_name.has_focus(), true)
 	editor.ending_name.text = "The Road Falls"
