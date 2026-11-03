@@ -61,6 +61,14 @@ var modifier_role_label: Label
 var modifier_value_labels: Dictionary = {}
 var first_modifier_button: Button
 var modifier_done_button: Button
+var supplies_button: Button
+var supply_layer: Control
+var supply_timing: OptionButton
+var supply_kind: OptionButton
+var supply_asset: OptionButton
+var supply_value_label: Label
+var supply_minus_button: Button
+var supply_plus_button: Button
 
 
 func _ready() -> void:
@@ -74,7 +82,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if modifier_layer.visible:
+		if supply_layer.visible:
+			_close_supplies()
+		elif modifier_layer.visible:
 			_close_modifiers()
 		elif add_layer.visible:
 			_close_add()
@@ -331,6 +341,158 @@ func _adjust_modifier(key: String, amount: int) -> void:
 	_refresh_modifier_values()
 	var readable := key.replace("Bonus", " bonus").capitalize()
 	_set_status("UNSAVED  /  %s %s" % [readable.to_upper(), "ADJUSTED"], false)
+
+
+func _open_supplies() -> void:
+	if not _commit_visible_member(false):
+		return
+	if campaigns.is_empty():
+		_set_status("ADD A CAMPAIGN BEFORE CHOOSING SUPPLIES", true)
+		return
+	if project.get("items", []).is_empty() and project.get("weapons", []).is_empty():
+		_set_status("ADD AN ITEM OR WEAPON BEFORE CHOOSING SUPPLIES", true)
+		return
+	var preferred_timing := _selected_metadata(supply_timing)
+	var preferred_kind := _selected_metadata(supply_kind)
+	var preferred_asset := _selected_metadata(supply_asset)
+	supply_timing.select(-1)
+	supply_timing.clear()
+	supply_timing.add_item("STARTING SUPPLIES")
+	supply_timing.set_item_metadata(0, "")
+	var flow: Variant = _current_campaign().get("flow", {})
+	if flow is Dictionary:
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary:
+				continue
+			var node: Dictionary = node_value
+			if str(node.get("kind", "")) == "terminal":
+				continue
+			supply_timing.add_item(
+				"AFTER %s" % str(node.get("name", "Chapter")).to_upper()
+			)
+			supply_timing.set_item_metadata(
+				supply_timing.item_count - 1, str(node.get("id", ""))
+			)
+	supply_kind.select(-1)
+	supply_kind.clear()
+	if not project.get("items", []).is_empty():
+		supply_kind.add_item("ITEM")
+		supply_kind.set_item_metadata(supply_kind.item_count - 1, "item")
+	if not project.get("weapons", []).is_empty():
+		supply_kind.add_item("WEAPON")
+		supply_kind.set_item_metadata(supply_kind.item_count - 1, "weapon")
+	_select_metadata(supply_timing, preferred_timing)
+	_select_metadata(supply_kind, preferred_kind)
+	_refresh_supply_assets()
+	_select_metadata(supply_asset, preferred_asset)
+	_refresh_supply_value()
+	supply_layer.visible = true
+	supply_timing.grab_focus()
+
+
+func _close_supplies() -> void:
+	supply_layer.visible = false
+	supplies_button.grab_focus()
+
+
+func _selected_metadata(option: OptionButton) -> String:
+	if option == null or option.selected < 0:
+		return ""
+	return str(option.get_item_metadata(option.selected))
+
+
+func _select_metadata(option: OptionButton, value: String) -> void:
+	if not value.is_empty():
+		for index in option.item_count:
+			if str(option.get_item_metadata(index)) == value:
+				option.select(index)
+				return
+	if option.item_count > 0:
+		option.select(0)
+
+
+func _refresh_supply_assets(_index: int = 0) -> void:
+	if supply_kind.selected < 0:
+		return
+	var kind := str(supply_kind.get_item_metadata(supply_kind.selected))
+	var collection: Array = project.get("items" if kind == "item" else "weapons", [])
+	supply_asset.select(-1)
+	supply_asset.clear()
+	for value: Variant in collection:
+		if not value is Dictionary:
+			continue
+		supply_asset.add_item(str(value.get("name", value.get("id", "Supply"))))
+		supply_asset.set_item_metadata(
+			supply_asset.item_count - 1, str(value.get("id", ""))
+		)
+	if supply_asset.item_count > 0:
+		supply_asset.select(0)
+	_refresh_supply_value()
+
+
+func _refresh_supply_value(_index: int = 0) -> void:
+	var quantity := _current_supply_quantity()
+	supply_value_label.text = (
+		"NOT INCLUDED" if quantity == 0 else "%d IN THIS SUPPLY" % quantity
+	)
+	supply_minus_button.disabled = quantity <= 0
+	supply_plus_button.disabled = quantity >= 65535
+
+
+func _current_supply_quantity() -> int:
+	if supply_timing.selected < 0 or supply_kind.selected < 0 or supply_asset.selected < 0:
+		return 0
+	var node_id := str(supply_timing.get_item_metadata(supply_timing.selected))
+	var kind := str(supply_kind.get_item_metadata(supply_kind.selected))
+	var asset_id := str(supply_asset.get_item_metadata(supply_asset.selected))
+	var grants: Array = _current_campaign().get("startingStore", [])
+	if not node_id.is_empty():
+		grants = []
+		var flow: Variant = _current_campaign().get("flow", {})
+		if flow is Dictionary:
+			for node_value: Variant in flow.get("nodes", []):
+				if node_value is Dictionary and str(node_value.get("id", "")) == node_id:
+					grants = node_value.get("grants", [])
+					break
+	var identity_field := "itemId" if kind == "item" else "weaponId"
+	for value: Variant in grants:
+		if value is Dictionary and str(value.get(identity_field, "")) == asset_id:
+			return int(value.get("quantity", 0))
+	return 0
+
+
+func _adjust_supply(amount: int) -> void:
+	if supply_timing.selected < 0 or supply_kind.selected < 0 or supply_asset.selected < 0:
+		return
+	var quantity := clampi(_current_supply_quantity() + amount, 0, 65535)
+	var campaign := _current_campaign()
+	var kind := str(supply_kind.get_item_metadata(supply_kind.selected))
+	var asset_name := supply_asset.get_item_text(supply_asset.selected)
+	var updated: Dictionary = compiler.set_campaign_grant(
+		source,
+		str(campaign.get("id", "")),
+		str(supply_timing.get_item_metadata(supply_timing.selected)),
+		kind,
+		str(supply_asset.get_item_metadata(supply_asset.selected)),
+		quantity
+	)
+	if not updated.ok:
+		_set_status("SUPPLY NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		return
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = source != saved_source
+	_read_source()
+	_refresh_supply_value()
+	_update_actions()
+	_set_status(
+		"UNSAVED  /  %s %s" % [
+			asset_name.to_upper(),
+			"REMOVED" if quantity == 0 else "× %d" % quantity,
+		],
+		false
+	)
 
 
 func _select_campaign(index: int) -> void:
@@ -617,6 +779,10 @@ func _update_actions() -> void:
 	play_button.disabled = campaigns.is_empty()
 	add_button.disabled = campaigns.is_empty() or project.get("unitTypes", []).is_empty()
 	customize_button.disabled = members.is_empty()
+	supplies_button.disabled = (
+		campaigns.is_empty()
+		or (project.get("items", []).is_empty() and project.get("weapons", []).is_empty())
+	)
 
 
 func _build_interface() -> void:
@@ -630,7 +796,7 @@ func _build_interface() -> void:
 	title_label.size = Vector2(1760, 42)
 	add_child(title_label)
 	var subtitle := _label(
-		"Choose who starts together and who joins after each chapter.",
+		"Choose who joins and what each chapter gives the company.",
 		34, Color("f2f7f9")
 	)
 	subtitle.position = Vector2(80, 84)
@@ -684,8 +850,12 @@ func _build_interface() -> void:
 	add_button = _button("ADD A CHARACTER", 510, 60)
 	add_button.pressed.connect(_open_add)
 	list_column.add_child(add_button)
+	supplies_button = _button("CAMPAIGN SUPPLIES", 510, 60)
+	supplies_button.tooltip_text = "Starting stock and rewards earned after a chapter."
+	supplies_button.pressed.connect(_open_supplies)
+	list_column.add_child(supplies_button)
 	var guidance := _label(
-		"Adding someone decides when they join. Open Battle Setup on a later map to place them in that battle.",
+		"Adding someone decides when they join. Supplies begin in storage or arrive after a chapter. Battle Setup decides who appears on each map.",
 		19, Color("a9bdc9")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -755,6 +925,7 @@ func _build_interface() -> void:
 	_build_modifier_layer()
 	_build_more_layer()
 	_build_add_layer()
+	_build_supply_layer()
 
 
 func _build_modifier_layer() -> void:
@@ -920,6 +1091,80 @@ func _build_add_layer() -> void:
 	var back := _button("BACK", 230, 66)
 	back.pressed.connect(_close_add)
 	actions.add_child(back)
+
+
+func _build_supply_layer() -> void:
+	supply_layer = Control.new()
+	supply_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	supply_layer.visible = false
+	supply_layer.z_index = 50
+	add_child(supply_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.92)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	supply_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(360, 130)
+	panel.size = Vector2(1200, 820)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
+	)
+	supply_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	panel.add_child(column)
+	column.add_child(_label("CAMPAIGN SUPPLIES", 18, Color("e6b86d")))
+	column.add_child(_label("What does the company receive, and when?", 32, Color("f2f7f9")))
+	var explanation := _label(
+		"Starting supplies are available from the opening. Chapter rewards enter shared storage when that moment is completed.",
+		17, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 54
+	column.add_child(explanation)
+	column.add_child(_label("WHEN", 15, Color("69d9ff")))
+	supply_timing = OptionButton.new()
+	supply_timing.custom_minimum_size = Vector2(1100, 60)
+	supply_timing.add_theme_font_size_override("font_size", 20)
+	supply_timing.item_selected.connect(_refresh_supply_value)
+	column.add_child(supply_timing)
+	column.add_child(_label("WHAT KIND", 15, Color("69d9ff")))
+	supply_kind = OptionButton.new()
+	supply_kind.custom_minimum_size = Vector2(1100, 60)
+	supply_kind.add_theme_font_size_override("font_size", 20)
+	supply_kind.item_selected.connect(_refresh_supply_assets)
+	column.add_child(supply_kind)
+	column.add_child(_label("ITEM OR WEAPON", 15, Color("69d9ff")))
+	supply_asset = OptionButton.new()
+	supply_asset.custom_minimum_size = Vector2(1100, 60)
+	supply_asset.add_theme_font_size_override("font_size", 20)
+	supply_asset.item_selected.connect(_refresh_supply_value)
+	column.add_child(supply_asset)
+	var quantity_row := HBoxContainer.new()
+	quantity_row.add_theme_constant_override("separation", 14)
+	column.add_child(quantity_row)
+	supply_minus_button = _button("−", 120, 64)
+	supply_minus_button.pressed.connect(_adjust_supply.bind(-1))
+	quantity_row.add_child(supply_minus_button)
+	supply_value_label = _label("NOT INCLUDED", 21, Color("f2f7f9"))
+	supply_value_label.custom_minimum_size = Vector2(810, 64)
+	supply_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	supply_value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	quantity_row.add_child(supply_value_label)
+	supply_plus_button = _button("+", 120, 64)
+	supply_plus_button.pressed.connect(_adjust_supply.bind(1))
+	quantity_row.add_child(supply_plus_button)
+	var guidance := _label(
+		"Set the amount to zero to remove it. Every target uses the same portable supplies and rewards.",
+		16, Color("718896")
+	)
+	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	guidance.custom_minimum_size.y = 46
+	column.add_child(guidance)
+	var done := _button("DONE", 300, 64)
+	done.pressed.connect(_close_supplies)
+	column.add_child(done)
 
 
 func _set_status(message: String, failure: bool) -> void:

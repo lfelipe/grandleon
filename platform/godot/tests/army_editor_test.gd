@@ -34,6 +34,42 @@ func _run() -> void:
 	_expect("starter company has two heroes", editor.members.size(), 2)
 	_expect("campaign selector receives controller focus", editor.campaign_select.has_focus(), true)
 	_expect("character portrait uses portable art", editor.portrait.texture != null, true)
+	editor._open_supplies()
+	_expect("campaign supplies open on demand", editor.supply_layer.visible, true)
+	_expect("campaign supplies start with timing", editor.supply_timing.has_focus(), true)
+	_expect("campaign supplies offer named items", editor.supply_asset.item_count > 0, true)
+	editor._adjust_supply(1)
+	var with_starting_supply: Dictionary = _parse(editor.source)
+	_expect("starting supply is portable campaign data", int(with_starting_supply.campaigns[0].startingStore[0].quantity), 1)
+	_expect("starting supply is undoable", editor.undo_stack.is_empty(), false)
+	editor._close_supplies()
+	_expect("closing supplies returns to its entry action", editor.supplies_button.has_focus(), true)
+	editor._undo()
+	_expect("supply undo removes the founding stock", _parse(editor.source).campaigns[0].has("startingStore"), false)
+	editor._redo()
+	editor._open_supplies()
+	_expect("chapter reward timing is available", editor.supply_timing.item_count > 1, true)
+	if editor.supply_timing.item_count > 1:
+		editor.supply_timing.select(1)
+		editor._refresh_supply_value()
+	var weapon_choice := -1
+	for index in editor.supply_kind.item_count:
+		if str(editor.supply_kind.get_item_metadata(index)) == "weapon":
+			weapon_choice = index
+			break
+	_expect("campaign supplies offer weapons", weapon_choice >= 0, true)
+	if weapon_choice >= 0:
+		editor.supply_kind.select(weapon_choice)
+		editor._refresh_supply_assets()
+		editor._adjust_supply(1)
+		var with_reward: Dictionary = _parse(editor.source)
+		_expect("chapter reward is attached by timing", with_reward.campaigns[0].flow.nodes[0].grants[0].has("weaponId"), true)
+	editor._close_supplies()
+	editor._open_supplies()
+	_expect("reopened supplies preserve reward timing", str(editor.supply_timing.get_item_metadata(editor.supply_timing.selected)).is_empty(), false)
+	_expect("reopened supplies preserve reward kind", str(editor.supply_kind.get_item_metadata(editor.supply_kind.selected)), "weapon")
+	_expect("reopened supplies show the saved reward amount", editor._current_supply_quantity(), 1)
+	editor._close_supplies()
 	editor._open_modifiers()
 	_expect("hero tuning opens on demand", editor.modifier_layer.visible, true)
 	_expect("hero tuning starts on a compact controller action", editor.first_modifier_button.has_focus(), true)
@@ -88,12 +124,17 @@ func _run() -> void:
 	if stored.ok:
 		_expect("renamed founding hero persists", str(stored.project.campaigns[0].roster[0].id), first_id)
 		_expect("renamed founding hero name persists", str(stored.project.campaigns[0].roster[0].name), "Aren of the Vale")
+		_expect("saved starting supplies persist", int(stored.project.campaigns[0].startingStore[0].quantity), 1)
+		_expect("saved chapter rewards persist", stored.project.campaigns[0].flow.nodes[0].grants[0].has("weaponId"), true)
 		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 		_expect("saved army still compiles", compiler.compile_source_json(stored.source).ok, true)
 
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
-		editor._open_modifiers()
+		if _has_argument("--supplies-preview"):
+			editor._open_supplies()
+		else:
+			editor._open_modifiers()
 		for _frame in 12:
 			await process_frame
 		var texture := get_root().get_texture()
@@ -116,6 +157,15 @@ func _argument_path(prefix: String) -> String:
 		if argument.begins_with(prefix):
 			return argument.trim_prefix(prefix)
 	return ""
+
+
+func _has_argument(value: String) -> bool:
+	return value in OS.get_cmdline_user_args()
+
+
+func _parse(value: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(value)
+	return parsed if parsed is Dictionary else {}
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:
