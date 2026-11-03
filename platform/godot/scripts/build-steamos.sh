@@ -107,9 +107,6 @@ cmake -E copy "${script_dir}/launch-pc.sh" "${temporary_dir}/launch-pc.sh"
 cmake -E copy "${script_dir}/control-pc.sh" "${temporary_dir}/control-pc.sh"
 cmake -E copy "${stage_dir}/icon.png" "${temporary_dir}/grandleon-icon.png"
 cmake -E copy \
-    "${repo_root}/platform/godot/project/pc.example.json" \
-    "${temporary_dir}/pc.example.json"
-cmake -E copy \
     "${repo_root}/platform/godot/project/graphics.example.json" \
     "${temporary_dir}/graphics.example.json"
 cmake -E copy \
@@ -136,7 +133,7 @@ if [[ "${player_only}" == "1" ]]; then
     creator_included="no"
 fi
 {
-    printf 'Grand Leon SteamOS test bundle\n'
+    printf 'Grand Leon Linux PC bundle\n'
     printf 'sourceRevision=%s\n' "${source_revision}"
     printf 'sourceTree=%s\n' "${source_state}"
     printf 'godotVersion=%s\n' "${godot_version}"
@@ -164,5 +161,5 @@ fi
 mv "${temporary_dir}" "${output_dir}"
 trap - EXIT
 
-printf 'SteamOS bundle: %s\n' "${output_dir}"
+printf 'Linux PC bundle: %s\n' "${output_dir}"
 printf 'Test locally: GRANDLEON_WINDOWED=1 %q/launch-pc.sh\n' "${output_dir}"

@@ -64,6 +64,11 @@ for local_config in graphics.local.json controls.local.json; do
         exit 70
     fi
 done
+if [[ -e "${bundle_dir}/pc.example.json" || \
+      -e "${bundle_dir}/project/pc.example.json" ]]; then
+    printf 'Removed optional-model configuration entered the PC bundle\n' >&2
+    exit 70
+fi
 if [[ -e "${bundle_dir}/runtime" ]]; then
     printf 'Test a fresh PC bundle before attaching its persistent runtime\n' >&2
     exit 73
