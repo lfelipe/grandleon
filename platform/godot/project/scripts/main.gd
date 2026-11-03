@@ -6,6 +6,7 @@ const BoardView = preload("res://scripts/board_view.gd")
 const BoardView3D = preload("res://scripts/board_view_3d.gd")
 const ControlProfile = preload("res://scripts/control_profile.gd")
 const ControllerSeats = preload("res://scripts/controller_seats.gd")
+const FrameTiming = preload("res://scripts/frame_timing.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const PresentationSettings = preload("res://scripts/presentation_settings.gd")
 const PLAYER_COLOURS := [Color("69d9ff"), Color("ffca63")]
@@ -45,6 +46,7 @@ var graphics_cycle_smoke_index := 0
 var graphics_cycle_smoke_next_msec := 0
 var controls_smoke := false
 var presentation_settings_smoke := ""
+var frame_timing_smoke := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
 var keyboard_seat := -1
@@ -77,6 +79,7 @@ var dialogue_text: RichTextLabel
 var dialogue_portrait: TextureRect
 var dialogue_hint: Label
 var session_menu_layer: Control
+var session_menu_diagnostics: Label
 var session_menu_resume: Button
 var session_menu_projects: Button
 var session_menu_graphics: Button
@@ -87,6 +90,8 @@ var art = ArtLibrary.new()
 var graphics_profiles
 var presentation_settings
 var controls
+var frame_timing = FrameTiming.new()
+var frame_timing_next_update_msec := 0
 
 
 func _ready() -> void:
@@ -118,6 +123,9 @@ func _ready() -> void:
 	_create_board(graphics_profile)
 	_create_interface()
 	_update_session_labels()
+	if frame_timing_smoke:
+		_run_frame_timing_smoke()
+		return
 	if not controls.warning().is_empty():
 		_show_toast(controls.warning())
 	if not graphics_profiles.warning().is_empty():
@@ -156,7 +164,10 @@ func _exit_tree() -> void:
 		session.stop()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	frame_timing.sample(delta)
+	if _session_menu_visible():
+		_update_session_diagnostics()
 	if not session:
 		return
 	for event: Dictionary in session.poll():
@@ -262,6 +273,8 @@ func _parse_arguments() -> void:
 			presentation_settings_smoke = argument.trim_prefix(
 				"--presentation-settings-smoke="
 			)
+		elif argument == "--frame-timing-smoke":
+			frame_timing_smoke = true
 
 
 func _use_presentation_settings() -> bool:
@@ -269,7 +282,7 @@ func _use_presentation_settings() -> bool:
 		return true
 	return not (
 		controls_smoke
-		or ai_smoke
+		or frame_timing_smoke
 		or smoke_auto
 		or coop_smoke
 		or demo_reel
@@ -329,6 +342,29 @@ func _run_controls_smoke() -> void:
 		get_tree().quit(2)
 		return
 	print("control profile integration smoke passed")
+	get_tree().quit()
+
+
+func _run_frame_timing_smoke() -> void:
+	frame_timing.reset()
+	for unused in 120:
+		frame_timing.sample(1.0 / 60.0)
+	_update_session_diagnostics(true)
+	var expected := (
+		session_menu_diagnostics != null
+		and session_menu_diagnostics.text.contains("60 FPS")
+		and session_menu_diagnostics.text.contains("P95 16.7 MS")
+		and session_menu_diagnostics.text.contains("PEAK 16.7 MS")
+		and session_menu_diagnostics.text.contains("WINDOW ")
+		and session_menu_diagnostics.text.contains("CANVAS ")
+		and session_menu_diagnostics.text.contains("NOT SAVED")
+		and not session_menu_diagnostics.text.contains("://")
+	)
+	if not expected:
+		push_error("frame timing did not reach the private session-menu summary")
+		get_tree().quit(2)
+		return
+	print("frame timing integration smoke passed")
 	get_tree().quit()
 
 
@@ -885,14 +921,10 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	panel.add_child(column)
 	column.add_child(_label("GRANDLEON  /  SESSION MENU", 16, Color("69d9ff")))
 	column.add_child(_label("Continue the expedition?", 38, Color("f2f7f9")))
-	var explanation := _label(
-		"Player commands are held while this menu is open. "
-		+ "Any deterministic action already in flight may finish.",
-		20, Color("a9bdc9")
-	)
-	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	explanation.custom_minimum_size.y = 86
-	column.add_child(explanation)
+	session_menu_diagnostics = _label("", 18, Color("a9bdc9"))
+	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	session_menu_diagnostics.custom_minimum_size.y = 86
+	column.add_child(session_menu_diagnostics)
 	session_menu_resume = _menu_button(
 		"RESUME  /  %s · ENTER" % controls.label("confirm")
 	)
@@ -928,6 +960,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint)
 	_update_session_labels()
+	_update_session_diagnostics(true)
 
 
 func _menu_button(value: String) -> Button:
@@ -953,7 +986,34 @@ func _open_session_menu() -> void:
 	if session_menu_layer == null or _dialogue_visible():
 		return
 	session_menu_layer.visible = true
+	_update_session_diagnostics(true)
 	session_menu_resume.grab_focus()
+
+
+func _update_session_diagnostics(force := false) -> void:
+	if session_menu_diagnostics == null:
+		return
+	var now := Time.get_ticks_msec()
+	if not force and now < frame_timing_next_update_msec:
+		return
+	frame_timing_next_update_msec = now + 500
+	var values: Dictionary = frame_timing.metrics()
+	var timing := "WARMING UP"
+	if bool(values.ready):
+		timing = "%d FPS · P95 %.1f MS · PEAK %.1f MS" % [
+			roundi(float(values.fps)),
+			float(values.p95_msec),
+			float(values.peak_msec),
+		]
+	var window := DisplayServer.window_get_size()
+	var canvas := Vector2i(get_viewport().get_visible_rect().size)
+	session_menu_diagnostics.text = (
+		"Commands pause here; deterministic actions already in flight may finish.\n"
+		+ "LIVE PERFORMANCE / %s\n" % timing
+		+ "WINDOW %d×%d · CANVAS %d×%d · NOT SAVED" % [
+			window.x, window.y, canvas.x, canvas.y
+		]
+	)
 
 
 func _close_session_menu() -> void:

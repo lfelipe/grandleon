@@ -33,6 +33,7 @@ machine-specific model, graphics, or control configuration.
 | Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds an authored forest grove, mountain edge, animated water, cobbled road, context-aware bridge, and relay ruin while other terrain falls back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including the integrated 443-pixel-cell Rook sheet. The full-voxel profile additionally replaces commander and beast archetypes with authored animated 3D scenes while unbound characters fall back. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Persistent presentation settings | Graphics profile, camera impulse, and text size survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
+| Private performance readout | Opening the controller session menu shows rolling FPS, p95 and peak frame times, window size, and internal canvas size. The five-second sample remains in memory and never records hardware, display, controller, user, path, or network identities. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Route-aware locomotion | Accepted moves carry the shared portable route and a per-cell duration derived from console presentation timing. Both Godot renderers validate and follow every leg independently, including overlapping co-op moves, while snapshots remain authoritative and malformed records fall back safely. |
 | Controller-safe exit | Start or the optional Back shortcut opens a controller-native session menu; quitting requires an explicit second X press, while A, B, or Start resumes. |
@@ -64,8 +65,10 @@ Test the default `voxel-sprites` profile first, then compare `diorama` and
    visibility, and camera impulse at the actual viewing distance.
 8. Open the session menu with Start. Resume with A or B, then return
    to Steam with X and confirm the launcher regains focus.
-9. Leave the game running through several rounds and check frame pacing,
-   controller focus, heat, and memory on the target PC.
+9. Leave the game running through several rounds, then open the session menu
+   and note its rolling FPS, p95, peak, window, and canvas values. Check those
+   alongside controller focus, heat, and memory on the target PC; the game
+   deliberately does not save this diagnostic sample.
 
 Record the GPU, display mode, controller models, frame-pacing observations, and
 which graphics profile is preferred. Do not record endpoint names, tokens, LAN

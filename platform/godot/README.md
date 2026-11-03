@@ -180,7 +180,11 @@ its simulation state, disabling camera impulse for motion-sensitive players,
 and switching all interface text between Normal and Large. B, Start, or Escape
 resumes directly under the default mapping, while X or Q returns to Steam.
 Opening the menu is the first confirmation, preventing a single accidental
-gameplay press from closing the PC session.
+gameplay press from closing the PC session. The same menu shows a rolling
+five-second FPS, p95 frame-time, peak frame-time, window-size, and internal-
+canvas summary. Those values exist only in memory and are never written to a
+report; the readout deliberately omits graphics-device, display, controller,
+user, path, and network identities.
 
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the
@@ -355,6 +359,9 @@ cmake --build build-godot --target grandleon_godot_project
 `scripts/smoke-presentation-settings.sh` verifies atomic save/recovery, the
 strict presentation-only whitelist, restart persistence, and command-line
 override precedence under an isolated user-data directory.
+
+`scripts/smoke-frame-timing.sh` verifies the rolling frame-time calculation,
+its deliberately narrow data shape, and the session-menu integration.
 
 The runnable project is staged at
 `build-godot/platform/godot/project/app`. Compile a package into that directory,
