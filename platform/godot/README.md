@@ -162,9 +162,10 @@ an alternate playable story/map/battle by copying the current working setup
 and rejoining the selected destination as one compiler-checked undoable edit.
 **Change Chapter Order** moves a complete Story → Battle pair on one focused
 screen while preserving its map, outcomes, alternate routes, and stable
-identities. General integer world-state authoring plus replacement art-pack
-import remain in the
-increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+identities. Imported general world-value comparisons remain preserved and
+advanced because the source schema has no general operation that sets them.
+Replacement art-pack import remains in the increments defined by
+[CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to

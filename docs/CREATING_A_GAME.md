@@ -253,10 +253,13 @@ controller identity, credential, network endpoint, or machine-only setting.
 
 The native creator builds the focused boolean story state created by Talk and
 can combine named goal, item, and Talk requirements with portable all, any, and
-not rules. It preserves imported general integer world-state but does not yet
-create or edit those arbitrary counters directly. External replacement-art-
-pack import and installed console builder integration remain release work. The
-current status and acceptance gates are in [RELEASE_0_3.md](RELEASE_0_3.md).
+not rules. Imported projects may contain general boolean, integer, or text
+world-value comparisons; the creator preserves and labels them as advanced.
+The portable source format has no general action that sets those values, so the
+creator deliberately does not offer a raw key/value form that would create an
+unreachable route. External replacement-art-pack import and installed console
+builder integration remain release work. The current status and acceptance
+gates are in [RELEASE_0_3.md](RELEASE_0_3.md).
 
 ## Refresh these screenshots
 

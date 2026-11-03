@@ -151,8 +151,9 @@ directory.
   make a lone unconditional path into reachable complementary win/loss routes.
 - Reorder intact main-path chapters as atomic Story → Battle pairs with one
   focused controller screen and one-step undo/redo.
-- Preserve imported general integer world-state that the focused editor does
-  not yet create.
+- Preserve and label imported general world-value comparisons. Do not expose
+  raw keys: the portable source schema has no general action that sets them, so
+  a new comparison authored here could never become true.
 
 ### Presentation and export
 
@@ -230,21 +231,22 @@ but it must not become a second schema authority.
 These are release blockers in priority order, not invitations to add a large
 permanent form.
 
-1. **General integer story state.** Add a named producer and focused editor for
-   campaign counters, or explicitly scope imported-only counters out of native
-   authoring parity. Named all/any/not combinations, focused Talk-driven
-   boolean state, and safe whole-chapter ordering are implemented; the common
-   linear path must not become a graph editor.
-2. **Replacement art packs.** Select an installed pack or import project-owned
+1. **Replacement art packs.** Select an installed pack or import project-owned
    terrain, character, portrait, effect, and UI assets. Validate dimensions,
    pivots, animation names, target budgets, and licenses, and preview the same
    animation state machine used in play.
-3. **Console builder payloads.** Integrate separately installed, versioned
+2. **Console builder payloads.** Integrate separately installed, versioned
    Nintendo 64 and PlayStation builders into the Export Center with independent
    progress, warnings, capability checks, hashes, and failure reports.
-4. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
+3. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
    run clean-revision PC/Nintendo 64/PlayStation gates, and complete one human
    solo and co-op campaign playthrough per target.
+
+General boolean, integer, and text world-value comparisons remain accepted and
+preserved for imported compatibility. They are not an editor blocker: source
+projects have no general set-value operation, and adding a raw comparison form
+without a named producer would make it easy to create a dead route. Talk is the
+focused portable producer and already has named positive/negative conditions.
 
 Windows PC support is post-0.3. It requires a Windows GDExtension, export shell,
 signing and CI, controller validation, and a Windows-safe strategy for any
