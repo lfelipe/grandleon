@@ -44,6 +44,21 @@ func _run() -> void:
 		print("battle setup capture saved: %s" % setup_screenshot_path)
 		quit()
 		return
+	var copy_setup_screenshot_path := _argument_path("--copy-setup-screenshot=")
+	if not copy_setup_screenshot_path.is_empty():
+		for index in editor.encounters.size():
+			editor._select_encounter(index)
+			editor._collect_copy_setup_candidates()
+			if not editor.copy_setup_candidates.is_empty():
+				break
+		editor._open_setup()
+		editor._setup_copy()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(copy_setup_screenshot_path)
+		print("copy battle setup capture saved: %s" % copy_setup_screenshot_path)
+		quit()
+		return
 	var more_screenshot_path := _argument_path("--more-screenshot=")
 	if not more_screenshot_path.is_empty():
 		editor._open_more()
@@ -159,6 +174,7 @@ func _run() -> void:
 	await process_frame
 	_expect("battle setup opens", editor.setup_layer.visible, true)
 	_expect("battle setup focuses its first action", editor.setup_first_button.has_focus(), true)
+	_expect("single-battle campaign cannot copy from nowhere", editor.copy_setup_button.disabled, true)
 	editor._close_setup()
 	await process_frame
 	_expect("battle setup returns focus", editor.setup_button.has_focus(), true)
@@ -493,6 +509,31 @@ func _run() -> void:
 	_expect("solid outside mode is authored", solid_outside.mode, "solid")
 	_expect("editor-selected outside colour is portable", solid_outside.color, "#1234ab")
 	_expect("solid outside colour does not add tactical cells", editor.grid.get_child_count(), 12)
+	editor._open_setup()
+	_expect("another chapter makes setup reuse available", editor.copy_setup_button.disabled, false)
+	editor._setup_copy()
+	await process_frame
+	_expect("copy setup picker opens from battle setup", editor.copy_setup_layer.visible, true)
+	_expect("copy setup begins with its named source", editor.copy_setup_select.has_focus(), true)
+	_expect("copy setup stays inside the current campaign", editor.copy_setup_select.item_count, 1)
+	_expect("copy setup previews portable content", editor.copy_setup_summary.text.contains("characters"), true)
+	var copy_target_before: Dictionary = _parse(editor.source).campaigns[0].flow.nodes[0].duplicate(true)
+	editor._apply_copy_setup()
+	await process_frame
+	var copied_setup: Dictionary = _parse(editor.source).campaigns[0].flow.nodes[0]
+	_expect("copied setup replaces the target goals", copied_setup.objectiveIds.has("survive_rounds"), false)
+	_expect("copied setup preserves battle identity", str(copied_setup.id), str(copy_target_before.id))
+	_expect("copied setup preserves battle name", str(copied_setup.name), str(copy_target_before.name))
+	_expect("copied setup preserves target map", str(copied_setup.mapId), str(copy_target_before.mapId))
+	editor._undo()
+	await process_frame
+	_expect("copy setup is one undo", _parse(editor.source).campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
+	editor._redo()
+	await process_frame
+	_expect("copy setup is redoable", _parse(editor.source).campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), false)
+	editor._undo()
+	await process_frame
+	_expect("copy setup undo restores authored target", _parse(editor.source).campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
 
 	var original_map_id := str(_parse(editor.source).maps[0].id)
 	var original_battle_id := str(_parse(editor.source).campaigns[0].flow.nodes[0].id)

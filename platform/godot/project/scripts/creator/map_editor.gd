@@ -120,6 +120,11 @@ var board_panel: PanelContainer
 var setup_button: Button
 var setup_layer: Control
 var setup_first_button: Button
+var copy_setup_button: Button
+var copy_setup_layer: Control
+var copy_setup_select: OptionButton
+var copy_setup_summary: Label
+var copy_setup_candidates: Array[Dictionary] = []
 var more_button: Button
 var more_layer: Control
 var more_first_button: Button
@@ -161,6 +166,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_add_placement()
 		elif resize_layer != null and resize_layer.visible:
 			_close_resize()
+		elif copy_setup_layer != null and copy_setup_layer.visible:
+			_close_copy_setup()
 		elif setup_layer != null and setup_layer.visible:
 			_close_setup()
 		elif chapter_layer != null and chapter_layer.visible:
@@ -2372,6 +2379,18 @@ func _open_setup() -> void:
 	if deployment_editing:
 		_set_status("APPLY OR CANCEL THE DEPLOYMENT DRAFT FIRST", true)
 		return
+	_collect_copy_setup_candidates()
+	copy_setup_button.disabled = copy_setup_candidates.is_empty()
+	copy_setup_button.text = (
+		"COPY SETUP  /  ADD ANOTHER BATTLE FIRST"
+		if copy_setup_candidates.is_empty()
+		else "COPY ANOTHER BATTLE SETUP"
+	)
+	copy_setup_button.tooltip_text = (
+		"No other battle in this campaign is available yet."
+		if copy_setup_candidates.is_empty()
+		else "Reuse characters, goals, deployment, co-op, and turn order."
+	)
 	setup_layer.visible = true
 	setup_first_button.call_deferred("grab_focus")
 
@@ -2406,6 +2425,134 @@ func _setup_surroundings() -> void:
 	_open_surroundings()
 
 
+func _collect_copy_setup_candidates() -> void:
+	copy_setup_candidates.clear()
+	var current := _current_encounter()
+	if current.is_empty():
+		return
+	var campaign_id := str(current.get("campaign_id", ""))
+	var current_node_id := str(current.node.get("id", ""))
+	for campaign_value: Variant in project.get("campaigns", []):
+		if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != campaign_id:
+			continue
+		var flow: Variant = campaign_value.get("flow", {})
+		if not flow is Dictionary:
+			return
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary:
+				continue
+			if str(node_value.get("kind", "")) != "encounter" or str(node_value.get("id", "")) == current_node_id:
+				continue
+			copy_setup_candidates.append({
+				"node": node_value,
+				"node_id": str(node_value.get("id", "")),
+				"name": str(node_value.get("name", node_value.get("id", "Battle"))),
+				"map_name": _map_name_for_id(str(node_value.get("mapId", ""))),
+			})
+		return
+
+
+func _map_name_for_id(map_id: String) -> String:
+	for value: Variant in project.get("maps", []):
+		if value is Dictionary and str(value.get("id", "")) == map_id:
+			return str(value.get("name", value.get("id", "Map")))
+	return "Unknown map"
+
+
+func _setup_copy() -> void:
+	_collect_copy_setup_candidates()
+	if copy_setup_candidates.is_empty():
+		_set_status("ADD ANOTHER BATTLE TO THIS CAMPAIGN BEFORE COPYING", true)
+		copy_setup_button.disabled = true
+		return
+	setup_layer.visible = false
+	copy_setup_select.clear()
+	for candidate: Dictionary in copy_setup_candidates:
+		copy_setup_select.add_item("%s  /  %s" % [candidate.name, candidate.map_name])
+		copy_setup_select.set_item_metadata(
+			copy_setup_select.item_count - 1, candidate.node_id
+		)
+	copy_setup_select.select(0)
+	_refresh_copy_setup_summary()
+	copy_setup_layer.visible = true
+	copy_setup_select.call_deferred("grab_focus")
+
+
+func _close_copy_setup() -> void:
+	copy_setup_layer.visible = false
+	setup_layer.visible = true
+	copy_setup_button.call_deferred("grab_focus")
+
+
+func _refresh_copy_setup_summary(_index: int = 0) -> void:
+	if copy_setup_select.selected < 0 or copy_setup_select.selected >= copy_setup_candidates.size():
+		copy_setup_summary.text = "NO SOURCE BATTLE"
+		return
+	var node: Dictionary = copy_setup_candidates[copy_setup_select.selected].node
+	var goal_count: int = node.get("objectiveIds", []).size()
+	copy_setup_summary.text = (
+		"%d character%s  •  %d goal%s  •  %s" % [
+			node.get("placements", []).size(),
+			"" if node.get("placements", []).size() == 1 else "s",
+			goal_count,
+			"" if goal_count == 1 else "s",
+			"DEPLOYMENT AREA" if node.has("deployment") else "FIXED STARTS",
+		]
+	)
+
+
+func _apply_copy_setup() -> void:
+	if copy_setup_select.selected < 0 or copy_setup_select.selected >= copy_setup_candidates.size():
+		return
+	var current := _current_encounter()
+	if current.is_empty():
+		_set_status("TARGET BATTLE IS NO LONGER AVAILABLE", true)
+		return
+	var source_node: Dictionary = copy_setup_candidates[copy_setup_select.selected].node
+	var source_name := str(copy_setup_candidates[copy_setup_select.selected].name)
+	var campaign_id := str(current.get("campaign_id", ""))
+	var target_node_id := str(current.node.get("id", ""))
+	var candidate: Dictionary = project.duplicate(true)
+	var candidate_campaigns: Array = candidate.get("campaigns", [])
+	for campaign_index in candidate_campaigns.size():
+		if not candidate_campaigns[campaign_index] is Dictionary or str(candidate_campaigns[campaign_index].get("id", "")) != campaign_id:
+			continue
+		var flow: Dictionary = candidate_campaigns[campaign_index].get("flow", {}).duplicate(true)
+		var nodes: Array = flow.get("nodes", []).duplicate(true)
+		for node_index in nodes.size():
+			if not nodes[node_index] is Dictionary or str(nodes[node_index].get("id", "")) != target_node_id:
+				continue
+			var target: Dictionary = nodes[node_index].duplicate(true)
+			for field: String in ["placements", "objectiveIds", "turnOrder", "deployment"]:
+				if source_node.has(field):
+					target[field] = source_node[field].duplicate(true)
+				else:
+					target.erase(field)
+			nodes[node_index] = target
+			break
+		flow.nodes = nodes
+		candidate_campaigns[campaign_index].flow = flow
+		break
+	candidate.campaigns = candidate_campaigns
+	var portable: Dictionary = _integer_numbers(candidate)
+	var candidate_source := JSON.stringify(portable, "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status("SETUP NOT COPIED  /  %s" % _diagnostic_detail(checked), true)
+		return
+	if candidate_source != source:
+		_push_undo(source)
+		redo_stack.clear()
+		source = candidate_source
+		dirty = true
+		_read_source()
+	copy_setup_layer.visible = false
+	setup_layer.visible = false
+	_refresh_maps_after_edit(0)
+	_set_status("UNSAVED  /  COPIED SETUP FROM %s" % source_name.to_upper(), false)
+	setup_button.call_deferred("grab_focus")
+
+
 func _build_setup_overlay() -> void:
 	setup_layer = Control.new()
 	setup_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -2419,8 +2566,8 @@ func _build_setup_overlay() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	setup_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(390, 150)
-	panel.size = Vector2(1140, 780)
+	panel.position = Vector2(390, 190)
+	panel.size = Vector2(1140, 700)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
 	)
@@ -2474,10 +2621,66 @@ func _build_setup_overlay() -> void:
 	surroundings_button.pressed.connect(_setup_surroundings)
 	choices.add_child(surroundings_button)
 	tool_buttons["surroundings"] = surroundings_button
+	copy_setup_button = _button("COPY ANOTHER BATTLE SETUP", 1014, 66)
+	copy_setup_button.pressed.connect(_setup_copy)
+	column.add_child(copy_setup_button)
 	var back := _button("BACK TO MAP", 500, 62)
 	back.pressed.connect(_close_setup)
 	column.add_child(back)
 	_update_tool_selection()
+	_build_copy_setup_overlay()
+
+
+func _build_copy_setup_overlay() -> void:
+	copy_setup_layer = Control.new()
+	copy_setup_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	copy_setup_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	copy_setup_layer.visible = false
+	copy_setup_layer.z_index = 40
+	add_child(copy_setup_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.92)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	copy_setup_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(430, 250)
+	panel.size = Vector2(1060, 580)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 22, Color("ffca63"))
+	)
+	copy_setup_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 17)
+	panel.add_child(column)
+	column.add_child(_label("COPY BATTLE SETUP", 20, Color("ffca63")))
+	column.add_child(_label("Start from something that already works.", 32, Color("f2f7f9")))
+	var explanation := _label(
+		"This replaces characters, goals, deployment, co-op ownership and scaling, and turn order. The current map, battle name, story position, and identity stay intact.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 72
+	column.add_child(explanation)
+	column.add_child(_label("COPY FROM", 15, Color("ffca63")))
+	copy_setup_select = OptionButton.new()
+	copy_setup_select.custom_minimum_size = Vector2(960, 64)
+	copy_setup_select.add_theme_font_size_override("font_size", 20)
+	copy_setup_select.item_selected.connect(_refresh_copy_setup_summary)
+	column.add_child(copy_setup_select)
+	copy_setup_summary = _label("", 19, Color("f2f7f9"))
+	copy_setup_summary.custom_minimum_size.y = 48
+	copy_setup_summary.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	column.add_child(copy_setup_summary)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	var apply := _button("COPY THIS SETUP", 340, 68)
+	apply.pressed.connect(_apply_copy_setup)
+	actions.add_child(apply)
+	var cancel := _button("CANCEL", 260, 68)
+	cancel.pressed.connect(_close_copy_setup)
+	actions.add_child(cancel)
 
 
 func _open_more() -> void:
