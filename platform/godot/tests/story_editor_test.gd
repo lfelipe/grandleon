@@ -66,6 +66,25 @@ func _run() -> void:
 	)
 	editor._save()
 	_expect("story save clears dirty state", editor.dirty, false)
+	editor.dialogue_text.text = "Save keeps the visible line without another step."
+	editor._mark_line_form_dirty()
+	_expect("typing enables the single save action", editor.save_button.disabled, false)
+	editor._save()
+	_expect(
+		"save commits the visible line without apply",
+		str(_parse(editor.source).dialogues[0].lines[0].text),
+		"Save keeps the visible line without another step."
+	)
+	editor.dialogue_text.text = "The relay answers through portable story source."
+	editor._mark_line_form_dirty()
+	editor._save()
+	editor._open_more()
+	await process_frame
+	_expect("more story options open", editor.more_layer.visible, true)
+	_expect("more story options focus an available action", editor.more_first_button.has_focus(), true)
+	editor._close_more()
+	await process_frame
+	_expect("more story options return focus", editor.dialogue_select.has_focus(), true)
 	var dialogue_count: int = editor.dialogues.size()
 	editor._open_new_scene()
 	_expect("new scene overlay opens", editor.new_scene_layer.visible, true)

@@ -20,6 +20,8 @@ var scene_characters: Array[Dictionary] = []
 var dialogue_index := 0
 var line_index := 0
 var dirty := false
+var line_form_dirty := false
+var refreshing_line := false
 var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
 var discard_armed_until := 0
@@ -39,8 +41,10 @@ var redo_button: Button
 var play_button: Button
 var previous_button: Button
 var next_button: Button
-var apply_button: Button
 var new_scene_button: Button
+var more_layer: Control
+var more_first_button: Button
+var more_projects_button: Button
 var new_scene_layer: Control
 var new_scene_title: LineEdit
 var new_scene_id_label: Label
@@ -63,8 +67,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if new_scene_layer != null and new_scene_layer.visible:
 			_close_new_scene()
+		elif more_layer != null and more_layer.visible:
+			_close_more()
 		else:
-			_request_projects()
+			_request_maps()
 		get_viewport().set_input_as_handled()
 
 
@@ -80,7 +86,7 @@ func _load_project() -> void:
 	saved_source = source
 	if not _read_source():
 		return
-	title_label.text = "%s  /  STORY CREATOR" % str(
+	title_label.text = "%s  /  2 WRITE THE STORY  →  3 TEST" % str(
 		project.get("title", "UNTITLED GAME")
 	).to_upper()
 	_refresh_dialogues()
@@ -218,6 +224,10 @@ func _refresh_dialogues() -> void:
 func _select_dialogue(index: int) -> void:
 	if index < 0 or index >= dialogues.size():
 		return
+	var previous_index := dialogue_index
+	if not _commit_visible_line(false):
+		dialogue_select.select(previous_index)
+		return
 	dialogue_index = index
 	line_index = 0
 	_refresh_line()
@@ -227,6 +237,8 @@ func _select_dialogue(index: int) -> void:
 func _cycle_line(delta: int) -> void:
 	var lines := _current_lines()
 	if lines.is_empty():
+		return
+	if not _commit_visible_line(false):
 		return
 	line_index = wrapi(line_index + delta, 0, lines.size())
 	_refresh_line()
@@ -251,11 +263,10 @@ func _current_lines() -> Array:
 
 
 func _refresh_line() -> void:
+	refreshing_line = true
 	var dialogue := _current_dialogue()
 	var lines := _current_lines()
-	dialogue_name_label.text = "%s\n%s" % [
-		_current_dialogue_name(), str(dialogue.get("id", "")).to_upper()
-	]
+	dialogue_name_label.text = _current_dialogue_name()
 	var available := not lines.is_empty()
 	line_index = clampi(line_index, 0, maxi(0, lines.size() - 1))
 	line_counter.text = (
@@ -264,13 +275,14 @@ func _refresh_line() -> void:
 	)
 	previous_button.disabled = lines.size() < 2
 	next_button.disabled = lines.size() < 2
-	apply_button.disabled = not available
 	speaker_select.clear()
 	dialogue_text.editable = available
 	if not available:
 		speaker_select.add_item("NO SPEAKER")
 		speaker_select.disabled = true
 		dialogue_text.text = ""
+		line_form_dirty = false
+		refreshing_line = false
 		_update_actions()
 		return
 	var line: Dictionary = lines[line_index] if lines[line_index] is Dictionary else {}
@@ -291,45 +303,73 @@ func _refresh_line() -> void:
 		speaker_select.select(selected)
 	speaker_select.disabled = speakers.is_empty()
 	dialogue_text.text = str(line.get("text", ""))
+	line_form_dirty = false
+	refreshing_line = false
 	_update_actions()
 
 
 func _apply_line() -> void:
+	# Keep this command for automation and keyboard shortcuts. Ordinary users no
+	# longer need a separate Apply step before saving or changing lines.
+	line_form_dirty = true
+	if _commit_visible_line(true):
+		_refresh_line()
+
+
+func _mark_line_form_dirty(_value: Variant = null) -> void:
+	if refreshing_line:
+		return
+	line_form_dirty = true
+	_update_actions()
+
+
+func _commit_visible_line(announce: bool) -> bool:
+	if not line_form_dirty:
+		return true
 	var dialogue := _current_dialogue()
 	var lines := _current_lines()
 	if dialogue.is_empty() or line_index < 0 or line_index >= lines.size():
 		_set_status("CHOOSE A DIALOGUE LINE FIRST", true)
-		return
+		return false
 	if speaker_select.selected < 0 or speaker_select.item_count == 0:
 		_set_status("THIS SCENE NEEDS A SPEAKER", true)
-		return
+		return false
 	var speaker := speaker_select.get_item_text(speaker_select.selected).strip_edges()
 	var words := dialogue_text.text.strip_edges()
 	if speaker.is_empty() or words.is_empty():
 		_set_status("SPEAKER AND DIALOGUE TEXT CANNOT BE EMPTY", true)
-		return
+		return false
+	var current: Dictionary = lines[line_index] if lines[line_index] is Dictionary else {}
+	if speaker == str(current.get("speaker", "")) and words == str(current.get("text", "")):
+		line_form_dirty = false
+		_update_actions()
+		return true
 	var updated: Dictionary = compiler.update_dialogue_line(
 		source, str(dialogue.get("id", "")), line_index, speaker, words
 	)
 	if not updated.ok:
-		_set_status("LINE NOT APPLIED  /  %s" % _diagnostic_detail(updated), true)
-		return
+		_set_status("LINE NOT SAVED  /  %s" % _diagnostic_detail(updated), true)
+		return false
 	_push_history(undo_stack, source)
 	redo_stack.clear()
 	source = str(updated.source)
 	dirty = source != saved_source
 	_read_source()
-	_refresh_dialogues()
-	_set_status(
-		"UNSAVED  /  UPDATED %s, LINE %d" % [
-			_current_dialogue_name().to_upper(), line_index + 1
-		],
-		false
-	)
-	apply_button.grab_focus()
+	line_form_dirty = false
+	if announce:
+		_set_status(
+			"UNSAVED  /  UPDATED %s, LINE %d" % [
+				_current_dialogue_name().to_upper(), line_index + 1
+			],
+			false
+		)
+	_update_actions()
+	return true
 
 
 func _undo() -> void:
+	if not _commit_visible_line(false):
+		return
 	if undo_stack.is_empty():
 		return
 	_push_history(redo_stack, source)
@@ -341,6 +381,9 @@ func _undo() -> void:
 
 
 func _redo() -> void:
+	if line_form_dirty:
+		_set_status("SAVE OR UNDO THE CURRENT LINE BEFORE REDO", true)
+		return
 	if redo_stack.is_empty():
 		return
 	_push_history(undo_stack, source)
@@ -358,6 +401,8 @@ func _push_history(stack: Array[String], value: String) -> void:
 
 
 func _save() -> void:
+	if not _commit_visible_line(false):
+		return
 	var saved: Dictionary = library.save_source(project_id, source)
 	if not saved.ok:
 		_set_status("SAVE FAILED  /  %s" % saved.message, true)
@@ -381,6 +426,8 @@ func _next_scene_id() -> String:
 
 
 func _open_new_scene() -> void:
+	if not _commit_visible_line(false):
+		return
 	if story_targets.is_empty():
 		_set_status("CREATE A CAMPAIGN STORY MOMENT BEFORE ADDING A SCENE", true)
 		return
@@ -502,6 +549,8 @@ func _create_new_scene() -> void:
 
 
 func _play_draft() -> void:
+	if not _commit_visible_line(false):
+		return
 	if compiler == null:
 		_set_status("NATIVE PROJECT COMPILER IS UNAVAILABLE", true)
 		return
@@ -530,6 +579,8 @@ func _request_projects() -> void:
 
 
 func _request_leave(destination: String) -> void:
+	if not _commit_visible_line(false):
+		return
 	if dirty and Time.get_ticks_msec() > discard_armed_until:
 		discard_armed_until = Time.get_ticks_msec() + 3500
 		_set_status("UNSAVED CHANGES  /  SAVE, OR PRESS AGAIN TO DISCARD", true)
@@ -554,9 +605,9 @@ func _diagnostic_detail(result: Dictionary) -> String:
 
 
 func _update_actions() -> void:
-	save_button.disabled = not dirty
-	undo_button.disabled = undo_stack.is_empty()
-	redo_button.disabled = redo_stack.is_empty()
+	save_button.disabled = not dirty and not line_form_dirty
+	undo_button.disabled = undo_stack.is_empty() and not line_form_dirty
+	redo_button.disabled = redo_stack.is_empty() or line_form_dirty
 	play_button.disabled = project.get("campaigns", []).is_empty()
 	new_scene_button.disabled = story_targets.is_empty() or scene_characters.is_empty()
 
@@ -568,7 +619,7 @@ func _build_interface() -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
 
-	title_label = _label("GRANDLEON  /  STORY CREATOR", 24, Color("b58cff"))
+	title_label = _label("GRANDLEON  /  2 WRITE THE STORY  →  3 TEST", 24, Color("b58cff"))
 	title_label.position = Vector2(80, 42)
 	title_label.size = Vector2(1760, 42)
 	add_child(title_label)
@@ -582,27 +633,21 @@ func _build_interface() -> void:
 	toolbar.size = Vector2(1760, 62)
 	toolbar.add_theme_constant_override("separation", 12)
 	add_child(toolbar)
-	save_button = _button("SAVE", 190, 58)
+	save_button = _button("SAVE CHANGES", 260, 58)
 	save_button.pressed.connect(_save)
 	toolbar.add_child(save_button)
 	undo_button = _button("UNDO", 170, 58)
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
-	redo_button = _button("REDO", 170, 58)
-	redo_button.pressed.connect(_redo)
-	toolbar.add_child(redo_button)
-	new_scene_button = _button("NEW SCENE", 210, 58)
-	new_scene_button.pressed.connect(_open_new_scene)
-	toolbar.add_child(new_scene_button)
-	play_button = _button("PLAY DRAFT", 240, 58)
+	play_button = _button("TEST CAMPAIGN", 270, 58)
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
-	var maps_button := _button("MAPS", 190, 58)
+	var maps_button := _button("BACK: MAP", 230, 58)
 	maps_button.pressed.connect(_request_maps)
 	toolbar.add_child(maps_button)
-	var projects_button := _button("PROJECTS", 210, 58)
-	projects_button.pressed.connect(_request_projects)
-	toolbar.add_child(projects_button)
+	var more_button := _button("MORE", 190, 58)
+	more_button.pressed.connect(_open_more)
+	toolbar.add_child(more_button)
 
 	var scene_panel := PanelContainer.new()
 	scene_panel.position = Vector2(80, 232)
@@ -620,12 +665,15 @@ func _build_interface() -> void:
 	dialogue_select.add_theme_font_size_override("font_size", 19)
 	dialogue_select.item_selected.connect(_select_dialogue)
 	scene_column.add_child(dialogue_select)
+	new_scene_button = _button("ADD A SCENE", 420, 58)
+	new_scene_button.pressed.connect(_open_new_scene)
+	scene_column.add_child(new_scene_button)
 	dialogue_name_label = _label("", 25, Color("f2f7f9"))
 	dialogue_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dialogue_name_label.custom_minimum_size.y = 110
 	scene_column.add_child(dialogue_name_label)
 	var guidance := _label(
-		"Scenes, cast identities, and lines stay in the same portable project used by PC and console builds.",
+		"Pick a scene, choose a line, and write what the character says.",
 		18, Color("a9bdc9")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -658,21 +706,17 @@ func _build_interface() -> void:
 	speaker_select = OptionButton.new()
 	speaker_select.custom_minimum_size = Vector2(1120, 58)
 	speaker_select.add_theme_font_size_override("font_size", 20)
+	speaker_select.item_selected.connect(_mark_line_form_dirty)
 	editor_column.add_child(speaker_select)
 	editor_column.add_child(_label("DIALOGUE", 16, Color("69d9ff")))
 	dialogue_text = TextEdit.new()
 	dialogue_text.placeholder_text = "Write the line players will read."
 	dialogue_text.custom_minimum_size = Vector2(1120, 300)
 	dialogue_text.add_theme_font_size_override("font_size", 22)
+	dialogue_text.text_changed.connect(_mark_line_form_dirty)
 	editor_column.add_child(dialogue_text)
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 12)
-	editor_column.add_child(actions)
-	apply_button = _button("APPLY LINE", 320, 64)
-	apply_button.pressed.connect(_apply_line)
-	actions.add_child(apply_button)
-	actions.add_child(_label(
-		"Apply changes the draft. Save writes the portable project.",
+	editor_column.add_child(_label(
+		"Changes follow you when you switch lines. Save Changes keeps them in the project.",
 		17, Color("718896")
 	))
 
@@ -690,14 +734,76 @@ func _build_interface() -> void:
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status_label)
 	var controls_hint := _label(
-		"STICK / D-PAD CHOOSES   ·   CONFIRM OPENS   ·   KEYBOARD WRITES   ·   CANCEL RETURNS",
+		"STICK / D-PAD CHOOSES   ·   CONFIRM OPENS   ·   KEYBOARD WRITES   ·   CANCEL GOES BACK",
 		16, Color("718896")
 	)
 	controls_hint.position = Vector2(700, 1018)
 	controls_hint.size = Vector2(1130, 34)
 	controls_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(controls_hint)
+	_build_more_layer()
 	_build_new_scene_layer()
+
+
+func _open_more() -> void:
+	more_layer.visible = true
+	_update_actions()
+	more_first_button = redo_button if not redo_button.disabled else more_projects_button
+	more_first_button.grab_focus()
+
+
+func _close_more() -> void:
+	more_layer.visible = false
+	if dialogue_select != null and not dialogue_select.disabled:
+		dialogue_select.grab_focus()
+	else:
+		new_scene_button.grab_focus()
+
+
+func _more_redo() -> void:
+	more_layer.visible = false
+	_redo()
+	dialogue_select.grab_focus()
+
+
+func _more_projects() -> void:
+	more_layer.visible = false
+	_request_projects()
+
+
+func _build_more_layer() -> void:
+	more_layer = Control.new()
+	more_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	more_layer.visible = false
+	more_layer.z_index = 40
+	add_child(more_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.9)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	more_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(570, 250)
+	panel.size = Vector2(780, 520)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.48, 0.35, 0.72, 0.72))
+	)
+	more_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("MORE STORY OPTIONS", 18, Color("b58cff")))
+	column.add_child(_label("Use these less often.", 30, Color("f2f7f9")))
+	redo_button = _button("REDO", 680, 66)
+	redo_button.pressed.connect(_more_redo)
+	column.add_child(redo_button)
+	more_projects_button = _button("RETURN TO PROJECTS", 680, 66)
+	more_projects_button.pressed.connect(_more_projects)
+	column.add_child(more_projects_button)
+	more_first_button = more_projects_button
+	var back := _button("BACK", 680, 66)
+	back.pressed.connect(_close_more)
+	column.add_child(back)
 
 
 func _build_new_scene_layer() -> void:
