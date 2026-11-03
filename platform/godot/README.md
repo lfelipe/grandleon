@@ -22,6 +22,13 @@ The separation is deliberate:
 | `pc.local.json` | one machine's model endpoint and feature switches | project content |
 | `controls.local.json` | one machine's controller button mapping | project content or portable rules |
 
+The application opens on one small home screen. It lists the included game and
+locally created or imported games by title, followed by **Create / Edit Games**
+and **Exit**. No path, project identifier, machine name, or model setting is
+shown. The footer names only the directional control and the configured confirm
+button. Automated captures and integration smokes can enter play directly, but
+ordinary launches always begin at this screen.
+
 ## Create and play projects
 
 Open the session menu and choose **Projects / Create**. The native Projects
@@ -442,6 +449,9 @@ in-app reset and proves the next campaign starts fresh.
 `scripts/smoke-campaign-management.sh` renders a real two-member company, moves
 an item to the store and back, benches and fields the same member, starts the
 battle, and verifies that the gestures produced one non-empty checkpoint.
+
+`scripts/smoke-home-menu.sh` verifies that the packaged entry scene publishes
+the included game and the minimal controller-first home actions.
 
 `scripts/smoke-frame-timing.sh` verifies the rolling frame-time calculation,
 its deliberately narrow data shape, and the session-menu integration.

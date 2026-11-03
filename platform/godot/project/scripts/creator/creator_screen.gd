@@ -47,7 +47,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif import_layer != null and import_layer.visible:
 			_close_import()
 		else:
-			_play_shipped_game()
+			_open_home()
 		get_viewport().set_input_as_handled()
 
 
@@ -120,11 +120,11 @@ func _build_interface() -> void:
 	import_open_button.tooltip_text = "Choose a portable project from the controller-friendly inbox."
 	import_open_button.pressed.connect(_open_import)
 	actions.add_child(import_open_button)
-	var shipped := _button("PLAY INCLUDED GAME")
-	shipped.pressed.connect(_play_shipped_game)
-	actions.add_child(shipped)
+	var home := _button("MAIN MENU")
+	home.pressed.connect(_open_home)
+	actions.add_child(home)
 	var hint := _label(
-		"Stick / d-pad chooses. Confirm opens. Cancel returns to the included game.",
+		"Stick / d-pad chooses. Confirm opens. Cancel returns to the main menu.",
 		16, Color("718896")
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -555,9 +555,10 @@ func _play_project(project_id: String) -> void:
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
-func _play_shipped_game() -> void:
+func _open_home() -> void:
 	LaunchContext.clear()
-	get_tree().change_scene_to_file("res://main.tscn")
+	CreatorContext.clear()
+	get_tree().change_scene_to_file("res://home.tscn")
 
 
 func _set_status(message: String, failure: bool) -> void:

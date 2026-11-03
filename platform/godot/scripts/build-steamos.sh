@@ -104,6 +104,7 @@ trap cleanup EXIT
 cmake -E copy_directory "${stage_dir}" "${temporary_dir}/project"
 cmake -E copy "${godot_binary}" "${temporary_dir}/godot"
 cmake -E copy "${script_dir}/launch-pc.sh" "${temporary_dir}/launch-pc.sh"
+cmake -E copy "${stage_dir}/icon.png" "${temporary_dir}/grandleon-icon.png"
 cmake -E copy \
     "${repo_root}/platform/godot/project/pc.example.json" \
     "${temporary_dir}/pc.example.json"
@@ -119,8 +120,7 @@ if [[ "${player_only}" == "1" ]]; then
         "${temporary_dir}/project/map_editor.tscn" \
         "${temporary_dir}/project/content/templates" \
         "${temporary_dir}/project/scripts/creator/creator_screen.gd" \
-        "${temporary_dir}/project/scripts/creator/map_editor.gd" \
-        "${temporary_dir}/project/scripts/creator/project_library.gd"
+        "${temporary_dir}/project/scripts/creator/map_editor.gd"
     printf 'Player-only Grand Leon game bundle.\n' >"${temporary_dir}/PLAYER-ONLY"
 fi
 printf '%s\n' "${campaign_key}" >"${temporary_dir}/DEFAULT-CAMPAIGN"

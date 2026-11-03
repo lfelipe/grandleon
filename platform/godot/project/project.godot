@@ -7,7 +7,8 @@ config_version=5
 [application]
 
 config/name="Grandleon PC"
-run/main_scene="res://main.tscn"
+run/main_scene="res://home.tscn"
+config/icon="res://icon.svg"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]

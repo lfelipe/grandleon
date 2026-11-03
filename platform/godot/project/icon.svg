@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img"
+  aria-labelledby="title">
+  <title id="title">Grandleon</title>
+  <rect width="512" height="512" rx="88" fill="#07111b"/>
+  <rect x="22" y="22" width="468" height="468" rx="70" fill="none"
+    stroke="#25566a" stroke-width="12"/>
+  <path d="M104 108h304v72H176v152h160v-56h-88v-64h160v192H104z"
+    fill="#f2c14e"/>
+  <path d="M256 64l22 38-11 174h-22l-11-174z" fill="#dbe8ee"/>
+  <path d="M245 276h22v112h-22z" fill="#81542d"/>
+  <path d="M224 270h64v22h-64z" fill="#f2c14e"/>
+</svg>
