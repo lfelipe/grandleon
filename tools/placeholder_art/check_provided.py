@@ -386,7 +386,7 @@ def check_end_to_end() -> None:
                for profile in profiles.PROFILES for key in (STANDING, STRIP)}
         style = styles.STYLES_BY_NAME["pirates"]
         indexes = ("manifest.json", "palettes.json", "palette_usage.json",
-                   "GALLERY.md", "ROSTER.md")
+                   "GALLERY.md", "ROSTER.md", "DECIMATION.md")
         headers = {
             f"assets/{playstation_header.characters_header_name(style)}":
                 "the PlayStation character header for the style",
