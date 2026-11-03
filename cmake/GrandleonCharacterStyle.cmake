@@ -44,7 +44,6 @@ function(grandleon_require_character_style style manifest_json)
     message(FATAL_ERROR
         "character style '${style}' is not one the art library holds")
 endfunction()
-
 # Sets `<out_var>` in the caller's scope to the character style `project_json`
 # names, validated against the art library's menu in `manifest_json`.
 function(grandleon_resolve_character_style project_json manifest_json out_var)
@@ -204,8 +203,8 @@ function(grandleon_character_faction_colours menu_header out_var)
     set(${out_var} "${_colours}" PARENT_SCOPE)
 endfunction()
 
-# Sets `<out_var>` to the drawings `project_json`'s content references that are
-# **not** the project's own combination, each spelled
+# Sets `<out_var>` to the drawings `project_json`'s content references, each
+# spelled
 # `<style>/<figure>/<archetype>/<colour>` and sorted.
 #
 # This is the finest grain a build can embed at, and the measurement is why it
@@ -214,10 +213,10 @@ endfunction()
 # carry the drawings its content draws and no more, which is the build-time
 # style filter taken two axes further in.
 #
-# The project's own combination is deliberately absent from the answer: a build
-# embeds it whole whatever the content does with it, because it is what a
-# character the package says nothing about is drawn in and what the dialogue
-# portraits are drawn from.
+# By default the project's own combination is absent from the answer: N64
+# embeds that roster whole and asks this function only for its exceptions. Pass
+# `INCLUDE_DEFAULT` as a fifth argument for a sparse consumer such as PS1,
+# which wants every exact drawing including the project's normal ones.
 #
 # Three resolutions happen here, and each is the convention `game_content`
 # already owns rather than a new one:
@@ -238,6 +237,15 @@ endfunction()
 # colours on the board it actually appears on.
 function(grandleon_resolve_character_drawings
          project_json manifest_json colour_menu_header out_var)
+    set(_draw_include_default FALSE)
+    if(ARGC GREATER 4)
+        if(NOT ARGV4 STREQUAL "INCLUDE_DEFAULT")
+            message(FATAL_ERROR
+                "unknown character drawing option '${ARGV4}'; expected "
+                "INCLUDE_DEFAULT")
+        endif()
+        set(_draw_include_default TRUE)
+    endif()
     grandleon_resolve_character_style(
         "${project_json}" "${manifest_json}" _draw_project_style)
     grandleon_resolve_character_figure(
@@ -318,7 +326,8 @@ function(grandleon_resolve_character_drawings
                 grandleon_require_character_figure(
                     "${_draw_figure}" "${manifest_json}")
             endif()
-            if(_draw_style STREQUAL _draw_project_style AND
+            if(NOT _draw_include_default AND
+               _draw_style STREQUAL _draw_project_style AND
                _draw_figure STREQUAL _draw_project_figure)
                 continue()
             endif()
@@ -422,48 +431,4 @@ function(_grandleon_character_archetype_named name roster out_var)
         endif()
     endforeach()
     set(${out_var} "" PARENT_SCOPE)
-endfunction()
-
-# Fails the configure, by name and with the count, unless `project_json` draws
-# at most one style and at most one figure.
-#
-# The PlayStation consumes generated art as a single header per style, holding
-# the first figure alone, and a build includes exactly one of them. Those
-# headers all declare the same symbols, which is what makes the choice a
-# build-time include rather than a run-time index, so a second one cannot be
-# included beside the first. Until the art library emits per-combination
-# tables, such a build cannot draw a project that asks for two, and the honest
-# answer is to say so at configure time.
-#
-# The Nintendo 64 does not ask this: it consumes per-asset files and names a
-# drawing by all four of its keys, so it embeds the combinations its content
-# draws (`grandleon_resolve_character_drawings` above). Lifting the limit on
-# the PlayStation is an art-library change: `playstation_header.py` would have
-# to key its symbols and its lookup tables by style and figure as the Nintendo
-# 64's asset walk does.
-#
-# Refusing is deliberately not the same as dropping. A build that quietly drew
-# the project's default style for a character that named another would ship a
-# ROM that disagrees with the editor about what the game looks like. Refuse it
-# rather than hide it.
-function(grandleon_require_single_character_combination
-         project_json manifest_json console)
-    grandleon_resolve_character_art(
-        "${project_json}" "${manifest_json}" _one_styles _one_figures)
-    list(LENGTH _one_styles _one_style_count)
-    list(LENGTH _one_figures _one_figure_count)
-    if(_one_style_count GREATER 1)
-        message(FATAL_ERROR
-            "${console} embeds one character style's art, and this project "
-            "draws ${_one_style_count}: ${_one_styles}. A character may name "
-            "any style the library holds, but this console's art arrives as "
-            "one generated header per style and two cannot be included at "
-            "once.")
-    endif()
-    if(_one_figure_count GREATER 1)
-        message(FATAL_ERROR
-            "${console} embeds one character figure's art, and this project "
-            "draws ${_one_figure_count}: ${_one_figures}. The generated "
-            "console headers carry the first figure alone.")
-    endif()
 endfunction()

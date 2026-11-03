@@ -113,7 +113,7 @@ Two things are untouched by `--project`, on purpose. The conformance
 executable replays `games/demo` to a hash this repository fixed, and the demo
 campaign executable is the second shipped game: both are statements about *this*
 repository's content rather than about somebody's game, so both keep their own
-project and their own character style.
+project and their own character drawings.
 
 The autopilot builds are the gate's and not an author's: their scripts were
 recorded against the shipped boards, and replaying one into a different game
@@ -545,16 +545,14 @@ colour a texel resolves to, never by its index, which is what the hardware
 does. Generation-time checks hold every asset to a sixteen-entry CLUT, require
 transparency (where present) at slot 0, and round-trip the packing.
 
-The character style is resolved at build time: the art library emits one
-character header per style, `CMakeLists.txt` resolves each project's
-`characterStyleId` and gives every executable exactly one, and `art::character`
-has no style parameter. It is resolved per project rather than per directory,
-because this tree builds two games and they need not be drawn in the same hand;
-what an executable may not carry is two. Within the embedded style, the
-archetype and faction-colour
-dimensions are still pointer tables and cells a board never stands on are
-still linked. A board that could scroll would want a different subset, so no
-further trimming is chosen.
+Character drawings are resolved at build time. The art library emits
+independently collectable arrays keyed by style, figure, archetype and faction
+colour; `CMakeLists.txt` writes a sparse table containing exactly the drawings
+the project's unit types can request. A project may therefore mix styles and
+figures just as it can on Nintendo 64, without linking a complete roster or art
+from an unused style. `art::character` searches that small table using the same
+menu indices the compiled package carries, so a missing drawing is detected
+rather than replaced with the project's default.
 
 ## How a run is checked
 

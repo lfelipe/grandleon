@@ -360,7 +360,7 @@ def check_end_to_end() -> None:
         for name, symbol in (
                 (playstation_header.characters_header_name(
                     styles.STYLES_BY_NAME["pirates"]),
-                 "grandleon_playstation_character_mage_blue"),):
+                 "grandleon_playstation_character_pirates_first_mage_blue"),):
             after = (replaced / "assets" / name).read_text(encoding="utf-8")
             before = (plain / "assets" / name).read_text(encoding="utf-8")
             if after == before:

@@ -20,8 +20,7 @@ async function serviceConsoles(): Promise<Record<string, ServiceConsole>> {
 }
 
 // Every code any console can refuse with. The union rather than one console's
-// table, because the two do not refuse the same set: only the PlayStation can
-// say a project draws characters in more than one way.
+// table, because console-specific budgets and build failures can still differ.
 async function serviceRefusalCodes(): Promise<Set<string>> {
   const codes = new Set<string>();
   for (const target of Object.values(await serviceConsoles())) {

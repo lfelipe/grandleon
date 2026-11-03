@@ -60,7 +60,6 @@ export const romRefusalCodes = [
   "rom_build_timed_out",
   "rom_build_queue_full",
   "rom_build_unknown",
-  "character_art_is_not_one_combination",
   "request_from_another_site",
   "request_not_addressed_locally",
   // Raised where the ROM is asked for rather than where it is built: a build

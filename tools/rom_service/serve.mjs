@@ -128,9 +128,6 @@ function refusalsFor(name, image, oversize) {
             "campaign, so there is nothing for it to run.",
         character_style_not_served:
             "This project asks for character art the art library does not hold.",
-        character_art_is_not_one_combination:
-            "This project draws characters in more than one way, and the " +
-            `${name} ${image} carries one.`,
         project_too_large_for_the_console: oversize,
         campaign_id_not_an_identifier:
             "This project's campaign has an id that is not a source " +
@@ -199,10 +196,6 @@ export const consoles = {
         // refusal that costs a second, not to mark the exact edge. Measuring
         // the real ceiling on the console is what would replace it.
         projectSizeBudget: 512 * 1024,
-        // This console embeds the drawings its content actually draws, so a
-        // project drawing a medieval knight, a medieval mage at the second
-        // figure and two nature archers is served.
-        oneCharacterCombination: false,
         refusals: refusalsFor(
             "Nintendo 64", "ROM",
             "This project is larger than the Nintendo 64 build embeds."
@@ -247,13 +240,6 @@ export const consoles = {
         // read. It is deliberately the same number, so that a project one
         // console will consider is a project the other will consider.
         projectSizeBudget: 512 * 1024,
-        // And this console cannot do what the other one does. The art library
-        // emits one character header per style and they all declare the same
-        // symbols, so an executable includes exactly one;
-        // `grandleon_require_single_character_combination` is the
-        // configure-time refusal, and this is that refusal several minutes
-        // earlier.
-        oneCharacterCombination: true,
         refusals: refusalsFor(
             "PlayStation", "disc",
             "This project is larger than the PlayStation build service accepts."
@@ -607,41 +593,6 @@ export function refuseProject(text, styles, target = consoles.n64) {
             `${where}: '${named}' is not a ${axis} the art library holds ` +
                 `(${menu.join(", ")})`
         );
-    }
-
-    // **And the refusal the paragraph above says the other console does not
-    // make.** The PlayStation consumes the art library as one generated header
-    // per style, all of them declaring the same symbols, so an executable
-    // includes exactly one and a project drawing two combinations cannot be
-    // built at all. `grandleon_require_single_character_combination` refuses it
-    // at configure time, several minutes into a container build; this is the
-    // same refusal, from the same project, before one starts.
-    //
-    // The two axes are counted together because the console carries one of
-    // each: a project drawing `medieval` at two figures is as unbuildable as
-    // one drawing two styles.
-    if (target.oneCharacterCombination) {
-        const combinations = new Set();
-        const named = (value, fallback) =>
-            typeof value === "string" && value !== "" ? value : fallback;
-        const style = named(project.characterStyleId, styles.fallback);
-        const figure = named(project.characterFigureId, styles.figureFallback);
-        combinations.add(`${style}/${figure}`);
-        for (const unit of unitTypes) {
-            combinations.add(`${
-                named(unit?.characterStyleId, style)
-            }/${
-                named(unit?.characterFigureId, figure)
-            }`);
-        }
-        if (combinations.size > 1) {
-            throw new RefusalError(
-                "character_art_is_not_one_combination",
-                refusals.character_art_is_not_one_combination,
-                `this project's characters are drawn as ` +
-                    `${[...combinations].sort().join(", ")}`
-            );
-        }
     }
 
     return project;

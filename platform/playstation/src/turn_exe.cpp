@@ -489,8 +489,10 @@ void expect(bool condition, const char* name) {
 
 int terrain_cell_of[art::terrain_kind_count][art::variant_count];
 int terrain_clut_of[art::terrain_kind_count];
-int character_cell_of[art::archetype_count][art::faction_colour_count];
-int character_clut_of[art::archetype_count][art::faction_colour_count];
+constexpr int character_cache_capacity =
+    art::character_count > 0 ? art::character_count : 1;
+int character_cell_of[character_cache_capacity];
+int character_clut_of[character_cache_capacity];
 int font_clut = -1;
 
 int cells_used = 0;
@@ -1532,10 +1534,10 @@ private:
     }
 
     void draw_unit(const sim::UnitSnapshot& unit, int x, int y) {
-        const int archetype = archetype_of(unit.unit_type_id);
-        const int colour = colour_of(unit);
-        const int cell = character_cell_of[archetype][colour];
-        const int clut = character_clut_of[archetype][colour];
+        const int drawing = drawing_index_of(unit);
+        if (drawing < 0) return;
+        const int cell = character_cell_of[drawing];
+        const int clut = character_clut_of[drawing];
         if (cell < 0 || clut < 0) return;
         gpu::draw_cell_scaled(x, y, drawn_tile(), cell, clut);
     }
@@ -1751,10 +1753,10 @@ private:
     // CLUT were uploaded once at start-up alongside every other character.
     void draw_speaker_face(const turn::ScreenView& view) {
         if (view.speaker == nullptr) return;
-        const int archetype = archetype_of(*view.speaker);
-        const int colour = speaker_colour_of(*view.speaker);
-        const int cell = character_cell_of[archetype][colour];
-        const int clut = character_clut_of[archetype][colour];
+        const int drawing = speaker_drawing_index(*view.speaker);
+        if (drawing < 0) return;
+        const int cell = character_cell_of[drawing];
+        const int clut = character_clut_of[drawing];
         if (cell < 0 || clut < 0) return;
         gpu::draw_cell_scaled(
             screen_face_left, screen_face_top, screen_face_size, cell, clut
@@ -1987,6 +1989,22 @@ private:
         const std::uint8_t archetype = shown_->archetype_of_unit_type(unit_type);
         return archetype < art::archetype_count ? static_cast<int>(archetype) : 0;
     }
+    [[nodiscard]] int style_of(std::uint64_t unit_type) const {
+        const std::uint8_t style =
+            shown_->character_style_of_unit_type(unit_type);
+        return style == pr::character_style_unresolved ||
+                       style >= art::style_count
+                   ? art::project_default_style
+                   : static_cast<int>(style);
+    }
+    [[nodiscard]] int figure_of(std::uint64_t unit_type) const {
+        const std::uint8_t figure =
+            shown_->character_figure_of_unit_type(unit_type);
+        return figure == pr::character_figure_unresolved ||
+                       figure >= art::figure_count
+                   ? art::project_default_figure
+                   : static_cast<int>(figure);
+    }
     [[nodiscard]] int colour_of(const sim::UnitSnapshot& unit) const {
         const std::uint8_t colour = shown_->colour_of_unit_type(unit.unit_type_id);
         if (colour == pr::colour_unresolved || colour >= art::faction_colour_count) {
@@ -1995,7 +2013,15 @@ private:
         return static_cast<int>(colour);
     }
     [[nodiscard]] art::Asset unit_asset(const sim::UnitSnapshot& unit) const {
-        return art::character(archetype_of(unit.unit_type_id), colour_of(unit));
+        return art::character(drawing_index_of(unit));
+    }
+    [[nodiscard]] int drawing_index_of(
+        const sim::UnitSnapshot& unit
+    ) const {
+        return art::character_index(
+            style_of(unit.unit_type_id), figure_of(unit.unit_type_id),
+            archetype_of(unit.unit_type_id), colour_of(unit)
+        );
     }
     // The colour a speaker's face is drawn in.
     //
@@ -2018,8 +2044,12 @@ private:
     // so a speaker and the figure of that same character standing on a board
     // are one drawing rather than two that have to agree.
     [[nodiscard]] art::Asset speaker_asset(std::uint64_t unit_type) const {
-        return art::character(
-            archetype_of(unit_type), speaker_colour_of(unit_type)
+        return art::character(speaker_drawing_index(unit_type));
+    }
+    [[nodiscard]] int speaker_drawing_index(std::uint64_t unit_type) const {
+        return art::character_index(
+            style_of(unit_type), figure_of(unit_type), archetype_of(unit_type),
+            speaker_colour_of(unit_type)
         );
     }
     [[nodiscard]] static const sim::UnitSnapshot* unit_of(
@@ -2216,12 +2246,10 @@ int main() {
                 }
             }
         }
-        for (int a = 0; a < art::archetype_count; ++a) {
-            for (int c = 0; c < art::faction_colour_count; ++c) {
-                const art::Asset asset = art::character(a, c);
-                for (int i = 0; i < art::clut_size; ++i) {
-                    if (asset.clut[i] == backdrop) separated = false;
-                }
+        for (int drawing = 0; drawing < art::character_count; ++drawing) {
+            const art::Asset asset = art::character(drawing);
+            for (int i = 0; i < art::clut_size; ++i) {
+                if (asset.clut[i] == backdrop) separated = false;
             }
         }
         const std::uint16_t interface_colours[] = {
@@ -2245,11 +2273,9 @@ int main() {
             terrain_cell_of[kind][variant] = -1;
         }
     }
-    for (int a = 0; a < art::archetype_count; ++a) {
-        for (int c = 0; c < art::faction_colour_count; ++c) {
-            character_cell_of[a][c] = -1;
-            character_clut_of[a][c] = -1;
-        }
+    for (int drawing = 0; drawing < art::character_count; ++drawing) {
+        character_cell_of[drawing] = -1;
+        character_clut_of[drawing] = -1;
     }
 
     // Everything the board can draw, resident before the first press. A repaint
@@ -2263,12 +2289,10 @@ int main() {
                 claim_cell(art::terrain(theme, kind, variant).texels);
         }
     }
-    for (int a = 0; a < art::archetype_count; ++a) {
-        for (int c = 0; c < art::faction_colour_count; ++c) {
-            const art::Asset asset = art::character(a, c);
-            character_clut_of[a][c] = claim_clut(asset.clut);
-            character_cell_of[a][c] = claim_cell(asset.texels);
-        }
+    for (int drawing = 0; drawing < art::character_count; ++drawing) {
+        const art::Asset asset = art::character(drawing);
+        character_clut_of[drawing] = claim_clut(asset.clut);
+        character_cell_of[drawing] = claim_cell(asset.texels);
     }
     build_font();
     build_font_clut();

@@ -75,7 +75,6 @@ a container starts.
 | `project_without_campaign` | no campaigns, or a first campaign with no id (an image runs one) | both |
 | `campaign_id_not_an_identifier` | a first campaign whose id is not a source identifier | both |
 | `character_style_not_served` | a style or figure the art library does not hold, whether the game's or a character's | both |
-| `character_art_is_not_one_combination` | characters drawn in more than one style or at more than one figure | PlayStation |
 | `project_too_large_for_the_console` | source past the accepted size | both |
 | `project_does_not_compile` | the host compiler's own diagnostics, verbatim | both |
 
@@ -87,16 +86,11 @@ container and embeds the result, so the same project spends a host build and a
 cross build to arrive at the same diagnostic. The host compiler answers the
 question in two seconds either way.
 
-**The mixed-style refusal is the PlayStation's alone, and its absence on the
-other console is deliberate.** The Nintendo 64 build embeds the drawings a
-project's content actually draws, so a project drawing a `medieval` knight, a
-`medieval` mage at the second figure and two `nature` archers is served. The
-PlayStation consumes the art library as one generated header per style, all of
-them declaring the same symbols, so an executable includes exactly one:
-`grandleon_require_single_character_combination` fails that build's configure,
-and `character_art_is_not_one_combination` is the same refusal minutes earlier.
-Lifting it is an art-library change, described in
-`cmake/GrandleonCharacterStyle.cmake`.
+Both console builds embed the exact drawings a project's content references,
+so a project drawing a `medieval` knight, a `medieval` mage at the second
+figure and two `nature` archers is served by both. The PlayStation uses a
+generated sparse pointer table; the Nintendo 64 embeds the matching assets
+directly.
 
 What is checked on both is that every style and every figure the content names
 (the game's own and each character's) is art the library holds, with the path of

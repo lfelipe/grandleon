@@ -904,12 +904,7 @@ test("both shipped projects are served for a disc as well", async () => {
     }
 });
 
-// The one refusal the two consoles genuinely disagree about, and it is not a
-// preference. The PlayStation consumes the art library as one generated header
-// per style, all declaring the same symbols, so an executable includes exactly
-// one and `grandleon_require_single_character_combination` fails the configure
-// on a project that draws two. This is that refusal, minutes earlier.
-test("a project drawn by two hands is refused for a disc", async () => {
+test("both consoles serve a project drawn by two hands", async () => {
     const schema = JSON.parse(await readFile(
         path.join(
             repositoryRoot, "schemas", "source", "v1", "unit-type.schema.json"
@@ -927,15 +922,11 @@ test("a project drawn by two hands is refused for a disc", async () => {
         characterStyleId: first,
         unitTypes: [{ id: "u", characterStyleId: second }]
     });
-    // Served by the cartridge, which embeds the drawings its content draws.
     assert.equal(refusalOf(twoHands, n64), null);
-    const refusal = refusalOf(twoHands, playstation);
-    assert.equal(refusal.code, "character_art_is_not_one_combination");
-    assert.match(refusal.detail, new RegExp(first));
-    assert.match(refusal.detail, new RegExp(second));
+    assert.equal(refusalOf(twoHands, playstation), null);
 });
 
-test("a project drawn at two figures is refused for a disc", () => {
+test("both consoles serve a project drawn at two figures", () => {
     const [first, second] = styles.figures;
     const twoFigures = JSON.stringify({
         gameId: "g",
@@ -944,10 +935,7 @@ test("a project drawn at two figures is refused for a disc", () => {
         unitTypes: [{ id: "u", characterFigureId: second }]
     });
     assert.equal(refusalOf(twoFigures, n64), null);
-    assert.equal(
-        refusalOf(twoFigures, playstation).code,
-        "character_art_is_not_one_combination"
-    );
+    assert.equal(refusalOf(twoFigures, playstation), null);
 });
 
 test("one hand named twice is one hand", () => {

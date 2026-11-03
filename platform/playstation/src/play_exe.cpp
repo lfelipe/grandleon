@@ -192,6 +192,25 @@ constexpr int tile = art::cell_size;
     return archetype < art::archetype_count ? static_cast<int>(archetype) : 0;
 }
 
+[[nodiscard]] int style_of(
+    const pr::Presentation& shown, std::uint64_t unit_type
+) noexcept {
+    const std::uint8_t style = shown.character_style_of_unit_type(unit_type);
+    return style == pr::character_style_unresolved || style >= art::style_count
+               ? art::project_default_style
+               : static_cast<int>(style);
+}
+
+[[nodiscard]] int figure_of(
+    const pr::Presentation& shown, std::uint64_t unit_type
+) noexcept {
+    const std::uint8_t figure = shown.character_figure_of_unit_type(unit_type);
+    return figure == pr::character_figure_unresolved ||
+                   figure >= art::figure_count
+               ? art::project_default_figure
+               : static_cast<int>(figure);
+}
+
 // The faction colour a unit draws in: the package's if it names one, otherwise
 // the side it fights on, which is the convention every other client uses.
 [[nodiscard]] int colour_of(
@@ -202,6 +221,16 @@ constexpr int tile = art::cell_size;
         return unit.side == sim::Side::first ? 0 : 1;
     }
     return static_cast<int>(colour);
+}
+
+[[nodiscard]] int character_index_of(
+    const pr::Presentation& shown, const sim::UnitSnapshot& unit
+) noexcept {
+    return art::character_index(
+        style_of(shown, unit.unit_type_id),
+        figure_of(shown, unit.unit_type_id),
+        archetype_of(shown, unit.unit_type_id), colour_of(shown, unit)
+    );
 }
 
 // Storage for the draw list, static and caller-owned so that composing a board
@@ -223,8 +252,10 @@ view::DrawItem draw_storage[draw_capacity];
 
 int terrain_cell_of[art::terrain_kind_count][art::variant_count];
 int terrain_clut_of[art::terrain_kind_count];
-int character_cell_of[art::archetype_count][art::faction_colour_count];
-int character_clut_of[art::archetype_count][art::faction_colour_count];
+constexpr int character_cache_capacity =
+    art::character_count > 0 ? art::character_count : 1;
+int character_cell_of[character_cache_capacity];
+int character_clut_of[character_cache_capacity];
 
 int cells_used = 0;
 int cluts_used = 0;
@@ -555,11 +586,9 @@ int main() {
             terrain_cell_of[kind][variant] = -1;
         }
     }
-    for (int a = 0; a < art::archetype_count; ++a) {
-        for (int c = 0; c < art::faction_colour_count; ++c) {
-            character_cell_of[a][c] = -1;
-            character_clut_of[a][c] = -1;
-        }
+    for (int i = 0; i < art::character_count; ++i) {
+        character_cell_of[i] = -1;
+        character_clut_of[i] = -1;
     }
 
     // Nothing the art library holds may collide with the backdrop, or a cell
@@ -574,12 +603,10 @@ int main() {
                 }
             }
         }
-        for (int a = 0; a < art::archetype_count; ++a) {
-            for (int c = 0; c < art::faction_colour_count; ++c) {
-                const art::Asset asset = art::character(a, c);
-                for (int i = 0; i < art::clut_size; ++i) {
-                    if (asset.clut[i] == backdrop) separated = false;
-                }
+        for (int drawing = 0; drawing < art::character_count; ++drawing) {
+            const art::Asset asset = art::character(drawing);
+            for (int i = 0; i < art::clut_size; ++i) {
+                if (asset.clut[i] == backdrop) separated = false;
             }
         }
         expect(separated, "no colour the board can draw is the backdrop");
@@ -609,23 +636,24 @@ int main() {
             );
         } else if (item.layer == view::Layer::unit) {
             const sim::UnitSnapshot& unit = snapshot.units[item.subject];
-            const int archetype =
-                archetype_of(presentation.presentation, unit.unit_type_id);
-            const int colour = colour_of(presentation.presentation, unit);
-            const art::Asset asset = art::character(archetype, colour);
-            if (character_clut_of[archetype][colour] < 0) {
-                character_clut_of[archetype][colour] = claim_clut(asset.clut);
+            const int drawing =
+                character_index_of(presentation.presentation, unit);
+            expect(drawing >= 0, "every unit drawing is embedded");
+            if (drawing < 0) continue;
+            const art::Asset asset = art::character(drawing);
+            if (character_clut_of[drawing] < 0) {
+                character_clut_of[drawing] = claim_clut(asset.clut);
             }
-            if (character_cell_of[archetype][colour] < 0) {
-                character_cell_of[archetype][colour] = claim_cell(asset.texels);
+            if (character_cell_of[drawing] < 0) {
+                character_cell_of[drawing] = claim_cell(asset.texels);
             }
-            if (character_clut_of[archetype][colour] < 0 ||
-                character_cell_of[archetype][colour] < 0) {
+            if (character_clut_of[drawing] < 0 ||
+                character_cell_of[drawing] < 0) {
                 continue;
             }
             gpu::draw_cell(
-                item.x, item.y, character_cell_of[archetype][colour],
-                character_clut_of[archetype][colour]
+                item.x, item.y, character_cell_of[drawing],
+                character_clut_of[drawing]
             );
         }
     }
@@ -677,10 +705,9 @@ int main() {
         Line label;
         if (item.layer == view::Layer::unit) {
             const sim::UnitSnapshot& unit = snapshot.units[item.subject];
-            const art::Asset asset = art::character(
-                archetype_of(presentation.presentation, unit.unit_type_id),
-                colour_of(presentation.presentation, unit)
-            );
+            const int drawing =
+                character_index_of(presentation.presentation, unit);
+            const art::Asset asset = art::character(drawing);
             int px = 0;
             int py = 0;
             if (!opaque_near_centre(asset, px, py)) {

@@ -3,11 +3,9 @@
 //
 // `tools/placeholder_art` generates `assets/playstation.h`, holding texel data
 // already in the layout a GP0(0xA0) transfer wants and CLUTs already as
-// PlayStation colour words, and one `assets/playstation_characters_<style>.h`
-// per character style, of which an executable includes exactly the one its
-// project names. This file is the one place that knows the generated names, so
-// a change to the generator's naming is a change to this file and to nothing
-// else. The style seam below follows the same rule.
+// PlayStation colour words. The build writes a sparse header for each project;
+// it includes the style headers that project uses and points only at its exact
+// drawings. This file is the one place that knows that generated table.
 //
 // The interesting part is that there is **no bank arithmetic here at all.** A
 // machine with a handful of hardware palettes needs machinery to decide which
@@ -26,14 +24,9 @@
 
 #include "playstation.h"
 
-// One style's roster, chosen by `platform/playstation/CMakeLists.txt` from the
-// project this executable embeds. Every style's header declares the same
-// symbols, so the choice is this include: no style parameter below, no style
-// dimension in a table, and no branch for a style that is not here. Before this
-// seam existed the tables named all four styles' texels, and `--gc-sections`
-// could not take them apart however carefully the index was written.
+// The project-specific sparse roster chosen by CMake for this executable.
 #ifndef GRANDLEON_PSX_CHARACTER_HEADER
-#error "GRANDLEON_PSX_CHARACTER_HEADER is not defined; the build chooses the style"
+#error "GRANDLEON_PSX_CHARACTER_HEADER is not defined; the build chooses the project art"
 #endif
 #include GRANDLEON_PSX_CHARACTER_HEADER
 
@@ -48,8 +41,8 @@
 #ifdef GRANDLEON_PSX_MESH_HEADER
 #include GRANDLEON_PSX_MESH_HEADER
 static_assert(grandleon_playstation_mesh_style
-                  == grandleon_playstation_character_style,
-              "the embedded meshes are not the embedded style's");
+                  == grandleon_playstation_project_default_style,
+              "the embedded meshes are not the project's default style's");
 #endif
 
 namespace grandleon::playstation::art {
@@ -66,33 +59,22 @@ inline constexpr int terrain_kind_count = grandleon_playstation_terrain_kind_cou
 inline constexpr int theme_count = grandleon_playstation_theme_count;
 inline constexpr int variant_count = grandleon_playstation_terrain_variant_count;
 inline constexpr int style_count = grandleon_playstation_style_count;
-inline constexpr int embedded_style = grandleon_playstation_character_style;
-static_assert(embedded_style >= 0 && embedded_style < style_count,
-              "the embedded character style is not one of the library's");
+inline constexpr int figure_count = grandleon_playstation_figure_count;
+inline constexpr int project_default_style =
+    grandleon_playstation_project_default_style;
+inline constexpr int project_default_figure =
+    grandleon_playstation_project_default_figure;
+static_assert(project_default_style >= 0 && project_default_style < style_count,
+              "the project's default style is not one of the library's");
+static_assert(project_default_figure >= 0 &&
+                  project_default_figure < figure_count,
+              "the project's default figure is not one of the library's");
 
 inline constexpr int archetype_count = grandleon_playstation_archetype_count;
 inline constexpr int faction_colour_count = grandleon_playstation_faction_count;
 
-// The roster this executable embedded is complete, checked rather than
-// trusted. The Nintendo 64 makes the same claim with a configure-time census
-// (`platform/nintendo64/CMakeLists.txt`). On this machine it is a claim about
-// the shape of a generated table, so it is a static_assert and costs the build
-// nothing.
-static_assert(
-    sizeof(grandleon_playstation_characters)
-        / sizeof(grandleon_playstation_characters[0]) == archetype_count,
-    "the embedded style does not hold every archetype"
-);
-static_assert(
-    sizeof(grandleon_playstation_characters[0])
-        / sizeof(grandleon_playstation_characters[0][0]) == faction_colour_count,
-    "the embedded style does not hold every faction colour"
-);
-static_assert(
-    sizeof(grandleon_playstation_character_clut)
-        == sizeof(grandleon_playstation_characters),
-    "every figure has a CLUT and every CLUT a figure"
-);
+inline constexpr int character_count =
+    grandleon_playstation_project_character_count;
 
 // One drawable thing: the halfwords of its cell, and the sixteen-entry CLUT
 // its indices mean. Both travel together because on this machine they are
@@ -109,11 +91,33 @@ struct Asset final {
     };
 }
 
-[[nodiscard]] inline Asset character(int archetype, int colour) noexcept {
-    return {
-        grandleon_playstation_characters[archetype][colour],
-        grandleon_playstation_character_clut[archetype][colour]
-    };
+// The sparse table's slot for an exact drawing, or -1 when the compiled project
+// can never ask for it. The configure-time resolver and package compiler use
+// the same menus and resolution rules; a miss at run time is therefore a
+// checked content/build disagreement, never an invitation to substitute art.
+[[nodiscard]] inline int character_index(
+    int style, int figure, int archetype, int colour
+) noexcept {
+    for (int i = 0; i < character_count; ++i) {
+        const auto& entry = grandleon_playstation_project_characters[i];
+        if (entry.style == style && entry.figure == figure &&
+            entry.archetype == archetype && entry.colour == colour) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+[[nodiscard]] inline Asset character(int index) noexcept {
+    if (index < 0 || index >= character_count) return {nullptr, nullptr};
+    const auto& entry = grandleon_playstation_project_characters[index];
+    return {entry.texels, entry.clut};
+}
+
+[[nodiscard]] inline Asset character(
+    int style, int figure, int archetype, int colour
+) noexcept {
+    return character(character_index(style, figure, archetype, colour));
 }
 
 // The palette index of one texel of a cell.

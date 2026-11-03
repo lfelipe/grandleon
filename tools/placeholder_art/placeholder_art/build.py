@@ -646,10 +646,8 @@ def _palette_usage(assets: List[Asset]) -> Dict[str, object]:
     stronger than the union in both directions at once: it can no more
     under-count a game that fields a second figure (it prices the second figure)
     than it can over-count one that does not (it does not price a drawing the
-    game never puts on screen). The console side reads it the same way:
-    `grandleon_require_single_character_combination` refuses a console project
-    drawing more than one style-and-figure pair, so a cartridge carries one
-    figure's roster and never both.
+    game never puts on screen). Both console builds read these same four keys
+    and embed the exact drawings their project references.
     """
     characters: Dict[str, List[int]] = {}
     terrain_base: Dict[str, Dict[str, List[int]]] = {}

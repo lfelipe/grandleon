@@ -130,56 +130,149 @@ grandleon_write_project_identity(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/board_identity.h"
 )
 
-# The character style a project names, resolved by the same function the other
-# console uses, so that no console can answer this question differently. It is
-# the whole of the mechanism on this machine: the art library emits one
-# character header per style, every one of them declaring the same symbols, and
-# naming one here is what keeps the others out of the executable. A
-# hand-written `constexpr int character_style = 0` in the source would still pay
-# for all of them, because the cost is never the index: it is a pointer table
-# that names every style's texels.
+# The exact character drawings each project can request. The generated art
+# library gives every drawing its own collectable array; this function writes
+# the small project-specific table that points only at the arrays its compiled
+# package can name. That makes mixed styles and figures ordinary content while
+# preserving the console rule that unused art costs the executable nothing.
 #
-# It is resolved *per project* rather than once for the directory, because this
-# tree configures two of them: the project above and the demo campaign, which
-# has always been a second game here and is now a second game that need not
-# agree with the first about how a character is drawn. An executable still
-# carries exactly one style; what has stopped being true is that the directory
-# does.
+# Resolution is shared with Nintendo 64, including faction colours and the
+# fallback for a unit type that names no faction. Unlike N64, PS1 includes the
+# project's normal drawings sparsely as well: it has no reason to pay for a
+# complete default roster when a campaign uses three of its cells.
 include("${CMAKE_SOURCE_DIR}/cmake/GrandleonCharacterStyle.cmake")
-function(grandleon_playstation_character_header project what header_var style_var)
+function(grandleon_playstation_character_header project what stem header_var)
     set(manifest
         "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/n64_ci4/manifest.json")
-    grandleon_resolve_character_style("${project}" "${manifest}" style)
-    # The same refusal, from the same function: an executable includes one
-    # character header, and the headers all declare the same symbols so two
-    # cannot be included at once.
-    grandleon_require_single_character_combination(
-        "${project}" "${manifest}" "${what}")
-    set(header "playstation_characters_${style}.h")
-    if(NOT EXISTS
-        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/${header}")
+    set(colour_header
+        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/sprites.h")
+    grandleon_resolve_character_style("${project}" "${manifest}" default_style)
+    grandleon_resolve_character_figure("${project}" "${manifest}" default_figure)
+    grandleon_resolve_character_drawings(
+        "${project}" "${manifest}" "${colour_header}" drawings INCLUDE_DEFAULT)
+
+    file(READ "${manifest}" manifest_json)
+    string(JSON style_count LENGTH "${manifest_json}" character_styles menu)
+    math(EXPR style_last "${style_count} - 1")
+    set(style_menu "")
+    foreach(index RANGE ${style_last})
+        string(JSON name GET
+            "${manifest_json}" character_styles menu ${index} name)
+        list(APPEND style_menu "${name}")
+    endforeach()
+    string(JSON figure_count LENGTH
+        "${manifest_json}" character_styles figures menu)
+    math(EXPR figure_last "${figure_count} - 1")
+    set(figure_menu "")
+    foreach(index RANGE ${figure_last})
+        string(JSON name GET
+            "${manifest_json}" character_styles figures menu ${index} name)
+        list(APPEND figure_menu "${name}")
+    endforeach()
+    string(JSON archetype_count LENGTH
+        "${manifest_json}" character_styles archetypes)
+    math(EXPR archetype_last "${archetype_count} - 1")
+    set(archetype_menu "")
+    foreach(index RANGE ${archetype_last})
+        string(JSON name GET
+            "${manifest_json}" character_styles archetypes ${index})
+        list(APPEND archetype_menu "${name}")
+    endforeach()
+    grandleon_character_faction_colours("${colour_header}" colour_menu)
+
+    list(FIND style_menu "${default_style}" default_style_index)
+    list(FIND figure_menu "${default_figure}" default_figure_index)
+    if(default_style_index EQUAL -1 OR default_figure_index EQUAL -1)
         message(FATAL_ERROR
-            "the art library holds character style '${style}' but emitted no "
-            "${header}; regenerate the placeholder art")
+            "${what} defaults to ${default_style}/${default_figure}, which "
+            "the art library menus do not hold")
     endif()
-    message(STATUS "${what} character style: ${style} (${header})")
+
+    set(included_styles "")
+    set(rows "")
+    foreach(drawing IN LISTS drawings)
+        string(REPLACE "/" ";" parts "${drawing}")
+        list(GET parts 0 style)
+        list(GET parts 1 figure)
+        list(GET parts 2 archetype)
+        list(GET parts 3 colour)
+        list(FIND style_menu "${style}" style_index)
+        list(FIND figure_menu "${figure}" figure_index)
+        list(FIND archetype_menu "${archetype}" archetype_index)
+        list(FIND colour_menu "${colour}" colour_index)
+        if(style_index EQUAL -1 OR figure_index EQUAL -1 OR
+           archetype_index EQUAL -1 OR colour_index EQUAL -1)
+            message(FATAL_ERROR
+                "${what} resolved '${drawing}', which the art library menus "
+                "do not hold")
+        endif()
+        list(APPEND included_styles "${style}")
+        string(APPEND rows
+            "    {${style_index},${figure_index},${archetype_index},"
+            "${colour_index},grandleon_playstation_character_${style}_"
+            "${figure}_${archetype}_${colour},"
+            "grandleon_playstation_character_${style}_${figure}_"
+            "${archetype}_${colour}_clut},\n")
+    endforeach()
+    list(REMOVE_DUPLICATES included_styles)
+    list(SORT included_styles)
+    list(LENGTH drawings drawing_count)
+
+    set(text
+        "// Generated from ${project}. Do not edit.\n#pragma once\n")
+    foreach(style IN LISTS included_styles)
+        set(style_header "playstation_characters_${style}.h")
+        if(NOT EXISTS
+            "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/${style_header}")
+            message(FATAL_ERROR
+                "the art library holds style '${style}' but emitted no "
+                "${style_header}; regenerate the placeholder art")
+        endif()
+        string(APPEND text "#include \"${style_header}\"\n")
+    endforeach()
+    string(APPEND text
+        "struct GrandleonPlaystationProjectCharacter final {\n"
+        "    int style; int figure; int archetype; int colour;\n"
+        "    const unsigned short* texels;\n"
+        "    const unsigned short* clut;\n"
+        "};\n"
+        "inline constexpr int grandleon_playstation_project_default_style = "
+        "${default_style_index};\n"
+        "inline constexpr int grandleon_playstation_project_default_figure = "
+        "${default_figure_index};\n"
+        "inline constexpr int grandleon_playstation_project_character_count = "
+        "${drawing_count};\n")
+    if(drawing_count EQUAL 0)
+        string(APPEND text
+            "inline constexpr GrandleonPlaystationProjectCharacter "
+            "grandleon_playstation_project_characters[1] = "
+            "{{-1,-1,-1,-1,nullptr,nullptr}};\n")
+    else()
+        string(APPEND text
+            "inline constexpr GrandleonPlaystationProjectCharacter "
+            "grandleon_playstation_project_characters[] = {\n${rows}};\n")
+    endif()
+    set(header "generated/${stem}_character_art.h")
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${header}" "${text}")
+    message(STATUS
+        "${what} character drawings (${drawing_count}): ${drawings}")
     set(${header_var} "${header}" PARENT_SCOPE)
-    set(${style_var} "${style}" PARENT_SCOPE)
 endfunction()
 
 grandleon_playstation_character_header(
     "${GRANDLEON_PLAYSTATION_PROJECT}"
     "the PlayStation turn and campaign executables"
-    playstation_character_header playstation_character_style
+    board playstation_character_header
 )
 grandleon_playstation_character_header(
     "${CMAKE_SOURCE_DIR}/games/demo/source/project.json"
     "the PlayStation demo campaign executable"
-    playstation_demo_character_header playstation_demo_character_style
+    demo playstation_demo_character_header
 )
 
-# The art library's headers, and the name of the one character header a target
-# may include. Written once so a second drawing executable cannot forget it.
+# The art library's headers, and the name of the project-specific sparse
+# character table a target includes. Written once so a second drawing
+# executable cannot forget it.
 #
 # The header is an argument and has no default, because there is no longer a
 # single right answer to give: the executables of the project above draw that
