@@ -44,6 +44,9 @@ var outcome_detail_row: HBoxContainer
 var outcome_quantity_row: HBoxContainer
 var outcome_quantity_label: Label
 var outcome_quantity_buttons: Array[Button] = []
+var outcome_compound_row: HBoxContainer
+var outcome_compound_summary: Label
+var outcome_compound_button: Button
 var outcome_target: OptionButton
 var outcome_apply_button: Button
 var outcome_remove_button: Button
@@ -52,6 +55,23 @@ var outcome_later_button: Button
 var outcome_status: Label
 var outcome_node_id := ""
 var outcome_refreshing := false
+var compound_layer: Control
+var compound_mode: OptionButton
+var compound_select: OptionButton
+var compound_kind: OptionButton
+var compound_objective: OptionButton
+var compound_item: OptionButton
+var compound_flag: OptionButton
+var compound_detail_row: HBoxContainer
+var compound_objective_column: VBoxContainer
+var compound_item_column: VBoxContainer
+var compound_flag_column: VBoxContainer
+var compound_quantity_row: HBoxContainer
+var compound_quantity_label: Label
+var compound_remove_button: Button
+var compound_status: Label
+var compound_conditions: Array[Dictionary] = []
+var compound_refreshing := false
 var add_route_layer: Control
 var add_route_button: Button
 var add_existing_button: Button
@@ -83,7 +103,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if chapter_order_layer != null and chapter_order_layer.visible:
+		if compound_layer != null and compound_layer.visible:
+			_close_compound()
+		elif chapter_order_layer != null and chapter_order_layer.visible:
 			_close_chapter_order()
 		elif branch_layer != null and branch_layer.visible:
 			_close_new_branch()
@@ -860,6 +882,75 @@ func _is_talk_flag(flag_id: String) -> bool:
 	return false
 
 
+func _editable_predicate_kind(predicate: Dictionary) -> String:
+	match str(predicate.get("kind", "")):
+		"objectiveResult":
+			return "defeat" if str(predicate.get("result", "victory")) == "defeat" else "victory"
+		"inventoryAtLeast":
+			return "item"
+		"worldFlagEquals":
+			var value: Variant = predicate.get("value", true)
+			if value is bool and _is_talk_flag(str(predicate.get("flagId", ""))):
+				return "talked" if value else "not_talked"
+	return "advanced"
+
+
+func _editable_compound(when: Dictionary) -> bool:
+	var kind := str(when.get("kind", ""))
+	var values: Array = []
+	if kind in ["all", "any"]:
+		values = when.get("conditions", [])
+	elif kind == "not" and when.get("condition", {}) is Dictionary:
+		values = [when.condition]
+	else:
+		return false
+	if values.is_empty():
+		return false
+	for value: Variant in values:
+		if not value is Dictionary or _editable_predicate_kind(value) == "advanced":
+			return false
+	return true
+
+
+func _predicate_text(predicate: Dictionary) -> String:
+	match _editable_predicate_kind(predicate):
+		"victory":
+			return "GOAL WON  /  %s" % _objective_name(str(predicate.get("objectiveId", "")))
+		"defeat":
+			return "GOAL LOST  /  %s" % _objective_name(str(predicate.get("objectiveId", "")))
+		"item":
+			return "HAVE %d  /  %s" % [
+				maxi(1, int(predicate.get("quantity", 1))),
+				_item_name(str(predicate.get("itemId", ""))),
+			]
+		"talked":
+			return "TALKED TO  /  %s" % _talk_choice_name(str(predicate.get("flagId", "")))
+		"not_talked":
+			return "DID NOT TALK TO  /  %s" % _talk_choice_name(str(predicate.get("flagId", "")))
+	return "ADVANCED REQUIREMENT"
+
+
+func _objective_name(objective_id: String) -> String:
+	for value: Variant in project.get("objectives", []):
+		if value is Dictionary and str(value.get("id", "")) == objective_id:
+			return str(value.get("name", "Goal")).to_upper()
+	return "GOAL"
+
+
+func _item_name(item_id: String) -> String:
+	for value: Variant in project.get("items", []):
+		if value is Dictionary and str(value.get("id", "")) == item_id:
+			return str(value.get("name", "Item")).to_upper()
+	return "ITEM"
+
+
+func _talk_choice_name(flag_id: String) -> String:
+	for choice: Dictionary in _talk_choices():
+		if str(choice.id) == flag_id:
+			return str(choice.name).to_upper()
+	return "CHARACTER"
+
+
 func _refresh_outcome_layer(preferred_id := "") -> void:
 	outcome_refreshing = true
 	var node := _current_outcome_node()
@@ -952,6 +1043,8 @@ func _refresh_selected_outcome(_index: int = 0) -> void:
 	if outcome_flag.item_count > 0:
 		choices.append({"id": "talked", "label": "TALKED TO A CHARACTER"})
 		choices.append({"id": "not_talked", "label": "DID NOT TALK TO A CHARACTER"})
+	if outcome_objective.item_count > 0 or outcome_item.item_count > 0 or outcome_flag.item_count > 0:
+		choices.append({"id": "compound", "label": "MULTIPLE REQUIREMENTS…"})
 	for choice: Dictionary in choices:
 		outcome_condition.add_item(str(choice.label))
 		outcome_condition.set_item_metadata(outcome_condition.item_count - 1, choice.id)
@@ -989,6 +1082,7 @@ func _refresh_outcome_fields(_index: int = 0) -> void:
 	outcome_item_column.visible = kind == "item"
 	outcome_flag_column.visible = kind in ["talked", "not_talked"]
 	outcome_quantity_row.visible = kind == "item"
+	outcome_compound_row.visible = kind == "compound"
 	outcome_objective.disabled = kind not in ["victory", "defeat"] or outcome_objective.item_count == 0
 	outcome_item.disabled = kind != "item" or outcome_item.item_count == 0
 	outcome_flag.disabled = kind not in ["talked", "not_talked"] or outcome_flag.item_count == 0
@@ -997,6 +1091,11 @@ func _refresh_outcome_fields(_index: int = 0) -> void:
 	outcome_quantity_label.add_theme_color_override(
 		"font_color", Color("f2f7f9") if kind == "item" else Color("718896")
 	)
+	if kind == "compound":
+		var when: Variant = _selected_outcome().get("when", {})
+		outcome_compound_summary.text = (
+			_compound_summary(when) if when is Dictionary else "ADD REQUIREMENTS"
+		)
 
 
 func _selected_outcome() -> Dictionary:
@@ -1030,10 +1129,9 @@ func _outcome_condition_kind(transition: Dictionary) -> String:
 		"inventoryAtLeast":
 			return "item"
 		"worldFlagEquals":
-			var value: Variant = when.get("value", true)
-			if value is bool and _is_talk_flag(str(when.get("flagId", ""))):
-				return "talked" if value else "not_talked"
-			return "advanced"
+			return _editable_predicate_kind(when)
+		"all", "any", "not":
+			return "compound" if _editable_compound(when) else "advanced"
 		_:
 			return "advanced"
 
@@ -1052,6 +1150,8 @@ func _outcome_text(transition: Dictionary, index: int) -> String:
 			condition = "TALKED TO CHARACTER"
 		"not_talked":
 			condition = "DID NOT TALK"
+		"compound":
+			condition = _compound_summary(transition.get("when", {}))
 		"advanced":
 			condition = "ADVANCED CONDITION"
 	return "%d  /  %s  →  %s" % [
@@ -1489,6 +1589,9 @@ func _when_from_controls(existing: Dictionary = {}) -> Variant:
 				"flagId": flag_id,
 				"value": _selected_metadata(outcome_condition) == "talked",
 			}
+		"compound":
+			var existing_when: Variant = existing.get("when", {})
+			return existing_when.duplicate(true) if existing_when is Dictionary else {}
 		"advanced":
 			return existing.get("when", {}).duplicate(true)
 	return {}
@@ -1519,6 +1622,236 @@ func _apply_outcome() -> void:
 	node.transitions = transitions
 	candidate.node = node
 	_accept_outcome_candidate(candidate, "OUTCOME CHANGED", str(transition.get("id", "")))
+
+
+func _compound_summary(when: Dictionary) -> String:
+	match str(when.get("kind", "")):
+		"all":
+			return "ALL OF %d REQUIREMENTS" % when.get("conditions", []).size()
+		"any":
+			return "ANY OF %d REQUIREMENTS" % when.get("conditions", []).size()
+		"not":
+			return "NOT THIS REQUIREMENT"
+	return "ADD REQUIREMENTS"
+
+
+func _default_compound_predicate() -> Dictionary:
+	if outcome_objective.item_count > 0:
+		return {
+			"kind": "objectiveResult",
+			"objectiveId": str(outcome_objective.get_item_metadata(0)),
+			"result": "victory",
+		}
+	if outcome_item.item_count > 0:
+		return {
+			"kind": "inventoryAtLeast",
+			"itemId": str(outcome_item.get_item_metadata(0)),
+			"quantity": 1,
+		}
+	if outcome_flag.item_count > 0:
+		return {
+			"kind": "worldFlagEquals",
+			"flagId": str(outcome_flag.get_item_metadata(0)),
+			"value": true,
+		}
+	return {}
+
+
+func _open_compound() -> void:
+	var transition := _selected_outcome()
+	if transition.is_empty():
+		return
+	compound_kind.clear()
+	if outcome_objective.item_count > 0:
+		for choice: Dictionary in [
+			{"id": "victory", "label": "GOAL WON"},
+			{"id": "defeat", "label": "GOAL LOST"},
+		]:
+			compound_kind.add_item(choice.label)
+			compound_kind.set_item_metadata(compound_kind.item_count - 1, choice.id)
+	if outcome_item.item_count > 0:
+		compound_kind.add_item("HAVE ENOUGH OF AN ITEM")
+		compound_kind.set_item_metadata(compound_kind.item_count - 1, "item")
+	if outcome_flag.item_count > 0:
+		compound_kind.add_item("TALKED TO A CHARACTER")
+		compound_kind.set_item_metadata(compound_kind.item_count - 1, "talked")
+		compound_kind.add_item("DID NOT TALK TO A CHARACTER")
+		compound_kind.set_item_metadata(compound_kind.item_count - 1, "not_talked")
+	_copy_option_items(outcome_objective, compound_objective)
+	_copy_option_items(outcome_item, compound_item)
+	_copy_option_items(outcome_flag, compound_flag)
+	compound_conditions.clear()
+	var when: Variant = transition.get("when", {})
+	var mode := "all"
+	if when is Dictionary and _editable_compound(when):
+		mode = str(when.get("kind", "all"))
+		if mode == "not":
+			compound_conditions.append(when.condition.duplicate(true))
+		else:
+			for value: Variant in when.get("conditions", []):
+				compound_conditions.append(value.duplicate(true))
+	elif when is Dictionary and _editable_predicate_kind(when) != "advanced":
+		compound_conditions.append(when.duplicate(true))
+	if compound_conditions.is_empty():
+		var first := _default_compound_predicate()
+		if not first.is_empty():
+			compound_conditions.append(first)
+	if compound_conditions.is_empty():
+		_set_outcome_status("ADD A GOAL, ITEM, OR TALK CHOICE BEFORE COMBINING REQUIREMENTS", true)
+		return
+	compound_refreshing = true
+	_select_metadata(compound_mode, mode)
+	compound_refreshing = false
+	_refresh_compound_list(0)
+	compound_layer.visible = true
+	compound_select.grab_focus()
+
+
+func _copy_option_items(from: OptionButton, to: OptionButton) -> void:
+	to.clear()
+	for index in from.item_count:
+		to.add_item(from.get_item_text(index))
+		to.set_item_metadata(to.item_count - 1, from.get_item_metadata(index))
+
+
+func _close_compound() -> void:
+	compound_layer.visible = false
+	outcome_compound_button.grab_focus()
+
+
+func _refresh_compound_list(preferred_index := -1) -> void:
+	compound_refreshing = true
+	var selected := preferred_index if preferred_index >= 0 else compound_select.selected
+	compound_select.clear()
+	for index in compound_conditions.size():
+		compound_select.add_item("%d  /  %s" % [
+			index + 1, _predicate_text(compound_conditions[index])
+		])
+	compound_select.select(clampi(selected, 0, maxi(0, compound_select.item_count - 1)))
+	compound_remove_button.disabled = compound_conditions.size() <= 1
+	compound_refreshing = false
+	_refresh_compound_fields()
+
+
+func _refresh_compound_fields(_index: int = 0) -> void:
+	if compound_refreshing or compound_conditions.is_empty():
+		return
+	compound_refreshing = true
+	var predicate := compound_conditions[clampi(compound_select.selected, 0, compound_conditions.size() - 1)]
+	var kind := _editable_predicate_kind(predicate)
+	_select_metadata(compound_kind, kind)
+	_select_metadata(compound_objective, str(predicate.get("objectiveId", "")))
+	_select_metadata(compound_item, str(predicate.get("itemId", "")))
+	_select_metadata(compound_flag, str(predicate.get("flagId", "")))
+	compound_quantity_label.text = str(maxi(1, int(predicate.get("quantity", 1))))
+	compound_objective_column.visible = kind in ["victory", "defeat"]
+	compound_item_column.visible = kind == "item"
+	compound_flag_column.visible = kind in ["talked", "not_talked"]
+	compound_quantity_row.visible = kind == "item"
+	compound_refreshing = false
+
+
+func _compound_predicate_from_controls() -> Dictionary:
+	match _selected_metadata(compound_kind):
+		"victory", "defeat":
+			return {
+				"kind": "objectiveResult",
+				"objectiveId": _selected_metadata(compound_objective),
+				"result": "defeat" if _selected_metadata(compound_kind) == "defeat" else "victory",
+			}
+		"item":
+			return {
+				"kind": "inventoryAtLeast",
+				"itemId": _selected_metadata(compound_item),
+				"quantity": maxi(1, int(compound_quantity_label.text)),
+			}
+		"talked", "not_talked":
+			return {
+				"kind": "worldFlagEquals",
+				"flagId": _selected_metadata(compound_flag),
+				"value": _selected_metadata(compound_kind) == "talked",
+			}
+	return {}
+
+
+func _update_compound_condition(_index: int = 0) -> void:
+	if compound_refreshing or compound_conditions.is_empty():
+		return
+	var selected := clampi(compound_select.selected, 0, compound_conditions.size() - 1)
+	var predicate := _compound_predicate_from_controls()
+	if predicate.is_empty():
+		return
+	compound_conditions[selected] = predicate
+	_refresh_compound_list(selected)
+
+
+func _adjust_compound_quantity(amount: int) -> void:
+	compound_quantity_label.text = str(clampi(
+		int(compound_quantity_label.text) + amount, 1, 9999
+	))
+	_update_compound_condition()
+
+
+func _add_compound_condition() -> void:
+	_update_compound_condition()
+	var added := _default_compound_predicate()
+	if added.is_empty():
+		return
+	compound_conditions.append(added)
+	if _selected_metadata(compound_mode) == "not":
+		_select_metadata(compound_mode, "all")
+	_refresh_compound_list(compound_conditions.size() - 1)
+
+
+func _remove_compound_condition() -> void:
+	if compound_conditions.size() <= 1:
+		return
+	var selected := clampi(compound_select.selected, 0, compound_conditions.size() - 1)
+	compound_conditions.remove_at(selected)
+	_refresh_compound_list(mini(selected, compound_conditions.size() - 1))
+
+
+func _change_compound_mode(_index: int = 0) -> void:
+	if compound_refreshing:
+		return
+	if _selected_metadata(compound_mode) == "not" and compound_conditions.size() != 1:
+		compound_refreshing = true
+		_select_metadata(compound_mode, "all")
+		compound_refreshing = false
+		compound_status.text = "NOT THIS holds one requirement. Remove the others first."
+		compound_status.add_theme_color_override("font_color", Color("ff7a83"))
+	else:
+		compound_status.text = "Requirements stay named and are checked together on every target."
+		compound_status.add_theme_color_override("font_color", Color("a9bdc9"))
+
+
+func _apply_compound() -> void:
+	_update_compound_condition()
+	var mode := _selected_metadata(compound_mode)
+	if compound_conditions.is_empty() or (mode == "not" and compound_conditions.size() != 1):
+		compound_status.text = "Choose one or more valid requirements."
+		compound_status.add_theme_color_override("font_color", Color("ff7a83"))
+		return
+	var candidate := _candidate_outcome_node()
+	var transition_index := _selected_outcome_index()
+	if candidate.is_empty() or transition_index < 0:
+		return
+	var node: Dictionary = candidate.node
+	var transitions: Array = node.get("transitions", []).duplicate(true)
+	var transition: Dictionary = transitions[transition_index].duplicate(true)
+	transition.when = (
+		{"kind": "not", "condition": compound_conditions[0].duplicate(true)}
+		if mode == "not" else
+		{"kind": mode, "conditions": compound_conditions.duplicate(true)}
+	)
+	transitions[transition_index] = transition
+	node.transitions = transitions
+	candidate.node = node
+	compound_layer.visible = false
+	if _accept_outcome_candidate(
+		candidate, "REQUIREMENTS CHANGED", str(transition.get("id", ""))
+	):
+		outcome_compound_button.grab_focus()
 
 
 func _next_outcome_id(transitions: Array) -> String:
@@ -1923,6 +2256,16 @@ func _build_outcome_layer() -> void:
 	plus.pressed.connect(_adjust_outcome_quantity.bind(1))
 	outcome_quantity_row.add_child(plus)
 	outcome_quantity_buttons = [minus, plus]
+	outcome_compound_row = HBoxContainer.new()
+	outcome_compound_row.add_theme_constant_override("separation", 16)
+	column.add_child(outcome_compound_row)
+	outcome_compound_summary = _label("ADD REQUIREMENTS", 17, Color("a9bdc9"))
+	outcome_compound_summary.custom_minimum_size = Vector2(860, 58)
+	outcome_compound_summary.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	outcome_compound_row.add_child(outcome_compound_summary)
+	outcome_compound_button = _button("EDIT REQUIREMENTS…", 420, 58)
+	outcome_compound_button.pressed.connect(_open_compound)
+	outcome_compound_row.add_child(outcome_compound_button)
 
 	var edit_actions := HBoxContainer.new()
 	edit_actions.add_theme_constant_override("separation", 12)
@@ -1953,9 +2296,146 @@ func _build_outcome_layer() -> void:
 	outcome_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	outcome_status.custom_minimum_size.y = 44
 	column.add_child(outcome_status)
+	_build_compound_layer()
 	_build_add_route_layer()
 	_build_branch_layer()
 	_build_ending_layer()
+
+
+func _build_compound_layer() -> void:
+	compound_layer = Control.new()
+	compound_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	compound_layer.visible = false
+	compound_layer.z_index = 45
+	add_child(compound_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.97)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	compound_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(360, 90)
+	panel.size = Vector2(1200, 900)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color("69d9ff"))
+	)
+	compound_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 13)
+	panel.add_child(column)
+	column.add_child(_label("OUTCOME REQUIREMENTS", 18, Color("69d9ff")))
+	column.add_child(_label("When should this route happen?", 30, Color("f2f7f9")))
+	var explanation := _label(
+		"Keep ordinary routes simple. Use this only when several named facts must be checked together.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 52
+	column.add_child(explanation)
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", 16)
+	column.add_child(top_row)
+	var mode_column := VBoxContainer.new()
+	mode_column.custom_minimum_size.x = 380
+	mode_column.add_child(_label("MATCH", 15, Color("69d9ff")))
+	compound_mode = OptionButton.new()
+	compound_mode.custom_minimum_size = Vector2(380, 60)
+	for choice: Dictionary in [
+		{"id": "all", "label": "ALL OF THESE"},
+		{"id": "any", "label": "ANY OF THESE"},
+		{"id": "not", "label": "NOT THIS"},
+	]:
+		compound_mode.add_item(choice.label)
+		compound_mode.set_item_metadata(compound_mode.item_count - 1, choice.id)
+	compound_mode.item_selected.connect(_change_compound_mode)
+	mode_column.add_child(compound_mode)
+	top_row.add_child(mode_column)
+	var requirement_column := VBoxContainer.new()
+	requirement_column.custom_minimum_size.x = 730
+	requirement_column.add_child(_label("REQUIREMENT", 15, Color("69d9ff")))
+	compound_select = OptionButton.new()
+	compound_select.custom_minimum_size = Vector2(730, 60)
+	compound_select.item_selected.connect(_refresh_compound_fields)
+	requirement_column.add_child(compound_select)
+	top_row.add_child(requirement_column)
+
+	column.add_child(_label("THIS REQUIREMENT", 15, Color("69d9ff")))
+	compound_kind = OptionButton.new()
+	compound_kind.custom_minimum_size = Vector2(1130, 58)
+	compound_kind.item_selected.connect(_update_compound_condition)
+	column.add_child(compound_kind)
+	compound_detail_row = HBoxContainer.new()
+	compound_detail_row.add_theme_constant_override("separation", 16)
+	column.add_child(compound_detail_row)
+	compound_objective_column = VBoxContainer.new()
+	compound_objective_column.custom_minimum_size.x = 550
+	compound_objective_column.add_child(_label("GOAL", 15, Color("69d9ff")))
+	compound_objective = OptionButton.new()
+	compound_objective.custom_minimum_size = Vector2(550, 58)
+	compound_objective.item_selected.connect(_update_compound_condition)
+	compound_objective_column.add_child(compound_objective)
+	compound_detail_row.add_child(compound_objective_column)
+	compound_item_column = VBoxContainer.new()
+	compound_item_column.custom_minimum_size.x = 550
+	compound_item_column.add_child(_label("ITEM", 15, Color("69d9ff")))
+	compound_item = OptionButton.new()
+	compound_item.custom_minimum_size = Vector2(550, 58)
+	compound_item.item_selected.connect(_update_compound_condition)
+	compound_item_column.add_child(compound_item)
+	compound_detail_row.add_child(compound_item_column)
+	compound_flag_column = VBoxContainer.new()
+	compound_flag_column.custom_minimum_size.x = 550
+	compound_flag_column.add_child(_label("CHARACTER", 15, Color("69d9ff")))
+	compound_flag = OptionButton.new()
+	compound_flag.custom_minimum_size = Vector2(550, 58)
+	compound_flag.item_selected.connect(_update_compound_condition)
+	compound_flag_column.add_child(compound_flag)
+	compound_detail_row.add_child(compound_flag_column)
+
+	compound_quantity_row = HBoxContainer.new()
+	compound_quantity_row.add_theme_constant_override("separation", 12)
+	column.add_child(compound_quantity_row)
+	var amount_title := _label("ITEM AMOUNT", 15, Color("69d9ff"))
+	amount_title.custom_minimum_size = Vector2(240, 52)
+	amount_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	compound_quantity_row.add_child(amount_title)
+	var amount_minus := _button("−", 90, 50)
+	amount_minus.pressed.connect(_adjust_compound_quantity.bind(-1))
+	compound_quantity_row.add_child(amount_minus)
+	compound_quantity_label = _label("1", 20, Color("f2f7f9"))
+	compound_quantity_label.custom_minimum_size = Vector2(140, 50)
+	compound_quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	compound_quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	compound_quantity_row.add_child(compound_quantity_label)
+	var amount_plus := _button("+", 90, 50)
+	amount_plus.pressed.connect(_adjust_compound_quantity.bind(1))
+	compound_quantity_row.add_child(amount_plus)
+
+	var list_actions := HBoxContainer.new()
+	list_actions.add_theme_constant_override("separation", 14)
+	column.add_child(list_actions)
+	var add := _button("ADD REQUIREMENT", 350, 60)
+	add.pressed.connect(_add_compound_condition)
+	list_actions.add_child(add)
+	compound_remove_button = _button("REMOVE REQUIREMENT", 350, 60)
+	compound_remove_button.pressed.connect(_remove_compound_condition)
+	list_actions.add_child(compound_remove_button)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	var apply := _button("APPLY REQUIREMENTS", 430, 64)
+	apply.pressed.connect(_apply_compound)
+	actions.add_child(apply)
+	var cancel := _button("CANCEL", 280, 64)
+	cancel.pressed.connect(_close_compound)
+	actions.add_child(cancel)
+	compound_status = _label(
+		"Requirements stay named and are checked together on every target.",
+		16, Color("a9bdc9")
+	)
+	compound_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	compound_status.custom_minimum_size.y = 44
+	column.add_child(compound_status)
 
 
 func _build_add_route_layer() -> void:

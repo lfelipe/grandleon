@@ -173,6 +173,13 @@ changes, add/remove, and **Try Earlier / Try Later**. Talk conditions list the
 visible character and battle names; their generated portable memory never
 appears in the creator.
 
+Keep most routes to one requirement. When several facts really must be checked
+together, choose **Multiple Requirements**. Its focused screen can match **All
+of These**, **Any of These**, or **Not This** for one requirement. Every entry
+still uses a named goal, item, or Talk choice, and the complete route is
+validated for PC, Nintendo 64, and PlayStation before it replaces the saved
+version.
+
 Choose **Add Route** only when another path is needed.
 
 ![Add Route offers an existing destination, a new playable chapter, or a new ending on one controller-focused screen](screenshots/native-guide/06-add-route.png)
@@ -244,11 +251,11 @@ controller identity, credential, network endpoint, or machine-only setting.
 
 ## What is still advanced or pending for 0.3
 
-The native creator builds the focused boolean story state created by Talk. It
-preserves imported general integer world-state, compound, and negated
-conditions but does not yet build those directly. External
-replacement-art-pack import and installed console builder integration remain
-release work. The
+The native creator builds the focused boolean story state created by Talk and
+can combine named goal, item, and Talk requirements with portable all, any, and
+not rules. It preserves imported general integer world-state but does not yet
+create or edit those arbitrary counters directly. External replacement-art-
+pack import and installed console builder integration remain release work. The
 current status and acceptance gates are in [RELEASE_0_3.md](RELEASE_0_3.md).
 
 ## Refresh these screenshots

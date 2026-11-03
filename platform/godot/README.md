@@ -155,14 +155,15 @@ moment, cloned playable encounter, and fresh map after a selected linear battle
 as one undoable edit. **Continue Creating** opens a readable campaign outline;
 story, battle, and ending rows open their exact focused action. **Outcomes**
 edits common goal, inventory, and named Talk-choice routes, ordering, and
-destinations.
+destinations. **Multiple Requirements** combines those named facts with
+portable all, any, or single-not rules on a separate controller-focused screen.
 **Add Route** connects an existing chapter, creates a named ending, or creates
 an alternate playable story/map/battle by copying the current working setup
 and rejoining the selected destination as one compiler-checked undoable edit.
 **Change Chapter Order** moves a complete Story → Battle pair on one focused
 screen while preserving its map, outcomes, alternate routes, and stable
-identities. General integer world-state, negated and compound condition
-authoring plus replacement art-pack import remain in the
+identities. General integer world-state authoring plus replacement art-pack
+import remain in the
 increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
@@ -699,9 +700,9 @@ characters through the focused Army screen:
 platform/godot/scripts/smoke-army-editor.sh
 ```
 
-To validate the campaign outline, common outcome editing, named endings,
-portable alternate playable chapters, hidden stable identities, persistence,
-and one-step undo/redo:
+To validate the campaign outline, common and combined outcome editing, named
+endings, portable alternate playable chapters, hidden stable identities,
+persistence, and one-step undo/redo:
 
 ```sh
 platform/godot/scripts/smoke-campaign-editor.sh

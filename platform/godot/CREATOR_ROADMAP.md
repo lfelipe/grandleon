@@ -144,13 +144,15 @@ directory.
   Character**, and **Did Not Talk to a Character** routes, destinations,
   first-match order, and removal. Talk choices use visible character and battle
   names while generated portable memory stays hidden.
+- Combine named goal, item, and Talk facts through the separate **Multiple
+  Requirements** screen using all, any, or single-not rules.
 - Create and rename terminal endings.
 - Create a complete alternate playable branch from a working encounter and
   make a lone unconditional path into reachable complementary win/loss routes.
 - Reorder intact main-path chapters as atomic Story → Battle pairs with one
   focused controller screen and one-step undo/redo.
-- Preserve imported advanced conditions that the focused editor does not yet
-  create.
+- Preserve imported general integer world-state that the focused editor does
+  not yet create.
 
 ### Presentation and export
 
@@ -228,10 +230,11 @@ but it must not become a second schema authority.
 These are release blockers in priority order, not invitations to add a large
 permanent form.
 
-1. **Advanced flow conditions.** Add general integer world-state, negated, and
-   compound conditions under **Outcomes**. Focused Talk-driven boolean state and
-   safe whole-chapter ordering are implemented; the common linear path must not
-   become a graph editor.
+1. **General integer story state.** Add a named producer and focused editor for
+   campaign counters, or explicitly scope imported-only counters out of native
+   authoring parity. Named all/any/not combinations, focused Talk-driven
+   boolean state, and safe whole-chapter ordering are implemented; the common
+   linear path must not become a graph editor.
 2. **Replacement art packs.** Select an installed pack or import project-owned
    terrain, character, portrait, effect, and UI assets. Validate dimensions,
    pivots, animation names, target budgets, and licenses, and preview the same
