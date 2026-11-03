@@ -90,6 +90,19 @@ func _run() -> void:
 		editor._node_text(editor.route[2], 0, false).contains("CAMPAIGN STOPS HERE"),
 		true
 	)
+	_expect("ending row opens instead of looking disabled", editor.node_buttons.chapter_complete.disabled, false)
+	editor._open_terminal_node(editor.route[2])
+	_expect("ending editor opens from its outline row", editor.ending_layer.visible, true)
+	_expect("ending editor starts with the player-facing name", editor.ending_name.text, "The Road Opens")
+	_expect("ending name receives focus", editor.ending_name.has_focus(), true)
+	editor.ending_name.text = "The Bright Road"
+	editor._create_ending()
+	_expect("ending name changes without changing its identity", str(_parse(editor.source).campaigns[0].flow.nodes[2].name), "The Bright Road")
+	_expect("ending rename keeps its hidden identity", str(_parse(editor.source).campaigns[0].flow.nodes[2].id), "chapter_complete")
+	editor._undo()
+	_expect("ending rename is undoable", str(_parse(editor.source).campaigns[0].flow.nodes[2].name), "The Road Opens")
+	editor._redo()
+	_expect("ending rename is redoable", str(_parse(editor.source).campaigns[0].flow.nodes[2].name), "The Bright Road")
 	_expect("story chapter exposes outcomes beside its editor", editor.outcome_buttons.has("first_steps"), true)
 	_expect("battle chapter exposes outcomes beside its editor", editor.outcome_buttons.has("first_battle"), true)
 	editor._open_outcomes("first_battle")

@@ -24,6 +24,7 @@ var first_button: Button
 var save_button: Button
 var undo_button: Button
 var redo_button: Button
+var node_buttons: Dictionary = {}
 var outcome_buttons: Dictionary = {}
 var outcome_layer: Control
 var outcome_panel: PanelContainer
@@ -53,7 +54,12 @@ var add_branch_button: Button
 var branch_layer: Control
 var branch_name: LineEdit
 var ending_layer: Control
+var ending_kicker: Label
+var ending_question: Label
+var ending_explanation: Label
 var ending_name: LineEdit
+var ending_create_button: Button
+var ending_node_id := ""
 
 
 func _ready() -> void:
@@ -166,6 +172,7 @@ func _refresh_route() -> void:
 	for child in route_list.get_children():
 		child.queue_free()
 	first_button = null
+	node_buttons.clear()
 	outcome_buttons.clear()
 	if route.is_empty():
 		var empty := _label(
@@ -207,9 +214,12 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 			button.pressed.connect(_open_story_node.bind(node))
 		"encounter":
 			button.pressed.connect(_open_encounter_node.bind(node))
+		"terminal":
+			button.pressed.connect(_open_terminal_node.bind(node))
 		_:
 			button.disabled = true
 	row.add_child(button)
+	node_buttons[str(node.get("id", ""))] = button
 	if kind == "terminal":
 		var spacer := Control.new()
 		spacer.custom_minimum_size.x = 300
@@ -281,8 +291,9 @@ func _node_tooltip(node: Dictionary) -> String:
 			return "Open this chapter's conversation in the story editor."
 		"encounter":
 			return "Open this chapter's exact map and battle setup."
-		_:
-			return "This ending has no separate editor yet."
+		"terminal":
+			return "Rename this ending without changing its saved identity."
+	return "This chapter kind is not editable here."
 
 
 func _open_story_node(node: Dictionary) -> void:
@@ -298,6 +309,20 @@ func _open_encounter_node(node: Dictionary) -> void:
 		return
 	CreatorContext.choose_map(str(node.get("mapId", "")), str(node.get("id", "")))
 	get_tree().change_scene_to_file("res://map_editor.tscn")
+
+
+func _open_terminal_node(node: Dictionary) -> void:
+	ending_node_id = str(node.get("id", ""))
+	ending_kicker.text = "EDIT ENDING"
+	ending_question.text = "What should players call this ending?"
+	ending_explanation.text = (
+		"Only the player-facing name changes. Campaign routes and saved identities stay intact."
+	)
+	ending_create_button.text = "SAVE ENDING"
+	ending_name.text = str(node.get("name", "Ending"))
+	ending_layer.visible = true
+	ending_name.grab_focus()
+	ending_name.select_all()
 
 
 func _last_route_encounter() -> Dictionary:
@@ -844,6 +869,13 @@ func _create_branch() -> void:
 
 
 func _open_new_ending() -> void:
+	ending_node_id = ""
+	ending_kicker.text = "NEW ENDING"
+	ending_question.text = "Where can this path finish?"
+	ending_explanation.text = (
+		"This creates a named ending and connects it as one new outcome. If this chapter already has a victory route, the new ending begins as the defeat route."
+	)
+	ending_create_button.text = "CREATE & USE"
 	ending_name.text = "New Ending"
 	ending_layer.visible = true
 	ending_name.grab_focus()
@@ -852,7 +884,11 @@ func _open_new_ending() -> void:
 
 func _close_new_ending() -> void:
 	ending_layer.visible = false
-	add_route_button.grab_focus()
+	if not ending_node_id.is_empty() and node_buttons.has(ending_node_id):
+		var button: Button = node_buttons[ending_node_id]
+		button.grab_focus()
+	else:
+		add_route_button.grab_focus()
 
 
 func _create_ending_from_text(_value: String) -> void:
@@ -875,6 +911,9 @@ func _create_ending() -> void:
 	if name.is_empty():
 		_set_outcome_status("GIVE THE ENDING A NAME", true)
 		ending_name.grab_focus()
+		return
+	if not ending_node_id.is_empty():
+		_rename_ending(name)
 		return
 	var candidate := _candidate_outcome_node()
 	if candidate.is_empty():
@@ -916,6 +955,65 @@ func _create_ending() -> void:
 	_accept_outcome_candidate(
 		candidate, "CREATED ENDING %s" % name.to_upper(), transition_id
 	)
+
+
+func _rename_ending(name: String) -> void:
+	var candidate: Dictionary = project.duplicate(true)
+	var found := false
+	var campaigns: Array = candidate.get("campaigns", [])
+	for campaign_value: Variant in campaigns:
+		if not campaign_value is Dictionary:
+			continue
+		if str(campaign_value.get("id", "")) != str(campaign.get("id", "")):
+			continue
+		var flow: Variant = campaign_value.get("flow", {})
+		if not flow is Dictionary:
+			continue
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary:
+				continue
+			if (
+				str(node_value.get("id", "")) == ending_node_id
+				and str(node_value.get("kind", "")) == "terminal"
+			):
+				node_value.name = name
+				found = true
+				break
+		break
+	if not found:
+		ending_layer.visible = false
+		_set_status("ENDING IS NO LONGER AVAILABLE", true)
+		return
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		var detail := "PROJECT INCOMPLETE"
+		if not checked.diagnostics.is_empty():
+			detail = str(checked.diagnostics[0].get(
+				"detail", checked.diagnostics[0].get("code", detail)
+			))
+		_set_outcome_status("ENDING NOT CHANGED  /  %s" % detail.to_upper(), true)
+		return
+	if candidate_source == source:
+		_close_new_ending()
+		return
+	var renamed_id := ending_node_id
+	undo_stack.append(source)
+	if undo_stack.size() > HISTORY_LIMIT:
+		undo_stack.pop_front()
+	redo_stack.clear()
+	source = candidate_source
+	dirty = source != saved_source
+	_read_source()
+	_collect_route()
+	_refresh_route()
+	_update_actions()
+	ending_layer.visible = false
+	ending_node_id = ""
+	_set_status("UNSAVED  /  ENDING RENAMED", false)
+	if node_buttons.has(renamed_id):
+		var button: Button = node_buttons[renamed_id]
+		button.grab_focus()
 
 
 func _candidate_outcome_node() -> Dictionary:
@@ -1475,15 +1573,17 @@ func _build_ending_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
-	column.add_child(_label("NEW ENDING", 18, Color("69d9ff")))
-	column.add_child(_label("Where can this path finish?", 32, Color("f2f7f9")))
-	var explanation := _label(
+	ending_kicker = _label("NEW ENDING", 18, Color("69d9ff"))
+	column.add_child(ending_kicker)
+	ending_question = _label("Where can this path finish?", 32, Color("f2f7f9"))
+	column.add_child(ending_question)
+	ending_explanation = _label(
 		"This creates a named ending and connects it as one new outcome. If this chapter already has a victory route, the new ending begins as the defeat route.",
 		18, Color("a9bdc9")
 	)
-	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	explanation.custom_minimum_size.y = 82
-	column.add_child(explanation)
+	ending_explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ending_explanation.custom_minimum_size.y = 82
+	column.add_child(ending_explanation)
 	column.add_child(_label("ENDING NAME", 15, Color("69d9ff")))
 	ending_name = LineEdit.new()
 	ending_name.max_length = 160
@@ -1494,9 +1594,9 @@ func _build_ending_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	var create := _button("CREATE & USE", 320, 66)
-	create.pressed.connect(_create_ending)
-	actions.add_child(create)
+	ending_create_button = _button("CREATE & USE", 320, 66)
+	ending_create_button.pressed.connect(_create_ending)
+	actions.add_child(ending_create_button)
 	var cancel := _button("CANCEL", 240, 66)
 	cancel.pressed.connect(_close_new_ending)
 	actions.add_child(cancel)
