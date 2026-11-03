@@ -177,7 +177,7 @@ func _refresh_games() -> void:
 	for child: Node in games_list.get_children():
 		child.queue_free()
 	game_button_count = 0
-	var included := _button("THE LAST SIGNAL\nINCLUDED GAME")
+	var included := _button("EMBERBOUND: THE LAST DAWN\nINCLUDED GAME")
 	included.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	included.pressed.connect(_play_included)
 	games_list.add_child(included)
@@ -246,7 +246,7 @@ func _run_smoke() -> void:
 	var valid := (
 		game_button_count >= 1
 		and first_button != null
-		and first_button.text.contains("THE LAST SIGNAL")
+		and first_button.text.contains("EMBERBOUND")
 		and controls != null
 		and PCNavigation.raw_stick_ui_event_count() == 0
 		and (home_stick_expected.is_empty() or stick_mode == home_stick_expected)

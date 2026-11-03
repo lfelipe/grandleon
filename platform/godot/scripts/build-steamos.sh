@@ -4,11 +4,11 @@ set -euo pipefail
 
 script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
-project_source="${repo_root}/games/demo/source/project.json"
+project_source="${repo_root}/games/emberbound/source/project.json"
 build_dir="${repo_root}/build-godot-release"
 output_dir="${repo_root}/out/grandleon-pc"
 godot_binary=""
-campaign_key="last_signal"
+campaign_key="emberbound"
 player_only=0
 
 usage() {

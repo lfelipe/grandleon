@@ -1,0 +1,699 @@
+{
+  "schemaVersion": "1.2.0",
+  "packageId": "2c7f8a4e-3b51-4a9d-8e62-13f470ac92d1",
+  "gameId": "grandleon.emberbound",
+  "title": "Emberbound: The Last Dawn",
+  "contentRevision": "0.1.0",
+  "themeId": "ashland",
+  "characterStyleId": "mythical",
+  "characterFigureId": "first",
+  "defaultTurnOrder": "sideBlocks",
+  "characterLoss": "recoverable",
+  "weaponTypes": [
+    { "id": "blade", "name": "Blade" },
+    { "id": "bow", "name": "Bow" },
+    { "id": "focus", "name": "Focus" }
+  ],
+  "itemTypes": [
+    { "id": "consumable", "name": "Consumable" }
+  ],
+  "classes": [
+    {
+      "id": "wayfarer",
+      "name": "Wayfarer",
+      "baseStats": {
+        "health": 14, "movement": 4, "strength": 5, "defense": 3,
+        "resistance": 2, "skill": 5, "luck": 2, "actionPoints": 2,
+        "speed": 6
+      },
+      "allowedWeaponTypeIds": ["blade"]
+    },
+    {
+      "id": "lumen_adept",
+      "name": "Lumen Adept",
+      "baseStats": {
+        "health": 12, "movement": 4, "strength": 3, "defense": 2,
+        "resistance": 4, "skill": 4, "luck": 3, "magic": 5,
+        "actionPoints": 2, "speed": 7
+      },
+      "allowedWeaponTypeIds": ["focus"]
+    },
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "baseStats": {
+        "health": 16, "movement": 3, "strength": 5, "defense": 5,
+        "resistance": 2, "skill": 3, "actionPoints": 2, "speed": 3
+      },
+      "allowedWeaponTypeIds": ["blade"]
+    },
+    {
+      "id": "ridge_scout",
+      "name": "Ridge Scout",
+      "baseStats": {
+        "health": 11, "movement": 5, "strength": 4, "defense": 2,
+        "resistance": 2, "skill": 8, "luck": 3, "evasion": 8,
+        "actionPoints": 2, "speed": 8
+      },
+      "allowedWeaponTypeIds": ["bow"]
+    },
+    {
+      "id": "lantern_keeper",
+      "name": "Lantern Keeper",
+      "baseStats": {
+        "health": 12, "movement": 3, "strength": 2, "defense": 2,
+        "resistance": 5, "skill": 4, "magic": 6, "actionPoints": 2,
+        "speed": 4
+      },
+      "allowedWeaponTypeIds": ["focus"]
+    },
+    {
+      "id": "cinder_sapper",
+      "name": "Cinder Sapper",
+      "baseStats": {
+        "health": 13, "movement": 4, "strength": 4, "defense": 3,
+        "resistance": 3, "skill": 5, "magic": 4, "actionPoints": 2,
+        "speed": 5
+      },
+      "allowedWeaponTypeIds": ["blade", "focus"]
+    },
+    {
+      "id": "hollowling",
+      "name": "Hollowling",
+      "baseStats": {
+        "health": 6, "movement": 3, "strength": 2, "defense": 1,
+        "resistance": 1, "actionPoints": 2, "speed": 2
+      },
+      "allowedWeaponTypeIds": ["blade"]
+    },
+    {
+      "id": "ash_raider",
+      "name": "Ash Raider",
+      "baseStats": {
+        "health": 9, "movement": 4, "strength": 4, "defense": 2,
+        "resistance": 2, "skill": 3, "actionPoints": 2, "speed": 5
+      },
+      "allowedWeaponTypeIds": ["blade", "bow"]
+    },
+    {
+      "id": "crown_warden",
+      "name": "Crown Warden",
+      "baseStats": {
+        "health": 13, "movement": 3, "strength": 5, "defense": 4,
+        "resistance": 3, "skill": 5, "actionPoints": 2, "speed": 4
+      },
+      "allowedWeaponTypeIds": ["blade"]
+    },
+    {
+      "id": "ash_caller",
+      "name": "Ash Caller",
+      "baseStats": {
+        "health": 11, "movement": 3, "strength": 2, "defense": 2,
+        "resistance": 5, "skill": 4, "magic": 6, "actionPoints": 2,
+        "speed": 5
+      },
+      "allowedWeaponTypeIds": ["focus"]
+    },
+    {
+      "id": "crown_guard",
+      "name": "Crown Guard",
+      "baseStats": {
+        "health": 16, "movement": 3, "strength": 6, "defense": 5,
+        "resistance": 4, "skill": 6, "actionPoints": 2, "speed": 5
+      },
+      "allowedWeaponTypeIds": ["blade"]
+    },
+    {
+      "id": "hollow_regent",
+      "name": "Hollow Regent",
+      "baseStats": {
+        "health": 30, "movement": 4, "strength": 7, "defense": 6,
+        "resistance": 6, "skill": 8, "luck": 4, "magic": 8,
+        "actionPoints": 2, "speed": 7
+      },
+      "allowedWeaponTypeIds": ["blade", "focus"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "ember_sword", "name": "Ember Sword", "weaponTypeId": "blade",
+      "power": 2, "minimumRange": 1, "maximumRange": 1, "accuracy": 95
+    },
+    {
+      "id": "moon_focus", "name": "Moon Focus", "weaponTypeId": "focus",
+      "power": 1, "minimumRange": 1, "maximumRange": 1, "accuracy": 100
+    },
+    {
+      "id": "guard_spear", "name": "Guard Spear", "weaponTypeId": "blade",
+      "power": 2, "minimumRange": 1, "maximumRange": 1, "accuracy": 95
+    },
+    {
+      "id": "ridge_bow", "name": "Ridge Bow", "weaponTypeId": "bow",
+      "power": 2, "minimumRange": 2, "maximumRange": 3, "accuracy": 90
+    },
+    {
+      "id": "keeper_lantern", "name": "Keeper Lantern", "weaponTypeId": "focus",
+      "power": 1, "minimumRange": 1, "maximumRange": 1, "accuracy": 100
+    },
+    {
+      "id": "cinder_knife", "name": "Cinder Knife", "weaponTypeId": "blade",
+      "power": 2, "minimumRange": 1, "maximumRange": 1, "accuracy": 95
+    },
+    {
+      "id": "rusted_blade", "name": "Rusted Blade", "weaponTypeId": "blade",
+      "power": 1, "minimumRange": 1, "maximumRange": 1, "accuracy": 90
+    },
+    {
+      "id": "ash_blade", "name": "Ash Blade", "weaponTypeId": "blade",
+      "power": 2, "minimumRange": 1, "maximumRange": 1, "accuracy": 90
+    },
+    {
+      "id": "ash_bow", "name": "Ash Bow", "weaponTypeId": "bow",
+      "power": 2, "minimumRange": 2, "maximumRange": 3, "accuracy": 85
+    },
+    {
+      "id": "crown_glaive", "name": "Crown Glaive", "weaponTypeId": "blade",
+      "power": 3, "minimumRange": 1, "maximumRange": 1, "accuracy": 95
+    },
+    {
+      "id": "regent_brand", "name": "Regent Brand", "weaponTypeId": "blade",
+      "power": 4, "minimumRange": 1, "maximumRange": 2, "accuracy": 95
+    }
+  ],
+  "items": [
+    {
+      "id": "dawn_tonic", "name": "Dawn Tonic", "itemTypeId": "consumable",
+      "stackLimit": 5, "kind": "restore", "power": 5
+    }
+  ],
+  "abilities": [
+    {
+      "id": "star_bolt", "name": "Star Bolt", "kind": "damage",
+      "damageType": "magical", "areaShape": "single", "power": 4,
+      "minimumRange": 1, "maximumRange": 3, "accuracy": 100
+    },
+    {
+      "id": "wardlight", "name": "Wardlight", "kind": "restore",
+      "damageType": "physical", "areaShape": "single", "power": 5,
+      "minimumRange": 1, "maximumRange": 2
+    },
+    {
+      "id": "cinder_burst", "name": "Cinder Burst", "kind": "damage",
+      "damageType": "magical", "areaShape": "cross", "power": 3,
+      "minimumRange": 1, "maximumRange": 3, "accuracy": 95
+    },
+    {
+      "id": "ash_lance", "name": "Ash Lance", "kind": "damage",
+      "damageType": "magical", "areaShape": "single", "power": 4,
+      "minimumRange": 1, "maximumRange": 3, "accuracy": 90
+    },
+    {
+      "id": "crownfall", "name": "Crownfall", "kind": "damage",
+      "damageType": "magical", "areaShape": "diamond", "power": 5,
+      "minimumRange": 1, "maximumRange": 3, "radius": 1, "accuracy": 95
+    }
+  ],
+  "factions": [
+    { "id": "emberbound", "name": "The Emberbound", "color": "blue" },
+    { "id": "free_road", "name": "The Free Road", "color": "amber" },
+    { "id": "hollow_crown", "name": "The Hollow Crown", "color": "violet" }
+  ],
+  "unitTypes": [
+    {
+      "id": "auren_wayfarer", "name": "Auren", "classId": "wayfarer",
+      "factionId": "emberbound", "startingWeaponIds": ["ember_sword"],
+      "startingItemIds": ["dawn_tonic"], "characterFigureId": "first",
+      "experiencePerLevel": 70,
+      "growthRates": { "health": 85, "strength": 65, "defense": 50, "resistance": 35, "movement": 8, "actionPoints": 3 }
+    },
+    {
+      "id": "senna_lumen", "name": "Senna", "classId": "lumen_adept",
+      "factionId": "emberbound", "startingWeaponIds": ["moon_focus"],
+      "startingItemIds": ["dawn_tonic"], "abilityIds": ["star_bolt", "wardlight"],
+      "characterFigureId": "second", "experiencePerLevel": 70,
+      "growthRates": { "health": 75, "strength": 35, "defense": 35, "resistance": 65, "movement": 8, "actionPoints": 3 }
+    },
+    {
+      "id": "brann_vanguard", "name": "Brann", "classId": "vanguard",
+      "factionId": "free_road", "startingWeaponIds": ["guard_spear"],
+      "characterFigureId": "first", "experiencePerLevel": 70,
+      "growthRates": { "health": 90, "strength": 60, "defense": 70, "resistance": 30, "movement": 5, "actionPoints": 2 }
+    },
+    {
+      "id": "ilyra_scout", "name": "Ilyra", "classId": "ridge_scout",
+      "factionId": "free_road", "startingWeaponIds": ["ridge_bow"],
+      "characterFigureId": "second", "experiencePerLevel": 70,
+      "growthRates": { "health": 65, "strength": 55, "defense": 30, "resistance": 35, "movement": 12, "actionPoints": 3 }
+    },
+    {
+      "id": "oren_keeper", "name": "Oren", "classId": "lantern_keeper",
+      "factionId": "free_road", "startingWeaponIds": ["keeper_lantern"],
+      "abilityIds": ["wardlight", "star_bolt"], "characterFigureId": "first",
+      "experiencePerLevel": 70,
+      "growthRates": { "health": 70, "strength": 25, "defense": 35, "resistance": 75, "movement": 6, "actionPoints": 3 }
+    },
+    {
+      "id": "tess_sapper", "name": "Tess", "classId": "cinder_sapper",
+      "factionId": "free_road", "startingWeaponIds": ["cinder_knife", "moon_focus"],
+      "abilityIds": ["cinder_burst"], "characterFigureId": "second",
+      "experiencePerLevel": 70,
+      "growthRates": { "health": 75, "strength": 50, "defense": 45, "resistance": 50, "movement": 8, "actionPoints": 3 }
+    },
+    {
+      "id": "hollowling_unit", "name": "Hollowling", "classId": "hollowling",
+      "factionId": "hollow_crown", "startingWeaponIds": ["rusted_blade"],
+      "characterStyleId": "undead", "experienceAward": 30
+    },
+    {
+      "id": "ash_raider_unit", "name": "Ash Raider", "classId": "ash_raider",
+      "factionId": "hollow_crown", "startingWeaponIds": ["ash_blade"],
+      "experienceAward": 45, "dropItemId": "dawn_tonic", "dropChance": 20
+    },
+    {
+      "id": "ash_archer_unit", "name": "Ash Archer", "classId": "ash_raider",
+      "factionId": "hollow_crown", "startingWeaponIds": ["ash_bow"],
+      "characterFigureId": "second", "experienceAward": 50
+    },
+    {
+      "id": "crown_warden_unit", "name": "Crown Warden", "classId": "crown_warden",
+      "factionId": "hollow_crown", "startingWeaponIds": ["crown_glaive"],
+      "experienceAward": 70
+    },
+    {
+      "id": "ash_caller_unit", "name": "Ash Caller", "classId": "ash_caller",
+      "factionId": "hollow_crown", "startingWeaponIds": ["moon_focus"],
+      "abilityIds": ["ash_lance"], "characterFigureId": "second",
+      "experienceAward": 75
+    },
+    {
+      "id": "crown_guard_unit", "name": "Crown Guard", "classId": "crown_guard",
+      "factionId": "hollow_crown", "startingWeaponIds": ["crown_glaive"],
+      "experienceAward": 90
+    },
+    {
+      "id": "regent_veyr", "name": "Regent Veyr", "classId": "hollow_regent",
+      "factionId": "hollow_crown", "startingWeaponIds": ["regent_brand", "moon_focus"],
+      "abilityIds": ["crownfall"], "experienceAward": 300
+    }
+  ],
+  "maps": [
+    {
+      "id": "rowanfield", "name": "Rowanfield Bell Meadow", "width": 9, "height": 6,
+      "terrain": [
+        "forest","forest","grass","grass","road","grass","grass","forest","forest",
+        "forest","grass","grass","grass","road","grass","grass","grass","forest",
+        "grass","grass","road","road","bridge","road","road","grass","grass",
+        "grass","grass","road","grass","water","grass","road","grass","grass",
+        "forest","grass","grass","grass","water","grass","grass","grass","forest",
+        "forest","forest","grass","grass","road","grass","grass","forest","forest"
+      ],
+      "surroundings": { "mode": "automatic", "depth": 6 }
+    },
+    {
+      "id": "thorn_road", "name": "The Thorn Road", "width": 9, "height": 6,
+      "terrain": [
+        "forest","forest","forest","grass","road","grass","forest","forest","forest",
+        "forest","grass","forest","grass","road","grass","forest","grass","forest",
+        "grass","grass","road","road","road","road","road","grass","grass",
+        "forest","grass","road","ruins","grass","ruins","road","grass","forest",
+        "forest","grass","road","grass","grass","grass","road","grass","forest",
+        "forest","forest","grass","grass","road","grass","grass","forest","forest"
+      ],
+      "surroundings": { "mode": "automatic", "depth": 6 }
+    },
+    {
+      "id": "glasswater", "name": "Glasswater Causeway", "width": 9, "height": 6,
+      "terrain": [
+        "mountain","mountain","grass","road","road","road","grass","mountain","mountain",
+        "mountain","grass","grass","road","water","road","grass","grass","mountain",
+        "grass","grass","road","bridge","bridge","bridge","road","grass","grass",
+        "grass","road","road","bridge","bridge","bridge","road","road","grass",
+        "mountain","grass","ruins","road","water","road","ruins","grass","mountain",
+        "mountain","mountain","grass","road","road","road","grass","mountain","mountain"
+      ],
+      "surroundings": { "mode": "automatic", "depth": 6 }
+    },
+    {
+      "id": "ember_vault", "name": "Vault of the First Flame", "width": 9, "height": 6,
+      "terrain": [
+        "mountain","mountain","ruins","road","road","road","ruins","mountain","mountain",
+        "mountain","ruins","road","road","sand","road","road","ruins","mountain",
+        "ruins","road","road","sand","sand","sand","road","road","ruins",
+        "road","road","sand","ruins","ruins","ruins","sand","road","road",
+        "mountain","road","road","sand","sand","sand","road","road","mountain",
+        "mountain","mountain","ruins","road","road","road","ruins","mountain","mountain"
+      ],
+      "surroundings": { "mode": "automatic", "depth": 6 }
+    },
+    {
+      "id": "hollow_throne", "name": "The Hollow Throne", "width": 9, "height": 6,
+      "terrain": [
+        "mountain","ruins","ruins","road","road","road","ruins","ruins","mountain",
+        "ruins","road","sand","sand","ruins","sand","sand","road","ruins",
+        "road","road","sand","ruins","ruins","ruins","sand","road","road",
+        "road","sand","ruins","ruins","road","ruins","ruins","sand","road",
+        "ruins","road","sand","ruins","ruins","ruins","sand","road","ruins",
+        "mountain","ruins","road","road","road","road","road","ruins","mountain"
+      ],
+      "surroundings": { "mode": "automatic", "depth": 6 }
+    }
+  ],
+  "objectives": [
+    { "id": "defeat_all_opponents", "name": "Defeat every opponent" }
+  ],
+  "dialogues": [
+    {
+      "id": "prologue", "name": "The Bell Goes Dark", "backgroundId": "mountain_dusk",
+      "cast": [
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" }
+      ],
+      "lines": [
+        { "speaker": "Senna", "text": "The western road has vanished from my map. Not faded—vanished." },
+        { "speaker": "Auren", "text": "Roads do not vanish. Bell-ringers do when they are late, though." },
+        { "speaker": "Senna", "text": "Auren. The sun is setting in the east." },
+        { "speaker": "Auren", "text": "Then we ring the warning bell first and panic second." },
+        { "speaker": "Orra", "text": "Two hands have reached for the same light. The light remembers." },
+        { "speaker": "Senna", "text": "Tell me the bell did not just speak." }
+      ]
+    },
+    {
+      "id": "tutorial_orders", "name": "First Light",
+      "cast": [
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" }
+      ],
+      "lines": [
+        { "speaker": "Orra", "text": "Move together. Close the distance, then strike. Each fighter may move and act before yielding." },
+        { "speaker": "Auren", "text": "You take the lower path. I will keep them off the bell." },
+        { "speaker": "Senna", "text": "That sounded almost like a plan." },
+        { "speaker": "Orra", "text": "A plan is only a promise made to the person beside you." }
+      ]
+    },
+    {
+      "id": "rowanfield_won", "name": "The Choosing", "backgroundId": "night_camp",
+      "cast": [
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" },
+        { "speaker": "Brann", "unitTypeId": "brann_vanguard" },
+        { "speaker": "Ilyra", "unitTypeId": "ilyra_scout" }
+      ],
+      "lines": [
+        { "speaker": "Orra", "text": "The paired embers woke because each of you turned back for the other. Not blood. Not prophecy. Choice." },
+        { "speaker": "Auren", "text": "Choice to do what?" },
+        { "speaker": "Orra", "text": "Carry dawn to the five beacons before Regent Veyr hollows the last flame." },
+        { "speaker": "Senna", "text": "Every map says the Crown Road ends at Glasswater." },
+        { "speaker": "Ilyra", "text": "Then your maps need a scout who has crossed it." },
+        { "speaker": "Brann", "text": "And the scout needs someone large enough to stand where the arrows land." },
+        { "speaker": "Auren", "text": "We leave at first light—if first light still comes." }
+      ]
+    },
+    {
+      "id": "thorn_orders", "name": "The Road Answers",
+      "cast": [
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "speaker": "Ilyra", "unitTypeId": "ilyra_scout" }
+      ],
+      "lines": [
+        { "speaker": "Ilyra", "text": "Raiders ahead. They are guarding the road from people trying to leave, not enter." },
+        { "speaker": "Auren", "text": "Then we open it in both directions." },
+        { "speaker": "Senna", "text": "Two lines. No one fights alone." }
+      ]
+    },
+    {
+      "id": "thorn_won", "name": "People, Not Pieces", "backgroundId": "deep_wood",
+      "cast": [
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" },
+        { "speaker": "Oren", "unitTypeId": "oren_keeper" },
+        { "speaker": "Tess", "unitTypeId": "tess_sapper" }
+      ],
+      "lines": [
+        { "speaker": "Tess", "text": "I built their cinder traps. Veyr promised one frozen year would spare us a thousand bad ones." },
+        { "speaker": "Senna", "text": "And when the frozen year ends?" },
+        { "speaker": "Tess", "text": "He never said it would." },
+        { "speaker": "Oren", "text": "The old lanterns can divide the burden. One flame does not need to hold the whole sky." },
+        { "speaker": "Auren", "text": "Can you relight them?" },
+        { "speaker": "Oren", "text": "Can you get me to them?" },
+        { "speaker": "Tess", "text": "I know every lock I made for the Crown. I am coming too." }
+      ]
+    },
+    {
+      "id": "glasswater_orders", "name": "The Unmapped Crossing",
+      "cast": [
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" },
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" }
+      ],
+      "lines": [
+        { "speaker": "Senna", "text": "The causeway is broken in every survey." },
+        { "speaker": "Auren", "text": "Good. We are no longer following the old map." },
+        { "speaker": "Senna", "text": "I was hoping you would say something less terrifying." }
+      ]
+    },
+    {
+      "id": "glasswater_won", "name": "An Army Learns Its Shape", "backgroundId": "open_sea",
+      "cast": [
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" },
+        { "speaker": "Brann", "unitTypeId": "brann_vanguard" }
+      ],
+      "lines": [
+        { "speaker": "Auren", "text": "I kept trying to see all six of us at once." },
+        { "speaker": "Brann", "text": "That is how commanders miss the person in front of them." },
+        { "speaker": "Senna", "text": "Give us the destination, not every footstep." },
+        { "speaker": "Auren", "text": "Then here it is: we reach the vault together. You choose how." },
+        { "speaker": "Orra", "text": "The ember grows brighter when carried, not when hoarded." }
+      ]
+    },
+    {
+      "id": "vault_orders", "name": "The First Flame",
+      "cast": [
+        { "speaker": "Oren", "unitTypeId": "oren_keeper" },
+        { "speaker": "Tess", "unitTypeId": "tess_sapper" }
+      ],
+      "lines": [
+        { "speaker": "Oren", "text": "The vault is still alive. I can hear the relays answering one another." },
+        { "speaker": "Tess", "text": "So can the Crown. Wardens are coming from both galleries." },
+        { "speaker": "Senna", "text": "Then each army takes a gallery. We meet at the flame." }
+      ]
+    },
+    {
+      "id": "before_regent", "name": "What the Crown Preserves", "backgroundId": "throne_hall",
+      "cast": [
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" },
+        { "speaker": "Veyr", "unitTypeId": "regent_veyr" }
+      ],
+      "lines": [
+        { "speaker": "Veyr", "text": "You have seen the failing roads. The empty wells. I did not invent the end." },
+        { "speaker": "Auren", "text": "You only decided nobody else was allowed to face it." },
+        { "speaker": "Veyr", "text": "I can preserve this world exactly as it is. No child will watch another dawn fail." },
+        { "speaker": "Senna", "text": "Exactly as it is means no child grows old enough to change it." },
+        { "speaker": "Veyr", "text": "And you trust six frightened people with the sky?" },
+        { "speaker": "Auren", "text": "No. We trust every village with a piece of it." },
+        { "speaker": "Senna", "text": "That is the part your crown never understood." }
+      ]
+    },
+    {
+      "id": "regent_orders", "name": "The Hollow Crown",
+      "cast": [
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" },
+        { "speaker": "Veyr", "unitTypeId": "regent_veyr" }
+      ],
+      "lines": [
+        { "speaker": "Veyr", "text": "Then carry your little dawn against the weight of every night I held back." },
+        { "speaker": "Auren", "text": "Brann, Oren—with me. We break the centre." },
+        { "speaker": "Senna", "text": "Ilyra, Tess—we clear the flanks. No one gets isolated." },
+        { "speaker": "Orra", "text": "Two embers. Six bearers. One choice, made together." }
+      ]
+    },
+    {
+      "id": "epilogue", "name": "A Dawn Shared", "backgroundId": "star_field",
+      "cast": [
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" },
+        { "speaker": "Tess", "unitTypeId": "tess_sapper" },
+        { "speaker": "Ilyra", "unitTypeId": "ilyra_scout" }
+      ],
+      "lines": [
+        { "speaker": "Orra", "text": "The Crown is open. One bearer may command the flame." },
+        { "speaker": "Auren", "text": "That is how this started." },
+        { "speaker": "Senna", "text": "Divide it among the five beacons. Leave the sixth part here, unclaimed." },
+        { "speaker": "Tess", "text": "The relays will need keepers in every settlement." },
+        { "speaker": "Ilyra", "text": "And roads between them that do not vanish from maps." },
+        { "speaker": "Auren", "text": "We were chosen because we turned back for each other." },
+        { "speaker": "Senna", "text": "So we make a world where choosing each other is ordinary." },
+        { "speaker": "Orra", "text": "The light does not remember kings. It remembers hands." }
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "emberbound",
+      "name": "Emberbound: The Last Dawn",
+      "roster": [
+        { "id": "auren", "name": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "id": "senna", "name": "Senna", "unitTypeId": "senna_lumen" }
+      ],
+      "objectiveIds": ["defeat_all_opponents"],
+      "dialogueIds": [
+        "prologue", "tutorial_orders", "rowanfield_won", "thorn_orders",
+        "thorn_won", "glasswater_orders", "glasswater_won", "vault_orders",
+        "before_regent", "regent_orders", "epilogue"
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "prologue",
+        "nodes": [
+          {
+            "id": "prologue", "name": "The Bell Goes Dark", "kind": "story",
+            "dialogueIds": ["prologue"],
+            "transitions": [{ "id": "to_rowanfield", "targetNodeId": "rowanfield", "priority": 0 }]
+          },
+          {
+            "id": "rowanfield", "name": "I — First Light", "kind": "encounter",
+            "mapId": "rowanfield", "turnOrder": "sideBlocks",
+            "placements": [
+              { "id": "auren", "memberId": "auren", "unitTypeId": "auren_wayfarer", "side": "first", "x": 1, "y": 2 },
+              { "id": "senna", "memberId": "senna", "unitTypeId": "senna_lumen", "side": "first", "player": 2, "x": 1, "y": 3 },
+              { "id": "meadow_hollow_north", "unitTypeId": "hollowling_unit", "side": "second", "x": 6, "y": 2, "behavior": "pursue" },
+              { "id": "meadow_hollow_south", "unitTypeId": "hollowling_unit", "side": "second", "x": 6, "y": 3, "behavior": "pursue" },
+              { "id": "meadow_hollow_coop", "unitTypeId": "hollowling_unit", "side": "second", "x": 7, "y": 3, "behavior": "pursue", "minimumPlayers": 2 }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "moments": [{ "id": "first_orders", "when": { "kind": "stageOpens" }, "dialogueId": "tutorial_orders" }],
+            "recruits": [
+              { "id": "brann", "name": "Brann", "unitTypeId": "brann_vanguard" },
+              { "id": "ilyra", "name": "Ilyra", "unitTypeId": "ilyra_scout" }
+            ],
+            "transitions": [{ "id": "after_rowanfield", "targetNodeId": "rowanfield_camp", "priority": 0 }]
+          },
+          {
+            "id": "rowanfield_camp", "name": "The Choosing", "kind": "story",
+            "dialogueIds": ["rowanfield_won"],
+            "transitions": [{ "id": "to_thorn_road", "targetNodeId": "thorn_road", "priority": 0 }]
+          },
+          {
+            "id": "thorn_road", "name": "II — The Road Answers", "kind": "encounter",
+            "mapId": "thorn_road", "turnOrder": "sideBlocks",
+            "placements": [
+              { "id": "auren", "memberId": "auren", "unitTypeId": "auren_wayfarer", "side": "first", "x": 1, "y": 1 },
+              { "id": "brann", "memberId": "brann", "unitTypeId": "brann_vanguard", "side": "first", "x": 1, "y": 3 },
+              { "id": "senna", "memberId": "senna", "unitTypeId": "senna_lumen", "side": "first", "player": 2, "x": 1, "y": 4 },
+              { "id": "ilyra", "memberId": "ilyra", "unitTypeId": "ilyra_scout", "side": "first", "player": 2, "x": 2, "y": 2 },
+              { "id": "thorn_raider_a", "unitTypeId": "ash_raider_unit", "side": "second", "x": 6, "y": 1, "behavior": "pursue" },
+              { "id": "thorn_raider_b", "unitTypeId": "ash_raider_unit", "side": "second", "x": 7, "y": 2, "behavior": "pursue" },
+              { "id": "thorn_archer_a", "unitTypeId": "ash_archer_unit", "side": "second", "x": 6, "y": 4, "behavior": "hold" },
+              { "id": "thorn_hollow", "unitTypeId": "hollowling_unit", "side": "second", "x": 5, "y": 3, "behavior": "pursue" },
+              { "id": "thorn_raider_coop", "unitTypeId": "ash_raider_unit", "side": "second", "x": 7, "y": 4, "behavior": "pursue", "minimumPlayers": 2 },
+              { "id": "thorn_archer_coop", "unitTypeId": "ash_archer_unit", "side": "second", "x": 5, "y": 1, "behavior": "hold", "minimumPlayers": 2 }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "moments": [{ "id": "thorn_begins", "when": { "kind": "stageOpens" }, "dialogueId": "thorn_orders" }],
+            "recruits": [
+              { "id": "oren", "name": "Oren", "unitTypeId": "oren_keeper" },
+              { "id": "tess", "name": "Tess", "unitTypeId": "tess_sapper" }
+            ],
+            "transitions": [{ "id": "after_thorn", "targetNodeId": "thorn_camp", "priority": 0 }]
+          },
+          {
+            "id": "thorn_camp", "name": "People, Not Pieces", "kind": "story",
+            "dialogueIds": ["thorn_won"],
+            "transitions": [{ "id": "to_glasswater", "targetNodeId": "glasswater", "priority": 0 }]
+          },
+          {
+            "id": "glasswater", "name": "III — The Unmapped Crossing", "kind": "encounter",
+            "mapId": "glasswater", "turnOrder": "sideBlocks",
+            "placements": [
+              { "id": "auren", "memberId": "auren", "unitTypeId": "auren_wayfarer", "side": "first", "x": 1, "y": 2 },
+              { "id": "brann", "memberId": "brann", "unitTypeId": "brann_vanguard", "side": "first", "x": 1, "y": 3 },
+              { "id": "oren", "memberId": "oren", "unitTypeId": "oren_keeper", "side": "first", "x": 2, "y": 1 },
+              { "id": "senna", "memberId": "senna", "unitTypeId": "senna_lumen", "side": "first", "player": 2, "x": 2, "y": 4 },
+              { "id": "ilyra", "memberId": "ilyra", "unitTypeId": "ilyra_scout", "side": "first", "player": 2, "x": 1, "y": 4 },
+              { "id": "tess", "memberId": "tess", "unitTypeId": "tess_sapper", "side": "first", "player": 2, "x": 2, "y": 3 },
+              { "id": "causeway_warden_a", "unitTypeId": "crown_warden_unit", "side": "second", "x": 6, "y": 2, "behavior": "pursue" },
+              { "id": "causeway_warden_b", "unitTypeId": "crown_warden_unit", "side": "second", "x": 6, "y": 3, "behavior": "pursue" },
+              { "id": "causeway_raider_a", "unitTypeId": "ash_raider_unit", "side": "second", "x": 7, "y": 1, "behavior": "pursue" },
+              { "id": "causeway_raider_b", "unitTypeId": "ash_raider_unit", "side": "second", "x": 7, "y": 4, "behavior": "pursue" },
+              { "id": "causeway_archer_a", "unitTypeId": "ash_archer_unit", "side": "second", "x": 8, "y": 2, "behavior": "hold" },
+              { "id": "causeway_caller_a", "unitTypeId": "ash_caller_unit", "side": "second", "x": 8, "y": 3, "behavior": "hold" },
+              { "id": "causeway_warden_coop", "unitTypeId": "crown_warden_unit", "side": "second", "x": 7, "y": 3, "behavior": "pursue", "minimumPlayers": 2 },
+              { "id": "causeway_archer_coop", "unitTypeId": "ash_archer_unit", "side": "second", "x": 5, "y": 5, "behavior": "hold", "minimumPlayers": 2 }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "moments": [{ "id": "causeway_begins", "when": { "kind": "stageOpens" }, "dialogueId": "glasswater_orders" }],
+            "transitions": [{ "id": "after_glasswater", "targetNodeId": "glasswater_camp", "priority": 0 }]
+          },
+          {
+            "id": "glasswater_camp", "name": "An Army Learns Its Shape", "kind": "story",
+            "dialogueIds": ["glasswater_won"],
+            "transitions": [{ "id": "to_vault", "targetNodeId": "ember_vault", "priority": 0 }]
+          },
+          {
+            "id": "ember_vault", "name": "IV — The First Flame", "kind": "encounter",
+            "mapId": "ember_vault", "turnOrder": "sideBlocks",
+            "placements": [
+              { "id": "auren", "memberId": "auren", "unitTypeId": "auren_wayfarer", "side": "first", "x": 1, "y": 2 },
+              { "id": "brann", "memberId": "brann", "unitTypeId": "brann_vanguard", "side": "first", "x": 1, "y": 3 },
+              { "id": "oren", "memberId": "oren", "unitTypeId": "oren_keeper", "side": "first", "x": 2, "y": 1 },
+              { "id": "senna", "memberId": "senna", "unitTypeId": "senna_lumen", "side": "first", "player": 2, "x": 2, "y": 4 },
+              { "id": "ilyra", "memberId": "ilyra", "unitTypeId": "ilyra_scout", "side": "first", "player": 2, "x": 1, "y": 4 },
+              { "id": "tess", "memberId": "tess", "unitTypeId": "tess_sapper", "side": "first", "player": 2, "x": 2, "y": 3 },
+              { "id": "vault_warden_a", "unitTypeId": "crown_warden_unit", "side": "second", "x": 6, "y": 1, "behavior": "pursue" },
+              { "id": "vault_warden_b", "unitTypeId": "crown_warden_unit", "side": "second", "x": 6, "y": 4, "behavior": "pursue" },
+              { "id": "vault_guard_a", "unitTypeId": "crown_guard_unit", "side": "second", "x": 7, "y": 2, "behavior": "pursue" },
+              { "id": "vault_guard_b", "unitTypeId": "crown_guard_unit", "side": "second", "x": 7, "y": 3, "behavior": "pursue" },
+              { "id": "vault_caller_a", "unitTypeId": "ash_caller_unit", "side": "second", "x": 7, "y": 1, "behavior": "hold" },
+              { "id": "vault_caller_b", "unitTypeId": "ash_caller_unit", "side": "second", "x": 7, "y": 4, "behavior": "hold" },
+              { "id": "vault_archer_a", "unitTypeId": "ash_archer_unit", "side": "second", "x": 5, "y": 0, "behavior": "hold" },
+              { "id": "vault_archer_b", "unitTypeId": "ash_archer_unit", "side": "second", "x": 5, "y": 5, "behavior": "hold" },
+              { "id": "vault_guard_coop", "unitTypeId": "crown_guard_unit", "side": "second", "x": 8, "y": 2, "behavior": "pursue", "minimumPlayers": 2 },
+              { "id": "vault_caller_coop", "unitTypeId": "ash_caller_unit", "side": "second", "x": 8, "y": 3, "behavior": "hold", "minimumPlayers": 2 }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "moments": [{ "id": "vault_begins", "when": { "kind": "stageOpens" }, "dialogueId": "vault_orders" }],
+            "transitions": [{ "id": "after_vault", "targetNodeId": "regent_parley", "priority": 0 }]
+          },
+          {
+            "id": "regent_parley", "name": "What the Crown Preserves", "kind": "story",
+            "dialogueIds": ["before_regent"],
+            "transitions": [{ "id": "to_throne", "targetNodeId": "hollow_throne", "priority": 0 }]
+          },
+          {
+            "id": "hollow_throne", "name": "V — The Hollow Crown", "kind": "encounter",
+            "mapId": "hollow_throne", "turnOrder": "sideBlocks",
+            "placements": [
+              { "id": "auren", "memberId": "auren", "unitTypeId": "auren_wayfarer", "side": "first", "x": 1, "y": 2 },
+              { "id": "brann", "memberId": "brann", "unitTypeId": "brann_vanguard", "side": "first", "x": 1, "y": 3 },
+              { "id": "oren", "memberId": "oren", "unitTypeId": "oren_keeper", "side": "first", "x": 2, "y": 1 },
+              { "id": "senna", "memberId": "senna", "unitTypeId": "senna_lumen", "side": "first", "player": 2, "x": 2, "y": 4 },
+              { "id": "ilyra", "memberId": "ilyra", "unitTypeId": "ilyra_scout", "side": "first", "player": 2, "x": 1, "y": 4 },
+              { "id": "tess", "memberId": "tess", "unitTypeId": "tess_sapper", "side": "first", "player": 2, "x": 2, "y": 3 },
+              { "id": "regent", "name": "Regent Veyr", "unitTypeId": "regent_veyr", "side": "second", "x": 7, "y": 3, "behavior": "pursue" },
+              { "id": "throne_guard_a", "unitTypeId": "crown_guard_unit", "side": "second", "x": 6, "y": 2, "behavior": "pursue" },
+              { "id": "throne_guard_b", "unitTypeId": "crown_guard_unit", "side": "second", "x": 6, "y": 4, "behavior": "pursue" },
+              { "id": "throne_warden_a", "unitTypeId": "crown_warden_unit", "side": "second", "x": 7, "y": 1, "behavior": "pursue" },
+              { "id": "throne_warden_b", "unitTypeId": "crown_warden_unit", "side": "second", "x": 7, "y": 5, "behavior": "pursue" },
+              { "id": "throne_caller_a", "unitTypeId": "ash_caller_unit", "side": "second", "x": 8, "y": 2, "behavior": "hold" },
+              { "id": "throne_caller_b", "unitTypeId": "ash_caller_unit", "side": "second", "x": 8, "y": 4, "behavior": "hold" },
+              { "id": "throne_guard_coop", "unitTypeId": "crown_guard_unit", "side": "second", "x": 6, "y": 3, "behavior": "pursue", "minimumPlayers": 2 },
+              { "id": "throne_caller_coop", "unitTypeId": "ash_caller_unit", "side": "second", "x": 8, "y": 3, "behavior": "hold", "minimumPlayers": 2 }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "moments": [{ "id": "regent_begins", "when": { "kind": "stageOpens" }, "dialogueId": "regent_orders" }],
+            "transitions": [{ "id": "after_regent", "targetNodeId": "dawn_shared", "priority": 0 }]
+          },
+          {
+            "id": "dawn_shared", "name": "A Dawn Shared", "kind": "story",
+            "dialogueIds": ["epilogue"],
+            "transitions": [{ "id": "finish", "targetNodeId": "campaign_complete", "priority": 0 }]
+          },
+          {
+            "id": "campaign_complete", "name": "The Road Ahead", "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

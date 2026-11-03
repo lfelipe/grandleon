@@ -37,7 +37,7 @@ cmake --build "${build_dir}" --parallel --target \
 
 stage_dir="${build_dir}/platform/godot/project/app"
 "${build_dir}/grandleon_content_compile" \
-    "${repo_root}/games/demo/source/project.json" \
+    "${repo_root}/games/emberbound/source/project.json" \
     "${stage_dir}/game.gpk"
 
 godot_state="${build_dir}/graphics-prototype-state"
@@ -66,7 +66,7 @@ capture() {
     XDG_CACHE_HOME="${godot_state}/cache" \
         "${runner[@]}" --path "${stage_dir}" -- \
         --package=res://game.gpk \
-        --campaign=last_signal \
+        --campaign=emberbound \
         --players=2 \
         "--graphics=${profile}" \
         --board-preview \
@@ -84,7 +84,7 @@ XDG_CONFIG_HOME="${godot_state}/config" \
 XDG_CACHE_HOME="${godot_state}/cache" \
     timeout 20s "${runner[@]}" --path "${stage_dir}" -- \
     --package=res://game.gpk \
-    --campaign=last_signal \
+    --campaign=emberbound \
     --players=2 \
     --graphics=voxel-sprites \
     --graphics-cycle-smoke

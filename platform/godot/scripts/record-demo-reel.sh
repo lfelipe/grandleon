@@ -46,7 +46,7 @@ if [[ "${GRANDLEON_DEMO_CAPTURE_CHILD:-0}" != 1 ]]; then
 
     stage_dir="${build_dir}/platform/godot/project/app"
     "${build_dir}/grandleon_content_compile" \
-        "${repo_root}/games/demo/source/project.json" \
+        "${repo_root}/games/emberbound/source/project.json" \
         "${stage_dir}/game.gpk"
 
     state_dir="$(mktemp -d "${build_dir}/demo-reel-state.XXXXXX")"
@@ -93,7 +93,7 @@ trap cleanup EXIT
 
 game_arguments=(
     --package=res://game.gpk
-    --campaign=last_signal
+    --campaign=emberbound
     --players=2
     "--graphics=${graphics_profile}"
     --demo-reel

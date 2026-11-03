@@ -115,7 +115,7 @@ cover a wider range of SteamOS hardware.
 ## Build a SteamOS test bundle
 
 The portable bundle includes the official Godot binary, the native extension,
-imported assets, and the compiled demo. It does not need system-wide Godot or
+imported assets, and the compiled player-facing campaign. It does not need system-wide Godot or
 export templates.
 
 ```sh
@@ -130,8 +130,8 @@ or destination when needed:
 
 ```sh
 platform/godot/scripts/build-steamos.sh \
-  --project games/demo/source/project.json \
-  --output out/last-signal-test
+  --project games/emberbound/source/project.json \
+  --output out/emberbound-test
 ```
 
 Before transferring a release, exercise its actual launcher, bundled Godot,
@@ -140,7 +140,7 @@ co-op routes while confirming the icon and privacy boundary:
 
 ```sh
 platform/godot/scripts/smoke-pc-bundle.sh \
-  --require-clean out/last-signal-test
+  --require-clean out/emberbound-test
 ```
 
 The smoke attaches a temporary runtime symlink and removes it on exit; the
@@ -198,7 +198,9 @@ presentation.
 Copy that whole directory to the SteamOS machine. In desktop mode, add
 `launch-pc.sh` as a non-Steam game, then return to gaming mode. The launcher
 keeps Godot's data, config, and cache in the bundle's `runtime/` directory and
-starts the two-player `last_signal` campaign full-screen. No home-directory or
+starts the two-player `emberbound` campaign full-screen. That package contains
+one campaign: five battles whose two-person form assigns a separate allied army
+to each player and whose solo form gives the whole company to player one. No home-directory or
 host-specific path is compiled into the extension; the bundler checks the
 native binary and refuses it if the checkout path remains.
 
@@ -237,7 +239,7 @@ user, hostname, endpoint, or other machine-specific values.
 Environment overrides are intentionally generic:
 
 ```sh
-GRANDLEON_CAMPAIGN=last_signal GRANDLEON_PLAYERS=2 ./launch-pc.sh
+GRANDLEON_CAMPAIGN=emberbound GRANDLEON_PLAYERS=2 ./launch-pc.sh
 GRANDLEON_GRAPHICS=diorama ./launch-pc.sh
 GRANDLEON_WINDOWED=1 ./launch-pc.sh
 ```

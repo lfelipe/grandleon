@@ -18,7 +18,7 @@ var session
 var board: Node
 var player_count := 2
 var package_path := "res://game.gpk"
-var campaign_key := "tarnholt_line"
+var campaign_key := "emberbound"
 var creator_enabled := true
 var graphics_profile := ""
 var graphics_argument_explicit := false

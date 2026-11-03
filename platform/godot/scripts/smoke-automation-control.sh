@@ -24,7 +24,7 @@ cmake --build "${build_dir}" --parallel --target \
 
 stage_dir="${build_dir}/platform/godot/project/app"
 "${build_dir}/grandleon_content_compile" \
-    "${repo_root}/games/demo/source/project.json" \
+    "${repo_root}/games/emberbound/source/project.json" \
     "${stage_dir}/game.gpk"
 
 state_dir="$(mktemp -d "${build_dir}/automation-control-state.XXXXXX")"
@@ -58,7 +58,7 @@ XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
     timeout 30s "${runner[@]}" --path "${stage_dir}" -- \
     "--automation-dir=${state_dir}/automation" \
-    --campaign=last_signal --players=2 &
+    --campaign=emberbound --players=2 &
 game_pid=$!
 
 for _attempt in $(seq 1 100); do

@@ -139,7 +139,7 @@ XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
     timeout 30s "${renderer[@]}" --path "${bundle_dir}/project" -- \
     --package=res://game.gpk \
-    --campaign=last_signal \
+    --campaign=emberbound \
     --players=2 \
     --graphics=voxel-sprites \
     --coop-smoke \

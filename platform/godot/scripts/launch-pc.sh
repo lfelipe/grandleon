@@ -15,7 +15,7 @@ export XDG_DATA_HOME="${runtime_dir}/data"
 export XDG_CONFIG_HOME="${runtime_dir}/config"
 export XDG_CACHE_HOME="${runtime_dir}/cache"
 
-default_campaign="last_signal"
+default_campaign="emberbound"
 if [[ -f "${bundle_dir}/DEFAULT-CAMPAIGN" ]]; then
     IFS= read -r default_campaign <"${bundle_dir}/DEFAULT-CAMPAIGN"
 fi
