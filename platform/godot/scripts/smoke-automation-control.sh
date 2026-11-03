@@ -72,7 +72,7 @@ command=(env "GRANDLEON_AUTOMATION_DIR=${state_dir}/automation" \
     "${script_dir}/control-pc.sh")
 home="$(${command[@]} inspect)"
 grep -Fq 'res://home.tscn' <<<"${home}"
-grep -Fq 'THE LAST SIGNAL' <<<"${home}"
+grep -Fq 'EMBERBOUND: THE LAST DAWN' <<<"${home}"
 "${command[@]}" screenshot home-smoke >/dev/null
 test -s "${state_dir}/automation/screenshots/home-smoke.png"
 pad_result="$(${command[@]} pad 0 dpad_right)"
@@ -84,22 +84,22 @@ grep -Fq '"ok":true' <<<"${pad_result}"
 sleep 0.8
 opening="$(${command[@]} inspect)"
 grep -Fq 'res://main.tscn' <<<"${opening}"
-grep -Fq 'Halcyon Relay' <<<"${opening}"
-for _line in 1 2 3 4; do
+grep -Fq 'western road has vanished' <<<"${opening}"
+for _line in 1 2 3 4 5 6; do
     "${command[@]}" press enter >/dev/null
     sleep 0.15
 done
 sleep 0.5
 
-company="$(${command[@]} inspect)"
-grep -Fq 'Prepare for the next battle' <<<"${company}"
-grep -Fq 'FIELDED  /  2' <<<"${company}"
-grep -Fq 'Kestrel  /  FIELD' <<<"${company}"
-grep -Fq 'Rook  /  FIELD' <<<"${company}"
-"${command[@]}" screenshot company-smoke >/dev/null
-test -s "${state_dir}/automation/screenshots/company-smoke.png"
+battle="$(${command[@]} inspect)"
+grep -Fq 'ROUND 1' <<<"${battle}"
+grep -Fq 'TEAM TURN' <<<"${battle}"
+grep -Fq 'CYAN  FIRST CONTROL' <<<"${battle}"
+grep -Fq 'AMBER  SECOND CONTROL' <<<"${battle}"
+"${command[@]}" screenshot opening-battle-smoke >/dev/null
+test -s "${state_dir}/automation/screenshots/opening-battle-smoke.png"
 
 "${command[@]}" quit >/dev/null
 wait "${game_pid}"
 game_pid=""
-printf 'PC automation and deferred company smoke passed\n'
+printf 'PC automation and fixed-formation smoke passed\n'
