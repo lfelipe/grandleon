@@ -53,6 +53,15 @@ func _run() -> void:
 		print("more map options capture saved: %s" % more_screenshot_path)
 		quit()
 		return
+	var chapter_screenshot_path := _argument_path("--chapter-screenshot=")
+	if not chapter_screenshot_path.is_empty():
+		editor._open_new_chapter()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(chapter_screenshot_path)
+		print("new chapter capture saved: %s" % chapter_screenshot_path)
+		quit()
+		return
 	var deployment_screenshot_path := _argument_path("--deployment-screenshot=")
 	if not deployment_screenshot_path.is_empty():
 		editor._begin_deployment_edit()
@@ -355,26 +364,35 @@ func _run() -> void:
 	_expect("deployment cancel exits draft", editor.deployment_editing, false)
 	_expect("deployment cancel preserves source", editor.source, before_invalid_deployment)
 
-	editor._create_map()
+	var preceding_map: Dictionary = editor._current_map().duplicate(true)
+	editor._open_new_chapter()
+	await process_frame
+	_expect("next chapter overlay opens", editor.chapter_layer.visible, true)
+	_expect("next chapter name receives focus", editor.chapter_title.has_focus(), true)
+	editor.chapter_title.text = "Second Crossing"
+	editor._create_chapter()
 	await process_frame
 	var with_new_map := _parse(editor.source)
-	_expect("new map is appended", with_new_map.maps.size(), 3)
-	_expect("new map receives portable id", with_new_map.maps[2].id, "map_1")
-	_expect("new map receives a useful name", with_new_map.maps[2].name, "New Map 1")
-	_expect("new map width", int(with_new_map.maps[2].width), 8)
-	_expect("new map height", int(with_new_map.maps[2].height), 6)
-	_expect("new map uses selected terrain", with_new_map.maps[2].terrain[47], "forest")
+	_expect("next chapter adds a map", with_new_map.maps.size(), 3)
+	_expect("next chapter adds story and battle", with_new_map.campaigns[0].flow.nodes.size(), 4)
+	_expect("new map receives portable id", with_new_map.maps[2].id, "chapter_1_map")
+	_expect("new map receives the chapter name", with_new_map.maps[2].name, "Second Crossing")
+	_expect("new map keeps the working width", int(with_new_map.maps[2].width), int(preceding_map.width))
+	_expect("new map keeps the working height", int(with_new_map.maps[2].height), int(preceding_map.height))
+	_expect("new map uses selected terrain", with_new_map.maps[2].terrain[-1], "forest")
 	_expect("new map becomes selected", editor.map_index, 2)
-	_expect("new map board is editable", editor.grid.get_child_count(), 48)
-	_expect("new map is one undo command", editor.undo_stack.size(), 9)
+	_expect("new battle is immediately editable", editor.encounters.size(), 1)
+	_expect("new chapter is one undo command", editor.undo_stack.size(), 9)
 	editor._undo()
 	await process_frame
-	_expect("new map undo removes map", _parse(editor.source).maps.size(), 2)
-	_expect("new map undo refreshes selector", editor.map_select.item_count, 2)
+	_expect("chapter undo removes map", _parse(editor.source).maps.size(), 2)
+	_expect("chapter undo removes flow nodes", _parse(editor.source).campaigns[0].flow.nodes.size(), 2)
+	_expect("chapter undo refreshes selector", editor.map_select.item_count, 2)
 	editor._redo()
 	await process_frame
-	_expect("new map redo restores map", _parse(editor.source).maps.size(), 3)
-	_expect("new map redo refreshes selector", editor.map_select.item_count, 3)
+	_expect("chapter redo restores map", _parse(editor.source).maps.size(), 3)
+	_expect("chapter redo restores flow", _parse(editor.source).campaigns[0].flow.nodes.size(), 4)
+	_expect("chapter redo refreshes selector", editor.map_select.item_count, 3)
 	editor._select_map(0)
 	var objective_count_before: int = _parse(editor.source).objectives.size()
 	editor._open_objectives()
@@ -440,7 +458,7 @@ func _run() -> void:
 	_expect("saved rectangle reopens", stored.project.maps[0].terrain[0], "forest")
 	_expect("saved fill reopens", stored.project.maps[0].terrain[2], "ruins")
 	_expect("saved resize reopens", int(stored.project.maps[0].width), 4)
-	_expect("saved new map reopens", stored.project.maps[2].id, "map_1")
+	_expect("saved new chapter reopens", stored.project.maps[2].id, "chapter_1_map")
 	_expect("saved unit move reopens", int(stored.project.campaigns[0].flow.nodes[0].placements[0].y), 0)
 	_expect("saved unit removal reopens", stored.project.campaigns[0].flow.nodes[0].placements.size(), 2)
 	_expect("saved deployment reopens", stored.project.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)

@@ -123,6 +123,9 @@ var setup_first_button: Button
 var more_button: Button
 var more_layer: Control
 var more_first_button: Button
+var chapter_layer: Control
+var chapter_title: LineEdit
+var chapter_create_button: Button
 
 
 func _ready() -> void:
@@ -145,6 +148,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_resize()
 		elif setup_layer != null and setup_layer.visible:
 			_close_setup()
+		elif chapter_layer != null and chapter_layer.visible:
+			_close_new_chapter()
 		elif more_layer != null and more_layer.visible:
 			_close_more()
 		elif deployment_editing:
@@ -2445,8 +2450,7 @@ func _more_redo() -> void:
 
 
 func _more_new_map() -> void:
-	more_layer.visible = false
-	_create_map()
+	_open_new_chapter()
 
 
 func _more_resize() -> void:
@@ -2457,6 +2461,101 @@ func _more_resize() -> void:
 func _more_projects() -> void:
 	more_layer.visible = false
 	_request_projects()
+
+
+func _next_chapter_sequence() -> int:
+	var ids: Array[String] = []
+	for value: Variant in maps:
+		if value is Dictionary:
+			ids.append(str(value.get("id", "")))
+	for campaign_value: Variant in project.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var flow_value: Variant = campaign_value.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if node_value is Dictionary:
+				ids.append(str(node_value.get("id", "")))
+	var sequence := 1
+	while (
+		ids.has("chapter_%d_map" % sequence)
+		or ids.has("chapter_%d_story" % sequence)
+		or ids.has("chapter_%d_battle" % sequence)
+	):
+		sequence += 1
+	return sequence
+
+
+func _open_new_chapter() -> void:
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		more_layer.visible = false
+		_set_status("CHOOSE A PLAYABLE BATTLE BEFORE ADDING ITS NEXT CHAPTER", true)
+		return
+	var sequence := _next_chapter_sequence()
+	chapter_title.text = "Chapter %d" % sequence
+	more_layer.visible = false
+	chapter_layer.visible = true
+	chapter_title.call_deferred("grab_focus")
+	chapter_title.call_deferred("select_all")
+
+
+func _close_new_chapter() -> void:
+	chapter_layer.visible = false
+	more_button.grab_focus()
+
+
+func _create_chapter_from_text(_value: String) -> void:
+	_create_chapter()
+
+
+func _create_chapter() -> void:
+	var title := chapter_title.text.strip_edges()
+	if title.is_empty():
+		_set_status("GIVE THE CHAPTER A NAME", true)
+		chapter_title.grab_focus()
+		return
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		_set_status("THE PRECEDING BATTLE IS NO LONGER AVAILABLE", true)
+		_close_new_chapter()
+		return
+	var sequence := _next_chapter_sequence()
+	var base := "chapter_%d" % sequence
+	var added: Dictionary = compiler.add_campaign_chapter(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(encounter.node.get("id", "")),
+		base + "_map",
+		title,
+		base + "_story",
+		"Before %s" % title,
+		base + "_battle",
+		"%s Battle" % title,
+		selected_terrain
+	)
+	if not added.ok:
+		_set_status("CHAPTER NOT CREATED  /  %s" % _diagnostic_detail(added), true)
+		return
+	_push_undo(source)
+	source = str(added.source)
+	redo_stack.clear()
+	dirty = true
+	_read_source()
+	for index in maps.size():
+		if str(maps[index].get("id", "")) == base + "_map":
+			map_index = index
+			break
+	rectangle_anchor = -1
+	selected_placement_id = ""
+	pending_placement = {}
+	chapter_layer.visible = false
+	_refresh_maps_after_edit(0)
+	_set_status(
+		"UNSAVED  /  %s IS READY TO SHAPE, WRITE, AND TEST" % title.to_upper(),
+		false
+	)
 
 
 func _build_more_overlay() -> void:
@@ -2492,7 +2591,7 @@ func _build_more_overlay() -> void:
 	redo_button = _button("REDO LAST EDIT", 680, 70)
 	redo_button.pressed.connect(_more_redo)
 	column.add_child(redo_button)
-	var new_map_button := _button("ADD ANOTHER MAP", 680, 70)
+	var new_map_button := _button("ADD NEXT CHAPTER", 680, 70)
 	new_map_button.pressed.connect(_more_new_map)
 	column.add_child(new_map_button)
 	more_first_button = new_map_button
@@ -2505,6 +2604,59 @@ func _build_more_overlay() -> void:
 	var back := _button("BACK TO MAP", 680, 70)
 	back.pressed.connect(_close_more)
 	column.add_child(back)
+	_build_chapter_overlay()
+
+
+func _build_chapter_overlay() -> void:
+	chapter_layer = Control.new()
+	chapter_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	chapter_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	chapter_layer.visible = false
+	chapter_layer.z_index = 40
+	add_child(chapter_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.9)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	chapter_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(430, 270)
+	panel.size = Vector2(1060, 520)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 22, Color("69d9ff"))
+	)
+	chapter_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("ADD NEXT CHAPTER", 20, Color("69d9ff")))
+	column.add_child(_label("Keep the adventure moving.", 34, Color("f2f7f9")))
+	var explanation := _label(
+		"This adds a story moment, a playable battle, and a new map after the "
+		+ "current battle. Characters, enemies, co-op ownership, and goals start "
+		+ "from the working setup so you can reshape them instead of rebuilding them.",
+		19,
+		Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 130
+	column.add_child(explanation)
+	column.add_child(_label("CHAPTER NAME", 16, Color("69d9ff")))
+	chapter_title = LineEdit.new()
+	chapter_title.custom_minimum_size = Vector2(940, 68)
+	chapter_title.max_length = 140
+	chapter_title.add_theme_font_size_override("font_size", 24)
+	chapter_title.text_submitted.connect(_create_chapter_from_text)
+	column.add_child(chapter_title)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	chapter_create_button = _button("CREATE & SHAPE MAP", 420, 72)
+	chapter_create_button.pressed.connect(_create_chapter)
+	actions.add_child(chapter_create_button)
+	var back := _button("BACK", 260, 72)
+	back.pressed.connect(_close_new_chapter)
+	actions.add_child(back)
 
 
 func _build_placement_overlay() -> void:

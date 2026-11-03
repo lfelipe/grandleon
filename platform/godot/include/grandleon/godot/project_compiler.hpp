@@ -56,6 +56,18 @@ public:
         std::int64_t height,
         const ::godot::String& fill_terrain
     ) const;
+    [[nodiscard]] ::godot::Dictionary add_campaign_chapter(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& after_node_id,
+        const ::godot::String& map_id,
+        const ::godot::String& map_name,
+        const ::godot::String& story_node_id,
+        const ::godot::String& story_name,
+        const ::godot::String& battle_node_id,
+        const ::godot::String& battle_name,
+        const ::godot::String& fill_terrain
+    ) const;
     [[nodiscard]] ::godot::Dictionary set_map_surroundings(
         const ::godot::String& source_json,
         const ::godot::String& map_id,

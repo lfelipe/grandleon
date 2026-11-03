@@ -8,6 +8,7 @@
 #include <array>
 #include <charconv>
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <map>
@@ -3582,6 +3583,303 @@ SourceTextResult add_source_map_json(
     added.emplace("terrain", Json{std::move(terrain)});
     maps->push_back(Json{std::move(added)});
     finish_document_edit(document, result);
+    return result;
+}
+
+SourceTextResult add_source_campaign_chapter_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view after_node_id,
+    std::string_view map_id,
+    std::string_view map_name,
+    std::string_view story_node_id,
+    std::string_view story_name,
+    std::string_view battle_node_id,
+    std::string_view battle_name,
+    std::string_view fill_terrain
+) {
+    SourceTextResult result;
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    if (!compile(before.source)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.campaigns",
+            "a new chapter can only be added to a playable campaign"
+        );
+        return result;
+    }
+    for (const auto& [value, label] : {
+             std::pair{campaign_id, "campaign"},
+             std::pair{after_node_id, "preceding encounter"},
+             std::pair{map_id, "map"},
+             std::pair{story_node_id, "story node"},
+             std::pair{battle_node_id, "battle node"},
+             std::pair{fill_terrain, "fill terrain"},
+         }) {
+        if (!valid_source_key(value)) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                "$.campaigns",
+                std::string(label) +
+                    " id must be a stable source-key string"
+            );
+            return result;
+        }
+    }
+    for (const auto& [value, label] : {
+             std::pair{map_name, "map"},
+             std::pair{story_name, "story"},
+             std::pair{battle_name, "battle"},
+         }) {
+        if (value.empty() || value.size() > 160) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                "$.campaigns",
+                std::string(label) +
+                    " name must contain between 1 and 160 characters"
+            );
+            return result;
+        }
+    }
+    const std::string to_story_id =
+        std::string(story_node_id) + "_begins";
+    const std::string to_battle_id =
+        std::string(battle_node_id) + "_begins";
+    const std::string battle_complete_id =
+        std::string(battle_node_id) + "_complete";
+    if (!valid_source_key(to_story_id) || !valid_source_key(to_battle_id) ||
+        !valid_source_key(battle_complete_id)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.campaigns",
+            "chapter ids are too long to form portable transitions"
+        );
+        return result;
+    }
+
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_json,
+            "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* maps = root == nullptr ? nullptr : mutable_array(*root, "maps");
+    Array* campaigns =
+        root == nullptr ? nullptr : mutable_array(*root, "campaigns");
+    if (maps == nullptr || campaigns == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$",
+            "maps and campaigns must be arrays"
+        );
+        return result;
+    }
+    if (find_object_by_id(*maps, map_id) != nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.maps",
+            "map id already exists"
+        );
+        return result;
+    }
+
+    std::size_t campaign_index = 0;
+    Object* campaign =
+        find_object_by_id(*campaigns, campaign_id, &campaign_index);
+    Object* flow = campaign == nullptr ? nullptr : mutable_object(*campaign, "flow");
+    Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+    const std::string campaign_path =
+        "$.campaigns[" + std::to_string(campaign_index) + "]";
+    if (campaign == nullptr || nodes == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow.nodes",
+            "campaign or campaign flow was not found"
+        );
+        return result;
+    }
+    if (find_object_by_id(*nodes, story_node_id) != nullptr ||
+        find_object_by_id(*nodes, battle_node_id) != nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow.nodes",
+            "chapter node id already exists"
+        );
+        return result;
+    }
+
+    std::size_t after_index = 0;
+    Object* preceding =
+        find_object_by_id(*nodes, after_node_id, &after_index);
+    const std::string node_path = campaign_path + ".flow.nodes[" +
+                                  std::to_string(after_index) + "]";
+    const std::string* preceding_kind =
+        preceding == nullptr ? nullptr : string_member(*preceding, "kind");
+    const std::string* preceding_map_id =
+        preceding == nullptr ? nullptr : string_member(*preceding, "mapId");
+    Array* preceding_placements =
+        preceding == nullptr ? nullptr : mutable_array(*preceding, "placements");
+    Array* preceding_transitions =
+        preceding == nullptr ? nullptr : mutable_array(*preceding, "transitions");
+    if (preceding == nullptr || preceding_kind == nullptr ||
+        *preceding_kind != "encounter" || preceding_map_id == nullptr ||
+        preceding_placements == nullptr || preceding_transitions == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            node_path,
+            "the preceding node must be an encounter with a map and placements"
+        );
+        return result;
+    }
+    if (preceding_transitions->size() != 1) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            node_path + ".transitions",
+            "Add Next Chapter needs one linear transition; use the future "
+            "campaign graph editor for a branch"
+        );
+        return result;
+    }
+    auto* previous_transition =
+        std::get_if<Object>(&preceding_transitions->front().value);
+    const std::string* previous_target = previous_transition == nullptr
+                                             ? nullptr
+                                             : string_member(
+                                                   *previous_transition,
+                                                   "targetNodeId"
+                                               );
+    if (previous_transition == nullptr || previous_target == nullptr ||
+        previous_transition->find("when") != previous_transition->end()) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            node_path + ".transitions[0]",
+            "Add Next Chapter needs one unconditional transition"
+        );
+        return result;
+    }
+    const std::string old_target = *previous_target;
+
+    Object* preceding_map = find_object_by_id(*maps, *preceding_map_id);
+    const std::int64_t* width =
+        preceding_map == nullptr ? nullptr : integer_member(*preceding_map, "width");
+    const std::int64_t* height = preceding_map == nullptr
+                                     ? nullptr
+                                     : integer_member(*preceding_map, "height");
+    if (width == nullptr || height == nullptr || *width < 1 || *height < 1 ||
+        *width > maximum_map_side || *height > maximum_map_side) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            node_path + ".mapId",
+            "the preceding encounter map has invalid dimensions"
+        );
+        return result;
+    }
+
+    const auto transition = [](
+                                std::string id,
+                                std::string target
+                            ) -> Json {
+        Object value;
+        value.emplace("id", Json{std::move(id)});
+        value.emplace("targetNodeId", Json{std::move(target)});
+        value.emplace("priority", Json{std::int64_t{0}});
+        return Json{std::move(value)};
+    };
+
+    Array terrain;
+    const auto area = static_cast<std::uint64_t>(*width) *
+                      static_cast<std::uint64_t>(*height);
+    terrain.reserve(static_cast<std::size_t>(area));
+    for (std::uint64_t index = 0; index < area; ++index) {
+        terrain.push_back(Json{std::string(fill_terrain)});
+    }
+    Object surroundings;
+    surroundings.emplace("mode", Json{std::string{"automatic"}});
+    surroundings.emplace("depth", Json{std::int64_t{3}});
+    Object added_map;
+    added_map.emplace("id", Json{std::string(map_id)});
+    added_map.emplace("name", Json{std::string(map_name)});
+    added_map.emplace("width", Json{*width});
+    added_map.emplace("height", Json{*height});
+    added_map.emplace("terrain", Json{std::move(terrain)});
+    added_map.emplace("surroundings", Json{std::move(surroundings)});
+    maps->push_back(Json{std::move(added_map)});
+
+    Object story;
+    story.emplace("id", Json{std::string(story_node_id)});
+    story.emplace("name", Json{std::string(story_name)});
+    story.emplace("kind", Json{std::string{"story"}});
+    story.emplace(
+        "transitions",
+        Json{Array{transition(to_battle_id, std::string(battle_node_id))}}
+    );
+
+    Object battle;
+    battle.emplace("id", Json{std::string(battle_node_id)});
+    battle.emplace("name", Json{std::string(battle_name)});
+    battle.emplace("kind", Json{std::string{"encounter"}});
+    battle.emplace("mapId", Json{std::string(map_id)});
+    for (const std::string_view key : {
+             "placements", "objectiveIds", "turnOrder", "deployment",
+         }) {
+        const auto found = preceding->find(key);
+        if (found != preceding->end()) {
+            battle.emplace(std::string(key), found->second);
+        }
+    }
+    battle.emplace(
+        "transitions",
+        Json{Array{transition(battle_complete_id, old_target)}}
+    );
+
+    *preceding_transitions =
+        Array{transition(to_story_id, std::string(story_node_id))};
+    nodes->insert(
+        nodes->begin() + static_cast<std::ptrdiff_t>(after_index + 1),
+        Json{std::move(story)}
+    );
+    nodes->insert(
+        nodes->begin() + static_cast<std::ptrdiff_t>(after_index + 2),
+        Json{std::move(battle)}
+    );
+
+    finish_document_edit(document, result);
+    if (!result) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled =
+        after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result,
+        SourceDiagnosticCode::invalid_value,
+        campaign_path + ".flow.nodes",
+        "new chapter would make this playable project invalid"
+    );
     return result;
 }
 

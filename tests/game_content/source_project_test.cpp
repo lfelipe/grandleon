@@ -437,6 +437,60 @@ void updates_one_map_cell_without_retyping_the_project() {
         "a non-portable map identity cannot produce source"
     );
 
+    const auto chapter = gc::add_source_campaign_chapter_json(
+        source,
+        "demo",
+        "battle",
+        "chapter_2_map",
+        "Chapter Two",
+        "chapter_2_story",
+        "Before Chapter Two",
+        "chapter_2_battle",
+        "Chapter Two Battle",
+        "forest"
+    );
+    expect(
+        static_cast<bool>(chapter),
+        "one command can add a complete next campaign chapter"
+    );
+    const auto chapter_parsed = gc::parse_source_project_json(chapter.json);
+    expect(
+        chapter_parsed && chapter_parsed.source.maps.size() == 2 &&
+            chapter_parsed.source.encounters.size() == 2 &&
+            chapter_parsed.source.campaigns.front().nodes.size() == 4 &&
+            chapter_parsed.source.encounters.back().placements.size() == 2,
+        "a next chapter contains a map, story moment, and cloned battle setup"
+    );
+    expect(
+        chapter_parsed && static_cast<bool>(gc::compile(chapter_parsed.source)),
+        "the new linear chapter remains playable"
+    );
+    expect(
+        chapter.json.find(R"json("targetNodeId": "chapter_2_story")json") !=
+                std::string::npos &&
+            chapter.json.find(R"json("targetNodeId": "chapter_2_battle")json") !=
+                std::string::npos &&
+            chapter.json.find(R"json("targetNodeId": "end")json") !=
+                std::string::npos,
+        "the prior encounter routes through the new story and battle"
+    );
+    const auto duplicate_chapter = gc::add_source_campaign_chapter_json(
+        chapter.json,
+        "demo",
+        "battle",
+        "chapter_2_map",
+        "Another Map",
+        "another_story",
+        "Another Story",
+        "another_battle",
+        "Another Battle",
+        "forest"
+    );
+    expect(
+        !duplicate_chapter && duplicate_chapter.json.empty(),
+        "a chapter cannot replace an existing map identity"
+    );
+
     const auto moved = gc::move_source_placement_json(
         enlarged.json, "demo", "battle", "red_1", 2, 1
     );
