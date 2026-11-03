@@ -56,6 +56,11 @@ var add_name: LineEdit
 var add_role: OptionButton
 var add_join: OptionButton
 var create_button: Button
+var new_role_button: Button
+var new_role_layer: Control
+var new_role_name: LineEdit
+var new_role_template: OptionButton
+var new_role_create_button: Button
 var modifier_layer: Control
 var modifier_role_label: Label
 var modifier_value_labels: Dictionary = {}
@@ -91,7 +96,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if loadout_layer.visible:
+		if new_role_layer.visible:
+			_close_new_role()
+		elif loadout_layer.visible:
 			_close_loadout()
 		elif supply_layer.visible:
 			_close_supplies()
@@ -755,13 +762,7 @@ func _open_add() -> void:
 		_set_status("ADD A CAMPAIGN AND ROLE BEFORE ADDING A CHARACTER", true)
 		return
 	add_name.text = "New Hero"
-	add_role.clear()
-	for value: Variant in project.get("unitTypes", []):
-		if value is Dictionary:
-			add_role.add_item(str(value.get("name", value.get("id", "Role"))))
-			add_role.set_item_metadata(
-				add_role.item_count - 1, str(value.get("id", ""))
-			)
+	_populate_add_roles()
 	add_join.clear()
 	add_join.add_item("STARTING COMPANY")
 	add_join.set_item_metadata(0, "")
@@ -777,16 +778,89 @@ func _open_add() -> void:
 			add_join.set_item_metadata(
 				add_join.item_count - 1, str(node.get("id", ""))
 			)
-	add_role.select(0)
 	add_join.select(0)
 	add_layer.visible = true
 	add_name.grab_focus()
 	add_name.select_all()
 
 
+func _populate_add_roles(preferred_role_id := "") -> void:
+	add_role.clear()
+	for value: Variant in project.get("unitTypes", []):
+		if value is Dictionary:
+			add_role.add_item(str(value.get("name", value.get("id", "Role"))))
+			add_role.set_item_metadata(
+				add_role.item_count - 1, str(value.get("id", ""))
+			)
+	_select_metadata(add_role, preferred_role_id)
+
+
 func _close_add() -> void:
 	add_layer.visible = false
 	add_button.grab_focus()
+
+
+func _open_new_role() -> void:
+	if project.get("unitTypes", []).is_empty():
+		_set_status("ADD A STARTING ROLE BEFORE COPYING ONE", true)
+		return
+	var preferred := _selected_metadata(add_role)
+	new_role_name.text = "New Role"
+	new_role_template.clear()
+	for value: Variant in project.get("unitTypes", []):
+		if not value is Dictionary:
+			continue
+		new_role_template.add_item(str(value.get("name", value.get("id", "Role"))))
+		new_role_template.set_item_metadata(
+			new_role_template.item_count - 1, str(value.get("id", ""))
+		)
+	_select_metadata(new_role_template, preferred)
+	new_role_layer.visible = true
+	new_role_name.grab_focus()
+	new_role_name.select_all()
+
+
+func _close_new_role() -> void:
+	new_role_layer.visible = false
+	add_role.grab_focus()
+
+
+func _next_role_id() -> String:
+	var used: Array[String] = []
+	for value: Variant in project.get("unitTypes", []):
+		if value is Dictionary:
+			used.append(str(value.get("id", "")))
+	var sequence := 1
+	while used.has("role_%d" % sequence):
+		sequence += 1
+	return "role_%d" % sequence
+
+
+func _create_role() -> void:
+	var name := new_role_name.text.strip_edges()
+	if name.is_empty() or new_role_template.selected < 0:
+		_set_status("ROLE NAME AND STARTING POINT ARE REQUIRED", true)
+		return
+	var role_id := _next_role_id()
+	var updated: Dictionary = compiler.add_unit_type_from_template(
+		source,
+		_selected_metadata(new_role_template),
+		role_id,
+		name
+	)
+	if not updated.ok:
+		_set_status("ROLE NOT ADDED  /  %s" % _diagnostic_detail(updated), true)
+		return
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = source != saved_source
+	_read_source()
+	_populate_add_roles(role_id)
+	new_role_layer.visible = false
+	_update_actions()
+	_set_status("UNSAVED  /  ADDED ROLE %s" % name.to_upper(), false)
+	add_role.grab_focus()
 
 
 func _next_member_id() -> String:
@@ -1119,6 +1193,7 @@ func _build_interface() -> void:
 	_build_modifier_layer()
 	_build_more_layer()
 	_build_add_layer()
+	_build_new_role_layer()
 	_build_supply_layer()
 	_build_loadout_layer()
 
@@ -1265,6 +1340,10 @@ func _build_add_layer() -> void:
 	add_role.custom_minimum_size = Vector2(1100, 62)
 	add_role.add_theme_font_size_override("font_size", 20)
 	column.add_child(add_role)
+	new_role_button = _button("MAKE A NEW ROLE", 1100, 56)
+	new_role_button.tooltip_text = "Copy a working role, then give the copy a new name."
+	new_role_button.pressed.connect(_open_new_role)
+	column.add_child(new_role_button)
 	column.add_child(_label("WHEN THEY JOIN", 15, Color("69d9ff")))
 	add_join = OptionButton.new()
 	add_join.custom_minimum_size = Vector2(1100, 62)
@@ -1286,6 +1365,70 @@ func _build_add_layer() -> void:
 	var back := _button("BACK", 230, 66)
 	back.pressed.connect(_close_add)
 	actions.add_child(back)
+
+
+func _build_new_role_layer() -> void:
+	new_role_layer = Control.new()
+	new_role_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	new_role_layer.visible = false
+	new_role_layer.z_index = 60
+	add_child(new_role_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.95)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	new_role_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(370, 175)
+	panel.size = Vector2(1180, 730)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.41, 0.85, 1.0, 0.72))
+	)
+	new_role_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("MAKE A NEW ROLE", 18, Color("69d9ff")))
+	column.add_child(_label("Start with something that already works.", 32, Color("f2f7f9")))
+	var explanation := _label(
+		"Choose the closest existing role. Its stats, look, team, and gear are copied; you can change shared gear after adding the character.",
+		17, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 64
+	column.add_child(explanation)
+	column.add_child(_label("NEW ROLE NAME", 15, Color("69d9ff")))
+	new_role_name = LineEdit.new()
+	new_role_name.max_length = 160
+	new_role_name.custom_minimum_size = Vector2(1080, 62)
+	new_role_name.add_theme_font_size_override("font_size", 22)
+	new_role_name.text_submitted.connect(_create_role_from_text)
+	column.add_child(new_role_name)
+	column.add_child(_label("START LIKE", 15, Color("69d9ff")))
+	new_role_template = OptionButton.new()
+	new_role_template.custom_minimum_size = Vector2(1080, 62)
+	new_role_template.add_theme_font_size_override("font_size", 20)
+	column.add_child(new_role_template)
+	var guidance := _label(
+		"The new role is portable. Nothing here depends on this computer or installation.",
+		16, Color("72e08f")
+	)
+	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	guidance.custom_minimum_size.y = 48
+	column.add_child(guidance)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	new_role_create_button = _button("CREATE ROLE", 340, 66)
+	new_role_create_button.pressed.connect(_create_role)
+	actions.add_child(new_role_create_button)
+	var back := _button("BACK", 230, 66)
+	back.pressed.connect(_close_new_role)
+	actions.add_child(back)
+
+
+func _create_role_from_text(_value: String) -> void:
+	_create_role()
 
 
 func _build_supply_layer() -> void:

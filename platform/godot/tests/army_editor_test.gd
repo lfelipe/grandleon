@@ -121,10 +121,20 @@ func _run() -> void:
 	_expect("new character name receives focus", editor.add_name.has_focus(), true)
 	_expect("roles are named choices", editor.add_role.item_count > 0, true)
 	_expect("join timing includes campaign start", editor.add_join.get_item_text(0), "STARTING COMPANY")
+	editor._open_new_role()
+	_expect("new role overlay opens from character creation", editor.new_role_layer.visible, true)
+	_expect("new role name receives focus", editor.new_role_name.has_focus(), true)
+	_expect("new role starts from named working roles", editor.new_role_template.item_count, 3)
+	editor.new_role_name.text = "Trail Warden"
+	editor._create_role()
+	_expect("new role is added to portable source", _parse(editor.source).unitTypes.size(), 4)
+	_expect("new role is selected for the waiting character", str(editor.add_role.get_item_metadata(editor.add_role.selected)), "role_1")
+	_expect("new role creation returns to role choice", editor.add_role.has_focus(), true)
 	editor.add_name.text = "Ivo"
 	editor._create_member()
 	_expect("starting character is added", editor.members.size(), 3)
 	_expect("new character stays selected", str(editor._current_member().name), "Ivo")
+	_expect("new character uses the new role", str(editor._current_member().unitTypeId), "role_1")
 	_expect("character add creates undo history", editor.undo_stack.is_empty(), false)
 	editor._undo()
 	_expect("character addition is undoable", editor.members.size(), 2)
@@ -145,6 +155,7 @@ func _run() -> void:
 	if stored.ok:
 		_expect("renamed founding hero persists", str(stored.project.campaigns[0].roster[0].id), first_id)
 		_expect("renamed founding hero name persists", str(stored.project.campaigns[0].roster[0].name), "Aren of the Vale")
+		_expect("new role persists", str(stored.project.unitTypes[-1].name), "Trail Warden")
 		_expect("saved starting supplies persist", int(stored.project.campaigns[0].startingStore[0].quantity), 1)
 		_expect("saved chapter rewards persist", stored.project.campaigns[0].flow.nodes[0].grants[0].has("weaponId"), true)
 		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
@@ -152,7 +163,10 @@ func _run() -> void:
 
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
-		if _has_argument("--loadout-preview"):
+		if _has_argument("--role-preview"):
+			editor._open_add()
+			editor._open_new_role()
+		elif _has_argument("--loadout-preview"):
 			editor._open_loadout()
 		elif _has_argument("--supplies-preview"):
 			editor._open_supplies()
