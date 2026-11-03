@@ -31,7 +31,7 @@
 //
 // Usage:
 //   grandleon_campaign_measure <game.gpk> --campaign=<key> [--holding]
-//                              [--slot=<name>] [--commands]
+//                              [--players=1|2] [--slot=<name>] [--commands]
 //
 // `--commands` additionally prints every command the policy chose, in the
 // vocabulary `grandleon_play` takes at its prompt, under the board facts a
@@ -530,6 +530,7 @@ int main(int argc, char** argv) {
     std::string slot = "measure";
     tactics::Behavior company = tactics::Behavior::pursue;
     bool print_commands = false;
+    std::uint8_t local_players = 1;
 
     for (int index = 1; index < argc; ++index) {
         const std::string argument = argv[index];
@@ -543,6 +544,13 @@ int main(int argc, char** argv) {
             campaign_key = argument.substr(11);
         } else if (argument.rfind("--slot=", 0) == 0) {
             slot = argument.substr(7);
+        } else if (argument == "--players=1") {
+            local_players = 1;
+        } else if (argument == "--players=2") {
+            local_players = 2;
+        } else if (argument.rfind("--players=", 0) == 0) {
+            std::cerr << "--players must be 1 or 2\n";
+            return 64;
         } else if (path.empty()) {
             path = argument;
         }
@@ -550,7 +558,7 @@ int main(int argc, char** argv) {
     if (path.empty() || campaign_key.empty()) {
         std::cerr << "usage: grandleon_campaign_measure <game.gpk> "
                      "--campaign=<key> [--holding|--advancing] "
-                     "[--slot=<name>] [--commands]\n";
+                     "[--players=1|2] [--slot=<name>] [--commands]\n";
         return 64;
     }
 
@@ -587,6 +595,7 @@ int main(int argc, char** argv) {
     options.slot = slot.c_str();
     options.resume = false;
     options.player_side = sim::Side::first;
+    options.local_players = local_players;
     const auto status = client::run_persistent_campaign(
         loaded.package,
         core::stable_content_id_v1(campaign_key),
