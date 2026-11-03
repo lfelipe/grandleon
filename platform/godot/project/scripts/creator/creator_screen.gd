@@ -144,6 +144,7 @@ func _build_interface() -> void:
 	projects_column.add_child(_label("YOUR PROJECTS", 18, Color("69d9ff")))
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	projects_column.add_child(scroll)
 	project_list = VBoxContainer.new()
 	project_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -321,40 +322,44 @@ func _refresh_projects() -> void:
 	for project: Dictionary in projects:
 		var title := str(project.get("title", "Untitled Game"))
 		var game_id := str(project.get("game_id", ""))
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		project_list.add_child(row)
-		var edit := _button("EDIT  /  %s\n%s" % [title, game_id])
+		var entry := VBoxContainer.new()
+		entry.add_theme_constant_override("separation", 8)
+		project_list.add_child(entry)
+		var edit := _button("MAPS  /  %s\n%s" % [title, game_id])
 		edit.disabled = not bool(project.get("readable", false))
-		edit.custom_minimum_size.x = 355
+		edit.custom_minimum_size = Vector2(1040, 72)
 		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		edit.pressed.connect(_edit_project.bind(str(project.id)))
-		row.add_child(edit)
+		entry.add_child(edit)
 		project_buttons[str(project.id)] = edit
+		var actions := HBoxContainer.new()
+		actions.add_theme_constant_override("separation", 10)
+		entry.add_child(actions)
+		var story := _button("STORY")
+		story.disabled = edit.disabled
+		story.custom_minimum_size = Vector2(200, 58)
+		story.pressed.connect(_edit_story.bind(str(project.id)))
+		actions.add_child(story)
 		var play := _button("PLAY")
 		play.disabled = edit.disabled
-		play.custom_minimum_size.x = 125
-		play.size_flags_horizontal = Control.SIZE_SHRINK_END
+		play.custom_minimum_size = Vector2(200, 58)
 		play.pressed.connect(_play_project.bind(str(project.id)))
-		row.add_child(play)
+		actions.add_child(play)
 		var duplicate := _button("COPY")
 		duplicate.disabled = edit.disabled
-		duplicate.custom_minimum_size.x = 135
-		duplicate.size_flags_horizontal = Control.SIZE_SHRINK_END
+		duplicate.custom_minimum_size = Vector2(200, 58)
 		duplicate.pressed.connect(_duplicate_project.bind(str(project.id)))
-		row.add_child(duplicate)
+		actions.add_child(duplicate)
 		var rename := _button("RENAME")
 		rename.disabled = edit.disabled
-		rename.custom_minimum_size.x = 145
-		rename.size_flags_horizontal = Control.SIZE_SHRINK_END
+		rename.custom_minimum_size = Vector2(200, 58)
 		rename.pressed.connect(_open_rename.bind(str(project.id), title))
-		row.add_child(rename)
+		actions.add_child(rename)
 		var export := _button("EXPORT")
 		export.disabled = edit.disabled
-		export.custom_minimum_size.x = 155
-		export.size_flags_horizontal = Control.SIZE_SHRINK_END
+		export.custom_minimum_size = Vector2(200, 58)
 		export.pressed.connect(_export_project.bind(str(project.id)))
-		row.add_child(export)
+		actions.add_child(export)
 
 
 func _duplicate_project(project_id: String) -> void:
@@ -524,6 +529,11 @@ func _focus_project_now(project_id: String) -> void:
 func _edit_project(project_id: String) -> void:
 	CreatorContext.open_project(project_id)
 	get_tree().change_scene_to_file("res://map_editor.tscn")
+
+
+func _edit_story(project_id: String) -> void:
+	CreatorContext.open_project(project_id)
+	get_tree().change_scene_to_file("res://story_editor.tscn")
 
 
 func _play_project(project_id: String) -> void:

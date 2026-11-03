@@ -34,7 +34,8 @@ ordinary launches always begin at this screen.
 Choose **Create / Edit Games** on the home screen. The native Projects
 screen can create an empty canonical project or a complete playable starter,
 lists, renames, duplicates, imports, and exports projects stored under Godot's
-per-user data directory, and opens a native map creator. **Export** creates a
+per-user data directory, and opens focused native map or story creators.
+**Export** creates a
 `.grandleon.zip` containing only canonical source and project-owned assets;
 local settings, recovery files, machine paths, and model configuration are
 excluded. Import accepts both that versioned form and compatible archives from
@@ -78,10 +79,19 @@ Compilation and scene handoff stay in-process; draft package bytes are not
 written to the installation directory. **Main Menu** returns from play to the
 same small game-and-creator front door.
 
+**Story** opens a focused dialogue editor rather than adding writing controls
+to the map canvas. A controller can choose scenes, lines, and speakers; a
+keyboard enters the words. Applying a line passes speaker and text through the
+native integer-preserving source boundary, with bounded undo/redo, recoverable
+save, and immediate draft play. Cast identities, campaign references, console
+content, and unrelated source fields remain unchanged. Model endpoints and
+prompts never enter the portable dialogue source.
+
 The current creator creates and resizes maps, edits playable and surrounding
 terrain, arranges both sides of existing encounters, and authors deployment
-regions, player scaling, and objectives. Campaign, dialogue, and broader art
-pack editing arrive in the increments defined by
+regions, player scaling, objectives, and existing dialogue lines. Creating new
+dialogue scenes, routing campaign story nodes, and broader art-pack editing
+remain in the increments defined by
 [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
@@ -613,6 +623,13 @@ result, play it, and return to the same editor session:
 ```sh
 platform/godot/scripts/smoke-map-editor.sh
 ```
+To edit, undo/redo, save, reopen, and compile a portable dialogue line through
+the focused native story screen:
+
+```sh
+platform/godot/scripts/smoke-story-editor.sh
+```
+
 The reel is an actual 1280x720 Godot capture. It advances authored dialogue,
 queues two friendly moves without serial player turns, and lets the built-in
 opposition respond. Its two automation seats use the same visible `P1` and `P2`

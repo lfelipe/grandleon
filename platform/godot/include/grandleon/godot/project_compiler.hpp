@@ -120,6 +120,13 @@ public:
         const ::godot::String& node_id,
         const ::godot::PackedStringArray& objective_ids
     ) const;
+    [[nodiscard]] ::godot::Dictionary update_dialogue_line(
+        const ::godot::String& source_json,
+        const ::godot::String& dialogue_id,
+        std::int64_t line_index,
+        const ::godot::String& speaker,
+        const ::godot::String& line_text
+    ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
 protected:

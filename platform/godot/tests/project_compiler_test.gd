@@ -175,6 +175,36 @@ func _init() -> void:
 				source, "demo_campaign", "bridge_encounter", no_objectives
 			)
 			_expect("final objective removal is refused", empty_objectives.ok, false)
+			var dialogue_id := str(source_data.dialogues[0].id)
+			var original_second_line := str(source_data.dialogues[0].lines[1].text)
+			var edited_dialogue: Dictionary = compiler.update_dialogue_line(
+				source, dialogue_id, 0,
+				str(source_data.dialogues[0].lines[0].speaker),
+				"Edited inside the native PC creator."
+			)
+			_expect("dialogue line edit succeeds", edited_dialogue.ok, true)
+			if edited_dialogue.ok:
+				var dialogue_data: Dictionary = JSON.parse_string(edited_dialogue.source)
+				_expect(
+					"selected dialogue text changes",
+					dialogue_data.dialogues[0].lines[0].text,
+					"Edited inside the native PC creator."
+				)
+				_expect(
+					"neighbouring dialogue text stays stable",
+					dialogue_data.dialogues[0].lines[1].text,
+					original_second_line
+				)
+				_expect(
+					"dialogue edit remains playable",
+					compiler.compile_source_json(edited_dialogue.source).ok,
+					true
+				)
+			var outside_dialogue: Dictionary = compiler.update_dialogue_line(
+				source, dialogue_id, 999, "Nobody", "Outside"
+			)
+			_expect("outside dialogue line is refused", outside_dialogue.ok, false)
+			_expect("outside dialogue edit returns no source", outside_dialogue.source, "")
 
 	var blank_path := ProjectSettings.globalize_path(
 		"res://content/templates/blank_project.json"

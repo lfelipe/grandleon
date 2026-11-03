@@ -151,6 +151,13 @@ void GrandleonProjectCompiler::_bind_methods() {
         &GrandleonProjectCompiler::set_encounter_objectives
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "update_dialogue_line", "source_json", "dialogue_id",
+            "line_index", "speaker", "line_text"
+        ),
+        &GrandleonProjectCompiler::update_dialogue_line
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("supported_schema"),
         &GrandleonProjectCompiler::supported_schema
     );
@@ -590,6 +597,34 @@ gd::Dictionary GrandleonProjectCompiler::set_encounter_objectives(
         gc::set_source_encounter_objectives_json(
             narrow(source_json), narrow(campaign_id), narrow(node_id), names
         );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::update_dialogue_line(
+    const gd::String& source_json,
+    const gd::String& dialogue_id,
+    std::int64_t line_index,
+    const gd::String& speaker,
+    const gd::String& line_text
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated = gc::update_source_dialogue_line_json(
+        narrow(source_json), narrow(dialogue_id), line_index,
+        narrow(speaker), narrow(line_text)
+    );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
             diagnostics.push_back(source_diagnostic(diagnostic));

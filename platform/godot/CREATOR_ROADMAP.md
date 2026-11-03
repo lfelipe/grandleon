@@ -49,6 +49,11 @@ The first native seam is implemented:
   played, and reopened in the same project session. Blank projects can create
   maps without external tools. Map resize previews retained, clipped, and added
   cells and refuses to strand encounter data.
+- The focused Story creator lists the starter's real dialogue scenes and lines,
+  cycles only portable cast speakers, and edits text through a native
+  integer-preserving source command. It has bounded undo/redo, recoverable
+  save, immediate draft play, and controller navigation around the keyboard
+  writing field. A smoke reopens and compiles the saved dialogue.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
@@ -168,7 +173,9 @@ ports the most interaction-heavy part of the earlier editor early.
 
 - Characters, classes, factions, equipment, weapons, abilities, and items.
 - Stages, transitions, conditions, arrivals, rewards, and starting roster.
-- Dialogue/cutscene authoring with speaker and portrait preview.
+- Existing dialogue-line authoring with portable speaker selection is
+  implemented. Scene creation, campaign attachment, and portrait preview
+  remain.
 - Searchable reference pickers; raw stable IDs should not be normal UI.
 
 ### 4. Art and presentation
@@ -381,8 +388,9 @@ these pass:
 
 ## Next implementation commits
 
-1. Extend the native creator from map/encounter/objective editing into campaign,
-   dialogue, roster, item, weapon, ability, and art-pack surfaces.
+1. Extend the native creator from map/encounter/objective and dialogue-line
+   editing into dialogue-scene creation, campaign routing, roster, item,
+   weapon, ability, and art-pack surfaces.
 2. Add a Windows GDExtension build and export smoke in CI.
 3. Define and prototype the PlayStation external `GAME.GPK` disc template.
 4. Define the Nintendo 64 content-slot manifest and measure realistic content

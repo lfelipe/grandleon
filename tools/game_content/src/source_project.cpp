@@ -4232,4 +4232,99 @@ SourceTextResult set_source_encounter_objectives_json(
     return result;
 }
 
+SourceTextResult update_source_dialogue_line_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::int64_t line_index,
+    std::string_view speaker,
+    std::string_view line_text
+) {
+    SourceTextResult result;
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    if (!valid_source_key(dialogue_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue id must be a stable source-key string"
+        );
+        return result;
+    }
+    if (speaker.size() > std::numeric_limits<std::uint16_t>::max() ||
+        line_text.size() > std::numeric_limits<std::uint16_t>::max()) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue speaker and text must fit the portable text width"
+        );
+        return result;
+    }
+
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* dialogues = root == nullptr ? nullptr
+                                       : mutable_array(*root, "dialogues");
+    if (dialogues == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "expected array"
+        );
+        return result;
+    }
+    std::size_t dialogue_index = 0;
+    Object* dialogue = find_object_by_id(
+        *dialogues, dialogue_id, &dialogue_index
+    );
+    if (dialogue == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue '" + std::string(dialogue_id) + "' was not found"
+        );
+        return result;
+    }
+    const std::string dialogue_path =
+        "$.dialogues[" + std::to_string(dialogue_index) + "]";
+    Array* lines = mutable_array(*dialogue, "lines");
+    if (lines == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            dialogue_path + ".lines", "expected array"
+        );
+        return result;
+    }
+    if (line_index < 0 ||
+        static_cast<std::uint64_t>(line_index) >= lines->size()) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            dialogue_path + ".lines", "dialogue line index is out of range"
+        );
+        return result;
+    }
+    const auto safe_index = static_cast<std::size_t>(line_index);
+    auto* line = std::get_if<Object>(&(*lines)[safe_index].value);
+    if (line == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            dialogue_path + ".lines[" + std::to_string(safe_index) + "]",
+            "expected object"
+        );
+        return result;
+    }
+    (*line)["speaker"] = Json{std::string(speaker)};
+    (*line)["text"] = Json{std::string(line_text)};
+    finish_document_edit(document, result);
+    return result;
+}
+
 }  // namespace grandleon::game_content

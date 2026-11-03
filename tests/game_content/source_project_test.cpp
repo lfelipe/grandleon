@@ -1987,6 +1987,61 @@ std::string source_with(std::string_view needle, std::string_view replacement) {
     return document;
 }
 
+void updates_one_dialogue_line_without_retyping_the_project() {
+    const std::string with_dialogue = source_with(
+        R"json("campaigns": [{)json",
+        R"json("dialogues": [{
+    "id":"briefing","name":"Briefing",
+    "cast":[{"speaker":"Guide","unitTypeId":"blue_unit"}],
+    "lines":[
+      {"speaker":"Guide","text":"The old line."},
+      {"speaker":"Guide","text":"The second line."}
+    ]
+  }],
+  "campaigns": [{)json"
+    );
+    const auto updated = gc::update_source_dialogue_line_json(
+        with_dialogue, "briefing", 0, "Guide", "A new \"portable\" line."
+    );
+    expect(static_cast<bool>(updated), "one dialogue line is editable");
+    const auto parsed = gc::parse_source_project_json(updated.json);
+    expect(
+        parsed && parsed.source.dialogues.size() == 1 &&
+            parsed.source.dialogues.front().lines.size() == 2 &&
+            parsed.source.dialogues.front().lines.front().speaker == "Guide" &&
+            parsed.source.dialogues.front().lines.front().text ==
+                "A new \"portable\" line." &&
+            parsed.source.dialogues.front().lines.back().text ==
+                "The second line.",
+        "the selected line changes and its neighbour does not"
+    );
+    expect(
+        updated.json.find("20.0") == std::string::npos &&
+            updated.json.find(R"json("health": 20)json") !=
+                std::string::npos,
+        "dialogue editing preserves unrelated integer tokens"
+    );
+    expect(
+        !gc::update_source_dialogue_line_json(
+            with_dialogue, "briefing", 2, "Guide", "Outside"
+        ),
+        "a dialogue line outside the scene is refused"
+    );
+    expect(
+        !gc::update_source_dialogue_line_json(
+            with_dialogue, "missing", 0, "Guide", "Outside"
+        ),
+        "an unknown dialogue is refused"
+    );
+    expect(
+        !gc::update_source_dialogue_line_json(
+            with_dialogue, "briefing", 0, "Guide",
+            std::string(65536, 'x')
+        ),
+        "text wider than the portable record is refused"
+    );
+}
+
 // Both halves of the typed-compatibility bridge `SOURCE_FORMAT.md` describes.
 // Omitting the allowance is legacy unrestricted access; stating an empty one is
 // an author saying "no weapon type" and meaning it. The reader could not tell
@@ -2348,6 +2403,7 @@ int main() {
     rejects_malformed_json();
     instantiates_a_template_without_float_round_tripping();
     updates_one_map_cell_without_retyping_the_project();
+    updates_one_dialogue_line_without_retyping_the_project();
     maps_authored_resistance();
     refuses_a_stat_the_rules_cannot_execute();
     keeps_the_whole_range_for_the_chance_stats();

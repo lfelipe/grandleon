@@ -90,6 +90,7 @@ godot_smokes=(
     smoke-presentation-settings.sh
     smoke-project-compiler.sh
     smoke-project-library.sh
+    smoke-story-editor.sh
 )
 
 for smoke in "${godot_smokes[@]}"; do

@@ -2014,6 +2014,14 @@ func _play_draft() -> void:
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
+func _open_story() -> void:
+	if dirty and Time.get_ticks_msec() > discard_armed_until:
+		discard_armed_until = Time.get_ticks_msec() + 3500
+		_set_status("UNSAVED CHANGES  /  SAVE, OR PRESS STORY AGAIN TO DISCARD", true)
+		return
+	get_tree().change_scene_to_file("res://story_editor.tscn")
+
+
 func _request_projects() -> void:
 	if dirty and Time.get_ticks_msec() > discard_armed_until:
 		discard_armed_until = Time.get_ticks_msec() + 3500
@@ -2116,25 +2124,28 @@ func _build_interface() -> void:
 	toolbar.size = Vector2(1760, 62)
 	toolbar.add_theme_constant_override("separation", 12)
 	add_child(toolbar)
-	save_button = _button("SAVE", 190, 58)
+	save_button = _button("SAVE", 150, 58)
 	save_button.pressed.connect(_save)
 	toolbar.add_child(save_button)
-	undo_button = _button("UNDO", 170, 58)
+	undo_button = _button("UNDO", 130, 58)
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
-	redo_button = _button("REDO", 170, 58)
+	redo_button = _button("REDO", 130, 58)
 	redo_button.pressed.connect(_redo)
 	toolbar.add_child(redo_button)
-	var new_map_button := _button("NEW MAP", 190, 58)
+	var new_map_button := _button("NEW MAP", 160, 58)
 	new_map_button.pressed.connect(_create_map)
 	toolbar.add_child(new_map_button)
-	var resize_button := _button("RESIZE", 190, 58)
+	var resize_button := _button("RESIZE", 150, 58)
 	resize_button.pressed.connect(_open_resize)
 	toolbar.add_child(resize_button)
-	play_button = _button("PLAY DRAFT", 240, 58)
+	play_button = _button("PLAY DRAFT", 190, 58)
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
-	var projects := _button("PROJECTS", 210, 58)
+	var story := _button("STORY", 170, 58)
+	story.pressed.connect(_open_story)
+	toolbar.add_child(story)
+	var projects := _button("PROJECTS", 180, 58)
 	projects.pressed.connect(_request_projects)
 	toolbar.add_child(projects)
 	var toolbar_hint := _label("Confirm applies tool  •  Cancel returns", 17, Color("718896"))
