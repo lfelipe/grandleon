@@ -30,7 +30,7 @@ machine-specific model, graphics, or control configuration.
 | Offline campaign | The Last Signal has authored opening, terms, talk outcome, battle outcome, and ending dialogue with the model disabled. |
 | Optional model dialogue | Model lines append only to allowlisted scenes and pass speaker, count, length, and markup validation. Authored lines are never replaced. |
 | Optional model tactics | The model selects an index from legal engine-generated candidates. Candidate zero is the built-in plan and remains the fallback for every failure mode. |
-| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds an authored forest grove, mountain edge, animated water, cobbled road, context-aware bridge, and relay ruin while other terrain falls back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including the integrated 443-pixel-cell Rook sheet. The full-voxel profile additionally replaces the commander and beast with imported, skinned GLBs on distinct rigs while unbound characters fall back. Missing bindings, clips, or metadata fall back asset by asset. |
+| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds an authored forest grove, mountain edge, animated water, cobbled road, context-aware bridge, and relay ruin while other terrain falls back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including the integrated 443-pixel-cell Rook sheet. The full-voxel profile additionally replaces the commander, rogue, and beast with imported, skinned GLBs while unbound characters fall back. Commander and rogue reuse one humanoid topology without sharing meshes or actions. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Persistent presentation settings | Graphics profile, camera impulse, and text size survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
 | Private performance readout | Opening the controller session menu shows rolling FPS, p95 and peak frame times, window size, and internal canvas size. The five-second sample remains in memory and never records hardware, display, controller, user, path, or network identities. |
@@ -115,8 +115,10 @@ Godot paths and still falls back cleanly when one asset is removed.
 - The beast now uses a second imported GLB with a fifteen-bone quadruped rig,
   seven material surfaces, and six explicitly mapped clips. Both exporters use
   the same deterministic authoring helpers and remain independent replacements.
-- Exercise humanoid skeleton reuse with a second archetype. Per-asset fallback
-  must remain intact.
+- The rogue now reuses the commander's exact sixteen-bone hierarchy with a
+  distinct hooded mesh, dual weapons, seven materials, and six new clips. Both
+  co-op friendlies are imported while the stormcaller still proves per-asset
+  fallback in the same encounter.
 - The optional motion record now carries an engine-derived route and recommended
   duration; use it to tune imported rigs' gait and turn clips while keeping
   root motion in place.
@@ -180,7 +182,7 @@ raise either console's memory or palette requirements.
 
 ## Known risks
 
-- The current terrain, imported commander, and imported drone remain a
+- The current terrain and three imported character assets remain a
   deliberately compact art pack. The commander proves real rigging, materials,
   and GLB animation, but final roster silhouettes and motion still need an
   artist-quality pass.

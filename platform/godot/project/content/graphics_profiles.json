@@ -176,6 +176,19 @@
               "defeat": "Relay_Fall"
             }
           },
+          "rogue": {
+            "scene": "res://art/characters/relay_rogue.glb",
+            "scale": 1.0,
+            "animationPlayer": "AnimationPlayer",
+            "clips": {
+              "idle": "Kestrel_Idle",
+              "move": "Kestrel_Sprint",
+              "attack": "Kestrel_Crosscut",
+              "ability": "Kestrel_Veil",
+              "hurt": "Kestrel_Recoil",
+              "defeat": "Kestrel_Down"
+            }
+          },
           "beast": {
             "scene": "res://art/characters/relay_drone.glb",
             "scale": 1.0,

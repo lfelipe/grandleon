@@ -187,6 +187,63 @@ def add_bone(armature, name, head, tail, parent=None):
     return value
 
 
+def humanoid_armature(object_name, archetype):
+    """Create the shared 16-bone humanoid topology used by compatible rigs."""
+    data = bpy.data.armatures.new("RelayHumanoidSkeleton")
+    value = bpy.data.objects.new(object_name, data)
+    bpy.context.collection.objects.link(value)
+    select_only(value)
+    bpy.ops.object.mode_set(mode="EDIT")
+    add_bone(data, "root", (0.0, 0.0, 0.0), (0.0, 0.0, 0.12))
+    add_bone(data, "hips", (0.0, 0.0, 0.38), (0.0, 0.0, 0.54), "root")
+    add_bone(data, "spine", (0.0, 0.0, 0.54), (0.0, 0.0, 0.81), "hips")
+    add_bone(data, "head", (0.0, 0.0, 0.81), (0.0, 0.0, 1.08), "spine")
+    add_bone(data, "core", (0.0, -0.14, 0.68), (0.0, -0.14, 0.77), "spine")
+    add_bone(data, "cape", (0.0, 0.12, 0.75), (0.0, 0.12, 0.43), "spine")
+    for side, sign in (("L", -1.0), ("R", 1.0)):
+        add_bone(
+            data,
+            f"upper_arm.{side}",
+            (0.24 * sign, 0.0, 0.76),
+            (0.28 * sign, 0.0, 0.59),
+            "spine",
+        )
+        add_bone(
+            data,
+            f"forearm.{side}",
+            (0.28 * sign, 0.0, 0.59),
+            (0.30 * sign, 0.0, 0.43),
+            f"upper_arm.{side}",
+        )
+        add_bone(
+            data,
+            f"hand.{side}",
+            (0.30 * sign, 0.0, 0.43),
+            (0.31 * sign, 0.0, 0.34),
+            f"forearm.{side}",
+        )
+        add_bone(
+            data,
+            f"thigh.{side}",
+            (0.105 * sign, 0.0, 0.43),
+            (0.105 * sign, 0.0, 0.24),
+            "hips",
+        )
+        add_bone(
+            data,
+            f"shin.{side}",
+            (0.105 * sign, 0.0, 0.24),
+            (0.105 * sign, 0.0, 0.07),
+            f"thigh.{side}",
+        )
+    bpy.ops.object.mode_set(mode="OBJECT")
+    value.show_in_front = True
+    value["grandleon_asset"] = "character"
+    value["grandleon_archetype"] = archetype
+    value["grandleon_contract"] = 1
+    return value
+
+
 def join_parts(armature, object_name, data_name, modifier_name):
     if not PARTS:
         raise RuntimeError("character mesh has no parts")

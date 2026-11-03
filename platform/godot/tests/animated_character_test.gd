@@ -17,6 +17,14 @@ const DRONE_CLIPS := {
 	"hurt": &"Drone_Stagger",
 	"defeat": &"Drone_Collapse",
 }
+const ROGUE_CLIPS := {
+	"idle": &"Kestrel_Idle",
+	"move": &"Kestrel_Sprint",
+	"attack": &"Kestrel_Crosscut",
+	"ability": &"Kestrel_Veil",
+	"hurt": &"Kestrel_Recoil",
+	"defeat": &"Kestrel_Down",
+}
 
 var failures := 0
 
@@ -27,17 +35,23 @@ func _init() -> void:
 
 func _run() -> void:
 	var commander := _instantiate("res://art/characters/relay_commander.glb")
+	var rogue := _instantiate("res://art/characters/relay_rogue.glb")
 	var drone := _instantiate("res://art/characters/relay_drone.glb")
 	await process_frame
 
 	_test_common("commander", commander, COMMANDER_CLIPS.values())
+	_test_common("rogue", rogue, ROGUE_CLIPS.values())
 	_test_common("drone", drone, DRONE_CLIPS.values())
 	_test_profile_bindings()
+	_test_shared_humanoid_skeleton(commander, rogue)
 	_test_commander_motion(commander)
+	_test_rogue_motion(rogue)
 	_test_drone_motion(drone)
 
 	if is_instance_valid(commander):
 		commander.queue_free()
+	if is_instance_valid(rogue):
+		rogue.queue_free()
 	if is_instance_valid(drone):
 		drone.queue_free()
 	if failures == 0:
@@ -89,7 +103,7 @@ func _test_profile_bindings() -> void:
 	_expect_true("move semantic maps to run", String(clips.get("move", "")) == "run")
 	var voxel: Dictionary = profile.get("profiles", {}).get("voxel", {})
 	var scenes: Dictionary = voxel.get("assets", {}).get("characterScenes", {})
-	for archetype: String in ["commander", "beast"]:
+	for archetype: String in ["commander", "rogue", "beast"]:
 		var binding: Dictionary = scenes.get(archetype, {})
 		var path := String(binding.get("scene", ""))
 		_expect_true("%s scene is bound" % archetype, not path.is_empty())
@@ -102,6 +116,14 @@ func _test_profile_bindings() -> void:
 			"commander maps %s explicitly" % semantic,
 			String(commander_clips.get(semantic, "")) == String(COMMANDER_CLIPS[semantic])
 		)
+	var rogue: Dictionary = scenes.get("rogue", {})
+	_expect_true("rogue uses an imported GLB", String(rogue.get("scene", "")).ends_with(".glb"))
+	var rogue_clips: Dictionary = rogue.get("clips", {})
+	for semantic: String in ROGUE_CLIPS:
+		_expect_true(
+			"rogue maps %s explicitly" % semantic,
+			String(rogue_clips.get(semantic, "")) == String(ROGUE_CLIPS[semantic])
+		)
 	var drone: Dictionary = scenes.get("beast", {})
 	_expect_true("drone uses an imported GLB", String(drone.get("scene", "")).ends_with(".glb"))
 	var drone_clips: Dictionary = drone.get("clips", {})
@@ -109,6 +131,36 @@ func _test_profile_bindings() -> void:
 		_expect_true(
 			"drone maps %s explicitly" % semantic,
 			String(drone_clips.get(semantic, "")) == String(DRONE_CLIPS[semantic])
+		)
+
+
+func _test_shared_humanoid_skeleton(commander: Node, rogue: Node) -> void:
+	if commander == null or rogue == null:
+		return
+	var commander_skeleton := commander.get_node_or_null("RelayCommanderRig/Skeleton3D") as Skeleton3D
+	var rogue_skeleton := rogue.get_node_or_null("RelayRogueRig/Skeleton3D") as Skeleton3D
+	if commander_skeleton == null or rogue_skeleton == null:
+		_fail("shared humanoid skeleton nodes exist")
+		return
+	_expect_true("humanoid skeleton has sixteen bones", commander_skeleton.get_bone_count() == 16)
+	_expect_true(
+		"humanoid skeleton bone count is reused",
+		rogue_skeleton.get_bone_count() == commander_skeleton.get_bone_count()
+	)
+	for index in commander_skeleton.get_bone_count():
+		_expect_true(
+			"humanoid bone %d name is reused" % index,
+			rogue_skeleton.get_bone_name(index) == commander_skeleton.get_bone_name(index)
+		)
+		_expect_true(
+			"humanoid bone %d parent is reused" % index,
+			rogue_skeleton.get_bone_parent(index) == commander_skeleton.get_bone_parent(index)
+		)
+		_expect_true(
+			"humanoid bone %d rest transform is reused" % index,
+			rogue_skeleton.get_bone_rest(index).is_equal_approx(
+				commander_skeleton.get_bone_rest(index)
+			)
 		)
 
 
@@ -140,6 +192,39 @@ func _test_commander_motion(character: Node) -> void:
 	_sample(player, &"Relay_Fall", 0.70)
 	_expect_true(
 		"commander defeat tips the rig",
+		_bone_rotation_amount(skeleton, "root") > 0.5
+	)
+
+
+func _test_rogue_motion(character: Node) -> void:
+	if character == null:
+		return
+	var player := character.get_node_or_null("AnimationPlayer") as AnimationPlayer
+	var skeleton := character.get_node_or_null("RelayRogueRig/Skeleton3D") as Skeleton3D
+	if player == null or skeleton == null:
+		_fail("rogue animation nodes exist")
+		return
+
+	_sample(player, &"Kestrel_Sprint", 0.10)
+	_expect_true(
+		"rogue sprint moves a leg",
+		_bone_rotation_amount(skeleton, "thigh.L") > 0.1
+	)
+	_sample(player, &"Kestrel_Crosscut", 0.20)
+	_expect_true(
+		"rogue attack crosses both weapons",
+		_bone_rotation_amount(skeleton, "upper_arm.L") > 0.7
+		and _bone_rotation_amount(skeleton, "upper_arm.R") > 0.5
+	)
+	_sample(player, &"Kestrel_Veil", 0.27)
+	var core := skeleton.find_bone("core")
+	_expect_true(
+		"rogue ability pulses its core",
+		core >= 0 and skeleton.get_bone_pose_scale(core).x > 1.8
+	)
+	_sample(player, &"Kestrel_Down", 0.70)
+	_expect_true(
+		"rogue defeat tips the shared rig",
 		_bone_rotation_amount(skeleton, "root") > 0.5
 	)
 

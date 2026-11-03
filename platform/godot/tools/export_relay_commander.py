@@ -16,76 +16,19 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from blender_character_tools import (
     action,
-    add_bone,
     box,
     clear_scene,
     cone,
     cylinder,
     export_glb,
+    humanoid_armature,
     join_parts,
     material,
     output_path,
     r,
     reset_pose,
-    select_only,
     sphere,
 )
-
-
-def build_armature():
-    data = bpy.data.armatures.new("RelayHumanoidSkeleton")
-    value = bpy.data.objects.new("RelayCommanderRig", data)
-    bpy.context.collection.objects.link(value)
-    select_only(value)
-    bpy.ops.object.mode_set(mode="EDIT")
-    add_bone(data, "root", (0.0, 0.0, 0.0), (0.0, 0.0, 0.12))
-    add_bone(data, "hips", (0.0, 0.0, 0.38), (0.0, 0.0, 0.54), "root")
-    add_bone(data, "spine", (0.0, 0.0, 0.54), (0.0, 0.0, 0.81), "hips")
-    add_bone(data, "head", (0.0, 0.0, 0.81), (0.0, 0.0, 1.08), "spine")
-    add_bone(data, "core", (0.0, -0.14, 0.68), (0.0, -0.14, 0.77), "spine")
-    add_bone(data, "cape", (0.0, 0.12, 0.75), (0.0, 0.12, 0.43), "spine")
-    for side, sign in (("L", -1.0), ("R", 1.0)):
-        add_bone(
-            data,
-            f"upper_arm.{side}",
-            (0.24 * sign, 0.0, 0.76),
-            (0.28 * sign, 0.0, 0.59),
-            "spine",
-        )
-        add_bone(
-            data,
-            f"forearm.{side}",
-            (0.28 * sign, 0.0, 0.59),
-            (0.30 * sign, 0.0, 0.43),
-            f"upper_arm.{side}",
-        )
-        add_bone(
-            data,
-            f"hand.{side}",
-            (0.30 * sign, 0.0, 0.43),
-            (0.31 * sign, 0.0, 0.34),
-            f"forearm.{side}",
-        )
-        add_bone(
-            data,
-            f"thigh.{side}",
-            (0.105 * sign, 0.0, 0.43),
-            (0.105 * sign, 0.0, 0.24),
-            "hips",
-        )
-        add_bone(
-            data,
-            f"shin.{side}",
-            (0.105 * sign, 0.0, 0.24),
-            (0.105 * sign, 0.0, 0.07),
-            f"thigh.{side}",
-        )
-    bpy.ops.object.mode_set(mode="OBJECT")
-    value.show_in_front = True
-    value["grandleon_asset"] = "character"
-    value["grandleon_archetype"] = "commander"
-    value["grandleon_contract"] = 1
-    return value
 
 
 def build_mesh(armature):
@@ -216,7 +159,7 @@ def build_animations(armature):
 def main():
     target = output_path("export_relay_commander.py")
     clear_scene()
-    armature = build_armature()
+    armature = humanoid_armature("RelayCommanderRig", "commander")
     mesh = build_mesh(armature)
     build_animations(armature)
     export_glb(target, armature, mesh, "relay_commander_v1", 43)
