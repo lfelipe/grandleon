@@ -362,10 +362,7 @@ func _play_campaign() -> void:
 		return
 	var compiled: Dictionary = compiler.compile_source_json(loaded.source)
 	if not compiled.ok:
-		var code := "PROJECT INCOMPLETE"
-		if not compiled.diagnostics.is_empty():
-			code = str(compiled.diagnostics[0].get("code", code)).replace("_", " ").to_upper()
-		_set_status("NOT PLAYABLE YET  /  %s" % code, true)
+		_set_status("NOT PLAYABLE YET  /  %s" % _diagnostic_summary(compiled), true)
 		return
 	var campaign_id := str(campaign.get("id", ""))
 	if campaign_id.is_empty():
@@ -373,6 +370,31 @@ func _play_campaign() -> void:
 		return
 	LaunchContext.stage_package(compiled.package, campaign_id)
 	get_tree().change_scene_to_file("res://main.tscn")
+
+
+func _diagnostic_summary(result: Dictionary) -> String:
+	var diagnostics: Array = result.get("diagnostics", [])
+	if diagnostics.is_empty() or not diagnostics[0] is Dictionary:
+		return "PROJECT INCOMPLETE"
+	var diagnostic: Dictionary = diagnostics[0]
+	var screen := str(diagnostic.get("screen", "project"))
+	var destinations := {
+		"map": "FIX IN MAP & BATTLE",
+		"story": "FIX IN STORY",
+		"army": "FIX IN GROW THE ARMY",
+		"gear": "FIX IN GEAR & ABILITIES",
+		"campaign": "FIX IN CAMPAIGN OUTLINE",
+		"project": "FIX PROJECT",
+	}
+	var parts: Array[String] = [str(destinations.get(screen, "FIX PROJECT"))]
+	var subject := str(diagnostic.get("subject", "")).strip_edges()
+	if not subject.is_empty():
+		parts.append(subject.to_upper())
+	var detail := str(diagnostic.get("detail", "")).strip_edges()
+	if detail.is_empty():
+		detail = str(diagnostic.get("code", "project_incomplete")).replace("_", " ")
+	parts.append(detail.to_upper())
+	return "  /  ".join(parts)
 
 
 func _open_projects() -> void:

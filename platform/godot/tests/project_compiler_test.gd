@@ -19,6 +19,7 @@ func _init() -> void:
 	if malformed.diagnostics.size() == 1:
 		_expect("source phase", malformed.diagnostics[0].phase, "source")
 		_expect("source code", malformed.diagnostics[0].code, "invalid_json")
+		_expect("unlocated source error stays at project level", malformed.diagnostics[0].screen, "project")
 
 	var source_path := _source_project_path()
 	if source_path.is_empty():
@@ -63,6 +64,36 @@ func _init() -> void:
 			)
 			_expect("wrong terrain length refused", filled.ok, false)
 			var source_data: Dictionary = JSON.parse_string(source)
+			var invalid_role_source := source.replace(
+				'"classId": "heron_rider"',
+				'"classId": "missing_role_baseline"'
+			)
+			var invalid_role_result: Dictionary = compiler.compile_source_json(
+				invalid_role_source
+			)
+			_expect("missing role baseline is refused", invalid_role_result.ok, false)
+			if not invalid_role_result.diagnostics.is_empty():
+				var role_diagnostic: Dictionary = invalid_role_result.diagnostics[0]
+				_expect("role diagnostic routes to army", role_diagnostic.screen, "army")
+				_expect(
+					"role diagnostic names its visible subject",
+					role_diagnostic.get("subject", ""),
+					str(source_data.unitTypes[0].name)
+				)
+			var invalid_stat_source := source.replace(
+				'"health": 7',
+				'"health": "many"'
+			)
+			var invalid_stat_result: Dictionary = compiler.compile_source_json(
+				invalid_stat_source
+			)
+			_expect("non-numeric role health is refused", invalid_stat_result.ok, false)
+			if not invalid_stat_result.diagnostics.is_empty():
+				_expect(
+					"source role diagnostic routes to army",
+					invalid_stat_result.diagnostics[0].screen,
+					"army"
+				)
 			var presentation: Dictionary = compiler.set_project_presentation(
 				source, "themeId", "winter"
 			)

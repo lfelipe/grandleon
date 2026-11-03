@@ -220,9 +220,11 @@ permanent form.
    target. PC success must remain independent of a console refusal. The existing
    Nintendo 64 runtime limit of 48 fielded units is real evidence; PlayStation
    limits still require an equally explicit measurement and gate.
-2. **Actionable diagnostics.** Translate compiler semantic paths into the exact
-   focused screen and selected control/map object while preserving the full
-   diagnostic for technical inspection.
+2. **Finish actionable diagnostics.** Compiler semantic paths now route a
+   failed test to the focused screen and player-facing definition without
+   exposing stable IDs. Continue from that named subject to the exact selected
+   control or map object while preserving the full diagnostic for technical
+   inspection.
 3. **Advanced flow operations.** Add safe whole-chapter reordering and focused
    world-state, negated, and compound conditions. Keep these under **Outcomes**;
    the common linear path must not become a graph editor.

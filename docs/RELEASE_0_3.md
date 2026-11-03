@@ -193,6 +193,10 @@ Exit: the five-stage Emberbound-style growth curve can be authored natively.
   adding the next chapter. The copy is limited to the same campaign and keeps
   the target chapter's map and flow. **Implemented.**
 - Surface compile diagnostics on the relevant character, placement, or field.
+  **The native compiler now routes source/semantic failures to Map & Battle,
+  Story, Grow the Army, Gear & Abilities, Campaign Outline, or Project and
+  names the visible definition when one is available. Exact field/map-cell
+  focus remains.**
 
 Exit: every portable battle field used by the shipped campaign is editable in
 the Godot application.

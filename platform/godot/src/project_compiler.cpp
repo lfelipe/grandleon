@@ -10,6 +10,7 @@
 #include <godot_cpp/variant/char_string.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -31,20 +32,127 @@ std::string narrow(const gd::String& value) {
     return std::string(utf8.get_data(), static_cast<std::size_t>(utf8.length()));
 }
 
+std::string_view diagnostic_screen(std::string_view path) noexcept {
+    if (path.find("unit_types") != std::string_view::npos ||
+        path.find("unitTypes") != std::string_view::npos ||
+        path.find("classes") != std::string_view::npos ||
+        path.find("factions") != std::string_view::npos ||
+        path.find("roster") != std::string_view::npos) {
+        return "army";
+    }
+    if (path.find("weapons") != std::string_view::npos ||
+        path.find("weapon_types") != std::string_view::npos ||
+        path.find("weaponTypes") != std::string_view::npos ||
+        path.find("items") != std::string_view::npos ||
+        path.find("item_types") != std::string_view::npos ||
+        path.find("itemTypes") != std::string_view::npos ||
+        path.find("abilities") != std::string_view::npos) {
+        return "gear";
+    }
+    if (path.find("dialogues") != std::string_view::npos) return "story";
+    if (path.find("encounters") != std::string_view::npos ||
+        path.find("maps") != std::string_view::npos ||
+        path.find("objectives") != std::string_view::npos ||
+        path.find("placements") != std::string_view::npos ||
+        path.find("deployment") != std::string_view::npos) {
+        return "map";
+    }
+    if (path.find("campaigns") != std::string_view::npos ||
+        path.find("transitions") != std::string_view::npos) {
+        return "campaign";
+    }
+    return "project";
+}
+
+bool diagnostic_owner(std::string_view path, std::uint64_t& owner) noexcept {
+    const std::size_t opening = path.find('[');
+    if (opening == std::string_view::npos) return false;
+    const std::size_t closing = path.find(']', opening + 1U);
+    if (closing == std::string_view::npos || closing == opening + 1U) {
+        return false;
+    }
+    const std::string_view encoded =
+        path.substr(opening + 1U, closing - opening - 1U);
+    const char* const begin = encoded.data();
+    const char* const end = begin + encoded.size();
+    const auto parsed = std::from_chars(begin, end, owner);
+    return parsed.ec == std::errc{} && parsed.ptr == end;
+}
+
+template <typename Definition>
+std::string_view definition_name(
+    const std::vector<Definition>& definitions,
+    std::uint64_t owner
+) noexcept {
+    for (const Definition& definition : definitions) {
+        if (definition.id == owner) return definition.name;
+    }
+    return {};
+}
+
+std::string_view diagnostic_subject(
+    const gc::GameSource& source,
+    std::string_view path
+) noexcept {
+    std::uint64_t owner = 0;
+    if (!diagnostic_owner(path, owner)) return {};
+    const std::size_t opening = path.find('[');
+    const std::string_view category = path.substr(0, opening);
+    if (category == "unit_types") {
+        return definition_name(source.unit_types, owner);
+    }
+    if (category == "classes") return definition_name(source.classes, owner);
+    if (category == "factions") {
+        return definition_name(source.factions, owner);
+    }
+    if (category == "weapons") return definition_name(source.weapons, owner);
+    if (category == "weapon_types") {
+        return definition_name(source.weapon_types, owner);
+    }
+    if (category == "items") return definition_name(source.items, owner);
+    if (category == "item_types") {
+        return definition_name(source.item_types, owner);
+    }
+    if (category == "abilities") {
+        return definition_name(source.abilities, owner);
+    }
+    if (category == "dialogues") {
+        return definition_name(source.dialogues, owner);
+    }
+    if (category == "encounters") {
+        return definition_name(source.encounters, owner);
+    }
+    if (category == "maps") return definition_name(source.maps, owner);
+    if (category == "objectives") {
+        return definition_name(source.objectives, owner);
+    }
+    if (category == "campaigns") {
+        return definition_name(source.campaigns, owner);
+    }
+    return {};
+}
+
 gd::Dictionary source_diagnostic(const gc::SourceDiagnostic& diagnostic) {
     gd::Dictionary result;
     result["phase"] = "source";
     result["code"] = text(gc::source_diagnostic_name(diagnostic.code));
     result["path"] = text(diagnostic.path);
     result["detail"] = text(diagnostic.detail);
+    result["screen"] = text(diagnostic_screen(diagnostic.path));
     return result;
 }
 
-gd::Dictionary compile_diagnostic(const gc::Diagnostic& diagnostic) {
+gd::Dictionary compile_diagnostic(
+    const gc::Diagnostic& diagnostic,
+    const gc::GameSource& source
+) {
     gd::Dictionary result;
     result["phase"] = "compile";
     result["code"] = text(gc::diagnostic_name(diagnostic.code));
     result["path"] = text(diagnostic.path);
+    result["screen"] = text(diagnostic_screen(diagnostic.path));
+    const std::string_view subject = diagnostic_subject(source, diagnostic.path);
+    if (!subject.empty()) result["subject"] = text(subject);
     if (diagnostic.related_id != 0) {
         // Stable ids are unsigned 64-bit values. Godot integers are signed,
         // so preserve the complete value as decimal text for diagnostics.
@@ -313,7 +421,9 @@ gd::Dictionary GrandleonProjectCompiler::compile_source_json(
     const auto compiled = gc::compile(parsed.source);
     if (!compiled) {
         for (const gc::Diagnostic& diagnostic : compiled.diagnostics) {
-            diagnostics.push_back(compile_diagnostic(diagnostic));
+            diagnostics.push_back(
+                compile_diagnostic(diagnostic, parsed.source)
+            );
         }
         result["diagnostics"] = diagnostics;
         return result;

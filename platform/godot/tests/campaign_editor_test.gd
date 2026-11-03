@@ -68,6 +68,17 @@ func _run() -> void:
 		return
 
 	_expect("project opens in campaign outline", editor.project_id, created.id)
+	_expect(
+		"diagnostic summary routes a named role without exposing its id",
+		editor._diagnostic_summary({
+			"diagnostics": [{
+				"screen": "army",
+				"subject": "Wayfarer",
+				"code": "missing_reference",
+			}]
+		}),
+		"FIX IN GROW THE ARMY  /  WAYFARER  /  MISSING REFERENCE"
+	)
 	_expect("starter route has story battle and ending", editor.route.size(), 3)
 	if editor.route.size() == 3:
 		_expect("route begins with story", str(editor.route[0].kind), "story")
