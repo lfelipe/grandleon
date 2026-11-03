@@ -312,6 +312,18 @@ func _init() -> void:
 				var talk: Dictionary = talkable_data.campaigns[0].flow.nodes[0].placements[1].talk
 				_expect("Talk gets a hidden generated memory", str(talk.flagId).begins_with("talk_"), true)
 				_expect("Talk option remains playable", compiler.compile_source_json(talkable.source).ok, true)
+				var talk_dialogue: Dictionary = compiler.add_talk_dialogue(
+					talkable.source, "demo_campaign", "bridge_encounter",
+					"river_watch_leader", "Words at the Bridge", "deep_wood",
+					"River Watch", "There may be another way across."
+				)
+				_expect("Talk conversation creation succeeds", talk_dialogue.ok, true)
+				if talk_dialogue.ok:
+					var talk_dialogue_data: Dictionary = JSON.parse_string(talk_dialogue.source)
+					_expect("Talk conversation identity stays generated", str(talk_dialogue.dialogue_id).begins_with("talk_scene_"), true)
+					_expect("Talk conversation adds one battle moment", talk_dialogue_data.campaigns[0].flow.nodes[0].moments.size(), 1)
+					_expect("Talk moment listens for this character", str(talk_dialogue_data.campaigns[0].flow.nodes[0].moments[0].when.placementId), "river_watch_leader")
+					_expect("Talk conversation remains playable", compiler.compile_source_json(talk_dialogue.source).ok, true)
 				var quiet: Dictionary = compiler.set_placement_talkable(
 					talkable.source, "demo_campaign", "bridge_encounter",
 					"river_watch_leader", false

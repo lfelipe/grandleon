@@ -5700,6 +5700,248 @@ SourceTextResult add_source_dialogue_scene_json(
     return result;
 }
 
+SourceTextResult add_source_placement_talk_dialogue_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id,
+    std::string_view name,
+    std::string_view background_id,
+    std::string_view speaker,
+    std::string_view line_text
+) {
+    SourceTextResult result;
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    for (const auto& [value, label] : {
+             std::pair{campaign_id, "campaign"},
+             std::pair{node_id, "node"},
+             std::pair{placement_id, "placement"},
+         }) {
+        if (valid_source_key(value)) continue;
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            std::string(label) + " id must be a stable source-key string"
+        );
+        return result;
+    }
+    if (name.empty() || name.size() > 160) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue name must contain between 1 and 160 characters"
+        );
+        return result;
+    }
+    if (speaker.empty() || speaker.size() > 160) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue speaker must contain between 1 and 160 characters"
+        );
+        return result;
+    }
+    if (line_text.empty() || line_text.size() > 4096) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue text must contain between 1 and 4096 characters"
+        );
+        return result;
+    }
+    if (!background_id.empty() &&
+        backdrop_index(background_id) >= backdrop_count) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue backdrop is not part of the portable art vocabulary"
+        );
+        return result;
+    }
+
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* dialogues = root == nullptr
+                           ? nullptr
+                           : mutable_array(*root, "dialogues");
+    if (root != nullptr && root->find("dialogues") == root->end()) {
+        auto inserted = root->emplace("dialogues", Json{Array{}});
+        dialogues = std::get_if<Array>(&inserted.first->second.value);
+    }
+    Array* campaigns = root == nullptr
+                           ? nullptr
+                           : mutable_array(*root, "campaigns");
+    std::size_t campaign_index = 0;
+    Object* campaign = campaigns == nullptr
+                           ? nullptr
+                           : find_object_by_id(
+                                 *campaigns, campaign_id, &campaign_index
+                             );
+    Object* flow = campaign == nullptr
+                       ? nullptr
+                       : mutable_object(*campaign, "flow");
+    Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+    std::size_t node_index = 0;
+    Object* node = nodes == nullptr
+                       ? nullptr
+                       : find_object_by_id(*nodes, node_id, &node_index);
+    const std::string campaign_path =
+        "$.campaigns[" + std::to_string(campaign_index) + "]";
+    const std::string node_path = campaign_path + ".flow.nodes[" +
+                                  std::to_string(node_index) + "]";
+    const std::string* node_kind =
+        node == nullptr ? nullptr : string_member(*node, "kind");
+    Array* placements =
+        node == nullptr ? nullptr : mutable_array(*node, "placements");
+    std::size_t placement_index = 0;
+    Object* placement = placements == nullptr
+                            ? nullptr
+                            : find_object_by_id(
+                                  *placements, placement_id, &placement_index
+                              );
+    if (dialogues == nullptr || campaign == nullptr || node == nullptr ||
+        node_kind == nullptr || *node_kind != "encounter" ||
+        placement == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, node_path,
+            "Talk conversation needs an existing campaign battle character"
+        );
+        return result;
+    }
+    Object* talk = mutable_object(*placement, "talk");
+    const std::string* talk_flag =
+        talk == nullptr ? nullptr : string_member(*talk, "flagId");
+    const std::string* unit_type_id = string_member(*placement, "unitTypeId");
+    if (talk_flag == nullptr || talk_flag->empty()) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            node_path + ".placements[" +
+                std::to_string(placement_index) + "].talk",
+            "make this opposing character talkable before writing its conversation"
+        );
+        return result;
+    }
+    Array* unit_types = mutable_array(*root, "unitTypes");
+    if (unit_type_id == nullptr || unit_types == nullptr ||
+        find_object_by_id(*unit_types, *unit_type_id) == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            node_path + ".placements[" +
+                std::to_string(placement_index) + "].unitTypeId",
+            "Talk conversation character art was not found"
+        );
+        return result;
+    }
+
+    Array* moments = mutable_array(*node, "moments");
+    if (moments == nullptr) {
+        auto inserted = node->emplace("moments", Json{Array{}});
+        moments = std::get_if<Array>(&inserted.first->second.value);
+    }
+    if (moments == nullptr || moments->size() >= 32) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            node_path + ".moments",
+            "battle cannot contain more Talk conversations"
+        );
+        return result;
+    }
+    for (const Json& value : *moments) {
+        const auto* moment = std::get_if<Object>(&value.value);
+        const Json* when_value = nullptr;
+        if (moment != nullptr) {
+            const auto when_found = moment->find("when");
+            if (when_found != moment->end()) when_value = &when_found->second;
+        }
+        const Object* when = when_value == nullptr
+                                 ? nullptr
+                                 : std::get_if<Object>(&when_value->value);
+        const std::string* kind =
+            when == nullptr ? nullptr : string_member(*when, "kind");
+        const std::string* subject = when == nullptr
+                                         ? nullptr
+                                         : string_member(*when, "placementId");
+        if (kind != nullptr && *kind == "characterTalked" &&
+            subject != nullptr && *subject == placement_id) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                node_path + ".moments",
+                "this Talk choice already has a conversation"
+            );
+            return result;
+        }
+    }
+
+    const std::string owner = std::string(campaign_id) + "/" +
+                              std::string(node_id) + "/" +
+                              std::string(placement_id);
+    const std::string dialogue_id = "talk_scene_" + std::to_string(
+        core::stable_content_id_v1(owner + "/dialogue")
+    );
+    const std::string moment_id = "talk_moment_" + std::to_string(
+        core::stable_content_id_v1(owner + "/moment")
+    );
+    if (find_object_by_id(*dialogues, dialogue_id) != nullptr ||
+        find_object_by_id(*moments, moment_id) != nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            node_path + ".moments",
+            "generated Talk conversation identity already exists"
+        );
+        return result;
+    }
+
+    Object cast_entry;
+    cast_entry.emplace("speaker", Json{std::string(speaker)});
+    cast_entry.emplace("unitTypeId", Json{*unit_type_id});
+    Object opening_line;
+    opening_line.emplace("speaker", Json{std::string(speaker)});
+    opening_line.emplace("text", Json{std::string(line_text)});
+    Object added_dialogue;
+    added_dialogue.emplace("id", Json{dialogue_id});
+    added_dialogue.emplace("name", Json{std::string(name)});
+    if (!background_id.empty()) {
+        added_dialogue.emplace(
+            "backgroundId", Json{std::string(background_id)}
+        );
+    }
+    added_dialogue.emplace("cast", Json{Array{Json{std::move(cast_entry)}}});
+    added_dialogue.emplace("lines", Json{Array{Json{std::move(opening_line)}}});
+    dialogues->push_back(Json{std::move(added_dialogue)});
+
+    Object when;
+    when.emplace("kind", Json{std::string{"characterTalked"}});
+    when.emplace("placementId", Json{std::string(placement_id)});
+    Object added_moment;
+    added_moment.emplace("id", Json{moment_id});
+    added_moment.emplace("when", Json{std::move(when)});
+    added_moment.emplace("dialogueId", Json{dialogue_id});
+    moments->push_back(Json{std::move(added_moment)});
+
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value,
+        node_path + ".moments",
+        "Talk conversation would make this playable project invalid"
+    );
+    return result;
+}
+
 SourceTextResult update_source_dialogue_line_json(
     std::string_view source_json,
     std::string_view dialogue_id,

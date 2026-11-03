@@ -753,6 +753,45 @@ void updates_one_map_cell_without_retyping_the_project() {
                 std::string::npos,
         "Talk receives a hidden generated world-memory identity"
     );
+    const auto talk_scene = gc::add_source_placement_talk_dialogue_json(
+        talkable_enemy.json, "demo", "battle", "red_1",
+        "A Conversation at the Bridge", "deep_wood", "Red One",
+        "There is another way through this crossing."
+    );
+    const auto talk_scene_parsed =
+        gc::parse_source_project_json(talk_scene.json);
+    expect(
+        talk_scene && talk_scene_parsed &&
+            talk_scene_parsed.source.dialogues.size() == 1 &&
+            talk_scene_parsed.source.encounters.front().moments.size() == 1 &&
+            talk_scene_parsed.source.encounters.front().moments.front().trigger ==
+                gc::MomentTrigger::character_talked &&
+            gc::compile(talk_scene_parsed.source),
+        "a talkable character can receive a portable in-battle conversation"
+    );
+    expect(
+        talk_scene.json.find(R"json("id": "talk_scene_)json") !=
+                std::string::npos &&
+            talk_scene.json.find(R"json("id": "talk_moment_)json") !=
+                std::string::npos &&
+            talk_scene.json.find(R"json("kind": "characterTalked")json") !=
+                std::string::npos,
+        "Talk conversation and moment identities are generated behind the editor"
+    );
+    expect(
+        !gc::add_source_placement_talk_dialogue_json(
+            talk_scene.json, "demo", "battle", "red_1", "Duplicate Talk",
+            "", "Red One", "Again."
+        ),
+        "one Talk choice cannot accidentally receive two conversations"
+    );
+    expect(
+        !gc::add_source_placement_talk_dialogue_json(
+            enlarged.json, "demo", "battle", "red_1", "Too Soon", "",
+            "Red One", "Not yet."
+        ),
+        "a conversation cannot attach before its opponent is talkable"
+    );
     const auto quiet_enemy = gc::set_source_placement_talkable_json(
         talkable_enemy.json, "demo", "battle", "red_1", false
     );

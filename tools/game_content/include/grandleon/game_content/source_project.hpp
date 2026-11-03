@@ -468,4 +468,19 @@ struct SourceMapCell final {
     std::string_view line_text
 );
 
+// Creates the scene played when one talkable encounter character is talked
+// away. Dialogue and moment identities are generated from their portable
+// campaign, battle, and placement identities so authoring clients show only
+// player-facing names. The placement's unit type supplies the portrait cast.
+[[nodiscard]] SourceTextResult add_source_placement_talk_dialogue_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id,
+    std::string_view name,
+    std::string_view background_id,
+    std::string_view speaker,
+    std::string_view line_text
+);
+
 }  // namespace grandleon::game_content

@@ -620,6 +620,13 @@ void GrandleonProjectCompiler::_bind_methods() {
         &GrandleonProjectCompiler::add_dialogue_scene
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "add_talk_dialogue", "source_json", "campaign_id", "node_id",
+            "placement_id", "name", "background_id", "speaker", "line_text"
+        ),
+        &GrandleonProjectCompiler::add_talk_dialogue
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("supported_schema"),
         &GrandleonProjectCompiler::supported_schema
     );
@@ -1745,6 +1752,48 @@ gd::Dictionary GrandleonProjectCompiler::add_dialogue_scene(
     }
     result["ok"] = true;
     result["source"] = text(added.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::add_talk_dialogue(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& node_id,
+    const gd::String& placement_id,
+    const gd::String& name,
+    const gd::String& background_id,
+    const gd::String& speaker,
+    const gd::String& line_text
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    result["dialogue_id"] = "";
+    gd::Array diagnostics;
+    const std::string campaign = narrow(campaign_id);
+    const std::string node = narrow(node_id);
+    const std::string placement = narrow(placement_id);
+    const gc::SourceTextResult added =
+        gc::add_source_placement_talk_dialogue_json(
+            narrow(source_json), campaign, node, placement, narrow(name),
+            narrow(background_id), narrow(speaker), narrow(line_text)
+        );
+    if (!added) {
+        for (const gc::SourceDiagnostic& diagnostic : added.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    const std::string owner = campaign + "/" + node + "/" + placement;
+    result["ok"] = true;
+    result["source"] = text(added.json);
+    result["dialogue_id"] = text(
+        "talk_scene_" + std::to_string(
+            core::stable_content_id_v1(owner + "/dialogue")
+        )
+    );
     result["diagnostics"] = diagnostics;
     return result;
 }
