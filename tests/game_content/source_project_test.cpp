@@ -491,6 +491,70 @@ void updates_one_map_cell_without_retyping_the_project() {
         "a chapter cannot replace an existing map identity"
     );
 
+    const auto branch = gc::add_source_campaign_branch_json(
+        source,
+        "demo",
+        "battle",
+        "end",
+        "defeat_all_opponents",
+        "defeat",
+        "alternate_map",
+        "Fallen Road",
+        "alternate_story",
+        "After the Fall",
+        "alternate_battle",
+        "Fallen Road Battle",
+        "forest"
+    );
+    expect(
+        static_cast<bool>(branch),
+        "one command can add a complete alternate campaign chapter"
+    );
+    const auto branch_parsed = gc::parse_source_project_json(branch.json);
+    expect(
+        branch_parsed && branch_parsed.source.maps.size() == 2 &&
+            branch_parsed.source.encounters.size() == 2 &&
+            branch_parsed.source.campaigns.front().nodes.size() == 4 &&
+            branch_parsed.source.encounters.back().placements.size() == 2,
+        "an alternate chapter contains a map, story, and cloned battle setup"
+    );
+    expect(
+        branch_parsed && static_cast<bool>(gc::compile(branch_parsed.source)),
+        "the new alternate chapter remains playable"
+    );
+    expect(
+        branch.json.find(R"json("result": "victory")json") !=
+                std::string::npos &&
+            branch.json.find(R"json("result": "defeat")json") !=
+                std::string::npos &&
+            branch.json.find(R"json("targetNodeId": "alternate_story")json") !=
+                std::string::npos &&
+            branch.json.find(R"json("targetNodeId": "alternate_battle")json") !=
+                std::string::npos &&
+            branch.json.find(R"json("targetNodeId": "end")json") !=
+                std::string::npos,
+        "the existing result and alternate result lead through both paths"
+    );
+    const auto wrong_branch_objective = gc::add_source_campaign_branch_json(
+        source,
+        "demo",
+        "battle",
+        "end",
+        "not_the_battle_goal",
+        "defeat",
+        "alternate_map",
+        "Fallen Road",
+        "alternate_story",
+        "After the Fall",
+        "alternate_battle",
+        "Fallen Road Battle",
+        "forest"
+    );
+    expect(
+        !wrong_branch_objective && wrong_branch_objective.json.empty(),
+        "an alternate chapter cannot branch on another encounter's objective"
+    );
+
     const auto moved = gc::move_source_placement_json(
         enlarged.json, "demo", "battle", "red_1", 2, 1
     );

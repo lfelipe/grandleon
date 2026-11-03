@@ -150,6 +150,29 @@ struct SourceMapCell final {
     std::string_view fill_terrain
 );
 
+// Adds an alternate story and battle from an existing encounter without
+// changing their destinations. The battle setup is cloned onto a fresh map,
+// the new route uses one named objective result, and the alternate battle
+// rejoins at the supplied existing destination. A lone unconditional route is
+// made the complementary objective result so both paths are reachable. This
+// keeps branch creation a complete, validated authoring command instead of
+// exposing source identities.
+[[nodiscard]] SourceTextResult add_source_campaign_branch_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view from_node_id,
+    std::string_view target_node_id,
+    std::string_view objective_id,
+    std::string_view objective_result,
+    std::string_view map_id,
+    std::string_view map_name,
+    std::string_view story_node_id,
+    std::string_view story_name,
+    std::string_view battle_node_id,
+    std::string_view battle_name,
+    std::string_view fill_terrain
+);
+
 // Replaces the presentation outside one tactical map. Manual terrain is the
 // complete perimeter in row-major outer-rectangle order, omitting the playable
 // interior. It is never appended to the map itself and therefore cannot become

@@ -117,6 +117,22 @@ func _init() -> void:
 				_expect("next chapter adds story and battle", chapter_data.campaigns[0].flow.nodes.size(), source_data.campaigns[0].flow.nodes.size() + 2)
 				_expect("next battle copies the playable setup", chapter_data.campaigns[0].flow.nodes[2].placements.size(), source_data.campaigns[0].flow.nodes[0].placements.size())
 				_expect("next chapter remains playable", compiler.compile_source_json(chapter.source).ok, true)
+			var branch: Dictionary = compiler.add_campaign_branch(
+				source, "demo_campaign", "bridge_encounter", "demo_complete",
+				"defeat_all_opponents", "defeat",
+				"alternate_map", "Fallen Road",
+				"alternate_story", "After the Fall",
+				"alternate_battle", "Fallen Road Battle", "forest"
+			)
+			_expect("alternate chapter creation succeeds", branch.ok, true)
+			if branch.ok:
+				var branch_data: Dictionary = JSON.parse_string(branch.source)
+				_expect("alternate chapter adds one map", branch_data.maps.size(), source_data.maps.size() + 1)
+				_expect("alternate chapter adds story and battle", branch_data.campaigns[0].flow.nodes.size(), source_data.campaigns[0].flow.nodes.size() + 2)
+				_expect("alternate battle copies the playable setup", branch_data.campaigns[0].flow.nodes[2].placements.size(), source_data.campaigns[0].flow.nodes[0].placements.size())
+				_expect("existing route becomes the complementary result", branch_data.campaigns[0].flow.nodes[0].transitions[0].when.result, "victory")
+				_expect("alternate route uses the requested result", branch_data.campaigns[0].flow.nodes[0].transitions[1].when.result, "defeat")
+				_expect("alternate chapter remains playable", compiler.compile_source_json(branch.source).ok, true)
 			var moved: Dictionary = compiler.move_placement(
 				source, "demo_campaign", "bridge_encounter",
 				"dawn_guard_leader", 1, 0

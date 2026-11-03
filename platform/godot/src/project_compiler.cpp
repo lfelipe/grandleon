@@ -104,6 +104,15 @@ void GrandleonProjectCompiler::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
+            "add_campaign_branch", "source_json", "campaign_id",
+            "from_node_id", "target_node_id", "objective_id",
+            "objective_result", "map_id", "map_name", "story_node_id",
+            "story_name", "battle_node_id", "battle_name", "fill_terrain"
+        ),
+        &GrandleonProjectCompiler::add_campaign_branch
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
             "set_map_surroundings", "source_json", "map_id", "mode",
             "colour", "depth", "terrain_ids"
         ),
@@ -489,6 +498,45 @@ gd::Dictionary GrandleonProjectCompiler::add_campaign_chapter(
             narrow(story_name), narrow(battle_node_id), narrow(battle_name),
             narrow(fill_terrain)
         );
+    if (!added) {
+        for (const gc::SourceDiagnostic& diagnostic : added.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(added.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::add_campaign_branch(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& from_node_id,
+    const gd::String& target_node_id,
+    const gd::String& objective_id,
+    const gd::String& objective_result,
+    const gd::String& map_id,
+    const gd::String& map_name,
+    const gd::String& story_node_id,
+    const gd::String& story_name,
+    const gd::String& battle_node_id,
+    const gd::String& battle_name,
+    const gd::String& fill_terrain
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult added = gc::add_source_campaign_branch_json(
+        narrow(source_json), narrow(campaign_id), narrow(from_node_id),
+        narrow(target_node_id), narrow(objective_id), narrow(objective_result),
+        narrow(map_id), narrow(map_name), narrow(story_node_id),
+        narrow(story_name), narrow(battle_node_id), narrow(battle_name),
+        narrow(fill_terrain)
+    );
     if (!added) {
         for (const gc::SourceDiagnostic& diagnostic : added.diagnostics) {
             diagnostics.push_back(source_diagnostic(diagnostic));
