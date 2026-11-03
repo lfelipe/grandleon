@@ -4,8 +4,10 @@ extends RefCounted
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const FORMAT := "grandleon-console-builder"
+const INVENTORY_FORMAT := "grandleon-console-builder-inventory"
 const RESULT_FORMAT := "grandleon-console-build-result"
 const CONTRACT_VERSION := 1
+const INVENTORY_VERSION := 1
 const TARGETS := ["nintendo64", "playstation"]
 const N64_MAX_BYTES := 64 * 1024 * 1024
 const PLAYSTATION_MAX_BYTES := 750 * 1024 * 1024
@@ -69,17 +71,31 @@ func availability(target: String) -> Dictionary:
 	if _sha256_file(executable) != executable_hash:
 		return _failure("builder_integrity_failed", "The installed builder executable failed its checksum.")
 	var dependencies := str(manifest.get("dependencies", ""))
+	var dependencies_hash := str(manifest.get("dependenciesSha256", "")).to_lower()
 	var licenses_value: Variant = manifest.get("licenseFiles", [])
-	if not _payload_file_exists(payload_root, dependencies) or not licenses_value is Array or licenses_value.is_empty():
+	if (
+		not _payload_file_exists(payload_root, dependencies)
+		or dependencies_hash.length() != 64
+		or not licenses_value is Array
+		or licenses_value.is_empty()
+	):
 		return _failure("builder_inventory_missing", "The builder dependency or license inventory is missing.")
+	if _sha256_file(payload_root.path_join(dependencies)) != dependencies_hash:
+		return _failure("builder_integrity_failed", "The builder dependency inventory failed its checksum.")
 	var dependency_document: Variant = JSON.parse_string(
 		FileAccess.get_file_as_string(payload_root.path_join(dependencies))
 	)
 	if not dependency_document is Dictionary:
 		return _failure("builder_inventory_invalid", "The builder dependency inventory is not readable JSON.")
-	for value: Variant in licenses_value:
-		if not _payload_file_nonempty(payload_root, str(value)):
-			return _failure("builder_inventory_missing", "A builder license file is missing.")
+	var inventory_check := _validate_inventory(
+		payload_root,
+		dependency_document,
+		executable_name,
+		dependencies,
+		licenses_value
+	)
+	if not inventory_check.ok:
+		return inventory_check
 	var arguments: Array[String] = []
 	var arguments_value: Variant = manifest.get("arguments", [])
 	if not arguments_value is Array:
@@ -500,6 +516,90 @@ func _payload_file_nonempty(root: String, name: String) -> bool:
 	var nonempty := file.get_length() > 0
 	file.close()
 	return nonempty
+
+
+func _validate_inventory(
+	root: String,
+	document: Dictionary,
+	executable_name: String,
+	inventory_name: String,
+	licenses_value: Array
+) -> Dictionary:
+	if (
+		str(document.get("format", "")) != INVENTORY_FORMAT
+		or int(document.get("inventoryVersion", 0)) != INVENTORY_VERSION
+	):
+		return _failure("builder_inventory_invalid", "The builder dependency inventory is incompatible.")
+	var components_value: Variant = document.get("components", [])
+	var files_value: Variant = document.get("files", [])
+	if (
+		not components_value is Array
+		or components_value.is_empty()
+		or not files_value is Array
+		or files_value.is_empty()
+	):
+		return _failure("builder_inventory_invalid", "The builder dependency inventory is incomplete.")
+	for value: Variant in components_value:
+		if not value is Dictionary:
+			return _failure("builder_inventory_invalid", "A builder component entry is invalid.")
+		var component: Dictionary = value
+		if (
+			str(component.get("name", "")).strip_edges().is_empty()
+			or str(component.get("version", "")).strip_edges().is_empty()
+			or str(component.get("license", "")).strip_edges().is_empty()
+		):
+			return _failure("builder_inventory_invalid", "A builder component entry is incomplete.")
+	var expected: Array[String] = ["builder.json", executable_name, inventory_name]
+	var declared_licenses: Array[String] = []
+	for value: Variant in files_value:
+		if not value is Dictionary:
+			return _failure("builder_inventory_invalid", "A builder file entry is invalid.")
+		var entry: Dictionary = value
+		var name := str(entry.get("name", ""))
+		var role := str(entry.get("role", ""))
+		var digest := str(entry.get("sha256", "")).to_lower()
+		var path := root.path_join(name)
+		if (
+			not _portable_file_name(name)
+			or name in expected
+			or role not in ["template", "tool", "data", "license"]
+			or digest.length() != 64
+			or not _payload_file_exists(root, name)
+		):
+			return _failure("builder_inventory_invalid", "A builder file entry is invalid.")
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file == null:
+			return _failure("builder_inventory_missing", "An inventoried builder file is missing.")
+		var bytes := file.get_length()
+		file.close()
+		if bytes <= 0 or bytes != int(entry.get("bytes", -1)) or _sha256_file(path) != digest:
+			return _failure("builder_integrity_failed", "An installed builder file failed its checksum.")
+		expected.append(name)
+		if role == "license":
+			declared_licenses.append(name)
+	var manifest_licenses: Array[String] = []
+	for value: Variant in licenses_value:
+		var name := str(value)
+		if not _portable_file_name(name) or name in manifest_licenses:
+			return _failure("builder_inventory_invalid", "The builder license list is invalid.")
+		manifest_licenses.append(name)
+	declared_licenses.sort()
+	manifest_licenses.sort()
+	if declared_licenses != manifest_licenses:
+		return _failure("builder_inventory_invalid", "The builder license inventory does not match its manifest.")
+	var directory := DirAccess.open(root)
+	if directory == null or not directory.get_directories().is_empty():
+		return _failure("builder_inventory_invalid", "The builder payload contains an undeclared directory.")
+	var installed: Array[String] = []
+	installed.assign(directory.get_files())
+	installed.sort()
+	expected.sort()
+	if installed != expected:
+		return _failure("builder_inventory_invalid", "The builder payload contains an undeclared file.")
+	for name: String in installed:
+		if directory.is_link(name):
+			return _failure("builder_inventory_invalid", "The builder payload contains a symbolic link.")
+	return {"ok": true}
 
 
 func _portable_file_name(value: String) -> bool:

@@ -26,10 +26,11 @@ func _run() -> void:
 	var executable := payload_root.path_join("build-rom.sh")
 	_write(executable, _builder_script(false, false))
 	FileAccess.set_unix_permissions(executable, 493)
-	_write(payload_root.path_join("dependencies.json"), "{\"tools\":[\"synthetic\"]}\n")
 	_write(payload_root.path_join("LICENSE.txt"), "Synthetic test payload.\n")
+	_write(payload_root.path_join("template.dat"), "signed template bytes\n")
 	var builder = ConsoleBuilder.new(library, builders_root, export_root)
-	_write_manifest(payload_root, "nintendo64", "build-rom.sh", builder._sha256_file(executable))
+	_write_inventory(payload_root, builder)
+	_write_manifest(payload_root, "nintendo64", "build-rom.sh", builder)
 
 	var available: Dictionary = builder.availability("nintendo64")
 	_expect("installed payload is available", available.ok, true)
@@ -39,6 +40,20 @@ func _run() -> void:
 		str(builder.availability("playstation").get("code", "")),
 		"builder_not_installed"
 	)
+	_write(payload_root.path_join("template.dat"), "changed template bytes\n")
+	_expect(
+		"changed template checksum is refused",
+		str(builder.availability("nintendo64").get("code", "")),
+		"builder_integrity_failed"
+	)
+	_write(payload_root.path_join("template.dat"), "signed template bytes\n")
+	_write(payload_root.path_join("extra.dat"), "not inventoried\n")
+	_expect(
+		"undeclared installed payload file is refused",
+		str(builder.availability("nintendo64").get("code", "")),
+		"builder_inventory_invalid"
+	)
+	DirAccess.remove_absolute(payload_root.path_join("extra.dat"))
 
 	var started: Dictionary = builder.start("nintendo64", str(created.id))
 	_expect("console build starts without blocking the UI", started.ok, true)
@@ -57,7 +72,7 @@ func _run() -> void:
 	# the rejection proves the artifact scan rather than the manifest checksum.
 	_write(executable, _builder_script(true, false))
 	FileAccess.set_unix_permissions(executable, 493)
-	_write_manifest(payload_root, "nintendo64", "build-rom.sh", builder._sha256_file(executable))
+	_write_manifest(payload_root, "nintendo64", "build-rom.sh", builder)
 	var private_started: Dictionary = builder.start("nintendo64", str(created.id))
 	_expect("privacy-negative build starts", private_started.ok, true)
 	var private_result := await _wait_for_builder(builder)
@@ -65,7 +80,7 @@ func _run() -> void:
 
 	_write(executable, _builder_script(false, true))
 	FileAccess.set_unix_permissions(executable, 493)
-	_write_manifest(payload_root, "nintendo64", "build-rom.sh", builder._sha256_file(executable))
+	_write_manifest(payload_root, "nintendo64", "build-rom.sh", builder)
 	_expect("undeclared-output build starts", builder.start("nintendo64", str(created.id)).ok, true)
 	var extra_result := await _wait_for_builder(builder)
 	_expect("undeclared builder files are refused", str(extra_result.get("code", "")), "builder_output_unexpected")
@@ -73,14 +88,12 @@ func _run() -> void:
 	var playstation_root := builders_root.path_join("playstation")
 	DirAccess.make_dir_recursive_absolute(playstation_root)
 	var playstation_executable := playstation_root.path_join("build-disc.sh")
-	_write(playstation_root.path_join("dependencies.json"), "{\"tools\":[\"synthetic\"]}\n")
 	_write(playstation_root.path_join("LICENSE.txt"), "Synthetic test payload.\n")
+	_write(playstation_root.path_join("template.dat"), "signed template bytes\n")
 	_write(playstation_executable, _playstation_builder_script(false))
 	FileAccess.set_unix_permissions(playstation_executable, 493)
-	_write_manifest(
-		playstation_root, "playstation", "build-disc.sh",
-		builder._sha256_file(playstation_executable)
-	)
+	_write_inventory(playstation_root, builder)
+	_write_manifest(playstation_root, "playstation", "build-disc.sh", builder)
 	_expect("PlayStation payload is independently available", builder.availability("playstation").ok, true)
 	_expect("PlayStation BIN/CUE build starts", builder.start("playstation", str(created.id)).ok, true)
 	var playstation_result := await _wait_for_builder(builder)
@@ -92,15 +105,12 @@ func _run() -> void:
 
 	_write(playstation_executable, _playstation_builder_script(true))
 	FileAccess.set_unix_permissions(playstation_executable, 493)
-	_write_manifest(
-		playstation_root, "playstation", "build-disc.sh",
-		builder._sha256_file(playstation_executable)
-	)
+	_write_manifest(playstation_root, "playstation", "build-disc.sh", builder)
 	_expect("licensed-sector negative build starts", builder.start("playstation", str(created.id)).ok, true)
 	var licensed_result := await _wait_for_builder(builder)
 	_expect("non-empty PlayStation license area is refused", str(licensed_result.get("code", "")), "builder_artifact_invalid")
 
-	_write_manifest(payload_root, "nintendo64", "build-rom.sh", "0".repeat(64))
+	_write_manifest(payload_root, "nintendo64", "build-rom.sh", builder, "0".repeat(64))
 	_expect(
 		"changed builder executable checksum is refused",
 		str(builder.availability("nintendo64").get("code", "")),
@@ -121,7 +131,18 @@ func _wait_for_builder(builder) -> Dictionary:
 	return {"ok": false, "code": "test_timeout"}
 
 
-func _write_manifest(payload_root: String, target: String, executable: String, digest: String) -> void:
+func _write_manifest(
+	payload_root: String,
+	target: String,
+	executable: String,
+	builder,
+	digest_override := ""
+) -> void:
+	var digest: String = (
+		builder._sha256_file(payload_root.path_join(executable))
+		if digest_override.is_empty()
+		else digest_override
+	)
 	_write(payload_root.path_join("builder.json"), JSON.stringify({
 		"format": "grandleon-console-builder",
 		"contractVersion": 1,
@@ -130,7 +151,37 @@ func _write_manifest(payload_root: String, target: String, executable: String, d
 		"executable": executable,
 		"executableSha256": digest,
 		"dependencies": "dependencies.json",
+		"dependenciesSha256": builder._sha256_file(payload_root.path_join("dependencies.json")),
 		"licenseFiles": ["LICENSE.txt"],
+	}, "  ", true) + "\n")
+
+
+func _write_inventory(payload_root: String, builder) -> void:
+	var files: Array[Dictionary] = []
+	for entry: Dictionary in [
+		{"name": "LICENSE.txt", "role": "license"},
+		{"name": "template.dat", "role": "template"},
+	]:
+		var path := payload_root.path_join(str(entry.name))
+		var file := FileAccess.open(path, FileAccess.READ)
+		var bytes := file.get_length() if file != null else -1
+		if file != null:
+			file.close()
+		files.append({
+			"name": str(entry.name),
+			"role": str(entry.role),
+			"bytes": bytes,
+			"sha256": builder._sha256_file(path),
+		})
+	_write(payload_root.path_join("dependencies.json"), JSON.stringify({
+		"format": "grandleon-console-builder-inventory",
+		"inventoryVersion": 1,
+		"components": [{
+			"name": "Synthetic console payload",
+			"version": "test-1",
+			"license": "MIT",
+		}],
+		"files": files,
 	}, "  ", true) + "\n")
 
 

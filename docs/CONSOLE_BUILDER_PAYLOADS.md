@@ -39,14 +39,54 @@ builders/
   "executable": "build-rom",
   "executableSha256": "64 lowercase hexadecimal characters",
   "dependencies": "dependencies.json",
+  "dependenciesSha256": "64 lowercase hexadecimal characters",
   "licenseFiles": ["LICENSE.txt"]
 }
 ```
 
 Manifest paths are portable single-file names. The host refuses links, missing
-inventories, incompatible targets/contracts, and an executable whose SHA-256
-does not match. An optional `arguments` array may contain portable flags but
-not paths, control characters, or drive separators.
+inventories, incompatible targets/contracts, and an executable or inventory
+whose SHA-256 does not match. An optional `arguments` array may contain
+portable flags but not paths, control characters, or drive separators.
+
+`dependencies.json` is both the machine-readable component inventory and the
+complete authenticated file list for the payload:
+
+```json
+{
+  "format": "grandleon-console-builder-inventory",
+  "inventoryVersion": 1,
+  "components": [
+    {
+      "name": "Grand Leon Nintendo 64 template builder",
+      "version": "0.3.0-1",
+      "license": "MIT"
+    }
+  ],
+  "files": [
+    {
+      "name": "template.z64",
+      "role": "template",
+      "bytes": 8388608,
+      "sha256": "64 lowercase hexadecimal characters"
+    },
+    {
+      "name": "LICENSE.txt",
+      "role": "license",
+      "bytes": 1091,
+      "sha256": "64 lowercase hexadecimal characters"
+    }
+  ]
+}
+```
+
+Every component needs a non-empty name, version, and license identifier. Every
+file other than `builder.json`, the executable, and the inventory itself must
+appear exactly once with a positive byte length, SHA-256, and one of the roles
+`template`, `tool`, `data`, or `license`. The manifest's license list must
+exactly match the files with the `license` role. Extra files, directories, and
+symbolic links make that target unavailable. This ensures a launcher cannot be
+paired accidentally with a template or helper from another payload version.
 
 ## One isolated request
 
