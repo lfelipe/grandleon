@@ -243,7 +243,7 @@ struct SourceMapCell final {
 
 // Replaces one authored dialogue line without rebuilding the scene, cast, or
 // campaign references. Speaker and text remain ordinary portable source data;
-// no editor path or local-model configuration can cross this boundary.
+// no editor path or machine-local configuration can cross this boundary.
 [[nodiscard]] SourceTextResult update_source_dialogue_line_json(
     std::string_view source_json,
     std::string_view dialogue_id,

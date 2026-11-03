@@ -27,7 +27,7 @@ machine-specific graphics or control configuration.
 | Stable controller seats | A lone controller is Player 1. Reconciliation preserves every still-connected pad and cursor across enumeration changes, fills only a vacant seat on reconnect, and ignores extra devices. Keyboard/mouse can join a vacant second seat. Privacy-safe toasts distinguish ready, replacement, keyboard fallback, waiting, and ignored transitions without displaying a controller identity. A headless smoke covers launch, disconnect, reconnect, reorder, assignment, and transition-notice cases. |
 | Compact controls | Every essential flow uses one stick or d-pad plus five configurable buttons. The default is A, B, X, Y, and Start; shoulders and Back are optional shortcuts that can be disabled. Analog navigation uses one shared high-deadzone, hysteretic filter across menus and gameplay: each complete deflection yields one cardinal step, diagonals cannot double-step, and d-pad response remains immediate. Settings offers only Deliberate and Extra Firm, persists the choice across the home screen and gameplay, and layers it over a persistent machine-private profile that may tune the safe base thresholds and replace physical button legends without recording a controller identity. Packaged acceptance proves that the real launcher carries the profile across both scenes. The play HUD follows the last active player and shows only the present goal and relevant buttons. Invalid, ambiguous, or unsafe local profiles fall back atomically to the complete default. |
 | Deterministic conflict handling | Commands overlap visually but serialize at the simulation boundary; a stale or conflicting command is refused instead of mutating state out of order. |
-| Offline campaign | The included campaign uses authored dialogue and deterministic enemy actions without a network dependency. |
+| Authored campaign | Emberbound uses authored story scenes and the deterministic built-in enemy policy on every target. |
 | Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, covering every Last Signal terrain while other kinds fall back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest. Its complete Last Signal sprite roster binds independent 443-pixel-cell replacements for Rook, Kestrel, Morrow, and the relay beast. Full Voxel inherits the terrain pack and replaces the same encounter roster with imported, skinned GLBs. Commander, rogue, and stormcaller reuse one humanoid topology without sharing meshes or actions; the beast has a distinct quadruped rig. Per-binding display scales keep those different proportions within one tactical cell. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Persistent presentation settings | Graphics profile, camera impulse, text size, stick-input firmness, and the three-level sound-effects volume survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
@@ -40,7 +40,7 @@ machine-specific graphics or control configuration.
 | Controller-safe menus | Start or the optional Back shortcut opens a five-choice root menu. Save slots and settings have their own short pages and contextual one-line control legend. Cancel walks back and resumes only from the root; Exit Game must be focused and confirmed, with no instant controller quit shortcut. Cyan `P1` and amber `P2` board badges identify independent cursors without relying on colour alone. |
 | SteamOS packaging | The release bundle runs without a system Godot install, keeps writable state under its own `runtime/` directory, and includes a 512-pixel icon at a stable bundle-relative path for desktop and Steam shortcuts. One aggregate release gate runs the native suite, every bounded Godot integration smoke, and exact packaged acceptance. |
 | Simple application entry | Ordinary launches open a controller-first home screen listing the included game and local project titles, plus Create / Edit and Exit. It displays no paths or machine identifiers, while automated test launches retain a direct route into play. |
-| Privacy | The bundler rejects exact checkout paths and local override files. Endpoint, model, token environment name, and art overrides live only in ignored runtime files. |
+| Privacy | The bundler rejects exact checkout paths and local override files. Graphics and control overrides live only in ignored runtime files. |
 
 ## SteamOS PC test
 
@@ -59,32 +59,29 @@ Test the default `voxel-sprites` profile first, then compare `diorama` and
 4. Move both friendly characters at once. Check that their animations overlap,
    each cursor remains responsive, and a destination conflict produces a clear
    refusal rather than a stuck unit.
-5. Play once with no `runtime/local/pc.local.json`. The complete authored story and
-   deterministic enemy must remain available.
-6. If a local model is configured, unplug or stop it mid-request. The status
-   should report fallback and the encounter should continue with candidate
-   zero.
-7. Watch contact shadows, sprite scale, health bars, text size, dark-detail
+5. Play the complete authored story and confirm every enemy turn proceeds with
+   the deterministic built-in policy.
+6. Watch contact shadows, sprite scale, health bars, text size, dark-detail
    visibility, and camera impulse at the actual viewing distance.
-8. At the Company screen, return an item to the store, give it back, bench and
+7. At the Company screen, return an item to the store, give it back, bench and
    re-field one member, and start the battle using only the compact controls.
    Confirm each change updates the screen before the next input.
-9. At the Company screen, save checkpoints 1 and 2. Load checkpoint 1 during a
+8. At the Company screen, save checkpoints 1 and 2. Load checkpoint 1 during a
    later battle and confirm it returns to the complete between-battle state.
    Close and relaunch to verify automatic resume still works. Use **New
    Campaign**, confirm it twice, and verify it starts fresh while the manual
    checkpoints remain available.
-10. Open the session menu with Start. Walk through Save / Load and Settings,
+9. Open the session menu with Start. Walk through Save / Load and Settings,
    return with B, resume from the root, then focus **Exit Game** and confirm the
    launcher regains focus.
-11. Leave the game running through several rounds, open Settings, and note its
+10. Leave the game running through several rounds, open Settings, and note its
    rolling FPS, p95, peak, window, and canvas values. Check those
    alongside controller focus, heat, and memory on the target PC; the game
    deliberately does not save this diagnostic sample.
 
 Record the GPU, display mode, controller models, frame-pacing observations, and
-which graphics profile is preferred. Do not record endpoint names, tokens, LAN
-addresses, usernames, or absolute install paths in project content or issues.
+which graphics profile is preferred. Do not record LAN addresses, usernames,
+or absolute install paths in project content or issues.
 
 ## Next milestones
 
@@ -151,24 +148,7 @@ Exit criterion: the complete encounter roster remains legible in motion on the
 target PC without a rule, campaign, or package change and without degrading the
 sprite or procedural fallback paths.
 
-### 4. Productize the local-model option
-
-- Capture and review one real model-enabled run through an authenticated local
-  OpenAI-compatible endpoint.
-- Add a small connection test that reports DNS/connect/auth/model errors
-  without displaying the endpoint, model identifier, token, or response body.
-- Decide independently whether conversation and tactics should be enabled;
-  neither feature should silently imply the other.
-- Add latency and failure telemetry that remains local and contains only
-  durations and coarse result categories.
-- Keep the no-model path in every release test and never make a campaign wait
-  indefinitely for inference.
-
-Exit criterion: an unavailable, slow, malformed, or adversarial model cannot
-stall play, invent a command, replace authored dialogue, or disclose local
-configuration on screen or in the bundle.
-
-### 5. Complete the PC product surface
+### 4. Complete the PC product surface
 
 - Add an authored music layer and per-player feedback with a separate music
   volume control; replace or tune the included UI/combat defaults from target
@@ -177,7 +157,7 @@ configuration on screen or in the bundle.
   richer character presentation without moving inventory or roster rules out
   of the portable campaign layer.
 - Keep campaign checkpoints and presentation settings as separate contracts;
-  neither belongs in portable project archives or local-model configuration.
+  neither belongs in portable project archives.
 - Add attract mode, clean return-to-launcher behavior, and controller-safe idle
   handling.
 - Review text scaling, colour contrast, camera impulse reduction, and input

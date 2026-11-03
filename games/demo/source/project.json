@@ -278,7 +278,7 @@
         "mode": "automatic",
         "depth": 6
       },
-      "notes": "A ruined signal station whose rules and content remain valid on the console builds; the PC client alone adds optional local-model presentation and policy."
+      "notes": "A ruined signal station whose rules and content remain valid on every target."
     }
   ],
   "objectives": [

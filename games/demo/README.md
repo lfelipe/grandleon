@@ -90,11 +90,9 @@ relay drones exercise the unattended-side policy. Reaching Morrow with the talk
 gesture opens an authored conversation and a non-lethal branch; fighting
 through instead reaches a separate authored ending.
 
-Nothing in that route requires a model. The Godot client may append bounded
-local-model lines to three named scenes and may ask a local model to select from
-engine-generated tactical candidates, but absent, slow, or invalid model output
-leaves the authored story and deterministic tactics intact. The project itself
-contains no endpoint, model name, token, or machine-specific path.
+The route uses authored dialogue and the deterministic built-in tactics policy
+on every target. The project contains no machine-specific path or PC-only
+gameplay configuration.
 
 From a configured repository build, run:
 

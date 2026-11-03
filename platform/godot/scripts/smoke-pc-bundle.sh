@@ -56,7 +56,7 @@ if [[ ! -x "${bundle_dir}/launch-pc.sh" || ! -x "${bundle_dir}/godot" ]]; then
     printf 'PC bundle launch files are not executable\n' >&2
     exit 66
 fi
-for local_config in pc.local.json graphics.local.json controls.local.json; do
+for local_config in graphics.local.json controls.local.json; do
     if [[ -e "${bundle_dir}/${local_config}" || \
           -e "${bundle_dir}/project/${local_config}" ]]; then
         printf 'Private local config entered the PC bundle: %s\n' \

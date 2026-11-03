@@ -44,9 +44,8 @@ unit another player has already finished are refused by the same simulation
 rules on PC, Nintendo 64, and PlayStation.
 
 The project data has no PC-only co-op map type. Maps, `sideBlocks`, placements,
-deployment, objectives, and dialogue remain ordinary portable content. Only
-the optional local-model adapter is a PC capability; taking it away changes no
-campaign path or deterministic enemy fallback.
+deployment, objectives, and dialogue remain ordinary portable content. The
+same deterministic enemy policy consumes that content on every target.
 
 `Intent` carries only choices, never consequences. An `ability` intent names a
 target tile; which tiles the area covers is the engine's business. An `attack`

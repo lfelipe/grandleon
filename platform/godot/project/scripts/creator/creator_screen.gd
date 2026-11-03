@@ -86,7 +86,7 @@ func _build_interface() -> void:
 	var explanation := Label.new()
 	explanation.text = (
 		"Projects are stored in this user's application data. Portable source never "
-		+ "contains local model settings, machine paths, or Steam credentials."
+		+ "contains machine paths, private settings, or Steam credentials."
 	)
 	explanation.position = Vector2(84, 190)
 	explanation.size = Vector2(1700, 70)

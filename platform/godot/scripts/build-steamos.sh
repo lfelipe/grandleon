@@ -148,7 +148,7 @@ chmod +x \
     "${temporary_dir}/godot" \
     "${temporary_dir}/launch-pc.sh" \
     "${temporary_dir}/control-pc.sh"
-for local_config in pc.local.json graphics.local.json controls.local.json; do
+for local_config in graphics.local.json controls.local.json; do
     if [[ -e "${temporary_dir}/${local_config}" || \
           -e "${temporary_dir}/project/${local_config}" ]]; then
         printf 'refusing bundle: private local config was staged: %s\n' \

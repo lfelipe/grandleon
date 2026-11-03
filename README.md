@@ -218,7 +218,7 @@ skeleton.
 
 The PC presentation is a Godot client over the same package and C++
 simulation. It adds simultaneous local team control, replaceable modern art,
-an offline-first AI demo, and a portable SteamOS bundle without changing the
+an offline story campaign, and a portable Linux bundle without changing the
 console runtimes. See [platform/godot/README.md](platform/godot/README.md).
 
 ### A PlayStation disc

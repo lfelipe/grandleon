@@ -95,11 +95,10 @@ user://projects/<project-id>/
 ```
 
 Only `project.json` and `assets/` belong in a portable project archive.
-`project.local.json` may hold window layout, recent selections, and local model
-preferences, but never travels with the project. Model URLs, tokens, absolute
-paths, controller identities, Steam credentials, and machine names are local
-configuration and must not be copied into source, exports, logs, or build
-manifests.
+`project.local.json` may hold window layout and recent selections, but never
+travels with the project. Absolute paths, controller identities, Steam
+credentials, and machine names are local configuration and must not be copied
+into source, exports, logs, or build manifests.
 
 Saving should use a new file plus an atomic rename, retain bounded recovery
 snapshots, and preserve the last known-good source after a failed validation.
@@ -246,9 +245,9 @@ and an account with build permissions. Valve documents those requirements in
 
 ## Windows feasibility
 
-The creator, player, local co-op, and optional local-model integration are all
-reasonable Windows targets. The engine code is portable C++ and Godot supports
-Windows exports. The concrete work still required is:
+The creator, player, and local co-op are all reasonable Windows targets. The
+engine code is portable C++ and Godot supports Windows exports. The concrete
+work still required is:
 
 1. Build and test `grandleon_godot.dll` on Windows.
 2. Add Windows debug/release entries to `grandleon.gdextension`; a
@@ -256,9 +255,8 @@ Windows exports. The concrete work still required is:
    architecture feature tags, as documented by
    [Godot](https://docs.godotengine.org/en/stable/engine_details/engine_api/gdextension/gdextension_file.html).
 3. Add a Windows export preset, player shell, signing step, and Windows CI.
-4. Keep local endpoints and secrets in the user configuration directory.
-5. Exercise two-controller input, focus recovery, filesystem behavior, and
-   local-model timeouts on Windows hardware.
+4. Exercise two-controller input, focus recovery, and filesystem behavior on
+   Windows hardware.
 
 Windows executable signing can be performed during release export; Godot's
 [Windows export documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_windows.html)
@@ -268,7 +266,6 @@ supports Windows `SignTool` or cross-platform `osslsigncode`.
 | --- | --- | --- | --- |
 | Native creator and player | Foundation works | Feasible | Windows DLL, preset, CI |
 | Simultaneous local co-op | Same runtime | Same runtime | Hardware/input validation |
-| Optional local model | Configured local HTTP | Configured local HTTP | Endpoint discovery and firewall testing |
 | Standalone game for host OS | Player shell work | Player shell work | Export-center implementation |
 | Current console scripts | Developer-only with Docker/Podman | Do not run natively | Bash, `flock`, POSIX paths, mounted repository |
 | Reworked OCI builders | Conditional on a runtime | Conditional on Docker Desktop/compatible runtime | External runtime installation |
@@ -383,7 +380,6 @@ these pass:
 - a draft starts without a temporary file;
 - portable archives contain no absolute paths or local configuration;
 - player-only exports boot without creator UI on Linux and Windows;
-- exported games remain playable with the local model unavailable;
 - all essential creator actions are reachable with the simple PC control
   profile, while mouse and keyboard remain efficient alternatives;
 - console target failures are isolated and never damage the source project;

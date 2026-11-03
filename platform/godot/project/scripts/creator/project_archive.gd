@@ -18,7 +18,6 @@ const ZIP_UTF8_FLAG := 0x0800
 const ZIP_VERSION := 20
 const ZIP_DOS_DATE_1980 := 0x0021
 const FORBIDDEN_NAMES := [
-	"pc.local.json",
 	"graphics.local.json",
 	"controls.local.json",
 	"project.local.json",

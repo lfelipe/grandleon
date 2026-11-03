@@ -97,6 +97,7 @@ var status_label: Label
 var turn_label: Label
 var unit_name: Label
 var unit_stats: RichTextLabel
+var controller_label: RichTextLabel
 var help_label: RichTextLabel
 var toast_label: Label
 var toast_tween: Tween
@@ -212,8 +213,7 @@ func _ready() -> void:
 	else:
 		campaign_key = str(staged.campaign)
 		started = session.start_package(
-			staged.package, campaign_key, player_count,
-			campaign_save_root
+			staged.package, campaign_key, player_count, campaign_save_root
 		)
 	if not started:
 		_show_fatal(session.last_error())
@@ -485,7 +485,7 @@ func _run_controls_smoke() -> void:
 	):
 		failed.append("empty checkpoint actions")
 	_show_settings_page()
-	if session_menu_page != "settings" or not session_menu_graphics.visible:
+	if session_menu_page != "settings" or not session_menu_audio.visible:
 		failed.append("settings page")
 	session_menu_stick.pressed.emit()
 	if (
@@ -1312,7 +1312,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	)
 	session_menu_layer.add_child(panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 18)
+	column.add_theme_constant_override("separation", 14)
 	panel.add_child(column)
 	column.add_child(_label("GRANDLEON  /  SESSION MENU", 16, Color("69d9ff")))
 	session_menu_title = _label("PAUSED", 38, Color("f2f7f9"))
@@ -1411,7 +1411,7 @@ func _session_menu_page() -> VBoxContainer:
 func _menu_button(value: String) -> Button:
 	var button := Button.new()
 	button.text = value
-	button.custom_minimum_size = Vector2(680, 82)
+	button.custom_minimum_size = Vector2(680, 76)
 	_bind_font_size(button, "font_size", 22)
 	button.add_theme_color_override("font_color", Color("dcebf0"))
 	button.add_theme_color_override("font_hover_color", Color("071018"))
@@ -1798,6 +1798,9 @@ func _configure_seats() -> void:
 			"device": device,
 			"cursor": cursor,
 		})
+		if not active:
+			selected_units[index] = 0
+			action_modes[index] = "move"
 		if device >= 0:
 			device_to_seat[device] = index
 	seats = next_seats
@@ -1805,6 +1808,10 @@ func _configure_seats() -> void:
 	_update_controller_label()
 	if board:
 		board.set_seats(seats)
+		for index in 2:
+			if not seats[index].active:
+				board.set_selected(index, 0, "move")
+				board.set_highlights(index, [])
 
 
 func _ensure_keyboard_seat() -> int:
@@ -2620,7 +2627,7 @@ func _activate_action_popup(seat: int) -> bool:
 
 func _selected_by_other_seat(seat: int, unit_id: int) -> int:
 	for other in selected_units.size():
-		if other != seat and selected_units[other] == unit_id:
+		if other != seat and other < seats.size() and seats[other].get("active", false) and selected_units[other] == unit_id:
 			return other
 	return -1
 

@@ -79,9 +79,7 @@ Local co-op does not fork this chain. A `sideBlocks` encounter, its placements,
 deployment, objectives, and dialogue compile once and are consumed unchanged by
 PC, Nintendo 64, and PlayStation. The played console clients poll two controller
 ports and retain two cursor/selection contexts while completed intents enter the
-shared simulation deterministically. Optional local-model requests sit above
-this chain in the PC client and are the only co-op-adjacent capability omitted
-from console builds.
+shared simulation deterministically.
 
 Player-count scaling follows the same path. The editor may mark an opposing
 placement `minimumPlayers: 2`; the compiler writes a required sparse scaling

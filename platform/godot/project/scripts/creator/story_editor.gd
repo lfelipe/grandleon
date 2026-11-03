@@ -625,7 +625,7 @@ func _build_interface() -> void:
 	dialogue_name_label.custom_minimum_size.y = 110
 	scene_column.add_child(dialogue_name_label)
 	var guidance := _label(
-		"Scenes, cast identities, and lines stay in the same portable project used by PC and console builds. Local-model settings never enter this source.",
+		"Scenes, cast identities, and lines stay in the same portable project used by PC and console builds.",
 		18, Color("a9bdc9")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -763,7 +763,7 @@ func _build_new_scene_layer() -> void:
 	new_scene_text.add_theme_font_size_override("font_size", 20)
 	column.add_child(new_scene_text)
 	var guidance := _label(
-		"The scene, cast identity, backdrop, and campaign attachment are portable to PC and console builds. Local-model settings stay outside the project.",
+		"The scene, cast identity, backdrop, and campaign attachment are portable to PC and console builds.",
 		16, Color("8ba5b3")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

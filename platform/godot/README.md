@@ -16,15 +16,14 @@ The separation is deliberate:
 
 | Layer | Owns | Does not own |
 |---|---|---|
-| `.gpk` project | maps, characters, dialogue, rules, presentation choices | PC paths or local model settings |
-| C++ extension | package loading, campaign saves, legal ranges, deterministic commands, AI fallback | rendering or controller layout |
-| Godot project | rendering, animation, two-player input, optional model requests | combat rules or campaign outcomes |
-| `runtime/local/pc.local.json` | one machine's model endpoint and feature switches | project content |
+| `.gpk` project | maps, characters, dialogue, rules, presentation choices | PC paths or machine settings |
+| C++ extension | package loading, campaign saves, legal ranges, deterministic commands and enemy turns | rendering or controller layout |
+| Godot project | rendering, animation, and two-player input | combat rules or campaign outcomes |
 | `runtime/local/controls.local.json` | one machine's controller and stick profile | project content or portable rules |
 
 The application opens on one small home screen. It lists the included game and
 locally created or imported games by title, followed by **Create / Edit Games**
-and **Exit**. No path, project identifier, machine name, or model setting is
+and **Exit**. No path, project identifier, or machine name is
 shown. The footer names only the directional control and the configured confirm
 button. Automated captures and integration smokes can enter play directly, but
 ordinary launches always begin at this screen.
@@ -182,8 +181,8 @@ available from anywhere and restarts from that complete state. **New Campaign**
 requires two confirms, resets the automatic resume campaign, and leaves manual
 slots available until the player replaces them. No unfinished turn, animation,
 or partial battle is represented as a save state.
-Project archives, player-only exports, presentation settings, and local model
-configuration never include campaign saves.
+Project archives, player-only exports, and presentation settings never include
+campaign saves.
 
 Before each persisted battle, the controller-native **Company** screen shows
 the portable roster, fielded count and authored deployment capacity, each
@@ -207,7 +206,7 @@ host-specific path is compiled into the extension; the bundler checks the
 native binary and refuses it if the checkout path remains.
 
 Machine-only overrides belong in `runtime/local/`. When `runtime/` is linked
-to persistent PC storage, control, graphics, and optional-model settings
+to persistent PC storage, control and graphics settings
 survive atomic release upgrades without entering an immutable release. The
 launcher prefers that private directory and retains bundle-root override files
 only as a compatibility fallback. Packaged acceptance installs a temporary
@@ -334,8 +333,7 @@ The stick or d-pad chooses an action and the configured confirm button (A by
 default) or Enter confirms it. The root contains only **Resume**, **Save /
 Load**, **Settings**, **Main Menu**, and **Exit Game**. Settings contains the
 four graphics profiles, camera-impulse comfort switch, Normal/Large text,
-Deliberate/Extra Firm stick input, Full/Low/Off sound effects, private
-local-model check, and the rolling
+Deliberate/Extra Firm stick input, Full/Low/Off sound effects, and the rolling
 five-second FPS, p95 frame-time, peak frame-time, window-size, and internal-
 canvas summary. Save / Load contains
 the three manual checkpoint slots and the two-confirm new-campaign action.
@@ -389,41 +387,6 @@ team phase, preserving replays and package compatibility on every target. The
 Nintendo 64 and PlayStation clients consume the same co-op maps and now keep an
 independent cursor and selection for each of their first two controller ports;
 only the richer overlapping presentation differs on PC.
-
-## Optional local models
-
-The demo is complete with models disabled. Its authored dialogue, built-in
-enemy tactics, talk branch, and ending all remain available offline.
-
-To test an OpenAI-compatible local server, copy the example into the persistent
-private configuration directory and edit the copy:
-
-```sh
-cp pc.example.json runtime/local/pc.local.json
-```
-
-`runtime/local/pc.local.json` is ignored by Git and is not transferred with a
-release. The default endpoint is loopback, remote
-endpoints are refused unless `allowRemote` is explicitly enabled, and an API
-token is read from the environment variable named by `tokenEnv` rather than
-stored in project content. No request is made while `enabled` is false.
-
-Conversation integration appends a small, validated exchange only to scenes
-listed in `content/demo_ai_hooks.json`; authored lines are never replaced.
-Speaker names, line counts, lengths, and markup are bounded before display.
-
-Tactical integration gives the model a numbered list of legal candidates made
-from engine queries. Candidate zero is always the deterministic built-in plan.
-The model returns one index, the native session validates the selected command
-again, and a timeout, malformed response, out-of-range choice, or refused
-proposal uses candidate zero. The model never supplies arbitrary simulation
-state or bypasses `Encounter::apply`.
-
-This adapter is the only part of the campaign gated to PC. It is local
-configuration, is never written into project data or an export, and is absent
-from both console builds. Authored conversation, objectives, `sideBlocks`
-co-op, and the built-in tactics policy remain the same portable game when the
-adapter is absent.
 
 ## Replaceable graphics
 
@@ -619,7 +582,7 @@ To build and capture all four graphics profiles under the same campaign state:
 platform/godot/scripts/capture-graphics-prototypes.sh
 ```
 
-To record the paced, model-off campaign reel used for remote visual review:
+To record the paced campaign reel used for remote visual review:
 
 ```sh
 platform/godot/scripts/record-demo-reel.sh
@@ -631,6 +594,7 @@ controller profiles—including their live interface labels:
 ```sh
 platform/godot/scripts/smoke-control-profile.sh
 ```
+
 To verify stable controller seats through connect, disconnect, reconnect,
 keyboard-plus-pad, and extra-pad cases:
 
@@ -658,6 +622,7 @@ result, play it, and return to the same editor session:
 ```sh
 platform/godot/scripts/smoke-map-editor.sh
 ```
+
 To edit, undo/redo, save, reopen, and compile a portable dialogue line through
 the focused native story screen:
 
@@ -673,9 +638,6 @@ two-player presentation as well as its overlapping commands. Set
 `GRANDLEON_DEMO_SECONDS` or pass build and output paths as the first two
 arguments when a different duration or destination is useful.
 Each invocation uses and removes a fresh capture-only save directory, so an
-earlier reel cannot advance the campaign seen by a later offline or model run.
+earlier reel cannot advance the campaign seen by a later recording.
 Set `GRANDLEON_DEMO_GRAPHICS` to `pixel`, `diorama`, `voxel-sprites`, or
 `voxel` to record the same sequence through another replaceable renderer.
-Set `GRANDLEON_DEMO_CONFIG` to an untracked local model configuration to record
-the same reel with conversation or opposing-side model hooks enabled. Model,
-host, and token settings stay outside both the project and the resulting video.

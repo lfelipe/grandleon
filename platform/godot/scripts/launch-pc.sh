@@ -37,14 +37,6 @@ fi
 if [[ "${GRANDLEON_WINDOWED:-0}" != "1" ]]; then
     game_args+=("--fullscreen")
 fi
-pc_config="${local_config_dir}/pc.local.json"
-if [[ ! -f "${pc_config}" ]]; then
-    pc_config="${bundle_dir}/pc.local.json"
-fi
-if [[ -f "${pc_config}" ]]; then
-    game_args+=("--config=${pc_config}")
-fi
-
 graphics_config="${local_config_dir}/graphics.local.json"
 if [[ ! -f "${graphics_config}" ]]; then
     graphics_config="${bundle_dir}/graphics.local.json"

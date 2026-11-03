@@ -167,6 +167,7 @@ const char* presentation_event_name(sim::EventType type) {
     }
     return "unknown";
 }
+
 const char* intent_name(client::IntentKind kind) {
     switch (kind) {
         case client::IntentKind::move_to: return "move";
@@ -189,6 +190,7 @@ sim::ContentId intent_content_id(const client::Intent& intent) {
         default: return 0;
     }
 }
+
 std::optional<MotionPresentation> plan_motion(
     const sim::EncounterSnapshot& snapshot,
     sim::UnitId unit_id,
@@ -270,6 +272,7 @@ std::optional<MotionPresentation> plan_motion(
     if (intent.kind != client::IntentKind::move_to) return std::nullopt;
     return plan_motion(snapshot, intent.unit_id, intent.destination);
 }
+
 }  // namespace
 
 void AsyncPresenter::present_dialogue(const pr::Dialogue& dialogue) {
