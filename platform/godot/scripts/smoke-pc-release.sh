@@ -87,6 +87,7 @@ godot_smokes=(
     smoke-creator-screen.sh
     smoke-fixed-formation.sh
     smoke-frame-timing.sh
+    smoke-gear-editor.sh
     smoke-home-menu.sh
     smoke-map-editor.sh
     smoke-motion-path.sh

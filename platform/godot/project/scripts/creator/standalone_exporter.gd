@@ -24,10 +24,12 @@ const EXCLUDED_FILES := [
 	"project/map_editor.tscn",
 	"project/story_editor.tscn",
 	"project/army_editor.tscn",
+	"project/gear_editor.tscn",
 	"project/scripts/creator/creator_screen.gd",
 	"project/scripts/creator/map_editor.gd",
 	"project/scripts/creator/story_editor.gd",
 	"project/scripts/creator/army_editor.gd",
+	"project/scripts/creator/gear_editor.gd",
 	"project/scripts/creator/standalone_exporter.gd",
 ]
 

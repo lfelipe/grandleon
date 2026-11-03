@@ -50,6 +50,7 @@ var redo_button: Button
 var play_button: Button
 var add_button: Button
 var more_layer: Control
+var more_gear_button: Button
 var more_projects_button: Button
 var add_layer: Control
 var add_name: LineEdit
@@ -1000,7 +1001,7 @@ func _request_leave(destination: String) -> void:
 func _open_more() -> void:
 	more_layer.visible = true
 	_update_actions()
-	(redo_button if not redo_button.disabled else more_projects_button).grab_focus()
+	(redo_button if not redo_button.disabled else more_gear_button).grab_focus()
 
 
 func _close_more() -> void:
@@ -1011,6 +1012,15 @@ func _close_more() -> void:
 func _more_redo() -> void:
 	more_layer.visible = false
 	_redo()
+
+
+func _more_gear() -> void:
+	more_layer.visible = false
+	if not _commit_visible_member(false):
+		return
+	if dirty and not _save():
+		return
+	get_tree().change_scene_to_file("res://gear_editor.tscn")
 
 
 func _more_projects() -> void:
@@ -1298,6 +1308,10 @@ func _build_more_layer() -> void:
 	redo_button = _button("REDO", 680, 66)
 	redo_button.pressed.connect(_more_redo)
 	column.add_child(redo_button)
+	more_gear_button = _button("GEAR & ABILITIES", 680, 66)
+	more_gear_button.tooltip_text = "Create the choices that roles can carry and learn."
+	more_gear_button.pressed.connect(_more_gear)
+	column.add_child(more_gear_button)
 	more_projects_button = _button("RETURN TO PROJECTS", 680, 66)
 	more_projects_button.pressed.connect(_more_projects)
 	column.add_child(more_projects_button)

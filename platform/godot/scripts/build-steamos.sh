@@ -135,11 +135,13 @@ if [[ "${player_only}" == "1" ]]; then
         "${temporary_dir}/project/map_editor.tscn" \
         "${temporary_dir}/project/story_editor.tscn" \
         "${temporary_dir}/project/army_editor.tscn" \
+        "${temporary_dir}/project/gear_editor.tscn" \
         "${temporary_dir}/project/content/templates" \
         "${temporary_dir}/project/scripts/creator/creator_screen.gd" \
         "${temporary_dir}/project/scripts/creator/map_editor.gd" \
         "${temporary_dir}/project/scripts/creator/story_editor.gd" \
         "${temporary_dir}/project/scripts/creator/army_editor.gd" \
+        "${temporary_dir}/project/scripts/creator/gear_editor.gd" \
         "${temporary_dir}/project/scripts/creator/standalone_exporter.gd"
     printf 'Player-only Grand Leon game bundle.\n' >"${temporary_dir}/PLAYER-ONLY"
 fi
