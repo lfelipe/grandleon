@@ -3,9 +3,11 @@ extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const StandaloneExporter = preload("res://scripts/creator/standalone_exporter.gd")
+const ConsoleBuilder = preload("res://scripts/creator/console_builder.gd")
 
 var library
 var standalone_exporter
+var console_builder
 var project_list: VBoxContainer
 var status_label: Label
 var first_button: Button
@@ -23,6 +25,8 @@ var export_title: Label
 var export_status_label: Label
 var export_first_button: Button
 var export_linux_button: Button
+var export_nintendo_64_button: Button
+var export_playstation_button: Button
 var export_project_id := ""
 var export_project_name := ""
 var rename_layer: Control
@@ -43,6 +47,7 @@ func _ready() -> void:
 	_parse_arguments()
 	library = ProjectLibrary.new()
 	standalone_exporter = StandaloneExporter.new(library)
+	console_builder = ConsoleBuilder.new(library)
 	_build_interface()
 	_refresh_projects()
 	if first_button != null:
@@ -50,6 +55,10 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if console_builder != null and console_builder.busy():
+		var build: Dictionary = console_builder.poll()
+		if not bool(build.get("running", false)):
+			_finish_console_export(build)
 	if screenshot_frames > 0:
 		screenshot_frames -= 1
 	elif screenshot_frames == 0:
@@ -62,6 +71,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if new_campaign_layer != null and new_campaign_layer.visible:
 			_close_new_campaign()
+		elif export_layer != null and export_layer.visible and console_builder != null and console_builder.busy():
+			_set_export_status("BUILD IN PROGRESS  /  WAIT FOR THE CONSOLE ARTIFACT", false)
 		elif export_layer != null and export_layer.visible:
 			_close_export_center()
 		elif project_actions_layer != null and project_actions_layer.visible:
@@ -333,18 +344,20 @@ func _build_export_layer() -> void:
 	export_linux_button.custom_minimum_size.y = 92
 	export_linux_button.pressed.connect(_export_linux_from_center)
 	column.add_child(export_linux_button)
-	var nintendo_64 := _button(
+	export_nintendo_64_button = _button(
 		"NINTENDO 64 ROM  /  BUILDER NOT INSTALLED\nUse the release tools outside the game for now"
 	)
-	nintendo_64.custom_minimum_size.y = 92
-	nintendo_64.disabled = true
-	column.add_child(nintendo_64)
-	var playstation := _button(
+	export_nintendo_64_button.custom_minimum_size.y = 92
+	export_nintendo_64_button.disabled = true
+	export_nintendo_64_button.pressed.connect(_start_console_export.bind("nintendo64"))
+	column.add_child(export_nintendo_64_button)
+	export_playstation_button = _button(
 		"PLAYSTATION DISC  /  BUILDER NOT INSTALLED\nUse the release tools outside the game for now"
 	)
-	playstation.custom_minimum_size.y = 92
-	playstation.disabled = true
-	column.add_child(playstation)
+	export_playstation_button.custom_minimum_size.y = 92
+	export_playstation_button.disabled = true
+	export_playstation_button.pressed.connect(_start_console_export.bind("playstation"))
+	column.add_child(export_playstation_button)
 	export_status_label = _label("CHOOSE A FORMAT", 17, Color("72e08f"))
 	export_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	export_status_label.custom_minimum_size.y = 50
@@ -487,10 +500,14 @@ func _refresh_export_center() -> void:
 			+ "Install the full Linux release to enable this target"
 		)
 	export_linux_button.tooltip_text = str(available.message)
+	_refresh_console_export_availability()
 	_set_export_status("CHOOSE A FORMAT", false)
 
 
 func _close_export_center() -> void:
+	if console_builder != null and console_builder.busy():
+		_set_export_status("BUILD IN PROGRESS  /  WAIT FOR THE CONSOLE ARTIFACT", false)
+		return
 	export_layer.visible = false
 	if not project_actions_id.is_empty():
 		project_actions_layer.visible = true
@@ -535,6 +552,51 @@ func _refresh_linux_export_availability() -> void:
 	var available: Dictionary = standalone_exporter.linux_availability()
 	export_linux_button.disabled = not bool(available.ok)
 	export_linux_button.tooltip_text = str(available.message)
+
+
+func _refresh_console_export_availability() -> void:
+	for target: String in ["nintendo64", "playstation"]:
+		var button := (
+			export_nintendo_64_button if target == "nintendo64"
+			else export_playstation_button
+		)
+		var available: Dictionary = console_builder.availability(target)
+		button.disabled = not bool(available.ok) or console_builder.busy()
+		button.tooltip_text = str(available.get("message", "Installed builder payload is ready."))
+		var title := "NINTENDO 64 ROM" if target == "nintendo64" else "PLAYSTATION BIN / CUE"
+		if available.ok:
+			button.text = "%s  /  READY\nBuilder %s · portable source only" % [
+				title, str(available.version)
+			]
+		else:
+			button.text = "%s  /  BUILDER NOT INSTALLED\nOptional builder payload required" % title
+
+
+func _start_console_export(target: String) -> void:
+	if export_project_id.is_empty():
+		_set_export_status("BUILD FAILED  /  NO PROJECT SELECTED", true)
+		return
+	var started: Dictionary = console_builder.start(target, export_project_id)
+	if not started.ok:
+		_set_export_status("BUILD FAILED  /  %s" % str(started.message).to_upper(), true)
+		_refresh_console_export_availability()
+		return
+	export_first_button.disabled = true
+	export_linux_button.disabled = true
+	_refresh_console_export_availability()
+	_set_export_status(str(started.message), false)
+
+
+func _finish_console_export(result: Dictionary) -> void:
+	export_first_button.disabled = false
+	_refresh_linux_export_availability()
+	_refresh_console_export_availability()
+	if not result.ok:
+		_set_export_status("BUILD FAILED  /  %s" % str(result.get("message", "UNKNOWN ERROR")).to_upper(), true)
+		return
+	var target := "NINTENDO 64 ROM" if str(result.target) == "nintendo64" else "PLAYSTATION BIN / CUE"
+	_set_export_status("READY  /  %s  /  %s" % [str(result.name).to_upper(), target], false)
+	_set_status("BUILT %s  /  %s" % [target, str(result.name).to_upper()], false)
 
 
 func _set_export_status(message: String, failure: bool) -> void:

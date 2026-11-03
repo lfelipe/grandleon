@@ -231,9 +231,11 @@ but it must not become a second schema authority.
 These are release blockers in priority order, not invitations to add a large
 permanent form.
 
-1. **Console builder payloads.** Integrate separately installed, versioned
-   Nintendo 64 and PlayStation builders into the Export Center with independent
-   progress, warnings, capability checks, hashes, and failure reports.
+1. **Package console builder payloads.** The versioned asynchronous host,
+   independent target availability, checksum/license inventory checks,
+   artifact validation, privacy scan, and atomic export are implemented.
+   Package the Nintendo 64 and PlayStation template builders, compare them with
+   the repository pipelines, and pass their outputs through the emulator gates.
 2. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
    run clean-revision PC/Nintendo 64/PlayStation gates, and complete one human
    solo and co-op campaign playthrough per target.
@@ -279,6 +281,13 @@ retail application components. They assume a checkout, Bash, CMake, POSIX
 utilities, and a Docker-compatible daemon. The installed application must not
 mount a home directory, source checkout, installation directory, or container
 socket into an opaque builder.
+
+The installed host side of the payload boundary is implemented and specified
+in [../../docs/CONSOLE_BUILDER_PAYLOADS.md](../../docs/CONSOLE_BUILDER_PAYLOADS.md).
+Each target validates its own manifest, executable checksum, dependency and
+license inventory, then runs asynchronously against one request directory.
+Only exact, hashed artifacts survive the privacy scan and atomic move. The
+remaining work is producing and emulator-signing the first real payloads.
 
 Two payload approaches remain viable:
 

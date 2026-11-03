@@ -83,6 +83,7 @@ godot_smokes=(
     smoke-campaign-persistence.sh
     smoke-checkpoint-slots.sh
     smoke-control-profile.sh
+    smoke-console-builder.sh
     smoke-controller-seats.sh
     smoke-creator-screen.sh
     smoke-fixed-formation.sh

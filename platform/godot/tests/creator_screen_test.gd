@@ -74,6 +74,9 @@ func _run() -> void:
 			screen.export_linux_button.disabled,
 			real_shell.is_empty()
 		)
+		_expect("Nintendo 64 target waits for its payload", screen.export_nintendo_64_button.disabled, true)
+		_expect("PlayStation target waits for its payload", screen.export_playstation_button.disabled, true)
+		_expect("console target explains the optional payload", screen.export_nintendo_64_button.text.contains("BUILDER NOT INSTALLED"), true)
 		var export_screenshot_path := _argument_path("--capture-export-center=")
 		if not export_screenshot_path.is_empty():
 			for frame in 12:

@@ -240,9 +240,13 @@ target center, **Portable Project** writes an editable archive containing
 canonical source and project-owned assets only. It is always available. A full
 Linux installation can also create a player-only PC game from its verified
 installed shell. Nintendo 64 and PlayStation targets become available only
-when their separately versioned builder payloads are installed; until that 0.3
-integration is complete, use the repository release commands in
-[RELEASE_0_3.md](RELEASE_0_3.md).
+when their separately versioned builder payloads are installed. Each target is
+checked independently; the creator builds in the background, verifies artifact
+names, sizes, hashes, structure, and privacy, then makes the completed export
+visible atomically. The payload host contract is documented in
+[CONSOLE_BUILDER_PAYLOADS.md](CONSOLE_BUILDER_PAYLOADS.md). Until the first real
+payloads are packaged and emulator-signed, use the repository release commands
+in [RELEASE_0_3.md](RELEASE_0_3.md).
 
 Projects, imports, exports, creator recovery data, controls, presentation
 settings, and campaign saves live in per-user runtime storage—not the immutable

@@ -52,7 +52,7 @@ Every release decision should preserve these constraints:
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached with its portable identity generated automatically, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, and tunes seven named-hero traits. New roles copy a working role into an independent baseline. Tune Role edits all eleven portable baseline stats, side, terrain crossing, post-attack behavior, and allowed weapon families; incompatible removal is refused. New Side creates a portable named faction and color. Growth & Rewards keeps optional experience, level growth, item drops, and per-role appearance behind one advanced action. Campaign supplies, chapter rewards, role loadouts, and the separate reusable Gear & Abilities library are also native. |
 | Native authoring parity for 0.3 | Ready for release sign-off | Named negated and compound goal/item/Talk requirements, Talk-driven boolean story state, measured fielded-unit budgets, and safe whole-chapter ordering are implemented. Imported general world-value comparisons remain preserved and advanced because the portable source schema has no general operation that produces them. The replaceable PC graphics contract and four real profiles meet the 0.3 art-boundary requirement; arbitrary-file art-pack import is post-0.3. |
-| Native Export Center | Partial | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Synthetic and real packaged-shell smokes cover privacy, stripping, and compiled-content identity. Nintendo 64 and PlayStation still need separately installed builder payload integration. |
+| Native Export Center | Host ready; payload packaging blocking | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Nintendo 64 and PlayStation independently discover versioned builder payloads, validate executable checksums and license/dependency inventories, build asynchronously, verify exact artifacts and hashes, reject local-path leakage, and publish atomically. Synthetic payload and real packaged-shell smokes cover the host boundaries. The real console payloads still need packaging and emulator sign-off. |
 | Documentation and screenshots | In progress | README and `docs/CREATING_A_GAME.md` now describe the tested native flow and use six screens rendered from the real Godot creator. Recapture them after the final UI freeze and add the enabled Export Center from the final current-version player shell. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
 
@@ -366,11 +366,10 @@ are frozen.
 
 - Choose the portable shared world theme and character style and preview actual
   runtime assets. **Implemented.**
-- Choose separately installed terrain/character/effect replacement packs.
-- Import project-owned replacements with explicit dimensions, pivots,
-  animation names, and target budgets.
-- Preserve independent PC assets and generated console derivatives without
-  embedding machine paths.
+- Keep the pixel, diorama, voxel-sprites, and voxel renderers behind the same
+  portable presentation values with per-binding fallback. **Implemented.**
+- Arbitrary-file art import is post-0.3; the stable replacement boundary is the
+  release requirement, not another form in the ordinary campaign flow.
 
 Exit: an author can replace the initial art without changing gameplay source
 or repository code.
@@ -380,11 +379,13 @@ or repository code.
 - Export a portable editable project. **Implemented.**
 - Build a player-only Linux game from a clean prebuilt shell. **Implemented.**
 - Build Nintendo 64 and PlayStation targets through separately installed,
-  versioned builder payloads.
-- Report each target independently. **Implemented for portable and Linux PC
-  output; console warnings, builder versions, and hashes remain.**
+  versioned builder payloads. **The asynchronous host contract is implemented;
+  real payload packaging and emulator sign-off remain.**
+- Report each target independently. **Implemented, including availability,
+  builder version, exact artifact names/sizes/hashes, and bounded warnings.**
 - Never copy credentials, container state, absolute paths, or local settings
-  into a project or report. **Covered for portable and Linux PC output.**
+  into a project or report. **Covered for portable, Linux PC, and synthetic
+  console output, including a negative path-leak test.**
 
 Exit: the installed PC application can create the three 0.3 target artifacts
 without requiring a source checkout.

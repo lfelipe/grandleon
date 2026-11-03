@@ -169,6 +169,14 @@ replaceable-art boundary. Arbitrary-file art-pack import is intentionally a
 post-0.3 increment in [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md), not another
 control in the ordinary campaign flow.
 
+**Finish & Export** always offers a portable project and enables the Linux
+player when a verified shell is installed. Nintendo 64 and PlayStation enable
+independently when their optional versioned payload validates. Console builds
+run asynchronously; executable checksums, inventories, artifact structure,
+hashes, undeclared files, and local-path leakage are checked before an atomic
+export. The payload/DLC boundary is specified in
+[CONSOLE_BUILDER_PAYLOADS.md](../../docs/CONSOLE_BUILDER_PAYLOADS.md).
+
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to
 cover a wider range of SteamOS hardware.
