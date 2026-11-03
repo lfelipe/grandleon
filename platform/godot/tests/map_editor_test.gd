@@ -109,6 +109,21 @@ func _run() -> void:
 	_expect("ally placement shown on board", editor.grid.get_child(6).tooltip_text.contains("FIRST"), true)
 	_expect("enemy placement shown on board", editor.grid.get_child(8).tooltip_text.contains("SECOND"), true)
 	_expect("map selector receives controller focus", editor.map_select.has_focus(), true)
+	editor._select_tool("ownership")
+	editor._paint_cell(6)
+	await process_frame
+	var player_two_placement: Dictionary = _parse(editor.source).campaigns[0].flow.nodes[0].placements[0]
+	_expect("ownership tool assigns an ally to player two", int(player_two_placement.player), 2)
+	_expect("player two has an amber board badge", editor.grid.get_child(6).tooltip_text.contains("PLAYER 2"), true)
+	_expect("ownership is one undo command", editor.undo_stack.size(), 1)
+	editor._undo()
+	await process_frame
+	_expect(
+		"ownership undo restores sparse player one source",
+		_parse(editor.source).campaigns[0].flow.nodes[0].placements[0].has("player"),
+		false
+	)
+	editor._select_tool("brush")
 	var before := _parse(editor.source)
 	_expect("first source cell", before.maps[0].terrain[0], "forest")
 	editor._select_terrain("water")

@@ -69,9 +69,11 @@ placements are overlaid on the terrain and can be added, moved, or removed with
 compact controller actions. Allied additions use unused campaign members;
 enemies use portable unit types. Deployment regions have a visible board
 overlay and an atomic draft/apply flow, so several cells can be toggled before
-canonical source changes. The **2P** tool toggles an opposing placement between
-always present and a two-player addition; scaled enemies are labelled on the
-board.
+canonical source changes. **P1 / P2** assigns every allied placement to one of
+the two co-op armies, with matching cyan and amber board badges; solo play
+normalizes both armies under Player 1. The separate **2P** tool toggles an
+opposing placement between always present and a two-player addition; scaled
+enemies are labelled on the board.
 The **Goals** surface attaches existing objectives or authors complete defeat,
 protect, and survive conditions. **Outside** chooses how exposed space beyond
 the tactical map is presented: one RGB colour, an automatic non-playable edge,
@@ -103,9 +105,9 @@ and prompts never enter the portable dialogue source.
 
 The current creator creates and resizes maps, edits playable and surrounding
 terrain, arranges both sides of existing encounters, and authors deployment
-regions, player scaling, objectives, dialogue lines, and new dialogue scenes
-attached to existing story moments. Creating and routing campaign story nodes
-and broader art-pack editing remain in the increments defined by
+regions, allied player ownership, player scaling, objectives, dialogue lines,
+and new dialogue scenes attached to existing story moments. Creating and
+routing campaign story nodes and broader art-pack editing remain in the increments defined by
 [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated

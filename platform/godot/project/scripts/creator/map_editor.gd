@@ -321,7 +321,7 @@ func _update_tool_selection() -> void:
 		var button: Button = tool_buttons[name]
 		var display_names := {
 			"unit": "MOVE", "remove_unit": "REMOVE", "deployment": "ZONE",
-			"scaling": "2P", "surroundings": "OUTSIDE",
+			"ownership": "P1 / P2", "scaling": "2P", "surroundings": "OUTSIDE",
 		}
 		var display := str(display_names.get(name, name.to_upper()))
 		button.text = ("● " if name == active_tool else "  ") + display
@@ -445,7 +445,11 @@ func _automatic_surrounding_name(map: Dictionary, x: int, y: int) -> String:
 func _add_placement_badge(cell: Button, placements: Array) -> void:
 	var first: Dictionary = placements[0]
 	var first_side := str(first.get("side", "second")) == "first"
-	var colour := Color("69d9ff") if first_side else Color("ff7a83")
+	var local_player := clampi(int(first.get("player", 1)), 1, 2)
+	var colour := (
+		(Color("69d9ff") if local_player == 1 else Color("ffca63"))
+		if first_side else Color("ff7a83")
+	)
 	var selected := false
 	for placement_value: Variant in placements:
 		if placement_value is Dictionary and str(placement_value.get("id", "")) == selected_placement_id:
@@ -457,7 +461,7 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 	var two_player_only := int(first.get("minimumPlayers", 1)) >= 2
 	label.text = "MOVE" if selected else (
 		"%d×" % placements.size() if placements.size() > 1 else (
-			"ALLY" if first_side else ("2P" if two_player_only else "ENEMY")
+			"P%d" % local_player if first_side else ("2P" if two_player_only else "ENEMY")
 		)
 	)
 	label.position = Vector2(5, 5)
@@ -477,8 +481,12 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 	for placement_value: Variant in placements:
 		var placement: Dictionary = placement_value
 		details.append(
-			"%s%s: %s" % [
+			"%s%s%s: %s" % [
 				str(placement.get("side", "unit")).to_upper(),
+				(
+					" / PLAYER %d" % clampi(int(placement.get("player", 1)), 1, 2)
+					if str(placement.get("side", "second")) == "first" else ""
+				),
 				" / 2 PLAYERS" if int(placement.get("minimumPlayers", 1)) >= 2 else "",
 				str(placement.get("name", placement.get("id", "unit"))),
 			]
@@ -614,6 +622,8 @@ func _paint_cell(index: int) -> void:
 		_add_unit_at(index, width)
 	elif active_tool == "remove_unit":
 		_remove_unit_at(index, width)
+	elif active_tool == "ownership":
+		_toggle_placement_player_at(index, width)
 	elif active_tool == "scaling":
 		_toggle_placement_scaling_at(index, width)
 	elif active_tool == "unit":
@@ -742,6 +752,44 @@ func _toggle_placement_scaling_at(index: int, width: int) -> void:
 			placement_id.to_upper(),
 			"ALWAYS PRESENT" if was_scaled else "ADDED FOR 2 PLAYERS",
 		],
+		false
+	)
+
+
+func _toggle_placement_player_at(index: int, width: int) -> void:
+	var encounter := _current_encounter()
+	var placement := _placement_at(index, width)
+	if encounter.is_empty() or placement.is_empty():
+		_set_status("CHOOSE AN ALLIED PLACEMENT", true)
+		_focus_cell(index)
+		return
+	if str(placement.get("side", "second")) != "first":
+		_set_status("ONLY ALLIED UNITS BELONG TO PLAYER 1 OR PLAYER 2", true)
+		_focus_cell(index)
+		return
+	var node: Dictionary = encounter.node
+	var placement_id := str(placement.get("id", ""))
+	var current_player := clampi(int(placement.get("player", 1)), 1, 2)
+	var next_player := 2 if current_player == 1 else 1
+	var updated: Dictionary = compiler.set_placement_player(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(node.get("id", "")),
+		placement_id,
+		next_player
+	)
+	if not updated.ok:
+		_set_status("OWNERSHIP REFUSED  /  %s" % _diagnostic_detail(updated), true)
+		_focus_cell(index)
+		return
+	_push_undo(source)
+	source = updated.source
+	redo_stack.clear()
+	dirty = true
+	_read_source()
+	_refresh_maps_after_edit(index)
+	_set_status(
+		"UNSAVED  /  %s BELONGS TO PLAYER %d" % [placement_id.to_upper(), next_player],
 		false
 	)
 
@@ -2205,18 +2253,24 @@ func _build_interface() -> void:
 	var encounter_rules := HBoxContainer.new()
 	encounter_rules.add_theme_constant_override("separation", 6)
 	tools_column.add_child(encounter_rules)
-	deployment_button = _button("ZONE", 104, 48)
+	deployment_button = _button("ZONE", 78, 48)
 	deployment_button.add_theme_font_size_override("font_size", 14)
 	deployment_button.tooltip_text = "Draft and apply the selected encounter's deployment region"
 	deployment_button.pressed.connect(_begin_deployment_edit)
 	encounter_rules.add_child(deployment_button)
 	tool_buttons["deployment"] = deployment_button
-	objective_button = _button("GOALS", 104, 48)
+	objective_button = _button("GOALS", 78, 48)
 	objective_button.add_theme_font_size_override("font_size", 14)
 	objective_button.tooltip_text = "Create and assign the selected encounter's objectives"
 	objective_button.pressed.connect(_open_objectives)
 	encounter_rules.add_child(objective_button)
-	var scaling_button := _button("2P", 104, 48)
+	var ownership_button := _button("P1 / P2", 78, 48)
+	ownership_button.add_theme_font_size_override("font_size", 12)
+	ownership_button.tooltip_text = "Assign an allied placement to Player 1 or Player 2"
+	ownership_button.pressed.connect(_select_tool.bind("ownership"))
+	encounter_rules.add_child(ownership_button)
+	tool_buttons["ownership"] = ownership_button
+	var scaling_button := _button("2P", 78, 48)
 	scaling_button.add_theme_font_size_override("font_size", 14)
 	scaling_button.tooltip_text = "Toggle an enemy placement as a two-player addition"
 	scaling_button.pressed.connect(_select_tool.bind("scaling"))
