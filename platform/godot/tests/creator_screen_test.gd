@@ -58,6 +58,19 @@ func _run() -> void:
 			screen.library.load_source(original_id).project.title,
 			"Relay Adventure"
 		)
+		screen._export_project(original_id)
+		_expect("creator reports archive export", screen.status_label.text.begins_with("EXPORTED  /  "), true)
+		screen._open_import()
+		_expect("archive picker opens", screen.import_dialog.visible, true)
+		var import_screenshot_path := _argument_path("--import-screenshot=")
+		if not import_screenshot_path.is_empty():
+			for frame in 12:
+				await process_frame
+			get_root().get_texture().get_image().save_png(import_screenshot_path)
+			print("creator import capture saved: %s" % import_screenshot_path)
+			quit(1 if failures > 0 else 0)
+			return
+		screen.import_dialog.hide()
 		var screenshot_path := _argument_path("--screenshot=")
 		if not screenshot_path.is_empty():
 			for frame in 12:

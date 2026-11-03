@@ -11,6 +11,7 @@ var project_buttons: Dictionary = {}
 var rename_layer: Control
 var rename_input: LineEdit
 var rename_project_id := ""
+var import_dialog: FileDialog
 var screenshot_path := ""
 var screenshot_frames := -1
 
@@ -107,6 +108,10 @@ func _build_interface() -> void:
 	blank.tooltip_text = "An empty canonical project for building from the beginning."
 	blank.pressed.connect(_create_blank)
 	actions.add_child(blank)
+	var import_archive := _button("IMPORT PROJECT ARCHIVE")
+	import_archive.tooltip_text = "Open a portable .grandleon.zip project."
+	import_archive.pressed.connect(_open_import)
+	actions.add_child(import_archive)
 	var shipped := _button("PLAY INCLUDED GAME")
 	shipped.pressed.connect(_play_shipped_game)
 	actions.add_child(shipped)
@@ -141,6 +146,7 @@ func _build_interface() -> void:
 	status_label.custom_minimum_size.y = 64
 	projects_column.add_child(status_label)
 	_build_rename_layer()
+	_build_import_dialog()
 
 
 func _build_rename_layer() -> void:
@@ -191,6 +197,20 @@ func _build_rename_layer() -> void:
 	actions.add_child(cancel)
 
 
+func _build_import_dialog() -> void:
+	import_dialog = FileDialog.new()
+	import_dialog.title = "Import a Grand Leon project"
+	import_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	import_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	import_dialog.filters = PackedStringArray([
+		"*.grandleon.zip ; Grand Leon project archives",
+	])
+	import_dialog.current_dir = library.import_directory()
+	import_dialog.use_native_dialog = false
+	import_dialog.file_selected.connect(_import_project)
+	add_child(import_dialog)
+
+
 func _create_starter() -> void:
 	_create_from("res://content/templates/starter_battle.json", "Untitled Adventure")
 
@@ -233,29 +253,35 @@ func _refresh_projects() -> void:
 		project_list.add_child(row)
 		var edit := _button("EDIT  /  %s\n%s" % [title, game_id])
 		edit.disabled = not bool(project.get("readable", false))
-		edit.custom_minimum_size.x = 510
+		edit.custom_minimum_size.x = 355
 		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		edit.pressed.connect(_edit_project.bind(str(project.id)))
 		row.add_child(edit)
 		project_buttons[str(project.id)] = edit
 		var play := _button("PLAY")
 		play.disabled = edit.disabled
-		play.custom_minimum_size.x = 135
+		play.custom_minimum_size.x = 125
 		play.size_flags_horizontal = Control.SIZE_SHRINK_END
 		play.pressed.connect(_play_project.bind(str(project.id)))
 		row.add_child(play)
 		var duplicate := _button("COPY")
 		duplicate.disabled = edit.disabled
-		duplicate.custom_minimum_size.x = 145
+		duplicate.custom_minimum_size.x = 135
 		duplicate.size_flags_horizontal = Control.SIZE_SHRINK_END
 		duplicate.pressed.connect(_duplicate_project.bind(str(project.id)))
 		row.add_child(duplicate)
 		var rename := _button("RENAME")
 		rename.disabled = edit.disabled
-		rename.custom_minimum_size.x = 165
+		rename.custom_minimum_size.x = 145
 		rename.size_flags_horizontal = Control.SIZE_SHRINK_END
 		rename.pressed.connect(_open_rename.bind(str(project.id), title))
 		row.add_child(rename)
+		var export := _button("EXPORT")
+		export.disabled = edit.disabled
+		export.custom_minimum_size.x = 155
+		export.size_flags_horizontal = Control.SIZE_SHRINK_END
+		export.pressed.connect(_export_project.bind(str(project.id)))
+		row.add_child(export)
 
 
 func _duplicate_project(project_id: String) -> void:
@@ -266,6 +292,35 @@ func _duplicate_project(project_id: String) -> void:
 	_refresh_projects()
 	_set_status("COPIED  /  NEW PORTABLE PROJECT ID", false)
 	_focus_project(str(created.id))
+
+
+func _export_project(project_id: String) -> void:
+	var exported: Dictionary = library.export_project(project_id)
+	if not exported.ok:
+		_set_status("EXPORT FAILED  /  %s" % exported.message, true)
+		return
+	_set_status("EXPORTED  /  %s" % str(exported.name).to_upper(), false)
+	_focus_project(project_id)
+
+
+func _open_import() -> void:
+	import_dialog.current_dir = library.import_directory()
+	import_dialog.popup_centered_ratio(0.78)
+
+
+func _import_project(path: String) -> void:
+	var imported: Dictionary = library.import_project(path)
+	if not imported.ok:
+		_set_status("IMPORT FAILED  /  %s" % imported.message, true)
+		return
+	_refresh_projects()
+	_set_status(
+		"IMPORTED COPY  /  NEW PORTABLE IDS"
+		if imported.identity_replaced
+		else "IMPORTED  /  PORTABLE IDS PRESERVED",
+		false
+	)
+	_focus_project(str(imported.id))
 
 
 func _open_rename(project_id: String, title: String) -> void:
@@ -302,11 +357,15 @@ func _apply_rename() -> void:
 
 
 func _focus_project(project_id: String) -> void:
+	call_deferred("_focus_project_now", project_id)
+
+
+func _focus_project_now(project_id: String) -> void:
 	var button: Variant = project_buttons.get(project_id)
-	if button is Button and is_instance_valid(button):
-		button.call_deferred("grab_focus")
-	elif first_button != null:
-		first_button.call_deferred("grab_focus")
+	if button is Button and is_instance_valid(button) and button.is_inside_tree():
+		button.grab_focus()
+	elif first_button != null and first_button.is_inside_tree():
+		first_button.grab_focus()
 
 
 func _edit_project(project_id: String) -> void:

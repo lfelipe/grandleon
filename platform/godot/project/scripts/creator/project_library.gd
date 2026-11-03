@@ -2,16 +2,19 @@
 class_name ProjectLibrary
 extends RefCounted
 
+const ProjectArchive = preload("res://scripts/creator/project_archive.gd")
 const PROJECT_FILE := "project.json"
 const PREVIOUS_FILE := "project.previous.json"
 
 var root_path: String
 var compiler: RefCounted
+var archive
 
 
 func _init(path: String = "user://projects") -> void:
 	root_path = ProjectSettings.globalize_path(path)
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+	archive = ProjectArchive.new()
 
 
 func ready() -> bool:
@@ -94,6 +97,149 @@ func duplicate_project(project_id: String) -> Dictionary:
 		return loaded
 	var copy_title := _unique_copy_title(str(loaded.project.get("title", "Untitled Game")))
 	return create_project(copy_title, loaded.source)
+
+
+func export_project(project_id: String) -> Dictionary:
+	var loaded := load_source(project_id)
+	if not loaded.ok:
+		return loaded
+	var export_root := root_path.get_base_dir().path_join("exports")
+	if DirAccess.make_dir_recursive_absolute(export_root) != OK:
+		return _failure("export_directory_failed", "The project export directory could not be created.")
+	var game_id := str(loaded.project.get("gameId", "game"))
+	if game_id.is_empty():
+		game_id = "game"
+	var stem := "%s-%s" % [game_id, project_id.left(8)]
+	var archive_path := export_root.path_join(stem + ".grandleon.zip")
+	var number := 2
+	while FileAccess.file_exists(archive_path):
+		archive_path = export_root.path_join("%s-%d.grandleon.zip" % [stem, number])
+		number += 1
+	return export_project_to(project_id, archive_path)
+
+
+func export_project_to(project_id: String, archive_path: String) -> Dictionary:
+	var loaded := load_source(project_id)
+	if not loaded.ok:
+		return loaded
+	var destination := ProjectSettings.globalize_path(archive_path)
+	if not destination.to_lower().ends_with(".grandleon.zip"):
+		return _failure("archive_name_invalid", "Portable project archives must end in .grandleon.zip.")
+	if FileAccess.file_exists(destination):
+		return _failure("archive_exists", "That portable archive already exists.")
+	if DirAccess.make_dir_recursive_absolute(destination.get_base_dir()) != OK:
+		return _failure("export_directory_failed", "The project export directory could not be created.")
+	var temporary := destination.get_base_dir().path_join(".%s.tmp" % _new_uuid())
+	var written: Dictionary = archive.write_archive(
+		temporary, loaded.source, _project_path(project_id).path_join("assets")
+	)
+	if not written.ok:
+		if FileAccess.file_exists(temporary):
+			DirAccess.remove_absolute(temporary)
+		return written
+	var error := DirAccess.rename_absolute(temporary, destination)
+	if error != OK:
+		DirAccess.remove_absolute(temporary)
+		return _failure("export_replace_failed", "The portable archive could not be placed in the export directory.")
+	return {
+		"ok": true,
+		"id": project_id,
+		"path": destination,
+		"name": destination.get_file(),
+		"entries": written.entries,
+		"bytes": written.bytes,
+	}
+
+
+func import_project(archive_path: String) -> Dictionary:
+	if not ready():
+		return _failure("native_compiler_unavailable", "The native project compiler did not load.")
+	var opened: Dictionary = archive.read_archive(ProjectSettings.globalize_path(archive_path))
+	if not opened.ok:
+		return opened
+	var parsed := JSON.new()
+	if parsed.parse(str(opened.source)) != OK or not parsed.data is Dictionary:
+		return _failure("source_invalid", "The archive's project.json is not readable JSON.")
+	var source := str(opened.source)
+	var checked: Dictionary = compiler.compile_source_json(source)
+	for diagnostic: Dictionary in checked.diagnostics:
+		if diagnostic.get("phase", "") == "source":
+			return {
+				"ok": false,
+				"code": "source_invalid",
+				"message": "The archive does not contain a readable project.",
+				"diagnostics": checked.diagnostics,
+			}
+	var project: Dictionary = parsed.data
+	var project_id := str(project.get("packageId", ""))
+	if not _valid_project_id(project_id):
+		return _failure("source_identity_invalid", "The archived project does not have a portable identity.")
+	var archived_game_id := str(project.get("gameId", ""))
+	var identity_replaced := false
+	if (
+		DirAccess.dir_exists_absolute(_project_path(project_id))
+		or _game_id_exists(archived_game_id)
+	):
+		identity_replaced = true
+		project_id = _new_uuid()
+		while DirAccess.dir_exists_absolute(_project_path(project_id)):
+			project_id = _new_uuid()
+		var title := _unique_import_title(str(project.get("title", "Untitled Game")))
+		var game_id := _unique_game_id(_game_id_from_title(title))
+		var rewritten: Dictionary = compiler.instantiate_source_json(
+			source, project_id, game_id, title
+		)
+		if not rewritten.ok:
+			return {
+				"ok": false,
+				"code": "source_invalid",
+				"message": "The imported project could not receive a new identity.",
+				"diagnostics": rewritten.diagnostics,
+			}
+		source = str(rewritten.source)
+		parsed.parse(source)
+		project = parsed.data
+
+	if DirAccess.make_dir_recursive_absolute(root_path) != OK:
+		return _failure("directory_failed", "The project directory could not be created.")
+	var staging := root_path.path_join(".import-%s" % _new_uuid())
+	if DirAccess.make_dir_recursive_absolute(staging) != OK:
+		return _failure("directory_failed", "The imported project could not be staged.")
+	if not _write_bytes(staging.path_join(PROJECT_FILE), source.to_utf8_buffer()):
+		_remove_tree(staging)
+		return _failure("write_failed", "The imported project source could not be staged.")
+	var asset_paths: Array = opened.assets.keys()
+	asset_paths.sort()
+	for value: Variant in asset_paths:
+		var relative := str(value)
+		var target := staging.path_join(relative)
+		if DirAccess.make_dir_recursive_absolute(target.get_base_dir()) != OK:
+			_remove_tree(staging)
+			return _failure("write_failed", "An imported asset directory could not be staged.")
+		if not _write_bytes(target, opened.assets[value]):
+			_remove_tree(staging)
+			return _failure("write_failed", "An imported project asset could not be staged.")
+	var destination := _project_path(project_id)
+	if DirAccess.dir_exists_absolute(destination):
+		_remove_tree(staging)
+		return _failure("project_exists", "A project with that identity already exists.")
+	if DirAccess.rename_absolute(staging, destination) != OK:
+		_remove_tree(staging)
+		return _failure("replace_failed", "The imported project could not enter the project library.")
+	return {
+		"ok": true,
+		"id": project_id,
+		"source": source,
+		"project": project,
+		"identity_replaced": identity_replaced,
+		"assets": asset_paths.size(),
+	}
+
+
+func import_directory() -> String:
+	var path := root_path.get_base_dir().path_join("imports")
+	DirAccess.make_dir_recursive_absolute(path)
+	return path
 
 
 func save_source(project_id: String, source: String) -> Dictionary:
@@ -233,6 +379,15 @@ func _unique_game_id(candidate: String) -> String:
 	return ("game_" + _new_uuid().replace("-", "")).left(96)
 
 
+func _game_id_exists(game_id: String) -> bool:
+	if game_id.is_empty():
+		return false
+	for project: Dictionary in list_projects():
+		if str(project.get("game_id", "")) == game_id:
+			return true
+	return false
+
+
 func _unique_copy_title(source_title: String) -> String:
 	var used: Dictionary = {}
 	for project: Dictionary in list_projects():
@@ -246,6 +401,45 @@ func _unique_copy_title(source_title: String) -> String:
 			return candidate
 		number += 1
 	return ("Copy " + _new_uuid()).left(160)
+
+
+func _unique_import_title(source_title: String) -> String:
+	var used: Dictionary = {}
+	for project: Dictionary in list_projects():
+		used[str(project.get("title", ""))] = true
+	var number := 1
+	while number < 100000:
+		var suffix := "" if number == 1 else " (%d)" % number
+		var prefix := "Imported copy of "
+		var candidate := prefix + source_title.left(160 - prefix.length() - suffix.length()) + suffix
+		if not used.has(candidate):
+			return candidate
+		number += 1
+	return ("Imported " + _new_uuid()).left(160)
+
+
+func _write_bytes(path: String, bytes: PackedByteArray) -> bool:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_buffer(bytes)
+	file.flush()
+	file.close()
+	return true
+
+
+func _remove_tree(path: String) -> void:
+	if not DirAccess.dir_exists_absolute(path):
+		return
+	var directory := DirAccess.open(path)
+	if directory == null:
+		return
+	directory.set_include_hidden(true)
+	for value: String in directory.get_files():
+		DirAccess.remove_absolute(path.path_join(value))
+	for value: String in directory.get_directories():
+		_remove_tree(path.path_join(value))
+	DirAccess.remove_absolute(path)
 
 
 func _new_uuid() -> String:

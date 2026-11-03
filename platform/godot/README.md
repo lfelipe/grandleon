@@ -26,19 +26,29 @@ The separation is deliberate:
 
 Open the session menu and choose **Projects / Create**. The native Projects
 screen can create an empty canonical project or a complete playable starter,
-lists, renames, and duplicates projects stored under Godot's per-user data
-directory, and opens a native map creator. A duplicate receives fresh portable
-project and game identifiers while a rename preserves both stable IDs and all
-authored source content. The map creator previews the same replaceable terrain
-atlas as play mode, provides brush, contiguous fill, and two-corner rectangle
-tools, supports bounded command-level undo/redo, and resizes from the top-left
-origin with an explicit clipping preview. The selected encounter's allied and
-enemy placements are overlaid on the terrain and can be added, moved, or removed
-with compact controller actions. Allied additions use unused campaign members;
-enemies use portable unit types. Deployment regions have a visible board overlay
-and an atomic draft/apply flow, so several cells can be toggled before canonical
-source changes. The **2P** tool toggles an opposing placement between always
-present and a two-player addition; scaled enemies are labelled on the board.
+lists, renames, duplicates, imports, and exports projects stored under Godot's
+per-user data directory, and opens a native map creator. **Export** creates a
+`.grandleon.zip` containing only canonical source and project-owned assets;
+local settings, recovery files, machine paths, and model configuration are
+excluded. Import accepts both that versioned form and compatible archives from
+the earlier editor. It preserves portable identifiers unless they already exist
+in the library, in which case the import becomes a clearly labelled copy with
+fresh project and game identifiers. A normal duplicate also receives fresh
+portable identifiers, while a rename preserves stable IDs and all authored
+source content. Exported archives are placed in the per-user `exports`
+directory and the native import picker starts in its sibling `imports`
+directory; neither location is inside the Steam installation. The map creator
+previews the same replaceable terrain atlas as play mode, provides brush,
+contiguous fill, and two-corner rectangle tools,
+supports bounded command-level undo/redo, and resizes from the top-left origin
+with an explicit clipping preview. The selected encounter's allied and enemy
+placements are overlaid on the terrain and can be added, moved, or removed with
+compact controller actions. Allied additions use unused campaign members;
+enemies use portable unit types. Deployment regions have a visible board
+overlay and an atomic draft/apply flow, so several cells can be toggled before
+canonical source changes. The **2P** tool toggles an opposing placement between
+always present and a two-player addition; scaled enemies are labelled on the
+board.
 The **Goals** surface attaches existing objectives or authors complete defeat,
 protect, and survive conditions. **Outside** chooses how exposed space beyond
 the tactical map is presented: one RGB colour, an automatic non-playable edge,

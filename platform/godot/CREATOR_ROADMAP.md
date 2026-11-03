@@ -25,10 +25,16 @@ The first native seam is implemented:
   assigns a portable UUID, validates every save through the native parser, and
   keeps the prior source recoverable if replacement is interrupted.
 - The controller-navigable Projects screen creates blank or playable starter
-  projects, lists, renames, and duplicates stored projects, compiles a selected
-  project, and hands a playable draft back to the ordinary game scene without a
-  temporary package. Copies receive new portable identities; renames preserve
-  stable identifiers and content.
+  projects, lists, renames, duplicates, imports, and exports stored projects,
+  compiles a selected project, and hands a playable draft back to the ordinary
+  game scene without a temporary package. Copies receive new portable
+  identities; renames preserve stable identifiers and content.
+- Portable `.grandleon.zip` exchange is implemented without an external
+  archiver. Exports contain a version marker, canonical source, and
+  project-owned assets only. Imports preflight stored ZIP entries, paths,
+  expansion limits, and checksums before accepting them, retain compatibility
+  with the earlier unmarked editor form, and turn identity collisions into new
+  copies instead of overwriting a library project.
 - The first native map creator paints canonical terrain with the same art atlas
   used by play mode. Edits pass through the native integer-preserving source
   layer, support bounded undo/redo and recoverable save, and can be compiled,
@@ -81,9 +87,14 @@ manifests.
 
 Saving should use a new file plus an atomic rename, retain bounded recovery
 snapshots, and preserve the last known-good source after a failed validation.
-The portable interchange form should be a ZIP with a versioned manifest and
-relative paths. Godot provides `ZIPReader` and `ZIPPacker`, so this does not
-need an external archive program.
+The portable interchange form is `.grandleon.zip`, with `grandleon.json` as a
+version marker, `project.json` as canonical source, and optional relative paths
+under `assets/`. The writer uses deterministic, uncompressed ZIP entries so the
+earlier editor can still read new archives. The reader also accepts its
+unmarked stored archives, but rejects compressed entries, traversal,
+Windows-incompatible names, duplicate case variants, local configuration,
+oversized expansion, and checksum mismatches before importing any file. Export
+also refuses project-owned symlinks instead of following them into an archive.
 
 ### One schema authority
 
@@ -362,11 +373,11 @@ these pass:
 
 ## Next implementation commits
 
-1. Add the native project library, templates, atomic save, and recovery tests.
-2. Add a Projects/Create/Play start screen backed by that library.
-3. Add the first controller-friendly map/encounter editing slice.
-4. Add a Windows GDExtension build and export smoke in CI.
-5. Define and prototype the PlayStation external `GAME.GPK` disc template.
-6. Define the Nintendo 64 content-slot manifest and measure realistic content
+1. Extend the native creator from map/encounter/objective editing into campaign,
+   dialogue, roster, item, weapon, ability, and art-pack surfaces.
+2. Add a Windows GDExtension build and export smoke in CI.
+3. Define and prototype the PlayStation external `GAME.GPK` disc template.
+4. Define the Nintendo 64 content-slot manifest and measure realistic content
    and art budgets.
-7. Add player-only Linux and Windows export shells, then the export center.
+5. Add the native export center around the existing player-only Linux shell,
+   then add and validate its Windows counterpart.

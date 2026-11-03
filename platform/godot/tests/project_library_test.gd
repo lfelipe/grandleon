@@ -2,6 +2,7 @@
 extends SceneTree
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const ProjectArchive = preload("res://scripts/creator/project_archive.gd")
 
 var failures := 0
 
@@ -84,6 +85,156 @@ func _init() -> void:
 			_expect("repeated copy game id is distinct", second_project.gameId, "copy_of_signal_beacon_2")
 		_expect("renamed project and copies are listed", library.list_projects().size(), 3)
 
+		var project_directory: String = library.root_path.path_join(str(created.id))
+		var asset_path: String = project_directory.path_join("assets/portraits/rook.txt")
+		_expect(
+			"asset directory created",
+			DirAccess.make_dir_recursive_absolute(asset_path.get_base_dir()),
+			OK
+		)
+		_expect("asset fixture written", _write_file(asset_path, "portable portrait"), true)
+		_expect(
+			"local fixture written",
+			_write_file(project_directory.path_join("project.local.json"), "{\"private\":true}"),
+			true
+		)
+		var archive_path: String = library.root_path.path_join("signal.grandleon.zip")
+		_expect("archive target starts absent", FileAccess.file_exists(archive_path), false)
+		var exported: Dictionary = library.export_project_to(created.id, archive_path)
+		if not exported.ok:
+			_fail("portable project exports: %s / %s" % [exported.get("code", "unknown"), exported.get("message", "")])
+		if exported.ok:
+			var reader := ZIPReader.new()
+			_expect("exported ZIP opens", reader.open(archive_path), OK)
+			var archive_files := reader.get_files()
+			_expect("archive has format marker", archive_files.has("grandleon.json"), true)
+			_expect("archive has canonical source", archive_files.has("project.json"), true)
+			_expect("archive has project asset", archive_files.has("assets/portraits/rook.txt"), true)
+			_expect("archive excludes recovery source", archive_files.has("project.previous.json"), false)
+			_expect("archive excludes local settings", archive_files.has("project.local.json"), false)
+			reader.close()
+			_expect(
+				"archive passes stored-entry preflight",
+				ProjectArchive.new()._validate_stored_zip(archive_path).ok,
+				true
+			)
+
+			var imported: Dictionary = library.import_project(archive_path)
+			_expect("identity collision imports as copy", imported.ok, true)
+			if imported.ok:
+				_expect("collision replaces identity", imported.identity_replaced, true)
+				_expect("collision receives new package id", imported.id == created.id, false)
+				_expect("archive imports one asset", imported.assets, 1)
+				_expect("imported source is readable", library.load_source(imported.id).ok, true)
+				_expect(
+					"imported asset survives",
+					FileAccess.get_file_as_string(
+						library.root_path.path_join(str(imported.id)).path_join("assets/portraits/rook.txt")
+					),
+					"portable portrait"
+				)
+				_expect(
+					"local settings never import",
+					FileAccess.file_exists(
+						library.root_path.path_join(str(imported.id)).path_join("project.local.json")
+					),
+					false
+				)
+
+			var other_library = ProjectLibrary.new(
+				"user://project-library-import-test/%s" % _new_test_id()
+			)
+			var preserved: Dictionary = other_library.import_project(archive_path)
+			_expect("archive imports into another library", preserved.ok, true)
+			if preserved.ok:
+				_expect("new library preserves identity", preserved.id, created.id)
+				_expect("new library preserves game id", preserved.project.gameId, "signal_stone")
+
+		var guard = ProjectArchive.new()
+		_expect("archive traversal path refused", guard._valid_archive_path("assets/../secret"), false)
+		_expect("archive absolute path refused", guard._valid_archive_path("/project.json"), false)
+		_expect("archive local settings refused", guard._valid_archive_path("assets/project.local.json"), false)
+		_expect("archive Windows device name refused", guard._valid_archive_path("assets/CON.png"), false)
+		_expect("archive Windows punctuation refused", guard._valid_archive_path("assets/rook?.png"), false)
+
+		var legacy_path: String = library.root_path.path_join("legacy.grandleon.zip")
+		var legacy_entries: Array[Dictionary] = [
+			{"path": "project.json", "bytes": renamed.source.to_utf8_buffer()},
+		]
+		_expect(
+			"legacy unmarked archive fixture writes",
+			guard._write_stored_zip(legacy_path, legacy_entries).ok,
+			true
+		)
+		var legacy_library = ProjectLibrary.new(
+			"user://project-library-legacy-test/%s" % _new_test_id()
+		)
+		var legacy_import: Dictionary = legacy_library.import_project(legacy_path)
+		_expect("legacy editor archive imports", legacy_import.ok, true)
+		if legacy_import.ok:
+			_expect("legacy archive preserves identity", legacy_import.id, created.id)
+
+		var traversal_path: String = library.root_path.path_join("traversal.grandleon.zip")
+		var traversal_entries: Array[Dictionary] = [
+			{"path": "project.json", "bytes": renamed.source.to_utf8_buffer()},
+			{"path": "assets/../secret.txt", "bytes": "secret".to_utf8_buffer()},
+		]
+		_expect(
+			"traversal archive fixture writes",
+			guard._write_stored_zip(traversal_path, traversal_entries).ok,
+			true
+		)
+		_expect(
+			"traversal archive import refused",
+			library.import_project(traversal_path).code,
+			"archive_path_invalid"
+		)
+
+		var game_collision_project: Dictionary = _parse(renamed.source).duplicate(true)
+		game_collision_project.packageId = "00000000-0000-4000-8000-000000000011"
+		var game_collision_entries: Array[Dictionary] = [
+			{
+				"path": "project.json",
+				"bytes": (JSON.stringify(game_collision_project, "  ", true) + "\n").to_utf8_buffer(),
+			},
+		]
+		var game_collision_path: String = library.root_path.path_join("game-collision.grandleon.zip")
+		_expect(
+			"game identity collision fixture writes",
+			guard._write_stored_zip(game_collision_path, game_collision_entries).ok,
+			true
+		)
+		var game_collision_import: Dictionary = library.import_project(game_collision_path)
+		_expect("game identity collision imports", game_collision_import.ok, true)
+		if game_collision_import.ok:
+			_expect("game identity collision is replaced", game_collision_import.identity_replaced, true)
+			_expect(
+				"game identity collision receives unique game id",
+				game_collision_import.project.gameId == "signal_stone",
+				false
+			)
+
+		var compressed_path: String = library.root_path.path_join("compressed.grandleon.zip")
+		var compressed := ZIPPacker.new()
+		_expect("compressed archive fixture opens", compressed.open(compressed_path), OK)
+		_expect(
+			"compressed archive fixture starts file",
+			compressed.start_file("project.json"),
+			OK
+		)
+		_expect(
+			"compressed archive fixture writes",
+			compressed.write_file(renamed.source.to_utf8_buffer()),
+			OK
+		)
+		_expect("compressed archive fixture closes file", compressed.close_file(), OK)
+		_expect("compressed archive fixture closes", compressed.close(), OK)
+		_expect(
+			"compressed archive is refused before expansion",
+			library.import_project(compressed_path).code,
+			"archive_compression_unsupported"
+		)
+
 	_expect("path traversal refused", library.load_source("../outside").code, "invalid_project_id")
 	_expect("path traversal rename refused", library.rename_project("../outside", "No").code, "invalid_project_id")
 	_expect("path traversal copy refused", library.duplicate_project("../outside").code, "invalid_project_id")
@@ -100,6 +251,15 @@ func _parse(source: String) -> Dictionary:
 		_fail("source was not readable JSON")
 		return {}
 	return parsed.data
+
+
+func _write_file(path: String, value: String) -> bool:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(value)
+	file.close()
+	return true
 
 
 func _new_test_id() -> String:
