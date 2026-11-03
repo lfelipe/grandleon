@@ -2103,6 +2103,38 @@ void scales_authored_opponents_with_the_local_party() {
     );
 }
 
+void assigns_allies_to_one_or_two_local_armies() {
+    auto authored = ranked_source();
+    authored.encounters.front().placements.front().local_player = 2;
+    const pf::LoadedPackage package = compile_and_load(authored);
+    expect(
+        package.find(pf::SectionType::placement_players, 100) != nullptr,
+        "the runtime fixture carries its split-army record"
+    );
+
+    const auto solo = pr::load_encounter(package, 100, {1});
+    const auto coop = pr::load_encounter(package, 100, {2});
+    expect(solo && coop, "solo and co-op decode the same split campaign");
+    const auto owners = [](const pr::EncounterLoadResult& board) {
+        std::vector<std::uint8_t> result;
+        for (const sim::UnitDefinition& unit : board.definition.units) {
+            if (unit.side == sim::Side::first) {
+                result.push_back(unit.local_player);
+            }
+        }
+        std::sort(result.begin(), result.end());
+        return result;
+    };
+    expect(
+        owners(solo) == std::vector<std::uint8_t>({1, 1}),
+        "solo gives the complete allied army to player one"
+    );
+    expect(
+        owners(coop) == std::vector<std::uint8_t>({1, 2}),
+        "co-op preserves one independently owned army per player"
+    );
+}
+
 void carries_the_survive_count_onto_the_objective() {
     auto authored = ranked_source();
     authored.objectives.front().kind = gc::ObjectiveKind::survive_rounds;
@@ -2243,6 +2275,7 @@ int main() {
     refuses_a_moment_that_names_nobody_on_this_board();
     carries_the_arrivals_onto_the_board();
     scales_authored_opponents_with_the_local_party();
+    assigns_allies_to_one_or_two_local_armies();
     carries_the_survive_count_onto_the_objective();
     a_triangle_reaches_the_blow();
     carries_the_deployment_capacity_beside_the_board();

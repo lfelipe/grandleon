@@ -130,6 +130,13 @@ void GrandleonProjectCompiler::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
+            "set_placement_player", "source_json", "campaign_id", "node_id",
+            "placement_id", "player"
+        ),
+        &GrandleonProjectCompiler::set_placement_player
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
             "set_deployment_tiles", "source_json", "campaign_id", "node_id",
             "deployment_id", "coordinates"
         ),
@@ -494,6 +501,34 @@ gd::Dictionary GrandleonProjectCompiler::set_placement_minimum_players(
             narrow(source_json), narrow(campaign_id), narrow(node_id),
             narrow(placement_id), minimum_players
         );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_placement_player(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& node_id,
+    const gd::String& placement_id,
+    std::int64_t player
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated = gc::set_source_placement_player_json(
+        narrow(source_json), narrow(campaign_id), narrow(node_id),
+        narrow(placement_id), player
+    );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
             diagnostics.push_back(source_diagnostic(diagnostic));

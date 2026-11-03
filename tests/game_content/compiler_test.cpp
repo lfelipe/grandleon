@@ -1772,6 +1772,37 @@ void writes_player_scaling_only_for_authored_opponents() {
     );
 }
 
+void writes_split_army_ownership_only_for_player_two() {
+    const auto plain = gc::compile(campaign_source());
+    expect(static_cast<bool>(plain), "the single-army campaign compiles");
+    const auto plain_loaded = load(plain.package);
+    expect(
+        plain_loaded.package.find(pf::SectionType::placement_players) ==
+            nullptr,
+        "a player-one-only project has no placement ownership section"
+    );
+
+    auto split = campaign_source();
+    split.encounters.front().placements.front().local_player = 2;
+    const auto authored = gc::compile(split);
+    expect(static_cast<bool>(authored), "a player-two ally compiles");
+    const auto loaded = load(authored.package);
+    const pf::RecordView* record = loaded.package.find(
+        pf::SectionType::placement_players, 100
+    );
+    expect(
+        record != nullptr && record->payload_size == 2U + 8U + 1U,
+        "one player-two ally is a count, placement identity, and owner"
+    );
+
+    auto opposing = campaign_source();
+    opposing.encounters.front().placements.back().local_player = 2;
+    expect(
+        has_code(gc::compile(opposing), gc::DiagnosticCode::invalid_placement),
+        "an opposing placement cannot belong to a local player"
+    );
+}
+
 void a_wave_is_judged_like_a_placement_but_not_against_one() {
     auto stacked = campaign_source();
     stacked.encounters.front().placements.back().x =
@@ -2175,6 +2206,7 @@ int main() {
     a_survive_count_is_authored_with_its_kind_or_not_at_all();
     writes_an_arrivals_section_only_when_authored();
     writes_player_scaling_only_for_authored_opponents();
+    writes_split_army_ownership_only_for_player_two();
     a_wave_is_judged_like_a_placement_but_not_against_one();
     supports_large_definition_sets();
     return failures == 0 ? 0 : 1;

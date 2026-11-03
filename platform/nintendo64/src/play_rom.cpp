@@ -1918,7 +1918,7 @@ public:
         for (std::uint8_t player = 0;
              player < participating_local_players_; ++player) {
             if (player == active_local_player_) continue;
-            sanitise_local_player(local_players_[player], snapshot);
+            sanitise_local_player(local_players_[player], snapshot, player);
         }
         // A character who is no longer standing on the board is not the
         // player's to hold, whether they fell or were talked away, and neither
@@ -1934,7 +1934,8 @@ public:
                 if (unit.id == selected_) still = &unit;
             }
             if (still == nullptr || !sim::on_board(*still) ||
-                still->has_acted || still->side != snapshot.active_side) {
+                still->has_acted || still->side != snapshot.active_side ||
+                !controlled_by(*still, active_local_player_)) {
                 selected_ = 0;
             }
         }
@@ -1951,6 +1952,7 @@ public:
         // the board about it.
         if (finishing_ && snapshot.active_side != player_side_) {
             finishing_ = false;
+            finishing_player_ = 0;
             drain_last_ = 0;
         }
 #endif
@@ -2945,7 +2947,7 @@ public:
                 }
                 if (occupant != nullptr &&
                     sim::is_deployable(snapshot, *occupant) &&
-                    occupant->side == player_side_) {
+                    controlled_by(*occupant, active_local_player_)) {
                     grandleon::n64audio::play(
                         grandleon::n64audio::Sfx::select
                     );
@@ -6489,7 +6491,9 @@ private:
         // This menu only ever ends the side the player holds, so the row does
         // not ask which side that is: it is theirs either way.
         rows[1] = {
-            "END YOUR TURN", false, false, false, 0, 0, 0, false, false
+            active_local_player_ == 0 ? "END PLAYER 1 TURN"
+                                      : "END PLAYER 2 TURN",
+            false, false, false, 0, 0, 0, false, false
         };
         rows[2] = {
             "LEAVE BATTLE", false, false, false, 0, 0, 0, false, false
@@ -6522,6 +6526,7 @@ private:
             // `client::unfinished_unit`'s answer, and it is the engine's fields
             // it reads.
             finishing_ = true;
+            finishing_player_ = active_local_player_;
             drain_last_ = 0;
             selected_ = 0;
             clear_aim();
@@ -7389,6 +7394,18 @@ private:
         // `move 3 5 2`.
         const int span = ((tile_ - 4) * unit.health) /
                          (unit.maximum_health > 0 ? unit.maximum_health : 1);
+        std::uint32_t owner = colour(224, 75, 91);
+        if (unit.side == player_side_) {
+            owner = unit.local_player == 2U ? colour(255, 191, 89)
+                                             : colour(103, 217, 255);
+        }
+        graphics_draw_box(
+            disp, x + 1, y + tile_ - 5, tile_ - 2, 4, owner
+        );
+        graphics_draw_box(
+            disp, x + 2, y + tile_ - 4, tile_ - 4, 2,
+            colour(7, 16, 24)
+        );
         graphics_draw_box(
             disp, x + 2, y + tile_ - 4, span > 0 ? span : 1, 2,
             colour(121, 208, 110)
@@ -7870,23 +7887,32 @@ private:
         local_players_[0].cursor_x = cursor_x_;
         local_players_[0].cursor_y = cursor_y_;
         local_players_[1] = local_players_[0];
-        bool found_one = false;
+        bool found_first = false;
+        bool found_second = false;
         for (const sim::UnitSnapshot& unit : snapshot.units) {
             if (!sim::on_board(unit) || unit.side != player_side_) continue;
-            if (!found_one) {
-                found_one = true;
+            if (!found_first && controlled_by(unit, 0)) {
+                found_first = true;
+                local_players_[0].cursor_x = unit.position.x;
+                local_players_[0].cursor_y = unit.position.y;
+            }
+            if (!found_second && controlled_by(unit, 1)) {
+                found_second = true;
                 local_players_[1].cursor_x = unit.position.x;
                 local_players_[1].cursor_y = unit.position.y;
-                continue;
             }
-            // Prefer a different allied character when the board has one, so
-            // both people begin somewhere useful rather than stacked together.
-            local_players_[1].cursor_x = unit.position.x;
-            local_players_[1].cursor_y = unit.position.y;
-            break;
         }
         active_local_player_ = 0;
         participating_local_players_ = 1;
+    }
+
+    [[nodiscard]] bool controlled_by(
+        const sim::UnitSnapshot& unit, std::uint8_t player
+    ) const {
+        const std::uint8_t owner =
+            unit.local_player == 0U ? 1U : unit.local_player;
+        return unit.side == player_side_ &&
+               owner == static_cast<std::uint8_t>(player + 1U);
     }
 
     void save_local_player() {
@@ -7903,7 +7929,8 @@ private:
     }
 
     void sanitise_local_player(
-        LocalPlayerState& state, const sim::EncounterSnapshot& snapshot
+        LocalPlayerState& state, const sim::EncounterSnapshot& snapshot,
+        std::uint8_t player
     ) {
         if (state.selected == 0) return;
         const sim::UnitSnapshot* still = nullptr;
@@ -7911,7 +7938,8 @@ private:
             if (unit.id == state.selected) still = &unit;
         }
         if (still != nullptr && sim::on_board(*still) && !still->has_acted &&
-            still->side == snapshot.active_side) {
+            still->side == snapshot.active_side &&
+            controlled_by(*still, player)) {
             return;
         }
         state.selected = 0;
@@ -7933,7 +7961,7 @@ private:
         if (player == active_local_player_) return;
         save_local_player();
         LocalPlayerState& state = local_players_[player];
-        sanitise_local_player(state, snapshot);
+        sanitise_local_player(state, snapshot, player);
         active_local_player_ = player;
         cursor_x_ = state.cursor_x;
         cursor_y_ = state.cursor_y;
@@ -7954,7 +7982,8 @@ private:
         const sim::EncounterSnapshot& snapshot, sim::UnitId id
     ) {
         for (const sim::UnitSnapshot& unit : snapshot.units) {
-            if (unit.id == id && sim::on_board(unit)) {
+            if (unit.id == id && sim::on_board(unit) &&
+                controlled_by(unit, active_local_player_)) {
                 return unit_action_menu(snapshot, unit);
             }
         }
@@ -7975,10 +8004,27 @@ private:
     client::Intent drain_intent(const sim::EncounterSnapshot& snapshot) {
         client::Intent intent;
         if (!finishing_) return intent;
-        const sim::UnitId owed =
-            client::unfinished_unit(snapshot, player_side_);
+        sim::UnitId owed = 0;
+        if (snapshot.active_unit_id != 0) {
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (unit.id == snapshot.active_unit_id && !unit.has_acted &&
+                    controlled_by(unit, finishing_player_)) {
+                    owed = unit.id;
+                }
+            }
+        } else {
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (!sim::on_board(unit) || unit.has_acted ||
+                    !controlled_by(unit, finishing_player_)) {
+                    continue;
+                }
+                owed = unit.id;
+                break;
+            }
+        }
         if (owed == 0 || owed == drain_last_) {
             finishing_ = false;
+            finishing_player_ = 0;
             drain_last_ = 0;
             return intent;
         }
@@ -8167,7 +8213,8 @@ private:
                     selected_ = 0;
                     return intent;
                 }
-                if (occupant != nullptr && occupant->side == player_side_ &&
+                if (occupant != nullptr &&
+                    controlled_by(*occupant, active_local_player_) &&
                     occupant->has_acted) {
                     // Spent, but not gone. The cursor still rests on them, the
                     // panel still reads them out and the sheet still opens on
@@ -8180,7 +8227,7 @@ private:
                     commanded_ = occupant->id;
                     refused(sim::CommandError::already_acted);
                 } else if (occupant != nullptr &&
-                           occupant->side == player_side_) {
+                           controlled_by(*occupant, active_local_player_)) {
                     grandleon::n64audio::play(
                         grandleon::n64audio::Sfx::select
                     );
@@ -8291,6 +8338,7 @@ private:
     // Whether the player took END <SIDE> TURN and the side is still being
     // drained of the activations it had not spent.
     bool finishing_{false};
+    std::uint8_t finishing_player_{0};
     // Who the drain waited last. A side that comes back round to the player
     // with the same character still owing an activation is a side the drain
     // cannot finish: under the alternating order nothing marks a character as

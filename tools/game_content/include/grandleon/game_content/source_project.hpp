@@ -168,6 +168,16 @@ struct SourceMapCell final {
     std::int64_t minimum_players
 );
 
+// Assigns an allied placement to player one or two in local co-op. Player one
+// is stored by omission so existing projects retain their canonical shape.
+[[nodiscard]] SourceTextResult set_source_placement_player_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id,
+    std::int64_t player
+);
+
 // Adds or removes an opening encounter placement by portable identities.
 // Allied placements name the campaign member they field; enemy placements
 // omit that identity. Both operations preserve playability when the input was

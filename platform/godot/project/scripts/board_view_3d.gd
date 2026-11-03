@@ -653,15 +653,25 @@ func _update_health_bar(unit: Dictionary) -> void:
 		0.0, 1.0
 	)
 	var step := clampi(roundi(ratio * 20.0), 0, 20)
-	if not _health_textures.has(step):
-		_health_textures[step] = _make_health_texture(step)
+	var owner := 0
+	if String(unit.get("side", "")) == "first":
+		owner = clampi(int(unit.get("player", 1)), 1, 2)
+	var key := "%d:%d" % [step, owner]
+	if not _health_textures.has(key):
+		_health_textures[key] = _make_health_texture(step, owner)
 	var sprite: Sprite3D = _health_sprites[id]
-	sprite.texture = _health_textures[step]
+	sprite.texture = _health_textures[key]
 
 
-func _make_health_texture(step: int) -> ImageTexture:
+func _make_health_texture(step: int, owner: int) -> ImageTexture:
 	var image := Image.create(64, 8, false, Image.FORMAT_RGBA8)
-	image.fill(Color("071018"))
+	var owner_colour := Color("ff5267")
+	if owner == 1:
+		owner_colour = Color("67d9ff")
+	elif owner == 2:
+		owner_colour = Color("ffbf59")
+	image.fill(owner_colour)
+	image.fill_rect(Rect2i(1, 1, 62, 6), Color("071018"))
 	image.fill_rect(Rect2i(2, 2, 60, 4), Color("21313a"))
 	var width := roundi(60.0 * float(step) / 20.0)
 	var colour := Color("72e08f") if step > 10 else (Color("ffca63") if step > 5 else Color("ff5267"))

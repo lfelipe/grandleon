@@ -557,6 +557,12 @@ struct Placement final {
     // opaque stat multiplier. Allied roster placements may not be conditional.
     // Appended to preserve aggregate initializers written before the rule.
     std::uint8_t minimum_players{1};
+    // Which local person commands this allied placement in a two-player game.
+    // One is the default and writes no ownership record. A one-player runtime
+    // deliberately normalises every ally back to one, so this is one complete
+    // army in solo and two allied armies in co-op rather than two campaigns.
+    // Opposing placements may not name a local player.
+    std::uint8_t local_player{1};
 };
 
 // What an encounter says about the player's own troops before the first

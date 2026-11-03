@@ -1254,6 +1254,18 @@ CompileResult compile(const GameSource& source) {
                 );
                 continue;
             }
+            if (placement.local_player < 1 ||
+                placement.local_player > 2 ||
+                (placement.local_player > 1 &&
+                 placement.side != EncounterSide::first)) {
+                result.diagnostics.push_back(
+                    {
+                        DiagnosticCode::invalid_placement,
+                        path + ".placements.local_player", placement.id
+                    }
+                );
+                continue;
+            }
             // A roster member cannot be a wave. `campaign_runtime` joins a
             // member to a placement to field them, and counts who takes the
             // field against the deployment capacity; somebody who is not on the
@@ -2623,6 +2635,46 @@ CompileResult compile(const GameSource& source) {
                     if (placement.minimum_players <= 1) continue;
                     put_u64(bytes, placement.id);
                     bytes.push_back(placement.minimum_players);
+                }
+                section.records.push_back({encounter->id, std::move(bytes)});
+            }
+            return section;
+        }(),
+        // Allied placements assigned to the second local person. Required
+        // when present: a reader that ignored it would give player one both
+        // armies and silently turn co-op back into shared units. Player one is
+        // the zero-cost default, so projects authored before split ownership
+        // remain byte-identical.
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::placement_players;
+            std::vector<const Encounter*> ordered;
+            for (const Encounter& encounter : source.encounters) {
+                const bool any = std::any_of(
+                    encounter.placements.begin(), encounter.placements.end(),
+                    [](const Placement& placement) {
+                        return placement.local_player > 1;
+                    }
+                );
+                if (any) ordered.push_back(&encounter);
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Encounter* lhs, const Encounter* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Encounter* encounter : ordered) {
+                Bytes bytes;
+                std::uint16_t count = 0;
+                for (const Placement& placement : encounter->placements) {
+                    if (placement.local_player > 1) ++count;
+                }
+                put_u16(bytes, count);
+                for (const Placement& placement : encounter->placements) {
+                    if (placement.local_player <= 1) continue;
+                    put_u64(bytes, placement.id);
+                    bytes.push_back(placement.local_player);
                 }
                 section.records.push_back({encounter->id, std::move(bytes)});
             }

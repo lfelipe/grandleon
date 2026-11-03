@@ -459,6 +459,11 @@ struct UnitDefinition final {
     // only where it is set, so that a board on which nobody endures hashes to
     // the value it always did.
     bool endures{false};
+    // Which local person may command this allied unit. Zero means no local
+    // owner was stated; `create_encounter` resolves that legacy/default form
+    // to player one for the first side and to nobody for the second. This is
+    // input routing rather than a battle rule and is not canonical state.
+    std::uint8_t local_player{};
 };
 
 // The most arrivals one authored character may make. A bound rather than a
@@ -838,6 +843,11 @@ struct UnitSnapshot final {
     // and the weapons a unit carries are folded already, so folding this too
     // would move every board's hash to say a thing already said.
     ContentId weapon_type{};
+    // Which local person may command this allied unit: one or two on the first
+    // side, zero on the opposing side. Presentation and input routing read it;
+    // the simulation never does, so it is deliberately absent from the
+    // canonical hash.
+    std::uint8_t local_player{};
 };
 
 // Whether a character is still this battle's to lose: alive, and not talked off

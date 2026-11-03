@@ -236,8 +236,8 @@ void every_field_of_a_battle_is_folded() {
     battle = baseline;
 }
 
-// The thirty-eight fields of `UnitSnapshot`: thirty-seven folded, and one that
-// is deliberately not.
+// The thirty-nine fields of `UnitSnapshot`: thirty-seven folded, and two that
+// are deliberately not.
 void every_field_of_a_character_is_folded() {
     const sim::EncounterSnapshot board = open_battle();
     const std::uint64_t named = sim::canonical_hash(board);
@@ -254,7 +254,7 @@ void every_field_of_a_character_is_folded() {
         minimum_reach, maximum_reach, ability_ids, has_acted, has_moved,
         weapon_ids, crossings, accuracy, item_ids, item_counts, drop_item_id,
         drop_chance, reach_bonus, talk_record_id, departed, arrival_round,
-        arrived, endures, weapon_type
+        arrived, endures, weapon_type, local_player
     ] = character;
 
     const auto folded = [&](std::string_view field) {
@@ -383,6 +383,17 @@ void every_field_of_a_character_is_folded() {
         "the kind of the weapon in hand is restated by the weapons the "
         "character carries, so it is not folded a second time"
     );
+    character = baseline;
+    local_player = 2;
+    {
+        sim::EncounterSnapshot other_owner = board;
+        other_owner.units[0] = character;
+        expect(
+            sim::canonical_hash(other_owner) == named,
+            "which local person routes input to a character does not change "
+            "the battle's canonical state"
+        );
+    }
     character = baseline;
 }
 
@@ -688,6 +699,7 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
     described.arrival_every = 2;
     described.arrival_times = 3;
     described.endures = true;
+    described.local_player = 2;
 
     // The character under test is a wave, so somebody of its side has to be
     // standing when the battle opens: a board one of whose sides is entirely
@@ -717,14 +729,14 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
     if (found == nullptr) return;
     const sim::UnitSnapshot& character = *found;
 
-    // A twelfth... thirty-fourth field stops the build here.
+    // A twelfth... thirty-fifth field stops the build here.
     const auto& [
         id, unit_type_id, side, position, health, strength, power, defense,
         resistance, skill, luck, evasion, magic, movement, action_points, speed,
         acts_after_attacking, minimum_reach, maximum_reach, ability_ids,
         weapon_ids, crossings, accuracy, item_ids, item_counts, drop_item_id,
         drop_chance, reach_bonus, talk_record_id, arrival_round, arrival_every,
-        arrival_times, endures
+        arrival_times, endures, local_player
     ] = described;
 
     const auto carried = [&](std::string_view field, bool held) {
@@ -763,6 +775,7 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
     carried("talk record", character.talk_record_id == talk_record_id);
     carried("arrival round", character.arrival_round == arrival_round);
     carried("floor", character.endures == endures);
+    carried("local player", character.local_player == local_player);
 
     // The four the engine resolves rather than copies. A character carrying a
     // weapon holds that weapon's power, band and accuracy rather than whatever

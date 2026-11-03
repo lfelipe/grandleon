@@ -504,6 +504,31 @@ void updates_one_map_cell_without_retyping_the_project() {
             restored_enemy.json.find("minimumPlayers") == std::string::npos,
         "restoring an always-present placement removes the optional field"
     );
+    const auto player_two = gc::set_source_placement_player_json(
+        enlarged.json, "demo", "battle", "blue_1", 2
+    );
+    const auto player_two_parsed = gc::parse_source_project_json(player_two.json);
+    expect(
+        player_two && player_two_parsed &&
+            player_two_parsed.source.encounters.front()
+                    .placements.front().local_player == 2 &&
+            gc::compile(player_two_parsed.source),
+        "an allied placement can be assigned to player two portably"
+    );
+    const auto player_one = gc::set_source_placement_player_json(
+        player_two.json, "demo", "battle", "blue_1", 1
+    );
+    expect(
+        player_one && player_one.json.find(R"json("player")json") ==
+                          std::string::npos,
+        "restoring player one removes the optional ownership field"
+    );
+    expect(
+        !gc::set_source_placement_player_json(
+            enlarged.json, "demo", "battle", "red_1", 2
+        ),
+        "an opposing placement cannot be assigned to a local player"
+    );
     expect(
         !gc::set_source_placement_minimum_players_json(
             enlarged.json, "demo", "battle", "blue_1", 2

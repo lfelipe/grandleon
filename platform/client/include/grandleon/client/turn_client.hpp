@@ -1107,9 +1107,13 @@ private:
         const sim::EncounterSnapshot& snapshot, std::uint8_t player
     );
     void sanitise_local_player(
-        LocalPlayerState& state, const sim::EncounterSnapshot& snapshot
+        LocalPlayerState& state, const sim::EncounterSnapshot& snapshot,
+        std::uint8_t player
     ) noexcept;
     void reset_local_players(const sim::EncounterSnapshot& snapshot) noexcept;
+    [[nodiscard]] bool controlled_by(
+        const sim::UnitSnapshot& unit, std::uint8_t player
+    ) const noexcept;
     void settle(const sim::EncounterSnapshot& snapshot);
     void checkpoint(const sim::EncounterSnapshot& snapshot, Reason reason);
     void refresh_queries(const sim::EncounterSnapshot& snapshot);
@@ -1426,6 +1430,7 @@ private:
     // acted, and a refusal changes nothing, so in both cases the next answer is
     // the answer just given.
     bool finishing_{false};
+    std::uint8_t finishing_player_{0};
     sim::UnitId drain_last_{0};
     // The character whose menu opens again once the engine has taken its walk,
     // or zero. A walk that leaves a turn open is a character the player is

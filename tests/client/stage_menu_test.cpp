@@ -276,7 +276,7 @@ void a_thumb_reaches_a_stage_and_comes_back() {
     expect(
         pilot.seen().board_menu.size() == 4U &&
             pilot.seen().board_menu[0] == "BACK TO BATTLE" &&
-            pilot.seen().board_menu[1] == "END YOUR TURN" &&
+            pilot.seen().board_menu[1] == "END PLAYER 1 TURN" &&
             pilot.seen().board_menu[2] == "LEAVE - THIS BATTLE IS NOT KEPT" &&
             pilot.seen().board_menu[3] == "GO TO ANOTHER STAGE - TESTING",
         "and it is last, under the way out, because it is an aid and not one of "

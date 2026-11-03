@@ -1628,8 +1628,10 @@ private:
                 // rest of the screen. THEIRS is unchanged and is still the
                 // longer branch, so the row's budget is untouched.
                 .text(
-                    hovered->side == player_side() ? " YOURS  HP "
-                                                   : " THEIRS  HP "
+                    hovered->side == player_side()
+                        ? (hovered->local_player == 2U ? " P2  HP "
+                                                       : " P1  HP ")
+                        : " ENEMY  HP "
                 )
                 .decimal(static_cast<std::uint32_t>(hovered->health))
                 .text("/")

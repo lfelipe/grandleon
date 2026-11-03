@@ -127,6 +127,11 @@ enum class SectionType : std::uint32_t {
     // A runtime that skips it plays the same battle against its default
     // background, so this section is never required.
     map_surroundings = 21,
+    // Which allied placements belong to player two when two local people take
+    // part, per encounter. Required when present because ignoring it changes
+    // who may command whom. Omitted entirely when every ally belongs to the
+    // first player, preserving older packages byte for byte.
+    placement_players = 22,
 };
 
 // The presentation section holds records about the whole game, the way the

@@ -763,10 +763,37 @@ EncounterLoadResult load_encounter(
             return fail(EncounterLoadError::malformed_payload);
         }
     }
+    // Sparse ownership is the co-op counterpart to sparse scaling. Only
+    // player-two allies are recorded; player one is the historical default.
+    // The same package becomes one complete army in solo by normalising every
+    // ally to player one below.
+    std::map<std::uint64_t, std::uint8_t> placement_players;
+    if (const RecordView* ownership =
+            package.find(SectionType::placement_players, encounter_id)) {
+        Reader ownership_reader(package, *ownership);
+        std::uint16_t ownership_count = 0;
+        if (!ownership_reader.u16(ownership_count) || ownership_count == 0) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        for (std::uint16_t index = 0; index < ownership_count; ++index) {
+            std::uint64_t placement_id = 0;
+            std::uint8_t player = 0;
+            if (!ownership_reader.u64(placement_id) ||
+                !ownership_reader.u8(player) || placement_id == 0 ||
+                player != 2U ||
+                !placement_players.emplace(placement_id, player).second) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+        }
+        if (!ownership_reader.finished()) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+    }
     const std::uint8_t local_players =
         options.local_players == 0 ? 1U : options.local_players;
     std::map<std::uint64_t, std::uint64_t> placement_instances;
     std::set<std::uint64_t> scaled_placements_seen;
+    std::set<std::uint64_t> owned_placements_seen;
     std::set<std::uint64_t> excluded_placements;
 
     std::uint16_t placement_count = 0;
@@ -863,6 +890,13 @@ EncounterLoadResult load_encounter(
                 continue;
             }
         }
+        const auto ownership = placement_players.find(instance_id);
+        if (ownership != placement_players.end()) {
+            owned_placements_seen.insert(instance_id);
+            if (encoded_side != 1U) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+        }
         result.behaviors.push_back(std::move(binding));
         placement_instances.emplace(source_key_id, instance_id);
         result.placements.push_back({instance_id, source_key_id});
@@ -906,8 +940,17 @@ EncounterLoadResult load_encounter(
                 drop_chance
             }
         );
+        result.definition.units.back().local_player =
+            encoded_side == 1U
+                ? (local_players > 1U && ownership != placement_players.end()
+                       ? ownership->second
+                       : 1U)
+                : 0U;
     }
     if (scaled_placements_seen.size() != minimum_players.size()) {
+        return fail(EncounterLoadError::missing_reference);
+    }
+    if (owned_placements_seen.size() != placement_players.size()) {
         return fail(EncounterLoadError::missing_reference);
     }
     for (std::size_t index = 0; index < objectives.size(); ++index) {

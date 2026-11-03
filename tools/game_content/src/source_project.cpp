@@ -2257,6 +2257,14 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                                 output_placement.minimum_players =
                                     static_cast<std::uint8_t>(*minimum_players);
                             }
+                            const auto local_player = mapper.integer(
+                                *placement, "player", placement_path,
+                                2, 2, false
+                            );
+                            if (local_player) {
+                                output_placement.local_player =
+                                    static_cast<std::uint8_t>(*local_player);
+                            }
                             // Who can be talked to on this board, and what talking to
                 // them records. An absent `talk` is the overwhelmingly common
                 // case and costs nothing: no field is materialised and no
@@ -3863,6 +3871,64 @@ SourceTextResult set_source_placement_minimum_players_json(
         placement->erase("minimumPlayers");
     } else {
         (*placement)["minimumPlayers"] = Json{minimum_players};
+    }
+    finish_encounter_edit(editable, result, placement_path);
+    return result;
+}
+
+SourceTextResult set_source_placement_player_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id,
+    std::int64_t player
+) {
+    SourceTextResult result;
+    EditableEncounterDocument editable;
+    if (!open_editable_encounter(
+            source_json, campaign_id, node_id, editable, result
+        )) {
+        return result;
+    }
+    const std::string placements_path = editable.node_path + ".placements";
+    if (!valid_source_key(placement_id) || (player != 1 && player != 2)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "placement id must be stable and player must be 1 or 2"
+        );
+        return result;
+    }
+    std::size_t placement_index = 0;
+    Object* placement = find_object_by_id(
+        *editable.placements, placement_id, &placement_index
+    );
+    if (placement == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "placement '" + std::string(placement_id) + "' was not found"
+        );
+        return result;
+    }
+    const std::string placement_path = placements_path + "[" +
+                                       std::to_string(placement_index) + "]";
+    const std::string* side = string_member(*placement, "side");
+    if (side == nullptr || *side != "first") {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placement_path + ".player",
+            "only allied placements can belong to a local player"
+        );
+        return result;
+    }
+    if (player == 1) {
+        placement->erase("player");
+    } else {
+        (*placement)["player"] = Json{player};
     }
     finish_encounter_edit(editable, result, placement_path);
     return result;

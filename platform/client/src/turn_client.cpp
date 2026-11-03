@@ -646,16 +646,17 @@ void TurnClient::reset_local_players(
     bool found_second = false;
     for (const sim::UnitSnapshot& unit : snapshot.units) {
         if (!sim::on_board(unit) || unit.side != player_side_) continue;
-        if (!found_first) {
+        if (!found_first && controlled_by(unit, 0)) {
             first.cursor_x = unit.position.x;
             first.cursor_y = unit.position.y;
             found_first = true;
             continue;
         }
-        second.cursor_x = unit.position.x;
-        second.cursor_y = unit.position.y;
-        found_second = true;
-        break;
+        if (!found_second && controlled_by(unit, 1)) {
+            second.cursor_x = unit.position.x;
+            second.cursor_y = unit.position.y;
+            found_second = true;
+        }
     }
     if (!found_first) {
         first.cursor_x = 0;
@@ -671,6 +672,15 @@ void TurnClient::reset_local_players(
     participating_local_players_ = 1;
     cursor_x_ = first.cursor_x;
     cursor_y_ = first.cursor_y;
+}
+
+bool TurnClient::controlled_by(
+    const sim::UnitSnapshot& unit, std::uint8_t player
+) const noexcept {
+    const std::uint8_t owner =
+        unit.local_player == 0U ? 1U : unit.local_player;
+    return unit.side == player_side_ &&
+           owner == static_cast<std::uint8_t>(player + 1U);
 }
 
 void TurnClient::save_local_player() noexcept {
@@ -698,12 +708,13 @@ void TurnClient::save_local_player() noexcept {
 }
 
 void TurnClient::sanitise_local_player(
-    LocalPlayerState& state, const sim::EncounterSnapshot& snapshot
+    LocalPlayerState& state, const sim::EncounterSnapshot& snapshot,
+    std::uint8_t player
 ) noexcept {
     if (state.selected == 0) return;
     const sim::UnitSnapshot* still = unit_by_id(snapshot, state.selected);
     if (still != nullptr && sim::on_board(*still) && !still->has_acted &&
-        still->side == snapshot.active_side) {
+        still->side == snapshot.active_side && controlled_by(*still, player)) {
         return;
     }
     state.selected = 0;
@@ -729,7 +740,7 @@ void TurnClient::activate_local_player(
 
     save_local_player();
     LocalPlayerState& state = local_players_[player];
-    sanitise_local_player(state, snapshot);
+    sanitise_local_player(state, snapshot, player);
     active_local_player_ = player;
 
     cursor_x_ = state.cursor_x;
@@ -803,7 +814,7 @@ void TurnClient::draw(
     for (std::uint8_t player = 0; player < participating_local_players_;
          ++player) {
         if (player == active_local_player_) continue;
-        sanitise_local_player(local_players_[player], snapshot);
+        sanitise_local_player(local_players_[player], snapshot, player);
     }
     // A character who left the board may have been the selection, and a
     // selection the engine no longer recognises would light a stale range.
@@ -816,7 +827,8 @@ void TurnClient::draw(
     if (selected_ != 0) {
         const sim::UnitSnapshot* still = unit_by_id(snapshot, selected_);
         if (still == nullptr || !sim::on_board(*still) || still->has_acted ||
-            still->side != snapshot.active_side) {
+            still->side != snapshot.active_side ||
+            !controlled_by(*still, active_local_player_)) {
             selected_ = 0;
         }
     }
@@ -830,6 +842,7 @@ void TurnClient::draw(
     // whose turn it is would be a client that could disagree with the board.
     if (finishing_ && snapshot.active_side != player_side_) {
         finishing_ = false;
+        finishing_player_ = 0;
         drain_last_ = 0;
     }
     refresh_queries(snapshot);
@@ -1960,6 +1973,14 @@ void TurnClient::press(
         return;
     }
     if (occupant != nullptr && occupant->side == player_side_) {
+        if (!controlled_by(*occupant, active_local_player_)) {
+            Text line;
+            line.text("PLAYER ")
+                .number(static_cast<std::int32_t>(occupant->local_player))
+                .text(" COMMANDS THIS UNIT");
+            copy_line(message_, sizeof message_, line.c_str());
+            return;
+        }
         // Spent, but not gone. A character who has already taken their turn
         // stays on the board and stays inspectable, and simply cannot be picked
         // up again. The cursor rests on them, the status line names them, and
@@ -2047,7 +2068,7 @@ void TurnClient::deploy_press(
 
     const sim::UnitSnapshot* occupant = unit_at(snapshot, cursor_x_, cursor_y_);
     if (occupant != nullptr && sim::is_deployable(snapshot, *occupant) &&
-        occupant->side == player_side_) {
+        controlled_by(*occupant, active_local_player_)) {
         selected_ = occupant->id;
         message_[0] = '\0';
         return;
@@ -2264,7 +2285,8 @@ void TurnClient::open_board_menu() {
     // ask which side that is: it is theirs either way.
     MenuChoice& side = menu_[menu_rows_++];
     side = MenuChoice{};
-    side.label = "END YOUR TURN";
+    side.label = active_local_player_ == 0 ? "END PLAYER 1 TURN"
+                                           : "END PLAYER 2 TURN";
     side.wait = true;
     // What leaving costs, in the row rather than behind it. A battle in
     // progress is not written anywhere. A save on these machines holds a
@@ -2316,6 +2338,7 @@ void TurnClient::commit_board_row(const sim::EncounterSnapshot& snapshot) {
         // is finished, one `wait` at a time, by `drain_side`. Nothing is
         // decided here beyond that the player asked for it.
         finishing_ = true;
+        finishing_player_ = active_local_player_;
         drain_last_ = 0;
         // And the first of them at once. `next_intent` drains before it reads a
         // press, which serves every command after this one; this press is
@@ -2352,9 +2375,27 @@ void TurnClient::commit_board_row(const sim::EncounterSnapshot& snapshot) {
 // mean on a board where each of them holds their own.
 void TurnClient::drain_side(const sim::EncounterSnapshot& snapshot) {
     if (!finishing_) return;
-    const sim::UnitId owed = client::unfinished_unit(snapshot, player_side_);
+    sim::UnitId owed = 0;
+    if (snapshot.active_unit_id != 0) {
+        const sim::UnitSnapshot* active =
+            unit_by_id(snapshot, snapshot.active_unit_id);
+        if (active != nullptr && !active->has_acted &&
+            controlled_by(*active, finishing_player_)) {
+            owed = active->id;
+        }
+    } else {
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (!sim::on_board(unit) || unit.has_acted ||
+                !controlled_by(unit, finishing_player_)) {
+                continue;
+            }
+            owed = unit.id;
+            break;
+        }
+    }
     if (owed == 0 || owed == drain_last_) {
         finishing_ = false;
+        finishing_player_ = 0;
         drain_last_ = 0;
         return;
     }

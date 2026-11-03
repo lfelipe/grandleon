@@ -1662,7 +1662,15 @@ Encounter::CreateResult create_encounter(
                 unit.endures,
                 // And the kind of what is in hand, resolved beside the power
                 // and the band it came with.
-                equipped.weapon_type
+                equipped.weapon_type,
+                // Ownership routes local input; it changes no battle rule.
+                // Legacy definitions state zero, which is player one for the
+                // allied side and nobody for the opposing side.
+                static_cast<std::uint8_t>(
+                    unit.side == Side::first
+                        ? (unit.local_player == 0U ? 1U : unit.local_player)
+                        : 0U
+                )
             }
         );
     }

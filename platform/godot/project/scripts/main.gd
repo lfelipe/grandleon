@@ -2250,6 +2250,9 @@ func _accept_at(seat: int) -> void:
 	var occupant: Dictionary = board.unit_at(cursor)
 	var selected := selected_units[seat]
 	if not occupant.is_empty() and String(occupant.side) == "first":
+		if not _unit_owned_by_seat(occupant, seat):
+			_show_toast("PLAYER %d COMMANDS THAT ARMY" % int(occupant.get("player", 1)))
+			return
 		var owner := _selected_by_other_seat(seat, int(occupant.id))
 		if owner >= 0:
 			_show_toast("PLAYER %d IS COMMANDING THAT CHARACTER" % (owner + 1))
@@ -2332,6 +2335,13 @@ func _selected_by_other_seat(seat: int, unit_id: int) -> int:
 	return -1
 
 
+func _unit_owned_by_seat(unit: Dictionary, seat: int) -> bool:
+	return (
+		String(unit.get("side", "")) == "first"
+		and int(unit.get("player", 1)) == seat + 1
+	)
+
+
 func _cancel(seat: int) -> void:
 	PCAudio.play_cue("cancel")
 	hud_seat = seat
@@ -2340,7 +2350,7 @@ func _cancel(seat: int) -> void:
 	board.set_selected(seat, 0, "move")
 	board.set_highlights(seat, [])
 	unit_name.text = "Select a character"
-	unit_stats.text = "[color=#89a8b8]Both players may command any available friendly character.[/color]"
+	unit_stats.text = "[color=#89a8b8]Each player commands their own army.[/color]"
 	_update_context_help(seat)
 
 
@@ -2357,7 +2367,11 @@ func _cycle_unit(seat: int, direction: int) -> void:
 	hud_seat = seat
 	var available: Array = []
 	for unit: Dictionary in snapshot.get("units", []):
-		if unit.get("on_board", false) and String(unit.side) == "first" and not unit.get("has_acted", false):
+		if (
+			unit.get("on_board", false)
+			and _unit_owned_by_seat(unit, seat)
+			and not unit.get("has_acted", false)
+		):
 			available.append(unit)
 	if available.is_empty():
 		return
@@ -2412,6 +2426,7 @@ func _wait_selected(seat: int) -> void:
 		var unit_id := int(unit.get("id", 0))
 		if (
 			String(unit.get("side", "")) != "first"
+			or not _unit_owned_by_seat(unit, seat)
 			or not unit.get("on_board", false)
 			or unit.get("has_acted", false)
 			or _unit_is_pending(unit_id)
@@ -2421,7 +2436,7 @@ func _wait_selected(seat: int) -> void:
 		_submit("wait", unit_id)
 		submitted += 1
 	if submitted == 0:
-		_show_toast("NO UNCLAIMED READY CHARACTERS")
+		_show_toast("PLAYER %d HAS NO READY CHARACTERS" % (seat + 1))
 		_update_context_help(seat)
 	else:
 		_show_toast(
@@ -2432,14 +2447,11 @@ func _wait_selected(seat: int) -> void:
 
 
 func _seed_cursors() -> void:
-	var friendly: Array = []
-	for unit: Dictionary in snapshot.get("units", []):
-		if unit.get("on_board", false) and String(unit.side) == "first":
-			friendly.append(unit)
 	for seat in min(2, seats.size()):
-		if not friendly.is_empty():
-			var unit: Dictionary = friendly[seat % friendly.size()]
-			seats[seat].cursor = Vector2i(int(unit.x), int(unit.y))
+		for unit: Dictionary in snapshot.get("units", []):
+			if unit.get("on_board", false) and _unit_owned_by_seat(unit, seat):
+				seats[seat].cursor = Vector2i(int(unit.x), int(unit.y))
+				break
 	board.set_seats(seats)
 
 
@@ -2449,8 +2461,9 @@ func _show_unit(unit: Dictionary, seat := 0) -> void:
 	var heading := "OPPOSITION"
 	var heading_colour := "#ff8a9a"
 	if String(unit.get("side", "")) == "first":
-		heading = "FRIENDLY"
-		heading_colour = "#89a8b8"
+		var player := clampi(int(unit.get("player", 1)), 1, 2)
+		heading = "PLAYER %d ARMY" % player
+		heading_colour = PLAYER_COLOURS[player - 1].to_html()
 		for owner in selected_units.size():
 			if selected_units[owner] == int(unit.get("id", 0)):
 				heading = "PLAYER %d  /  %s" % [

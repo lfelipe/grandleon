@@ -693,6 +693,10 @@ export interface EncounterPlacement {
    */
   unitTypeId: string;
   side: "first" | "second";
+  /**
+   * Assigns this allied placement to player two when two local players participate. Omitted allied placements belong to player one. In a one-player game every allied placement belongs to player one, so the same campaign remains a complete solo game. Opposing placements cannot name a player. This ownership is portable to PC, Nintendo 64, and PlayStation.
+   */
+  player?: 2;
   x: number;
   y: number;
   /**

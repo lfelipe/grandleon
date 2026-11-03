@@ -1161,6 +1161,7 @@ gd::Dictionary GrandleonSession::snapshot_dictionary(
         row["id"] = signed_id(unit.id);
         row["unit_type_id"] = signed_id(unit.unit_type_id);
         row["side"] = side_name(unit.side);
+        row["player"] = unit.local_player;
         row["x"] = unit.position.x;
         row["y"] = unit.position.y;
         row["health"] = unit.health;

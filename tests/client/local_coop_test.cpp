@@ -97,6 +97,7 @@ sim::EncounterDefinition board() {
     second.id = 2;
     second.unit_type_id = 102;
     second.position = {0, 2};
+    second.local_player = 2;
 
     sim::UnitDefinition opponent = first;
     opponent.id = 3;

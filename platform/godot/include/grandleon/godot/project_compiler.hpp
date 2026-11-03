@@ -90,6 +90,13 @@ public:
         const ::godot::String& placement_id,
         std::int64_t minimum_players
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_placement_player(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& node_id,
+        const ::godot::String& placement_id,
+        std::int64_t player
+    ) const;
     [[nodiscard]] ::godot::Dictionary remove_placement(
         const ::godot::String& source_json,
         const ::godot::String& campaign_id,

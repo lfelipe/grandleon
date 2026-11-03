@@ -601,7 +601,11 @@ func _draw_health(unit: Dictionary, centre: Vector2, sprite_size: float) -> void
 	var ratio := clampf(float(unit.health) / maxf(1.0, float(unit.maximum_health)), 0.0, 1.0)
 	var size := Vector2(sprite_size * 0.72, maxf(4.0, tile_size * 0.07))
 	var at := centre + Vector2(-size.x * 0.5, tile_size * 0.38)
-	draw_rect(Rect2(at - Vector2(2, 2), size + Vector2(4, 4)), Color(0.01, 0.015, 0.025, 0.82), true)
+	var owner_colour := Color("ff5267")
+	if String(unit.get("side", "")) == "first":
+		owner_colour = Color("67d9ff") if int(unit.get("player", 1)) == 1 else Color("ffbf59")
+	draw_rect(Rect2(at - Vector2(3, 3), size + Vector2(6, 6)), owner_colour, true)
+	draw_rect(Rect2(at - Vector2(1, 1), size + Vector2(2, 2)), Color(0.01, 0.015, 0.025, 0.92), true)
 	var colour: Color = Color("72e08f") if ratio > 0.5 else (Color("ffca63") if ratio > 0.25 else Color("ff5267"))
 	draw_rect(Rect2(at, Vector2(size.x * ratio, size.y)), colour, true)
 
