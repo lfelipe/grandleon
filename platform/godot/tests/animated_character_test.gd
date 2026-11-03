@@ -2,6 +2,14 @@
 extends SceneTree
 
 const SEMANTIC_CLIPS := [&"idle", &"run", &"attack", &"ability", &"hurt", &"defeat"]
+const COMMANDER_CLIPS := {
+	"idle": &"Relay_Idle",
+	"move": &"Relay_Run",
+	"attack": &"Relay_Strike",
+	"ability": &"Relay_Channel",
+	"hurt": &"Relay_Hit",
+	"defeat": &"Relay_Fall",
+}
 
 var failures := 0
 
@@ -11,12 +19,12 @@ func _init() -> void:
 
 
 func _run() -> void:
-	var commander := _instantiate("res://art/characters/relay_commander_3d.tscn")
+	var commander := _instantiate("res://art/characters/relay_commander.glb")
 	var drone := _instantiate("res://art/characters/relay_drone_3d.tscn")
 	await process_frame
 
-	_test_common("commander", commander)
-	_test_common("drone", drone)
+	_test_common("commander", commander, COMMANDER_CLIPS.values())
+	_test_common("drone", drone, SEMANTIC_CLIPS)
 	_test_profile_bindings()
 	_test_commander_motion(commander)
 	_test_drone_motion(drone)
@@ -40,16 +48,14 @@ func _instantiate(path: String) -> Node:
 	return instance
 
 
-func _test_common(label: String, character: Node) -> void:
+func _test_common(label: String, character: Node, clips: Array) -> void:
 	if character == null:
 		return
-	var rig := character.get_node_or_null("Rig") as Node3D
-	_expect_true("%s rig exists" % label, rig != null)
 	var player := character.get_node_or_null("AnimationPlayer") as AnimationPlayer
 	_expect_true("%s animation player exists" % label, player != null)
 	if player == null:
 		return
-	for clip: StringName in SEMANTIC_CLIPS:
+	for clip: StringName in clips:
 		_expect_true("%s has %s" % [label, clip], player.has_animation(clip))
 		if player.has_animation(clip):
 			_test_unique_tracks(label, clip, player.get_animation(clip))
@@ -80,25 +86,53 @@ func _test_profile_bindings() -> void:
 		var path := String(binding.get("scene", ""))
 		_expect_true("%s scene is bound" % archetype, not path.is_empty())
 		_expect_true("%s scene exists" % archetype, ResourceLoader.exists(path))
+	var commander: Dictionary = scenes.get("commander", {})
+	_expect_true("commander uses an imported GLB", String(commander.get("scene", "")).ends_with(".glb"))
+	var commander_clips: Dictionary = commander.get("clips", {})
+	for semantic: String in COMMANDER_CLIPS:
+		_expect_true(
+			"commander maps %s explicitly" % semantic,
+			String(commander_clips.get(semantic, "")) == String(COMMANDER_CLIPS[semantic])
+		)
 
 
 func _test_commander_motion(character: Node) -> void:
 	if character == null:
 		return
 	var player := character.get_node_or_null("AnimationPlayer") as AnimationPlayer
-	var leg := character.get_node_or_null("Rig/Hips/LeftLeg") as Node3D
-	var arm := character.get_node_or_null("Rig/Hips/Torso/RightArm") as Node3D
-	var core := character.get_node_or_null("Rig/Hips/Torso/RelayCore") as Node3D
-	if player == null or leg == null or arm == null or core == null:
+	var skeleton := character.get_node_or_null("RelayCommanderRig/Skeleton3D") as Skeleton3D
+	if player == null or skeleton == null:
 		_fail("commander animation nodes exist")
 		return
 
-	_sample(player, &"run", 0.07)
-	_expect_true("commander run moves a leg", absf(leg.rotation.x) > 0.1)
-	_sample(player, &"attack", 0.18)
-	_expect_true("commander attack swings its weapon arm", absf(arm.rotation.x) > 1.0)
-	_sample(player, &"ability", 0.32)
-	_expect_true("commander ability pulses its core", core.scale.x > 1.5)
+	_sample(player, &"Relay_Run", 0.10)
+	_expect_true(
+		"commander run moves a leg",
+		_bone_rotation_amount(skeleton, "thigh.L") > 0.1
+	)
+	_sample(player, &"Relay_Strike", 0.23)
+	_expect_true(
+		"commander attack swings its weapon arm",
+		_bone_rotation_amount(skeleton, "upper_arm.R") > 0.7
+	)
+	_sample(player, &"Relay_Channel", 0.30)
+	var core := skeleton.find_bone("core")
+	_expect_true(
+		"commander ability pulses its core",
+		core >= 0 and skeleton.get_bone_pose_scale(core).x > 1.5
+	)
+	_sample(player, &"Relay_Fall", 0.70)
+	_expect_true(
+		"commander defeat tips the rig",
+		_bone_rotation_amount(skeleton, "root") > 0.5
+	)
+
+
+func _bone_rotation_amount(skeleton: Skeleton3D, name: String) -> float:
+	var index := skeleton.find_bone(name)
+	if index < 0:
+		return 0.0
+	return skeleton.get_bone_pose_rotation(index).get_angle()
 
 
 func _test_drone_motion(character: Node) -> void:

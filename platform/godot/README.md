@@ -262,9 +262,10 @@ Four launchable profiles exercise the choice without changing the
 package or rules: `pixel` uses the existing sheets, `diorama` uses lit 3D
 terrain with the real sheets as billboard characters, `voxel-sprites` uses
 box-built terrain with those same characters, and `voxel` builds both terrain
-and characters in 3D. The full-voxel profile binds an authored commander and
-drone scene with in-place idle, run, attack, ability, hurt, and defeat clips;
-other archetypes retain their procedural fallback. Select one with
+and characters in 3D. The full-voxel profile binds an imported, skinned
+commander GLB and an authored drone scene with in-place idle, run, attack,
+ability, hurt, and defeat clips; other archetypes retain their procedural
+fallback. Select one with
 `--graphics=PROFILE` in a developer run or `GRANDLEON_GRAPHICS=PROFILE` in the
 SteamOS bundle. During play, the session menu can replace only the renderer and
 rebind the current board, cursors, selections, and highlights so the four
@@ -319,12 +320,16 @@ route, faces its current leg, and uses portable per-cell timing; the resulting
 snapshot remains authoritative. See [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md)
 for the complete presentation-event contract.
 
-The checked-in `relay_commander_3d.tscn` and `relay_drone_3d.tscn` scenes prove
-that boundary without changing a package or campaign. Their geometry,
-materials, hierarchy, and in-place clips belong to replaceable scenes; the
-board still owns destination, facing, health, shadows, effects, and removal.
-Run `scripts/smoke-animated-characters.sh` to instantiate both scenes and sample
-every required semantic clip after a headless import.
+The checked-in `relay_commander.glb` now proves a normal skinned-mesh,
+armature, material, and animation import. Its explicit profile map translates
+`Relay_Run`, `Relay_Strike`, and the other exported action names into engine
+semantics. `relay_drone_3d.tscn` remains a scene-authored second archetype, and
+`relay_commander_3d.tscn` remains the earlier procedural reference. The board
+still owns destination, facing, health, shadows, effects, and removal. Run
+`scripts/generate-imported-characters.sh` with Blender to regenerate the GLB;
+ordinary builds consume the committed asset and do not require Blender. Run
+`scripts/smoke-animated-characters.sh` to import both active replacements and
+sample every required clip and skeleton response headlessly.
 
 The generated pack currently supplies four 32×32 pose cells plus a separate
 standing image. Their size is not a renderer rule: the art manifest publishes

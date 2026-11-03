@@ -164,9 +164,17 @@
       "assets": {
         "characterScenes": {
           "commander": {
-            "scene": "res://art/characters/relay_commander_3d.tscn",
+            "scene": "res://art/characters/relay_commander.glb",
             "scale": 1.0,
-            "animationPlayer": "AnimationPlayer"
+            "animationPlayer": "AnimationPlayer",
+            "clips": {
+              "idle": "Relay_Idle",
+              "move": "Relay_Run",
+              "attack": "Relay_Strike",
+              "ability": "Relay_Channel",
+              "hurt": "Relay_Hit",
+              "defeat": "Relay_Fall"
+            }
           },
           "beast": {
             "scene": "res://art/characters/relay_drone_3d.tscn",

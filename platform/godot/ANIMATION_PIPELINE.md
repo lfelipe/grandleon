@@ -92,26 +92,38 @@ heights while the 2D sampler uses the same cell path for sprite animation.
 Imported root motion remains in-place decoration: the settled position is
 always the destination in the subsequent authoritative snapshot.
 
-## First authored 3D spike
+## Imported humanoid and authored drone
 
-The full-voxel profile now binds one scene-authored humanoid commander and one
-scene-authored drone without changing the Last Signal package. Both are
-in-place hierarchical models with `idle`, `run`, `attack`, `ability`, `hurt`,
-and `defeat` clips. The common profile maps semantic `move` to `run`; the other
-clip names are direct. Rook and both beast units use the authored scenes while
+The full-voxel profile binds an imported, skinned humanoid GLB for the commander
+and a scene-authored drone without changing the Last Signal package. Both are
+in-place hierarchical models with idle, run, attack, ability, hurt, and defeat
+clips. The commander deliberately exports DCC-shaped names such as
+`Relay_Run`, `Relay_Strike`, and `Relay_Channel`; its binding maps those names
+to the semantic vocabulary explicitly. The drone still uses the common
+`move -> run` mapping. Rook and both beast units use these replacements while
 unbound archetypes keep the procedural voxel fallback.
 
-`scripts/smoke-animated-characters.sh` imports and instantiates both scenes,
-checks the complete clip vocabulary, and samples locomotion, weapon, ability,
-rotor, core, and defeat motion. The ordinary graphics capture additionally
-proves scale, contact overlays, facing, simultaneous board motion, impacts,
-delayed removal, and coexistence with fallback characters in the real
-campaign. The models remain intentional low-poly prototypes rather than a
-claim that the final 3D art pipeline is finished.
+`tools/export_relay_commander.py` constructs the source armature, rigid-weighted
+mesh, materials, and actions inside Blender and exports the self-contained
+`relay_commander.glb`. The character has segmented ceramic armour, a helmet and
+signal visor, relay core, shield, sword, and cape. Its sixteen-bone humanoid
+skeleton is intentionally reusable as a starting topology rather than a
+runtime contract. Run `scripts/generate-imported-characters.sh` only when the
+asset must be regenerated; Blender is an authoring dependency, not a player or
+bundle dependency. The exporter omits unused texture coordinates and produces
+byte-identical output for the same basename.
 
-The next fidelity gate is an imported humanoid and drone produced through a
-normal DCC-to-glTF/GLB workflow. They should replace these prototype scene
-paths, exercise explicit clip-name overrides, and be visibly better than the
-hybrid at the intended viewing distance before the rest of the roster is
-converted. A shared humanoid skeleton is desirable for production, but is not
-part of the gameplay or package contract.
+`scripts/smoke-animated-characters.sh` imports the GLB, instantiates both
+characters, checks the complete clip vocabulary and explicit remap, and samples
+skeleton locomotion, weapon, ability, rotor, core, and defeat motion. The
+ordinary graphics capture additionally proves scale, contact overlays, facing,
+simultaneous board motion, impacts, delayed removal, and coexistence with
+fallback characters in the real campaign. The imported commander is a real
+production-shaped pipeline milestone, but remains a deliberately compact
+low-poly asset rather than the final roster quality bar.
+
+The next fidelity gate is an imported drone from the same normal DCC-to-GLB
+workflow, followed by a second humanoid that exercises skeleton reuse. The
+complete 3D direction should still be judged against the hybrid at the intended
+viewing distance before the rest of the roster is converted. Skeleton reuse is
+an art-production advantage, not part of the gameplay or package contract.

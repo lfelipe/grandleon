@@ -28,7 +28,7 @@ speed to a polished PC build, not the eventual production rate.
 | Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion, and one integrated 443-pixel-cell replacement | a cohesive higher-resolution roster and authored effects | most cohesive today, but depth and lighting remain limited |
 | 3D diorama + 2D characters | 3D camera, lit terrain, water, bridges, trees, mountains, manifest-defined sprite pivots and animation | authored meshes/materials, sprite-facing and shadow polish | largest immediate upgrade while retaining the existing character library |
 | Voxel terrain + 2D characters | scene-authored forest, animated relay, water shader, mountains, cobbled road/contextual bridge, per-tile fallback, and manifest-driven billboard animation | authored ground variants, palette/material manifest, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
-| Full voxel | terrain, props, authored commander/drone scenes, semantic in-place animation, per-archetype fallback, lighting | imported production rigs, palette/material manifest, richer silhouettes | technically clean and readable, but character art becomes a new production pipeline |
+| Full voxel | terrain, props, imported skinned commander GLB, authored drone scene, explicit clip remapping, semantic in-place animation, per-archetype fallback, lighting | imported drone and second humanoid, palette/material manifest, richer roster silhouettes | technically clean and readable, with the first reproducible DCC pipeline now proven |
 
 All four retain the same board API, concurrent player cursors, legal-tile
 queries, and package presentation indices. Switching renderer profiles does not
