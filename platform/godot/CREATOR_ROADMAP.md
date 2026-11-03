@@ -24,11 +24,13 @@ The first native seam is implemented:
 - `ProjectLibrary` creates a canonical project from the native blank template,
   assigns a portable UUID, validates every save through the native parser, and
   keeps the prior source recoverable if replacement is interrupted.
-- The controller-navigable Projects screen creates blank or playable starter
-  projects, lists, renames, duplicates, imports, and exports stored projects,
-  compiles a selected project, and hands a playable draft back to the ordinary
-  game scene without a temporary package. Copies receive new portable
-  identities; renames preserve stable identifiers and content.
+- The controller-navigable Projects screen has one guided **New Campaign**
+  path: name the adventure, create a complete playable campaign, and open its
+  first map immediately. An advanced empty project remains available. Existing
+  cards emphasize **Continue Creating**, **Test Campaign**, and **Write Story**;
+  rename, copy, and export sit behind **More**. Drafts enter the ordinary game
+  scene without a temporary package. Copies receive new portable identities;
+  renames preserve stable identifiers and content.
 - Map-editor drafts proceed through the native company gate automatically and
   disable campaign persistence, so iteration reaches the edited board directly
   without reading or replacing an installed game's checkpoints.

@@ -14,12 +14,24 @@ func _run() -> void:
 	root.add_child(screen)
 	current_scene = screen
 	await process_frame
-	_expect("starter action focused", screen.first_button.has_focus(), true)
+	_expect("new campaign action focused", screen.first_button.has_focus(), true)
 	_expect("project library available", screen.library.ready(), true)
-	screen._create_starter()
+	screen._open_new_campaign()
+	_expect("new campaign panel opens", screen.new_campaign_layer.visible, true)
+	_expect("campaign name receives focus", screen.new_campaign_title.has_focus(), true)
+	var new_campaign_screenshot_path := _argument_path("--new-campaign-screenshot=")
+	if not new_campaign_screenshot_path.is_empty():
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(new_campaign_screenshot_path)
+		print("new campaign capture saved: %s" % new_campaign_screenshot_path)
+		quit(1 if failures > 0 else 0)
+		return
+	screen.new_campaign_title.text = "Signal Road"
+	screen._create_named_campaign(false)
 	await process_frame
 	var projects: Array[Dictionary] = screen.library.list_projects()
-	_expect("starter project created", projects.size(), 1)
+	_expect("playable campaign created", projects.size(), 1)
 	if projects.size() == 1:
 		var loaded: Dictionary = screen.library.load_source(str(projects[0].id))
 		_expect("starter project opens", loaded.ok, true)
@@ -28,15 +40,26 @@ func _run() -> void:
 			var compiled: Dictionary = compiler.compile_source_json(loaded.source)
 			_expect("starter project compiles", compiled.ok, true)
 			_expect("starter has a campaign", loaded.project.campaigns.is_empty(), false)
-	_expect("creator reports creation", screen.status_label.text, "CREATED  /  Untitled Adventure")
+	_expect("creator reports creation", screen.status_label.text, "CREATED  /  Signal Road  /  READY TO EDIT")
 	if projects.size() == 1:
 		var original_id := str(projects[0].id)
+		_expect(
+			"project card shows the next action",
+			screen.project_buttons[original_id].text.begins_with("CONTINUE CREATING"),
+			true
+		)
+		screen._open_project_actions(original_id, "Signal Road")
+		_expect("project options open", screen.project_actions_layer.visible, true)
+		_expect("project options focus rename", screen.project_actions_first_button.has_focus(), true)
+		screen._close_project_actions()
+		await process_frame
+		_expect("project options return focus", screen.project_buttons[original_id].has_focus(), true)
 		screen._duplicate_project(original_id)
 		await process_frame
 		var copied_projects: Array[Dictionary] = screen.library.list_projects()
 		_expect("project copy is listed", copied_projects.size(), 2)
 		_expect("creator reports copy", screen.status_label.text, "COPIED  /  NEW PORTABLE PROJECT ID")
-		screen._open_rename(original_id, "Untitled Adventure")
+		screen._open_rename(original_id, "Signal Road")
 		_expect("rename panel opens", screen.rename_layer.visible, true)
 		_expect("rename field receives focus", screen.rename_input.has_focus(), true)
 		var rename_screenshot_path := _argument_path("--rename-screenshot=")

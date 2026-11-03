@@ -8,6 +8,14 @@ var project_list: VBoxContainer
 var status_label: Label
 var first_button: Button
 var project_buttons: Dictionary = {}
+var new_campaign_layer: Control
+var new_campaign_title: LineEdit
+var new_campaign_create_button: Button
+var project_actions_layer: Control
+var project_actions_title: Label
+var project_actions_first_button: Button
+var project_actions_id := ""
+var project_actions_name := ""
 var rename_layer: Control
 var rename_input: LineEdit
 var rename_project_id := ""
@@ -42,7 +50,11 @@ func _process(_delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if rename_layer != null and rename_layer.visible:
+		if new_campaign_layer != null and new_campaign_layer.visible:
+			_close_new_campaign()
+		elif project_actions_layer != null and project_actions_layer.visible:
+			_close_project_actions()
+		elif rename_layer != null and rename_layer.visible:
 			_close_rename()
 		elif import_layer != null and import_layer.visible:
 			_close_import()
@@ -76,7 +88,7 @@ func _build_interface() -> void:
 	add_child(header)
 
 	var title := Label.new()
-	title.text = "Create a game. Test it here."
+	title.text = "Make a game. Test it right away."
 	title.position = Vector2(80, 112)
 	title.size = Vector2(1760, 72)
 	title.add_theme_font_size_override("font_size", 44)
@@ -85,8 +97,8 @@ func _build_interface() -> void:
 
 	var explanation := Label.new()
 	explanation.text = (
-		"Projects are stored in this user's application data. Portable source never "
-		+ "contains machine paths, private settings, or Steam credentials."
+		"Start from a complete small campaign, change one thing, then play it. "
+		+ "Advanced tools stay available when you need them."
 	)
 	explanation.position = Vector2(84, 190)
 	explanation.size = Vector2(1700, 70)
@@ -105,17 +117,13 @@ func _build_interface() -> void:
 	var actions := VBoxContainer.new()
 	actions.add_theme_constant_override("separation", 18)
 	actions_panel.add_child(actions)
-	var actions_title := _label("START", 18, Color("69d9ff"))
+	var actions_title := _label("CREATE", 18, Color("69d9ff"))
 	actions.add_child(actions_title)
-	var starter := _button("CREATE PLAYABLE STARTER")
-	starter.tooltip_text = "A small complete campaign you can play and change."
-	starter.pressed.connect(_create_starter)
-	actions.add_child(starter)
-	first_button = starter
-	var blank := _button("CREATE BLANK PROJECT")
-	blank.tooltip_text = "An empty canonical project for building from the beginning."
-	blank.pressed.connect(_create_blank)
-	actions.add_child(blank)
+	var campaign := _button("NEW CAMPAIGN")
+	campaign.tooltip_text = "Name a complete small campaign, then begin with its first map."
+	campaign.pressed.connect(_open_new_campaign)
+	actions.add_child(campaign)
+	first_button = campaign
 	import_open_button = _button("IMPORT PROJECT ARCHIVE")
 	import_open_button.tooltip_text = "Choose a portable project from the controller-friendly inbox."
 	import_open_button.pressed.connect(_open_import)
@@ -124,7 +132,7 @@ func _build_interface() -> void:
 	home.pressed.connect(_open_home)
 	actions.add_child(home)
 	var hint := _label(
-		"Stick / d-pad chooses. Confirm opens. Cancel returns to the main menu.",
+		"Choose with the stick or d-pad. Confirm opens. Cancel goes back.",
 		16, Color("718896")
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -154,9 +162,214 @@ func _build_interface() -> void:
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.custom_minimum_size.y = 64
 	projects_column.add_child(status_label)
+	_build_new_campaign_layer()
+	_build_project_actions_layer()
 	_build_rename_layer()
 	_build_import_layer()
 	_build_import_dialog()
+
+
+func _build_new_campaign_layer() -> void:
+	new_campaign_layer = Control.new()
+	new_campaign_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	new_campaign_layer.visible = false
+	new_campaign_layer.z_index = 20
+	add_child(new_campaign_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.01, 0.02, 0.035, 0.88)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	new_campaign_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(410, 190)
+	panel.size = Vector2(1100, 700)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 22, Color("69d9ff"))
+	)
+	new_campaign_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("NEW CAMPAIGN", 18, Color("69d9ff")))
+	column.add_child(_label("What is your adventure called?", 38, Color("f2f7f9")))
+	var explanation := _label(
+		"You will begin with one complete battle, two heroes, enemies, a goal, and "
+		+ "a short story scene. Everything can be replaced as your campaign grows.",
+		19,
+		Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 86
+	column.add_child(explanation)
+	column.add_child(_label("CAMPAIGN NAME", 16, Color("69d9ff")))
+	new_campaign_title = LineEdit.new()
+	new_campaign_title.text = "My Adventure"
+	new_campaign_title.placeholder_text = "My Adventure"
+	new_campaign_title.max_length = 160
+	new_campaign_title.custom_minimum_size = Vector2(980, 72)
+	new_campaign_title.add_theme_font_size_override("font_size", 25)
+	new_campaign_title.text_submitted.connect(_create_named_campaign_from_text)
+	column.add_child(new_campaign_title)
+	var guidance := _label(
+		"Next: shape the first map  →  write the story  →  test the campaign",
+		18,
+		Color("72e08f")
+	)
+	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(guidance)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	new_campaign_create_button = _button("CREATE & OPEN FIRST MAP")
+	new_campaign_create_button.custom_minimum_size = Vector2(470, 82)
+	new_campaign_create_button.pressed.connect(_create_named_campaign)
+	actions.add_child(new_campaign_create_button)
+	var empty := _button("EMPTY PROJECT")
+	empty.custom_minimum_size = Vector2(280, 82)
+	empty.tooltip_text = "Advanced: start without maps, characters, or a campaign."
+	empty.pressed.connect(_create_empty_project)
+	actions.add_child(empty)
+	var cancel := _button("BACK")
+	cancel.custom_minimum_size = Vector2(190, 82)
+	cancel.pressed.connect(_close_new_campaign)
+	actions.add_child(cancel)
+
+
+func _build_project_actions_layer() -> void:
+	project_actions_layer = Control.new()
+	project_actions_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	project_actions_layer.visible = false
+	project_actions_layer.z_index = 20
+	add_child(project_actions_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.01, 0.02, 0.035, 0.86)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	project_actions_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(530, 190)
+	panel.size = Vector2(860, 700)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 22, Color("69d9ff"))
+	)
+	project_actions_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	panel.add_child(column)
+	column.add_child(_label("PROJECT OPTIONS", 18, Color("69d9ff")))
+	project_actions_title = _label("CAMPAIGN", 34, Color("f2f7f9"))
+	project_actions_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	project_actions_title.custom_minimum_size.y = 82
+	column.add_child(project_actions_title)
+	project_actions_first_button = _button("RENAME")
+	project_actions_first_button.pressed.connect(_rename_selected_project)
+	column.add_child(project_actions_first_button)
+	var duplicate := _button("MAKE A COPY")
+	duplicate.pressed.connect(_duplicate_selected_project)
+	column.add_child(duplicate)
+	var export := _button("EXPORT PORTABLE PROJECT")
+	export.pressed.connect(_export_selected_project)
+	column.add_child(export)
+	var back := _button("BACK")
+	back.pressed.connect(_close_project_actions)
+	column.add_child(back)
+
+
+func _open_new_campaign() -> void:
+	new_campaign_title.text = "My Adventure"
+	new_campaign_layer.visible = true
+	new_campaign_title.grab_focus()
+	new_campaign_title.select_all()
+
+
+func _close_new_campaign() -> void:
+	new_campaign_layer.visible = false
+	if first_button != null and first_button.is_inside_tree():
+		first_button.call_deferred("grab_focus")
+
+
+func _create_named_campaign_from_text(_value: String) -> void:
+	_create_named_campaign()
+
+
+func _create_named_campaign(open_editor := true) -> void:
+	_create_campaign_from(
+		"res://content/templates/starter_battle.json",
+		new_campaign_title.text,
+		open_editor
+	)
+
+
+func _create_empty_project(open_editor := true) -> void:
+	_create_campaign_from(
+		"res://content/templates/blank_project.json",
+		new_campaign_title.text,
+		open_editor
+	)
+
+
+func _create_campaign_from(template_path: String, title: String, open_editor: bool) -> void:
+	var clean_title := title.strip_edges()
+	if clean_title.is_empty():
+		_set_status("GIVE THE CAMPAIGN A NAME", true)
+		new_campaign_title.grab_focus()
+		return
+	var source := FileAccess.get_file_as_string(template_path)
+	if source.is_empty():
+		_set_status("PROJECT TEMPLATE IS NOT AVAILABLE", true)
+		return
+	var created: Dictionary = library.create_project(clean_title, source)
+	if not created.ok:
+		_set_status("CREATE FAILED  /  %s" % created.message, true)
+		new_campaign_title.grab_focus()
+		return
+	new_campaign_layer.visible = false
+	_refresh_projects()
+	_set_status("CREATED  /  %s  /  READY TO EDIT" % clean_title, false)
+	if not open_editor:
+		_focus_project(str(created.id))
+		return
+	CreatorContext.open_project(str(created.id))
+	get_tree().change_scene_to_file("res://map_editor.tscn")
+
+
+func _open_project_actions(project_id: String, title: String) -> void:
+	project_actions_id = project_id
+	project_actions_name = title
+	project_actions_title.text = title
+	project_actions_layer.visible = true
+	project_actions_first_button.grab_focus()
+
+
+func _close_project_actions() -> void:
+	project_actions_layer.visible = false
+	var project_id := project_actions_id
+	project_actions_id = ""
+	project_actions_name = ""
+	_focus_project(project_id)
+
+
+func _rename_selected_project() -> void:
+	var project_id := project_actions_id
+	var title := project_actions_name
+	project_actions_layer.visible = false
+	_open_rename(project_id, title)
+
+
+func _duplicate_selected_project() -> void:
+	var project_id := project_actions_id
+	project_actions_layer.visible = false
+	_duplicate_project(project_id)
+	project_actions_id = ""
+	project_actions_name = ""
+
+
+func _export_selected_project() -> void:
+	var project_id := project_actions_id
+	project_actions_layer.visible = false
+	_export_project(project_id)
+	project_actions_id = ""
+	project_actions_name = ""
 
 
 func _build_rename_layer() -> void:
@@ -247,7 +460,7 @@ func _build_import_layer() -> void:
 	var explanation := _label(
 		(
 			"Place .grandleon.zip files in this game's import inbox, then choose one below. "
-			+ "Only archive names are shown; local paths and model settings never enter the project."
+			+ "Only archive names are shown; local paths and private settings never enter the project."
 		),
 		18,
 		Color("a9bdc9")
@@ -313,7 +526,7 @@ func _refresh_projects() -> void:
 	var projects: Array[Dictionary] = library.list_projects()
 	if projects.is_empty():
 		var empty := _label(
-			"No projects yet. Create a playable starter or a blank project.",
+			"No campaigns yet. Choose New Campaign to make one you can play immediately.",
 			20, Color("718896")
 		)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -321,13 +534,13 @@ func _refresh_projects() -> void:
 		return
 	for project: Dictionary in projects:
 		var title := str(project.get("title", "Untitled Game"))
-		var game_id := str(project.get("game_id", ""))
 		var entry := VBoxContainer.new()
 		entry.add_theme_constant_override("separation", 8)
 		project_list.add_child(entry)
-		var edit := _button("MAPS  /  %s\n%s" % [title, game_id])
+		var progress := _project_progress(str(project.id))
+		var edit := _button("CONTINUE CREATING  /  %s\n%s" % [title, progress])
 		edit.disabled = not bool(project.get("readable", false))
-		edit.custom_minimum_size = Vector2(1040, 72)
+		edit.custom_minimum_size = Vector2(1040, 86)
 		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		edit.pressed.connect(_edit_project.bind(str(project.id)))
 		entry.add_child(edit)
@@ -335,31 +548,40 @@ func _refresh_projects() -> void:
 		var actions := HBoxContainer.new()
 		actions.add_theme_constant_override("separation", 10)
 		entry.add_child(actions)
-		var story := _button("STORY")
-		story.disabled = edit.disabled
-		story.custom_minimum_size = Vector2(200, 58)
-		story.pressed.connect(_edit_story.bind(str(project.id)))
-		actions.add_child(story)
-		var play := _button("PLAY")
+		var play := _button("TEST CAMPAIGN")
 		play.disabled = edit.disabled
-		play.custom_minimum_size = Vector2(200, 58)
+		play.custom_minimum_size = Vector2(310, 58)
 		play.pressed.connect(_play_project.bind(str(project.id)))
 		actions.add_child(play)
-		var duplicate := _button("COPY")
-		duplicate.disabled = edit.disabled
-		duplicate.custom_minimum_size = Vector2(200, 58)
-		duplicate.pressed.connect(_duplicate_project.bind(str(project.id)))
-		actions.add_child(duplicate)
-		var rename := _button("RENAME")
-		rename.disabled = edit.disabled
-		rename.custom_minimum_size = Vector2(200, 58)
-		rename.pressed.connect(_open_rename.bind(str(project.id), title))
-		actions.add_child(rename)
-		var export := _button("EXPORT")
-		export.disabled = edit.disabled
-		export.custom_minimum_size = Vector2(200, 58)
-		export.pressed.connect(_export_project.bind(str(project.id)))
-		actions.add_child(export)
+		var story := _button("WRITE STORY")
+		story.disabled = edit.disabled
+		story.custom_minimum_size = Vector2(310, 58)
+		story.pressed.connect(_edit_story.bind(str(project.id)))
+		actions.add_child(story)
+		var more := _button("MORE")
+		more.disabled = edit.disabled
+		more.custom_minimum_size = Vector2(310, 58)
+		more.pressed.connect(_open_project_actions.bind(str(project.id), title))
+		actions.add_child(more)
+
+
+func _project_progress(project_id: String) -> String:
+	var loaded: Dictionary = library.load_source(project_id)
+	if not loaded.ok:
+		return "NEEDS REPAIR"
+	var value: Variant = loaded.get("project", {})
+	if not value is Dictionary:
+		return "NEEDS REPAIR"
+	var project: Dictionary = value
+	var maps: Array = project.get("maps", [])
+	var campaigns: Array = project.get("campaigns", [])
+	var dialogues: Array = project.get("dialogues", [])
+	if campaigns.is_empty():
+		return "EMPTY PROJECT  ·  START WITH A MAP"
+	return "READY TO TEST  ·  %d MAP%s  ·  %d STORY SCENE%s" % [
+		maps.size(), "" if maps.size() == 1 else "S",
+		dialogues.size(), "" if dialogues.size() == 1 else "S",
+	]
 
 
 func _duplicate_project(project_id: String) -> void:

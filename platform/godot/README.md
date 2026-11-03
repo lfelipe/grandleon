@@ -45,12 +45,16 @@ entirely.
 ## Create and play projects
 
 Choose **Create / Edit Games** on the home screen. The native Projects
-screen can create an empty canonical project or a complete playable starter,
-lists, renames, duplicates, imports, and exports projects stored under Godot's
-per-user data directory, and opens focused native map or story creators.
+screen starts with one primary **New Campaign** action. Name the adventure and
+**Create & Open First Map** makes a complete small campaign—with heroes,
+enemies, a goal, and a story scene—then opens its map immediately. **Empty
+Project** remains an advanced option. Existing project cards expose only
+**Continue Creating**, **Test Campaign**, **Write Story**, and **More**;
+rename, copy, and export stay behind **More** until needed. Projects live under
+Godot's per-user data directory and open focused native map or story creators.
 **Export** creates a
 `.grandleon.zip` containing only canonical source and project-owned assets;
-local settings, recovery files, machine paths, and model configuration are
+local settings, recovery files, and machine paths are
 excluded. Import accepts both that versioned form and compatible archives from
 the earlier editor. It preserves portable identifiers unless they already exist
 in the library, in which case the import becomes a clearly labelled copy with
@@ -101,8 +105,7 @@ cast identity, backdrop, and opening line, then attach it atomically to an
 existing campaign story moment. Applying either edit passes through the native
 integer-preserving source boundary, with bounded undo/redo, recoverable save,
 and immediate draft play. Campaign routing outside that explicit attachment,
-console content, and unrelated source fields remain unchanged. Model endpoints
-and prompts never enter the portable dialogue source.
+console content, and unrelated source fields remain unchanged.
 
 The current creator creates and resizes maps, edits playable and surrounding
 terrain, arranges both sides of existing encounters, and authors deployment
