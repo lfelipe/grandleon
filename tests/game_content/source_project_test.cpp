@@ -2481,6 +2481,49 @@ void authors_campaign_supplies_without_editing_grant_arrays() {
     );
 }
 
+void chooses_shared_presentation_without_changing_gameplay_source() {
+    const auto winter = gc::set_source_project_presentation_json(
+        source, "themeId", "winter"
+    );
+    const auto mythical = gc::set_source_project_presentation_json(
+        winter.json, "characterStyleId", "mythical"
+    );
+    const auto second = gc::set_source_project_presentation_json(
+        mythical.json, "characterFigureId", "second"
+    );
+    const auto parsed = gc::parse_source_project_json(second.json);
+    expect(
+        winter && mythical && second && parsed &&
+            parsed.source.theme == gc::theme_index("winter") &&
+            parsed.source.character_style ==
+                gc::character_style_index("mythical") &&
+            parsed.source.character_figure ==
+                gc::character_figure_index("second") &&
+            gc::compile(parsed.source),
+        "shared world, character style, and figure choices remain playable"
+    );
+    const auto defaulted = gc::set_source_project_presentation_json(
+        second.json, "themeId", ""
+    );
+    expect(
+        defaulted &&
+            defaulted.json.find("themeId") == std::string::npos,
+        "clearing an explicit presentation choice restores its portable default"
+    );
+    expect(
+        !gc::set_source_project_presentation_json(
+            source, "themeId", "private_theme"
+        ) &&
+            !gc::set_source_project_presentation_json(
+                source, "characterStyleId", "private_style"
+            ) &&
+            !gc::set_source_project_presentation_json(
+                source, "assetPath", "/private/art"
+            ),
+        "presentation accepts only shared fields and art-library choices"
+    );
+}
+
 void creates_and_attaches_one_portable_dialogue_scene() {
     const std::string with_story = source_with(
         R"json("entryNodeId":"battle",
@@ -2909,6 +2952,7 @@ int main() {
     updates_one_dialogue_line_without_retyping_the_project();
     adds_and_renames_campaign_members_without_retyping_the_project();
     authors_campaign_supplies_without_editing_grant_arrays();
+    chooses_shared_presentation_without_changing_gameplay_source();
     creates_and_attaches_one_portable_dialogue_scene();
     maps_authored_resistance();
     refuses_a_stat_the_rules_cannot_execute();

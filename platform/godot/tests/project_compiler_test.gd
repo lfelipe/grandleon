@@ -63,6 +63,14 @@ func _init() -> void:
 			)
 			_expect("wrong terrain length refused", filled.ok, false)
 			var source_data: Dictionary = JSON.parse_string(source)
+			var presentation: Dictionary = compiler.set_project_presentation(
+				source, "themeId", "winter"
+			)
+			_expect("project presentation edit succeeds", presentation.ok, true)
+			if presentation.ok:
+				var presentation_data: Dictionary = JSON.parse_string(presentation.source)
+				_expect("project presentation stores shared choice", presentation_data.themeId, "winter")
+				_expect("project presentation remains playable", compiler.compile_source_json(presentation.source).ok, true)
 			var terrain := PackedStringArray()
 			for terrain_id: Variant in source_data.maps[0].terrain:
 				terrain.append("water" if str(terrain_id) == "forest" else str(terrain_id))

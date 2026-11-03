@@ -364,6 +364,15 @@ struct SourceMapCell final {
     std::int64_t quantity
 );
 
+// Changes one project-wide presentation default using the shared art-library
+// menus. Field is themeId, characterStyleId, or characterFigureId. An empty
+// value removes the explicit choice and restores the portable default.
+[[nodiscard]] SourceTextResult set_source_project_presentation_json(
+    std::string_view source_json,
+    std::string_view field,
+    std::string_view value
+);
+
 // Creates one complete scene and attaches it to an existing story node as one
 // validated edit. The opening speaker may name a unit type for portable
 // portraits; backdrop may be empty to retain the ordinary flat presentation.

@@ -5871,4 +5871,77 @@ SourceTextResult set_source_campaign_grant_json(
     return result;
 }
 
+SourceTextResult set_source_project_presentation_json(
+    std::string_view source_json,
+    std::string_view field,
+    std::string_view value
+) {
+    SourceTextResult result;
+    const bool theme = field == "themeId";
+    const bool style = field == "characterStyleId";
+    const bool figure = field == "characterFigureId";
+    if (!theme && !style && !figure) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$",
+            "presentation field must name the world theme, character style, "
+            "or default figure"
+        );
+        return result;
+    }
+    const bool known =
+        value.empty() || (theme && theme_index(value) < theme_count) ||
+        (style && character_style_index(value) < character_style_count) ||
+        (figure && character_figure_index(value) < character_figure_count);
+    if (!known) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            "$." + std::string(field),
+            "presentation choice is not in the shared art-library menu"
+        );
+        return result;
+    }
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    if (root == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$",
+            "project root is not writable"
+        );
+        return result;
+    }
+    if (value.empty()) {
+        root->erase(std::string(field));
+    } else {
+        (*root)[std::string(field)] = Json{std::string(value)};
+    }
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value,
+        "$." + std::string(field),
+        "presentation edit would make this playable project invalid"
+    );
+    return result;
+}
+
 }  // namespace grandleon::game_content

@@ -192,6 +192,11 @@ public:
         const ::godot::String& asset_id,
         std::int64_t quantity
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_project_presentation(
+        const ::godot::String& source_json,
+        const ::godot::String& field,
+        const ::godot::String& value
+    ) const;
     [[nodiscard]] ::godot::Dictionary insert_dialogue_line(
         const ::godot::String& source_json,
         const ::godot::String& dialogue_id,
