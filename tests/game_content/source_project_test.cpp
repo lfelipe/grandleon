@@ -2250,6 +2250,36 @@ void updates_one_dialogue_line_without_retyping_the_project() {
         ),
         "a dialogue line cannot cast an unknown portable character"
     );
+
+    const auto with_backdrop = gc::set_source_dialogue_backdrop_json(
+        with_dialogue, "briefing", "night_camp"
+    );
+    const auto parsed_backdrop =
+        gc::parse_source_project_json(with_backdrop.json);
+    expect(
+        with_backdrop && parsed_backdrop &&
+            parsed_backdrop.source.dialogues.front().backdrop ==
+                gc::backdrop_index("night_camp") + 1 &&
+            gc::compile(parsed_backdrop.source),
+        "a scene backdrop is editable without changing its portable story"
+    );
+    const auto cleared_backdrop = gc::set_source_dialogue_backdrop_json(
+        with_backdrop.json, "briefing", ""
+    );
+    const auto parsed_cleared =
+        gc::parse_source_project_json(cleared_backdrop.json);
+    expect(
+        cleared_backdrop && parsed_cleared &&
+            parsed_cleared.source.dialogues.front().backdrop == 0 &&
+            cleared_backdrop.json.find("backgroundId") == std::string::npos,
+        "flat presentation removes the optional backdrop field"
+    );
+    expect(
+        !gc::set_source_dialogue_backdrop_json(
+            with_dialogue, "briefing", "private_backdrop"
+        ),
+        "a backdrop outside the shared art library is refused"
+    );
 }
 
 void creates_and_attaches_one_portable_dialogue_scene() {

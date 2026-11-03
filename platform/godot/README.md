@@ -106,12 +106,14 @@ existing campaign story moment. **Add Next Line** creates the frequent next
 step beside line navigation; reorder and delete live under **More**, and the
 last line cannot be deleted. **Speaker / Character** chooses a named project
 character, or deliberately chooses no character art, while maintaining the
-scene cast atomically. Visible line changes pass through the native
-integer-preserving source boundary automatically when the author saves,
-navigates, changes the line list, tests, or leaves; there is no separate Apply
-step. Bounded undo/redo, recoverable save, and immediate draft play remain
-available. Campaign routing outside that explicit attachment, console content,
-and unrelated source fields remain unchanged.
+scene cast atomically. The scene panel changes the shared backdrop and previews
+the same resolved portrait asset and backdrop wash used during play. Visible
+line changes pass through the native integer-preserving source boundary
+automatically when the author saves, navigates, changes the line list, tests,
+or leaves; there is no separate Apply step. Bounded undo/redo, recoverable
+save, and immediate draft play remain available. Campaign routing outside that
+explicit attachment, console content, and unrelated source fields remain
+unchanged.
 
 The current creator creates and resizes maps, edits playable and surrounding
 terrain, arranges both sides of existing encounters, and authors deployment

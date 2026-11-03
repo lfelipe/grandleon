@@ -2,6 +2,7 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const ArtLibrary = preload("res://scripts/art_library.gd")
 const HISTORY_LIMIT := 64
 const BACKDROPS := [
 	"throne_hall", "night_camp", "deep_wood", "mountain_dusk",
@@ -10,6 +11,7 @@ const BACKDROPS := [
 
 var library
 var compiler
+var art
 var project_id := ""
 var source := ""
 var saved_source := ""
@@ -29,6 +31,10 @@ var discard_armed_until := 0
 var title_label: Label
 var dialogue_select: OptionButton
 var dialogue_name_label: Label
+var backdrop_select: OptionButton
+var preview_wash: ColorRect
+var preview_portrait: TextureRect
+var preview_caption: Label
 var line_counter: Label
 var speaker_select: OptionButton
 var dialogue_text: TextEdit
@@ -62,6 +68,7 @@ var create_scene_button: Button
 func _ready() -> void:
 	library = ProjectLibrary.new()
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+	art = ArtLibrary.new()
 	project_id = CreatorContext.project_id
 	_build_interface()
 	_load_project()
@@ -330,6 +337,7 @@ func _refresh_line() -> void:
 		dialogue_text.text = ""
 		line_form_dirty = false
 		refreshing_line = false
+		_refresh_scene_preview()
 		_update_actions()
 		return
 	var line: Dictionary = lines[line_index] if lines[line_index] is Dictionary else {}
@@ -358,7 +366,90 @@ func _refresh_line() -> void:
 	dialogue_text.text = str(line.get("text", ""))
 	line_form_dirty = false
 	refreshing_line = false
+	_refresh_scene_preview()
 	_update_actions()
+
+
+func _refresh_scene_preview() -> void:
+	var dialogue := _current_dialogue()
+	var backdrop := str(dialogue.get("backgroundId", ""))
+	var backdrop_index: int = BACKDROPS.find(backdrop) + 1 if not backdrop.is_empty() else 0
+	var was_refreshing := refreshing_line
+	refreshing_line = true
+	backdrop_select.select(clampi(backdrop_index, 0, BACKDROPS.size()))
+	refreshing_line = was_refreshing
+	var washes := [
+		Color(0.005, 0.009, 0.016, 0.68),
+		Color(0.10, 0.045, 0.03, 0.72),
+		Color(0.015, 0.04, 0.075, 0.72),
+		Color(0.015, 0.07, 0.045, 0.72),
+		Color(0.11, 0.045, 0.08, 0.72),
+		Color(0.015, 0.075, 0.10, 0.72),
+		Color(0.018, 0.012, 0.075, 0.72),
+		Color(0.055, 0.025, 0.075, 0.72),
+	]
+	preview_wash.color = washes[clampi(backdrop_index, 0, washes.size() - 1)]
+	preview_portrait.texture = null
+	var lines := _current_lines()
+	if lines.is_empty() or line_index < 0 or line_index >= lines.size():
+		preview_caption.text = "NO LINE TO PREVIEW"
+		return
+	var line: Dictionary = lines[line_index] if lines[line_index] is Dictionary else {}
+	var speaker := str(line.get("speaker", ""))
+	var unit_type_id := _cast_unit_type(dialogue, speaker)
+	preview_caption.text = (
+		"%s  /  NO CHARACTER ART" % speaker.to_upper()
+		if unit_type_id.is_empty()
+		else "%s  /  %s" % [speaker.to_upper(), _unit_type_name(unit_type_id).to_upper()]
+	)
+	if unit_type_id.is_empty():
+		return
+	var resolved: Dictionary = compiler.source_character_preview(
+		source, unit_type_id
+	)
+	if not resolved.ok:
+		return
+	var frame: Dictionary = art.character_frame(resolved, "idle")
+	var portrait := AtlasTexture.new()
+	portrait.atlas = art.texture(str(frame.path))
+	portrait.region = Rect2(Vector2.ZERO, Vector2(frame.cell_size))
+	preview_portrait.texture = portrait
+
+
+func _select_backdrop(index: int) -> void:
+	if (
+		refreshing_line or dialogues.is_empty()
+		or index < 0 or index > BACKDROPS.size()
+	):
+		return
+	if not _commit_visible_line(false):
+		_refresh_scene_preview()
+		return
+	var dialogue := _current_dialogue()
+	var background_id: String = "" if index <= 0 else BACKDROPS[index - 1]
+	if background_id == str(dialogue.get("backgroundId", "")):
+		return
+	var updated: Dictionary = compiler.set_dialogue_backdrop(
+		source, str(dialogue.get("id", "")), background_id
+	)
+	if not updated.ok:
+		_set_status("BACKDROP NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		_refresh_scene_preview()
+		return
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = source != saved_source
+	_read_source()
+	_refresh_dialogues()
+	_set_status(
+		"UNSAVED  /  BACKDROP %s" % (
+			"FLAT" if background_id.is_empty()
+			else background_id.replace("_", " ").to_upper()
+		),
+		false
+	)
+	backdrop_select.grab_focus()
 
 
 func _apply_line() -> void:
@@ -762,6 +853,7 @@ func _update_actions() -> void:
 	redo_button.disabled = redo_stack.is_empty() or line_form_dirty
 	play_button.disabled = project.get("campaigns", []).is_empty()
 	new_scene_button.disabled = story_targets.is_empty() or scene_characters.is_empty()
+	backdrop_select.disabled = dialogues.is_empty()
 	var lines := _current_lines()
 	add_line_button.disabled = dialogues.is_empty() or lines.size() >= 4096
 	move_line_earlier_button.disabled = lines.is_empty() or line_index <= 0
@@ -829,15 +921,37 @@ func _build_interface() -> void:
 	scene_column.add_child(new_scene_button)
 	dialogue_name_label = _label("", 25, Color("f2f7f9"))
 	dialogue_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dialogue_name_label.custom_minimum_size.y = 110
+	dialogue_name_label.custom_minimum_size.y = 58
 	scene_column.add_child(dialogue_name_label)
-	var guidance := _label(
-		"Pick a scene, choose a line, and write what the character says.",
-		18, Color("a9bdc9")
-	)
-	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	guidance.custom_minimum_size.y = 170
-	scene_column.add_child(guidance)
+	scene_column.add_child(_label("BACKDROP", 16, Color("69d9ff")))
+	backdrop_select = OptionButton.new()
+	backdrop_select.custom_minimum_size = Vector2(420, 54)
+	backdrop_select.add_theme_font_size_override("font_size", 18)
+	backdrop_select.add_item("FLAT / NO BACKDROP")
+	for backdrop: String in BACKDROPS:
+		backdrop_select.add_item(backdrop.replace("_", " ").to_upper())
+	backdrop_select.item_selected.connect(_select_backdrop)
+	scene_column.add_child(backdrop_select)
+	var preview := Control.new()
+	preview.custom_minimum_size = Vector2(420, 260)
+	scene_column.add_child(preview)
+	preview_wash = ColorRect.new()
+	preview_wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	preview_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.add_child(preview_wash)
+	preview_portrait = TextureRect.new()
+	preview_portrait.position = Vector2(100, 8)
+	preview_portrait.size = Vector2(220, 205)
+	preview_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	preview_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.add_child(preview_portrait)
+	preview_caption = _label("SCENE PREVIEW", 15, Color("dce8ed"))
+	preview_caption.position = Vector2(10, 218)
+	preview_caption.size = Vector2(400, 34)
+	preview_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview.add_child(preview_caption)
 
 	var editor_panel := PanelContainer.new()
 	editor_panel.position = Vector2(610, 232)

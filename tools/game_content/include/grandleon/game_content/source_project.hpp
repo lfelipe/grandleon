@@ -308,6 +308,15 @@ struct SourceMapCell final {
     std::string_view line_text
 );
 
+// Changes the runtime backdrop for one scene. An empty identity deliberately
+// restores the ordinary flat presentation; named choices are limited to the
+// shared art-library menu consumed by PC and both console ports.
+[[nodiscard]] SourceTextResult set_source_dialogue_backdrop_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::string_view background_id
+);
+
 // Creates one complete scene and attaches it to an existing story node as one
 // validated edit. The opening speaker may name a unit type for portable
 // portraits; backdrop may be empty to retain the ordinary flat presentation.

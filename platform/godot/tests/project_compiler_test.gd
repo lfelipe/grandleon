@@ -224,6 +224,23 @@ func _init() -> void:
 					_expect("dialogue line speaker changes", recast_data.dialogues[0].lines[0].speaker, "Editor Hero")
 					_expect("dialogue character joins cast", recast_data.dialogues[0].cast[-1].unitTypeId, source_data.unitTypes[0].id)
 					_expect("dialogue character edit remains playable", compiler.compile_source_json(recast_line.source).ok, true)
+				var character_preview: Dictionary = compiler.source_character_preview(
+					edited_dialogue.source, str(source_data.dialogues[0].cast[0].unitTypeId)
+				)
+				_expect("source character preview resolves", character_preview.ok, true)
+				if character_preview.ok:
+					_expect("source character preview has archetype", character_preview.has("archetype"), true)
+					_expect("source character preview has faction colour", character_preview.has("colour"), true)
+					_expect("source character preview has style", character_preview.has("style"), true)
+					_expect("source character preview has figure", character_preview.has("figure"), true)
+				var changed_backdrop: Dictionary = compiler.set_dialogue_backdrop(
+					edited_dialogue.source, dialogue_id, "night_camp"
+				)
+				_expect("dialogue backdrop edit succeeds", changed_backdrop.ok, true)
+				if changed_backdrop.ok:
+					var backdrop_data: Dictionary = JSON.parse_string(changed_backdrop.source)
+					_expect("dialogue backdrop changes", backdrop_data.dialogues[0].backgroundId, "night_camp")
+					_expect("dialogue backdrop remains playable", compiler.compile_source_json(changed_backdrop.source).ok, true)
 				var inserted_line: Dictionary = compiler.insert_dialogue_line(
 					edited_dialogue.source, dialogue_id, 0, "Kestrel",
 					"A newly authored line."

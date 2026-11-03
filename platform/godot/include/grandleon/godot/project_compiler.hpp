@@ -154,6 +154,15 @@ public:
         const ::godot::String& unit_type_id,
         const ::godot::String& line_text
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_dialogue_backdrop(
+        const ::godot::String& source_json,
+        const ::godot::String& dialogue_id,
+        const ::godot::String& background_id
+    ) const;
+    [[nodiscard]] ::godot::Dictionary source_character_preview(
+        const ::godot::String& source_json,
+        const ::godot::String& unit_type_id
+    ) const;
     [[nodiscard]] ::godot::Dictionary insert_dialogue_line(
         const ::godot::String& source_json,
         const ::godot::String& dialogue_id,

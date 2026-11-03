@@ -48,7 +48,7 @@ Every release decision should preserve these constraints:
 | PC graphics | Playable, not final art | Pixel, hybrid voxel-sprite, diorama, and full-voxel profiles are replaceable. The recommended initial profile is `voxel-sprites`; final animation/art polish is not a release-format dependency. |
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
 | Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. |
-| Native story creator | Useful vertical slice | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. The line's Speaker / Character picker adds, changes, or removes portable cast art atomically. A one-line scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. Runtime backdrop/portrait preview remains. |
+| Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. |
 | Full native authoring parity | Blocking | Characters, classes, factions, equipment, abilities, items, recruits/rewards, campaign branches, and presentation selection still need focused native editors. |
 | Native Export Center | Blocking | Portable project export works, and command-line target builders work. The in-app target report/build experience is not implemented. |
 | Documentation and screenshots | Blocking | README and `docs/CREATING_A_GAME.md` still describe the browser editor. Rewrite them only after the native flow and labels are frozen, then capture every documented screen from that build. |
@@ -88,16 +88,17 @@ exit rather than guessing. Branch creation belongs in the campaign-flow editor.
 
 The order below keeps each increment playable and avoids building a giant form.
 
-### 1. Finish scene writing
+### 1. Finish scene writing — complete
 
 - Add, remove, and reorder lines with controller-safe focus. **Implemented.**
 - Add, change, and remove cast members through the named line-character picker.
   **Implemented.**
-- Preview backdrop and speaker portrait in the same screen.
+- Preview backdrop and speaker portrait in the same screen. **Implemented.**
 - Make Save the only persistence action and preserve one-command undo.
+  **Implemented.**
 
 Exit: a new chapter can receive a complete multi-line conversation without
-editing JSON.
+editing JSON. **Achieved.**
 
 ### 2. Grow the army
 

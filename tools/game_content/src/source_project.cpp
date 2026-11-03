@@ -5239,4 +5239,35 @@ SourceTextResult set_source_dialogue_line_character_json(
     return result;
 }
 
+SourceTextResult set_source_dialogue_backdrop_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::string_view background_id
+) {
+    SourceTextResult result;
+    EditableDialogueDocument editable;
+    if (!open_editable_dialogue(
+            source_json, dialogue_id, editable, result
+        )) {
+        return result;
+    }
+    if (!background_id.empty() &&
+        backdrop_index(background_id) >= backdrop_count) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            editable.path + ".backgroundId",
+            "not a backdrop the art library offers"
+        );
+        return result;
+    }
+    if (background_id.empty()) {
+        editable.dialogue->erase("backgroundId");
+    } else {
+        (*editable.dialogue)["backgroundId"] =
+            Json{std::string(background_id)};
+    }
+    finish_dialogue_edit(editable, result);
+    return result;
+}
+
 }  // namespace grandleon::game_content

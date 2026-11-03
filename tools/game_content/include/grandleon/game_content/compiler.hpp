@@ -975,6 +975,20 @@ struct GameSource final {
     const UnitType& unit_type
 ) noexcept;
 
+// The effective style and figure for one character after its optional
+// per-character overrides fall back to the project-wide presentation choice.
+// Exposed beside resolved_archetype so native creators can preview exactly
+// the drawing every runtime will use.
+[[nodiscard]] std::uint8_t resolved_character_style(
+    const GameSource& source,
+    const UnitType& unit_type
+) noexcept;
+
+[[nodiscard]] std::uint8_t resolved_character_figure(
+    const GameSource& source,
+    const UnitType& unit_type
+) noexcept;
+
 enum class DiagnosticCode : std::uint8_t {
     missing_id,
     duplicate_id,

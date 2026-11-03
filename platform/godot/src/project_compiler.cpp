@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/godot/project_compiler.hpp>
 
+#include <grandleon/core/content_identity.hpp>
 #include <grandleon/game_content/compiler.hpp>
 #include <grandleon/game_content/source_project.hpp>
 
@@ -178,6 +179,19 @@ void GrandleonProjectCompiler::_bind_methods() {
             "line_index", "speaker", "unit_type_id", "line_text"
         ),
         &GrandleonProjectCompiler::set_dialogue_line_character
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "set_dialogue_backdrop", "source_json", "dialogue_id",
+            "background_id"
+        ),
+        &GrandleonProjectCompiler::set_dialogue_backdrop
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "source_character_preview", "source_json", "unit_type_id"
+        ),
+        &GrandleonProjectCompiler::source_character_preview
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
@@ -779,6 +793,83 @@ gd::Dictionary GrandleonProjectCompiler::set_dialogue_line_character(
     }
     result["ok"] = true;
     result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_dialogue_backdrop(
+    const gd::String& source_json,
+    const gd::String& dialogue_id,
+    const gd::String& background_id
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated = gc::set_source_dialogue_backdrop_json(
+        narrow(source_json), narrow(dialogue_id), narrow(background_id)
+    );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::source_character_preview(
+    const gd::String& source_json,
+    const gd::String& unit_type_id
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    gd::Array diagnostics;
+    const gc::SourceParseResult parsed =
+        gc::parse_source_project_json(narrow(source_json));
+    if (!parsed) {
+        for (const gc::SourceDiagnostic& diagnostic : parsed.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    const gc::StableId wanted =
+        core::stable_content_id_v1(narrow(unit_type_id));
+    const gc::UnitType* unit = nullptr;
+    for (const gc::UnitType& candidate : parsed.source.unit_types) {
+        if (candidate.id == wanted) {
+            unit = &candidate;
+            break;
+        }
+    }
+    if (unit == nullptr) {
+        gd::Dictionary diagnostic;
+        diagnostic["phase"] = "source";
+        diagnostic["code"] = "missing_reference";
+        diagnostic["path"] = "$.unitTypes";
+        diagnostic["detail"] = "dialogue character was not found";
+        diagnostics.push_back(diagnostic);
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    std::uint8_t colour = 0;
+    for (std::size_t index = 0; index < parsed.source.factions.size(); ++index) {
+        const gc::Faction& faction = parsed.source.factions[index];
+        if (faction.id == unit->faction_id) {
+            colour = gc::resolved_faction_colour(faction, index);
+            break;
+        }
+    }
+    result["ok"] = true;
+    result["archetype"] = gc::resolved_archetype(parsed.source, *unit);
+    result["colour"] = colour;
+    result["style"] = gc::resolved_character_style(parsed.source, *unit);
+    result["figure"] = gc::resolved_character_figure(parsed.source, *unit);
     result["diagnostics"] = diagnostics;
     return result;
 }

@@ -33,6 +33,8 @@ func _run() -> void:
 	_expect("starter dialogues are listed", editor.dialogues.is_empty(), false)
 	_expect("dialogue selector is populated", editor.dialogue_select.item_count > 0, true)
 	_expect("dialogue selector receives controller focus", editor.dialogue_select.has_focus(), true)
+	_expect("story screen previews the portable character art", editor.preview_portrait.texture != null, true)
+	_expect("story screen offers every portable backdrop", editor.backdrop_select.item_count, editor.BACKDROPS.size() + 1)
 	var before := _parse(editor.source)
 	var original_text := str(before.dialogues[0].lines[0].text)
 	var second_text := str(before.dialogues[0].lines[1].text)
@@ -78,6 +80,13 @@ func _run() -> void:
 	editor.dialogue_text.text = "The relay answers through portable story source."
 	editor._mark_line_form_dirty()
 	editor._save()
+	var original_backdrop := str(editor._current_dialogue().get("backgroundId", ""))
+	var backdrop_choice := 2 if original_backdrop != "night_camp" else 3
+	editor._select_backdrop(backdrop_choice)
+	_expect("backdrop picker edits the scene", str(editor._current_dialogue().backgroundId), editor.BACKDROPS[backdrop_choice - 1])
+	_expect("backdrop picker marks project dirty", editor.dirty, true)
+	editor._undo()
+	_expect("backdrop edit is undoable", str(editor._current_dialogue().get("backgroundId", "")), original_backdrop)
 	var original_speaker := str(editor._current_lines()[0].speaker)
 	var original_unit_type: String = editor._cast_unit_type(
 		editor._current_dialogue(), original_speaker
@@ -125,8 +134,10 @@ func _run() -> void:
 		editor._mark_line_form_dirty()
 		editor._apply_line()
 		_expect("character art can be removed", editor._cast_unit_type(editor._current_dialogue(), original_speaker), "")
+		_expect("character preview clears with the portable cast", editor.preview_portrait.texture, null)
 		editor._undo()
 		_expect("character art removal is undoable", editor._cast_unit_type(editor._current_dialogue(), original_speaker), original_unit_type)
+		_expect("character preview returns after undo", editor.preview_portrait.texture != null, true)
 	var original_line_count: int = editor._current_lines().size()
 	editor._add_line_after()
 	_expect("add next line grows the scene", editor._current_lines().size(), original_line_count + 1)
@@ -222,6 +233,8 @@ func _run() -> void:
 		else:
 			image.save_png(screenshot_path)
 			print("story editor capture saved: %s" % screenshot_path)
+	editor.queue_free()
+	await process_frame
 	if failures == 0:
 		print("story editor smoke passed")
 	quit(1 if failures > 0 else 0)
