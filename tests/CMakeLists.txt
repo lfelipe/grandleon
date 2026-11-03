@@ -1537,8 +1537,17 @@ add_test(
 # the suite to the order and arity of a struct it does not care about. The
 # engine and the tools do not write that way and keep the warning.
 set(grandleon_test_warning_flags ${GRANDLEON_WARNING_FLAGS})
-if(NOT MSVC)
+if(MSVC)
+    # This suite uses `assert` as its test primitive. CMake defines NDEBUG for
+    # Release configurations, which would otherwise compile the checks out and
+    # turn their inputs into unused variables under /WX.
+    list(APPEND grandleon_test_warning_flags /UNDEBUG)
+else()
     list(APPEND grandleon_test_warning_flags -Wno-missing-field-initializers)
+    # Keep the checks live in Release builds too. Besides making the result
+    # meaningful, this prevents -Werror from rejecting values used only by an
+    # assertion after CMake's configuration flags define NDEBUG.
+    list(APPEND grandleon_test_warning_flags -UNDEBUG)
 endif()
 
 get_property(
