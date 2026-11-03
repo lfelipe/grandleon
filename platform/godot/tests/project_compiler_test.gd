@@ -75,6 +75,7 @@ func _init() -> void:
 			if not invalid_role_result.diagnostics.is_empty():
 				var role_diagnostic: Dictionary = invalid_role_result.diagnostics[0]
 				_expect("role diagnostic routes to army", role_diagnostic.screen, "army")
+				_expect("role diagnostic identifies its field", role_diagnostic.field, "class_id")
 				_expect(
 					"role diagnostic names its visible subject",
 					role_diagnostic.get("subject", ""),
@@ -93,6 +94,39 @@ func _init() -> void:
 					"source role diagnostic routes to army",
 					invalid_stat_result.diagnostics[0].screen,
 					"army"
+				)
+				_expect(
+					"source role diagnostic identifies its field",
+					invalid_stat_result.diagnostics[0].field,
+					"health"
+				)
+			var invalid_placement_source := source.replace(
+				'"x": 2,\n                "y": 1',
+				'"x": 0,\n                "y": 1'
+			)
+			var invalid_placement_result: Dictionary = compiler.compile_source_json(
+				invalid_placement_source
+			)
+			_expect("off-board placement is refused", invalid_placement_result.ok, false)
+			if not invalid_placement_result.diagnostics.is_empty():
+				var placement_diagnostic: Dictionary = invalid_placement_result.diagnostics[0]
+				_expect("placement diagnostic routes to map", placement_diagnostic.screen, "map")
+				_expect("placement diagnostic identifies battle setup", placement_diagnostic.field, "placements")
+				_expect("placement diagnostic names its battle", placement_diagnostic.subject, "A Friendly Rivalry")
+				_expect("placement diagnostic names its character", placement_diagnostic.object, "River Watch")
+				_expect("placement diagnostic carries board x", placement_diagnostic.x, 0)
+				_expect("placement diagnostic carries board y", placement_diagnostic.y, 1)
+				_expect(
+					"placement diagnostic owner matches its source key",
+					placement_diagnostic.owner_id,
+					compiler.stable_source_id("demo_campaign/bridge_encounter")
+				)
+				_expect(
+					"placement diagnostic object matches its source key",
+					placement_diagnostic.object_id,
+					compiler.stable_source_id(
+						"demo_campaign/bridge_encounter/river_watch_leader"
+					)
 				)
 			var presentation: Dictionary = compiler.set_project_presentation(
 				source, "themeId", "winter"

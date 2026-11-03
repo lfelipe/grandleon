@@ -74,10 +74,33 @@ func _run() -> void:
 			"diagnostics": [{
 				"screen": "army",
 				"subject": "Wayfarer",
+				"field": "class_id",
 				"code": "missing_reference",
 			}]
 		}),
-		"FIX IN GROW THE ARMY  /  WAYFARER  /  MISSING REFERENCE"
+		"FIX IN GROW THE ARMY  /  WAYFARER  /  ROLE  /  MISSING REFERENCE"
+	)
+	_expect("fix action stays hidden until testing finds an issue", editor.fix_button.visible, false)
+	var map_target: Dictionary = editor._map_target_for_diagnostic({
+		"category": "encounters",
+		"owner_id": editor.compiler.stable_source_id("first_adventure/first_battle"),
+	})
+	_expect("diagnostic recovery resolves the exact map", str(map_target.map_id), "first_crossing")
+	_expect("diagnostic recovery resolves the exact battle", str(map_target.node_id), "first_battle")
+	_expect(
+		"diagnostic summary names a map object and cell",
+		editor._diagnostic_summary({
+			"diagnostics": [{
+				"screen": "map",
+				"subject": "First Battle",
+				"object": "North Raider",
+				"field": "placements",
+				"x": 6,
+				"y": 2,
+				"code": "invalid_placement",
+			}]
+		}),
+		"FIX IN MAP & BATTLE  /  FIRST BATTLE  /  NORTH RAIDER  /  CELL 6, 2  /  STARTING POSITION  /  INVALID PLACEMENT"
 	)
 	_expect("starter route has story battle and ending", editor.route.size(), 3)
 	if editor.route.size() == 3:

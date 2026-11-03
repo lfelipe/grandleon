@@ -98,7 +98,51 @@ func _load_project() -> void:
 	).to_upper()
 	_refresh_categories("weapon")
 	_set_status("READY  /  CHOOSE SOMETHING TO TUNE OR MAKE A NEW ONE", false)
+	var diagnostic_focus: Dictionary = CreatorContext.take_diagnostic_focus()
+	if not diagnostic_focus.is_empty():
+		_apply_diagnostic_focus(diagnostic_focus)
+		return
 	category_select.call_deferred("grab_focus")
+
+
+func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
+	var category := str(diagnostic.get("category", ""))
+	var kind: String = str({
+		"weapons": "weapon",
+		"items": "item",
+		"abilities": "ability",
+	}.get(category, "weapon"))
+	var owner_id := str(diagnostic.get("owner_id", ""))
+	var preferred_id := ""
+	var collection_key := str({
+		"weapon": "weapons",
+		"item": "items",
+		"ability": "abilities",
+	}.get(kind, "weapons"))
+	for value: Variant in project.get(collection_key, []):
+		if value is Dictionary and str(
+			compiler.stable_source_id(str(value.get("id", "")))
+		) == owner_id:
+			preferred_id = str(value.get("id", ""))
+			break
+	_refresh_categories(str(kind))
+	_refresh_assets(preferred_id)
+	var field := str(diagnostic.get("field", "choice")).replace("_", " ").to_upper()
+	var subject := str(diagnostic.get("subject", _active_asset().get("name", "CHOICE"))).to_upper()
+	_set_status("FIX %s  /  %s" % [subject, field], true)
+	match str(diagnostic.get("field", "")).replace("_", "").to_lower():
+		"name":
+			name_input.call_deferred("grab_focus")
+		"typeid", "weapontypeid", "itemtypeid":
+			type_select.call_deferred("grab_focus")
+		"kind":
+			effect_select.call_deferred("grab_focus")
+		"damagetype":
+			damage_select.call_deferred("grab_focus")
+		"areashape":
+			area_select.call_deferred("grab_focus")
+		_:
+			asset_select.call_deferred("grab_focus")
 
 
 func _collection_key(kind := active_kind) -> String:

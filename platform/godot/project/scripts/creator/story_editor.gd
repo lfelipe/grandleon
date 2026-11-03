@@ -105,8 +105,37 @@ func _load_project() -> void:
 		"READY  /  CHOOSE A SCENE AND LINE, THEN WRITE ITS DIALOGUE",
 		false
 	)
+	var diagnostic_focus: Dictionary = CreatorContext.take_diagnostic_focus()
+	if not diagnostic_focus.is_empty():
+		_apply_diagnostic_focus(diagnostic_focus)
+		return
 	if not dialogues.is_empty():
 		dialogue_select.call_deferred("grab_focus")
+
+
+func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
+	var lines := _current_lines()
+	if diagnostic.has("line_index") and not lines.is_empty():
+		line_index = clampi(int(diagnostic.line_index), 0, lines.size() - 1)
+		_refresh_line()
+	var field := str(diagnostic.get("field", "conversation"))
+	match field.replace("_", "").to_lower():
+		"speaker", "cast", "unittypeid":
+			speaker_select.call_deferred("grab_focus")
+		"text", "lines":
+			dialogue_text.call_deferred("grab_focus")
+		"backgroundid":
+			backdrop_select.call_deferred("grab_focus")
+		_:
+			dialogue_select.call_deferred("grab_focus")
+	var location := (
+		"LINE %d  /  " % (line_index + 1)
+		if diagnostic.has("line_index") and not lines.is_empty() else ""
+	)
+	_set_status(
+		"FIX %s%s" % [location, field.replace("_", " ").to_upper()],
+		true
+	)
 
 
 func _read_source() -> bool:

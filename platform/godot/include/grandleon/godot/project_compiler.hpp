@@ -23,6 +23,13 @@ public:
     [[nodiscard]] ::godot::Dictionary compile_source_json(
         const ::godot::String& source_json
     ) const;
+    // Stable identities stay an implementation detail, but creator screens
+    // need to match a compiler diagnostic back to the source-key string that
+    // owns the visible control. Return decimal text because the identity is
+    // unsigned 64-bit while Godot integers are signed.
+    [[nodiscard]] ::godot::String stable_source_id(
+        const ::godot::String& source_key
+    ) const;
     [[nodiscard]] ::godot::Dictionary instantiate_source_json(
         const ::godot::String& template_json,
         const ::godot::String& package_id,

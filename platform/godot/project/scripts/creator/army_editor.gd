@@ -188,7 +188,69 @@ func _load_project() -> void:
 	).to_upper()
 	_refresh_campaigns()
 	_set_status("READY  /  CHOOSE A CHARACTER OR ADD SOMEONE NEW", false)
+	var diagnostic_focus: Dictionary = CreatorContext.take_diagnostic_focus()
+	if not diagnostic_focus.is_empty():
+		_apply_diagnostic_focus(diagnostic_focus)
+		return
 	campaign_select.call_deferred("grab_focus")
+
+
+func _stable_source_matches(source_key: String, stable_id: String) -> bool:
+	return not source_key.is_empty() and not stable_id.is_empty() and str(
+		compiler.stable_source_id(source_key)
+	) == stable_id
+
+
+func _diagnostic_unit_type(diagnostic: Dictionary) -> String:
+	var owner_id := str(diagnostic.get("owner_id", ""))
+	var category := str(diagnostic.get("category", ""))
+	for unit_value: Variant in project.get("unitTypes", []):
+		if not unit_value is Dictionary:
+			continue
+		var unit: Dictionary = unit_value
+		if category == "unit_types" and _stable_source_matches(str(unit.get("id", "")), owner_id):
+			return str(unit.get("id", ""))
+		if category == "classes" and _stable_source_matches(str(unit.get("classId", "")), owner_id):
+			return str(unit.get("id", ""))
+		if category == "factions" and _stable_source_matches(str(unit.get("factionId", "")), owner_id):
+			return str(unit.get("id", ""))
+	return ""
+
+
+func _member_location_for_unit(unit_type_id: String) -> Dictionary:
+	for index in campaigns.size():
+		if not campaigns[index] is Dictionary:
+			continue
+		var candidate: Dictionary = campaigns[index]
+		for member_value: Variant in candidate.get("roster", []):
+			if member_value is Dictionary and str(member_value.get("unitTypeId", "")) == unit_type_id:
+				return {"campaign_index": index, "member_id": str(member_value.get("id", ""))}
+		var flow: Variant = candidate.get("flow", {})
+		if not flow is Dictionary:
+			continue
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary:
+				continue
+			for member_value: Variant in node_value.get("recruits", []):
+				if member_value is Dictionary and str(member_value.get("unitTypeId", "")) == unit_type_id:
+					return {"campaign_index": index, "member_id": str(member_value.get("id", ""))}
+	return {}
+
+
+func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
+	var unit_type_id := _diagnostic_unit_type(diagnostic)
+	var location := _member_location_for_unit(unit_type_id)
+	if not location.is_empty():
+		campaign_index = int(location.campaign_index)
+		_refresh_campaigns(str(location.member_id))
+	var field := str(diagnostic.get("field", "role")).replace("_", " ").to_upper()
+	var subject := str(diagnostic.get("subject", _current_member().get("name", "CHARACTER"))).to_upper()
+	_set_status("FIX %s  /  %s" % [subject, field], true)
+	match str(diagnostic.get("field", "")).replace("_", "").to_lower():
+		"name":
+			name_input.call_deferred("grab_focus")
+		_:
+			role_button.call_deferred("grab_focus")
 
 
 func _read_source() -> bool:

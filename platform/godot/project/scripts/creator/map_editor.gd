@@ -197,11 +197,73 @@ func _load_project() -> void:
 	title_label.text = "%s  /  MAP CREATOR" % str(project.get("title", "UNTITLED GAME")).to_upper()
 	_refresh_maps()
 	_set_status("READY  /  CHOOSE TERRAIN, THEN PAINT THE BOARD", false)
+	var diagnostic_focus: Dictionary = CreatorContext.take_diagnostic_focus()
+	if not diagnostic_focus.is_empty():
+		call_deferred("_apply_diagnostic_focus", diagnostic_focus)
+		return
 	var requested_action: String = CreatorContext.take_map_action()
 	if requested_action == "add_chapter":
 		call_deferred("_open_new_chapter")
 	else:
 		map_select.call_deferred("grab_focus")
+
+
+func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
+	var focus_index := -1
+	var x := int(diagnostic.get("x", -1))
+	var y := int(diagnostic.get("y", -1))
+	var map := _current_map()
+	var width := maxi(1, int(map.get("width", 1)))
+	var height := maxi(1, int(map.get("height", 1)))
+	if x >= 0 and y >= 0 and x < width and y < height:
+		focus_index = y * width + x
+
+	var object_id := str(diagnostic.get("object_id", ""))
+	var current := _current_encounter()
+	if not object_id.is_empty() and not current.is_empty():
+		var prefix := "%s/%s/" % [
+			current.get("campaign_id", ""),
+			current.node.get("id", ""),
+		]
+		for placement_value: Variant in current.node.get("placements", []):
+			if not placement_value is Dictionary:
+				continue
+			var placement: Dictionary = placement_value
+			if str(compiler.stable_source_id(prefix + str(placement.get("id", "")))) != object_id:
+				continue
+			selected_placement_id = str(placement.get("id", ""))
+			active_tool = "move"
+			if focus_index < 0:
+				var placement_x := int(placement.get("x", -1))
+				var placement_y := int(placement.get("y", -1))
+				if placement_x >= 0 and placement_y >= 0 and placement_x < width and placement_y < height:
+					focus_index = placement_y * width + placement_x
+			break
+
+	_refresh_grid(focus_index)
+	_update_tool_selection()
+	var object_name := str(diagnostic.get("object", "THIS UNIT")).to_upper()
+	if not selected_placement_id.is_empty():
+		_set_status(
+			"FIX %s  /  CELL %d, %d  /  CHOOSE A NEW CELL" % [object_name, x, y],
+			true
+		)
+	elif focus_index >= 0:
+		_set_status(
+			"FIX CELL %d, %d  /  %s" % [
+				x, y,
+				str(diagnostic.get("field", "map")).replace("_", " ").to_upper(),
+			],
+			true
+		)
+	else:
+		_set_status(
+			"FIX BATTLE SETUP  /  %s" % str(
+				diagnostic.get("field", diagnostic.get("code", "PROJECT INCOMPLETE"))
+			).replace("_", " ").to_upper(),
+			true
+		)
+		setup_button.call_deferred("grab_focus")
 
 
 func _read_source() -> bool:

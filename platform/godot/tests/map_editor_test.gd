@@ -171,6 +171,21 @@ func _run() -> void:
 	_expect("enemy placement shown on board", editor.grid.get_child(8).tooltip_text.contains("SECOND"), true)
 	_expect("board tooltip hides enemy source identity", editor.grid.get_child(8).tooltip_text.contains("river_watch_leader"), false)
 	_expect("map selector receives controller focus", editor.map_select.has_focus(), true)
+	editor._apply_diagnostic_focus({
+		"object_id": editor.compiler.stable_source_id(
+			"demo_campaign/bridge_encounter/river_watch_leader"
+		),
+		"object": "River Watch",
+		"field": "placements",
+		"x": 2,
+		"y": 1,
+	})
+	await process_frame
+	_expect("diagnostic recovery selects the exact unit", editor.selected_placement_id, "river_watch_leader")
+	_expect("diagnostic recovery prepares one-step movement", editor.active_tool, "move")
+	_expect("diagnostic recovery names the visible unit", editor.status_label.text.contains("RIVER WATCH"), true)
+	_expect("diagnostic recovery focuses the unit's cell", editor.grid.get_child(8).has_focus(), true)
+	editor._select_tool("brush")
 	editor._open_setup()
 	await process_frame
 	_expect("battle setup opens", editor.setup_layer.visible, true)

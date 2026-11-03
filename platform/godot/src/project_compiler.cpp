@@ -79,6 +79,56 @@ bool diagnostic_owner(std::string_view path, std::uint64_t& owner) noexcept {
     return parsed.ec == std::errc{} && parsed.ptr == end;
 }
 
+std::string_view diagnostic_category(std::string_view path) noexcept {
+    if (path.size() >= 2U && path[0] == '$' && path[1] == '.') {
+        path.remove_prefix(2U);
+    }
+    const std::size_t end = path.find_first_of("[.");
+    return path.substr(0, end);
+}
+
+std::string_view diagnostic_field(std::string_view path) noexcept {
+    const std::size_t dot = path.rfind('.');
+    std::string_view field =
+        dot == std::string_view::npos ? path : path.substr(dot + 1U);
+    const std::size_t bracket = field.find('[');
+    if (bracket != std::string_view::npos) field = field.substr(0, bracket);
+    return field;
+}
+
+bool diagnostic_index_after(
+    std::string_view path,
+    std::string_view marker,
+    std::size_t& index
+) noexcept {
+    const std::size_t marker_at = path.find(marker);
+    if (marker_at == std::string_view::npos) return false;
+    const std::size_t begin = marker_at + marker.size();
+    const std::size_t end = path.find(']', begin);
+    if (end == std::string_view::npos || end == begin) return false;
+    const std::string_view encoded = path.substr(begin, end - begin);
+    const char* const first = encoded.data();
+    const char* const last = first + encoded.size();
+    const auto parsed = std::from_chars(first, last, index);
+    return parsed.ec == std::errc{} && parsed.ptr == last;
+}
+
+void add_path_focus(gd::Dictionary& result, std::string_view path) {
+    const std::string_view category = diagnostic_category(path);
+    const std::string_view field = diagnostic_field(path);
+    if (!category.empty() && category != "$") {
+        result["category"] = text(category);
+    }
+    if (!field.empty() && field != category && field != "$") {
+        result["field"] = text(field);
+    }
+
+    std::size_t line = 0;
+    if (diagnostic_index_after(path, ".lines[", line)) {
+        result["line_index"] = static_cast<std::int64_t>(line);
+    }
+}
+
 template <typename Definition>
 std::string_view definition_name(
     const std::vector<Definition>& definitions,
@@ -132,6 +182,86 @@ std::string_view diagnostic_subject(
     return {};
 }
 
+template <typename Definition>
+const Definition* definition_with_id(
+    const std::vector<Definition>& definitions,
+    std::uint64_t id
+) noexcept {
+    for (const Definition& definition : definitions) {
+        if (definition.id == id) return &definition;
+    }
+    return nullptr;
+}
+
+std::string_view placement_name(
+    const gc::GameSource& source,
+    const gc::Placement& placement
+) noexcept {
+    if (!placement.name.empty()) return placement.name;
+    if (placement.member_id != 0) {
+        for (const gc::Campaign& campaign : source.campaigns) {
+            for (const gc::CampaignMember& member : campaign.roster) {
+                if (member.id == placement.member_id) return member.name;
+            }
+        }
+    }
+    const gc::UnitType* const unit_type =
+        definition_with_id(source.unit_types, placement.unit_type_id);
+    return unit_type == nullptr ? std::string_view{} : unit_type->name;
+}
+
+void add_compile_focus(
+    gd::Dictionary& result,
+    const gc::Diagnostic& diagnostic,
+    const gc::GameSource& source
+) {
+    add_path_focus(result, diagnostic.path);
+    std::uint64_t owner = 0;
+    if (!diagnostic_owner(diagnostic.path, owner)) return;
+    result["owner_id"] = text(std::to_string(owner));
+
+    const std::string_view category = diagnostic_category(diagnostic.path);
+    if (category == "maps") {
+        const gc::Map* const map = definition_with_id(source.maps, owner);
+        std::size_t cell = 0;
+        if (map != nullptr && map->width != 0 &&
+            diagnostic.path.find(".surroundings.terrain[") ==
+                std::string::npos &&
+            diagnostic_index_after(diagnostic.path, ".terrain[", cell) &&
+            cell < static_cast<std::size_t>(map->width) * map->height) {
+            result["cell_index"] = static_cast<std::int64_t>(cell);
+            result["x"] = static_cast<std::int64_t>(cell % map->width);
+            result["y"] = static_cast<std::int64_t>(cell / map->width);
+        }
+        return;
+    }
+    if (category != "encounters") return;
+
+    const gc::Encounter* const encounter =
+        definition_with_id(source.encounters, owner);
+    if (encounter == nullptr) return;
+    result["map_id"] = text(std::to_string(encounter->map_id));
+    if (diagnostic.path.find(".placements") == std::string::npos) return;
+
+    const gc::Placement* placement = nullptr;
+    for (const gc::Placement& candidate : encounter->placements) {
+        if (candidate.id == diagnostic.related_id ||
+            candidate.source_key_id == diagnostic.related_id ||
+            candidate.member_id == diagnostic.related_id ||
+            candidate.unit_type_id == diagnostic.related_id) {
+            placement = &candidate;
+            break;
+        }
+    }
+    if (placement == nullptr) return;
+    result["object_kind"] = "placement";
+    result["object_id"] = text(std::to_string(placement->id));
+    const std::string_view name = placement_name(source, *placement);
+    if (!name.empty()) result["object"] = text(name);
+    result["x"] = static_cast<std::int64_t>(placement->x);
+    result["y"] = static_cast<std::int64_t>(placement->y);
+}
+
 gd::Dictionary source_diagnostic(const gc::SourceDiagnostic& diagnostic) {
     gd::Dictionary result;
     result["phase"] = "source";
@@ -139,6 +269,7 @@ gd::Dictionary source_diagnostic(const gc::SourceDiagnostic& diagnostic) {
     result["path"] = text(diagnostic.path);
     result["detail"] = text(diagnostic.detail);
     result["screen"] = text(diagnostic_screen(diagnostic.path));
+    add_path_focus(result, diagnostic.path);
     return result;
 }
 
@@ -151,6 +282,7 @@ gd::Dictionary compile_diagnostic(
     result["code"] = text(gc::diagnostic_name(diagnostic.code));
     result["path"] = text(diagnostic.path);
     result["screen"] = text(diagnostic_screen(diagnostic.path));
+    add_compile_focus(result, diagnostic, source);
     const std::string_view subject = diagnostic_subject(source, diagnostic.path);
     if (!subject.empty()) result["subject"] = text(subject);
     if (diagnostic.related_id != 0) {
@@ -167,6 +299,10 @@ void GrandleonProjectCompiler::_bind_methods() {
     gd::ClassDB::bind_method(
         gd::D_METHOD("compile_source_json", "source_json"),
         &GrandleonProjectCompiler::compile_source_json
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("stable_source_id", "source_key"),
+        &GrandleonProjectCompiler::stable_source_id
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
@@ -398,6 +534,12 @@ void GrandleonProjectCompiler::_bind_methods() {
         gd::D_METHOD("supported_schema"),
         &GrandleonProjectCompiler::supported_schema
     );
+}
+
+gd::String GrandleonProjectCompiler::stable_source_id(
+    const gd::String& source_key
+) const {
+    return text(std::to_string(core::stable_content_id_v1(narrow(source_key))));
 }
 
 gd::Dictionary GrandleonProjectCompiler::compile_source_json(

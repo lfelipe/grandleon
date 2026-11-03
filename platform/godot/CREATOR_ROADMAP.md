@@ -200,9 +200,12 @@ player, and console ports. The creator must never silently discard a field it
 does not understand.
 
 Current focused screens use named operations layered over full-project parsing
-and compilation. Source and compiler diagnostics already include semantic paths;
-the remaining UI work is to route a failure to the relevant field, character,
-placement, or chapter instead of showing only a footer message.
+and compilation. Source and compiler diagnostics retain semantic paths and
+structured focus metadata through the Godot boundary. **Test Campaign** offers
+one contextual repair action: Map & Battle selects the affected placement and
+cell and prepares movement, Story opens the affected line and control, and Army
+or Gear selects the visible definition. Broad structural failures still name
+their focused screen and field rather than exposing source identities.
 
 Older schema migrations remain covered by the existing migration fixtures. A
 newer unsupported schema must open read-only with an explicit explanation; an
@@ -220,22 +223,17 @@ permanent form.
    target. PC success must remain independent of a console refusal. The existing
    Nintendo 64 runtime limit of 48 fielded units is real evidence; PlayStation
    limits still require an equally explicit measurement and gate.
-2. **Finish actionable diagnostics.** Compiler semantic paths now route a
-   failed test to the focused screen and player-facing definition without
-   exposing stable IDs. Continue from that named subject to the exact selected
-   control or map object while preserving the full diagnostic for technical
-   inspection.
-3. **Advanced flow operations.** Add safe whole-chapter reordering and focused
+2. **Advanced flow operations.** Add safe whole-chapter reordering and focused
    world-state, negated, and compound conditions. Keep these under **Outcomes**;
    the common linear path must not become a graph editor.
-4. **Replacement art packs.** Select an installed pack or import project-owned
+3. **Replacement art packs.** Select an installed pack or import project-owned
    terrain, character, portrait, effect, and UI assets. Validate dimensions,
    pivots, animation names, target budgets, and licenses, and preview the same
    animation state machine used in play.
-5. **Console builder payloads.** Integrate separately installed, versioned
+4. **Console builder payloads.** Integrate separately installed, versioned
    Nintendo 64 and PlayStation builders into the Export Center with independent
    progress, warnings, capability checks, hashes, and failure reports.
-6. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
+5. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
    run clean-revision PC/Nintendo 64/PlayStation gates, and complete one human
    solo and co-op campaign playthrough per target.
 

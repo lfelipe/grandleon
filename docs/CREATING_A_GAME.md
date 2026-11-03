@@ -176,7 +176,10 @@ Wait. Enemy turns use the same deterministic built-in policy on PC, Nintendo
 64, and PlayStation.
 
 If the compiler refuses the draft, the creator keeps the last valid source and
-names the relevant problem. It does not save a half-applied project.
+shows one **Fix** action only while it is useful. That action opens the relevant
+screen and field; for a misplaced unit it selects the unit and cell and prepares
+the Move tool, while a story problem opens the affected line. It does not save
+a half-applied project or expose internal source identities.
 
 ## Keep, move, and export the project
 

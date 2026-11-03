@@ -34,6 +34,19 @@ func _run() -> void:
 	_expect("starter company has two heroes", editor.members.size(), 2)
 	_expect("campaign selector receives controller focus", editor.campaign_select.has_focus(), true)
 	_expect("character portrait uses portable art", editor.portrait.texture != null, true)
+	editor._apply_diagnostic_focus({
+		"category": "classes",
+		"owner_id": editor.compiler.stable_source_id("young_adept"),
+		"subject": "Young Adept",
+		"field": "base_stats",
+	})
+	await process_frame
+	_expect("diagnostic recovery selects a character with the role", str(editor._current_member().name), "Mira")
+	_expect("diagnostic recovery focuses role tuning", editor.role_button.has_focus(), true)
+	_expect("diagnostic recovery names the role field", editor.status_label.text, "FIX YOUNG ADEPT  /  BASE STATS")
+	editor.member_index = 0
+	editor._refresh_members()
+	editor.campaign_select.grab_focus()
 	editor._open_more()
 	_expect("reusable choices stay behind less-used army options", editor.more_gear_button.text, "GEAR & ABILITIES")
 	_expect("gear library is controller reachable", editor.more_gear_button.has_focus(), true)

@@ -20,6 +20,8 @@ var redo_stack: Array[String] = []
 var title_label: Label
 var route_list: VBoxContainer
 var status_label: Label
+var fix_button: Button
+var pending_diagnostic: Dictionary = {}
 var first_button: Button
 var save_button: Button
 var undo_button: Button
@@ -362,7 +364,13 @@ func _play_campaign() -> void:
 		return
 	var compiled: Dictionary = compiler.compile_source_json(loaded.source)
 	if not compiled.ok:
+		var diagnostics: Array = compiled.get("diagnostics", [])
 		_set_status("NOT PLAYABLE YET  /  %s" % _diagnostic_summary(compiled), true)
+		if not diagnostics.is_empty() and diagnostics[0] is Dictionary:
+			pending_diagnostic = diagnostics[0].duplicate(true)
+			fix_button.text = _diagnostic_fix_label(pending_diagnostic)
+			fix_button.visible = true
+			fix_button.call_deferred("grab_focus")
 		return
 	var campaign_id := str(campaign.get("id", ""))
 	if campaign_id.is_empty():
@@ -390,11 +398,161 @@ func _diagnostic_summary(result: Dictionary) -> String:
 	var subject := str(diagnostic.get("subject", "")).strip_edges()
 	if not subject.is_empty():
 		parts.append(subject.to_upper())
+	var object_name := str(diagnostic.get("object", "")).strip_edges()
+	if not object_name.is_empty() and object_name != subject:
+		parts.append(object_name.to_upper())
+	if diagnostic.has("x") and diagnostic.has("y"):
+		parts.append("CELL %d, %d" % [int(diagnostic.x), int(diagnostic.y)])
+	var field := _diagnostic_field_label(str(diagnostic.get("field", "")))
+	if not field.is_empty():
+		parts.append(field)
 	var detail := str(diagnostic.get("detail", "")).strip_edges()
 	if detail.is_empty():
 		detail = str(diagnostic.get("code", "project_incomplete")).replace("_", " ")
 	parts.append(detail.to_upper())
 	return "  /  ".join(parts)
+
+
+func _diagnostic_field_label(field: String) -> String:
+	var normalized := field.replace("_", "").to_lower()
+	return str({
+		"id": "IDENTITY",
+		"name": "NAME",
+		"classid": "ROLE",
+		"basestats": "BASE STATS",
+		"health": "HEALTH",
+		"strength": "STRENGTH",
+		"defense": "DEFENSE",
+		"resistance": "RESISTANCE",
+		"movement": "MOVEMENT",
+		"actionpoints": "ACTIONS",
+		"skill": "SKILL",
+		"luck": "LUCK",
+		"evasion": "EVASION",
+		"magic": "MAGIC",
+		"speed": "SPEED",
+		"range": "RANGE",
+		"accuracy": "ACCURACY",
+		"power": "POWER",
+		"terrain": "TERRAIN",
+		"surroundings": "OUTSIDE TERRAIN",
+		"placements": "STARTING POSITION",
+		"minimumplayers": "2-PLAYER SCALING",
+		"localplayer": "PLAYER OWNERSHIP",
+		"deployment": "DEPLOYMENT",
+		"tiles": "DEPLOYMENT CELLS",
+		"objectiveids": "GOALS",
+		"targetplacementid": "GOAL TARGET",
+		"lines": "CONVERSATION",
+		"speaker": "SPEAKER",
+		"text": "DIALOGUE",
+		"backgroundid": "BACKDROP",
+		"roster": "CHARACTERS",
+		"transitions": "OUTCOMES",
+		"targetid": "DESTINATION",
+		"priority": "OUTCOME ORDER",
+		"quantity": "AMOUNT",
+	}.get(normalized, field.replace("_", " ").to_upper()))
+
+
+func _diagnostic_fix_label(diagnostic: Dictionary) -> String:
+	return str({
+		"map": "FIX MAP & BATTLE",
+		"story": "FIX STORY",
+		"army": "FIX ARMY",
+		"gear": "FIX GEAR",
+		"campaign": "FIX CAMPAIGN",
+		"project": "FIX PROJECT",
+	}.get(str(diagnostic.get("screen", "project")), "FIX ISSUE"))
+
+
+func _stable_source_matches(source_key: String, stable_id: String) -> bool:
+	return not source_key.is_empty() and not stable_id.is_empty() and str(
+		compiler.stable_source_id(source_key)
+	) == stable_id
+
+
+func _map_target_for_diagnostic(diagnostic: Dictionary) -> Dictionary:
+	var owner_id := str(diagnostic.get("owner_id", ""))
+	var category := str(diagnostic.get("category", ""))
+	if category == "maps":
+		for map_value: Variant in project.get("maps", []):
+			if map_value is Dictionary and _stable_source_matches(
+				str(map_value.get("id", "")), owner_id
+			):
+				return {"map_id": str(map_value.id), "node_id": ""}
+	if category == "objectives":
+		var objective_id := ""
+		for objective_value: Variant in project.get("objectives", []):
+			if objective_value is Dictionary and _stable_source_matches(
+				str(objective_value.get("id", "")), owner_id
+			):
+				objective_id = str(objective_value.id)
+				break
+		if not objective_id.is_empty():
+			for campaign_value: Variant in project.get("campaigns", []):
+				if not campaign_value is Dictionary:
+					continue
+				var flow: Variant = campaign_value.get("flow", {})
+				if not flow is Dictionary:
+					continue
+				for node_value: Variant in flow.get("nodes", []):
+					if node_value is Dictionary and node_value.get("objectiveIds", []).has(objective_id):
+						return {"map_id": str(node_value.get("mapId", "")), "node_id": str(node_value.get("id", ""))}
+	for campaign_value: Variant in project.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var flow: Variant = campaign_value.get("flow", {})
+		if not flow is Dictionary:
+			continue
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary or str(node_value.get("kind", "")) != "encounter":
+				continue
+			var composite := "%s/%s" % [campaign_value.get("id", ""), node_value.get("id", "")]
+			if _stable_source_matches(composite, owner_id):
+				return {"map_id": str(node_value.get("mapId", "")), "node_id": str(node_value.get("id", ""))}
+	var fallback := _last_route_encounter()
+	return {
+		"map_id": str(fallback.get("mapId", "")),
+		"node_id": str(fallback.get("id", "")),
+	}
+
+
+func _dialogue_target_for_diagnostic(diagnostic: Dictionary) -> String:
+	var owner_id := str(diagnostic.get("owner_id", ""))
+	for value: Variant in project.get("dialogues", []):
+		if value is Dictionary and _stable_source_matches(str(value.get("id", "")), owner_id):
+			return str(value.get("id", ""))
+	return ""
+
+
+func _fix_diagnostic() -> void:
+	if pending_diagnostic.is_empty():
+		return
+	var diagnostic := pending_diagnostic.duplicate(true)
+	match str(diagnostic.get("screen", "project")):
+		"map":
+			var target := _map_target_for_diagnostic(diagnostic)
+			CreatorContext.choose_map(str(target.map_id), str(target.node_id))
+			CreatorContext.set_diagnostic_focus(diagnostic)
+			get_tree().change_scene_to_file("res://map_editor.tscn")
+		"story":
+			CreatorContext.choose_dialogue(_dialogue_target_for_diagnostic(diagnostic))
+			CreatorContext.set_diagnostic_focus(diagnostic)
+			get_tree().change_scene_to_file("res://story_editor.tscn")
+		"army":
+			CreatorContext.set_diagnostic_focus(diagnostic)
+			get_tree().change_scene_to_file("res://army_editor.tscn")
+		"gear":
+			CreatorContext.set_diagnostic_focus(diagnostic)
+			get_tree().change_scene_to_file("res://gear_editor.tscn")
+		"campaign":
+			fix_button.visible = false
+			pending_diagnostic = {}
+			if first_button != null:
+				first_button.grab_focus()
+		"project", _:
+			_open_projects()
 
 
 func _open_projects() -> void:
@@ -1331,10 +1489,19 @@ func _build_interface() -> void:
 	route_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	route_list.add_theme_constant_override("separation", 10)
 	scroll.add_child(route_list)
+	var status_row := HBoxContainer.new()
+	status_row.add_theme_constant_override("separation", 12)
+	column.add_child(status_row)
 	status_label = _label("OPENING CAMPAIGN…", 17, Color("a9bdc9"))
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.custom_minimum_size.y = 36
-	column.add_child(status_label)
+	status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	status_row.add_child(status_label)
+	fix_button = _button("FIX ISSUE", 280, 56)
+	fix_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	fix_button.visible = false
+	fix_button.pressed.connect(_fix_diagnostic)
+	status_row.add_child(fix_button)
 	_build_outcome_layer()
 
 
@@ -1631,6 +1798,9 @@ func _section_label(value: String) -> Label:
 
 
 func _set_status(message: String, failure: bool) -> void:
+	pending_diagnostic = {}
+	if fix_button != null:
+		fix_button.visible = false
 	status_label.text = message
 	status_label.add_theme_color_override(
 		"font_color", Color("ff7a83") if failure else Color("72e08f")

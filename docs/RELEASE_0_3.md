@@ -195,8 +195,11 @@ Exit: the five-stage Emberbound-style growth curve can be authored natively.
 - Surface compile diagnostics on the relevant character, placement, or field.
   **The native compiler now routes source/semantic failures to Map & Battle,
   Story, Grow the Army, Gear & Abilities, Campaign Outline, or Project and
-  names the visible definition when one is available. Exact field/map-cell
-  focus remains.**
+  names the visible definition and field when available. Test Campaign exposes
+  one contextual repair action: placement failures select their exact unit and
+  cell in move mode, story failures open their exact line/control, and army or
+  gear failures select the affected visible definition. Stable source identities
+  remain hidden.**
 
 Exit: every portable battle field used by the shipped campaign is editable in
 the Godot application.

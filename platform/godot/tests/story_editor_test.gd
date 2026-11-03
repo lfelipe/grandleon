@@ -35,6 +35,13 @@ func _run() -> void:
 	_expect("dialogue selector receives controller focus", editor.dialogue_select.has_focus(), true)
 	_expect("story screen previews the portable character art", editor.preview_portrait.texture != null, true)
 	_expect("story screen offers every portable backdrop", editor.backdrop_select.item_count, editor.BACKDROPS.size() + 1)
+	editor._apply_diagnostic_focus({"line_index": 1, "field": "text"})
+	await process_frame
+	_expect("diagnostic recovery opens the exact line", editor.line_index, 1)
+	_expect("diagnostic recovery focuses dialogue text", editor.dialogue_text.has_focus(), true)
+	_expect("diagnostic recovery explains the field", editor.status_label.text, "FIX LINE 2  /  TEXT")
+	editor.line_index = 0
+	editor._refresh_line()
 	var before := _parse(editor.source)
 	var original_text := str(before.dialogues[0].lines[0].text)
 	var second_text := str(before.dialogues[0].lines[1].text)

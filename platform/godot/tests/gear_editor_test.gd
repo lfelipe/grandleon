@@ -35,6 +35,18 @@ func _run() -> void:
 	_expect("category receives controller focus", editor.category_select.has_focus(), true)
 	_expect("weapon editor shows family", editor.type_row.visible, true)
 	_expect("weapon editor hides area", editor.area_row.visible, false)
+	editor._apply_diagnostic_focus({
+		"category": "weapons",
+		"owner_id": editor.compiler.stable_source_id("apprentice_focus"),
+		"subject": "Apprentice Focus",
+		"field": "power",
+	})
+	await process_frame
+	_expect("diagnostic recovery selects the exact gear", editor.active_asset_id, "apprentice_focus")
+	_expect("diagnostic recovery keeps the asset picker focused", editor.asset_select.has_focus(), true)
+	_expect("diagnostic recovery names the exact field", editor.status_label.text, "FIX APPRENTICE FOCUS  /  POWER")
+	editor._refresh_categories("weapon")
+	editor.category_select.grab_focus()
 
 	_select_category(editor, "item")
 	_expect("empty item library has a useful empty state", editor.empty_label.visible, true)
