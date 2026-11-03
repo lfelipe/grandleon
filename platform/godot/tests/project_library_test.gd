@@ -150,6 +150,24 @@ func _init() -> void:
 				_expect("new library preserves identity", preserved.id, created.id)
 				_expect("new library preserves game id", preserved.project.gameId, "signal_stone")
 
+			var import_directory := library.import_directory()
+			var inbox_archive := import_directory.path_join("Signal.grandleon.zip")
+			_expect(
+				"portable archive copies into import inbox",
+				DirAccess.copy_absolute(archive_path, inbox_archive),
+				OK
+			)
+			_expect(
+				"inbox unrelated fixture writes",
+				_write_file(import_directory.path_join("notes.txt"), "not a project"),
+				true
+			)
+			var inbox_archives: Array[Dictionary] = library.list_import_archives()
+			_expect("import inbox lists only project archives", inbox_archives.size(), 1)
+			if inbox_archives.size() == 1:
+				_expect("import inbox exposes portable name", inbox_archives[0].name, "Signal.grandleon.zip")
+				_expect("import inbox exposes archive size", int(inbox_archives[0].bytes) > 0, true)
+
 		var guard = ProjectArchive.new()
 		_expect("archive traversal path refused", guard._valid_archive_path("assets/../secret"), false)
 		_expect("archive absolute path refused", guard._valid_archive_path("/project.json"), false)

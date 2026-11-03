@@ -35,6 +35,11 @@ The first native seam is implemented:
   expansion limits, and checksums before accepting them, retain compatibility
   with the earlier unmarked editor form, and turn identity collisions into new
   copies instead of overwriting a library project.
+- The project import action opens a controller-native inbox which reveals only
+  archive names and sizes, focuses the first candidate, refreshes without a
+  restart, and imports or returns with the compact control profile. The ordinary
+  desktop file browser remains an optional mouse-and-keyboard route rather than
+  a requirement for the simple-control workflow.
 - The first native map creator paints canonical terrain with the same art atlas
   used by play mode. Edits pass through the native integer-preserving source
   layer, support bounded undo/redo and recoverable save, and can be compiled,

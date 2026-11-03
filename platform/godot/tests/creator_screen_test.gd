@@ -60,8 +60,20 @@ func _run() -> void:
 		)
 		screen._export_project(original_id)
 		_expect("creator reports archive export", screen.status_label.text.begins_with("EXPORTED  /  "), true)
+		var inbox_archive: String = screen.library.import_directory().path_join(
+			"relay-adventure.grandleon.zip"
+		)
+		_expect(
+			"creator inbox archive exports",
+			screen.library.export_project_to(original_id, inbox_archive).ok,
+			true
+		)
 		screen._open_import()
-		_expect("archive picker opens", screen.import_dialog.visible, true)
+		await process_frame
+		_expect("controller import inbox opens", screen.import_layer.visible, true)
+		_expect("controller import inbox lists archive", screen.import_buttons.size(), 1)
+		if screen.import_buttons.size() == 1:
+			_expect("controller import archive receives focus", screen.import_buttons[0].has_focus(), true)
 		var import_screenshot_path := _argument_path("--import-screenshot=")
 		if not import_screenshot_path.is_empty():
 			for frame in 12:
@@ -70,7 +82,24 @@ func _run() -> void:
 			print("creator import capture saved: %s" % import_screenshot_path)
 			quit(1 if failures > 0 else 0)
 			return
+		screen._open_import_dialog()
+		_expect("optional desktop archive picker opens", screen.import_dialog.visible, true)
 		screen.import_dialog.hide()
+		if screen.import_buttons.size() == 1:
+			screen.import_buttons[0].pressed.emit()
+		await process_frame
+		_expect("controller import inbox closes after import", screen.import_layer.visible, false)
+		_expect("creator imports identity collision as copy", screen.library.list_projects().size(), 3)
+		_expect("creator reports archive import", screen.status_label.text, "IMPORTED COPY  /  NEW PORTABLE IDS")
+		screen._open_import()
+		await process_frame
+		var cancel_event := InputEventAction.new()
+		cancel_event.action = "ui_cancel"
+		cancel_event.pressed = true
+		screen._unhandled_input(cancel_event)
+		await process_frame
+		_expect("cancel closes controller import inbox", screen.import_layer.visible, false)
+		_expect("cancel returns focus to import action", screen.import_open_button.has_focus(), true)
 		var screenshot_path := _argument_path("--screenshot=")
 		if not screenshot_path.is_empty():
 			for frame in 12:

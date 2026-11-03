@@ -36,8 +36,11 @@ in the library, in which case the import becomes a clearly labelled copy with
 fresh project and game identifiers. A normal duplicate also receives fresh
 portable identifiers, while a rename preserves stable IDs and all authored
 source content. Exported archives are placed in the per-user `exports`
-directory and the native import picker starts in its sibling `imports`
-directory; neither location is inside the Steam installation. The map creator
+directory. The controller-native import inbox lists archive names and sizes
+from its sibling `imports` directory, can refresh while the application is
+running, and never displays an absolute path. A desktop file browser remains
+available as an optional mouse-and-keyboard route. Neither location is inside
+the Steam installation. The map creator
 previews the same replaceable terrain atlas as play mode, provides brush,
 contiguous fill, and two-corner rectangle tools,
 supports bounded command-level undo/redo, and resizes from the top-left origin
@@ -96,6 +99,11 @@ platform/godot/scripts/build-steamos.sh \
   --project games/demo/source/project.json \
   --output out/last-signal-test
 ```
+
+After the Projects screen has opened the inbox once, archives can be copied to
+`runtime/data/godot/app_userdata/Grandleon PC/imports/` relative to the portable
+bundle. Native exports appear in the sibling `exports/` directory. These are
+runtime locations and are never compiled into a project or release manifest.
 
 Copy that whole directory to the SteamOS machine. In desktop mode, add
 `launch-pc.sh` as a non-Steam game, then return to gaming mode. The launcher

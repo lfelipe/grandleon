@@ -242,6 +242,34 @@ func import_directory() -> String:
 	return path
 
 
+func list_import_archives() -> Array[Dictionary]:
+	var archives: Array[Dictionary] = []
+	var path := import_directory()
+	var directory := DirAccess.open(path)
+	if directory == null:
+		return archives
+	var files: Array[String] = []
+	files.assign(directory.get_files())
+	files.sort_custom(func(left: String, right: String) -> bool:
+		return left.naturalnocasecmp_to(right) < 0
+	)
+	for name: String in files:
+		if (
+			name.begins_with(".")
+			or not name.to_lower().ends_with(".grandleon.zip")
+			or directory.is_link(name)
+		):
+			continue
+		var archive_path := path.path_join(name)
+		var file := FileAccess.open(archive_path, FileAccess.READ)
+		if file == null:
+			continue
+		var bytes := file.get_length()
+		file.close()
+		archives.append({"name": name, "path": archive_path, "bytes": bytes})
+	return archives
+
+
 func save_source(project_id: String, source: String) -> Dictionary:
 	if not _valid_project_id(project_id):
 		return _failure("invalid_project_id", "That project identifier is not valid.")

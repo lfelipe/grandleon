@@ -11,6 +11,12 @@ var project_buttons: Dictionary = {}
 var rename_layer: Control
 var rename_input: LineEdit
 var rename_project_id := ""
+var import_layer: Control
+var import_list: VBoxContainer
+var import_status_label: Label
+var import_buttons: Array[Button] = []
+var import_open_button: Button
+var import_refresh_button: Button
 var import_dialog: FileDialog
 var screenshot_path := ""
 var screenshot_frames := -1
@@ -38,6 +44,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if rename_layer != null and rename_layer.visible:
 			_close_rename()
+		elif import_layer != null and import_layer.visible:
+			_close_import()
 		else:
 			_play_shipped_game()
 		get_viewport().set_input_as_handled()
@@ -108,10 +116,10 @@ func _build_interface() -> void:
 	blank.tooltip_text = "An empty canonical project for building from the beginning."
 	blank.pressed.connect(_create_blank)
 	actions.add_child(blank)
-	var import_archive := _button("IMPORT PROJECT ARCHIVE")
-	import_archive.tooltip_text = "Open a portable .grandleon.zip project."
-	import_archive.pressed.connect(_open_import)
-	actions.add_child(import_archive)
+	import_open_button = _button("IMPORT PROJECT ARCHIVE")
+	import_open_button.tooltip_text = "Choose a portable project from the controller-friendly inbox."
+	import_open_button.pressed.connect(_open_import)
+	actions.add_child(import_open_button)
 	var shipped := _button("PLAY INCLUDED GAME")
 	shipped.pressed.connect(_play_shipped_game)
 	actions.add_child(shipped)
@@ -146,6 +154,7 @@ func _build_interface() -> void:
 	status_label.custom_minimum_size.y = 64
 	projects_column.add_child(status_label)
 	_build_rename_layer()
+	_build_import_layer()
 	_build_import_dialog()
 
 
@@ -208,7 +217,71 @@ func _build_import_dialog() -> void:
 	import_dialog.current_dir = library.import_directory()
 	import_dialog.use_native_dialog = false
 	import_dialog.file_selected.connect(_import_project)
+	import_dialog.canceled.connect(_focus_import_inbox)
 	add_child(import_dialog)
+
+
+func _build_import_layer() -> void:
+	import_layer = Control.new()
+	import_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	import_layer.visible = false
+	import_layer.z_index = 20
+	add_child(import_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.01, 0.02, 0.035, 0.88)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	import_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(390, 150)
+	panel.size = Vector2(1140, 780)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
+	)
+	import_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	panel.add_child(column)
+	column.add_child(_label("IMPORT PROJECT  /  INBOX", 24, Color("69d9ff")))
+	var explanation := _label(
+		(
+			"Place .grandleon.zip files in this game's import inbox, then choose one below. "
+			+ "Only archive names are shown; local paths and model settings never enter the project."
+		),
+		18,
+		Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 64
+	column.add_child(explanation)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size.y = 360
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(scroll)
+	import_list = VBoxContainer.new()
+	import_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	import_list.add_theme_constant_override("separation", 10)
+	scroll.add_child(import_list)
+	import_status_label = _label("READY", 17, Color("a9bdc9"))
+	import_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	import_status_label.custom_minimum_size.y = 34
+	column.add_child(import_status_label)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	import_refresh_button = _button("REFRESH")
+	import_refresh_button.custom_minimum_size = Vector2(250, 76)
+	import_refresh_button.pressed.connect(_refresh_import_inbox)
+	actions.add_child(import_refresh_button)
+	var browse := _button("DESKTOP BROWSE")
+	browse.custom_minimum_size = Vector2(330, 76)
+	browse.tooltip_text = "Optional mouse and keyboard file browser."
+	browse.pressed.connect(_open_import_dialog)
+	actions.add_child(browse)
+	var cancel := _button("BACK")
+	cancel.custom_minimum_size = Vector2(230, 76)
+	cancel.pressed.connect(_close_import)
+	actions.add_child(cancel)
 
 
 func _create_starter() -> void:
@@ -304,6 +377,44 @@ func _export_project(project_id: String) -> void:
 
 
 func _open_import() -> void:
+	import_layer.visible = true
+	_refresh_import_inbox()
+
+
+func _refresh_import_inbox() -> void:
+	import_buttons.clear()
+	for child in import_list.get_children():
+		child.queue_free()
+	var archives: Array[Dictionary] = library.list_import_archives()
+	if archives.is_empty():
+		var empty := _label(
+			"No project archives are waiting in the import inbox.",
+			20,
+			Color("718896")
+		)
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		empty.custom_minimum_size.y = 80
+		import_list.add_child(empty)
+		_set_import_status("COPY AN ARCHIVE INTO THE INBOX, THEN REFRESH", false)
+	else:
+		for archive_entry: Dictionary in archives:
+			var archive_name := str(archive_entry.name)
+			var display_name := archive_name
+			if display_name.length() > 72:
+				display_name = display_name.left(69) + "..."
+			var button := _button(
+				"IMPORT  /  %s\n%s" % [display_name, _format_bytes(int(archive_entry.bytes))]
+			)
+			button.custom_minimum_size.y = 82
+			button.tooltip_text = archive_name
+			button.pressed.connect(_import_project.bind(str(archive_entry.path)))
+			import_list.add_child(button)
+			import_buttons.append(button)
+		_set_import_status("CHOOSE AN ARCHIVE  /  CONFIRM IMPORTS", false)
+	_focus_import_inbox()
+
+
+func _open_import_dialog() -> void:
 	import_dialog.current_dir = library.import_directory()
 	import_dialog.popup_centered_ratio(0.78)
 
@@ -312,7 +423,10 @@ func _import_project(path: String) -> void:
 	var imported: Dictionary = library.import_project(path)
 	if not imported.ok:
 		_set_status("IMPORT FAILED  /  %s" % imported.message, true)
+		_set_import_status("IMPORT FAILED  /  %s" % imported.message, true)
+		_focus_import_inbox()
 		return
+	import_layer.visible = false
 	_refresh_projects()
 	_set_status(
 		"IMPORTED COPY  /  NEW PORTABLE IDS"
@@ -321,6 +435,45 @@ func _import_project(path: String) -> void:
 		false
 	)
 	_focus_project(str(imported.id))
+
+
+func _close_import() -> void:
+	if import_dialog != null and import_dialog.visible:
+		import_dialog.hide()
+	import_layer.visible = false
+	if import_open_button != null and import_open_button.is_inside_tree():
+		import_open_button.call_deferred("grab_focus")
+
+
+func _focus_import_inbox() -> void:
+	call_deferred("_focus_import_inbox_now")
+
+
+func _focus_import_inbox_now() -> void:
+	if import_layer == null or not import_layer.visible:
+		return
+	if not import_buttons.is_empty():
+		var button := import_buttons[0]
+		if is_instance_valid(button) and button.is_inside_tree():
+			button.grab_focus()
+			return
+	if import_refresh_button != null and import_refresh_button.is_inside_tree():
+		import_refresh_button.grab_focus()
+
+
+func _set_import_status(message: String, failure: bool) -> void:
+	import_status_label.text = message
+	import_status_label.add_theme_color_override(
+		"font_color", Color("ff7a83") if failure else Color("72e08f")
+	)
+
+
+func _format_bytes(bytes: int) -> String:
+	if bytes < 1024:
+		return "%d BYTES" % bytes
+	if bytes < 1024 * 1024:
+		return "%.1f KiB" % (float(bytes) / 1024.0)
+	return "%.1f MiB" % (float(bytes) / float(1024 * 1024))
 
 
 func _open_rename(project_id: String, title: String) -> void:
