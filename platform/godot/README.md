@@ -11,6 +11,8 @@ production PC release.
 [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md) defines the native create/play
 architecture, standalone-game exports, Windows support, and console target
 builder direction.
+[UI_GUIDE.md](UI_GUIDE.md) defines the battlefield information budget and the
+fun, quick, intuitive interaction rules used by the PC play surface.
 
 The separation is deliberate:
 
@@ -370,9 +372,11 @@ With no character selected it finishes every ready character not currently
 claimed by the other player, so a team can hand control to the opposition
 without hunting across the board. The live help spells out both meanings.
 
-Player 1 uses cyan and Player 2 uses amber throughout the board and status
-text. Each active board cursor also carries a `P1` or `P2` badge, so ownership
-does not depend on remembering colour alone while both players move at once.
+The first local control uses cyan, the second uses amber, and the opposition
+uses red. Remaining-health bars and cursor outlines carry those colours; no
+`P1` or `P2` labels compete with the character art. When no character is
+selected, the side panel shows the colour-to-control legend. Inspecting or
+selecting a character replaces it with only that character's useful numbers.
 
 Encounter difficulty can be authored visibly rather than inferred from a stat
 multiplier. An opposing placement with `minimumPlayers: 2` is omitted from a
@@ -632,9 +636,9 @@ platform/godot/scripts/smoke-story-editor.sh
 
 The reel is an actual 1280x720 Godot capture. It advances authored dialogue,
 queues two friendly moves without serial player turns, and lets the built-in
-opposition respond. Its two automation seats use the same visible `P1` and `P2`
-cursor badges as physical local co-op, so review footage proves the current
-two-player presentation as well as its overlapping commands. Set
+opposition respond. Its two automation controls use the same cyan and amber
+cursors and health bars as physical local co-op, so review footage proves the
+current two-player presentation as well as its overlapping commands. Set
 `GRANDLEON_DEMO_SECONDS` or pass build and output paths as the first two
 arguments when a different duration or destination is useful.
 Each invocation uses and removes a fresh capture-only save directory, so an

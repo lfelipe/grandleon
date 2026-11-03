@@ -675,16 +675,15 @@ func _make_health_texture(step: int, owner: int) -> ImageTexture:
 	var image := Image.create(64, 8, false, Image.FORMAT_RGBA8)
 	var owner_colour := Color("ff5267")
 	if owner == 1:
-		owner_colour = Color("67d9ff")
+		owner_colour = Color("69d9ff")
 	elif owner == 2:
-		owner_colour = Color("ffbf59")
+		owner_colour = Color("ffca63")
 	image.fill(owner_colour)
 	image.fill_rect(Rect2i(1, 1, 62, 6), Color("071018"))
 	image.fill_rect(Rect2i(2, 2, 60, 4), Color("21313a"))
 	var width := roundi(60.0 * float(step) / 20.0)
-	var colour := Color("72e08f") if step > 10 else (Color("ffca63") if step > 5 else Color("ff5267"))
 	if width > 0:
-		image.fill_rect(Rect2i(2, 2, width, 4), colour)
+		image.fill_rect(Rect2i(2, 2, width, 4), owner_colour)
 	image.set_pixel(0, 0, Color(0, 0, 0, 0))
 	return ImageTexture.create_from_image(image)
 
@@ -751,19 +750,15 @@ func _rebuild_markers() -> void:
 func _player_marker_at(x: int, y: int, seat: int) -> void:
 	var colour: Color = CURSOR_COLOURS[seat]
 	_marker_at(x, y, colour, 0.58, 0.88)
-	var label := Label3D.new()
-	label.text = "P%d" % (seat + 1)
-	label.font_size = 42
-	label.pixel_size = 0.006
-	label.modulate = colour
-	label.outline_modulate = Color("07131d")
-	label.outline_size = 10
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.no_depth_test = true
-	label.position = _cell_position(x, y) + Vector3(
-		-0.29, _surface_height(x, y) + 0.16, -0.29
+	var corner_x := -0.31 if seat == 0 else 0.31
+	_box(
+		_marker_root,
+		_cell_position(x, y) + Vector3(
+			corner_x, _surface_height(x, y) + 0.15, -0.31
+		),
+		Vector3(0.12, 0.26, 0.12),
+		_material("cursor_%d" % seat, colour, 0.96, true, true)
 	)
-	_marker_root.add_child(label)
 
 
 func _marker_at(x: int, y: int, colour: Color, alpha: float, scale_value: float) -> void:

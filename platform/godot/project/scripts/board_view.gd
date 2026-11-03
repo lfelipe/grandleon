@@ -607,11 +607,10 @@ func _draw_health(unit: Dictionary, centre: Vector2, sprite_size: float) -> void
 	var at := centre + Vector2(-size.x * 0.5, tile_size * 0.38)
 	var owner_colour := Color("ff5267")
 	if String(unit.get("side", "")) == "first":
-		owner_colour = Color("67d9ff") if int(unit.get("player", 1)) == 1 else Color("ffbf59")
+		owner_colour = Color("69d9ff") if int(unit.get("player", 1)) == 1 else Color("ffca63")
 	draw_rect(Rect2(at - Vector2(3, 3), size + Vector2(6, 6)), owner_colour, true)
 	draw_rect(Rect2(at - Vector2(1, 1), size + Vector2(2, 2)), Color(0.01, 0.015, 0.025, 0.92), true)
-	var colour: Color = Color("72e08f") if ratio > 0.5 else (Color("ffca63") if ratio > 0.25 else Color("ff5267"))
-	draw_rect(Rect2(at, Vector2(size.x * ratio, size.y)), colour, true)
+	draw_rect(Rect2(at, Vector2(size.x * ratio, size.y)), owner_colour, true)
 
 
 func _draw_cursors() -> void:
@@ -628,24 +627,16 @@ func _draw_cursors() -> void:
 		var colour: Color = CURSOR_COLOURS[seat]
 		colour.a = wave
 		draw_rect(rect, colour, false, maxf(3.0, tile_size * 0.055))
-		_draw_player_badge(rect.position + Vector2(3, 3), seat)
+		_draw_cursor_dot(rect, seat)
 
 
-func _draw_player_badge(at: Vector2, seat: int) -> void:
-	var font_size := clampi(roundi(tile_size * 0.18), 10, 15)
-	var badge_size := Vector2(
-		clampf(tile_size * 0.42, 22.0, 32.0),
-		clampf(tile_size * 0.28, 16.0, 22.0)
-	)
-	var badge := Rect2(at, badge_size)
-	draw_rect(badge, Color("07131d"), true)
-	draw_rect(badge, CURSOR_COLOURS[seat], false, 2.0)
-	draw_string(
-		ThemeDB.fallback_font,
-		Vector2(badge.position.x, badge.position.y + badge.size.y - 4.0),
-		"P%d" % (seat + 1), HORIZONTAL_ALIGNMENT_CENTER,
-		badge.size.x, font_size, CURSOR_COLOURS[seat]
-	)
+func _draw_cursor_dot(rect: Rect2, seat: int) -> void:
+	var inset := clampf(tile_size * 0.13, 6.0, 10.0)
+	var centre := rect.position + Vector2(inset, inset)
+	if seat == 1:
+		centre.x = rect.end.x - inset
+	draw_circle(centre, clampf(tile_size * 0.105, 5.0, 8.0), Color("07131d"))
+	draw_circle(centre, clampf(tile_size * 0.065, 3.0, 5.0), CURSOR_COLOURS[seat])
 
 
 func _panel_style(colour: Color, radius: int) -> StyleBoxFlat:
