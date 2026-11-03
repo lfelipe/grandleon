@@ -206,8 +206,10 @@ ports the most interaction-heavy part of the earlier editor early.
 ### 3. Game data and campaign flow
 
 - Starting characters and chapter recruits can be added and renamed through
-  the Army screen. Character specificity, classes, factions, equipment,
-  weapons, abilities, and items remain.
+  the Army screen. A focused hero-tuning overlay authors bounded portable
+  health, strength, defense, resistance, movement, magic, and weapon-range
+  adjustments over the selected role. Classes, factions, equipment, weapons,
+  abilities, and items remain.
 - Stages, transitions, conditions, arrivals, rewards, and starting roster.
 - Complete dialogue-line authoring with portable speaker selection and scene
   creation/attachment to existing story moments is implemented. Linear story

@@ -34,6 +34,22 @@ func _run() -> void:
 	_expect("starter company has two heroes", editor.members.size(), 2)
 	_expect("campaign selector receives controller focus", editor.campaign_select.has_focus(), true)
 	_expect("character portrait uses portable art", editor.portrait.texture != null, true)
+	editor._open_modifiers()
+	_expect("hero tuning opens on demand", editor.modifier_layer.visible, true)
+	_expect("hero tuning starts on a compact controller action", editor.first_modifier_button.has_focus(), true)
+	var base_health: int = editor._base_stat(editor._current_member(), "health")
+	_expect("hero tuning shows the role baseline", editor.modifier_value_labels.health.text.contains(str(base_health)), true)
+	editor._adjust_modifier("health", 1)
+	_expect("hero health adjustment reaches source", int(editor._current_member().specificity.stats.health), 1)
+	_expect("hero tuning is undoable", editor.undo_stack.is_empty(), false)
+	editor._adjust_modifier("health", -1)
+	_expect("returning to the role default removes empty overrides", editor._current_member().has("specificity"), false)
+	editor._undo()
+	_expect("undo restores the hero adjustment", int(editor._current_member().specificity.stats.health), 1)
+	editor._redo()
+	_expect("redo restores the role default", editor._current_member().has("specificity"), false)
+	editor._close_modifiers()
+	_expect("closing hero tuning returns to its single entry action", editor.customize_button.has_focus(), true)
 
 	var first_id := str(editor.members[0].id)
 	editor.name_input.text = "Aren of the Vale"
@@ -77,6 +93,7 @@ func _run() -> void:
 
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
+		editor._open_modifiers()
 		for _frame in 12:
 			await process_frame
 		var texture := get_root().get_texture()

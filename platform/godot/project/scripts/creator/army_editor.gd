@@ -4,6 +4,15 @@ extends Control
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const HISTORY_LIMIT := 64
+const HERO_MODIFIERS := [
+	{"key": "health", "label": "HEALTH"},
+	{"key": "strength", "label": "STRENGTH"},
+	{"key": "defense", "label": "DEFENSE"},
+	{"key": "resistance", "label": "RESISTANCE"},
+	{"key": "movement", "label": "MOVEMENT"},
+	{"key": "magic", "label": "MAGIC"},
+	{"key": "rangeBonus", "label": "WEAPON RANGE"},
+]
 
 var library
 var compiler
@@ -31,6 +40,7 @@ var editor_column: VBoxContainer
 var name_input: LineEdit
 var role_label: Label
 var join_label: Label
+var customize_button: Button
 var portrait: TextureRect
 var preview_label: Label
 var status_label: Label
@@ -46,6 +56,11 @@ var add_name: LineEdit
 var add_role: OptionButton
 var add_join: OptionButton
 var create_button: Button
+var modifier_layer: Control
+var modifier_role_label: Label
+var modifier_value_labels: Dictionary = {}
+var first_modifier_button: Button
+var modifier_done_button: Button
 
 
 func _ready() -> void:
@@ -59,7 +74,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if add_layer.visible:
+		if modifier_layer.visible:
+			_close_modifiers()
+		elif add_layer.visible:
 			_close_add()
 		elif more_layer.visible:
 			_close_more()
@@ -188,6 +205,8 @@ func _refresh_member() -> void:
 	preview_label.text = str(member.get("name", "CHARACTER")).to_upper()
 	form_dirty = false
 	refreshing = false
+	if modifier_layer != null and modifier_layer.visible:
+		_refresh_modifier_values()
 	_update_actions()
 
 
@@ -208,6 +227,110 @@ func _unit_type_name(unit_type_id: String) -> String:
 		if value is Dictionary and str(value.get("id", "")) == unit_type_id:
 			return str(value.get("name", unit_type_id))
 	return unit_type_id
+
+
+func _unit_type(unit_type_id: String) -> Dictionary:
+	for value: Variant in project.get("unitTypes", []):
+		if value is Dictionary and str(value.get("id", "")) == unit_type_id:
+			return value
+	return {}
+
+
+func _member_class(member: Dictionary) -> Dictionary:
+	var unit_type := _unit_type(str(member.get("unitTypeId", "")))
+	var class_id := str(unit_type.get("classId", ""))
+	for value: Variant in project.get("classes", []):
+		if value is Dictionary and str(value.get("id", "")) == class_id:
+			return value
+	return {}
+
+
+func _modifier_value(member: Dictionary, key: String) -> int:
+	var specificity: Variant = member.get("specificity", {})
+	if not specificity is Dictionary:
+		return 0
+	if key == "rangeBonus":
+		return int(specificity.get(key, 0))
+	var stats: Variant = specificity.get("stats", {})
+	return int(stats.get(key, 0)) if stats is Dictionary else 0
+
+
+func _base_stat(member: Dictionary, key: String) -> int:
+	if key == "rangeBonus":
+		return 0
+	var unit_class := _member_class(member)
+	var stats: Variant = unit_class.get("baseStats", {})
+	if not stats is Dictionary:
+		return 0
+	return int(stats.get(key, 0))
+
+
+func _open_modifiers() -> void:
+	if not _commit_visible_member(false):
+		return
+	if _current_member().is_empty():
+		_set_status("CHOOSE A CHARACTER FIRST", true)
+		return
+	modifier_layer.visible = true
+	_refresh_modifier_values()
+	first_modifier_button.grab_focus()
+
+
+func _close_modifiers() -> void:
+	modifier_layer.visible = false
+	customize_button.grab_focus()
+
+
+func _refresh_modifier_values() -> void:
+	var member := _current_member()
+	if member.is_empty():
+		return
+	modifier_role_label.text = "%s  /  %s" % [
+		str(member.get("name", "CHARACTER")).to_upper(),
+		_unit_type_name(str(member.get("unitTypeId", ""))).to_upper(),
+	]
+	for option: Dictionary in HERO_MODIFIERS:
+		var key := str(option.key)
+		var delta := _modifier_value(member, key)
+		var label: Label = modifier_value_labels.get(key)
+		if key == "rangeBonus":
+			label.text = "ROLE DEFAULT" if delta == 0 else "+%d TILES" % delta
+			continue
+		var total := _base_stat(member, key) + delta
+		label.text = "%d  /  ROLE DEFAULT" % total if delta == 0 else (
+			"%d  /  %s%d" % [total, "+" if delta > 0 else "", delta]
+		)
+
+
+func _adjust_modifier(key: String, amount: int) -> void:
+	if not _commit_visible_member(false):
+		return
+	var member := _current_member()
+	if member.is_empty():
+		return
+	var value := _modifier_value(member, key) + amount
+	var campaign := _current_campaign()
+	var updated: Dictionary = compiler.set_campaign_member_modifier(
+		source, str(campaign.get("id", "")), str(member.get("id", "")), key, value
+	)
+	if not updated.ok:
+		_set_status("NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		return
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	var selected_id := str(member.get("id", ""))
+	source = str(updated.source)
+	dirty = source != saved_source
+	_read_source()
+	_collect_members()
+	for index in members.size():
+		if str(members[index].id) == selected_id:
+			member_index = index
+			break
+	_refresh_member()
+	_refresh_modifier_values()
+	var readable := key.replace("Bonus", " bonus").capitalize()
+	_set_status("UNSAVED  /  %s %s" % [readable.to_upper(), "ADJUSTED"], false)
 
 
 func _select_campaign(index: int) -> void:
@@ -488,6 +611,7 @@ func _update_actions() -> void:
 	redo_button.disabled = redo_stack.is_empty() or form_dirty
 	play_button.disabled = campaigns.is_empty()
 	add_button.disabled = campaigns.is_empty() or project.get("unitTypes", []).is_empty()
+	customize_button.disabled = members.is_empty()
 
 
 func _build_interface() -> void:
@@ -602,8 +726,11 @@ func _build_interface() -> void:
 	editor_column.add_child(role_label)
 	join_label = _label("JOINS", 20, Color("72e08f"))
 	editor_column.add_child(join_label)
+	customize_button = _button("TUNE THIS HERO", 360, 56)
+	customize_button.pressed.connect(_open_modifiers)
+	editor_column.add_child(customize_button)
 	var role_note := _label(
-		"The role supplies core stats, starting gear, abilities, and portable art. Role editing is the next army-data increment.",
+		"The role supplies the shared baseline. Tune only what makes this named hero special; every port uses the same result.",
 		17, Color("718896")
 	)
 	role_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -618,8 +745,83 @@ func _build_interface() -> void:
 	status_label.position = Vector2(82, 980)
 	status_label.size = Vector2(1750, 54)
 	add_child(status_label)
+	_build_modifier_layer()
 	_build_more_layer()
 	_build_add_layer()
+
+
+func _build_modifier_layer() -> void:
+	modifier_layer = Control.new()
+	modifier_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	modifier_layer.visible = false
+	modifier_layer.z_index = 45
+	add_child(modifier_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.94)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	modifier_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(280, 80)
+	panel.size = Vector2(1360, 920)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
+	)
+	modifier_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	panel.add_child(column)
+	column.add_child(_label("TUNE THIS HERO", 18, Color("e6b86d")))
+	column.add_child(_label("Make one character memorable.", 32, Color("f2f7f9")))
+	modifier_role_label = _label("CHARACTER  /  ROLE", 18, Color("69d9ff"))
+	column.add_child(modifier_role_label)
+	var explanation := _label(
+		"Each step adjusts this hero over the role baseline. Returning to zero removes the override. Invalid totals are refused before they can be saved.",
+		17, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 58
+	column.add_child(explanation)
+	var modifiers := GridContainer.new()
+	modifiers.columns = 2
+	modifiers.add_theme_constant_override("h_separation", 28)
+	modifiers.add_theme_constant_override("v_separation", 10)
+	column.add_child(modifiers)
+	for index in HERO_MODIFIERS.size():
+		var option: Dictionary = HERO_MODIFIERS[index]
+		var key := str(option.key)
+		var row := HBoxContainer.new()
+		row.custom_minimum_size = Vector2(630, 64)
+		row.add_theme_constant_override("separation", 8)
+		modifiers.add_child(row)
+		var name_label := _label(str(option.label), 16, Color("e6b86d"))
+		name_label.custom_minimum_size = Vector2(165, 54)
+		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(name_label)
+		var minus := _button("−", 66, 54)
+		minus.pressed.connect(_adjust_modifier.bind(key, -1))
+		row.add_child(minus)
+		var value_label := _label("ROLE DEFAULT", 16, Color("f2f7f9"))
+		value_label.custom_minimum_size = Vector2(255, 54)
+		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(value_label)
+		modifier_value_labels[key] = value_label
+		var plus := _button("+", 66, 54)
+		plus.pressed.connect(_adjust_modifier.bind(key, 1))
+		row.add_child(plus)
+		if index == 0:
+			first_modifier_button = plus
+	var footer := _label(
+		"Health keeps a hero standing. Strength and magic drive attacks. Defense and resistance blunt them. Movement changes how far they can help; weapon range extends carried weapons.",
+		16, Color("718896")
+	)
+	footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	footer.custom_minimum_size.y = 58
+	column.add_child(footer)
+	modifier_done_button = _button("DONE", 260, 62)
+	modifier_done_button.pressed.connect(_close_modifiers)
+	column.add_child(modifier_done_button)
 
 
 func _build_more_layer() -> void:

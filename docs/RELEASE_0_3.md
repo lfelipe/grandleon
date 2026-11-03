@@ -106,8 +106,9 @@ editing JSON. **Achieved.**
 - A Characters screen lists the starting company and later recruits in plain
   language. **Implemented.**
 - Add a hero from a small class/archetype template, then edit name and core
-  stats through bounded controls. **Role selection and naming are implemented;
-  bounded stat editing remains.**
+  stats through bounded controls. **Role selection, naming, and focused
+  per-hero health, strength, defense, resistance, movement, magic, and weapon
+  range adjustments are implemented.**
 - Attach a recruit to a chapter and preview when that character joins.
   **Implemented.**
 - Add starting equipment and chapter rewards through searchable name pickers.

@@ -79,6 +79,10 @@ the two co-op armies, with matching cyan and amber board badges; solo play
 normalizes both armies under Player 1. The separate **2P** tool toggles an
 opposing placement between always present and a two-player addition; scaled
 enemies are labelled on the board.
+The **Army** screen keeps the company and join timing readable, while **Tune
+This Hero** opens bounded role-relative controls only when needed. Returning a
+modifier to zero removes the override, and the same portable result is consumed
+by PC, Nintendo 64, and PlayStation.
 The **Goals** surface attaches existing objectives or authors complete defeat,
 protect, and survive conditions. **Outside** chooses how exposed space beyond
 the tactical map is presented: one RGB colour, an automatic non-playable edge,
