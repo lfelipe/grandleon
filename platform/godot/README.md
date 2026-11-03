@@ -70,7 +70,10 @@ make a previously playable project invalid are refused. Shrinks are blocked
 while any encounter placement or deployment tile would fall outside the new
 board, and resizing preserves matching manual-perimeter coordinates while
 filling newly exposed ones. Saves pass through the validating native source
-layer, and the edited draft plays immediately.
+layer, and the edited draft plays immediately. A draft automatically proceeds
+through the native company gate, uses the same roster and deployment
+validation as normal play, and has campaign persistence disabled so testing an
+edit cannot resume or replace an installed game's checkpoints.
 Compilation and scene handoff stay in-process; draft package bytes are not
 written to the installation directory. **Main Menu** returns from play to the
 same small game-and-creator front door.

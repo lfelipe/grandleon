@@ -2010,7 +2010,7 @@ func _play_draft() -> void:
 	if campaign.is_empty():
 		_set_status("NOT PLAYABLE  /  CAMPAIGN NEEDS AN ID", true)
 		return
-	LaunchContext.stage_package(compiled.package, campaign)
+	LaunchContext.stage_package(compiled.package, campaign, true)
 	get_tree().change_scene_to_file("res://main.tscn")
 
 

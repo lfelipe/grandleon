@@ -58,6 +58,7 @@ var campaign_management_preview := false
 var campaign_management_phase := 0
 var campaign_management_member_id := 0
 var campaign_management_item_id := 0
+var draft_preview := false
 var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
 var progress_reset_armed := false
 var seats: Array = []
@@ -128,7 +129,12 @@ var frame_timing_next_update_msec := 0
 
 func _ready() -> void:
 	_parse_arguments()
-	campaign_save_root = _resolve_campaign_save_root()
+	var staged: Dictionary = LaunchContext.take_package()
+	draft_preview = bool(staged.get("draft_preview", false))
+	# A creator preview must neither resume nor replace the installed game's
+	# campaign checkpoints. It still enters battle through the native company
+	# command below, preserving portable roster and deployment validation.
+	campaign_save_root = "" if draft_preview else _resolve_campaign_save_root()
 	controls = ControlProfile.new(controls_path)
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
 	presentation_settings = PresentationSettings.new()
@@ -177,7 +183,6 @@ func _ready() -> void:
 	if session == null:
 		_show_fatal("The native Grandleon bridge did not load")
 		return
-	var staged: Dictionary = LaunchContext.take_package()
 	var started := false
 	if staged.is_empty():
 		var absolute_package := ProjectSettings.globalize_path(package_path)
@@ -1802,6 +1807,7 @@ func _management_automation_enabled() -> bool:
 		or menu_preview
 		or board_preview
 		or graphics_cycle_smoke
+		or draft_preview
 	)
 
 

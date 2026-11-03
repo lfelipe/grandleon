@@ -403,11 +403,18 @@ func _run() -> void:
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 
 	editor._play_draft()
-	await process_frame
-	await process_frame
+	# Draft compilation and the native campaign worker are asynchronous. Wait for
+	# both the scene handoff and its separate presentation event instead of
+	# assuming they land within two render frames on every PC.
+	for frame in 120:
+		await process_frame
+		if current_scene.name == "PC" and not current_scene.battle_surroundings.is_empty():
+			break
 	_expect("edited draft opens in play scene", current_scene.name, "PC")
 	if current_scene.name == "PC":
 		_expect("edited draft campaign selected", current_scene.campaign_key, "demo_campaign")
+		_expect("edited draft is marked as a preview", current_scene.draft_preview, true)
+		_expect("draft preview cannot alter installed checkpoints", current_scene.campaign_save_root, "")
 		_expect("draft publishes outside presentation", current_scene.battle_surroundings.get("mode", ""), "solid")
 		_expect("draft publishes selected outside colour", int(current_scene.battle_surroundings.get("colour", 0)), 0x1234ab)
 		_expect("active renderer receives outside presentation", current_scene.board.get("surroundings"), current_scene.battle_surroundings)

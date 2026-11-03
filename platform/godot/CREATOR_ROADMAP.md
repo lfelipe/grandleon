@@ -29,6 +29,9 @@ The first native seam is implemented:
   compiles a selected project, and hands a playable draft back to the ordinary
   game scene without a temporary package. Copies receive new portable
   identities; renames preserve stable identifiers and content.
+- Map-editor drafts proceed through the native company gate automatically and
+  disable campaign persistence, so iteration reaches the edited board directly
+  without reading or replacing an installed game's checkpoints.
 - Portable `.grandleon.zip` exchange is implemented without an external
   archiver. Exports contain a version marker, canonical source, and
   project-owned assets only. Imports preflight stored ZIP entries, paths,
