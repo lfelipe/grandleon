@@ -123,6 +123,11 @@ var setup_first_button: Button
 var more_button: Button
 var more_layer: Control
 var more_first_button: Button
+var rename_layer: Control
+var rename_button: Button
+var rename_map_input: LineEdit
+var rename_battle_input: LineEdit
+var rename_apply_button: Button
 var chapter_layer: Control
 var chapter_title: LineEdit
 var chapter_create_button: Button
@@ -160,6 +165,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_setup()
 		elif chapter_layer != null and chapter_layer.visible:
 			_close_new_chapter()
+		elif rename_layer != null and rename_layer.visible:
+			_close_rename()
 		elif more_layer != null and more_layer.visible:
 			_close_more()
 		elif deployment_editing:
@@ -2497,6 +2504,112 @@ func _more_resize() -> void:
 	_open_resize()
 
 
+func _more_rename() -> void:
+	more_layer.visible = false
+	rename_map_input.text = _current_map_name()
+	var current := _current_encounter()
+	var has_battle := not current.is_empty()
+	rename_battle_input.editable = has_battle
+	rename_battle_input.text = (
+		str(current.node.get("name", current.node.get("id", "Battle")))
+		if has_battle
+		else "NO BATTLE USES THIS MAP"
+	)
+	rename_apply_button.text = "APPLY BOTH NAMES" if has_battle else "APPLY MAP NAME"
+	rename_layer.visible = true
+	rename_map_input.grab_focus()
+	rename_map_input.select_all()
+
+
+func _close_rename() -> void:
+	rename_layer.visible = false
+	more_layer.visible = true
+	rename_button.call_deferred("grab_focus")
+
+
+func _apply_rename_from_text(_value: String) -> void:
+	_apply_rename()
+
+
+func _apply_rename() -> void:
+	var map_name := rename_map_input.text.strip_edges()
+	if map_name.is_empty():
+		_set_status("MAP NAME CANNOT BE EMPTY", true)
+		rename_map_input.grab_focus()
+		return
+	var current := _current_encounter()
+	var battle_name := rename_battle_input.text.strip_edges()
+	if not current.is_empty() and battle_name.is_empty():
+		_set_status("BATTLE NAME CANNOT BE EMPTY", true)
+		rename_battle_input.grab_focus()
+		return
+	var candidate: Dictionary = project.duplicate(true)
+	var map_id := str(_current_map().get("id", ""))
+	var candidate_maps: Array = candidate.get("maps", [])
+	for index in candidate_maps.size():
+		if candidate_maps[index] is Dictionary and str(candidate_maps[index].get("id", "")) == map_id:
+			candidate_maps[index].name = map_name
+			break
+	candidate.maps = candidate_maps
+	if not current.is_empty():
+		var campaign_id := str(current.get("campaign_id", ""))
+		var node_id := str(current.node.get("id", ""))
+		var candidate_campaigns: Array = candidate.get("campaigns", [])
+		for campaign_index in candidate_campaigns.size():
+			if not candidate_campaigns[campaign_index] is Dictionary or str(candidate_campaigns[campaign_index].get("id", "")) != campaign_id:
+				continue
+			var flow: Dictionary = candidate_campaigns[campaign_index].get("flow", {}).duplicate(true)
+			var nodes: Array = flow.get("nodes", []).duplicate(true)
+			for node_index in nodes.size():
+				if nodes[node_index] is Dictionary and str(nodes[node_index].get("id", "")) == node_id:
+					nodes[node_index].name = battle_name
+					break
+			flow.nodes = nodes
+			candidate_campaigns[campaign_index].flow = flow
+			break
+		candidate.campaigns = candidate_campaigns
+	var portable: Dictionary = _integer_numbers(candidate)
+	var candidate_source := JSON.stringify(portable, "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status("NAMES NOT CHANGED  /  %s" % _diagnostic_detail(checked), true)
+		return
+	if candidate_source != source:
+		_push_undo(source)
+		redo_stack.clear()
+		source = candidate_source
+		dirty = true
+		_read_source()
+		rename_layer.visible = false
+		more_layer.visible = false
+		_refresh_maps_after_edit(0)
+		_set_status(
+			"UNSAVED  /  RENAMED MAP & BATTLE"
+			if not current.is_empty()
+			else "UNSAVED  /  RENAMED MAP",
+			false
+		)
+	else:
+		_close_rename()
+	map_select.call_deferred("grab_focus")
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if typeof(value) == TYPE_FLOAT and value == floor(value):
+		return int(value)
+	return value
+
+
 func _more_look() -> void:
 	more_layer.visible = false
 	_open_look()
@@ -2690,8 +2803,8 @@ func _build_more_overlay() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	more_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(560, 150)
-	panel.size = Vector2(800, 780)
+	panel.position = Vector2(560, 110)
+	panel.size = Vector2(800, 860)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
 	)
@@ -2720,6 +2833,9 @@ func _build_more_overlay() -> void:
 	look_button = _button("LOOK & FEEL", 680, 70)
 	look_button.pressed.connect(_more_look)
 	column.add_child(look_button)
+	rename_button = _button("MAP & BATTLE NAMES", 680, 70)
+	rename_button.pressed.connect(_more_rename)
+	column.add_child(rename_button)
 	var resize_button := _button("RESIZE THIS MAP", 680, 70)
 	resize_button.pressed.connect(_more_resize)
 	column.add_child(resize_button)
@@ -2731,6 +2847,63 @@ func _build_more_overlay() -> void:
 	column.add_child(back)
 	_build_chapter_overlay()
 	_build_look_overlay()
+	_build_rename_overlay()
+
+
+func _build_rename_overlay() -> void:
+	rename_layer = Control.new()
+	rename_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rename_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	rename_layer.visible = false
+	rename_layer.z_index = 40
+	add_child(rename_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.92)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	rename_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(430, 270)
+	panel.size = Vector2(1060, 540)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 22, Color("69d9ff"))
+	)
+	rename_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("MAP & BATTLE NAMES", 20, Color("69d9ff")))
+	column.add_child(_label("Use player-facing names.", 32, Color("f2f7f9")))
+	var explanation := _label(
+		"Renaming keeps every portable reference and saved identity intact. Only the names players and creators see change.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 58
+	column.add_child(explanation)
+	column.add_child(_label("MAP NAME", 15, Color("69d9ff")))
+	rename_map_input = LineEdit.new()
+	rename_map_input.max_length = 160
+	rename_map_input.custom_minimum_size = Vector2(960, 62)
+	rename_map_input.add_theme_font_size_override("font_size", 21)
+	rename_map_input.text_submitted.connect(_apply_rename_from_text)
+	column.add_child(rename_map_input)
+	column.add_child(_label("BATTLE NAME", 15, Color("69d9ff")))
+	rename_battle_input = LineEdit.new()
+	rename_battle_input.max_length = 160
+	rename_battle_input.custom_minimum_size = Vector2(960, 62)
+	rename_battle_input.add_theme_font_size_override("font_size", 21)
+	rename_battle_input.text_submitted.connect(_apply_rename_from_text)
+	column.add_child(rename_battle_input)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	rename_apply_button = _button("APPLY BOTH NAMES", 360, 68)
+	rename_apply_button.pressed.connect(_apply_rename)
+	actions.add_child(rename_apply_button)
+	var cancel := _button("CANCEL", 260, 68)
+	cancel.pressed.connect(_close_rename)
+	actions.add_child(cancel)
 
 
 func _build_chapter_overlay() -> void:

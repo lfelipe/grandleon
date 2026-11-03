@@ -53,6 +53,16 @@ func _run() -> void:
 		print("more map options capture saved: %s" % more_screenshot_path)
 		quit()
 		return
+	var rename_screenshot_path := _argument_path("--rename-screenshot=")
+	if not rename_screenshot_path.is_empty():
+		editor._open_more()
+		editor._more_rename()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(rename_screenshot_path)
+		print("map and battle names capture saved: %s" % rename_screenshot_path)
+		quit()
+		return
 	var look_screenshot_path := _argument_path("--look-screenshot=")
 	if not look_screenshot_path.is_empty():
 		editor._open_look()
@@ -484,6 +494,38 @@ func _run() -> void:
 	_expect("editor-selected outside colour is portable", solid_outside.color, "#1234ab")
 	_expect("solid outside colour does not add tactical cells", editor.grid.get_child_count(), 12)
 
+	var original_map_id := str(_parse(editor.source).maps[0].id)
+	var original_battle_id := str(_parse(editor.source).campaigns[0].flow.nodes[0].id)
+	editor._open_more()
+	editor._more_rename()
+	_expect("map and battle names open from less-used options", editor.rename_layer.visible, true)
+	_expect("map name receives text-entry focus", editor.rename_map_input.has_focus(), true)
+	_expect("existing map name is shown", editor.rename_map_input.text, "Dawn Bridge")
+	_expect("existing battle name is shown", editor.rename_battle_input.text, "A Friendly Rivalry")
+	editor.rename_map_input.text = "   "
+	editor._apply_rename()
+	_expect("empty map name is refused", editor.rename_layer.visible, true)
+	_expect("empty map name returns focus", editor.rename_map_input.has_focus(), true)
+	editor.rename_map_input.text = "Fordlight Crossing"
+	editor.rename_battle_input.text = "First Stand at Fordlight"
+	editor._apply_rename()
+	await process_frame
+	var renamed := _parse(editor.source)
+	_expect("map receives player-facing name", str(renamed.maps[0].name), "Fordlight Crossing")
+	_expect("battle receives player-facing name", str(renamed.campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
+	_expect("map identity survives rename", str(renamed.maps[0].id), original_map_id)
+	_expect("battle identity survives rename", str(renamed.campaigns[0].flow.nodes[0].id), original_battle_id)
+	_expect("map selector refreshes renamed choice", editor.map_select.get_item_text(0), "Fordlight Crossing")
+	_expect("battle selector refreshes renamed choice", editor.encounter_select.get_item_text(0).contains("First Stand at Fordlight"), true)
+	editor._undo()
+	await process_frame
+	_expect("map and battle rename is one undo", str(_parse(editor.source).maps[0].name), "Dawn Bridge")
+	_expect("rename undo restores battle name", str(_parse(editor.source).campaigns[0].flow.nodes[0].name), "A Friendly Rivalry")
+	editor._redo()
+	await process_frame
+	_expect("rename redo restores map name", str(_parse(editor.source).maps[0].name), "Fordlight Crossing")
+	_expect("rename redo restores battle name", str(_parse(editor.source).campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
+
 	editor._save()
 	_expect("save clears dirty state", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
@@ -496,6 +538,8 @@ func _run() -> void:
 	_expect("saved deployment reopens", stored.project.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
 	_expect("saved objective reopens", stored.project.campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
 	_expect("saved outside presentation reopens", stored.project.maps[0].surroundings.color, "#1234ab")
+	_expect("saved map name reopens", str(stored.project.maps[0].name), "Fordlight Crossing")
+	_expect("saved battle name reopens", str(stored.project.campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 
