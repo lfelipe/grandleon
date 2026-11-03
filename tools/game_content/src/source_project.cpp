@@ -298,7 +298,8 @@ private:
 void append_json_string(std::string& output, std::string_view value) {
     static constexpr char hexadecimal[] = "0123456789abcdef";
     output.push_back('"');
-    for (const unsigned char character : value) {
+    for (const char byte : value) {
+        const auto character = static_cast<unsigned char>(byte);
         switch (character) {
             case '"': output += "\\\""; break;
             case '\\': output += "\\\\"; break;
