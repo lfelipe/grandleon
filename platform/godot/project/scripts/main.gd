@@ -65,7 +65,6 @@ var progress_reset_armed := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
 var keyboard_seat := -1
-var axis_latched: Array[Vector2i] = [Vector2i.ZERO, Vector2i.ZERO]
 var selected_units: Array[int] = [0, 0]
 var action_modes: Array[String] = ["move", "move"]
 var hud_seat := 0
@@ -138,6 +137,10 @@ func _ready() -> void:
 	# command below, preserving portable roster and deployment validation.
 	campaign_save_root = "" if draft_preview else _resolve_campaign_save_root()
 	controls = ControlProfile.new(controls_path)
+	PCNavigation.configure(
+		controls.stick_press_threshold(), controls.stick_release_threshold()
+	)
+	PCNavigation.direction_pressed.connect(_on_stick_direction)
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
 	presentation_settings = PresentationSettings.new()
 	var stored_settings: Dictionary = {}
@@ -286,8 +289,6 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventJoypadButton and event.pressed:
 		_handle_pad_button(event)
 		return
-	if event is InputEventJoypadMotion:
-		_handle_pad_motion(event)
 
 
 func _parse_arguments() -> void:
@@ -430,6 +431,7 @@ func _run_controls_smoke() -> void:
 		"resume label": session_menu_resume.text == "RESUME",
 		"save label": session_menu_save_load.text == "SAVE / LOAD",
 		"audio label": session_menu_audio.text == "SOUND EFFECTS  /  FULL",
+		"filtered stick UI": PCNavigation.raw_stick_ui_event_count() == 0,
 		"exit label": session_menu_quit.text == "EXIT GAME",
 		"select hint": session_menu_hint.text.contains("1 / ENTER  SELECT"),
 		"back hint": session_menu_hint.text.contains("2 / ESC  RESUME"),
@@ -478,7 +480,25 @@ func _run_controls_smoke() -> void:
 	pending_requests.clear()
 	selected_units = [0, 0]
 	action_modes = ["move", "move"]
+	snapshot = {
+		"width": 4,
+		"height": 3,
+		"active_side": "first",
+		"deploying": false,
+		"units": [],
+	}
+	seats = [
+		{"active": true, "device": 41, "cursor": Vector2i(1, 1)},
+		{"active": false, "device": -1, "cursor": Vector2i.ZERO},
+	]
+	device_to_seat = {41: 0}
+	board.set_seats(seats)
+	_on_stick_direction(41, Vector2i.RIGHT)
+	if Vector2i(seats[0].cursor) != Vector2i(2, 1):
+		failed.append("filtered stick reaches gameplay cursor")
 	snapshot = {}
+	seats = []
+	device_to_seat.clear()
 	if not failed.is_empty():
 		push_error("control profile did not propagate: " + ", ".join(failed))
 		get_tree().quit(2)
@@ -1604,6 +1624,7 @@ func _configure_seats() -> void:
 		if device >= 0:
 			device_to_seat[device] = index
 	seats = next_seats
+	PCNavigation.set_allowed_devices(device_to_seat.keys())
 	_update_controller_label()
 	if board:
 		board.set_seats(seats)
@@ -1626,7 +1647,7 @@ func _ensure_keyboard_seat() -> int:
 
 func _on_joy_connection_changed(device: int, connected: bool) -> void:
 	var previous_seat := int(device_to_seat.get(device, -1))
-	axis_latched = [Vector2i.ZERO, Vector2i.ZERO]
+	PCNavigation.reset_device(device)
 	_configure_seats()
 	var current_seat := int(device_to_seat.get(device, -1))
 	var controllers: Array[int] = []
@@ -2041,22 +2062,13 @@ func _handle_pad_button(event: InputEventJoypadButton) -> void:
 		_open_session_menu()
 
 
-func _handle_pad_motion(event: InputEventJoypadMotion) -> void:
-	var seat := int(device_to_seat.get(event.device, -1))
+func _on_stick_direction(device: int, direction: Vector2i) -> void:
+	if _management_visible() or _session_menu_visible() or _dialogue_visible():
+		return
+	var seat := int(device_to_seat.get(device, -1))
 	if seat < 0 or seat >= player_count:
 		return
-	var direction := axis_latched[seat]
-	if event.axis == JOY_AXIS_LEFT_X:
-		var next_x := 0 if absf(event.axis_value) < 0.35 else (1 if event.axis_value > 0.6 else (-1 if event.axis_value < -0.6 else direction.x))
-		if next_x != 0 and direction.x == 0:
-			_move_cursor(seat, Vector2i(next_x, 0))
-		direction.x = next_x
-	elif event.axis == JOY_AXIS_LEFT_Y:
-		var next_y := 0 if absf(event.axis_value) < 0.35 else (1 if event.axis_value > 0.6 else (-1 if event.axis_value < -0.6 else direction.y))
-		if next_y != 0 and direction.y == 0:
-			_move_cursor(seat, Vector2i(0, next_y))
-		direction.y = next_y
-	axis_latched[seat] = direction
+	_move_cursor(seat, direction)
 
 
 func _move_cursor(seat: int, delta: Vector2i) -> void:

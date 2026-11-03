@@ -24,6 +24,10 @@ func _ready() -> void:
 		call_deferred("_open_game_directly")
 		return
 	controls = ControlProfile.new(controls_path)
+	PCNavigation.configure(
+		controls.stick_press_threshold(), controls.stick_release_threshold()
+	)
+	PCNavigation.allow_all_devices()
 	library = ProjectLibrary.new()
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_build_interface()
@@ -234,11 +238,42 @@ func _run_smoke() -> void:
 		and first_button != null
 		and first_button.text.contains("THE LAST SIGNAL")
 		and controls != null
+		and PCNavigation.raw_stick_ui_event_count() == 0
 	)
 	if not valid:
 		push_error("home menu did not publish its simple game list")
 		get_tree().quit(2)
 		return
+	var device := 491
+	var below_threshold := InputEventJoypadMotion.new()
+	below_threshold.device = device
+	below_threshold.axis = JOY_AXIS_LEFT_Y
+	below_threshold.axis_value = 0.70
+	PCNavigation.handle_motion(below_threshold)
+	await get_tree().process_frame
+	if get_viewport().gui_get_focus_owner() != first_button:
+		push_error("ordinary stick tilt moved home-menu focus")
+		get_tree().quit(2)
+		return
+	var deliberate := InputEventJoypadMotion.new()
+	deliberate.device = device
+	deliberate.axis = JOY_AXIS_LEFT_Y
+	deliberate.axis_value = 0.84
+	PCNavigation.handle_motion(deliberate)
+	await get_tree().process_frame
+	var next_focus := get_viewport().gui_get_focus_owner()
+	if next_focus == null or next_focus == first_button:
+		push_error("deliberate stick tilt did not move home-menu focus")
+		get_tree().quit(2)
+		return
+	deliberate.axis_value = 0.96
+	PCNavigation.handle_motion(deliberate)
+	await get_tree().process_frame
+	if get_viewport().gui_get_focus_owner() != next_focus:
+		push_error("held stick repeated home-menu navigation")
+		get_tree().quit(2)
+		return
+	PCNavigation.reset_device(device)
 	print("home menu integration smoke passed")
 	get_tree().quit()
 

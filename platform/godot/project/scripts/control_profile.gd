@@ -13,6 +13,10 @@ const ACTIONS := [
 	"menu_alt",
 ]
 const REQUIRED := ["confirm", "cancel", "next_action", "end_turn", "menu"]
+const ROOT_KEYS := ["buttons", "labels", "stick"]
+const STICK_KEYS := ["pressThreshold", "releaseThreshold"]
+const DEFAULT_STICK_PRESS := 0.78
+const DEFAULT_STICK_RELEASE := 0.30
 const DEFAULT_BINDINGS := {
 	"confirm": "a",
 	"cancel": "b",
@@ -48,6 +52,8 @@ const LABELS := {
 
 var _bindings: Dictionary = DEFAULT_BINDINGS.duplicate(true)
 var _labels: Dictionary = LABELS.duplicate(true)
+var _stick_press := DEFAULT_STICK_PRESS
+var _stick_release := DEFAULT_STICK_RELEASE
 var _warning := ""
 
 
@@ -93,10 +99,22 @@ func warning() -> String:
 	return _warning
 
 
+func stick_press_threshold() -> float:
+	return _stick_press
+
+
+func stick_release_threshold() -> float:
+	return _stick_release
+
+
 func _apply_dictionary(source: Dictionary) -> void:
-	if not source.has("buttons"):
+	if source.is_empty():
 		_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
 		return
+	for key: Variant in source:
+		if String(key) not in ROOT_KEYS:
+			_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+			return
 	var supplied: Variant = source.get("buttons", {})
 	if not supplied is Dictionary:
 		_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
@@ -139,8 +157,41 @@ func _apply_dictionary(source: Dictionary) -> void:
 				_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
 				return
 			candidate_labels[button_name] = display_label
+	var candidate_press := DEFAULT_STICK_PRESS
+	var candidate_release := DEFAULT_STICK_RELEASE
+	if source.has("stick"):
+		var supplied_stick: Variant = source.get("stick", {})
+		if not supplied_stick is Dictionary:
+			_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+			return
+		for key: Variant in supplied_stick:
+			if String(key) not in STICK_KEYS:
+				_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+				return
+		var press_value: Variant = supplied_stick.get(
+			"pressThreshold", DEFAULT_STICK_PRESS
+		)
+		var release_value: Variant = supplied_stick.get(
+			"releaseThreshold", DEFAULT_STICK_RELEASE
+		)
+		if not _numeric(press_value) or not _numeric(release_value):
+			_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+			return
+		candidate_press = float(press_value)
+		candidate_release = float(release_value)
+		if (
+			candidate_press < 0.60
+			or candidate_press > 0.95
+			or candidate_release < 0.10
+			or candidate_release > 0.55
+			or candidate_release > candidate_press - 0.15
+		):
+			_warning = "CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+			return
 	_bindings = candidate
 	_labels = candidate_labels
+	_stick_press = candidate_press
+	_stick_release = candidate_release
 
 
 func _valid_display_label(value: String) -> bool:
@@ -152,3 +203,7 @@ func _valid_display_label(value: String) -> bool:
 		if value.unicode_at(index) < 32:
 			return false
 	return true
+
+
+func _numeric(value: Variant) -> bool:
+	return typeof(value) in [TYPE_INT, TYPE_FLOAT]

@@ -271,6 +271,15 @@ actions. Invalid labels reject the complete profile just like invalid bindings.
 The local file is ignored by Git, excluded from bundles, and discovered only
 at launch time; controller names and identities are never written into it.
 
+The optional `stick` object adjusts navigation without changing a project. Its
+`pressThreshold` defaults to `0.78`: raise it toward `0.95` when a stick should
+require a more deliberate tilt. `releaseThreshold` defaults to `0.30` and must
+remain at least `0.15` below the press threshold. The left stick produces one
+cardinal focus or cursor step for each complete deflection and must recenter
+before another; a diagonal cannot become two steps. D-pad buttons remain
+immediate and do not use these thresholds. Unsafe, mistyped, or overlapping
+thresholds reject the complete local profile and restore safe defaults.
+
 Outside deployment and dialogue, the configured menu button (Start by default)
 or optional alternate (Back by default) opens a controller-native session menu.
 The stick or d-pad chooses an action and the configured confirm button (A by

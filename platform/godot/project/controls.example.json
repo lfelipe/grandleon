@@ -18,5 +18,9 @@
     "back": "BACK",
     "left_shoulder": "LB",
     "right_shoulder": "RB"
+  },
+  "stick": {
+    "pressThreshold": 0.78,
+    "releaseThreshold": 0.30
   }
 }

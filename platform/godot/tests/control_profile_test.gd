@@ -10,7 +10,16 @@ func _init() -> void:
 	var defaults = ControlProfile.new()
 	_expect("default confirm", defaults.binding("confirm"), "a")
 	_expect("default menu", defaults.binding("menu"), "start")
+	_expect("default stick press threshold", defaults.stick_press_threshold(), 0.78)
+	_expect("default stick release threshold", defaults.stick_release_threshold(), 0.30)
 	_expect("default warning", defaults.warning(), "")
+
+	var deliberate = ControlProfile.new({
+		"stick": {"pressThreshold": 0.88, "releaseThreshold": 0.24},
+	})
+	_expect("local stick press threshold", deliberate.stick_press_threshold(), 0.88)
+	_expect("local stick release threshold", deliberate.stick_release_threshold(), 0.24)
+	_expect("stick-only profile is valid", deliberate.warning(), "")
 
 	var swapped = ControlProfile.new({
 		"buttons": {"confirm": "x", "end_turn": "a"}
@@ -87,6 +96,34 @@ func _init() -> void:
 	_expect(
 		"long label warns",
 		long_label.warning(),
+		"CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+	)
+
+	var noisy_threshold = ControlProfile.new({
+		"stick": {"pressThreshold": 0.52, "releaseThreshold": 0.30},
+	})
+	_expect(
+		"unsafe stick threshold falls back",
+		noisy_threshold.stick_press_threshold(),
+		0.78
+	)
+	_expect(
+		"unsafe stick threshold warns",
+		noisy_threshold.warning(),
+		"CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
+	)
+
+	var ambiguous_threshold = ControlProfile.new({
+		"stick": {"pressThreshold": 0.70, "releaseThreshold": 0.65},
+	})
+	_expect(
+		"stick hysteresis cannot collapse",
+		ambiguous_threshold.stick_release_threshold(),
+		0.30
+	)
+	_expect(
+		"collapsed stick hysteresis warns",
+		ambiguous_threshold.warning(),
 		"CONTROL PROFILE / INVALID / DEFAULTS ACTIVE"
 	)
 
