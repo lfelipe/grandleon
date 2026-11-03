@@ -126,6 +126,14 @@ var more_first_button: Button
 var chapter_layer: Control
 var chapter_title: LineEdit
 var chapter_create_button: Button
+var look_layer: Control
+var look_button: Button
+var look_theme: OptionButton
+var look_style: OptionButton
+var look_character_preview: TextureRect
+var look_character_label: Label
+var look_terrain_previews: Array[TextureRect] = []
+var look_refreshing := false
 
 
 func _ready() -> void:
@@ -138,7 +146,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if surroundings_layer != null and surroundings_layer.visible:
+		if look_layer != null and look_layer.visible:
+			_close_look()
+		elif surroundings_layer != null and surroundings_layer.visible:
 			_close_surroundings()
 		elif objective_layer != null and objective_layer.visible:
 			_close_objectives()
@@ -626,7 +636,7 @@ func _terrain_icon(name: String, mask: int) -> AtlasTexture:
 	var kind := art.terrain_kind_for_source(name)
 	var variant := art.terrain_variant(mask)
 	var icon := AtlasTexture.new()
-	icon.atlas = art.terrain_texture(kind, 0)
+	icon.atlas = art.terrain_texture(kind, _project_theme_index())
 	icon.region = Rect2(
 		float(variant % BLOB_COLUMNS) * TILE_SOURCE,
 		float(variant / BLOB_COLUMNS) * TILE_SOURCE,
@@ -634,6 +644,10 @@ func _terrain_icon(name: String, mask: int) -> AtlasTexture:
 		TILE_SOURCE
 	)
 	return icon
+
+
+func _project_theme_index() -> int:
+	return maxi(0, art.THEME_NAMES.find(str(project.get("themeId", "temperate"))))
 
 
 func _paint_cell(index: int) -> void:
@@ -2467,6 +2481,11 @@ func _more_resize() -> void:
 	_open_resize()
 
 
+func _more_look() -> void:
+	more_layer.visible = false
+	_open_look()
+
+
 func _more_army() -> void:
 	more_layer.visible = false
 	_open_army()
@@ -2475,6 +2494,76 @@ func _more_army() -> void:
 func _more_projects() -> void:
 	more_layer.visible = false
 	_request_projects()
+
+
+func _open_look() -> void:
+	look_refreshing = true
+	look_theme.select(maxi(0, art.THEME_NAMES.find(str(
+		project.get("themeId", "temperate")
+	))))
+	look_style.select(maxi(0, art.STYLE_NAMES.find(str(
+		project.get("characterStyleId", "medieval")
+	))))
+	look_refreshing = false
+	_refresh_look_preview()
+	look_layer.visible = true
+	look_theme.call_deferred("grab_focus")
+
+
+func _close_look() -> void:
+	look_layer.visible = false
+	more_layer.visible = true
+	look_button.call_deferred("grab_focus")
+
+
+func _select_look(index: int, field: String) -> void:
+	if look_refreshing:
+		return
+	var options: Array = art.THEME_NAMES if field == "themeId" else art.STYLE_NAMES
+	if index < 0 or index >= options.size():
+		return
+	var updated: Dictionary = compiler.set_project_presentation(
+		source, field, str(options[index])
+	)
+	if not updated.ok:
+		_set_status("LOOK NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		return
+	_push_undo(source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = true
+	_read_source()
+	_refresh_palette()
+	_refresh_grid()
+	_refresh_look_preview()
+	_set_status(
+		"UNSAVED  /  %s  /  SHARED BY PC AND CONSOLES" % str(options[index]).to_upper(),
+		false
+	)
+	_update_actions()
+
+
+func _refresh_look_preview() -> void:
+	var terrain_names := ["grass", "forest", "road", "water"]
+	for index in look_terrain_previews.size():
+		look_terrain_previews[index].texture = _terrain_icon(terrain_names[index], 0)
+	look_character_preview.texture = null
+	look_character_label.text = "CHARACTER PREVIEW"
+	var unit_types: Array = project.get("unitTypes", [])
+	if unit_types.is_empty() or not unit_types[0] is Dictionary:
+		return
+	var unit: Dictionary = unit_types[0]
+	var preview: Dictionary = compiler.source_character_preview(
+		source, str(unit.get("id", ""))
+	)
+	if not preview.ok:
+		return
+	var frame: Dictionary = art.character_frame(preview, "idle")
+	var image := AtlasTexture.new()
+	image.atlas = art.texture(str(frame.path))
+	image.region = Rect2(Vector2.ZERO, Vector2(frame.cell_size))
+	look_character_preview.texture = image
+	look_character_label.text = str(unit.get("name", "CHARACTER")).to_upper()
 
 
 func _next_chapter_sequence() -> int:
@@ -2585,8 +2674,8 @@ func _build_more_overlay() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	more_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(560, 190)
-	panel.size = Vector2(800, 700)
+	panel.position = Vector2(560, 150)
+	panel.size = Vector2(800, 780)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
 	)
@@ -2612,6 +2701,9 @@ func _build_more_overlay() -> void:
 	var army_button := _button("GROW THE ARMY", 680, 70)
 	army_button.pressed.connect(_more_army)
 	column.add_child(army_button)
+	look_button = _button("LOOK & FEEL", 680, 70)
+	look_button.pressed.connect(_more_look)
+	column.add_child(look_button)
 	var resize_button := _button("RESIZE THIS MAP", 680, 70)
 	resize_button.pressed.connect(_more_resize)
 	column.add_child(resize_button)
@@ -2622,6 +2714,7 @@ func _build_more_overlay() -> void:
 	back.pressed.connect(_close_more)
 	column.add_child(back)
 	_build_chapter_overlay()
+	_build_look_overlay()
 
 
 func _build_chapter_overlay() -> void:
@@ -2674,6 +2767,95 @@ func _build_chapter_overlay() -> void:
 	var back := _button("BACK", 260, 72)
 	back.pressed.connect(_close_new_chapter)
 	actions.add_child(back)
+
+
+func _build_look_overlay() -> void:
+	look_layer = Control.new()
+	look_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	look_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	look_layer.visible = false
+	look_layer.z_index = 40
+	add_child(look_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.92)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	look_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(360, 120)
+	panel.size = Vector2(1200, 840)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 22, Color("69d9ff"))
+	)
+	look_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	panel.add_child(column)
+	column.add_child(_label("LOOK & FEEL", 20, Color("69d9ff")))
+	column.add_child(_label("Choose the shared art direction.", 34, Color("f2f7f9")))
+	var explanation := _label(
+		"These are real assets used by the game and both console ports. They change presentation only; maps, characters, and rules stay portable.",
+		17, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 54
+	column.add_child(explanation)
+	var choices := HBoxContainer.new()
+	choices.add_theme_constant_override("separation", 18)
+	column.add_child(choices)
+	var theme_column := VBoxContainer.new()
+	theme_column.custom_minimum_size.x = 540
+	theme_column.add_theme_constant_override("separation", 7)
+	choices.add_child(theme_column)
+	theme_column.add_child(_label("WORLD THEME", 15, Color("69d9ff")))
+	look_theme = OptionButton.new()
+	look_theme.custom_minimum_size = Vector2(540, 60)
+	look_theme.add_theme_font_size_override("font_size", 20)
+	for name: String in art.THEME_NAMES:
+		look_theme.add_item(name.to_upper())
+	look_theme.item_selected.connect(_select_look.bind("themeId"))
+	theme_column.add_child(look_theme)
+	var style_column := VBoxContainer.new()
+	style_column.custom_minimum_size.x = 540
+	style_column.add_theme_constant_override("separation", 7)
+	choices.add_child(style_column)
+	style_column.add_child(_label("CHARACTER STYLE", 15, Color("69d9ff")))
+	look_style = OptionButton.new()
+	look_style.custom_minimum_size = Vector2(540, 60)
+	look_style.add_theme_font_size_override("font_size", 20)
+	for name: String in art.STYLE_NAMES:
+		look_style.add_item(name.to_upper())
+	look_style.item_selected.connect(_select_look.bind("characterStyleId"))
+	style_column.add_child(look_style)
+	column.add_child(_label("ACTUAL GAME ASSETS", 15, Color("69d9ff")))
+	var previews := HBoxContainer.new()
+	previews.custom_minimum_size.y = 250
+	previews.add_theme_constant_override("separation", 12)
+	column.add_child(previews)
+	look_terrain_previews.clear()
+	for _index in 4:
+		var terrain := TextureRect.new()
+		terrain.custom_minimum_size = Vector2(180, 220)
+		terrain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		terrain.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		terrain.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		previews.add_child(terrain)
+		look_terrain_previews.append(terrain)
+	var character_column := VBoxContainer.new()
+	character_column.custom_minimum_size.x = 300
+	previews.add_child(character_column)
+	look_character_preview = TextureRect.new()
+	look_character_preview.custom_minimum_size = Vector2(300, 195)
+	look_character_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	look_character_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	look_character_preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	character_column.add_child(look_character_preview)
+	look_character_label = _label("CHARACTER PREVIEW", 15, Color("f2f7f9"))
+	look_character_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	character_column.add_child(look_character_label)
+	var done := _button("DONE", 320, 64)
+	done.pressed.connect(_close_look)
+	column.add_child(done)
 
 
 func _build_placement_overlay() -> void:

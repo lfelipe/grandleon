@@ -53,6 +53,15 @@ func _run() -> void:
 		print("more map options capture saved: %s" % more_screenshot_path)
 		quit()
 		return
+	var look_screenshot_path := _argument_path("--look-screenshot=")
+	if not look_screenshot_path.is_empty():
+		editor._open_look()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(look_screenshot_path)
+		print("look and feel capture saved: %s" % look_screenshot_path)
+		quit()
+		return
 	var chapter_screenshot_path := _argument_path("--chapter-screenshot=")
 	if not chapter_screenshot_path.is_empty():
 		editor._open_new_chapter()
@@ -150,6 +159,29 @@ func _run() -> void:
 	editor._close_more()
 	await process_frame
 	_expect("more map options returns focus", editor.more_button.has_focus(), true)
+	editor._open_more()
+	editor._more_look()
+	await process_frame
+	_expect("look and feel opens from map options", editor.look_layer.visible, true)
+	_expect("look and feel begins with world theme", editor.look_theme.has_focus(), true)
+	_expect("look and feel previews four real terrain assets", editor.look_terrain_previews.size(), 4)
+	editor.look_theme.select(2)
+	editor._select_look(2, "themeId")
+	_expect("world theme reaches portable source", _parse(editor.source).themeId, "winter")
+	_expect("map creator previews the selected world theme", editor._terrain_icon("grass", 0).atlas.resource_path.contains("_winter"), true)
+	editor.look_style.select(2)
+	editor._select_look(2, "characterStyleId")
+	_expect("character style reaches portable source", _parse(editor.source).characterStyleId, "mythical")
+	_expect("look and feel previews an actual character asset", editor.look_character_preview.texture != null, true)
+	editor._close_look()
+	await process_frame
+	_expect("look and feel returns to map options", editor.more_layer.visible, true)
+	_expect("look and feel action regains focus", editor.look_button.has_focus(), true)
+	editor._close_more()
+	editor._undo()
+	editor._undo()
+	_expect("look and feel changes are undoable", _parse(editor.source).get("themeId", "temperate"), "temperate")
+	_expect("look and feel undo restores character style", _parse(editor.source).characterStyleId, "scifi")
 	editor._select_tool("ownership")
 	editor._paint_cell(6)
 	await process_frame

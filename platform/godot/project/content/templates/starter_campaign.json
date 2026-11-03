@@ -97,7 +97,6 @@
       "classId": "young_guardian",
       "factionId": "travellers",
       "startingWeaponIds": ["traveller_blade"],
-      "characterStyleId": "medieval",
       "characterFigureId": "first"
     },
     {
@@ -106,7 +105,6 @@
       "classId": "young_adept",
       "factionId": "travellers",
       "startingWeaponIds": ["apprentice_focus"],
-      "characterStyleId": "medieval",
       "characterFigureId": "second"
     },
     {
@@ -115,7 +113,6 @@
       "classId": "road_raider",
       "factionId": "raiders",
       "startingWeaponIds": ["raider_blade"],
-      "characterStyleId": "medieval",
       "characterFigureId": "first"
     }
   ],
