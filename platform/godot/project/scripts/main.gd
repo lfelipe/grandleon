@@ -65,6 +65,7 @@ var draft_preview := false
 var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
 var campaign_complete := false
 var final_outcome := "ongoing"
+var current_stage_name := ""
 var progress_reset_armed := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
@@ -1049,7 +1050,9 @@ func _graphics_profile_name() -> String:
 func _update_session_labels() -> void:
 	var name := _graphics_profile_name()
 	if title_label != null:
-		title_label.text = "GRANDLEON  /  " + name
+		title_label.text = "GRANDLEON  /  " + (
+			current_stage_name.to_upper() if not current_stage_name.is_empty() else name
+		)
 	if session_menu_graphics != null:
 		session_menu_graphics.text = "GRAPHICS  /  %s" % name
 	if session_menu_camera != null:
@@ -1894,7 +1897,9 @@ func _handle_event(event: Dictionary) -> void:
 			campaign_save_state = "AUTO-SAVE / CHECKPOINT REJECTED"
 			_show_toast("OLD CHECKPOINT REJECTED / STARTED NEW CAMPAIGN")
 		"management":
-			_handle_management(event.get("company", {}))
+			var company: Dictionary = event.get("company", {})
+			_remember_campaign_stage(company)
+			_handle_management(company)
 		"management_committed":
 			if not bool(event.get("successful", false)):
 				var reason := String(event.get("message", "change refused"))
@@ -2025,6 +2030,20 @@ func _handle_management(company: Dictionary) -> void:
 		pending_company = company.duplicate(true)
 		return
 	_present_company(company)
+
+
+func _remember_campaign_stage(company: Dictionary) -> void:
+	var encounter_id := int(company.get("encounter_id", 0))
+	current_stage_name = ""
+	for stage_value: Variant in company.get("stages", []):
+		if not stage_value is Dictionary:
+			continue
+		var stage: Dictionary = stage_value
+		if int(stage.get("encounter_id", 0)) != encounter_id:
+			continue
+		current_stage_name = String(stage.get("name", "")).strip_edges()
+		break
+	_update_session_labels()
 
 
 func _present_company(company: Dictionary) -> void:

@@ -21,6 +21,7 @@ var _font_bindings: Array[Dictionary] = []
 var _roster_buttons: Dictionary = {}
 var _action_buttons: Array[Button] = []
 
+var _heading: Label
 var _fielded_label: Label
 var _refusal_label: Label
 var _store_label: RichTextLabel
@@ -58,6 +59,7 @@ func present(company: Dictionary) -> void:
 	var roster: Array = _company.get("roster", [])
 	if not _has_member(_selected_member_id) and not roster.is_empty():
 		_selected_member_id = int(roster[0].get("member_id", 0))
+	_update_stage_heading()
 	_rebuild()
 	visible = true
 	_focus_primary_action()
@@ -175,8 +177,8 @@ func _build_interface() -> void:
 	root.add_theme_constant_override("separation", 14)
 	panel.add_child(root)
 	root.add_child(_label("GRANDLEON  /  COMPANY", 16, ACCENT))
-	var heading := _label("Prepare for the next battle", 38, TEXT)
-	root.add_child(heading)
+	_heading = _label("Prepare for the next battle", 38, TEXT)
+	root.add_child(_heading)
 
 	var summary := HBoxContainer.new()
 	summary.add_theme_constant_override("separation", 24)
@@ -270,6 +272,23 @@ func _rebuild() -> void:
 	_rebuild_member()
 	_update_summary()
 	_set_pending_state()
+
+
+func _update_stage_heading() -> void:
+	if _heading == null:
+		return
+	var encounter_id := int(_company.get("encounter_id", 0))
+	for stage_value: Variant in _company.get("stages", []):
+		if not stage_value is Dictionary:
+			continue
+		var stage: Dictionary = stage_value
+		if int(stage.get("encounter_id", 0)) != encounter_id:
+			continue
+		var stage_name := String(stage.get("name", "")).strip_edges()
+		if not stage_name.is_empty():
+			_heading.text = "Next  /  " + stage_name
+			return
+	_heading.text = "Prepare for the next battle"
 
 
 func _rebuild_roster() -> void:
