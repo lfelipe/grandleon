@@ -139,8 +139,9 @@ fallback when one replacement is removed.
 - The optional motion record now carries an engine-derived route and recommended
   duration; use it to tune imported rigs' gait and turn clips while keeping
   root motion in place.
-- Hybrid sprites now mirror against their camera-relative travel direction and
-  all 3D paths turn toward a combat target before weapon or magic presentation.
+- Pixel and hybrid sprites now mirror against their screen-relative travel
+  direction, preserve off-centre ground pivots, and face a combat target before
+  weapon or magic presentation. All 3D paths turn toward that target as well.
   Replacement sheets declare their native facing and may opt out of mirroring.
 - Compare the complete imported encounter against the hybrid at the intended
   viewing distance, then tune gait, turn, attack timing, silhouette, and
@@ -214,8 +215,9 @@ raise either console's memory or palette requirements.
 - Godot presentation remains outside CTest, but the aggregate PC release gate
   now runs every bounded runtime smoke after the native CTest suite. CI still
   needs a pinned headless display and Godot cache before adopting that gate.
-- Controller behavior has been exercised under Linux/Xvfb, not yet on the
-  target SteamOS PC and its exact controllers.
+- Automated home and simultaneous two-seat co-op checks now pass on the target
+  SteamOS PC and its actual controllers. Physical control feel, reconnects, and
+  a complete two-person campaign still need the user's hands-on test.
 - The installed game has UI and combat cues, but the current Xvfb demo recorder
   does not route system audio into its video capture.
 - Model integration is bounded and optional, but a protected LAN endpoint still

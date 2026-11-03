@@ -27,3 +27,16 @@ static func faces_screen_right(
 	if absf(horizontal) <= SCREEN_HORIZONTAL_DEAD_ZONE:
 		return current
 	return horizontal > 0.0
+
+
+static func faces_canvas_right(direction: Vector2, current: bool) -> bool:
+	if direction.length_squared() <= DIRECTION_EPSILON:
+		return current
+	var horizontal := direction.normalized().x
+	if absf(horizontal) <= SCREEN_HORIZONTAL_DEAD_ZONE:
+		return current
+	return horizontal > 0.0
+
+
+static func pivot_for_flip(pivot: Vector2, flipped: bool) -> Vector2:
+	return Vector2(1.0 - pivot.x, pivot.y) if flipped else pivot

@@ -613,7 +613,9 @@ func _apply_sprite_frame(
 	_unit_sprite_native_right[id] = bool(info.get("faces_right", true))
 	_unit_sprite_directional[id] = bool(info.get("directional_flip", true))
 	var cell_size: Vector2i = info.cell_size
-	var pivot: Vector2 = info.pivot
+	var pivot := PresentationFacing.pivot_for_flip(
+		Vector2(info.pivot), sprite.flip_h
+	)
 	var sprite_config: Dictionary = profile_config.get("sprite", {})
 	var world_height := float(sprite_config.get(
 		"worldHeight", float(cell_size.y) * float(sprite_config.get("pixelSize", 0.025))

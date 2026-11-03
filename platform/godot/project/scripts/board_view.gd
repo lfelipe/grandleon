@@ -4,6 +4,7 @@ extends Node2D
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
+const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TILE_SOURCE := 32
 const BLOB_COLUMNS := 8
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
@@ -32,6 +33,7 @@ var _event_flash_colours: Dictionary = {}
 var _unit_animation_states: Dictionary = {}
 var _unit_animation_started: Dictionary = {}
 var _unit_animation_until: Dictionary = {}
+var _unit_facing_right: Dictionary = {}
 var _combat_effects: Array[Dictionary] = []
 var _pulse := 0.0
 
@@ -43,6 +45,7 @@ func _ready() -> void:
 func set_profile(_name: String, value: Dictionary) -> void:
 	profile_config = value
 	art.configure_profile(profile_config)
+	_unit_facing_right.clear()
 
 
 func set_camera_impulse_enabled(value: bool) -> void:
@@ -89,6 +92,7 @@ func update_snapshot(value: Dictionary) -> void:
 			_authoritative_positions.erase(id)
 			_motion_states.erase(id)
 			_pending_motion_records.erase(id)
+			_unit_facing_right.erase(id)
 	queue_redraw()
 
 
@@ -97,6 +101,8 @@ func _animated_position(id: int, now_msec: int) -> Vector2:
 	if not _motion_states.has(id):
 		return destination
 	var sampled: Dictionary = MotionPath.sample(_motion_states[id], now_msec)
+	if not bool(sampled.done):
+		_face_unit_in_direction(id, Vector2(sampled.direction))
 	if sampled.done:
 		_motion_states.erase(id)
 	return Vector2(sampled.position)
@@ -130,6 +136,7 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 				"duration_msec": int(event.get("duration_msec", 0)),
 			}
 		elif kind == "unit_damaged":
+			_face_unit_toward(related_id, unit_id)
 			_set_unit_animation(
 				related_id, "ability" if action == "ability" else "attack",
 				480 if action == "ability" else 430
@@ -139,12 +146,14 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 			_event_flash_colours[unit_id] = Color("ff776f")
 			_queue_combat_effect(related_id, unit_id, action, content_id, true)
 		elif kind == "attack_missed":
+			_face_unit_toward(related_id, unit_id)
 			_set_unit_animation(
 				related_id, "ability" if action == "ability" else "attack",
 				480 if action == "ability" else 430
 			)
 			_queue_combat_effect(related_id, unit_id, action, content_id, false)
 		elif kind == "unit_restored":
+			_face_unit_toward(related_id, unit_id)
 			_set_unit_animation(related_id, "ability", 480)
 			_event_flash_until[unit_id] = now + 360
 			_event_flash_colours[unit_id] = Color("75e7a0")
@@ -152,6 +161,7 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 		elif kind == "item_used":
 			_set_unit_animation(unit_id, "item", 420)
 		elif kind == "unit_talked":
+			_face_unit_toward(related_id, unit_id)
 			_set_unit_animation(related_id, "talk", 480)
 		elif kind == "unit_defeated":
 			_set_unit_animation(unit_id, "defeat", 900)
@@ -161,6 +171,32 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 			_event_flash_until[unit_id] = now + 420
 			_event_flash_colours[unit_id] = Color("ffca63")
 	queue_redraw()
+
+
+func _face_unit_toward(actor_id: int, target_id: int) -> void:
+	if not _last_units.has(actor_id) or not _last_units.has(target_id):
+		return
+	var actor: Dictionary = _last_units[actor_id]
+	var target: Dictionary = _last_units[target_id]
+	_face_unit_in_direction(
+		actor_id,
+		Vector2(float(target.x) - float(actor.x), float(target.y) - float(actor.y))
+	)
+
+
+func _face_unit_in_direction(id: int, direction: Vector2) -> void:
+	if not _last_units.has(id):
+		return
+	var unit: Dictionary = _last_units[id]
+	var info := art.character_frame(unit)
+	if not bool(info.get("directional_flip", true)):
+		return
+	var current := bool(
+		_unit_facing_right.get(id, bool(info.get("faces_right", true)))
+	)
+	_unit_facing_right[id] = PresentationFacing.faces_canvas_right(
+		direction, current
+	)
 
 
 func cell_at(screen_position: Vector2) -> Vector2i:
@@ -478,7 +514,10 @@ func _draw_units() -> void:
 		var elapsed := _unit_animation_elapsed(id, state, now)
 		var frame_info := art.character_frame(unit, state, elapsed)
 		var cell_size: Vector2i = frame_info.cell_size
-		var pivot: Vector2 = frame_info.pivot
+		var flip_h := _character_flip_h(id, frame_info)
+		var pivot := PresentationFacing.pivot_for_flip(
+			Vector2(frame_info.pivot), flip_h
+		)
 		var scale := minf(
 			tile_size * 0.88 / maxf(1.0, float(cell_size.x)),
 			tile_size * 0.88 / maxf(1.0, float(cell_size.y))
@@ -497,8 +536,8 @@ func _draw_units() -> void:
 			float(frame / columns) * float(cell_size.y),
 			float(cell_size.x), float(cell_size.y)
 		)
-		draw_texture_rect_region(
-			art.texture(String(frame_info.path)), destination, source
+		_draw_character_frame(
+			art.texture(String(frame_info.path)), destination, source, flip_h
 		)
 		if now < int(_event_flash_until.get(id, 0)):
 			var flash: Color = _event_flash_colours.get(id, Color.WHITE)
@@ -507,6 +546,28 @@ func _draw_units() -> void:
 		_draw_health(unit, centre, sprite_size)
 		if unit.get("has_acted", false):
 			draw_circle(centre, tile_size * 0.39, Color(0.02, 0.03, 0.04, 0.38))
+
+
+func _character_flip_h(id: int, frame_info: Dictionary) -> bool:
+	if not bool(frame_info.get("directional_flip", true)):
+		return false
+	var native_right := bool(frame_info.get("faces_right", true))
+	var faces_right := bool(_unit_facing_right.get(id, native_right))
+	return native_right != faces_right
+
+
+func _draw_character_frame(
+	texture: Texture2D, destination: Rect2, source: Rect2, flip_h: bool
+) -> void:
+	if not flip_h:
+		draw_texture_rect_region(texture, destination, source)
+		return
+	var centre := destination.get_center()
+	draw_set_transform(centre, 0.0, Vector2(-1.0, 1.0))
+	draw_texture_rect_region(
+		texture, Rect2(destination.size * -0.5, destination.size), source
+	)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _set_unit_animation(id: int, state: String, duration_msec: int) -> void:

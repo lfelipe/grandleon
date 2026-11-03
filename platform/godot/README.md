@@ -475,10 +475,12 @@ for the complete presentation-event contract.
 
 Sprite bindings may set `facesRight` to describe the sheet's native direction
 and `directionalFlip` to permit automatic horizontal mirroring. Both default to
-`true`. Movement mirrors a directional sprite relative to the active camera,
-while an attack or ability first faces its target. Set `directionalFlip` to
-`false` for a deliberately front-facing or asymmetric sheet. These values are
-renderer metadata only and never enter a portable project or save.
+`true`. Pixel 2D and hybrid billboards share the same behavior: movement
+mirrors a directional sprite relative to the screen, while an attack or
+ability first faces its target. A mirrored off-centre pivot remains anchored
+to the same tactical cell. Set `directionalFlip` to `false` for a deliberately
+front-facing or asymmetric sheet. These values are renderer metadata only and
+never enter a portable project or save.
 
 The checked-in `relay_commander.glb`, `relay_rogue.glb`,
 `relay_stormcaller.glb`, and `relay_drone.glb` prove normal skinned-mesh,
