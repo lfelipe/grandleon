@@ -286,10 +286,12 @@ scene uses a one-cell origin and the manifest's `sceneScale`; surface heights
 remain explicit in the same profile. Missing or invalid bindings fall back per
 asset to procedural terrain or the existing sprite, so an artist can replace
 the roster incrementally instead of delivering an all-or-nothing pack.
-The recommended profile exercises this boundary with an authored low-poly
-forest grove, mountain edge, animated water surface, and relay ruin. Their
-animation and shaders belong to the scenes, not the board renderer, so a
-replacement may remove or redesign them freely.
+The recommended profile exercises this boundary with authored low-poly water,
+road and bridge, forest, mountain, sand, ruins, and grass scenes. Together they
+cover every terrain used by The Last Signal; procedural fallback remains
+available for the wider terrain vocabulary. Scene animation, shaders, and
+detail meshes belong to the scenes, not the board renderer, so a replacement
+may remove or redesign them freely.
 
 A terrain binding may be a direct scene path or a context-aware binding. The
 current road selects and rotates a bridge scene when a cardinal neighbour is
@@ -311,6 +313,12 @@ water, without teaching the renderer an art filename:
 
 An absent contextual scene still falls back to the binding's base scene; an
 absent or invalid binding falls back to the procedural tile.
+
+Profiles may name another profile with `inherits`; dictionaries are merged
+before the selected profile is applied over `common`. The full-voxel profile
+uses this to share the complete relay terrain pack with `voxel-sprites` while
+replacing its character renderer and bindings. This keeps terrain replacement
+in one manifest block instead of requiring artists to update two copies.
 
 Authored character bindings may additionally name an `AnimationPlayer` and map
 semantic `idle`, `move`, `attack`, `ability`, `hurt`, and `defeat` states to the

@@ -49,7 +49,7 @@ func resolve(requested: String) -> String:
 
 func profile(name: String) -> Dictionary:
 	var profiles: Dictionary = _document.get("profiles", {})
-	var selected: Dictionary = profiles.get(resolve(name), {})
+	var selected := _profile_overlay(resolve(name), profiles, {})
 	return _deep_merge(_document.get("common", {}), selected)
 
 
@@ -67,6 +67,22 @@ func _read_document(path: String) -> Dictionary:
 func _compatible(document: Dictionary) -> bool:
 	var version := String(document.get("contractVersion", ""))
 	return version.get_slice(".", 0) == CONTRACT_MAJOR and document.get("profiles", {}) is Dictionary
+
+
+func _profile_overlay(name: String, profiles: Dictionary, visited: Dictionary) -> Dictionary:
+	if visited.has(name):
+		return {}
+	var selected: Variant = profiles.get(name, {})
+	if not selected is Dictionary:
+		return {}
+	var next_visited := visited.duplicate()
+	next_visited[name] = true
+	var parent_name := String(selected.get("inherits", ""))
+	var inherited := (
+		_profile_overlay(parent_name, profiles, next_visited)
+		if not parent_name.is_empty() and profiles.has(parent_name) else {}
+	)
+	return _deep_merge(inherited, selected)
 
 
 func _deep_merge(base: Dictionary, overlay: Dictionary) -> Dictionary:

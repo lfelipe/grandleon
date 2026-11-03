@@ -1,0 +1,106 @@
+[gd_scene load_steps=13 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_ground"]
+albedo_color = Color(0.57, 0.39, 0.2, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_ridge"]
+albedo_color = Color(0.7, 0.49, 0.26, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Material_stone"]
+albedo_color = Color(0.43, 0.32, 0.23, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Material_metal"]
+albedo_color = Color(0.22, 0.28, 0.29, 1)
+metallic = 0.62
+roughness = 0.38
+
+[sub_resource type="StandardMaterial3D" id="Material_marker"]
+albedo_color = Color(0.58, 0.28, 0.06, 1)
+metallic = 0.18
+roughness = 0.38
+emission_enabled = true
+emission = Color(0.95, 0.36, 0.06, 1)
+emission_energy_multiplier = 0.55
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_ground"]
+material = SubResource("Material_ground")
+size = Vector3(0.88, 0.1, 0.88)
+
+[sub_resource type="BoxMesh" id="Mesh_ridge"]
+material = SubResource("Material_ridge")
+size = Vector3(0.32, 0.025, 0.075)
+
+[sub_resource type="BoxMesh" id="Mesh_stone"]
+material = SubResource("Material_stone")
+size = Vector3(0.17, 0.09, 0.13)
+
+[sub_resource type="CylinderMesh" id="Mesh_cable"]
+material = SubResource("Material_metal")
+top_radius = 0.022
+bottom_radius = 0.022
+height = 0.62
+radial_segments = 6
+rings = 1
+
+[sub_resource type="BoxMesh" id="Mesh_marker"]
+material = SubResource("Material_marker")
+size = Vector3(0.065, 0.13, 0.065)
+
+[node name="RelaySand" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.05, 0)
+mesh = SubResource("Mesh_ground")
+
+[node name="WindRidgeA" type="MeshInstance3D" parent="."]
+position = Vector3(-0.16, 0.112, -0.25)
+rotation = Vector3(0, -0.12, 0)
+mesh = SubResource("Mesh_ridge")
+
+[node name="WindRidgeB" type="MeshInstance3D" parent="."]
+position = Vector3(0.22, 0.113, -0.13)
+rotation = Vector3(0, 0.16, 0)
+scale = Vector3(0.72, 1, 0.82)
+mesh = SubResource("Mesh_ridge")
+
+[node name="WindRidgeC" type="MeshInstance3D" parent="."]
+position = Vector3(-0.04, 0.112, 0.29)
+rotation = Vector3(0, -0.08, 0)
+scale = Vector3(0.82, 1, 0.74)
+mesh = SubResource("Mesh_ridge")
+
+[node name="BuriedCable" type="MeshInstance3D" parent="."]
+position = Vector3(-0.31, 0.117, 0.02)
+rotation = Vector3(1.5708, 0.08, 0)
+mesh = SubResource("Mesh_cable")
+
+[node name="CableMarker" type="MeshInstance3D" parent="."]
+position = Vector3(-0.31, 0.19, -0.29)
+rotation = Vector3(0, 0.08, 0)
+mesh = SubResource("Mesh_marker")
+
+[node name="StoneA" type="MeshInstance3D" parent="."]
+position = Vector3(0.29, 0.145, 0.24)
+rotation = Vector3(0.08, -0.4, -0.07)
+mesh = SubResource("Mesh_stone")
+
+[node name="StoneB" type="MeshInstance3D" parent="."]
+position = Vector3(0.35, 0.128, 0.32)
+rotation = Vector3(-0.03, 0.27, 0.05)
+scale = Vector3(0.58, 0.55, 0.64)
+mesh = SubResource("Mesh_stone")

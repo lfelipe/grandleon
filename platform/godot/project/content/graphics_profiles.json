@@ -106,6 +106,7 @@
         "terrainScenes": {
           "forest": "res://art/terrain/relay_forest.tscn",
           "mountain": "res://art/terrain/relay_mountain.tscn",
+          "sand": "res://art/terrain/relay_sand.tscn",
           "road": {
             "scene": "res://art/terrain/relay_road.tscn",
             "whenAdjacent": {
@@ -116,7 +117,8 @@
             }
           },
           "water": "res://art/terrain/relay_water.tscn",
-          "ruins": "res://art/terrain/relay_ruins.tscn"
+          "ruins": "res://art/terrain/relay_ruins.tscn",
+          "grass": "res://art/terrain/relay_grass.tscn"
         },
         "characterSprites": {
           "commander|amber|scifi|first": {
@@ -159,6 +161,7 @@
       }
     },
     "voxel": {
+      "inherits": "voxel-sprites",
       "terrainRenderer": "voxel",
       "characterRenderer": "voxel",
       "assets": {

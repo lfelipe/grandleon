@@ -2,6 +2,7 @@
 extends SceneTree
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
+const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 
 var failures := 0
 
@@ -169,10 +170,78 @@ func _init() -> void:
 	_expect("legacy cell size", legacy_move.cell_size, Vector2i(32, 32))
 	_expect("legacy walk timing", legacy_move.frame, 1)
 	_expect("legacy pivot", legacy_move.pivot, Vector2(0.5, 0.94))
+	_test_relay_terrain_pack()
 
 	if failures == 0:
 		print("art library smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _test_relay_terrain_pack() -> void:
+	var text := FileAccess.get_file_as_string("res://content/graphics_profiles.json")
+	var document: Variant = JSON.parse_string(text)
+	_expect("graphics profile parses", document is Dictionary, true)
+	if not document is Dictionary:
+		return
+	var terrain_scenes: Dictionary = document.get("profiles", {}).get(
+		"voxel-sprites", {}
+	).get("assets", {}).get("terrainScenes", {})
+	var expected := ["water", "road", "forest", "mountain", "sand", "ruins", "grass"]
+	for terrain_name: String in expected:
+		_expect("%s terrain is bound" % terrain_name, terrain_scenes.has(terrain_name), true)
+		if not terrain_scenes.has(terrain_name):
+			continue
+		var binding: Variant = terrain_scenes[terrain_name]
+		var path := String(binding.get("scene", "")) if binding is Dictionary else String(binding)
+		_test_terrain_scene(terrain_name, path)
+
+	var road: Dictionary = terrain_scenes.get("road", {})
+	var water_variant: Variant = road.get("whenAdjacent", {}).get("water", {})
+	var bridge_path := (
+		String(water_variant.get("scene", ""))
+		if water_variant is Dictionary else String(water_variant)
+	)
+	_test_terrain_scene("water-adjacent bridge", bridge_path)
+
+	var voxel: Dictionary = GraphicsProfiles.new().profile("voxel")
+	var inherited_scenes: Dictionary = voxel.get("assets", {}).get("terrainScenes", {})
+	_expect("full-voxel profile inherits the relay terrain pack", inherited_scenes, terrain_scenes)
+	_expect("full-voxel profile keeps 3D characters", voxel.get("characterRenderer"), "voxel")
+
+
+func _test_terrain_scene(label: String, path: String) -> void:
+	_expect("%s uses a replaceable scene" % label, path.begins_with("res://art/terrain/"), true)
+	_expect("%s scene exists" % label, ResourceLoader.exists(path), true)
+	if not ResourceLoader.exists(path):
+		return
+	var packed := load(path) as PackedScene
+	_expect("%s scene loads" % label, packed != null, true)
+	if packed == null:
+		return
+	var instance := packed.instantiate() as Node3D
+	_expect("%s scene has a 3D root" % label, instance != null, true)
+	if instance == null:
+		return
+	var foundation := instance.get_node_or_null("Foundation") as MeshInstance3D
+	_expect("%s scene has a foundation" % label, foundation != null, true)
+	if foundation != null:
+		var box := foundation.mesh as BoxMesh
+		_expect("%s foundation is a box" % label, box != null, true)
+		if box != null:
+			_expect(
+				"%s foundation occupies one cell" % label,
+				box.size.is_equal_approx(Vector3(0.94, 0.26, 0.94)),
+				true
+			)
+	_expect("%s scene has visible detail" % label, _mesh_count(instance) >= 3, true)
+	instance.free()
+
+
+func _mesh_count(node: Node) -> int:
+	var count := 1 if node is MeshInstance3D else 0
+	for child: Node in node.get_children():
+		count += _mesh_count(child)
+	return count
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

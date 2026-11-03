@@ -1,0 +1,100 @@
+[gd_scene load_steps=12 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_ground"]
+albedo_color = Color(0.2, 0.39, 0.25, 1)
+roughness = 0.94
+
+[sub_resource type="StandardMaterial3D" id="Material_moss"]
+albedo_color = Color(0.3, 0.49, 0.27, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Material_grass"]
+albedo_color = Color(0.46, 0.64, 0.3, 1)
+roughness = 0.88
+
+[sub_resource type="StandardMaterial3D" id="Material_stone"]
+albedo_color = Color(0.32, 0.39, 0.38, 1)
+roughness = 0.86
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_ground"]
+material = SubResource("Material_ground")
+size = Vector3(0.88, 0.1, 0.88)
+
+[sub_resource type="BoxMesh" id="Mesh_moss"]
+material = SubResource("Material_moss")
+size = Vector3(0.34, 0.018, 0.26)
+
+[sub_resource type="CylinderMesh" id="Mesh_grass"]
+material = SubResource("Material_grass")
+top_radius = 0
+bottom_radius = 0.035
+height = 0.17
+radial_segments = 4
+rings = 1
+
+[sub_resource type="BoxMesh" id="Mesh_stone"]
+material = SubResource("Material_stone")
+size = Vector3(0.16, 0.055, 0.12)
+
+[node name="RelayGrass" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.05, 0)
+mesh = SubResource("Mesh_ground")
+
+[node name="MossNorth" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, 0.109, -0.27)
+rotation = Vector3(0, -0.12, 0)
+mesh = SubResource("Mesh_moss")
+
+[node name="MossSouth" type="MeshInstance3D" parent="."]
+position = Vector3(0.22, 0.109, 0.25)
+rotation = Vector3(0, 0.18, 0)
+scale = Vector3(0.75, 1, 0.72)
+mesh = SubResource("Mesh_moss")
+
+[node name="GrassWestA" type="MeshInstance3D" parent="."]
+position = Vector3(-0.34, 0.185, 0.19)
+rotation = Vector3(0.04, 0.18, -0.16)
+mesh = SubResource("Mesh_grass")
+
+[node name="GrassWestB" type="MeshInstance3D" parent="."]
+position = Vector3(-0.28, 0.17, 0.27)
+rotation = Vector3(-0.06, -0.24, 0.12)
+scale = Vector3(0.78, 0.78, 0.78)
+mesh = SubResource("Mesh_grass")
+
+[node name="GrassEastA" type="MeshInstance3D" parent="."]
+position = Vector3(0.32, 0.17, -0.22)
+rotation = Vector3(-0.05, 0.3, 0.13)
+scale = Vector3(0.82, 0.82, 0.82)
+mesh = SubResource("Mesh_grass")
+
+[node name="GrassEastB" type="MeshInstance3D" parent="."]
+position = Vector3(0.37, 0.155, -0.12)
+rotation = Vector3(0.08, -0.2, -0.12)
+scale = Vector3(0.64, 0.64, 0.64)
+mesh = SubResource("Mesh_grass")
+
+[node name="FieldStoneA" type="MeshInstance3D" parent="."]
+position = Vector3(0.3, 0.13, 0.31)
+rotation = Vector3(0.05, -0.43, 0.04)
+mesh = SubResource("Mesh_stone")
+
+[node name="FieldStoneB" type="MeshInstance3D" parent="."]
+position = Vector3(-0.3, 0.122, -0.3)
+rotation = Vector3(-0.03, 0.28, -0.04)
+scale = Vector3(0.62, 0.7, 0.68)
+mesh = SubResource("Mesh_stone")
