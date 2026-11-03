@@ -328,8 +328,16 @@ are frozen.
   character/battle choices, positive and negative outcomes, protected removal,
   imported-state preservation, clone isolation, compilation, and undo/redo.
   Focused source tests also pass GCC and Clang, and documentation links report
-  zero unresolved references. This is the current PC release-gate baseline; it
-  does not replace the final clean-revision all-target gate.
+  zero unresolved references.
+- `e309216`: the exact committed tree passes all 68 native tests and all 23
+  Godot integration smokes after adding portable Talk conversations and their
+  focused controller flow. Tests cover generated dialogue/moment identities,
+  exact Story-editor routing, portable compilation, protected character
+  removal, unshared-scene cleanup, and one-step undo at each author action.
+  Focused source tests pass GCC and Clang, a real 1920×1080 render confirms the
+  three-action screen, and documentation links report zero unresolved
+  references. This is the current PC release-gate baseline; it does not replace
+  the final clean-revision all-target gate.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
