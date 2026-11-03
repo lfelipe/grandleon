@@ -93,6 +93,7 @@ godot_smokes=(
     smoke-presentation-settings.sh
     smoke-project-compiler.sh
     smoke-project-library.sh
+    smoke-standalone-exporter.sh
     smoke-story-editor.sh
 )
 
