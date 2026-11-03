@@ -25,6 +25,9 @@ game_args=(
     "--campaign=${GRANDLEON_CAMPAIGN:-${default_campaign}}"
     "--players=${GRANDLEON_PLAYERS:-2}"
 )
+if [[ "${GRANDLEON_AUTOMATION:-1}" != "0" ]]; then
+    game_args+=("--automation-dir=${GRANDLEON_AUTOMATION_DIR:-${runtime_dir}/automation}")
+fi
 if [[ -n "${GRANDLEON_GRAPHICS:-}" ]]; then
     game_args+=("--graphics=${GRANDLEON_GRAPHICS}")
 fi

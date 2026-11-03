@@ -29,6 +29,16 @@ shown. The footer names only the directional control and the configured confirm
 button. Automated captures and integration smokes can enter play directly, but
 ordinary launches always begin at this screen.
 
+Each portable PC bundle also has a private, local file-control channel under
+`runtime/automation`. It lets test and support tooling inspect visible UI text,
+send a bounded keyboard command, and ask Godot to capture its own viewport,
+without depending on Steam or compositor screenshots. Use
+`control-pc.sh inspect`, `control-pc.sh screenshot NAME`, or
+`control-pc.sh press KEY` while the game is running. Commands and JSON results
+stay inside the persistent runtime directory, paths are never embedded in a
+project or bundle, and no network listener is opened. Set
+`GRANDLEON_AUTOMATION=0` to disable the channel entirely.
+
 ## Create and play projects
 
 Choose **Create / Edit Games** on the home screen. The native Projects

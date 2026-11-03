@@ -104,6 +104,7 @@ trap cleanup EXIT
 cmake -E copy_directory "${stage_dir}" "${temporary_dir}/project"
 cmake -E copy "${godot_binary}" "${temporary_dir}/godot"
 cmake -E copy "${script_dir}/launch-pc.sh" "${temporary_dir}/launch-pc.sh"
+cmake -E copy "${script_dir}/control-pc.sh" "${temporary_dir}/control-pc.sh"
 cmake -E copy "${stage_dir}/icon.png" "${temporary_dir}/grandleon-icon.png"
 cmake -E copy \
     "${repo_root}/platform/godot/project/pc.example.json" \
@@ -143,7 +144,10 @@ fi
     printf 'defaultGraphics=voxel-sprites\n'
     printf 'creatorIncluded=%s\n' "${creator_included}"
 } >"${temporary_dir}/BUILD-INFO.txt"
-chmod +x "${temporary_dir}/godot" "${temporary_dir}/launch-pc.sh"
+chmod +x \
+    "${temporary_dir}/godot" \
+    "${temporary_dir}/launch-pc.sh" \
+    "${temporary_dir}/control-pc.sh"
 for local_config in pc.local.json graphics.local.json controls.local.json; do
     if [[ -e "${temporary_dir}/${local_config}" || \
           -e "${temporary_dir}/project/${local_config}" ]]; then

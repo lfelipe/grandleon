@@ -17,6 +17,7 @@ LaunchContext="*res://scripts/launch_context.gd"
 CreatorContext="*res://scripts/creator/creator_context.gd"
 PCAudio="*res://scripts/pc_audio.gd"
 PCNavigation="*res://scripts/pc_navigation.gd"
+AutomationControl="*res://scripts/automation_control.gd"
 
 [display]
 

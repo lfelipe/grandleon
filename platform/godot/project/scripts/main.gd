@@ -1919,10 +1919,14 @@ func _handle_management(company: Dictionary) -> void:
 
 
 func _present_company(company: Dictionary) -> void:
+	# Dictionaries are shared references in GDScript. A company deferred behind
+	# dialogue is also `pending_company`, so preserve it before clearing the
+	# queue or the management screen receives an empty dictionary.
+	var presented_company := company.duplicate(true)
 	pending_company.clear()
 	board.visible = false
 	status_label.text = "PREPARING COMPANY"
-	campaign_manager.present(company)
+	campaign_manager.present(presented_company)
 
 
 func _show_pending_management() -> void:
