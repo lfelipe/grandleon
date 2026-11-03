@@ -2,19 +2,50 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const HISTORY_LIMIT := 64
 
 var library
 var compiler
 var project_id := ""
+var source := ""
+var saved_source := ""
 var project: Dictionary = {}
 var campaign: Dictionary = {}
 var route: Array[Dictionary] = []
 var other_nodes: Array[Dictionary] = []
+var dirty := false
+var undo_stack: Array[String] = []
+var redo_stack: Array[String] = []
 
 var title_label: Label
 var route_list: VBoxContainer
 var status_label: Label
 var first_button: Button
+var save_button: Button
+var undo_button: Button
+var redo_button: Button
+var outcome_buttons: Dictionary = {}
+var outcome_layer: Control
+var outcome_panel: PanelContainer
+var outcome_title: Label
+var outcome_select: OptionButton
+var outcome_condition: OptionButton
+var outcome_objective: OptionButton
+var outcome_item: OptionButton
+var outcome_objective_column: VBoxContainer
+var outcome_item_column: VBoxContainer
+var outcome_detail_row: HBoxContainer
+var outcome_quantity_row: HBoxContainer
+var outcome_quantity_label: Label
+var outcome_quantity_buttons: Array[Button] = []
+var outcome_target: OptionButton
+var outcome_apply_button: Button
+var outcome_remove_button: Button
+var outcome_earlier_button: Button
+var outcome_later_button: Button
+var outcome_status: Label
+var outcome_node_id := ""
+var outcome_refreshing := false
 
 
 func _ready() -> void:
@@ -27,7 +58,10 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		_open_projects()
+		if outcome_layer != null and outcome_layer.visible:
+			_close_outcomes()
+		else:
+			_open_projects()
 		get_viewport().set_input_as_handled()
 
 
@@ -39,6 +73,8 @@ func _load_project() -> void:
 	if not loaded.ok:
 		_set_status("OPEN FAILED  /  %s" % loaded.message, true)
 		return
+	source = str(loaded.get("source", ""))
+	saved_source = source
 	var value: Variant = loaded.get("project", {})
 	if not value is Dictionary:
 		_set_status("PROJECT SOURCE IS NOT READABLE", true)
@@ -54,6 +90,7 @@ func _load_project() -> void:
 	).to_upper()
 	_collect_route()
 	_refresh_route()
+	_update_actions()
 	_set_status("CHOOSE A CHAPTER TO EDIT, OR TEST THE WHOLE CAMPAIGN", false)
 	if first_button != null:
 		first_button.call_deferred("grab_focus")
@@ -115,6 +152,7 @@ func _refresh_route() -> void:
 	for child in route_list.get_children():
 		child.queue_free()
 	first_button = null
+	outcome_buttons.clear()
 	if route.is_empty():
 		var empty := _label(
 			"This campaign has no playable path yet.", 22, Color("ff7a83")
@@ -145,6 +183,9 @@ func _refresh_route() -> void:
 
 func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> void:
 	var kind := str(node.get("kind", ""))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	route_list.add_child(row)
 	var button := _button(_node_text(node, battle_number, alternate), 160)
 	button.tooltip_text = _node_tooltip(node)
 	match kind:
@@ -154,7 +195,24 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 			button.pressed.connect(_open_encounter_node.bind(node))
 		_:
 			button.disabled = true
-	route_list.add_child(button)
+	row.add_child(button)
+	if kind == "terminal":
+		var spacer := Control.new()
+		spacer.custom_minimum_size.x = 300
+		row.add_child(spacer)
+	else:
+		var outcomes := _button(
+			"OUTCOMES\n%d ROUTE%s" % [
+				node.get("transitions", []).size(),
+				"" if node.get("transitions", []).size() == 1 else "S",
+			],
+			300
+		)
+		outcomes.size_flags_horizontal = Control.SIZE_SHRINK_END
+		outcomes.tooltip_text = "Choose when this chapter leads to each named destination."
+		outcomes.pressed.connect(_open_outcomes.bind(str(node.get("id", ""))))
+		row.add_child(outcomes)
+		outcome_buttons[str(node.get("id", ""))] = outcomes
 	if first_button == null and not button.disabled:
 		first_button = button
 
@@ -214,12 +272,16 @@ func _node_tooltip(node: Dictionary) -> String:
 
 
 func _open_story_node(node: Dictionary) -> void:
+	if dirty and not _save():
+		return
 	var dialogue_ids: Array = node.get("dialogueIds", [])
 	CreatorContext.choose_dialogue(str(dialogue_ids[0]) if not dialogue_ids.is_empty() else "")
 	get_tree().change_scene_to_file("res://story_editor.tscn")
 
 
 func _open_encounter_node(node: Dictionary) -> void:
+	if dirty and not _save():
+		return
 	CreatorContext.choose_map(str(node.get("mapId", "")), str(node.get("id", "")))
 	get_tree().change_scene_to_file("res://map_editor.tscn")
 
@@ -236,18 +298,24 @@ func _add_next_chapter() -> void:
 	if node.is_empty():
 		_set_status("ADD A PLAYABLE BATTLE BEFORE ITS NEXT CHAPTER", true)
 		return
+	if dirty and not _save():
+		return
 	CreatorContext.choose_map(str(node.get("mapId", "")), str(node.get("id", "")))
 	CreatorContext.request_map_action("add_chapter")
 	get_tree().change_scene_to_file("res://map_editor.tscn")
 
 
 func _open_army() -> void:
+	if dirty and not _save():
+		return
 	get_tree().change_scene_to_file("res://army_editor.tscn")
 
 
 func _play_campaign() -> void:
 	if compiler == null:
 		_set_status("NATIVE PROJECT COMPILER IS UNAVAILABLE", true)
+		return
+	if dirty and not _save():
 		return
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
@@ -269,8 +337,526 @@ func _play_campaign() -> void:
 
 
 func _open_projects() -> void:
+	if dirty and not _save():
+		return
 	CreatorContext.clear()
 	get_tree().change_scene_to_file("res://creator.tscn")
+
+
+func _save() -> bool:
+	var saved: Dictionary = library.save_source(project_id, source)
+	if not saved.ok:
+		_set_status("SAVE FAILED  /  %s" % saved.message, true)
+		return false
+	saved_source = source
+	dirty = false
+	_update_actions()
+	_set_status("SAVED  /  PORTABLE CAMPAIGN FLOW", false)
+	return true
+
+
+func _undo() -> void:
+	if undo_stack.is_empty():
+		return
+	redo_stack.append(source)
+	source = undo_stack.pop_back()
+	_read_source()
+	dirty = source != saved_source
+	_collect_route()
+	_refresh_route()
+	_update_actions()
+	_set_status("UNDO  /  CAMPAIGN FLOW RESTORED", false)
+
+
+func _redo() -> void:
+	if redo_stack.is_empty():
+		return
+	undo_stack.append(source)
+	source = redo_stack.pop_back()
+	_read_source()
+	dirty = source != saved_source
+	_collect_route()
+	_refresh_route()
+	_update_actions()
+	_set_status("REDO  /  CAMPAIGN FLOW RESTORED", false)
+
+
+func _read_source() -> bool:
+	var parsed: Variant = JSON.parse_string(source)
+	if not parsed is Dictionary:
+		_set_status("PROJECT SOURCE IS NOT READABLE", true)
+		return false
+	project = parsed
+	var campaigns: Array = project.get("campaigns", [])
+	if campaigns.is_empty() or not campaigns[0] is Dictionary:
+		_set_status("ADD A CAMPAIGN BEFORE EDITING ITS OUTLINE", true)
+		return false
+	campaign = campaigns[0]
+	return true
+
+
+func _update_actions() -> void:
+	save_button.disabled = not dirty
+	undo_button.disabled = undo_stack.is_empty()
+	redo_button.disabled = redo_stack.is_empty()
+
+
+func _open_outcomes(node_id: String) -> void:
+	outcome_node_id = node_id
+	_refresh_outcome_layer()
+	outcome_layer.visible = true
+	outcome_select.grab_focus()
+
+
+func _close_outcomes() -> void:
+	outcome_layer.visible = false
+	if outcome_buttons.has(outcome_node_id):
+		var button: Button = outcome_buttons[outcome_node_id]
+		button.grab_focus()
+
+
+func _current_outcome_node() -> Dictionary:
+	var flow: Variant = campaign.get("flow", {})
+	if not flow is Dictionary:
+		return {}
+	for value: Variant in flow.get("nodes", []):
+		if value is Dictionary and str(value.get("id", "")) == outcome_node_id:
+			return value
+	return {}
+
+
+func _refresh_outcome_layer(preferred_id := "") -> void:
+	outcome_refreshing = true
+	var node := _current_outcome_node()
+	outcome_title.text = "%s  /  OUTCOMES" % str(
+		node.get("name", node.get("id", "CHAPTER"))
+	).to_upper()
+	var previous_id := preferred_id
+	if previous_id.is_empty() and outcome_select.selected >= 0:
+		previous_id = str(outcome_select.get_item_metadata(outcome_select.selected))
+	outcome_select.clear()
+	var transitions: Array = node.get("transitions", [])
+	for index in transitions.size():
+		if not transitions[index] is Dictionary:
+			continue
+		var transition: Dictionary = transitions[index]
+		outcome_select.add_item(_outcome_text(transition, index))
+		outcome_select.set_item_metadata(
+			outcome_select.item_count - 1, str(transition.get("id", ""))
+		)
+	if outcome_select.item_count == 0:
+		outcome_select.add_item("NO OUTCOMES YET")
+		outcome_select.set_item_metadata(0, "")
+	outcome_select.disabled = transitions.is_empty()
+	_select_metadata(outcome_select, previous_id)
+
+	outcome_objective.clear()
+	for value: Variant in project.get("objectives", []):
+		if value is Dictionary:
+			outcome_objective.add_item(str(value.get("name", value.get("id", "Goal"))))
+			outcome_objective.set_item_metadata(
+				outcome_objective.item_count - 1, str(value.get("id", ""))
+			)
+	outcome_item.clear()
+	for value: Variant in project.get("items", []):
+		if value is Dictionary:
+			outcome_item.add_item(str(value.get("name", value.get("id", "Item"))))
+			outcome_item.set_item_metadata(
+				outcome_item.item_count - 1, str(value.get("id", ""))
+			)
+	outcome_target.clear()
+	var flow: Variant = campaign.get("flow", {})
+	if flow is Dictionary:
+		for value: Variant in flow.get("nodes", []):
+			if not value is Dictionary:
+				continue
+			outcome_target.add_item("%s  /  %s" % [
+				str(value.get("kind", "chapter")).to_upper(),
+				str(value.get("name", value.get("id", "Chapter"))),
+			])
+			outcome_target.set_item_metadata(
+				outcome_target.item_count - 1, str(value.get("id", ""))
+			)
+	outcome_refreshing = false
+	_refresh_selected_outcome()
+
+
+func _refresh_selected_outcome(_index: int = 0) -> void:
+	if outcome_refreshing:
+		return
+	outcome_refreshing = true
+	var transition := _selected_outcome()
+	var condition_kind := "always"
+	var objective_id := ""
+	var item_id := ""
+	var quantity := 1
+	var target_id := _default_outcome_target()
+	if not transition.is_empty():
+		condition_kind = _outcome_condition_kind(transition)
+		target_id = str(transition.get("targetNodeId", target_id))
+		var when: Variant = transition.get("when", {})
+		if when is Dictionary:
+			objective_id = str(when.get("objectiveId", ""))
+			item_id = str(when.get("itemId", ""))
+			quantity = int(when.get("quantity", 1))
+	outcome_condition.clear()
+	var choices: Array[Dictionary] = [{"id": "always", "label": "ALWAYS"}]
+	if outcome_objective.item_count > 0:
+		choices.append({"id": "victory", "label": "GOAL WON"})
+		choices.append({"id": "defeat", "label": "GOAL LOST"})
+	if outcome_item.item_count > 0:
+		choices.append({"id": "item", "label": "HAVE ENOUGH OF AN ITEM"})
+	for choice: Dictionary in choices:
+		outcome_condition.add_item(str(choice.label))
+		outcome_condition.set_item_metadata(outcome_condition.item_count - 1, choice.id)
+	if condition_kind == "advanced":
+		outcome_condition.add_item("ADVANCED CONDITION  /  KEEP AS WRITTEN")
+		outcome_condition.set_item_metadata(outcome_condition.item_count - 1, "advanced")
+	_select_metadata(outcome_condition, condition_kind)
+	_select_metadata(outcome_objective, objective_id)
+	_select_metadata(outcome_item, item_id)
+	_select_metadata(outcome_target, target_id)
+	outcome_quantity_label.text = str(maxi(1, quantity))
+	var has_transition := not transition.is_empty()
+	outcome_apply_button.disabled = not has_transition
+	outcome_remove_button.disabled = not has_transition or _outcome_transitions().size() <= 1
+	var transition_index := _selected_outcome_index()
+	outcome_earlier_button.disabled = transition_index <= 0
+	outcome_later_button.disabled = transition_index < 0 or transition_index >= _outcome_transitions().size() - 1
+	outcome_refreshing = false
+	_refresh_outcome_fields()
+	_set_outcome_status(
+		"Choose ADD OUTCOME to make another route. Lowest first-match order wins."
+		if has_transition
+		else "This chapter has no route yet. Add one before players can continue.",
+		false
+	)
+
+
+func _refresh_outcome_fields(_index: int = 0) -> void:
+	if outcome_refreshing:
+		return
+	var kind := _selected_metadata(outcome_condition)
+	outcome_detail_row.visible = kind in ["victory", "defeat", "item"]
+	outcome_objective_column.visible = kind in ["victory", "defeat"]
+	outcome_item_column.visible = kind == "item"
+	outcome_quantity_row.visible = kind == "item"
+	outcome_objective.disabled = kind not in ["victory", "defeat"] or outcome_objective.item_count == 0
+	outcome_item.disabled = kind != "item" or outcome_item.item_count == 0
+	for button: Button in outcome_quantity_buttons:
+		button.disabled = kind != "item"
+	outcome_quantity_label.add_theme_color_override(
+		"font_color", Color("f2f7f9") if kind == "item" else Color("718896")
+	)
+
+
+func _selected_outcome() -> Dictionary:
+	var selected_id := _selected_metadata(outcome_select)
+	for value: Variant in _outcome_transitions():
+		if value is Dictionary and str(value.get("id", "")) == selected_id:
+			return value
+	return {}
+
+
+func _selected_outcome_index() -> int:
+	var selected_id := _selected_metadata(outcome_select)
+	var transitions := _outcome_transitions()
+	for index in transitions.size():
+		if transitions[index] is Dictionary and str(transitions[index].get("id", "")) == selected_id:
+			return index
+	return -1
+
+
+func _outcome_transitions() -> Array:
+	return _current_outcome_node().get("transitions", [])
+
+
+func _outcome_condition_kind(transition: Dictionary) -> String:
+	var when: Variant = transition.get("when", null)
+	if not when is Dictionary:
+		return "always"
+	match str(when.get("kind", "")):
+		"objectiveResult":
+			return "defeat" if str(when.get("result", "victory")) == "defeat" else "victory"
+		"inventoryAtLeast":
+			return "item"
+		_:
+			return "advanced"
+
+
+func _outcome_text(transition: Dictionary, index: int) -> String:
+	var kind := _outcome_condition_kind(transition)
+	var condition := "ALWAYS"
+	match kind:
+		"victory":
+			condition = "GOAL WON"
+		"defeat":
+			condition = "GOAL LOST"
+		"item":
+			condition = "HAVE ITEM"
+		"advanced":
+			condition = "ADVANCED CONDITION"
+	return "%d  /  %s  →  %s" % [
+		index + 1, condition, _node_name(str(transition.get("targetNodeId", "")))
+	]
+
+
+func _node_name(node_id: String) -> String:
+	var flow: Variant = campaign.get("flow", {})
+	if flow is Dictionary:
+		for value: Variant in flow.get("nodes", []):
+			if value is Dictionary and str(value.get("id", "")) == node_id:
+				return str(value.get("name", value.get("id", "Chapter"))).to_upper()
+	return "MISSING DESTINATION"
+
+
+func _default_outcome_target() -> String:
+	var flow: Variant = campaign.get("flow", {})
+	if not flow is Dictionary:
+		return ""
+	for value: Variant in flow.get("nodes", []):
+		if value is Dictionary and str(value.get("kind", "")) == "terminal":
+			return str(value.get("id", ""))
+	for value: Variant in flow.get("nodes", []):
+		if value is Dictionary and str(value.get("id", "")) != outcome_node_id:
+			return str(value.get("id", ""))
+	return outcome_node_id
+
+
+func _selected_metadata(option: OptionButton) -> String:
+	if option == null or option.selected < 0:
+		return ""
+	return str(option.get_item_metadata(option.selected))
+
+
+func _select_metadata(option: OptionButton, value: String) -> void:
+	for index in option.item_count:
+		if str(option.get_item_metadata(index)) == value:
+			option.select(index)
+			return
+	if option.item_count > 0:
+		option.select(0)
+
+
+func _adjust_outcome_quantity(amount: int) -> void:
+	var value := clampi(int(outcome_quantity_label.text) + amount, 1, 65535)
+	outcome_quantity_label.text = str(value)
+
+
+func _candidate_outcome_node() -> Dictionary:
+	var candidate: Dictionary = project.duplicate(true)
+	var campaigns: Array = candidate.get("campaigns", []).duplicate(true)
+	var campaign_id := str(campaign.get("id", ""))
+	for campaign_index in campaigns.size():
+		if not campaigns[campaign_index] is Dictionary or str(campaigns[campaign_index].get("id", "")) != campaign_id:
+			continue
+		var flow: Dictionary = campaigns[campaign_index].get("flow", {}).duplicate(true)
+		var nodes: Array = flow.get("nodes", []).duplicate(true)
+		for node_index in nodes.size():
+			if nodes[node_index] is Dictionary and str(nodes[node_index].get("id", "")) == outcome_node_id:
+				return {
+					"project": candidate,
+					"campaigns": campaigns,
+					"campaign_index": campaign_index,
+					"flow": flow,
+					"nodes": nodes,
+					"node_index": node_index,
+					"node": nodes[node_index].duplicate(true),
+				}
+	return {}
+
+
+func _when_from_controls(existing: Dictionary = {}) -> Variant:
+	match _selected_metadata(outcome_condition):
+		"always":
+			return null
+		"victory", "defeat":
+			var objective_id := _selected_metadata(outcome_objective)
+			if objective_id.is_empty():
+				return {}
+			return {
+				"kind": "objectiveResult",
+				"objectiveId": objective_id,
+				"result": "defeat" if _selected_metadata(outcome_condition) == "defeat" else "victory",
+			}
+		"item":
+			var item_id := _selected_metadata(outcome_item)
+			if item_id.is_empty():
+				return {}
+			return {
+				"kind": "inventoryAtLeast",
+				"itemId": item_id,
+				"quantity": maxi(1, int(outcome_quantity_label.text)),
+			}
+		"advanced":
+			return existing.get("when", {}).duplicate(true)
+	return {}
+
+
+func _apply_outcome() -> void:
+	var candidate := _candidate_outcome_node()
+	var transition_index := _selected_outcome_index()
+	if candidate.is_empty() or transition_index < 0:
+		return
+	var target_id := _selected_metadata(outcome_target)
+	if target_id.is_empty():
+		_set_outcome_status("CHOOSE A DESTINATION", true)
+		return
+	var node: Dictionary = candidate.node
+	var transitions: Array = node.get("transitions", []).duplicate(true)
+	var transition: Dictionary = transitions[transition_index].duplicate(true)
+	transition.targetNodeId = target_id
+	var when: Variant = _when_from_controls(transition)
+	if when is Dictionary and when.is_empty() and _selected_metadata(outcome_condition) != "advanced":
+		_set_outcome_status("CHOOSE THE GOAL OR ITEM FOR THIS CONDITION", true)
+		return
+	if when == null:
+		transition.erase("when")
+	else:
+		transition.when = when
+	transitions[transition_index] = transition
+	node.transitions = transitions
+	candidate.node = node
+	_accept_outcome_candidate(candidate, "OUTCOME CHANGED", str(transition.get("id", "")))
+
+
+func _next_outcome_id(transitions: Array) -> String:
+	var sequence := 1
+	var used: Array[String] = []
+	for value: Variant in transitions:
+		if value is Dictionary:
+			used.append(str(value.get("id", "")))
+	while used.has("outcome_%d" % sequence):
+		sequence += 1
+	return "outcome_%d" % sequence
+
+
+func _add_outcome() -> void:
+	var candidate := _candidate_outcome_node()
+	if candidate.is_empty():
+		return
+	var node: Dictionary = candidate.node
+	var transitions: Array = node.get("transitions", []).duplicate(true)
+	var transition_id := _next_outcome_id(transitions)
+	var maximum_priority := -10
+	var has_victory := false
+	var has_defeat := false
+	for value: Variant in transitions:
+		if not value is Dictionary:
+			continue
+		maximum_priority = maxi(maximum_priority, int(value.get("priority", 0)))
+		has_victory = has_victory or _outcome_condition_kind(value) == "victory"
+		has_defeat = has_defeat or _outcome_condition_kind(value) == "defeat"
+	var added := {
+		"id": transition_id,
+		"targetNodeId": _default_outcome_target(),
+		"priority": maximum_priority + 10,
+	}
+	if outcome_objective.item_count > 0:
+		added.when = {
+			"kind": "objectiveResult",
+			"objectiveId": str(outcome_objective.get_item_metadata(0)),
+			"result": "victory" if not has_victory else ("defeat" if not has_defeat else "victory"),
+		}
+	transitions.append(added)
+	node.transitions = transitions
+	candidate.node = node
+	_accept_outcome_candidate(candidate, "ADDED OUTCOME", transition_id)
+
+
+func _remove_outcome() -> void:
+	var candidate := _candidate_outcome_node()
+	var transition_index := _selected_outcome_index()
+	if candidate.is_empty() or transition_index < 0:
+		return
+	var node: Dictionary = candidate.node
+	var transitions: Array = node.get("transitions", []).duplicate(true)
+	if transitions.size() <= 1:
+		_set_outcome_status("KEEP ONE ROUTE SO THIS CHAPTER CAN CONTINUE", true)
+		return
+	transitions.remove_at(transition_index)
+	for index in transitions.size():
+		transitions[index].priority = index * 10
+	node.transitions = transitions
+	candidate.node = node
+	_accept_outcome_candidate(candidate, "REMOVED OUTCOME")
+
+
+func _move_outcome(offset: int) -> void:
+	var candidate := _candidate_outcome_node()
+	var transition_index := _selected_outcome_index()
+	if candidate.is_empty() or transition_index < 0:
+		return
+	var node: Dictionary = candidate.node
+	var transitions: Array = node.get("transitions", []).duplicate(true)
+	var target_index := transition_index + offset
+	if target_index < 0 or target_index >= transitions.size():
+		return
+	var transition_id := str(transitions[transition_index].get("id", ""))
+	var moved: Variant = transitions[transition_index]
+	transitions[transition_index] = transitions[target_index]
+	transitions[target_index] = moved
+	for index in transitions.size():
+		transitions[index].priority = index * 10
+	node.transitions = transitions
+	candidate.node = node
+	_accept_outcome_candidate(candidate, "CHANGED FIRST-MATCH ORDER", transition_id)
+
+
+func _accept_outcome_candidate(
+	candidate: Dictionary, message: String, preferred_id := ""
+) -> bool:
+	candidate.nodes[candidate.node_index] = candidate.node
+	candidate.flow.nodes = candidate.nodes
+	candidate.campaigns[candidate.campaign_index].flow = candidate.flow
+	candidate.project.campaigns = candidate.campaigns
+	var portable: Dictionary = _integer_numbers(candidate.project)
+	var candidate_source := JSON.stringify(portable, "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		var detail := "PROJECT INCOMPLETE"
+		if not checked.diagnostics.is_empty():
+			detail = str(checked.diagnostics[0].get("detail", checked.diagnostics[0].get("code", detail)))
+		_set_outcome_status("NOT CHANGED  /  %s" % detail.to_upper(), true)
+		return false
+	if candidate_source == source:
+		return true
+	undo_stack.append(source)
+	if undo_stack.size() > HISTORY_LIMIT:
+		undo_stack.pop_front()
+	redo_stack.clear()
+	source = candidate_source
+	dirty = source != saved_source
+	_read_source()
+	_collect_route()
+	_refresh_route()
+	_update_actions()
+	_refresh_outcome_layer(preferred_id)
+	_set_outcome_status("UNSAVED  /  %s" % message, false)
+	return true
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if typeof(value) == TYPE_FLOAT and value == floor(value):
+		return int(value)
+	return value
+
+
+func _set_outcome_status(message: String, failure: bool) -> void:
+	outcome_status.text = message
+	outcome_status.add_theme_color_override(
+		"font_color", Color("ff7a83") if failure else Color("72e08f")
+	)
 
 
 func _build_interface() -> void:
@@ -296,6 +882,15 @@ func _build_interface() -> void:
 	toolbar.size = Vector2(1760, 62)
 	toolbar.add_theme_constant_override("separation", 12)
 	add_child(toolbar)
+	save_button = _button("SAVE", 170, 58)
+	save_button.pressed.connect(_save)
+	toolbar.add_child(save_button)
+	undo_button = _button("UNDO", 150, 58)
+	undo_button.pressed.connect(_undo)
+	toolbar.add_child(undo_button)
+	redo_button = _button("REDO", 150, 58)
+	redo_button.pressed.connect(_redo)
+	toolbar.add_child(redo_button)
 	var projects := _button("PROJECTS", 200, 58)
 	projects.pressed.connect(_open_projects)
 	toolbar.add_child(projects)
@@ -345,6 +940,141 @@ func _build_interface() -> void:
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.custom_minimum_size.y = 36
 	column.add_child(status_label)
+	_build_outcome_layer()
+
+
+func _build_outcome_layer() -> void:
+	outcome_layer = Control.new()
+	outcome_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outcome_layer.visible = false
+	outcome_layer.z_index = 30
+	add_child(outcome_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.95)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	outcome_layer.add_child(shade)
+	outcome_panel = PanelContainer.new()
+	outcome_panel.position = Vector2(250, 70)
+	outcome_panel.size = Vector2(1420, 940)
+	outcome_panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color("69d9ff"))
+	)
+	outcome_layer.add_child(outcome_panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 13)
+	outcome_panel.add_child(column)
+	column.add_child(_label("CHAPTER FLOW", 18, Color("69d9ff")))
+	outcome_title = _label("CHAPTER  /  OUTCOMES", 31, Color("f2f7f9"))
+	column.add_child(outcome_title)
+	var explanation := _label(
+		"Outcomes are tried from first to last. The first condition that matches chooses the next named chapter.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 48
+	column.add_child(explanation)
+	column.add_child(_label("OUTCOME", 15, Color("69d9ff")))
+	outcome_select = OptionButton.new()
+	outcome_select.custom_minimum_size = Vector2(1320, 60)
+	outcome_select.add_theme_font_size_override("font_size", 19)
+	outcome_select.item_selected.connect(_refresh_selected_outcome)
+	column.add_child(outcome_select)
+
+	var route_row := HBoxContainer.new()
+	route_row.add_theme_constant_override("separation", 18)
+	column.add_child(route_row)
+	var condition_column := VBoxContainer.new()
+	condition_column.custom_minimum_size.x = 650
+	condition_column.add_theme_constant_override("separation", 7)
+	route_row.add_child(condition_column)
+	condition_column.add_child(_label("WHEN", 15, Color("69d9ff")))
+	outcome_condition = OptionButton.new()
+	outcome_condition.custom_minimum_size = Vector2(650, 58)
+	outcome_condition.add_theme_font_size_override("font_size", 18)
+	outcome_condition.item_selected.connect(_refresh_outcome_fields)
+	condition_column.add_child(outcome_condition)
+	var target_column := VBoxContainer.new()
+	target_column.custom_minimum_size.x = 650
+	target_column.add_theme_constant_override("separation", 7)
+	route_row.add_child(target_column)
+	target_column.add_child(_label("GO TO", 15, Color("69d9ff")))
+	outcome_target = OptionButton.new()
+	outcome_target.custom_minimum_size = Vector2(650, 58)
+	outcome_target.add_theme_font_size_override("font_size", 18)
+	target_column.add_child(outcome_target)
+
+	outcome_detail_row = HBoxContainer.new()
+	outcome_detail_row.add_theme_constant_override("separation", 18)
+	column.add_child(outcome_detail_row)
+	outcome_objective_column = VBoxContainer.new()
+	outcome_objective_column.custom_minimum_size.x = 650
+	outcome_objective_column.add_theme_constant_override("separation", 7)
+	outcome_detail_row.add_child(outcome_objective_column)
+	outcome_objective_column.add_child(_label("GOAL", 15, Color("69d9ff")))
+	outcome_objective = OptionButton.new()
+	outcome_objective.custom_minimum_size = Vector2(650, 58)
+	outcome_objective.add_theme_font_size_override("font_size", 18)
+	outcome_objective_column.add_child(outcome_objective)
+	outcome_item_column = VBoxContainer.new()
+	outcome_item_column.custom_minimum_size.x = 650
+	outcome_item_column.add_theme_constant_override("separation", 7)
+	outcome_detail_row.add_child(outcome_item_column)
+	outcome_item_column.add_child(_label("ITEM", 15, Color("69d9ff")))
+	outcome_item = OptionButton.new()
+	outcome_item.custom_minimum_size = Vector2(650, 58)
+	outcome_item.add_theme_font_size_override("font_size", 18)
+	outcome_item_column.add_child(outcome_item)
+
+	outcome_quantity_row = HBoxContainer.new()
+	outcome_quantity_row.add_theme_constant_override("separation", 10)
+	column.add_child(outcome_quantity_row)
+	var quantity_title := _label("ITEM AMOUNT", 15, Color("69d9ff"))
+	quantity_title.custom_minimum_size = Vector2(260, 52)
+	quantity_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	outcome_quantity_row.add_child(quantity_title)
+	var minus := _button("−", 90, 50)
+	minus.pressed.connect(_adjust_outcome_quantity.bind(-1))
+	outcome_quantity_row.add_child(minus)
+	outcome_quantity_label = _label("1", 20, Color("f2f7f9"))
+	outcome_quantity_label.custom_minimum_size = Vector2(150, 50)
+	outcome_quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	outcome_quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	outcome_quantity_row.add_child(outcome_quantity_label)
+	var plus := _button("+", 90, 50)
+	plus.pressed.connect(_adjust_outcome_quantity.bind(1))
+	outcome_quantity_row.add_child(plus)
+	outcome_quantity_buttons = [minus, plus]
+
+	var edit_actions := HBoxContainer.new()
+	edit_actions.add_theme_constant_override("separation", 12)
+	column.add_child(edit_actions)
+	outcome_apply_button = _button("APPLY OUTCOME", 300, 60)
+	outcome_apply_button.pressed.connect(_apply_outcome)
+	edit_actions.add_child(outcome_apply_button)
+	var add := _button("ADD OUTCOME", 280, 60)
+	add.pressed.connect(_add_outcome)
+	edit_actions.add_child(add)
+	outcome_remove_button = _button("REMOVE OUTCOME", 300, 60)
+	outcome_remove_button.pressed.connect(_remove_outcome)
+	edit_actions.add_child(outcome_remove_button)
+
+	var order_actions := HBoxContainer.new()
+	order_actions.add_theme_constant_override("separation", 12)
+	column.add_child(order_actions)
+	outcome_earlier_button = _button("TRY EARLIER", 260, 56)
+	outcome_earlier_button.pressed.connect(_move_outcome.bind(-1))
+	order_actions.add_child(outcome_earlier_button)
+	outcome_later_button = _button("TRY LATER", 260, 56)
+	outcome_later_button.pressed.connect(_move_outcome.bind(1))
+	order_actions.add_child(outcome_later_button)
+	var done := _button("DONE", 240, 56)
+	done.pressed.connect(_close_outcomes)
+	order_actions.add_child(done)
+	outcome_status = _label("READY", 16, Color("72e08f"))
+	outcome_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	outcome_status.custom_minimum_size.y = 44
+	column.add_child(outcome_status)
 
 
 func _section_label(value: String) -> Label:

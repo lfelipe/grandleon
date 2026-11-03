@@ -36,6 +36,15 @@ func _run() -> void:
 		print("campaign outline capture saved: %s" % screenshot_path)
 		quit()
 		return
+	var outcomes_screenshot_path := _argument_path("--outcomes-screenshot=")
+	if not outcomes_screenshot_path.is_empty():
+		editor._open_outcomes("first_battle")
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(outcomes_screenshot_path)
+		print("campaign outcomes capture saved: %s" % outcomes_screenshot_path)
+		quit()
+		return
 
 	_expect("project opens in campaign outline", editor.project_id, created.id)
 	_expect("starter route has story battle and ending", editor.route.size(), 3)
@@ -60,6 +69,53 @@ func _run() -> void:
 		editor._node_text(editor.route[2], 0, false).contains("CAMPAIGN STOPS HERE"),
 		true
 	)
+	_expect("story chapter exposes outcomes beside its editor", editor.outcome_buttons.has("first_steps"), true)
+	_expect("battle chapter exposes outcomes beside its editor", editor.outcome_buttons.has("first_battle"), true)
+	editor._open_outcomes("first_battle")
+	await process_frame
+	_expect("outcome editor opens for one chapter", editor.outcome_layer.visible, true)
+	_expect("outcome editor starts on the named route", editor.outcome_select.has_focus(), true)
+	_expect("starter battle has one route", editor.outcome_select.item_count, 1)
+	_expect("starter route begins unconditional", str(editor.outcome_condition.get_item_metadata(editor.outcome_condition.selected)), "always")
+	_expect("starter route names its ending", str(editor.outcome_target.get_item_metadata(editor.outcome_target.selected)), "chapter_complete")
+	editor._select_metadata(editor.outcome_condition, "victory")
+	editor._refresh_outcome_fields()
+	editor._apply_outcome()
+	var with_victory: Dictionary = _parse(editor.source)
+	_expect("goal outcome reaches portable flow", str(with_victory.campaigns[0].flow.nodes[1].transitions[0].when.kind), "objectiveResult")
+	_expect("goal outcome records victory", str(with_victory.campaigns[0].flow.nodes[1].transitions[0].when.result), "victory")
+	_expect("outcome edit enables explicit save", editor.save_button.disabled, false)
+	editor._close_outcomes()
+	await process_frame
+	_expect("closing outcomes returns to its chapter action", editor.outcome_buttons.first_battle.has_focus(), true)
+	editor._undo()
+	_expect("outcome change is undoable", _parse(editor.source).campaigns[0].flow.nodes[1].transitions[0].has("when"), false)
+	editor._redo()
+	_expect("outcome change is redoable", str(_parse(editor.source).campaigns[0].flow.nodes[1].transitions[0].when.result), "victory")
+	editor._open_outcomes("first_battle")
+	editor._add_outcome()
+	var with_branch: Dictionary = _parse(editor.source)
+	_expect("add outcome creates a second route", with_branch.campaigns[0].flow.nodes[1].transitions.size(), 2)
+	_expect("second goal route complements victory", str(with_branch.campaigns[0].flow.nodes[1].transitions[1].when.result), "defeat")
+	_expect("new outcome receives hidden stable identity", str(with_branch.campaigns[0].flow.nodes[1].transitions[1].id), "outcome_1")
+	editor._select_metadata(editor.outcome_target, "first_steps")
+	editor._apply_outcome()
+	_expect("outcome destination is editable by name", str(_parse(editor.source).campaigns[0].flow.nodes[1].transitions[1].targetNodeId), "first_steps")
+	editor._move_outcome(-1)
+	var reordered: Dictionary = _parse(editor.source)
+	_expect("outcome can move earlier", str(reordered.campaigns[0].flow.nodes[1].transitions[0].id), "outcome_1")
+	_expect("first-match order normalizes priority", int(reordered.campaigns[0].flow.nodes[1].transitions[0].priority), 0)
+	editor._move_outcome(1)
+	editor._remove_outcome()
+	_expect("outcome can be removed without deleting chapter", _parse(editor.source).campaigns[0].flow.nodes[1].transitions.size(), 1)
+	_expect("last route cannot be accidentally removed", editor.outcome_remove_button.disabled, true)
+	editor._close_outcomes()
+	editor._save()
+	var stored: Dictionary = library.load_source(created.id)
+	_expect("saved campaign flow reopens", stored.ok, true)
+	if stored.ok:
+		_expect("saved outcome condition persists", str(stored.project.campaigns[0].flow.nodes[1].transitions[0].when.result), "victory")
+		_expect("saved outcome flow still compiles", editor.compiler.compile_source_json(stored.source).ok, true)
 
 	var branch_nodes: Array = [
 		{
@@ -127,3 +183,8 @@ func _argument_path(prefix: String) -> String:
 		if argument.begins_with(prefix):
 			return argument.trim_prefix(prefix)
 	return ""
+
+
+func _parse(value: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(value)
+	return parsed if parsed is Dictionary else {}
