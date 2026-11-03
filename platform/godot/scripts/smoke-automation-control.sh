@@ -75,6 +75,10 @@ grep -Fq 'res://home.tscn' <<<"${home}"
 grep -Fq 'THE LAST SIGNAL' <<<"${home}"
 "${command[@]}" screenshot home-smoke >/dev/null
 test -s "${state_dir}/automation/screenshots/home-smoke.png"
+pad_result="$(${command[@]} pad 0 dpad_right)"
+grep -Fq '"button":"dpad_right"' <<<"${pad_result}"
+grep -Fq '"device":0' <<<"${pad_result}"
+grep -Fq '"ok":true' <<<"${pad_result}"
 
 "${command[@]}" press enter >/dev/null
 sleep 0.8

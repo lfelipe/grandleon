@@ -33,11 +33,13 @@ Each portable PC bundle also has a private, local file-control channel under
 `runtime/automation`. It lets test and support tooling inspect visible UI text,
 send a bounded keyboard command, and ask Godot to capture its own viewport,
 without depending on Steam or compositor screenshots. Use
-`control-pc.sh inspect`, `control-pc.sh screenshot NAME`, or
-`control-pc.sh press KEY` while the game is running. Commands and JSON results
-stay inside the persistent runtime directory, paths are never embedded in a
-project or bundle, and no network listener is opened. Set
-`GRANDLEON_AUTOMATION=0` to disable the channel entirely.
+`control-pc.sh inspect`, `control-pc.sh screenshot NAME`,
+`control-pc.sh press KEY`, or `control-pc.sh pad DEVICE BUTTON` while the game
+is running. Inspection reports only numeric connected-pad slots, never device
+names or identifiers. Commands and JSON results stay inside the persistent
+runtime directory, paths are never embedded in a project or bundle, and no
+network listener is opened. Set `GRANDLEON_AUTOMATION=0` to disable the channel
+entirely.
 
 ## Create and play projects
 

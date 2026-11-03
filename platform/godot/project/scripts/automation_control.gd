@@ -22,6 +22,20 @@ const KEY_CODES := {
 	"s": KEY_S,
 	"w": KEY_W,
 }
+const PAD_BUTTONS := {
+	"a": JOY_BUTTON_A,
+	"b": JOY_BUTTON_B,
+	"x": JOY_BUTTON_X,
+	"y": JOY_BUTTON_Y,
+	"start": JOY_BUTTON_START,
+	"back": JOY_BUTTON_BACK,
+	"dpad_left": JOY_BUTTON_DPAD_LEFT,
+	"dpad_right": JOY_BUTTON_DPAD_RIGHT,
+	"dpad_up": JOY_BUTTON_DPAD_UP,
+	"dpad_down": JOY_BUTTON_DPAD_DOWN,
+	"left_shoulder": JOY_BUTTON_LEFT_SHOULDER,
+	"right_shoulder": JOY_BUTTON_RIGHT_SHOULDER,
+}
 
 var control_root := ""
 var inbox_dir := ""
@@ -117,6 +131,21 @@ func _execute(command_id: String, command: Dictionary) -> void:
 			_push_key(int(KEY_CODES[key_name]), control_pressed, true)
 			call_deferred("_push_key", int(KEY_CODES[key_name]), control_pressed, false)
 			_write_result(command_id, operation, true, {"key": key_name})
+		"pad":
+			var device := int(command.get("device", -1))
+			var button_name := String(command.get("button", "")).to_lower()
+			if device < 0 or device > 31:
+				_write_result(command_id, operation, false, {"error": "invalid device"})
+				return
+			if not PAD_BUTTONS.has(button_name):
+				_write_result(command_id, operation, false, {"error": "unsupported button"})
+				return
+			_push_pad(device, int(PAD_BUTTONS[button_name]), true)
+			call_deferred("_push_pad", device, int(PAD_BUTTONS[button_name]), false)
+			_write_result(
+				command_id, operation, true,
+				{"device": device, "button": button_name}
+			)
 		"quit":
 			_write_result(command_id, operation, true, {})
 			get_tree().quit()
@@ -147,16 +176,28 @@ func _push_key(keycode: Key, control_pressed: bool, pressed: bool) -> void:
 	get_tree().root.push_input(event, true)
 
 
+func _push_pad(device: int, button: int, pressed: bool) -> void:
+	var event := InputEventJoypadButton.new()
+	event.device = device
+	event.button_index = button
+	event.pressed = pressed
+	get_tree().root.push_input(event, true)
+
+
 func _inspect_scene() -> Dictionary:
 	var scene := get_tree().current_scene
 	var controls: Array[Dictionary] = []
 	if scene != null:
 		_collect_controls(scene, scene, controls)
 	var focused := get_viewport().gui_get_focus_owner()
+	var joypads: Array[int] = []
+	for device: int in Input.get_connected_joypads():
+		joypads.append(device)
 	return {
 		"scene": scene.scene_file_path if scene != null else "",
 		"focus": str(scene.get_path_to(focused)) if scene != null and focused != null else "",
 		"viewport": [get_viewport().size.x, get_viewport().size.y],
+		"joypads": joypads,
 		"controls": controls,
 	}
 

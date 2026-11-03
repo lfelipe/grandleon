@@ -10,8 +10,10 @@ usage() {
         "usage: $0 inspect" \
         "       $0 screenshot [NAME]" \
         "       $0 press KEY" \
+        "       $0 pad DEVICE BUTTON" \
         "       $0 quit" \
-        "KEY: enter escape space tab left right up down a b d e f q s w ctrl_enter"
+        "KEY: enter escape space tab left right up down a b d e f q s w ctrl_enter" \
+        "BUTTON: a b x y start back dpad_left dpad_right dpad_up dpad_down left_shoulder right_shoulder"
 }
 
 safe_token() {
@@ -40,6 +42,12 @@ case "${operation}" in
         [[ $# -eq 1 ]] || { usage >&2; exit 64; }
         safe_token "$1" || { usage >&2; exit 64; }
         payload="{\"op\":\"press\",\"key\":\"$1\"}"
+        ;;
+    pad)
+        [[ $# -eq 2 && "$1" =~ ^[0-9]{1,2}$ ]] || { usage >&2; exit 64; }
+        (( 10#$1 <= 31 )) || { usage >&2; exit 64; }
+        safe_token "$2" || { usage >&2; exit 64; }
+        payload="{\"op\":\"pad\",\"device\":$((10#$1)),\"button\":\"$2\"}"
         ;;
     *)
         usage >&2
