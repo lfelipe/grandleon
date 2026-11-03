@@ -185,9 +185,9 @@ func _test_relay_terrain_pack() -> void:
 	_expect("graphics profile parses", document is Dictionary, true)
 	if not document is Dictionary:
 		return
-	var terrain_scenes: Dictionary = document.get("profiles", {}).get(
-		"voxel-sprites", {}
-	).get("assets", {}).get("terrainScenes", {})
+	var hybrid: Dictionary = document.get("profiles", {}).get("voxel-sprites", {})
+	var terrain_scenes: Dictionary = hybrid.get("assets", {}).get("terrainScenes", {})
+	_test_production_sprite_pack(hybrid)
 	var expected := ["water", "road", "forest", "mountain", "sand", "ruins", "grass"]
 	for terrain_name: String in expected:
 		_expect("%s terrain is bound" % terrain_name, terrain_scenes.has(terrain_name), true)
@@ -218,6 +218,76 @@ func _test_relay_terrain_pack() -> void:
 	var inherited_scenes: Dictionary = voxel.get("assets", {}).get("terrainScenes", {})
 	_expect("full-voxel profile inherits the relay terrain pack", inherited_scenes, terrain_scenes)
 	_expect("full-voxel profile keeps 3D characters", voxel.get("characterRenderer"), "voxel")
+
+
+func _test_production_sprite_pack(profile: Dictionary) -> void:
+	var bindings: Dictionary = profile.get("assets", {}).get("characterSprites", {})
+	var expected := {
+		"commander|amber|scifi|first": "res://art/characters/rook_commander_hd.png",
+		"rogue|amber|scifi|first": "res://art/characters/kestrel_rogue_hd.png",
+		"stormcaller|violet|scifi|first": "res://art/characters/morrow_stormcaller_hd.png",
+		"beast|violet|scifi|first": "res://art/characters/relay_beast_hd.png",
+	}
+	for key: String in expected:
+		_expect("%s sprite is bound" % key, bindings.has(key), true)
+		if not bindings.has(key):
+			continue
+		var binding: Dictionary = bindings[key]
+		var path := String(binding.get("path", ""))
+		_expect("%s sprite path" % key, path, expected[key])
+		_expect("%s sprite grid width" % key, int(binding.get("width", 0)), 1772)
+		_expect("%s sprite grid height" % key, int(binding.get("height", 0)), 886)
+		_expect("%s sprite columns" % key, int(binding.get("columns", 0)), 4)
+		_expect("%s sprite rows" % key, int(binding.get("rows", 0)), 2)
+		_expect("%s sprite exists" % key, ResourceLoader.exists(path, "Texture2D"), true)
+		if ResourceLoader.exists(path, "Texture2D"):
+			var texture := ResourceLoader.load(path, "Texture2D") as Texture2D
+			_expect("%s sprite loads" % key, texture != null, true)
+			if texture != null:
+				_expect("%s image width" % key, texture.get_width(), 1772)
+				_expect("%s image height" % key, texture.get_height(), 886)
+
+	var art = ArtLibrary.new()
+	art.configure_profile(profile)
+	var production_units := [
+		{
+			"label": "Rook",
+			"unit": {"archetype": 5, "colour": 4, "style": 1, "figure": 0},
+			"path": "res://art/characters/rook_commander_hd.png",
+		},
+		{
+			"label": "Kestrel",
+			"unit": {"archetype": 6, "colour": 4, "style": 1, "figure": 0},
+			"path": "res://art/characters/kestrel_rogue_hd.png",
+		},
+		{
+			"label": "Morrow",
+			"unit": {"archetype": 3, "colour": 3, "style": 1, "figure": 0},
+			"path": "res://art/characters/morrow_stormcaller_hd.png",
+		},
+		{
+			"label": "Relay beast",
+			"unit": {"archetype": 7, "colour": 3, "style": 1, "figure": 0},
+			"path": "res://art/characters/relay_beast_hd.png",
+		},
+	]
+	for entry: Dictionary in production_units:
+		var frame: Dictionary = art.character_frame(entry.unit, "idle", 0.6)
+		_expect(
+			"%s resolves through its committed replacement" % String(entry.label),
+			frame.path,
+			entry.path
+		)
+		_expect(
+			"%s replacement keeps its cell" % String(entry.label),
+			frame.cell_size,
+			Vector2i(443, 443)
+		)
+	var kestrel := {"archetype": 6, "colour": 4, "style": 1, "figure": 0}
+	var idle: Dictionary = art.character_frame(kestrel, "idle", 0.6)
+	_expect("Kestrel idle uses its second pose", idle.frame, 1)
+	_expect("Kestrel Crosscut uses its follow-through", art.character_frame(kestrel, "attack", 0.11).frame, 5)
+	_expect("Kestrel Veil uses its cast pose", art.character_frame(kestrel, "ability").frame, 6)
 
 
 func _test_terrain_scene_selector() -> void:

@@ -25,7 +25,7 @@ speed to a polished PC build, not the eventual production rate.
 
 | Profile | Already real | Still blockout work | Evidence from the capture |
 |---|---|---|---|
-| Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion, and one integrated 443-pixel-cell replacement | a cohesive higher-resolution roster and authored effects | most cohesive today, but depth and lighting remain limited |
+| Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion, and a complete four-archetype roster of 443-pixel-cell replacements | richer animation, variant characters, and authored effects | most cohesive today, but depth and lighting remain limited |
 | 3D diorama + 2D characters | 3D camera, lit terrain, water, bridges, trees, mountains, manifest-defined sprite pivots and animation | authored meshes/materials, sprite-facing and shadow polish | largest immediate upgrade while retaining the existing character library |
 | Voxel terrain + 2D characters | scene-authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, per-tile fallback, and manifest-driven billboard animation | authored variants, palette/material polish, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
 | Full voxel | the shared terrain pack, props, the complete encounter roster as imported skinned GLBs, one humanoid topology reused by three distinct characters, a distinct quadruped rig, explicit clip remapping, semantic in-place animation, per-archetype fallback, lighting | palette/material polish, richer silhouettes and motion | the entire real encounter is imported while asset-by-asset fallback remains available elsewhere |
@@ -69,9 +69,10 @@ animation names, and fallbacks.
   particles, lighting overlays, camera motion, richer backdrops, and HD packs
   can take it further without a renderer rewrite.
 - **Illustrated 2D** has a high ceiling but makes animation the dominant art
-  cost. Its dimensions, pivots, and animation clips have a manifest contract,
-  and the integrated Rook sheet proves a non-32-pixel replacement in play. A
-  cohesive roster remains the production task.
+  cost. Its dimensions, pivots, and animation clips have a manifest contract.
+  The integrated Rook, Kestrel, Morrow, and relay-beast sheets prove a cohesive
+  non-32-pixel encounter roster in play, with independent fallback for every
+  binding. Richer movement and combat animation remain production tasks.
 - **3D diorama + 2D characters** gives the fastest dramatic lighting and depth.
   It requires careful billboard, shadow, and scale treatment so characters
   belong to the scene.
