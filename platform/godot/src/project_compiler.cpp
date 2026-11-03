@@ -202,6 +202,13 @@ void GrandleonProjectCompiler::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
+            "add_role_from_template", "source_json",
+            "template_unit_type_id", "unit_type_id", "class_id", "name"
+        ),
+        &GrandleonProjectCompiler::add_role_from_template
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
             "add_campaign_member", "source_json", "campaign_id",
             "join_node_id", "member_id", "name", "unit_type_id"
         ),
@@ -965,6 +972,35 @@ gd::Dictionary GrandleonProjectCompiler::add_unit_type_from_template(
         gc::add_source_unit_type_from_template_json(
             narrow(source_json), narrow(template_unit_type_id),
             narrow(unit_type_id), narrow(name)
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::add_role_from_template(
+    const gd::String& source_json,
+    const gd::String& template_unit_type_id,
+    const gd::String& unit_type_id,
+    const gd::String& class_id,
+    const gd::String& name
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated =
+        gc::add_source_role_from_template_json(
+            narrow(source_json), narrow(template_unit_type_id),
+            narrow(unit_type_id), narrow(class_id), narrow(name)
         );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {

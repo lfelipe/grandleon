@@ -837,16 +837,30 @@ func _next_role_id() -> String:
 	return "role_%d" % sequence
 
 
+func _next_class_id(role_id: String) -> String:
+	var used: Array[String] = []
+	for value: Variant in project.get("classes", []):
+		if value is Dictionary:
+			used.append(str(value.get("id", "")))
+	var candidate := "%s_baseline" % role_id
+	var sequence := 2
+	while used.has(candidate):
+		candidate = "%s_baseline_%d" % [role_id, sequence]
+		sequence += 1
+	return candidate
+
+
 func _create_role() -> void:
 	var name := new_role_name.text.strip_edges()
 	if name.is_empty() or new_role_template.selected < 0:
 		_set_status("ROLE NAME AND STARTING POINT ARE REQUIRED", true)
 		return
 	var role_id := _next_role_id()
-	var updated: Dictionary = compiler.add_unit_type_from_template(
+	var updated: Dictionary = compiler.add_role_from_template(
 		source,
 		_selected_metadata(new_role_template),
 		role_id,
+		_next_class_id(role_id),
 		name
 	)
 	if not updated.ok:

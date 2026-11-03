@@ -2446,6 +2446,42 @@ void creates_a_role_from_a_known_good_template() {
             ),
         "role creation refuses missing templates, duplicate ids, and empty names"
     );
+
+    const auto independent = gc::add_source_role_from_template_json(
+        source, "blue_unit", "trail_warden", "trail_warden_baseline",
+        "Trail Warden"
+    );
+    const auto independent_parsed =
+        gc::parse_source_project_json(independent.json);
+    expect(
+        independent && independent_parsed &&
+            independent_parsed.source.unit_types.size() == 3 &&
+            independent_parsed.source.classes.size() == 2 &&
+            independent_parsed.source.unit_types.back().class_id ==
+                grandleon::core::stable_content_id_v1(
+                    "trail_warden_baseline"
+                ) &&
+            independent_parsed.source.classes.back().id ==
+                grandleon::core::stable_content_id_v1(
+                    "trail_warden_baseline"
+                ) &&
+            independent_parsed.source.classes.back().name == "Trail Warden" &&
+            independent_parsed.source.classes.back().base_stats.health ==
+                independent_parsed.source.classes.front().base_stats.health &&
+            gc::compile(independent_parsed.source),
+        "a creator role copy owns an independent working class baseline"
+    );
+    expect(
+        !gc::add_source_role_from_template_json(
+            source, "blue_unit", "trail_warden", "vanguard",
+            "Trail Warden"
+        ) &&
+            !gc::add_source_role_from_template_json(
+                source, "blue_unit", "trail_warden", "Bad Baseline",
+                "Trail Warden"
+            ),
+        "independent role creation refuses duplicate and invalid baselines"
+    );
 }
 
 void authors_campaign_supplies_without_editing_grant_arrays() {

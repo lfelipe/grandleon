@@ -132,6 +132,8 @@ func _run() -> void:
 	editor.new_role_name.text = "Trail Warden"
 	editor._create_role()
 	_expect("new role is added to portable source", _parse(editor.source).unitTypes.size(), 4)
+	_expect("new role receives its own baseline", _parse(editor.source).classes.size(), 4)
+	_expect("new role does not share template tuning", str(_parse(editor.source).unitTypes[-1].classId), "role_1_baseline")
 	_expect("new role is selected for the waiting character", str(editor.add_role.get_item_metadata(editor.add_role.selected)), "role_1")
 	_expect("new role creation returns to role choice", editor.add_role.has_focus(), true)
 	editor.add_name.text = "Ivo"
@@ -160,6 +162,7 @@ func _run() -> void:
 		_expect("renamed founding hero persists", str(stored.project.campaigns[0].roster[0].id), first_id)
 		_expect("renamed founding hero name persists", str(stored.project.campaigns[0].roster[0].name), "Aren of the Vale")
 		_expect("new role persists", str(stored.project.unitTypes[-1].name), "Trail Warden")
+		_expect("independent role baseline persists", str(stored.project.classes[-1].name), "Trail Warden")
 		_expect("saved starting supplies persist", int(stored.project.campaigns[0].startingStore[0].quantity), 1)
 		_expect("saved chapter rewards persist", stored.project.campaigns[0].flow.nodes[0].grants[0].has("weaponId"), true)
 		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")

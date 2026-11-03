@@ -5359,6 +5359,107 @@ SourceTextResult add_source_unit_type_from_template_json(
     return result;
 }
 
+SourceTextResult add_source_role_from_template_json(
+    std::string_view source_json,
+    std::string_view template_unit_type_id,
+    std::string_view unit_type_id,
+    std::string_view class_id,
+    std::string_view name
+) {
+    SourceTextResult result;
+    if (!valid_source_key(class_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.classes",
+            "new role baseline identity must be a stable source-key string"
+        );
+        return result;
+    }
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    const SourceTextResult role_added =
+        add_source_unit_type_from_template_json(
+            source_json, template_unit_type_id, unit_type_id, name
+        );
+    if (!role_added) return role_added;
+
+    Json document;
+    try {
+        document = JsonParser(role_added.json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* unit_types =
+        root == nullptr ? nullptr : mutable_array(*root, "unitTypes");
+    Array* classes = root == nullptr ? nullptr : mutable_array(*root, "classes");
+    Object* role = unit_types == nullptr
+                       ? nullptr
+                       : find_object_by_id(*unit_types, unit_type_id);
+    if (role == nullptr || classes == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+            "copied role or class library is not writable"
+        );
+        return result;
+    }
+    if (find_object_by_id(*classes, class_id) != nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.classes",
+            "role baseline id already exists"
+        );
+        return result;
+    }
+    const auto role_class = role->find("classId");
+    const auto* template_class_id =
+        role_class == role->end()
+            ? nullptr
+            : std::get_if<std::string>(&role_class->second.value);
+    Object* template_class =
+        template_class_id == nullptr
+            ? nullptr
+            : find_object_by_id(*classes, *template_class_id);
+    if (template_class == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.classes",
+            "role template baseline was not found"
+        );
+        return result;
+    }
+    if (classes->size() >= 100000) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.classes",
+            "project cannot contain more than 100000 role baselines"
+        );
+        return result;
+    }
+    Object copied_class = *template_class;
+    copied_class["id"] = Json{std::string(class_id)};
+    copied_class["name"] = Json{std::string(name)};
+    classes->push_back(Json{std::move(copied_class)});
+    (*role)["classId"] = Json{std::string(class_id)};
+
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+        "new role baseline would make this playable project invalid"
+    );
+    return result;
+}
+
 SourceTextResult add_source_campaign_member_json(
     std::string_view source_json,
     std::string_view campaign_id,

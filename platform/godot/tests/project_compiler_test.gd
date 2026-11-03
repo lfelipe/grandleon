@@ -216,6 +216,16 @@ func _init() -> void:
 				_expect("new role has its visible name", role_data.unitTypes[-1].name, "Editor Role")
 				_expect("new role keeps its class", role_data.unitTypes[-1].classId, source_data.unitTypes[0].classId)
 				_expect("new role remains playable", compiler.compile_source_json(added_role.source).ok, true)
+			var independent_role: Dictionary = compiler.add_role_from_template(
+				source, member_role, "editor_independent", "editor_independent_baseline", "Independent Role"
+			)
+			_expect("independent role template copy succeeds", independent_role.ok, true)
+			if independent_role.ok:
+				var independent_data: Dictionary = JSON.parse_string(independent_role.source)
+				_expect("independent role adds a class baseline", independent_data.classes.size(), source_data.classes.size() + 1)
+				_expect("independent role owns its baseline", independent_data.unitTypes[-1].classId, "editor_independent_baseline")
+				_expect("independent baseline keeps its tuning", int(independent_data.classes[-1].baseStats.health), int(source_data.classes[0].baseStats.health))
+				_expect("independent role remains playable", compiler.compile_source_json(independent_role.source).ok, true)
 			var added_member: Dictionary = compiler.add_campaign_member(
 				source, campaign_id, "", "editor_hero", "Editor Hero", member_role
 			)

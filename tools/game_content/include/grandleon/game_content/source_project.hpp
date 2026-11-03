@@ -327,6 +327,17 @@ struct SourceMapCell final {
     std::string_view name
 );
 
+// Creates an independently tunable role by copying both a known-good unit
+// type and its class baseline. The copied role keeps faction, presentation,
+// and starting kit, but later baseline edits cannot change the template role.
+[[nodiscard]] SourceTextResult add_source_role_from_template_json(
+    std::string_view source_json,
+    std::string_view template_unit_type_id,
+    std::string_view unit_type_id,
+    std::string_view class_id,
+    std::string_view name
+);
+
 // Adds a persistent campaign character either to the starting company or to
 // one chapter's recruits. The character uses an existing portable unit type;
 // map placement remains an explicit battle-authoring choice.
