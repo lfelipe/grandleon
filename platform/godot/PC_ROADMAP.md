@@ -200,8 +200,6 @@ raise either console's memory or palette requirements.
   a complete two-person campaign still need the user's hands-on test.
 - The installed game has UI and combat cues, but the current Xvfb demo recorder
   does not route system audio into its video capture.
-- Model integration is bounded and optional, but a protected LAN endpoint still
-  needs an external token and model selection supplied at runtime.
 - The portable bundle is large because it carries the pinned Godot binary; a
   smaller export-template build can be evaluated after the PC launch loop is
   stable.

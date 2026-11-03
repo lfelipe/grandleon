@@ -294,7 +294,7 @@ func _create_named_campaign_from_text(_value: String) -> void:
 
 func _create_named_campaign(open_editor := true) -> void:
 	_create_campaign_from(
-		"res://content/templates/starter_battle.json",
+		"res://content/templates/starter_campaign.json",
 		new_campaign_title.text,
 		open_editor
 	)
@@ -499,7 +499,7 @@ func _build_import_layer() -> void:
 
 
 func _create_starter() -> void:
-	_create_from("res://content/templates/starter_battle.json", "Untitled Adventure")
+	_create_from("res://content/templates/starter_campaign.json", "Untitled Adventure")
 
 
 func _create_blank() -> void:

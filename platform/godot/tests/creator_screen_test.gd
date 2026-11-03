@@ -39,7 +39,15 @@ func _run() -> void:
 			var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 			var compiled: Dictionary = compiler.compile_source_json(loaded.source)
 			_expect("starter project compiles", compiled.ok, true)
-			_expect("starter has a campaign", loaded.project.campaigns.is_empty(), false)
+			_expect("starter has one campaign", loaded.project.campaigns.size(), 1)
+			_expect("starter has one map", loaded.project.maps.size(), 1)
+			_expect("starter has one story scene", loaded.project.dialogues.size(), 1)
+			var campaign: Dictionary = loaded.project.campaigns[0]
+			_expect("starter has two heroes", campaign.roster.size(), 2)
+			_expect("starter begins with story", campaign.flow.nodes[0].kind, "story")
+			_expect("starter battle follows story", campaign.flow.nodes[1].kind, "encounter")
+			_expect("starter supports player two", int(campaign.flow.nodes[1].placements[1].player), 2)
+			_expect("starter scales for co-op", int(campaign.flow.nodes[1].placements[4].minimumPlayers), 2)
 	_expect("creator reports creation", screen.status_label.text, "CREATED  /  Signal Road  /  READY TO EDIT")
 	if projects.size() == 1:
 		var original_id := str(projects[0].id)
@@ -136,7 +144,7 @@ func _run() -> void:
 		await process_frame
 		_expect("draft opens in play scene", current_scene.name, "PC")
 		if current_scene.name == "PC":
-			_expect("draft campaign selected", current_scene.campaign_key, "demo_campaign")
+			_expect("draft campaign selected", current_scene.campaign_key, "first_adventure")
 			_expect("draft session started", current_scene.session != null, true)
 
 	if failures == 0:

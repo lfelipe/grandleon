@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "1.2.0",
+  "packageId": "00000000-0000-4000-8000-000000000001",
+  "gameId": "new_adventure",
+  "title": "New Adventure",
+  "contentRevision": "0.1.0",
+  "themeId": "temperate",
+  "characterStyleId": "medieval",
+  "defaultTurnOrder": "sideBlocks",
+  "characterLoss": "recoverable",
+  "weaponTypes": [
+    { "id": "blade", "name": "Blade" },
+    { "id": "focus", "name": "Focus" }
+  ],
+  "itemTypes": [],
+  "classes": [
+    {
+      "id": "young_guardian",
+      "name": "Young Guardian",
+      "baseStats": {
+        "health": 13,
+        "movement": 4,
+        "strength": 5,
+        "defense": 3,
+        "resistance": 2,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": ["blade"]
+    },
+    {
+      "id": "young_adept",
+      "name": "Young Adept",
+      "baseStats": {
+        "health": 11,
+        "movement": 4,
+        "strength": 3,
+        "defense": 2,
+        "resistance": 4,
+        "magic": 5,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": ["focus"]
+    },
+    {
+      "id": "road_raider",
+      "name": "Road Raider",
+      "baseStats": {
+        "health": 7,
+        "movement": 3,
+        "strength": 3,
+        "defense": 1,
+        "resistance": 1,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": ["blade"]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "traveller_blade",
+      "name": "Traveller's Blade",
+      "weaponTypeId": "blade",
+      "power": 1,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    },
+    {
+      "id": "apprentice_focus",
+      "name": "Apprentice Focus",
+      "weaponTypeId": "focus",
+      "power": 1,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 100
+    },
+    {
+      "id": "raider_blade",
+      "name": "Raider Blade",
+      "weaponTypeId": "blade",
+      "power": 1,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 90
+    }
+  ],
+  "items": [],
+  "factions": [
+    { "id": "travellers", "name": "Travellers" },
+    { "id": "raiders", "name": "Road Raiders" }
+  ],
+  "abilities": [],
+  "unitTypes": [
+    {
+      "id": "first_hero",
+      "name": "First Hero",
+      "classId": "young_guardian",
+      "factionId": "travellers",
+      "startingWeaponIds": ["traveller_blade"],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first"
+    },
+    {
+      "id": "second_hero",
+      "name": "Second Hero",
+      "classId": "young_adept",
+      "factionId": "travellers",
+      "startingWeaponIds": ["apprentice_focus"],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second"
+    },
+    {
+      "id": "raider",
+      "name": "Raider",
+      "classId": "road_raider",
+      "factionId": "raiders",
+      "startingWeaponIds": ["raider_blade"],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first"
+    }
+  ],
+  "maps": [
+    {
+      "id": "first_crossing",
+      "name": "First Crossing",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "forest", "grass", "grass", "road", "road", "grass", "grass", "forest",
+        "grass", "grass", "grass", "road", "road", "grass", "grass", "grass",
+        "grass", "grass", "bridge", "bridge", "bridge", "bridge", "grass", "grass",
+        "water", "water", "water", "water", "water", "water", "water", "water",
+        "grass", "grass", "grass", "road", "road", "grass", "grass", "grass",
+        "forest", "grass", "grass", "road", "road", "grass", "grass", "forest"
+      ],
+      "surroundings": { "mode": "automatic", "depth": 3 }
+    }
+  ],
+  "objectives": [
+    { "id": "defeat_all_opponents", "name": "Defeat all opponents" }
+  ],
+  "dialogues": [
+    {
+      "id": "first_steps_dialogue",
+      "name": "First Steps",
+      "cast": [
+        { "speaker": "Aren", "unitTypeId": "first_hero" },
+        { "speaker": "Mira", "unitTypeId": "second_hero" }
+      ],
+      "lines": [
+        {
+          "speaker": "Aren",
+          "text": "The road was quiet when we left home. I was hoping it would stay that way."
+        },
+        {
+          "speaker": "Mira",
+          "text": "Then let us make the crossing together. Whatever waits ahead, we choose the next step."
+        }
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "first_adventure",
+      "name": "First Adventure",
+      "roster": [
+        { "id": "aren", "name": "Aren", "unitTypeId": "first_hero" },
+        { "id": "mira", "name": "Mira", "unitTypeId": "second_hero" }
+      ],
+      "dialogueIds": ["first_steps_dialogue"],
+      "objectiveIds": ["defeat_all_opponents"],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "first_steps",
+        "nodes": [
+          {
+            "id": "first_steps",
+            "name": "First Steps",
+            "kind": "story",
+            "dialogueIds": ["first_steps_dialogue"],
+            "transitions": [
+              {
+                "id": "reach_the_crossing",
+                "targetNodeId": "first_battle",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "first_battle",
+            "name": "Hold the Crossing",
+            "kind": "encounter",
+            "mapId": "first_crossing",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "aren",
+                "memberId": "aren",
+                "unitTypeId": "first_hero",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "mira",
+                "memberId": "mira",
+                "unitTypeId": "second_hero",
+                "side": "first",
+                "player": 2,
+                "x": 1,
+                "y": 4
+              },
+              {
+                "id": "raider_north",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "raider_south",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "raider_coop",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 7,
+                "y": 2,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": ["defeat_all_opponents"],
+            "transitions": [
+              {
+                "id": "crossing_won",
+                "targetNodeId": "chapter_complete",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "chapter_complete",
+            "name": "The Road Opens",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

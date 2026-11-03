@@ -154,8 +154,8 @@ bundle remains ready for the target PC's persistent runtime directory.
 
 Before an installed-test release, run the aggregate gate as well. It builds and
 runs the native test suite, then serially exercises every Godot integration
-smoke for graphics, controls, co-op, campaigns, checkpoints, the creator, local
-model fallback, and project portability before repeating packaged acceptance:
+smoke for graphics, controls, co-op, campaigns, checkpoints, project editing,
+and project portability before repeating packaged acceptance:
 
 ```sh
 platform/godot/scripts/smoke-pc-release.sh \
@@ -258,7 +258,7 @@ sound-effects volume persist after they are changed in the session menu. The
 versioned document contains only those four presentation values and lives
 under Godot's `user://` data directory;
 in the portable bundle that remains below `runtime/data/`. It cannot contain a
-model endpoint, token name, controller identity, machine path, project field,
+service endpoint, token name, controller identity, machine path, project field,
 or campaign state. `GRANDLEON_GRAPHICS` remains an explicit per-launch
 override and does not silently replace the stored choice. Remove
 `pc-presentation.json` and its optional `.previous` recovery file to reset the
