@@ -56,6 +56,24 @@ describe("source form model", () => {
     }));
   });
 
+  it("does not require a member of an absent optional group", () => {
+    // A map without authored surroundings is complete. `mode` becomes
+    // required only if the surroundings object exists; drawing its empty menu
+    // as required would make an unrelated map rename impossible to leave.
+    const mode = sourceRecordFields("maps").find(
+      (field) => field.path.join(".") === "surroundings.mode"
+    );
+    expect(mode).toEqual(expect.objectContaining({
+      kind: "select",
+      required: false
+    }));
+
+    // A required parent still carries the schema's requirement to its child.
+    expect(sourceRecordFields("classes").find(
+      (field) => field.path.join(".") === "baseStats.health"
+    )).toEqual(expect.objectContaining({ required: true }));
+  });
+
   it("offers accuracy as a bounded percentage on weapons and abilities", () => {
     // The field an author sets to make a strike uncertain, on both records
     // that carry one, with the schema's own bounds rather than the form's.

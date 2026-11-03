@@ -859,7 +859,17 @@ function flatten(
   ) {
     const requiredNames = new Set(resolved.required ?? []);
     return Object.entries(resolved.properties).flatMap(([name, property]) =>
-      flatten(filename, property, [...path, name], requiredNames.has(name))
+      // A required member of an optional object is conditional: it is needed
+      // when that object exists, but an empty control must not make the absent
+      // object mandatory. The source validator still judges an object once a
+      // sibling control creates it. Required objects such as baseStats carry
+      // their children's requirements through unchanged.
+      flatten(
+        filename,
+        property,
+        [...path, name],
+        required && requiredNames.has(name)
+      )
     );
   }
 
