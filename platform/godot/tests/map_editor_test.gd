@@ -169,6 +169,7 @@ func _run() -> void:
 	_expect("encounter selector populated", editor.encounter_select.item_count > 0, true)
 	_expect("ally placement shown on board", editor.grid.get_child(6).tooltip_text.contains("FIRST"), true)
 	_expect("enemy placement shown on board", editor.grid.get_child(8).tooltip_text.contains("SECOND"), true)
+	_expect("board tooltip hides enemy source identity", editor.grid.get_child(8).tooltip_text.contains("river_watch_leader"), false)
 	_expect("map selector receives controller focus", editor.map_select.has_focus(), true)
 	editor._open_setup()
 	await process_frame
@@ -343,6 +344,10 @@ func _run() -> void:
 	_expect("add unit picker opens", editor.placement_layer.visible, true)
 	_expect("enemy is the default placement side", editor.placement_side, "second")
 	_expect("enemy unit types are available", editor.placement_candidates.is_empty(), false)
+	var candidate_name := str(editor.placement_candidates[0].name)
+	var candidate_source_id := str(editor.placement_candidates[0].unit_type_id)
+	_expect("placement choice uses the visible character name", editor.placement_candidate_label.text.contains(candidate_name), true)
+	_expect("placement choice hides the source identity", editor.placement_candidate_label.text.contains(candidate_source_id), false)
 	editor._toggle_placement_side()
 	_expect("used ally is unavailable", editor.placement_candidates.size(), 0)
 	_expect("empty ally picker disables placement", editor.placement_apply_button.disabled, true)
@@ -356,6 +361,8 @@ func _run() -> void:
 	var with_added_unit: Dictionary = _parse(editor.source)
 	_expect("enemy unit is added", with_added_unit.campaigns[0].flow.nodes[0].placements.size(), 3)
 	_expect("added enemy side", with_added_unit.campaigns[0].flow.nodes[0].placements[2].side, "second")
+	_expect("placement result names the visible character", editor.status_label.text.contains(candidate_name.to_upper()), true)
+	_expect("placement result hides the generated identity", editor.status_label.text.contains(candidate_source_id.to_upper()), false)
 	_expect("add unit is one undo command", editor.undo_stack.size(), 6)
 	editor._select_tool("scaling")
 	editor._paint_cell(3)
@@ -468,6 +475,7 @@ func _run() -> void:
 	_expect("objective editor creates a definition", with_objective.objectives.size(), objective_count_before + 1)
 	_expect("new objective is attached to encounter", with_objective.campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
 	_expect("new objective carries authored rounds", int(with_objective.objectives[-1].rounds), 4)
+	_expect("objective summary hides its source identity", editor.objective_candidate_label.text.contains("SURVIVE_ROUNDS"), false)
 	editor._close_objectives()
 	await process_frame
 

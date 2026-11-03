@@ -558,7 +558,7 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 					if str(placement.get("side", "second")) == "first" else ""
 				),
 				" / 2 PLAYERS" if int(placement.get("minimumPlayers", 1)) >= 2 else "",
-				str(placement.get("name", placement.get("id", "unit"))),
+				_placement_display_name(placement),
 			]
 		)
 	cell.tooltip_text += "\n" + "\n".join(details)
@@ -725,12 +725,40 @@ func _placement_at(index: int, width: int) -> Dictionary:
 	return {}
 
 
+func _unit_type_display_name(unit_type_id: String) -> String:
+	for value: Variant in project.get("unitTypes", []):
+		if value is Dictionary and str(value.get("id", "")) == unit_type_id:
+			return str(value.get("name", "Character"))
+	return "Character"
+
+
+func _member_display_name(member_id: String) -> String:
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return ""
+	for value: Variant in encounter.campaign.get("roster", []):
+		if value is Dictionary and str(value.get("id", "")) == member_id:
+			return str(value.get("name", "Character"))
+	return ""
+
+
+func _placement_display_name(placement: Dictionary) -> String:
+	var authored_name := str(placement.get("name", "")).strip_edges()
+	if not authored_name.is_empty():
+		return authored_name
+	var member_name := _member_display_name(str(placement.get("memberId", "")))
+	if not member_name.is_empty():
+		return member_name
+	return _unit_type_display_name(str(placement.get("unitTypeId", "")))
+
+
 func _add_unit_at(index: int, width: int) -> void:
 	var encounter := _current_encounter()
 	if encounter.is_empty() or pending_placement.is_empty():
 		_set_status("CHOOSE ADD UNIT AND A CHARACTER FIRST", true)
 		return
 	var node: Dictionary = encounter.node
+	var display_name := str(pending_placement.get("name", "Character"))
 	var placement_id := _unique_placement_id(
 		str(pending_placement.get("member_id", pending_placement.get("unit_type_id", "unit")))
 	)
@@ -758,7 +786,7 @@ func _add_unit_at(index: int, width: int) -> void:
 	_read_source()
 	_refresh_maps_after_edit(index)
 	_update_tool_selection()
-	_set_status("UNSAVED  /  ADDED %s" % placement_id.to_upper(), false)
+	_set_status("UNSAVED  /  ADDED %s" % display_name.to_upper(), false)
 
 
 func _remove_unit_at(index: int, width: int) -> void:
@@ -770,6 +798,7 @@ func _remove_unit_at(index: int, width: int) -> void:
 		return
 	var node: Dictionary = encounter.node
 	var placement_id := str(placement.get("id", ""))
+	var display_name := _placement_display_name(placement)
 	var removed: Dictionary = compiler.remove_placement(
 		source,
 		str(encounter.get("campaign_id", "")),
@@ -786,7 +815,7 @@ func _remove_unit_at(index: int, width: int) -> void:
 	dirty = true
 	_read_source()
 	_refresh_maps_after_edit(index)
-	_set_status("UNSAVED  /  REMOVED %s  /  UNDO TO RESTORE" % placement_id.to_upper(), false)
+	_set_status("UNSAVED  /  REMOVED %s  /  UNDO TO RESTORE" % display_name.to_upper(), false)
 
 
 func _toggle_placement_scaling_at(index: int, width: int) -> void:
@@ -802,6 +831,7 @@ func _toggle_placement_scaling_at(index: int, width: int) -> void:
 		return
 	var node: Dictionary = encounter.node
 	var placement_id := str(placement.get("id", ""))
+	var display_name := _placement_display_name(placement)
 	var was_scaled := int(placement.get("minimumPlayers", 1)) >= 2
 	var minimum_players := 1 if was_scaled else 2
 	var updated: Dictionary = compiler.set_placement_minimum_players(
@@ -823,7 +853,7 @@ func _toggle_placement_scaling_at(index: int, width: int) -> void:
 	_refresh_maps_after_edit(index)
 	_set_status(
 		"UNSAVED  /  %s %s" % [
-			placement_id.to_upper(),
+			display_name.to_upper(),
 			"ALWAYS PRESENT" if was_scaled else "ADDED FOR 2 PLAYERS",
 		],
 		false
@@ -843,6 +873,7 @@ func _toggle_placement_player_at(index: int, width: int) -> void:
 		return
 	var node: Dictionary = encounter.node
 	var placement_id := str(placement.get("id", ""))
+	var display_name := _placement_display_name(placement)
 	var current_player := clampi(int(placement.get("player", 1)), 1, 2)
 	var next_player := 2 if current_player == 1 else 1
 	var updated: Dictionary = compiler.set_placement_player(
@@ -863,7 +894,7 @@ func _toggle_placement_player_at(index: int, width: int) -> void:
 	_read_source()
 	_refresh_maps_after_edit(index)
 	_set_status(
-		"UNSAVED  /  %s BELONGS TO PLAYER %d" % [placement_id.to_upper(), next_player],
+		"UNSAVED  /  %s BELONGS TO PLAYER %d" % [display_name.to_upper(), next_player],
 		false
 	)
 
@@ -1071,9 +1102,10 @@ func _move_unit_at(index: int, width: int) -> void:
 				selected_placement_id = str(placement.get("id", ""))
 				if selected_placement_id.is_empty():
 					break
+				var display_name := _placement_display_name(placement)
 				_refresh_grid(index)
 				_set_status(
-					"MOVE %s  /  CHOOSE A DESTINATION" % selected_placement_id.to_upper(),
+					"MOVE %s  /  CHOOSE A DESTINATION" % display_name.to_upper(),
 					false
 				)
 				return
@@ -1089,6 +1121,11 @@ func _move_unit_at(index: int, width: int) -> void:
 				_set_status("UNIT MOVE CANCELLED", false)
 				return
 			break
+	var moved_name := "CHARACTER"
+	for placement_value: Variant in placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == selected_placement_id:
+			moved_name = _placement_display_name(placement_value)
+			break
 	var moved: Dictionary = compiler.move_placement(
 		source,
 		str(encounter.get("campaign_id", "")),
@@ -1101,7 +1138,6 @@ func _move_unit_at(index: int, width: int) -> void:
 		_set_status("MOVE REFUSED  /  %s" % _diagnostic_code(moved), true)
 		_focus_cell(index)
 		return
-	var moved_id := selected_placement_id
 	_push_undo(source)
 	source = moved.source
 	redo_stack.clear()
@@ -1109,7 +1145,7 @@ func _move_unit_at(index: int, width: int) -> void:
 	selected_placement_id = ""
 	_read_source()
 	_refresh_maps_after_edit(index)
-	_set_status("UNSAVED  /  MOVED %s" % moved_id.to_upper(), false)
+	_set_status("UNSAVED  /  MOVED %s" % moved_name.to_upper(), false)
 
 
 func _fill_from(index: int, width: int, terrain: Array) -> void:
@@ -1353,7 +1389,7 @@ func _update_placement_candidate() -> void:
 	var candidate: Dictionary = placement_candidates[placement_candidate_index]
 	placement_candidate_label.text = "%s\n%s  /  %d OF %d" % [
 		str(candidate.get("name", "Unit")),
-		str(candidate.get("unit_type_id", "")).to_upper(),
+		"ALLY" if placement_side == "first" else "ENEMY",
 		placement_candidate_index + 1,
 		placement_candidates.size(),
 	]
@@ -1472,7 +1508,7 @@ func _refresh_objective_targets() -> void:
 			"id": source_key,
 			"name": str(member_names.get(
 				source_key,
-				placement.get("name", placement.get("id", "Unit"))
+				_placement_display_name(placement)
 			)),
 			"side": str(placement.get("side", "second")),
 		})
@@ -1540,13 +1576,23 @@ func _objective_summary(objective: Dictionary) -> String:
 			_objective_kind_label(kind),
 			str(objective.get("side", "first")).to_upper(),
 		],
-		str(objective.get("id", "")).to_upper(),
 	])
 	if kind == "defeatTarget" or kind == "protectTarget":
-		lines.append("TARGET  /  %s" % str(objective.get("targetPlacementId", "")).to_upper())
+		lines.append(
+			"TARGET  /  %s" % _objective_target_display_name(
+				str(objective.get("targetPlacementId", ""))
+			).to_upper()
+		)
 	elif kind == "surviveRounds":
 		lines.append("ROUNDS  /  %d" % int(objective.get("rounds", 1)))
 	return "\n".join(lines)
+
+
+func _objective_target_display_name(target_id: String) -> String:
+	for target: Dictionary in objective_targets:
+		if str(target.get("id", "")) == target_id:
+			return str(target.get("name", "Character"))
+	return "Character"
 
 
 func _new_objective_name() -> String:
@@ -1574,7 +1620,7 @@ func _new_objective_summary() -> String:
 	if kind == "defeatTarget" or kind == "protectTarget":
 		lines.append(
 			"TARGET  /  %s" % (
-				str(objective_targets[objective_target_index].get("id", "")).to_upper()
+				str(objective_targets[objective_target_index].get("name", "Character")).to_upper()
 				if not objective_targets.is_empty()
 				else "NO PLACEMENT AVAILABLE"
 			)
@@ -1677,19 +1723,22 @@ func _apply_objective_action() -> void:
 			target_id,
 			objective_rounds if kind == "surviveRounds" else 0
 		)
-		_accept_objective_edit(added, "CREATED %s" % objective_id.to_upper(), objective_id)
+		_accept_objective_edit(
+			added, "CREATED %s" % _new_objective_name().to_upper(), objective_id
+		)
 		return
 
 	var objective: Dictionary = objective_candidates[objective_candidate_index]
 	var objective_id := str(objective.get("id", ""))
+	var objective_name := str(objective.get("name", "OBJECTIVE"))
 	var ids := _current_objective_ids()
 	var message := ""
 	if objective_mode == "assigned":
 		ids.erase(objective_id)
-		message = "REMOVED %s FROM ENCOUNTER" % objective_id.to_upper()
+		message = "REMOVED %s FROM ENCOUNTER" % objective_name.to_upper()
 	else:
 		ids.append(objective_id)
-		message = "ATTACHED %s" % objective_id.to_upper()
+		message = "ATTACHED %s" % objective_name.to_upper()
 	var packed := PackedStringArray(ids)
 	var updated: Dictionary = compiler.set_encounter_objectives(
 		source,

@@ -701,7 +701,7 @@ func _open_new_scene() -> void:
 	for backdrop: String in BACKDROPS:
 		new_scene_backdrop.add_item(backdrop.replace("_", " ").to_upper())
 	var scene_id := _next_scene_id()
-	new_scene_id_label.text = "PORTABLE ID  /  %s" % scene_id.to_upper()
+	new_scene_id_label.text = "A PORTABLE IDENTITY WILL BE CREATED AUTOMATICALLY"
 	new_scene_title.text = "New Scene %s" % scene_id.trim_prefix("scene_")
 	new_scene_text.text = "A new conversation begins."
 	new_scene_target.select(0)

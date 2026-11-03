@@ -168,6 +168,7 @@ func _run() -> void:
 	var dialogue_count: int = editor.dialogues.size()
 	editor._open_new_scene()
 	_expect("new scene overlay opens", editor.new_scene_layer.visible, true)
+	_expect("new scene identity is automatic rather than exposed", editor.new_scene_id_label.text.contains("SCENE_"), false)
 	_expect("campaign story moments are selectable", editor.story_targets.is_empty(), false)
 	_expect("portable characters are selectable", editor.scene_characters.is_empty(), false)
 	var selected_target: Dictionary = editor.story_targets[editor.new_scene_target.selected]
