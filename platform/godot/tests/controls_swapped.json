@@ -15,5 +15,9 @@
     "x": "1",
     "y": "2",
     "start": "MENU"
+  },
+  "stick": {
+    "pressThreshold": 0.90,
+    "releaseThreshold": 0.20
   }
 }

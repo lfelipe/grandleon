@@ -19,8 +19,8 @@ The separation is deliberate:
 | `.gpk` project | maps, characters, dialogue, rules, presentation choices | PC paths or local model settings |
 | C++ extension | package loading, campaign saves, legal ranges, deterministic commands, AI fallback | rendering or controller layout |
 | Godot project | rendering, animation, two-player input, optional model requests | combat rules or campaign outcomes |
-| `pc.local.json` | one machine's model endpoint and feature switches | project content |
-| `controls.local.json` | one machine's controller button mapping | project content or portable rules |
+| `runtime/local/pc.local.json` | one machine's model endpoint and feature switches | project content |
+| `runtime/local/controls.local.json` | one machine's controller and stick profile | project content or portable rules |
 
 The application opens on one small home screen. It lists the included game and
 locally created or imported games by title, followed by **Create / Edit Games**
@@ -178,6 +178,14 @@ starts the two-player `last_signal` campaign full-screen. No home-directory or
 host-specific path is compiled into the extension; the bundler checks the
 native binary and refuses it if the checkout path remains.
 
+Machine-only overrides belong in `runtime/local/`. When `runtime/` is linked
+to persistent PC storage, control, graphics, and optional-model settings
+survive atomic release upgrades without entering an immutable release. The
+launcher prefers that private directory and retains bundle-root override files
+only as a compatibility fallback. Packaged acceptance installs a temporary
+control profile there and proves that the real launcher applies it to both the
+home screen and gameplay.
+
 The bundle root also contains `grandleon-icon.png`, a 512-pixel launcher image.
 Use that file for the Steam shortcut and any desktop entry. Its stable location
 inside the bundle means an atomic release-symlink upgrade can retain one icon
@@ -254,8 +262,9 @@ is animating, the prompt explicitly says that another character can be
 commanded, matching the concurrent team-phase rules instead of implying a turn
 lock. Player readiness remains two compact identity-free lines above it.
 
-To remap buttons, copy `controls.example.json` to `controls.local.json` beside
-the launcher and change values under `buttons`. The optional `labels` object
+To remap buttons, copy `controls.example.json` to
+`runtime/local/controls.local.json` and change values under `buttons`. The
+optional `labels` object
 maps physical buttons to the short legends shown throughout play, dialogue,
 and the session menu; a five-button setup may use `1`, `2`, `3`, `4`, and
 `MENU` without pretending its controls are lettered like a gamepad. Labels are
@@ -268,8 +277,10 @@ activates the complete default profile instead of leaving the game partly
 controllable. Supported button values are `a`, `b`, `x`, `y`, `start`, `back`,
 `left_shoulder`, and `right_shoulder`; `none` is valid only for optional
 actions. Invalid labels reject the complete profile just like invalid bindings.
-The local file is ignored by Git, excluded from bundles, and discovered only
-at launch time; controller names and identities are never written into it.
+The local file is ignored by Git, excluded from immutable releases, and
+discovered only at launch time; controller names and identities are never
+written into it. Because it lives below the persistent runtime directory, a
+release upgrade does not replace it.
 
 The optional `stick` object adjusts navigation without changing a project. Its
 `pressThreshold` defaults to `0.78`: raise it toward `0.95` when a stick should
@@ -329,14 +340,15 @@ only the richer overlapping presentation differs on PC.
 The demo is complete with models disabled. Its authored dialogue, built-in
 enemy tactics, talk branch, and ending all remain available offline.
 
-To test an OpenAI-compatible local server, copy the example beside the bundle
-launcher and edit the copy:
+To test an OpenAI-compatible local server, copy the example into the persistent
+private configuration directory and edit the copy:
 
 ```sh
-cp pc.example.json pc.local.json
+cp pc.example.json runtime/local/pc.local.json
 ```
 
-`pc.local.json` is ignored by Git. The default endpoint is loopback, remote
+`runtime/local/pc.local.json` is ignored by Git and is not transferred with a
+release. The default endpoint is loopback, remote
 endpoints are refused unless `allowRemote` is explicitly enabled, and an API
 token is read from the environment variable named by `tokenEnv` rather than
 stored in project content. No request is made while `enabled` is false.
@@ -391,11 +403,12 @@ directions can be compared on the target PC without restarting the campaign.
 `content/graphics_profiles.json` is the versioned PC art contract for camera,
 lighting, sprite scale, renderer choice, and the terrain/material palette. To
 tune one PC without changing a project or committing machine details, copy
-`graphics.example.json` beside the launcher as `graphics.local.json` and edit
-only the values to override. `cameraImpulse` and bounded `textScale` values
+`graphics.example.json` to `runtime/local/graphics.local.json` and edit only
+the values to override. `cameraImpulse` and bounded `textScale` values
 supply the session's initial accessibility settings; the controller menu may
 then change either for the current run. The launcher discovers that ignored
-file at run time; its path and contents are never compiled into the bundle.
+persistent file at run time; its path and contents are never compiled into the
+bundle.
 
 An authored pack may also bind `assets.terrainScenes` by terrain name and
 `assets.characterScenes` by archetype to project resources. A character

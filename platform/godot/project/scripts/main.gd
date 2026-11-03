@@ -425,6 +425,8 @@ func _run_controls_smoke() -> void:
 		"end turn": controls.binding("end_turn") == "a",
 		"menu": controls.binding("menu") == "start",
 		"optional control": controls.button("previous_unit") < 0,
+		"stick press": is_equal_approx(controls.stick_press_threshold(), 0.90),
+		"stick release": is_equal_approx(controls.stick_release_threshold(), 0.20),
 		"profile warning": controls.warning().is_empty(),
 		"play help": help_label.text.contains("[b]1[/b][/color]  SELECT"),
 		"menu help": help_label.text.contains("[b]MENU[/b]  SESSION MENU"),

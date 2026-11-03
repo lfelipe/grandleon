@@ -248,7 +248,10 @@ func _run_smoke() -> void:
 	var below_threshold := InputEventJoypadMotion.new()
 	below_threshold.device = device
 	below_threshold.axis = JOY_AXIS_LEFT_Y
-	below_threshold.axis_value = 0.70
+	below_threshold.axis_value = maxf(
+		controls.stick_release_threshold() + 0.05,
+		controls.stick_press_threshold() - 0.08
+	)
 	PCNavigation.handle_motion(below_threshold)
 	await get_tree().process_frame
 	if get_viewport().gui_get_focus_owner() != first_button:
@@ -258,7 +261,7 @@ func _run_smoke() -> void:
 	var deliberate := InputEventJoypadMotion.new()
 	deliberate.device = device
 	deliberate.axis = JOY_AXIS_LEFT_Y
-	deliberate.axis_value = 0.84
+	deliberate.axis_value = minf(0.99, controls.stick_press_threshold() + 0.04)
 	PCNavigation.handle_motion(deliberate)
 	await get_tree().process_frame
 	var next_focus := get_viewport().gui_get_focus_owner()

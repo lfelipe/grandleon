@@ -102,7 +102,14 @@ cleanup() {
     cmake -E remove_directory "${state_dir}"
 }
 trap cleanup EXIT
-mkdir -p "${state_dir}/data" "${state_dir}/config" "${state_dir}/cache"
+mkdir -p \
+    "${state_dir}/data" \
+    "${state_dir}/config" \
+    "${state_dir}/cache" \
+    "${state_dir}/local"
+cmake -E copy \
+    "${repo_root}/platform/godot/tests/controls_swapped.json" \
+    "${state_dir}/local/controls.local.json"
 ln -s "${state_dir}" "${runtime_link}"
 
 launcher=("${bundle_dir}/launch-pc.sh")
@@ -117,6 +124,8 @@ if [[ -z "${DISPLAY:-}" ]]; then
 fi
 
 GRANDLEON_WINDOWED=1 timeout 30s "${launcher[@]}" --home-smoke
+
+GRANDLEON_WINDOWED=1 timeout 30s "${launcher[@]}" --controls-smoke
 
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
