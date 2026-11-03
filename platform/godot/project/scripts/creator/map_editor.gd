@@ -127,6 +127,16 @@ var copy_setup_layer: Control
 var copy_setup_select: OptionButton
 var copy_setup_summary: Label
 var copy_setup_candidates: Array[Dictionary] = []
+var talk_layer: Control
+var talk_title: Label
+var talk_guidance: Label
+var talk_write_button: Button
+var talk_remove_button: Button
+var talk_campaign_id := ""
+var talk_node_id := ""
+var talk_placement_id := ""
+var talk_display_name := ""
+var talk_cell_index := 0
 var more_button: Button
 var more_layer: Control
 var more_first_button: Button
@@ -158,7 +168,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if look_layer != null and look_layer.visible:
+		if talk_layer != null and talk_layer.visible:
+			_close_talk_choice()
+		elif look_layer != null and look_layer.visible:
 			_close_look()
 		elif surroundings_layer != null and surroundings_layer.visible:
 			_close_surroundings()
@@ -1054,6 +1066,15 @@ func _toggle_placement_talk_at(index: int, width: int) -> void:
 	var node: Dictionary = encounter.node
 	var display_name := _placement_display_name(placement)
 	var was_talkable := placement.has("talk")
+	if was_talkable:
+		_open_talk_choice(
+			str(encounter.get("campaign_id", "")),
+			str(node.get("id", "")),
+			str(placement.get("id", "")),
+			display_name,
+			index
+		)
+		return
 	var updated: Dictionary = compiler.set_placement_talkable(
 		source,
 		str(encounter.get("campaign_id", "")),
@@ -1072,10 +1093,128 @@ func _toggle_placement_talk_at(index: int, width: int) -> void:
 	_read_source()
 	_refresh_maps_after_edit(index)
 	_set_status(
-		"UNSAVED  /  %s %s" % [
-			display_name.to_upper(),
-			"NO LONGER HAS TALK" if was_talkable else "CAN NOW BE TALKED TO",
-		],
+		"UNSAVED  /  %s CAN NOW BE TALKED TO" % display_name.to_upper(),
+		false
+	)
+	_open_talk_choice(
+		str(encounter.get("campaign_id", "")),
+		str(node.get("id", "")),
+		str(placement.get("id", "")),
+		display_name,
+		index
+	)
+
+
+func _talk_node() -> Dictionary:
+	for campaign_value: Variant in project.get("campaigns", []):
+		if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != talk_campaign_id:
+			continue
+		var flow: Variant = campaign_value.get("flow", {})
+		if not flow is Dictionary:
+			return {}
+		for node_value: Variant in flow.get("nodes", []):
+			if node_value is Dictionary and str(node_value.get("id", "")) == talk_node_id:
+				return node_value
+	return {}
+
+
+func _talk_dialogue_id() -> String:
+	var node := _talk_node()
+	for value: Variant in node.get("moments", []):
+		if not value is Dictionary:
+			continue
+		var when: Variant = value.get("when", {})
+		if (
+			when is Dictionary
+			and str(when.get("kind", "")) == "characterTalked"
+			and str(when.get("placementId", "")) == talk_placement_id
+		):
+			return str(value.get("dialogueId", ""))
+	return ""
+
+
+func _open_talk_choice(
+	campaign_id: String,
+	node_id: String,
+	placement_id: String,
+	display_name: String,
+	cell_index: int
+) -> void:
+	talk_campaign_id = campaign_id
+	talk_node_id = node_id
+	talk_placement_id = placement_id
+	talk_display_name = display_name
+	talk_cell_index = cell_index
+	var has_scene := not _talk_dialogue_id().is_empty()
+	talk_title.text = "%s  /  TALK" % display_name.to_upper()
+	talk_guidance.text = (
+		"This conversation plays when the character leaves peacefully. Edit the exact scene, remove Talk and its unshared conversation, or return to the map."
+		if has_scene else
+		"Talk already works on every release target. Write the optional conversation now, or return to the map and add it later."
+	)
+	talk_write_button.text = "EDIT CONVERSATION" if has_scene else "WRITE CONVERSATION"
+	talk_remove_button.text = "REMOVE TALK & CONVERSATION" if has_scene else "REMOVE TALK"
+	talk_layer.visible = true
+	talk_write_button.call_deferred("grab_focus")
+
+
+func _close_talk_choice() -> void:
+	talk_layer.visible = false
+	_focus_cell(talk_cell_index)
+
+
+func _ensure_talk_dialogue() -> String:
+	var existing := _talk_dialogue_id()
+	if not existing.is_empty():
+		return existing
+	var added: Dictionary = compiler.add_talk_dialogue(
+		source,
+		talk_campaign_id,
+		talk_node_id,
+		talk_placement_id,
+		("Conversation with %s" % talk_display_name).left(160),
+		"",
+		talk_display_name.left(160),
+		"..."
+	)
+	if not added.ok:
+		_set_status("CONVERSATION NOT CREATED  /  %s" % _diagnostic_detail(added), true)
+		return ""
+	_push_undo(source)
+	redo_stack.clear()
+	source = str(added.source)
+	dirty = true
+	_read_source()
+	_update_actions()
+	return str(added.get("dialogue_id", ""))
+
+
+func _write_talk_conversation() -> void:
+	var dialogue_id := _ensure_talk_dialogue()
+	if dialogue_id.is_empty() or (dirty and not _save()):
+		return
+	talk_layer.visible = false
+	CreatorContext.choose_dialogue(dialogue_id)
+	get_tree().change_scene_to_file("res://story_editor.tscn")
+
+
+func _remove_talk_choice() -> void:
+	var updated: Dictionary = compiler.set_placement_talkable(
+		source, talk_campaign_id, talk_node_id, talk_placement_id, false
+	)
+	if not updated.ok:
+		_set_status("TALK NOT REMOVED  /  %s" % _diagnostic_detail(updated), true)
+		talk_remove_button.grab_focus()
+		return
+	_push_undo(source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = true
+	_read_source()
+	talk_layer.visible = false
+	_refresh_maps_after_edit(talk_cell_index)
+	_set_status(
+		"UNSAVED  /  REMOVED TALK FROM %s" % talk_display_name.to_upper(),
 		false
 	)
 
@@ -2609,6 +2748,7 @@ func _build_interface() -> void:
 	_build_resize_overlay()
 	_build_surroundings_overlay()
 	_build_setup_overlay()
+	_build_talk_overlay()
 	_build_more_overlay()
 
 
@@ -2887,6 +3027,46 @@ func _build_setup_overlay() -> void:
 	column.add_child(back)
 	_update_tool_selection()
 	_build_copy_setup_overlay()
+
+
+func _build_talk_overlay() -> void:
+	talk_layer = Control.new()
+	talk_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	talk_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	talk_layer.visible = false
+	talk_layer.z_index = 36
+	add_child(talk_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.90)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	talk_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(510, 260)
+	panel.size = Vector2(900, 550)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
+	)
+	talk_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("TALK & STORY CHOICE", 20, Color("69d9ff")))
+	talk_title = _label("CHARACTER / TALK", 30, Color("f2f7f9"))
+	column.add_child(talk_title)
+	talk_guidance = _label("", 18, Color("a9bdc9"))
+	talk_guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	talk_guidance.custom_minimum_size.y = 86
+	column.add_child(talk_guidance)
+	talk_write_button = _button("WRITE CONVERSATION", 840, 66)
+	talk_write_button.pressed.connect(_write_talk_conversation)
+	column.add_child(talk_write_button)
+	talk_remove_button = _button("REMOVE TALK", 840, 66)
+	talk_remove_button.pressed.connect(_remove_talk_choice)
+	column.add_child(talk_remove_button)
+	var done := _button("DONE / BACK TO MAP", 840, 66)
+	done.pressed.connect(_close_talk_choice)
+	column.add_child(done)
 
 
 func _build_copy_setup_overlay() -> void:

@@ -236,7 +236,8 @@ struct SourceMapCell final {
 // durable world-flag key is generated from its campaign, battle, and placement
 // identities so authoring clients never ask a player to invent or copy a
 // source key. Removing Talk is refused while a campaign outcome still reads
-// that memory.
+// that memory. Otherwise it also removes this placement's encounter moments
+// and any now-unreferenced conversation they owned.
 [[nodiscard]] SourceTextResult set_source_placement_talkable_json(
     std::string_view source_json,
     std::string_view campaign_id,

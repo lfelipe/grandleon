@@ -779,6 +779,12 @@ void updates_one_map_cell_without_retyping_the_project() {
         "Talk conversation and moment identities are generated behind the editor"
     );
     expect(
+        !gc::remove_source_placement_json(
+            talk_scene.json, "demo", "battle", "red_1"
+        ),
+        "a speaker asks the author to remove Talk before removing the character"
+    );
+    expect(
         !gc::add_source_placement_talk_dialogue_json(
             talk_scene.json, "demo", "battle", "red_1", "Duplicate Talk",
             "", "Red One", "Again."
@@ -791,6 +797,18 @@ void updates_one_map_cell_without_retyping_the_project() {
             "Red One", "Not yet."
         ),
         "a conversation cannot attach before its opponent is talkable"
+    );
+    const auto quiet_scene = gc::set_source_placement_talkable_json(
+        talk_scene.json, "demo", "battle", "red_1", false
+    );
+    const auto quiet_scene_parsed =
+        gc::parse_source_project_json(quiet_scene.json);
+    expect(
+        quiet_scene && quiet_scene_parsed &&
+            quiet_scene_parsed.source.dialogues.empty() &&
+            quiet_scene_parsed.source.encounters.front().moments.empty() &&
+            quiet_scene.json.find(R"json("talk")json") == std::string::npos,
+        "removing Talk also removes its unshared in-battle conversation"
     );
     const auto quiet_enemy = gc::set_source_placement_talkable_json(
         talkable_enemy.json, "demo", "battle", "red_1", false

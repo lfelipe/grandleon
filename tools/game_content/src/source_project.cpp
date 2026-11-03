@@ -3000,6 +3000,13 @@ Object* mutable_object(Object& owner, std::string_view key) {
                                 : std::get_if<Object>(&found->second.value);
 }
 
+const Object* object_member(const Object& owner, std::string_view key) {
+    const auto found = owner.find(std::string(key));
+    return found == owner.end()
+               ? nullptr
+               : std::get_if<Object>(&found->second.value);
+}
+
 const std::string* string_member(
     const Object& owner,
     std::string_view key
@@ -3061,6 +3068,38 @@ bool reads_world_flag(const Json& value, std::string_view flag_id) {
             array->begin(), array->end(),
             [&](const Json& child) {
                 return reads_world_flag(child, flag_id);
+            }
+        );
+    }
+    return false;
+}
+
+bool reads_dialogue_reference(const Json& value, std::string_view dialogue_id) {
+    if (const auto* object = std::get_if<Object>(&value.value)) {
+        for (const auto& [key, child] : *object) {
+            if (key == "dialogueId") {
+                const auto* id = std::get_if<std::string>(&child.value);
+                if (id != nullptr && *id == dialogue_id) return true;
+            }
+            if (key == "dialogueIds") {
+                const auto* ids = std::get_if<Array>(&child.value);
+                if (ids != nullptr && std::any_of(
+                        ids->begin(), ids->end(), [&](const Json& entry) {
+                            const auto* id =
+                                std::get_if<std::string>(&entry.value);
+                            return id != nullptr && *id == dialogue_id;
+                        }
+                    )) {
+                    return true;
+                }
+            }
+            if (reads_dialogue_reference(child, dialogue_id)) return true;
+        }
+    }
+    if (const auto* array = std::get_if<Array>(&value.value)) {
+        return std::any_of(
+            array->begin(), array->end(), [&](const Json& child) {
+                return reads_dialogue_reference(child, dialogue_id);
             }
         );
     }
@@ -5099,6 +5138,78 @@ SourceTextResult set_source_placement_talkable_json(
             );
             return result;
         }
+        std::vector<std::string> removed_dialogues;
+        Array* moments = mutable_array(*editable.node, "moments");
+        if (moments != nullptr) {
+            moments->erase(
+                std::remove_if(
+                    moments->begin(), moments->end(), [&](const Json& value) {
+                        const auto* moment =
+                            std::get_if<Object>(&value.value);
+                        const Object* when = moment == nullptr
+                                                 ? nullptr
+                                                 : object_member(*moment, "when");
+                        const std::string* kind = when == nullptr
+                                                      ? nullptr
+                                                      : string_member(
+                                                            *when, "kind"
+                                                        );
+                        const std::string* subject = when == nullptr
+                                                         ? nullptr
+                                                         : string_member(
+                                                               *when,
+                                                               "placementId"
+                                                           );
+                        if (kind == nullptr || *kind != "characterTalked" ||
+                            subject == nullptr || *subject != placement_id) {
+                            return false;
+                        }
+                        const std::string* dialogue =
+                            string_member(*moment, "dialogueId");
+                        if (dialogue != nullptr) {
+                            removed_dialogues.push_back(*dialogue);
+                        }
+                        return true;
+                    }
+                ),
+                moments->end()
+            );
+            if (moments->empty()) editable.node->erase("moments");
+        }
+        auto* root = std::get_if<Object>(&editable.document.value);
+        Array* dialogues =
+            root == nullptr ? nullptr : mutable_array(*root, "dialogues");
+        const Json* campaign_values = nullptr;
+        if (root != nullptr) {
+            const auto campaigns_found = root->find("campaigns");
+            if (campaigns_found != root->end()) {
+                campaign_values = &campaigns_found->second;
+            }
+        }
+        if (dialogues != nullptr) {
+            for (const std::string& dialogue_id : removed_dialogues) {
+                if (campaign_values != nullptr &&
+                    reads_dialogue_reference(*campaign_values, dialogue_id)) {
+                    continue;
+                }
+                dialogues->erase(
+                    std::remove_if(
+                        dialogues->begin(), dialogues->end(),
+                        [&](const Json& value) {
+                            const auto* dialogue =
+                                std::get_if<Object>(&value.value);
+                            const std::string* id = dialogue == nullptr
+                                                        ? nullptr
+                                                        : string_member(
+                                                              *dialogue, "id"
+                                                          );
+                            return id != nullptr && *id == dialogue_id;
+                        }
+                    ),
+                    dialogues->end()
+                );
+            }
+        }
         placement->erase("talk");
     } else if (existing_flag == nullptr) {
         Object talk;
@@ -5162,6 +5273,16 @@ SourceTextResult remove_source_placement_json(
             placements_path + "[" + std::to_string(placement_index) +
                 "].talk",
             "remove campaign outcomes that use this conversation first"
+        );
+        return result;
+    }
+    if (removed_talk_flag != nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path + "[" + std::to_string(placement_index) +
+                "].talk",
+            "remove Talk and its conversation before removing this character"
         );
         return result;
     }

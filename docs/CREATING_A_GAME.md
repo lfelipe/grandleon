@@ -70,11 +70,18 @@ Open **Battle Setup** for the rules and pieces that belong to this encounter:
   ownership, scaling, and turn order while keeping this chapter's map and
   campaign position.
 
-**Talk & Story Choices** asks only which opponent can be approached. Talking
-removes that opponent from the battle alive and records the choice on PC,
-Nintendo 64, and PlayStation. Grandleon creates the portable memory behind the
-screen; the author never names a flag. Removing that Talk option or its
-character is refused while a campaign outcome still uses the choice.
+**Talk & Story Choices** asks only which opponent can be approached. Selecting
+that character opens one small screen: **Write Conversation**, **Remove Talk**,
+or **Done**. Write Conversation creates the portable in-battle moment and opens
+its exact scene in the ordinary Story editor; returning later changes the first
+action to **Edit Conversation**. Talking removes that opponent from the battle
+alive and records the choice on PC, Nintendo 64, and PlayStation. Grandleon
+creates the portable scene, moment, and memory identities behind the screen.
+The author never names a flag or connects a dialogue ID.
+
+Removing Talk also removes its unshared encounter conversation as one undoable
+edit. Removal is refused while a campaign outcome still uses the choice, so a
+route cannot silently become unreachable.
 
 Copied battle setups deliberately leave Talk choices behind. A conversation
 belongs to one encounter and should not silently share story memory with a

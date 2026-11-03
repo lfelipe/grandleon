@@ -80,10 +80,14 @@ normalizes both armies under Player 1. The separate **2P** tool toggles an
 opposing placement between always present and a two-player addition; scaled
 enemies are labelled on the board.
 **Talk & Story Choices** marks an opposing character whom players may talk off
-the board alive. The portable campaign memory is generated and hidden; the
-outline later offers **Talked to** and **Did Not Talk to** conditions using the
-visible character and battle names. A referenced Talk choice cannot be removed,
-and Copy Battle Setup does not duplicate chapter-specific conversation memory.
+the board alive. Selecting one opens a focused Write/Edit Conversation, Remove
+Talk, and Done screen. Writing creates a portable in-battle moment and opens its
+exact ordinary Story scene; generated scene, moment, and campaign-memory
+identities remain hidden. The outline later offers **Talked to** and **Did Not
+Talk to** conditions using visible character and battle names. A referenced
+Talk choice cannot be removed, an unreferenced removal also clears its unshared
+scene, and Copy Battle Setup does not duplicate chapter-specific conversation
+memory.
 The **Army** screen keeps the company and join timing readable, while **Tune
 This Hero** opens bounded role-relative controls only when needed. Returning a
 modifier to zero removes the override, and the same portable result is consumed

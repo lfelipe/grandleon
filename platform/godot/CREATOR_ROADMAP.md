@@ -95,7 +95,9 @@ directory.
 - Add, move, and remove allied or opposing placements. Assign allied units to
   player one or player two and mark extra opposing units for two-player mode.
 - Mark an opponent as a portable Talk choice without asking the author to name
-  its campaign memory; refuse to remove a speaker while an outcome uses it.
+  its campaign memory. Create or reopen its exact in-battle conversation in the
+  Story editor, and remove Talk plus its unshared scene atomically; refuse to
+  remove a speaker while an outcome uses it.
 - Edit deployment regions, capacity, and defeat/protect/survive objectives.
 - Resize with a clipping preview and refuse a shrink that would strand a
   placement or deployment tile.

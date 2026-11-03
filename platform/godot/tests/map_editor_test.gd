@@ -44,6 +44,16 @@ func _run() -> void:
 		print("battle setup capture saved: %s" % setup_screenshot_path)
 		quit()
 		return
+	var talk_screenshot_path := _argument_path("--talk-screenshot=")
+	if not talk_screenshot_path.is_empty():
+		editor._select_tool("talk")
+		editor._paint_cell(8)
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(talk_screenshot_path)
+		print("Talk conversation capture saved: %s" % talk_screenshot_path)
+		quit()
+		return
 	var copy_setup_screenshot_path := _argument_path("--copy-setup-screenshot=")
 	if not copy_setup_screenshot_path.is_empty():
 		for index in editor.encounters.size():
@@ -407,6 +417,29 @@ func _run() -> void:
 	_expect("Talk memory remains a hidden generated identity", str(talkable_placement.talk.flagId).begins_with("talk_"), true)
 	_expect("talkable opponent has a visible board badge", editor.grid.get_child(3).tooltip_text.contains("TALKABLE"), true)
 	_expect("Talk is one undo command", editor.undo_stack.size(), 7)
+	_expect("Talk opens one focused story-choice screen", editor.talk_layer.visible, true)
+	_expect("new Talk choice begins with writing the conversation", editor.talk_write_button.text, "WRITE CONVERSATION")
+	var talk_scene_id: String = editor._ensure_talk_dialogue()
+	_expect("Talk conversation receives hidden generated identity", talk_scene_id.begins_with("talk_scene_"), true)
+	var with_talk_scene: Dictionary = _parse(editor.source)
+	_expect("Talk conversation adds one encounter moment", with_talk_scene.campaigns[0].flow.nodes[0].moments.size(), 1)
+	_expect("Talk conversation remains one creator action", editor.undo_stack.size(), 8)
+	editor._remove_talk_choice()
+	await process_frame
+	var without_talk_scene: Dictionary = _parse(editor.source)
+	_expect("Remove Talk also clears the encounter moment", without_talk_scene.campaigns[0].flow.nodes[0].has("moments"), false)
+	_expect("Remove Talk clears the optional interaction", without_talk_scene.campaigns[0].flow.nodes[0].placements[2].has("talk"), false)
+	var generated_scene_remains := false
+	for dialogue_value: Variant in without_talk_scene.get("dialogues", []):
+		if dialogue_value is Dictionary and str(dialogue_value.get("id", "")) == talk_scene_id:
+			generated_scene_remains = true
+	_expect("Remove Talk clears its unshared generated scene", generated_scene_remains, false)
+	editor._undo()
+	await process_frame
+	_expect("Talk removal is one undo", _parse(editor.source).campaigns[0].flow.nodes[0].has("moments"), true)
+	editor._undo()
+	await process_frame
+	_expect("conversation creation is one undo", _parse(editor.source).campaigns[0].flow.nodes[0].has("moments"), false)
 	editor._undo()
 	await process_frame
 	_expect("Talk undo removes the optional interaction", _parse(editor.source).campaigns[0].flow.nodes[0].placements[2].has("talk"), false)
