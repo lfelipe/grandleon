@@ -51,6 +51,13 @@ The first native seam is implemented:
   restart, and imports or returns with the compact control profile. The ordinary
   desktop file browser remains an optional mouse-and-keyboard route rather than
   a requirement for the simple-control workflow.
+- **Finish & Export** opens one controller-native destination for output. It
+  writes an editable portable archive immediately and, from an installed clean
+  Linux release, can build a separate player-only game. The exporter copies the
+  tested runtime shell atomically, replaces its compiled campaign, strips the
+  creator, templates, runtime saves, and local configuration, preserves
+  licenses, and reports only portable names and hashes. Console targets remain
+  visibly unavailable until their versioned builder payloads are installed.
 - The first native map creator paints canonical terrain with the same art atlas
   used by play mode. Edits pass through the native integer-preserving source
   layer, support bounded undo/redo and recoverable save, and can be compiled,
@@ -231,8 +238,8 @@ ports the most interaction-heavy part of the earlier editor early.
 
 One screen reports the result for each target independently:
 
-- portable editable project;
-- standalone Linux PC game;
+- portable editable project — implemented;
+- standalone Linux PC game from the installed verified shell — implemented;
 - standalone Windows PC game;
 - Nintendo 64 image;
 - PlayStation disc image.
@@ -249,9 +256,10 @@ does not require Grand Leon to be installed.
 
 The Linux bundle builder already proves the first form of this boundary with
 `--player-only`: it compiles a selected canonical project, removes creator
-scenes and source templates, and suppresses the creator entry in the session
-menu. Moving that operation behind the native Export Center remains future UI
-work.
+scenes, implementation, and source templates, and suppresses the creator entry
+in the session menu. The native Export Center now performs the corresponding
+runtime operation from a clean installed shell and writes through a temporary
+directory before making the completed game visible.
 
 The practical design is a signed, prebuilt player shell per operating system.
 The creator copies that shell into a new output directory and adds:
@@ -431,5 +439,5 @@ these pass:
 3. Define and prototype the PlayStation external `GAME.GPK` disc template.
 4. Define the Nintendo 64 content-slot manifest and measure realistic content
    and art budgets.
-5. Add the native export center around the existing player-only Linux shell,
-   then add and validate its Windows counterpart.
+5. Integrate separately installed, versioned Nintendo 64 and PlayStation
+   builder payloads into the native Export Center.

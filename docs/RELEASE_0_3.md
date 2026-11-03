@@ -51,7 +51,7 @@ Every release decision should preserve these constraints:
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, and adds an existing role either at campaign start or after a named chapter. Role/stat/equipment authoring remains. |
 | Full native authoring parity | Blocking | Characters, classes, factions, equipment, abilities, items, recruits/rewards, campaign branches, and presentation selection still need focused native editors. |
-| Native Export Center | Blocking | Portable project export works, and command-line target builders work. The in-app target report/build experience is not implemented. |
+| Native Export Center | Partial | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Synthetic and real packaged-shell smokes cover privacy, stripping, and compiled-content identity. Nintendo 64 and PlayStation still need separately installed builder payload integration. |
 | Documentation and screenshots | Blocking | README and `docs/CREATING_A_GAME.md` still describe the browser editor. Rewrite them only after the native flow and labels are frozen, then capture every documented screen from that build. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
 
@@ -154,14 +154,14 @@ or repository code.
 
 ### 6. Export Center
 
-- Export a portable editable project.
-- Build a player-only Linux game from a signed/prebuilt shell.
+- Export a portable editable project. **Implemented.**
+- Build a player-only Linux game from a clean prebuilt shell. **Implemented.**
 - Build Nintendo 64 and PlayStation targets through separately installed,
   versioned builder payloads.
-- Report each target independently with warnings, source/content identity,
-  builder version, art pack, and hashes.
+- Report each target independently. **Implemented for portable and Linux PC
+  output; console warnings, builder versions, and hashes remain.**
 - Never copy credentials, container state, absolute paths, or local settings
-  into a project or report.
+  into a project or report. **Covered for portable and Linux PC output.**
 
 Exit: the installed PC application can create the three 0.3 target artifacts
 without requiring a source checkout.
