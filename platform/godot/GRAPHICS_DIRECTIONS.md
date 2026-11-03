@@ -27,8 +27,8 @@ speed to a polished PC build, not the eventual production rate.
 |---|---|---|---|
 | Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion, and one integrated 443-pixel-cell replacement | a cohesive higher-resolution roster and authored effects | most cohesive today, but depth and lighting remain limited |
 | 3D diorama + 2D characters | 3D camera, lit terrain, water, bridges, trees, mountains, manifest-defined sprite pivots and animation | authored meshes/materials, sprite-facing and shadow polish | largest immediate upgrade while retaining the existing character library |
-| Voxel terrain + 2D characters | scene-authored forest, animated relay, water shader, mountains, cobbled road/contextual bridge, per-tile fallback, and manifest-driven billboard animation | authored ground variants, palette/material manifest, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
-| Full voxel | terrain, props, imported skinned commander, rogue, and drone GLBs, shared humanoid topology, distinct quadruped rig, explicit clip remapping, semantic in-place animation, per-archetype fallback, lighting | palette/material manifest, richer roster silhouettes and motion | both co-op friendlies and the beasts are readable in the real encounter while Morrow proves fallback coexistence |
+| Voxel terrain + 2D characters | scene-authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, per-tile fallback, and manifest-driven billboard animation | authored variants, palette/material polish, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
+| Full voxel | the shared terrain pack, props, the complete encounter roster as imported skinned GLBs, one humanoid topology reused by three distinct characters, a distinct quadruped rig, explicit clip remapping, semantic in-place animation, per-archetype fallback, lighting | palette/material polish, richer silhouettes and motion | the entire real encounter is imported while asset-by-asset fallback remains available elsewhere |
 
 All four retain the same board API, concurrent player cursors, legal-tile
 queries, and package presentation indices. Switching renderer profiles does not
@@ -37,7 +37,8 @@ fork campaign content.
 ## Selected sequence: voxel terrain, then multi-output
 
 The PC build now starts with an orthographic voxel board and retains the animated 2D
-characters. Scene-authored forest, mountain, water, and relay tiles sit beside
+characters. Scene-authored water, road, bridge, forest, mountain, sand, ruins,
+and grass tiles sit beside
 procedural fallbacks on the same board. Terrain height, water, shadows, light,
 weather, and small props create the immediate PC upgrade while the existing
 character roster keeps the first build achievable and tactically legible.

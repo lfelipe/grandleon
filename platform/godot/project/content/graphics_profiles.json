@@ -192,6 +192,19 @@
               "defeat": "Kestrel_Down"
             }
           },
+          "stormcaller": {
+            "scene": "res://art/characters/relay_stormcaller.glb",
+            "scale": 1.0,
+            "animationPlayer": "AnimationPlayer",
+            "clips": {
+              "idle": "Morrow_Idle",
+              "move": "Morrow_Stride",
+              "attack": "Morrow_Glaive",
+              "ability": "Morrow_Arc",
+              "hurt": "Morrow_Stagger",
+              "defeat": "Morrow_Dissolve"
+            }
+          },
           "beast": {
             "scene": "res://art/characters/relay_drone.glb",
             "scale": 1.0,

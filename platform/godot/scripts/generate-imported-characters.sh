@@ -28,8 +28,12 @@ trap 'rm -r "${temporary_dir}"' EXIT
 "${blender_binary}" --background --factory-startup \
     --python "${repo_root}/platform/godot/tools/export_relay_rogue.py" \
     -- "${temporary_dir}/relay_rogue.glb"
+"${blender_binary}" --background --factory-startup \
+    --python "${repo_root}/platform/godot/tools/export_relay_stormcaller.py" \
+    -- "${temporary_dir}/relay_stormcaller.glb"
 mkdir -p "${output_dir}"
 mv "${temporary_dir}/relay_commander.glb" "${output_dir}/relay_commander.glb"
 mv "${temporary_dir}/relay_drone.glb" "${output_dir}/relay_drone.glb"
 mv "${temporary_dir}/relay_rogue.glb" "${output_dir}/relay_rogue.glb"
+mv "${temporary_dir}/relay_stormcaller.glb" "${output_dir}/relay_stormcaller.glb"
 printf 'Imported character assets: %s\n' "${output_dir}"

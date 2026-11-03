@@ -263,8 +263,8 @@ package or rules: `pixel` uses the existing sheets, `diorama` uses lit 3D
 terrain with the real sheets as billboard characters, `voxel-sprites` uses
 box-built terrain with those same characters, and `voxel` builds both terrain
 and characters in 3D. The full-voxel profile binds imported, skinned commander,
-rogue, and drone GLBs with in-place idle, run, attack, ability, hurt, and defeat
-clips; other archetypes retain their procedural fallback. Select one with
+rogue, stormcaller, and drone GLBs with in-place idle, run, attack, ability,
+hurt, and defeat clips; other archetypes retain their procedural fallback. Select one with
 `--graphics=PROFILE` in a developer run or `GRANDLEON_GRAPHICS=PROFILE` in the
 SteamOS bundle. During play, the session menu can replace only the renderer and
 rebind the current board, cursors, selections, and highlights so the four
@@ -327,16 +327,17 @@ route, faces its current leg, and uses portable per-cell timing; the resulting
 snapshot remains authoritative. See [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md)
 for the complete presentation-event contract.
 
-The checked-in `relay_commander.glb`, `relay_rogue.glb`, and `relay_drone.glb`
-prove normal skinned-mesh, armature, material, and animation imports. Commander
-and rogue share the exact sixteen-bone humanoid hierarchy while presenting
-different meshes, materials, equipment, and clips; the drone uses its own
-quadruped rig. Explicit profile maps translate exported action names such as
-`Relay_Run`, `Kestrel_Sprint`, and `Drone_Scamper` into engine semantics. The
+The checked-in `relay_commander.glb`, `relay_rogue.glb`,
+`relay_stormcaller.glb`, and `relay_drone.glb` prove normal skinned-mesh,
+armature, material, and animation imports. Commander, rogue, and stormcaller
+share the exact sixteen-bone humanoid hierarchy while presenting different
+meshes, materials, equipment, and clips; the drone uses its own quadruped rig.
+Explicit profile maps translate exported action names such as `Relay_Run`,
+`Kestrel_Sprint`, `Morrow_Arc`, and `Drone_Scamper` into engine semantics. The
 earlier `relay_drone_3d.tscn` and `relay_commander_3d.tscn` scenes remain
 procedural references. The board still owns destination, facing, health,
 shadows, effects, and removal. Run `scripts/generate-imported-characters.sh`
-with Blender to regenerate all three GLBs; ordinary builds consume the committed
+with Blender to regenerate all four GLBs; ordinary builds consume the committed
 assets and do not require Blender. Run `scripts/smoke-animated-characters.sh` to
 import all active replacements and sample every required clip and skeleton
 response headlessly.
