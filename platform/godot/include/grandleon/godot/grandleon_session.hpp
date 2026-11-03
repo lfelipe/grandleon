@@ -154,6 +154,7 @@ public:
     ) override;
     void submit(client::Intent intent, std::int64_t request_id);
     [[nodiscard]] bool submit_management(client::ManagementIntent intent);
+    [[nodiscard]] bool awaiting_management() const;
     void stop();
     void push(FrontendEvent event);
     [[nodiscard]] std::deque<FrontendEvent> take_events();
@@ -168,7 +169,7 @@ private:
         const simulation::EncounterSnapshot& snapshot
     );
 
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::condition_variable condition_;
     std::deque<FrontendEvent> events_;
     std::deque<QueuedIntent> intents_;
@@ -201,6 +202,10 @@ public:
         const ::godot::String& save_root = {}
     );
     [[nodiscard]] bool has_progress() const;
+    [[nodiscard]] ::godot::Array checkpoint_slots() const;
+    [[nodiscard]] bool checkpoint_save_ready() const;
+    [[nodiscard]] bool save_checkpoint(std::int64_t slot);
+    [[nodiscard]] bool load_checkpoint(std::int64_t slot);
     [[nodiscard]] bool reset_progress();
     void stop();
     [[nodiscard]] bool running() const;
@@ -248,6 +253,7 @@ private:
         const ::godot::String& save_root
     );
     [[nodiscard]] bool launch_worker();
+    [[nodiscard]] std::string manual_slot_name(std::int64_t slot) const;
     void join_worker();
 
     std::shared_ptr<AsyncPresenter> presenter_;

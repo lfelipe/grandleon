@@ -33,13 +33,13 @@ machine-specific model, graphics, or control configuration.
 | Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, covering every Last Signal terrain while other kinds fall back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including the integrated 443-pixel-cell Rook sheet. Full Voxel inherits that terrain pack and replaces the complete encounter roster with imported, skinned GLBs. Commander, rogue, and stormcaller reuse one humanoid topology without sharing meshes or actions; the beast has a distinct quadruped rig. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Persistent presentation settings | Graphics profile, camera impulse, and text size survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
-| Persistent campaigns | Completed battles use the same versioned campaign envelope and migration registry as the other clients. Atomic checkpoints are isolated by package and campaign identity under runtime data, resume in a second process, and can be erased through a controller-native two-confirm reset. An integration smoke proves write, restart, resume, erase, and fresh start. |
+| Persistent campaigns | Completed battles use the same versioned campaign envelope and migration registry as the other clients. Atomic checkpoints are isolated by package and campaign identity under runtime data and resume in a second process. The controller Save / Load page provides three manual slots: saving copies only complete between-battle state, while loading can restart from a populated slot anywhere. New Campaign uses a separate two-confirm automatic-progress reset without removing manual copies. Integration smokes prove write, restart, resume, copy, refusal, erase, and fresh start. |
 | Company management | A controller-native screen renders the shared roster, store, kits, fielded set, authored capacity, and engine refusal. Field, bench, give, take, and proceed gestures commit through the portable campaign session and save immediately. An integration smoke performs every gesture against a real two-member campaign before opening its battle. |
-| Private performance readout | Opening the controller session menu shows rolling FPS, p95 and peak frame times, window size, and internal canvas size. The five-second sample remains in memory and never records hardware, display, controller, user, path, or network identities. |
+| Private performance readout | The Settings page shows rolling FPS, p95 and peak frame times, window size, and internal canvas size. The five-second sample remains in memory and never records hardware, display, controller, user, path, or network identities. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Route-aware locomotion | Accepted moves carry the shared portable route and a per-cell duration derived from console presentation timing. Both Godot renderers validate and follow every leg independently, including overlapping co-op moves, while snapshots remain authoritative and malformed records fall back safely. |
-| Controller-safe exit | Start or the optional Back shortcut opens a controller-native session menu; quitting requires an explicit second X press, while A, B, or Start resumes. |
-| SteamOS packaging | The release bundle runs without a system Godot install and keeps its writable state under its own `runtime/` directory. |
+| Controller-safe menus | Start or the optional Back shortcut opens a five-choice root menu. Save slots and settings have their own short pages and contextual one-line control legend. Cancel walks back and resumes only from the root; Exit Game must be focused and confirmed, with no instant controller quit shortcut. |
+| SteamOS packaging | The release bundle runs without a system Godot install, keeps writable state under its own `runtime/` directory, and includes a 512-pixel icon at a stable bundle-relative path for desktop and Steam shortcuts. |
 | Simple application entry | Ordinary launches open a controller-first home screen listing the included game and local project titles, plus Create / Edit and Exit. It displays no paths or machine identifiers, while automated test launches retain a direct route into play. |
 | Privacy | The bundler rejects exact checkout paths and local override files. Endpoint, model, token environment name, and art overrides live only in ignored runtime files. |
 
@@ -69,13 +69,16 @@ Test the default `voxel-sprites` profile first, then compare `diorama` and
 8. At the Company screen, return an item to the store, give it back, bench and
    re-field one member, and start the battle using only the compact controls.
    Confirm each change updates the screen before the next input.
-9. Finish a battle, close the application, and launch it again. Confirm the
-   campaign resumes at the next authored node. Use **New Campaign**, confirm it
-   twice, and verify the campaign restarts without leaving the application.
-10. Open the session menu with Start. Resume with A or B, then return
-   to Steam with X and confirm the launcher regains focus.
-11. Leave the game running through several rounds, then open the session menu
-   and note its rolling FPS, p95, peak, window, and canvas values. Check those
+9. At the Company screen, save checkpoints 1 and 2. Load checkpoint 1 during a
+   later battle and confirm it returns to the complete between-battle state.
+   Close and relaunch to verify automatic resume still works. Use **New
+   Campaign**, confirm it twice, and verify it starts fresh while the manual
+   checkpoints remain available.
+10. Open the session menu with Start. Walk through Save / Load and Settings,
+   return with B, resume from the root, then focus **Exit Game** and confirm the
+   launcher regains focus.
+11. Leave the game running through several rounds, open Settings, and note its
+   rolling FPS, p95, peak, window, and canvas values. Check those
    alongside controller focus, heat, and memory on the target PC; the game
    deliberately does not save this diagnostic sample.
 

@@ -41,6 +41,7 @@ var demo_reel_round := -1
 var demo_reel_phase := 0
 var demo_reel_next_msec := 0
 var menu_preview := false
+var menu_preview_page := "root"
 var board_preview := false
 var graphics_cycle_smoke := false
 var graphics_cycle_smoke_index := 0
@@ -94,14 +95,28 @@ var dialogue_portrait: TextureRect
 var dialogue_hint: Label
 var campaign_manager: Control
 var session_menu_layer: Control
+var session_menu_title: Label
+var session_menu_subtitle: Label
+var session_menu_hint: Label
 var session_menu_diagnostics: Label
+var session_menu_root: VBoxContainer
+var session_menu_saves: VBoxContainer
+var session_menu_slot_actions: VBoxContainer
+var session_menu_settings: VBoxContainer
 var session_menu_resume: Button
 var session_menu_projects: Button
+var session_menu_save_load: Button
+var session_menu_settings_button: Button
 var session_menu_graphics: Button
 var session_menu_camera: Button
 var session_menu_text: Button
 var session_menu_new_campaign: Button
 var session_menu_quit: Button
+var session_menu_checkpoint_buttons: Array[Button] = []
+var session_menu_checkpoint_save: Button
+var session_menu_checkpoint_load: Button
+var session_menu_page := "root"
+var selected_checkpoint_slot := 1
 var art = ArtLibrary.new()
 var graphics_profiles
 var presentation_settings
@@ -194,9 +209,14 @@ func _process(delta: float) -> void:
 		return
 	for event: Dictionary in session.poll():
 		_handle_event(event)
-	if menu_preview and not snapshot.is_empty() and not _dialogue_visible():
-		menu_preview = false
-		_open_session_menu()
+	if menu_preview:
+		if _dialogue_visible():
+			_advance_dialogue()
+		elif not snapshot.is_empty():
+			menu_preview = false
+			_open_session_menu()
+			if menu_preview_page in ["saves", "settings"]:
+				_show_session_menu_page(menu_preview_page)
 	if not _session_menu_visible() and not _management_visible():
 		if graphics_cycle_smoke:
 			_run_graphics_cycle_smoke()
@@ -211,7 +231,8 @@ func _process(delta: float) -> void:
 		elif board_preview and _dialogue_visible():
 			_advance_dialogue()
 	var waits_for_board := (
-		board_preview or smoke_auto or coop_smoke or demo_reel or graphics_cycle_smoke
+		board_preview or menu_preview or smoke_auto or coop_smoke or demo_reel
+		or graphics_cycle_smoke
 	)
 	var capture_ready := not waits_for_board or (not snapshot.is_empty() and not _dialogue_visible())
 	if coop_smoke:
@@ -291,6 +312,9 @@ func _parse_arguments() -> void:
 			demo_reel = true
 		elif argument == "--menu-preview":
 			menu_preview = true
+		elif argument.begins_with("--menu-preview-page="):
+			menu_preview = true
+			menu_preview_page = argument.trim_prefix("--menu-preview-page=")
 		elif argument == "--board-preview":
 			board_preview = true
 		elif argument == "--graphics-cycle-smoke":
@@ -380,23 +404,44 @@ func _run_presentation_settings_smoke() -> void:
 
 
 func _run_controls_smoke() -> void:
-	var valid: bool = (
-		controls.binding("confirm") == "x"
-		and controls.binding("cancel") == "y"
-		and controls.binding("next_action") == "b"
-		and controls.binding("end_turn") == "a"
-		and controls.binding("menu") == "start"
-		and controls.button("previous_unit") < 0
-		and controls.warning().is_empty()
-		and help_label.text.contains("[b]1[/b][/color]  SELECT / CONFIRM")
-		and help_label.text.contains("[b]MENU[/b]  BEGIN / SESSION MENU")
-		and session_menu_resume.text.contains("1 · ENTER")
-		and session_menu_quit.text.contains("1 · 4 · Q")
-		and dialogue_hint.text.contains("1 / ENTER")
-		and campaign_manager.control_hints_match("1", "2", "MENU")
-	)
-	if not valid:
-		push_error("control profile did not propagate through the PC interface")
+	var checks := {
+		"confirm": controls.binding("confirm") == "x",
+		"cancel": controls.binding("cancel") == "y",
+		"next action": controls.binding("next_action") == "b",
+		"end turn": controls.binding("end_turn") == "a",
+		"menu": controls.binding("menu") == "start",
+		"optional control": controls.button("previous_unit") < 0,
+		"profile warning": controls.warning().is_empty(),
+		"play help": help_label.text.contains("[b]1[/b][/color]  SELECT / CONFIRM"),
+		"menu help": help_label.text.contains("[b]MENU[/b]  BEGIN / SESSION MENU"),
+		"resume label": session_menu_resume.text == "RESUME",
+		"save label": session_menu_save_load.text == "SAVE / LOAD",
+		"exit label": session_menu_quit.text == "EXIT GAME",
+		"select hint": session_menu_hint.text.contains("1 / ENTER  SELECT"),
+		"back hint": session_menu_hint.text.contains("2 / ESC  RESUME"),
+		"dialogue hint": dialogue_hint.text.contains("1 / ENTER"),
+		"company hints": campaign_manager.control_hints_match("1", "2", "MENU"),
+	}
+	var failed: Array[String] = []
+	for check: String in checks:
+		if not bool(checks[check]):
+			failed.append(check)
+	_show_save_page()
+	if session_menu_page != "saves" or session_menu_checkpoint_buttons.size() != 3:
+		failed.append("save page")
+	_select_checkpoint_slot(1)
+	if (
+		session_menu_page != "slot"
+		or not session_menu_checkpoint_save.disabled
+		or not session_menu_checkpoint_load.disabled
+	):
+		failed.append("empty checkpoint actions")
+	_show_settings_page()
+	if session_menu_page != "settings" or not session_menu_graphics.visible:
+		failed.append("settings page")
+	_show_root_page()
+	if not failed.is_empty():
+		push_error("control profile did not propagate: " + ", ".join(failed))
 		get_tree().quit(2)
 		return
 	print("control profile integration smoke passed")
@@ -835,19 +880,18 @@ func _graphics_profile_name() -> String:
 
 func _update_session_labels() -> void:
 	var name := _graphics_profile_name()
-	var confirm_label: String = controls.label("confirm")
 	if title_label != null:
 		title_label.text = "GRANDLEON  /  " + name
 	if session_menu_graphics != null:
-		session_menu_graphics.text = "GRAPHICS  /  %s  /  %s · ENTER" % [name, confirm_label]
+		session_menu_graphics.text = "GRAPHICS  /  %s" % name
 	if session_menu_camera != null:
-		session_menu_camera.text = "CAMERA IMPULSE  /  %s  /  %s · ENTER" % [
-			"ON" if camera_impulse_enabled else "OFF", confirm_label
-		]
+		session_menu_camera.text = "CAMERA IMPULSE  /  %s" % (
+			"ON" if camera_impulse_enabled else "OFF"
+		)
 	if session_menu_text != null:
-		session_menu_text.text = "TEXT SIZE  /  %s  /  %s · ENTER" % [
-			"LARGE" if text_scale > 1.05 else "NORMAL", confirm_label
-		]
+		session_menu_text.text = "TEXT SIZE  /  %s" % (
+			"LARGE" if text_scale > 1.05 else "NORMAL"
+		)
 
 
 func _board_matches_current_state() -> bool:
@@ -1035,8 +1079,8 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	session_menu_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(590, 45)
-	panel.size = Vector2(740, 990)
+	panel.position = Vector2(590, 145)
+	panel.size = Vector2(740, 790)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(
 			Color(0.018, 0.032, 0.052, 0.99), 24,
@@ -1048,52 +1092,91 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
 	column.add_child(_label("GRANDLEON  /  SESSION MENU", 16, Color("69d9ff")))
-	column.add_child(_label("Continue the expedition?", 38, Color("f2f7f9")))
-	session_menu_diagnostics = _label("", 18, Color("a9bdc9"))
-	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	session_menu_diagnostics.custom_minimum_size.y = 86
-	column.add_child(session_menu_diagnostics)
-	session_menu_resume = _menu_button(
-		"RESUME  /  %s · ENTER" % controls.label("confirm")
-	)
+	session_menu_title = _label("PAUSED", 38, Color("f2f7f9"))
+	column.add_child(session_menu_title)
+	session_menu_subtitle = _label("Choose one option.", 18, Color("a9bdc9"))
+	session_menu_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	session_menu_subtitle.custom_minimum_size.y = 54
+	column.add_child(session_menu_subtitle)
+
+	session_menu_root = _session_menu_page()
+	column.add_child(session_menu_root)
+	session_menu_resume = _menu_button("RESUME")
 	session_menu_resume.pressed.connect(_close_session_menu)
-	column.add_child(session_menu_resume)
-	if creator_enabled:
-		session_menu_projects = _menu_button(
-			"PROJECTS / CREATE  /  %s · ENTER" % controls.label("confirm")
-		)
-		session_menu_projects.pressed.connect(_open_projects)
-		column.add_child(session_menu_projects)
-	session_menu_graphics = _menu_button("")
-	session_menu_graphics.pressed.connect(_cycle_graphics_profile)
-	column.add_child(session_menu_graphics)
-	session_menu_camera = _menu_button("")
-	session_menu_camera.pressed.connect(_toggle_camera_impulse)
-	column.add_child(session_menu_camera)
-	session_menu_text = _menu_button("")
-	session_menu_text.pressed.connect(_toggle_text_scale)
-	column.add_child(session_menu_text)
+	session_menu_root.add_child(session_menu_resume)
+	session_menu_save_load = _menu_button("SAVE / LOAD")
+	session_menu_save_load.pressed.connect(_show_save_page)
+	session_menu_save_load.disabled = campaign_save_root.is_empty()
+	session_menu_root.add_child(session_menu_save_load)
+	session_menu_settings_button = _menu_button("SETTINGS")
+	session_menu_settings_button.pressed.connect(_show_settings_page)
+	session_menu_root.add_child(session_menu_settings_button)
+	session_menu_projects = _menu_button("MAIN MENU")
+	session_menu_projects.pressed.connect(_return_home)
+	session_menu_root.add_child(session_menu_projects)
+	session_menu_quit = _menu_button("EXIT GAME")
+	session_menu_quit.pressed.connect(_quit_to_launcher)
+	session_menu_root.add_child(session_menu_quit)
+
+	session_menu_saves = _session_menu_page()
+	column.add_child(session_menu_saves)
+	for slot in range(1, 4):
+		var checkpoint_button := _menu_button("")
+		checkpoint_button.pressed.connect(_select_checkpoint_slot.bind(slot))
+		session_menu_checkpoint_buttons.append(checkpoint_button)
+		session_menu_saves.add_child(checkpoint_button)
 	if not campaign_save_root.is_empty():
 		session_menu_new_campaign = _menu_button("")
 		session_menu_new_campaign.pressed.connect(_request_progress_reset)
-		column.add_child(session_menu_new_campaign)
-	session_menu_quit = _menu_button(
-		"RETURN TO STEAM  /  %s · %s · Q" % [
-			controls.label("confirm"), controls.label("end_turn")
-		]
-	)
-	session_menu_quit.pressed.connect(_quit_to_launcher)
-	column.add_child(session_menu_quit)
-	var hint := _label(
-		"Stick / d-pad chooses. %s / ESC / %s resumes. Opening the menu confirms the first quit step."
-		% [controls.label("cancel"), controls.label("menu")],
-		16, Color("718896")
-	)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(hint)
+		session_menu_saves.add_child(session_menu_new_campaign)
+	var saves_back := _menu_button("BACK")
+	saves_back.pressed.connect(_show_root_page)
+	session_menu_saves.add_child(saves_back)
+
+	session_menu_slot_actions = _session_menu_page()
+	column.add_child(session_menu_slot_actions)
+	session_menu_checkpoint_save = _menu_button("SAVE HERE")
+	session_menu_checkpoint_save.pressed.connect(_save_selected_checkpoint)
+	session_menu_slot_actions.add_child(session_menu_checkpoint_save)
+	session_menu_checkpoint_load = _menu_button("LOAD CHECKPOINT")
+	session_menu_checkpoint_load.pressed.connect(_load_selected_checkpoint)
+	session_menu_slot_actions.add_child(session_menu_checkpoint_load)
+	var slot_back := _menu_button("BACK")
+	slot_back.pressed.connect(_show_save_page)
+	session_menu_slot_actions.add_child(slot_back)
+
+	session_menu_settings = _session_menu_page()
+	column.add_child(session_menu_settings)
+	session_menu_graphics = _menu_button("")
+	session_menu_graphics.pressed.connect(_cycle_graphics_profile)
+	session_menu_settings.add_child(session_menu_graphics)
+	session_menu_camera = _menu_button("")
+	session_menu_camera.pressed.connect(_toggle_camera_impulse)
+	session_menu_settings.add_child(session_menu_camera)
+	session_menu_text = _menu_button("")
+	session_menu_text.pressed.connect(_toggle_text_scale)
+	session_menu_settings.add_child(session_menu_text)
+	session_menu_diagnostics = _label("", 16, Color("718896"))
+	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	session_menu_diagnostics.custom_minimum_size.y = 86
+	session_menu_settings.add_child(session_menu_diagnostics)
+	var settings_back := _menu_button("BACK")
+	settings_back.pressed.connect(_show_root_page)
+	session_menu_settings.add_child(settings_back)
+
+	session_menu_hint = _label("", 16, Color("718896"))
+	session_menu_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(session_menu_hint)
 	_update_session_labels()
 	_update_progress_reset_label()
 	_update_session_diagnostics(true)
+	_show_session_menu_page("root")
+
+
+func _session_menu_page() -> VBoxContainer:
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 12)
+	return page
 
 
 func _menu_button(value: String) -> Button:
@@ -1115,12 +1198,153 @@ func _menu_button(value: String) -> Button:
 	return button
 
 
+func _show_session_menu_page(page: String) -> void:
+	session_menu_page = page
+	session_menu_root.visible = page == "root"
+	session_menu_saves.visible = page == "saves"
+	session_menu_slot_actions.visible = page == "slot"
+	session_menu_settings.visible = page == "settings"
+	match page:
+		"saves":
+			session_menu_title.text = "SAVE / LOAD"
+			session_menu_subtitle.text = "Choose one of three manual checkpoints."
+			_refresh_checkpoint_slots()
+		"slot":
+			_refresh_checkpoint_action()
+		"settings":
+			session_menu_title.text = "SETTINGS"
+			session_menu_subtitle.text = "Choose an option to change it."
+			_update_session_diagnostics(true)
+		_:
+			session_menu_page = "root"
+			session_menu_title.text = "PAUSED"
+			session_menu_subtitle.text = "Choose one option.  " + campaign_save_state
+	var back_text := "RESUME" if session_menu_page == "root" else "BACK"
+	session_menu_hint.text = "STICK / D-PAD  MOVE   ·   %s / ENTER  SELECT   ·   %s / ESC  %s" % [
+		controls.label("confirm"), controls.label("cancel"), back_text
+	]
+	_grab_first_session_menu_focus()
+
+
+func _grab_first_session_menu_focus() -> void:
+	var page: Control = {
+		"saves": session_menu_saves,
+		"slot": session_menu_slot_actions,
+		"settings": session_menu_settings,
+	}.get(session_menu_page, session_menu_root)
+	for child in page.get_children():
+		if child is Button and not child.disabled:
+			child.grab_focus()
+			return
+
+
+func _show_root_page() -> void:
+	progress_reset_armed = false
+	_update_progress_reset_label()
+	_show_session_menu_page("root")
+
+
+func _show_save_page() -> void:
+	progress_reset_armed = false
+	_update_progress_reset_label()
+	_show_session_menu_page("saves")
+
+
+func _show_settings_page() -> void:
+	_show_session_menu_page("settings")
+
+
+func _checkpoint_entry(slot: int) -> Dictionary:
+	if session == null:
+		return {"index": slot, "exists": false, "active": false}
+	for entry: Dictionary in session.checkpoint_slots():
+		if int(entry.get("index", 0)) == slot:
+			return entry
+	return {"index": slot, "exists": false, "active": false}
+
+
+func _active_checkpoint_slot() -> int:
+	if session == null:
+		return 0
+	for entry: Dictionary in session.checkpoint_slots():
+		if bool(entry.get("active", false)):
+			return int(entry.get("index", 0))
+	return 0
+
+
+func _refresh_checkpoint_slots() -> void:
+	if session_menu_checkpoint_buttons.is_empty():
+		return
+	for index in session_menu_checkpoint_buttons.size():
+		var entry := _checkpoint_entry(index + 1)
+		var state := "SAVED" if bool(entry.get("exists", false)) else "EMPTY"
+		if bool(entry.get("active", false)):
+			state += " / CURRENT"
+		session_menu_checkpoint_buttons[index].text = "CHECKPOINT %d  /  %s" % [
+			index + 1, state
+		]
+
+
+func _select_checkpoint_slot(slot: int) -> void:
+	selected_checkpoint_slot = slot
+	_show_session_menu_page("slot")
+
+
+func _refresh_checkpoint_action() -> void:
+	var entry := _checkpoint_entry(selected_checkpoint_slot)
+	var exists := bool(entry.get("exists", false))
+	var ready: bool = session != null and session.checkpoint_save_ready()
+	session_menu_title.text = "CHECKPOINT %d" % selected_checkpoint_slot
+	if ready:
+		session_menu_subtitle.text = "Save current progress here, or load the stored checkpoint."
+	else:
+		session_menu_subtitle.text = "Saving is available between battles. Stored checkpoints can still be loaded."
+	session_menu_checkpoint_save.disabled = not ready
+	session_menu_checkpoint_load.disabled = not exists
+	session_menu_checkpoint_save.text = "SAVE HERE" if not exists else "REPLACE CHECKPOINT"
+	session_menu_checkpoint_load.text = "LOAD CHECKPOINT"
+
+
+func _save_selected_checkpoint() -> void:
+	if session == null or not session.save_checkpoint(selected_checkpoint_slot):
+		_show_toast(session.last_error() if session != null else "CHECKPOINT IS UNAVAILABLE")
+		_refresh_checkpoint_action()
+		return
+	_show_toast("CHECKPOINT %d SAVED" % selected_checkpoint_slot)
+	_show_save_page()
+
+
+func _load_selected_checkpoint() -> void:
+	if session == null or not session.load_checkpoint(selected_checkpoint_slot):
+		_show_toast(session.last_error() if session != null else "CHECKPOINT IS UNAVAILABLE")
+		_refresh_checkpoint_action()
+		return
+	management_menu_suspended = false
+	if campaign_manager != null:
+		campaign_manager.dismiss()
+	_clear_session_presentation()
+	_close_session_menu()
+	status_label.text = "LOADING CHECKPOINT %d" % selected_checkpoint_slot
+	campaign_save_state = "CHECKPOINT %d / LOADING" % selected_checkpoint_slot
+	_update_session_diagnostics(true)
+
+
+func _session_menu_back() -> void:
+	match session_menu_page:
+		"slot":
+			_show_save_page()
+		"saves", "settings":
+			_show_root_page()
+		_:
+			_close_session_menu()
+
+
 func _open_session_menu(force_over_dialogue := false) -> void:
 	if session_menu_layer == null or (_dialogue_visible() and not force_over_dialogue):
 		return
 	session_menu_layer.visible = true
 	_update_session_diagnostics(true)
-	session_menu_resume.grab_focus()
+	_show_session_menu_page("root")
 
 
 func _update_session_diagnostics(force := false) -> void:
@@ -1164,7 +1388,7 @@ func _close_session_menu() -> void:
 
 
 func _quit_to_launcher() -> void:
-	status_label.text = "RETURNING TO STEAM"
+	status_label.text = "EXITING"
 	get_tree().quit()
 
 
@@ -1174,7 +1398,7 @@ func _request_progress_reset() -> void:
 	if not progress_reset_armed:
 		progress_reset_armed = true
 		_update_progress_reset_label()
-		_show_toast("PRESS AGAIN TO ERASE THIS CAMPAIGN CHECKPOINT")
+		_show_toast("PRESS AGAIN TO START A NEW AUTO-SAVE CAMPAIGN")
 		return
 	_restart_without_progress()
 
@@ -1183,13 +1407,9 @@ func _update_progress_reset_label() -> void:
 	if session_menu_new_campaign == null:
 		return
 	if progress_reset_armed:
-		session_menu_new_campaign.text = (
-			"ERASE CHECKPOINT?  /  %s · ENTER AGAIN" % controls.label("confirm")
-		)
+		session_menu_new_campaign.text = "CONFIRM NEW CAMPAIGN"
 	else:
-		session_menu_new_campaign.text = (
-			"NEW CAMPAIGN  /  %s · ENTER TWICE" % controls.label("confirm")
-		)
+		session_menu_new_campaign.text = "NEW CAMPAIGN"
 
 
 func _restart_without_progress() -> void:
@@ -1199,6 +1419,16 @@ func _restart_without_progress() -> void:
 	if campaign_manager != null:
 		campaign_manager.dismiss()
 	_close_session_menu()
+	_clear_session_presentation()
+	status_label.text = "STARTING NEW CAMPAIGN"
+	campaign_save_state = "AUTO-SAVE / NO CHECKPOINT"
+	if not session.reset_progress():
+		_show_fatal(session.last_error())
+		return
+	_update_session_diagnostics(true)
+
+
+func _clear_session_presentation() -> void:
 	dialogue_lines.clear()
 	dialogue_index = -1
 	if dialogue_layer != null:
@@ -1210,12 +1440,6 @@ func _restart_without_progress() -> void:
 	selected_units = [0, 0]
 	if board != null:
 		board.visible = false
-	status_label.text = "STARTING NEW CAMPAIGN"
-	campaign_save_state = "AUTO-SAVE / NO CHECKPOINT"
-	if not session.reset_progress():
-		_show_fatal(session.last_error())
-		return
-	_update_session_diagnostics(true)
 
 
 func _exercise_progress_reset_smoke() -> void:
@@ -1240,6 +1464,13 @@ func _open_projects() -> void:
 		get_tree().change_scene_to_file("res://map_editor.tscn")
 
 
+func _return_home() -> void:
+	status_label.text = "OPENING MAIN MENU"
+	if session:
+		session.stop()
+	get_tree().change_scene_to_file("res://home.tscn")
+
+
 func _session_menu_visible() -> bool:
 	return session_menu_layer != null and session_menu_layer.visible
 
@@ -1252,28 +1483,23 @@ func _handle_session_menu_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_Q:
-			_quit_to_launcher()
-		elif event.keycode in [KEY_ENTER, KEY_SPACE]:
+		if event.keycode in [KEY_ENTER, KEY_SPACE]:
 			_activate_session_menu_focus()
 		elif event.keycode == KEY_ESCAPE:
-			_close_session_menu()
-		if event.keycode in [KEY_Q, KEY_ESCAPE, KEY_ENTER, KEY_SPACE]:
+			_session_menu_back()
+		if event.keycode in [KEY_ESCAPE, KEY_ENTER, KEY_SPACE]:
 			get_viewport().set_input_as_handled()
 	elif event is InputEventJoypadButton and event.pressed:
-		if controls.matches("end_turn", event.button_index):
-			_quit_to_launcher()
-		elif controls.matches("confirm", event.button_index):
+		if controls.matches("confirm", event.button_index):
 			_activate_session_menu_focus()
 		elif (
 			controls.matches("cancel", event.button_index)
 			or controls.matches("menu", event.button_index)
 			or controls.matches("menu_alt", event.button_index)
 		):
-			_close_session_menu()
+			_session_menu_back()
 		if (
-			controls.matches("end_turn", event.button_index)
-			or controls.matches("confirm", event.button_index)
+			controls.matches("confirm", event.button_index)
 			or controls.matches("cancel", event.button_index)
 			or controls.matches("menu", event.button_index)
 			or controls.matches("menu_alt", event.button_index)
@@ -1286,7 +1512,7 @@ func _activate_session_menu_focus() -> void:
 	if focused is BaseButton:
 		focused.emit_signal("pressed")
 	else:
-		_close_session_menu()
+		_session_menu_back()
 
 
 func _configure_seats() -> void:
@@ -1383,10 +1609,16 @@ func _handle_event(event: Dictionary) -> void:
 	match String(event.get("type", "")):
 		"campaign_begun":
 			var resumed := bool(event.get("resumed", false))
-			campaign_save_state = (
-				"AUTO-SAVE / CHECKPOINT RESUMED"
-				if resumed else "AUTO-SAVE / NO CHECKPOINT"
-			)
+			var manual_slot := _active_checkpoint_slot()
+			if manual_slot > 0:
+				campaign_save_state = "CHECKPOINT %d / %s" % [
+					manual_slot, "RESUMED" if resumed else "NEW"
+				]
+			else:
+				campaign_save_state = (
+					"AUTO-SAVE / CHECKPOINT RESUMED"
+					if resumed else "AUTO-SAVE / NO CHECKPOINT"
+				)
 			if resumed:
 				status_label.text = "CAMPAIGN RESUMED"
 			if campaign_persistence_smoke and resumed and not campaign_persistence_resetting:
@@ -1397,7 +1629,11 @@ func _handle_event(event: Dictionary) -> void:
 				get_tree().quit()
 		"checkpoint_saved":
 			if bool(event.get("successful", false)):
-				campaign_save_state = "AUTO-SAVE / CHECKPOINT CURRENT"
+				var manual_slot := _active_checkpoint_slot()
+				campaign_save_state = (
+					"CHECKPOINT %d / CURRENT" % manual_slot
+					if manual_slot > 0 else "AUTO-SAVE / CHECKPOINT CURRENT"
+				)
 				_show_toast("CAMPAIGN CHECKPOINT SAVED")
 				if campaign_persistence_smoke and not campaign_persistence_resetting:
 					print("campaign persistence wrote a checkpoint")

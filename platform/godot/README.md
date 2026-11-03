@@ -31,7 +31,7 @@ ordinary launches always begin at this screen.
 
 ## Create and play projects
 
-Open the session menu and choose **Projects / Create**. The native Projects
+Choose **Create / Edit Games** on the home screen. The native Projects
 screen can create an empty canonical project or a complete playable starter,
 lists, renames, duplicates, imports, and exports projects stored under Godot's
 per-user data directory, and opens a native map creator. **Export** creates a
@@ -72,8 +72,8 @@ board, and resizing preserves matching manual-perimeter coordinates while
 filling newly exposed ones. Saves pass through the validating native source
 layer, and the edited draft plays immediately.
 Compilation and scene handoff stay in-process; draft package bytes are not
-written to the installation directory. Returning through the play-mode session
-menu reopens the same project.
+written to the installation directory. **Main Menu** returns from play to the
+same small game-and-creator front door.
 
 The current creator creates and resizes maps, edits playable and surrounding
 terrain, arranges both sides of existing encounters, and authors deployment
@@ -120,8 +120,13 @@ checkpoint, so two imported games cannot silently resume one another. The next
 launch resumes a compatible checkpoint through the engine's standard save
 migrations. Leaving during an unfinished battle preserves the last completed
 checkpoint instead of recording a partial outcome. The session menu reports
-only checkpoint state, never its path, and **New Campaign** requires two
-confirms before it erases the current checkpoint and restarts immediately.
+only checkpoint state, never its path. **Save / Load** exposes three manual
+checkpoint slots. A manual save copies the current complete campaign state
+while the Company screen is open between battles; loading a populated slot is
+available from anywhere and restarts from that complete state. **New Campaign**
+requires two confirms, resets the automatic resume campaign, and leaves manual
+slots available until the player replaces them. No unfinished turn, animation,
+or partial battle is represented as a save state.
 Project archives, player-only exports, presentation settings, and local model
 configuration never include campaign saves.
 
@@ -144,6 +149,11 @@ starts the two-player `last_signal` campaign full-screen. No home-directory or
 host-specific path is compiled into the extension; the bundler checks the
 native binary and refuses it if the checkout path remains.
 
+The bundle root also contains `grandleon-icon.png`, a 512-pixel launcher image.
+Use that file for the Steam shortcut and any desktop entry. Its stable location
+inside the bundle means an atomic release-symlink upgrade can retain one icon
+path instead of copying machine-specific shortcut metadata into the project.
+
 The same builder can package one project as a player-only Linux PC game:
 
 ```sh
@@ -155,7 +165,7 @@ platform/godot/scripts/build-steamos.sh \
 ```
 
 That form contains the compiled game but removes creator scenes and canonical
-source templates. Its session menu has no creator entry. The ordinary bundle
+source templates. Its home screen has no creator entry. The ordinary bundle
 retains both player and creator, so this is a packaging choice over the same
 project format rather than a separate kind of game.
 
@@ -226,18 +236,17 @@ at launch time; controller names and identities are never written into it.
 Outside deployment and dialogue, the configured menu button (Start by default)
 or optional alternate (Back by default) opens a controller-native session menu.
 The stick or d-pad chooses an action and the configured confirm button (A by
-default) or Enter confirms it, including
-cycling all four graphics profiles against the live encounter without changing
-its simulation state, disabling camera impulse for motion-sensitive players,
-switching all interface text between Normal and Large, and starting a new
-campaign through a separate two-confirm checkpoint reset. B, Start, or Escape
-resumes directly under the default mapping, while X or Q returns to Steam.
-Opening the menu is the first confirmation, preventing a single accidental
-gameplay press from closing the PC session. The same menu shows a rolling
-five-second FPS, p95 frame-time, peak frame-time, window-size, and internal-
-canvas summary. Those values exist only in memory and are never written to a
-report; the readout deliberately omits graphics-device, display, controller,
-user, path, and network identities.
+default) or Enter confirms it. The root contains only **Resume**, **Save /
+Load**, **Settings**, **Main Menu**, and **Exit Game**. Settings contains the
+four graphics profiles, camera-impulse comfort switch, Normal/Large text,
+private local-model check, and the rolling five-second FPS, p95 frame-time,
+peak frame-time, window-size, and internal-canvas summary. Save / Load contains
+the three manual checkpoint slots and the two-confirm new-campaign action.
+Cancel or Escape goes back one page and resumes only from the root; exiting
+requires focusing **Exit Game** and confirming it. There is no one-button quit
+shortcut to trigger accidentally during play. The diagnostic values exist only
+in memory and are never written to a report; the readout deliberately omits
+graphics-device, display, controller, user, path, and network identities.
 
 Between battles, the same compact mapping operates the Company screen: choose
 a member from the roster, confirm to enter their orders, use B to return to the
@@ -445,6 +454,10 @@ override precedence under an isolated user-data directory.
 `scripts/smoke-campaign-persistence.sh` completes a real battle, verifies its
 opaque checkpoint, resumes it in a second Godot process, then exercises the
 in-app reset and proves the next campaign starts fresh.
+
+`scripts/smoke-checkpoint-slots.sh` commits a real between-battle company
+change, copies it into manual slots, loads one through the native Godot bridge,
+and verifies that empty and out-of-range slots are refused.
 
 `scripts/smoke-campaign-management.sh` renders a real two-member company, moves
 an item to the store and back, benches and fields the same member, starts the

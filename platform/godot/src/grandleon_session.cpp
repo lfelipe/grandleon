@@ -587,6 +587,11 @@ bool AsyncPresenter::submit_management(client::ManagementIntent intent) {
     return true;
 }
 
+bool AsyncPresenter::awaiting_management() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return awaiting_management_ && !stopping_;
+}
+
 void AsyncPresenter::stop() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -636,6 +641,21 @@ void GrandleonSession::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD("has_progress"), &GrandleonSession::has_progress
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("checkpoint_slots"), &GrandleonSession::checkpoint_slots
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("checkpoint_save_ready"),
+        &GrandleonSession::checkpoint_save_ready
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("save_checkpoint", "slot"),
+        &GrandleonSession::save_checkpoint
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("load_checkpoint", "slot"),
+        &GrandleonSession::load_checkpoint
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD("reset_progress"), &GrandleonSession::reset_progress
@@ -833,6 +853,86 @@ bool GrandleonSession::has_progress() const {
     return progress_available_;
 }
 
+std::string GrandleonSession::manual_slot_name(std::int64_t slot) const {
+    if (slot < 1 || slot > 3) return {};
+    return "slot-" + hexadecimal(campaign_id_) + "-" + std::to_string(slot);
+}
+
+gd::Array GrandleonSession::checkpoint_slots() const {
+    gd::Array slots;
+    slots.resize(3);
+    for (std::int64_t index = 1; index <= 3; ++index) {
+        const std::string name = manual_slot_name(index);
+        gd::Dictionary entry;
+        entry["index"] = index;
+        entry["exists"] = storage_ && storage_->contains(name);
+        entry["active"] = name == save_slot_;
+        slots[index - 1] = entry;
+    }
+    return slots;
+}
+
+bool GrandleonSession::checkpoint_save_ready() const {
+    return storage_ && presenter_ && presenter_->awaiting_management() &&
+           storage_->contains(save_slot_);
+}
+
+bool GrandleonSession::save_checkpoint(std::int64_t slot) {
+    const std::string destination = manual_slot_name(slot);
+    if (destination.empty()) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "checkpoint slot must be between 1 and 3";
+        return false;
+    }
+    if (!checkpoint_save_ready()) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "checkpoint saves are available between battles";
+        return false;
+    }
+    const storage::StorageRead source = storage_->read(save_slot_);
+    if (!source) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "current campaign checkpoint could not be read";
+        return false;
+    }
+    const storage::StorageError written = storage_->write(
+        destination, source.bytes
+    );
+    if (written != storage::StorageError::none) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "manual checkpoint could not be saved";
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    last_error_.clear();
+    return true;
+}
+
+bool GrandleonSession::load_checkpoint(std::int64_t slot) {
+    const std::string source = manual_slot_name(slot);
+    if (source.empty()) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "checkpoint slot must be between 1 and 3";
+        return false;
+    }
+    if (!storage_ || !storage_->contains(source)) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "checkpoint slot is empty";
+        return false;
+    }
+    stop();
+    save_slot_ = source;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_.clear();
+        has_snapshot_ = false;
+        latest_weapons_.clear();
+        latest_abilities_.clear();
+        progress_available_ = true;
+    }
+    return launch_worker();
+}
+
 bool GrandleonSession::reset_progress() {
     stop();
     if (!storage_) {
@@ -840,6 +940,7 @@ bool GrandleonSession::reset_progress() {
         last_error_ = "campaign progress is disabled";
         return false;
     }
+    save_slot_ = "campaign-" + hexadecimal(campaign_id_);
     const storage::StorageError erased = storage_->erase(save_slot_);
     if (erased != storage::StorageError::none &&
         erased != storage::StorageError::not_found) {
