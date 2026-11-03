@@ -47,10 +47,10 @@ Every release decision should preserve these constraints:
 | Player/console feature parity | In validation | Campaign flow, story, objectives, abilities, items, save data, co-op ownership, and two-player enemy scaling are portable. A target-by-target playthrough checklist still needs to be signed off. |
 | PC graphics | Playable, not final art | Pixel, hybrid voxel-sprite, diorama, and full-voxel profiles are replaceable. The recommended initial profile is `voxel-sprites`; final animation/art polish is not a release-format dependency. |
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
-| Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. |
+| Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. |
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, tunes seven core hero traits, and authors named shared starting supplies or item/weapon chapter rewards. Role definitions and their equipment/abilities remain. |
-| Full native authoring parity | Blocking | Class, faction, equipment, ability, item, and weapon definitions, per-role kits, general campaign branches, and presentation selection still need focused native editors. |
+| Full native authoring parity | Blocking | Class, faction, equipment, ability, item, and weapon definitions, per-role kits, general campaign branches, and external replacement-art packs still need focused native editors. |
 | Native Export Center | Partial | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Synthetic and real packaged-shell smokes cover privacy, stripping, and compiled-content identity. Nintendo 64 and PlayStation still need separately installed builder payload integration. |
 | Documentation and screenshots | Blocking | README and `docs/CREATING_A_GAME.md` still describe the browser editor. Rewrite them only after the native flow and labels are frozen, then capture every documented screen from that build. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
@@ -144,8 +144,9 @@ JSON.
 
 ### 5. Presentation and replacement art
 
-- Choose installed terrain/character/effect packs and preview the actual
-  runtime result.
+- Choose the portable shared world theme and character style and preview actual
+  runtime assets. **Implemented.**
+- Choose separately installed terrain/character/effect replacement packs.
 - Import project-owned replacements with explicit dimensions, pivots,
   animation names, and target budgets.
 - Preserve independent PC assets and generated console derivatives without

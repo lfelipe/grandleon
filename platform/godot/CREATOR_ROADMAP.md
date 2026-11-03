@@ -64,6 +64,11 @@ The first native seam is implemented:
   played, and reopened in the same project session. Blank projects can create
   maps without external tools. Map resize previews retained, clipped, and added
   cells and refuses to strand encounter data.
+- **Look & Feel** chooses the project-wide world theme and character style from
+  the shared portable art menus and shows the actual terrain and character
+  assets. The map canvas now follows the authored theme instead of always
+  previewing temperate ground. These presentation edits are undoable and leave
+  gameplay source unchanged.
 - **Add Next Chapter** inserts a story moment, a cloned playable encounter, and
   a fresh automatically surrounded map after the selected linear battle as one
   validated undo command. It preserves the old destination and refuses
@@ -231,7 +236,9 @@ ports the most interaction-heavy part of the earlier editor early.
 
 ### 4. Art and presentation
 
-- Select an installed art pack or project-owned art pack.
+- Select the shared world theme and character style with an actual-asset
+  preview. **Implemented.**
+- Select an installed replacement pack or project-owned art pack.
 - Import replacement terrain, character, portrait, effect, and UI assets.
 - Validate dimensions, animation names, pivots, and platform budgets on import.
 - Preview the same animation state machine used by play mode.
