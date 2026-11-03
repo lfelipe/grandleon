@@ -117,6 +117,12 @@ var surroundings_guidance_label: Label
 var surroundings_apply_button: Button
 var surroundings_first_button: Button
 var board_panel: PanelContainer
+var setup_button: Button
+var setup_layer: Control
+var setup_first_button: Button
+var more_button: Button
+var more_layer: Control
+var more_first_button: Button
 
 
 func _ready() -> void:
@@ -137,6 +143,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_add_placement()
 		elif resize_layer != null and resize_layer.visible:
 			_close_resize()
+		elif setup_layer != null and setup_layer.visible:
+			_close_setup()
+		elif more_layer != null and more_layer.visible:
+			_close_more()
 		elif deployment_editing:
 			_cancel_deployment_edit()
 		else:
@@ -320,11 +330,25 @@ func _update_tool_selection() -> void:
 	for name: String in tool_buttons:
 		var button: Button = tool_buttons[name]
 		var display_names := {
-			"unit": "MOVE", "remove_unit": "REMOVE", "deployment": "ZONE",
-			"ownership": "P1 / P2", "scaling": "2P", "surroundings": "OUTSIDE",
+			"add_unit": "ADD CHARACTER", "unit": "MOVE CHARACTER",
+			"remove_unit": "REMOVE CHARACTER", "deployment": "DEPLOYMENT AREA",
+			"ownership": "PLAYER OWNERSHIP", "scaling": "TWO-PLAYER SCALING",
+			"surroundings": "MAP SURROUNDINGS",
 		}
 		var display := str(display_names.get(name, name.to_upper()))
 		button.text = ("● " if name == active_tool else "  ") + display
+	if setup_button != null:
+		var setup_names := {
+			"add_unit": "ADD CHARACTER", "unit": "MOVE CHARACTER",
+			"remove_unit": "REMOVE CHARACTER", "deployment": "DEPLOYMENT",
+			"ownership": "PLAYER OWNERSHIP", "scaling": "TWO-PLAYER SCALING",
+			"surroundings": "MAP SURROUNDINGS",
+		}
+		setup_button.text = (
+			"● %s" % str(setup_names[active_tool])
+			if setup_names.has(active_tool)
+			else "BATTLE SETUP"
+		)
 
 
 func _update_palette_selection() -> void:
@@ -963,7 +987,7 @@ func _cancel_deployment_edit() -> void:
 	_reset_deployment_edit()
 	_refresh_grid(0)
 	_set_status("DEPLOYMENT DRAFT DISCARDED", false)
-	deployment_button.call_deferred("grab_focus")
+	setup_button.call_deferred("grab_focus")
 
 
 func _reset_deployment_edit() -> void:
@@ -1196,7 +1220,7 @@ func _close_add_placement() -> void:
 	placement_layer.visible = false
 	placement_candidates.clear()
 	pending_placement = {}
-	add_unit_button.call_deferred("grab_focus")
+	setup_button.call_deferred("grab_focus")
 
 
 func _toggle_placement_side() -> void:
@@ -1323,7 +1347,7 @@ func _close_objectives() -> void:
 	objective_layer.visible = false
 	objective_candidates.clear()
 	objective_targets.clear()
-	objective_button.call_deferred("grab_focus")
+	setup_button.call_deferred("grab_focus")
 
 
 func _cycle_objective_mode() -> void:
@@ -1678,7 +1702,7 @@ func _open_surroundings() -> void:
 
 func _close_surroundings() -> void:
 	surroundings_layer.visible = false
-	surroundings_button.call_deferred("grab_focus")
+	setup_button.call_deferred("grab_focus")
 
 
 func _cycle_surroundings_mode() -> void:
@@ -2162,7 +2186,7 @@ func _build_interface() -> void:
 	title_label.position = Vector2(80, 42)
 	title_label.size = Vector2(1760, 42)
 	add_child(title_label)
-	var subtitle := _label("Paint maps and play the draft immediately.", 34, Color("f2f7f9"))
+	var subtitle := _label("1  SHAPE THE MAP   →   2  WRITE THE STORY   →   3  TEST", 30, Color("f2f7f9"))
 	subtitle.position = Vector2(80, 84)
 	subtitle.size = Vector2(1760, 54)
 	add_child(subtitle)
@@ -2178,24 +2202,15 @@ func _build_interface() -> void:
 	undo_button = _button("UNDO", 130, 58)
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
-	redo_button = _button("REDO", 130, 58)
-	redo_button.pressed.connect(_redo)
-	toolbar.add_child(redo_button)
-	var new_map_button := _button("NEW MAP", 160, 58)
-	new_map_button.pressed.connect(_create_map)
-	toolbar.add_child(new_map_button)
-	var resize_button := _button("RESIZE", 150, 58)
-	resize_button.pressed.connect(_open_resize)
-	toolbar.add_child(resize_button)
-	play_button = _button("PLAY DRAFT", 190, 58)
+	play_button = _button("TEST CAMPAIGN", 240, 58)
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
-	var story := _button("STORY", 170, 58)
+	var story := _button("NEXT: STORY", 220, 58)
 	story.pressed.connect(_open_story)
 	toolbar.add_child(story)
-	var projects := _button("PROJECTS", 180, 58)
-	projects.pressed.connect(_request_projects)
-	toolbar.add_child(projects)
+	more_button = _button("MORE", 160, 58)
+	more_button.pressed.connect(_open_more)
+	toolbar.add_child(more_button)
 	var toolbar_hint := _label("Confirm applies tool  •  Cancel returns", 17, Color("718896"))
 	toolbar_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbar_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -2232,50 +2247,11 @@ func _build_interface() -> void:
 		tool_button.pressed.connect(_select_tool.bind(tool_name))
 		tool_row.add_child(tool_button)
 		tool_buttons[tool_name] = tool_button
-	var unit_row := HBoxContainer.new()
-	unit_row.add_theme_constant_override("separation", 6)
-	tools_column.add_child(unit_row)
-	add_unit_button = _button("ADD", 104, 48)
-	add_unit_button.add_theme_font_size_override("font_size", 14)
-	add_unit_button.pressed.connect(_open_add_placement)
-	unit_row.add_child(add_unit_button)
-	tool_buttons["add_unit"] = add_unit_button
-	var move_unit := _button("MOVE", 104, 48)
-	move_unit.add_theme_font_size_override("font_size", 14)
-	move_unit.pressed.connect(_select_tool.bind("unit"))
-	unit_row.add_child(move_unit)
-	tool_buttons["unit"] = move_unit
-	var remove_unit := _button("REMOVE", 104, 48)
-	remove_unit.add_theme_font_size_override("font_size", 14)
-	remove_unit.pressed.connect(_select_tool.bind("remove_unit"))
-	unit_row.add_child(remove_unit)
-	tool_buttons["remove_unit"] = remove_unit
-	var encounter_rules := HBoxContainer.new()
-	encounter_rules.add_theme_constant_override("separation", 6)
-	tools_column.add_child(encounter_rules)
-	deployment_button = _button("ZONE", 78, 48)
-	deployment_button.add_theme_font_size_override("font_size", 14)
-	deployment_button.tooltip_text = "Draft and apply the selected encounter's deployment region"
-	deployment_button.pressed.connect(_begin_deployment_edit)
-	encounter_rules.add_child(deployment_button)
-	tool_buttons["deployment"] = deployment_button
-	objective_button = _button("GOALS", 78, 48)
-	objective_button.add_theme_font_size_override("font_size", 14)
-	objective_button.tooltip_text = "Create and assign the selected encounter's objectives"
-	objective_button.pressed.connect(_open_objectives)
-	encounter_rules.add_child(objective_button)
-	var ownership_button := _button("P1 / P2", 78, 48)
-	ownership_button.add_theme_font_size_override("font_size", 12)
-	ownership_button.tooltip_text = "Assign an allied placement to Player 1 or Player 2"
-	ownership_button.pressed.connect(_select_tool.bind("ownership"))
-	encounter_rules.add_child(ownership_button)
-	tool_buttons["ownership"] = ownership_button
-	var scaling_button := _button("2P", 78, 48)
-	scaling_button.add_theme_font_size_override("font_size", 14)
-	scaling_button.tooltip_text = "Toggle an enemy placement as a two-player addition"
-	scaling_button.pressed.connect(_select_tool.bind("scaling"))
-	encounter_rules.add_child(scaling_button)
-	tool_buttons["scaling"] = scaling_button
+	setup_button = _button("BATTLE SETUP", 330, 52)
+	setup_button.add_theme_font_size_override("font_size", 15)
+	setup_button.tooltip_text = "Characters, goals, deployment, co-op, and map surroundings"
+	setup_button.pressed.connect(_open_setup)
+	tools_column.add_child(setup_button)
 	deployment_actions = HBoxContainer.new()
 	deployment_actions.add_theme_constant_override("separation", 6)
 	deployment_actions.visible = false
@@ -2288,14 +2264,6 @@ func _build_interface() -> void:
 	deployment_cancel.add_theme_font_size_override("font_size", 13)
 	deployment_cancel.pressed.connect(_cancel_deployment_edit)
 	deployment_actions.add_child(deployment_cancel)
-	surroundings_button = _button("OUTSIDE", 330, 46)
-	surroundings_button.add_theme_font_size_override("font_size", 14)
-	surroundings_button.tooltip_text = (
-		"Choose how presentation beyond the playable map is rendered"
-	)
-	surroundings_button.pressed.connect(_open_surroundings)
-	tools_column.add_child(surroundings_button)
-	tool_buttons["surroundings"] = surroundings_button
 	_update_tool_selection()
 	tools_column.add_child(_label("TERRAIN", 17, Color("69d9ff")))
 	var palette_scroll := ScrollContainer.new()
@@ -2345,6 +2313,198 @@ func _build_interface() -> void:
 	_build_objective_overlay()
 	_build_resize_overlay()
 	_build_surroundings_overlay()
+	_build_setup_overlay()
+	_build_more_overlay()
+
+
+func _open_setup() -> void:
+	if deployment_editing:
+		_set_status("APPLY OR CANCEL THE DEPLOYMENT DRAFT FIRST", true)
+		return
+	setup_layer.visible = true
+	setup_first_button.call_deferred("grab_focus")
+
+
+func _close_setup() -> void:
+	setup_layer.visible = false
+	setup_button.call_deferred("grab_focus")
+
+
+func _choose_setup_tool(name: String) -> void:
+	setup_layer.visible = false
+	_select_tool(name)
+
+
+func _setup_add_character() -> void:
+	setup_layer.visible = false
+	_open_add_placement()
+
+
+func _setup_deployment() -> void:
+	setup_layer.visible = false
+	_begin_deployment_edit()
+
+
+func _setup_objectives() -> void:
+	setup_layer.visible = false
+	_open_objectives()
+
+
+func _setup_surroundings() -> void:
+	setup_layer.visible = false
+	_open_surroundings()
+
+
+func _build_setup_overlay() -> void:
+	setup_layer = Control.new()
+	setup_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	setup_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	setup_layer.visible = false
+	setup_layer.z_index = 30
+	add_child(setup_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.88)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	setup_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(390, 150)
+	panel.size = Vector2(1140, 780)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
+	)
+	setup_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("BATTLE SETUP", 24, Color("69d9ff")))
+	var explanation := _label(
+		"The map is ready to paint without these. Open setup only when you want "
+		+ "to change characters, victory rules, co-op, or the area beyond the board.",
+		19, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 68
+	column.add_child(explanation)
+	var choices := GridContainer.new()
+	choices.columns = 2
+	choices.add_theme_constant_override("h_separation", 14)
+	choices.add_theme_constant_override("v_separation", 12)
+	column.add_child(choices)
+	add_unit_button = _button("ADD CHARACTER", 500, 66)
+	add_unit_button.pressed.connect(_setup_add_character)
+	choices.add_child(add_unit_button)
+	setup_first_button = add_unit_button
+	tool_buttons["add_unit"] = add_unit_button
+	var move_unit := _button("MOVE CHARACTER", 500, 66)
+	move_unit.pressed.connect(_choose_setup_tool.bind("unit"))
+	choices.add_child(move_unit)
+	tool_buttons["unit"] = move_unit
+	var remove_unit := _button("REMOVE CHARACTER", 500, 66)
+	remove_unit.pressed.connect(_choose_setup_tool.bind("remove_unit"))
+	choices.add_child(remove_unit)
+	tool_buttons["remove_unit"] = remove_unit
+	deployment_button = _button("DEPLOYMENT AREA", 500, 66)
+	deployment_button.pressed.connect(_setup_deployment)
+	choices.add_child(deployment_button)
+	tool_buttons["deployment"] = deployment_button
+	objective_button = _button("VICTORY GOALS", 500, 66)
+	objective_button.pressed.connect(_setup_objectives)
+	choices.add_child(objective_button)
+	var ownership_button := _button("WHO CONTROLS EACH ALLY", 500, 66)
+	ownership_button.pressed.connect(_choose_setup_tool.bind("ownership"))
+	choices.add_child(ownership_button)
+	tool_buttons["ownership"] = ownership_button
+	var scaling_button := _button("TWO-PLAYER ENEMY SCALING", 500, 66)
+	scaling_button.pressed.connect(_choose_setup_tool.bind("scaling"))
+	choices.add_child(scaling_button)
+	tool_buttons["scaling"] = scaling_button
+	surroundings_button = _button("MAP SURROUNDINGS", 500, 66)
+	surroundings_button.pressed.connect(_setup_surroundings)
+	choices.add_child(surroundings_button)
+	tool_buttons["surroundings"] = surroundings_button
+	var back := _button("BACK TO MAP", 500, 62)
+	back.pressed.connect(_close_setup)
+	column.add_child(back)
+	_update_tool_selection()
+
+
+func _open_more() -> void:
+	more_layer.visible = true
+	more_first_button.call_deferred("grab_focus")
+
+
+func _close_more() -> void:
+	more_layer.visible = false
+	more_button.call_deferred("grab_focus")
+
+
+func _more_redo() -> void:
+	more_layer.visible = false
+	_redo()
+
+
+func _more_new_map() -> void:
+	more_layer.visible = false
+	_create_map()
+
+
+func _more_resize() -> void:
+	more_layer.visible = false
+	_open_resize()
+
+
+func _more_projects() -> void:
+	more_layer.visible = false
+	_request_projects()
+
+
+func _build_more_overlay() -> void:
+	more_layer = Control.new()
+	more_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	more_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	more_layer.visible = false
+	more_layer.z_index = 30
+	add_child(more_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.88)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	more_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(560, 190)
+	panel.size = Vector2(800, 700)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
+	)
+	more_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	panel.add_child(column)
+	column.add_child(_label("MORE MAP OPTIONS", 24, Color("69d9ff")))
+	var explanation := _label(
+		"These actions are useful, but not part of the basic make → story → test flow.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 54
+	column.add_child(explanation)
+	redo_button = _button("REDO LAST EDIT", 680, 70)
+	redo_button.pressed.connect(_more_redo)
+	column.add_child(redo_button)
+	var new_map_button := _button("ADD ANOTHER MAP", 680, 70)
+	new_map_button.pressed.connect(_more_new_map)
+	column.add_child(new_map_button)
+	more_first_button = new_map_button
+	var resize_button := _button("RESIZE THIS MAP", 680, 70)
+	resize_button.pressed.connect(_more_resize)
+	column.add_child(resize_button)
+	var projects := _button("RETURN TO PROJECTS", 680, 70)
+	projects.pressed.connect(_more_projects)
+	column.add_child(projects)
+	var back := _button("BACK TO MAP", 680, 70)
+	back.pressed.connect(_close_more)
+	column.add_child(back)
 
 
 func _build_placement_overlay() -> void:

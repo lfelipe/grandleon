@@ -58,7 +58,7 @@ func _run() -> void:
 		)
 		screen._open_project_actions(original_id, "Signal Road")
 		_expect("project options open", screen.project_actions_layer.visible, true)
-		_expect("project options focus rename", screen.project_actions_first_button.has_focus(), true)
+		_expect("project options focus story", screen.project_actions_first_button.has_focus(), true)
 		screen._close_project_actions()
 		await process_frame
 		_expect("project options return focus", screen.project_buttons[original_id].has_focus(), true)

@@ -224,13 +224,8 @@ func _build_new_campaign_layer() -> void:
 	new_campaign_create_button.custom_minimum_size = Vector2(470, 82)
 	new_campaign_create_button.pressed.connect(_create_named_campaign)
 	actions.add_child(new_campaign_create_button)
-	var empty := _button("EMPTY PROJECT")
-	empty.custom_minimum_size = Vector2(280, 82)
-	empty.tooltip_text = "Advanced: start without maps, characters, or a campaign."
-	empty.pressed.connect(_create_empty_project)
-	actions.add_child(empty)
 	var cancel := _button("BACK")
-	cancel.custom_minimum_size = Vector2(190, 82)
+	cancel.custom_minimum_size = Vector2(300, 82)
 	cancel.pressed.connect(_close_new_campaign)
 	actions.add_child(cancel)
 
@@ -261,9 +256,12 @@ func _build_project_actions_layer() -> void:
 	project_actions_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	project_actions_title.custom_minimum_size.y = 82
 	column.add_child(project_actions_title)
-	project_actions_first_button = _button("RENAME")
-	project_actions_first_button.pressed.connect(_rename_selected_project)
+	project_actions_first_button = _button("WRITE STORY")
+	project_actions_first_button.pressed.connect(_story_selected_project)
 	column.add_child(project_actions_first_button)
+	var rename := _button("RENAME")
+	rename.pressed.connect(_rename_selected_project)
+	column.add_child(rename)
 	var duplicate := _button("MAKE A COPY")
 	duplicate.pressed.connect(_duplicate_selected_project)
 	column.add_child(duplicate)
@@ -354,6 +352,14 @@ func _rename_selected_project() -> void:
 	var title := project_actions_name
 	project_actions_layer.visible = false
 	_open_rename(project_id, title)
+
+
+func _story_selected_project() -> void:
+	var project_id := project_actions_id
+	project_actions_layer.visible = false
+	project_actions_id = ""
+	project_actions_name = ""
+	_edit_story(project_id)
 
 
 func _duplicate_selected_project() -> void:
@@ -553,14 +559,9 @@ func _refresh_projects() -> void:
 		play.custom_minimum_size = Vector2(310, 58)
 		play.pressed.connect(_play_project.bind(str(project.id)))
 		actions.add_child(play)
-		var story := _button("WRITE STORY")
-		story.disabled = edit.disabled
-		story.custom_minimum_size = Vector2(310, 58)
-		story.pressed.connect(_edit_story.bind(str(project.id)))
-		actions.add_child(story)
 		var more := _button("MORE")
 		more.disabled = edit.disabled
-		more.custom_minimum_size = Vector2(310, 58)
+		more.custom_minimum_size = Vector2(470, 58)
 		more.pressed.connect(_open_project_actions.bind(str(project.id), title))
 		actions.add_child(more)
 

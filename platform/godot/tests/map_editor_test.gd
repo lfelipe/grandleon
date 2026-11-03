@@ -35,6 +35,24 @@ func _run() -> void:
 		print("placement picker capture saved: %s" % placement_screenshot_path)
 		quit()
 		return
+	var setup_screenshot_path := _argument_path("--setup-screenshot=")
+	if not setup_screenshot_path.is_empty():
+		editor._open_setup()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(setup_screenshot_path)
+		print("battle setup capture saved: %s" % setup_screenshot_path)
+		quit()
+		return
+	var more_screenshot_path := _argument_path("--more-screenshot=")
+	if not more_screenshot_path.is_empty():
+		editor._open_more()
+		for frame in 12:
+			await process_frame
+		get_root().get_texture().get_image().save_png(more_screenshot_path)
+		print("more map options capture saved: %s" % more_screenshot_path)
+		quit()
+		return
 	var deployment_screenshot_path := _argument_path("--deployment-screenshot=")
 	if not deployment_screenshot_path.is_empty():
 		editor._begin_deployment_edit()
@@ -109,6 +127,20 @@ func _run() -> void:
 	_expect("ally placement shown on board", editor.grid.get_child(6).tooltip_text.contains("FIRST"), true)
 	_expect("enemy placement shown on board", editor.grid.get_child(8).tooltip_text.contains("SECOND"), true)
 	_expect("map selector receives controller focus", editor.map_select.has_focus(), true)
+	editor._open_setup()
+	await process_frame
+	_expect("battle setup opens", editor.setup_layer.visible, true)
+	_expect("battle setup focuses its first action", editor.setup_first_button.has_focus(), true)
+	editor._close_setup()
+	await process_frame
+	_expect("battle setup returns focus", editor.setup_button.has_focus(), true)
+	editor._open_more()
+	await process_frame
+	_expect("more map options opens", editor.more_layer.visible, true)
+	_expect("more map options skips disabled redo", editor.more_first_button.has_focus(), true)
+	editor._close_more()
+	await process_frame
+	_expect("more map options returns focus", editor.more_button.has_focus(), true)
 	editor._select_tool("ownership")
 	editor._paint_cell(6)
 	await process_frame
