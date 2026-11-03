@@ -43,8 +43,8 @@ constexpr std::array<Stage, 5> stages{{
     {"rowanfield", 2, 2, 3, 1},
     {"thorn_road", 4, 4, 6, 2},
     {"glasswater", 6, 6, 8, 3},
-    {"ember_vault", 6, 8, 10, 3},
-    {"hollow_throne", 6, 7, 9, 3},
+    {"ember_vault", 6, 6, 7, 3},
+    {"hollow_throne", 6, 4, 5, 3},
 }};
 
 }  // namespace
@@ -69,6 +69,84 @@ int main() {
         parsed.source.encounters.size() == stages.size(),
         "that campaign contains exactly five battles"
     );
+    if (!parsed.source.campaigns.empty()) {
+        const gc::Campaign& campaign = parsed.source.campaigns.front();
+        expect(
+            campaign.roster.size() == 6U,
+            "the two heroes recruit two characters for each co-op army"
+        );
+        const auto joining_at = [&campaign](std::string_view node) {
+            const std::uint64_t id = core::stable_content_id_v1(node);
+            return static_cast<std::size_t>(std::count_if(
+                campaign.roster.begin(), campaign.roster.end(),
+                [id](const gc::CampaignMember& member) {
+                    return member.join_node_id == id;
+                }
+            ));
+        };
+        expect(
+            joining_at("rowanfield") == 2U &&
+                joining_at("thorn_road") == 2U,
+            "the army grows after each of the first two battles"
+        );
+        expect(
+            std::count_if(
+                campaign.roster.begin(), campaign.roster.end(),
+                [](const gc::CampaignMember& member) {
+                    return member.join_node_id == 0U;
+                }
+            ) == 2,
+            "Auren and Senna are the founding company"
+        );
+
+        const std::uint64_t defeat_node =
+            core::stable_content_id_v1("campaign_defeat");
+        std::size_t protected_battles = 0;
+        for (const gc::CampaignNode& node : campaign.nodes) {
+            if (node.kind != gc::CampaignNodeKind::encounter) continue;
+            bool has_victory = false;
+            bool has_defeat = false;
+            for (const gc::CampaignConditionalTarget& target :
+                 node.conditional_targets) {
+                if (target.predicates.size() != 1U) continue;
+                const gc::CampaignPredicate& predicate =
+                    target.predicates.front();
+                if (predicate.kind !=
+                    gc::CampaignPredicateKind::objective_result) {
+                    continue;
+                }
+                has_victory = has_victory ||
+                    predicate.result == gc::ObjectiveOutcome::satisfied;
+                has_defeat = has_defeat ||
+                    (predicate.result == gc::ObjectiveOutcome::failed &&
+                     target.target_id == defeat_node);
+            }
+            if (node.unconditional_targets.empty() && has_victory &&
+                has_defeat) {
+                ++protected_battles;
+            }
+        }
+        expect(
+            protected_battles == stages.size(),
+            "every battle separates victory progression from the defeat ending"
+        );
+        const auto has_node = [&campaign](std::string_view key,
+                                          gc::CampaignNodeKind kind) {
+            const std::uint64_t id = core::stable_content_id_v1(key);
+            return std::any_of(
+                campaign.nodes.begin(), campaign.nodes.end(),
+                [id, kind](const gc::CampaignNode& node) {
+                    return node.id == id && node.kind == kind;
+                }
+            );
+        };
+        expect(
+            has_node("campaign_complete", gc::CampaignNodeKind::terminal) &&
+                has_node("campaign_defeat", gc::CampaignNodeKind::story) &&
+                has_node("campaign_failed", gc::CampaignNodeKind::terminal),
+            "victory and defeat have distinct authored endings"
+        );
+    }
 
     const gc::CompileResult compiled = gc::compile(parsed.source);
     expect(static_cast<bool>(compiled), "and compiles");

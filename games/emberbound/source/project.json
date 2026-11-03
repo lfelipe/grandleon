@@ -127,9 +127,9 @@
       "id": "hollow_regent",
       "name": "Hollow Regent",
       "baseStats": {
-        "health": 30, "movement": 4, "strength": 7, "defense": 6,
-        "resistance": 6, "skill": 8, "luck": 4, "magic": 8,
-        "actionPoints": 2, "speed": 7
+        "health": 26, "movement": 4, "strength": 7, "defense": 5,
+        "resistance": 5, "skill": 7, "luck": 4, "magic": 5,
+        "actionPoints": 2, "speed": 6
       },
       "allowedWeaponTypeIds": ["blade", "focus"]
     }
@@ -209,7 +209,7 @@
     },
     {
       "id": "crownfall", "name": "Crownfall", "kind": "damage",
-      "damageType": "magical", "areaShape": "diamond", "power": 5,
+      "damageType": "magical", "areaShape": "diamond", "power": 2,
       "minimumRange": 1, "maximumRange": 3, "radius": 1, "accuracy": 95
     }
   ],
@@ -525,6 +525,19 @@
         { "speaker": "Senna", "text": "So we make a world where choosing each other is ordinary." },
         { "speaker": "Orra", "text": "The light does not remember kings. It remembers hands." }
       ]
+    },
+    {
+      "id": "defeat", "name": "The Ember Waits", "backgroundId": "mountain_dusk",
+      "cast": [
+        { "speaker": "Auren", "unitTypeId": "auren_wayfarer" },
+        { "speaker": "Senna", "unitTypeId": "senna_lumen" }
+      ],
+      "lines": [
+        { "speaker": "Orra", "text": "This road ends in ash—but it is only one road." },
+        { "speaker": "Auren", "text": "Then show us the turning." },
+        { "speaker": "Senna", "text": "No. We remember it, and choose better when the bell rings again." },
+        { "speaker": "Orra", "text": "The ember waits for hands willing to reach for one another." }
+      ]
     }
   ],
   "campaigns": [
@@ -539,7 +552,7 @@
       "dialogueIds": [
         "prologue", "tutorial_orders", "rowanfield_won", "thorn_orders",
         "thorn_won", "glasswater_orders", "glasswater_won", "vault_orders",
-        "before_regent", "regent_orders", "epilogue"
+        "before_regent", "regent_orders", "epilogue", "defeat"
       ],
       "flow": {
         "contractVersion": "1.0.0",
@@ -566,7 +579,10 @@
               { "id": "brann", "name": "Brann", "unitTypeId": "brann_vanguard" },
               { "id": "ilyra", "name": "Ilyra", "unitTypeId": "ilyra_scout" }
             ],
-            "transitions": [{ "id": "after_rowanfield", "targetNodeId": "rowanfield_camp", "priority": 0 }]
+            "transitions": [
+              { "id": "after_rowanfield", "targetNodeId": "rowanfield_camp", "priority": 0, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "victory" } },
+              { "id": "rowanfield_falls", "targetNodeId": "campaign_defeat", "priority": 1, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "defeat" } }
+            ]
           },
           {
             "id": "rowanfield_camp", "name": "The Choosing", "kind": "story",
@@ -594,7 +610,10 @@
               { "id": "oren", "name": "Oren", "unitTypeId": "oren_keeper" },
               { "id": "tess", "name": "Tess", "unitTypeId": "tess_sapper" }
             ],
-            "transitions": [{ "id": "after_thorn", "targetNodeId": "thorn_camp", "priority": 0 }]
+            "transitions": [
+              { "id": "after_thorn", "targetNodeId": "thorn_camp", "priority": 0, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "victory" } },
+              { "id": "thorn_falls", "targetNodeId": "campaign_defeat", "priority": 1, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "defeat" } }
+            ]
           },
           {
             "id": "thorn_camp", "name": "People, Not Pieces", "kind": "story",
@@ -622,7 +641,10 @@
             ],
             "objectiveIds": ["defeat_all_opponents"],
             "moments": [{ "id": "causeway_begins", "when": { "kind": "stageOpens" }, "dialogueId": "glasswater_orders" }],
-            "transitions": [{ "id": "after_glasswater", "targetNodeId": "glasswater_camp", "priority": 0 }]
+            "transitions": [
+              { "id": "after_glasswater", "targetNodeId": "glasswater_camp", "priority": 0, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "victory" } },
+              { "id": "glasswater_falls", "targetNodeId": "campaign_defeat", "priority": 1, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "defeat" } }
+            ]
           },
           {
             "id": "glasswater_camp", "name": "An Army Learns Its Shape", "kind": "story",
@@ -644,15 +666,15 @@
               { "id": "vault_guard_a", "unitTypeId": "crown_guard_unit", "side": "second", "x": 7, "y": 2, "behavior": "pursue" },
               { "id": "vault_guard_b", "unitTypeId": "crown_guard_unit", "side": "second", "x": 7, "y": 3, "behavior": "pursue" },
               { "id": "vault_caller_a", "unitTypeId": "ash_caller_unit", "side": "second", "x": 7, "y": 1, "behavior": "hold" },
-              { "id": "vault_caller_b", "unitTypeId": "ash_caller_unit", "side": "second", "x": 7, "y": 4, "behavior": "hold" },
               { "id": "vault_archer_a", "unitTypeId": "ash_archer_unit", "side": "second", "x": 5, "y": 0, "behavior": "hold" },
-              { "id": "vault_archer_b", "unitTypeId": "ash_archer_unit", "side": "second", "x": 5, "y": 5, "behavior": "hold" },
-              { "id": "vault_guard_coop", "unitTypeId": "crown_guard_unit", "side": "second", "x": 8, "y": 2, "behavior": "pursue", "minimumPlayers": 2 },
-              { "id": "vault_caller_coop", "unitTypeId": "ash_caller_unit", "side": "second", "x": 8, "y": 3, "behavior": "hold", "minimumPlayers": 2 }
+              { "id": "vault_guard_coop", "unitTypeId": "crown_guard_unit", "side": "second", "x": 8, "y": 2, "behavior": "pursue", "minimumPlayers": 2 }
             ],
             "objectiveIds": ["defeat_all_opponents"],
             "moments": [{ "id": "vault_begins", "when": { "kind": "stageOpens" }, "dialogueId": "vault_orders" }],
-            "transitions": [{ "id": "after_vault", "targetNodeId": "regent_parley", "priority": 0 }]
+            "transitions": [
+              { "id": "after_vault", "targetNodeId": "regent_parley", "priority": 0, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "victory" } },
+              { "id": "vault_falls", "targetNodeId": "campaign_defeat", "priority": 1, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "defeat" } }
+            ]
           },
           {
             "id": "regent_parley", "name": "What the Crown Preserves", "kind": "story",
@@ -671,17 +693,16 @@
               { "id": "tess", "memberId": "tess", "unitTypeId": "tess_sapper", "side": "first", "player": 2, "x": 2, "y": 3 },
               { "id": "regent", "name": "Regent Veyr", "unitTypeId": "regent_veyr", "side": "second", "x": 7, "y": 3, "behavior": "pursue" },
               { "id": "throne_guard_a", "unitTypeId": "crown_guard_unit", "side": "second", "x": 6, "y": 2, "behavior": "pursue" },
-              { "id": "throne_guard_b", "unitTypeId": "crown_guard_unit", "side": "second", "x": 6, "y": 4, "behavior": "pursue" },
               { "id": "throne_warden_a", "unitTypeId": "crown_warden_unit", "side": "second", "x": 7, "y": 1, "behavior": "pursue" },
               { "id": "throne_warden_b", "unitTypeId": "crown_warden_unit", "side": "second", "x": 7, "y": 5, "behavior": "pursue" },
-              { "id": "throne_caller_a", "unitTypeId": "ash_caller_unit", "side": "second", "x": 8, "y": 2, "behavior": "hold" },
-              { "id": "throne_caller_b", "unitTypeId": "ash_caller_unit", "side": "second", "x": 8, "y": 4, "behavior": "hold" },
-              { "id": "throne_guard_coop", "unitTypeId": "crown_guard_unit", "side": "second", "x": 6, "y": 3, "behavior": "pursue", "minimumPlayers": 2 },
-              { "id": "throne_caller_coop", "unitTypeId": "ash_caller_unit", "side": "second", "x": 8, "y": 3, "behavior": "hold", "minimumPlayers": 2 }
+              { "id": "throne_guard_coop", "unitTypeId": "crown_guard_unit", "side": "second", "x": 6, "y": 3, "behavior": "pursue", "minimumPlayers": 2 }
             ],
             "objectiveIds": ["defeat_all_opponents"],
             "moments": [{ "id": "regent_begins", "when": { "kind": "stageOpens" }, "dialogueId": "regent_orders" }],
-            "transitions": [{ "id": "after_regent", "targetNodeId": "dawn_shared", "priority": 0 }]
+            "transitions": [
+              { "id": "after_regent", "targetNodeId": "dawn_shared", "priority": 0, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "victory" } },
+              { "id": "throne_falls", "targetNodeId": "campaign_defeat", "priority": 1, "when": { "kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "defeat" } }
+            ]
           },
           {
             "id": "dawn_shared", "name": "A Dawn Shared", "kind": "story",
@@ -690,6 +711,15 @@
           },
           {
             "id": "campaign_complete", "name": "The Road Ahead", "kind": "terminal",
+            "transitions": []
+          },
+          {
+            "id": "campaign_defeat", "name": "The Ember Waits", "kind": "story",
+            "dialogueIds": ["defeat"],
+            "transitions": [{ "id": "to_defeat", "targetNodeId": "campaign_failed", "priority": 0 }]
+          },
+          {
+            "id": "campaign_failed", "name": "The Bell Will Ring Again", "kind": "terminal",
             "transitions": []
           }
         ]
