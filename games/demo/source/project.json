@@ -274,6 +274,10 @@
         "sand", "grass", "road", "bridge", "road", "road", "road", "road", "mountain",
         "mountain", "sand", "sand", "grass", "grass", "forest", "mountain", "mountain", "mountain"
       ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 6
+      },
       "notes": "A ruined signal station whose rules and content remain valid on the console builds; the PC client alone adds optional local-model presentation and policy."
     }
   ],
@@ -619,6 +623,24 @@
                 "x": 6,
                 "y": 4,
                 "behavior": "pursue"
+              },
+              {
+                "id": "relay_drone_coop_west",
+                "unitTypeId": "relay_beast_drone",
+                "side": "second",
+                "x": 5,
+                "y": 4,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "relay_drone_coop_east",
+                "unitTypeId": "relay_beast_drone",
+                "side": "second",
+                "x": 7,
+                "y": 3,
+                "behavior": "pursue",
+                "minimumPlayers": 2
               }
             ],
             "objectiveIds": ["defeat_all_opponents"],
