@@ -10,6 +10,7 @@ output_dir="${repo_root}/out/grandleon-pc"
 godot_binary=""
 campaign_key="emberbound"
 player_only=0
+release_version="$(tr -d '\r\n' <"${repo_root}/RELEASE_VERSION")"
 
 usage() {
     printf '%s\n' \
@@ -51,6 +52,10 @@ fi
 if [[ ! "${campaign_key}" =~ ^[a-z][a-z0-9_]*$ ]]; then
     printf 'campaign must be a portable source key: %s\n' "${campaign_key}" >&2
     exit 64
+fi
+if [[ ! "${release_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    printf 'invalid product release version: %s\n' "${release_version}" >&2
+    exit 65
 fi
 if [[ -e "${output_dir}" ]]; then
     printf 'output already exists; choose a new directory: %s\n' "${output_dir}" >&2
@@ -116,7 +121,7 @@ cmake -E copy \
     "${repo_root}/third_party/godot/4.7.2/COPYRIGHT.txt" \
     "${temporary_dir}/licenses/GODOT-COPYRIGHT.txt"
 cmake -E copy \
-    "${repo_root}/third_party/godot-cpp/4.7.2/LICENSE.md" \
+    "${repo_root}/third_party/godot-cpp/10.0.0-stable/LICENSE.md" \
     "${temporary_dir}/licenses/GODOT-CPP-LICENSE.txt"
 cmake -E copy \
     "${repo_root}/platform/godot/project/graphics.example.json" \
@@ -146,6 +151,7 @@ if [[ "${player_only}" == "1" ]]; then
 fi
 {
     printf 'Grand Leon Linux PC bundle\n'
+    printf 'releaseVersion=%s\n' "${release_version}"
     printf 'sourceRevision=%s\n' "${source_revision}"
     printf 'sourceTree=%s\n' "${source_state}"
     printf 'godotVersion=%s\n' "${godot_version}"

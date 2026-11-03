@@ -1,7 +1,8 @@
 # From the editor to a console
 
-Four surfaces play or draw a Grandleon game. Each module's README describes its
-own link; this document describes the chain they form.
+The native creator and four runtime surfaces share one portable game. Each
+module's README describes its own link; this document describes the chain they
+form.
 
 ## The chain
 
@@ -25,7 +26,7 @@ own link; this document describes the chain they form.
       │  platform/view: the shared board presentation model
       │    camera, elevation projection, autotile convention, draw order
       ▼
-   a renderer          SVG, SDL, RDP, or the PlayStation GPU
+   a renderer          Godot 2D/3D, SDL, RDP, or the PlayStation GPU
 ```
 
 Two invariants hold the chain together: **only `engine/simulation` holds
@@ -60,9 +61,10 @@ stays first and a new entry goes last.
 - **A console needs nothing baked beside its package.** `platform/playstation`
   names its encounter by authored path through `core::stable_content_id_v1` and
   takes its theme and joins out of the presentation section.
-- **The editor is the exception, and unverified against the package.** It
-  resolves art through its own generated TypeScript tables rather than through
-  the presentation section, so it is the one surface answering this twice.
+- **The native creator edits source, then tests the compiled result.** Its map
+  preview uses the installed art atlas, while **Test Campaign** compiles the
+  in-memory source and starts the ordinary Godot runtime package. Source and
+  package behavior therefore meet in the same create/test loop.
 
 ## The four targets
 
@@ -70,8 +72,8 @@ Not stages of one port; each answers a different question.
 
 | | |
 |---|---|
-| **The browser** | where a game is made and first played. It runs the C++ simulation compiled to WebAssembly, so there is one set of rules rather than two agreeing sets. |
-| **The desktop client** | the reference front end for the presenter seam, playing a real compiled package; the console front ends are built on the same `platform/client` session. |
+| **Godot on PC** | the supported player and creator. It compiles native project source in memory, plays the resulting package through the shared C++ session, and provides richer replaceable presentation without owning gameplay rules. |
+| **The SDL desktop client** | the compact reference front end for the presenter seam, playing a real compiled package; the console front ends are built on the same `platform/client` session. It remains a test surface rather than the primary PC product. |
 | **The Nintendo 64** | the deepest console port (full campaign, title screen, cutscenes, controller, overlays, forecasts, abilities), and the only target that parses authored JSON *on the console* rather than consuming a package compiled on the host. |
 | **The PlayStation** | the widest architectural spread from the host: 32-bit little-endian MIPS-I, no `clz`, no `movn`, no 64-bit load. It plays both shipped campaigns end to end from a controller over bit-banged SIO0 and keeps them on a memory card. |
 
@@ -104,20 +106,18 @@ JSON parser.
 ## Back the other way: from the editor to a cartridge or a disc
 
 An author's own game, in a file they can run, is the same chain again with the
-real build on the end rather than a patched template ROM:
+real build on the end rather than a patched template ROM. The native Export
+Center is still 0.3 work; today the creator exports portable source and the
+same builders are invoked from the command line:
 
 ```
- the editor's project.json
-      │  POST /api/<console>/build  (relative path; connect-src stays 'self')
+ the creator's project.json or portable .grandleon.zip
+      │
+      │  target preflight and host content compilation
       ▼
- tools/rom_service           refuses what it cannot serve before a container
-      │                        starts, and compiles on the host first, because
-      │                        one console compiles on the machine and the
-      │                        other embeds what the host compiled — either way
-      ▼                        a bad project would otherwise cost a build
- build-n64.sh --project <staged> --targets grandleon_n64_campaign
+ build-n64.sh --project <source> --targets grandleon_n64_campaign
       ▼                        │
-   a .z64                      │  build-playstation.sh --project <staged>
+   a .z64                      │  build-playstation.sh --project <source>
                                ▼  then build-disc.sh
                             a .bin and its .cue
 ```
@@ -130,12 +130,12 @@ the package it is holding. `tools/rom_service/README.md` gives the argument
 against patching, every refusal by name, and the lanes that hold the build
 route up.
 
-**The two consoles do not accept the same projects, and the difference is one
-refusal.** The Nintendo 64 embeds the drawings its content actually draws, so a
-project drawing characters in two styles is served. The PlayStation includes one
-generated character header, so the same project is refused by name before a
-container starts. That is an art-library limit rather than a console one, and
-`cmake/GrandleonCharacterStyle.cmake` says what lifting it would take.
+**Both console builders select only the character drawings the project
+actually needs.** Style, figure, archetype, and faction colour are resolved by
+the same presentation choices on Nintendo 64 and PlayStation. The PlayStation
+stores those exact drawings in a generated sparse table and a one-dimensional
+VRAM cache, so mixed style/figure projects no longer require a false global
+style restriction.
 
 **A disc is offered on different terms from a ROM, and the surface says so.**
 The image carries no licence sector, because that data is Sony's. PCSX-Redux
@@ -144,13 +144,11 @@ PlayStation reads the licence area, finds nothing, and refuses the disc; and
 nothing here has ever run on real hardware of either console, so no claim is
 made about anything else that reads a disc.
 
-**The browser compiles too.** `gl_content_compile` binds `tools/game_content`
-through the web ABI: the same `parse_source_project_json` and `compile` the
-command line runs, and the same two a Nintendo 64 cartridge runs on the console.
-It is linked in, not reimplemented, and held to it:
-`editor/src/domain/content-compiler.test.ts` compiles the shipped Tarnholt
-project through the WebAssembly build and requires the package to match, in
-byte count and in md5, what `grandleon_content_compile` writes natively.
+The earlier browser editor still carries a WebAssembly compiler parity test
+while its useful behavior is migrated. It is a legacy verification surface,
+not the supported 0.3 creation flow. The native Godot bridge calls the same
+`parse_source_project_json` and `compile` functions directly and passes package
+bytes to the ordinary PC session without a temporary build directory.
 
 ## The verification story
 
@@ -162,7 +160,7 @@ Six layers, each catching something the one below it structurally cannot.
 | **The same rules, elsewhere** | Every target that links the engine replays the shared reference vector defined in [engine/simulation/README.md](../engine/simulation/README.md) and must reproduce its two canonical hashes bit for bit. That covers a 64-bit little-endian host, a 64-bit big-endian console, a 32-bit little-endian console, and `platform/web` in a browser. The hash covers the board, what its ground allows and what it charges, every unit's state, the objectives and the random state, so a rule that behaves differently anywhere moves it. |
 | **The picture, per pixel** | A console's frame is held to the colour of every visible cell with no tolerance: the PlayStation by making three independent quantities agree and reading the GPU's display registers out of a save state, the Nintendo 64 by a census the ROM runs on itself out of RDRAM. No frame digest is pinned: a per-cell claim says where a picture went wrong, which a digest cannot. Each pixel gate carries a **negative control**: the same harness pointed at a program that never touches the GPU is required to fail, every invocation. |
 | **The turn, played** | A fixed controller script is played into the emulator's own pad ports and the program photographs itself at every checkpoint. What it must produce is derived on a different architecture, never on the console: host tools replay the same presses through the same `platform/client` session against the real engine, so a run cannot be made to pass by adjusting an expectation. |
-| **The browser, in a browser** | `happy-dom` cannot enforce a Content Security Policy against WebAssembly compilation, so the Playwright suite builds the production bundle, serves it through `vite preview`, and drives a pinned Chromium against it. |
+| **The native creator** | Project-library, compiler, map, story, home, controller, persistence, and packaged-bundle smokes exercise the create/compile/play seams through the pinned Godot runtime. The earlier browser suite remains a migration gate until that application is removed. |
 | **Drift gates** | Every committed artefact that could go stale has a check that fails when it does: the WebAssembly module against the pinned Emscripten container, the generated source-schema TypeScript, the generated art, and the linked PlayStation executable's ELF header against `mips1`. |
 
 ## Where to read further

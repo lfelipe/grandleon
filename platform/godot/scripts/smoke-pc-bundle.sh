@@ -83,6 +83,13 @@ fi
 
 source_revision="$(sed -n 's/^sourceRevision=//p' "${bundle_dir}/BUILD-INFO.txt")"
 source_state="$(sed -n 's/^sourceTree=//p' "${bundle_dir}/BUILD-INFO.txt")"
+release_version="$(sed -n 's/^releaseVersion=//p' "${bundle_dir}/BUILD-INFO.txt")"
+expected_release="$(tr -d '\r\n' <"${repo_root}/RELEASE_VERSION")"
+if [[ "${release_version}" != "${expected_release}" ]]; then
+    printf 'PC bundle release version is %s; expected %s\n' \
+        "${release_version:-missing}" "${expected_release}" >&2
+    exit 65
+fi
 if [[ ! "${source_revision}" =~ ^[0-9a-f]{40}$ ]]; then
     printf 'PC bundle source revision is missing or invalid\n' >&2
     exit 65

@@ -1,14 +1,20 @@
 # Native creator and export roadmap
 
+The 0.3 release status and acceptance gates live in
+[`docs/RELEASE_0_3.md`](../../docs/RELEASE_0_3.md). This document describes the
+native creator architecture and the increments beyond the current vertical
+slice.
+
 Grand Leon's PC application is both the game player and the game creator. A
 person can create a project, test it immediately in the same process, return to
 editing, and export it without opening a browser or installing a development
 toolchain.
 
-This is the target architecture. The repository's earlier browser editor is a
-migration reference, not a second product surface. Its useful behavior and
-test cases should move into the Godot application and native libraries; once
-the native creator reaches parity, the earlier application can be removed.
+This is the supported product direction. The repository's earlier browser
+editor is a migration reference, not a second product surface. Its useful
+behavior and test cases are moving into the Godot application and native
+libraries; it is not a supported 0.3 authoring path and can be removed after
+the remaining data editors reach parity.
 
 ## What already works
 
@@ -26,11 +32,11 @@ The first native seam is implemented:
   keeps the prior source recoverable if replacement is interrupted.
 - The controller-navigable Projects screen has one guided **New Campaign**
   path: name the adventure, create a complete playable campaign, and open its
-  first map immediately. An advanced empty project remains available. Existing
-  cards emphasize **Continue Creating**, **Test Campaign**, and **Write Story**;
-  rename, copy, and export sit behind **More**. Drafts enter the ordinary game
-  scene without a temporary package. Copies receive new portable identities;
-  renames preserve stable identifiers and content.
+  first map immediately. Existing cards emphasize **Continue Creating** and
+  **Test Campaign**; story, rename, copy, and portable export sit behind
+  **More**. Drafts enter the ordinary game scene without a temporary package.
+  Copies receive new portable identities; renames preserve stable identifiers
+  and content.
 - Map-editor drafts proceed through the native company gate automatically and
   disable campaign persistence, so iteration reaches the edited board directly
   without reading or replacing an installed game's checkpoints.
@@ -51,13 +57,19 @@ The first native seam is implemented:
   played, and reopened in the same project session. Blank projects can create
   maps without external tools. Map resize previews retained, clipped, and added
   cells and refuses to strand encounter data.
+- **Add Next Chapter** inserts a story moment, a cloned playable encounter, and
+  a fresh automatically surrounded map after the selected linear battle as one
+  validated undo command. It preserves the old destination and refuses
+  conditional/branched exits rather than guessing how to rewrite them.
 - The focused Story creator lists the starter's real dialogue scenes and lines,
   cycles only portable cast speakers, and edits text through a native
   integer-preserving source command. It also creates a complete scene with an
   opening cast member, portable backdrop, and first line, and attaches it to an
   existing campaign story moment as one validated command. It has bounded
   undo/redo, recoverable save, immediate draft play, and controller navigation
-  around the keyboard writing fields. A smoke reopens and compiles the saved
+  around the keyboard writing fields. Visible line edits are committed when
+  saving, navigating, testing, or leaving, so there is no separate Apply step
+  that can silently lose typed text. A smoke reopens and compiles the saved
   dialogue and its campaign attachment.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
@@ -169,6 +181,9 @@ This slice proves the whole ownership model before building a large editor.
 - Encounter objectives and two-player opponent scaling are implemented.
 - Immediate visual and console-budget feedback.
 - A single action to play the currently selected encounter.
+- A single **Add Next Chapter** action grows a linear campaign with a story
+  moment, ready battle, and editable map. General branch editing remains in the
+  campaign-flow increment.
 
 This comes first because it produces the shortest useful create/play loop and
 ports the most interaction-heavy part of the earlier editor early.
@@ -178,8 +193,9 @@ ports the most interaction-heavy part of the earlier editor early.
 - Characters, classes, factions, equipment, weapons, abilities, and items.
 - Stages, transitions, conditions, arrivals, rewards, and starting roster.
 - Dialogue-line authoring with portable speaker selection and complete scene
-  creation/attachment to existing story moments are implemented. Campaign
-  story-node creation, transition routing, and portrait preview remain.
+  creation/attachment to existing story moments are implemented. Linear story
+  and battle insertion is implemented through **Add Next Chapter**. General
+  transition routing, line/cast list editing, and portrait preview remain.
 - Searchable reference pickers; raw stable IDs should not be normal UI.
 
 ### 4. Art and presentation

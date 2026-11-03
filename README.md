@@ -7,6 +7,12 @@
 Grandleon is a tool for making tactical role-playing games, and a portable
 engine for playing them.
 
+> **0.3 development note:** the Godot PC application is now the supported
+> player-and-creator direction. The browser-editor walkthrough below describes
+> the earlier release and will be replaced with the final native flow and new
+> screenshots before 0.3 ships. Current scope and release gates are tracked in
+> [docs/RELEASE_0_3.md](docs/RELEASE_0_3.md).
+
 You draw maps, make characters, give them weapons, abilities and items, decide
 what winning means, and chain the Stages into a campaign, all in your local browser.
 

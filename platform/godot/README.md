@@ -102,23 +102,27 @@ same small game-and-creator front door.
 to the map canvas. A controller can choose scenes, lines, and speakers; a
 keyboard enters the words. It can also create a complete scene with a portable
 cast identity, backdrop, and opening line, then attach it atomically to an
-existing campaign story moment. Applying either edit passes through the native
-integer-preserving source boundary, with bounded undo/redo, recoverable save,
-and immediate draft play. Campaign routing outside that explicit attachment,
-console content, and unrelated source fields remain unchanged.
+existing campaign story moment. Visible line changes pass through the native
+integer-preserving source boundary automatically when the author saves,
+navigates, tests, or leaves; there is no separate Apply step. Bounded
+undo/redo, recoverable save, and immediate draft play remain available.
+Campaign routing outside that explicit attachment, console content, and
+unrelated source fields remain unchanged.
 
 The current creator creates and resizes maps, edits playable and surrounding
 terrain, arranges both sides of existing encounters, and authors deployment
 regions, allied player ownership, player scaling, objectives, dialogue lines,
-and new dialogue scenes attached to existing story moments. Creating and
-routing campaign story nodes and broader art-pack editing remain in the increments defined by
-[CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+and new dialogue scenes attached to existing story moments. **Add Next
+Chapter** inserts a new story moment, cloned playable encounter, and fresh map
+after a selected linear battle as one undoable edit. General campaign branches,
+the rest of the game-data editors, and broader art-pack editing remain in the
+increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to
 cover a wider range of SteamOS hardware.
 
-## Build a SteamOS test bundle
+## Build a Linux PC bundle
 
 The portable bundle includes the official Godot binary, the native extension,
 imported assets, and the compiled player-facing campaign. It does not need system-wide Godot or
@@ -238,9 +242,12 @@ source templates. Its home screen has no creator entry. The ordinary bundle
 retains both player and creator, so this is a packaging choice over the same
 project format rather than a separate kind of game.
 
-`BUILD-INFO.txt` identifies the source commit, clean/dirty build state, pinned
-Godot version, and default campaign/profile without recording the checkout,
-user, hostname, endpoint, or other machine-specific values.
+`BUILD-INFO.txt` identifies product release version, source commit, clean/dirty
+build state, pinned Godot version, and default campaign/profile without
+recording the checkout, user, hostname, endpoint, or other machine-specific
+values. `LICENSE.txt`, `NOTICE.txt`, and the `licenses/` directory carry the
+project, Godot, godot-cpp, and Godot third-party notices needed by the bundled
+runtime.
 
 Environment overrides are intentionally generic:
 
