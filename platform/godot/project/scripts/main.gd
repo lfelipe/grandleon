@@ -47,6 +47,12 @@ var graphics_cycle_smoke_next_msec := 0
 var controls_smoke := false
 var presentation_settings_smoke := ""
 var frame_timing_smoke := false
+var campaign_progress_enabled := true
+var campaign_save_root := ""
+var campaign_persistence_smoke := false
+var campaign_persistence_resetting := false
+var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
+var progress_reset_armed := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
 var keyboard_seat := -1
@@ -85,6 +91,7 @@ var session_menu_projects: Button
 var session_menu_graphics: Button
 var session_menu_camera: Button
 var session_menu_text: Button
+var session_menu_new_campaign: Button
 var session_menu_quit: Button
 var art = ArtLibrary.new()
 var graphics_profiles
@@ -96,6 +103,7 @@ var frame_timing_next_update_msec := 0
 
 func _ready() -> void:
 	_parse_arguments()
+	campaign_save_root = _resolve_campaign_save_root()
 	controls = ControlProfile.new(controls_path)
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
 	presentation_settings = PresentationSettings.new()
@@ -148,10 +156,15 @@ func _ready() -> void:
 	var started := false
 	if staged.is_empty():
 		var absolute_package := ProjectSettings.globalize_path(package_path)
-		started = session.start(absolute_package, campaign_key, player_count)
+		started = session.start(
+			absolute_package, campaign_key, player_count, campaign_save_root
+		)
 	else:
 		campaign_key = str(staged.campaign)
-		started = session.start_package(staged.package, campaign_key, player_count)
+		started = session.start_package(
+			staged.package, campaign_key, player_count,
+			campaign_save_root
+		)
 	if not started:
 		_show_fatal(session.last_error())
 	else:
@@ -180,6 +193,8 @@ func _process(delta: float) -> void:
 			_run_graphics_cycle_smoke()
 		elif demo_reel:
 			_run_demo_reel()
+		elif campaign_persistence_smoke:
+			_run_campaign_persistence_smoke()
 		elif smoke_auto:
 			_run_smoke_auto()
 		elif coop_smoke:
@@ -275,6 +290,27 @@ func _parse_arguments() -> void:
 			)
 		elif argument == "--frame-timing-smoke":
 			frame_timing_smoke = true
+		elif argument == "--no-progress":
+			campaign_progress_enabled = false
+		elif argument == "--campaign-persistence-smoke":
+			campaign_persistence_smoke = true
+
+
+func _resolve_campaign_save_root() -> String:
+	if not campaign_progress_enabled:
+		return ""
+	if not campaign_persistence_smoke and (
+		controls_smoke
+		or frame_timing_smoke
+		or smoke_auto
+		or coop_smoke
+		or demo_reel
+		or board_preview
+		or graphics_cycle_smoke
+		or (not screenshot_path.is_empty() and not menu_preview)
+	):
+		return ""
+	return ProjectSettings.globalize_path("user://campaigns")
 
 
 func _use_presentation_settings() -> bool:
@@ -382,6 +418,62 @@ func _run_smoke_auto() -> void:
 		if unit.get("has_acted", false) or _unit_is_pending(int(unit.id)):
 			continue
 		_submit("wait", int(unit.id))
+
+
+func _run_campaign_persistence_smoke() -> void:
+	if campaign_persistence_resetting:
+		return
+	if _dialogue_visible():
+		_advance_dialogue()
+		return
+	if snapshot.is_empty():
+		return
+	if not pending_requests.is_empty():
+		return
+	if snapshot.get("deploying", false):
+		_submit("begin")
+		return
+	if String(snapshot.get("active_side", "")) != "first":
+		return
+	var enemies: Array = []
+	for candidate: Dictionary in snapshot.get("units", []):
+		if candidate.get("on_board", false) and String(candidate.get("side", "")) == "second":
+			enemies.append(candidate)
+	for unit: Dictionary in snapshot.get("units", []):
+		if String(unit.get("side", "")) != "first" or not unit.get("on_board", false):
+			continue
+		if unit.get("has_acted", false) or _unit_is_pending(int(unit.id)):
+			continue
+		if enemies.is_empty():
+			_submit("wait", int(unit.id))
+			return
+		var target: Dictionary = enemies[0]
+		var attack_tiles: Array = session.query_tiles("attack", int(unit.id), 0)
+		var target_cell := Vector2i(int(target.x), int(target.y))
+		if _positions_contain(attack_tiles, target_cell):
+			_submit("attack", int(unit.id), int(target.id), target_cell)
+			return
+		var move_tiles: Array = session.query_tiles("move", int(unit.id), 0)
+		var best := Vector2i(int(unit.x), int(unit.y))
+		var best_distance := absi(best.x - target_cell.x) + absi(best.y - target_cell.y)
+		for tile: Dictionary in move_tiles:
+			var cell := Vector2i(int(tile.x), int(tile.y))
+			var distance := absi(cell.x - target_cell.x) + absi(cell.y - target_cell.y)
+			if distance < best_distance:
+				best = cell
+				best_distance = distance
+		if best != Vector2i(int(unit.x), int(unit.y)):
+			_submit("move", int(unit.id), 0, best)
+		else:
+			_submit("wait", int(unit.id))
+		return
+
+
+func _positions_contain(positions: Array, cell: Vector2i) -> bool:
+	for value: Dictionary in positions:
+		if int(value.x) == cell.x and int(value.y) == cell.y:
+			return true
+	return false
 
 
 func _run_coop_smoke() -> void:
@@ -907,8 +999,8 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	session_menu_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(590, 90)
-	panel.size = Vector2(740, 900)
+	panel.position = Vector2(590, 45)
+	panel.size = Vector2(740, 990)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(
 			Color(0.018, 0.032, 0.052, 0.99), 24,
@@ -945,6 +1037,10 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_text = _menu_button("")
 	session_menu_text.pressed.connect(_toggle_text_scale)
 	column.add_child(session_menu_text)
+	if not campaign_save_root.is_empty():
+		session_menu_new_campaign = _menu_button("")
+		session_menu_new_campaign.pressed.connect(_request_progress_reset)
+		column.add_child(session_menu_new_campaign)
 	session_menu_quit = _menu_button(
 		"RETURN TO STEAM  /  %s · %s · Q" % [
 			controls.label("confirm"), controls.label("end_turn")
@@ -960,6 +1056,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint)
 	_update_session_labels()
+	_update_progress_reset_label()
 	_update_session_diagnostics(true)
 
 
@@ -1007,16 +1104,21 @@ func _update_session_diagnostics(force := false) -> void:
 		]
 	var window := DisplayServer.window_get_size()
 	var canvas := Vector2i(get_viewport().get_visible_rect().size)
+	var save_summary := (
+		campaign_save_state if not campaign_save_root.is_empty() else "NOT SAVED"
+	)
 	session_menu_diagnostics.text = (
 		"Commands pause here; deterministic actions already in flight may finish.\n"
 		+ "LIVE PERFORMANCE / %s\n" % timing
-		+ "WINDOW %d×%d · CANVAS %d×%d · NOT SAVED" % [
-			window.x, window.y, canvas.x, canvas.y
+		+ "WINDOW %d×%d · CANVAS %d×%d · %s" % [
+			window.x, window.y, canvas.x, canvas.y, save_summary
 		]
 	)
 
 
 func _close_session_menu() -> void:
+	progress_reset_armed = false
+	_update_progress_reset_label()
 	if session_menu_layer != null:
 		session_menu_layer.visible = false
 	get_viewport().gui_release_focus()
@@ -1025,6 +1127,62 @@ func _close_session_menu() -> void:
 func _quit_to_launcher() -> void:
 	status_label.text = "RETURNING TO STEAM"
 	get_tree().quit()
+
+
+func _request_progress_reset() -> void:
+	if session == null:
+		return
+	if not progress_reset_armed:
+		progress_reset_armed = true
+		_update_progress_reset_label()
+		_show_toast("PRESS AGAIN TO ERASE THIS CAMPAIGN CHECKPOINT")
+		return
+	_restart_without_progress()
+
+
+func _update_progress_reset_label() -> void:
+	if session_menu_new_campaign == null:
+		return
+	if progress_reset_armed:
+		session_menu_new_campaign.text = (
+			"ERASE CHECKPOINT?  /  %s · ENTER AGAIN" % controls.label("confirm")
+		)
+	else:
+		session_menu_new_campaign.text = (
+			"NEW CAMPAIGN  /  %s · ENTER TWICE" % controls.label("confirm")
+		)
+
+
+func _restart_without_progress() -> void:
+	progress_reset_armed = false
+	_update_progress_reset_label()
+	_close_session_menu()
+	dialogue_lines.clear()
+	dialogue_index = -1
+	if dialogue_layer != null:
+		dialogue_layer.visible = false
+	pending_requests.clear()
+	snapshot = {}
+	definitions = {"weapons": [], "abilities": [], "items": []}
+	selected_units = [0, 0]
+	if board != null:
+		board.visible = false
+	status_label.text = "STARTING NEW CAMPAIGN"
+	campaign_save_state = "AUTO-SAVE / NO CHECKPOINT"
+	if not session.reset_progress():
+		_show_fatal(session.last_error())
+		return
+	_update_session_diagnostics(true)
+
+
+func _exercise_progress_reset_smoke() -> void:
+	progress_reset_armed = false
+	_request_progress_reset()
+	if not progress_reset_armed:
+		push_error("campaign reset did not require its second confirmation")
+		get_tree().quit(2)
+		return
+	_request_progress_reset()
 
 
 func _open_projects() -> void:
@@ -1180,6 +1338,36 @@ func _update_controller_label() -> void:
 
 func _handle_event(event: Dictionary) -> void:
 	match String(event.get("type", "")):
+		"campaign_begun":
+			var resumed := bool(event.get("resumed", false))
+			campaign_save_state = (
+				"AUTO-SAVE / CHECKPOINT RESUMED"
+				if resumed else "AUTO-SAVE / NO CHECKPOINT"
+			)
+			if resumed:
+				status_label.text = "CAMPAIGN RESUMED"
+			if campaign_persistence_smoke and resumed and not campaign_persistence_resetting:
+				campaign_persistence_resetting = true
+				call_deferred("_exercise_progress_reset_smoke")
+			elif campaign_persistence_smoke and campaign_persistence_resetting and not resumed:
+				print("campaign persistence reset started a fresh campaign")
+				get_tree().quit()
+		"checkpoint_saved":
+			if bool(event.get("successful", false)):
+				campaign_save_state = "AUTO-SAVE / CHECKPOINT CURRENT"
+				_show_toast("CAMPAIGN CHECKPOINT SAVED")
+				if campaign_persistence_smoke and not campaign_persistence_resetting:
+					print("campaign persistence wrote a checkpoint")
+					get_tree().quit()
+			else:
+				campaign_save_state = "AUTO-SAVE / WRITE FAILED"
+				_show_toast("CAMPAIGN CHECKPOINT COULD NOT BE SAVED")
+				if campaign_persistence_smoke:
+					push_error("campaign persistence smoke could not save")
+					get_tree().quit(2)
+		"checkpoint_refused":
+			campaign_save_state = "AUTO-SAVE / CHECKPOINT REJECTED"
+			_show_toast("OLD CHECKPOINT REJECTED / STARTED NEW CAMPAIGN")
 		"dialogue":
 			for source_line: Dictionary in event.get("lines", []):
 				var line := source_line.duplicate()
@@ -1189,6 +1377,7 @@ func _handle_event(event: Dictionary) -> void:
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
 				_show_dialogue_line()
 		"battle_begins":
+			board.visible = true
 			snapshot = event.snapshot
 			battle_terrain = event.get("terrain", []).duplicate()
 			battle_theme = int(event.get("theme", 0))

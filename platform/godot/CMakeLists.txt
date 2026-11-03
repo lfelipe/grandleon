@@ -28,6 +28,11 @@ set_target_properties(
     grandleon_package_format
     grandleon_package_runtime
     grandleon_client
+    grandleon_campaign
+    grandleon_campaign_runtime
+    grandleon_client_campaign
+    grandleon_storage
+    grandleon_storage_filesystem
     grandleon_game_content
     PROPERTIES POSITION_INDEPENDENT_CODE ON
 )
@@ -44,6 +49,8 @@ target_link_libraries(
     grandleon_godot
     PRIVATE
         grandleon::client
+        grandleon::client_campaign
+        grandleon::storage_filesystem
         grandleon::package_runtime
         grandleon::game_content
         grandleon::view
@@ -73,6 +80,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         grandleon_package_format
         grandleon_package_runtime
         grandleon_client
+        grandleon_campaign
+        grandleon_campaign_runtime
+        grandleon_client_campaign
+        grandleon_storage
+        grandleon_storage_filesystem
         grandleon_game_content
         godot-cpp
         grandleon_godot

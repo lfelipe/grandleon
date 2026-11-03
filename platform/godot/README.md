@@ -17,7 +17,7 @@ The separation is deliberate:
 | Layer | Owns | Does not own |
 |---|---|---|
 | `.gpk` project | maps, characters, dialogue, rules, presentation choices | PC paths or local model settings |
-| C++ extension | package loading, legal ranges, deterministic commands, AI fallback | rendering or controller layout |
+| C++ extension | package loading, campaign saves, legal ranges, deterministic commands, AI fallback | rendering or controller layout |
 | Godot project | rendering, animation, two-player input, optional model requests | combat rules or campaign outcomes |
 | `pc.local.json` | one machine's model endpoint and feature switches | project content |
 | `controls.local.json` | one machine's controller button mapping | project content or portable rules |
@@ -104,6 +104,19 @@ After the Projects screen has opened the inbox once, archives can be copied to
 `runtime/data/godot/app_userdata/Grandleon PC/imports/` relative to the portable
 bundle. Native exports appear in the sibling `exports/` directory. These are
 runtime locations and are never compiled into a project or release manifest.
+
+Campaign progress is runtime data as well. A completed battle is committed
+through the shared portable campaign layer and written atomically below
+Godot's `user://campaigns` directory; in the portable bundle that remains
+below `runtime/data/`. Package identity and campaign identity scope every
+checkpoint, so two imported games cannot silently resume one another. The next
+launch resumes a compatible checkpoint through the engine's standard save
+migrations. Leaving during an unfinished battle preserves the last completed
+checkpoint instead of recording a partial outcome. The session menu reports
+only checkpoint state, never its path, and **New Campaign** requires two
+confirms before it erases the current checkpoint and restarts immediately.
+Project archives, player-only exports, presentation settings, and local model
+configuration never include campaign saves.
 
 Copy that whole directory to the SteamOS machine. In desktop mode, add
 `launch-pc.sh` as a non-Steam game, then return to gaming mode. The launcher
@@ -197,7 +210,8 @@ The stick or d-pad chooses an action and the configured confirm button (A by
 default) or Enter confirms it, including
 cycling all four graphics profiles against the live encounter without changing
 its simulation state, disabling camera impulse for motion-sensitive players,
-and switching all interface text between Normal and Large. B, Start, or Escape
+switching all interface text between Normal and Large, and starting a new
+campaign through a separate two-confirm checkpoint reset. B, Start, or Escape
 resumes directly under the default mapping, while X or Q returns to Steam.
 Opening the menu is the first confirmation, preventing a single accidental
 gameplay press from closing the PC session. The same menu shows a rolling
@@ -402,6 +416,10 @@ cmake --build build-godot --target grandleon_godot_project
 `scripts/smoke-presentation-settings.sh` verifies atomic save/recovery, the
 strict presentation-only whitelist, restart persistence, and command-line
 override precedence under an isolated user-data directory.
+
+`scripts/smoke-campaign-persistence.sh` completes a real battle, verifies its
+opaque checkpoint, resumes it in a second Godot process, then exercises the
+in-app reset and proves the next campaign starts fresh.
 
 `scripts/smoke-frame-timing.sh` verifies the rolling frame-time calculation,
 its deliberately narrow data shape, and the session-menu integration.

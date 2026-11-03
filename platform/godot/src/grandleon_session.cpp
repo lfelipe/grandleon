@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <limits>
@@ -90,10 +91,49 @@ const char* event_name(FrontendEvent::Kind kind) {
         case FrontendEvent::Kind::refused: return "refused";
         case FrontendEvent::Kind::battle_ended: return "battle_ended";
         case FrontendEvent::Kind::campaign_ended: return "campaign_ended";
+        case FrontendEvent::Kind::campaign_begun: return "campaign_begun";
+        case FrontendEvent::Kind::checkpoint_saved: return "checkpoint_saved";
+        case FrontendEvent::Kind::checkpoint_refused:
+            return "checkpoint_refused";
         case FrontendEvent::Kind::session_finished: return "session_finished";
         case FrontendEvent::Kind::session_failed: return "session_failed";
     }
     return "unknown";
+}
+
+std::string hexadecimal(const std::uint8_t* bytes, std::size_t size) {
+    constexpr char digits[] = "0123456789abcdef";
+    std::string result(size * 2U, '0');
+    for (std::size_t index = 0; index < size; ++index) {
+        result[index * 2U] = digits[bytes[index] >> 4U];
+        result[index * 2U + 1U] = digits[bytes[index] & 0x0fU];
+    }
+    return result;
+}
+
+std::string hexadecimal(std::uint64_t value) {
+    std::uint8_t bytes[8]{};
+    for (std::size_t index = 0; index < 8U; ++index) {
+        bytes[7U - index] = static_cast<std::uint8_t>(value & 0xffU);
+        value >>= 8U;
+    }
+    return hexadecimal(bytes, 8U);
+}
+
+std::string slot_failure_name(const client::SlotFailure& failure) {
+    if (failure.storage != storage::StorageError::none) {
+        return std::string(storage::storage_error_name(failure.storage));
+    }
+    if (failure.migration != campaign::MigrationError::none) {
+        return std::string(campaign::migration_error_name(failure.migration));
+    }
+    if (failure.save != campaign::SaveError::none) {
+        return std::string(campaign::save_error_name(failure.save));
+    }
+    if (failure.state != campaign::StateError::none) {
+        return std::string(campaign::state_error_name(failure.state));
+    }
+    return failure.wrong_campaign ? "wrong_campaign" : "rejected";
 }
 
 const char* presentation_event_name(sim::EventType type) {
@@ -363,6 +403,76 @@ void AsyncPresenter::campaign_ended() {
     push(std::move(event));
 }
 
+void AsyncPresenter::campaign_begun(
+    const std::vector<client::RosterEntry>& roster,
+    const std::vector<campaign::InventoryStack>& store,
+    std::string_view slot,
+    bool resumed
+) {
+    static_cast<void>(roster);
+    static_cast<void>(store);
+    static_cast<void>(slot);
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::campaign_begun;
+    event.resumed = resumed;
+    push(std::move(event));
+}
+
+void AsyncPresenter::slot_refused(const client::SlotFailure& failure) {
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::checkpoint_refused;
+    event.message = slot_failure_name(failure);
+    push(std::move(event));
+}
+
+void AsyncPresenter::board_prepared(const client::CampaignBoard& board) {
+    static_cast<void>(board);
+}
+
+void AsyncPresenter::battle_aftermath(
+    const client::BattleAftermath& aftermath
+) {
+    static_cast<void>(aftermath);
+}
+
+void AsyncPresenter::members_joined(
+    const std::vector<client::RosterEntry>& joined
+) {
+    static_cast<void>(joined);
+}
+
+void AsyncPresenter::campaign_saved(
+    std::string_view slot, storage::StorageError error
+) {
+    static_cast<void>(slot);
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::checkpoint_saved;
+    event.successful = error == storage::StorageError::none;
+    event.message = std::string(storage::storage_error_name(error));
+    push(std::move(event));
+}
+
+void AsyncPresenter::management_opened(
+    const client::CompanyManagement& company
+) {
+    static_cast<void>(company);
+}
+
+void AsyncPresenter::management_committed(
+    const client::ManagementCommit& result
+) {
+    static_cast<void>(result);
+}
+
+client::ManagementIntent AsyncPresenter::next_management_intent(
+    const client::CompanyManagement& company
+) {
+    static_cast<void>(company);
+    client::ManagementIntent intent;
+    intent.verb = client::ManagementVerb::proceed;
+    return intent;
+}
+
 client::Intent AsyncPresenter::next_intent(
     const sim::EncounterSnapshot& snapshot,
     const client::Roster& roster
@@ -445,17 +555,25 @@ GrandleonSession::~GrandleonSession() {
 void GrandleonSession::_bind_methods() {
     gd::ClassDB::bind_method(
         gd::D_METHOD(
-            "start", "package_path", "campaign_key", "local_players"
+            "start", "package_path", "campaign_key", "local_players",
+            "save_root"
         ),
         &GrandleonSession::start,
-        DEFVAL(1)
+        DEFVAL(1), DEFVAL(gd::String())
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
-            "start_package", "package_bytes", "campaign_key", "local_players"
+            "start_package", "package_bytes", "campaign_key", "local_players",
+            "save_root"
         ),
         &GrandleonSession::start_package,
-        DEFVAL(1)
+        DEFVAL(1), DEFVAL(gd::String())
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("has_progress"), &GrandleonSession::has_progress
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("reset_progress"), &GrandleonSession::reset_progress
     );
     gd::ClassDB::bind_method(gd::D_METHOD("stop"), &GrandleonSession::stop);
     gd::ClassDB::bind_method(
@@ -483,7 +601,8 @@ void GrandleonSession::_bind_methods() {
 bool GrandleonSession::start(
     const gd::String& package_path,
     const gd::String& campaign_key,
-    std::int64_t local_players
+    std::int64_t local_players,
+    const gd::String& save_root
 ) {
     reset_for_start();
 
@@ -498,13 +617,14 @@ bool GrandleonSession::start(
         std::istreambuf_iterator<char>(input),
         std::istreambuf_iterator<char>()
     };
-    return start_bytes(bytes, campaign_key, local_players);
+    return start_bytes(bytes, campaign_key, local_players, save_root);
 }
 
 bool GrandleonSession::start_package(
     const gd::PackedByteArray& package_bytes,
     const gd::String& campaign_key,
-    std::int64_t local_players
+    std::int64_t local_players,
+    const gd::String& save_root
 ) {
     reset_for_start();
     std::vector<std::uint8_t> bytes(
@@ -514,22 +634,26 @@ bool GrandleonSession::start_package(
     for (std::size_t index = 0; index < bytes.size(); ++index) {
         bytes[index] = input[index];
     }
-    return start_bytes(bytes, campaign_key, local_players);
+    return start_bytes(bytes, campaign_key, local_players, save_root);
 }
 
 void GrandleonSession::reset_for_start() {
     stop();
+    storage_.reset();
     std::lock_guard<std::mutex> lock(state_mutex_);
     last_error_.clear();
     has_snapshot_ = false;
     latest_weapons_.clear();
     latest_abilities_.clear();
+    progress_available_ = false;
+    save_slot_.clear();
 }
 
 bool GrandleonSession::start_bytes(
     const std::vector<std::uint8_t>& package_bytes,
     const gd::String& campaign_key,
-    std::int64_t local_players
+    std::int64_t local_players,
+    const gd::String& save_root
 ) {
     auto loaded = pf::load_mock_package(
         package_bytes,
@@ -551,28 +675,77 @@ bool GrandleonSession::start_bytes(
 
     package_ = std::move(loaded.package);
     presentation_ = std::move(presentation.presentation);
+    campaign_id_ = core::stable_content_id_v1(narrow(campaign_key));
+    local_players_ = static_cast<std::uint8_t>(
+        std::clamp<std::int64_t>(local_players, 1, 2)
+    );
+    const std::string root = narrow(save_root);
+    if (!root.empty()) {
+        std::filesystem::path scoped = std::filesystem::u8path(root);
+        scoped /= hexadecimal(package_.game_id.data(), package_.game_id.size());
+        storage_ = std::make_unique<storage::FilesystemSlotStorage>(
+            scoped.u8string()
+        );
+        if (!storage_->available()) {
+            storage_.reset();
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            last_error_ = "campaign save storage is unavailable";
+            return false;
+        }
+        save_slot_ = "campaign-" + hexadecimal(campaign_id_);
+    }
+    return launch_worker();
+}
+
+bool GrandleonSession::launch_worker() {
     presenter_ = std::make_shared<AsyncPresenter>();
-    const std::uint64_t campaign_id =
-        core::stable_content_id_v1(narrow(campaign_key));
+    const bool resume = storage_ && storage_->contains(save_slot_);
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
         running_ = true;
+        progress_available_ = resume;
     }
     const std::shared_ptr<AsyncPresenter> presenter = presenter_;
-    const std::uint8_t players = static_cast<std::uint8_t>(
-        std::clamp<std::int64_t>(local_players, 1, 2)
-    );
-    worker_ = std::thread([this, presenter, campaign_id, players] {
-        const client::SessionOptions options{players};
-        const client::SessionError status = client::run_campaign(
-            package_, campaign_id, sim::Side::first, *presenter, options
-        );
+    storage::FilesystemSlotStorage* const device = storage_.get();
+    const std::uint64_t campaign_id = campaign_id_;
+    const std::uint8_t players = local_players_;
+    const std::string slot = save_slot_;
+    worker_ = std::thread([
+        this, presenter, device, campaign_id, players, slot, resume
+    ] {
         FrontendEvent event;
-        if (status == client::SessionError::none) {
+        bool succeeded = false;
+        if (device != nullptr) {
+            client::CampaignSessionOptions options;
+            options.slot = slot;
+            options.resume = resume;
+            options.player_side = sim::Side::first;
+            options.local_players = players;
+            const client::CampaignSessionError status =
+                client::run_persistent_campaign(
+                    package_, campaign_id, *presenter, *presenter, *device,
+                    options
+                );
+            succeeded = status == client::CampaignSessionError::none;
+            if (!succeeded) {
+                event.message = std::string(
+                    client::campaign_session_error_name(status)
+                );
+            }
+        } else {
+            const client::SessionOptions options{players};
+            const client::SessionError status = client::run_campaign(
+                package_, campaign_id, sim::Side::first, *presenter, options
+            );
+            succeeded = status == client::SessionError::none;
+            if (!succeeded) {
+                event.message = std::string(client::error_name(status));
+            }
+        }
+        if (succeeded) {
             event.kind = FrontendEvent::Kind::session_finished;
         } else {
             event.kind = FrontendEvent::Kind::session_failed;
-            event.message = std::string(client::error_name(status));
             std::lock_guard<std::mutex> lock(state_mutex_);
             last_error_ = event.message;
         }
@@ -581,6 +754,36 @@ bool GrandleonSession::start_bytes(
         running_ = false;
     });
     return true;
+}
+
+bool GrandleonSession::has_progress() const {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    return progress_available_;
+}
+
+bool GrandleonSession::reset_progress() {
+    stop();
+    if (!storage_) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "campaign progress is disabled";
+        return false;
+    }
+    const storage::StorageError erased = storage_->erase(save_slot_);
+    if (erased != storage::StorageError::none &&
+        erased != storage::StorageError::not_found) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "campaign progress could not be reset";
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_.clear();
+        has_snapshot_ = false;
+        latest_weapons_.clear();
+        latest_abilities_.clear();
+        progress_available_ = false;
+    }
+    return launch_worker();
 }
 
 void GrandleonSession::join_worker() {
@@ -624,6 +827,15 @@ gd::Array GrandleonSession::poll() {
             if (event.kind == FrontendEvent::Kind::definitions) {
                 latest_weapons_ = event.weapons;
                 latest_abilities_ = event.abilities;
+            }
+            if (event.kind == FrontendEvent::Kind::campaign_begun) {
+                progress_available_ = event.resumed;
+            }
+            if (event.kind == FrontendEvent::Kind::checkpoint_saved) {
+                progress_available_ = event.successful;
+            }
+            if (event.kind == FrontendEvent::Kind::checkpoint_refused) {
+                progress_available_ = false;
             }
         }
         result[static_cast<int64_t>(index)] = event_dictionary(events[index]);
@@ -957,6 +1169,14 @@ gd::Dictionary GrandleonSession::event_dictionary(
         case FrontendEvent::Kind::campaign_ended: {
             break;
         }
+        case FrontendEvent::Kind::campaign_begun:
+            result["resumed"] = event.resumed;
+            break;
+        case FrontendEvent::Kind::checkpoint_saved:
+            result["successful"] = event.successful;
+            break;
+        case FrontendEvent::Kind::checkpoint_refused:
+            break;
         case FrontendEvent::Kind::session_finished:
         case FrontendEvent::Kind::session_failed:
             break;

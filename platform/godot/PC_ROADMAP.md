@@ -33,6 +33,7 @@ machine-specific model, graphics, or control configuration.
 | Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, covering every Last Signal terrain while other kinds fall back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including the integrated 443-pixel-cell Rook sheet. Full Voxel inherits that terrain pack and replaces the complete encounter roster with imported, skinned GLBs. Commander, rogue, and stormcaller reuse one humanoid topology without sharing meshes or actions; the beast has a distinct quadruped rig. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Persistent presentation settings | Graphics profile, camera impulse, and text size survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
+| Persistent campaigns | Completed battles use the same versioned campaign envelope and migration registry as the other clients. Atomic checkpoints are isolated by package and campaign identity under runtime data, resume in a second process, and can be erased through a controller-native two-confirm reset. An integration smoke proves write, restart, resume, erase, and fresh start. |
 | Private performance readout | Opening the controller session menu shows rolling FPS, p95 and peak frame times, window size, and internal canvas size. The five-second sample remains in memory and never records hardware, display, controller, user, path, or network identities. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Route-aware locomotion | Accepted moves carry the shared portable route and a per-cell duration derived from console presentation timing. Both Godot renderers validate and follow every leg independently, including overlapping co-op moves, while snapshots remain authoritative and malformed records fall back safely. |
@@ -63,9 +64,12 @@ Test the default `voxel-sprites` profile first, then compare `diorama` and
    zero.
 7. Watch contact shadows, sprite scale, health bars, text size, dark-detail
    visibility, and camera impulse at the actual viewing distance.
-8. Open the session menu with Start. Resume with A or B, then return
+8. Finish a battle, close the application, and launch it again. Confirm the
+   campaign resumes at the next authored node. Use **New Campaign**, confirm it
+   twice, and verify the campaign restarts without leaving the application.
+9. Open the session menu with Start. Resume with A or B, then return
    to Steam with X and confirm the launcher regains focus.
-9. Leave the game running through several rounds, then open the session menu
+10. Leave the game running through several rounds, then open the session menu
    and note its rolling FPS, p95, peak, window, and canvas values. Check those
    alongside controller focus, heat, and memory on the target PC; the game
    deliberately does not save this diagnostic sample.
@@ -156,9 +160,11 @@ configuration on screen or in the bundle.
 
 - Add music, action/UI audio, and per-player feedback with independent volume
   controls.
-- Persist campaign progress under the bundle runtime path with explicit reset
-  and migration behavior. Presentation settings now persist independently with
-  a versioned contract and recovery file.
+- Add the controller-native company-management surface for moving items and
+  fielding or benching campaign members. The persistent session currently
+  proceeds with the authored company unchanged at that stage.
+- Keep campaign checkpoints and presentation settings as separate contracts;
+  neither belongs in portable project archives or local-model configuration.
 - Add attract mode, clean return-to-launcher behavior, and controller-safe idle
   handling.
 - Review text scaling, colour contrast, camera impulse reduction, and input
