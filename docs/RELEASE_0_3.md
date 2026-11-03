@@ -351,8 +351,18 @@ are frozen.
   named goal, item, and Talk facts, simple-condition promotion, compilation,
   controller focus, and one-step undo. Real 1280×720 and 1920×1080 renders
   confirm the modal scales without clipping, and documentation links report
-  zero unresolved references. This is the current PC release-gate baseline; it
-  does not replace the final clean-revision all-target gate.
+  zero unresolved references.
+- `ae3fad4`: the exact committed tree passes all 68 native tests and all 24
+  Godot integration smokes after adding the versioned console-builder host.
+  Synthetic Nintendo 64 and PlayStation payloads cover independent
+  availability, asynchronous execution, executable and artifact checksums,
+  dependency/license inventories, exact output sets, ROM/BIN/CUE structure,
+  no-license-sector enforcement, atomic publication, and negative local-path
+  leakage. The standalone exporter proves the host is stripped from
+  player-only games, a real 1920×1080 render confirms the Export Center remains
+  unclipped, and documentation links report zero unresolved references. This
+  is the current PC release-gate baseline; it does not replace the final
+  clean-revision all-target gate or acceptance of the real builder payloads.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
