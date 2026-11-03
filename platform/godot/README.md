@@ -125,12 +125,14 @@ regions, allied player ownership, player scaling, objectives, dialogue lines,
 and new dialogue scenes attached to existing story moments. **Grow the Army**
 lists starting heroes and later recruits, previews their portable art, renames
 them without changing identity, and adds an existing role at campaign start or
-after a chosen chapter. Placing that character in a battle stays an explicit
-Map → Battle Setup action. **Add Next Chapter** inserts a new story moment,
-cloned playable encounter, and fresh map after a selected linear battle as one
-undoable edit. General campaign branches, role/stat/equipment editing, the rest
-of the game-data editors, and broader art-pack editing remain in the increments
-defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+after a chosen chapter. **Tune This Hero** adjusts focused portable traits, and
+**Campaign Supplies** gives the shared company named starting items or weapons
+and chapter rewards. Placing a character in a battle stays an explicit Map →
+Battle Setup action. **Add Next Chapter** inserts a new story moment, cloned
+playable encounter, and fresh map after a selected linear battle as one
+undoable edit. General campaign branches, role equipment and ability editing,
+the rest of the game-data editors, and broader art-pack editing remain in the
+increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to

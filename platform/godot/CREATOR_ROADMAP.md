@@ -91,8 +91,10 @@ The first native seam is implemented:
   chooses an existing named role and either the starting company or a chapter
   after which that recruit joins. Battle placement remains a deliberate Map →
   Battle Setup action, so growing the company never silently changes a board.
-  Add, rename, undo/redo, save/reopen, and compile are covered by a native
-  smoke.
+  **Campaign Supplies** chooses named shared items or weapons and their amount
+  either at the opening or after a named chapter; these portable rewards use
+  the same runtime path on every target. Add, tune, rename, supply/reward,
+  undo/redo, save/reopen, and compile are covered by a native smoke.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
@@ -215,9 +217,11 @@ ports the most interaction-heavy part of the earlier editor early.
 - Starting characters and chapter recruits can be added and renamed through
   the Army screen. A focused hero-tuning overlay authors bounded portable
   health, strength, defense, resistance, movement, magic, and weapon-range
-  adjustments over the selected role. Classes, factions, equipment, weapons,
-  abilities, and items remain.
-- Stages, transitions, conditions, arrivals, rewards, and starting roster.
+  adjustments over the selected role. Shared starting supplies and named
+  item/weapon chapter rewards are implemented. Classes, factions, per-role
+  equipment, weapons, abilities, and items remain.
+- Stages, transitions, conditions, arrivals, and general route editing remain;
+  starting roster and linear chapter rewards are implemented.
 - Complete dialogue-line authoring with portable speaker selection and scene
   creation/attachment to existing story moments is implemented. Linear story
   and battle insertion is implemented through **Add Next Chapter**, and the
