@@ -312,8 +312,13 @@ are frozen.
 - `b0c16b5`: the exact committed tree passes all 68 native tests and all 23
   Godot integration smokes after exposing the shared 48-unit console budget in
   Map and Campaign authoring without limiting PC projects. Documentation links
-  report zero unresolved references. This is the current PC release-gate
-  baseline; it does not replace the final clean-revision all-target gate.
+  report zero unresolved references.
+- `a8f9904`: the exact committed tree passes all 68 native tests and all 23
+  Godot integration smokes after adding safe whole-chapter ordering. The source
+  operation also passes focused GCC and Clang tests, round-trips a reversed move
+  exactly, and preserves an adjacent alternate route. This is the current PC
+  release-gate baseline; it does not replace the final clean-revision
+  all-target gate.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
