@@ -107,6 +107,18 @@ platform/godot/scripts/build-steamos.sh \
   --output out/last-signal-test
 ```
 
+Before transferring a release, exercise its actual launcher, bundled Godot,
+home menu, frame diagnostic, default graphics profile, and two overlapping
+co-op routes while confirming the icon and privacy boundary:
+
+```sh
+platform/godot/scripts/smoke-pc-bundle.sh \
+  --require-clean out/last-signal-test
+```
+
+The smoke attaches a temporary runtime symlink and removes it on exit; the
+bundle remains ready for the target PC's persistent runtime directory.
+
 After the Projects screen has opened the inbox once, archives can be copied to
 `runtime/data/godot/app_userdata/Grandleon PC/imports/` relative to the portable
 bundle. Native exports appear in the sibling `exports/` directory. These are
