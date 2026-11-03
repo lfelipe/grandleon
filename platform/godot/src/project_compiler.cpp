@@ -195,6 +195,20 @@ void GrandleonProjectCompiler::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
+            "add_campaign_member", "source_json", "campaign_id",
+            "join_node_id", "member_id", "name", "unit_type_id"
+        ),
+        &GrandleonProjectCompiler::add_campaign_member
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "rename_campaign_member", "source_json", "campaign_id",
+            "member_id", "name"
+        ),
+        &GrandleonProjectCompiler::rename_campaign_member
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
             "insert_dialogue_line", "source_json", "dialogue_id",
             "after_line_index", "speaker", "line_text"
         ),
@@ -870,6 +884,63 @@ gd::Dictionary GrandleonProjectCompiler::source_character_preview(
     result["colour"] = colour;
     result["style"] = gc::resolved_character_style(parsed.source, *unit);
     result["figure"] = gc::resolved_character_figure(parsed.source, *unit);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::add_campaign_member(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& join_node_id,
+    const gd::String& member_id,
+    const gd::String& name,
+    const gd::String& unit_type_id
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated = gc::add_source_campaign_member_json(
+        narrow(source_json), narrow(campaign_id), narrow(join_node_id),
+        narrow(member_id), narrow(name), narrow(unit_type_id)
+    );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::rename_campaign_member(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& member_id,
+    const gd::String& name
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated =
+        gc::rename_source_campaign_member_json(
+            narrow(source_json), narrow(campaign_id), narrow(member_id),
+            narrow(name)
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
     result["diagnostics"] = diagnostics;
     return result;
 }

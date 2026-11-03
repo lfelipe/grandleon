@@ -2282,6 +2282,73 @@ void updates_one_dialogue_line_without_retyping_the_project() {
     );
 }
 
+void adds_and_renames_campaign_members_without_retyping_the_project() {
+    const auto added = gc::add_source_campaign_member_json(
+        source, "demo", "", "blue_two", "Blue Two", "blue_unit"
+    );
+    const auto parsed_added = gc::parse_source_project_json(added.json);
+    expect(
+        added && parsed_added &&
+            parsed_added.source.campaigns.front().roster.size() == 2 &&
+            parsed_added.source.campaigns.front().roster[1].name ==
+                "Blue Two" &&
+            parsed_added.source.campaigns.front().roster[1].join_node_id == 0 &&
+            gc::compile(parsed_added.source),
+        "a character can join the starting company and remain playable"
+    );
+    const auto renamed = gc::rename_source_campaign_member_json(
+        added.json, "demo", "blue_two", "Cobalt"
+    );
+    const auto parsed_renamed = gc::parse_source_project_json(renamed.json);
+    expect(
+        renamed && parsed_renamed &&
+            parsed_renamed.source.campaigns.front().roster[1].name ==
+                "Cobalt" &&
+            parsed_renamed.source.campaigns.front().roster[1].id ==
+                parsed_added.source.campaigns.front().roster[1].id,
+        "renaming a character preserves persistent identity"
+    );
+    const auto recruited = gc::add_source_campaign_member_json(
+        renamed.json, "demo", "battle", "blue_three", "Blue Three",
+        "blue_unit"
+    );
+    const auto parsed_recruited =
+        gc::parse_source_project_json(recruited.json);
+    expect(
+        recruited && parsed_recruited &&
+            parsed_recruited.source.campaigns.front().roster.size() == 3 &&
+            parsed_recruited.source.campaigns.front().roster[2].name ==
+                "Blue Three" &&
+            parsed_recruited.source.campaigns.front().roster[2].join_node_id !=
+                0 &&
+            gc::compile(parsed_recruited.source),
+        "a character can join after a named chapter and remain playable"
+    );
+    expect(
+        !gc::add_source_campaign_member_json(
+            added.json, "demo", "", "blue_two", "Duplicate", "blue_unit"
+        ) &&
+            !gc::add_source_campaign_member_json(
+                source, "demo", "missing", "late_one", "Late One",
+                "blue_unit"
+            ) &&
+            !gc::add_source_campaign_member_json(
+                source, "demo", "", "unknown_one", "Unknown",
+                "missing_unit"
+            ),
+        "duplicate characters and unknown join or role identities are refused"
+    );
+    expect(
+        !gc::rename_source_campaign_member_json(
+            source, "demo", "blue_one", ""
+        ) &&
+            !gc::rename_source_campaign_member_json(
+                source, "demo", "missing", "Nobody"
+            ),
+        "a character rename needs a real character and a visible name"
+    );
+}
+
 void creates_and_attaches_one_portable_dialogue_scene() {
     const std::string with_story = source_with(
         R"json("entryNodeId":"battle",
@@ -2708,6 +2775,7 @@ int main() {
     instantiates_a_template_without_float_round_tripping();
     updates_one_map_cell_without_retyping_the_project();
     updates_one_dialogue_line_without_retyping_the_project();
+    adds_and_renames_campaign_members_without_retyping_the_project();
     creates_and_attaches_one_portable_dialogue_scene();
     maps_authored_resistance();
     refuses_a_stat_the_rules_cannot_execute();

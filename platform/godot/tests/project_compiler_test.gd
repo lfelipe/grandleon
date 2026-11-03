@@ -188,6 +188,32 @@ func _init() -> void:
 				source, "demo_campaign", "bridge_encounter", no_objectives
 			)
 			_expect("final objective removal is refused", empty_objectives.ok, false)
+			var campaign_id := str(source_data.campaigns[0].id)
+			var member_role := str(source_data.unitTypes[0].id)
+			var added_member: Dictionary = compiler.add_campaign_member(
+				source, campaign_id, "", "editor_hero", "Editor Hero", member_role
+			)
+			_expect("starting campaign character addition succeeds", added_member.ok, true)
+			if added_member.ok:
+				var member_data: Dictionary = JSON.parse_string(added_member.source)
+				_expect("starting campaign character is appended", member_data.campaigns[0].roster[-1].name, "Editor Hero")
+				var renamed_member: Dictionary = compiler.rename_campaign_member(
+					added_member.source, campaign_id, "editor_hero", "Editor Captain"
+				)
+				_expect("campaign character rename succeeds", renamed_member.ok, true)
+				if renamed_member.ok:
+					var renamed_data: Dictionary = JSON.parse_string(renamed_member.source)
+					_expect("campaign character name changes", renamed_data.campaigns[0].roster[-1].name, "Editor Captain")
+					_expect("campaign character edit remains playable", compiler.compile_source_json(renamed_member.source).ok, true)
+			var join_node_id := str(source_data.campaigns[0].flow.nodes[0].id)
+			var added_recruit: Dictionary = compiler.add_campaign_member(
+				source, campaign_id, join_node_id, "editor_recruit", "Editor Recruit", member_role
+			)
+			_expect("later campaign recruit addition succeeds", added_recruit.ok, true)
+			if added_recruit.ok:
+				var recruit_data: Dictionary = JSON.parse_string(added_recruit.source)
+				_expect("later campaign recruit attaches to chapter", recruit_data.campaigns[0].flow.nodes[0].recruits[-1].id, "editor_recruit")
+				_expect("later campaign recruit remains playable", compiler.compile_source_json(added_recruit.source).ok, true)
 			var dialogue_id := str(source_data.dialogues[0].id)
 			var original_second_line := str(source_data.dialogues[0].lines[1].text)
 			var edited_dialogue: Dictionary = compiler.update_dialogue_line(

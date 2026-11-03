@@ -163,6 +163,20 @@ public:
         const ::godot::String& source_json,
         const ::godot::String& unit_type_id
     ) const;
+    [[nodiscard]] ::godot::Dictionary add_campaign_member(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& join_node_id,
+        const ::godot::String& member_id,
+        const ::godot::String& name,
+        const ::godot::String& unit_type_id
+    ) const;
+    [[nodiscard]] ::godot::Dictionary rename_campaign_member(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& member_id,
+        const ::godot::String& name
+    ) const;
     [[nodiscard]] ::godot::Dictionary insert_dialogue_line(
         const ::godot::String& source_json,
         const ::godot::String& dialogue_id,

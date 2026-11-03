@@ -317,6 +317,27 @@ struct SourceMapCell final {
     std::string_view background_id
 );
 
+// Adds a persistent campaign character either to the starting company or to
+// one chapter's recruits. The character uses an existing portable unit type;
+// map placement remains an explicit battle-authoring choice.
+[[nodiscard]] SourceTextResult add_source_campaign_member_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view join_node_id,
+    std::string_view member_id,
+    std::string_view name,
+    std::string_view unit_type_id
+);
+
+// Renames a starting member or later recruit without changing persistent
+// identity, role, placement references, or join timing.
+[[nodiscard]] SourceTextResult rename_source_campaign_member_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view member_id,
+    std::string_view name
+);
+
 // Creates one complete scene and attaches it to an existing story node as one
 // validated edit. The opening speaker may name a unit type for portable
 // portraits; backdrop may be empty to retain the ordinary flat presentation.
