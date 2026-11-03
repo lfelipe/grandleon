@@ -2,8 +2,10 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const StandaloneExporter = preload("res://scripts/creator/standalone_exporter.gd")
 
 var library
+var standalone_exporter
 var project_list: VBoxContainer
 var status_label: Label
 var first_button: Button
@@ -16,6 +18,13 @@ var project_actions_title: Label
 var project_actions_first_button: Button
 var project_actions_id := ""
 var project_actions_name := ""
+var export_layer: Control
+var export_title: Label
+var export_status_label: Label
+var export_first_button: Button
+var export_linux_button: Button
+var export_project_id := ""
+var export_project_name := ""
 var rename_layer: Control
 var rename_input: LineEdit
 var rename_project_id := ""
@@ -33,6 +42,7 @@ var screenshot_frames := -1
 func _ready() -> void:
 	_parse_arguments()
 	library = ProjectLibrary.new()
+	standalone_exporter = StandaloneExporter.new(library)
 	_build_interface()
 	_refresh_projects()
 	if first_button != null:
@@ -52,6 +62,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if new_campaign_layer != null and new_campaign_layer.visible:
 			_close_new_campaign()
+		elif export_layer != null and export_layer.visible:
+			_close_export_center()
 		elif project_actions_layer != null and project_actions_layer.visible:
 			_close_project_actions()
 		elif rename_layer != null and rename_layer.visible:
@@ -164,6 +176,7 @@ func _build_interface() -> void:
 	projects_column.add_child(status_label)
 	_build_new_campaign_layer()
 	_build_project_actions_layer()
+	_build_export_layer()
 	_build_rename_layer()
 	_build_import_layer()
 	_build_import_dialog()
@@ -268,11 +281,77 @@ func _build_project_actions_layer() -> void:
 	var duplicate := _button("MAKE A COPY")
 	duplicate.pressed.connect(_duplicate_selected_project)
 	column.add_child(duplicate)
-	var export := _button("EXPORT PORTABLE PROJECT")
+	var export := _button("FINISH & EXPORT")
 	export.pressed.connect(_export_selected_project)
 	column.add_child(export)
 	var back := _button("BACK")
 	back.pressed.connect(_close_project_actions)
+	column.add_child(back)
+
+
+func _build_export_layer() -> void:
+	export_layer = Control.new()
+	export_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	export_layer.visible = false
+	export_layer.z_index = 30
+	add_child(export_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.01, 0.02, 0.035, 0.9)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	export_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(340, 90)
+	panel.size = Vector2(1240, 900)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 22, Color("69d9ff"))
+	)
+	export_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	panel.add_child(column)
+	column.add_child(_label("FINISH & EXPORT", 18, Color("69d9ff")))
+	export_title = _label("CAMPAIGN", 34, Color("f2f7f9"))
+	export_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	export_title.custom_minimum_size.y = 48
+	column.add_child(export_title)
+	var explanation := _label(
+		"Keep editing with a portable project, or build a game people can launch directly.",
+		18,
+		Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 50
+	column.add_child(explanation)
+	export_first_button = _button(
+		"PORTABLE PROJECT  /  READY\nEditable archive for another Grand Leon installation"
+	)
+	export_first_button.custom_minimum_size.y = 92
+	export_first_button.pressed.connect(_export_portable_from_center)
+	column.add_child(export_first_button)
+	export_linux_button = _button("LINUX PC GAME  /  CHECKING PLAYER SHELL")
+	export_linux_button.custom_minimum_size.y = 92
+	export_linux_button.pressed.connect(_export_linux_from_center)
+	column.add_child(export_linux_button)
+	var nintendo_64 := _button(
+		"NINTENDO 64 ROM  /  BUILDER NOT INSTALLED\nUse the release tools outside the game for now"
+	)
+	nintendo_64.custom_minimum_size.y = 92
+	nintendo_64.disabled = true
+	column.add_child(nintendo_64)
+	var playstation := _button(
+		"PLAYSTATION DISC  /  BUILDER NOT INSTALLED\nUse the release tools outside the game for now"
+	)
+	playstation.custom_minimum_size.y = 92
+	playstation.disabled = true
+	column.add_child(playstation)
+	export_status_label = _label("CHOOSE A FORMAT", 17, Color("72e08f"))
+	export_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	export_status_label.custom_minimum_size.y = 50
+	column.add_child(export_status_label)
+	var back := _button("BACK")
+	back.custom_minimum_size.y = 68
+	back.pressed.connect(_close_export_center)
 	column.add_child(back)
 
 
@@ -382,11 +461,87 @@ func _duplicate_selected_project() -> void:
 
 
 func _export_selected_project() -> void:
-	var project_id := project_actions_id
 	project_actions_layer.visible = false
-	_export_project(project_id)
-	project_actions_id = ""
-	project_actions_name = ""
+	_open_export_center(project_actions_id, project_actions_name)
+
+
+func _open_export_center(project_id: String, title: String) -> void:
+	export_project_id = project_id
+	export_project_name = title
+	export_title.text = title
+	export_layer.visible = true
+	_refresh_export_center()
+	export_first_button.grab_focus()
+
+
+func _refresh_export_center() -> void:
+	var available: Dictionary = standalone_exporter.linux_availability()
+	export_linux_button.disabled = not bool(available.ok)
+	if available.ok:
+		export_linux_button.text = (
+			"LINUX PC GAME  /  READY\nStandalone player build without creator tools or saves"
+		)
+	else:
+		export_linux_button.text = (
+			"LINUX PC GAME  /  PLAYER SHELL NOT INSTALLED\n"
+			+ "Install the full Linux release to enable this target"
+		)
+	export_linux_button.tooltip_text = str(available.message)
+	_set_export_status("CHOOSE A FORMAT", false)
+
+
+func _close_export_center() -> void:
+	export_layer.visible = false
+	if not project_actions_id.is_empty():
+		project_actions_layer.visible = true
+		project_actions_first_button.call_deferred("grab_focus")
+	else:
+		_focus_project(export_project_id)
+
+
+func _export_portable_from_center() -> void:
+	var exported: Dictionary = library.export_project(export_project_id)
+	if not exported.ok:
+		_set_export_status("EXPORT FAILED  /  %s" % exported.message, true)
+		return
+	var archive_name := str(exported.name).to_upper()
+	_set_export_status("READY  /  %s" % archive_name, false)
+	_set_status("EXPORTED  /  %s" % archive_name, false)
+
+
+func _export_linux_from_center() -> void:
+	export_linux_button.disabled = true
+	_set_export_status("BUILDING LINUX PC GAME…", false)
+	call_deferred("_build_linux_export")
+
+
+func _build_linux_export() -> void:
+	if export_project_id.is_empty():
+		_set_export_status("BUILD FAILED  /  NO PROJECT SELECTED", true)
+		_refresh_export_center()
+		return
+	var built: Dictionary = standalone_exporter.export_linux_player(export_project_id)
+	if not built.ok:
+		_set_export_status("BUILD FAILED  /  %s" % built.message, true)
+		_refresh_linux_export_availability()
+		return
+	var bundle_name := str(built.name).to_upper()
+	_set_export_status("READY  /  %s  /  PLAYER-ONLY LINUX GAME" % bundle_name, false)
+	_set_status("BUILT LINUX PC GAME  /  %s" % bundle_name, false)
+	_refresh_linux_export_availability()
+
+
+func _refresh_linux_export_availability() -> void:
+	var available: Dictionary = standalone_exporter.linux_availability()
+	export_linux_button.disabled = not bool(available.ok)
+	export_linux_button.tooltip_text = str(available.message)
+
+
+func _set_export_status(message: String, failure: bool) -> void:
+	export_status_label.text = message
+	export_status_label.add_theme_color_override(
+		"font_color", Color("ff7a83") if failure else Color("72e08f")
+	)
 
 
 func _build_rename_layer() -> void:

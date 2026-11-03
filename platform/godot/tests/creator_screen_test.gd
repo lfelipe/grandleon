@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 extends SceneTree
 
+const StandaloneExporter = preload("res://scripts/creator/standalone_exporter.gd")
+
 var failures := 0
 
 
@@ -14,6 +16,11 @@ func _run() -> void:
 	root.add_child(screen)
 	current_scene = screen
 	await process_frame
+	var real_shell := _argument_path("--real-shell=")
+	if not real_shell.is_empty():
+		screen.standalone_exporter = StandaloneExporter.new(
+			screen.library, real_shell, "user://creator-game-exports"
+		)
 	_expect("new campaign action focused", screen.first_button.has_focus(), true)
 	_expect("project library available", screen.library.ready(), true)
 	screen._open_new_campaign()
@@ -59,6 +66,38 @@ func _run() -> void:
 		screen._open_project_actions(original_id, "Signal Road")
 		_expect("project options open", screen.project_actions_layer.visible, true)
 		_expect("project options focus story", screen.project_actions_first_button.has_focus(), true)
+		screen._export_selected_project()
+		_expect("finish action opens export center", screen.export_layer.visible, true)
+		_expect("export center focuses portable project", screen.export_first_button.has_focus(), true)
+		_expect(
+			"Linux target follows installed player shell availability",
+			screen.export_linux_button.disabled,
+			real_shell.is_empty()
+		)
+		var export_screenshot_path := _argument_path("--capture-export-center=")
+		if not export_screenshot_path.is_empty():
+			for frame in 12:
+				await process_frame
+			get_root().get_texture().get_image().save_png(export_screenshot_path)
+			print("creator export center capture saved: %s" % export_screenshot_path)
+			quit(1 if failures > 0 else 0)
+			return
+		if not real_shell.is_empty():
+			screen._export_linux_from_center()
+			await process_frame
+			await process_frame
+			_expect(
+				"export center builds a standalone Linux game",
+				screen.export_status_label.text.begins_with("READY  /  "),
+				true
+			)
+		screen._export_portable_from_center()
+		_expect("export center reports portable archive", screen.export_status_label.text.begins_with("READY  /  "), true)
+		_expect("export center does not display a user path", screen.export_status_label.text.contains("user://"), false)
+		screen._close_export_center()
+		await process_frame
+		_expect("export center returns to project options", screen.project_actions_layer.visible, true)
+		_expect("project options regain focus after export", screen.project_actions_first_button.has_focus(), true)
 		screen._close_project_actions()
 		await process_frame
 		_expect("project options return focus", screen.project_buttons[original_id].has_focus(), true)
