@@ -184,13 +184,14 @@ step() { printf '\n== %s\n' "$1"; }
 # down there would let a run whose HEAD moved underneath it print a verdict
 # crediting a commit that had never been tested: the one failure mode a clean
 # clone exists to rule out, reintroduced by the line announcing it.
-head_sha="$(git -C "${repository_root}" rev-parse --short HEAD)"
-step "clone HEAD (${head_sha})"
+head_sha="$(git -C "${repository_root}" rev-parse HEAD)"
+head_label="$(git -C "${repository_root}" rev-parse --short=12 HEAD)"
+step "clone HEAD (${head_label})"
 git clone -q --no-local "${repository_root}" "${clone}"
 # The clone is what everything below runs against, so it is the clone that has
 # to match: a commit landing between the read above and the clone itself would
 # go unnoticed in precisely the same way.
-cloned_sha="$(git -C "${clone}" rev-parse --short HEAD)"
+cloned_sha="$(git -C "${clone}" rev-parse HEAD)"
 if [ "${cloned_sha}" != "${head_sha}" ]; then
     printf 'HEAD moved during the clone: announced %s, cloned %s\n' \
         "${head_sha}" "${cloned_sha}" >&2
