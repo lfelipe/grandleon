@@ -494,6 +494,11 @@ func _run_controls_smoke() -> void:
 		or not help_label.text.contains("4[/b]  FINISH")
 	):
 		failed.append("action context")
+	selected_units[0] = 0
+	_update_context_help(0)
+	if not help_label.text.contains("4[/b]  FINISH READY TEAM"):
+		failed.append("team finish context")
+	selected_units[0] = 11
 	pending_requests[1] = 11
 	_update_context_help(0)
 	if (
@@ -562,12 +567,7 @@ func _run_smoke_auto() -> void:
 		return
 	if String(snapshot.get("active_side", "")) != "first":
 		return
-	for unit: Dictionary in snapshot.get("units", []):
-		if String(unit.get("side", "")) != "first" or not unit.get("on_board", false):
-			continue
-		if unit.get("has_acted", false) or _unit_is_pending(int(unit.id)):
-			continue
-		_submit("wait", int(unit.id))
+	_wait_selected(0)
 
 
 func _run_campaign_persistence_smoke() -> void:
@@ -2035,7 +2035,11 @@ func _run_campaign_management_smoke(company: Dictionary) -> void:
 				_fail_campaign_management_smoke("fielding did not restore the portable roster")
 				return
 			campaign_management_phase = 5
-			_submit_campaign_management_smoke("proceed")
+			var confirm := InputEventJoypadButton.new()
+			confirm.pressed = true
+			confirm.button_index = controls.button("confirm")
+			if not campaign_manager.handle_input(confirm, controls):
+				_fail_campaign_management_smoke("the primary action did not accept the configured confirm button")
 		_:
 			_fail_campaign_management_smoke("company management published an extra screen")
 
@@ -2195,7 +2199,10 @@ func _accept_at(seat: int) -> void:
 		_show_unit(occupant, seat)
 		return
 	if selected == 0:
-		_show_toast("SELECT A CHARACTER FIRST")
+		_show_toast(
+			"CHOOSE A FRIENDLY CHARACTER  /  %s FINISHES THE READY TEAM"
+			% controls.label("end_turn")
+		)
 		return
 	if _unit_is_pending(selected):
 		_show_toast("THAT CHARACTER IS ALREADY MOVING")
@@ -2320,10 +2327,41 @@ func _update_highlights(seat: int) -> void:
 
 func _wait_selected(seat: int) -> void:
 	hud_seat = seat
-	if selected_units[seat] != 0 and not _unit_is_pending(selected_units[seat]):
-		_submit("wait", selected_units[seat])
-	else:
+	var selected := selected_units[seat]
+	if selected != 0:
+		if _unit_is_pending(selected):
+			_show_toast("THAT CHARACTER IS STILL MOVING")
+			_update_context_help(seat)
+			return
+		var unit := _unit_by_id(selected)
+		if not unit.is_empty() and not unit.get("has_acted", false):
+			_submit("wait", selected)
+			return
+		selected_units[seat] = 0
+		board.set_selected(seat, 0, "move")
+		board.set_highlights(seat, [])
+	var submitted := 0
+	for unit: Dictionary in snapshot.get("units", []):
+		var unit_id := int(unit.get("id", 0))
+		if (
+			String(unit.get("side", "")) != "first"
+			or not unit.get("on_board", false)
+			or unit.get("has_acted", false)
+			or _unit_is_pending(unit_id)
+			or _selected_by_other_seat(seat, unit_id) >= 0
+		):
+			continue
+		_submit("wait", unit_id)
+		submitted += 1
+	if submitted == 0:
+		_show_toast("NO UNCLAIMED READY CHARACTERS")
 		_update_context_help(seat)
+	else:
+		_show_toast(
+			"FINISHING %d READY CHARACTER%s" % [
+				submitted, "" if submitted == 1 else "S"
+			]
+		)
 
 
 func _seed_cursors() -> void:
@@ -2398,12 +2436,19 @@ func _context_help_text(seat: int) -> String:
 		)
 	var selected := selected_units[seat]
 	if selected == 0:
+		var finish_hint := (
+			""
+			if snapshot.get("deploying", false)
+			else "[b]%s[/b]  FINISH READY TEAM\n" % finish
+		)
 		return (
 			"[color=#%s][b]PLAYER %d / SELECT A CHARACTER[/b][/color]\n" % [
 				PLAYER_COLOURS[seat].to_html(), seat + 1
 			]
 			+ "[b]STICK / D-PAD[/b]  CHOOSE\n"
-			+ "[color=#69d9ff][b]%s[/b][/color]  SELECT\n\n" % confirm
+			+ "[color=#69d9ff][b]%s[/b][/color]  SELECT\n" % confirm
+			+ finish_hint
+			+ "\n"
 			+ "[b]%s[/b]  %s" % [
 				menu, "BEGIN BATTLE" if snapshot.get("deploying", false) else "SESSION MENU"
 			]

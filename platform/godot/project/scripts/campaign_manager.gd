@@ -60,7 +60,7 @@ func present(company: Dictionary) -> void:
 		_selected_member_id = int(roster[0].get("member_id", 0))
 	_rebuild()
 	visible = true
-	_focus_selected_roster()
+	_focus_primary_action()
 
 
 func dismiss() -> void:
@@ -84,7 +84,7 @@ func resume_focus() -> void:
 	if _actions_open:
 		_focus_first_action()
 	else:
-		_focus_selected_roster()
+		_focus_primary_action()
 
 
 func set_text_scale(value: float) -> void:
@@ -107,7 +107,11 @@ func handle_input(event: InputEvent, controls) -> bool:
 		if event.keycode == KEY_ENTER and event.ctrl_pressed:
 			_request("proceed")
 			return true
+		if event.keycode in [KEY_ENTER, KEY_SPACE]:
+			return _activate_focused_button()
 	if event is InputEventJoypadButton and event.pressed:
+		if controls.matches("confirm", event.button_index):
+			return _activate_focused_button()
 		if controls.matches("cancel", event.button_index):
 			_back_to_roster()
 			return true
@@ -115,6 +119,17 @@ func handle_input(event: InputEvent, controls) -> bool:
 			_request("proceed")
 			return true
 	return false
+
+
+func _activate_focused_button() -> bool:
+	var focused := get_viewport().gui_get_focus_owner()
+	if not focused is BaseButton or not is_ancestor_of(focused):
+		return false
+	var button := focused as BaseButton
+	if button.disabled:
+		return false
+	button.pressed.emit()
+	return true
 
 
 func displayed_member_count() -> int:
@@ -404,6 +419,13 @@ func _focus_selected_roster() -> void:
 		button.grab_focus()
 	elif _proceed_button != null:
 		_proceed_button.grab_focus()
+
+
+func _focus_primary_action() -> void:
+	if _proceed_button != null and not _proceed_button.disabled:
+		_proceed_button.grab_focus()
+	else:
+		_focus_selected_roster()
 
 
 func _focus_first_action() -> void:

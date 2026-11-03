@@ -337,11 +337,12 @@ shortcut to trigger accidentally during play. The diagnostic values exist only
 in memory and are never written to a report; the readout deliberately omits
 graphics-device, display, controller, user, path, and network identities.
 
-Between battles, the same compact mapping operates the Company screen: choose
-a member from the roster, confirm to enter their orders, use B to return to the
-roster, press B again for the session menu, and press Start to begin with the
-displayed company. Giving, returning, fielding, and benching each save before
-the screen accepts another input.
+Between battles, the same compact mapping operates the Company screen. **Start
+Battle** receives focus first, so confirm or Start begins immediately when the
+displayed company is ready. Move to a roster member only to change the lineup
+or equipment; confirm then enters that member's orders, and B returns to the
+roster or session menu. Giving, returning, fielding, and benching each save
+before the screen accepts another input.
 
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the
@@ -350,6 +351,11 @@ previous visual action is still resolving. Commands are serialized only at the
 deterministic simulation boundary, where collisions and conflicts have one
 portable answer. The board keeps one animation track per unit, so two accepted
 moves received in the same rendered frame animate together.
+
+The configured finish button (X by default) marks the selected character done.
+With no character selected it finishes every ready character not currently
+claimed by the other player, so a team can hand control to the opposition
+without hunting across the board. The live help spells out both meanings.
 
 Player 1 uses cyan and Player 2 uses amber throughout the board and status
 text. Each active board cursor also carries a `P1` or `P2` badge, so ownership
