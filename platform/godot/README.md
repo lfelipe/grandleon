@@ -164,8 +164,10 @@ and rejoining the selected destination as one compiler-checked undoable edit.
 screen while preserving its map, outcomes, alternate routes, and stable
 identities. Imported general world-value comparisons remain preserved and
 advanced because the source schema has no general operation that sets them.
-Replacement art-pack import remains in the increments defined by
-[CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+The four real graphics profiles and per-binding fallback satisfy the 0.3
+replaceable-art boundary. Arbitrary-file art-pack import is intentionally a
+post-0.3 increment in [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md), not another
+control in the ordinary campaign flow.
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to

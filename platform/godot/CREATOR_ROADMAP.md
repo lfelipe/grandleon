@@ -231,14 +231,10 @@ but it must not become a second schema authority.
 These are release blockers in priority order, not invitations to add a large
 permanent form.
 
-1. **Replacement art packs.** Select an installed pack or import project-owned
-   terrain, character, portrait, effect, and UI assets. Validate dimensions,
-   pivots, animation names, target budgets, and licenses, and preview the same
-   animation state machine used in play.
-2. **Console builder payloads.** Integrate separately installed, versioned
+1. **Console builder payloads.** Integrate separately installed, versioned
    Nintendo 64 and PlayStation builders into the Export Center with independent
    progress, warnings, capability checks, hashes, and failure reports.
-3. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
+2. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
    run clean-revision PC/Nintendo 64/PlayStation gates, and complete one human
    solo and co-op campaign playthrough per target.
 
@@ -247,6 +243,13 @@ preserved for imported compatibility. They are not an editor blocker: source
 projects have no general set-value operation, and adding a raw comparison form
 without a named producer would make it easy to create a dead route. Talk is the
 focused portable producer and already has named positive/negative conditions.
+
+Arbitrary-file replacement-art import is post-0.3. The release requirement is
+the replaceable graphics boundary already exercised by the pixel, diorama,
+voxel-sprites, and voxel profiles, including per-binding fallback and real
+animation assets. A later installed-pack or project-owned-asset workflow must
+validate dimensions, pivots, animation names, target budgets, and licenses
+without adding file controls to the ordinary campaign path.
 
 Windows PC support is post-0.3. It requires a Windows GDExtension, export shell,
 signing and CI, controller validation, and a Windows-safe strategy for any

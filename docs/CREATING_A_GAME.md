@@ -257,9 +257,11 @@ not rules. Imported projects may contain general boolean, integer, or text
 world-value comparisons; the creator preserves and labels them as advanced.
 The portable source format has no general action that sets those values, so the
 creator deliberately does not offer a raw key/value form that would create an
-unreachable route. External replacement-art-pack import and installed console
-builder integration remain release work. The current status and acceptance
-gates are in [RELEASE_0_3.md](RELEASE_0_3.md).
+unreachable route. The 0.3 graphics profiles already use a replaceable asset
+contract; importing arbitrary third-party art files through the creator is a
+post-0.3 workflow so it does not complicate campaign creation. Installed
+console builder integration remains release work. The current status and
+acceptance gates are in [RELEASE_0_3.md](RELEASE_0_3.md).
 
 ## Refresh these screenshots
 
