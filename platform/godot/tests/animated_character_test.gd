@@ -121,6 +121,11 @@ func _test_profile_bindings() -> void:
 		var path := String(binding.get("scene", ""))
 		_expect_true("%s scene is bound" % archetype, not path.is_empty())
 		_expect_true("%s scene exists" % archetype, ResourceLoader.exists(path))
+		var expected_scale := 0.68 if archetype == "beast" else 0.72
+		_expect_true(
+			"%s stays within its calibrated tactical-cell scale" % archetype,
+			is_equal_approx(float(binding.get("scale", 0.0)), expected_scale)
+		)
 	var commander: Dictionary = scenes.get("commander", {})
 	_expect_true("commander uses an imported GLB", String(commander.get("scene", "")).ends_with(".glb"))
 	var commander_clips: Dictionary = commander.get("clips", {})

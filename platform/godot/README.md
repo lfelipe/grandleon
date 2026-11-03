@@ -340,7 +340,9 @@ terrain with the real sheets as billboard characters, `voxel-sprites` uses
 box-built terrain with those same characters, and `voxel` builds both terrain
 and characters in 3D. The full-voxel profile binds imported, skinned commander,
 rogue, stormcaller, and drone GLBs with in-place idle, run, attack, ability,
-hurt, and defeat clips; other archetypes retain their procedural fallback. Select one with
+hurt, and defeat clips. Per-binding display scales keep each humanoid and the
+wider quadruped inside a tactical cell without modifying the source GLB; other
+archetypes retain their procedural fallback. Select one with
 `--graphics=PROFILE` in a developer run or `GRANDLEON_GRAPHICS=PROFILE` in the
 SteamOS bundle. During play, the session menu can replace only the renderer and
 rebind the current board, cursors, selections, and highlights so the four
@@ -356,7 +358,9 @@ then change either for the current run. The launcher discovers that ignored
 file at run time; its path and contents are never compiled into the bundle.
 
 An authored pack may also bind `assets.terrainScenes` by terrain name and
-`assets.characterScenes` by archetype to project resources. Imported `.glb`
+`assets.characterScenes` by archetype to project resources. A character
+binding may set its display `scale`, animation-player path, and named clip map,
+so replacement proportions do not become renderer assumptions. Imported `.glb`
 files and `.tscn` scenes both arrive as `PackedScene` resources in Godot. Each
 scene uses a one-cell origin and the manifest's `sceneScale`; surface heights
 remain explicit in the same profile. Missing or invalid bindings fall back per

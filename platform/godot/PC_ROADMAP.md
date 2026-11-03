@@ -16,7 +16,7 @@ fallbacks.
 The branch is ready for a first SteamOS PC validation, not for a content-complete
 release. The portable bundle includes pinned Godot, compiled demo content, the
 native extension, imported assets, and a two-player launcher. It contains no
-machine-specific model, graphics, or control configuration.
+machine-specific graphics or control configuration.
 
 ## What is already proven
 
@@ -27,10 +27,8 @@ machine-specific model, graphics, or control configuration.
 | Stable controller seats | A lone controller is Player 1. Reconciliation preserves every still-connected pad and cursor across enumeration changes, fills only a vacant seat on reconnect, and ignores extra devices. Keyboard/mouse can join a vacant second seat. Privacy-safe toasts distinguish ready, replacement, keyboard fallback, waiting, and ignored transitions without displaying a controller identity. A headless smoke covers launch, disconnect, reconnect, reorder, assignment, and transition-notice cases. |
 | Compact controls | Every essential flow uses one stick or d-pad plus five configurable buttons. The default is A, B, X, Y, and Start; shoulders and Back are optional shortcuts that can be disabled. A local profile may replace physical button legends with short labels such as 1–4 and MENU throughout gameplay and menus without recording a controller identity. The play HUD follows the last active player and shows only the present goal and relevant buttons, including explicit guidance to command another character while an action animates. Invalid, ambiguous, or unsafe local profiles fall back atomically to the complete default. |
 | Deterministic conflict handling | Commands overlap visually but serialize at the simulation boundary; a stale or conflicting command is refused instead of mutating state out of order. |
-| Offline campaign | The Last Signal has authored opening, terms, talk outcome, battle outcome, and ending dialogue with the model disabled. |
-| Optional model dialogue | Model lines append only to allowlisted scenes and pass speaker, count, length, and markup validation. Authored lines are never replaced. |
-| Optional model tactics | The model selects an index from legal engine-generated candidates. Candidate zero is the built-in plan and remains the fallback for every failure mode. |
-| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, covering every Last Signal terrain while other kinds fall back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including the integrated 443-pixel-cell Rook sheet. Full Voxel inherits that terrain pack and replaces the complete encounter roster with imported, skinned GLBs. Commander, rogue, and stormcaller reuse one humanoid topology without sharing meshes or actions; the beast has a distinct quadruped rig. Missing bindings, clips, or metadata fall back asset by asset. |
+| Offline campaign | The included campaign uses authored dialogue and deterministic enemy actions without a network dependency. |
+| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, covering every Last Signal terrain while other kinds fall back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest, including the integrated 443-pixel-cell Rook sheet. Full Voxel inherits that terrain pack and replaces the complete encounter roster with imported, skinned GLBs. Commander, rogue, and stormcaller reuse one humanoid topology without sharing meshes or actions; the beast has a distinct quadruped rig. Per-binding display scales keep those different proportions within one tactical cell. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Persistent presentation settings | Graphics profile, camera impulse, and text size survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
 | Persistent campaigns | Completed battles use the same versioned campaign envelope and migration registry as the other clients. Atomic checkpoints are isolated by package and campaign identity under runtime data and resume in a second process. The controller Save / Load page provides three manual slots: saving copies only complete between-battle state, while loading can restart from a populated slot anywhere. New Campaign uses a separate two-confirm automatic-progress reset without removing manual copies. Integration smokes prove write, restart, resume, copy, refusal, erase, and fresh start. |
@@ -126,7 +124,8 @@ fallback when one replacement is removed.
 - The imported commander now proves a normal Blender-to-GLB path with a
   sixteen-bone skeleton, skinned mesh, seven material surfaces, six in-place
   clips, and explicit exported-name mapping. It is reproducible from checked-in
-  source and runs at the real one-cell scale in the campaign.
+  source and uses a profile-owned display scale calibrated against one tactical
+  cell rather than baking presentation size into the asset.
 - The beast now uses a second imported GLB with a fifteen-bone quadruped rig,
   seven material surfaces, and six explicitly mapped clips. Both exporters use
   the same deterministic authoring helpers and remain independent replacements.

@@ -196,7 +196,7 @@
         "characterScenes": {
           "commander": {
             "scene": "res://art/characters/relay_commander.glb",
-            "scale": 1.0,
+            "scale": 0.72,
             "animationPlayer": "AnimationPlayer",
             "clips": {
               "idle": "Relay_Idle",
@@ -209,7 +209,7 @@
           },
           "rogue": {
             "scene": "res://art/characters/relay_rogue.glb",
-            "scale": 1.0,
+            "scale": 0.72,
             "animationPlayer": "AnimationPlayer",
             "clips": {
               "idle": "Kestrel_Idle",
@@ -222,7 +222,7 @@
           },
           "stormcaller": {
             "scene": "res://art/characters/relay_stormcaller.glb",
-            "scale": 1.0,
+            "scale": 0.72,
             "animationPlayer": "AnimationPlayer",
             "clips": {
               "idle": "Morrow_Idle",
@@ -235,7 +235,7 @@
           },
           "beast": {
             "scene": "res://art/characters/relay_drone.glb",
-            "scale": 1.0,
+            "scale": 0.68,
             "animationPlayer": "AnimationPlayer",
             "clips": {
               "idle": "Drone_Hover",
