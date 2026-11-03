@@ -142,6 +142,50 @@ func _run() -> void:
 	_expect("role side change is redoable", str(_parse(editor.source).unitTypes[0].factionId), "raiders")
 	editor.role_side.select(1)
 	editor._change_role_side(1)
+	editor._open_growth()
+	_expect("role without items offers an explicit no-drop choice", editor.growth_drop.get_item_text(0), "NO ITEM DROP")
+	_expect("drop chance stays unavailable without an item", editor.growth_drop_buttons[0].disabled, true)
+	editor._close_growth()
+	var reward_fixture := _parse(editor.source)
+	reward_fixture.items.append({
+		"id": "field_tonic",
+		"name": "Field Tonic",
+		"stackLimit": 3,
+		"kind": "restore",
+		"power": 3,
+	})
+	editor.source = JSON.stringify(editor._integer_numbers(reward_fixture), "  ", true) + "\n"
+	_expect("drop test fixture remains portable", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._read_source()
+	editor._refresh_role_layer()
+	editor._open_growth()
+	_expect("growth and rewards open from role tuning", editor.growth_layer.visible, true)
+	_expect("growth and rewards begin with the look choice", editor.growth_style.has_focus(), true)
+	_expect("unchanged role starts with no defeat reward", editor.growth_value_labels.experienceAward.text, "0")
+	_expect("unchanged role uses the standard level threshold", editor.growth_value_labels.experiencePerLevel.text, "100")
+	_expect("starter figure is visible in advanced options", str(editor.growth_figure.get_item_metadata(editor.growth_figure.selected)), "first")
+	editor._select_metadata(editor.growth_style, "undead")
+	editor._change_growth_choice(editor.growth_style.selected, "characterStyleId")
+	editor._select_metadata(editor.growth_figure, "second")
+	editor._change_growth_choice(editor.growth_figure.selected, "characterFigureId")
+	_expect("role look reaches portable unit data", str(_parse(editor.source).unitTypes[0].characterStyleId), "undead")
+	_expect("role figure reaches portable unit data", str(_parse(editor.source).unitTypes[0].characterFigureId), "second")
+	editor._adjust_role_detail("experienceAward", 1)
+	editor._adjust_role_detail("experiencePerLevel", -1)
+	editor._adjust_role_detail("health", 1)
+	var with_growth := _parse(editor.source)
+	_expect("defeat reward reaches portable unit data", int(with_growth.unitTypes[0].experienceAward), 1)
+	_expect("level threshold reaches portable unit data", int(with_growth.unitTypes[0].experiencePerLevel), 99)
+	_expect("growth chance reaches portable unit data", int(with_growth.unitTypes[0].growthRates.health), 1)
+	editor._select_metadata(editor.growth_drop, "field_tonic")
+	editor._change_growth_drop(editor.growth_drop.selected)
+	_expect("named item drop reaches portable unit data", str(_parse(editor.source).unitTypes[0].dropItemId), "field_tonic")
+	_expect("new item drop begins as certain", int(_parse(editor.source).unitTypes[0].dropChance), 100)
+	_expect("drop chance controls activate with a drop", editor.growth_drop_buttons[0].disabled, false)
+	editor._adjust_role_detail("dropChance", -1)
+	_expect("drop chance reaches portable unit data", int(_parse(editor.source).unitTypes[0].dropChance), 99)
+	editor._close_growth()
+	_expect("closing growth returns to its role action", editor.role_growth_button.has_focus(), true)
 	editor._toggle_role_behavior()
 	editor._select_metadata(editor.role_movement, "walk")
 	editor._change_role_movement(editor.role_movement.selected)
@@ -216,6 +260,9 @@ func _run() -> void:
 		_expect("renamed founding hero name persists", str(stored.project.campaigns[0].roster[0].name), "Aren of the Vale")
 		_expect("new role persists", str(stored.project.unitTypes[-1].name), "Trail Warden")
 		_expect("independent role baseline persists", str(stored.project.classes[-1].name), "Trail Warden")
+		_expect("role growth persists", int(stored.project.unitTypes[0].growthRates.health), 1)
+		_expect("role item drop persists", str(stored.project.unitTypes[0].dropItemId), "field_tonic")
+		_expect("role appearance persists", str(stored.project.unitTypes[0].characterStyleId), "undead")
 		_expect("saved starting supplies persist", int(stored.project.campaigns[0].startingStore[0].quantity), 1)
 		_expect("saved chapter rewards persist", stored.project.campaigns[0].flow.nodes[0].grants[0].has("weaponId"), true)
 		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
@@ -244,6 +291,9 @@ func _run() -> void:
 			editor._open_new_role()
 		elif _has_argument("--role-tuning-preview"):
 			editor._open_role()
+		elif _has_argument("--growth-preview"):
+			editor._open_role()
+			editor._open_growth()
 		elif _has_argument("--loadout-preview"):
 			editor._open_loadout()
 		elif _has_argument("--supplies-preview"):

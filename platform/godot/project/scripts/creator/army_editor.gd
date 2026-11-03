@@ -26,6 +26,18 @@ const ROLE_STATS := [
 	{"key": "evasion", "label": "EVASION", "minimum": 0, "maximum": 32767},
 	{"key": "speed", "label": "SPEED", "minimum": 1, "maximum": 255},
 ]
+const GROWTH_STATS := [
+	{"key": "health", "label": "HEALTH"},
+	{"key": "strength", "label": "STRENGTH"},
+	{"key": "defense", "label": "DEFENSE"},
+	{"key": "resistance", "label": "RESISTANCE"},
+	{"key": "movement", "label": "MOVEMENT"},
+	{"key": "actionPoints", "label": "ACTIONS"},
+	{"key": "skill", "label": "SKILL"},
+	{"key": "luck", "label": "LUCK"},
+	{"key": "evasion", "label": "EVASION"},
+	{"key": "magic", "label": "MAGIC"},
+]
 
 var library
 var compiler
@@ -107,6 +119,7 @@ var role_movement: OptionButton
 var role_family: OptionButton
 var role_family_toggle_button: Button
 var role_behavior_button: Button
+var role_growth_button: Button
 var role_detach_button: Button
 var role_stat_labels: Dictionary = {}
 var role_stat_buttons: Array[Button] = []
@@ -115,6 +128,13 @@ var role_refreshing := false
 var side_layer: Control
 var side_name: LineEdit
 var side_colour: OptionButton
+var growth_layer: Control
+var growth_title_label: Label
+var growth_style: OptionButton
+var growth_figure: OptionButton
+var growth_drop: OptionButton
+var growth_value_labels: Dictionary = {}
+var growth_drop_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -132,6 +152,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_new_role()
 		elif side_layer.visible:
 			_close_new_side()
+		elif growth_layer.visible:
+			_close_growth()
 		elif role_layer.visible:
 			_close_role()
 		elif loadout_layer.visible:
@@ -924,6 +946,136 @@ func _create_side() -> void:
 	role_side.grab_focus()
 
 
+func _open_growth() -> void:
+	_refresh_growth_layer()
+	growth_layer.visible = true
+	growth_style.grab_focus()
+
+
+func _close_growth() -> void:
+	growth_layer.visible = false
+	role_growth_button.grab_focus()
+
+
+func _refresh_growth_layer() -> void:
+	role_refreshing = true
+	var unit_type := _role_unit_type()
+	growth_title_label.text = "%s  /  GROWTH & REWARDS" % str(
+		unit_type.get("name", "ROLE")
+	).to_upper()
+	_select_metadata(growth_style, str(unit_type.get("characterStyleId", "")))
+	_select_metadata(growth_figure, str(unit_type.get("characterFigureId", "")))
+	var preferred_drop := _selected_metadata(growth_drop)
+	growth_drop.clear()
+	growth_drop.add_item("NO ITEM DROP")
+	growth_drop.set_item_metadata(0, "")
+	for value: Variant in project.get("items", []):
+		if value is Dictionary:
+			growth_drop.add_item(str(value.get("name", value.get("id", "Item"))))
+			growth_drop.set_item_metadata(
+				growth_drop.item_count - 1, str(value.get("id", ""))
+			)
+	var drop_id := str(unit_type.get("dropItemId", preferred_drop))
+	_select_metadata(growth_drop, drop_id)
+	growth_value_labels.experienceAward.text = str(int(unit_type.get("experienceAward", 0)))
+	growth_value_labels.experiencePerLevel.text = str(int(unit_type.get("experiencePerLevel", 100)))
+	growth_value_labels.dropChance.text = str(int(unit_type.get("dropChance", 0)))
+	var rates: Variant = unit_type.get("growthRates", {})
+	for definition: Dictionary in GROWTH_STATS:
+		var key := str(definition.key)
+		growth_value_labels[key].text = str(int(rates.get(key, 0)))
+	var has_drop := not _selected_metadata(growth_drop).is_empty()
+	for button: Button in growth_drop_buttons:
+		button.disabled = not has_drop
+	role_refreshing = false
+
+
+func _role_project_with_unit() -> Dictionary:
+	var candidate: Dictionary = project.duplicate(true)
+	var unit_types: Array = candidate.get("unitTypes", [])
+	for index in unit_types.size():
+		if unit_types[index] is Dictionary and str(unit_types[index].get("id", "")) == role_unit_type_id:
+			return {
+				"project": candidate,
+				"unit_types": unit_types,
+				"unit_index": index,
+				"unit_type": unit_types[index].duplicate(true),
+			}
+	return {}
+
+
+func _change_growth_choice(_index: int, field: String) -> void:
+	if role_refreshing:
+		return
+	var candidate := _role_project_with_unit()
+	if candidate.is_empty():
+		return
+	var unit_type: Dictionary = candidate.unit_type
+	var option: OptionButton = growth_style if field == "characterStyleId" else growth_figure
+	var value := _selected_metadata(option)
+	if value.is_empty():
+		unit_type.erase(field)
+	else:
+		unit_type[field] = value
+	candidate.unit_types[candidate.unit_index] = unit_type
+	if _accept_role_project(candidate.project, "UNSAVED  /  ROLE APPEARANCE CHANGED"):
+		_refresh_growth_layer()
+
+
+func _change_growth_drop(_index: int) -> void:
+	if role_refreshing:
+		return
+	var candidate := _role_project_with_unit()
+	if candidate.is_empty():
+		return
+	var unit_type: Dictionary = candidate.unit_type
+	var drop_id := _selected_metadata(growth_drop)
+	if drop_id.is_empty():
+		unit_type.erase("dropItemId")
+		unit_type.erase("dropChance")
+	else:
+		unit_type.dropItemId = drop_id
+		if not unit_type.has("dropChance"):
+			unit_type.dropChance = 100
+	candidate.unit_types[candidate.unit_index] = unit_type
+	if _accept_role_project(candidate.project, "UNSAVED  /  ROLE DROP CHANGED"):
+		_refresh_growth_layer()
+
+
+func _adjust_role_detail(key: String, amount: int) -> void:
+	var candidate := _role_project_with_unit()
+	if candidate.is_empty():
+		return
+	var unit_type: Dictionary = candidate.unit_type
+	if key in ["experienceAward", "experiencePerLevel", "dropChance"]:
+		var fallback: int = {
+			"experienceAward": 0,
+			"experiencePerLevel": 100,
+			"dropChance": 100,
+		}.get(key, 0)
+		var minimum := 1 if key in ["experiencePerLevel", "dropChance"] else 0
+		var maximum := 100 if key == "dropChance" else 65535
+		var value := clampi(int(unit_type.get(key, fallback)) + amount, minimum, maximum)
+		if (key == "experienceAward" and value == 0) or (key == "experiencePerLevel" and value == 100):
+			unit_type.erase(key)
+		else:
+			unit_type[key] = value
+	else:
+		var rates: Dictionary = unit_type.get("growthRates", {}).duplicate(true)
+		var value := clampi(int(rates.get(key, 0)) + amount, 0, 100)
+		if value == 0:
+			rates.erase(key)
+		else:
+			rates[key] = value
+		if rates.is_empty():
+			unit_type.erase("growthRates")
+		else:
+			unit_type.growthRates = rates
+	candidate.unit_types[candidate.unit_index] = unit_type
+	if _accept_role_project(candidate.project, "UNSAVED  /  ROLE PROGRESSION CHANGED"):
+		_refresh_growth_layer()
+
+
 func _change_role_side(_index: int) -> void:
 	if role_refreshing:
 		return
@@ -1631,6 +1783,7 @@ func _build_interface() -> void:
 	_build_supply_layer()
 	_build_role_layer()
 	_build_side_layer()
+	_build_growth_layer()
 	_build_loadout_layer()
 
 
@@ -2033,6 +2186,10 @@ func _build_role_layer() -> void:
 	role_behavior_button.tooltip_text = "Choose whether unused actions remain after attacking."
 	role_behavior_button.pressed.connect(_toggle_role_behavior)
 	behavior_row.add_child(role_behavior_button)
+	role_growth_button = _button("GROWTH & REWARDS", 420, 58)
+	role_growth_button.tooltip_text = "Optional level growth, defeat rewards, drops, and appearance."
+	role_growth_button.pressed.connect(_open_growth)
+	behavior_row.add_child(role_growth_button)
 	role_detach_button = _button("MAKE BASELINE INDEPENDENT", 480, 58)
 	role_detach_button.tooltip_text = "Copy this shared baseline before tuning it."
 	role_detach_button.pressed.connect(_detach_role_baseline)
@@ -2143,6 +2300,149 @@ func _build_side_layer() -> void:
 	var cancel := _button("CANCEL", 260, 64)
 	cancel.pressed.connect(_close_new_side)
 	actions.add_child(cancel)
+
+
+func _build_growth_layer() -> void:
+	growth_layer = Control.new()
+	growth_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	growth_layer.visible = false
+	growth_layer.z_index = 55
+	add_child(growth_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.96)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	growth_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(170, 55)
+	panel.size = Vector2(1580, 930)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
+	)
+	growth_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 9)
+	panel.add_child(column)
+	column.add_child(_label("ADVANCED ROLE OPTIONS", 17, Color("e6b86d")))
+	growth_title_label = _label("ROLE  /  GROWTH & REWARDS", 29, Color("f2f7f9"))
+	column.add_child(growth_title_label)
+	var note := _label(
+		"Leave these at their defaults for a simple campaign. Changes apply everywhere this role appears.",
+		16, Color("a9bdc9")
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.y = 32
+	column.add_child(note)
+
+	var appearance_row := HBoxContainer.new()
+	appearance_row.add_theme_constant_override("separation", 14)
+	column.add_child(appearance_row)
+	var style_label := _label("LOOK", 15, Color("69d9ff"))
+	style_label.custom_minimum_size = Vector2(160, 54)
+	style_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	appearance_row.add_child(style_label)
+	growth_style = OptionButton.new()
+	growth_style.custom_minimum_size = Vector2(520, 54)
+	growth_style.add_theme_font_size_override("font_size", 18)
+	growth_style.add_item("FOLLOW GAME STYLE")
+	growth_style.set_item_metadata(0, "")
+	for style_name: String in ArtLibrary.STYLE_NAMES:
+		growth_style.add_item(style_name.replace("_", " ").to_upper())
+		growth_style.set_item_metadata(growth_style.item_count - 1, style_name)
+	growth_style.item_selected.connect(_change_growth_choice.bind("characterStyleId"))
+	appearance_row.add_child(growth_style)
+	var figure_label := _label("FIGURE", 15, Color("69d9ff"))
+	figure_label.custom_minimum_size = Vector2(150, 54)
+	figure_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	appearance_row.add_child(figure_label)
+	growth_figure = OptionButton.new()
+	growth_figure.custom_minimum_size = Vector2(560, 54)
+	growth_figure.add_theme_font_size_override("font_size", 18)
+	for choice: Dictionary in [
+		{"id": "", "label": "FOLLOW GAME FIGURE"},
+		{"id": "first", "label": "FIRST FIGURE"},
+		{"id": "second", "label": "SECOND FIGURE"},
+	]:
+		growth_figure.add_item(str(choice.label))
+		growth_figure.set_item_metadata(growth_figure.item_count - 1, choice.id)
+	growth_figure.item_selected.connect(_change_growth_choice.bind("characterFigureId"))
+	appearance_row.add_child(growth_figure)
+
+	column.add_child(_label("EXPERIENCE & ITEM DROP", 15, Color("e6b86d")))
+	var reward_row := HBoxContainer.new()
+	reward_row.add_theme_constant_override("separation", 12)
+	column.add_child(reward_row)
+	_build_growth_stepper(reward_row, "XP WHEN DEFEATED", "experienceAward", 365, false)
+	_build_growth_stepper(reward_row, "XP PER LEVEL", "experiencePerLevel", 365, false)
+	var drop_label := _label("ITEM DROP", 14, Color("69d9ff"))
+	drop_label.custom_minimum_size = Vector2(145, 52)
+	drop_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	reward_row.add_child(drop_label)
+	growth_drop = OptionButton.new()
+	growth_drop.custom_minimum_size = Vector2(400, 52)
+	growth_drop.add_theme_font_size_override("font_size", 17)
+	growth_drop.item_selected.connect(_change_growth_drop)
+	reward_row.add_child(growth_drop)
+	var chance_row := HBoxContainer.new()
+	chance_row.add_theme_constant_override("separation", 12)
+	column.add_child(chance_row)
+	var chance_spacer := Control.new()
+	chance_spacer.custom_minimum_size = Vector2(790, 48)
+	chance_row.add_child(chance_spacer)
+	_build_growth_stepper(chance_row, "DROP CHANCE %", "dropChance", 570, true)
+
+	column.add_child(_label("LEVEL-UP CHANCE  /  EACH STAT", 15, Color("e6b86d")))
+	var growth_grid := GridContainer.new()
+	growth_grid.columns = 2
+	growth_grid.add_theme_constant_override("h_separation", 22)
+	growth_grid.add_theme_constant_override("v_separation", 5)
+	column.add_child(growth_grid)
+	for definition: Dictionary in GROWTH_STATS:
+		_build_growth_stepper(
+			growth_grid, str(definition.label), str(definition.key), 716, false
+		)
+
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 16)
+	column.add_child(footer)
+	var done := _button("DONE", 280, 58)
+	done.pressed.connect(_close_growth)
+	footer.add_child(done)
+	var guidance := _label(
+		"A growth value is the percentage chance that stat rises by one at level-up. Zero means it never rolls.",
+		15, Color("718896")
+	)
+	guidance.custom_minimum_size = Vector2(1120, 58)
+	guidance.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	footer.add_child(guidance)
+
+
+func _build_growth_stepper(
+	parent: Container, label_text: String, key: String, width: int, drop_control: bool
+) -> void:
+	var row := HBoxContainer.new()
+	row.custom_minimum_size = Vector2(width, 46)
+	row.add_theme_constant_override("separation", 7)
+	parent.add_child(row)
+	var label := _label(label_text, 14, Color("a9bdc9"))
+	label.custom_minimum_size = Vector2(190 if width > 600 else 155, 46)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(label)
+	var minus := _button("−", 72, 44)
+	minus.pressed.connect(_adjust_role_detail.bind(key, -1))
+	row.add_child(minus)
+	var value := _label("0", 18, Color("f2f7f9"))
+	value.custom_minimum_size = Vector2(165 if width > 600 else 70, 44)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(value)
+	var plus := _button("+", 72, 44)
+	plus.pressed.connect(_adjust_role_detail.bind(key, 1))
+	row.add_child(plus)
+	growth_value_labels[key] = value
+	if drop_control:
+		growth_drop_buttons.append(minus)
+		growth_drop_buttons.append(plus)
 
 
 func _build_loadout_layer() -> void:
