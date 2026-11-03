@@ -47,11 +47,11 @@ Every release decision should preserve these constraints:
 | Player/console feature parity | Automated candidate | Campaign flow, story, objectives, abilities, items, save data, co-op ownership, and two-player enemy scaling are portable and exercised on all three targets. A target-by-target human playthrough still needs sign-off. |
 | PC graphics | Playable, not final art | Pixel, hybrid voxel-sprite, diorama, and full-voxel profiles are replaceable. The recommended initial profile is `voxel-sprites`; final animation/art polish is not a release-format dependency. |
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
-| Native campaign outline | Linear hub ready | Continue Creating opens a controller-first story/battle/ending list in play order. A chapter opens its exact dialogue or map; Test Campaign and Grow the Army stay one press away; Add Next Chapter opens the correct source battle and focused creation dialog. Alternate outcomes are visible but not yet editable as branches. |
+| Native campaign outline | Focused flow editor ready | Continue Creating opens a controller-first story/battle/ending list in play order. A chapter opens its exact dialogue or map; Test Campaign and Grow the Army stay one press away; Add Next Chapter opens the correct source battle and focused creation dialog. Each playable chapter can add, name, order, retarget, and remove common outcomes without exposing source identities. Add Ending creates and connects a named terminal chapter as one undoable change. |
 | Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Existing maps and battles can be renamed together without changing stable identities. Copy Battle Setup deliberately reuses characters, goals, deployment, co-op rules, and turn order while preserving the target chapter. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. |
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, and tunes seven named-hero traits. New roles copy a working role into an independent baseline. Tune Role edits all eleven portable baseline stats, side, terrain crossing, post-attack behavior, and allowed weapon families; incompatible removal is refused. New Side creates a portable named faction and color. Growth & Rewards keeps optional experience, level growth, item drops, and per-role appearance behind one advanced action. Campaign supplies, chapter rewards, role loadouts, and the separate reusable Gear & Abilities library are also native. |
-| Full native authoring parity | Blocking | General campaign branches, external replacement-art packs, and measured per-target authoring budgets still need focused native support. |
+| Full native authoring parity | Blocking | Arbitrary alternate story/battle creation, compound or world-state conditions, external replacement-art packs, and measured per-target authoring budgets still need focused native support. |
 | Native Export Center | Partial | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Synthetic and real packaged-shell smokes cover privacy, stripping, and compiled-content identity. Nintendo 64 and PlayStation still need separately installed builder payload integration. |
 | Documentation and screenshots | Blocking | README and `docs/CREATING_A_GAME.md` still describe the browser editor. Rewrite them only after the native flow and labels are frozen, then capture every documented screen from that build. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
@@ -92,6 +92,14 @@ priority and separates other outcomes below it. Story and battle entries open
 the exact scene or map they name, so authors do not have to find the same
 chapter again in another picker. Add Next Chapter appears at the end of the
 route and carries the last playable battle into the focused creation dialog.
+
+Each playable chapter also has an Outcomes action. It presents routes in the
+order in which the game will try them and supports Always, Goal Won, Goal Lost,
+and Have Item conditions with named destinations. Add Ending asks only for the
+player-facing ending name, creates the hidden terminal identity, and adds a
+complementary win/loss route when the battle has a goal. Imported advanced
+conditions remain intact and clearly marked instead of being simplified or
+silently rewritten. Save, undo, and redo cover the complete campaign flow.
 
 Reusable combat choices stay behind Grow the Army's More menu. Gear & Abilities
 can start a weapon, item, or ability from safe defaults or copy an existing
@@ -183,14 +191,21 @@ the Godot application.
 ### 4. Campaign flow
 
 - A readable chapter list is the default; a graph is an advanced view.
-  **The controller-first outline, primary route, and other-outcome list are
+  **The controller-first outline, primary route, and ordered outcome list are
   implemented. A graph is not exposed.**
 - Add story, battle, and ending moments; reorder a linear route safely.
   **Add Next Chapter creates a linked story and battle before the existing
-  ending. Arbitrary insertion and reordering remain.**
+  ending. Add Ending creates and connects a named terminal moment. Arbitrary
+  story/battle insertion and whole-chapter reordering remain.**
 - Add outcome/inventory/world-state branches with named targets and preview the
-  possible routes.
+  possible routes. **Always, Goal Won, Goal Lost, and Have Item routes have
+  named destinations, first-match ordering, add/remove, compiler validation,
+  and bounded undo/redo. Imported advanced conditions are preserved. Direct
+  world-state, negated, and compound-condition authoring remains.**
 - Edit recruits, grants, and terminal endings at the chapter that owns them.
+  **Recruit and grant editing is available from Grow the Army. New terminal
+  names are authored while adding the ending; editing an existing terminal in
+  place remains.**
 
 Exit: branching projects no longer require the earlier editor or hand-edited
 JSON.
@@ -232,6 +247,11 @@ are frozen.
   target map and flow, compiler validation, undo/redo, save/reload, and draft
   play. Rendered reviews cover the More, Names, Battle Setup, and Copy Setup
   screens at the target resolution.
+- `72b8235`: the exact committed tree passes all 68 native tests and all 23
+  Godot integration smokes after adding focused campaign outcomes and named
+  alternate endings. The campaign smoke covers conditions, destinations,
+  first-match ordering, add/remove, compiler validation, stable hidden
+  identities, one-step ending creation, undo/redo, persistence, and reload.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
