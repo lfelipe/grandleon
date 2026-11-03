@@ -282,8 +282,13 @@ are frozen.
 - `09a43bc`: the exact committed tree passes all 68 native tests and all 23
   Godot integration smokes after routing creator errors to focused screens and
   replacing source identities in ordinary map, objective, placement, and story
-  feedback with player-facing names. This is the current PC release-gate
-  baseline; it does not replace the final clean-revision all-target gate.
+  feedback with player-facing names.
+- `751ac42`: the exact committed tree passes all 68 native tests and all 23
+  Godot integration smokes after adding contextual diagnostic repair. Tests
+  cover field labels, exact placement/cell movement recovery, exact story-line
+  focus, and affected Army and Gear selection without displaying stable source
+  identities. This is the current PC release-gate baseline; it does not replace
+  the final clean-revision all-target gate.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
