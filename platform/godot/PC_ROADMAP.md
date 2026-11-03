@@ -37,7 +37,7 @@ machine-specific graphics or control configuration.
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Route-aware locomotion | Accepted moves carry the shared portable route and a per-cell duration derived from console presentation timing. Both Godot renderers validate and follow every leg independently, including overlapping co-op moves, while snapshots remain authoritative and malformed records fall back safely. |
 | Controller-safe menus | Start or the optional Back shortcut opens a five-choice root menu. Save slots and settings have their own short pages and contextual one-line control legend. Cancel walks back and resumes only from the root; Exit Game must be focused and confirmed, with no instant controller quit shortcut. |
-| SteamOS packaging | The release bundle runs without a system Godot install, keeps writable state under its own `runtime/` directory, and includes a 512-pixel icon at a stable bundle-relative path for desktop and Steam shortcuts. |
+| SteamOS packaging | The release bundle runs without a system Godot install, keeps writable state under its own `runtime/` directory, and includes a 512-pixel icon at a stable bundle-relative path for desktop and Steam shortcuts. One aggregate release gate runs the native suite, every bounded Godot integration smoke, and exact packaged acceptance. |
 | Simple application entry | Ordinary launches open a controller-first home screen listing the included game and local project titles, plus Create / Edit and Exit. It displays no paths or machine identifiers, while automated test launches retain a direct route into play. |
 | Privacy | The bundler rejects exact checkout paths and local override files. Endpoint, model, token environment name, and art overrides live only in ignored runtime files. |
 
@@ -206,8 +206,9 @@ raise either console's memory or palette requirements.
   deliberately compact art pack. The commander proves real rigging, materials,
   and GLB animation, but final roster silhouettes and motion still need an
   artist-quality pass.
-- Godot presentation has runtime smoke coverage but is not yet a first-class
-  CTest target.
+- Godot presentation remains outside CTest, but the aggregate PC release gate
+  now runs every bounded runtime smoke after the native CTest suite. CI still
+  needs a pinned headless display and Godot cache before adopting that gate.
 - Controller behavior has been exercised under Linux/Xvfb, not yet on the
   target SteamOS PC and its exact controllers.
 - The current demo recorder is silent because game audio has not been authored.

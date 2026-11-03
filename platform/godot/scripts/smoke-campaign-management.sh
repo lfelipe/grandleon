@@ -46,7 +46,7 @@ mkdir -p "${state_dir}/data" "${state_dir}/config" "${state_dir}/cache"
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
-    "${godot_binary}" --editor --headless --quiet \
+    timeout 60s "${godot_binary}" --editor --headless --quiet \
     --path "${stage_dir}" --quit
 
 set +e

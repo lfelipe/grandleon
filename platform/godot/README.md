@@ -119,6 +119,20 @@ platform/godot/scripts/smoke-pc-bundle.sh \
 The smoke attaches a temporary runtime symlink and removes it on exit; the
 bundle remains ready for the target PC's persistent runtime directory.
 
+Before an installed-test release, run the aggregate gate as well. It builds and
+runs the native test suite, then serially exercises every Godot integration
+smoke for graphics, controls, co-op, campaigns, checkpoints, the creator, local
+model fallback, and project portability before repeating packaged acceptance:
+
+```sh
+platform/godot/scripts/smoke-pc-release.sh \
+  --bundle out/last-signal-test
+```
+
+Every Godot child in these smoke scripts has a bounded runtime, so an
+interrupted or regressed check cannot silently leave an indefinitely running
+test process behind.
+
 After the Projects screen has opened the inbox once, archives can be copied to
 `runtime/data/godot/app_userdata/Grandleon PC/imports/` relative to the portable
 bundle. Native exports appear in the sibling `exports/` directory. These are
