@@ -46,6 +46,9 @@ var outcome_later_button: Button
 var outcome_status: Label
 var outcome_node_id := ""
 var outcome_refreshing := false
+var ending_layer: Control
+var ending_name: LineEdit
+var ending_button: Button
 
 
 func _ready() -> void:
@@ -58,7 +61,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if outcome_layer != null and outcome_layer.visible:
+		if ending_layer != null and ending_layer.visible:
+			_close_new_ending()
+		elif outcome_layer != null and outcome_layer.visible:
 			_close_outcomes()
 		else:
 			_open_projects()
@@ -643,6 +648,81 @@ func _adjust_outcome_quantity(amount: int) -> void:
 	outcome_quantity_label.text = str(value)
 
 
+func _open_new_ending() -> void:
+	ending_name.text = "New Ending"
+	ending_layer.visible = true
+	ending_name.grab_focus()
+	ending_name.select_all()
+
+
+func _close_new_ending() -> void:
+	ending_layer.visible = false
+	ending_button.grab_focus()
+
+
+func _create_ending_from_text(_value: String) -> void:
+	_create_ending()
+
+
+func _next_ending_id(nodes: Array) -> String:
+	var used: Array[String] = []
+	for value: Variant in nodes:
+		if value is Dictionary:
+			used.append(str(value.get("id", "")))
+	var sequence := 1
+	while used.has("ending_%d" % sequence):
+		sequence += 1
+	return "ending_%d" % sequence
+
+
+func _create_ending() -> void:
+	var name := ending_name.text.strip_edges()
+	if name.is_empty():
+		_set_outcome_status("GIVE THE ENDING A NAME", true)
+		ending_name.grab_focus()
+		return
+	var candidate := _candidate_outcome_node()
+	if candidate.is_empty():
+		return
+	var node: Dictionary = candidate.node
+	var transitions: Array = node.get("transitions", []).duplicate(true)
+	var ending_id := _next_ending_id(candidate.nodes)
+	var transition_id := _next_outcome_id(transitions)
+	var maximum_priority := -10
+	var has_victory := false
+	var has_defeat := false
+	for value: Variant in transitions:
+		if not value is Dictionary:
+			continue
+		maximum_priority = maxi(maximum_priority, int(value.get("priority", 0)))
+		has_victory = has_victory or _outcome_condition_kind(value) == "victory"
+		has_defeat = has_defeat or _outcome_condition_kind(value) == "defeat"
+	var added := {
+		"id": transition_id,
+		"targetNodeId": ending_id,
+		"priority": maximum_priority + 10,
+	}
+	if outcome_objective.item_count > 0:
+		added.when = {
+			"kind": "objectiveResult",
+			"objectiveId": str(outcome_objective.get_item_metadata(0)),
+			"result": "victory" if not has_victory else ("defeat" if not has_defeat else "victory"),
+		}
+	transitions.append(added)
+	node.transitions = transitions
+	candidate.node = node
+	candidate.nodes.append({
+		"id": ending_id,
+		"name": name,
+		"kind": "terminal",
+		"transitions": [],
+	})
+	ending_layer.visible = false
+	_accept_outcome_candidate(
+		candidate, "CREATED ENDING %s" % name.to_upper(), transition_id
+	)
+
+
 func _candidate_outcome_node() -> Dictionary:
 	var candidate: Dictionary = project.duplicate(true)
 	var campaigns: Array = candidate.get("campaigns", []).duplicate(true)
@@ -1055,6 +1135,9 @@ func _build_outcome_layer() -> void:
 	var add := _button("ADD OUTCOME", 280, 60)
 	add.pressed.connect(_add_outcome)
 	edit_actions.add_child(add)
+	ending_button = _button("ADD ENDING", 260, 60)
+	ending_button.pressed.connect(_open_new_ending)
+	edit_actions.add_child(ending_button)
 	outcome_remove_button = _button("REMOVE OUTCOME", 300, 60)
 	outcome_remove_button.pressed.connect(_remove_outcome)
 	edit_actions.add_child(outcome_remove_button)
@@ -1075,6 +1158,55 @@ func _build_outcome_layer() -> void:
 	outcome_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	outcome_status.custom_minimum_size.y = 44
 	column.add_child(outcome_status)
+	_build_ending_layer()
+
+
+func _build_ending_layer() -> void:
+	ending_layer = Control.new()
+	ending_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ending_layer.visible = false
+	ending_layer.z_index = 40
+	add_child(ending_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.96)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	ending_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(430, 270)
+	panel.size = Vector2(1060, 540)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color("69d9ff"))
+	)
+	ending_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("NEW ENDING", 18, Color("69d9ff")))
+	column.add_child(_label("Where can this path finish?", 32, Color("f2f7f9")))
+	var explanation := _label(
+		"This creates a named ending and connects it as one new outcome. If this chapter already has a victory route, the new ending begins as the defeat route.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 82
+	column.add_child(explanation)
+	column.add_child(_label("ENDING NAME", 15, Color("69d9ff")))
+	ending_name = LineEdit.new()
+	ending_name.max_length = 160
+	ending_name.custom_minimum_size = Vector2(960, 64)
+	ending_name.add_theme_font_size_override("font_size", 22)
+	ending_name.text_submitted.connect(_create_ending_from_text)
+	column.add_child(ending_name)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	var create := _button("CREATE & USE", 320, 66)
+	create.pressed.connect(_create_ending)
+	actions.add_child(create)
+	var cancel := _button("CANCEL", 240, 66)
+	cancel.pressed.connect(_close_new_ending)
+	actions.add_child(cancel)
 
 
 func _section_label(value: String) -> Label:
