@@ -78,15 +78,29 @@ func _run() -> void:
 	_expect("gear changes are redoable", str(editor.project.abilities[0].kind), "restore")
 
 	_select_category(editor, "weapon")
+	editor._open_family()
+	_expect("new weapon family opens from the relevant field", editor.family_layer.visible, true)
+	_expect("new family starts with its name", editor.family_name.has_focus(), true)
+	editor.family_name.text = "Polearm"
+	editor._create_family()
+	_expect("weapon family is added without exposing its id", editor.project.weaponTypes.size(), 3)
+	_expect("new family is used by the current weapon", str(editor.project.weapons[0].weaponTypeId), "weapon_family_1")
+	_expect("carried weapon keeps its role compatible", editor.project.classes[0].allowedWeaponTypeIds.has("weapon_family_1"), true)
 	editor._open_new()
 	_expect("existing category offers simple start and copies", editor.new_template.item_count, 4)
 	editor.new_name.text = "Long Blade"
 	editor.new_template.select(1)
 	editor._create_asset()
 	_expect("weapon copy makes a separate definition", editor.project.weapons.size(), 4)
-	_expect("weapon copy keeps compatible family", str(editor.project.weapons[-1].weaponTypeId), "blade")
+	_expect("weapon copy keeps compatible family", str(editor.project.weapons[-1].weaponTypeId), "weapon_family_1")
 	editor._change_number("maximumRange", 1)
 	_expect("weapon range tuning reaches source", int(editor.project.weapons[-1].maximumRange), 2)
+	_select_category(editor, "item")
+	editor._open_family()
+	editor.family_name.text = "Field Supply"
+	editor._create_family()
+	_expect("item family is added from the same focused flow", editor.project.itemTypes.size(), 1)
+	_expect("new item family is used by the current item", str(editor.project.items[0].itemTypeId), "item_family_1")
 	_expect("new content enables save", editor.save_button.disabled, false)
 	_expect("gear library saves", editor._save(), true)
 	_expect("save clears dirty state", editor.dirty, false)
@@ -97,12 +111,18 @@ func _run() -> void:
 		_expect("saved item persists", str(stored.project.items[0].name), "Field Tonic")
 		_expect("saved ability persists", str(stored.project.abilities[0].name), "Sun Arc")
 		_expect("saved weapon persists", str(stored.project.weapons[-1].name), "Long Blade")
+		_expect("saved weapon family persists", str(stored.project.weaponTypes[-1].name), "Polearm")
+		_expect("saved item family persists", str(stored.project.itemTypes[-1].name), "Field Supply")
 		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 		_expect("campaign with authored gear still compiles", compiler.compile_source_json(stored.source).ok, true)
 
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
-		_select_category(editor, "ability")
+		if _has_argument("--family-preview"):
+			_select_category(editor, "weapon")
+			editor._open_family()
+		else:
+			_select_category(editor, "ability")
 		for _frame in 12:
 			await process_frame
 		var texture := get_root().get_texture()
@@ -140,6 +160,10 @@ func _argument_path(prefix: String) -> String:
 		if argument.begins_with(prefix):
 			return argument.trim_prefix(prefix)
 	return ""
+
+
+func _has_argument(value: String) -> bool:
+	return value in OS.get_cmdline_user_args()
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

@@ -102,13 +102,19 @@ var role_layer: Control
 var role_title_label: Label
 var role_scope_label: Label
 var role_side: OptionButton
+var role_side_new_button: Button
 var role_movement: OptionButton
+var role_family: OptionButton
+var role_family_toggle_button: Button
 var role_behavior_button: Button
 var role_detach_button: Button
 var role_stat_labels: Dictionary = {}
 var role_stat_buttons: Array[Button] = []
 var role_unit_type_id := ""
 var role_refreshing := false
+var side_layer: Control
+var side_name: LineEdit
+var side_colour: OptionButton
 
 
 func _ready() -> void:
@@ -124,6 +130,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if new_role_layer.visible:
 			_close_new_role()
+		elif side_layer.visible:
+			_close_new_side()
 		elif role_layer.visible:
 			_close_role()
 		elif loadout_layer.visible:
@@ -793,6 +801,20 @@ func _refresh_role_layer() -> void:
 					movement = "heights"
 	_select_metadata(role_movement, movement)
 	role_movement.disabled = shared
+	var preferred_family := _selected_metadata(role_family)
+	role_family.clear()
+	for value: Variant in project.get("weaponTypes", []):
+		if value is Dictionary:
+			role_family.add_item(str(value.get("name", value.get("id", "Family"))))
+			role_family.set_item_metadata(
+				role_family.item_count - 1, str(value.get("id", ""))
+			)
+	_select_metadata(role_family, preferred_family)
+	role_family.disabled = role_family.item_count == 0
+	role_family_toggle_button.disabled = shared or role_family.item_count == 0
+	role_family_toggle_button.text = (
+		"DISALLOW FOR ROLE" if _role_family_allowed() else "ALLOW FOR ROLE"
+	)
 	role_behavior_button.disabled = shared
 	role_behavior_button.text = (
 		"CAN ACT AFTER ATTACK"
@@ -807,6 +829,99 @@ func _refresh_role_layer() -> void:
 	for button: Button in role_stat_buttons:
 		button.disabled = shared
 	role_refreshing = false
+
+
+func _role_family_allowed() -> bool:
+	if role_family == null or role_family.selected < 0:
+		return false
+	var unit_class := _role_class()
+	if not unit_class.has("allowedWeaponTypeIds"):
+		return true
+	var allowed: Variant = unit_class.get("allowedWeaponTypeIds", [])
+	return allowed is Array and allowed.has(_selected_metadata(role_family))
+
+
+func _refresh_role_family(_index: int = 0) -> void:
+	if role_refreshing:
+		return
+	role_family_toggle_button.text = (
+		"DISALLOW FOR ROLE" if _role_family_allowed() else "ALLOW FOR ROLE"
+	)
+
+
+func _toggle_role_family() -> void:
+	if role_family.selected < 0 or role_family_toggle_button.disabled:
+		return
+	var candidate := _role_project_with_class()
+	if candidate.is_empty():
+		return
+	var unit_class: Dictionary = candidate.unit_class
+	var allowed: Array = []
+	if unit_class.has("allowedWeaponTypeIds"):
+		var existing: Variant = unit_class.get("allowedWeaponTypeIds", [])
+		if existing is Array:
+			allowed = existing.duplicate()
+	else:
+		for value: Variant in project.get("weaponTypes", []):
+			if value is Dictionary:
+				allowed.append(str(value.get("id", "")))
+	var family_id := _selected_metadata(role_family)
+	if allowed.has(family_id):
+		allowed.erase(family_id)
+	else:
+		allowed.append(family_id)
+	unit_class.allowedWeaponTypeIds = allowed
+	candidate.classes[candidate.class_index] = unit_class
+	_accept_role_project(candidate.project, "UNSAVED  /  ROLE WEAPON FAMILIES CHANGED")
+
+
+func _open_new_side() -> void:
+	side_name.text = ""
+	side_colour.select(0)
+	side_layer.visible = true
+	side_name.grab_focus()
+
+
+func _close_new_side() -> void:
+	side_layer.visible = false
+	role_side_new_button.grab_focus()
+
+
+func _next_side_id() -> String:
+	var used: Array[String] = []
+	for value: Variant in project.get("factions", []):
+		if value is Dictionary:
+			used.append(str(value.get("id", "")))
+	var sequence := 1
+	while used.has("side_%d" % sequence):
+		sequence += 1
+	return "side_%d" % sequence
+
+
+func _create_side() -> void:
+	var name := side_name.text.strip_edges()
+	if name.is_empty():
+		_set_status("GIVE THE NEW SIDE A NAME", true)
+		return
+	var side_id := _next_side_id()
+	var candidate: Dictionary = project.duplicate(true)
+	var factions: Array = candidate.get("factions", []).duplicate(true)
+	var faction := {"id": side_id, "name": name}
+	var colour := _selected_metadata(side_colour)
+	if not colour.is_empty():
+		faction.color = colour
+	factions.append(faction)
+	candidate.factions = factions
+	var unit_types: Array = candidate.get("unitTypes", []).duplicate(true)
+	for index in unit_types.size():
+		if unit_types[index] is Dictionary and str(unit_types[index].get("id", "")) == role_unit_type_id:
+			unit_types[index].factionId = side_id
+			break
+	candidate.unitTypes = unit_types
+	if not _accept_role_project(candidate, "UNSAVED  /  CREATED SIDE %s" % name.to_upper()):
+		return
+	side_layer.visible = false
+	role_side.grab_focus()
 
 
 func _change_role_side(_index: int) -> void:
@@ -1515,6 +1630,7 @@ func _build_interface() -> void:
 	_build_new_role_layer()
 	_build_supply_layer()
 	_build_role_layer()
+	_build_side_layer()
 	_build_loadout_layer()
 
 
@@ -1841,8 +1957,8 @@ func _build_role_layer() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	role_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(170, 80)
-	panel.size = Vector2(1580, 900)
+	panel.position = Vector2(170, 55)
+	panel.size = Vector2(1580, 930)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
 	)
@@ -1864,10 +1980,14 @@ func _build_role_layer() -> void:
 	side_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	side_row.add_child(side_label)
 	role_side = OptionButton.new()
-	role_side.custom_minimum_size = Vector2(1140, 56)
+	role_side.custom_minimum_size = Vector2(820, 56)
 	role_side.add_theme_font_size_override("font_size", 19)
 	role_side.item_selected.connect(_change_role_side)
 	side_row.add_child(role_side)
+	role_side_new_button = _button("NEW SIDE", 300, 56)
+	role_side_new_button.tooltip_text = "Create a named portable faction and use it for this role."
+	role_side_new_button.pressed.connect(_open_new_side)
+	side_row.add_child(role_side_new_button)
 	var movement_row := HBoxContainer.new()
 	movement_row.custom_minimum_size = Vector2(1480, 56)
 	movement_row.add_theme_constant_override("separation", 18)
@@ -1890,6 +2010,22 @@ func _build_role_layer() -> void:
 		role_movement.set_item_metadata(role_movement.item_count - 1, choice.id)
 	role_movement.item_selected.connect(_change_role_movement)
 	movement_row.add_child(role_movement)
+	var family_row := HBoxContainer.new()
+	family_row.custom_minimum_size = Vector2(1480, 56)
+	family_row.add_theme_constant_override("separation", 18)
+	column.add_child(family_row)
+	var family_label := _label("WEAPON FAMILY", 16, Color("69d9ff"))
+	family_label.custom_minimum_size = Vector2(300, 56)
+	family_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	family_row.add_child(family_label)
+	role_family = OptionButton.new()
+	role_family.custom_minimum_size = Vector2(760, 56)
+	role_family.add_theme_font_size_override("font_size", 19)
+	role_family.item_selected.connect(_refresh_role_family)
+	family_row.add_child(role_family)
+	role_family_toggle_button = _button("ALLOW FOR ROLE", 360, 56)
+	role_family_toggle_button.pressed.connect(_toggle_role_family)
+	family_row.add_child(role_family_toggle_button)
 	var behavior_row := HBoxContainer.new()
 	behavior_row.add_theme_constant_override("separation", 14)
 	column.add_child(behavior_row)
@@ -1910,22 +2046,22 @@ func _build_role_layer() -> void:
 	for definition: Dictionary in ROLE_STATS:
 		var key := str(definition.key)
 		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(720, 50)
+		row.custom_minimum_size = Vector2(720, 44)
 		row.add_theme_constant_override("separation", 8)
 		grid.add_child(row)
 		var label := _label(str(definition.label), 15, Color("a9bdc9"))
-		label.custom_minimum_size = Vector2(190, 50)
+		label.custom_minimum_size = Vector2(190, 44)
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(label)
-		var minus := _button("−", 88, 48)
+		var minus := _button("−", 88, 42)
 		minus.pressed.connect(_adjust_role_stat.bind(key, -1))
 		row.add_child(minus)
 		var value := _label("0", 20, Color("f2f7f9"))
-		value.custom_minimum_size = Vector2(210, 48)
+		value.custom_minimum_size = Vector2(210, 42)
 		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(value)
-		var plus := _button("+", 88, 48)
+		var plus := _button("+", 88, 42)
 		plus.pressed.connect(_adjust_role_stat.bind(key, 1))
 		row.add_child(plus)
 		role_stat_labels[key] = value
@@ -1944,6 +2080,69 @@ func _build_role_layer() -> void:
 	guidance.custom_minimum_size = Vector2(1120, 60)
 	guidance.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	footer.add_child(guidance)
+
+
+func _build_side_layer() -> void:
+	side_layer = Control.new()
+	side_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	side_layer.visible = false
+	side_layer.z_index = 55
+	add_child(side_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.95)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	side_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(430, 205)
+	panel.size = Vector2(1060, 670)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
+	)
+	side_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("NEW SIDE", 18, Color("e6b86d")))
+	column.add_child(_label("Who does this role fight for?", 30, Color("f2f7f9")))
+	var note := _label(
+		"A side gives related roles one portable name and colour. Battle Setup still decides which team each placement fights on.",
+		17, Color("a9bdc9")
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.y = 56
+	column.add_child(note)
+	column.add_child(_label("SIDE NAME", 15, Color("69d9ff")))
+	side_name = LineEdit.new()
+	side_name.max_length = 160
+	side_name.custom_minimum_size = Vector2(960, 64)
+	side_name.add_theme_font_size_override("font_size", 22)
+	column.add_child(side_name)
+	column.add_child(_label("MAP COLOUR", 15, Color("69d9ff")))
+	side_colour = OptionButton.new()
+	side_colour.custom_minimum_size = Vector2(960, 64)
+	side_colour.add_theme_font_size_override("font_size", 20)
+	for choice: Dictionary in [
+		{"id": "", "label": "AUTOMATIC"},
+		{"id": "blue", "label": "BLUE"},
+		{"id": "red", "label": "RED"},
+		{"id": "green", "label": "GREEN"},
+		{"id": "violet", "label": "VIOLET"},
+		{"id": "amber", "label": "AMBER"},
+		{"id": "bone", "label": "BONE"},
+	]:
+		side_colour.add_item(str(choice.label))
+		side_colour.set_item_metadata(side_colour.item_count - 1, choice.id)
+	column.add_child(side_colour)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	var create := _button("CREATE & USE", 320, 64)
+	create.pressed.connect(_create_side)
+	actions.add_child(create)
+	var cancel := _button("CANCEL", 260, 64)
+	cancel.pressed.connect(_close_new_side)
+	actions.add_child(cancel)
 
 
 func _build_loadout_layer() -> void:

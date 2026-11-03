@@ -40,6 +40,7 @@ var name_input: LineEdit
 var type_row: Control
 var type_label: Label
 var type_select: OptionButton
+var type_new_button: Button
 var effect_row: Control
 var effect_select: OptionButton
 var damage_row: Control
@@ -57,6 +58,9 @@ var new_layer: Control
 var new_name: LineEdit
 var new_template: OptionButton
 var new_create_button: Button
+var family_layer: Control
+var family_name: LineEdit
+var family_create_button: Button
 
 
 func _ready() -> void:
@@ -69,7 +73,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if new_layer.visible:
+		if family_layer.visible:
+			_close_family()
+		elif new_layer.visible:
 			_close_new()
 		else:
 			_back_to_army()
@@ -216,6 +222,90 @@ func _populate_type(asset: Dictionary) -> void:
 			)
 	var field := "weaponTypeId" if active_kind == "weapon" else "itemTypeId"
 	_select_metadata(type_select, str(asset.get(field, "")))
+
+
+func _open_family() -> void:
+	if active_kind not in ["weapon", "item"] or not _commit_form(true):
+		return
+	family_name.text = ""
+	family_layer.visible = true
+	family_name.grab_focus()
+
+
+func _close_family() -> void:
+	family_layer.visible = false
+	type_new_button.grab_focus()
+
+
+func _next_registry_id() -> String:
+	var registry := "weaponTypes" if active_kind == "weapon" else "itemTypes"
+	var prefix := "weapon_family" if active_kind == "weapon" else "item_family"
+	var used: Array[String] = []
+	for value: Variant in project.get(registry, []):
+		if value is Dictionary:
+			used.append(str(value.get("id", "")))
+	var sequence := 1
+	while used.has("%s_%d" % [prefix, sequence]):
+		sequence += 1
+	return "%s_%d" % [prefix, sequence]
+
+
+func _create_family() -> void:
+	var name := family_name.text.strip_edges()
+	if name.is_empty():
+		_set_status("GIVE THE NEW FAMILY A NAME", true)
+		return
+	var family_id := _next_registry_id()
+	var registry := "weaponTypes" if active_kind == "weapon" else "itemTypes"
+	var field := "weaponTypeId" if active_kind == "weapon" else "itemTypeId"
+	var candidate: Dictionary = project.duplicate(true)
+	var families: Array = candidate.get(registry, []).duplicate(true)
+	families.append({"id": family_id, "name": name})
+	candidate[registry] = families
+	var collection_key := _collection_key()
+	var assets: Array = candidate.get(collection_key, []).duplicate(true)
+	for index in assets.size():
+		if assets[index] is Dictionary and str(assets[index].get("id", "")) == active_asset_id:
+			assets[index][field] = family_id
+			break
+	candidate[collection_key] = assets
+	var compatible_roles := 0
+	if active_kind == "weapon":
+		var used_classes: Array[String] = []
+		for value: Variant in candidate.get("unitTypes", []):
+			if not value is Dictionary:
+				continue
+			var carried: Variant = value.get("startingWeaponIds", [])
+			if carried is Array and carried.has(active_asset_id):
+				var class_id := str(value.get("classId", ""))
+				if not used_classes.has(class_id):
+					used_classes.append(class_id)
+		var classes: Array = candidate.get("classes", []).duplicate(true)
+		for index in classes.size():
+			if not classes[index] is Dictionary or not used_classes.has(str(classes[index].get("id", ""))):
+				continue
+			compatible_roles += 1
+			if not classes[index].has("allowedWeaponTypeIds"):
+				continue
+			var allowed: Array = classes[index].get("allowedWeaponTypeIds", []).duplicate()
+			if not allowed.has(family_id):
+				allowed.append(family_id)
+			classes[index].allowedWeaponTypeIds = allowed
+		candidate.classes = classes
+	var message := (
+		(
+			"UNSAVED  /  FAMILY CREATED  /  CARRIED ROLES KEPT COMPATIBLE"
+			if compatible_roles > 0
+			else "UNSAVED  /  FAMILY CREATED  /  ALLOW IT IN TUNE ROLE"
+		)
+		if active_kind == "weapon"
+		else "UNSAVED  /  ITEM FAMILY CREATED"
+	)
+	if not _accept_project(candidate, true, message):
+		return
+	family_layer.visible = false
+	_refresh_assets(active_asset_id)
+	type_select.grab_focus()
 
 
 func _effect_choices() -> Array:
@@ -653,7 +743,12 @@ func _build_interface() -> void:
 	type_row = _option_row(editor_column, "FAMILY")
 	type_label = type_row.get_child(0)
 	type_select = type_row.get_child(1)
+	type_select.custom_minimum_size.x = 520
 	type_select.item_selected.connect(_refresh_field_visibility)
+	type_new_button = _button("NEW FAMILY", 220, 58)
+	type_new_button.tooltip_text = "Create a named portable family and use it here."
+	type_new_button.pressed.connect(_open_family)
+	type_row.add_child(type_new_button)
 	effect_row = _option_row(editor_column, "EFFECT")
 	effect_select = effect_row.get_child(1)
 	effect_select.item_selected.connect(_refresh_field_visibility)
@@ -679,6 +774,7 @@ func _build_interface() -> void:
 	status_label.size = Vector2(1750, 54)
 	add_child(status_label)
 	_build_new_layer()
+	_build_family_layer()
 
 
 func _option_row(parent: VBoxContainer, label_text: String) -> HBoxContainer:
@@ -765,6 +861,53 @@ func _build_new_layer() -> void:
 	actions.add_child(new_create_button)
 	var cancel := _button("CANCEL", 260, 64)
 	cancel.pressed.connect(_close_new)
+	actions.add_child(cancel)
+
+
+func _build_family_layer() -> void:
+	family_layer = Control.new()
+	family_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	family_layer.visible = false
+	family_layer.z_index = 55
+	add_child(family_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.94)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	family_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(470, 275)
+	panel.size = Vector2(980, 510)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
+	)
+	family_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("NEW FAMILY", 18, Color("e6b86d")))
+	column.add_child(_label("Name this kind of gear.", 30, Color("f2f7f9")))
+	var note := _label(
+		"Weapon families decide which roles may carry a weapon. Item families organize supplies without changing their effect.",
+		17, Color("a9bdc9")
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.y = 56
+	column.add_child(note)
+	column.add_child(_label("FAMILY NAME", 15, Color("69d9ff")))
+	family_name = LineEdit.new()
+	family_name.max_length = 160
+	family_name.custom_minimum_size = Vector2(880, 64)
+	family_name.add_theme_font_size_override("font_size", 22)
+	column.add_child(family_name)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	family_create_button = _button("CREATE & USE", 320, 64)
+	family_create_button.pressed.connect(_create_family)
+	actions.add_child(family_create_button)
+	var cancel := _button("CANCEL", 260, 64)
+	cancel.pressed.connect(_close_family)
 	actions.add_child(cancel)
 
 
