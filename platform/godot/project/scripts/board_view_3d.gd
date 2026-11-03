@@ -727,7 +727,25 @@ func _rebuild_markers() -> void:
 		if not value.get("active", false):
 			continue
 		var cursor: Vector2i = value.get("cursor", Vector2i.ZERO)
-		_marker_at(cursor.x, cursor.y, CURSOR_COLOURS[seat], 0.58, 0.88)
+		_player_marker_at(cursor.x, cursor.y, seat)
+
+
+func _player_marker_at(x: int, y: int, seat: int) -> void:
+	var colour: Color = CURSOR_COLOURS[seat]
+	_marker_at(x, y, colour, 0.58, 0.88)
+	var label := Label3D.new()
+	label.text = "P%d" % (seat + 1)
+	label.font_size = 42
+	label.pixel_size = 0.006
+	label.modulate = colour
+	label.outline_modulate = Color("07131d")
+	label.outline_size = 10
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.position = _cell_position(x, y) + Vector3(
+		-0.29, _surface_height(x, y) + 0.16, -0.29
+	)
+	_marker_root.add_child(label)
 
 
 func _marker_at(x: int, y: int, colour: Color, alpha: float, scale_value: float) -> void:

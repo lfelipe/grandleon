@@ -620,7 +620,24 @@ func _draw_cursors() -> void:
 		var colour: Color = CURSOR_COLOURS[seat]
 		colour.a = wave
 		draw_rect(rect, colour, false, maxf(3.0, tile_size * 0.055))
-		draw_circle(rect.position + Vector2(10, 10), 7, CURSOR_COLOURS[seat])
+		_draw_player_badge(rect.position + Vector2(3, 3), seat)
+
+
+func _draw_player_badge(at: Vector2, seat: int) -> void:
+	var font_size := clampi(roundi(tile_size * 0.18), 10, 15)
+	var badge_size := Vector2(
+		clampf(tile_size * 0.42, 22.0, 32.0),
+		clampf(tile_size * 0.28, 16.0, 22.0)
+	)
+	var badge := Rect2(at, badge_size)
+	draw_rect(badge, Color("07131d"), true)
+	draw_rect(badge, CURSOR_COLOURS[seat], false, 2.0)
+	draw_string(
+		ThemeDB.fallback_font,
+		Vector2(badge.position.x, badge.position.y + badge.size.y - 4.0),
+		"P%d" % (seat + 1), HORIZONTAL_ALIGNMENT_CENTER,
+		badge.size.x, font_size, CURSOR_COLOURS[seat]
+	)
 
 
 func _panel_style(colour: Color, radius: int) -> StyleBoxFlat:

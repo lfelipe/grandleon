@@ -327,6 +327,10 @@ deterministic simulation boundary, where collisions and conflicts have one
 portable answer. The board keeps one animation track per unit, so two accepted
 moves received in the same rendered frame animate together.
 
+Player 1 uses cyan and Player 2 uses amber throughout the board and status
+text. Each active board cursor also carries a `P1` or `P2` badge, so ownership
+does not depend on remembering colour alone while both players move at once.
+
 Encounter difficulty can be authored visibly rather than inferred from a stat
 multiplier. An opposing placement with `minimumPlayers: 2` is omitted from a
 one-player session and fielded unchanged when two local players participate.

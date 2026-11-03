@@ -635,6 +635,14 @@ func _run_coop_smoke() -> void:
 		return
 	if coop_smoke_started:
 		return
+	# The smoke submits intents directly, so make its capture represent the two
+	# active seats that physical controllers provide without inventing input.
+	for seat in mini(2, seats.size()):
+		seats[seat].active = true
+		if seat != keyboard_seat and int(seats[seat].get("device", -1)) < 0:
+			seats[seat].device = 900 + seat
+	board.set_seats(seats)
+	_update_controller_label()
 	var queued := _queue_two_friendly_moves(true)
 	coop_smoke_expected = mini(2, queued)
 	coop_smoke_started = queued == 2
