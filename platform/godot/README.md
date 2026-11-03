@@ -82,7 +82,10 @@ enemies are labelled on the board.
 The **Army** screen keeps the company and join timing readable, while **Tune
 This Hero** opens bounded role-relative controls only when needed. Returning a
 modifier to zero removes the override, and the same portable result is consumed
-by PC, Nintendo 64, and PlayStation.
+by PC, Nintendo 64, and PlayStation. **Role Gear & Skills** summarizes the
+selected role and uses one named choice plus one Add/Remove action to share
+compatible weapons, items, and abilities across every character with that
+role.
 The **Goals** surface attaches existing objectives or authors complete defeat,
 protect, and survive conditions. **Outside** chooses how exposed space beyond
 the tactical map is presented: one RGB colour, an automatic non-playable edge,
@@ -127,13 +130,14 @@ lists starting heroes and later recruits, previews their portable art, renames
 them without changing identity, and adds an existing role at campaign start or
 after a chosen chapter. **Tune This Hero** adjusts focused portable traits, and
 **Campaign Supplies** gives the shared company named starting items or weapons
-and chapter rewards. **Look & Feel** chooses the shared world theme and
-character style while previewing the actual terrain and character assets used
-by the ports. Placing a character in a battle stays an explicit Map → Battle
-Setup action. **Add Next Chapter** inserts a new story moment, cloned playable
-encounter, and fresh map after a selected linear battle as one undoable edit.
-General campaign branches, role equipment and ability editing, the rest of the
-game-data editors, and replacement art-pack import remain in the increments
+and chapter rewards. **Role Gear & Skills** assigns compatible named weapons,
+items, and abilities to every character using a role. **Look & Feel** chooses
+the shared world theme and character style while previewing the actual terrain
+and character assets used by the ports. Placing a character in a battle stays
+an explicit Map → Battle Setup action. **Add Next Chapter** inserts a new story
+moment, cloned playable encounter, and fresh map after a selected linear battle
+as one undoable edit. General campaign branches, the remaining game-data
+definition editors, and replacement art-pack import remain in the increments
 defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated

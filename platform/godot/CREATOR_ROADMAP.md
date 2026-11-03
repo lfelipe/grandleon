@@ -98,8 +98,11 @@ The first native seam is implemented:
   Battle Setup action, so growing the company never silently changes a board.
   **Campaign Supplies** chooses named shared items or weapons and their amount
   either at the opening or after a named chapter; these portable rewards use
-  the same runtime path on every target. Add, tune, rename, supply/reward,
-  undo/redo, save/reopen, and compile are covered by a native smoke.
+  the same runtime path on every target. **Role Gear & Skills** assigns named
+  weapons, items, and abilities shared by every character using the selected
+  role; incompatible weapon types are hidden. Add, tune, rename, loadout,
+  supply/reward, undo/redo, save/reopen, and compile are covered by a native
+  smoke.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
@@ -223,8 +226,9 @@ ports the most interaction-heavy part of the earlier editor early.
   the Army screen. A focused hero-tuning overlay authors bounded portable
   health, strength, defense, resistance, movement, magic, and weapon-range
   adjustments over the selected role. Shared starting supplies and named
-  item/weapon chapter rewards are implemented. Classes, factions, per-role
-  equipment, weapons, abilities, and items remain.
+  item/weapon chapter rewards are implemented. Compatible named weapons,
+  items, and abilities can be assigned to a role. Classes, factions, role and
+  asset definition editors remain.
 - Stages, transitions, conditions, arrivals, and general route editing remain;
   starting roster and linear chapter rewards are implemented.
 - Complete dialogue-line authoring with portable speaker selection and scene
