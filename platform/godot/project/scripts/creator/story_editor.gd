@@ -41,10 +41,14 @@ var redo_button: Button
 var play_button: Button
 var previous_button: Button
 var next_button: Button
+var add_line_button: Button
 var new_scene_button: Button
 var more_layer: Control
 var more_first_button: Button
 var more_projects_button: Button
+var move_line_earlier_button: Button
+var move_line_later_button: Button
+var delete_line_button: Button
 var new_scene_layer: Control
 var new_scene_title: LineEdit
 var new_scene_id_label: Label
@@ -314,6 +318,94 @@ func _apply_line() -> void:
 	line_form_dirty = true
 	if _commit_visible_line(true):
 		_refresh_line()
+
+
+func _add_line_after() -> void:
+	if not _commit_visible_line(false):
+		return
+	var dialogue := _current_dialogue()
+	if dialogue.is_empty():
+		_set_status("CHOOSE A SCENE FIRST", true)
+		return
+	var lines := _current_lines()
+	var after_index := line_index if not lines.is_empty() else -1
+	var speaker := ""
+	if not lines.is_empty() and lines[line_index] is Dictionary:
+		speaker = str(lines[line_index].get("speaker", ""))
+	if speaker.is_empty():
+		for cast_value: Variant in dialogue.get("cast", []):
+			if cast_value is Dictionary:
+				speaker = str(cast_value.get("speaker", ""))
+				if not speaker.is_empty():
+					break
+	if speaker.is_empty():
+		_set_status("ADD A CHARACTER TO THIS SCENE BEFORE WRITING A LINE", true)
+		return
+	var updated: Dictionary = compiler.insert_dialogue_line(
+		source, str(dialogue.get("id", "")), after_index, speaker,
+		"A new line."
+	)
+	if not _accept_line_list_edit(
+		updated, after_index + 1, "UNSAVED  /  ADDED A NEW LINE"
+	):
+		return
+	dialogue_text.grab_focus()
+	dialogue_text.select_all()
+
+
+func _move_line(delta: int) -> void:
+	if not _commit_visible_line(false):
+		return
+	var lines := _current_lines()
+	var destination := line_index + delta
+	if destination < 0 or destination >= lines.size():
+		return
+	var dialogue := _current_dialogue()
+	var updated: Dictionary = compiler.move_dialogue_line(
+		source, str(dialogue.get("id", "")), line_index, destination
+	)
+	_accept_line_list_edit(
+		updated,
+		destination,
+		"UNSAVED  /  MOVED LINE %d" % (destination + 1)
+	)
+
+
+func _delete_line() -> void:
+	if not _commit_visible_line(false):
+		return
+	var lines := _current_lines()
+	if lines.size() <= 1:
+		_set_status("A SCENE NEEDS AT LEAST ONE LINE", true)
+		return
+	var dialogue := _current_dialogue()
+	var updated: Dictionary = compiler.remove_dialogue_line(
+		source, str(dialogue.get("id", "")), line_index
+	)
+	_accept_line_list_edit(
+		updated,
+		mini(line_index, lines.size() - 2),
+		"UNSAVED  /  REMOVED THE LINE"
+	)
+
+
+func _accept_line_list_edit(
+	updated: Dictionary, next_line_index: int, message: String
+) -> bool:
+	if not updated.ok:
+		_set_status("STORY NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		return false
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = source != saved_source
+	_read_source()
+	line_index = next_line_index
+	line_form_dirty = false
+	more_layer.visible = false
+	_refresh_dialogues()
+	_set_status(message, false)
+	return true
 
 
 func _mark_line_form_dirty(_value: Variant = null) -> void:
@@ -610,6 +702,13 @@ func _update_actions() -> void:
 	redo_button.disabled = redo_stack.is_empty() or line_form_dirty
 	play_button.disabled = project.get("campaigns", []).is_empty()
 	new_scene_button.disabled = story_targets.is_empty() or scene_characters.is_empty()
+	var lines := _current_lines()
+	add_line_button.disabled = dialogues.is_empty() or lines.size() >= 4096
+	move_line_earlier_button.disabled = lines.is_empty() or line_index <= 0
+	move_line_later_button.disabled = (
+		lines.is_empty() or line_index >= lines.size() - 1
+	)
+	delete_line_button.disabled = lines.size() <= 1
 
 
 func _build_interface() -> void:
@@ -701,7 +800,9 @@ func _build_interface() -> void:
 	next_button = _button("NEXT LINE", 250, 56)
 	next_button.pressed.connect(_cycle_line.bind(1))
 	navigation.add_child(next_button)
-	navigation.add_child(_label("Choose a line, then change its speaker or words.", 17, Color("718896")))
+	add_line_button = _button("ADD NEXT LINE", 280, 56)
+	add_line_button.pressed.connect(_add_line_after)
+	navigation.add_child(add_line_button)
 	editor_column.add_child(_label("SPEAKER", 16, Color("69d9ff")))
 	speaker_select = OptionButton.new()
 	speaker_select.custom_minimum_size = Vector2(1120, 58)
@@ -748,7 +849,16 @@ func _build_interface() -> void:
 func _open_more() -> void:
 	more_layer.visible = true
 	_update_actions()
-	more_first_button = redo_button if not redo_button.disabled else more_projects_button
+	if not move_line_earlier_button.disabled:
+		more_first_button = move_line_earlier_button
+	elif not move_line_later_button.disabled:
+		more_first_button = move_line_later_button
+	elif not delete_line_button.disabled:
+		more_first_button = delete_line_button
+	elif not redo_button.disabled:
+		more_first_button = redo_button
+	else:
+		more_first_button = more_projects_button
 	more_first_button.grab_focus()
 
 
@@ -783,25 +893,34 @@ func _build_more_layer() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	more_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(570, 250)
-	panel.size = Vector2(780, 520)
+	panel.position = Vector2(570, 210)
+	panel.size = Vector2(780, 660)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0a1823"), 24, Color(0.48, 0.35, 0.72, 0.72))
 	)
 	more_layer.add_child(panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 16)
+	column.add_theme_constant_override("separation", 12)
 	panel.add_child(column)
 	column.add_child(_label("MORE STORY OPTIONS", 18, Color("b58cff")))
 	column.add_child(_label("Use these less often.", 30, Color("f2f7f9")))
-	redo_button = _button("REDO", 680, 66)
+	move_line_earlier_button = _button("MOVE LINE EARLIER", 680, 58)
+	move_line_earlier_button.pressed.connect(_move_line.bind(-1))
+	column.add_child(move_line_earlier_button)
+	move_line_later_button = _button("MOVE LINE LATER", 680, 58)
+	move_line_later_button.pressed.connect(_move_line.bind(1))
+	column.add_child(move_line_later_button)
+	delete_line_button = _button("DELETE THIS LINE", 680, 58)
+	delete_line_button.pressed.connect(_delete_line)
+	column.add_child(delete_line_button)
+	redo_button = _button("REDO", 680, 58)
 	redo_button.pressed.connect(_more_redo)
 	column.add_child(redo_button)
-	more_projects_button = _button("RETURN TO PROJECTS", 680, 66)
+	more_projects_button = _button("RETURN TO PROJECTS", 680, 58)
 	more_projects_button.pressed.connect(_more_projects)
 	column.add_child(more_projects_button)
 	more_first_button = more_projects_button
-	var back := _button("BACK", 680, 66)
+	var back := _button("BACK", 680, 58)
 	back.pressed.connect(_close_more)
 	column.add_child(back)
 

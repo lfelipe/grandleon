@@ -146,6 +146,24 @@ public:
         const ::godot::String& speaker,
         const ::godot::String& line_text
     ) const;
+    [[nodiscard]] ::godot::Dictionary insert_dialogue_line(
+        const ::godot::String& source_json,
+        const ::godot::String& dialogue_id,
+        std::int64_t after_line_index,
+        const ::godot::String& speaker,
+        const ::godot::String& line_text
+    ) const;
+    [[nodiscard]] ::godot::Dictionary remove_dialogue_line(
+        const ::godot::String& source_json,
+        const ::godot::String& dialogue_id,
+        std::int64_t line_index
+    ) const;
+    [[nodiscard]] ::godot::Dictionary move_dialogue_line(
+        const ::godot::String& source_json,
+        const ::godot::String& dialogue_id,
+        std::int64_t line_index,
+        std::int64_t new_index
+    ) const;
     [[nodiscard]] ::godot::Dictionary add_dialogue_scene(
         const ::godot::String& source_json,
         const ::godot::String& campaign_id,

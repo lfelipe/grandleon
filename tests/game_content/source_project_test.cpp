@@ -2115,9 +2115,84 @@ void updates_one_dialogue_line_without_retyping_the_project() {
     expect(
         !gc::update_source_dialogue_line_json(
             with_dialogue, "briefing", 0, "Guide",
-            std::string(65536, 'x')
+            std::string(4097, 'x')
         ),
-        "text wider than the portable record is refused"
+        "text wider than the source schema is refused"
+    );
+    expect(
+        !gc::update_source_dialogue_line_json(
+            with_dialogue, "briefing", 0, "", "Still here"
+        ) &&
+            !gc::update_source_dialogue_line_json(
+                with_dialogue, "briefing", 0, "Guide", ""
+            ),
+        "a dialogue line cannot lose its speaker or text"
+    );
+
+    const auto inserted = gc::insert_source_dialogue_line_json(
+        with_dialogue, "briefing", 0, "Scout", "The road is open."
+    );
+    const auto parsed_inserted =
+        gc::parse_source_project_json(inserted.json);
+    expect(
+        inserted && parsed_inserted &&
+            parsed_inserted.source.dialogues.front().lines.size() == 3 &&
+            parsed_inserted.source.dialogues.front().lines[0].text ==
+                "The old line." &&
+            parsed_inserted.source.dialogues.front().lines[1].speaker ==
+                "Scout" &&
+            parsed_inserted.source.dialogues.front().lines[1].text ==
+                "The road is open." &&
+            parsed_inserted.source.dialogues.front().lines[2].text ==
+                "The second line." &&
+            gc::compile(parsed_inserted.source),
+        "a new line is inserted after the selected line and stays playable"
+    );
+
+    const auto moved = gc::move_source_dialogue_line_json(
+        inserted.json, "briefing", 1, 0
+    );
+    const auto parsed_moved = gc::parse_source_project_json(moved.json);
+    expect(
+        moved && parsed_moved &&
+            parsed_moved.source.dialogues.front().lines.front().text ==
+                "The road is open." &&
+            parsed_moved.source.dialogues.front().lines[1].text ==
+                "The old line.",
+        "a dialogue line can move earlier without changing its neighbours"
+    );
+
+    const auto removed = gc::remove_source_dialogue_line_json(
+        moved.json, "briefing", 0
+    );
+    const auto parsed_removed = gc::parse_source_project_json(removed.json);
+    expect(
+        removed && parsed_removed &&
+            parsed_removed.source.dialogues.front().lines.size() == 2 &&
+            parsed_removed.source.dialogues.front().lines.front().text ==
+                "The old line." &&
+            gc::compile(parsed_removed.source),
+        "a selected line can be removed while the scene stays playable"
+    );
+
+    const auto one_line = gc::remove_source_dialogue_line_json(
+        removed.json, "briefing", 1
+    );
+    expect(
+        one_line &&
+            !gc::remove_source_dialogue_line_json(
+                one_line.json, "briefing", 0
+            ),
+        "the creator cannot remove a scene's final line"
+    );
+    expect(
+        !gc::insert_source_dialogue_line_json(
+            with_dialogue, "briefing", 2, "Guide", "Outside"
+        ) &&
+            !gc::move_source_dialogue_line_json(
+                with_dialogue, "briefing", 0, 2
+            ),
+        "line insertion and movement refuse positions outside the scene"
     );
 }
 

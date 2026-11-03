@@ -213,6 +213,30 @@ func _init() -> void:
 					compiler.compile_source_json(edited_dialogue.source).ok,
 					true
 				)
+				var inserted_line: Dictionary = compiler.insert_dialogue_line(
+					edited_dialogue.source, dialogue_id, 0, "Kestrel",
+					"A newly authored line."
+				)
+				_expect("dialogue line insertion succeeds", inserted_line.ok, true)
+				if inserted_line.ok:
+					var inserted_data: Dictionary = JSON.parse_string(inserted_line.source)
+					_expect("dialogue line count grows", inserted_data.dialogues[0].lines.size(), source_data.dialogues[0].lines.size() + 1)
+					_expect("dialogue line is inserted after selection", inserted_data.dialogues[0].lines[1].text, "A newly authored line.")
+					var moved_line: Dictionary = compiler.move_dialogue_line(
+						inserted_line.source, dialogue_id, 1, 0
+					)
+					_expect("dialogue line movement succeeds", moved_line.ok, true)
+					if moved_line.ok:
+						var moved_data: Dictionary = JSON.parse_string(moved_line.source)
+						_expect("dialogue line moves to requested position", moved_data.dialogues[0].lines[0].text, "A newly authored line.")
+						var removed_line: Dictionary = compiler.remove_dialogue_line(
+							moved_line.source, dialogue_id, 0
+						)
+						_expect("dialogue line removal succeeds", removed_line.ok, true)
+						if removed_line.ok:
+							var removed_data: Dictionary = JSON.parse_string(removed_line.source)
+							_expect("dialogue line count returns", removed_data.dialogues[0].lines.size(), source_data.dialogues[0].lines.size())
+							_expect("dialogue line list edit remains playable", compiler.compile_source_json(removed_line.source).ok, true)
 			var outside_dialogue: Dictionary = compiler.update_dialogue_line(
 				source, dialogue_id, 999, "Nobody", "Outside"
 			)

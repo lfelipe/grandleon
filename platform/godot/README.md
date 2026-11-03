@@ -102,12 +102,14 @@ same small game-and-creator front door.
 to the map canvas. A controller can choose scenes, lines, and speakers; a
 keyboard enters the words. It can also create a complete scene with a portable
 cast identity, backdrop, and opening line, then attach it atomically to an
-existing campaign story moment. Visible line changes pass through the native
+existing campaign story moment. **Add Next Line** creates the frequent next
+step beside line navigation; reorder and delete live under **More**, and the
+last line cannot be deleted. Visible line changes pass through the native
 integer-preserving source boundary automatically when the author saves,
-navigates, tests, or leaves; there is no separate Apply step. Bounded
-undo/redo, recoverable save, and immediate draft play remain available.
-Campaign routing outside that explicit attachment, console content, and
-unrelated source fields remain unchanged.
+navigates, changes the line list, tests, or leaves; there is no separate Apply
+step. Bounded undo/redo, recoverable save, and immediate draft play remain
+available. Campaign routing outside that explicit attachment, console content,
+and unrelated source fields remain unchanged.
 
 The current creator creates and resizes maps, edits playable and surrounding
 terrain, arranges both sides of existing encounters, and authors deployment

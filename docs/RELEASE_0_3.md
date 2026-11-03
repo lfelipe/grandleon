@@ -48,7 +48,7 @@ Every release decision should preserve these constraints:
 | PC graphics | Playable, not final art | Pixel, hybrid voxel-sprite, diorama, and full-voxel profiles are replaceable. The recommended initial profile is `voxel-sprites`; final animation/art polish is not a release-format dependency. |
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
 | Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. |
-| Native story creator | Useful vertical slice | Existing lines can be edited, and a one-line scene can be created and attached. Visible line edits follow navigation and Save without a separate Apply trap. Adding/removing/reordering lines and richer scene/cast editing remain. |
+| Native story creator | Useful vertical slice | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. A one-line scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. Cast editing and runtime backdrop/portrait preview remain. |
 | Full native authoring parity | Blocking | Characters, classes, factions, equipment, abilities, items, recruits/rewards, campaign branches, and presentation selection still need focused native editors. |
 | Native Export Center | Blocking | Portable project export works, and command-line target builders work. The in-app target report/build experience is not implemented. |
 | Documentation and screenshots | Blocking | README and `docs/CREATING_A_GAME.md` still describe the browser editor. Rewrite them only after the native flow and labels are frozen, then capture every documented screen from that build. |
@@ -90,7 +90,7 @@ The order below keeps each increment playable and avoids building a giant form.
 
 ### 1. Finish scene writing
 
-- Add, remove, and reorder lines with controller-safe focus.
+- Add, remove, and reorder lines with controller-safe focus. **Implemented.**
 - Add and remove cast members through named pickers.
 - Preview backdrop and speaker portrait in the same screen.
 - Make Save the only persistence action and preserve one-command undo.

@@ -78,6 +78,26 @@ func _run() -> void:
 	editor.dialogue_text.text = "The relay answers through portable story source."
 	editor._mark_line_form_dirty()
 	editor._save()
+	var original_line_count: int = editor._current_lines().size()
+	editor._add_line_after()
+	_expect("add next line grows the scene", editor._current_lines().size(), original_line_count + 1)
+	_expect("new line follows the selected line", editor.line_index, 1)
+	_expect("new line opens ready to replace", editor.dialogue_text.has_selection(), true)
+	editor.dialogue_text.text = "A runner reaches the ridge."
+	editor._mark_line_form_dirty()
+	editor._move_line(1)
+	_expect("moving commits visible dialogue text", str(editor._current_lines()[2].text), "A runner reaches the ridge.")
+	_expect("moved line stays selected", editor.line_index, 2)
+	editor._move_line(-1)
+	_expect("line can move earlier", editor.line_index, 1)
+	_expect("line order updates in the source", str(editor._current_lines()[1].text), "A runner reaches the ridge.")
+	editor._delete_line()
+	_expect("delete removes the selected line", editor._current_lines().size(), original_line_count)
+	editor._undo()
+	_expect("line deletion is undoable", editor._current_lines().size(), original_line_count + 1)
+	editor._redo()
+	_expect("line deletion is redoable", editor._current_lines().size(), original_line_count)
+	editor._save()
 	editor._open_more()
 	await process_frame
 	_expect("more story options open", editor.more_layer.visible, true)
@@ -110,6 +130,7 @@ func _run() -> void:
 	_expect("new dialogue receives a portable id", str(with_scene.dialogues[-1].id), "scene_1")
 	_expect("new dialogue is attached to story flow", _has_dialogue_attachment(with_scene, "scene_1"), true)
 	_expect("new dialogue marks project dirty", editor.dirty, true)
+	_expect("a scene's only line cannot be deleted", editor.delete_line_button.disabled, true)
 	editor._undo()
 	_expect("scene creation undo removes the scene", editor.dialogues.size(), dialogue_count)
 	editor._redo()
@@ -138,7 +159,9 @@ func _run() -> void:
 
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
-		if _has_argument("--new-scene-preview"):
+		if _has_argument("--more-preview"):
+			editor._open_more()
+		elif _has_argument("--new-scene-preview"):
 			editor._open_new_scene()
 		for _frame in 12:
 			await process_frame

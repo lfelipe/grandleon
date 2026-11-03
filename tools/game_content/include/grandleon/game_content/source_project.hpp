@@ -271,6 +271,30 @@ struct SourceMapCell final {
     std::string_view line_text
 );
 
+// Inserts, removes, or reorders complete lines inside an existing scene. The
+// commands use the schema's portable text bounds and preserve at least one
+// line, so the native creator cannot leave a scene in an unusable half-state.
+[[nodiscard]] SourceTextResult insert_source_dialogue_line_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::int64_t after_line_index,
+    std::string_view speaker,
+    std::string_view line_text
+);
+
+[[nodiscard]] SourceTextResult remove_source_dialogue_line_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::int64_t line_index
+);
+
+[[nodiscard]] SourceTextResult move_source_dialogue_line_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::int64_t line_index,
+    std::int64_t new_index
+);
+
 // Creates one complete scene and attaches it to an existing story node as one
 // validated edit. The opening speaker may name a unit type for portable
 // portraits; backdrop may be empty to retain the ordinary flat presentation.

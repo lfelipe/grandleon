@@ -3229,6 +3229,121 @@ void finish_encounter_edit(
     );
 }
 
+struct EditableDialogueDocument final {
+    Json document;
+    SourceParseResult before;
+    Object* dialogue{};
+    Array* lines{};
+    std::string path;
+};
+
+bool open_editable_dialogue(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    EditableDialogueDocument& editable,
+    SourceTextResult& result
+) {
+    if (!valid_source_key(dialogue_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue id must be a stable source-key string"
+        );
+        return false;
+    }
+    editable.before = parse_source_project_json(source_json);
+    if (!editable.before) {
+        result.diagnostics = editable.before.diagnostics;
+        return false;
+    }
+    try {
+        editable.document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return false;
+    }
+    auto* root = std::get_if<Object>(&editable.document.value);
+    Array* dialogues =
+        root == nullptr ? nullptr : mutable_array(*root, "dialogues");
+    if (dialogues == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "expected array"
+        );
+        return false;
+    }
+    std::size_t dialogue_index = 0;
+    editable.dialogue =
+        find_object_by_id(*dialogues, dialogue_id, &dialogue_index);
+    editable.path =
+        "$.dialogues[" + std::to_string(dialogue_index) + "]";
+    if (editable.dialogue == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue '" + std::string(dialogue_id) + "' was not found"
+        );
+        return false;
+    }
+    editable.lines = mutable_array(*editable.dialogue, "lines");
+    if (editable.lines == nullptr &&
+        editable.dialogue->find("lines") == editable.dialogue->end()) {
+        auto inserted = editable.dialogue->emplace("lines", Json{Array{}});
+        editable.lines = std::get_if<Array>(&inserted.first->second.value);
+    }
+    if (editable.lines == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            editable.path + ".lines", "expected array"
+        );
+        return false;
+    }
+    return true;
+}
+
+bool dialogue_line_text_is_valid(
+    std::string_view speaker,
+    std::string_view line_text,
+    const std::string& path,
+    SourceTextResult& result
+) {
+    if (speaker.empty() || speaker.size() > 160) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, path + ".speaker",
+            "dialogue speaker must contain between 1 and 160 characters"
+        );
+        return false;
+    }
+    if (line_text.empty() || line_text.size() > 4096) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, path + ".text",
+            "dialogue text must contain between 1 and 4096 characters"
+        );
+        return false;
+    }
+    return true;
+}
+
+void finish_dialogue_edit(
+    EditableDialogueDocument& editable,
+    SourceTextResult& result
+) {
+    const bool was_playable = static_cast<bool>(compile(editable.before.source));
+    finish_document_edit(editable.document, result);
+    if (!result || !was_playable) return;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value,
+        editable.path + ".lines",
+        "dialogue edit would make this playable project invalid"
+    );
+}
+
 }  // namespace
 
 SourceTextResult update_source_map_cell_json(
@@ -4811,90 +4926,171 @@ SourceTextResult update_source_dialogue_line_json(
     std::string_view line_text
 ) {
     SourceTextResult result;
-    const SourceParseResult before = parse_source_project_json(source_json);
-    if (!before) {
-        result.diagnostics = before.diagnostics;
+    EditableDialogueDocument editable;
+    if (!open_editable_dialogue(
+            source_json, dialogue_id, editable, result
+        )) {
         return result;
     }
-    if (!valid_source_key(dialogue_id)) {
-        refuse_edit(
-            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
-            "dialogue id must be a stable source-key string"
-        );
-        return result;
-    }
-    if (speaker.size() > std::numeric_limits<std::uint16_t>::max() ||
-        line_text.size() > std::numeric_limits<std::uint16_t>::max()) {
-        refuse_edit(
-            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
-            "dialogue speaker and text must fit the portable text width"
-        );
-        return result;
-    }
-
-    Json document;
-    try {
-        document = JsonParser(source_json).parse();
-    } catch (const JsonError& error) {
-        refuse_edit(
-            result, SourceDiagnosticCode::invalid_json, "$",
-            "JSON parse error at byte " + std::to_string(error.offset()) +
-                ": " + error.what()
-        );
-        return result;
-    }
-    auto* root = std::get_if<Object>(&document.value);
-    Array* dialogues = root == nullptr ? nullptr
-                                       : mutable_array(*root, "dialogues");
-    if (dialogues == nullptr) {
-        refuse_edit(
-            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
-            "expected array"
-        );
-        return result;
-    }
-    std::size_t dialogue_index = 0;
-    Object* dialogue = find_object_by_id(
-        *dialogues, dialogue_id, &dialogue_index
-    );
-    if (dialogue == nullptr) {
-        refuse_edit(
-            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
-            "dialogue '" + std::string(dialogue_id) + "' was not found"
-        );
-        return result;
-    }
-    const std::string dialogue_path =
-        "$.dialogues[" + std::to_string(dialogue_index) + "]";
-    Array* lines = mutable_array(*dialogue, "lines");
-    if (lines == nullptr) {
+    if (line_index < 0 || static_cast<std::uint64_t>(line_index) >=
+                              editable.lines->size()) {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value,
-            dialogue_path + ".lines", "expected array"
-        );
-        return result;
-    }
-    if (line_index < 0 ||
-        static_cast<std::uint64_t>(line_index) >= lines->size()) {
-        refuse_edit(
-            result, SourceDiagnosticCode::invalid_value,
-            dialogue_path + ".lines", "dialogue line index is out of range"
+            editable.path + ".lines", "dialogue line index is out of range"
         );
         return result;
     }
     const auto safe_index = static_cast<std::size_t>(line_index);
-    auto* line = std::get_if<Object>(&(*lines)[safe_index].value);
+    const std::string line_path = editable.path + ".lines[" +
+                                  std::to_string(safe_index) + "]";
+    if (!dialogue_line_text_is_valid(
+            speaker, line_text, line_path, result
+        )) {
+        return result;
+    }
+    auto* line = std::get_if<Object>(
+        &(*editable.lines)[safe_index].value
+    );
     if (line == nullptr) {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value,
-            dialogue_path + ".lines[" + std::to_string(safe_index) + "]",
-            "expected object"
+            line_path, "expected object"
         );
         return result;
     }
     (*line)["speaker"] = Json{std::string(speaker)};
     (*line)["text"] = Json{std::string(line_text)};
-    finish_document_edit(document, result);
+    finish_dialogue_edit(editable, result);
+    return result;
+}
+
+SourceTextResult insert_source_dialogue_line_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::int64_t after_line_index,
+    std::string_view speaker,
+    std::string_view line_text
+) {
+    SourceTextResult result;
+    EditableDialogueDocument editable;
+    if (!open_editable_dialogue(
+            source_json, dialogue_id, editable, result
+        )) {
+        return result;
+    }
+    if (editable.lines->size() >= 4096) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            editable.path + ".lines",
+            "a dialogue scene cannot contain more than 4096 lines"
+        );
+        return result;
+    }
+    if (after_line_index < -1 ||
+        (after_line_index >= 0 &&
+         static_cast<std::uint64_t>(after_line_index) >=
+             editable.lines->size())) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            editable.path + ".lines",
+            "dialogue insertion point is out of range"
+        );
+        return result;
+    }
+    const std::size_t insertion =
+        static_cast<std::size_t>(after_line_index + 1);
+    const std::string line_path = editable.path + ".lines[" +
+                                  std::to_string(insertion) + "]";
+    if (!dialogue_line_text_is_valid(
+            speaker, line_text, line_path, result
+        )) {
+        return result;
+    }
+    Object line;
+    line.emplace("speaker", Json{std::string(speaker)});
+    line.emplace("text", Json{std::string(line_text)});
+    editable.lines->insert(
+        editable.lines->begin() + static_cast<std::ptrdiff_t>(insertion),
+        Json{std::move(line)}
+    );
+    finish_dialogue_edit(editable, result);
+    return result;
+}
+
+SourceTextResult remove_source_dialogue_line_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::int64_t line_index
+) {
+    SourceTextResult result;
+    EditableDialogueDocument editable;
+    if (!open_editable_dialogue(
+            source_json, dialogue_id, editable, result
+        )) {
+        return result;
+    }
+    if (line_index < 0 || static_cast<std::uint64_t>(line_index) >=
+                              editable.lines->size()) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            editable.path + ".lines", "dialogue line index is out of range"
+        );
+        return result;
+    }
+    if (editable.lines->size() <= 1) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            editable.path + ".lines",
+            "a dialogue scene must retain at least one line"
+        );
+        return result;
+    }
+    editable.lines->erase(
+        editable.lines->begin() + static_cast<std::ptrdiff_t>(line_index)
+    );
+    finish_dialogue_edit(editable, result);
+    return result;
+}
+
+SourceTextResult move_source_dialogue_line_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::int64_t line_index,
+    std::int64_t new_index
+) {
+    SourceTextResult result;
+    EditableDialogueDocument editable;
+    if (!open_editable_dialogue(
+            source_json, dialogue_id, editable, result
+        )) {
+        return result;
+    }
+    const auto line_count =
+        static_cast<std::uint64_t>(editable.lines->size());
+    if (line_index < 0 || new_index < 0 ||
+        static_cast<std::uint64_t>(line_index) >= line_count ||
+        static_cast<std::uint64_t>(new_index) >= line_count) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            editable.path + ".lines", "dialogue line index is out of range"
+        );
+        return result;
+    }
+    if (line_index == new_index) {
+        result.json = std::string(source_json);
+        return result;
+    }
+    const auto old_position = static_cast<std::size_t>(line_index);
+    const auto new_position = static_cast<std::size_t>(new_index);
+    Json moved = std::move((*editable.lines)[old_position]);
+    editable.lines->erase(
+        editable.lines->begin() + static_cast<std::ptrdiff_t>(old_position)
+    );
+    editable.lines->insert(
+        editable.lines->begin() + static_cast<std::ptrdiff_t>(new_position),
+        std::move(moved)
+    );
+    finish_dialogue_edit(editable, result);
     return result;
 }
 
