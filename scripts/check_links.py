@@ -47,7 +47,7 @@ OPTIONAL = (
 # Files that quote paths belonging to something other than this repository.
 SKIP_FILES = (
     "package-lock.json", "spikes/", "tests/fixtures/",
-    "scripts/check_links.py",
+    "scripts/check_links.py", "third_party/",
 )
 
 # Names that appear in test data and worked examples rather than as citations:

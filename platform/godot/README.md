@@ -429,7 +429,8 @@ only the richer overlapping presentation differs on PC.
 
 ## Replaceable graphics
 
-`scripts/art_library.gd` is the current PC art boundary. The package publishes
+[project/scripts/art_library.gd](project/scripts/art_library.gd) is the current
+PC art boundary. The package publishes
 only portable menu indices—terrain kind/theme and character
 archetype/colour/style/figure. The art library maps those values to resources.
 Rules and source projects do not name Godot files.

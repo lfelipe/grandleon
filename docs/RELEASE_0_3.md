@@ -205,7 +205,7 @@ A final release commit must satisfy all of the following.
 - Worktree is clean and the branch contains no setup-specific value.
 - `rg` finds no local hostname, address, username, token, checkout path, or
   retired optional-model configuration in tracked files or artifacts.
-- Generated art/schema files pass their drift checks.
+- Generated art and schema files pass their drift checks.
 - Every release commit is reviewable and describes one coherent change.
 
 ### Shared code
