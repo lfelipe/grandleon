@@ -615,8 +615,11 @@ platform/godot/scripts/smoke-map-editor.sh
 ```
 The reel is an actual 1280x720 Godot capture. It advances authored dialogue,
 queues two friendly moves without serial player turns, and lets the built-in
-opposition respond. Set `GRANDLEON_DEMO_SECONDS` or pass build and output paths
-as the first two arguments when a different duration or destination is useful.
+opposition respond. Its two automation seats use the same visible `P1` and `P2`
+cursor badges as physical local co-op, so review footage proves the current
+two-player presentation as well as its overlapping commands. Set
+`GRANDLEON_DEMO_SECONDS` or pass build and output paths as the first two
+arguments when a different duration or destination is useful.
 Each invocation uses and removes a fresh capture-only save directory, so an
 earlier reel cannot advance the campaign seen by a later offline or model run.
 Set `GRANDLEON_DEMO_GRAPHICS` to `pixel`, `diorama`, `voxel-sprites`, or

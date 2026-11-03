@@ -42,6 +42,7 @@ var demo_reel := false
 var demo_reel_round := -1
 var demo_reel_phase := 0
 var demo_reel_next_msec := 0
+var demo_reel_seats_ready := false
 var menu_preview := false
 var menu_preview_page := "root"
 var board_preview := false
@@ -635,14 +636,7 @@ func _run_coop_smoke() -> void:
 		return
 	if coop_smoke_started:
 		return
-	# The smoke submits intents directly, so make its capture represent the two
-	# active seats that physical controllers provide without inventing input.
-	for seat in mini(2, seats.size()):
-		seats[seat].active = true
-		if seat != keyboard_seat and int(seats[seat].get("device", -1)) < 0:
-			seats[seat].device = 900 + seat
-	board.set_seats(seats)
-	_update_controller_label()
+	_activate_automated_coop_seats(false)
 	var queued := _queue_two_friendly_moves(true)
 	coop_smoke_expected = mini(2, queued)
 	coop_smoke_started = queued == 2
@@ -663,6 +657,9 @@ func _run_demo_reel() -> void:
 		return
 	if snapshot.is_empty() or snapshot.get("deploying", false):
 		return
+	if not demo_reel_seats_ready:
+		_activate_automated_coop_seats(true)
+		demo_reel_seats_ready = true
 	var round := int(snapshot.get("round", 0))
 	if round != demo_reel_round:
 		demo_reel_round = round
@@ -684,6 +681,31 @@ func _run_demo_reel() -> void:
 			_submit("wait", int(unit.id))
 		demo_reel_phase = 2
 		demo_reel_next_msec = now + 2400
+
+
+func _activate_automated_coop_seats(place_on_friendly_units: bool) -> void:
+	# Automation submits intents directly, so its captures need the same two
+	# active visual seats that physical controllers provide without inventing
+	# controller input events.
+	var friendly_cells: Array[Vector2i] = []
+	if place_on_friendly_units:
+		for unit: Dictionary in snapshot.get("units", []):
+			if (
+				String(unit.get("side", "")) != "first"
+				or not unit.get("on_board", false)
+			):
+				continue
+			friendly_cells.append(Vector2i(int(unit.x), int(unit.y)))
+			if friendly_cells.size() >= 2:
+				break
+	for seat in mini(2, seats.size()):
+		seats[seat].active = true
+		if seat != keyboard_seat and int(seats[seat].get("device", -1)) < 0:
+			seats[seat].device = 900 + seat
+		if seat < friendly_cells.size():
+			seats[seat].cursor = friendly_cells[seat]
+	board.set_seats(seats)
+	_update_controller_label()
 
 
 func _run_graphics_cycle_smoke() -> void:
