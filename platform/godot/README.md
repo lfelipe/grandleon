@@ -350,12 +350,14 @@ result page. It offers checkpoint loading or a new campaign through the same
 save page, plus Main Menu and Exit Game. Cancel cannot dismiss the result back
 onto a finished battle.
 
-Between battles, the same compact mapping operates the Company screen. **Start
-Battle** receives focus first, so confirm or Start begins immediately when the
-displayed company is ready. Move to a roster member only to change the lineup
-or equipment; confirm then enters that member's orders, and B returns to the
-roster or session menu. Giving, returning, fielding, and benching each save
-before the screen accepts another input.
+Between battles, a fixed authored formation starts automatically after its
+story scene; it does not stop at an empty Company screen. A board that authors
+a deployment region still opens Company with **Start Battle** focused, and a
+build with the optional stage picker keeps that choice visible too. Move to a
+roster member only to change the lineup or equipment; confirm then enters that
+member's orders, and B returns to the roster or session menu. Giving,
+returning, fielding, and benching each save before the screen accepts another
+input.
 
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the

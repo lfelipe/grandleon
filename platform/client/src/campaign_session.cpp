@@ -798,18 +798,22 @@ CompanyManagement CampaignSession::management() {
     if (where.encounter_id == 0U) {
         placeable_encounter_ = 0U;
         placeable_.clear();
+        placeable_capacity_ = 0U;
+        placeable_has_deployment_options_ = false;
         return company;
     }
     if (placeable_encounter_ != where.encounter_id) {
+        const pr::EncounterLoadResult board = boards_->board(where.encounter_id);
         placeable_ = cr::members_a_board_places(
-            boards_->board(where.encounter_id), assignments_
+            board, assignments_
         );
-        placeable_capacity_ =
-            boards_->board(where.encounter_id).deployment_capacity;
+        placeable_capacity_ = board.deployment_capacity;
+        placeable_has_deployment_options_ = board.deployment_zone_id != 0U;
         placeable_encounter_ = where.encounter_id;
     }
     company.placeable = placeable_;
     company.capacity = placeable_capacity_;
+    company.has_deployment_options = placeable_has_deployment_options_;
     // Who would actually go, re-read on every gesture rather than cached with
     // the board: the placements are a property of the board and do not move,
     // and who is deployable is a property of the campaign and moves with every

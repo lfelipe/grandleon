@@ -1238,6 +1238,7 @@ gd::Dictionary GrandleonSession::management_dictionary(
     gd::Dictionary result;
     result["encounter_id"] = signed_id(company.encounter_id);
     result["capacity"] = company.capacity;
+    result["has_deployment_options"] = company.has_deployment_options;
     result["fielded_count"] = static_cast<std::int64_t>(
         company.fielded.size()
     );

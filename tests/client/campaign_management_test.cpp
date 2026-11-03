@@ -224,6 +224,10 @@ void the_company_is_managed_between_battles() {
         "and the crossing has a place for exactly the two who are on it — not "
         "for the ferryman it recruits, whom it never places"
     );
+    expect(
+        opening.has_deployment_options,
+        "and reports the opening board's authored deployment region"
+    );
 
     // 2. A store that cannot pay refuses by the campaign's own name, and
     //    refuses the whole batch: nothing is added anywhere.
@@ -431,6 +435,10 @@ void the_company_is_managed_between_battles() {
                 vanguard, outrider, ferryman
             },
         "all three of whom the road has a place for"
+    );
+    expect(
+        !road.has_deployment_options,
+        "while the fixed road formation reports no deployment choice"
     );
 
     // 6a. Nothing is given to the fallen. This is the refusal the whole

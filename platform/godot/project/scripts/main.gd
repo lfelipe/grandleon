@@ -61,6 +61,8 @@ var campaign_management_preview := false
 var campaign_management_phase := 0
 var campaign_management_member_id := 0
 var campaign_management_item_id := 0
+var fixed_formation_smoke := false
+var fixed_formation_skipped := false
 var draft_preview := false
 var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
 var campaign_complete := false
@@ -243,7 +245,9 @@ func _process(delta: float) -> void:
 			if menu_preview_page in ["saves", "settings"]:
 				_show_session_menu_page(menu_preview_page)
 	if not _session_menu_visible() and not _management_visible():
-		if graphics_cycle_smoke:
+		if fixed_formation_smoke and _dialogue_visible():
+			_advance_dialogue()
+		elif graphics_cycle_smoke:
 			_run_graphics_cycle_smoke()
 		elif demo_reel:
 			_run_demo_reel()
@@ -358,6 +362,8 @@ func _parse_arguments() -> void:
 			campaign_management_smoke = true
 		elif argument == "--campaign-management-preview":
 			campaign_management_preview = true
+		elif argument == "--fixed-formation-smoke":
+			fixed_formation_smoke = true
 
 
 func _resolve_campaign_save_root() -> String:
@@ -456,6 +462,13 @@ func _run_controls_smoke() -> void:
 		"back hint": session_menu_hint.text.contains("2 / ESC  RESUME"),
 		"dialogue hint": dialogue_hint.text.contains("1 / ENTER"),
 		"company hints": campaign_manager.control_hints_match("1", "2", "MENU"),
+		"fixed formation skips company": not _company_has_management_options({}),
+		"deployment keeps company": _company_has_management_options({
+			"has_deployment_options": true,
+		}),
+		"stage picker keeps company": _company_has_management_options({
+			"stages": [{"name": "Stage"}],
+		}),
 	}
 	var failed: Array[String] = []
 	for check: String in checks:
@@ -1934,6 +1947,13 @@ func _handle_event(event: Dictionary) -> void:
 			board.configure(snapshot, battle_terrain, battle_theme, battle_surroundings)
 			_seed_cursors()
 			_update_status()
+			if fixed_formation_smoke:
+				if not fixed_formation_skipped:
+					push_error("fixed formation opened without skipping company management")
+					get_tree().quit(2)
+				else:
+					print("fixed formation started without an empty company screen")
+					get_tree().quit()
 		"battle_surroundings":
 			battle_surroundings = {
 				"mode": String(event.get("mode", "none")),
@@ -2029,6 +2049,20 @@ func _handle_management(company: Dictionary) -> void:
 	if _dialogue_visible() and not _management_visible():
 		pending_company = company.duplicate(true)
 		return
+	if fixed_formation_smoke and _company_has_management_options(company):
+		push_error("fixed formation unexpectedly published management options")
+		get_tree().quit(2)
+		return
+	if not campaign_management_preview and not _company_has_management_options(company):
+		fixed_formation_skipped = true
+		pending_company.clear()
+		status_label.text = "STARTING  /  " + (
+			current_stage_name.to_upper()
+			if not current_stage_name.is_empty() else "FIXED FORMATION"
+		)
+		if not session.submit_management("proceed"):
+			_show_fatal("The fixed formation could not start")
+		return
 	_present_company(company)
 
 
@@ -2057,10 +2091,20 @@ func _present_company(company: Dictionary) -> void:
 	campaign_manager.present(presented_company)
 
 
+func _company_has_management_options(company: Dictionary) -> bool:
+	if bool(company.get("has_deployment_options", false)):
+		return true
+	if not company.get("stages", []).is_empty():
+		return true
+	return String(company.get("refused", "none")) not in ["", "none"]
+
+
 func _show_pending_management() -> void:
 	if pending_company.is_empty() or _dialogue_visible():
 		return
-	_present_company(pending_company)
+	var company := pending_company.duplicate(true)
+	pending_company.clear()
+	_handle_management(company)
 
 
 func _management_visible() -> bool:

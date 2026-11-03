@@ -425,6 +425,11 @@ struct CompanyManagement final {
     // `prepare_board` refuses an over-cap company whatever a screen believed,
     // and says so in `refused` below.
     std::uint16_t capacity{};
+    // Whether the next board authors a deployment rule. A client can skip its
+    // between-battle arrangement screen when this is false and no independent
+    // stage-picker choice exists: every member then enters at the fixed
+    // placement the project already names.
+    bool has_deployment_options{false};
     // Why the last attempt to take the board did not publish one, when there
     // was one. `side_emptied` is a company that benched everybody;
     // `unavailable_objective_target` is a company that benched the character an
@@ -1025,6 +1030,7 @@ private:
     std::uint64_t placeable_encounter_{};
     std::vector<campaign::PersistentEntityId> placeable_;
     std::uint16_t placeable_capacity_{};
+    bool placeable_has_deployment_options_{false};
 };
 
 // Play a campaign the player keeps.

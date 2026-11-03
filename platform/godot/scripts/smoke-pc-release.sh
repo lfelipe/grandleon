@@ -83,6 +83,7 @@ godot_smokes=(
     smoke-control-profile.sh
     smoke-controller-seats.sh
     smoke-creator-screen.sh
+    smoke-fixed-formation.sh
     smoke-frame-timing.sh
     smoke-home-menu.sh
     smoke-map-editor.sh
