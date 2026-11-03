@@ -48,7 +48,7 @@ Every release decision should preserve these constraints:
 | PC graphics | Playable, not final art | Pixel, hybrid voxel-sprite, diorama, and full-voxel profiles are replaceable. The recommended initial profile is `voxel-sprites`; final animation/art polish is not a release-format dependency. |
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
 | Native campaign outline | Linear hub ready | Continue Creating opens a controller-first story/battle/ending list in play order. A chapter opens its exact dialogue or map; Test Campaign and Grow the Army stay one press away; Add Next Chapter opens the correct source battle and focused creation dialog. Alternate outcomes are visible but not yet editable as branches. |
-| Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. |
+| Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Existing maps and battles can be renamed together without changing stable identities. Copy Battle Setup deliberately reuses characters, goals, deployment, co-op rules, and turn order while preserving the target chapter. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. |
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, and tunes seven named-hero traits. New roles copy a working role into an independent baseline. Tune Role edits all eleven portable baseline stats, side, terrain crossing, post-attack behavior, and allowed weapon families; incompatible removal is refused. New Side creates a portable named faction and color. Growth & Rewards keeps optional experience, level growth, item drops, and per-role appearance behind one advanced action. Campaign supplies, chapter rewards, role loadouts, and the separate reusable Gear & Abilities library are also native. |
 | Full native authoring parity | Blocking | General campaign branches, external replacement-art packs, and measured per-target authoring budgets still need focused native support. |
@@ -98,6 +98,12 @@ can start a weapon, item, or ability from safe defaults or copy an existing
 working choice. It shows only the fields that affect the selected kind, then
 Army Setup assigns the result to a role. Merely browsing the library does not
 rewrite the project.
+
+Less-common map operations stay behind More or Battle Setup. Map & Battle
+Names changes both player-facing labels atomically while leaving references and
+save identities intact. Copy Battle Setup is offered only when the current
+campaign has another battle; it previews the amount of portable content being
+reused and preserves the target map, name, transitions, and identity.
 
 ## Remaining editor increments
 
@@ -164,9 +170,11 @@ Exit: the five-stage Emberbound-style growth curve can be authored natively.
   without exposing source identities. **Implemented.**
 - Progression, item drops, and portable per-role presentation are focused,
   named controls behind Growth & Rewards. **Implemented.**
-- Rename maps and battles without changing their stable identity.
+- Rename maps and battles together without changing either stable identity.
+  **Implemented.**
 - Copy a battle setup from another chapter deliberately, instead of only when
-  adding the next chapter.
+  adding the next chapter. The copy is limited to the same campaign and keeps
+  the target chapter's map and flow. **Implemented.**
 - Surface compile diagnostics on the relevant character, placement, or field.
 
 Exit: every portable battle field used by the shipped campaign is editable in
@@ -217,6 +225,13 @@ are frozen.
   growth chances, named item drops, per-role style and figure, controller
   focus, persistence, and compilation. A rendered 1080p review confirms the
   advanced screen remains separate from ordinary role tuning.
+- `2d5df9d`: the exact committed tree passes all 68 native tests and all 23
+  Godot integration smokes after adding portable map/battle renaming and
+  deliberate battle-setup reuse. The map smoke covers empty-name refusal,
+  stable identities, selector refresh, same-campaign source choices, preserved
+  target map and flow, compiler validation, undo/redo, save/reload, and draft
+  play. Rendered reviews cover the More, Names, Battle Setup, and Copy Setup
+  screens at the target resolution.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
