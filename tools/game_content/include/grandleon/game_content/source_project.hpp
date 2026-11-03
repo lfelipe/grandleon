@@ -351,6 +351,19 @@ struct SourceMapCell final {
     std::int64_t value
 );
 
+// Adds, updates, or removes one shared campaign supply. An empty node identity
+// selects the founding store; a named node selects the reward granted when
+// that chapter completes. Kind is `item` or `weapon`, and quantity zero removes
+// the matching entry so a creator never has to manipulate grant arrays.
+[[nodiscard]] SourceTextResult set_source_campaign_grant_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view kind,
+    std::string_view asset_id,
+    std::int64_t quantity
+);
+
 // Creates one complete scene and attaches it to an existing story node as one
 // validated edit. The opening speaker may name a unit type for portable
 // portraits; backdrop may be empty to retain the ordinary flat presentation.

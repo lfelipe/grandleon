@@ -5695,4 +5695,180 @@ SourceTextResult set_source_campaign_member_modifier_json(
     return result;
 }
 
+SourceTextResult set_source_campaign_grant_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view kind,
+    std::string_view asset_id,
+    std::int64_t quantity
+) {
+    SourceTextResult result;
+    if (!valid_source_key(campaign_id) ||
+        (!node_id.empty() && !valid_source_key(node_id)) ||
+        !valid_source_key(asset_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            "campaign, chapter, and supply identities must be stable "
+            "source-key strings"
+        );
+        return result;
+    }
+    const bool is_item = kind == "item";
+    const bool is_weapon = kind == "weapon";
+    if (!is_item && !is_weapon) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            "$.campaigns.startingStore",
+            "campaign supply kind must be item or weapon"
+        );
+        return result;
+    }
+    if (quantity < 0 || quantity > 65535) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            "$.campaigns.startingStore.quantity",
+            "campaign supply quantity must be between 0 and 65535"
+        );
+        return result;
+    }
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* campaigns =
+        root == nullptr ? nullptr : mutable_array(*root, "campaigns");
+    std::size_t campaign_index = 0;
+    Object* campaign = campaigns == nullptr
+                           ? nullptr
+                           : find_object_by_id(
+                                 *campaigns, campaign_id, &campaign_index
+                             );
+    if (campaign == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            "campaign was not found"
+        );
+        return result;
+    }
+    const std::string campaign_path =
+        "$.campaigns[" + std::to_string(campaign_index) + "]";
+    const std::string collection_name = is_item ? "items" : "weapons";
+    Array* assets = root == nullptr
+                        ? nullptr
+                        : mutable_array(*root, collection_name);
+    if (assets == nullptr || find_object_by_id(*assets, asset_id) == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            campaign_path + (node_id.empty() ? ".startingStore" : ".flow.nodes.grants"),
+            "campaign supply was not found in the project's " +
+                collection_name
+        );
+        return result;
+    }
+
+    Object* owner = campaign;
+    std::string field = "startingStore";
+    std::string grant_path = campaign_path + ".startingStore";
+    std::size_t limit = 256;
+    if (!node_id.empty()) {
+        Object* flow = mutable_object(*campaign, "flow");
+        Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+        std::size_t node_index = 0;
+        owner = nodes == nullptr
+                    ? nullptr
+                    : find_object_by_id(*nodes, node_id, &node_index);
+        if (owner == nullptr) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                campaign_path + ".flow.nodes",
+                "reward chapter was not found"
+            );
+            return result;
+        }
+        field = "grants";
+        grant_path = campaign_path + ".flow.nodes[" +
+                     std::to_string(node_index) + "].grants";
+        limit = 64;
+    }
+    Array* grants = mutable_array(*owner, field);
+    const std::string identity_field = is_item ? "itemId" : "weaponId";
+    auto matching = grants == nullptr
+                        ? Array::iterator{}
+                        : std::find_if(
+                              grants->begin(), grants->end(),
+                              [&](Json& value) {
+                                  auto* grant = std::get_if<Object>(&value.value);
+                                  const std::string* identity =
+                                      grant == nullptr
+                                          ? nullptr
+                                          : string_member(
+                                                *grant, identity_field
+                                            );
+                                  return identity != nullptr &&
+                                         *identity == asset_id;
+                              }
+                          );
+    if (quantity == 0) {
+        if (grants == nullptr || matching == grants->end()) {
+            result.json = std::string(source_json);
+            return result;
+        }
+        grants->erase(matching);
+        if (grants->empty()) owner->erase(field);
+    } else if (grants != nullptr && matching != grants->end()) {
+        auto* grant = std::get_if<Object>(&matching->value);
+        if (grant == nullptr) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value, grant_path,
+                "campaign supply list is not writable"
+            );
+            return result;
+        }
+        (*grant)["quantity"] = Json{quantity};
+    } else {
+        if (grants == nullptr && owner->find(field) == owner->end()) {
+            auto inserted = owner->emplace(field, Json{Array{}});
+            grants = std::get_if<Array>(&inserted.first->second.value);
+        }
+        if (grants == nullptr || grants->size() >= limit) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value, grant_path,
+                "campaign supply list is not writable or is full"
+            );
+            return result;
+        }
+        Object grant;
+        grant.emplace(identity_field, Json{std::string(asset_id)});
+        grant.emplace("quantity", Json{quantity});
+        grants->push_back(Json{std::move(grant)});
+    }
+
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value, grant_path,
+        "campaign supply edit would make this playable project invalid"
+    );
+    return result;
+}
+
 }  // namespace grandleon::game_content

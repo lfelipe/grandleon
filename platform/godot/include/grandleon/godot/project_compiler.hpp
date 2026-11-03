@@ -184,6 +184,14 @@ public:
         const ::godot::String& modifier,
         std::int64_t value
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_campaign_grant(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& node_id,
+        const ::godot::String& kind,
+        const ::godot::String& asset_id,
+        std::int64_t quantity
+    ) const;
     [[nodiscard]] ::godot::Dictionary insert_dialogue_line(
         const ::godot::String& source_json,
         const ::godot::String& dialogue_id,

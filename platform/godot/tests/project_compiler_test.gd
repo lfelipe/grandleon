@@ -222,6 +222,22 @@ func _init() -> void:
 				var recruit_data: Dictionary = JSON.parse_string(added_recruit.source)
 				_expect("later campaign recruit attaches to chapter", recruit_data.campaigns[0].flow.nodes[0].recruits[-1].id, "editor_recruit")
 				_expect("later campaign recruit remains playable", compiler.compile_source_json(added_recruit.source).ok, true)
+			var starting_supply: Dictionary = compiler.set_campaign_grant(
+				source, campaign_id, "", "item", str(source_data.items[0].id), 2
+			)
+			_expect("campaign starting supply succeeds", starting_supply.ok, true)
+			if starting_supply.ok:
+				var supply_data: Dictionary = JSON.parse_string(starting_supply.source)
+				_expect("campaign starting supply records quantity", int(supply_data.campaigns[0].startingStore[0].quantity), 2)
+				var chapter_reward: Dictionary = compiler.set_campaign_grant(
+					starting_supply.source, campaign_id, join_node_id, "weapon",
+					str(source_data.weapons[0].id), 1
+				)
+				_expect("campaign chapter reward succeeds", chapter_reward.ok, true)
+				if chapter_reward.ok:
+					var reward_data: Dictionary = JSON.parse_string(chapter_reward.source)
+					_expect("campaign reward attaches to chapter", reward_data.campaigns[0].flow.nodes[0].grants[0].weaponId, source_data.weapons[0].id)
+					_expect("campaign supplies remain playable", compiler.compile_source_json(chapter_reward.source).ok, true)
 			var dialogue_id := str(source_data.dialogues[0].id)
 			var original_second_line := str(source_data.dialogues[0].lines[1].text)
 			var edited_dialogue: Dictionary = compiler.update_dialogue_line(

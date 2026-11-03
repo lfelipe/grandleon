@@ -216,6 +216,13 @@ void GrandleonProjectCompiler::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
+            "set_campaign_grant", "source_json", "campaign_id", "node_id",
+            "kind", "asset_id", "quantity"
+        ),
+        &GrandleonProjectCompiler::set_campaign_grant
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
             "insert_dialogue_line", "source_json", "dialogue_id",
             "after_line_index", "speaker", "line_text"
         ),
@@ -968,6 +975,35 @@ gd::Dictionary GrandleonProjectCompiler::set_campaign_member_modifier(
             narrow(source_json), narrow(campaign_id), narrow(member_id),
             narrow(modifier), value
         );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_campaign_grant(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& node_id,
+    const gd::String& kind,
+    const gd::String& asset_id,
+    std::int64_t quantity
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated = gc::set_source_campaign_grant_json(
+        narrow(source_json), narrow(campaign_id), narrow(node_id),
+        narrow(kind), narrow(asset_id), quantity
+    );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
             diagnostics.push_back(source_diagnostic(diagnostic));

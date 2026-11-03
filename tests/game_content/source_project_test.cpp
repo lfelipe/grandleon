@@ -2416,6 +2416,71 @@ void adds_and_renames_campaign_members_without_retyping_the_project() {
     );
 }
 
+void authors_campaign_supplies_without_editing_grant_arrays() {
+    const auto founded = gc::set_source_campaign_grant_json(
+        source, "demo", "", "item", "tonic", 2
+    );
+    const auto rewarded = gc::set_source_campaign_grant_json(
+        founded.json, "demo", "battle", "weapon", "sword", 1
+    );
+    const auto parsed = gc::parse_source_project_json(rewarded.json);
+    expect(
+        founded && rewarded && parsed &&
+            parsed.source.campaigns.front().grants.size() == 2 &&
+            parsed.source.campaigns.front().grants[0].quantity == 2 &&
+            !parsed.source.campaigns.front().grants[0].grants_a_weapon() &&
+            parsed.source.campaigns.front().grants[0].join_node_id == 0 &&
+            parsed.source.campaigns.front().grants[1].quantity == 1 &&
+            parsed.source.campaigns.front().grants[1].grants_a_weapon() &&
+            parsed.source.campaigns.front().grants[1].join_node_id != 0 &&
+            gc::compile(parsed.source),
+        "founding supplies and chapter rewards remain playable portable data"
+    );
+    const auto increased = gc::set_source_campaign_grant_json(
+        rewarded.json, "demo", "", "item", "tonic", 4
+    );
+    const auto removed_reward = gc::set_source_campaign_grant_json(
+        increased.json, "demo", "battle", "weapon", "sword", 0
+    );
+    const auto removed_all = gc::set_source_campaign_grant_json(
+        removed_reward.json, "demo", "", "item", "tonic", 0
+    );
+    const auto parsed_increased =
+        gc::parse_source_project_json(increased.json);
+    expect(
+        increased && removed_reward && removed_all && parsed_increased &&
+            parsed_increased.source.campaigns.front().grants.size() == 2 &&
+            parsed_increased.source.campaigns.front().grants[0].quantity == 4,
+        "a named supply can be adjusted and removed without duplicate grants"
+    );
+    expect(
+        removed_all.json.find("startingStore") == std::string::npos &&
+            removed_all.json.find("grants") == std::string::npos,
+        "removing the final supplies removes empty optional grant lists"
+    );
+    expect(
+        !gc::set_source_campaign_grant_json(
+            source, "missing", "", "item", "tonic", 1
+        ) &&
+            !gc::set_source_campaign_grant_json(
+                source, "demo", "missing", "item", "tonic", 1
+            ) &&
+            !gc::set_source_campaign_grant_json(
+                source, "demo", "", "spell", "tonic", 1
+            ) &&
+            !gc::set_source_campaign_grant_json(
+                source, "demo", "", "item", "missing", 1
+            ) &&
+            !gc::set_source_campaign_grant_json(
+                source, "demo", "", "item", "tonic", -1
+            ) &&
+            !gc::set_source_campaign_grant_json(
+                source, "demo", "", "item", "tonic", 65536
+            ),
+        "supplies need known owners, kinds, identities, and bounded quantities"
+    );
+}
+
 void creates_and_attaches_one_portable_dialogue_scene() {
     const std::string with_story = source_with(
         R"json("entryNodeId":"battle",
@@ -2843,6 +2908,7 @@ int main() {
     updates_one_map_cell_without_retyping_the_project();
     updates_one_dialogue_line_without_retyping_the_project();
     adds_and_renames_campaign_members_without_retyping_the_project();
+    authors_campaign_supplies_without_editing_grant_arrays();
     creates_and_attaches_one_portable_dialogue_scene();
     maps_authored_resistance();
     refuses_a_stat_the_rules_cannot_execute();
