@@ -46,7 +46,7 @@ those events without changing or delaying the deterministic encounter:
 
 | Event | Presentation data | Animation use |
 |---|---|---|
-| `unit_moved` plus snapshot | unit and authoritative destination | run/walk, facing, overlapping per-unit interpolation |
+| `unit_moved` plus snapshot | unit, legal route, recommended duration, and authoritative destination | route-aware run/walk, facing, elevation, and overlapping per-unit interpolation |
 | `unit_damaged` / `attack_missed` | target, actor, damage result, originating action | attack or cast clips, melee slash or ranged projectile, impact flash, short camera impulse |
 | `unit_restored` / `item_used` | target, actor, result, originating action | ability clip, travelling magic and recovery aura |
 | `unit_talked` / `unit_defeated` | departing unit and actor | semantic clip and delayed removal |
@@ -74,10 +74,23 @@ by movement and presentation events rather than looping the complete sheet.
 Invalid or absent animation metadata falls back to the shipped layout without
 changing simulation behavior.
 
-The next fidelity step is an optional motion presentation record with a path
-and recommended duration. Destination snapshots remain authoritative, but that
-record would let authored rigs time footsteps and turns to a multi-cell route
-instead of inferring one straight interpolation.
+An accepted move now carries an optional motion record. The native bridge uses
+the same portable route planner as the Nintendo 64 client over the pre-command
+snapshot: engine-reachable cells plus friendly occupied cells that may be
+crossed but not used as a destination. The route contains each cell after the
+origin and ends at the simulation event's destination. Its recommended duration
+uses the shared six frames per tile at 60 Hz, or 100 ms per cell.
+An art profile may tune that recommendation with its bounded `moveSpeed` value
+to fit an imported rig's gait without changing the portable route record.
+
+Both Godot renderers validate adjacency, endpoint, and duration before using a
+record. A malformed or absent record falls back as one straight presentation
+leg; it never changes the snapshot or blocks a command. Independent per-unit
+samplers let two co-op moves overlap. The 3D sampler follows every corner,
+turns the scene toward the current leg, and interpolates authored surface
+heights while the 2D sampler uses the same cell path for sprite animation.
+Imported root motion remains in-place decoration: the settled position is
+always the destination in the subsequent authoritative snapshot.
 
 ## First authored 3D spike
 

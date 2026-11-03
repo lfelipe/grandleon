@@ -23,6 +23,12 @@
 
 namespace grandleon::godot_frontend {
 
+struct MotionPresentation final {
+    simulation::UnitId unit_id{};
+    std::vector<simulation::Position> route;
+    std::int32_t duration_msec{};
+};
+
 struct FrontendEvent final {
     enum class Kind : std::uint8_t {
         dialogue,
@@ -49,6 +55,7 @@ struct FrontendEvent final {
     std::vector<simulation::ItemDefinition> items;
     std::vector<simulation::ObjectiveDefinition> objectives;
     std::vector<simulation::Event> presentation_events;
+    std::optional<MotionPresentation> motion;
     std::string action;
     simulation::ContentId action_content_id{};
     package_runtime::Dialogue dialogue;
@@ -133,6 +140,7 @@ private:
     std::int64_t active_request_id_{};
     std::string active_action_;
     simulation::ContentId active_action_content_id_{};
+    std::optional<MotionPresentation> active_motion_;
     bool stopping_{false};
 };
 

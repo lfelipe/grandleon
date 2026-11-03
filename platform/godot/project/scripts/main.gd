@@ -33,6 +33,7 @@ var coop_smoke_started := false
 var coop_smoke_requests: Dictionary = {}
 var coop_smoke_expected := 0
 var coop_smoke_accepted := 0
+var coop_smoke_routes := 0
 var demo_reel := false
 var demo_reel_round := -1
 var demo_reel_phase := 0
@@ -179,7 +180,12 @@ func _process(_delta: float) -> void:
 	)
 	var capture_ready := not waits_for_board or (not snapshot.is_empty() and not _dialogue_visible())
 	if coop_smoke:
-		capture_ready = capture_ready and coop_smoke_started and coop_smoke_accepted == coop_smoke_expected
+		capture_ready = (
+			capture_ready
+			and coop_smoke_started
+			and coop_smoke_accepted == coop_smoke_expected
+			and coop_smoke_routes == coop_smoke_expected
+		)
 	if screenshot_frames > 0 and capture_ready:
 		screenshot_frames -= 1
 	elif screenshot_frames == 0 and capture_ready:
@@ -510,8 +516,59 @@ func _queue_friendly_move(
 		"move", int(unit.id), 0, Vector2i(int(chosen.x), int(chosen.y))
 	)
 	if track_smoke_request:
-		coop_smoke_requests[request_id] = true
+		coop_smoke_requests[request_id] = int(unit.id)
 	return true
+
+
+func _verify_coop_motion(events: Array) -> void:
+	for event: Dictionary in events:
+		if String(event.get("kind", "")) != "unit_moved":
+			continue
+		var unit_id := int(event.get("unit_id", 0))
+		if unit_id not in coop_smoke_requests.values():
+			continue
+		var route: Array = event.get("route", [])
+		var actor: Dictionary = {}
+		for unit: Dictionary in snapshot.get("units", []):
+			if int(unit.get("id", 0)) == unit_id:
+				actor = unit
+				break
+		if actor.is_empty() or route.is_empty():
+			_fail_coop_motion("accepted move has no routed origin or path")
+			return
+		var previous := Vector2i(int(actor.x), int(actor.y))
+		for cell: Dictionary in route:
+			var current := Vector2i(int(cell.get("x", -1)), int(cell.get("y", -1)))
+			if absi(current.x - previous.x) + absi(current.y - previous.y) != 1:
+				_fail_coop_motion("accepted route contains a non-adjacent step")
+				return
+			if (
+				current.x < 0
+				or current.y < 0
+				or current.x >= int(snapshot.width)
+				or current.y >= int(snapshot.height)
+			):
+				_fail_coop_motion("accepted route leaves the board")
+				return
+			previous = current
+		var destination := Vector2i(int(event.get("x", -1)), int(event.get("y", -1)))
+		if previous != destination:
+			_fail_coop_motion("accepted route does not end at its event destination")
+			return
+		if int(event.get("duration_msec", 0)) != route.size() * 100:
+			_fail_coop_motion("accepted route duration does not match portable timing")
+			return
+		coop_smoke_routes += 1
+		print(
+			"co-op smoke validated route %d/%d (%d cells)" % [
+				coop_smoke_routes, coop_smoke_expected, route.size()
+			]
+		)
+
+
+func _fail_coop_motion(message: String) -> void:
+	push_error("co-op motion smoke failed: " + message)
+	get_tree().quit(2)
 
 
 func _first_enemy_on_tiles(tiles: Array) -> Dictionary:
@@ -1094,6 +1151,8 @@ func _handle_event(event: Dictionary) -> void:
 			board.update_snapshot(snapshot)
 			status_label.text = "DEPLOYMENT  /  START TO BEGIN"
 		"presentation":
+			if coop_smoke:
+				_verify_coop_motion(event.get("events", []))
 			if board.has_method("present_events"):
 				board.present_events(
 					event.get("events", []),

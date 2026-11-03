@@ -3,6 +3,7 @@ class_name GrandleonBoardView3D
 extends SubViewportContainer
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
+const MotionPath = preload("res://scripts/motion_path.gd")
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const TERRAIN_NAMES := [
 	"water", "road", "forest", "mountain", "sand", "snow", "swamp",
@@ -42,6 +43,9 @@ var _unit_root: Node3D
 var _effect_root: Node3D
 var _unit_nodes: Dictionary = {}
 var _unit_targets: Dictionary = {}
+var _unit_authoritative_positions: Dictionary = {}
+var _unit_motion_states: Dictionary = {}
+var _pending_motion_records: Dictionary = {}
 var _unit_sprites: Dictionary = {}
 var _health_sprites: Dictionary = {}
 var _health_textures: Dictionary = {}
@@ -176,11 +180,24 @@ func update_snapshot(value: Dictionary) -> void:
 			continue
 		var id := int(unit.id)
 		present[id] = true
+		var destination := Vector2(int(unit.x), int(unit.y))
+		var previous: Vector2 = _unit_authoritative_positions.get(id, destination)
 		var target := _cell_position(int(unit.x), int(unit.y))
 		target.y = _surface_height(int(unit.x), int(unit.y)) + 0.04
 		_unit_targets[id] = target
 		if not _unit_nodes.has(id):
 			_create_unit(unit, target)
+		elif previous != destination:
+			var node: Node3D = _unit_nodes[id]
+			var visual_origin := _cell_from_world(node.position)
+			var record: Dictionary = _pending_motion_records.get(id, {})
+			var animation_config: Dictionary = profile_config.get("animation", {})
+			_unit_motion_states[id] = MotionPath.begin(
+				visual_origin, previous, destination, record, now_msec,
+				float(animation_config.get("moveSpeed", 10.0))
+			)
+			_pending_motion_records.erase(id)
+		_unit_authoritative_positions[id] = destination
 		_update_health_bar(unit)
 	for id: Variant in _unit_nodes.keys():
 		if not present.has(id):
@@ -199,6 +216,11 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 		var unit_id := int(event.get("unit_id", 0))
 		var related_id := int(event.get("related_unit_id", 0))
 		match kind:
+			"unit_moved":
+				_pending_motion_records[unit_id] = {
+					"route": event.get("route", []).duplicate(true),
+					"duration_msec": int(event.get("duration_msec", 0)),
+				}
 			"unit_damaged":
 				_play_unit_animation(
 					related_id, "ability" if action == "ability" else "attack",
@@ -295,13 +317,20 @@ func _process(delta: float) -> void:
 	for id: Variant in _unit_nodes.keys():
 		var node: Node3D = _unit_nodes[id]
 		var target: Vector3 = _unit_targets.get(id, node.position)
-		var travel := target - node.position
-		travel.y = 0
-		var moving := travel.length_squared() > 0.0004
+		var settled := target
+		var travel := Vector3.ZERO
+		var moving := false
+		if _unit_motion_states.has(id):
+			var sampled: Dictionary = MotionPath.sample(
+				_unit_motion_states[id], now_msec
+			)
+			settled = _motion_world_position(sampled)
+			moving = not bool(sampled.done)
+			var direction := Vector2(sampled.direction)
+			travel = Vector3(direction.x, 0, direction.y)
+			if sampled.done:
+				_unit_motion_states.erase(id)
 		var animation_config: Dictionary = profile_config.get("animation", {})
-		var settled := node.position.lerp(
-			target, minf(1.0, delta * float(animation_config.get("moveSpeed", 9.0)))
-		)
 		var animation_locked := now_msec < int(_unit_animation_lock_until.get(id, 0))
 		if moving and _authored_units.has(id) and not animation_locked:
 			var wanted_rotation := atan2(travel.x, travel.z)
@@ -313,7 +342,7 @@ func _process(delta: float) -> void:
 		elif _authored_units.has(id) and not animation_locked:
 			_play_unit_animation(int(id), "idle")
 		else:
-			settled.y = target.y + sin(_pulse * 3.2 + float(int(id) % 13)) * 0.025
+			settled.y += sin(_pulse * 3.2 + float(int(id) % 13)) * 0.025
 		node.position = settled
 		if _unit_sprites.has(id):
 			if not animation_locked:
@@ -701,6 +730,30 @@ func _cell_position(x: int, y: int) -> Vector3:
 		0,
 		float(y) - float(snapshot.get("height", 1)) * 0.5 + 0.5
 	)
+
+
+func _cell_from_world(position: Vector3) -> Vector2:
+	return Vector2(
+		position.x + float(snapshot.get("width", 1)) * 0.5 - 0.5,
+		position.z + float(snapshot.get("height", 1)) * 0.5 - 0.5
+	)
+
+
+func _motion_world_position(sampled: Dictionary) -> Vector3:
+	var position := Vector2(sampled.position)
+	var from := Vector2(sampled.from)
+	var to := Vector2(sampled.to)
+	var at := Vector3(
+		position.x - float(snapshot.get("width", 1)) * 0.5 + 0.5,
+		0,
+		position.y - float(snapshot.get("height", 1)) * 0.5 + 0.5
+	)
+	var from_height := _surface_height(roundi(from.x), roundi(from.y))
+	var to_height := _surface_height(roundi(to.x), roundi(to.y))
+	at.y = lerpf(
+		from_height, to_height, float(sampled.segment_progress)
+	) + 0.04
+	return at
 
 
 func _surface_height(x: int, y: int) -> float:
@@ -1141,6 +1194,9 @@ func _remove_unit(id: int) -> void:
 		_unit_nodes[id].queue_free()
 	_unit_nodes.erase(id)
 	_unit_targets.erase(id)
+	_unit_authoritative_positions.erase(id)
+	_unit_motion_states.erase(id)
+	_pending_motion_records.erase(id)
 	_unit_sprites.erase(id)
 	_health_sprites.erase(id)
 	_unit_animators.erase(id)

@@ -3,6 +3,7 @@ class_name GrandleonBoardView
 extends Node2D
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
+const MotionPath = preload("res://scripts/motion_path.gd")
 const TILE_SOURCE := 32
 const BLOB_COLUMNS := 8
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
@@ -23,9 +24,8 @@ var action_modes: Array[String] = ["move", "move"]
 var highlight_tiles: Array = [[], []]
 var camera_impulse_enabled := true
 var _authoritative_positions: Dictionary = {}
-var _motion_from: Dictionary = {}
-var _motion_to: Dictionary = {}
-var _motion_started: Dictionary = {}
+var _motion_states: Dictionary = {}
+var _pending_motion_records: Dictionary = {}
 var _last_units: Dictionary = {}
 var _event_flash_until: Dictionary = {}
 var _event_flash_colours: Dictionary = {}
@@ -68,32 +68,38 @@ func update_snapshot(value: Dictionary) -> void:
 	var now_msec := Time.get_ticks_msec()
 	snapshot = value
 	_last_units.clear()
+	var present: Dictionary = {}
 	for unit: Dictionary in snapshot.get("units", []):
 		var id := int(unit.id)
+		present[id] = true
 		var destination := Vector2(unit.x, unit.y)
 		var previous: Vector2 = _authoritative_positions.get(id, destination)
 		_last_units[id] = unit
 		if previous != destination:
-			_motion_from[id] = _animated_position(id, now_msec)
-			_motion_to[id] = destination
-			_motion_started[id] = now_msec
+			var record: Dictionary = _pending_motion_records.get(id, {})
+			var animation_config: Dictionary = profile_config.get("animation", {})
+			_motion_states[id] = MotionPath.begin(
+				_animated_position(id, now_msec), previous, destination,
+				record, now_msec, float(animation_config.get("moveSpeed", 10.0))
+			)
+			_pending_motion_records.erase(id)
 		_authoritative_positions[id] = destination
+	for id: Variant in _authoritative_positions.keys():
+		if not present.has(id):
+			_authoritative_positions.erase(id)
+			_motion_states.erase(id)
+			_pending_motion_records.erase(id)
 	queue_redraw()
 
 
 func _animated_position(id: int, now_msec: int) -> Vector2:
 	var destination: Vector2 = _authoritative_positions.get(id, Vector2.ZERO)
-	if not _motion_started.has(id):
+	if not _motion_states.has(id):
 		return destination
-	var elapsed := float(now_msec - int(_motion_started[id])) / 240.0
-	if elapsed >= 1.0:
-		_motion_started.erase(id)
-		_motion_from.erase(id)
-		_motion_to.erase(id)
-		return destination
-	return Vector2(_motion_from[id]).lerp(
-		Vector2(_motion_to[id]), ease(elapsed, -1.7)
-	)
+	var sampled: Dictionary = MotionPath.sample(_motion_states[id], now_msec)
+	if sampled.done:
+		_motion_states.erase(id)
+	return Vector2(sampled.position)
 
 
 func set_seats(value: Array) -> void:
@@ -118,7 +124,12 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 		var kind := String(event.get("kind", ""))
 		var unit_id := int(event.get("unit_id", 0))
 		var related_id := int(event.get("related_unit_id", 0))
-		if kind == "unit_damaged":
+		if kind == "unit_moved":
+			_pending_motion_records[unit_id] = {
+				"route": event.get("route", []).duplicate(true),
+				"duration_msec": int(event.get("duration_msec", 0)),
+			}
+		elif kind == "unit_damaged":
 			_set_unit_animation(
 				related_id, "ability" if action == "ability" else "attack",
 				480 if action == "ability" else 430
@@ -510,7 +521,7 @@ func _set_unit_animation(id: int, state: String, duration_msec: int) -> void:
 func _unit_animation_state(id: int, now_msec: int) -> String:
 	if now_msec < int(_unit_animation_until.get(id, 0)):
 		return String(_unit_animation_states.get(id, "idle"))
-	if _motion_started.has(id):
+	if _motion_states.has(id):
 		return "move"
 	return "idle"
 
@@ -520,7 +531,8 @@ func _unit_animation_elapsed(id: int, state: String, now_msec: int) -> float:
 	if now_msec < int(_unit_animation_until.get(id, 0)):
 		started = int(_unit_animation_started.get(id, now_msec))
 	elif state == "move":
-		started = int(_motion_started.get(id, now_msec))
+		var motion: Dictionary = _motion_states.get(id, {})
+		started = int(motion.get("started_msec", now_msec))
 	return float(maxi(0, now_msec - started)) / 1000.0
 
 

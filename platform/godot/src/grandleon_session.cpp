@@ -4,6 +4,7 @@
 #include <grandleon/client/session.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_runtime/names.hpp>
+#include <grandleon/view/motion.hpp>
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -12,6 +13,7 @@
 #include <chrono>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <utility>
 
 namespace grandleon::godot_frontend {
@@ -137,6 +139,87 @@ sim::ContentId intent_content_id(const client::Intent& intent) {
         default: return 0;
     }
 }
+std::optional<MotionPresentation> plan_motion(
+    const sim::EncounterSnapshot& snapshot,
+    sim::UnitId unit_id,
+    sim::Position destination
+) {
+    const auto actor = std::find_if(
+        snapshot.units.begin(), snapshot.units.end(),
+        [unit_id](const sim::UnitSnapshot& unit) {
+            return unit.id == unit_id;
+        }
+    );
+    if (actor == snapshot.units.end() || !sim::on_board(*actor)) {
+        return std::nullopt;
+    }
+
+    const int width = static_cast<int>(snapshot.width);
+    const int height = static_cast<int>(snapshot.height);
+    if (width <= 0 || height <= 0) return std::nullopt;
+    const std::size_t cell_count =
+        static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    if (cell_count > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+        return std::nullopt;
+    }
+
+    std::vector<std::uint8_t> crossable(cell_count, 0);
+    const auto mark = [&crossable, width, height](sim::Position position) {
+        if (position.x < 0 || position.y < 0 || position.x >= width ||
+            position.y >= height) {
+            return;
+        }
+        crossable[static_cast<std::size_t>(position.y * width + position.x)] = 1;
+    };
+    for (const sim::Position position : sim::reachable_tiles(snapshot, unit_id)) {
+        mark(position);
+    }
+    for (const sim::UnitSnapshot& unit : snapshot.units) {
+        if (unit.id == actor->id || unit.side != actor->side ||
+            !sim::on_board(unit)) {
+            continue;
+        }
+        mark(unit.position);
+    }
+
+    // The shared route stores one-byte wavefront distances, so 254 steps is
+    // its longest representable walk. Source maps are at most 256 x 256; a
+    // route outside this bound simply retains the renderer's straight fallback.
+    constexpr int route_capacity =
+        static_cast<int>(view::route_unreached) - 1;
+    std::vector<view::RouteTile> storage(
+        std::min(cell_count, static_cast<std::size_t>(route_capacity))
+    );
+    std::vector<std::uint8_t> distance(cell_count);
+    view::Route route(storage.data(), static_cast<int>(storage.size()));
+    const bool found = view::plan_route(
+        actor->position.x, actor->position.y, destination.x, destination.y,
+        width, height,
+        [&crossable, width](int x, int y) {
+            return crossable[static_cast<std::size_t>(y * width + x)] != 0;
+        },
+        distance.data(), route
+    );
+    if (!found) return std::nullopt;
+
+    MotionPresentation result;
+    result.unit_id = unit_id;
+    result.route.reserve(static_cast<std::size_t>(route.size()));
+    for (int index = 0; index < route.size(); ++index) {
+        result.route.push_back({route[index].x, route[index].y});
+    }
+    constexpr int refresh_hz = 60;
+    result.duration_msec =
+        view::slide_frames_for(route.size()) * 1000 / refresh_hz;
+    return result;
+}
+
+std::optional<MotionPresentation> plan_motion(
+    const sim::EncounterSnapshot& snapshot, const client::Intent& intent
+) {
+    if (intent.kind != client::IntentKind::move_to) return std::nullopt;
+    return plan_motion(snapshot, intent.unit_id, intent.destination);
+}
 }  // namespace
 
 void AsyncPresenter::present_dialogue(const pr::Dialogue& dialogue) {
@@ -224,8 +307,10 @@ void AsyncPresenter::report(
         std::lock_guard<std::mutex> lock(mutex_);
         event.action = active_action_;
         event.action_content_id = active_action_content_id_;
+        event.motion = std::move(active_motion_);
         active_action_.clear();
         active_action_content_id_ = 0;
+        active_motion_.reset();
     }
     if (result.events.empty()) return;
     event.kind = FrontendEvent::Kind::presentation;
@@ -243,6 +328,7 @@ void AsyncPresenter::refused(sim::CommandError error) {
         active_request_id_ = 0;
         active_action_.clear();
         active_action_content_id_ = 0;
+        active_motion_.reset();
     }
     push(std::move(event));
 }
@@ -315,6 +401,7 @@ client::Intent AsyncPresenter::wait_for_intent(
     active_request_id_ = queued.request_id;
     active_action_ = intent_name(queued.intent.kind);
     active_action_content_id_ = intent_content_id(queued.intent);
+    active_motion_ = plan_motion(snapshot, queued.intent);
     return queued.intent;
 }
 
@@ -332,6 +419,7 @@ void AsyncPresenter::stop() {
         std::lock_guard<std::mutex> lock(mutex_);
         stopping_ = true;
         intents_.clear();
+        active_motion_.reset();
     }
     condition_.notify_all();
 }
@@ -844,6 +932,15 @@ gd::Dictionary GrandleonSession::event_dictionary(
                 value["amount"] = source.amount;
                 value["content_id"] = signed_id(source.content_id);
                 value["outcome"] = outcome_name(source.outcome);
+                if (source.type == sim::EventType::unit_moved &&
+                    event.motion.has_value() &&
+                    event.motion->unit_id == source.unit_id &&
+                    !event.motion->route.empty() &&
+                    event.motion->route.back().x == source.position.x &&
+                    event.motion->route.back().y == source.position.y) {
+                    value["route"] = positions_array(event.motion->route);
+                    value["duration_msec"] = event.motion->duration_msec;
+                }
                 values.push_back(value);
             }
             result["events"] = values;

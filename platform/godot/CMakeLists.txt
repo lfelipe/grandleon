@@ -46,6 +46,7 @@ target_link_libraries(
         grandleon::client
         grandleon::package_runtime
         grandleon::game_content
+        grandleon::view
         godot-cpp
 )
 # Project warnings still apply to the bridge itself.  Treat the pinned binding

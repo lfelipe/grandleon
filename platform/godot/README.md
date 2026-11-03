@@ -310,9 +310,10 @@ absent or invalid binding falls back to the procedural tile.
 
 Authored character bindings may additionally name an `AnimationPlayer` and map
 semantic `idle`, `move`, `attack`, `ability`, `hurt`, and `defeat` states to the
-clips exported by that asset. Locomotion and facing already respond to accepted
-board movement. See [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md) for the
-presentation-event seam needed for timed attacks, impacts, and defeat.
+clips exported by that asset. Locomotion follows the engine-derived multi-cell
+route, faces its current leg, and uses portable per-cell timing; the resulting
+snapshot remains authoritative. See [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md)
+for the complete presentation-event contract.
 
 The checked-in `relay_commander_3d.tscn` and `relay_drone_3d.tscn` scenes prove
 that boundary without changing a package or campaign. Their geometry,
@@ -383,6 +384,13 @@ keyboard-plus-pad, and extra-pad cases:
 
 ```sh
 platform/godot/scripts/smoke-controller-seats.sh
+```
+
+To validate the route sampler and then require two concurrent accepted moves
+to publish legal paths and timing through both the 2D and 3D renderers:
+
+```sh
+platform/godot/scripts/smoke-motion-path.sh
 ```
 
 To validate manifest-driven sprite dimensions, pivots, frame selection, timing,

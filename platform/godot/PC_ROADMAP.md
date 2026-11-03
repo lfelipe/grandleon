@@ -34,6 +34,7 @@ machine-specific model, graphics, or control configuration.
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Persistent presentation settings | Graphics profile, camera impulse, and text size survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
+| Route-aware locomotion | Accepted moves carry the shared portable route and a per-cell duration derived from console presentation timing. Both Godot renderers validate and follow every leg independently, including overlapping co-op moves, while snapshots remain authoritative and malformed records fall back safely. |
 | Controller-safe exit | Start or the optional Back shortcut opens a controller-native session menu; quitting requires an explicit second X press, while A, B, or Start resumes. |
 | SteamOS packaging | The release bundle runs without a system Godot install and keeps its writable state under its own `runtime/` directory. |
 | Privacy | The bundler rejects exact checkout paths and local override files. Endpoint, model, token environment name, and art overrides live only in ignored runtime files. |
@@ -110,8 +111,9 @@ Godot paths and still falls back cleanly when one asset is removed.
   impacts, and removal timing in the real campaign.
 - Replace the prototype scenes with one imported humanoid and drone from a
   normal glTF/GLB production workflow and exercise explicit clip-name maps.
-- Add an optional motion record with route and recommended duration so a rig
-  can time multi-cell locomotion without letting root motion own game state.
+- The optional motion record now carries an engine-derived route and recommended
+  duration; use it to tune imported rigs' gait and turn clips while keeping
+  root motion in place.
 - Decide on a full 3D roster only after this spike is visibly better than the
   hybrid at the intended viewing distance.
 
