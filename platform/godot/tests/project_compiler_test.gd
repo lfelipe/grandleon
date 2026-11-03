@@ -205,6 +205,14 @@ func _init() -> void:
 					var renamed_data: Dictionary = JSON.parse_string(renamed_member.source)
 					_expect("campaign character name changes", renamed_data.campaigns[0].roster[-1].name, "Editor Captain")
 					_expect("campaign character edit remains playable", compiler.compile_source_json(renamed_member.source).ok, true)
+					var modified_member: Dictionary = compiler.set_campaign_member_modifier(
+						renamed_member.source, campaign_id, "editor_hero", "health", 2
+					)
+					_expect("campaign character modifier succeeds", modified_member.ok, true)
+					if modified_member.ok:
+						var modified_data: Dictionary = JSON.parse_string(modified_member.source)
+						_expect("campaign character modifier is portable source", int(modified_data.campaigns[0].roster[-1].specificity.stats.health), 2)
+						_expect("modified campaign character remains playable", compiler.compile_source_json(modified_member.source).ok, true)
 			var join_node_id := str(source_data.campaigns[0].flow.nodes[0].id)
 			var added_recruit: Dictionary = compiler.add_campaign_member(
 				source, campaign_id, join_node_id, "editor_recruit", "Editor Recruit", member_role

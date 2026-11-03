@@ -5527,4 +5527,172 @@ SourceTextResult rename_source_campaign_member_json(
     return result;
 }
 
+SourceTextResult set_source_campaign_member_modifier_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view member_id,
+    std::string_view modifier,
+    std::int64_t value
+) {
+    SourceTextResult result;
+    if (!valid_source_key(campaign_id) || !valid_source_key(member_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            "campaign and member identities must be stable source-key strings"
+        );
+        return result;
+    }
+    constexpr std::array<std::string_view, specific_stat_count> stat_names{
+        "health", "strength", "defense", "resistance", "movement",
+        "actionPoints", "skill", "luck", "evasion", "magic", "speed",
+    };
+    const bool is_range = modifier == "rangeBonus";
+    const bool is_stat =
+        std::find(stat_names.begin(), stat_names.end(), modifier) !=
+        stat_names.end();
+    if (!is_range && !is_stat) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            "$.campaigns.roster.specificity",
+            "character modifier must name a portable stat or rangeBonus"
+        );
+        return result;
+    }
+    if ((is_range && (value < 0 || value > 32)) ||
+        (is_stat && (value < -32767 || value > 32767))) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            "$.campaigns.roster.specificity",
+            is_range ? "range bonus must be between 0 and 32"
+                     : "stat adjustment must be between -32767 and 32767"
+        );
+        return result;
+    }
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* campaigns =
+        root == nullptr ? nullptr : mutable_array(*root, "campaigns");
+    std::size_t campaign_index = 0;
+    Object* campaign = campaigns == nullptr
+                           ? nullptr
+                           : find_object_by_id(
+                                 *campaigns, campaign_id, &campaign_index
+                             );
+    if (campaign == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            "campaign was not found"
+        );
+        return result;
+    }
+    const std::string campaign_path =
+        "$.campaigns[" + std::to_string(campaign_index) + "]";
+    Object* member = nullptr;
+    std::string member_path = campaign_path + ".roster";
+    Array* roster = mutable_array(*campaign, "roster");
+    if (roster != nullptr) member = find_object_by_id(*roster, member_id);
+    Object* flow = mutable_object(*campaign, "flow");
+    Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+    for (std::size_t node_index = 0;
+         member == nullptr && nodes != nullptr && node_index < nodes->size();
+         ++node_index) {
+        auto* node = std::get_if<Object>(&(*nodes)[node_index].value);
+        Array* recruits =
+            node == nullptr ? nullptr : mutable_array(*node, "recruits");
+        if (recruits == nullptr) continue;
+        member = find_object_by_id(*recruits, member_id);
+        if (member != nullptr) {
+            member_path = campaign_path + ".flow.nodes[" +
+                          std::to_string(node_index) + "].recruits";
+        }
+    }
+    if (member == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, member_path,
+            "character was not found"
+        );
+        return result;
+    }
+
+    Object* specificity = mutable_object(*member, "specificity");
+    if (value != 0 && specificity == nullptr &&
+        member->find("specificity") == member->end()) {
+        auto inserted = member->emplace("specificity", Json{Object{}});
+        specificity = std::get_if<Object>(&inserted.first->second.value);
+    }
+    if (specificity == nullptr) {
+        if (value == 0) {
+            result.json = std::string(source_json);
+            return result;
+        }
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            member_path + ".specificity",
+            "character specificity is not writable"
+        );
+        return result;
+    }
+
+    if (is_range) {
+        if (value == 0) {
+            specificity->erase("rangeBonus");
+        } else {
+            (*specificity)["rangeBonus"] = Json{value};
+        }
+    } else {
+        Object* stats = mutable_object(*specificity, "stats");
+        if (value != 0 && stats == nullptr &&
+            specificity->find("stats") == specificity->end()) {
+            auto inserted = specificity->emplace("stats", Json{Object{}});
+            stats = std::get_if<Object>(&inserted.first->second.value);
+        }
+        if (stats == nullptr && value != 0) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                member_path + ".specificity.stats",
+                "character stat adjustments are not writable"
+            );
+            return result;
+        }
+        if (stats != nullptr) {
+            if (value == 0) {
+                stats->erase(std::string(modifier));
+            } else {
+                (*stats)[std::string(modifier)] = Json{value};
+            }
+            if (stats->empty()) specificity->erase("stats");
+        }
+    }
+    if (specificity->empty()) member->erase("specificity");
+
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value,
+        member_path + ".specificity",
+        "character modifier would make this playable project invalid"
+    );
+    return result;
+}
+
 }  // namespace grandleon::game_content

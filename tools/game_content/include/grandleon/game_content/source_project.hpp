@@ -338,6 +338,19 @@ struct SourceMapCell final {
     std::string_view name
 );
 
+// Changes one portable character modifier. Stat names use the source schema's
+// statDeltaBlock vocabulary; `rangeBonus` uses its own bounded positive value.
+// Zero removes that modifier and removes an empty specificity object, which is
+// how a character returns to the role default without authoring an invalid
+// zero delta.
+[[nodiscard]] SourceTextResult set_source_campaign_member_modifier_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view member_id,
+    std::string_view modifier,
+    std::int64_t value
+);
+
 // Creates one complete scene and attaches it to an existing story node as one
 // validated edit. The opening speaker may name a unit type for portable
 // portraits; backdrop may be empty to retain the ordinary flat presentation.

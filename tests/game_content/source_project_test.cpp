@@ -2347,6 +2347,73 @@ void adds_and_renames_campaign_members_without_retyping_the_project() {
             ),
         "a character rename needs a real character and a visible name"
     );
+
+    const auto tougher = gc::set_source_campaign_member_modifier_json(
+        source, "demo", "blue_one", "health", 3
+    );
+    const auto farther = gc::set_source_campaign_member_modifier_json(
+        tougher.json, "demo", "blue_one", "rangeBonus", 2
+    );
+    const auto parsed_farther = gc::parse_source_project_json(farther.json);
+    expect(
+        tougher && farther && parsed_farther,
+        "a campaign character can receive portable stat and range modifiers"
+    );
+    if (parsed_farther) {
+        const auto& specific_member =
+            parsed_farther.source.campaigns.front().roster.front();
+        expect(
+            specific_member.specificity.stat_deltas[0] == 3 &&
+                specific_member.specificity.reach_bonus == 2 &&
+                gc::compile(parsed_farther.source),
+            "character modifiers remain valid portable campaign data"
+        );
+    }
+    const auto default_health =
+        gc::set_source_campaign_member_modifier_json(
+            farther.json, "demo", "blue_one", "health", 0
+        );
+    const auto default_everything =
+        gc::set_source_campaign_member_modifier_json(
+            default_health.json, "demo", "blue_one", "rangeBonus", 0
+        );
+    const auto parsed_default =
+        gc::parse_source_project_json(default_everything.json);
+    expect(
+        default_health && default_everything && parsed_default,
+        "role-default modifier edits remain valid source"
+    );
+    if (parsed_default) {
+        expect(
+            default_health.json.find(R"json("rangeBonus": 2)json") !=
+                std::string::npos,
+            "clearing one modifier preserves the other modifier"
+        );
+        expect(
+            default_everything.json.find("specificity") == std::string::npos,
+            "clearing the final modifier removes the specificity object"
+        );
+        expect(
+            parsed_default.source.campaigns.front().roster.front()
+                .specificity.empty(),
+            "clearing modifiers restores the role's portable defaults"
+        );
+    }
+    expect(
+        !gc::set_source_campaign_member_modifier_json(
+            source, "demo", "blue_one", "health", -20
+        ) &&
+            !gc::set_source_campaign_member_modifier_json(
+                source, "demo", "blue_one", "rangeBonus", 33
+            ) &&
+            !gc::set_source_campaign_member_modifier_json(
+                source, "demo", "blue_one", "criticalChance", 1
+            ) &&
+            !gc::set_source_campaign_member_modifier_json(
+                source, "demo", "missing", "health", 1
+            ),
+        "impossible, unknown, and ownerless character modifiers are refused"
+    );
 }
 
 void creates_and_attaches_one_portable_dialogue_scene() {

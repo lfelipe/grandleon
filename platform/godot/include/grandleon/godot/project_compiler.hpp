@@ -177,6 +177,13 @@ public:
         const ::godot::String& member_id,
         const ::godot::String& name
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_campaign_member_modifier(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& member_id,
+        const ::godot::String& modifier,
+        std::int64_t value
+    ) const;
     [[nodiscard]] ::godot::Dictionary insert_dialogue_line(
         const ::godot::String& source_json,
         const ::godot::String& dialogue_id,
