@@ -3,6 +3,10 @@ extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const HISTORY_LIMIT := 64
+const BACKDROPS := [
+	"throne_hall", "night_camp", "deep_wood", "mountain_dusk",
+	"open_sea", "star_field", "crypt",
+]
 
 var library
 var compiler
@@ -11,6 +15,8 @@ var source := ""
 var saved_source := ""
 var project: Dictionary = {}
 var dialogues: Array = []
+var story_targets: Array[Dictionary] = []
+var scene_characters: Array[Dictionary] = []
 var dialogue_index := 0
 var line_index := 0
 var dirty := false
@@ -34,6 +40,15 @@ var play_button: Button
 var previous_button: Button
 var next_button: Button
 var apply_button: Button
+var new_scene_button: Button
+var new_scene_layer: Control
+var new_scene_title: LineEdit
+var new_scene_id_label: Label
+var new_scene_target: OptionButton
+var new_scene_character: OptionButton
+var new_scene_backdrop: OptionButton
+var new_scene_text: TextEdit
+var create_scene_button: Button
 
 
 func _ready() -> void:
@@ -46,7 +61,10 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		_request_projects()
+		if new_scene_layer != null and new_scene_layer.visible:
+			_close_new_scene()
+		else:
+			_request_projects()
 		get_viewport().set_input_as_handled()
 
 
@@ -82,7 +100,95 @@ func _read_source() -> bool:
 	project = parsed.data
 	var value: Variant = project.get("dialogues", [])
 	dialogues = value if value is Array else []
+	_collect_story_options()
 	return true
+
+
+func _collect_story_options() -> void:
+	story_targets.clear()
+	scene_characters.clear()
+	var seen_characters: Dictionary = {}
+	var unit_names: Dictionary = {}
+	for unit_value: Variant in project.get("unitTypes", []):
+		if unit_value is Dictionary:
+			var unit: Dictionary = unit_value
+			var unit_id := str(unit.get("id", ""))
+			if not unit_id.is_empty():
+				unit_names[unit_id] = str(unit.get("name", unit_id))
+	for campaign_value: Variant in project.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var campaign: Dictionary = campaign_value
+		var campaign_id := str(campaign.get("id", ""))
+		var campaign_name := str(campaign.get("name", campaign_id))
+		for member_value: Variant in campaign.get("roster", []):
+			_add_scene_character(
+				member_value, seen_characters, campaign_id, unit_names
+			)
+		var flow_value: Variant = campaign.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if not node_value is Dictionary:
+				continue
+			var node: Dictionary = node_value
+			for recruit_value: Variant in node.get("recruits", []):
+				_add_scene_character(
+					recruit_value, seen_characters, campaign_id, unit_names
+				)
+			if str(node.get("kind", "")) != "story":
+				continue
+			story_targets.append({
+				"campaign_id": campaign_id,
+				"node_id": str(node.get("id", "")),
+				"label": "%s  /  %s" % [
+					campaign_name, str(node.get("name", node.get("id", "Story")))
+				],
+			})
+	for unit_value: Variant in project.get("unitTypes", []):
+		if not unit_value is Dictionary:
+			continue
+		var unit: Dictionary = unit_value
+		var unit_id := str(unit.get("id", ""))
+		var unit_name := str(unit.get("name", unit_id))
+		var character_key := "%s\u001f%s" % [unit_name, unit_id]
+		if unit_id.is_empty() or seen_characters.has(character_key):
+			continue
+		seen_characters[character_key] = true
+		scene_characters.append({
+			"speaker": unit_name,
+			"unit_type_id": unit_id,
+			"unit_name": unit_name,
+			"campaign_ids": [],
+		})
+
+
+func _add_scene_character(
+	value: Variant, seen: Dictionary, campaign_id: String, unit_names: Dictionary
+) -> void:
+	if not value is Dictionary:
+		return
+	var member: Dictionary = value
+	var unit_id := str(member.get("unitTypeId", ""))
+	var speaker := str(member.get("name", unit_id))
+	var character_key := "%s\u001f%s" % [speaker, unit_id]
+	if unit_id.is_empty():
+		return
+	if seen.has(character_key):
+		var existing: Dictionary = scene_characters[int(seen[character_key])]
+		var campaigns: Array = existing.get("campaign_ids", [])
+		if not campaigns.has(campaign_id):
+			campaigns.append(campaign_id)
+			existing["campaign_ids"] = campaigns
+			scene_characters[int(seen[character_key])] = existing
+		return
+	seen[character_key] = scene_characters.size()
+	scene_characters.append({
+		"speaker": speaker,
+		"unit_type_id": unit_id,
+		"unit_name": str(unit_names.get(unit_id, unit_id)),
+		"campaign_ids": [campaign_id],
+	})
 
 
 func _refresh_dialogues() -> void:
@@ -263,6 +369,138 @@ func _save() -> void:
 	_update_actions()
 
 
+func _next_scene_id() -> String:
+	var existing: Array[String] = []
+	for value: Variant in dialogues:
+		if value is Dictionary:
+			existing.append(str(value.get("id", "")))
+	var sequence := 1
+	while existing.has("scene_%d" % sequence):
+		sequence += 1
+	return "scene_%d" % sequence
+
+
+func _open_new_scene() -> void:
+	if story_targets.is_empty():
+		_set_status("CREATE A CAMPAIGN STORY MOMENT BEFORE ADDING A SCENE", true)
+		return
+	if scene_characters.is_empty():
+		_set_status("CREATE A CHARACTER BEFORE ADDING A SCENE", true)
+		return
+	_hide_new_scene_popups()
+	new_scene_target.clear()
+	for target: Dictionary in story_targets:
+		new_scene_target.add_item(str(target.label))
+	new_scene_character.clear()
+	for character: Dictionary in scene_characters:
+		var role := str(character.unit_name)
+		new_scene_character.add_item(
+			str(character.speaker)
+			if role == str(character.speaker)
+			else "%s  /  %s" % [character.speaker, role]
+		)
+	new_scene_backdrop.clear()
+	new_scene_backdrop.add_item("FLAT / NO BACKDROP")
+	for backdrop: String in BACKDROPS:
+		new_scene_backdrop.add_item(backdrop.replace("_", " ").to_upper())
+	var scene_id := _next_scene_id()
+	new_scene_id_label.text = "PORTABLE ID  /  %s" % scene_id.to_upper()
+	new_scene_title.text = "New Scene %s" % scene_id.trim_prefix("scene_")
+	new_scene_text.text = "A new conversation begins."
+	new_scene_target.select(0)
+	_select_scene_target(0)
+	new_scene_backdrop.select(0)
+	new_scene_layer.visible = true
+	new_scene_target.grab_focus()
+	call_deferred("_hide_new_scene_popups")
+
+
+func _select_scene_target(index: int) -> void:
+	if index < 0 or index >= story_targets.size():
+		return
+	var campaign_id := str(story_targets[index].campaign_id)
+	for character_index in scene_characters.size():
+		var character: Dictionary = scene_characters[character_index]
+		if campaign_id in character.get("campaign_ids", []):
+			new_scene_character.select(character_index)
+			return
+	if not scene_characters.is_empty():
+		new_scene_character.select(0)
+
+
+func _close_new_scene() -> void:
+	_hide_new_scene_popups()
+	new_scene_layer.visible = false
+	if not dialogues.is_empty():
+		dialogue_select.grab_focus()
+	else:
+		new_scene_button.grab_focus()
+
+
+func _hide_new_scene_popups() -> void:
+	new_scene_target.get_popup().hide()
+	new_scene_character.get_popup().hide()
+	new_scene_backdrop.get_popup().hide()
+
+
+func _create_new_scene() -> void:
+	if (
+		new_scene_target.selected < 0
+		or new_scene_target.selected >= story_targets.size()
+		or new_scene_character.selected < 0
+		or new_scene_character.selected >= scene_characters.size()
+	):
+		_set_status("SCENE NEEDS A STORY MOMENT AND CHARACTER", true)
+		return
+	var title := new_scene_title.text.strip_edges()
+	var opening := new_scene_text.text.strip_edges()
+	if title.is_empty() or opening.is_empty():
+		_set_status("SCENE TITLE AND OPENING LINE CANNOT BE EMPTY", true)
+		return
+	var target: Dictionary = story_targets[new_scene_target.selected]
+	var character: Dictionary = scene_characters[new_scene_character.selected]
+	var scene_id := _next_scene_id()
+	var backdrop: String = (
+		"" if new_scene_backdrop.selected <= 0
+		else BACKDROPS[new_scene_backdrop.selected - 1]
+	)
+	var added: Dictionary = compiler.add_dialogue_scene(
+		source,
+		str(target.campaign_id),
+		str(target.node_id),
+		scene_id,
+		title,
+		backdrop,
+		str(character.speaker),
+		str(character.unit_type_id),
+		opening
+	)
+	if not added.ok:
+		_set_status("SCENE NOT CREATED  /  %s" % _diagnostic_detail(added), true)
+		return
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = str(added.source)
+	dirty = source != saved_source
+	_read_source()
+	dialogue_index = 0
+	for index in dialogues.size():
+		var value: Variant = dialogues[index]
+		if value is Dictionary and str(value.get("id", "")) == scene_id:
+			dialogue_index = index
+			break
+	line_index = 0
+	_refresh_dialogues()
+	new_scene_layer.visible = false
+	_set_status(
+		"UNSAVED  /  CREATED %s IN %s" % [
+			title.to_upper(), str(target.label).to_upper()
+		],
+		false
+	)
+	dialogue_select.grab_focus()
+
+
 func _play_draft() -> void:
 	if compiler == null:
 		_set_status("NATIVE PROJECT COMPILER IS UNAVAILABLE", true)
@@ -320,6 +558,7 @@ func _update_actions() -> void:
 	undo_button.disabled = undo_stack.is_empty()
 	redo_button.disabled = redo_stack.is_empty()
 	play_button.disabled = project.get("campaigns", []).is_empty()
+	new_scene_button.disabled = story_targets.is_empty() or scene_characters.is_empty()
 
 
 func _build_interface() -> void:
@@ -352,6 +591,9 @@ func _build_interface() -> void:
 	redo_button = _button("REDO", 170, 58)
 	redo_button.pressed.connect(_redo)
 	toolbar.add_child(redo_button)
+	new_scene_button = _button("NEW SCENE", 210, 58)
+	new_scene_button.pressed.connect(_open_new_scene)
+	toolbar.add_child(new_scene_button)
 	play_button = _button("PLAY DRAFT", 240, 58)
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
@@ -455,6 +697,88 @@ func _build_interface() -> void:
 	controls_hint.size = Vector2(1130, 34)
 	controls_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(controls_hint)
+	_build_new_scene_layer()
+
+
+func _build_new_scene_layer() -> void:
+	new_scene_layer = Control.new()
+	new_scene_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	new_scene_layer.visible = false
+	new_scene_layer.z_index = 50
+	add_child(new_scene_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.92)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	new_scene_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(280, 74)
+	panel.size = Vector2(1360, 932)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.48, 0.35, 0.72, 0.72))
+	)
+	new_scene_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 10)
+	panel.add_child(column)
+	column.add_child(_label("NEW PORTABLE SCENE", 17, Color("b58cff")))
+	column.add_child(_label("Start a conversation inside an existing campaign story moment.", 30, Color("f2f7f9")))
+	new_scene_id_label = _label("PORTABLE ID", 16, Color("718896"))
+	column.add_child(new_scene_id_label)
+	column.add_child(_label("SCENE TITLE", 15, Color("69d9ff")))
+	new_scene_title = LineEdit.new()
+	new_scene_title.custom_minimum_size = Vector2(1260, 54)
+	new_scene_title.max_length = 160
+	new_scene_title.add_theme_font_size_override("font_size", 20)
+	column.add_child(new_scene_title)
+	var pickers := HBoxContainer.new()
+	pickers.add_theme_constant_override("separation", 18)
+	column.add_child(pickers)
+	var target_column := VBoxContainer.new()
+	target_column.add_theme_constant_override("separation", 7)
+	pickers.add_child(target_column)
+	target_column.add_child(_label("CAMPAIGN STORY MOMENT", 15, Color("69d9ff")))
+	new_scene_target = OptionButton.new()
+	new_scene_target.custom_minimum_size = Vector2(620, 56)
+	new_scene_target.add_theme_font_size_override("font_size", 18)
+	new_scene_target.item_selected.connect(_select_scene_target)
+	target_column.add_child(new_scene_target)
+	var backdrop_column := VBoxContainer.new()
+	backdrop_column.add_theme_constant_override("separation", 7)
+	pickers.add_child(backdrop_column)
+	backdrop_column.add_child(_label("BACKDROP", 15, Color("69d9ff")))
+	new_scene_backdrop = OptionButton.new()
+	new_scene_backdrop.custom_minimum_size = Vector2(620, 56)
+	new_scene_backdrop.add_theme_font_size_override("font_size", 18)
+	backdrop_column.add_child(new_scene_backdrop)
+	column.add_child(_label("OPENING CHARACTER", 15, Color("69d9ff")))
+	new_scene_character = OptionButton.new()
+	new_scene_character.custom_minimum_size = Vector2(1260, 56)
+	new_scene_character.add_theme_font_size_override("font_size", 18)
+	column.add_child(new_scene_character)
+	column.add_child(_label("OPENING LINE", 15, Color("69d9ff")))
+	new_scene_text = TextEdit.new()
+	new_scene_text.custom_minimum_size = Vector2(1260, 190)
+	new_scene_text.placeholder_text = "Write the first line players will read."
+	new_scene_text.add_theme_font_size_override("font_size", 20)
+	column.add_child(new_scene_text)
+	var guidance := _label(
+		"The scene, cast identity, backdrop, and campaign attachment are portable to PC and console builds. Local-model settings stay outside the project.",
+		16, Color("8ba5b3")
+	)
+	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	guidance.custom_minimum_size.y = 42
+	column.add_child(guidance)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	create_scene_button = _button("CREATE AND ATTACH", 340, 62)
+	create_scene_button.pressed.connect(_create_new_scene)
+	actions.add_child(create_scene_button)
+	var back := _button("BACK", 220, 62)
+	back.pressed.connect(_close_new_scene)
+	actions.add_child(back)
+	actions.add_child(_label("Confirm chooses. Keyboard writes. Cancel returns.", 16, Color("718896")))
 
 
 func _set_status(message: String, failure: bool) -> void:

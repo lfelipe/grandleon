@@ -51,9 +51,12 @@ The first native seam is implemented:
   cells and refuses to strand encounter data.
 - The focused Story creator lists the starter's real dialogue scenes and lines,
   cycles only portable cast speakers, and edits text through a native
-  integer-preserving source command. It has bounded undo/redo, recoverable
-  save, immediate draft play, and controller navigation around the keyboard
-  writing field. A smoke reopens and compiles the saved dialogue.
+  integer-preserving source command. It also creates a complete scene with an
+  opening cast member, portable backdrop, and first line, and attaches it to an
+  existing campaign story moment as one validated command. It has bounded
+  undo/redo, recoverable save, immediate draft play, and controller navigation
+  around the keyboard writing fields. A smoke reopens and compiles the saved
+  dialogue and its campaign attachment.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
@@ -173,9 +176,9 @@ ports the most interaction-heavy part of the earlier editor early.
 
 - Characters, classes, factions, equipment, weapons, abilities, and items.
 - Stages, transitions, conditions, arrivals, rewards, and starting roster.
-- Existing dialogue-line authoring with portable speaker selection is
-  implemented. Scene creation, campaign attachment, and portrait preview
-  remain.
+- Dialogue-line authoring with portable speaker selection and complete scene
+  creation/attachment to existing story moments are implemented. Campaign
+  story-node creation, transition routing, and portrait preview remain.
 - Searchable reference pickers; raw stable IDs should not be normal UI.
 
 ### 4. Art and presentation

@@ -127,6 +127,17 @@ public:
         const ::godot::String& speaker,
         const ::godot::String& line_text
     ) const;
+    [[nodiscard]] ::godot::Dictionary add_dialogue_scene(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& node_id,
+        const ::godot::String& dialogue_id,
+        const ::godot::String& name,
+        const ::godot::String& background_id,
+        const ::godot::String& speaker,
+        const ::godot::String& unit_type_id,
+        const ::godot::String& line_text
+    ) const;
     [[nodiscard]] ::godot::String supported_schema() const;
 
 protected:

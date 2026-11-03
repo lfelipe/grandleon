@@ -242,4 +242,19 @@ struct SourceMapCell final {
     std::string_view line_text
 );
 
+// Creates one complete scene and attaches it to an existing story node as one
+// validated edit. The opening speaker may name a unit type for portable
+// portraits; backdrop may be empty to retain the ordinary flat presentation.
+[[nodiscard]] SourceTextResult add_source_dialogue_scene_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view dialogue_id,
+    std::string_view name,
+    std::string_view background_id,
+    std::string_view speaker,
+    std::string_view unit_type_id,
+    std::string_view line_text
+);
+
 }  // namespace grandleon::game_content

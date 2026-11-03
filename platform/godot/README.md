@@ -91,17 +91,19 @@ same small game-and-creator front door.
 
 **Story** opens a focused dialogue editor rather than adding writing controls
 to the map canvas. A controller can choose scenes, lines, and speakers; a
-keyboard enters the words. Applying a line passes speaker and text through the
-native integer-preserving source boundary, with bounded undo/redo, recoverable
-save, and immediate draft play. Cast identities, campaign references, console
-content, and unrelated source fields remain unchanged. Model endpoints and
-prompts never enter the portable dialogue source.
+keyboard enters the words. It can also create a complete scene with a portable
+cast identity, backdrop, and opening line, then attach it atomically to an
+existing campaign story moment. Applying either edit passes through the native
+integer-preserving source boundary, with bounded undo/redo, recoverable save,
+and immediate draft play. Campaign routing outside that explicit attachment,
+console content, and unrelated source fields remain unchanged. Model endpoints
+and prompts never enter the portable dialogue source.
 
 The current creator creates and resizes maps, edits playable and surrounding
 terrain, arranges both sides of existing encounters, and authors deployment
-regions, player scaling, objectives, and existing dialogue lines. Creating new
-dialogue scenes, routing campaign story nodes, and broader art-pack editing
-remain in the increments defined by
+regions, player scaling, objectives, dialogue lines, and new dialogue scenes
+attached to existing story moments. Creating and routing campaign story nodes
+and broader art-pack editing remain in the increments defined by
 [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated

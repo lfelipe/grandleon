@@ -2042,6 +2042,70 @@ void updates_one_dialogue_line_without_retyping_the_project() {
     );
 }
 
+void creates_and_attaches_one_portable_dialogue_scene() {
+    const std::string with_story = source_with(
+        R"json("entryNodeId":"battle",
+      "nodes":[)json",
+        R"json("entryNodeId":"intro",
+      "nodes":[
+        {"id":"intro","name":"Introduction","kind":"story",
+         "transitions":[{"id":"begin","targetNodeId":"battle","priority":0}]},)json"
+    );
+    const auto added = gc::add_source_dialogue_scene_json(
+        with_story, "demo", "intro", "scene_1", "A New Signal",
+        "star_field", "Blue One", "blue_unit",
+        "There is another road beyond the bridge."
+    );
+    if (!added) {
+        for (const gc::SourceDiagnostic& diagnostic : added.diagnostics) {
+            std::cerr << "  scene refused: "
+                      << gc::source_diagnostic_name(diagnostic.code) << " at "
+                      << diagnostic.path << ": " << diagnostic.detail << '\n';
+        }
+    }
+    expect(static_cast<bool>(added), "one complete dialogue scene is creatable");
+    const auto parsed = gc::parse_source_project_json(added.json);
+    expect(
+        parsed && parsed.source.dialogues.size() == 1 &&
+            parsed.source.dialogues.front().name == "A New Signal" &&
+            parsed.source.dialogues.front().cast.size() == 1 &&
+            parsed.source.dialogues.front().lines.size() == 1 &&
+            parsed.source.campaigns.front().nodes.front().dialogue_ids.size() ==
+                1,
+        "the new scene, portrait cast, opening line, and story attachment map"
+    );
+    expect(
+        parsed && gc::compile(parsed.source),
+        "the project remains playable after the scene is attached"
+    );
+    expect(
+        added.json.find("20.0") == std::string::npos &&
+            added.json.find(R"json("health": 20)json") != std::string::npos,
+        "scene creation preserves unrelated integer tokens"
+    );
+    expect(
+        !gc::add_source_dialogue_scene_json(
+            added.json, "demo", "intro", "scene_1", "Duplicate",
+            "star_field", "Blue One", "blue_unit", "Again."
+        ),
+        "a duplicate scene identity is refused"
+    );
+    expect(
+        !gc::add_source_dialogue_scene_json(
+            with_story, "demo", "battle", "scene_2", "Wrong Node",
+            "star_field", "Blue One", "blue_unit", "Not here."
+        ),
+        "scene creation refuses a non-story campaign node"
+    );
+    expect(
+        !gc::add_source_dialogue_scene_json(
+            with_story, "demo", "intro", "scene_2", "Unknown Cast",
+            "star_field", "Blue One", "missing_unit", "Not here."
+        ),
+        "scene creation refuses a cast member the project cannot draw"
+    );
+}
+
 // Both halves of the typed-compatibility bridge `SOURCE_FORMAT.md` describes.
 // Omitting the allowance is legacy unrestricted access; stating an empty one is
 // an author saying "no weapon type" and meaning it. The reader could not tell
@@ -2404,6 +2468,7 @@ int main() {
     instantiates_a_template_without_float_round_tripping();
     updates_one_map_cell_without_retyping_the_project();
     updates_one_dialogue_line_without_retyping_the_project();
+    creates_and_attaches_one_portable_dialogue_scene();
     maps_authored_resistance();
     refuses_a_stat_the_rules_cannot_execute();
     keeps_the_whole_range_for_the_chance_stats();

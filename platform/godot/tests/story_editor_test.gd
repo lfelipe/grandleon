@@ -66,6 +66,37 @@ func _run() -> void:
 	)
 	editor._save()
 	_expect("story save clears dirty state", editor.dirty, false)
+	var dialogue_count: int = editor.dialogues.size()
+	editor._open_new_scene()
+	_expect("new scene overlay opens", editor.new_scene_layer.visible, true)
+	_expect("campaign story moments are selectable", editor.story_targets.is_empty(), false)
+	_expect("portable characters are selectable", editor.scene_characters.is_empty(), false)
+	var selected_target: Dictionary = editor.story_targets[editor.new_scene_target.selected]
+	var selected_character: Dictionary = (
+		editor.scene_characters[editor.new_scene_character.selected]
+	)
+	_expect(
+		"new scene defaults to a character from its campaign",
+		str(selected_target.campaign_id) in selected_character.get("campaign_ids", []),
+		true
+	)
+	editor.new_scene_title.text = "The Second Signal"
+	editor.new_scene_text.text = "The road answers with a second signal."
+	editor.new_scene_backdrop.select(6)
+	editor._create_new_scene()
+	await process_frame
+	var with_scene := _parse(editor.source)
+	_expect("new scene overlay closes", editor.new_scene_layer.visible, false)
+	_expect("new dialogue scene is appended", editor.dialogues.size(), dialogue_count + 1)
+	_expect("new dialogue receives a portable id", str(with_scene.dialogues[-1].id), "scene_1")
+	_expect("new dialogue is attached to story flow", _has_dialogue_attachment(with_scene, "scene_1"), true)
+	_expect("new dialogue marks project dirty", editor.dirty, true)
+	editor._undo()
+	_expect("scene creation undo removes the scene", editor.dialogues.size(), dialogue_count)
+	editor._redo()
+	_expect("scene creation redo restores the scene", editor.dialogues.size(), dialogue_count + 1)
+	editor._save()
+	_expect("created scene saves", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
 	_expect("saved story reopens", stored.ok, true)
 	if stored.ok:
@@ -73,6 +104,11 @@ func _run() -> void:
 			"saved dialogue text reopens",
 			str(stored.project.dialogues[0].lines[0].text),
 			"The relay answers through portable story source."
+		)
+		_expect(
+			"saved dialogue scene reopens",
+			str(stored.project.dialogues[-1].name),
+			"The Second Signal"
 		)
 		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 		_expect(
@@ -83,6 +119,8 @@ func _run() -> void:
 
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
+		if _has_argument("--new-scene-preview"):
+			editor._open_new_scene()
 		for _frame in 12:
 			await process_frame
 		var texture := get_root().get_texture()
@@ -103,11 +141,28 @@ func _parse(value: String) -> Dictionary:
 	return parsed if parsed is Dictionary else {}
 
 
+func _has_dialogue_attachment(data: Dictionary, dialogue_id: String) -> bool:
+	for campaign_value: Variant in data.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var flow_value: Variant = campaign_value.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if node_value is Dictionary and dialogue_id in node_value.get("dialogueIds", []):
+				return true
+	return false
+
+
 func _argument_path(prefix: String) -> String:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with(prefix):
 			return argument.trim_prefix(prefix)
 	return ""
+
+
+func _has_argument(value: String) -> bool:
+	return value in OS.get_cmdline_user_args()
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

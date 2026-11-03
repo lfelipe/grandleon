@@ -4232,6 +4232,213 @@ SourceTextResult set_source_encounter_objectives_json(
     return result;
 }
 
+SourceTextResult add_source_dialogue_scene_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view dialogue_id,
+    std::string_view name,
+    std::string_view background_id,
+    std::string_view speaker,
+    std::string_view unit_type_id,
+    std::string_view line_text
+) {
+    SourceTextResult result;
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    for (const auto& [value, label] : {
+             std::pair{campaign_id, "campaign"},
+             std::pair{node_id, "node"},
+             std::pair{dialogue_id, "dialogue"},
+             std::pair{unit_type_id, "unit type"},
+         }) {
+        if (valid_source_key(value)) continue;
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            std::string(label) + " id must be a stable source-key string"
+        );
+        return result;
+    }
+    if (name.empty() || name.size() > 160) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue name must contain between 1 and 160 characters"
+        );
+        return result;
+    }
+    if (speaker.empty() || speaker.size() > 160) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue speaker must contain between 1 and 160 characters"
+        );
+        return result;
+    }
+    if (line_text.empty() || line_text.size() > 4096) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue text must contain between 1 and 4096 characters"
+        );
+        return result;
+    }
+    if (!background_id.empty() &&
+        backdrop_index(background_id) >= backdrop_count) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue backdrop is not part of the portable art vocabulary"
+        );
+        return result;
+    }
+
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* dialogues = root == nullptr ? nullptr
+                                       : mutable_array(*root, "dialogues");
+    if (root != nullptr && root->find("dialogues") == root->end()) {
+        auto inserted = root->emplace("dialogues", Json{Array{}});
+        dialogues = std::get_if<Array>(&inserted.first->second.value);
+    }
+    if (dialogues == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "expected array"
+        );
+        return result;
+    }
+    if (dialogues->size() >= 100000) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "project cannot contain more than 100000 dialogues"
+        );
+        return result;
+    }
+    if (find_object_by_id(*dialogues, dialogue_id) != nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.dialogues",
+            "dialogue id already exists"
+        );
+        return result;
+    }
+    Array* unit_types = mutable_array(*root, "unitTypes");
+    if (unit_types == nullptr ||
+        find_object_by_id(*unit_types, unit_type_id) == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            "$.dialogues.cast.unitTypeId",
+            "dialogue cast unit type was not found"
+        );
+        return result;
+    }
+    Array* campaigns = mutable_array(*root, "campaigns");
+    std::size_t campaign_index = 0;
+    Object* campaign = campaigns == nullptr
+                           ? nullptr
+                           : find_object_by_id(
+                                 *campaigns, campaign_id, &campaign_index
+                             );
+    if (campaign == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            "campaign '" + std::string(campaign_id) + "' was not found"
+        );
+        return result;
+    }
+    const std::string campaign_path =
+        "$.campaigns[" + std::to_string(campaign_index) + "]";
+    Object* flow = mutable_object(*campaign, "flow");
+    Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+    std::size_t node_index = 0;
+    Object* node = nodes == nullptr
+                       ? nullptr
+                       : find_object_by_id(*nodes, node_id, &node_index);
+    const std::string node_path = campaign_path + ".flow.nodes[" +
+                                  std::to_string(node_index) + "]";
+    if (node == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow.nodes",
+            "node '" + std::string(node_id) + "' was not found"
+        );
+        return result;
+    }
+    const std::string* kind = string_member(*node, "kind");
+    if (kind == nullptr || *kind != "story") {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, node_path,
+            "new dialogue scenes must attach to a story node"
+        );
+        return result;
+    }
+    Array* membership = mutable_array(*node, "dialogueIds");
+    if (membership == nullptr) {
+        auto inserted = node->emplace("dialogueIds", Json{Array{}});
+        membership = std::get_if<Array>(&inserted.first->second.value);
+    }
+    if (membership == nullptr || membership->size() >= 65535) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            node_path + ".dialogueIds",
+            "story dialogue membership is not writable or is full"
+        );
+        return result;
+    }
+
+    Object cast_entry;
+    cast_entry.emplace("speaker", Json{std::string(speaker)});
+    cast_entry.emplace("unitTypeId", Json{std::string(unit_type_id)});
+    Array cast;
+    cast.push_back(Json{std::move(cast_entry)});
+    Object opening_line;
+    opening_line.emplace("speaker", Json{std::string(speaker)});
+    opening_line.emplace("text", Json{std::string(line_text)});
+    Array lines;
+    lines.push_back(Json{std::move(opening_line)});
+    Object added;
+    added.emplace("id", Json{std::string(dialogue_id)});
+    added.emplace("name", Json{std::string(name)});
+    if (!background_id.empty()) {
+        added.emplace(
+            "backgroundId", Json{std::string(background_id)}
+        );
+    }
+    added.emplace("cast", Json{std::move(cast)});
+    added.emplace("lines", Json{std::move(lines)});
+    dialogues->push_back(Json{std::move(added)});
+    membership->push_back(Json{std::string(dialogue_id)});
+
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    std::string detail =
+        "dialogue edit would make this playable project invalid";
+    if (after && !compiled.diagnostics.empty()) {
+        detail += " (";
+        detail += diagnostic_name(compiled.diagnostics.front().code);
+        detail += ")";
+    }
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value,
+        node_path + ".dialogueIds", std::move(detail)
+    );
+    return result;
+}
+
 SourceTextResult update_source_dialogue_line_json(
     std::string_view source_json,
     std::string_view dialogue_id,

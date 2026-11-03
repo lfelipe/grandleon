@@ -205,6 +205,24 @@ func _init() -> void:
 			)
 			_expect("outside dialogue line is refused", outside_dialogue.ok, false)
 			_expect("outside dialogue edit returns no source", outside_dialogue.source, "")
+			var added_dialogue: Dictionary = compiler.add_dialogue_scene(
+				source, "last_signal", "relay_approach", "editor_scene",
+				"An Editor Scene", "star_field", "Kestrel", "kestrel_rogue",
+				"This scene was attached without rebuilding the project in GDScript."
+			)
+			_expect("dialogue scene creation succeeds", added_dialogue.ok, true)
+			if added_dialogue.ok:
+				var added_data: Dictionary = JSON.parse_string(added_dialogue.source)
+				_expect(
+					"dialogue scene is appended",
+					str(added_data.dialogues[-1].id),
+					"editor_scene"
+				)
+				_expect(
+					"dialogue scene edit remains playable",
+					compiler.compile_source_json(added_dialogue.source).ok,
+					true
+				)
 
 	var blank_path := ProjectSettings.globalize_path(
 		"res://content/templates/blank_project.json"

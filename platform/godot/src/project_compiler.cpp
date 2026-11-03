@@ -158,6 +158,14 @@ void GrandleonProjectCompiler::_bind_methods() {
         &GrandleonProjectCompiler::update_dialogue_line
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "add_dialogue_scene", "source_json", "campaign_id", "node_id",
+            "dialogue_id", "name", "background_id", "speaker",
+            "unit_type_id", "line_text"
+        ),
+        &GrandleonProjectCompiler::add_dialogue_scene
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("supported_schema"),
         &GrandleonProjectCompiler::supported_schema
     );
@@ -634,6 +642,39 @@ gd::Dictionary GrandleonProjectCompiler::update_dialogue_line(
     }
     result["ok"] = true;
     result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::add_dialogue_scene(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& node_id,
+    const gd::String& dialogue_id,
+    const gd::String& name,
+    const gd::String& background_id,
+    const gd::String& speaker,
+    const gd::String& unit_type_id,
+    const gd::String& line_text
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult added = gc::add_source_dialogue_scene_json(
+        narrow(source_json), narrow(campaign_id), narrow(node_id),
+        narrow(dialogue_id), narrow(name), narrow(background_id),
+        narrow(speaker), narrow(unit_type_id), narrow(line_text)
+    );
+    if (!added) {
+        for (const gc::SourceDiagnostic& diagnostic : added.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(added.json);
     result["diagnostics"] = diagnostics;
     return result;
 }
