@@ -70,6 +70,27 @@ func _run() -> void:
 	_expect("reopened supplies preserve reward kind", str(editor.supply_kind.get_item_metadata(editor.supply_kind.selected)), "weapon")
 	_expect("reopened supplies show the saved reward amount", editor._current_supply_quantity(), 1)
 	editor._close_supplies()
+	editor._open_loadout()
+	_expect("role loadout opens on demand", editor.loadout_layer.visible, true)
+	_expect("role loadout begins with one controller choice", editor.loadout_kind.has_focus(), true)
+	_expect("role loadout offers named categories", editor.loadout_kind.item_count > 0, true)
+	var offers_incompatible_focus := false
+	for index in editor.loadout_asset.item_count:
+		if str(editor.loadout_asset.get_item_metadata(index)) == "apprentice_focus":
+			offers_incompatible_focus = true
+	_expect("role loadout offers compatible named choices", editor.loadout_asset.item_count > 0, true)
+	_expect("role loadout hides incompatible weapons", offers_incompatible_focus, false)
+	_expect("founding role starts with its weapon", editor._current_loadout_included(), true)
+	editor._toggle_loadout()
+	_expect("role weapon can be removed", _parse(editor.source).unitTypes[0].has("startingWeaponIds"), false)
+	editor._toggle_loadout()
+	_expect("role weapon can be restored", str(_parse(editor.source).unitTypes[0].startingWeaponIds[0]), "traveller_blade")
+	editor._undo()
+	_expect("role loadout change is undoable", _parse(editor.source).unitTypes[0].has("startingWeaponIds"), false)
+	editor._redo()
+	_expect("role loadout change is redoable", str(_parse(editor.source).unitTypes[0].startingWeaponIds[0]), "traveller_blade")
+	editor._close_loadout()
+	_expect("closing role loadout returns to its entry action", editor.loadout_button.has_focus(), true)
 	editor._open_modifiers()
 	_expect("hero tuning opens on demand", editor.modifier_layer.visible, true)
 	_expect("hero tuning starts on a compact controller action", editor.first_modifier_button.has_focus(), true)
@@ -131,7 +152,9 @@ func _run() -> void:
 
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
-		if _has_argument("--supplies-preview"):
+		if _has_argument("--loadout-preview"):
+			editor._open_loadout()
+		elif _has_argument("--supplies-preview"):
 			editor._open_supplies()
 		else:
 			editor._open_modifiers()

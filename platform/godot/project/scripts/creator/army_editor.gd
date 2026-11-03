@@ -69,6 +69,15 @@ var supply_asset: OptionButton
 var supply_value_label: Label
 var supply_minus_button: Button
 var supply_plus_button: Button
+var loadout_button: Button
+var loadout_layer: Control
+var loadout_role_label: Label
+var loadout_kind: OptionButton
+var loadout_asset: OptionButton
+var loadout_summary_label: Label
+var loadout_value_label: Label
+var loadout_toggle_button: Button
+var loadout_unit_type_id := ""
 
 
 func _ready() -> void:
@@ -82,7 +91,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if supply_layer.visible:
+		if loadout_layer.visible:
+			_close_loadout()
+		elif supply_layer.visible:
 			_close_supplies()
 		elif modifier_layer.visible:
 			_close_modifiers()
@@ -495,6 +506,177 @@ func _adjust_supply(amount: int) -> void:
 	)
 
 
+func _open_loadout() -> void:
+	if not _commit_visible_member(false):
+		return
+	var member := _current_member()
+	if member.is_empty():
+		_set_status("CHOOSE A CHARACTER FIRST", true)
+		return
+	loadout_unit_type_id = str(member.get("unitTypeId", ""))
+	var preferred_kind := _selected_metadata(loadout_kind)
+	var preferred_asset := _selected_metadata(loadout_asset)
+	loadout_kind.select(-1)
+	loadout_kind.clear()
+	for kind: String in ["weapon", "item", "ability"]:
+		if _loadout_choices(kind).is_empty():
+			continue
+		loadout_kind.add_item({
+			"weapon": "WEAPONS",
+			"item": "ITEMS",
+			"ability": "ABILITIES",
+		}[kind])
+		loadout_kind.set_item_metadata(loadout_kind.item_count - 1, kind)
+	if loadout_kind.item_count == 0:
+		_set_status("THIS ROLE HAS NO COMPATIBLE GEAR OR ABILITIES", true)
+		return
+	_select_metadata(loadout_kind, preferred_kind)
+	_refresh_loadout_assets()
+	_select_metadata(loadout_asset, preferred_asset)
+	_refresh_loadout_value()
+	loadout_layer.visible = true
+	loadout_kind.grab_focus()
+
+
+func _close_loadout() -> void:
+	loadout_layer.visible = false
+	loadout_button.grab_focus()
+
+
+func _loadout_choices(kind: String) -> Array:
+	var collection_key: String = str({
+		"weapon": "weapons",
+		"item": "items",
+		"ability": "abilities",
+	}.get(kind, ""))
+	var values: Variant = project.get(collection_key, [])
+	if not values is Array:
+		return []
+	var choices: Array = values
+	if kind != "weapon":
+		return choices
+	var unit_type := _unit_type(loadout_unit_type_id)
+	var class_id := str(unit_type.get("classId", ""))
+	var unit_class: Dictionary = {}
+	for value: Variant in project.get("classes", []):
+		if value is Dictionary and str(value.get("id", "")) == class_id:
+			unit_class = value
+			break
+	if not unit_class.has("allowedWeaponTypeIds"):
+		return choices
+	var allowed_value: Variant = unit_class.get("allowedWeaponTypeIds", [])
+	if not allowed_value is Array:
+		return []
+	var allowed: Array = allowed_value
+	var compatible: Array = []
+	for value: Variant in choices:
+		if value is Dictionary and allowed.has(str(value.get("weaponTypeId", ""))):
+			compatible.append(value)
+	return compatible
+
+
+func _refresh_loadout_assets(_index: int = 0) -> void:
+	if loadout_kind.selected < 0:
+		return
+	var preferred_asset := _selected_metadata(loadout_asset)
+	var kind := _selected_metadata(loadout_kind)
+	loadout_asset.select(-1)
+	loadout_asset.clear()
+	for value: Variant in _loadout_choices(kind):
+		if not value is Dictionary:
+			continue
+		loadout_asset.add_item(str(value.get("name", value.get("id", "Choice"))))
+		loadout_asset.set_item_metadata(
+			loadout_asset.item_count - 1, str(value.get("id", ""))
+		)
+	_select_metadata(loadout_asset, preferred_asset)
+	_refresh_loadout_value()
+
+
+func _refresh_loadout_value(_index: int = 0) -> void:
+	var unit_type := _unit_type(loadout_unit_type_id)
+	loadout_role_label.text = "EVERY %s" % str(
+		unit_type.get("name", loadout_unit_type_id)
+	).to_upper()
+	loadout_summary_label.text = "WEAPONS  %s\nITEMS  %s\nABILITIES  %s" % [
+		_loadout_names(unit_type, "startingWeaponIds", "weapons"),
+		_loadout_names(unit_type, "startingItemIds", "items"),
+		_loadout_names(unit_type, "abilityIds", "abilities"),
+	]
+	var included := _current_loadout_included()
+	loadout_value_label.text = (
+		"INCLUDED IN THIS ROLE" if included else "NOT INCLUDED"
+	)
+	loadout_value_label.add_theme_color_override(
+		"font_color", Color("72e08f") if included else Color("a9bdc9")
+	)
+	loadout_toggle_button.text = (
+		"REMOVE FROM ROLE" if included else "ADD TO ROLE"
+	)
+	loadout_toggle_button.disabled = loadout_asset.selected < 0
+
+
+func _loadout_names(unit_type: Dictionary, field: String, collection: String) -> String:
+	var names: Array[String] = []
+	var identities: Variant = unit_type.get(field, [])
+	if identities is Array:
+		for identity: Variant in identities:
+			for value: Variant in project.get(collection, []):
+				if value is Dictionary and str(value.get("id", "")) == str(identity):
+					names.append(str(value.get("name", identity)))
+					break
+	return "NONE" if names.is_empty() else ", ".join(names)
+
+
+func _current_loadout_included() -> bool:
+	if loadout_kind.selected < 0 or loadout_asset.selected < 0:
+		return false
+	var field: String = str({
+		"weapon": "startingWeaponIds",
+		"item": "startingItemIds",
+		"ability": "abilityIds",
+	}.get(_selected_metadata(loadout_kind), ""))
+	var values: Variant = _unit_type(loadout_unit_type_id).get(field, [])
+	return values is Array and values.has(_selected_metadata(loadout_asset))
+
+
+func _toggle_loadout() -> void:
+	if loadout_kind.selected < 0 or loadout_asset.selected < 0:
+		return
+	var kind := _selected_metadata(loadout_kind)
+	var asset_id := _selected_metadata(loadout_asset)
+	var asset_name := loadout_asset.get_item_text(loadout_asset.selected)
+	var included := not _current_loadout_included()
+	var selected_member_id := str(_current_member().get("id", ""))
+	var updated: Dictionary = compiler.set_unit_type_kit_entry(
+		source, loadout_unit_type_id, kind, asset_id, included
+	)
+	if not updated.ok:
+		_set_status("ROLE NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		return
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = source != saved_source
+	_read_source()
+	_collect_members()
+	for index in members.size():
+		if str(members[index].id) == selected_member_id:
+			member_index = index
+			break
+	_refresh_member()
+	_select_metadata(loadout_kind, kind)
+	_refresh_loadout_assets()
+	_select_metadata(loadout_asset, asset_id)
+	_refresh_loadout_value()
+	_set_status(
+		"UNSAVED  /  %s %s THIS ROLE" % [
+			asset_name.to_upper(), "ADDED TO" if included else "REMOVED FROM",
+		],
+		false
+	)
+
+
 func _select_campaign(index: int) -> void:
 	if refreshing or index < 0 or index >= campaigns.size():
 		return
@@ -779,6 +961,11 @@ func _update_actions() -> void:
 	play_button.disabled = campaigns.is_empty()
 	add_button.disabled = campaigns.is_empty() or project.get("unitTypes", []).is_empty()
 	customize_button.disabled = members.is_empty()
+	loadout_button.disabled = members.is_empty() or (
+		project.get("weapons", []).is_empty()
+		and project.get("items", []).is_empty()
+		and project.get("abilities", []).is_empty()
+	)
 	supplies_button.disabled = (
 		campaigns.is_empty()
 		or (project.get("items", []).is_empty() and project.get("weapons", []).is_empty())
@@ -903,11 +1090,18 @@ func _build_interface() -> void:
 	editor_column.add_child(role_label)
 	join_label = _label("JOINS", 20, Color("72e08f"))
 	editor_column.add_child(join_label)
+	var role_actions := HBoxContainer.new()
+	role_actions.add_theme_constant_override("separation", 14)
+	editor_column.add_child(role_actions)
 	customize_button = _button("TUNE THIS HERO", 360, 56)
 	customize_button.pressed.connect(_open_modifiers)
-	editor_column.add_child(customize_button)
+	role_actions.add_child(customize_button)
+	loadout_button = _button("ROLE GEAR & SKILLS", 360, 56)
+	loadout_button.tooltip_text = "Weapons, items, and abilities shared by this role."
+	loadout_button.pressed.connect(_open_loadout)
+	role_actions.add_child(loadout_button)
 	var role_note := _label(
-		"The role supplies the shared baseline. Tune only what makes this named hero special; every port uses the same result.",
+		"Role gear and skills affect everyone with that role. Tune only what makes this named hero special.",
 		17, Color("718896")
 	)
 	role_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -926,6 +1120,7 @@ func _build_interface() -> void:
 	_build_more_layer()
 	_build_add_layer()
 	_build_supply_layer()
+	_build_loadout_layer()
 
 
 func _build_modifier_layer() -> void:
@@ -1165,6 +1360,68 @@ func _build_supply_layer() -> void:
 	var done := _button("DONE", 300, 64)
 	done.pressed.connect(_close_supplies)
 	column.add_child(done)
+
+
+func _build_loadout_layer() -> void:
+	loadout_layer = Control.new()
+	loadout_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	loadout_layer.visible = false
+	loadout_layer.z_index = 50
+	add_child(loadout_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.92)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	loadout_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(360, 115)
+	panel.size = Vector2(1200, 850)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
+	)
+	loadout_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 13)
+	panel.add_child(column)
+	column.add_child(_label("ROLE GEAR & SKILLS", 18, Color("e6b86d")))
+	column.add_child(_label("What does this role carry and know?", 32, Color("f2f7f9")))
+	loadout_role_label = _label("EVERY ROLE", 18, Color("69d9ff"))
+	column.add_child(loadout_role_label)
+	var explanation := _label(
+		"This changes every character using the role. The same choices travel to PC, Nintendo 64, and PlayStation builds.",
+		17, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 52
+	column.add_child(explanation)
+	loadout_summary_label = _label("WEAPONS  NONE\nITEMS  NONE\nABILITIES  NONE", 16, Color("f2f7f9"))
+	loadout_summary_label.custom_minimum_size.y = 82
+	column.add_child(loadout_summary_label)
+	column.add_child(_label("CATEGORY", 15, Color("69d9ff")))
+	loadout_kind = OptionButton.new()
+	loadout_kind.custom_minimum_size = Vector2(1100, 60)
+	loadout_kind.add_theme_font_size_override("font_size", 20)
+	loadout_kind.item_selected.connect(_refresh_loadout_assets)
+	column.add_child(loadout_kind)
+	column.add_child(_label("CHOICE", 15, Color("69d9ff")))
+	loadout_asset = OptionButton.new()
+	loadout_asset.custom_minimum_size = Vector2(1100, 60)
+	loadout_asset.add_theme_font_size_override("font_size", 20)
+	loadout_asset.item_selected.connect(_refresh_loadout_value)
+	column.add_child(loadout_asset)
+	loadout_value_label = _label("NOT INCLUDED", 21, Color("a9bdc9"))
+	loadout_value_label.custom_minimum_size = Vector2(1100, 48)
+	loadout_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(loadout_value_label)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	loadout_toggle_button = _button("ADD TO ROLE", 360, 64)
+	loadout_toggle_button.pressed.connect(_toggle_loadout)
+	actions.add_child(loadout_toggle_button)
+	var done := _button("DONE", 260, 64)
+	done.pressed.connect(_close_loadout)
+	actions.add_child(done)
 
 
 func _set_status(message: String, failure: bool) -> void:
