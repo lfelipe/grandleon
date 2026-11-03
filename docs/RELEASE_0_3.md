@@ -50,8 +50,8 @@ Every release decision should preserve these constraints:
 | Native campaign outline | Linear hub ready | Continue Creating opens a controller-first story/battle/ending list in play order. A chapter opens its exact dialogue or map; Test Campaign and Grow the Army stay one press away; Add Next Chapter opens the correct source battle and focused creation dialog. Alternate outcomes are visible but not yet editable as branches. |
 | Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. |
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. |
-| Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, creates a named role from a working role template, tunes seven core hero traits, authors named shared starting supplies or chapter rewards, and assigns compatible named weapons, items, and abilities to a role. A separate focused library creates and tunes those reusable weapons, items, and abilities without putting their details in the ordinary campaign path. Detailed role baselines, classes, and factions remain. |
-| Full native authoring parity | Blocking | Class, faction, detailed unit-role, weapon-family/item-family registries, general campaign branches, and external replacement-art packs still need focused native editors. |
+| Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, and tunes seven named-hero traits. New roles copy a working role into an independent baseline. Tune Role edits all eleven portable baseline stats, default side, terrain crossing, and whether attacking ends activation; imported shared baselines must be copied explicitly before tuning. Campaign supplies, chapter rewards, role loadouts, and the separate reusable Gear & Abilities library are also native. Progression/drop details, new faction definitions, and type registries remain. |
+| Full native authoring parity | Blocking | Progression/drop/presentation details on unit roles, faction definitions, weapon-family/item-family registries, general campaign branches, external replacement-art packs, and measured per-target authoring budgets still need focused native support. |
 | Native Export Center | Partial | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Synthetic and real packaged-shell smokes cover privacy, stripping, and compiled-content identity. Nintendo 64 and PlayStation still need separately installed builder payload integration. |
 | Documentation and screenshots | Blocking | README and `docs/CREATING_A_GAME.md` still describe the browser editor. Rewrite them only after the native flow and labels are frozen, then capture every documented screen from that build. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
@@ -123,7 +123,9 @@ editing JSON. **Achieved.**
   stats through bounded controls. **Role selection, naming, and focused
   per-hero health, strength, defense, resistance, movement, magic, and weapon
   range adjustments are implemented. A new named role can start from any
-  existing working role without exposing source identities.**
+  existing working role without exposing source identities, and receives an
+  independent copy of its working baseline. Tune Role exposes all eleven
+  portable class stats plus side, traversal, and post-attack behavior.**
 - Attach a recruit to a chapter and preview when that character joins.
   **Implemented.**
 - Add shared starting supplies and chapter item/weapon rewards through named
@@ -136,7 +138,9 @@ editing JSON. **Achieved.**
   accuracy, area, power, family, and carrying limits appear only where they
   apply. **Implemented.**
 - Always show PC, Nintendo 64, and PlayStation budget impact before saving an
-  addition that could exceed a target.
+  addition that could exceed a target. The repository does not yet define a
+  target-specific authoring-budget contract; measured limits must be added
+  before the UI can report them honestly.
 
 Exit: the five-stage Emberbound-style growth curve can be authored natively.
 
@@ -144,8 +148,10 @@ Exit: the five-stage Emberbound-style growth curve can be authored natively.
 
 - Focused editors for weapons, items, and abilities; raw stable IDs remain
   hidden during ordinary work. **Implemented.**
-- Focused editors for detailed unit types, classes, factions, and their type
-  registries remain.
+- Baseline stats and core role rules are focused, named controls. Shared
+  imported classes cannot be changed accidentally. **Implemented.**
+- Progression/drop/presentation details on unit types, new faction definitions,
+  and weapon/item type registries remain.
 - Rename maps and battles without changing their stable identity.
 - Copy a battle setup from another chapter deliberately, instead of only when
   adding the next chapter.
@@ -184,6 +190,11 @@ are frozen.
   smoke creates all three asset kinds, tunes kind-specific fields, exercises
   undo/redo and save/reload, recompiles the campaign, and returns to Army
   Setup. The aggregate also revalidates the stripped standalone player.
+- `1e2285f`: the exact committed tree again passes all 68 native tests and all
+  23 Godot integration smokes after independent role baselines and focused
+  role tuning. The Army smoke covers baseline adjustment, side, traversal,
+  post-attack behavior, undo/redo, shared-baseline protection, persistence,
+  and compilation; the rendered screen exposes the full stat vocabulary.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
