@@ -251,6 +251,22 @@ It does not claim that an image which passes will run: a heap of one kilobyte
 is a heap. There is no measured floor to hold it to, so it reports the number
 rather than inventing one.
 
+### How crowded a battle may be
+
+The playable executables open packages with a 48-character-per-battle limit.
+This is interaction latency, not image size or free memory: picking up a unit
+asks where it can walk and which of those cells the opposing side threatens,
+and the second query searches once per relevant opponent. Recurring arrivals
+are expanded before the loader counts them.
+
+`conformance_exe.cpp` measures the engaged worst case on a 20x14 board using
+the R3000A root counter. The maintained points are 6.4 ms at 20 characters,
+11.8 ms at 32, and 21.8 ms at 48. Forty-eight therefore answers within two
+60 Hz frames and matches the portable Nintendo 64 ceiling. The shared
+`package_runtime::target_budget` value is passed to the PlayStation package
+loader and is also what the native creator reports; a larger project remains a
+valid PC project and is refused only for this target.
+
 ## No exceptions, and what that costs the content path
 
 `tools/game_content`'s JSON parser reports a malformed document by throwing, the
@@ -726,7 +742,9 @@ is inert everywhere: the package is read by explicit byte offset, with no
   Nintendo 64; `playstation.h` carries the drop shadow, nothing draws it.
 - **No `TargetProfile::playstation`.** The enumeration's values are serialized
   and append-only, and adding one is an `engine/` change. The play executables
-  load with `TargetProfile::portable`, a real profile and not a stand-in.
+  load with `TargetProfile::portable`, a real profile and not a stand-in. Their
+  measured 48-character working-set limit is supplied independently through
+  `LoadOptions`, so profile identity and target cost are not conflated.
 - **No golden frame.** The digest is printed, not pinned: the per-cell claims
   localise a failure, a pinned digest would not.
 - **No second emulator.** Mednafen would be the accuracy second opinion, and

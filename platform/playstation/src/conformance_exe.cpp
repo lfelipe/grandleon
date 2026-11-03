@@ -615,6 +615,106 @@ void report_cost(const char* label, std::uint32_t ticks, std::uint32_t runs) {
         .flush();
 }
 
+// One crowded, engaged board for pricing the exact pair of searches a player
+// starts by picking up a character. The two sides stand in adjacent ranks with
+// empty ground between the chosen character and the opposition, so every
+// opposing character can threaten at least one lit tile and the distance
+// shortcut in `danger_tiles` cannot turn a large board into a cheap one.
+//
+// Kept synthetic and built on the target: this is a measurement of the rules
+// on an R3000A, not another authored game and not a host estimate. The shape is
+// the same 20x14 board and engaged worst case used to set the Nintendo 64
+// budget, which makes the two target numbers comparable without requiring them
+// to be equal.
+sim::EncounterDefinition engaged_board(std::uint32_t character_count) {
+    constexpr std::uint16_t width = 20;
+    constexpr std::uint16_t height = 14;
+    const std::uint32_t per_side = character_count / 2U;
+
+    std::vector<sim::UnitDefinition> units;
+    units.reserve(character_count);
+
+    sim::UnitDefinition chosen =
+        unit(1, 100, sim::Side::first, {8, 6}, 10, 3, 1, 4);
+    chosen.action_points = 2;
+    units.push_back(chosen);
+
+    for (std::uint32_t index = 1; index < per_side; ++index) {
+        const std::int16_t x = static_cast<std::int16_t>(
+            7 - static_cast<std::int16_t>(index / height)
+        );
+        const std::int16_t y = static_cast<std::int16_t>(index % height);
+        sim::UnitDefinition ally = unit(
+            1U + index, 100, sim::Side::first, {x, y}, 10, 3, 1, 4
+        );
+        ally.action_points = 2;
+        units.push_back(std::move(ally));
+    }
+
+    for (std::uint32_t index = 0; index < per_side; ++index) {
+        const std::int16_t x = static_cast<std::int16_t>(
+            10 + static_cast<std::int16_t>(index / height)
+        );
+        const std::int16_t y = static_cast<std::int16_t>(index % height);
+        sim::UnitDefinition opponent = unit(
+            100U + index, 200, sim::Side::second, {x, y}, 10, 3, 1, 4
+        );
+        opponent.action_points = 2;
+        units.push_back(std::move(opponent));
+    }
+
+    return board(width, height, std::move(units));
+}
+
+void measures_engaged_board_cost(std::uint32_t character_count) {
+    auto created = sim::create_encounter(engaged_board(character_count));
+    if (!created) {
+        psx::Line()
+            .text("info board cost: characters=")
+            .decimal(character_count)
+            .text(" could not be created")
+            .flush();
+        return;
+    }
+
+    const sim::EncounterSnapshot snapshot = created.encounter.snapshot();
+    const std::uint32_t reach_started = psx::clock_ticks();
+    const std::vector<sim::Position> reach =
+        sim::reachable_tiles(snapshot, 1);
+    const std::uint32_t reach_ticks =
+        psx::clock_ticks() - reach_started;
+
+    const std::uint32_t danger_started = psx::clock_ticks();
+    const std::vector<sim::Position> danger = sim::danger_tiles(
+        snapshot, sim::Side::second, created.encounter.weapons(),
+        created.encounter.abilities(), reach
+    );
+    const std::uint32_t danger_ticks =
+        psx::clock_ticks() - danger_started;
+
+    psx::Line()
+        .text("info board cost: characters=")
+        .decimal(character_count)
+        .text(" board=20x14 lit=")
+        .decimal(static_cast<std::uint32_t>(reach.size()))
+        .text(" reach=")
+        .decimal(
+            reach_ticks * 1000U / psx::ticks_per_1000_microseconds
+        )
+        .text("us danger=")
+        .decimal(
+            danger_ticks * 1000U / psx::ticks_per_1000_microseconds
+        )
+        .text("us press=")
+        .decimal(
+            (reach_ticks + danger_ticks) * 1000U /
+            psx::ticks_per_1000_microseconds
+        )
+        .text("us threatened=")
+        .decimal(static_cast<std::uint32_t>(danger.size()))
+        .flush();
+}
+
 // FNV-1a-64 as engine/simulation writes it, isolated so the per-step cost can
 // be attributed. This is a copy of the step, not a substitute for it: this
 // target needs no hand-written arithmetic, because GCC expands the 64x64
@@ -681,6 +781,13 @@ void measures_the_cost() {
         sink = again.encounter.canonical_hash();
     }
     report_cost("create_encounter", psx::clock_ticks() - start, create_runs);
+
+    // Reported rather than asserted: these three points establish the target's
+    // authoring budget. A content limit belongs beside the package load only
+    // after the machine has supplied the number.
+    measures_engaged_board_cost(20);
+    measures_engaged_board_cost(32);
+    measures_engaged_board_cost(48);
     (void)sink;
 }
 

@@ -80,6 +80,7 @@
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/manifest.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
+#include <grandleon/package_runtime/target_budget.hpp>
 #include <grandleon/sheet/unit_sheet.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/view/glyphs.hpp>
@@ -2221,6 +2222,8 @@ int main() {
         options.supported_features = 0;
         options.maximum_sections = 32;
         options.maximum_records_per_section = 4096;
+        options.maximum_units_per_encounter =
+            pr::target_budget::playstation_units_per_encounter;
         return pf::load_mock_package(package_bytes, options);
     }();
     expect(loaded.error == pf::Error::none, "the compiled package opens");

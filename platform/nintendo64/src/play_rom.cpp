@@ -59,6 +59,7 @@
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
+#include <grandleon/package_runtime/target_budget.hpp>
 #include <grandleon/sheet/unit_sheet.hpp>
 #include <grandleon/simulation/encounter.hpp>
 
@@ -9023,7 +9024,8 @@ int main() {
     // It is a number about this console and it is stated here, beside the load
     // that enforces it, rather than in the portable engine: another target with
     // another processor has another answer, and the engine has none at all.
-    constexpr std::uint32_t console_units_per_board = 48U;
+    constexpr std::uint32_t console_units_per_board =
+        pr::target_budget::nintendo64_units_per_encounter;
     const auto loaded = pf::load_mock_package(
         compiled.package,
         {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000,

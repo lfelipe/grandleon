@@ -221,7 +221,9 @@ answer.
 - Should the directory permit multiple sections of one type for streaming/banks?
 - Which hash/checksum balances tooling diagnostics and console cost?
 - Which sections need compression, paging, or a secondary ID index?
-- What maximum counts and working-set budgets belong to each target profile?
+- Which working-set budgets remain after the first measured contract: at most
+  48 expanded characters per encounter on Nintendo 64 and PlayStation, with no
+  corresponding PC cap?
 - How are schema migrations and optional fields represented inside record payloads?
 
 No production package should be published until the host and every console
