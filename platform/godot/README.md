@@ -118,11 +118,15 @@ unchanged.
 The current creator creates and resizes maps, edits playable and surrounding
 terrain, arranges both sides of existing encounters, and authors deployment
 regions, allied player ownership, player scaling, objectives, dialogue lines,
-and new dialogue scenes attached to existing story moments. **Add Next
-Chapter** inserts a new story moment, cloned playable encounter, and fresh map
-after a selected linear battle as one undoable edit. General campaign branches,
-the rest of the game-data editors, and broader art-pack editing remain in the
-increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
+and new dialogue scenes attached to existing story moments. **Grow the Army**
+lists starting heroes and later recruits, previews their portable art, renames
+them without changing identity, and adds an existing role at campaign start or
+after a chosen chapter. Placing that character in a battle stays an explicit
+Map → Battle Setup action. **Add Next Chapter** inserts a new story moment,
+cloned playable encounter, and fresh map after a selected linear battle as one
+undoable edit. General campaign branches, role/stat/equipment editing, the rest
+of the game-data editors, and broader art-pack editing remain in the increments
+defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
 bindings to the **4.7** API. The project uses the compatibility renderer to
@@ -648,6 +652,13 @@ the focused native story screen:
 
 ```sh
 platform/godot/scripts/smoke-story-editor.sh
+```
+
+To add, rename, schedule, undo/redo, save, reopen, and compile portable campaign
+characters through the focused Army screen:
+
+```sh
+platform/godot/scripts/smoke-army-editor.sh
 ```
 
 The reel is an actual 1280x720 Godot capture. It advances authored dialogue,

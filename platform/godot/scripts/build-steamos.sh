@@ -133,9 +133,13 @@ if [[ "${player_only}" == "1" ]]; then
     cmake -E rm -rf \
         "${temporary_dir}/project/creator.tscn" \
         "${temporary_dir}/project/map_editor.tscn" \
+        "${temporary_dir}/project/story_editor.tscn" \
+        "${temporary_dir}/project/army_editor.tscn" \
         "${temporary_dir}/project/content/templates" \
         "${temporary_dir}/project/scripts/creator/creator_screen.gd" \
-        "${temporary_dir}/project/scripts/creator/map_editor.gd"
+        "${temporary_dir}/project/scripts/creator/map_editor.gd" \
+        "${temporary_dir}/project/scripts/creator/story_editor.gd" \
+        "${temporary_dir}/project/scripts/creator/army_editor.gd"
     printf 'Player-only Grand Leon game bundle.\n' >"${temporary_dir}/PLAYER-ONLY"
 fi
 printf '%s\n' "${campaign_key}" >"${temporary_dir}/DEFAULT-CAMPAIGN"

@@ -49,6 +49,7 @@ Every release decision should preserve these constraints:
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
 | Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. |
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. |
+| Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, and adds an existing role either at campaign start or after a named chapter. Role/stat/equipment authoring remains. |
 | Full native authoring parity | Blocking | Characters, classes, factions, equipment, abilities, items, recruits/rewards, campaign branches, and presentation selection still need focused native editors. |
 | Native Export Center | Blocking | Portable project export works, and command-line target builders work. The in-app target report/build experience is not implemented. |
 | Documentation and screenshots | Blocking | README and `docs/CREATING_A_GAME.md` still describe the browser editor. Rewrite them only after the native flow and labels are frozen, then capture every documented screen from that build. |
@@ -102,10 +103,13 @@ editing JSON. **Achieved.**
 
 ### 2. Grow the army
 
-- A Characters screen lists the campaign company in plain language.
+- A Characters screen lists the starting company and later recruits in plain
+  language. **Implemented.**
 - Add a hero from a small class/archetype template, then edit name and core
-  stats through bounded controls.
+  stats through bounded controls. **Role selection and naming are implemented;
+  bounded stat editing remains.**
 - Attach a recruit to a chapter and preview when that character joins.
+  **Implemented.**
 - Add starting equipment and chapter rewards through searchable name pickers.
 - Always show PC, Nintendo 64, and PlayStation budget impact before saving an
   addition that could exceed a target.

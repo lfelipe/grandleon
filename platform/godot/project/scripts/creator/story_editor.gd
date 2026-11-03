@@ -830,6 +830,8 @@ func _request_leave(destination: String) -> void:
 		return
 	if destination == "maps":
 		get_tree().change_scene_to_file("res://map_editor.tscn")
+	elif destination == "army":
+		get_tree().change_scene_to_file("res://army_editor.tscn")
 	else:
 		CreatorContext.clear()
 		get_tree().change_scene_to_file("res://creator.tscn")
@@ -1055,6 +1057,11 @@ func _more_projects() -> void:
 	_request_projects()
 
 
+func _more_army() -> void:
+	more_layer.visible = false
+	_request_leave("army")
+
+
 func _build_more_layer() -> void:
 	more_layer = Control.new()
 	more_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1090,6 +1097,9 @@ func _build_more_layer() -> void:
 	redo_button = _button("REDO", 680, 58)
 	redo_button.pressed.connect(_more_redo)
 	column.add_child(redo_button)
+	var army := _button("GROW THE ARMY", 680, 58)
+	army.pressed.connect(_more_army)
+	column.add_child(army)
 	more_projects_button = _button("RETURN TO PROJECTS", 680, 58)
 	more_projects_button.pressed.connect(_more_projects)
 	column.add_child(more_projects_button)

@@ -75,6 +75,7 @@ run_step "Run native tests" \
 
 godot_smokes=(
     smoke-animated-characters.sh
+    smoke-army-editor.sh
     smoke-art-library.sh
     smoke-automation-control.sh
     smoke-campaign-management.sh

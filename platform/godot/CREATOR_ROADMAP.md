@@ -78,6 +78,14 @@ The first native seam is implemented:
   line list, so there is no separate Apply step that can silently lose typed
   text. A smoke reopens and compiles the saved dialogue and its campaign
   attachment.
+- The focused Army creator shows the starting company and later recruits in
+  story order, previews the same portable character art used in play, and
+  renames a character without changing persistent identity. **Add a Character**
+  chooses an existing named role and either the starting company or a chapter
+  after which that recruit joins. Battle placement remains a deliberate Map →
+  Battle Setup action, so growing the company never silently changes a board.
+  Add, rename, undo/redo, save/reopen, and compile are covered by a native
+  smoke.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
@@ -197,7 +205,9 @@ ports the most interaction-heavy part of the earlier editor early.
 
 ### 3. Game data and campaign flow
 
-- Characters, classes, factions, equipment, weapons, abilities, and items.
+- Starting characters and chapter recruits can be added and renamed through
+  the Army screen. Character specificity, classes, factions, equipment,
+  weapons, abilities, and items remain.
 - Stages, transitions, conditions, arrivals, rewards, and starting roster.
 - Complete dialogue-line authoring with portable speaker selection and scene
   creation/attachment to existing story moments is implemented. Linear story

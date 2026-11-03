@@ -2099,6 +2099,14 @@ func _open_story() -> void:
 	get_tree().change_scene_to_file("res://story_editor.tscn")
 
 
+func _open_army() -> void:
+	if dirty and Time.get_ticks_msec() > discard_armed_until:
+		discard_armed_until = Time.get_ticks_msec() + 3500
+		_set_status("UNSAVED CHANGES  /  SAVE, OR PRESS ARMY AGAIN TO DISCARD", true)
+		return
+	get_tree().change_scene_to_file("res://army_editor.tscn")
+
+
 func _request_projects() -> void:
 	if dirty and Time.get_ticks_msec() > discard_armed_until:
 		discard_armed_until = Time.get_ticks_msec() + 3500
@@ -2458,6 +2466,11 @@ func _more_resize() -> void:
 	_open_resize()
 
 
+func _more_army() -> void:
+	more_layer.visible = false
+	_open_army()
+
+
 func _more_projects() -> void:
 	more_layer.visible = false
 	_request_projects()
@@ -2595,6 +2608,9 @@ func _build_more_overlay() -> void:
 	new_map_button.pressed.connect(_more_new_map)
 	column.add_child(new_map_button)
 	more_first_button = new_map_button
+	var army_button := _button("GROW THE ARMY", 680, 70)
+	army_button.pressed.connect(_more_army)
+	column.add_child(army_button)
 	var resize_button := _button("RESIZE THIS MAP", 680, 70)
 	resize_button.pressed.connect(_more_resize)
 	column.add_child(resize_button)

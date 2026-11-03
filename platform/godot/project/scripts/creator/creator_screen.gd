@@ -259,6 +259,9 @@ func _build_project_actions_layer() -> void:
 	project_actions_first_button = _button("WRITE STORY")
 	project_actions_first_button.pressed.connect(_story_selected_project)
 	column.add_child(project_actions_first_button)
+	var army := _button("GROW THE ARMY")
+	army.pressed.connect(_army_selected_project)
+	column.add_child(army)
 	var rename := _button("RENAME")
 	rename.pressed.connect(_rename_selected_project)
 	column.add_child(rename)
@@ -360,6 +363,14 @@ func _story_selected_project() -> void:
 	project_actions_id = ""
 	project_actions_name = ""
 	_edit_story(project_id)
+
+
+func _army_selected_project() -> void:
+	var project_id := project_actions_id
+	project_actions_layer.visible = false
+	project_actions_id = ""
+	project_actions_name = ""
+	_edit_army(project_id)
 
 
 func _duplicate_selected_project() -> void:
@@ -757,6 +768,11 @@ func _edit_project(project_id: String) -> void:
 func _edit_story(project_id: String) -> void:
 	CreatorContext.open_project(project_id)
 	get_tree().change_scene_to_file("res://story_editor.tscn")
+
+
+func _edit_army(project_id: String) -> void:
+	CreatorContext.open_project(project_id)
+	get_tree().change_scene_to_file("res://army_editor.tscn")
 
 
 func _play_project(project_id: String) -> void:
