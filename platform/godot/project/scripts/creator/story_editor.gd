@@ -117,6 +117,12 @@ func _read_source() -> bool:
 	project = parsed.data
 	var value: Variant = project.get("dialogues", [])
 	dialogues = value if value is Array else []
+	if not CreatorContext.dialogue_id.is_empty():
+		for index in dialogues.size():
+			var candidate: Variant = dialogues[index]
+			if candidate is Dictionary and str(candidate.get("id", "")) == CreatorContext.dialogue_id:
+				dialogue_index = index
+				break
 	_collect_story_options()
 	return true
 

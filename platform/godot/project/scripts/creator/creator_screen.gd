@@ -269,8 +269,8 @@ func _build_project_actions_layer() -> void:
 	project_actions_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	project_actions_title.custom_minimum_size.y = 82
 	column.add_child(project_actions_title)
-	project_actions_first_button = _button("WRITE STORY")
-	project_actions_first_button.pressed.connect(_story_selected_project)
+	project_actions_first_button = _button("CAMPAIGN OUTLINE")
+	project_actions_first_button.pressed.connect(_campaign_selected_project)
 	column.add_child(project_actions_first_button)
 	var army := _button("GROW THE ARMY")
 	army.pressed.connect(_army_selected_project)
@@ -436,12 +436,12 @@ func _rename_selected_project() -> void:
 	_open_rename(project_id, title)
 
 
-func _story_selected_project() -> void:
+func _campaign_selected_project() -> void:
 	var project_id := project_actions_id
 	project_actions_layer.visible = false
 	project_actions_id = ""
 	project_actions_name = ""
-	_edit_story(project_id)
+	_edit_campaign(project_id)
 
 
 func _army_selected_project() -> void:
@@ -745,8 +745,18 @@ func _project_progress(project_id: String) -> String:
 	var dialogues: Array = project.get("dialogues", [])
 	if campaigns.is_empty():
 		return "EMPTY PROJECT  ·  START WITH A MAP"
-	return "READY TO TEST  ·  %d MAP%s  ·  %d STORY SCENE%s" % [
-		maps.size(), "" if maps.size() == 1 else "S",
+	var battles := 0
+	var campaign_value: Variant = campaigns[0]
+	if campaign_value is Dictionary:
+		var flow_value: Variant = campaign_value.get("flow", {})
+		if flow_value is Dictionary:
+			for node_value: Variant in flow_value.get("nodes", []):
+				if node_value is Dictionary and str(node_value.get("kind", "")) == "encounter":
+					battles += 1
+	if battles == 0:
+		battles = maps.size()
+	return "READY TO TEST  ·  %d BATTLE%s  ·  %d STORY SCENE%s" % [
+		battles, "" if battles == 1 else "S",
 		dialogues.size(), "" if dialogues.size() == 1 else "S",
 	]
 
@@ -917,12 +927,12 @@ func _focus_project_now(project_id: String) -> void:
 
 func _edit_project(project_id: String) -> void:
 	CreatorContext.open_project(project_id)
-	get_tree().change_scene_to_file("res://map_editor.tscn")
+	get_tree().change_scene_to_file("res://campaign_editor.tscn")
 
 
-func _edit_story(project_id: String) -> void:
+func _edit_campaign(project_id: String) -> void:
 	CreatorContext.open_project(project_id)
-	get_tree().change_scene_to_file("res://story_editor.tscn")
+	get_tree().change_scene_to_file("res://campaign_editor.tscn")
 
 
 func _edit_army(project_id: String) -> void:

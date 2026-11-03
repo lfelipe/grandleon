@@ -78,6 +78,7 @@ godot_smokes=(
     smoke-army-editor.sh
     smoke-art-library.sh
     smoke-automation-control.sh
+    smoke-campaign-editor.sh
     smoke-campaign-management.sh
     smoke-campaign-persistence.sh
     smoke-checkpoint-slots.sh

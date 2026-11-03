@@ -183,7 +183,11 @@ func _load_project() -> void:
 	title_label.text = "%s  /  MAP CREATOR" % str(project.get("title", "UNTITLED GAME")).to_upper()
 	_refresh_maps()
 	_set_status("READY  /  CHOOSE TERRAIN, THEN PAINT THE BOARD", false)
-	map_select.call_deferred("grab_focus")
+	var requested_action: String = CreatorContext.take_map_action()
+	if requested_action == "add_chapter":
+		call_deferred("_open_new_chapter")
+	else:
+		map_select.call_deferred("grab_focus")
 
 
 func _read_source() -> bool:
@@ -194,6 +198,12 @@ func _read_source() -> bool:
 	project = parsed.data
 	var map_value: Variant = project.get("maps", [])
 	maps = map_value if map_value is Array else []
+	if not CreatorContext.map_id.is_empty():
+		for index in maps.size():
+			var candidate: Variant = maps[index]
+			if candidate is Dictionary and str(candidate.get("id", "")) == CreatorContext.map_id:
+				map_index = index
+				break
 	return true
 
 
@@ -232,6 +242,7 @@ func _select_map(index: int) -> void:
 func _refresh_encounters() -> void:
 	encounters.clear()
 	encounter_select.clear()
+	var requested_encounter_index := -1
 	var map_id := str(_current_map().get("id", ""))
 	for campaign_value: Variant in project.get("campaigns", []):
 		if not campaign_value is Dictionary:
@@ -252,6 +263,8 @@ func _refresh_encounters() -> void:
 				"campaign": campaign,
 				"node": node,
 			})
+			if str(node.get("id", "")) == CreatorContext.encounter_id:
+				requested_encounter_index = encounters.size() - 1
 			encounter_select.add_item(
 				"%s / %s" % [
 					str(campaign.get("name", "Campaign")),
@@ -263,7 +276,11 @@ func _refresh_encounters() -> void:
 		encounter_select.add_item("NO ENCOUNTER ON THIS MAP")
 		encounter_index = 0
 	else:
-		encounter_index = clampi(encounter_index, 0, encounters.size() - 1)
+		encounter_index = (
+			requested_encounter_index
+			if requested_encounter_index >= 0
+			else clampi(encounter_index, 0, encounters.size() - 1)
+		)
 		encounter_select.select(encounter_index)
 
 
@@ -2125,8 +2142,7 @@ func _request_projects() -> void:
 		discard_armed_until = Time.get_ticks_msec() + 3500
 		_set_status("UNSAVED CHANGES  /  SAVE, OR PRESS CANCEL AGAIN TO DISCARD", true)
 		return
-	CreatorContext.clear()
-	get_tree().change_scene_to_file("res://creator.tscn")
+	get_tree().change_scene_to_file("res://campaign_editor.tscn")
 
 
 func _diagnostic_code(result: Dictionary) -> String:
