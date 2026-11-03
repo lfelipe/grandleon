@@ -268,6 +268,11 @@ are frozen.
   routes, stable hidden identities, fresh maps, copied battle/co-op setup,
   selected rejoin destinations, compiler validation, and one-step undo/redo.
   Rendered reviews cover both the route-choice and chapter-name screens.
+- `d187c45`: the exact committed tree passes all 68 native tests and all 23
+  Godot integration smokes after editable ending names, real native creator
+  guide captures, the rewritten 0.3 creation guide, and the revised creator
+  architecture/roadmap. This is the current PC release-gate baseline; it does
+  not replace the final clean-revision all-target gate.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
