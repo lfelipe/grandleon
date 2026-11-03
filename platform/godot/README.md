@@ -539,6 +539,8 @@ The reel is an actual 1280x720 Godot capture. It advances authored dialogue,
 queues two friendly moves without serial player turns, and lets the built-in
 opposition respond. Set `GRANDLEON_DEMO_SECONDS` or pass build and output paths
 as the first two arguments when a different duration or destination is useful.
+Each invocation uses and removes a fresh capture-only save directory, so an
+earlier reel cannot advance the campaign seen by a later offline or model run.
 Set `GRANDLEON_DEMO_GRAPHICS` to `pixel`, `diorama`, `voxel-sprites`, or
 `voxel` to record the same sequence through another replaceable renderer.
 Set `GRANDLEON_DEMO_CONFIG` to an untracked local model configuration to record

@@ -8,7 +8,6 @@ build_dir="${1:-${repo_root}/build-godot}"
 output_path="${2:-${build_dir}/grandleon-demo-reel.mp4}"
 godot_binary="${GRANDLEON_GODOT_BINARY:-}"
 duration="${GRANDLEON_DEMO_SECONDS:-20}"
-config_path="${GRANDLEON_DEMO_CONFIG:-}"
 graphics_profile="${GRANDLEON_DEMO_GRAPHICS:-voxel-sprites}"
 
 absolute_path() {
@@ -20,13 +19,6 @@ absolute_path() {
 
 build_dir="$(absolute_path "${build_dir}")"
 output_path="$(absolute_path "${output_path}")"
-if [[ -n "${config_path}" ]]; then
-    config_path="$(absolute_path "${config_path}")"
-    if [[ ! -f "${config_path}" ]]; then
-        printf 'Demo model config not found: %s\n' "${config_path}" >&2
-        exit 66
-    fi
-fi
 if [[ -n "${godot_binary}" ]]; then
     godot_binary="$(absolute_path "${godot_binary}")"
 else
@@ -57,7 +49,11 @@ if [[ "${GRANDLEON_DEMO_CAPTURE_CHILD:-0}" != 1 ]]; then
         "${repo_root}/games/demo/source/project.json" \
         "${stage_dir}/game.gpk"
 
-    state_dir="${build_dir}/demo-reel-state"
+    state_dir="$(mktemp -d "${build_dir}/demo-reel-state.XXXXXX")"
+    cleanup_state() {
+        cmake -E remove_directory "${state_dir}"
+    }
+    trap cleanup_state EXIT
     mkdir -p "${state_dir}/data" "${state_dir}/config" "${state_dir}/cache"
     XDG_DATA_HOME="${state_dir}/data" \
     XDG_CONFIG_HOME="${state_dir}/config" \
@@ -69,8 +65,8 @@ if [[ "${GRANDLEON_DEMO_CAPTURE_CHILD:-0}" != 1 ]]; then
     GRANDLEON_DEMO_CAPTURE_CHILD=1 \
     GRANDLEON_GODOT_BINARY="${godot_binary}" \
     GRANDLEON_DEMO_SECONDS="${duration}" \
-    GRANDLEON_DEMO_CONFIG="${config_path}" \
     GRANDLEON_DEMO_GRAPHICS="${graphics_profile}" \
+    GRANDLEON_DEMO_STATE_DIR="${state_dir}" \
         xvfb-run -a -s '-screen 0 1280x720x24' \
         "${BASH_SOURCE[0]}" "${build_dir}" "${output_path}"
     printf 'Godot gameplay capture: %s\n' "${output_path}"
@@ -78,8 +74,13 @@ if [[ "${GRANDLEON_DEMO_CAPTURE_CHILD:-0}" != 1 ]]; then
 fi
 
 stage_dir="${build_dir}/platform/godot/project/app"
-state_dir="${build_dir}/demo-reel-state"
-temporary_dir="$(mktemp -d)"
+state_dir="${GRANDLEON_DEMO_STATE_DIR:-}"
+if [[ -z "${state_dir}" || ! -d "${state_dir}" ]]; then
+    printf 'Capture child needs an isolated demo state directory\n' >&2
+    exit 64
+fi
+temporary_dir="$(mktemp -d "$(dirname -- "${output_path}")/.grandleon-demo-reel.XXXXXX")"
+capture_path="${temporary_dir}/capture.mp4"
 game_pid=''
 cleanup() {
     if [[ -n "${game_pid}" ]]; then
@@ -97,9 +98,6 @@ game_arguments=(
     "--graphics=${graphics_profile}"
     --demo-reel
 )
-if [[ -n "${config_path}" ]]; then
-    game_arguments+=("--config=${config_path}")
-fi
 
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
@@ -114,9 +112,10 @@ ffmpeg -hide_banner -loglevel warning -y \
     -f x11grab -draw_mouse 0 -framerate 30 \
     -video_size 1280x720 -i "${capture_display}" \
     -t "${duration}" -an -c:v libx264 -preset medium -crf 21 \
-    -pix_fmt yuv420p -movflags +faststart "${output_path}"
+    -pix_fmt yuv420p -movflags +faststart "${capture_path}"
 
 if grep -Eq 'ERROR|SCRIPT ERROR|Invalid|Parse Error' "${temporary_dir}/game.log"; then
     sed -n '1,240p' "${temporary_dir}/game.log" >&2
     exit 1
 fi
+mv -f -- "${capture_path}" "${output_path}"
