@@ -42,11 +42,12 @@ Every release decision should preserve these constraints:
 | Shared engine and content compiler | Ready | All 68 native tests pass in release assertions. Source edits preserve integer tokens and revalidate complete projects. |
 | Linux PC player | Candidate ready | The portable bundle launches its home screen, loads controls, verifies frame timing, and accepts two simultaneous co-op movement routes. Final artifact must be rebuilt from the release commit. |
 | Linux PC packaging | Ready | A pinned Godot 4.7.2 runtime, godot-cpp 10.0.0-stable binding, 512-pixel icon, clean-source metadata, project/upstream licenses, and Godot's third-party inventory are included. Local configuration and checkout paths are rejected. |
-| Nintendo 64 | Builds | Emberbound builds as a current `.z64` with SRAM persistence and shared two-controller/co-op content. Final emulator acceptance and a clean-revision rebuild remain. |
-| PlayStation | Builds | Emberbound builds as a MIPS-I executable and BIN/CUE image. Mixed style/figure character art now uses a project-specific sparse table. Final emulator/controller/card acceptance and a clean-revision rebuild remain. |
-| Player/console feature parity | In validation | Campaign flow, story, objectives, abilities, items, save data, co-op ownership, and two-player enemy scaling are portable. A target-by-target playthrough checklist still needs to be signed off. |
+| Nintendo 64 | Emulator candidate | A clean-clone ares gate passes conformance 39/39, play 29/29, controller autopilot 140/140, and SRAM power-cycle resume 52/52. Rebuild and sign off the final release revision. |
+| PlayStation | Emulator candidate | A clean-clone PCSX-Redux gate passes conformance, rendered-frame, controller, memory-card, both campaign-resume, and twice-booted BIN/CUE checks. Rebuild and sign off the final release revision. |
+| Player/console feature parity | Automated candidate | Campaign flow, story, objectives, abilities, items, save data, co-op ownership, and two-player enemy scaling are portable and exercised on all three targets. A target-by-target human playthrough still needs sign-off. |
 | PC graphics | Playable, not final art | Pixel, hybrid voxel-sprite, diorama, and full-voxel profiles are replaceable. The recommended initial profile is `voxel-sprites`; final animation/art polish is not a release-format dependency. |
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
+| Native campaign outline | Linear hub ready | Continue Creating opens a controller-first story/battle/ending list in play order. A chapter opens its exact dialogue or map; Test Campaign and Grow the Army stay one press away; Add Next Chapter opens the correct source battle and focused creation dialog. Alternate outcomes are visible but not yet editable as branches. |
 | Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. |
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, creates a named role from a working role template, tunes seven core hero traits, authors named shared starting supplies or chapter rewards, and assigns compatible named weapons, items, and abilities to a role. Detailed role baselines and asset definitions remain. |
@@ -69,6 +70,7 @@ Projects
   -> Shape the first map
   -> Write the opening conversation
   -> Test the campaign
+  -> Campaign Outline
   -> Add Next Chapter
   -> reshape its map and battle
   -> add its conversation
@@ -84,6 +86,12 @@ encounter with one unconditional exit. It inserts a story moment and a cloned
 battle before the old destination, so authors begin from working characters,
 opponents, ownership, scaling, deployment, and goals. It refuses a branched
 exit rather than guessing. Branch creation belongs in the campaign-flow editor.
+
+Continue Creating opens the Campaign Outline. Its main path follows transition
+priority and separates other outcomes below it. Story and battle entries open
+the exact scene or map they name, so authors do not have to find the same
+chapter again in another picker. Add Next Chapter appears at the end of the
+route and carries the last playable battle into the focused creation dialog.
 
 ## Remaining editor increments
 
@@ -137,13 +145,36 @@ the Godot application.
 ### 4. Campaign flow
 
 - A readable chapter list is the default; a graph is an advanced view.
+  **The controller-first outline, primary route, and other-outcome list are
+  implemented. A graph is not exposed.**
 - Add story, battle, and ending moments; reorder a linear route safely.
+  **Add Next Chapter creates a linked story and battle before the existing
+  ending. Arbitrary insertion and reordering remain.**
 - Add outcome/inventory/world-state branches with named targets and preview the
   possible routes.
 - Edit recruits, grants, and terminal endings at the chapter that owns them.
 
 Exit: branching projects no longer require the earlier editor or hand-edited
 JSON.
+
+## Validation snapshot — 2026-11-03
+
+This is progress evidence, not final release sign-off. Final artifacts still
+have to be rebuilt from one later clean revision after the creator and guides
+are frozen.
+
+- `d616875`: the PC release smoke passes all 68 native tests and all 22 Godot
+  integration smokes, including the campaign outline, simultaneous co-op
+  motion in pixel and voxel presentation, saves, controls, audio, project
+  portability, and player-only Linux export.
+- `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
+  gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
+  11 driven guide images, provided-art propagation, pinned WebAssembly, all
+  four Nintendo 64 emulator gates, and all six PlayStation emulator gates.
+  The run then found documentation-link defects rather than a code failure.
+- `ea422c8`: the corrected documentation-link gate reports zero unresolved
+  references. The final all-target clean-clone run remains required because
+  later native-creator work postdates the console snapshot.
 
 ### 5. Presentation and replacement art
 
