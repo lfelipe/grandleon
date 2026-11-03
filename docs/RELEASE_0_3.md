@@ -50,8 +50,8 @@ Every release decision should preserve these constraints:
 | Native campaign outline | Linear hub ready | Continue Creating opens a controller-first story/battle/ending list in play order. A chapter opens its exact dialogue or map; Test Campaign and Grow the Army stay one press away; Add Next Chapter opens the correct source battle and focused creation dialog. Alternate outcomes are visible but not yet editable as branches. |
 | Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. |
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached, and visible edits follow navigation and Save without a separate Apply trap. |
-| Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, creates a named role from a working role template, tunes seven core hero traits, authors named shared starting supplies or chapter rewards, and assigns compatible named weapons, items, and abilities to a role. Detailed role baselines and asset definitions remain. |
-| Full native authoring parity | Blocking | Class, faction, detailed unit-role, equipment, ability, item, and weapon definitions, general campaign branches, and external replacement-art packs still need focused native editors. |
+| Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, creates a named role from a working role template, tunes seven core hero traits, authors named shared starting supplies or chapter rewards, and assigns compatible named weapons, items, and abilities to a role. A separate focused library creates and tunes those reusable weapons, items, and abilities without putting their details in the ordinary campaign path. Detailed role baselines, classes, and factions remain. |
+| Full native authoring parity | Blocking | Class, faction, detailed unit-role, weapon-family/item-family registries, general campaign branches, and external replacement-art packs still need focused native editors. |
 | Native Export Center | Partial | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Synthetic and real packaged-shell smokes cover privacy, stripping, and compiled-content identity. Nintendo 64 and PlayStation still need separately installed builder payload integration. |
 | Documentation and screenshots | Blocking | README and `docs/CREATING_A_GAME.md` still describe the browser editor. Rewrite them only after the native flow and labels are frozen, then capture every documented screen from that build. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
@@ -93,6 +93,12 @@ the exact scene or map they name, so authors do not have to find the same
 chapter again in another picker. Add Next Chapter appears at the end of the
 route and carries the last playable battle into the focused creation dialog.
 
+Reusable combat choices stay behind Grow the Army's More menu. Gear & Abilities
+can start a weapon, item, or ability from safe defaults or copy an existing
+working choice. It shows only the fields that affect the selected kind, then
+Army Setup assigns the result to a role. Merely browsing the library does not
+rewrite the project.
+
 ## Remaining editor increments
 
 The order below keeps each increment playable and avoids building a giant form.
@@ -125,6 +131,10 @@ editing JSON. **Achieved.**
 - Add and change compatible named weapons, items, and abilities supplied by a
   role. The screen summarizes the current loadout and makes its all-characters
   scope explicit. **Implemented.**
+- Create and tune reusable weapons, healing or carry-only items, and damaging
+  or restoring abilities from safe defaults or an existing choice. Range,
+  accuracy, area, power, family, and carrying limits appear only where they
+  apply. **Implemented.**
 - Always show PC, Nintendo 64, and PlayStation budget impact before saving an
   addition that could exceed a target.
 
@@ -132,8 +142,10 @@ Exit: the five-stage Emberbound-style growth curve can be authored natively.
 
 ### 3. Finish battle data
 
-- Focused editors for unit types, classes, factions, weapons, items, and
-  abilities; raw stable IDs remain hidden during ordinary work.
+- Focused editors for weapons, items, and abilities; raw stable IDs remain
+  hidden during ordinary work. **Implemented.**
+- Focused editors for detailed unit types, classes, factions, and their type
+  registries remain.
 - Rename maps and battles without changing their stable identity.
 - Copy a battle setup from another chapter deliberately, instead of only when
   adding the next chapter.
@@ -167,6 +179,11 @@ are frozen.
   integration smokes, including the campaign outline, simultaneous co-op
   motion in pixel and voxel presentation, saves, controls, audio, project
   portability, and player-only Linux export.
+- `2bdf3d8`: the PC release smoke passes all 68 native tests and all 23 Godot
+  integration smokes after adding the Gear & Abilities library. Its focused
+  smoke creates all three asset kinds, tunes kind-specific fields, exercises
+  undo/redo and save/reload, recompiles the campaign, and returns to Army
+  Setup. The aggregate also revalidates the stripped standalone player.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
