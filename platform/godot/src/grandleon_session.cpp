@@ -55,6 +55,13 @@ gd::Array positions_array(const std::vector<sim::Position>& positions) {
     return result;
 }
 
+bool contains_member(
+    const std::vector<campaign::PersistentEntityId>& members,
+    campaign::PersistentEntityId member
+) {
+    return std::find(members.begin(), members.end(), member) != members.end();
+}
+
 const char* side_name(sim::Side side) {
     return side == sim::Side::first ? "first" : "second";
 }
@@ -95,6 +102,9 @@ const char* event_name(FrontendEvent::Kind kind) {
         case FrontendEvent::Kind::checkpoint_saved: return "checkpoint_saved";
         case FrontendEvent::Kind::checkpoint_refused:
             return "checkpoint_refused";
+        case FrontendEvent::Kind::management: return "management";
+        case FrontendEvent::Kind::management_committed:
+            return "management_committed";
         case FrontendEvent::Kind::session_finished: return "session_finished";
         case FrontendEvent::Kind::session_failed: return "session_failed";
     }
@@ -461,15 +471,55 @@ void AsyncPresenter::management_opened(
 void AsyncPresenter::management_committed(
     const client::ManagementCommit& result
 ) {
-    static_cast<void>(result);
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::management_committed;
+    event.successful = static_cast<bool>(result);
+    if (result.error != client::ManagementError::none) {
+        event.message = std::string(client::management_error_name(result.error));
+    } else if (result.application.error != campaign::OutcomeError::none) {
+        event.message = std::string(
+            campaign::outcome_error_name(result.application.error)
+        );
+    } else if (result.saved && result.save != storage::StorageError::none) {
+        event.message = std::string(storage::storage_error_name(result.save));
+    }
+    push(std::move(event));
+    if (result.saved) {
+        FrontendEvent checkpoint;
+        checkpoint.kind = FrontendEvent::Kind::checkpoint_saved;
+        checkpoint.successful = result.save == storage::StorageError::none;
+        checkpoint.message = std::string(
+            storage::storage_error_name(result.save)
+        );
+        push(std::move(checkpoint));
+    }
 }
 
 client::ManagementIntent AsyncPresenter::next_management_intent(
     const client::CompanyManagement& company
 ) {
-    static_cast<void>(company);
-    client::ManagementIntent intent;
-    intent.verb = client::ManagementVerb::proceed;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopping_) return {client::ManagementVerb::quit};
+        management_intent_.reset();
+        awaiting_management_ = true;
+    }
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::management;
+    event.company = company;
+    push(std::move(event));
+
+    std::unique_lock<std::mutex> lock(mutex_);
+    condition_.wait(lock, [this] {
+        return stopping_ || management_intent_.has_value();
+    });
+    if (stopping_) {
+        awaiting_management_ = false;
+        return {client::ManagementVerb::quit};
+    }
+    const client::ManagementIntent intent = *management_intent_;
+    management_intent_.reset();
+    awaiting_management_ = false;
     return intent;
 }
 
@@ -524,11 +574,26 @@ void AsyncPresenter::submit(client::Intent intent, std::int64_t request_id) {
     condition_.notify_one();
 }
 
+bool AsyncPresenter::submit_management(client::ManagementIntent intent) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopping_ || !awaiting_management_ ||
+            management_intent_.has_value()) {
+            return false;
+        }
+        management_intent_ = std::move(intent);
+    }
+    condition_.notify_all();
+    return true;
+}
+
 void AsyncPresenter::stop() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         stopping_ = true;
         intents_.clear();
+        management_intent_.reset();
+        awaiting_management_ = false;
         active_motion_.reset();
     }
     condition_.notify_all();
@@ -595,6 +660,13 @@ void GrandleonSession::_bind_methods() {
         ),
         &GrandleonSession::submit_intent,
         DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0)
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "submit_management", "kind", "member_id", "item_id", "stage_id"
+        ),
+        &GrandleonSession::submit_management,
+        DEFVAL(0), DEFVAL(0), DEFVAL(0)
     );
 }
 
@@ -929,6 +1001,42 @@ void GrandleonSession::submit_intent(
     presenter_->submit(intent, request_id);
 }
 
+bool GrandleonSession::submit_management(
+    const gd::String& kind_value,
+    std::int64_t member_id,
+    std::int64_t item_id,
+    std::int64_t stage_id
+) {
+    if (!presenter_) return false;
+    const std::string kind = narrow(kind_value);
+    client::ManagementIntent intent;
+    if (kind == "give") {
+        intent.verb = client::ManagementVerb::give;
+    } else if (kind == "take") {
+        intent.verb = client::ManagementVerb::take;
+    } else if (kind == "field") {
+        intent.verb = client::ManagementVerb::field;
+    } else if (kind == "bench") {
+        intent.verb = client::ManagementVerb::bench;
+    } else if (kind == "proceed") {
+        intent.verb = client::ManagementVerb::proceed;
+    } else if (kind == "jump") {
+        intent.verb = client::ManagementVerb::jump;
+    } else {
+        return false;
+    }
+    intent.member = campaign::PersistentEntityId{
+        static_cast<std::uint64_t>(member_id)
+    };
+    intent.item = campaign::DefinitionRef{
+        package_.game_id,
+        core::ContentCategory::item,
+        static_cast<std::uint64_t>(item_id)
+    };
+    intent.stage = static_cast<std::uint64_t>(stage_id);
+    return presenter_->submit_management(std::move(intent));
+}
+
 gd::Dictionary GrandleonSession::snapshot_dictionary(
     const sim::EncounterSnapshot& snapshot
 ) const {
@@ -1002,6 +1110,70 @@ gd::Dictionary GrandleonSession::snapshot_dictionary(
     }
     result["units"] = units;
     result["deployment_tiles"] = positions_array(snapshot.deployment_tiles);
+    return result;
+}
+
+gd::Dictionary GrandleonSession::management_dictionary(
+    const client::CompanyManagement& company
+) const {
+    const auto inventory = [this](
+        const std::vector<campaign::InventoryStack>& stacks
+    ) {
+        gd::Array result;
+        for (const campaign::InventoryStack& stack : stacks) {
+            gd::Dictionary value;
+            value["id"] = signed_id(stack.item.stable_id);
+            const std::string_view name = pr::content_name(
+                package_, pf::SectionType::items, stack.item.stable_id
+            );
+            value["name"] = name.empty() ? gd::String("Item") : text(name);
+            value["count"] = static_cast<std::int64_t>(stack.quantity);
+            result.push_back(value);
+        }
+        return result;
+    };
+
+    gd::Dictionary result;
+    result["encounter_id"] = signed_id(company.encounter_id);
+    result["capacity"] = company.capacity;
+    result["fielded_count"] = static_cast<std::int64_t>(
+        company.fielded.size()
+    );
+    result["refused"] = text(
+        campaign_runtime::roster_error_name(company.refused)
+    );
+    result["store"] = inventory(company.store);
+
+    gd::Array stages;
+    for (const client::CampaignStage& stage : company.stages) {
+        gd::Dictionary value;
+        value["node_id"] = signed_id(stage.node_id);
+        value["encounter_id"] = signed_id(stage.encounter_id);
+        value["name"] = text(stage.name);
+        value["reached"] = stage.reached;
+        value["standing"] = stage.standing;
+        stages.push_back(value);
+    }
+    result["stages"] = stages;
+
+    gd::Array roster;
+    for (const client::RosterEntry& member : company.roster) {
+        gd::Dictionary value;
+        value["member_id"] = signed_id(member.member.value);
+        value["name"] = text(member.name);
+        value["availability"] = text(
+            campaign::availability_name(member.availability)
+        );
+        value["level"] = member.progression.level;
+        value["experience"] = static_cast<std::int64_t>(
+            member.progression.experience
+        );
+        value["placeable"] = contains_member(company.placeable, member.member);
+        value["fielded"] = contains_member(company.fielded, member.member);
+        value["carried"] = inventory(member.carried);
+        roster.push_back(value);
+    }
+    result["roster"] = roster;
     return result;
 }
 
@@ -1176,6 +1348,12 @@ gd::Dictionary GrandleonSession::event_dictionary(
             result["successful"] = event.successful;
             break;
         case FrontendEvent::Kind::checkpoint_refused:
+            break;
+        case FrontendEvent::Kind::management:
+            result["company"] = management_dictionary(event.company);
+            break;
+        case FrontendEvent::Kind::management_committed:
+            result["successful"] = event.successful;
             break;
         case FrontendEvent::Kind::session_finished:
         case FrontendEvent::Kind::session_failed:

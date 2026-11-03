@@ -45,6 +45,8 @@ struct FrontendEvent final {
         campaign_begun,
         checkpoint_saved,
         checkpoint_refused,
+        management,
+        management_committed,
         session_finished,
         session_failed,
     };
@@ -63,6 +65,7 @@ struct FrontendEvent final {
     std::string action;
     simulation::ContentId action_content_id{};
     package_runtime::Dialogue dialogue;
+    client::CompanyManagement company;
     simulation::Side player_side{simulation::Side::first};
     std::uint64_t canonical_hash{};
     std::int64_t request_id{};
@@ -150,6 +153,7 @@ public:
         const client::Roster& roster
     ) override;
     void submit(client::Intent intent, std::int64_t request_id);
+    [[nodiscard]] bool submit_management(client::ManagementIntent intent);
     void stop();
     void push(FrontendEvent event);
     [[nodiscard]] std::deque<FrontendEvent> take_events();
@@ -172,6 +176,8 @@ private:
     std::string active_action_;
     simulation::ContentId active_action_content_id_{};
     std::optional<MotionPresentation> active_motion_;
+    std::optional<client::ManagementIntent> management_intent_;
+    bool awaiting_management_{false};
     bool stopping_{false};
 };
 
@@ -214,6 +220,13 @@ public:
         std::int64_t content_id = 0,
         std::int64_t request_id = 0
     );
+    [[nodiscard]] bool submit_management(
+        const ::godot::String& kind,
+        std::int64_t member_id = 0,
+        std::int64_t item_id = 0,
+        std::int64_t stage_id = 0
+    );
+
 protected:
     static void _bind_methods();
 
@@ -223,6 +236,9 @@ private:
     ) const;
     [[nodiscard]] ::godot::Dictionary snapshot_dictionary(
         const simulation::EncounterSnapshot& snapshot
+    ) const;
+    [[nodiscard]] ::godot::Dictionary management_dictionary(
+        const client::CompanyManagement& company
     ) const;
     void reset_for_start();
     [[nodiscard]] bool start_bytes(

@@ -4,6 +4,7 @@ extends Node2D
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const BoardView = preload("res://scripts/board_view.gd")
 const BoardView3D = preload("res://scripts/board_view_3d.gd")
+const CampaignManager = preload("res://scripts/campaign_manager.gd")
 const ControlProfile = preload("res://scripts/control_profile.gd")
 const ControllerSeats = preload("res://scripts/controller_seats.gd")
 const FrameTiming = preload("res://scripts/frame_timing.gd")
@@ -51,6 +52,11 @@ var campaign_progress_enabled := true
 var campaign_save_root := ""
 var campaign_persistence_smoke := false
 var campaign_persistence_resetting := false
+var campaign_management_smoke := false
+var campaign_management_preview := false
+var campaign_management_phase := 0
+var campaign_management_member_id := 0
+var campaign_management_item_id := 0
 var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
 var progress_reset_armed := false
 var seats: Array = []
@@ -66,6 +72,8 @@ var battle_surroundings: Dictionary = {}
 var definitions: Dictionary = {"weapons": [], "abilities": [], "items": []}
 var dialogue_lines: Array = []
 var dialogue_index := -1
+var pending_company: Dictionary = {}
+var management_menu_suspended := false
 var pending_requests: Dictionary = {}
 var next_request_id := 1
 var font_size_bindings: Array[Dictionary] = []
@@ -84,6 +92,7 @@ var dialogue_speaker: Label
 var dialogue_text: RichTextLabel
 var dialogue_portrait: TextureRect
 var dialogue_hint: Label
+var campaign_manager: Control
 var session_menu_layer: Control
 var session_menu_diagnostics: Label
 var session_menu_resume: Button
@@ -188,7 +197,7 @@ func _process(delta: float) -> void:
 	if menu_preview and not snapshot.is_empty() and not _dialogue_visible():
 		menu_preview = false
 		_open_session_menu()
-	if not _session_menu_visible():
+	if not _session_menu_visible() and not _management_visible():
 		if graphics_cycle_smoke:
 			_run_graphics_cycle_smoke()
 		elif demo_reel:
@@ -221,6 +230,10 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _management_visible():
+		if campaign_manager.handle_input(event, controls):
+			get_viewport().set_input_as_handled()
+		return
 	if _session_menu_visible():
 		_handle_session_menu_input(event)
 		return
@@ -294,6 +307,10 @@ func _parse_arguments() -> void:
 			campaign_progress_enabled = false
 		elif argument == "--campaign-persistence-smoke":
 			campaign_persistence_smoke = true
+		elif argument == "--campaign-management-smoke":
+			campaign_management_smoke = true
+		elif argument == "--campaign-management-preview":
+			campaign_management_preview = true
 
 
 func _resolve_campaign_save_root() -> String:
@@ -307,7 +324,11 @@ func _resolve_campaign_save_root() -> String:
 		or demo_reel
 		or board_preview
 		or graphics_cycle_smoke
-		or (not screenshot_path.is_empty() and not menu_preview)
+		or (
+			not screenshot_path.is_empty()
+			and not menu_preview
+			and not campaign_management_preview
+		)
 	):
 		return ""
 	return ProjectSettings.globalize_path("user://campaigns")
@@ -372,6 +393,7 @@ func _run_controls_smoke() -> void:
 		and session_menu_resume.text.contains("1 · ENTER")
 		and session_menu_quit.text.contains("1 · 4 · Q")
 		and dialogue_hint.text.contains("1 / ENTER")
+		and campaign_manager.control_hints_match("1", "2", "MENU")
 	)
 	if not valid:
 		push_error("control profile did not propagate through the PC interface")
@@ -784,6 +806,8 @@ func _set_text_scale(value: float) -> void:
 			control.add_theme_font_size_override(
 				StringName(binding.key), roundi(float(binding.base) * text_scale)
 			)
+	if campaign_manager != null:
+		campaign_manager.set_text_scale(text_scale)
 	_update_session_labels()
 	_persist_presentation_settings()
 
@@ -942,6 +966,18 @@ func _create_interface() -> void:
 
 	_create_dialogue(layer)
 	_create_session_menu(layer)
+	_create_campaign_manager(layer)
+
+
+func _create_campaign_manager(layer: CanvasLayer) -> void:
+	campaign_manager = CampaignManager.new()
+	campaign_manager.configure(
+		controls.label("confirm"), controls.label("cancel"), controls.label("menu"),
+		text_scale
+	)
+	campaign_manager.intent_requested.connect(_on_management_intent)
+	campaign_manager.session_menu_requested.connect(_open_management_session_menu)
+	layer.add_child(campaign_manager)
 
 
 func _create_dialogue(layer: CanvasLayer) -> void:
@@ -1079,8 +1115,8 @@ func _menu_button(value: String) -> Button:
 	return button
 
 
-func _open_session_menu() -> void:
-	if session_menu_layer == null or _dialogue_visible():
+func _open_session_menu(force_over_dialogue := false) -> void:
+	if session_menu_layer == null or (_dialogue_visible() and not force_over_dialogue):
 		return
 	session_menu_layer.visible = true
 	_update_session_diagnostics(true)
@@ -1122,6 +1158,9 @@ func _close_session_menu() -> void:
 	if session_menu_layer != null:
 		session_menu_layer.visible = false
 	get_viewport().gui_release_focus()
+	if management_menu_suspended and campaign_manager != null:
+		management_menu_suspended = false
+		campaign_manager.resume_focus()
 
 
 func _quit_to_launcher() -> void:
@@ -1156,12 +1195,16 @@ func _update_progress_reset_label() -> void:
 func _restart_without_progress() -> void:
 	progress_reset_armed = false
 	_update_progress_reset_label()
+	management_menu_suspended = false
+	if campaign_manager != null:
+		campaign_manager.dismiss()
 	_close_session_menu()
 	dialogue_lines.clear()
 	dialogue_index = -1
 	if dialogue_layer != null:
 		dialogue_layer.visible = false
 	pending_requests.clear()
+	pending_company.clear()
 	snapshot = {}
 	definitions = {"weapons": [], "abilities": [], "items": []}
 	selected_units = [0, 0]
@@ -1368,6 +1411,12 @@ func _handle_event(event: Dictionary) -> void:
 		"checkpoint_refused":
 			campaign_save_state = "AUTO-SAVE / CHECKPOINT REJECTED"
 			_show_toast("OLD CHECKPOINT REJECTED / STARTED NEW CAMPAIGN")
+		"management":
+			_handle_management(event.get("company", {}))
+		"management_committed":
+			if not bool(event.get("successful", false)):
+				var reason := String(event.get("message", "change refused"))
+				_show_toast("COMPANY CHANGE REFUSED  /  " + reason.to_upper().replace("_", " "))
 		"dialogue":
 			for source_line: Dictionary in event.get("lines", []):
 				var line := source_line.duplicate()
@@ -1377,6 +1426,17 @@ func _handle_event(event: Dictionary) -> void:
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
 				_show_dialogue_line()
 		"battle_begins":
+			pending_company.clear()
+			management_menu_suspended = false
+			if campaign_manager != null:
+				campaign_manager.dismiss()
+			if campaign_management_smoke:
+				if campaign_management_phase != 5:
+					_fail_campaign_management_smoke("the battle opened before all gestures completed")
+				else:
+					print("campaign management validated take, give, bench, field, and proceed")
+					get_tree().quit()
+				return
 			board.visible = true
 			snapshot = event.snapshot
 			battle_terrain = event.get("terrain", []).duplicate()
@@ -1433,6 +1493,173 @@ func _handle_event(event: Dictionary) -> void:
 			_show_fatal(String(event.get("message", "session failed")))
 		"session_finished":
 			status_label.text = "SESSION COMPLETE"
+func _handle_management(company: Dictionary) -> void:
+	if company.is_empty():
+		_show_fatal("The campaign did not publish a company")
+		return
+	if campaign_management_smoke:
+		campaign_manager.present(company)
+		_run_campaign_management_smoke(company)
+		return
+	if _management_automation_enabled():
+		if not session.submit_management("proceed"):
+			push_error("automated campaign could not leave company management")
+			get_tree().quit(2)
+		return
+	if _dialogue_visible() and not _management_visible():
+		pending_company = company.duplicate(true)
+		return
+	_present_company(company)
+
+
+func _present_company(company: Dictionary) -> void:
+	pending_company.clear()
+	board.visible = false
+	status_label.text = "PREPARING COMPANY"
+	campaign_manager.present(company)
+
+
+func _show_pending_management() -> void:
+	if pending_company.is_empty() or _dialogue_visible():
+		return
+	_present_company(pending_company)
+
+
+func _management_visible() -> bool:
+	return campaign_manager != null and campaign_manager.visible
+
+
+func _management_automation_enabled() -> bool:
+	return (
+		campaign_persistence_smoke
+		or smoke_auto
+		or coop_smoke
+		or demo_reel
+		or menu_preview
+		or board_preview
+		or graphics_cycle_smoke
+	)
+
+
+func _on_management_intent(kind: String, member_id: int, item_id: int, stage_id: int) -> void:
+	if session != null and session.submit_management(kind, member_id, item_id, stage_id):
+		return
+	campaign_manager.submission_refused()
+	_show_toast("COMPANY COMMAND WAS NOT ACCEPTED")
+
+
+func _open_management_session_menu() -> void:
+	if not _management_visible():
+		return
+	management_menu_suspended = true
+	campaign_manager.visible = false
+	_open_session_menu(true)
+
+
+func _run_campaign_management_smoke(company: Dictionary) -> void:
+	var roster: Array = company.get("roster", [])
+	if roster.size() != 2 or campaign_manager.displayed_member_count() != roster.size():
+		_fail_campaign_management_smoke("the two-member company was not rendered")
+		return
+	if not campaign_manager.has_actionable_member():
+		_fail_campaign_management_smoke("the selected member had no controller action")
+		return
+	match campaign_management_phase:
+		0:
+			if int(company.get("fielded_count", -1)) != 2 or not company.get("store", []).is_empty():
+				_fail_campaign_management_smoke("the founding company was not intact")
+				return
+			campaign_manager.emit_signal("session_menu_requested")
+			if not _session_menu_visible() or _management_visible():
+				_fail_campaign_management_smoke("the company could not open the session menu")
+				return
+			_close_session_menu()
+			if not _management_visible():
+				_fail_campaign_management_smoke("the company did not resume from the session menu")
+				return
+			for member: Dictionary in roster:
+				if member.get("carried", []).is_empty():
+					_fail_campaign_management_smoke("a founding member did not carry a field item")
+					return
+			campaign_management_member_id = int(roster[0].get("member_id", 0))
+			campaign_management_item_id = int(roster[0].get("carried", [])[0].get("id", 0))
+			campaign_management_phase = 1
+			_submit_campaign_management_smoke("take")
+		1:
+			if _inventory_count(company.get("store", []), campaign_management_item_id) != 1:
+				_fail_campaign_management_smoke("returning an item did not update the store")
+				return
+			if _member_inventory_count(
+				company, campaign_management_member_id, campaign_management_item_id
+			) != 0:
+				_fail_campaign_management_smoke("the returned item remained in the member kit")
+				return
+			campaign_management_phase = 2
+			_submit_campaign_management_smoke("give")
+		2:
+			if _inventory_count(company.get("store", []), campaign_management_item_id) != 0:
+				_fail_campaign_management_smoke("giving an item did not debit the store")
+				return
+			if _member_inventory_count(
+				company, campaign_management_member_id, campaign_management_item_id
+			) != 1:
+				_fail_campaign_management_smoke("the given item did not reach the member kit")
+				return
+			campaign_management_phase = 3
+			_submit_campaign_management_smoke("bench")
+		3:
+			if (
+				int(company.get("fielded_count", -1)) != 1
+				or _member_fielded(company, campaign_management_member_id)
+			):
+				_fail_campaign_management_smoke("benching did not change the portable roster")
+				return
+			campaign_management_phase = 4
+			_submit_campaign_management_smoke("field")
+		4:
+			if (
+				int(company.get("fielded_count", -1)) != 2
+				or not _member_fielded(company, campaign_management_member_id)
+			):
+				_fail_campaign_management_smoke("fielding did not restore the portable roster")
+				return
+			campaign_management_phase = 5
+			_submit_campaign_management_smoke("proceed")
+		_:
+			_fail_campaign_management_smoke("company management published an extra screen")
+
+
+func _submit_campaign_management_smoke(kind: String) -> void:
+	var member_id := 0 if kind == "proceed" else campaign_management_member_id
+	var item_id := campaign_management_item_id if kind in ["take", "give"] else 0
+	if not session.submit_management(kind, member_id, item_id, 0):
+		_fail_campaign_management_smoke("the native bridge refused " + kind)
+
+
+func _inventory_count(inventory: Array, item_id: int) -> int:
+	for item: Dictionary in inventory:
+		if int(item.get("id", 0)) == item_id:
+			return int(item.get("count", 0))
+	return 0
+
+
+func _member_inventory_count(company: Dictionary, member_id: int, item_id: int) -> int:
+	for member: Dictionary in company.get("roster", []):
+		if int(member.get("member_id", 0)) == member_id:
+			return _inventory_count(member.get("carried", []), item_id)
+	return -1
+
+
+func _member_fielded(company: Dictionary, member_id: int) -> bool:
+	for member: Dictionary in company.get("roster", []):
+		if int(member.get("member_id", 0)) == member_id:
+			return bool(member.get("fielded", false))
+	return false
+
+
+func _fail_campaign_management_smoke(message: String) -> void:
+	push_error("campaign management smoke failed: " + message)
+	get_tree().quit(2)
 
 
 func _handle_key(event: InputEventKey) -> void:
@@ -1768,6 +1995,7 @@ func _advance_dialogue() -> void:
 		dialogue_lines.clear()
 		dialogue_index = -1
 		dialogue_layer.visible = false
+		_show_pending_management()
 	else:
 		_show_dialogue_line()
 

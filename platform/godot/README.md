@@ -118,6 +118,18 @@ confirms before it erases the current checkpoint and restarts immediately.
 Project archives, player-only exports, presentation settings, and local model
 configuration never include campaign saves.
 
+Before each persisted battle, the controller-native **Company** screen shows
+the portable roster, fielded count and authored deployment capacity, each
+member's availability and carried items, and the shared store. A player can
+field or bench a placeable member, move one item at a time between a member and
+the store, and then start the battle. Every change is committed and
+checkpointed immediately by the shared campaign layer; the screen does not
+keep a PC-only draft or reinterpret roster rules. Stick or d-pad navigation,
+confirm, cancel, and Start cover the complete flow. Dead, unrecruited,
+unplaceable, and over-capacity choices are disabled before submission, while
+the engine remains authoritative if campaign state changes underneath the
+presentation.
+
 Copy that whole directory to the SteamOS machine. In desktop mode, add
 `launch-pc.sh` as a non-Steam game, then return to gaming mode. The launcher
 keeps Godot's data, config, and cache in the bundle's `runtime/` directory and
@@ -219,6 +231,12 @@ five-second FPS, p95 frame-time, peak frame-time, window-size, and internal-
 canvas summary. Those values exist only in memory and are never written to a
 report; the readout deliberately omits graphics-device, display, controller,
 user, path, and network identities.
+
+Between battles, the same compact mapping operates the Company screen: choose
+a member from the roster, confirm to enter their orders, use B to return to the
+roster, press B again for the session menu, and press Start to begin with the
+displayed company. Giving, returning, fielding, and benching each save before
+the screen accepts another input.
 
 Co-op campaigns should author `sideBlocks`. That engine rule carries no
 exclusive unit activation: one character can move, a second can move, and the
@@ -420,6 +438,10 @@ override precedence under an isolated user-data directory.
 `scripts/smoke-campaign-persistence.sh` completes a real battle, verifies its
 opaque checkpoint, resumes it in a second Godot process, then exercises the
 in-app reset and proves the next campaign starts fresh.
+
+`scripts/smoke-campaign-management.sh` renders a real two-member company, moves
+an item to the store and back, benches and fields the same member, starts the
+battle, and verifies that the gestures produced one non-empty checkpoint.
 
 `scripts/smoke-frame-timing.sh` verifies the rolling frame-time calculation,
 its deliberately narrow data shape, and the session-menu integration.

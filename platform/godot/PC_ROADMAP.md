@@ -34,6 +34,7 @@ machine-specific model, graphics, or control configuration.
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Persistent presentation settings | Graphics profile, camera impulse, and text size survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
 | Persistent campaigns | Completed battles use the same versioned campaign envelope and migration registry as the other clients. Atomic checkpoints are isolated by package and campaign identity under runtime data, resume in a second process, and can be erased through a controller-native two-confirm reset. An integration smoke proves write, restart, resume, erase, and fresh start. |
+| Company management | A controller-native screen renders the shared roster, store, kits, fielded set, authored capacity, and engine refusal. Field, bench, give, take, and proceed gestures commit through the portable campaign session and save immediately. An integration smoke performs every gesture against a real two-member campaign before opening its battle. |
 | Private performance readout | Opening the controller session menu shows rolling FPS, p95 and peak frame times, window size, and internal canvas size. The five-second sample remains in memory and never records hardware, display, controller, user, path, or network identities. |
 | Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
 | Route-aware locomotion | Accepted moves carry the shared portable route and a per-cell duration derived from console presentation timing. Both Godot renderers validate and follow every leg independently, including overlapping co-op moves, while snapshots remain authoritative and malformed records fall back safely. |
@@ -64,12 +65,15 @@ Test the default `voxel-sprites` profile first, then compare `diorama` and
    zero.
 7. Watch contact shadows, sprite scale, health bars, text size, dark-detail
    visibility, and camera impulse at the actual viewing distance.
-8. Finish a battle, close the application, and launch it again. Confirm the
+8. At the Company screen, return an item to the store, give it back, bench and
+   re-field one member, and start the battle using only the compact controls.
+   Confirm each change updates the screen before the next input.
+9. Finish a battle, close the application, and launch it again. Confirm the
    campaign resumes at the next authored node. Use **New Campaign**, confirm it
    twice, and verify the campaign restarts without leaving the application.
-9. Open the session menu with Start. Resume with A or B, then return
+10. Open the session menu with Start. Resume with A or B, then return
    to Steam with X and confirm the launcher regains focus.
-10. Leave the game running through several rounds, then open the session menu
+11. Leave the game running through several rounds, then open the session menu
    and note its rolling FPS, p95, peak, window, and canvas values. Check those
    alongside controller focus, heat, and memory on the target PC; the game
    deliberately does not save this diagnostic sample.
@@ -160,9 +164,9 @@ configuration on screen or in the bundle.
 
 - Add music, action/UI audio, and per-player feedback with independent volume
   controls.
-- Add the controller-native company-management surface for moving items and
-  fielding or benching campaign members. The persistent session currently
-  proceeds with the authored company unchanged at that stage.
+- Refine the controller-native Company screen from target-PC feedback, adding
+  richer character presentation without moving inventory or roster rules out
+  of the portable campaign layer.
 - Keep campaign checkpoints and presentation settings as separate contracts;
   neither belongs in portable project archives or local-model configuration.
 - Add attract mode, clean return-to-launcher behavior, and controller-safe idle
