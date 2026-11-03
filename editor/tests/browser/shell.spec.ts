@@ -247,7 +247,7 @@ test("draws a map in one section, sets a Stage up in another, and plays it",
 
     // And it plays. A fresh campaign has no scene to sit through, so Play opens
     // on the company and the board is one press away.
-    await page.getByRole("button", { name: "▶ Play" }).click();
+    await page.getByRole("button", { name: "▶ Play", exact: true }).click();
     const play = page.locator(".play-mode");
     await expect(play).toBeVisible();
     const toTheStage = play.getByRole("button", { name: "To the Stage" });

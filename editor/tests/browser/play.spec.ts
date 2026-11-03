@@ -448,7 +448,7 @@ test("a kept campaign whose content moved is refused by name", async ({
   // Behind Advanced: nobody is asked for a revision before a game exists, and
   // raising one is exactly the deliberate act that fold is for.
   await page.locator(".game-settings details.advanced-fields > summary").click();
-  await page.getByLabel("Content revision").fill("0.1.1");
+  await page.getByLabel("Content revision").fill("0.2.1");
   await page.getByRole("button", { name: "Save game settings" }).click();
 
   await page.getByRole("button", { name: "▶ Play" }).click();
