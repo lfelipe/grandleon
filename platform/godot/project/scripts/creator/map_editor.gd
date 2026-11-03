@@ -2061,14 +2061,15 @@ func _apply_resize() -> void:
 	)
 
 
-func _save() -> void:
+func _save() -> bool:
 	var saved: Dictionary = library.save_source(project_id, source)
 	if not saved.ok:
 		_set_status("SAVE FAILED  /  %s" % saved.message, true)
-		return
+		return false
 	dirty = false
 	_set_status("SAVED  /  PORTABLE PROJECT SOURCE", false)
 	_update_actions()
+	return true
 
 
 func _play_draft() -> void:
@@ -2087,22 +2088,20 @@ func _play_draft() -> void:
 	if campaign.is_empty():
 		_set_status("NOT PLAYABLE  /  CAMPAIGN NEEDS AN ID", true)
 		return
+	if dirty and not _save():
+		return
 	LaunchContext.stage_package(compiled.package, campaign, true)
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
 func _open_story() -> void:
-	if dirty and Time.get_ticks_msec() > discard_armed_until:
-		discard_armed_until = Time.get_ticks_msec() + 3500
-		_set_status("UNSAVED CHANGES  /  SAVE, OR PRESS STORY AGAIN TO DISCARD", true)
+	if dirty and not _save():
 		return
 	get_tree().change_scene_to_file("res://story_editor.tscn")
 
 
 func _open_army() -> void:
-	if dirty and Time.get_ticks_msec() > discard_armed_until:
-		discard_armed_until = Time.get_ticks_msec() + 3500
-		_set_status("UNSAVED CHANGES  /  SAVE, OR PRESS ARMY AGAIN TO DISCARD", true)
+	if dirty and not _save():
 		return
 	get_tree().change_scene_to_file("res://army_editor.tscn")
 
@@ -2216,9 +2215,11 @@ func _build_interface() -> void:
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
 	play_button = _button("TEST CAMPAIGN", 240, 58)
+	play_button.tooltip_text = "Saves valid changes, then starts this campaign."
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
 	var story := _button("NEXT: STORY", 220, 58)
+	story.tooltip_text = "Saves valid changes, then opens the story."
 	story.pressed.connect(_open_story)
 	toolbar.add_child(story)
 	more_button = _button("MORE", 160, 58)

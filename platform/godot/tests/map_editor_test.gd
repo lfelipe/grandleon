@@ -490,6 +490,21 @@ func _run() -> void:
 		_expect("session returns to same project", current_scene.name, "MapEditor")
 		if current_scene.name == "MapEditor":
 			_expect("returned project identity", current_scene.project_id, created.id)
+			var returned_editor = current_scene
+			returned_editor._select_tool("brush")
+			returned_editor._select_terrain("water")
+			returned_editor._paint_cell(0)
+			_expect("map-to-story transition starts with unsaved work", returned_editor.dirty, true)
+			returned_editor._open_story()
+			await process_frame
+			await process_frame
+			_expect("next story opens without a discard prompt", current_scene.name, "StoryEditor")
+			var transition_saved: Dictionary = library.load_source(created.id)
+			_expect(
+				"next story saves the map change automatically",
+				transition_saved.project.maps[0].terrain[0],
+				"water"
+			)
 
 	if failures == 0:
 		print("map editor smoke passed")

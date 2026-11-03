@@ -523,18 +523,19 @@ func _push_history(stack: Array[String], value: String) -> void:
 		stack.pop_front()
 
 
-func _save() -> void:
+func _save() -> bool:
 	if not _commit_visible_member(false):
-		return
+		return false
 	var saved: Dictionary = library.save_source(project_id, source)
 	if not saved.ok:
 		_set_status("SAVE FAILED  /  %s" % saved.message, true)
-		return
+		return false
 	saved_source = source
 	dirty = false
 	discard_armed_until = 0
 	_set_status("SAVED  /  PORTABLE CAMPAIGN COMPANY", false)
 	_update_actions()
+	return true
 
 
 func _play_draft() -> void:
@@ -547,6 +548,8 @@ func _play_draft() -> void:
 	var campaign := _current_campaign()
 	if campaign.is_empty():
 		_set_status("NOT PLAYABLE  /  ADD A CAMPAIGN", true)
+		return
+	if dirty and not _save():
 		return
 	LaunchContext.stage_package(compiled.package, str(campaign.get("id", "")), true)
 	get_tree().change_scene_to_file("res://main.tscn")
@@ -563,7 +566,9 @@ func _request_projects() -> void:
 func _request_leave(destination: String) -> void:
 	if not _commit_visible_member(false):
 		return
-	if dirty and Time.get_ticks_msec() > discard_armed_until:
+	if destination == "maps" and dirty and not _save():
+		return
+	if destination == "projects" and dirty and Time.get_ticks_msec() > discard_armed_until:
 		discard_armed_until = Time.get_ticks_msec() + 3500
 		_set_status("UNSAVED CHANGES  /  SAVE, OR PRESS AGAIN TO DISCARD", true)
 		return
@@ -643,9 +648,11 @@ func _build_interface() -> void:
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
 	play_button = _button("TEST CAMPAIGN", 270, 58)
+	play_button.tooltip_text = "Saves valid changes, then starts this campaign."
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
 	var map_button := _button("BACK: MAP", 230, 58)
+	map_button.tooltip_text = "Saves valid changes, then returns to the map."
 	map_button.pressed.connect(_request_maps)
 	toolbar.add_child(map_button)
 	var more_button := _button("MORE", 190, 58)
