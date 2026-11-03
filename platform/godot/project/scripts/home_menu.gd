@@ -58,13 +58,13 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode in [KEY_ENTER, KEY_SPACE]:
-			_activate_focus()
 			get_viewport().set_input_as_handled()
+			_activate_focus()
 		return
 	if event is InputEventJoypadButton and event.pressed:
 		if controls.matches("confirm", event.button_index):
-			_activate_focus()
 			get_viewport().set_input_as_handled()
+			_activate_focus()
 		elif event.button_index == JOY_BUTTON_A:
 			# A remapped confirm must not leave the built-in UI accept active too.
 			get_viewport().set_input_as_handled()
@@ -255,6 +255,7 @@ func _run_smoke() -> void:
 		push_error("home menu did not publish its simple game list")
 		get_tree().quit(2)
 		return
+	var tree := get_tree()
 	var device := 491
 	var below_threshold := InputEventJoypadMotion.new()
 	below_threshold.device = device
@@ -288,8 +289,13 @@ func _run_smoke() -> void:
 		get_tree().quit(2)
 		return
 	PCNavigation.reset_device(device)
+	var select := InputEventKey.new()
+	select.keycode = KEY_ENTER
+	select.pressed = true
+	_input(select)
 	print("home menu integration smoke passed")
-	get_tree().quit()
+	print("home menu selection smoke passed")
+	tree.quit()
 
 
 func _label(value: String, size: int, colour: Color) -> Label:

@@ -56,5 +56,10 @@ if ! grep -Fq 'home menu integration smoke passed' <<<"${output}"; then
     printf 'home menu did not publish its simple game list\n' >&2
     exit 1
 fi
+if ! grep -Fq 'home menu selection smoke passed' <<<"${output}" || \
+    grep -Fq 'SCRIPT ERROR' <<<"${output}"; then
+    printf 'home menu could not safely open its selected game\n' >&2
+    exit 1
+fi
 
 printf 'home menu smoke passed\n'
