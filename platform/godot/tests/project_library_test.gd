@@ -53,7 +53,40 @@ func _init() -> void:
 		if recovered.ok:
 			_expect("recovered prior title", recovered.project.title, "Signal & Stone")
 
+		var renamed: Dictionary = library.rename_project(created.id, "Signal Beacon")
+		_expect("project renames", renamed.ok, true)
+		if renamed.ok:
+			var renamed_project := _parse(renamed.source)
+			_expect("rename changes title", renamed_project.title, "Signal Beacon")
+			_expect("rename preserves package id", renamed_project.packageId, created.id)
+			_expect("rename preserves game id", renamed_project.gameId, "signal_stone")
+		_expect("empty rename refused", library.rename_project(created.id, "  ").code, "invalid_title")
+		_expect(
+			"refused rename preserves title",
+			library.load_source(created.id).project.title,
+			"Signal Beacon"
+		)
+
+		var duplicated: Dictionary = library.duplicate_project(created.id)
+		_expect("project duplicates", duplicated.ok, true)
+		if duplicated.ok:
+			_expect("copy receives new project id", duplicated.id == created.id, false)
+			var copied_project := _parse(duplicated.source)
+			_expect("copy title is distinct", copied_project.title, "Copy of Signal Beacon")
+			_expect("copy package id matches directory", copied_project.packageId, duplicated.id)
+			_expect("copy receives title-derived game id", copied_project.gameId, "copy_of_signal_beacon")
+			_expect("copy preserves project content", copied_project.maps, _parse(renamed.source).maps)
+		var second_copy: Dictionary = library.duplicate_project(created.id)
+		_expect("project duplicates repeatedly", second_copy.ok, true)
+		if second_copy.ok:
+			var second_project := _parse(second_copy.source)
+			_expect("repeated copy title is distinct", second_project.title, "Copy of Signal Beacon (2)")
+			_expect("repeated copy game id is distinct", second_project.gameId, "copy_of_signal_beacon_2")
+		_expect("renamed project and copies are listed", library.list_projects().size(), 3)
+
 	_expect("path traversal refused", library.load_source("../outside").code, "invalid_project_id")
+	_expect("path traversal rename refused", library.rename_project("../outside", "No").code, "invalid_project_id")
+	_expect("path traversal copy refused", library.duplicate_project("../outside").code, "invalid_project_id")
 	_expect("empty title refused", library.create_project("  ", template).code, "invalid_title")
 
 	if failures == 0:

@@ -25,8 +25,10 @@ The first native seam is implemented:
   assigns a portable UUID, validates every save through the native parser, and
   keeps the prior source recoverable if replacement is interrupted.
 - The controller-navigable Projects screen creates blank or playable starter
-  projects, lists stored projects, compiles a selected project, and hands a
-  playable draft back to the ordinary game scene without a temporary package.
+  projects, lists, renames, and duplicates stored projects, compiles a selected
+  project, and hands a playable draft back to the ordinary game scene without a
+  temporary package. Copies receive new portable identities; renames preserve
+  stable identifiers and content.
 - The first native map creator paints canonical terrain with the same art atlas
   used by play mode. Edits pass through the native integer-preserving source
   layer, support bounded undo/redo and recoverable save, and can be compiled,

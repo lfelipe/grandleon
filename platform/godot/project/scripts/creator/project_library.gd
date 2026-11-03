@@ -31,8 +31,9 @@ func create_project(title: String, template_source: String) -> Dictionary:
 	var project_id := _new_uuid()
 	while DirAccess.dir_exists_absolute(_project_path(project_id)):
 		project_id = _new_uuid()
+	var game_id := _unique_game_id(_game_id_from_title(clean_title))
 	var instantiated: Dictionary = compiler.instantiate_source_json(
-		template_source, project_id, _game_id_from_title(clean_title), clean_title
+		template_source, project_id, game_id, clean_title
 	)
 	if not instantiated.ok:
 		return {
@@ -51,6 +52,48 @@ func create_project(title: String, template_source: String) -> Dictionary:
 		"source": source,
 		"diagnostics": saved.diagnostics,
 	}
+
+
+func rename_project(project_id: String, title: String) -> Dictionary:
+	if not _valid_project_id(project_id):
+		return _failure("invalid_project_id", "That project identifier is not valid.")
+	if not ready():
+		return _failure("native_compiler_unavailable", "The native project compiler did not load.")
+	var clean_title := title.strip_edges()
+	if clean_title.is_empty() or clean_title.length() > 160:
+		return _failure("invalid_title", "A title must contain between 1 and 160 characters.")
+	var loaded := load_source(project_id)
+	if not loaded.ok:
+		return loaded
+	var rewritten: Dictionary = compiler.instantiate_source_json(
+		loaded.source, project_id, str(loaded.project.get("gameId", "")), clean_title
+	)
+	if not rewritten.ok:
+		return {
+			"ok": false,
+			"code": "source_invalid",
+			"message": "The stored project could not accept the new title.",
+			"diagnostics": rewritten.diagnostics,
+		}
+	var saved := save_source(project_id, str(rewritten.source))
+	if not saved.ok:
+		return saved
+	return {
+		"ok": true,
+		"id": project_id,
+		"source": str(rewritten.source),
+		"diagnostics": saved.diagnostics,
+	}
+
+
+func duplicate_project(project_id: String) -> Dictionary:
+	if not _valid_project_id(project_id):
+		return _failure("invalid_project_id", "That project identifier is not valid.")
+	var loaded := load_source(project_id)
+	if not loaded.ok:
+		return loaded
+	var copy_title := _unique_copy_title(str(loaded.project.get("title", "Untitled Game")))
+	return create_project(copy_title, loaded.source)
 
 
 func save_source(project_id: String, source: String) -> Dictionary:
@@ -170,6 +213,39 @@ func _game_id_from_title(title: String) -> String:
 	if candidate[0] >= "0" and candidate[0] <= "9":
 		candidate = "game_" + candidate
 	return candidate.left(96).trim_suffix("_")
+
+
+func _unique_game_id(candidate: String) -> String:
+	var used: Dictionary = {}
+	for project: Dictionary in list_projects():
+		var game_id := str(project.get("game_id", ""))
+		if not game_id.is_empty():
+			used[game_id] = true
+	if not used.has(candidate):
+		return candidate
+	var number := 2
+	while number < 100000:
+		var suffix := "_%d" % number
+		var numbered := candidate.left(96 - suffix.length()).trim_suffix("_") + suffix
+		if not used.has(numbered):
+			return numbered
+		number += 1
+	return ("game_" + _new_uuid().replace("-", "")).left(96)
+
+
+func _unique_copy_title(source_title: String) -> String:
+	var used: Dictionary = {}
+	for project: Dictionary in list_projects():
+		used[str(project.get("title", ""))] = true
+	var number := 1
+	while number < 100000:
+		var suffix := "" if number == 1 else " (%d)" % number
+		var prefix := "Copy of "
+		var candidate := prefix + source_title.left(160 - prefix.length() - suffix.length()) + suffix
+		if not used.has(candidate):
+			return candidate
+		number += 1
+	return ("Copy " + _new_uuid()).left(160)
 
 
 func _new_uuid() -> String:
