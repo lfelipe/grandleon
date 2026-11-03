@@ -35,6 +35,13 @@ func _run() -> void:
 	_expect("dialogue selector receives controller focus", editor.dialogue_select.has_focus(), true)
 	_expect("story screen previews the portable character art", editor.preview_portrait.texture != null, true)
 	_expect("story screen offers every portable backdrop", editor.backdrop_select.item_count, editor.BACKDROPS.size() + 1)
+	creator_context.choose_dialogue(str(editor.dialogues[0].id))
+	editor._load_project()
+	await process_frame
+	_expect("an exact-scene handoff focuses the dialogue line", editor.dialogue_text.has_focus(), true)
+	_expect("an exact-scene handoff explains the immediate action", editor.status_label.text, "READY  /  WRITE THIS CONVERSATION")
+	creator_context.choose_dialogue("")
+	editor.dialogue_select.grab_focus()
 	editor._apply_diagnostic_focus({"line_index": 1, "field": "text"})
 	await process_frame
 	_expect("diagnostic recovery opens the exact line", editor.line_index, 1)

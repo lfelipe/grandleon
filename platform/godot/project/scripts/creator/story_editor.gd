@@ -110,7 +110,13 @@ func _load_project() -> void:
 		_apply_diagnostic_focus(diagnostic_focus)
 		return
 	if not dialogues.is_empty():
-		dialogue_select.call_deferred("grab_focus")
+		if not CreatorContext.dialogue_id.is_empty() and not _current_lines().is_empty():
+			_set_status("READY  /  WRITE THIS CONVERSATION", false)
+			dialogue_text.call_deferred("grab_focus")
+			if dialogue_text.text.strip_edges() == "...":
+				dialogue_text.call_deferred("select_all")
+		else:
+			dialogue_select.call_deferred("grab_focus")
 
 
 func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
