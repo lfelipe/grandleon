@@ -290,6 +290,11 @@ cardinal focus or cursor step for each complete deflection and must recenter
 before another; a diagonal cannot become two steps. D-pad buttons remain
 immediate and do not use these thresholds. Unsafe, mistyped, or overlapping
 thresholds reject the complete local profile and restore safe defaults.
+The Settings page exposes only two plain-language choices over that safe base:
+**Deliberate** uses the profile threshold, while **Extra Firm** raises it by
+`0.10` up to the safe `0.95` maximum. This presentation-only choice persists
+locally and applies to both the next home screen and gameplay; it never changes
+portable project content or records a controller identity.
 
 Outside deployment and dialogue, the configured menu button (Start by default)
 or optional alternate (Back by default) opens a controller-native session menu.
@@ -297,7 +302,8 @@ The stick or d-pad chooses an action and the configured confirm button (A by
 default) or Enter confirms it. The root contains only **Resume**, **Save /
 Load**, **Settings**, **Main Menu**, and **Exit Game**. Settings contains the
 four graphics profiles, camera-impulse comfort switch, Normal/Large text,
-Full/Low/Off sound effects, private local-model check, and the rolling
+Deliberate/Extra Firm stick input, Full/Low/Off sound effects, private
+local-model check, and the rolling
 five-second FPS, p95 frame-time, peak frame-time, window-size, and internal-
 canvas summary. Save / Load contains
 the three manual checkpoint slots and the two-confirm new-campaign action.

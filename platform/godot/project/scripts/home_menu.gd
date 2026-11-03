@@ -2,7 +2,9 @@
 extends Control
 
 const ControlProfile = preload("res://scripts/control_profile.gd")
+const PresentationSettings = preload("res://scripts/presentation_settings.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const GRAPHICS_PROFILES := ["pixel", "diorama", "voxel-sprites", "voxel"]
 
 var library
 var compiler
@@ -15,6 +17,8 @@ var status_label: Label
 var screenshot_path := ""
 var screenshot_frames := -1
 var home_smoke := false
+var home_stick_expected := ""
+var stick_mode := "deliberate"
 var game_button_count := 0
 
 
@@ -24,8 +28,12 @@ func _ready() -> void:
 		call_deferred("_open_game_directly")
 		return
 	controls = ControlProfile.new(controls_path)
+	var stored_settings: Dictionary = PresentationSettings.new().load_settings(
+		GRAPHICS_PROFILES
+	)
+	stick_mode = String(stored_settings.get("stick_mode", "deliberate"))
 	PCNavigation.configure(
-		controls.stick_press_threshold(), controls.stick_release_threshold()
+		controls.stick_press_threshold(), controls.stick_release_threshold(), stick_mode
 	)
 	PCNavigation.allow_all_devices()
 	library = ProjectLibrary.new()
@@ -70,6 +78,8 @@ func _parse_arguments() -> void:
 			controls_path = argument.trim_prefix("--controls=")
 		elif argument == "--home-smoke":
 			home_smoke = true
+		elif argument.begins_with("--home-stick-expect="):
+			home_stick_expected = argument.trim_prefix("--home-stick-expect=")
 		elif argument.begins_with("--home-screenshot="):
 			screenshot_path = argument.trim_prefix("--home-screenshot=")
 			screenshot_frames = 20
@@ -239,6 +249,7 @@ func _run_smoke() -> void:
 		and first_button.text.contains("THE LAST SIGNAL")
 		and controls != null
 		and PCNavigation.raw_stick_ui_event_count() == 0
+		and (home_stick_expected.is_empty() or stick_mode == home_stick_expected)
 	)
 	if not valid:
 		push_error("home menu did not publish its simple game list")
@@ -249,8 +260,8 @@ func _run_smoke() -> void:
 	below_threshold.device = device
 	below_threshold.axis = JOY_AXIS_LEFT_Y
 	below_threshold.axis_value = maxf(
-		controls.stick_release_threshold() + 0.05,
-		controls.stick_press_threshold() - 0.08
+		PCNavigation.release_threshold() + 0.05,
+		PCNavigation.press_threshold() - 0.08
 	)
 	PCNavigation.handle_motion(below_threshold)
 	await get_tree().process_frame
@@ -261,7 +272,7 @@ func _run_smoke() -> void:
 	var deliberate := InputEventJoypadMotion.new()
 	deliberate.device = device
 	deliberate.axis = JOY_AXIS_LEFT_Y
-	deliberate.axis_value = minf(0.99, controls.stick_press_threshold() + 0.04)
+	deliberate.axis_value = minf(0.99, PCNavigation.press_threshold() + 0.04)
 	PCNavigation.handle_motion(deliberate)
 	await get_tree().process_frame
 	var next_focus := get_viewport().gui_get_focus_owner()

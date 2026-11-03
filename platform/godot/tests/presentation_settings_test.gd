@@ -14,7 +14,9 @@ func _init() -> void:
 	_expect("missing settings are empty", settings.load_settings(PROFILES), {})
 	_expect_true(
 		"valid settings save",
-		settings.save_settings("voxel", false, 1.15, PROFILES, 0.45)
+		settings.save_settings(
+			"voxel", false, 1.15, PROFILES, 0.45, "extra_firm"
+		)
 	)
 
 	var reloaded = PresentationSettings.new(path)
@@ -23,6 +25,7 @@ func _init() -> void:
 	_expect("stored camera comfort", values.get("camera_impulse"), false)
 	_expect("stored text size", values.get("text_scale"), 1.15)
 	_expect("stored effects level", values.get("effects_level"), 0.45)
+	_expect("stored stick input", values.get("stick_mode"), "extra_firm")
 	_expect("valid settings have no warning", reloaded.warning(), "")
 
 	var raw: Variant = JSON.parse_string(
@@ -38,7 +41,7 @@ func _init() -> void:
 			keys,
 			[
 				"cameraImpulse", "contractVersion", "effectsLevel",
-				"graphicsProfile", "textScale"
+				"graphicsProfile", "stickMode", "textScale"
 			]
 		)
 
@@ -57,6 +60,12 @@ func _init() -> void:
 		not settings.save_settings("voxel", false, 1.15, PROFILES, 0.73)
 	)
 	_expect_true(
+		"invalid stick input is refused",
+		not settings.save_settings(
+			"voxel", false, 1.15, PROFILES, 1.0, "machine-specific-mode"
+		)
+	)
+	_expect_true(
 		"second valid save",
 		settings.save_settings("pixel", true, 1.0, PROFILES, 1.0)
 	)
@@ -68,6 +77,7 @@ func _init() -> void:
 	var recovered_values: Dictionary = recovered.load_settings(PROFILES)
 	_expect("previous settings recover", recovered_values.get("graphics_profile"), "voxel")
 	_expect("previous effects level recovers", recovered_values.get("effects_level"), 0.45)
+	_expect("previous stick input recovers", recovered_values.get("stick_mode"), "extra_firm")
 	_expect("recovery is coarse", recovered.warning(), "PREVIOUS DISPLAY SETTINGS RESTORED")
 	var restored = PresentationSettings.new(path)
 	_expect("recovery persists", restored.load_settings(PROFILES).get("graphics_profile"), "voxel")
@@ -88,12 +98,19 @@ func _init() -> void:
 		PresentationSettings.new(path).load_settings(PROFILES).get("effects_level"),
 		1.0
 	)
+	_expect(
+		"settings written before stick modes default safely",
+		PresentationSettings.new(path).load_settings(PROFILES).get("stick_mode"),
+		"deliberate"
+	)
 	_expect_true("legacy fixture reset", PresentationSettings.new(path).reset())
 
 	var integration = PresentationSettings.new()
 	_expect_true(
 		"integration settings save",
-		integration.save_settings("voxel", false, 1.15, PROFILES, 0.45)
+		integration.save_settings(
+			"voxel", false, 1.15, PROFILES, 0.45, "extra_firm"
+		)
 	)
 
 	if failures == 0:

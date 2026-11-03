@@ -28,6 +28,7 @@ var controls_path := ""
 var camera_impulse_enabled := true
 var text_scale := 1.0
 var effects_level := 1.0
+var stick_mode := "deliberate"
 var screenshot_path := ""
 var screenshot_frames := -1
 var smoke_auto := false
@@ -112,6 +113,7 @@ var session_menu_settings_button: Button
 var session_menu_graphics: Button
 var session_menu_camera: Button
 var session_menu_text: Button
+var session_menu_stick: Button
 var session_menu_audio: Button
 var session_menu_new_campaign: Button
 var session_menu_quit: Button
@@ -137,15 +139,16 @@ func _ready() -> void:
 	# command below, preserving portable roster and deployment validation.
 	campaign_save_root = "" if draft_preview else _resolve_campaign_save_root()
 	controls = ControlProfile.new(controls_path)
-	PCNavigation.configure(
-		controls.stick_press_threshold(), controls.stick_release_threshold()
-	)
-	PCNavigation.direction_pressed.connect(_on_stick_direction)
 	graphics_profiles = GraphicsProfiles.new(graphics_pack_path)
 	presentation_settings = PresentationSettings.new()
 	var stored_settings: Dictionary = {}
 	if _use_presentation_settings():
 		stored_settings = presentation_settings.load_settings(GRAPHICS_PROFILES)
+	stick_mode = String(stored_settings.get("stick_mode", "deliberate"))
+	PCNavigation.configure(
+		controls.stick_press_threshold(), controls.stick_release_threshold(), stick_mode
+	)
+	PCNavigation.direction_pressed.connect(_on_stick_direction)
 	if not graphics_argument_explicit and stored_settings.has("graphics_profile"):
 		graphics_profile = String(stored_settings.graphics_profile)
 	if stored_settings.has("graphics_profile"):
@@ -392,6 +395,8 @@ func _run_presentation_settings_smoke() -> void:
 		and not camera_impulse_enabled
 		and is_equal_approx(text_scale, 1.15)
 		and is_equal_approx(effects_level, 0.45)
+		and stick_mode == "extra_firm"
+		and is_equal_approx(PCNavigation.press_threshold(), 0.88)
 		and PCAudio.level_name() == "LOW"
 	)
 	if not valid:
@@ -408,6 +413,7 @@ func _run_presentation_settings_smoke() -> void:
 			and bool(saved.get("camera_impulse", false))
 			and is_equal_approx(float(saved.get("text_scale", 0.0)), 1.15)
 			and is_equal_approx(float(saved.get("effects_level", -1.0)), 0.45)
+			and String(saved.get("stick_mode", "")) == "extra_firm"
 		)
 		if not valid:
 			push_error("a launch override replaced the stored graphics choice")
@@ -427,12 +433,14 @@ func _run_controls_smoke() -> void:
 		"optional control": controls.button("previous_unit") < 0,
 		"stick press": is_equal_approx(controls.stick_press_threshold(), 0.90),
 		"stick release": is_equal_approx(controls.stick_release_threshold(), 0.20),
+		"active stick press": is_equal_approx(PCNavigation.press_threshold(), 0.90),
 		"profile warning": controls.warning().is_empty(),
 		"play help": help_label.text.contains("[b]1[/b][/color]  SELECT"),
 		"menu help": help_label.text.contains("[b]MENU[/b]  SESSION MENU"),
 		"resume label": session_menu_resume.text == "RESUME",
 		"save label": session_menu_save_load.text == "SAVE / LOAD",
 		"audio label": session_menu_audio.text == "SOUND EFFECTS  /  FULL",
+		"stick label": session_menu_stick.text == "STICK INPUT  /  DELIBERATE",
 		"filtered stick UI": PCNavigation.raw_stick_ui_event_count() == 0,
 		"exit label": session_menu_quit.text == "EXIT GAME",
 		"select hint": session_menu_hint.text.contains("1 / ENTER  SELECT"),
@@ -457,6 +465,19 @@ func _run_controls_smoke() -> void:
 	_show_settings_page()
 	if session_menu_page != "settings" or not session_menu_graphics.visible:
 		failed.append("settings page")
+	session_menu_stick.pressed.emit()
+	if (
+		stick_mode != "extra_firm"
+		or not is_equal_approx(PCNavigation.press_threshold(), 0.95)
+		or session_menu_stick.text != "STICK INPUT  /  EXTRA FIRM"
+	):
+		failed.append("extra-firm stick setting")
+	session_menu_stick.pressed.emit()
+	if (
+		stick_mode != "deliberate"
+		or not is_equal_approx(PCNavigation.press_threshold(), 0.90)
+	):
+		failed.append("deliberate stick setting")
 	_show_root_page()
 	snapshot = {
 		"active_side": "first",
@@ -934,6 +955,19 @@ func _set_effects_level(value: float) -> void:
 	_persist_presentation_settings()
 
 
+func _toggle_stick_mode() -> void:
+	_set_stick_mode("extra_firm" if stick_mode == "deliberate" else "deliberate")
+
+
+func _set_stick_mode(value: String) -> void:
+	stick_mode = value if value in PresentationSettings.STICK_MODES else "deliberate"
+	PCNavigation.configure(
+		controls.stick_press_threshold(), controls.stick_release_threshold(), stick_mode
+	)
+	_update_session_labels()
+	_persist_presentation_settings()
+
+
 func _persist_presentation_settings() -> void:
 	if presentation_settings == null or not _use_presentation_settings():
 		return
@@ -942,7 +976,8 @@ func _persist_presentation_settings() -> void:
 		camera_impulse_enabled,
 		text_scale,
 		GRAPHICS_PROFILES,
-		effects_level
+		effects_level,
+		stick_mode
 	):
 		_show_toast(presentation_settings.warning())
 
@@ -969,6 +1004,10 @@ func _update_session_labels() -> void:
 	if session_menu_text != null:
 		session_menu_text.text = "TEXT SIZE  /  %s" % (
 			"LARGE" if text_scale > 1.05 else "NORMAL"
+		)
+	if session_menu_stick != null:
+		session_menu_stick.text = "STICK INPUT  /  %s" % (
+			"EXTRA FIRM" if stick_mode == "extra_firm" else "DELIBERATE"
 		)
 	if session_menu_audio != null:
 		session_menu_audio.text = "SOUND EFFECTS  /  %s" % PCAudio.level_name()
@@ -1227,23 +1266,26 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 
 	session_menu_settings = _session_menu_page()
 	column.add_child(session_menu_settings)
-	session_menu_graphics = _menu_button("")
+	session_menu_graphics = _settings_button("")
 	session_menu_graphics.pressed.connect(_cycle_graphics_profile)
 	session_menu_settings.add_child(session_menu_graphics)
-	session_menu_camera = _menu_button("")
+	session_menu_camera = _settings_button("")
 	session_menu_camera.pressed.connect(_toggle_camera_impulse)
 	session_menu_settings.add_child(session_menu_camera)
-	session_menu_text = _menu_button("")
+	session_menu_text = _settings_button("")
 	session_menu_text.pressed.connect(_toggle_text_scale)
 	session_menu_settings.add_child(session_menu_text)
-	session_menu_audio = _menu_button("")
+	session_menu_stick = _settings_button("")
+	session_menu_stick.pressed.connect(_toggle_stick_mode)
+	session_menu_settings.add_child(session_menu_stick)
+	session_menu_audio = _settings_button("")
 	session_menu_audio.pressed.connect(_cycle_effects_level)
 	session_menu_settings.add_child(session_menu_audio)
 	session_menu_diagnostics = _label("", 16, Color("718896"))
 	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_diagnostics.custom_minimum_size.y = 86
 	session_menu_settings.add_child(session_menu_diagnostics)
-	var settings_back := _menu_button("BACK")
+	var settings_back := _settings_button("BACK")
 	settings_back.pressed.connect(_show_root_page)
 	session_menu_settings.add_child(settings_back)
 
@@ -1278,6 +1320,12 @@ func _menu_button(value: String) -> Button:
 	button.add_theme_stylebox_override("hover", active)
 	button.add_theme_stylebox_override("pressed", active)
 	button.add_theme_stylebox_override("focus", active)
+	return button
+
+
+func _settings_button(value: String) -> Button:
+	var button := _menu_button(value)
+	button.custom_minimum_size.y = 64
 	return button
 
 

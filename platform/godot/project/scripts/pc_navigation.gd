@@ -20,8 +20,23 @@ func _ready() -> void:
 	_remove_raw_stick_ui_events()
 
 
-func configure(press_threshold: float, release_threshold: float) -> void:
-	_stick.configure(press_threshold, release_threshold)
+func configure(
+	press_threshold: float,
+	release_threshold: float,
+	input_mode := "deliberate"
+) -> void:
+	var effective_press := press_threshold
+	if input_mode == "extra_firm":
+		effective_press = minf(0.95, press_threshold + 0.10)
+	_stick.configure(effective_press, release_threshold)
+
+
+func press_threshold() -> float:
+	return _stick.press_threshold
+
+
+func release_threshold() -> float:
+	return _stick.release_threshold
 
 
 func reset_device(device := -1) -> void:

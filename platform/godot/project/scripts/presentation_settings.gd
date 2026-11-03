@@ -4,6 +4,7 @@ extends RefCounted
 
 const CONTRACT_VERSION := "1.0.0"
 const DEFAULT_PATH := "user://pc-presentation.json"
+const STICK_MODES := ["deliberate", "extra_firm"]
 
 var storage_path: String
 var _warning := ""
@@ -44,7 +45,8 @@ func save_settings(
 	camera_impulse: bool,
 	text_scale: float,
 	available_profiles: Array,
-	effects_level: float = 1.0
+	effects_level: float = 1.0,
+	stick_mode := "deliberate"
 ) -> bool:
 	_warning = ""
 	if not available_profiles.has(graphics_profile):
@@ -54,6 +56,9 @@ func save_settings(
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
 	if not _valid_effects_level(effects_level):
+		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
+		return false
+	if stick_mode not in STICK_MODES:
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
 
@@ -74,6 +79,7 @@ func save_settings(
 		"cameraImpulse": camera_impulse,
 		"textScale": text_scale,
 		"effectsLevel": effects_level,
+		"stickMode": stick_mode,
 	}
 	file.store_string(JSON.stringify(document, "  ", true) + "\n")
 	file.flush()
@@ -140,11 +146,15 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 	var effects := float(effects_value)
 	if not _valid_effects_level(effects):
 		return {}
+	var stick_mode := String(document.get("stickMode", "deliberate"))
+	if stick_mode not in STICK_MODES:
+		return {}
 	return {
 		"graphics_profile": profile,
 		"camera_impulse": bool(document.cameraImpulse),
 		"text_scale": scale,
 		"effects_level": effects,
+		"stick_mode": stick_mode,
 	}
 
 
