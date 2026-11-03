@@ -218,7 +218,7 @@ int main() {
     expect(
         finale && std::any_of(
             finale.definition.units.begin(), finale.definition.units.end(),
-            [regent](const sim::UnitDefinition& unit) {
+            [](const sim::UnitDefinition& unit) {
                 return unit.side == sim::Side::second &&
                        unit.unit_type_id == regent;
             }
