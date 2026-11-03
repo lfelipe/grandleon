@@ -496,7 +496,12 @@ func _select_tool(name: String) -> void:
 	if name != "add_unit":
 		pending_placement = {}
 	_update_tool_selection()
-	_set_status("TOOL  /  %s" % name.to_upper(), false)
+	_set_status(
+		"TALK & STORY  /  CHOOSE AN OPPONENT ON THE BOARD"
+		if name == "talk"
+		else "TOOL  /  %s" % name.to_upper(),
+		false
+	)
 	_focus_cell(0)
 
 
@@ -507,6 +512,7 @@ func _update_tool_selection() -> void:
 			"add_unit": "ADD CHARACTER", "unit": "MOVE CHARACTER",
 			"remove_unit": "REMOVE CHARACTER", "deployment": "DEPLOYMENT AREA",
 			"ownership": "PLAYER OWNERSHIP", "scaling": "TWO-PLAYER SCALING",
+			"talk": "TALK & STORY CHOICES",
 			"surroundings": "MAP SURROUNDINGS",
 		}
 		var display := str(display_names.get(name, name.to_upper()))
@@ -516,6 +522,7 @@ func _update_tool_selection() -> void:
 			"add_unit": "ADD CHARACTER", "unit": "MOVE CHARACTER",
 			"remove_unit": "REMOVE CHARACTER", "deployment": "DEPLOYMENT",
 			"ownership": "PLAYER OWNERSHIP", "scaling": "TWO-PLAYER SCALING",
+			"talk": "TALK & STORY CHOICES",
 			"surroundings": "MAP SURROUNDINGS",
 		}
 		setup_button.text = (
@@ -659,7 +666,9 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 	var two_player_only := int(first.get("minimumPlayers", 1)) >= 2
 	label.text = "MOVE" if selected else (
 		"%d×" % placements.size() if placements.size() > 1 else (
-			"P%d" % local_player if first_side else ("2P" if two_player_only else "ENEMY")
+			"P%d" % local_player if first_side else (
+				"2P" if two_player_only else ("TALK" if first.has("talk") else "ENEMY")
+			)
 		)
 	)
 	label.position = Vector2(5, 5)
@@ -686,7 +695,9 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 					if str(placement.get("side", "second")) == "first" else ""
 				),
 				" / 2 PLAYERS" if int(placement.get("minimumPlayers", 1)) >= 2 else "",
-				_placement_display_name(placement),
+				_placement_display_name(placement) + (
+					" / TALKABLE" if placement.has("talk") else ""
+				),
 			]
 		)
 	cell.tooltip_text += "\n" + "\n".join(details)
@@ -828,6 +839,8 @@ func _paint_cell(index: int) -> void:
 		_toggle_placement_player_at(index, width)
 	elif active_tool == "scaling":
 		_toggle_placement_scaling_at(index, width)
+	elif active_tool == "talk":
+		_toggle_placement_talk_at(index, width)
 	elif active_tool == "unit":
 		_move_unit_at(index, width)
 	elif active_tool == "fill":
@@ -1023,6 +1036,46 @@ func _toggle_placement_player_at(index: int, width: int) -> void:
 	_refresh_maps_after_edit(index)
 	_set_status(
 		"UNSAVED  /  %s BELONGS TO PLAYER %d" % [display_name.to_upper(), next_player],
+		false
+	)
+
+
+func _toggle_placement_talk_at(index: int, width: int) -> void:
+	var encounter := _current_encounter()
+	var placement := _placement_at(index, width)
+	if encounter.is_empty() or placement.is_empty():
+		_set_status("CHOOSE AN OPPONENT TO MAKE TALKABLE", true)
+		_focus_cell(index)
+		return
+	if str(placement.get("side", "second")) != "second":
+		_set_status("TALK IS FOR OPPONENTS WHO CAN LEAVE WITHOUT A FIGHT", true)
+		_focus_cell(index)
+		return
+	var node: Dictionary = encounter.node
+	var display_name := _placement_display_name(placement)
+	var was_talkable := placement.has("talk")
+	var updated: Dictionary = compiler.set_placement_talkable(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(node.get("id", "")),
+		str(placement.get("id", "")),
+		not was_talkable
+	)
+	if not updated.ok:
+		_set_status("TALK NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		_focus_cell(index)
+		return
+	_push_undo(source)
+	source = updated.source
+	redo_stack.clear()
+	dirty = true
+	_read_source()
+	_refresh_maps_after_edit(index)
+	_set_status(
+		"UNSAVED  /  %s %s" % [
+			display_name.to_upper(),
+			"NO LONGER HAS TALK" if was_talkable else "CAN NOW BE TALKED TO",
+		],
 		false
 	)
 
@@ -2485,7 +2538,9 @@ func _build_interface() -> void:
 		tool_buttons[tool_name] = tool_button
 	setup_button = _button("BATTLE SETUP", 330, 52)
 	setup_button.add_theme_font_size_override("font_size", 15)
-	setup_button.tooltip_text = "Characters, goals, deployment, co-op, and map surroundings"
+	setup_button.tooltip_text = (
+		"Characters, goals, Talk choices, deployment, co-op, and map surroundings"
+	)
 	setup_button.pressed.connect(_open_setup)
 	tools_column.add_child(setup_button)
 	deployment_actions = HBoxContainer.new()
@@ -2683,6 +2738,14 @@ func _refresh_copy_setup_summary(_index: int = 0) -> void:
 	)
 
 
+func _copied_setup_placements(source_node: Dictionary) -> Array:
+	var placements: Array = source_node.get("placements", []).duplicate(true)
+	for index in placements.size():
+		if placements[index] is Dictionary:
+			placements[index].erase("talk")
+	return placements
+
+
 func _apply_copy_setup() -> void:
 	if copy_setup_select.selected < 0 or copy_setup_select.selected >= copy_setup_candidates.size():
 		return
@@ -2707,7 +2770,11 @@ func _apply_copy_setup() -> void:
 			var target: Dictionary = nodes[node_index].duplicate(true)
 			for field: String in ["placements", "objectiveIds", "turnOrder", "deployment"]:
 				if source_node.has(field):
-					target[field] = source_node[field].duplicate(true)
+					target[field] = (
+						_copied_setup_placements(source_node)
+						if field == "placements"
+						else source_node[field].duplicate(true)
+					)
 				else:
 					target.erase(field)
 			nodes[node_index] = target
@@ -2748,8 +2815,8 @@ func _build_setup_overlay() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	setup_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(390, 190)
-	panel.size = Vector2(1140, 700)
+	panel.position = Vector2(390, 150)
+	panel.size = Vector2(1140, 780)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
 	)
@@ -2803,6 +2870,15 @@ func _build_setup_overlay() -> void:
 	surroundings_button.pressed.connect(_setup_surroundings)
 	choices.add_child(surroundings_button)
 	tool_buttons["surroundings"] = surroundings_button
+	var talk_button := _button(
+		"TALK & STORY CHOICES\nCHOOSE OPPONENTS PLAYERS MAY TALK TO", 1014, 72
+	)
+	talk_button.tooltip_text = (
+		"Talking lets an opponent leave peacefully and creates a named choice for Campaign Outcomes."
+	)
+	talk_button.pressed.connect(_choose_setup_tool.bind("talk"))
+	column.add_child(talk_button)
+	tool_buttons["talk"] = talk_button
 	copy_setup_button = _button("COPY ANOTHER BATTLE SETUP", 1014, 66)
 	copy_setup_button.pressed.connect(_setup_copy)
 	column.add_child(copy_setup_button)

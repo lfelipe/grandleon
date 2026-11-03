@@ -194,6 +194,7 @@ func _run() -> void:
 	_expect("battle setup opens", editor.setup_layer.visible, true)
 	_expect("battle setup focuses its first action", editor.setup_first_button.has_focus(), true)
 	_expect("single-battle campaign cannot copy from nowhere", editor.copy_setup_button.disabled, true)
+	_expect("battle setup offers Talk without cluttering map tools", editor.tool_buttons.has("talk"), true)
 	editor._close_setup()
 	await process_frame
 	_expect("battle setup returns focus", editor.setup_button.has_focus(), true)
@@ -398,6 +399,17 @@ func _run() -> void:
 		_parse(editor.source).campaigns[0].flow.nodes[0].placements[2].has("minimumPlayers"),
 		false
 	)
+	editor._select_tool("talk")
+	editor._paint_cell(3)
+	await process_frame
+	var talkable_placement: Dictionary = _parse(editor.source).campaigns[0].flow.nodes[0].placements[2]
+	_expect("Talk tool makes an opponent talkable", talkable_placement.has("talk"), true)
+	_expect("Talk memory remains a hidden generated identity", str(talkable_placement.talk.flagId).begins_with("talk_"), true)
+	_expect("talkable opponent has a visible board badge", editor.grid.get_child(3).tooltip_text.contains("TALKABLE"), true)
+	_expect("Talk is one undo command", editor.undo_stack.size(), 7)
+	editor._undo()
+	await process_frame
+	_expect("Talk undo removes the optional interaction", _parse(editor.source).campaigns[0].flow.nodes[0].placements[2].has("talk"), false)
 	editor._select_tool("remove_unit")
 	editor._paint_cell(3)
 	await process_frame
@@ -545,6 +557,13 @@ func _run() -> void:
 	_expect("copy setup begins with its named source", editor.copy_setup_select.has_focus(), true)
 	_expect("copy setup stays inside the current campaign", editor.copy_setup_select.item_count, 1)
 	_expect("copy setup previews portable content", editor.copy_setup_summary.text.contains("characters"), true)
+	var copied_talk_probe: Array = editor._copied_setup_placements({
+		"placements": [{
+			"id": "speaker",
+			"talk": {"flagId": "talk_hidden"},
+		}]
+	})
+	_expect("copy setup does not share hidden conversation memory", copied_talk_probe[0].has("talk"), false)
 	var copy_target_before: Dictionary = _parse(editor.source).campaigns[0].flow.nodes[0].duplicate(true)
 	editor._apply_copy_setup()
 	await process_frame

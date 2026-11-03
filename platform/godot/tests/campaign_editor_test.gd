@@ -141,6 +141,17 @@ func _run() -> void:
 	_expect("ending rename is undoable", str(_parse(editor.source).campaigns[0].flow.nodes[2].name), "The Road Opens")
 	editor._redo()
 	_expect("ending rename is redoable", str(_parse(editor.source).campaigns[0].flow.nodes[2].name), "The Bright Road")
+	var talkable: Dictionary = editor.compiler.set_placement_talkable(
+		editor.source, "first_adventure", "first_battle", "raider_north", true
+	)
+	_expect("campaign fixture can make a visible opponent talkable", talkable.ok, true)
+	if talkable.ok:
+		editor.source = str(talkable.source)
+		editor._read_source()
+		editor.dirty = editor.source != editor.saved_source
+		editor._collect_route()
+		editor._refresh_route()
+		editor._update_actions()
 	_expect("story chapter exposes outcomes beside its editor", editor.outcome_buttons.has("first_steps"), true)
 	_expect("battle chapter exposes outcomes beside its editor", editor.outcome_buttons.has("first_battle"), true)
 	editor._open_outcomes("first_battle")
@@ -150,6 +161,29 @@ func _run() -> void:
 	_expect("starter battle has one route", editor.outcome_select.item_count, 1)
 	_expect("starter route begins unconditional", str(editor.outcome_condition.get_item_metadata(editor.outcome_condition.selected)), "always")
 	_expect("starter route names its ending", str(editor.outcome_target.get_item_metadata(editor.outcome_target.selected)), "chapter_complete")
+	_expect("talkable character becomes a named outcome choice", editor.outcome_flag.item_count, 1)
+	_expect("Talk choice uses a visible character name", editor.outcome_flag.get_item_text(0).contains("RAIDER"), true)
+	_expect("Talk choice hides generated memory identity", editor.outcome_flag.get_item_text(0).contains("talk_"), false)
+	_expect(
+		"unrelated boolean world state remains an advanced imported condition",
+		editor._outcome_condition_kind({
+			"when": {
+				"kind": "worldFlagEquals",
+				"flagId": "another_story_fact",
+				"value": true,
+			}
+		}),
+		"advanced"
+	)
+	editor._select_metadata(editor.outcome_condition, "talked")
+	editor._refresh_outcome_fields()
+	editor._apply_outcome()
+	var with_talk_route: Dictionary = _parse(editor.source)
+	_expect("Talk outcome reaches portable world state", str(with_talk_route.campaigns[0].flow.nodes[1].transitions[0].when.kind), "worldFlagEquals")
+	_expect("Talk outcome checks the conversation happened", bool(with_talk_route.campaigns[0].flow.nodes[1].transitions[0].when.value), true)
+	_expect("Talk outcome remains playable", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._undo()
+	editor._open_outcomes("first_battle")
 	editor._open_add_route()
 	await process_frame
 	_expect("adding a route uses one focused choice screen", editor.add_route_layer.visible, true)

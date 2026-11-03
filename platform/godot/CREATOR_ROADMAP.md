@@ -94,6 +94,8 @@ directory.
   portable terrain art; and undo or redo complete edits.
 - Add, move, and remove allied or opposing placements. Assign allied units to
   player one or player two and mark extra opposing units for two-player mode.
+- Mark an opponent as a portable Talk choice without asking the author to name
+  its campaign memory; refuse to remove a speaker while an outcome uses it.
 - Edit deployment regions, capacity, and defeat/protect/survive objectives.
 - Resize with a clipping preview and refuse a shrink that would strand a
   placement or deployment tile.
@@ -136,8 +138,10 @@ directory.
 
 - Read the main route and alternate outcomes as named story, battle, and ending
   rows rather than a source graph.
-- Edit **Always**, **Goal Won**, **Goal Lost**, and **Have Item** routes,
-  destinations, first-match order, and removal.
+- Edit **Always**, **Goal Won**, **Goal Lost**, **Have Item**, **Talked to a
+  Character**, and **Did Not Talk to a Character** routes, destinations,
+  first-match order, and removal. Talk choices use visible character and battle
+  names while generated portable memory stays hidden.
 - Create and rename terminal endings.
 - Create a complete alternate playable branch from a working encounter and
   make a lone unconditional path into reachable complementary win/loss routes.
@@ -222,9 +226,10 @@ but it must not become a second schema authority.
 These are release blockers in priority order, not invitations to add a large
 permanent form.
 
-1. **Advanced flow conditions.** Add focused world-state, negated, and compound
-   conditions under **Outcomes**. Safe whole-chapter ordering is implemented;
-   the common linear path must not become a graph editor.
+1. **Advanced flow conditions.** Add general integer world-state, negated, and
+   compound conditions under **Outcomes**. Focused Talk-driven boolean state and
+   safe whole-chapter ordering are implemented; the common linear path must not
+   become a graph editor.
 2. **Replacement art packs.** Select an installed pack or import project-owned
    terrain, character, portrait, effect, and UI assets. Validate dimensions,
    pivots, animation names, target budgets, and licenses, and preview the same

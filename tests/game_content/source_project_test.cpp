@@ -734,6 +734,115 @@ void updates_one_map_cell_without_retyping_the_project() {
         ),
         "an allied roster placement cannot be made conditional"
     );
+    const auto talkable_enemy = gc::set_source_placement_talkable_json(
+        enlarged.json, "demo", "battle", "red_1", true
+    );
+    const auto talkable_enemy_parsed =
+        gc::parse_source_project_json(talkable_enemy.json);
+    expect(
+        talkable_enemy && talkable_enemy_parsed &&
+            talkable_enemy_parsed.source.encounters.front()
+                    .placements[1].talk_flag_id != 0 &&
+            gc::compile(talkable_enemy_parsed.source),
+        "an opposing character can gain the portable Talk action"
+    );
+    expect(
+        talkable_enemy.json.find(R"json("talk": {)json") !=
+                std::string::npos &&
+            talkable_enemy.json.find(R"json("flagId": "talk_)json") !=
+                std::string::npos,
+        "Talk receives a hidden generated world-memory identity"
+    );
+    const auto quiet_enemy = gc::set_source_placement_talkable_json(
+        talkable_enemy.json, "demo", "battle", "red_1", false
+    );
+    expect(
+        quiet_enemy && quiet_enemy.json.find(R"json("talk")json") ==
+                           std::string::npos,
+        "Talk can be removed before an outcome uses its memory"
+    );
+    expect(
+        !gc::set_source_placement_talkable_json(
+            enlarged.json, "demo", "battle", "blue_1", true
+        ),
+        "an allied placement cannot become a Talk opponent"
+    );
+    const std::string talk_flag = "talk_" + std::to_string(
+        grandleon::core::stable_content_id_v1("demo/battle/red_1/talk")
+    );
+    std::string routed_talk = talkable_enemy.json;
+    const std::string talk_target = R"json("targetNodeId": "end")json";
+    const auto talk_target_at = routed_talk.find(talk_target);
+    if (talk_target_at != std::string::npos) {
+        routed_talk.insert(
+            talk_target_at + talk_target.size(),
+            R"json(,
+              "when": {
+                "flagId": ")json" + talk_flag + R"json(",
+                "kind": "worldFlagEquals",
+                "value": true
+              })json"
+        );
+    }
+    expect(
+        static_cast<bool>(gc::parse_source_project_json(routed_talk)),
+        "a generated Talk memory can route the campaign"
+    );
+    expect(
+        !gc::set_source_placement_talkable_json(
+            routed_talk, "demo", "battle", "red_1", false
+        ),
+        "Talk cannot be removed while an outcome still uses its memory"
+    );
+    expect(
+        !gc::remove_source_placement_json(
+            routed_talk, "demo", "battle", "red_1"
+        ),
+        "a speaker cannot be removed while an outcome uses its conversation"
+    );
+    const auto chapter_from_talk = gc::add_source_campaign_chapter_json(
+        talkable_enemy.json,
+        "demo",
+        "battle",
+        "talk_chapter_map",
+        "Talk Chapter",
+        "talk_chapter_story",
+        "Before Talk Chapter",
+        "talk_chapter_battle",
+        "Talk Chapter Battle",
+        "forest"
+    );
+    const auto chapter_from_talk_parsed =
+        gc::parse_source_project_json(chapter_from_talk.json);
+    expect(
+        chapter_from_talk && chapter_from_talk_parsed &&
+            chapter_from_talk_parsed.source.encounters.back()
+                    .placements[1].talk_flag_id == 0,
+        "a new linear chapter does not inherit another battle's Talk memory"
+    );
+    const auto branch_from_talk = gc::add_source_campaign_branch_json(
+        talkable_enemy.json,
+        "demo",
+        "battle",
+        "end",
+        "defeat_all_opponents",
+        "defeat",
+        "talk_branch_map",
+        "Talk Branch",
+        "talk_branch_story",
+        "Before Talk Branch",
+        "talk_branch_battle",
+        "Talk Branch Battle",
+        "forest"
+    );
+    const auto branch_from_talk_parsed =
+        gc::parse_source_project_json(branch_from_talk.json);
+    expect(
+        branch_from_talk && branch_from_talk_parsed &&
+            branch_from_talk_parsed.source.encounters.back()
+                    .placements[1].talk_flag_id == 0,
+        "an alternate chapter does not inherit another battle's Talk memory"
+    );
     expect(
         !gc::add_source_placement_json(
             enlarged.json, "demo", "battle", "red_1", "red_unit", "second",

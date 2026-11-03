@@ -302,6 +302,29 @@ func _init() -> void:
 			)
 			_expect("occupied placement move refused", occupied_move.ok, false)
 			_expect("occupied move returns no source", occupied_move.source, "")
+			var talkable: Dictionary = compiler.set_placement_talkable(
+				source, "demo_campaign", "bridge_encounter",
+				"river_watch_leader", true
+			)
+			_expect("opponent Talk option succeeds", talkable.ok, true)
+			if talkable.ok:
+				var talkable_data: Dictionary = JSON.parse_string(talkable.source)
+				var talk: Dictionary = talkable_data.campaigns[0].flow.nodes[0].placements[1].talk
+				_expect("Talk gets a hidden generated memory", str(talk.flagId).begins_with("talk_"), true)
+				_expect("Talk option remains playable", compiler.compile_source_json(talkable.source).ok, true)
+				var quiet: Dictionary = compiler.set_placement_talkable(
+					talkable.source, "demo_campaign", "bridge_encounter",
+					"river_watch_leader", false
+				)
+				_expect("unused Talk option can be removed", quiet.ok, true)
+				if quiet.ok:
+					var quiet_data: Dictionary = JSON.parse_string(quiet.source)
+					_expect("Talk removal clears optional data", quiet_data.campaigns[0].flow.nodes[0].placements[1].has("talk"), false)
+			var allied_talk: Dictionary = compiler.set_placement_talkable(
+				source, "demo_campaign", "bridge_encounter",
+				"dawn_guard_leader", true
+			)
+			_expect("allied Talk opponent is refused", allied_talk.ok, false)
 			var added_enemy: Dictionary = compiler.add_placement(
 				source, "demo_campaign", "bridge_encounter", "river_watch_2",
 				"river_watch_unit", "second", "", 3, 1

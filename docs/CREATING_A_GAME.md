@@ -63,11 +63,23 @@ Open **Battle Setup** for the rules and pieces that belong to this encounter:
 - add, move, or remove allied and opposing placements;
 - assign each allied placement to Player 1 or Player 2;
 - mark extra opponents that appear only with two local players;
+- choose opposing characters that players may **Talk** to instead of defeating;
 - edit the deployment region and its optional capacity;
 - attach and author defeat, protect, and survive goals; or
 - deliberately copy another battle's placements, goals, deployment, co-op
   ownership, scaling, and turn order while keeping this chapter's map and
   campaign position.
+
+**Talk & Story Choices** asks only which opponent can be approached. Talking
+removes that opponent from the battle alive and records the choice on PC,
+Nintendo 64, and PlayStation. Grandleon creates the portable memory behind the
+screen; the author never names a flag. Removing that Talk option or its
+character is refused while a campaign outcome still uses the choice.
+
+Copied battle setups deliberately leave Talk choices behind. A conversation
+belongs to one encounter and should not silently share story memory with a
+different chapter; enable Talk again on the copied battle when it needs its own
+choice.
 
 Open **More** for less-frequent map operations: rename the map and battle
 together, resize with a clipping preview, choose **Look & Feel**, add the next
@@ -148,8 +160,11 @@ ordinary add-and-tune path.
 
 Each nonterminal outline row has **Outcomes**. Routes are tried in the visible
 order; the first matching condition chooses the named destination. The focused
-editor supports **Always**, **Goal Won**, **Goal Lost**, and **Have Item**,
-including destination changes, add/remove, and **Try Earlier / Try Later**.
+editor supports **Always**, **Goal Won**, **Goal Lost**, **Have Item**, **Talked
+to a Character**, and **Did Not Talk to a Character**, including destination
+changes, add/remove, and **Try Earlier / Try Later**. Talk conditions list the
+visible character and battle names; their generated portable memory never
+appears in the creator.
 
 Choose **Add Route** only when another path is needed.
 
@@ -222,8 +237,9 @@ controller identity, credential, network endpoint, or machine-only setting.
 
 ## What is still advanced or pending for 0.3
 
-The native creator intentionally preserves imported compound, negated, and
-world-state conditions but does not yet build them directly. External
+The native creator builds the focused boolean story state created by Talk. It
+preserves imported general integer world-state, compound, and negated
+conditions but does not yet build those directly. External
 replacement-art-pack import and installed console builder integration remain
 release work. The
 current status and acceptance gates are in [RELEASE_0_3.md](RELEASE_0_3.md).

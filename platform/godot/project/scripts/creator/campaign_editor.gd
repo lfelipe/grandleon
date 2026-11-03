@@ -36,8 +36,10 @@ var outcome_select: OptionButton
 var outcome_condition: OptionButton
 var outcome_objective: OptionButton
 var outcome_item: OptionButton
+var outcome_flag: OptionButton
 var outcome_objective_column: VBoxContainer
 var outcome_item_column: VBoxContainer
+var outcome_flag_column: VBoxContainer
 var outcome_detail_row: HBoxContainer
 var outcome_quantity_row: HBoxContainer
 var outcome_quantity_label: Label
@@ -804,6 +806,60 @@ func _current_outcome_node() -> Dictionary:
 	return {}
 
 
+func _unit_type_name(unit_type_id: String) -> String:
+	for value: Variant in project.get("unitTypes", []):
+		if value is Dictionary and str(value.get("id", "")) == unit_type_id:
+			return str(value.get("name", "Character"))
+	return "Character"
+
+
+func _talk_placement_name(placement: Dictionary) -> String:
+	var authored_name := str(placement.get("name", "")).strip_edges()
+	if not authored_name.is_empty():
+		return authored_name
+	var member_id := str(placement.get("memberId", ""))
+	for value: Variant in campaign.get("roster", []):
+		if value is Dictionary and str(value.get("id", "")) == member_id:
+			return str(value.get("name", "Character"))
+	return _unit_type_name(str(placement.get("unitTypeId", "")))
+
+
+func _talk_choices() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var seen: Dictionary = {}
+	var flow: Variant = campaign.get("flow", {})
+	if not flow is Dictionary:
+		return result
+	for node_value: Variant in flow.get("nodes", []):
+		if not node_value is Dictionary:
+			continue
+		var node: Dictionary = node_value
+		for placement_value: Variant in node.get("placements", []):
+			if not placement_value is Dictionary:
+				continue
+			var placement: Dictionary = placement_value
+			var talk: Variant = placement.get("talk", {})
+			if not talk is Dictionary:
+				continue
+			var flag_id := str(talk.get("flagId", ""))
+			if flag_id.is_empty() or seen.has(flag_id):
+				continue
+			seen[flag_id] = true
+			result.append({
+				"id": flag_id,
+				"name": _talk_placement_name(placement),
+				"battle": str(node.get("name", "Battle")),
+			})
+	return result
+
+
+func _is_talk_flag(flag_id: String) -> bool:
+	for choice: Dictionary in _talk_choices():
+		if str(choice.id) == flag_id:
+			return true
+	return false
+
+
 func _refresh_outcome_layer(preferred_id := "") -> void:
 	outcome_refreshing = true
 	var node := _current_outcome_node()
@@ -843,6 +899,12 @@ func _refresh_outcome_layer(preferred_id := "") -> void:
 			outcome_item.set_item_metadata(
 				outcome_item.item_count - 1, str(value.get("id", ""))
 			)
+	outcome_flag.clear()
+	for choice: Dictionary in _talk_choices():
+		outcome_flag.add_item("%s  /  %s" % [
+			str(choice.name).to_upper(), str(choice.battle).to_upper()
+		])
+		outcome_flag.set_item_metadata(outcome_flag.item_count - 1, choice.id)
 	outcome_target.clear()
 	var flow: Variant = campaign.get("flow", {})
 	if flow is Dictionary:
@@ -868,6 +930,7 @@ func _refresh_selected_outcome(_index: int = 0) -> void:
 	var condition_kind := "always"
 	var objective_id := ""
 	var item_id := ""
+	var flag_id := ""
 	var quantity := 1
 	var target_id := _default_outcome_target()
 	if not transition.is_empty():
@@ -877,6 +940,7 @@ func _refresh_selected_outcome(_index: int = 0) -> void:
 		if when is Dictionary:
 			objective_id = str(when.get("objectiveId", ""))
 			item_id = str(when.get("itemId", ""))
+			flag_id = str(when.get("flagId", ""))
 			quantity = int(when.get("quantity", 1))
 	outcome_condition.clear()
 	var choices: Array[Dictionary] = [{"id": "always", "label": "ALWAYS"}]
@@ -885,6 +949,9 @@ func _refresh_selected_outcome(_index: int = 0) -> void:
 		choices.append({"id": "defeat", "label": "GOAL LOST"})
 	if outcome_item.item_count > 0:
 		choices.append({"id": "item", "label": "HAVE ENOUGH OF AN ITEM"})
+	if outcome_flag.item_count > 0:
+		choices.append({"id": "talked", "label": "TALKED TO A CHARACTER"})
+		choices.append({"id": "not_talked", "label": "DID NOT TALK TO A CHARACTER"})
 	for choice: Dictionary in choices:
 		outcome_condition.add_item(str(choice.label))
 		outcome_condition.set_item_metadata(outcome_condition.item_count - 1, choice.id)
@@ -894,6 +961,7 @@ func _refresh_selected_outcome(_index: int = 0) -> void:
 	_select_metadata(outcome_condition, condition_kind)
 	_select_metadata(outcome_objective, objective_id)
 	_select_metadata(outcome_item, item_id)
+	_select_metadata(outcome_flag, flag_id)
 	_select_metadata(outcome_target, target_id)
 	outcome_quantity_label.text = str(maxi(1, quantity))
 	var has_transition := not transition.is_empty()
@@ -916,12 +984,14 @@ func _refresh_outcome_fields(_index: int = 0) -> void:
 	if outcome_refreshing:
 		return
 	var kind := _selected_metadata(outcome_condition)
-	outcome_detail_row.visible = kind in ["victory", "defeat", "item"]
+	outcome_detail_row.visible = kind in ["victory", "defeat", "item", "talked", "not_talked"]
 	outcome_objective_column.visible = kind in ["victory", "defeat"]
 	outcome_item_column.visible = kind == "item"
+	outcome_flag_column.visible = kind in ["talked", "not_talked"]
 	outcome_quantity_row.visible = kind == "item"
 	outcome_objective.disabled = kind not in ["victory", "defeat"] or outcome_objective.item_count == 0
 	outcome_item.disabled = kind != "item" or outcome_item.item_count == 0
+	outcome_flag.disabled = kind not in ["talked", "not_talked"] or outcome_flag.item_count == 0
 	for button: Button in outcome_quantity_buttons:
 		button.disabled = kind != "item"
 	outcome_quantity_label.add_theme_color_override(
@@ -959,6 +1029,11 @@ func _outcome_condition_kind(transition: Dictionary) -> String:
 			return "defeat" if str(when.get("result", "victory")) == "defeat" else "victory"
 		"inventoryAtLeast":
 			return "item"
+		"worldFlagEquals":
+			var value: Variant = when.get("value", true)
+			if value is bool and _is_talk_flag(str(when.get("flagId", ""))):
+				return "talked" if value else "not_talked"
+			return "advanced"
 		_:
 			return "advanced"
 
@@ -973,6 +1048,10 @@ func _outcome_text(transition: Dictionary, index: int) -> String:
 			condition = "GOAL LOST"
 		"item":
 			condition = "HAVE ITEM"
+		"talked":
+			condition = "TALKED TO CHARACTER"
+		"not_talked":
+			condition = "DID NOT TALK"
 		"advanced":
 			condition = "ADVANCED CONDITION"
 	return "%d  /  %s  →  %s" % [
@@ -1401,6 +1480,15 @@ func _when_from_controls(existing: Dictionary = {}) -> Variant:
 				"itemId": item_id,
 				"quantity": maxi(1, int(outcome_quantity_label.text)),
 			}
+		"talked", "not_talked":
+			var flag_id := _selected_metadata(outcome_flag)
+			if flag_id.is_empty():
+				return {}
+			return {
+				"kind": "worldFlagEquals",
+				"flagId": flag_id,
+				"value": _selected_metadata(outcome_condition) == "talked",
+			}
 		"advanced":
 			return existing.get("when", {}).duplicate(true)
 	return {}
@@ -1421,7 +1509,7 @@ func _apply_outcome() -> void:
 	transition.targetNodeId = target_id
 	var when: Variant = _when_from_controls(transition)
 	if when is Dictionary and when.is_empty() and _selected_metadata(outcome_condition) != "advanced":
-		_set_outcome_status("CHOOSE THE GOAL OR ITEM FOR THIS CONDITION", true)
+		_set_outcome_status("CHOOSE THE GOAL, ITEM, OR CHARACTER FOR THIS CONDITION", true)
 		return
 	if when == null:
 		transition.erase("when")
@@ -1806,6 +1894,15 @@ func _build_outcome_layer() -> void:
 	outcome_item.custom_minimum_size = Vector2(650, 58)
 	outcome_item.add_theme_font_size_override("font_size", 18)
 	outcome_item_column.add_child(outcome_item)
+	outcome_flag_column = VBoxContainer.new()
+	outcome_flag_column.custom_minimum_size.x = 650
+	outcome_flag_column.add_theme_constant_override("separation", 7)
+	outcome_detail_row.add_child(outcome_flag_column)
+	outcome_flag_column.add_child(_label("CHARACTER TALKED TO", 15, Color("69d9ff")))
+	outcome_flag = OptionButton.new()
+	outcome_flag.custom_minimum_size = Vector2(650, 58)
+	outcome_flag.add_theme_font_size_override("font_size", 18)
+	outcome_flag_column.add_child(outcome_flag)
 
 	outcome_quantity_row = HBoxContainer.new()
 	outcome_quantity_row.add_theme_constant_override("separation", 10)

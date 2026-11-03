@@ -3020,6 +3020,53 @@ const std::int64_t* integer_member(
                : std::get_if<std::int64_t>(&found->second.value);
 }
 
+std::string placement_talk_flag(
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id
+) {
+    const std::string owner = std::string(campaign_id) + "/" +
+                              std::string(node_id) + "/" +
+                              std::string(placement_id) + "/talk";
+    return "talk_" + std::to_string(core::stable_content_id_v1(owner));
+}
+
+Array placements_without_talk(const Array& placements) {
+    Array result = placements;
+    for (Json& value : result) {
+        if (auto* placement = std::get_if<Object>(&value.value)) {
+            placement->erase("talk");
+        }
+    }
+    return result;
+}
+
+bool reads_world_flag(const Json& value, std::string_view flag_id) {
+    if (const auto* object = std::get_if<Object>(&value.value)) {
+        const std::string* kind = string_member(*object, "kind");
+        const std::string* candidate = string_member(*object, "flagId");
+        if (kind != nullptr && *kind == "worldFlagEquals" &&
+            candidate != nullptr && *candidate == flag_id) {
+            return true;
+        }
+        return std::any_of(
+            object->begin(), object->end(),
+            [&](const auto& member) {
+                return reads_world_flag(member.second, flag_id);
+            }
+        );
+    }
+    if (const auto* array = std::get_if<Array>(&value.value)) {
+        return std::any_of(
+            array->begin(), array->end(),
+            [&](const Json& child) {
+                return reads_world_flag(child, flag_id);
+            }
+        );
+    }
+    return false;
+}
+
 struct EditableEncounterDocument final {
     Json document;
     SourceParseResult before;
@@ -3967,7 +4014,12 @@ SourceTextResult add_source_campaign_chapter_json(
          }) {
         const auto found = preceding->find(key);
         if (found != preceding->end()) {
-            battle.emplace(std::string(key), found->second);
+            battle.emplace(
+                std::string(key),
+                key == "placements"
+                    ? Json{placements_without_talk(*preceding_placements)}
+                    : found->second
+            );
         }
     }
     battle.emplace(
@@ -4579,7 +4631,14 @@ SourceTextResult add_source_campaign_branch_json(
              "placements", "objectiveIds", "turnOrder", "deployment",
          }) {
         const auto found = from->find(key);
-        if (found != from->end()) battle.emplace(std::string(key), found->second);
+        if (found != from->end()) {
+            battle.emplace(
+                std::string(key),
+                key == "placements"
+                    ? Json{placements_without_talk(*from_placements)}
+                    : found->second
+            );
+        }
     }
     battle.emplace(
         "transitions",
@@ -4973,6 +5032,86 @@ SourceTextResult set_source_placement_player_json(
     return result;
 }
 
+SourceTextResult set_source_placement_talkable_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view node_id,
+    std::string_view placement_id,
+    bool talkable
+) {
+    SourceTextResult result;
+    EditableEncounterDocument editable;
+    if (!open_editable_encounter(
+            source_json, campaign_id, node_id, editable, result
+        )) {
+        return result;
+    }
+    const std::string placements_path = editable.node_path + ".placements";
+    if (!valid_source_key(placement_id)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "placement id must be a stable source-key string"
+        );
+        return result;
+    }
+    std::size_t placement_index = 0;
+    Object* placement = find_object_by_id(
+        *editable.placements, placement_id, &placement_index
+    );
+    if (placement == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path,
+            "placement '" + std::string(placement_id) + "' was not found"
+        );
+        return result;
+    }
+    const std::string placement_path = placements_path + "[" +
+                                       std::to_string(placement_index) + "]";
+    const std::string* side = string_member(*placement, "side");
+    if (talkable && (side == nullptr || *side != "second")) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placement_path + ".talk",
+            "only opposing characters can become talkable"
+        );
+        return result;
+    }
+
+    Object* existing_talk = mutable_object(*placement, "talk");
+    const std::string* existing_flag = existing_talk == nullptr
+                                           ? nullptr
+                                           : string_member(
+                                                 *existing_talk, "flagId"
+                                             );
+    if (!talkable) {
+        if (existing_flag != nullptr &&
+            reads_world_flag(editable.document, *existing_flag)) {
+            refuse_edit(
+                result,
+                SourceDiagnosticCode::invalid_value,
+                placement_path + ".talk",
+                "remove campaign outcomes that use this conversation first"
+            );
+            return result;
+        }
+        placement->erase("talk");
+    } else if (existing_flag == nullptr) {
+        Object talk;
+        talk.emplace(
+            "flagId",
+            Json{placement_talk_flag(campaign_id, node_id, placement_id)}
+        );
+        (*placement)["talk"] = Json{std::move(talk)};
+    }
+    finish_encounter_edit(editable, result, placement_path);
+    return result;
+}
+
 SourceTextResult remove_source_placement_json(
     std::string_view source_json,
     std::string_view campaign_id,
@@ -5006,6 +5145,23 @@ SourceTextResult remove_source_placement_json(
             SourceDiagnosticCode::invalid_value,
             placements_path,
             "placement '" + std::string(placement_id) + "' was not found"
+        );
+        return result;
+    }
+    Object* removed_talk = mutable_object(*placement, "talk");
+    const std::string* removed_talk_flag = removed_talk == nullptr
+                                               ? nullptr
+                                               : string_member(
+                                                     *removed_talk, "flagId"
+                                                 );
+    if (removed_talk_flag != nullptr &&
+        reads_world_flag(editable.document, *removed_talk_flag)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            placements_path + "[" + std::to_string(placement_index) +
+                "].talk",
+            "remove campaign outcomes that use this conversation first"
         );
         return result;
     }

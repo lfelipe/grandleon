@@ -79,6 +79,11 @@ the two co-op armies, with matching cyan and amber board badges; solo play
 normalizes both armies under Player 1. The separate **2P** tool toggles an
 opposing placement between always present and a two-player addition; scaled
 enemies are labelled on the board.
+**Talk & Story Choices** marks an opposing character whom players may talk off
+the board alive. The portable campaign memory is generated and hidden; the
+outline later offers **Talked to** and **Did Not Talk to** conditions using the
+visible character and battle names. A referenced Talk choice cannot be removed,
+and Copy Battle Setup does not duplicate chapter-specific conversation memory.
 The **Army** screen keeps the company and join timing readable, while **Tune
 This Hero** opens bounded role-relative controls only when needed. Returning a
 modifier to zero removes the override, and the same portable result is consumed
@@ -145,14 +150,15 @@ an explicit Map → Battle Setup action. **Add Next Chapter** inserts a new stor
 moment, cloned playable encounter, and fresh map after a selected linear battle
 as one undoable edit. **Continue Creating** opens a readable campaign outline;
 story, battle, and ending rows open their exact focused action. **Outcomes**
-edits common goal and inventory routes, ordering, and named destinations.
+edits common goal, inventory, and named Talk-choice routes, ordering, and
+destinations.
 **Add Route** connects an existing chapter, creates a named ending, or creates
 an alternate playable story/map/battle by copying the current working setup
 and rejoining the selected destination as one compiler-checked undoable edit.
 **Change Chapter Order** moves a complete Story → Battle pair on one focused
 screen while preserving its map, outcomes, alternate routes, and stable
-identities. Compound or world-state condition authoring and replacement
-art-pack import remain in the
+identities. General integer world-state, negated and compound condition
+authoring plus replacement art-pack import remain in the
 increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
