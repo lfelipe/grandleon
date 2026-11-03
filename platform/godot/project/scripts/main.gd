@@ -63,6 +63,8 @@ var campaign_management_member_id := 0
 var campaign_management_item_id := 0
 var draft_preview := false
 var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
+var campaign_complete := false
+var final_outcome := "ongoing"
 var progress_reset_armed := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
@@ -479,6 +481,24 @@ func _run_controls_smoke() -> void:
 		or not is_equal_approx(PCNavigation.press_threshold(), 0.90)
 	):
 		failed.append("deliberate stick setting")
+	_show_root_page()
+	final_outcome = "second_side_won"
+	campaign_complete = true
+	_maybe_show_campaign_result()
+	if (
+		not _session_menu_visible()
+		or session_menu_title.text != "COMPANY DEFEATED"
+		or session_menu_resume.visible
+		or session_menu_settings_button.visible
+		or session_menu_save_load.text != "LOAD / NEW CAMPAIGN"
+	):
+		failed.append("campaign result screen")
+	_session_menu_back()
+	if not _session_menu_visible():
+		failed.append("campaign result cannot return to battle")
+	campaign_complete = false
+	final_outcome = "ongoing"
+	session_menu_layer.visible = false
 	_show_root_page()
 	snapshot = {
 		"active_side": "first",
@@ -1378,8 +1398,24 @@ func _show_session_menu_page(page: String) -> void:
 			_update_session_diagnostics(true)
 		_:
 			session_menu_page = "root"
-			session_menu_title.text = "PAUSED"
-			session_menu_subtitle.text = "Choose one option.  " + campaign_save_state
+			if campaign_complete:
+				session_menu_title.text = (
+					"COMPANY DEFEATED"
+					if final_outcome == "second_side_won"
+					else "CAMPAIGN COMPLETE"
+				)
+				session_menu_subtitle.text = (
+					"The battle is over. Load a checkpoint, start a new campaign, "
+					+ "return to the main menu, or exit."
+				)
+			else:
+				session_menu_title.text = "PAUSED"
+				session_menu_subtitle.text = "Choose one option.  " + campaign_save_state
+	session_menu_resume.visible = not campaign_complete
+	session_menu_settings_button.visible = not campaign_complete
+	session_menu_save_load.text = (
+		"LOAD / NEW CAMPAIGN" if campaign_complete else "SAVE / LOAD"
+	)
 	var back_text := "RESUME" if session_menu_page == "root" else "BACK"
 	session_menu_hint.text = "STICK / D-PAD  MOVE   ·   %s / ENTER  SELECT   ·   %s / ESC  %s" % [
 		controls.label("confirm"), controls.label("cancel"), back_text
@@ -1394,7 +1430,7 @@ func _grab_first_session_menu_focus() -> void:
 		"settings": session_menu_settings,
 	}.get(session_menu_page, session_menu_root)
 	for child in page.get_children():
-		if child is Button and not child.disabled:
+		if child is Button and child.visible and not child.disabled:
 			child.grab_focus()
 			return
 
@@ -1498,7 +1534,10 @@ func _session_menu_back() -> void:
 		"saves", "settings":
 			_show_root_page()
 		_:
-			_close_session_menu()
+			if campaign_complete:
+				_show_toast("CHOOSE LOAD, NEW CAMPAIGN, MAIN MENU, OR EXIT")
+			else:
+				_close_session_menu()
 
 
 func _open_session_menu(force_over_dialogue := false) -> void:
@@ -1539,6 +1578,8 @@ func _update_session_diagnostics(force := false) -> void:
 
 
 func _close_session_menu() -> void:
+	if campaign_complete:
+		return
 	progress_reset_armed = false
 	_update_progress_reset_label()
 	if session_menu_layer != null:
@@ -1580,8 +1621,8 @@ func _restart_without_progress() -> void:
 	management_menu_suspended = false
 	if campaign_manager != null:
 		campaign_manager.dismiss()
-	_close_session_menu()
 	_clear_session_presentation()
+	_close_session_menu()
 	status_label.text = "STARTING NEW CAMPAIGN"
 	campaign_save_state = "AUTO-SAVE / NO CHECKPOINT"
 	if not session.reset_progress():
@@ -1591,6 +1632,8 @@ func _restart_without_progress() -> void:
 
 
 func _clear_session_presentation() -> void:
+	campaign_complete = false
+	final_outcome = "ongoing"
 	dialogue_lines.clear()
 	dialogue_index = -1
 	if dialogue_layer != null:
@@ -1891,14 +1934,38 @@ func _handle_event(event: Dictionary) -> void:
 			_show_toast("COMMAND REFUSED  /  " + String(event.get("message", "unknown")))
 		"battle_ended":
 			snapshot = event.snapshot
+			final_outcome = String(snapshot.get("outcome", "ongoing"))
 			board.update_snapshot(snapshot)
-			status_label.text = "BATTLE RESOLVED"
+			status_label.text = (
+				"BATTLE WON" if final_outcome == "first_side_won" else "BATTLE LOST"
+			)
 		"campaign_ended":
-			_show_toast("CAMPAIGN COMPLETE")
+			campaign_complete = true
+			_show_toast(
+				"COMPANY DEFEATED"
+				if final_outcome == "second_side_won"
+				else "CAMPAIGN COMPLETE"
+			)
+			_maybe_show_campaign_result()
 		"session_failed":
 			_show_fatal(String(event.get("message", "session failed")))
 		"session_finished":
-			status_label.text = "SESSION COMPLETE"
+			status_label.text = (
+				"COMPANY DEFEATED"
+				if final_outcome == "second_side_won"
+				else "SESSION COMPLETE"
+			)
+			_maybe_show_campaign_result()
+
+
+func _maybe_show_campaign_result() -> void:
+	if not campaign_complete or _dialogue_visible() or session_menu_layer == null:
+		return
+	session_menu_layer.visible = true
+	_update_session_diagnostics(true)
+	_show_session_menu_page("root")
+
+
 func _handle_management(company: Dictionary) -> void:
 	if company.is_empty():
 		_show_fatal("The campaign did not publish a company")
@@ -2563,6 +2630,7 @@ func _advance_dialogue() -> void:
 		dialogue_index = -1
 		dialogue_layer.visible = false
 		_show_pending_management()
+		_maybe_show_campaign_result()
 	else:
 		_show_dialogue_line()
 

@@ -337,6 +337,11 @@ shortcut to trigger accidentally during play. The diagnostic values exist only
 in memory and are never written to a report; the readout deliberately omits
 graphics-device, display, controller, user, path, and network identities.
 
+A completed or defeated campaign replaces the battle controls with a terminal
+result page. It offers checkpoint loading or a new campaign through the same
+save page, plus Main Menu and Exit Game. Cancel cannot dismiss the result back
+onto a finished battle.
+
 Between battles, the same compact mapping operates the Company screen. **Start
 Battle** receives focus first, so confirm or Start begins immediately when the
 displayed company is ready. Move to a roster member only to change the lineup
