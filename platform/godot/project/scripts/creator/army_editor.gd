@@ -13,6 +13,19 @@ const HERO_MODIFIERS := [
 	{"key": "magic", "label": "MAGIC"},
 	{"key": "rangeBonus", "label": "WEAPON RANGE"},
 ]
+const ROLE_STATS := [
+	{"key": "health", "label": "HEALTH", "minimum": 1, "maximum": 32767},
+	{"key": "movement", "label": "MOVEMENT", "minimum": 0, "maximum": 255},
+	{"key": "actionPoints", "label": "ACTIONS", "minimum": 1, "maximum": 255},
+	{"key": "strength", "label": "STRENGTH", "minimum": 0, "maximum": 16383},
+	{"key": "magic", "label": "MAGIC", "minimum": 0, "maximum": 16383},
+	{"key": "defense", "label": "DEFENSE", "minimum": 0, "maximum": 16383},
+	{"key": "resistance", "label": "RESISTANCE", "minimum": 0, "maximum": 16383},
+	{"key": "skill", "label": "SKILL", "minimum": 0, "maximum": 32767},
+	{"key": "luck", "label": "LUCK", "minimum": 0, "maximum": 32767},
+	{"key": "evasion", "label": "EVASION", "minimum": 0, "maximum": 32767},
+	{"key": "speed", "label": "SPEED", "minimum": 1, "maximum": 255},
+]
 
 var library
 var compiler
@@ -41,6 +54,7 @@ var name_input: LineEdit
 var role_label: Label
 var join_label: Label
 var customize_button: Button
+var role_button: Button
 var portrait: TextureRect
 var preview_label: Label
 var status_label: Label
@@ -84,6 +98,17 @@ var loadout_summary_label: Label
 var loadout_value_label: Label
 var loadout_toggle_button: Button
 var loadout_unit_type_id := ""
+var role_layer: Control
+var role_title_label: Label
+var role_scope_label: Label
+var role_side: OptionButton
+var role_movement: OptionButton
+var role_behavior_button: Button
+var role_detach_button: Button
+var role_stat_labels: Dictionary = {}
+var role_stat_buttons: Array[Button] = []
+var role_unit_type_id := ""
+var role_refreshing := false
 
 
 func _ready() -> void:
@@ -99,6 +124,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if new_role_layer.visible:
 			_close_new_role()
+		elif role_layer.visible:
+			_close_role()
 		elif loadout_layer.visible:
 			_close_loadout()
 		elif supply_layer.visible:
@@ -685,6 +712,269 @@ func _toggle_loadout() -> void:
 	)
 
 
+func _open_role() -> void:
+	if not _commit_visible_member(false):
+		return
+	var member := _current_member()
+	if member.is_empty():
+		_set_status("CHOOSE A CHARACTER FIRST", true)
+		return
+	role_unit_type_id = str(member.get("unitTypeId", ""))
+	_refresh_role_layer()
+	role_layer.visible = true
+	role_side.grab_focus()
+
+
+func _close_role() -> void:
+	role_layer.visible = false
+	role_button.grab_focus()
+
+
+func _role_unit_type() -> Dictionary:
+	return _unit_type(role_unit_type_id)
+
+
+func _role_class() -> Dictionary:
+	var class_id := str(_role_unit_type().get("classId", ""))
+	for value: Variant in project.get("classes", []):
+		if value is Dictionary and str(value.get("id", "")) == class_id:
+			return value
+	return {}
+
+
+func _role_class_users(class_id: String) -> int:
+	var count := 0
+	for value: Variant in project.get("unitTypes", []):
+		if value is Dictionary and str(value.get("classId", "")) == class_id:
+			count += 1
+	return count
+
+
+func _refresh_role_layer() -> void:
+	role_refreshing = true
+	var unit_type := _role_unit_type()
+	var unit_class := _role_class()
+	role_title_label.text = str(unit_type.get("name", "ROLE")).to_upper()
+	var class_id := str(unit_class.get("id", ""))
+	var users := _role_class_users(class_id)
+	var shared := users > 1
+	role_scope_label.text = (
+		"SHARED BASELINE  /  USED BY %d ROLES" % users
+		if shared
+		else "INDEPENDENT BASELINE  /  SAFE TO TUNE"
+	)
+	role_scope_label.add_theme_color_override(
+		"font_color", Color("ffca6a") if shared else Color("72e08f")
+	)
+	role_detach_button.visible = shared
+	role_side.clear()
+	role_side.add_item("NO DEFAULT SIDE")
+	role_side.set_item_metadata(0, "")
+	for value: Variant in project.get("factions", []):
+		if value is Dictionary:
+			role_side.add_item(str(value.get("name", value.get("id", "Side"))))
+			role_side.set_item_metadata(
+				role_side.item_count - 1, str(value.get("id", ""))
+			)
+	_select_metadata(role_side, str(unit_type.get("factionId", "")))
+	var movement := "walk"
+	var traversal: Variant = unit_class.get("traversal", {})
+	if traversal is Dictionary:
+		if bool(traversal.get("flying", false)):
+			movement = "fly"
+		else:
+			var crossings: Variant = traversal.get("crossings", [])
+			if crossings is Array:
+				if crossings.has("water") and crossings.has("heights"):
+					movement = "water_heights"
+				elif crossings.has("water"):
+					movement = "water"
+				elif crossings.has("heights"):
+					movement = "heights"
+	_select_metadata(role_movement, movement)
+	role_movement.disabled = shared
+	role_behavior_button.disabled = shared
+	role_behavior_button.text = (
+		"CAN ACT AFTER ATTACK"
+		if bool(unit_class.get("actsAfterAttacking", false))
+		else "ATTACK ENDS ACTIVATION"
+	)
+	var stats: Variant = unit_class.get("baseStats", {})
+	for definition: Dictionary in ROLE_STATS:
+		var key := str(definition.key)
+		var fallback := 1 if key in ["health", "actionPoints", "speed"] else 0
+		role_stat_labels[key].text = str(int(stats.get(key, fallback)))
+	for button: Button in role_stat_buttons:
+		button.disabled = shared
+	role_refreshing = false
+
+
+func _change_role_side(_index: int) -> void:
+	if role_refreshing:
+		return
+	var candidate: Dictionary = project.duplicate(true)
+	var unit_types: Array = candidate.get("unitTypes", [])
+	for index in unit_types.size():
+		if unit_types[index] is Dictionary and str(unit_types[index].get("id", "")) == role_unit_type_id:
+			var unit_type: Dictionary = unit_types[index]
+			var faction_id := _selected_metadata(role_side)
+			if faction_id.is_empty():
+				unit_type.erase("factionId")
+			else:
+				unit_type.factionId = faction_id
+			unit_types[index] = unit_type
+			break
+	candidate.unitTypes = unit_types
+	_accept_role_project(candidate, "UNSAVED  /  ROLE SIDE CHANGED")
+
+
+func _change_role_movement(_index: int) -> void:
+	if role_refreshing or role_movement.disabled:
+		return
+	var candidate := _role_project_with_class()
+	if candidate.is_empty():
+		return
+	var unit_class: Dictionary = candidate.unit_class
+	match _selected_metadata(role_movement):
+		"fly":
+			unit_class.traversal = {"flying": true}
+		"water":
+			unit_class.traversal = {"crossings": ["water"]}
+		"heights":
+			unit_class.traversal = {"crossings": ["heights"]}
+		"water_heights":
+			unit_class.traversal = {"crossings": ["water", "heights"]}
+		_:
+			unit_class.erase("traversal")
+	candidate.classes[candidate.class_index] = unit_class
+	_accept_role_project(candidate.project, "UNSAVED  /  ROLE MOVEMENT CHANGED")
+
+
+func _toggle_role_behavior() -> void:
+	var candidate := _role_project_with_class()
+	if candidate.is_empty() or role_behavior_button.disabled:
+		return
+	var unit_class: Dictionary = candidate.unit_class
+	if bool(unit_class.get("actsAfterAttacking", false)):
+		unit_class.erase("actsAfterAttacking")
+	else:
+		unit_class.actsAfterAttacking = true
+	candidate.classes[candidate.class_index] = unit_class
+	_accept_role_project(candidate.project, "UNSAVED  /  ROLE TURN RULE CHANGED")
+
+
+func _adjust_role_stat(key: String, amount: int) -> void:
+	var candidate := _role_project_with_class()
+	if candidate.is_empty():
+		return
+	var unit_class: Dictionary = candidate.unit_class
+	var stats: Dictionary = unit_class.get("baseStats", {}).duplicate(true)
+	for definition: Dictionary in ROLE_STATS:
+		if str(definition.key) != key:
+			continue
+		var fallback := 1 if key in ["health", "actionPoints", "speed"] else 0
+		stats[key] = clampi(
+			int(stats.get(key, fallback)) + amount,
+			int(definition.minimum),
+			int(definition.maximum)
+		)
+		break
+	unit_class.baseStats = stats
+	candidate.classes[candidate.class_index] = unit_class
+	_accept_role_project(candidate.project, "UNSAVED  /  ROLE BASELINE CHANGED")
+
+
+func _role_project_with_class() -> Dictionary:
+	var candidate: Dictionary = project.duplicate(true)
+	var classes: Array = candidate.get("classes", [])
+	var class_id := str(_role_unit_type().get("classId", ""))
+	for index in classes.size():
+		if classes[index] is Dictionary and str(classes[index].get("id", "")) == class_id:
+			return {
+				"project": candidate,
+				"classes": classes,
+				"class_index": index,
+				"unit_class": classes[index].duplicate(true),
+			}
+	return {}
+
+
+func _detach_role_baseline() -> void:
+	var candidate: Dictionary = project.duplicate(true)
+	var unit_types: Array = candidate.get("unitTypes", [])
+	var classes: Array = candidate.get("classes", [])
+	var unit_index := -1
+	var class_index := -1
+	var old_class_id := ""
+	for index in unit_types.size():
+		if unit_types[index] is Dictionary and str(unit_types[index].get("id", "")) == role_unit_type_id:
+			unit_index = index
+			old_class_id = str(unit_types[index].get("classId", ""))
+			break
+	for index in classes.size():
+		if classes[index] is Dictionary and str(classes[index].get("id", "")) == old_class_id:
+			class_index = index
+			break
+	if unit_index < 0 or class_index < 0:
+		_set_status("ROLE BASELINE NOT FOUND", true)
+		return
+	var new_class_id := _next_class_id(role_unit_type_id)
+	var copied: Dictionary = classes[class_index].duplicate(true)
+	copied.id = new_class_id
+	copied.name = str(unit_types[unit_index].get("name", "Role"))
+	classes.append(copied)
+	unit_types[unit_index].classId = new_class_id
+	candidate.classes = classes
+	candidate.unitTypes = unit_types
+	_accept_role_project(candidate, "UNSAVED  /  ROLE BASELINE IS NOW INDEPENDENT")
+
+
+func _accept_role_project(candidate: Dictionary, message: String) -> bool:
+	var selected_member_id := str(_current_member().get("id", ""))
+	var portable: Dictionary = _integer_numbers(candidate)
+	var candidate_source := JSON.stringify(portable, "  ", true) + "\n"
+	if candidate_source == source:
+		return true
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status("ROLE NOT CHANGED  /  %s" % _diagnostic_detail(checked), true)
+		_refresh_role_layer()
+		return false
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = candidate_source
+	project = portable
+	dirty = source != saved_source
+	var campaign_value: Variant = project.get("campaigns", [])
+	campaigns = campaign_value if campaign_value is Array else []
+	_collect_members()
+	for index in members.size():
+		if str(members[index].get("id", "")) == selected_member_id:
+			member_index = index
+			break
+	_refresh_member()
+	_refresh_role_layer()
+	_update_actions()
+	_set_status(message, false)
+	return true
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if typeof(value) == TYPE_FLOAT and value == floor(value):
+		return int(value)
+	return value
+
+
 func _select_campaign(index: int) -> void:
 	if refreshing or index < 0 or index >= campaigns.size():
 		return
@@ -1059,6 +1349,7 @@ func _update_actions() -> void:
 	play_button.disabled = campaigns.is_empty()
 	add_button.disabled = campaigns.is_empty() or project.get("unitTypes", []).is_empty()
 	customize_button.disabled = members.is_empty()
+	role_button.disabled = members.is_empty()
 	loadout_button.disabled = members.is_empty() or (
 		project.get("weapons", []).is_empty()
 		and project.get("items", []).is_empty()
@@ -1191,10 +1482,14 @@ func _build_interface() -> void:
 	var role_actions := HBoxContainer.new()
 	role_actions.add_theme_constant_override("separation", 14)
 	editor_column.add_child(role_actions)
-	customize_button = _button("TUNE THIS HERO", 360, 56)
+	customize_button = _button("TUNE THIS HERO", 330, 56)
 	customize_button.pressed.connect(_open_modifiers)
 	role_actions.add_child(customize_button)
-	loadout_button = _button("ROLE GEAR & SKILLS", 360, 56)
+	role_button = _button("TUNE ROLE", 330, 56)
+	role_button.tooltip_text = "Base stats and rules shared by this role."
+	role_button.pressed.connect(_open_role)
+	role_actions.add_child(role_button)
+	loadout_button = _button("ROLE GEAR & SKILLS", 330, 56)
 	loadout_button.tooltip_text = "Weapons, items, and abilities shared by this role."
 	loadout_button.pressed.connect(_open_loadout)
 	role_actions.add_child(loadout_button)
@@ -1219,6 +1514,7 @@ func _build_interface() -> void:
 	_build_add_layer()
 	_build_new_role_layer()
 	_build_supply_layer()
+	_build_role_layer()
 	_build_loadout_layer()
 
 
@@ -1531,6 +1827,123 @@ func _build_supply_layer() -> void:
 	var done := _button("DONE", 300, 64)
 	done.pressed.connect(_close_supplies)
 	column.add_child(done)
+
+
+func _build_role_layer() -> void:
+	role_layer = Control.new()
+	role_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	role_layer.visible = false
+	role_layer.z_index = 50
+	add_child(role_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.94)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	role_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(170, 80)
+	panel.size = Vector2(1580, 900)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
+	)
+	role_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 10)
+	panel.add_child(column)
+	column.add_child(_label("TUNE ROLE", 18, Color("e6b86d")))
+	role_title_label = _label("ROLE", 30, Color("f2f7f9"))
+	column.add_child(role_title_label)
+	role_scope_label = _label("INDEPENDENT BASELINE", 16, Color("72e08f"))
+	column.add_child(role_scope_label)
+	var side_row := HBoxContainer.new()
+	side_row.custom_minimum_size = Vector2(1480, 56)
+	side_row.add_theme_constant_override("separation", 18)
+	column.add_child(side_row)
+	var side_label := _label("DEFAULT SIDE", 16, Color("69d9ff"))
+	side_label.custom_minimum_size = Vector2(300, 56)
+	side_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	side_row.add_child(side_label)
+	role_side = OptionButton.new()
+	role_side.custom_minimum_size = Vector2(1140, 56)
+	role_side.add_theme_font_size_override("font_size", 19)
+	role_side.item_selected.connect(_change_role_side)
+	side_row.add_child(role_side)
+	var movement_row := HBoxContainer.new()
+	movement_row.custom_minimum_size = Vector2(1480, 56)
+	movement_row.add_theme_constant_override("separation", 18)
+	column.add_child(movement_row)
+	var movement_label := _label("MOVEMENT TYPE", 16, Color("69d9ff"))
+	movement_label.custom_minimum_size = Vector2(300, 56)
+	movement_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	movement_row.add_child(movement_label)
+	role_movement = OptionButton.new()
+	role_movement.custom_minimum_size = Vector2(1140, 56)
+	role_movement.add_theme_font_size_override("font_size", 19)
+	for choice: Dictionary in [
+		{"id": "walk", "label": "WALKS OPEN GROUND"},
+		{"id": "water", "label": "CROSSES WATER"},
+		{"id": "heights", "label": "CROSSES HEIGHTS"},
+		{"id": "water_heights", "label": "CROSSES WATER & HEIGHTS"},
+		{"id": "fly", "label": "FLIES OVER ALL TERRAIN"},
+	]:
+		role_movement.add_item(str(choice.label))
+		role_movement.set_item_metadata(role_movement.item_count - 1, choice.id)
+	role_movement.item_selected.connect(_change_role_movement)
+	movement_row.add_child(role_movement)
+	var behavior_row := HBoxContainer.new()
+	behavior_row.add_theme_constant_override("separation", 14)
+	column.add_child(behavior_row)
+	role_behavior_button = _button("ATTACK ENDS ACTIVATION", 480, 58)
+	role_behavior_button.tooltip_text = "Choose whether unused actions remain after attacking."
+	role_behavior_button.pressed.connect(_toggle_role_behavior)
+	behavior_row.add_child(role_behavior_button)
+	role_detach_button = _button("MAKE BASELINE INDEPENDENT", 480, 58)
+	role_detach_button.tooltip_text = "Copy this shared baseline before tuning it."
+	role_detach_button.pressed.connect(_detach_role_baseline)
+	behavior_row.add_child(role_detach_button)
+	column.add_child(_label("BASELINE STATS", 16, Color("e6b86d")))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 20)
+	grid.add_theme_constant_override("v_separation", 7)
+	column.add_child(grid)
+	for definition: Dictionary in ROLE_STATS:
+		var key := str(definition.key)
+		var row := HBoxContainer.new()
+		row.custom_minimum_size = Vector2(720, 50)
+		row.add_theme_constant_override("separation", 8)
+		grid.add_child(row)
+		var label := _label(str(definition.label), 15, Color("a9bdc9"))
+		label.custom_minimum_size = Vector2(190, 50)
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(label)
+		var minus := _button("−", 88, 48)
+		minus.pressed.connect(_adjust_role_stat.bind(key, -1))
+		row.add_child(minus)
+		var value := _label("0", 20, Color("f2f7f9"))
+		value.custom_minimum_size = Vector2(210, 48)
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(value)
+		var plus := _button("+", 88, 48)
+		plus.pressed.connect(_adjust_role_stat.bind(key, 1))
+		row.add_child(plus)
+		role_stat_labels[key] = value
+		role_stat_buttons.append(minus)
+		role_stat_buttons.append(plus)
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 14)
+	column.add_child(footer)
+	var done := _button("DONE", 280, 60)
+	done.pressed.connect(_close_role)
+	footer.add_child(done)
+	var guidance := _label(
+		"These rules affect every character using this role on PC, Nintendo 64, and PlayStation.",
+		16, Color("718896")
+	)
+	guidance.custom_minimum_size = Vector2(1120, 60)
+	guidance.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	footer.add_child(guidance)
 
 
 func _build_loadout_layer() -> void:

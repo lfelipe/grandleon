@@ -95,6 +95,33 @@ func _run() -> void:
 	_expect("role loadout change is redoable", str(_parse(editor.source).unitTypes[0].startingWeaponIds[0]), "traveller_blade")
 	editor._close_loadout()
 	_expect("closing role loadout returns to its entry action", editor.loadout_button.has_focus(), true)
+	editor._open_role()
+	_expect("role tuning opens on demand", editor.role_layer.visible, true)
+	_expect("role tuning starts with its named side", editor.role_side.has_focus(), true)
+	_expect("starter role owns an independent baseline", editor.role_scope_label.text.contains("INDEPENDENT"), true)
+	_expect("role tuning shows its health baseline", editor.role_stat_labels.health.text, "13")
+	editor._adjust_role_stat("health", 1)
+	_expect("role health reaches portable class data", int(_parse(editor.source).classes[0].baseStats.health), 14)
+	editor._select_metadata(editor.role_movement, "water")
+	editor._change_role_movement(editor.role_movement.selected)
+	_expect("role movement reaches portable traversal", str(_parse(editor.source).classes[0].traversal.crossings[0]), "water")
+	editor._toggle_role_behavior()
+	_expect("role attack rule reaches portable class data", bool(_parse(editor.source).classes[0].actsAfterAttacking), true)
+	editor.role_side.select(2)
+	editor._change_role_side(2)
+	_expect("role side reaches portable unit data", str(_parse(editor.source).unitTypes[0].factionId), "raiders")
+	editor._undo()
+	_expect("role side change is undoable", str(_parse(editor.source).unitTypes[0].factionId), "travellers")
+	editor._redo()
+	_expect("role side change is redoable", str(_parse(editor.source).unitTypes[0].factionId), "raiders")
+	editor.role_side.select(1)
+	editor._change_role_side(1)
+	editor._toggle_role_behavior()
+	editor._select_metadata(editor.role_movement, "walk")
+	editor._change_role_movement(editor.role_movement.selected)
+	editor._adjust_role_stat("health", -1)
+	editor._close_role()
+	_expect("closing role tuning returns to its entry action", editor.role_button.has_focus(), true)
 	editor._open_modifiers()
 	_expect("hero tuning opens on demand", editor.modifier_layer.visible, true)
 	_expect("hero tuning starts on a compact controller action", editor.first_modifier_button.has_focus(), true)
@@ -168,11 +195,29 @@ func _run() -> void:
 		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 		_expect("saved army still compiles", compiler.compile_source_json(stored.source).ok, true)
 
+	var shared_probe: Dictionary = editor.compiler.add_unit_type_from_template(
+		editor.source, "first_hero", "shared_probe", "Shared Probe"
+	)
+	_expect("shared imported-role fixture is valid", shared_probe.ok, true)
+	if shared_probe.ok:
+		editor.source = str(shared_probe.source)
+		editor._read_source()
+		editor.role_unit_type_id = "first_hero"
+		editor._refresh_role_layer()
+		_expect("shared baseline is called out before tuning", editor.role_scope_label.text.contains("SHARED"), true)
+		_expect("shared baseline disables stat tuning", editor.role_stat_buttons[0].disabled, true)
+		editor._detach_role_baseline()
+		var detached: Dictionary = _parse(editor.source)
+		_expect("shared baseline can be copied safely", str(detached.unitTypes[0].classId) != str(detached.unitTypes[-1].classId), true)
+		_expect("detached baseline enables stat tuning", editor.role_stat_buttons[0].disabled, false)
+
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
 		if _has_argument("--role-preview"):
 			editor._open_add()
 			editor._open_new_role()
+		elif _has_argument("--role-tuning-preview"):
+			editor._open_role()
 		elif _has_argument("--loadout-preview"):
 			editor._open_loadout()
 		elif _has_argument("--supplies-preview"):
