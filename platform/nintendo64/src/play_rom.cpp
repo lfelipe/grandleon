@@ -3397,11 +3397,16 @@ public:
                     std::strcmp(menu_choices_[0].text, "BACK TO BATTLE") == 0,
                     "the way back is the first row"
                 );
-                // The side by the name its own banner announced, which is what
-                // keeps this row from reading as the character menu's.
+                // The local player whose remaining characters this command
+                // finishes. A co-op board may be shared by two controllers,
+                // so "your" is ambiguous here; the numbered label is the same
+                // one the shared client model supplies to every port.
+                const char* expected_end_turn = active_local_player_ == 0
+                    ? "END PLAYER 1 TURN"
+                    : "END PLAYER 2 TURN";
                 expect(
-                    std::strcmp(menu_choices_[1].text, "END YOUR TURN") == 0,
-                    "the end of the side's turn names the side"
+                    std::strcmp(menu_choices_[1].text, expected_end_turn) == 0,
+                    "the end of the turn names its local player"
                 );
                 expect(
                     std::strcmp(menu_choices_[2].text, "LEAVE BATTLE") == 0,
