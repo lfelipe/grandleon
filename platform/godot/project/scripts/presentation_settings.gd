@@ -43,13 +43,17 @@ func save_settings(
 	graphics_profile: String,
 	camera_impulse: bool,
 	text_scale: float,
-	available_profiles: Array
+	available_profiles: Array,
+	effects_level: float = 1.0
 ) -> bool:
 	_warning = ""
 	if not available_profiles.has(graphics_profile):
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
 	if text_scale < 1.0 or text_scale > 1.20:
+		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
+		return false
+	if not _valid_effects_level(effects_level):
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
 
@@ -69,6 +73,7 @@ func save_settings(
 		"graphicsProfile": graphics_profile,
 		"cameraImpulse": camera_impulse,
 		"textScale": text_scale,
+		"effectsLevel": effects_level,
 	}
 	file.store_string(JSON.stringify(document, "  ", true) + "\n")
 	file.flush()
@@ -129,8 +134,23 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 	var scale := float(scale_value)
 	if scale < 1.0 or scale > 1.20:
 		return {}
+	var effects_value: Variant = document.get("effectsLevel", 1.0)
+	if typeof(effects_value) != TYPE_FLOAT and typeof(effects_value) != TYPE_INT:
+		return {}
+	var effects := float(effects_value)
+	if not _valid_effects_level(effects):
+		return {}
 	return {
 		"graphics_profile": profile,
 		"camera_impulse": bool(document.cameraImpulse),
 		"text_scale": scale,
+		"effects_level": effects,
 	}
+
+
+func _valid_effects_level(value: float) -> bool:
+	return (
+		is_equal_approx(value, 0.0)
+		or is_equal_approx(value, 0.45)
+		or is_equal_approx(value, 1.0)
+	)

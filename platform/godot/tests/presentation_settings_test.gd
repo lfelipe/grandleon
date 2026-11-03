@@ -12,13 +12,17 @@ func _init() -> void:
 	var path := "user://presentation-settings-test/%s/settings.json" % unique
 	var settings = PresentationSettings.new(path)
 	_expect("missing settings are empty", settings.load_settings(PROFILES), {})
-	_expect_true("valid settings save", settings.save_settings("voxel", false, 1.15, PROFILES))
+	_expect_true(
+		"valid settings save",
+		settings.save_settings("voxel", false, 1.15, PROFILES, 0.45)
+	)
 
 	var reloaded = PresentationSettings.new(path)
 	var values: Dictionary = reloaded.load_settings(PROFILES)
 	_expect("stored profile", values.get("graphics_profile"), "voxel")
 	_expect("stored camera comfort", values.get("camera_impulse"), false)
 	_expect("stored text size", values.get("text_scale"), 1.15)
+	_expect("stored effects level", values.get("effects_level"), 0.45)
 	_expect("valid settings have no warning", reloaded.warning(), "")
 
 	var raw: Variant = JSON.parse_string(
@@ -32,12 +36,15 @@ func _init() -> void:
 		_expect(
 			"settings contain only the presentation whitelist",
 			keys,
-			["cameraImpulse", "contractVersion", "graphicsProfile", "textScale"]
+			[
+				"cameraImpulse", "contractVersion", "effectsLevel",
+				"graphicsProfile", "textScale"
+			]
 		)
 
 	_expect_true(
 		"invalid profile is refused",
-		not settings.save_settings("private-machine-profile", true, 1.0, PROFILES)
+		not settings.save_settings("private-machine-profile", true, 1.0, PROFILES, 1.0)
 	)
 	_expect(
 		"refused save preserves settings",
@@ -45,7 +52,14 @@ func _init() -> void:
 		"voxel"
 	)
 
-	_expect_true("second valid save", settings.save_settings("pixel", true, 1.0, PROFILES))
+	_expect_true(
+		"invalid effects level is refused",
+		not settings.save_settings("voxel", false, 1.15, PROFILES, 0.73)
+	)
+	_expect_true(
+		"second valid save",
+		settings.save_settings("pixel", true, 1.0, PROFILES, 1.0)
+	)
 	var absolute := ProjectSettings.globalize_path(path)
 	var broken := FileAccess.open(absolute, FileAccess.WRITE)
 	broken.store_string("not json\n")
@@ -53,6 +67,7 @@ func _init() -> void:
 	var recovered = PresentationSettings.new(path)
 	var recovered_values: Dictionary = recovered.load_settings(PROFILES)
 	_expect("previous settings recover", recovered_values.get("graphics_profile"), "voxel")
+	_expect("previous effects level recovers", recovered_values.get("effects_level"), 0.45)
 	_expect("recovery is coarse", recovered.warning(), "PREVIOUS DISPLAY SETTINGS RESTORED")
 	var restored = PresentationSettings.new(path)
 	_expect("recovery persists", restored.load_settings(PROFILES).get("graphics_profile"), "voxel")
@@ -60,11 +75,25 @@ func _init() -> void:
 
 	_expect_true("settings reset", recovered.reset())
 	_expect("reset removes settings", PresentationSettings.new(path).load_settings(PROFILES), {})
+	var legacy := FileAccess.open(absolute, FileAccess.WRITE)
+	legacy.store_string(JSON.stringify({
+		"contractVersion": "1.0.0",
+		"graphicsProfile": "diorama",
+		"cameraImpulse": true,
+		"textScale": 1.0,
+	}))
+	legacy.close()
+	_expect(
+		"settings written before audio default safely to full volume",
+		PresentationSettings.new(path).load_settings(PROFILES).get("effects_level"),
+		1.0
+	)
+	_expect_true("legacy fixture reset", PresentationSettings.new(path).reset())
 
 	var integration = PresentationSettings.new()
 	_expect_true(
 		"integration settings save",
-		integration.save_settings("voxel", false, 1.15, PROFILES)
+		integration.save_settings("voxel", false, 1.15, PROFILES, 0.45)
 	)
 
 	if failures == 0:

@@ -86,6 +86,7 @@ godot_smokes=(
     smoke-home-menu.sh
     smoke-map-editor.sh
     smoke-motion-path.sh
+    smoke-pc-audio.sh
     smoke-presentation-settings.sh
     smoke-project-compiler.sh
     smoke-project-library.sh

@@ -213,9 +213,10 @@ GRANDLEON_WINDOWED=1 ./launch-pc.sh
 The selected PC default is `voxel-sprites`. `pixel` remains the stable 2D
 fallback, while `diorama` and `voxel` stay available for comparison.
 
-Graphics profile, camera impulse, and interface text size persist after they
-are changed in the session menu. The versioned document contains only those
-three presentation values and lives under Godot's `user://` data directory;
+Graphics profile, camera impulse, interface text size, and the three-level
+sound-effects volume persist after they are changed in the session menu. The
+versioned document contains only those four presentation values and lives
+under Godot's `user://` data directory;
 in the portable bundle that remains below `runtime/data/`. It cannot contain a
 model endpoint, token name, controller identity, machine path, project field,
 or campaign state. `GRANDLEON_GRAPHICS` remains an explicit per-launch
@@ -276,8 +277,9 @@ The stick or d-pad chooses an action and the configured confirm button (A by
 default) or Enter confirms it. The root contains only **Resume**, **Save /
 Load**, **Settings**, **Main Menu**, and **Exit Game**. Settings contains the
 four graphics profiles, camera-impulse comfort switch, Normal/Large text,
-private local-model check, and the rolling five-second FPS, p95 frame-time,
-peak frame-time, window-size, and internal-canvas summary. Save / Load contains
+Full/Low/Off sound effects, private local-model check, and the rolling
+five-second FPS, p95 frame-time, peak frame-time, window-size, and internal-
+canvas summary. Save / Load contains
 the three manual checkpoint slots and the two-confirm new-campaign action.
 Cancel or Escape goes back one page and resumes only from the root; exiting
 requires focusing **Exit Game** and confirming it. There is no one-button quit
@@ -491,6 +493,12 @@ cmake --build build-godot --target grandleon_godot_project
 `scripts/smoke-presentation-settings.sh` verifies atomic save/recovery, the
 strict presentation-only whitelist, restart persistence, and command-line
 override precedence under an isolated user-data directory.
+
+`scripts/smoke-pc-audio.sh` verifies the complete built-in cue set, bounded cue
+lengths, safe volume levels, mute behavior, and semantic move, weapon, magic,
+impact, restoration, and defeat mappings. The PC autoload supplies these
+deterministic defaults to every native screen and game; later audio assets can
+replace that one presentation layer without changing a project or its rules.
 
 `scripts/smoke-campaign-persistence.sh` completes a real battle, verifies its
 opaque checkpoint, resumes it in a second Godot process, then exercises the

@@ -30,7 +30,8 @@ machine-specific graphics or control configuration.
 | Offline campaign | The included campaign uses authored dialogue and deterministic enemy actions without a network dependency. |
 | Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, covering every Last Signal terrain while other kinds fall back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest. Its complete Last Signal sprite roster binds independent 443-pixel-cell replacements for Rook, Kestrel, Morrow, and the relay beast. Full Voxel inherits the terrain pack and replaces the same encounter roster with imported, skinned GLBs. Commander, rogue, and stormcaller reuse one humanoid topology without sharing meshes or actions; the beast has a distinct quadruped rig. Per-binding display scales keep those different proportions within one tactical cell. Missing bindings, clips, or metadata fall back asset by asset. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
-| Persistent presentation settings | Graphics profile, camera impulse, and text size survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
+| Persistent presentation settings | Graphics profile, camera impulse, text size, and the three-level sound-effects volume survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
+| PC presentation audio | A PC-only autoload provides deterministic, license-free defaults for focus, confirm, cancel, dialogue, movement, weapon, magic, impact, miss, restoration, item, talk, endurance, and defeat cues. Semantic native presentation events select combat cues, simultaneous movement is de-duplicated per event batch, and one Full/Low/Off setting controls the bounded player pool. No audio choice enters portable content. |
 | Persistent campaigns | Completed battles use the same versioned campaign envelope and migration registry as the other clients. Atomic checkpoints are isolated by package and campaign identity under runtime data and resume in a second process. The controller Save / Load page provides three manual slots: saving copies only complete between-battle state, while loading can restart from a populated slot anywhere. New Campaign uses a separate two-confirm automatic-progress reset without removing manual copies. Integration smokes prove write, restart, resume, copy, refusal, erase, and fresh start. |
 | Company management | A controller-native screen renders the shared roster, store, kits, fielded set, authored capacity, and engine refusal. Field, bench, give, take, and proceed gestures commit through the portable campaign session and save immediately. An integration smoke performs every gesture against a real two-member campaign before opening its battle. |
 | Private performance readout | The Settings page shows rolling FPS, p95 and peak frame times, window size, and internal canvas size. The five-second sample remains in memory and never records hardware, display, controller, user, path, or network identities. |
@@ -90,9 +91,8 @@ addresses, usernames, or absolute install paths in project content or issues.
 
 - Fix any Gaming Mode focus, scaling, controller identity, or reconnect issue
   found tonight.
-- Extend the controller-driven session menu beyond its live graphics-profile,
-  text-size, and camera-impulse controls with audio-level settings once audio is
-  authored.
+- Validate the Full/Low/Off sound-effects control and cue balance through the
+  target speakers; keep the compact setting on the existing Settings page.
 - Keep the existing join/leave toasts and persistent profile-driven button
   legends visible while validating actual controller reconnect behavior.
 - Add an automated Godot smoke target to CI once a pinned headless display and
@@ -165,8 +165,9 @@ configuration on screen or in the bundle.
 
 ### 5. Complete the PC product surface
 
-- Add music, action/UI audio, and per-player feedback with independent volume
-  controls.
+- Add an authored music layer and per-player feedback with a separate music
+  volume control; replace or tune the included UI/combat defaults from target
+  listening feedback.
 - Refine the controller-native Company screen from target-PC feedback, adding
   richer character presentation without moving inventory or roster rules out
   of the portable campaign layer.
@@ -211,7 +212,8 @@ raise either console's memory or palette requirements.
   needs a pinned headless display and Godot cache before adopting that gate.
 - Controller behavior has been exercised under Linux/Xvfb, not yet on the
   target SteamOS PC and its exact controllers.
-- The current demo recorder is silent because game audio has not been authored.
+- The installed game has UI and combat cues, but the current Xvfb demo recorder
+  does not route system audio into its video capture.
 - Model integration is bounded and optional, but a protected LAN endpoint still
   needs an external token and model selection supplied at runtime.
 - The portable bundle is large because it carries the pinned Godot binary; a

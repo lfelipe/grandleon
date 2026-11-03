@@ -27,6 +27,7 @@ var graphics_pack_path := ""
 var controls_path := ""
 var camera_impulse_enabled := true
 var text_scale := 1.0
+var effects_level := 1.0
 var screenshot_path := ""
 var screenshot_frames := -1
 var smoke_auto := false
@@ -112,6 +113,7 @@ var session_menu_settings_button: Button
 var session_menu_graphics: Button
 var session_menu_camera: Button
 var session_menu_text: Button
+var session_menu_audio: Button
 var session_menu_new_campaign: Button
 var session_menu_quit: Button
 var session_menu_checkpoint_buttons: Array[Button] = []
@@ -158,6 +160,8 @@ func _ready() -> void:
 		1.0,
 		1.20
 	)
+	effects_level = float(stored_settings.get("effects_level", 1.0))
+	PCAudio.set_effects_level(effects_level)
 	_create_background()
 	_create_board(graphics_profile)
 	_create_interface()
@@ -386,6 +390,8 @@ func _run_presentation_settings_smoke() -> void:
 		graphics_profile == expected_profile
 		and not camera_impulse_enabled
 		and is_equal_approx(text_scale, 1.15)
+		and is_equal_approx(effects_level, 0.45)
+		and PCAudio.level_name() == "LOW"
 	)
 	if not valid:
 		push_error(
@@ -400,6 +406,7 @@ func _run_presentation_settings_smoke() -> void:
 			String(saved.get("graphics_profile", "")) == "voxel"
 			and bool(saved.get("camera_impulse", false))
 			and is_equal_approx(float(saved.get("text_scale", 0.0)), 1.15)
+			and is_equal_approx(float(saved.get("effects_level", -1.0)), 0.45)
 		)
 		if not valid:
 			push_error("a launch override replaced the stored graphics choice")
@@ -422,6 +429,7 @@ func _run_controls_smoke() -> void:
 		"menu help": help_label.text.contains("[b]MENU[/b]  SESSION MENU"),
 		"resume label": session_menu_resume.text == "RESUME",
 		"save label": session_menu_save_load.text == "SAVE / LOAD",
+		"audio label": session_menu_audio.text == "SOUND EFFECTS  /  FULL",
 		"exit label": session_menu_quit.text == "EXIT GAME",
 		"select hint": session_menu_hint.text.contains("1 / ENTER  SELECT"),
 		"back hint": session_menu_hint.text.contains("2 / ESC  RESUME"),
@@ -888,6 +896,22 @@ func _set_text_scale(value: float) -> void:
 	_persist_presentation_settings()
 
 
+func _cycle_effects_level() -> void:
+	if effects_level > 0.75:
+		_set_effects_level(0.45)
+	elif effects_level > 0.0:
+		_set_effects_level(0.0)
+	else:
+		_set_effects_level(1.0)
+
+
+func _set_effects_level(value: float) -> void:
+	effects_level = value
+	PCAudio.set_effects_level(effects_level)
+	_update_session_labels()
+	_persist_presentation_settings()
+
+
 func _persist_presentation_settings() -> void:
 	if presentation_settings == null or not _use_presentation_settings():
 		return
@@ -895,7 +919,8 @@ func _persist_presentation_settings() -> void:
 		persistent_graphics_profile,
 		camera_impulse_enabled,
 		text_scale,
-		GRAPHICS_PROFILES
+		GRAPHICS_PROFILES,
+		effects_level
 	):
 		_show_toast(presentation_settings.warning())
 
@@ -923,6 +948,8 @@ func _update_session_labels() -> void:
 		session_menu_text.text = "TEXT SIZE  /  %s" % (
 			"LARGE" if text_scale > 1.05 else "NORMAL"
 		)
+	if session_menu_audio != null:
+		session_menu_audio.text = "SOUND EFFECTS  /  %s" % PCAudio.level_name()
 
 
 func _board_matches_current_state() -> bool:
@@ -1110,8 +1137,8 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	session_menu_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(590, 145)
-	panel.size = Vector2(740, 790)
+	panel.position = Vector2(590, 115)
+	panel.size = Vector2(740, 850)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(
 			Color(0.018, 0.032, 0.052, 0.99), 24,
@@ -1187,6 +1214,9 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_text = _menu_button("")
 	session_menu_text.pressed.connect(_toggle_text_scale)
 	session_menu_settings.add_child(session_menu_text)
+	session_menu_audio = _menu_button("")
+	session_menu_audio.pressed.connect(_cycle_effects_level)
+	session_menu_settings.add_child(session_menu_audio)
 	session_menu_diagnostics = _label("", 16, Color("718896"))
 	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_diagnostics.custom_minimum_size.y = 86
@@ -1361,6 +1391,7 @@ func _load_selected_checkpoint() -> void:
 
 
 func _session_menu_back() -> void:
+	PCAudio.play_cue("cancel")
 	match session_menu_page:
 		"slot":
 			_show_save_page()
@@ -1731,6 +1762,10 @@ func _handle_event(event: Dictionary) -> void:
 		"presentation":
 			if coop_smoke:
 				_verify_coop_motion(event.get("events", []))
+			PCAudio.present_events(
+				event.get("events", []),
+				String(event.get("action", ""))
+			)
 			if board.has_method("present_events"):
 				board.present_events(
 					event.get("events", []),
@@ -1751,6 +1786,7 @@ func _handle_event(event: Dictionary) -> void:
 				push_error("co-op smoke move was refused: " + String(event.get("message", "unknown")))
 				get_tree().quit(2)
 			_complete_request(event)
+			PCAudio.play_cue("refuse")
 			_show_toast("COMMAND REFUSED  /  " + String(event.get("message", "unknown")))
 		"battle_ended":
 			snapshot = event.snapshot
@@ -2127,6 +2163,7 @@ func _selected_by_other_seat(seat: int, unit_id: int) -> int:
 
 
 func _cancel(seat: int) -> void:
+	PCAudio.play_cue("cancel")
 	hud_seat = seat
 	selected_units[seat] = 0
 	action_modes[seat] = "move"
@@ -2344,6 +2381,7 @@ func _show_dialogue_line() -> void:
 		dialogue_layer.visible = false
 		return
 	var line: Dictionary = dialogue_lines[dialogue_index]
+	PCAudio.play_cue("dialogue")
 	dialogue_layer.visible = true
 	dialogue_speaker.text = String(line.get("speaker", ""))
 	dialogue_text.text = String(line.get("text", ""))
