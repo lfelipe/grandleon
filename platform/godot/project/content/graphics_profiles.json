@@ -177,9 +177,17 @@
             }
           },
           "beast": {
-            "scene": "res://art/characters/relay_drone_3d.tscn",
+            "scene": "res://art/characters/relay_drone.glb",
             "scale": 1.0,
-            "animationPlayer": "AnimationPlayer"
+            "animationPlayer": "AnimationPlayer",
+            "clips": {
+              "idle": "Drone_Hover",
+              "move": "Drone_Scamper",
+              "attack": "Drone_Bite",
+              "ability": "Drone_Charge",
+              "hurt": "Drone_Stagger",
+              "defeat": "Drone_Collapse"
+            }
           }
         }
       }
