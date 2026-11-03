@@ -103,6 +103,9 @@ func _run() -> void:
 		"FIX IN MAP & BATTLE  /  FIRST BATTLE  /  NORTH RAIDER  /  CELL 6, 2  /  STARTING POSITION  /  INVALID PLACEMENT"
 	)
 	_expect("starter route has story battle and ending", editor.route.size(), 3)
+	_expect("campaign outline keeps PC target visible", editor.target_budget_label.text.contains("PC READY"), true)
+	_expect("campaign outline shows Nintendo 64 fielded impact", editor.target_budget_label.text.contains("N64 5 / 48"), true)
+	_expect("campaign outline shows PlayStation fielded impact", editor.target_budget_label.text.contains("PS1 5 / 48"), true)
 	if editor.route.size() == 3:
 		_expect("route begins with story", str(editor.route[0].kind), "story")
 		_expect("route continues to battle", str(editor.route[1].kind), "encounter")

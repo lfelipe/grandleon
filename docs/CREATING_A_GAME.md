@@ -181,6 +181,14 @@ screen and field; for a misplaced unit it selects the unit and cell and prepares
 the Move tool, while a story problem opens the affected line. It does not save
 a half-applied project or expose internal source identities.
 
+The campaign outline and Map & Battle screen also show what the largest or
+current battle costs each release target. PC remains available at any authored
+character count. Nintendo 64 and PlayStation each support at most 48 fielded
+characters in one battle, including all arrivals produced by recurring waves.
+The Add Unit picker previews the count before the unit reaches the map. Going
+over a console limit is an export warning, not a source error: save and PC test
+still work, and reducing the affected battle restores that console target.
+
 ## Keep, move, and export the project
 
 The Projects screen has a controller-native **Import Project Archive** inbox.
@@ -210,8 +218,8 @@ controller identity, credential, network endpoint, or machine-only setting.
 
 The native creator intentionally preserves imported compound, negated, and
 world-state conditions but does not yet build them directly. Whole-chapter
-reordering, external replacement-art-pack import, measured target budget
-reports, and installed console builder integration remain release work. The
+reordering, external replacement-art-pack import, and installed console
+builder integration remain release work. The
 current status and acceptance gates are in [RELEASE_0_3.md](RELEASE_0_3.md).
 
 ## Refresh these screenshots

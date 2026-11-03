@@ -23,6 +23,12 @@ public:
     [[nodiscard]] ::godot::Dictionary compile_source_json(
         const ::godot::String& source_json
     ) const;
+    // Target-specific authoring impact. This never decides whether source is
+    // valid: PC remains unbounded and a console overrun is reported so its
+    // export can be adjusted independently.
+    [[nodiscard]] ::godot::Dictionary target_budget_report(
+        const ::godot::String& source_json
+    ) const;
     // Stable identities stay an implementation detail, but creator screens
     // need to match a compiler diagnostic back to the source-key string that
     // owns the visible control. Return decimal text because the identity is

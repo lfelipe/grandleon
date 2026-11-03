@@ -52,6 +52,7 @@ var objective_rounds := 3
 var dirty := false
 var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
+var budget_report: Dictionary = {}
 var discard_armed_until := 0
 var resize_width := 1
 var resize_height := 1
@@ -69,6 +70,7 @@ var palette_buttons: Dictionary = {}
 var grid: GridContainer
 var empty_label: Label
 var status_label: Label
+var target_budget_label: Label
 var save_button: Button
 var undo_button: Button
 var redo_button: Button
@@ -292,6 +294,7 @@ func _refresh_maps() -> void:
 	if not maps.is_empty():
 		map_select.select(map_index)
 	_refresh_encounters()
+	_refresh_target_budget()
 	_refresh_palette()
 	_refresh_grid()
 	_update_actions()
@@ -364,6 +367,7 @@ func _select_encounter(index: int) -> void:
 	if index < 0 or index >= encounters.size():
 		return
 	encounter_index = index
+	_refresh_target_budget()
 	_reset_deployment_edit()
 	selected_placement_id = ""
 	pending_placement = {}
@@ -376,6 +380,68 @@ func _current_encounter() -> Dictionary:
 	if encounter_index < 0 or encounter_index >= encounters.size():
 		return {}
 	return encounters[encounter_index]
+
+
+func _refresh_target_budget() -> void:
+	if compiler == null or target_budget_label == null:
+		return
+	budget_report = compiler.target_budget_report(source)
+	target_budget_label.text = _target_impact_summary()
+	var over := _current_stage_is_over_budget()
+	target_budget_label.add_theme_color_override(
+		"font_color", Color("ffca63") if over else Color("a9bdc9")
+	)
+	target_budget_label.tooltip_text = (
+		"Fielded units include every recurring wave arrival. A console overrun "
+		+ "never blocks saving or playing the PC version."
+	)
+
+
+func _budget_target(target_id: String) -> Dictionary:
+	for value: Variant in budget_report.get("targets", []):
+		if value is Dictionary and str(value.get("id", "")) == target_id:
+			return value
+	return {}
+
+
+func _current_stage_units() -> int:
+	var encounter := _current_encounter()
+	if encounter.is_empty() or compiler == null:
+		return 0
+	var owner_id := str(compiler.stable_source_id(
+		"%s/%s" % [encounter.get("campaign_id", ""), encounter.node.get("id", "")]
+	))
+	for value: Variant in budget_report.get("stages", []):
+		if value is Dictionary and str(value.get("owner_id", "")) == owner_id:
+			return int(value.get("units", 0))
+	return 0
+
+
+func _current_stage_is_over_budget(additional_units: int = 0) -> bool:
+	var units := _current_stage_units() + additional_units
+	for target_id: String in ["nintendo64", "playstation"]:
+		var target := _budget_target(target_id)
+		var limit := int(target.get("units_per_encounter", 0))
+		if limit > 0 and units > limit:
+			return true
+	return false
+
+
+func _target_impact_summary(additional_units: int = 0) -> String:
+	if not bool(budget_report.get("ok", false)):
+		return "TARGETS  /  CHECK UNAVAILABLE"
+	if _current_encounter().is_empty():
+		return "TARGETS  /  PC READY  ·  CHOOSE A BATTLE FOR CONSOLE LIMITS"
+	var units := _current_stage_units() + additional_units
+	var n64_limit := int(_budget_target("nintendo64").get("units_per_encounter", 0))
+	var ps1_limit := int(_budget_target("playstation").get("units_per_encounter", 0))
+	var prefix := "AFTER ADD" if additional_units > 0 else "TARGETS"
+	var summary := "%s  /  %d FIELDED  ·  PC READY  ·  N64 %d / %d  ·  PS1 %d / %d" % [
+		prefix, units, units, n64_limit, units, ps1_limit,
+	]
+	if _current_stage_is_over_budget(additional_units):
+		summary += "  ·  CONSOLE EXPORT NEEDS FEWER UNITS"
+	return summary
 
 
 func _current_map() -> Dictionary:
@@ -1455,6 +1521,7 @@ func _update_placement_candidate() -> void:
 		placement_candidate_index + 1,
 		placement_candidates.size(),
 	]
+	placement_candidate_label.text += "\n%s" % _target_impact_summary(1)
 
 
 func _begin_add_placement() -> void:
@@ -2454,6 +2521,10 @@ func _build_interface() -> void:
 	board_panel.add_child(board_column)
 	var board_title := _label("BOARD", 17, Color("69d9ff"))
 	board_column.add_child(board_title)
+	target_budget_label = _label("TARGETS  /  CHECKING…", 15, Color("a9bdc9"))
+	target_budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	target_budget_label.custom_minimum_size.y = 24
+	board_column.add_child(target_budget_label)
 	var board_scroll := ScrollContainer.new()
 	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	board_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -64,6 +64,56 @@ func _init() -> void:
 			)
 			_expect("wrong terrain length refused", filled.ok, false)
 			var source_data: Dictionary = JSON.parse_string(source)
+			var budget_report: Dictionary = compiler.target_budget_report(source)
+			_expect("target budget report reads valid source", budget_report.ok, true)
+			var targets: Array = budget_report.get("targets", [])
+			_expect("target budget report covers PC and both consoles", targets.size(), 3)
+			if targets.size() == 3:
+				_expect("PC source stays unbounded", targets[0].limited, false)
+				_expect("PC source fits", targets[0].fits, true)
+				_expect("Nintendo 64 limit is measured", targets[1].units_per_encounter, 48)
+				_expect("demo fits Nintendo 64", targets[1].fits, true)
+				_expect("PlayStation limit is measured", targets[2].units_per_encounter, 48)
+				_expect("demo fits PlayStation", targets[2].fits, true)
+
+			var crowded_data: Dictionary = source_data.duplicate(true)
+			var wave_added := false
+			for campaign_value: Variant in crowded_data.get("campaigns", []):
+				if not campaign_value is Dictionary:
+					continue
+				var flow_value: Variant = campaign_value.get("flow", {})
+				if not flow_value is Dictionary:
+					continue
+				for node_value: Variant in flow_value.get("nodes", []):
+					if not node_value is Dictionary or str(node_value.get("kind", "")) != "encounter":
+						continue
+					for placement_value: Variant in node_value.get("placements", []):
+						if not placement_value is Dictionary or str(placement_value.get("side", "")) != "second":
+							continue
+						placement_value["arrival"] = {"round": 2, "every": 1, "times": 48}
+						wave_added = true
+						break
+					if wave_added:
+						break
+				if wave_added:
+					break
+			_expect("crowding fixture gains one recurring wave", wave_added, true)
+			var crowded_report: Dictionary = compiler.target_budget_report(
+				JSON.stringify(_integer_numbers(crowded_data))
+			)
+			if not crowded_report.ok:
+				_fail("crowded source budget diagnostics: %s" % crowded_report.get("diagnostics", []))
+			var crowded_targets: Array = crowded_report.get("targets", [])
+			if crowded_targets.size() == 3:
+				_expect("console overrun does not invalidate PC", crowded_targets[0].fits, true)
+				_expect("wave expansion counts all fielded characters", crowded_targets[1].maximum_units, 49)
+				_expect("Nintendo 64 overrun is reported", crowded_targets[1].fits, false)
+				_expect("PlayStation overrun is reported", crowded_targets[2].fits, false)
+				var overages: Array = crowded_targets[1].get("overages", [])
+				_expect("overrun names one affected stage", overages.size(), 1)
+				if overages.size() == 1:
+					_expect("overrun names the visible stage", overages[0].name, "A Friendly Rivalry")
+					_expect("overrun preserves its map recovery target", overages[0].owner_id, compiler.stable_source_id("demo_campaign/bridge_encounter"))
 			var invalid_role_source := source.replace(
 				'"classId": "heron_rider"',
 				'"classId": "missing_role_baseline"'
@@ -492,6 +542,22 @@ func _source_project_path() -> String:
 		if argument.begins_with("--source-project="):
 			return argument.trim_prefix("--source-project=")
 	return ""
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if typeof(value) == TYPE_FLOAT and value == floor(value):
+		return int(value)
+	return value
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

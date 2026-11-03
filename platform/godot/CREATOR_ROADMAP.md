@@ -218,22 +218,17 @@ but it must not become a second schema authority.
 These are release blockers in priority order, not invitations to add a large
 permanent form.
 
-1. **Measured target budgets.** Define checked PC, Nintendo 64, and PlayStation
-   authoring budgets, then show the impact before an addition that can exceed a
-   target. PC success must remain independent of a console refusal. The existing
-   Nintendo 64 runtime limit of 48 fielded units is real evidence; PlayStation
-   limits still require an equally explicit measurement and gate.
-2. **Advanced flow operations.** Add safe whole-chapter reordering and focused
+1. **Advanced flow operations.** Add safe whole-chapter reordering and focused
    world-state, negated, and compound conditions. Keep these under **Outcomes**;
    the common linear path must not become a graph editor.
-3. **Replacement art packs.** Select an installed pack or import project-owned
+2. **Replacement art packs.** Select an installed pack or import project-owned
    terrain, character, portrait, effect, and UI assets. Validate dimensions,
    pivots, animation names, target budgets, and licenses, and preview the same
    animation state machine used in play.
-4. **Console builder payloads.** Integrate separately installed, versioned
+3. **Console builder payloads.** Integrate separately installed, versioned
    Nintendo 64 and PlayStation builders into the Export Center with independent
    progress, warnings, capability checks, hashes, and failure reports.
-5. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
+4. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
    run clean-revision PC/Nintendo 64/PlayStation gates, and complete one human
    solo and co-op campaign playthrough per target.
 

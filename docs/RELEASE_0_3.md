@@ -48,10 +48,10 @@ Every release decision should preserve these constraints:
 | PC graphics | Playable, not final art | Pixel, hybrid voxel-sprite, diorama, and full-voxel profiles are replaceable. The recommended initial profile is `voxel-sprites`; final animation/art polish is not a release-format dependency. |
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
 | Native campaign outline | Focused flow editor ready | Continue Creating opens a controller-first story/battle/ending list in play order. A chapter opens its exact dialogue, map, or ending-name action; Test Campaign and Grow the Army stay one press away; Add Next Chapter opens the correct source battle and focused creation dialog. Each playable chapter can add, name, order, retarget, and remove common outcomes without exposing source identities. Add Route can connect an existing destination, create a named ending, or create an alternate playable story/map/battle from the current working setup. |
-| Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Existing maps and battles can be renamed together without changing stable identities. Copy Battle Setup deliberately reuses characters, goals, deployment, co-op rules, and turn order while preserving the target chapter. Character and objective feedback uses visible names instead of source identities. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. |
+| Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Existing maps and battles can be renamed together without changing stable identities. Copy Battle Setup deliberately reuses characters, goals, deployment, co-op rules, and turn order while preserving the target chapter. Character and objective feedback uses visible names instead of source identities. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. PC/Nintendo 64/PlayStation fielded-unit impact remains visible and is previewed before placing another character. |
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached with its portable identity generated automatically, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, and tunes seven named-hero traits. New roles copy a working role into an independent baseline. Tune Role edits all eleven portable baseline stats, side, terrain crossing, post-attack behavior, and allowed weapon families; incompatible removal is refused. New Side creates a portable named faction and color. Growth & Rewards keeps optional experience, level growth, item drops, and per-role appearance behind one advanced action. Campaign supplies, chapter rewards, role loadouts, and the separate reusable Gear & Abilities library are also native. |
-| Full native authoring parity | Blocking | Compound or world-state conditions, whole-chapter reordering, external replacement-art packs, and measured per-target authoring budgets still need focused native support. |
+| Full native authoring parity | Blocking | Compound or world-state conditions, whole-chapter reordering, and external replacement-art packs still need focused native support. Measured fielded-unit budgets are implemented independently for PC, Nintendo 64, and PlayStation. |
 | Native Export Center | Partial | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Synthetic and real packaged-shell smokes cover privacy, stripping, and compiled-content identity. Nintendo 64 and PlayStation still need separately installed builder payload integration. |
 | Documentation and screenshots | In progress | README and `docs/CREATING_A_GAME.md` now describe the tested native flow and use six screens rendered from the real Godot creator. Recapture them after the final UI freeze and add the enabled Export Center from the final current-version player shell. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
@@ -170,10 +170,15 @@ editing JSON. **Achieved.**
   appearance behind one focused advanced screen. Defaults remain visible and
   valid, item-drop chance is unavailable until an item is chosen, and every
   change is compiler-checked. **Implemented.**
-- Always show PC, Nintendo 64, and PlayStation budget impact before saving an
-  addition that could exceed a target. The repository does not yet define a
-  target-specific authoring-budget contract; measured limits must be added
-  before the UI can report them honestly.
+- Always show PC, Nintendo 64, and PlayStation fielded-unit impact before an
+  addition that could exceed a target. **Implemented.** PC has no authored
+  unit cap. Nintendo 64 and PlayStation independently enforce 48 expanded
+  characters per battle; recurring waves count as every arrival. The map
+  creator previews the new count before placement, the map and campaign views
+  keep target impact visible, and a console overrun never blocks source save or
+  PC play. The limits come from console-clock measurements of the same engaged
+  20x14 selection workload: 34.5 ms on Nintendo 64 and 21.8 ms on PlayStation
+  at 48 characters.
 
 Exit: the five-stage Emberbound-style growth curve can be authored natively.
 

@@ -4,6 +4,7 @@
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/game_content/compiler.hpp>
 #include <grandleon/game_content/source_project.hpp>
+#include <grandleon/package_runtime/target_budget.hpp>
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/array.hpp>
@@ -22,6 +23,7 @@ namespace {
 
 namespace gc = game_content;
 namespace gd = ::godot;
+namespace pr = ::grandleon::package_runtime;
 
 gd::String text(std::string_view value) {
     return gd::String::utf8(value.data(), static_cast<int64_t>(value.size()));
@@ -293,12 +295,85 @@ gd::Dictionary compile_diagnostic(
     return result;
 }
 
+std::uint64_t fielded_units(const gc::Encounter& encounter) noexcept {
+    std::uint64_t total = 0;
+    for (const gc::Placement& placement : encounter.placements) {
+        const bool recurring =
+            placement.arrival_every != 0U && placement.arrival_times != 0U;
+        total += recurring ? placement.arrival_times : 1U;
+    }
+    return total;
+}
+
+gd::Dictionary target_budget(
+    const gc::GameSource& source,
+    std::string_view id,
+    std::string_view label,
+    std::uint32_t units_per_encounter
+) {
+    gd::Dictionary target;
+    target["id"] = text(id);
+    target["label"] = text(label);
+    target["limited"] = units_per_encounter != 0U;
+    target["units_per_encounter"] =
+        static_cast<std::int64_t>(units_per_encounter);
+
+    std::uint64_t worst_units = 0;
+    const gc::Encounter* worst = nullptr;
+    gd::Array overages;
+    for (const gc::Encounter& encounter : source.encounters) {
+        const std::uint64_t units = fielded_units(encounter);
+        if (worst == nullptr || units > worst_units) {
+            worst = &encounter;
+            worst_units = units;
+        }
+        if (units_per_encounter == 0U || units <= units_per_encounter) {
+            continue;
+        }
+        gd::Dictionary overage;
+        overage["screen"] = "map";
+        overage["owner_id"] = text(std::to_string(encounter.id));
+        overage["name"] = text(encounter.name);
+        overage["units"] = static_cast<std::int64_t>(units);
+        overage["over_by"] = static_cast<std::int64_t>(
+            units - units_per_encounter
+        );
+        overages.push_back(overage);
+    }
+
+    target["fits"] = overages.is_empty();
+    target["maximum_units"] = static_cast<std::int64_t>(worst_units);
+    target["worst_stage"] =
+        worst == nullptr ? gd::String{} : text(worst->name);
+    target["worst_owner_id"] = worst == nullptr
+        ? gd::String{}
+        : text(std::to_string(worst->id));
+    target["overages"] = overages;
+    return target;
+}
+
+gd::Array budget_stages(const gc::GameSource& source) {
+    gd::Array stages;
+    for (const gc::Encounter& encounter : source.encounters) {
+        gd::Dictionary stage;
+        stage["owner_id"] = text(std::to_string(encounter.id));
+        stage["name"] = text(encounter.name);
+        stage["units"] = static_cast<std::int64_t>(fielded_units(encounter));
+        stages.push_back(stage);
+    }
+    return stages;
+}
+
 }  // namespace
 
 void GrandleonProjectCompiler::_bind_methods() {
     gd::ClassDB::bind_method(
         gd::D_METHOD("compile_source_json", "source_json"),
         &GrandleonProjectCompiler::compile_source_json
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("target_budget_report", "source_json"),
+        &GrandleonProjectCompiler::target_budget_report
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD("stable_source_id", "source_key"),
@@ -579,6 +654,41 @@ gd::Dictionary GrandleonProjectCompiler::compile_source_json(
     }
     result["ok"] = true;
     result["package"] = package;
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::target_budget_report(
+    const gd::String& source_json
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["targets"] = gd::Array{};
+    result["stages"] = gd::Array{};
+    gd::Array diagnostics;
+
+    const auto parsed = gc::parse_source_project_json(narrow(source_json));
+    if (!parsed) {
+        for (const gc::SourceDiagnostic& diagnostic : parsed.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+
+    gd::Array targets;
+    targets.push_back(target_budget(parsed.source, "pc", "PC", 0U));
+    targets.push_back(target_budget(
+        parsed.source, "nintendo64", "Nintendo 64",
+        pr::target_budget::nintendo64_units_per_encounter
+    ));
+    targets.push_back(target_budget(
+        parsed.source, "playstation", "PlayStation",
+        pr::target_budget::playstation_units_per_encounter
+    ));
+    result["ok"] = true;
+    result["targets"] = targets;
+    result["stages"] = budget_stages(parsed.source);
     result["diagnostics"] = diagnostics;
     return result;
 }

@@ -19,6 +19,7 @@ var redo_stack: Array[String] = []
 
 var title_label: Label
 var route_list: VBoxContainer
+var target_budget_label: Label
 var status_label: Label
 var fix_button: Button
 var pending_diagnostic: Dictionary = {}
@@ -112,6 +113,7 @@ func _load_project() -> void:
 	).to_upper()
 	_collect_route()
 	_refresh_route()
+	_refresh_target_budget()
 	_update_actions()
 	_set_status("CHOOSE A CHAPTER TO EDIT, OR TEST THE WHOLE CAMPAIGN", false)
 	if first_button != null:
@@ -611,7 +613,45 @@ func _read_source() -> bool:
 		_set_status("ADD A CAMPAIGN BEFORE EDITING ITS OUTLINE", true)
 		return false
 	campaign = campaigns[0]
+	_refresh_target_budget()
 	return true
+
+
+func _refresh_target_budget() -> void:
+	if compiler == null or target_budget_label == null:
+		return
+	var report: Dictionary = compiler.target_budget_report(source)
+	if not bool(report.get("ok", false)):
+		target_budget_label.text = "TARGETS  /  CHECK UNAVAILABLE"
+		target_budget_label.add_theme_color_override("font_color", Color("ff7a83"))
+		return
+	var targets: Dictionary = {}
+	for value: Variant in report.get("targets", []):
+		if value is Dictionary:
+			targets[str(value.get("id", ""))] = value
+	var n64: Dictionary = targets.get("nintendo64", {})
+	var ps1: Dictionary = targets.get("playstation", {})
+	var n64_units := int(n64.get("maximum_units", 0))
+	var ps1_units := int(ps1.get("maximum_units", 0))
+	var over := not bool(n64.get("fits", true)) or not bool(ps1.get("fits", true))
+	target_budget_label.text = (
+		"TARGETS  /  PC READY  ·  N64 %d / %d  ·  PS1 %d / %d" % [
+			n64_units,
+			int(n64.get("units_per_encounter", 0)),
+			ps1_units,
+			int(ps1.get("units_per_encounter", 0)),
+		]
+	)
+	if over:
+		var stage := str(n64.get("worst_stage", ps1.get("worst_stage", "BATTLE")))
+		target_budget_label.text += "  ·  %s NEEDS FEWER FIELDED UNITS FOR CONSOLES" % stage.to_upper()
+	target_budget_label.add_theme_color_override(
+		"font_color", Color("ffca63") if over else Color("a9bdc9")
+	)
+	target_budget_label.tooltip_text = (
+		"The largest battle is shown. Recurring waves count as every arrival. "
+		+ "A console overrun never blocks saving or testing on PC."
+	)
 
 
 func _update_actions() -> void:
@@ -1481,6 +1521,10 @@ func _build_interface() -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 38
 	column.add_child(explanation)
+	target_budget_label = _label("TARGETS  /  CHECKING…", 16, Color("a9bdc9"))
+	target_budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	target_budget_label.custom_minimum_size.y = 28
+	column.add_child(target_budget_label)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

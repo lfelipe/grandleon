@@ -149,8 +149,8 @@ edits common goal and inventory routes, ordering, and named destinations.
 **Add Route** connects an existing chapter, creates a named ending, or creates
 an alternate playable story/map/battle by copying the current working setup
 and rejoining the selected destination as one compiler-checked undoable edit.
-Compound or world-state condition authoring, whole-chapter reordering,
-replacement art-pack import, and measured target budgets remain in the
+Compound or world-state condition authoring, whole-chapter reordering, and
+replacement art-pack import remain in the
 increments defined by [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated
