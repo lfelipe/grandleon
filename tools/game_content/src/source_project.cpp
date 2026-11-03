@@ -5270,6 +5270,94 @@ SourceTextResult set_source_dialogue_backdrop_json(
     return result;
 }
 
+SourceTextResult add_source_unit_type_from_template_json(
+    std::string_view source_json,
+    std::string_view template_unit_type_id,
+    std::string_view unit_type_id,
+    std::string_view name
+) {
+    SourceTextResult result;
+    if (!valid_source_key(template_unit_type_id) ||
+        !valid_source_key(unit_type_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+            "template and new role identities must be stable source-key "
+            "strings"
+        );
+        return result;
+    }
+    if (name.empty() || name.size() > 160) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            "$.unitTypes.name",
+            "role name must contain between 1 and 160 characters"
+        );
+        return result;
+    }
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* unit_types =
+        root == nullptr ? nullptr : mutable_array(*root, "unitTypes");
+    Object* role = unit_types == nullptr
+                       ? nullptr
+                       : find_object_by_id(
+                             *unit_types, template_unit_type_id
+                         );
+    if (role == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+            "role template was not found"
+        );
+        return result;
+    }
+    if (find_object_by_id(*unit_types, unit_type_id) != nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+            "role id already exists"
+        );
+        return result;
+    }
+    if (unit_types->size() >= 100000) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+            "project cannot contain more than 100000 roles"
+        );
+        return result;
+    }
+    Object copied = *role;
+    copied["id"] = Json{std::string(unit_type_id)};
+    copied["name"] = Json{std::string(name)};
+    unit_types->push_back(Json{std::move(copied)});
+
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value, "$.unitTypes",
+        "new role would make this playable project invalid"
+    );
+    return result;
+}
+
 SourceTextResult add_source_campaign_member_json(
     std::string_view source_json,
     std::string_view campaign_id,

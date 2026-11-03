@@ -207,6 +207,15 @@ func _init() -> void:
 			_expect("final objective removal is refused", empty_objectives.ok, false)
 			var campaign_id := str(source_data.campaigns[0].id)
 			var member_role := str(source_data.unitTypes[0].id)
+			var added_role: Dictionary = compiler.add_unit_type_from_template(
+				source, member_role, "editor_role", "Editor Role"
+			)
+			_expect("role template copy succeeds", added_role.ok, true)
+			if added_role.ok:
+				var role_data: Dictionary = JSON.parse_string(added_role.source)
+				_expect("new role has its visible name", role_data.unitTypes[-1].name, "Editor Role")
+				_expect("new role keeps its class", role_data.unitTypes[-1].classId, source_data.unitTypes[0].classId)
+				_expect("new role remains playable", compiler.compile_source_json(added_role.source).ok, true)
 			var added_member: Dictionary = compiler.add_campaign_member(
 				source, campaign_id, "", "editor_hero", "Editor Hero", member_role
 			)

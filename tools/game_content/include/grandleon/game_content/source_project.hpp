@@ -317,6 +317,16 @@ struct SourceMapCell final {
     std::string_view background_id
 );
 
+// Creates a new named unit role by copying an existing, already-valid role.
+// The new stable identity is supplied by the creator but never shown to the
+// author. Class, faction, presentation, and starting kit remain portable.
+[[nodiscard]] SourceTextResult add_source_unit_type_from_template_json(
+    std::string_view source_json,
+    std::string_view template_unit_type_id,
+    std::string_view unit_type_id,
+    std::string_view name
+);
+
 // Adds a persistent campaign character either to the starting company or to
 // one chapter's recruits. The character uses an existing portable unit type;
 // map placement remains an explicit battle-authoring choice.

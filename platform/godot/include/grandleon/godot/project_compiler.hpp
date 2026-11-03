@@ -163,6 +163,12 @@ public:
         const ::godot::String& source_json,
         const ::godot::String& unit_type_id
     ) const;
+    [[nodiscard]] ::godot::Dictionary add_unit_type_from_template(
+        const ::godot::String& source_json,
+        const ::godot::String& template_unit_type_id,
+        const ::godot::String& unit_type_id,
+        const ::godot::String& name
+    ) const;
     [[nodiscard]] ::godot::Dictionary add_campaign_member(
         const ::godot::String& source_json,
         const ::godot::String& campaign_id,

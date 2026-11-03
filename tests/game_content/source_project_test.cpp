@@ -2416,6 +2416,38 @@ void adds_and_renames_campaign_members_without_retyping_the_project() {
     );
 }
 
+void creates_a_role_from_a_known_good_template() {
+    const auto added = gc::add_source_unit_type_from_template_json(
+        source, "blue_unit", "trail_guard", "Trail Guard"
+    );
+    const auto parsed = gc::parse_source_project_json(added.json);
+    expect(
+        added && parsed && parsed.source.unit_types.size() == 3 &&
+            parsed.source.unit_types.back().id ==
+                grandleon::core::stable_content_id_v1("trail_guard") &&
+            parsed.source.unit_types.back().name == "Trail Guard" &&
+            parsed.source.unit_types.back().class_id ==
+                grandleon::core::stable_content_id_v1("vanguard") &&
+            parsed.source.unit_types.back().faction_id ==
+                grandleon::core::stable_content_id_v1("blue") &&
+            parsed.source.unit_types.back().starting_weapons.size() == 1 &&
+            gc::compile(parsed.source),
+        "a copied role keeps its valid portable gameplay and presentation"
+    );
+    expect(
+        !gc::add_source_unit_type_from_template_json(
+            source, "missing", "new_role", "New Role"
+        ) &&
+            !gc::add_source_unit_type_from_template_json(
+                source, "blue_unit", "blue_unit", "Duplicate"
+            ) &&
+            !gc::add_source_unit_type_from_template_json(
+                source, "blue_unit", "new_role", ""
+            ),
+        "role creation refuses missing templates, duplicate ids, and empty names"
+    );
+}
+
 void authors_campaign_supplies_without_editing_grant_arrays() {
     const auto founded = gc::set_source_campaign_grant_json(
         source, "demo", "", "item", "tonic", 2
@@ -3015,6 +3047,7 @@ int main() {
     updates_one_map_cell_without_retyping_the_project();
     updates_one_dialogue_line_without_retyping_the_project();
     adds_and_renames_campaign_members_without_retyping_the_project();
+    creates_a_role_from_a_known_good_template();
     authors_campaign_supplies_without_editing_grant_arrays();
     chooses_shared_presentation_without_changing_gameplay_source();
     authors_role_loadouts_without_retyping_unit_types();
