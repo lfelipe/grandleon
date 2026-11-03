@@ -38,6 +38,13 @@
 # GRANDLEON_PLAYSTATION_EXPECT is the line the log must contain, and it is
 # anchored, because an unanchored `RESULT PASS` is also satisfied by a
 # diagnostic line that merely mentions the verdict.
+#
+# GRANDLEON_PLAYSTATION_ALLOW_TIMEOUT=1 is for an interactive executable: it
+# waits for a controller and therefore has no success exit of its own. In that
+# mode a bounded timeout is expected, but the explicitly supplied EXPECT line
+# must still be present. The ordinary conformance path cannot opt into this by
+# accident: timeout acceptance requires a custom expectation and forbids an
+# assertion floor.
 
 set -euo pipefail
 
@@ -56,6 +63,22 @@ min_checks="${GRANDLEON_PLAYSTATION_MIN_CHECKS:-0}"
 # come from outside. The whole run is a few seconds under the interpreter; this
 # is a hang detector, not a budget.
 timeout_seconds="${GRANDLEON_PLAYSTATION_TIMEOUT:-300}"
+allow_timeout="${GRANDLEON_PLAYSTATION_ALLOW_TIMEOUT:-0}"
+
+case "${allow_timeout}" in
+    0|1) ;;
+    *) echo "error: GRANDLEON_PLAYSTATION_ALLOW_TIMEOUT must be 0 or 1." >&2; exit 2 ;;
+esac
+if [ "${allow_timeout}" = "1" ]; then
+    if [ -z "${GRANDLEON_PLAYSTATION_EXPECT:-}" ]; then
+        echo "error: timeout acceptance requires GRANDLEON_PLAYSTATION_EXPECT." >&2
+        exit 2
+    fi
+    if [ "${min_checks}" != "0" ]; then
+        echo "error: an interactive identity check cannot set an assertion floor." >&2
+        exit 2
+    fi
+fi
 
 for name in revision base_digest; do
     if [ -z "${!name}" ]; then
@@ -161,10 +184,15 @@ timeout --kill-after=10 "${timeout_seconds}" \
 status=$?
 set -e
 
+timed_out=0
 if [ "${status}" -eq 124 ] || [ "${status}" -eq 137 ]; then
-    echo "error: the conformance executable did not finish in ${timeout_seconds}s." >&2
-    tail -n 40 "${log}" >&2 || true
-    exit 1
+    if [ "${allow_timeout}" != "1" ]; then
+        echo "error: the conformance executable did not finish in ${timeout_seconds}s." >&2
+        tail -n 40 "${log}" >&2 || true
+        exit 1
+    fi
+    timed_out=1
+    status=0
 fi
 
 # The verdict, and the count behind it. The word `PASS` is not the evidence:
@@ -188,4 +216,7 @@ if [ "${status}" -ne 0 ]; then
 fi
 
 printf '%s\n' "${verdict}"
+if [ "${timed_out}" -eq 1 ]; then
+    echo "Interactive executable reached its required identity before the bounded timeout."
+fi
 echo "PlayStation executable ${executable_name} passed. Full log: ${log}"

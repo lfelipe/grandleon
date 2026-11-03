@@ -250,6 +250,19 @@ GRANDLEON_PLAYSTATION_BUILD_DIR="$PWD/build-playstation-release" \
   platform/playstation/scripts/build-disc.sh
 ```
 
+Boot the exact interactive executable with a bounded identity check. The
+played build waits for a controller by design, so success means it reaches the
+authored campaign identity before the timeout, not that it exits:
+
+```sh
+GRANDLEON_PLAYSTATION_BUILD_DIR="$PWD/build-playstation-release" \
+GRANDLEON_PLAYSTATION_EXECUTABLE=grandleon_psx_campaign.ps-exe \
+GRANDLEON_PLAYSTATION_EXPECT='^GRANDLEON PLAYSTATION CAMPAIGN emberbound' \
+GRANDLEON_PLAYSTATION_ALLOW_TIMEOUT=1 \
+GRANDLEON_PLAYSTATION_TIMEOUT=60 \
+  platform/playstation/scripts/run-playstation.sh
+```
+
 Run the MIPS-I, heap-room, emulator, controller, save-card, disc, and
 no-license-sector checks against the exact executable/image. The BIN/CUE is for
 compatible emulators or development systems; it does not contain Sony's
