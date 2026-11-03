@@ -491,6 +491,87 @@ void updates_one_map_cell_without_retyping_the_project() {
         "a chapter cannot replace an existing map identity"
     );
 
+    const auto third_chapter = gc::add_source_campaign_chapter_json(
+        chapter.json,
+        "demo",
+        "chapter_2_battle",
+        "chapter_3_map",
+        "Chapter Three",
+        "chapter_3_story",
+        "Before Chapter Three",
+        "chapter_3_battle",
+        "Chapter Three Battle",
+        "forest"
+    );
+    expect(
+        static_cast<bool>(third_chapter),
+        "a second complete chapter can extend the linear route"
+    );
+    const auto moved_chapter = gc::move_source_campaign_chapter_json(
+        third_chapter.json, "demo", "chapter_3_story", -1
+    );
+    expect(
+        static_cast<bool>(moved_chapter),
+        "a complete story and battle chapter can move earlier"
+    );
+    const auto moved_chapter_parsed =
+        gc::parse_source_project_json(moved_chapter.json);
+    expect(
+        moved_chapter_parsed &&
+            static_cast<bool>(gc::compile(moved_chapter_parsed.source)),
+        "a reordered campaign remains playable"
+    );
+    const auto restored_chapter = gc::move_source_campaign_chapter_json(
+        moved_chapter.json, "demo", "chapter_3_story", 1
+    );
+    expect(
+        restored_chapter && restored_chapter.json == third_chapter.json,
+        "moving the same chapter later restores the complete source"
+    );
+    expect(
+        !gc::move_source_campaign_chapter_json(
+            third_chapter.json, "demo", "chapter_2_story", -1
+        ),
+        "the first complete chapter cannot move earlier"
+    );
+    expect(
+        !gc::move_source_campaign_chapter_json(
+            third_chapter.json, "demo", "chapter_2_story", 0
+        ),
+        "an ambiguous chapter direction is refused"
+    );
+
+    const auto branched_chapters = gc::add_source_campaign_branch_json(
+        third_chapter.json,
+        "demo",
+        "chapter_2_battle",
+        "chapter_3_story",
+        "defeat_all_opponents",
+        "defeat",
+        "branch_map",
+        "Fallen Detour",
+        "branch_story",
+        "After the Fall",
+        "branch_battle",
+        "Fallen Detour Battle",
+        "forest"
+    );
+    expect(
+        static_cast<bool>(branched_chapters),
+        "a chapter route can retain an alternate outcome"
+    );
+    const auto moved_branched_chapter =
+        gc::move_source_campaign_chapter_json(
+            branched_chapters.json, "demo", "chapter_3_story", -1
+        );
+    expect(
+        static_cast<bool>(moved_branched_chapter) &&
+            moved_branched_chapter.json.find(
+                R"json("targetNodeId": "branch_story")json"
+            ) != std::string::npos,
+        "chapter movement preserves its neighbor's alternate route"
+    );
+
     const auto branch = gc::add_source_campaign_branch_json(
         source,
         "demo",

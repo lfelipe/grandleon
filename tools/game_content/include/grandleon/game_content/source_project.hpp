@@ -150,6 +150,18 @@ struct SourceMapCell final {
     std::string_view fill_terrain
 );
 
+// Moves one complete Story -> Battle pair one place along the campaign's
+// primary route. Only the three primary-route links needed for the adjacent
+// swap change; conditions, alternate outcomes, maps, and stable identities
+// stay attached to their original nodes. Direction is -1 for earlier and 1
+// for later. Refusing any other shape keeps graph repair out of the UI.
+[[nodiscard]] SourceTextResult move_source_campaign_chapter_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view story_node_id,
+    std::int64_t direction
+);
+
 // Adds an alternate story and battle from an existing encounter without
 // changing their destinations. The battle setup is cloned onto a fresh map,
 // the new route uses one named objective result, and the alternate battle

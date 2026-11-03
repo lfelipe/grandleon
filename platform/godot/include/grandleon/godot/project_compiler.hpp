@@ -81,6 +81,12 @@ public:
         const ::godot::String& battle_name,
         const ::godot::String& fill_terrain
     ) const;
+    [[nodiscard]] ::godot::Dictionary move_campaign_chapter(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& story_node_id,
+        std::int64_t direction
+    ) const;
     [[nodiscard]] ::godot::Dictionary add_campaign_branch(
         const ::godot::String& source_json,
         const ::godot::String& campaign_id,

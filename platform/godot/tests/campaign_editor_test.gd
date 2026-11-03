@@ -28,6 +28,7 @@ func _run() -> void:
 	current_scene = editor
 	await process_frame
 	await process_frame
+	var starter_source: String = editor.source
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
 		for frame in 12:
@@ -251,6 +252,61 @@ func _run() -> void:
 	_expect("primary route follows the highest-priority outcome", primary.size(), 2)
 	if primary.size() == 2:
 		_expect("primary route chooses victory", str(primary[1].id), "victory")
+
+	var post_flow_source: String = editor.source
+	var second_chapter: Dictionary = editor.compiler.add_campaign_chapter(
+		starter_source, "first_adventure", "first_battle",
+		"chapter_2_map", "Chapter Two",
+		"chapter_2_story", "Before Chapter Two",
+		"chapter_2_battle", "Chapter Two Battle", "grass"
+	)
+	_expect("chapter-order fixture adds a second chapter", second_chapter.ok, true)
+	if second_chapter.ok:
+		var third_chapter: Dictionary = editor.compiler.add_campaign_chapter(
+			second_chapter.source, "first_adventure", "chapter_2_battle",
+			"chapter_3_map", "Chapter Three",
+			"chapter_3_story", "Before Chapter Three",
+			"chapter_3_battle", "Chapter Three Battle", "grass"
+		)
+		_expect("chapter-order fixture adds a third chapter", third_chapter.ok, true)
+		if third_chapter.ok:
+			editor.source = str(third_chapter.source)
+			editor._read_source()
+			editor._collect_route()
+			editor._refresh_route()
+			editor._update_actions()
+			_expect("three complete chapters are recognized", editor._chapter_pairs().size(), 3)
+			_expect("chapter order stays out of each chapter row", editor.chapter_order_button != null, true)
+			editor._open_chapter_order()
+			_expect("chapter order uses one focused screen", editor.chapter_order_layer.visible, true)
+			_expect("chapter choice receives controller focus", editor.chapter_order_select.has_focus(), true)
+			editor._select_metadata(editor.chapter_order_select, "chapter_3_story")
+			editor._refresh_chapter_order_actions()
+			_expect("last chapter can move earlier", editor.chapter_earlier_button.disabled, false)
+			_expect("last chapter cannot move later", editor.chapter_later_button.disabled, true)
+			editor._move_chapter(-1)
+			var moved_pairs: Array[Dictionary] = editor._chapter_pairs()
+			_expect("whole chapter move keeps three pairs", moved_pairs.size(), 3)
+			if moved_pairs.size() == 3:
+				_expect("first chapter stays first", str(moved_pairs[0].story.id), "first_steps")
+				_expect("third chapter moves before second", str(moved_pairs[1].story.id), "chapter_3_story")
+				_expect("second chapter follows moved chapter", str(moved_pairs[2].story.id), "chapter_2_story")
+			_expect("chapter move enables explicit save", editor.save_button.disabled, false)
+			editor._undo()
+			var restored_pairs: Array[Dictionary] = editor._chapter_pairs()
+			if restored_pairs.size() == 3:
+				_expect("whole chapter move is one undo", str(restored_pairs[1].story.id), "chapter_2_story")
+			editor._redo()
+			_expect("whole chapter move is redoable", str(editor._chapter_pairs()[1].story.id), "chapter_3_story")
+			editor._close_chapter_order()
+			_expect("closing chapter order returns to its one outline action", editor.chapter_order_button.has_focus(), true)
+
+	editor.source = post_flow_source
+	editor._read_source()
+	editor.dirty = editor.source != editor.saved_source
+	editor._collect_route()
+	editor._refresh_route()
+	editor._update_actions()
 
 	creator_context.choose_map("first_crossing", "first_battle")
 	creator_context.choose_dialogue("first_steps_dialogue")

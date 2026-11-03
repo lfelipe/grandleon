@@ -4002,6 +4002,260 @@ SourceTextResult add_source_campaign_chapter_json(
     return result;
 }
 
+SourceTextResult move_source_campaign_chapter_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view story_node_id,
+    std::int64_t direction
+) {
+    SourceTextResult result;
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    if (!compile(before.source)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.campaigns",
+            "a chapter can only be moved in a playable campaign"
+        );
+        return result;
+    }
+    if (!valid_source_key(campaign_id) ||
+        !valid_source_key(story_node_id)) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.campaigns",
+            "campaign and story node ids must be stable source-key strings"
+        );
+        return result;
+    }
+    if (direction != -1 && direction != 1) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            "$.campaigns",
+            "chapter direction must be -1 for earlier or 1 for later"
+        );
+        return result;
+    }
+
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_json,
+            "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* campaigns =
+        root == nullptr ? nullptr : mutable_array(*root, "campaigns");
+    std::size_t campaign_index = 0;
+    Object* campaign = campaigns == nullptr
+                           ? nullptr
+                           : find_object_by_id(
+                                 *campaigns, campaign_id, &campaign_index
+                             );
+    Object* flow = campaign == nullptr
+                       ? nullptr
+                       : mutable_object(*campaign, "flow");
+    Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+    auto entry_member = flow == nullptr ? Object::iterator{}
+                                        : flow->find("entryNodeId");
+    std::string* entry =
+        flow == nullptr || entry_member == flow->end()
+            ? nullptr
+            : std::get_if<std::string>(&entry_member->second.value);
+    const std::string campaign_path =
+        "$.campaigns[" + std::to_string(campaign_index) + "]";
+    if (campaign == nullptr || nodes == nullptr || entry == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow",
+            "campaign flow with an entry and nodes was not found"
+        );
+        return result;
+    }
+
+    const auto primary_transition = [](Object& node) -> Object* {
+        Array* transitions = mutable_array(node, "transitions");
+        if (transitions == nullptr) return nullptr;
+        Object* best = nullptr;
+        std::int64_t best_priority =
+            std::numeric_limits<std::int64_t>::max();
+        for (Json& value : *transitions) {
+            auto* transition = std::get_if<Object>(&value.value);
+            const std::int64_t* priority =
+                transition == nullptr
+                    ? nullptr
+                    : integer_member(*transition, "priority");
+            const std::string* target =
+                transition == nullptr
+                    ? nullptr
+                    : string_member(*transition, "targetNodeId");
+            if (priority == nullptr || target == nullptr || target->empty() ||
+                *priority >= best_priority) {
+                continue;
+            }
+            best = transition;
+            best_priority = *priority;
+        }
+        return best;
+    };
+    const auto transition_target = [](Object* transition) -> std::string* {
+        if (transition == nullptr) return nullptr;
+        const auto found = transition->find("targetNodeId");
+        return found == transition->end()
+                   ? nullptr
+                   : std::get_if<std::string>(&found->second.value);
+    };
+
+    std::vector<Object*> route;
+    std::set<std::string> visited;
+    std::string current_id = *entry;
+    while (!current_id.empty() && visited.insert(current_id).second) {
+        Object* node = find_object_by_id(*nodes, current_id);
+        if (node == nullptr) break;
+        route.push_back(node);
+        std::string* target = transition_target(primary_transition(*node));
+        if (target == nullptr) break;
+        current_id = *target;
+    }
+
+    std::size_t selected_index = route.size();
+    for (std::size_t index = 0; index < route.size(); ++index) {
+        const std::string* id = string_member(*route[index], "id");
+        if (id != nullptr && *id == story_node_id) {
+            selected_index = index;
+            break;
+        }
+    }
+    if (selected_index == route.size()) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow.nodes",
+            "the selected story is not on the campaign's primary route"
+        );
+        return result;
+    }
+    if ((direction < 0 && selected_index < 2) ||
+        (direction > 0 && selected_index + 3 >= route.size())) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow.nodes",
+            direction < 0 ? "the selected chapter is already first"
+                          : "the selected chapter is already last"
+        );
+        return result;
+    }
+
+    const std::size_t left_index =
+        direction < 0 ? selected_index - 2 : selected_index;
+    const std::size_t right_index = left_index + 2;
+    Object* left_story = route[left_index];
+    Object* left_battle = route[left_index + 1];
+    Object* right_story = route[right_index];
+    Object* right_battle = route[right_index + 1];
+    const std::string* left_story_kind =
+        string_member(*left_story, "kind");
+    const std::string* left_battle_kind =
+        string_member(*left_battle, "kind");
+    const std::string* right_story_kind =
+        string_member(*right_story, "kind");
+    const std::string* right_battle_kind =
+        string_member(*right_battle, "kind");
+    const std::string* left_story_member =
+        string_member(*left_story, "id");
+    const std::string* left_battle_member =
+        string_member(*left_battle, "id");
+    const std::string* right_story_member =
+        string_member(*right_story, "id");
+    const std::string* right_battle_member =
+        string_member(*right_battle, "id");
+    if (left_story_kind == nullptr || *left_story_kind != "story" ||
+        left_battle_kind == nullptr || *left_battle_kind != "encounter" ||
+        right_story_kind == nullptr || *right_story_kind != "story" ||
+        right_battle_kind == nullptr || *right_battle_kind != "encounter" ||
+        left_story_member == nullptr || left_battle_member == nullptr ||
+        right_story_member == nullptr || right_battle_member == nullptr) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow.nodes",
+            "chapter order needs adjacent Story and Battle pairs"
+        );
+        return result;
+    }
+    const std::string left_story_id = *left_story_member;
+    const std::string left_battle_id = *left_battle_member;
+    const std::string right_story_id = *right_story_member;
+    const std::string right_battle_id = *right_battle_member;
+    Object* left_story_transition = primary_transition(*left_story);
+    Object* left_battle_transition = primary_transition(*left_battle);
+    Object* right_story_transition = primary_transition(*right_story);
+    Object* right_battle_transition = primary_transition(*right_battle);
+    std::string* left_story_target =
+        transition_target(left_story_transition);
+    std::string* left_battle_target =
+        transition_target(left_battle_transition);
+    std::string* right_story_target =
+        transition_target(right_story_transition);
+    std::string* right_battle_target =
+        transition_target(right_battle_transition);
+    Object* incoming_transition =
+        left_index == 0 ? nullptr : primary_transition(*route[left_index - 1]);
+    std::string* incoming_target =
+        left_index == 0 ? entry : transition_target(incoming_transition);
+    if (left_story_target == nullptr ||
+        *left_story_target != left_battle_id ||
+        left_battle_target == nullptr ||
+        *left_battle_target != right_story_id ||
+        right_story_target == nullptr ||
+        *right_story_target != right_battle_id ||
+        right_battle_target == nullptr || right_battle_target->empty() ||
+        incoming_target == nullptr || *incoming_target != left_story_id) {
+        refuse_edit(
+            result,
+            SourceDiagnosticCode::invalid_value,
+            campaign_path + ".flow.nodes",
+            "chapter order needs intact adjacent Story and Battle pairs"
+        );
+        return result;
+    }
+
+    const std::string after_right_id = *right_battle_target;
+    *incoming_target = right_story_id;
+    *right_battle_target = left_story_id;
+    *left_battle_target = after_right_id;
+
+    finish_document_edit(document, result);
+    if (!result) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled =
+        after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result,
+        SourceDiagnosticCode::invalid_value,
+        campaign_path + ".flow.nodes",
+        "moving this chapter would make the playable campaign invalid"
+    );
+    return result;
+}
+
 SourceTextResult add_source_campaign_branch_json(
     std::string_view source_json,
     std::string_view campaign_id,

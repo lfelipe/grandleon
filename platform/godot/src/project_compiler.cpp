@@ -423,6 +423,13 @@ void GrandleonProjectCompiler::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
+            "move_campaign_chapter", "source_json", "campaign_id",
+            "story_node_id", "direction"
+        ),
+        &GrandleonProjectCompiler::move_campaign_chapter
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
             "add_campaign_branch", "source_json", "campaign_id",
             "from_node_id", "target_node_id", "objective_id",
             "objective_result", "map_id", "map_name", "story_node_id",
@@ -869,6 +876,34 @@ gd::Dictionary GrandleonProjectCompiler::add_campaign_chapter(
     }
     result["ok"] = true;
     result["source"] = text(added.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::move_campaign_chapter(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& story_node_id,
+    std::int64_t direction
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult moved =
+        gc::move_source_campaign_chapter_json(
+            narrow(source_json), narrow(campaign_id), narrow(story_node_id),
+            direction
+        );
+    if (!moved) {
+        for (const gc::SourceDiagnostic& diagnostic : moved.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(moved.json);
     result["diagnostics"] = diagnostics;
     return result;
 }

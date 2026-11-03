@@ -116,6 +116,12 @@ the last working encounter before the current destination. The copied setup is
 immediately playable and remains one undoable edit; reshape it instead of
 rebuilding every placement and rule.
 
+Once the main path has at least two complete chapters, **Change Chapter Order**
+appears once below the outline. Choose a chapter and move it earlier or later.
+Its story, map, battle, outcomes, alternate routes, and saved identity move as
+one compiler-checked edit; the ordinary chapter rows stay uncluttered. Undo and
+Redo each treat the move as one action.
+
 ## Grow the army without starting from zero
 
 **Grow the Army** lists founding heroes and later recruits. A character can be
@@ -217,9 +223,9 @@ controller identity, credential, network endpoint, or machine-only setting.
 ## What is still advanced or pending for 0.3
 
 The native creator intentionally preserves imported compound, negated, and
-world-state conditions but does not yet build them directly. Whole-chapter
-reordering, external replacement-art-pack import, and installed console
-builder integration remain release work. The
+world-state conditions but does not yet build them directly. External
+replacement-art-pack import and installed console builder integration remain
+release work. The
 current status and acceptance gates are in [RELEASE_0_3.md](RELEASE_0_3.md).
 
 ## Refresh these screenshots

@@ -232,6 +232,43 @@ func _init() -> void:
 				_expect("next chapter adds story and battle", chapter_data.campaigns[0].flow.nodes.size(), source_data.campaigns[0].flow.nodes.size() + 2)
 				_expect("next battle copies the playable setup", chapter_data.campaigns[0].flow.nodes[2].placements.size(), source_data.campaigns[0].flow.nodes[0].placements.size())
 				_expect("next chapter remains playable", compiler.compile_source_json(chapter.source).ok, true)
+				var third_chapter: Dictionary = compiler.add_campaign_chapter(
+					chapter.source, "demo_campaign", "chapter_2_battle",
+					"chapter_3_map", "Chapter Three",
+					"chapter_3_story", "Before Chapter Three",
+					"chapter_3_battle", "Chapter Three Battle", "forest"
+				)
+				_expect("third chapter creation succeeds", third_chapter.ok, true)
+				if third_chapter.ok:
+					var moved_chapter: Dictionary = compiler.move_campaign_chapter(
+						third_chapter.source, "demo_campaign", "chapter_3_story", -1
+					)
+					_expect("whole chapter move succeeds", moved_chapter.ok, true)
+					if moved_chapter.ok:
+						var moved_data: Dictionary = JSON.parse_string(moved_chapter.source)
+						var moved_nodes: Array = moved_data.campaigns[0].flow.nodes
+						_expect(
+							"preceding battle now opens moved story",
+							str(_flow_node(moved_nodes, "bridge_encounter").transitions[0].targetNodeId),
+							"chapter_3_story"
+						)
+						_expect(
+							"moved battle now opens former chapter",
+							str(_flow_node(moved_nodes, "chapter_3_battle").transitions[0].targetNodeId),
+							"chapter_2_story"
+						)
+						_expect(
+							"former chapter now reaches original destination",
+							str(_flow_node(moved_nodes, "chapter_2_battle").transitions[0].targetNodeId),
+							"demo_complete"
+						)
+						_expect("moved chapter remains playable", compiler.compile_source_json(moved_chapter.source).ok, true)
+						var restored_chapter: Dictionary = compiler.move_campaign_chapter(
+							moved_chapter.source, "demo_campaign", "chapter_3_story", 1
+						)
+						_expect("whole chapter can move later", restored_chapter.ok, true)
+						if restored_chapter.ok:
+							_expect("reverse chapter move restores source", restored_chapter.source, third_chapter.source)
 			var branch: Dictionary = compiler.add_campaign_branch(
 				source, "demo_campaign", "bridge_encounter", "demo_complete",
 				"defeat_all_opponents", "defeat",
@@ -558,6 +595,13 @@ func _integer_numbers(value: Variant) -> Variant:
 	if typeof(value) == TYPE_FLOAT and value == floor(value):
 		return int(value)
 	return value
+
+
+func _flow_node(nodes: Array, node_id: String) -> Dictionary:
+	for value: Variant in nodes:
+		if value is Dictionary and str(value.get("id", "")) == node_id:
+			return value
+	return {}
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

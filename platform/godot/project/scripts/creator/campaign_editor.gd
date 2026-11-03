@@ -63,6 +63,12 @@ var ending_explanation: Label
 var ending_name: LineEdit
 var ending_create_button: Button
 var ending_node_id := ""
+var chapter_order_layer: Control
+var chapter_order_button: Button
+var chapter_order_select: OptionButton
+var chapter_earlier_button: Button
+var chapter_later_button: Button
+var chapter_order_status: Label
 
 
 func _ready() -> void:
@@ -75,7 +81,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if branch_layer != null and branch_layer.visible:
+		if chapter_order_layer != null and chapter_order_layer.visible:
+			_close_chapter_order()
+		elif branch_layer != null and branch_layer.visible:
 			_close_new_branch()
 		elif ending_layer != null and ending_layer.visible:
 			_close_new_ending()
@@ -172,10 +180,113 @@ func _primary_route(nodes: Array, entry_id: String) -> Array[Dictionary]:
 	return result
 
 
+func _chapter_pairs() -> Array[Dictionary]:
+	var chapters: Array[Dictionary] = []
+	for index in range(route.size() - 1):
+		var story: Dictionary = route[index]
+		var battle: Dictionary = route[index + 1]
+		if (
+			str(story.get("kind", "")) == "story"
+			and str(battle.get("kind", "")) == "encounter"
+		):
+			chapters.append({"story": story, "battle": battle})
+	return chapters
+
+
+func _open_chapter_order() -> void:
+	_refresh_chapter_order()
+	chapter_order_layer.visible = true
+	chapter_order_select.grab_focus()
+
+
+func _close_chapter_order() -> void:
+	chapter_order_layer.visible = false
+	if chapter_order_button != null:
+		chapter_order_button.grab_focus()
+
+
+func _refresh_chapter_order(preferred_story_id := "") -> void:
+	var previous_id := preferred_story_id
+	if previous_id.is_empty() and chapter_order_select.selected >= 0:
+		previous_id = str(chapter_order_select.get_item_metadata(
+			chapter_order_select.selected
+		))
+	chapter_order_select.clear()
+	var chapters := _chapter_pairs()
+	for index in chapters.size():
+		var chapter: Dictionary = chapters[index]
+		var story: Dictionary = chapter.story
+		var battle: Dictionary = chapter.battle
+		chapter_order_select.add_item("CHAPTER %d  /  %s  +  %s" % [
+			index + 1,
+			str(story.get("name", "Story")).to_upper(),
+			str(battle.get("name", "Battle")).to_upper(),
+		])
+		chapter_order_select.set_item_metadata(
+			chapter_order_select.item_count - 1, str(story.get("id", ""))
+		)
+	_select_metadata(chapter_order_select, previous_id)
+	_refresh_chapter_order_actions()
+
+
+func _refresh_chapter_order_actions(_index: int = 0) -> void:
+	var index := chapter_order_select.selected
+	chapter_earlier_button.disabled = index <= 0
+	chapter_later_button.disabled = (
+		index < 0 or index >= chapter_order_select.item_count - 1
+	)
+	_set_chapter_order_status(
+		"Choose a chapter, then move its story and battle together.", false
+	)
+
+
+func _move_chapter(direction: int) -> void:
+	var story_id := _selected_metadata(chapter_order_select)
+	if story_id.is_empty():
+		return
+	var moved: Dictionary = compiler.move_campaign_chapter(
+		source, str(campaign.get("id", "")), story_id, direction
+	)
+	if not moved.ok:
+		var detail := "CHAPTER CANNOT MOVE THERE"
+		if not moved.diagnostics.is_empty():
+			detail = str(moved.diagnostics[0].get(
+				"detail", moved.diagnostics[0].get("code", detail)
+			))
+		_set_chapter_order_status("NOT MOVED  /  %s" % detail.to_upper(), true)
+		return
+	undo_stack.append(source)
+	if undo_stack.size() > HISTORY_LIMIT:
+		undo_stack.pop_front()
+	redo_stack.clear()
+	source = str(moved.source)
+	dirty = source != saved_source
+	_read_source()
+	_collect_route()
+	_refresh_route()
+	_update_actions()
+	_refresh_chapter_order(story_id)
+	_set_chapter_order_status(
+		"UNSAVED  /  MOVED WHOLE CHAPTER %s" % (
+			"EARLIER" if direction < 0 else "LATER"
+		),
+		false
+	)
+	chapter_order_select.grab_focus()
+
+
+func _set_chapter_order_status(message: String, failure: bool) -> void:
+	chapter_order_status.text = message
+	chapter_order_status.add_theme_color_override(
+		"font_color", Color("ff7a83") if failure else Color("72e08f")
+	)
+
+
 func _refresh_route() -> void:
 	for child in route_list.get_children():
 		child.queue_free()
 	first_button = null
+	chapter_order_button = null
 	node_buttons.clear()
 	outcome_buttons.clear()
 	if route.is_empty():
@@ -191,6 +302,15 @@ func _refresh_route() -> void:
 		if str(node.get("kind", "")) == "encounter":
 			battle_number += 1
 		_add_node_button(node, battle_number, false)
+	if _chapter_pairs().size() > 1:
+		chapter_order_button = _button(
+			"CHANGE CHAPTER ORDER\nMOVE A WHOLE STORY + BATTLE TOGETHER", 160, 82
+		)
+		chapter_order_button.tooltip_text = (
+			"Move one complete playable chapter without separating its story, map, or battle."
+		)
+		chapter_order_button.pressed.connect(_open_chapter_order)
+		route_list.add_child(chapter_order_button)
 	var add_chapter := _button(
 		"ADD NEXT CHAPTER\nSTART FROM THE LAST WORKING BATTLE", 160, 92
 	)
@@ -1547,6 +1667,61 @@ func _build_interface() -> void:
 	fix_button.pressed.connect(_fix_diagnostic)
 	status_row.add_child(fix_button)
 	_build_outcome_layer()
+	_build_chapter_order_layer()
+
+
+func _build_chapter_order_layer() -> void:
+	chapter_order_layer = Control.new()
+	chapter_order_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	chapter_order_layer.visible = false
+	chapter_order_layer.z_index = 30
+	add_child(chapter_order_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.96)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	chapter_order_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(430, 210)
+	panel.size = Vector2(1060, 660)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color("69d9ff"))
+	)
+	chapter_order_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("CAMPAIGN OUTLINE", 18, Color("69d9ff")))
+	column.add_child(_label("Change chapter order", 32, Color("f2f7f9")))
+	var explanation := _label(
+		"A chapter's story, map, battle, outcomes, and alternate routes stay together. Only its place on the main path changes.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 76
+	column.add_child(explanation)
+	column.add_child(_label("CHAPTER", 15, Color("69d9ff")))
+	chapter_order_select = OptionButton.new()
+	chapter_order_select.custom_minimum_size = Vector2(960, 64)
+	chapter_order_select.add_theme_font_size_override("font_size", 19)
+	chapter_order_select.item_selected.connect(_refresh_chapter_order_actions)
+	column.add_child(chapter_order_select)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	chapter_earlier_button = _button("MOVE EARLIER", 280, 66)
+	chapter_earlier_button.pressed.connect(_move_chapter.bind(-1))
+	actions.add_child(chapter_earlier_button)
+	chapter_later_button = _button("MOVE LATER", 280, 66)
+	chapter_later_button.pressed.connect(_move_chapter.bind(1))
+	actions.add_child(chapter_later_button)
+	var done := _button("DONE", 240, 66)
+	done.pressed.connect(_close_chapter_order)
+	actions.add_child(done)
+	chapter_order_status = _label("READY", 17, Color("72e08f"))
+	chapter_order_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	chapter_order_status.custom_minimum_size.y = 52
+	column.add_child(chapter_order_status)
 
 
 func _build_outcome_layer() -> void:

@@ -64,7 +64,9 @@ is one validated undo command.
 and ending rows open the exact focused editor for that chapter. **Outcomes**
 edits named destinations and first-match order. **Add Route** can connect an
 existing chapter, make a named ending, or create a complete alternate playable
-story/map/battle that rejoins a selected destination.
+story/map/battle that rejoins a selected destination. **Change Chapter Order**
+moves a complete Story → Battle pair earlier or later while its maps, outcomes,
+alternate routes, and stable identities remain attached.
 
 Draft play compiles source in memory and starts the ordinary PC runtime. It
 does not write the installed campaign's checkpoint or require a temporary build
@@ -139,6 +141,8 @@ directory.
 - Create and rename terminal endings.
 - Create a complete alternate playable branch from a working encounter and
   make a lone unconditional path into reachable complementary win/loss routes.
+- Reorder intact main-path chapters as atomic Story → Battle pairs with one
+  focused controller screen and one-step undo/redo.
 - Preserve imported advanced conditions that the focused editor does not yet
   create.
 
@@ -218,8 +222,8 @@ but it must not become a second schema authority.
 These are release blockers in priority order, not invitations to add a large
 permanent form.
 
-1. **Advanced flow operations.** Add safe whole-chapter reordering and focused
-   world-state, negated, and compound conditions. Keep these under **Outcomes**;
+1. **Advanced flow conditions.** Add focused world-state, negated, and compound
+   conditions under **Outcomes**. Safe whole-chapter ordering is implemented;
    the common linear path must not become a graph editor.
 2. **Replacement art packs.** Select an installed pack or import project-owned
    terrain, character, portrait, effect, and UI assets. Validate dimensions,

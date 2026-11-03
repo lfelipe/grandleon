@@ -47,11 +47,11 @@ Every release decision should preserve these constraints:
 | Player/console feature parity | Automated candidate | Campaign flow, story, objectives, abilities, items, save data, co-op ownership, and two-player enemy scaling are portable and exercised on all three targets. A target-by-target human playthrough still needs sign-off. |
 | PC graphics | Playable, not final art | Pixel, hybrid voxel-sprite, diorama, and full-voxel profiles are replaceable. The recommended initial profile is `voxel-sprites`; final animation/art polish is not a release-format dependency. |
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
-| Native campaign outline | Focused flow editor ready | Continue Creating opens a controller-first story/battle/ending list in play order. A chapter opens its exact dialogue, map, or ending-name action; Test Campaign and Grow the Army stay one press away; Add Next Chapter opens the correct source battle and focused creation dialog. Each playable chapter can add, name, order, retarget, and remove common outcomes without exposing source identities. Add Route can connect an existing destination, create a named ending, or create an alternate playable story/map/battle from the current working setup. |
+| Native campaign outline | Focused flow editor ready | Continue Creating opens a controller-first story/battle/ending list in play order. A chapter opens its exact dialogue, map, or ending-name action; Test Campaign and Grow the Army stay one press away; Add Next Chapter opens the correct source battle and focused creation dialog. Each playable chapter can add, name, order, retarget, and remove common outcomes without exposing source identities. Add Route can connect an existing destination, create a named ending, or create an alternate playable story/map/battle from the current working setup. Change Chapter Order atomically moves an intact story/battle pair while keeping its outcomes and alternate routes attached. |
 | Native map/battle creator | Useful vertical slice | Paint/fill/rectangle, placements, player ownership, co-op scaling, deployment, objectives, resize, and surroundings work. Add Next Chapter creates a story moment, cloned playable battle, and fresh map as one undoable operation. Existing maps and battles can be renamed together without changing stable identities. Copy Battle Setup deliberately reuses characters, goals, deployment, co-op rules, and turn order while preserving the target chapter. Character and objective feedback uses visible names instead of source identities. Look & Feel chooses shared world/character art and previews the actual assets used by the ports. PC/Nintendo 64/PlayStation fielded-unit impact remains visible and is previewed before placing another character. |
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached with its portable identity generated automatically, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, and tunes seven named-hero traits. New roles copy a working role into an independent baseline. Tune Role edits all eleven portable baseline stats, side, terrain crossing, post-attack behavior, and allowed weapon families; incompatible removal is refused. New Side creates a portable named faction and color. Growth & Rewards keeps optional experience, level growth, item drops, and per-role appearance behind one advanced action. Campaign supplies, chapter rewards, role loadouts, and the separate reusable Gear & Abilities library are also native. |
-| Full native authoring parity | Blocking | Compound or world-state conditions, whole-chapter reordering, and external replacement-art packs still need focused native support. Measured fielded-unit budgets are implemented independently for PC, Nintendo 64, and PlayStation. |
+| Full native authoring parity | Blocking | Compound or world-state conditions and external replacement-art packs still need focused native support. Measured fielded-unit budgets and safe whole-chapter ordering are implemented. |
 | Native Export Center | Partial | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Synthetic and real packaged-shell smokes cover privacy, stripping, and compiled-content identity. Nintendo 64 and PlayStation still need separately installed builder payload integration. |
 | Documentation and screenshots | In progress | README and `docs/CREATING_A_GAME.md` now describe the tested native flow and use six screens rendered from the real Godot creator. Recapture them after the final UI freeze and add the enabled Export Center from the final current-version player shell. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
@@ -92,6 +92,11 @@ priority and separates other outcomes below it. Story and battle entries open
 the exact scene or map they name, so authors do not have to find the same
 chapter again in another picker. Add Next Chapter appears at the end of the
 route and carries the last playable battle into the focused creation dialog.
+When the main path has at least two intact Story → Battle pairs, one Change
+Chapter Order action opens a focused controller screen. It moves the selected
+pair earlier or later while keeping its maps, outcomes, alternate routes, and
+stable identities attached. The native source command refuses malformed pairs
+instead of attempting graph repair, and one undo restores the former order.
 
 Each playable chapter also has an Outcomes action. It presents routes in the
 order in which the game will try them and supports Always, Goal Won, Goal Lost,
@@ -218,7 +223,9 @@ the Godot application.
   **Add Next Chapter creates a linked story and battle before the existing
   ending. Add Route creates and connects a named terminal moment or alternate
   playable story/map/battle, copying the source battle setup and rejoining a
-  named destination. Whole-chapter reordering remains.**
+  named destination. Change Chapter Order swaps adjacent complete Story →
+  Battle pairs while preserving conditions, alternate routes, maps, and stable
+  identities as one validated undoable edit.**
 - Add outcome/inventory/world-state branches with named targets and preview the
   possible routes. **Always, Goal Won, Goal Lost, and Have Item routes have
   named destinations, first-match ordering, add/remove, compiler validation,
