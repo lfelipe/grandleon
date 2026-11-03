@@ -94,6 +94,8 @@ func _init() -> void:
 					"tile_width": 443,
 					"tile_height": 443,
 					"pivot": [0.5, 0.94],
+					"facesRight": false,
+					"directionalFlip": true,
 					"sequences": {
 						"idle": {
 							"frames": [0, 1],
@@ -127,6 +129,8 @@ func _init() -> void:
 	_expect("profile attack timing", art.character_frame(unit, "attack", 0.11).frame, 5)
 	_expect("profile hurt pose", art.character_frame(unit, "hurt").frame, 7)
 	_expect("profile pivot", replacement_idle.pivot, Vector2(0.5, 0.94))
+	_expect("profile native facing", replacement_idle.faces_right, false)
+	_expect("profile directional mirroring", replacement_idle.directional_flip, true)
 
 	art.configure_profile({
 		"assets": {
@@ -161,6 +165,25 @@ func _init() -> void:
 	})
 	_expect(
 		"misaligned profile grid falls back",
+		art.character_frame(unit, "idle").path,
+		"res://assets/characters/knight_blue.png"
+	)
+	art.configure_profile({
+		"assets": {
+			"characterSprites": {
+				"knight|blue|medieval|first": {
+					"path": "res://art/characters/rook_commander_hd.png",
+					"columns": 4,
+					"rows": 2,
+					"tile_width": 443,
+					"tile_height": 443,
+					"directionalFlip": "false",
+				},
+			},
+		},
+	})
+	_expect(
+		"invalid facing metadata falls back",
 		art.character_frame(unit, "idle").path,
 		"res://assets/characters/knight_blue.png"
 	)
@@ -239,6 +262,8 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		_expect("%s sprite grid height" % key, int(binding.get("height", 0)), 886)
 		_expect("%s sprite columns" % key, int(binding.get("columns", 0)), 4)
 		_expect("%s sprite rows" % key, int(binding.get("rows", 0)), 2)
+		_expect("%s sprite declares native facing" % key, binding.get("facesRight"), true)
+		_expect("%s sprite permits mirroring" % key, binding.get("directionalFlip"), true)
 		_expect("%s sprite exists" % key, ResourceLoader.exists(path, "Texture2D"), true)
 		if ResourceLoader.exists(path, "Texture2D"):
 			var texture := ResourceLoader.load(path, "Texture2D") as Texture2D

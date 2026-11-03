@@ -122,6 +122,8 @@ func character_frame(unit: Dictionary, state := "idle", elapsed := 0.0) -> Dicti
 		"rows": rows,
 		"cell_size": Vector2i(cell_width, cell_height),
 		"pivot": _character_pivot(override),
+		"faces_right": bool(entry.get("facesRight", true)),
+		"directional_flip": bool(entry.get("directionalFlip", true)),
 	}
 
 
@@ -148,6 +150,10 @@ func configure_profile(config: Dictionary) -> void:
 
 
 func _valid_character_sprite(entry: Dictionary) -> bool:
+	if entry.has("facesRight") and typeof(entry.facesRight) != TYPE_BOOL:
+		return false
+	if entry.has("directionalFlip") and typeof(entry.directionalFlip) != TYPE_BOOL:
+		return false
 	var path := String(entry.get("path", ""))
 	var columns := int(entry.get("columns", 0))
 	var rows := int(entry.get("rows", 0))

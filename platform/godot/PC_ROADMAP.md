@@ -35,7 +35,7 @@ machine-specific graphics or control configuration.
 | Persistent campaigns | Completed battles use the same versioned campaign envelope and migration registry as the other clients. Atomic checkpoints are isolated by package and campaign identity under runtime data and resume in a second process. The controller Save / Load page provides three manual slots: saving copies only complete between-battle state, while loading can restart from a populated slot anywhere. New Campaign uses a separate two-confirm automatic-progress reset without removing manual copies. Integration smokes prove write, restart, resume, copy, refusal, erase, and fresh start. |
 | Company management | A controller-native screen renders the shared roster, store, kits, fielded set, authored capacity, and engine refusal. Field, bench, give, take, and proceed gestures commit through the portable campaign session and save immediately. An integration smoke performs every gesture against a real two-member campaign before opening its battle. |
 | Private performance readout | The Settings page shows rolling FPS, p95 and peak frame times, window size, and internal canvas size. The five-second sample remains in memory and never records hardware, display, controller, user, path, or network identities. |
-| Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. |
+| Combat presentation | Native result events drive semantic attack, ability, hurt, defeat, impact, and delayed-removal presentation without blocking simulation. Sprite, procedural, and imported characters face their travel or combat target before the matching animation. |
 | Route-aware locomotion | Accepted moves carry the shared portable route and a per-cell duration derived from console presentation timing. Both Godot renderers validate and follow every leg independently, including overlapping co-op moves, while snapshots remain authoritative and malformed records fall back safely. |
 | Controller-safe menus | Start or the optional Back shortcut opens a five-choice root menu. Save slots and settings have their own short pages and contextual one-line control legend. Cancel walks back and resumes only from the root; Exit Game must be focused and confirmed, with no instant controller quit shortcut. |
 | SteamOS packaging | The release bundle runs without a system Godot install, keeps writable state under its own `runtime/` directory, and includes a 512-pixel icon at a stable bundle-relative path for desktop and Steam shortcuts. One aggregate release gate runs the native suite, every bounded Godot integration smoke, and exact packaged acceptance. |
@@ -139,6 +139,9 @@ fallback when one replacement is removed.
 - The optional motion record now carries an engine-derived route and recommended
   duration; use it to tune imported rigs' gait and turn clips while keeping
   root motion in place.
+- Hybrid sprites now mirror against their camera-relative travel direction and
+  all 3D paths turn toward a combat target before weapon or magic presentation.
+  Replacement sheets declare their native facing and may opt out of mirroring.
 - Compare the complete imported encounter against the hybrid at the intended
   viewing distance, then tune gait, turn, attack timing, silhouette, and
   material response from the target-PC observations.

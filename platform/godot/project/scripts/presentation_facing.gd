@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: MIT
+class_name GrandleonPresentationFacing
+extends RefCounted
+
+const DIRECTION_EPSILON := 0.0001
+const SCREEN_HORIZONTAL_DEAD_ZONE := 0.05
+
+
+static func yaw_for_direction(direction: Vector3, current_yaw: float) -> float:
+	var flat := Vector2(direction.x, direction.z)
+	if flat.length_squared() <= DIRECTION_EPSILON:
+		return current_yaw
+	return atan2(flat.x, flat.y)
+
+
+static func faces_screen_right(
+	direction: Vector3, camera_right: Vector3, current: bool
+) -> bool:
+	var flat_direction := Vector3(direction.x, 0.0, direction.z)
+	var flat_right := Vector3(camera_right.x, 0.0, camera_right.z)
+	if (
+		flat_direction.length_squared() <= DIRECTION_EPSILON
+		or flat_right.length_squared() <= DIRECTION_EPSILON
+	):
+		return current
+	var horizontal := flat_direction.normalized().dot(flat_right.normalized())
+	if absf(horizontal) <= SCREEN_HORIZONTAL_DEAD_ZONE:
+		return current
+	return horizontal > 0.0

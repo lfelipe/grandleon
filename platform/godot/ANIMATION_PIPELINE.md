@@ -71,6 +71,11 @@ and column count, a normalised ground pivot, frame indices, loop policy, and
 frames per second. The 2D and 3D renderers therefore do not assume 32-pixel
 cells or four animation frames. Idle, walk, attack, and cast poses are selected
 by movement and presentation events rather than looping the complete sheet.
+Directional sprites mirror relative to the camera while travelling and face
+their target before attack or ability presentation. A replacement binding can
+declare whether its native art faces right and can disable mirroring for a
+front-facing or intentionally asymmetric sheet. Procedural and imported 3D
+figures use the same target-facing event without changing animation assets.
 Invalid or absent animation metadata falls back to the shipped layout without
 changing simulation behavior.
 

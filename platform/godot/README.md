@@ -473,6 +473,13 @@ route, faces its current leg, and uses portable per-cell timing; the resulting
 snapshot remains authoritative. See [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md)
 for the complete presentation-event contract.
 
+Sprite bindings may set `facesRight` to describe the sheet's native direction
+and `directionalFlip` to permit automatic horizontal mirroring. Both default to
+`true`. Movement mirrors a directional sprite relative to the active camera,
+while an attack or ability first faces its target. Set `directionalFlip` to
+`false` for a deliberately front-facing or asymmetric sheet. These values are
+renderer metadata only and never enter a portable project or save.
+
 The checked-in `relay_commander.glb`, `relay_rogue.glb`,
 `relay_stormcaller.glb`, and `relay_drone.glb` prove normal skinned-mesh,
 armature, material, and animation imports. Commander, rogue, and stormcaller

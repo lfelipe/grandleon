@@ -158,6 +158,8 @@
             "tile_width": 443,
             "tile_height": 443,
             "pivot": [0.5, 0.94],
+            "facesRight": true,
+            "directionalFlip": true,
             "sequences": {
               "idle": {
                 "frames": [0, 1],
@@ -194,6 +196,8 @@
             "tile_width": 443,
             "tile_height": 443,
             "pivot": [0.5, 0.94],
+            "facesRight": true,
+            "directionalFlip": true,
             "sequences": {
               "idle": {
                 "frames": [0, 1],
@@ -230,6 +234,8 @@
             "tile_width": 443,
             "tile_height": 443,
             "pivot": [0.5, 0.94],
+            "facesRight": true,
+            "directionalFlip": true,
             "sequences": {
               "idle": {
                 "frames": [0, 1],
@@ -266,6 +272,8 @@
             "tile_width": 443,
             "tile_height": 443,
             "pivot": [0.5, 0.94],
+            "facesRight": true,
+            "directionalFlip": true,
             "sequences": {
               "idle": {
                 "frames": [0, 1],

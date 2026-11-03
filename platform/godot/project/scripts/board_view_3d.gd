@@ -4,6 +4,7 @@ extends SubViewportContainer
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
+const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const TERRAIN_NAMES := [
@@ -48,6 +49,9 @@ var _unit_authoritative_positions: Dictionary = {}
 var _unit_motion_states: Dictionary = {}
 var _pending_motion_records: Dictionary = {}
 var _unit_sprites: Dictionary = {}
+var _unit_sprite_facing_right: Dictionary = {}
+var _unit_sprite_native_right: Dictionary = {}
+var _unit_sprite_directional: Dictionary = {}
 var _health_sprites: Dictionary = {}
 var _health_textures: Dictionary = {}
 var _unit_animators: Dictionary = {}
@@ -223,6 +227,7 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 					"duration_msec": int(event.get("duration_msec", 0)),
 				}
 			"unit_damaged":
+				_face_unit_toward(related_id, unit_id)
 				_play_unit_animation(
 					related_id, "ability" if action == "ability" else "attack",
 					480 if action == "ability" else 430, true
@@ -233,6 +238,7 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 				_spawn_impact(unit_id, Color("ff776f"), 440)
 				_shake_camera(220, 0.035)
 			"attack_missed":
+				_face_unit_toward(related_id, unit_id)
 				_play_unit_animation(
 					related_id, "ability" if action == "ability" else "attack",
 					480 if action == "ability" else 430, true
@@ -240,6 +246,7 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 				_spawn_combat_effect(related_id, unit_id, action, content_id, false)
 				_spawn_impact(unit_id, Color("d8edf2"), 300)
 			"unit_restored":
+				_face_unit_toward(related_id, unit_id)
 				_play_unit_animation(related_id, "ability", 480, true)
 				_spawn_combat_effect(related_id, unit_id, action, content_id, true)
 				_flash_unit(unit_id, Color("75e7a0"), now + 360)
@@ -247,6 +254,7 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 			"item_used":
 				_play_unit_animation(unit_id, "ability", 420, true)
 			"unit_talked":
+				_face_unit_toward(related_id, unit_id)
 				_play_unit_animation(related_id, "ability", 480, true)
 				_play_unit_animation(unit_id, "defeat", 700, true)
 				_spawn_impact(unit_id, Color("68dce8"), 620)
@@ -333,12 +341,12 @@ func _process(delta: float) -> void:
 				_unit_motion_states.erase(id)
 		var animation_config: Dictionary = profile_config.get("animation", {})
 		var animation_locked := now_msec < int(_unit_animation_lock_until.get(id, 0))
-		if moving and _authored_units.has(id) and not animation_locked:
-			var wanted_rotation := atan2(travel.x, travel.z)
-			node.rotation.y = lerp_angle(
-				node.rotation.y, wanted_rotation,
+		if moving and not animation_locked:
+			_face_unit_in_direction(
+				int(id), travel,
 				minf(1.0, delta * float(animation_config.get("turnSpeed", 12.0)))
 			)
+		if moving and _authored_units.has(id) and not animation_locked:
 			_play_unit_animation(int(id), "move")
 		elif _authored_units.has(id) and not animation_locked:
 			_play_unit_animation(int(id), "idle")
@@ -585,6 +593,7 @@ func _create_sprite_figure(root: Node3D, unit: Dictionary, id: int) -> void:
 	sprite.shaded = true
 	root.add_child(sprite)
 	_unit_sprites[id] = sprite
+	_unit_sprite_facing_right[id] = true
 	_set_sprite_animation(id, "idle", true)
 	_apply_sprite_frame(sprite, unit, id, Time.get_ticks_msec())
 
@@ -601,6 +610,8 @@ func _apply_sprite_frame(
 	sprite.hframes = int(info.columns)
 	sprite.vframes = int(info.rows)
 	sprite.frame = int(info.frame)
+	_unit_sprite_native_right[id] = bool(info.get("faces_right", true))
+	_unit_sprite_directional[id] = bool(info.get("directional_flip", true))
 	var cell_size: Vector2i = info.cell_size
 	var pivot: Vector2 = info.pivot
 	var sprite_config: Dictionary = profile_config.get("sprite", {})
@@ -875,6 +886,39 @@ func _set_sprite_animation(id: int, state: String, restart := false) -> void:
 		return
 	_unit_sprite_states[id] = state
 	_unit_sprite_started[id] = Time.get_ticks_msec()
+
+
+func _face_unit_toward(actor_id: int, target_id: int) -> void:
+	if not _unit_nodes.has(actor_id) or not _unit_nodes.has(target_id):
+		return
+	var actor: Node3D = _unit_nodes[actor_id]
+	var target: Node3D = _unit_nodes[target_id]
+	_face_unit_in_direction(actor_id, target.position - actor.position, 1.0)
+
+
+func _face_unit_in_direction(id: int, direction: Vector3, turn_weight: float) -> void:
+	if not _unit_nodes.has(id):
+		return
+	var node: Node3D = _unit_nodes[id]
+	if _unit_sprites.has(id):
+		if not bool(_unit_sprite_directional.get(id, true)) or _camera == null:
+			return
+		var current := bool(_unit_sprite_facing_right.get(id, true))
+		var camera_right := (
+			_camera.global_transform.basis.x
+			if _camera.is_inside_tree()
+			else _camera.transform.basis.x
+		)
+		var faces_right := PresentationFacing.faces_screen_right(
+			direction, camera_right, current
+		)
+		_unit_sprite_facing_right[id] = faces_right
+		var native_right := bool(_unit_sprite_native_right.get(id, true))
+		var sprite: Sprite3D = _unit_sprites[id]
+		sprite.flip_h = native_right != faces_right
+		return
+	var wanted := PresentationFacing.yaw_for_direction(direction, node.rotation.y)
+	node.rotation.y = lerp_angle(node.rotation.y, wanted, clampf(turn_weight, 0.0, 1.0))
 
 
 func _unit_by_id(id: int) -> Dictionary:
@@ -1202,6 +1246,9 @@ func _remove_unit(id: int) -> void:
 	_unit_motion_states.erase(id)
 	_pending_motion_records.erase(id)
 	_unit_sprites.erase(id)
+	_unit_sprite_facing_right.erase(id)
+	_unit_sprite_native_right.erase(id)
+	_unit_sprite_directional.erase(id)
 	_health_sprites.erase(id)
 	_unit_animators.erase(id)
 	_unit_animation_clips.erase(id)
