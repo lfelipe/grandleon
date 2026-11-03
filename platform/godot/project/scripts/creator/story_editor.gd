@@ -266,6 +266,49 @@ func _current_lines() -> Array:
 	return value if value is Array else []
 
 
+func _cast_unit_type(dialogue: Dictionary, speaker: String) -> String:
+	for value: Variant in dialogue.get("cast", []):
+		if value is Dictionary and str(value.get("speaker", "")) == speaker:
+			return str(value.get("unitTypeId", ""))
+	return ""
+
+
+func _unit_type_name(unit_type_id: String) -> String:
+	for character: Dictionary in scene_characters:
+		if str(character.get("unit_type_id", "")) == unit_type_id:
+			return str(character.get("unit_name", unit_type_id))
+	return unit_type_id
+
+
+func _add_speaker_choice(
+	seen: Dictionary,
+	speaker: String,
+	unit_type_id: String,
+	preferred: bool = false
+) -> int:
+	if speaker.is_empty():
+		return -1
+	var key := "%s\u001f%s" % [speaker, unit_type_id]
+	if seen.has(key):
+		return int(seen[key])
+	var role := _unit_type_name(unit_type_id)
+	var label := (
+		"%s  /  NO CHARACTER ART" % speaker
+		if unit_type_id.is_empty()
+		else "%s  /  %s" % [speaker, role]
+	)
+	speaker_select.add_item(label)
+	var index := speaker_select.item_count - 1
+	speaker_select.set_item_metadata(index, {
+		"speaker": speaker,
+		"unit_type_id": unit_type_id,
+	})
+	seen[key] = index
+	if preferred:
+		speaker_select.select(index)
+	return index
+
+
 func _refresh_line() -> void:
 	refreshing_line = true
 	var dialogue := _current_dialogue()
@@ -291,21 +334,27 @@ func _refresh_line() -> void:
 		return
 	var line: Dictionary = lines[line_index] if lines[line_index] is Dictionary else {}
 	var selected_speaker := str(line.get("speaker", ""))
-	var speakers: Array[String] = []
+	var selected_unit_type := _cast_unit_type(dialogue, selected_speaker)
+	var seen_choices: Dictionary = {}
+	_add_speaker_choice(
+		seen_choices, selected_speaker, selected_unit_type, true
+	)
+	_add_speaker_choice(seen_choices, selected_speaker, "")
 	for value: Variant in dialogue.get("cast", []):
 		if not value is Dictionary:
 			continue
-		var speaker := str(value.get("speaker", ""))
-		if not speaker.is_empty() and not speakers.has(speaker):
-			speakers.append(speaker)
-	if not selected_speaker.is_empty() and not speakers.has(selected_speaker):
-		speakers.append(selected_speaker)
-	for speaker: String in speakers:
-		speaker_select.add_item(speaker)
-	var selected := speakers.find(selected_speaker)
-	if selected >= 0:
-		speaker_select.select(selected)
-	speaker_select.disabled = speakers.is_empty()
+		_add_speaker_choice(
+			seen_choices,
+			str(value.get("speaker", "")),
+			str(value.get("unitTypeId", ""))
+		)
+	for character: Dictionary in scene_characters:
+		_add_speaker_choice(
+			seen_choices,
+			str(character.get("speaker", "")),
+			str(character.get("unit_type_id", ""))
+		)
+	speaker_select.disabled = speaker_select.item_count == 0
 	dialogue_text.text = str(line.get("text", ""))
 	line_form_dirty = false
 	refreshing_line = false
@@ -426,18 +475,29 @@ func _commit_visible_line(announce: bool) -> bool:
 	if speaker_select.selected < 0 or speaker_select.item_count == 0:
 		_set_status("THIS SCENE NEEDS A SPEAKER", true)
 		return false
-	var speaker := speaker_select.get_item_text(speaker_select.selected).strip_edges()
+	var choice: Variant = speaker_select.get_item_metadata(speaker_select.selected)
+	if not choice is Dictionary:
+		_set_status("CHOOSE A CHARACTER FOR THIS LINE", true)
+		return false
+	var speaker := str(choice.get("speaker", "")).strip_edges()
+	var unit_type_id := str(choice.get("unit_type_id", ""))
 	var words := dialogue_text.text.strip_edges()
 	if speaker.is_empty() or words.is_empty():
 		_set_status("SPEAKER AND DIALOGUE TEXT CANNOT BE EMPTY", true)
 		return false
 	var current: Dictionary = lines[line_index] if lines[line_index] is Dictionary else {}
-	if speaker == str(current.get("speaker", "")) and words == str(current.get("text", "")):
+	var current_speaker := str(current.get("speaker", ""))
+	if (
+		speaker == current_speaker
+		and unit_type_id == _cast_unit_type(dialogue, current_speaker)
+		and words == str(current.get("text", ""))
+	):
 		line_form_dirty = false
 		_update_actions()
 		return true
-	var updated: Dictionary = compiler.update_dialogue_line(
-		source, str(dialogue.get("id", "")), line_index, speaker, words
+	var updated: Dictionary = compiler.set_dialogue_line_character(
+		source, str(dialogue.get("id", "")), line_index, speaker,
+		unit_type_id, words
 	)
 	if not updated.ok:
 		_set_status("LINE NOT SAVED  /  %s" % _diagnostic_detail(updated), true)
@@ -803,7 +863,7 @@ func _build_interface() -> void:
 	add_line_button = _button("ADD NEXT LINE", 280, 56)
 	add_line_button.pressed.connect(_add_line_after)
 	navigation.add_child(add_line_button)
-	editor_column.add_child(_label("SPEAKER", 16, Color("69d9ff")))
+	editor_column.add_child(_label("SPEAKER / CHARACTER", 16, Color("69d9ff")))
 	speaker_select = OptionButton.new()
 	speaker_select.custom_minimum_size = Vector2(1120, 58)
 	speaker_select.add_theme_font_size_override("font_size", 20)

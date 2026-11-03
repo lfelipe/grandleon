@@ -3232,6 +3232,7 @@ void finish_encounter_edit(
 struct EditableDialogueDocument final {
     Json document;
     SourceParseResult before;
+    Object* root{};
     Object* dialogue{};
     Array* lines{};
     std::string path;
@@ -3265,9 +3266,11 @@ bool open_editable_dialogue(
         );
         return false;
     }
-    auto* root = std::get_if<Object>(&editable.document.value);
+    editable.root = std::get_if<Object>(&editable.document.value);
     Array* dialogues =
-        root == nullptr ? nullptr : mutable_array(*root, "dialogues");
+        editable.root == nullptr
+            ? nullptr
+            : mutable_array(*editable.root, "dialogues");
     if (dialogues == nullptr) {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, "$.dialogues",
@@ -5090,6 +5093,148 @@ SourceTextResult move_source_dialogue_line_json(
         editable.lines->begin() + static_cast<std::ptrdiff_t>(new_position),
         std::move(moved)
     );
+    finish_dialogue_edit(editable, result);
+    return result;
+}
+
+SourceTextResult set_source_dialogue_line_character_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::int64_t line_index,
+    std::string_view speaker,
+    std::string_view unit_type_id,
+    std::string_view line_text
+) {
+    SourceTextResult result;
+    EditableDialogueDocument editable;
+    if (!open_editable_dialogue(
+            source_json, dialogue_id, editable, result
+        )) {
+        return result;
+    }
+    if (line_index < 0 || static_cast<std::uint64_t>(line_index) >=
+                              editable.lines->size()) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            editable.path + ".lines", "dialogue line index is out of range"
+        );
+        return result;
+    }
+    const auto safe_index = static_cast<std::size_t>(line_index);
+    const std::string line_path = editable.path + ".lines[" +
+                                  std::to_string(safe_index) + "]";
+    if (!dialogue_line_text_is_valid(
+            speaker, line_text, line_path, result
+        )) {
+        return result;
+    }
+    if (!unit_type_id.empty()) {
+        if (!valid_source_key(unit_type_id)) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                editable.path + ".cast.unitTypeId",
+                "unit type id must be a stable source-key string"
+            );
+            return result;
+        }
+        Array* unit_types = editable.root == nullptr
+                                ? nullptr
+                                : mutable_array(*editable.root, "unitTypes");
+        if (unit_types == nullptr ||
+            find_object_by_id(*unit_types, unit_type_id) == nullptr) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                editable.path + ".cast.unitTypeId",
+                "dialogue cast unit type was not found"
+            );
+            return result;
+        }
+    }
+    auto* line = std::get_if<Object>(
+        &(*editable.lines)[safe_index].value
+    );
+    if (line == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            line_path, "expected object"
+        );
+        return result;
+    }
+    const std::string* old_value = string_member(*line, "speaker");
+    const std::string old_speaker = old_value == nullptr ? "" : *old_value;
+    (*line)["speaker"] = Json{std::string(speaker)};
+    (*line)["text"] = Json{std::string(line_text)};
+
+    Array* cast = mutable_array(*editable.dialogue, "cast");
+    if (cast == nullptr &&
+        editable.dialogue->find("cast") == editable.dialogue->end()) {
+        auto inserted = editable.dialogue->emplace("cast", Json{Array{}});
+        cast = std::get_if<Array>(&inserted.first->second.value);
+    }
+    if (cast == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            editable.path + ".cast", "expected array"
+        );
+        return result;
+    }
+    auto cast_speaker = [](Json& value) -> std::string* {
+        auto* entry = std::get_if<Object>(&value.value);
+        if (entry == nullptr) return nullptr;
+        const auto found = entry->find("speaker");
+        if (found == entry->end()) return nullptr;
+        return std::get_if<std::string>(&found->second.value);
+    };
+    auto matching_cast = [&](std::string_view name) {
+        return std::find_if(
+            cast->begin(), cast->end(),
+            [&](Json& value) {
+                const std::string* candidate = cast_speaker(value);
+                return candidate != nullptr && *candidate == name;
+            }
+        );
+    };
+
+    if (!old_speaker.empty() && old_speaker != speaker) {
+        const bool old_speaker_remains = std::any_of(
+            editable.lines->begin(), editable.lines->end(),
+            [&](const Json& value) {
+                const auto* candidate = std::get_if<Object>(&value.value);
+                const std::string* name = candidate == nullptr
+                                              ? nullptr
+                                              : string_member(
+                                                    *candidate, "speaker"
+                                                );
+                return name != nullptr && *name == old_speaker;
+            }
+        );
+        if (!old_speaker_remains) {
+            const auto abandoned = matching_cast(old_speaker);
+            if (abandoned != cast->end()) cast->erase(abandoned);
+        }
+    }
+
+    auto selected = matching_cast(speaker);
+    if (unit_type_id.empty()) {
+        if (selected != cast->end()) cast->erase(selected);
+    } else if (selected != cast->end()) {
+        auto* entry = std::get_if<Object>(&selected->value);
+        (*entry)["unitTypeId"] = Json{std::string(unit_type_id)};
+    } else {
+        if (cast->size() >= 255) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                editable.path + ".cast",
+                "a scene may cast at most 255 speakers"
+            );
+            return result;
+        }
+        Object entry;
+        entry.emplace("speaker", Json{std::string(speaker)});
+        entry.emplace("unitTypeId", Json{std::string(unit_type_id)});
+        cast->push_back(Json{std::move(entry)});
+    }
+
     finish_dialogue_edit(editable, result);
     return result;
 }

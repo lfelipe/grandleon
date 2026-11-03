@@ -213,6 +213,17 @@ func _init() -> void:
 					compiler.compile_source_json(edited_dialogue.source).ok,
 					true
 				)
+				var recast_line: Dictionary = compiler.set_dialogue_line_character(
+					edited_dialogue.source, dialogue_id, 0, "Editor Hero",
+					str(source_data.unitTypes[0].id),
+					"This line has portable character art."
+				)
+				_expect("dialogue character assignment succeeds", recast_line.ok, true)
+				if recast_line.ok:
+					var recast_data: Dictionary = JSON.parse_string(recast_line.source)
+					_expect("dialogue line speaker changes", recast_data.dialogues[0].lines[0].speaker, "Editor Hero")
+					_expect("dialogue character joins cast", recast_data.dialogues[0].cast[-1].unitTypeId, source_data.unitTypes[0].id)
+					_expect("dialogue character edit remains playable", compiler.compile_source_json(recast_line.source).ok, true)
 				var inserted_line: Dictionary = compiler.insert_dialogue_line(
 					edited_dialogue.source, dialogue_id, 0, "Kestrel",
 					"A newly authored line."

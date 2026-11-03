@@ -2194,6 +2194,62 @@ void updates_one_dialogue_line_without_retyping_the_project() {
             ),
         "line insertion and movement refuse positions outside the scene"
     );
+
+    const auto recast = gc::set_source_dialogue_line_character_json(
+        with_dialogue, "briefing", 0, "Scout", "red_unit",
+        "The scout found a road."
+    );
+    const auto parsed_recast = gc::parse_source_project_json(recast.json);
+    expect(
+        recast && parsed_recast &&
+            parsed_recast.source.dialogues.front().cast.size() == 2 &&
+            parsed_recast.source.dialogues.front().lines[0].speaker ==
+                "Scout" &&
+            parsed_recast.source.dialogues.front().lines[0].cast_entry == 2 &&
+            parsed_recast.source.dialogues.front().lines[1].cast_entry == 1 &&
+            gc::compile(parsed_recast.source),
+        "choosing a character recasts one line without disturbing another"
+    );
+    const auto recast_last_old_line =
+        gc::set_source_dialogue_line_character_json(
+            recast.json, "briefing", 1, "Scout", "red_unit",
+            "The second scout line."
+        );
+    const auto parsed_last_old =
+        gc::parse_source_project_json(recast_last_old_line.json);
+    expect(
+        recast_last_old_line && parsed_last_old &&
+            parsed_last_old.source.dialogues.front().cast.size() == 1 &&
+            parsed_last_old.source.dialogues.front().cast.front().speaker ==
+                "Scout" &&
+            parsed_last_old.source.dialogues.front().lines[0].cast_entry == 1 &&
+            parsed_last_old.source.dialogues.front().lines[1].cast_entry == 1,
+        "a cast entry is removed when its final spoken line changes speaker"
+    );
+    const auto without_character_art =
+        gc::set_source_dialogue_line_character_json(
+            recast_last_old_line.json, "briefing", 0, "Scout", "",
+            "The scout stays unnamed."
+        );
+    const auto parsed_without_character =
+        gc::parse_source_project_json(without_character_art.json);
+    expect(
+        without_character_art && parsed_without_character &&
+            parsed_without_character.source.dialogues.front().cast.empty() &&
+            parsed_without_character.source.dialogues.front().lines[0]
+                    .cast_entry == 0 &&
+            parsed_without_character.source.dialogues.front().lines[1]
+                    .cast_entry == 0 &&
+            gc::compile(parsed_without_character.source),
+        "character art can be removed without removing the spoken lines"
+    );
+    expect(
+        !gc::set_source_dialogue_line_character_json(
+            with_dialogue, "briefing", 0, "Scout", "missing_unit",
+            "Nobody can draw this."
+        ),
+        "a dialogue line cannot cast an unknown portable character"
+    );
 }
 
 void creates_and_attaches_one_portable_dialogue_scene() {

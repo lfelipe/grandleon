@@ -68,12 +68,14 @@ The first native seam is implemented:
   existing campaign story moment as one validated command. Lines can be added
   after the selection, reordered, or removed without allowing an empty scene;
   frequent creation stays on the main screen while ordering and deletion stay
-  in **More**. It has bounded undo/redo, recoverable save, immediate draft play,
-  and controller navigation around the keyboard writing fields. Visible line
-  edits are committed when saving, navigating, testing, leaving, or changing
-  the line list, so there is no separate Apply step that can silently lose
-  typed text. A smoke reopens and compiles the saved dialogue and its campaign
-  attachment.
+  in **More**. Its **Speaker / Character** picker chooses from named project
+  characters and atomically maintains the portable scene cast, including a
+  deliberate no-character-art choice. It has bounded undo/redo, recoverable
+  save, immediate draft play, and controller navigation around the keyboard
+  writing fields. Visible line edits are committed when saving, navigating,
+  testing, leaving, or changing the line list, so there is no separate Apply
+  step that can silently lose typed text. A smoke reopens and compiles the
+  saved dialogue and its campaign attachment.
 - The smoke test compiles the real demo project and starts its campaign. It
   also proves that malformed input returns a useful diagnostic instead of a
   partial package.
@@ -198,7 +200,7 @@ ports the most interaction-heavy part of the earlier editor early.
 - Complete dialogue-line authoring with portable speaker selection and scene
   creation/attachment to existing story moments is implemented. Linear story
   and battle insertion is implemented through **Add Next Chapter**. General
-  transition routing, cast list editing, and portrait preview remain.
+  transition routing and runtime-accurate backdrop/portrait preview remain.
 - Searchable reference pickers; raw stable IDs should not be normal UI.
 
 ### 4. Art and presentation
@@ -408,8 +410,8 @@ these pass:
 
 ## Next implementation commits
 
-1. Finish dialogue cast/portrait authoring, then extend the native creator into
-   campaign routing, roster, item, weapon, ability, and art-pack surfaces.
+1. Finish dialogue backdrop/portrait preview, then extend the native creator
+   into campaign routing, roster, item, weapon, ability, and art-pack surfaces.
 2. Add a Windows GDExtension build and export smoke in CI.
 3. Define and prototype the PlayStation external `GAME.GPK` disc template.
 4. Define the Nintendo 64 content-slot manifest and measure realistic content

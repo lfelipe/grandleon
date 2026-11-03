@@ -295,6 +295,19 @@ struct SourceMapCell final {
     std::int64_t new_index
 );
 
+// Changes one line's words and speaking character as one validated command.
+// A unit type adds or updates the scene cast used by every target's portrait;
+// an empty unit type deliberately leaves that speaker without character art.
+// Cast entries made unused by a speaker change are removed automatically.
+[[nodiscard]] SourceTextResult set_source_dialogue_line_character_json(
+    std::string_view source_json,
+    std::string_view dialogue_id,
+    std::int64_t line_index,
+    std::string_view speaker,
+    std::string_view unit_type_id,
+    std::string_view line_text
+);
+
 // Creates one complete scene and attaches it to an existing story node as one
 // validated edit. The opening speaker may name a unit type for portable
 // portraits; backdrop may be empty to retain the ordinary flat presentation.

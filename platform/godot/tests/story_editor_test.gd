@@ -78,6 +78,55 @@ func _run() -> void:
 	editor.dialogue_text.text = "The relay answers through portable story source."
 	editor._mark_line_form_dirty()
 	editor._save()
+	var original_speaker := str(editor._current_lines()[0].speaker)
+	var original_unit_type: String = editor._cast_unit_type(
+		editor._current_dialogue(), original_speaker
+	)
+	var other_character_choice := -1
+	var no_art_choice := -1
+	for choice_index in editor.speaker_select.item_count:
+		var choice: Variant = editor.speaker_select.get_item_metadata(choice_index)
+		if not choice is Dictionary:
+			continue
+		if (
+			str(choice.get("speaker", "")) != original_speaker
+			and not str(choice.get("unit_type_id", "")).is_empty()
+			and other_character_choice < 0
+		):
+			other_character_choice = choice_index
+		if (
+			str(choice.get("speaker", "")) == original_speaker
+			and str(choice.get("unit_type_id", "")).is_empty()
+		):
+			no_art_choice = choice_index
+	_expect("speaker picker offers another portable character", other_character_choice >= 0, true)
+	if other_character_choice >= 0:
+		var other_choice: Dictionary = editor.speaker_select.get_item_metadata(other_character_choice)
+		editor.speaker_select.select(other_character_choice)
+		editor._mark_line_form_dirty()
+		editor._apply_line()
+		_expect("speaker picker recasts the line", str(editor._current_lines()[0].speaker), str(other_choice.speaker))
+		_expect("speaker picker stores portable character art", editor._cast_unit_type(editor._current_dialogue(), str(other_choice.speaker)), str(other_choice.unit_type_id))
+		editor._undo()
+		_expect("speaker assignment is undoable", str(editor._current_lines()[0].speaker), original_speaker)
+	_expect("speaker picker offers no character art", no_art_choice >= 0, true)
+	if no_art_choice >= 0:
+		# Refreshing after undo can change indices; find the option again.
+		for choice_index in editor.speaker_select.item_count:
+			var choice: Variant = editor.speaker_select.get_item_metadata(choice_index)
+			if (
+				choice is Dictionary
+				and str(choice.get("speaker", "")) == original_speaker
+				and str(choice.get("unit_type_id", "")).is_empty()
+			):
+				no_art_choice = choice_index
+				break
+		editor.speaker_select.select(no_art_choice)
+		editor._mark_line_form_dirty()
+		editor._apply_line()
+		_expect("character art can be removed", editor._cast_unit_type(editor._current_dialogue(), original_speaker), "")
+		editor._undo()
+		_expect("character art removal is undoable", editor._cast_unit_type(editor._current_dialogue(), original_speaker), original_unit_type)
 	var original_line_count: int = editor._current_lines().size()
 	editor._add_line_after()
 	_expect("add next line grows the scene", editor._current_lines().size(), original_line_count + 1)

@@ -104,7 +104,9 @@ keyboard enters the words. It can also create a complete scene with a portable
 cast identity, backdrop, and opening line, then attach it atomically to an
 existing campaign story moment. **Add Next Line** creates the frequent next
 step beside line navigation; reorder and delete live under **More**, and the
-last line cannot be deleted. Visible line changes pass through the native
+last line cannot be deleted. **Speaker / Character** chooses a named project
+character, or deliberately chooses no character art, while maintaining the
+scene cast atomically. Visible line changes pass through the native
 integer-preserving source boundary automatically when the author saves,
 navigates, changes the line list, tests, or leaves; there is no separate Apply
 step. Bounded undo/redo, recoverable save, and immediate draft play remain
