@@ -286,7 +286,11 @@ select a character, place during deployment, choose the active action's target,
 wait for the opposing side, or choose somebody else. While one submitted action
 is animating, the prompt explicitly says that another character can be
 commanded, matching the concurrent team-phase rules instead of implying a turn
-lock. Player readiness remains two compact identity-free lines above it.
+lock. After a move resolves, a small owner-coloured menu opens beside that
+character and lists only actions that currently have a legal target, plus
+**Do Nothing / Finish**. Each player navigates their own menu independently, so
+one player choosing an attack never blocks the other player's cursor. Player
+readiness remains two compact identity-free lines above it.
 
 To remap buttons, copy `controls.example.json` to
 `runtime/local/controls.local.json` and change values under `buttons`. The

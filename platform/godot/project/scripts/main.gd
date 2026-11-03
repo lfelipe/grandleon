@@ -84,6 +84,10 @@ var management_menu_suspended := false
 var pending_requests: Dictionary = {}
 var next_request_id := 1
 var font_size_bindings: Array[Dictionary] = []
+var action_popups: Array[Dictionary] = [{}, {}]
+var action_popup_panels: Array[PanelContainer] = []
+var action_popup_titles: Array[Label] = []
+var action_popup_lists: Array[RichTextLabel] = []
 
 var title_label: Label
 var status_label: Label
@@ -228,6 +232,7 @@ func _process(delta: float) -> void:
 		return
 	for event: Dictionary in session.poll():
 		_handle_event(event)
+	_position_action_popups()
 	if menu_preview:
 		if _dialogue_visible():
 			_advance_dialogue()
@@ -519,7 +524,7 @@ func _run_controls_smoke() -> void:
 	if not help_label.text.contains("4[/b]  FINISH READY TEAM"):
 		failed.append("team finish context")
 	selected_units[0] = 11
-	pending_requests[1] = 11
+	pending_requests[1] = {"unit_id": 11, "seat": 0, "kind": "move"}
 	_update_context_help(0)
 	if (
 		not help_label.text.contains("ACTION IN PROGRESS")
@@ -1177,9 +1182,42 @@ func _create_interface() -> void:
 	toast_label.modulate.a = 0.0
 	layer.add_child(toast_label)
 
+	_create_action_popups(layer)
 	_create_dialogue(layer)
 	_create_session_menu(layer)
 	_create_campaign_manager(layer)
+
+
+func _create_action_popups(layer: CanvasLayer) -> void:
+	for seat in 2:
+		var panel := PanelContainer.new()
+		panel.visible = false
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.size = Vector2(270, 240)
+		panel.add_theme_stylebox_override(
+			"panel",
+			_panel(
+				Color(0.012, 0.027, 0.043, 0.98), 14,
+				Color(PLAYER_COLOURS[seat], 0.92)
+			)
+		)
+		layer.add_child(panel)
+		action_popup_panels.append(panel)
+		var column := VBoxContainer.new()
+		column.add_theme_constant_override("separation", 8)
+		panel.add_child(column)
+		var heading := _label("PLAYER %d  /  ACT" % (seat + 1), 15, PLAYER_COLOURS[seat])
+		column.add_child(heading)
+		action_popup_titles.append(heading)
+		var choices := RichTextLabel.new()
+		choices.bbcode_enabled = true
+		choices.fit_content = true
+		choices.custom_minimum_size = Vector2(238, 172)
+		choices.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_bind_font_size(choices, "normal_font_size", 18)
+		choices.add_theme_color_override("default_color", Color("dcebf0"))
+		column.add_child(choices)
+		action_popup_lists.append(choices)
 
 
 func _create_campaign_manager(layer: CanvasLayer) -> void:
@@ -1870,6 +1908,8 @@ func _handle_event(event: Dictionary) -> void:
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
 				_show_dialogue_line()
 		"battle_begins":
+			for seat in action_popups.size():
+				_close_action_popup(seat)
 			pending_company.clear()
 			management_menu_suspended = false
 			if campaign_manager != null:
@@ -1933,6 +1973,8 @@ func _handle_event(event: Dictionary) -> void:
 			PCAudio.play_cue("refuse")
 			_show_toast("COMMAND REFUSED  /  " + String(event.get("message", "unknown")))
 		"battle_ended":
+			for seat in action_popups.size():
+				_close_action_popup(seat)
 			snapshot = event.snapshot
 			final_outcome = String(snapshot.get("outcome", "ongoing"))
 			board.update_snapshot(snapshot)
@@ -2152,6 +2194,14 @@ func _handle_key(event: InputEventKey) -> void:
 	var seat := _ensure_keyboard_seat()
 	if seat < 0:
 		return
+	if bool(action_popups[seat].get("open", false)):
+		match event.keycode:
+			KEY_UP, KEY_W: _move_action_popup(seat, -1)
+			KEY_DOWN, KEY_S: _move_action_popup(seat, 1)
+			KEY_ENTER, KEY_SPACE: _activate_action_popup(seat)
+			KEY_ESCAPE: _close_action_popup(seat)
+		get_viewport().set_input_as_handled()
+		return
 	match event.keycode:
 		KEY_LEFT, KEY_A: _move_cursor(seat, Vector2i.LEFT)
 		KEY_RIGHT, KEY_D: _move_cursor(seat, Vector2i.RIGHT)
@@ -2182,6 +2232,16 @@ func _handle_pad_button(event: InputEventJoypadButton) -> void:
 			or controls.matches("menu", event.button_index)
 		):
 			_advance_dialogue()
+		return
+	if bool(action_popups[seat].get("open", false)):
+		if event.button_index == JOY_BUTTON_DPAD_UP:
+			_move_action_popup(seat, -1)
+		elif event.button_index == JOY_BUTTON_DPAD_DOWN:
+			_move_action_popup(seat, 1)
+		elif controls.matches("confirm", event.button_index):
+			_activate_action_popup(seat)
+		elif controls.matches("cancel", event.button_index):
+			_close_action_popup(seat)
 		return
 	match event.button_index:
 		JOY_BUTTON_DPAD_LEFT:
@@ -2223,6 +2283,10 @@ func _on_stick_direction(device: int, direction: Vector2i) -> void:
 	var seat := int(device_to_seat.get(device, -1))
 	if seat < 0 or seat >= player_count:
 		return
+	if bool(action_popups[seat].get("open", false)):
+		if direction.y != 0:
+			_move_action_popup(seat, direction.y)
+		return
 	_move_cursor(seat, direction)
 
 
@@ -2263,6 +2327,7 @@ func _accept_at(seat: int) -> void:
 		if occupant.get("has_acted", false):
 			_show_toast("THAT CHARACTER HAS FINISHED THIS ROUND")
 			return
+		_close_action_popup(seat)
 		selected_units[seat] = int(occupant.id)
 		board.set_selected(seat, selected_units[seat], action_modes[seat])
 		_update_highlights(seat)
@@ -2301,15 +2366,32 @@ func _accept_at(seat: int) -> void:
 		_submit("move", selected, 0, cursor)
 
 
-func _submit(kind: String, unit_id := 0, target_id := 0, cell := Vector2i.ZERO, content_id := 0) -> int:
+func _submit(
+	kind: String, unit_id := 0, target_id := 0, cell := Vector2i.ZERO,
+	content_id := 0, command_seat := -1
+) -> int:
 	var request_id := next_request_id
 	next_request_id += 1
-	pending_requests[request_id] = unit_id
+	var seat := command_seat
+	if seat < 0:
+		for candidate in selected_units.size():
+			if selected_units[candidate] == unit_id:
+				seat = candidate
+				break
+	if seat < 0 and unit_id != 0:
+		var actor := _unit_by_id(unit_id)
+		if not actor.is_empty():
+			seat = clampi(int(actor.get("player", 1)) - 1, 0, 1)
+	pending_requests[request_id] = {
+		"unit_id": unit_id,
+		"seat": seat,
+		"kind": kind,
+	}
 	session.submit_intent(kind, unit_id, target_id, cell.x, cell.y, content_id, request_id)
-	for seat in selected_units.size():
-		if selected_units[seat] == unit_id:
-			hud_seat = seat
-			_update_context_help(seat)
+	for selected_seat in selected_units.size():
+		if selected_units[selected_seat] == unit_id:
+			hud_seat = selected_seat
+			_update_context_help(selected_seat)
 			break
 	return request_id
 
@@ -2317,15 +2399,160 @@ func _submit(kind: String, unit_id := 0, target_id := 0, cell := Vector2i.ZERO, 
 func _complete_request(event: Dictionary) -> void:
 	var request_id := int(event.get("request_id", 0))
 	if request_id != 0:
+		var completed: Variant = pending_requests.get(request_id, {})
 		if coop_smoke and coop_smoke_requests.has(request_id):
 			coop_smoke_requests.erase(request_id)
 			coop_smoke_accepted += 1
 			print("co-op smoke accepted move %d/%d" % [coop_smoke_accepted, coop_smoke_expected])
 		pending_requests.erase(request_id)
+		if completed is Dictionary and String(event.get("type", "")) == "snapshot":
+			var command: Dictionary = completed
+			if String(command.get("kind", "")) == "move":
+				_open_action_popup(
+					int(command.get("seat", -1)), int(command.get("unit_id", 0))
+				)
 
 
 func _unit_is_pending(unit_id: int) -> bool:
-	return unit_id != 0 and unit_id in pending_requests.values()
+	if unit_id == 0:
+		return false
+	for value: Variant in pending_requests.values():
+		if value is Dictionary and int(value.get("unit_id", 0)) == unit_id:
+			return true
+		if value is int and int(value) == unit_id:
+			return true
+	return false
+
+
+func _open_action_popup(seat: int, unit_id: int) -> void:
+	if seat < 0 or seat >= player_count or seat >= action_popups.size():
+		return
+	var unit := _unit_by_id(unit_id)
+	if (
+		unit.is_empty()
+		or unit.get("has_acted", false)
+		or not unit.get("on_board", false)
+		or not _unit_owned_by_seat(unit, seat)
+	):
+		return
+	var options: Array[Dictionary] = []
+	if not session.query_tiles("attack", unit_id, 0).is_empty():
+		options.append({"mode": "attack", "label": "ATTACK"})
+	var abilities: Array = unit.get("abilities", [])
+	if (
+		not abilities.is_empty()
+		and not session.query_tiles("ability", unit_id, int(abilities[0])).is_empty()
+	):
+		options.append({"mode": "ability", "label": "ABILITY"})
+	if not session.query_tiles("talk", unit_id, 0).is_empty():
+		options.append({"mode": "talk", "label": "TALK"})
+	options.append({"mode": "wait", "label": "DO NOTHING / FINISH"})
+	action_popups[seat] = {
+		"open": true,
+		"unit_id": unit_id,
+		"options": options,
+		"row": 0,
+	}
+	selected_units[seat] = unit_id
+	board.set_selected(seat, unit_id, action_modes[seat])
+	_render_action_popup(seat)
+	_position_action_popups()
+
+
+func _render_action_popup(seat: int) -> void:
+	if seat < 0 or seat >= action_popups.size():
+		return
+	var popup: Dictionary = action_popups[seat]
+	var open := bool(popup.get("open", false))
+	action_popup_panels[seat].visible = open
+	if not open:
+		return
+	var lines: Array[String] = []
+	var row := int(popup.get("row", 0))
+	var options: Array = popup.get("options", [])
+	for index in options.size():
+		var label := String(options[index].get("label", "ACTION"))
+		if index == row:
+			lines.append("[color=#%s][b]▶ %s[/b][/color]" % [PLAYER_COLOURS[seat].to_html(), label])
+		else:
+			lines.append("   " + label)
+	lines.append("")
+	lines.append("[font_size=13]D-PAD CHOOSE   %s SELECT[/font_size]" % controls.label("confirm"))
+	action_popup_lists[seat].text = "\n".join(lines)
+	action_popup_panels[seat].size.y = 90.0 + float(options.size()) * 31.0
+
+
+func _position_action_popups() -> void:
+	if board == null or not board.has_method("screen_position_for_cell"):
+		return
+	for seat in action_popups.size():
+		var popup: Dictionary = action_popups[seat]
+		if not bool(popup.get("open", false)):
+			continue
+		var unit := _unit_by_id(int(popup.get("unit_id", 0)))
+		if unit.is_empty() or unit.get("has_acted", false) or not unit.get("on_board", false):
+			_close_action_popup(seat)
+			continue
+		var anchor: Vector2 = board.screen_position_for_cell(
+			Vector2i(int(unit.x), int(unit.y))
+		)
+		var panel := action_popup_panels[seat]
+		var desired_x := anchor.x + 48.0 if seat == 0 else anchor.x - panel.size.x - 48.0
+		panel.position = Vector2(
+			clampf(desired_x, 32.0, 1490.0 - panel.size.x),
+			clampf(anchor.y - panel.size.y * 0.45, 108.0, 990.0 - panel.size.y)
+		)
+
+
+func _close_action_popup(seat: int) -> void:
+	if seat < 0 or seat >= action_popups.size():
+		return
+	action_popups[seat] = {}
+	action_popup_panels[seat].visible = false
+
+
+func _move_action_popup(seat: int, direction: int) -> bool:
+	if seat < 0 or seat >= action_popups.size():
+		return false
+	var popup: Dictionary = action_popups[seat]
+	if not bool(popup.get("open", false)):
+		return false
+	var options: Array = popup.get("options", [])
+	if options.is_empty():
+		return true
+	popup["row"] = wrapi(int(popup.get("row", 0)) + direction, 0, options.size())
+	action_popups[seat] = popup
+	_render_action_popup(seat)
+	PCAudio.play_cue("move")
+	return true
+
+
+func _activate_action_popup(seat: int) -> bool:
+	if seat < 0 or seat >= action_popups.size():
+		return false
+	var popup: Dictionary = action_popups[seat]
+	if not bool(popup.get("open", false)):
+		return false
+	var options: Array = popup.get("options", [])
+	if options.is_empty():
+		_close_action_popup(seat)
+		return true
+	var unit_id := int(popup.get("unit_id", 0))
+	var chosen: Dictionary = options[int(popup.get("row", 0))]
+	var mode := String(chosen.get("mode", "wait"))
+	_close_action_popup(seat)
+	if mode == "wait":
+		_submit("wait", unit_id, 0, Vector2i.ZERO, 0, seat)
+		return true
+	action_modes[seat] = mode
+	selected_units[seat] = unit_id
+	board.set_selected(seat, unit_id, mode)
+	_update_highlights(seat)
+	_refresh_selected_panel(seat)
+	_show_toast(
+		"PLAYER %d  /  CHOOSE %s TARGET" % [seat + 1, mode.to_upper()]
+	)
+	return true
 
 
 func _selected_by_other_seat(seat: int, unit_id: int) -> int:
@@ -2345,6 +2572,9 @@ func _unit_owned_by_seat(unit: Dictionary, seat: int) -> bool:
 func _cancel(seat: int) -> void:
 	PCAudio.play_cue("cancel")
 	hud_seat = seat
+	if bool(action_popups[seat].get("open", false)):
+		_close_action_popup(seat)
+		return
 	selected_units[seat] = 0
 	action_modes[seat] = "move"
 	board.set_selected(seat, 0, "move")

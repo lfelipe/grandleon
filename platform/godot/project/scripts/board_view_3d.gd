@@ -305,6 +305,14 @@ func cell_at(screen_position: Vector2) -> Vector2i:
 	return cell
 
 
+func screen_position_for_cell(cell: Vector2i) -> Vector2:
+	if _camera == null or snapshot.is_empty():
+		return global_position + size * 0.5
+	var at := _cell_position(cell.x, cell.y)
+	at.y = _surface_height(cell.x, cell.y) + 1.15
+	return global_position + _camera.unproject_position(at)
+
+
 func unit_at(cell: Vector2i) -> Dictionary:
 	for unit: Dictionary in snapshot.get("units", []):
 		if unit.get("on_board", false) and int(unit.x) == cell.x and int(unit.y) == cell.y:
