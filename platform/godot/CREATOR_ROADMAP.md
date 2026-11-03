@@ -94,8 +94,10 @@ The first native seam is implemented:
   story order, previews the same portable character art used in play, and
   renames a character without changing persistent identity. **Add a Character**
   chooses an existing named role and either the starting company or a chapter
-  after which that recruit joins. Battle placement remains a deliberate Map →
-  Battle Setup action, so growing the company never silently changes a board.
+  after which that recruit joins. **Make a New Role** asks only for a visible
+  name and a working role to start from, then returns to the waiting character
+  with the portable copy selected. Battle placement remains a deliberate Map
+  → Battle Setup action, so growing the company never silently changes a board.
   **Campaign Supplies** chooses named shared items or weapons and their amount
   either at the opening or after a named chapter; these portable rewards use
   the same runtime path on every target. **Role Gear & Skills** assigns named
@@ -227,7 +229,8 @@ ports the most interaction-heavy part of the earlier editor early.
   health, strength, defense, resistance, movement, magic, and weapon-range
   adjustments over the selected role. Shared starting supplies and named
   item/weapon chapter rewards are implemented. Compatible named weapons,
-  items, and abilities can be assigned to a role. Classes, factions, role and
+  items, and abilities can be assigned to a role, and a new role can copy an
+  existing valid baseline. Classes, factions, detailed role baselines, and
   asset definition editors remain.
 - Stages, transitions, conditions, arrivals, and general route editing remain;
   starting roster and linear chapter rewards are implemented.

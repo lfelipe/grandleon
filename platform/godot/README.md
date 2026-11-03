@@ -85,7 +85,8 @@ modifier to zero removes the override, and the same portable result is consumed
 by PC, Nintendo 64, and PlayStation. **Role Gear & Skills** summarizes the
 selected role and uses one named choice plus one Add/Remove action to share
 compatible weapons, items, and abilities across every character with that
-role.
+role. During **Add a Character**, **Make a New Role** copies an existing valid
+role after asking only for a visible name and a named starting point.
 The **Goals** surface attaches existing objectives or authors complete defeat,
 protect, and survive conditions. **Outside** chooses how exposed space beyond
 the tactical map is presented: one RGB colour, an automatic non-playable edge,
@@ -128,10 +129,12 @@ regions, allied player ownership, player scaling, objectives, dialogue lines,
 and new dialogue scenes attached to existing story moments. **Grow the Army**
 lists starting heroes and later recruits, previews their portable art, renames
 them without changing identity, and adds an existing role at campaign start or
-after a chosen chapter. **Tune This Hero** adjusts focused portable traits, and
-**Campaign Supplies** gives the shared company named starting items or weapons
-and chapter rewards. **Role Gear & Skills** assigns compatible named weapons,
-items, and abilities to every character using a role. **Look & Feel** chooses
+after a chosen chapter. A new named role can begin as a copy of any working
+role without exposing source identities. **Tune This Hero** adjusts focused
+portable traits, and **Campaign Supplies** gives the shared company named
+starting items or weapons and chapter rewards. **Role Gear & Skills** assigns
+compatible named weapons, items, and abilities to every character using a
+role. **Look & Feel** chooses
 the shared world theme and character style while previewing the actual terrain
 and character assets used by the ports. Placing a character in a battle stays
 an explicit Map → Battle Setup action. **Add Next Chapter** inserts a new story
