@@ -34,12 +34,18 @@ ARG GCC_COPYING3_SHA256=8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545
 ARG GCC_COPYING_RUNTIME_SHA256=9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74
 
 USER root
+# Ubuntu's openssl package still points its copyright link at the old pre-t64
+# binary-package name. Prove the replacement is the same source version, then
+# repair only that notice link before payload packaging.
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
         ca-certificates \
         cmake \
         xz-utils \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && test "$(dpkg-query -W -f='${Version}' openssl)" = \
+        "$(dpkg-query -W -f='${Version}' libssl3t64)" \
+    && ln -sfn ../libssl3t64/copyright /usr/share/doc/openssl/copyright
 
 # A shallow clone cannot be pinned to an arbitrary commit, so the repository is
 # fetched at that commit explicitly and the checkout is verified against it
