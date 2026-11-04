@@ -29,10 +29,17 @@ across the other styles and themes. The growing mythical set currently has:
 | Healer · female (`second`) · amber | ![The amber female mythical healer idles, walks, attacks, blesses, and reacts to a hit](screenshots/art-roster/mythical-healer-female.gif) |
 | Commander · male (`first`) · blue | ![The blue male mythical commander idles, walks, attacks, commands, and reacts to a hit](screenshots/art-roster/mythical-commander-male.gif) |
 | Commander · female (`second`) · blue | ![The blue female mythical commander idles, walks, attacks, commands, and reacts to a hit](screenshots/art-roster/mythical-commander-female.gif) |
+| Stormcaller · male (`first`) · red | ![The red male mythical stormcaller idles, walks, attacks, calls a storm, and reacts to a hit](screenshots/art-roster/mythical-stormcaller-male.gif) |
+| Stormcaller · female (`second`) · red | ![The red female mythical stormcaller idles, walks, attacks, calls a storm, and reacts to a hit](screenshots/art-roster/mythical-stormcaller-female.gif) |
+| Rogue · male (`first`) · violet | ![The violet male mythical rogue idles, walks, attacks, shadow-steps, and reacts to a hit](screenshots/art-roster/mythical-rogue-male.gif) |
+| Rogue · female (`second`) · violet | ![The violet female mythical rogue idles, walks, attacks, mirror-steps, and reacts to a hit](screenshots/art-roster/mythical-rogue-female.gif) |
+| Beast · male (`first`) · bone | ![The bone-armoured male mythical beast idles, walks, attacks, projects a primal ward, and reacts to a hit](screenshots/art-roster/mythical-beast-male.gif) |
+| Beast · female (`second`) · bone | ![The bone-armoured female mythical beast idles, walks, attacks, projects a primal ward, and reacts to a hit](screenshots/art-roster/mythical-beast-female.gif) |
 
-These five finished body pairs are most of the mythical roster, not a claim
-that the theme is complete. The names describe their portable art identity,
-not a campaign.
+These eight finished body pairs cover every mythical archetype. The names
+describe their portable art identity, not a campaign. Other visual themes still
+use their portable generated fallback until their curated Godot sheets are
+painted.
 Identities without a curated high-resolution sheet continue to use the portable
 generated library, so every valid project remains playable while the new sets
 are built out.

@@ -34,9 +34,9 @@ terrain rules, routes, timing, or combat results.
 ## Character art and console experiments
 
 - [ ] Complete male and female high-resolution bodies for every intended
-  archetype and style. Mythical knight, archer, mage, and healer pairs are
-  complete; commander and beast artwork is complete; stormcaller and rogue are
-  in progress. Each pair must also pass the shared compact-art-direction audit.
+  archetype and style. All eight mythical archetype pairs are complete and pass
+  the shared compact-art-direction audit; the remaining visual styles still use
+  portable fallbacks and need their own curated Godot sheets.
 - [ ] Add reusable team-colour masks so one body sheet can render the six
   faction colours without recolouring faces, hair, equipment, or effects.
 - [ ] Compare the new low-detail commander proxy on PlayStation and Nintendo 64

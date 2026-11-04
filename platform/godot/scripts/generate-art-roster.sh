@@ -60,5 +60,11 @@ generate_preview mythical_healer_male_hd.png mythical-healer-male
 generate_preview mythical_healer_female_hd.png mythical-healer-female
 generate_preview mythical_commander_male_hd.png mythical-commander-male
 generate_preview mythical_commander_female_hd.png mythical-commander-female
+generate_preview mythical_stormcaller_male_hd.png mythical-stormcaller-male
+generate_preview mythical_stormcaller_female_hd.png mythical-stormcaller-female
+generate_preview mythical_rogue_male_hd.png mythical-rogue-male
+generate_preview mythical_rogue_female_hd.png mythical-rogue-female
+generate_preview mythical_beast_male_hd.png mythical-beast-male
+generate_preview mythical_beast_female_hd.png mythical-beast-female
 
 printf 'Animated art roster: %s\n' "${output_dir}"
