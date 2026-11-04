@@ -1,9 +1,10 @@
 # Godot character art
 
-The eight `*_hd.png` files are the higher-resolution sprite roster used by the
-recommended PC graphics profile: knight, archer, mage, stormcaller, healer,
-commander, rogue, and beast. Each is a transparent 4×2 sheet with 443×443 cells
-in row-major order:
+This directory holds the curated high-resolution sprite rosters used by the
+recommended PC graphics profile. The sci-fi direction has one animated
+character for each of the eight archetypes. The mythical direction has separate
+male and female characters for every archetype. Each character is a transparent
+4×2 sheet with 443×443 cells in row-major order:
 
 1. idle A;
 2. idle B;
@@ -17,10 +18,18 @@ in row-major order:
 The images were generated specifically for this project, then trimmed to exact
 cell boundaries. The runtime consumes these committed PNGs directly;
 screenshots of them in play are therefore implementation evidence rather than
-concept art. Their bindings, pivots, and timing live in
-`content/graphics_profiles.json`. Removing a binding or asset restores
-only that character's generated 32-pixel fallback without a content, package,
-or rules change.
+concept art.
+
+Each mythical sheet has an adjacent `*_team_mask.png`. Godot uses that mask to
+render blue, red, green, violet, amber, or bone clothing and armour while
+leaving faces, hair, equipment, natural features, and effects untouched. A
+missing or malformed mask keeps the source colour. A missing sheet or invalid
+character binding restores only that character's generated 32-pixel fallback.
+Neither fallback changes portable game content, packages, or rules.
+
+Bindings, masks, pivots, and timing live in
+`content/graphics_profiles.json`. The human review images and regeneration
+commands are in the [artwork guide](../../../../../docs/ARTWORK.md).
 
 `relay_commander.glb` is an imported, skinned 3D character. It contains a
 sixteen-bone humanoid skeleton, seven material surfaces, and six in-place clips
