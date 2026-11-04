@@ -321,12 +321,12 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 			"path": "res://art/characters/relay_knight_hd.png",
 		},
 		{
-			"label": "Mythical knight, blue, first figure",
+			"label": "Mythical knight, blue, male figure",
 			"unit": {"archetype": 0, "colour": 0, "style": 2, "figure": 0},
 			"path": "res://art/characters/mythical_knight_hd.png",
 		},
 		{
-			"label": "Mythical archer, violet, second figure",
+			"label": "Mythical archer, violet, female figure",
 			"unit": {"archetype": 1, "colour": 3, "style": 2, "figure": 1},
 			"path": "res://art/characters/mythical_archer_hd.png",
 		},

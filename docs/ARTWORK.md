@@ -19,14 +19,32 @@ across the other styles and themes. The growing mythical set currently has:
 
 | Portable identity | Animated preview |
 |---|---|
-| Knight · blue · first figure | ![The blue mythical knight idles, walks, attacks, raises a ward, and reacts to a hit](screenshots/art-roster/mythical-knight.gif) |
-| Archer · violet · second figure | ![The violet mythical archer idles, walks, fires an arrow, uses an enchanted shot, and reacts to a hit](screenshots/art-roster/mythical-archer.gif) |
+| Knight · male (`first`) · blue | ![The blue male mythical knight idles, walks, attacks, raises a ward, and reacts to a hit](screenshots/art-roster/mythical-knight.gif) |
+| Archer · female (`second`) · violet | ![The violet female mythical archer idles, walks, fires an arrow, uses an enchanted shot, and reacts to a hit](screenshots/art-roster/mythical-archer.gif) |
 
 These are finished 0.4 characters, not a claim that the mythical roster is
 complete. The names describe their portable art identity, not a campaign.
 Identities without a curated high-resolution sheet continue to use the portable
 generated library, so every valid project remains playable while the new sets
 are built out.
+
+## Bodies and team colours
+
+Every character archetype has two body variants. The project file stores them
+as `first` and `second` for compatibility; the creator presents those choices
+to people as **Male** and **Female**. The portable generated library already
+draws both bodies for every archetype, style, and faction colour.
+
+The high-resolution 0.4 roster will use one male and one female source sheet per
+archetype and style. It should not require six separately painted copies of
+each body. Each source sheet will instead have a grayscale team-colour mask;
+Godot can recolour only the marked cloth and armour into blue, red, green,
+violet, amber, or bone, then cache the resulting texture. Faces, hair, weapons,
+and spell effects remain unchanged.
+
+That mask pipeline is the next renderer step. Until it lands, high-resolution
+bindings still name one exact colour and body, and every missing combination
+continues to use its portable fallback.
 
 ## Animated Godot roster
 
