@@ -51,5 +51,6 @@ generate_preview rook_commander_hd.png commander
 generate_preview kestrel_rogue_hd.png rogue
 generate_preview relay_beast_hd.png beast
 generate_preview mythical_knight_hd.png mythical-knight
+generate_preview mythical_archer_hd.png mythical-archer
 
 printf 'Animated art roster: %s\n' "${output_dir}"

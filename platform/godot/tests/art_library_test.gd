@@ -266,6 +266,7 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"beast|violet|scifi|first": "res://art/characters/relay_beast_hd.png",
 		"knight|blue|scifi|first": "res://art/characters/relay_knight_hd.png",
 		"knight|blue|mythical|first": "res://art/characters/mythical_knight_hd.png",
+		"archer|violet|mythical|second": "res://art/characters/mythical_archer_hd.png",
 		"archer|blue|scifi|first": "res://art/characters/relay_archer_hd.png",
 		"mage|blue|scifi|first": "res://art/characters/relay_mage_hd.png",
 		"healer|blue|scifi|first": "res://art/characters/relay_healer_hd.png",
@@ -320,9 +321,14 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 			"path": "res://art/characters/relay_knight_hd.png",
 		},
 		{
-			"label": "Emberbound mythical knight",
+			"label": "Mythical knight, blue, first figure",
 			"unit": {"archetype": 0, "colour": 0, "style": 2, "figure": 0},
 			"path": "res://art/characters/mythical_knight_hd.png",
+		},
+		{
+			"label": "Mythical archer, violet, second figure",
+			"unit": {"archetype": 1, "colour": 3, "style": 2, "figure": 1},
+			"path": "res://art/characters/mythical_archer_hd.png",
 		},
 		{
 			"label": "Relay archer",

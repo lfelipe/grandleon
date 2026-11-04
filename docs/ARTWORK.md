@@ -15,15 +15,18 @@ This page separates two useful meanings of “complete”:
 
 The sci-fi direction is the first complete high-resolution set, not the only
 visual direction planned. Release 0.4 is expanding the same Godot art contract
-across the other styles and themes. That work starts with the mythical knight
-used by Emberbound's blue faction:
+across the other styles and themes. The growing mythical set currently has:
 
-![The Emberbound mythical knight idles, walks, attacks, raises a ward, and reacts to a hit](screenshots/art-roster/mythical-knight.gif)
+| Portable identity | Animated preview |
+|---|---|
+| Knight · blue · first figure | ![The blue mythical knight idles, walks, attacks, raises a ward, and reacts to a hit](screenshots/art-roster/mythical-knight.gif) |
+| Archer · violet · second figure | ![The violet mythical archer idles, walks, fires an arrow, uses an enchanted shot, and reacts to a hit](screenshots/art-roster/mythical-archer.gif) |
 
-This is one finished 0.4 character, not a claim that the mythical roster is
-complete. Identities without a curated high-resolution sheet continue to use
-the portable generated library, so every valid project remains playable while
-the new sets are built out.
+These are finished 0.4 characters, not a claim that the mythical roster is
+complete. The names describe their portable art identity, not a campaign.
+Identities without a curated high-resolution sheet continue to use the portable
+generated library, so every valid project remains playable while the new sets
+are built out.
 
 ## Animated Godot roster
 
