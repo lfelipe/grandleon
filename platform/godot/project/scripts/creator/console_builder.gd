@@ -112,6 +112,14 @@ func availability(target: String) -> Dictionary:
 		):
 			return _failure("builder_manifest_invalid", "The builder arguments are invalid.")
 		arguments.append(argument)
+	var requirements_value: Variant = manifest.get("systemRequirements", null)
+	if not requirements_value is Array or requirements_value != ["bubblewrap"]:
+		return _failure("builder_manifest_invalid", "The builder system requirements are invalid.")
+	if not _system_requirement_available("bubblewrap"):
+		return _failure(
+			"builder_system_dependency_missing",
+			"This Linux installation does not provide Bubblewrap for isolated console builds."
+		)
 	return {
 		"ok": true,
 		"target": target,
@@ -622,6 +630,18 @@ func _is_link(root: String, name: String) -> bool:
 
 func _target_name(target: String) -> String:
 	return "Nintendo 64" if target == "nintendo64" else "PlayStation"
+
+
+func _system_requirement_available(requirement: String) -> bool:
+	if requirement != "bubblewrap" or OS.get_name() != "Linux":
+		return false
+	for path: String in ["/usr/bin/bwrap", "/bin/bwrap"]:
+		if (
+			FileAccess.file_exists(path)
+			and (FileAccess.get_unix_permissions(path) & 73) != 0
+		):
+			return true
+	return false
 
 
 func _safe_stem(value: String) -> String:

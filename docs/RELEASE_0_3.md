@@ -9,6 +9,8 @@ Version 0.3 is the first release in which the Godot application is both the PC
 player and the supported campaign creator. The release artifacts are:
 
 - one Linux x86-64 PC bundle containing the player and creator;
+- optional Linux x86-64 Nintendo 64 and PlayStation builder payloads, packaged
+  separately for DLC-style installation;
 - one Nintendo 64 ROM containing Emberbound;
 - one PlayStation BIN/CUE image containing Emberbound;
 - SHA-256 checksums and the exact clean source revision for every artifact.
@@ -52,7 +54,7 @@ Every release decision should preserve these constraints:
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached with its portable identity generated automatically, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, and tunes seven named-hero traits. New roles copy a working role into an independent baseline. Tune Role edits all eleven portable baseline stats, side, terrain crossing, post-attack behavior, and allowed weapon families; incompatible removal is refused. New Side creates a portable named faction and color. Growth & Rewards keeps optional experience, level growth, item drops, and per-role appearance behind one advanced action. Campaign supplies, chapter rewards, role loadouts, and the separate reusable Gear & Abilities library are also native. |
 | Native authoring parity for 0.3 | Ready for release sign-off | Named negated and compound goal/item/Talk requirements, Talk-driven boolean story state, measured fielded-unit budgets, and safe whole-chapter ordering are implemented. Imported general world-value comparisons remain preserved and advanced because the portable source schema has no general operation that produces them. The replaceable PC graphics contract and four real profiles meet the 0.3 art-boundary requirement; arbitrary-file art-pack import is post-0.3. |
-| Native Export Center | Host ready; payload packaging blocking | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Nintendo 64 and PlayStation independently discover versioned builder payloads, validate executable checksums and license/dependency inventories, build asynchronously, verify exact artifacts and hashes, reject local-path leakage, and publish atomically. Synthetic payload and real packaged-shell smokes cover the host boundaries. The real console payloads still need packaging and emulator sign-off. |
+| Native Export Center | Payload sign-off blocking | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Nintendo 64 and PlayStation independently discover versioned builder payloads, authenticate every installed file, build asynchronously, verify exact artifacts and hashes, reject local-path leakage, and publish atomically. A clean-revision packager now seals each pinned toolchain and source revision behind an offline user-namespace sandbox with no host environment, home, install tree, network, or container-socket access. Clean-revision validation payloads from both pinned images build the demo project successfully. The final release payloads still need to be produced, license-reviewed, compared with the repository builders, and emulator-signed. |
 | Documentation and screenshots | In progress | README and `docs/CREATING_A_GAME.md` now describe the tested native flow and use six screens rendered from the real Godot creator. Recapture them after the final UI freeze and add the enabled Export Center from the final current-version player shell. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
 
@@ -363,6 +365,12 @@ are frozen.
   unclipped, and documentation links report zero unresolved references. This
   is the current PC release-gate baseline; it does not replace the final
   clean-revision all-target gate or acceptance of the real builder payloads.
+- `68dfb5b`: payload discovery now authenticates the dependency inventory and
+  every installed tool, data, template, and license file by byte length and
+  SHA-256, rejects undeclared files/directories/symlinks, and requires the
+  manifest license list to match the inventory. The focused payload smoke and
+  documentation-link gate pass. This hardens the host boundary; it is not yet
+  emulator acceptance of a release payload.
 - `9cd4bc2`: `scripts/local-ci.sh --consoles` passes both 68-test GCC/Clang
   gates, 46 browser flows, 48 ROM-service cases, 4,814 generated-art files,
   11 driven guide images, provided-art propagation, pinned WebAssembly, all
@@ -389,8 +397,9 @@ or repository code.
 - Export a portable editable project. **Implemented.**
 - Build a player-only Linux game from a clean prebuilt shell. **Implemented.**
 - Build Nintendo 64 and PlayStation targets through separately installed,
-  versioned builder payloads. **The asynchronous host contract is implemented;
-  real payload packaging and emulator sign-off remain.**
+  versioned builder payloads. **The asynchronous host and clean-revision sealed
+  Linux payload packager are implemented; production, license review, golden
+  comparison, and emulator sign-off remain.**
 - Report each target independently. **Implemented, including availability,
   builder version, exact artifact names/sizes/hashes, and bounded warnings.**
 - Never copy credentials, container state, absolute paths, or local settings

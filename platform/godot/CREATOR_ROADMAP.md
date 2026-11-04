@@ -231,11 +231,12 @@ but it must not become a second schema authority.
 These are release blockers in priority order, not invitations to add a large
 permanent form.
 
-1. **Package console builder payloads.** The versioned asynchronous host,
-   independent target availability, checksum/license inventory checks,
-   artifact validation, privacy scan, and atomic export are implemented.
-   Package the Nintendo 64 and PlayStation template builders, compare them with
-   the repository pipelines, and pass their outputs through the emulator gates.
+1. **Sign off console builder payloads.** The versioned asynchronous host,
+   independent target availability, complete-file checksum/license inventory,
+   artifact validation, privacy scan, atomic export, and clean-revision sealed
+   Linux payload packager are implemented. Build both payloads, complete the
+   license review, compare their output with the repository pipelines, and
+   pass that output through the emulator gates.
 2. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
    run clean-revision PC/Nintendo 64/PlayStation gates, and complete one human
    solo and co-op campaign playthrough per target.
@@ -289,25 +290,31 @@ license inventory, then runs asynchronously against one request directory.
 Only exact, hashed artifacts survive the privacy scan and atomic move. The
 remaining work is producing and emulator-signing the first real payloads.
 
-Two payload approaches remain viable:
+Two payload approaches were evaluated:
 
 | Direction | User experience | Tradeoff |
 |---|---|---|
-| Self-contained OCI builder | Optional large download plus an installed container runtime | Useful prototype/fallback, but carries runtime, licensing, and Windows setup burden |
-| Patchable console template | Select a target and export natively | Best product flow, but requires strict versioned content/art slots and format-specific tooling |
+| Sealed pinned builder | Optional large download; no installed container runtime | Selected for 0.3 Linux: exact project-specific art and existing build path, isolated from the host; larger download and license inventory |
+| Patchable console template | Small, fast native export | Rejected for 0.3: compressed N64 content is not directly addressable and project-specific sparse art makes a generic template incomplete |
 
-The preferred product direction is a versioned patchable template:
+The selected Linux payload packages the pinned build environment at release
+time, then runs it offline in a user-namespace sandbox at export time:
 
-- Nintendo 64 uses an aligned content/art slot with explicit capability and
-  size budgets, deterministic padding, and cartridge checksum/header updates.
-- PlayStation loads `GAME.GPK` and selected assets as disc files, then a small
-  redistributable writer creates BIN/CUE output.
+```text
+authenticated rootfs + fixed source revision + sandbox launcher
+                         |
+                         +-> read-only project.json
+                         +-> empty writable output/
+                         +-> no network, home, install tree, or container socket
+```
 
-Golden tests must compare template output with the existing full builder at the
-package/runtime boundary and boot both through the established emulator gates.
-Payloads need complete licenses and machine-readable dependency inventories.
-No BIOS, signing key, license sector, proprietary SDK, credential, or private
-configuration may enter a payload or artifact.
+It builds the ordinary campaign image, so the image carries exactly the art
+the selected project names. The earlier template design remains useful as a
+future size/latency experiment only if the console image and art packaging are
+redesigned around fixed replaceable slots. Golden tests must compare payload
+output with the existing full builder and boot both through the established
+emulator gates. No BIOS, signing key, license sector, proprietary SDK,
+credential, or private configuration may enter a payload or artifact.
 
 ## Acceptance gates
 

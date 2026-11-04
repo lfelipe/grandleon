@@ -35,6 +35,13 @@ func _run() -> void:
 	var available: Dictionary = builder.availability("nintendo64")
 	_expect("installed payload is available", available.ok, true)
 	_expect("payload version is visible", str(available.get("version", "")), "test-1")
+	_write_manifest(payload_root, "nintendo64", "build-rom.sh", builder, "", ["unknown"])
+	_expect(
+		"unknown sandbox requirement is refused",
+		str(builder.availability("nintendo64").get("code", "")),
+		"builder_manifest_invalid"
+	)
+	_write_manifest(payload_root, "nintendo64", "build-rom.sh", builder)
 	_expect(
 		"an absent target stays explicitly unavailable",
 		str(builder.availability("playstation").get("code", "")),
@@ -136,7 +143,8 @@ func _write_manifest(
 	target: String,
 	executable: String,
 	builder,
-	digest_override := ""
+	digest_override := "",
+	system_requirements: Array = ["bubblewrap"]
 ) -> void:
 	var digest: String = (
 		builder._sha256_file(payload_root.path_join(executable))
@@ -153,6 +161,7 @@ func _write_manifest(
 		"dependencies": "dependencies.json",
 		"dependenciesSha256": builder._sha256_file(payload_root.path_join("dependencies.json")),
 		"licenseFiles": ["LICENSE.txt"],
+		"systemRequirements": system_requirements,
 	}, "  ", true) + "\n")
 
 

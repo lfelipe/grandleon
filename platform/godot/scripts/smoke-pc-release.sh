@@ -72,6 +72,8 @@ run_step "Build native tests" \
     cmake --build "${native_build_dir}" --parallel
 run_step "Run native tests" \
     ctest --test-dir "${native_build_dir}" --output-on-failure
+run_step "Console payload packager" \
+    "${script_dir}/smoke-console-payload-package.sh"
 
 godot_smokes=(
     smoke-animated-characters.sh
