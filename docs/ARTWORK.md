@@ -20,6 +20,8 @@ across the other styles and themes. The growing mythical set currently has:
 | Portable identity | Animated preview |
 |---|---|
 | Knight · male (`first`) · blue | ![The blue male mythical knight idles, walks, attacks, raises a ward, and reacts to a hit](screenshots/art-roster/mythical-knight.gif) |
+| Knight · female (`second`) · blue | ![The blue female mythical knight idles, walks, attacks, raises a ward, and reacts to a hit](screenshots/art-roster/mythical-knight-female.gif) |
+| Archer · male (`first`) · violet | ![The violet male mythical archer idles, walks, fires an arrow, uses an enchanted shot, and reacts to a hit](screenshots/art-roster/mythical-archer-male.gif) |
 | Archer · female (`second`) · violet | ![The violet female mythical archer idles, walks, fires an arrow, uses an enchanted shot, and reacts to a hit](screenshots/art-roster/mythical-archer.gif) |
 
 These are finished 0.4 characters, not a claim that the mythical roster is
