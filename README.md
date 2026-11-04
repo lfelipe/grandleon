@@ -11,8 +11,9 @@ its rules.
 
 ![A real Grandleon battle running in Godot with voxel terrain and animated characters](docs/screenshots/godot/gameplay.gif)
 
-The animation above is captured from the running Godot client. It is not a
-mockup or concept render.
+The animation above is captured from a real Emberbound battle in the running
+Godot client. It follows the party into close combat and includes the live
+movement, attack, hit, and impact animations—not a mockup or concept render.
 
 ## Make a game
 
@@ -39,15 +40,10 @@ through the complete workflow with screenshots from the real application.
 
 ## The Godot presentation
 
-Godot is the main player and creator. The recommended renderer combines 3D
-terrain with animated 2D characters, while three other profiles remain
-available for comparison and fallback.
+Godot is the main player and creator. Its supported presentation combines
+authored 3D terrain with animated high-resolution 2D characters.
 
-| Voxel terrain + animated sprites | Full voxel |
-|---|---|
-| ![Godot rendering authored voxel terrain with animated character sprites](docs/screenshots/godot/voxel-sprites.png) | ![Godot rendering voxel terrain and imported 3D characters](docs/screenshots/godot/full-voxel.png) |
-| 3D diorama + sprites | Pixel 2D |
-| ![Godot rendering a 3D diorama with portable character sprites](docs/screenshots/godot/diorama-sprites.png) | ![Godot rendering the portable pixel-art profile](docs/screenshots/godot/pixel-2d.png) |
+![Godot rendering authored voxel terrain with animated character sprites](docs/screenshots/godot/voxel-sprites.png)
 
 The current Godot art pack covers all eight character archetypes and all
 thirteen terrain kinds. The high-resolution character roster is currently one
@@ -89,7 +85,7 @@ rest of the documentation describes the current Godot application.
 |---|---|
 | **0.1 — portable foundation** | Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
 | **0.2 — complete campaign runtime** | Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
-| **0.3 — Godot player and creator** | Moves the supported PC experience to Godot, joins creation and play in one application, adds local co-op, standalone export, four graphics profiles, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. This is the current release line. |
+| **0.3 — Godot player and creator** | Moves the supported PC experience to Godot, joins creation and play in one application, adds local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. This is the current release line. |
 | **0.4 — broader art and console 3D experiments** | Expands Godot artwork so every intended setting has a coherent high-resolution presentation, adds theme-aware terrain coverage, and revisits recognizable low-detail 3D characters on PlayStation and Nintendo 64 within each console's limits. |
 | **0.5 — editor product pass** | Concentrates on the complete authoring experience: clearer workflows, stronger previews, better project organization, and the usability and accessibility work needed for larger games. |
 

@@ -586,7 +586,7 @@ grandleon_package_rom(
 # banners) verify headlessly; the input sequence lives beside the campaign in
 # games/tarnholt/autopilot/.
 foreach(variant IN ITEMS
-    play probe autopilot campaign campaign_autopilot
+    play probe readme autopilot campaign campaign_autopilot
 )
     set(rom_target grandleon_n64_${variant})
     add_executable(${rom_target} src/play_rom.cpp src/synth.cpp)
@@ -642,6 +642,10 @@ foreach(variant IN ITEMS
 endforeach()
 target_compile_definitions(grandleon_n64_probe PRIVATE GRANDLEON_N64_PROBE)
 target_compile_definitions(
+    grandleon_n64_readme
+    PRIVATE GRANDLEON_N64_PROBE GRANDLEON_N64_README
+)
+target_compile_definitions(
     grandleon_n64_autopilot PRIVATE GRANDLEON_N64_AUTOPILOT
 )
 target_compile_definitions(
@@ -653,6 +657,9 @@ target_compile_definitions(
 )
 grandleon_package_rom(grandleon_n64_play grandleon_n64_play.z64 "Grandleon")
 grandleon_package_rom(grandleon_n64_probe grandleon_n64_probe.z64 "Grandleon probe")
+grandleon_package_rom(
+    grandleon_n64_readme grandleon_n64_readme.z64 "Grandleon README"
+)
 grandleon_package_rom(
     grandleon_n64_autopilot grandleon_n64_autopilot.z64 "Grandleon autopilot"
 )

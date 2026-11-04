@@ -477,6 +477,18 @@ grandleon_playstation_play_executable(
     "tarnholt_line/ashen_watch_battle"
 )
 
+# The README comparison: the exact first Emberbound battle the Godot capture
+# opens, including its two-player placement scaling. It is opt-in and normally
+# built against games/emberbound through the root capture target.
+grandleon_playstation_play_executable(
+    grandleon_playstation_readme grandleon_psx_readme
+    "emberbound/rowanfield"
+)
+target_compile_definitions(
+    grandleon_playstation_readme
+    PRIVATE GRANDLEON_PLAYSTATION_LOCAL_PLAYERS=2
+)
+
 # The played executables, which are all one translation unit
 #
 # `src/turn_exe.cpp` is a board played from a controller, and every executable

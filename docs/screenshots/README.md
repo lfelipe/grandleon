@@ -6,16 +6,18 @@ the documentation continues to show what people will actually use.
 
 ## Godot application
 
-`godot/` contains the gameplay animation and the four graphics-profile images
-used by the main README. Rebuild all five with:
+`godot/` contains the gameplay animation and Voxel + Sprites image used by the
+main README. Rebuild both with:
 
 ```sh
 platform/godot/scripts/capture-readme-media.sh
 ```
 
 The script builds the Godot project, runs the real Emberbound package with
-isolated user data, captures every graphics profile, records the guided demo,
-and creates the compact `gameplay.gif` used on GitHub.
+isolated user data, captures the supported presentation, records the guided
+demo through its close-combat turns, and creates the compact attack-heavy
+`gameplay.gif` used on GitHub. Internal renderer captures remain available
+through `capture-graphics-prototypes.sh`.
 
 `native-guide/` belongs to [Creating a game](../CREATING_A_GAME.md). Its
 screens are rendered by the real Godot creator under fresh per-capture user
@@ -48,13 +50,13 @@ scripts/readme-screenshots.sh terminal # or one named capture
 
 | File | Source |
 |---|---|
-| `godot/gameplay.gif` | a recorded run of the Godot guided demo |
-| `godot/*.png` | the four live Godot graphics profiles |
+| `godot/gameplay.gif` | close combat from a recorded run of the Godot guided demo |
+| `godot/voxel-sprites.png` | the supported Godot presentation |
 | `native-guide/*.png` | Godot creator integration fixtures under Xvfb |
 | `art-roster/*.gif` | the eight committed 4×2 character sheets |
 | `terminal.png` | the real terminal client's ANSI output, rendered by Chromium |
-| `n64.png` | the render probe under ares, with window chrome cropped |
-| `psx.png` | the first frame compared by the PlayStation turn check |
+| `n64.png` | Emberbound's opening board under ares, with window chrome cropped |
+| `psx.png` | the matching verified PlayStation board, cropped to remove its diagnostic backdrop |
 | `n64-autopilot.gif` | the console autopilot run, one frame per checkpoint |
 | `psx-turn.gif` | the PlayStation turn check, one frame per checkpoint |
 | `n64-showcase.gif` | one stretch of the Nintendo 64 run |

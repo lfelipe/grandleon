@@ -1,25 +1,21 @@
 # Artwork and animation roster
 
 Grandleon has artwork for all eight character archetypes and all thirteen
-terrain kinds. The recommended Godot presentation is the **Voxel + Sprites** profile,
-which combines authored 3D terrain with the animated high-resolution roster
-shown below.
+terrain kinds. The supported Godot presentation, **Voxel + Sprites**, combines
+authored 3D terrain with the animated high-resolution roster shown below.
 
-This page separates three useful meanings of “complete”:
+This page separates two useful meanings of “complete”:
 
-- The recommended Godot profile has one high-resolution animated sci-fi
+- The supported Godot presentation has one high-resolution animated sci-fi
   character for each of the eight archetypes and one authored scene for each of
   the thirteen terrains.
 - The portable generated library covers every combination of eight archetypes,
   seven styles, six faction colours, and two figures. These are the assets shared
   with the constrained renderers and used as a safe fallback in Godot.
-- The optional **Full Voxel** profile currently has four imported, animated GLB
-  characters. Its other archetypes still use the procedural 3D fallback, so it
-  is not yet an eight-model authored roster.
 
 ## Animated Godot roster
 
-These are the actual committed sheets used by the recommended profile. Each
+These are the actual committed sheets used by the supported presentation. Each
 preview runs through idle, walk, attack, ability, and hurt/defeat poses.
 
 | Archetype | Preview | Archetype | Preview |

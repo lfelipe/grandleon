@@ -10,11 +10,10 @@
 #           psx-showcase, n64-saying.
 #
 # Everything is driven, nothing is posed: the terminal shot comes from the real
-# client's ANSI output rendered by Chromium, the Nintendo 64 shot from the
-# render probe running under ares, and the PlayStation shot from the first frame
-# its turn check compared, which needs no crop at all because
-# `PCSX.GPU.takeScreenShot()` hands over the 320x240 active display and nothing
-# else. Re-run after a visual change and commit the PNGs.
+# client's ANSI output rendered by Chromium, and the two console stills come
+# from the same opening Emberbound battle shown by Godot. Both console runs
+# retain their ordinary pixel-verification gates. Re-run after a visual change
+# and commit the PNGs.
 #
 # Two cameras, and the difference matters. The two *trail* animations are
 # built from checkpoints, which are settled frames by construction: the
@@ -55,13 +54,11 @@ fi
 
 if [ "${surface}" = "all" ] || [ "${surface}" = "n64" ]; then
     echo "== n64"
-    "${repository_root}/platform/nintendo64/ares/run-ares.sh" \
-        "${repository_root}/build-n64/platform/nintendo64/grandleon_n64_probe.z64" \
-        >/dev/null
+    cmake --build "${repository_root}/build" \
+        --target grandleon_n64_readme_capture >/dev/null
     "${repository_root}/tools/placeholder_art/.venv/bin/python" - "$@" <<'PYEOF'
-import sys
 from PIL import Image
-image = Image.open("build-n64/ares/screenshot-probe.png")
+image = Image.open("build-n64-readme/ares/trail-readme/001-readme.png")
 # Trim the ares window chrome: menu bar above, status bar below, desktop
 # margins either side. The emulator viewport is what the README wants.
 image.crop((108, 82, 876, 656)).save("docs/screenshots/n64.png")
@@ -70,30 +67,24 @@ fi
 
 if [ "${surface}" = "all" ] || [ "${surface}" = "psx" ]; then
     echo "== psx"
-    # The board this console opens on, which is the first frame the turn check
-    # compared: the emulator's own capture of the composited display at the
-    # instant the executable named, joined against the executable's per-cell
-    # claims and the GPU's readback before this file existed. Rebuilding the
-    # check is what refreshes the shot, exactly as on the other two consoles.
-    #
-    # No crop. `PCSX.GPU.takeScreenShot()` crops VRAM to the active display, so
-    # a pixel here is a pixel the renderer computed, including the magenta the
-    # board is standing on, which is the backdrop `turn_exe.cpp` picked because
-    # nothing the art can draw is that colour. It is on the page because it is
-    # on the screen.
+    # The static renderer opens the same scaled Rowanfield encounter as Godot
+    # and N64. Its harness validates the complete 320x240 framebuffer first;
+    # the documentation image then removes only the unique diagnostic backdrop
+    # outside the board.
     cmake --build "${repository_root}/build" \
-        --target grandleon_playstation_turn_check >/dev/null
-    GRANDLEON_PSX_LOG="${playstation_log}" \
+        --target grandleon_playstation_readme_capture >/dev/null
     "${repository_root}/tools/placeholder_art/.venv/bin/python" - <<'PYEOF'
-import os
+from PIL import Image, ImageChops
 
-import readme_psx_frames as psx
-
-log = os.environ["GRANDLEON_PSX_LOG"]
-width, height = psx.frame_size(log)
-frame = psx.load("build-playstation/turn-frames/frame-0000.bin", width, height)
-frame.save("docs/screenshots/psx.png", optimize=True)
-print(f"  {width}x{height}, checkpoint {psx.checkpoint_names(log)[0]}")
+frame = Image.open(
+    "build-playstation-readme/frames/grandleon_psx_readme.ppm"
+).convert("RGB")
+backdrop = Image.new("RGB", frame.size, frame.getpixel((0, 0)))
+board = ImageChops.difference(frame, backdrop).getbbox()
+if board is None:
+    raise SystemExit("PlayStation README capture contains only the backdrop")
+frame.crop(board).save("docs/screenshots/psx.png", optimize=True)
+print(f"  {board[2] - board[0]}x{board[3] - board[1]}, diagnostic border removed")
 PYEOF
 fi
 

@@ -2,7 +2,7 @@
 extends SceneTree
 
 const PresentationSettings = preload("res://scripts/presentation_settings.gd")
-const PROFILES := ["pixel", "diorama", "voxel-sprites", "voxel"]
+const PROFILES := ["voxel-sprites"]
 
 var failures := 0
 
@@ -15,13 +15,13 @@ func _init() -> void:
 	_expect_true(
 		"valid settings save",
 		settings.save_settings(
-			"voxel", false, 1.15, PROFILES, 0.45, "extra_firm"
+			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm"
 		)
 	)
 
 	var reloaded = PresentationSettings.new(path)
 	var values: Dictionary = reloaded.load_settings(PROFILES)
-	_expect("stored profile", values.get("graphics_profile"), "voxel")
+	_expect("stored profile", values.get("graphics_profile"), "voxel-sprites")
 	_expect("stored camera comfort", values.get("camera_impulse"), false)
 	_expect("stored text size", values.get("text_scale"), 1.15)
 	_expect("stored effects level", values.get("effects_level"), 0.45)
@@ -52,22 +52,22 @@ func _init() -> void:
 	_expect(
 		"refused save preserves settings",
 		PresentationSettings.new(path).load_settings(PROFILES).get("graphics_profile"),
-		"voxel"
+		"voxel-sprites"
 	)
 
 	_expect_true(
 		"invalid effects level is refused",
-		not settings.save_settings("voxel", false, 1.15, PROFILES, 0.73)
+		not settings.save_settings("voxel-sprites", false, 1.15, PROFILES, 0.73)
 	)
 	_expect_true(
 		"invalid stick input is refused",
 		not settings.save_settings(
-			"voxel", false, 1.15, PROFILES, 1.0, "machine-specific-mode"
+			"voxel-sprites", false, 1.15, PROFILES, 1.0, "machine-specific-mode"
 		)
 	)
 	_expect_true(
 		"second valid save",
-		settings.save_settings("pixel", true, 1.0, PROFILES, 1.0)
+		settings.save_settings("voxel-sprites", true, 1.0, PROFILES, 1.0)
 	)
 	var absolute := ProjectSettings.globalize_path(path)
 	var broken := FileAccess.open(absolute, FileAccess.WRITE)
@@ -75,12 +75,20 @@ func _init() -> void:
 	broken.close()
 	var recovered = PresentationSettings.new(path)
 	var recovered_values: Dictionary = recovered.load_settings(PROFILES)
-	_expect("previous settings recover", recovered_values.get("graphics_profile"), "voxel")
+	_expect(
+		"previous settings recover",
+		recovered_values.get("graphics_profile"),
+		"voxel-sprites"
+	)
 	_expect("previous effects level recovers", recovered_values.get("effects_level"), 0.45)
 	_expect("previous stick input recovers", recovered_values.get("stick_mode"), "extra_firm")
 	_expect("recovery is coarse", recovered.warning(), "PREVIOUS DISPLAY SETTINGS RESTORED")
 	var restored = PresentationSettings.new(path)
-	_expect("recovery persists", restored.load_settings(PROFILES).get("graphics_profile"), "voxel")
+	_expect(
+		"recovery persists",
+		restored.load_settings(PROFILES).get("graphics_profile"),
+		"voxel-sprites"
+	)
 	_expect("restored settings have no warning", restored.warning(), "")
 
 	_expect_true("settings reset", recovered.reset())
@@ -93,6 +101,11 @@ func _init() -> void:
 		"textScale": 1.0,
 	}))
 	legacy.close()
+	_expect(
+		"removed profiles migrate to the supported presentation",
+		PresentationSettings.new(path).load_settings(PROFILES).get("graphics_profile"),
+		"voxel-sprites"
+	)
 	_expect(
 		"settings written before audio default safely to full volume",
 		PresentationSettings.new(path).load_settings(PROFILES).get("effects_level"),
@@ -109,7 +122,7 @@ func _init() -> void:
 	_expect_true(
 		"integration settings save",
 		integration.save_settings(
-			"voxel", false, 1.15, PROFILES, 0.45, "extra_firm"
+			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm"
 		)
 	)
 

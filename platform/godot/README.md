@@ -112,11 +112,12 @@ The maintainer-facing payload format is documented in
 
 ## Graphics and artwork
 
-Four live profiles render the same campaign: Voxel + Sprites, Full Voxel, 3D
-Diorama + Sprites, and Pixel 2D. The recommended profile uses authored 3D
-terrain and a complete eight-archetype high-resolution sci-fi sprite roster.
+The supported presentation uses authored 3D voxel terrain and a complete
+eight-archetype high-resolution sci-fi sprite roster. Experimental renderers
+remain available only to focused developer checks; they are not player
+settings.
 
-[GRAPHICS.md](GRAPHICS.md) describes the profiles, current coverage, replacement
+[GRAPHICS.md](GRAPHICS.md) describes the presentation, current coverage, replacement
 boundary, and capture commands. The human-facing animated roster is in
 [Artwork and animation roster](../../docs/ARTWORK.md).
 
@@ -166,8 +167,7 @@ platform/godot/scripts/smoke-campaign-editor.sh build-godot
 Capture current renderer and creator documentation from the executable:
 
 ```sh
-platform/godot/scripts/capture-graphics-prototypes.sh
-platform/godot/scripts/record-demo-reel.sh
+platform/godot/scripts/capture-readme-media.sh
 platform/godot/scripts/capture-creator-guide.sh
 ```
 

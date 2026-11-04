@@ -16,7 +16,7 @@ case "${output_dir}" in
     *) output_dir="$(pwd -P)/${output_dir}" ;;
 esac
 
-for command in ffmpeg mktemp; do
+for command in ffmpeg gifsicle mktemp; do
     if ! command -v "${command}" >/dev/null 2>&1; then
         printf 'Required README capture tool not found: %s\n' "${command}" >&2
         exit 69
@@ -30,17 +30,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"${script_dir}/capture-graphics-prototypes.sh" "${build_dir}" "${output_dir}"
+profiles_dir="${temporary_dir}/profiles"
+"${script_dir}/capture-graphics-prototypes.sh" "${build_dir}" "${profiles_dir}"
+cp -- "${profiles_dir}/voxel-sprites.png" "${output_dir}/voxel-sprites.png"
 
-GRANDLEON_DEMO_SECONDS=20 \
+GRANDLEON_DEMO_SECONDS=34 \
 GRANDLEON_DEMO_GRAPHICS=voxel-sprites \
     "${script_dir}/record-demo-reel.sh" \
     "${build_dir}" "${temporary_dir}/gameplay.mp4"
 
 ffmpeg -hide_banner -loglevel warning -y \
-    -ss 8.5 -t 6 -i "${temporary_dir}/gameplay.mp4" \
+    -ss 20.75 -t 9 -i "${temporary_dir}/gameplay.mp4" \
     -filter_complex \
-    '[0:v]fps=12,scale=640:-1:flags=lanczos,split[video][palette_input];[palette_input]palettegen=max_colors=128[palette];[video][palette]paletteuse=dither=bayer:bayer_scale=3' \
-    "${output_dir}/gameplay.gif"
+    '[0:v]fps=10,scale=640:-1:flags=lanczos,split[video][palette_input];[palette_input]palettegen=max_colors=96[palette];[video][palette]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle' \
+    "${temporary_dir}/gameplay.gif"
+gifsicle -O3 --lossy=45 --colors 96 \
+    "${temporary_dir}/gameplay.gif" -o "${output_dir}/gameplay.gif"
 
 printf 'README Godot media: %s\n' "${output_dir}"

@@ -270,9 +270,9 @@ not rules. Imported projects may contain general boolean, integer, or text
 world-value comparisons; the creator preserves and labels them as advanced.
 The portable source format has no general action that sets those values, so the
 creator deliberately does not offer a raw key/value form that would create an
-unreachable route. The included graphics profiles use a replaceable asset
-contract, but the creator currently works with the included art library rather
-than importing external art packs.
+unreachable route. The Godot presentation uses a replaceable asset contract,
+but the creator currently works with the included art library rather than
+importing external art packs.
 
 Projects exported by Grandleon 0.2 remain compatible. Export the project from
 the browser editor as a `.grandleon.zip`, place it in the import inbox, and use

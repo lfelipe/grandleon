@@ -12,7 +12,10 @@ const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const PresentationSettings = preload("res://scripts/presentation_settings.gd")
 const PLAYER_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const MODES := ["move", "attack", "ability", "talk"]
-const GRAPHICS_PROFILES := ["pixel", "diorama", "voxel-sprites", "voxel"]
+const PUBLIC_GRAPHICS_PROFILES := ["voxel-sprites"]
+const DIAGNOSTIC_GRAPHICS_PROFILES := [
+	"pixel", "diorama", "voxel-sprites", "voxel"
+]
 
 var session
 var board: Node
@@ -121,7 +124,6 @@ var session_menu_resume: Button
 var session_menu_projects: Button
 var session_menu_save_load: Button
 var session_menu_settings_button: Button
-var session_menu_graphics: Button
 var session_menu_camera: Button
 var session_menu_text: Button
 var session_menu_stick: Button
@@ -154,7 +156,7 @@ func _ready() -> void:
 	presentation_settings = PresentationSettings.new()
 	var stored_settings: Dictionary = {}
 	if _use_presentation_settings():
-		stored_settings = presentation_settings.load_settings(GRAPHICS_PROFILES)
+		stored_settings = presentation_settings.load_settings(PUBLIC_GRAPHICS_PROFILES)
 	stick_mode = String(stored_settings.get("stick_mode", "deliberate"))
 	PCNavigation.configure(
 		controls.stick_press_threshold(), controls.stick_release_threshold(), stick_mode
@@ -404,7 +406,9 @@ func _use_presentation_settings() -> bool:
 
 
 func _run_presentation_settings_smoke() -> void:
-	var expected_profile := "pixel" if presentation_settings_smoke == "cli" else "voxel"
+	var expected_profile := (
+		"pixel" if presentation_settings_smoke == "cli" else "voxel-sprites"
+	)
 	var valid := (
 		graphics_profile == expected_profile
 		and not camera_impulse_enabled
@@ -422,9 +426,11 @@ func _run_presentation_settings_smoke() -> void:
 		return
 	if presentation_settings_smoke == "cli":
 		_set_camera_impulse_enabled(true)
-		var saved: Dictionary = presentation_settings.load_settings(GRAPHICS_PROFILES)
+		var saved: Dictionary = presentation_settings.load_settings(
+			PUBLIC_GRAPHICS_PROFILES
+		)
 		valid = (
-			String(saved.get("graphics_profile", "")) == "voxel"
+			String(saved.get("graphics_profile", "")) == "voxel-sprites"
 			and bool(saved.get("camera_impulse", false))
 			and is_equal_approx(float(saved.get("text_scale", 0.0)), 1.15)
 			and is_equal_approx(float(saved.get("effects_level", -1.0)), 0.45)
@@ -692,7 +698,7 @@ func _run_demo_reel() -> void:
 	if _dialogue_visible():
 		if now >= demo_reel_next_msec:
 			_advance_dialogue()
-			demo_reel_next_msec = now + 1150
+			demo_reel_next_msec = now + 700
 		return
 	if snapshot.is_empty() or snapshot.get("deploying", false):
 		return
@@ -718,6 +724,8 @@ func _run_demo_reel() -> void:
 			if unit.get("has_acted", false) or _unit_is_pending(int(unit.id)):
 				continue
 			_submit("wait", int(unit.id))
+			demo_reel_next_msec = now + 350
+			return
 		demo_reel_phase = 2
 		demo_reel_next_msec = now + 2400
 
@@ -756,7 +764,7 @@ func _run_graphics_cycle_smoke() -> void:
 	var now := Time.get_ticks_msec()
 	if now < graphics_cycle_smoke_next_msec:
 		return
-	if graphics_cycle_smoke_index >= GRAPHICS_PROFILES.size():
+	if graphics_cycle_smoke_index >= DIAGNOSTIC_GRAPHICS_PROFILES.size():
 		print("live graphics profile cycle passed")
 		get_tree().quit()
 		return
@@ -764,7 +772,7 @@ func _run_graphics_cycle_smoke() -> void:
 		_cycle_unit(0, 1)
 	_set_camera_impulse_enabled(graphics_cycle_smoke_index >= 2)
 	_set_text_scale(1.15 if graphics_cycle_smoke_index >= 2 else 1.0)
-	_set_graphics_profile(GRAPHICS_PROFILES[graphics_cycle_smoke_index])
+	_set_graphics_profile(DIAGNOSTIC_GRAPHICS_PROFILES[graphics_cycle_smoke_index])
 	if not _board_matches_current_state() or not _font_sizes_match():
 		push_error("live graphics profile did not preserve its display state")
 		get_tree().quit(2)
@@ -971,13 +979,6 @@ func _set_graphics_profile(requested: String) -> void:
 	_persist_presentation_settings()
 
 
-func _cycle_graphics_profile() -> void:
-	var index := GRAPHICS_PROFILES.find(graphics_profile)
-	_set_graphics_profile(
-		GRAPHICS_PROFILES[wrapi(index + 1, 0, GRAPHICS_PROFILES.size())]
-	)
-
-
 func _toggle_camera_impulse() -> void:
 	_set_camera_impulse_enabled(not camera_impulse_enabled)
 
@@ -1044,7 +1045,7 @@ func _persist_presentation_settings() -> void:
 		persistent_graphics_profile,
 		camera_impulse_enabled,
 		text_scale,
-		GRAPHICS_PROFILES,
+		PUBLIC_GRAPHICS_PROFILES,
 		effects_level,
 		stick_mode
 	):
@@ -1066,8 +1067,6 @@ func _update_session_labels() -> void:
 		title_label.text = "GRANDLEON  /  " + (
 			current_stage_name.to_upper() if not current_stage_name.is_empty() else name
 		)
-	if session_menu_graphics != null:
-		session_menu_graphics.text = "GRAPHICS  /  %s" % name
 	if session_menu_camera != null:
 		session_menu_camera.text = "CAMERA IMPULSE  /  %s" % (
 			"ON" if camera_impulse_enabled else "OFF"
@@ -1368,9 +1367,6 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 
 	session_menu_settings = _session_menu_page()
 	column.add_child(session_menu_settings)
-	session_menu_graphics = _settings_button("")
-	session_menu_graphics.pressed.connect(_cycle_graphics_profile)
-	session_menu_settings.add_child(session_menu_graphics)
 	session_menu_camera = _settings_button("")
 	session_menu_camera.pressed.connect(_toggle_camera_impulse)
 	session_menu_settings.add_child(session_menu_camera)

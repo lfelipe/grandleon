@@ -2362,7 +2362,11 @@ public:
     ) override {
 #ifdef GRANDLEON_N64_PROBE
         static_cast<void>(roster);
+#ifdef GRANDLEON_N64_README
+        const client::Intent intent = readme_intent(snapshot);
+#else
         const client::Intent intent = probe_intent(snapshot);
+#endif
 #else
         const client::Intent intent = controller_intent(snapshot, roster);
 #endif
@@ -7619,6 +7623,51 @@ private:
 #endif
 
 #ifdef GRANDLEON_N64_PROBE
+#ifdef GRANDLEON_N64_README
+    // Hold the first Emberbound battle exactly where the Godot and PlayStation
+    // documentation captures hold it. The checkpoint lets the emulator take a
+    // real frame before the scripted run exits.
+    client::Intent readme_intent(const sim::EncounterSnapshot& snapshot) {
+        client::Intent intent;
+        intent.kind = client::IntentKind::quit;
+        if (readme_done_) return intent;
+        readme_done_ = true;
+
+        const auto occupied_by = [&snapshot](sim::Side side, int x, int y) {
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (sim::on_board(unit) && unit.side == side &&
+                    unit.position.x == x && unit.position.y == y) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        expect(
+            snapshot.width == 9 && snapshot.height == 6,
+            "the README board is Rowanfield"
+        );
+        expect(
+            occupied_by(sim::Side::first, 1, 2) &&
+                occupied_by(sim::Side::first, 1, 3),
+            "both Emberbound heroes are at their opening positions"
+        );
+        expect(
+            occupied_by(sim::Side::second, 6, 2) &&
+                occupied_by(sim::Side::second, 6, 3) &&
+                occupied_by(sim::Side::second, 7, 3),
+            "the scaled opponents are at their opening positions"
+        );
+        report_line("CHECKPOINT readme\n");
+        for (int held = 0; held < 180; ++held) wait_ms(16);
+        report_line(
+            "RESULT %s %d/%d\n",
+            failures == 0 ? "PASS" : "FAIL", checks - failures, checks
+        );
+        return intent;
+    }
+    bool readme_done_{false};
+#endif
+
     client::Intent probe_intent(const sim::EncounterSnapshot& snapshot) {
         if (probe_step_ >= spent_probe_step) return spent_probe(snapshot);
         if (probe_step_ == 0) {
@@ -8483,7 +8532,7 @@ private:
         static_cast<int>(kind_named(shimmered_terrain));
 };
 
-#ifdef GRANDLEON_N64_PROBE
+#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README)
 // One board played for the renderer's sake, before the campaign's own.
 //
 // A character who has taken their turn is drawn greyed, and on a board whose
@@ -8976,7 +9025,9 @@ int main() {
     joypad_init();
     grandleon::n64audio::init();
 #endif
-#if !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
+#if defined(GRANDLEON_N64_README)
+    constexpr std::uint8_t local_players = 2;
+#elif !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
     const std::uint8_t local_players =
         joypad_is_connected(JOYPAD_PORT_2) ? 2U : 1U;
 #else
@@ -9249,7 +9300,7 @@ int main() {
 #ifdef GRANDLEON_N64_AUTOPILOT
         autopilot_presenter = &presenter;
 #endif
-#ifdef GRANDLEON_N64_PROBE
+#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README)
         probe_the_spent_figure(loaded.package, presenter);
 #endif
 #ifdef GRANDLEON_N64_CAMPAIGN

@@ -1,25 +1,22 @@
-# Godot graphics profiles
+# Godot presentation
 
-Grandleon keeps presentation separate from game rules. A graphics profile may
-change the renderer, camera, lighting, animation sheets, terrain scenes, and
-effects without changing a campaign or its simulation.
+Grandleon keeps presentation separate from game rules. The supported Godot
+presentation may change its camera, lighting, animation sheets, terrain scenes,
+and effects without changing a campaign or its simulation.
 
-## Included profiles
+## Supported presentation
 
-| Profile | Terrain | Characters | Purpose |
-|---|---|---|---|
-| **Voxel + Sprites** | Authored 3D scenes | High-resolution animated sprites | Recommended PC presentation |
-| **Full Voxel** | Authored 3D scenes | Imported or procedural 3D models | 3D character pipeline and fallback |
-| **3D Diorama + Sprites** | Procedural 3D board | Portable animated sprites | Simple depth with the shared art library |
-| **Pixel 2D** | Portable terrain atlas | Portable animated sprites | Smallest and closest to the console art lineage |
+**Voxel + Sprites** combines authored 3D terrain scenes with high-resolution
+animated character sheets. It is the only presentation offered in player
+settings and the one shown throughout the human-facing documentation.
 
-The player can switch profiles from Settings without restarting the campaign.
-The board, cursors, selected characters, legal actions, and authoritative
-snapshot remain the same.
+Pixel 2D, 3D Diorama, and Full Voxel remain compiled as internal diagnostic
+renderers. Focused smoke tests use them to exercise fallback assets and the 3D
+model pipeline, but they are not release options or advertised art directions.
 
 ## Current art coverage
 
-The recommended profile binds authored scenes for all thirteen terrain kinds:
+The supported presentation binds authored scenes for all thirteen terrain kinds:
 grass, farmland, sand, snow, swamp, hills, bamboo, forest, mountain, water,
 road, paved, and ruins. Road selects a bridge scene when it crosses water.
 
@@ -27,10 +24,6 @@ Its high-resolution sci-fi roster covers all eight archetypes: knight, archer,
 mage, stormcaller, healer, commander, rogue, and beast. Each sheet provides
 idle, movement, attack, ability, and hurt/defeat poses. The complete animated
 roster is visible in [the artwork guide](../../docs/ARTWORK.md).
-
-Full Voxel currently includes imported animated models for commander, rogue,
-stormcaller, and beast. Other archetypes use the procedural 3D fallback. This
-is an honest fallback path, not a claim that the authored 3D roster is complete.
 
 ## Replacement contract
 
@@ -53,16 +46,16 @@ after the built-in art directions and preview workflow are complete.
 
 ## Capture and validation
 
-Capture all four profiles from the same campaign state:
+Exercise every internal renderer against the same campaign state:
 
 ```sh
 platform/godot/scripts/capture-graphics-prototypes.sh
 ```
 
-Record the automated Godot gameplay reel:
+Rebuild the supported presentation image and gameplay reel used by the README:
 
 ```sh
-platform/godot/scripts/record-demo-reel.sh
+platform/godot/scripts/capture-readme-media.sh
 ```
 
 Validate the manifest, terrain scenes, sprite dimensions, animation frames,

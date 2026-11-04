@@ -116,6 +116,37 @@ add_custom_target(grandleon_n64_play_check
     VERBATIM
 )
 
+# Captures Emberbound's opening Rowanfield battle for the README. This is a
+# dedicated build directory so a documentation refresh cannot replace the
+# ordinary Tarnholt check artifacts.
+set(grandleon_n64_readme_build_dir
+    "${CMAKE_CURRENT_SOURCE_DIR}/build-n64-readme"
+)
+add_custom_target(grandleon_n64_readme_capture
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}
+        "GRANDLEON_N64_BUILD_DIR=${grandleon_n64_readme_build_dir}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/build-n64.sh"
+        --project
+        "${CMAKE_CURRENT_SOURCE_DIR}/games/emberbound/source/project.json"
+        --targets grandleon_n64_readme
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "GRANDLEON_DOCKER=${GRANDLEON_DOCKER}"
+        "GRANDLEON_N64_BUILD_DIR=${grandleon_n64_readme_build_dir}"
+        "GRANDLEON_N64_ARES_SECONDS=180"
+        "GRANDLEON_N64_ARES_LOG=readme.log"
+        "GRANDLEON_N64_ARES_TRAIL=trail-readme"
+        "GRANDLEON_N64_ARES_SHOT=readme.png"
+        "GRANDLEON_N64_ARES_MIN_CHECKS=1"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/ares/run-ares.sh"
+        "${grandleon_n64_readme_build_dir}/platform/nintendo64/grandleon_n64_readme.z64"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Capturing Emberbound's opening battle on Nintendo 64"
+    USES_TERMINAL
+    VERBATIM
+)
+
 # Builds every ROM and replays the campaign's autopilot under ares: a
 # deterministic script of synthetic controller input drives the real
 # interactive screens (title, cutscenes, unit selection, the movement and

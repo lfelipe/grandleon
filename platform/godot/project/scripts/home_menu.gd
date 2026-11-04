@@ -4,7 +4,7 @@ extends Control
 const ControlProfile = preload("res://scripts/control_profile.gd")
 const PresentationSettings = preload("res://scripts/presentation_settings.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
-const GRAPHICS_PROFILES := ["pixel", "diorama", "voxel-sprites", "voxel"]
+const GRAPHICS_PROFILES := ["voxel-sprites"]
 
 var library
 var compiler

@@ -464,3 +464,29 @@ add_custom_target(grandleon_playstation_render_check
     USES_TERMINAL
     VERBATIM
 )
+
+# The matching Emberbound opening board for the README. The render harness
+# still verifies every claimed pixel; the screenshot script only crops away
+# the diagnostic backdrop outside the board after that check passes.
+set(grandleon_playstation_readme_build_dir
+    "${CMAKE_CURRENT_SOURCE_DIR}/build-playstation-readme"
+)
+add_custom_target(grandleon_playstation_readme_capture
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_build_env}
+        "GRANDLEON_PLAYSTATION_BUILD_DIR=${grandleon_playstation_readme_build_dir}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-playstation.sh"
+        --project
+        "${CMAKE_CURRENT_SOURCE_DIR}/games/emberbound/source/project.json"
+        --targets
+        grandleon_playstation_conformance,grandleon_playstation_readme
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_run_env}
+        "GRANDLEON_PLAYSTATION_BUILD_DIR=${grandleon_playstation_readme_build_dir}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/run-playstation-render.sh"
+        grandleon_psx_readme
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Capturing Emberbound's opening battle on PlayStation"
+    USES_TERMINAL
+    VERBATIM
+)

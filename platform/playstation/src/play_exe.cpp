@@ -119,6 +119,15 @@ using psx::Line;
 #endif
 constexpr const char* encounter_path = GRANDLEON_PLAYSTATION_ENCOUNTER;
 
+#ifndef GRANDLEON_PLAYSTATION_LOCAL_PLAYERS
+#define GRANDLEON_PLAYSTATION_LOCAL_PLAYERS 1
+#endif
+static_assert(
+    GRANDLEON_PLAYSTATION_LOCAL_PLAYERS == 1 ||
+        GRANDLEON_PLAYSTATION_LOCAL_PLAYERS == 2,
+    "the static renderer supports one or two local players"
+);
+
 // The backdrop, and why it is this colour. Nothing the art library can draw is
 // (31, 0, 31), because the master palette's 124 entries stay 124 distinct
 // colours at five bits per channel and none of them is that one. A probe that
@@ -417,7 +426,10 @@ int main() {
     expect(static_cast<bool>(presentation), "the presentation section reads");
 
     const std::uint64_t encounter_id = core::stable_content_id_v1(encounter_path);
-    const auto encounter_load = pr::load_encounter(loaded.package, encounter_id);
+    const auto encounter_load = pr::load_encounter(
+        loaded.package, encounter_id,
+        {static_cast<std::uint8_t>(GRANDLEON_PLAYSTATION_LOCAL_PLAYERS)}
+    );
     expect(static_cast<bool>(encounter_load), "the encounter loads");
     if (!encounter_load) give_up();
 

@@ -131,7 +131,12 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 		return {}
 	var profile := String(document.get("graphicsProfile", ""))
 	if not available_profiles.has(profile):
-		return {}
+		# A removed presentation choice must not discard unrelated accessibility
+		# and control preferences. A release with one supported profile can move
+		# the old choice to that profile without ambiguity.
+		if available_profiles.size() != 1:
+			return {}
+		profile = String(available_profiles[0])
 	if typeof(document.get("cameraImpulse")) != TYPE_BOOL:
 		return {}
 	var scale_value: Variant = document.get("textScale")
