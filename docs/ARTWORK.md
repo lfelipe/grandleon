@@ -23,9 +23,14 @@ across the other styles and themes. The growing mythical set currently has:
 | Knight · female (`second`) · blue | ![The blue female mythical knight idles, walks, attacks, raises a ward, and reacts to a hit](screenshots/art-roster/mythical-knight-female.gif) |
 | Archer · male (`first`) · violet | ![The violet male mythical archer idles, walks, fires an arrow, uses an enchanted shot, and reacts to a hit](screenshots/art-roster/mythical-archer-male.gif) |
 | Archer · female (`second`) · violet | ![The violet female mythical archer idles, walks, fires an arrow, uses an enchanted shot, and reacts to a hit](screenshots/art-roster/mythical-archer.gif) |
+| Mage · male (`first`) · green | ![The green male mythical mage idles, walks, casts, expands an arcane ring, and reacts to a hit](screenshots/art-roster/mythical-mage-male.gif) |
+| Mage · female (`second`) · green | ![The green female mythical mage idles, walks, casts, opens an arcane crescent, and reacts to a hit](screenshots/art-roster/mythical-mage-female.gif) |
+| Healer · male (`first`) · amber | ![The amber male mythical healer idles, walks, attacks, blesses, and reacts to a hit](screenshots/art-roster/mythical-healer-male.gif) |
+| Healer · female (`second`) · amber | ![The amber female mythical healer idles, walks, attacks, blesses, and reacts to a hit](screenshots/art-roster/mythical-healer-female.gif) |
 
-These are finished 0.4 characters, not a claim that the mythical roster is
-complete. The names describe their portable art identity, not a campaign.
+These four finished body pairs are the first half of the mythical roster, not a
+claim that the theme is complete. The names describe their portable art
+identity, not a campaign.
 Identities without a curated high-resolution sheet continue to use the portable
 generated library, so every valid project remains playable while the new sets
 are built out.
@@ -38,11 +43,17 @@ to people as **Male** and **Female**. The portable generated library already
 draws both bodies for every archetype, style, and faction colour.
 
 The high-resolution 0.4 roster will use one male and one female source sheet per
-archetype and style. It should not require six separately painted copies of
-each body. Each source sheet will instead have a grayscale team-colour mask;
-Godot can recolour only the marked cloth and armour into blue, red, green,
-violet, amber, or bone, then cache the resulting texture. Faces, hair, weapons,
-and spell effects remain unchanged.
+archetype and style. These are independent character designs, not the same
+costume placed on two bodies: faces, hair, stature, clothing construction,
+equipment styling, and silhouettes may all differ. What stays consistent is
+the archetype, the eight-action sheet contract, equipment handedness where the
+renderer depends on it, and a large readable team-colour region.
+
+It should not require six separately painted colour copies of each body. Each
+source sheet will instead have a grayscale team-colour mask; Godot can recolour
+only the marked cloth and armour into blue, red, green, violet, amber, or bone,
+then cache the resulting texture. Faces, hair, weapons, and spell effects remain
+unchanged.
 
 That mask pipeline is the next renderer step. Until it lands, high-resolution
 bindings still name one exact colour and body, and every missing combination
