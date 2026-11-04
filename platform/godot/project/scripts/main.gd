@@ -2905,7 +2905,7 @@ func _show_dialogue_line() -> void:
 	if line.has("archetype"):
 		var portrait_frame := art.character_frame(line, "idle")
 		var portrait := AtlasTexture.new()
-		portrait.atlas = art.texture(String(portrait_frame.path))
+		portrait.atlas = art.character_frame_texture(portrait_frame)
 		var portrait_size: Vector2i = portrait_frame.cell_size
 		portrait.region = Rect2(Vector2.ZERO, Vector2(portrait_size))
 		dialogue_portrait.texture = portrait

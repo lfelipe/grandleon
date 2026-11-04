@@ -614,7 +614,7 @@ func _apply_sprite_frame(
 	var info := art.character_frame(
 		unit, state, float(maxi(0, now_msec - started)) / 1000.0
 	)
-	sprite.texture = art.texture(String(info.path))
+	sprite.texture = art.character_frame_texture(info)
 	sprite.hframes = int(info.columns)
 	sprite.vframes = int(info.rows)
 	sprite.frame = int(info.frame)

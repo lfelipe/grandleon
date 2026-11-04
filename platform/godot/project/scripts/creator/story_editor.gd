@@ -452,7 +452,7 @@ func _refresh_scene_preview() -> void:
 		return
 	var frame: Dictionary = art.character_frame(resolved, "idle")
 	var portrait := AtlasTexture.new()
-	portrait.atlas = art.texture(str(frame.path))
+	portrait.atlas = art.character_frame_texture(frame)
 	portrait.region = Rect2(Vector2.ZERO, Vector2(frame.cell_size))
 	preview_portrait.texture = portrait
 

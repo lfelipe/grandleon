@@ -347,7 +347,7 @@ func _refresh_member() -> void:
 	if preview.ok:
 		var frame: Dictionary = art.character_frame(preview, "idle")
 		var image := AtlasTexture.new()
-		image.atlas = art.texture(str(frame.path))
+		image.atlas = art.character_frame_texture(frame)
 		image.region = Rect2(Vector2.ZERO, Vector2(frame.cell_size))
 		portrait.texture = image
 	preview_label.text = str(member.get("name", "CHARACTER")).to_upper()

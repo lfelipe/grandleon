@@ -23,6 +23,15 @@ const ARCHETYPE_NAMES := [
 	"rogue", "beast"
 ]
 const COLOUR_NAMES := ["blue", "red", "green", "violet", "amber", "bone"]
+const DEFAULT_TEAM_COLOURS := {
+	"blue": Color("2375a9"),
+	"red": Color("b3483f"),
+	"green": Color("2c8a48"),
+	"violet": Color("6b42a3"),
+	"amber": Color("bc8325"),
+	"bone": Color("9e9886"),
+}
+const TEAM_TEXTURE_CACHE_LIMIT := 24
 const STYLE_NAMES := [
 	"medieval", "scifi", "mythical", "nature", "sengoku", "undead",
 	"pirates"
@@ -30,6 +39,9 @@ const STYLE_NAMES := [
 
 var _manifest: Dictionary = {}
 var _textures: Dictionary = {}
+var _team_textures: Dictionary = {}
+var _team_texture_order: Array[String] = []
+var _team_colours: Dictionary = DEFAULT_TEAM_COLOURS.duplicate()
 var _mask_to_variant: Array = []
 var _character_assets: Dictionary = {}
 var _character_sprite_overrides: Dictionary = {}
@@ -76,7 +88,50 @@ func terrain_kind_for_source(name: String) -> int:
 
 
 func character_texture(unit: Dictionary) -> Texture2D:
-	return texture(String(character_frame(unit, "idle").path))
+	return character_frame_texture(character_frame(unit, "idle"))
+
+
+# Masked sheets are recoloured once and shared by the 2D board, Sprite3D
+# figures, creator previews and portraits. This avoids four renderer-specific
+# material paths while preserving the same Texture2D contract everywhere.
+func character_frame_texture(frame: Dictionary) -> Texture2D:
+	var path := String(frame.get("path", ""))
+	var source := texture(path)
+	var mask_path := String(frame.get("team_mask_path", ""))
+	var colour_name := String(frame.get("team_colour", ""))
+	if source == null or mask_path.is_empty() or not _team_colours.has(colour_name):
+		return source
+	var colour: Color = _team_colours[colour_name]
+	var cache_key := "%s|%s|%s" % [
+		path, mask_path, colour.to_html(false),
+	]
+	if _team_textures.has(cache_key):
+		_team_texture_order.erase(cache_key)
+		_team_texture_order.append(cache_key)
+		return _team_textures[cache_key]
+	var mask := texture(mask_path)
+	if mask == null:
+		return source
+	var source_image := source.get_image()
+	var mask_image := mask.get_image()
+	if (
+		source_image == null or mask_image == null
+		or source_image.get_size() != mask_image.get_size()
+	):
+		return source
+	var recoloured := _recolour_image(source_image, mask_image, colour)
+	if recoloured == null:
+		return source
+	var result := ImageTexture.create_from_image(recoloured)
+	while _team_texture_order.size() >= TEAM_TEXTURE_CACHE_LIMIT:
+		_team_textures.erase(_team_texture_order.pop_front())
+	_team_textures[cache_key] = result
+	_team_texture_order.append(cache_key)
+	return result
+
+
+func team_colour(name: String) -> Color:
+	return _team_colours.get(name, Color.WHITE)
 
 
 func character_frame(unit: Dictionary, state := "idle", elapsed := 0.0) -> Dictionary:
@@ -124,6 +179,10 @@ func character_frame(unit: Dictionary, state := "idle", elapsed := 0.0) -> Dicti
 		"pivot": _character_pivot(override),
 		"faces_right": bool(entry.get("facesRight", true)),
 		"directional_flip": bool(entry.get("directionalFlip", true)),
+		"team_mask_path": String(entry.get("_team_mask_path", "")),
+		"team_colour": _resolved_name(
+			COLOUR_NAMES, int(unit.get("colour", 0)), 0
+		),
 	}
 
 
@@ -133,6 +192,18 @@ func character_frame(unit: Dictionary, state := "idle", elapsed := 0.0) -> Dicti
 # independently to the generated roster.
 func configure_profile(config: Dictionary) -> void:
 	_character_sprite_overrides.clear()
+	_team_textures.clear()
+	_team_texture_order.clear()
+	_team_colours = DEFAULT_TEAM_COLOURS.duplicate()
+	var sprite_value: Variant = config.get("sprite", {})
+	if sprite_value is Dictionary:
+		var colours_value: Variant = sprite_value.get("teamColours", {})
+		if colours_value is Dictionary:
+			for name: String in COLOUR_NAMES:
+				if colours_value.has(name):
+					_team_colours[name] = Color.from_string(
+						String(colours_value[name]), _team_colours[name]
+					)
 	var assets_value: Variant = config.get("assets", {})
 	if not assets_value is Dictionary:
 		return
@@ -146,7 +217,9 @@ func configure_profile(config: Dictionary) -> void:
 		var entry: Dictionary = value
 		if not _valid_character_sprite(entry):
 			continue
-		_character_sprite_overrides[String(key_value)] = entry.duplicate(true)
+		var resolved := entry.duplicate(true)
+		resolved["_team_mask_path"] = _valid_team_mask_path(resolved)
+		_character_sprite_overrides[String(key_value)] = resolved
 
 
 func _valid_character_sprite(entry: Dictionary) -> bool:
@@ -177,7 +250,101 @@ func _valid_character_sprite(entry: Dictionary) -> bool:
 
 
 func _character_sprite_override(unit: Dictionary) -> Dictionary:
-	return _character_sprite_overrides.get(_character_identity_key(unit), {})
+	var exact_key := _character_identity_key(unit)
+	if _character_sprite_overrides.has(exact_key):
+		return _character_sprite_overrides[exact_key]
+	var fields := exact_key.split("|")
+	if fields.size() == 4:
+		fields[1] = "*"
+		return _character_sprite_overrides.get("|".join(fields), {})
+	return {}
+
+
+# `teamMaskPath` is optional. A malformed, missing or differently-sized mask
+# disables recolouring for this one binding without rejecting its source art.
+func _valid_team_mask_path(entry: Dictionary) -> String:
+	var value: Variant = entry.get(
+		"teamMaskPath", entry.get("team_mask_path", "")
+	)
+	if typeof(value) != TYPE_STRING:
+		return ""
+	var mask_path := String(value)
+	if (
+		not mask_path.begins_with("res://")
+		or not ResourceLoader.exists(mask_path, "Texture2D")
+	):
+		return ""
+	var source_path := String(entry.get("path", ""))
+	var source := ResourceLoader.load(source_path, "Texture2D") as Texture2D
+	var mask := ResourceLoader.load(mask_path, "Texture2D") as Texture2D
+	if source == null or mask == null or source.get_size() != mask.get_size():
+		return ""
+	return mask_path
+
+
+# Mask alpha is the blend weight for transparent cut-out masks. Fully opaque
+# grayscale masks use their luminance instead, so both common authoring styles
+# work. The tint travels through black, the faction midtone and white; because
+# those interpolation points have luminance 0, L and 1, source luminance is
+# retained while shadows and highlights remain intact.
+func _recolour_image(
+	source_value: Image, mask_value: Image, colour: Color
+) -> Image:
+	if (
+		source_value == null or mask_value == null
+		or source_value.get_size() != mask_value.get_size()
+	):
+		return null
+	var source := source_value.duplicate()
+	var mask := mask_value.duplicate()
+	source.convert(Image.FORMAT_RGBA8)
+	mask.convert(Image.FORMAT_RGBA8)
+	var source_bytes: PackedByteArray = source.get_data()
+	var mask_bytes: PackedByteArray = mask.get_data()
+	var alpha_mask: bool = mask.detect_alpha() != Image.ALPHA_NONE
+	for offset in range(0, source_bytes.size(), 4):
+		var weight := float(mask_bytes[offset + 3]) / 255.0
+		if not alpha_mask:
+			weight = _luminance(Color8(
+				mask_bytes[offset], mask_bytes[offset + 1],
+				mask_bytes[offset + 2]
+			))
+		if weight <= 0.0:
+			continue
+		var source_colour := Color8(
+			source_bytes[offset], source_bytes[offset + 1],
+			source_bytes[offset + 2], source_bytes[offset + 3]
+		)
+		var tinted := _tint_for_luminance(colour, _luminance(source_colour))
+		source_bytes[offset] = roundi(
+			lerpf(source_colour.r, tinted.r, weight) * 255.0
+		)
+		source_bytes[offset + 1] = roundi(
+			lerpf(source_colour.g, tinted.g, weight) * 255.0
+		)
+		source_bytes[offset + 2] = roundi(
+			lerpf(source_colour.b, tinted.b, weight) * 255.0
+		)
+	return Image.create_from_data(
+		source.get_width(), source.get_height(), false,
+		Image.FORMAT_RGBA8, source_bytes
+	)
+
+
+func _tint_for_luminance(colour: Color, luminance: float) -> Color:
+	var base_luminance := _luminance(colour)
+	if luminance <= base_luminance:
+		return Color.BLACK.lerp(
+			colour, luminance / maxf(base_luminance, 0.0001)
+		)
+	return colour.lerp(
+		Color.WHITE,
+		(luminance - base_luminance) / maxf(1.0 - base_luminance, 0.0001)
+	)
+
+
+func _luminance(colour: Color) -> float:
+	return colour.r * 0.2126 + colour.g * 0.7152 + colour.b * 0.0722
 
 
 func _resolved_character_sequence(state: String, override: Dictionary) -> Dictionary:

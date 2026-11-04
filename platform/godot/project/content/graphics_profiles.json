@@ -26,7 +26,15 @@
       "shadowRadius": 0.27,
       "shadowOpacity": 0.46,
       "healthBarHeight": 1.03,
-      "healthBarScale": 0.011
+      "healthBarScale": 0.011,
+      "teamColours": {
+        "blue": "2375a9",
+        "red": "b3483f",
+        "green": "2c8a48",
+        "violet": "6b42a3",
+        "amber": "bc8325",
+        "bone": "9e9886"
+      }
     },
     "surfaceHeights": {
       "default": 0.10,
@@ -329,8 +337,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "knight|blue|mythical|first": {
+          "knight|*|mythical|first": {
             "path": "res://art/characters/mythical_knight_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_knight_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -351,8 +360,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "knight|blue|mythical|second": {
+          "knight|*|mythical|second": {
             "path": "res://art/characters/mythical_knight_female_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_knight_female_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -373,8 +383,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "archer|violet|mythical|first": {
+          "archer|*|mythical|first": {
             "path": "res://art/characters/mythical_archer_male_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_archer_male_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -395,8 +406,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "archer|violet|mythical|second": {
+          "archer|*|mythical|second": {
             "path": "res://art/characters/mythical_archer_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_archer_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -417,8 +429,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "mage|green|mythical|first": {
+          "mage|*|mythical|first": {
             "path": "res://art/characters/mythical_mage_male_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_mage_male_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -439,8 +452,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "mage|green|mythical|second": {
+          "mage|*|mythical|second": {
             "path": "res://art/characters/mythical_mage_female_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_mage_female_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -461,8 +475,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "healer|amber|mythical|first": {
+          "healer|*|mythical|first": {
             "path": "res://art/characters/mythical_healer_male_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_healer_male_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -483,8 +498,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "healer|amber|mythical|second": {
+          "healer|*|mythical|second": {
             "path": "res://art/characters/mythical_healer_female_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_healer_female_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -505,8 +521,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "commander|blue|mythical|first": {
+          "commander|*|mythical|first": {
             "path": "res://art/characters/mythical_commander_male_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_commander_male_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -527,8 +544,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "commander|blue|mythical|second": {
+          "commander|*|mythical|second": {
             "path": "res://art/characters/mythical_commander_female_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_commander_female_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -549,8 +567,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "stormcaller|red|mythical|first": {
+          "stormcaller|*|mythical|first": {
             "path": "res://art/characters/mythical_stormcaller_male_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_stormcaller_male_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -571,8 +590,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "stormcaller|red|mythical|second": {
+          "stormcaller|*|mythical|second": {
             "path": "res://art/characters/mythical_stormcaller_female_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_stormcaller_female_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -593,8 +613,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "rogue|violet|mythical|first": {
+          "rogue|*|mythical|first": {
             "path": "res://art/characters/mythical_rogue_male_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_rogue_male_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -615,8 +636,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "rogue|violet|mythical|second": {
+          "rogue|*|mythical|second": {
             "path": "res://art/characters/mythical_rogue_female_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_rogue_female_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -637,8 +659,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "beast|bone|mythical|first": {
+          "beast|*|mythical|first": {
             "path": "res://art/characters/mythical_beast_male_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_beast_male_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,
@@ -659,8 +682,9 @@
               "defeat": {"frames": [7]}
             }
           },
-          "beast|bone|mythical|second": {
+          "beast|*|mythical|second": {
             "path": "res://art/characters/mythical_beast_female_hd.png",
+            "teamMaskPath": "res://art/characters/mythical_beast_female_hd_team_mask.png",
             "width": 1772,
             "height": 886,
             "columns": 4,

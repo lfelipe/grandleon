@@ -3330,7 +3330,7 @@ func _refresh_look_preview() -> void:
 		return
 	var frame: Dictionary = art.character_frame(preview, "idle")
 	var image := AtlasTexture.new()
-	image.atlas = art.texture(str(frame.path))
+	image.atlas = art.character_frame_texture(frame)
 	image.region = Rect2(Vector2.ZERO, Vector2(frame.cell_size))
 	look_character_preview.texture = image
 	look_character_label.text = str(unit.get("name", "CHARACTER")).to_upper()

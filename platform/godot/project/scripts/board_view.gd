@@ -541,7 +541,7 @@ func _draw_units() -> void:
 			float(cell_size.x), float(cell_size.y)
 		)
 		_draw_character_frame(
-			art.texture(String(frame_info.path)), destination, source, flip_h
+			art.character_frame_texture(frame_info), destination, source, flip_h
 		)
 		if now < int(_event_flash_until.get(id, 0)):
 			var flash: Color = _event_flash_colours.get(id, Color.WHITE)
