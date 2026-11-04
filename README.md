@@ -92,6 +92,9 @@ rest of the documentation describes the current Godot application.
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
 
+The concrete presentation experiments currently in progress are kept in the
+short [development TODO](TODO.md).
+
 ## Build and run from source
 
 To build the same self-contained Linux application used by players and authors:
@@ -143,6 +146,7 @@ and playtest progress do not.
 |---|---|
 | make a campaign | [Creating a game](docs/CREATING_A_GAME.md) |
 | inspect characters, animation, and terrain | [Artwork and animation roster](docs/ARTWORK.md) |
+| see current presentation experiments | [Development TODO](TODO.md) |
 | understand the Godot player and creator | [Godot PC application](platform/godot/README.md) |
 | understand portability and console builds | [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) |
 | set up a development checkout | [Setting up](docs/SETUP.md) |
