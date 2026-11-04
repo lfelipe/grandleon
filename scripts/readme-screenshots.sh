@@ -4,16 +4,15 @@
 # Regenerates the README's screenshots into docs/screenshots/.
 #
 #   scripts/readme-screenshots.sh            all eight
-#   scripts/readme-screenshots.sh editor     just one surface
+#   scripts/readme-screenshots.sh terminal   just one surface
 #
-# Surfaces: editor, terminal, n64, psx, autopilot, psx-turn, n64-showcase,
+# Surfaces: terminal, n64, psx, autopilot, psx-turn, n64-showcase,
 #           psx-showcase, n64-saying.
 #
-# Everything is driven, nothing is hand-cropped: the editor shot comes from
-# Chromium against a production build, the terminal shot from the real client's
-# ANSI output rendered by Chromium, the Nintendo 64 shot from the render probe
-# running under ares, and the PlayStation shot from the first frame its turn
-# check compared, which needs no crop at all because
+# Everything is driven, nothing is posed: the terminal shot comes from the real
+# client's ANSI output rendered by Chromium, the Nintendo 64 shot from the
+# render probe running under ares, and the PlayStation shot from the first frame
+# its turn check compared, which needs no crop at all because
 # `PCSX.GPU.takeScreenShot()` hands over the 320x240 active display and nothing
 # else. Re-run after a visual change and commit the PNGs.
 #
@@ -48,13 +47,6 @@ want() {
 }
 
 surface="${1:-all}"
-
-if [ "${surface}" = "all" ] || [ "${surface}" = "editor" ]; then
-    echo "== editor"
-    (cd "${repository_root}/editor" && npx vite build >/dev/null 2>&1)
-    node "${repository_root}/scripts/readme-shot-editor.mjs" \
-        "${out}/editor.png"
-fi
 
 if [ "${surface}" = "all" ] || [ "${surface}" = "terminal" ]; then
     echo "== terminal"

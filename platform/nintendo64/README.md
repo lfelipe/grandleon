@@ -156,9 +156,9 @@ targets and the four `grandleon.nintendo64*` ctest lanes all ask
 `check-n64.sh` for their check by name, so which ROM runs under what budget is
 written in one place.
 
-Everything runs under **ares**, this console's authoritative emulator by
-decision (`docs/ARES_VALIDATION.md`) and the only pinned harness that can run
-these ROMs at all: the board is drawn through the RDP on libdragon's rspq
+Everything runs under **ares**, this console's authoritative emulator and the
+only pinned harness that can run these ROMs at all: the board is drawn through
+the RDP on libdragon's rspq
 microcode, and ares runs the real pipeline (CPU/RSP recompilers, paraLLEl-RDP
 on software Vulkan) and writes rendered pixels back to RDRAM where the in-ROM
 probes sample them. There is deliberately no second emulator: mupen64plus's

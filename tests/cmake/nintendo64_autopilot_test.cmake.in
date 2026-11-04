@@ -1,8 +1,8 @@
 # Builds the Nintendo 64 ROMs in the pinned libdragon container and replays
 # the campaign autopilot (synthetic controller input through the real
 # interactive screens) under the pinned ares container. ares is the
-# authoritative emulator for this console (docs/ARES_VALIDATION.md), and a ROM that draws
-# through the RDP cannot run anywhere else.
+# authoritative emulator for this console, and the supported check path for a
+# ROM that draws through the RDP.
 #
 # Through `check-n64.sh`, which is where a check gets defined: which ROM, under
 # what budget, including this one's raised budget. So this lane and

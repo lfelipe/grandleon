@@ -121,10 +121,10 @@ add_custom_target(grandleon_n64_play_check
 # interactive screens (title, cutscenes, unit selection, the movement and
 # danger highlights, the action menu, refusal banners) with named
 # framebuffer checkpoints and a screenshot trail in build-n64/ares/trail-<rom>/.
-# ares only, deliberately: it is the authoritative emulator for this console
-# (docs/ARES_VALIDATION.md), and nothing else can run a ROM that draws through the
-# RDP. The budget is raised because the run holds every checkpoint on screen
-# long enough to photograph.
+# ares only, deliberately: it is the authoritative emulator for this console,
+# and nothing else in the supported check path runs a ROM that draws through
+# the RDP. The budget is raised because the run holds every checkpoint on
+# screen long enough to photograph.
 add_custom_target(grandleon_n64_autopilot_check
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}

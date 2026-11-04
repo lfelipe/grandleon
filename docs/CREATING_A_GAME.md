@@ -253,17 +253,16 @@ matching `.bin` and `.cue`. These installed builders work offline and do not
 require Docker, a source checkout, or access to your home directory. A missing
 console payload disables only that console and explains what must be installed.
 The payload host contract is documented in
-[CONSOLE_BUILDER_PAYLOADS.md](CONSOLE_BUILDER_PAYLOADS.md). Candidate payloads
-have passed their automated license, golden-output, and emulator gates. Until
-matching release depots are installed, use the repository release commands in
-[RELEASE_0_3.md](RELEASE_0_3.md).
+[CONSOLE_BUILDER_PAYLOADS.md](CONSOLE_BUILDER_PAYLOADS.md). A release
+installation enables a console target only when its matching payload is
+installed and authenticated.
 
 Projects, imports, exports, creator recovery data, controls, presentation
 settings, and campaign saves live in per-user runtime storage—not the immutable
 Steam installation. No archive contains a username, hostname, absolute path,
 controller identity, credential, network endpoint, or machine-only setting.
 
-## What is still advanced or pending for 0.3
+## Current boundaries
 
 The native creator builds the focused boolean story state created by Talk and
 can combine named goal, item, and Talk requirements with portable all, any, and
@@ -271,11 +270,14 @@ not rules. Imported projects may contain general boolean, integer, or text
 world-value comparisons; the creator preserves and labels them as advanced.
 The portable source format has no general action that sets those values, so the
 creator deliberately does not offer a raw key/value form that would create an
-unreachable route. The 0.3 graphics profiles already use a replaceable asset
-contract; importing arbitrary third-party art files through the creator is a
-post-0.3 workflow so it does not complicate campaign creation. Installed
-console builder integration remains release work. The current status and
-acceptance gates are in [RELEASE_0_3.md](RELEASE_0_3.md).
+unreachable route. The included graphics profiles use a replaceable asset
+contract, but the creator currently works with the included art library rather
+than importing external art packs.
+
+Projects exported by Grandleon 0.2 remain compatible. Export the project from
+the browser editor as a `.grandleon.zip`, place it in the import inbox, and use
+**Import Project Archive**. The project source transfers; browser-local recovery
+data and playtest progress do not.
 
 ## Refresh these screenshots
 

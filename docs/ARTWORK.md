@@ -1,8 +1,7 @@
 # Artwork and animation roster
 
-Grandleon has complete artwork coverage for the 0.3 release vocabulary: all
-eight character archetypes and all thirteen terrains have assets that the game
-can load. The recommended Godot presentation is the **Voxel + Sprites** profile,
+Grandleon has artwork for all eight character archetypes and all thirteen
+terrain kinds. The recommended Godot presentation is the **Voxel + Sprites** profile,
 which combines authored 3D terrain with the animated high-resolution roster
 shown below.
 
@@ -73,7 +72,7 @@ console-oriented output profiles.
 
 This larger library is deliberately lower resolution. It exists so every valid
 portable project remains visible on every renderer. The eight-sheet Godot
-roster is the curated high-resolution release presentation, not a promise of a
+roster is the curated high-resolution presentation, not a promise of a
 high-resolution sheet for every colour and figure combination.
 
 ## Source and licence
@@ -86,6 +85,6 @@ poses listed above, no text or scenery, and a readable tactical-game silhouette.
 They were then cropped to exact cell boundaries without repainting the output.
 
 Grandleon's source and project-owned artwork are offered under the repository's
-[MIT License](../LICENSE). Bundled third-party tools and runtimes keep their own
-licences and notices; release packaging must continue to include those notices
-and any corresponding-source material they require.
+[MIT License](../LICENSE). Bundled tools and runtimes retain their own licences
+and notices. External art-pack import is not part of the current editor and may
+be reconsidered after the built-in art directions are complete.

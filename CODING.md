@@ -184,11 +184,6 @@ scripts/local-ci.sh --preview-port 4531 --n64           # only the N64 of the tw
 scripts/local-ci.sh --preview-port 4531 --playstation   # only the PlayStation
 ```
 
-They were behind flags until 2026-08-27, and the cost of that is on the record:
-the PlayStation port stopped building on 2026-08-17 and nothing said so for
-fifty commits, over which the weapon triangle shipped and left both consoles'
-scripts asserting numbers the rules had stopped producing.
-
 ## Reproducible toolchains
 
 Five parts of the build deliberately do not use host tooling, because their
@@ -287,10 +282,9 @@ Configure with `-DGRANDLEON_N64_TESTS=ON` to add these runs to `ctest` as
 `grandleon.nintendo64_autopilot`, `grandleon.nintendo64_campaign`,
 `grandleon.nintendo64_editor_rom` and `grandleon.nintendo64_other_game`; they
 are off by default because they build a cross toolchain and an emulator from
-source on first use. Full
-detail is in [platform/nintendo64/README.md](platform/nintendo64/README.md), and
-the evaluation that chose ares is in
-[docs/ARES_VALIDATION.md](docs/ARES_VALIDATION.md).
+source on first use. Full detail, including why ares is the authoritative
+emulator, is in
+[platform/nintendo64/README.md](platform/nintendo64/README.md).
 
 ### PlayStation (pinned container, pinned SDK, pinned BIOS)
 
@@ -456,15 +450,8 @@ for first:
   the art generator, its output profiles, and its reproducibility check.
 - [tools/package_check/README.md](tools/package_check/README.md) describes the
   container-only validator for a compiled `.gpk`.
-- [editor/README.md](editor/README.md) describes editor development and static
-  deployment.
-
-A few documents are records of one measurement or one evaluation:
-`docs/ARES_VALIDATION.md` and the completed editor framework evaluation under
-`editor/spikes/ui-framework/`. **A measured number in one of them is the number
-that run produced, and rewriting it to agree with a later run destroys the only
-thing it was worth.** If a measurement no longer holds, take the measurement
-again and say what both runs measured. Do not quietly overwrite the figure.
+- [editor/README.md](editor/README.md) describes the web compatibility client
+  and its checks.
 
 ## Architectural invariants
 

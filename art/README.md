@@ -1,14 +1,18 @@
-# art/
+# Portable art replacements
 
-Art this repository did not draw. Everything Grandleon ships is generated,
-deterministically, by `tools/placeholder_art/generate.py`; this directory is
-where a drawing that stands in for part of that set lives.
+This directory holds the input contract and worked examples for replacing
+portable generated assets. It is not the project's complete artwork library.
+The current Godot character and terrain art lives under
+`platform/godot/project/art/` and is described in
+[Artwork](../docs/ARTWORK.md).
 
-- **`provided/`**: the tree the generator reads before it writes, keyed by the
-  path of the asset each file stands in for. Absent here, because this
-  repository provides nothing.
-- **`examples/`**: one worked replacement, a character sheet, used by
-  `tools/placeholder_art/check_provided.py` as the submissions that must be
-  accepted. Deliberately *not* read by the generator: an example that took
-  effect would be a replacement, and the shipped default set has to stay the
-  shipped default set.
+- **`provided/`** is the optional replacement tree read by
+  `tools/placeholder_art/generate.py`. A file's path identifies the generated
+  asset it replaces.
+- **`examples/`** contains a worked character-sheet replacement used by
+  `tools/placeholder_art/check_provided.py`. Examples are deliberately not
+  loaded as shipped replacements.
+
+The current release does not provide an in-app external-art importer. This
+filesystem contract remains useful to developers and gives future editor work
+a tested foundation if that feature is added later.

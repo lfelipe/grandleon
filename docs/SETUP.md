@@ -16,8 +16,8 @@ GRANDLEON_WINDOWED=1 out/grandleon-pc/launch-pc.sh
 
 The builder downloads the pinned Godot runtime and verifies its checksum.
 Ordinary creation, portable project export, and player-only Linux export stay
-local. Nintendo 64 and PlayStation builds still use their pinned container
-toolchains until the separately installed 0.3 builder payloads are integrated.
+local. Nintendo 64 and PlayStation export is enabled when the corresponding
+optional builder payload is installed.
 
 ## Working on the repository
 
@@ -27,9 +27,8 @@ From a bare machine to a green gate. The gate is one command:
 scripts/local-ci.sh --preview-port 4521
 ```
 
-The port is a parameter because the retained pre-0.3 compatibility suite
-refuses to reuse a server it did not start; pick one nobody else on the machine
-is using.
+The port is used by the web compatibility checks; pick one nobody else on the
+machine is using.
 
 **The gate runs against a clone of HEAD in `/tmp`, not your working tree**, so
 uncommitted work is invisible to it: commit first, or the gate is reporting on
@@ -37,7 +36,7 @@ the commit before yours.
 
 ## Most of it needs no container
 
-Of the seventeen legs that run by default, **one needs a container**:
+Of the sixteen legs that run by default, **one needs a container**:
 `WebAssembly module is not stale`. Everything else is the apt packages below
 plus what `scripts/setup.sh` fetches. The Nintendo 64 and PlayStation checks are
 opt-in and are the other place a container runtime is required.
@@ -136,14 +135,13 @@ sudo usermod -aG docker "$USER"
 | native gate, GCC `-Werror` | GCC, CMake, and Node, because `tests/CMakeLists.txt` will not configure without it |
 | native gate, Clang `-Werror` | Clang |
 | desktop client without SDL2 | GCC |
-| retained pre-0.3 editor: production build, typecheck, unit tests | Node |
-| retained pre-0.3 editor: real browser | Chromium **and its system libraries** |
-| retained pre-0.3 development server compatibility | Chromium, as above |
-| retained pre-0.3 startup, deployment, offline smoke | Node |
+| web compatibility client: production build, typecheck, unit tests | Node |
+| web compatibility client: real browser | Chromium **and its system libraries** |
+| web development-server compatibility | Chromium, as above |
+| web startup, deployment, and offline smoke | Node |
 | ROM build service: refusals and failure paths | Node. It counts the tests, because `node --test` on an emptied file exits 0 reporting one passing test |
 | generated art is not stale | the Pillow venv |
 | generated creator board assets are not stale | the Pillow venv |
-| native Creating a Game pictures | pinned Godot and Xvfb |
 | provided art: every rule refuses | the Pillow venv |
 | WebAssembly module is not stale | **a container runtime** |
 | every documented path and anchor resolves | Python3 |

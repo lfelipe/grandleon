@@ -1,6 +1,23 @@
-# README screenshots
+# Documentation screenshots
 
-`native-guide/` belongs to [../CREATING_A_GAME.md](../CREATING_A_GAME.md). Its
+Every image in this directory comes from a runnable project build or a
+committed source asset. Rebuild the relevant capture after a visual change so
+the documentation continues to show what people will actually use.
+
+## Godot application
+
+`godot/` contains the gameplay animation and the four graphics-profile images
+used by the main README. Rebuild all five with:
+
+```sh
+platform/godot/scripts/capture-readme-media.sh
+```
+
+The script builds the Godot project, runs the real Emberbound package with
+isolated user data, captures every graphics profile, records the guided demo,
+and creates the compact `gameplay.gif` used on GitHub.
+
+`native-guide/` belongs to [Creating a game](../CREATING_A_GAME.md). Its
 screens are rendered by the real Godot creator under fresh per-capture user
 data:
 
@@ -8,51 +25,45 @@ data:
 platform/godot/scripts/capture-creator-guide.sh
 ```
 
-Pass `--player-shell path/to/pc-bundle` after building a release candidate to
-also capture an enabled Export Center. `guide/` is the archived pre-0.3 creator
-walkthrough and is not referenced by current user documentation. Everything
-else here is the README's runtime evidence.
+Pass `--player-shell path/to/pc-bundle` after building the PC bundle to also
+capture an enabled Export Center.
 
-`art-roster/` belongs to [../ARTWORK.md](../ARTWORK.md). Its eight animated
-previews are rebuilt directly from the committed Godot character sheets:
+## Artwork roster
+
+`art-roster/` belongs to [Artwork](../ARTWORK.md). Its eight animated previews
+are rebuilt directly from the committed Godot character sheets:
 
 ```sh
 platform/godot/scripts/generate-art-roster.sh
 ```
 
-Generated, never hand-taken:
+## Console and terminal captures
+
+The remaining images come from the checks that exercise the matching runtime:
 
 ```sh
-scripts/readme-screenshots.sh          # all eight
-scripts/readme-screenshots.sh editor   # or one: editor, terminal, n64,
-                                       #         psx, autopilot, psx-turn,
-                                       #         n64-showcase, psx-showcase
+scripts/readme-screenshots.sh          # rebuild all eight
+scripts/readme-screenshots.sh terminal # or one named capture
 ```
 
 | File | Source |
 |---|---|
+| `godot/gameplay.gif` | a recorded run of the Godot guided demo |
+| `godot/*.png` | the four live Godot graphics profiles |
 | `native-guide/*.png` | Godot creator integration fixtures under Xvfb |
-| `art-roster/*.gif` | the eight committed 4×2 Godot animation sheets |
-| `editor.png` | archived pre-0.3 creator capture |
+| `art-roster/*.gif` | the eight committed 4×2 character sheets |
 | `terminal.png` | the real terminal client's ANSI output, rendered by Chromium |
-| `n64.png` | the render probe under ares, window chrome cropped |
-| `psx.png` | the first frame the PlayStation turn check compared |
-| `n64-autopilot.gif` | the console autopilot's whole run, a frame per checkpoint |
-| `psx-turn.gif` | the PlayStation turn check's whole run, a frame per checkpoint |
-| `n64-showcase.gif` | one stretch of that run, filmed frame by frame |
-| `psx-showcase.gif` | one activation of that run, filmed frame by frame |
+| `n64.png` | the render probe under ares, with window chrome cropped |
+| `psx.png` | the first frame compared by the PlayStation turn check |
+| `n64-autopilot.gif` | the console autopilot run, one frame per checkpoint |
+| `psx-turn.gif` | the PlayStation turn check, one frame per checkpoint |
+| `n64-showcase.gif` | one stretch of the Nintendo 64 run |
+| `psx-showcase.gif` | one activation of the PlayStation run |
 
-Each comes out of the check that already runs, so a picture cannot drift from
-the run that produced it without the run changing too. Re-run after a visual
-change and commit the result: a stale screenshot misleads more quietly than a
-stale document.
+Nintendo 64 animations can differ by a few frames between regenerations
+because ares is captured from its wall-clock display. The PlayStation film is
+byte-identical because its harness drives the emulator and writes each frame
+in the same process.
 
-The Nintendo 64 animations differ by a few frames between regenerations. ares
-is a separate program on a wall clock and the only way to see what it drew is
-to grab its display from outside, so how many frames a busy machine yields is
-not fixed. The PlayStation's film is byte-identical, because its harness drives
-the emulator a frame at a time in the same process that writes them.
-
-Needs the repo-local Chromium (`CODING.md`, Reproducible toolchains), the host
-build (`build/`), the ROMs (`build-n64/`), the ares container, and the
-PCSX-Redux toolchain and emulator containers.
+See [CODING.md](../../CODING.md) for the reproducible toolchains needed by the
+console captures.

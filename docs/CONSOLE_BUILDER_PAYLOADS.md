@@ -1,13 +1,13 @@
 # Console builder payload contract
 
-Grand Leon 0.3 keeps console toolchains out of the base PC installation. An
-optional, versioned Linux payload—suitable for a Steam DLC depot—enables one
+Grandleon keeps console toolchains out of the base PC installation. An
+optional, versioned Linux payload—suitable for a separate download—enables one
 console target in **Finish & Export** without a source checkout, network
 access, or a container runtime.
 
 This document describes the host contract, sealed payload packager, automated
-license-archive audit, and golden-output comparison used for the 0.3 candidate.
-The final depots must still be regenerated from the frozen release revision.
+licence audit, and exact-output comparison required before publishing a
+payload.
 
 ## Installed layout
 
@@ -222,16 +222,14 @@ The host rewrites a sanitized result report, atomically moves the verified
 directory into per-user `exports/consoles`, then removes the request. A failed
 or interrupted build never replaces a completed export.
 
-## Release acceptance
+## Validate a payload
 
-The 2026-11-04 candidate completed the engineering acceptance path. Both
-payloads passed their manifest, file-hash, component, Debian-copyright, and
-upstream-license audits, then built Emberbound inside the offline sandbox. The
-Nintendo 64 ROM was byte-for-byte identical to the ordinary repository build.
-The PlayStation CUE was identical; after normalizing only ISO 9660 recording
-timestamps and the GNU build-id note, every byte of BIN user data was
-identical. Sector headers also matched, and sectors without changed user data
-matched in their entirety. The comparator that enforces those boundaries is:
+Each payload must pass its manifest, file-hash, component,
+Debian-copyright, and upstream-licence audits, then build Emberbound inside the
+offline sandbox. Nintendo 64 output must be byte-for-byte identical to the
+ordinary repository build. PlayStation comparison may normalize only ISO 9660
+recording timestamps and the GNU build-id note. The comparator that enforces
+those boundaries is:
 
 ```sh
 platform/godot/scripts/compare-console-builder-output.py \
@@ -240,18 +238,14 @@ platform/godot/scripts/compare-console-builder-output.py \
   --target playstation --payload PAYLOAD_OUTPUT --reference REPOSITORY_OUTPUT
 ```
 
-The ordinary outputs from the same pinned builders then passed all four ares
+The ordinary outputs from the same pinned builders must then pass all four ares
 gates and all six PCSX-Redux gates, including native save media, controller
-choreography, both campaign resume paths, and a twice-booted BIN/CUE. Exact N64
-identity and normalized PS identity bridge the sandbox output to those gates;
-the shipped interactive Emberbound images wait for controller input and are
-not substituted with automation-only executables.
+input, both campaign resume paths, and a twice-booted BIN/CUE. Exact N64
+identity and normalized PS identity bridge the sandbox output to those gates.
 
 The host contract also has a synthetic smoke covering asynchronous success,
 checksum enforcement for every installed file, undeclared-file refusal,
 local-path leakage, and atomic output. The packager smoke enters a minimal root
 through the real launcher, checks its mount layout, and proves an inherited
-secret does not cross the cleared environment. Release freeze must repeat the
-packaging, audit, golden comparison, and hashes from the final clean revision;
-final storefront review and third-party notice and corresponding-source
-compliance review remain separate.
+secret does not cross the cleared environment. Packaging, audits, comparisons,
+and hashes must be repeated from the exact revision being published.

@@ -22,8 +22,8 @@
 // The second run is the whole point, and it is a *different emulator process*
 // against the same file. Nothing in this executable's memory survives between
 // them, so a pass on the second run is the card holding the bytes and cannot
-// be anything else. `docs/ARES_VALIDATION.md` imposes exactly this obligation
-// on the Nintendo 64 and it is not weaker here.
+// be anything else. The Nintendo 64 cartridge check carries exactly this
+// persistence obligation, and it is not weaker here.
 //
 // What is under test is the seam and not a model of it: the bytes go through
 // `grandleon::storage::ByteWindowSlotStorage`, which is the same device the

@@ -207,9 +207,9 @@ Measurements behind the two shipped console targets:
   are top-down squares, and no runtime transform makes a top-down tree read as
   an isometric one ([platform/view/README.md](platform/view/README.md)).
 * **The emulator is part of the contract.** ares is the authoritative
-  Nintendo 64 emulator, and [docs/ARES_VALIDATION.md](docs/ARES_VALIDATION.md)
-  has the evaluation. The PlayStation gate is PCSX-Redux with OpenBIOS,
-  because ares marks its PlayStation core experimental.
+  Nintendo 64 emulator for the reasons recorded in
+  [platform/nintendo64/README.md](platform/nintendo64/README.md). The
+  PlayStation gate is PCSX-Redux with OpenBIOS.
 
 Per-console detail lives in
 [platform/nintendo64/README.md](platform/nintendo64/README.md) and

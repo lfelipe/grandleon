@@ -106,21 +106,21 @@ JSON parser.
 ## Back the other way: from the editor to a cartridge or a disc
 
 An author's own game, in a file they can run, is the same chain again with the
-real build on the end rather than a patched template ROM. The native Export
-Center is still 0.3 work; today the creator exports portable source and the
-same builders are invoked from the command line:
+real build on the end rather than a patched template ROM. The Export Center
+invokes a separately installed, authenticated builder for each console:
 
 ```
  the creator's project.json or portable .grandleon.zip
       │
-      │  target preflight and host content compilation
+      │  Export Center: target preflight and private-path checks
       ▼
- build-n64.sh --project <source> --targets grandleon_n64_campaign
-      ▼                        │
-   a .z64                      │  build-playstation.sh --project <source>
-                               ▼  then build-disc.sh
-                            a .bin and its .cue
+ installed Nintendo 64 builder ───────────────► a .z64
+ installed PlayStation builder ───────────────► a .bin and its .cue
 ```
+
+A missing builder disables only that target. Installed builders run offline;
+authors do not need this repository, a compiler, or a container runtime. Release
+maintainers can invoke the same underlying repository scripts directly.
 
 Neither image belongs to a particular game: a generated `project_identity.h`
 derives the campaign key and save slot from whichever project was built, from
@@ -144,11 +144,9 @@ PlayStation reads the licence area, finds nothing, and refuses the disc; and
 nothing here has ever run on real hardware of either console, so no claim is
 made about anything else that reads a disc.
 
-The earlier browser editor still carries a WebAssembly compiler parity test
-while its useful behavior is migrated. It is a legacy verification surface,
-not the supported 0.3 creation flow. The native Godot bridge calls the same
-`parse_source_project_json` and `compile` functions directly and passes package
-bytes to the ordinary PC session without a temporary build directory.
+The Godot bridge calls `parse_source_project_json` and `compile` directly and
+passes package bytes to the ordinary PC session without a temporary build
+directory.
 
 ## The verification story
 
@@ -160,7 +158,7 @@ Six layers, each catching something the one below it structurally cannot.
 | **The same rules, elsewhere** | Every target that links the engine replays the shared reference vector defined in [engine/simulation/README.md](../engine/simulation/README.md) and must reproduce its two canonical hashes bit for bit. That covers a 64-bit little-endian host, a 64-bit big-endian console, a 32-bit little-endian console, and `platform/web` in a browser. The hash covers the board, what its ground allows and what it charges, every unit's state, the objectives and the random state, so a rule that behaves differently anywhere moves it. |
 | **The picture, per pixel** | A console's frame is held to the colour of every visible cell with no tolerance: the PlayStation by making three independent quantities agree and reading the GPU's display registers out of a save state, the Nintendo 64 by a census the ROM runs on itself out of RDRAM. No frame digest is pinned: a per-cell claim says where a picture went wrong, which a digest cannot. Each pixel gate carries a **negative control**: the same harness pointed at a program that never touches the GPU is required to fail, every invocation. |
 | **The turn, played** | A fixed controller script is played into the emulator's own pad ports and the program photographs itself at every checkpoint. What it must produce is derived on a different architecture, never on the console: host tools replay the same presses through the same `platform/client` session against the real engine, so a run cannot be made to pass by adjusting an expectation. |
-| **The native creator** | Project-library, compiler, map, story, home, controller, persistence, and packaged-bundle smokes exercise the create/compile/play seams through the pinned Godot runtime. The earlier browser suite remains a migration gate until that application is removed. |
+| **The native creator** | Project-library, compiler, map, story, home, controller, persistence, and packaged-bundle smokes exercise the create/compile/play seams through the pinned Godot runtime. |
 | **Drift gates** | Every committed artefact that could go stale has a check that fails when it does: the WebAssembly module against the pinned Emscripten container, the generated source-schema TypeScript, the generated art, and the linked PlayStation executable's ELF header against `mips1`. |
 
 ## Where to read further

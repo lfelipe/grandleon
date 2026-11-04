@@ -7,9 +7,10 @@ cannot state: identities, cross-field rules, the diagnostics that enforce them,
 and the handful of places where a rule lives in the compiler rather than in the
 schema.
 
-Schema version `1.0.0` is pre-release. Authors normally use the editor; the
-public files exist so projects stay portable, scriptable, source-controlled and
-buildable headlessly.
+The current schema version is `1.2.0`. Projects from `1.0.0` and `1.1.0` have
+registered, non-destructive migrations. Authors normally use the editor; the
+public files exist so projects stay portable, scriptable, source-controlled,
+and buildable headlessly.
 
 ## Identity
 
@@ -52,8 +53,9 @@ manifest capability list.
 ## Typed weapon and item compatibility
 
 Weapon types and item types are distinct categories so each can gain rules
-without overloading a generic type identity. Source `1.0.0` keeps the links
-optional as an additive bridge:
+without overloading a generic type identity. The links remain optional so
+projects created before typed equipment continue to import without invented
+assignments:
 
 - omitted `weaponTypes`, `itemTypes`, `weaponTypeId` or `itemTypeId` is legacy
   unclassified content, and stays omitted through a no-edit round trip;

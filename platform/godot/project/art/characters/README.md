@@ -22,7 +22,7 @@ concept art. Their bindings, pivots, and timing live in
 only that character's generated 32-pixel fallback without a content, package,
 or rules change.
 
-`relay_commander.glb` is the first imported, skinned 3D character. It contains a
+`relay_commander.glb` is an imported, skinned 3D character. It contains a
 sixteen-bone humanoid skeleton, seven material surfaces, and six in-place clips
 exported with deliberately non-semantic DCC names. The full-voxel profile maps
 those names explicitly, proving that a replacement art pack does not need to
@@ -39,9 +39,10 @@ materials, and six explicitly mapped actions. Run
 The checked-in binaries are the player inputs; Blender is needed only to revise
 the source assets and is not shipped in a PC bundle.
 
-`relay_commander_3d.tscn` and `relay_drone_3d.tscn` remain the earlier
-procedural references. The Full Voxel profile binds imported GLBs for the four
+`relay_commander_3d.tscn` and `relay_drone_3d.tscn` are procedural references.
+The Full Voxel profile binds imported GLBs for the four
 Last Signal encounter identities: commander, rogue, stormcaller, and beast.
 Knight, archer, mage, and healer keep the procedural voxel fallback until they
 receive authored GLBs. This is separate from the complete eight-archetype sprite
-roster. See `docs/ARTWORK.md` for the human-facing coverage table and previews.
+roster. See the [artwork guide](../../../../../docs/ARTWORK.md) for the
+human-facing coverage table and previews.

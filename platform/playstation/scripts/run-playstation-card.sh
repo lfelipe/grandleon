@@ -45,8 +45,8 @@
 #                             so it is not a block to hand out, and the answer
 #                             is that the card is full. Digested the same way.
 #
-# `docs/ARES_VALIDATION.md` imposes exactly this obligation on the Nintendo 64's
-# cartridge and it is not weaker here.
+# The Nintendo 64 cartridge check carries the same persistence obligation; the
+# PlayStation memory-card path is not weaker.
 #
 # Every pass is read on two channels that must agree: the process exit code and
 # the `RESULT PASS n/n` line on the teletype. The reason is the one

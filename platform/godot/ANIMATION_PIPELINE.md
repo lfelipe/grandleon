@@ -1,8 +1,9 @@
-# 3D character animation path
+# Character animation pipeline
 
-The selected first PC profile is voxel terrain with animated 2D
-characters. It is deliberately compatible with a later authored 3D roster; it
-does not make sprite movement the permanent presentation contract.
+The recommended PC profile uses voxel terrain with animated 2D characters.
+The same presentation events also drive procedural and imported 3D characters,
+so a campaign and its rules do not depend on which character renderer is
+active.
 
 ## Asset contract
 
@@ -40,7 +41,7 @@ must not decide where a unit ends.
 
 ## Implemented presentation stream
 
-The native session bridge now forwards every accepted simulation result as a
+The native session bridge forwards every accepted simulation result as a
 semantic `presentation` event before the resulting snapshot. The renderer uses
 those events without changing or delaying the deterministic encounter:
 
@@ -133,10 +134,8 @@ bone name, parent, and rest transform, and samples skeleton locomotion, weapons,
 abilities, rotors, cores, and defeat motion. The ordinary graphics capture additionally
 proves scale, contact overlays, facing, simultaneous board motion, impacts,
 delayed removal, and the complete imported roster in the real campaign.
-The imported set is a real production-shaped pipeline milestone, but remains a
-deliberately compact low-poly set rather than the final roster quality bar.
-
-The complete 3D direction should now be judged against the hybrid at the
-intended viewing distance before the rest of the roster is converted. Skeleton
-reuse is an art-production advantage, not part of the gameplay or package
-contract.
+The imported set proves the complete pipeline but remains a deliberately
+compact low-poly set rather than a finished eight-character 3D roster. Further
+models should be judged against the hybrid profile at the intended viewing
+distance before the rest of the roster is converted. Skeleton reuse is an
+art-production advantage, not part of the gameplay or package contract.

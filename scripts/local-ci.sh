@@ -296,23 +296,6 @@ step "generated art is not stale"
 step "editor board assets are not stale"
 "${art_python}" "${clone}/editor/scripts/generate-board-assets.py" --check
 
-# The guide's pictures, under the same discipline as the art above, and for the
-# same reason: a screenshot of a surface the editor no longer has is a claim
-# that keeps looking true. This one can be checked byte for byte because the
-# walk is deterministic: one Chromium at a fixed scale over the production
-# build just made, driven by clicks rather than by timers. A regeneration
-# either matches what is committed or the editor changed underneath it.
-#
-# It reuses the preview port the browser suite finished with, so two gates on
-# two ports never contend for a third.
-#
-# It also catches the cheaper failure first: a click that no longer lands makes
-# the walk throw, which is the guide's prose failing rather than its pictures.
-step "the Creating a Game pictures are not stale"
-PLAYWRIGHT_BROWSERS_PATH="${browsers_path}" \
-    GRANDLEON_GUIDE_SHOT_PORT="${preview_port}" \
-    node "${clone}/scripts/guide-shots.mjs" --check
-
 # Both halves, and the expensive one is the point. The first is every rule a
 # replacement must satisfy, provoked by its own code, and costs ten seconds.
 # `--end-to-end` adds three whole builds and reads the provided pixels and the
