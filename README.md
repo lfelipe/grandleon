@@ -85,8 +85,8 @@ rest of the documentation describes the current Godot application.
 |---|---|
 | **0.1 — portable foundation** | Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
 | **0.2 — complete campaign runtime** | Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
-| **0.3 — Godot player and creator** | Moves the supported PC experience to Godot, joins creation and play in one application, adds local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. This is the current release line. |
-| **0.4 — broader art and console 3D experiments** | Expands Godot artwork so every intended setting has a coherent high-resolution presentation, adds theme-aware terrain coverage, and revisits recognizable low-detail 3D characters on PlayStation and Nintendo 64 within each console's limits. |
+| **0.3 — Godot player and creator** | Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
+| **0.4 — broader art and console 3D experiments** | Expands Godot artwork so every intended setting has a coherent high-resolution presentation, adds theme-aware terrain coverage, and revisits recognizable low-detail 3D characters on PlayStation and Nintendo 64 within each console's limits. This is the current development line. |
 | **0.5 — editor product pass** | Concentrates on the complete authoring experience: clearer workflows, stronger previews, better project organization, and the usability and accessibility work needed for larger games. |
 
 Importing external artwork may be explored later, but it is not part of the
