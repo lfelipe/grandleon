@@ -1,4 +1,16 @@
-# Grandleon Editor
+# Earlier browser editor (compatibility only)
+
+This directory is retained for compatibility, migration, and regression
+testing. It is not the supported Grand Leon 0.3 creator. If you want to make a
+game, use **Create / Edit Games** in the Godot PC application and start with
+[the human creation guide](../docs/CREATING_A_GAME.md). That native creator is
+where current map, story, army, campaign, playtest, and export work lands.
+
+The rest of this document is for contributors maintaining the earlier browser
+surface or importing one of its projects. Its browser build and local service
+instructions do not describe what a player or author needs to install.
+
+## Browser compatibility surface
 
 The editor is a static, local-first Vue 3 and TypeScript application. The UI
 framework was selected through the checked-in comparison under

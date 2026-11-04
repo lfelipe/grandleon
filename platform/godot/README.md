@@ -169,12 +169,35 @@ replaceable-art boundary. Arbitrary-file art-pack import is intentionally a
 post-0.3 increment in [CREATOR_ROADMAP.md](CREATOR_ROADMAP.md), not another
 control in the ordinary campaign flow.
 
-**Finish & Export** always offers a portable project and enables the Linux
-player when a verified shell is installed. Nintendo 64 and PlayStation enable
-independently when their optional versioned payload validates. Console builds
-run asynchronously; executable checksums, inventories, artifact structure,
-hashes, undeclared files, and local-path leakage are checked before an atomic
-export. The payload/DLC boundary is specified in
+### Export what you made
+
+**Finish & Export** shows only outputs this installation can actually build:
+
+- **Portable Project** is always available and writes an editable
+  `.grandleon.zip`.
+- **Linux PC** writes a standalone player-only game when the verified player
+  shell is installed.
+- **Nintendo 64** writes one `.z64` ROM when its optional builder payload is
+  installed.
+- **PlayStation** writes one `.bin` and matching `.cue` when its own optional
+  builder payload is installed. The disc has no Sony license sector, so it is
+  for compatible emulators or development hardware rather than an unmodified
+  retail console.
+
+The two console choices are independent: a missing PlayStation payload does
+not disable Nintendo 64, PC, or portable-project export. Console builds run in
+the background and the screen stays responsive. The installed payload works
+offline and does not require Docker, a source checkout, or access to the
+author's home directory. Before an export becomes visible, the application
+checks the builder and dependency inventory, exact artifact names and hashes,
+disc/ROM structure, undeclared files, and private-path leakage.
+
+The 0.3 candidate payloads pass their automated license-archive audit, build
+Emberbound through the real sandbox, match the ordinary repository pipelines,
+and pass every established console emulator gate. A release installation still
+needs the matching final payload depot; an unavailable target explains that
+requirement rather than failing after a build starts. The maintainer contract
+and release evidence are in
 [CONSOLE_BUILDER_PAYLOADS.md](../../docs/CONSOLE_BUILDER_PAYLOADS.md).
 
 Godot is pinned to **4.7.2**, `godot-cpp` to **10.0.0-stable**, and the generated

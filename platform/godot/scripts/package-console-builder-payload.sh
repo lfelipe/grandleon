@@ -68,6 +68,11 @@ else
     image="grandleon/playstation-toolchain:${digest#sha256:}"
     executable=build-disc
 fi
+if ! docker run --rm "${image}" /bin/sh -c \
+    'test -s /GRANDLEON_TOOLCHAIN_LICENSES.tar.xz && test -s /GRANDLEON_TOOLCHAIN_COMPONENTS.tsv'; then
+    echo "the cached toolchain image predates its required license bundle; rebuild it" >&2
+    exit 65
+fi
 docker image inspect "${image}" >/dev/null
 image_value() {
     docker run --rm "${image}" cat "$1" | tr -d '\r\n'
@@ -120,10 +125,17 @@ docker export "${container}" | xz -T0 -6 > "${payload}/rootfs.tar.xz"
 docker cp "${container}:/usr/share/doc" "${temp}/usr-share-doc"
 docker cp "${container}:/usr/share/common-licenses" "${temp}/common-licenses"
 docker cp "${container}:/GRANDLEON_PACKAGES.tsv" "${temp}/packages.tsv"
+docker cp "${container}:/GRANDLEON_TOOLCHAIN_LICENSES.tar.xz" \
+    "${temp}/toolchain-licenses.tar.xz"
+docker cp "${container}:/GRANDLEON_TOOLCHAIN_COMPONENTS.tsv" \
+    "${temp}/toolchain-components.tsv"
+mkdir -p "${temp}/toolchain-licenses"
+tar -C "${temp}/toolchain-licenses" -xJf \
+    "${temp}/toolchain-licenses.tar.xz"
 mkdir -p "${temp}/busybox-static"
 install -m 0644 "${busybox_copyright}" "${temp}/busybox-static/copyright"
 tar -C "${temp}" -cJf "${payload}/THIRD_PARTY_LICENSES.tar.xz" \
-    usr-share-doc common-licenses busybox-static
+    usr-share-doc common-licenses busybox-static toolchain-licenses
 
 install -m 0755 "${script_dir}/console-builder-payload.sh" "${payload}/${executable}"
 install -m 0755 /usr/bin/busybox "${payload}/busybox"
@@ -136,22 +148,21 @@ busybox_version="$(/usr/bin/busybox | sed -n '1s/^BusyBox \([^ ]*\).*/\1/p')"
     exit 65
 }
 python3 - "${temp}/packages.tsv" "${temp}/components.json" "${target}" \
-    "${busybox_version}" \
-    "${source_revision}" "${revision:-}" "${nugget:-}" "${mkpsxiso:-}" <<'PY'
+    "${busybox_version}" "${source_revision}" \
+    "${temp}/toolchain-components.tsv" <<'PY'
 import json, sys
-packages, output, target, busybox, source, libdragon, nugget, mkpsxiso = sys.argv[1:]
+packages, output, target, busybox, source, toolchain = sys.argv[1:]
 components = [
     {"name": "Grand Leon", "version": source, "license": "MIT"},
     {"name": "Bubblewrap system runtime", "version": "host provided", "license": "LGPL-2.0-or-later"},
     {"name": "BusyBox", "version": busybox, "license": "GPL-2.0-only"},
 ]
-if target == "nintendo64":
-    components.append({"name": "libdragon", "version": libdragon, "license": "Unlicense"})
-else:
-    components.extend([
-        {"name": "Nugget", "version": nugget, "license": "MIT"},
-        {"name": "mkpsxiso", "version": mkpsxiso, "license": "GPL-2.0-only"},
-    ])
+for line in open(toolchain, encoding="utf-8"):
+    fields = line.rstrip("\n").split("\t")
+    if len(fields) != 3 or not all(fields):
+        raise SystemExit("invalid toolchain component inventory")
+    name, version, license_id = fields
+    components.append({"name": name, "version": version, "license": license_id})
 for line in open(packages, encoding="utf-8"):
     name, _, version = line.rstrip("\n").partition("\t")
     if name and version:
@@ -161,6 +172,19 @@ PY
 python3 "${script_dir}/write-console-builder-manifest.py" \
     --root "${payload}" --target "${target}" --version "${version}" \
     --executable "${executable}" --components "${temp}/components.json"
+audit_components=()
+if [[ "${target}" == nintendo64 ]]; then
+    audit_components+=(--expected-component "libdragon=${revision}")
+else
+    audit_components+=(
+        --expected-component "Nugget=${nugget}"
+        --expected-component "mkpsxiso=${mkpsxiso}"
+    )
+fi
+python3 "${script_dir}/audit-console-builder-payload.py" \
+    --root "${payload}" --target "${target}" \
+    --source-revision "${source_revision}" \
+    "${audit_components[@]}"
 
 mkdir -p "${output}"
 destination="$(CDPATH= cd -- "${output}" && pwd -P)/${target}"

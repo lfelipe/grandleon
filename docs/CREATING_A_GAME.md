@@ -243,10 +243,15 @@ installed shell. Nintendo 64 and PlayStation targets become available only
 when their separately versioned builder payloads are installed. Each target is
 checked independently; the creator builds in the background, verifies artifact
 names, sizes, hashes, structure, and privacy, then makes the completed export
-visible atomically. The payload host contract is documented in
-[CONSOLE_BUILDER_PAYLOADS.md](CONSOLE_BUILDER_PAYLOADS.md). Until the first real
-payloads are packaged and emulator-signed, use the repository release commands
-in [RELEASE_0_3.md](RELEASE_0_3.md).
+visible atomically. Nintendo 64 produces one `.z64`; PlayStation produces a
+matching `.bin` and `.cue`. These installed builders work offline and do not
+require Docker, a source checkout, or access to your home directory. A missing
+console payload disables only that console and explains what must be installed.
+The payload host contract is documented in
+[CONSOLE_BUILDER_PAYLOADS.md](CONSOLE_BUILDER_PAYLOADS.md). Candidate payloads
+have passed their automated license, golden-output, and emulator gates. Until
+matching release depots are installed, use the repository release commands in
+[RELEASE_0_3.md](RELEASE_0_3.md).
 
 Projects, imports, exports, creator recovery data, controls, presentation
 settings, and campaign saves live in per-user runtime storage—not the immutable

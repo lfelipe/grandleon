@@ -91,4 +91,9 @@ test ! -e "${request_root}/.builder-root"
 sh -n "${script_dir}/console-builder-payload.sh"
 sh -n "${script_dir}/console-builder-container-entry.sh"
 bash -n "${script_dir}/package-console-builder-payload.sh"
+python3 -m py_compile \
+    "${script_dir}/audit-console-builder-payload.py" \
+    "${script_dir}/compare-console-builder-output.py" \
+    "${script_dir}/write-console-builder-manifest.py"
+python3 "${script_dir}/compare-console-builder-output.py" --self-test
 printf 'console payload packager smoke passed\n'

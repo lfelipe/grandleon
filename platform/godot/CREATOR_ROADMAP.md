@@ -228,18 +228,18 @@ but it must not become a second schema authority.
 
 ## Remaining 0.3 editor work
 
-These are release blockers in priority order, not invitations to add a large
-permanent form.
+The remaining release work is not an invitation to add a large permanent
+form. Console-builder engineering sign-off is complete for the candidate. Both
+sealed payloads pass automated license-archive coverage, build Emberbound in
+the offline sandbox, and match the ordinary pipelines (N64 exactly; PS after
+normalizing only ISO timestamps and the GNU build ID). The rebuilt pinned
+images pass every established console emulator gate.
 
-1. **Sign off console builder payloads.** The versioned asynchronous host,
-   independent target availability, complete-file checksum/license inventory,
-   artifact validation, privacy scan, atomic export, and clean-revision sealed
-   Linux payload packager are implemented. Build both payloads, complete the
-   license review, compare their output with the repository pipelines, and
-   pass that output through the emulator gates.
-2. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
+1. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
    run clean-revision PC/Nintendo 64/PlayStation gates, and complete one human
-   solo and co-op campaign playthrough per target.
+   solo and co-op campaign playthrough per target. Regenerate payloads and
+   hashes from that same frozen revision and complete any distributor-required
+   human license approval.
 
 General boolean, integer, and text world-value comparisons remain accepted and
 preserved for imported compatibility. They are not an editor blocker: source
@@ -288,7 +288,9 @@ in [../../docs/CONSOLE_BUILDER_PAYLOADS.md](../../docs/CONSOLE_BUILDER_PAYLOADS.
 Each target validates its own manifest, executable checksum, dependency and
 license inventory, then runs asynchronously against one request directory.
 Only exact, hashed artifacts survive the privacy scan and atomic move. The
-remaining work is producing and emulator-signing the first real payloads.
+candidate payloads have completed automated license coverage, golden-output
+comparison, and emulator acceptance; final depots must be regenerated from the
+frozen release revision.
 
 Two payload approaches were evaluated:
 
@@ -311,9 +313,11 @@ authenticated rootfs + fixed source revision + sandbox launcher
 It builds the ordinary campaign image, so the image carries exactly the art
 the selected project names. The earlier template design remains useful as a
 future size/latency experiment only if the console image and art packaging are
-redesigned around fixed replaceable slots. Golden tests must compare payload
-output with the existing full builder and boot both through the established
-emulator gates. No BIOS, signing key, license sector, proprietary SDK,
+redesigned around fixed replaceable slots. The candidate golden test compares
+the payload with the existing full builder: N64 is exact, while PS normalizes
+only ISO recording timestamps and the GNU build ID before requiring all user
+data to match. The established ares and PCSX-Redux gates pass on the rebuilt
+pinned images. No BIOS, signing key, license sector, proprietary SDK,
 credential, or private configuration may enter a payload or artifact.
 
 ## Acceptance gates

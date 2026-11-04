@@ -41,6 +41,23 @@ and export use `.grandleon.zip` archives containing portable source and
 project-owned assets only. Machine paths, controls, saves, credentials, and
 local settings do not enter the archive.
 
+When the campaign is ready, **Finish & Export** keeps the choices simple:
+
+- **Portable Project** makes the editable `.grandleon.zip` you can move to
+  another Grand Leon installation.
+- **Linux PC** makes a standalone player-only game when the verified player
+  shell is installed.
+- **Nintendo 64** and **PlayStation** appear independently when their optional
+  builder downloads are installed. They build in the background and produce a
+  `.z64` ROM or a `.bin`/`.cue` disc pair. The installed builders work offline
+  and do not ask an author to install Docker, clone this repository, or expose
+  a home directory to the build.
+
+The console builders have passed their license-archive, golden-output, and
+emulator acceptance gates for the 0.3 candidate. They remain disabled in an
+installation that does not include the matching release payload; PC and
+portable-project export continue to work normally.
+
 [docs/CREATING_A_GAME.md](docs/CREATING_A_GAME.md) walks the whole job in
 screenshots captured from the real native creator.
 
@@ -240,15 +257,16 @@ GRANDLEON_PLAYSTATION_BUILD_DIR="$PWD/build-playstation-release" \
   platform/playstation/scripts/build-disc.sh
 ```
 
-Nothing is patched into a pre-built image: the source is compiled into the
+Nothing is patched into a pre-built game: the source is compiled into the
 target that is then checked. In-app Nintendo 64 and PlayStation export remains
 disabled until the separately versioned builder payload for that target is
 installed; it never depends on a private hostname or developer checkout.
 
-It needs **a container runtime**, like every console and WebAssembly target: the
-PlayStation toolchain is a pinned, digest-verified image rather than something
-to install. [docs/SETUP.md](docs/SETUP.md) has the details, including how to
-name a runtime that is not `docker`.
+The repository commands above are for developers and release maintainers, so
+they need **a container runtime**. The installed optional payload does not: it
+contains the pinned, digest-verified toolchain and runs it offline inside a
+user-namespace sandbox. [docs/SETUP.md](docs/SETUP.md) has developer setup
+details, including how to name a runtime that is not `docker`.
 
 The image carries **no licence sector**, because that data is Sony's.
 Emulators do not look for one: `grandleon_playstation_disc_check` boots this
@@ -257,11 +275,14 @@ look, and will refuse the disc.
 
 ## What is not here yet
 
-Version 0.3 is still being prepared. Remaining release work includes measured
-per-target authoring budgets, installed console-builder integration, external
-replacement-art packs, final native screenshots, and one clean-revision build
-and human playthrough of all three release targets. The exact status and gates
-are in [docs/RELEASE_0_3.md](docs/RELEASE_0_3.md).
+Version 0.3 is still being prepared. The creator and installed console-builder
+path are implemented and the candidate console payloads pass their automated
+acceptance gates. Remaining release work is to freeze the UI, refresh the final
+screenshots, rebuild every artifact and payload from one clean revision, record
+the hashes, and complete the human playthrough and any distributor-required
+license approval. Windows builds and arbitrary replacement-art pack import are
+later work. The exact status and gates are in
+[docs/RELEASE_0_3.md](docs/RELEASE_0_3.md).
 
 ## Where to go next
 

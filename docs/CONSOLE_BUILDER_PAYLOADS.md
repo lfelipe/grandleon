@@ -5,9 +5,9 @@ optional, versioned Linux payload—suitable for a Steam DLC depot—enables one
 console target in **Finish & Export** without a source checkout, network
 access, or a container runtime.
 
-This document describes the host contract and the sealed payload packager.
-Producing release payload archives, completing their license review, and
-emulator-signing their outputs remain release work.
+This document describes the host contract, sealed payload packager, automated
+license-archive audit, and golden-output comparison used for the 0.3 candidate.
+The final depots must still be regenerated from the frozen release revision.
 
 ## Installed layout
 
@@ -116,7 +116,15 @@ result is one compressed, authenticated root filesystem plus a small launcher,
 static extraction utility, complete Debian package list, and license archive.
 The packager verifies the cached toolchain image's embedded revision markers
 against the repository pins and includes the release host's BusyBox copyright
-alongside the toolchain's package documentation and common license texts.
+alongside the toolchain's package documentation and common license texts. The
+pinned images also preserve the libdragon, Nugget, mkpsxiso, and bundled-tool
+license files before deleting their fetched source trees; an older cached
+image without that license bundle is refused.
+Before publishing a payload, the packager audits its manifest and every file
+hash, requires each installed Debian package's copyright file, checks the
+pinned toolchain components and source revisions, and requires the expected
+upstream license texts. This is an archive-completeness check; it does not
+replace any human or legal approval required by a distributor.
 Docker is a release-maintainer input only; it is not installed with the game
 and is not used by an author. The Linux host must provide Bubblewrap. Payload
 discovery checks `/usr/bin/bwrap` and `/bin/bwrap` before enabling either
@@ -215,14 +223,33 @@ or interrupted build never replaces a completed export.
 
 ## Release acceptance
 
-Each release payload still needs a license review and a golden comparison with
-the repository builder at the package/runtime boundary. Its output must pass
-the existing ares or PCSX-Redux boot, controller, save, and resume gates. The
-host contract has a synthetic smoke covering asynchronous success, checksum
-enforcement for every installed file, undeclared-file refusal, local-path
-leakage, and atomic output. The packager smoke enters a minimal root through
-the real launcher, checks its mount layout, and proves an inherited secret does
-not cross the cleared environment. Clean-revision validation payloads from
-both pinned images also build the demo project into a structurally valid ROM
-and unlicensed-sector BIN/CUE. None of those checks replaces the golden
-comparison or emulator acceptance of the final release payloads.
+The 2026-11-04 candidate completed the engineering acceptance path. Both
+payloads passed their manifest, file-hash, component, Debian-copyright, and
+upstream-license audits, then built Emberbound inside the offline sandbox. The
+Nintendo 64 ROM was byte-for-byte identical to the ordinary repository build.
+The PlayStation CUE was identical; after normalizing only ISO 9660 recording
+timestamps and the GNU build-id note, every byte of BIN user data was
+identical. Sector headers also matched, and sectors without changed user data
+matched in their entirety. The comparator that enforces those boundaries is:
+
+```sh
+platform/godot/scripts/compare-console-builder-output.py \
+  --target nintendo64 --payload PAYLOAD_OUTPUT --reference REPOSITORY_OUTPUT
+platform/godot/scripts/compare-console-builder-output.py \
+  --target playstation --payload PAYLOAD_OUTPUT --reference REPOSITORY_OUTPUT
+```
+
+The ordinary outputs from the same pinned builders then passed all four ares
+gates and all six PCSX-Redux gates, including native save media, controller
+choreography, both campaign resume paths, and a twice-booted BIN/CUE. Exact N64
+identity and normalized PS identity bridge the sandbox output to those gates;
+the shipped interactive Emberbound images wait for controller input and are
+not substituted with automation-only executables.
+
+The host contract also has a synthetic smoke covering asynchronous success,
+checksum enforcement for every installed file, undeclared-file refusal,
+local-path leakage, and atomic output. The packager smoke enters a minimal root
+through the real launcher, checks its mount layout, and proves an inherited
+secret does not cross the cleared environment. Release freeze must repeat the
+packaging, audit, golden comparison, and hashes from the final clean revision;
+distributor-required human license approval remains separate.

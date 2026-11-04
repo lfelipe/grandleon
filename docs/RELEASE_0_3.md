@@ -44,8 +44,8 @@ Every release decision should preserve these constraints:
 | Shared engine and content compiler | Ready | All 68 native tests pass in release assertions. Source edits preserve integer tokens and revalidate complete projects. |
 | Linux PC player | Candidate ready | The portable bundle launches its home screen, loads controls, verifies frame timing, and accepts two simultaneous co-op movement routes. Final artifact must be rebuilt from the release commit. |
 | Linux PC packaging | Ready | A pinned Godot 4.7.2 runtime, godot-cpp 10.0.0-stable binding, 512-pixel icon, clean-source metadata, project/upstream licenses, and Godot's third-party inventory are included. Local configuration and checkout paths are rejected. |
-| Nintendo 64 | Emulator candidate | A clean-clone ares gate passes conformance 39/39, play 29/29, controller autopilot 140/140, and SRAM power-cycle resume 52/52. Rebuild and sign off the final release revision. |
-| PlayStation | Emulator candidate | A clean-clone PCSX-Redux gate passes conformance, rendered-frame, controller, memory-card, both campaign-resume, and twice-booted BIN/CUE checks. Rebuild and sign off the final release revision. |
+| Nintendo 64 | Emulator-accepted candidate | The candidate ares gate passes conformance 39/39, play 29/29, controller autopilot 140/140, and SRAM power-cycle resume 52/52 with the rebuilt pinned image. The sealed builder's Emberbound ROM is byte-identical to the ordinary pipeline. Rebuild from the final release revision. |
+| PlayStation | Emulator-accepted candidate | The candidate PCSX-Redux gate passes conformance, both rendered frames, controller choreography, memory-card cases, both campaign-resume pairs, and twice-booted BIN/CUE checks. The sealed builder's Emberbound disc matches the ordinary pipeline after normalizing only ISO timestamps and the GNU build ID. Rebuild from the final release revision. |
 | Player/console feature parity | Automated candidate | Campaign flow, story, objectives, abilities, items, save data, co-op ownership, and two-player enemy scaling are portable and exercised on all three targets. A target-by-target human playthrough still needs sign-off. |
 | PC graphics | Playable, not final art | Pixel, hybrid voxel-sprite, diorama, and full-voxel profiles are replaceable. The recommended initial profile is `voxel-sprites`; final animation/art polish is not a release-format dependency. |
 | Native project library | Ready | Create, rename, copy, import, export, atomic save/recovery, and in-memory compile/play are covered by smokes. |
@@ -54,7 +54,7 @@ Every release decision should preserve these constraints:
 | Native story creator | Scene-writing slice ready | Lines can be added, edited, reordered, and removed with bounded undo/redo; a scene always retains one line. Speaker / Character maintains portable cast art atomically. Backdrops are editable and the screen previews the same resolved portrait and backdrop wash used by play. A scene can be created and attached with its portable identity generated automatically, and visible edits follow navigation and Save without a separate Apply trap. |
 | Native army creator | Useful vertical slice | A focused controller-native screen lists starting heroes and later recruits, previews shared character art, renames without changing persistent identity, adds an existing role at the opening or after a chapter, and tunes seven named-hero traits. New roles copy a working role into an independent baseline. Tune Role edits all eleven portable baseline stats, side, terrain crossing, post-attack behavior, and allowed weapon families; incompatible removal is refused. New Side creates a portable named faction and color. Growth & Rewards keeps optional experience, level growth, item drops, and per-role appearance behind one advanced action. Campaign supplies, chapter rewards, role loadouts, and the separate reusable Gear & Abilities library are also native. |
 | Native authoring parity for 0.3 | Ready for release sign-off | Named negated and compound goal/item/Talk requirements, Talk-driven boolean story state, measured fielded-unit budgets, and safe whole-chapter ordering are implemented. Imported general world-value comparisons remain preserved and advanced because the portable source schema has no general operation that produces them. The replaceable PC graphics contract and four real profiles meet the 0.3 art-boundary requirement; arbitrary-file art-pack import is post-0.3. |
-| Native Export Center | Payload sign-off blocking | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Nintendo 64 and PlayStation independently discover versioned builder payloads, authenticate every installed file, build asynchronously, verify exact artifacts and hashes, reject local-path leakage, and publish atomically. A clean-revision packager now seals each pinned toolchain and source revision behind an offline user-namespace sandbox with no host environment, home, install tree, network, or container-socket access. Clean-revision validation payloads from both pinned images build the demo project successfully. The final release payloads still need to be produced, license-reviewed, compared with the repository builders, and emulator-signed. |
+| Native Export Center | Candidate ready | The in-app screen exports portable projects and player-only Linux games from a verified clean installed shell. Nintendo 64 and PlayStation independently discover versioned builder payloads, authenticate every installed file, build asynchronously, verify exact artifacts and hashes, reject local-path leakage, and publish atomically. The sealed payloads pass automated component/license-archive coverage, build Emberbound offline, and match the repository pipelines at the artifact boundary. Final depots must be regenerated from the frozen release commit; any distributor-required human legal approval remains separate. |
 | Documentation and screenshots | In progress | README and `docs/CREATING_A_GAME.md` now describe the tested native flow and use six screens rendered from the real Godot creator. Recapture them after the final UI freeze and add the enabled Export Center from the final current-version player shell. |
 | Windows PC | Post-0.3 | Needs a Windows GDExtension, export shell, signing/CI, controller validation, and a Windows-safe console-container strategy. |
 
@@ -380,6 +380,31 @@ are frozen.
   references. The final all-target clean-clone run remains required because
   later native-creator work postdates the console snapshot.
 
+### Console builder candidate — 2026-11-04
+
+- Both rebuilt pinned toolchain images preserve their fetched-source and
+  bundled-component license texts. Payload packaging refuses older images,
+  verifies the exact source/toolchain revisions, authenticates every installed
+  file, and requires archived copyright material for every Debian package.
+- Both sealed builders compile Emberbound through the real offline Bubblewrap
+  boundary. Nintendo 64 is byte-identical to the ordinary build at 2,031,616
+  bytes with SHA-256
+  `5c47cd441c70d9d1523dd8b341e2d86f649d615085dfa5f706f9ae6d1fe73245`.
+  PlayStation has an identical CUE and identical BIN user data after the
+  comparator normalizes only ISO recording timestamps and the 20-byte GNU
+  build ID; only three raw sectors contain those metadata differences.
+- The rebuilt Nintendo 64 image passes all four ares gates: 39/39 conformance,
+  29/29 play, 140/140 autopilot, and 52/52 campaign resume across a power
+  cycle. The rebuilt PlayStation image passes all six PCSX-Redux targets:
+  60/60 conformance, two 18/18 render probes, 973/973 turn assertions plus
+  401/401 harness assertions, all card corruption/preservation cases, both
+  campaigns founded and resumed, and the disc campaign booted twice over one
+  card.
+- This closes automated payload engineering sign-off for the candidate. It is
+  not final-release provenance: freeze still requires packaging every artifact
+  from the final clean revision, recording hashes, and completing the human
+  playthrough and any distributor-required license approval.
+
 ### 5. Presentation and replacement art
 
 - Choose the portable shared world theme and character style and preview actual
@@ -397,9 +422,10 @@ or repository code.
 - Export a portable editable project. **Implemented.**
 - Build a player-only Linux game from a clean prebuilt shell. **Implemented.**
 - Build Nintendo 64 and PlayStation targets through separately installed,
-  versioned builder payloads. **The asynchronous host and clean-revision sealed
-  Linux payload packager are implemented; production, license review, golden
-  comparison, and emulator sign-off remain.**
+  versioned builder payloads. **Implemented and engineering-signed-off for the
+  candidate: the sealed payloads pass automated license coverage, build
+  Emberbound offline, and match the ordinary console pipelines. Repeat from
+  the frozen release revision before publishing.**
 - Report each target independently. **Implemented, including availability,
   builder version, exact artifact names/sizes/hashes, and bounded warnings.**
 - Never copy credentials, container state, absolute paths, or local settings

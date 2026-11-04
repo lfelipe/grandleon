@@ -30,12 +30,15 @@ FROM ghcr.io/grumpycoders/pcsx-redux-build@sha256:e8db332e2b2d035cb0bbc5aeec2c13
 ARG NUGGET_REVISION=e5d63b8e5eeadaa04cc5a534c671ea5b252afc70
 ARG MKPSXISO_REVISION=54fb1644ed8741223583e2dcda358b75a205e214
 ARG LIBSTDCXX_TREE_SHA256=84e45369e6bf696758c719419f26ab44663790ac697f284cf93a1e3dacc42647
+ARG GCC_COPYING3_SHA256=8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903
+ARG GCC_COPYING_RUNTIME_SHA256=9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74
 
 USER root
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
         ca-certificates \
         cmake \
+        xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # A shallow clone cannot be pinned to an arbitrary commit, so the repository is
@@ -76,7 +79,17 @@ RUN set -eu \
     && curl --fail --location --silent --show-error \
         --output /libstdcxx/tree.cc \
         "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/libstdc%2B%2B-v3/src/c%2B%2B98/tree.cc" \
+    && curl --fail --location --silent --show-error \
+        --output /libstdcxx/COPYING3 \
+        "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING3" \
+    && curl --fail --location --silent --show-error \
+        --output /libstdcxx/COPYING.RUNTIME \
+        "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING.RUNTIME" \
     && printf '%s  %s\n' "${LIBSTDCXX_TREE_SHA256}" /libstdcxx/tree.cc \
+        | sha256sum --check --strict - \
+    && printf '%s  %s\n' "${GCC_COPYING3_SHA256}" /libstdcxx/COPYING3 \
+        | sha256sum --check --strict - \
+    && printf '%s  %s\n' "${GCC_COPYING_RUNTIME_SHA256}" /libstdcxx/COPYING.RUNTIME \
         | sha256sum --check --strict - \
     && chmod -R a+rX /libstdcxx
 
@@ -117,6 +130,40 @@ RUN set -eu \
     && cmake --build /mkpsxiso/build --parallel --target mkpsxiso \
     && install -D --mode=0755 /mkpsxiso/build/mkpsxiso /usr/local/bin/mkpsxiso \
     && printf '%s\n' "${MKPSXISO_REVISION}" > /MKPSXISO_REVISION \
+    && mkdir -p \
+        /tmp/grandleon-toolchain-licenses/nugget \
+        /tmp/grandleon-toolchain-licenses/gcc/libstdc++ \
+        /tmp/grandleon-toolchain-licenses/mkpsxiso/ghc \
+        /tmp/grandleon-toolchain-licenses/mkpsxiso/miniaudio \
+        /tmp/grandleon-toolchain-licenses/mkpsxiso/threadpool \
+        /tmp/grandleon-toolchain-licenses/mkpsxiso/tinyxml2 \
+    && install -m 0644 /nugget/LICENSE \
+        /tmp/grandleon-toolchain-licenses/nugget/LICENSE \
+    && install -m 0644 /libstdcxx/tree.cc /libstdcxx/COPYING3 \
+        /libstdcxx/COPYING.RUNTIME \
+        /tmp/grandleon-toolchain-licenses/gcc/libstdc++/ \
+    && install -m 0644 /mkpsxiso/LICENSE.md \
+        /tmp/grandleon-toolchain-licenses/mkpsxiso/LICENSE.md \
+    && install -m 0644 /mkpsxiso/ghc/LICENSE \
+        /tmp/grandleon-toolchain-licenses/mkpsxiso/ghc/LICENSE \
+    && install -m 0644 /mkpsxiso/miniaudio/LICENSE \
+        /tmp/grandleon-toolchain-licenses/mkpsxiso/miniaudio/LICENSE \
+    && install -m 0644 /mkpsxiso/threadpool/COPYING \
+        /tmp/grandleon-toolchain-licenses/mkpsxiso/threadpool/COPYING \
+    && install -m 0644 /mkpsxiso/tinyxml2/LICENSE.txt \
+        /tmp/grandleon-toolchain-licenses/mkpsxiso/tinyxml2/LICENSE.txt \
+    && tar -C /tmp/grandleon-toolchain-licenses -cJf \
+        /GRANDLEON_TOOLCHAIN_LICENSES.tar.xz . \
+    && printf '%s\t%s\t%s\n' \
+        Nugget "${NUGGET_REVISION}" MIT \
+        mkpsxiso "${MKPSXISO_REVISION}" GPL-2.0-only \
+        tinyxml2 "$(git rev-parse HEAD:tinyxml2)" Zlib \
+        miniaudio "$(git rev-parse HEAD:miniaudio)" 'Unlicense OR MIT-0' \
+        ghc-filesystem "$(git rev-parse HEAD:ghc)" MIT \
+        threadpool "$(git rev-parse HEAD:threadpool)" Zlib \
+        'GCC libstdc++ tree.cc' 12.3.0 \
+            'GPL-3.0-or-later WITH GCC-exception-3.1' \
+        > /GRANDLEON_TOOLCHAIN_COMPONENTS.tsv \
     && cd / \
     && rm -rf /mkpsxiso
 

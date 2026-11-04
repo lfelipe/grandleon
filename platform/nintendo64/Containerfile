@@ -21,6 +21,7 @@ RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
         ca-certificates \
         cmake \
+        xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 ENV N64_INST=/n64_toolchain
@@ -37,5 +38,37 @@ RUN mkdir -p /tmp/libdragon \
     && make -j"$(nproc)" libdragon tools \
     && make -j"$(nproc)" install tools-install \
     && printf '%s\n' "${LIBDRAGON_COMMIT}" > "${N64_INST}/LIBDRAGON_COMMIT" \
+    && mkdir -p \
+        /tmp/grandleon-toolchain-licenses/libdragon/src/fatfs \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/audioconv64/libsamplerate \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/mkfont/freetype \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/mkfont/plutosvg \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/mkfont/rect_pack \
+    && install -m 0644 LICENSE.md \
+        /tmp/grandleon-toolchain-licenses/libdragon/LICENSE.md \
+    && install -m 0644 src/fatfs/License.md \
+        /tmp/grandleon-toolchain-licenses/libdragon/src/fatfs/License.md \
+    && install -m 0644 ./tools/audioconv64/libsamplerate/COPYING \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/audioconv64/libsamplerate/COPYING \
+    && install -m 0644 ./tools/mkfont/freetype/LICENSE.TXT \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/mkfont/freetype/LICENSE.TXT \
+    && install -m 0644 ./tools/mkfont/freetype/FTL.TXT \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/mkfont/freetype/FTL.TXT \
+    && install -m 0644 ./tools/mkfont/freetype/GPLv2.TXT \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/mkfont/freetype/GPLv2.TXT \
+    && install -m 0644 ./tools/mkfont/plutosvg/FTL.TXT \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/mkfont/plutosvg/FTL.TXT \
+    && install -m 0644 ./tools/mkfont/rect_pack/LICENSE \
+        /tmp/grandleon-toolchain-licenses/libdragon/tools/mkfont/rect_pack/LICENSE \
+    && tar -C /tmp/grandleon-toolchain-licenses -cJf \
+        /GRANDLEON_TOOLCHAIN_LICENSES.tar.xz . \
+    && printf '%s\t%s\t%s\n' \
+        libdragon "${LIBDRAGON_COMMIT}" Unlicense \
+        FatFs "libdragon-${LIBDRAGON_COMMIT}" LicenseRef-FatFs \
+        libsamplerate "libdragon-${LIBDRAGON_COMMIT}" BSD-2-Clause \
+        FreeType "libdragon-${LIBDRAGON_COMMIT}" FTL \
+        PlutoSVG "libdragon-${LIBDRAGON_COMMIT}" FTL \
+        rect_pack "libdragon-${LIBDRAGON_COMMIT}" Unlicense \
+        > /GRANDLEON_TOOLCHAIN_COMPONENTS.tsv \
     && cd / \
     && rm -rf /tmp/libdragon
