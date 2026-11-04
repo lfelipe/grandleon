@@ -21,9 +21,13 @@ grass, farmland, sand, snow, swamp, hills, bamboo, forest, mountain, water,
 road, paved, and ruins. Road selects a bridge scene when it crosses water.
 
 Its high-resolution sci-fi roster covers all eight archetypes: knight, archer,
-mage, stormcaller, healer, commander, rogue, and beast. Each sheet provides
-idle, movement, attack, ability, and hurt/defeat poses. The complete animated
-roster is visible in [the artwork guide](../../docs/ARTWORK.md).
+mage, stormcaller, healer, commander, rogue, and beast. The mythical roster
+covers the same roles with separate male and female designs. Each mythical
+source sheet has a team-colour mask, so the same character can use blue, red,
+green, violet, amber, or bone while its face, hair, equipment, and effects stay
+unchanged. Every sheet provides idle, movement, attack, ability, and
+hurt/defeat poses. The complete animated roster and colour comparisons are in
+[the artwork guide](../../docs/ARTWORK.md).
 
 ## Replacement contract
 
@@ -32,7 +36,8 @@ Profile data lives in
 It can bind:
 
 - terrain names to `.tscn` or imported scenes;
-- character identities to sprite sheets and named frame sequences;
+- character identities to sprite sheets, optional team-colour masks, and named
+  frame sequences;
 - character archetypes to imported scenes and semantic animation clips; and
 - camera, lighting, palette, scale, pivot, and effect values.
 

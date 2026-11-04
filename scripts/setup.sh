@@ -135,12 +135,12 @@ venv="${repository_root}/tools/placeholder_art/.venv"
 donor_venv="${primary_checkout}/tools/placeholder_art/.venv"
 
 venv_usable() {
-    [ -x "$1/bin/python" ] && "$1/bin/python" -c 'import PIL' >/dev/null 2>&1
+    [ -x "$1/bin/python" ] && "$1/bin/python" -c 'import PIL, numpy' >/dev/null 2>&1
 }
 
 step "Placeholder-art virtual environment"
 if venv_usable "${venv}"; then
-    note "tools/placeholder_art/.venv can import Pillow"
+    note "tools/placeholder_art/.venv can import Pillow and NumPy"
 elif [ "${is_worktree}" -eq 1 ] && venv_usable "${donor_venv}"; then
     if [ "${check_only}" -eq 1 ]; then
         absent "tools/placeholder_art/.venv (borrow from the primary checkout)"

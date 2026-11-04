@@ -36,7 +36,8 @@ recolourings side by side.
 
 ## Running it
 
-Python 3.9+ and Pillow, in a project-local gitignored venv:
+Python and the pinned Pillow/NumPy requirements, in a project-local gitignored
+venv:
 
 ```sh
 python3 -m venv tools/placeholder_art/.venv

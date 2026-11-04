@@ -110,7 +110,7 @@ sudo npx --prefix editor playwright install-deps chromium
 ```
 
 `scripts/setup.sh` installs both npm trees, the Chromium the browser suite
-pins, and the Pillow virtual environment the art checks use. It takes a few
+pins, and the Pillow/NumPy virtual environment the art checks use. It takes a few
 minutes the first time and seconds afterwards; `scripts/setup.sh --check`
 reports what is missing and changes nothing.
 
@@ -140,9 +140,9 @@ sudo usermod -aG docker "$USER"
 | web development-server compatibility | Chromium, as above |
 | web startup, deployment, and offline smoke | Node |
 | ROM build service: refusals and failure paths | Node. It counts the tests, because `node --test` on an emptied file exits 0 reporting one passing test |
-| generated art is not stale | the Pillow venv |
-| generated creator board assets are not stale | the Pillow venv |
-| provided art: every rule refuses | the Pillow venv |
+| generated art is not stale | the art Python venv |
+| generated creator board assets are not stale | the art Python venv |
+| provided art: every rule refuses | the art Python venv |
 | WebAssembly module is not stale | **a container runtime** |
 | every documented path and anchor resolves | Python3 |
 | whitespace | git |

@@ -7,15 +7,16 @@ authored 3D terrain with animated high-resolution characters.
 This page separates two useful meanings of “complete”:
 
 - The supported Godot presentation has one high-resolution animated sci-fi
-  character for each of the eight archetypes and one authored scene for each of
-  the thirteen terrains.
+  character for each archetype, plus male and female mythical characters for
+  each archetype. The mythical set supports all six faction colours. Godot also
+  has one authored scene for each of the thirteen terrains.
 - The portable generated library covers every combination of eight archetypes,
   seven styles, six faction colours, and two figures. These are the assets shared
   with the constrained renderers and used as a safe fallback in Godot.
 
-The sci-fi direction is the first complete high-resolution set, not the only
-visual direction planned. Release 0.4 is expanding the same Godot art contract
-across the other styles and themes. The growing mythical set currently has:
+The sci-fi direction was the first complete high-resolution set. Release 0.4 is
+expanding the same Godot art contract across other styles and themes. The first
+complete expansion is the mythical set:
 
 | Portable identity | Animated preview |
 |---|---|
@@ -51,7 +52,7 @@ as `first` and `second` for compatibility; the creator presents those choices
 to people as **Male** and **Female**. The portable generated library already
 draws both bodies for every archetype, style, and faction colour.
 
-The high-resolution 0.4 roster will use one male and one female source sheet per
+The high-resolution roster uses one male and one female source sheet per
 archetype and style. These are independent character designs, not the same
 costume placed on two bodies: faces, hair, stature, clothing construction,
 equipment styling, and silhouettes may all differ. What stays consistent is
@@ -65,17 +66,21 @@ three-quarter camera, and consistent board-scale framing. Body type can vary,
 but a pair should still look as though it was made by the same art team for the
 same game.
 
-It should not require six separately painted colour copies of each body. Each
-source sheet will instead have a grayscale team-colour mask; Godot can recolour
-only the marked cloth and armour into blue, red, green, violet, amber, or bone,
-then cache the resulting texture. Faces, hair, weapons, and spell effects remain
-unchanged.
+It does not require six separately painted copies of each body. Every mythical
+source sheet has a team-colour mask. Godot recolours only the marked cloth and
+armour into blue, red, green, violet, amber, or bone, then caches the finished
+texture for the battlefield, portraits, and creator previews. Faces, hair,
+weapons, and spell effects remain unchanged. If a mask is missing or malformed,
+Godot keeps the original source colour instead of failing the character.
 
-That mask pipeline is the next renderer step. Until it lands, high-resolution
-bindings still name one exact colour and body, and every missing combination
-continues to use its portable fallback.
+The generated comparison gallery shows every mythical body in every faction
+colour at portrait and board scale:
 
-## Animated Godot roster
+- [Browse all 96 mythical body-and-colour combinations](screenshots/art-roster/team-colours/index.html).
+- [Inspect the mask selection on idle poses](screenshots/art-roster/team-colours/mythical-team-masks-idle.png).
+- [Inspect the mask selection across every action](screenshots/art-roster/team-colours/mythical-team-masks-actions.png).
+
+## Animated sci-fi Godot roster
 
 These are the actual committed sheets used by the supported presentation. Each
 preview runs through idle, walk, attack, ability, and hurt/defeat poses.
@@ -96,6 +101,15 @@ Run the following command after changing a sheet to rebuild the previews:
 
 ```sh
 platform/godot/scripts/generate-art-roster.sh
+```
+
+Run these after changing a mythical sheet, mask, or faction palette to rebuild
+the masks and the six-colour review gallery:
+
+```sh
+tools/placeholder_art/.venv/bin/python \
+  platform/godot/scripts/generate-mythical-team-masks.py
+platform/godot/scripts/generate-team-colour-showcase.sh
 ```
 
 ## Terrain coverage
@@ -129,9 +143,9 @@ console-oriented output profiles.
 - [Browse terrain, transitions, animation frames, palettes, and output profiles](../tools/placeholder_art/GALLERY.md).
 
 This larger library is deliberately lower resolution. It exists so every valid
-portable project remains visible on every renderer. The eight-sheet Godot
-roster is the curated high-resolution presentation, not a promise of a
-high-resolution sheet for every colour and figure combination.
+portable project remains visible on every renderer. The curated Godot rosters
+are the high-resolution presentation, not a promise of a separately painted
+sheet for every colour and body combination.
 
 ## Source and licence
 

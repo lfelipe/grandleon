@@ -2,3 +2,6 @@
 # filter the legibility reduction downscales with, and a resampling change
 # would move what that pass measures.
 Pillow==12.1.1
+# The high-resolution Godot team-mask generator performs deterministic colour
+# and connected-region operations over full 1772x886 sheets.
+numpy==2.3.5

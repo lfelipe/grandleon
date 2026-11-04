@@ -11,7 +11,7 @@ its rules.
 
 ![A real Grandleon battle running in Godot with voxel terrain and animated characters](docs/screenshots/godot/gameplay.gif)
 
-The animation above is captured from a real Emberbound battle in the running
+The animation above is captured from the included sample campaign in the running
 Godot client. It follows the party into close combat and includes the live
 movement, attack, hit, and impact animations—not a mockup or concept render.
 
@@ -46,11 +46,13 @@ authored 3D terrain with animated high-resolution 2D characters.
 ![Godot rendering authored voxel terrain with animated character sprites](docs/screenshots/godot/voxel-sprites.png)
 
 The current Godot art pack covers all eight character archetypes and all
-thirteen terrain kinds. The high-resolution character roster is currently one
-sci-fi direction; the generated portable library covers every archetype across
-all seven styles, six faction colours, and two figures. See the
-[artwork and animation roster](docs/ARTWORK.md) for animated previews and exact
-coverage.
+thirteen terrain kinds. It has a complete sci-fi character set and a complete
+mythical set with male and female designs for every archetype. The mythical
+characters can wear any of the six faction colours without recolouring their
+faces, hair, equipment, or effects. The generated portable library remains the
+fallback for every archetype across all seven styles, six faction colours, and
+two bodies. See the [artwork and animation roster](docs/ARTWORK.md) for animated
+previews and exact coverage.
 
 ## One project, several targets
 
