@@ -85,6 +85,9 @@ imagery comes from the executable checks themselves.
 
 [docs/screenshots/README.md](docs/screenshots/README.md) has the rest of the
 pictures, including a whole turn played by the test that checks it.
+[docs/ARTWORK.md](docs/ARTWORK.md) shows every Godot character archetype in
+motion, lists all thirteen authored terrains, and links to the complete portable
+art library.
 [docs/FROM_EDITOR_TO_CONSOLE.md](docs/FROM_EDITOR_TO_CONSOLE.md) describes the
 path from a choice made in the editor to a pixel on a console, and what each
 layer of verification proves.
@@ -279,9 +282,10 @@ Version 0.3 is still being prepared. The creator and installed console-builder
 path are implemented and the candidate console payloads pass their automated
 acceptance gates. Remaining release work is to freeze the UI, refresh the final
 screenshots, rebuild every artifact and payload from one clean revision, record
-the hashes, and complete the human playthrough and any distributor-required
-license approval. Windows builds and arbitrary replacement-art pack import are
-later work. The exact status and gates are in
+the hashes, and complete the human playthrough, storefront review, and final
+third-party notice and corresponding-source compliance review. Windows builds
+and arbitrary replacement-art pack import are later work. The exact status and
+gates are in
 [docs/RELEASE_0_3.md](docs/RELEASE_0_3.md).
 
 ## Where to go next
@@ -289,6 +293,7 @@ later work. The exact status and gates are in
 | If you want to… | Read |
 |---|---|
 | make a game | **Make a game** above, then [docs/CREATING_A_GAME.md](docs/CREATING_A_GAME.md). The editor is the tool, and it explains each field as you fill it in |
+| review the characters, animations, and terrains | [docs/ARTWORK.md](docs/ARTWORK.md), then the linked complete portable roster and gallery |
 | build or port the engine | [CODING.md](CODING.md), then [docs/FROM_EDITOR_TO_CONSOLE.md](docs/FROM_EDITOR_TO_CONSOLE.md), then one `platform/*/README.md` |
 | know what the engine guarantees | the module READMEs under `engine/` and `platform/`, and the tests beside them. A guarantee here is a thing a named test holds, not a paragraph |
 | understand why it is built this way | [DESIGN.md](DESIGN.md): the architecture and the reasoning behind it |

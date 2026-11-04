@@ -1,0 +1,85 @@
+[gd_scene load_steps=10 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_ground"]
+albedo_color = Color(0.34, 0.43, 0.27, 1)
+roughness = 0.92
+
+[sub_resource type="StandardMaterial3D" id="Material_hill"]
+albedo_color = Color(0.45, 0.53, 0.31, 1)
+roughness = 0.88
+
+[sub_resource type="StandardMaterial3D" id="Material_stone"]
+albedo_color = Color(0.35, 0.4, 0.39, 1)
+roughness = 0.84
+
+[sub_resource type="StandardMaterial3D" id="Material_beacon"]
+albedo_color = Color(0.1, 0.55, 0.62, 1)
+metallic = 0.22
+roughness = 0.28
+emission_enabled = true
+emission = Color(0.12, 0.77, 0.82, 1)
+emission_energy_multiplier = 0.58
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_ground"]
+material = SubResource("Material_ground")
+size = Vector3(0.88, 0.16, 0.88)
+
+[sub_resource type="CylinderMesh" id="Mesh_hill"]
+material = SubResource("Material_hill")
+top_radius = 0.09
+bottom_radius = 0.34
+height = 0.34
+radial_segments = 9
+rings = 1
+
+[sub_resource type="BoxMesh" id="Mesh_stone"]
+material = SubResource("Material_stone")
+size = Vector3(0.18, 0.11, 0.14)
+
+[sub_resource type="CylinderMesh" id="Mesh_beacon"]
+material = SubResource("Material_beacon")
+top_radius = 0.025
+bottom_radius = 0.065
+height = 0.2
+radial_segments = 6
+rings = 1
+
+[node name="RelayHills" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.08, 0)
+mesh = SubResource("Mesh_ground")
+
+[node name="HillWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.18, 0.28, 0.1)
+rotation = Vector3(0.02, -0.2, 0.05)
+scale = Vector3(1.05, 0.86, 0.72)
+mesh = SubResource("Mesh_hill")
+
+[node name="HillEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.28, 0.23, -0.23)
+rotation = Vector3(-0.03, 0.34, -0.04)
+scale = Vector3(0.68, 0.63, 0.58)
+mesh = SubResource("Mesh_hill")
+
+[node name="Stone" type="MeshInstance3D" parent="."]
+position = Vector3(-0.31, 0.19, -0.29)
+rotation = Vector3(0.07, 0.48, -0.06)
+mesh = SubResource("Mesh_stone")
+
+[node name="SurveyBeacon" type="MeshInstance3D" parent="."]
+position = Vector3(0.24, 0.24, 0.27)
+rotation = Vector3(0.05, 0, -0.1)
+mesh = SubResource("Mesh_beacon")

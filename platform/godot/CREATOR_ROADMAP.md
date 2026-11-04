@@ -238,8 +238,8 @@ images pass every established console emulator gate.
 1. **Release sign-off.** Freeze labels, regenerate the real creator screenshots,
    run clean-revision PC/Nintendo 64/PlayStation gates, and complete one human
    solo and co-op campaign playthrough per target. Regenerate payloads and
-   hashes from that same frozen revision and complete any distributor-required
-   human license approval.
+   hashes from that same frozen revision, then complete storefront review and
+   the final third-party notice and corresponding-source compliance review.
 
 General boolean, integer, and text world-value comparisons remain accepted and
 preserved for imported compatibility. They are not an editor blocker: source

@@ -28,7 +28,7 @@ machine-specific graphics or control configuration.
 | Compact controls | Every essential flow uses one stick or d-pad plus five configurable buttons. The default is A, B, X, Y, and Start; shoulders and Back are optional shortcuts that can be disabled. Analog navigation uses one shared high-deadzone, hysteretic filter across menus and gameplay: each complete deflection yields one cardinal step, diagonals cannot double-step, and d-pad response remains immediate. Settings offers only Deliberate and Extra Firm, persists the choice across the home screen and gameplay, and layers it over a persistent machine-private profile that may tune the safe base thresholds and replace physical button legends without recording a controller identity. Packaged acceptance proves that the real launcher carries the profile across both scenes. The play HUD follows the last active player and shows only the present goal and relevant buttons. Invalid, ambiguous, or unsafe local profiles fall back atomically to the complete default. |
 | Deterministic conflict handling | Commands overlap visually but serialize at the simulation boundary; a stale or conflicting command is refused instead of mutating state out of order. |
 | Authored campaign | Emberbound uses authored story scenes and the deterministic built-in enemy policy on every target. |
-| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, covering every Last Signal terrain while other kinds fall back per tile. Sprite cell dimensions, sheet layout, pivot, named sequences, and timing come from the art manifest. Its complete Last Signal sprite roster binds independent 443-pixel-cell replacements for Rook, Kestrel, Morrow, and the relay beast. Full Voxel inherits the terrain pack and replaces the same encounter roster with imported, skinned GLBs. Commander, rogue, and stormcaller reuse one humanoid topology without sharing meshes or actions; the beast has a distinct quadruped rig. Per-binding display scales keep those different proportions within one tactical cell. Missing bindings, clips, or metadata fall back asset by asset. |
+| Replaceable art | Terrain and character scene bindings accept `.tscn` or `.glb` assets per archetype. The recommended profile binds authored scenes for all thirteen terrains, plus a contextual bridge, and independent 443-pixel-cell sprite replacements for all eight archetypes. Sprite dimensions, layout, pivot, named sequences, and timing come from the art manifest. Full Voxel inherits the terrain pack and replaces the four Last Signal encounter identities with imported, skinned GLBs; its other four archetypes retain procedural fallback. Commander, rogue, and stormcaller reuse one humanoid topology without sharing meshes or actions; the beast has a distinct quadruped rig. Per-binding display scales keep those proportions within one tactical cell. Missing bindings, clips, or metadata fall back asset by asset. The human-facing roster is in `docs/ARTWORK.md`. |
 | Live graphics and comfort controls | The controller session menu cycles all four renderers around the same authoritative snapshot, cursors, selections, and highlights, can disable camera impulse, and switches every interface label between normal and large text. The graphics capture smoke exercises the complete live cycle with both comfort states. |
 | Persistent presentation settings | Graphics profile, camera impulse, text size, stick-input firmness, and the three-level sound-effects volume survive a restart in a versioned, atomic, presentation-only user-data file. Explicit launch overrides win without rewriting it; malformed settings fall back or recover without exposing paths or entering project data. |
 | PC presentation audio | A PC-only autoload provides deterministic, license-free defaults for focus, confirm, cancel, dialogue, movement, weapon, magic, impact, miss, restoration, item, talk, endurance, and defeat cues. Semantic native presentation events select combat cues, simultaneous movement is de-duplicated per event batch, and one Full/Low/Off setting controls the bounded player pool. No audio choice enters portable content. |
@@ -101,9 +101,9 @@ controller, and quit without keyboard intervention.
 
 ### 2. Polish and validate the authored relay terrain
 
-- The complete Last Signal vocabulary now resolves through one manifest-bound
-  Halcyon Relay pack: animated water, cobbled road and contextual bridge,
-  forest, mountain, sand, ruins, and grass all have one-cell authored scenes.
+- The complete thirteen-terrain vocabulary now resolves through one
+  manifest-bound Halcyon Relay pack. Road also selects a contextual bridge when
+  it meets water.
 - A deterministic variant list rotates asymmetric detail without adding
   randomness to portable content. A replacement pack can point those entries
   at genuinely different scenes without changing renderer code.
@@ -188,10 +188,10 @@ raise either console's memory or palette requirements.
 
 ## Known risks
 
-- The current terrain and three imported character assets remain a
-  deliberately compact art pack. The commander proves real rigging, materials,
-  and GLB animation, but final roster silhouettes and motion still need an
-  artist-quality pass.
+- The authored terrain pack and eight high-resolution sprite sheets cover the
+  release vocabulary, but remain a candidate art direction rather than a final
+  artist pass. Full Voxel still has only four imported character GLBs; its other
+  four archetypes intentionally exercise procedural fallback.
 - Godot presentation remains outside CTest, but the aggregate PC release gate
   now runs every bounded runtime smoke after the native CTest suite. CI still
   needs a pinned headless display and Godot cache before adopting that gate.

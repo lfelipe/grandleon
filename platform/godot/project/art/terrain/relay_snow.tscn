@@ -1,0 +1,82 @@
+[gd_scene load_steps=10 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_snow"]
+albedo_color = Color(0.71, 0.82, 0.86, 1)
+roughness = 0.74
+
+[sub_resource type="StandardMaterial3D" id="Material_drift"]
+albedo_color = Color(0.84, 0.91, 0.93, 1)
+roughness = 0.66
+
+[sub_resource type="StandardMaterial3D" id="Material_ice"]
+albedo_color = Color(0.21, 0.56, 0.69, 1)
+metallic = 0.08
+roughness = 0.25
+
+[sub_resource type="StandardMaterial3D" id="Material_stone"]
+albedo_color = Color(0.32, 0.4, 0.43, 1)
+roughness = 0.86
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_snow"]
+material = SubResource("Material_snow")
+size = Vector3(0.88, 0.1, 0.88)
+
+[sub_resource type="CylinderMesh" id="Mesh_drift"]
+material = SubResource("Material_drift")
+top_radius = 0.08
+bottom_radius = 0.31
+height = 0.15
+radial_segments = 10
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_ice"]
+material = SubResource("Material_ice")
+top_radius = 0.015
+bottom_radius = 0.085
+height = 0.28
+radial_segments = 6
+rings = 1
+
+[sub_resource type="BoxMesh" id="Mesh_stone"]
+material = SubResource("Material_stone")
+size = Vector3(0.16, 0.09, 0.13)
+
+[node name="RelaySnow" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Snow" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.05, 0)
+mesh = SubResource("Mesh_snow")
+
+[node name="DriftWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.23, 0.15, 0.11)
+rotation = Vector3(0, 0.18, 0)
+scale = Vector3(1.0, 1.0, 0.62)
+mesh = SubResource("Mesh_drift")
+
+[node name="DriftEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, 0.14, -0.2)
+rotation = Vector3(0, -0.28, 0)
+scale = Vector3(0.72, 0.82, 0.5)
+mesh = SubResource("Mesh_drift")
+
+[node name="IceMarker" type="MeshInstance3D" parent="."]
+position = Vector3(0.27, 0.26, 0.25)
+rotation = Vector3(0.08, 0, -0.14)
+mesh = SubResource("Mesh_ice")
+
+[node name="Stone" type="MeshInstance3D" parent="."]
+position = Vector3(-0.3, 0.15, -0.27)
+rotation = Vector3(0.06, 0.42, -0.04)
+mesh = SubResource("Mesh_stone")

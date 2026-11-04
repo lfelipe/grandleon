@@ -138,6 +138,12 @@
             }
           },
           "water": "res://art/terrain/relay_water.tscn",
+          "farmland": "res://art/terrain/relay_farmland.tscn",
+          "snow": "res://art/terrain/relay_snow.tscn",
+          "swamp": "res://art/terrain/relay_swamp.tscn",
+          "hills": "res://art/terrain/relay_hills.tscn",
+          "bamboo": "res://art/terrain/relay_bamboo.tscn",
+          "paved": "res://art/terrain/relay_paved.tscn",
           "ruins": "res://art/terrain/relay_ruins.tscn",
           "grass": {
             "scene": "res://art/terrain/relay_grass.tscn",
@@ -297,6 +303,94 @@
                 "frames_per_second": 2.0,
                 "loop": true
               },
+              "hurt": {"frames": [7]},
+              "defeat": {"frames": [7]}
+            }
+          },
+          "knight|blue|scifi|first": {
+            "path": "res://art/characters/relay_knight_hd.png",
+            "width": 1772,
+            "height": 886,
+            "columns": 4,
+            "rows": 2,
+            "tile_width": 443,
+            "tile_height": 443,
+            "pivot": [0.5, 0.94],
+            "facesRight": true,
+            "directionalFlip": true,
+            "sequences": {
+              "idle": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+              "move": {"frames": [2, 3], "frames_per_second": 7.0, "loop": true},
+              "attack": {"frames": [4, 5], "frames_per_second": 10.0, "loop": false},
+              "ability": {"frames": [6]},
+              "item": {"frames": [6]},
+              "talk": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+              "hurt": {"frames": [7]},
+              "defeat": {"frames": [7]}
+            }
+          },
+          "archer|blue|scifi|first": {
+            "path": "res://art/characters/relay_archer_hd.png",
+            "width": 1772,
+            "height": 886,
+            "columns": 4,
+            "rows": 2,
+            "tile_width": 443,
+            "tile_height": 443,
+            "pivot": [0.5, 0.94],
+            "facesRight": true,
+            "directionalFlip": true,
+            "sequences": {
+              "idle": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+              "move": {"frames": [2, 3], "frames_per_second": 7.0, "loop": true},
+              "attack": {"frames": [4, 5], "frames_per_second": 10.0, "loop": false},
+              "ability": {"frames": [6]},
+              "item": {"frames": [6]},
+              "talk": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+              "hurt": {"frames": [7]},
+              "defeat": {"frames": [7]}
+            }
+          },
+          "mage|blue|scifi|first": {
+            "path": "res://art/characters/relay_mage_hd.png",
+            "width": 1772,
+            "height": 886,
+            "columns": 4,
+            "rows": 2,
+            "tile_width": 443,
+            "tile_height": 443,
+            "pivot": [0.5, 0.94],
+            "facesRight": true,
+            "directionalFlip": true,
+            "sequences": {
+              "idle": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+              "move": {"frames": [2, 3], "frames_per_second": 7.0, "loop": true},
+              "attack": {"frames": [4, 5], "frames_per_second": 10.0, "loop": false},
+              "ability": {"frames": [6]},
+              "item": {"frames": [6]},
+              "talk": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+              "hurt": {"frames": [7]},
+              "defeat": {"frames": [7]}
+            }
+          },
+          "healer|blue|scifi|first": {
+            "path": "res://art/characters/relay_healer_hd.png",
+            "width": 1772,
+            "height": 886,
+            "columns": 4,
+            "rows": 2,
+            "tile_width": 443,
+            "tile_height": 443,
+            "pivot": [0.5, 0.94],
+            "facesRight": true,
+            "directionalFlip": true,
+            "sequences": {
+              "idle": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+              "move": {"frames": [2, 3], "frames_per_second": 7.0, "loop": true},
+              "attack": {"frames": [4, 5], "frames_per_second": 10.0, "loop": false},
+              "ability": {"frames": [6]},
+              "item": {"frames": [6]},
+              "talk": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
               "hurt": {"frames": [7]},
               "defeat": {"frames": [7]}
             }

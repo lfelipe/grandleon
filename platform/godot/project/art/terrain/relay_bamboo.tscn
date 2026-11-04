@@ -1,0 +1,104 @@
+[gd_scene load_steps=10 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_ground"]
+albedo_color = Color(0.2, 0.34, 0.23, 1)
+roughness = 0.93
+
+[sub_resource type="StandardMaterial3D" id="Material_stalk"]
+albedo_color = Color(0.43, 0.59, 0.25, 1)
+roughness = 0.84
+
+[sub_resource type="StandardMaterial3D" id="Material_joint"]
+albedo_color = Color(0.25, 0.4, 0.2, 1)
+roughness = 0.88
+
+[sub_resource type="StandardMaterial3D" id="Material_leaf"]
+albedo_color = Color(0.24, 0.52, 0.28, 1)
+roughness = 0.82
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_ground"]
+material = SubResource("Material_ground")
+size = Vector3(0.88, 0.1, 0.88)
+
+[sub_resource type="CylinderMesh" id="Mesh_stalk"]
+material = SubResource("Material_stalk")
+top_radius = 0.045
+bottom_radius = 0.055
+height = 0.62
+radial_segments = 7
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_joint"]
+material = SubResource("Material_joint")
+top_radius = 0.062
+bottom_radius = 0.062
+height = 0.025
+radial_segments = 7
+rings = 1
+
+[sub_resource type="BoxMesh" id="Mesh_leaf"]
+material = SubResource("Material_leaf")
+size = Vector3(0.29, 0.025, 0.09)
+
+[node name="RelayBamboo" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.05, 0)
+mesh = SubResource("Mesh_ground")
+
+[node name="StalkWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.22, 0.42, 0.12)
+rotation = Vector3(0.03, 0, -0.07)
+mesh = SubResource("Mesh_stalk")
+
+[node name="JointWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, 0.48, 0.12)
+rotation = Vector3(0.03, 0, -0.07)
+mesh = SubResource("Mesh_joint")
+
+[node name="StalkCentre" type="MeshInstance3D" parent="."]
+position = Vector3(0.04, 0.37, -0.13)
+rotation = Vector3(-0.02, 0, 0.09)
+scale = Vector3(0.88, 0.88, 0.88)
+mesh = SubResource("Mesh_stalk")
+
+[node name="JointCentre" type="MeshInstance3D" parent="."]
+position = Vector3(0.02, 0.43, -0.13)
+rotation = Vector3(-0.02, 0, 0.09)
+scale = Vector3(0.88, 0.88, 0.88)
+mesh = SubResource("Mesh_joint")
+
+[node name="StalkEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.28, 0.32, 0.2)
+rotation = Vector3(0.02, 0, -0.11)
+scale = Vector3(0.72, 0.72, 0.72)
+mesh = SubResource("Mesh_stalk")
+
+[node name="LeafWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.31, 0.65, 0.11)
+rotation = Vector3(0.08, -0.3, -0.32)
+mesh = SubResource("Mesh_leaf")
+
+[node name="LeafCentre" type="MeshInstance3D" parent="."]
+position = Vector3(0.15, 0.52, -0.12)
+rotation = Vector3(-0.04, 0.4, 0.27)
+scale = Vector3(0.82, 0.82, 0.82)
+mesh = SubResource("Mesh_leaf")
+
+[node name="LeafEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.19, 0.38, 0.21)
+rotation = Vector3(0.04, -0.2, -0.24)
+scale = Vector3(0.68, 0.68, 0.68)
+mesh = SubResource("Mesh_leaf")

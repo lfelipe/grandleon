@@ -1,0 +1,99 @@
+[gd_scene load_steps=11 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_mud"]
+albedo_color = Color(0.18, 0.27, 0.22, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="Material_water"]
+albedo_color = Color(0.08, 0.31, 0.3, 1)
+metallic = 0.06
+roughness = 0.28
+
+[sub_resource type="StandardMaterial3D" id="Material_reed"]
+albedo_color = Color(0.36, 0.51, 0.27, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Material_bloom"]
+albedo_color = Color(0.13, 0.56, 0.58, 1)
+roughness = 0.32
+emission_enabled = true
+emission = Color(0.18, 0.78, 0.73, 1)
+emission_energy_multiplier = 0.55
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_mud"]
+material = SubResource("Material_mud")
+size = Vector3(0.88, 0.1, 0.88)
+
+[sub_resource type="CylinderMesh" id="Mesh_pool"]
+material = SubResource("Material_water")
+top_radius = 0.27
+bottom_radius = 0.27
+height = 0.025
+radial_segments = 12
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_reed"]
+material = SubResource("Material_reed")
+top_radius = 0.012
+bottom_radius = 0.02
+height = 0.32
+radial_segments = 5
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_bloom"]
+material = SubResource("Material_bloom")
+top_radius = 0.025
+bottom_radius = 0.075
+height = 0.11
+radial_segments = 6
+rings = 1
+
+[node name="RelaySwamp" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Mud" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.05, 0)
+mesh = SubResource("Mesh_mud")
+
+[node name="PoolWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, 0.113, 0.08)
+scale = Vector3(1.0, 1.0, 0.68)
+mesh = SubResource("Mesh_pool")
+
+[node name="PoolEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.28, 0.114, -0.24)
+scale = Vector3(0.62, 1.0, 0.45)
+mesh = SubResource("Mesh_pool")
+
+[node name="ReedWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.34, 0.27, -0.22)
+rotation = Vector3(0.06, 0, -0.12)
+mesh = SubResource("Mesh_reed")
+
+[node name="ReedCentre" type="MeshInstance3D" parent="."]
+position = Vector3(-0.27, 0.25, -0.28)
+rotation = Vector3(-0.05, 0, 0.09)
+scale = Vector3(0.86, 0.86, 0.86)
+mesh = SubResource("Mesh_reed")
+
+[node name="ReedEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.34, 0.25, 0.24)
+rotation = Vector3(0.04, 0, 0.11)
+scale = Vector3(0.8, 0.8, 0.8)
+mesh = SubResource("Mesh_reed")
+
+[node name="RelayBloom" type="MeshInstance3D" parent="."]
+position = Vector3(0.08, 0.18, 0.27)
+rotation = Vector3(0.08, 0.2, -0.05)
+mesh = SubResource("Mesh_bloom")

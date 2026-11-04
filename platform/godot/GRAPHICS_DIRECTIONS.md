@@ -25,9 +25,9 @@ speed to a polished PC build, not the eventual production rate.
 
 | Profile | Already real | Still blockout work | Evidence from the capture |
 |---|---|---|---|
-| Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion, and a complete four-archetype roster of 443-pixel-cell replacements | richer animation, variant characters, and authored effects | most cohesive today, but depth and lighting remain limited |
+| Enhanced 2D | asset lookup, autotiling, manifest-driven animation, selection, motion, and a complete eight-archetype roster of 443-pixel-cell replacements | richer animation, variant characters, and authored effects | most cohesive today, but depth and lighting remain limited |
 | 3D diorama + 2D characters | 3D camera, lit terrain, water, bridges, trees, mountains, manifest-defined sprite pivots and animation | authored meshes/materials, sprite-facing and shadow polish | largest immediate upgrade while retaining the existing character library |
-| Voxel terrain + 2D characters | scene-authored water, road/contextual bridge, forest, mountain, sand, ruins, and grass, per-tile fallback, and manifest-driven billboard animation | authored variants, palette/material polish, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
+| Voxel terrain + 2D characters | scene-authored coverage for all thirteen terrains plus the contextual bridge, per-tile fallback, and an eight-archetype manifest-driven billboard roster | authored variants, palette/material polish, sprite-facing and shadow polish | clearest test of the recommended modular hybrid and replacement boundary |
 | Full voxel | the shared terrain pack, props, the complete encounter roster as imported skinned GLBs, one humanoid topology reused by three distinct characters, a distinct quadruped rig, explicit clip remapping, semantic in-place animation, per-archetype fallback, lighting | palette/material polish, richer silhouettes and motion | the entire real encounter is imported while asset-by-asset fallback remains available elsewhere |
 
 All four retain the same board API, concurrent player cursors, legal-tile
@@ -36,12 +36,12 @@ fork campaign content.
 
 ## Selected sequence: voxel terrain, then multi-output
 
-The PC build now starts with an orthographic voxel board and retains the animated 2D
-characters. Scene-authored water, road, bridge, forest, mountain, sand, ruins,
-and grass tiles sit beside
-procedural fallbacks on the same board. Terrain height, water, shadows, light,
-weather, and small props create the immediate PC upgrade while the existing
-character roster keeps the first build achievable and tactically legible.
+The PC build now starts with an orthographic voxel board and retains the animated
+2D characters. All thirteen terrain kinds have scene-authored tiles, road has a
+contextual bridge, and procedural fallbacks remain available on the same board.
+Terrain height, water, shadows, light, weather, and small props create the
+immediate PC upgrade while the complete eight-archetype sprite roster stays
+tactically legible.
 
 If that look works on the target PC, make voxel character models optional and add
 a bake step that renders the same sources to sprite sheets for constrained
@@ -70,9 +70,9 @@ animation names, and fallbacks.
   can take it further without a renderer rewrite.
 - **Illustrated 2D** has a high ceiling but makes animation the dominant art
   cost. Its dimensions, pivots, and animation clips have a manifest contract.
-  The integrated Rook, Kestrel, Morrow, and relay-beast sheets prove a cohesive
-  non-32-pixel encounter roster in play, with independent fallback for every
-  binding. Richer movement and combat animation remain production tasks.
+  The integrated eight-archetype roster proves cohesive non-32-pixel character
+  art in play, with independent fallback for every binding. Richer movement and
+  combat animation remain production tasks.
 - **3D diorama + 2D characters** gives the fastest dramatic lighting and depth.
   It requires careful billboard, shadow, and scale treatment so characters
   belong to the scene.

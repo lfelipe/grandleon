@@ -534,12 +534,13 @@ scene uses a one-cell origin and the manifest's `sceneScale`; surface heights
 remain explicit in the same profile. Missing or invalid bindings fall back per
 asset to procedural terrain or the existing sprite, so an artist can replace
 the roster incrementally instead of delivering an all-or-nothing pack.
-The recommended profile exercises this boundary with authored low-poly water,
-road and bridge, forest, mountain, sand, ruins, and grass scenes. Together they
-cover every terrain used by The Last Signal; procedural fallback remains
-available for the wider terrain vocabulary. Scene animation, shaders, and
-detail meshes belong to the scenes, not the board renderer, so a replacement
-may remove or redesign them freely.
+The recommended profile exercises this boundary with authored scenes for the
+complete thirteen-terrain vocabulary: grass, farmland, sand, snow, swamp,
+hills, bamboo, forest, mountain, water, road, paved, and ruins. Road also has a
+contextual bridge. Procedural fallback remains available when a replacement is
+removed or invalid. Scene animation, shaders, and detail meshes belong to the
+scenes, not the board renderer, so a replacement may remove or redesign them
+freely.
 
 A terrain binding may be a direct scene path or a context-aware binding. The
 current road selects and rotates a bridge scene when a cardinal neighbour is
@@ -616,10 +617,12 @@ events hold the attack or cast pose while their procedural or replaceable
 effects play. A higher-resolution pack may change cell dimensions without a
 package, simulation, or renderer change.
 
-The recommended profile now proves that contract with four 1772×886 sheets for
-Rook, Kestrel, Morrow, and the relay beast. Each sheet supplies eight 443×443
-cells with independently timed idle, walk, weapon, cast, hurt, and defeat
-poses. `assets.characterSprites` keys each replacement by
+The recommended profile now proves that contract with eight 1772×886 sheets,
+one for every archetype: knight, archer, mage, stormcaller, healer, commander,
+rogue, and beast. Each sheet supplies eight 443×443 cells with independently
+timed idle, walk, weapon, cast, hurt, and defeat poses.
+[`docs/ARTWORK.md`](../../docs/ARTWORK.md) shows the complete roster in motion.
+`assets.characterSprites` keys each replacement by
 `archetype|faction-colour|style|figure`; its path, grid, pivot, and named frame
 sequences live entirely in the graphics profile. A missing path, invalid grid,
 or absent identity falls back to the generated character independently. Copy

@@ -1,0 +1,100 @@
+[gd_scene load_steps=10 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_soil"]
+albedo_color = Color(0.31, 0.22, 0.15, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_ridge"]
+albedo_color = Color(0.47, 0.34, 0.21, 1)
+roughness = 0.92
+
+[sub_resource type="StandardMaterial3D" id="Material_crop"]
+albedo_color = Color(0.39, 0.62, 0.27, 1)
+roughness = 0.88
+
+[sub_resource type="StandardMaterial3D" id="Material_relay"]
+albedo_color = Color(0.08, 0.46, 0.55, 1)
+metallic = 0.28
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.12, 0.74, 0.82, 1)
+emission_energy_multiplier = 0.65
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_soil"]
+material = SubResource("Material_soil")
+size = Vector3(0.88, 0.1, 0.88)
+
+[sub_resource type="BoxMesh" id="Mesh_ridge"]
+material = SubResource("Material_ridge")
+size = Vector3(0.13, 0.055, 0.72)
+
+[sub_resource type="CylinderMesh" id="Mesh_crop"]
+material = SubResource("Material_crop")
+top_radius = 0.0
+bottom_radius = 0.045
+height = 0.19
+radial_segments = 5
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_relay"]
+material = SubResource("Material_relay")
+top_radius = 0.035
+bottom_radius = 0.035
+height = 0.23
+radial_segments = 6
+rings = 1
+
+[node name="RelayFarmland" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="Soil" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.05, 0)
+mesh = SubResource("Mesh_soil")
+
+[node name="RidgeWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.24, 0.105, 0)
+mesh = SubResource("Mesh_ridge")
+
+[node name="RidgeCentre" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.105, 0)
+mesh = SubResource("Mesh_ridge")
+
+[node name="RidgeEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.24, 0.105, 0)
+mesh = SubResource("Mesh_ridge")
+
+[node name="CropNorthWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.24, 0.22, -0.2)
+rotation = Vector3(0.08, 0, -0.12)
+mesh = SubResource("Mesh_crop")
+
+[node name="CropSouthWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.24, 0.22, 0.23)
+rotation = Vector3(-0.06, 0, 0.1)
+mesh = SubResource("Mesh_crop")
+
+[node name="CropNorthEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.24, 0.22, -0.2)
+rotation = Vector3(-0.04, 0, 0.12)
+mesh = SubResource("Mesh_crop")
+
+[node name="CropSouthEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.24, 0.22, 0.23)
+rotation = Vector3(0.06, 0, -0.1)
+mesh = SubResource("Mesh_crop")
+
+[node name="IrrigationRelay" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.2, -0.29)
+rotation = Vector3(1.5708, 0, 0)
+mesh = SubResource("Mesh_relay")

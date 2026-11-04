@@ -1,9 +1,8 @@
-# PC character prototypes
+# Godot character art
 
-`rook_commander_hd.png`, `kestrel_rogue_hd.png`,
-`morrow_stormcaller_hd.png`, and `relay_beast_hd.png` are higher-resolution
-sprite replacements used to exercise the PC graphics-profile contract with
-production-shaped input. Each is a transparent 4×2 sheet with 443×443 cells
+The eight `*_hd.png` files are the higher-resolution sprite roster used by the
+recommended PC graphics profile: knight, archer, mage, stormcaller, healer,
+commander, rogue, and beast. Each is a transparent 4×2 sheet with 443×443 cells
 in row-major order:
 
 1. idle A;
@@ -15,11 +14,11 @@ in row-major order:
 7. relay cast;
 8. hurt or defeat.
 
-The images were generated specifically for this prototype, then trimmed to
-exact cell boundaries. The runtime consumes these committed PNGs directly;
+The images were generated specifically for this project, then trimmed to exact
+cell boundaries. The runtime consumes these committed PNGs directly;
 screenshots of them in play are therefore implementation evidence rather than
 concept art. Their bindings, pivots, and timing live in
-`content/graphics_profiles.json`. Removing either binding or asset restores
+`content/graphics_profiles.json`. Removing a binding or asset restores
 only that character's generated 32-pixel fallback without a content, package,
 or rules change.
 
@@ -41,6 +40,8 @@ The checked-in binaries are the player inputs; Blender is needed only to revise
 the source assets and is not shipped in a PC bundle.
 
 `relay_commander_3d.tscn` and `relay_drone_3d.tscn` remain the earlier
-procedural references. Every unbound archetype keeps the procedural voxel
-fallback, while the complete Last Signal roster is now bound to imported GLBs
-in the Full Voxel profile.
+procedural references. The Full Voxel profile binds imported GLBs for the four
+Last Signal encounter identities: commander, rogue, stormcaller, and beast.
+Knight, archer, mage, and healer keep the procedural voxel fallback until they
+receive authored GLBs. This is separate from the complete eight-archetype sprite
+roster. See `docs/ARTWORK.md` for the human-facing coverage table and previews.

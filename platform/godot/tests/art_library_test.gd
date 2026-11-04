@@ -211,7 +211,21 @@ func _test_relay_terrain_pack() -> void:
 	var hybrid: Dictionary = document.get("profiles", {}).get("voxel-sprites", {})
 	var terrain_scenes: Dictionary = hybrid.get("assets", {}).get("terrainScenes", {})
 	_test_production_sprite_pack(hybrid)
-	var expected := ["water", "road", "forest", "mountain", "sand", "ruins", "grass"]
+	var expected := [
+		"water",
+		"road",
+		"forest",
+		"mountain",
+		"sand",
+		"ruins",
+		"grass",
+		"farmland",
+		"snow",
+		"swamp",
+		"hills",
+		"bamboo",
+		"paved",
+	]
 	for terrain_name: String in expected:
 		_expect("%s terrain is bound" % terrain_name, terrain_scenes.has(terrain_name), true)
 		if not terrain_scenes.has(terrain_name):
@@ -250,6 +264,10 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"rogue|amber|scifi|first": "res://art/characters/kestrel_rogue_hd.png",
 		"stormcaller|violet|scifi|first": "res://art/characters/morrow_stormcaller_hd.png",
 		"beast|violet|scifi|first": "res://art/characters/relay_beast_hd.png",
+		"knight|blue|scifi|first": "res://art/characters/relay_knight_hd.png",
+		"archer|blue|scifi|first": "res://art/characters/relay_archer_hd.png",
+		"mage|blue|scifi|first": "res://art/characters/relay_mage_hd.png",
+		"healer|blue|scifi|first": "res://art/characters/relay_healer_hd.png",
 	}
 	for key: String in expected:
 		_expect("%s sprite is bound" % key, bindings.has(key), true)
@@ -294,6 +312,26 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 			"label": "Relay beast",
 			"unit": {"archetype": 7, "colour": 3, "style": 1, "figure": 0},
 			"path": "res://art/characters/relay_beast_hd.png",
+		},
+		{
+			"label": "Relay knight",
+			"unit": {"archetype": 0, "colour": 0, "style": 1, "figure": 0},
+			"path": "res://art/characters/relay_knight_hd.png",
+		},
+		{
+			"label": "Relay archer",
+			"unit": {"archetype": 1, "colour": 0, "style": 1, "figure": 0},
+			"path": "res://art/characters/relay_archer_hd.png",
+		},
+		{
+			"label": "Relay mage",
+			"unit": {"archetype": 2, "colour": 0, "style": 1, "figure": 0},
+			"path": "res://art/characters/relay_mage_hd.png",
+		},
+		{
+			"label": "Relay healer",
+			"unit": {"archetype": 4, "colour": 0, "style": 1, "figure": 0},
+			"path": "res://art/characters/relay_healer_hd.png",
 		},
 	]
 	for entry: Dictionary in production_units:

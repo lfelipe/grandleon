@@ -124,7 +124,8 @@ Before publishing a payload, the packager audits its manifest and every file
 hash, requires each installed Debian package's copyright file, checks the
 pinned toolchain components and source revisions, and requires the expected
 upstream license texts. This is an archive-completeness check; it does not
-replace any human or legal approval required by a distributor.
+replace final storefront review or third-party notice and corresponding-source
+compliance review.
 Docker is a release-maintainer input only; it is not installed with the game
 and is not used by an author. The Linux host must provide Bubblewrap. Payload
 discovery checks `/usr/bin/bwrap` and `/bin/bwrap` before enabling either
@@ -252,4 +253,5 @@ local-path leakage, and atomic output. The packager smoke enters a minimal root
 through the real launcher, checks its mount layout, and proves an inherited
 secret does not cross the cleared environment. Release freeze must repeat the
 packaging, audit, golden comparison, and hashes from the final clean revision;
-distributor-required human license approval remains separate.
+final storefront review and third-party notice and corresponding-source
+compliance review remain separate.

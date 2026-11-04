@@ -13,6 +13,13 @@ also capture an enabled Export Center. `guide/` is the archived pre-0.3 creator
 walkthrough and is not referenced by current user documentation. Everything
 else here is the README's runtime evidence.
 
+`art-roster/` belongs to [../ARTWORK.md](../ARTWORK.md). Its eight animated
+previews are rebuilt directly from the committed Godot character sheets:
+
+```sh
+platform/godot/scripts/generate-art-roster.sh
+```
+
 Generated, never hand-taken:
 
 ```sh
@@ -25,6 +32,7 @@ scripts/readme-screenshots.sh editor   # or one: editor, terminal, n64,
 | File | Source |
 |---|---|
 | `native-guide/*.png` | Godot creator integration fixtures under Xvfb |
+| `art-roster/*.gif` | the eight committed 4×2 Godot animation sheets |
 | `editor.png` | archived pre-0.3 creator capture |
 | `terminal.png` | the real terminal client's ANSI output, rendered by Chromium |
 | `n64.png` | the render probe under ares, window chrome cropped |

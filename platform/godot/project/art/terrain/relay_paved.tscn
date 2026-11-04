@@ -1,0 +1,86 @@
+[gd_scene load_steps=9 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_edge"]
+albedo_color = Color(0.055, 0.09, 0.12, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_slab"]
+albedo_color = Color(0.34, 0.39, 0.41, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="Material_slab_light"]
+albedo_color = Color(0.45, 0.5, 0.51, 1)
+roughness = 0.78
+
+[sub_resource type="StandardMaterial3D" id="Material_seam"]
+albedo_color = Color(0.12, 0.18, 0.2, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Material_inlay"]
+albedo_color = Color(0.06, 0.45, 0.53, 1)
+metallic = 0.22
+roughness = 0.26
+emission_enabled = true
+emission = Color(0.12, 0.72, 0.8, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="BoxMesh" id="Mesh_foundation"]
+material = SubResource("Material_edge")
+size = Vector3(0.94, 0.26, 0.94)
+
+[sub_resource type="BoxMesh" id="Mesh_slab"]
+material = SubResource("Material_slab")
+size = Vector3(0.4, 0.1, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_slab_light"]
+material = SubResource("Material_slab_light")
+size = Vector3(0.4, 0.1, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_seam"]
+material = SubResource("Material_seam")
+size = Vector3(0.035, 0.015, 0.84)
+
+[sub_resource type="BoxMesh" id="Mesh_inlay"]
+material = SubResource("Material_inlay")
+size = Vector3(0.26, 0.018, 0.035)
+
+[node name="RelayPaved" type="Node3D"]
+
+[node name="Foundation" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_foundation")
+
+[node name="SlabNorthWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.21, 0.05, -0.21)
+mesh = SubResource("Mesh_slab")
+
+[node name="SlabNorthEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.21, 0.05, -0.21)
+mesh = SubResource("Mesh_slab_light")
+
+[node name="SlabSouthWest" type="MeshInstance3D" parent="."]
+position = Vector3(-0.21, 0.05, 0.21)
+mesh = SubResource("Mesh_slab_light")
+
+[node name="SlabSouthEast" type="MeshInstance3D" parent="."]
+position = Vector3(0.21, 0.05, 0.21)
+mesh = SubResource("Mesh_slab")
+
+[node name="SeamNorthSouth" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.108, 0)
+mesh = SubResource("Mesh_seam")
+
+[node name="SeamEastWest" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.109, 0)
+rotation = Vector3(0, 1.5708, 0)
+mesh = SubResource("Mesh_seam")
+
+[node name="RelayInlayNorth" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, 0.113, -0.29)
+rotation = Vector3(0, 0.18, 0)
+mesh = SubResource("Mesh_inlay")
+
+[node name="RelayInlaySouth" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26, 0.113, 0.27)
+rotation = Vector3(0, -0.14, 0)
+mesh = SubResource("Mesh_inlay")

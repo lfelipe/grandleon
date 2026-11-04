@@ -92,6 +92,11 @@ Open **More** for less-frequent map operations: rename the map and battle
 together, resize with a clipping preview, choose **Look & Feel**, add the next
 chapter, or edit **Outside**.
 
+**Look & Feel** changes the portable terrain theme, character style, and faction
+colours. The editor previews the same resolved assets used in play. To compare
+the complete character roster, its animations, and all thirteen terrain kinds
+before choosing a direction, see [Artwork and animation roster](ARTWORK.md).
+
 **Outside** controls only the non-playable area beyond the map:
 
 - **Solid** uses one chosen RGB colour.
