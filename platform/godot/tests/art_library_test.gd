@@ -273,6 +273,8 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"mage|green|mythical|second": "res://art/characters/mythical_mage_female_hd.png",
 		"healer|amber|mythical|first": "res://art/characters/mythical_healer_male_hd.png",
 		"healer|amber|mythical|second": "res://art/characters/mythical_healer_female_hd.png",
+		"commander|blue|mythical|first": "res://art/characters/mythical_commander_male_hd.png",
+		"commander|blue|mythical|second": "res://art/characters/mythical_commander_female_hd.png",
 		"archer|blue|scifi|first": "res://art/characters/relay_archer_hd.png",
 		"mage|blue|scifi|first": "res://art/characters/relay_mage_hd.png",
 		"healer|blue|scifi|first": "res://art/characters/relay_healer_hd.png",
@@ -365,6 +367,16 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 			"label": "Mythical healer, amber, female figure",
 			"unit": {"archetype": 4, "colour": 4, "style": 2, "figure": 1},
 			"path": "res://art/characters/mythical_healer_female_hd.png",
+		},
+		{
+			"label": "Mythical commander, blue, male figure",
+			"unit": {"archetype": 5, "colour": 0, "style": 2, "figure": 0},
+			"path": "res://art/characters/mythical_commander_male_hd.png",
+		},
+		{
+			"label": "Mythical commander, blue, female figure",
+			"unit": {"archetype": 5, "colour": 0, "style": 2, "figure": 1},
+			"path": "res://art/characters/mythical_commander_female_hd.png",
 		},
 		{
 			"label": "Relay archer",

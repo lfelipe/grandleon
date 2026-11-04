@@ -35,8 +35,8 @@ terrain rules, routes, timing, or combat results.
 
 - [ ] Complete male and female high-resolution bodies for every intended
   archetype and style. Mythical knight, archer, mage, and healer pairs are
-  complete; stormcaller and commander are in progress, followed by rogue and
-  beast.
+  complete; commander and beast artwork is complete; stormcaller and rogue are
+  in progress. Each pair must also pass the shared compact-art-direction audit.
 - [ ] Add reusable team-colour masks so one body sheet can render the six
   faction colours without recolouring faces, hair, equipment, or effects.
 - [ ] Compare the new low-detail commander proxy on PlayStation and Nintendo 64

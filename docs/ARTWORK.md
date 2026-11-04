@@ -27,10 +27,12 @@ across the other styles and themes. The growing mythical set currently has:
 | Mage · female (`second`) · green | ![The green female mythical mage idles, walks, casts, opens an arcane crescent, and reacts to a hit](screenshots/art-roster/mythical-mage-female.gif) |
 | Healer · male (`first`) · amber | ![The amber male mythical healer idles, walks, attacks, blesses, and reacts to a hit](screenshots/art-roster/mythical-healer-male.gif) |
 | Healer · female (`second`) · amber | ![The amber female mythical healer idles, walks, attacks, blesses, and reacts to a hit](screenshots/art-roster/mythical-healer-female.gif) |
+| Commander · male (`first`) · blue | ![The blue male mythical commander idles, walks, attacks, commands, and reacts to a hit](screenshots/art-roster/mythical-commander-male.gif) |
+| Commander · female (`second`) · blue | ![The blue female mythical commander idles, walks, attacks, commands, and reacts to a hit](screenshots/art-roster/mythical-commander-female.gif) |
 
-These four finished body pairs are the first half of the mythical roster, not a
-claim that the theme is complete. The names describe their portable art
-identity, not a campaign.
+These five finished body pairs are most of the mythical roster, not a claim
+that the theme is complete. The names describe their portable art identity,
+not a campaign.
 Identities without a curated high-resolution sheet continue to use the portable
 generated library, so every valid project remains playable while the new sets
 are built out.
@@ -48,6 +50,13 @@ costume placed on two bodies: faces, hair, stature, clothing construction,
 equipment styling, and silhouettes may all differ. What stays consistent is
 the archetype, the eight-action sheet contract, equipment handedness where the
 renderer depends on it, and a large readable team-colour region.
+
+Independent does not mean unrelated. Every sheet follows the same compact
+tactical art direction: roughly three-and-a-half heads tall, slightly oversized
+heads and hands, strong dark contours, simplified painterly materials, a shared
+three-quarter camera, and consistent board-scale framing. Body type can vary,
+but a pair should still look as though it was made by the same art team for the
+same game.
 
 It should not require six separately painted colour copies of each body. Each
 source sheet will instead have a grayscale team-colour mask; Godot can recolour

@@ -58,5 +58,7 @@ generate_preview mythical_mage_male_hd.png mythical-mage-male
 generate_preview mythical_mage_female_hd.png mythical-mage-female
 generate_preview mythical_healer_male_hd.png mythical-healer-male
 generate_preview mythical_healer_female_hd.png mythical-healer-female
+generate_preview mythical_commander_male_hd.png mythical-commander-male
+generate_preview mythical_commander_female_hd.png mythical-commander-female
 
 printf 'Animated art roster: %s\n' "${output_dir}"
