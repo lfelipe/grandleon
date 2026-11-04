@@ -32,8 +32,9 @@ capture an enabled Export Center.
 
 ## Artwork roster
 
-`art-roster/` belongs to [Artwork](../ARTWORK.md). Its eight animated previews
-are rebuilt directly from the committed Godot character sheets:
+`art-roster/` belongs to [Artwork](../ARTWORK.md). Its animated previews are
+rebuilt directly from the committed Godot character sheets, including work in
+progress on additional 0.4 styles:
 
 ```sh
 platform/godot/scripts/generate-art-roster.sh
@@ -53,7 +54,7 @@ scripts/readme-screenshots.sh terminal # or one named capture
 | `godot/gameplay.gif` | close combat from a recorded run of the Godot guided demo |
 | `godot/voxel-sprites.png` | the supported Godot presentation |
 | `native-guide/*.png` | Godot creator integration fixtures under Xvfb |
-| `art-roster/*.gif` | the eight committed 4×2 character sheets |
+| `art-roster/*.gif` | the committed 4×2 character sheets |
 | `terminal.png` | the real terminal client's ANSI output, rendered by Chromium |
 | `n64.png` | Emberbound's opening board under ares, with window chrome cropped |
 | `psx.png` | the matching verified PlayStation board, cropped to remove its diagnostic backdrop |

@@ -50,5 +50,6 @@ generate_preview relay_healer_hd.png healer
 generate_preview rook_commander_hd.png commander
 generate_preview kestrel_rogue_hd.png rogue
 generate_preview relay_beast_hd.png beast
+generate_preview mythical_knight_hd.png mythical-knight
 
 printf 'Animated art roster: %s\n' "${output_dir}"

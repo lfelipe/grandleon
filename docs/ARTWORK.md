@@ -2,7 +2,7 @@
 
 Grandleon has artwork for all eight character archetypes and all thirteen
 terrain kinds. The supported Godot presentation, **Voxel + Sprites**, combines
-authored 3D terrain with the animated high-resolution roster shown below.
+authored 3D terrain with animated high-resolution characters.
 
 This page separates two useful meanings of “complete”:
 
@@ -12,6 +12,18 @@ This page separates two useful meanings of “complete”:
 - The portable generated library covers every combination of eight archetypes,
   seven styles, six faction colours, and two figures. These are the assets shared
   with the constrained renderers and used as a safe fallback in Godot.
+
+The sci-fi direction is the first complete high-resolution set, not the only
+visual direction planned. Release 0.4 is expanding the same Godot art contract
+across the other styles and themes. That work starts with the mythical knight
+used by Emberbound's blue faction:
+
+![The Emberbound mythical knight idles, walks, attacks, raises a ward, and reacts to a hit](screenshots/art-roster/mythical-knight.gif)
+
+This is one finished 0.4 character, not a claim that the mythical roster is
+complete. Identities without a curated high-resolution sheet continue to use
+the portable generated library, so every valid project remains playable while
+the new sets are built out.
 
 ## Animated Godot roster
 
@@ -73,12 +85,12 @@ high-resolution sheet for every colour and figure combination.
 
 ## Source and licence
 
-The four new knight, archer, mage, and healer sheets were generated for this
-project in built-in image-generation mode, using the existing commander, rogue,
-stormcaller, and beast sheets as visual references. The prompts requested a
-transparent 4×2 production animation sheet, one consistent character, the eight
-poses listed above, no text or scenery, and a readable tactical-game silhouette.
-They were then cropped to exact cell boundaries without repainting the output.
+The character sheets were generated for this project in built-in
+image-generation mode. Existing sheets and the portable roster were used as
+visual and design references. Each prompt requests a transparent 4×2 production
+sheet, one consistent character, the eight poses listed above, no text or
+scenery, and a readable tactical-game silhouette. Generated images are cropped
+to exact cell boundaries without repainting the output.
 
 Grandleon's source and project-owned artwork are offered under the repository's
 [MIT License](../LICENSE). Bundled tools and runtimes retain their own licences
