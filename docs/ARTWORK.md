@@ -299,11 +299,17 @@ Attack, ability, and talk targets remain red to communicate action type.
 ## Console 3D comparison
 
 The current Godot commander and rogue were reduced into two console LODs and
-tested at native board scale. N64 preserves their role silhouettes and clears
-the frame target, so 0.4 carries a separate fixed prototype ROM. PlayStation's
+tested at native board scale. A second N64 review ROM now supplies procedural
+console models for all 112 combinations of style, archetype, and male/female
+body. It shows one body and all eight roles per page, with runtime red/blue team
+colour replacement, so the complete matrix can be inspected without crowding
+sixteen figures together.
+
+These models are an N64 rendering experiment, not the curated raster artwork
+converted into meshes and not yet a playable campaign renderer. PlayStation's
 sixteen-unit 3D board does not clear the target and remains on sprites. The
 [console 3D experiment](CONSOLE_3D_EXPERIMENT.md) includes the captures,
-measurements, and exact scope.
+measurements, build commands, and exact scope.
 
 ## The full portable library
 

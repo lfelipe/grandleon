@@ -264,6 +264,14 @@ void show(surface_t* disp) {
 // builds always leave this at zero; the played build updates it when either of
 // the first two physical controller ports produces an edge.
 std::uint8_t polled_local_player = 0;
+#if !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
+// How many physical ports the played build currently admits. The title and
+// player-count screens are Player 1's decision, so this begins at one. Once
+// two-player mode is confirmed, the second port joins the same fair input
+// queue used during battle. Keeping the limit at one in solo mode matters: a
+// connected second pad must not create an empty Player 2 seat and steal focus.
+std::uint8_t polled_local_player_count = 1;
+#endif
 #endif
 
 // The terrain vocabulary the renderer draws, generated with the art
@@ -796,6 +804,116 @@ void title_screen(const std::string& title) {
         wait_ms(16);
     }
 }
+
+#if !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT) && \
+    !defined(GRANDLEON_N64_README)
+// The package decides whether this screen exists; this function decides only
+// which of its two honest modes Player 1 chose. A two-player choice cannot be
+// confirmed until port two answers, because proceeding without it creates a
+// campaign whose Player 2 characters nobody can control.
+[[nodiscard]] std::uint8_t player_count_screen() {
+    int caret = 0;
+    bool dirty = true;
+    bool last_second_connected = false;
+    while (true) {
+        const bool second_connected = joypad_is_connected(JOYPAD_PORT_2);
+        if (second_connected != last_second_connected) dirty = true;
+        last_second_connected = second_connected;
+        if (dirty) {
+            surface_t* disp = display_get();
+            graphics_fill_screen(
+                disp, graphics_make_color(16, 26, 27, 255)
+            );
+            draw_logo(disp, 24, 1);
+            graphics_set_color(
+                graphics_make_color(242, 193, 78, 255), 0
+            );
+            graphics_draw_text(
+                disp,
+                screen::centred_x(
+                    std::string_view{screen::player_count_title}
+                ),
+                screen::player_count_title_y,
+                screen::player_count_title
+            );
+            for (std::size_t index = 0;
+                 index < screen::player_count_row_count; ++index) {
+                const bool on = static_cast<int>(index) == caret;
+                graphics_set_color(
+                    on ? graphics_make_color(242, 193, 78, 255)
+                       : graphics_make_color(245, 234, 210, 255),
+                    0
+                );
+                const int y = screen::player_count_first_row_y +
+                    static_cast<int>(index) * screen::player_count_row_step;
+                graphics_draw_text(disp, 100, y, on ? ">" : " ");
+                graphics_draw_text(
+                    disp, 124, y, screen::player_count_rows[index]
+                );
+            }
+            if (!second_connected) {
+                graphics_set_color(
+                    graphics_make_color(196, 84, 74, 255), 0
+                );
+                graphics_draw_text(
+                    disp,
+                    screen::centred_x(
+                        std::string_view{screen::player_count_need_pad}
+                    ),
+                    screen::player_count_note_y,
+                    screen::player_count_need_pad
+                );
+            } else {
+                graphics_set_color(
+                    graphics_make_color(125, 168, 133, 255), 0
+                );
+                constexpr const char* ready = "CONTROLLER 2 READY";
+                graphics_draw_text(
+                    disp, screen::centred_x(std::string_view{ready}),
+                    screen::player_count_note_y, ready
+                );
+            }
+            graphics_set_color(
+                graphics_make_color(125, 168, 133, 255), 0
+            );
+            graphics_draw_text(
+                disp,
+                screen::centred_x(
+                    std::string_view{screen::player_count_prompt}
+                ),
+                screen::player_count_prompt_y,
+                screen::player_count_prompt
+            );
+            show(disp);
+            dirty = false;
+        }
+        grandleon::n64audio::pump();
+        const joypad_buttons_t pressed = poll_buttons();
+        if (pressed.d_up && caret > 0) {
+            --caret;
+            dirty = true;
+        }
+        if (pressed.d_down && caret + 1 <
+                static_cast<int>(screen::player_count_row_count)) {
+            ++caret;
+            dirty = true;
+        }
+        if (pressed.a || pressed.start) {
+            if (caret == 0) {
+                grandleon::n64audio::play(grandleon::n64audio::Sfx::select);
+                return 1U;
+            }
+            if (second_connected) {
+                grandleon::n64audio::play(grandleon::n64audio::Sfx::select);
+                return 2U;
+            }
+            grandleon::n64audio::play(grandleon::n64audio::Sfx::select);
+            dirty = true;
+        }
+        wait_ms(16);
+    }
+}
+#endif
 
 std::string lowered(const std::string& text) {
     std::string out = text;
@@ -8772,7 +8890,7 @@ joypad_buttons_t poll_buttons() {
     static unsigned priority = 0;
     constexpr joypad_port_t ports[2] = {JOYPAD_PORT_1, JOYPAD_PORT_2};
 
-    for (unsigned player = 0; player < 2; ++player) {
+    for (unsigned player = 0; player < polled_local_player_count; ++player) {
         joypad_buttons_t edges = joypad_get_buttons_pressed(ports[player]);
         const joypad_buttons_t held = joypad_get_buttons(ports[player]);
         const unsigned leaning =
@@ -8795,8 +8913,14 @@ joypad_buttons_t poll_buttons() {
         merge_play_buttons(pending[player], edges);
     }
 
+    if (polled_local_player_count == 1U) {
+        pending[1] = {};
+        priority = 0;
+    }
     unsigned ready = priority;
-    if (!any_play_button(pending[ready])) ready = 1U - ready;
+    if (!any_play_button(pending[ready]) && polled_local_player_count > 1U) {
+        ready = 1U - ready;
+    }
     if (!any_play_button(pending[ready])) {
         polled_local_player = 0xFFU;
         return {};
@@ -8804,7 +8928,7 @@ joypad_buttons_t poll_buttons() {
     joypad_buttons_t result = pending[ready];
     pending[ready] = {};
     polled_local_player = static_cast<std::uint8_t>(ready);
-    priority = 1U - ready;
+    priority = polled_local_player_count > 1U ? 1U - ready : 0U;
     return result;
 }
 
@@ -9178,14 +9302,11 @@ int main() {
     grandleon::n64audio::init();
 #endif
 #if defined(GRANDLEON_N64_README)
-    constexpr std::uint8_t local_players = 2;
+    std::uint8_t local_players = 2;
 #elif defined(GRANDLEON_N64_COOP_AUTOPILOT)
-    constexpr std::uint8_t local_players = 2;
-#elif !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
-    const std::uint8_t local_players =
-        joypad_is_connected(JOYPAD_PORT_2) ? 2U : 1U;
+    std::uint8_t local_players = 2;
 #else
-    constexpr std::uint8_t local_players = 1;
+    std::uint8_t local_players = 1;
 #endif
 
     // The embedded source project, parsed and compiled on the console. The
@@ -9438,6 +9559,18 @@ int main() {
         // holds the project it was built for, so a second statement of the
         // same string is a second thing to keep in step.
         title_screen(parsed.source.title);
+#if !defined(GRANDLEON_N64_AUTOPILOT) && \
+    !defined(GRANDLEON_N64_README)
+        // Only a campaign that actually assigns an allied placement to Player
+        // 2 offers the choice. The placement section is compiled portable
+        // content, so this is the same answer the encounter loader will use.
+        if (loaded.package.find(pf::SectionType::placement_players) != nullptr) {
+            local_players = player_count_screen();
+        }
+        polled_local_player_count = local_players;
+#elif defined(GRANDLEON_N64_README)
+        polled_local_player_count = local_players;
+#endif
         controls_screen();
 #endif
         // What the package says its content looks like, asked once and handed

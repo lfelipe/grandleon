@@ -1,0 +1,2352 @@
+{
+  "schemaVersion": "1.2.0",
+  "packageId": "7c7b3d8b-9346-4ee2-91c2-6ccb34f18ce9",
+  "gameId": "grandleon.sevenfold",
+  "title": "Sevenfold Gate",
+  "contentRevision": "0.1.0",
+  "themeId": "temperate",
+  "characterStyleId": "medieval",
+  "characterFigureId": "first",
+  "defaultTurnOrder": "sideBlocks",
+  "characterLoss": "recoverable",
+  "weaponTypes": [
+    {
+      "id": "blade",
+      "name": "Blade"
+    },
+    {
+      "id": "bow",
+      "name": "Bow"
+    },
+    {
+      "id": "focus",
+      "name": "Focus"
+    }
+  ],
+  "itemTypes": [],
+  "classes": [
+    {
+      "id": "knight",
+      "name": "Knight",
+      "baseStats": {
+        "health": 15,
+        "movement": 3,
+        "strength": 4,
+        "defense": 4,
+        "resistance": 2,
+        "skill": 6,
+        "luck": 2,
+        "actionPoints": 2,
+        "speed": 3
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "archer",
+      "name": "Archer",
+      "baseStats": {
+        "health": 11,
+        "movement": 4,
+        "strength": 4,
+        "defense": 2,
+        "resistance": 2,
+        "skill": 8,
+        "luck": 2,
+        "actionPoints": 2,
+        "speed": 6
+      },
+      "allowedWeaponTypeIds": [
+        "bow"
+      ]
+    },
+    {
+      "id": "mage",
+      "name": "Mage",
+      "baseStats": {
+        "health": 10,
+        "movement": 4,
+        "strength": 2,
+        "defense": 2,
+        "resistance": 5,
+        "skill": 6,
+        "luck": 2,
+        "actionPoints": 2,
+        "speed": 5,
+        "magic": 6
+      },
+      "allowedWeaponTypeIds": [
+        "focus"
+      ]
+    },
+    {
+      "id": "stormcaller",
+      "name": "Stormcaller",
+      "baseStats": {
+        "health": 10,
+        "movement": 4,
+        "strength": 2,
+        "defense": 2,
+        "resistance": 5,
+        "skill": 6,
+        "luck": 2,
+        "actionPoints": 2,
+        "speed": 5,
+        "magic": 6
+      },
+      "allowedWeaponTypeIds": [
+        "focus"
+      ]
+    },
+    {
+      "id": "healer",
+      "name": "Healer",
+      "baseStats": {
+        "health": 11,
+        "movement": 4,
+        "strength": 2,
+        "defense": 2,
+        "resistance": 6,
+        "skill": 6,
+        "luck": 2,
+        "actionPoints": 2,
+        "speed": 4,
+        "magic": 6
+      },
+      "allowedWeaponTypeIds": [
+        "focus"
+      ]
+    },
+    {
+      "id": "commander",
+      "name": "Commander",
+      "baseStats": {
+        "health": 15,
+        "movement": 3,
+        "strength": 4,
+        "defense": 4,
+        "resistance": 2,
+        "skill": 6,
+        "luck": 2,
+        "actionPoints": 2,
+        "speed": 3
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "rogue",
+      "name": "Rogue",
+      "baseStats": {
+        "health": 10,
+        "movement": 5,
+        "strength": 4,
+        "defense": 1,
+        "resistance": 2,
+        "skill": 8,
+        "luck": 2,
+        "actionPoints": 2,
+        "speed": 8
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "beast",
+      "name": "Beast",
+      "baseStats": {
+        "health": 14,
+        "movement": 5,
+        "strength": 5,
+        "defense": 3,
+        "resistance": 2,
+        "skill": 6,
+        "luck": 2,
+        "actionPoints": 2,
+        "speed": 7
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "showcase_blade",
+      "name": "Gate Blade",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    },
+    {
+      "id": "showcase_bow",
+      "name": "Gate Bow",
+      "weaponTypeId": "bow",
+      "power": 3,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 100
+    },
+    {
+      "id": "showcase_focus",
+      "name": "Gate Focus",
+      "weaponTypeId": "focus",
+      "power": 2,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 100
+    }
+  ],
+  "items": [],
+  "factions": [
+    {
+      "id": "gatewardens",
+      "name": "Gatewardens",
+      "color": "blue"
+    },
+    {
+      "id": "rift_host",
+      "name": "Rift Host",
+      "color": "red"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "portal_bolt",
+      "name": "Portal Bolt",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "single",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 3,
+      "accuracy": 100
+    },
+    {
+      "id": "rift_arc",
+      "name": "Rift Arc",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "cross",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 3,
+      "radius": 1,
+      "accuracy": 95
+    },
+    {
+      "id": "mend_gate",
+      "name": "Mend Gate",
+      "kind": "restore",
+      "damageType": "physical",
+      "areaShape": "single",
+      "power": 5,
+      "minimumRange": 1,
+      "maximumRange": 2
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "medieval_knight_first",
+      "name": "Medieval Knight M",
+      "classId": "knight",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "medieval_archer_first",
+      "name": "Medieval Archer M",
+      "classId": "archer",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_bow"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "medieval_mage_second",
+      "name": "Medieval Mage F",
+      "classId": "mage",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "portal_bolt"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "medieval_stormcaller_second",
+      "name": "Medieval Stormcaller F",
+      "classId": "stormcaller",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "rift_arc"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "medieval_healer_first",
+      "name": "Medieval Healer M",
+      "classId": "healer",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "mend_gate"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "medieval_commander_first",
+      "name": "Medieval Commander M",
+      "classId": "commander",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "medieval_rogue_second",
+      "name": "Medieval Rogue F",
+      "classId": "rogue",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "medieval_beast_second",
+      "name": "Medieval Beast F",
+      "classId": "beast",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "experienceAward": 20
+    },
+    {
+      "id": "scifi_knight_second",
+      "name": "Sci-Fi Knight F",
+      "classId": "knight",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "scifi",
+      "characterFigureId": "second",
+      "experienceAward": 20
+    },
+    {
+      "id": "scifi_archer_second",
+      "name": "Sci-Fi Archer F",
+      "classId": "archer",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_bow"
+      ],
+      "characterStyleId": "scifi",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "scifi_mage_first",
+      "name": "Sci-Fi Mage M",
+      "classId": "mage",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "scifi",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "portal_bolt"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "scifi_stormcaller_first",
+      "name": "Sci-Fi Stormcaller M",
+      "classId": "stormcaller",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "scifi",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "rift_arc"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "scifi_healer_second",
+      "name": "Sci-Fi Healer F",
+      "classId": "healer",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "scifi",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "mend_gate"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "scifi_commander_second",
+      "name": "Sci-Fi Commander F",
+      "classId": "commander",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "scifi",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "scifi_rogue_first",
+      "name": "Sci-Fi Rogue M",
+      "classId": "rogue",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "scifi",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "scifi_beast_first",
+      "name": "Sci-Fi Beast M",
+      "classId": "beast",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "scifi",
+      "characterFigureId": "first",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "mythical_knight_first",
+      "name": "Mythical Knight M",
+      "classId": "knight",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "mythical",
+      "characterFigureId": "first",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "mythical_archer_first",
+      "name": "Mythical Archer M",
+      "classId": "archer",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_bow"
+      ],
+      "characterStyleId": "mythical",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "mythical_mage_second",
+      "name": "Mythical Mage F",
+      "classId": "mage",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "mythical",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "portal_bolt"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "mythical_stormcaller_second",
+      "name": "Mythical Stormcaller F",
+      "classId": "stormcaller",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "mythical",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "rift_arc"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "mythical_healer_first",
+      "name": "Mythical Healer M",
+      "classId": "healer",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "mythical",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "mend_gate"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "mythical_commander_first",
+      "name": "Mythical Commander M",
+      "classId": "commander",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "mythical",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "mythical_rogue_second",
+      "name": "Mythical Rogue F",
+      "classId": "rogue",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "mythical",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "mythical_beast_second",
+      "name": "Mythical Beast F",
+      "classId": "beast",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "mythical",
+      "characterFigureId": "second",
+      "experienceAward": 20
+    },
+    {
+      "id": "nature_knight_second",
+      "name": "Nature Knight F",
+      "classId": "knight",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "nature",
+      "characterFigureId": "second",
+      "experienceAward": 20
+    },
+    {
+      "id": "nature_archer_second",
+      "name": "Nature Archer F",
+      "classId": "archer",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_bow"
+      ],
+      "characterStyleId": "nature",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "nature_mage_first",
+      "name": "Nature Mage M",
+      "classId": "mage",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "nature",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "portal_bolt"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "nature_stormcaller_first",
+      "name": "Nature Stormcaller M",
+      "classId": "stormcaller",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "nature",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "rift_arc"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "nature_healer_second",
+      "name": "Nature Healer F",
+      "classId": "healer",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "nature",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "mend_gate"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "nature_commander_second",
+      "name": "Nature Commander F",
+      "classId": "commander",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "nature",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "nature_rogue_first",
+      "name": "Nature Rogue M",
+      "classId": "rogue",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "nature",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "nature_beast_first",
+      "name": "Nature Beast M",
+      "classId": "beast",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "nature",
+      "characterFigureId": "first",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "sengoku_knight_first",
+      "name": "Sengoku Knight M",
+      "classId": "knight",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "sengoku_archer_first",
+      "name": "Sengoku Archer M",
+      "classId": "archer",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_bow"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "sengoku_mage_second",
+      "name": "Sengoku Mage F",
+      "classId": "mage",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "portal_bolt"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "sengoku_stormcaller_second",
+      "name": "Sengoku Stormcaller F",
+      "classId": "stormcaller",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "rift_arc"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "sengoku_healer_first",
+      "name": "Sengoku Healer M",
+      "classId": "healer",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "mend_gate"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "sengoku_commander_first",
+      "name": "Sengoku Commander M",
+      "classId": "commander",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "sengoku_rogue_second",
+      "name": "Sengoku Rogue F",
+      "classId": "rogue",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "sengoku_beast_second",
+      "name": "Sengoku Beast F",
+      "classId": "beast",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "experienceAward": 20
+    },
+    {
+      "id": "undead_knight_second",
+      "name": "Undead Knight F",
+      "classId": "knight",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "undead",
+      "characterFigureId": "second",
+      "experienceAward": 20
+    },
+    {
+      "id": "undead_archer_second",
+      "name": "Undead Archer F",
+      "classId": "archer",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_bow"
+      ],
+      "characterStyleId": "undead",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "undead_mage_first",
+      "name": "Undead Mage M",
+      "classId": "mage",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "undead",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "portal_bolt"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "undead_stormcaller_first",
+      "name": "Undead Stormcaller M",
+      "classId": "stormcaller",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "undead",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "rift_arc"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "undead_healer_second",
+      "name": "Undead Healer F",
+      "classId": "healer",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "undead",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "mend_gate"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "undead_commander_second",
+      "name": "Undead Commander F",
+      "classId": "commander",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "undead",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "undead_rogue_first",
+      "name": "Undead Rogue M",
+      "classId": "rogue",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "undead",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "undead_beast_first",
+      "name": "Undead Beast M",
+      "classId": "beast",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "undead",
+      "characterFigureId": "first",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "pirates_knight_first",
+      "name": "Pirates Knight M",
+      "classId": "knight",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "pirates",
+      "characterFigureId": "first",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "pirates_archer_first",
+      "name": "Pirates Archer M",
+      "classId": "archer",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_bow"
+      ],
+      "characterStyleId": "pirates",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "pirates_mage_second",
+      "name": "Pirates Mage F",
+      "classId": "mage",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "pirates",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "portal_bolt"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "pirates_stormcaller_second",
+      "name": "Pirates Stormcaller F",
+      "classId": "stormcaller",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "pirates",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "rift_arc"
+      ],
+      "experienceAward": 20
+    },
+    {
+      "id": "pirates_healer_first",
+      "name": "Pirates Healer M",
+      "classId": "healer",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_focus"
+      ],
+      "characterStyleId": "pirates",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "mend_gate"
+      ],
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "pirates_commander_first",
+      "name": "Pirates Commander M",
+      "classId": "commander",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "pirates",
+      "characterFigureId": "first",
+      "experienceAward": 20
+    },
+    {
+      "id": "pirates_rogue_second",
+      "name": "Pirates Rogue F",
+      "classId": "rogue",
+      "factionId": "gatewardens",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "pirates",
+      "characterFigureId": "second",
+      "experiencePerLevel": 100
+    },
+    {
+      "id": "pirates_beast_second",
+      "name": "Pirates Beast F",
+      "classId": "beast",
+      "factionId": "rift_host",
+      "startingWeaponIds": [
+        "showcase_blade"
+      ],
+      "characterStyleId": "pirates",
+      "characterFigureId": "second",
+      "experienceAward": 20
+    }
+  ],
+  "maps": [
+    {
+      "id": "medieval_gate",
+      "name": "Medieval Gate",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "forest",
+        "forest",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "mountain",
+        "mountain",
+        "farmland",
+        "road",
+        "grass",
+        "road",
+        "paved",
+        "grass",
+        "road",
+        "forest",
+        "farmland",
+        "road",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "road",
+        "forest",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "paved",
+        "forest",
+        "road",
+        "grass",
+        "paved",
+        "road",
+        "farmland",
+        "road",
+        "forest",
+        "forest",
+        "farmland",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "mountain",
+        "forest"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 3
+      }
+    },
+    {
+      "id": "scifi_gate",
+      "name": "Sci-Fi Gate",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "snow",
+        "paved",
+        "ruins",
+        "road",
+        "ruins",
+        "road",
+        "paved",
+        "snow",
+        "ruins",
+        "road",
+        "paved",
+        "road",
+        "ruins",
+        "road",
+        "road",
+        "snow",
+        "snow",
+        "road",
+        "ruins",
+        "paved",
+        "road",
+        "paved",
+        "road",
+        "ruins",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "ruins",
+        "road",
+        "road",
+        "paved",
+        "ruins",
+        "road",
+        "paved",
+        "ruins",
+        "road",
+        "paved",
+        "road",
+        "snow",
+        "snow",
+        "paved",
+        "ruins",
+        "road",
+        "paved",
+        "ruins",
+        "snow",
+        "snow"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 3
+      }
+    },
+    {
+      "id": "mythical_gate",
+      "name": "Mythical Gate",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "mountain",
+        "mountain",
+        "grass",
+        "road",
+        "grass",
+        "road",
+        "grass",
+        "mountain",
+        "mountain",
+        "road",
+        "grass",
+        "hills",
+        "ruins",
+        "road",
+        "road",
+        "mountain",
+        "grass",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "mountain",
+        "road",
+        "road",
+        "road",
+        "ruins",
+        "hills",
+        "road",
+        "mountain",
+        "grass",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "grass",
+        "road",
+        "grass",
+        "mountain",
+        "grass",
+        "grass",
+        "road",
+        "ruins",
+        "grass",
+        "mountain",
+        "mountain"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 3
+      }
+    },
+    {
+      "id": "nature_gate",
+      "name": "Nature Gate",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "forest",
+        "bamboo",
+        "water",
+        "road",
+        "water",
+        "road",
+        "bamboo",
+        "forest",
+        "bamboo",
+        "road",
+        "grass",
+        "road",
+        "swamp",
+        "grass",
+        "road",
+        "bamboo",
+        "water",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "grass",
+        "road",
+        "water",
+        "water",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "road",
+        "water",
+        "bamboo",
+        "road",
+        "swamp",
+        "grass",
+        "road",
+        "grass",
+        "road",
+        "bamboo",
+        "forest",
+        "bamboo",
+        "water",
+        "road",
+        "water",
+        "bamboo",
+        "forest",
+        "forest"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 3
+      }
+    },
+    {
+      "id": "sengoku_gate",
+      "name": "Sengoku Gate",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "bamboo",
+        "bamboo",
+        "hills",
+        "road",
+        "paved",
+        "road",
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "hills",
+        "hills",
+        "road",
+        "paved",
+        "paved",
+        "road",
+        "grass",
+        "road",
+        "bamboo",
+        "bamboo",
+        "road",
+        "grass",
+        "road",
+        "road",
+        "paved",
+        "road",
+        "hills",
+        "hills",
+        "road",
+        "paved",
+        "grass",
+        "road",
+        "paved",
+        "road",
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "hills",
+        "road",
+        "paved",
+        "grass",
+        "bamboo",
+        "bamboo"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 3
+      }
+    },
+    {
+      "id": "undead_gate",
+      "name": "Undead Gate",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "snow",
+        "ruins",
+        "swamp",
+        "road",
+        "paved",
+        "road",
+        "ruins",
+        "snow",
+        "ruins",
+        "road",
+        "swamp",
+        "paved",
+        "ruins",
+        "swamp",
+        "road",
+        "ruins",
+        "swamp",
+        "road",
+        "paved",
+        "road",
+        "road",
+        "ruins",
+        "road",
+        "snow",
+        "ruins",
+        "road",
+        "road",
+        "ruins",
+        "paved",
+        "road",
+        "road",
+        "swamp",
+        "snow",
+        "road",
+        "swamp",
+        "road",
+        "ruins",
+        "paved",
+        "road",
+        "ruins",
+        "ruins",
+        "snow",
+        "swamp",
+        "road",
+        "paved",
+        "ruins",
+        "snow",
+        "swamp"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 3
+      }
+    },
+    {
+      "id": "pirates_gate",
+      "name": "Pirates Gate",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "water",
+        "water",
+        "sand",
+        "road",
+        "paved",
+        "road",
+        "sand",
+        "water",
+        "water",
+        "road",
+        "sand",
+        "grass",
+        "road",
+        "sand",
+        "road",
+        "water",
+        "sand",
+        "road",
+        "grass",
+        "road",
+        "road",
+        "sand",
+        "road",
+        "water",
+        "water",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "sand",
+        "sand",
+        "road",
+        "swamp",
+        "grass",
+        "road",
+        "paved",
+        "road",
+        "water",
+        "water",
+        "sand",
+        "sand",
+        "road",
+        "paved",
+        "sand",
+        "water",
+        "water"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 3
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Defeat every opponent"
+    }
+  ],
+  "dialogues": [],
+  "campaigns": [
+    {
+      "id": "sevenfold_gate",
+      "name": "Sevenfold Gate",
+      "roster": [
+        {
+          "id": "medieval_knight_first_member",
+          "name": "Medieval Knight M",
+          "unitTypeId": "medieval_knight_first"
+        },
+        {
+          "id": "medieval_mage_second_member",
+          "name": "Medieval Mage F",
+          "unitTypeId": "medieval_mage_second"
+        },
+        {
+          "id": "medieval_healer_first_member",
+          "name": "Medieval Healer M",
+          "unitTypeId": "medieval_healer_first"
+        },
+        {
+          "id": "medieval_rogue_second_member",
+          "name": "Medieval Rogue F",
+          "unitTypeId": "medieval_rogue_second"
+        },
+        {
+          "id": "scifi_archer_second_member",
+          "name": "Sci-Fi Archer F",
+          "unitTypeId": "scifi_archer_second"
+        },
+        {
+          "id": "scifi_stormcaller_first_member",
+          "name": "Sci-Fi Stormcaller M",
+          "unitTypeId": "scifi_stormcaller_first"
+        },
+        {
+          "id": "scifi_commander_second_member",
+          "name": "Sci-Fi Commander F",
+          "unitTypeId": "scifi_commander_second"
+        },
+        {
+          "id": "scifi_beast_first_member",
+          "name": "Sci-Fi Beast M",
+          "unitTypeId": "scifi_beast_first"
+        },
+        {
+          "id": "mythical_knight_first_member",
+          "name": "Mythical Knight M",
+          "unitTypeId": "mythical_knight_first"
+        },
+        {
+          "id": "mythical_mage_second_member",
+          "name": "Mythical Mage F",
+          "unitTypeId": "mythical_mage_second"
+        },
+        {
+          "id": "mythical_healer_first_member",
+          "name": "Mythical Healer M",
+          "unitTypeId": "mythical_healer_first"
+        },
+        {
+          "id": "mythical_rogue_second_member",
+          "name": "Mythical Rogue F",
+          "unitTypeId": "mythical_rogue_second"
+        },
+        {
+          "id": "nature_archer_second_member",
+          "name": "Nature Archer F",
+          "unitTypeId": "nature_archer_second"
+        },
+        {
+          "id": "nature_stormcaller_first_member",
+          "name": "Nature Stormcaller M",
+          "unitTypeId": "nature_stormcaller_first"
+        },
+        {
+          "id": "nature_commander_second_member",
+          "name": "Nature Commander F",
+          "unitTypeId": "nature_commander_second"
+        },
+        {
+          "id": "nature_beast_first_member",
+          "name": "Nature Beast M",
+          "unitTypeId": "nature_beast_first"
+        },
+        {
+          "id": "sengoku_knight_first_member",
+          "name": "Sengoku Knight M",
+          "unitTypeId": "sengoku_knight_first"
+        },
+        {
+          "id": "sengoku_mage_second_member",
+          "name": "Sengoku Mage F",
+          "unitTypeId": "sengoku_mage_second"
+        },
+        {
+          "id": "sengoku_healer_first_member",
+          "name": "Sengoku Healer M",
+          "unitTypeId": "sengoku_healer_first"
+        },
+        {
+          "id": "sengoku_rogue_second_member",
+          "name": "Sengoku Rogue F",
+          "unitTypeId": "sengoku_rogue_second"
+        },
+        {
+          "id": "undead_archer_second_member",
+          "name": "Undead Archer F",
+          "unitTypeId": "undead_archer_second"
+        },
+        {
+          "id": "undead_stormcaller_first_member",
+          "name": "Undead Stormcaller M",
+          "unitTypeId": "undead_stormcaller_first"
+        },
+        {
+          "id": "undead_commander_second_member",
+          "name": "Undead Commander F",
+          "unitTypeId": "undead_commander_second"
+        },
+        {
+          "id": "undead_beast_first_member",
+          "name": "Undead Beast M",
+          "unitTypeId": "undead_beast_first"
+        },
+        {
+          "id": "pirates_knight_first_member",
+          "name": "Pirates Knight M",
+          "unitTypeId": "pirates_knight_first"
+        },
+        {
+          "id": "pirates_mage_second_member",
+          "name": "Pirates Mage F",
+          "unitTypeId": "pirates_mage_second"
+        },
+        {
+          "id": "pirates_healer_first_member",
+          "name": "Pirates Healer M",
+          "unitTypeId": "pirates_healer_first"
+        },
+        {
+          "id": "pirates_rogue_second_member",
+          "name": "Pirates Rogue F",
+          "unitTypeId": "pirates_rogue_second"
+        }
+      ],
+      "objectiveIds": [
+        "defeat_all_opponents"
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "medieval",
+        "nodes": [
+          {
+            "id": "medieval",
+            "name": "1 \u2014 Medieval Gate",
+            "kind": "encounter",
+            "mapId": "medieval_gate",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "medieval_knight_first_member",
+                "memberId": "medieval_knight_first_member",
+                "unitTypeId": "medieval_knight_first",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "medieval_mage_second_member",
+                "memberId": "medieval_mage_second_member",
+                "unitTypeId": "medieval_mage_second",
+                "side": "first",
+                "x": 1,
+                "y": 2,
+                "player": 2
+              },
+              {
+                "id": "medieval_healer_first_member",
+                "memberId": "medieval_healer_first_member",
+                "unitTypeId": "medieval_healer_first",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "medieval_rogue_second_member",
+                "memberId": "medieval_rogue_second_member",
+                "unitTypeId": "medieval_rogue_second",
+                "side": "first",
+                "x": 1,
+                "y": 4,
+                "player": 2
+              },
+              {
+                "id": "medieval_archer_first_opponent",
+                "unitTypeId": "medieval_archer_first",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "medieval_stormcaller_second_opponent",
+                "unitTypeId": "medieval_stormcaller_second",
+                "side": "second",
+                "x": 6,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "medieval_commander_first_opponent",
+                "unitTypeId": "medieval_commander_first",
+                "side": "second",
+                "x": 6,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "medieval_beast_second_opponent",
+                "unitTypeId": "medieval_beast_second",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "medieval_coop_guard",
+                "unitTypeId": "medieval_archer_first",
+                "side": "second",
+                "x": 5,
+                "y": 0,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "transitions": [
+              {
+                "id": "medieval_cleared",
+                "targetNodeId": "scifi",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "medieval_failed",
+                "targetNodeId": "showcase_failed",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "scifi",
+            "name": "2 \u2014 Sci-Fi Gate",
+            "kind": "encounter",
+            "mapId": "scifi_gate",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "scifi_archer_second_member",
+                "memberId": "scifi_archer_second_member",
+                "unitTypeId": "scifi_archer_second",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "scifi_stormcaller_first_member",
+                "memberId": "scifi_stormcaller_first_member",
+                "unitTypeId": "scifi_stormcaller_first",
+                "side": "first",
+                "x": 1,
+                "y": 2,
+                "player": 2
+              },
+              {
+                "id": "scifi_commander_second_member",
+                "memberId": "scifi_commander_second_member",
+                "unitTypeId": "scifi_commander_second",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "scifi_beast_first_member",
+                "memberId": "scifi_beast_first_member",
+                "unitTypeId": "scifi_beast_first",
+                "side": "first",
+                "x": 1,
+                "y": 4,
+                "player": 2
+              },
+              {
+                "id": "scifi_knight_second_opponent",
+                "unitTypeId": "scifi_knight_second",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "scifi_mage_first_opponent",
+                "unitTypeId": "scifi_mage_first",
+                "side": "second",
+                "x": 6,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "scifi_healer_second_opponent",
+                "unitTypeId": "scifi_healer_second",
+                "side": "second",
+                "x": 6,
+                "y": 3,
+                "behavior": "hold"
+              },
+              {
+                "id": "scifi_rogue_first_opponent",
+                "unitTypeId": "scifi_rogue_first",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "scifi_coop_guard",
+                "unitTypeId": "scifi_knight_second",
+                "side": "second",
+                "x": 5,
+                "y": 0,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "transitions": [
+              {
+                "id": "scifi_cleared",
+                "targetNodeId": "mythical",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "scifi_failed",
+                "targetNodeId": "showcase_failed",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "mythical",
+            "name": "3 \u2014 Mythical Gate",
+            "kind": "encounter",
+            "mapId": "mythical_gate",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "mythical_knight_first_member",
+                "memberId": "mythical_knight_first_member",
+                "unitTypeId": "mythical_knight_first",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "mythical_mage_second_member",
+                "memberId": "mythical_mage_second_member",
+                "unitTypeId": "mythical_mage_second",
+                "side": "first",
+                "x": 1,
+                "y": 2,
+                "player": 2
+              },
+              {
+                "id": "mythical_healer_first_member",
+                "memberId": "mythical_healer_first_member",
+                "unitTypeId": "mythical_healer_first",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "mythical_rogue_second_member",
+                "memberId": "mythical_rogue_second_member",
+                "unitTypeId": "mythical_rogue_second",
+                "side": "first",
+                "x": 1,
+                "y": 4,
+                "player": 2
+              },
+              {
+                "id": "mythical_archer_first_opponent",
+                "unitTypeId": "mythical_archer_first",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "mythical_stormcaller_second_opponent",
+                "unitTypeId": "mythical_stormcaller_second",
+                "side": "second",
+                "x": 6,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "mythical_commander_first_opponent",
+                "unitTypeId": "mythical_commander_first",
+                "side": "second",
+                "x": 6,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "mythical_beast_second_opponent",
+                "unitTypeId": "mythical_beast_second",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "mythical_coop_guard",
+                "unitTypeId": "mythical_archer_first",
+                "side": "second",
+                "x": 5,
+                "y": 0,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "transitions": [
+              {
+                "id": "mythical_cleared",
+                "targetNodeId": "nature",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "mythical_failed",
+                "targetNodeId": "showcase_failed",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "nature",
+            "name": "4 \u2014 Nature Gate",
+            "kind": "encounter",
+            "mapId": "nature_gate",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "nature_archer_second_member",
+                "memberId": "nature_archer_second_member",
+                "unitTypeId": "nature_archer_second",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "nature_stormcaller_first_member",
+                "memberId": "nature_stormcaller_first_member",
+                "unitTypeId": "nature_stormcaller_first",
+                "side": "first",
+                "x": 1,
+                "y": 2,
+                "player": 2
+              },
+              {
+                "id": "nature_commander_second_member",
+                "memberId": "nature_commander_second_member",
+                "unitTypeId": "nature_commander_second",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "nature_beast_first_member",
+                "memberId": "nature_beast_first_member",
+                "unitTypeId": "nature_beast_first",
+                "side": "first",
+                "x": 1,
+                "y": 4,
+                "player": 2
+              },
+              {
+                "id": "nature_knight_second_opponent",
+                "unitTypeId": "nature_knight_second",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "nature_mage_first_opponent",
+                "unitTypeId": "nature_mage_first",
+                "side": "second",
+                "x": 6,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "nature_healer_second_opponent",
+                "unitTypeId": "nature_healer_second",
+                "side": "second",
+                "x": 6,
+                "y": 3,
+                "behavior": "hold"
+              },
+              {
+                "id": "nature_rogue_first_opponent",
+                "unitTypeId": "nature_rogue_first",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "nature_coop_guard",
+                "unitTypeId": "nature_knight_second",
+                "side": "second",
+                "x": 5,
+                "y": 0,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "transitions": [
+              {
+                "id": "nature_cleared",
+                "targetNodeId": "sengoku",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "nature_failed",
+                "targetNodeId": "showcase_failed",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "sengoku",
+            "name": "5 \u2014 Sengoku Gate",
+            "kind": "encounter",
+            "mapId": "sengoku_gate",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "sengoku_knight_first_member",
+                "memberId": "sengoku_knight_first_member",
+                "unitTypeId": "sengoku_knight_first",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "sengoku_mage_second_member",
+                "memberId": "sengoku_mage_second_member",
+                "unitTypeId": "sengoku_mage_second",
+                "side": "first",
+                "x": 1,
+                "y": 2,
+                "player": 2
+              },
+              {
+                "id": "sengoku_healer_first_member",
+                "memberId": "sengoku_healer_first_member",
+                "unitTypeId": "sengoku_healer_first",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "sengoku_rogue_second_member",
+                "memberId": "sengoku_rogue_second_member",
+                "unitTypeId": "sengoku_rogue_second",
+                "side": "first",
+                "x": 1,
+                "y": 4,
+                "player": 2
+              },
+              {
+                "id": "sengoku_archer_first_opponent",
+                "unitTypeId": "sengoku_archer_first",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "sengoku_stormcaller_second_opponent",
+                "unitTypeId": "sengoku_stormcaller_second",
+                "side": "second",
+                "x": 6,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "sengoku_commander_first_opponent",
+                "unitTypeId": "sengoku_commander_first",
+                "side": "second",
+                "x": 6,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "sengoku_beast_second_opponent",
+                "unitTypeId": "sengoku_beast_second",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "sengoku_coop_guard",
+                "unitTypeId": "sengoku_archer_first",
+                "side": "second",
+                "x": 5,
+                "y": 0,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "transitions": [
+              {
+                "id": "sengoku_cleared",
+                "targetNodeId": "undead",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "sengoku_failed",
+                "targetNodeId": "showcase_failed",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "undead",
+            "name": "6 \u2014 Undead Gate",
+            "kind": "encounter",
+            "mapId": "undead_gate",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "undead_archer_second_member",
+                "memberId": "undead_archer_second_member",
+                "unitTypeId": "undead_archer_second",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "undead_stormcaller_first_member",
+                "memberId": "undead_stormcaller_first_member",
+                "unitTypeId": "undead_stormcaller_first",
+                "side": "first",
+                "x": 1,
+                "y": 2,
+                "player": 2
+              },
+              {
+                "id": "undead_commander_second_member",
+                "memberId": "undead_commander_second_member",
+                "unitTypeId": "undead_commander_second",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "undead_beast_first_member",
+                "memberId": "undead_beast_first_member",
+                "unitTypeId": "undead_beast_first",
+                "side": "first",
+                "x": 1,
+                "y": 4,
+                "player": 2
+              },
+              {
+                "id": "undead_knight_second_opponent",
+                "unitTypeId": "undead_knight_second",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "undead_mage_first_opponent",
+                "unitTypeId": "undead_mage_first",
+                "side": "second",
+                "x": 6,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "undead_healer_second_opponent",
+                "unitTypeId": "undead_healer_second",
+                "side": "second",
+                "x": 6,
+                "y": 3,
+                "behavior": "hold"
+              },
+              {
+                "id": "undead_rogue_first_opponent",
+                "unitTypeId": "undead_rogue_first",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "undead_coop_guard",
+                "unitTypeId": "undead_knight_second",
+                "side": "second",
+                "x": 5,
+                "y": 0,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "transitions": [
+              {
+                "id": "undead_cleared",
+                "targetNodeId": "pirates",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "undead_failed",
+                "targetNodeId": "showcase_failed",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "pirates",
+            "name": "7 \u2014 Pirates Gate",
+            "kind": "encounter",
+            "mapId": "pirates_gate",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "pirates_knight_first_member",
+                "memberId": "pirates_knight_first_member",
+                "unitTypeId": "pirates_knight_first",
+                "side": "first",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "pirates_mage_second_member",
+                "memberId": "pirates_mage_second_member",
+                "unitTypeId": "pirates_mage_second",
+                "side": "first",
+                "x": 1,
+                "y": 2,
+                "player": 2
+              },
+              {
+                "id": "pirates_healer_first_member",
+                "memberId": "pirates_healer_first_member",
+                "unitTypeId": "pirates_healer_first",
+                "side": "first",
+                "x": 1,
+                "y": 3
+              },
+              {
+                "id": "pirates_rogue_second_member",
+                "memberId": "pirates_rogue_second_member",
+                "unitTypeId": "pirates_rogue_second",
+                "side": "first",
+                "x": 1,
+                "y": 4,
+                "player": 2
+              },
+              {
+                "id": "pirates_archer_first_opponent",
+                "unitTypeId": "pirates_archer_first",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "pirates_stormcaller_second_opponent",
+                "unitTypeId": "pirates_stormcaller_second",
+                "side": "second",
+                "x": 6,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "pirates_commander_first_opponent",
+                "unitTypeId": "pirates_commander_first",
+                "side": "second",
+                "x": 6,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "pirates_beast_second_opponent",
+                "unitTypeId": "pirates_beast_second",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "pirates_coop_guard",
+                "unitTypeId": "pirates_archer_first",
+                "side": "second",
+                "x": 5,
+                "y": 0,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "transitions": [
+              {
+                "id": "pirates_cleared",
+                "targetNodeId": "showcase_complete",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "pirates_failed",
+                "targetNodeId": "showcase_failed",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all_opponents",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "showcase_complete",
+            "name": "All Gates Stable",
+            "kind": "terminal",
+            "transitions": []
+          },
+          {
+            "id": "showcase_failed",
+            "name": "The Gate Resets",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ],
+  "notes": "A compact cross-platform art tour. Every gate uses all eight archetypes, four male and four female drawings split evenly across both sides. Player-two ownership and one additional opponent activate only in two-player mode."
+}

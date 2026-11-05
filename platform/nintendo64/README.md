@@ -11,7 +11,7 @@ gesture that commits, and read back after the power switch.
 
 - [Toolchain](#toolchain)
 - [Building](#building)
-- [The optional 3D character prototype](#the-optional-3d-character-prototype)
+- [The optional 3D character prototypes](#the-optional-3d-character-prototypes)
 - [A ROM of some other game](#a-rom-of-some-other-game)
 - [C++ subset](#c-subset)
 - [The conformance ROM](#the-conformance-rom)
@@ -70,11 +70,11 @@ build compiles the same library targets the native build does. Under
 and this directory. Artifacts land in the gitignored `build-n64/`; nothing
 produced here is checked in.
 
-## The optional 3D character prototype
+## The optional 3D character prototypes
 
-0.4 also carries a fixed Tiny3D comparison built from the newer Godot
-commander and rogue models. It is deliberately a second output, not a new mode
-inside the campaign ROM:
+0.4 carries two Tiny3D review ROMs. The focused comparison reduces the newer
+Godot commander and rogue meshes and shows them at strategic, tactical, and
+action distances:
 
 ```sh
 platform/nintendo64/scripts/build-character-prototype.sh
@@ -87,11 +87,25 @@ Add `--bundle out/n64-3d-character-prototype` to stage the ROM with its README
 and licence notices. The check rebuilds it, boots it in ares, and requires all
 four allocation and frame-budget assertions to pass.
 
-This ROM contains a fixed 12×9 test board, two roles and two LODs. It does not
-load an editor project, run a campaign, provide the full roster, or replace the
-supported sprite renderer. The separate path also leaves the supported stable
-libdragon toolchain untouched; the prototype alone uses its pinned preview
-libdragon and Tiny3D revisions.
+The complete Sevenfold review ROM covers all 112 combinations of seven styles,
+eight archetypes, and male/female body variants:
+
+```sh
+platform/nintendo64/scripts/build-sevenfold-3d.sh
+platform/nintendo64/scripts/check-sevenfold-3d.sh
+```
+
+It shows eight separated roles per page, exercises red and blue team colour
+replacement, and uses the seven varied terrain layouts from `games/sevenfold`.
+Its ares check captures all fourteen style/body pages and enforces a 30 fps
+frame budget with depth enabled.
+
+Neither ROM loads an editor project, runs a campaign, or replaces the supported
+sprite renderer. The full-roster models are deterministic procedural console
+proxies; the curated character sheets do not contain hidden 3D source meshes.
+The separate path also leaves the supported stable libdragon toolchain
+untouched: the prototypes alone use pinned preview libdragon and Tiny3D
+revisions.
 
 [The console 3D experiment](../../docs/CONSOLE_3D_EXPERIMENT.md) gives the
 plain-language result and side-by-side PlayStation evidence.

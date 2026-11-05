@@ -31,6 +31,11 @@ option(
     "Build the fixed Tiny3D character comparison ROM"
     OFF
 )
+option(
+    GRANDLEON_N64_SEVENFOLD_3D
+    "Build the complete Sevenfold Tiny3D roster ROM"
+    OFF
+)
 
 # The source project this ROM plays, embedded as bytes. The ROM parses and
 # compiles it on the console, so there is no console-specific content path.
@@ -638,6 +643,45 @@ if(GRANDLEON_N64_CHARACTER_PROTOTYPE)
         grandleon_n64_character_prototype
         grandleon-n64-3d-character-prototype.z64
         "Grandleon N64 3D prototype"
+    )
+endif()
+
+if(GRANDLEON_N64_SEVENFOLD_3D)
+    add_executable(
+        grandleon_n64_sevenfold_3d
+        prototype/sevenfold_roster_rom.cpp
+    )
+    target_link_libraries(
+        grandleon_n64_sevenfold_3d
+        # Tiny3D calls libdragon, so its static archive must come first.
+        PRIVATE -lc -lt3d -ldragon -lm -ldragonsys
+    )
+    target_compile_features(grandleon_n64_sevenfold_3d PRIVATE cxx_std_17)
+    target_include_directories(
+        grandleon_n64_sevenfold_3d
+        PRIVATE
+            "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
+            "${CMAKE_SOURCE_DIR}/games/sevenfold/generated"
+    )
+    target_compile_options(
+        grandleon_n64_sevenfold_3d
+        PRIVATE ${GRANDLEON_WARNING_FLAGS} -fno-exceptions -fno-rtti
+    )
+    target_link_options(
+        grandleon_n64_sevenfold_3d
+        PRIVATE
+            "-Wl,-Map=$<TARGET_FILE_DIR:grandleon_n64_sevenfold_3d>/grandleon_n64_sevenfold_3d.map"
+    )
+    set_target_properties(
+        grandleon_n64_sevenfold_3d
+        PROPERTIES
+            OUTPUT_NAME grandleon_n64_sevenfold_3d
+            SUFFIX ".elf"
+    )
+    grandleon_package_rom(
+        grandleon_n64_sevenfold_3d
+        grandleon-n64-sevenfold-3d.z64
+        "Sevenfold N64 3D"
     )
 endif()
 

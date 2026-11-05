@@ -2,8 +2,10 @@
 
 The newer Godot character models do help. On Nintendo 64, a reduced commander
 and rogue remain recognisable at board distance and run above the 30 fps target.
-That result is now available as a separate experimental ROM. It does **not**
-replace the normal sprite campaign renderer.
+The N64 experiment now also has a complete procedural roster: seven styles,
+eight archetypes, male and female bodies, and runtime team colours. These
+results are available as separate experimental ROMs. They do **not** replace
+the normal sprite campaign renderer.
 
 PlayStation does not get a 3D ROM in 0.4. Its full-board test reached only
 18 fps, while the existing sprite renderer remained both faster and clearer.
@@ -12,13 +14,16 @@ combat close-up later.
 
 ## What you can build
 
-These are two different N64 outputs:
+These are three different N64 outputs:
 
 - `build-n64.sh` builds the supported, playable sprite campaign ROM from an
   authored project.
 - `build-character-prototype.sh` builds a fixed 3D comparison containing a
   commander, a rogue, a test board, three camera distances, and performance
   assertions. It is not a campaign and does not read editor projects.
+- `build-sevenfold-3d.sh` builds the complete 3D roster on the seven varied
+  maps from `games/sevenfold`. It is a roster/performance viewer, not campaign
+  gameplay.
 
 Build the prototype:
 
@@ -42,6 +47,32 @@ platform/nintendo64/scripts/check-character-prototype.sh
 The ROM is named `grandleon-n64-3d-character-prototype.z64` so it cannot be
 confused with a generated campaign ROM.
 
+Build and check the complete roster viewer:
+
+```sh
+platform/nintendo64/scripts/build-sevenfold-3d.sh
+platform/nintendo64/scripts/check-sevenfold-3d.sh
+```
+
+That ROM is named `grandleon-n64-sevenfold-3d.z64`. The check validates all
+112 generated model combinations, boots the ROM in ares, captures fourteen
+style/body pages, and applies the frame budget to every page.
+
+## What complete coverage means
+
+The complete roster is `7 styles × 8 archetypes × 2 bodies = 112 models`.
+Every style/body page shows all eight roles at a readable board distance,
+spaced across the map rather than stacked into one crowded formation. Half use
+the blue team slot and half the red team slot; team colour is replaced at
+runtime rather than baked into separate meshes.
+
+These are deterministic procedural low-poly console models. The curated Godot
+character artwork is raster animation, so there is no hidden set of 112 source
+meshes to reduce. The generator records the exact model counts and produces a
+low and high LOD for each combination. The current roster ROM uses the low LOD
+because its purpose is the board view; the high LOD remains available for a
+later attack close-up experiment.
+
 ## What was measured
 
 All captures are native 320×240 emulator framebuffers. These are emulator
@@ -52,6 +83,7 @@ measurements, not measurements from original hardware.
 | N64, sixteen low-detail figures and board | 40 fps |
 | N64, six high-detail figures | 66 fps |
 | N64, two high-detail figures at action distance | 161 fps |
+| N64 Sevenfold pages, eight low-detail roles, depth on | 63–88 fps |
 | PlayStation, sixteen low-detail figures | 18 fps |
 | PlayStation, six high-detail figures | 32 fps |
 | PlayStation, two high-detail figures at action distance | 52 fps |

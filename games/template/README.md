@@ -123,10 +123,12 @@ what they carried. Either way they leave the battlefield when they go down.
 **`characterStyleId`** names an entry on the art library's style menu:
 `medieval`, `scifi`, `mythical`, `nature`, `sengoku`, `undead`, `pirates`; the
 schema's enum is the authority. It changes only the picture: every character
-keeps its role, numbers and faction colour, and a console build embeds the
-named style's art and no other. The editor's "Make a character" panel offers a
-shelf of units per style. `characterFigureId` sits beside it on the same terms:
-the body a character that names none of its own is drawn with.
+keeps its role, numbers and faction colour. The project choice is the default;
+an individual unit type may choose another style, and a console build embeds
+the exact drawings its roster and encounters use. The editor's "Make a
+character" panel offers a shelf of units per style. `characterFigureId` sits
+beside it on the same terms: the body a character that names none of its own is
+drawn with.
 
 **`defaultTurnOrder`** is a default a battle may override with its own
 `turnOrder`. A battle that states its own keeps it; one that states nothing

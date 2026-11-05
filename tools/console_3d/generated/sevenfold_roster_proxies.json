@@ -1,0 +1,1155 @@
+{
+  "generator": "tools/console_3d/generate_sevenfold_roster.py",
+  "generator_sha256": "1d1169869bf67f2bec26255fe81ac104f2cceeb539bc145932e5597b6c1fa600",
+  "generated_header_sha256": "20e162e51de260585a52d3231432a64a0f1a16ed3220bc933edbe12f25fd99fb",
+  "styles": [
+    "medieval",
+    "scifi",
+    "mythical",
+    "nature",
+    "sengoku",
+    "undead",
+    "pirates"
+  ],
+  "figures": [
+    "male",
+    "female"
+  ],
+  "archetypes": [
+    "knight",
+    "archer",
+    "mage",
+    "stormcaller",
+    "healer",
+    "commander",
+    "rogue",
+    "beast"
+  ],
+  "models": {
+    "medieval/first/knight": {
+      "low": {
+        "vertices": 168,
+        "triangles": 272
+      },
+      "high": {
+        "vertices": 276,
+        "triangles": 488
+      }
+    },
+    "medieval/first/archer": {
+      "low": {
+        "vertices": 184,
+        "triangles": 300
+      },
+      "high": {
+        "vertices": 304,
+        "triangles": 540
+      }
+    },
+    "medieval/first/mage": {
+      "low": {
+        "vertices": 176,
+        "triangles": 288
+      },
+      "high": {
+        "vertices": 312,
+        "triangles": 560
+      }
+    },
+    "medieval/first/stormcaller": {
+      "low": {
+        "vertices": 188,
+        "triangles": 308
+      },
+      "high": {
+        "vertices": 314,
+        "triangles": 560
+      }
+    },
+    "medieval/first/healer": {
+      "low": {
+        "vertices": 184,
+        "triangles": 300
+      },
+      "high": {
+        "vertices": 304,
+        "triangles": 540
+      }
+    },
+    "medieval/first/commander": {
+      "low": {
+        "vertices": 180,
+        "triangles": 292
+      },
+      "high": {
+        "vertices": 294,
+        "triangles": 520
+      }
+    },
+    "medieval/first/rogue": {
+      "low": {
+        "vertices": 192,
+        "triangles": 312
+      },
+      "high": {
+        "vertices": 312,
+        "triangles": 552
+      }
+    },
+    "medieval/first/beast": {
+      "low": {
+        "vertices": 124,
+        "triangles": 204
+      },
+      "high": {
+        "vertices": 210,
+        "triangles": 376
+      }
+    },
+    "medieval/second/knight": {
+      "low": {
+        "vertices": 204,
+        "triangles": 328
+      },
+      "high": {
+        "vertices": 318,
+        "triangles": 556
+      }
+    },
+    "medieval/second/archer": {
+      "low": {
+        "vertices": 220,
+        "triangles": 356
+      },
+      "high": {
+        "vertices": 346,
+        "triangles": 608
+      }
+    },
+    "medieval/second/mage": {
+      "low": {
+        "vertices": 212,
+        "triangles": 344
+      },
+      "high": {
+        "vertices": 354,
+        "triangles": 628
+      }
+    },
+    "medieval/second/stormcaller": {
+      "low": {
+        "vertices": 224,
+        "triangles": 364
+      },
+      "high": {
+        "vertices": 356,
+        "triangles": 628
+      }
+    },
+    "medieval/second/healer": {
+      "low": {
+        "vertices": 220,
+        "triangles": 356
+      },
+      "high": {
+        "vertices": 346,
+        "triangles": 608
+      }
+    },
+    "medieval/second/commander": {
+      "low": {
+        "vertices": 216,
+        "triangles": 348
+      },
+      "high": {
+        "vertices": 336,
+        "triangles": 588
+      }
+    },
+    "medieval/second/rogue": {
+      "low": {
+        "vertices": 228,
+        "triangles": 368
+      },
+      "high": {
+        "vertices": 354,
+        "triangles": 620
+      }
+    },
+    "medieval/second/beast": {
+      "low": {
+        "vertices": 148,
+        "triangles": 244
+      },
+      "high": {
+        "vertices": 246,
+        "triangles": 440
+      }
+    },
+    "scifi/first/knight": {
+      "low": {
+        "vertices": 180,
+        "triangles": 288
+      },
+      "high": {
+        "vertices": 282,
+        "triangles": 492
+      }
+    },
+    "scifi/first/archer": {
+      "low": {
+        "vertices": 196,
+        "triangles": 316
+      },
+      "high": {
+        "vertices": 310,
+        "triangles": 544
+      }
+    },
+    "scifi/first/mage": {
+      "low": {
+        "vertices": 188,
+        "triangles": 304
+      },
+      "high": {
+        "vertices": 318,
+        "triangles": 564
+      }
+    },
+    "scifi/first/stormcaller": {
+      "low": {
+        "vertices": 200,
+        "triangles": 324
+      },
+      "high": {
+        "vertices": 320,
+        "triangles": 564
+      }
+    },
+    "scifi/first/healer": {
+      "low": {
+        "vertices": 196,
+        "triangles": 316
+      },
+      "high": {
+        "vertices": 310,
+        "triangles": 544
+      }
+    },
+    "scifi/first/commander": {
+      "low": {
+        "vertices": 192,
+        "triangles": 308
+      },
+      "high": {
+        "vertices": 300,
+        "triangles": 524
+      }
+    },
+    "scifi/first/rogue": {
+      "low": {
+        "vertices": 204,
+        "triangles": 328
+      },
+      "high": {
+        "vertices": 318,
+        "triangles": 556
+      }
+    },
+    "scifi/first/beast": {
+      "low": {
+        "vertices": 124,
+        "triangles": 204
+      },
+      "high": {
+        "vertices": 210,
+        "triangles": 376
+      }
+    },
+    "scifi/second/knight": {
+      "low": {
+        "vertices": 216,
+        "triangles": 344
+      },
+      "high": {
+        "vertices": 324,
+        "triangles": 560
+      }
+    },
+    "scifi/second/archer": {
+      "low": {
+        "vertices": 232,
+        "triangles": 372
+      },
+      "high": {
+        "vertices": 352,
+        "triangles": 612
+      }
+    },
+    "scifi/second/mage": {
+      "low": {
+        "vertices": 224,
+        "triangles": 360
+      },
+      "high": {
+        "vertices": 360,
+        "triangles": 632
+      }
+    },
+    "scifi/second/stormcaller": {
+      "low": {
+        "vertices": 236,
+        "triangles": 380
+      },
+      "high": {
+        "vertices": 362,
+        "triangles": 632
+      }
+    },
+    "scifi/second/healer": {
+      "low": {
+        "vertices": 232,
+        "triangles": 372
+      },
+      "high": {
+        "vertices": 352,
+        "triangles": 612
+      }
+    },
+    "scifi/second/commander": {
+      "low": {
+        "vertices": 228,
+        "triangles": 364
+      },
+      "high": {
+        "vertices": 342,
+        "triangles": 592
+      }
+    },
+    "scifi/second/rogue": {
+      "low": {
+        "vertices": 240,
+        "triangles": 384
+      },
+      "high": {
+        "vertices": 360,
+        "triangles": 624
+      }
+    },
+    "scifi/second/beast": {
+      "low": {
+        "vertices": 148,
+        "triangles": 244
+      },
+      "high": {
+        "vertices": 246,
+        "triangles": 440
+      }
+    },
+    "mythical/first/knight": {
+      "low": {
+        "vertices": 184,
+        "triangles": 300
+      },
+      "high": {
+        "vertices": 320,
+        "triangles": 572
+      }
+    },
+    "mythical/first/archer": {
+      "low": {
+        "vertices": 200,
+        "triangles": 328
+      },
+      "high": {
+        "vertices": 348,
+        "triangles": 624
+      }
+    },
+    "mythical/first/mage": {
+      "low": {
+        "vertices": 192,
+        "triangles": 316
+      },
+      "high": {
+        "vertices": 356,
+        "triangles": 644
+      }
+    },
+    "mythical/first/stormcaller": {
+      "low": {
+        "vertices": 204,
+        "triangles": 336
+      },
+      "high": {
+        "vertices": 358,
+        "triangles": 644
+      }
+    },
+    "mythical/first/healer": {
+      "low": {
+        "vertices": 200,
+        "triangles": 328
+      },
+      "high": {
+        "vertices": 348,
+        "triangles": 624
+      }
+    },
+    "mythical/first/commander": {
+      "low": {
+        "vertices": 196,
+        "triangles": 320
+      },
+      "high": {
+        "vertices": 338,
+        "triangles": 604
+      }
+    },
+    "mythical/first/rogue": {
+      "low": {
+        "vertices": 208,
+        "triangles": 340
+      },
+      "high": {
+        "vertices": 356,
+        "triangles": 636
+      }
+    },
+    "mythical/first/beast": {
+      "low": {
+        "vertices": 128,
+        "triangles": 212
+      },
+      "high": {
+        "vertices": 236,
+        "triangles": 428
+      }
+    },
+    "mythical/second/knight": {
+      "low": {
+        "vertices": 220,
+        "triangles": 356
+      },
+      "high": {
+        "vertices": 362,
+        "triangles": 640
+      }
+    },
+    "mythical/second/archer": {
+      "low": {
+        "vertices": 236,
+        "triangles": 384
+      },
+      "high": {
+        "vertices": 390,
+        "triangles": 692
+      }
+    },
+    "mythical/second/mage": {
+      "low": {
+        "vertices": 228,
+        "triangles": 372
+      },
+      "high": {
+        "vertices": 398,
+        "triangles": 712
+      }
+    },
+    "mythical/second/stormcaller": {
+      "low": {
+        "vertices": 240,
+        "triangles": 392
+      },
+      "high": {
+        "vertices": 400,
+        "triangles": 712
+      }
+    },
+    "mythical/second/healer": {
+      "low": {
+        "vertices": 236,
+        "triangles": 384
+      },
+      "high": {
+        "vertices": 390,
+        "triangles": 692
+      }
+    },
+    "mythical/second/commander": {
+      "low": {
+        "vertices": 232,
+        "triangles": 376
+      },
+      "high": {
+        "vertices": 380,
+        "triangles": 672
+      }
+    },
+    "mythical/second/rogue": {
+      "low": {
+        "vertices": 244,
+        "triangles": 396
+      },
+      "high": {
+        "vertices": 398,
+        "triangles": 704
+      }
+    },
+    "mythical/second/beast": {
+      "low": {
+        "vertices": 152,
+        "triangles": 252
+      },
+      "high": {
+        "vertices": 272,
+        "triangles": 492
+      }
+    },
+    "nature/first/knight": {
+      "low": {
+        "vertices": 204,
+        "triangles": 332
+      },
+      "high": {
+        "vertices": 330,
+        "triangles": 584
+      }
+    },
+    "nature/first/archer": {
+      "low": {
+        "vertices": 220,
+        "triangles": 360
+      },
+      "high": {
+        "vertices": 358,
+        "triangles": 636
+      }
+    },
+    "nature/first/mage": {
+      "low": {
+        "vertices": 212,
+        "triangles": 348
+      },
+      "high": {
+        "vertices": 366,
+        "triangles": 656
+      }
+    },
+    "nature/first/stormcaller": {
+      "low": {
+        "vertices": 224,
+        "triangles": 368
+      },
+      "high": {
+        "vertices": 368,
+        "triangles": 656
+      }
+    },
+    "nature/first/healer": {
+      "low": {
+        "vertices": 220,
+        "triangles": 360
+      },
+      "high": {
+        "vertices": 358,
+        "triangles": 636
+      }
+    },
+    "nature/first/commander": {
+      "low": {
+        "vertices": 216,
+        "triangles": 352
+      },
+      "high": {
+        "vertices": 348,
+        "triangles": 616
+      }
+    },
+    "nature/first/rogue": {
+      "low": {
+        "vertices": 228,
+        "triangles": 372
+      },
+      "high": {
+        "vertices": 366,
+        "triangles": 648
+      }
+    },
+    "nature/first/beast": {
+      "low": {
+        "vertices": 140,
+        "triangles": 232
+      },
+      "high": {
+        "vertices": 238,
+        "triangles": 428
+      }
+    },
+    "nature/second/knight": {
+      "low": {
+        "vertices": 240,
+        "triangles": 388
+      },
+      "high": {
+        "vertices": 372,
+        "triangles": 652
+      }
+    },
+    "nature/second/archer": {
+      "low": {
+        "vertices": 256,
+        "triangles": 416
+      },
+      "high": {
+        "vertices": 400,
+        "triangles": 704
+      }
+    },
+    "nature/second/mage": {
+      "low": {
+        "vertices": 248,
+        "triangles": 404
+      },
+      "high": {
+        "vertices": 408,
+        "triangles": 724
+      }
+    },
+    "nature/second/stormcaller": {
+      "low": {
+        "vertices": 260,
+        "triangles": 424
+      },
+      "high": {
+        "vertices": 410,
+        "triangles": 724
+      }
+    },
+    "nature/second/healer": {
+      "low": {
+        "vertices": 256,
+        "triangles": 416
+      },
+      "high": {
+        "vertices": 400,
+        "triangles": 704
+      }
+    },
+    "nature/second/commander": {
+      "low": {
+        "vertices": 252,
+        "triangles": 408
+      },
+      "high": {
+        "vertices": 390,
+        "triangles": 684
+      }
+    },
+    "nature/second/rogue": {
+      "low": {
+        "vertices": 264,
+        "triangles": 428
+      },
+      "high": {
+        "vertices": 408,
+        "triangles": 716
+      }
+    },
+    "nature/second/beast": {
+      "low": {
+        "vertices": 164,
+        "triangles": 272
+      },
+      "high": {
+        "vertices": 274,
+        "triangles": 492
+      }
+    },
+    "sengoku/first/knight": {
+      "low": {
+        "vertices": 188,
+        "triangles": 304
+      },
+      "high": {
+        "vertices": 302,
+        "triangles": 532
+      }
+    },
+    "sengoku/first/archer": {
+      "low": {
+        "vertices": 204,
+        "triangles": 332
+      },
+      "high": {
+        "vertices": 330,
+        "triangles": 584
+      }
+    },
+    "sengoku/first/mage": {
+      "low": {
+        "vertices": 196,
+        "triangles": 320
+      },
+      "high": {
+        "vertices": 338,
+        "triangles": 604
+      }
+    },
+    "sengoku/first/stormcaller": {
+      "low": {
+        "vertices": 208,
+        "triangles": 340
+      },
+      "high": {
+        "vertices": 340,
+        "triangles": 604
+      }
+    },
+    "sengoku/first/healer": {
+      "low": {
+        "vertices": 204,
+        "triangles": 332
+      },
+      "high": {
+        "vertices": 330,
+        "triangles": 584
+      }
+    },
+    "sengoku/first/commander": {
+      "low": {
+        "vertices": 200,
+        "triangles": 324
+      },
+      "high": {
+        "vertices": 320,
+        "triangles": 564
+      }
+    },
+    "sengoku/first/rogue": {
+      "low": {
+        "vertices": 212,
+        "triangles": 344
+      },
+      "high": {
+        "vertices": 338,
+        "triangles": 596
+      }
+    },
+    "sengoku/first/beast": {
+      "low": {
+        "vertices": 124,
+        "triangles": 204
+      },
+      "high": {
+        "vertices": 210,
+        "triangles": 376
+      }
+    },
+    "sengoku/second/knight": {
+      "low": {
+        "vertices": 224,
+        "triangles": 360
+      },
+      "high": {
+        "vertices": 344,
+        "triangles": 600
+      }
+    },
+    "sengoku/second/archer": {
+      "low": {
+        "vertices": 240,
+        "triangles": 388
+      },
+      "high": {
+        "vertices": 372,
+        "triangles": 652
+      }
+    },
+    "sengoku/second/mage": {
+      "low": {
+        "vertices": 232,
+        "triangles": 376
+      },
+      "high": {
+        "vertices": 380,
+        "triangles": 672
+      }
+    },
+    "sengoku/second/stormcaller": {
+      "low": {
+        "vertices": 244,
+        "triangles": 396
+      },
+      "high": {
+        "vertices": 382,
+        "triangles": 672
+      }
+    },
+    "sengoku/second/healer": {
+      "low": {
+        "vertices": 240,
+        "triangles": 388
+      },
+      "high": {
+        "vertices": 372,
+        "triangles": 652
+      }
+    },
+    "sengoku/second/commander": {
+      "low": {
+        "vertices": 236,
+        "triangles": 380
+      },
+      "high": {
+        "vertices": 362,
+        "triangles": 632
+      }
+    },
+    "sengoku/second/rogue": {
+      "low": {
+        "vertices": 248,
+        "triangles": 400
+      },
+      "high": {
+        "vertices": 380,
+        "triangles": 664
+      }
+    },
+    "sengoku/second/beast": {
+      "low": {
+        "vertices": 148,
+        "triangles": 244
+      },
+      "high": {
+        "vertices": 246,
+        "triangles": 440
+      }
+    },
+    "undead/first/knight": {
+      "low": {
+        "vertices": 222,
+        "triangles": 356
+      },
+      "high": {
+        "vertices": 349,
+        "triangles": 610
+      }
+    },
+    "undead/first/archer": {
+      "low": {
+        "vertices": 238,
+        "triangles": 384
+      },
+      "high": {
+        "vertices": 377,
+        "triangles": 662
+      }
+    },
+    "undead/first/mage": {
+      "low": {
+        "vertices": 230,
+        "triangles": 372
+      },
+      "high": {
+        "vertices": 385,
+        "triangles": 682
+      }
+    },
+    "undead/first/stormcaller": {
+      "low": {
+        "vertices": 242,
+        "triangles": 392
+      },
+      "high": {
+        "vertices": 387,
+        "triangles": 682
+      }
+    },
+    "undead/first/healer": {
+      "low": {
+        "vertices": 238,
+        "triangles": 384
+      },
+      "high": {
+        "vertices": 377,
+        "triangles": 662
+      }
+    },
+    "undead/first/commander": {
+      "low": {
+        "vertices": 234,
+        "triangles": 376
+      },
+      "high": {
+        "vertices": 367,
+        "triangles": 642
+      }
+    },
+    "undead/first/rogue": {
+      "low": {
+        "vertices": 246,
+        "triangles": 396
+      },
+      "high": {
+        "vertices": 385,
+        "triangles": 674
+      }
+    },
+    "undead/first/beast": {
+      "low": {
+        "vertices": 152,
+        "triangles": 252
+      },
+      "high": {
+        "vertices": 256,
+        "triangles": 460
+      }
+    },
+    "undead/second/knight": {
+      "low": {
+        "vertices": 258,
+        "triangles": 412
+      },
+      "high": {
+        "vertices": 391,
+        "triangles": 678
+      }
+    },
+    "undead/second/archer": {
+      "low": {
+        "vertices": 274,
+        "triangles": 440
+      },
+      "high": {
+        "vertices": 419,
+        "triangles": 730
+      }
+    },
+    "undead/second/mage": {
+      "low": {
+        "vertices": 266,
+        "triangles": 428
+      },
+      "high": {
+        "vertices": 427,
+        "triangles": 750
+      }
+    },
+    "undead/second/stormcaller": {
+      "low": {
+        "vertices": 278,
+        "triangles": 448
+      },
+      "high": {
+        "vertices": 429,
+        "triangles": 750
+      }
+    },
+    "undead/second/healer": {
+      "low": {
+        "vertices": 274,
+        "triangles": 440
+      },
+      "high": {
+        "vertices": 419,
+        "triangles": 730
+      }
+    },
+    "undead/second/commander": {
+      "low": {
+        "vertices": 270,
+        "triangles": 432
+      },
+      "high": {
+        "vertices": 409,
+        "triangles": 710
+      }
+    },
+    "undead/second/rogue": {
+      "low": {
+        "vertices": 282,
+        "triangles": 452
+      },
+      "high": {
+        "vertices": 427,
+        "triangles": 742
+      }
+    },
+    "undead/second/beast": {
+      "low": {
+        "vertices": 176,
+        "triangles": 292
+      },
+      "high": {
+        "vertices": 292,
+        "triangles": 524
+      }
+    },
+    "pirates/first/knight": {
+      "low": {
+        "vertices": 184,
+        "triangles": 296
+      },
+      "high": {
+        "vertices": 292,
+        "triangles": 512
+      }
+    },
+    "pirates/first/archer": {
+      "low": {
+        "vertices": 200,
+        "triangles": 324
+      },
+      "high": {
+        "vertices": 320,
+        "triangles": 564
+      }
+    },
+    "pirates/first/mage": {
+      "low": {
+        "vertices": 192,
+        "triangles": 312
+      },
+      "high": {
+        "vertices": 328,
+        "triangles": 584
+      }
+    },
+    "pirates/first/stormcaller": {
+      "low": {
+        "vertices": 204,
+        "triangles": 332
+      },
+      "high": {
+        "vertices": 330,
+        "triangles": 584
+      }
+    },
+    "pirates/first/healer": {
+      "low": {
+        "vertices": 200,
+        "triangles": 324
+      },
+      "high": {
+        "vertices": 320,
+        "triangles": 564
+      }
+    },
+    "pirates/first/commander": {
+      "low": {
+        "vertices": 196,
+        "triangles": 316
+      },
+      "high": {
+        "vertices": 310,
+        "triangles": 544
+      }
+    },
+    "pirates/first/rogue": {
+      "low": {
+        "vertices": 208,
+        "triangles": 336
+      },
+      "high": {
+        "vertices": 328,
+        "triangles": 576
+      }
+    },
+    "pirates/first/beast": {
+      "low": {
+        "vertices": 124,
+        "triangles": 204
+      },
+      "high": {
+        "vertices": 210,
+        "triangles": 376
+      }
+    },
+    "pirates/second/knight": {
+      "low": {
+        "vertices": 220,
+        "triangles": 352
+      },
+      "high": {
+        "vertices": 334,
+        "triangles": 580
+      }
+    },
+    "pirates/second/archer": {
+      "low": {
+        "vertices": 236,
+        "triangles": 380
+      },
+      "high": {
+        "vertices": 362,
+        "triangles": 632
+      }
+    },
+    "pirates/second/mage": {
+      "low": {
+        "vertices": 228,
+        "triangles": 368
+      },
+      "high": {
+        "vertices": 370,
+        "triangles": 652
+      }
+    },
+    "pirates/second/stormcaller": {
+      "low": {
+        "vertices": 240,
+        "triangles": 388
+      },
+      "high": {
+        "vertices": 372,
+        "triangles": 652
+      }
+    },
+    "pirates/second/healer": {
+      "low": {
+        "vertices": 236,
+        "triangles": 380
+      },
+      "high": {
+        "vertices": 362,
+        "triangles": 632
+      }
+    },
+    "pirates/second/commander": {
+      "low": {
+        "vertices": 232,
+        "triangles": 372
+      },
+      "high": {
+        "vertices": 352,
+        "triangles": 612
+      }
+    },
+    "pirates/second/rogue": {
+      "low": {
+        "vertices": 244,
+        "triangles": 392
+      },
+      "high": {
+        "vertices": 370,
+        "triangles": 644
+      }
+    },
+    "pirates/second/beast": {
+      "low": {
+        "vertices": 148,
+        "triangles": 244
+      },
+      "high": {
+        "vertices": 246,
+        "triangles": 440
+      }
+    }
+  },
+  "totals": {
+    "combinations": 112,
+    "low_triangles": 38472,
+    "high_triangles": 67296
+  }
+}

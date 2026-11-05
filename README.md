@@ -92,11 +92,19 @@ Console builders are separate downloads because their pinned toolchains are
 large. They work offline after installation. The PlayStation image has no Sony
 licence sector and therefore does not boot on an unmodified retail console.
 
-0.4 also includes a separate, fixed **N64 3D character prototype ROM** for
-comparing the newer Godot commander and rogue models at board, tactical, and
-action distances. It is not an editor export or a playable campaign. The N64
-comparison clears its 30 fps target; the PlayStation comparison does not at a
-full sixteen-unit board, so PlayStation keeps its supported sprite renderer.
+`games/sevenfold` is the compact N64 showcase campaign. One ROM asks for one or
+two players on its main menu, fields every archetype across all seven art
+styles, and uses seven different maps covering every terrain kind. A debug
+Stage-picker build can jump directly between the gates for review.
+
+0.4 also includes two separate N64 3D experiments. The first compares reduced
+Godot commander and rogue models at several camera distances. The second
+covers the complete seven-style, eight-archetype, male-and-female roster with
+112 procedural console models, visible in red and blue team colours. Both N64
+experiments clear their 30 fps targets. They are review ROMs rather than editor
+exports or playable campaigns; the playable N64 campaign still uses the clear
+and proven sprite renderer. PlayStation's full-board 3D comparison remains too
+slow, so its supported renderer remains sprite-based as well.
 [See the captures, measurements, and build command](docs/CONSOLE_3D_EXPERIMENT.md).
 
 [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) explains how one

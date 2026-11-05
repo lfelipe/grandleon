@@ -422,6 +422,28 @@ add_test(
     COMMAND grandleon_emberbound_campaign_tests
 )
 
+# The compact portal showcase used to review every art direction on one ROM:
+# seven distinct maps, all roles, both bodies, and one package that is a small
+# solo battle or a two-owner co-op battle depending on the main-menu choice.
+add_executable(grandleon_sevenfold_campaign_tests
+    game_content/sevenfold_campaign_test.cpp
+)
+target_link_libraries(
+    grandleon_sevenfold_campaign_tests
+    PRIVATE
+        grandleon::game_content
+        grandleon::package_runtime
+        grandleon::simulation
+)
+target_compile_definitions(
+    grandleon_sevenfold_campaign_tests
+    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+add_test(
+    NAME grandleon.sevenfold_campaign
+    COMMAND grandleon_sevenfold_campaign_tests
+)
+
 # What the Fordlight autopilot is allowed to believe about a blow, derived on
 # the host from the real engine and the real board before the ROM is built. The
 # ROM includes the same header this test pins, so a rule that moves a number

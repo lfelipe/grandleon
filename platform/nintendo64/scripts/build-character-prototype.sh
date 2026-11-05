@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 
-# Builds the fixed N64 3D character comparison. This is intentionally separate
-# from build-n64.sh: it uses Tiny3D and a preview libdragon pin, carries no
-# authored campaign, and must never be mistaken for the supported sprite ROM.
+# Builds either N64 3D review ROM. This is intentionally separate from
+# build-n64.sh: it uses Tiny3D and a preview libdragon pin, carries no authored
+# campaign, and must never be mistaken for the supported sprite ROM.
 
 set -euo pipefail
 
@@ -17,9 +17,10 @@ build_dir="${GRANDLEON_N64_PROTOTYPE_BUILD_DIR:-${repository_root}/build-n64-cha
 image="grandleon/n64-character-prototype-toolchain:${libdragon_commit:0:12}-t3d${tiny3d_commit:0:12}"
 bundle_dir=""
 rebuild_image=0
+sevenfold=0
 
 usage() {
-    echo "usage: $(basename "$0") [--rebuild-image] [--bundle DIR]" >&2
+    echo "usage: $(basename "$0") [--rebuild-image] [--bundle DIR] [--sevenfold]" >&2
     exit 2
 }
 
@@ -27,9 +28,28 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --rebuild-image) rebuild_image=1; shift ;;
         --bundle) [ "$#" -ge 2 ] || usage; bundle_dir="$2"; shift 2 ;;
+        --sevenfold) sevenfold=1; shift ;;
         *) usage ;;
     esac
 done
+
+if [ "${sevenfold}" -eq 1 ] && [ -n "${bundle_dir}" ]; then
+    echo "error: --bundle currently describes the fixed two-role comparison; use --sevenfold without it." >&2
+    exit 2
+fi
+
+prototype_option=ON
+sevenfold_option=OFF
+target=grandleon_n64_character_prototype
+rom_name=grandleon-n64-3d-character-prototype.z64
+label="Experimental ROM"
+if [ "${sevenfold}" -eq 1 ]; then
+    prototype_option=OFF
+    sevenfold_option=ON
+    target=grandleon_n64_sevenfold_3d
+    rom_name=grandleon-n64-sevenfold-3d.z64
+    label="Sevenfold 3D roster ROM"
+fi
 
 if ! command -v "${docker}" >/dev/null 2>&1; then
     echo "error: '${docker}' is not on PATH." >&2
@@ -89,6 +109,9 @@ flock 9
 "${docker}" run --rm \
     --user "$(id -u):$(id -g)" \
     --env "GRANDLEON_CONTAINER_BUILD_DIR=${container_build_dir}" \
+    --env "GRANDLEON_CONTAINER_PROTOTYPE_OPTION=${prototype_option}" \
+    --env "GRANDLEON_CONTAINER_SEVENFOLD_OPTION=${sevenfold_option}" \
+    --env "GRANDLEON_CONTAINER_TARGET=${target}" \
     --volume "${repository_root}:/src" \
     --workdir /src \
     "${image}" \
@@ -97,21 +120,22 @@ flock 9
             -DCMAKE_TOOLCHAIN_FILE=/src/cmake/toolchains/Nintendo64.cmake \
             -DCMAKE_BUILD_TYPE= \
             -DGRANDLEON_N64=ON \
-            -DGRANDLEON_N64_CHARACTER_PROTOTYPE=ON \
+            -DGRANDLEON_N64_CHARACTER_PROTOTYPE=${GRANDLEON_CONTAINER_PROTOTYPE_OPTION} \
+            -DGRANDLEON_N64_SEVENFOLD_3D=${GRANDLEON_CONTAINER_SEVENFOLD_OPTION} \
             -DGRANDLEON_BUILD_TESTS=OFF \
             -DGRANDLEON_WERROR=ON \
             -UGRANDLEON_N64_PROJECT
         cmake --build "${GRANDLEON_CONTAINER_BUILD_DIR}" --parallel \
-            --target grandleon_n64_character_prototype
+            --target "${GRANDLEON_CONTAINER_TARGET}"
     '
 
-rom="${build_dir}/platform/nintendo64/grandleon-n64-3d-character-prototype.z64"
+rom="${build_dir}/platform/nintendo64/${rom_name}"
 if [ ! -f "${rom}" ]; then
     echo "error: expected prototype ROM was not produced: ${rom}" >&2
     exit 1
 fi
 rom_sha256="$(sha256sum "${rom}" | cut -d ' ' -f 1)"
-echo "Experimental ROM: ${rom} ($(wc -c < "${rom}") bytes)"
+echo "${label}: ${rom} ($(wc -c < "${rom}") bytes)"
 echo "SHA-256: ${rom_sha256}"
 
 if [ -n "${bundle_dir}" ]; then

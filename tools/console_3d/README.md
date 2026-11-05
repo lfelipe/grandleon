@@ -10,6 +10,44 @@ are viable for a small close scene, but not as the default full-board renderer:
 sixteen reduced figures miss the 30 fps budget and the existing sprites remain
 clearer. This is evidence for further work, not a release renderer.
 
+## Complete N64 roster coverage
+
+The focused source-model comparison below still matters: it proves that a
+careful reduction can retain the commander's shield and the rogue's paired
+blades. It did not cover the roster. The Sevenfold generator now fills that
+gap with deterministic procedural console geometry:
+
+- seven styles: medieval, sci-fi, mythical, nature, Sengoku, Undead, Pirates;
+- eight archetypes per style;
+- male and female proportions for every archetype;
+- a runtime-swappable team-colour material; and
+- low and high LODs for all 112 combinations.
+
+The curated character sheets are raster animation, not source meshes. These
+112 models therefore use a shared console construction vocabulary rather than
+claiming to reconstruct unseen 3D art. Oversized silhouette carriers make the
+roles readable: shield and sword, bow and quiver, staff and hat, twin rods,
+crook and satchel, shield and banner, paired blades and hood, or a horned
+quadruped body. Each style then changes palette, headgear, armour, and outline.
+
+`generated/sevenfold_roster_proxies.json` records every vertex and triangle
+count plus the generator hash. Regenerate and check the ROM with:
+
+```sh
+python3 tools/console_3d/generate_sevenfold_roster.py
+platform/nintendo64/scripts/check-sevenfold-3d.sh
+```
+
+The ROM presents fourteen uncrowded pages—one style/body pair and all eight
+roles at a time—on the same varied terrain layouts as `games/sevenfold`. Its
+current ares run passes all 16 assertions. Page measurements range from 63 to
+88 fps with depth enabled, above the 30 fps target. Emulator timing is a useful
+gate, not a claim about original hardware.
+
+This proves full model availability and rendering headroom. It does not yet
+make the Sevenfold campaign playable in 3D; the supported campaign ROM still
+uses sprites.
+
 ## What changed after the first proxy
 
 The historical v1 commander replaced source components with console primitives

@@ -243,6 +243,50 @@ inline constexpr int controls_prompt_y = 210;
 inline constexpr const char* controls_title = "HOW TO PLAY";
 inline constexpr const char* controls_prompt = "PRESS A TO BEGIN";
 
+// The played campaign's local-player choice. It appears only when the package
+// actually assigns at least one allied placement to Player 2, so a solo-only
+// game does not offer a mode its content cannot show. Player 1 makes this
+// choice before the second port is admitted to the input poll.
+inline constexpr const char* player_count_title = "CHOOSE PLAYERS";
+inline constexpr const char* player_count_rows[] = {
+    "1 PLAYER",
+    "2 PLAYERS",
+};
+inline constexpr std::size_t player_count_row_count =
+    std::size(player_count_rows);
+inline constexpr const char* player_count_need_pad =
+    "CONNECT CONTROLLER 2 FOR CO-OP";
+inline constexpr const char* player_count_prompt =
+    "D-PAD CHOOSE   A CONFIRM";
+inline constexpr int player_count_title_y = 92;
+inline constexpr int player_count_first_row_y = 126;
+inline constexpr int player_count_row_step = 18;
+inline constexpr int player_count_note_y = 176;
+inline constexpr int player_count_prompt_y = 214;
+
+static_assert(
+    centred_x(std::string_view{player_count_title}) >= safe_left &&
+        centred_x(std::string_view{player_count_title}) +
+                text_width(std::string_view{player_count_title}) <= safe_right &&
+        centred_x(std::string_view{player_count_need_pad}) >= safe_left &&
+        centred_x(std::string_view{player_count_need_pad}) +
+                text_width(std::string_view{player_count_need_pad}) <= safe_right &&
+        centred_x(std::string_view{player_count_prompt}) >= safe_left &&
+        centred_x(std::string_view{player_count_prompt}) +
+                text_width(std::string_view{player_count_prompt}) <= safe_right,
+    "the local-player menu has a row outside the safe text area"
+);
+static_assert(
+    player_count_first_row_y +
+            static_cast<int>(player_count_row_count - 1U) *
+                player_count_row_step +
+            font_height <=
+        player_count_note_y &&
+        player_count_note_y + font_height <= player_count_prompt_y &&
+        player_count_prompt_y + font_height <= frame_height,
+    "the local-player menu's rows overlap or leave the frame"
+);
+
 // The body starts in from the safe margin, so that the button names form a
 // column of their own and what each one does lines up beside it.
 inline constexpr int controls_left = 56;

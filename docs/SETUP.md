@@ -159,9 +159,16 @@ to:
 
 `--n64` runs all five supported Nintendo 64 checks: conformance, the render
 probe, a played autopilot, two-controller co-op, and a campaign that survives
-the power switch. It then separately builds and checks the fixed 3D character
+the power switch. It then separately builds and checks the focused two-role 3D
 prototype. The first four Tarnholt checks share one build; the Emberbound co-op
 ROM is built separately because its authored two-player opening is the test.
+
+The complete Sevenfold 3D roster is a separate development check so the normal
+suite does not generate and review fourteen extra pages:
+
+```sh
+platform/nintendo64/scripts/check-sevenfold-3d.sh
+```
 
 The same checks are also CMake targets, which is what a person debugging one
 wants. They build through `build/`, so configure it first if you have not
