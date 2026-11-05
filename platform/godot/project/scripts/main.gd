@@ -144,6 +144,7 @@ var frame_timing_next_update_msec := 0
 
 
 func _ready() -> void:
+	PCNavigation.set_ui_button_bridge(false)
 	_parse_arguments()
 	var staged: Dictionary = LaunchContext.take_package()
 	draft_preview = bool(staged.get("draft_preview", false))
@@ -159,7 +160,11 @@ func _ready() -> void:
 		stored_settings = presentation_settings.load_settings(PUBLIC_GRAPHICS_PROFILES)
 	stick_mode = String(stored_settings.get("stick_mode", "deliberate"))
 	PCNavigation.configure(
-		controls.stick_press_threshold(), controls.stick_release_threshold(), stick_mode
+		controls.stick_press_threshold(),
+		controls.stick_release_threshold(),
+		stick_mode,
+		controls.button("confirm"),
+		controls.button("cancel")
 	)
 	PCNavigation.direction_pressed.connect(_on_stick_direction)
 	if not graphics_argument_explicit and stored_settings.has("graphics_profile"):
@@ -1032,7 +1037,11 @@ func _toggle_stick_mode() -> void:
 func _set_stick_mode(value: String) -> void:
 	stick_mode = value if value in PresentationSettings.STICK_MODES else "deliberate"
 	PCNavigation.configure(
-		controls.stick_press_threshold(), controls.stick_release_threshold(), stick_mode
+		controls.stick_press_threshold(),
+		controls.stick_release_threshold(),
+		stick_mode,
+		controls.button("confirm"),
+		controls.button("cancel")
 	)
 	_update_session_labels()
 	_persist_presentation_settings()

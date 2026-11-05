@@ -23,6 +23,7 @@ var game_button_count := 0
 
 
 func _ready() -> void:
+	PCNavigation.set_ui_button_bridge(false)
 	_parse_arguments()
 	if _should_open_game_directly():
 		call_deferred("_open_game_directly")
@@ -33,7 +34,11 @@ func _ready() -> void:
 	)
 	stick_mode = String(stored_settings.get("stick_mode", "deliberate"))
 	PCNavigation.configure(
-		controls.stick_press_threshold(), controls.stick_release_threshold(), stick_mode
+		controls.stick_press_threshold(),
+		controls.stick_release_threshold(),
+		stick_mode,
+		controls.button("confirm"),
+		controls.button("cancel")
 	)
 	PCNavigation.allow_all_devices()
 	library = ProjectLibrary.new()

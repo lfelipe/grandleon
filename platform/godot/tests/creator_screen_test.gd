@@ -23,6 +23,33 @@ func _run() -> void:
 		)
 	_expect("new campaign action focused", screen.first_button.has_focus(), true)
 	_expect("project library available", screen.library.ready(), true)
+	var pc_navigation: Node = root.get_node("PCNavigation")
+	pc_navigation.call(
+		"configure", 0.78, 0.30, "deliberate", JOY_BUTTON_X, JOY_BUTTON_Y
+	)
+	pc_navigation.call("set_ui_button_bridge", true)
+	var ordinary_a := InputEventJoypadButton.new()
+	ordinary_a.button_index = JOY_BUTTON_A
+	ordinary_a.pressed = true
+	pc_navigation.call("_input", ordinary_a)
+	await process_frame
+	_expect("unmapped joypad button does not confirm", screen.new_campaign_layer.visible, false)
+	var mapped_confirm := InputEventJoypadButton.new()
+	mapped_confirm.button_index = JOY_BUTTON_X
+	mapped_confirm.pressed = true
+	pc_navigation.call("_input", mapped_confirm)
+	await process_frame
+	_expect("configured joypad confirm opens creator action", screen.new_campaign_layer.visible, true)
+	_expect("joypad-opened campaign name receives focus", screen.new_campaign_title.has_focus(), true)
+	var mapped_cancel := InputEventJoypadButton.new()
+	mapped_cancel.button_index = JOY_BUTTON_Y
+	mapped_cancel.pressed = true
+	pc_navigation.call("_input", mapped_cancel)
+	await process_frame
+	await process_frame
+	_expect("configured joypad cancel closes creator layer", screen.new_campaign_layer.visible, false)
+	_expect("joypad cancel restores creator focus", screen.first_button.has_focus(), true)
+	pc_navigation.call("configure", 0.78, 0.30, "deliberate")
 	screen._open_new_campaign()
 	_expect("new campaign panel opens", screen.new_campaign_layer.visible, true)
 	_expect("campaign name receives focus", screen.new_campaign_title.has_focus(), true)

@@ -44,6 +44,7 @@ var screenshot_frames := -1
 
 
 func _ready() -> void:
+	PCNavigation.set_ui_button_bridge(true)
 	_parse_arguments()
 	library = ProjectLibrary.new()
 	standalone_exporter = StandaloneExporter.new(library)
