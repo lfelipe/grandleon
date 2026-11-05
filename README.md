@@ -100,11 +100,13 @@ Stage-picker build can jump directly between the gates for review.
 0.4 also includes two separate N64 3D experiments. The first compares reduced
 Godot commander and rogue models at several camera distances. The second
 covers the complete seven-style, eight-archetype, male-and-female roster with
-112 procedural console models, visible in red and blue team colours. Both N64
-experiments clear their 30 fps targets. They are review ROMs rather than editor
-exports or playable campaigns; the playable N64 campaign still uses the clear
-and proven sprite renderer. PlayStation's full-board 3D comparison remains too
-slow, so its supported renderer remains sprite-based as well.
+112 procedural console models, visible in red and blue team colours. It lets
+you compare both detail levels and try a terrain-aware close attack/counter
+preview with two characters. Both N64 experiments clear their 30 fps targets.
+They are review ROMs rather than editor exports or playable campaigns; the
+playable N64 campaign still uses the clear and proven sprite renderer.
+PlayStation's full-board 3D comparison remains too slow, so its supported
+renderer remains sprite-based as well.
 [See the captures, measurements, and build command](docs/CONSOLE_3D_EXPERIMENT.md).
 
 [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) explains how one
@@ -120,7 +122,7 @@ rest of the documentation describes the current Godot application.
 | **0.1 — portable foundation** | Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
 | **0.2 — complete campaign runtime** | Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3 — Godot player and creator** | Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
-| **0.4 — broader art and console 3D experiments** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, includes distinct solo and local co-op campaigns, and records a bounded low-detail 3D comparison on PlayStation and Nintendo 64. This is the current development line. |
+| **0.4 — broader art and console 3D experiments** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, includes distinct solo and local co-op campaigns, and records bounded 3D detail and camera comparisons on PlayStation and Nintendo 64. This is the current development line. |
 | **0.5 — editor product pass** | Concentrates on the complete authoring experience: clearer workflows, stronger previews, better project organization, and the usability and accessibility work needed for larger games. |
 | **0.6 — cinematic battles** | Adds an optional terrain-aware close-up attack view with counter-attacks and damage numbers, while retaining the faster board-only presentation as a game setting. |
 

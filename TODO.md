@@ -58,6 +58,11 @@ terrain rules, routes, timing, or combat results.
 
 ## 0.6 cinematic battle presentation
 
+The Sevenfold N64 review ROM now proves the basic two-character composition,
+terrain-derived backdrop, attack/counter motion, damage callouts, and frame
+budget. It remains an isolated presentation prototype: it does not consume a
+real combat result, offer a campaign setting, or make this section complete.
+
 - [ ] Add an optional close-up attack presentation inspired by tactical RPG
   battle scenes. When enabled, an attack leaves the board view for a frontal
   attacker-and-defender view, uses the current terrain tiles to choose and

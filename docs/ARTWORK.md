@@ -303,7 +303,10 @@ tested at native board scale. A second N64 review ROM now supplies procedural
 console models for all 112 combinations of style, archetype, and male/female
 body. It shows one body and all eight roles per page, with runtime red/blue team
 colour replacement, so the complete matrix can be inspected without crowding
-sixteen figures together.
+sixteen figures together. Every page can switch between low and high detail.
+The same ROM also places two high-detail models in an experimental close attack
+view, with the floor, skyline, and sky colour derived from the selected map
+terrain.
 
 These models are an N64 rendering experiment, not the curated raster artwork
 converted into meshes and not yet a playable campaign renderer. PlayStation's

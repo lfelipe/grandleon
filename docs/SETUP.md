@@ -164,7 +164,8 @@ prototype. The first four Tarnholt checks share one build; the Emberbound co-op
 ROM is built separately because its authored two-player opening is the test.
 
 The complete Sevenfold 3D roster is a separate development check so the normal
-suite does not generate and review fourteen extra pages:
+suite does not generate 28 detail-comparison captures, seven terrain close
+views, and an animated hit capture:
 
 ```sh
 platform/nintendo64/scripts/check-sevenfold-3d.sh

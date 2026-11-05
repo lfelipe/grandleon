@@ -26,7 +26,7 @@ constexpr int board_triangles =
     sevenfold_board_columns * sevenfold_board_rows * 2;
 constexpr int board_vertices = board_triangles * 3;
 constexpr int packed_board_vertices = (board_vertices + 1) / 2;
-constexpr int max_proxy_vertices = sevenfold_low_max_triangles * 3;
+constexpr int max_proxy_vertices = sevenfold_high_max_triangles * 3;
 constexpr int packed_proxy_vertices = (max_proxy_vertices + 1) / 2;
 constexpr int figure_count = 8;
 constexpr int batch_vertices = 66;
@@ -39,11 +39,26 @@ constexpr std::uint8_t terrain_colours[13][3] = {
     {148, 135, 121}, {77, 145, 71}, {125, 100, 64}, {131, 194, 104},
     {91, 81, 69},
 };
+constexpr std::uint8_t terrain_sky_colours[13][3] = {
+    {29, 68, 94}, {57, 52, 47}, {24, 54, 38}, {58, 58, 70},
+    {96, 73, 46}, {83, 100, 118}, {45, 52, 35}, {52, 79, 55},
+    {62, 57, 67}, {37, 72, 51}, {75, 62, 40}, {32, 76, 48},
+    {51, 48, 56},
+};
+constexpr const char* terrain_names[13] = {
+    "WATER", "ROAD", "FOREST", "MOUNTAIN", "SAND", "SNOW", "SWAMP",
+    "HILLS", "RUINS", "GRASS", "FARMLAND", "BAMBOO", "PAVED",
+};
+constexpr std::uint8_t preferred_attack_terrain[7] = {
+    2, 8, 3, 0, 11, 6, 4,
+};
 constexpr std::uint8_t team_colours[2][3] = {
     {65, 132, 235}, {215, 74, 68},
 };
 constexpr const char* body_names[2] = {"MALE", "FEMALE"};
 constexpr const char* body_slugs[2] = {"male", "female"};
+constexpr const char* lod_names[2] = {"LOW", "HIGH"};
+constexpr const char* lod_slugs[2] = {"low", "high"};
 
 int checks = 0;
 int failures = 0;
@@ -118,8 +133,9 @@ void set_vertex(
     );
 }
 
-void build_proxy(
-    Figure& into, const SevenfoldProxy& proxy, int column, int row, int team
+void build_proxy_at(
+    Figure& into, const SevenfoldProxy& proxy, std::int16_t origin_x,
+    std::int16_t origin_z, int team, int quarter_turn
 ) {
     into.triangles = proxy.triangles_count;
     for (int index = 0; index < packed_proxy_vertices; ++index) {
@@ -136,16 +152,33 @@ void build_proxy(
         for (int corner = 0; corner < 3; ++corner) {
             const SevenfoldProxyVertex& source =
                 proxy.vertices[corners[corner]];
+            std::int16_t x = source.x;
+            std::int16_t z = source.z;
+            if (quarter_turn < 0) {
+                x = source.z;
+                z = static_cast<std::int16_t>(-source.x);
+            } else if (quarter_turn > 0) {
+                x = static_cast<std::int16_t>(-source.z);
+                z = source.x;
+            }
             set_vertex(
                 into.vertices[written / 2], (written & 1) != 0,
-                static_cast<std::int16_t>(source.x + cell_x(column)),
+                static_cast<std::int16_t>(x + origin_x),
                 source.y,
-                static_cast<std::int16_t>(source.z + cell_z(row)),
+                static_cast<std::int16_t>(z + origin_z),
                 colour
             );
             ++written;
         }
     }
+}
+
+void build_proxy(
+    Figure& into, const SevenfoldProxy& proxy, int column, int row, int team
+) {
+    build_proxy_at(
+        into, proxy, cell_x(column), cell_z(row), team, 0
+    );
 }
 
 void build_board(T3DVertPacked* into, int stage) {
@@ -183,6 +216,141 @@ void build_board(T3DVertPacked* into, int stage) {
     }
 }
 
+void scene_triangle(
+    T3DVertPacked* into, int& written, const std::int16_t points[3][3],
+    std::uint32_t colour
+) {
+    for (int point = 0; point < 3; ++point) {
+        set_vertex(
+            into[written / 2], (written & 1) != 0,
+            points[point][0], points[point][1], points[point][2], colour
+        );
+        ++written;
+    }
+}
+
+void scene_quad(
+    T3DVertPacked* into, int& written, const std::int16_t points[4][3],
+    std::uint32_t colour
+) {
+    const std::int16_t first[3][3] = {
+        {points[0][0], points[0][1], points[0][2]},
+        {points[1][0], points[1][1], points[1][2]},
+        {points[2][0], points[2][1], points[2][2]},
+    };
+    const std::int16_t second[3][3] = {
+        {points[0][0], points[0][1], points[0][2]},
+        {points[2][0], points[2][1], points[2][2]},
+        {points[3][0], points[3][1], points[3][2]},
+    };
+    scene_triangle(into, written, first, colour);
+    scene_triangle(into, written, second, colour);
+}
+
+[[nodiscard]] constexpr int terrain_silhouette_height(
+    std::uint8_t terrain
+) noexcept {
+    constexpr int heights[13] = {
+        18, 32, 112, 142, 38, 68, 44, 82, 98, 48, 62, 130, 36,
+    };
+    return heights[terrain];
+}
+
+[[nodiscard]] int build_attack_scene(
+    T3DVertPacked* into, int stage, int selected_cell
+) {
+    for (int index = 0; index < packed_board_vertices; ++index) {
+        into[index] = T3DVertPacked{};
+    }
+    int written = 0;
+    const int selected_x = selected_cell % sevenfold_board_columns;
+    const int selected_y = selected_cell / sevenfold_board_columns;
+
+    // A six-by-four patch around the combatants. It samples the authored map,
+    // so changing the chosen tile changes the scene rather than merely
+    // recolouring one generic floor.
+    for (int row = 0; row < 4; ++row) {
+        for (int column = 0; column < 6; ++column) {
+            int source_x = selected_x + column - 3;
+            int source_y = selected_y + row - 1;
+            if (source_x < 0) source_x = 0;
+            if (source_x >= sevenfold_board_columns) {
+                source_x = sevenfold_board_columns - 1;
+            }
+            if (source_y < 0) source_y = 0;
+            if (source_y >= sevenfold_board_rows) {
+                source_y = sevenfold_board_rows - 1;
+            }
+            const std::uint8_t terrain = sevenfold_stage_terrain[stage]
+                [source_y * sevenfold_board_columns + source_x];
+            const std::uint8_t* rgb = terrain_colours[terrain];
+            const std::uint32_t colour = rgba(rgb[0], rgb[1], rgb[2]);
+            const std::int16_t x0 = static_cast<std::int16_t>(
+                (column - 3) * 70
+            );
+            const std::int16_t x1 = static_cast<std::int16_t>(x0 + 70);
+            const std::int16_t z0 = static_cast<std::int16_t>(
+                (row - 1) * 70
+            );
+            const std::int16_t z1 = static_cast<std::int16_t>(z0 + 70);
+            const std::int16_t floor[4][3] = {
+                {x0, 0, z0}, {x1, 0, z0}, {x1, 0, z1}, {x0, 0, z1},
+            };
+            scene_quad(into, written, floor, colour);
+        }
+    }
+
+    // The far row becomes a low-poly skyline. Terrain identity changes its
+    // height and outline: mountains and hills peak, forest and bamboo get a
+    // trunk/canopy profile, while ruins and open ground keep broken walls.
+    for (int column = 0; column < sevenfold_board_columns; ++column) {
+        const std::uint8_t terrain = sevenfold_stage_terrain[stage]
+            [selected_y * sevenfold_board_columns + column];
+        const std::uint8_t* rgb = terrain_colours[terrain];
+        const std::uint32_t colour = rgba(
+            static_cast<std::uint8_t>(rgb[0] * 3U / 4U),
+            static_cast<std::uint8_t>(rgb[1] * 3U / 4U),
+            static_cast<std::uint8_t>(rgb[2] * 3U / 4U)
+        );
+        const std::int16_t x0 = static_cast<std::int16_t>(column * 52 - 208);
+        const std::int16_t x1 = static_cast<std::int16_t>(x0 + 52);
+        const std::int16_t middle = static_cast<std::int16_t>((x0 + x1) / 2);
+        const std::int16_t height = static_cast<std::int16_t>(
+            terrain_silhouette_height(terrain)
+        );
+        if (terrain == 3U || terrain == 7U) {
+            const std::int16_t peak[3][3] = {
+                {x0, 0, 235}, {x1, 0, 235}, {middle, height, 235},
+            };
+            scene_triangle(into, written, peak, colour);
+        } else if (terrain == 2U || terrain == 11U) {
+            const std::int16_t trunk[4][3] = {
+                {static_cast<std::int16_t>(middle - 5), 0, 235},
+                {static_cast<std::int16_t>(middle + 5), 0, 235},
+                {static_cast<std::int16_t>(middle + 5),
+                 static_cast<std::int16_t>(height * 2 / 3), 235},
+                {static_cast<std::int16_t>(middle - 5),
+                 static_cast<std::int16_t>(height * 2 / 3), 235},
+            };
+            scene_quad(into, written, trunk, rgba(67, 51, 32));
+            const std::int16_t canopy[3][3] = {
+                {x0, static_cast<std::int16_t>(height / 3), 235},
+                {x1, static_cast<std::int16_t>(height / 3), 235},
+                {middle, height, 235},
+            };
+            scene_triangle(into, written, canopy, colour);
+        } else {
+            const std::int16_t wall[4][3] = {
+                {x0, 0, 235}, {x1, 0, 235},
+                {x1, static_cast<std::int16_t>(height * 3 / 4), 235},
+                {x0, height, 235},
+            };
+            scene_quad(into, written, wall, colour);
+        }
+    }
+    return written / 3;
+}
+
 void draw_unindexed(const T3DVertPacked* vertices, int triangles) {
     int drawn = 0;
     while (drawn < triangles) {
@@ -214,10 +382,27 @@ void set_camera(T3DViewport& viewport) {
     t3d_viewport_look_at(&viewport, &eye, &focus, &up);
 }
 
+void set_attack_camera(T3DViewport& viewport) {
+    fm_vec3_t eye;
+    eye.v[0] = 0.0F;
+    eye.v[1] = 132.0F;
+    eye.v[2] = -300.0F;
+    fm_vec3_t focus;
+    focus.v[0] = 0.0F;
+    focus.v[1] = 58.0F;
+    focus.v[2] = 18.0F;
+    fm_vec3_t up;
+    up.v[0] = 0.0F;
+    up.v[1] = 1.0F;
+    up.v[2] = 0.0F;
+    t3d_viewport_look_at(&viewport, &eye, &focus, &up);
+}
+
 std::uint64_t draw_frame(
     surface_t* display, T3DViewport* viewport, T3DMat4FP* matrix,
-    const T3DVertPacked* board, const Figure* figures, const char* label,
-    int body
+    const T3DVertPacked* scene, int scene_triangles, const Figure* figures,
+    int visible_figures, const char* label, const char* footer,
+    const char* controls, color_t clear_colour
 ) {
     const std::uint64_t started = get_ticks_us();
     rdpq_attach(display, display_get_zbuf());
@@ -225,43 +410,45 @@ std::uint64_t draw_frame(
     rdpq_mode_zbuf(true, true);
     t3d_viewport_attach(viewport);
     rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
-    t3d_screen_clear_color(RGBA32(20, 25, 35, 255));
+    t3d_screen_clear_color(clear_colour);
     t3d_screen_clear_depth();
     t3d_light_set_count(0);
     t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
         T3D_FLAG_SHADED | T3D_FLAG_NO_LIGHT | T3D_FLAG_DEPTH
     ));
     t3d_matrix_push(matrix);
-    draw_unindexed(board, board_triangles);
-    for (int index = 0; index < figure_count; ++index) {
+    draw_unindexed(scene, scene_triangles);
+    for (int index = 0; index < visible_figures; ++index) {
         draw_unindexed(figures[index].vertices, figures[index].triangles);
     }
     t3d_matrix_pop(1);
     t3d_tri_sync();
     rdpq_detach_wait();
+    graphics_draw_box(
+        display, 0, 196, 320, 44, graphics_make_color(15, 22, 24, 255)
+    );
     graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
     graphics_draw_text(display, 8, 8, label);
     graphics_set_color(graphics_make_color(125, 168, 133, 255), 0);
-    char roster_label[64];
-    std::snprintf(
-        roster_label, sizeof roster_label,
-        "8 ROLES: %s - BLUE + RED TEAMS", body_names[body]
-    );
-    graphics_draw_text(display, 8, 220, roster_label);
+    graphics_draw_text(display, 8, 204, footer);
+    graphics_draw_text(display, 8, 220, controls);
     return get_ticks_us() - started;
 }
 
-int triangle_total(const Figure* figures) {
-    int result = board_triangles;
-    for (int index = 0; index < figure_count; ++index) {
+int triangle_total(
+    const Figure* figures, int visible_figures = figure_count,
+    int scene_triangles = board_triangles
+) {
+    int result = scene_triangles;
+    for (int index = 0; index < visible_figures; ++index) {
         result += figures[index].triangles;
     }
     return result;
 }
 
 std::uint64_t show_page(
-    int stage, int body, T3DViewport& viewport, T3DMat4FP* matrix,
-    T3DVertPacked* board, Figure* figures
+    int stage, int body, int lod, bool report, T3DViewport& viewport,
+    T3DMat4FP* matrix, T3DVertPacked* board, Figure* figures
 ) {
     build_board(board, stage);
     constexpr int positions[8][2] = {
@@ -270,39 +457,219 @@ std::uint64_t show_page(
     };
     for (int archetype = 0; archetype < figure_count; ++archetype) {
         const int team = (archetype + stage + body) & 1;
+        const SevenfoldProxy& proxy = lod == 0
+            ? sevenfold_proxies_low[stage][body][archetype]
+            : sevenfold_proxies_high[stage][body][archetype];
         build_proxy(
-            figures[archetype],
-            sevenfold_proxies_low[stage][body][archetype],
+            figures[archetype], proxy,
             positions[archetype][0], positions[archetype][1], team
         );
     }
     char page_label[64];
     std::snprintf(
-        page_label, sizeof page_label, "%s - %s",
-        sevenfold_stage_names[stage], body_names[body]
+        page_label, sizeof page_label, "%s - %s - %s LOD",
+        sevenfold_stage_names[stage], body_names[body], lod_names[lod]
     );
     std::uint64_t elapsed = 0;
-    for (int frame = 0; frame < 4; ++frame) {
+    for (int frame = 0; frame < 3; ++frame) {
         surface_t* display = display_get();
         elapsed = draw_frame(
-            display, &viewport, matrix, board, figures,
-            page_label, body
+            display, &viewport, matrix, board, board_triangles, figures,
+            figure_count, page_label, "8 ROLES - BLUE + RED TEAMS",
+            "A LOD  <> STYLE  ^V BODY  START VIEW", RGBA32(20, 25, 35, 255)
         );
         display_show(display);
     }
+    if (!report) return elapsed;
     std::fprintf(
         stderr,
-        "sevenfold stage=%s body=%s models=8 triangles=%d us=%llu fps=%llu depth=on\n",
-        sevenfold_style_names[stage], body_slugs[body], triangle_total(figures),
+        "sevenfold stage=%s body=%s lod=%s models=8 triangles=%d us=%llu fps=%llu depth=on\n",
+        sevenfold_style_names[stage], body_slugs[body], lod_slugs[lod],
+        triangle_total(figures),
         static_cast<unsigned long long>(elapsed),
         static_cast<unsigned long long>(elapsed > 0 ? 1'000'000 / elapsed : 0)
     );
     std::fprintf(
-        stderr, "CHECKPOINT sevenfold-%s-%s\n",
-        sevenfold_style_names[stage], body_slugs[body]
+        stderr, "CHECKPOINT sevenfold-%s-%s-%s\n",
+        sevenfold_style_names[stage], body_slugs[body], lod_slugs[lod]
     );
     std::fflush(stderr);
     return elapsed;
+}
+
+[[nodiscard]] int preferred_attack_cell(int stage) noexcept {
+    const std::uint8_t wanted = preferred_attack_terrain[stage];
+    for (int cell = 0;
+         cell < sevenfold_board_columns * sevenfold_board_rows; ++cell) {
+        if (sevenfold_stage_terrain[stage][cell] == wanted) return cell;
+    }
+    return sevenfold_board_columns * sevenfold_board_rows / 2;
+}
+
+void build_attack_figures(
+    Figure* figures, int stage, int archetype, int left_x, int right_x
+) {
+    build_proxy_at(
+        figures[0], sevenfold_proxies_high[stage][0][archetype],
+        static_cast<std::int16_t>(left_x), 8, 0, 1
+    );
+    build_proxy_at(
+        figures[1], sevenfold_proxies_high[stage][1][archetype],
+        static_cast<std::int16_t>(right_x), 8, 1, -1
+    );
+}
+
+void attack_labels(
+    int stage, int archetype, std::uint8_t terrain,
+    char* page_label, std::size_t page_size,
+    char* footer, std::size_t footer_size
+) {
+    std::snprintf(
+        page_label, page_size, "%s - %s DUEL",
+        sevenfold_stage_names[stage], sevenfold_archetype_names[archetype]
+    );
+    std::snprintf(
+        footer, footer_size, "HIGH LOD DUEL - %s TERRAIN",
+        terrain_names[terrain]
+    );
+}
+
+std::uint64_t show_attack(
+    int stage, int archetype, int selected_cell, bool report,
+    T3DViewport& viewport, T3DMat4FP* matrix, T3DVertPacked* scene,
+    Figure* figures
+) {
+    const int scene_triangles =
+        build_attack_scene(scene, stage, selected_cell);
+    build_attack_figures(figures, stage, archetype, -68, 68);
+    const std::uint8_t terrain = sevenfold_stage_terrain[stage][selected_cell];
+    char page_label[64];
+    char footer[64];
+    attack_labels(
+        stage, archetype, terrain, page_label, sizeof page_label,
+        footer, sizeof footer
+    );
+    const std::uint8_t* sky = terrain_sky_colours[terrain];
+    std::uint64_t elapsed = 0;
+    for (int frame = 0; frame < 3; ++frame) {
+        surface_t* display = display_get();
+        elapsed = draw_frame(
+            display, &viewport, matrix, scene, scene_triangles, figures, 2,
+            page_label, footer,
+            "A ROLE B ATTACK <> STYLE ^V TILE START",
+            RGBA32(sky[0], sky[1], sky[2], 255)
+        );
+        display_show(display);
+    }
+    if (!report) return elapsed;
+    std::fprintf(
+        stderr,
+        "sevenfold attack stage=%s role=%s terrain=%s models=2 triangles=%d us=%llu fps=%llu depth=on\n",
+        sevenfold_style_names[stage], sevenfold_archetype_names[archetype],
+        terrain_names[terrain],
+        triangle_total(figures, 2, scene_triangles),
+        static_cast<unsigned long long>(elapsed),
+        static_cast<unsigned long long>(elapsed > 0 ? 1'000'000 / elapsed : 0)
+    );
+    std::fprintf(
+        stderr, "CHECKPOINT sevenfold-attack-%s-%s\n",
+        sevenfold_style_names[stage], terrain_names[terrain]
+    );
+    std::fflush(stderr);
+    return elapsed;
+}
+
+void draw_damage_callout(surface_t* display, int target, int damage) {
+    const int left = target == 0 ? 34 : 222;
+    graphics_draw_box(
+        display, left, 42, 64, 16, graphics_make_color(15, 22, 24, 255)
+    );
+    graphics_set_color(graphics_make_color(242, 193, 78, 255), 0);
+    char label[16];
+    std::snprintf(label, sizeof label, "HIT -%d", damage);
+    graphics_draw_text(display, left + 8, 46, label);
+}
+
+std::uint64_t play_attack_preview(
+    int stage, int archetype, int selected_cell, T3DViewport& viewport,
+    T3DMat4FP* matrix, T3DVertPacked* scene, Figure* figures, bool report
+) {
+    const int scene_triangles =
+        build_attack_scene(scene, stage, selected_cell);
+    const std::uint8_t terrain = sevenfold_stage_terrain[stage][selected_cell];
+    const std::uint8_t* sky = terrain_sky_colours[terrain];
+    char page_label[64];
+    char footer[64];
+    attack_labels(
+        stage, archetype, terrain, page_label, sizeof page_label,
+        footer, sizeof footer
+    );
+
+    // A compact stand-in for the presentation contract: attacker advances,
+    // damage is called out, both return to their marks, then the defender
+    // counters. It moves only these review models; no combat result is being
+    // simulated or invented by the renderer.
+    std::uint64_t slowest = 0;
+    for (int frame = 0; frame < 96; ++frame) {
+        int left_x = -68;
+        int right_x = 68;
+        int damage_target = -1;
+        int damage = 0;
+        if (frame >= 12 && frame < 24) {
+            left_x = -68 + (frame - 11) * 68 / 12;
+        } else if (frame >= 24 && frame < 36) {
+            left_x = 0;
+            damage_target = 1;
+            damage = 4;
+        } else if (frame >= 36 && frame < 48) {
+            left_x = -(frame - 35) * 68 / 12;
+        } else if (frame >= 60 && frame < 72) {
+            right_x = 68 - (frame - 59) * 68 / 12;
+        } else if (frame >= 72 && frame < 84) {
+            right_x = 0;
+            damage_target = 0;
+            damage = 2;
+        } else if (frame >= 84) {
+            right_x = (frame - 83) * 68 / 12;
+        }
+        build_attack_figures(
+            figures, stage, archetype, left_x, right_x
+        );
+        surface_t* display = display_get();
+        const std::uint64_t elapsed = draw_frame(
+            display, &viewport, matrix, scene, scene_triangles, figures, 2,
+            page_label, footer,
+            "A ROLE B ATTACK <> STYLE ^V TILE START",
+            RGBA32(sky[0], sky[1], sky[2], 255)
+        );
+        if (damage_target >= 0) {
+            draw_damage_callout(display, damage_target, damage);
+        }
+        display_show(display);
+        if (elapsed > slowest) slowest = elapsed;
+        if (report && frame == 24) {
+            std::fprintf(
+                stderr, "CHECKPOINT sevenfold-attack-animation-hit\n"
+            );
+            std::fflush(stderr);
+            wait_ms(1200);
+        } else {
+            wait_ms(16);
+        }
+    }
+    if (report) {
+        std::fprintf(
+            stderr,
+            "sevenfold attack-animation stage=%s frames=96 max_us=%llu fps=%llu depth=on\n",
+            sevenfold_style_names[stage],
+            static_cast<unsigned long long>(slowest),
+            static_cast<unsigned long long>(
+                slowest > 0 ? 1'000'000 / slowest : 0
+            )
+        );
+        std::fflush(stderr);
+    }
+    return slowest;
 }
 
 }  // namespace
@@ -313,6 +680,7 @@ extern "C" int main(void) {
         RESOLUTION_320x240, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE
     );
     rdpq_init();
+    joypad_init();
     T3DInitParams params{};
     t3d_init(params);
 
@@ -352,7 +720,9 @@ extern "C" int main(void) {
         malloc_uncached(sizeof(T3DMat4FP))
     );
     allocated = allocated && matrix != nullptr;
-    expect(allocated, "board and eight maximum-size model buffers allocate");
+    expect(
+        allocated, "board and eight maximum-size high-LOD model buffers allocate"
+    );
     if (!allocated) {
         std::fprintf(stderr, "RESULT FAIL %d/%d\n", checks - failures, checks);
         while (true) wait_ms(1000);
@@ -364,20 +734,52 @@ extern "C" int main(void) {
         &viewport, T3D_DEG_TO_RAD(50.0F), 16.0F, 1200.0F
     );
     set_camera(viewport);
+    T3DViewport attack_viewport = t3d_viewport_create();
+    t3d_viewport_set_projection(
+        &attack_viewport, T3D_DEG_TO_RAD(45.0F), 16.0F, 900.0F
+    );
+    set_attack_camera(attack_viewport);
     for (int stage = 0; stage < sevenfold_stage_count; ++stage) {
         for (int body = 0; body < 2; ++body) {
-            const std::uint64_t elapsed =
-                show_page(stage, body, viewport, matrix, board, figures);
-            char message[96];
-            std::snprintf(
-                message, sizeof message,
-                "%s %s roster frame stays at 30 fps",
-                sevenfold_style_names[stage], body_names[body]
-            );
-            expect(elapsed <= frame_budget_us, message);
-            wait_ms(1500);
+            for (int lod = 0; lod < 2; ++lod) {
+                const std::uint64_t elapsed = show_page(
+                    stage, body, lod, true, viewport, matrix, board, figures
+                );
+                char message[112];
+                std::snprintf(
+                    message, sizeof message,
+                    "%s %s %s-LOD roster frame stays at 30 fps",
+                    sevenfold_style_names[stage], body_names[body],
+                    lod_names[lod]
+                );
+                expect(elapsed <= frame_budget_us, message);
+                wait_ms(1500);
+            }
         }
     }
+    for (int stage = 0; stage < sevenfold_stage_count; ++stage) {
+        const int archetype = stage % 8;
+        const std::uint64_t elapsed = show_attack(
+            stage, archetype, preferred_attack_cell(stage), true,
+            attack_viewport, matrix, board, figures
+        );
+        char message[112];
+        std::snprintf(
+            message, sizeof message,
+            "%s terrain-aware close attack frame stays at 30 fps",
+            sevenfold_style_names[stage]
+        );
+        expect(elapsed <= frame_budget_us, message);
+        wait_ms(1500);
+    }
+    const std::uint64_t attack_animation_elapsed = play_attack_preview(
+        0, 0, preferred_attack_cell(0), attack_viewport,
+        matrix, board, figures, true
+    );
+    expect(
+        attack_animation_elapsed <= frame_budget_us,
+        "the attack-and-counter preview stays at 30 fps"
+    );
     std::fprintf(
         stderr, "RESULT %s %d/%d\n", failures == 0 ? "PASS" : "FAIL",
         checks - failures, checks
@@ -386,10 +788,71 @@ extern "C" int main(void) {
 
     int stage = 0;
     int body = 0;
+    int lod = 1;
+    int archetype = 0;
+    int selected_cell = preferred_attack_cell(stage);
+    bool attack_mode = false;
+    show_page(stage, body, lod, false, viewport, matrix, board, figures);
     while (true) {
-        show_page(stage, body, viewport, matrix, board, figures);
-        body = (body + 1) % 2;
-        if (body == 0) stage = (stage + 1) % sevenfold_stage_count;
-        wait_ms(1800);
+        joypad_poll();
+        const joypad_buttons_t pressed =
+            joypad_get_buttons_pressed(JOYPAD_PORT_1);
+        bool changed = false;
+        if (pressed.start) {
+            attack_mode = !attack_mode;
+            if (attack_mode) selected_cell = preferred_attack_cell(stage);
+            changed = true;
+        }
+        if (pressed.d_left) {
+            stage = (stage + sevenfold_stage_count - 1) %
+                sevenfold_stage_count;
+            if (attack_mode) selected_cell = preferred_attack_cell(stage);
+            changed = true;
+        }
+        if (pressed.d_right) {
+            stage = (stage + 1) % sevenfold_stage_count;
+            if (attack_mode) selected_cell = preferred_attack_cell(stage);
+            changed = true;
+        }
+        if (pressed.d_up || pressed.d_down) {
+            if (attack_mode) {
+                const int direction = pressed.d_up ? 1 : -1;
+                constexpr int cell_count =
+                    sevenfold_board_columns * sevenfold_board_rows;
+                selected_cell = (selected_cell + direction + cell_count) %
+                    cell_count;
+            } else {
+                body = 1 - body;
+            }
+            changed = true;
+        }
+        if (pressed.a) {
+            if (attack_mode) {
+                archetype = (archetype + 1) % 8;
+            } else {
+                lod = 1 - lod;
+            }
+            changed = true;
+        }
+        if (attack_mode && pressed.b) {
+            play_attack_preview(
+                stage, archetype, selected_cell, attack_viewport,
+                matrix, board, figures, false
+            );
+            changed = true;
+        }
+        if (changed) {
+            if (attack_mode) {
+                show_attack(
+                    stage, archetype, selected_cell, false, attack_viewport,
+                    matrix, board, figures
+                );
+            } else {
+                show_page(
+                    stage, body, lod, false, viewport, matrix, board, figures
+                );
+            }
+        }
+        wait_ms(16);
     }
 }

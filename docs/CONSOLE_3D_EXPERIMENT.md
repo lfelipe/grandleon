@@ -22,8 +22,8 @@ These are three different N64 outputs:
   commander, a rogue, a test board, three camera distances, and performance
   assertions. It is not a campaign and does not read editor projects.
 - `build-sevenfold-3d.sh` builds the complete 3D roster on the seven varied
-  maps from `games/sevenfold`. It is a roster/performance viewer, not campaign
-  gameplay.
+  maps from `games/sevenfold`. It compares both detail levels and includes an
+  experimental terrain-aware attack view. It is not campaign gameplay.
 
 Build the prototype:
 
@@ -55,8 +55,9 @@ platform/nintendo64/scripts/check-sevenfold-3d.sh
 ```
 
 That ROM is named `grandleon-n64-sevenfold-3d.z64`. The check validates all
-112 generated model combinations, boots the ROM in ares, captures fourteen
-style/body pages, and applies the frame budget to every page.
+112 generated model combinations, boots the ROM in ares, captures 28
+style/body/detail pages, seven terrain-aware close views, and one animated hit
+frame, and applies the frame budget throughout. Its current result is `38/38`.
 
 ## What complete coverage means
 
@@ -69,9 +70,16 @@ runtime rather than baked into separate meshes.
 These are deterministic procedural low-poly console models. The curated Godot
 character artwork is raster animation, so there is no hidden set of 112 source
 meshes to reduce. The generator records the exact model counts and produces a
-low and high LOD for each combination. The current roster ROM uses the low LOD
-because its purpose is the board view; the high LOD remains available for a
-later attack close-up experiment.
+low and high LOD for each combination. The roster ROM now tests both at the
+same strategic camera. Its close view uses two high-detail models and builds
+the floor, skyline, and sky colour from the selected Sevenfold terrain.
+
+After the automated review, the ROM remains interactive. On the strategic
+view, **A** switches detail, the d-pad changes style or body, and **Start**
+opens the close view. There, **A** changes role, **B** plays an illustrative
+attack and counter-attack, the d-pad changes style or terrain, and **Start**
+returns to the board. The damage numbers are a presentation test, not results
+from the shared combat engine.
 
 ## What was measured
 
@@ -83,7 +91,10 @@ measurements, not measurements from original hardware.
 | N64, sixteen low-detail figures and board | 40 fps |
 | N64, six high-detail figures | 66 fps |
 | N64, two high-detail figures at action distance | 161 fps |
-| N64 Sevenfold pages, eight low-detail roles, depth on | 63–88 fps |
+| N64 Sevenfold strategic pages, eight low-detail roles, depth on | 62–87 fps |
+| N64 Sevenfold strategic pages, eight high-detail roles, depth on | 39–51 fps |
+| N64 Sevenfold terrain-aware close view, two high-detail roles | 132–163 fps |
+| N64 Sevenfold animated attack/counter preview | 158 fps at its slowest frame |
 | PlayStation, sixteen low-detail figures | 18 fps |
 | PlayStation, six high-detail figures | 32 fps |
 | PlayStation, two high-detail figures at action distance | 52 fps |

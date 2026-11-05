@@ -95,10 +95,18 @@ platform/nintendo64/scripts/build-sevenfold-3d.sh
 platform/nintendo64/scripts/check-sevenfold-3d.sh
 ```
 
-It shows eight separated roles per page, exercises red and blue team colour
-replacement, and uses the seven varied terrain layouts from `games/sevenfold`.
-Its ares check captures all fourteen style/body pages and enforces a 30 fps
-frame budget with depth enabled.
+It shows eight separated roles per strategic page, exercises red and blue team
+colour replacement, and uses the seven varied terrain layouts from
+`games/sevenfold`. **A** switches between low and high detail; the d-pad changes
+style or body. **Start** opens a two-character high-detail attack view whose
+floor, skyline, and sky colour are derived from the selected terrain. **B**
+then plays an illustrative attack, hit, counter-attack, and damage callout.
+
+Its ares check captures 28 strategic comparisons, seven terrain close views,
+and one animated hit frame. The current run passes `38/38`: low-detail board
+pages measure 62–87 fps, high-detail pages 39–51 fps, and close views 132–163
+fps with depth enabled. These are emulator measurements, not timings from
+original hardware.
 
 Neither ROM loads an editor project, runs a campaign, or replaces the supported
 sprite renderer. The full-roster models are deterministic procedural console

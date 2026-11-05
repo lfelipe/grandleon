@@ -43,12 +43,24 @@ platform/nintendo64/scripts/check-sevenfold-3d.sh
 ```
 
 It contains 112 procedural low-poly characters: seven styles, eight
-archetypes, and male and female variants. Each page shows all eight archetypes
-at a readable board distance, and alternates red and blue team colours. The
-check captures all fourteen style/body pages and verifies each stays above the
-30 fps target with depth enabled.
+archetypes, and male and female variants. Each strategic page shows all eight
+archetypes at a readable board distance and alternates red and blue team
+colours. Press **A** to compare low and high detail, use the d-pad to change
+style or body, and press **Start** to enter the close attack view.
 
-This is a roster and performance ROM, not yet the 3D version of the campaign.
+The close view places two high-detail characters in a scene built from the
+selected map tile and its surrounding terrain. Use **A** to change the role,
+**B** to preview an attack, hit, counter-attack, and damage callouts, and the
+d-pad to change style or terrain. The damage is illustrative; this review ROM
+does not run campaign combat.
+
+The automated check captures 28 strategic comparisons, seven terrain-aware
+close views, and one animated hit frame. Its current ares run passes all 38
+checks with depth enabled. Low-detail strategic pages measure 62–87 fps,
+high-detail pages measure 39–51 fps, and close views measure 132–163 fps. These
+are emulator measurements, not original-hardware timings.
+
+This is a roster and presentation ROM, not yet the 3D version of the campaign.
 The playable Sevenfold ROM above uses the normal sprite renderer. The two ROMs
 share the same seven terrain layouts so that the experiment can grow into a
 campaign renderer without inventing a second showcase.

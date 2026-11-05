@@ -38,11 +38,21 @@ python3 tools/console_3d/generate_sevenfold_roster.py
 platform/nintendo64/scripts/check-sevenfold-3d.sh
 ```
 
-The ROM presents fourteen uncrowded pages—one style/body pair and all eight
-roles at a time—on the same varied terrain layouts as `games/sevenfold`. Its
-current ares run passes all 16 assertions. Page measurements range from 63 to
-88 fps with depth enabled, above the 30 fps target. Emulator timing is a useful
+The ROM presents 28 uncrowded strategic pages—low and high detail for every
+style/body pair, with all eight roles at a time—on the same varied terrain
+layouts as `games/sevenfold`. It then checks seven close views whose floor,
+skyline, and sky colour come from the selected map terrain, followed by an
+animated attack, hit, and counter-attack preview. Its current ares run passes
+all 38 assertions. Low-detail pages measure 62–87 fps, high-detail pages
+39–51 fps, terrain close views 132–163 fps, and the animated preview remains
+at 158 fps in its slowest frame. All use depth. Emulator timing is a useful
 gate, not a claim about original hardware.
+
+After the checks, the ROM is interactive: **A** switches strategic detail,
+the d-pad changes style or body, and **Start** opens the close view. In the
+close view, **A** changes role, **B** plays the attack/counter preview, the
+d-pad changes style or terrain, and **Start** returns to the board. The damage
+callouts are illustrative and are not connected to campaign combat yet.
 
 This proves full model availability and rendering headroom. It does not yet
 make the Sevenfold campaign playable in 3D; the supported campaign ROM still
