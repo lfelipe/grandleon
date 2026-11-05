@@ -56,7 +56,7 @@ fi
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
-    timeout 30s "${runner[@]}" --path "${stage_dir}" -- \
+    timeout 90s "${runner[@]}" --path "${stage_dir}" -- \
     "--automation-dir=${state_dir}/automation" \
     --campaign=emberbound --players=2 &
 game_pid=$!
@@ -72,7 +72,8 @@ command=(env "GRANDLEON_AUTOMATION_DIR=${state_dir}/automation" \
     "${script_dir}/control-pc.sh")
 home="$(${command[@]} inspect)"
 grep -Fq 'res://home.tscn' <<<"${home}"
-grep -Fq 'EMBERBOUND: THE LAST DAWN' <<<"${home}"
+grep -Fq 'INCLUDED GAME' <<<"${home}"
+grep -Fq 'DEFAULT CAMPAIGN' <<<"${home}"
 "${command[@]}" screenshot home-smoke >/dev/null
 test -s "${state_dir}/automation/screenshots/home-smoke.png"
 pad_result="$(${command[@]} pad 0 dpad_right)"
@@ -81,8 +82,12 @@ grep -Fq '"device":0' <<<"${pad_result}"
 grep -Fq '"ok":true' <<<"${pad_result}"
 
 "${command[@]}" press enter >/dev/null
-sleep 0.8
-opening="$(${command[@]} inspect)"
+opening=""
+for _attempt in $(seq 1 100); do
+    opening="$(${command[@]} inspect)"
+    grep -Fq 'western road has vanished' <<<"${opening}" && break
+    sleep 0.1
+done
 grep -Fq 'res://main.tscn' <<<"${opening}"
 grep -Fq 'western road has vanished' <<<"${opening}"
 for _line in 1 2 3 4 5 6; do

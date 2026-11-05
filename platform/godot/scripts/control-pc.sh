@@ -63,7 +63,10 @@ result_file="${control_dir}/results/${command_id}.json"
 printf '%s\n' "${payload}" >"${temporary}"
 mv "${temporary}" "${command_file}"
 
-for _attempt in $(seq 1 100); do
+# Scene changes can import and bind the complete curated art library before the
+# automation autoload receives another frame. Allow that work to finish even
+# under the software renderer used by release smoke tests.
+for _attempt in $(seq 1 300); do
     if [[ -s "${result_file}" ]]; then
         cat "${result_file}"
         exit 0
