@@ -349,11 +349,22 @@ func _test_relay_terrain_pack() -> void:
 func _test_production_sprite_pack(profile: Dictionary) -> void:
 	var bindings: Dictionary = profile.get("assets", {}).get("characterSprites", {})
 	var expected := {
-		"commander|amber|scifi|first": "res://art/characters/rook_commander_hd.png",
-		"rogue|amber|scifi|first": "res://art/characters/kestrel_rogue_hd.png",
-		"stormcaller|violet|scifi|first": "res://art/characters/morrow_stormcaller_hd.png",
-		"beast|violet|scifi|first": "res://art/characters/relay_beast_hd.png",
-		"knight|blue|scifi|first": "res://art/characters/relay_knight_hd.png",
+		"knight|*|scifi|first": "res://art/characters/relay_knight_hd.png",
+		"knight|*|scifi|second": "res://art/characters/scifi_knight_female_hd.png",
+		"archer|*|scifi|first": "res://art/characters/relay_archer_hd.png",
+		"archer|*|scifi|second": "res://art/characters/scifi_archer_female_hd.png",
+		"mage|*|scifi|first": "res://art/characters/relay_mage_hd.png",
+		"mage|*|scifi|second": "res://art/characters/scifi_mage_female_hd.png",
+		"healer|*|scifi|first": "res://art/characters/relay_healer_hd.png",
+		"healer|*|scifi|second": "res://art/characters/scifi_healer_female_hd.png",
+		"commander|*|scifi|first": "res://art/characters/rook_commander_hd.png",
+		"commander|*|scifi|second": "res://art/characters/scifi_commander_female_hd.png",
+		"stormcaller|*|scifi|first": "res://art/characters/morrow_stormcaller_hd.png",
+		"stormcaller|*|scifi|second": "res://art/characters/scifi_stormcaller_female_hd.png",
+		"rogue|*|scifi|first": "res://art/characters/kestrel_rogue_hd.png",
+		"rogue|*|scifi|second": "res://art/characters/scifi_rogue_female_hd.png",
+		"beast|*|scifi|first": "res://art/characters/relay_beast_hd.png",
+		"beast|*|scifi|second": "res://art/characters/scifi_beast_female_hd.png",
 		"knight|*|mythical|first": "res://art/characters/mythical_knight_hd.png",
 		"knight|*|mythical|second": "res://art/characters/mythical_knight_female_hd.png",
 		"archer|*|mythical|first": "res://art/characters/mythical_archer_male_hd.png",
@@ -370,9 +381,16 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"rogue|*|mythical|second": "res://art/characters/mythical_rogue_female_hd.png",
 		"beast|*|mythical|first": "res://art/characters/mythical_beast_male_hd.png",
 		"beast|*|mythical|second": "res://art/characters/mythical_beast_female_hd.png",
-		"archer|blue|scifi|first": "res://art/characters/relay_archer_hd.png",
-		"mage|blue|scifi|first": "res://art/characters/relay_mage_hd.png",
-		"healer|blue|scifi|first": "res://art/characters/relay_healer_hd.png",
+	}
+	var expected_sequences := {
+		"idle": {"frames": [0.0, 1.0], "frames_per_second": 2.0, "loop": true},
+		"move": {"frames": [2.0, 3.0], "frames_per_second": 7.0, "loop": true},
+		"attack": {"frames": [4.0, 5.0], "frames_per_second": 10.0, "loop": false},
+		"ability": {"frames": [6.0]},
+		"item": {"frames": [6.0]},
+		"talk": {"frames": [0.0, 1.0], "frames_per_second": 2.0, "loop": true},
+		"hurt": {"frames": [7.0]},
+		"defeat": {"frames": [7.0]},
 	}
 	for key: String in expected:
 		_expect("%s sprite is bound" % key, bindings.has(key), true)
@@ -387,12 +405,15 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		_expect("%s sprite rows" % key, int(binding.get("rows", 0)), 2)
 		_expect("%s sprite declares native facing" % key, binding.get("facesRight"), true)
 		_expect("%s sprite permits mirroring" % key, binding.get("directionalFlip"), true)
-		if key.contains("|*|mythical|"):
-			_expect(
-				"%s declares its team mask" % key,
-				String(binding.get("teamMaskPath", "")),
-				path.trim_suffix(".png") + "_team_mask.png"
-			)
+		_expect(
+			"%s declares its adjacent team mask" % key,
+			String(binding.get("teamMaskPath", "")),
+			path.trim_suffix(".png") + "_team_mask.png"
+		)
+		_expect(
+			"%s uses the production action timing" % key,
+			binding.get("sequences", {}), expected_sequences
+		)
 		_expect("%s sprite exists" % key, ResourceLoader.exists(path, "Texture2D"), true)
 		if ResourceLoader.exists(path, "Texture2D"):
 			var texture := ResourceLoader.load(path, "Texture2D") as Texture2D
@@ -403,33 +424,42 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 
 	var art = ArtLibrary.new()
 	art.configure_profile(profile)
-	var mythical_resolution_count := 0
+	var resolution_counts := {"scifi": 0, "mythical": 0}
 	for key: String in expected:
-		if not key.contains("|*|mythical|"):
+		if not key.contains("|*|"):
 			continue
 		var fields := key.split("|")
 		var archetype_index := ArtLibrary.ARCHETYPE_NAMES.find(fields[0])
+		var style_name := String(fields[2])
+		var style_index := ArtLibrary.STYLE_NAMES.find(style_name)
 		var figure_index := 0 if fields[3] == "first" else 1
 		for colour_index in ArtLibrary.COLOUR_NAMES.size():
 			var frame: Dictionary = art.character_frame({
 				"archetype": archetype_index,
 				"colour": colour_index,
-				"style": 2,
+				"style": style_index,
 				"figure": figure_index,
 			}, "idle")
-			var identity := "%s %s %s" % [
-				fields[0], fields[3], ArtLibrary.COLOUR_NAMES[colour_index],
+			var identity := "%s %s %s %s" % [
+				style_name, fields[0], fields[3], ArtLibrary.COLOUR_NAMES[colour_index],
 			]
 			_expect(
-				"%s resolves through its mythical wildcard" % identity,
+				"%s resolves through its wildcard" % identity,
 				frame.path, expected[key]
 			)
 			_expect(
 				"%s keeps its requested team colour" % identity,
 				frame.team_colour, ArtLibrary.COLOUR_NAMES[colour_index]
 			)
-			mythical_resolution_count += 1
-	_expect("all mythical body and faction identities resolve", mythical_resolution_count, 96)
+			resolution_counts[style_name] += 1
+	_expect(
+		"all mythical body and faction identities resolve",
+		resolution_counts.mythical, 96
+	)
+	_expect(
+		"all sci-fi body and faction identities resolve",
+		resolution_counts.scifi, 96
+	)
 	var production_units := [
 		{
 			"label": "Rook",
