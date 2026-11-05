@@ -7,21 +7,24 @@ repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
 source_dir="${repo_root}/platform/godot/project/art/characters"
 mask_dir="${source_dir}"
 output_dir="${repo_root}/docs/screenshots/art-roster/team-colours"
+output_dir_explicit=false
 graphics_profile="${repo_root}/platform/godot/project/content/graphics_profiles.json"
 board_size=56
 self_test=false
+style=mythical
 
 usage() {
     printf '%s\n' \
         "Usage: $0 [OPTIONS]" \
         "" \
-        "Render all mythical body and team-colour combinations for human review." \
+        "Render one roster style across every body and team-colour combination." \
         "Masks are alpha-cutout or grayscale PNGs named <sheet_basename>_team_mask.png." \
         "" \
         "Options:" \
+        "  --style STYLE      mythical or scifi (default: mythical)" \
         "  --source-dir DIR   Character sheets (default: project character art)" \
         "  --mask-dir DIR     Team masks (default: source directory)" \
-        "  --output-dir DIR   Review output (default: docs screenshot directory)" \
+        "  --output-dir DIR   Review output (default: mythical root; scifi subdir)" \
         "  --graphics-profile FILE" \
         "                       Palette source (default: Godot graphics profiles)" \
         "  --board-size PX    Representative board raster size (default: 56)" \
@@ -42,6 +45,11 @@ absolute_path() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --style)
+            [[ $# -ge 2 ]] || { usage >&2; exit 64; }
+            style="$2"
+            shift 2
+            ;;
         --source-dir)
             [[ $# -ge 2 ]] || { usage >&2; exit 64; }
             source_dir="$(absolute_path "$2")"
@@ -55,6 +63,7 @@ while [[ $# -gt 0 ]]; do
         --output-dir)
             [[ $# -ge 2 ]] || { usage >&2; exit 64; }
             output_dir="$(absolute_path "$2")"
+            output_dir_explicit=true
             shift 2
             ;;
         --graphics-profile)
@@ -83,6 +92,22 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+case "${style}" in
+    mythical)
+        style_title=Mythical
+        ;;
+    scifi)
+        style_title="Sci-fi"
+        if [[ "${output_dir_explicit}" == false ]]; then
+            output_dir="${repo_root}/docs/screenshots/art-roster/team-colours/scifi"
+        fi
+        ;;
+    *)
+        printf 'Style must be mythical or scifi: %s\n' "${style}" >&2
+        exit 64
+        ;;
+esac
+
 if ! [[ "${board_size}" =~ ^[1-9][0-9]*$ ]]; then
     printf 'Board size must be a positive integer: %s\n' "${board_size}" >&2
     exit 64
@@ -96,26 +121,47 @@ if ! command -v jq >/dev/null 2>&1; then
     exit 69
 fi
 
-# archetype|body|sheet. Historical unqualified knight and archer filenames are
-# the male and female sheets respectively; the labels keep that visible here.
-characters=(
-    "knight|male|mythical_knight_hd.png"
-    "knight|female|mythical_knight_female_hd.png"
-    "archer|male|mythical_archer_male_hd.png"
-    "archer|female|mythical_archer_hd.png"
-    "mage|male|mythical_mage_male_hd.png"
-    "mage|female|mythical_mage_female_hd.png"
-    "stormcaller|male|mythical_stormcaller_male_hd.png"
-    "stormcaller|female|mythical_stormcaller_female_hd.png"
-    "healer|male|mythical_healer_male_hd.png"
-    "healer|female|mythical_healer_female_hd.png"
-    "commander|male|mythical_commander_male_hd.png"
-    "commander|female|mythical_commander_female_hd.png"
-    "rogue|male|mythical_rogue_male_hd.png"
-    "rogue|female|mythical_rogue_female_hd.png"
-    "beast|male|mythical_beast_male_hd.png"
-    "beast|female|mythical_beast_female_hd.png"
-)
+if [[ "${style}" == mythical ]]; then
+    # Historical unqualified knight and archer filenames are the male and
+    # female sheets respectively; the labels keep that visible here.
+    characters=(
+        "knight|male|mythical_knight_hd.png"
+        "knight|female|mythical_knight_female_hd.png"
+        "archer|male|mythical_archer_male_hd.png"
+        "archer|female|mythical_archer_hd.png"
+        "mage|male|mythical_mage_male_hd.png"
+        "mage|female|mythical_mage_female_hd.png"
+        "stormcaller|male|mythical_stormcaller_male_hd.png"
+        "stormcaller|female|mythical_stormcaller_female_hd.png"
+        "healer|male|mythical_healer_male_hd.png"
+        "healer|female|mythical_healer_female_hd.png"
+        "commander|male|mythical_commander_male_hd.png"
+        "commander|female|mythical_commander_female_hd.png"
+        "rogue|male|mythical_rogue_male_hd.png"
+        "rogue|female|mythical_rogue_female_hd.png"
+        "beast|male|mythical_beast_male_hd.png"
+        "beast|female|mythical_beast_female_hd.png"
+    )
+else
+    characters=(
+        "knight|first|relay_knight_hd.png"
+        "knight|second|scifi_knight_female_hd.png"
+        "archer|first|relay_archer_hd.png"
+        "archer|second|scifi_archer_female_hd.png"
+        "mage|first|relay_mage_hd.png"
+        "mage|second|scifi_mage_female_hd.png"
+        "stormcaller|first|morrow_stormcaller_hd.png"
+        "stormcaller|second|scifi_stormcaller_female_hd.png"
+        "healer|first|relay_healer_hd.png"
+        "healer|second|scifi_healer_female_hd.png"
+        "commander|first|rook_commander_hd.png"
+        "commander|second|scifi_commander_female_hd.png"
+        "rogue|first|kestrel_rogue_hd.png"
+        "rogue|second|scifi_rogue_female_hd.png"
+        "beast|first|relay_beast_hd.png"
+        "beast|second|scifi_beast_female_hd.png"
+    )
+fi
 
 # These are the runtime defaults in art_library.gd. Once the matching graphics
 # profile lands, its common.sprite.teamColours object is the source of truth.
@@ -182,7 +228,7 @@ for character in "${characters[@]}"; do
     fi
 done
 if [[ "${missing}" -ne 0 ]]; then
-    printf 'Add the named masks or run with --self-test.\n' >&2
+    printf 'Add the named %s masks or run with --self-test.\n' "${style}" >&2
     exit 66
 fi
 
@@ -206,13 +252,13 @@ html_tmp="$(mktemp "${output_dir}/.index.XXXXXX")"
 manifest_tmp="$(mktemp "${output_dir}/.manifest.XXXXXX")"
 printf 'archetype\tbody\tpalette\tsource\tmask\tpreview\tboard\n' >"${manifest_tmp}"
 
-cat >"${html_tmp}" <<'HTML'
+cat >"${html_tmp}" <<HTML
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mythical team-colour review</title>
+<title>${style_title} team-colour review</title>
 <style>
 :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #151922; color: #eef2f7; }
 body { margin: 0 auto; max-width: 1900px; padding: 24px; }
@@ -232,7 +278,7 @@ figcaption { margin-top: 5px; color: #aab5c4; font-size: .78rem; }
 </style>
 </head>
 <body>
-<h1>Mythical team-colour review</h1>
+<h1>${style_title} team-colour review</h1>
 <p>96 archetype/body/palette combinations. Each card shows the 256px roster preview and a real board-scale raster.</p>
 HTML
 
