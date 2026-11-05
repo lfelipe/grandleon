@@ -1,0 +1,20 @@
+Mode: built-in image generation
+Use case: stylized-concept
+References:
+- kestrel_rogue_hd.png: Relay sci-fi style, scale, camera, equipment, effect language, and action layout
+- mythical_rogue_female_hd.png: practical female silhouette and readability
+- mythical_rogue_male_hd.png: shared-game proportions and role-pair differentiation
+
+Prompt:
+Create a complementary female sci-fi rogue production sheet for Grandleon. This is a new independent character design in the same game and stealth role as Kestrel, not a feminized copy. One clearly adult female stealth operative with compact stylized tactical proportions, practical non-sexualized segmented infiltration armour, an asymmetric charcoal tech cowl, a visible face, a distinctive silver side braid, utility devices, and two consistent mono-edge daggers. Match the Relay art language: thick dark contours, simplified painterly materials, charcoal and gunmetal armour, restrained silver plates, and cyan emissive tech. Use a large clean deep-teal team-colour mantle and split coat region, separate from skin, hair, neutral armour, weapons, and bright cyan effects.
+
+Arrange exactly eight isolated full-body figures in a transparent 4x2 sheet, consistent identity, scale, three-quarter camera, baseline, equipment sides, and generous cell padding. Exact order: idle A, idle B, walk A, walk B, attack wind-up, attack follow-through with a compact cyan slash arc, ability projecting a cyan geometric stealth-decoy sigil, hurt/defeat recoil. No text, scenery, ground, shadows, borders, dividers, extra characters, cell spill, cropping, swapped weapons, or inconsistent costume.
+
+Targeted revision:
+Replace only cell 7's circular ward with a compact cyan-teal phase afterimage, short displacement streak, and fading scanline fragments. Preserve the body, costume, face, braid, weapons, scale, and all other cells. No circular sigil, shield, portal, or UI disc.
+
+Post-processing:
+- Built-in output: 1774x887 RGBA
+- Deterministic Lanczos resize to 1772x886 RGBA (4x2 cells of 443x443)
+- Uniform per-cell inset from 443x443 to 425x425, centered back into each 443x443 cell
+- Review GIF: 256x256, 13 frames

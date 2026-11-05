@@ -1,0 +1,19 @@
+Mode: built-in image generation
+Use case: stylized-concept
+References:
+- relay_beast_hd.png: Relay sci-fi species/faction style, scale, camera, effect language, and action layout
+- mythical_beast_female_hd.png: alternate female-coded beast silhouette and readability
+- mythical_beast_male_hd.png: shared-game proportions and pair differentiation
+
+Prompt:
+Create a complementary female/alternate sci-fi cyber-beast production sheet for Grandleon. This is a new independent creature design in the same species family, faction, and combat role as the Relay beast, not a smaller copy and not a humanoid. Use a distinctly female-coded but non-human and non-sexualized quadrupedal body plan: sleek low-slung techno-wolf/lioness proportions, a narrower wedge muzzle, swept ear fins, flexible segmented tail, powerful forequarters, agile hindquarters, and four clawed mechanical paws. No human anatomy, hair, cosmetics, clothing, or sexualized cues.
+
+Match the Relay art language: compact tactical proportions, thick dark contours, simplified painterly materials, charcoal/gunmetal mechanics, silver joints and claws, cyan core/light strips, and a related dorsal propulsion motif. Use one large clean saturated-violet team-colour region across the cranial shell, shoulder carapace, back plates, and hip guards, separate from neutral mechanics, claws, and cyan lights/effects.
+
+Arrange exactly eight isolated full-body figures in a transparent 4x2 sheet with consistent identity, scale, three-quarter camera facing right, baseline, and generous cell padding. Exact order: idle A, idle B, walk A, walk B, attack wind-up, attack follow-through with a compact cyan claw crescent, ability projecting a cyan Relay barrier/sigil, hurt/defeat recoil with restrained armour sparks. No text, scenery, ground, shadows, borders, dividers, extra creatures, duplicate/missing limbs, changed turbine count, cropping, or cell spill.
+
+Post-processing:
+- Built-in output: 1774x887 RGBA
+- Deterministic Lanczos resize to 1772x886 RGBA (4x2 cells of 443x443)
+- Uniform per-cell inset from 443x443 to 425x425, centered back into each 443x443 cell
+- Review GIF: 256x256, 13 frames
