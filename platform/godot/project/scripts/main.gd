@@ -275,8 +275,13 @@ func _process(delta: float) -> void:
 			_run_smoke_auto()
 		elif coop_smoke:
 			_run_coop_smoke()
-		elif board_preview and _dialogue_visible():
-			_advance_dialogue()
+		elif board_preview:
+			if _dialogue_visible():
+				_advance_dialogue()
+			elif not snapshot.is_empty() and selected_units[0] == 0:
+				# Documentation captures should show the choice a player actually
+				# makes, including the reachable area, rather than an inert board.
+				_cycle_unit(0, 1)
 	var waits_for_board := (
 		board_preview or menu_preview or smoke_auto or coop_smoke or demo_reel
 		or graphics_cycle_smoke

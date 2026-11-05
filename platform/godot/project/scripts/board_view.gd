@@ -8,8 +8,7 @@ const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TILE_SOURCE := 32
 const BLOB_COLUMNS := 8
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
-const MOVE_TINT := Color(0.20, 0.76, 1.0, 0.24)
-const ATTACK_TINT := Color(1.0, 0.25, 0.31, 0.26)
+const ATTACK_TINT := Color(1.0, 0.25, 0.31, 0.38)
 
 var art = ArtLibrary.new()
 var snapshot: Dictionary = {}
@@ -485,14 +484,17 @@ func _neighbour_mask(x: int, y: int, kind: int, width: int, height: int) -> int:
 
 func _draw_selected_tiles() -> void:
 	for seat in min(2, selected_units.size()):
-		var tint := ATTACK_TINT if action_modes[seat] in ["attack", "ability", "talk"] else MOVE_TINT
+		var tint := ATTACK_TINT
+		if action_modes[seat] not in ["attack", "ability", "talk"]:
+			tint = CURSOR_COLOURS[seat]
+			tint.a = 0.36
 		for tile: Dictionary in highlight_tiles[seat]:
 			var highlighted := Rect2(
 				origin + Vector2(int(tile.x), int(tile.y)) * tile_size,
 				Vector2(tile_size, tile_size)
-			).grow(-5)
+			).grow(-3)
 			draw_rect(highlighted, tint, true)
-			draw_rect(highlighted, CURSOR_COLOURS[seat] * Color(1, 1, 1, 0.65), false, 1.5)
+			draw_rect(highlighted, CURSOR_COLOURS[seat] * Color(1, 1, 1, 0.88), false, 2.5)
 		var id := selected_units[seat]
 		if id == 0 or not _last_units.has(id):
 			continue

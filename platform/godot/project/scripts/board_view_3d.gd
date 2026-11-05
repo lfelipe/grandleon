@@ -762,7 +762,7 @@ func _rebuild_markers() -> void:
 		if action_modes[seat] in ["attack", "ability", "talk"]:
 			colour = Color("ff5267")
 		for tile: Dictionary in highlight_tiles[seat]:
-			_marker_at(int(tile.x), int(tile.y), colour, 0.22, 0.72)
+			_marker_at(int(tile.x), int(tile.y), colour, 0.40, 0.82, true)
 	for seat in min(2, seats.size()):
 		var value: Dictionary = seats[seat]
 		if not value.get("active", false):
@@ -785,12 +785,45 @@ func _player_marker_at(x: int, y: int, seat: int) -> void:
 	)
 
 
-func _marker_at(x: int, y: int, colour: Color, alpha: float, scale_value: float) -> void:
+func _marker_at(
+	x: int, y: int, colour: Color, alpha: float, scale_value: float,
+	outlined := false
+) -> void:
 	var at := _cell_position(x, y)
 	at.y = _surface_height(x, y) + 0.035
 	var tinted := colour
 	tinted.a = alpha
 	_box(_marker_root, at, Vector3(scale_value, 0.025, scale_value), _material("marker_%s_%0.2f" % [colour.to_html(), alpha], tinted, 0.35, true, true))
+	if not outlined:
+		return
+	# A translucent plate alone disappears over bright snow, sand, and water.
+	# Four luminous edge strips keep every reachable cell legible without
+	# covering the terrain art or making the cursor look selected everywhere.
+	var edge_colour := colour
+	edge_colour.a = 0.90
+	var edge_material := _material(
+		"marker_edge_%s" % colour.to_html(), edge_colour, 0.24, true, true
+	)
+	var edge_y := at.y + 0.026
+	var half := scale_value * 0.5
+	var thickness := 0.055
+	var length := scale_value + thickness
+	_box(
+		_marker_root, Vector3(at.x, edge_y, at.z - half),
+		Vector3(length, 0.032, thickness), edge_material
+	)
+	_box(
+		_marker_root, Vector3(at.x, edge_y, at.z + half),
+		Vector3(length, 0.032, thickness), edge_material
+	)
+	_box(
+		_marker_root, Vector3(at.x - half, edge_y, at.z),
+		Vector3(thickness, 0.032, length), edge_material
+	)
+	_box(
+		_marker_root, Vector3(at.x + half, edge_y, at.z),
+		Vector3(thickness, 0.032, length), edge_material
+	)
 
 
 func _cell_position(x: int, y: int) -> Vector3:
