@@ -382,7 +382,7 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"beast|*|mythical|first": "res://art/characters/mythical_beast_male_hd.png",
 		"beast|*|mythical|second": "res://art/characters/mythical_beast_female_hd.png",
 	}
-	for style: String in ["medieval", "nature"]:
+	for style: String in ["medieval", "nature", "sengoku"]:
 		for archetype: String in ArtLibrary.ARCHETYPE_NAMES:
 			for figure: String in ["first", "second"]:
 				var body := "male" if figure == "first" else "female"
@@ -431,7 +431,13 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 
 	var art = ArtLibrary.new()
 	art.configure_profile(profile)
-	var resolution_counts := {"scifi": 0, "mythical": 0, "medieval": 0, "nature": 0}
+	var resolution_counts := {
+		"scifi": 0,
+		"mythical": 0,
+		"medieval": 0,
+		"nature": 0,
+		"sengoku": 0,
+	}
 	for key: String in expected:
 		if not key.contains("|*|"):
 			continue
@@ -474,6 +480,10 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 	_expect(
 		"all nature body and faction identities resolve",
 		resolution_counts.nature, 96
+	)
+	_expect(
+		"all sengoku body and faction identities resolve",
+		resolution_counts.sengoku, 96
 	)
 	var production_units := [
 		{

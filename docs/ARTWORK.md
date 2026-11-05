@@ -7,16 +7,17 @@ authored 3D terrain with animated high-resolution characters.
 This page separates two useful meanings of “complete”:
 
 - The supported Godot presentation has male and female high-resolution
-  characters for every archetype in the sci-fi, mythical, medieval, and nature
-  directions. All four support the six faction colours. Godot also has one
+  characters for every archetype in the sci-fi, mythical, medieval, nature,
+  and Sengoku directions. All five support the six faction colours. Godot also
+  has one
   authored scene for each of the thirteen terrains.
 - The portable generated library covers every combination of eight archetypes,
   seven styles, six faction colours, and two figures. These are the assets shared
   with the constrained renderers and used as a safe fallback in Godot.
 
 The sci-fi direction established the high-resolution sheet contract. Mythical
-was the first expansion; medieval and nature are the first 0.4 additions. All
-four follow the same contract. This is the mythical roster:
+was the first expansion; medieval, nature, and Sengoku are 0.4 additions. All
+five follow the same contract. This is the mythical roster:
 
 | Portable identity | Animated preview |
 |---|---|
@@ -38,9 +39,9 @@ four follow the same contract. This is the mythical roster:
 | Beast · female (`second`) · bone | ![The bone-armoured female mythical beast idles, walks, attacks, projects a primal ward, and reacts to a hit](screenshots/art-roster/mythical-beast-female.gif) |
 
 These eight finished body pairs cover every mythical archetype. The names
-describe their portable art identity, not a campaign. Sengoku Japan, Undead,
-and Pirates still use their portable generated fallback until their curated
-Godot sheets are painted. Every valid project therefore remains
+describe their portable art identity, not a campaign. Undead and Pirates still
+use their portable generated fallback until their curated Godot sheets are
+painted. Every valid project therefore remains
 playable while the remaining sets are built out.
 
 ## Bodies and team colours
@@ -86,6 +87,9 @@ colour at portrait and board scale:
 - [Browse all 96 nature body-and-colour combinations](screenshots/art-roster/team-colours/nature/index.html).
 - [Inspect the nature masks on idle poses](screenshots/art-roster/team-colours/nature/nature-team-masks-idle.png).
 - [Inspect the nature masks across every action](screenshots/art-roster/team-colours/nature/nature-team-masks-actions.png).
+- [Browse all 96 Sengoku body-and-colour combinations](screenshots/art-roster/team-colours/sengoku/index.html).
+- [Inspect the Sengoku masks on idle poses](screenshots/art-roster/team-colours/sengoku/sengoku-team-masks-idle.png).
+- [Inspect the Sengoku masks across every action](screenshots/art-roster/team-colours/sengoku/sengoku-team-masks-actions.png).
 
 ## Animated sci-fi Godot roster
 
@@ -142,6 +146,23 @@ language and broad blue cloth regions for team recolouring.
 | Rogue | ![The male nature rogue runs through the production actions](screenshots/art-roster/nature-rogue-male.gif) | ![The female nature rogue runs through the production actions](screenshots/art-roster/nature-rogue-female.gif) |
 | Beast | ![The male nature beast runs through the production actions](screenshots/art-roster/nature-beast-male.gif) | ![The female nature beast runs through the production actions](screenshots/art-roster/nature-beast-female.gif) |
 
+## Animated Sengoku Godot roster
+
+The Sengoku roster uses lacquered lamellar armour, indigo cloth, period-inspired
+weapons and ritual tools, and subtle woodblock influence. Male and female
+counterparts share one faction language without sharing a single costume.
+
+| Archetype | Male (`first`) | Female (`second`) |
+|---|---|---|
+| Knight | ![The male Sengoku knight runs through the production actions](screenshots/art-roster/sengoku-knight-male.gif) | ![The female Sengoku knight runs through the production actions](screenshots/art-roster/sengoku-knight-female.gif) |
+| Archer | ![The male Sengoku archer runs through the production actions](screenshots/art-roster/sengoku-archer-male.gif) | ![The female Sengoku archer runs through the production actions](screenshots/art-roster/sengoku-archer-female.gif) |
+| Mage | ![The male Sengoku mage runs through the production actions](screenshots/art-roster/sengoku-mage-male.gif) | ![The female Sengoku mage runs through the production actions](screenshots/art-roster/sengoku-mage-female.gif) |
+| Stormcaller | ![The male Sengoku stormcaller runs through the production actions](screenshots/art-roster/sengoku-stormcaller-male.gif) | ![The female Sengoku stormcaller runs through the production actions](screenshots/art-roster/sengoku-stormcaller-female.gif) |
+| Healer | ![The male Sengoku healer runs through the production actions](screenshots/art-roster/sengoku-healer-male.gif) | ![The female Sengoku healer runs through the production actions](screenshots/art-roster/sengoku-healer-female.gif) |
+| Commander | ![The male Sengoku commander runs through the production actions](screenshots/art-roster/sengoku-commander-male.gif) | ![The female Sengoku commander runs through the production actions](screenshots/art-roster/sengoku-commander-female.gif) |
+| Rogue | ![The male Sengoku rogue runs through the production actions](screenshots/art-roster/sengoku-rogue-male.gif) | ![The female Sengoku rogue runs through the production actions](screenshots/art-roster/sengoku-rogue-female.gif) |
+| Beast | ![The male Sengoku beast runs through the production actions](screenshots/art-roster/sengoku-beast-male.gif) | ![The female Sengoku beast runs through the production actions](screenshots/art-roster/sengoku-beast-female.gif) |
+
 Run the following command after changing a sheet to rebuild the previews:
 
 ```sh
@@ -160,10 +181,13 @@ tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style medieval
 tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style nature
+tools/placeholder_art/.venv/bin/python \
+  platform/godot/scripts/generate-mythical-team-masks.py --style sengoku
 platform/godot/scripts/generate-team-colour-showcase.sh
 platform/godot/scripts/generate-team-colour-showcase.sh --style scifi
 platform/godot/scripts/generate-team-colour-showcase.sh --style medieval
 platform/godot/scripts/generate-team-colour-showcase.sh --style nature
+platform/godot/scripts/generate-team-colour-showcase.sh --style sengoku
 ```
 
 ## Terrain coverage

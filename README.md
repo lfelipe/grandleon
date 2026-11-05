@@ -90,6 +90,7 @@ rest of the documentation describes the current Godot application.
 | **0.3 — Godot player and creator** | Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
 | **0.4 — broader art and console 3D experiments** | Expands Godot artwork so every intended setting has a coherent high-resolution presentation, adds theme-aware terrain coverage, and revisits recognizable low-detail 3D characters on PlayStation and Nintendo 64 within each console's limits. This is the current development line. |
 | **0.5 — editor product pass** | Concentrates on the complete authoring experience: clearer workflows, stronger previews, better project organization, and the usability and accessibility work needed for larger games. |
+| **0.6 — cinematic battles** | Adds an optional terrain-aware close-up attack view with counter-attacks and damage numbers, while retaining the faster board-only presentation as a game setting. |
 
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.

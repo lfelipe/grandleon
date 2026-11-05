@@ -34,9 +34,10 @@ terrain rules, routes, timing, or combat results.
 ## Character art and console experiments
 
 - [ ] Complete male and female high-resolution bodies for every intended
-  archetype and style. All eight mythical, sci-fi, medieval, and nature archetype pairs
+  archetype and style. All eight mythical, sci-fi, medieval, nature, and
+  Sengoku archetype pairs
   are complete and pass the shared compact-art-direction audit; the remaining
-  three visual styles still use portable fallbacks and need their own curated
+  two visual styles still use portable fallbacks and need their own curated
   Godot sheets.
 - [x] Add reusable team-colour masks to each complete curated roster so one
   body sheet can render the six faction colours without recolouring faces,
@@ -53,3 +54,16 @@ terrain rules, routes, timing, or combat results.
   ownership, validate unsupported combinations, expose seat assignment and
   launch choices, preview both modes, migrate schema versions, and test each
   allowed configuration through play and export.
+
+## 0.6 cinematic battle presentation
+
+- [ ] Add an optional close-up attack presentation inspired by tactical RPG
+  battle scenes. When enabled, an attack leaves the board view for a frontal
+  attacker-and-defender view, uses the current terrain tiles to choose and
+  compose the backdrop, plays the attack and any legal counter-attack, and
+  shows the damage dealt with clear numbers.
+- [ ] Make the cinematic a game setting because it adds meaningful time to
+  every exchange. Support the normal board-only presentation when disabled,
+  define how players skip or accelerate a running cinematic, preserve the
+  simulation's authoritative event order, and test attacks with no counter,
+  misses, critical or special results, defeat, and rapid repeated combat.
