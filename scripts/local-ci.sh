@@ -320,12 +320,11 @@ step "WebAssembly module is not stale"
 # One target per console, not one per check. Every single-check target routes
 # through its console's check script, which builds every artifact before it runs
 # its one check, so naming several of them makes the gate pay for that build
-# several times over. `grandleon_n64_check_all` builds once and runs all four,
-# the campaign check included. That one is the only claim in this repository a
-# host cannot make, so a gate without it is a gate that has not asked the
-# question.
+# several times over. `grandleon_n64_check_all` builds the shared ROMs once,
+# builds Emberbound's co-op ROM separately, and runs all five checks, including
+# the two-controller and persistent-campaign checks.
 if [ "${run_n64}" -eq 1 ]; then
-    step "Nintendo 64: every check, over one build of the ROMs"
+    step "Nintendo 64: every supported check"
     (cd "${clone}" && cmake --build build --target grandleon_n64_check_all)
     step "Nintendo 64: fixed 3D character prototype"
     (cd "${clone}" && platform/nintendo64/scripts/check-character-prototype.sh)

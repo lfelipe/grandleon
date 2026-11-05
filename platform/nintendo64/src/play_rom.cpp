@@ -114,7 +114,9 @@
 
 #ifdef GRANDLEON_N64_AUTOPILOT
 #include "autopilot.h"
-#ifdef GRANDLEON_N64_CAMPAIGN
+#ifdef GRANDLEON_N64_COOP_AUTOPILOT
+#include "coop_autopilot.h"
+#elif defined(GRANDLEON_N64_CAMPAIGN)
 #include "campaign_autopilot.h"
 #else
 #include "fordlight_autopilot.h"
@@ -125,7 +127,7 @@
 // `campaign_expectations.h` is included above: so the only way to change what
 // the console checks is to change what the host derives.
 //
-// Outside the branch above, not inside it. Both autopilot ROMs compile the
+// Outside the branch above, not inside it. Every autopilot ROM compiles the
 // checkpoint code that reads these -- the campaign one defines
 // `GRANDLEON_N64_AUTOPILOT` as well and simply carries a different script --
 // so a header included only on the Fordlight side leaves the other ROM
@@ -3138,6 +3140,137 @@ public:
                 );
                 expect(classified.unknown == 0, "no unclassifiable cell");
                 return;
+            case ap::Check::coop_open: {
+                int first_player = 0;
+                int second_player = 0;
+                int opponents = 0;
+                for (const sim::UnitSnapshot& unit : snapshot.units) {
+                    if (!sim::on_board(unit)) continue;
+                    if (unit.side != player_side_) {
+                        ++opponents;
+                    } else if (unit.local_player == 2U) {
+                        ++second_player;
+                    } else {
+                        ++first_player;
+                    }
+                }
+                expect(has_previous_, "the co-op board has been drawn");
+                expect(
+                    first_player == 1 && second_player == 1,
+                    "the opening company has one independently owned hero per player"
+                );
+                expect(
+                    opponents == 3,
+                    "two-player loading includes the authored co-op opponent"
+                );
+                expect(
+                    snapshot.round == 0 &&
+                        snapshot.active_side == player_side_,
+                    "co-op opens on the first allied side block"
+                );
+                return;
+            }
+            case ap::Check::coop_player_two_menu: {
+                const sim::UnitSnapshot* chosen = nullptr;
+                for (const sim::UnitSnapshot& unit : snapshot.units) {
+                    if (unit.id == selected_) chosen = &unit;
+                }
+                expect(
+                    participating_local_players_ == 2 &&
+                        active_local_player_ == 1,
+                    "controller port two becomes an independent active seat"
+                );
+                expect(
+                    chosen != nullptr && controlled_by(*chosen, 1),
+                    "Player 2 can select only the hero authored for Player 2"
+                );
+                expect(
+                    menu_open_ && !board_menu_open_,
+                    "Player 2 opens the real character action menu"
+                );
+                expect(
+                    local_players_[0].cursor_x != cursor_x_ ||
+                        local_players_[0].cursor_y != cursor_y_,
+                    "Player 1's cursor is retained separately while Player 2 acts"
+                );
+                return;
+            }
+            case ap::Check::coop_player_two_acted: {
+                bool first_spent = false;
+                bool second_spent = false;
+                for (const sim::UnitSnapshot& unit : snapshot.units) {
+                    if (!sim::on_board(unit) || unit.side != player_side_) {
+                        continue;
+                    }
+                    if (unit.local_player == 2U) {
+                        second_spent = unit.has_acted;
+                    } else {
+                        first_spent = unit.has_acted;
+                    }
+                }
+                expect(
+                    second_spent,
+                    "Player 2's end-turn command is accepted by the engine"
+                );
+                expect(
+                    !first_spent,
+                    "Player 1 remains independently available after Player 2 acts"
+                );
+                expect(
+                    snapshot.active_side == player_side_,
+                    "the shared side block remains open for Player 1"
+                );
+                return;
+            }
+            case ap::Check::coop_player_one_menu: {
+                const sim::UnitSnapshot* chosen = nullptr;
+                for (const sim::UnitSnapshot& unit : snapshot.units) {
+                    if (unit.id == selected_) chosen = &unit;
+                }
+                expect(
+                    participating_local_players_ == 2 &&
+                        active_local_player_ == 0,
+                    "control returns to controller port one without dropping Player 2"
+                );
+                expect(
+                    chosen != nullptr && controlled_by(*chosen, 0),
+                    "Player 1 selects the hero authored for Player 1"
+                );
+                expect(
+                    menu_open_ && !board_menu_open_,
+                    "Player 1 opens the real action menu after Player 2's command"
+                );
+                expect(
+                    local_players_[1].cursor_x != cursor_x_ ||
+                        local_players_[1].cursor_y != cursor_y_,
+                    "Player 2's cursor remains stored separately"
+                );
+                return;
+            }
+            case ap::Check::coop_round_advanced: {
+                int allied = 0;
+                int unspent = 0;
+                for (const sim::UnitSnapshot& unit : snapshot.units) {
+                    if (!sim::on_board(unit) || unit.side != player_side_) {
+                        continue;
+                    }
+                    ++allied;
+                    if (!unit.has_acted) ++unspent;
+                }
+                expect(
+                    snapshot.round >= 1,
+                    "accepted commands from both controllers advance the battle round"
+                );
+                expect(
+                    allied == 2 && unspent == 2,
+                    "both co-op heroes return ready in the next allied side block"
+                );
+                expect(
+                    participating_local_players_ == 2,
+                    "both local controller seats remain attached across the hand-off"
+                );
+                return;
+            }
             case ap::Check::unit_panel:
                 expect(hovered != nullptr, "a unit sits under the cursor");
                 expect(
@@ -7957,6 +8090,12 @@ private:
                 local_players_[1].cursor_y = unit.position.y;
             }
         }
+        // Player 1 is the live seat after a reset, so its seeded cursor must
+        // be live too. Otherwise the first switch to Player 2 saves the old
+        // (0, 0) live cursor back over Player 1's seed and the hand-off cannot
+        // return to Player 1's character without manually crossing the board.
+        cursor_x_ = local_players_[0].cursor_x;
+        cursor_y_ = local_players_[0].cursor_y;
         active_local_player_ = 0;
         participating_local_players_ = 1;
     }
@@ -8679,6 +8818,8 @@ constexpr int autopilot_steer_budget = 64;
 // check exists to test, so the choice cannot be a flag the ROM carries.
 #ifdef GRANDLEON_N64_CAMPAIGN
 const ap::Step* autopilot_script = ap::campaign_autopilot_found;
+#elif defined(GRANDLEON_N64_COOP_AUTOPILOT)
+const ap::Step* autopilot_script = ap::emberbound_coop_autopilot;
 #else
 const ap::Step* autopilot_script = ap::fordlight_autopilot;
 #endif
@@ -8925,6 +9066,7 @@ joypad_buttons_t poll_buttons() {
         const ap::Step& step = autopilot_script[autopilot_index];
         switch (step.op) {
             case ap::Op::press:
+                polled_local_player = step.player;
                 ++autopilot_index;
                 return buttons_from(step.value);
             case ap::Op::wait:
@@ -8935,6 +9077,7 @@ joypad_buttons_t poll_buttons() {
                 }
                 continue;
             case ap::Op::cursor_to: {
+                polled_local_player = step.player;
                 if (autopilot_presenter == nullptr) {
                     ++autopilot_index;
                     continue;
@@ -9026,6 +9169,8 @@ int main() {
     grandleon::n64audio::init();
 #endif
 #if defined(GRANDLEON_N64_README)
+    constexpr std::uint8_t local_players = 2;
+#elif defined(GRANDLEON_N64_COOP_AUTOPILOT)
     constexpr std::uint8_t local_players = 2;
 #elif !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
     const std::uint8_t local_players =

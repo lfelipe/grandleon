@@ -649,7 +649,7 @@ endif()
 # banners) verify headlessly; the input sequence lives beside the campaign in
 # games/tarnholt/autopilot/.
 foreach(variant IN ITEMS
-    play probe readme autopilot campaign campaign_autopilot
+    play probe readme autopilot coop_autopilot campaign campaign_autopilot
 )
     set(rom_target grandleon_n64_${variant})
     add_executable(${rom_target} src/play_rom.cpp src/synth.cpp)
@@ -687,6 +687,7 @@ foreach(variant IN ITEMS
             "${CMAKE_CURRENT_SOURCE_DIR}/src"
             "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
             "${CMAKE_SOURCE_DIR}/games/tarnholt/autopilot"
+            "${CMAKE_SOURCE_DIR}/games/emberbound/autopilot"
     )
     target_compile_features(${rom_target} PRIVATE cxx_std_17)
     target_compile_options(
@@ -712,6 +713,10 @@ target_compile_definitions(
     grandleon_n64_autopilot PRIVATE GRANDLEON_N64_AUTOPILOT
 )
 target_compile_definitions(
+    grandleon_n64_coop_autopilot
+    PRIVATE GRANDLEON_N64_AUTOPILOT GRANDLEON_N64_COOP_AUTOPILOT
+)
+target_compile_definitions(
     grandleon_n64_campaign PRIVATE GRANDLEON_N64_CAMPAIGN
 )
 target_compile_definitions(
@@ -725,6 +730,10 @@ grandleon_package_rom(
 )
 grandleon_package_rom(
     grandleon_n64_autopilot grandleon_n64_autopilot.z64 "Grandleon autopilot"
+)
+grandleon_package_rom(
+    grandleon_n64_coop_autopilot grandleon_n64_coop_autopilot.z64
+    "Grandleon co-op check"
 )
 
 # The two campaign ROMs, and the only ones that declare a save type. 256

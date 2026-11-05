@@ -1265,6 +1265,21 @@ if(GRANDLEON_N64_TESTS)
     )
 
     configure_file(
+        cmake/nintendo64_coop_test.cmake.in
+        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_coop_test.cmake"
+        @ONLY
+    )
+    add_test(
+        NAME grandleon.nintendo64_coop
+        COMMAND
+            "${CMAKE_COMMAND}"
+            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_coop_test.cmake"
+    )
+    set_tests_properties(
+        grandleon.nintendo64_coop PROPERTIES TIMEOUT 3600
+    )
+
+    configure_file(
         cmake/nintendo64_campaign_test.cmake.in
         "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_campaign_test.cmake"
         @ONLY
@@ -1329,7 +1344,7 @@ if(GRANDLEON_N64_TESTS)
 else()
     message(
         STATUS
-        "ctest holds no Nintendo 64 lane: -DGRANDLEON_N64_TESTS=ON adds six, "
+        "ctest holds no Nintendo 64 lane: -DGRANDLEON_N64_TESTS=ON adds seven, "
         "or scripts/local-ci.sh --n64 runs every check without reconfiguring"
     )
 endif()

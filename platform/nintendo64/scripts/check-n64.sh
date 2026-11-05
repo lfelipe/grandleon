@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 
-# Builds the Nintendo 64 ROMs once and runs this console's checks over them.
+# Builds the Nintendo 64 ROMs each selected check needs and runs the checks.
 #
 #   platform/nintendo64/scripts/check-n64.sh
 #                                     build once, run every check at once
@@ -12,7 +12,7 @@
 #
 # **Invoked through CMake, not by hand.** The first form is
 # `grandleon_n64_check_all`; the second is `grandleon_n64_check`, `_play_check`,
-# `_autopilot_check` and `_campaign_check`. The toolchain pins, the libdragon
+# `_autopilot_check`, `_coop_check` and `_campaign_check`. The toolchain pins, the libdragon
 # commit and the base image digest, are CMake cache variables in
 # `cmake/GrandleonNintendo64.cmake` and reach the build script through the
 # environment, so a run started from a shell instead dies at
@@ -20,18 +20,16 @@
 # toolchain in one place is worth more than a second way to start a run, so the
 # command lines above are how the targets call this rather than an invitation.
 #
-# **Why one script and not four targets that each build.** Every check needs
-# every ROM, so four targets that each ran build-n64.sh would queue on that
-# script's `flock`: one build, three waits, four times the cost of the thing
-# none of them changes. Measured on an idle 28-core host, that arrangement takes
-# 383 s and this script takes 291 s: 86 s of build, and then 4 s, 9 s, 98 s and
-# 205 s at once. Nothing about a run is given up for it: no check is dropped,
-# shortened or made conditional.
+# **Why one script and not five targets that each build.** Four checks share
+# the supported Tarnholt build. The co-op check adds one Emberbound build whose
+# authored Player 1/Player 2 ownership is its subject. The all-checks path makes
+# each build once, then runs all five emulator checks concurrently. Nothing
+# about a run is given up for it: no check is dropped, shortened or conditional.
 #
-# It is deliberately not a cache. There is one build, it happens on every run,
-# and it happens before any emulator starts, so there is no question of what a
-# run was made against. That is the property a build directory which remembers
-# things cannot offer.
+# It is deliberately not a cache. Every required build happens on every run
+# before any emulator starts, so there is no question of what a run was made
+# against. That is the property a build directory which remembers things
+# cannot offer.
 #
 # **What a check is is defined here, once.** The CMake targets and the ctest
 # lanes both come through this script, so the ROM a check runs, the budget it
@@ -49,17 +47,18 @@
 # Each concurrent check writes its output to ${build_dir}/checks/<name>.log and
 # a one-line verdict beside it. The verdicts are what the summary is built from,
 # and a check that left none is reported as a failure rather than passed over:
-# a runner that quietly ran three of four would otherwise look like a speedup.
+# a runner that quietly ran four of five would otherwise look like a speedup.
 
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 build_dir="${GRANDLEON_N64_BUILD_DIR:-${repository_root}/build-n64}"
+coop_build_dir="${GRANDLEON_N64_COOP_BUILD_DIR:-${repository_root}/build-n64-coop}"
 ares="${repository_root}/platform/nintendo64/ares"
 
 # Every check this console has, in the order a reader wants them: what the
 # machine is, what it draws, what it does when played, and what it keeps.
-all_checks="conformance play autopilot campaign"
+all_checks="conformance play autopilot coop campaign"
 
 usage() {
     echo "usage: $(basename "$0") [--check NAME]..." >&2
@@ -142,6 +141,16 @@ run_check() {
                 GRANDLEON_N64_ARES_MIN_CHECKS_RESUMED=52 \
                 "${ares}/run-ares-persistence.sh"
             ;;
+        coop)
+            # A dedicated Emberbound ROM supplies two independently owned
+            # heroes and its authored two-player-only opponent. Its scripted
+            # edges alternate controller ports inside the actual presenter.
+            GRANDLEON_N64_BUILD_DIR="${coop_build_dir}" \
+                GRANDLEON_N64_ARES_SECONDS=360 \
+                GRANDLEON_N64_ARES_MIN_CHECKS=40 \
+                "${ares}/run-ares.sh" \
+                "${coop_build_dir}/platform/nintendo64/grandleon_n64_coop_autopilot.z64"
+            ;;
         *)
             echo "error: no such check: ${name}" >&2
             return 2
@@ -155,6 +164,7 @@ what_failed() {
         play) echo "the render probe did not report a pass" ;;
         autopilot) echo "the autopilot did not report a pass" ;;
         campaign) echo "the campaign did not survive a restarted emulator" ;;
+        coop) echo "the two-controller co-op ROM did not report a pass" ;;
         *) echo "the check failed" ;;
     esac
 }
@@ -171,9 +181,29 @@ what_failed() {
 echo "== Proving the verdict check can still fail =="
 "${repository_root}/scripts/assert-harness-verdict.sh" --self-test
 
-echo
-echo "== Building every Nintendo 64 ROM once =="
-"${repository_root}/platform/nintendo64/scripts/build-n64.sh"
+need_default=0
+need_coop=0
+for name in "${selected[@]}"; do
+    if [ "${name}" = coop ]; then
+        need_coop=1
+    else
+        need_default=1
+    fi
+done
+
+if [ "${need_default}" -eq 1 ]; then
+    echo
+    echo "== Building the supported Nintendo 64 ROMs once =="
+    "${repository_root}/platform/nintendo64/scripts/build-n64.sh"
+fi
+if [ "${need_coop}" -eq 1 ]; then
+    echo
+    echo "== Building Emberbound's two-controller Nintendo 64 check ROM =="
+    GRANDLEON_N64_BUILD_DIR="${coop_build_dir}" \
+        "${repository_root}/platform/nintendo64/scripts/build-n64.sh" \
+        --project "${repository_root}/games/emberbound/source/project.json" \
+        --targets grandleon_n64_coop_autopilot
+fi
 
 run_dir="${build_dir}/checks"
 mkdir -p "${run_dir}"

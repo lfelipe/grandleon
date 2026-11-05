@@ -74,20 +74,19 @@ add_custom_target(grandleon_n64
     VERBATIM
 )
 
-# Every check this console has, over one build of the ROMs.
+# Every check this console has. Four share the supported Tarnholt build; the
+# fifth builds Emberbound in a separate directory because it needs authored
+# Player 1/Player 2 ownership to exercise both controller ports.
 #
-# Each of the single-check targets below builds every ROM before it runs its
-# own, because each of them needs every ROM. Run together, which is how a gate
-# runs them, that is four processes producing the same ROMs, three of them from
-# a tree already up to date, queued one behind another on the build script's own
-# lock. Measured on an idle 28-core host: 383 s for the four targets against
-# 291 s for this one, where a no-op containerised build is 86 s and the longest
-# of the four checks is 205 s.
-# This target builds once and hands the ROMs to four concurrent emulator runs. It
-# runs every check the four targets run, in the same containers, under the same
+# Each single-check target builds the project it needs before running. Asking
+# for all five through this target avoids rebuilding the four shared Tarnholt
+# variants while still building Emberbound separately for the co-op proof.
+# This target builds each required project once and hands the ROMs to five
+# concurrent emulator runs. It runs every check the single-check targets run,
+# in the same containers, under the same
 # budgets, and fails naming any that failed.
 #
-# The four stay, because debugging one failure wants one check. They ask
+# The five stay, because debugging one failure wants one check. They ask
 # `check-n64.sh` for theirs by name, so which ROM a check runs and what budget
 # it runs under is written once. Here it would be written twice more, once
 # again in `tests/CMakeLists.txt`'s ctest lanes, and the three could drift.
@@ -163,6 +162,20 @@ add_custom_target(grandleon_n64_autopilot_check
         --check autopilot
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMENT "Replaying the Nintendo 64 autopilot under ares"
+    USES_TERMINAL
+    VERBATIM
+)
+
+# Emberbound's opening battle, played by synthetic edges from both controller
+# ports. The separate build directory is selected by check-n64.sh so this
+# proof cannot replace the supported Tarnholt artifacts in build-n64.
+add_custom_target(grandleon_n64_coop_check
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/check-n64.sh"
+        --check coop
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Playing the Nintendo 64 co-op path through both controller ports"
     USES_TERMINAL
     VERBATIM
 )

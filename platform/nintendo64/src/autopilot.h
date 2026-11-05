@@ -138,6 +138,15 @@ enum class Check : std::uint16_t {
     // answer a player would otherwise have to sweep the whole board to find,
     // and it is the reason the aiming overlay exists.
     aim_with_no_target,
+    // The co-op ROM is built from Emberbound, whose opening board has one
+    // hero owned by each local player and one extra opponent at two players.
+    // These checkpoints cover the played console path, not just the portable
+    // encounter loader and controller composer tested on the host.
+    coop_open,
+    coop_player_two_menu,
+    coop_player_two_acted,
+    coop_player_one_menu,
+    coop_round_advanced,
 };
 
 struct Step final {
@@ -148,6 +157,9 @@ struct Step final {
     std::int16_t y{};
     // The checkpoint's name on the wire and in the screenshot trail.
     const char* name{nullptr};
+    // Zero-based local controller seat. Existing scripts omit it and remain
+    // Player 1 scripts; the co-op script deliberately alternates 0 and 1.
+    std::uint8_t player{0};
 };
 
 }  // namespace grandleon::n64autopilot

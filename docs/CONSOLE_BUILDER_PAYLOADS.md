@@ -238,9 +238,9 @@ platform/godot/scripts/compare-console-builder-output.py \
   --target playstation --payload PAYLOAD_OUTPUT --reference REPOSITORY_OUTPUT
 ```
 
-The ordinary outputs from the same pinned builders must then pass all four ares
-gates and all six PCSX-Redux gates, including native save media, controller
-input, both campaign resume paths, and a twice-booted BIN/CUE. Exact N64
+The ordinary outputs from the same pinned builders must then pass all five ares
+gates and all six PCSX-Redux gates, including two-controller co-op, native save
+media, both campaign resume paths, and a twice-booted BIN/CUE. Exact N64
 identity and normalized PS identity bridge the sandbox output to those gates.
 
 The host contract also has a synthetic smoke covering asynchronous success,

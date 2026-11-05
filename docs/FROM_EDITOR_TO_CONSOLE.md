@@ -87,7 +87,10 @@ Local co-op does not fork this chain. A `sideBlocks` encounter, its placements,
 deployment, objectives, and dialogue compile once and are consumed unchanged by
 PC, Nintendo 64, and PlayStation. The played console clients poll two controller
 ports and retain two cursor/selection contexts while completed intents enter the
-shared simulation deterministically.
+shared simulation deterministically. The N64 gate plays Emberbound through
+both ports in ares: Player 2 spends Senna's activation, Player 1 remains
+available and spends Auren's, the opposing side answers, and both heroes return
+ready in the next round.
 
 Player-count scaling follows the same path. The editor may mark an opposing
 placement `minimumPlayers: 2`; the compiler writes a required sparse scaling

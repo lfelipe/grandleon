@@ -153,15 +153,15 @@ to:
 
 | Flag | Leg | Needs |
 |---|---|---|
-| `--n64` | Nintendo 64: every check, over one build of the ROMs | **a container runtime** |
+| `--n64` | Nintendo 64: every supported check | **a container runtime** |
 | `--playstation` | PlayStation: conformance, what it drew, a played turn, the memory card, both campaigns, and the disc booted | **a container runtime** |
 | `--consoles` | both of the above | **a container runtime** |
 
-`--n64` runs all four supported Nintendo 64 checks (the conformance ROM, the
-render probe, the autopilot and the campaign that survives the power switch)
-through one build of the ROMs, then separately builds and checks the fixed 3D
-character prototype. `grandleon_n64_check_all` covers the supported ROMs;
-asking for them one at a time builds every supported ROM once per check.
+`--n64` runs all five supported Nintendo 64 checks: conformance, the render
+probe, a played autopilot, two-controller co-op, and a campaign that survives
+the power switch. It then separately builds and checks the fixed 3D character
+prototype. The first four Tarnholt checks share one build; the Emberbound co-op
+ROM is built separately because its authored two-player opening is the test.
 
 The same checks are also CMake targets, which is what a person debugging one
 wants. They build through `build/`, so configure it first if you have not
@@ -175,10 +175,11 @@ Then run them from the repository root. From `editor/`, `build` resolves to
 `editor/build` and every one of them silently does nothing:
 
 ```sh
-cmake --build build --target grandleon_n64_check_all      # all four at once
+cmake --build build --target grandleon_n64_check_all      # all five at once
 cmake --build build --target grandleon_n64_check          # conformance only
 cmake --build build --target grandleon_n64_play_check     # the render probe
 cmake --build build --target grandleon_n64_autopilot_check
+cmake --build build --target grandleon_n64_coop_check
 cmake --build build --target grandleon_n64_campaign_check
 cmake --build build --target grandleon_playstation_check
 cmake --build build --target grandleon_playstation_render_check

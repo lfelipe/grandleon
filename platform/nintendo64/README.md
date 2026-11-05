@@ -165,21 +165,23 @@ fans standard output to the on-screen console and the ISViewer channel.
 ## Running the checks
 
 ```sh
-cmake --build build --target grandleon_n64_check_all       # all four, one build
+cmake --build build --target grandleon_n64_check_all       # all five checks
 cmake --build build --target grandleon_n64_check           # conformance ROM
 cmake --build build --target grandleon_n64_play_check      # render probe
 cmake --build build --target grandleon_n64_autopilot_check # autopilot
+cmake --build build --target grandleon_n64_coop_check      # both controller ports
 cmake --build build --target grandleon_n64_campaign_check  # the save survives a restart
 platform/nintendo64/ares/run-ares.sh                       # any ROM, under ares
 ```
 
-**Use the first unless you are debugging.** Every check needs every ROM, so
-each single-check target builds all of them; `grandleon_n64_check_all` builds
-once and runs the four emulator runs concurrently, failing by name. It is not
-a cache: the build happens on every run and finishes before any emulator
-starts. Each check writes a verdict beside its log, and a check that leaves
-none is reported as not having run rather than passed over. The single-check
-targets and the four `grandleon.nintendo64*` ctest lanes all ask
+**Use the first unless you are debugging.** Four checks share the supported
+Tarnholt ROM build. The co-op check builds Emberbound separately because its
+authored Player 1 and Player 2 opening is what the test needs. The combined
+target builds each project once, then runs all five emulator checks together,
+failing by name. It is not a cache: the builds happen on every run and finish
+before any emulator starts. Each check writes a verdict beside its log, and a
+check that leaves none is reported as not having run rather than passed over.
+The single-check targets and the five `grandleon.nintendo64*` ctest lanes ask
 `check-n64.sh` for their check by name, so which ROM runs under what budget is
 written in one place.
 
@@ -204,7 +206,10 @@ Verified, by running it: the five libraries compile for `mips64-elf` under
 full warnings with no source changes; they link into a bootable `.z64`; the
 engine reproduces both pinned hashes on big-endian MIPS; rejected commands
 are atomic; allocation-heavy paths work against libdragon's heap; the package
-container round-trips and rejects corruption.
+container round-trips and rejects corruption. A dedicated Emberbound ROM also
+drives both controller ports through one full side block under ares and checks
+independent ownership, cursors, selections, accepted commands, co-op-only
+placements, the opponent response, and the next allied round.
 
 Not verified, and not claimed:
 
@@ -236,6 +241,11 @@ pending for the next frame. Menus are shared pause surfaces, but outside them
 neither player waits for ownership of the board cursor. Authored `sideBlocks`
 encounters let both players combine their allied activations before the
 computer-controlled side begins.
+
+This path is automated, not just documented. `grandleon_n64_coop_check` boots
+Emberbound under ares, sends input first from controller port two and then from
+port one, and checks the board state from inside the running ROM. It currently
+requires at least 40 assertions; the complete scripted run reports 41.
 
 When controller port two is connected at session start, the encounter loader
 also includes opposing placements authored with `minimumPlayers: 2`. With one
