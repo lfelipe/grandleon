@@ -34,13 +34,22 @@ terrain rules, routes, timing, or combat results.
 ## Character art and console experiments
 
 - [ ] Complete male and female high-resolution bodies for every intended
-  archetype and style. All eight mythical and all eight sci-fi archetype pairs
+  archetype and style. All eight mythical, sci-fi, and medieval archetype pairs
   are complete and pass the shared compact-art-direction audit; the remaining
-  five visual styles still use portable fallbacks and need their own curated
+  four visual styles still use portable fallbacks and need their own curated
   Godot sheets.
-- [x] Add reusable team-colour masks to the complete mythical and sci-fi
-  rosters so one body sheet can render the six faction colours without
-  recolouring faces, hair, equipment, or effects.
+- [x] Add reusable team-colour masks to each complete curated roster so one
+  body sheet can render the six faction colours without recolouring faces,
+  hair, equipment, or effects.
 - [ ] Compare the new low-detail commander proxy on PlayStation and Nintendo 64
   at real board scale, then decide whether the recognizability and frame budget
   justify expanding the console 3D roster.
+
+## 0.5 editor and player setup
+
+- [ ] Let a campaign author choose whether a game is one-player, two-player,
+  or allows the players to choose at launch. Treat this as a complete authoring
+  workflow rather than a presentation toggle: define controllable-side
+  ownership, validate unsupported combinations, expose seat assignment and
+  launch choices, preview both modes, migrate schema versions, and test each
+  allowed configuration through play and export.

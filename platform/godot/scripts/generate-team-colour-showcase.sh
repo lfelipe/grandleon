@@ -21,7 +21,8 @@ usage() {
         "Masks are alpha-cutout or grayscale PNGs named <sheet_basename>_team_mask.png." \
         "" \
         "Options:" \
-        "  --style STYLE      mythical or scifi (default: mythical)" \
+        "  --style STYLE      mythical, scifi, medieval, nature, sengoku," \
+        "                     undead, or pirates (default: mythical)" \
         "  --source-dir DIR   Character sheets (default: project character art)" \
         "  --mask-dir DIR     Team masks (default: source directory)" \
         "  --output-dir DIR   Review output (default: mythical root; scifi subdir)" \
@@ -102,8 +103,20 @@ case "${style}" in
             output_dir="${repo_root}/docs/screenshots/art-roster/team-colours/scifi"
         fi
         ;;
+    medieval|nature|sengoku|undead|pirates)
+        case "${style}" in
+            medieval) style_title=Medieval ;;
+            nature) style_title=Nature ;;
+            sengoku) style_title="Sengoku Japan" ;;
+            undead) style_title=Undead ;;
+            pirates) style_title=Pirates ;;
+        esac
+        if [[ "${output_dir_explicit}" == false ]]; then
+            output_dir="${repo_root}/docs/screenshots/art-roster/team-colours/${style}"
+        fi
+        ;;
     *)
-        printf 'Style must be mythical or scifi: %s\n' "${style}" >&2
+        printf 'Unknown roster style: %s\n' "${style}" >&2
         exit 64
         ;;
 esac
@@ -142,7 +155,7 @@ if [[ "${style}" == mythical ]]; then
         "beast|male|mythical_beast_male_hd.png"
         "beast|female|mythical_beast_female_hd.png"
     )
-else
+elif [[ "${style}" == scifi ]]; then
     characters=(
         "knight|first|relay_knight_hd.png"
         "knight|second|scifi_knight_female_hd.png"
@@ -161,6 +174,14 @@ else
         "beast|first|relay_beast_hd.png"
         "beast|second|scifi_beast_female_hd.png"
     )
+else
+    characters=()
+    for archetype in knight archer mage stormcaller healer commander rogue beast; do
+        characters+=(
+            "${archetype}|male|${style}_${archetype}_male_hd.png"
+            "${archetype}|female|${style}_${archetype}_female_hd.png"
+        )
+    done
 fi
 
 # These are the runtime defaults in art_library.gd. Once the matching graphics

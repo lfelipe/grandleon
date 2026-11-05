@@ -7,16 +7,16 @@ authored 3D terrain with animated high-resolution characters.
 This page separates two useful meanings of “complete”:
 
 - The supported Godot presentation has male and female high-resolution
-  characters for every archetype in both the sci-fi and mythical directions.
-  Both directions support all six faction colours. Godot also has one authored
-  scene for each of the thirteen terrains.
+  characters for every archetype in the sci-fi, mythical, and medieval
+  directions. All three support the six faction colours. Godot also has one
+  authored scene for each of the thirteen terrains.
 - The portable generated library covers every combination of eight archetypes,
   seven styles, six faction colours, and two figures. These are the assets shared
   with the constrained renderers and used as a safe fallback in Godot.
 
-The sci-fi direction established the high-resolution sheet contract. The
-mythical direction was the first expansion, and the completed sci-fi body pairs
-now follow the same contract. This is the mythical roster:
+The sci-fi direction established the high-resolution sheet contract. Mythical
+was the first expansion and medieval is the first complete 0.4 addition. All
+three follow the same contract. This is the mythical roster:
 
 | Portable identity | Animated preview |
 |---|---|
@@ -38,10 +38,10 @@ now follow the same contract. This is the mythical roster:
 | Beast · female (`second`) · bone | ![The bone-armoured female mythical beast idles, walks, attacks, projects a primal ward, and reacts to a hit](screenshots/art-roster/mythical-beast-female.gif) |
 
 These eight finished body pairs cover every mythical archetype. The names
-describe their portable art identity, not a campaign. Other visual themes still
-use their portable generated fallback until their curated Godot sheets are
-painted. Every valid project therefore remains playable while the remaining
-sets are built out.
+describe their portable art identity, not a campaign. Nature, Sengoku Japan,
+Undead, and Pirates still use their portable generated fallback until their
+curated Godot sheets are painted. Every valid project therefore remains
+playable while the remaining sets are built out.
 
 ## Bodies and team colours
 
@@ -64,13 +64,12 @@ three-quarter camera, and consistent board-scale framing. Body type can vary,
 but a pair should still look as though it was made by the same art team for the
 same game.
 
-It does not require six separately painted copies of each body. Every mythical
-and sci-fi source sheet has a team-colour mask. Godot recolours only the marked
-cloth and armour into blue, red, green, violet, amber, or bone, then caches the
-finished texture for the battlefield, portraits, and creator previews. Faces,
-hair, weapons, and spell effects remain unchanged. If a mask is missing or
-malformed, Godot keeps the original source colour instead of failing the
-character.
+It does not require six separately painted copies of each body. Every curated
+source sheet has a team-colour mask. Godot recolours only the marked cloth and
+armour into blue, red, green, violet, amber, or bone, then caches the finished
+texture for the battlefield, portraits, and creator previews. Faces, hair,
+weapons, and spell effects remain unchanged. If a mask is missing or malformed,
+Godot keeps the original source colour instead of failing the character.
 
 The generated comparison galleries show every curated body in every faction
 colour at portrait and board scale:
@@ -81,6 +80,9 @@ colour at portrait and board scale:
 - [Browse all 96 sci-fi body-and-colour combinations](screenshots/art-roster/team-colours/scifi/index.html).
 - [Inspect the sci-fi masks on idle poses](screenshots/art-roster/team-colours/scifi/scifi-team-masks-idle.png).
 - [Inspect the sci-fi masks across every action](screenshots/art-roster/team-colours/scifi/scifi-team-masks-actions.png).
+- [Browse all 96 medieval body-and-colour combinations](screenshots/art-roster/team-colours/medieval/index.html).
+- [Inspect the medieval masks on idle poses](screenshots/art-roster/team-colours/medieval/medieval-team-masks-idle.png).
+- [Inspect the medieval masks across every action](screenshots/art-roster/team-colours/medieval/medieval-team-masks-actions.png).
 
 ## Animated sci-fi Godot roster
 
@@ -103,6 +105,23 @@ idle A, idle B, walk A, walk B, attack wind-up, attack follow-through, ability,
 and hurt/defeat. The graphics profile owns the timing, pivot, and directional
 mirroring, so replacing a sheet does not change a campaign or its rules.
 
+## Animated medieval Godot roster
+
+The medieval roster uses grounded steel, leather, cloth, wood, and heraldry.
+The two bodies are independently designed while sharing one company palette,
+camera, scale, and material language.
+
+| Archetype | Male (`first`) | Female (`second`) |
+|---|---|---|
+| Knight | ![The male medieval knight runs through the production actions](screenshots/art-roster/medieval-knight-male.gif) | ![The female medieval knight runs through the production actions](screenshots/art-roster/medieval-knight-female.gif) |
+| Archer | ![The male medieval archer runs through the production actions](screenshots/art-roster/medieval-archer-male.gif) | ![The female medieval archer runs through the production actions](screenshots/art-roster/medieval-archer-female.gif) |
+| Mage | ![The male medieval mage runs through the production actions](screenshots/art-roster/medieval-mage-male.gif) | ![The female medieval mage runs through the production actions](screenshots/art-roster/medieval-mage-female.gif) |
+| Stormcaller | ![The male medieval stormcaller runs through the production actions](screenshots/art-roster/medieval-stormcaller-male.gif) | ![The female medieval stormcaller runs through the production actions](screenshots/art-roster/medieval-stormcaller-female.gif) |
+| Healer | ![The male medieval healer runs through the production actions](screenshots/art-roster/medieval-healer-male.gif) | ![The female medieval healer runs through the production actions](screenshots/art-roster/medieval-healer-female.gif) |
+| Commander | ![The male medieval commander runs through the production actions](screenshots/art-roster/medieval-commander-male.gif) | ![The female medieval commander runs through the production actions](screenshots/art-roster/medieval-commander-female.gif) |
+| Rogue | ![The male medieval rogue runs through the production actions](screenshots/art-roster/medieval-rogue-male.gif) | ![The female medieval rogue runs through the production actions](screenshots/art-roster/medieval-rogue-female.gif) |
+| Beast | ![The male medieval beast runs through the production actions](screenshots/art-roster/medieval-beast-male.gif) | ![The female medieval beast runs through the production actions](screenshots/art-roster/medieval-beast-female.gif) |
+
 Run the following command after changing a sheet to rebuild the previews:
 
 ```sh
@@ -117,8 +136,11 @@ tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style mythical
 tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style scifi
+tools/placeholder_art/.venv/bin/python \
+  platform/godot/scripts/generate-mythical-team-masks.py --style medieval
 platform/godot/scripts/generate-team-colour-showcase.sh
 platform/godot/scripts/generate-team-colour-showcase.sh --style scifi
+platform/godot/scripts/generate-team-colour-showcase.sh --style medieval
 ```
 
 ## Terrain coverage

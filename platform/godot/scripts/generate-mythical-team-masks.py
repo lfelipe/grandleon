@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import sys
 
@@ -405,6 +405,77 @@ SCIFI_SOURCE_ORDER = (
 )
 
 
+# The newer curated rosters deliberately share one blue source material for
+# their recolourable cloth and armour.  Keeping that contract consistent lets
+# one conservative mask recipe cover every archetype while component filtering
+# rejects disconnected spell, weapon, and impact effects.
+CURATED_BLUE_MASK_CONFIG = MaskConfig(
+    seeds=("#23335c", "#304577", "#40598f", "#5872a8"),
+    delta_e=22,
+    feather=8,
+    hue_center=225,
+    hue_radius=25,
+    saturation_min=0.18,
+    value_min=0.10,
+    value_max=0.76,
+    minimum_core_fraction=0.025,
+)
+
+CURATED_STYLES = ("medieval", "nature", "sengoku", "undead", "pirates")
+CURATED_ARCHETYPES = (
+    "knight",
+    "archer",
+    "mage",
+    "stormcaller",
+    "healer",
+    "commander",
+    "rogue",
+    "beast",
+)
+
+CURATED_MASK_EXCLUSIONS: dict[
+    str, tuple[tuple[int, int, int, int, int], ...]
+] = {
+    # These connected blue spell effects deliberately share the cloth hue.
+    # Pose-local exclusions keep effects stable while retaining the garment
+    # regions on the acting character.
+    "medieval_mage_male_hd.png": (
+        (5, 245, 70, 443, 315),
+        (6, 225, 45, 443, 360),
+    ),
+    "medieval_mage_female_hd.png": (
+        (5, 245, 70, 443, 315),
+        (6, 225, 45, 443, 360),
+    ),
+    "medieval_stormcaller_male_hd.png": (
+        (5, 190, 140, 443, 340),
+        (6, 0, 300, 443, 443),
+        (6, 250, 0, 443, 235),
+    ),
+    "medieval_stormcaller_female_hd.png": (
+        (5, 190, 140, 443, 340),
+        (6, 0, 300, 443, 443),
+        (6, 250, 0, 443, 235),
+    ),
+    "medieval_rogue_male_hd.png": (
+        (6, 230, 0, 443, 443),
+        (6, 0, 355, 443, 443),
+    ),
+    "medieval_rogue_female_hd.png": (
+        (6, 230, 0, 443, 443),
+        (6, 0, 355, 443, 443),
+    ),
+}
+
+
+def curated_source_order(style: str) -> tuple[str, ...]:
+    return tuple(
+        f"{style}_{archetype}_{body}_hd.png"
+        for archetype in CURATED_ARCHETYPES
+        for body in ("male", "female")
+    )
+
+
 def parse_hex(value: str) -> tuple[int, int, int]:
     value = value.removeprefix("#")
     if len(value) != 6:
@@ -735,6 +806,16 @@ def style_settings(
         configs = SCIFI_MASK_CONFIGS
         names = SCIFI_SOURCE_ORDER
         contact_dir = TEAM_COLOUR_DIR / "scifi"
+    elif style in CURATED_STYLES:
+        names = curated_source_order(style)
+        configs = {
+            name: replace(
+                CURATED_BLUE_MASK_CONFIG,
+                exclusion_boxes=CURATED_MASK_EXCLUSIONS.get(name, ()),
+            )
+            for name in names
+        }
+        contact_dir = TEAM_COLOUR_DIR / style
     else:
         raise ValueError(f"unknown roster style {style!r}")
     idle_contact = contact_dir / f"{style}-team-masks-idle.png"
@@ -780,7 +861,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--style",
-        choices=("mythical", "scifi"),
+        choices=("mythical", "scifi", *CURATED_STYLES),
         default="mythical",
         help="roster style to generate (default: mythical)",
     )

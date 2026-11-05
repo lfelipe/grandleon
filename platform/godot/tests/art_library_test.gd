@@ -382,6 +382,12 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"beast|*|mythical|first": "res://art/characters/mythical_beast_male_hd.png",
 		"beast|*|mythical|second": "res://art/characters/mythical_beast_female_hd.png",
 	}
+	for archetype: String in ArtLibrary.ARCHETYPE_NAMES:
+		for figure: String in ["first", "second"]:
+			var body := "male" if figure == "first" else "female"
+			expected["%s|*|medieval|%s" % [archetype, figure]] = (
+				"res://art/characters/medieval_%s_%s_hd.png" % [archetype, body]
+			)
 	var expected_sequences := {
 		"idle": {"frames": [0.0, 1.0], "frames_per_second": 2.0, "loop": true},
 		"move": {"frames": [2.0, 3.0], "frames_per_second": 7.0, "loop": true},
@@ -424,7 +430,7 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 
 	var art = ArtLibrary.new()
 	art.configure_profile(profile)
-	var resolution_counts := {"scifi": 0, "mythical": 0}
+	var resolution_counts := {"scifi": 0, "mythical": 0, "medieval": 0}
 	for key: String in expected:
 		if not key.contains("|*|"):
 			continue
@@ -459,6 +465,10 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 	_expect(
 		"all sci-fi body and faction identities resolve",
 		resolution_counts.scifi, 96
+	)
+	_expect(
+		"all medieval body and faction identities resolve",
+		resolution_counts.medieval, 96
 	)
 	var production_units := [
 		{

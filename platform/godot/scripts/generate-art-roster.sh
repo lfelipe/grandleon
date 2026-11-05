@@ -66,5 +66,9 @@ generate_preview mythical_rogue_male_hd.png mythical-rogue-male
 generate_preview mythical_rogue_female_hd.png mythical-rogue-female
 generate_preview mythical_beast_male_hd.png mythical-beast-male
 generate_preview mythical_beast_female_hd.png mythical-beast-female
+for archetype in knight archer mage stormcaller healer commander rogue beast; do
+    generate_preview "medieval_${archetype}_male_hd.png" "medieval-${archetype}-male"
+    generate_preview "medieval_${archetype}_female_hd.png" "medieval-${archetype}-female"
+done
 
 printf 'Animated art roster: %s\n' "${output_dir}"

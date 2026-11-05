@@ -1,9 +1,9 @@
 # Godot character art
 
 This directory holds the curated high-resolution sprite rosters used by the
-recommended PC graphics profile. Both the sci-fi and mythical directions have
-separate male and female characters for every archetype. Each character is a
-transparent 4×2 sheet with 443×443 cells in row-major order:
+recommended PC graphics profile. The sci-fi, mythical, and medieval directions
+have separate male and female characters for every archetype. Each character
+is a transparent 4×2 sheet with 443×443 cells in row-major order:
 
 1. idle A;
 2. idle B;
@@ -19,9 +19,9 @@ cell boundaries. The runtime consumes these committed PNGs directly;
 screenshots of them in play are therefore implementation evidence rather than
 concept art.
 
-Each mythical and sci-fi sheet has an adjacent `*_team_mask.png`. Godot uses
-that mask to render blue, red, green, violet, amber, or bone clothing and armour
-while leaving faces, hair, equipment, natural features, and effects untouched.
+Each curated sheet has an adjacent `*_team_mask.png`. Godot uses that mask to
+render blue, red, green, violet, amber, or bone clothing and armour while
+leaving faces, hair, equipment, natural features, and effects untouched.
 A missing or malformed mask keeps the source colour. A missing sheet or invalid
 character binding restores only that character's generated 32-pixel fallback.
 Neither fallback changes portable game content, packages, or rules.
