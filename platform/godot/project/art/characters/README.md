@@ -29,7 +29,10 @@ Neither fallback changes portable game content, packages, or rules.
 
 Bindings, masks, pivots, and timing live in
 `content/graphics_profiles.json`. The human review images and regeneration
-commands are in the [artwork guide](../../../../../docs/ARTWORK.md).
+commands are in the [artwork guide](../../../../../docs/ARTWORK.md). The
+[generation and tweak guide](../../../../../docs/ARTWORK_GENERATION.md) records
+the authoring model, surviving prompts, design rules, and the safe process for
+changing one character without drifting the rest of its roster.
 
 `relay_commander.glb` is an imported, skinned 3D character. It contains a
 sixteen-bone humanoid skeleton, seven material surfaces, and six in-place clips

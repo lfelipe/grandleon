@@ -1,5 +1,10 @@
 # Sci-fi female roster prompt notes
 
+Authoring model: Codex (GPT-5), using built-in image generation. The internal
+image-renderer name and dated snapshot were not exposed. See the
+[artwork generation and tweak guide](../../ARTWORK_GENERATION.md) for the full
+provenance note.
+
 Mode: built-in image generation with a genuinely transparent background.
 
 Each selected image was deterministically resized from the generated 2:1

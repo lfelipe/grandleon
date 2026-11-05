@@ -1,4 +1,6 @@
 Mode: built-in image generation
+Authoring model: Codex (GPT-5)
+Image renderer snapshot: not exposed by built-in image generation
 Use case: stylized-concept
 References:
 - kestrel_rogue_hd.png: Relay sci-fi style, scale, camera, equipment, effect language, and action layout

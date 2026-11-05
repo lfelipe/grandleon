@@ -173,6 +173,7 @@ and playtest progress do not.
 |---|---|
 | make a campaign | [Creating a game](docs/CREATING_A_GAME.md) |
 | inspect characters, animation, and terrain | [Artwork and animation roster](docs/ARTWORK.md) |
+| tweak or regenerate a character | [Artwork generation and tweak guide](docs/ARTWORK_GENERATION.md) |
 | see current presentation experiments | [Development TODO](TODO.md) |
 | understand the Godot player and creator | [Godot PC application](platform/godot/README.md) |
 | understand portability and console builds | [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) |

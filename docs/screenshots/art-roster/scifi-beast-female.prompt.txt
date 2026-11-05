@@ -1,4 +1,6 @@
 Mode: built-in image generation
+Authoring model: Codex (GPT-5)
+Image renderer snapshot: not exposed by built-in image generation
 Use case: stylized-concept
 References:
 - relay_beast_hd.png: Relay sci-fi species/faction style, scale, camera, effect language, and action layout

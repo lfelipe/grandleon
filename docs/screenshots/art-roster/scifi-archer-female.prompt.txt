@@ -1,6 +1,9 @@
 Built-in imagegen prompt
 ========================
 
+Authoring model: Codex (GPT-5)
+Image renderer snapshot: not exposed by built-in image generation
+
 Use case: stylized-concept
 Asset type: production character sprite sheet for a tactical fantasy/sci-fi game
 Primary request: Create one finished transparent 4 columns by 2 rows sprite sheet for an adult female sci-fi archer, a complementary "second" identity for an existing compact Relay roster.
