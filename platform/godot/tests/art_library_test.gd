@@ -382,7 +382,7 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"beast|*|mythical|first": "res://art/characters/mythical_beast_male_hd.png",
 		"beast|*|mythical|second": "res://art/characters/mythical_beast_female_hd.png",
 	}
-	for style: String in ["medieval", "nature", "sengoku", "undead"]:
+	for style: String in ["medieval", "nature", "sengoku", "undead", "pirates"]:
 		for archetype: String in ArtLibrary.ARCHETYPE_NAMES:
 			for figure: String in ["first", "second"]:
 				var body := "male" if figure == "first" else "female"
@@ -438,6 +438,7 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"nature": 0,
 		"sengoku": 0,
 		"undead": 0,
+		"pirates": 0,
 	}
 	for key: String in expected:
 		if not key.contains("|*|"):
@@ -489,6 +490,10 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 	_expect(
 		"all undead body and faction identities resolve",
 		resolution_counts.undead, 96
+	)
+	_expect(
+		"all pirates body and faction identities resolve",
+		resolution_counts.pirates, 96
 	)
 	var production_units := [
 		{

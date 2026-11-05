@@ -46,11 +46,11 @@ authored 3D terrain with animated high-resolution 2D characters.
 ![Godot rendering authored voxel terrain with animated character sprites](docs/screenshots/godot/voxel-sprites.png)
 
 The current Godot art pack covers all eight character archetypes and all
-thirteen terrain kinds. Six directions—sci-fi, mythical, medieval, nature,
-Sengoku, and Undead—have male and female designs for every archetype. Either
-body can wear any of the six faction colours without recolouring faces, hair,
-equipment, or effects. Pirates currently uses the generated portable fallback;
-that fallback also remains available for every archetype across all seven
+thirteen terrain kinds. All seven directions—sci-fi, mythical, medieval,
+nature, Sengoku, Undead, and Pirates—have male and female designs for every
+archetype. Either body can wear any of the six faction colours without
+recolouring faces, hair, equipment, or effects. The generated portable library
+also remains available as a fallback for every archetype across all seven
 styles, six faction colours, and two bodies. See the
 [artwork and animation roster](docs/ARTWORK.md) for animated previews and exact
 coverage.

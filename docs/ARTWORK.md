@@ -8,7 +8,8 @@ This page separates two useful meanings of “complete”:
 
 - The supported Godot presentation has male and female high-resolution
   characters for every archetype in the sci-fi, mythical, medieval, nature,
-  Sengoku, and Undead directions. All six support the six faction colours. Godot also
+  Sengoku, Undead, and Pirates directions. All seven support the six faction
+  colours. Godot also
   has one
   authored scene for each of the thirteen terrains.
 - The portable generated library covers every combination of eight archetypes,
@@ -16,8 +17,8 @@ This page separates two useful meanings of “complete”:
   with the constrained renderers and used as a safe fallback in Godot.
 
 The sci-fi direction established the high-resolution sheet contract. Mythical
-was the first expansion; medieval, nature, Sengoku, and Undead are 0.4
-additions. All six follow the same contract. This is the mythical roster:
+was the first expansion; medieval, nature, Sengoku, Undead, and Pirates are
+0.4 additions. All seven follow the same contract. This is the mythical roster:
 
 | Portable identity | Animated preview |
 |---|---|
@@ -39,10 +40,9 @@ additions. All six follow the same contract. This is the mythical roster:
 | Beast · female (`second`) · bone | ![The bone-armoured female mythical beast idles, walks, attacks, projects a primal ward, and reacts to a hit](screenshots/art-roster/mythical-beast-female.gif) |
 
 These eight finished body pairs cover every mythical archetype. The names
-describe their portable art identity, not a campaign. Pirates still uses its
-portable generated fallback until its curated Godot sheets are painted. Every
-valid project therefore remains
-playable while the remaining sets are built out.
+describe their portable art identity, not a campaign. The same coverage now
+exists for all seven styles. The portable generated library remains available
+as a safe fallback if an individual curated binding or file is missing.
 
 ## Bodies and team colours
 
@@ -93,6 +93,9 @@ colour at portrait and board scale:
 - [Browse all 96 Undead body-and-colour combinations](screenshots/art-roster/team-colours/undead/index.html).
 - [Inspect the Undead masks on idle poses](screenshots/art-roster/team-colours/undead/undead-team-masks-idle.png).
 - [Inspect the Undead masks across every action](screenshots/art-roster/team-colours/undead/undead-team-masks-actions.png).
+- [Browse all 96 Pirates body-and-colour combinations](screenshots/art-roster/team-colours/pirates/index.html).
+- [Inspect the Pirates masks on idle poses](screenshots/art-roster/team-colours/pirates/pirates-team-masks-idle.png).
+- [Inspect the Pirates masks across every action](screenshots/art-roster/team-colours/pirates/pirates-team-masks-actions.png).
 
 ## Animated sci-fi Godot roster
 
@@ -184,6 +187,24 @@ different silhouettes and equipment treatments.
 | Rogue | ![The male Undead rogue runs through the production actions](screenshots/art-roster/undead-rogue-male.gif) | ![The female Undead rogue runs through the production actions](screenshots/art-roster/undead-rogue-female.gif) |
 | Beast | ![The male Undead beast runs through the production actions](screenshots/art-roster/undead-beast-male.gif) | ![The female Undead beast runs through the production actions](screenshots/art-roster/undead-beast-female.gif) |
 
+## Animated Pirates Godot roster
+
+The Pirates roster uses weathered leather and linen, tarnished brass, dark
+wood, naval indigo, and pale sea-green or warm-gold effects. The age-of-sail
+language is shared across the roster while each role keeps unmistakable tools,
+clothing construction, and movement silhouettes.
+
+| Archetype | Male (`first`) | Female (`second`) |
+|---|---|---|
+| Knight | ![The male Pirates knight runs through the production actions](screenshots/art-roster/pirates-knight-male.gif) | ![The female Pirates knight runs through the production actions](screenshots/art-roster/pirates-knight-female.gif) |
+| Archer | ![The male Pirates archer runs through the production actions](screenshots/art-roster/pirates-archer-male.gif) | ![The female Pirates archer runs through the production actions](screenshots/art-roster/pirates-archer-female.gif) |
+| Mage | ![The male Pirates mage runs through the production actions](screenshots/art-roster/pirates-mage-male.gif) | ![The female Pirates mage runs through the production actions](screenshots/art-roster/pirates-mage-female.gif) |
+| Stormcaller | ![The male Pirates stormcaller runs through the production actions](screenshots/art-roster/pirates-stormcaller-male.gif) | ![The female Pirates stormcaller runs through the production actions](screenshots/art-roster/pirates-stormcaller-female.gif) |
+| Healer | ![The male Pirates healer runs through the production actions](screenshots/art-roster/pirates-healer-male.gif) | ![The female Pirates healer runs through the production actions](screenshots/art-roster/pirates-healer-female.gif) |
+| Commander | ![The male Pirates commander runs through the production actions](screenshots/art-roster/pirates-commander-male.gif) | ![The female Pirates commander runs through the production actions](screenshots/art-roster/pirates-commander-female.gif) |
+| Rogue | ![The male Pirates rogue runs through the production actions](screenshots/art-roster/pirates-rogue-male.gif) | ![The female Pirates rogue runs through the production actions](screenshots/art-roster/pirates-rogue-female.gif) |
+| Beast | ![The male Pirates beast runs through the production actions](screenshots/art-roster/pirates-beast-male.gif) | ![The female Pirates beast runs through the production actions](screenshots/art-roster/pirates-beast-female.gif) |
+
 Run the following command after changing a sheet to rebuild the previews:
 
 ```sh
@@ -206,12 +227,15 @@ tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style sengoku
 tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style undead
+tools/placeholder_art/.venv/bin/python \
+  platform/godot/scripts/generate-mythical-team-masks.py --style pirates
 platform/godot/scripts/generate-team-colour-showcase.sh
 platform/godot/scripts/generate-team-colour-showcase.sh --style scifi
 platform/godot/scripts/generate-team-colour-showcase.sh --style medieval
 platform/godot/scripts/generate-team-colour-showcase.sh --style nature
 platform/godot/scripts/generate-team-colour-showcase.sh --style sengoku
 platform/godot/scripts/generate-team-colour-showcase.sh --style undead
+platform/godot/scripts/generate-team-colour-showcase.sh --style pirates
 ```
 
 ## Terrain coverage
