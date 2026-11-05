@@ -247,8 +247,62 @@ int ink_in_band(int left, int right, int top, int bottom) {
 }
 #endif
 
+// The Stage-picker image doubles as the hands-on performance build. Normal
+// boards deliberately reuse a settled framebuffer when nothing changes, so a
+// counter over their sparse repaints would report about eight FPS even though
+// the video output is steady. That build continuously repaints the board (see
+// `advance_pulse`) and this counter therefore measures actual presented-frame
+// cadence. Probe and autopilot images stay pixel-identical to their checks.
+#if defined(GRANDLEON_STAGE_PICKER) && \
+    !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
+void draw_debug_fps(surface_t* disp) {
+    constexpr std::uint64_t sample_us = 500'000;
+    constexpr std::uint64_t stale_us = 250'000;
+    static std::uint64_t window_started = 0;
+    static std::uint64_t last_presented = 0;
+    static std::uint32_t frames = 0;
+    static std::uint32_t fps = 0;
+
+    const std::uint64_t now = get_ticks_us();
+    if (window_started == 0 ||
+        (last_presented != 0 && now - last_presented > stale_us)) {
+        window_started = now;
+        frames = 0;
+        fps = 0;
+    }
+    last_presented = now;
+    ++frames;
+    const std::uint64_t elapsed = now - window_started;
+    if (elapsed >= sample_us && frames > 1) {
+        fps = static_cast<std::uint32_t>(
+            ((frames - 1U) * 1'000'000ULL + elapsed / 2U) / elapsed
+        );
+        if (fps > 999U) fps = 999U;
+        window_started = now;
+        frames = 1;
+    }
+
+    graphics_draw_box(
+        disp, 260, 226, 60, 14, graphics_make_color(16, 26, 27, 255)
+    );
+    graphics_set_color(graphics_make_color(242, 193, 78, 255), 0);
+    char label[16];
+    if (fps == 0) {
+        std::snprintf(label, sizeof label, "FPS --");
+    } else {
+        std::snprintf(label, sizeof label, "FPS %lu",
+                      static_cast<unsigned long>(fps));
+    }
+    graphics_draw_text(disp, 264, 229, label);
+}
+#endif
+
 // Presents a frame, remembering it for the autopilot's checkpoints.
 void show(surface_t* disp) {
+#if defined(GRANDLEON_STAGE_PICKER) && \
+    !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
+    draw_debug_fps(disp);
+#endif
 #ifdef GRANDLEON_N64_AUTOPILOT
     autopilot_screen = disp;
 #endif
@@ -2190,11 +2244,22 @@ public:
     // checkpoint puts this counter back to zero, and both effects are at rest
     // at zero, so one pin settles the whole board.
     void advance_pulse(const sim::EncounterSnapshot& snapshot) {
+#if defined(GRANDLEON_STAGE_PICKER) && \
+    !defined(GRANDLEON_N64_AUTOPILOT)
+        // A performance number over four intentional repaints per 32 input
+        // ticks would measure the optimisation rather than the renderer. The
+        // debug image pays for a full board every tick so its FPS overlay is a
+        // real worst-case cadence. The ordinary image keeps the settled-frame
+        // reuse below.
+        ++pulse_frame_;
+        repaint_board(snapshot);
+#else
         const bool was = view::cursor_emphasised(pulse_frame_);
         const bool shimmered = view::water_cycle_changes(pulse_frame_);
         ++pulse_frame_;
         if (view::cursor_emphasised(pulse_frame_) == was && !shimmered) return;
         repaint_board(snapshot);
+#endif
     }
 #endif
 

@@ -14,7 +14,7 @@
 #   platform/nintendo64/scripts/build-n64.sh --targets grandleon_n64_campaign
 #                                                     build fewer than all of them
 #   platform/nintendo64/scripts/build-n64.sh --stage-picker
-#                                                     ROMs that can jump Stages
+#                                                     Stage jumps and live FPS
 #
 # `--project` is what makes this script serve an authoring surface as well as
 # the gate: the ROM's content is a build input, so a ROM of an author's own game
@@ -23,10 +23,11 @@
 # thirteen would be most of the wait.
 #
 # `--stage-picker` builds ROMs whose pause menu can leave a battle for any Stage
-# of the campaign. It is for looking at one thing in a late Stage without playing
-# to it, and a Stage reached that way has recorded nothing the ordinary route
-# would have, so a battle there can be unwinnable. Off unless asked for, and a
-# project cannot ask: it is a property of the image, not of the game.
+# of the campaign and whose screen carries a live FPS counter. It is for looking
+# at one thing in a late Stage without playing to it, and a Stage reached that
+# way has recorded nothing the ordinary route would have, so a battle there can
+# be unwinnable. Off unless asked for, and a project cannot ask: it is a
+# property of the image, not of the game.
 #
 # The published libdragon container carries the mips64-elf cross compiler only;
 # libdragon itself is not in it. So the base image is pinned by digest and

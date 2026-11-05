@@ -27,7 +27,10 @@ platform/nintendo64/scripts/build-n64.sh \
 
 The title flow asks for one or two players. During a battle, press Start and
 choose **Go to another Stage** to jump directly to any style. A jump records no
-victories for skipped Stages; that is intentional for this showcase.
+victories for skipped Stages; that is intentional for this showcase. This
+debug build also shows live FPS in the lower-right corner and continuously
+redraws the board so the number measures actual frame cadence rather than the
+normal renderer's reuse of an unchanged frame.
 
 `generate_project.py` keeps the regular 56-unit project readable and
 repeatable. Run it after changing the style, archetype, placement or terrain

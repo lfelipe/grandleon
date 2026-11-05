@@ -552,6 +552,11 @@ footer whenever it does anything. Both are built only when the session handed
 this ROM a list of Stages, which it does only in such a build, so neither reads
 the define and an ordinary ROM has neither.
 
+The same debug build shows live FPS at the lower right. It continuously redraws
+the board while the player is looking at it, making the number a worst-case
+presented-frame cadence. Ordinary ROMs keep the cheaper settled-frame reuse
+and carry neither the counter nor its extra redraw work.
+
 The screen lists the Stages under the author's own names, marks the one the
 campaign is standing on `HERE` and every one it has stood on `SEEN`, and says
 under its heading that a Stage with neither mark may not open. That is the
