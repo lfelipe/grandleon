@@ -2,6 +2,7 @@
 extends SceneTree
 
 const MotionPath = preload("res://scripts/motion_path.gd")
+const Locomotion = preload("res://scripts/locomotion.gd")
 
 var failures := 0
 
@@ -62,6 +63,14 @@ func _init() -> void:
 		{"route": route, "duration_msec": 300}, 1000, 5.0
 	)
 	_expect("profile pace scales recommendation", paced.duration_msec, 600)
+	var release_pace := MotionPath.begin(
+		Vector2.ZERO, Vector2.ZERO, Vector2(2, 1),
+		{"route": route, "duration_msec": 300}, 1000, 2.4
+	)
+	_expect(
+		"release pace leaves enough time to read the gait",
+		release_pace.duration_msec, 1250
+	)
 
 	var interrupted := MotionPath.begin(
 		Vector2(0.4, 0), Vector2.ZERO, Vector2(2, 1),
@@ -137,6 +146,29 @@ func _init() -> void:
 	_expect_vector(
 		"one-cell movement ends exactly",
 		MotionPath.sample(short, 5100).position, Vector2(1, 0)
+	)
+
+	var gait_config := {
+		"strideSecondsPerCell": 2.0 / 7.0,
+		"moveBobHeight": 0.045,
+		"moveSwayRadians": 0.025,
+	}
+	var planted := Locomotion.pose(1.0, gait_config)
+	var left_step := Locomotion.pose(1.25, gait_config)
+	var next_contact := Locomotion.pose(1.5, gait_config)
+	var right_step := Locomotion.pose(1.75, gait_config)
+	_expect_float("contact keeps a foot on the ground", planted.bob, 0.0)
+	_expect_float("left step has a visible body rise", left_step.bob, 0.045)
+	_expect_float("opposite contact returns to ground", next_contact.bob, 0.0)
+	_expect_float("right step has the same body rise", right_step.bob, 0.045)
+	_expect(
+		"weight transfer alternates sides",
+		float(left_step.sway) > 0.0 and float(right_step.sway) < 0.0,
+		true
+	)
+	_expect_float(
+		"walk frames advance from travelled distance",
+		Locomotion.pose(3.5, gait_config).animation_time, 1.0
 	)
 
 	if failures == 0:

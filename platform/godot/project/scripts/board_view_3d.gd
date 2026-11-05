@@ -3,6 +3,7 @@ class_name GrandleonBoardView3D
 extends SubViewportContainer
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
+const Locomotion = preload("res://scripts/locomotion.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
 const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
@@ -358,17 +359,17 @@ func _process(delta: float) -> void:
 				_unit_motion_states.erase(id)
 		var animation_config: Dictionary = profile_config.get("animation", {})
 		var animation_locked := now_msec < int(_unit_animation_lock_until.get(id, 0))
+		var gait := Locomotion.pose(stride_distance, animation_config)
 		if moving and not animation_locked:
 			_face_unit_in_direction(
 				int(id), travel,
 				minf(1.0, delta * float(animation_config.get("turnSpeed", 12.0)))
 			)
 		if moving:
-			settled.y += absf(sin(stride_distance * TAU)) * float(
-				animation_config.get("moveBobHeight", 0.018)
-			)
+			settled.y += float(gait.bob)
 		if moving and _authored_units.has(id) and not animation_locked:
 			_play_unit_animation(int(id), "move")
+			_sync_unit_stride_animation(int(id), float(gait.animation_time))
 		elif _authored_units.has(id) and not animation_locked:
 			_play_unit_animation(int(id), "idle")
 		elif not moving:
@@ -384,6 +385,7 @@ func _process(delta: float) -> void:
 					sprite, unit, int(id), now_msec,
 					stride_distance if moving else -1.0
 				)
+			sprite.rotation.z = float(gait.sway) if moving else 0.0
 			if now_msec < int(_unit_flash_until.get(id, 0)):
 				sprite.modulate = _unit_flash_colours.get(id, Color.WHITE)
 			else:
@@ -632,9 +634,9 @@ func _apply_sprite_frame(
 	var elapsed := float(maxi(0, now_msec - started)) / 1000.0
 	if state == "move" and stride_distance >= 0.0:
 		var animation_config: Dictionary = profile_config.get("animation", {})
-		elapsed = stride_distance * float(
-			animation_config.get("strideSecondsPerCell", 0.34)
-		)
+		elapsed = float(Locomotion.pose(
+			stride_distance, animation_config
+		).animation_time)
 	var info := art.character_frame(
 		unit, state, elapsed
 	)
@@ -965,15 +967,35 @@ func _play_unit_animation(id: int, state: String, lock_msec := 0, restart := fal
 	_set_sprite_animation(id, state, restart)
 	if not _unit_animators.has(id):
 		return
+	var animator: AnimationPlayer = _unit_animators[id]
+	if state != "move":
+		animator.speed_scale = 1.0
 	if not restart and _unit_animation_states.get(id, "") == state:
 		return
-	var animator: AnimationPlayer = _unit_animators[id]
 	var clips: Dictionary = _unit_animation_clips.get(id, {})
 	var clip := String(clips.get(state, ""))
 	if clip.is_empty() or not animator.has_animation(StringName(clip)):
 		return
 	animator.play(StringName(clip))
 	_unit_animation_states[id] = state
+
+
+func _sync_unit_stride_animation(id: int, animation_time: float) -> void:
+	if not _unit_animators.has(id):
+		return
+	var animator: AnimationPlayer = _unit_animators[id]
+	var clips: Dictionary = _unit_animation_clips.get(id, {})
+	var clip := StringName(String(clips.get("move", "")))
+	if clip.is_empty() or not animator.has_animation(clip):
+		return
+	var animation := animator.get_animation(clip)
+	if animation == null or animation.length <= 0.0:
+		return
+	# The board owns translation. Freezing the imported in-place clip and
+	# seeking it from travelled distance prevents the feet from cycling while
+	# acceleration has barely moved the body, which is the classic slide read.
+	animator.speed_scale = 0.0
+	animator.seek(fposmod(animation_time, animation.length), true)
 
 
 func _set_sprite_animation(id: int, state: String, restart := false) -> void:

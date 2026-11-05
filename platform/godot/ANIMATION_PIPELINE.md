@@ -85,9 +85,12 @@ the same portable route planner as the Nintendo 64 client over the pre-command
 snapshot: engine-reachable cells plus friendly occupied cells that may be
 crossed but not used as a destination. The route contains each cell after the
 origin and ends at the simulation event's destination. Its recommended duration
-uses the shared six frames per tile at 60 Hz, or 100 ms per cell.
-An art profile may tune that recommendation with its bounded `moveSpeed` value
-to fit an imported rig's gait without changing the portable route record.
+uses the shared six frames per tile at 60 Hz, or 100 ms per cell. An art profile
+may stretch that presentation with its bounded `moveSpeed` value to fit the
+art's gait without changing the portable route record. The shipped Godot
+profile uses 2.4 cells per second so one-cell movement remains readable. This
+is visual time only: the accepted snapshot and the next legal input do not wait
+for the figure to arrive on screen.
 
 Both Godot renderers validate adjacency, endpoint, and duration before using a
 record. A malformed or absent record falls back as one straight presentation
@@ -97,6 +100,12 @@ turns the scene toward the current leg, and interpolates authored surface
 heights while the 2D sampler uses the same cell path for sprite animation.
 Imported root motion remains in-place decoration: the settled position is
 always the destination in the subsequent authoritative snapshot.
+
+Walk frames, imported rig time, body rise, and side-to-side weight transfer are
+all sampled from distance travelled rather than wall-clock time. Each cell has
+two planted contacts with a visible rise between them. Acceleration,
+deceleration, a corner, or an interrupted route therefore cannot leave the
+feet cycling while the body barely moves.
 
 ## Imported roster and shared humanoid topology
 

@@ -271,16 +271,20 @@ and the terrain scenes live in
 
 ## Movement presentation
 
-Godot keeps the accepted grid route and its duration exactly as supplied by
-the simulation. The renderer eases only the picture at the beginning and end
-of that route, blends the character's facing across corners, and uses distance
-travelled to keep the walk frames and small body motion in phase. Terrain
-height is still interpolated between the two accepted cells. Interrupted moves
-start from the character's current visual position, while simultaneous
+Godot keeps the accepted grid route exactly as supplied by the simulation. The
+authoritative move is already committed; the renderer gives its picture a
+slower 2.4-cells-per-second pace, eases the beginning and end, and blends facing
+across route corners. Terrain height is interpolated between accepted cells.
+Interrupted moves start from the current visual position, while simultaneous
 two-player moves retain independent presentation state.
 
-This smoothing never changes movement range, route cells, arrival time,
-destination, input authority, or the portable state hash.
+Walk frames, imported 3D run clips, body rise, and alternating weight transfer
+all advance from distance travelled. Each cell has two planted contacts, so a
+character accelerates and slows without its feet cycling in place. This
+smoothing never changes movement range, route cells, destination, input
+authority, or the portable state hash.
+
+![A closer capture of two characters taking independent multi-cell routes with distance-matched steps](screenshots/godot/movement.gif)
 
 Reachable movement cells use the same player identity as the rest of the HUD:
 cyan for player one and amber for player two, with a stronger translucent fill

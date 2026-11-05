@@ -24,9 +24,11 @@ terrain rules, routes, timing, or combat results.
   curve: short acceleration, steady travel, and deceleration at the destination.
 - [x] Blend direction changes across route corners so characters turn into the
   next segment instead of snapping to a new facing.
-- [x] Keep feet, body bob, terrain height, and walk animation in phase, and test
-  short moves, long routes, simultaneous co-op movement, and interrupted or
-  overlapping presentation events.
+- [x] Slow visual travel enough to read at tactical distance, then keep planted
+  contacts, alternating weight transfer, body rise, terrain height, and walk
+  frames in phase from distance travelled. Test short moves, long routes,
+  simultaneous co-op movement, and interrupted or overlapping presentation
+  events.
 - [x] Preserve the simulation's authoritative route and destination. Smoothing
   may interpolate the picture between accepted states; it must never invent a
   position, shorten a route, delay input authority, or change a state hash.

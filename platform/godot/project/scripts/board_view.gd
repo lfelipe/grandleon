@@ -3,6 +3,7 @@ class_name GrandleonBoardView
 extends Node2D
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
+const Locomotion = preload("res://scripts/locomotion.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
 const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TILE_SOURCE := 32
@@ -26,6 +27,7 @@ var camera_impulse_enabled := true
 var _authoritative_positions: Dictionary = {}
 var _motion_states: Dictionary = {}
 var _pending_motion_records: Dictionary = {}
+var _unit_stride_distances: Dictionary = {}
 var _last_units: Dictionary = {}
 var _event_flash_until: Dictionary = {}
 var _event_flash_colours: Dictionary = {}
@@ -80,10 +82,12 @@ func update_snapshot(value: Dictionary) -> void:
 		if previous != destination:
 			var record: Dictionary = _pending_motion_records.get(id, {})
 			var animation_config: Dictionary = profile_config.get("animation", {})
-			_motion_states[id] = MotionPath.begin(
+			var motion_state := MotionPath.begin(
 				_animated_position(id, now_msec), previous, destination,
 				record, now_msec, float(animation_config.get("moveSpeed", 10.0))
 			)
+			motion_state.stride_origin = float(_unit_stride_distances.get(id, 0.0))
+			_motion_states[id] = motion_state
 			_pending_motion_records.erase(id)
 		_authoritative_positions[id] = destination
 	for id: Variant in _authoritative_positions.keys():
@@ -91,6 +95,7 @@ func update_snapshot(value: Dictionary) -> void:
 			_authoritative_positions.erase(id)
 			_motion_states.erase(id)
 			_pending_motion_records.erase(id)
+			_unit_stride_distances.erase(id)
 			_unit_facing_right.erase(id)
 	queue_redraw()
 
@@ -100,6 +105,10 @@ func _animated_position(id: int, now_msec: int) -> Vector2:
 	if not _motion_states.has(id):
 		return destination
 	var sampled: Dictionary = MotionPath.sample(_motion_states[id], now_msec)
+	_unit_stride_distances[id] = (
+		float(_motion_states[id].get("stride_origin", 0.0))
+		+ float(sampled.get("distance", 0.0))
+	)
 	if not bool(sampled.done):
 		_face_unit_in_direction(id, Vector2(sampled.direction))
 	if sampled.done:
@@ -515,9 +524,17 @@ func _draw_units() -> void:
 		var id := int(unit.id)
 		var board_position := _animated_position(id, now)
 		var centre := origin + (board_position + Vector2(0.5, 0.5)) * tile_size
-		var bob := sin(_pulse * 3.0 + float(id % 11)) * tile_size * 0.025
 		var state := _unit_animation_state(id, now)
 		var elapsed := _unit_animation_elapsed(id, state, now)
+		var animation_config: Dictionary = profile_config.get("animation", {})
+		var gait := Locomotion.pose(
+			float(_unit_stride_distances.get(id, 0.0)), animation_config
+		)
+		var bob := (
+			float(gait.bob) * tile_size
+			if state == "move"
+			else sin(_pulse * 3.0 + float(id % 11)) * tile_size * 0.025
+		)
 		var frame_info := art.character_frame(unit, state, elapsed)
 		var cell_size: Vector2i = frame_info.cell_size
 		var flip_h := _character_flip_h(id, frame_info)
@@ -543,7 +560,8 @@ func _draw_units() -> void:
 			float(cell_size.x), float(cell_size.y)
 		)
 		_draw_character_frame(
-			art.character_frame_texture(frame_info), destination, source, flip_h
+			art.character_frame_texture(frame_info), destination, source, flip_h,
+			float(gait.sway) if state == "move" else 0.0
 		)
 		if now < int(_event_flash_until.get(id, 0)):
 			var flash: Color = _event_flash_colours.get(id, Color.WHITE)
@@ -563,13 +581,16 @@ func _character_flip_h(id: int, frame_info: Dictionary) -> bool:
 
 
 func _draw_character_frame(
-	texture: Texture2D, destination: Rect2, source: Rect2, flip_h: bool
+	texture: Texture2D, destination: Rect2, source: Rect2, flip_h: bool,
+	rotation := 0.0
 ) -> void:
-	if not flip_h:
+	if not flip_h and is_zero_approx(rotation):
 		draw_texture_rect_region(texture, destination, source)
 		return
 	var centre := destination.get_center()
-	draw_set_transform(centre, 0.0, Vector2(-1.0, 1.0))
+	draw_set_transform(
+		centre, rotation, Vector2(-1.0, 1.0) if flip_h else Vector2.ONE
+	)
 	draw_texture_rect_region(
 		texture, Rect2(destination.size * -0.5, destination.size), source
 	)
@@ -598,8 +619,10 @@ func _unit_animation_elapsed(id: int, state: String, now_msec: int) -> float:
 	if now_msec < int(_unit_animation_until.get(id, 0)):
 		started = int(_unit_animation_started.get(id, now_msec))
 	elif state == "move":
-		var motion: Dictionary = _motion_states.get(id, {})
-		started = int(motion.get("started_msec", now_msec))
+		var animation_config: Dictionary = profile_config.get("animation", {})
+		return float(Locomotion.pose(
+			float(_unit_stride_distances.get(id, 0.0)), animation_config
+		).animation_time)
 	return float(maxi(0, now_msec - started)) / 1000.0
 
 

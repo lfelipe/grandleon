@@ -46,6 +46,8 @@ var demo_reel_round := -1
 var demo_reel_phase := 0
 var demo_reel_next_msec := 0
 var demo_reel_seats_ready := false
+var demo_reel_movement_only := false
+var demo_reel_movement_started := false
 var menu_preview := false
 var menu_preview_page := "root"
 var board_preview := false
@@ -360,6 +362,9 @@ func _parse_arguments() -> void:
 			coop_smoke = true
 		elif argument == "--demo-reel":
 			demo_reel = true
+		elif argument == "--movement-reel":
+			demo_reel = true
+			demo_reel_movement_only = true
 		elif argument == "--menu-preview":
 			menu_preview = true
 		elif argument.begins_with("--menu-preview-page="):
@@ -719,6 +724,9 @@ func _run_coop_smoke() -> void:
 func _run_demo_reel() -> void:
 	var now := Time.get_ticks_msec()
 	if _dialogue_visible():
+		if demo_reel_movement_only:
+			_advance_dialogue()
+			return
 		if now >= demo_reel_next_msec:
 			_advance_dialogue()
 			demo_reel_next_msec = now + 700
@@ -728,6 +736,25 @@ func _run_demo_reel() -> void:
 	if not demo_reel_seats_ready:
 		_activate_automated_coop_seats(true)
 		demo_reel_seats_ready = true
+	if demo_reel_movement_only:
+		if demo_reel_movement_started:
+			return
+		if demo_reel_next_msec == 0:
+			# Let the recorder attach after the board replaces the rapidly skipped
+			# story. The resulting clip begins on a calm pose, then shows the full
+			# acceleration, route, planted contacts and deceleration.
+			demo_reel_next_msec = now + 1500
+			return
+		if now < demo_reel_next_msec:
+			return
+		var queued := _queue_two_friendly_moves(false)
+		if queued != 2:
+			push_error("movement reel could not queue two independent moves")
+			get_tree().quit(2)
+			return
+		demo_reel_movement_started = true
+		status_label.text = "MOVEMENT / TWO INDEPENDENT ROUTES"
+		return
 	var round := int(snapshot.get("round", 0))
 	if round != demo_reel_round:
 		demo_reel_round = round
@@ -2507,7 +2534,11 @@ func _complete_request(event: Dictionary) -> void:
 			coop_smoke_accepted += 1
 			print("co-op smoke accepted move %d/%d" % [coop_smoke_accepted, coop_smoke_expected])
 		pending_requests.erase(request_id)
-		if completed is Dictionary and String(event.get("type", "")) == "snapshot":
+		if (
+			completed is Dictionary
+			and String(event.get("type", "")) == "snapshot"
+			and not demo_reel_movement_only
+		):
 			var command: Dictionary = completed
 			if String(command.get("kind", "")) == "move":
 				_open_action_popup(

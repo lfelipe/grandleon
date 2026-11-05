@@ -49,10 +49,11 @@
     },
     "animation": {
       "playerPath": "AnimationPlayer",
-      "moveSpeed": 9.0,
-      "turnSpeed": 12.0,
-      "moveBobHeight": 0.018,
-      "strideSecondsPerCell": 0.34,
+      "moveSpeed": 2.4,
+      "turnSpeed": 10.0,
+      "moveBobHeight": 0.045,
+      "moveSwayRadians": 0.025,
+      "strideSecondsPerCell": 0.2857142857,
       "clips": {
         "idle": "idle",
         "move": "run",

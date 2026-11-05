@@ -9,6 +9,15 @@ output_path="${2:-${build_dir}/grandleon-demo-reel.mp4}"
 godot_binary="${GRANDLEON_GODOT_BINARY:-}"
 duration="${GRANDLEON_DEMO_SECONDS:-20}"
 graphics_profile="${GRANDLEON_DEMO_GRAPHICS:-voxel-sprites}"
+demo_mode="${GRANDLEON_DEMO_MODE:-demo-reel}"
+
+case "${demo_mode}" in
+    demo-reel|movement-reel) ;;
+    *)
+        printf 'Unknown demo mode: %s\n' "${demo_mode}" >&2
+        exit 64
+        ;;
+esac
 
 absolute_path() {
     case "$1" in
@@ -66,6 +75,7 @@ if [[ "${GRANDLEON_DEMO_CAPTURE_CHILD:-0}" != 1 ]]; then
     GRANDLEON_GODOT_BINARY="${godot_binary}" \
     GRANDLEON_DEMO_SECONDS="${duration}" \
     GRANDLEON_DEMO_GRAPHICS="${graphics_profile}" \
+    GRANDLEON_DEMO_MODE="${demo_mode}" \
     GRANDLEON_DEMO_STATE_DIR="${state_dir}" \
         xvfb-run -a -s '-screen 0 1280x720x24' \
         "${BASH_SOURCE[0]}" "${build_dir}" "${output_path}"
@@ -96,7 +106,7 @@ game_arguments=(
     --campaign=emberbound
     --players=2
     "--graphics=${graphics_profile}"
-    --demo-reel
+    "--${demo_mode}"
 )
 
 XDG_DATA_HOME="${state_dir}/data" \

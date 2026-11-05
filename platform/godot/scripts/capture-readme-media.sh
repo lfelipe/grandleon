@@ -47,4 +47,22 @@ ffmpeg -hide_banner -loglevel warning -y \
 gifsicle -O3 --lossy=45 --colors 96 \
     "${temporary_dir}/gameplay.gif" -o "${output_dir}/gameplay.gif"
 
+# The wide reel proves the complete interaction, but its menus and small
+# figures are poor locomotion evidence. Record a clean pair of multi-cell moves
+# and keep them at a closer crop and higher frame rate for the human artwork
+# guide and review surface.
+GRANDLEON_DEMO_SECONDS=24 \
+GRANDLEON_DEMO_GRAPHICS=voxel-sprites \
+GRANDLEON_DEMO_MODE=movement-reel \
+    "${script_dir}/record-demo-reel.sh" \
+    "${build_dir}" "${temporary_dir}/movement.mp4"
+
+ffmpeg -hide_banner -loglevel warning -y \
+    -ss 18.5 -t 4.5 -i "${temporary_dir}/movement.mp4" \
+    -filter_complex \
+    '[0:v]fps=15,crop=720:540:160:70,scale=720:-1:flags=lanczos,split[video][palette_input];[palette_input]palettegen=max_colors=128[palette];[video][palette]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle' \
+    "${temporary_dir}/movement.gif"
+gifsicle -O3 --lossy=35 --colors 128 \
+    "${temporary_dir}/movement.gif" -o "${output_dir}/movement.gif"
+
 printf 'README Godot media: %s\n' "${output_dir}"

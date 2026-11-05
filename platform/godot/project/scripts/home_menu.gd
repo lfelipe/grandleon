@@ -100,6 +100,7 @@ func _should_open_game_directly() -> bool:
 			argument.contains("smoke")
 			or argument in [
 				"--demo-reel",
+				"--movement-reel",
 				"--menu-preview",
 				"--board-preview",
 				"--graphics-cycle-smoke",
