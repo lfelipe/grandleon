@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate deterministic team-colour masks for the mythical HD roster.
+"""Generate deterministic team-colour masks for an HD character roster.
 
 Each output is a two-channel grayscale-plus-alpha PNG. The grayscale channel
 preserves source luminance (and therefore painted shading); alpha stores soft
@@ -24,9 +24,9 @@ ROWS = 2
 COLS = 4
 SCRIPT_DIR = Path(__file__).resolve().parent
 CHARACTER_DIR = SCRIPT_DIR.parent / "project" / "art" / "characters"
-CONTACT_SHEET_DIR = SCRIPT_DIR.parents[2] / "docs" / "screenshots" / "art-roster" / "team-colours"
-IDLE_CONTACT_SHEET = CONTACT_SHEET_DIR / "mythical-team-masks-idle.png"
-ACTION_CONTACT_SHEET = CONTACT_SHEET_DIR / "mythical-team-masks-actions.png"
+TEAM_COLOUR_DIR = (
+    SCRIPT_DIR.parents[2] / "docs" / "screenshots" / "art-roster" / "team-colours"
+)
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ class MaskConfig:
 # Seed colours describe the intended source team-colour material, not the
 # destination faction colour. Multiple seeds cover the painted shadows and
 # highlights without flattening the source shading.
-MASK_CONFIGS: dict[str, MaskConfig] = {
+MYTHICAL_MASK_CONFIGS: dict[str, MaskConfig] = {
     "mythical_archer_hd.png": MaskConfig(
         seeds=("#43264f", "#633978", "#82519a", "#a875bb"),
         delta_e=25,
@@ -201,6 +201,208 @@ MASK_CONFIGS: dict[str, MaskConfig] = {
         value_max=0.77,
     ),
 }
+
+
+SCIFI_MASK_CONFIGS: dict[str, MaskConfig] = {
+    "relay_knight_hd.png": MaskConfig(
+        seeds=("#34447d", "#43548f", "#5668a6"),
+        delta_e=14,
+        feather=6,
+        hue_center=228,
+        hue_radius=15,
+        saturation_min=0.30,
+        value_min=0.18,
+        value_max=0.68,
+    ),
+    "scifi_knight_female_hd.png": MaskConfig(
+        seeds=("#202978", "#2c3383", "#373d93", "#4c55aa"),
+        delta_e=17,
+        feather=7,
+        hue_center=235,
+        hue_radius=15,
+        saturation_min=0.32,
+        value_max=0.72,
+        exclusion_boxes=tuple(
+            (index, 140, 10, 310, 180) for index in range(8)
+        ),
+    ),
+    "relay_archer_hd.png": MaskConfig(
+        seeds=("#26365f", "#384e87", "#4b63a0", "#6077b0"),
+        delta_e=18,
+        feather=7,
+        hue_center=224,
+        hue_radius=18,
+        saturation_min=0.22,
+        value_max=0.72,
+        exclusion_boxes=(
+            (0, 100, 130, 420, 320),
+            (1, 100, 130, 420, 320),
+            (2, 95, 125, 430, 310),
+            (3, 80, 125, 443, 310),
+            (4, 65, 55, 443, 245),
+            (5, 65, 55, 443, 255),
+            (6, 125, 140, 265, 270),
+            (6, 245, 215, 425, 385),
+            (7, 105, 130, 250, 245),
+            (7, 230, 190, 443, 375),
+        ),
+    ),
+    "scifi_archer_female_hd.png": MaskConfig(
+        seeds=("#19265f", "#24358c", "#2b3ea7", "#4155b6"),
+        delta_e=17,
+        feather=7,
+        hue_center=232,
+        hue_radius=16,
+        saturation_min=0.38,
+        value_max=0.75,
+    ),
+    "relay_mage_hd.png": MaskConfig(
+        seeds=("#2d3b61", "#3c4b79", "#4a5991", "#5b6a9d"),
+        delta_e=17,
+        feather=7,
+        hue_center=225,
+        hue_radius=17,
+        saturation_min=0.23,
+        value_min=0.12,
+        value_max=0.68,
+    ),
+    "scifi_mage_female_hd.png": MaskConfig(
+        seeds=("#151c63", "#1b237a", "#242d8e", "#3540a3"),
+        delta_e=17,
+        feather=7,
+        hue_center=235,
+        hue_radius=15,
+        saturation_min=0.36,
+        value_max=0.68,
+    ),
+    "relay_healer_hd.png": MaskConfig(
+        seeds=("#28345e", "#394574", "#475486", "#5a669a"),
+        delta_e=18,
+        feather=7,
+        hue_center=229,
+        hue_radius=20,
+        saturation_min=0.18,
+        value_max=0.67,
+    ),
+    "scifi_healer_female_hd.png": MaskConfig(
+        seeds=("#9c5a2b", "#b96d31", "#d3862e", "#e59939"),
+        delta_e=15,
+        feather=6,
+        hue_center=32,
+        hue_radius=11,
+        saturation_min=0.43,
+        value_min=0.35,
+        value_max=0.94,
+        minimum_core_fraction=0.04,
+        exclusion_boxes=tuple(
+            (index, 70, 0, 320, 210) for index in range(8)
+        ),
+    ),
+    "morrow_stormcaller_hd.png": MaskConfig(
+        seeds=("#38264e", "#52336c", "#63427b", "#826393"),
+        delta_e=21,
+        feather=8,
+        hue_center=286,
+        hue_radius=24,
+        saturation_min=0.16,
+        value_max=0.68,
+        minimum_core_fraction=0.035,
+    ),
+    "scifi_stormcaller_female_hd.png": MaskConfig(
+        seeds=("#4c365a", "#654477", "#794d93", "#8c66a0"),
+        delta_e=19,
+        feather=7,
+        hue_center=285,
+        hue_radius=22,
+        saturation_min=0.17,
+        value_max=0.72,
+        minimum_core_fraction=0.035,
+        exclusion_boxes=tuple(
+            (index, 90, 0, 320, 200) for index in range(8)
+        ),
+    ),
+    "rook_commander_hd.png": MaskConfig(
+        seeds=("#303762", "#363b6d", "#3c4172", "#4b5283"),
+        delta_e=13,
+        feather=6,
+        hue_center=234,
+        hue_radius=14,
+        saturation_min=0.29,
+        value_min=0.15,
+        value_max=0.58,
+    ),
+    "scifi_commander_female_hd.png": MaskConfig(
+        seeds=("#30365f", "#3b4684", "#4754a0", "#5866b1"),
+        delta_e=18,
+        feather=7,
+        hue_center=231,
+        hue_radius=18,
+        saturation_min=0.20,
+        value_max=0.72,
+    ),
+    "kestrel_rogue_hd.png": MaskConfig(
+        seeds=("#132e36", "#204953", "#2c5a66", "#447274"),
+        delta_e=19,
+        feather=7,
+        hue_center=188,
+        hue_radius=24,
+        saturation_min=0.15,
+        value_max=0.62,
+        minimum_core_fraction=0.035,
+    ),
+    "scifi_rogue_female_hd.png": MaskConfig(
+        seeds=("#18383c", "#245154", "#325e60", "#3b7674"),
+        delta_e=16,
+        feather=7,
+        hue_center=183,
+        hue_radius=19,
+        saturation_min=0.20,
+        saturation_max=0.65,
+        value_max=0.52,
+        minimum_core_fraction=0.035,
+        exclusion_boxes=((6, 0, 0, 150, 443),),
+    ),
+    "relay_beast_hd.png": MaskConfig(
+        seeds=("#56456b", "#755194", "#9370b1", "#a377bf"),
+        delta_e=15,
+        feather=7,
+        hue_center=277,
+        hue_radius=18,
+        saturation_min=0.25,
+        value_max=0.80,
+        minimum_core_fraction=0.025,
+    ),
+    "scifi_beast_female_hd.png": MaskConfig(
+        seeds=("#554264", "#76598b", "#9872b1"),
+        delta_e=16,
+        feather=7,
+        hue_center=280,
+        hue_radius=18,
+        saturation_min=0.23,
+        value_max=0.78,
+        minimum_core_fraction=0.025,
+    ),
+}
+
+
+SCIFI_SOURCE_ORDER = (
+    "relay_knight_hd.png",
+    "scifi_knight_female_hd.png",
+    "relay_archer_hd.png",
+    "scifi_archer_female_hd.png",
+    "relay_mage_hd.png",
+    "scifi_mage_female_hd.png",
+    "relay_healer_hd.png",
+    "scifi_healer_female_hd.png",
+    "morrow_stormcaller_hd.png",
+    "scifi_stormcaller_female_hd.png",
+    "rook_commander_hd.png",
+    "scifi_commander_female_hd.png",
+    "kestrel_rogue_hd.png",
+    "scifi_rogue_female_hd.png",
+    "relay_beast_hd.png",
+    "scifi_beast_female_hd.png",
+)
 
 
 def parse_hex(value: str) -> tuple[int, int, int]:
@@ -473,8 +675,11 @@ def load_font(size: int) -> ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
-def generate_idle_contact_sheet(items: list[tuple[Path, Image.Image, Image.Image]]) -> None:
-    CONTACT_SHEET_DIR.mkdir(parents=True, exist_ok=True)
+def generate_idle_contact_sheet(
+    items: list[tuple[Path, Image.Image, Image.Image]],
+    destination: Path,
+) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
     panel_size = (150, 150)
     tile_size = (470, 190)
     sheet = Image.new("RGB", (tile_size[0] * 4, tile_size[1] * 4), (31, 36, 43))
@@ -495,11 +700,14 @@ def generate_idle_contact_sheet(items: list[tuple[Path, Image.Image, Image.Image
         for panel_index, panel in enumerate(panels):
             sheet.paste(panel, (origin_x + panel_index * 155, origin_y + 28))
         draw.text((origin_x + 6, origin_y + 6), source_path.stem, fill="white", font=font)
-    sheet.save(IDLE_CONTACT_SHEET, optimize=True)
+    sheet.save(destination, optimize=True)
 
 
-def generate_action_contact_sheet(items: list[tuple[Path, Image.Image, Image.Image]]) -> None:
-    CONTACT_SHEET_DIR.mkdir(parents=True, exist_ok=True)
+def generate_action_contact_sheet(
+    items: list[tuple[Path, Image.Image, Image.Image]],
+    destination: Path,
+) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
     panel_size = (430, 215)
     tile_size = (440, 470)
     sheet = Image.new("RGB", (tile_size[0] * 4, tile_size[1] * 4), (31, 36, 43))
@@ -513,16 +721,32 @@ def generate_action_contact_sheet(items: list[tuple[Path, Image.Image, Image.Ima
         sheet.paste(composite_on_dark(source, panel_size), (origin_x + 5, origin_y + 28))
         sheet.paste(overlay_preview(source, mask, panel_size), (origin_x + 5, origin_y + 248))
         draw.text((origin_x + 6, origin_y + 6), source_path.stem, fill="white", font=font)
-    sheet.save(ACTION_CONTACT_SHEET, optimize=True)
+    sheet.save(destination, optimize=True)
 
 
-def source_paths() -> list[Path]:
-    return [CHARACTER_DIR / name for name in sorted(MASK_CONFIGS)]
+def style_settings(
+    style: str,
+) -> tuple[dict[str, MaskConfig], tuple[str, ...], Path, Path]:
+    if style == "mythical":
+        configs = MYTHICAL_MASK_CONFIGS
+        names = tuple(sorted(configs))
+        contact_dir = TEAM_COLOUR_DIR
+    elif style == "scifi":
+        configs = SCIFI_MASK_CONFIGS
+        names = SCIFI_SOURCE_ORDER
+        contact_dir = TEAM_COLOUR_DIR / "scifi"
+    else:
+        raise ValueError(f"unknown roster style {style!r}")
+    idle_contact = contact_dir / f"{style}-team-masks-idle.png"
+    action_contact = contact_dir / f"{style}-team-masks-actions.png"
+    return configs, names, idle_contact, action_contact
 
 
-def run(validate_only: bool, contact_sheets: bool) -> None:
+def run(style: str, validate_only: bool, contact_sheets: bool) -> None:
+    configs, names, idle_contact, action_contact = style_settings(style)
     items: list[tuple[Path, Image.Image, Image.Image]] = []
-    for source_path in source_paths():
+    for name in names:
+        source_path = CHARACTER_DIR / name
         if not source_path.exists():
             raise FileNotFoundError(source_path)
         source = Image.open(source_path).convert("RGBA")
@@ -532,13 +756,13 @@ def run(validate_only: bool, contact_sheets: bool) -> None:
                 raise FileNotFoundError(destination)
             mask = Image.open(destination)
         else:
-            mask = generate_mask(source, MASK_CONFIGS[source_path.name])
+            mask = generate_mask(source, configs[source_path.name])
             mask.save(destination, optimize=True)
         coverage = validate_mask(
             source_path,
             source,
             mask,
-            MASK_CONFIGS[source_path.name],
+            configs[source_path.name],
         )
         print(
             f"{source_path.name}: "
@@ -546,14 +770,20 @@ def run(validate_only: bool, contact_sheets: bool) -> None:
         )
         items.append((source_path, source, mask))
     if contact_sheets:
-        generate_idle_contact_sheet(items)
-        generate_action_contact_sheet(items)
-        print(f"wrote {IDLE_CONTACT_SHEET}")
-        print(f"wrote {ACTION_CONTACT_SHEET}")
+        generate_idle_contact_sheet(items, idle_contact)
+        generate_action_contact_sheet(items, action_contact)
+        print(f"wrote {idle_contact}")
+        print(f"wrote {action_contact}")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--style",
+        choices=("mythical", "scifi"),
+        default="mythical",
+        help="roster style to generate (default: mythical)",
+    )
     parser.add_argument(
         "--validate-only",
         action="store_true",
@@ -570,7 +800,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        run(args.validate_only, not args.no_contact_sheets)
+        run(args.style, args.validate_only, not args.no_contact_sheets)
     except (FileNotFoundError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
