@@ -25,8 +25,9 @@ GRANDLEON_WINDOWED=1 out/grandleon-pc/launch-pc.sh
 ```
 
 The bundle includes the pinned Godot runtime, the native extension, imported
-assets, and the compiled included campaign. It does not require a system Godot
-installation.
+assets, and two compiled examples: **The Tarnholt Line** for one player and
+**Emberbound: The Last Dawn** for two-player local co-op. It does not require a
+system Godot installation.
 
 For an incremental developer build:
 
@@ -43,9 +44,10 @@ extension API to Godot 4.7.
 
 ## Home, play, and local co-op
 
-Ordinary launches open a controller-first home screen containing the included
-game, local projects, **Create / Edit Games**, and **Exit**. It displays titles,
-not paths or internal project identifiers.
+Ordinary launches open a controller-first home screen containing both included
+campaigns, local projects, **Create / Edit Games**, and **Exit**. Each included
+campaign states its intended player count. The screen displays titles, not
+paths or internal project identifiers.
 
 Play supports one or two local controls. Each player has an independent cursor,
 selection, and command queue. Friendly movement and presentation may overlap,
@@ -112,11 +114,12 @@ The maintainer-facing payload format is documented in
 
 ## Graphics and artwork
 
-The supported presentation uses authored 3D voxel terrain and two curated
-high-resolution sprite directions. Both the sci-fi and mythical sets provide
-male and female designs for every archetype, with reusable masks for all six
-faction colours. Experimental renderers remain available only to focused
-developer checks; they are not player settings.
+The supported presentation uses authored 3D voxel terrain and seven curated
+high-resolution sprite directions: sci-fi, mythical, medieval, nature,
+Sengoku, Undead, and Pirates. Every set provides male and female designs for
+all eight archetypes, with reusable masks for all six faction colours.
+Experimental renderers remain available only to focused developer checks;
+they are not player settings.
 
 [GRAPHICS.md](GRAPHICS.md) describes the presentation, current coverage, replacement
 boundary, and capture commands. The human-facing animated roster is in

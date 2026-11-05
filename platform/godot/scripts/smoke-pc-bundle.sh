@@ -6,16 +6,18 @@ script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
 bundle_dir=""
 require_clean=0
+require_examples=0
 
 usage() {
     printf '%s\n' \
-        "usage: $0 [--require-clean] BUNDLE" \
+        "usage: $0 [--require-clean] [--require-examples] BUNDLE" \
         "Validates one packaged PC build through its launcher and bundled Godot runtime."
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --require-clean) require_clean=1; shift ;;
+        --require-examples) require_examples=1; shift ;;
         --help|-h) usage; exit 0 ;;
         --*) usage >&2; exit 64 ;;
         *)
@@ -84,6 +86,7 @@ fi
 source_revision="$(sed -n 's/^sourceRevision=//p' "${bundle_dir}/BUILD-INFO.txt")"
 source_state="$(sed -n 's/^sourceTree=//p' "${bundle_dir}/BUILD-INFO.txt")"
 release_version="$(sed -n 's/^releaseVersion=//p' "${bundle_dir}/BUILD-INFO.txt")"
+included_campaigns="$(sed -n 's/^includedCampaigns=//p' "${bundle_dir}/BUILD-INFO.txt")"
 expected_release="$(tr -d '\r\n' <"${repo_root}/RELEASE_VERSION")"
 if [[ "${release_version}" != "${expected_release}" ]]; then
     printf 'PC bundle release version is %s; expected %s\n' \
@@ -101,6 +104,20 @@ fi
 if [[ "${require_clean}" == 1 && "${source_state}" != clean ]]; then
     printf 'PC release bundle was built from a dirty source tree\n' >&2
     exit 65
+fi
+if [[ "${require_examples}" == 1 ]]; then
+    if [[ "${included_campaigns}" != "tarnholt:1,emberbound:2" ]]; then
+        printf 'PC bundle does not identify both 0.4 example campaigns\n' >&2
+        exit 65
+    fi
+    for example in \
+        project/content/included/tarnholt.gpk \
+        project/content/included/emberbound.gpk; do
+        if [[ ! -s "${bundle_dir}/${example}" ]]; then
+            printf 'PC bundle example is missing or empty: %s\n' "${example}" >&2
+            exit 66
+        fi
+    done
 fi
 if strings "${bundle_dir}/project/bin/libgrandleon_godot.so" | \
         grep -Fq "${repo_root}"; then
@@ -149,11 +166,15 @@ XDG_CACHE_HOME="${state_dir}/cache" \
     --path "${bundle_dir}/project" -- --frame-timing-smoke
 
 capture_path="${state_dir}/concurrent-coop.png"
+coop_package="res://game.gpk"
+if [[ "${require_examples}" == 1 ]]; then
+    coop_package="res://content/included/emberbound.gpk"
+fi
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
     timeout 30s "${renderer[@]}" --path "${bundle_dir}/project" -- \
-    --package=res://game.gpk \
+    "--package=${coop_package}" \
     --campaign=emberbound \
     --players=2 \
     --graphics=voxel-sprites \
@@ -163,6 +184,27 @@ XDG_CACHE_HOME="${state_dir}/cache" \
 if [[ ! -s "${capture_path}" ]]; then
     printf 'Packaged PC co-op capture was not written\n' >&2
     exit 1
+fi
+
+if [[ "${require_examples}" == 1 ]]; then
+    solo_output="$({
+        XDG_DATA_HOME="${state_dir}/data" \
+        XDG_CONFIG_HOME="${state_dir}/config" \
+        XDG_CACHE_HOME="${state_dir}/cache" \
+            timeout 30s "${bundle_dir}/godot" --headless \
+            --path "${bundle_dir}/project" -- \
+            --package=res://content/included/tarnholt.gpk \
+            --campaign=tarnholt_line \
+            --players=1 \
+            --included-campaign-smoke
+    } 2>&1)"
+    printf '%s\n' "${solo_output}"
+    if ! grep -Fq \
+            'included campaign integration smoke passed: tarnholt_line (1 players)' \
+            <<<"${solo_output}" || grep -Fq 'SCRIPT ERROR' <<<"${solo_output}"; then
+        printf 'Packaged Tarnholt did not open in one-player mode\n' >&2
+        exit 1
+    fi
 fi
 
 printf 'PC bundle acceptance smoke passed: %s (%s)\n' \

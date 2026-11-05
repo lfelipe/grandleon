@@ -1,10 +1,11 @@
 # The Tarnholt Line
 
-A six-map campaign with a small story, a branch that reconverges, and an end.
-`games/demo` is the maintained vertical slice; this is the project's **worked
-campaign**: the place where every authoring capability the engine offers is
-used by shipped content rather than only by a fixture. The section at the end
-names what it found inexpressible.
+A six-map solo campaign with a small story, a branch that reconverges, and an
+end. Grandleon 0.4 includes it on the Godot home screen as **The Tarnholt Line
+— one player**. It is also the project's **worked campaign**: the place where
+every authoring capability the engine offers is used by shipped content rather
+than only by a fixture. The section at the end names what it found
+inexpressible.
 
 ## The campaign
 

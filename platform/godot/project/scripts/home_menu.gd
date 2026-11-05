@@ -5,6 +5,7 @@ const ControlProfile = preload("res://scripts/control_profile.gd")
 const PresentationSettings = preload("res://scripts/presentation_settings.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const GRAPHICS_PROFILES := ["voxel-sprites"]
+const INCLUDED_GAMES_PATH := "res://content/included_games.json"
 
 var library
 var compiler
@@ -20,6 +21,7 @@ var home_smoke := false
 var home_stick_expected := ""
 var stick_mode := "deliberate"
 var game_button_count := 0
+var included_games: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -181,12 +183,25 @@ func _refresh_games() -> void:
 	for child: Node in games_list.get_children():
 		child.queue_free()
 	game_button_count = 0
-	var included := _button("EMBERBOUND: THE LAST DAWN\nINCLUDED GAME")
-	included.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	included.pressed.connect(_play_included)
-	games_list.add_child(included)
-	first_button = included
-	game_button_count += 1
+	first_button = null
+	included_games = _available_included_games()
+	for game: Dictionary in included_games:
+		var included := _button("%s\n%s" % [
+			str(game.title).to_upper(), str(game.label).to_upper()
+		])
+		included.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		included.pressed.connect(_play_included.bind(game))
+		games_list.add_child(included)
+		if first_button == null:
+			first_button = included
+		game_button_count += 1
+	if included_games.is_empty() and FileAccess.file_exists("res://game.gpk"):
+		var included := _button("INCLUDED GAME\nDEFAULT CAMPAIGN")
+		included.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		included.pressed.connect(_play_default_included)
+		games_list.add_child(included)
+		first_button = included
+		game_button_count += 1
 	if not creator_enabled or library == null:
 		return
 	for project: Dictionary in library.list_projects():
@@ -196,10 +211,49 @@ func _refresh_games() -> void:
 		button.disabled = not bool(project.get("readable", false))
 		button.pressed.connect(_play_project.bind(String(project.get("id", ""))))
 		games_list.add_child(button)
+		if first_button == null:
+			first_button = button
 		game_button_count += 1
 
 
-func _play_included() -> void:
+func _available_included_games() -> Array[Dictionary]:
+	var available: Array[Dictionary] = []
+	var source := FileAccess.get_file_as_string(INCLUDED_GAMES_PATH)
+	var parsed := JSON.new()
+	if source.is_empty() or parsed.parse(source) != OK or not parsed.data is Dictionary:
+		return available
+	for value: Variant in parsed.data.get("games", []):
+		if not value is Dictionary:
+			continue
+		var game: Dictionary = value
+		var path := str(game.get("path", ""))
+		var campaign := str(game.get("campaign", ""))
+		var title := str(game.get("title", ""))
+		var players := int(game.get("players", 0))
+		if (
+			path.begins_with("res://content/included/")
+			and path.ends_with(".gpk")
+			and FileAccess.file_exists(path)
+			and not campaign.is_empty()
+			and not title.is_empty()
+			and players in [1, 2]
+		):
+			available.append(game.duplicate(true))
+	return available
+
+
+func _play_included(game: Dictionary) -> void:
+	var bytes := FileAccess.get_file_as_bytes(str(game.path))
+	if bytes.is_empty():
+		_set_status("THIS INCLUDED CAMPAIGN COULD NOT BE OPENED", true)
+		return
+	LaunchContext.stage_package(
+		bytes, str(game.campaign), false, int(game.players)
+	)
+	get_tree().change_scene_to_file("res://main.tscn")
+
+
+func _play_default_included() -> void:
 	LaunchContext.clear()
 	get_tree().change_scene_to_file("res://main.tscn")
 
@@ -248,9 +302,13 @@ func _set_status(message: String, failure: bool) -> void:
 
 func _run_smoke() -> void:
 	var valid := (
-		game_button_count >= 1
+		game_button_count >= 2
+		and included_games.size() == 2
 		and first_button != null
-		and first_button.text.contains("EMBERBOUND")
+		and first_button.text.contains("TARNHOLT")
+		and int(included_games[0].players) == 1
+		and str(included_games[1].campaign) == "emberbound"
+		and int(included_games[1].players) == 2
 		and controls != null
 		and PCNavigation.raw_stick_ui_event_count() == 0
 		and (home_stick_expected.is_empty() or stick_mode == home_stick_expected)

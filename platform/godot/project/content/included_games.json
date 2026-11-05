@@ -1,0 +1,18 @@
+{
+  "games": [
+    {
+      "title": "The Tarnholt Line",
+      "label": "One-player included campaign",
+      "path": "res://content/included/tarnholt.gpk",
+      "campaign": "tarnholt_line",
+      "players": 1
+    },
+    {
+      "title": "Emberbound: The Last Dawn",
+      "label": "Two-player included campaign",
+      "path": "res://content/included/emberbound.gpk",
+      "campaign": "emberbound",
+      "players": 2
+    }
+  ]
+}

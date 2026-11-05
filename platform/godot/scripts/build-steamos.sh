@@ -10,6 +10,7 @@ output_dir="${repo_root}/out/grandleon-pc"
 godot_binary=""
 campaign_key="emberbound"
 player_only=0
+include_examples=1
 release_version="$(tr -d '\r\n' <"${repo_root}/RELEASE_VERSION")"
 
 usage() {
@@ -20,7 +21,7 @@ usage() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --project) project_source="$2"; shift 2 ;;
+        --project) project_source="$2"; include_examples=0; shift 2 ;;
         --campaign) campaign_key="$2"; shift 2 ;;
         --player-only) player_only=1; shift ;;
         --build-dir) build_dir="$2"; shift 2 ;;
@@ -80,6 +81,17 @@ cmake --build "${build_dir}" --parallel --target \
 
 stage_dir="${build_dir}/platform/godot/project/app"
 "${build_dir}/grandleon_content_compile" "${project_source}" "${stage_dir}/game.gpk"
+if [[ "${include_examples}" == "1" ]]; then
+    cmake -E make_directory "${stage_dir}/content/included"
+    "${build_dir}/grandleon_content_compile" \
+        "${repo_root}/games/tarnholt/source/project.json" \
+        "${stage_dir}/content/included/tarnholt.gpk"
+    "${build_dir}/grandleon_content_compile" \
+        "${repo_root}/games/emberbound/source/project.json" \
+        "${stage_dir}/content/included/emberbound.gpk"
+else
+    cmake -E remove_directory "${stage_dir}/content/included"
+fi
 
 # Keep all editor state and import caches out of the user's home directory.
 godot_state="${build_dir}/godot-state"
@@ -163,6 +175,11 @@ fi
     printf 'sourceTree=%s\n' "${source_state}"
     printf 'godotVersion=%s\n' "${godot_version}"
     printf 'defaultCampaign=%s\n' "${campaign_key}"
+    if [[ "${include_examples}" == "1" ]]; then
+        printf 'includedCampaigns=tarnholt:1,emberbound:2\n'
+    else
+        printf 'includedCampaigns=none\n'
+    fi
     printf 'defaultGraphics=voxel-sprites\n'
     printf 'creatorIncluded=%s\n' "${creator_included}"
 } >"${temporary_dir}/BUILD-INFO.txt"

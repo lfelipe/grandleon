@@ -66,6 +66,7 @@ var campaign_management_member_id := 0
 var campaign_management_item_id := 0
 var fixed_formation_smoke := false
 var fixed_formation_skipped := false
+var included_campaign_smoke := false
 var draft_preview := false
 var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
 var campaign_complete := false
@@ -148,6 +149,9 @@ func _ready() -> void:
 	_parse_arguments()
 	var staged: Dictionary = LaunchContext.take_package()
 	draft_preview = bool(staged.get("draft_preview", false))
+	if not staged.is_empty():
+		campaign_key = str(staged.get("campaign", campaign_key))
+		player_count = clampi(int(staged.get("players", player_count)), 1, 2)
 	# A creator preview must neither resume nor replace the installed game's
 	# campaign checkpoints. It still enters battle through the native company
 	# command below, preserving portable roster and deployment validation.
@@ -218,7 +222,6 @@ func _ready() -> void:
 			absolute_package, campaign_key, player_count, campaign_save_root
 		)
 	else:
-		campaign_key = str(staged.campaign)
 		started = session.start_package(
 			staged.package, campaign_key, player_count, campaign_save_root
 		)
@@ -226,6 +229,14 @@ func _ready() -> void:
 		_show_fatal(session.last_error())
 	else:
 		status_label.text = "LOADING CAMPAIGN"
+		if included_campaign_smoke:
+			print(
+				"included campaign integration smoke passed: %s (%d players)" % [
+					campaign_key, player_count
+				]
+			)
+			get_tree().quit()
+			return
 	set_process(true)
 
 
@@ -371,6 +382,8 @@ func _parse_arguments() -> void:
 			campaign_management_preview = true
 		elif argument == "--fixed-formation-smoke":
 			fixed_formation_smoke = true
+		elif argument == "--included-campaign-smoke":
+			included_campaign_smoke = true
 
 
 func _resolve_campaign_save_root() -> String:

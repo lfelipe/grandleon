@@ -108,7 +108,8 @@ done
 
 if [[ -n "${bundle_dir}" ]]; then
     run_step "Packaged PC acceptance" \
-        "${script_dir}/smoke-pc-bundle.sh" --require-clean "${bundle_dir}"
+        "${script_dir}/smoke-pc-bundle.sh" \
+        --require-clean --require-examples "${bundle_dir}"
 fi
 
 printf '\nPC release smoke passed\n'

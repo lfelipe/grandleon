@@ -38,6 +38,22 @@ The creator is designed around ordinary game-making tasks rather than source
 files or internal identifiers. [Creating a game](docs/CREATING_A_GAME.md) walks
 through the complete workflow with screenshots from the real application.
 
+## Play the included campaigns
+
+The home screen includes two complete examples with their intended player
+counts shown before launch:
+
+- **The Tarnholt Line — one player.** The earlier six-battle campaign is a
+  longer solo test of branching story, recruitment, deployment, survival
+  goals, and a final boss.
+- **Emberbound: The Last Dawn — two players.** The current five-battle local
+  co-op campaign divides one allied company between two independent controls.
+
+These are separate compiled games, not two labels for the same package. They
+also remain portable projects under `games/tarnholt` and `games/emberbound`, so
+the engine and console tests exercise the same authored source as the PC
+examples.
+
 ## The Godot presentation
 
 Godot is the main player and creator. Its supported presentation combines
@@ -89,7 +105,7 @@ rest of the documentation describes the current Godot application.
 | **0.1 — portable foundation** | Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
 | **0.2 — complete campaign runtime** | Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3 — Godot player and creator** | Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
-| **0.4 — broader art and console 3D experiments** | Expands Godot artwork so every intended setting has a coherent high-resolution presentation, adds theme-aware terrain coverage, and revisits recognizable low-detail 3D characters on PlayStation and Nintendo 64 within each console's limits. This is the current development line. |
+| **0.4 — broader art and console 3D experiments** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, includes distinct solo and local co-op campaigns, and records a bounded low-detail 3D comparison on PlayStation and Nintendo 64. This is the current development line. |
 | **0.5 — editor product pass** | Concentrates on the complete authoring experience: clearer workflows, stronger previews, better project organization, and the usability and accessibility work needed for larger games. |
 | **0.6 — cinematic battles** | Adds an optional terrain-aware close-up attack view with counter-attacks and damage numbers, while retaining the faster board-only presentation as a game setting. |
 

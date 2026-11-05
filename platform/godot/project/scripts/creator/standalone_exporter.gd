@@ -14,6 +14,7 @@ const REQUIRED_SHELL_FILES := [
 const EXCLUDED_DIRECTORIES := [
 	"runtime",
 	"project/content/templates",
+	"project/content/included",
 ]
 const EXCLUDED_FILES := [
 	"graphics.local.json",

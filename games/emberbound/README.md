@@ -1,8 +1,9 @@
 # Emberbound: The Last Dawn
 
-This is the single player-facing Grand Leon campaign used by the PC build. It
-contains five escalating battles, including the opening movement-and-attack
-tutorial and the final Regent Veyr boss fight.
+This is Grandleon's included two-player campaign. The Godot home screen labels
+it **Emberbound: The Last Dawn — two-player included campaign**. It contains
+five escalating battles, including the opening movement-and-attack tutorial
+and the final Regent Veyr boss fight.
 
 Auren, Rowanfield's bell-ringer, and Senna, an apprentice mapmaker, awaken a
 pair of embers when each turns back to save the other. They are chosen by that
