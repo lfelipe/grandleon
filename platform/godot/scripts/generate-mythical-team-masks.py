@@ -465,6 +465,10 @@ CURATED_MASK_EXCLUSIONS: dict[
         (6, 230, 0, 443, 443),
         (6, 0, 355, 443, 443),
     ),
+    # The storm cloud is attached to the staff/hand silhouette, so connected
+    # component filtering alone cannot distinguish it from the blue robe.
+    "nature_stormcaller_male_hd.png": ((6, 245, 0, 443, 443),),
+    "nature_stormcaller_female_hd.png": ((6, 245, 0, 443, 443),),
 }
 
 

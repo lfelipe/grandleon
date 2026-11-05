@@ -7,16 +7,16 @@ authored 3D terrain with animated high-resolution characters.
 This page separates two useful meanings of “complete”:
 
 - The supported Godot presentation has male and female high-resolution
-  characters for every archetype in the sci-fi, mythical, and medieval
-  directions. All three support the six faction colours. Godot also has one
+  characters for every archetype in the sci-fi, mythical, medieval, and nature
+  directions. All four support the six faction colours. Godot also has one
   authored scene for each of the thirteen terrains.
 - The portable generated library covers every combination of eight archetypes,
   seven styles, six faction colours, and two figures. These are the assets shared
   with the constrained renderers and used as a safe fallback in Godot.
 
 The sci-fi direction established the high-resolution sheet contract. Mythical
-was the first expansion and medieval is the first complete 0.4 addition. All
-three follow the same contract. This is the mythical roster:
+was the first expansion; medieval and nature are the first 0.4 additions. All
+four follow the same contract. This is the mythical roster:
 
 | Portable identity | Animated preview |
 |---|---|
@@ -38,9 +38,9 @@ three follow the same contract. This is the mythical roster:
 | Beast · female (`second`) · bone | ![The bone-armoured female mythical beast idles, walks, attacks, projects a primal ward, and reacts to a hit](screenshots/art-roster/mythical-beast-female.gif) |
 
 These eight finished body pairs cover every mythical archetype. The names
-describe their portable art identity, not a campaign. Nature, Sengoku Japan,
-Undead, and Pirates still use their portable generated fallback until their
-curated Godot sheets are painted. Every valid project therefore remains
+describe their portable art identity, not a campaign. Sengoku Japan, Undead,
+and Pirates still use their portable generated fallback until their curated
+Godot sheets are painted. Every valid project therefore remains
 playable while the remaining sets are built out.
 
 ## Bodies and team colours
@@ -83,6 +83,9 @@ colour at portrait and board scale:
 - [Browse all 96 medieval body-and-colour combinations](screenshots/art-roster/team-colours/medieval/index.html).
 - [Inspect the medieval masks on idle poses](screenshots/art-roster/team-colours/medieval/medieval-team-masks-idle.png).
 - [Inspect the medieval masks across every action](screenshots/art-roster/team-colours/medieval/medieval-team-masks-actions.png).
+- [Browse all 96 nature body-and-colour combinations](screenshots/art-roster/team-colours/nature/index.html).
+- [Inspect the nature masks on idle poses](screenshots/art-roster/team-colours/nature/nature-team-masks-idle.png).
+- [Inspect the nature masks across every action](screenshots/art-roster/team-colours/nature/nature-team-masks-actions.png).
 
 ## Animated sci-fi Godot roster
 
@@ -122,6 +125,23 @@ camera, scale, and material language.
 | Rogue | ![The male medieval rogue runs through the production actions](screenshots/art-roster/medieval-rogue-male.gif) | ![The female medieval rogue runs through the production actions](screenshots/art-roster/medieval-rogue-female.gif) |
 | Beast | ![The male medieval beast runs through the production actions](screenshots/art-roster/medieval-beast-male.gif) | ![The female medieval beast runs through the production actions](screenshots/art-roster/medieval-beast-female.gif) |
 
+## Animated nature Godot roster
+
+Nature uses animal-folk silhouettes, bark, leaf, leather, and warm metal. Each
+body pair is deliberately different while retaining one woodland faction
+language and broad blue cloth regions for team recolouring.
+
+| Archetype | Male (`first`) | Female (`second`) |
+|---|---|---|
+| Knight | ![The male nature knight runs through the production actions](screenshots/art-roster/nature-knight-male.gif) | ![The female nature knight runs through the production actions](screenshots/art-roster/nature-knight-female.gif) |
+| Archer | ![The male nature archer runs through the production actions](screenshots/art-roster/nature-archer-male.gif) | ![The female nature archer runs through the production actions](screenshots/art-roster/nature-archer-female.gif) |
+| Mage | ![The male nature mage runs through the production actions](screenshots/art-roster/nature-mage-male.gif) | ![The female nature mage runs through the production actions](screenshots/art-roster/nature-mage-female.gif) |
+| Stormcaller | ![The male nature stormcaller runs through the production actions](screenshots/art-roster/nature-stormcaller-male.gif) | ![The female nature stormcaller runs through the production actions](screenshots/art-roster/nature-stormcaller-female.gif) |
+| Healer | ![The male nature healer runs through the production actions](screenshots/art-roster/nature-healer-male.gif) | ![The female nature healer runs through the production actions](screenshots/art-roster/nature-healer-female.gif) |
+| Commander | ![The male nature commander runs through the production actions](screenshots/art-roster/nature-commander-male.gif) | ![The female nature commander runs through the production actions](screenshots/art-roster/nature-commander-female.gif) |
+| Rogue | ![The male nature rogue runs through the production actions](screenshots/art-roster/nature-rogue-male.gif) | ![The female nature rogue runs through the production actions](screenshots/art-roster/nature-rogue-female.gif) |
+| Beast | ![The male nature beast runs through the production actions](screenshots/art-roster/nature-beast-male.gif) | ![The female nature beast runs through the production actions](screenshots/art-roster/nature-beast-female.gif) |
+
 Run the following command after changing a sheet to rebuild the previews:
 
 ```sh
@@ -138,9 +158,12 @@ tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style scifi
 tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style medieval
+tools/placeholder_art/.venv/bin/python \
+  platform/godot/scripts/generate-mythical-team-masks.py --style nature
 platform/godot/scripts/generate-team-colour-showcase.sh
 platform/godot/scripts/generate-team-colour-showcase.sh --style scifi
 platform/godot/scripts/generate-team-colour-showcase.sh --style medieval
+platform/godot/scripts/generate-team-colour-showcase.sh --style nature
 ```
 
 ## Terrain coverage

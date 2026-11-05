@@ -1,7 +1,7 @@
 # Godot character art
 
 This directory holds the curated high-resolution sprite rosters used by the
-recommended PC graphics profile. The sci-fi, mythical, and medieval directions
+recommended PC graphics profile. The sci-fi, mythical, medieval, and nature directions
 have separate male and female characters for every archetype. Each character
 is a transparent 4×2 sheet with 443×443 cells in row-major order:
 
