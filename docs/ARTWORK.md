@@ -6,17 +6,17 @@ authored 3D terrain with animated high-resolution characters.
 
 This page separates two useful meanings of “complete”:
 
-- The supported Godot presentation has one high-resolution animated sci-fi
-  character for each archetype, plus male and female mythical characters for
-  each archetype. The mythical set supports all six faction colours. Godot also
-  has one authored scene for each of the thirteen terrains.
+- The supported Godot presentation has male and female high-resolution
+  characters for every archetype in both the sci-fi and mythical directions.
+  Both directions support all six faction colours. Godot also has one authored
+  scene for each of the thirteen terrains.
 - The portable generated library covers every combination of eight archetypes,
   seven styles, six faction colours, and two figures. These are the assets shared
   with the constrained renderers and used as a safe fallback in Godot.
 
-The sci-fi direction was the first complete high-resolution set. Release 0.4 is
-expanding the same Godot art contract across other styles and themes. The first
-complete expansion is the mythical set:
+The sci-fi direction established the high-resolution sheet contract. The
+mythical direction was the first expansion, and the completed sci-fi body pairs
+now follow the same contract. This is the mythical roster:
 
 | Portable identity | Animated preview |
 |---|---|
@@ -40,10 +40,8 @@ complete expansion is the mythical set:
 These eight finished body pairs cover every mythical archetype. The names
 describe their portable art identity, not a campaign. Other visual themes still
 use their portable generated fallback until their curated Godot sheets are
-painted.
-Identities without a curated high-resolution sheet continue to use the portable
-generated library, so every valid project remains playable while the new sets
-are built out.
+painted. Every valid project therefore remains playable while the remaining
+sets are built out.
 
 ## Bodies and team colours
 
@@ -67,30 +65,38 @@ but a pair should still look as though it was made by the same art team for the
 same game.
 
 It does not require six separately painted copies of each body. Every mythical
-source sheet has a team-colour mask. Godot recolours only the marked cloth and
-armour into blue, red, green, violet, amber, or bone, then caches the finished
-texture for the battlefield, portraits, and creator previews. Faces, hair,
-weapons, and spell effects remain unchanged. If a mask is missing or malformed,
-Godot keeps the original source colour instead of failing the character.
+and sci-fi source sheet has a team-colour mask. Godot recolours only the marked
+cloth and armour into blue, red, green, violet, amber, or bone, then caches the
+finished texture for the battlefield, portraits, and creator previews. Faces,
+hair, weapons, and spell effects remain unchanged. If a mask is missing or
+malformed, Godot keeps the original source colour instead of failing the
+character.
 
-The generated comparison gallery shows every mythical body in every faction
+The generated comparison galleries show every curated body in every faction
 colour at portrait and board scale:
 
 - [Browse all 96 mythical body-and-colour combinations](screenshots/art-roster/team-colours/index.html).
 - [Inspect the mask selection on idle poses](screenshots/art-roster/team-colours/mythical-team-masks-idle.png).
 - [Inspect the mask selection across every action](screenshots/art-roster/team-colours/mythical-team-masks-actions.png).
+- [Browse all 96 sci-fi body-and-colour combinations](screenshots/art-roster/team-colours/scifi/index.html).
+- [Inspect the sci-fi masks on idle poses](screenshots/art-roster/team-colours/scifi/scifi-team-masks-idle.png).
+- [Inspect the sci-fi masks across every action](screenshots/art-roster/team-colours/scifi/scifi-team-masks-actions.png).
 
 ## Animated sci-fi Godot roster
 
 These are the actual committed sheets used by the supported presentation. Each
 preview runs through idle, walk, attack, ability, and hurt/defeat poses.
 
-| Archetype | Preview | Archetype | Preview |
-|---|---|---|---|
-| Knight | ![The Relay knight idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/knight.gif) | Archer | ![The Relay archer idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/archer.gif) |
-| Mage | ![The Relay mage idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/mage.gif) | Stormcaller | ![Morrow the stormcaller idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/stormcaller.gif) |
-| Healer | ![The Relay healer idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/healer.gif) | Commander | ![Rook the commander idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/commander.gif) |
-| Rogue | ![Kestrel the rogue idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/rogue.gif) | Beast | ![The Relay beast idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/beast.gif) |
+| Archetype | Male (`first`) | Female (`second`) |
+|---|---|---|
+| Knight | ![The male sci-fi knight idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/knight.gif) | ![The female sci-fi knight idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/scifi-knight-female.gif) |
+| Archer | ![The male sci-fi archer idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/archer.gif) | ![The female sci-fi archer idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/scifi-archer-female.gif) |
+| Mage | ![The male sci-fi mage idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/mage.gif) | ![The female sci-fi mage idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/scifi-mage-female.gif) |
+| Stormcaller | ![The male sci-fi stormcaller idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/stormcaller.gif) | ![The female sci-fi stormcaller idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/scifi-stormcaller-female.gif) |
+| Healer | ![The male sci-fi healer idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/healer.gif) | ![The female sci-fi healer idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/scifi-healer-female.gif) |
+| Commander | ![The male sci-fi commander idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/commander.gif) | ![The female sci-fi commander idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/scifi-commander-female.gif) |
+| Rogue | ![The male sci-fi rogue idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/rogue.gif) | ![The female sci-fi rogue idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/scifi-rogue-female.gif) |
+| Beast | ![The male sci-fi beast idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/beast.gif) | ![The female sci-fi beast idles, walks, attacks, uses an ability, and reacts to a hit](screenshots/art-roster/scifi-beast-female.gif) |
 
 Every source sheet is a transparent 4×2 image made of eight 443×443 cells:
 idle A, idle B, walk A, walk B, attack wind-up, attack follow-through, ability,
@@ -103,13 +109,16 @@ Run the following command after changing a sheet to rebuild the previews:
 platform/godot/scripts/generate-art-roster.sh
 ```
 
-Run these after changing a mythical sheet, mask, or faction palette to rebuild
-the masks and the six-colour review gallery:
+Run these after changing a curated sheet, mask, or faction palette to rebuild
+the masks and both six-colour review galleries:
 
 ```sh
 tools/placeholder_art/.venv/bin/python \
-  platform/godot/scripts/generate-mythical-team-masks.py
+  platform/godot/scripts/generate-mythical-team-masks.py --style mythical
+tools/placeholder_art/.venv/bin/python \
+  platform/godot/scripts/generate-mythical-team-masks.py --style scifi
 platform/godot/scripts/generate-team-colour-showcase.sh
+platform/godot/scripts/generate-team-colour-showcase.sh --style scifi
 ```
 
 ## Terrain coverage

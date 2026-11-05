@@ -113,10 +113,10 @@ The maintainer-facing payload format is documented in
 ## Graphics and artwork
 
 The supported presentation uses authored 3D voxel terrain and two curated
-high-resolution sprite directions. The sci-fi set covers every archetype. The
-mythical set adds male and female designs for every archetype, with reusable
-masks for all six faction colours. Experimental renderers remain available only
-to focused developer checks; they are not player settings.
+high-resolution sprite directions. Both the sci-fi and mythical sets provide
+male and female designs for every archetype, with reusable masks for all six
+faction colours. Experimental renderers remain available only to focused
+developer checks; they are not player settings.
 
 [GRAPHICS.md](GRAPHICS.md) describes the presentation, current coverage, replacement
 boundary, and capture commands. The human-facing animated roster is in

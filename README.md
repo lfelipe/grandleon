@@ -46,13 +46,13 @@ authored 3D terrain with animated high-resolution 2D characters.
 ![Godot rendering authored voxel terrain with animated character sprites](docs/screenshots/godot/voxel-sprites.png)
 
 The current Godot art pack covers all eight character archetypes and all
-thirteen terrain kinds. It has a complete sci-fi character set and a complete
-mythical set with male and female designs for every archetype. The mythical
-characters can wear any of the six faction colours without recolouring their
-faces, hair, equipment, or effects. The generated portable library remains the
-fallback for every archetype across all seven styles, six faction colours, and
-two bodies. See the [artwork and animation roster](docs/ARTWORK.md) for animated
-previews and exact coverage.
+thirteen terrain kinds. Both its sci-fi and mythical directions have male and
+female designs for every archetype. Either body can wear any of the six faction
+colours without recolouring faces, hair, equipment, or effects. The generated
+portable library remains the fallback for every archetype across all seven
+styles, six faction colours, and two bodies. See the
+[artwork and animation roster](docs/ARTWORK.md) for animated previews and exact
+coverage.
 
 ## One project, several targets
 

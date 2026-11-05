@@ -34,12 +34,13 @@ terrain rules, routes, timing, or combat results.
 ## Character art and console experiments
 
 - [ ] Complete male and female high-resolution bodies for every intended
-  archetype and style. All eight mythical archetype pairs are complete and pass
-  the shared compact-art-direction audit; the remaining visual styles still use
-  portable fallbacks and need their own curated Godot sheets.
-- [x] Add reusable team-colour masks to the complete mythical roster so one
-  body sheet can render the six faction colours without recolouring faces,
-  hair, equipment, or effects.
+  archetype and style. All eight mythical and all eight sci-fi archetype pairs
+  are complete and pass the shared compact-art-direction audit; the remaining
+  five visual styles still use portable fallbacks and need their own curated
+  Godot sheets.
+- [x] Add reusable team-colour masks to the complete mythical and sci-fi
+  rosters so one body sheet can render the six faction colours without
+  recolouring faces, hair, equipment, or effects.
 - [ ] Compare the new low-detail commander proxy on PlayStation and Nintendo 64
   at real board scale, then decide whether the recognizability and frame budget
   justify expanding the console 3D roster.

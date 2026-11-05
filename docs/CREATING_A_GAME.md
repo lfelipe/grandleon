@@ -94,10 +94,10 @@ chapter, or edit **Outside**.
 
 **Look & Feel** changes the portable terrain theme, character style, and faction
 colours. The editor previews the same resolved assets used in play. In the
-mythical high-resolution set, changing a faction colour changes only the marked
-clothing and armour; faces, hair, equipment, and effects stay as painted. To
-compare the complete character roster, its animations, team colours, and all
-thirteen terrain kinds before choosing a direction, see
+curated mythical and sci-fi sets, changing a faction colour changes only the
+marked clothing and armour; faces, hair, equipment, and effects stay as
+painted. To compare the complete character roster, its animations, team
+colours, and all thirteen terrain kinds before choosing a direction, see
 [Artwork and animation roster](ARTWORK.md).
 
 **Outside** controls only the non-playable area beyond the map:
