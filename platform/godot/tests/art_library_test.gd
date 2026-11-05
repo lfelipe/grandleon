@@ -670,6 +670,43 @@ func _test_terrain_scene_selector() -> void:
 		"direct.tscn"
 	)
 
+	var forest_block: Array = [
+		2, 2, 2,
+		2, 2, 2,
+		2, 2, 2,
+	]
+	var centre: Dictionary = TerrainSceneSelector.cluster_context(
+		forest_block, 3, 3, 1, 1, 2
+	)
+	_expect("forest centre sees all four matching neighbours", centre.same_mask, 15)
+	_expect("forest centre is marked as interior", centre.interior, true)
+	_expect("forest centre counts four matching neighbours", centre.same_neighbours, 4)
+	var corner: Dictionary = TerrainSceneSelector.cluster_context(
+		forest_block, 3, 3, 0, 0, 2
+	)
+	_expect("forest corner exposes its outer edges", corner.same_mask, 6)
+	_expect("forest corner is not marked as interior", corner.interior, false)
+
+	var mixed_woodland: Array = [
+		9, 11, 9,
+		11, 2, 2,
+		9, 9, 9,
+	]
+	var woodland_edge: Dictionary = TerrainSceneSelector.cluster_context(
+		mixed_woodland, 3, 3, 1, 1, 2
+	)
+	_expect("woodland context distinguishes exact terrain", woodland_edge.same_mask, 2)
+	_expect("woodland context includes bamboo family", woodland_edge.family_mask, 11)
+	_expect("woodland family count is deterministic", woodland_edge.family_neighbours, 3)
+	var clustered: Dictionary = TerrainSceneSelector.select(
+		binding, 0, 0, 2, centre
+	)
+	_expect("cluster-aware variant selection uses neighbours", clustered.scene, "base.tscn")
+	_expect(
+		"cluster-aware selection repeats exactly",
+		TerrainSceneSelector.select(binding, 0, 0, 2, centre), clustered
+	)
+
 
 func _test_terrain_scene(label: String, path: String) -> void:
 	_expect("%s uses a replaceable scene" % label, path.begins_with("res://art/terrain/"), true)
@@ -685,14 +722,34 @@ func _test_terrain_scene(label: String, path: String) -> void:
 	if instance == null:
 		return
 	var foundation := instance.get_node_or_null("Foundation") as MeshInstance3D
-	_expect("%s scene has a foundation" % label, foundation != null, true)
-	if foundation != null:
-		var box := foundation.mesh as BoxMesh
-		_expect("%s foundation is a box" % label, box != null, true)
-		if box != null:
+	_expect("%s scene has a shared foundation" % label, foundation != null, true)
+	if foundation != null and foundation.mesh is BoxMesh:
+		var foundation_mesh := foundation.mesh as BoxMesh
+		_expect(
+			"%s foundation closes horizontal seams" % label,
+			is_equal_approx(foundation_mesh.size.x, 1.0)
+			and is_equal_approx(foundation_mesh.size.z, 1.0),
+			true
+		)
+	for surface_name: String in [
+		"Ground", "Soil", "Snow", "Mud", "Depth", "Surface",
+		"WaterDepth", "Slab"
+	]:
+		var surface := instance.get_node_or_null(surface_name) as MeshInstance3D
+		if surface == null:
+			continue
+		if surface.mesh is BoxMesh:
+			var box := surface.mesh as BoxMesh
 			_expect(
-				"%s foundation occupies one cell" % label,
-				box.size.is_equal_approx(Vector3(0.94, 0.26, 0.94)),
+				"%s %s closes horizontal seams" % [label, surface_name],
+				box.size.x >= 0.999 and box.size.z >= 0.999,
+				true
+			)
+		elif surface.mesh is PlaneMesh:
+			var plane := surface.mesh as PlaneMesh
+			_expect(
+				"%s %s closes horizontal seams" % [label, surface_name],
+				plane.size.x >= 0.999 and plane.size.y >= 0.999,
 				true
 			)
 	_expect("%s scene has visible detail" % label, _mesh_count(instance) >= 3, true)

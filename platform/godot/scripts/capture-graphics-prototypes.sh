@@ -82,7 +82,7 @@ capture voxel full-voxel.png
 XDG_DATA_HOME="${godot_state}/data" \
 XDG_CONFIG_HOME="${godot_state}/config" \
 XDG_CACHE_HOME="${godot_state}/cache" \
-    timeout 20s "${runner[@]}" --path "${stage_dir}" -- \
+    timeout 60s "${runner[@]}" --path "${stage_dir}" -- \
     --package=res://game.gpk \
     --campaign=emberbound \
     --players=2 \

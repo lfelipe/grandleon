@@ -17,15 +17,15 @@ shader = ExtResource("1_water")
 
 [sub_resource type="BoxMesh" id="Mesh_foundation"]
 material = SubResource("Material_edge")
-size = Vector3(0.94, 0.26, 0.94)
+size = Vector3(1, 0.26, 1)
 
 [sub_resource type="BoxMesh" id="Mesh_depth"]
 material = SubResource("Material_depth")
-size = Vector3(0.88, 0.07, 0.88)
+size = Vector3(1, 0.07, 1)
 
 [sub_resource type="PlaneMesh" id="Mesh_surface"]
 material = SubResource("Material_surface")
-size = Vector2(0.88, 0.88)
+size = Vector2(1, 1)
 subdivide_width = 3
 subdivide_depth = 3
 

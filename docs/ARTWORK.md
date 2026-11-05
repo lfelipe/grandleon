@@ -251,6 +251,17 @@ terrain some variety without adding randomness to portable game data. If a
 replacement scene is missing or invalid, the renderer falls back on that tile
 instead of making the whole art pack unusable.
 
+Authored foundations and primary surfaces now fill the whole cell, so adjoining
+tiles meet without the old dark trench around every block. The renderer also
+derives a four-way neighbour mask from terrain identity, family, and map
+coordinates. Forest and bamboo grow taller, broader interior clusters; exposed
+edges stay smaller, can omit a secondary plant, and pull their props inward.
+Hills, mountains, snow, swamp, fields, sand, and ruins use gentler versions of
+the same deterministic scaling and rotation. Scenery can overlap a fully
+surrounded tile boundary to form a shared canopy, but edge tiles do not expand
+their props across a different terrain kind. Walkable cell boundaries remain
+visible and the portable terrain array is unchanged.
+
 The bindings live in
 [`graphics_profiles.json`](../platform/godot/project/content/graphics_profiles.json),
 the character sources live in

@@ -844,7 +844,12 @@ func _create_authored_tile(x: int, y: int, kind: int) -> bool:
 	var scenes: Dictionary = assets.get("terrainScenes", {})
 	var key: String = String(TERRAIN_NAMES[clampi(kind, 0, TERRAIN_NAMES.size() - 1)])
 	var binding: Variant = scenes.get(key, "")
-	var selected: Dictionary = TerrainSceneSelector.select(binding, x, y, kind)
+	var context := TerrainSceneSelector.cluster_context(
+		terrain, int(snapshot.width), int(snapshot.height), x, y, kind
+	)
+	var selected: Dictionary = TerrainSceneSelector.select(
+		binding, x, y, kind, context
+	)
 	var path := String(selected.get("scene", ""))
 	var rotation_y := float(selected.get("rotation_y", 0.0))
 	if binding is Dictionary:
@@ -861,7 +866,9 @@ func _create_authored_tile(x: int, y: int, kind: int) -> bool:
 				if variant is Dictionary and bool(variant.get("rotateToAdjacent", false)):
 					rotation_y = PI * 0.5 if offset.x != 0 else 0.0
 				break
-	return _instantiate_art_scene(path, _cell_position(x, y), assets, rotation_y)
+	return _instantiate_art_scene(
+		path, _cell_position(x, y), assets, rotation_y, kind, context
+	)
 
 
 func _adjacent_terrain_offset(x: int, y: int, terrain_name: String) -> Vector2i:
@@ -1321,7 +1328,8 @@ func _remove_unit(id: int) -> void:
 
 
 func _instantiate_art_scene(
-	path: String, at: Vector3, assets: Dictionary, rotation_y := 0.0
+	path: String, at: Vector3, assets: Dictionary, rotation_y := 0.0,
+	terrain_kind := -1, cluster_context := {}
 ) -> bool:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return false
@@ -1337,8 +1345,107 @@ func _instantiate_art_scene(
 	node3d.position = at
 	node3d.rotation.y = rotation_y
 	node3d.scale = Vector3.ONE * float(assets.get("sceneScale", 1.0))
+	_apply_terrain_cluster_presentation(node3d, terrain_kind, cluster_context)
 	_terrain_root.add_child(node3d)
 	return true
+
+
+func _apply_terrain_cluster_presentation(
+	instance: Node3D, terrain_kind: int, context: Dictionary
+) -> void:
+	instance.set_meta("terrain_cluster", context.duplicate(true))
+	if terrain_kind not in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]:
+		return
+	var same_neighbours := int(context.get("same_neighbours", 0))
+	var family_neighbours := int(context.get("family_neighbours", 0))
+	var same_mask := int(context.get("same_mask", 0))
+	var variation := int(context.get("variation", 0))
+	var jitter: float = [-0.025, 0.012, 0.032, -0.008][variation]
+	var horizontal_scale := 1.0
+	var vertical_scale := 1.0
+	match terrain_kind:
+		2, 11:
+			vertical_scale = clampf(
+				0.84 + float(same_neighbours) * 0.09
+				+ float(family_neighbours - same_neighbours) * 0.035 + jitter,
+				0.82, 1.22
+			)
+			horizontal_scale = (
+				1.08 + jitter if same_mask == 15
+				else clampf(0.88 + float(same_neighbours) * 0.025 + jitter, 0.86, 0.98)
+			)
+		3, 5, 7:
+			vertical_scale = clampf(
+				0.90 + float(same_neighbours) * 0.045
+				+ float(family_neighbours - same_neighbours) * 0.015 + jitter,
+				0.88, 1.12
+			)
+			horizontal_scale = clampf(
+				0.93 + float(same_neighbours) * 0.018 + jitter, 0.90, 1.03
+			)
+		6:
+			vertical_scale = clampf(
+				0.92 + float(same_neighbours) * 0.035 + jitter, 0.90, 1.08
+			)
+			horizontal_scale = clampf(
+				0.92 + float(same_neighbours) * 0.02 + jitter, 0.90, 1.02
+			)
+		4, 8, 9, 10:
+			vertical_scale = clampf(
+				0.94 + float(same_neighbours) * 0.025 + jitter, 0.92, 1.07
+			)
+			horizontal_scale = clampf(
+				0.94 + float(same_neighbours) * 0.015 + jitter, 0.92, 1.02
+			)
+	var yaw: float = [-0.075, 0.035, 0.085, -0.025][variation]
+	for child: Node in instance.get_children():
+		if not child is Node3D or _terrain_base_node(String(child.name)):
+			continue
+		var detail := child as Node3D
+		var detail_position := detail.position
+		if terrain_kind in [2, 11]:
+			detail_position = _inset_from_terrain_edges(
+				detail_position, same_mask, 0.075
+			)
+		detail.position = detail_position.rotated(Vector3.UP, yaw)
+		detail.rotation.y += yaw
+		var detail_vertical := vertical_scale
+		if terrain_kind == 6 and String(detail.name).begins_with("Pool"):
+			detail_vertical = 1.0
+		detail.scale *= Vector3(
+			horizontal_scale, detail_vertical, horizontal_scale
+		)
+		if same_neighbours <= 1 and variation % 2 == 0:
+			if (
+				(terrain_kind == 2 and String(detail.name) == "TreeB")
+				or (terrain_kind == 11 and String(detail.name) in ["StalkEast", "LeafEast"])
+			):
+				detail.visible = false
+
+
+func _terrain_base_node(node_name: String) -> bool:
+	return (
+		node_name in [
+			"Foundation", "Ground", "Soil", "Snow", "Mud",
+			"Depth", "Surface", "WaterDepth", "Slab"
+		]
+		or node_name.begins_with("Slab")
+	)
+
+
+func _inset_from_terrain_edges(
+	position: Vector3, same_mask: int, amount: float
+) -> Vector3:
+	var result := position
+	if (same_mask & 1) == 0 and result.z < 0.0:
+		result.z += amount
+	if (same_mask & 2) == 0 and result.x > 0.0:
+		result.x -= amount
+	if (same_mask & 4) == 0 and result.z > 0.0:
+		result.z -= amount
+	if (same_mask & 8) == 0 and result.x < 0.0:
+		result.x += amount
+	return result
 
 
 func _terrain_colour(kind: int) -> Color:

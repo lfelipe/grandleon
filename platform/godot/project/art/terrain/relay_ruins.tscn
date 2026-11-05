@@ -33,11 +33,11 @@ emission_energy_multiplier = 1.25
 
 [sub_resource type="BoxMesh" id="Mesh_foundation"]
 material = SubResource("Material_edge")
-size = Vector3(0.94, 0.26, 0.94)
+size = Vector3(1, 0.26, 1)
 
 [sub_resource type="BoxMesh" id="Mesh_slab"]
 material = SubResource("Material_slab")
-size = Vector3(0.88, 0.1, 0.88)
+size = Vector3(1, 0.1, 1)
 
 [sub_resource type="BoxMesh" id="Mesh_rubble"]
 material = SubResource("Material_stone_dark")

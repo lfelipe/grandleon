@@ -23,11 +23,11 @@ roughness = 0.9
 
 [sub_resource type="BoxMesh" id="Mesh_foundation"]
 material = SubResource("Material_edge")
-size = Vector3(0.94, 0.26, 0.94)
+size = Vector3(1, 0.26, 1)
 
 [sub_resource type="BoxMesh" id="Mesh_depth"]
 material = SubResource("Material_depth")
-size = Vector3(0.88, 0.065, 0.88)
+size = Vector3(1, 0.065, 1)
 
 [sub_resource type="BoxMesh" id="Mesh_plank"]
 material = SubResource("Material_wood")

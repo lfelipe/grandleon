@@ -6,14 +6,14 @@ terrain rules, routes, timing, or combat results.
 
 ## Terrain joins and variety
 
-- [ ] Make transitions between neighbouring terrain scenes feel seamless.
+- [x] Make transitions between neighbouring terrain scenes feel seamless.
   Check borders, foundations, height, lighting, and repeated props so adjacent
   tiles read as one landscape instead of separate blocks.
-- [ ] Add deterministic cluster-aware variants for groups of the same or
+- [x] Add deterministic cluster-aware variants for groups of the same or
   closely related terrain. A group of forest tiles could grow taller trees or
   a denser shared canopy in its interior, while its outer tiles use smaller
   trees, gaps, roots, or shrubs to form a readable edge.
-- [ ] Apply the same idea where it helps other terrain families, without
+- [x] Apply the same idea where it helps other terrain families, without
   hiding walkable boundaries or placing scenery over a different terrain kind.
   The result must be derived from terrain identity, neighbours, and coordinates
   so the same map always produces the same scene.
