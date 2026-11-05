@@ -1,0 +1,18 @@
+Built-in imagegen prompt
+========================
+
+Use case: stylized-concept
+Asset type: production character sprite sheet for a tactical fantasy/sci-fi game
+Primary request: Create one finished transparent 4 columns by 2 rows sprite sheet for an adult female sci-fi knight, a complementary "second" identity for an existing compact Relay roster.
+Subject: A practical, non-sexualized adult woman frontline sentinel with a visibly feminine face and compact athletic armored build, approximately 3.5 heads tall. Give her an independent silhouette: open-faced white segmented helmet with a short swept navy crest and visible dark braided hair at the back; slimmer layered white/navy plate armor; an asymmetric long saturated royal-BLUE split armored surcoat; a broad angular cyan-edged hard-light buckler on her left arm; and a short cyan energy saber consistently in her right hand. The large royal-blue surcoat and shoulder panel must be clean, contiguous, and visually separate for later team-colour masking. Keep cyan light separate from blue cloth.
+Style/medium: polished painterly game sprite illustration; compact stylized tactical proportions; oversized readable head, hands, boots, shield and weapon; strong dark ink-like contours; simplified chunky materials; crisp white ceramic armor, deep navy joints, saturated royal-blue team-colour cloth, restrained cyan tech glow, tiny warm brass fasteners. Match one coherent game art direction across every cell.
+Composition/framing: Exact 4x2 grid, eight equal isolated cells, one full-body character per cell, centered at a consistent baseline and scale, about 78% of cell height with generous transparent gutters. Camera is consistent three-quarter front view facing screen-right. Row-major actions exactly: top row cell 1 idle A, cell 2 idle B with subtle breathing shift, cell 3 walk A, cell 4 walk B; bottom row cell 1 attack wind-up with saber raised, cell 2 attack follow-through with a short contained cyan slash arc, cell 3 defensive ability braced behind buckler with one compact cyan shield flare, cell 4 hurt/defeat recoiling with a small cyan impact mark. Shield stays on her left arm and saber stays in her right hand in all eight cells.
+Scene/backdrop: genuine fully transparent background in every cell.
+Lighting/mood: readable neutral game lighting, heroic but grounded.
+Constraints: exactly eight poses and no extras; exact action order; same woman, costume, colors, equipment sides, proportions, and three-quarter camera in every cell; every head, boot, braid, shield, saber, and effect fully inside its own cell; no overlap or spill across cells; no grid lines, cell boxes, text, labels, numbers, scenery, floor, shadows, borders, logos, or watermark; clean alpha; practical armor; adult proportions, not childlike.
+Avoid: photorealism; anime line art; glossy 3D render; long thin fashion proportions; sexualized armor; male body; duplicate limbs; missing shield; swapped hands; oversized effects; smoky halos; colored background residue; cropped bodies; characters touching cell edges.
+
+Production normalization
+========================
+
+The built-in output was deterministically resized from 1774x887 to 1772x886 with Lanczos filtering. Each 443px cell then received a 5px safety crop and was resized to 385px inside a centered 443px transparent cell; alpha values below 5% were cleared and fully transparent RGB was zeroed. This guarantees empty cell-edge gutters, clean transparency, and consistent production occupancy. No generative edits were applied after the original prompt.
