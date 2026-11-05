@@ -8,7 +8,7 @@ This page separates two useful meanings of “complete”:
 
 - The supported Godot presentation has male and female high-resolution
   characters for every archetype in the sci-fi, mythical, medieval, nature,
-  and Sengoku directions. All five support the six faction colours. Godot also
+  Sengoku, and Undead directions. All six support the six faction colours. Godot also
   has one
   authored scene for each of the thirteen terrains.
 - The portable generated library covers every combination of eight archetypes,
@@ -16,8 +16,8 @@ This page separates two useful meanings of “complete”:
   with the constrained renderers and used as a safe fallback in Godot.
 
 The sci-fi direction established the high-resolution sheet contract. Mythical
-was the first expansion; medieval, nature, and Sengoku are 0.4 additions. All
-five follow the same contract. This is the mythical roster:
+was the first expansion; medieval, nature, Sengoku, and Undead are 0.4
+additions. All six follow the same contract. This is the mythical roster:
 
 | Portable identity | Animated preview |
 |---|---|
@@ -39,9 +39,9 @@ five follow the same contract. This is the mythical roster:
 | Beast · female (`second`) · bone | ![The bone-armoured female mythical beast idles, walks, attacks, projects a primal ward, and reacts to a hit](screenshots/art-roster/mythical-beast-female.gif) |
 
 These eight finished body pairs cover every mythical archetype. The names
-describe their portable art identity, not a campaign. Undead and Pirates still
-use their portable generated fallback until their curated Godot sheets are
-painted. Every valid project therefore remains
+describe their portable art identity, not a campaign. Pirates still uses its
+portable generated fallback until its curated Godot sheets are painted. Every
+valid project therefore remains
 playable while the remaining sets are built out.
 
 ## Bodies and team colours
@@ -90,6 +90,9 @@ colour at portrait and board scale:
 - [Browse all 96 Sengoku body-and-colour combinations](screenshots/art-roster/team-colours/sengoku/index.html).
 - [Inspect the Sengoku masks on idle poses](screenshots/art-roster/team-colours/sengoku/sengoku-team-masks-idle.png).
 - [Inspect the Sengoku masks across every action](screenshots/art-roster/team-colours/sengoku/sengoku-team-masks-actions.png).
+- [Browse all 96 Undead body-and-colour combinations](screenshots/art-roster/team-colours/undead/index.html).
+- [Inspect the Undead masks on idle poses](screenshots/art-roster/team-colours/undead/undead-team-masks-idle.png).
+- [Inspect the Undead masks across every action](screenshots/art-roster/team-colours/undead/undead-team-masks-actions.png).
 
 ## Animated sci-fi Godot roster
 
@@ -163,6 +166,24 @@ counterparts share one faction language without sharing a single costume.
 | Rogue | ![The male Sengoku rogue runs through the production actions](screenshots/art-roster/sengoku-rogue-male.gif) | ![The female Sengoku rogue runs through the production actions](screenshots/art-roster/sengoku-rogue-female.gif) |
 | Beast | ![The male Sengoku beast runs through the production actions](screenshots/art-roster/sengoku-beast-male.gif) | ![The female Sengoku beast runs through the production actions](screenshots/art-roster/sengoku-beast-female.gif) |
 
+## Animated Undead Godot roster
+
+The Undead roster uses corroded dark iron, old ivory bone, worn leather,
+tattered indigo heraldry, and pale green spectral effects. Male and female
+counterparts share that gothic storybook language while keeping clearly
+different silhouettes and equipment treatments.
+
+| Archetype | Male (`first`) | Female (`second`) |
+|---|---|---|
+| Knight | ![The male Undead knight runs through the production actions](screenshots/art-roster/undead-knight-male.gif) | ![The female Undead knight runs through the production actions](screenshots/art-roster/undead-knight-female.gif) |
+| Archer | ![The male Undead archer runs through the production actions](screenshots/art-roster/undead-archer-male.gif) | ![The female Undead archer runs through the production actions](screenshots/art-roster/undead-archer-female.gif) |
+| Mage | ![The male Undead mage runs through the production actions](screenshots/art-roster/undead-mage-male.gif) | ![The female Undead mage runs through the production actions](screenshots/art-roster/undead-mage-female.gif) |
+| Stormcaller | ![The male Undead stormcaller runs through the production actions](screenshots/art-roster/undead-stormcaller-male.gif) | ![The female Undead stormcaller runs through the production actions](screenshots/art-roster/undead-stormcaller-female.gif) |
+| Healer | ![The male Undead healer runs through the production actions](screenshots/art-roster/undead-healer-male.gif) | ![The female Undead healer runs through the production actions](screenshots/art-roster/undead-healer-female.gif) |
+| Commander | ![The male Undead commander runs through the production actions](screenshots/art-roster/undead-commander-male.gif) | ![The female Undead commander runs through the production actions](screenshots/art-roster/undead-commander-female.gif) |
+| Rogue | ![The male Undead rogue runs through the production actions](screenshots/art-roster/undead-rogue-male.gif) | ![The female Undead rogue runs through the production actions](screenshots/art-roster/undead-rogue-female.gif) |
+| Beast | ![The male Undead beast runs through the production actions](screenshots/art-roster/undead-beast-male.gif) | ![The female Undead beast runs through the production actions](screenshots/art-roster/undead-beast-female.gif) |
+
 Run the following command after changing a sheet to rebuild the previews:
 
 ```sh
@@ -183,11 +204,14 @@ tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style nature
 tools/placeholder_art/.venv/bin/python \
   platform/godot/scripts/generate-mythical-team-masks.py --style sengoku
+tools/placeholder_art/.venv/bin/python \
+  platform/godot/scripts/generate-mythical-team-masks.py --style undead
 platform/godot/scripts/generate-team-colour-showcase.sh
 platform/godot/scripts/generate-team-colour-showcase.sh --style scifi
 platform/godot/scripts/generate-team-colour-showcase.sh --style medieval
 platform/godot/scripts/generate-team-colour-showcase.sh --style nature
 platform/godot/scripts/generate-team-colour-showcase.sh --style sengoku
+platform/godot/scripts/generate-team-colour-showcase.sh --style undead
 ```
 
 ## Terrain coverage

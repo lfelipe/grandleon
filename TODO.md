@@ -34,11 +34,10 @@ terrain rules, routes, timing, or combat results.
 ## Character art and console experiments
 
 - [ ] Complete male and female high-resolution bodies for every intended
-  archetype and style. All eight mythical, sci-fi, medieval, nature, and
-  Sengoku archetype pairs
-  are complete and pass the shared compact-art-direction audit; the remaining
-  two visual styles still use portable fallbacks and need their own curated
-  Godot sheets.
+  archetype and style. All eight mythical, sci-fi, medieval, nature, Sengoku,
+  and Undead archetype pairs are complete and pass the shared compact-art-
+  direction audit; Pirates is the remaining visual style still using portable
+  fallbacks and needing its own curated Godot sheets.
 - [x] Add reusable team-colour masks to each complete curated roster so one
   body sheet can render the six faction colours without recolouring faces,
   hair, equipment, or effects.

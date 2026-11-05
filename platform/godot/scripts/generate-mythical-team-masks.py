@@ -421,6 +421,23 @@ CURATED_BLUE_MASK_CONFIG = MaskConfig(
     minimum_core_fraction=0.025,
 )
 
+# Most curated sheets use a saturated indigo team material. The Undead beast
+# female deliberately uses a weathered blue-grey barding so it reads against
+# her pale fur and bone armour; give that cloth a narrower low-saturation
+# recipe instead of recolouring only its small heraldic marks.
+CURATED_MASK_CONFIG_OVERRIDES: dict[str, MaskConfig] = {
+    "undead_beast_female_hd.png": replace(
+        CURATED_BLUE_MASK_CONFIG,
+        seeds=("#393f46", "#595967", "#70828d"),
+        delta_e=16,
+        hue_center=220,
+        hue_radius=34,
+        saturation_min=0.07,
+        value_min=0.12,
+        value_max=0.68,
+    ),
+}
+
 CURATED_STYLES = ("medieval", "nature", "sengoku", "undead", "pirates")
 CURATED_ARCHETYPES = (
     "knight",
@@ -814,7 +831,7 @@ def style_settings(
         names = curated_source_order(style)
         configs = {
             name: replace(
-                CURATED_BLUE_MASK_CONFIG,
+                CURATED_MASK_CONFIG_OVERRIDES.get(name, CURATED_BLUE_MASK_CONFIG),
                 exclusion_boxes=CURATED_MASK_EXCLUSIONS.get(name, ()),
             )
             for name in names

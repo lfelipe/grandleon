@@ -66,7 +66,7 @@ generate_preview mythical_rogue_male_hd.png mythical-rogue-male
 generate_preview mythical_rogue_female_hd.png mythical-rogue-female
 generate_preview mythical_beast_male_hd.png mythical-beast-male
 generate_preview mythical_beast_female_hd.png mythical-beast-female
-for style in medieval nature sengoku; do
+for style in medieval nature sengoku undead; do
     for archetype in knight archer mage stormcaller healer commander rogue beast; do
         generate_preview "${style}_${archetype}_male_hd.png" "${style}-${archetype}-male"
         generate_preview "${style}_${archetype}_female_hd.png" "${style}-${archetype}-female"
