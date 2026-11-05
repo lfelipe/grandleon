@@ -2027,13 +2027,20 @@ public:
 #endif
         surface_t* disp = display_get();
         render(disp, snapshot, 0);
+        // Take the board census before player-facing overlays cover any of
+        // its cells. The final framebuffer remains available through
+        // `last_buffer_`: classify stores the surface pointer, and the draws
+        // below update that same surface before it is shown. This keeps the
+        // terrain census about the authored board while the later autopilot
+        // checks still inspect the cursor, highlights and information panel
+        // exactly as the player sees them.
+        classify(disp, snapshot);
 #ifndef GRANDLEON_N64_PROBE
         draw_highlights(disp, snapshot);
         draw_cursor(disp, snapshot);
         draw_info_panel(disp, snapshot);
         grandleon::n64audio::pump();
 #endif
-        classify(disp, snapshot);
         show(disp);
         previous_ = snapshot;
         has_previous_ = true;
@@ -7647,11 +7654,13 @@ private:
 #endif
     }
 
-    // Samples the centre of every board cell and classifies it against the
-    // palette. This is what the probe asserts: not that draw() ran, but that
-    // the framebuffer contains the board it claims to contain. The rdpq
-    // classification checks each cell against the exact palette values its
-    // own sheet or billboard would have put there.
+    // Samples the centre of every board cell, before overlays are added, and
+    // classifies it against the palette. This is what the probe asserts: not
+    // that draw() ran, but that the framebuffer contains the board it claims
+    // to contain. The rdpq classification checks each cell against the exact
+    // palette values its own sheet or billboard would have put there. The
+    // surface itself remains live after this call, so `last_buffer_` also sees
+    // the overlays that are drawn before the frame is shown.
     void classify(surface_t* disp, const sim::EncounterSnapshot& snapshot) {
         classified = {};
         const int last_x = camera_.x + camera_.view_w;
