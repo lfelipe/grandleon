@@ -258,6 +258,19 @@ the character sources live in
 and the terrain scenes live in
 [`platform/godot/project/art/terrain`](../platform/godot/project/art/terrain).
 
+## Movement presentation
+
+Godot keeps the accepted grid route and its duration exactly as supplied by
+the simulation. The renderer eases only the picture at the beginning and end
+of that route, blends the character's facing across corners, and uses distance
+travelled to keep the walk frames and small body motion in phase. Terrain
+height is still interpolated between the two accepted cells. Interrupted moves
+start from the character's current visual position, while simultaneous
+two-player moves retain independent presentation state.
+
+This smoothing never changes movement range, route cells, arrival time,
+destination, input authority, or the portable state hash.
+
 ## The full portable library
 
 The portable art generator contains 672 standing character assets: eight

@@ -51,6 +51,8 @@
       "playerPath": "AnimationPlayer",
       "moveSpeed": 9.0,
       "turnSpeed": 12.0,
+      "moveBobHeight": 0.018,
+      "strideSecondsPerCell": 0.34,
       "clips": {
         "idle": "idle",
         "move": "run",

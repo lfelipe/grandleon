@@ -18,19 +18,45 @@ func _init() -> void:
 	)
 	_expect("valid route retained", state.routed, true)
 	_expect("origin plus three cells", state.points.size(), 4)
+	_expect_float("route length retained", state.total_length, 3.0)
 	_expect_vector(
 		"starts at origin", MotionPath.sample(state, 1000).position, Vector2.ZERO
 	)
-	_expect_vector(
-		"first cell at 100 ms",
-		MotionPath.sample(state, 1100).position, Vector2(1, 0)
+	var accelerating: Dictionary = MotionPath.sample(state, 1100)
+	_expect(
+		"short acceleration stays behind the old linear sampler",
+		accelerating.position.x > 0.0 and accelerating.position.x < 1.0,
+		true
 	)
+	_expect_float("acceleration stays on the accepted first leg", accelerating.position.y, 0.0)
 	_expect_vector(
-		"turn is sampled",
+		"route midpoint remains exact",
 		MotionPath.sample(state, 1150).position, Vector2(1, 0.5)
+	)
+	var first_turn: Dictionary = MotionPath.sample(state, 1106)
+	_expect(
+		"facing blends into the first corner",
+		first_turn.direction.x > 0.0 and first_turn.direction.y > 0.0,
+		true
+	)
+	var second_turn: Dictionary = MotionPath.sample(state, 1200)
+	_expect(
+		"facing blends out of the second corner",
+		second_turn.direction.x > 0.0 and second_turn.direction.y > 0.0,
+		true
+	)
+	var before_deceleration: Dictionary = MotionPath.sample(state, 1270)
+	var during_deceleration: Dictionary = MotionPath.sample(state, 1280)
+	var near_destination: Dictionary = MotionPath.sample(state, 1290)
+	_expect(
+		"destination deceleration reduces distance per sample",
+		float(near_destination.distance) - float(during_deceleration.distance)
+		< float(during_deceleration.distance) - float(before_deceleration.distance),
+		true
 	)
 	_expect_vector("ends exactly", MotionPath.sample(state, 1300).position, Vector2(2, 1))
 	_expect("last sample settles", MotionPath.sample(state, 1300).done, true)
+	_expect_float("settled distance is exact", MotionPath.sample(state, 1300).distance, 3.0)
 	var paced := MotionPath.begin(
 		Vector2.ZERO, Vector2.ZERO, Vector2(2, 1),
 		{"route": route, "duration_msec": 300}, 1000, 5.0
@@ -46,6 +72,11 @@ func _init() -> void:
 		MotionPath.sample(interrupted, 2000).position, Vector2(0.4, 0)
 	)
 	_expect("route validation uses authoritative origin", interrupted.routed, true)
+	_expect_float("interrupted route measures its visual path", interrupted.total_length, 2.6)
+	_expect_vector(
+		"interrupted route still settles on authority",
+		MotionPath.sample(interrupted, 2300).position, Vector2(2, 1)
+	)
 
 	var diagonal := MotionPath.begin(
 		Vector2.ZERO, Vector2.ZERO, Vector2(1, 1),
@@ -80,9 +111,32 @@ func _init() -> void:
 		"first concurrent path remains independent",
 		MotionPath.sample(state, 1150).position, Vector2(1, 0.5)
 	)
+	var concurrent: Dictionary = MotionPath.sample(other, 1050)
+	_expect(
+		"second concurrent path accelerates independently",
+		concurrent.position.x == 3.0
+		and concurrent.position.y > 2.5
+		and concurrent.position.y < 3.0,
+		true
+	)
+
+	var short := MotionPath.begin(
+		Vector2.ZERO, Vector2.ZERO, Vector2(1, 0),
+		{"route": [{"x": 1, "y": 0}], "duration_msec": 100}, 5000
+	)
+	_expect(
+		"one-cell movement accelerates without changing its duration",
+		MotionPath.sample(short, 5020).position.x < 0.2,
+		true
+	)
+	_expect(
+		"one-cell movement decelerates near its exact endpoint",
+		MotionPath.sample(short, 5080).position.x > 0.8,
+		true
+	)
 	_expect_vector(
-		"second concurrent path advances independently",
-		MotionPath.sample(other, 1050).position, Vector2(3, 2.5)
+		"one-cell movement ends exactly",
+		MotionPath.sample(short, 5100).position, Vector2(1, 0)
 	)
 
 	if failures == 0:
@@ -98,5 +152,11 @@ func _expect(label: String, actual: Variant, expected: Variant) -> void:
 
 func _expect_vector(label: String, actual: Vector2, expected: Vector2) -> void:
 	if not actual.is_equal_approx(expected):
+		failures += 1
+		push_error("%s: expected %s, got %s" % [label, expected, actual])
+
+
+func _expect_float(label: String, actual: float, expected: float) -> void:
+	if not is_equal_approx(actual, expected):
 		failures += 1
 		push_error("%s: expected %s, got %s" % [label, expected, actual])

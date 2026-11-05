@@ -48,6 +48,7 @@ var _unit_targets: Dictionary = {}
 var _unit_authoritative_positions: Dictionary = {}
 var _unit_motion_states: Dictionary = {}
 var _pending_motion_records: Dictionary = {}
+var _unit_stride_distances: Dictionary = {}
 var _unit_sprites: Dictionary = {}
 var _unit_sprite_facing_right: Dictionary = {}
 var _unit_sprite_native_right: Dictionary = {}
@@ -197,10 +198,12 @@ func update_snapshot(value: Dictionary) -> void:
 			var visual_origin := _cell_from_world(node.position)
 			var record: Dictionary = _pending_motion_records.get(id, {})
 			var animation_config: Dictionary = profile_config.get("animation", {})
-			_unit_motion_states[id] = MotionPath.begin(
+			var motion_state := MotionPath.begin(
 				visual_origin, previous, destination, record, now_msec,
 				float(animation_config.get("moveSpeed", 10.0))
 			)
+			motion_state.stride_origin = float(_unit_stride_distances.get(id, 0.0))
+			_unit_motion_states[id] = motion_state
 			_pending_motion_records.erase(id)
 		_unit_authoritative_positions[id] = destination
 		_update_health_bar(unit)
@@ -337,12 +340,18 @@ func _process(delta: float) -> void:
 		var settled := target
 		var travel := Vector3.ZERO
 		var moving := false
+		var stride_distance := float(_unit_stride_distances.get(id, 0.0))
 		if _unit_motion_states.has(id):
 			var sampled: Dictionary = MotionPath.sample(
 				_unit_motion_states[id], now_msec
 			)
 			settled = _motion_world_position(sampled)
 			moving = not bool(sampled.done)
+			stride_distance = (
+				float(_unit_motion_states[id].get("stride_origin", 0.0))
+				+ float(sampled.get("distance", 0.0))
+			)
+			_unit_stride_distances[id] = stride_distance
 			var direction := Vector2(sampled.direction)
 			travel = Vector3(direction.x, 0, direction.y)
 			if sampled.done:
@@ -354,11 +363,15 @@ func _process(delta: float) -> void:
 				int(id), travel,
 				minf(1.0, delta * float(animation_config.get("turnSpeed", 12.0)))
 			)
+		if moving:
+			settled.y += absf(sin(stride_distance * TAU)) * float(
+				animation_config.get("moveBobHeight", 0.018)
+			)
 		if moving and _authored_units.has(id) and not animation_locked:
 			_play_unit_animation(int(id), "move")
 		elif _authored_units.has(id) and not animation_locked:
 			_play_unit_animation(int(id), "idle")
-		else:
+		elif not moving:
 			settled.y += sin(_pulse * 3.2 + float(int(id) % 13)) * 0.025
 		node.position = settled
 		if _unit_sprites.has(id):
@@ -367,7 +380,10 @@ func _process(delta: float) -> void:
 			var sprite: Sprite3D = _unit_sprites[id]
 			var unit := _unit_by_id(int(id))
 			if not unit.is_empty():
-				_apply_sprite_frame(sprite, unit, int(id), now_msec)
+				_apply_sprite_frame(
+					sprite, unit, int(id), now_msec,
+					stride_distance if moving else -1.0
+				)
 			if now_msec < int(_unit_flash_until.get(id, 0)):
 				sprite.modulate = _unit_flash_colours.get(id, Color.WHITE)
 			else:
@@ -579,6 +595,7 @@ func _create_unit(unit: Dictionary, target: Vector3) -> void:
 	_unit_root.add_child(root)
 	var id := int(unit.id)
 	_unit_nodes[id] = root
+	_unit_stride_distances[id] = 0.0
 	if _create_authored_character(root, unit):
 		pass
 	elif String(profile_config.get("characterRenderer", render_profile)) == "voxel":
@@ -607,12 +624,19 @@ func _create_sprite_figure(root: Node3D, unit: Dictionary, id: int) -> void:
 
 
 func _apply_sprite_frame(
-	sprite: Sprite3D, unit: Dictionary, id: int, now_msec: int
+	sprite: Sprite3D, unit: Dictionary, id: int, now_msec: int,
+	stride_distance := -1.0
 ) -> void:
 	var state := String(_unit_sprite_states.get(id, "idle"))
 	var started := int(_unit_sprite_started.get(id, now_msec))
+	var elapsed := float(maxi(0, now_msec - started)) / 1000.0
+	if state == "move" and stride_distance >= 0.0:
+		var animation_config: Dictionary = profile_config.get("animation", {})
+		elapsed = stride_distance * float(
+			animation_config.get("strideSecondsPerCell", 0.34)
+		)
 	var info := art.character_frame(
-		unit, state, float(maxi(0, now_msec - started)) / 1000.0
+		unit, state, elapsed
 	)
 	sprite.texture = art.character_frame_texture(info)
 	sprite.hframes = int(info.columns)
@@ -1278,6 +1302,7 @@ func _remove_unit(id: int) -> void:
 	_unit_authoritative_positions.erase(id)
 	_unit_motion_states.erase(id)
 	_pending_motion_records.erase(id)
+	_unit_stride_distances.erase(id)
 	_unit_sprites.erase(id)
 	_unit_sprite_facing_right.erase(id)
 	_unit_sprite_native_right.erase(id)

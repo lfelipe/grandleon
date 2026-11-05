@@ -20,14 +20,14 @@ terrain rules, routes, timing, or combat results.
 
 ## Character movement
 
-- [ ] Replace visibly linear tile-to-tile motion with a smoother presentation
+- [x] Replace visibly linear tile-to-tile motion with a smoother presentation
   curve: short acceleration, steady travel, and deceleration at the destination.
-- [ ] Blend direction changes across route corners so characters turn into the
+- [x] Blend direction changes across route corners so characters turn into the
   next segment instead of snapping to a new facing.
-- [ ] Keep feet, body bob, terrain height, and walk animation in phase, and test
+- [x] Keep feet, body bob, terrain height, and walk animation in phase, and test
   short moves, long routes, simultaneous co-op movement, and interrupted or
   overlapping presentation events.
-- [ ] Preserve the simulation's authoritative route and destination. Smoothing
+- [x] Preserve the simulation's authoritative route and destination. Smoothing
   may interpolate the picture between accepted states; it must never invent a
   position, shorten a route, delay input authority, or change a state hash.
 
