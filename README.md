@@ -92,6 +92,13 @@ Console builders are separate downloads because their pinned toolchains are
 large. They work offline after installation. The PlayStation image has no Sony
 licence sector and therefore does not boot on an unmodified retail console.
 
+0.4 also includes a separate, fixed **N64 3D character prototype ROM** for
+comparing the newer Godot commander and rogue models at board, tactical, and
+action distances. It is not an editor export or a playable campaign. The N64
+comparison clears its 30 fps target; the PlayStation comparison does not at a
+full sixteen-unit board, so PlayStation keeps its supported sprite renderer.
+[See the captures, measurements, and build command](docs/CONSOLE_3D_EXPERIMENT.md).
+
 [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) explains how one
 authored choice travels through the compiler, shared engine, and each renderer.
 
@@ -169,6 +176,7 @@ and playtest progress do not.
 | see current presentation experiments | [Development TODO](TODO.md) |
 | understand the Godot player and creator | [Godot PC application](platform/godot/README.md) |
 | understand portability and console builds | [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) |
+| review the console 3D experiment | [Console 3D experiment](docs/CONSOLE_3D_EXPERIMENT.md) |
 | set up a development checkout | [Setting up](docs/SETUP.md) |
 | work on the engine | [CODING.md](CODING.md) and [DESIGN.md](DESIGN.md) |
 | contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |

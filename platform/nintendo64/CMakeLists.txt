@@ -22,6 +22,16 @@ if(NOT DEFINED N64_INST)
     message(FATAL_ERROR "N64_INST is not set; use cmake/toolchains/Nintendo64.cmake")
 endif()
 
+# A fixed, evidence-backed 3D character comparison. It is intentionally not a
+# campaign renderer: the supported play and campaign ROMs keep their existing
+# sprite path, while this opt-in target lets reviewers reproduce the bounded
+# commander/rogue result without reviving the old divergent experiment branch.
+option(
+    GRANDLEON_N64_CHARACTER_PROTOTYPE
+    "Build the fixed Tiny3D character comparison ROM"
+    OFF
+)
+
 # The source project this ROM plays, embedded as bytes. The ROM parses and
 # compiles it on the console, so there is no console-specific content path.
 #
@@ -248,10 +258,22 @@ foreach(asset_index RANGE ${art_last_asset})
         set(asset_drawing
             "${asset_style}_${asset_figure}_${asset_archetype}_${asset_colour}")
         set(asset_is_project_drawing FALSE)
+        set(asset_is_character_prototype_reference FALSE)
+        if(GRANDLEON_N64_CHARACTER_PROTOTYPE AND
+           asset_kind STREQUAL "character" AND
+           asset_style STREQUAL "scifi" AND
+           asset_figure STREQUAL "first" AND
+           asset_colour STREQUAL "amber" AND
+           asset_archetype MATCHES "^(commander|rogue)$")
+            # Two exact standing cells appear in the prototype as same-frame
+            # sprite references. Generate them from the current art with the
+            # pinned mksprite rather than carrying copied binary arrays.
+            set(asset_is_character_prototype_reference TRUE)
+        endif()
         if(asset_style STREQUAL project_style AND
            asset_figure STREQUAL project_figure)
             set(asset_is_project_drawing TRUE)
-        elseif(NOT
+        elseif(NOT asset_is_character_prototype_reference AND NOT
                "${asset_style}/${asset_figure}/${asset_archetype}/${asset_colour}"
                IN_LIST project_extra_drawings)
             continue()
@@ -276,7 +298,7 @@ foreach(asset_index RANGE ${art_last_asset})
             if(asset_is_project_drawing)
                 list(APPEND embedded_characters "${asset_symbol}")
                 list(APPEND embedded_faction_colours "${asset_colour}")
-            else()
+            elseif(NOT asset_is_character_prototype_reference)
                 list(APPEND embedded_extra_characters
                     "${asset_style}/${asset_figure}/${asset_archetype}/${asset_colour}")
             endif()
@@ -577,6 +599,47 @@ set_target_properties(
 grandleon_package_rom(
     grandleon_n64_conformance grandleon_n64.z64 "Grandleon N64 test"
 )
+
+if(GRANDLEON_N64_CHARACTER_PROTOTYPE)
+    add_executable(
+        grandleon_n64_character_prototype
+        prototype/character_proxy_v2_rom.cpp
+    )
+    target_link_libraries(
+        grandleon_n64_character_prototype
+        # Tiny3D calls libdragon, so its static archive must come first.
+        PRIVATE -lc -lt3d -ldragon -lm -ldragonsys
+    )
+    target_compile_features(
+        grandleon_n64_character_prototype PRIVATE cxx_std_17
+    )
+    target_include_directories(
+        grandleon_n64_character_prototype
+        PRIVATE
+            "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    )
+    target_compile_options(
+        grandleon_n64_character_prototype
+        PRIVATE ${GRANDLEON_WARNING_FLAGS} -fno-exceptions -fno-rtti
+    )
+    target_link_options(
+        grandleon_n64_character_prototype
+        PRIVATE
+            "-Wl,-Map=$<TARGET_FILE_DIR:grandleon_n64_character_prototype>/grandleon_n64_character_prototype.map"
+    )
+    set_target_properties(
+        grandleon_n64_character_prototype
+        PROPERTIES
+            OUTPUT_NAME grandleon_n64_character_prototype
+            SUFFIX ".elf"
+    )
+    grandleon_package_rom(
+        grandleon_n64_character_prototype
+        grandleon-n64-3d-character-prototype.z64
+        "Grandleon N64 3D prototype"
+    )
+endif()
 
 # The play ROM: the Tarnholt campaign through the shared client session,
 # rendering the embedded CI4 art through the RDP and driven by a controller.

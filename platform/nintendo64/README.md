@@ -11,6 +11,7 @@ gesture that commits, and read back after the power switch.
 
 - [Toolchain](#toolchain)
 - [Building](#building)
+- [The optional 3D character prototype](#the-optional-3d-character-prototype)
 - [A ROM of some other game](#a-rom-of-some-other-game)
 - [C++ subset](#c-subset)
 - [The conformance ROM](#the-conformance-rom)
@@ -68,6 +69,32 @@ build compiles the same library targets the native build does. Under
 `-DGRANDLEON_N64=ON` the root project stops after the five engine libraries
 and this directory. Artifacts land in the gitignored `build-n64/`; nothing
 produced here is checked in.
+
+## The optional 3D character prototype
+
+0.4 also carries a fixed Tiny3D comparison built from the newer Godot
+commander and rogue models. It is deliberately a second output, not a new mode
+inside the campaign ROM:
+
+```sh
+platform/nintendo64/scripts/build-character-prototype.sh
+platform/nintendo64/scripts/check-character-prototype.sh
+```
+
+The first command creates
+`build-n64-character-prototype/platform/nintendo64/grandleon-n64-3d-character-prototype.z64`.
+Add `--bundle out/n64-3d-character-prototype` to stage the ROM with its README
+and licence notices. The check rebuilds it, boots it in ares, and requires all
+four allocation and frame-budget assertions to pass.
+
+This ROM contains a fixed 12×9 test board, two roles and two LODs. It does not
+load an editor project, run a campaign, provide the full roster, or replace the
+supported sprite renderer. The separate path also leaves the supported stable
+libdragon toolchain untouched; the prototype alone uses its pinned preview
+libdragon and Tiny3D revisions.
+
+[The console 3D experiment](../../docs/CONSOLE_3D_EXPERIMENT.md) gives the
+plain-language result and side-by-side PlayStation evidence.
 
 ## A ROM of some other game
 

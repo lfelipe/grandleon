@@ -77,6 +77,12 @@ Not stages of one port; each answers a different question.
 | **The Nintendo 64** | the deepest console port (full campaign, title screen, cutscenes, controller, overlays, forecasts, abilities), and the only target that parses authored JSON *on the console* rather than consuming a package compiled on the host. |
 | **The PlayStation** | the widest architectural spread from the host: 32-bit little-endian MIPS-I, no `clz`, no `movn`, no 64-bit load. It plays both shipped campaigns end to end from a controller over bit-banged SIO0 and keeps them on a memory card. |
 
+There is also one deliberately separate N64 3D character prototype. It uses a
+fixed board and two reduced Godot models to answer a presentation question; it
+does not consume this portable chain, appear in the Export Center, or replace
+the N64 campaign renderer. [The console 3D experiment](CONSOLE_3D_EXPERIMENT.md)
+explains why N64 keeps that prototype while PlayStation keeps evidence only.
+
 Local co-op does not fork this chain. A `sideBlocks` encounter, its placements,
 deployment, objectives, and dialogue compile once and are consumed unchanged by
 PC, Nintendo 64, and PlayStation. The played console clients poll two controller
@@ -173,3 +179,4 @@ Six layers, each catching something the one below it structurally cannot.
 | [tools/game_content/README.md](../tools/game_content/README.md) | the compiler that resolves choices to indices |
 | [platform/nintendo64/README.md](../platform/nintendo64/README.md) | the deepest console port, and ares |
 | [platform/playstation/README.md](../platform/playstation/README.md) | the R3000A, the ISA trap, and three-channel pixel verification |
+| [docs/CONSOLE_3D_EXPERIMENT.md](CONSOLE_3D_EXPERIMENT.md) | the bounded N64/PlayStation 3D comparison and its outcome |

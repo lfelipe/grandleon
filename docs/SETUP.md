@@ -157,10 +157,11 @@ to:
 | `--playstation` | PlayStation: conformance, what it drew, a played turn, the memory card, both campaigns, and the disc booted | **a container runtime** |
 | `--consoles` | both of the above | **a container runtime** |
 
-`--n64` runs all four Nintendo 64 checks (the conformance ROM, the render
-probe, the autopilot and the campaign that survives the power switch) through
-one build of the ROMs, which is what `grandleon_n64_check_all` is for. Asking
-for them one at a time builds every ROM once per check.
+`--n64` runs all four supported Nintendo 64 checks (the conformance ROM, the
+render probe, the autopilot and the campaign that survives the power switch)
+through one build of the ROMs, then separately builds and checks the fixed 3D
+character prototype. `grandleon_n64_check_all` covers the supported ROMs;
+asking for them one at a time builds every supported ROM once per check.
 
 The same checks are also CMake targets, which is what a person debugging one
 wants. They build through `build/`, so configure it first if you have not
@@ -189,6 +190,17 @@ cmake --build build --target grandleon_playstation_disc_check
 
 Each pulls or builds its pinned toolchain image on first use, which costs
 minutes.
+
+The optional N64 3D character comparison is intentionally outside the normal
+campaign targets. Build and run that fixed prototype with:
+
+```sh
+platform/nintendo64/scripts/check-character-prototype.sh
+```
+
+See [CONSOLE_3D_EXPERIMENT.md](CONSOLE_3D_EXPERIMENT.md) before using it: the
+prototype is a performance and readability comparison, not an editor export or
+a second campaign renderer.
 
 ## Without SDL2
 

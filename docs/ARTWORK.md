@@ -282,6 +282,20 @@ two-player moves retain independent presentation state.
 This smoothing never changes movement range, route cells, arrival time,
 destination, input authority, or the portable state hash.
 
+Reachable movement cells use the same player identity as the rest of the HUD:
+cyan for player one and amber for player two, with a stronger translucent fill
+and bright perimeter so the range remains visible over light or busy terrain.
+Attack, ability, and talk targets remain red to communicate action type.
+
+## Console 3D comparison
+
+The current Godot commander and rogue were reduced into two console LODs and
+tested at native board scale. N64 preserves their role silhouettes and clears
+the frame target, so 0.4 carries a separate fixed prototype ROM. PlayStation's
+sixteen-unit 3D board does not clear the target and remains on sprites. The
+[console 3D experiment](CONSOLE_3D_EXPERIMENT.md) includes the captures,
+measurements, and exact scope.
+
 ## The full portable library
 
 The portable art generator contains 672 standing character assets: eight
