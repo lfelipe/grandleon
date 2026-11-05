@@ -28,9 +28,23 @@ cmake -S "${repo_root}" -B "${build_dir}" \
     -DGRANDLEON_BUILD_GODOT=ON \
     -DGRANDLEON_GODOT_API_VERSION=4.7 \
     -DGRANDLEON_WERROR=ON
-cmake --build "${build_dir}" --parallel --target grandleon_godot_project
+cmake --build "${build_dir}" --parallel --target \
+    grandleon_content_compile grandleon_godot_project
 
 stage_dir="${build_dir}/platform/godot/project/app"
+included_dir="${stage_dir}/content/included"
+cmake -E remove_directory "${included_dir}"
+cmake -E make_directory "${included_dir}"
+"${build_dir}/grandleon_content_compile" \
+    "${repo_root}/games/tarnholt/source/project.json" \
+    "${included_dir}/tarnholt.gpk"
+"${build_dir}/grandleon_content_compile" \
+    "${repo_root}/games/emberbound/source/project.json" \
+    "${included_dir}/emberbound.gpk"
+cleanup() {
+    cmake -E remove_directory "${included_dir}"
+}
+trap cleanup EXIT
 state_dir="${build_dir}/presentation-settings-smoke-state"
 mkdir -p "${state_dir}/data" "${state_dir}/config" "${state_dir}/cache"
 XDG_DATA_HOME="${state_dir}/data" \
