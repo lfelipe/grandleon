@@ -489,6 +489,43 @@ target_compile_definitions(
     PRIVATE GRANDLEON_PLAYSTATION_LOCAL_PLAYERS=2
 )
 
+# The complete Sevenfold 3D roster, kept as an explicit target because its two
+# generated LODs are much larger than the project-specific sprite set a normal
+# campaign executable embeds. The interactive build is a viewer; the check
+# build walks all 112 style/body/archetype combinations and leaves a
+# representative high-detail attack frame for the emulator harness to inspect.
+function(grandleon_playstation_sevenfold_3d target output)
+    grandleon_playstation_executable(
+        ${target} ${output}
+        prototype/sevenfold_roster_exe.cpp
+        src/psx_gpu.cpp
+        src/psx_pad.cpp
+    )
+    target_link_libraries(
+        ${target} PRIVATE grandleon::view grandleon::client grandleon::sheet
+    )
+    target_include_directories(
+        ${target}
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/src"
+            "${CMAKE_SOURCE_DIR}/platform/client/include"
+            "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
+            "${CMAKE_SOURCE_DIR}/games/sevenfold/generated"
+    )
+endfunction()
+
+grandleon_playstation_sevenfold_3d(
+    grandleon_playstation_sevenfold_3d grandleon_psx_sevenfold_3d
+)
+grandleon_playstation_sevenfold_3d(
+    grandleon_playstation_sevenfold_3d_check
+    grandleon_psx_sevenfold_3d_check
+)
+target_compile_definitions(
+    grandleon_playstation_sevenfold_3d_check
+    PRIVATE GRANDLEON_PSX_SEVENFOLD_3D_CHECK
+)
+
 # The played executables, which are all one translation unit
 #
 # `src/turn_exe.cpp` is a board played from a controller, and every executable

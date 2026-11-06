@@ -98,16 +98,15 @@ two players on its main menu, fields every archetype across all seven art
 styles, and uses seven different maps covering every terrain kind. A debug
 Stage-picker build can jump directly between the gates for review.
 
-0.4 also includes two separate N64 3D experiments. The first compares reduced
-Godot commander and rogue models at several camera distances. The second
-covers the complete seven-style, eight-archetype, male-and-female roster with
-112 procedural console models, visible in red and blue team colours. It lets
-you compare both detail levels and try a terrain-aware close attack/counter
-preview with two characters. Both N64 experiments clear their 30 fps targets.
-They are review ROMs rather than editor exports or playable campaigns; the
-playable N64 campaign still uses the clear and proven sprite renderer.
-PlayStation's full-board 3D comparison remains too slow, so its supported
-renderer remains sprite-based as well.
+0.4 also includes separate 3D review builds for Nintendo 64 and PlayStation.
+They cover the complete seven-style, eight-archetype, male-and-female roster:
+112 low-poly models with low/high detail and runtime red/blue team colours.
+N64 shows all eight roles together; PS1 uses two closer four-role pages. Both
+can switch to two high-detail characters for a terrain-aware attack preview.
+The N64 review ROM passes `38/38`; the PS1 executable passes `296/296` plus
+`18/18` independent GPU checks. These are model viewers, not editor exports or
+playable campaigns, so the supported console games keep their clear sprite
+renderers.
 [See the captures, measurements, and build command](docs/CONSOLE_3D_EXPERIMENT.md).
 
 [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) explains how one

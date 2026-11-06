@@ -308,10 +308,12 @@ The same ROM also places two high-detail models in an experimental close attack
 view, with the floor, skyline, and sky colour derived from the selected map
 terrain.
 
-These models are an N64 rendering experiment, not the curated raster artwork
-converted into meshes and not yet a playable campaign renderer. PlayStation's
-sixteen-unit 3D board does not clear the target and remains on sprites. The
-[console 3D experiment](CONSOLE_3D_EXPERIMENT.md) includes the captures,
+These models are console rendering experiments, not the curated raster artwork
+converted into meshes and not yet playable campaign renderers. N64 and PS1 now
+both have complete-roster viewers. PS1 keeps the supported campaign on sprites:
+its older sixteen-model stress scene was too slow, while the new viewer stays
+within budget with two four-role low-detail pages or two high-detail attackers.
+The [console 3D experiment](CONSOLE_3D_EXPERIMENT.md) includes the captures,
 measurements, build commands, and exact scope.
 
 ## The full portable library

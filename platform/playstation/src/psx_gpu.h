@@ -251,6 +251,13 @@ void draw_cell_scaled(int screen_x, int screen_y, int size, int cell, int clut);
 void fill(int screen_x, int screen_y, int width, int height,
           std::uint16_t colour);
 
+// Draws one opaque, flat-colour triangle through GP0(0x20). This is the
+// smallest useful 3D primitive on the machine: projection and depth ordering
+// remain the caller's job, while the GPU performs the actual rasterisation.
+// Coordinates outside the drawing area are clipped by the GPU.
+void draw_triangle(int x0, int y0, int x1, int y1, int x2, int y2,
+                   std::uint16_t colour);
+
 // Draws one glyph of the font sheet at (`screen_x`, `screen_y`) through `clut`.
 // `slot` is the glyph's index into the sheet, which is its character less
 // `view::first_glyph`; out of range draws nothing rather than whatever is next

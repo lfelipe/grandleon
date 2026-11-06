@@ -95,6 +95,17 @@ platform/nintendo64/scripts/build-sevenfold-3d.sh
 platform/nintendo64/scripts/check-sevenfold-3d.sh
 ```
 
+To build the playable Sevenfold sprite campaign and this 3D viewer together,
+with the debug Stage picker and live FPS enabled in the playable ROM:
+
+```sh
+cmake --build build --target grandleon_n64_sevenfold_roms
+```
+
+`build-n64-sevenfold-roms/` then holds `sevenfold-n64-sprite.z64`,
+`sevenfold-n64-3d.z64`, and a short manifest. The first is the real campaign
+with its 1P/2P menu; the second is the renderer review described below.
+
 It shows eight separated roles per strategic page, exercises red and blue team
 colour replacement, and uses the seven varied terrain layouts from
 `games/sevenfold`. **A** switches between low and high detail; the d-pad changes

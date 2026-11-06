@@ -229,6 +229,59 @@ add_custom_target(grandleon_playstation
     VERBATIM
 )
 
+# The optional Sevenfold 3D renderer is intentionally separate from the normal
+# PlayStation build: it embeds both LODs of all 112 generated models, while a
+# campaign executable only carries the art its project names.
+set(grandleon_playstation_sevenfold_3d_build_dir
+    "${CMAKE_CURRENT_SOURCE_DIR}/build-playstation-sevenfold-3d"
+)
+add_custom_target(grandleon_playstation_sevenfold_3d
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        ${grandleon_playstation_build_env}
+        "GRANDLEON_PSX_SEVENFOLD_3D_BUILD_DIR=${grandleon_playstation_sevenfold_3d_build_dir}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-sevenfold-3d.sh"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building the PlayStation Sevenfold 3D viewer"
+    USES_TERMINAL
+    VERBATIM
+)
+
+add_custom_target(grandleon_playstation_sevenfold_3d_check
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        ${grandleon_playstation_build_env}
+        ${grandleon_playstation_run_env}
+        "GRANDLEON_PSX_SEVENFOLD_3D_BUILD_DIR=${grandleon_playstation_sevenfold_3d_build_dir}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/check-sevenfold-3d.sh"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Checking every PlayStation Sevenfold 3D roster combination"
+    USES_TERMINAL
+    VERBATIM
+)
+
+# A PS-EXE is convenient for the automated emulator but awkward for a person.
+# Package the interactive viewer as an ordinary BIN/CUE pair as well. Like the
+# supported campaign disc, it intentionally carries no Sony licence sector.
+add_custom_target(grandleon_playstation_sevenfold_3d_disc
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        ${grandleon_playstation_disc_env}
+        "GRANDLEON_PLAYSTATION_BUILD_DIR=${grandleon_playstation_sevenfold_3d_build_dir}"
+        "GRANDLEON_PLAYSTATION_DISC_EXECUTABLE=grandleon_psx_sevenfold_3d.ps-exe"
+        "GRANDLEON_PLAYSTATION_DISC_NAME=sevenfold-ps1-3d"
+        "GRANDLEON_PLAYSTATION_DISC_VOLUME=SEVENFOLD_3D"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-disc.sh"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Packaging the PlayStation Sevenfold 3D viewer as BIN/CUE"
+    USES_TERMINAL
+    VERBATIM
+)
+add_dependencies(
+    grandleon_playstation_sevenfold_3d_disc
+    grandleon_playstation_sevenfold_3d
+)
+
 # Builds the executable and then runs it, failing unless it reports that every
 # check passed. This is the target that turns "it links" into "it runs".
 #

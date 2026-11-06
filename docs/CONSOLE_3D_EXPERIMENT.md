@@ -1,128 +1,128 @@
-# The console 3D experiment
+# Console 3D: what works now
 
-The newer Godot character models do help. On Nintendo 64, a reduced commander
-and rogue remain recognisable at board distance and run above the 30 fps target.
-The N64 experiment now also has a complete procedural roster: seven styles,
-eight archetypes, male and female bodies, and runtime team colours. These
-results are available as separate experimental ROMs. They do **not** replace
-the normal sprite campaign renderer.
+The newer character work does produce recognisable low-poly figures on both
+Nintendo 64 and PlayStation. All seven styles, eight archetypes, and male and
+female bodies are available on both consoles, with red and blue team colours.
 
-PlayStation does not get a 3D ROM in 0.4. Its full-board test reached only
-18 fps, while the existing sprite renderer remained both faster and clearer.
-The PlayStation captures stay here as useful research for a possible two-unit
-combat close-up later.
+This does not mean the normal console games have switched to 3D characters.
+The playable campaign ROMs still use sprites. The 3D outputs are separate,
+interactive review programs that let us judge models, camera distance,
+terrain, animation, and performance without putting an experiment in the
+supported campaign path.
 
-## What you can build
+## What can I run?
 
-These are three different N64 outputs:
+| Output | Playable campaign? | Purpose |
+|---|---|---|
+| N64 sprite ROM | Yes | Sevenfold campaign, with a 1P/2P choice |
+| N64 3D ROM | No | Complete 3D roster, seven maps, and attack/counter preview |
+| PS1 sprite executable/disc | Yes | Supported campaign player |
+| PS1 3D executable | No | Complete 3D roster and close attack preview |
 
-- `build-n64.sh` builds the supported, playable sprite campaign ROM from an
-  authored project.
-- `build-character-prototype.sh` builds a fixed 3D comparison containing a
-  commander, a rogue, a test board, three camera distances, and performance
-  assertions. It is not a campaign and does not read editor projects.
-- `build-sevenfold-3d.sh` builds the complete 3D roster on the seven varied
-  maps from `games/sevenfold`. It compares both detail levels and includes an
-  experimental terrain-aware attack view. It is not campaign gameplay.
-
-Build the prototype:
+Build both Sevenfold N64 review ROMs together:
 
 ```sh
-platform/nintendo64/scripts/build-character-prototype.sh
+cmake --build build --target grandleon_n64_sevenfold_roms
 ```
 
-Build a self-contained review folder with the ROM and its notices:
+The output folder contains `sevenfold-n64-sprite.z64`,
+`sevenfold-n64-3d.z64`, and a short manifest explaining the difference. The
+sprite build includes the debug Stage picker and live FPS display.
+
+Build and check the PS1 3D viewer:
 
 ```sh
-platform/nintendo64/scripts/build-character-prototype.sh \
-  --bundle out/n64-3d-character-prototype
+cmake --build build --target grandleon_playstation_sevenfold_3d_check
 ```
 
-Run the complete reproducibility and ares check:
+Package the interactive viewer as an emulator-friendly BIN/CUE disc:
 
 ```sh
-platform/nintendo64/scripts/check-character-prototype.sh
+cmake --build build --target grandleon_playstation_sevenfold_3d_disc
 ```
 
-The ROM is named `grandleon-n64-3d-character-prototype.z64` so it cannot be
-confused with a generated campaign ROM.
+This produces `grandleon_psx_sevenfold_3d.ps-exe` for interactive use and a
+separate check executable. The check visits every model, captures a real
+320×240 GPU frame, and verifies the image under PCSX-Redux.
 
-Build and check the complete roster viewer:
+The console-specific scripts are also available directly:
 
 ```sh
-platform/nintendo64/scripts/build-sevenfold-3d.sh
 platform/nintendo64/scripts/check-sevenfold-3d.sh
+platform/playstation/scripts/check-sevenfold-3d.sh
 ```
 
-That ROM is named `grandleon-n64-sevenfold-3d.z64`. The check validates all
-112 generated model combinations, boots the ROM in ares, captures 28
-style/body/detail pages, seven terrain-aware close views, and one animated hit
-frame, and applies the frame budget throughout. Its current result is `38/38`.
+## What is in the roster?
 
-## What complete coverage means
+The matrix is `7 styles × 8 archetypes × 2 bodies = 112 models`. Each model
+has a low and high detail version. Low detail is intended for a board view;
+high detail is used when only a few characters are close to the camera.
 
-The complete roster is `7 styles × 8 archetypes × 2 bodies = 112 models`.
-Every style/body page shows all eight roles at a readable board distance,
-spaced across the map rather than stacked into one crowded formation. Half use
-the blue team slot and half the red team slot; team colour is replaced at
-runtime rather than baked into separate meshes.
+These are deterministic procedural console models. The curated Godot
+characters are raster animation, not hidden source meshes, so the console
+generator uses a shared construction vocabulary: shield and sword, bow and
+quiver, staff and hat, twin rods, crook and satchel, shield and banner, paired
+blades and hood, or a horned quadruped. Style-specific armour, headgear,
+palette, and silhouette keep the seven settings coherent.
 
-These are deterministic procedural low-poly console models. The curated Godot
-character artwork is raster animation, so there is no hidden set of 112 source
-meshes to reduce. The generator records the exact model counts and produces a
-low and high LOD for each combination. The roster ROM now tests both at the
-same strategic camera. Its close view uses two high-detail models and builds
-the floor, skyline, and sky colour from the selected Sevenfold terrain.
+Team colour is a runtime material on both consoles. The PS1 viewer also puts a
+blue or red marker under each model, so allegiance remains clear even when a
+style's own palette is similar to a team colour.
 
-After the automated review, the ROM remains interactive. On the strategic
-view, **A** switches detail, the d-pad changes style or body, and **Start**
-opens the close view. There, **A** changes role, **B** plays an illustrative
-attack and counter-attack, the d-pad changes style or terrain, and **Start**
-returns to the board. The damage numbers are a presentation test, not results
-from the shared combat engine.
+## Nintendo 64 result
 
-## What was measured
+The N64 viewer shows all eight roles on each strategic page. **A** changes
+detail, the d-pad changes style or body, and **Start** opens the close view.
+There, **A** changes role, **B** plays the illustrative attack and counter,
+the d-pad changes style or terrain, and **Start** returns to the board.
 
-All captures are native 320×240 emulator framebuffers. These are emulator
-measurements, not measurements from original hardware.
+The current ares run passes `38/38` checks:
 
-| Platform and scene | Result |
+| Scene | Measured result |
 |---|---:|
-| N64, sixteen low-detail figures and board | 40 fps |
-| N64, six high-detail figures | 66 fps |
-| N64, two high-detail figures at action distance | 161 fps |
-| N64 Sevenfold strategic pages, eight low-detail roles, depth on | 62–87 fps |
-| N64 Sevenfold strategic pages, eight high-detail roles, depth on | 39–51 fps |
-| N64 Sevenfold terrain-aware close view, two high-detail roles | 132–163 fps |
-| N64 Sevenfold animated attack/counter preview | 158 fps at its slowest frame |
-| PlayStation, sixteen low-detail figures | 18 fps |
-| PlayStation, six high-detail figures | 32 fps |
-| PlayStation, two high-detail figures at action distance | 52 fps |
-| PlayStation, existing sprite board | 630 fps in the same harness |
+| Eight low-detail models on a board | 62–87 fps |
+| Eight high-detail models on a board | 39–51 fps |
+| Two high-detail models in the close view | 132–163 fps |
+| Slowest frame of the attack/counter preview | 158 fps |
 
-The important improvement is not just speed. The commander retains a broad
-shield, crest and sword; the rogue retains a hood, narrow silhouette and paired
-blades. Zooming closer makes those role cues easier to read. It still does not
-turn these deliberately chunky sources into smooth character models.
+The N64 therefore has enough measured headroom for continued 3D gameplay
+experiments. It is still a viewer today: it does not consume campaign combat
+state, and the damage callouts are illustrative.
 
-## See the comparison
+## PlayStation result
 
-The complete method, source hashes and capture table are in
-[tools/console_3d/README.md](../tools/console_3d/README.md).
+The PS1 viewer splits the eight archetypes across two readable four-role
+strategic pages and uses two high-detail models in its close attack view.
+**Left/Right** changes style, **Up/Down** changes body or terrain, **Cross**
+changes role page or attack role, **Triangle** changes strategic detail,
+**Circle** plays the strike, and **Start** switches views.
 
-- [N64 strategic board](../tools/console_3d/evidence/v2/n64/002-v2-strategic-sixteen.png)
-- [N64 action view](../tools/console_3d/evidence/v2/n64/005-v2-action.png)
-- [N64 camera transition](../tools/console_3d/evidence/v2/n64/action-zoom.gif)
-- [PlayStation strategic board](../tools/console_3d/evidence/v2/ps1/strategic-sixteen.png)
-- [PlayStation action view](../tools/console_3d/evidence/v2/ps1/action-role-comparison.png)
-- [Raw measurements and pins](../tools/console_3d/evidence/v2/results.md)
+The check currently passes `296/296` guest assertions and `18/18` independent
+GPU assertions. In the pinned interpreter, including a GPU readback that waits
+for submitted drawing to finish, the slowest measured pages were:
 
-## Reproducibility and licence
+| Scene | Slowest measured frame |
+|---|---:|
+| Four low-detail models on the 3D board | 23.7 ms, about 42 fps |
+| Four high-detail models for static comparison | 35.7 ms, about 28 fps |
+| Two high-detail models in the attack view | 20.1 ms, about 49 fps |
 
-The N64 prototype uses its own pinned preview libdragon and Tiny3D image. The
-supported campaign toolchain is unchanged. Generated LOD metadata records the
-Godot source and Blender-helper hashes, and the check refuses stale generated
-geometry before it starts the ROM.
+An older stress test with sixteen different reduced models reached only 18
+fps. That result still matters: it is why the supported PS1 campaign keeps its
+clear sprite board. The new viewer succeeds by showing one body variant and
+four roles at a time, then spending the high-detail budget on the two models
+that matter during an attack. A future campaign integration should use the
+same conservative shape: sprites for normal play and an optional 3D close-up,
+not sixteen high-detail models all the time.
 
-Tiny3D is MIT licensed. Its complete notice is kept under `third_party/tiny3d`
-and is copied into every staged prototype review bundle.
+## Measurements and source
+
+All timings above are emulator measurements at native 320×240, not claims
+about original hardware. The exact model counts, source hashes, earlier
+commander/rogue comparison, and raw captures live under
+[`tools/console_3d`](../tools/console_3d/README.md).
+
+The N64 viewer uses pinned preview versions of libdragon and Tiny3D. Tiny3D is
+MIT licensed, its notice is kept under `third_party/tiny3d`, and the normal N64
+campaign toolchain remains unchanged. The PS1 viewer uses the same pinned
+MIPS-I toolchain and GPU runtime as the supported PS1 builds.

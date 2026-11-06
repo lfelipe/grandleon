@@ -169,6 +169,7 @@ views, and an animated hit capture:
 
 ```sh
 platform/nintendo64/scripts/check-sevenfold-3d.sh
+platform/playstation/scripts/check-sevenfold-3d.sh
 ```
 
 The same checks are also CMake targets, which is what a person debugging one
@@ -195,6 +196,8 @@ cmake --build build --target grandleon_playstation_turn_check
 cmake --build build --target grandleon_playstation_card_check
 cmake --build build --target grandleon_playstation_campaign_check
 cmake --build build --target grandleon_playstation_disc_check
+cmake --build build --target grandleon_n64_sevenfold_roms
+cmake --build build --target grandleon_playstation_sevenfold_3d_check
 ```
 
 Each pulls or builds its pinned toolchain image on first use, which costs

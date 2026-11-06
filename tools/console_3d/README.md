@@ -5,10 +5,10 @@ sources produce recognisable PS1 and N64 figures, where the older `three-d`
 work could not?
 
 The answer is platform-specific. The current models materially improve role
-recognition on N64, especially at a temporary close action camera. On PS1 they
-are viable for a small close scene, but not as the default full-board renderer:
-sixteen reduced figures miss the 30 fps budget and the existing sprites remain
-clearer. This is evidence for further work, not a release renderer.
+recognition on N64, especially at a temporary close action camera. PS1 can now
+show the complete roster across closer four-role pages and a two-character
+high-detail attack view. Neither viewer replaces the supported sprite campaign
+renderer.
 
 ## Complete N64 roster coverage
 
@@ -57,6 +57,35 @@ callouts are illustrative and are not connected to campaign combat yet.
 This proves full model availability and rendering headroom. It does not yet
 make the Sevenfold campaign playable in 3D; the supported campaign ROM still
 uses sprites.
+
+## Complete PlayStation roster coverage
+
+PlayStation consumes the same generated 112-model matrix. Its dedicated
+viewer uses the machine's flat-triangle GPU primitive, fixed-point perspective,
+CPU painter ordering, runtime team-colour material, and clear red/blue ground
+markers. It has two intentionally bounded views:
+
+- two strategic pages with one body variant and four roles at a time; and
+- a close attack page with the male and female high-detail versions of one
+  role against a terrain-derived backdrop.
+
+Build and run its full check with:
+
+```sh
+platform/playstation/scripts/check-sevenfold-3d.sh
+```
+
+The guest checks every low/high entry and renders all 56 four-role low/high
+pages plus fourteen high-detail pairs. It currently passes `296/296`. The
+independent GPU observer then checks the display registers and final 320×240
+frame and passes `18/18`. The slowest low-detail page takes 100,363 timer
+ticks (about 23.7 ms), the high-detail comparison 150,937 ticks (35.7 ms),
+and the slowest attack pair 85,059 ticks (20.1 ms).
+
+This is a renderer viewer, not a campaign. The older sixteen-model stress
+scene still takes 53.6 ms, so the supported PS1 campaign remains sprite-based.
+The useful result is the bounded close view, not a claim that every battle
+should draw sixteen 3D models at once.
 
 ## What changed after the first proxy
 
@@ -119,6 +148,9 @@ framebuffers. These are emulator measurements, not real-hardware timings.
 | PS1, six high LOD | 3,156 mesh triangles transformed | 30,624 µs / 32 fps | pass, little margin |
 | PS1, two high LOD at action camera | 1,052 mesh triangles transformed | 19,171 µs / 52 fps | pass |
 | PS1, existing sixteen billboards plus board | sprite path | 1,585 µs / 630 fps | pass |
+| PS1 Sevenfold, four low LOD roles plus board | 1,108–1,728 model triangles transformed | 23,704 µs / 42 fps | pass |
+| PS1 Sevenfold, four high LOD roles for comparison | 1,988–2,908 model triangles transformed | 35,649 µs / 28 fps | **fail**, static comparison only |
+| PS1 Sevenfold, two high LOD roles at action distance | up to 1,500 model triangles transformed | 20,090 µs / 49 fps | pass |
 | N64, six low LOD, depth on | 2,232 triangles | 10,298 µs / 97 fps | pass |
 | N64, sixteen low LOD, depth on | 5,592 triangles | 24,467 µs / 40 fps | pass |
 | N64, six high LOD, depth on | 3,372 triangles | 14,975 µs / 66 fps | pass |
@@ -195,10 +227,16 @@ Its source is
 the two same-frame comparison sprites from the current art using the pinned
 `mksprite`; copied sprite binaries are not kept here.
 
-The PS1 implementation remains evidence only. Its source was not carried into
-the release branch because its full-board result failed the frame target. The
-captures, full emulator log, pins and measured conclusion are retained, which
-is the part useful to a later hybrid action-view experiment.
+Build or check the complete PS1 viewer:
+
+```sh
+platform/playstation/scripts/build-sevenfold-3d.sh
+platform/playstation/scripts/check-sevenfold-3d.sh
+```
+
+Its source is `platform/playstation/prototype/sevenfold_roster_exe.cpp`. The
+check leaves a native capture under
+`build-playstation-sevenfold-3d/frames/sevenfold-3d.ppm`.
 
 Keep comparisons at native 320×240. Nearest-neighbour enlargement is fine for
 presentation; cropping down to only the model defeats the board-scale test.

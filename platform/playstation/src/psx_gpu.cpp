@@ -261,6 +261,20 @@ void fill(int screen_x, int screen_y, int width, int height,
     coordinates(width, height);
 }
 
+void draw_triangle(int x0, int y0, int x1, int y1, int x2, int y2,
+                   std::uint16_t colour) {
+    // GP0(0x20): monochrome three-point polygon, opaque. Like the flat
+    // rectangle above, its command colour is 24-bit even though the
+    // framebuffer stores five bits per channel.
+    command(0x20u << 24 |
+            (static_cast<std::uint32_t>(blue_of(colour)) << 19) |
+            (static_cast<std::uint32_t>(green_of(colour)) << 11) |
+            (static_cast<std::uint32_t>(red_of(colour)) << 3));
+    coordinates(x0, y0);
+    coordinates(x1, y1);
+    coordinates(x2, y2);
+}
+
 void draw_glyph(int screen_x, int screen_y, int slot, int clut) {
     if (slot < 0 || slot >= font_capacity) return;
 

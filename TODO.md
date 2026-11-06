@@ -41,10 +41,10 @@ terrain rules, routes, timing, or combat results.
 - [x] Add reusable team-colour masks to each complete curated roster so one
   body sheet can render the six faction colours without recolouring faces,
   hair, equipment, or effects.
-- [x] Compare the new low-detail commander and rogue proxies on PlayStation and
-  Nintendo 64 at real board scale. N64 keeps a separate reproducible prototype
-  ROM after passing its frame target; PlayStation keeps the supported sprite
-  renderer because the sixteen-unit 3D board reached only 18 fps. See
+- [x] Expand the console 3D comparison to all 112 style/archetype/body models.
+  N64 now ships a reproducible roster viewer beside the playable sprite ROM;
+  PS1 has checked four-role strategic pages and a two-model high-detail attack
+  viewer. Supported campaigns remain sprite-based. See
   [the console 3D experiment](docs/CONSOLE_3D_EXPERIMENT.md).
 
 ## 0.4 player foundation and battle view

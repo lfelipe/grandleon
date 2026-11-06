@@ -1,8 +1,8 @@
 # PlayStation
 
-Seven executables. One proves the engine runs on an R3000A, one proves the
-memory card, two draw a board, one is a board a controller plays, and two are
-whole games. The interactive half is not written here:
+The supported executables prove the engine, GPU, controller, memory card, and
+complete campaigns on an R3000A. A separate optional executable exercises the
+complete Sevenfold 3D roster. The interactive campaign half is not written here:
 `platform/client/src/turn_client.cpp` is the same translation unit the host
 derivation compiles, and this directory supplies a GPU, a controller, a memory
 card, a frame, and the pixel claims that make a picture checkable.
@@ -11,6 +11,8 @@ card, a frame, and the pixel claims that make a picture checkable.
 
 - [What is here](#what-is-here)
 - [Building and running](#building-and-running)
+- [The optional Sevenfold 3D viewer](#the-optional-sevenfold-3d-viewer)
+- [Which game the executables carry](#which-game-the-executables-carry)
 - [The disc](#the-disc)
 - [The toolchain](#the-toolchain)
 - [The ISA trap](#the-isa-trap)
@@ -42,6 +44,7 @@ card, a frame, and the pixel claims that make a picture checkable.
 | `grandleon_psx_turn_autopilot.ps-exe` | the turn executable, playing a recorded script instead of waiting on a pad |
 | `grandleon_psx_campaign_autopilot.ps-exe` | the Tarnholt Line campaign, likewise |
 | `grandleon_psx_campaign_demo_autopilot.ps-exe` | The Bridge at Dawn campaign, likewise |
+| `grandleon_psx_sevenfold_3d.ps-exe` | optional 3D roster viewer: 112 models, four-role strategic pages, and a high-detail attack view |
 
 Each check prints `RESULT PASS n/n` counts; the gate is the authority on the
 numbers. The Tarnholt Line campaign is also written onto a disc image somebody
@@ -100,7 +103,42 @@ shipped campaign anywhere. It has no target of its own for the same reason
 rather than this directory. The scripts under `scripts/` can also be run
 directly and take `--rebuild-image` to force a container rebuild.
 
-### Which game the executables carry
+## The optional Sevenfold 3D viewer
+
+The normal PS1 campaign remains sprite-based. The optional viewer answers a
+narrower question: can all seven styles, eight archetypes, and both body
+variants remain recognisable as low-poly 3D models on this hardware?
+
+Build and run its complete emulator check with:
+
+```sh
+cmake --build build --target grandleon_playstation_sevenfold_3d_check
+cmake --build build --target grandleon_playstation_sevenfold_3d_disc
+```
+
+The interactive executable is
+`build-playstation-sevenfold-3d/target/platform/playstation/grandleon_psx_sevenfold_3d.ps-exe`.
+On the board, Left/Right changes style, Up/Down changes body, Cross changes
+role page, Triangle changes detail, and Start opens the attack view. In the
+attack view, Up/Down changes terrain, Cross changes role, Circle plays the
+strike, and Start returns.
+
+The current check validates every low/high model combination, renders all 56
+four-role detail pages and fourteen close pairs, and reports `296/296`; a
+separate GPU observer reports `18/18` and saves the final 320×240
+frame. The slowest low-detail page is about 23.7 ms, the optional high-detail
+comparison 35.7 ms, and the two-model close view 20.1 ms in the pinned
+interpreter. These are emulator timings, not original-hardware claims. The
+older sixteen-model stress
+scene still reaches only 18 fps, so this viewer does not justify replacing the
+campaign's clearer sprite board. See [the plain-language experiment summary](../../docs/CONSOLE_3D_EXPERIMENT.md).
+
+The disc target writes `sevenfold-ps1-3d.bin` and `sevenfold-ps1-3d.cue` under
+`build-playstation-sevenfold-3d/disc/`. It is easy to open in an emulator but,
+like the normal project disc, carries no Sony licence sector and will not boot
+on an unmodified retail PlayStation.
+
+## Which game the executables carry
 
 `scripts/build-playstation.sh --project PATH` builds the play, turn and
 campaign executables for that project instead of `games/tarnholt`, and
