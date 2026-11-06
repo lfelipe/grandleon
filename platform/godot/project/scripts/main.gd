@@ -1207,45 +1207,46 @@ func _create_interface() -> void:
 
 	var top := PanelContainer.new()
 	top.position = Vector2(18, 16)
-	top.size = Vector2(1884, 52)
-	top.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.035, 0.055, 0.88), 12, Color(0.20, 0.62, 0.78, 0.25), 12))
+	top.size = Vector2(1884, 44)
+	top.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.035, 0.055, 0.82), 12, Color(0.20, 0.62, 0.78, 0.25), 9))
 	layer.add_child(top)
 	var top_row := HBoxContainer.new()
 	top_row.add_theme_constant_override("separation", 18)
 	top.add_child(top_row)
-	title_label = _label("PC", 21, Color("e9f7ff"))
+	title_label = _label("PC", 19, Color("e9f7ff"))
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title_label)
-	turn_label = _label("WAITING", 19, Color("69d9ff"))
+	turn_label = _label("WAITING", 17, Color("69d9ff"))
 	top_row.add_child(turn_label)
 	status_label = _label("STARTING", 16, Color("9db6c5"))
-	status_label.custom_minimum_size.x = 170
-	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	# Kept as the internal status sink for loading and automation, but routine
+	# play communicates state through the compact turn chip and transient toast.
+	status_label.visible = false
 	top_row.add_child(status_label)
 
 	# Unit information is contextual. It floats over the lower-left corner only
 	# while a character is under the cursor or selected, leaving the rest of the
 	# screen to the board.
 	unit_panel = PanelContainer.new()
-	unit_panel.position = Vector2(24, 858)
-	unit_panel.size = Vector2(390, 148)
+	unit_panel.position = Vector2(24, 936)
+	unit_panel.size = Vector2(350, 104)
 	unit_panel.visible = false
 	unit_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	unit_panel.add_theme_stylebox_override(
-		"panel", _panel(Color(0.018, 0.032, 0.052, 0.92), 14, Color(0.22, 0.60, 0.76, 0.36), 16)
+		"panel", _panel(Color(0.018, 0.032, 0.052, 0.91), 13, Color(0.22, 0.60, 0.76, 0.36), 12)
 	)
 	layer.add_child(unit_panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 6)
+	column.add_theme_constant_override("separation", 3)
 	unit_panel.add_child(column)
-	unit_name = _label("", 22, Color("f2f7f9"))
+	unit_name = _label("", 19, Color("f2f7f9"))
 	unit_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(unit_name)
 	unit_stats = RichTextLabel.new()
 	unit_stats.bbcode_enabled = true
 	unit_stats.fit_content = true
-	unit_stats.custom_minimum_size = Vector2(350, 72)
-	_bind_font_size(unit_stats, "normal_font_size", 16)
+	unit_stats.custom_minimum_size = Vector2(318, 38)
+	_bind_font_size(unit_stats, "normal_font_size", 14)
 	unit_stats.add_theme_color_override("default_color", Color("b9cbd5"))
 	column.add_child(unit_stats)
 
@@ -1259,26 +1260,26 @@ func _create_interface() -> void:
 
 	# Controls are a short action strip, not a manual pinned to the screen.
 	help_panel = PanelContainer.new()
-	help_panel.position = Vector2(510, 1008)
-	help_panel.size = Vector2(900, 52)
+	help_panel.position = Vector2(560, 1022)
+	help_panel.size = Vector2(800, 42)
 	help_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	help_panel.add_theme_stylebox_override(
-		"panel", _panel(Color(0.018, 0.032, 0.052, 0.88), 12, Color(0.22, 0.60, 0.76, 0.28), 12)
+		"panel", _panel(Color(0.018, 0.032, 0.052, 0.86), 11, Color(0.22, 0.60, 0.76, 0.28), 8)
 	)
 	layer.add_child(help_panel)
 	help_label = RichTextLabel.new()
 	help_label.bbcode_enabled = true
 	help_label.fit_content = false
-	help_label.custom_minimum_size = Vector2(870, 28)
-	_bind_font_size(help_label, "normal_font_size", 15)
+	help_label.custom_minimum_size = Vector2(776, 24)
+	_bind_font_size(help_label, "normal_font_size", 14)
 	help_label.add_theme_color_override("default_color", Color("a9bdc9"))
 	help_label.text = _help_text()
 	help_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	help_panel.add_child(help_label)
 
 	toast_label = _label("", 18, Color.WHITE)
-	toast_label.position = Vector2(580, 936)
-	toast_label.size = Vector2(760, 52)
+	toast_label.position = Vector2(620, 70)
+	toast_label.size = Vector2(680, 46)
 	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	toast_label.add_theme_stylebox_override("normal", _panel(Color(0.08, 0.02, 0.03, 0.94), 12, Color(1.0, 0.30, 0.38, 0.6)))
@@ -1296,28 +1297,29 @@ func _create_action_popups(layer: CanvasLayer) -> void:
 		var panel := PanelContainer.new()
 		panel.visible = false
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.size = Vector2(230, 210)
+		panel.size = Vector2(198, 176)
 		panel.add_theme_stylebox_override(
 			"panel",
 			_panel(
-				Color(0.012, 0.027, 0.043, 0.98), 14,
-				Color(PLAYER_COLOURS[seat], 0.92)
+				Color(0.012, 0.027, 0.043, 0.96), 13,
+				Color(PLAYER_COLOURS[seat], 0.92), 10
 			)
 		)
 		layer.add_child(panel)
 		action_popup_panels.append(panel)
 		var column := VBoxContainer.new()
-		column.add_theme_constant_override("separation", 8)
+		column.add_theme_constant_override("separation", 2)
 		panel.add_child(column)
 		var heading := _label("ACTION", 15, PLAYER_COLOURS[seat])
+		heading.visible = false
 		column.add_child(heading)
 		action_popup_titles.append(heading)
 		var choices := RichTextLabel.new()
 		choices.bbcode_enabled = true
 		choices.fit_content = true
-		choices.custom_minimum_size = Vector2(198, 142)
+		choices.custom_minimum_size = Vector2(166, 112)
 		choices.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_bind_font_size(choices, "normal_font_size", 18)
+		_bind_font_size(choices, "normal_font_size", 16)
 		choices.add_theme_color_override("default_color", Color("dcebf0"))
 		column.add_child(choices)
 		action_popup_lists.append(choices)
@@ -2647,7 +2649,7 @@ func _render_action_popup(seat: int) -> void:
 		else:
 			lines.append("   " + label)
 	action_popup_lists[seat].text = "\n".join(lines)
-	action_popup_panels[seat].size.y = 58.0 + float(options.size()) * 31.0
+	action_popup_panels[seat].size.y = 24.0 + float(options.size()) * 27.0
 
 
 func _position_action_popups() -> void:
@@ -2665,17 +2667,17 @@ func _position_action_popups() -> void:
 			Vector2i(int(unit.x), int(unit.y))
 		)
 		var panel := action_popup_panels[seat]
-		var right := anchor + Vector2(44.0, -panel.size.y * 0.45)
-		var left := anchor + Vector2(-panel.size.x - 44.0, -panel.size.y * 0.45)
+		var right := anchor + Vector2(38.0, -panel.size.y * 0.45)
+		var left := anchor + Vector2(-panel.size.x - 38.0, -panel.size.y * 0.45)
 		var candidates: Array[Vector2] = [
 			right if seat == 0 else left,
 			left if seat == 0 else right,
 			anchor + Vector2(-panel.size.x * 0.5, -panel.size.y - 48.0),
 			anchor + Vector2(-panel.size.x * 0.5, 58.0),
-			Vector2(24, 84),
-			Vector2(1896.0 - panel.size.x, 84),
-			Vector2(24, 992.0 - panel.size.y),
-			Vector2(1896.0 - panel.size.x, 992.0 - panel.size.y),
+			Vector2(16, 66),
+			Vector2(1904.0 - panel.size.x, 66),
+			Vector2(16, 1064.0 - panel.size.y),
+			Vector2(1904.0 - panel.size.x, 1064.0 - panel.size.y),
 		]
 		panel.position = _best_overlay_position(
 			panel.size, candidates, anchor, seat, panel
@@ -2689,10 +2691,10 @@ func _position_unit_panel(unit: Dictionary, seat: int) -> void:
 		Vector2i(int(unit.x), int(unit.y))
 	)
 	var candidates: Array[Vector2] = [
-		Vector2(24, 842),
-		Vector2(1896.0 - unit_panel.size.x, 842),
-		Vector2(24, 84),
-		Vector2(1896.0 - unit_panel.size.x, 84),
+		Vector2(16, 1064.0 - unit_panel.size.y),
+		Vector2(1904.0 - unit_panel.size.x, 1064.0 - unit_panel.size.y),
+		Vector2(16, 66),
+		Vector2(1904.0 - unit_panel.size.x, 66),
 	]
 	unit_panel.position = _best_overlay_position(
 		unit_panel.size, candidates, anchor, seat, unit_panel
@@ -2712,8 +2714,8 @@ func _best_overlay_position(
 	var points := _important_board_points(seat)
 	for index in candidates.size():
 		var candidate := Vector2(
-			clampf(candidates[index].x, 24.0, 1896.0 - overlay_size.x),
-			clampf(candidates[index].y, 76.0, 1000.0 - overlay_size.y)
+			clampf(candidates[index].x, 16.0, 1904.0 - overlay_size.x),
+			clampf(candidates[index].y, 64.0, 1064.0 - overlay_size.y)
 		)
 		var area := Rect2(candidate, overlay_size)
 		var score := area.get_center().distance_to(anchor) * 0.002 + float(index) * 0.01
@@ -2963,13 +2965,13 @@ func _show_unit(unit: Dictionary, seat := 0) -> void:
 		var player := clampi(int(unit.get("player", 1)), 1, 2)
 		heading_colour = PLAYER_COLOURS[player - 1].to_html()
 	unit_stats.text = (
-		"[color=%s][font_size=20][b]HP %d / %d[/b][/font_size][/color]    " % [
+		"[color=%s][b]HP %d/%d[/b][/color]   " % [
 			heading_colour, unit.health, unit.maximum_health
 		]
-		+ ("[color=#718896]DONE[/color]" if unit.get("has_acted", false) else "[color=#72e08f]READY[/color]")
-		+ "\nMOVE %d    RANGE %d–%d" % [
+		+ "MOVE %d   RANGE %d–%d   " % [
 			unit.movement, unit.minimum_reach, unit.maximum_reach
 		]
+		+ ("[color=#718896]DONE[/color]" if unit.get("has_acted", false) else "[color=#72e08f]READY[/color]")
 	)
 	_position_unit_panel(unit, seat)
 	_update_context_help(seat)
@@ -3067,10 +3069,15 @@ func _unit_by_id(id: int) -> Dictionary:
 func _update_status() -> void:
 	if snapshot.is_empty():
 		return
-	turn_label.text = "ROUND %d" % (int(snapshot.round) + 1)
-	status_label.text = "DEPLOY" if snapshot.get("deploying", false) else (
-		"TEAM TURN" if String(snapshot.active_side) == "first" else "ENEMY TURN"
+	var phase := "DEPLOY" if snapshot.get("deploying", false) else (
+		"TEAM" if String(snapshot.active_side) == "first" else "ENEMY"
 	)
+	turn_label.text = "ROUND %d  •  %s" % [int(snapshot.round) + 1, phase]
+	turn_label.add_theme_color_override(
+		"font_color",
+		Color("69d9ff") if String(snapshot.active_side) == "first" else Color("ff7182")
+	)
+	status_label.text = phase
 	_update_context_help()
 
 
@@ -3135,12 +3142,29 @@ func _dialogue_visible() -> bool:
 
 func _show_toast(message: String) -> void:
 	toast_label.text = message
+	_position_toast()
 	if toast_tween and toast_tween.is_running():
 		toast_tween.kill()
 	toast_label.modulate.a = 1.0
 	toast_tween = create_tween()
 	toast_tween.tween_interval(1.8)
 	toast_tween.tween_property(toast_label, "modulate:a", 0.0, 0.45)
+
+
+func _position_toast() -> void:
+	if toast_label == null:
+		return
+	var width := toast_label.size.x
+	var height := toast_label.size.y
+	var candidates: Array[Vector2] = [
+		Vector2((1920.0 - width) * 0.5, 68.0),
+		Vector2((1920.0 - width) * 0.5, 1064.0 - height),
+		Vector2(16.0, 1064.0 - height),
+		Vector2(1904.0 - width, 1064.0 - height),
+	]
+	toast_label.position = _best_overlay_position(
+		toast_label.size, candidates, Vector2(960, 540), hud_seat, toast_label
+	)
 
 
 func _show_fatal(message: String) -> void:

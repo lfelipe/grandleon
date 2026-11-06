@@ -7,7 +7,10 @@ changes.
 
 The graphics are an early production baseline. They are available now so the
 whole campaign can be tested while model readability, terrain, animation,
-cameras, effects, close-up attacks, and performance keep improving.
+cameras, effects, close-up attacks, and performance keep improving. Movement
+uses the 3D models, and real hit/miss events switch to a terrain-aware
+high-detail view with simulation-owned damage. Counters appear as the next
+real combat event rather than as a renderer-authored demonstration.
 
 ## What can I run?
 
@@ -36,7 +39,9 @@ named `sevenfold-n64-3d.z64`; the similarly named `-viewer` file is the roster
 diagnostic rather than the game.
 
 The campaign starts with the same one-player or two-player choice as the
-sprite build. Both versions keep save data in SRAM.
+sprite build. Both versions keep save data in SRAM. The 3D build animates the
+moving model along its accepted route and uses high-detail models for real
+attacks, misses, damage, and counters.
 
 ## Build the PlayStation version
 

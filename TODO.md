@@ -71,16 +71,18 @@ terrain rules, routes, timing, or combat results.
 
 ## 0.6 cinematic battle presentation
 
-The Sevenfold N64 review ROM now proves the basic two-character composition,
-terrain-derived backdrop, attack/counter motion, damage callouts, and frame
-budget. It remains an isolated presentation prototype: it does not consume a
-real combat result, offer a campaign setting, or make this section complete.
+The Sevenfold N64 and PS1 3D campaigns now consume real hit and miss events in
+a high-detail, terrain-derived close view. Damage comes from the simulation,
+and a legal counter-attack arrives as the next authoritative event with the
+roles reversed. The remaining work is to make this a portable game setting,
+bring the same composition to Godot, and cover every combat outcome.
 
-- [ ] Add an optional close-up attack presentation inspired by tactical RPG
+- [ ] Add a portable optional close-up attack presentation inspired by tactical RPG
   battle scenes. When enabled, an attack leaves the board view for a frontal
   attacker-and-defender view, uses the current terrain tiles to choose and
   compose the backdrop, plays the attack and any legal counter-attack, and
-  shows the damage dealt with clear numbers.
+  shows the damage dealt with clear numbers. N64 and PS1 3D builds now prove
+  the campaign-driven console version; Godot and the portable setting remain.
 - [ ] Make the cinematic a game setting because it adds meaningful time to
   every exchange. Support the normal board-only presentation when disabled,
   define how players skip or accelerate a running cinematic, preserve the

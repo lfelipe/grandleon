@@ -822,7 +822,8 @@ public:
         int toward_x,
         int toward_y,
         view::AttackGesture gesture,
-        int separation
+        int separation,
+        int damage
     ) {
         static_cast<void>(before);
         static_cast<void>(struck);
@@ -831,6 +832,7 @@ public:
         static_cast<void>(toward_y);
         static_cast<void>(gesture);
         static_cast<void>(separation);
+        static_cast<void>(damage);
     }
 
     // A blow that did not land. Nothing is knocked anywhere, which is the

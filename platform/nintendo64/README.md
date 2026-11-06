@@ -116,6 +116,13 @@ style or body. **Start** opens a two-character high-detail attack view whose
 floor, skyline, and sky colour are derived from the selected terrain. **B**
 then plays an illustrative attack, hit, counter-attack, and damage callout.
 
+The playable `sevenfold-n64-3d.z64` uses the same proxies differently: low
+detail on the complete campaign board, actual 3D route movement, and two
+high-detail figures when a real attack or miss occurs. The close view samples
+the current map terrain, displays the simulation's damage, and naturally shows
+a legal counter when its authoritative event follows. This is separate from
+the viewer's illustrative animation.
+
 Its ares check captures 28 strategic comparisons, seven terrain close views,
 and one animated hit frame. The current run passes `38/38`: low-detail board
 pages measure 62–87 fps, high-detail pages 39–51 fps, and close views 132–163

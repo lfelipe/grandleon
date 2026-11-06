@@ -5126,7 +5126,8 @@ private:
 #ifdef GRANDLEON_N64_3D
         campaign_3d_renderer_.draw(
             disp, snapshot, terrain_, shown_, camera_, theme_, skip_unit,
-            skip_other
+            skip_other,
+            motion_pose_.unit != 0 ? &motion_pose_ : nullptr
         );
 #else
         render_board_rdpq(disp, snapshot);
@@ -5860,17 +5861,45 @@ private:
     // the sequence from its own start.
     void slide_token(
         const sim::UnitSnapshot& unit,
-        int from_x,
-        int from_y,
-        int to_x,
-        int to_y,
+        sim::Position from,
+        sim::Position to,
         int frames,
         int elapsed = 0,
         int total = 0
     ) {
+#ifndef GRANDLEON_N64_3D
         const int whole = total > 0 ? total : frames;
+        const int from_x = px(from.x);
+        const int from_y = py(from.x, from.y);
+        const int to_x = px(to.x);
+        const int to_y = py(to.x, to.y);
+#else
+        static_cast<void>(total);
+#endif
         for (int frame = 1; frame <= frames; ++frame) {
             surface_t* disp = display_get();
+#ifdef GRANDLEON_N64_3D
+            motion_pose_.unit = unit.id;
+            motion_pose_.column_256 = view::slide_between(
+                from.x * 256 + 128, to.x * 256 + 128, frame, frames
+            );
+            motion_pose_.row_256 = view::slide_between(
+                from.y * 256 + 128, to.y * 256 + 128, frame, frames
+            );
+            const int from_height = elevation_at(from.x, from.y) * 12;
+            const int to_height = elevation_at(to.x, to.y) * 12;
+            const int step = (elapsed + frame) & 3;
+            const int bob = step == 0 ? 0 : step == 2 ? 5 : 3;
+            motion_pose_.height = view::slide_between(
+                from_height, to_height, frame, frames
+            ) + bob;
+            if (to.x < from.x) motion_pose_.quarter_turn = -1;
+            else if (to.x > from.x) motion_pose_.quarter_turn = 1;
+            else motion_pose_.quarter_turn =
+                unit.side == sim::Side::first ? 1 : -1;
+            motion_pose_.lean = step < 2 ? 10 : -10;
+            render(disp, previous_, unit.id);
+#else
             render(disp, previous_, unit.id);
             draw_token_at(
                 disp, unit,
@@ -5878,9 +5907,13 @@ private:
                 view::slide_between(from_y, to_y, frame, frames),
                 view::walk_cell(elapsed + frame, whole)
             );
+#endif
             grandleon::n64audio::pump();
             show(disp);
         }
+#ifdef GRANDLEON_N64_3D
+        motion_pose_ = {};
+#endif
     }
 
     // The route a slide is drawn along, derived from the simulation's own
@@ -5953,7 +5986,6 @@ private:
     // `graphics_draw_box` overlays on the settled RDP output, which is why a
     // travelling projectile and an opening flare cost no sheet at all.
     void play_attack(const sim::Event& event, bool landed) {
-        if (!camera_.visible(event.position.x, event.position.y)) return;
         const sim::UnitSnapshot* struck = nullptr;
         const sim::UnitSnapshot* striker = nullptr;
         for (const sim::UnitSnapshot& unit : previous_.units) {
@@ -5976,6 +6008,74 @@ private:
                 : 0;
         const view::AttackGesture gesture =
             client::gesture_for(striker, abilities_, separation);
+
+#ifdef GRANDLEON_N64_3D
+        // The 3D campaign spends its high-detail budget on the two figures
+        // that matter. This consumes the real event, damage and gesture; a
+        // counter-attack arrives as the next authoritative event with the
+        // roles reversed, so no illustrative combat is invented here.
+        if (struck != nullptr && striker != nullptr) {
+            const auto draw_caption = [landed, &event](
+                                          surface_t* disp,
+                                          bool resolving
+                                      ) {
+                graphics_draw_box(
+                    disp, 0, 0, 320, 25, colour(12, 18, 24)
+                );
+                graphics_set_color(colour(245, 234, 210), 0);
+                char label[24];
+                if (!resolving) {
+                    std::snprintf(label, sizeof label, "ATTACK");
+                } else if (landed) {
+                    std::snprintf(
+                        label, sizeof label, "HIT  -%d",
+                        static_cast<int>(event.amount)
+                    );
+                } else {
+                    std::snprintf(label, sizeof label, "MISS");
+                }
+                const int left =
+                    (320 - static_cast<int>(std::strlen(label)) * 8) / 2;
+                graphics_draw_text(disp, left, 8, label);
+            };
+
+            const int lead = view::gesture_lead_frames(gesture, separation);
+            for (int frame = 0; frame < lead; ++frame) {
+                surface_t* disp = display_get();
+                campaign_3d_renderer_.draw_attack(
+                    disp, previous_, terrain_, shown_, theme_, *striker,
+                    *struck, gesture, frame, lead, false, landed
+                );
+                draw_caption(disp, false);
+                grandleon::n64audio::pump();
+                show(disp);
+            }
+            const int resolve =
+                landed ? view::flinch_frames : view::miss_frames;
+            for (int frame = 0; frame < resolve; ++frame) {
+                surface_t* disp = display_get();
+                campaign_3d_renderer_.draw_attack(
+                    disp, previous_, terrain_, shown_, theme_, *striker,
+                    *struck, gesture, frame, resolve, true, landed
+                );
+                draw_caption(disp, true);
+                grandleon::n64audio::pump();
+                show(disp);
+            }
+#ifdef GRANDLEON_N64_AUTOPILOT
+            if (landed) {
+                report_line("CHECKPOINT struck\n");
+                for (int held = 0; held < autopilot_checkpoint_hold; ++held) {
+                    grandleon::n64audio::pump();
+                    wait_ms(16);
+                }
+            }
+#endif
+            return;
+        }
+#endif
+
+        if (!camera_.visible(event.position.x, event.position.y)) return;
 
         const int cell_x = px(event.position.x);
         const int cell_y = py(event.position.x, event.position.y);
@@ -6191,31 +6291,27 @@ private:
                 view::Route route(route_storage, route_capacity);
                 plan_move_route(*actor, event.position, route);
 
-                int from_x = px(actor->position.x);
-                int from_y = py(actor->position.x, actor->position.y);
                 if (route.size() == 0) {
                     const int dx = event.position.x - actor->position.x;
                     const int dy = event.position.y - actor->position.y;
                     const int tiles =
                         (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
                     slide_token(
-                        *actor, from_x, from_y, px(event.position.x),
-                        py(event.position.x, event.position.y),
+                        *actor, actor->position, event.position,
                         view::slide_frames_for(tiles > 0 ? tiles : 1)
                     );
                     return;
                 }
                 const int whole = view::slide_frames_for(route.size());
+                sim::Position from = actor->position;
                 for (int leg = 0; leg < route.size(); ++leg) {
-                    const int to_x = px(route[leg].x);
-                    const int to_y = py(route[leg].x, route[leg].y);
+                    const sim::Position to{route[leg].x, route[leg].y};
                     slide_token(
-                        *actor, from_x, from_y, to_x, to_y,
+                        *actor, from, to,
                         view::slide_frames_per_tile,
                         leg * view::slide_frames_per_tile, whole
                     );
-                    from_x = to_x;
-                    from_y = to_y;
+                    from = to;
                 }
                 return;
             }
@@ -8833,6 +8929,7 @@ private:
     view::DrawList draw_list_{draw_storage, draw_capacity};
 #ifdef GRANDLEON_N64_3D
     grandleon::nintendo64::Campaign3DRenderer campaign_3d_renderer_{};
+    grandleon::nintendo64::Campaign3DRenderer::MotionPose motion_pose_{};
 #endif
 #ifndef GRANDLEON_N64_PROBE
     // The cursor's pulse phase, in drawn frames. It advances only while the

@@ -98,9 +98,11 @@ sleep 0.5
 
 battle="$(${command[@]} inspect)"
 grep -Fq 'ROUND 1' <<<"${battle}"
-grep -Fq 'TEAM TURN' <<<"${battle}"
-grep -Fq 'CYAN  FIRST CONTROL' <<<"${battle}"
-grep -Fq 'AMBER  SECOND CONTROL' <<<"${battle}"
+grep -Fq '•  TEAM' <<<"${battle}"
+grep -Fq 'A  SELECT' <<<"${battle}"
+grep -Fq 'X  FINISH' <<<"${battle}"
+! grep -Fq 'FIRST CONTROL' <<<"${battle}"
+! grep -Fq 'SECOND CONTROL' <<<"${battle}"
 "${command[@]}" screenshot opening-battle-smoke >/dev/null
 test -s "${state_dir}/automation/screenshots/opening-battle-smoke.png"
 

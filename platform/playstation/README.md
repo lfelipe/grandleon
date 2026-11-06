@@ -110,8 +110,10 @@ directly and take `--rebuild-image` to force a container rebuild.
 Sevenfold has a full playable 3D campaign build. It uses the same campaign
 state and rules as the sprite path while drawing terrain and units through the
 PlayStation GPU. Low-detail models are used on the board; the closer attack
-view can spend more of the frame on the two units involved. This is an early
-visual baseline intended for end-to-end testing and continued improvement.
+view can spend more of the frame on the two units involved. That view consumes
+real hit/miss events, shows simulation-owned damage, and presents a legal
+counter as the next event with the roles reversed. This is an early visual
+baseline intended for end-to-end testing and continued improvement.
 
 Build and run its complete emulator check with:
 

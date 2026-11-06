@@ -96,8 +96,11 @@ func set_camera_impulse_enabled(value: bool) -> void:
 
 
 func _ready() -> void:
-	position = Vector2(18, 76)
-	size = Vector2(1884, 920)
+	# The battlefield is the screen. Interface cards float over its quiet edges
+	# only when they have an immediate job, rather than permanently reserving a
+	# frame around the game.
+	position = Vector2.ZERO
+	size = Vector2(1920, 1080)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stretch = true
 

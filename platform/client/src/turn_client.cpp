@@ -1258,7 +1258,8 @@ void TurnClient::report(
         animate_hit(
             last_snapshot_, event.unit_id,
             striker != nullptr ? striker->id : 0, toward_x, toward_y,
-            gesture_for(striker, separation), separation
+            gesture_for(striker, separation), separation,
+            static_cast<int>(event.amount)
         );
     }
 }
