@@ -420,6 +420,8 @@ Cross confirms and circle cancels (the Western convention). Square, select and
 the shoulders are read and deliberately dropped. The names are the client's
 (`grandleon/client/turn_client.hpp`); each console maps its own buttons onto
 the same three, so a controller script means the same thing on every console.
+Player-facing PlayStation prompts use the controller's own **X**, **O** and
+**/\\** symbols rather than exposing those internal A/B/C names.
 
 Both physical controller sockets are polled each frame through SIO0. Each
 controller owns an independent board cursor, selection, aim, and menu position;
@@ -510,10 +512,13 @@ exactly the scripted run when headless.
 with `GRANDLEON_TURN_CLIENT_CAMPAIGN` defined. Behind that macro the shared
 client keeps the title, the slot screen, the company, the authored story, the
 aftermath and the end. Every screen is composed by the client as a page of 38
-columns by 16 rows and placed here by arithmetic: a panel of paper,
-rows inset by the caret's column, a footer at the foot. A scene's backdrop is
-six `gpu::fill` rectangles: the art library publishes flat bands, not a
-picture.
+columns by 16 rows. Story and management pages use the general page layout;
+the player-facing title and save selector use the same dark ground, warm gold
+focus and compact hierarchy as the N64 front end. A fixed formation with no
+deployment or shared-inventory decision starts its battle directly instead of
+opening the company editor. The editor still appears when there is an actual
+choice or a roster refusal. A scene's backdrop is six `gpu::fill` rectangles:
+the art library publishes flat bands, not a picture.
 
 The campaign is kept on a memory card. `src/psx_card.h` speaks the card
 protocol on SIO0 directly, the way `src/psx_pad.cpp` speaks the controller's;

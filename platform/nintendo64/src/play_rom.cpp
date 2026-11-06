@@ -2983,6 +2983,17 @@ public:
     [[nodiscard]] client::ManagementIntent next_management_intent(
         const client::CompanyManagement& company
     ) override {
+#ifndef GRANDLEON_N64_AUTOPILOT
+        // Fixed formations with no shared supplies are ready to play. Do not
+        // put the company editor between the title and a board when there is no
+        // decision to make; the debug Stage picker remains available from the
+        // battle menu, and a refusal still comes here so it can be repaired.
+        if (!company.has_deployment_options && company.store.empty() &&
+            company.refused ==
+                grandleon::campaign_runtime::RosterError::none) {
+            return {client::ManagementVerb::proceed, {}, {}};
+        }
+#endif
         const int rows = static_cast<int>(company.roster.size());
         if (rows == 0) return {client::ManagementVerb::quit, {}, {}};
         if (manage_row_ >= rows) manage_row_ = rows - 1;

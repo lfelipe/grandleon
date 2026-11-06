@@ -270,6 +270,14 @@ void draw_triangle(int x0, int y0, int x1, int y1, int x2, int y2,
 // in the page.
 void draw_glyph(int screen_x, int screen_y, int slot, int clut);
 
+// Draws a font glyph into a square of `size` pixels. The campaign title uses
+// this for a readable mark rather than pretending an eight-pixel menu label is
+// a logo. The same nearest-neighbour textured quad as `draw_cell_scaled` keeps
+// the result faithful to the PS1 GPU and requires no second font asset.
+void draw_glyph_scaled(
+    int screen_x, int screen_y, int size, int slot, int clut
+);
+
 // Where a glyph lives in the sheet, so a caller can upload into it.
 [[nodiscard]] constexpr int glyph_texture_u(int slot) noexcept {
     return (slot % font_columns) * glyph_texels;

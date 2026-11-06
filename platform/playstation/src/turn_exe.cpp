@@ -233,6 +233,12 @@ constexpr std::uint16_t danger_colour = 0x18DF;   // red
 // place you may walk to and not a place you may be struck from.
 constexpr std::uint16_t spent_colour = 0x39CE;    // grey
 constexpr std::uint16_t flash_colour = 0x131F;    // amber, for a blow
+// The front-end palette mirrors the N64 menu: warm gold for the game and the
+// active row, quiet green-grey for secondary copy, and the existing near-black
+// paper as the full-screen ground. Unlike the old diagnostic magenta border,
+// every one of these is meant to be seen.
+constexpr std::uint16_t menu_gold_colour = gpu::rgb15(30, 24, 9);
+constexpr std::uint16_t menu_muted_colour = gpu::rgb15(15, 17, 16);
 
 // The two host callback slots the harness installs itself on, and the only
 // numbers this file and `harness/playstation_turn_probe.lua` have to agree
@@ -673,6 +679,8 @@ constexpr int character_cache_capacity =
 int character_cell_of[character_cache_capacity];
 int character_clut_of[character_cache_capacity];
 int font_clut = -1;
+int font_gold_clut = -1;
+int font_muted_clut = -1;
 
 int cells_used = 0;
 int cluts_used = 0;
@@ -744,11 +752,17 @@ void build_font() {
 // GPU skips a texel whose CLUT word is zero, and a message bar that let the
 // board show through between its letters would be a message bar nobody could
 // read over a mountain.
-void build_font_clut() {
+[[nodiscard]] int claim_font_clut(std::uint16_t ink) {
     unsigned short entries[art::clut_size];
     for (int i = 0; i < art::clut_size; ++i) entries[i] = paper_colour;
-    entries[1] = ink_colour;
-    font_clut = claim_clut(entries);
+    entries[1] = ink;
+    return claim_clut(entries);
+}
+
+void build_font_clut() {
+    font_clut = claim_font_clut(ink_colour);
+    font_gold_clut = claim_font_clut(menu_gold_colour);
+    font_muted_clut = claim_font_clut(menu_muted_colour);
 }
 
 // ---------------------------------------------------------------------------
@@ -1092,6 +1106,25 @@ public:
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
     // ----- a campaign screen -----------------------------------------------
 
+    [[nodiscard]] client::ManagementIntent next_management_intent(
+        const client::CompanyManagement& company
+    ) override {
+#ifndef GRANDLEON_PSX_AUTOPILOT
+        // Match the Godot player's direct-start rule. An authored fixed
+        // formation with no shared supplies is already ready; opening the full
+        // company editor only hides the battle behind an unexplained START
+        // press. Real deployment choices, inventory management and roster
+        // refusals still use the complete screen. Debug Stages remain in the
+        // in-battle menu.
+        if (!company.has_deployment_options && company.store.empty() &&
+            company.refused ==
+                grandleon::campaign_runtime::RosterError::none) {
+            return {client::ManagementVerb::proceed, {}, {}};
+        }
+#endif
+        return turn::TurnClient::next_management_intent(company);
+    }
+
     // A page of text, placed. Everything about *what* is on it was decided by
     // `platform/client/src/turn_client.cpp`, which is the same translation unit
     // the host compiles to derive this run's expectations. A screen this
@@ -1131,6 +1164,49 @@ public:
     void after_screen(const turn::ScreenView& view) override {
         const int before = probes;
 
+        if (view.screen == turn::Screen::title) {
+            probe("titlebg", 0, 0, paper_colour);
+            probe("titlebar", 24, 18, menu_gold_colour);
+            if (view.page != nullptr && view.page->count > 2) {
+                const char* title = view.page->line(2);
+                claim_first_glyph_at(
+                    "gametitle", centred_column(title), 11, title,
+                    menu_gold_colour
+                );
+            }
+            char footer[screen_cols + 1]{};
+            control_text(view.footer, footer, sizeof footer);
+            claim_first_glyph_at(
+                "titlefooter", centred_column(footer), 26, footer
+            );
+            close_probes(before, harness_screen_slot);
+            return;
+        }
+
+        if (view.screen == turn::Screen::slot) {
+            probe("slotbg", 0, 0, paper_colour);
+            probe("slotbar", 24, 14, menu_gold_colour);
+            const int choice = view.caret_row - view.first_choice_row;
+            if (view.page != nullptr && choice >= 0 &&
+                choice < view.choices && view.caret_row < view.page->count) {
+                const int row = 14 + choice * 2;
+                probe(
+                    "slotchoice", 24, row * glyph - 2, menu_gold_colour
+                );
+                claim_first_glyph_at(
+                    "slottext", 6, row, view.page->line(view.caret_row),
+                    menu_gold_colour
+                );
+            }
+            char footer[screen_cols + 1]{};
+            control_text(view.footer, footer, sizeof footer);
+            claim_first_glyph_at(
+                "slotfooter", centred_column(footer), 27, footer
+            );
+            close_probes(before, harness_screen_slot);
+            return;
+        }
+
         // The panel, at both ends, which is a claim no unpainted screen and no
         // screen drawn a row off can satisfy.
         probe("panel", 0, screen_panel_top * glyph, paper_colour);
@@ -1166,8 +1242,10 @@ public:
                 "footer", (screen_cols - 1) * glyph, screen_footer_row * glyph,
                 paper_colour
             );
+            char footer[screen_cols + 1]{};
+            control_text(view.footer, footer, sizeof footer);
             claim_first_glyph_at(
-                "footertext", screen_page_left, screen_footer_row, view.footer
+                "footertext", screen_page_left, screen_footer_row, footer
             );
         }
 
@@ -2362,10 +2440,116 @@ private:
     }
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+    [[nodiscard]] static int text_length(const char* value) noexcept {
+        int length = 0;
+        while (value != nullptr && value[length] != '\0') ++length;
+        return length;
+    }
+
+    [[nodiscard]] static int centred_column(const char* value) noexcept {
+        const int length = text_length(value);
+        return length < screen_cols ? (screen_cols - length) / 2 : 0;
+    }
+
+    // Shared campaign pages name the three abstract actions A/B/C so recorded
+    // scripts stay portable. Those are not names a PlayStation player sees on
+    // their controller. Translate the leading A action and standalone B/C
+    // actions. A later A can be an article -- `A START A NEW COMPANY` is the
+    // important case -- while the shared footers never put a second A action
+    // after the first. This keeps the prose intact and still gives this machine
+    // its actual Cross, Circle and Triangle legend.
+    static void control_text(
+        const char* source, char* output, std::size_t capacity
+    ) noexcept {
+        if (output == nullptr || capacity == 0U) return;
+        std::size_t at = 0;
+        for (std::size_t i = 0; source != nullptr && source[i] != '\0'; ++i) {
+            const char value = source[i];
+            const bool token =
+                (i == 0U || source[i - 1U] == ' ') &&
+                (source[i + 1U] == '\0' || source[i + 1U] == ' ');
+            const char* replacement = nullptr;
+            if (i == 0U && token && value == 'A') replacement = "X";
+            if (token && value == 'B') replacement = "O";
+            if (token && value == 'C') replacement = "/\\";
+            if (replacement == nullptr) {
+                if (at + 1U < capacity) output[at++] = value;
+                continue;
+            }
+            for (std::size_t j = 0; replacement[j] != '\0' &&
+                                    at + 1U < capacity;
+                 ++j) {
+                output[at++] = replacement[j];
+            }
+        }
+        output[at] = '\0';
+    }
+
+    void write_centred(int row, const char* value, int clut) {
+        write_at_with_clut(centred_column(value), row, value, clut);
+    }
+
+    void write_controls_centred(int row, const char* value, int clut) {
+        char translated[screen_cols + 1]{};
+        control_text(value, translated, sizeof translated);
+        write_centred(row, translated, clut);
+    }
+
+    void draw_title_screen(const turn::ScreenView& view) {
+        gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, paper_colour);
+        gpu::fill(24, 18, 272, 2, menu_gold_colour);
+        gpu::fill(52, 70, 216, 1, menu_muted_colour);
+        gpu::fill(52, 198, 216, 1, menu_muted_colour);
+        write_scaled_at(88, 30, "GRANDLEON", 16, font_gold_clut);
+        if (view.page != nullptr && view.page->count > 2) {
+            write_centred(11, view.page->line(2), font_gold_clut);
+        }
+        write_centred(
+            14, "A CAMPAIGN YOUR MEMORY CARD KEEPS", font_muted_clut
+        );
+        write_controls_centred(26, view.footer, font_clut);
+    }
+
+    void draw_slot_screen(const turn::ScreenView& view) {
+        gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, paper_colour);
+        gpu::fill(24, 14, 272, 2, menu_gold_colour);
+        write_scaled_at(106, 22, "GRANDLEON", 12, font_gold_clut);
+        if (view.page != nullptr && view.page->count > 0) {
+            write_centred(7, view.page->line(0), font_gold_clut);
+        }
+        write_centred(10, "CHOOSE A SAVE", font_muted_clut);
+
+        for (int choice = 0; choice < view.choices; ++choice) {
+            const int page_row = view.first_choice_row + choice;
+            if (view.page == nullptr || page_row >= view.page->count) break;
+            const int row = 14 + choice * 2;
+            const bool selected = page_row == view.caret_row;
+            if (selected) {
+                gpu::fill(24, row * glyph - 2, 272, 12, menu_gold_colour);
+                gpu::fill(26, row * glyph, 268, 8, paper_colour);
+                write_at_with_clut(4, row, ">", font_gold_clut);
+            }
+            write_at_with_clut(
+                6, row, view.page->line(page_row),
+                selected ? font_gold_clut : font_clut
+            );
+        }
+        write_centred(24, "THE GAME SAVES ITSELF", font_muted_clut);
+        write_controls_centred(27, view.footer, font_clut);
+    }
+
     // A campaign screen, drawn: the scene behind it, the panel the words sit
     // on, the words, the caret and the footer. Five `gpu::fill`s and a few
     // hundred glyphs, which is less than the board costs.
     void draw_screen(const turn::ScreenView& view) {
+        if (view.screen == turn::Screen::title) {
+            draw_title_screen(view);
+            return;
+        }
+        if (view.screen == turn::Screen::slot) {
+            draw_slot_screen(view);
+            return;
+        }
         draw_scene_backdrop(view.backdrop);
         draw_speaker_face(view);
         gpu::fill(
@@ -2395,7 +2579,9 @@ private:
                 0, screen_footer_row * glyph, gpu::screen_width, glyph,
                 paper_colour
             );
-            write_at(screen_page_left, screen_footer_row, view.footer);
+            char translated[screen_cols + 1]{};
+            control_text(view.footer, translated, sizeof translated);
+            write_at(screen_page_left, screen_footer_row, translated);
         }
     }
 
@@ -2449,8 +2635,10 @@ private:
     // already been filled with paper and a space glyph is solid paper. That
     // turns a full-screen sheet from twelve hundred textured rectangles into a
     // few hundred, and changes not one pixel.
-    void write_at(int column, int row, const char* value) {
-        if (value == nullptr || font_clut < 0) return;
+    void write_at_with_clut(
+        int column, int row, const char* value, int clut
+    ) {
+        if (value == nullptr || clut < 0) return;
         if (row < 0 || row >= screen_rows) return;
         for (int i = 0; value[i] != '\0'; ++i) {
             const int at = column + i;
@@ -2462,7 +2650,27 @@ private:
             if (character == ' ') continue;
             const int slot = character - view::first_glyph;
             if (slot <= 0 || slot >= view::glyph_count) continue;
-            gpu::draw_glyph(at * glyph, row * glyph, slot, font_clut);
+            gpu::draw_glyph(at * glyph, row * glyph, slot, clut);
+        }
+    }
+
+    void write_at(int column, int row, const char* value) {
+        write_at_with_clut(column, row, value, font_clut);
+    }
+
+    void write_scaled_at(
+        int x, int y, const char* value, int size, int clut
+    ) {
+        if (value == nullptr || clut < 0 || size <= 0) return;
+        for (int i = 0; value[i] != '\0'; ++i) {
+            char character = value[i];
+            if (character >= 'a' && character <= 'z') {
+                character = static_cast<char>(character - ('a' - 'A'));
+            }
+            if (character == ' ') continue;
+            const int slot = character - view::first_glyph;
+            if (slot <= 0 || slot >= view::glyph_count) continue;
+            gpu::draw_glyph_scaled(x + i * size, y, size, slot, clut);
         }
     }
 
@@ -2770,7 +2978,10 @@ private:
     // The first ink pixel of a glyph, computed out of the font this executable
     // uploaded rather than looked for in the frame. A claim about a pixel the
     // letter itself sets is a claim no blank box can satisfy.
-    void claim_glyph(const char* label, int column, int row, char value) {
+    void claim_glyph(
+        const char* label, int column, int row, char value,
+        std::uint16_t colour = ink_colour
+    ) {
         char character = value;
         if (character >= 'a' && character <= 'z') {
             character = static_cast<char>(character - ('a' - 'A'));
@@ -2778,7 +2989,7 @@ private:
         for (int y = 0; y < gpu::glyph_texels; ++y) {
             for (int x = 0; x < gpu::glyph_texels; ++x) {
                 if (!view::glyph_pixel(character, x, y)) continue;
-                probe(label, column * glyph + x, row * glyph + y, ink_colour);
+                probe(label, column * glyph + x, row * glyph + y, colour);
                 return;
             }
         }
@@ -2796,12 +3007,13 @@ private:
     // left edge and a claim that assumed it was would be a claim about the
     // wrong pixel.
     void claim_first_glyph_at(
-        const char* label, int column, int row, const char* text
+        const char* label, int column, int row, const char* text,
+        std::uint16_t colour = ink_colour
     ) {
         if (text == nullptr) return;
         for (int i = 0; text[i] != '\0' && column + i < screen_cols; ++i) {
             if (text[i] == ' ') continue;
-            claim_glyph(label, column + i, row, text[i]);
+            claim_glyph(label, column + i, row, text[i], colour);
             return;
         }
     }
@@ -2969,7 +3181,8 @@ int main() {
         }
         const std::uint16_t interface_colours[] = {
             ink_colour, paper_colour, cursor_colour, second_cursor_colour,
-            move_colour, aim_colour, danger_colour, flash_colour
+            move_colour, aim_colour, danger_colour, flash_colour,
+            menu_gold_colour, menu_muted_colour
         };
         for (std::uint16_t colour : interface_colours) {
             if (colour == backdrop) separated = false;
@@ -3018,7 +3231,10 @@ int main() {
 
     expect(cells_fit, "every cell the board needs fits in the texture pages");
     expect(cluts_fit, "every CLUT the board needs fits in the CLUT band");
-    expect(font_clut >= 0, "the font has a CLUT");
+    expect(
+        font_clut >= 0 && font_gold_clut >= 0 && font_muted_clut >= 0,
+        "the interface fonts have CLUTs"
+    );
 
     Line()
         .text("VRAM cells ")

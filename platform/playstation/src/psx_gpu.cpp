@@ -303,6 +303,41 @@ void draw_glyph(int screen_x, int screen_y, int slot, int clut) {
     coordinates(glyph_texels, glyph_texels);
 }
 
+void draw_glyph_scaled(
+    int screen_x, int screen_y, int size, int slot, int clut
+) {
+    if (size <= 0 || slot < 0 || slot >= font_capacity) return;
+    if (size == glyph_texels) {
+        draw_glyph(screen_x, screen_y, slot, clut);
+        return;
+    }
+
+    const int u = glyph_texture_u(slot);
+    const int v = glyph_texture_v(slot);
+    const int u_far = u + glyph_texels - 1;
+    const int v_far = v + glyph_texels - 1;
+    const std::uint32_t texpage =
+        static_cast<std::uint32_t>(font_page) |
+        (static_cast<std::uint32_t>(font_page_y / page_lines) << 4);
+    const std::uint32_t palette =
+        (static_cast<std::uint32_t>(clut_y_of(clut)) << 6) |
+        static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries);
+
+    command(0x2Du << 24 | 0x808080u);
+    coordinates(screen_x, screen_y);
+    *gp0 = (palette << 16) | (static_cast<std::uint32_t>(v) << 8) |
+           static_cast<std::uint32_t>(u);
+    coordinates(screen_x + size, screen_y);
+    *gp0 = (texpage << 16) | (static_cast<std::uint32_t>(v) << 8) |
+           static_cast<std::uint32_t>(u_far);
+    coordinates(screen_x, screen_y + size);
+    *gp0 = (static_cast<std::uint32_t>(v_far) << 8) |
+           static_cast<std::uint32_t>(u);
+    coordinates(screen_x + size, screen_y + size);
+    *gp0 = (static_cast<std::uint32_t>(v_far) << 8) |
+           static_cast<std::uint32_t>(u_far);
+}
+
 std::uint32_t status() {
     return *gp1;
 }
