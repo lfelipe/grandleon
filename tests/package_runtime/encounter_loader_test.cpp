@@ -475,6 +475,37 @@ std::vector<std::uint8_t> package_with_record_shortened(
     return pf::write_mock_package(rebuilt);
 }
 
+// Rewrites a package without one complete section. This poses a package made
+// before that section existed while retaining every older byte and flag.
+std::vector<std::uint8_t> package_without_section(
+    const pf::LoadedPackage& whole,
+    pf::SectionType omitted
+) {
+    pf::PackageSource rebuilt;
+    rebuilt.game_id = whole.game_id;
+    rebuilt.content_revision = whole.content_revision;
+    rebuilt.required_engine = whole.required_engine;
+    rebuilt.target = whole.target;
+    rebuilt.required_features = whole.required_features;
+    for (const pf::SectionView& section : whole.sections) {
+        if (section.type == omitted) continue;
+        pf::SectionSource out;
+        out.type = section.type;
+        out.schema_major = section.schema_major;
+        out.schema_minor = section.schema_minor;
+        out.flags = section.flags;
+        for (const pf::RecordView& record : section.records) {
+            const auto begin = whole.bytes.begin() +
+                static_cast<std::ptrdiff_t>(record.payload_offset);
+            const auto end = begin +
+                static_cast<std::ptrdiff_t>(record.payload_size);
+            out.records.push_back({record.stable_id, {begin, end}});
+        }
+        rebuilt.sections.push_back(std::move(out));
+    }
+    return pf::write_mock_package(rebuilt);
+}
+
 // The four stats that decide whether a blow lands, and what a cast is worth in
 // the caster's hands, over the same vertical path: authored on a class,
 // compiled into the tail of its record, and read back out as unit state the
@@ -973,6 +1004,73 @@ std::vector<std::uint8_t> package_with_record_replaced(
         rebuilt.sections.push_back(std::move(out));
     }
     return pf::write_mock_package(rebuilt);
+}
+
+void carries_campaign_player_policy_and_preserves_legacy_inference() {
+    const auto policy_of = [](const pf::LoadedPackage& package) {
+        return pr::load_campaign(package, 110);
+    };
+
+    const pf::LoadedPackage solo_package = compile_and_load(source());
+    const auto solo = policy_of(solo_package);
+    expect(
+        solo && solo.definition.player_mode == pr::LocalPlayerMode::one,
+        "a campaign's one-player launch policy reaches the runtime"
+    );
+
+    auto shared_source = source();
+    shared_source.campaigns.front().player_mode = gc::LocalPlayerMode::choice;
+    shared_source.encounters.front().placements.front().local_player = 2;
+    const pf::LoadedPackage shared_package = compile_and_load(shared_source);
+    const auto shared = policy_of(shared_package);
+    expect(
+        shared && shared.definition.player_mode == pr::LocalPlayerMode::choice,
+        "a campaign that asks at launch reaches the runtime by name"
+    );
+
+    auto required_source = source();
+    required_source.campaigns.front().player_mode = gc::LocalPlayerMode::two;
+    const pf::LoadedPackage required_package = compile_and_load(required_source);
+    const auto required = policy_of(required_package);
+    expect(
+        required && required.definition.player_mode == pr::LocalPlayerMode::two,
+        "a campaign that requires two local people stays distinct from choice"
+    );
+
+    const auto malformed_package = pf::load_mock_package(
+        package_with_record_replaced(
+            shared_package, pf::SectionType::campaign_players, 110, {0U}
+        ),
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    expect(
+        malformed_package &&
+            policy_of(malformed_package.package).error ==
+                pr::CampaignError::malformed_payload,
+        "an invented launch-policy byte is refused instead of guessed"
+    );
+
+    const auto old_solo_package = pf::load_mock_package(
+        package_without_section(
+            solo_package, pf::SectionType::campaign_players
+        ),
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    const auto old_shared_package = pf::load_mock_package(
+        package_without_section(
+            shared_package, pf::SectionType::campaign_players
+        ),
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    expect(
+        old_solo_package && old_shared_package &&
+            policy_of(old_solo_package.package).definition.player_mode ==
+                pr::LocalPlayerMode::one &&
+            policy_of(old_shared_package.package).definition.player_mode ==
+                pr::LocalPlayerMode::choice,
+        "packages from before launch policy preserve the old ownership-based "
+        "solo or shared inference"
+    );
 }
 
 // The capacity round-trips beside the board rather than inside it, and an
@@ -2268,6 +2366,7 @@ int main() {
     reads_a_unit_types_starting_items_without_a_board();
     carries_authored_growth_beside_the_board();
     carries_an_authored_drop_onto_the_board();
+    carries_campaign_player_policy_and_preserves_legacy_inference();
     compiled_package_reaches_outcome();
     carries_the_deployment_region_onto_the_board();
     carries_the_talk_marks_onto_the_board();

@@ -13,14 +13,14 @@ contextual surface instead of occupying the battlefield.
 | Round and active side | Top bar | Changes whether the player can act and matters to timed objectives. |
 | Position, terrain, units, remaining health | Board | These are the tactical state. |
 | Cyan / amber / red ownership | Health bars and cursors | Answers who may command a unit without another text label. |
-| Selected name, HP, move, range, readiness | Side panel while inspecting | These numbers change the immediate choice. |
+| Selected name, HP, move, range, readiness | Temporary card while inspecting | These numbers change the immediate choice. |
 | Current action and legal choices | Beside the acting unit | Keeps eyes on the board and disappears after the choice. |
-| Current control hint | Side panel | Shows only buttons usable in the present context. |
+| Current control hint | Compact bottom strip | Shows only buttons usable in the present context. |
 
-The colour legend appears when no character is selected: cyan is the first
-local control, amber the second, and red the enemy. Selection replaces the
-legend with character information. Controller connection changes use a brief
-toast; they are not permanent status rows.
+Cyan is the first local control, amber the second, and red the enemy. Those
+colours appear directly on cursors, health, and legal action tiles instead of
+occupying a permanent legend. Controller connection changes use a brief toast;
+they are not permanent status rows.
 
 ## Information kept off the battlefield
 
@@ -40,8 +40,11 @@ Emberbound uses authored dialogue and deterministic built-in enemy tactics.
 1. A fixed formation proceeds directly from story to battle.
 2. Moving a character opens legal actions beside that character, including
    doing nothing; each co-op control owns its own popup.
-3. Both controls remain live during friendly movement and presentation.
-4. Refused input says what happened in one short toast and returns control
+3. An actionable popup chooses from positions beside its character and at the
+   board corners. It must avoid covering characters, either cursor, legal
+   movement or target tiles, the unit card, and the other player's menu.
+4. Both controls remain live during friendly movement and presentation.
+5. Refused input says what happened in one short toast and returns control
    immediately.
-5. A screen with one safe primary action focuses it first. A screen with no
+6. A screen with one safe primary action focuses it first. A screen with no
    meaningful choice is skipped.

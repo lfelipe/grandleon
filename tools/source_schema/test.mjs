@@ -25,7 +25,8 @@ import {
   FIRST_CHANGE,
   SECOND_CHANGE,
   THIRD_CHANGE,
-  FOURTH_CHANGE
+  FOURTH_CHANGE,
+  FIFTH_CHANGE
 } from "./migration-example.mjs";
 import { main as upgradeMain, refusalMessage } from "./upgrade.mjs";
 
@@ -1219,13 +1220,13 @@ assert.ok(
   // says it does.
   assert.equal(
     sourceMigrations().size,
-    2,
-    "two steps ship: the ones that reach 1.1.0 and 1.2.0"
+    3,
+    "three steps ship: the ones that reach 1.1.0, 1.2.0, and 1.3.0"
   );
   assert.deepEqual(
     sourceMigrations().versions(),
-    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0"],
-    "and therefore three versions a project may have been written at"
+    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0", "1.3.0"],
+    "and therefore four versions a project may have been written at"
   );
 
   // A project written before moments existed walks all the way up and is left
@@ -1242,20 +1243,54 @@ assert.ok(
     assert.equal(walked.ok, true, "the shipped chain is walkable");
     assert.deepEqual(
       walked.applied.map((step) => `${step.from}->${step.to}`),
-      ["1.0.0->1.1.0", "1.1.0->1.2.0"],
-      "both steps, in the order the chain holds them"
+      ["1.0.0->1.1.0", "1.1.0->1.2.0", "1.2.0->1.3.0"],
+      "all steps, in the order the chain holds them"
     );
-    assert.equal(walked.project.schemaVersion, "1.2.0", "arriving at the version");
+    assert.equal(walked.project.schemaVersion, "1.3.0", "arriving at the version");
     assert.equal(walked.project.title, "An Old Game", "with the game untouched");
     assert.equal(
       walked.changed.length,
-      2,
+      3,
       "and one sentence for each step, which is what the author is shown"
     );
     assert.equal(
       old.schemaVersion,
       FIRST_SOURCE_VERSION,
       "and the caller's own project left where it was"
+    );
+  }
+
+  // Player ownership already expressed the older project's local co-op
+  // intent. The migration makes that intent explicit without turning a solo
+  // campaign into a prompt or mutating the source object the author opened.
+  {
+    const old = {
+      schemaVersion: "1.2.0",
+      campaigns: [
+        {
+          id: "solo",
+          flow: { nodes: [{ placements: [{ player: 1 }] }] }
+        },
+        {
+          id: "shared",
+          flow: { nodes: [{ placements: [{ player: 2 }] }] }
+        },
+        {
+          id: "scaled",
+          flow: { nodes: [{ placements: [{ minimumPlayers: 2 }] }] }
+        }
+      ]
+    };
+    const walked = upgradeProject(sourceMigrations(), old);
+    assert.equal(walked.ok, true);
+    assert.deepEqual(
+      walked.project.campaigns.map(({ playerMode }) => playerMode),
+      ["one", "choice", "choice"],
+      "the new launch policy preserves solo, owned co-op, and scaled co-op"
+    );
+    assert.ok(
+      old.campaigns.every((campaign) => campaign.playerMode === undefined),
+      "the migration leaves the author's original object untouched"
     );
   }
 
@@ -1266,7 +1301,13 @@ assert.ok(
   assert.equal(walked.ok, true, "the registered steps make a walkable chain");
   assert.deepEqual(
     walked.applied.map((step) => `${step.from}->${step.to}`),
-    ["0.8.0->0.9.0", "0.9.0->1.0.0", "1.0.0->1.1.0", "1.1.0->1.2.0"],
+    [
+      "0.8.0->0.9.0",
+      "0.9.0->1.0.0",
+      "1.0.0->1.1.0",
+      "1.1.0->1.2.0",
+      "1.2.0->1.3.0"
+    ],
     "one version at a time, in order, and never in a leap"
   );
   assert.equal(walked.to, CURRENT_SOURCE_VERSION);
@@ -1287,18 +1328,18 @@ assert.ok(
   // the editor's dialog shows, so its order is the order things happened in.
   assert.deepEqual(
     walked.changed,
-    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE],
+    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE],
     "what changed, in the order it changed, in words an author can read"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), EXAMPLE_OLDEST)),
-    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE],
+    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE],
     "and the same list before anything has run, which is what the dialog asks "
       + "the author to agree to"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), "0.9.0")),
-    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE],
+    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE],
     "a project part of the way up is told only what is left to do to it"
   );
 

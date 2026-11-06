@@ -19,7 +19,7 @@ import {
 // the engine does with the strike.
 function carryingProject(): SourceProject {
   return {
-    schemaVersion: "1.2.0",
+    schemaVersion: "1.3.0",
     packageId: "0f0a5f60-2a1f-4a34-9f1c-7f43a4c15b71",
     gameId: "weapon.fixture",
     title: "Weapon fixture",

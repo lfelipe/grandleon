@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.2.0",
+  "schemaVersion": "1.3.0",
   "packageId": "2c7f8a4e-3b51-4a9d-8e62-13f470ac92d1",
   "gameId": "grandleon.emberbound",
   "title": "Emberbound: The Last Dawn",
@@ -544,6 +544,7 @@
     {
       "id": "emberbound",
       "name": "Emberbound: The Last Dawn",
+      "playerMode": "choice",
       "roster": [
         { "id": "auren", "name": "Auren", "unitTypeId": "auren_wayfarer" },
         { "id": "senna", "name": "Senna", "unitTypeId": "senna_lumen" }

@@ -94,10 +94,19 @@ both ports in ares: Player 2 spends Senna's activation, Player 1 remains
 available and spends Auren's, the opposing side answers, and both heroes return
 ready in the next round.
 
+The campaign also carries its local-player launch policy through this chain.
+`playerMode` is `one`, `two`, or `choice`: fixed modes enter the campaign with
+that player count, while `choice` asks at launch. Godot and Nintendo 64 show the
+choice explicitly. The current PlayStation shell uses the second controller's
+presence for that choice because its compact front end has no separate picker.
+Packages built before this section existed remain readable: a campaign with
+authored Player 2 placements is inferred as `choice`, and any other campaign as
+`one`.
+
 Player-count scaling follows the same path. The editor may mark an opposing
 placement `minimumPlayers: 2`; the compiler writes a required sparse scaling
-record, and each target fields that placement only when two local players are
-configured or two controller ports are present. The placement's unit type,
+record, and each target fields that placement only when the campaign launches
+for two local players. The placement's unit type,
 behavior, reinforcement timing, and dialogue remain ordinary portable content.
 Allied roster placements and objective targets cannot be conditional, keeping
 campaign identity and win conditions stable between one- and two-player runs.

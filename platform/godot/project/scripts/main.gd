@@ -101,6 +101,8 @@ var action_popup_lists: Array[RichTextLabel] = []
 var title_label: Label
 var status_label: Label
 var turn_label: Label
+var unit_panel: PanelContainer
+var help_panel: PanelContainer
 var unit_name: Label
 var unit_stats: RichTextLabel
 var controller_label: RichTextLabel
@@ -562,22 +564,19 @@ func _run_controls_smoke() -> void:
 	action_modes[0] = "attack"
 	_update_context_help(0)
 	if (
-		not help_label.text.contains("CHOOSE AN ENEMY")
-		or not help_label.text.contains("3[/b]  NEXT ABILITY")
+		not help_label.text.contains("1[/b][/color]  ATTACK")
+		or not help_label.text.contains("3[/b]  ACTION")
 		or not help_label.text.contains("4[/b]  FINISH")
 	):
 		failed.append("action context")
 	selected_units[0] = 0
 	_update_context_help(0)
-	if not help_label.text.contains("4[/b]  FINISH READY TEAM"):
+	if not help_label.text.contains("4[/b]  FINISH"):
 		failed.append("team finish context")
 	selected_units[0] = 11
 	pending_requests[1] = {"unit_id": 11, "seat": 0, "kind": "move"}
 	_update_context_help(0)
-	if (
-		not help_label.text.contains("MOVING")
-		or not help_label.text.contains("Choose another character now")
-	):
+	if not help_label.text.contains("MOVING"):
 		failed.append("simultaneous context")
 	pending_requests.clear()
 	selected_units = [0, 0]
@@ -595,9 +594,32 @@ func _run_controls_smoke() -> void:
 	]
 	device_to_seat = {41: 0}
 	board.set_seats(seats)
+	# A menu candidate covering the acting unit and cursor must lose to an
+	# unobstructed candidate, even when the latter is farther from the actor.
+	snapshot.units = [{
+		"id": 11, "x": 1, "y": 1, "on_board": true,
+		"side": "first", "player": 1, "has_acted": false,
+	}]
+	var protected_anchor: Vector2 = board.screen_position_for_cell(Vector2i(1, 1))
+	var clear_candidate := Vector2(1580, 780)
+	var placed := _best_overlay_position(
+		Vector2(200, 150),
+		[protected_anchor - Vector2(100, 75), clear_candidate],
+		protected_anchor, 0, unit_panel
+	)
+	if not placed.is_equal_approx(clear_candidate):
+		failed.append("action popup avoids the acting unit")
 	_on_stick_direction(41, Vector2i.RIGHT)
 	if Vector2i(seats[0].cursor) != Vector2i(2, 1):
 		failed.append("filtered stick reaches gameplay cursor")
+	dialogue_layer.visible = true
+	_update_context_help(0)
+	if help_panel.visible:
+		failed.append("dialogue hides battle controls")
+	dialogue_layer.visible = false
+	_update_context_help(0)
+	if not help_panel.visible:
+		failed.append("battle controls return after dialogue")
 	snapshot = {}
 	seats = []
 	device_to_seat.clear()
@@ -1118,7 +1140,7 @@ func _graphics_profile_name() -> String:
 func _update_session_labels() -> void:
 	var name := _graphics_profile_name()
 	if title_label != null:
-		title_label.text = "GRANDLEON  /  " + (
+		title_label.text = (
 			current_stage_name.to_upper() if not current_stage_name.is_empty() else name
 		)
 	if session_menu_camera != null:
@@ -1184,65 +1206,79 @@ func _create_interface() -> void:
 	add_child(layer)
 
 	var top := PanelContainer.new()
-	top.position = Vector2(30, 24)
-	top.size = Vector2(1860, 64)
-	top.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.035, 0.055, 0.93), 14, Color(0.20, 0.62, 0.78, 0.30)))
+	top.position = Vector2(18, 16)
+	top.size = Vector2(1884, 52)
+	top.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.035, 0.055, 0.88), 12, Color(0.20, 0.62, 0.78, 0.25), 12))
 	layer.add_child(top)
 	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", 22)
+	top_row.add_theme_constant_override("separation", 18)
 	top.add_child(top_row)
-	title_label = _label("GRANDLEON  /  PC", 25, Color("e9f7ff"))
+	title_label = _label("PC", 21, Color("e9f7ff"))
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title_label)
-	turn_label = _label("AWAITING BOARD", 21, Color("69d9ff"))
+	turn_label = _label("WAITING", 19, Color("69d9ff"))
 	top_row.add_child(turn_label)
-	status_label = _label("STARTING", 17, Color("9db6c5"))
-	status_label.custom_minimum_size.x = 240
+	status_label = _label("STARTING", 16, Color("9db6c5"))
+	status_label.custom_minimum_size.x = 170
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	top_row.add_child(status_label)
-	var side := PanelContainer.new()
-	side.position = Vector2(1530, 108)
-	side.size = Vector2(360, 884)
-	side.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.032, 0.052, 0.94), 18, Color(0.22, 0.60, 0.76, 0.26)))
-	layer.add_child(side)
+
+	# Unit information is contextual. It floats over the lower-left corner only
+	# while a character is under the cursor or selected, leaving the rest of the
+	# screen to the board.
+	unit_panel = PanelContainer.new()
+	unit_panel.position = Vector2(24, 858)
+	unit_panel.size = Vector2(390, 148)
+	unit_panel.visible = false
+	unit_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	unit_panel.add_theme_stylebox_override(
+		"panel", _panel(Color(0.018, 0.032, 0.052, 0.92), 14, Color(0.22, 0.60, 0.76, 0.36), 16)
+	)
+	layer.add_child(unit_panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 14)
-	side.add_child(column)
-	unit_name = _label("Select a character", 27, Color("f2f7f9"))
+	column.add_theme_constant_override("separation", 6)
+	unit_panel.add_child(column)
+	unit_name = _label("", 22, Color("f2f7f9"))
 	unit_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(unit_name)
 	unit_stats = RichTextLabel.new()
 	unit_stats.bbcode_enabled = true
 	unit_stats.fit_content = true
-	unit_stats.custom_minimum_size = Vector2(320, 126)
-	_bind_font_size(unit_stats, "normal_font_size", 17)
+	unit_stats.custom_minimum_size = Vector2(350, 72)
+	_bind_font_size(unit_stats, "normal_font_size", 16)
 	unit_stats.add_theme_color_override("default_color", Color("b9cbd5"))
 	column.add_child(unit_stats)
-	var separator := HSeparator.new()
-	separator.modulate = Color(0.4, 0.75, 0.9, 0.35)
-	column.add_child(separator)
+
+	# Kept as a diagnostic source for controller changes, but not permanently
+	# drawn beside the board. Connection changes already surface as toasts.
 	controller_label = RichTextLabel.new()
 	controller_label.bbcode_enabled = true
-	controller_label.fit_content = true
-	controller_label.custom_minimum_size = Vector2(320, 74)
+	controller_label.visible = false
 	_bind_font_size(controller_label, "normal_font_size", 15)
-	controller_label.add_theme_color_override("default_color", Color("a9bdc9"))
-	column.add_child(controller_label)
-	var input_separator := HSeparator.new()
-	input_separator.modulate = Color(0.4, 0.75, 0.9, 0.22)
-	column.add_child(input_separator)
+	layer.add_child(controller_label)
+
+	# Controls are a short action strip, not a manual pinned to the screen.
+	help_panel = PanelContainer.new()
+	help_panel.position = Vector2(510, 1008)
+	help_panel.size = Vector2(900, 52)
+	help_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	help_panel.add_theme_stylebox_override(
+		"panel", _panel(Color(0.018, 0.032, 0.052, 0.88), 12, Color(0.22, 0.60, 0.76, 0.28), 12)
+	)
+	layer.add_child(help_panel)
 	help_label = RichTextLabel.new()
 	help_label.bbcode_enabled = true
-	help_label.fit_content = true
-	help_label.custom_minimum_size = Vector2(320, 190)
-	_bind_font_size(help_label, "normal_font_size", 16)
+	help_label.fit_content = false
+	help_label.custom_minimum_size = Vector2(870, 28)
+	_bind_font_size(help_label, "normal_font_size", 15)
 	help_label.add_theme_color_override("default_color", Color("a9bdc9"))
 	help_label.text = _help_text()
-	column.add_child(help_label)
+	help_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	help_panel.add_child(help_label)
 
 	toast_label = _label("", 18, Color.WHITE)
-	toast_label.position = Vector2(480, 942)
-	toast_label.size = Vector2(650, 54)
+	toast_label.position = Vector2(580, 936)
+	toast_label.size = Vector2(760, 52)
 	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	toast_label.add_theme_stylebox_override("normal", _panel(Color(0.08, 0.02, 0.03, 0.94), 12, Color(1.0, 0.30, 0.38, 0.6)))
@@ -1260,7 +1296,7 @@ func _create_action_popups(layer: CanvasLayer) -> void:
 		var panel := PanelContainer.new()
 		panel.visible = false
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.size = Vector2(270, 240)
+		panel.size = Vector2(230, 210)
 		panel.add_theme_stylebox_override(
 			"panel",
 			_panel(
@@ -1279,7 +1315,7 @@ func _create_action_popups(layer: CanvasLayer) -> void:
 		var choices := RichTextLabel.new()
 		choices.bbcode_enabled = true
 		choices.fit_content = true
-		choices.custom_minimum_size = Vector2(238, 172)
+		choices.custom_minimum_size = Vector2(198, 142)
 		choices.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_bind_font_size(choices, "normal_font_size", 18)
 		choices.add_theme_color_override("default_color", Color("dcebf0"))
@@ -2579,7 +2615,7 @@ func _open_action_popup(seat: int, unit_id: int) -> void:
 		options.append({"mode": "ability", "label": "ABILITY"})
 	if not session.query_tiles("talk", unit_id, 0).is_empty():
 		options.append({"mode": "talk", "label": "TALK"})
-	options.append({"mode": "wait", "label": "DO NOTHING / FINISH"})
+	options.append({"mode": "wait", "label": "WAIT"})
 	action_popups[seat] = {
 		"open": true,
 		"unit_id": unit_id,
@@ -2610,10 +2646,8 @@ func _render_action_popup(seat: int) -> void:
 			lines.append("[color=#%s][b]▶ %s[/b][/color]" % [PLAYER_COLOURS[seat].to_html(), label])
 		else:
 			lines.append("   " + label)
-	lines.append("")
-	lines.append("[font_size=13]D-PAD CHOOSE   %s SELECT[/font_size]" % controls.label("confirm"))
 	action_popup_lists[seat].text = "\n".join(lines)
-	action_popup_panels[seat].size.y = 90.0 + float(options.size()) * 31.0
+	action_popup_panels[seat].size.y = 58.0 + float(options.size()) * 31.0
 
 
 func _position_action_popups() -> void:
@@ -2631,11 +2665,114 @@ func _position_action_popups() -> void:
 			Vector2i(int(unit.x), int(unit.y))
 		)
 		var panel := action_popup_panels[seat]
-		var desired_x := anchor.x + 48.0 if seat == 0 else anchor.x - panel.size.x - 48.0
-		panel.position = Vector2(
-			clampf(desired_x, 32.0, 1490.0 - panel.size.x),
-			clampf(anchor.y - panel.size.y * 0.45, 108.0, 990.0 - panel.size.y)
+		var right := anchor + Vector2(44.0, -panel.size.y * 0.45)
+		var left := anchor + Vector2(-panel.size.x - 44.0, -panel.size.y * 0.45)
+		var candidates: Array[Vector2] = [
+			right if seat == 0 else left,
+			left if seat == 0 else right,
+			anchor + Vector2(-panel.size.x * 0.5, -panel.size.y - 48.0),
+			anchor + Vector2(-panel.size.x * 0.5, 58.0),
+			Vector2(24, 84),
+			Vector2(1896.0 - panel.size.x, 84),
+			Vector2(24, 992.0 - panel.size.y),
+			Vector2(1896.0 - panel.size.x, 992.0 - panel.size.y),
+		]
+		panel.position = _best_overlay_position(
+			panel.size, candidates, anchor, seat, panel
 		)
+
+
+func _position_unit_panel(unit: Dictionary, seat: int) -> void:
+	if unit_panel == null or board == null or not board.has_method("screen_position_for_cell"):
+		return
+	var anchor: Vector2 = board.screen_position_for_cell(
+		Vector2i(int(unit.x), int(unit.y))
+	)
+	var candidates: Array[Vector2] = [
+		Vector2(24, 842),
+		Vector2(1896.0 - unit_panel.size.x, 842),
+		Vector2(24, 84),
+		Vector2(1896.0 - unit_panel.size.x, 84),
+	]
+	unit_panel.position = _best_overlay_position(
+		unit_panel.size, candidates, anchor, seat, unit_panel
+	)
+
+
+# Actionable overlays choose among nearby and corner placements using the
+# board's live geometry. Units and cursors are expensive to cover; highlighted
+# destinations and targets are expensive too. The small distance term keeps a
+# menu near its actor when more than one clear position exists.
+func _best_overlay_position(
+	overlay_size: Vector2, candidates: Array[Vector2], anchor: Vector2,
+	seat: int, moving_overlay: Control
+) -> Vector2:
+	var best := candidates[0]
+	var best_score := INF
+	var points := _important_board_points(seat)
+	for index in candidates.size():
+		var candidate := Vector2(
+			clampf(candidates[index].x, 24.0, 1896.0 - overlay_size.x),
+			clampf(candidates[index].y, 76.0, 1000.0 - overlay_size.y)
+		)
+		var area := Rect2(candidate, overlay_size)
+		var score := area.get_center().distance_to(anchor) * 0.002 + float(index) * 0.01
+		for item: Dictionary in points:
+			if area.grow(float(item.padding)).has_point(Vector2(item.point)):
+				score += float(item.weight)
+		for popup: PanelContainer in action_popup_panels:
+			if (
+				popup != moving_overlay
+				and popup.visible
+				and area.intersects(Rect2(popup.position, popup.size).grow(12.0))
+			):
+				score += 700.0
+		if (
+			unit_panel != moving_overlay
+			and unit_panel.visible
+			and area.intersects(Rect2(unit_panel.position, unit_panel.size).grow(12.0))
+		):
+			score += 700.0
+		if score < best_score:
+			best_score = score
+			best = candidate
+	return best
+
+
+func _important_board_points(seat: int) -> Array[Dictionary]:
+	var points: Array[Dictionary] = []
+	if board == null or not board.has_method("screen_position_for_cell"):
+		return points
+	for unit: Dictionary in snapshot.get("units", []):
+		if not unit.get("on_board", false):
+			continue
+		points.append({
+			"point": board.screen_position_for_cell(Vector2i(int(unit.x), int(unit.y))),
+			"weight": 600.0,
+			"padding": 34.0,
+		})
+	var highlights: Variant = board.get("highlight_tiles")
+	if highlights is Array and seat >= 0 and seat < highlights.size():
+		for tile: Variant in highlights[seat]:
+			var cell := Vector2i(-1, -1)
+			if tile is Dictionary:
+				cell = Vector2i(int(tile.get("x", -1)), int(tile.get("y", -1)))
+			elif tile is Vector2i:
+				cell = tile
+			if cell.x >= 0:
+				points.append({
+					"point": board.screen_position_for_cell(cell),
+					"weight": 160.0,
+					"padding": 16.0,
+				})
+	for seat_state: Dictionary in seats:
+		if seat_state.get("active", false):
+			points.append({
+				"point": board.screen_position_for_cell(Vector2i(seat_state.cursor)),
+				"weight": 360.0,
+				"padding": 22.0,
+			})
+	return points
 
 
 func _close_action_popup(seat: int) -> void:
@@ -2819,27 +2956,30 @@ func _seed_cursors() -> void:
 
 func _show_unit(unit: Dictionary, seat := 0) -> void:
 	hud_seat = seat
+	unit_panel.visible = true
 	unit_name.text = String(unit.get("name", "Unit"))
 	var heading_colour := "#ff8a9a"
 	if String(unit.get("side", "")) == "first":
 		var player := clampi(int(unit.get("player", 1)), 1, 2)
 		heading_colour = PLAYER_COLOURS[player - 1].to_html()
 	unit_stats.text = (
-		"[color=%s][font_size=22][b]HP %d / %d[/b][/font_size][/color]\n" % [
+		"[color=%s][font_size=20][b]HP %d / %d[/b][/font_size][/color]    " % [
 			heading_colour, unit.health, unit.maximum_health
 		]
-		+ "MOVE %d  ·  RANGE %d–%d\n" % [unit.movement, unit.minimum_reach, unit.maximum_reach]
-		+ ("[color=#718896]ACTED[/color]" if unit.get("has_acted", false) else "[color=#72e08f]READY[/color]")
+		+ ("[color=#718896]DONE[/color]" if unit.get("has_acted", false) else "[color=#72e08f]READY[/color]")
+		+ "\nMOVE %d    RANGE %d–%d" % [
+			unit.movement, unit.minimum_reach, unit.maximum_reach
+		]
 	)
-	controller_label.visible = false
+	_position_unit_panel(unit, seat)
 	_update_context_help(seat)
 
 
 func _show_no_selection(seat: int) -> void:
 	hud_seat = seat
-	unit_name.text = "Choose a character"
+	unit_panel.visible = false
+	unit_name.text = ""
 	unit_stats.text = ""
-	controller_label.visible = true
 	_update_controller_label()
 	_update_context_help(seat)
 
@@ -2858,10 +2998,17 @@ func _refresh_selected_panel(seat := -1) -> void:
 func _update_context_help(seat := -1) -> void:
 	if help_label == null:
 		return
+	if _dialogue_visible():
+		help_label.text = ""
+		if help_panel != null:
+			help_panel.visible = false
+		return
 	if seat < 0:
 		seat = hud_seat
 	seat = clampi(seat, 0, selected_units.size() - 1)
 	help_label.text = _context_help_text(seat)
+	if help_panel != null:
+		help_panel.visible = not help_label.text.is_empty()
 
 
 func _context_help_text(seat: int) -> String:
@@ -2878,55 +3025,34 @@ func _context_help_text(seat: int) -> String:
 		return ""
 	var selected := selected_units[seat]
 	if selected == 0:
-		var final_hint := "[b]%s[/b]  FINISH READY TEAM" % finish
+		var final_hint := "[b]%s[/b]  FINISH" % finish
 		if snapshot.get("deploying", false):
-			final_hint = "[b]%s[/b]  BEGIN BATTLE" % menu
+			final_hint = "[b]%s[/b]  BEGIN" % menu
 		return (
-			"[color=#%s][b]CHOOSE A CHARACTER[/b][/color]\n" % PLAYER_COLOURS[seat].to_html()
-			+ "[b]STICK / D-PAD[/b]  MOVE  ·  [color=#69d9ff][b]%s[/b][/color]  SELECT\n" % confirm
-			+ final_hint
+			"[color=#%s][b]%s[/b][/color]  SELECT     %s" % [
+				PLAYER_COLOURS[seat].to_html(), confirm, final_hint
+			]
 		)
 	var unit := _unit_by_id(selected)
 	if _unit_is_pending(selected):
-		return (
-			"[color=#69d9ff][b]MOVING[/b][/color]\n"
-			+ "Choose another character now."
-		)
+		return "[color=#69d9ff][b]MOVING…[/b][/color]"
 	if not unit.is_empty() and unit.get("has_acted", false):
-		return (
-			"[color=#718896][b]FINISHED[/b][/color]\n"
-			+ "Choose another character."
-		)
+		return "[color=#718896][b]DONE[/b][/color]"
 	if snapshot.get("deploying", false):
-		return (
-			"[color=#69d9ff][b]PLACE CHARACTER[/b][/color]\n"
-			+ "[b]STICK / D-PAD[/b]  MOVE  ·  [b]%s[/b]  PLACE  ·  [b]%s[/b]  BACK\n" % [
-				confirm, cancel
-			]
-			+ "[b]%s[/b]  BEGIN BATTLE" % menu
-		)
+		return "[b]%s[/b]  PLACE     [b]%s[/b]  BACK     [b]%s[/b]  BEGIN" % [
+			confirm, cancel, menu
+		]
 	var mode := action_modes[seat]
-	var prompt: String = {
-		"move": "CHOOSE A DESTINATION",
-		"attack": "CHOOSE AN ENEMY IN RANGE",
-		"ability": "CHOOSE AN ABILITY TARGET",
-		"talk": "CHOOSE AN ADJACENT CHARACTER",
-	}.get(mode, "CHOOSE A TARGET")
 	var action: String = {
 		"move": "MOVE",
 		"attack": "ATTACK",
-		"ability": "USE ABILITY",
+		"ability": "ABILITY",
 		"talk": "TALK",
 	}.get(mode, "CONFIRM")
-	var mode_index := MODES.find(mode)
-	var next_mode: String = MODES[wrapi(mode_index + 1, 0, MODES.size())].to_upper()
 	return (
-		"[color=#69d9ff][b]%s[/b][/color]\n" % prompt
-		+ "[b]STICK / D-PAD[/b]  MOVE  ·  [color=#69d9ff][b]%s[/b][/color]  %s\n" % [
-			confirm, action
-		]
-		+ "[b]%s[/b]  NEXT %s  ·  [b]%s[/b]  BACK  ·  [b]%s[/b]  FINISH" % [
-			next_action, next_mode, cancel, finish
+		"[color=#69d9ff][b]%s[/b][/color]  %s     " % [confirm, action]
+		+ "[b]%s[/b]  ACTION     [b]%s[/b]  BACK     [b]%s[/b]  FINISH" % [
+			next_action, cancel, finish
 		]
 	)
 
@@ -2951,10 +3077,13 @@ func _update_status() -> void:
 func _show_dialogue_line() -> void:
 	if dialogue_index < 0 or dialogue_index >= dialogue_lines.size():
 		dialogue_layer.visible = false
+		_update_context_help()
 		return
 	var line: Dictionary = dialogue_lines[dialogue_index]
 	PCAudio.play_cue("dialogue")
 	dialogue_layer.visible = true
+	if help_panel != null:
+		help_panel.visible = false
 	dialogue_speaker.text = String(line.get("speaker", ""))
 	dialogue_text.text = String(line.get("text", ""))
 	var confirm_label: String = controls.label("confirm")
@@ -2995,6 +3124,7 @@ func _advance_dialogue() -> void:
 		dialogue_layer.visible = false
 		_show_pending_management()
 		_maybe_show_campaign_result()
+		_update_context_help()
 	else:
 		_show_dialogue_line()
 
@@ -3015,17 +3145,14 @@ func _show_toast(message: String) -> void:
 
 func _show_fatal(message: String) -> void:
 	status_label.text = "CANNOT START"
+	unit_panel.visible = true
 	unit_name.text = "PC client error"
 	unit_stats.text = "[color=#ff7182]%s[/color]" % message
 	_show_toast(message)
 
 
 func _help_text() -> String:
-	return (
-		"[color=#69d9ff][b]CHOOSE A CHARACTER[/b][/color]\n"
-		+ "[b]STICK / D-PAD[/b]  MOVE  ·  "
-		+ "[color=#69d9ff][b]%s[/b][/color]  SELECT" % controls.label("confirm")
-	)
+	return "[color=#69d9ff][b]%s[/b][/color]  SELECT" % controls.label("confirm")
 
 
 func _bind_font_size(control: Control, key: String, base: int) -> void:
@@ -3046,7 +3173,9 @@ func _label(value: String, size: int, colour: Color) -> Label:
 	return label
 
 
-func _panel(colour: Color, radius: int, border: Color) -> StyleBoxFlat:
+func _panel(
+	colour: Color, radius: int, border: Color, compact_padding := -1
+) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = colour
 	style.corner_radius_top_left = radius
@@ -3058,8 +3187,8 @@ func _panel(colour: Color, radius: int, border: Color) -> StyleBoxFlat:
 	style.border_width_right = 1
 	style.border_width_bottom = 1
 	style.border_color = border
-	style.content_margin_left = 22
-	style.content_margin_top = 16
-	style.content_margin_right = 22
-	style.content_margin_bottom = 16
+	style.content_margin_left = 22 if compact_padding < 0 else compact_padding
+	style.content_margin_top = 16 if compact_padding < 0 else compact_padding
+	style.content_margin_right = 22 if compact_padding < 0 else compact_padding
+	style.content_margin_bottom = 16 if compact_padding < 0 else compact_padding
 	return style

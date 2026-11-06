@@ -360,7 +360,7 @@ func _effect_colour(key: String, fallback: Color) -> Color:
 
 func _fit_board() -> void:
 	var viewport := get_viewport_rect().size
-	var board_area := Vector2(viewport.x - 410.0, viewport.y - 190.0)
+	var board_area := Vector2(viewport.x - 48.0, viewport.y - 144.0)
 	tile_size = floorf(minf(
 		board_area.x / maxf(1.0, float(snapshot.width)),
 		board_area.y / maxf(1.0, float(snapshot.height))
@@ -368,8 +368,8 @@ func _fit_board() -> void:
 	tile_size = clampf(tile_size, 32.0, 82.0)
 	var dimensions := Vector2(snapshot.width, snapshot.height) * tile_size
 	origin = Vector2(
-		maxf(36.0, (board_area.x - dimensions.x) * 0.5),
-		104.0 + maxf(0.0, (board_area.y - dimensions.y) * 0.5)
+		24.0 + maxf(0.0, (board_area.x - dimensions.x) * 0.5),
+		76.0 + maxf(0.0, (board_area.y - dimensions.y) * 0.5)
 	)
 
 

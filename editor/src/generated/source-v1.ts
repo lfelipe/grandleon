@@ -112,7 +112,7 @@ export type CampaignNode = {
 };
 
 export interface SourceProject {
-  schemaVersion: "1.2.0";
+  schemaVersion: "1.3.0";
   /**
    * Durable lowercase UUID identifying a package across names and revisions.
    */
@@ -638,6 +638,10 @@ export interface SourceCampaign {
    */
   id: string;
   name: string;
+  /**
+   * How many people this campaign seats on one machine. 'one' always launches solo, 'two' requires two local players, and 'choice' asks at launch. In a two-player battle, allied placements marked player 2 form the second player's army; solo normalizes all allies to player 1. Omitted means one player for source compatibility, though current authoring tools write the choice explicitly.
+   */
+  playerMode?: "one" | "two" | "choice";
   flow?: CampaignFlow;
   /**
    * The company this campaign begins with. Every member is a distinct persistent character even when two share a unit type, and a first-side placement fields one of them by naming it. A campaign played as a kept campaign needs at least one member; omitting the roster leaves a campaign that can only be walked without persistence.

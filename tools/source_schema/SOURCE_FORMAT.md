@@ -7,7 +7,7 @@ cannot state: identities, cross-field rules, the diagnostics that enforce them,
 and the handful of places where a rule lives in the compiler rather than in the
 schema.
 
-The current schema version is `1.2.0`. Projects from `1.0.0` and `1.1.0` have
+The current schema version is `1.3.0`. Projects from `1.0.0`, `1.1.0`, and `1.2.0` have
 registered, non-destructive migrations. Authors normally use the editor; the
 public files exist so projects stay portable, scriptable, source-controlled,
 and buildable headlessly.
@@ -168,6 +168,15 @@ each node's recruits in flow order.** The same content therefore always founds
 the same company, and a save written by one run is read by the next. A campaign
 stating no founding member is `empty_roster` and is refused rather than played
 with an invented company.
+
+**Local players.** A campaign's optional `playerMode` is its launch policy, not
+a battle rule. `one` always launches one local control, `two` requires two, and
+`choice` lets the players decide when they start. The chosen count then decides
+whether authored Player 2 ownership is separate and whether opposing placements
+with `minimumPlayers: 2` are fielded. Omitting the field means `one` in current
+source. Migration from 1.2.0 writes it explicitly and infers `choice` when the
+campaign already contains Player 2 ownership or two-player scaling. A full
+editor control and combination guidance are planned for the 0.5 authoring pass.
 
 **Specificities.** A `specificity` holds signed `stats` deltas over the class's
 line and a `rangeBonus`. Deltas apply where earned level-up gains apply, one step

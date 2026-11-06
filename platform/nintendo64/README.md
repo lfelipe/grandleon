@@ -269,9 +269,13 @@ Emberbound under ares, sends input first from controller port two and then from
 port one, and checks the board state from inside the running ROM. It currently
 requires at least 40 assertions; the complete scripted run reports 41.
 
-When controller port two is connected at session start, the encounter loader
-also includes opposing placements authored with `minimumPlayers: 2`. With one
-controller those placements are omitted; no unit stats are adjusted.
+The campaign decides how local player count is selected. `one` launches solo,
+`two` requires both controls, and `choice` shows a one-player/two-player screen
+before the save slots. The two-player choice cannot be confirmed until port two
+is present. A two-player launch keeps authored Player 2 ownership separate and
+includes opposing placements with `minimumPlayers: 2`; solo assigns the allied
+company to the first control and omits those opponents. No unit stats are
+adjusted.
 
 The menu is derived from the character, not from what the cursor rests on, so
 a `WAIT` row can sit in it. Rows, in order: `ATTACK` (or one row per carried

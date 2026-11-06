@@ -26,8 +26,8 @@ GRANDLEON_WINDOWED=1 out/grandleon-pc/launch-pc.sh
 
 The bundle includes the pinned Godot runtime, the native extension, imported
 assets, and two compiled examples: **The Tarnholt Line** for one player and
-**Emberbound: The Last Dawn** for two-player local co-op. It does not require a
-system Godot installation.
+**Emberbound: The Last Dawn** with a one/two-player launch choice. It does not
+require a system Godot installation.
 
 For an incremental developer build:
 
@@ -45,9 +45,9 @@ extension API to Godot 4.7.
 ## Home, play, and local co-op
 
 Ordinary launches open a controller-first home screen containing both included
-campaigns, local projects, **Create / Edit Games**, and **Exit**. Each included
-campaign states its intended player count. The screen displays titles, not
-paths or internal project identifiers.
+campaigns, local projects, **Create / Edit Games**, and **Exit**. Each campaign
+states whether it launches for one player, requires two, or asks at launch. The
+screen displays titles, not paths or internal project identifiers.
 
 Play supports one or two local controls. Each player has an independent cursor,
 selection, and command queue. Friendly movement and presentation may overlap,
@@ -64,6 +64,12 @@ The player includes:
 - remappable compact controls and stable controller seats;
 - Normal/Large text, camera-impulse control, and sound volume; and
 - a private performance readout that is never saved or exported.
+
+The battle board uses almost the complete window. The top strip holds only the
+stage, round, and active side; the bottom strip shows only actions usable now.
+Unit statistics appear in a temporary card while a character is inspected.
+Action menus and the card choose a clear position from live board geometry so
+they avoid characters, cursors, and highlighted action tiles.
 
 [UI_GUIDE.md](UI_GUIDE.md) records the battlefield information and interaction
 rules. [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md) documents the semantic

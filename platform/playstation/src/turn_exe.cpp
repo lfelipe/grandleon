@@ -77,6 +77,7 @@
 #include <grandleon/client/turn_client.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_format/package.hpp>
+#include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/manifest.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
@@ -2204,13 +2205,6 @@ int main() {
 
     psx::start_clock();
     pad::begin();
-#ifdef GRANDLEON_PSX_AUTOPILOT
-    constexpr std::uint8_t local_players = 1;
-#else
-    const std::uint8_t local_players =
-        pad::answers(pad::Port::two) > 0 ? 2U : 1U;
-#endif
-
     const auto loaded = [] {
         const std::vector<std::uint8_t> package_bytes(
             campaign_package_bytes,
@@ -2228,6 +2222,43 @@ int main() {
     }();
     expect(loaded.error == pf::Error::none, "the compiled package opens");
     if (loaded.error != pf::Error::none) give_up();
+
+    std::uint8_t local_players = 1U;
+#ifndef GRANDLEON_PSX_AUTOPILOT
+    // Presence is learned by a real poll, not by an answer counter left at
+    // zero after pad::begin(). Consuming an edge here also prevents a button
+    // held during boot from becoming the first board command.
+    (void)pad::pressed(pad::Port::two);
+    const bool second_controller_connected =
+        pad::answers(pad::Port::two) > 0;
+    const auto launched_campaign = pr::load_campaign(
+        loaded.package, core::stable_content_id_v1(campaign_path)
+    );
+    expect(
+        static_cast<bool>(launched_campaign),
+        "the campaign launch policy loads"
+    );
+    if (launched_campaign) {
+        switch (launched_campaign.definition.player_mode) {
+            case pr::LocalPlayerMode::one:
+                local_players = 1U;
+                break;
+            case pr::LocalPlayerMode::two:
+                expect(
+                    second_controller_connected,
+                    "the two-player campaign has controller two"
+                );
+                if (!second_controller_connected) give_up();
+                local_players = 2U;
+                break;
+            case pr::LocalPlayerMode::choice:
+                // On PlayStation the physical choice is enough: boot with a
+                // second pad connected for co-op, or with one for solo.
+                local_players = second_controller_connected ? 2U : 1U;
+                break;
+        }
+    }
+#endif
 
     const auto presentation = pr::load_presentation(loaded.package);
     expect(static_cast<bool>(presentation), "the presentation section reads");

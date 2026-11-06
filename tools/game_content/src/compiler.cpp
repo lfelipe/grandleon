@@ -2680,6 +2680,34 @@ CompileResult compile(const GameSource& source) {
             }
             return section;
         }(),
+        // The campaign's local-player launch policy. One record per campaign,
+        // including the one-player default, so a package that carries this
+        // section never asks a client to infer intent from placement data.
+        // Required: ignoring it could silently seat the wrong number of people
+        // and therefore field a different authored encounter.
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::campaign_players;
+            std::vector<const Campaign*> ordered;
+            ordered.reserve(source.campaigns.size());
+            for (const Campaign& campaign : source.campaigns) {
+                ordered.push_back(&campaign);
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Campaign* lhs, const Campaign* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Campaign* campaign : ordered) {
+                Bytes bytes;
+                bytes.push_back(
+                    static_cast<std::uint8_t>(campaign->player_mode)
+                );
+                section.records.push_back({campaign->id, std::move(bytes)});
+            }
+            return section;
+        }(),
         // What the author called a placement, one record each, keyed by the
         // placement's own identity, which is already namespaced by its
         // encounter, so a record needs no enclosing list and no encounter

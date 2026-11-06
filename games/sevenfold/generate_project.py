@@ -318,7 +318,7 @@ def build_project() -> dict:
     ))
 
     project = {
-        "schemaVersion": "1.2.0",
+        "schemaVersion": "1.3.0",
         "packageId": "7c7b3d8b-9346-4ee2-91c2-6ccb34f18ce9",
         "gameId": "grandleon.sevenfold",
         "title": "Sevenfold Gate",
@@ -357,6 +357,7 @@ def build_project() -> dict:
         "campaigns": [{
             "id": "sevenfold_gate",
             "name": "Sevenfold Gate",
+            "playerMode": "choice",
             "roster": roster,
             "objectiveIds": ["defeat_all_opponents"],
             "flow": {

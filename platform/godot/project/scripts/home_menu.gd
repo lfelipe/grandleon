@@ -22,6 +22,12 @@ var home_stick_expected := ""
 var stick_mode := "deliberate"
 var game_button_count := 0
 var included_games: Array[Dictionary] = []
+var player_choice_overlay: Control
+var player_one_button: Button
+var pending_package := PackedByteArray()
+var pending_campaign := ""
+var pending_preview := false
+var player_choice_return_focus: Control
 
 
 func _ready() -> void:
@@ -46,6 +52,7 @@ func _ready() -> void:
 	library = ProjectLibrary.new()
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_build_interface()
+	_build_player_choice()
 	_refresh_games()
 	if first_button != null:
 		first_button.grab_focus()
@@ -63,6 +70,19 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if player_choice_overlay != null and player_choice_overlay.visible:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			get_viewport().set_input_as_handled()
+			_cancel_player_choice()
+			return
+		if (
+			event is InputEventJoypadButton
+			and event.pressed
+			and controls.matches("cancel", event.button_index)
+		):
+			get_viewport().set_input_as_handled()
+			_cancel_player_choice()
+			return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode in [KEY_ENTER, KEY_SPACE]:
 			get_viewport().set_input_as_handled()
@@ -180,6 +200,39 @@ func _build_interface() -> void:
 	column.add_child(hint)
 
 
+func _build_player_choice() -> void:
+	player_choice_overlay = ColorRect.new()
+	player_choice_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	player_choice_overlay.color = Color(0.015, 0.035, 0.05, 0.90)
+	player_choice_overlay.visible = false
+	add_child(player_choice_overlay)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	player_choice_overlay.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(560, 0)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 22, Color("69d9ff"), 28)
+	)
+	center.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	panel.add_child(column)
+	var heading := _label("WHO IS PLAYING?", 28, Color("f2f7f9"))
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(heading)
+	player_one_button = _button("1 PLAYER")
+	player_one_button.pressed.connect(_choose_players.bind(1))
+	column.add_child(player_one_button)
+	var player_two := _button("2 PLAYERS")
+	player_two.pressed.connect(_choose_players.bind(2))
+	column.add_child(player_two)
+	var cancel := _button("BACK")
+	cancel.pressed.connect(_cancel_player_choice)
+	column.add_child(cancel)
+
+
 func _refresh_games() -> void:
 	for child: Node in games_list.get_children():
 		child.queue_free()
@@ -230,14 +283,14 @@ func _available_included_games() -> Array[Dictionary]:
 		var path := str(game.get("path", ""))
 		var campaign := str(game.get("campaign", ""))
 		var title := str(game.get("title", ""))
-		var players := int(game.get("players", 0))
+		var player_mode := str(game.get("playerMode", ""))
 		if (
 			path.begins_with("res://content/included/")
 			and path.ends_with(".gpk")
 			and FileAccess.file_exists(path)
 			and not campaign.is_empty()
 			and not title.is_empty()
-			and players in [1, 2]
+			and player_mode in ["one", "two", "choice"]
 		):
 			available.append(game.duplicate(true))
 	return available
@@ -248,10 +301,9 @@ func _play_included(game: Dictionary) -> void:
 	if bytes.is_empty():
 		_set_status("THIS INCLUDED CAMPAIGN COULD NOT BE OPENED", true)
 		return
-	LaunchContext.stage_package(
-		bytes, str(game.campaign), false, int(game.players)
+	_launch_package_for_mode(
+		bytes, str(game.campaign), str(game.playerMode), false
 	)
-	get_tree().change_scene_to_file("res://main.tscn")
 
 
 func _play_default_included() -> void:
@@ -275,12 +327,64 @@ func _play_project(project_id: String) -> void:
 	if campaigns.is_empty() or not campaigns[0] is Dictionary:
 		_set_status("THIS GAME NEEDS A CAMPAIGN BEFORE PLAYING", true)
 		return
-	var campaign := String(campaigns[0].get("id", ""))
+	var campaign_data: Dictionary = campaigns[0]
+	var campaign := String(campaign_data.get("id", ""))
 	if campaign.is_empty():
 		_set_status("THIS GAME NEEDS A CAMPAIGN BEFORE PLAYING", true)
 		return
-	LaunchContext.stage_package(compiled.package, campaign)
+	_launch_package_for_mode(
+		compiled.package,
+		campaign,
+		String(campaign_data.get("playerMode", "one")),
+		false
+	)
+
+
+func _launch_package_for_mode(
+	bytes: PackedByteArray, campaign: String, mode: String, preview: bool
+) -> void:
+	if mode == "choice":
+		pending_package = bytes.duplicate()
+		pending_campaign = campaign
+		pending_preview = preview
+		player_choice_return_focus = get_viewport().gui_get_focus_owner()
+		player_choice_overlay.visible = true
+		player_one_button.grab_focus()
+		return
+	_stage_package(bytes, campaign, preview, 2 if mode == "two" else 1)
+
+
+func _choose_players(players: int) -> void:
+	if pending_package.is_empty() or pending_campaign.is_empty():
+		_cancel_player_choice()
+		return
+	var bytes := pending_package
+	var campaign := pending_campaign
+	var preview := pending_preview
+	_clear_player_choice()
+	_stage_package(bytes, campaign, preview, players)
+
+
+func _stage_package(
+	bytes: PackedByteArray, campaign: String, preview: bool, players: int
+) -> void:
+	LaunchContext.stage_package(bytes, campaign, preview, players)
 	get_tree().change_scene_to_file("res://main.tscn")
+
+
+func _cancel_player_choice() -> void:
+	var return_focus := player_choice_return_focus
+	_clear_player_choice()
+	if return_focus != null and is_instance_valid(return_focus):
+		return_focus.grab_focus()
+
+
+func _clear_player_choice() -> void:
+	player_choice_overlay.visible = false
+	pending_package = PackedByteArray()
+	pending_campaign = ""
+	pending_preview = false
+	player_choice_return_focus = null
 
 
 func _open_editor() -> void:
@@ -307,9 +411,9 @@ func _run_smoke() -> void:
 		and included_games.size() == 2
 		and first_button != null
 		and first_button.text.contains("TARNHOLT")
-		and int(included_games[0].players) == 1
+		and str(included_games[0].playerMode) == "one"
 		and str(included_games[1].campaign) == "emberbound"
-		and int(included_games[1].players) == 2
+		and str(included_games[1].playerMode) == "choice"
 		and controls != null
 		and PCNavigation.raw_stick_ui_event_count() == 0
 		and (home_stick_expected.is_empty() or stick_mode == home_stick_expected)

@@ -47,8 +47,11 @@ export const THIRD_CHANGE = "a game may be spoken over while it is being played"
 /** What the fourth step tells the author. */
 export const FOURTH_CHANGE = "a company may be handed a weapon and not only an item";
 
+/** What the fifth step tells the author. */
+export const FIFTH_CHANGE = "each campaign says how many local players it seats";
+
 /**
- * Four steps ending at the current version. Each does something a test can see
+ * Five steps ending at the current version. Each does something a test can see
  * and each leaves a project the schema still accepts.
  *
  * Ending at the current version is the point rather than an accident: a chain
@@ -91,6 +94,17 @@ export const EXAMPLE_STEPS = [
     changed: FOURTH_CHANGE,
     apply: (project) => {
       project.contentRevision ??= "0.0.0";
+      return project;
+    }
+  },
+  {
+    from: "1.2.0",
+    to: "1.3.0",
+    changed: FIFTH_CHANGE,
+    apply: (project) => {
+      for (const campaign of project.campaigns ?? []) {
+        campaign.playerMode ??= "one";
+      }
       return project;
     }
   }

@@ -5,14 +5,14 @@
       "label": "One-player included campaign",
       "path": "res://content/included/tarnholt.gpk",
       "campaign": "tarnholt_line",
-      "players": 1
+      "playerMode": "one"
     },
     {
       "title": "Emberbound: The Last Dawn",
-      "label": "Two-player included campaign",
+      "label": "One or two-player included campaign",
       "path": "res://content/included/emberbound.gpk",
       "campaign": "emberbound",
-      "players": 2
+      "playerMode": "choice"
     }
   ]
 }

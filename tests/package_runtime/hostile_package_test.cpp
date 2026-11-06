@@ -24,7 +24,7 @@
 // poisoned byte is a wrong answer every time rather than an occasional one.
 //
 // The sweep itself is the second mechanism: one valid package covering all
-// seventeen section types, and every two- and four-byte field in it in turn
+// eighteen section types, and every two- and four-byte field in it in turn
 // replaced by the largest value it can hold, with the checksums repaired so
 // the damaged file still authenticates and reaches the decoders rather than
 // being turned away at the envelope. Every reader is run over every variant.
@@ -196,7 +196,7 @@ void repair(std::vector<std::uint8_t>& bytes) {
     write_u32(bytes, 68, fnv1a(bytes, 0, directory_end, true));
 }
 
-// A project that authors something in every one of the seventeen sections the
+// A project that authors something in every one of the eighteen sections the
 // format defines, so the sweep below has a field of every kind to lie about.
 gc::GameSource complete_source() {
     gc::GameSource value;
@@ -412,8 +412,8 @@ void the_fixture_covers_every_section() {
     const pf::LoadResult loaded = pf::load_mock_package(bytes, options());
     expect(static_cast<bool>(loaded), "the hostile-input fixture loads");
     expect(
-        loaded.package.sections.size() == 17U,
-        "the hostile-input fixture authors all seventeen sections"
+        loaded.package.sections.size() == 18U,
+        "the hostile-input fixture authors all eighteen sections"
     );
     expect(
         pr::project_title(loaded.package) == "Hostile input",

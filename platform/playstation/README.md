@@ -384,9 +384,13 @@ serialized only where they enter the deterministic simulation. A co-op map is
 ordinary portable content and should use `sideBlocks` when both allied
 characters are meant to act before the computer-controlled side.
 
-When the second controller socket answers at session start, the encounter
-loader also includes opposing placements authored with `minimumPlayers: 2`.
-With one controller those placements are omitted; no unit stats are adjusted.
+The campaign decides how local player count is selected. `one` launches solo
+and `two` requires both controls. For `choice`, this compact shell selects two
+players when the second controller socket answers at session start and one
+otherwise. A two-player launch keeps authored Player 2 ownership separate and
+includes opposing placements with `minimumPlayers: 2`; solo assigns the allied
+company to the first control and omits those opponents. No unit stats are
+adjusted.
 
 ### Screen
 

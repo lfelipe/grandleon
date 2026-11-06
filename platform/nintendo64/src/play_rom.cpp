@@ -55,6 +55,7 @@
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/game_content/source_project.hpp>
 #include <grandleon/package_format/package.hpp>
+#include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/names.hpp>
@@ -865,8 +866,8 @@ void title_screen(const std::string& title) {
 // which of its two honest modes Player 1 chose. A two-player choice cannot be
 // confirmed until port two answers, because proceeding without it creates a
 // campaign whose Player 2 characters nobody can control.
-[[nodiscard]] std::uint8_t player_count_screen() {
-    int caret = 0;
+[[nodiscard]] std::uint8_t player_count_screen(bool require_two = false) {
+    int caret = require_two ? 1 : 0;
     bool dirty = true;
     bool last_second_connected = false;
     while (true) {
@@ -943,17 +944,17 @@ void title_screen(const std::string& title) {
         }
         grandleon::n64audio::pump();
         const joypad_buttons_t pressed = poll_buttons();
-        if (pressed.d_up && caret > 0) {
+        if (!require_two && pressed.d_up && caret > 0) {
             --caret;
             dirty = true;
         }
-        if (pressed.d_down && caret + 1 <
+        if (!require_two && pressed.d_down && caret + 1 <
                 static_cast<int>(screen::player_count_row_count)) {
             ++caret;
             dirty = true;
         }
         if (pressed.a || pressed.start) {
-            if (caret == 0) {
+            if (caret == 0 && !require_two) {
                 grandleon::n64audio::play(grandleon::n64audio::Sfx::select);
                 return 1U;
             }
@@ -9626,11 +9627,32 @@ int main() {
         title_screen(parsed.source.title);
 #if !defined(GRANDLEON_N64_AUTOPILOT) && \
     !defined(GRANDLEON_N64_README)
-        // Only a campaign that actually assigns an allied placement to Player
-        // 2 offers the choice. The placement section is compiled portable
-        // content, so this is the same answer the encounter loader will use.
-        if (loaded.package.find(pf::SectionType::placement_players) != nullptr) {
-            local_players = player_count_screen();
+        // Launch policy belongs to the campaign rather than to this console.
+        // Older packages are covered by load_campaign's ownership-based
+        // fallback; current ones carry one, two, or choice explicitly.
+        const auto launched_campaign = pr::load_campaign(
+            loaded.package,
+            core::stable_content_id_v1(project_campaign_key)
+        );
+        expect(
+            static_cast<bool>(launched_campaign),
+            "the campaign launch policy loads"
+        );
+        if (launched_campaign) {
+            switch (launched_campaign.definition.player_mode) {
+                case pr::LocalPlayerMode::one:
+                    local_players = 1U;
+                    break;
+                case pr::LocalPlayerMode::two:
+                    // A fixed two-player campaign cannot proceed with an
+                    // owner nobody can control. Reuse the launch surface with
+                    // its two-player row locked until port two answers.
+                    local_players = player_count_screen(true);
+                    break;
+                case pr::LocalPlayerMode::choice:
+                    local_players = player_count_screen();
+                    break;
+            }
         }
         polled_local_player_count = local_players;
 #elif defined(GRANDLEON_N64_README)

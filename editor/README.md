@@ -27,6 +27,10 @@ projects as exported archives or canonical source under version control.
 
 Projects exported here can be imported by the Godot creator. Browser-local
 recovery data and playtest progress are not part of the portable archive.
+Older source is migrated before it is opened, and the current one/two/choice
+campaign launch policy survives import and export. Choosing that policy through
+an ordinary creator control is part of the planned editor pass; today the
+starter project already uses the launch-time choice.
 
 ## Checks
 

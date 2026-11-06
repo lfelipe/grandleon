@@ -10,7 +10,7 @@ func _init() -> void:
 		_fail("GrandleonProjectCompiler is not registered")
 		quit(1)
 		return
-	_expect("canonical schema", compiler.supported_schema(), "1.2.0")
+	_expect("canonical schema", compiler.supported_schema(), "1.3.0")
 
 	var malformed: Dictionary = compiler.compile_source_json("{")
 	_expect("malformed source refused", malformed.ok, false)

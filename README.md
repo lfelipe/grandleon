@@ -46,8 +46,9 @@ counts shown before launch:
 - **The Tarnholt Line — one player.** The earlier six-battle campaign is a
   longer solo test of branching story, recruitment, deployment, survival
   goals, and a final boss.
-- **Emberbound: The Last Dawn — two players.** The current five-battle local
-  co-op campaign divides one allied company between two independent controls.
+- **Emberbound: The Last Dawn — one or two players.** Choose at launch. In
+  co-op, the five-battle campaign divides one allied company between two
+  independent controls; in solo, one player commands the complete company.
 
 These are separate compiled games, not two labels for the same package. They
 also remain portable projects under `games/tarnholt` and `games/emberbound`, so
@@ -122,8 +123,8 @@ rest of the documentation describes the current Godot application.
 | **0.1 — portable foundation** | Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
 | **0.2 — complete campaign runtime** | Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3 — Godot player and creator** | Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
-| **0.4 — broader art and console 3D experiments** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, includes distinct solo and local co-op campaigns, and records bounded 3D detail and camera comparisons on PlayStation and Nintendo 64. This is the current development line. |
-| **0.5 — editor product pass** | Concentrates on the complete authoring experience: clearer workflows, stronger previews, better project organization, and the usability and accessibility work needed for larger games. |
+| **0.4 — broader art and console 3D experiments** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and records bounded 3D detail and camera comparisons on PlayStation and Nintendo 64. This is the current development line. |
+| **0.5 — editor product pass** | Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, better project organization, and the usability and accessibility work needed for larger games. |
 | **0.6 — cinematic battles** | Adds an optional terrain-aware close-up attack view with counter-attacks and damage numbers, while retaining the faster board-only presentation as a game setting. |
 
 Importing external artwork may be explored later, but it is not part of the
@@ -165,9 +166,10 @@ Projects, saves, controls, recovery data, and exports live in per-user runtime
 storage. Portable archives do not contain usernames, machine paths,
 credentials, controller identities, or local settings.
 
-Projects exported by Grandleon 0.2 remain compatible with 0.3. Export a
-`.grandleon.zip` from the browser editor and import it from the Godot Projects
-screen. Authored source and project assets transfer; browser-local recovery data
+Projects exported by Grandleon 0.2 or 0.3 remain compatible with the current
+0.4 development line. Export a `.grandleon.zip` from the earlier editor and
+import it from the Godot Projects screen. Grandleon migrates the authored source
+before validating it; project assets transfer, while browser-local recovery data
 and playtest progress do not.
 
 > **Back up projects while the editor evolves.** We still plan to do heavy work

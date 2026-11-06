@@ -93,6 +93,14 @@ export const sourceV1Schemas: readonly object[] = [
       "name": {
         "$ref": "common.schema.json#/$defs/displayName"
       },
+      "playerMode": {
+        "enum": [
+          "one",
+          "two",
+          "choice"
+        ],
+        "description": "How many people this campaign seats on one machine. 'one' always launches solo, 'two' requires two local players, and 'choice' asks at launch. In a two-player battle, allied placements marked player 2 form the second player's army; solo normalizes all allies to player 1. Omitted means one player for source compatibility, though current authoring tools write the choice explicitly."
+      },
       "flow": {
         "$ref": "#/$defs/campaignFlow"
       },
@@ -1532,7 +1540,7 @@ export const sourceV1Schemas: readonly object[] = [
     "type": "object",
     "properties": {
       "schemaVersion": {
-        "const": "1.2.0"
+        "const": "1.3.0"
       },
       "packageId": {
         "$ref": "common.schema.json#/$defs/packageId"

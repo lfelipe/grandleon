@@ -137,6 +137,18 @@ struct CampaignItemGrant final {
     }
 };
 
+// Portable campaign launch policy. These values mirror game_content's
+// serialized LocalPlayerMode byte and are append-only.
+enum class LocalPlayerMode : std::uint8_t {
+    one = 1,
+    two = 2,
+    choice = 3,
+};
+
+[[nodiscard]] std::string_view local_player_mode_name(
+    LocalPlayerMode mode
+) noexcept;
+
 // What this campaign does with a character who falls in battle.
 //
 // A statement about what kind of game this is, and the only thing it decides is
@@ -208,6 +220,10 @@ struct CampaignDefinition final {
     // battles out of it, and a client that could switch it on for itself would be
     // a client whose battles nobody else could reproduce.
     bool invulnerable_for_testing{false};
+    // How many local people this campaign seats. Older packages carried no
+    // campaign policy; their loader fallback infers `choice` when one of this
+    // campaign's encounters has Player 2 ownership and `one` otherwise.
+    LocalPlayerMode player_mode{LocalPlayerMode::one};
 };
 
 enum class CampaignError : std::uint8_t {

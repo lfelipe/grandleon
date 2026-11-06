@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.2.0",
+  "schemaVersion": "1.3.0",
   "packageId": "00000000-0000-4000-8000-000000000001",
   "gameId": "new_adventure",
   "title": "New Adventure",
@@ -160,6 +160,7 @@
     {
       "id": "first_adventure",
       "name": "First Adventure",
+      "playerMode": "choice",
       "roster": [
         { "id": "aren", "name": "Aren", "unitTypeId": "first_hero" },
         { "id": "mira", "name": "Mira", "unitTypeId": "second_hero" }

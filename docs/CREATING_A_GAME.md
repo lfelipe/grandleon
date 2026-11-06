@@ -215,8 +215,19 @@ progress.
 In battle, each local player has their own cursor and allied army. Both can
 navigate and submit movement at the same time. After a unit moves, the compact
 action menu opens beside it with Attack, available abilities or items, and
-Wait. Enemy turns use the same deterministic built-in policy on PC, Nintendo
-64, and PlayStation.
+Wait. The menu and temporary unit card choose a clear part of the board rather
+than covering characters, cursors, or tiles needed for the current action.
+Enemy turns use the same deterministic built-in policy on PC, Nintendo 64, and
+PlayStation.
+
+A campaign carries one portable launch policy: one player, two players, or a
+choice at launch. The included starter uses the choice, so the same game can be
+tested solo or cooperatively. Solo assigns the whole allied company to the
+first control; co-op preserves the authored Player 1 and Player 2 ownership and
+includes opponents marked for two-player scaling. The source, compiled package,
+PC player, and console players already preserve this policy. Choosing it through
+an ordinary creator control, with ownership guidance and previews, is planned
+for the 0.5 editor pass.
 
 If the compiler refuses the draft, the creator keeps the last valid source and
 shows one **Fix** action only while it is useful. That action opens the relevant
@@ -277,10 +288,11 @@ unreachable route. The Godot presentation uses a replaceable asset contract,
 but the creator currently works with the included art library rather than
 importing external art packs.
 
-Projects exported by Grandleon 0.2 remain compatible. Export the project from
-the browser editor as a `.grandleon.zip`, place it in the import inbox, and use
-**Import Project Archive**. The project source transfers; browser-local recovery
-data and playtest progress do not.
+Projects exported by Grandleon 0.2 or 0.3 remain compatible with the current
+0.4 development line. Export the project from the earlier editor as a
+`.grandleon.zip`, place it in the import inbox, and use **Import Project
+Archive**. The project source migrates before validation; browser-local recovery
+data and playtest progress do not transfer.
 
 ## Refresh these screenshots
 

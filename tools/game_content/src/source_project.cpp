@@ -1987,6 +1987,21 @@ SourceParseResult parse_source_project_json(std::string_view json) {
             const auto campaign_name =
                 mapper.string(*value, "name", campaign_path);
             if (campaign_name) campaign.name = *campaign_name;
+            const auto player_mode =
+                mapper.string(*value, "playerMode", campaign_path, false);
+            if (!player_mode || *player_mode == "one") {
+                campaign.player_mode = LocalPlayerMode::one;
+            } else if (*player_mode == "two") {
+                campaign.player_mode = LocalPlayerMode::two;
+            } else if (*player_mode == "choice") {
+                campaign.player_mode = LocalPlayerMode::choice;
+            } else {
+                mapper.error(
+                    SourceDiagnosticCode::invalid_value,
+                    campaign_path + ".playerMode",
+                    "expected 'one', 'two', or 'choice'"
+                );
+            }
             // The company, before the flow, because the flow's placements
             // field it and its recruits are appended to it in flow order. The
             // order this vector ends up in is the order persistent identities

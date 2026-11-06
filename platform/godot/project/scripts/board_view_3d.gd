@@ -96,8 +96,8 @@ func set_camera_impulse_enabled(value: bool) -> void:
 
 
 func _ready() -> void:
-	position = Vector2(30, 104)
-	size = Vector2(1460, 888)
+	position = Vector2(18, 76)
+	size = Vector2(1884, 920)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stretch = true
 

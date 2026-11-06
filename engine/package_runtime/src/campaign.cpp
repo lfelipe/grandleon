@@ -147,6 +147,15 @@ std::string_view character_loss_name(CharacterLoss loss) noexcept {
     return "unknown";
 }
 
+std::string_view local_player_mode_name(LocalPlayerMode mode) noexcept {
+    switch (mode) {
+        case LocalPlayerMode::one: return "one";
+        case LocalPlayerMode::two: return "two";
+        case LocalPlayerMode::choice: return "choice";
+    }
+    return "unknown";
+}
+
 CampaignLoadResult load_campaign(
     const package_format::LoadedPackage& package,
     std::uint64_t campaign_id
@@ -163,8 +172,28 @@ CampaignLoadResult load_campaign(
         package.find(package_format::SectionType::campaigns, campaign_id);
     if (record == nullptr) return fail(CampaignError::missing_record);
 
-    Reader reader(package, *record);
     CampaignLoadResult result;
+    const package_format::SectionView* player_modes =
+        package.find(package_format::SectionType::campaign_players);
+    if (player_modes != nullptr) {
+        const auto* mode_record = package.find(
+            package_format::SectionType::campaign_players, campaign_id
+        );
+        if (mode_record == nullptr) {
+            return fail(CampaignError::malformed_payload);
+        }
+        Reader mode_reader(package, *mode_record);
+        std::uint8_t encoded_mode = 0;
+        if (!mode_reader.u8(encoded_mode) || !mode_reader.finished() ||
+            encoded_mode < static_cast<std::uint8_t>(LocalPlayerMode::one) ||
+            encoded_mode > static_cast<std::uint8_t>(LocalPlayerMode::choice)) {
+            return fail(CampaignError::malformed_payload);
+        }
+        result.definition.player_mode =
+            static_cast<LocalPlayerMode>(encoded_mode);
+    }
+
+    Reader reader(package, *record);
     std::uint16_t node_count = 0;
     if (!reader.skip_string() ||
         !reader.u64(result.definition.entry_node_id) ||
@@ -539,6 +568,23 @@ CampaignLoadResult load_campaign(
         if (grant.join_node_id != 0U &&
             find_node(grant.join_node_id) == result.definition.nodes.end()) {
             return fail(CampaignError::missing_reference);
+        }
+    }
+    if (player_modes == nullptr) {
+        // Before campaigns stated launch policy, the console launchers used
+        // authored Player 2 ownership as the signal that a campaign could be
+        // shared. Preserve that answer for old packages, but only for the
+        // encounters this campaign can actually reach: another campaign in
+        // the same package may make a different choice.
+        for (const CampaignNode& node : result.definition.nodes) {
+            if (node.kind == CampaignNodeKind::encounter &&
+                package.find(
+                    package_format::SectionType::placement_players,
+                    node.encounter_id
+                ) != nullptr) {
+                result.definition.player_mode = LocalPlayerMode::choice;
+                break;
+            }
         }
     }
     std::sort(

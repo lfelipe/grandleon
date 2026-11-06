@@ -32,7 +32,7 @@ void expect(bool condition, std::string_view message) {
 }
 
 constexpr std::string_view source = R"json({
-  "schemaVersion": "1.2.0",
+  "schemaVersion": "1.3.0",
   "packageId": "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
   "gameId": "vertical.demo",
   "title": "Vertical Demo",
@@ -99,6 +99,8 @@ bool has_source_diagnostic(
         }
     );
 }
+
+std::string source_with(std::string_view needle, std::string_view replacement);
 
 void compiles_canonical_vertical_project() {
     const auto parsed = gc::parse_source_project_json(source);
@@ -1992,6 +1994,42 @@ void maps_the_game_wide_turn_order() {
     );
 }
 
+void maps_the_campaign_player_mode() {
+    const auto with_mode = [](std::string_view mode) {
+        return source_with(
+            R"json("id":"demo","name":"Demo campaign",)json",
+            std::string(R"json("id":"demo","name":"Demo campaign","playerMode":")json") +
+                std::string(mode) + "\","
+        );
+    };
+
+    const auto omitted = gc::parse_source_project_json(source);
+    const auto one = gc::parse_source_project_json(with_mode("one"));
+    const auto two = gc::parse_source_project_json(with_mode("two"));
+    const auto choice = gc::parse_source_project_json(with_mode("choice"));
+    expect(
+        omitted && one && two && choice &&
+            omitted.source.campaigns.front().player_mode ==
+                gc::LocalPlayerMode::one &&
+            one.source.campaigns.front().player_mode ==
+                gc::LocalPlayerMode::one &&
+            two.source.campaigns.front().player_mode ==
+                gc::LocalPlayerMode::two &&
+            choice.source.campaigns.front().player_mode ==
+                gc::LocalPlayerMode::choice,
+        "campaign launch policy maps one, two, choice, and the legacy solo "
+        "default without changing battle ownership"
+    );
+
+    const auto unknown = gc::parse_source_project_json(with_mode("crowd"));
+    expect(
+        !unknown && has_source_diagnostic(
+            unknown, gc::SourceDiagnosticCode::invalid_value
+        ),
+        "a player mode outside the portable vocabulary is refused"
+    );
+}
+
 // What a fall costs the company is a rule too, and the second one a project may
 // state once for the whole game. Unlike the turn order it is not resolved away
 // in the reader: it is carried on the source and written on every campaign
@@ -3340,7 +3378,7 @@ void names_both_versions_when_it_refuses_one() {
              Case{"nonsense", "", "upgrade.mjs"},
          }) {
         const auto parsed = gc::parse_source_project_json(
-            source_with(R"json("schemaVersion": "1.2.0")json",
+            source_with(R"json("schemaVersion": "1.3.0")json",
                         std::string(R"json("schemaVersion": ")json") +
                             std::string(item.declared) + "\"")
         );
@@ -3366,7 +3404,7 @@ void names_both_versions_when_it_refuses_one() {
         );
     }
     expect(
-        gc::supported_source_schema == "1.2.0",
+        gc::supported_source_schema == "1.3.0",
         "the version this compiler reads; tools/source_schema/test.mjs holds "
         "it level with the schema and the migration registry"
     );
@@ -3412,6 +3450,7 @@ int main() {
     maps_a_scene_backdrop();
     maps_a_scene_cast();
     maps_the_game_wide_turn_order();
+    maps_the_campaign_player_mode();
     maps_the_character_loss_rule();
     maps_the_testing_invulnerability();
     maps_authored_traversal();

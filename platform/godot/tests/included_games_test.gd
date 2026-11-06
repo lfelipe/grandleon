@@ -14,9 +14,9 @@ func _init() -> void:
 	_expect("manifest has solo and co-op campaigns", games.size(), 2)
 	if games.size() == 2:
 		_expect("solo campaign is Tarnholt", games[0].campaign, "tarnholt_line")
-		_expect("solo campaign requests one player", int(games[0].players), 1)
+		_expect("solo campaign requests one player", str(games[0].playerMode), "one")
 		_expect("co-op campaign is Emberbound", games[1].campaign, "emberbound")
-		_expect("co-op campaign requests two players", int(games[1].players), 2)
+		_expect("co-op campaign lets players choose", str(games[1].playerMode), "choice")
 		for game: Dictionary in games:
 			_expect(
 				"compiled example exists: %s" % game.title,

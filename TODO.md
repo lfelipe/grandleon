@@ -47,14 +47,24 @@ terrain rules, routes, timing, or combat results.
   renderer because the sixteen-unit 3D board reached only 18 fps. See
   [the console 3D experiment](docs/CONSOLE_3D_EXPERIMENT.md).
 
-## 0.5 editor and player setup
+## 0.4 player foundation and battle view
+
+- [x] Add portable per-campaign launch policy for one player, two players, or a
+  choice at launch. Carry it through source schema 1.3.0, migration, compiled
+  packages, Godot, Nintendo 64, and PlayStation while preserving older package
+  inference.
+- [x] Make the Godot board the dominant surface. Replace the permanent side
+  manual with a compact action strip and contextual unit card.
+- [x] Place actionable popups from live board geometry so they avoid units,
+  cursors, highlighted destinations and targets, and another player's menu.
+
+## 0.5 editor workflow
 
 - [ ] Let a campaign author choose whether a game is one-player, two-player,
-  or allows the players to choose at launch. Treat this as a complete authoring
-  workflow rather than a presentation toggle: define controllable-side
-  ownership, validate unsupported combinations, expose seat assignment and
-  launch choices, preview both modes, migrate schema versions, and test each
-  allowed configuration through play and export.
+  or allows the players to choose at launch through an ordinary editor control.
+  The portable format, migration, package data, and launchers now exist; finish
+  the human workflow with combination validation, ownership guidance, explicit
+  one/two-player preview actions, and export-focused tests.
 
 ## 0.6 cinematic battle presentation
 

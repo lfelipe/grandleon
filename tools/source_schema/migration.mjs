@@ -9,8 +9,9 @@
 // rather than inventing a second philosophy for the same question:
 //
 // * **Version by version, never in a leap.** A step goes from one version to
-//   the next and no further. A project at `1.0.0` reaching an editor at `1.2.0`
-//   runs 1.0.0 -> 1.1.0 and then 1.1.0 -> 1.2.0, each separately registered
+//   the next and no further. A project at `1.0.0` reaching an editor at `1.3.0`
+//   runs each registered step in order, including 1.2.0 -> 1.3.0, rather than
+//   leaping over the versions in between
 //   with its own test. One function per (old, new) pair is quadratic in the
 //   number of versions and gives the pair nobody thought to write no diagnostic
 //   at all.
@@ -428,10 +429,37 @@ const WEAPONS_CHANGE_HANDS =
   "a weapon can be given to a company the way an item can, and a weapon " +
   "type can be made strong against others";
 
+/** What 1.3.0 adds, in the words shown before an author upgrades. */
+const CAMPAIGNS_CHOOSE_LOCAL_PLAYERS =
+  "each campaign says whether it launches for one player, two players, or " +
+  "lets the players choose";
+
+/**
+ * Infer the launch choice an older campaign already expressed through its
+ * boards. Player-two ownership is the direct signal; two-player-only opposing
+ * placements are included because they were authored for the same local co-op
+ * path even if an unfinished project had not assigned the second army yet.
+ */
+function legacyPlayerMode(campaign) {
+  const nodes = campaign?.flow?.nodes;
+  if (!Array.isArray(nodes)) return "one";
+  const supportsTwo = nodes.some((node) =>
+    Array.isArray(node?.placements) && node.placements.some((placement) =>
+      placement?.player === 2 || placement?.minimumPlayers === 2
+    )
+  );
+  return supportsTwo ? "choice" : "one";
+}
+
 /**
  * Every step this build ships.
  *
- * Two, and each exists because its version exists.
+ * Three, and each exists because its version exists.
+ *
+ * `1.3.0` makes local-player intent explicit per campaign. Earlier projects
+ * already expressed co-op through Player 2 ownership and two-player encounter
+ * scaling, so the migration preserves that intent as `choice`; campaigns with
+ * neither become explicitly `one`. The old project is not mutated.
  *
  * `1.2.0` carries two additions, both optional and both absent from every
  * project written before it. A grant may name a `weaponId` instead of an
@@ -469,6 +497,20 @@ export function sourceMigrations() {
       to: "1.2.0",
       changed: WEAPONS_CHANGE_HANDS,
       apply: (project) => project
+    })
+    .add({
+      from: "1.2.0",
+      to: "1.3.0",
+      changed: CAMPAIGNS_CHOOSE_LOCAL_PLAYERS,
+      apply: (project) => Array.isArray(project.campaigns)
+        ? ({
+            ...project,
+            campaigns: project.campaigns.map((campaign) => ({
+              ...campaign,
+              playerMode: legacyPlayerMode(campaign)
+            }))
+          })
+        : project
     });
 }
 

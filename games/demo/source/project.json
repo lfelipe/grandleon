@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.2.0",
+  "schemaVersion": "1.3.0",
   "packageId": "f643c13e-ce8d-41d4-b6de-0d69ba5fcade",
   "gameId": "grandleon.demo",
   "title": "The Bridge at Dawn",
@@ -365,6 +365,7 @@
     {
       "id": "demo_campaign",
       "name": "The Bridge at Dawn",
+      "playerMode": "one",
       "roster": [
         {
           "id": "dawn_guard_leader",
@@ -419,6 +420,7 @@
     {
       "id": "muster_road",
       "name": "The Muster Road",
+      "playerMode": "one",
       "roster": [
         {
           "id": "muster_vanguard",
@@ -551,6 +553,7 @@
     {
       "id": "last_signal",
       "name": "The Last Signal",
+      "playerMode": "choice",
       "roster": [
         { "id": "relay_kestrel", "name": "Kestrel", "unitTypeId": "kestrel_rogue" },
         { "id": "relay_rook", "name": "Rook", "unitTypeId": "rook_commander" }
@@ -596,6 +599,7 @@
                 "memberId": "relay_rook",
                 "unitTypeId": "rook_commander",
                 "side": "first",
+                "player": 2,
                 "x": 1,
                 "y": 4
               },

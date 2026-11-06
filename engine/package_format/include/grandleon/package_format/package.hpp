@@ -132,6 +132,12 @@ enum class SectionType : std::uint32_t {
     // who may command whom. Omitted entirely when every ally belongs to the
     // first player, preserving older packages byte for byte.
     placement_players = 22,
+    // How many local people each campaign supports: one, two, or a choice at
+    // launch. Required when present because ignoring it changes which people
+    // are seated and which authored placements the encounter loader fields.
+    // Packages compiled before launch policy existed omit the section; the
+    // campaign loader preserves their old Player 2 ownership inference.
+    campaign_players = 23,
 };
 
 // The presentation section holds records about the whole game, the way the

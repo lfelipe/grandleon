@@ -19,7 +19,7 @@ function definition(
     displayName: sourceKey,
     sourcePath,
     semanticPath: `/${category}/${sourceKey}`,
-    schemaVersion: "1.2.0",
+    schemaVersion: "1.3.0",
     references
   };
 }

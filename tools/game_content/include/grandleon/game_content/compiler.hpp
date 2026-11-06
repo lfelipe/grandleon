@@ -813,6 +813,19 @@ struct CampaignItemGrant final {
     }
 };
 
+// How many local people a campaign is designed to seat.
+//
+// This is launch policy, not battle state. `choice` lets the people at the
+// machine decide each time; the selected count is then passed through the
+// existing encounter-loading seam, which applies authored ownership and
+// player-count scaling. Values are serialized in a required package section,
+// so the list is append-only and package_runtime::LocalPlayerMode must agree.
+enum class LocalPlayerMode : std::uint8_t {
+    one = 1,
+    two = 2,
+    choice = 3,
+};
+
 struct Campaign final {
     StableId id{};
     std::string name;
@@ -828,6 +841,9 @@ struct Campaign final {
     // flow order. The order is the order the operations are built in, so it is
     // content for the same reason the roster's order is.
     std::vector<CampaignItemGrant> grants;
+    // Last to preserve aggregate initializers written before launch policy was
+    // authorable. One player is the backward-compatible source default.
+    LocalPlayerMode player_mode{LocalPlayerMode::one};
 };
 
 //: What a campaign does with a character who falls in battle.

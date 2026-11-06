@@ -7,7 +7,7 @@ import MatchupPreview from "./MatchupPreview.vue";
 afterEach(() => document.body.replaceChildren());
 
 const project: SourceProject = {
-  schemaVersion: "1.2.0",
+  schemaVersion: "1.3.0",
   packageId: "11111111-1111-4111-8111-111111111111",
   gameId: "test_game",
   title: "Test Game",
