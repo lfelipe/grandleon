@@ -293,8 +293,14 @@ void draw_team_marker(
 }
 
 void begin_scene(int terrain) {
-    gpu::begin(colour15(sky_colours[terrain]));
-    build_font();
+    static bool started = false;
+    if (!started) {
+        gpu::begin(colour15(sky_colours[terrain]));
+        build_font();
+        started = true;
+    } else {
+        gpu::clear(colour15(sky_colours[terrain]));
+    }
 }
 
 void draw_strategic(int style, int body, bool high_detail, int role_page) {
@@ -453,44 +459,55 @@ int run_interactive() {
     bool action = false;
     int role_page = 0;
     int strike_frame = 0;
+    draw_strategic(style, body, high_detail, role_page);
     while (true) {
-        int lunge = 0;
-        if (strike_frame > 0) {
-            const int phase = strike_frame < 10 ? strike_frame : 20 - strike_frame;
-            lunge = phase * 2;
-            ++strike_frame;
-            if (strike_frame >= 20) strike_frame = 0;
-        }
-        if (action) {
-            draw_action(style, archetype, terrain, lunge);
-        } else {
-            draw_strategic(style, body, high_detail, role_page);
-        }
         psx::wait_vblank();
         const std::uint16_t pressed = pad::pressed();
+        bool changed = false;
         if ((pressed & turn::pad_left) != 0) {
             style = (style + style_count - 1) % style_count;
+            changed = true;
         }
         if ((pressed & turn::pad_right) != 0) {
             style = (style + 1) % style_count;
+            changed = true;
         }
         if ((pressed & turn::pad_up) != 0) {
             if (action) terrain = (terrain + 1) % terrain_count;
             else body = (body + 1) % body_count;
+            changed = true;
         }
         if ((pressed & turn::pad_down) != 0) {
             if (action) terrain = (terrain + terrain_count - 1) % terrain_count;
             else body = (body + 1) % body_count;
+            changed = true;
         }
         if ((pressed & turn::pad_a) != 0) {
             if (action) archetype = (archetype + 1) % archetype_count;
             else role_page = 1 - role_page;
+            changed = true;
         }
         if ((pressed & turn::pad_c) != 0 && !action) {
             high_detail = !high_detail;
+            changed = true;
         }
-        if ((pressed & turn::pad_b) != 0 && action) strike_frame = 1;
-        if ((pressed & turn::pad_start) != 0) action = !action;
+        if ((pressed & turn::pad_b) != 0 && action) {
+            strike_frame = 1;
+        }
+        if ((pressed & turn::pad_start) != 0) {
+            action = !action;
+            changed = true;
+        }
+        if (strike_frame > 0) {
+            const int phase =
+                strike_frame < 10 ? strike_frame : 20 - strike_frame;
+            draw_action(style, archetype, terrain, phase * 2);
+            ++strike_frame;
+            if (strike_frame >= 20) strike_frame = 0;
+        } else if (changed) {
+            if (action) draw_action(style, archetype, terrain, 0);
+            else draw_strategic(style, body, high_detail, role_page);
+        }
     }
 }
 #endif

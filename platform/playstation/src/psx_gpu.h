@@ -165,6 +165,12 @@ constexpr int clut_capacity = clut_rows * cluts_per_row;
 // half-drawn is ever the picture.
 void begin(std::uint16_t backdrop);
 
+// Clears the framebuffer without resetting the GPU or disabling the display.
+// Use this after `begin()` for later frames; repeatedly resetting the GPU while
+// a physical display is scanning produces blank/partial frames that permissive
+// emulators can hide.
+void clear(std::uint16_t backdrop);
+
 // Turns the display on. Idempotent.
 void show();
 

@@ -41,8 +41,8 @@ void command(std::uint32_t word) {
 // masked to the field widths the hardware decodes, so an out-of-range caller
 // wraps inside VRAM rather than reaching into an adjacent field.
 void coordinates(int x, int y) {
-    *gp0 = (static_cast<std::uint32_t>(y) & 0xFFFFu) << 16 |
-           (static_cast<std::uint32_t>(x) & 0xFFFFu);
+    command((static_cast<std::uint32_t>(y) & 0xFFFFu) << 16 |
+            (static_cast<std::uint32_t>(x) & 0xFFFFu));
 }
 
 void control(std::uint32_t op, std::uint32_t parameter) {
@@ -122,6 +122,15 @@ void show() {
     control(0x03, 0);
 }
 
+void clear(std::uint16_t backdrop) {
+    command(0x02u << 24 |
+            (static_cast<std::uint32_t>(blue_of(backdrop)) << 19) |
+            (static_cast<std::uint32_t>(green_of(backdrop)) << 11) |
+            (static_cast<std::uint32_t>(red_of(backdrop)) << 3));
+    coordinates(0, 0);
+    coordinates(screen_width, screen_height);
+}
+
 void upload(int x, int y, int halfwords_across, int lines,
             const unsigned short* source) {
     if (source == nullptr || halfwords_across <= 0 || lines <= 0) return;
@@ -180,10 +189,10 @@ void draw_cell(int screen_x, int screen_y, int cell, int clut) {
     // The CLUT field addresses VRAM in units of sixteen halfwords across and
     // one line down, which is exactly the grid `clut_x_of` and `clut_y_of` lay
     // CLUTs out on.
-    *gp0 = (static_cast<std::uint32_t>(clut_y_of(clut)) << 22) |
-           (static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries) << 16) |
-           (static_cast<std::uint32_t>(v) << 8) |
-           static_cast<std::uint32_t>(u);
+    command((static_cast<std::uint32_t>(clut_y_of(clut)) << 22) |
+            (static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries) << 16) |
+            (static_cast<std::uint32_t>(v) << 8) |
+            static_cast<std::uint32_t>(u));
     coordinates(cell_texels, cell_texels);
 }
 
@@ -233,17 +242,17 @@ void draw_cell_scaled(int screen_x, int screen_y, int size, int cell,
     // bottom edges. Placing them on the last pixel instead would drop a row
     // and a column of every cell on the board.
     coordinates(screen_x, screen_y);
-    *gp0 = (palette << 16) | (static_cast<std::uint32_t>(v) << 8) |
-           static_cast<std::uint32_t>(u);
+    command((palette << 16) | (static_cast<std::uint32_t>(v) << 8) |
+            static_cast<std::uint32_t>(u));
     coordinates(screen_x + size, screen_y);
-    *gp0 = (texpage << 16) | (static_cast<std::uint32_t>(v) << 8) |
-           static_cast<std::uint32_t>(u_far);
+    command((texpage << 16) | (static_cast<std::uint32_t>(v) << 8) |
+            static_cast<std::uint32_t>(u_far));
     coordinates(screen_x, screen_y + size);
-    *gp0 = (static_cast<std::uint32_t>(v_far) << 8) |
-           static_cast<std::uint32_t>(u);
+    command((static_cast<std::uint32_t>(v_far) << 8) |
+            static_cast<std::uint32_t>(u));
     coordinates(screen_x + size, screen_y + size);
-    *gp0 = (static_cast<std::uint32_t>(v_far) << 8) |
-           static_cast<std::uint32_t>(u_far);
+    command((static_cast<std::uint32_t>(v_far) << 8) |
+            static_cast<std::uint32_t>(u_far));
 }
 
 void fill(int screen_x, int screen_y, int width, int height,
@@ -287,10 +296,10 @@ void draw_glyph(int screen_x, int screen_y, int slot, int clut) {
 
     command(0x65u << 24 | 0x808080u);
     coordinates(screen_x, screen_y);
-    *gp0 = (static_cast<std::uint32_t>(clut_y_of(clut)) << 22) |
-           (static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries) << 16) |
-           (static_cast<std::uint32_t>(glyph_texture_v(slot)) << 8) |
-           static_cast<std::uint32_t>(glyph_texture_u(slot));
+    command((static_cast<std::uint32_t>(clut_y_of(clut)) << 22) |
+            (static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries) << 16) |
+            (static_cast<std::uint32_t>(glyph_texture_v(slot)) << 8) |
+            static_cast<std::uint32_t>(glyph_texture_u(slot)));
     coordinates(glyph_texels, glyph_texels);
 }
 
