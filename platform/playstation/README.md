@@ -130,13 +130,19 @@ attack view, Up/Down changes terrain, Cross changes role, Circle plays the
 strike, and Start returns.
 
 The viewer check validates every low/high model combination, renders all 56
-four-role detail pages and fourteen close pairs, and reports `296/296`; a
+four-role detail pages and fourteen close pairs, verifies that all 56
+auto-framed attack pairs stay inside the native safe picture, and reports
+`352/352`; a
 separate GPU observer reports `18/18` and saves the final 320×240
-frame. The slowest low-detail page is about 23.7 ms, the optional high-detail
-comparison 35.7 ms, and the two-model close view 20.1 ms in the pinned
-interpreter. These are emulator timings, not original-hardware claims. The
-older sixteen-model stress scene still reaches only 18 fps, which is why the
-campaign uses conservative model counts and detail levels instead of filling
+frame. The slowest low-detail page is about 19.3 ms, the optional high-detail
+comparison 31.3 ms, and the auto-framed two-model close view 19.5 ms in the
+pinned interpreter. Animated 3D presentation targets a locked 30 fps, one
+picture for every two NTSC retraces; an unsynchronised 32 fps is not a useful
+console target. The regression ceiling is 33 ms, with additional margin
+expected before a hardware claim. These are emulator timings, not
+original-hardware claims. The older sixteen-model stress scene still reaches
+only 18 fps, which is why the campaign uses conservative model counts and
+detail levels instead of filling
 the board with high-detail models. See [the plain-language console 3D status](../../docs/CONSOLE_3D_EXPERIMENT.md).
 
 The disc target writes `sevenfold-ps1-3d.bin` and `sevenfold-ps1-3d.cue` under

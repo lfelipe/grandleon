@@ -35,8 +35,11 @@ constexpr int archetype_count = 8;
 constexpr int terrain_count = 13;
 constexpr int max_vertices = 512;
 constexpr int max_triangles = sevenfold_high_max_triangles;
+// NTSC presentation is locked to every second retrace: approximately 30 fps.
+// Thirty-three milliseconds is a useful emulator regression ceiling and is a
+// real cadence target; an unsynchronised "32 fps" is not.
 constexpr std::uint32_t animated_frame_budget_ticks =
-    psx::ticks_per_1000_microseconds * 34U;
+    psx::ticks_per_1000_microseconds * 33U;
 constexpr std::uint32_t comparison_frame_budget_ticks =
     psx::ticks_per_1000_microseconds * 40U;
 
@@ -80,6 +83,14 @@ struct ProjectedVertex final {
 struct OrderedTriangle final {
     std::uint16_t index;
     std::int32_t depth;
+};
+
+struct ScreenBounds final {
+    int left = gpu::screen_width;
+    int top = gpu::screen_height;
+    int right = 0;
+    int bottom = 0;
+    bool any = false;
 };
 
 ProjectedVertex projected[max_vertices];
@@ -171,6 +182,100 @@ void text_at(int x, int y, const char* value) {
         static_cast<std::int16_t>(screen_y),
         depth,
     };
+}
+
+void include_model_bounds(
+    ScreenBounds& bounds, const SevenfoldProxy& proxy,
+    int origin_x, int origin_y, int origin_z, int quarter_turn, int lean,
+    const Camera& camera
+) {
+    int source_left = proxy.vertices[0].x;
+    int source_bottom = proxy.vertices[0].y;
+    int source_back = proxy.vertices[0].z;
+    int source_right = source_left;
+    int source_top = source_bottom;
+    int source_front = source_back;
+    for (int index = 0; index < proxy.vertices_count; ++index) {
+        const SevenfoldProxyVertex& source = proxy.vertices[index];
+        if (source.x < source_left) source_left = source.x;
+        if (source.x > source_right) source_right = source.x;
+        if (source.y < source_bottom) source_bottom = source.y;
+        if (source.y > source_top) source_top = source.y;
+        if (source.z < source_back) source_back = source.z;
+        if (source.z > source_front) source_front = source.z;
+    }
+    for (int xi = 0; xi < 2; ++xi) {
+        for (int yi = 0; yi < 2; ++yi) {
+            for (int zi = 0; zi < 2; ++zi) {
+                int x = xi == 0 ? source_left : source_right;
+                const int y = yi == 0 ? source_bottom : source_top;
+                int z = zi == 0 ? source_back : source_front;
+                if (quarter_turn < 0) {
+                    const int turned_x = z;
+                    z = -x;
+                    x = turned_x;
+                } else if (quarter_turn > 0) {
+                    const int turned_x = -z;
+                    z = x;
+                    x = turned_x;
+                }
+                x += y * lean / 256;
+                const ProjectedVertex point = project(
+                    x + origin_x, y + origin_y, z + origin_z, camera
+                );
+                if (!bounds.any) {
+                    bounds.left = point.x;
+                    bounds.right = point.x;
+                    bounds.top = point.y;
+                    bounds.bottom = point.y;
+                    bounds.any = true;
+                } else {
+                    if (point.x < bounds.left) bounds.left = point.x;
+                    if (point.x > bounds.right) bounds.right = point.x;
+                    if (point.y < bounds.top) bounds.top = point.y;
+                    if (point.y > bounds.bottom) bounds.bottom = point.y;
+                }
+            }
+        }
+    }
+}
+
+[[nodiscard]] ScreenBounds action_pair_bounds(
+    const SevenfoldProxy& left, const SevenfoldProxy& right,
+    const Camera& camera
+) {
+    ScreenBounds bounds;
+    include_model_bounds(bounds, left, -70, 0, 0, 1, 0, camera);
+    include_model_bounds(bounds, left, -50, 0, 0, 1, 0, camera);
+    include_model_bounds(bounds, right, 70, 0, 0, -1, 0, camera);
+    include_model_bounds(bounds, right, 50, 0, 0, -1, 0, camera);
+    return bounds;
+}
+
+[[nodiscard]] Camera action_camera(
+    const SevenfoldProxy& left, const SevenfoldProxy& right
+) {
+    constexpr int safe_left = 10;
+    constexpr int safe_top = 24;
+    constexpr int safe_right = gpu::screen_width - 10;
+    constexpr int safe_bottom = 220;
+    constexpr int distance = 360;
+    constexpr int minimum_focal = 300;
+    constexpr int maximum_focal = 560;
+    for (int focal = maximum_focal; focal >= minimum_focal; focal -= 10) {
+        const Camera probe{distance, focal, 0};
+        const ScreenBounds bounds = action_pair_bounds(left, right, probe);
+        if (!bounds.any || bounds.left < safe_left ||
+            bounds.right > safe_right ||
+            bounds.bottom - bounds.top > safe_bottom - safe_top) {
+            continue;
+        }
+        const int horizon = safe_bottom - bounds.bottom;
+        if (bounds.top + horizon >= safe_top) {
+            return {distance, focal, horizon};
+        }
+    }
+    return {distance, minimum_focal, 211};
 }
 
 [[nodiscard]] int order_triangles(const SevenfoldProxy& proxy) {
@@ -332,7 +437,9 @@ void draw_strategic(int style, int body, bool high_detail, int role_page) {
 }
 
 void draw_action(int style, int archetype, int terrain, int lunge) {
-    const Camera camera{405, 400, 211};
+    const SevenfoldProxy& left = sevenfold_proxies_high[style][0][archetype];
+    const SevenfoldProxy& right = sevenfold_proxies_high[style][1][archetype];
+    const Camera camera = action_camera(left, right);
     begin_scene(terrain);
     // Terrain bands make the close view belong to the tile it came from while
     // staying cheap enough that the figures receive the triangle budget.
@@ -345,10 +452,23 @@ void draw_action(int style, int archetype, int terrain, int lunge) {
     }
     draw_team_marker(-70 + lunge, 0, 32, 0, camera);
     draw_team_marker(70 - lunge, 0, 32, 1, camera);
-    draw_model(sevenfold_proxies_high[style][0][archetype], -70, 0, 0, 1,
-               lunge, camera);
-    draw_model(sevenfold_proxies_high[style][1][archetype], 70, 0, 1, -1,
-               -lunge, camera);
+    draw_model(left, -70, 0, 0, 1, lunge, camera);
+    draw_model(right, 70, 0, 1, -1, -lunge, camera);
+    if (lunge >= 14) {
+        const ProjectedVertex contact = project(0, 63, -12, camera);
+        const int radius = 7 + (lunge - 14) / 2;
+        const std::uint16_t flash = gpu::rgb15(31, 29, 18);
+        gpu::draw_triangle(
+            contact.x - radius, contact.y,
+            contact.x, contact.y - radius,
+            contact.x + radius, contact.y, flash
+        );
+        gpu::draw_triangle(
+            contact.x - radius, contact.y,
+            contact.x + radius, contact.y,
+            contact.x, contact.y + radius, flash
+        );
+    }
     gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
     text_at(8, 5, style_labels[style]);
     text_at(112, 5, archetype_labels[archetype]);
@@ -427,6 +547,29 @@ int run_check() {
             }
         }
     }
+    int narrowest_action_focal = 10000;
+    int widest_action_focal = 0;
+    for (int style = 0; style < style_count; ++style) {
+        for (int archetype = 0; archetype < archetype_count; ++archetype) {
+            const SevenfoldProxy& left =
+                sevenfold_proxies_high[style][0][archetype];
+            const SevenfoldProxy& right =
+                sevenfold_proxies_high[style][1][archetype];
+            const Camera camera = action_camera(left, right);
+            const ScreenBounds bounds = action_pair_bounds(left, right, camera);
+            if (camera.focal < narrowest_action_focal) {
+                narrowest_action_focal = camera.focal;
+            }
+            if (camera.focal > widest_action_focal) {
+                widest_action_focal = camera.focal;
+            }
+            expect(
+                bounds.any && bounds.left >= 10 && bounds.right <= 310 &&
+                    bounds.top >= 24 && bounds.bottom <= 220,
+                "auto-framed attack pair stays inside the safe picture"
+            );
+        }
+    }
 
     psx::Line board;
     board.text("BENCH strategic slowest ticks=").decimal(slowest_board).flush();
@@ -435,9 +578,16 @@ int run_check() {
         .decimal(slowest_high_board).flush();
     psx::Line close;
     close.text("BENCH attack slowest ticks=").decimal(slowest_close).flush();
+    psx::Line framing;
+    framing.text("BENCH attack fitted focal=")
+        .decimal(static_cast<std::uint32_t>(narrowest_action_focal))
+        .text("..")
+        .decimal(static_cast<std::uint32_t>(widest_action_focal))
+        .text(" safe=10,24..310,220")
+        .flush();
 
     // Leave a representative action frame on screen for the host capture.
-    draw_action(2, 2, 3, 12);
+    draw_action(2, 2, 3, 18);
     static_cast<void>(gpu::read_back(0, 0));
     psx::Line result;
     result.text(failures == 0 ? "RESULT PASS " : "RESULT FAIL ")

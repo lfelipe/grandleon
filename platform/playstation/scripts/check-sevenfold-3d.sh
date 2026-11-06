@@ -77,7 +77,7 @@ fi
 # the final action frame.
 GRANDLEON_PLAYSTATION_BUILD_DIR="${build_dir}" \
 GRANDLEON_PLAYSTATION_EXECUTABLE="$(basename "${executable}")" \
-GRANDLEON_PLAYSTATION_MIN_CHECKS=290 \
+GRANDLEON_PLAYSTATION_MIN_CHECKS=352 \
     "${repository_root}/platform/playstation/scripts/run-playstation.sh"
 
 revision="${GRANDLEON_PCSX_REDUX_REVISION:-}"
@@ -114,7 +114,7 @@ if [ "${status}" -ne 0 ]; then
     exit 1
 fi
 "${repository_root}/scripts/assert-harness-verdict.sh" \
-    --log "${log}" --require "^RESULT PASS " --min-checks 290 \
+    --log "${log}" --require "^RESULT PASS " --min-checks 352 \
     --what "the PlayStation Sevenfold 3D guest"
 "${repository_root}/scripts/assert-harness-verdict.sh" \
     --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 16 \

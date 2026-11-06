@@ -478,6 +478,14 @@ struct ThreeDOrderedTriangle final {
     std::int32_t depth;
 };
 
+struct ThreeDScreenBounds final {
+    int left = gpu::screen_width;
+    int top = gpu::screen_height;
+    int right = 0;
+    int bottom = 0;
+    bool any = false;
+};
+
 constexpr int three_d_max_vertices = 512;
 constexpr int three_d_max_triangles = sevenfold_high_max_triangles;
 constexpr int three_d_tile = 44;
@@ -617,6 +625,109 @@ void three_d_triangle(
     const ThreeDProjectedVertex b = three_d_project(bx, by, bz, camera);
     const ThreeDProjectedVertex c = three_d_project(cx, cy, cz, camera);
     gpu::draw_triangle(a.x, a.y, b.x, b.y, c.x, c.y, colour);
+}
+
+void three_d_include_model_bounds(
+    ThreeDScreenBounds& bounds, const SevenfoldProxy* proxy,
+    int origin_x, int origin_y, int origin_z, int quarter_turn, int lean,
+    const ThreeDCamera& camera
+) {
+    if (proxy == nullptr) return;
+    int source_left = proxy->vertices[0].x;
+    int source_bottom = proxy->vertices[0].y;
+    int source_back = proxy->vertices[0].z;
+    int source_right = source_left;
+    int source_top = source_bottom;
+    int source_front = source_back;
+    for (int index = 0; index < proxy->vertices_count; ++index) {
+        const SevenfoldProxyVertex& source = proxy->vertices[index];
+        if (source.x < source_left) source_left = source.x;
+        if (source.x > source_right) source_right = source.x;
+        if (source.y < source_bottom) source_bottom = source.y;
+        if (source.y > source_top) source_top = source.y;
+        if (source.z < source_back) source_back = source.z;
+        if (source.z > source_front) source_front = source.z;
+    }
+
+    // Project the eight corners of a conservative object-space box. Scanning
+    // the model only performs comparisons; the expensive software divisions
+    // happen eight times per pose rather than once per vertex.
+    for (int xi = 0; xi < 2; ++xi) {
+        for (int yi = 0; yi < 2; ++yi) {
+            for (int zi = 0; zi < 2; ++zi) {
+                int x = xi == 0 ? source_left : source_right;
+                const int y = yi == 0 ? source_bottom : source_top;
+                int z = zi == 0 ? source_back : source_front;
+                if (quarter_turn < 0) {
+                    const int turned_x = z;
+                    z = -x;
+                    x = turned_x;
+                } else if (quarter_turn > 0) {
+                    const int turned_x = -z;
+                    z = x;
+                    x = turned_x;
+                }
+                x += y * lean / 256;
+                const ThreeDProjectedVertex point = three_d_project(
+                    x + origin_x, y + origin_y, z + origin_z, camera
+                );
+                if (!bounds.any) {
+                    bounds.left = point.x;
+                    bounds.right = point.x;
+                    bounds.top = point.y;
+                    bounds.bottom = point.y;
+                    bounds.any = true;
+                } else {
+                    if (point.x < bounds.left) bounds.left = point.x;
+                    if (point.x > bounds.right) bounds.right = point.x;
+                    if (point.y < bounds.top) bounds.top = point.y;
+                    if (point.y > bounds.bottom) bounds.bottom = point.y;
+                }
+            }
+        }
+    }
+}
+
+[[nodiscard]] ThreeDCamera three_d_attack_camera(
+    const SevenfoldProxy* attacker, const SevenfoldProxy* target
+) {
+    // Fit the complete motion envelope, not the current pose. The camera then
+    // stays still while a strike lunges and the defender recoils. The top band
+    // and a small overscan margin are kept clear on every side.
+    constexpr int safe_left = 10;
+    constexpr int safe_top = 32;
+    constexpr int safe_right = gpu::screen_width - 10;
+    constexpr int safe_bottom = gpu::screen_height - 16;
+    constexpr int distance = 360;
+    constexpr int minimum_focal = 300;
+    constexpr int maximum_focal = 560;
+
+    for (int focal = maximum_focal; focal >= minimum_focal; focal -= 10) {
+        const ThreeDCamera probe{distance, focal, 0};
+        ThreeDScreenBounds bounds;
+        three_d_include_model_bounds(
+            bounds, attacker, -76, 0, 0, 1, 0, probe
+        );
+        three_d_include_model_bounds(
+            bounds, attacker, -28, 0, 0, 1, 22, probe
+        );
+        three_d_include_model_bounds(
+            bounds, target, 76, 0, 0, -1, 0, probe
+        );
+        three_d_include_model_bounds(
+            bounds, target, 90, 4, 0, -1, -22, probe
+        );
+        if (!bounds.any || bounds.left < safe_left ||
+            bounds.right > safe_right ||
+            bounds.bottom - bounds.top > safe_bottom - safe_top) {
+            continue;
+        }
+        const int horizon = safe_bottom - bounds.bottom;
+        if (bounds.top + horizon >= safe_top) {
+            return {distance, focal, horizon};
+        }
+    }
+    return {distance, minimum_focal, 214};
 }
 #endif
 
@@ -1734,6 +1845,72 @@ private:
         );
     }
 
+    void draw_three_d_units_in_row(
+        const sim::EncounterSnapshot& snapshot, int row,
+        const ThreeDCamera& camera_view
+    ) {
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (!sim::on_board(unit) ||
+                !camera().visible(unit.position.x, unit.position.y)) {
+                continue;
+            }
+            const int paint_row = moving_ != 0 && unit.id == moving_
+                ? move_world_z_ / 256 : unit.position.y;
+            if (paint_row != row) continue;
+            int fixed_x = unit.position.x * 256 + 128;
+            int fixed_z = unit.position.y * 256 + 128;
+            int bob = 0;
+            int facing = unit.side == sim::Side::first ? 1 : -1;
+            if (moving_ != 0 && unit.id == moving_) {
+                fixed_x = move_world_x_;
+                fixed_z = move_world_z_;
+                bob = move_bob_;
+                facing = move_facing_;
+            }
+            const int kind = kind_at(unit.position.x, unit.position.y);
+            int origin_y =
+                elevation_of_kind(kind) * three_d_height_step + bob;
+            int origin_x = three_d_x(fixed_x);
+            int origin_z = three_d_z(fixed_z);
+            if (flinching_ != 0 && unit.id == flinching_) {
+                origin_x += flinch_dx_ * 2;
+                origin_z += flinch_dy_ * 2;
+            }
+            const int style = style_of(unit.unit_type_id);
+            const int figure = figure_of(unit.unit_type_id);
+            const int archetype = archetype_of(unit.unit_type_id);
+            if (style < 0 || style >= 7 || figure < 0 || figure >= 2 ||
+                archetype < 0 || archetype >= 8) {
+                continue;
+            }
+            const int team = unit.side == sim::Side::first ? 0 : 1;
+            if (moving_ == 0 || unit.id != moving_) {
+                draw_three_d_marker(
+                    unit.position.x, unit.position.y, 13, 3,
+                    three_d_colour(three_d_team_colours[team], 225),
+                    camera_view
+                );
+            }
+            if (unit.has_acted) {
+                draw_three_d_marker(
+                    unit.position.x, unit.position.y, 9, 3, spent_colour,
+                    camera_view
+                );
+            }
+            const SevenfoldProxy* proxy = sevenfold_campaign_proxy(
+                style, figure, archetype, false
+            );
+            if (proxy != nullptr) {
+                three_d_draw_model(
+                    *proxy, origin_x, origin_y, origin_z, team, facing,
+                    camera_view,
+                    moving_ != 0 && unit.id == moving_ ? move_lean_ : 0,
+                    unit.has_acted
+                );
+            }
+        }
+    }
+
     void draw_three_d_board(
         const sim::EncounterSnapshot& snapshot, const turn::Overlay& overlay,
         bool emphasised
@@ -1837,81 +2014,18 @@ private:
                         x, y, 2, 3, flash_colour, camera_view
                     );
                 }
-            }
-        }
-
-        // The cursor is a bright floor plate rather than a screen-space box,
-        // so it remains attached to the selected cell as the camera moves.
-        if (camera().visible(overlay.cursor_x, overlay.cursor_y)) {
-            draw_three_d_marker(
-                overlay.cursor_x, overlay.cursor_y, emphasised ? 7 : 2, 4,
-                cursor_colour, camera_view
-            );
-        }
-
-        // Models are low LOD on the board. Eight figures are the shipped
-        // campaign's busiest scene; reserving high LOD for the two-figure
-        // attack cut-in is what keeps that scene useful on original hardware.
-        for (int row = camera().y; row < camera().y + camera().view_h; ++row) {
-            for (const sim::UnitSnapshot& unit : snapshot.units) {
-                if (!sim::on_board(unit) ||
-                    !camera().visible(unit.position.x, unit.position.y)) {
-                    continue;
-                }
-                if (unit.position.y != row) continue;
-                int fixed_x = unit.position.x * 256 + 128;
-                int fixed_z = unit.position.y * 256 + 128;
-                int bob = 0;
-                int facing = unit.side == sim::Side::first ? 1 : -1;
-                if (moving_ != 0 && unit.id == moving_) {
-                    fixed_x = move_world_x_;
-                    fixed_z = move_world_z_;
-                    bob = move_bob_;
-                    facing = move_facing_;
-                }
-                const int kind = kind_at(unit.position.x, unit.position.y);
-                int origin_y =
-                    elevation_of_kind(kind) * three_d_height_step + bob;
-                int origin_x = three_d_x(fixed_x);
-                int origin_z = three_d_z(fixed_z);
-                if (flinching_ != 0 && unit.id == flinching_) {
-                    origin_x += flinch_dx_ * 2;
-                    origin_z += flinch_dy_ * 2;
-                }
-                const int style = style_of(unit.unit_type_id);
-                const int figure = figure_of(unit.unit_type_id);
-                const int archetype = archetype_of(unit.unit_type_id);
-                if (style < 0 || style >= 7 || figure < 0 || figure >= 2 ||
-                    archetype < 0 || archetype >= 8) {
-                    continue;
-                }
-                const int team = unit.side == sim::Side::first ? 0 : 1;
-                if (moving_ == 0 || unit.id != moving_) {
+                if (x == overlay.cursor_x && y == overlay.cursor_y) {
                     draw_three_d_marker(
-                        unit.position.x, unit.position.y, 13, 3,
-                        three_d_colour(three_d_team_colours[team], 225),
+                        x, y, emphasised ? 7 : 2, 4, cursor_colour,
                         camera_view
                     );
                 }
-                if (unit.has_acted) {
-                    draw_three_d_marker(
-                        unit.position.x, unit.position.y, 9, 3, spent_colour,
-                        camera_view
-                    );
-                }
-                const SevenfoldProxy* proxy = sevenfold_campaign_proxy(
-                    style, figure, archetype, false
-                );
-                if (proxy != nullptr) {
-                    three_d_draw_model(
-                        *proxy, origin_x, origin_y, origin_z, team, facing,
-                        camera_view,
-                        moving_ != 0 && unit.id == moving_
-                            ? move_lean_ : 0,
-                        unit.has_acted
-                    );
-                }
             }
+
+            // The PlayStation GPU has no depth buffer. Finish a far row's
+            // figures before painting the next, nearer row so raised ground
+            // and scenery in front can correctly cover their lower portions.
+            draw_three_d_units_in_row(snapshot, y, camera_view);
         }
     }
 
@@ -1926,6 +2040,22 @@ private:
         bool landed,
         int damage
     ) {
+        const int target_style = style_of(target.unit_type_id);
+        const int target_figure = figure_of(target.unit_type_id);
+        const int target_archetype = archetype_of(target.unit_type_id);
+        const SevenfoldProxy* target_proxy = sevenfold_campaign_proxy(
+            target_style, target_figure, target_archetype, true
+        );
+        const SevenfoldProxy* attacker_proxy = nullptr;
+        if (attacker != nullptr) {
+            attacker_proxy = sevenfold_campaign_proxy(
+                style_of(attacker->unit_type_id),
+                figure_of(attacker->unit_type_id),
+                archetype_of(attacker->unit_type_id), true
+            );
+        }
+        const ThreeDCamera close =
+            three_d_attack_camera(attacker_proxy, target_proxy);
         const int kind = kind_at(target.position.x, target.position.y);
         const std::uint8_t* ground =
             kind >= 0 && kind < grandleon_terrain_kind_count
@@ -1988,7 +2118,6 @@ private:
 
         // A sampled six-by-four floor patch gives the close view actual map
         // context instead of one generic ground colour.
-        const ThreeDCamera close{360, 430, 214};
         for (int row = 0; row < 4; ++row) {
             for (int column = 0; column < 6; ++column) {
                 int source_x = target.position.x + column - 3;
@@ -2035,29 +2164,32 @@ private:
             attacker_y = folded * 5 / 128;
             attacker_lean = folded * 10 / 128;
         }
-        if (attacker != nullptr) {
-            const int style = style_of(attacker->unit_type_id);
-            const int figure = figure_of(attacker->unit_type_id);
-            const int archetype = archetype_of(attacker->unit_type_id);
-            const SevenfoldProxy* proxy = sevenfold_campaign_proxy(
-                style, figure, archetype, true
-            );
-            if (proxy != nullptr) {
-                three_d_draw_model(
-                    *proxy, attacker_x, attacker_y, 0,
-                    attacker->side == sim::Side::first ? 0 : 1, 1, close,
-                    attacker_lean
-                );
-            }
-        }
-        const int target_style = style_of(target.unit_type_id);
-        const int target_figure = figure_of(target.unit_type_id);
-        const int target_archetype = archetype_of(target.unit_type_id);
         const int recoil = resolving && landed ? folded * 14 / 128 : 0;
         const int target_lean = resolving && landed ? -folded * 22 / 128 : 0;
-        const SevenfoldProxy* target_proxy = sevenfold_campaign_proxy(
-            target_style, target_figure, target_archetype, true
-        );
+
+        // Flat, terrain-coloured contact shadows anchor the enlarged figures
+        // without spending texture memory or adding geometry to every model.
+        const std::uint16_t shadow = three_d_colour(ground, 82);
+        if (attacker_proxy != nullptr) {
+            three_d_quad(
+                attacker_x - 27, 1, -12, attacker_x + 27, 1, 12,
+                shadow, close
+            );
+        }
+        if (target_proxy != nullptr) {
+            three_d_quad(
+                76 + recoil - 27, 1, -12, 76 + recoil + 27, 1, 12,
+                shadow, close
+            );
+        }
+
+        if (attacker != nullptr && attacker_proxy != nullptr) {
+            three_d_draw_model(
+                *attacker_proxy, attacker_x, attacker_y, 0,
+                attacker->side == sim::Side::first ? 0 : 1, 1, close,
+                attacker_lean
+            );
+        }
         if (target_proxy != nullptr) {
             three_d_draw_model(
                 *target_proxy, 76 + recoil,
@@ -2092,7 +2224,8 @@ private:
         if (effect) {
             const ThreeDProjectedVertex point =
                 three_d_project(effect_x, effect_y, -18, close);
-            const int radius = resolving ? 8 : 4;
+            const int radius = resolving
+                ? 8 + (landed ? folded * 6 / 128 : 0) : 4;
             gpu::draw_triangle(
                 point.x - radius, point.y,
                 point.x, point.y - radius,
@@ -2105,6 +2238,16 @@ private:
                 point.x, point.y + radius,
                 effect_colour
             );
+            if (resolving && landed) {
+                gpu::fill(
+                    point.x - radius - 5, point.y - 1,
+                    radius * 2 + 10, 3, effect_colour
+                );
+                gpu::fill(
+                    point.x - 1, point.y - radius - 5,
+                    3, radius * 2 + 10, effect_colour
+                );
+            }
         }
 
         gpu::fill(
@@ -2114,12 +2257,15 @@ private:
         int length = 0;
         char label[32]{};
         const char* word = !resolving ? "ATTACK"
-                         : landed ? "HIT  -" : "MISS";
+                         : landed ? "HIT" : "MISS";
         while (word[length] != '\0') {
             label[length] = word[length];
             ++length;
         }
+        char feedback[16]{};
+        int feedback_length = 0;
         if (resolving && landed) {
+            feedback[feedback_length++] = '-';
             unsigned int value = static_cast<unsigned int>(
                 damage < 0 ? -damage : damage
             );
@@ -2130,12 +2276,26 @@ private:
                     static_cast<char>('0' + static_cast<int>(value % 10U));
                 value /= 10U;
             } while (value != 0U && digits < 10);
-            while (digits > 0 && length + 1 < static_cast<int>(sizeof label)) {
-                label[length++] = reversed[--digits];
+            while (digits > 0 && feedback_length + 1 <
+                   static_cast<int>(sizeof feedback)) {
+                feedback[feedback_length++] = reversed[--digits];
+            }
+        } else if (resolving) {
+            const char* miss = "MISS";
+            while (miss[feedback_length] != '\0') {
+                feedback[feedback_length] = miss[feedback_length];
+                ++feedback_length;
             }
         }
         label[length] = '\0';
         write_at((screen_cols - length) / 2, 0, label);
+        if (resolving) {
+            feedback[feedback_length] = '\0';
+            write_scaled_at(
+                (gpu::screen_width - feedback_length * 12) / 2, 18,
+                feedback, 12, landed ? font_gold_clut : font_clut
+            );
+        }
     }
 #endif
 
@@ -3512,7 +3672,11 @@ int main() {
         .decimal(game.paint_shortest_microseconds())
         .text(" max ")
         .decimal(game.paint_longest_microseconds())
+#ifdef GRANDLEON_PSX_3D
+        .text(" budget 33367 target 30fps")
+#else
         .text(" budget 16667")
+#endif
         .flush();
     Line()
         .text("PAD polls ")

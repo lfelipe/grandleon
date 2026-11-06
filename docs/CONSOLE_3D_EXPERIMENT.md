@@ -89,11 +89,14 @@ The N64 viewer currently passes `38/38` checks. Its ares measurements are
 62–87 fps for eight low-detail models, 39–51 fps for eight high-detail models,
 and 132–163 fps for two high-detail models in the close view.
 
-The PlayStation viewer currently passes `296/296` guest checks and `18/18`
-independent GPU checks. In the pinned interpreter, its slowest measured scenes
-are about 42 fps for four low-detail board models, 28 fps for the optional
-four-model high-detail comparison, and 49 fps for two high-detail close-view
-models.
+The PlayStation viewer currently passes `352/352` guest checks, including
+safe-picture checks for every auto-framed attack pair, and `18/18` independent
+GPU checks. In the pinned interpreter, its slowest measured scenes are about
+52 fps for four low-detail board models, 32 fps for the optional four-model
+high-detail comparison, and 51 fps for two high-detail close-view models.
+Animated PS1 3D presentation targets a locked 30 fps at every second NTSC
+retrace; 32 fps would not produce stable console frame pacing. The automated
+regression ceiling is 33 ms, not a real-hardware claim.
 
 These are emulator measurements used to catch regressions, not promises about
 original hardware. Real-hardware play remains part of the review process.

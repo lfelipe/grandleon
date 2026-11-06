@@ -45,8 +45,9 @@ The Nintendo 64 viewer shows all eight roles per page, switches between low and
 high detail, exercises both bodies and team colours, and includes seven terrain
 close views plus an animated hit frame. Its ares gate passes `38/38`.
 
-The PlayStation viewer uses four-role pages and two-character close views. Its
-guest gate passes `296/296`; the independent GPU observer passes `18/18`.
+The PlayStation viewer uses four-role pages and auto-framed two-character close
+views. Its guest gate passes `352/352`, including safe-picture checks for all
+56 style/role pairs; the independent GPU observer passes `18/18`.
 
 Current emulator measurements are:
 
@@ -55,12 +56,14 @@ Current emulator measurements are:
 | N64, eight low-detail models | 62–87 fps |
 | N64, eight high-detail comparison models | 39–51 fps |
 | N64, two high-detail close-view models | 132–163 fps |
-| PS1, four low-detail board models | about 42 fps |
-| PS1, four high-detail comparison models | about 28 fps |
-| PS1, two high-detail close-view models | about 49 fps |
+| PS1, four low-detail board models | about 52 fps |
+| PS1, four high-detail comparison models | about 32 fps |
+| PS1, two high-detail close-view models | about 51 fps |
 
 The four-model PlayStation high-detail page is a static comparison, not the
-campaign board. These are pinned-emulator regression measurements rather than
+campaign board. Animated PS1 3D scenes target a locked 30 fps, synchronised to
+every second NTSC retrace, and use a 33 ms regression ceiling. The throughput
+figures above are pinned-emulator measurements rather than display cadence or
 promises about original hardware.
 
 ## Regenerate the roster
