@@ -1111,14 +1111,12 @@ public:
     ) override {
 #ifndef GRANDLEON_PSX_AUTOPILOT
         // Match the Godot player's direct-start rule. An authored fixed
-        // formation with no shared supplies is already ready; opening the full
+        // formation with no inventory choices is already ready; opening the full
         // company editor only hides the battle behind an unexplained START
         // press. Real deployment choices, inventory management and roster
         // refusals still use the complete screen. Debug Stages remain in the
         // in-battle menu.
-        if (!company.has_deployment_options && company.store.empty() &&
-            company.refused ==
-                grandleon::campaign_runtime::RosterError::none) {
+        if (client::company_can_start_directly(company)) {
             return {client::ManagementVerb::proceed, {}, {}};
         }
 #endif

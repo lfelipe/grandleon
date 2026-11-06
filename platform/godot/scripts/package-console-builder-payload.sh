@@ -10,7 +10,7 @@ script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
 target="${1:-}"
 output="${2:-}"
-version="${3:-0.3.0-1}"
+version="${3:-0.4.0-1}"
 if [[ "${target}" != nintendo64 && "${target}" != playstation ]] || [[ -z "${output}" ]]; then
     echo "usage: $(basename "$0") nintendo64|playstation OUTPUT-DIRECTORY [BUILDER-VERSION]" >&2
     exit 64

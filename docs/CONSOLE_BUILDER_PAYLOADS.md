@@ -43,7 +43,7 @@ builders/
   "format": "grandleon-console-builder",
   "contractVersion": 1,
   "target": "nintendo64",
-  "builderVersion": "0.3.0-1",
+  "builderVersion": "0.4.0-1",
   "executable": "build-rom",
   "executableSha256": "64 lowercase hexadecimal characters",
   "dependencies": "dependencies.json",
@@ -68,7 +68,7 @@ complete authenticated file list for the payload:
   "components": [
     {
       "name": "Grand Leon Nintendo 64 builder",
-      "version": "0.3.0-1",
+      "version": "0.4.0-1",
       "license": "MIT"
     }
   ],
@@ -105,9 +105,9 @@ The release-maintainer command is:
 
 ```sh
 platform/godot/scripts/package-console-builder-payload.sh \
-  nintendo64 out/builders 0.3.0-1
+  nintendo64 out/builders 0.4.0-1
 platform/godot/scripts/package-console-builder-payload.sh \
-  playstation out/builders 0.3.0-1
+  playstation out/builders 0.4.0-1
 ```
 
 It refuses a dirty tree, takes the source from the exact `HEAD` revision, and
@@ -153,6 +153,11 @@ image is compressed and both console builds embed only the drawings a campaign
 actually uses, so a generic ROM template would not preserve the current art or
 memory guarantees.
 
+These creator payloads currently produce the established sprite presentation.
+The 0.4 3D console path is a separately built Sevenfold release showcase, not a
+renderer switch in **Finish & Export**. Its paired sprite and 3D commands are in
+[Console 3D](CONSOLE_3D_EXPERIMENT.md).
+
 ## One isolated request
 
 The creator first compiles the selected project in memory. If it is playable,
@@ -190,7 +195,7 @@ The payload writes `result.json` beside its artifacts:
   "format": "grandleon-console-build-result",
   "contractVersion": 1,
   "target": "nintendo64",
-  "builderVersion": "0.3.0-1",
+  "builderVersion": "0.4.0-1",
   "artifacts": [
     {
       "name": "my-game.z64",

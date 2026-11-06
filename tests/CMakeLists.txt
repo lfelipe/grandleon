@@ -560,6 +560,24 @@ add_test(
     COMMAND grandleon_client_company_scroll_tests
 )
 
+# A fixed formation should not be hidden behind a company screen that offers
+# no choice, while deployment, inventory and repair still need that screen.
+# Both compact consoles call the helper this pins.
+add_executable(grandleon_client_company_direct_start_tests
+    client/company_direct_start_test.cpp
+)
+target_link_libraries(
+    grandleon_client_company_direct_start_tests
+    PRIVATE grandleon::client_campaign
+)
+target_compile_features(
+    grandleon_client_company_direct_start_tests PRIVATE cxx_std_17
+)
+add_test(
+    NAME grandleon.client_company_direct_start
+    COMMAND grandleon_client_company_direct_start_tests
+)
+
 # The Stage picker as a console offers it, driven by a thumb.
 #
 # Same arrangement and for the same reason as the walk above: it compiles

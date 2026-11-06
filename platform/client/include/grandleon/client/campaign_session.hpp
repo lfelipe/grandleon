@@ -454,6 +454,27 @@ struct CompanyManagement final {
     std::vector<CampaignStage> stages;
 };
 
+// Whether a fixed formation is genuinely ready to enter its board without a
+// management screen. This is a presentation decision, but it must be the same
+// decision on every compact console: an empty store alone is not enough when a
+// member still carries something they could return to it, and an empty or
+// refused company must never be waved through merely because it has no
+// deployment rule.
+[[nodiscard]] inline bool company_can_start_directly(
+    const CompanyManagement& company
+) noexcept {
+    if (company.error != CampaignSessionError::none ||
+        company.roster.empty() || company.has_deployment_options ||
+        !company.store.empty() ||
+        company.refused != campaign_runtime::RosterError::none) {
+        return false;
+    }
+    for (const RosterEntry& member : company.roster) {
+        if (!member.carried.empty()) return false;
+    }
+    return true;
+}
+
 // What a player asked the management stage to do.
 //
 // `none` is what a front end returns when the player typed something that was

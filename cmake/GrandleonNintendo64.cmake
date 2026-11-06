@@ -87,6 +87,20 @@ add_custom_target(grandleon_n64_sevenfold_roms
     VERBATIM
 )
 
+# Runs the complete-roster Tiny3D diagnostic under the pinned ares harness.
+# This remains separate from the normal N64 gate because it uses the dedicated
+# Tiny3D/libdragon toolchain image, but it is a first-class release check rather
+# than a command hidden inside the platform scripts.
+add_custom_target(grandleon_n64_sevenfold_3d_check
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/check-sevenfold-3d.sh"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Checking every Nintendo 64 Sevenfold 3D roster and attack scene"
+    USES_TERMINAL
+    VERBATIM
+)
+
 # Every check this console has. Four share the supported Tarnholt build; the
 # fifth builds Emberbound in a separate directory because it needs authored
 # Player 1/Player 2 ownership to exercise both controller ports.

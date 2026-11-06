@@ -515,7 +515,7 @@ aftermath and the end. Every screen is composed by the client as a page of 38
 columns by 16 rows. Story and management pages use the general page layout;
 the player-facing title and save selector use the same dark ground, warm gold
 focus and compact hierarchy as the N64 front end. A fixed formation with no
-deployment or shared-inventory decision starts its battle directly instead of
+deployment or inventory decision starts its battle directly instead of
 opening the company editor. The editor still appears when there is an actual
 choice or a roster refusal. A scene's backdrop is six `gpu::fill` rectangles:
 the art library publishes flat bands, not a picture.

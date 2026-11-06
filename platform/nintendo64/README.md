@@ -297,7 +297,7 @@ includes opposing placements with `minimumPlayers: 2`; solo assigns the allied
 company to the first control and omits those opponents. No unit stats are
 adjusted.
 
-An authored fixed formation with no deployment or shared-inventory decision
+An authored fixed formation with no deployment or inventory decision
 starts its battle directly. The company editor appears only when the player can
 actually change the fielded company or must repair a roster refusal. Debug
 Stages remain available from the in-battle menu.

@@ -92,6 +92,10 @@ The installed Export Center can produce:
 Console builders are separate downloads because their pinned toolchains are
 large. They work offline after installation. The PlayStation image has no Sony
 licence sector and therefore does not boot on an unmodified retail console.
+The creator's optional console builders currently use the established sprite
+presentation. The paired sprite and 3D outputs below are focused Sevenfold
+release builds; choosing either renderer for an arbitrary editor project is
+not yet part of **Finish & Export**.
 
 `games/sevenfold` is the compact N64 showcase campaign. One ROM asks for one or
 two players on its main menu, fields every archetype across all seven art

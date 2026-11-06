@@ -266,6 +266,9 @@ visible atomically. Nintendo 64 produces one `.z64`; PlayStation produces a
 matching `.bin` and `.cue`. These installed builders work offline and do not
 require Docker, a source checkout, or access to your home directory. A missing
 console payload disables only that console and explains what must be installed.
+Both installed console builders currently use the established sprite
+presentation. The 0.4 3D console builds are focused Sevenfold release targets,
+not a renderer choice for arbitrary creator projects.
 The payload host contract is documented in
 [CONSOLE_BUILDER_PAYLOADS.md](CONSOLE_BUILDER_PAYLOADS.md). A release
 installation enables a console target only when its matching payload is

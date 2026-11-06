@@ -109,6 +109,11 @@ campaign progress.
 - **PlayStation** writes a matching `.bin` and `.cue` when its optional builder
   is installed.
 
+The installed console builders currently use the established sprite
+presentation. The playable 3D console work in 0.4 is a separate Sevenfold
+release target; the creator does not yet offer a renderer choice for arbitrary
+projects.
+
 The console builders are independent, versioned downloads. They run offline in
 a restricted local sandbox and do not require a source checkout or container
 runtime on the author's machine. Before publishing output, the host validates

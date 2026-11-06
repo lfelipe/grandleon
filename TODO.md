@@ -4,6 +4,21 @@ This is the short list of active presentation work. These changes may improve
 how a battle looks and moves, but must not change the authoritative grid,
 terrain rules, routes, timing, or combat results.
 
+The 0.4 release scope below is complete. Unchecked work is either the ongoing
+console-graphics track or a later milestone; it is not a hidden 0.4 blocker.
+
+## 0.4 release acceptance
+
+- [x] Package the Godot 0.4 player/creator with the separate one-player and
+  one-or-two-player campaigns, and pass the native and packaged integration
+  suites.
+- [x] Build Sevenfold's sprite and playable 3D campaigns for Nintendo 64 and
+  PlayStation, retain the complete-roster diagnostic viewers, and pass the
+  console campaign and renderer checks.
+- [x] Keep the README, creator walkthrough, artwork guides, platform guides,
+  private review page, controls, build commands, release number, and current
+  limitations aligned with the builds reviewers receive.
+
 ## Terrain joins and variety
 
 - [x] Make transitions between neighbouring terrain scenes feel seamless.

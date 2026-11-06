@@ -197,6 +197,7 @@ cmake --build build --target grandleon_playstation_card_check
 cmake --build build --target grandleon_playstation_campaign_check
 cmake --build build --target grandleon_playstation_disc_check
 cmake --build build --target grandleon_n64_sevenfold_roms
+cmake --build build --target grandleon_n64_sevenfold_3d_check
 cmake --build build --target grandleon_playstation_sevenfold_3d_check
 ```
 
