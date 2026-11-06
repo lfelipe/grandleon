@@ -15,7 +15,8 @@ func _init() -> void:
 	_expect_true(
 		"valid settings save",
 		settings.save_settings(
-			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm"
+			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm",
+			false, "reduced"
 		)
 	)
 
@@ -26,6 +27,8 @@ func _init() -> void:
 	_expect("stored text size", values.get("text_scale"), 1.15)
 	_expect("stored effects level", values.get("effects_level"), 0.45)
 	_expect("stored stick input", values.get("stick_mode"), "extra_firm")
+	_expect("stored battle close-ups", values.get("battle_closeups"), false)
+	_expect("stored cinematic motion", values.get("cinematic_motion"), "reduced")
 	_expect("valid settings have no warning", reloaded.warning(), "")
 
 	var raw: Variant = JSON.parse_string(
@@ -40,8 +43,9 @@ func _init() -> void:
 			"settings contain only the presentation whitelist",
 			keys,
 			[
-				"cameraImpulse", "contractVersion", "effectsLevel",
-				"graphicsProfile", "stickMode", "textScale"
+				"battleCloseups", "cameraImpulse", "cinematicMotion",
+				"contractVersion", "effectsLevel", "graphicsProfile",
+				"stickMode", "textScale"
 			]
 		)
 
@@ -66,6 +70,13 @@ func _init() -> void:
 		)
 	)
 	_expect_true(
+		"invalid cinematic motion is refused",
+		not settings.save_settings(
+			"voxel-sprites", false, 1.15, PROFILES, 1.0, "deliberate",
+			true, "machine-specific-mode"
+		)
+	)
+	_expect_true(
 		"second valid save",
 		settings.save_settings("voxel-sprites", true, 1.0, PROFILES, 1.0)
 	)
@@ -82,6 +93,8 @@ func _init() -> void:
 	)
 	_expect("previous effects level recovers", recovered_values.get("effects_level"), 0.45)
 	_expect("previous stick input recovers", recovered_values.get("stick_mode"), "extra_firm")
+	_expect("previous close-up choice recovers", recovered_values.get("battle_closeups"), false)
+	_expect("previous motion choice recovers", recovered_values.get("cinematic_motion"), "reduced")
 	_expect("recovery is coarse", recovered.warning(), "PREVIOUS DISPLAY SETTINGS RESTORED")
 	var restored = PresentationSettings.new(path)
 	_expect(
@@ -116,13 +129,24 @@ func _init() -> void:
 		PresentationSettings.new(path).load_settings(PROFILES).get("stick_mode"),
 		"deliberate"
 	)
+	_expect(
+		"settings written before close-ups default safely",
+		PresentationSettings.new(path).load_settings(PROFILES).get("battle_closeups"),
+		true
+	)
+	_expect(
+		"settings written before cinematic motion default safely",
+		PresentationSettings.new(path).load_settings(PROFILES).get("cinematic_motion"),
+		"full"
+	)
 	_expect_true("legacy fixture reset", PresentationSettings.new(path).reset())
 
 	var integration = PresentationSettings.new()
 	_expect_true(
 		"integration settings save",
 		integration.save_settings(
-			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm"
+			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm",
+			false, "reduced"
 		)
 	)
 

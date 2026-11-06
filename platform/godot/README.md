@@ -62,7 +62,8 @@ The player includes:
 - a company screen for fielding characters and moving items;
 - automatic campaign progress plus three manual checkpoints;
 - remappable compact controls and stable controller seats;
-- Normal/Large text, camera-impulse control, and sound volume; and
+- Normal/Large text, camera-impulse control, optional battle close-ups,
+  reduced cinematic motion, and sound volume; and
 - a private performance readout that is never saved or exported.
 
 The battle board uses almost the complete window. The top strip holds only the
@@ -70,6 +71,21 @@ stage, round, and active side; the bottom strip shows only actions usable now.
 Unit statistics appear in a temporary card while a character is inspected.
 Action menus and the card choose a clear position from live board geometry so
 they avoid characters, cursors, and highlighted action tiles.
+
+### Battle close-ups
+
+The player can show an optional terrain-derived close view for attacks. It
+stages the attacker and defender with their real character art, shows the
+reported damage or miss, then plays any counterattack and defeat in the exact
+order published by the simulation. **Battle Close-ups** turns the view on or
+off. **Cinematic Motion / Reduced** keeps the same information while removing
+camera punch and rapid zoom.
+
+The close view is deliberately skippable because it adds time to every
+exchange. Hold **Confirm** to fast-forward it, or press **Cancel** to return to
+the board immediately. Skipping changes only the picture: the accepted
+snapshot already owns health, defeat, counters, and every later legal action.
+If required art cannot load, the ordinary board effects remain available.
 
 [UI_GUIDE.md](UI_GUIDE.md) records the battlefield information and interaction
 rules. [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md) documents the semantic
@@ -173,6 +189,7 @@ platform/godot/scripts/smoke-art-library.sh build-godot
 platform/godot/scripts/smoke-animated-characters.sh build-godot
 platform/godot/scripts/smoke-controller-seats.sh build-godot
 platform/godot/scripts/smoke-motion-path.sh build-godot
+platform/godot/scripts/smoke-combat-cinematic.sh build-godot
 platform/godot/scripts/smoke-map-editor.sh build-godot
 platform/godot/scripts/smoke-story-editor.sh build-godot
 platform/godot/scripts/smoke-army-editor.sh build-godot

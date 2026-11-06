@@ -80,6 +80,25 @@ figures use the same target-facing event without changing animation assets.
 Invalid or absent animation metadata falls back to the shipped layout without
 changing simulation behavior.
 
+## Optional close attack view
+
+Godot pairs a combat presentation batch with the authoritative snapshot that
+immediately follows it. `combat_presentation_plan.gd` copies those two inputs
+into ordered visual beats: the event supplies actor, target, hit or miss, and
+damage; an immediately following defeat or endurance event decorates that
+beat; a legal counterattack is already the next event with the two identities
+reversed. The planner never forecasts a result or asks the simulation to run
+again.
+
+`combat_cinematic.gd` consumes that immutable plan in a full-screen,
+terrain-derived stage. Meanwhile `main.gd` applies the new snapshot to the
+ordinary board immediately and continues polling the native session. The
+close-up clock, fast-forward, reduced-motion treatment, and skip control are
+therefore local presentation only. When the stage finishes—or cannot build—the
+player sees the already-current board. `smoke-combat-cinematic.sh` checks the
+pure planner, controller queue, persisted settings, and this native
+event/snapshot boundary.
+
 An accepted move now carries an optional motion record. The native bridge uses
 the same portable route planner as the Nintendo 64 client over the pre-command
 snapshot: engine-reachable cells plus friendly occupied cells that may be

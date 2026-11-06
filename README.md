@@ -72,6 +72,13 @@ styles, six faction colours, and two bodies. See the
 [artwork and animation roster](docs/ARTWORK.md) for animated previews and exact
 coverage.
 
+Godot can also switch from the board to an optional terrain-derived close view
+for an attack, its reported damage or miss, any legal counterattack, and a
+defeat. The session menu can disable these **Battle Close-ups** or use
+**Reduced** cinematic motion. Hold Confirm to fast-forward a close-up or press
+Cancel to skip it; either choice returns to the authoritative board state that
+the shared engine already accepted.
+
 ## One project, several targets
 
 Portable project source is compiled into the same deterministic rules on each

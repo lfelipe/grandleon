@@ -86,20 +86,18 @@ console-graphics track or a later milestone; it is not a hidden 0.4 blocker.
 
 ## 0.6 cinematic battle presentation
 
-The Sevenfold N64 and PS1 3D campaigns now consume real hit and miss events in
-a high-detail, terrain-derived close view. Damage comes from the simulation,
-and a legal counter-attack arrives as the next authoritative event with the
-roles reversed. The remaining work is to make this a portable game setting,
-bring the same composition to Godot, and cover every combat outcome.
+The Sevenfold N64 and PS1 3D campaigns and the Godot player now consume real
+hit and miss events in terrain-derived close views. Damage comes from the
+simulation, and a legal counter-attack arrives as the next authoritative event
+with the roles reversed. The remaining work is richer art and animation,
+portable campaign authoring, and complete combat-outcome coverage.
 
-- [ ] Add a portable optional close-up attack presentation inspired by tactical RPG
-  battle scenes. When enabled, an attack leaves the board view for a frontal
-  attacker-and-defender view, uses the current terrain tiles to choose and
-  compose the backdrop, plays the attack and any legal counter-attack, and
-  shows the damage dealt with clear numbers. N64 and PS1 3D builds now prove
-  the campaign-driven console version; Godot and the portable setting remain.
-- [ ] Make the cinematic a game setting because it adds meaningful time to
-  every exchange. Support the normal board-only presentation when disabled,
-  define how players skip or accelerate a running cinematic, preserve the
-  simulation's authoritative event order, and test attacks with no counter,
-  misses, critical or special results, defeat, and rapid repeated combat.
+- [x] Add the first optional Godot close-up: frontal attacker and defender,
+  terrain-derived backdrop, reported damage or miss, authoritative counter and
+  defeat order, board-only fallback, persisted on/off and reduced-motion
+  settings, hold-to-fast-forward, and skip.
+- [ ] Make the preference a portable game setting authors can choose, while
+  retaining the local player override because the view adds meaningful time to
+  every exchange.
+- [ ] Expand the close view with richer terrain detail and character animation,
+  then cover multi-target abilities, special results, and rapid queued combat.

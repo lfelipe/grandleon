@@ -5,6 +5,7 @@ extends RefCounted
 const CONTRACT_VERSION := "1.0.0"
 const DEFAULT_PATH := "user://pc-presentation.json"
 const STICK_MODES := ["deliberate", "extra_firm"]
+const CINEMATIC_MOTION_MODES := ["full", "reduced"]
 
 var storage_path: String
 var _warning := ""
@@ -46,7 +47,9 @@ func save_settings(
 	text_scale: float,
 	available_profiles: Array,
 	effects_level: float = 1.0,
-	stick_mode := "deliberate"
+	stick_mode := "deliberate",
+	battle_closeups := true,
+	cinematic_motion := "full"
 ) -> bool:
 	_warning = ""
 	if not available_profiles.has(graphics_profile):
@@ -59,6 +62,9 @@ func save_settings(
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
 	if stick_mode not in STICK_MODES:
+		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
+		return false
+	if typeof(battle_closeups) != TYPE_BOOL or cinematic_motion not in CINEMATIC_MOTION_MODES:
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
 
@@ -80,6 +86,8 @@ func save_settings(
 		"textScale": text_scale,
 		"effectsLevel": effects_level,
 		"stickMode": stick_mode,
+		"battleCloseups": battle_closeups,
+		"cinematicMotion": cinematic_motion,
 	}
 	file.store_string(JSON.stringify(document, "  ", true) + "\n")
 	file.flush()
@@ -154,12 +162,20 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 	var stick_mode := String(document.get("stickMode", "deliberate"))
 	if stick_mode not in STICK_MODES:
 		return {}
+	var battle_closeups_value: Variant = document.get("battleCloseups", true)
+	if typeof(battle_closeups_value) != TYPE_BOOL:
+		return {}
+	var cinematic_motion := String(document.get("cinematicMotion", "full"))
+	if cinematic_motion not in CINEMATIC_MOTION_MODES:
+		return {}
 	return {
 		"graphics_profile": profile,
 		"camera_impulse": bool(document.cameraImpulse),
 		"text_scale": scale,
 		"effects_level": effects,
 		"stick_mode": stick_mode,
+		"battle_closeups": bool(battle_closeups_value),
+		"cinematic_motion": cinematic_motion,
 	}
 
 

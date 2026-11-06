@@ -5,6 +5,8 @@ const ArtLibrary = preload("res://scripts/art_library.gd")
 const BoardView = preload("res://scripts/board_view.gd")
 const BoardView3D = preload("res://scripts/board_view_3d.gd")
 const CampaignManager = preload("res://scripts/campaign_manager.gd")
+const CombatCinematic = preload("res://scripts/combat_cinematic.gd")
+const CombatPresentationPlan = preload("res://scripts/combat_presentation_plan.gd")
 const ControlProfile = preload("res://scripts/control_profile.gd")
 const ControllerSeats = preload("res://scripts/controller_seats.gd")
 const FrameTiming = preload("res://scripts/frame_timing.gd")
@@ -32,6 +34,8 @@ var camera_impulse_enabled := true
 var text_scale := 1.0
 var effects_level := 1.0
 var stick_mode := "deliberate"
+var battle_closeups_enabled := true
+var cinematic_motion := "full"
 var screenshot_path := ""
 var screenshot_frames := -1
 var smoke_auto := false
@@ -68,6 +72,8 @@ var campaign_management_member_id := 0
 var campaign_management_item_id := 0
 var fixed_formation_smoke := false
 var fixed_formation_skipped := false
+var combat_cinematic_smoke := false
+var combat_cinematic_preview := false
 var included_campaign_smoke := false
 var draft_preview := false
 var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
@@ -91,6 +97,7 @@ var dialogue_index := -1
 var pending_company: Dictionary = {}
 var management_menu_suspended := false
 var pending_requests: Dictionary = {}
+var pending_combat_presentation: Dictionary = {}
 var next_request_id := 1
 var font_size_bindings: Array[Dictionary] = []
 var action_popups: Array[Dictionary] = [{}, {}]
@@ -133,6 +140,8 @@ var session_menu_camera: Button
 var session_menu_text: Button
 var session_menu_stick: Button
 var session_menu_audio: Button
+var session_menu_closeups: Button
+var session_menu_cinematic_motion: Button
 var session_menu_new_campaign: Button
 var session_menu_quit: Button
 var session_menu_checkpoint_buttons: Array[Button] = []
@@ -146,6 +155,7 @@ var presentation_settings
 var controls
 var frame_timing = FrameTiming.new()
 var frame_timing_next_update_msec := 0
+var combat_cinematic: Control
 
 
 func _ready() -> void:
@@ -193,10 +203,13 @@ func _ready() -> void:
 		1.20
 	)
 	effects_level = float(stored_settings.get("effects_level", 1.0))
+	battle_closeups_enabled = bool(stored_settings.get("battle_closeups", true))
+	cinematic_motion = String(stored_settings.get("cinematic_motion", "full"))
 	PCAudio.set_effects_level(effects_level)
 	_create_background()
 	_create_board(graphics_profile)
 	_create_interface()
+	_create_combat_cinematic(initial_profile)
 	_update_session_labels()
 	if frame_timing_smoke:
 		_run_frame_timing_smoke()
@@ -266,7 +279,10 @@ func _process(delta: float) -> void:
 			_open_session_menu()
 			if menu_preview_page in ["saves", "settings"]:
 				_show_session_menu_page(menu_preview_page)
-	if not _session_menu_visible() and not _management_visible():
+	if (
+		not _session_menu_visible() and not _management_visible()
+		and (combat_cinematic == null or not combat_cinematic.is_active())
+	):
 		if fixed_formation_smoke and _dialogue_visible():
 			_advance_dialogue()
 		elif graphics_cycle_smoke:
@@ -298,6 +314,10 @@ func _process(delta: float) -> void:
 			and coop_smoke_accepted == coop_smoke_expected
 			and coop_smoke_routes == coop_smoke_expected
 		)
+	if combat_cinematic_preview:
+		capture_ready = (
+			combat_cinematic != null and combat_cinematic.is_active()
+		)
 	if screenshot_frames > 0 and capture_ready:
 		screenshot_frames -= 1
 	elif screenshot_frames == 0 and capture_ready:
@@ -307,6 +327,30 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if combat_cinematic != null and combat_cinematic.is_active():
+		if event is InputEventKey and not event.echo:
+			if event.keycode in [KEY_ENTER, KEY_SPACE]:
+				combat_cinematic.set_fast_forward(event.pressed)
+				get_viewport().set_input_as_handled()
+				return
+			if event.pressed and event.keycode == KEY_ESCAPE:
+				combat_cinematic.skip_exchange()
+				get_viewport().set_input_as_handled()
+				return
+		if event is InputEventJoypadButton:
+			if controls.matches("confirm", event.button_index):
+				combat_cinematic.set_fast_forward(event.pressed)
+				get_viewport().set_input_as_handled()
+				return
+			if event.pressed and controls.matches("cancel", event.button_index):
+				combat_cinematic.skip_exchange()
+				get_viewport().set_input_as_handled()
+				return
+		if event is InputEventMouseButton and event.pressed:
+			combat_cinematic.skip_exchange()
+			get_viewport().set_input_as_handled()
+			return
+		return
 	if _management_visible():
 		if campaign_manager.handle_input(event, controls):
 			get_viewport().set_input_as_handled()
@@ -394,6 +438,12 @@ func _parse_arguments() -> void:
 			campaign_management_preview = true
 		elif argument == "--fixed-formation-smoke":
 			fixed_formation_smoke = true
+		elif argument == "--combat-cinematic-smoke":
+			combat_cinematic_smoke = true
+			demo_reel = true
+		elif argument == "--combat-cinematic-preview":
+			combat_cinematic_preview = true
+			demo_reel = true
 		elif argument == "--included-campaign-smoke":
 			included_campaign_smoke = true
 
@@ -431,6 +481,7 @@ func _use_presentation_settings() -> bool:
 		or menu_preview
 		or board_preview
 		or graphics_cycle_smoke
+		or combat_cinematic_smoke
 		or not screenshot_path.is_empty()
 	)
 
@@ -445,6 +496,8 @@ func _run_presentation_settings_smoke() -> void:
 		and is_equal_approx(text_scale, 1.15)
 		and is_equal_approx(effects_level, 0.45)
 		and stick_mode == "extra_firm"
+		and not battle_closeups_enabled
+		and cinematic_motion == "reduced"
 		and is_equal_approx(PCNavigation.press_threshold(), 0.88)
 		and PCAudio.level_name() == "LOW"
 	)
@@ -465,6 +518,8 @@ func _run_presentation_settings_smoke() -> void:
 			and is_equal_approx(float(saved.get("text_scale", 0.0)), 1.15)
 			and is_equal_approx(float(saved.get("effects_level", -1.0)), 0.45)
 			and String(saved.get("stick_mode", "")) == "extra_firm"
+			and not bool(saved.get("battle_closeups", true))
+			and String(saved.get("cinematic_motion", "")) == "reduced"
 		)
 		if not valid:
 			push_error("a launch override replaced the stored graphics choice")
@@ -491,6 +546,8 @@ func _run_controls_smoke() -> void:
 		"resume label": session_menu_resume.text == "RESUME",
 		"save label": session_menu_save_load.text == "SAVE / LOAD",
 		"audio label": session_menu_audio.text == "SOUND EFFECTS  /  FULL",
+		"close-up label": session_menu_closeups.text == "BATTLE CLOSE-UPS  /  ON",
+		"cinematic motion label": session_menu_cinematic_motion.text == "CINEMATIC MOTION  /  FULL",
 		"stick label": session_menu_stick.text == "STICK INPUT  /  DELIBERATE",
 		"filtered stick UI": PCNavigation.raw_stick_ui_event_count() == 0,
 		"exit label": session_menu_quit.text == "EXIT GAME",
@@ -523,6 +580,17 @@ func _run_controls_smoke() -> void:
 	_show_settings_page()
 	if session_menu_page != "settings" or not session_menu_audio.visible:
 		failed.append("settings page")
+	session_menu_closeups.pressed.emit()
+	if battle_closeups_enabled or session_menu_closeups.text != "BATTLE CLOSE-UPS  /  OFF":
+		failed.append("battle close-up setting")
+	session_menu_closeups.pressed.emit()
+	session_menu_cinematic_motion.pressed.emit()
+	if (
+		cinematic_motion != "reduced"
+		or session_menu_cinematic_motion.text != "CINEMATIC MOTION  /  REDUCED"
+	):
+		failed.append("reduced cinematic motion setting")
+	session_menu_cinematic_motion.pressed.emit()
 	session_menu_stick.pressed.emit()
 	if (
 		stick_mode != "extra_firm"
@@ -1028,6 +1096,27 @@ func _create_board(profile: String) -> void:
 	board.set_camera_impulse_enabled(camera_impulse_enabled)
 
 
+func _create_combat_cinematic(profile: Dictionary) -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 40
+	add_child(layer)
+	combat_cinematic = CombatCinematic.new()
+	layer.add_child(combat_cinematic)
+	combat_cinematic.set_playback_paused(combat_cinematic_smoke)
+	combat_cinematic.configure(
+		profile, text_scale, cinematic_motion, camera_impulse_enabled
+	)
+
+
+func _configure_combat_cinematic() -> void:
+	if combat_cinematic == null or graphics_profiles == null:
+		return
+	combat_cinematic.configure(
+		graphics_profiles.profile(graphics_profile), text_scale,
+		cinematic_motion, camera_impulse_enabled
+	)
+
+
 func _set_graphics_profile(requested: String) -> void:
 	var resolved: String = graphics_profiles.resolve(requested)
 	persistent_graphics_profile = resolved
@@ -1040,6 +1129,7 @@ func _set_graphics_profile(requested: String) -> void:
 		board.queue_free()
 	graphics_profile = resolved
 	art.configure_profile(graphics_profiles.profile(graphics_profile))
+	_configure_combat_cinematic()
 	_create_board(graphics_profile)
 	if not snapshot.is_empty() and not battle_terrain.is_empty():
 		board.configure(snapshot, battle_terrain, battle_theme, battle_surroundings)
@@ -1059,6 +1149,7 @@ func _set_camera_impulse_enabled(value: bool) -> void:
 	camera_impulse_enabled = value
 	if board != null:
 		board.set_camera_impulse_enabled(camera_impulse_enabled)
+	_configure_combat_cinematic()
 	_update_session_labels()
 	_persist_presentation_settings()
 
@@ -1077,6 +1168,7 @@ func _set_text_scale(value: float) -> void:
 			)
 	if campaign_manager != null:
 		campaign_manager.set_text_scale(text_scale)
+	_configure_combat_cinematic()
 	_update_session_labels()
 	_persist_presentation_settings()
 
@@ -1114,6 +1206,23 @@ func _set_stick_mode(value: String) -> void:
 	_persist_presentation_settings()
 
 
+func _toggle_battle_closeups() -> void:
+	battle_closeups_enabled = not battle_closeups_enabled
+	if not battle_closeups_enabled:
+		pending_combat_presentation.clear()
+		if combat_cinematic != null:
+			combat_cinematic.clear()
+	_update_session_labels()
+	_persist_presentation_settings()
+
+
+func _toggle_cinematic_motion() -> void:
+	cinematic_motion = "reduced" if cinematic_motion == "full" else "full"
+	_configure_combat_cinematic()
+	_update_session_labels()
+	_persist_presentation_settings()
+
+
 func _persist_presentation_settings() -> void:
 	if presentation_settings == null or not _use_presentation_settings():
 		return
@@ -1123,7 +1232,9 @@ func _persist_presentation_settings() -> void:
 		text_scale,
 		PUBLIC_GRAPHICS_PROFILES,
 		effects_level,
-		stick_mode
+		stick_mode,
+		battle_closeups_enabled,
+		cinematic_motion
 	):
 		_show_toast(presentation_settings.warning())
 
@@ -1157,6 +1268,14 @@ func _update_session_labels() -> void:
 		)
 	if session_menu_audio != null:
 		session_menu_audio.text = "SOUND EFFECTS  /  %s" % PCAudio.level_name()
+	if session_menu_closeups != null:
+		session_menu_closeups.text = "BATTLE CLOSE-UPS  /  %s" % (
+			"ON" if battle_closeups_enabled else "OFF"
+		)
+	if session_menu_cinematic_motion != null:
+		session_menu_cinematic_motion.text = "CINEMATIC MOTION  /  %s" % (
+			"REDUCED" if cinematic_motion == "reduced" else "FULL"
+		)
 
 
 func _board_matches_current_state() -> bool:
@@ -1471,6 +1590,12 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_audio = _settings_button("")
 	session_menu_audio.pressed.connect(_cycle_effects_level)
 	session_menu_settings.add_child(session_menu_audio)
+	session_menu_closeups = _settings_button("")
+	session_menu_closeups.pressed.connect(_toggle_battle_closeups)
+	session_menu_settings.add_child(session_menu_closeups)
+	session_menu_cinematic_motion = _settings_button("")
+	session_menu_cinematic_motion.pressed.connect(_toggle_cinematic_motion)
+	session_menu_settings.add_child(session_menu_cinematic_motion)
 	session_menu_diagnostics = _label("", 16, Color("718896"))
 	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_diagnostics.custom_minimum_size.y = 86
@@ -1779,6 +1904,9 @@ func _clear_session_presentation() -> void:
 	if dialogue_layer != null:
 		dialogue_layer.visible = false
 	pending_requests.clear()
+	pending_combat_presentation.clear()
+	if combat_cinematic != null:
+		combat_cinematic.clear()
 	pending_company.clear()
 	snapshot = {}
 	definitions = {"weapons": [], "abilities": [], "items": []}
@@ -2020,6 +2148,9 @@ func _handle_event(event: Dictionary) -> void:
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
 				_show_dialogue_line()
 		"battle_begins":
+			pending_combat_presentation.clear()
+			if combat_cinematic != null:
+				combat_cinematic.clear()
 			for seat in action_popups.size():
 				_close_action_popup(seat)
 			pending_company.clear()
@@ -2068,21 +2199,33 @@ func _handle_event(event: Dictionary) -> void:
 			board.update_snapshot(snapshot)
 			status_label.text = "DEPLOYMENT  /  START TO BEGIN"
 		"presentation":
+			var presentation_events: Array = event.get("events", [])
+			var presentation_action := String(event.get("action", ""))
 			if coop_smoke:
-				_verify_coop_motion(event.get("events", []))
+				_verify_coop_motion(presentation_events)
 			PCAudio.present_events(
-				event.get("events", []),
-				String(event.get("action", ""))
+				presentation_events, presentation_action
 			)
 			if board.has_method("present_events"):
 				board.present_events(
-					event.get("events", []),
-					String(event.get("action", "")),
+					presentation_events, presentation_action,
 					int(event.get("action_content_id", 0))
 				)
+			if (
+				battle_closeups_enabled
+				and CombatPresentationPlan.has_combat(presentation_events)
+				and not snapshot.is_empty()
+			):
+				pending_combat_presentation = {
+					"before_snapshot": snapshot.duplicate(true),
+					"events": presentation_events.duplicate(true),
+					"action": presentation_action,
+					"content_id": int(event.get("action_content_id", 0)),
+				}
 		"snapshot":
 			snapshot = event.snapshot
 			board.update_snapshot(snapshot)
+			_finalize_pending_combat_presentation(snapshot)
 			_complete_request(event)
 			_update_status()
 			_refresh_selected_panel()
@@ -2102,6 +2245,7 @@ func _handle_event(event: Dictionary) -> void:
 			snapshot = event.snapshot
 			final_outcome = String(snapshot.get("outcome", "ongoing"))
 			board.update_snapshot(snapshot)
+			_finalize_pending_combat_presentation(snapshot)
 			status_label.text = (
 				"BATTLE WON" if final_outcome == "first_side_won" else "BATTLE LOST"
 			)
@@ -2122,6 +2266,45 @@ func _handle_event(event: Dictionary) -> void:
 				else "SESSION COMPLETE"
 			)
 			_maybe_show_campaign_result()
+
+
+func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
+	if pending_combat_presentation.is_empty():
+		return
+	var pending := pending_combat_presentation.duplicate(true)
+	pending_combat_presentation.clear()
+	if not battle_closeups_enabled or combat_cinematic == null:
+		return
+	var plan := CombatPresentationPlan.build(
+		pending.get("before_snapshot", {}), after_snapshot,
+		pending.get("events", []), String(pending.get("action", "")),
+		int(pending.get("content_id", 0))
+	)
+	if plan.is_empty():
+		return
+	if combat_cinematic.enqueue(plan, battle_terrain, battle_theme):
+		for seat in action_popups.size():
+			_close_action_popup(seat)
+		unit_panel.visible = false
+		if combat_cinematic_smoke:
+			if not combat_cinematic.is_active() or board.get("snapshot") != snapshot:
+				push_error("combat cinematic did not preserve the accepted snapshot")
+				get_tree().quit(2)
+				return
+			combat_cinematic.set_fast_forward(true)
+			if not combat_cinematic.is_fast_forwarding():
+				push_error("combat cinematic fast-forward control did not engage")
+				get_tree().quit(2)
+				return
+			combat_cinematic.skip_exchange()
+			combat_cinematic.set_playback_paused(false)
+			if combat_cinematic.is_active():
+				push_error("combat cinematic skip did not restore the settled board")
+				get_tree().quit(2)
+				return
+			combat_cinematic_smoke = false
+			print("combat cinematic native event, snapshot, fast-forward, and skip smoke passed")
+			get_tree().quit()
 
 
 func _maybe_show_campaign_result() -> void:
@@ -2440,7 +2623,10 @@ func _handle_pad_button(event: InputEventJoypadButton) -> void:
 
 
 func _on_stick_direction(device: int, direction: Vector2i) -> void:
-	if _management_visible() or _session_menu_visible() or _dialogue_visible():
+	if (
+		_management_visible() or _session_menu_visible() or _dialogue_visible()
+		or (combat_cinematic != null and combat_cinematic.is_active())
+	):
 		return
 	var seat := int(device_to_seat.get(device, -1))
 	if seat < 0 or seat >= player_count:
