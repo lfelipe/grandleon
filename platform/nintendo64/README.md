@@ -70,11 +70,12 @@ build compiles the same library targets the native build does. Under
 and this directory. Artifacts land in the gitignored `build-n64/`; nothing
 produced here is checked in.
 
-## The optional 3D character prototypes
+## The 3D campaign and character diagnostics
 
-0.4 carries two Tiny3D review ROMs. The focused comparison reduces the newer
-Godot commander and rogue meshes and shows them at strategic, tactical, and
-action distances:
+0.4 carries a focused Tiny3D diagnostic alongside the complete Sevenfold 3D
+campaign and roster viewer. The focused comparison reduces the newer Godot
+commander and rogue meshes and shows them at strategic, tactical, and action
+distances:
 
 ```sh
 platform/nintendo64/scripts/build-character-prototype.sh
@@ -87,24 +88,26 @@ Add `--bundle out/n64-3d-character-prototype` to stage the ROM with its README
 and licence notices. The check rebuilds it, boots it in ares, and requires all
 four allocation and frame-budget assertions to pass.
 
-The complete Sevenfold review ROM covers all 112 combinations of seven styles,
-eight archetypes, and male/female body variants:
+The Sevenfold 3D build adds a playable campaign renderer and a separate viewer
+covering all 112 combinations of seven styles, eight archetypes, and
+male/female body variants:
 
 ```sh
 platform/nintendo64/scripts/build-sevenfold-3d.sh
 platform/nintendo64/scripts/check-sevenfold-3d.sh
 ```
 
-To build the playable Sevenfold sprite campaign and this 3D viewer together,
-with the debug Stage picker and live FPS enabled in the playable ROM:
+To build the playable sprite campaign, playable 3D campaign, and diagnostic
+viewer together, with the debug Stage picker and live FPS enabled:
 
 ```sh
 cmake --build build --target grandleon_n64_sevenfold_roms
 ```
 
 `build-n64-sevenfold-roms/` then holds `sevenfold-n64-sprite.z64`,
-`sevenfold-n64-3d.z64`, and a short manifest. The first is the real campaign
-with its 1P/2P menu; the second is the renderer review described below.
+`sevenfold-n64-3d.z64`, `sevenfold-n64-3d-viewer.z64`, and a short manifest.
+The first two are the same 1P/2P campaign with different renderers. The
+`-viewer` ROM is the roster diagnostic described below.
 
 It shows eight separated roles per strategic page, exercises red and blue team
 colour replacement, and uses the seven varied terrain layouts from
@@ -119,15 +122,14 @@ pages measure 62–87 fps, high-detail pages 39–51 fps, and close views 132–
 fps with depth enabled. These are emulator measurements, not timings from
 original hardware.
 
-Neither ROM loads an editor project, runs a campaign, or replaces the supported
-sprite renderer. The full-roster models are deterministic procedural console
-proxies; the curated character sheets do not contain hidden 3D source meshes.
-The separate path also leaves the supported stable libdragon toolchain
-untouched: the prototypes alone use pinned preview libdragon and Tiny3D
-revisions.
+The full-roster models are deterministic procedural console proxies; the
+curated character sheets do not contain hidden 3D source meshes. The 3D
+campaign is now an end-to-end production test path, while the sprite build
+remains a useful visual and gameplay baseline. The 3D graphics will continue
+to improve across releases.
 
-[The console 3D experiment](../../docs/CONSOLE_3D_EXPERIMENT.md) gives the
-plain-language result and side-by-side PlayStation evidence.
+[Console 3D](../../docs/CONSOLE_3D_EXPERIMENT.md) gives the plain-language
+status, build outputs, measurements, and ongoing graphics priorities.
 
 ## A ROM of some other game
 

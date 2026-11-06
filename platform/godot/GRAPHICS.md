@@ -72,4 +72,5 @@ platform/godot/scripts/smoke-animated-characters.sh build-godot
 ```
 
 The project roadmap in the root [README](../../README.md#roadmap) places broader
-Godot art coverage and further console 3D experiments in 0.4.
+Godot art coverage and playable console 3D campaigns in 0.4, with console
+graphics improving continuously across later releases.

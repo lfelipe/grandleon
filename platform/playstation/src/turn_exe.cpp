@@ -91,11 +91,19 @@
 #include <cstdint>
 #include <vector>
 
+#ifdef GRANDLEON_PSX_3D
+#include <algorithm>
+#endif
+
 #include "psx_art.h"
 #include "psx_gpu.h"
 #include "psx_pad.h"
 #include "psx_runtime.h"
 #include "themes.h"
+
+#ifdef GRANDLEON_PSX_3D
+#include "sevenfold_campaign_proxies.h"
+#endif
 
 #ifdef GRANDLEON_PSX_AUTOPILOT
 #include "fordlight_pad.h"
@@ -436,6 +444,158 @@ static_assert(
     if (kind < 0 || kind >= grandleon_terrain_kind_count) return 0;
     return grandleon_terrain_elevation[kind];
 }
+
+#ifdef GRANDLEON_PSX_3D
+// ---------------------------------------------------------------------------
+// Production 3D board primitives
+// ---------------------------------------------------------------------------
+//
+// The campaign, controller and rules above this point are unchanged. This is
+// only another way of painting the same snapshot and overlay. The diagnostic
+// roster viewer uses the same generated proxies; keeping the models in one
+// table means improving a role improves the viewer, the campaign board and the
+// close attack view together.
+struct ThreeDCamera final {
+    int distance;
+    int focal;
+    int horizon;
+};
+
+struct ThreeDProjectedVertex final {
+    std::int16_t x;
+    std::int16_t y;
+    std::int32_t depth;
+};
+
+struct ThreeDOrderedTriangle final {
+    std::uint16_t index;
+    std::int32_t depth;
+};
+
+constexpr int three_d_max_vertices = 512;
+constexpr int three_d_max_triangles = sevenfold_high_max_triangles;
+constexpr int three_d_tile = 44;
+constexpr int three_d_height_step = 10;
+ThreeDProjectedVertex three_d_projected[three_d_max_vertices];
+ThreeDOrderedTriangle three_d_ordered[three_d_max_triangles];
+
+constexpr std::uint8_t three_d_team_colours[2][3] = {
+    {65, 132, 235}, {215, 74, 68},
+};
+
+[[nodiscard]] constexpr int three_d_channel(int value) noexcept {
+    return value < 0 ? 0 : (value > 31 ? 31 : value);
+}
+
+[[nodiscard]] constexpr std::uint16_t three_d_colour(
+    const std::uint8_t* source, int light = 255
+) noexcept {
+    return gpu::rgb15(
+        three_d_channel((static_cast<int>(source[0]) * light / 255) >> 3),
+        three_d_channel((static_cast<int>(source[1]) * light / 255) >> 3),
+        three_d_channel((static_cast<int>(source[2]) * light / 255) >> 3)
+    );
+}
+
+[[nodiscard]] ThreeDProjectedVertex three_d_project(
+    int x, int y, int z, const ThreeDCamera& camera
+) noexcept {
+    // Fixed-point 30-degree downward view. These are the same measured
+    // projection constants as the standalone hardware viewer and require no
+    // floating-point runtime on the R3000A.
+    const std::int32_t vertical = y * 218 + z * 128;
+    std::int32_t depth = camera.distance * 256 - z * 218 + y * 128;
+    if (depth < 64 * 256) depth = 64 * 256;
+    return {
+        static_cast<std::int16_t>(160 + x * camera.focal * 256 / depth),
+        static_cast<std::int16_t>(
+            camera.horizon - vertical * camera.focal / depth
+        ),
+        depth,
+    };
+}
+
+[[nodiscard]] int three_d_order_triangles(const SevenfoldProxy& proxy) {
+    int count = 0;
+    for (int index = 0; index < proxy.triangles_count; ++index) {
+        const SevenfoldProxyTriangle& triangle = proxy.triangles[index];
+        const ThreeDProjectedVertex& a = three_d_projected[triangle.a];
+        const ThreeDProjectedVertex& b = three_d_projected[triangle.b];
+        const ThreeDProjectedVertex& c = three_d_projected[triangle.c];
+        const std::int32_t area =
+            static_cast<std::int32_t>(b.x - a.x) * (c.y - a.y) -
+            static_cast<std::int32_t>(b.y - a.y) * (c.x - a.x);
+        if (area >= 0) continue;
+        three_d_ordered[count++] = {
+            static_cast<std::uint16_t>(index),
+            a.depth + b.depth + c.depth,
+        };
+    }
+    std::sort(
+        three_d_ordered, three_d_ordered + count,
+        [](const ThreeDOrderedTriangle& left,
+           const ThreeDOrderedTriangle& right) {
+            return left.depth > right.depth;
+        }
+    );
+    return count;
+}
+
+void three_d_draw_model(
+    const SevenfoldProxy& proxy, int origin_x, int origin_y, int origin_z,
+    int team, int quarter_turn, const ThreeDCamera& camera
+) {
+    if (proxy.vertices_count > three_d_max_vertices ||
+        proxy.triangles_count > three_d_max_triangles) {
+        return;
+    }
+    for (int index = 0; index < proxy.vertices_count; ++index) {
+        const SevenfoldProxyVertex& source = proxy.vertices[index];
+        int x = source.x;
+        int z = source.z;
+        if (quarter_turn < 0) {
+            x = source.z;
+            z = -source.x;
+        } else if (quarter_turn > 0) {
+            x = -source.z;
+            z = source.x;
+        }
+        three_d_projected[index] = three_d_project(
+            x + origin_x, source.y + origin_y, z + origin_z, camera
+        );
+    }
+    const int count = three_d_order_triangles(proxy);
+    for (int order = 0; order < count; ++order) {
+        const SevenfoldProxyTriangle& triangle =
+            proxy.triangles[three_d_ordered[order].index];
+        const ThreeDProjectedVertex& a = three_d_projected[triangle.a];
+        const ThreeDProjectedVertex& b = three_d_projected[triangle.b];
+        const ThreeDProjectedVertex& c = three_d_projected[triangle.c];
+        const std::uint8_t* material = triangle.material == 0
+            ? three_d_team_colours[team]
+            : sevenfold_style_materials[proxy.style][triangle.material];
+        gpu::draw_triangle(
+            a.x, a.y, b.x, b.y, c.x, c.y,
+            three_d_colour(material, 128 + triangle.shade / 2)
+        );
+        // Keep the 16-bit hardware counter extended during a dense model. It
+        // is also what makes the frame telemetry truthful past 15.5 ms.
+        if ((order & 63) == 63) static_cast<void>(psx::clock_ticks());
+    }
+}
+
+void three_d_quad(
+    int x0, int y0, int z0, int x1, int y1, int z1,
+    std::uint16_t colour, const ThreeDCamera& camera
+) {
+    const ThreeDProjectedVertex a = three_d_project(x0, y0, z0, camera);
+    const ThreeDProjectedVertex b = three_d_project(x1, y0, z0, camera);
+    const ThreeDProjectedVertex c = three_d_project(x1, y1, z1, camera);
+    const ThreeDProjectedVertex d = three_d_project(x0, y1, z1, camera);
+    gpu::draw_triangle(a.x, a.y, b.x, b.y, c.x, c.y, colour);
+    gpu::draw_triangle(a.x, a.y, c.x, c.y, d.x, d.y, colour);
+}
+#endif
 
 int checks = 0;
 int failures = 0;
@@ -784,7 +944,9 @@ view::DrawItem draw_storage[draw_capacity];
 class PlayStationClient final : public turn::TurnClient {
 public:
     PlayStationClient(turn::ReportSink& sink, const pr::Presentation& shown) noexcept
-        : TurnClient(sink), shown_(&shown) {}
+        : TurnClient(sink),
+          shown_(&shown),
+          theme_(shown.theme < grandleon_theme_count ? shown.theme : 0) {}
 
     // ----- what the platform supplies -------------------------------------
 
@@ -1195,7 +1357,13 @@ public:
                 flash_lit_ = (frame % 2) == 0;
             }
             psx::wait_vblank();
+#ifdef GRANDLEON_PSX_3D
+            draw_three_d_attack(
+                before, *target, thrower, frame, lead, false
+            );
+#else
             draw(before, *last_overlay_, false);
+#endif
             ++frames;
         }
 
@@ -1214,7 +1382,13 @@ public:
             }
             flash_lit_ = (frame % 2) == 0;
             psx::wait_vblank();
+#ifdef GRANDLEON_PSX_3D
+            draw_three_d_attack(
+                before, *target, thrower, frame, resolve, landed
+            );
+#else
             draw(before, *last_overlay_, false);
+#endif
             ++frames;
         }
         flinch_dx_ = 0;
@@ -1399,13 +1573,257 @@ private:
             draw_sheet(*overlay.sheet);
             return;
         }
+#ifdef GRANDLEON_PSX_3D
+        layout(snapshot);
+        draw_three_d_board(snapshot, overlay, emphasised);
+        draw_bar(snapshot, overlay);
+        if (overlay.menu != nullptr) draw_menu(overlay);
+#else
         layout(snapshot);
         compose(snapshot);
         draw_list(snapshot, overlay);
         draw_cursor(overlay, emphasised);
         draw_bar(snapshot, overlay);
         if (overlay.menu != nullptr) draw_menu(overlay);
+#endif
     }
+
+#ifdef GRANDLEON_PSX_3D
+    [[nodiscard]] ThreeDCamera strategic_camera() const noexcept {
+        int span = camera().view_w;
+        if (camera().view_h > span) span = camera().view_h;
+        return {
+            490 + (span > 5 ? (span - 5) * 34 : 0),
+            330,
+            174,
+        };
+    }
+
+    [[nodiscard]] int three_d_x(int fixed_cell) const noexcept {
+        const int centre = camera().x * 256 + camera().view_w * 128;
+        return (fixed_cell - centre) * three_d_tile / 256;
+    }
+
+    [[nodiscard]] int three_d_z(int fixed_cell) const noexcept {
+        const int centre = camera().y * 256 + camera().view_h * 128;
+        return (fixed_cell - centre) * three_d_tile / 256;
+    }
+
+    [[nodiscard]] std::uint16_t three_d_terrain_colour(
+        int kind, int light = 255
+    ) const noexcept {
+        if (kind < 0 || kind >= grandleon_terrain_kind_count) {
+            return paper_colour;
+        }
+        return three_d_colour(grandleon_terrain_flat[theme_][kind], light);
+    }
+
+    void draw_three_d_marker(
+        int cell_x, int cell_y, int inset, int lift, std::uint16_t colour,
+        const ThreeDCamera& camera_view
+    ) {
+        const int kind = kind_at(cell_x, cell_y);
+        const int high = elevation_of_kind(kind) * three_d_height_step + lift;
+        three_d_quad(
+            three_d_x(cell_x * 256) + inset, high,
+            three_d_z(cell_y * 256) + inset,
+            three_d_x((cell_x + 1) * 256) - inset, high,
+            three_d_z((cell_y + 1) * 256) - inset, colour, camera_view
+        );
+    }
+
+    void draw_three_d_board(
+        const sim::EncounterSnapshot& snapshot, const turn::Overlay& overlay,
+        bool emphasised
+    ) {
+        const ThreeDCamera camera_view = strategic_camera();
+
+        // Ground first, far row to near row. Raised cells also receive two
+        // darker faces, so height reads as volume rather than as a tile that
+        // happened to move up the screen.
+        for (int y = camera().y; y < camera().y + camera().view_h; ++y) {
+            for (int x = camera().x; x < camera().x + camera().view_w; ++x) {
+                const int kind = kind_at(x, y);
+                if (kind < 0) continue;
+                const int high =
+                    elevation_of_kind(kind) * three_d_height_step;
+                const int x0 = three_d_x(x * 256);
+                const int x1 = three_d_x((x + 1) * 256);
+                const int z0 = three_d_z(y * 256);
+                const int z1 = three_d_z((y + 1) * 256);
+                three_d_quad(
+                    x0, high, z0, x1, high, z1,
+                    three_d_terrain_colour(kind), camera_view
+                );
+                if (high > 0) {
+                    three_d_quad(
+                        x0, 0, z1, x1, high, z1,
+                        three_d_terrain_colour(kind, 150), camera_view
+                    );
+                    three_d_quad(
+                        x1, 0, z0, x1, high, z1,
+                        three_d_terrain_colour(kind, 180), camera_view
+                    );
+                }
+
+                const bool splash = turn::contains(overlay.splash, x, y);
+                const bool danger = turn::contains(overlay.danger, x, y);
+                const bool move = turn::contains(overlay.moves, x, y);
+                if (splash || danger || move) {
+                    draw_three_d_marker(
+                        x, y, 5, 2,
+                        splash ? cursor_colour
+                               : danger ? danger_colour : lit_colour(overlay),
+                        camera_view
+                    );
+                }
+                if (flash_lit_ && x == flash_x_ && y == flash_y_) {
+                    draw_three_d_marker(
+                        x, y, 2, 3, flash_colour, camera_view
+                    );
+                }
+            }
+        }
+
+        // The cursor is a bright floor plate rather than a screen-space box,
+        // so it remains attached to the selected cell as the camera moves.
+        if (camera().visible(overlay.cursor_x, overlay.cursor_y)) {
+            draw_three_d_marker(
+                overlay.cursor_x, overlay.cursor_y, emphasised ? 7 : 2, 4,
+                cursor_colour, camera_view
+            );
+        }
+
+        // Models are low LOD on the board. Eight figures are the shipped
+        // campaign's busiest scene; reserving high LOD for the two-figure
+        // attack cut-in is what keeps that scene useful on original hardware.
+        for (int row = camera().y; row < camera().y + camera().view_h; ++row) {
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (!sim::on_board(unit) ||
+                    !camera().visible(unit.position.x, unit.position.y)) {
+                    continue;
+                }
+                if (unit.position.y != row) continue;
+                int fixed_x = unit.position.x * 256 + 128;
+                int fixed_z = unit.position.y * 256 + 128;
+                int bob = 0;
+                int facing = unit.side == sim::Side::first ? 1 : -1;
+                if (moving_ != 0 && unit.id == moving_) {
+                    fixed_x = move_world_x_;
+                    fixed_z = move_world_z_;
+                    bob = move_bob_;
+                    facing = move_facing_;
+                }
+                const int kind = kind_at(unit.position.x, unit.position.y);
+                int origin_y =
+                    elevation_of_kind(kind) * three_d_height_step + bob;
+                int origin_x = three_d_x(fixed_x);
+                int origin_z = three_d_z(fixed_z);
+                if (flinching_ != 0 && unit.id == flinching_) {
+                    origin_x += flinch_dx_ * 2;
+                    origin_z += flinch_dy_ * 2;
+                }
+                const int style = style_of(unit.unit_type_id);
+                const int figure = figure_of(unit.unit_type_id);
+                const int archetype = archetype_of(unit.unit_type_id);
+                if (style < 0 || style >= 7 || figure < 0 || figure >= 2 ||
+                    archetype < 0 || archetype >= 8) {
+                    continue;
+                }
+                const int team = unit.side == sim::Side::first ? 0 : 1;
+                if (unit.has_acted) {
+                    draw_three_d_marker(
+                        unit.position.x, unit.position.y, 9, 3, spent_colour,
+                        camera_view
+                    );
+                }
+                const SevenfoldProxy* proxy = sevenfold_campaign_proxy(
+                    style, figure, archetype, false
+                );
+                if (proxy != nullptr) {
+                    three_d_draw_model(
+                        *proxy, origin_x, origin_y, origin_z, team, facing,
+                        camera_view
+                    );
+                }
+            }
+        }
+    }
+
+    void draw_three_d_attack(
+        const sim::EncounterSnapshot& snapshot,
+        const sim::UnitSnapshot& target,
+        const sim::UnitSnapshot* attacker,
+        int frame, int frames, bool landed
+    ) {
+        const int kind = kind_at(target.position.x, target.position.y);
+        const std::uint8_t* ground =
+            kind >= 0 && kind < grandleon_terrain_kind_count
+                ? grandleon_terrain_flat[theme_][kind]
+                : grandleon_terrain_flat[0][9];
+        const std::uint8_t sky[3] = {
+            static_cast<std::uint8_t>(ground[0] / 3 + 12),
+            static_cast<std::uint8_t>(ground[1] / 3 + 12),
+            static_cast<std::uint8_t>(ground[2] / 3 + 18),
+        };
+        gpu::fill(
+            0, 0, gpu::screen_width, gpu::screen_height,
+            three_d_colour(sky)
+        );
+        gpu::fill(
+            0, 158, gpu::screen_width, gpu::screen_height - 158,
+            three_d_colour(ground)
+        );
+
+        // Layered silhouettes give each terrain a scene rather than a plain
+        // colour band, while leaving the triangle budget to the characters.
+        for (int x = 0; x < gpu::screen_width; x += 40) {
+            const int height = 18 + ((x / 40 + kind + 13) % 4) * 9;
+            gpu::fill(
+                x, 158 - height, 31, height,
+                three_d_colour(
+                    grandleon_terrain_flat[theme_][(kind + 2 + 13) % 13],
+                    175
+                )
+            );
+        }
+
+        const ThreeDCamera close{410, 410, 205};
+        const int phase = frames > 1 ? frame * 18 / (frames - 1) : 0;
+        const int lunge = phase <= 9 ? phase : 18 - phase;
+        if (attacker != nullptr) {
+            const int style = style_of(attacker->unit_type_id);
+            const int figure = figure_of(attacker->unit_type_id);
+            const int archetype = archetype_of(attacker->unit_type_id);
+            const SevenfoldProxy* proxy = sevenfold_campaign_proxy(
+                style, figure, archetype, true
+            );
+            if (proxy != nullptr) {
+                three_d_draw_model(
+                    *proxy, -68 + lunge * 3, 0, 0,
+                    attacker->side == sim::Side::first ? 0 : 1, 1, close
+                );
+            }
+        }
+        const int target_style = style_of(target.unit_type_id);
+        const int target_figure = figure_of(target.unit_type_id);
+        const int target_archetype = archetype_of(target.unit_type_id);
+        const int recoil = landed && frame + 2 >= frames ? 8 : 0;
+        const SevenfoldProxy* target_proxy = sevenfold_campaign_proxy(
+            target_style, target_figure, target_archetype, true
+        );
+        if (target_proxy != nullptr) {
+            three_d_draw_model(
+                *target_proxy, 68 + recoil, 0, 0,
+                target.side == sim::Side::first ? 0 : 1, -1, close
+            );
+        }
+
+        gpu::fill(0, 0, gpu::screen_width, glyph * 2, paper_colour);
+        write_at(1, 0, landed ? "ATTACK  HIT" : "ATTACK  MISS");
+        static_cast<void>(snapshot);
+    }
+#endif
 
     void layout(const sim::EncounterSnapshot& snapshot) {
         board_width_ = snapshot.width;
@@ -1932,12 +2350,25 @@ private:
         // and the compose left it out of the list.
         move_px_ = end_x;
         move_py_ = end_y;
+        move_world_x_ = to_x * 256 + 128;
+        move_world_z_ = to_y * 256 + 128;
+        if (to_x < from_x) move_facing_ = -1;
+        else if (to_x > from_x) move_facing_ = 1;
         for (int frame = 1; frame <= frames; ++frame) {
             move_px_ = view::slide_between(start_x, end_x, frame, frames);
             move_py_ = view::slide_between(start_y, end_y, frame, frames);
+            move_world_x_ = view::slide_between(
+                from_x * 256 + 128, to_x * 256 + 128, frame, frames
+            );
+            move_world_z_ = view::slide_between(
+                from_y * 256 + 128, to_y * 256 + 128, frame, frames
+            );
+            const int step = frame % 4;
+            move_bob_ = step == 1 || step == 3 ? 3 : step == 2 ? 5 : 0;
             psx::wait_vblank();
             draw(before, *last_overlay_, false);
         }
+        move_bob_ = 0;
         return frames;
     }
 
@@ -2145,6 +2576,7 @@ private:
     }
 
     const pr::Presentation* shown_;
+    int theme_ = 0;
     int board_width_ = 0;
     view::Projection projection_{
         0, 0, native_tile, view::elevation_step_for(native_tile)
@@ -2162,6 +2594,10 @@ private:
     sim::UnitId moving_ = 0;
     int move_px_ = 0;
     int move_py_ = 0;
+    int move_world_x_ = 0;
+    int move_world_z_ = 0;
+    int move_bob_ = 0;
+    int move_facing_ = 1;
     sim::UnitId flinching_ = 0;
     int flinch_dx_ = 0;
     int flinch_dy_ = 0;
@@ -2263,15 +2699,18 @@ int main() {
     const auto presentation = pr::load_presentation(loaded.package);
     expect(static_cast<bool>(presentation), "the presentation section reads");
 
+#ifndef GRANDLEON_PSX_3D
     const int theme = presentation.presentation.theme < art::theme_count
                           ? presentation.presentation.theme
                           : 0;
+#endif
 
     // Nothing the art library holds, and nothing the interface draws, may be
     // the backdrop, or a pixel nobody drew would be indistinguishable from a
     // pixel somebody drew.
     {
         bool separated = true;
+#ifndef GRANDLEON_PSX_3D
         for (int kind = 0; kind < art::terrain_kind_count; ++kind) {
             for (int variant = 0; variant < art::variant_count; ++variant) {
                 const art::Asset asset = art::terrain(theme, kind, variant);
@@ -2280,6 +2719,7 @@ int main() {
                 }
             }
         }
+#endif
         for (int drawing = 0; drawing < art::character_count; ++drawing) {
             const art::Asset asset = art::character(drawing);
             for (int i = 0; i < art::clut_size; ++i) {
@@ -2301,12 +2741,14 @@ int main() {
 
     gpu::begin(backdrop);
 
+#ifndef GRANDLEON_PSX_3D
     for (int kind = 0; kind < art::terrain_kind_count; ++kind) {
         terrain_clut_of[kind] = -1;
         for (int variant = 0; variant < art::variant_count; ++variant) {
             terrain_cell_of[kind][variant] = -1;
         }
     }
+#endif
     for (int drawing = 0; drawing < art::character_count; ++drawing) {
         character_cell_of[drawing] = -1;
         character_clut_of[drawing] = -1;
@@ -2315,6 +2757,7 @@ int main() {
     // Everything the board can draw, resident before the first press. A repaint
     // costs primitives and no transfers, which is what makes a frame's cost
     // independent of what is on it.
+#ifndef GRANDLEON_PSX_3D
     for (int kind = 0; kind < art::terrain_kind_count; ++kind) {
         const art::Asset first = art::terrain(theme, kind, 0);
         terrain_clut_of[kind] = claim_clut(first.clut);
@@ -2323,6 +2766,7 @@ int main() {
                 claim_cell(art::terrain(theme, kind, variant).texels);
         }
     }
+#endif
     for (int drawing = 0; drawing < art::character_count; ++drawing) {
         const art::Asset asset = art::character(drawing);
         character_clut_of[drawing] = claim_clut(asset.clut);

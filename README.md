@@ -98,16 +98,15 @@ two players on its main menu, fields every archetype across all seven art
 styles, and uses seven different maps covering every terrain kind. A debug
 Stage-picker build can jump directly between the gates for review.
 
-0.4 also includes separate 3D review builds for Nintendo 64 and PlayStation.
-They cover the complete seven-style, eight-archetype, male-and-female roster:
-112 low-poly models with low/high detail and runtime red/blue team colours.
-N64 shows all eight roles together; PS1 uses two closer four-role pages. Both
-can switch to two high-detail characters for a terrain-aware attack preview.
-The N64 review ROM passes `38/38`; the PS1 executable passes `296/296` plus
-`18/18` independent GPU checks. These are model viewers, not editor exports or
-playable campaigns, so the supported console games keep their clear sprite
-renderers.
-[See the captures, measurements, and build command](docs/CONSOLE_3D_EXPERIMENT.md).
+0.4 adds playable 3D versions of the Sevenfold campaign for Nintendo 64 and
+PlayStation alongside the sprite versions. They use the complete seven-style,
+eight-archetype, male-and-female roster: 112 low-poly models with board and
+close-view detail levels plus runtime red/blue team colours. Separate roster
+viewers remain available for quickly checking every model and measuring the
+renderers. The 3D campaigns are now a production path that can be tested end
+to end, but their graphics are an early baseline rather than a finished visual
+target.
+[See the current builds, controls, and measurements](docs/CONSOLE_3D_EXPERIMENT.md).
 
 [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) explains how one
 authored choice travels through the compiler, shared engine, and each renderer.
@@ -122,9 +121,10 @@ rest of the documentation describes the current Godot application.
 | **0.1 — portable foundation** | Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
 | **0.2 — complete campaign runtime** | Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3 — Godot player and creator** | Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
-| **0.4 — broader art and console 3D experiments** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and records bounded 3D detail and camera comparisons on PlayStation and Nintendo 64. This is the current development line. |
+| **0.4 — broader art and playable console 3D** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and makes the Sevenfold campaign playable with 3D renderers on PlayStation and Nintendo 64. This is the current development line. |
 | **0.5 — editor product pass** | Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, better project organization, and the usability and accessibility work needed for larger games. |
 | **0.6 — cinematic battles** | Adds an optional terrain-aware close-up attack view with counter-attacks and damage numbers, while retaining the faster board-only presentation as a game setting. |
+| **Every release — better console graphics** | Continues improving model readability, terrain depth and variety, camera composition, movement and attack animation, effects, team and UI clarity, close-up scenes, and measured performance on real PlayStation and Nintendo 64 hardware. A campaign being playable does not mean its presentation is finished. |
 
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
@@ -188,7 +188,7 @@ and playtest progress do not.
 | see current presentation experiments | [Development TODO](TODO.md) |
 | understand the Godot player and creator | [Godot PC application](platform/godot/README.md) |
 | understand portability and console builds | [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) |
-| review the console 3D experiment | [Console 3D experiment](docs/CONSOLE_3D_EXPERIMENT.md) |
+| review the console 3D work | [Console 3D status and builds](docs/CONSOLE_3D_EXPERIMENT.md) |
 | set up a development checkout | [Setting up](docs/SETUP.md) |
 | work on the engine | [CODING.md](CODING.md) and [DESIGN.md](DESIGN.md) |
 | contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |

@@ -7,8 +7,8 @@ work could not?
 The answer is platform-specific. The current models materially improve role
 recognition on N64, especially at a temporary close action camera. PS1 can now
 show the complete roster across closer four-role pages and a two-character
-high-detail attack view. Neither viewer replaces the supported sprite campaign
-renderer.
+high-detail attack view. Both consoles now use the same model library in a
+playable Sevenfold 3D campaign and in a separate diagnostic viewer.
 
 ## Complete N64 roster coverage
 
@@ -54,9 +54,9 @@ close view, **A** changes role, **B** plays the attack/counter preview, the
 d-pad changes style or terrain, and **Start** returns to the board. The damage
 callouts are illustrative and are not connected to campaign combat yet.
 
-This proves full model availability and rendering headroom. It does not yet
-make the Sevenfold campaign playable in 3D; the supported campaign ROM still
-uses sprites.
+This proves full model availability and rendering headroom. The playable
+Sevenfold 3D ROM uses low-detail versions of the same models on the board; this
+viewer remains the faster way to inspect every combination and close view.
 
 ## Complete PlayStation roster coverage
 
@@ -82,10 +82,10 @@ frame and passes `18/18`. The slowest low-detail page takes 100,363 timer
 ticks (about 23.7 ms), the high-detail comparison 150,937 ticks (35.7 ms),
 and the slowest attack pair 85,059 ticks (20.1 ms).
 
-This is a renderer viewer, not a campaign. The older sixteen-model stress
-scene still takes 53.6 ms, so the supported PS1 campaign remains sprite-based.
-The useful result is the bounded close view, not a claim that every battle
-should draw sixteen 3D models at once.
+This is the diagnostic viewer rather than the campaign executable. The older
+sixteen-model stress scene still takes 53.6 ms, so the playable 3D campaign
+uses conservative low-detail board models and saves higher detail for bounded
+close views instead of drawing sixteen high-detail models at once.
 
 ## What changed after the first proxy
 

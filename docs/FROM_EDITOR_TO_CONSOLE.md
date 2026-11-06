@@ -77,12 +77,12 @@ Not stages of one port; each answers a different question.
 | **The Nintendo 64** | the deepest console port (full campaign, title screen, cutscenes, controller, overlays, forecasts, abilities), and the only target that parses authored JSON *on the console* rather than consuming a package compiled on the host. |
 | **The PlayStation** | the widest architectural spread from the host: 32-bit little-endian MIPS-I, no `clz`, no `movn`, no 64-bit load. It plays both shipped campaigns end to end from a controller over bit-banged SIO0 and keeps them on a memory card. |
 
-There are also deliberately separate 3D review builds. N64 has a focused
-two-model comparison and a complete Sevenfold roster ROM; PS1 has a complete
-Sevenfold roster executable with four-role pages and a two-model close
-view. None consumes this portable export chain, appears in the Export Center,
-or replaces a campaign renderer. [The console 3D experiment](CONSOLE_3D_EXPERIMENT.md)
-explains what each viewer proves and what remains experimental.
+Sevenfold also has playable 3D campaign builds for N64 and PS1, plus separate
+complete-roster diagnostic viewers. These are currently repository builds
+rather than Export Center choices, but the playable versions consume the same
+campaign rules and state as their sprite counterparts. [Console
+3D](CONSOLE_3D_EXPERIMENT.md) explains what can be run now and which graphics
+areas remain ongoing work.
 
 Local co-op does not fork this chain. A `sideBlocks` encounter, its placements,
 deployment, objectives, and dialogue compile once and are consumed unchanged by

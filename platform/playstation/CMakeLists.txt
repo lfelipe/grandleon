@@ -617,6 +617,23 @@ grandleon_playstation_played_executable(
     "${playstation_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN
 )
+
+# The production 3D campaign: the same executable, shared campaign session,
+# controller path, memory-card storage and content as the sprite campaign. The
+# one extra definition replaces only the board and attack-scene painting with
+# the generated low/high proxy roster. Keeping this as a build of turn_exe.cpp
+# is deliberate: a renderer must not become a second implementation of the
+# game merely because it is three-dimensional.
+grandleon_playstation_played_executable(
+    grandleon_playstation_campaign_3d grandleon_psx_campaign_3d
+    "${playstation_character_header}"
+    GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_3D
+)
+target_include_directories(
+    grandleon_playstation_campaign_3d
+    PRIVATE "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
+)
+
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign_autopilot grandleon_psx_campaign_autopilot
     "${playstation_character_header}"

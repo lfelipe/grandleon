@@ -41,8 +41,8 @@ void command(std::uint32_t word) {
 // masked to the field widths the hardware decodes, so an out-of-range caller
 // wraps inside VRAM rather than reaching into an adjacent field.
 void coordinates(int x, int y) {
-    command((static_cast<std::uint32_t>(y) & 0xFFFFu) << 16 |
-            (static_cast<std::uint32_t>(x) & 0xFFFFu));
+    *gp0 = (static_cast<std::uint32_t>(y) & 0xFFFFu) << 16 |
+           (static_cast<std::uint32_t>(x) & 0xFFFFu);
 }
 
 void control(std::uint32_t op, std::uint32_t parameter) {
@@ -189,10 +189,10 @@ void draw_cell(int screen_x, int screen_y, int cell, int clut) {
     // The CLUT field addresses VRAM in units of sixteen halfwords across and
     // one line down, which is exactly the grid `clut_x_of` and `clut_y_of` lay
     // CLUTs out on.
-    command((static_cast<std::uint32_t>(clut_y_of(clut)) << 22) |
-            (static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries) << 16) |
-            (static_cast<std::uint32_t>(v) << 8) |
-            static_cast<std::uint32_t>(u));
+    *gp0 = (static_cast<std::uint32_t>(clut_y_of(clut)) << 22) |
+           (static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries) << 16) |
+           (static_cast<std::uint32_t>(v) << 8) |
+           static_cast<std::uint32_t>(u);
     coordinates(cell_texels, cell_texels);
 }
 
@@ -242,17 +242,17 @@ void draw_cell_scaled(int screen_x, int screen_y, int size, int cell,
     // bottom edges. Placing them on the last pixel instead would drop a row
     // and a column of every cell on the board.
     coordinates(screen_x, screen_y);
-    command((palette << 16) | (static_cast<std::uint32_t>(v) << 8) |
-            static_cast<std::uint32_t>(u));
+    *gp0 = (palette << 16) | (static_cast<std::uint32_t>(v) << 8) |
+           static_cast<std::uint32_t>(u);
     coordinates(screen_x + size, screen_y);
-    command((texpage << 16) | (static_cast<std::uint32_t>(v) << 8) |
-            static_cast<std::uint32_t>(u_far));
+    *gp0 = (texpage << 16) | (static_cast<std::uint32_t>(v) << 8) |
+           static_cast<std::uint32_t>(u_far);
     coordinates(screen_x, screen_y + size);
-    command((static_cast<std::uint32_t>(v_far) << 8) |
-            static_cast<std::uint32_t>(u));
+    *gp0 = (static_cast<std::uint32_t>(v_far) << 8) |
+           static_cast<std::uint32_t>(u);
     coordinates(screen_x + size, screen_y + size);
-    command((static_cast<std::uint32_t>(v_far) << 8) |
-            static_cast<std::uint32_t>(u_far));
+    *gp0 = (static_cast<std::uint32_t>(v_far) << 8) |
+           static_cast<std::uint32_t>(u_far);
 }
 
 void fill(int screen_x, int screen_y, int width, int height,
@@ -296,10 +296,10 @@ void draw_glyph(int screen_x, int screen_y, int slot, int clut) {
 
     command(0x65u << 24 | 0x808080u);
     coordinates(screen_x, screen_y);
-    command((static_cast<std::uint32_t>(clut_y_of(clut)) << 22) |
-            (static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries) << 16) |
-            (static_cast<std::uint32_t>(glyph_texture_v(slot)) << 8) |
-            static_cast<std::uint32_t>(glyph_texture_u(slot)));
+    *gp0 = (static_cast<std::uint32_t>(clut_y_of(clut)) << 22) |
+           (static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries) << 16) |
+           (static_cast<std::uint32_t>(glyph_texture_v(slot)) << 8) |
+           static_cast<std::uint32_t>(glyph_texture_u(slot));
     coordinates(glyph_texels, glyph_texels);
 }
 

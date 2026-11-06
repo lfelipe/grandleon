@@ -1,7 +1,8 @@
 {
   "generator": "tools/console_3d/generate_sevenfold_roster.py",
-  "generator_sha256": "1d1169869bf67f2bec26255fe81ac104f2cceeb539bc145932e5597b6c1fa600",
+  "generator_sha256": "4d6cb85a5dc4fb5ac979d1ad235ebd9859210e74fee6a0038ca545cd96b77b6a",
   "generated_header_sha256": "20e162e51de260585a52d3231432a64a0f1a16ed3220bc933edbe12f25fd99fb",
+  "campaign_header_sha256": "afd4f735eaa8d3e337d8ea214f8eb935e10058282f5219a63b92d19f031f5bfe",
   "styles": [
     "medieval",
     "scifi",

@@ -4,11 +4,8 @@
 # Builds Sevenfold in the two N64 forms that are useful to reviewers:
 #
 #   sprite  the complete playable campaign, including its 1P/2P choice
-#   3d      the complete Tiny3D roster, terrain and attack-view renderer
-#
-# The 3D ROM is a renderer review ROM, not a second campaign client. Keeping
-# that distinction in the artifact names and manifest prevents a model viewer
-# from being mistaken for a gameplay build.
+#   3d      the complete playable campaign through Tiny3D, plus its roster
+#           viewer for model and performance diagnostics
 
 set -euo pipefail
 
@@ -71,8 +68,10 @@ if [ "${renderer}" = 3d ] || [ "${renderer}" = both ]; then
     GRANDLEON_N64_SEVENFOLD_3D_BUILD_DIR="${three_d_build}" \
         "${repository_root}/platform/nintendo64/scripts/build-sevenfold-3d.sh" \
         "${rebuild_argument[@]}"
-    three_d_rom="${three_d_build}/platform/nintendo64/grandleon-n64-sevenfold-3d.z64"
+    three_d_rom="${three_d_build}/platform/nintendo64/grandleon_n64_campaign_3d.z64"
+    three_d_viewer="${three_d_build}/platform/nintendo64/grandleon-n64-sevenfold-3d.z64"
     cp "${three_d_rom}" "${output_dir}/sevenfold-n64-3d.z64"
+    cp "${three_d_viewer}" "${output_dir}/sevenfold-n64-3d-viewer.z64"
 fi
 
 for rom in "${output_dir}"/*.z64; do
@@ -99,9 +98,15 @@ manifest="${output_dir}/README.txt"
     fi
     if [ -f "${output_dir}/sevenfold-n64-3d.z64" ]; then
         echo "sevenfold-n64-3d.z64"
-        echo "  3D renderer review: 112 models, seven terrains and attack view."
-        echo "  This is not a playable campaign."
+        echo "  Playable Sevenfold campaign using the Tiny3D board renderer."
+        echo "  1-player/2-player choice, SRAM saves, stage picker and live FPS."
         echo "  SHA-256: $(sha256sum "${output_dir}/sevenfold-n64-3d.z64" | cut -d ' ' -f 1)"
+        echo
+    fi
+    if [ -f "${output_dir}/sevenfold-n64-3d-viewer.z64" ]; then
+        echo "sevenfold-n64-3d-viewer.z64"
+        echo "  Diagnostic roster/terrain/attack viewer for all 112 models."
+        echo "  SHA-256: $(sha256sum "${output_dir}/sevenfold-n64-3d-viewer.z64" | cut -d ' ' -f 1)"
         echo
     fi
 } > "${manifest}"

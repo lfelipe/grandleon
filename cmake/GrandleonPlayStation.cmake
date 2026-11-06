@@ -229,9 +229,9 @@ add_custom_target(grandleon_playstation
     VERBATIM
 )
 
-# The optional Sevenfold 3D renderer is intentionally separate from the normal
-# PlayStation build: it embeds both LODs of all 112 generated models, while a
-# campaign executable only carries the art its project names.
+# The Sevenfold 3D build is intentionally separate from the normal PlayStation
+# build. It contains a playable campaign carrying only the models its stages
+# use, plus a diagnostic viewer with both LODs of all 112 models.
 set(grandleon_playstation_sevenfold_3d_build_dir
     "${CMAKE_CURRENT_SOURCE_DIR}/build-playstation-sevenfold-3d"
 )
@@ -242,7 +242,7 @@ add_custom_target(grandleon_playstation_sevenfold_3d
         "GRANDLEON_PSX_SEVENFOLD_3D_BUILD_DIR=${grandleon_playstation_sevenfold_3d_build_dir}"
         "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-sevenfold-3d.sh"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Building the PlayStation Sevenfold 3D viewer"
+    COMMENT "Building the PlayStation Sevenfold 3D campaign and viewer"
     USES_TERMINAL
     VERBATIM
 )
@@ -261,19 +261,21 @@ add_custom_target(grandleon_playstation_sevenfold_3d_check
 )
 
 # A PS-EXE is convenient for the automated emulator but awkward for a person.
-# Package the interactive viewer as an ordinary BIN/CUE pair as well. Like the
-# supported campaign disc, it intentionally carries no Sony licence sector.
+# Package the full Sevenfold campaign with its production 3D board as an
+# ordinary BIN/CUE pair. The roster viewer remains in the same build as a
+# diagnostic executable, but the disc handed to a player is the game. Like the
+# sprite campaign disc, it intentionally carries no Sony licence sector.
 add_custom_target(grandleon_playstation_sevenfold_3d_disc
     COMMAND
         "${CMAKE_COMMAND}" -E env
         ${grandleon_playstation_disc_env}
         "GRANDLEON_PLAYSTATION_BUILD_DIR=${grandleon_playstation_sevenfold_3d_build_dir}"
-        "GRANDLEON_PLAYSTATION_DISC_EXECUTABLE=grandleon_psx_sevenfold_3d.ps-exe"
+        "GRANDLEON_PLAYSTATION_DISC_EXECUTABLE=grandleon_psx_campaign_3d.ps-exe"
         "GRANDLEON_PLAYSTATION_DISC_NAME=sevenfold-ps1-3d"
         "GRANDLEON_PLAYSTATION_DISC_VOLUME=SEVENFOLD_3D"
         "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-disc.sh"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Packaging the PlayStation Sevenfold 3D viewer as BIN/CUE"
+    COMMENT "Packaging the PlayStation Sevenfold 3D campaign as BIN/CUE"
     USES_TERMINAL
     VERBATIM
 )

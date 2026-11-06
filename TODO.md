@@ -33,7 +33,7 @@ terrain rules, routes, timing, or combat results.
   may interpolate the picture between accepted states; it must never invent a
   position, shorten a route, delay input authority, or change a state hash.
 
-## Character art and console experiments
+## Character art and console 3D
 
 - [x] Complete male and female high-resolution bodies for every intended
   archetype and style. All eight archetype pairs in all seven styles are
@@ -41,11 +41,14 @@ terrain rules, routes, timing, or combat results.
 - [x] Add reusable team-colour masks to each complete curated roster so one
   body sheet can render the six faction colours without recolouring faces,
   hair, equipment, or effects.
-- [x] Expand the console 3D comparison to all 112 style/archetype/body models.
-  N64 now ships a reproducible roster viewer beside the playable sprite ROM;
-  PS1 has checked four-role strategic pages and a two-model high-detail attack
-  viewer. Supported campaigns remain sprite-based. See
-  [the console 3D experiment](docs/CONSOLE_3D_EXPERIMENT.md).
+- [x] Expand console 3D to all 112 style/archetype/body models and use them in
+  playable Sevenfold campaign builds on N64 and PS1. Keep the complete-roster
+  viewers as reproducible model, camera, and performance diagnostics. See
+  [Console 3D](docs/CONSOLE_3D_EXPERIMENT.md).
+- [ ] Continue improving console graphics across releases: model readability,
+  terrain depth and variety, camera composition, movement and attack
+  animation, effects, UI clarity, close-up scenes, and measured performance on
+  original-style hardware.
 
 ## 0.4 player foundation and battle view
 

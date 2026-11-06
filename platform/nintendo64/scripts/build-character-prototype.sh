@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 
-# Builds either N64 3D review ROM. This is intentionally separate from
-# build-n64.sh: it uses Tiny3D and a preview libdragon pin, carries no authored
-# campaign, and must never be mistaken for the supported sprite ROM.
+# Builds the focused N64 3D diagnostic or the Sevenfold 3D build. This remains
+# separate from build-n64.sh because it uses Tiny3D and a preview libdragon
+# pin. Sevenfold includes both its authored campaign renderer and its complete
+# roster viewer; the focused commander/rogue build remains diagnostic only.
 
 set -euo pipefail
 
@@ -116,15 +117,20 @@ flock 9
     --workdir /src \
     "${image}" \
     /bin/bash -euo pipefail -c '
+        project_argument=(-UGRANDLEON_N64_PROJECT)
+        if [ "${GRANDLEON_CONTAINER_SEVENFOLD_OPTION}" = ON ]; then
+            project_argument=(-DGRANDLEON_N64_PROJECT=/src/games/sevenfold/source/project.json)
+        fi
         cmake -S /src -B "${GRANDLEON_CONTAINER_BUILD_DIR}" \
             -DCMAKE_TOOLCHAIN_FILE=/src/cmake/toolchains/Nintendo64.cmake \
             -DCMAKE_BUILD_TYPE= \
             -DGRANDLEON_N64=ON \
             -DGRANDLEON_N64_CHARACTER_PROTOTYPE=${GRANDLEON_CONTAINER_PROTOTYPE_OPTION} \
             -DGRANDLEON_N64_SEVENFOLD_3D=${GRANDLEON_CONTAINER_SEVENFOLD_OPTION} \
+            -DGRANDLEON_STAGE_PICKER=${GRANDLEON_CONTAINER_SEVENFOLD_OPTION} \
             -DGRANDLEON_BUILD_TESTS=OFF \
             -DGRANDLEON_WERROR=ON \
-            -UGRANDLEON_N64_PROJECT
+            "${project_argument[@]}"
         cmake --build "${GRANDLEON_CONTAINER_BUILD_DIR}" --parallel \
             --target "${GRANDLEON_CONTAINER_TARGET}"
     '

@@ -70,6 +70,10 @@
 #include "styles.h"
 #include "themes.h"
 
+#ifdef GRANDLEON_N64_3D
+#include "campaign_3d_renderer.h"
+#endif
+
 // Where a row of text is allowed to land on this frame, and the words a
 // refusal is said in. Both are headers rather than blocks in this file so that
 // a host test can compile the very arithmetic and the very table the ROM
@@ -5119,7 +5123,14 @@ private:
         sim::UnitId skip_other = 0
     ) {
         build_draw_list(snapshot, skip_unit, skip_other);
+#ifdef GRANDLEON_N64_3D
+        campaign_3d_renderer_.draw(
+            disp, snapshot, terrain_, shown_, camera_, theme_, skip_unit,
+            skip_other
+        );
+#else
         render_board_rdpq(disp, snapshot);
+#endif
         // The markers and the health bars are CPU overlays under both
         // renderers, drawn over the settled board in the same depth order the
         // tokens themselves were.
@@ -7622,7 +7633,13 @@ private:
     }
 
     [[nodiscard]] int px(int cell_x) const {
+#ifdef GRANDLEON_N64_3D
+        const int centre = camera_.x * 64 + camera_.view_w * 32;
+        const int world = cell_x * 64 + 32 - centre;
+        return 160 + world * 13 / 25 - tile_ / 2;
+#else
         return projection_.cell_left(camera_, cell_x);
+#endif
     }
 
     // A cell's top edge needs both coordinates because how high it is drawn
@@ -7631,9 +7648,17 @@ private:
     // the animations, and the probe's own sampler. So nothing can end up half
     // a step out of register with the ground.
     [[nodiscard]] int py(int cell_x, int cell_y) const {
+#ifdef GRANDLEON_N64_3D
+        static_cast<void>(cell_x);
+        const int centre = camera_.y * 64 + camera_.view_h * 32;
+        const int world = cell_y * 64 + 32 - centre;
+        return 130 + world * 7 / 25 - elevation_at(cell_x, cell_y) * 6 -
+               tile_ / 2;
+#else
         return projection_.cell_top(
             camera_, cell_y, elevation_at(cell_x, cell_y)
         );
+#endif
     }
 
     // How many levels above the valley floor a cell's terrain reads as, from
@@ -8806,6 +8831,9 @@ private:
     // The frame's draw list, rebuilt from the snapshot every frame and put
     // in depth order by the shared model rather than by this file.
     view::DrawList draw_list_{draw_storage, draw_capacity};
+#ifdef GRANDLEON_N64_3D
+    grandleon::nintendo64::Campaign3DRenderer campaign_3d_renderer_{};
+#endif
 #ifndef GRANDLEON_N64_PROBE
     // The cursor's pulse phase, in drawn frames. It advances only while the
     // player is holding the board, never during an animation, a menu, a banner

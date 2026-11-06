@@ -21,5 +21,6 @@ fi
 export GRANDLEON_PLAYSTATION_BUILD_DIR="${GRANDLEON_PSX_SEVENFOLD_3D_BUILD_DIR:-${repository_root}/build-playstation-sevenfold-3d}"
 exec "${repository_root}/platform/playstation/scripts/build-playstation.sh" \
     --project "${repository_root}/games/sevenfold/source/project.json" \
-    --targets grandleon_playstation_sevenfold_3d,grandleon_playstation_sevenfold_3d_check \
+    --targets grandleon_playstation_campaign_3d,grandleon_playstation_sevenfold_3d,grandleon_playstation_sevenfold_3d_check \
+    --stage-picker \
     "$@"

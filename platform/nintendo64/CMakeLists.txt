@@ -22,10 +22,8 @@ if(NOT DEFINED N64_INST)
     message(FATAL_ERROR "N64_INST is not set; use cmake/toolchains/Nintendo64.cmake")
 endif()
 
-# A fixed, evidence-backed 3D character comparison. It is intentionally not a
-# campaign renderer: the supported play and campaign ROMs keep their existing
-# sprite path, while this opt-in target lets reviewers reproduce the bounded
-# commander/rogue result without reviving the old divergent experiment branch.
+# A fixed, evidence-backed 3D character comparison. This remains a small
+# diagnostic beside the complete Sevenfold 3D campaign renderer.
 option(
     GRANDLEON_N64_CHARACTER_PROTOTYPE
     "Build the fixed Tiny3D character comparison ROM"
@@ -682,6 +680,61 @@ if(GRANDLEON_N64_SEVENFOLD_3D)
         grandleon_n64_sevenfold_3d
         grandleon-n64-sevenfold-3d.z64
         "Sevenfold N64 3D"
+    )
+
+    # The production Tiny3D campaign is the ordinary campaign client with one
+    # renderer substitution. It therefore keeps the same campaign session,
+    # SRAM saves, controller ownership and authored package as the sprite ROM.
+    add_executable(
+        grandleon_n64_campaign_3d
+        src/play_rom.cpp
+        src/synth.cpp
+        src/campaign_3d_renderer.cpp
+    )
+    target_link_libraries(
+        grandleon_n64_campaign_3d
+        PRIVATE
+            grandleon::client
+            grandleon::client_campaign
+            grandleon::game_content
+            grandleon::sheet
+            grandleon::view
+            -lc -lt3d -ldragon -lm -ldragonsys
+    )
+    target_include_directories(
+        grandleon_n64_campaign_3d
+        PRIVATE
+            "${CMAKE_CURRENT_BINARY_DIR}/generated"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src"
+            "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
+            "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
+            "${CMAKE_SOURCE_DIR}/games/tarnholt/autopilot"
+            "${CMAKE_SOURCE_DIR}/games/emberbound/autopilot"
+    )
+    target_compile_features(grandleon_n64_campaign_3d PRIVATE cxx_std_17)
+    target_compile_options(
+        grandleon_n64_campaign_3d
+        PRIVATE ${GRANDLEON_WARNING_FLAGS} -fno-exceptions -fno-rtti
+    )
+    target_compile_definitions(
+        grandleon_n64_campaign_3d
+        PRIVATE GRANDLEON_N64_CAMPAIGN GRANDLEON_N64_3D
+    )
+    target_link_options(
+        grandleon_n64_campaign_3d
+        PRIVATE
+            "-Wl,-Map=$<TARGET_FILE_DIR:grandleon_n64_campaign_3d>/grandleon_n64_campaign_3d.map"
+    )
+    set_target_properties(
+        grandleon_n64_campaign_3d
+        PROPERTIES OUTPUT_NAME grandleon_n64_campaign_3d SUFFIX ".elf"
+    )
+    grandleon_package_rom(
+        grandleon_n64_campaign_3d grandleon_n64_campaign_3d.z64
+        "Sevenfold N64 3D campaign" sram256k
+    )
+    add_dependencies(
+        grandleon_n64_sevenfold_3d grandleon_n64_campaign_3d
     )
 endif()
 

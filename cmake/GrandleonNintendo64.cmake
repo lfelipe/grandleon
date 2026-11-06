@@ -74,17 +74,15 @@ add_custom_target(grandleon_n64
     VERBATIM
 )
 
-# Builds the playable Sevenfold sprite campaign and the complete Tiny3D roster
-# review together. The artifact manifest calls out that the latter is not a
-# second campaign renderer, while still giving reviewers both ROMs from one
-# command.
+# Builds the playable Sevenfold sprite and 3D campaigns plus the complete
+# Tiny3D roster diagnostic together.
 add_custom_target(grandleon_n64_sevenfold_roms
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}
         "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/build-sevenfold-roms.sh"
         --renderer both --stage-picker
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Building Sevenfold's playable and 3D Nintendo 64 review ROMs"
+    COMMENT "Building Sevenfold's sprite campaign, 3D campaign, and diagnostic ROM"
     USES_TERMINAL
     VERBATIM
 )

@@ -30,6 +30,7 @@ import sys
 root = pathlib.Path(sys.argv[1])
 source = root / "tools/console_3d/generate_sevenfold_roster.py"
 header = root / "tools/console_3d/generated/sevenfold_roster_proxies.h"
+campaign_header = root / "tools/console_3d/generated/sevenfold_campaign_proxies.h"
 report = json.loads(
     (root / "tools/console_3d/generated/sevenfold_roster_proxies.json")
     .read_text(encoding="utf-8")
@@ -38,6 +39,8 @@ if hashlib.sha256(source.read_bytes()).hexdigest() != report["generator_sha256"]
     raise SystemExit("Sevenfold 3D generator changed; regenerate the roster")
 if hashlib.sha256(header.read_bytes()).hexdigest() != report["generated_header_sha256"]:
     raise SystemExit("Sevenfold 3D header changed; regenerate the roster")
+if hashlib.sha256(campaign_header.read_bytes()).hexdigest() != report["campaign_header_sha256"]:
+    raise SystemExit("Sevenfold 3D campaign header changed; regenerate the roster")
 if report["styles"] != [
     "medieval", "scifi", "mythical", "nature", "sengoku", "undead", "pirates"
 ] or report["figures"] != ["male", "female"] or report["archetypes"] != [
