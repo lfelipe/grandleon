@@ -85,9 +85,11 @@ cmake --build build --target grandleon_n64_sevenfold_3d_check
 cmake --build build --target grandleon_playstation_sevenfold_3d_check
 ```
 
-The N64 viewer currently passes `38/38` checks. Its ares measurements are
-62–87 fps for eight low-detail models, 39–51 fps for eight high-detail models,
-and 132–163 fps for two high-detail models in the close view.
+The N64 viewer currently passes `40/40` checks. Its capture trail includes two
+same-team pages showing all eight low-detail roles from the opposite
+camera-facing three-quarter headings. Its ares measurements are 62–87 fps for
+eight low-detail models, 39–51 fps for eight high-detail models, and 132–163
+fps for two high-detail models in the close view.
 
 The PlayStation viewer currently passes `352/352` guest checks, including
 safe-picture checks for every auto-framed attack pair, and `18/18` independent

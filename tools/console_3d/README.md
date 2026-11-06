@@ -42,8 +42,9 @@ while the 3D presentation continues improving.
 ## Current release checks
 
 The Nintendo 64 viewer shows all eight roles per page, switches between low and
-high detail, exercises both bodies and team colours, and includes seven terrain
-close views plus an animated hit frame. Its ares gate passes `38/38`.
+high detail, exercises both bodies and team colours, and includes two
+same-team role pages with opposite camera-facing three-quarter headings, seven
+terrain close views, and an animated hit frame. Its ares gate passes `40/40`.
 
 The PlayStation viewer uses four-role pages and auto-framed two-character close
 views. Its guest gate passes `352/352`, including safe-picture checks for all

@@ -17,6 +17,7 @@
 #include <cstdlib>
 
 #include "n64_showcase.h"
+#include "../src/sevenfold_presentation.h"
 #include "sevenfold_roster_proxies.h"
 
 namespace {
@@ -113,7 +114,10 @@ void set_vertex(
     const std::uint8_t* source = triangle.material == 0
         ? team_colours[team]
         : sevenfold_style_materials[proxy.style][triangle.material];
-    const std::uint32_t light = 128U + triangle.shade / 2U;
+    const std::uint32_t light =
+        grandleon::nintendo64::sevenfold_presentation::light_for(
+            triangle.shade
+        );
     return rgba(
         static_cast<std::uint8_t>(source[0] * light / 255U),
         static_cast<std::uint8_t>(source[1] * light / 255U),
@@ -135,7 +139,7 @@ void set_vertex(
 
 void build_proxy_at(
     Figure& into, const SevenfoldProxy& proxy, std::int16_t origin_x,
-    std::int16_t origin_z, int team, int quarter_turn
+    std::int16_t origin_z, int team, int facing
 ) {
     into.triangles = proxy.triangles_count;
     for (int index = 0; index < packed_proxy_vertices; ++index) {
@@ -152,20 +156,15 @@ void build_proxy_at(
         for (int corner = 0; corner < 3; ++corner) {
             const SevenfoldProxyVertex& source =
                 proxy.vertices[corners[corner]];
-            std::int16_t x = source.x;
-            std::int16_t z = source.z;
-            if (quarter_turn < 0) {
-                x = source.z;
-                z = static_cast<std::int16_t>(-source.x);
-            } else if (quarter_turn > 0) {
-                x = static_cast<std::int16_t>(-source.z);
-                z = source.x;
-            }
+            const auto rotated =
+                grandleon::nintendo64::sevenfold_presentation::three_quarter(
+                    source.x, source.z, facing
+                );
             set_vertex(
                 into.vertices[written / 2], (written & 1) != 0,
-                static_cast<std::int16_t>(x + origin_x),
+                static_cast<std::int16_t>(rotated.x + origin_x),
                 source.y,
-                static_cast<std::int16_t>(z + origin_z),
+                static_cast<std::int16_t>(rotated.z + origin_z),
                 colour
             );
             ++written;
@@ -177,7 +176,8 @@ void build_proxy(
     Figure& into, const SevenfoldProxy& proxy, int column, int row, int team
 ) {
     build_proxy_at(
-        into, proxy, cell_x(column), cell_z(row), team, 0
+        into, proxy, cell_x(column), cell_z(row), team,
+        team == 0 ? 1 : -1
     );
 }
 
@@ -483,7 +483,7 @@ std::uint64_t show_page(
     if (!report) return elapsed;
     std::fprintf(
         stderr,
-        "sevenfold stage=%s body=%s lod=%s models=8 triangles=%d us=%llu fps=%llu depth=on\n",
+        "sevenfold stage=%s body=%s lod=%s models=8 triangles=%d us=%llu fps=%llu heading=three-quarter depth=on\n",
         sevenfold_style_names[stage], body_slugs[body], lod_slugs[lod],
         triangle_total(figures),
         static_cast<unsigned long long>(elapsed),
@@ -492,6 +492,64 @@ std::uint64_t show_page(
     std::fprintf(
         stderr, "CHECKPOINT sevenfold-%s-%s-%s\n",
         sevenfold_style_names[stage], body_slugs[body], lod_slugs[lod]
+    );
+    std::fflush(stderr);
+    return elapsed;
+}
+
+std::uint64_t show_heading_page(
+    int team, bool report, T3DViewport& viewport, T3DMat4FP* matrix,
+    T3DVertPacked* board, Figure* figures
+) {
+    constexpr int positions[8][2] = {
+        {1, 1}, {3, 1}, {5, 1}, {7, 1},
+        {1, 4}, {3, 4}, {5, 4}, {7, 4},
+    };
+    constexpr int comparison_stage = 0;
+    constexpr int comparison_body = 0;
+    build_board(board, comparison_stage);
+    for (int archetype = 0; archetype < figure_count; ++archetype) {
+        build_proxy(
+            figures[archetype],
+            sevenfold_proxies_low[comparison_stage][comparison_body]
+                                     [archetype],
+            positions[archetype][0], positions[archetype][1], team
+        );
+    }
+
+    const char* side = team == 0 ? "BLUE" : "RED";
+    const char* direction = team == 0 ? "RIGHT" : "LEFT";
+    char page_label[64];
+    char footer[64];
+    std::snprintf(
+        page_label, sizeof page_label,
+        "MEDIEVAL GATE - %s THREE-QUARTER", side
+    );
+    std::snprintf(
+        footer, sizeof footer, "8 LOW-LOD ROLES - %s FACING", direction
+    );
+    std::uint64_t elapsed = 0;
+    for (int frame = 0; frame < 3; ++frame) {
+        surface_t* display = display_get();
+        elapsed = draw_frame(
+            display, &viewport, matrix, board, board_triangles, figures,
+            figure_count, page_label, footer, "ROLE READABILITY CAPTURE",
+            RGBA32(20, 25, 35, 255)
+        );
+        display_show(display);
+    }
+    if (!report) return elapsed;
+    std::fprintf(
+        stderr,
+        "sevenfold heading=%s team=%s models=8 triangles=%d us=%llu fps=%llu heading=three-quarter depth=on\n",
+        team == 0 ? "right" : "left", team == 0 ? "blue" : "red",
+        triangle_total(figures),
+        static_cast<unsigned long long>(elapsed),
+        static_cast<unsigned long long>(elapsed > 0 ? 1'000'000 / elapsed : 0)
+    );
+    std::fprintf(
+        stderr, "CHECKPOINT sevenfold-heading-%s\n",
+        team == 0 ? "blue" : "red"
     );
     std::fflush(stderr);
     return elapsed;
@@ -564,7 +622,7 @@ std::uint64_t show_attack(
     if (!report) return elapsed;
     std::fprintf(
         stderr,
-        "sevenfold attack stage=%s role=%s terrain=%s models=2 triangles=%d us=%llu fps=%llu depth=on\n",
+        "sevenfold attack stage=%s role=%s terrain=%s models=2 triangles=%d us=%llu fps=%llu heading=three-quarter depth=on\n",
         sevenfold_style_names[stage], sevenfold_archetype_names[archetype],
         terrain_names[terrain],
         triangle_total(figures, 2, scene_triangles),
@@ -660,7 +718,7 @@ std::uint64_t play_attack_preview(
     if (report) {
         std::fprintf(
             stderr,
-            "sevenfold attack-animation stage=%s frames=96 max_us=%llu fps=%llu depth=on\n",
+            "sevenfold attack-animation stage=%s frames=96 max_us=%llu fps=%llu heading=three-quarter depth=on\n",
             sevenfold_style_names[stage],
             static_cast<unsigned long long>(slowest),
             static_cast<unsigned long long>(
@@ -756,6 +814,19 @@ extern "C" int main(void) {
                 wait_ms(1500);
             }
         }
+    }
+    for (int team = 0; team < 2; ++team) {
+        const std::uint64_t elapsed = show_heading_page(
+            team, true, viewport, matrix, board, figures
+        );
+        char message[112];
+        std::snprintf(
+            message, sizeof message,
+            "%s three-quarter eight-role comparison stays at 30 fps",
+            team == 0 ? "blue/right-facing" : "red/left-facing"
+        );
+        expect(elapsed <= frame_budget_us, message);
+        wait_ms(1500);
     }
     for (int stage = 0; stage < sevenfold_stage_count; ++stage) {
         const int archetype = stage % 8;

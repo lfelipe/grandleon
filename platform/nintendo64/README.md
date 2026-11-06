@@ -111,10 +111,14 @@ The first two are the same 1P/2P campaign with different renderers. The
 
 It shows eight separated roles per strategic page, exercises red and blue team
 colour replacement, and uses the seven varied terrain layouts from
-`games/sevenfold`. **A** switches between low and high detail; the d-pad changes
-style or body. **Start** opens a two-character high-detail attack view whose
-floor, skyline, and sky colour are derived from the selected terrain. **B**
-then plays an illustrative attack, hit, counter-attack, and damage callout.
+`games/sevenfold`. The figures use camera-facing three-quarter headings rather
+than exact side views, keeping their shields, bows, books, banners and paired
+weapons visible. The baked vertex lighting also keeps a wider separation
+between shadow and highlight faces without paying for runtime lights. **A**
+switches between low and high detail; the d-pad changes style or body.
+**Start** opens a two-character high-detail attack view whose floor, skyline,
+and sky colour are derived from the selected terrain. **B** then plays an
+illustrative attack, hit, counter-attack, and damage callout.
 
 The playable `sevenfold-n64-3d.z64` uses the same proxies differently: low
 detail on the complete campaign board, actual 3D route movement, and two
@@ -123,11 +127,13 @@ the current map terrain, displays the simulation's damage, and naturally shows
 a legal counter when its authoritative event follows. This is separate from
 the viewer's illustrative animation.
 
-Its ares check captures 28 strategic comparisons, seven terrain close views,
-and one animated hit frame. The current run passes `38/38`: low-detail board
-pages measure 62–87 fps, high-detail pages 39–51 fps, and close views 132–163
-fps with depth enabled. These are emulator measurements, not timings from
-original hardware.
+Its ares check captures 28 roster-matrix comparisons, two same-team
+three-quarter pages that expose all eight low-detail roles from opposite
+headings, seven terrain close views, and one animated hit frame. The current
+run passes `40/40`: low-detail board pages measure 62–87 fps, high-detail pages
+39–51 fps, and close views 132–163 fps with depth enabled. The two dedicated
+heading pages each measure 87 fps. These are emulator measurements, not
+timings from original hardware.
 
 The full-roster models are deterministic procedural console proxies; the
 curated character sheets do not contain hidden 3D source meshes. The 3D

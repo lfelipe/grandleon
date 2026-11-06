@@ -5902,9 +5902,9 @@ private:
             motion_pose_.height = view::slide_between(
                 from_height, to_height, frame, frames
             ) + bob;
-            if (to.x < from.x) motion_pose_.quarter_turn = -1;
-            else if (to.x > from.x) motion_pose_.quarter_turn = 1;
-            else motion_pose_.quarter_turn =
+            if (to.x < from.x) motion_pose_.facing = -1;
+            else if (to.x > from.x) motion_pose_.facing = 1;
+            else motion_pose_.facing =
                 unit.side == sim::Side::first ? 1 : -1;
             motion_pose_.lean = step < 2 ? 10 : -10;
             render(disp, previous_, unit.id);

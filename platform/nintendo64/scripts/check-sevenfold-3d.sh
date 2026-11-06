@@ -76,7 +76,7 @@ fi
 
 GRANDLEON_N64_BUILD_DIR="${build_dir}" \
 GRANDLEON_N64_ARES_SECONDS=120 \
-GRANDLEON_N64_ARES_MIN_CHECKS=38 \
+GRANDLEON_N64_ARES_MIN_CHECKS=40 \
 GRANDLEON_N64_ARES_LOG=sevenfold-3d.log \
 GRANDLEON_N64_ARES_TRAIL=trail-sevenfold-3d \
 GRANDLEON_N64_ARES_SHOT=screenshot-sevenfold-3d.png \
@@ -86,13 +86,20 @@ log="${build_dir}/ares/sevenfold-3d.log"
 for style in medieval scifi mythical nature sengoku undead pirates; do
     for body in male female; do
         for lod in low high; do
-            grep -q "^sevenfold stage=${style} body=${body} lod=${lod} models=8 .* depth=on$" "${log}"
+            grep -q "^sevenfold stage=${style} body=${body} lod=${lod} models=8 .* heading=three-quarter depth=on$" "${log}"
             grep -q "^CHECKPOINT sevenfold-${style}-${body}-${lod}$" "${log}"
         done
     done
 done
+while read -r team direction; do
+    grep -q "^sevenfold heading=${direction} team=${team} models=8 .* heading=three-quarter depth=on$" "${log}"
+    grep -q "^CHECKPOINT sevenfold-heading-${team}$" "${log}"
+done <<'EOF'
+blue right
+red left
+EOF
 while read -r style terrain; do
-    grep -q "^sevenfold attack stage=${style} role=.* terrain=${terrain} models=2 .* depth=on$" "${log}"
+    grep -q "^sevenfold attack stage=${style} role=.* terrain=${terrain} models=2 .* heading=three-quarter depth=on$" "${log}"
     grep -q "^CHECKPOINT sevenfold-attack-${style}-${terrain}$" "${log}"
 done <<'EOF'
 medieval FOREST
@@ -103,7 +110,7 @@ sengoku BAMBOO
 undead SWAMP
 pirates SAND
 EOF
-grep -q '^sevenfold attack-animation stage=medieval frames=96 .* depth=on$' "${log}"
+grep -q '^sevenfold attack-animation stage=medieval frames=96 .* heading=three-quarter depth=on$' "${log}"
 grep -q '^CHECKPOINT sevenfold-attack-animation-hit$' "${log}"
-grep -q '^RESULT PASS 38/38$' "${log}"
+grep -q '^RESULT PASS 40/40$' "${log}"
 echo "Nintendo 64 Sevenfold 3D roster check passed: ${rom}"

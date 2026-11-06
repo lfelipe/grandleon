@@ -24,7 +24,8 @@ public:
         int column_256{0};
         int row_256{0};
         int height{0};
-        int quarter_turn{0};
+        // -1 faces left and +1 right, each held at a camera-readable 45°.
+        int facing{0};
         int lean{0};
     };
 

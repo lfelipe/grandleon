@@ -2,6 +2,7 @@
 
 #include "campaign_3d_renderer.h"
 
+#include "sevenfold_presentation.h"
 #include "sevenfold_campaign_proxies.h"
 #include "themes.h"
 
@@ -175,7 +176,7 @@ void emit_quad(
     const std::uint8_t* source = triangle.material == 0
         ? team_colours[team]
         : sevenfold_style_materials[proxy.style][triangle.material];
-    std::uint32_t light = 128U + triangle.shade / 2U;
+    std::uint32_t light = sevenfold_presentation::light_for(triangle.shade);
     if (spent) light = light * 5U / 8U;
     return scaled_colour(source, light);
 }
@@ -189,7 +190,7 @@ void build_proxy_at(
     std::int16_t origin_y,
     std::int16_t origin_z,
     int team,
-    int quarter_turn,
+    int facing,
     int lean,
     bool spent
 ) {
@@ -245,15 +246,12 @@ void build_proxy_at(
         for (int corner = 0; corner < 3; ++corner) {
             const SevenfoldProxyVertex& source =
                 proxy.vertices[corners[corner]];
-            int x = source.x;
-            int z = source.z;
-            if (quarter_turn < 0) {
-                x = source.z;
-                z = -source.x;
-            } else if (quarter_turn > 0) {
-                x = -source.z;
-                z = source.x;
-            }
+            const sevenfold_presentation::RotatedXZ rotated =
+                sevenfold_presentation::three_quarter(
+                    source.x, source.z, facing
+                );
+            int x = rotated.x;
+            int z = rotated.z;
             x += source.y * lean / 256;
             points[corner][0] = static_cast<std::int16_t>(x + origin_x);
             points[corner][1] =
@@ -765,7 +763,7 @@ void Campaign3DRenderer::draw(
         if (proxy == nullptr) continue;
 
         int elevation = 0;
-        int quarter_turn = unit.side == sim::Side::first ? 1 : -1;
+        int facing = unit.side == sim::Side::first ? 1 : -1;
         int lean = 0;
         std::int16_t origin_x = world_x(unit.position.x);
         std::int16_t origin_z = world_z(unit.position.y);
@@ -773,7 +771,7 @@ void Campaign3DRenderer::draw(
             origin_x = world_x_fixed(motion->column_256);
             origin_z = world_z_fixed(motion->row_256);
             elevation = motion->height;
-            quarter_turn = motion->quarter_turn;
+            facing = motion->facing;
             lean = motion->lean;
         } else {
             const std::uint8_t kind = kind_at(
@@ -787,7 +785,7 @@ void Campaign3DRenderer::draw(
             figures_[visible].triangles, *proxy,
             origin_x, static_cast<std::int16_t>(elevation), origin_z,
             unit.side == sim::Side::first ? 0 : 1,
-            quarter_turn, lean, unit.has_acted
+            facing, lean, unit.has_acted
         );
         ++visible;
     }
