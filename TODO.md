@@ -227,17 +227,24 @@ editor and its separate browser runtime.
   and search and filtering for projects with large rosters or content lists.
   - [x] Build the shared dependency index and fail-closed deletion decision for
     campaigns, battles, maps, rosters, roles, factions, gear, dialogue, and
-    presentation. The remaining work is exposing it consistently in the editor
-    and adding list search and filters.
+    presentation.
+  - [x] Expose named, confirmation-based safe deletion for project-owned maps,
+    gear, abilities, and reusable story scenes. Add search for projects,
+    rosters, gear, story scenes, and translation catalogs.
+  - [ ] Apply the same dependency preview consistently to campaign routes,
+    battles, roles, factions, and presentation definitions that can be removed.
 - [x] Add a guided character flow that creates a useful character, role,
   appearance, side, weapon, and starting loadout together, with an optional
   randomized starting point.
 - [x] Finish story-node sequencing outside battles: attach and detach multiple
   reusable scenes around a story node, show their numbered real play order,
   and move scenes earlier or later without editing portable source by hand.
-- [ ] Add human-readable project migration and recovery: explain an upcoming
+- [x] Add human-readable project migration and recovery: explain an upcoming
   schema update, make a backup before rewriting, and preserve an unreadable
-  source file so an author can recover or report it.
+  source file so an author can recover or report it. Listing and search are
+  read-only; project cards warn before the 1.3 → 1.4 update, opening keeps the
+  original source in project recovery data, and completed recovery remains
+  visible.
 
 Browser-only infrastructure is deliberately not a Godot requirement. This
 includes the PWA shell, IndexedDB storage, browser-side WebAssembly play mode,
@@ -292,10 +299,12 @@ than reproduce those implementation details.
   every proper name is universal. An author can save the same spelling as the
   reviewed translation when a proper name is deliberately shared.
 - [ ] Let authors preview the game in a selected language and validate
-  completeness. All authored catalogs already travel through the same portable
-  project and compiled package; the remaining work is applying the selected
-  game language throughout player presentation. Keep the workflow fully useful
-  offline and without an external service.
+  completeness. Authored catalogs travel through the portable project and
+  compiled package, the Godot player offers the authored languages before
+  launch, and it localizes campaign/stage names, dialogue, company character
+  names, unit types, weapons, abilities, and items with current-source fallback.
+  Finish the remaining named placement, objective, console, and shell surfaces.
+  Keep the workflow fully useful offline and without an external service.
 - [ ] Later, explore optional translation suggestions from an external AI model.
   Suggestions must be explicitly requested, remain visibly unapproved until a
   person accepts them, preserve source and manual translations, and never be a
@@ -326,9 +335,10 @@ portable campaign authoring, and complete combat-outcome coverage.
 - [x] Hand the Godot close-up smoothly from the real board to the focused
   attacker/target stage and back to the authoritative settled board, with a
   calm crossfade under Reduced motion.
-- [ ] Make the preference a portable game setting authors can choose, while
+- [x] Make the preference a portable game setting authors can choose, while
   retaining the local player override because the view adds meaningful time to
-  every exchange.
+  every exchange. Older games default to enabled, while an explicit local or
+  command-line player choice remains final.
 - [ ] Expand the close view with richer terrain detail and character animation,
   then cover multi-target abilities, special results, and rapid queued combat.
 - [ ] Reuse the same data-driven backdrop pools for in-game conversations.

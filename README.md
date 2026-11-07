@@ -142,7 +142,7 @@ rest of the documentation describes the current Godot application.
 | **0.2** | Complete campaign runtime. Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3** | Godot player and creator. Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
 | **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and uses one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. |
-| **0.5** | Editor and localization product pass. Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, better project organization, and the usability and accessibility work needed for larger games. Its end-to-end acceptance test starts with an empty project library, creates and edits a campaign through the normal Godot screens, exports a player-only game, launches it, and wins the first battle through normal controls. This release will also localize Grandleon's own Godot player/editor and add a final **Translations** step where authors can manually review and translate every player-facing string, including character names, check missing translations, preview a language, and export the localized project. The editor work will also prepare selected characters to be player-nameable while retaining an authored default. |
+| **0.5** | Editor and localization product pass. Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, safer project migration and deletion, better organization for larger games, and an end-to-end test that creates, exports, launches, and wins a game through the normal Godot screens. The work also localizes Grandleon's Godot shell and adds a **Translations** step where authors manually review player-facing text and character names, find missing or outdated work, preview a language, and export the localized project. Selected player-nameable characters with authored defaults remain part of the planned editor work. |
 | **Prior to 1.0** | Expand terrain-aware backdrops for combat and conversations, with optional ambient motion such as moving water, weather, foliage, light, and particles. Continue improving console character readability, terrain variety, animation, effects, interface clarity, close-up scenes, and performance measured on real hardware. Experiment with Android and, if practical, iOS exports of the Godot player and creator using the same portable games and presentation. Completely rework audio across music, ambience, battle effects, interface feedback, mixing, and platform consistency. Static backdrops remain the dependable fallback. |
 
 Importing external artwork may be explored later, but it is not part of the
@@ -163,11 +163,14 @@ Missing shell copy falls back to English.
 Games now record their own source language and carry manual translations in
 the same portable project and compiled package. Open a project's
 **Translations** screen to add a language (including `pt-BR`), review all
-gathered player-facing copy and character names, and filter missing or outdated
-work. Grandleon keeps the original source strings; if source copy changes after
-a translation was reviewed, the portable runtime data resolves to the current
-source instead of stale or empty text. Applying the chosen game language to
-every remaining in-game screen is continuing as part of the 0.5 work.
+gathered player-facing copy and character names, search the catalog, and filter
+missing or outdated work. Before a translated game starts, the player chooses
+from its authored languages. Godot then applies that choice to campaign and
+stage names, dialogue, company character names, and named units, weapons,
+abilities, and items. Grandleon keeps the original source strings; missing or
+outdated work falls back to the current source rather than stale or empty text.
+Named encounter placements, objectives, and the remaining editor/player shell
+surfaces are still being audited during the 0.5 work.
 
 The concrete presentation experiments currently in progress are kept in the
 short [development TODO](TODO.md).
@@ -205,11 +208,13 @@ Projects, saves, controls, recovery data, and exports live in per-user runtime
 storage. Portable archives do not contain usernames, machine paths,
 credentials, controller identities, or local settings.
 
-Projects exported by Grandleon 0.2 or 0.3 remain compatible with the 0.4
-release. Export a `.grandleon.zip` from the earlier editor and
-import it from the Godot Projects screen. Grandleon migrates the authored source
-before validating it; project assets transfer, while local recovery data
-and playtest progress do not.
+Projects exported by earlier Grandleon releases can be imported from the Godot
+Projects screen. When a stored project needs a schema update, its card explains
+the update before anything changes. Opening it keeps the original readable
+source under that project's recovery data, performs the update, and reports
+the result. An unreadable source is left untouched instead of being replaced.
+Portable project assets transfer; local recovery data and playtest progress do
+not.
 
 > **Back up projects while the editor evolves.** We still plan to do heavy work
 > on the editor throughout the next releases, and we will update the schema

@@ -4,7 +4,7 @@ Grandleon's PC application includes both the player and the campaign creator.
 A new campaign starts with a small playable chapter, so the normal workflow is
 simple: make a change, test it, and keep building from what works.
 
-This page is a visual tour of the 0.4 creator, not a permanent reference
+This page is a visual tour of the current creator, not a permanent reference
 manual. The editor will change substantially before 1.0, when the project will
 publish a complete step-by-step tutorial.
 
@@ -71,6 +71,11 @@ attach an existing reusable scene, move it earlier or later, or detach it from
 that story moment. Detaching does not delete the scene or remove it from any
 other story moment, so the same conversation can be reused safely.
 
+Large story libraries can be searched by scene title, internal identity, or
+speaker. **Delete This Scene** first shows every campaign or battle that still
+uses the scene. A referenced scene cannot be deleted; an unused scene requires
+a separate confirmation and can be restored with **Undo**.
+
 ![Writing dialogue, adding a scene, and opening the additional story actions](screenshots/native-guide/03-write-the-story.gif)
 
 Story text is saved with the project and shown consistently on PC, Nintendo
@@ -82,13 +87,17 @@ remembers the explicit choice instead of relying on the system locale again.
 To translate your game, open its project options and choose
 **Translations**. Confirm the language the original text was written in, add a
 target such as `es` or `pt-BR`, then work through the gathered dialogue, stage
-labels, content names, and character names. **Missing** shows work not started;
-**Outdated** shows translations reviewed before their source copy changed.
-Saving a translation records both your translated text and the exact source
-text you reviewed. The source is never replaced, and missing or outdated work
-resolves to the current source text in the portable game data. Applying the
-player's chosen game language across every remaining in-game screen is still in
-progress.
+labels, content names, and character names. Search finds source copy, context,
+or stable message identity. **Missing** shows work not started; **Outdated**
+shows translations reviewed before their source copy changed. Saving a
+translation records both your translated text and the exact source text you
+reviewed. A translation never replaces its original string, and missing or
+outdated work resolves to the current source text.
+
+A game with translated catalogs asks for its language before play. The Godot
+player currently applies it to campaign and stage names, dialogue, company
+character names, and named units, weapons, abilities, and items. Named battle
+placements, objectives, and remaining shell copy are still being audited.
 
 ## Add chapters and branches
 
@@ -119,6 +128,11 @@ then be tuned independently.
 Visible names can change without breaking campaign progress. Keep roles and
 gear small at first; add new choices when a chapter gives the player a reason
 to use them.
+
+The project, roster, gear, story, and translation screens include search for
+larger games. **Where Used / Delete** on maps, gear, abilities, and reusable
+story scenes shows named dependencies before an unused definition can be
+removed. Used, shared, missing, or unverifiable content is never deleted.
 
 For a new cast member, **Guided New Character** creates the named character,
 an independent role, appearance, side, first weapon, and compatible loadout in
@@ -160,11 +174,19 @@ Console builders are separate downloads. Once installed, they work offline
 and do not require a source checkout. The PlayStation image does not include a
 Sony licence sector, so it does not boot on an unmodified retail console.
 
+Under **Game Settings**, **Begin with Battle Close-ups** sets the game's
+portable starting recommendation. A player can still override it locally; the
+local accessibility choice always wins and does not change the project or its
+saves.
+
 ## Keep projects safe
 
 Export a `.grandleon.zip` at useful milestones and keep copies outside the
-application's project library. Projects made with Grandleon 0.2 or 0.3 can be
-imported into 0.4; source is migrated before it is opened.
+application's project library. Older projects can be imported into the current
+creator. A project card warns before a schema update; opening it keeps the
+original readable source as recovery data and reports the completed update.
+Unreadable source is left untouched so it can be recovered or attached to a
+bug report.
 
 > We still plan to do heavy work on the editor throughout the next releases,
 > and we will update the schema version with those changes. Existing projects
