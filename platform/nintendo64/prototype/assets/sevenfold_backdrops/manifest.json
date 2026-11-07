@@ -1,0 +1,600 @@
+{
+  "schema": 1,
+  "pack": "medieval_forest_gate",
+  "terrain_ids": {
+    "dominant": 2,
+    "secondary": 9,
+    "transition": 12
+  },
+  "transition_orientation": "north_south",
+  "variants": 3,
+  "selected_seed": 2031659219,
+  "selected_variant": 2,
+  "freeze_for_exchange": true,
+  "composite_resolution": [
+    320,
+    160
+  ],
+  "tile_resolution": [
+    80,
+    40
+  ],
+  "tile_layout": [
+    4,
+    4
+  ],
+  "generated_by": "platform/nintendo64/scripts/generate-sevenfold-backdrop-assets.py",
+  "generator_sha256": "e58bc7e88e9769a9f84038b72b57fdc915003c98da2f8dc3c0f28e2c9e59f669",
+  "source_manifest": "platform/godot/project/art/combat_backdrops/manifest.json",
+  "source_manifest_sha256": "8a067d286cd75aebd05ed5eb5b1b197ff06cba36af7dcce349a08e07bfe08578",
+  "source_variants": [
+    {
+      "variant": 0,
+      "layers": [
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/panorama_0.png",
+          "sha256": "d67df80b1d16fc27dd863da07807d63198d84364645068a4193c3a2c6f0d3f7b"
+        },
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/transition_grass_paved_0.png",
+          "sha256": "d3cf04e7afb233dde0d929b169894f9bf611a6e602bf7ad782f0a23aeea04dac"
+        },
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/midground_forest_0.png",
+          "sha256": "7484f271293cf37ef733e27f04f98f8d14e2646a80b9096cc4b15c26eb998cbc"
+        },
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/props_0.png",
+          "sha256": "b0ebd615962ce005b2be32fa4b0554b662330be882b0e993aa286c9b0cd67a23"
+        }
+      ]
+    },
+    {
+      "variant": 1,
+      "layers": [
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/panorama_1.png",
+          "sha256": "33cacd4d0c6f6a9f6c6efbbec67638e1d3c7162c2d2cc2801484f9334c234fb0"
+        },
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/transition_grass_paved_1.png",
+          "sha256": "2568537a540c88bba0e616336602847ee88eee9f969ee5cbfd545db8e62d408d"
+        },
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/midground_forest_1.png",
+          "sha256": "deb5b3902527d68aeae230c774d368534bd970837485b7c6c5236525ae69d2fc"
+        },
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/props_1.png",
+          "sha256": "7cab37c0fa8f5dc06a12fca31fad257b86a9e2d108d4324d566b87e8a771b71c"
+        }
+      ]
+    },
+    {
+      "variant": 2,
+      "layers": [
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/panorama_2.png",
+          "sha256": "5a2624591b385efc5b62f4092ab4e52c2f8dd9a0b8dd3dbf4c334024a4b7ba76"
+        },
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/transition_grass_paved_2.png",
+          "sha256": "46bed6b1860d29ebf76cc9235591663429ef29e2c341930eed5a8982aa9aa3b5"
+        },
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/midground_forest_2.png",
+          "sha256": "1b6ff74ae475952fe69076c7a0029b459c2a58a0c860c59fc5aacf615f08738c"
+        },
+        {
+          "path": "platform/godot/project/art/combat_backdrops/medieval_forest_gate/props_2.png",
+          "sha256": "cc11615684d78d59318992d0a89b4987aefa61c978a58aefc96131ba7e7c6d7c"
+        }
+      ]
+    }
+  ],
+  "composites": [
+    {
+      "path": "medieval_forest_gate_v0.png",
+      "sha256": "248c74ada8ca3a939fd277b30fa56cc4b9cb1153c41ea201984996d231c75493",
+      "variant": 0,
+      "width": 320,
+      "height": 160
+    },
+    {
+      "path": "medieval_forest_gate_v1.png",
+      "sha256": "73288b0d65a1ea731d45283570e415f6a4b34dfe44528e265a3802ffabc80941",
+      "variant": 1,
+      "width": 320,
+      "height": 160
+    },
+    {
+      "path": "medieval_forest_gate_v2.png",
+      "sha256": "3287d87c5998199598a69b6a00733cc644f2f6df3b721bb47f9e5792fd3a2ce5",
+      "variant": 2,
+      "width": 320,
+      "height": 160
+    }
+  ],
+  "assets": [
+    {
+      "path": "medieval_forest_gate_v0_r0_c0.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 0,
+      "row": 0,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r0_c1.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 0,
+      "row": 0,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r0_c2.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 0,
+      "row": 0,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r0_c3.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 0,
+      "row": 0,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r1_c0.png",
+      "sha256": "f04d7eda1233d82776b39eaaffa263b4745d8fdcc55ece015c6f7771cf792b31",
+      "variant": 0,
+      "row": 1,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r1_c1.png",
+      "sha256": "ac5809d09942ef0fdb82e06be70da90f01bf1197c99b0065c225f762b3d10087",
+      "variant": 0,
+      "row": 1,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r1_c2.png",
+      "sha256": "4294c28e959a7e98d18e408dc75c06af0eb2bc783299967aec7fb14eee301443",
+      "variant": 0,
+      "row": 1,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r1_c3.png",
+      "sha256": "9d419a26cc85350ca0441d4144d1015cd4573527979fb891ec18c75fdc8025e8",
+      "variant": 0,
+      "row": 1,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r2_c0.png",
+      "sha256": "52eb57f183f90948f3ca17b4639b369147ab958dd52a0839f9ca26a27ced5f31",
+      "variant": 0,
+      "row": 2,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r2_c1.png",
+      "sha256": "be595ac68108c618d9188a9884307b0ddc472b8a2dcf15c018390bf3e354e2b9",
+      "variant": 0,
+      "row": 2,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r2_c2.png",
+      "sha256": "07b66864c7bff85243f7843ad2c287e9d9c72cb682eee353c5d7337b5355cdbd",
+      "variant": 0,
+      "row": 2,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r2_c3.png",
+      "sha256": "a6f67f19d8cc726e8e00e09c45c9503ce10f9812d51d5512a9943636ab9bf0ad",
+      "variant": 0,
+      "row": 2,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r3_c0.png",
+      "sha256": "c338101156fbc09ba1d92c067d7312df6e91f48c8412f62dc1d3ab4f8e3bb581",
+      "variant": 0,
+      "row": 3,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r3_c1.png",
+      "sha256": "a1245436f10198397a5cc8faf0d7bd1ec97cd7bb1701c8054dc8087af8a1d00a",
+      "variant": 0,
+      "row": 3,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r3_c2.png",
+      "sha256": "4fe9b875349e2f90d8a00692afc684c48b4404497a1b1e79e4429a23285126f6",
+      "variant": 0,
+      "row": 3,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v0_r3_c3.png",
+      "sha256": "713b37108f6aea87b4990db4716d85e91c74a7ed40a565c17d8b2a2817541bea",
+      "variant": 0,
+      "row": 3,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r0_c0.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 1,
+      "row": 0,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r0_c1.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 1,
+      "row": 0,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r0_c2.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 1,
+      "row": 0,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r0_c3.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 1,
+      "row": 0,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r1_c0.png",
+      "sha256": "8e9f4df4c9f027748fa70b312eb006194fb02fcfb4e87d739b99ae45868dcc77",
+      "variant": 1,
+      "row": 1,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r1_c1.png",
+      "sha256": "a438a9442a3842a339cc36936329487930ad117f2b9923ce00413ecb5bf5cb3a",
+      "variant": 1,
+      "row": 1,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r1_c2.png",
+      "sha256": "42fa31af09a40b5deb710d2fa317439287212ceb8422bfb71742b41f7b4f33f9",
+      "variant": 1,
+      "row": 1,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r1_c3.png",
+      "sha256": "bc17d3a9723bc934f3ba1f1bc7e8de07e158fab1c7f2a43bc34877562d173ce8",
+      "variant": 1,
+      "row": 1,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r2_c0.png",
+      "sha256": "1c4b056cb157654fb5c4a20ca4ff88a1a7b91b2c61d543cecd17fbb154b991c6",
+      "variant": 1,
+      "row": 2,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r2_c1.png",
+      "sha256": "94bcefa2efdecdd4ea2893063eaa354b7c1aa24ce574603d9c63df81838e7e4f",
+      "variant": 1,
+      "row": 2,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r2_c2.png",
+      "sha256": "0d0433bdb4d970ffea806cc25ce5dfe9a370b442977a499459b44bbac53914a8",
+      "variant": 1,
+      "row": 2,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r2_c3.png",
+      "sha256": "2190c350e2486795982ed0fa778166009ed95baacc7165de6546774f2f7c5bdc",
+      "variant": 1,
+      "row": 2,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r3_c0.png",
+      "sha256": "3433040ccadc5e8ca9b10119dd670bfedaf13dd44a4e3f731401349cf7a17603",
+      "variant": 1,
+      "row": 3,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r3_c1.png",
+      "sha256": "ad544b5f3da4d456b074debfb8f8d10f12f235208d2e5fef668060ab8871c28a",
+      "variant": 1,
+      "row": 3,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r3_c2.png",
+      "sha256": "e530ddefc37dfdf7267d47b8f5ee30912a0811b6539c2cc269ca3d302be96f6c",
+      "variant": 1,
+      "row": 3,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v1_r3_c3.png",
+      "sha256": "87a3fd15a6e8e9e70925324b0dba8fec070d5c031269dbaeca0ad428e124b4ee",
+      "variant": 1,
+      "row": 3,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r0_c0.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 2,
+      "row": 0,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r0_c1.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 2,
+      "row": 0,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r0_c2.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 2,
+      "row": 0,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r0_c3.png",
+      "sha256": "47ed8efdbbda3294b6aeeccc5503d536e17efefbac5835012b18a0259fe5897b",
+      "variant": 2,
+      "row": 0,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r1_c0.png",
+      "sha256": "9f82109c6b2d1f5040fcccd1d69c1cb9d4c241d89a900b5e8e674e2c1d4a7cd9",
+      "variant": 2,
+      "row": 1,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r1_c1.png",
+      "sha256": "dc33258a54928f68b7ae8c16364e7e232b7f2a4d3127f81727db27d76839b419",
+      "variant": 2,
+      "row": 1,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r1_c2.png",
+      "sha256": "d40b748f78e0f52de74fd2358c315ffc50aaea05c11ed4fa76ca094f79f4d334",
+      "variant": 2,
+      "row": 1,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r1_c3.png",
+      "sha256": "f73f8f3160750304f60308e5391247f8142c2ed8fece88327f48ebaf0f8bd7af",
+      "variant": 2,
+      "row": 1,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r2_c0.png",
+      "sha256": "2718f45ee3af7ee915be1ac62e660167c489f66f890fd32da35361cda5294737",
+      "variant": 2,
+      "row": 2,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r2_c1.png",
+      "sha256": "4a48c8f28ee33de4b012ed27310535aef994e209da851de14b8a2d6f8290f238",
+      "variant": 2,
+      "row": 2,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r2_c2.png",
+      "sha256": "f0d3c72025a26c8e20b205455ab46682bf19491641de83b9c88b3608e76536e8",
+      "variant": 2,
+      "row": 2,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r2_c3.png",
+      "sha256": "a227ff82d368a82792300a86e4a7ff3fd86ac844427199e1a2374b7b53b75734",
+      "variant": 2,
+      "row": 2,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r3_c0.png",
+      "sha256": "ef3e2c55bcd29571447a2c6611b234479a1b984ba5225a05901c2aa0f38c8b23",
+      "variant": 2,
+      "row": 3,
+      "column": 0,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r3_c1.png",
+      "sha256": "a77e212aa0efc53aeb9c3b9d251b21b8aec2a00c94c9c8f65b49b5e41b635f2a",
+      "variant": 2,
+      "row": 3,
+      "column": 1,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r3_c2.png",
+      "sha256": "cb582682aa565177c48f8491aa9dea4b25d3ea6dc0bcb38d2af66c79ac374014",
+      "variant": 2,
+      "row": 3,
+      "column": 2,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    },
+    {
+      "path": "medieval_forest_gate_v2_r3_c3.png",
+      "sha256": "9d42fd6c25783ba60b9ddc61af02f78b2a558442796110537917b8bf74ac3aa1",
+      "variant": 2,
+      "row": 3,
+      "column": 3,
+      "width": 80,
+      "height": 40,
+      "format": "CI4"
+    }
+  ]
+}

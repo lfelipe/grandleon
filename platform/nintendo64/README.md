@@ -147,15 +147,20 @@ an eight-role 2.5D tactical board and tile movement, seven terrain close
 views, the proxy animation, and matched proxy/hybrid close views for medieval
 and mythical representatives. It also records the canonical 8.15-second
 cross-renderer scene: the same six-by-four forest/grass/paved board, knights,
-health, damage, counter, and phase timing used by Godot and PlayStation. The
-current run passes `60/60` and records the complete checkpoint trail. The two
+health, damage, counter, and phase timing used by Godot and PlayStation. Its
+schema-2 capture surrounds those active cells with the shared twelve-by-ten
+forest composition, fills the native 320×240 image, and removes the diagnostic
+title and footer. Only in-world health, selection/target marks, and transient
+damage remain. The current run passes `63/63` and records the complete
+checkpoint trail. The two
 low-poly tactical material views measure 78 and 74 fps,
 versus 81 and 76 fps for their identical flat views. Textured
 proxy close views measure 153 fps for medieval and 129 fps for mythical. The
-hybrid idle/impact views measure 403–444 fps, and its five-pose attack/counter
-exchange peaks at 2.64 ms. The full 2.5D board measures about 400 fps while
-static and 290 fps at its slowest animated frame. The canonical scene peaks at
-2.50 ms. These are renderer-throughput measurements in
+hybrid idle/impact views measure 389–503 fps, and its five-pose attack/counter
+exchange peaks at 2.68 ms. The full 2.5D board measures 396 fps while static
+and 287 fps at its slowest animated frame. The schema-2 canonical scene peaks
+at 2.71 ms; its first sixteen-tile backdrop frame takes 1.87 ms. These are
+renderer-throughput measurements in
 ares, not display rate or timings from original hardware.
 
 Both texture paths are deliberately confined to the diagnostic viewer while
@@ -169,7 +174,28 @@ and tree props around board edges and close-view backgrounds. It does not put
 props over active units or movement highlights. The material and prop atlases
 total 4,432 embedded bytes; either atlas occupies 2,080 bytes of TMEM, well
 inside the 4 KiB limit. Loading the two sprite objects copies those same 4,432
-bytes into RDRAM for the viewer. The close candidate embeds
+bytes into RDRAM for the viewer.
+The live close-view strip adds one 64×32 CI4 grass/paved atlas: 1,192 embedded
+and RDRAM bytes, with a 1,056-byte TMEM peak. It is repeated only across the
+lower 72 scanlines so the pre-rendered plate and active terrain meet without a
+large flat 3D foreground slab.
+
+The matched close view adds a data-driven pre-rendered backdrop proof. Its
+source is the shared set of Godot-rendered 1280×720 panorama, transition,
+midground, and prop layers. Three approved forest/grass/paved variants are
+downsampled to 320×160 and split into sixteen independently paletted 80×40 CI4
+tiles each. A tile uses 1,632 bytes of TMEM, so the renderer streams ordinary
+sprites instead of requiring the whole plate to fit at once. Selection keys on
+dominant, secondary and transition terrain IDs, transition orientation, and a
+stable seed; this showcase resolves variant 2 and keeps it frozen through the
+attack and counter. The plate owns the sky and distant scenery, while the live
+modular grass/paved floor strip, character cutouts, shadows, hit effect and
+compact health/damage overlays remain dynamic. All three variants occupy
+84,864 bytes in ROM and the same amount when loaded in the diagnostic viewer's
+RDRAM. Their
+addition moves the aligned viewer ROM from 1,261,568 to 1,294,336 bytes.
+
+The close candidate embeds
 75,664 bytes for five poses per fighter, two styles, shadows, and impact. One
 84×84 CI4 cutout uses 4,064 bytes of TMEM after the RDP's row alignment,
 leaving 32 bytes free. CI8 at that resolution cannot fit. The board keeps its
@@ -197,6 +223,7 @@ procedural art; their manifest pins both the generator and output hashes:
 ```sh
 platform/nintendo64/scripts/generate-sevenfold-hybrid-assets.py
 platform/nintendo64/scripts/generate-sevenfold-terrain-assets.py
+platform/nintendo64/scripts/generate-sevenfold-backdrop-assets.py
 ```
 
 The full-roster models are deterministic procedural console proxies; the

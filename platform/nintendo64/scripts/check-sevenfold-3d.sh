@@ -94,16 +94,84 @@ if (
     != terrain_report["generator_sha256"]
 ):
     raise SystemExit("N64 terrain generator changed; regenerate its atlases")
-if len(terrain_report["assets"]) != 2:
-    raise SystemExit("N64 terrain manifest must contain two original atlases")
+if len(terrain_report["assets"]) != 3:
+    raise SystemExit("N64 terrain manifest must contain three original atlases")
 for asset in terrain_report["assets"]:
     output = terrain_dir / asset["path"]
     if not output.is_file() or output.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
         raise SystemExit(f"N64 terrain asset is missing or not PNG: {output}")
     if hashlib.sha256(output.read_bytes()).hexdigest() != asset["sha256"]:
         raise SystemExit(f"N64 terrain asset changed: {output}")
-    if (asset["width"], asset["height"], asset["format"]) != (64, 64, "CI4"):
+    expected = (64, 32, "CI4") if asset["path"] == "floor_atlas.png" \
+        else (64, 64, "CI4")
+    if (asset["width"], asset["height"], asset["format"]) != expected:
         raise SystemExit(f"N64 terrain atlas contract changed: {output}")
+
+backdrop_dir = root / "platform/nintendo64/prototype/assets/sevenfold_backdrops"
+backdrop_report = json.loads((backdrop_dir / "manifest.json").read_text())
+backdrop_generator = root / backdrop_report["generated_by"]
+if (
+    hashlib.sha256(backdrop_generator.read_bytes()).hexdigest()
+    != backdrop_report["generator_sha256"]
+):
+    raise SystemExit("N64 backdrop generator changed; regenerate its tiles")
+source_manifest = root / backdrop_report["source_manifest"]
+if (
+    hashlib.sha256(source_manifest.read_bytes()).hexdigest()
+    != backdrop_report["source_manifest_sha256"]
+):
+    raise SystemExit("Shared Godot backdrop manifest changed; regenerate N64 tiles")
+if (
+    backdrop_report["terrain_ids"]
+    != {"dominant": 2, "secondary": 9, "transition": 12}
+    or backdrop_report["transition_orientation"] != "north_south"
+    or backdrop_report["variants"] != 3
+    or backdrop_report["selected_variant"] != 2
+    or not backdrop_report["freeze_for_exchange"]
+):
+    raise SystemExit("N64 backdrop selector contract changed")
+if len(backdrop_report["assets"]) != 48 or len(backdrop_report["composites"]) != 3:
+    raise SystemExit("N64 backdrop must contain three sixteen-tile variants")
+for variant in backdrop_report["source_variants"]:
+    for layer in variant["layers"]:
+        path = root / layer["path"]
+        if hashlib.sha256(path.read_bytes()).hexdigest() != layer["sha256"]:
+            raise SystemExit(f"Shared Godot backdrop layer changed: {path}")
+for asset in backdrop_report["assets"]:
+    output = backdrop_dir / asset["path"]
+    if hashlib.sha256(output.read_bytes()).hexdigest() != asset["sha256"]:
+        raise SystemExit(f"N64 backdrop tile changed: {output}")
+    if (asset["width"], asset["height"], asset["format"]) != (80, 40, "CI4"):
+        raise SystemExit(f"N64 backdrop tile contract changed: {output}")
+for composite in backdrop_report["composites"]:
+    output = backdrop_dir / composite["path"]
+    if hashlib.sha256(output.read_bytes()).hexdigest() != composite["sha256"]:
+        raise SystemExit(f"N64 backdrop composite changed: {output}")
+
+comparison = json.loads(
+    (root / "tools/renderer_comparison/scene.json").read_text()
+)
+surroundings = comparison["surroundings"]
+values = [
+    surroundings["width"], surroundings["height"],
+    *surroundings["active_origin"],
+    *(value for row in surroundings["rows"] for value in row),
+]
+layout_hash = 0x811C9DC5
+for value in values:
+    layout_hash ^= value
+    layout_hash = (layout_hash * 0x01000193) & 0xFFFFFFFF
+if (
+    comparison["schema"] != 2
+    or comparison["id"] != "medieval_forest_renderer_showcase_v2"
+    or surroundings["width"] != 12
+    or surroundings["height"] != 10
+    or surroundings["active_origin"] != [3, 3]
+    or len(surroundings["rows"]) != 10
+    or any(len(row) != 12 for row in surroundings["rows"])
+    or layout_hash != 0x66909BD6
+):
+    raise SystemExit("N64 schema-two showcase layout is out of sync")
 print("Sevenfold 3D roster provenance passed: 112 combinations")
 PYEOF
 
@@ -126,7 +194,8 @@ fi
 
 GRANDLEON_N64_BUILD_DIR="${build_dir}" \
 GRANDLEON_N64_ARES_SECONDS=120 \
-GRANDLEON_N64_ARES_MIN_CHECKS=60 \
+GRANDLEON_N64_ARES_MIN_CHECKS=63 \
+GRANDLEON_N64_ARES_POLL_SECONDS=0.05 \
 GRANDLEON_N64_ARES_LOG=sevenfold-3d.log \
 GRANDLEON_N64_ARES_TRAIL=trail-sevenfold-3d \
 GRANDLEON_N64_ARES_SHOT=screenshot-sevenfold-3d.png \
@@ -159,6 +228,8 @@ done
 grep -q '^sevenfold tactical-hybrid stage=medieval models=8 roles=8 bodies=mixed teams=blue-red .* tmem_peak=3648 embedded=.* ordering=foot-depth highlights=blue-and-gold$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-medieval$' "${log}"
 grep -q '^sevenfold terrain-quality material=64x64-ci4 regions=4 prop=64x64-ci4 cells=4 tmem_peak=2080 embedded=.* variation=deterministic transitions=cluster-tone provenance=repo-generated$' "${log}"
+grep -q '^sevenfold backdrop pack=forest-grass-paved orientation=north-south variants=3 selected=2 tiles=16 tile=80x40-ci4 composite=320x160 tmem_peak=1632 embedded=.* rdram=.* frozen=yes source=godot-plates$' "${log}"
+grep -q '^sevenfold showcase-contract schema=2 surroundings=12x10 active-origin=3,3 layout_hash=66909bd6 diagnostics=none$' "${log}"
 grep -q '^sevenfold tactical-hybrid-animation stage=medieval frames=72 .* motion=tile-move poses=idle2-walk2 easing=smoothstep beats=anticipation-move-settle ordering=foot-depth$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-move-start$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-move-end$' "${log}"
@@ -197,10 +268,10 @@ grep -q '^sevenfold hybrid-animation stage=medieval frames=246 .* anchors=locked
 grep -q '^CHECKPOINT sevenfold-hybrid-animation-start$' "${log}"
 grep -q '^CHECKPOINT sevenfold-hybrid-animation-impact$' "${log}"
 grep -q '^CHECKPOINT sevenfold-hybrid-animation-counter$' "${log}"
-grep -q '^sevenfold readme-sequence id=medieval_knight_counter_v1 frames=245 fps=30 seconds=8.15 board=6x4 terrain=2-9-12 left=medieval-knight-male-blue-hp12-to8 right=medieval-knight-female-red-hp11-to8 damage=3-4 impacts=3.45-5.50 anchors=locked .* fps_throughput=.*$' "${log}"
+grep -q '^sevenfold readme-sequence id=medieval_forest_renderer_showcase_v2 frames=245 fps=30 seconds=8.15 board=6x4 surroundings=12x10 terrain=2-9-12 hud=compact diagnostics=none left=medieval-knight-male-blue-hp12-to8 right=medieval-knight-female-red-hp11-to8 damage=3-4 impacts=3.45-5.50 anchors=locked .* fps_throughput=.*$' "${log}"
 grep -q '^CHECKPOINT sevenfold-readme-sequence-start$' "${log}"
 for checkpoint in board focus attack counter restored; do
     grep -q "^CHECKPOINT sevenfold-readme-${checkpoint}$" "${log}"
 done
-grep -q '^RESULT PASS 60/60$' "${log}"
+grep -q '^RESULT PASS 63/63$' "${log}"
 echo "Nintendo 64 Sevenfold 3D roster check passed: ${rom}"

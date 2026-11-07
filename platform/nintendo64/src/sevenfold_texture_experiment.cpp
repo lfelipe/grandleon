@@ -27,6 +27,7 @@ alignas(16) std::uint16_t palette[palette_entries]{};
 surface_t character_surface{};
 sprite_t* terrain_atlas = nullptr;
 sprite_t* prop_atlas = nullptr;
+sprite_t* floor_atlas = nullptr;
 bool ready = false;
 
 void put(
@@ -220,7 +221,11 @@ bool initialize() {
     prop_atlas = load(
         terrain_prop_atlas, terrain_prop_atlas_size
     );
-    ready = terrain_atlas != nullptr && prop_atlas != nullptr;
+    floor_atlas = load(
+        terrain_floor_atlas, terrain_floor_atlas_size
+    );
+    ready = terrain_atlas != nullptr && prop_atlas != nullptr &&
+        floor_atlas != nullptr;
     return ready;
 }
 
@@ -237,10 +242,33 @@ void draw_board_props(bool compact) {
     // Kept at the perimeter so the fixed camera gains foreground depth without
     // obscuring walkable-cell boundaries, selection marks, or any unit feet.
     if (compact) {
-        prop(3, 5, 73, 29, 51);
-        prop(1, 285, 83, 30, 32, true);
-        prop(0, 3, 162, 27, 30);
-        prop(2, 288, 162, 28, 30);
+        // Schema-2 showcase: a coherent forest ring rather than four isolated
+        // decorations in empty screen space. Back-to-front sizes approximate
+        // the fixed tactical camera's depth while leaving the active 6x4
+        // clearing and both unit slots unobstructed.
+        prop(3, 12, 42, 20, 36);
+        prop(3, 34, 48, 18, 33, true);
+        prop(3, 57, 39, 23, 42);
+        prop(3, 91, 45, 19, 35, true);
+        prop(3, 214, 43, 20, 37);
+        prop(3, 242, 38, 23, 42, true);
+        prop(3, 268, 47, 19, 35);
+        prop(3, 291, 43, 22, 40, true);
+        prop(3, 1, 83, 30, 55);
+        prop(3, 23, 96, 27, 50, true);
+        prop(3, 48, 111, 25, 46);
+        prop(3, 270, 108, 25, 46, true);
+        prop(3, 290, 88, 29, 54);
+        prop(3, -9, 145, 43, 79, true);
+        prop(3, 20, 164, 36, 66);
+        prop(3, 281, 148, 42, 78);
+        prop(3, 258, 166, 35, 65, true);
+        prop(1, 38, 187, 36, 39);
+        prop(1, 246, 186, 38, 40, true);
+        prop(0, 1, 207, 31, 33);
+        prop(0, 288, 207, 31, 33, true);
+        prop(2, 52, 211, 30, 29);
+        prop(2, 238, 211, 30, 29, true);
     } else {
         prop(3, 4, 68, 30, 55);
         prop(1, 283, 82, 32, 34, true);
@@ -272,13 +300,32 @@ void draw_close_props(std::uint8_t terrain) {
     }
 }
 
+void draw_capture_floor_strip() {
+    if (!ready && !initialize()) return;
+    rdpq_set_mode_standard();
+    rdpq_mode_tlut(TLUT_RGBA16);
+    rdpq_mode_filter(FILTER_POINT);
+    rdpq_sprite_upload(TILE0, floor_atlas, nullptr);
+    for (int side = 0; side < 2; ++side) {
+        const int source_left = side * 32;
+        for (int tile = 0; tile < 4; ++tile) {
+            const int left = side * 160 + tile * 40;
+            rdpq_texture_rectangle_scaled(
+                TILE0, left, 168, left + 40, 240,
+                source_left, 0, source_left + 32, 32
+            );
+        }
+    }
+}
+
 std::size_t terrain_peak_texture_bytes() noexcept {
     // One 64x64 four-bit image plus a sixteen-entry RGBA16 lookup table.
     return terrain_atlas_side * terrain_atlas_side / 2 + 16 * 2;
 }
 
 std::size_t terrain_embedded_bytes() noexcept {
-    return terrain_material_atlas_size + terrain_prop_atlas_size;
+    return terrain_material_atlas_size + terrain_prop_atlas_size +
+        terrain_floor_atlas_size;
 }
 
 UV character_uv(

@@ -1,7 +1,7 @@
 {
   "format": "Grandleon N64 terrain experiment assets v1",
   "generated_by": "platform/nintendo64/scripts/generate-sevenfold-terrain-assets.py",
-  "generator_sha256": "2ee12f34411e6d0ecc825652a7760452e5214d9cb90023c527d37c453cf61c30",
+  "generator_sha256": "767df5710df8b884e46ed7e42f8691d90e82a2b462df7ffdc24f5f9f24d69ab0",
   "assets": [
     {
       "path": "material_atlas.png",
@@ -27,6 +27,17 @@
         "shrub",
         "rocks",
         "tree"
+      ]
+    },
+    {
+      "path": "floor_atlas.png",
+      "sha256": "ad97a5156019a27030f9e85a047a29ad3620813b8e269e0c1998cc3f6ecf0c83",
+      "width": 64,
+      "height": 32,
+      "format": "CI4",
+      "cells": [
+        "grass",
+        "paved"
       ]
     }
   ]

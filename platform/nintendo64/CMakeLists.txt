@@ -768,7 +768,7 @@ if(GRANDLEON_N64_SEVENFOLD_3D)
     set(terrain_sprite_dir
         "${CMAKE_CURRENT_BINARY_DIR}/generated/sevenfold_terrain_sprites")
     file(MAKE_DIRECTORY "${terrain_sprite_dir}")
-    set(terrain_assets material_atlas prop_atlas)
+    set(terrain_assets material_atlas prop_atlas floor_atlas)
     string(CONCAT terrain_assets_header
         "// Generated from original N64 terrain-quality PNGs via mksprite.\n"
         "#pragma once\n"
@@ -805,9 +805,74 @@ if(GRANDLEON_N64_SEVENFOLD_3D)
         "${CMAKE_CURRENT_BINARY_DIR}/generated/sevenfold_terrain_assets.h"
         "${terrain_assets_header}")
 
+    # The close-view backdrop is streamed as 80x40 CI4 tiles. Each tile gets
+    # an independent palette and occupies at most 1,632 bytes of TMEM; the
+    # three approved variants remain ordinary sprites in ROM/RDRAM.
+    set(backdrop_asset_dir
+        "${CMAKE_CURRENT_SOURCE_DIR}/prototype/assets/sevenfold_backdrops")
+    set(backdrop_sprite_dir
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/sevenfold_backdrop_sprites")
+    file(MAKE_DIRECTORY "${backdrop_sprite_dir}")
+    set(backdrop_assets)
+    foreach(backdrop_variant RANGE 0 2)
+        foreach(backdrop_row RANGE 0 3)
+            foreach(backdrop_column RANGE 0 3)
+                list(APPEND backdrop_assets
+                    "medieval_forest_gate_v${backdrop_variant}_r${backdrop_row}_c${backdrop_column}")
+            endforeach()
+        endforeach()
+    endforeach()
+    string(CONCAT backdrop_assets_header
+        "// Generated from shared Godot combat plates via mksprite.\n"
+        "#pragma once\n"
+        "#include <cstddef>\n"
+    )
+    set(backdrop_pointer_table "")
+    set(backdrop_size_table "")
+    foreach(backdrop_asset IN LISTS backdrop_assets)
+        execute_process(
+            COMMAND
+                "${N64_BINDIR}/mksprite" -f CI4 -c 0
+                -o "${backdrop_sprite_dir}"
+                "${backdrop_asset_dir}/${backdrop_asset}.png"
+            RESULT_VARIABLE backdrop_mksprite_status
+            OUTPUT_QUIET
+        )
+        if(NOT backdrop_mksprite_status EQUAL 0)
+            message(FATAL_ERROR
+                "mksprite failed for N64 backdrop asset ${backdrop_asset}")
+        endif()
+        file(READ
+            "${backdrop_sprite_dir}/${backdrop_asset}.sprite"
+            backdrop_sprite_hex HEX)
+        string(LENGTH "${backdrop_sprite_hex}" backdrop_sprite_hex_length)
+        math(EXPR backdrop_sprite_size "${backdrop_sprite_hex_length} / 2")
+        string(REGEX REPLACE
+            "([0-9a-f][0-9a-f])" "0x\\1,"
+            backdrop_sprite_bytes "${backdrop_sprite_hex}")
+        string(CONCAT backdrop_assets_header "${backdrop_assets_header}"
+            "inline constexpr unsigned char backdrop_${backdrop_asset}[] = {"
+            "${backdrop_sprite_bytes}};\n"
+            "inline constexpr std::size_t backdrop_${backdrop_asset}_size = "
+            "${backdrop_sprite_size};\n")
+        string(APPEND backdrop_pointer_table
+            "backdrop_${backdrop_asset},")
+        string(APPEND backdrop_size_table
+            "backdrop_${backdrop_asset}_size,")
+    endforeach()
+    string(CONCAT backdrop_assets_header "${backdrop_assets_header}"
+        "inline constexpr const unsigned char* backdrop_tile_data[] = {"
+        "${backdrop_pointer_table}};\n"
+        "inline constexpr std::size_t backdrop_tile_sizes[] = {"
+        "${backdrop_size_table}};\n")
+    file(WRITE
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/sevenfold_backdrop_assets.h"
+        "${backdrop_assets_header}")
+
     add_executable(
         grandleon_n64_sevenfold_3d
         prototype/sevenfold_roster_rom.cpp
+        src/sevenfold_backdrop_experiment.cpp
         src/sevenfold_hybrid_experiment.cpp
         src/sevenfold_texture_experiment.cpp
     )

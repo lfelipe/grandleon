@@ -17,6 +17,7 @@
 #include <cstdlib>
 
 #include "n64_showcase.h"
+#include "sevenfold_backdrop_experiment.h"
 #include "sevenfold_hybrid_experiment.h"
 #include "sevenfold_presentation.h"
 #include "sevenfold_roster_proxies.h"
@@ -26,6 +27,8 @@ namespace {
 
 namespace texture =
     grandleon::nintendo64::sevenfold_texture_experiment;
+namespace backdrop =
+    grandleon::nintendo64::sevenfold_backdrop_experiment;
 namespace hybrid =
     grandleon::nintendo64::sevenfold_hybrid_experiment;
 
@@ -34,8 +37,13 @@ constexpr int board_triangles =
     sevenfold_board_columns * sevenfold_board_rows * 2;
 constexpr int matched_board_columns = 6;
 constexpr int matched_board_rows = 4;
-constexpr int matched_board_triangles =
-    matched_board_columns * matched_board_rows * 2;
+constexpr int matched_surrounding_columns = 12;
+constexpr int matched_surrounding_rows = 10;
+constexpr int matched_active_origin_column = 3;
+constexpr int matched_active_origin_row = 3;
+constexpr int matched_cell_world = 48;
+constexpr int matched_scene_triangles =
+    matched_surrounding_columns * matched_surrounding_rows * 2;
 constexpr std::uint8_t matched_terrain
     [matched_board_rows][matched_board_columns] = {
         {2, 2, 9, 12, 12, 2},
@@ -43,7 +51,41 @@ constexpr std::uint8_t matched_terrain
         {2, 9, 9, 12, 9, 2},
         {2, 2, 9, 12, 2, 2},
     };
-constexpr int board_vertices = board_triangles * 3;
+constexpr std::uint8_t matched_surrounding_terrain
+    [matched_surrounding_rows][matched_surrounding_columns] = {
+        {2, 2, 2, 2, 2, 9, 12, 12, 2, 2, 2, 2},
+        {2, 2, 2, 2, 2, 9, 12, 12, 2, 2, 2, 2},
+        {2, 2, 2, 2, 2, 9, 12, 12, 2, 2, 2, 2},
+        {2, 2, 2, 2, 2, 9, 12, 12, 2, 2, 2, 2},
+        {2, 2, 2, 2, 9, 9, 12, 12, 2, 2, 2, 2},
+        {2, 2, 2, 2, 9, 9, 12, 9, 2, 2, 2, 2},
+        {2, 2, 2, 2, 2, 9, 12, 2, 2, 2, 2, 2},
+        {2, 2, 2, 2, 2, 9, 12, 2, 2, 2, 2, 2},
+        {2, 2, 2, 2, 2, 9, 12, 2, 2, 2, 2, 2},
+        {2, 2, 2, 2, 2, 9, 12, 2, 2, 2, 2, 2},
+    };
+[[nodiscard]] constexpr std::uint32_t matched_layout_hash() noexcept {
+    std::uint32_t result = 0x811C9DC5U;
+    const int header[] = {
+        matched_surrounding_columns, matched_surrounding_rows,
+        matched_active_origin_column, matched_active_origin_row,
+    };
+    for (int value : header) {
+        result ^= static_cast<std::uint32_t>(value);
+        result *= 0x01000193U;
+    }
+    for (const auto& row : matched_surrounding_terrain) {
+        for (std::uint8_t value : row) {
+            result ^= value;
+            result *= 0x01000193U;
+        }
+    }
+    return result;
+}
+static_assert(matched_layout_hash() == 0x66909BD6U);
+constexpr int board_vertices =
+    (matched_scene_triangles > board_triangles
+        ? matched_scene_triangles : board_triangles) * 3;
 constexpr int packed_board_vertices = (board_vertices + 1) / 2;
 constexpr int max_proxy_vertices = sevenfold_high_max_triangles * 3;
 constexpr int packed_proxy_vertices = (max_proxy_vertices + 1) / 2;
@@ -51,6 +93,9 @@ constexpr int figure_count = 8;
 constexpr int batch_vertices = 66;
 constexpr int batch_triangles = batch_vertices / 3;
 constexpr std::uint64_t frame_budget_us = 33'333;
+constexpr backdrop::Descriptor matched_backdrop{
+    2U, 9U, 12U, backdrop::TransitionOrientation::north_south, 2031659219U,
+};
 
 constexpr std::uint8_t terrain_colours[13][3] = {
     {49, 130, 164}, {168, 135, 83}, {39, 97, 58}, {117, 105, 93},
@@ -315,21 +360,28 @@ void build_matched_board(T3DVertPacked* into) {
         into[index] = T3DVertPacked{};
     }
     int written = 0;
-    for (int row = 0; row < matched_board_rows; ++row) {
-        for (int column = 0; column < matched_board_columns; ++column) {
+    for (int row = 0; row < matched_surrounding_rows; ++row) {
+        for (int column = 0; column < matched_surrounding_columns; ++column) {
             const std::int16_t x0 = static_cast<std::int16_t>(
-                (column - matched_board_columns / 2) * cell_world
+                (column - matched_surrounding_columns / 2) *
+                    matched_cell_world
             );
-            const std::int16_t x1 = static_cast<std::int16_t>(x0 + cell_world);
+            const std::int16_t x1 = static_cast<std::int16_t>(
+                x0 + matched_cell_world
+            );
             const std::int16_t z0 = static_cast<std::int16_t>(
-                (row - matched_board_rows / 2) * cell_world
+                (row - matched_surrounding_rows / 2) * matched_cell_world
             );
-            const std::int16_t z1 = static_cast<std::int16_t>(z0 + cell_world);
-            const std::uint8_t terrain_id = matched_terrain[row][column];
+            const std::int16_t z1 = static_cast<std::int16_t>(
+                z0 + matched_cell_world
+            );
+            const std::uint8_t terrain_id =
+                matched_surrounding_terrain[row][column];
             const std::uint8_t* rgb = terrain_colours[terrain_id];
             const std::uint32_t colour = terrain_colour(
-                rgb, &matched_terrain[0][0], matched_board_columns,
-                matched_board_rows, column, row
+                rgb, &matched_surrounding_terrain[0][0],
+                matched_surrounding_columns, matched_surrounding_rows,
+                column, row
             );
             const std::int16_t points[6][3] = {
                 {x0, 0, z0}, {x1, 0, z0}, {x1, 0, z1},
@@ -517,7 +569,9 @@ void scene_quad(
     return written / 3;
 }
 
-[[nodiscard]] int build_matched_attack_scene(T3DVertPacked* into) {
+[[nodiscard, maybe_unused]] int build_matched_attack_scene(
+    T3DVertPacked* into
+) {
     for (int index = 0; index < packed_board_vertices; ++index) {
         into[index] = T3DVertPacked{};
     }
@@ -621,11 +675,11 @@ void set_camera(T3DViewport& viewport) {
 void set_matched_camera(T3DViewport& viewport) {
     fm_vec3_t eye;
     eye.v[0] = 0.0F;
-    eye.v[1] = 405.0F;
-    eye.v[2] = -330.0F;
+    eye.v[1] = 540.0F;
+    eye.v[2] = -440.0F;
     fm_vec3_t focus;
     focus.v[0] = 0.0F;
-    focus.v[1] = 16.0F;
+    focus.v[1] = 8.0F;
     focus.v[2] = 0.0F;
     fm_vec3_t up;
     up.v[0] = 0.0F;
@@ -696,10 +750,10 @@ std::uint64_t draw_frame_textured(
     const std::uint64_t started = get_ticks_us();
     rdpq_attach(display, display_get_zbuf());
     t3d_frame_start();
-    rdpq_mode_zbuf(true, true);
     t3d_viewport_attach(viewport);
     t3d_screen_clear_color(clear_colour);
     t3d_screen_clear_depth();
+    rdpq_mode_zbuf(true, true);
     t3d_light_set_count(0);
     rdpq_mode_filter(FILTER_BILINEAR);
     rdpq_mode_combiner(RDPQ_COMBINER_TEX_SHADE);
@@ -733,15 +787,20 @@ std::uint64_t draw_hybrid_frame(
     surface_t* display, T3DViewport* viewport, T3DMat4FP* matrix,
     const T3DVertPacked* scene, int scene_triangles, std::uint8_t terrain,
     hybrid::Style style, const hybrid::Frame& hybrid_frame, const char* label,
-    const char* footer, const char* controls, color_t clear_colour
+    const char* footer, const char* controls, color_t clear_colour,
+    bool capture_mode = false
 ) {
     const std::uint64_t started = get_ticks_us();
     rdpq_attach(display, display_get_zbuf());
     t3d_frame_start();
-    rdpq_mode_zbuf(true, true);
     t3d_viewport_attach(viewport);
     t3d_screen_clear_color(clear_colour);
     t3d_screen_clear_depth();
+    if (capture_mode) {
+        backdrop::draw(matched_backdrop);
+        texture::draw_capture_floor_strip();
+    }
+    rdpq_mode_zbuf(true, true);
     t3d_light_set_count(0);
     rdpq_mode_filter(FILTER_BILINEAR);
     rdpq_mode_combiner(RDPQ_COMBINER_TEX_SHADE);
@@ -754,17 +813,20 @@ std::uint64_t draw_hybrid_frame(
     draw_unindexed(scene, scene_triangles);
     t3d_matrix_pop(1);
     t3d_tri_sync();
-    texture::draw_close_props(terrain);
+    if (!capture_mode) texture::draw_close_props(terrain);
     hybrid::draw(style, hybrid_frame);
     rdpq_detach_wait();
-    graphics_draw_box(
-        display, 0, 196, 320, 44, graphics_make_color(15, 22, 24, 255)
-    );
-    graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
-    graphics_draw_text(display, 8, 8, label);
-    graphics_set_color(graphics_make_color(125, 168, 133, 255), 0);
-    graphics_draw_text(display, 8, 204, footer);
-    graphics_draw_text(display, 8, 220, controls);
+    if (!capture_mode) {
+        graphics_draw_box(
+            display, 0, 196, 320, 44,
+            graphics_make_color(15, 22, 24, 255)
+        );
+        graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
+        graphics_draw_text(display, 8, 8, label);
+        graphics_set_color(graphics_make_color(125, 168, 133, 255), 0);
+        graphics_draw_text(display, 8, 204, footer);
+        graphics_draw_text(display, 8, 220, controls);
+    }
     return get_ticks_us() - started;
 }
 
@@ -809,7 +871,7 @@ std::uint64_t draw_tactical_hybrid_frame(
 std::uint64_t draw_matched_board_frame(
     surface_t* display, T3DViewport* viewport, T3DMat4FP* matrix,
     const T3DVertPacked* board, int left_health, int right_health,
-    bool focus, const char* label, const char* footer
+    bool focus
 ) {
     const std::uint64_t started = get_ticks_us();
     rdpq_attach(display, display_get_zbuf());
@@ -827,22 +889,12 @@ std::uint64_t draw_matched_board_frame(
     ));
     t3d_matrix_push(matrix);
     texture::bind_terrain();
-    draw_unindexed(board, matched_board_triangles);
+    draw_unindexed(board, matched_scene_triangles);
     t3d_matrix_pop(1);
     t3d_tri_sync();
     texture::draw_board_props(true);
     hybrid::draw_matched_board(left_health, right_health, focus);
     rdpq_detach_wait();
-    graphics_draw_box(
-        display, 0, 196, 320, 44, graphics_make_color(15, 22, 24, 255)
-    );
-    graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
-    graphics_draw_text(display, 8, 8, label);
-    graphics_set_color(graphics_make_color(125, 168, 133, 255), 0);
-    graphics_draw_text(display, 8, 204, footer);
-    graphics_draw_text(
-        display, 8, 220, "FOREST 2 - GRASS 9 - PAVED 12"
-    );
     return get_ticks_us() - started;
 }
 
@@ -1333,7 +1385,11 @@ std::uint64_t show_texture_comparison(
         defender = hybrid::Pose::hurt;
         push = 42;
         recoil = eased_distance(frame - 72, 11, 8);
-        if (frame < 78) pose.impact_target = target;
+        // Keep the impact mark for the full hurt beat. The matched 30 fps
+        // showcase samples this 123-frame move at 2x speed, so a six-frame
+        // source flash could otherwise collapse to only three presented
+        // frames and disappear between native capture samples.
+        pose.impact_target = target;
     } else if (frame >= 84 && frame < 108) {
         attacker = frame < 96
             ? hybrid::Pose::follow_through : hybrid::Pose::idle_b;
@@ -1484,6 +1540,28 @@ void draw_damage_callout(surface_t* display, int target, int damage) {
     graphics_draw_text(display, left + 8, 46, label);
 }
 
+void draw_capture_health(
+    surface_t* display, int left_health, int right_health
+) {
+    constexpr int width = 42;
+    graphics_draw_box(
+        display, 8, 8, width + 8, 7,
+        graphics_make_color(9, 14, 17, 235)
+    );
+    graphics_draw_box(
+        display, 9, 9, width * left_health / 12, 5,
+        graphics_make_color(35, 117, 169, 255)
+    );
+    graphics_draw_box(
+        display, 270, 8, width, 7,
+        graphics_make_color(9, 14, 17, 235)
+    );
+    graphics_draw_box(
+        display, 271, 9, (width - 2) * right_health / 11, 5,
+        graphics_make_color(179, 72, 63, 255)
+    );
+}
+
 std::uint64_t play_matched_readme_sequence(
     T3DViewport& board_viewport, T3DViewport& attack_viewport,
     T3DMat4FP* matrix, T3DVertPacked* scene, bool report
@@ -1491,9 +1569,7 @@ std::uint64_t play_matched_readme_sequence(
     build_matched_board(scene);
     surface_t* opening = display_get();
     draw_matched_board_frame(
-        opening, &board_viewport, matrix, scene, 12, 11, false,
-        "MATCHED SCENE - MEDIEVAL KNIGHTS",
-        "BLUE MALE HP12 - RED FEMALE HP11"
+        opening, &board_viewport, matrix, scene, 12, 11, false
     );
     display_show(opening);
     if (report) {
@@ -1505,6 +1581,7 @@ std::uint64_t play_matched_readme_sequence(
     }
 
     std::uint64_t slowest = 0;
+    std::uint64_t backdrop_transition_us = 0;
     for (int frame = 0; frame < 245; ++frame) {
         surface_t* display = display_get();
         std::uint64_t elapsed = 0;
@@ -1512,10 +1589,7 @@ std::uint64_t play_matched_readme_sequence(
             build_matched_board(scene);
             elapsed = draw_matched_board_frame(
                 display, &board_viewport, matrix, scene, 12, 11,
-                frame >= 35,
-                frame < 35 ? "MATCHED SCENE - BOARD" :
-                    "MATCHED SCENE - FOCUS",
-                "BLUE MALE HP12 - RED FEMALE HP11"
+                frame >= 35
             );
         } else if (frame < 191) {
             const bool counter = frame >= 129;
@@ -1523,7 +1597,7 @@ std::uint64_t play_matched_readme_sequence(
             const hybrid::Frame pose = strike_hybrid_frame(
                 local * 2, counter
             );
-            const int close_triangles = build_matched_attack_scene(scene);
+            constexpr int close_triangles = 0;
             elapsed = draw_hybrid_frame(
                 display, &attack_viewport, matrix, scene, close_triangles,
                 2U, hybrid::Style::medieval, pose,
@@ -1536,7 +1610,15 @@ std::uint64_t play_matched_readme_sequence(
                     terrain_sky_colours[2][0],
                     terrain_sky_colours[2][1],
                     terrain_sky_colours[2][2], 255
-                )
+                ), true
+            );
+            if (frame == 68) backdrop_transition_us = elapsed;
+            const int close_left_health =
+                counter && local >= 36 ? 8 : 12;
+            const int close_right_health =
+                !counter && local >= 36 ? 8 : 11;
+            draw_capture_health(
+                display, close_left_health, close_right_health
             );
             if (!counter && local >= 36 && local < 44) {
                 draw_damage_callout(display, 1, 3);
@@ -1545,7 +1627,7 @@ std::uint64_t play_matched_readme_sequence(
             }
         } else if (frame < 219) {
             if (frame < 205) {
-                const int close_triangles = build_matched_attack_scene(scene);
+                constexpr int close_triangles = 0;
                 elapsed = draw_hybrid_frame(
                     display, &attack_viewport, matrix, scene, close_triangles,
                     2U, hybrid::Style::medieval, neutral_hybrid_frame(true),
@@ -1555,22 +1637,19 @@ std::uint64_t play_matched_readme_sequence(
                         terrain_sky_colours[2][0],
                         terrain_sky_colours[2][1],
                         terrain_sky_colours[2][2], 255
-                    )
+                    ), true
                 );
+                draw_capture_health(display, 8, 8);
             } else {
                 build_matched_board(scene);
                 elapsed = draw_matched_board_frame(
-                    display, &board_viewport, matrix, scene, 8, 8, true,
-                    "MATCHED SCENE - BOARD RETURN",
-                    "BLUE MALE HP8 - RED FEMALE HP8"
+                    display, &board_viewport, matrix, scene, 8, 8, true
                 );
             }
         } else {
             build_matched_board(scene);
             elapsed = draw_matched_board_frame(
-                display, &board_viewport, matrix, scene, 8, 8, false,
-                "MATCHED SCENE - RESTORED BOARD",
-                "BLUE MALE HP8 - RED FEMALE HP8"
+                display, &board_viewport, matrix, scene, 8, 8, false
             );
         }
         display_show(display);
@@ -1593,7 +1672,8 @@ std::uint64_t play_matched_readme_sequence(
     if (report) {
         std::fprintf(
             stderr,
-            "sevenfold readme-sequence id=medieval_knight_counter_v1 frames=245 fps=30 seconds=8.15 board=6x4 terrain=2-9-12 left=medieval-knight-male-blue-hp12-to8 right=medieval-knight-female-red-hp11-to8 damage=3-4 impacts=3.45-5.50 anchors=locked max_us=%llu fps_throughput=%llu\n",
+            "sevenfold readme-sequence id=medieval_forest_renderer_showcase_v2 frames=245 fps=30 seconds=8.15 board=6x4 surroundings=12x10 terrain=2-9-12 hud=compact diagnostics=none left=medieval-knight-male-blue-hp12-to8 right=medieval-knight-female-red-hp11-to8 damage=3-4 impacts=3.45-5.50 anchors=locked backdrop_first_us=%llu max_us=%llu fps_throughput=%llu\n",
+            static_cast<unsigned long long>(backdrop_transition_us),
             static_cast<unsigned long long>(slowest),
             static_cast<unsigned long long>(
                 slowest > 0 ? 1'000'000 / slowest : 0
@@ -1700,6 +1780,7 @@ extern "C" int main(void) {
     T3DInitParams params{};
     t3d_init(params);
     const bool terrain_ready = texture::initialize();
+    const bool backdrop_ready = backdrop::initialize();
     const bool hybrid_ready = hybrid::initialize();
     expect(
         terrain_ready,
@@ -1714,6 +1795,31 @@ extern "C" int main(void) {
         "sevenfold terrain-quality material=64x64-ci4 regions=4 prop=64x64-ci4 cells=4 tmem_peak=%lu embedded=%lu variation=deterministic transitions=cluster-tone provenance=repo-generated\n",
         static_cast<unsigned long>(texture::terrain_peak_texture_bytes()),
         static_cast<unsigned long>(texture::terrain_embedded_bytes())
+    );
+    std::fflush(stderr);
+    expect(
+        backdrop_ready && backdrop::select_variant(matched_backdrop) == 2,
+        "three shared-plate backdrop variants allocate and select deterministically"
+    );
+    expect(
+        backdrop::peak_texture_bytes() <= 4096U,
+        "each streamed backdrop tile fits four KiB of TMEM"
+    );
+    std::fprintf(
+        stderr,
+        "sevenfold backdrop pack=forest-grass-paved orientation=north-south variants=3 selected=2 tiles=16 tile=80x40-ci4 composite=320x160 tmem_peak=%lu embedded=%lu rdram=%lu frozen=yes source=godot-plates\n",
+        static_cast<unsigned long>(backdrop::peak_texture_bytes()),
+        static_cast<unsigned long>(backdrop::embedded_bytes()),
+        static_cast<unsigned long>(backdrop::rdram_bytes())
+    );
+    std::fflush(stderr);
+    expect(
+        matched_layout_hash() == 0x66909BD6U,
+        "schema-two twelve-by-ten surroundings and active origin match"
+    );
+    std::fprintf(
+        stderr,
+        "sevenfold showcase-contract schema=2 surroundings=12x10 active-origin=3,3 layout_hash=66909bd6 diagnostics=none\n"
     );
     std::fflush(stderr);
     expect(
@@ -1765,7 +1871,7 @@ extern "C" int main(void) {
     expect(
         allocated, "board and eight maximum-size high-LOD model buffers allocate"
     );
-    if (!allocated || !hybrid_ready || !terrain_ready) {
+    if (!allocated || !hybrid_ready || !terrain_ready || !backdrop_ready) {
         std::fprintf(stderr, "RESULT FAIL %d/%d\n", checks - failures, checks);
         while (true) wait_ms(1000);
     }
@@ -1783,7 +1889,7 @@ extern "C" int main(void) {
     set_attack_camera(attack_viewport);
     T3DViewport matched_viewport = t3d_viewport_create();
     t3d_viewport_set_projection(
-        &matched_viewport, T3D_DEG_TO_RAD(50.0F), 16.0F, 900.0F
+        &matched_viewport, T3D_DEG_TO_RAD(35.0F), 16.0F, 1300.0F
     );
     set_matched_camera(matched_viewport);
     for (int stage = 0; stage < sevenfold_stage_count; ++stage) {

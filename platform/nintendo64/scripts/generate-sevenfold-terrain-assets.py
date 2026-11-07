@@ -122,12 +122,36 @@ def prop_atlas() -> Image.Image:
     return image
 
 
+def floor_atlas() -> Image.Image:
+    """Two full-colour 32px cells for the live close-view floor strip."""
+    image = Image.new("RGBA", (64, 32), (0, 0, 0, 255))
+    pixels = image.load()
+    for y in range(32):
+        for x in range(32):
+            value = noise(x, y, 41)
+            grass = (88, 157, 70) if value & 8 else (99, 173, 77)
+            if (x + 2 * y) % 13 < 2 and (x + y) % 5 < 2:
+                grass = (57, 118, 56)
+            pixels[x, y] = (*grass, 255)
+
+            stone_x = x + 32
+            offset = 8 if (y // 8) & 1 else 0
+            seam = y % 8 == 0 or (x + offset) % 16 == 0
+            stone = (78, 91, 91) if seam else (151, 177, 171)
+            if not seam and (x * 3 + y * 5) % 41 < 2:
+                stone = (72, 214, 220)
+            pixels[stone_x, y] = (*stone, 255)
+    return image
+
+
 def main() -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     material_path = OUTPUT / "material_atlas.png"
     prop_path = OUTPUT / "prop_atlas.png"
+    floor_path = OUTPUT / "floor_atlas.png"
     material_atlas().save(material_path, optimize=True)
     prop_atlas().save(prop_path, optimize=True)
+    floor_atlas().save(floor_path, optimize=True)
     generator = Path(__file__).resolve()
     manifest = {
         "format": "Grandleon N64 terrain experiment assets v1",
@@ -149,6 +173,14 @@ def main() -> None:
                 "height": 64,
                 "format": "CI4",
                 "cells": ["grass-tuft", "shrub", "rocks", "tree"],
+            },
+            {
+                "path": floor_path.name,
+                "sha256": sha256(floor_path),
+                "width": 64,
+                "height": 32,
+                "format": "CI4",
+                "cells": ["grass", "paved"],
             },
         ],
     }

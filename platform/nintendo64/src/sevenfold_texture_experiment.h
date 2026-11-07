@@ -25,6 +25,7 @@ void bind_character();
 // geometry, hit testing, or the production campaign path.
 void draw_board_props(bool compact);
 void draw_close_props(std::uint8_t terrain);
+void draw_capture_floor_strip();
 
 [[nodiscard]] std::size_t terrain_peak_texture_bytes() noexcept;
 [[nodiscard]] std::size_t terrain_embedded_bytes() noexcept;
