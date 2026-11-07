@@ -32,11 +32,20 @@ void expect(bool condition, std::string_view message) {
 }
 
 constexpr std::string_view source = R"json({
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
   "gameId": "vertical.demo",
   "title": "Vertical Demo",
   "contentRevision": "1.2.3",
+  "translations": [{
+    "language":"pt-BR",
+    "entries":[{
+      "id":"campaigns.demo.members.blue_one.name",
+      "source":"Blue One",
+      "text":"Azul Um"
+    }]
+  }],
   "weaponTypes": [{"id":"blade","name":"Blade"}],
   "itemTypes": [{"id":"healing","name":"Healing"}],
   "classes": [{
@@ -106,6 +115,13 @@ void compiles_canonical_vertical_project() {
     const auto parsed = gc::parse_source_project_json(source);
     expect(static_cast<bool>(parsed), "canonical vertical project parses");
     expect(parsed.source.maps.size() == 1, "map is mapped");
+    expect(parsed.source.source_language == "en", "source language is mapped");
+    expect(
+        parsed.source.translations.size() == 1 &&
+            parsed.source.translations.front().language == "pt-BR" &&
+            parsed.source.translations.front().entries.front().text == "Azul Um",
+        "manual translation catalogs are mapped without replacing source copy"
+    );
     expect(parsed.source.factions.size() == 2, "factions are mapped");
     expect(parsed.source.encounters.size() == 1, "encounter node is mapped");
     expect(
@@ -128,6 +144,13 @@ void compiles_canonical_vertical_project() {
         {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 1024}
     );
     expect(static_cast<bool>(loaded), "vertical package loads");
+    expect(
+        loaded.package.find(
+            pf::SectionType::localizations,
+            pf::localization_record_id
+        ) != nullptr,
+        "source language and translations travel in the portable package"
+    );
     expect(
         loaded.package.find(pf::SectionType::encounters) != nullptr,
         "vertical package contains encounters"
@@ -3401,7 +3424,7 @@ void names_both_versions_when_it_refuses_one() {
              Case{"nonsense", "", "upgrade.mjs"},
          }) {
         const auto parsed = gc::parse_source_project_json(
-            source_with(R"json("schemaVersion": "1.3.0")json",
+            source_with(R"json("schemaVersion": "1.4.0")json",
                         std::string(R"json("schemaVersion": ")json") +
                             std::string(item.declared) + "\"")
         );
@@ -3427,7 +3450,7 @@ void names_both_versions_when_it_refuses_one() {
         );
     }
     expect(
-        gc::supported_source_schema == "1.3.0",
+        gc::supported_source_schema == "1.4.0",
         "the version this compiler reads; tools/source_schema/test.mjs holds "
         "it level with the schema and the migration registry"
     );

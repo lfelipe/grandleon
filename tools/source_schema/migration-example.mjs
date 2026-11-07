@@ -50,8 +50,11 @@ export const FOURTH_CHANGE = "a company may be handed a weapon and not only an i
 /** What the fifth step tells the author. */
 export const FIFTH_CHANGE = "each campaign says how many local players it seats";
 
+/** What the sixth step tells the author. */
+export const SIXTH_CHANGE = "a game records the language its original text uses";
+
 /**
- * Five steps ending at the current version. Each does something a test can see
+ * Six steps ending at the current version. Each does something a test can see
  * and each leaves a project the schema still accepts.
  *
  * Ending at the current version is the point rather than an accident: a chain
@@ -105,6 +108,15 @@ export const EXAMPLE_STEPS = [
       for (const campaign of project.campaigns ?? []) {
         campaign.playerMode ??= "one";
       }
+      return project;
+    }
+  },
+  {
+    from: "1.3.0",
+    to: "1.4.0",
+    changed: SIXTH_CHANGE,
+    apply: (project) => {
+      project.sourceLanguage ??= "en";
       return project;
     }
   }

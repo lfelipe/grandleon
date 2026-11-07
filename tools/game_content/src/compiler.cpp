@@ -671,6 +671,8 @@ std::string_view diagnostic_name(DiagnosticCode code) noexcept {
             return "undecided_encounter";
         case DiagnosticCode::invalid_weapon_type:
             return "invalid_weapon_type";
+        case DiagnosticCode::invalid_localization:
+            return "invalid_localization";
     }
     return "unknown";
 }
@@ -1797,6 +1799,50 @@ CompileResult compile(const GameSource& source) {
         }
     }
 
+    // Localization is optional presentation, but once authored it must remain
+    // wholly portable. Every count and string is checked against the exact
+    // width the package writes, and identities are unique within their natural
+    // language scope. Native callers receive the same refusal as JSON callers
+    // instead of being able to make a package the source schema could not.
+    if (source.source_language.empty() ||
+        source.source_language.size() >
+            std::numeric_limits<std::uint16_t>::max()) {
+        result.diagnostics.push_back(
+            {DiagnosticCode::invalid_localization, "localization.sourceLanguage", 0}
+        );
+    }
+    if (source.translations.size() > count_limit_u16) {
+        result.diagnostics.push_back(
+            {DiagnosticCode::invalid_localization, "localization.languages", 0}
+        );
+    }
+    std::set<std::string> localization_languages;
+    for (const TranslationCatalog& catalog : source.translations) {
+        const std::string path = "localization[" + catalog.language + "]";
+        if (catalog.language.empty() ||
+            catalog.language.size() >
+                std::numeric_limits<std::uint16_t>::max() ||
+            catalog.language == source.source_language ||
+            !localization_languages.insert(catalog.language).second) {
+            result.diagnostics.push_back(
+                {DiagnosticCode::invalid_localization, path + ".language", 0}
+            );
+        }
+        std::set<std::string> message_ids;
+        for (const TranslationEntry& entry : catalog.entries) {
+            if (entry.id.empty() || entry.source.empty() || entry.text.empty() ||
+                entry.id.size() > std::numeric_limits<std::uint16_t>::max() ||
+                entry.source.size() > std::numeric_limits<std::uint16_t>::max() ||
+                entry.text.size() > std::numeric_limits<std::uint16_t>::max() ||
+                !message_ids.insert(entry.id).second) {
+                result.diagnostics.push_back(
+                    {DiagnosticCode::invalid_localization,
+                     path + ".entries[" + entry.id + "]", 0}
+                );
+            }
+        }
+    }
+
     if (!result.diagnostics.empty()) {
         return result;
     }
@@ -2902,6 +2948,60 @@ CompileResult compile(const GameSource& source) {
             }
             break;
         }
+    }
+    // Manual translations travel with every target in one optional record.
+    // A runtime that does not know the section skips it and uses the source
+    // strings already present in normal content records. A runtime that does
+    // know it compares each entry's source snapshot before using its text, so
+    // edited copy never silently displays an obsolete translation.
+    if (!source.translations.empty()) {
+        std::vector<const TranslationCatalog*> catalogs;
+        catalogs.reserve(source.translations.size());
+        for (const TranslationCatalog& catalog : source.translations) {
+            catalogs.push_back(&catalog);
+        }
+        std::sort(
+            catalogs.begin(), catalogs.end(),
+            [](const TranslationCatalog* left,
+               const TranslationCatalog* right) {
+                return left->language < right->language;
+            }
+        );
+        Bytes bytes;
+        put_string(bytes, source.source_language);
+        put_u16(bytes, static_cast<std::uint16_t>(catalogs.size()));
+        for (const TranslationCatalog* catalog : catalogs) {
+            put_string(bytes, catalog->language);
+            std::vector<const TranslationEntry*> entries;
+            entries.reserve(catalog->entries.size());
+            for (const TranslationEntry& entry : catalog->entries) {
+                entries.push_back(&entry);
+            }
+            std::sort(
+                entries.begin(), entries.end(),
+                [](const TranslationEntry* left,
+                   const TranslationEntry* right) {
+                    return left->id < right->id;
+                }
+            );
+            put_u32(bytes, static_cast<std::uint32_t>(entries.size()));
+            for (const TranslationEntry* entry : entries) {
+                put_string(bytes, entry->id);
+                put_string(bytes, entry->source);
+                put_string(bytes, entry->text);
+            }
+        }
+        package.sections.push_back(
+            package_format::SectionSource{
+                package_format::SectionType::localizations,
+                1,
+                0,
+                0,
+                {package_format::RecordSource{
+                    package_format::localization_record_id, std::move(bytes)
+                }}
+            }
+        );
     }
     package.sections.erase(
         std::remove_if(

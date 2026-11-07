@@ -1106,6 +1106,18 @@ add_test(
     COMMAND grandleon_manifest_tests
 )
 
+add_executable(grandleon_localization_tests
+    package_runtime/localization_test.cpp
+)
+target_link_libraries(
+    grandleon_localization_tests
+    PRIVATE grandleon::package_runtime grandleon::game_content
+)
+add_test(
+    NAME grandleon.localization
+    COMMAND grandleon_localization_tests
+)
+
 # The package's presentation section: written by the compiler, read back by the
 # runtime, and refused rather than misread when damaged.
 add_executable(grandleon_presentation_tests

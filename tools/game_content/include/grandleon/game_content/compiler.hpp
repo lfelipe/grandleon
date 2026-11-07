@@ -927,9 +927,27 @@ inline constexpr std::uint8_t archetype_default = 0;
 //: published beside the resolved rule rather than hidden inside it.
 [[nodiscard]] std::uint8_t archetype_index(std::string_view name) noexcept;
 
+struct TranslationEntry final {
+    std::string id;
+    std::string source;
+    std::string text;
+};
+
+struct TranslationCatalog final {
+    std::string language;
+    std::vector<TranslationEntry> entries;
+};
+
 struct GameSource final {
     std::array<std::uint8_t, 16> game_id{};
     std::string title;
+    // The language of every author-facing source string, plus manual catalogs
+    // that retain the exact source copy they were reviewed against. A runtime
+    // uses an entry only while that snapshot still matches the current source;
+    // changed or missing copy therefore falls back visibly instead of showing
+    // a stale translation.
+    std::string source_language{"en"};
+    std::vector<TranslationCatalog> translations;
     std::uint32_t content_revision{};
     //: The season this game's ground is drawn in. Presentation only: no rule
     //: reads it, so it never enters canonical state.
@@ -1122,6 +1140,7 @@ enum class DiagnosticCode : std::uint8_t {
     // mirror match twice, once up and once down. An author who wrote one meant
     // a different type.
     invalid_weapon_type,
+    invalid_localization,
 };
 
 [[nodiscard]] std::string_view diagnostic_name(

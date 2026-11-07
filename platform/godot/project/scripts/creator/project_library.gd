@@ -161,6 +161,11 @@ func import_project(archive_path: String) -> Dictionary:
 	if parsed.parse(str(opened.source)) != OK or not parsed.data is Dictionary:
 		return _failure("source_invalid", "The archive's project.json is not readable JSON.")
 	var source := str(opened.source)
+	var upgraded: Dictionary = _upgrade_legacy_source(source)
+	if not bool(upgraded.get("ok", false)):
+		return upgraded
+	source = str(upgraded.source)
+	parsed.parse(source)
 	var checked: Dictionary = compiler.compile_source_json(source)
 	for diagnostic: Dictionary in checked.diagnostics:
 		if diagnostic.get("phase", "") == "source":
@@ -278,6 +283,11 @@ func save_source(project_id: String, source: String) -> Dictionary:
 	var parsed := JSON.new()
 	if parsed.parse(source) != OK or not parsed.data is Dictionary:
 		return _failure("source_invalid", "The source is not readable JSON.")
+	var upgraded: Dictionary = _upgrade_legacy_source(source)
+	if not bool(upgraded.get("ok", false)):
+		return upgraded
+	source = str(upgraded.source)
+	parsed.parse(source)
 	if parsed.data.get("packageId", "") != project_id:
 		return _failure(
 			"source_identity_mismatch",
@@ -320,7 +330,12 @@ func save_source(project_id: String, source: String) -> Dictionary:
 			DirAccess.rename_absolute(previous, target)
 		DirAccess.remove_absolute(temporary)
 		return _failure("replace_failed", "The new project could not replace the stored project.")
-	return {"ok": true, "diagnostics": checked.diagnostics}
+	return {
+		"ok": true,
+		"diagnostics": checked.diagnostics,
+		"migrated": bool(upgraded.get("migrated", false)),
+		"source": source,
+	}
 
 
 func load_source(project_id: String) -> Dictionary:
@@ -337,7 +352,57 @@ func load_source(project_id: String) -> Dictionary:
 	var parsed := JSON.new()
 	if parsed.parse(source) != OK or not parsed.data is Dictionary:
 		return _failure("project_unreadable", "The stored project is not readable JSON.")
+	var upgraded: Dictionary = _upgrade_legacy_source(source)
+	if not bool(upgraded.get("ok", false)):
+		return upgraded
+	if bool(upgraded.get("migrated", false)):
+		var saved: Dictionary = save_source(project_id, str(upgraded.source))
+		if not bool(saved.get("ok", false)):
+			return saved
+		source = str(saved.source)
+		parsed.parse(source)
 	return {"ok": true, "id": project_id, "source": source, "project": parsed.data}
+
+
+func _upgrade_legacy_source(source: String) -> Dictionary:
+	var parsed := JSON.new()
+	if parsed.parse(source) != OK or not parsed.data is Dictionary:
+		return _failure("source_invalid", "The source is not readable JSON.")
+	var project: Dictionary = parsed.data
+	var version := str(project.get("schemaVersion", ""))
+	if version == "1.4.0":
+		return {"ok": true, "source": source, "migrated": false}
+	if version != "1.3.0":
+		return {"ok": true, "source": source, "migrated": false}
+	# Every project written before language metadata used English source copy.
+	# Record that fact; never infer from the machine doing the import and never
+	# invent a translation catalog. Integer restoration keeps an otherwise
+	# unchanged legacy project valid after Godot's JSON parser represented its
+	# numbers as floats.
+	project["schemaVersion"] = "1.4.0"
+	project["sourceLanguage"] = "en"
+	var portable: Dictionary = _integer_numbers(project)
+	return {
+		"ok": true,
+		"source": JSON.stringify(portable, "  ", true) + "\n",
+		"migrated": true,
+	}
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if typeof(value) == TYPE_FLOAT and value == floor(value):
+		return int(value)
+	return value
 
 
 func list_projects() -> Array[Dictionary]:

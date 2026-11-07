@@ -1,9 +1,32 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "3f38d330-5688-4a44-a17a-3369632a4545",
   "gameId": "grandleon.demo",
   "title": "Grandleon Schema Demo",
   "contentRevision": "0.1.0",
+  "translations": [
+    {
+      "language": "es",
+      "entries": [
+        {
+          "id": "project.title",
+          "source": "Grandleon Schema Demo",
+          "text": "Demostración del esquema de Grandleon"
+        }
+      ]
+    },
+    {
+      "language": "pt-BR",
+      "entries": [
+        {
+          "id": "unit_types.demo_soldier.name",
+          "source": "Demo Soldier",
+          "text": "Soldado de demonstração"
+        }
+      ]
+    }
+  ],
   "classes": [
     {
       "id": "vanguard",

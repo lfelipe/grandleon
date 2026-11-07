@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
+  "packageId": "3f38d330-5688-4a44-a17a-3369632a4545",
+  "gameId": "grandleon.localization_invalid",
+  "title": "Localization Semantics",
+  "contentRevision": "0.1.0",
+  "translations": [
+    {"language": "en", "entries": []},
+    {
+      "language": "es",
+      "entries": [
+        {"id": "project.title", "source": "Localization Semantics", "text": "Localización"},
+        {"id": "project.title", "source": "Localization Semantics", "text": "Otra"}
+      ]
+    },
+    {"language": "es", "entries": []}
+  ],
+  "classes": [],
+  "unitTypes": [],
+  "weapons": [],
+  "items": [],
+  "maps": []
+}

@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "95ee0e62-1de3-4fa4-afd5-72000b64c8e9",
   "gameId": "invalid.script.path",
   "title": "Unsafe Script Path",

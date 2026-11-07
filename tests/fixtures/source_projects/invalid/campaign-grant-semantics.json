@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "5d81c0af-3e47-4a1b-9c62-71f0b8d4e2c9",
   "gameId": "campaign.grant.semantics",
   "title": "Campaign Grant Semantics",

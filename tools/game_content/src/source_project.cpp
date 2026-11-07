@@ -1010,6 +1010,77 @@ SourceParseResult parse_source_project_json(std::string_view json) {
     }
     const auto title = mapper.string(*root, "title", "$");
     if (title) mapper.result.source.title = *title;
+    const auto source_language = mapper.string(*root, "sourceLanguage", "$");
+    if (source_language) {
+        mapper.result.source.source_language = *source_language;
+    }
+    const Array* translations = mapper.array(*root, "translations", "$", false);
+    if (translations != nullptr) {
+        std::set<std::string> languages;
+        mapper.result.source.translations.reserve(translations->size());
+        for (std::size_t catalog_index = 0;
+             catalog_index < translations->size(); ++catalog_index) {
+            const std::string catalog_path =
+                "$.translations[" + std::to_string(catalog_index) + "]";
+            const Object* catalog_object =
+                mapper.object((*translations)[catalog_index], catalog_path);
+            if (catalog_object == nullptr) continue;
+            TranslationCatalog catalog;
+            const auto language =
+                mapper.string(*catalog_object, "language", catalog_path);
+            if (language) {
+                catalog.language = *language;
+                if (*language == mapper.result.source.source_language) {
+                    mapper.error(
+                        SourceDiagnosticCode::invalid_value,
+                        catalog_path + ".language",
+                        "a translation catalog cannot repeat the source language"
+                    );
+                } else if (!languages.insert(*language).second) {
+                    mapper.error(
+                        SourceDiagnosticCode::invalid_value,
+                        catalog_path + ".language",
+                        "translation language is named more than once"
+                    );
+                }
+            }
+            const Array* entries =
+                mapper.array(*catalog_object, "entries", catalog_path);
+            if (entries != nullptr) {
+                std::set<std::string> entry_ids;
+                catalog.entries.reserve(entries->size());
+                for (std::size_t entry_index = 0;
+                     entry_index < entries->size(); ++entry_index) {
+                    const std::string entry_path =
+                        catalog_path + ".entries[" +
+                        std::to_string(entry_index) + "]";
+                    const Object* entry_object =
+                        mapper.object((*entries)[entry_index], entry_path);
+                    if (entry_object == nullptr) continue;
+                    TranslationEntry entry;
+                    const auto id = mapper.string(*entry_object, "id", entry_path);
+                    const auto source =
+                        mapper.string(*entry_object, "source", entry_path);
+                    const auto text =
+                        mapper.string(*entry_object, "text", entry_path);
+                    if (id) {
+                        entry.id = *id;
+                        if (!entry_ids.insert(*id).second) {
+                            mapper.error(
+                                SourceDiagnosticCode::invalid_value,
+                                entry_path + ".id",
+                                "translation message is named more than once"
+                            );
+                        }
+                    }
+                    if (source) entry.source = *source;
+                    if (text) entry.text = *text;
+                    catalog.entries.push_back(std::move(entry));
+                }
+            }
+            mapper.result.source.translations.push_back(std::move(catalog));
+        }
+    }
     const auto revision = mapper.string(*root, "contentRevision", "$");
     if (revision) {
         const auto packed = parse_revision(*revision);

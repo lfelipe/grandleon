@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "2c7f8a4e-3b51-4a9d-8e62-13f470ac92d1",
   "gameId": "grandleon.emberbound",
   "title": "Emberbound: The Last Dawn",

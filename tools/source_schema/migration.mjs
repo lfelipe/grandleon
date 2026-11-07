@@ -8,8 +8,8 @@
 // rather than inventing a second philosophy for the same question:
 //
 // * **Version by version, never in a leap.** A step goes from one version to
-//   the next and no further. A project at `1.0.0` reaching tooling at `1.3.0`
-//   runs each registered step in order, including 1.2.0 -> 1.3.0, rather than
+//   the next and no further. A project at `1.0.0` reaching tooling at `1.4.0`
+//   runs each registered step in order, including 1.3.0 -> 1.4.0, rather than
 //   leaping over the versions in between
 //   with its own test. One function per (old, new) pair is quadratic in the
 //   number of versions and gives the pair nobody thought to write no diagnostic
@@ -430,6 +430,11 @@ const CAMPAIGNS_CHOOSE_LOCAL_PLAYERS =
   "each campaign says whether it launches for one player, two players, or " +
   "lets the players choose";
 
+/** What 1.4.0 adds, in the words shown before an author upgrades. */
+const GAMES_NAME_THEIR_SOURCE_LANGUAGE =
+  "the game records the language its original text is written in, ready for " +
+  "manual translations that travel with every export";
+
 /**
  * Infer the launch choice an older campaign already expressed through its
  * boards. Player-two ownership is the direct signal; two-player-only opposing
@@ -450,7 +455,11 @@ function legacyPlayerMode(campaign) {
 /**
  * Every step this build ships.
  *
- * Three, and each exists because its version exists.
+ * Four, and each exists because its version exists.
+ *
+ * `1.4.0` makes the source language explicit and introduces optional manual
+ * translation catalogs. Older games have always authored their source strings
+ * in English, so the migration records `en` and invents no translations.
  *
  * `1.3.0` makes local-player intent explicit per campaign. Earlier projects
  * already expressed co-op through Player 2 ownership and two-player encounter
@@ -507,6 +516,15 @@ export function sourceMigrations() {
             }))
           })
         : project
+    })
+    .add({
+      from: "1.3.0",
+      to: "1.4.0",
+      changed: GAMES_NAME_THEIR_SOURCE_LANGUAGE,
+      apply: (project) => ({
+        ...project,
+        sourceLanguage: "en"
+      })
     });
 }
 

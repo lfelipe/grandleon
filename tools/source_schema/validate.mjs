@@ -161,6 +161,55 @@ export function validateProject(filename) {
       );
     }
   } else {
+    // A catalog's language and each message identity form sets. JSON Schema's
+    // `uniqueItems` would compare whole objects and would therefore allow two
+    // conflicting translations for one language or one message. Name the
+    // duplicate field instead, where an author can fix it. The source language
+    // is not a translation catalog: its strings remain in their ordinary
+    // content fields and are the visible fallback.
+    const translationLanguages = new Set();
+    for (const [catalogIndex, catalog] of (project.translations ?? []).entries()) {
+      const languagePath = `/translations/${catalogIndex}/language`;
+      if (catalog.language === project.sourceLanguage) {
+        diagnostics.push(
+          diagnostic(
+            filename,
+            "SOURCE_TRANSLATION_REPEATS_SOURCE_LANGUAGE",
+            languagePath,
+            `translation language '${catalog.language}' is the source language`,
+            document.pointers[languagePath]?.value
+          )
+        );
+      } else if (translationLanguages.has(catalog.language)) {
+        diagnostics.push(
+          diagnostic(
+            filename,
+            "SOURCE_TRANSLATION_LANGUAGE_DUPLICATE",
+            languagePath,
+            `translation language '${catalog.language}' is named twice`,
+            document.pointers[languagePath]?.value
+          )
+        );
+      }
+      translationLanguages.add(catalog.language);
+      const messageIds = new Set();
+      for (const [entryIndex, entry] of catalog.entries.entries()) {
+        const idPath = `/translations/${catalogIndex}/entries/${entryIndex}/id`;
+        if (messageIds.has(entry.id)) {
+          diagnostics.push(
+            diagnostic(
+              filename,
+              "SOURCE_TRANSLATION_MESSAGE_DUPLICATE",
+              idPath,
+              `translation message '${entry.id}' is named twice in '${catalog.language}'`,
+              document.pointers[idPath]?.value
+            )
+          );
+        }
+        messageIds.add(entry.id);
+      }
+    }
+
     const definitions = new Map();
     const collections = [
       ["classes", "class"],

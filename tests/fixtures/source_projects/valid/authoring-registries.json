@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "9ec9ff7e-7544-4d8f-99e7-61a28c62dde8",
   "gameId": "registry.demo",
   "title": "Authoring Registry Demo",

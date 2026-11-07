@@ -205,6 +205,7 @@ add_library(grandleon_package_runtime
     engine/package_runtime/src/campaign.cpp
     engine/package_runtime/src/dialogue.cpp
     engine/package_runtime/src/encounter_loader.cpp
+    engine/package_runtime/src/localization.cpp
     engine/package_runtime/src/manifest.cpp
     engine/package_runtime/src/names.cpp
     engine/package_runtime/src/presentation.cpp

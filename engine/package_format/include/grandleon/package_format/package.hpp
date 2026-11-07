@@ -143,6 +143,12 @@ enum class SectionType : std::uint32_t {
     // ignoring it can overlap units or erase the authored distance between
     // fronts. Sparse so old and shared-layout projects remain byte-identical.
     placement_two_player_positions = 24,
+    // Optional manual language catalogs. Source text stays in the ordinary
+    // content records, while this section carries the source language and the
+    // reviewed source snapshot beside each translation. Unknown runtimes skip
+    // it and continue drawing source strings, so localization never changes a
+    // rule or prevents an older target from playing the game.
+    localizations = 25,
 };
 
 // The presentation section holds records about the whole game, the way the
@@ -155,6 +161,11 @@ enum class SectionType : std::uint32_t {
 // name, and a unit type's archetype, the style that draws it and the body it
 // is drawn with all follow from choices no client should have to re-derive.
 inline constexpr std::uint64_t presentation_record_id = 1;
+
+// One project-wide localization record. It contains the source language and
+// all language catalogs so their arbitrary BCP 47 tags need no hashed record
+// identity and can never collide.
+inline constexpr std::uint64_t localization_record_id = 1;
 
 // The manifest's own record, on the same terms: it says something about the
 // whole game rather than about a piece of content, so its identity is a format

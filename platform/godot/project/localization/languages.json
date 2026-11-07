@@ -1,0 +1,20 @@
+{
+  "sourceLanguage": "en",
+  "languages": [
+    {
+      "code": "en",
+      "nativeName": "English",
+      "catalog": "res://localization/en.json"
+    },
+    {
+      "code": "es",
+      "nativeName": "Español",
+      "catalog": "res://localization/es.json"
+    },
+    {
+      "code": "pt-BR",
+      "nativeName": "Português (Brasil)",
+      "catalog": "res://localization/pt-BR.json"
+    }
+  ]
+}

@@ -7,10 +7,11 @@ cannot state: identities, cross-field rules, the diagnostics that enforce them,
 and the handful of places where a rule lives in the compiler rather than in the
 schema.
 
-The current schema version is `1.3.0`. Projects from `1.0.0`, `1.1.0`, and `1.2.0` have
-registered, non-destructive migrations. Authors normally use the editor; the
-public files exist so projects stay portable, scriptable, source-controlled,
-and buildable headlessly.
+The current schema version is `1.4.0`. Projects from `1.0.0` through `1.3.0`
+have registered, non-destructive migrations. The `1.3.0` to `1.4.0` step makes
+the historical English source language explicit and invents no translations.
+Authors normally use the editor; the public files exist so projects stay
+portable, scriptable, source-controlled, and buildable headlessly.
 
 ## Identity
 
@@ -49,6 +50,23 @@ Unknown ordinary fields are errors, which catches misspellings. Unknown values
 inside the bounded `extensions` object are preserved. Preserving bytes is not
 understanding them, so required extension behaviour must also appear in the
 manifest capability list.
+
+## Languages and source copy
+
+`sourceLanguage` says which language the ordinary player-facing strings use.
+Those strings stay where they have always been: names remain on their content,
+and dialogue remains in its lines. A `translations` catalog adds a stable
+message identity, the exact source string the author reviewed, and the manual
+translation. It never replaces the source.
+
+The source snapshot is deliberate. If the current source no longer equals the
+snapshot, editors report the translation as outdated and runtimes use the
+current source string. Missing languages and missing messages follow the same
+fallback. This makes incomplete work visible without producing blank labels or
+shipping a translation for an older line. Catalogs compile into the optional
+`localizations` package section, so every export carries the same reviewed work
+while runtimes that do not yet present language selection continue to use their
+ordinary source strings.
 
 ## Typed weapon and item compatibility
 

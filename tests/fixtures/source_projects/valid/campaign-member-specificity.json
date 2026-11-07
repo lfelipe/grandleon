@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "5c2e9b41-7d38-4a6f-8b12-3e9f0a5d7c64",
   "gameId": "campaign.specificity",
   "title": "Campaign Member Specificity",
