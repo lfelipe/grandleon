@@ -267,8 +267,8 @@ func _build_project_actions_layer() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	project_actions_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(530, 190)
-	panel.size = Vector2(860, 700)
+	panel.position = Vector2(530, 100)
+	panel.size = Vector2(860, 880)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 22, Color("69d9ff"))
 	)
@@ -284,6 +284,9 @@ func _build_project_actions_layer() -> void:
 	project_actions_first_button = _button("CAMPAIGN OUTLINE")
 	project_actions_first_button.pressed.connect(_campaign_selected_project)
 	column.add_child(project_actions_first_button)
+	var settings := _button("GAME SETTINGS")
+	settings.pressed.connect(_settings_selected_project)
+	column.add_child(settings)
 	var army := _button("GROW THE ARMY")
 	army.pressed.connect(_army_selected_project)
 	column.add_child(army)
@@ -464,6 +467,15 @@ func _army_selected_project() -> void:
 	project_actions_id = ""
 	project_actions_name = ""
 	_edit_army(project_id)
+
+
+func _settings_selected_project() -> void:
+	var project_id := project_actions_id
+	project_actions_layer.visible = false
+	project_actions_id = ""
+	project_actions_name = ""
+	CreatorContext.open_project(project_id)
+	get_tree().change_scene_to_file("res://game_settings.tscn")
 
 
 func _duplicate_selected_project() -> void:

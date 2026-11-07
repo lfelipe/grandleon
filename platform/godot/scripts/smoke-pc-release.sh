@@ -92,6 +92,7 @@ godot_smokes=(
     smoke-editor-acceptance.sh
     smoke-fixed-formation.sh
     smoke-frame-timing.sh
+    smoke-game-settings.sh
     smoke-gear-editor.sh
     smoke-home-menu.sh
     smoke-map-editor.sh
