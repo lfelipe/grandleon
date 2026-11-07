@@ -42,14 +42,15 @@ namespace grandleon::view {
 // repository does not build for PAL, and a PAL machine would
 // run the same counts one sixth slower rather than drawing a different picture.
 
-// How long a token spends crossing one tile. Six frames is a tenth of a second
-// per tile: ten tiles a second reads as a walk rather than a slide or a jump.
-// The longest move the demo content allows is four tiles, which takes 24
-// frames: under half a second, and so never something to wait out.
+// How long a token spends crossing one tile. Ten frames is a sixth of a second
+// per tile: six tiles a second leaves enough time for the alternating contact
+// poses, bob and facing change to read as a step rather than a fast slide. The
+// longest ordinary move is four tiles, which takes 40 frames: still under one
+// second rather than a traversal the player waits through.
 //
-// It is also divisible by two and three, so the halfway and third points of a
-// step land on exact frames rather than on rounding.
-inline constexpr int slide_frames_per_tile = 6;
+// It is also divisible by two and five, so its major pose beats land on exact
+// frames rather than on rounding.
+inline constexpr int slide_frames_per_tile = 10;
 
 // A landed hit: six frames, the first three with the struck token knocked away
 // from whoever hit it and the last three with it back where it stands. Three
@@ -69,15 +70,14 @@ inline constexpr int flinch_knocked_frames = 3;
 // is it.
 inline constexpr int miss_frames = flinch_knocked_frames;
 
-// How long a bolt, an arrow or a flare spends crossing one tile: half the six
-// frames a body spends walking one, so a thing that was loosed visibly outruns
-// a thing that walks and the two never read as the same speed.
+// How long a bolt, an arrow or a flare spends crossing one tile: three frames,
+// so a thing that was loosed visibly outruns the now more deliberate ten-frame
+// walk and the two never read as the same speed.
 //
-// Three and not two because three is what `slide_frames_per_tile` halves to
-// without a remainder, and not four because the longest band any shipped weapon
-// authors is three tiles (a Long Bow's two-to-three), and four would put the
-// longest shot at twelve frames, a fifth of a second in the air before anything
-// has happened. At three it is nine, which is shorter than a two-tile walk.
+// Three and not four because the longest band any shipped weapon authors is
+// three tiles (a Long Bow's two-to-three), and four would put the longest shot
+// at twelve frames, a fifth of a second in the air before anything has happened.
+// At three it is nine, shorter than a single walking step.
 inline constexpr int projectile_frames_per_tile = 3;
 
 // How long a caster holds the pose before the spell resolves. The same six a
@@ -90,10 +90,10 @@ inline constexpr int cast_hold_frames = flinch_frames;
 // A console close-up needs enough time to be seen as a scene rather than a
 // flash between two board frames. The ordinary gesture remains responsive on
 // the map; these two holds belong only to the optional full-frame presentation
-// both compact consoles use. Ten frames establish who is attacking, and
-// twenty-four leave the damage or miss visible long enough to read.
-inline constexpr int close_intro_hold_frames = 10;
-inline constexpr int close_result_hold_frames = 24;
+// both compact consoles use. Fourteen frames establish who is attacking, and
+// thirty-six leave the damage or miss visible long enough to read on hardware.
+inline constexpr int close_intro_hold_frames = 14;
+inline constexpr int close_result_hold_frames = 36;
 
 // Board cutouts should read as people standing on terrain, not as portraits
 // covering neighbouring cells. One and a half cells retains the detailed
@@ -202,10 +202,9 @@ inline constexpr int pan_frames_most = 24;
 inline constexpr int held_repeat_delay_frames = 20;
 
 // And how often it repeats after that: every six frames, ten cells a second.
-// The same six a body spends walking one tile, deliberately - the cursor
-// crossing the board at the pace a character walks it is a speed the player has
-// already been taught, and it is fast enough that twenty cells is two seconds.
-inline constexpr int held_repeat_period_frames = slide_frames_per_tile;
+// Input stays brisk even though unit motion is now more deliberate; slowing a
+// character should not make crossing a large board with the cursor laborious.
+inline constexpr int held_repeat_period_frames = 6;
 
 // Whether a direction held for `frames` should step this frame. False for every
 // frame before the delay, and true on exactly one frame in each period after
@@ -723,11 +722,8 @@ static_assert(
     "which beside this arithmetic. Do not raise this count alone"
 );
 
-// How long one cell of the walk is held: a whole tile. Two cells and not four
-// is arithmetic rather than taste. At `slide_frames_per_tile` frames a tile, a
-// four-pose cycle holds each pose for a frame and a half, and a pose held for a
-// fraction of a frame is a pose no console draws. One cell a tile also makes
-// the cycle mean what a tile means: one step.
+// How long one cell of the walk is held: a whole tile. One cell a tile makes
+// the two-pose cycle mean what a tile means: one clear step.
 inline constexpr int walk_cells = 2;
 
 // The cell a walking token is drawn as, `frame` frames into a slide counted

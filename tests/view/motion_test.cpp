@@ -72,7 +72,7 @@ int main() {
     // an author reads them and this is what holds it to them. Changing one is
     // a decision, not a refactor, and this is where the decision is recorded.
     {
-        expect(slide_frames_per_tile == 6, "a tile takes six frames to cross");
+        expect(slide_frames_per_tile == 10, "a tile takes ten frames to cross");
         expect(flinch_frames == 6, "a flinch is six frames");
         expect(
             flinch_knocked_frames == 3,
@@ -104,7 +104,7 @@ int main() {
             "the period is a power of two, so the phase is a mask"
         );
         expect(slide_frames_per_tile % 2 == 0, "half a tile lands on a frame");
-        expect(slide_frames_per_tile % 3 == 0, "a third of a tile does too");
+        expect(slide_frames_per_tile % 5 == 0, "a fifth of a tile does too");
 
         ConsoleDisplayOptions display;
         expect(!display.show_fps, "a shipped console starts with FPS hidden");
@@ -127,8 +127,8 @@ int main() {
     // ---------------------------------------------------------------
     {
         expect(slide_frames_for(0) == 0, "a route of no tiles takes no frames");
-        expect(slide_frames_for(1) == 6, "one tile takes six frames");
-        expect(slide_frames_for(4) == 24, "four tiles take 24 frames");
+        expect(slide_frames_for(1) == 10, "one tile takes ten frames");
+        expect(slide_frames_for(4) == 40, "four tiles take 40 frames");
         expect(slide_frames_for(-3) == 0, "a negative route takes no frames");
 
         // The property every pixel assertion downstream depends on: the last
@@ -527,16 +527,16 @@ int main() {
 
         // One step a tile, alternating: the cell changes exactly at a tile
         // boundary and never inside one.
-        expect(walk_cell(1, 24) == sequence_cell_walk_contact, "tile 1 contacts");
-        expect(walk_cell(6, 24) == sequence_cell_walk_contact, "…for all six frames");
-        expect(walk_cell(7, 24) == sequence_cell_walk_pass, "tile 2 passes");
-        expect(walk_cell(12, 24) == sequence_cell_walk_pass, "…for all six frames");
-        expect(walk_cell(13, 24) == sequence_cell_walk_contact, "tile 3 contacts again");
-        expect(walk_cell(19, 24) == sequence_cell_walk_pass, "tile 4 passes");
+        expect(walk_cell(1, 40) == sequence_cell_walk_contact, "tile 1 contacts");
+        expect(walk_cell(10, 40) == sequence_cell_walk_contact, "…for all ten frames");
+        expect(walk_cell(11, 40) == sequence_cell_walk_pass, "tile 2 passes");
+        expect(walk_cell(20, 40) == sequence_cell_walk_pass, "…for all ten frames");
+        expect(walk_cell(21, 40) == sequence_cell_walk_contact, "tile 3 contacts again");
+        expect(walk_cell(31, 40) == sequence_cell_walk_pass, "tile 4 passes");
         {
             int changes = 0;
-            for (int frame = 2; frame < 24; ++frame) {
-                if (walk_cell(frame, 24) != walk_cell(frame - 1, 24)) ++changes;
+            for (int frame = 2; frame < 40; ++frame) {
+                if (walk_cell(frame, 40) != walk_cell(frame - 1, 40)) ++changes;
             }
             expect(changes == 3, "a four-tile walk changes cell three times");
         }
@@ -722,11 +722,11 @@ int main() {
             "console board figures occupy one and a half cells within readable bounds"
         );
         expect(
-            close_gesture_frames(AttackGesture::swing, 1, true) == 40,
-            "a close landed swing stays visible for two thirds of a second"
+            close_gesture_frames(AttackGesture::swing, 1, true) == 56,
+            "a close landed swing stays visible for nearly a second"
         );
         expect(
-            close_gesture_frames(AttackGesture::cast, 2, false) == 43,
+            close_gesture_frames(AttackGesture::cast, 2, false) == 59,
             "a close missed cast keeps its gesture between the same readable holds"
         );
     }
@@ -737,8 +737,8 @@ int main() {
     {
         expect(projectile_frames_per_tile == 3, "a bolt crosses a tile in three");
         expect(
-            projectile_frames_per_tile * 2 == slide_frames_per_tile,
-            "which is half a walk, so a loosed thing outruns a walking one"
+            projectile_frames_per_tile < slide_frames_per_tile,
+            "which is faster than a walk, so a loosed thing outruns a walking one"
         );
         expect(projectile_frames_for(0) == 0, "no distance, no flight");
         expect(projectile_frames_for(-1) == 0, "and no negative one either");
@@ -966,9 +966,8 @@ int main() {
             "the numbers themselves, so a change to either is a change here"
         );
         expect(
-            held_repeat_period_frames == slide_frames_per_tile,
-            "the cursor crosses a tile at the pace a character walks one, which "
-            "is a speed the player has already been taught"
+            held_repeat_period_frames < slide_frames_per_tile,
+            "cursor navigation remains faster than the deliberately paced walk"
         );
 
         for (int frame = 0; frame < held_repeat_delay_frames; ++frame) {
