@@ -16,6 +16,12 @@ const ARCHETYPE_NAMES := [
 	"knight", "archer", "mage", "stormcaller", "healer", "commander",
 	"rogue", "beast"
 ]
+const MEDIEVAL_HOUSE_TEXTURES := [
+	"res://art/map_features/medieval_house_townhouse.png",
+	"res://art/map_features/medieval_house_thatched.png",
+	"res://art/map_features/medieval_house_inn.png",
+	"res://art/map_features/medieval_house_craftsperson.png",
+]
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a87a4f"), Color("316b45"), Color("65717a"),
 	Color("c39a60"), Color("dce7e8"), Color("496c58"), Color("78915b"),
@@ -634,6 +640,8 @@ func _village_house_variation(anchor: Vector2i) -> int:
 
 
 func _build_medieval_village_house(centre: Vector3, variation: int) -> void:
+	if _build_medieval_house_cutout(centre, variation):
+		return
 	var house := Node3D.new()
 	house.position = centre
 	house.rotation.y = PI * 0.5 if variation in [1, 3] else 0.0
@@ -747,6 +755,28 @@ func _build_medieval_village_house(centre: Vector3, variation: int) -> void:
 			Vector3(0.54, 0.10, depth * 0.78), roof
 		)
 		annex_roof.rotation_degrees.z = side * -12.0
+
+
+func _build_medieval_house_cutout(centre: Vector3, variation: int) -> bool:
+	var path: String = MEDIEVAL_HOUSE_TEXTURES[variation % MEDIEVAL_HOUSE_TEXTURES.size()]
+	if not ResourceLoader.exists(path):
+		return false
+	var resource: Resource = load(path)
+	if not resource is Texture2D:
+		return false
+	var house := Sprite3D.new()
+	house.texture = resource as Texture2D
+	house.position = centre + Vector3(0, 0.92, 0)
+	house.pixel_size = 0.00355
+	house.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	house.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	house.shaded = false
+	house.double_sided = true
+	house.set_meta("landmark_style", "medieval")
+	house.set_meta("landmark_variation", variation)
+	house.set_meta("landmark_asset", path)
+	_terrain_root.add_child(house)
+	return true
 
 
 func _build_ancient_grove(anchor: Vector2i) -> void:

@@ -208,22 +208,23 @@ and the terrain scenes live in
 
 ### Large map-feature prototypes
 
-The first village and deep-forest landmarks are preserved as transparent
-source renders: a 2×2 timber-and-stone house and a 2×2 ancient-tree cluster.
+The village and deep-forest landmarks are preserved as transparent source
+renders: a four-building Medieval family and a 2×2 ancient-tree cluster.
 They are not ordinary one-cell terrain. Steel and Cedar now authors each as an
 explicit four-cell blocked footprint, and Godot groups that footprint into one
-procedural building or natural mass that follows the scene lighting.
+coherent building or natural mass.
 
 [Review the source renders and their intended footprints](../platform/godot/project/art/map_features/README.md).
 
-The transparent renders are visual references, not the current in-game
-textures. Godot uses the house reference as the visual direction for a family
-of four deterministic Medieval buildings: their proportions, orientation,
-plaster and roof tones, chimneys, timber frames, foundations, windows, and side
-structures vary while their tactical footprint stays the same. This is the
-first scenario-specific family, not a universal house that should be recoloured
-for every setting; Sengoku, pirate, science-fiction, and other settings need
-their own landmark families.
+The original `village_house_2x2.png` is a visual reference. Godot now uses four
+dedicated transparent Medieval building cutouts selected deterministically by
+map position: townhouse, thatched cottage, inn, and craftsperson's workshop.
+Each has a stone lower floor, period timber construction, small leaded windows,
+steep period roof materials, and an irregular silhouette while sharing the
+same tactical footprint. Procedural geometry remains only as a missing-asset
+fallback. This is the first scenario-specific family, not a universal house
+that should be recoloured for every setting; Sengoku, pirate,
+science-fiction, and other settings need their own landmark families.
 
 In the Godot map editor, **House 2×2** and **Grove 2×2** place the complete
 blocked footprint with one action, and **Remove** clears the whole landmark

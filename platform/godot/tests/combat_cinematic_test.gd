@@ -251,6 +251,15 @@ func _test_cluster_landmarks(board) -> void:
 		"a settlement has four stable house variations",
 		house_variations.size(), 4
 	)
+	var cutout_count := 0
+	for child: Node in board._terrain_root.get_children():
+		if child.has_meta("landmark_asset"):
+			cutout_count += 1
+			_expect_true(
+				"the Medieval house uses a dedicated transparent cutout",
+				str(child.get_meta("landmark_asset")).contains("medieval_house_")
+			)
+	_expect("one footprint draws one Medieval building", cutout_count, 1)
 	board.configure(empty_board, [
 		2, 2, 2, 9,
 		2, 3, 3, 2,

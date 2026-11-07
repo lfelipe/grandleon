@@ -18,6 +18,57 @@ only as a camera and presentation reference.
 - Use it to form streets and short alternate routes, not as decoration units
   unexpectedly walk through.
 
+This original house is the style reference. It is not the runtime building:
+the first board prototype made its smooth one-story procedural replacement
+look too modern. The Godot board now selects one of the four dedicated
+Medieval cutouts below and keeps procedural geometry only as a missing-asset
+fallback.
+
+## Medieval village family
+
+- `medieval_house_townhouse.png`: tall stone ground floor and jettied timber
+  upper story.
+- `medieval_house_thatched.png`: irregular thatched cottage with a masonry
+  base and lean-to.
+- `medieval_house_inn.png`: asymmetrical two-story inn with intersecting
+  gables and a timber porch.
+- `medieval_house_craftsperson.png`: shuttered workshop with a covered side
+  bay and weathered wood-shingle roof.
+
+All four are transparent runtime cutouts for the same blocked 2×2 footprint.
+They were generated on 2026-11-07 with Codex's built-in OpenAI
+image-generation tool, using `village_house_2x2.png` only as the rendering,
+lighting, scale, and camera reference. The service did not expose a model
+version identifier. The accepted source images were resampled to 768×768 for
+the game; no subject or background edit was applied during that optimization.
+
+The shared prompt required: “one complete building centered, three-quarter
+isometric view from above, entire silhouette visible, square 2×2 tactical
+footprint, polished stylized 3D game render, visibly medieval European, rough
+irregular fieldstone, heavy dark oak framing, aged period roof materials,
+small leaded-glass windows, forged iron hardware, genuinely transparent
+background; no ground, people, foliage, flowers, text, watermark, modern
+windows, modern doors, modern roofline, clean suburban proportions, or
+detached props.” The four subject prompts were:
+
+1. “A tall two-story medieval border-village townhouse with a thick fieldstone
+   ground floor, strongly projecting jettied half-timber upper floor, steep
+   uneven reddish clay-tile gabled roof with deep eaves, one massive irregular
+   stone chimney, tiny leaded windows, and a recessed arched plank door.”
+2. “A low but unmistakably medieval rural cottage with thick rough stone
+   walls, a dark timber gable, a very steep shaggy thatched roof with an uneven
+   ridge, a crooked stone smoke chimney, a small timber lean-to, tiny shuttered
+   leaded windows, and a heavy arched oak door.”
+3. “A compact two-story medieval village inn with an L-shaped fieldstone base,
+   projecting half-timber upper floor, steep intersecting clay-tile gables,
+   deep eaves, an open timber porch, tiny leaded windows, and an empty
+   wrought-iron hanging-sign bracket with no text.”
+4. “A narrow medieval craftsperson's house with a high irregular stone ground
+   floor, a visibly jettied dark-oak-and-plaster upper workshop, a steep
+   weathered wood-shingle roof with a small cross-gable, a masonry chimney,
+   tiny leaded windows with shutters, an arched plank door, and a built-in
+   covered side bay.”
+
 ## `ancient_tree_cluster_2x2.png`
 
 - Intended footprint: 2 × 2 cells, all blocked.
