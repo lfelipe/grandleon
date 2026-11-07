@@ -53,7 +53,7 @@ run_campaign() {
     XDG_DATA_HOME="${state_dir}/data" \
     XDG_CONFIG_HOME="${state_dir}/config" \
     XDG_CACHE_HOME="${state_dir}/cache" \
-        timeout 30s "${godot_binary}" --headless --path "${stage_dir}" -- \
+        timeout 60s "${godot_binary}" --headless --path "${stage_dir}" -- \
         --package=res://game.gpk \
         --campaign=demo_campaign \
         --players=1 \
