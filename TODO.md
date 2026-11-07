@@ -84,6 +84,55 @@ roadmap work.
     Preserve walkable-cell clarity and measure the memory and frame cost on
     each console.
 
+### Follow-up from 0.4 hardware review
+
+The 0.4 PlayStation and Nintendo 64 builds are accepted for release. Carry
+these observed issues into the next console pass rather than holding that
+release:
+
+- [ ] Skip the pre-battle **Company Musters** screen when the ready formation
+  leaves the player with no meaningful roster, stage, loadout, or deployment
+  choice. Apply the same rule consistently in Godot, Nintendo 64, and
+  PlayStation; retain the screen only when an authored decision exists.
+- [ ] Tighten PlayStation and Nintendo 64 board navigation so selecting a
+  character, choosing an action, moving between legal cells, cancelling, and
+  ending a turn feel predictable on each controller.
+- [ ] Reduce tactical unit scale on both consoles so characters remain distinct
+  without obscuring the map or nearby cells.
+- [ ] Slow close-up combat timing on both consoles enough for the attack,
+  impact, damage, and counter-attack to be read comfortably on hardware.
+
+## Unified demo campaign
+
+- [ ] Design and build one cohesive campaign to replace the current included
+  campaigns as Grandleon's main demo on Godot, Nintendo 64, and PlayStation.
+  Treat this as game design work rather than a content checklist, and do not
+  ship it until both the one-player and two-player routes are enjoyable.
+- [ ] Build a focused Medieval-versus-Sengoku story with a small purposeful
+  cast. Introduce only the roles the campaign can teach and use well; the demo
+  does not need to force every art style or archetype into one plot.
+- [ ] Start with a short, forgiving scenario that teaches movement, terrain,
+  attacks, counter-attacks, objectives, and ending a turn through play. Add
+  mechanics gradually across later chapters instead of opening with a manual
+  or a large roster.
+- [ ] Create a deliberate difficulty curve through varied objectives, enemy
+  roles, reinforcements, positioning problems, and meaningful terrain. Finish
+  with a memorable final-boss encounter that tests the campaign's lessons
+  rather than relying only on inflated health or damage.
+- [ ] Design each map around its fiction and tactical purpose. Use coherent
+  terrain regions, readable routes, flanks, cover, chokepoints, landmarks, and
+  objective spaces; remove random-looking terrain patches and avoid repeating
+  the same central-lane layout.
+- [ ] Tune 1P and 2P separately. Co-op must give both players useful characters
+  and decisions without merely doubling the battle size; solo play must retain
+  the same strategic possibilities at a manageable pace. Playtest every map
+  in both modes, including loss, retry, save, and continuation paths.
+- [ ] Keep the campaign within the real Nintendo 64 and PlayStation budgets
+  from the beginning. Validate the same source on all three players, then add
+  automated completion routes and human playtest notes for difficulty,
+  duration, clarity, dead turns, and dominant strategies before it replaces
+  the existing demos.
+
 ## 0.4 player foundation and battle view
 
 - [x] Add portable per-campaign launch policy for one player, two players, or a
@@ -137,12 +186,13 @@ without a matching art workflow. Godot should provide the equivalent author
 outcomes through its native project library, player, and export tools rather
 than reproduce those implementation details.
 
-- [ ] Add an end-to-end editor acceptance test that begins with an empty
-  project, creates a small but complete campaign through the normal human
-  workflow, validates and exports it, then launches the exported game and
-  plays its first battle to a deterministic objective. Cover authored terrain,
-  units, teams, deployment, dialogue, victory rules, and player-count policy so
-  this proves the full path from creation to play rather than export alone.
+- [x] Add an end-to-end editor acceptance test that begins with an empty project
+  library, uses the normal **New Campaign** workflow to author a small complete
+  campaign, validates and exports it, then launches the exported player-only
+  game and wins its first battle through normal controls. Cover authored
+  terrain, units, teams, deployment, dialogue, victory rules, and player-count
+  policy so this proves the full path from creation to play rather than export
+  alone.
 - [x] Let a campaign author choose one player, two players, or a choice at
   launch from the Campaign screen. Give immediate ownership guidance, disable
   impossible previews, and provide separate isolated **Test 1 Player** and

@@ -89,6 +89,7 @@ godot_smokes=(
     smoke-console-builder.sh
     smoke-controller-seats.sh
     smoke-creator-screen.sh
+    smoke-editor-acceptance.sh
     smoke-fixed-formation.sh
     smoke-frame-timing.sh
     smoke-gear-editor.sh
