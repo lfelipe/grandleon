@@ -44,6 +44,14 @@ func _run() -> void:
 	manager._name_input.text = "A".repeat(64)
 	manager._validate_player_name(manager._name_input.text)
 	_expect("the full portable ASCII limit is accepted", manager._name_save.disabled, false)
+	manager._name_input.text = "bryn"
+	manager._validate_player_name(manager._name_input.text)
+	_expect("a duplicate company name remains an allowed choice", manager._name_save.disabled, false)
+	_expect(
+		"a duplicate company name is clearly called out",
+		manager._name_error.text.contains("already uses"),
+		true
+	)
 	manager._name_input.text = "Luzia"
 	manager._submit_player_name()
 	_expect("valid name closes the modal", manager._name_layer.visible, false)

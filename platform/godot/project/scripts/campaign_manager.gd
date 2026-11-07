@@ -523,13 +523,31 @@ func _validate_player_name(_value: String) -> void:
 		return
 	var chosen := _name_input.text.strip_edges()
 	var bytes := chosen.to_utf8_buffer().size()
+	var invalid := false
 	if chosen.is_empty():
 		_name_error.text = "Enter a visible name."
+		invalid = true
 	elif bytes > 64:
 		_name_error.text = "That name is too long when saved."
+		invalid = true
+	elif _company_has_other_name(chosen):
+		_name_error.text = "Another company member already uses this name."
 	else:
 		_name_error.text = ""
-	_name_save.disabled = not _name_error.text.is_empty()
+	_name_save.disabled = invalid
+
+
+func _company_has_other_name(chosen: String) -> bool:
+	for member_value: Variant in _company.get("roster", []):
+		if not member_value is Dictionary:
+			continue
+		var member: Dictionary = member_value
+		if int(member.get("member_id", 0)) == _selected_member_id:
+			continue
+		var other := String(member.get("name", "")).strip_edges()
+		if not other.is_empty() and chosen.nocasecmp_to(other) == 0:
+			return true
+	return false
 
 
 func _submit_player_name() -> void:
