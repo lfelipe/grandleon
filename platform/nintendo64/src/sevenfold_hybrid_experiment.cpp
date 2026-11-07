@@ -21,6 +21,9 @@ struct Pair final {
 
 Pair medieval{};
 Pair mythical{};
+constexpr int tactical_units = 8;
+sprite_t* tactical_idle[tactical_units]{};
+sprite_t* tactical_rogue_move[2]{};
 sprite_t* shadow = nullptr;
 sprite_t* impact = nullptr;
 bool ready = false;
@@ -48,6 +51,66 @@ void blit(
     rdpq_sprite_blit(sprite, x, y, &parameters);
 }
 
+struct TacticalPlacement final {
+    float left;
+    float foot;
+    float scale;
+};
+
+[[nodiscard]] TacticalPlacement tactical_placement(
+    int unit, const TacticalFrame& frame
+) noexcept {
+    constexpr float left[tactical_units] = {
+        54.0F, 103.0F, 152.0F, 201.0F,
+        32.0F, 96.0F, 160.0F, 224.0F,
+    };
+    constexpr float foot[tactical_units] = {
+        112.0F, 112.0F, 112.0F, 112.0F,
+        181.0F, 181.0F, 181.0F, 181.0F,
+    };
+    constexpr float scale[tactical_units] = {
+        0.68F, 0.68F, 0.68F, 0.68F,
+        0.90F, 0.90F, 0.90F, 0.90F,
+    };
+    TacticalPlacement result{left[unit], foot[unit], scale[unit]};
+    if (unit != 6) return result;
+    const int progress = frame.move_progress < 0 ? 0 :
+        frame.move_progress > 100 ? 100 : frame.move_progress;
+    const float amount = static_cast<float>(progress) / 100.0F;
+    result.left -= 20.0F * amount;
+    result.foot -= 46.0F * amount;
+    result.scale -= 0.18F * amount;
+    return result;
+}
+
+void draw_tactical_marks(const TacticalFrame& frame) {
+    constexpr int team[tactical_units] = {0, 1, 0, 1, 0, 1, 0, 1};
+    constexpr int health[tactical_units] = {10, 8, 7, 9, 6, 10, 5, 8};
+    rdpq_set_mode_standard();
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    for (int unit = 0; unit < tactical_units; ++unit) {
+        const TacticalPlacement placed = tactical_placement(unit, frame);
+        const int width = placed.foot < 150.0F ? 14 : 18;
+        const int left = static_cast<int>(
+            placed.left + (56.0F * placed.scale - static_cast<float>(width)) /
+                2.0F
+        );
+        const int top = static_cast<int>(placed.foot - 55.0F * placed.scale);
+        rdpq_set_prim_color(RGBA32(10, 14, 17, 255));
+        rdpq_fill_rectangle(left, top, left + width, top + 4);
+        rdpq_set_prim_color(RGBA32(74, 196, 92, 255));
+        rdpq_fill_rectangle(
+            left + 1, top + 1,
+            left + 1 + (width - 2) * health[unit] / 10, top + 3
+        );
+        rdpq_set_prim_color(
+            team[unit] == 0 ? RGBA32(35, 117, 169, 255) :
+                              RGBA32(179, 72, 63, 255)
+        );
+        rdpq_fill_rectangle(left - 5, top, left - 1, top + 4);
+    }
+}
+
 }  // namespace
 
 bool initialize() {
@@ -72,6 +135,46 @@ bool initialize() {
         load(hybrid_mythical_mage_female_red_hurt,
              hybrid_mythical_mage_female_red_hurt_size),
     };
+    tactical_idle[0] = load(
+        hybrid_tactical_medieval_knight_male_blue_idle,
+        hybrid_tactical_medieval_knight_male_blue_idle_size
+    );
+    tactical_idle[1] = load(
+        hybrid_tactical_medieval_archer_female_red_idle,
+        hybrid_tactical_medieval_archer_female_red_idle_size
+    );
+    tactical_idle[2] = load(
+        hybrid_tactical_medieval_mage_male_blue_idle,
+        hybrid_tactical_medieval_mage_male_blue_idle_size
+    );
+    tactical_idle[3] = load(
+        hybrid_tactical_medieval_stormcaller_female_red_idle,
+        hybrid_tactical_medieval_stormcaller_female_red_idle_size
+    );
+    tactical_idle[4] = load(
+        hybrid_tactical_medieval_healer_male_blue_idle,
+        hybrid_tactical_medieval_healer_male_blue_idle_size
+    );
+    tactical_idle[5] = load(
+        hybrid_tactical_medieval_commander_female_red_idle,
+        hybrid_tactical_medieval_commander_female_red_idle_size
+    );
+    tactical_idle[6] = load(
+        hybrid_tactical_medieval_rogue_male_blue_idle,
+        hybrid_tactical_medieval_rogue_male_blue_idle_size
+    );
+    tactical_idle[7] = load(
+        hybrid_tactical_medieval_beast_female_red_idle,
+        hybrid_tactical_medieval_beast_female_red_idle_size
+    );
+    tactical_rogue_move[0] = load(
+        hybrid_tactical_medieval_rogue_male_blue_move_a,
+        hybrid_tactical_medieval_rogue_male_blue_move_a_size
+    );
+    tactical_rogue_move[1] = load(
+        hybrid_tactical_medieval_rogue_male_blue_move_b,
+        hybrid_tactical_medieval_rogue_male_blue_move_b_size
+    );
     shadow = load(hybrid_shadow, hybrid_shadow_size);
     impact = load(hybrid_impact, hybrid_impact_size);
     ready = medieval.attacker_idle != nullptr &&
@@ -83,6 +186,11 @@ bool initialize() {
         mythical.defender_idle != nullptr &&
         mythical.defender_hurt != nullptr && shadow != nullptr &&
         impact != nullptr;
+    for (sprite_t* drawing : tactical_idle) {
+        ready = ready && drawing != nullptr;
+    }
+    ready = ready && tactical_rogue_move[0] != nullptr &&
+        tactical_rogue_move[1] != nullptr;
     return ready;
 }
 
@@ -117,6 +225,49 @@ void draw(Style style, const Frame& frame) {
     }
 }
 
+void draw_tactical(const TacticalFrame& frame) {
+    if (!ready && !initialize()) return;
+    constexpr int team[tactical_units] = {0, 1, 0, 1, 0, 1, 0, 1};
+    int order[tactical_units]{};
+    for (int index = 0; index < tactical_units; ++index) order[index] = index;
+    for (int index = 1; index < tactical_units; ++index) {
+        const int inserted = order[index];
+        int position = index;
+        while (position > 0 &&
+               tactical_placement(order[position - 1], frame).foot >
+                   tactical_placement(inserted, frame).foot) {
+            order[position] = order[position - 1];
+            --position;
+        }
+        order[position] = inserted;
+    }
+
+    rdpq_set_mode_standard();
+    rdpq_mode_tlut(TLUT_RGBA16);
+    rdpq_mode_alphacompare(1);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    for (int position = 0; position < tactical_units; ++position) {
+        const int unit = order[position];
+        const TacticalPlacement placed = tactical_placement(unit, frame);
+        const float shadow_scale = placed.scale * 1.10F;
+        blit(
+            shadow,
+            placed.left + (56.0F * placed.scale - 32.0F * shadow_scale) /
+                2.0F,
+            placed.foot - 7.0F, shadow_scale, placed.scale * 0.65F
+        );
+        sprite_t* drawing = tactical_idle[unit];
+        if (unit == 6 && frame.move_pose > 0) {
+            drawing = tactical_rogue_move[(frame.move_pose - 1) & 1];
+        }
+        blit(
+            drawing, placed.left, placed.foot - 56.0F * placed.scale,
+            placed.scale, placed.scale, team[unit] != 0
+        );
+    }
+    draw_tactical_marks(frame);
+}
+
 std::size_t embedded_bytes() noexcept {
     return hybrid_medieval_knight_male_blue_idle_size +
         hybrid_medieval_knight_male_blue_attack_size +
@@ -127,6 +278,19 @@ std::size_t embedded_bytes() noexcept {
         hybrid_mythical_mage_female_red_idle_size +
         hybrid_mythical_mage_female_red_hurt_size +
         hybrid_shadow_size + hybrid_impact_size;
+}
+
+std::size_t tactical_embedded_bytes() noexcept {
+    return hybrid_tactical_medieval_knight_male_blue_idle_size +
+        hybrid_tactical_medieval_archer_female_red_idle_size +
+        hybrid_tactical_medieval_mage_male_blue_idle_size +
+        hybrid_tactical_medieval_stormcaller_female_red_idle_size +
+        hybrid_tactical_medieval_healer_male_blue_idle_size +
+        hybrid_tactical_medieval_commander_female_red_idle_size +
+        hybrid_tactical_medieval_rogue_male_blue_idle_size +
+        hybrid_tactical_medieval_beast_female_red_idle_size +
+        hybrid_tactical_medieval_rogue_male_blue_move_a_size +
+        hybrid_tactical_medieval_rogue_male_blue_move_b_size;
 }
 
 }  // namespace grandleon::nintendo64::sevenfold_hybrid_experiment

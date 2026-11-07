@@ -85,17 +85,19 @@ cmake --build build --target grandleon_n64_sevenfold_3d_check
 cmake --build build --target grandleon_playstation_sevenfold_3d_check
 ```
 
-The N64 viewer currently passes `54/54` checks and records 52 captures. Its
+The N64 viewer currently passes `56/56` checks and records 54 captures. Its
 capture trail includes two same-team pages showing all eight low-detail roles
 from the opposite camera-facing three-quarter headings, matched flat/material
-tactical boards for medieval and pirates, and proxy/hybrid close views for
-medieval and mythical representatives. Its ares measurements are 62–87 fps for
+tactical boards for medieval and pirates, a matched eight-role 2.5D medieval
+board with a short tile move, and proxy/hybrid close views for medieval and
+mythical representatives. Its ares measurements are 62–87 fps for
 eight low-detail models and 39–51 fps for eight high-detail models. The two
-material tactical views measure 79 and 75 fps, versus 81 and 76 fps for the
+material tactical views measure 78 and 75 fps, versus 81 and 76 fps for the
 same flat boards. Textured proxy close views measure 157 fps for medieval and
-130 fps for mythical; curated hybrid close views measure 462–471 fps because
+129 fps for mythical; curated hybrid close views measure 423–443 fps because
 the detailed fighters become two RDP cutouts rather than thousands of proxy
-triangles.
+triangles. The full 2.5D board measures about 327 fps while static and 312 fps
+at its slowest animated frame.
 
 The PlayStation viewer currently passes `352/352` guest checks, including
 safe-picture checks for every auto-framed attack pair, and `18/18` independent
@@ -110,8 +112,10 @@ These are emulator measurements used to catch regressions, not promises about
 original hardware. Real-hardware play remains part of the review process.
 
 The N64 material and hybrid experiments are viewer-only for now. Press **Z** on
-the board for the material comparison. In a close view it cycles the flat
-proxy, textured proxy, and the medieval or mythical hybrid. The material path
+the board to compare the production, material, and, on the medieval page, 2.5D
+board candidates. **B** moves the selected 2.5D unit with two alternating pose
+frames. In a close view **Z** cycles the flat proxy, textured proxy, and the
+medieval or mythical hybrid. The material path
 uses two 32×32 CI4 greyscale atlases, deterministic UVs projected from existing
 proxy coordinates, and the existing vertex palettes for style and team
 identity. The tactical evidence keeps all eight roles, mixed male/female
@@ -124,9 +128,19 @@ cutouts sit over textured 3D terrain with separate shadow and impact sprites;
 the attack uses a frontal push, impact, and recoil instead of an orbit. One
 cutout and its palette peak at 3,232 bytes of TMEM. The embedded hybrid sprites
 total 28,688 bytes and grow the aligned viewer ROM by 32 KiB. Its animation
-peaks at 2.38 ms in ares. The playable campaign stays on its established
-presentation until the treatment covers more roles and has MiSTer or
-original-style hardware validation.
+peaks at 2.35 ms in ares. Attack and counter keep their original left/right
+screen anchors for the whole exchange; the counter runs right-to-left. The
+curated prototype does not yet animate a counter, and adding one must preserve
+that invariant.
+
+The full-map candidate adds ten 56×56 cutouts: idle frames for eight distinct
+medieval roles plus two rogue movement poses. Foot-position sorting gives
+correct overlap; far-row scaling, tile anchors, health bars, and team chips
+keep the board readable. These assets total 17,360 bytes, add 16 KiB to the
+aligned ROM, and peak at 1,600 bytes of TMEM per character upload. Eight
+characters and their shadows upload about 15.1 KiB per frame. The playable
+campaign stays on its established presentation until this treatment has
+MiSTer or original-style hardware validation.
 
 ## Ongoing graphics work
 

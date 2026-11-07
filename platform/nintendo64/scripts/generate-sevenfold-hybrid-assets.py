@@ -22,6 +22,7 @@ SOURCE = ROOT / "platform/godot/project/art/characters"
 OUTPUT = ROOT / "platform/nintendo64/prototype/assets/sevenfold_hybrid"
 CELL = 443
 SIDE = 80
+TACTICAL_SIDE = 56
 TEAM_COLOURS = {
     "blue": (0x23, 0x75, 0xA9),
     "red": (0xB3, 0x48, 0x3F),
@@ -36,6 +37,19 @@ ASSETS = (
     ("mythical_mage_male", "blue", "attack", 5),
     ("mythical_mage_female", "red", "idle", 0),
     ("mythical_mage_female", "red", "hurt", 7),
+)
+
+TACTICAL_ASSETS = (
+    ("medieval_knight_male", "blue", "idle", 0),
+    ("medieval_archer_female", "red", "idle", 0),
+    ("medieval_mage_male", "blue", "idle", 0),
+    ("medieval_stormcaller_female", "red", "idle", 0),
+    ("medieval_healer_male", "blue", "idle", 0),
+    ("medieval_commander_female", "red", "idle", 0),
+    ("medieval_rogue_male", "blue", "idle", 0),
+    ("medieval_beast_female", "red", "idle", 0),
+    ("medieval_rogue_male", "blue", "move_a", 2),
+    ("medieval_rogue_male", "blue", "move_b", 3),
 )
 
 
@@ -101,6 +115,37 @@ def source_digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def write_cutout(
+    identity: str, team: str, pose: str, frame_index: int,
+    side: int, prefix: str = ""
+) -> dict[str, object]:
+    source_path = SOURCE / f"{identity}_hd.png"
+    mask_path = SOURCE / f"{identity}_hd_team_mask.png"
+    with Image.open(source_path) as source_image, Image.open(mask_path) as mask_image:
+        cutout = recolour(
+            frame(source_image, frame_index),
+            frame(mask_image, frame_index),
+            TEAM_COLOURS[team],
+        )
+    cutout = cutout.resize((side, side), Image.Resampling.LANCZOS)
+    alpha = cutout.getchannel("A").point(lambda value: 255 if value >= 32 else 0)
+    cutout.putalpha(alpha)
+    name = f"{prefix}{identity}_{team}_{pose}.png"
+    cutout.save(OUTPUT / name, optimize=True)
+    return {
+        "path": name,
+        "source": str(source_path.relative_to(ROOT)),
+        "source_sha256": source_digest(source_path),
+        "mask": str(mask_path.relative_to(ROOT)),
+        "mask_sha256": source_digest(mask_path),
+        "frame": frame_index,
+        "team": team,
+        "pose": pose,
+        "width": side,
+        "height": side,
+    }
+
+
 def write_supporting_effects() -> list[dict[str, object]]:
     shadow = Image.new("RGBA", (32, 16), (0, 0, 0, 0))
     shadow_draw = ImageDraw.Draw(shadow)
@@ -131,38 +176,21 @@ def main() -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     manifest_assets = []
     for identity, team, pose, frame_index in ASSETS:
-        source_path = SOURCE / f"{identity}_hd.png"
-        mask_path = SOURCE / f"{identity}_hd_team_mask.png"
-        with Image.open(source_path) as source_image, Image.open(mask_path) as mask_image:
-            cutout = recolour(
-                frame(source_image, frame_index),
-                frame(mask_image, frame_index),
-                TEAM_COLOURS[team],
-            )
-        cutout = cutout.resize((SIDE, SIDE), Image.Resampling.LANCZOS)
-        alpha = cutout.getchannel("A").point(lambda value: 255 if value >= 32 else 0)
-        cutout.putalpha(alpha)
-        name = f"{identity}_{team}_{pose}.png"
-        cutout.save(OUTPUT / name, optimize=True)
         manifest_assets.append(
-            {
-                "path": name,
-                "source": str(source_path.relative_to(ROOT)),
-                "source_sha256": source_digest(source_path),
-                "mask": str(mask_path.relative_to(ROOT)),
-                "mask_sha256": source_digest(mask_path),
-                "frame": frame_index,
-                "team": team,
-                "pose": pose,
-                "width": SIDE,
-                "height": SIDE,
-            }
+            write_cutout(identity, team, pose, frame_index, SIDE)
+        )
+    for identity, team, pose, frame_index in TACTICAL_ASSETS:
+        manifest_assets.append(
+            write_cutout(
+                identity, team, pose, frame_index, TACTICAL_SIDE,
+                prefix="tactical_",
+            )
         )
     manifest_assets.extend(write_supporting_effects())
     (OUTPUT / "manifest.json").write_text(
         json.dumps(
             {
-                "format": "Grandleon N64 hybrid close-battle cutouts v1",
+                "format": "Grandleon N64 hybrid battle cutouts v2",
                 "generated_by": str(Path(__file__).resolve().relative_to(ROOT)),
                 "generator_sha256": source_digest(Path(__file__).resolve()),
                 "assets": manifest_assets,

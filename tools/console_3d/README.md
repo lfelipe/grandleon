@@ -46,8 +46,10 @@ high detail, exercises both bodies and team colours, and includes two
 same-team role pages with opposite camera-facing three-quarter headings, seven
 terrain close views, and an animated hit frame. It also includes matched flat
 and material tactical boards plus proxy/hybrid close views for medieval and
-mythical representatives. Its ares gate passes `54/54` and records 52
-captures.
+mythical representatives. A medieval 2.5D board comparison adds all eight
+roles, mixed bodies and teams, depth ordering, health/team marks, selection,
+movement range, and a short two-pose tile move. Its ares gate passes `56/56`
+and records 54 captures.
 
 The PlayStation viewer uses four-role pages and auto-framed two-character close
 views. Its guest gate passes `352/352`, including safe-picture checks for all
@@ -60,9 +62,10 @@ Current emulator measurements are:
 | N64, eight low-detail models | 62–87 fps |
 | N64, eight high-detail comparison models | 39–51 fps |
 | N64, two high-detail close-view models | 132–163 fps |
-| N64, two textured high-detail close-view models | 129–156 fps |
-| N64, eight low-detail models on textured tactical board | 75–79 fps |
-| N64, two curated CI4 cutouts on textured 3D terrain | 462–471 fps |
+| N64, two textured high-detail close-view models | 129–157 fps |
+| N64, eight low-detail models on textured tactical board | 75–78 fps |
+| N64, eight curated cutouts on textured tactical board | 312–327 fps |
+| N64, two curated CI4 cutouts on textured 3D terrain | 423–443 fps |
 | PS1, four low-detail board models | about 52 fps |
 | PS1, four high-detail comparison models | about 32 fps |
 | PS1, two high-detail close-view models | about 51 fps |
@@ -74,13 +77,14 @@ figures above are pinned-emulator measurements rather than display cadence or
 promises about original hardware.
 
 The N64 experiments live only in the diagnostic viewer. On the tactical board,
-**Z** compares the material pass with the production vertex-colour view. In a
-close view it cycles flat proxy, textured proxy, and the curated hybrid for the
-two representative styles. Two runtime-generated 32×32 greyscale atlases add
-armour, cloth, arcane, grass, stone, dirt, and ripple patterns. Multiplying
-those patterns by existing vertex colours keeps team red/blue independent from
-texture data. Deterministic planar projection derives UVs from existing proxy
-coordinates, so the shared generated proxy schema does not change.
+**Z** compares the production vertex-colour view, material pass, and, on the
+medieval page, a curated 2.5D candidate. **B** plays its short movement. In a
+close view **Z** cycles flat proxy, textured proxy, and the curated hybrid for
+the two representative styles. Two runtime-generated 32×32 greyscale atlases
+add armour, cloth, arcane, grass, stone, dirt, and ripple patterns. Multiplying
+those patterns by existing vertex colours keeps team red/blue independent
+from texture data. Deterministic planar projection derives UVs from existing
+proxy coordinates, so the shared generated proxy schema does not change.
 
 The hybrid derives eight 80×80 cutouts from the actual curated Godot sheets and
 team masks: idle/attack for a blue male attacker and idle/hurt for a red female
@@ -88,7 +92,15 @@ defender in medieval and mythical styles. It draws those CI4 sprites over the
 textured 3D terrain, with shadows and an impact layer. Each cutout plus palette
 uses 3,232 bytes of TMEM; all hybrid sprite objects total 28,688 bytes, and the
 viewer ROM grows by 32 KiB after alignment. The 60-frame frontal push, impact,
-and recoil peaks at 2.38 ms in ares. Run
+and recoil peaks at 2.35 ms in ares. Screen-left and screen-right are stable
+for the full exchange: the proxy counter is right-to-left, and any future
+curated counter must follow the same rule rather than swapping the units.
+
+The tactical candidate adds ten 56×56 cutouts (eight idle roles and two rogue
+movement poses), totalling 17,360 bytes and another 16 KiB of aligned ROM
+growth. One tactical cutout plus palette needs 1,600 bytes of TMEM; eight
+characters and shadows upload about 15.1 KiB per frame. Foot-position sorting,
+far-row scaling, and fixed tile anchors manage overlap. Run
 `platform/nintendo64/scripts/generate-sevenfold-hybrid-assets.py` to reproduce
 the checked-in PNG inputs and their source hashes. Neither experiment is
 enabled in the playable campaign yet.

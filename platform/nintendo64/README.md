@@ -116,7 +116,9 @@ than exact side views, keeping their shields, bows, books, banners and paired
 weapons visible. The baked vertex lighting also keeps a wider separation
 between shadow and highlight faces without paying for runtime lights. **A**
 switches between low and high detail; the d-pad changes style or body, and
-**Z** toggles a material-textured tactical board.
+**Z** cycles the normal board and a material-textured tactical board. On the
+medieval page it also shows an experimental 2.5D board using the curated
+character art. **B** plays that board's short tile movement.
 **Start** opens a two-character high-detail attack view whose floor, skyline,
 and sky colour are derived from the selected terrain. **B** then plays an
 illustrative attack, hit, counter-attack, and damage callout. In that close
@@ -124,7 +126,9 @@ view, **Z** cycles the flat proxy, material-textured proxy, and, for the
 medieval knight and mythical mage comparisons, a hybrid 2.5D presentation.
 The hybrid uses 80×80 CI4 cutouts derived from the actual curated Godot frames
 over the same textured 3D terrain. **B** shows a frontal push, impact, and
-recoil instead of orbiting the fighters.
+recoil instead of orbiting the fighters. The first attacker remains on screen
+left and the defender on screen right for the whole exchange. A counter moves
+the right fighter into the left fighter; it never swaps their screen sides.
 
 The playable `sevenfold-n64-3d.z64` uses the same proxies differently: low
 detail on the complete campaign board, actual 3D route movement, and two
@@ -136,14 +140,16 @@ the viewer's illustrative animation.
 Its ares check captures 28 roster-matrix comparisons, two same-team
 three-quarter pages that expose all eight low-detail roles from opposite
 headings, matched flat/material tactical boards for medieval and pirates,
-seven terrain close views, the proxy animation, and matched proxy/hybrid close
-views for medieval and mythical representatives. The current run passes
-`54/54` and records 52 captures. The two tactical material views measure 79
-and 75 fps, versus 81 and 76 fps for their identical flat views. Textured
-proxy close views measure 157 fps for medieval and 130 fps for mythical. The
-hybrid idle/impact views measure 462–471 fps, and its 60-frame attack peaks at
-2.38 ms. These are renderer-throughput measurements in ares, not display rate
-or timings from original hardware.
+an eight-role 2.5D tactical board and tile movement, seven terrain close
+views, the proxy animation, and matched proxy/hybrid close views for medieval
+and mythical representatives. The current run passes `56/56` and records 54
+captures. The two low-poly tactical material views measure 78 and 75 fps,
+versus 81 and 76 fps for their identical flat views. Textured
+proxy close views measure 157 fps for medieval and 129 fps for mythical. The
+hybrid idle/impact views measure 423–443 fps, and its 60-frame attack peaks at
+2.35 ms. The full 2.5D board measures about 327 fps while static and 312 fps at
+its slowest animated frame. These are renderer-throughput measurements in
+ares, not display rate or timings from original hardware.
 
 Both texture paths are deliberately confined to the diagnostic viewer while
 they are evaluated. The material pass uses two generated 32×32 CI4 atlases and
@@ -151,9 +157,13 @@ a shared TLUT, totalling 1,056 bytes in RDRAM. The hybrid embeds 28,688 bytes of
 CI4 sprite data; the ROM grows by 32 KiB because of cartridge alignment. A
 single 80×80 cutout and palette need 3,232 bytes of TMEM, and each sprite is
 uploaded separately. An idle hybrid frame uploads about 7.0 KiB of texture
-payload, rising to about 8.2 KiB on impact. The playable 3D campaign remains
-unchanged until the material and hybrid treatments cover more roles and pass
-MiSTer or original-style hardware review.
+payload, rising to about 8.2 KiB on impact. The tactical candidate adds ten
+56×56 cutouts totalling 17,360 bytes and grows the aligned ROM by another
+16 KiB. It peaks at 1,600 bytes of TMEM per character upload and about 15.1
+KiB of texture payload per frame. Its eight units are sorted by foot position
+for correct overlap, with smaller far-row figures to keep silhouettes apart.
+The playable 3D campaign remains unchanged until the material and hybrid
+treatments pass MiSTer or original-style hardware review.
 
 The checked-in cutouts can be regenerated from the exact curated sheet and
 team-mask hashes with:

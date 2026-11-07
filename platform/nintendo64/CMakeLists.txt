@@ -663,6 +663,16 @@ if(GRANDLEON_N64_SEVENFOLD_3D)
         mythical_mage_male_blue_attack
         mythical_mage_female_red_idle
         mythical_mage_female_red_hurt
+        tactical_medieval_knight_male_blue_idle
+        tactical_medieval_archer_female_red_idle
+        tactical_medieval_mage_male_blue_idle
+        tactical_medieval_stormcaller_female_red_idle
+        tactical_medieval_healer_male_blue_idle
+        tactical_medieval_commander_female_red_idle
+        tactical_medieval_rogue_male_blue_idle
+        tactical_medieval_beast_female_red_idle
+        tactical_medieval_rogue_male_blue_move_a
+        tactical_medieval_rogue_male_blue_move_b
         shadow
         impact
     )

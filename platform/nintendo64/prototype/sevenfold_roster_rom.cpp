@@ -572,6 +572,43 @@ std::uint64_t draw_hybrid_frame(
     return get_ticks_us() - started;
 }
 
+std::uint64_t draw_tactical_hybrid_frame(
+    surface_t* display, T3DViewport* viewport, T3DMat4FP* matrix,
+    const T3DVertPacked* board, const hybrid::TacticalFrame& tactical_frame,
+    const char* label, const char* footer, const char* controls
+) {
+    const std::uint64_t started = get_ticks_us();
+    rdpq_attach(display, display_get_zbuf());
+    t3d_frame_start();
+    rdpq_mode_zbuf(true, true);
+    t3d_viewport_attach(viewport);
+    t3d_screen_clear_color(RGBA32(20, 25, 35, 255));
+    t3d_screen_clear_depth();
+    t3d_light_set_count(0);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_mode_combiner(RDPQ_COMBINER_TEX_SHADE);
+    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
+        T3D_FLAG_TEXTURED | T3D_FLAG_SHADED |
+        T3D_FLAG_NO_LIGHT | T3D_FLAG_DEPTH
+    ));
+    t3d_matrix_push(matrix);
+    texture::bind_terrain();
+    draw_unindexed(board, board_triangles);
+    t3d_matrix_pop(1);
+    t3d_tri_sync();
+    hybrid::draw_tactical(tactical_frame);
+    rdpq_detach_wait();
+    graphics_draw_box(
+        display, 0, 196, 320, 44, graphics_make_color(15, 22, 24, 255)
+    );
+    graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
+    graphics_draw_text(display, 8, 8, label);
+    graphics_set_color(graphics_make_color(125, 168, 133, 255), 0);
+    graphics_draw_text(display, 8, 204, footer);
+    graphics_draw_text(display, 8, 220, controls);
+    return get_ticks_us() - started;
+}
+
 int triangle_total(
     const Figure* figures, int visible_figures = figure_count,
     int scene_triangles = board_triangles
@@ -711,6 +748,95 @@ std::uint64_t show_tactical_comparison(
     );
     std::fflush(stderr);
     return elapsed;
+}
+
+std::uint64_t show_tactical_hybrid(
+    bool report, T3DViewport& viewport, T3DMat4FP* matrix,
+    T3DVertPacked* board
+) {
+    constexpr int stage = 0;
+    build_board(board, stage);
+    apply_tactical_highlights(board);
+    const hybrid::TacticalFrame tactical_frame{0, 0};
+    std::uint64_t elapsed = 0;
+    for (int frame = 0; frame < 3; ++frame) {
+        surface_t* display = display_get();
+        elapsed = draw_tactical_hybrid_frame(
+            display, &viewport, matrix, board, tactical_frame,
+            "Medieval Gate TACTICAL - 2.5D",
+            "8 CURATED ROLES - HEALTH + TEAMS",
+            "Z VIEW B MOVE - BLUE + GOLD"
+        );
+        display_show(display);
+    }
+    if (!report) return elapsed;
+    std::fprintf(
+        stderr,
+        "sevenfold tactical-hybrid stage=medieval models=8 roles=8 bodies=mixed teams=blue-red scene_triangles=%d us=%llu fps=%llu tmem_peak=%lu embedded=%lu ordering=foot-depth highlights=blue-and-gold\n",
+        board_triangles, static_cast<unsigned long long>(elapsed),
+        static_cast<unsigned long long>(elapsed > 0 ? 1'000'000 / elapsed : 0),
+        static_cast<unsigned long>(hybrid::tactical_peak_texture_bytes()),
+        static_cast<unsigned long>(hybrid::tactical_embedded_bytes())
+    );
+    std::fprintf(stderr, "CHECKPOINT sevenfold-tactical-hybrid-medieval\n");
+    std::fflush(stderr);
+    return elapsed;
+}
+
+std::uint64_t play_tactical_hybrid_move(
+    bool report, T3DViewport& viewport, T3DMat4FP* matrix,
+    T3DVertPacked* board
+) {
+    constexpr int stage = 0;
+    build_board(board, stage);
+    apply_tactical_highlights(board);
+    if (report) {
+        std::fprintf(
+            stderr, "CHECKPOINT sevenfold-tactical-hybrid-move-start\n"
+        );
+        std::fflush(stderr);
+        wait_ms(500);
+    }
+    std::uint64_t slowest = 0;
+    for (int frame = 0; frame < 48; ++frame) {
+        hybrid::TacticalFrame tactical_frame{0, 0};
+        if (frame >= 8 && frame < 32) {
+            tactical_frame.move_progress = (frame - 7) * 100 / 24;
+            tactical_frame.move_pose = 1 + ((frame / 4) & 1);
+        } else if (frame >= 32) {
+            tactical_frame.move_progress = 100;
+        }
+        surface_t* display = display_get();
+        const std::uint64_t elapsed = draw_tactical_hybrid_frame(
+            display, &viewport, matrix, board, tactical_frame,
+            "Medieval Gate TACTICAL - 2.5D MOVE",
+            "ROGUE MOVES INTO SELECTED TILE",
+            "POSE SWAP + SCALE + DEPTH SORT"
+        );
+        display_show(display);
+        if (elapsed > slowest) slowest = elapsed;
+        if (report && frame == 40) {
+            std::fprintf(
+                stderr, "CHECKPOINT sevenfold-tactical-hybrid-move-end\n"
+            );
+            std::fflush(stderr);
+            wait_ms(900);
+        } else {
+            wait_ms(16);
+        }
+    }
+    if (report) {
+        std::fprintf(
+            stderr,
+            "sevenfold tactical-hybrid-animation stage=medieval frames=48 max_us=%llu fps=%llu motion=tile-move poses=2 ordering=foot-depth\n",
+            static_cast<unsigned long long>(slowest),
+            static_cast<unsigned long long>(
+                slowest > 0 ? 1'000'000 / slowest : 0
+            )
+        );
+        std::fflush(stderr);
+    }
+    return slowest;
 }
 
 std::uint64_t show_heading_page(
@@ -951,7 +1077,7 @@ std::uint64_t show_hybrid_close(
     if (!report) return elapsed;
     std::fprintf(
         stderr,
-        "sevenfold hybrid stage=%s pose=%s terrain=%s sprites=2 scene_triangles=%d us=%llu fps=%llu tmem_peak=%lu embedded=%lu team=blue-red\n",
+        "sevenfold hybrid stage=%s pose=%s terrain=%s sprites=2 scene_triangles=%d us=%llu fps=%llu tmem_peak=%lu embedded=%lu anchors=locked team=blue-red\n",
         sevenfold_style_names[stage], impact ? "impact" : "idle",
         terrain_names[terrain], scene_triangles,
         static_cast<unsigned long long>(elapsed),
@@ -1021,7 +1147,7 @@ std::uint64_t play_hybrid_preview(
     if (report) {
         std::fprintf(
             stderr,
-            "sevenfold hybrid-animation stage=%s frames=60 max_us=%llu fps=%llu motion=push-impact-recoil camera=frontal\n",
+            "sevenfold hybrid-animation stage=%s frames=60 max_us=%llu fps=%llu anchors=locked counter=not-in-prototype motion=push-impact-recoil camera=frontal\n",
             sevenfold_style_names[stage],
             static_cast<unsigned long long>(slowest),
             static_cast<unsigned long long>(
@@ -1064,6 +1190,7 @@ std::uint64_t play_attack_preview(
     // counters. It moves only these review models; no combat result is being
     // simulated or invented by the renderer.
     std::uint64_t slowest = 0;
+    bool anchors_locked = true;
     for (int frame = 0; frame < 96; ++frame) {
         int left_x = -68;
         int right_x = 68;
@@ -1089,6 +1216,7 @@ std::uint64_t play_attack_preview(
         build_attack_figures(
             figures, stage, archetype, left_x, right_x
         );
+        anchors_locked = anchors_locked && left_x <= 0 && right_x >= 0;
         surface_t* display = display_get();
         const std::uint64_t elapsed = draw_frame(
             display, &viewport, matrix, scene, scene_triangles, figures, 2,
@@ -1114,12 +1242,12 @@ std::uint64_t play_attack_preview(
     if (report) {
         std::fprintf(
             stderr,
-            "sevenfold attack-animation stage=%s frames=96 max_us=%llu fps=%llu heading=three-quarter depth=on\n",
+            "sevenfold attack-animation stage=%s frames=96 max_us=%llu fps=%llu anchors=%s counter=right-to-left heading=three-quarter depth=on\n",
             sevenfold_style_names[stage],
             static_cast<unsigned long long>(slowest),
             static_cast<unsigned long long>(
                 slowest > 0 ? 1'000'000 / slowest : 0
-            )
+            ), anchors_locked ? "locked" : "VIOLATED"
         );
         std::fflush(stderr);
     }
@@ -1141,7 +1269,7 @@ extern "C" int main(void) {
     const bool hybrid_ready = hybrid::initialize();
     expect(
         hybrid_ready,
-        "eight curated cutouts plus shadow and impact sprites allocate"
+        "close and eight-role tactical cutouts plus effects allocate"
     );
 
     bool roster_complete = true;
@@ -1249,6 +1377,21 @@ extern "C" int main(void) {
             wait_ms(1500);
         }
     }
+    const std::uint64_t tactical_hybrid_elapsed = show_tactical_hybrid(
+        true, viewport, matrix, board
+    );
+    expect(
+        tactical_hybrid_elapsed <= frame_budget_us,
+        "the eight-role tactical 2.5D board stays at 30 fps"
+    );
+    wait_ms(1500);
+    const std::uint64_t tactical_move_elapsed = play_tactical_hybrid_move(
+        true, viewport, matrix, board
+    );
+    expect(
+        tactical_move_elapsed <= frame_budget_us,
+        "the tactical 2.5D tile movement stays at 30 fps"
+    );
     constexpr int texture_comparisons[2][2] = {
         {0, 0},  // Medieval knight on forest.
         {2, 2},  // Mythical mage on mountain.
@@ -1335,7 +1478,7 @@ extern "C" int main(void) {
     int selected_cell = preferred_attack_cell(stage);
     bool attack_mode = false;
     int close_mode = 0;
-    bool tactical_texture_mode = false;
+    int tactical_mode = 0;
     show_page(stage, body, lod, false, viewport, matrix, board, figures);
     while (true) {
         joypad_poll();
@@ -1352,12 +1495,14 @@ extern "C" int main(void) {
                 sevenfold_stage_count;
             if (attack_mode) selected_cell = preferred_attack_cell(stage);
             if (stage != 0 && stage != 2 && close_mode == 2) close_mode = 1;
+            if (stage != 0 && tactical_mode == 2) tactical_mode = 1;
             changed = true;
         }
         if (pressed.d_right) {
             stage = (stage + 1) % sevenfold_stage_count;
             if (attack_mode) selected_cell = preferred_attack_cell(stage);
             if (stage != 0 && stage != 2 && close_mode == 2) close_mode = 1;
+            if (stage != 0 && tactical_mode == 2) tactical_mode = 1;
             changed = true;
         }
         if (pressed.d_up || pressed.d_down) {
@@ -1385,7 +1530,8 @@ extern "C" int main(void) {
             close_mode = (close_mode + 1) % modes;
             changed = true;
         } else if (!attack_mode && pressed.z) {
-            tactical_texture_mode = !tactical_texture_mode;
+            const int modes = stage == 0 ? 3 : 2;
+            tactical_mode = (tactical_mode + 1) % modes;
             changed = true;
         }
         if (attack_mode && pressed.b) {
@@ -1399,6 +1545,9 @@ extern "C" int main(void) {
                     matrix, board, figures, false
                 );
             }
+            changed = true;
+        } else if (!attack_mode && pressed.b && tactical_mode == 2) {
+            play_tactical_hybrid_move(false, viewport, matrix, board);
             changed = true;
         }
         if (changed) {
@@ -1419,7 +1568,9 @@ extern "C" int main(void) {
                     );
                 }
             } else {
-                if (tactical_texture_mode) {
+                if (tactical_mode == 2) {
+                    show_tactical_hybrid(false, viewport, matrix, board);
+                } else if (tactical_mode == 1) {
                     show_tactical_comparison(
                         stage, true, false, viewport, matrix, board, figures
                     );
