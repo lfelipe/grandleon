@@ -20,6 +20,9 @@ func _run() -> void:
 	if not created.ok:
 		quit(1)
 		return
+	var localization: Node = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
 	var packed: PackedScene = load("res://army_editor.tscn")
@@ -30,6 +33,29 @@ func _run() -> void:
 	await process_frame
 
 	_expect("project opens in army creator", editor.project_id, created.id)
+	_expect(
+		"Army editor uses the selected editor language",
+		editor.title_label.text,
+		"GROWING COMPANY  /  EXPANDIR O EXÉRCITO"
+	)
+	_expect(
+		"Portuguese Army subtitle is visible",
+		_tree_has_text(
+			editor,
+			"Escolha quem entra e o que cada capítulo concede à companhia."
+		),
+		true
+	)
+	_expect(
+		"Portuguese roster search guidance is visible",
+		editor.member_filter.placeholder_text,
+		"BUSCAR POR NOME, FUNÇÃO OU MOMENTO DE ENTRADA"
+	)
+	_expect(
+		"Portuguese ready status is visible",
+		editor.status_label.text,
+		"PRONTO  /  ESCOLHA UM PERSONAGEM OU ADICIONE ALGUÉM"
+	)
 	_expect("starter campaign is selectable", editor.campaign_select.item_count, 1)
 	_expect("starter company has two heroes", editor.members.size(), 2)
 	_expect("campaign selector receives controller focus", editor.campaign_select.has_focus(), true)
@@ -53,12 +79,12 @@ func _run() -> void:
 	await process_frame
 	_expect("diagnostic recovery selects a character with the role", str(editor._current_member().name), "Mira")
 	_expect("diagnostic recovery focuses role tuning", editor.role_button.has_focus(), true)
-	_expect("diagnostic recovery names the role field", editor.status_label.text, "FIX YOUNG ADEPT  /  BASE STATS")
+	_expect("diagnostic recovery names the role field", editor.status_label.text, "CORRIGIR YOUNG ADEPT  /  ATRIBUTOS BASE")
 	editor.member_index = 0
 	editor._refresh_members()
 	editor.campaign_select.grab_focus()
 	editor._open_more()
-	_expect("reusable choices stay behind less-used army options", editor.more_gear_button.text, "GEAR & ABILITIES")
+	_expect("reusable choices stay behind less-used army options", editor.more_gear_button.text, "EQUIPAMENTOS E HABILIDADES")
 	_expect("gear library is controller reachable", editor.more_gear_button.has_focus(), true)
 	editor._close_more()
 	editor._open_supplies()
@@ -121,12 +147,17 @@ func _run() -> void:
 	editor._open_role()
 	_expect("role tuning opens on demand", editor.role_layer.visible, true)
 	_expect("role tuning starts with its named side", editor.role_side.has_focus(), true)
-	_expect("starter role owns an independent baseline", editor.role_scope_label.text.contains("INDEPENDENT"), true)
+	_expect("starter role owns an independent baseline", editor.role_scope_label.text.contains("INDEPENDENTE"), true)
 	_expect("role tuning shows its health baseline", editor.role_stat_labels.health.text, "13")
 	var used_source: String = editor.source
 	var current_role_name := str(editor._role_class().get("name", "Role")).to_upper()
 	var current_character_name := str(editor._role_unit_type().get("name", "Character"))
 	editor._open_role_dependency_review()
+	_expect(
+		"long Portuguese dependency guidance wraps",
+		editor.dependency_summary.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
 	_expect("role where-used review names selected role", editor.dependency_heading.text.contains(current_role_name), true)
 	_expect("role where-used review names a real character", editor.dependency_uses.text.contains(current_character_name), true)
 	_expect("used role cannot be deleted", editor.dependency_delete_button.disabled, true)
@@ -151,13 +182,13 @@ func _run() -> void:
 	editor.dependency_id = "missing_side"
 	_expect("missing side deletion fails closed", editor._confirm_dependency_delete(), false)
 	_exercise_unused_definition_deletes(editor)
-	_expect("carried weapon family is visibly allowed", editor.role_family_toggle_button.text, "DISALLOW FOR ROLE")
+	_expect("carried weapon family is visibly allowed", editor.role_family_toggle_button.text, "NÃO PERMITIR PARA A FUNÇÃO")
 	editor._toggle_role_family()
 	_expect("carried weapon family cannot be made incompatible", _parse(editor.source).classes[0].allowedWeaponTypeIds.has("blade"), true)
 	editor._select_metadata(editor.role_family, "focus")
 	editor._refresh_role_family()
 	_expect("role tuning names weapon families", editor.role_family.get_item_text(editor.role_family.selected), "Focus")
-	_expect("incompatible family is clearly addable", editor.role_family_toggle_button.text, "ALLOW FOR ROLE")
+	_expect("incompatible family is clearly addable", editor.role_family_toggle_button.text, "PERMITIR PARA A FUNÇÃO")
 	editor._toggle_role_family()
 	_expect("weapon family allowance reaches portable class data", _parse(editor.source).classes[0].allowedWeaponTypeIds.has("focus"), true)
 	editor._toggle_role_family()
@@ -194,7 +225,7 @@ func _run() -> void:
 	editor.role_side.select(1)
 	editor._change_role_side(1)
 	editor._open_growth()
-	_expect("role without items offers an explicit no-drop choice", editor.growth_drop.get_item_text(0), "NO ITEM DROP")
+	_expect("role without items offers an explicit no-drop choice", editor.growth_drop.get_item_text(0), "NENHUM ITEM DERRUBADO")
 	_expect("drop chance stays unavailable without an item", editor.growth_drop_buttons[0].disabled, true)
 	editor._close_growth()
 	var reward_fixture := _parse(editor.source)
@@ -316,7 +347,7 @@ func _run() -> void:
 	_expect("add character overlay opens", editor.add_layer.visible, true)
 	_expect("new character name receives focus", editor.add_name.has_focus(), true)
 	_expect("roles are named choices", editor.add_role.item_count > 0, true)
-	_expect("join timing includes campaign start", editor.add_join.get_item_text(0), "STARTING COMPANY")
+	_expect("join timing includes campaign start", editor.add_join.get_item_text(0), "COMPANHIA INICIAL")
 	editor._open_new_role()
 	_expect("new role overlay opens from character creation", editor.new_role_layer.visible, true)
 	_expect("new role name receives focus", editor.new_role_name.has_focus(), true)
@@ -346,7 +377,7 @@ func _run() -> void:
 	editor._create_member()
 	_expect("later recruit is added", editor.members.size(), 4)
 	_expect("later recruit records join timing", str(editor._current_member().join_node_id).is_empty(), false)
-	_expect("later recruit explains chapter", str(editor._current_member().join_label).begins_with("AFTER "), true)
+	_expect("later recruit explains chapter", str(editor._current_member().join_label).begins_with("APÓS "), true)
 	editor._save()
 	var stored: Dictionary = library.load_source(created.id)
 	_expect("saved army reopens", stored.ok, true)
@@ -372,7 +403,7 @@ func _run() -> void:
 		editor._read_source()
 		editor.role_unit_type_id = "first_hero"
 		editor._refresh_role_layer()
-		_expect("shared baseline is called out before tuning", editor.role_scope_label.text.contains("SHARED"), true)
+		_expect("shared baseline is called out before tuning", editor.role_scope_label.text.contains("COMPARTILHADA"), true)
 		_expect("shared baseline disables stat tuning", editor.role_stat_buttons[0].disabled, true)
 		editor._detach_role_baseline()
 		var detached: Dictionary = _parse(editor.source)
@@ -405,6 +436,7 @@ func _run() -> void:
 		else:
 			image.save_png(screenshot_path)
 			print("army editor capture saved: %s" % screenshot_path)
+	localization.call("select_language", prior_language, false)
 	editor.queue_free()
 	await process_frame
 	if failures == 0:
@@ -446,7 +478,7 @@ func _exercise_unused_definition_deletes(editor: Control) -> void:
 	editor._open_dependency_review("class", "unused_role", editor.role_dependency_button)
 	_expect("unused role can be selected without assigning it", editor._selected_metadata(editor.dependency_kind_select), "unused_role")
 	_expect("unused role review names exact role", editor.dependency_heading.text.contains("UNUSED ROLE"), true)
-	_expect("unused role review reports no references", editor.dependency_uses.text.contains("No character"), true)
+	_expect("unused role review reports no references", editor.dependency_uses.text.contains("Nenhuma configuração de personagem"), true)
 	_expect("unused role reaches explicit confirmation", editor.dependency_delete_button.disabled, false)
 	_expect("unused role deletion succeeds", editor._confirm_dependency_delete(), true)
 	_expect("role deletion is exactly one undo operation", editor.undo_stack.size(), role_undo_size + 1)
@@ -509,6 +541,17 @@ func _argument_path(prefix: String) -> String:
 
 func _has_argument(value: String) -> bool:
 	return value in OS.get_cmdline_user_args()
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label and node.text == expected:
+		return true
+	if node is BaseButton and node.text == expected:
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
 
 
 func _parse(value: String) -> Dictionary:

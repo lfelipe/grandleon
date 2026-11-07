@@ -8,38 +8,38 @@ const ProjectContentDependencyIndex = preload(
 )
 const HISTORY_LIMIT := 64
 const HERO_MODIFIERS := [
-	{"key": "health", "label": "HEALTH"},
-	{"key": "strength", "label": "STRENGTH"},
-	{"key": "defense", "label": "DEFENSE"},
-	{"key": "resistance", "label": "RESISTANCE"},
-	{"key": "movement", "label": "MOVEMENT"},
-	{"key": "magic", "label": "MAGIC"},
-	{"key": "rangeBonus", "label": "WEAPON RANGE"},
+	{"key": "health"},
+	{"key": "strength"},
+	{"key": "defense"},
+	{"key": "resistance"},
+	{"key": "movement"},
+	{"key": "magic"},
+	{"key": "rangeBonus"},
 ]
 const ROLE_STATS := [
-	{"key": "health", "label": "HEALTH", "minimum": 1, "maximum": 32767},
-	{"key": "movement", "label": "MOVEMENT", "minimum": 0, "maximum": 255},
-	{"key": "actionPoints", "label": "ACTIONS", "minimum": 1, "maximum": 255},
-	{"key": "strength", "label": "STRENGTH", "minimum": 0, "maximum": 16383},
-	{"key": "magic", "label": "MAGIC", "minimum": 0, "maximum": 16383},
-	{"key": "defense", "label": "DEFENSE", "minimum": 0, "maximum": 16383},
-	{"key": "resistance", "label": "RESISTANCE", "minimum": 0, "maximum": 16383},
-	{"key": "skill", "label": "SKILL", "minimum": 0, "maximum": 32767},
-	{"key": "luck", "label": "LUCK", "minimum": 0, "maximum": 32767},
-	{"key": "evasion", "label": "EVASION", "minimum": 0, "maximum": 32767},
-	{"key": "speed", "label": "SPEED", "minimum": 1, "maximum": 255},
+	{"key": "health", "minimum": 1, "maximum": 32767},
+	{"key": "movement", "minimum": 0, "maximum": 255},
+	{"key": "actionPoints", "minimum": 1, "maximum": 255},
+	{"key": "strength", "minimum": 0, "maximum": 16383},
+	{"key": "magic", "minimum": 0, "maximum": 16383},
+	{"key": "defense", "minimum": 0, "maximum": 16383},
+	{"key": "resistance", "minimum": 0, "maximum": 16383},
+	{"key": "skill", "minimum": 0, "maximum": 32767},
+	{"key": "luck", "minimum": 0, "maximum": 32767},
+	{"key": "evasion", "minimum": 0, "maximum": 32767},
+	{"key": "speed", "minimum": 1, "maximum": 255},
 ]
 const GROWTH_STATS := [
-	{"key": "health", "label": "HEALTH"},
-	{"key": "strength", "label": "STRENGTH"},
-	{"key": "defense", "label": "DEFENSE"},
-	{"key": "resistance", "label": "RESISTANCE"},
-	{"key": "movement", "label": "MOVEMENT"},
-	{"key": "actionPoints", "label": "ACTIONS"},
-	{"key": "skill", "label": "SKILL"},
-	{"key": "luck", "label": "LUCK"},
-	{"key": "evasion", "label": "EVASION"},
-	{"key": "magic", "label": "MAGIC"},
+	{"key": "health"},
+	{"key": "strength"},
+	{"key": "defense"},
+	{"key": "resistance"},
+	{"key": "movement"},
+	{"key": "actionPoints"},
+	{"key": "skill"},
+	{"key": "luck"},
+	{"key": "evasion"},
+	{"key": "magic"},
 ]
 
 var library
@@ -205,21 +205,21 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _load_project() -> void:
 	if project_id.is_empty():
-		_set_status("NO PROJECT SELECTED", true)
+		_set_status(_t("army.error.no_project"), true)
 		return
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
-		_set_status("OPEN FAILED  /  %s" % loaded.message, true)
+		_set_status(_t("army.error.open", {"message": loaded.message}), true)
 		return
 	source = str(loaded.source)
 	saved_source = source
 	if not _read_source():
 		return
-	title_label.text = "%s  /  GROW THE ARMY" % str(
-		project.get("title", "UNTITLED GAME")
-	).to_upper()
+	title_label.text = _t("army.project_title", {
+		"project": str(project.get("title", _t("army.fallback.untitled_game"))).to_upper(),
+	})
 	_refresh_campaigns()
-	_set_status("READY  /  CHOOSE A CHARACTER OR ADD SOMEONE NEW", false)
+	_set_status(_t("army.status.ready"), false)
 	var diagnostic_focus: Dictionary = CreatorContext.take_diagnostic_focus()
 	if not diagnostic_focus.is_empty():
 		_apply_diagnostic_focus(diagnostic_focus)
@@ -275,9 +275,11 @@ func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
 	if not location.is_empty():
 		campaign_index = int(location.campaign_index)
 		_refresh_campaigns(str(location.member_id))
-	var field := str(diagnostic.get("field", "role")).replace("_", " ").to_upper()
-	var subject := str(diagnostic.get("subject", _current_member().get("name", "CHARACTER"))).to_upper()
-	_set_status("FIX %s  /  %s" % [subject, field], true)
+	var field := _field_label(str(diagnostic.get("field", "role")))
+	var subject := str(diagnostic.get(
+		"subject", _current_member().get("name", _t("army.fallback.character"))
+	)).to_upper()
+	_set_status(_t("army.status.fix", {"subject": subject, "field": field}), true)
 	match str(diagnostic.get("field", "")).replace("_", "").to_lower():
 		"name":
 			name_input.call_deferred("grab_focus")
@@ -288,7 +290,7 @@ func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
 func _read_source() -> bool:
 	var parsed := JSON.new()
 	if parsed.parse(source) != OK or not parsed.data is Dictionary:
-		_set_status("PROJECT SOURCE IS NOT READABLE", true)
+		_set_status(_t("army.error.source_unreadable"), true)
 		return false
 	project = parsed.data
 	var value: Variant = project.get("campaigns", [])
@@ -301,7 +303,7 @@ func _refresh_campaigns(preferred_member_id := "") -> void:
 	campaign_select.clear()
 	for value: Variant in campaigns:
 		if value is Dictionary:
-			campaign_select.add_item(str(value.get("name", value.get("id", "Campaign"))))
+			campaign_select.add_item(str(value.get("name", value.get("id", _t("army.fallback.campaign")))))
 	campaign_select.disabled = campaigns.is_empty()
 	if campaigns.is_empty():
 		members.clear()
@@ -333,7 +335,7 @@ func _collect_members() -> void:
 		if value is Dictionary:
 			var member: Dictionary = value.duplicate(true)
 			member["join_node_id"] = ""
-			member["join_label"] = "STARTING COMPANY"
+			member["join_label"] = _t("army.join.starting_company")
 			members.append(member)
 	var flow: Variant = campaign.get("flow", {})
 	if not flow is Dictionary:
@@ -346,9 +348,11 @@ func _collect_members() -> void:
 			if value is Dictionary:
 				var recruit: Dictionary = value.duplicate(true)
 				recruit["join_node_id"] = str(node.get("id", ""))
-				recruit["join_label"] = "AFTER %s" % str(
-					node.get("name", node.get("id", "CHAPTER"))
-				).to_upper()
+				recruit["join_label"] = _t("army.join.after", {
+					"chapter": str(node.get(
+						"name", node.get("id", _t("army.fallback.chapter"))
+					)).to_upper(),
+				})
 				members.append(recruit)
 
 
@@ -361,26 +365,28 @@ func _refresh_members() -> void:
 		if not _member_matches_filter(member, query):
 			continue
 		visible_indices.append(index)
-		member_select.add_item("%s  /  %s" % [
-			str(member.get("name", "Character")),
-			_unit_type_name(str(member.get("unitTypeId", ""))),
-		])
+		member_select.add_item(_t("army.member.choice", {
+			"name": str(member.get("name", _t("army.fallback.character"))),
+			"role": _unit_type_name(str(member.get("unitTypeId", ""))),
+		}))
 		member_select.set_item_metadata(member_select.item_count - 1, index)
 	var available := not visible_indices.is_empty()
 	member_select.disabled = not available
 	empty_label.visible = not available
 	editor_column.visible = available
 	if not available:
-		member_select.add_item("NO MATCHING CHARACTERS" if not members.is_empty() else "NO CHARACTERS")
+		member_select.add_item(_t(
+			"army.member.no_matches" if not members.is_empty() else "army.member.none"
+		))
 		empty_label.text = (
-			"NO CHARACTERS MATCH THAT SEARCH"
+			_t("army.member.no_matches_help")
 			if not members.is_empty()
-			else "THIS CAMPAIGN HAS NO CHARACTERS YET"
+			else _t("army.member.empty_help")
 		)
 		member_index = 0
 		_update_actions()
 		return
-	empty_label.text = "THIS CAMPAIGN HAS NO CHARACTERS YET"
+	empty_label.text = _t("army.member.empty_help")
 	if not visible_indices.has(member_index):
 		member_index = visible_indices[0]
 	_select_member_option_for_index(member_index)
@@ -421,8 +427,10 @@ func _refresh_member() -> void:
 		bool(member.get("playerNameable", false))
 	)
 	var unit_type_id := str(member.get("unitTypeId", ""))
-	role_label.text = "ROLE  /  %s" % _unit_type_name(unit_type_id).to_upper()
-	join_label.text = "JOINS  /  %s" % str(member.get("join_label", "STARTING COMPANY"))
+	role_label.text = _t("army.member.role", {"role": _unit_type_name(unit_type_id).to_upper()})
+	join_label.text = _t("army.member.joins", {
+		"when": str(member.get("join_label", _t("army.join.starting_company"))),
+	})
 	portrait.texture = null
 	var preview: Dictionary = compiler.source_character_preview(source, unit_type_id)
 	if preview.ok:
@@ -431,7 +439,7 @@ func _refresh_member() -> void:
 		image.atlas = art.character_frame_texture(frame)
 		image.region = Rect2(Vector2.ZERO, Vector2(frame.cell_size))
 		portrait.texture = image
-	preview_label.text = str(member.get("name", "CHARACTER")).to_upper()
+	preview_label.text = str(member.get("name", _t("army.fallback.character"))).to_upper()
 	form_dirty = false
 	refreshing = false
 	if modifier_layer != null and modifier_layer.visible:
@@ -498,7 +506,7 @@ func _open_modifiers() -> void:
 	if not _commit_visible_member(false):
 		return
 	if _current_member().is_empty():
-		_set_status("CHOOSE A CHARACTER FIRST", true)
+		_set_status(_t("army.error.choose_character"), true)
 		return
 	modifier_layer.visible = true
 	_refresh_modifier_values()
@@ -514,20 +522,25 @@ func _refresh_modifier_values() -> void:
 	var member := _current_member()
 	if member.is_empty():
 		return
-	modifier_role_label.text = "%s  /  %s" % [
-		str(member.get("name", "CHARACTER")).to_upper(),
-		_unit_type_name(str(member.get("unitTypeId", ""))).to_upper(),
-	]
+	modifier_role_label.text = _t("army.hero.title", {
+		"character": str(member.get("name", _t("army.fallback.character"))).to_upper(),
+		"role": _unit_type_name(str(member.get("unitTypeId", ""))).to_upper(),
+	})
 	for option: Dictionary in HERO_MODIFIERS:
 		var key := str(option.key)
 		var delta := _modifier_value(member, key)
 		var label: Label = modifier_value_labels.get(key)
 		if key == "rangeBonus":
-			label.text = "ROLE DEFAULT" if delta == 0 else "+%d TILES" % delta
+			label.text = (
+				_t("army.hero.role_default")
+				if delta == 0 else _t("army.hero.tiles", {"count": delta})
+			)
 			continue
 		var total := _base_stat(member, key) + delta
-		label.text = "%d  /  ROLE DEFAULT" % total if delta == 0 else (
-			"%d  /  %s%d" % [total, "+" if delta > 0 else "", delta]
+		label.text = _t("army.hero.total_default", {"total": total}) if delta == 0 else (
+			_t("army.hero.total_delta", {
+				"total": total, "delta": ("+" if delta > 0 else "") + str(delta),
+			})
 		)
 
 
@@ -543,7 +556,7 @@ func _adjust_modifier(key: String, amount: int) -> void:
 		source, str(campaign.get("id", "")), str(member.get("id", "")), key, value
 	)
 	if not updated.ok:
-		_set_status("NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("army.error.not_changed", {"detail": _diagnostic_detail(updated)}), true)
 		return
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -558,25 +571,24 @@ func _adjust_modifier(key: String, amount: int) -> void:
 			break
 	_refresh_member()
 	_refresh_modifier_values()
-	var readable := key.replace("Bonus", " bonus").capitalize()
-	_set_status("UNSAVED  /  %s %s" % [readable.to_upper(), "ADJUSTED"], false)
+	_set_status(_t("army.status.hero_adjusted", {"stat": _stat_label(key)}), false)
 
 
 func _open_supplies() -> void:
 	if not _commit_visible_member(false):
 		return
 	if campaigns.is_empty():
-		_set_status("ADD A CAMPAIGN BEFORE CHOOSING SUPPLIES", true)
+		_set_status(_t("army.error.supplies_need_campaign"), true)
 		return
 	if project.get("items", []).is_empty() and project.get("weapons", []).is_empty():
-		_set_status("ADD AN ITEM OR WEAPON BEFORE CHOOSING SUPPLIES", true)
+		_set_status(_t("army.error.supplies_need_content"), true)
 		return
 	var preferred_timing := _selected_metadata(supply_timing)
 	var preferred_kind := _selected_metadata(supply_kind)
 	var preferred_asset := _selected_metadata(supply_asset)
 	supply_timing.select(-1)
 	supply_timing.clear()
-	supply_timing.add_item("STARTING SUPPLIES")
+	supply_timing.add_item(_t("army.supply.starting"))
 	supply_timing.set_item_metadata(0, "")
 	var flow: Variant = _current_campaign().get("flow", {})
 	if flow is Dictionary:
@@ -586,19 +598,19 @@ func _open_supplies() -> void:
 			var node: Dictionary = node_value
 			if str(node.get("kind", "")) == "terminal":
 				continue
-			supply_timing.add_item(
-				"AFTER %s" % str(node.get("name", "Chapter")).to_upper()
-			)
+			supply_timing.add_item(_t("army.join.after", {
+				"chapter": str(node.get("name", _t("army.fallback.chapter"))).to_upper(),
+			}))
 			supply_timing.set_item_metadata(
 				supply_timing.item_count - 1, str(node.get("id", ""))
 			)
 	supply_kind.select(-1)
 	supply_kind.clear()
 	if not project.get("items", []).is_empty():
-		supply_kind.add_item("ITEM")
+		supply_kind.add_item(_t("army.kind.item"))
 		supply_kind.set_item_metadata(supply_kind.item_count - 1, "item")
 	if not project.get("weapons", []).is_empty():
-		supply_kind.add_item("WEAPON")
+		supply_kind.add_item(_t("army.kind.weapon"))
 		supply_kind.set_item_metadata(supply_kind.item_count - 1, "weapon")
 	_select_metadata(supply_timing, preferred_timing)
 	_select_metadata(supply_kind, preferred_kind)
@@ -640,7 +652,7 @@ func _refresh_supply_assets(_index: int = 0) -> void:
 	for value: Variant in collection:
 		if not value is Dictionary:
 			continue
-		supply_asset.add_item(str(value.get("name", value.get("id", "Supply"))))
+		supply_asset.add_item(str(value.get("name", value.get("id", _t("army.fallback.supply")))))
 		supply_asset.set_item_metadata(
 			supply_asset.item_count - 1, str(value.get("id", ""))
 		)
@@ -651,8 +663,9 @@ func _refresh_supply_assets(_index: int = 0) -> void:
 
 func _refresh_supply_value(_index: int = 0) -> void:
 	var quantity := _current_supply_quantity()
-	supply_value_label.text = (
-		"NOT INCLUDED" if quantity == 0 else "%d IN THIS SUPPLY" % quantity
+	supply_value_label.text = _t(
+		"army.supply.not_included" if quantity == 0 else "army.supply.quantity",
+		{"count": quantity}
 	)
 	supply_minus_button.disabled = quantity <= 0
 	supply_plus_button.disabled = quantity >= 65535
@@ -696,7 +709,7 @@ func _adjust_supply(amount: int) -> void:
 		quantity
 	)
 	if not updated.ok:
-		_set_status("SUPPLY NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("army.error.supply_not_changed", {"detail": _diagnostic_detail(updated)}), true)
 		return
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -705,13 +718,10 @@ func _adjust_supply(amount: int) -> void:
 	_read_source()
 	_refresh_supply_value()
 	_update_actions()
-	_set_status(
-		"UNSAVED  /  %s %s" % [
-			asset_name.to_upper(),
-			"REMOVED" if quantity == 0 else "× %d" % quantity,
-		],
-		false
-	)
+	_set_status(_t(
+		"army.status.supply_removed" if quantity == 0 else "army.status.supply_quantity",
+		{"name": asset_name.to_upper(), "count": quantity}
+	), false)
 
 
 func _open_loadout() -> void:
@@ -719,7 +729,7 @@ func _open_loadout() -> void:
 		return
 	var member := _current_member()
 	if member.is_empty():
-		_set_status("CHOOSE A CHARACTER FIRST", true)
+		_set_status(_t("army.error.choose_character"), true)
 		return
 	loadout_unit_type_id = str(member.get("unitTypeId", ""))
 	var preferred_kind := _selected_metadata(loadout_kind)
@@ -729,14 +739,10 @@ func _open_loadout() -> void:
 	for kind: String in ["weapon", "item", "ability"]:
 		if _loadout_choices(kind).is_empty():
 			continue
-		loadout_kind.add_item({
-			"weapon": "WEAPONS",
-			"item": "ITEMS",
-			"ability": "ABILITIES",
-		}[kind])
+		loadout_kind.add_item(_t("army.kind." + kind + "s"))
 		loadout_kind.set_item_metadata(loadout_kind.item_count - 1, kind)
 	if loadout_kind.item_count == 0:
-		_set_status("THIS ROLE HAS NO COMPATIBLE GEAR OR ABILITIES", true)
+		_set_status(_t("army.error.no_compatible_loadout"), true)
 		return
 	_select_metadata(loadout_kind, preferred_kind)
 	_refresh_loadout_assets()
@@ -793,7 +799,7 @@ func _refresh_loadout_assets(_index: int = 0) -> void:
 	for value: Variant in _loadout_choices(kind):
 		if not value is Dictionary:
 			continue
-		loadout_asset.add_item(str(value.get("name", value.get("id", "Choice"))))
+		loadout_asset.add_item(str(value.get("name", value.get("id", _t("army.fallback.choice")))))
 		loadout_asset.set_item_metadata(
 			loadout_asset.item_count - 1, str(value.get("id", ""))
 		)
@@ -803,23 +809,23 @@ func _refresh_loadout_assets(_index: int = 0) -> void:
 
 func _refresh_loadout_value(_index: int = 0) -> void:
 	var unit_type := _unit_type(loadout_unit_type_id)
-	loadout_role_label.text = "EVERY %s" % str(
-		unit_type.get("name", loadout_unit_type_id)
-	).to_upper()
-	loadout_summary_label.text = "WEAPONS  %s\nITEMS  %s\nABILITIES  %s" % [
-		_loadout_names(unit_type, "startingWeaponIds", "weapons"),
-		_loadout_names(unit_type, "startingItemIds", "items"),
-		_loadout_names(unit_type, "abilityIds", "abilities"),
-	]
+	loadout_role_label.text = _t("army.loadout.every", {
+		"role": str(unit_type.get("name", loadout_unit_type_id)).to_upper(),
+	})
+	loadout_summary_label.text = _t("army.loadout.summary", {
+		"weapons": _loadout_names(unit_type, "startingWeaponIds", "weapons"),
+		"items": _loadout_names(unit_type, "startingItemIds", "items"),
+		"abilities": _loadout_names(unit_type, "abilityIds", "abilities"),
+	})
 	var included := _current_loadout_included()
-	loadout_value_label.text = (
-		"INCLUDED IN THIS ROLE" if included else "NOT INCLUDED"
+	loadout_value_label.text = _t(
+		"army.loadout.included" if included else "army.loadout.not_included"
 	)
 	loadout_value_label.add_theme_color_override(
 		"font_color", Color("72e08f") if included else Color("a9bdc9")
 	)
-	loadout_toggle_button.text = (
-		"REMOVE FROM ROLE" if included else "ADD TO ROLE"
+	loadout_toggle_button.text = _t(
+		"army.loadout.remove" if included else "army.loadout.add"
 	)
 	loadout_toggle_button.disabled = loadout_asset.selected < 0
 
@@ -833,7 +839,7 @@ func _loadout_names(unit_type: Dictionary, field: String, collection: String) ->
 				if value is Dictionary and str(value.get("id", "")) == str(identity):
 					names.append(str(value.get("name", identity)))
 					break
-	return "NONE" if names.is_empty() else ", ".join(names)
+	return _t("army.none") if names.is_empty() else ", ".join(names)
 
 
 func _current_loadout_included() -> bool:
@@ -860,7 +866,7 @@ func _toggle_loadout() -> void:
 		source, loadout_unit_type_id, kind, asset_id, included
 	)
 	if not updated.ok:
-		_set_status("ROLE NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("army.error.role_not_changed", {"detail": _diagnostic_detail(updated)}), true)
 		return
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -877,12 +883,10 @@ func _toggle_loadout() -> void:
 	_refresh_loadout_assets()
 	_select_metadata(loadout_asset, asset_id)
 	_refresh_loadout_value()
-	_set_status(
-		"UNSAVED  /  %s %s THIS ROLE" % [
-			asset_name.to_upper(), "ADDED TO" if included else "REMOVED FROM",
-		],
-		false
-	)
+	_set_status(_t(
+		"army.status.loadout_added" if included else "army.status.loadout_removed",
+		{"name": asset_name.to_upper()}
+	), false)
 
 
 func _open_role() -> void:
@@ -890,7 +894,7 @@ func _open_role() -> void:
 		return
 	var member := _current_member()
 	if member.is_empty():
-		_set_status("CHOOSE A CHARACTER FIRST", true)
+		_set_status(_t("army.error.choose_character"), true)
 		return
 	role_unit_type_id = str(member.get("unitTypeId", ""))
 	_refresh_role_layer()
@@ -927,25 +931,23 @@ func _refresh_role_layer() -> void:
 	role_refreshing = true
 	var unit_type := _role_unit_type()
 	var unit_class := _role_class()
-	role_title_label.text = str(unit_type.get("name", "ROLE")).to_upper()
+	role_title_label.text = str(unit_type.get("name", _t("army.fallback.role"))).to_upper()
 	var class_id := str(unit_class.get("id", ""))
 	var users := _role_class_users(class_id)
 	var shared := users > 1
-	role_scope_label.text = (
-		"SHARED BASELINE  /  USED BY %d ROLES" % users
-		if shared
-		else "INDEPENDENT BASELINE  /  SAFE TO TUNE"
+	role_scope_label.text = _t(
+		"army.role.shared" if shared else "army.role.independent", {"count": users}
 	)
 	role_scope_label.add_theme_color_override(
 		"font_color", Color("ffca6a") if shared else Color("72e08f")
 	)
 	role_detach_button.visible = shared
 	role_side.clear()
-	role_side.add_item("NO DEFAULT SIDE")
+	role_side.add_item(_t("army.role.no_default_side"))
 	role_side.set_item_metadata(0, "")
 	for value: Variant in project.get("factions", []):
 		if value is Dictionary:
-			role_side.add_item(str(value.get("name", value.get("id", "Side"))))
+			role_side.add_item(str(value.get("name", value.get("id", _t("army.fallback.side")))))
 			role_side.set_item_metadata(
 				role_side.item_count - 1, str(value.get("id", ""))
 			)
@@ -970,21 +972,21 @@ func _refresh_role_layer() -> void:
 	role_family.clear()
 	for value: Variant in project.get("weaponTypes", []):
 		if value is Dictionary:
-			role_family.add_item(str(value.get("name", value.get("id", "Family"))))
+			role_family.add_item(str(value.get("name", value.get("id", _t("army.fallback.family")))))
 			role_family.set_item_metadata(
 				role_family.item_count - 1, str(value.get("id", ""))
 			)
 	_select_metadata(role_family, preferred_family)
 	role_family.disabled = role_family.item_count == 0
 	role_family_toggle_button.disabled = shared or role_family.item_count == 0
-	role_family_toggle_button.text = (
-		"DISALLOW FOR ROLE" if _role_family_allowed() else "ALLOW FOR ROLE"
+	role_family_toggle_button.text = _t(
+		"army.role.disallow_family" if _role_family_allowed() else "army.role.allow_family"
 	)
 	role_behavior_button.disabled = shared
-	role_behavior_button.text = (
-		"CAN ACT AFTER ATTACK"
+	role_behavior_button.text = _t(
+		"army.role.can_act_after_attack"
 		if bool(unit_class.get("actsAfterAttacking", false))
-		else "ATTACK ENDS ACTIVATION"
+		else "army.role.attack_ends_activation"
 	)
 	var stats: Variant = unit_class.get("baseStats", {})
 	for definition: Dictionary in ROLE_STATS:
@@ -1009,8 +1011,8 @@ func _role_family_allowed() -> bool:
 func _refresh_role_family(_index: int = 0) -> void:
 	if role_refreshing:
 		return
-	role_family_toggle_button.text = (
-		"DISALLOW FOR ROLE" if _role_family_allowed() else "ALLOW FOR ROLE"
+	role_family_toggle_button.text = _t(
+		"army.role.disallow_family" if _role_family_allowed() else "army.role.allow_family"
 	)
 
 
@@ -1037,7 +1039,7 @@ func _toggle_role_family() -> void:
 		allowed.append(family_id)
 	unit_class.allowedWeaponTypeIds = allowed
 	candidate.classes[candidate.class_index] = unit_class
-	_accept_role_project(candidate.project, "UNSAVED  /  ROLE WEAPON FAMILIES CHANGED")
+	_accept_role_project(candidate.project, _t("army.status.role_families"))
 
 
 func _open_role_dependency_review() -> void:
@@ -1090,7 +1092,9 @@ func _refresh_dependency_choices(preferred_id := "") -> void:
 	for value: Variant in collection:
 		if not value is Dictionary:
 			continue
-		dependency_kind_select.add_item(str(value.get("name", value.get("id", "Unnamed"))))
+		dependency_kind_select.add_item(str(value.get(
+			"name", value.get("id", _t("army.fallback.unnamed"))
+		)))
 		dependency_kind_select.set_item_metadata(
 			dependency_kind_select.item_count - 1, str(value.get("id", ""))
 		)
@@ -1111,34 +1115,122 @@ func _dependency_decision(category: String, identity: String) -> Dictionary:
 	return ProjectContentDependencyIndex.new(project).deletion_decision(category, identity)
 
 
+func _dependency_kind_name() -> String:
+	return _t(
+		"army.kind.role_name" if dependency_category == "class" else "army.kind.side_name"
+	)
+
+
+func _dependency_kind_label() -> String:
+	return _t("army.kind.role" if dependency_category == "class" else "army.kind.side")
+
+
+func _dependency_summary(decision: Dictionary) -> String:
+	var reason := str(decision.get("reason", "unsupported_request"))
+	var kind := _dependency_kind_name()
+	var name := str(decision.get("name", dependency_id))
+	var count: int = decision.get("uses", []).size()
+	match reason:
+		"library_content":
+			return _t("army.delete.summary.library", {"kind": kind})
+		"content_not_found":
+			return _t("army.delete.summary.missing", {"kind": kind})
+		"unused":
+			return _t("army.delete.summary.unused", {"kind": kind, "name": name})
+		"in_use":
+			return _t(
+				"army.delete.summary.in_use_one"
+				if count == 1 else "army.delete.summary.in_use_many",
+				{"kind": kind, "name": name, "count": count}
+			)
+	return _t("army.delete.summary.unavailable")
+
+
+func _dependency_section_label(section: String) -> String:
+	var message_id := str({
+		"Project": "army.delete.section.project",
+		"Presentation": "army.delete.section.presentation",
+		"Roster": "army.delete.section.roster",
+		"Rosters": "army.delete.section.rosters",
+		"Campaigns": "army.delete.section.campaigns",
+		"Battles": "army.delete.section.battles",
+	}.get(section, ""))
+	return _t(message_id) if not message_id.is_empty() else section.to_upper()
+
+
+func _dependency_owner_name(use: Dictionary) -> String:
+	var owner_kind := str(use.get("owner_category", ""))
+	var owner_id := str(use.get("owner_id", ""))
+	if owner_id.is_empty():
+		return _t("army.delete.project_owner")
+	var collection_key := str({
+		"unit_type": "unitTypes", "campaign": "campaigns", "class": "classes",
+		"faction": "factions",
+	}.get(owner_kind, ""))
+	if not collection_key.is_empty():
+		var found := _record_name(project.get(collection_key, []), owner_id)
+		if not found.is_empty():
+			return found
+	if owner_kind in ["battle", "campaign_node"]:
+		for campaign_value: Variant in project.get("campaigns", []):
+			if not campaign_value is Dictionary:
+				continue
+			var flow: Variant = campaign_value.get("flow", {})
+			if flow is Dictionary:
+				var found := _record_name(flow.get("nodes", []), owner_id)
+				if not found.is_empty():
+					return _t("army.delete.owner_in_campaign", {
+						"campaign": str(campaign_value.get(
+							"name", campaign_value.get("id", _t("army.fallback.campaign"))
+						)),
+						"node": found,
+					})
+	return owner_id.replace("_", " ").capitalize()
+
+
+func _record_name(values: Variant, identity: String) -> String:
+	if values is Array:
+		for value: Variant in values:
+			if value is Dictionary and str(value.get("id", "")) == identity:
+				return str(value.get("name", identity.replace("_", " ").capitalize()))
+	return ""
+
+
+func _delete_reason(reason: String) -> String:
+	return _t(str({
+		"unsupported_request": "army.delete.reason.unavailable",
+		"library_content": "army.delete.reason.shared",
+		"content_not_found": "army.delete.reason.missing",
+		"in_use": "army.delete.reason.in_use",
+	}.get(reason, "army.delete.reason.unsafe")))
+
+
 func _refresh_dependency_review() -> Dictionary:
 	var decision := _dependency_decision(dependency_category, dependency_id)
-	var category_label := "ROLE" if dependency_category == "class" else "SIDE"
-	dependency_heading.text = "WHERE %s IS USED  /  %s" % [
-		category_label, str(decision.get("name", dependency_id)).to_upper()
-	]
-	dependency_summary.text = str(decision.get("summary", "Deletion is unavailable."))
+	var category_label := _dependency_kind_label()
+	dependency_heading.text = _t("army.delete.where_used", {
+		"kind": category_label, "name": str(decision.get("name", dependency_id)).to_upper(),
+	})
+	dependency_summary.text = _dependency_summary(decision)
 	var lines: Array[String] = []
 	for value: Variant in decision.get("uses", []):
 		if value is Dictionary:
-			lines.append("•  %s  /  %s" % [
-				str(value.get("section", "Project")).to_upper(),
-				str(value.get("label", "This content is still used.")),
-			])
+			lines.append(_t("army.delete.use", {
+				"section": _dependency_section_label(str(value.get("section", "Project"))),
+				"owner": _dependency_owner_name(value),
+			}))
 	dependency_uses.text = (
 		"\n\n".join(lines)
 		if not lines.is_empty()
-		else "No character, campaign, battle, or presentation setting references this %s." % (
-			"role" if dependency_category == "class" else "side"
-		)
+		else _t("army.delete.no_uses", {"kind": _dependency_kind_name()})
 	)
 	var allowed := (
 		dependency_category in ["class", "faction"]
 		and bool(decision.get("allowed", false))
 	)
 	dependency_delete_button.disabled = not allowed
-	dependency_delete_button.text = (
-		"DELETE UNUSED %s" % category_label if allowed else "CANNOT DELETE"
+	dependency_delete_button.text = _t(
+		"army.delete.confirm" if allowed else "army.delete.cannot", {"kind": category_label}
 	)
 	return decision
 
@@ -1149,12 +1241,9 @@ func _confirm_dependency_delete() -> bool:
 		dependency_category not in ["class", "faction"]
 		or not bool(decision.get("allowed", false))
 	):
-		_set_status(
-			"NOT DELETED  /  %s" % str(
-				decision.get("reason", "unsupported request")
-			).replace("_", " ").to_upper(),
-			true
-		)
+		_set_status(_t("army.error.not_deleted", {
+			"reason": _delete_reason(str(decision.get("reason", "unsupported_request"))),
+		}), true)
 		return false
 	var collection_key := _dependency_collection_key(dependency_category)
 	var candidate := project.duplicate(true)
@@ -1168,16 +1257,17 @@ func _confirm_dependency_delete() -> bool:
 			remove_index = index
 			break
 	if remove_index < 0:
-		_set_status("NOT DELETED  /  CONTENT IS NO LONGER AVAILABLE", true)
+		_set_status(_t("army.error.delete_missing"), true)
 		_refresh_dependency_review()
 		return false
 	var removed_name := str(collection[remove_index].get("name", dependency_id))
 	collection.remove_at(remove_index)
 	candidate[collection_key] = collection
-	var category_label := "ROLE" if dependency_category == "class" else "SIDE"
 	if not _accept_role_project(
 		candidate,
-		"UNSAVED  /  DELETED UNUSED %s %s" % [category_label, removed_name.to_upper()]
+		_t("army.status.deleted", {
+			"kind": _dependency_kind_label(), "name": removed_name.to_upper(),
+		})
 	):
 		return false
 	dependency_layer.visible = false
@@ -1216,7 +1306,7 @@ func _next_side_id() -> String:
 func _create_side() -> void:
 	var name := side_name.text.strip_edges()
 	if name.is_empty():
-		_set_status("GIVE THE NEW SIDE A NAME", true)
+		_set_status(_t("army.error.side_name"), true)
 		return
 	var side_id := _next_side_id()
 	var candidate: Dictionary = project.duplicate(true)
@@ -1233,7 +1323,7 @@ func _create_side() -> void:
 			unit_types[index].factionId = side_id
 			break
 	candidate.unitTypes = unit_types
-	if not _accept_role_project(candidate, "UNSAVED  /  CREATED SIDE %s" % name.to_upper()):
+	if not _accept_role_project(candidate, _t("army.status.side_created", {"name": name.to_upper()})):
 		return
 	side_layer.visible = false
 	role_side.grab_focus()
@@ -1253,18 +1343,18 @@ func _close_growth() -> void:
 func _refresh_growth_layer() -> void:
 	role_refreshing = true
 	var unit_type := _role_unit_type()
-	growth_title_label.text = "%s  /  GROWTH & REWARDS" % str(
-		unit_type.get("name", "ROLE")
-	).to_upper()
+	growth_title_label.text = _t("army.growth.role_title", {
+		"role": str(unit_type.get("name", _t("army.fallback.role"))).to_upper(),
+	})
 	_select_metadata(growth_style, str(unit_type.get("characterStyleId", "")))
 	_select_metadata(growth_figure, str(unit_type.get("characterFigureId", "")))
 	var preferred_drop := _selected_metadata(growth_drop)
 	growth_drop.clear()
-	growth_drop.add_item("NO ITEM DROP")
+	growth_drop.add_item(_t("army.growth.no_drop"))
 	growth_drop.set_item_metadata(0, "")
 	for value: Variant in project.get("items", []):
 		if value is Dictionary:
-			growth_drop.add_item(str(value.get("name", value.get("id", "Item"))))
+			growth_drop.add_item(str(value.get("name", value.get("id", _t("army.fallback.item")))))
 			growth_drop.set_item_metadata(
 				growth_drop.item_count - 1, str(value.get("id", ""))
 			)
@@ -1311,7 +1401,7 @@ func _change_growth_choice(_index: int, field: String) -> void:
 	else:
 		unit_type[field] = value
 	candidate.unit_types[candidate.unit_index] = unit_type
-	if _accept_role_project(candidate.project, "UNSAVED  /  ROLE APPEARANCE CHANGED"):
+	if _accept_role_project(candidate.project, _t("army.status.role_appearance")):
 		_refresh_growth_layer()
 
 
@@ -1331,7 +1421,7 @@ func _change_growth_drop(_index: int) -> void:
 		if not unit_type.has("dropChance"):
 			unit_type.dropChance = 100
 	candidate.unit_types[candidate.unit_index] = unit_type
-	if _accept_role_project(candidate.project, "UNSAVED  /  ROLE DROP CHANGED"):
+	if _accept_role_project(candidate.project, _t("army.status.role_drop")):
 		_refresh_growth_layer()
 
 
@@ -1365,7 +1455,7 @@ func _adjust_role_detail(key: String, amount: int) -> void:
 		else:
 			unit_type.growthRates = rates
 	candidate.unit_types[candidate.unit_index] = unit_type
-	if _accept_role_project(candidate.project, "UNSAVED  /  ROLE PROGRESSION CHANGED"):
+	if _accept_role_project(candidate.project, _t("army.status.role_progression")):
 		_refresh_growth_layer()
 
 
@@ -1385,7 +1475,7 @@ func _change_role_side(_index: int) -> void:
 			unit_types[index] = unit_type
 			break
 	candidate.unitTypes = unit_types
-	_accept_role_project(candidate, "UNSAVED  /  ROLE SIDE CHANGED")
+	_accept_role_project(candidate, _t("army.status.role_side"))
 
 
 func _change_role_movement(_index: int) -> void:
@@ -1407,7 +1497,7 @@ func _change_role_movement(_index: int) -> void:
 		_:
 			unit_class.erase("traversal")
 	candidate.classes[candidate.class_index] = unit_class
-	_accept_role_project(candidate.project, "UNSAVED  /  ROLE MOVEMENT CHANGED")
+	_accept_role_project(candidate.project, _t("army.status.role_movement"))
 
 
 func _toggle_role_behavior() -> void:
@@ -1420,7 +1510,7 @@ func _toggle_role_behavior() -> void:
 	else:
 		unit_class.actsAfterAttacking = true
 	candidate.classes[candidate.class_index] = unit_class
-	_accept_role_project(candidate.project, "UNSAVED  /  ROLE TURN RULE CHANGED")
+	_accept_role_project(candidate.project, _t("army.status.role_turn_rule"))
 
 
 func _adjust_role_stat(key: String, amount: int) -> void:
@@ -1441,7 +1531,7 @@ func _adjust_role_stat(key: String, amount: int) -> void:
 		break
 	unit_class.baseStats = stats
 	candidate.classes[candidate.class_index] = unit_class
-	_accept_role_project(candidate.project, "UNSAVED  /  ROLE BASELINE CHANGED")
+	_accept_role_project(candidate.project, _t("army.status.role_baseline"))
 
 
 func _role_project_with_class() -> Dictionary:
@@ -1476,17 +1566,17 @@ func _detach_role_baseline() -> void:
 			class_index = index
 			break
 	if unit_index < 0 or class_index < 0:
-		_set_status("ROLE BASELINE NOT FOUND", true)
+		_set_status(_t("army.error.baseline_missing"), true)
 		return
 	var new_class_id := _next_class_id(role_unit_type_id)
 	var copied: Dictionary = classes[class_index].duplicate(true)
 	copied.id = new_class_id
-	copied.name = str(unit_types[unit_index].get("name", "Role"))
+	copied.name = str(unit_types[unit_index].get("name", _t("army.fallback.role")))
 	classes.append(copied)
 	unit_types[unit_index].classId = new_class_id
 	candidate.classes = classes
 	candidate.unitTypes = unit_types
-	_accept_role_project(candidate, "UNSAVED  /  ROLE BASELINE IS NOW INDEPENDENT")
+	_accept_role_project(candidate, _t("army.status.baseline_independent"))
 
 
 func _accept_role_project(candidate: Dictionary, message: String) -> bool:
@@ -1497,7 +1587,7 @@ func _accept_role_project(candidate: Dictionary, message: String) -> bool:
 		return true
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
-		_set_status("ROLE NOT CHANGED  /  %s" % _diagnostic_detail(checked), true)
+		_set_status(_t("army.error.role_not_changed", {"detail": _diagnostic_detail(checked)}), true)
 		_refresh_role_layer()
 		return false
 	_push_history(undo_stack, source)
@@ -1579,7 +1669,7 @@ func _set_player_nameable(enabled: bool) -> void:
 		return
 	var member := _current_member()
 	if member.is_empty():
-		_set_status("CHOOSE A CHARACTER FIRST", true)
+		_set_status(_t("army.error.choose_character"), true)
 		return
 	var campaign := _current_campaign()
 	var updated: Dictionary = compiler.set_campaign_member_player_nameable(
@@ -1589,7 +1679,7 @@ func _set_player_nameable(enabled: bool) -> void:
 		player_nameable_toggle.set_pressed_no_signal(
 			bool(member.get("playerNameable", false))
 		)
-		_set_status("NAME CHOICE NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("army.error.name_choice", {"detail": _diagnostic_detail(updated)}), true)
 		return
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -1603,12 +1693,9 @@ func _set_player_nameable(enabled: bool) -> void:
 			member_index = index
 			break
 	_refresh_members()
-	_set_status(
-		"UNSAVED  /  PLAYER MAY CHOOSE THIS NAME"
-		if enabled
-		else "UNSAVED  /  AUTHORED NAME IS FIXED",
-		false
-	)
+	_set_status(_t(
+		"army.status.player_nameable" if enabled else "army.status.authored_name_fixed"
+	), false)
 
 
 func _commit_visible_member(announce: bool) -> bool:
@@ -1616,11 +1703,11 @@ func _commit_visible_member(announce: bool) -> bool:
 		return true
 	var member := _current_member()
 	if member.is_empty():
-		_set_status("CHOOSE A CHARACTER FIRST", true)
+		_set_status(_t("army.error.choose_character"), true)
 		return false
 	var name := name_input.text.strip_edges()
 	if name.is_empty():
-		_set_status("A CHARACTER NEEDS A NAME", true)
+		_set_status(_t("army.error.character_name"), true)
 		return false
 	if name == str(member.get("name", "")):
 		form_dirty = false
@@ -1631,7 +1718,7 @@ func _commit_visible_member(announce: bool) -> bool:
 		source, str(campaign.get("id", "")), str(member.get("id", "")), name
 	)
 	if not updated.ok:
-		_set_status("NAME NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("army.error.name_not_changed", {"detail": _diagnostic_detail(updated)}), true)
 		return false
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -1646,7 +1733,7 @@ func _commit_visible_member(announce: bool) -> bool:
 			break
 	form_dirty = false
 	if announce:
-		_set_status("UNSAVED  /  RENAMED %s" % name.to_upper(), false)
+		_set_status(_t("army.status.renamed", {"name": name.to_upper()}), false)
 	_update_actions()
 	return true
 
@@ -1655,12 +1742,12 @@ func _open_add() -> void:
 	if not _commit_visible_member(false):
 		return
 	if campaigns.is_empty() or project.get("unitTypes", []).is_empty():
-		_set_status("ADD A CAMPAIGN AND ROLE BEFORE ADDING A CHARACTER", true)
+		_set_status(_t("army.error.add_needs_campaign_role"), true)
 		return
 	add_name.text = "New Hero"
 	_populate_add_roles()
 	add_join.clear()
-	add_join.add_item("STARTING COMPANY")
+	add_join.add_item(_t("army.join.starting_company"))
 	add_join.set_item_metadata(0, "")
 	var flow: Variant = _current_campaign().get("flow", {})
 	if flow is Dictionary:
@@ -1670,7 +1757,9 @@ func _open_add() -> void:
 			var node: Dictionary = node_value
 			if str(node.get("kind", "")) == "terminal":
 				continue
-			add_join.add_item("AFTER %s" % str(node.get("name", "Chapter")).to_upper())
+			add_join.add_item(_t("army.join.after", {
+				"chapter": str(node.get("name", _t("army.fallback.chapter"))).to_upper(),
+			}))
 			add_join.set_item_metadata(
 				add_join.item_count - 1, str(node.get("id", ""))
 			)
@@ -1684,7 +1773,7 @@ func _populate_add_roles(preferred_role_id := "") -> void:
 	add_role.clear()
 	for value: Variant in project.get("unitTypes", []):
 		if value is Dictionary:
-			add_role.add_item(str(value.get("name", value.get("id", "Role"))))
+			add_role.add_item(str(value.get("name", value.get("id", _t("army.fallback.role")))))
 			add_role.set_item_metadata(
 				add_role.item_count - 1, str(value.get("id", ""))
 			)
@@ -1704,12 +1793,12 @@ func _open_guided_character() -> void:
 	_populate_named_choices(guide_weapon, project.get("weapons", []), "")
 	guide_style.clear()
 	for style: String in ["medieval", "sengoku", "mythical", "nature", "pirates", "undead", "scifi"]:
-		guide_style.add_item(style.replace("_", " ").to_upper())
+		guide_style.add_item(_t("army.style." + style))
 		guide_style.set_item_metadata(guide_style.item_count - 1, style)
 	guide_figure.clear()
 	for figure: Dictionary in [
-		{"id": "first", "label": "FIRST BODY"},
-		{"id": "second", "label": "SECOND BODY"},
+		{"id": "first", "label": _t("army.figure.first_body")},
+		{"id": "second", "label": _t("army.figure.second_body")},
 	]:
 		guide_figure.add_item(str(figure.label))
 		guide_figure.set_item_metadata(guide_figure.item_count - 1, str(figure.id))
@@ -1730,7 +1819,7 @@ func _populate_named_choices(option: OptionButton, values: Variant, preferred: S
 	if values is Array:
 		for value: Variant in values:
 			if value is Dictionary:
-				option.add_item(str(value.get("name", value.get("id", "Choice"))))
+				option.add_item(str(value.get("name", value.get("id", _t("army.fallback.choice")))))
 				option.set_item_metadata(option.item_count - 1, str(value.get("id", "")))
 	_select_metadata(option, preferred)
 
@@ -1772,7 +1861,7 @@ func _randomize_guided_character() -> void:
 	_random_option(guide_figure)
 	_random_option(guide_side)
 	_random_option(guide_weapon)
-	_set_status("GUIDED CHARACTER  /  RANDOM STARTING POINT READY TO REVIEW", false)
+	_set_status(_t("army.status.random_ready"), false)
 
 
 func _random_option(option: OptionButton) -> void:
@@ -1787,7 +1876,7 @@ func _create_guided_character() -> void:
 		character_name.is_empty() or role_name.is_empty()
 		or guide_template.selected < 0 or guide_join.selected < 0
 	):
-		_set_status("CHARACTER, ROLE, STARTING POINT, AND JOIN TIME ARE REQUIRED", true)
+		_set_status(_t("army.error.guided_required"), true)
 		return
 	var role_id := _next_role_id()
 	var role_result: Dictionary = compiler.add_role_from_template(
@@ -1798,11 +1887,11 @@ func _create_guided_character() -> void:
 		role_name
 	)
 	if not role_result.ok:
-		_set_status("CHARACTER NOT ADDED  /  %s" % _diagnostic_detail(role_result), true)
+		_set_status(_t("army.error.character_not_added", {"detail": _diagnostic_detail(role_result)}), true)
 		return
 	var candidate_value: Variant = JSON.parse_string(str(role_result.source))
 	if not candidate_value is Dictionary:
-		_set_status("CHARACTER NOT ADDED  /  GENERATED ROLE WAS NOT READABLE", true)
+		_set_status(_t("army.error.generated_role_unreadable"), true)
 		return
 	var candidate: Dictionary = candidate_value
 	var selected_weapon_id := _selected_metadata(guide_weapon)
@@ -1837,7 +1926,7 @@ func _create_guided_character() -> void:
 	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
-		_set_status("CHARACTER NOT ADDED  /  %s" % _diagnostic_detail(checked), true)
+		_set_status(_t("army.error.character_not_added", {"detail": _diagnostic_detail(checked)}), true)
 		return
 	var campaign := _current_campaign()
 	var member_id := _next_member_id()
@@ -1850,7 +1939,7 @@ func _create_guided_character() -> void:
 		role_id
 	)
 	if not member_result.ok:
-		_set_status("CHARACTER NOT ADDED  /  %s" % _diagnostic_detail(member_result), true)
+		_set_status(_t("army.error.character_not_added", {"detail": _diagnostic_detail(member_result)}), true)
 		return
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -1866,10 +1955,7 @@ func _create_guided_character() -> void:
 	add_layer.visible = false
 	_refresh_members()
 	_update_actions()
-	_set_status(
-		"UNSAVED  /  ADDED %s WITH A READY ROLE AND LOADOUT" % character_name.to_upper(),
-		false
-	)
+	_set_status(_t("army.status.guided_added", {"name": character_name.to_upper()}), false)
 	member_select.grab_focus()
 
 
@@ -1882,7 +1968,7 @@ func _weapon_by_id(identity: String) -> Dictionary:
 
 func _open_new_role() -> void:
 	if project.get("unitTypes", []).is_empty():
-		_set_status("ADD A STARTING ROLE BEFORE COPYING ONE", true)
+		_set_status(_t("army.error.copy_role_first"), true)
 		return
 	var preferred := _selected_metadata(add_role)
 	new_role_name.text = "New Role"
@@ -1890,7 +1976,7 @@ func _open_new_role() -> void:
 	for value: Variant in project.get("unitTypes", []):
 		if not value is Dictionary:
 			continue
-		new_role_template.add_item(str(value.get("name", value.get("id", "Role"))))
+		new_role_template.add_item(str(value.get("name", value.get("id", _t("army.fallback.role")))))
 		new_role_template.set_item_metadata(
 			new_role_template.item_count - 1, str(value.get("id", ""))
 		)
@@ -1932,7 +2018,7 @@ func _next_class_id(role_id: String) -> String:
 func _create_role() -> void:
 	var name := new_role_name.text.strip_edges()
 	if name.is_empty() or new_role_template.selected < 0:
-		_set_status("ROLE NAME AND STARTING POINT ARE REQUIRED", true)
+		_set_status(_t("army.error.role_required"), true)
 		return
 	var role_id := _next_role_id()
 	var updated: Dictionary = compiler.add_role_from_template(
@@ -1943,7 +2029,7 @@ func _create_role() -> void:
 		name
 	)
 	if not updated.ok:
-		_set_status("ROLE NOT ADDED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("army.error.role_not_added", {"detail": _diagnostic_detail(updated)}), true)
 		return
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -1953,7 +2039,7 @@ func _create_role() -> void:
 	_populate_add_roles(role_id)
 	new_role_layer.visible = false
 	_update_actions()
-	_set_status("UNSAVED  /  ADDED ROLE %s" % name.to_upper(), false)
+	_set_status(_t("army.status.role_added", {"name": name.to_upper()}), false)
 	add_role.grab_focus()
 
 
@@ -1970,7 +2056,7 @@ func _next_member_id() -> String:
 func _create_member() -> void:
 	var name := add_name.text.strip_edges()
 	if name.is_empty() or add_role.selected < 0 or add_join.selected < 0:
-		_set_status("NAME, ROLE, AND JOIN TIME ARE REQUIRED", true)
+		_set_status(_t("army.error.member_required"), true)
 		return
 	var campaign := _current_campaign()
 	var member_id := _next_member_id()
@@ -1983,7 +2069,7 @@ func _create_member() -> void:
 		str(add_role.get_item_metadata(add_role.selected))
 	)
 	if not updated.ok:
-		_set_status("CHARACTER NOT ADDED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("army.error.character_not_added", {"detail": _diagnostic_detail(updated)}), true)
 		return
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -1997,10 +2083,7 @@ func _create_member() -> void:
 			break
 	add_layer.visible = false
 	_refresh_members()
-	_set_status(
-		"UNSAVED  /  ADDED %s  /  USE BATTLE SETUP TO FIELD THEM" % name.to_upper(),
-		false
-	)
+	_set_status(_t("army.status.member_added", {"name": name.to_upper()}), false)
 	member_select.grab_focus()
 
 
@@ -2019,12 +2102,12 @@ func _undo() -> void:
 	if role_was_visible and not _current_member().is_empty():
 		role_unit_type_id = str(_current_member().get("unitTypeId", ""))
 		_refresh_role_layer()
-	_set_status("UNDO  /  ARMY SOURCE RESTORED", false)
+	_set_status(_t("army.status.undo"), false)
 
 
 func _redo() -> void:
 	if form_dirty:
-		_set_status("SAVE OR UNDO THE CURRENT NAME BEFORE REDO", true)
+		_set_status(_t("army.error.redo_dirty_name"), true)
 		return
 	if redo_stack.is_empty():
 		return
@@ -2040,7 +2123,7 @@ func _redo() -> void:
 	if role_was_visible and not _current_member().is_empty():
 		role_unit_type_id = str(_current_member().get("unitTypeId", ""))
 		_refresh_role_layer()
-	_set_status("REDO  /  ARMY SOURCE RESTORED", false)
+	_set_status(_t("army.status.redo"), false)
 
 
 func _push_history(stack: Array[String], value: String) -> void:
@@ -2054,12 +2137,12 @@ func _save() -> bool:
 		return false
 	var saved: Dictionary = library.save_source(project_id, source)
 	if not saved.ok:
-		_set_status("SAVE FAILED  /  %s" % saved.message, true)
+		_set_status(_t("army.error.save", {"message": saved.message}), true)
 		return false
 	saved_source = source
 	dirty = false
 	discard_armed_until = 0
-	_set_status("SAVED  /  PORTABLE CAMPAIGN COMPANY", false)
+	_set_status(_t("army.status.saved"), false)
 	_update_actions()
 	return true
 
@@ -2069,11 +2152,11 @@ func _play_draft() -> void:
 		return
 	var compiled: Dictionary = compiler.compile_source_json(source)
 	if not compiled.ok:
-		_set_status("NOT PLAYABLE  /  %s" % _diagnostic_detail(compiled), true)
+		_set_status(_t("army.error.not_playable", {"detail": _diagnostic_detail(compiled)}), true)
 		return
 	var campaign := _current_campaign()
 	if campaign.is_empty():
-		_set_status("NOT PLAYABLE  /  ADD A CAMPAIGN", true)
+		_set_status(_t("army.error.play_needs_campaign"), true)
 		return
 	if dirty and not _save():
 		return
@@ -2096,7 +2179,7 @@ func _request_leave(destination: String) -> void:
 		return
 	if destination == "projects" and dirty and Time.get_ticks_msec() > discard_armed_until:
 		discard_armed_until = Time.get_ticks_msec() + 3500
-		_set_status("UNSAVED CHANGES  /  SAVE, OR PRESS AGAIN TO DISCARD", true)
+		_set_status(_t("army.error.unsaved_changes"), true)
 		return
 	if destination == "maps":
 		get_tree().change_scene_to_file("res://map_editor.tscn")
@@ -2138,10 +2221,10 @@ func _more_projects() -> void:
 func _diagnostic_detail(result: Dictionary) -> String:
 	var diagnostics: Array = result.get("diagnostics", [])
 	if diagnostics.is_empty() or not diagnostics[0] is Dictionary:
-		return "PROJECT INCOMPLETE"
+		return _t("army.error.project_incomplete")
 	var detail := str(diagnostics[0].get("detail", ""))
 	return detail.to_upper() if not detail.is_empty() else str(
-		diagnostics[0].get("code", "PROJECT INCOMPLETE")
+		diagnostics[0].get("code", _t("army.error.project_incomplete"))
 	).replace("_", " ").to_upper()
 
 
@@ -2170,12 +2253,12 @@ func _build_interface() -> void:
 	background.color = Color("07111b")
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
-	title_label = _label("GRANDLEON  /  GROW THE ARMY", 24, Color("e6b86d"))
+	title_label = _label(_t("army.heading"), 24, Color("e6b86d"))
 	title_label.position = Vector2(80, 42)
 	title_label.size = Vector2(1760, 42)
 	add_child(title_label)
 	var subtitle := _label(
-		"Choose who joins and what each chapter gives the company.",
+		_t("army.subtitle"),
 		34, Color("f2f7f9")
 	)
 	subtitle.position = Vector2(80, 84)
@@ -2186,21 +2269,21 @@ func _build_interface() -> void:
 	toolbar.size = Vector2(1760, 62)
 	toolbar.add_theme_constant_override("separation", 12)
 	add_child(toolbar)
-	save_button = _button("SAVE CHANGES", 260, 58)
+	save_button = _button(_t("army.save"), 260, 58)
 	save_button.pressed.connect(_save)
 	toolbar.add_child(save_button)
-	undo_button = _button("UNDO", 170, 58)
+	undo_button = _button(_t("army.undo"), 170, 58)
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
-	play_button = _button("TEST CAMPAIGN", 270, 58)
-	play_button.tooltip_text = "Saves valid changes, then starts this campaign."
+	play_button = _button(_t("army.test"), 270, 58)
+	play_button.tooltip_text = _t("army.test_tooltip")
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
-	var map_button := _button("BACK: MAP", 230, 58)
-	map_button.tooltip_text = "Saves valid changes, then returns to the map."
+	var map_button := _button(_t("army.back_map"), 230, 58)
+	map_button.tooltip_text = _t("army.back_map_tooltip")
 	map_button.pressed.connect(_request_maps)
 	toolbar.add_child(map_button)
-	var more_button := _button("MORE", 190, 58)
+	var more_button := _button(_t("army.more"), 190, 58)
 	more_button.pressed.connect(_open_more)
 	toolbar.add_child(more_button)
 
@@ -2214,17 +2297,17 @@ func _build_interface() -> void:
 	var list_column := VBoxContainer.new()
 	list_column.add_theme_constant_override("separation", 16)
 	list_panel.add_child(list_column)
-	list_column.add_child(_label("CAMPAIGN", 16, Color("e6b86d")))
+	list_column.add_child(_label(_t("army.campaign"), 16, Color("e6b86d")))
 	campaign_select = OptionButton.new()
 	campaign_select.custom_minimum_size = Vector2(510, 60)
 	campaign_select.add_theme_font_size_override("font_size", 19)
 	campaign_select.item_selected.connect(_select_campaign)
 	list_column.add_child(campaign_select)
-	list_column.add_child(_label("CHARACTER", 16, Color("e6b86d")))
+	list_column.add_child(_label(_t("army.character"), 16, Color("e6b86d")))
 	member_filter = LineEdit.new()
 	member_filter.custom_minimum_size = Vector2(510, 52)
 	member_filter.add_theme_font_size_override("font_size", 18)
-	member_filter.placeholder_text = "SEARCH BY NAME, ROLE, OR JOIN TIME"
+	member_filter.placeholder_text = _t("army.search")
 	member_filter.clear_button_enabled = true
 	member_filter.text_changed.connect(_filter_members)
 	list_column.add_child(member_filter)
@@ -2233,15 +2316,15 @@ func _build_interface() -> void:
 	member_select.add_theme_font_size_override("font_size", 19)
 	member_select.item_selected.connect(_select_member)
 	list_column.add_child(member_select)
-	add_button = _button("ADD A CHARACTER", 510, 60)
+	add_button = _button(_t("army.add_character"), 510, 60)
 	add_button.pressed.connect(_open_add)
 	list_column.add_child(add_button)
-	supplies_button = _button("CAMPAIGN SUPPLIES", 510, 60)
-	supplies_button.tooltip_text = "Starting stock and rewards earned after a chapter."
+	supplies_button = _button(_t("army.supply.open"), 510, 60)
+	supplies_button.tooltip_text = _t("army.supply.open_tooltip")
 	supplies_button.pressed.connect(_open_supplies)
 	list_column.add_child(supplies_button)
 	var guidance := _label(
-		"Adding someone decides when they join. Supplies begin in storage or arrive after a chapter. Battle Setup decides who appears on each map.",
+		_t("army.guidance"),
 		19, Color("a9bdc9")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2273,12 +2356,12 @@ func _build_interface() -> void:
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	preview.add_child(portrait)
-	preview_label = _label("CHARACTER", 18, Color("f2f7f9"))
+	preview_label = _label(_t("army.character"), 18, Color("f2f7f9"))
 	preview_label.position = Vector2(20, 282)
 	preview_label.size = Vector2(1010, 36)
 	preview_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	preview.add_child(preview_label)
-	editor_column.add_child(_label("CHARACTER NAME", 16, Color("e6b86d")))
+	editor_column.add_child(_label(_t("army.character_name"), 16, Color("e6b86d")))
 	name_input = LineEdit.new()
 	name_input.max_length = 160
 	name_input.custom_minimum_size = Vector2(1050, 64)
@@ -2286,45 +2369,43 @@ func _build_interface() -> void:
 	name_input.text_changed.connect(_mark_form_dirty)
 	editor_column.add_child(name_input)
 	player_nameable_toggle = CheckButton.new()
-	player_nameable_toggle.text = "PLAYER MAY CHOOSE THIS CHARACTER'S NAME"
+	player_nameable_toggle.text = _t("army.player_nameable")
 	player_nameable_toggle.custom_minimum_size = Vector2(1050, 46)
 	player_nameable_toggle.add_theme_font_size_override("font_size", 18)
-	player_nameable_toggle.tooltip_text = (
-		"The authored name above stays required and is used as the default and fallback."
-	)
+	player_nameable_toggle.tooltip_text = _t("army.player_nameable_tooltip")
 	player_nameable_toggle.toggled.connect(_set_player_nameable)
 	editor_column.add_child(player_nameable_toggle)
-	role_label = _label("ROLE", 22, Color("f2f7f9"))
+	role_label = _label(_t("army.kind.role"), 22, Color("f2f7f9"))
 	editor_column.add_child(role_label)
-	join_label = _label("JOINS", 20, Color("72e08f"))
+	join_label = _label(_t("army.joins"), 20, Color("72e08f"))
 	editor_column.add_child(join_label)
 	var role_actions := HBoxContainer.new()
 	role_actions.add_theme_constant_override("separation", 14)
 	editor_column.add_child(role_actions)
-	customize_button = _button("TUNE THIS HERO", 330, 56)
+	customize_button = _button(_t("army.hero.open"), 330, 56)
 	customize_button.pressed.connect(_open_modifiers)
 	role_actions.add_child(customize_button)
-	role_button = _button("TUNE ROLE", 330, 56)
-	role_button.tooltip_text = "Base stats and rules shared by this role."
+	role_button = _button(_t("army.role.open"), 330, 56)
+	role_button.tooltip_text = _t("army.role.open_tooltip")
 	role_button.pressed.connect(_open_role)
 	role_actions.add_child(role_button)
-	loadout_button = _button("ROLE GEAR & SKILLS", 330, 56)
-	loadout_button.tooltip_text = "Weapons, items, and abilities shared by this role."
+	loadout_button = _button(_t("army.loadout.open"), 330, 56)
+	loadout_button.tooltip_text = _t("army.loadout.open_tooltip")
 	loadout_button.pressed.connect(_open_loadout)
 	role_actions.add_child(loadout_button)
 	var role_note := _label(
-		"Role gear and skills affect everyone with that role. Tune only what makes this named hero special.",
+		_t("army.role_note"),
 		17, Color("718896")
 	)
 	role_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	editor_column.add_child(role_note)
 
-	empty_label = _label("THIS CAMPAIGN HAS NO CHARACTERS YET", 24, Color("718896"))
+	empty_label = _label(_t("army.member.empty_help"), 24, Color("718896"))
 	empty_label.position = Vector2(770, 500)
 	empty_label.size = Vector2(990, 120)
 	empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(empty_label)
-	status_label = _label("OPENING PROJECT", 17, Color("a9bdc9"))
+	status_label = _label(_t("army.opening"), 17, Color("a9bdc9"))
 	status_label.position = Vector2(82, 980)
 	status_label.size = Vector2(1750, 54)
 	add_child(status_label)
@@ -2362,12 +2443,12 @@ func _build_modifier_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
 	panel.add_child(column)
-	column.add_child(_label("TUNE THIS HERO", 18, Color("e6b86d")))
-	column.add_child(_label("Make one character memorable.", 32, Color("f2f7f9")))
-	modifier_role_label = _label("CHARACTER  /  ROLE", 18, Color("69d9ff"))
+	column.add_child(_label(_t("army.hero.open"), 18, Color("e6b86d")))
+	column.add_child(_label(_t("army.hero.title_prompt"), 32, Color("f2f7f9")))
+	modifier_role_label = _label(_t("army.hero.default_title"), 18, Color("69d9ff"))
 	column.add_child(modifier_role_label)
 	var explanation := _label(
-		"Each step adjusts this hero over the role baseline. Returning to zero removes the override. Invalid totals are refused before they can be saved.",
+		_t("army.hero.help"),
 		17, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2385,14 +2466,14 @@ func _build_modifier_layer() -> void:
 		row.custom_minimum_size = Vector2(630, 64)
 		row.add_theme_constant_override("separation", 8)
 		modifiers.add_child(row)
-		var name_label := _label(str(option.label), 16, Color("e6b86d"))
+		var name_label := _label(_stat_label(key), 16, Color("e6b86d"))
 		name_label.custom_minimum_size = Vector2(165, 54)
 		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(name_label)
 		var minus := _button("−", 66, 54)
 		minus.pressed.connect(_adjust_modifier.bind(key, -1))
 		row.add_child(minus)
-		var value_label := _label("ROLE DEFAULT", 16, Color("f2f7f9"))
+		var value_label := _label(_t("army.hero.role_default"), 16, Color("f2f7f9"))
 		value_label.custom_minimum_size = Vector2(255, 54)
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2404,13 +2485,13 @@ func _build_modifier_layer() -> void:
 		if index == 0:
 			first_modifier_button = plus
 	var footer := _label(
-		"Health keeps a hero standing. Strength and magic drive attacks. Defense and resistance blunt them. Movement changes how far they can help; weapon range extends carried weapons.",
+		_t("army.hero.footer"),
 		16, Color("718896")
 	)
 	footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	footer.custom_minimum_size.y = 58
 	column.add_child(footer)
-	modifier_done_button = _button("DONE", 260, 62)
+	modifier_done_button = _button(_t("army.done"), 260, 62)
 	modifier_done_button.pressed.connect(_close_modifiers)
 	column.add_child(modifier_done_button)
 
@@ -2436,19 +2517,19 @@ func _build_more_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
 	panel.add_child(column)
-	column.add_child(_label("MORE ARMY OPTIONS", 18, Color("e6b86d")))
-	column.add_child(_label("Use these less often.", 30, Color("f2f7f9")))
-	redo_button = _button("REDO", 680, 66)
+	column.add_child(_label(_t("army.more.heading"), 18, Color("e6b86d")))
+	column.add_child(_label(_t("army.more.subtitle"), 30, Color("f2f7f9")))
+	redo_button = _button(_t("army.redo"), 680, 66)
 	redo_button.pressed.connect(_more_redo)
 	column.add_child(redo_button)
-	more_gear_button = _button("GEAR & ABILITIES", 680, 66)
-	more_gear_button.tooltip_text = "Create the choices that roles can carry and learn."
+	more_gear_button = _button(_t("army.more.gear"), 680, 66)
+	more_gear_button.tooltip_text = _t("army.more.gear_tooltip")
 	more_gear_button.pressed.connect(_more_gear)
 	column.add_child(more_gear_button)
-	more_projects_button = _button("RETURN TO PROJECTS", 680, 66)
+	more_projects_button = _button(_t("army.more.projects"), 680, 66)
 	more_projects_button.pressed.connect(_more_projects)
 	column.add_child(more_projects_button)
-	var back := _button("BACK", 680, 66)
+	var back := _button(_t("army.back"), 680, 66)
 	back.pressed.connect(_close_more)
 	column.add_child(back)
 
@@ -2474,34 +2555,34 @@ func _build_add_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
 	panel.add_child(column)
-	column.add_child(_label("ADD A CHARACTER", 18, Color("e6b86d")))
-	column.add_child(_label("Who joins the adventure, and when?", 32, Color("f2f7f9")))
-	column.add_child(_label("CHARACTER NAME", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.add.heading"), 18, Color("e6b86d")))
+	column.add_child(_label(_t("army.add.title"), 32, Color("f2f7f9")))
+	column.add_child(_label(_t("army.character_name"), 15, Color("69d9ff")))
 	add_name = LineEdit.new()
 	add_name.max_length = 160
 	add_name.custom_minimum_size = Vector2(1100, 62)
 	add_name.add_theme_font_size_override("font_size", 22)
 	column.add_child(add_name)
-	column.add_child(_label("ROLE", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.kind.role"), 15, Color("69d9ff")))
 	add_role = OptionButton.new()
 	add_role.custom_minimum_size = Vector2(1100, 62)
 	add_role.add_theme_font_size_override("font_size", 20)
 	column.add_child(add_role)
-	new_role_button = _button("MAKE A NEW ROLE", 1100, 56)
-	new_role_button.tooltip_text = "Copy a working role, then give the copy a new name."
+	new_role_button = _button(_t("army.new_role.open"), 1100, 56)
+	new_role_button.tooltip_text = _t("army.new_role.open_tooltip")
 	new_role_button.pressed.connect(_open_new_role)
 	column.add_child(new_role_button)
-	var guided_button := _button("GUIDED NEW CHARACTER", 1100, 56)
-	guided_button.tooltip_text = "Create the character, independent role, appearance, side, and starting weapon together."
+	var guided_button := _button(_t("army.guide.open"), 1100, 56)
+	guided_button.tooltip_text = _t("army.guide.open_tooltip")
 	guided_button.pressed.connect(_open_guided_character)
 	column.add_child(guided_button)
-	column.add_child(_label("WHEN THEY JOIN", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.add.join"), 15, Color("69d9ff")))
 	add_join = OptionButton.new()
 	add_join.custom_minimum_size = Vector2(1100, 62)
 	add_join.add_theme_font_size_override("font_size", 20)
 	column.add_child(add_join)
 	var guidance := _label(
-		"Starting characters exist from the opening. Later recruits join after the selected chapter. Field either one explicitly in Map → Battle Setup.",
+		_t("army.add.help"),
 		17, Color("a9bdc9")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2510,10 +2591,10 @@ func _build_add_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	create_button = _button("ADD CHARACTER", 340, 66)
+	create_button = _button(_t("army.add.create"), 340, 66)
 	create_button.pressed.connect(_create_member)
 	actions.add_child(create_button)
-	var back := _button("BACK", 230, 66)
+	var back := _button(_t("army.back"), 230, 66)
 	back.pressed.connect(_close_add)
 	actions.add_child(back)
 
@@ -2539,29 +2620,29 @@ func _build_new_role_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
 	panel.add_child(column)
-	column.add_child(_label("MAKE A NEW ROLE", 18, Color("69d9ff")))
-	column.add_child(_label("Start with something that already works.", 32, Color("f2f7f9")))
+	column.add_child(_label(_t("army.new_role.heading"), 18, Color("69d9ff")))
+	column.add_child(_label(_t("army.new_role.title"), 32, Color("f2f7f9")))
 	var explanation := _label(
-		"Choose the closest existing role. Its stats, look, team, and gear are copied; you can change shared gear after adding the character.",
+		_t("army.new_role.help"),
 		17, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 64
 	column.add_child(explanation)
-	column.add_child(_label("NEW ROLE NAME", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.new_role.name"), 15, Color("69d9ff")))
 	new_role_name = LineEdit.new()
 	new_role_name.max_length = 160
 	new_role_name.custom_minimum_size = Vector2(1080, 62)
 	new_role_name.add_theme_font_size_override("font_size", 22)
 	new_role_name.text_submitted.connect(_create_role_from_text)
 	column.add_child(new_role_name)
-	column.add_child(_label("START LIKE", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.new_role.template"), 15, Color("69d9ff")))
 	new_role_template = OptionButton.new()
 	new_role_template.custom_minimum_size = Vector2(1080, 62)
 	new_role_template.add_theme_font_size_override("font_size", 20)
 	column.add_child(new_role_template)
 	var guidance := _label(
-		"The new role is portable. Nothing here depends on this computer or installation.",
+		_t("army.new_role.portable"),
 		16, Color("72e08f")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2570,10 +2651,10 @@ func _build_new_role_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	new_role_create_button = _button("CREATE ROLE", 340, 66)
+	new_role_create_button = _button(_t("army.new_role.create"), 340, 66)
 	new_role_create_button.pressed.connect(_create_role)
 	actions.add_child(new_role_create_button)
-	var back := _button("BACK", 230, 66)
+	var back := _button(_t("army.back"), 230, 66)
 	back.pressed.connect(_close_new_role)
 	actions.add_child(back)
 
@@ -2603,10 +2684,10 @@ func _build_guided_character_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
 	panel.add_child(column)
-	column.add_child(_label("GUIDED NEW CHARACTER", 19, Color("72e08f")))
-	column.add_child(_label("One useful character, ready to field.", 30, Color("f2f7f9")))
+	column.add_child(_label(_t("army.guide.heading"), 19, Color("72e08f")))
+	column.add_child(_label(_t("army.guide.title"), 30, Color("f2f7f9")))
 	var explanation := _label(
-		"Start from a working role, then choose this character's independent role, look, side, and first weapon together. Every choice stays editable after creation.",
+		_t("army.guide.help"),
 		16, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2620,48 +2701,48 @@ func _build_guided_character_layer() -> void:
 	identity.custom_minimum_size = Vector2(670, 0)
 	identity.add_theme_constant_override("separation", 9)
 	columns.add_child(identity)
-	identity.add_child(_label("CHARACTER NAME", 14, Color("69d9ff")))
+	identity.add_child(_label(_t("army.character_name"), 14, Color("69d9ff")))
 	guide_name = _guide_line_edit()
 	identity.add_child(guide_name)
-	identity.add_child(_label("INDEPENDENT ROLE NAME", 14, Color("69d9ff")))
+	identity.add_child(_label(_t("army.guide.role_name"), 14, Color("69d9ff")))
 	guide_role_name = _guide_line_edit()
 	identity.add_child(guide_role_name)
-	identity.add_child(_label("START ROLE LIKE", 14, Color("69d9ff")))
+	identity.add_child(_label(_t("army.guide.template"), 14, Color("69d9ff")))
 	guide_template = _guide_option()
 	guide_template.item_selected.connect(_apply_guide_template_defaults)
 	identity.add_child(guide_template)
-	identity.add_child(_label("SIDE", 14, Color("69d9ff")))
+	identity.add_child(_label(_t("army.kind.side"), 14, Color("69d9ff")))
 	guide_side = _guide_option()
 	identity.add_child(guide_side)
-	identity.add_child(_label("WHEN THEY JOIN", 14, Color("69d9ff")))
+	identity.add_child(_label(_t("army.add.join"), 14, Color("69d9ff")))
 	guide_join = _guide_option()
 	identity.add_child(guide_join)
 	var presentation := VBoxContainer.new()
 	presentation.custom_minimum_size = Vector2(670, 0)
 	presentation.add_theme_constant_override("separation", 9)
 	columns.add_child(presentation)
-	presentation.add_child(_label("CHARACTER STYLE", 14, Color("e6b86d")))
+	presentation.add_child(_label(_t("army.guide.style"), 14, Color("e6b86d")))
 	guide_style = _guide_option()
 	presentation.add_child(guide_style)
-	presentation.add_child(_label("BODY", 14, Color("e6b86d")))
+	presentation.add_child(_label(_t("army.guide.body"), 14, Color("e6b86d")))
 	guide_figure = _guide_option()
 	presentation.add_child(guide_figure)
-	presentation.add_child(_label("FIRST WEAPON", 14, Color("e6b86d")))
+	presentation.add_child(_label(_t("army.guide.weapon"), 14, Color("e6b86d")))
 	guide_weapon = _guide_option()
 	presentation.add_child(guide_weapon)
 	var weapon_note := _label(
-		"The new role is made compatible with the chosen weapon family automatically. Other copied gear and abilities remain available to tune afterwards.",
+		_t("army.guide.weapon_help"),
 		15, Color("a9bdc9")
 	)
 	weapon_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	weapon_note.custom_minimum_size.y = 78
 	presentation.add_child(weapon_note)
-	var randomize := _button("RANDOM STARTING POINT", 670, 56)
-	randomize.tooltip_text = "Suggest a name and valid role, look, side, and weapon. Review every choice before creating."
+	var randomize := _button(_t("army.guide.random"), 670, 56)
+	randomize.tooltip_text = _t("army.guide.random_tooltip")
 	randomize.pressed.connect(_randomize_guided_character)
 	presentation.add_child(randomize)
 	var guidance := _label(
-		"This is one undoable creation. Battle Setup still decides where the character appears on each map.",
+		_t("army.guide.undo_help"),
 		15, Color("72e08f")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2669,10 +2750,10 @@ func _build_guided_character_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	guide_create_button = _button("CREATE READY CHARACTER", 410, 64)
+	guide_create_button = _button(_t("army.guide.create"), 410, 64)
 	guide_create_button.pressed.connect(_create_guided_character)
 	actions.add_child(guide_create_button)
-	var back := _button("BACK", 230, 64)
+	var back := _button(_t("army.back"), 230, 64)
 	back.pressed.connect(_close_guided_character)
 	actions.add_child(back)
 
@@ -2713,28 +2794,28 @@ func _build_supply_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	panel.add_child(column)
-	column.add_child(_label("CAMPAIGN SUPPLIES", 18, Color("e6b86d")))
-	column.add_child(_label("What does the company receive, and when?", 32, Color("f2f7f9")))
+	column.add_child(_label(_t("army.supply.heading"), 18, Color("e6b86d")))
+	column.add_child(_label(_t("army.supply.title"), 32, Color("f2f7f9")))
 	var explanation := _label(
-		"Starting supplies are available from the opening. Chapter rewards enter shared storage when that moment is completed.",
+		_t("army.supply.help"),
 		17, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 54
 	column.add_child(explanation)
-	column.add_child(_label("WHEN", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.supply.when"), 15, Color("69d9ff")))
 	supply_timing = OptionButton.new()
 	supply_timing.custom_minimum_size = Vector2(1100, 60)
 	supply_timing.add_theme_font_size_override("font_size", 20)
 	supply_timing.item_selected.connect(_refresh_supply_value)
 	column.add_child(supply_timing)
-	column.add_child(_label("WHAT KIND", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.supply.kind"), 15, Color("69d9ff")))
 	supply_kind = OptionButton.new()
 	supply_kind.custom_minimum_size = Vector2(1100, 60)
 	supply_kind.add_theme_font_size_override("font_size", 20)
 	supply_kind.item_selected.connect(_refresh_supply_assets)
 	column.add_child(supply_kind)
-	column.add_child(_label("ITEM OR WEAPON", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.supply.choice"), 15, Color("69d9ff")))
 	supply_asset = OptionButton.new()
 	supply_asset.custom_minimum_size = Vector2(1100, 60)
 	supply_asset.add_theme_font_size_override("font_size", 20)
@@ -2746,7 +2827,7 @@ func _build_supply_layer() -> void:
 	supply_minus_button = _button("−", 120, 64)
 	supply_minus_button.pressed.connect(_adjust_supply.bind(-1))
 	quantity_row.add_child(supply_minus_button)
-	supply_value_label = _label("NOT INCLUDED", 21, Color("f2f7f9"))
+	supply_value_label = _label(_t("army.supply.not_included"), 21, Color("f2f7f9"))
 	supply_value_label.custom_minimum_size = Vector2(810, 64)
 	supply_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	supply_value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2755,13 +2836,13 @@ func _build_supply_layer() -> void:
 	supply_plus_button.pressed.connect(_adjust_supply.bind(1))
 	quantity_row.add_child(supply_plus_button)
 	var guidance := _label(
-		"Set the amount to zero to remove it. Every target uses the same portable supplies and rewards.",
+		_t("army.supply.footer"),
 		16, Color("718896")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	guidance.custom_minimum_size.y = 46
 	column.add_child(guidance)
-	var done := _button("DONE", 300, 64)
+	var done := _button(_t("army.done"), 300, 64)
 	done.pressed.connect(_close_supplies)
 	column.add_child(done)
 
@@ -2787,16 +2868,16 @@ func _build_role_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 10)
 	panel.add_child(column)
-	column.add_child(_label("TUNE ROLE", 18, Color("e6b86d")))
-	role_title_label = _label("ROLE", 30, Color("f2f7f9"))
+	column.add_child(_label(_t("army.role.open"), 18, Color("e6b86d")))
+	role_title_label = _label(_t("army.kind.role"), 30, Color("f2f7f9"))
 	column.add_child(role_title_label)
-	role_scope_label = _label("INDEPENDENT BASELINE", 16, Color("72e08f"))
+	role_scope_label = _label(_t("army.role.independent", {"count": 1}), 16, Color("72e08f"))
 	column.add_child(role_scope_label)
 	var side_row := HBoxContainer.new()
 	side_row.custom_minimum_size = Vector2(1480, 56)
 	side_row.add_theme_constant_override("separation", 18)
 	column.add_child(side_row)
-	var side_label := _label("DEFAULT SIDE", 16, Color("69d9ff"))
+	var side_label := _label(_t("army.role.default_side"), 16, Color("69d9ff"))
 	side_label.custom_minimum_size = Vector2(300, 56)
 	side_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	side_row.add_child(side_label)
@@ -2805,15 +2886,15 @@ func _build_role_layer() -> void:
 	role_side.add_theme_font_size_override("font_size", 19)
 	role_side.item_selected.connect(_change_role_side)
 	side_row.add_child(role_side)
-	role_side_new_button = _button("NEW SIDE", 300, 56)
-	role_side_new_button.tooltip_text = "Create a named portable faction and use it for this role."
+	role_side_new_button = _button(_t("army.side.new"), 300, 56)
+	role_side_new_button.tooltip_text = _t("army.side.new_tooltip")
 	role_side_new_button.pressed.connect(_open_new_side)
 	side_row.add_child(role_side_new_button)
 	var movement_row := HBoxContainer.new()
 	movement_row.custom_minimum_size = Vector2(1480, 56)
 	movement_row.add_theme_constant_override("separation", 18)
 	column.add_child(movement_row)
-	var movement_label := _label("MOVEMENT TYPE", 16, Color("69d9ff"))
+	var movement_label := _label(_t("army.role.movement"), 16, Color("69d9ff"))
 	movement_label.custom_minimum_size = Vector2(300, 56)
 	movement_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	movement_row.add_child(movement_label)
@@ -2821,11 +2902,11 @@ func _build_role_layer() -> void:
 	role_movement.custom_minimum_size = Vector2(1140, 56)
 	role_movement.add_theme_font_size_override("font_size", 19)
 	for choice: Dictionary in [
-		{"id": "walk", "label": "WALKS OPEN GROUND"},
-		{"id": "water", "label": "CROSSES WATER"},
-		{"id": "heights", "label": "CROSSES HEIGHTS"},
-		{"id": "water_heights", "label": "CROSSES WATER & HEIGHTS"},
-		{"id": "fly", "label": "FLIES OVER ALL TERRAIN"},
+		{"id": "walk", "label": _t("army.movement.walk")},
+		{"id": "water", "label": _t("army.movement.water")},
+		{"id": "heights", "label": _t("army.movement.heights")},
+		{"id": "water_heights", "label": _t("army.movement.water_heights")},
+		{"id": "fly", "label": _t("army.movement.fly")},
 	]:
 		role_movement.add_item(str(choice.label))
 		role_movement.set_item_metadata(role_movement.item_count - 1, choice.id)
@@ -2835,7 +2916,7 @@ func _build_role_layer() -> void:
 	family_row.custom_minimum_size = Vector2(1480, 56)
 	family_row.add_theme_constant_override("separation", 18)
 	column.add_child(family_row)
-	var family_label := _label("WEAPON FAMILY", 16, Color("69d9ff"))
+	var family_label := _label(_t("army.role.weapon_family"), 16, Color("69d9ff"))
 	family_label.custom_minimum_size = Vector2(300, 56)
 	family_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	family_row.add_child(family_label)
@@ -2844,48 +2925,44 @@ func _build_role_layer() -> void:
 	role_family.add_theme_font_size_override("font_size", 19)
 	role_family.item_selected.connect(_refresh_role_family)
 	family_row.add_child(role_family)
-	role_family_toggle_button = _button("ALLOW FOR ROLE", 360, 56)
+	role_family_toggle_button = _button(_t("army.role.allow_family"), 360, 56)
 	role_family_toggle_button.pressed.connect(_toggle_role_family)
 	family_row.add_child(role_family_toggle_button)
 	var behavior_row := HBoxContainer.new()
 	behavior_row.add_theme_constant_override("separation", 14)
 	column.add_child(behavior_row)
-	role_behavior_button = _button("ATTACK ENDS ACTIVATION", 480, 58)
-	role_behavior_button.tooltip_text = "Choose whether unused actions remain after attacking."
+	role_behavior_button = _button(_t("army.role.attack_ends_activation"), 480, 58)
+	role_behavior_button.tooltip_text = _t("army.role.behavior_tooltip")
 	role_behavior_button.pressed.connect(_toggle_role_behavior)
 	behavior_row.add_child(role_behavior_button)
-	role_growth_button = _button("GROWTH & REWARDS", 420, 58)
-	role_growth_button.tooltip_text = "Optional level growth, defeat rewards, drops, and appearance."
+	role_growth_button = _button(_t("army.growth.open"), 420, 58)
+	role_growth_button.tooltip_text = _t("army.growth.open_tooltip")
 	role_growth_button.pressed.connect(_open_growth)
 	behavior_row.add_child(role_growth_button)
-	role_detach_button = _button("MAKE BASELINE INDEPENDENT", 480, 58)
-	role_detach_button.tooltip_text = "Copy this shared baseline before tuning it."
+	role_detach_button = _button(_t("army.role.detach"), 480, 58)
+	role_detach_button.tooltip_text = _t("army.role.detach_tooltip")
 	role_detach_button.pressed.connect(_detach_role_baseline)
 	behavior_row.add_child(role_detach_button)
 	var dependency_row := HBoxContainer.new()
 	dependency_row.add_theme_constant_override("separation", 14)
 	column.add_child(dependency_row)
-	role_dependency_button = _button("WHERE ROLE USED / DELETE", 500, 54)
-	role_dependency_button.tooltip_text = (
-		"Review every character using a project-owned role before deleting it."
-	)
+	role_dependency_button = _button(_t("army.delete.role_open"), 500, 54)
+	role_dependency_button.tooltip_text = _t("army.delete.role_tooltip")
 	role_dependency_button.pressed.connect(_open_role_dependency_review)
 	dependency_row.add_child(role_dependency_button)
-	faction_dependency_button = _button("WHERE SIDE USED / DELETE", 500, 54)
-	faction_dependency_button.tooltip_text = (
-		"Review every character using a project-owned side before deleting it."
-	)
+	faction_dependency_button = _button(_t("army.delete.side_open"), 500, 54)
+	faction_dependency_button.tooltip_text = _t("army.delete.side_tooltip")
 	faction_dependency_button.pressed.connect(_open_faction_dependency_review)
 	dependency_row.add_child(faction_dependency_button)
 	var dependency_note := _label(
-		"Unused project definitions can be removed after review.",
+		_t("army.delete.role_note"),
 		15,
 		Color("718896")
 	)
 	dependency_note.custom_minimum_size = Vector2(420, 54)
 	dependency_note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	dependency_row.add_child(dependency_note)
-	column.add_child(_label("BASELINE STATS", 16, Color("e6b86d")))
+	column.add_child(_label(_t("army.role.stats"), 16, Color("e6b86d")))
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 20)
@@ -2897,7 +2974,7 @@ func _build_role_layer() -> void:
 		row.custom_minimum_size = Vector2(720, 44)
 		row.add_theme_constant_override("separation", 8)
 		grid.add_child(row)
-		var label := _label(str(definition.label), 15, Color("a9bdc9"))
+		var label := _label(_stat_label(key), 15, Color("a9bdc9"))
 		label.custom_minimum_size = Vector2(190, 44)
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(label)
@@ -2918,11 +2995,11 @@ func _build_role_layer() -> void:
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 14)
 	column.add_child(footer)
-	var done := _button("DONE", 280, 60)
+	var done := _button(_t("army.done"), 280, 60)
 	done.pressed.connect(_close_role)
 	footer.add_child(done)
 	var guidance := _label(
-		"These rules affect every character using this role on PC, Nintendo 64, and PlayStation.",
+		_t("army.role.footer"),
 		16, Color("718896")
 	)
 	guidance.custom_minimum_size = Vector2(1120, 60)
@@ -2952,8 +3029,8 @@ func _build_dependency_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 15)
 	panel.add_child(column)
-	column.add_child(_label("SAFE DELETE", 18, Color("e6b86d")))
-	dependency_heading = _label("WHERE THIS ROLE IS USED", 29, Color("f2f7f9"))
+	column.add_child(_label(_t("army.delete.safe"), 18, Color("e6b86d")))
+	dependency_heading = _label(_t("army.delete.heading"), 29, Color("f2f7f9"))
 	dependency_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dependency_heading.custom_minimum_size.y = 66
 	column.add_child(dependency_heading)
@@ -2978,7 +3055,7 @@ func _build_dependency_layer() -> void:
 	dependency_uses.add_theme_color_override("default_color", Color("dce8ed"))
 	uses_panel.add_child(dependency_uses)
 	var note := _label(
-		"Deletion removes only the selected unused definition. Characters, campaigns, battles, and shared artwork are never changed automatically.",
+		_t("army.delete.help"),
 		16,
 		Color("718896")
 	)
@@ -2988,10 +3065,10 @@ func _build_dependency_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	dependency_delete_button = _button("CANNOT DELETE", 380, 64)
+	dependency_delete_button = _button(_t("army.delete.cannot"), 380, 64)
 	dependency_delete_button.pressed.connect(_confirm_dependency_delete)
 	actions.add_child(dependency_delete_button)
-	dependency_close_button = _button("KEEP IT", 260, 64)
+	dependency_close_button = _button(_t("army.delete.keep"), 260, 64)
 	dependency_close_button.pressed.connect(_close_dependency_review)
 	actions.add_child(dependency_close_button)
 
@@ -3017,33 +3094,33 @@ func _build_side_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
-	column.add_child(_label("NEW SIDE", 18, Color("e6b86d")))
-	column.add_child(_label("Who does this role fight for?", 30, Color("f2f7f9")))
+	column.add_child(_label(_t("army.side.new"), 18, Color("e6b86d")))
+	column.add_child(_label(_t("army.side.title"), 30, Color("f2f7f9")))
 	var note := _label(
-		"A side gives related roles one portable name and colour. Battle Setup still decides which team each placement fights on.",
+		_t("army.side.help"),
 		17, Color("a9bdc9")
 	)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size.y = 56
 	column.add_child(note)
-	column.add_child(_label("SIDE NAME", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.side.name"), 15, Color("69d9ff")))
 	side_name = LineEdit.new()
 	side_name.max_length = 160
 	side_name.custom_minimum_size = Vector2(960, 64)
 	side_name.add_theme_font_size_override("font_size", 22)
 	column.add_child(side_name)
-	column.add_child(_label("MAP COLOUR", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.side.colour"), 15, Color("69d9ff")))
 	side_colour = OptionButton.new()
 	side_colour.custom_minimum_size = Vector2(960, 64)
 	side_colour.add_theme_font_size_override("font_size", 20)
 	for choice: Dictionary in [
-		{"id": "", "label": "AUTOMATIC"},
-		{"id": "blue", "label": "BLUE"},
-		{"id": "red", "label": "RED"},
-		{"id": "green", "label": "GREEN"},
-		{"id": "violet", "label": "VIOLET"},
-		{"id": "amber", "label": "AMBER"},
-		{"id": "bone", "label": "BONE"},
+		{"id": "", "label": _t("army.colour.automatic")},
+		{"id": "blue", "label": _t("army.colour.blue")},
+		{"id": "red", "label": _t("army.colour.red")},
+		{"id": "green", "label": _t("army.colour.green")},
+		{"id": "violet", "label": _t("army.colour.violet")},
+		{"id": "amber", "label": _t("army.colour.amber")},
+		{"id": "bone", "label": _t("army.colour.bone")},
 	]:
 		side_colour.add_item(str(choice.label))
 		side_colour.set_item_metadata(side_colour.item_count - 1, choice.id)
@@ -3051,10 +3128,10 @@ func _build_side_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	var create := _button("CREATE & USE", 320, 64)
+	var create := _button(_t("army.side.create_use"), 320, 64)
 	create.pressed.connect(_create_side)
 	actions.add_child(create)
-	var cancel := _button("CANCEL", 260, 64)
+	var cancel := _button(_t("army.cancel"), 260, 64)
 	cancel.pressed.connect(_close_new_side)
 	actions.add_child(cancel)
 
@@ -3080,11 +3157,11 @@ func _build_growth_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 9)
 	panel.add_child(column)
-	column.add_child(_label("ADVANCED ROLE OPTIONS", 17, Color("e6b86d")))
-	growth_title_label = _label("ROLE  /  GROWTH & REWARDS", 29, Color("f2f7f9"))
+	column.add_child(_label(_t("army.growth.heading"), 17, Color("e6b86d")))
+	growth_title_label = _label(_t("army.growth.default_title"), 29, Color("f2f7f9"))
 	column.add_child(growth_title_label)
 	var note := _label(
-		"Leave these at their defaults for a simple campaign. Changes apply everywhere this role appears.",
+		_t("army.growth.help"),
 		16, Color("a9bdc9")
 	)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3094,21 +3171,21 @@ func _build_growth_layer() -> void:
 	var appearance_row := HBoxContainer.new()
 	appearance_row.add_theme_constant_override("separation", 14)
 	column.add_child(appearance_row)
-	var style_label := _label("LOOK", 15, Color("69d9ff"))
+	var style_label := _label(_t("army.growth.look"), 15, Color("69d9ff"))
 	style_label.custom_minimum_size = Vector2(160, 54)
 	style_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	appearance_row.add_child(style_label)
 	growth_style = OptionButton.new()
 	growth_style.custom_minimum_size = Vector2(520, 54)
 	growth_style.add_theme_font_size_override("font_size", 18)
-	growth_style.add_item("FOLLOW GAME STYLE")
+	growth_style.add_item(_t("army.growth.follow_style"))
 	growth_style.set_item_metadata(0, "")
 	for style_name: String in ArtLibrary.STYLE_NAMES:
-		growth_style.add_item(style_name.replace("_", " ").to_upper())
+		growth_style.add_item(_t("army.style." + style_name))
 		growth_style.set_item_metadata(growth_style.item_count - 1, style_name)
 	growth_style.item_selected.connect(_change_growth_choice.bind("characterStyleId"))
 	appearance_row.add_child(growth_style)
-	var figure_label := _label("FIGURE", 15, Color("69d9ff"))
+	var figure_label := _label(_t("army.growth.figure"), 15, Color("69d9ff"))
 	figure_label.custom_minimum_size = Vector2(150, 54)
 	figure_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	appearance_row.add_child(figure_label)
@@ -3116,22 +3193,22 @@ func _build_growth_layer() -> void:
 	growth_figure.custom_minimum_size = Vector2(560, 54)
 	growth_figure.add_theme_font_size_override("font_size", 18)
 	for choice: Dictionary in [
-		{"id": "", "label": "FOLLOW GAME FIGURE"},
-		{"id": "first", "label": "FIRST FIGURE"},
-		{"id": "second", "label": "SECOND FIGURE"},
+		{"id": "", "label": _t("army.growth.follow_figure")},
+		{"id": "first", "label": _t("army.figure.first")},
+		{"id": "second", "label": _t("army.figure.second")},
 	]:
 		growth_figure.add_item(str(choice.label))
 		growth_figure.set_item_metadata(growth_figure.item_count - 1, choice.id)
 	growth_figure.item_selected.connect(_change_growth_choice.bind("characterFigureId"))
 	appearance_row.add_child(growth_figure)
 
-	column.add_child(_label("EXPERIENCE & ITEM DROP", 15, Color("e6b86d")))
+	column.add_child(_label(_t("army.growth.rewards"), 15, Color("e6b86d")))
 	var reward_row := HBoxContainer.new()
 	reward_row.add_theme_constant_override("separation", 12)
 	column.add_child(reward_row)
-	_build_growth_stepper(reward_row, "XP WHEN DEFEATED", "experienceAward", 365, false)
-	_build_growth_stepper(reward_row, "XP PER LEVEL", "experiencePerLevel", 365, false)
-	var drop_label := _label("ITEM DROP", 14, Color("69d9ff"))
+	_build_growth_stepper(reward_row, _t("army.growth.xp_defeated"), "experienceAward", 365, false)
+	_build_growth_stepper(reward_row, _t("army.growth.xp_level"), "experiencePerLevel", 365, false)
+	var drop_label := _label(_t("army.growth.item_drop"), 14, Color("69d9ff"))
 	drop_label.custom_minimum_size = Vector2(145, 52)
 	drop_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	reward_row.add_child(drop_label)
@@ -3146,9 +3223,9 @@ func _build_growth_layer() -> void:
 	var chance_spacer := Control.new()
 	chance_spacer.custom_minimum_size = Vector2(790, 48)
 	chance_row.add_child(chance_spacer)
-	_build_growth_stepper(chance_row, "DROP CHANCE %", "dropChance", 570, true)
+	_build_growth_stepper(chance_row, _t("army.growth.drop_chance"), "dropChance", 570, true)
 
-	column.add_child(_label("LEVEL-UP CHANCE  /  EACH STAT", 15, Color("e6b86d")))
+	column.add_child(_label(_t("army.growth.level_chance"), 15, Color("e6b86d")))
 	var growth_grid := GridContainer.new()
 	growth_grid.columns = 2
 	growth_grid.add_theme_constant_override("h_separation", 22)
@@ -3156,17 +3233,17 @@ func _build_growth_layer() -> void:
 	column.add_child(growth_grid)
 	for definition: Dictionary in GROWTH_STATS:
 		_build_growth_stepper(
-			growth_grid, str(definition.label), str(definition.key), 716, false
+			growth_grid, _stat_label(str(definition.key)), str(definition.key), 716, false
 		)
 
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 16)
 	column.add_child(footer)
-	var done := _button("DONE", 280, 58)
+	var done := _button(_t("army.done"), 280, 58)
 	done.pressed.connect(_close_growth)
 	footer.add_child(done)
 	var guidance := _label(
-		"A growth value is the percentage chance that stat rises by one at level-up. Zero means it never rolls.",
+		_t("army.growth.footer"),
 		15, Color("718896")
 	)
 	guidance.custom_minimum_size = Vector2(1120, 58)
@@ -3223,43 +3300,43 @@ func _build_loadout_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 13)
 	panel.add_child(column)
-	column.add_child(_label("ROLE GEAR & SKILLS", 18, Color("e6b86d")))
-	column.add_child(_label("What does this role carry and know?", 32, Color("f2f7f9")))
-	loadout_role_label = _label("EVERY ROLE", 18, Color("69d9ff"))
+	column.add_child(_label(_t("army.loadout.heading"), 18, Color("e6b86d")))
+	column.add_child(_label(_t("army.loadout.title"), 32, Color("f2f7f9")))
+	loadout_role_label = _label(_t("army.loadout.default_role"), 18, Color("69d9ff"))
 	column.add_child(loadout_role_label)
 	var explanation := _label(
-		"This changes every character using the role. The same choices travel to PC, Nintendo 64, and PlayStation builds.",
+		_t("army.loadout.help"),
 		17, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 52
 	column.add_child(explanation)
-	loadout_summary_label = _label("WEAPONS  NONE\nITEMS  NONE\nABILITIES  NONE", 16, Color("f2f7f9"))
+	loadout_summary_label = _label(_t("army.loadout.empty_summary"), 16, Color("f2f7f9"))
 	loadout_summary_label.custom_minimum_size.y = 82
 	column.add_child(loadout_summary_label)
-	column.add_child(_label("CATEGORY", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.loadout.category"), 15, Color("69d9ff")))
 	loadout_kind = OptionButton.new()
 	loadout_kind.custom_minimum_size = Vector2(1100, 60)
 	loadout_kind.add_theme_font_size_override("font_size", 20)
 	loadout_kind.item_selected.connect(_refresh_loadout_assets)
 	column.add_child(loadout_kind)
-	column.add_child(_label("CHOICE", 15, Color("69d9ff")))
+	column.add_child(_label(_t("army.loadout.choice"), 15, Color("69d9ff")))
 	loadout_asset = OptionButton.new()
 	loadout_asset.custom_minimum_size = Vector2(1100, 60)
 	loadout_asset.add_theme_font_size_override("font_size", 20)
 	loadout_asset.item_selected.connect(_refresh_loadout_value)
 	column.add_child(loadout_asset)
-	loadout_value_label = _label("NOT INCLUDED", 21, Color("a9bdc9"))
+	loadout_value_label = _label(_t("army.loadout.not_included"), 21, Color("a9bdc9"))
 	loadout_value_label.custom_minimum_size = Vector2(1100, 48)
 	loadout_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(loadout_value_label)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	loadout_toggle_button = _button("ADD TO ROLE", 360, 64)
+	loadout_toggle_button = _button(_t("army.loadout.add"), 360, 64)
 	loadout_toggle_button.pressed.connect(_toggle_loadout)
 	actions.add_child(loadout_toggle_button)
-	var done := _button("DONE", 260, 64)
+	var done := _button(_t("army.done"), 260, 64)
 	done.pressed.connect(_close_loadout)
 	actions.add_child(done)
 
@@ -3269,6 +3346,32 @@ func _set_status(message: String, failure: bool) -> void:
 	status_label.add_theme_color_override(
 		"font_color", Color("ff7a83") if failure else Color("72e08f")
 	)
+
+
+func _stat_label(key: String) -> String:
+	return _t(str({
+		"health": "army.stat.health", "strength": "army.stat.strength",
+		"defense": "army.stat.defense", "resistance": "army.stat.resistance",
+		"movement": "army.stat.movement", "actionPoints": "army.stat.actions",
+		"skill": "army.stat.skill", "luck": "army.stat.luck",
+		"evasion": "army.stat.evasion", "magic": "army.stat.magic",
+		"speed": "army.stat.speed", "rangeBonus": "army.stat.weapon_range",
+	}.get(key, "army.stat.unknown")))
+
+
+func _field_label(field: String) -> String:
+	var normalized := field.replace("_", "").to_lower()
+	var message_id := str({
+		"name": "army.field.name", "role": "army.field.role",
+		"classid": "army.field.role", "basestats": "army.field.base_stats",
+		"factionid": "army.field.side", "startingweaponids": "army.field.weapons",
+		"startingitemids": "army.field.items", "abilityids": "army.field.abilities",
+	}.get(normalized, ""))
+	return _t(message_id) if not message_id.is_empty() else field.replace("_", " ").to_upper()
+
+
+func _t(message_id: String, values: Dictionary = {}) -> String:
+	return Localization.text(message_id, values)
 
 
 func _label(value: String, size: int, colour: Color) -> Label:
