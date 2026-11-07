@@ -116,22 +116,22 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _load_project() -> void:
 	if project_id.is_empty():
-		_set_status("NO PROJECT SELECTED", true)
+		_set_status(_t("story.error.no_project"), true)
 		return
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
-		_set_status("OPEN FAILED  /  %s" % loaded.message, true)
+		_set_status(_t("story.error.open", {"message": str(loaded.message)}), true)
 		return
 	source = str(loaded.source)
 	saved_source = source
 	if not _read_source():
 		return
-	title_label.text = "%s  /  2 WRITE THE STORY  →  3 TEST" % str(
-		project.get("title", "UNTITLED GAME")
-	).to_upper()
+	title_label.text = _t("story.project_title", {
+		"project": str(project.get("title", _t("story.untitled_game"))).to_upper(),
+	})
 	_refresh_dialogues()
 	_set_status(
-		"READY  /  CHOOSE A SCENE AND LINE, THEN WRITE ITS DIALOGUE",
+		_t("story.status.ready"),
 		false
 	)
 	var diagnostic_focus: Dictionary = CreatorContext.take_diagnostic_focus()
@@ -140,7 +140,7 @@ func _load_project() -> void:
 		return
 	if not dialogues.is_empty():
 		if not CreatorContext.dialogue_id.is_empty() and not _current_lines().is_empty():
-			_set_status("READY  /  WRITE THIS CONVERSATION", false)
+			_set_status(_t("story.status.write_conversation"), false)
 			dialogue_text.call_deferred("grab_focus")
 			if dialogue_text.text.strip_edges() == "...":
 				dialogue_text.call_deferred("select_all")
@@ -163,12 +163,13 @@ func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
 			backdrop_select.call_deferred("grab_focus")
 		_:
 			dialogue_select.call_deferred("grab_focus")
-	var location := (
-		"LINE %d  /  " % (line_index + 1)
-		if diagnostic.has("line_index") and not lines.is_empty() else ""
-	)
 	_set_status(
-		"FIX %s%s" % [location, field.replace("_", " ").to_upper()],
+		_t(
+			"story.status.fix_line"
+			if diagnostic.has("line_index") and not lines.is_empty()
+			else "story.status.fix_field",
+			{"line": line_index + 1, "field": _field_label(field)}
+		),
 		true
 	)
 
@@ -176,7 +177,7 @@ func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
 func _read_source() -> bool:
 	var parsed := JSON.new()
 	if parsed.parse(source) != OK or not parsed.data is Dictionary:
-		_set_status("PROJECT SOURCE IS NOT READABLE", true)
+		_set_status(_t("story.error.source_unreadable"), true)
 		return false
 	project = parsed.data
 	var value: Variant = project.get("dialogues", [])
@@ -229,7 +230,7 @@ func _collect_story_options() -> void:
 				"campaign_id": campaign_id,
 				"node_id": str(node.get("id", "")),
 				"label": "%s  /  %s" % [
-					campaign_name, str(node.get("name", node.get("id", "Story")))
+					campaign_name, str(node.get("name", node.get("id", _t("story.fallback.story"))))
 				],
 				"dialogue_ids": node.get("dialogueIds", []).duplicate(),
 			})
@@ -288,7 +289,7 @@ func _refresh_dialogues(refresh_editor := true) -> void:
 		var value: Variant = dialogues[index]
 		if not value is Dictionary or not _dialogue_matches_filter(value, query):
 			continue
-		dialogue_select.add_item(str(value.get("name", value.get("id", "Scene"))))
+		dialogue_select.add_item(str(value.get("name", value.get("id", _t("story.fallback.scene")))))
 		var option := dialogue_select.item_count - 1
 		dialogue_select.set_item_metadata(option, index)
 		if index == dialogue_index:
@@ -301,22 +302,24 @@ func _refresh_dialogues(refresh_editor := true) -> void:
 	editor_column.visible = available
 	if scene_filter_summary != null:
 		scene_filter_summary.text = (
-			"%d OF %d SCENES" % [match_count, dialogues.size()]
+			_t("story.scene.filtered_count", {
+				"matches": match_count, "total": dialogues.size(),
+			})
 			if not query.is_empty()
-			else "%d SCENE%s" % [dialogues.size(), "" if dialogues.size() == 1 else "S"]
+			else _t(
+				"story.scene.count_one" if dialogues.size() == 1 else "story.scene.count_many",
+				{"count": dialogues.size()}
+			)
 		)
 	if not available:
-		dialogue_select.add_item("NO DIALOGUE SCENES")
-		empty_label.text = (
-			"This project has no dialogue scenes yet.\n"
-			+ "Scene creation and campaign routing are the next story-authoring step."
-		)
+		dialogue_select.add_item(_t("story.scene.none"))
+		empty_label.text = _t("story.scene.empty_help")
 		dialogue_index = 0
 		line_index = 0
 		_update_actions()
 		return
 	if not has_matches:
-		dialogue_select.add_item("NO SCENES MATCH")
+		dialogue_select.add_item(_t("story.scene.no_matches"))
 		dialogue_select.select(0)
 	else:
 		dialogue_select.select(selected_option if selected_option >= 0 else 0)
@@ -365,7 +368,9 @@ func _select_dialogue(index: int) -> void:
 	dialogue_index = index
 	line_index = 0
 	_refresh_line()
-	_set_status("SCENE  /  %s" % _current_dialogue_name().to_upper(), false)
+	_set_status(_t("story.status.scene", {
+		"name": _current_dialogue_name().to_upper(),
+	}), false)
 
 
 func _cycle_line(delta: int) -> void:
@@ -387,7 +392,7 @@ func _current_dialogue() -> Dictionary:
 
 func _current_dialogue_name() -> String:
 	var dialogue := _current_dialogue()
-	return str(dialogue.get("name", dialogue.get("id", "Scene")))
+	return str(dialogue.get("name", dialogue.get("id", _t("story.fallback.scene"))))
 
 
 func _current_lines() -> Array:
@@ -423,7 +428,7 @@ func _add_speaker_choice(
 		return int(seen[key])
 	var role := _unit_type_name(unit_type_id)
 	var label := (
-		"%s  /  NO CHARACTER ART" % speaker
+		_t("story.character.no_art", {"speaker": speaker})
 		if unit_type_id.is_empty()
 		else "%s  /  %s" % [speaker, role]
 	)
@@ -447,15 +452,15 @@ func _refresh_line() -> void:
 	var available := not lines.is_empty()
 	line_index = clampi(line_index, 0, maxi(0, lines.size() - 1))
 	line_counter.text = (
-		"LINE %d OF %d" % [line_index + 1, lines.size()]
-		if available else "NO LINES IN THIS SCENE"
+		_t("story.line.counter", {"current": line_index + 1, "total": lines.size()})
+		if available else _t("story.line.none")
 	)
 	previous_button.disabled = lines.size() < 2
 	next_button.disabled = lines.size() < 2
 	speaker_select.clear()
 	dialogue_text.editable = available
 	if not available:
-		speaker_select.add_item("NO SPEAKER")
+		speaker_select.add_item(_t("story.speaker.none"))
 		speaker_select.disabled = true
 		dialogue_text.text = ""
 		line_form_dirty = false
@@ -515,13 +520,13 @@ func _refresh_scene_preview() -> void:
 	preview_portrait.texture = null
 	var lines := _current_lines()
 	if lines.is_empty() or line_index < 0 or line_index >= lines.size():
-		preview_caption.text = "NO LINE TO PREVIEW"
+		preview_caption.text = _t("story.preview.no_line")
 		return
 	var line: Dictionary = lines[line_index] if lines[line_index] is Dictionary else {}
 	var speaker := str(line.get("speaker", ""))
 	var unit_type_id := _cast_unit_type(dialogue, speaker)
 	preview_caption.text = (
-		"%s  /  NO CHARACTER ART" % speaker.to_upper()
+		_t("story.character.no_art", {"speaker": speaker.to_upper()})
 		if unit_type_id.is_empty()
 		else "%s  /  %s" % [speaker.to_upper(), _unit_type_name(unit_type_id).to_upper()]
 	)
@@ -556,7 +561,9 @@ func _select_backdrop(index: int) -> void:
 		source, str(dialogue.get("id", "")), background_id
 	)
 	if not updated.ok:
-		_set_status("BACKDROP NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("story.error.backdrop", {
+			"detail": _diagnostic_detail(updated),
+		}), true)
 		_refresh_scene_preview()
 		return
 	_push_history(undo_stack, source)
@@ -566,10 +573,9 @@ func _select_backdrop(index: int) -> void:
 	_read_source()
 	_refresh_dialogues()
 	_set_status(
-		"UNSAVED  /  BACKDROP %s" % (
-			"FLAT" if background_id.is_empty()
-			else background_id.replace("_", " ").to_upper()
-		),
+		_t("story.status.backdrop", {
+			"backdrop": _backdrop_label(background_id),
+		}),
 		false
 	)
 	backdrop_select.grab_focus()
@@ -588,7 +594,7 @@ func _add_line_after() -> void:
 		return
 	var dialogue := _current_dialogue()
 	if dialogue.is_empty():
-		_set_status("CHOOSE A SCENE FIRST", true)
+		_set_status(_t("story.error.choose_scene"), true)
 		return
 	var lines := _current_lines()
 	var after_index := line_index if not lines.is_empty() else -1
@@ -602,14 +608,14 @@ func _add_line_after() -> void:
 				if not speaker.is_empty():
 					break
 	if speaker.is_empty():
-		_set_status("ADD A CHARACTER TO THIS SCENE BEFORE WRITING A LINE", true)
+		_set_status(_t("story.error.character_before_line"), true)
 		return
 	var updated: Dictionary = compiler.insert_dialogue_line(
 		source, str(dialogue.get("id", "")), after_index, speaker,
 		"A new line."
 	)
 	if not _accept_line_list_edit(
-		updated, after_index + 1, "UNSAVED  /  ADDED A NEW LINE"
+		updated, after_index + 1, _t("story.status.line_added")
 	):
 		return
 	dialogue_text.grab_focus()
@@ -630,7 +636,7 @@ func _move_line(delta: int) -> void:
 	_accept_line_list_edit(
 		updated,
 		destination,
-		"UNSAVED  /  MOVED LINE %d" % (destination + 1)
+		_t("story.status.line_moved", {"line": destination + 1})
 	)
 
 
@@ -639,7 +645,7 @@ func _delete_line() -> void:
 		return
 	var lines := _current_lines()
 	if lines.size() <= 1:
-		_set_status("A SCENE NEEDS AT LEAST ONE LINE", true)
+		_set_status(_t("story.error.minimum_line"), true)
 		return
 	var dialogue := _current_dialogue()
 	var updated: Dictionary = compiler.remove_dialogue_line(
@@ -648,7 +654,7 @@ func _delete_line() -> void:
 	_accept_line_list_edit(
 		updated,
 		mini(line_index, lines.size() - 2),
-		"UNSAVED  /  REMOVED THE LINE"
+		_t("story.status.line_removed")
 	)
 
 
@@ -657,7 +663,7 @@ func _request_delete_scene(scene_id := "") -> void:
 	# a half-written line first. The author can save or undo that line, then the
 	# confirmed scene deletion is exactly one reversible edit.
 	if line_form_dirty:
-		_set_status("SAVE OR UNDO THE CURRENT LINE BEFORE DELETING A SCENE", true)
+		_set_status(_t("story.error.delete_dirty_line"), true)
 		return
 	var requested_id := scene_id.strip_edges()
 	if requested_id.is_empty():
@@ -665,12 +671,10 @@ func _request_delete_scene(scene_id := "") -> void:
 	var index = ProjectContentDependencyIndex.new(project)
 	var decision: Dictionary = index.deletion_decision("dialogue", requested_id)
 	pending_delete_scene_id = requested_id
-	delete_scene_title.text = "DELETE %s?" % str(
-		decision.get("name", requested_id.replace("_", " "))
-	).to_upper()
-	delete_scene_summary.text = str(decision.get(
-		"summary", "Deletion is unavailable for this scene."
-	))
+	delete_scene_title.text = _t("story.delete.title", {
+		"name": str(decision.get("name", requested_id.replace("_", " "))).to_upper(),
+	})
+	delete_scene_summary.text = _delete_summary(decision)
 	var uses: Array = decision.get("uses", [])
 	var use_lines: Array[String] = []
 	for use_value: Variant in uses:
@@ -678,23 +682,25 @@ func _request_delete_scene(scene_id := "") -> void:
 			continue
 		var use: Dictionary = use_value
 		use_lines.append("[color=#69d9ff][b]%s[/b][/color]  %s" % [
-			str(use.get("section", "Project")),
-			str(use.get("label", "This scene is referenced here.")),
+			_dependency_section_label(str(use.get("section", "Project"))),
+			_t("story.delete.use", {"owner": _dependency_owner_name(use)}),
 		])
 	delete_scene_uses.text = (
-		"[color=#72e08f]WHERE USED  /  NOWHERE ELSE[/color]"
+		"[color=#72e08f]%s[/color]" % _t("story.delete.nowhere")
 		if uses.is_empty() and bool(decision.get("allowed", false))
-		else "[color=#ffca63]WHERE USED[/color]\n" + "\n".join(use_lines)
+		else "[color=#ffca63]%s[/color]\n%s" % [
+			_t("story.delete.where_used"), "\n".join(use_lines),
+		]
 		if not uses.is_empty()
-		else "[color=#ff7a83]WHERE USED  /  COULD NOT BE VERIFIED[/color]"
+		else "[color=#ff7a83]%s[/color]" % _t("story.delete.unverified")
 	)
 	confirm_delete_scene_button.disabled = not bool(decision.get("allowed", false))
 	confirm_delete_scene_button.text = (
-		"DELETE UNUSED SCENE"
+		_t("story.delete.confirm")
 		if not confirm_delete_scene_button.disabled
-		else "REMOVE REFERENCES FIRST"
+		else _t("story.delete.detach_first")
 		if str(decision.get("reason", "")) == "in_use"
-		else "DELETION UNAVAILABLE"
+		else _t("story.delete.unavailable")
 	)
 	delete_scene_layer.visible = true
 	if confirm_delete_scene_button.disabled:
@@ -713,7 +719,7 @@ func _close_delete_scene() -> void:
 func _confirm_delete_scene() -> void:
 	var scene_id := pending_delete_scene_id
 	if scene_id.is_empty():
-		_set_status("SCENE NOT DELETED  /  NO SCENE SELECTED", true)
+		_set_status(_t("story.error.delete_no_scene"), true)
 		return
 	# Rebuild at confirmation time. A stale confirmation must fail closed if a
 	# reference was added or the content disappeared while the overlay was open.
@@ -721,7 +727,7 @@ func _confirm_delete_scene() -> void:
 	var decision: Dictionary = index.deletion_decision("dialogue", scene_id)
 	if not bool(decision.get("allowed", false)):
 		_request_delete_scene(scene_id)
-		_set_status("SCENE NOT DELETED  /  CHECK WHERE USED", true)
+		_set_status(_t("story.error.delete_check_uses"), true)
 		return
 	var candidate: Dictionary = project.duplicate(true)
 	var candidate_dialogues: Array = candidate.get("dialogues", [])
@@ -732,7 +738,7 @@ func _confirm_delete_scene() -> void:
 			candidate_dialogues.remove_at(candidate_index)
 			removed += 1
 	if removed != 1:
-		_set_status("SCENE NOT DELETED  /  IDENTITY COULD NOT BE VERIFIED", true)
+		_set_status(_t("story.error.delete_identity"), true)
 		return
 	candidate["dialogues"] = candidate_dialogues
 	var candidate_source := JSON.stringify(
@@ -740,9 +746,9 @@ func _confirm_delete_scene() -> void:
 	) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not bool(checked.get("ok", false)):
-		_set_status(
-			"SCENE NOT DELETED  /  %s" % _diagnostic_detail(checked), true
-		)
+		_set_status(_t("story.error.delete", {
+			"detail": _diagnostic_detail(checked),
+		}), true)
 		return
 	var previous_index := dialogue_index
 	_push_history(undo_stack, source)
@@ -761,7 +767,7 @@ func _confirm_delete_scene() -> void:
 	# states after a successful deletion.
 	scene_filter.text = ""
 	_refresh_dialogues()
-	_set_status("UNSAVED  /  DELETED UNUSED SCENE", false)
+	_set_status(_t("story.status.scene_deleted"), false)
 	if not dialogue_select.disabled:
 		dialogue_select.grab_focus()
 
@@ -770,7 +776,9 @@ func _accept_line_list_edit(
 	updated: Dictionary, next_line_index: int, message: String
 ) -> bool:
 	if not updated.ok:
-		_set_status("STORY NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("story.error.not_changed", {
+			"detail": _diagnostic_detail(updated),
+		}), true)
 		return false
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -798,20 +806,20 @@ func _commit_visible_line(announce: bool) -> bool:
 	var dialogue := _current_dialogue()
 	var lines := _current_lines()
 	if dialogue.is_empty() or line_index < 0 or line_index >= lines.size():
-		_set_status("CHOOSE A DIALOGUE LINE FIRST", true)
+		_set_status(_t("story.error.choose_line"), true)
 		return false
 	if speaker_select.selected < 0 or speaker_select.item_count == 0:
-		_set_status("THIS SCENE NEEDS A SPEAKER", true)
+		_set_status(_t("story.error.speaker_needed"), true)
 		return false
 	var choice: Variant = speaker_select.get_item_metadata(speaker_select.selected)
 	if not choice is Dictionary:
-		_set_status("CHOOSE A CHARACTER FOR THIS LINE", true)
+		_set_status(_t("story.error.choose_character"), true)
 		return false
 	var speaker := str(choice.get("speaker", "")).strip_edges()
 	var unit_type_id := str(choice.get("unit_type_id", ""))
 	var words := dialogue_text.text.strip_edges()
 	if speaker.is_empty() or words.is_empty():
-		_set_status("SPEAKER AND DIALOGUE TEXT CANNOT BE EMPTY", true)
+		_set_status(_t("story.error.empty_line"), true)
 		return false
 	var current: Dictionary = lines[line_index] if lines[line_index] is Dictionary else {}
 	var current_speaker := str(current.get("speaker", ""))
@@ -828,7 +836,9 @@ func _commit_visible_line(announce: bool) -> bool:
 		unit_type_id, words
 	)
 	if not updated.ok:
-		_set_status("LINE NOT SAVED  /  %s" % _diagnostic_detail(updated), true)
+		_set_status(_t("story.error.line_not_saved", {
+			"detail": _diagnostic_detail(updated),
+		}), true)
 		return false
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -837,12 +847,10 @@ func _commit_visible_line(announce: bool) -> bool:
 	_read_source()
 	line_form_dirty = false
 	if announce:
-		_set_status(
-			"UNSAVED  /  UPDATED %s, LINE %d" % [
-				_current_dialogue_name().to_upper(), line_index + 1
-			],
-			false
-		)
+		_set_status(_t("story.status.line_updated", {
+			"scene": _current_dialogue_name().to_upper(),
+			"line": line_index + 1,
+		}), false)
 	_update_actions()
 	return true
 
@@ -857,12 +865,12 @@ func _undo() -> void:
 	dirty = source != saved_source
 	_read_source()
 	_refresh_dialogues()
-	_set_status("UNDO  /  STORY SOURCE RESTORED", false)
+	_set_status(_t("story.status.undo"), false)
 
 
 func _redo() -> void:
 	if line_form_dirty:
-		_set_status("SAVE OR UNDO THE CURRENT LINE BEFORE REDO", true)
+		_set_status(_t("story.error.redo_dirty_line"), true)
 		return
 	if redo_stack.is_empty():
 		return
@@ -871,7 +879,7 @@ func _redo() -> void:
 	dirty = source != saved_source
 	_read_source()
 	_refresh_dialogues()
-	_set_status("REDO  /  STORY SOURCE RESTORED", false)
+	_set_status(_t("story.status.redo"), false)
 
 
 func _push_history(stack: Array[String], value: String) -> void:
@@ -885,12 +893,12 @@ func _save() -> bool:
 		return false
 	var saved: Dictionary = library.save_source(project_id, source)
 	if not saved.ok:
-		_set_status("SAVE FAILED  /  %s" % saved.message, true)
+		_set_status(_t("story.error.save", {"message": str(saved.message)}), true)
 		return false
 	saved_source = source
 	dirty = false
 	discard_armed_until = 0
-	_set_status("SAVED  /  PORTABLE STORY SOURCE", false)
+	_set_status(_t("story.status.saved"), false)
 	_update_actions()
 	return true
 
@@ -910,10 +918,10 @@ func _open_new_scene() -> void:
 	if not _commit_visible_line(false):
 		return
 	if story_targets.is_empty():
-		_set_status("CREATE A CAMPAIGN STORY MOMENT BEFORE ADDING A SCENE", true)
+		_set_status(_t("story.error.story_moment_first"), true)
 		return
 	if scene_characters.is_empty():
-		_set_status("CREATE A CHARACTER BEFORE ADDING A SCENE", true)
+		_set_status(_t("story.error.character_first"), true)
 		return
 	_hide_new_scene_popups()
 	new_scene_target.clear()
@@ -928,11 +936,11 @@ func _open_new_scene() -> void:
 			else "%s  /  %s" % [character.speaker, role]
 		)
 	new_scene_backdrop.clear()
-	new_scene_backdrop.add_item("FLAT / NO BACKDROP")
+	new_scene_backdrop.add_item(_t("story.backdrop.none"))
 	for backdrop: String in BACKDROPS:
-		new_scene_backdrop.add_item(backdrop.replace("_", " ").to_upper())
+		new_scene_backdrop.add_item(_backdrop_label(backdrop))
 	var scene_id := _next_scene_id()
-	new_scene_id_label.text = "A PORTABLE IDENTITY WILL BE CREATED AUTOMATICALLY"
+	new_scene_id_label.text = _t("story.new_scene.automatic_id")
 	new_scene_title.text = "New Scene %s" % scene_id.trim_prefix("scene_")
 	new_scene_text.text = "A new conversation begins."
 	new_scene_target.select(0)
@@ -978,12 +986,12 @@ func _create_new_scene() -> void:
 		or new_scene_character.selected < 0
 		or new_scene_character.selected >= scene_characters.size()
 	):
-		_set_status("SCENE NEEDS A STORY MOMENT AND CHARACTER", true)
+		_set_status(_t("story.error.scene_target_character"), true)
 		return
 	var title := new_scene_title.text.strip_edges()
 	var opening := new_scene_text.text.strip_edges()
 	if title.is_empty() or opening.is_empty():
-		_set_status("SCENE TITLE AND OPENING LINE CANNOT BE EMPTY", true)
+		_set_status(_t("story.error.scene_title_opening"), true)
 		return
 	var target: Dictionary = story_targets[new_scene_target.selected]
 	var character: Dictionary = scene_characters[new_scene_character.selected]
@@ -1004,7 +1012,9 @@ func _create_new_scene() -> void:
 		opening
 	)
 	if not added.ok:
-		_set_status("SCENE NOT CREATED  /  %s" % _diagnostic_detail(added), true)
+		_set_status(_t("story.error.scene_not_created", {
+			"detail": _diagnostic_detail(added),
+		}), true)
 		return
 	_push_history(undo_stack, source)
 	redo_stack.clear()
@@ -1020,12 +1030,9 @@ func _create_new_scene() -> void:
 	line_index = 0
 	_refresh_dialogues()
 	new_scene_layer.visible = false
-	_set_status(
-		"UNSAVED  /  CREATED %s IN %s" % [
-			title.to_upper(), str(target.label).to_upper()
-		],
-		false
-	)
+	_set_status(_t("story.status.scene_created", {
+		"scene": title.to_upper(), "target": str(target.label).to_upper(),
+	}), false)
 	dialogue_select.grab_focus()
 
 
@@ -1033,7 +1040,7 @@ func _open_sequence() -> void:
 	if not _commit_visible_line(false):
 		return
 	if story_targets.is_empty() or dialogues.is_empty():
-		_set_status("ADD A STORY MOMENT AND SCENE BEFORE SETTING PLAY ORDER", true)
+		_set_status(_t("story.error.sequence_needs_content"), true)
 		return
 	var current_id := str(_current_dialogue().get("id", ""))
 	var preferred_key := ""
@@ -1120,9 +1127,9 @@ func _refresh_sequence_lists(
 		)
 		sequence_attached_select.set_item_metadata(index, dialogue_id)
 	if attached_ids.is_empty():
-		sequence_attached_select.add_item("NO SCENES ATTACHED")
+		sequence_attached_select.add_item(_t("story.sequence.none_attached"))
 		sequence_attached_select.set_item_metadata(0, "")
-		order_lines.append("No scenes attached. This story moment will pass without dialogue.")
+		order_lines.append(_t("story.sequence.empty_help"))
 	sequence_order_summary.text = "\n".join(order_lines)
 	sequence_available_select.clear()
 	for value: Variant in dialogues:
@@ -1136,7 +1143,7 @@ func _refresh_sequence_lists(
 			sequence_available_select.item_count - 1, dialogue_id
 		)
 	if sequence_available_select.item_count == 0:
-		sequence_available_select.add_item("EVERY SCENE IS ALREADY ATTACHED")
+		sequence_available_select.add_item(_t("story.sequence.all_attached"))
 		sequence_available_select.set_item_metadata(0, "")
 	_select_sequence_metadata(sequence_attached_select, preferred_attached)
 	_select_sequence_metadata(sequence_available_select, preferred_available)
@@ -1174,10 +1181,9 @@ func _refresh_sequence_actions(_index: int = 0) -> void:
 	sequence_later_button.disabled = (
 		attached_id.is_empty() or attached_index >= attached_count - 1
 	)
-	sequence_status.text = (
-		"%d SCENE%s  /  PLAYED TOP TO BOTTOM" % [
-			attached_count, "" if attached_count == 1 else "S"
-		]
+	sequence_status.text = _t(
+		"story.sequence.count_one" if attached_count == 1 else "story.sequence.count_many",
+		{"count": attached_count}
 	)
 	sequence_status.add_theme_color_override("font_color", Color("a9bdc9"))
 
@@ -1192,7 +1198,9 @@ func _attach_sequence_scene() -> void:
 		return
 	ids.append(dialogue_id)
 	_commit_story_sequence(
-		ids, "ATTACHED %s" % _dialogue_name(dialogue_id).to_upper(), dialogue_id
+		ids, _t("story.sequence.attached", {
+			"scene": _dialogue_name(dialogue_id).to_upper(),
+		}), dialogue_id
 	)
 
 
@@ -1204,7 +1212,9 @@ func _detach_sequence_scene() -> void:
 	var ids: Array = target.get("dialogue_ids", []).duplicate()
 	ids.erase(dialogue_id)
 	_commit_story_sequence(
-		ids, "DETACHED %s" % _dialogue_name(dialogue_id).to_upper()
+		ids, _t("story.sequence.detached", {
+			"scene": _dialogue_name(dialogue_id).to_upper(),
+		})
 	)
 
 
@@ -1223,10 +1233,12 @@ func _move_sequence_scene(delta: int) -> void:
 	ids[index] = swap
 	_commit_story_sequence(
 		ids,
-		"MOVED %s %s" % [
-			_dialogue_name(dialogue_id).to_upper(),
-			"EARLIER" if delta < 0 else "LATER",
-		],
+		_t("story.sequence.moved", {
+			"scene": _dialogue_name(dialogue_id).to_upper(),
+			"direction": _t(
+				"story.sequence.earlier" if delta < 0 else "story.sequence.later"
+			),
+		}),
 		dialogue_id
 	)
 
@@ -1258,16 +1270,16 @@ func _commit_story_sequence(
 				changed = true
 				break
 	if not changed:
-		_set_sequence_status("STORY MOMENT IS NO LONGER AVAILABLE", true)
+		_set_sequence_status(_t("story.error.sequence_missing"), true)
 		return false
 	var candidate_source := JSON.stringify(
 		_integer_numbers(candidate), "  ", true
 	) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
-		_set_sequence_status(
-			"NOT CHANGED  /  %s" % _diagnostic_detail(checked), true
-		)
+		_set_sequence_status(_t("story.error.sequence_not_changed", {
+			"detail": _diagnostic_detail(checked),
+		}), true)
 		return false
 	var target_key := _story_target_key(target)
 	var current_dialogue_id := str(_current_dialogue().get("id", ""))
@@ -1285,8 +1297,8 @@ func _commit_story_sequence(
 	_refresh_dialogues()
 	_refresh_sequence_stories(target_key)
 	_refresh_sequence_lists(preferred_attached)
-	_set_sequence_status("UNSAVED  /  %s" % message, false)
-	_set_status("UNSAVED  /  STORY PLAY ORDER CHANGED", false)
+	_set_sequence_status(_t("story.sequence.unsaved", {"change": message}), false)
+	_set_status(_t("story.status.sequence_changed"), false)
 	return true
 
 
@@ -1317,19 +1329,21 @@ func _play_draft() -> void:
 	if not _commit_visible_line(false):
 		return
 	if compiler == null:
-		_set_status("NATIVE PROJECT COMPILER IS UNAVAILABLE", true)
+		_set_status(_t("story.error.compiler_unavailable"), true)
 		return
 	var compiled: Dictionary = compiler.compile_source_json(source)
 	if not compiled.ok:
-		_set_status("NOT PLAYABLE  /  %s" % _diagnostic_detail(compiled), true)
+		_set_status(_t("story.error.not_playable", {
+			"detail": _diagnostic_detail(compiled),
+		}), true)
 		return
 	var campaigns: Array = project.get("campaigns", [])
 	if campaigns.is_empty() or not campaigns[0] is Dictionary:
-		_set_status("NOT PLAYABLE  /  ADD A CAMPAIGN", true)
+		_set_status(_t("story.error.add_campaign"), true)
 		return
 	var campaign := str(campaigns[0].get("id", ""))
 	if campaign.is_empty():
-		_set_status("NOT PLAYABLE  /  CAMPAIGN NEEDS AN ID", true)
+		_set_status(_t("story.error.campaign_id"), true)
 		return
 	if dirty and not _save():
 		return
@@ -1352,7 +1366,7 @@ func _request_leave(destination: String) -> void:
 		return
 	if destination == "projects" and dirty and Time.get_ticks_msec() > discard_armed_until:
 		discard_armed_until = Time.get_ticks_msec() + 3500
-		_set_status("UNSAVED CHANGES  /  SAVE, OR PRESS AGAIN TO DISCARD", true)
+		_set_status(_t("story.error.unsaved_changes"), true)
 		return
 	if destination == "maps":
 		get_tree().change_scene_to_file("res://map_editor.tscn")
@@ -1363,14 +1377,100 @@ func _request_leave(destination: String) -> void:
 		get_tree().change_scene_to_file("res://creator.tscn")
 
 
+func _field_label(field: String) -> String:
+	var normalized := field.replace("_", "").to_lower()
+	var message_id := str({
+		"conversation": "story.field.conversation",
+		"speaker": "story.speaker.label",
+		"cast": "story.field.cast",
+		"unittypeid": "story.field.character",
+		"text": "story.field.text",
+		"lines": "story.field.lines",
+		"backgroundid": "story.backdrop.label",
+	}.get(normalized, ""))
+	return _t(message_id) if not message_id.is_empty() else field.replace("_", " ").to_upper()
+
+
+func _backdrop_label(backdrop_id: String) -> String:
+	if backdrop_id.is_empty():
+		return _t("story.backdrop.flat")
+	var message_id := str({
+		"throne_hall": "story.backdrop.throne_hall",
+		"night_camp": "story.backdrop.night_camp",
+		"deep_wood": "story.backdrop.deep_wood",
+		"mountain_dusk": "story.backdrop.mountain_dusk",
+		"open_sea": "story.backdrop.open_sea",
+		"star_field": "story.backdrop.star_field",
+		"crypt": "story.backdrop.crypt",
+	}.get(backdrop_id, ""))
+	return _t(message_id) if not message_id.is_empty() else backdrop_id.replace("_", " ").to_upper()
+
+
+func _delete_summary(decision: Dictionary) -> String:
+	var reason := str(decision.get("reason", "unsupported_request"))
+	var name := str(decision.get("name", pending_delete_scene_id))
+	var use_count: int = decision.get("uses", []).size()
+	match reason:
+		"content_not_found":
+			return _t("story.delete.summary.missing")
+		"unused":
+			return _t("story.delete.summary.unused", {"name": name})
+		"in_use":
+			return _t(
+				"story.delete.summary.in_use_one"
+				if use_count == 1 else "story.delete.summary.in_use_many",
+				{"name": name, "count": use_count}
+			)
+		_:
+			return _t("story.delete.summary.unavailable")
+
+
+func _dependency_section_label(section: String) -> String:
+	var message_id := str({
+		"Project": "story.delete.section.project",
+		"Dialogue": "story.delete.section.dialogue",
+		"Campaigns": "story.delete.section.campaigns",
+		"Battles": "story.delete.section.battles",
+	}.get(section, ""))
+	return _t(message_id) if not message_id.is_empty() else section.to_upper()
+
+
+func _dependency_owner_name(use: Dictionary) -> String:
+	var owner_kind := str(use.get("owner_category", ""))
+	var owner_id := str(use.get("owner_id", ""))
+	if owner_id.is_empty():
+		return _t("story.delete.project_owner")
+	if owner_kind == "campaign":
+		var found := _record_name(project.get("campaigns", []), owner_id)
+		if not found.is_empty():
+			return found
+	if owner_kind == "battle" or owner_kind == "campaign_node":
+		for campaign_value: Variant in project.get("campaigns", []):
+			if not campaign_value is Dictionary:
+				continue
+			var flow: Dictionary = campaign_value.get("flow", {})
+			var found := _record_name(flow.get("nodes", []), owner_id)
+			if not found.is_empty():
+				return found
+	return owner_id.replace("_", " ").capitalize()
+
+
+func _record_name(values: Variant, identity: String) -> String:
+	if values is Array:
+		for value: Variant in values:
+			if value is Dictionary and str(value.get("id", "")) == identity:
+				return str(value.get("name", identity.replace("_", " ").capitalize()))
+	return ""
+
+
 func _diagnostic_detail(result: Dictionary) -> String:
 	var diagnostics: Array = result.get("diagnostics", [])
 	if diagnostics.is_empty() or not diagnostics[0] is Dictionary:
-		return "PROJECT INCOMPLETE"
+		return _t("story.error.project_incomplete")
 	var detail := str(diagnostics[0].get("detail", ""))
 	if not detail.is_empty():
 		return detail.to_upper()
-	return str(diagnostics[0].get("code", "PROJECT INCOMPLETE")).replace(
+	return str(diagnostics[0].get("code", _t("story.error.project_incomplete"))).replace(
 		"_", " "
 	).to_upper()
 
@@ -1400,11 +1500,11 @@ func _build_interface() -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
 
-	title_label = _label("GRANDLEON  /  2 WRITE THE STORY  →  3 TEST", 24, Color("b58cff"))
+	title_label = _label(_t("story.heading"), 24, Color("b58cff"))
 	title_label.position = Vector2(80, 42)
 	title_label.size = Vector2(1760, 42)
 	add_child(title_label)
-	var subtitle := _label("Write the conversations players will actually see.", 34, Color("f2f7f9"))
+	var subtitle := _label(_t("story.subtitle"), 34, Color("f2f7f9"))
 	subtitle.position = Vector2(80, 84)
 	subtitle.size = Vector2(1760, 54)
 	add_child(subtitle)
@@ -1414,21 +1514,21 @@ func _build_interface() -> void:
 	toolbar.size = Vector2(1760, 62)
 	toolbar.add_theme_constant_override("separation", 12)
 	add_child(toolbar)
-	save_button = _button("SAVE CHANGES", 260, 58)
+	save_button = _button(_t("story.save"), 260, 58)
 	save_button.pressed.connect(_save)
 	toolbar.add_child(save_button)
-	undo_button = _button("UNDO", 170, 58)
+	undo_button = _button(_t("story.undo"), 170, 58)
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
-	play_button = _button("TEST CAMPAIGN", 270, 58)
-	play_button.tooltip_text = "Saves valid changes, then starts this campaign."
+	play_button = _button(_t("story.test"), 270, 58)
+	play_button.tooltip_text = _t("story.test_tooltip")
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
-	var maps_button := _button("BACK: MAP", 230, 58)
-	maps_button.tooltip_text = "Saves valid changes, then returns to the map."
+	var maps_button := _button(_t("story.back_map"), 230, 58)
+	maps_button.tooltip_text = _t("story.back_map_tooltip")
 	maps_button.pressed.connect(_request_maps)
 	toolbar.add_child(maps_button)
-	var more_button := _button("MORE", 190, 58)
+	var more_button := _button(_t("story.more"), 190, 58)
 	more_button.pressed.connect(_open_more)
 	toolbar.add_child(more_button)
 
@@ -1442,14 +1542,14 @@ func _build_interface() -> void:
 	var scene_column := VBoxContainer.new()
 	scene_column.add_theme_constant_override("separation", 12)
 	scene_panel.add_child(scene_column)
-	scene_column.add_child(_label("SCENE", 17, Color("b58cff")))
+	scene_column.add_child(_label(_t("story.scene.label"), 17, Color("b58cff")))
 	scene_filter = LineEdit.new()
-	scene_filter.placeholder_text = "Find by scene title, id, or character"
+	scene_filter.placeholder_text = _t("story.scene.search")
 	scene_filter.custom_minimum_size = Vector2(420, 48)
 	scene_filter.add_theme_font_size_override("font_size", 17)
 	scene_filter.text_changed.connect(_filter_dialogues)
 	scene_column.add_child(scene_filter)
-	scene_filter_summary = _label("SCENES", 14, Color("718896"))
+	scene_filter_summary = _label(_t("story.scene.scenes"), 14, Color("718896"))
 	scene_column.add_child(scene_filter_summary)
 	dialogue_select = OptionButton.new()
 	dialogue_select.custom_minimum_size = Vector2(420, 58)
@@ -1459,26 +1559,24 @@ func _build_interface() -> void:
 	var scene_actions := HBoxContainer.new()
 	scene_actions.add_theme_constant_override("separation", 10)
 	scene_column.add_child(scene_actions)
-	new_scene_button = _button("ADD SCENE", 205, 58)
+	new_scene_button = _button(_t("story.scene.add"), 205, 58)
 	new_scene_button.pressed.connect(_open_new_scene)
 	scene_actions.add_child(new_scene_button)
-	sequence_button = _button("PLAY ORDER", 205, 58)
-	sequence_button.tooltip_text = (
-		"Attach reusable scenes to a story moment and arrange their real play order."
-	)
+	sequence_button = _button(_t("story.sequence.open"), 205, 58)
+	sequence_button.tooltip_text = _t("story.sequence.tooltip")
 	sequence_button.pressed.connect(_open_sequence)
 	scene_actions.add_child(sequence_button)
 	dialogue_name_label = _label("", 25, Color("f2f7f9"))
 	dialogue_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dialogue_name_label.custom_minimum_size.y = 44
 	scene_column.add_child(dialogue_name_label)
-	scene_column.add_child(_label("BACKDROP", 16, Color("69d9ff")))
+	scene_column.add_child(_label(_t("story.backdrop.label"), 16, Color("69d9ff")))
 	backdrop_select = OptionButton.new()
 	backdrop_select.custom_minimum_size = Vector2(420, 48)
 	backdrop_select.add_theme_font_size_override("font_size", 18)
-	backdrop_select.add_item("FLAT / NO BACKDROP")
+	backdrop_select.add_item(_t("story.backdrop.none"))
 	for backdrop: String in BACKDROPS:
-		backdrop_select.add_item(backdrop.replace("_", " ").to_upper())
+		backdrop_select.add_item(_backdrop_label(backdrop))
 	backdrop_select.item_selected.connect(_select_backdrop)
 	scene_column.add_child(backdrop_select)
 	var preview := Control.new()
@@ -1496,7 +1594,7 @@ func _build_interface() -> void:
 	preview_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	preview_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.add_child(preview_portrait)
-	preview_caption = _label("SCENE PREVIEW", 15, Color("dce8ed"))
+	preview_caption = _label(_t("story.preview.label"), 15, Color("dce8ed"))
 	preview_caption.position = Vector2(10, 150)
 	preview_caption.size = Vector2(400, 34)
 	preview_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1512,35 +1610,35 @@ func _build_interface() -> void:
 	editor_column = VBoxContainer.new()
 	editor_column.add_theme_constant_override("separation", 14)
 	editor_panel.add_child(editor_column)
-	line_counter = _label("LINE", 18, Color("b58cff"))
+	line_counter = _label(_t("story.line.label"), 18, Color("b58cff"))
 	editor_column.add_child(line_counter)
 	var navigation := HBoxContainer.new()
 	navigation.add_theme_constant_override("separation", 12)
 	editor_column.add_child(navigation)
-	previous_button = _button("PREVIOUS LINE", 250, 56)
+	previous_button = _button(_t("story.line.previous"), 250, 56)
 	previous_button.pressed.connect(_cycle_line.bind(-1))
 	navigation.add_child(previous_button)
-	next_button = _button("NEXT LINE", 250, 56)
+	next_button = _button(_t("story.line.next"), 250, 56)
 	next_button.pressed.connect(_cycle_line.bind(1))
 	navigation.add_child(next_button)
-	add_line_button = _button("ADD NEXT LINE", 280, 56)
+	add_line_button = _button(_t("story.line.add"), 280, 56)
 	add_line_button.pressed.connect(_add_line_after)
 	navigation.add_child(add_line_button)
-	editor_column.add_child(_label("SPEAKER / CHARACTER", 16, Color("69d9ff")))
+	editor_column.add_child(_label(_t("story.speaker.label"), 16, Color("69d9ff")))
 	speaker_select = OptionButton.new()
 	speaker_select.custom_minimum_size = Vector2(1120, 58)
 	speaker_select.add_theme_font_size_override("font_size", 20)
 	speaker_select.item_selected.connect(_mark_line_form_dirty)
 	editor_column.add_child(speaker_select)
-	editor_column.add_child(_label("DIALOGUE", 16, Color("69d9ff")))
+	editor_column.add_child(_label(_t("story.dialogue.label"), 16, Color("69d9ff")))
 	dialogue_text = TextEdit.new()
-	dialogue_text.placeholder_text = "Write the line players will read."
+	dialogue_text.placeholder_text = _t("story.dialogue.placeholder")
 	dialogue_text.custom_minimum_size = Vector2(1120, 300)
 	dialogue_text.add_theme_font_size_override("font_size", 22)
 	dialogue_text.text_changed.connect(_mark_line_form_dirty)
 	editor_column.add_child(dialogue_text)
 	editor_column.add_child(_label(
-		"Changes follow you when you switch lines. Save Changes keeps them in the project.",
+		_t("story.dialogue.help"),
 		17, Color("718896")
 	))
 
@@ -1552,13 +1650,13 @@ func _build_interface() -> void:
 	empty_label.size = Vector2(1070, 220)
 	add_child(empty_label)
 
-	status_label = _label("OPENING PROJECT", 17, Color("a9bdc9"))
+	status_label = _label(_t("story.opening"), 17, Color("a9bdc9"))
 	status_label.position = Vector2(82, 980)
 	status_label.size = Vector2(1750, 54)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status_label)
 	var controls_hint := _label(
-		"STICK / D-PAD CHOOSES   ·   CONFIRM OPENS   ·   KEYBOARD WRITES   ·   CANCEL GOES BACK",
+		_t("story.controls_hint"),
 		16, Color("718896")
 	)
 	controls_hint.position = Vector2(700, 1018)
@@ -1632,34 +1730,32 @@ func _build_more_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
 	panel.add_child(column)
-	column.add_child(_label("MORE STORY OPTIONS", 18, Color("b58cff")))
-	column.add_child(_label("Use these less often.", 30, Color("f2f7f9")))
-	move_line_earlier_button = _button("MOVE LINE EARLIER", 680, 58)
+	column.add_child(_label(_t("story.more.heading"), 18, Color("b58cff")))
+	column.add_child(_label(_t("story.more.subtitle"), 30, Color("f2f7f9")))
+	move_line_earlier_button = _button(_t("story.more.move_earlier"), 680, 58)
 	move_line_earlier_button.pressed.connect(_move_line.bind(-1))
 	column.add_child(move_line_earlier_button)
-	move_line_later_button = _button("MOVE LINE LATER", 680, 58)
+	move_line_later_button = _button(_t("story.more.move_later"), 680, 58)
 	move_line_later_button.pressed.connect(_move_line.bind(1))
 	column.add_child(move_line_later_button)
-	delete_line_button = _button("DELETE THIS LINE", 680, 58)
+	delete_line_button = _button(_t("story.more.delete_line"), 680, 58)
 	delete_line_button.pressed.connect(_delete_line)
 	column.add_child(delete_line_button)
-	delete_scene_button = _button("DELETE THIS SCENE", 680, 58)
-	delete_scene_button.tooltip_text = (
-		"Shows every place this reusable scene is used before deletion is considered."
-	)
+	delete_scene_button = _button(_t("story.more.delete_scene"), 680, 58)
+	delete_scene_button.tooltip_text = _t("story.more.delete_scene_tooltip")
 	delete_scene_button.pressed.connect(_request_delete_scene)
 	column.add_child(delete_scene_button)
-	redo_button = _button("REDO", 680, 58)
+	redo_button = _button(_t("story.redo"), 680, 58)
 	redo_button.pressed.connect(_more_redo)
 	column.add_child(redo_button)
-	var army := _button("GROW THE ARMY", 680, 58)
+	var army := _button(_t("story.more.army"), 680, 58)
 	army.pressed.connect(_more_army)
 	column.add_child(army)
-	more_projects_button = _button("RETURN TO PROJECTS", 680, 58)
+	more_projects_button = _button(_t("story.more.projects"), 680, 58)
 	more_projects_button.pressed.connect(_more_projects)
 	column.add_child(more_projects_button)
 	more_first_button = more_projects_button
-	var back := _button("BACK", 680, 58)
+	var back := _button(_t("story.back"), 680, 58)
 	back.pressed.connect(_close_more)
 	column.add_child(back)
 
@@ -1685,11 +1781,11 @@ func _build_new_scene_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 10)
 	panel.add_child(column)
-	column.add_child(_label("NEW PORTABLE SCENE", 17, Color("b58cff")))
-	column.add_child(_label("Start a conversation inside an existing campaign story moment.", 30, Color("f2f7f9")))
-	new_scene_id_label = _label("PORTABLE ID", 16, Color("718896"))
+	column.add_child(_label(_t("story.new_scene.heading"), 17, Color("b58cff")))
+	column.add_child(_label(_t("story.new_scene.subtitle"), 30, Color("f2f7f9")))
+	new_scene_id_label = _label(_t("story.new_scene.portable_id"), 16, Color("718896"))
 	column.add_child(new_scene_id_label)
-	column.add_child(_label("SCENE TITLE", 15, Color("69d9ff")))
+	column.add_child(_label(_t("story.new_scene.title"), 15, Color("69d9ff")))
 	new_scene_title = LineEdit.new()
 	new_scene_title.custom_minimum_size = Vector2(1260, 54)
 	new_scene_title.max_length = 160
@@ -1701,7 +1797,7 @@ func _build_new_scene_layer() -> void:
 	var target_column := VBoxContainer.new()
 	target_column.add_theme_constant_override("separation", 7)
 	pickers.add_child(target_column)
-	target_column.add_child(_label("CAMPAIGN STORY MOMENT", 15, Color("69d9ff")))
+	target_column.add_child(_label(_t("story.new_scene.story_moment"), 15, Color("69d9ff")))
 	new_scene_target = OptionButton.new()
 	new_scene_target.custom_minimum_size = Vector2(620, 56)
 	new_scene_target.add_theme_font_size_override("font_size", 18)
@@ -1710,24 +1806,24 @@ func _build_new_scene_layer() -> void:
 	var backdrop_column := VBoxContainer.new()
 	backdrop_column.add_theme_constant_override("separation", 7)
 	pickers.add_child(backdrop_column)
-	backdrop_column.add_child(_label("BACKDROP", 15, Color("69d9ff")))
+	backdrop_column.add_child(_label(_t("story.backdrop.label"), 15, Color("69d9ff")))
 	new_scene_backdrop = OptionButton.new()
 	new_scene_backdrop.custom_minimum_size = Vector2(620, 56)
 	new_scene_backdrop.add_theme_font_size_override("font_size", 18)
 	backdrop_column.add_child(new_scene_backdrop)
-	column.add_child(_label("OPENING CHARACTER", 15, Color("69d9ff")))
+	column.add_child(_label(_t("story.new_scene.character"), 15, Color("69d9ff")))
 	new_scene_character = OptionButton.new()
 	new_scene_character.custom_minimum_size = Vector2(1260, 56)
 	new_scene_character.add_theme_font_size_override("font_size", 18)
 	column.add_child(new_scene_character)
-	column.add_child(_label("OPENING LINE", 15, Color("69d9ff")))
+	column.add_child(_label(_t("story.new_scene.opening_line"), 15, Color("69d9ff")))
 	new_scene_text = TextEdit.new()
 	new_scene_text.custom_minimum_size = Vector2(1260, 190)
-	new_scene_text.placeholder_text = "Write the first line players will read."
+	new_scene_text.placeholder_text = _t("story.new_scene.line_placeholder")
 	new_scene_text.add_theme_font_size_override("font_size", 20)
 	column.add_child(new_scene_text)
 	var guidance := _label(
-		"The scene, cast identity, backdrop, and campaign attachment are portable to PC and console builds.",
+		_t("story.new_scene.help"),
 		16, Color("8ba5b3")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1736,13 +1832,13 @@ func _build_new_scene_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	create_scene_button = _button("CREATE AND ATTACH", 340, 62)
+	create_scene_button = _button(_t("story.new_scene.create"), 340, 62)
 	create_scene_button.pressed.connect(_create_new_scene)
 	actions.add_child(create_scene_button)
-	var back := _button("BACK", 220, 62)
+	var back := _button(_t("story.back"), 220, 62)
 	back.pressed.connect(_close_new_scene)
 	actions.add_child(back)
-	actions.add_child(_label("Confirm chooses. Keyboard writes. Cancel returns.", 16, Color("718896")))
+	actions.add_child(_label(_t("story.new_scene.controls"), 16, Color("718896")))
 
 
 func _build_sequence_layer() -> void:
@@ -1766,14 +1862,14 @@ func _build_sequence_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
 	panel.add_child(column)
-	column.add_child(_label("STORY PLAY ORDER", 18, Color("b58cff")))
+	column.add_child(_label(_t("story.sequence.heading"), 18, Color("b58cff")))
 	var heading := _label(
-		"Choose which reusable scenes play around one story moment.",
+		_t("story.sequence.subtitle"),
 		30,
 		Color("f2f7f9")
 	)
 	column.add_child(heading)
-	column.add_child(_label("CAMPAIGN STORY MOMENT", 15, Color("69d9ff")))
+	column.add_child(_label(_t("story.new_scene.story_moment"), 15, Color("69d9ff")))
 	sequence_story_select = OptionButton.new()
 	sequence_story_select.custom_minimum_size = Vector2(1300, 58)
 	sequence_story_select.add_theme_font_size_override("font_size", 19)
@@ -1792,7 +1888,7 @@ func _build_sequence_layer() -> void:
 	var order_column := VBoxContainer.new()
 	order_column.add_theme_constant_override("separation", 10)
 	order_panel.add_child(order_column)
-	order_column.add_child(_label("SCENES PLAY TOP TO BOTTOM", 16, Color("69d9ff")))
+	order_column.add_child(_label(_t("story.sequence.order"), 16, Color("69d9ff")))
 	sequence_order_summary = RichTextLabel.new()
 	sequence_order_summary.fit_content = true
 	sequence_order_summary.custom_minimum_size = Vector2(580, 190)
@@ -1807,13 +1903,13 @@ func _build_sequence_layer() -> void:
 	var order_actions := HBoxContainer.new()
 	order_actions.add_theme_constant_override("separation", 8)
 	order_column.add_child(order_actions)
-	sequence_earlier_button = _button("EARLIER", 175, 56)
+	sequence_earlier_button = _button(_t("story.sequence.earlier"), 175, 56)
 	sequence_earlier_button.pressed.connect(_move_sequence_scene.bind(-1))
 	order_actions.add_child(sequence_earlier_button)
-	sequence_later_button = _button("LATER", 175, 56)
+	sequence_later_button = _button(_t("story.sequence.later"), 175, 56)
 	sequence_later_button.pressed.connect(_move_sequence_scene.bind(1))
 	order_actions.add_child(sequence_later_button)
-	sequence_detach_button = _button("DETACH", 190, 56)
+	sequence_detach_button = _button(_t("story.sequence.detach"), 190, 56)
 	sequence_detach_button.pressed.connect(_detach_sequence_scene)
 	order_actions.add_child(sequence_detach_button)
 	var library_panel := PanelContainer.new()
@@ -1825,9 +1921,9 @@ func _build_sequence_layer() -> void:
 	var library_column := VBoxContainer.new()
 	library_column.add_theme_constant_override("separation", 12)
 	library_panel.add_child(library_column)
-	library_column.add_child(_label("REUSABLE SCENES", 16, Color("69d9ff")))
+	library_column.add_child(_label(_t("story.sequence.reusable"), 16, Color("69d9ff")))
 	var reuse_help := _label(
-		"Attaching a scene here does not copy or remove it anywhere else.",
+		_t("story.sequence.attach_help"),
 		17,
 		Color("a9bdc9")
 	)
@@ -1839,21 +1935,21 @@ func _build_sequence_layer() -> void:
 	sequence_available_select.add_theme_font_size_override("font_size", 18)
 	sequence_available_select.item_selected.connect(_refresh_sequence_actions)
 	library_column.add_child(sequence_available_select)
-	sequence_attach_button = _button("ATTACH AFTER CURRENT SCENES", 580, 62)
+	sequence_attach_button = _button(_t("story.sequence.attach"), 580, 62)
 	sequence_attach_button.pressed.connect(_attach_sequence_scene)
 	library_column.add_child(sequence_attach_button)
 	var reuse_note := _label(
-		"Detach changes only this story moment. The scene stays in the project and can be attached again.",
+		_t("story.sequence.detach_help"),
 		16,
 		Color("718896")
 	)
 	reuse_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	library_column.add_child(reuse_note)
-	sequence_status = _label("READY", 17, Color("a9bdc9"))
+	sequence_status = _label(_t("story.sequence.ready"), 17, Color("a9bdc9"))
 	sequence_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sequence_status.custom_minimum_size.y = 34
 	column.add_child(sequence_status)
-	var done := _button("DONE", 240, 58)
+	var done := _button(_t("story.done"), 240, 58)
 	done.pressed.connect(_close_sequence)
 	column.add_child(done)
 
@@ -1879,8 +1975,8 @@ func _build_delete_scene_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
 	panel.add_child(column)
-	column.add_child(_label("SCENE SAFETY CHECK", 17, Color("ffca63")))
-	delete_scene_title = _label("DELETE SCENE?", 30, Color("f2f7f9"))
+	column.add_child(_label(_t("story.delete.heading"), 17, Color("ffca63")))
+	delete_scene_title = _label(_t("story.delete.default_title"), 30, Color("f2f7f9"))
 	delete_scene_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(delete_scene_title)
 	delete_scene_summary = _label("", 19, Color("dce8ed"))
@@ -1896,7 +1992,7 @@ func _build_delete_scene_layer() -> void:
 	delete_scene_uses.add_theme_color_override("default_color", Color("dce8ed"))
 	column.add_child(delete_scene_uses)
 	var note := _label(
-		"A reusable scene must be detached everywhere before the project can delete it.",
+		_t("story.delete.help"),
 		16,
 		Color("8ba5b3")
 	)
@@ -1905,10 +2001,10 @@ func _build_delete_scene_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	confirm_delete_scene_button = _button("DELETE UNUSED SCENE", 360, 62)
+	confirm_delete_scene_button = _button(_t("story.delete.confirm"), 360, 62)
 	confirm_delete_scene_button.pressed.connect(_confirm_delete_scene)
 	actions.add_child(confirm_delete_scene_button)
-	close_delete_scene_button = _button("KEEP SCENE", 240, 62)
+	close_delete_scene_button = _button(_t("story.delete.keep"), 240, 62)
 	close_delete_scene_button.pressed.connect(_close_delete_scene)
 	actions.add_child(close_delete_scene_button)
 
@@ -1918,6 +2014,10 @@ func _set_status(message: String, failure: bool) -> void:
 	status_label.add_theme_color_override(
 		"font_color", Color("ff7a83") if failure else Color("72e08f")
 	)
+
+
+func _t(message_id: String, values: Dictionary = {}) -> String:
+	return Localization.text(message_id, values)
 
 
 func _label(value: String, size: int, colour: Color) -> Label:

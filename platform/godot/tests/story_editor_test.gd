@@ -37,6 +37,9 @@ func _run() -> void:
 	) + "\n"
 	var seeded_save: Dictionary = library.save_source(created.id, seeded_source)
 	_expect("unused deletion fixture saves as a valid project", seeded_save.ok, true)
+	var localization: Node = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
 	var packed: PackedScene = load("res://story_editor.tscn")
@@ -47,6 +50,31 @@ func _run() -> void:
 	await process_frame
 
 	_expect("project opens in story creator", editor.project_id, created.id)
+	_expect(
+		"Story editor uses the selected editor language",
+		editor.title_label.text,
+		"AUTHORED STORY  /  2 ESCREVER A HISTÓRIA  →  3 TESTAR"
+	)
+	_expect(
+		"Portuguese Story subtitle is visible",
+		_tree_has_text(editor, "Escreva as conversas que os jogadores realmente verão."),
+		true
+	)
+	_expect(
+		"Portuguese scene search help is visible",
+		editor.scene_filter.placeholder_text,
+		"Buscar por título, id ou personagem"
+	)
+	_expect(
+		"Portuguese backdrop names are visible",
+		editor.backdrop_select.get_item_text(2),
+		"ACAMPAMENTO NOTURNO"
+	)
+	_expect(
+		"Portuguese ready status is visible",
+		editor.status_label.text,
+		"PRONTO  /  ESCOLHA UMA CENA E UMA FALA, DEPOIS ESCREVA O DIÁLOGO"
+	)
 	_expect("starter dialogues are listed", editor.dialogues.is_empty(), false)
 	_expect("dialogue selector is populated", editor.dialogue_select.item_count > 0, true)
 	_expect("dialogue selector receives controller focus", editor.dialogue_select.has_focus(), true)
@@ -56,11 +84,11 @@ func _run() -> void:
 	editor._filter_dialogues(editor.scene_filter.text)
 	_expect("scene search narrows a large reusable list", editor.dialogue_select.item_count, 1)
 	_expect("scene search finds by title", editor.dialogue_select.get_item_text(0), "Unused Safety Scene")
-	_expect("scene search reports its result count", editor.scene_filter_summary.text, "1 OF %d SCENES" % editor.dialogues.size())
+	_expect("scene search reports its result count", editor.scene_filter_summary.text, "1 DE %d CENAS" % editor.dialogues.size())
 	editor.scene_filter.text = "no such conversation"
 	editor._filter_dialogues(editor.scene_filter.text)
 	_expect("empty scene search fails visibly", editor.dialogue_select.disabled, true)
-	_expect("empty scene search names no match", editor.dialogue_select.get_item_text(0), "NO SCENES MATCH")
+	_expect("empty scene search names no match", editor.dialogue_select.get_item_text(0), "NENHUMA CENA CORRESPONDE À BUSCA")
 	editor.scene_filter.text = ""
 	editor._filter_dialogues("")
 	_expect("clearing scene search restores the library", editor.dialogue_select.item_count, editor.dialogues.size())
@@ -87,7 +115,7 @@ func _run() -> void:
 		editor._request_delete_scene()
 		_expect("scene safety check opens", editor.delete_scene_layer.visible, true)
 		_expect("used reusable scene cannot be deleted", editor.confirm_delete_scene_button.disabled, true)
-		_expect("used scene shows named where-used references", editor.delete_scene_uses.text.contains("Campaign"), true)
+		_expect("used scene shows named where-used references", editor.delete_scene_uses.text.contains("CAMPANHAS"), true)
 		_expect("shared scene reports more than one named use", editor.delete_scene_uses.text.count("\n") >= 2, true)
 		_expect("where-used view does not expose raw source paths", editor.delete_scene_uses.text.contains("$."), false)
 		editor._confirm_delete_scene()
@@ -106,8 +134,8 @@ func _run() -> void:
 		editor._filter_dialogues(editor.scene_filter.text)
 		var deletion_history_size: int = editor.undo_stack.size()
 		editor._request_delete_scene()
-		_expect("unused scene requires an explicit confirmation", editor.confirm_delete_scene_button.text, "DELETE UNUSED SCENE")
-		_expect("unused scene says it is used nowhere else", editor.delete_scene_uses.text.contains("NOWHERE ELSE"), true)
+		_expect("unused scene requires an explicit confirmation", editor.confirm_delete_scene_button.text, "EXCLUIR CENA SEM USO")
+		_expect("unused scene says it is used nowhere else", editor.delete_scene_uses.text.contains("EM NENHUM OUTRO LUGAR"), true)
 		_expect("opening confirmation does not mutate source", _has_dialogue(_parse(editor.source), "unused_safety_scene"), true)
 		editor._confirm_delete_scene()
 		_expect("confirmed unused scene is deleted", _has_dialogue(_parse(editor.source), "unused_safety_scene"), false)
@@ -133,14 +161,14 @@ func _run() -> void:
 	editor._load_project()
 	await process_frame
 	_expect("an exact-scene handoff focuses the dialogue line", editor.dialogue_text.has_focus(), true)
-	_expect("an exact-scene handoff explains the immediate action", editor.status_label.text, "READY  /  WRITE THIS CONVERSATION")
+	_expect("an exact-scene handoff explains the immediate action", editor.status_label.text, "PRONTO  /  ESCREVA ESTA CONVERSA")
 	creator_context.choose_dialogue("")
 	editor.dialogue_select.grab_focus()
 	editor._apply_diagnostic_focus({"line_index": 1, "field": "text"})
 	await process_frame
 	_expect("diagnostic recovery opens the exact line", editor.line_index, 1)
 	_expect("diagnostic recovery focuses dialogue text", editor.dialogue_text.has_focus(), true)
-	_expect("diagnostic recovery explains the field", editor.status_label.text, "FIX LINE 2  /  TEXT")
+	_expect("diagnostic recovery explains the field", editor.status_label.text, "CORRIGIR FALA 2  /  TEXTO")
 	editor.line_index = 0
 	editor._refresh_line()
 	var before := _parse(editor.source)
@@ -408,6 +436,7 @@ func _run() -> void:
 		else:
 			image.save_png(screenshot_path)
 			print("story editor capture saved: %s" % screenshot_path)
+	localization.call("select_language", prior_language, false)
 	editor.queue_free()
 	await process_frame
 	if failures == 0:
@@ -497,6 +526,17 @@ func _integer_numbers(value: Variant) -> Variant:
 	if typeof(value) == TYPE_FLOAT and value == floor(value):
 		return int(value)
 	return value
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label and node.text == expected:
+		return true
+	if node is BaseButton and node.text == expected:
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:
