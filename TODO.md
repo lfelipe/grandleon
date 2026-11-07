@@ -83,6 +83,12 @@ not block 0.4.
 
 ## 0.5 editor workflow
 
+- [ ] Add an end-to-end editor acceptance test that begins with an empty
+  project, creates a small but complete campaign through the normal human
+  workflow, validates and exports it, then launches the exported game and
+  plays its first battle to a deterministic objective. Cover authored terrain,
+  units, teams, deployment, dialogue, victory rules, and player-count policy so
+  this proves the full path from creation to play rather than export alone.
 - [ ] Let a campaign author choose whether a game is one-player, two-player,
   or allows the players to choose at launch through an ordinary editor control.
   The portable format, migration, package data, and launchers now exist; finish
