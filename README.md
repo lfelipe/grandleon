@@ -153,6 +153,22 @@ may optionally offer translation suggestions from an external AI service, but
 suggestions must never be required, silently overwrite authored text, or
 replace the author's review and approval.
 
+The first localization workflow is usable end to end. Grandleon's home and
+main project screens are available in English, Spanish, and Brazilian
+Portuguese. A clean install follows the system locale when it is supported,
+but the language can be changed explicitly from either the home or project
+screen, applies immediately without a restart, and is remembered from then on.
+Missing shell copy falls back to English.
+
+Games now record their own source language and carry manual translations in
+the same portable project and compiled package. Open a project's
+**Translations** screen to add a language (including `pt-BR`), review all
+gathered player-facing copy and character names, and filter missing or outdated
+work. Grandleon keeps the original source strings; if source copy changes after
+a translation was reviewed, the portable runtime data resolves to the current
+source instead of stale or empty text. Applying the chosen game language to
+every remaining in-game screen is continuing as part of the 0.5 work.
+
 The concrete presentation experiments currently in progress are kept in the
 short [development TODO](TODO.md).
 

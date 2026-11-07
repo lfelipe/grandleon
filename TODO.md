@@ -78,10 +78,18 @@ roadmap work.
   terrain depth and variety, camera composition, movement and attack
   animation, effects, UI clarity, close-up scenes, and measured performance on
   original-style hardware.
-  - Replace text drawn directly over backgrounds with a small coherent console
-    UI kit: readable panels, selection frames, button glyphs, icons, meters,
-    focus states, and concise labels. Keep the board visible and use text where
-    it communicates something useful rather than as the entire visual design.
+  - [x] Establish the shared console UI kit with framed tactical action panels,
+    focus rows, platform-correct button badges, owner accents, concise labels,
+    and health meters on Nintendo 64 and PlayStation. It uses only bounded flat
+    primitives and the resident font, preserves the board viewport, and moves
+    action panels away from the selected character.
+  - [x] Carry the same visual grammar through console title and launch, story,
+    save, help, company inventory, aftermath, Stage selection, character
+    information, confirmation, and ending screens. Story panels fit their
+    actual text instead of hiding the unused part of the backdrop, and button
+    names use each machine's own controller vocabulary.
+  - [ ] Add compact non-controller icons only where a measured player test
+    shows they communicate faster than the concise labels already in place.
   - Improve console terrain in both tactical and close views: stronger
     material identity, less repetitive tiles, cleaner neighbour transitions,
     clustered scenery, elevation cues, and terrain-specific battle backdrops.
@@ -157,7 +165,14 @@ the included campaigns on all three players.
 - [ ] Tune 1P and 2P separately. Co-op must give both players useful characters
   and decisions without merely doubling the battle size; solo play must retain
   the same strategic possibilities at a manageable pace. Playtest every map
-  in both modes, including loss, retry, save, and continuation paths.
+  in both modes, including loss, retry, save, and continuation paths. The
+  deterministic baseline now wins all ten variants after losing all ten before
+  tuning: the tutorial ends with the full company, the Watch reaches round 20,
+  and Village/Twin Gate still finish with one survivor. Treat those numbers as
+  guardrails, not a substitute for the pending human sessions.
+- [x] Add a deterministic campaign balance baseline that uses authored enemy
+  behaviour, proves every 1P/2P battle reaches its objective, and pins broad
+  difficulty signals without claiming that automation proves fun.
 - [ ] Keep the campaign within the real Nintendo 64 and PlayStation budgets
   from the beginning. Validate the same source on all three players, then add
   automated completion routes and human playtest notes for difficulty,
@@ -193,23 +208,33 @@ editor and its separate browser runtime.
   including arrival round, repeat cadence, wave count, hold or pursue
   behaviour, co-op-only forces, 1P/2P layout previews, alternate co-op starts,
   and a focused two-player opening-story action.
-- [ ] Complete the remaining advanced battle setup: patrol paths, deployment
-  capacity, and ordered scripted moments during battle or when a character
-  falls.
-- [ ] Let an author playtest the currently selected battle directly, including
-  later battles, without having to play from the campaign entrance.
-- [ ] Add combat-design tools for weapon strengths and weaknesses, damage and
+- [x] Complete advanced battle setup: draw numbered patrol paths on the map,
+  set a reachable deployment capacity with company-size guidance, and order
+  reusable scenes for the battle opening or when a named character falls.
+- [x] Let an author playtest the currently selected battle directly, including
+  later battles, without having to play from the campaign entrance. Direct 1P
+  and 2P tests use the authored battle inside a clean save-isolated preview and
+  return explicitly to the campaign editor; whole-campaign testing remains
+  available for progression checks.
+- [x] Add combat-design tools for weapon strengths and weaknesses, damage and
   accuracy bonuses, a two-character matchup preview, and a visual preview of
   attack range and area shapes.
-- [ ] Support more than one campaign in a project without silently editing or
-  exporting only the first campaign.
+- [x] Support more than one campaign in a project without silently editing,
+  testing, playing, or exporting only the first campaign. The campaign outline,
+  project play list, Linux build, and console builders all carry an explicit
+  campaign identity; a portable project continues to keep every campaign.
 - [ ] Add safe deletion with a dependency preview, **Where used** summaries,
   and search and filtering for projects with large rosters or content lists.
-- [ ] Add a guided character flow that creates a useful character, role,
+  - [x] Build the shared dependency index and fail-closed deletion decision for
+    campaigns, battles, maps, rosters, roles, factions, gear, dialogue, and
+    presentation. The remaining work is exposing it consistently in the editor
+    and adding list search and filters.
+- [x] Add a guided character flow that creates a useful character, role,
   appearance, side, weapon, and starting loadout together, with an optional
   randomized starting point.
-- [ ] Finish story sequencing: order, attach, detach, and reorder multiple
-  scenes around a story or battle, including mid-battle moments.
+- [x] Finish story-node sequencing outside battles: attach and detach multiple
+  reusable scenes around a story node, show their numbered real play order,
+  and move scenes earlier or later without editing portable source by hand.
 - [ ] Add human-readable project migration and recovery: explain an upcoming
   schema update, make a backup before rewriting, and preserve an unreadable
   source file so an author can recover or report it.
@@ -241,21 +266,36 @@ than reproduce those implementation details.
   identifiers, an explicit source language, predictable fallback, fonts and
   layouts that survive longer translated text, and language selection that is
   available before a project is open.
-- [ ] Add portable project data for a game's source language and translations.
+  - [x] Ship the first end-to-end shell slice in English, Spanish, and
+    Brazilian Portuguese: a
+    persistent language picker on the home and project screens, stable message identifiers,
+    explicit English source text, deterministic English fallback, and localized
+    home/player-launch and creator-project screens. Use a supported system
+    locale only on first launch, persist the user's explicit override, and
+    switch either open shell live without restarting or losing the project list.
+  - [ ] Move the remaining player and creator screens into the same catalog and
+    audit longer translations, glyph coverage, focus order, and compact layouts.
+- [x] Add portable project data for a game's source language and translations.
   Migration must preserve every authored string, and runtimes must fall back to
   the source text when a translation is missing rather than showing an empty
   label or an internal identifier.
-- [ ] Add a final **Translations** step to the editor that gathers every
+- [x] Add the first focused **Translations** editor that gathers player-facing
+  source copy, dialogue, stage and campaign labels, content names, and character
+  names. It supports manual language codes, a first-class Brazilian Portuguese
+  shortcut, source/translation preview, and missing/outdated filters.
+- [ ] Complete the final **Translations** step by auditing every remaining
   player-facing string in one place: campaign and stage text, dialogue,
   objectives, choices, unit and item names and descriptions, and other authored
   labels. Let authors filter missing or outdated entries and enter translations
   manually without hunting through the rest of the project.
-- [ ] Treat character names as translatable authored text rather than assuming
-  every proper name is universal. Let an author translate a default name per
-  language or deliberately mark it as shared unchanged across languages.
-- [ ] Let authors preview the game in a selected language, validate completeness,
-  and export all chosen languages through the same portable package. Keep the
-  initial workflow fully useful offline and without an external service.
+- [x] Treat character names as translatable authored text rather than assuming
+  every proper name is universal. An author can save the same spelling as the
+  reviewed translation when a proper name is deliberately shared.
+- [ ] Let authors preview the game in a selected language and validate
+  completeness. All authored catalogs already travel through the same portable
+  project and compiled package; the remaining work is applying the selected
+  game language throughout player presentation. Keep the workflow fully useful
+  offline and without an external service.
 - [ ] Later, explore optional translation suggestions from an external AI model.
   Suggestions must be explicitly requested, remain visibly unapproved until a
   person accepts them, preserve source and manual translations, and never be a

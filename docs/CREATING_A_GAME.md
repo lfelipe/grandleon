@@ -40,13 +40,24 @@ From the same screen you can:
 - place and remove complete 2×2 houses and ancient groves;
 - assign allied units to Player 1 or Player 2;
 - add opponents that appear only in a two-player game;
-- choose deployment areas and battle goals;
+- choose deployment areas, limit how many allies may be fielded, and set battle goals;
+- schedule reinforcement waves or give an opponent a numbered patrol route;
+- order scenes that play when the battle opens or a named character falls;
 - add a conversation that starts when a unit is approached; and
 - choose the terrain theme, character style, and faction colours.
 
+These less-common controls live together under **Battle Setup**. For a patrol,
+choose an opponent under **Opening Forces & Waves**, select **Follow Patrol
+Route**, and place the numbered waypoints in visit order on the map. A fielding
+limit appears beside the deployment-area controls; the editor only offers
+limits that could actually change the authored company. **Scripted Battle
+Moments** shows scenes in their real play order, including Talk scenes, and can
+create openings or character-fall scenes for everyone or only for co-op. The
+scene itself is still written in **Story**, so it can be reused later.
+
 The [artwork and animation roster](ARTWORK.md) shows every included style and
 unit. Grandleon currently uses its built-in art library; importing a custom art
-pack is not part of the 0.4 creator.
+pack is not currently part of the creator.
 
 ## Write the story
 
@@ -54,10 +65,30 @@ Open **Story** to choose a speaker, portrait, backdrop, and dialogue. Add lines
 for the common path; less frequent scene and ordering actions are under
 **More**.
 
+Choose **Play Order** beside **Add Scene** when one story moment should contain
+several scenes. The numbered list is the real order players will see. You can
+attach an existing reusable scene, move it earlier or later, or detach it from
+that story moment. Detaching does not delete the scene or remove it from any
+other story moment, so the same conversation can be reused safely.
+
 ![Writing dialogue, adding a scene, and opening the additional story actions](screenshots/native-guide/03-write-the-story.gif)
 
 Story text is saved with the project and shown consistently on PC, Nintendo
-64, and PlayStation. A dedicated translation step is planned for 0.5.
+64, and PlayStation. Grandleon's own home and project screens are available in
+English, Spanish, and Brazilian Portuguese. Choose the language on either the
+home or project screen; the open screen updates immediately, and Grandleon
+remembers the explicit choice instead of relying on the system locale again.
+
+To translate your game, open its project options and choose
+**Translations**. Confirm the language the original text was written in, add a
+target such as `es` or `pt-BR`, then work through the gathered dialogue, stage
+labels, content names, and character names. **Missing** shows work not started;
+**Outdated** shows translations reviewed before their source copy changed.
+Saving a translation records both your translated text and the exact source
+text you reviewed. The source is never replaced, and missing or outdated work
+resolves to the current source text in the portable game data. Applying the
+player's chosen game language across every remaining in-game screen is still in
+progress.
 
 ## Add chapters and branches
 
@@ -71,6 +102,12 @@ should lead somewhere different because of a win, loss, item, or conversation.
 New chapters begin as playable copies of the last working setup, which is much
 faster than rebuilding every placement and goal.
 
+A project can hold several campaigns. Use the campaign selector to edit the
+right one, or choose **Add Campaign** to start another from the current working
+outline. The copy is playable immediately, but its route, roster, player-count
+policy, and starting chapter are independent. Testing and game builds always
+show which campaign they will start instead of silently choosing the first.
+
 ## Grow the army
 
 **Grow the Army** manages heroes, recruits, roles, gear, abilities, growth,
@@ -83,10 +120,32 @@ Visible names can change without breaking campaign progress. Keep roles and
 gear small at first; add new choices when a chapter gives the player a reason
 to use them.
 
+For a new cast member, **Guided New Character** creates the named character,
+an independent role, appearance, side, first weapon, and compatible loadout in
+one undoable step. Start from the closest working role or ask for a randomized
+starting point, review every suggestion, and tune it normally afterwards.
+
+From **Gear & Abilities**, open **Combat Design** to make those choices readable
+as a system. You can state which weapon family is strong against another, tune
+the shared damage and hit-chance bonus, compare any two character types using
+the same forecast arithmetic as play, and see target range and ability impact
+areas on small grids before putting them into a battle.
+
 ## Test and export
 
-Use **Test Campaign** often. It plays the current draft in the normal Godot
-player without replacing progress from an installed campaign.
+Use the campaign outline's **Test 1 Player** or **Test 2 Players** action beside
+a battle when you want to check that battle immediately. This works for later
+chapters too: it opens the real authored map, placements, objectives, waves,
+story moments, and the chosen one-player or two-player variant without making
+you replay the campaign entrance.
+
+A direct battle test is deliberately temporary. It starts from a clean authored
+roster, makes later recruits available, does not load or replace campaign saves,
+and stops after the selected battle. It does not pretend that earlier upgrades,
+losses, rewards, or route choices happened. Use the toolbar's whole-campaign
+test when those progression details are what you need to check. During either
+draft test, open the session menu and choose **Return to Campaign Editor** to go
+back to the same project.
 
 ![Testing the playable draft and opening Finish and Export](screenshots/native-guide/06-test-and-export.gif)
 
