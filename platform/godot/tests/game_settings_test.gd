@@ -20,6 +20,9 @@ func _run() -> void:
 	if not created.ok:
 		quit(1)
 		return
+	var localization: Node = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	root.get_node("CreatorContext").open_project(str(created.id))
 	var packed: PackedScene = load("res://game_settings.tscn")
 	var settings = packed.instantiate()
@@ -29,6 +32,37 @@ func _run() -> void:
 	await process_frame
 
 	_expect("project opens in Game Settings", settings.project_id, str(created.id))
+	_expect(
+		"Game Settings uses the selected editor language",
+		settings.title_label.text,
+		"RULES ROAD  /  CONFIGURAÇÕES DO JOGO"
+	)
+	_expect(
+		"Portuguese settings heading is visible",
+		_tree_has_text(settings, "Regras que os jogadores devem conhecer antes de começar"),
+		true
+	)
+	_expect(
+		"Portuguese turn-order choice is visible",
+		settings.turn_order_select.get_item_text(1),
+		"LADO INTEIRO DE UMA VEZ"
+	)
+	_expect(
+		"Portuguese help copy is visible",
+		settings.turn_order_help.text,
+		"Um lado move sua companhia em qualquer ordem; depois, o outro lado age."
+	)
+	_expect(
+		"long localized help remains wrapped",
+		settings.turn_order_help.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect(
+		"Portuguese ready status is visible",
+		settings.status_label.text,
+		"PRONTO  /  AS ALTERAÇÕES VALEM PARA TODAS AS EXPORTAÇÕES"
+	)
+	_expect("localized settings preserve initial focus", settings.turn_order_select.has_focus(), true)
 	_expect(
 		"starter default turn order is visible",
 		settings._selected_metadata(settings.turn_order_select),
@@ -119,6 +153,7 @@ func _run() -> void:
 		)
 
 	settings.queue_free()
+	localization.call("select_language", prior_language, false)
 	await process_frame
 	await process_frame
 	if failures == 0:
@@ -129,6 +164,17 @@ func _run() -> void:
 func _parse(value: String) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(value)
 	return parsed if parsed is Dictionary else {}
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label and node.text == expected:
+		return true
+	if node is BaseButton and node.text == expected:
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:
