@@ -2284,9 +2284,10 @@ private:
             const char* text = sheet.line(inventory_line + row);
             const bool section = begins_with(text, "WEAPONS") ||
                 begins_with(text, "ABILITIES") || begins_with(text, "ITEMS");
-            if (section) {
-                paint_console_ui(loadout.row(row), view::UiTone::header);
-            }
+            // Keep the card body on one surface, as the N64 sheet does. The
+            // section names are already gold; repainting their whole rows as
+            // headers made the interleaved heading/content pairs look like
+            // alternating stripes rather than one readable loadout.
             write_at_with_clut(
                 2, 16 + row, text,
                 section ? font_gold_clut : font_clut
