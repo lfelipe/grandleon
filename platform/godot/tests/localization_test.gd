@@ -36,6 +36,21 @@ func _run() -> void:
 	_expect("unknown message is visible and deterministic", service.text("missing.message"), "[missing.message]")
 	service.select_language("pt-BR", false)
 	_expect("Portuguese shell message resolves", service.text("home.create_edit"), "CRIAR / EDITAR JOGOS")
+	_expect(
+		"Portuguese deployment prompt resolves",
+		service.text("player.deployment.start"),
+		"POSICIONAMENTO  /  START PARA COMEÇAR"
+	)
+	_expect(
+		"Portuguese controller notices preserve the army placeholder",
+		service.text("player.controller.disconnected_waiting", {"army": "CIANO"}),
+		"CONTROLE CIANO DESCONECTADO  /  AGUARDANDO"
+	)
+	_expect(
+		"Portuguese battle outcome resolves",
+		service.text("player.result.battle_won"),
+		"BATALHA VENCIDA"
+	)
 	_expect("unsupported language deterministically selects source", service.select_language("xx", false), "en")
 	var system_portuguese = LocalizationService.new(
 		"res://localization/languages.json", "", "pt_BR"

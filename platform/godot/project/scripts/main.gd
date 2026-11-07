@@ -294,7 +294,7 @@ func _ready() -> void:
 	if not started:
 		_show_fatal(session.last_error())
 	else:
-		status_label.text = "LOADING CAMPAIGN"
+		status_label.text = _ui("player.status.loading_campaign")
 		if included_campaign_smoke:
 			print(
 				"included campaign integration smoke passed: %s (%d players)" % [
@@ -2352,7 +2352,9 @@ func _ensure_keyboard_seat() -> int:
 			_update_controller_label()
 			if board:
 				board.set_seats(seats)
-			_show_toast("%s CONTROL READY  /  KEYBOARD" % _control_colour_name(index))
+			_show_toast(_ui("player.controller.keyboard_ready", {
+				"army": _control_colour_name(index),
+			}))
 			return index
 	return -1
 
@@ -2371,17 +2373,23 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 	var seat := int(notice.get("seat", -1))
 	match String(notice.get("kind", "none")):
 		"ready":
-			_show_toast("%s CONTROL READY" % _control_colour_name(seat))
+			_show_toast(_ui("player.controller.connected", {
+				"army": _control_colour_name(seat),
+			}))
 		"ignored":
-			_show_toast("EXTRA CONTROLLER IGNORED")
+			_show_toast(_ui("player.controller.extra_ignored"))
 		"replacement":
-			_show_toast("%s REPLACEMENT CONTROL READY" % _control_colour_name(seat))
+			_show_toast(_ui("player.controller.replacement_ready", {
+				"army": _control_colour_name(seat),
+			}))
 		"keyboard":
-			_show_toast(
-				"%s CONTROL DISCONNECTED  /  KEYBOARD READY" % _control_colour_name(seat)
-			)
+			_show_toast(_ui("player.controller.disconnected_keyboard", {
+				"army": _control_colour_name(seat),
+			}))
 		"waiting":
-			_show_toast("%s CONTROL DISCONNECTED  /  WAITING" % _control_colour_name(seat))
+			_show_toast(_ui("player.controller.disconnected_waiting", {
+				"army": _control_colour_name(seat),
+			}))
 
 
 func _update_controller_label() -> void:
@@ -2470,7 +2478,9 @@ func _handle_event(event: Dictionary) -> void:
 		"management_committed":
 			if not bool(event.get("successful", false)):
 				var reason := String(event.get("message", "change refused"))
-				_show_toast("COMPANY CHANGE REFUSED  /  " + reason.to_upper().replace("_", " "))
+				_show_toast(_ui("player.company.change_refused", {
+					"reason": reason.to_upper().replace("_", " "),
+				}))
 		"dialogue":
 			for source_line: Dictionary in event.get("lines", []):
 				var line := source_line.duplicate()
@@ -2533,7 +2543,7 @@ func _handle_event(event: Dictionary) -> void:
 		"deployment_begins":
 			snapshot = event.snapshot
 			board.update_snapshot(snapshot)
-			status_label.text = "DEPLOYMENT  /  START TO BEGIN"
+			status_label.text = _ui("player.deployment.start")
 		"presentation":
 			var presentation_events: Array = event.get("events", [])
 			var presentation_action := String(event.get("action", ""))
@@ -2574,7 +2584,9 @@ func _handle_event(event: Dictionary) -> void:
 				get_tree().quit(2)
 			_complete_request(event)
 			PCAudio.play_cue("refuse")
-			_show_toast("COMMAND REFUSED  /  " + String(event.get("message", "unknown")))
+			_show_toast(_ui("player.command.refused", {
+				"reason": String(event.get("message", "unknown")),
+			}))
 		"battle_ended":
 			for seat in action_popups.size():
 				_close_action_popup(seat)
@@ -2582,24 +2594,26 @@ func _handle_event(event: Dictionary) -> void:
 			final_outcome = String(snapshot.get("outcome", "ongoing"))
 			board.update_snapshot(snapshot)
 			_finalize_pending_combat_presentation(snapshot)
-			status_label.text = (
-				"BATTLE WON" if final_outcome == "first_side_won" else "BATTLE LOST"
+			status_label.text = _ui(
+				"player.result.battle_won"
+				if final_outcome == "first_side_won"
+				else "player.result.battle_lost"
 			)
 		"campaign_ended":
 			campaign_complete = true
 			_show_toast(
-				"COMPANY DEFEATED"
+				_ui("player.session.company_defeated")
 				if final_outcome == "second_side_won"
-				else "CAMPAIGN COMPLETE"
+				else _ui("player.session.campaign_complete")
 			)
 			_maybe_show_campaign_result()
 		"session_failed":
 			_show_fatal(String(event.get("message", "session failed")))
 		"session_finished":
 			status_label.text = (
-				"COMPANY DEFEATED"
+				_ui("player.session.company_defeated")
 				if final_outcome == "second_side_won"
-				else "SESSION COMPLETE"
+				else _ui("player.result.session_complete")
 			)
 			_maybe_show_campaign_result()
 
@@ -2677,7 +2691,7 @@ func _maybe_show_campaign_result() -> void:
 
 func _handle_management(company: Dictionary) -> void:
 	if company.is_empty():
-		_show_fatal("The campaign did not publish a company")
+		_show_fatal(_ui("player.error.company_missing"))
 		return
 	if campaign_management_smoke:
 		campaign_manager.present(company)
@@ -2698,12 +2712,12 @@ func _handle_management(company: Dictionary) -> void:
 	if not campaign_management_preview and not _company_has_management_options(company):
 		fixed_formation_skipped = true
 		pending_company.clear()
-		status_label.text = "STARTING  /  " + (
+		status_label.text = _ui("player.status.starting_stage", {"stage": (
 			current_stage_name.to_upper()
-			if not current_stage_name.is_empty() else "FIXED FORMATION"
-		)
+			if not current_stage_name.is_empty() else _ui("player.company.fixed_formation")
+		)})
 		if not session.submit_management("proceed"):
-			_show_fatal("The fixed formation could not start")
+			_show_fatal(_ui("player.error.fixed_formation"))
 		return
 	_present_company(company)
 
@@ -2733,7 +2747,7 @@ func _present_company(company: Dictionary) -> void:
 	var presented_company := company.duplicate(true)
 	pending_company.clear()
 	board.visible = false
-	status_label.text = "PREPARING COMPANY"
+	status_label.text = _ui("player.status.preparing_company")
 	campaign_manager.present(presented_company)
 
 
@@ -2777,14 +2791,14 @@ func _on_management_intent(kind: String, member_id: int, item_id: int, stage_id:
 	if session != null and session.submit_management(kind, member_id, item_id, stage_id):
 		return
 	campaign_manager.submission_refused()
-	_show_toast("COMPANY COMMAND WAS NOT ACCEPTED")
+	_show_toast(_ui("player.company.command_rejected"))
 
 
 func _on_player_name_requested(member_id: int, chosen_name: String) -> void:
 	if session != null and session.submit_player_name(member_id, chosen_name):
 		return
 	campaign_manager.submission_refused()
-	_show_toast("CHARACTER NAME WAS NOT ACCEPTED")
+	_show_toast(_ui("player.company.name_rejected"))
 
 
 func _open_management_session_menu() -> void:
