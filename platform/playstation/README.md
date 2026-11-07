@@ -20,16 +20,20 @@ boot on an unmodified retail PlayStation.
 
 The title screen offers only the player counts supported by the campaign, plus
 **Help**. A new one-player campaign goes straight to its save choice and first
-playable stage; fixed formations do not open a roster or deployment screen.
+playable stage; founding or resuming does not add a roster-summary page. Fixed
+equipped formations do not open roster or deployment management first.
 Two-player mode waits for a second pad rather than silently changing the choice.
 
 ## Controls
 
-- D-pad: move the active cursor or menu selection.
+- D-pad: move the active cursor or menu selection; hold to keep moving.
 - X: confirm, select a unit, or choose a destination.
 - O: cancel or go back.
 - Triangle: open the selected unit's action menu.
 - Start: open the battle menu.
+
+The battle menu has **Show FPS**, which begins off in every disc image and can
+be toggled while testing performance.
 
 In two-player mode, each pad has its own cursor and menu state. Authored unit
 ownership decides which characters each player commands.

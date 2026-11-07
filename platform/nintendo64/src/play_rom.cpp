@@ -245,14 +245,16 @@ int ink_in_band(int left, int right, int top, int bottom) {
 }
 #endif
 
-// The Stage-picker image doubles as the hands-on performance build. Normal
-// boards deliberately reuse a settled framebuffer when nothing changes, so a
-// counter over their sparse repaints would report about eight FPS even though
-// the video output is steady. That build continuously repaints the board (see
-// `advance_pulse`) and this counter therefore measures actual presented-frame
-// cadence. Probe and autopilot images stay pixel-identical to their checks.
-#if defined(GRANDLEON_STAGE_PICKER) && \
-    !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
+// The played images can show a hands-on performance counter. It begins off in
+// every ROM and is toggled from the board menu. While visible the board
+// continuously repaints (see `advance_pulse`), so the number measures actual
+// presented-frame cadence instead of the ordinary sparse idle repaints. Probe
+// and autopilot images stay pixel-identical to their checks.
+#ifndef GRANDLEON_N64_PROBE
+view::ConsoleDisplayOptions display_options{};
+#endif
+
+#if !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
 void draw_debug_fps(surface_t* disp) {
     constexpr std::uint64_t sample_us = 500'000;
     constexpr std::uint64_t stale_us = 250'000;
@@ -297,9 +299,8 @@ void draw_debug_fps(surface_t* disp) {
 
 // Presents a frame, remembering it for the autopilot's checkpoints.
 void show(surface_t* disp) {
-#if defined(GRANDLEON_STAGE_PICKER) && \
-    !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
-    draw_debug_fps(disp);
+#if !defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_AUTOPILOT)
+    if (display_options.show_fps) draw_debug_fps(disp);
 #endif
 #ifdef GRANDLEON_N64_AUTOPILOT
     autopilot_screen = disp;
@@ -1797,22 +1798,22 @@ public:
     // checkpoint puts this counter back to zero, and both effects are at rest
     // at zero, so one pin settles the whole board.
     void advance_pulse(const sim::EncounterSnapshot& snapshot) {
-#if defined(GRANDLEON_STAGE_PICKER) && \
-    !defined(GRANDLEON_N64_AUTOPILOT)
+#ifndef GRANDLEON_N64_AUTOPILOT
         // A performance number over four intentional repaints per 32 input
-        // ticks would measure the optimisation rather than the renderer. The
-        // debug image pays for a full board every tick so its FPS overlay is a
-        // real worst-case cadence. The ordinary image keeps the settled-frame
-        // reuse below.
-        ++pulse_frame_;
-        repaint_board(snapshot);
-#else
+        // ticks would measure the optimisation rather than the renderer. When
+        // the player asks for FPS, pay for a full board every tick so its
+        // overlay is a real cadence; otherwise keep the settled-frame reuse.
+        if (display_options.show_fps) {
+            ++pulse_frame_;
+            repaint_board(snapshot);
+            return;
+        }
+#endif
         const bool was = view::cursor_emphasised(pulse_frame_);
         const bool shimmered = view::water_cycle_changes(pulse_frame_);
         ++pulse_frame_;
         if (view::cursor_emphasised(pulse_frame_) == was && !shimmered) return;
         repaint_board(snapshot);
-#endif
     }
 #endif
 
@@ -2171,8 +2172,9 @@ public:
 #ifdef GRANDLEON_N64_AUTOPILOT
         check_the_company(roster, store, resumed);
 #endif
-        draw_company_sheet(roster, store, resumed);
-        wait_for_a();
+        // Founding or resuming reports and validates the company, then enters
+        // the campaign. It is not a player decision and no longer inserts a
+        // roster page between the chosen save slot and the first real scene.
     }
 
     void slot_refused(const client::SlotFailure& failure) override {
@@ -2531,10 +2533,11 @@ public:
     [[nodiscard]] client::ManagementIntent next_management_intent(
         const client::CompanyManagement& company
     ) override {
-        // Fixed formations with no inventory choices are ready to play. Do not
-        // put the company editor between the title and a board when there is no
-        // decision to make; the debug Stage picker remains available from the
-        // battle menu, and a refusal still comes here so it can be repaired.
+        // Fixed formations are ready to play, including characters carrying
+        // their normal equipment. Do not put the company editor between the
+        // title and a board when there is no shared-store or deployment
+        // decision; the debug Stage picker remains available from the battle
+        // menu, and a refusal still comes here so it can be repaired.
         if (client::company_can_start_directly(company)) {
             return {client::ManagementVerb::proceed, {}, {}};
         }
@@ -3211,8 +3214,8 @@ public:
                     "and a character was in hand when it was opened"
                 );
                 expect(
-                    menu_choices_ != nullptr && menu_count_ == 3,
-                    "with the same three rows it opens with on a bare board"
+                    menu_choices_ != nullptr && menu_count_ == 4,
+                    "with the same four rows it opens with on a bare board"
                 );
                 return;
             }
@@ -3259,10 +3262,10 @@ public:
                     "the board menu is framed on screen"
                 );
                 expect(
-                    menu_choices_ != nullptr && menu_count_ == 3,
-                    "the board menu is three rows"
+                    menu_choices_ != nullptr && menu_count_ == 4,
+                    "the board menu is four rows"
                 );
-                if (menu_choices_ == nullptr || menu_count_ != 3) return;
+                if (menu_choices_ == nullptr || menu_count_ != 4) return;
                 expect(
                     std::strcmp(menu_choices_[0].text, "BACK TO BATTLE") == 0,
                     "the way back is the first row"
@@ -3280,7 +3283,12 @@ public:
                 );
                 expect(
                     std::strcmp(menu_choices_[2].text, "LEAVE BATTLE") == 0,
-                    "and the way out is the last row"
+                    "the way out follows the turn command"
+                );
+                expect(
+                    std::strcmp(menu_choices_[3].text, "SHOW FPS: OFF") == 0,
+                    "and shipped ROMs offer a frame-rate display that begins "
+                    "off"
                 );
                 // Nothing a character does is on it. The two menus are told
                 // apart by what they hold and not only by which flag is set.
@@ -4092,27 +4100,6 @@ private:
             graphics_draw_text(disp, 36, y, line);
             y += 13;
         }
-    }
-
-    // The screen the campaign opens on, founded or resumed. It says which,
-    // because a player who switched the console off in the middle of a
-    // campaign wants to be told it came back.
-    void draw_company_sheet(
-        const std::vector<client::RosterEntry>& roster,
-        const std::vector<campaign::InventoryStack>& store,
-        bool resumed
-    ) {
-        surface_t* disp = display_get();
-        graphics_fill_screen(disp, colour(16, 26, 27));
-        graphics_set_color(colour(242, 193, 78), 0);
-        graphics_draw_text(
-            disp, 20, 22, resumed ? "THE COMPANY STANDS AS YOU LEFT IT"
-                                  : "THE COMPANY MUSTERS"
-        );
-        draw_company_body(disp, roster, store, -1);
-        graphics_set_color(colour(125, 138, 133), 0);
-        graphics_draw_text(disp, 240, 214, "A: NEXT");
-        show(disp);
     }
 
     // Whether one more member would carry this board past its authored
@@ -5007,6 +4994,26 @@ private:
             event.unit_id ^ (event.related_unit_id << 1U)
         );
 
+        // Establish the matchup before the blow moves. A swing has no shared
+        // lead frames at all, so without this hold its first close frame was
+        // already the impact and hardware displayed the whole scene as a
+        // flash. This delay is close-presentation time only; board attacks and
+        // their rules remain unchanged.
+        if (posed && struck != nullptr) {
+            for (int frame = 0; frame < view::close_intro_hold_frames; ++frame) {
+                static_cast<void>(frame);
+                surface_t* disp = display_get();
+                draw_close_exchange(
+                    disp, *striker, *struck,
+                    grandleon::nintendo64::console_renderer::Pose::windup,
+                    grandleon::nintendo64::console_renderer::Pose::idle,
+                    close_variation, false, landed, event.amount
+                );
+                grandleon::n64audio::pump();
+                show(disp);
+            }
+        }
+
         // ---- the opening -------------------------------------------------
         const int lead = view::gesture_lead_frames(gesture, separation);
         for (int frame = 0; frame < lead; ++frame) {
@@ -5135,6 +5142,26 @@ private:
             }
             grandleon::n64audio::pump();
             show(disp);
+        }
+
+        // Leave the authoritative result on screen long enough to read. The
+        // next accepted event may be a counterattack, but that starts only
+        // after this hold and keeps the same side placement.
+        if (posed && struck != nullptr) {
+            for (int frame = 0; frame < view::close_result_hold_frames; ++frame) {
+                static_cast<void>(frame);
+                surface_t* disp = display_get();
+                draw_close_exchange(
+                    disp, *striker, *struck,
+                    grandleon::nintendo64::console_renderer::Pose::attack,
+                    landed
+                        ? grandleon::nintendo64::console_renderer::Pose::hurt
+                        : grandleon::nintendo64::console_renderer::Pose::idle,
+                    close_variation, true, landed, event.amount
+                );
+                grandleon::n64audio::pump();
+                show(disp);
+            }
         }
 
 #ifdef GRANDLEON_N64_AUTOPILOT
@@ -5860,10 +5887,9 @@ private:
         // undo that before it says anything else. B backs out of it too, as B
         // backs out of everything here, but a row a player can read is not the
         // same as a button they have to already know.
-        // Four slots because a campaign whose author asked for the Stage picker
-        // adds a row to this menu; a game that did not builds the three it has
-        // always built, into the same array.
-        MenuChoice rows[4]{};
+        // Five slots: the three battle commands, the frame-rate toggle every
+        // played ROM exposes, and the optional Stage picker.
+        MenuChoice rows[5]{};
         int count = 3;
         rows[0] = {
             "BACK TO BATTLE", false, false, false, 0, 0, 0, false, false
@@ -5884,7 +5910,14 @@ private:
         rows[2] = {
             "LEAVE BATTLE", false, false, false, 0, 0, 0, false, false
         };
+        const int fps_row = count;
+        rows[count] = {
+            display_options.fps_menu_label(), false, false, false, 0, 0, 0,
+            false, false
+        };
+        ++count;
 #ifdef GRANDLEON_N64_CAMPAIGN
+        int stage_row = -1;
         // And the Stage picker, when there is one. The row exists exactly when
         // the session handed this board a list of Stages, which it does only
         // for a campaign whose author asked for the picker: nothing here reads a
@@ -5893,6 +5926,7 @@ private:
         // Last, under the way out, because it is a testing aid and not one of
         // the two questions this menu exists to answer.
         if (board_ != nullptr && !board_->stages.empty()) {
+            stage_row = count;
             rows[count] = {
                 "GO TO ANOTHER STAGE", false, false, false, 0, 0, 0, false,
                 false
@@ -5923,8 +5957,12 @@ private:
             intent.kind = client::IntentKind::quit;
             return intent;
         }
+        if (chosen == fps_row) {
+            display_options.toggle_fps();
+            return intent;
+        }
 #ifdef GRANDLEON_N64_CAMPAIGN
-        if (chosen == 3 && board_ != nullptr) {
+        if (chosen == stage_row && board_ != nullptr) {
             const std::uint64_t going = run_stage_picker(board_->stages);
             // Backing out of the picker puts the player back on the board with
             // whatever they had in hand, exactly as backing out of this menu
@@ -8125,20 +8163,6 @@ void autopilot_checkpoint(ap::Check check) {
             expect(
                 ink_in_band(20, 300, 144, 178) > 40,
                 "and offers a row with the caret on it"
-            );
-            return;
-        case ap::Check::campaign_roster:
-            expect(
-                surface_pixel(autopilot_screen, 4, 4) == pack16(16, 26, 27),
-                "the company sheet backdrop is the house colour"
-            );
-            expect(
-                ink_in_band(20, 300, 40, 132) > 200,
-                "the company sheet lists the roster"
-            );
-            expect(
-                ink_in_band(20, 300, 138, 182) > 40,
-                "and names the store beneath it"
             );
             return;
         case ap::Check::campaign_management:

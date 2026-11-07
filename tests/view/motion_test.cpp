@@ -105,6 +105,21 @@ int main() {
         );
         expect(slide_frames_per_tile % 2 == 0, "half a tile lands on a frame");
         expect(slide_frames_per_tile % 3 == 0, "a third of a tile does too");
+
+        ConsoleDisplayOptions display;
+        expect(!display.show_fps, "a shipped console starts with FPS hidden");
+        expect(
+            std::string_view{display.fps_menu_label()} == "SHOW FPS: OFF",
+            "the board menu says that the hidden display is off"
+        );
+        display.toggle_fps();
+        expect(display.show_fps, "the board-menu gesture shows FPS");
+        expect(
+            std::string_view{display.fps_menu_label()} == "SHOW FPS: ON",
+            "the board menu reports the enabled display"
+        );
+        display.toggle_fps();
+        expect(!display.show_fps, "the same gesture hides FPS again");
     }
 
     // ---------------------------------------------------------------
@@ -699,6 +714,21 @@ int main() {
             gesture_frames(AttackGesture::cast, 2, false) == 9,
             "and a missed cast is held just as long, then takes nothing"
         );
+        expect(
+            console_board_unit_size(16) == 24 &&
+                console_board_unit_size(24) == 36 &&
+                console_board_unit_size(32) == 48 &&
+                console_board_unit_size(64) == 48,
+            "console board figures occupy one and a half cells within readable bounds"
+        );
+        expect(
+            close_gesture_frames(AttackGesture::swing, 1, true) == 40,
+            "a close landed swing stays visible for two thirds of a second"
+        );
+        expect(
+            close_gesture_frames(AttackGesture::cast, 2, false) == 43,
+            "a close missed cast keeps its gesture between the same readable holds"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -980,6 +1010,32 @@ int main() {
         expect(
             60 / held_repeat_period_frames == 10,
             "a held direction crosses ten cells a second at 60 Hz"
+        );
+
+        // The PlayStation poll returns after each repeated step, but the pad
+        // remains held. Its state therefore survives that return: the second
+        // step pays one period, not another initial delay.
+        HeldDirectionRepeat held;
+        constexpr std::uint16_t right = 0x20;
+        expect(!held.update(right), "a new lean moves only its initial press");
+        bool first = false;
+        for (int frame = 1; frame <= held_repeat_delay_frames; ++frame) {
+            first = held.update(right);
+        }
+        expect(first, "the persisted hold repeats after the initial delay");
+        bool too_early = false;
+        for (int frame = 1; frame < held_repeat_period_frames; ++frame) {
+            too_early = too_early || held.update(right);
+        }
+        expect(!too_early, "it does not repeat early after returning a step");
+        expect(
+            held.update(right),
+            "and the next returned step costs one repeat period"
+        );
+        expect(!held.update(0), "releasing the pad clears the held direction");
+        expect(
+            !held.update(right),
+            "a new lean after release begins a fresh initial delay"
         );
     }
 

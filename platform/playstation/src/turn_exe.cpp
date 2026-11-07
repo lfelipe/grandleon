@@ -833,15 +833,30 @@ public:
         return next_controller_press().buttons;
     }
 
+    [[nodiscard]] bool offers_fps_display() const noexcept override {
+        return true;
+    }
+
+    [[nodiscard]] bool fps_display_visible() const noexcept override {
+        return display_options_.show_fps;
+    }
+
+    void set_fps_display_visible(bool visible) noexcept override {
+        display_options_.show_fps = visible;
+        fps_window_started_ = 0;
+        fps_frames_ = 0;
+        fps_value_ = 0;
+    }
+
     turn::ControllerPress next_controller_press() override {
         std::uint32_t frame = 0;
         bool emphasised = false;
-        // Which direction is being leaned on, and for how many frames. Held
-        // across calls would be wrong: every call starts a fresh question, and
-        // a thumb still resting on a direction from the last answer should have
-        // to hold it again rather than run away with the next screen.
-        std::uint16_t leaning[2]{};
-        int leaned_frames[2]{};
+        // Which direction is being leaned on, and for how many frames. This
+        // state deliberately survives the returned repeat: resetting it on
+        // every one-cell answer made every repeated step pay the full initial
+        // delay again, so holding across a map was barely faster than tapping.
+        // A changed or released direction resets below, and non-directional
+        // buttons never repeat.
         constexpr pad::Port ports[2] = {pad::Port::one, pad::Port::two};
         for (;;) {
             psx::wait_vblank();
@@ -896,16 +911,10 @@ public:
                     (turn::pad_up | turn::pad_down | turn::pad_left |
                      turn::pad_right)
                 );
-                if (held != leaning[player]) {
-                    leaning[player] = held;
-                    leaned_frames[player] = 0;
-                } else if (held != 0) {
-                    ++leaned_frames[player];
-                    if (view::repeat_due(leaned_frames[player])) {
-                        pending_buttons_[player] = static_cast<std::uint16_t>(
-                            pending_buttons_[player] | held
-                        );
-                    }
+                if (held_repeats_[player].update(held)) {
+                    pending_buttons_[player] = static_cast<std::uint16_t>(
+                        pending_buttons_[player] | held
+                    );
                 }
             }
 
@@ -914,7 +923,7 @@ public:
             // asks a question keeps asking it until somebody answers.
             ++frame;
             const bool now = view::cursor_emphasised(frame);
-            if (now == emphasised) continue;
+            if (now == emphasised && !display_options_.show_fps) continue;
             emphasised = now;
             draw_held(emphasised);
         }
@@ -1301,6 +1310,21 @@ public:
         striking_ = thrower != nullptr ? thrower->id : 0;
         if (thrower != nullptr) console::prepare_close();
 
+        // Establish the two characters before the strike. A swing has no
+        // ordinary lead, which made its first close frame the impact and let
+        // the entire scene pass almost invisibly on hardware.
+        if (thrower != nullptr) {
+            for (int frame = 0; frame < view::close_intro_hold_frames; ++frame) {
+                static_cast<void>(frame);
+                psx::wait_vblank();
+                draw_close_exchange(
+                    *thrower, *target, art::Pose::windup, art::Pose::idle,
+                    false, landed, damage
+                );
+                ++frames;
+            }
+        }
+
         // ---- the opening -------------------------------------------------
         const int lead = view::gesture_lead_frames(gesture, separation);
         for (int frame = 0; frame < lead; ++frame) {
@@ -1359,6 +1383,20 @@ public:
                 draw(before, *last_overlay_, false);
             }
             ++frames;
+        }
+        if (thrower != nullptr) {
+            // Hold the result separately from the flinch, so the damage or
+            // miss remains readable even when a counterattack follows.
+            for (int frame = 0; frame < view::close_result_hold_frames; ++frame) {
+                static_cast<void>(frame);
+                psx::wait_vblank();
+                draw_close_exchange(
+                    *thrower, *target, art::Pose::attack,
+                    landed ? art::Pose::hurt : art::Pose::idle,
+                    true, landed, damage
+                );
+                ++frames;
+            }
         }
         flinch_dx_ = 0;
         flinch_dy_ = 0;
@@ -1436,8 +1474,7 @@ public:
             const art::Asset asset = unit_asset(unit);
             int px = 0;
             int py = 0;
-            const int drawn = drawn_tile() * 2 < 32
-                ? 32 : (drawn_tile() * 2 > 58 ? 58 : drawn_tile() * 2);
+            const int drawn = view::console_board_unit_size(drawn_tile());
             int sx = 0;
             int sy = 0;
             if (!opaque_near_centre(
@@ -1512,8 +1549,7 @@ public:
 
 private:
     [[nodiscard]] int drawn_unit_size() const noexcept {
-        return drawn_tile() * 2 < 32
-            ? 32 : (drawn_tile() * 2 > 58 ? 58 : drawn_tile() * 2);
+        return view::console_board_unit_size(drawn_tile());
     }
 
     [[nodiscard]] bool item_covers_pixel(
@@ -1619,6 +1655,7 @@ private:
         bool emphasised
     ) {
         const std::uint32_t opened = psx::clock_ticks();
+        sample_fps(opened);
         draw_picture(snapshot, overlay, emphasised);
         const std::uint32_t microseconds =
             (psx::clock_ticks() - opened) * 1000u /
@@ -1644,6 +1681,46 @@ private:
         draw_cursor(overlay, emphasised);
         draw_bar(snapshot, overlay);
         if (overlay.menu != nullptr) draw_menu(overlay);
+        draw_fps();
+    }
+
+    // A live cadence over the frames actually drawn. When enabled, the input
+    // loop above repaints once per vertical retrace instead of only when the
+    // cursor pulse changes, so this is a frame-rate counter rather than a
+    // count of deliberate idle repaints.
+    void sample_fps(std::uint32_t now) {
+        if (!display_options_.show_fps) return;
+        constexpr std::uint32_t sample_ticks =
+            psx::ticks_per_1000_microseconds * 500U;
+        if (fps_window_started_ == 0) {
+            fps_window_started_ = now;
+            fps_frames_ = 1;
+            return;
+        }
+        ++fps_frames_;
+        const std::uint32_t elapsed = now - fps_window_started_;
+        if (elapsed < sample_ticks || fps_frames_ <= 1) return;
+        fps_value_ = static_cast<std::uint32_t>(
+            ((fps_frames_ - 1U) * psx::ticks_per_1000_microseconds * 1000U +
+             elapsed / 2U) /
+            elapsed
+        );
+        if (fps_value_ > 999U) fps_value_ = 999U;
+        fps_window_started_ = now;
+        fps_frames_ = 1;
+    }
+
+    void draw_fps() {
+        if (!display_options_.show_fps) return;
+        gpu::fill(32 * glyph, 0, 8 * glyph, glyph, paper_colour);
+        Line label;
+        label.text("FPS ");
+        if (fps_value_ == 0) {
+            label.text("--");
+        } else {
+            label.decimal(fps_value_);
+        }
+        write_at(33, 0, label.c_str());
     }
 
 
@@ -1788,8 +1865,7 @@ private:
             pose = art::Pose::hurt;
             stream_slot = 1;
         }
-        const int size = drawn_tile() * 2 < 32
-            ? 32 : (drawn_tile() * 2 > 58 ? 58 : drawn_tile() * 2);
+        const int size = view::console_board_unit_size(drawn_tile());
         console::draw_character(
             drawing, pose, x + drawn_tile() / 2,
             y + drawn_tile() - (unit.id == moving_ ? move_bob_ : 0),
@@ -2607,6 +2683,11 @@ private:
     bool steered_ = false;
     std::uint16_t pending_buttons_[2]{};
     std::uint8_t pad_priority_{0};
+    view::HeldDirectionRepeat held_repeats_[2]{};
+    view::ConsoleDisplayOptions display_options_{};
+    std::uint32_t fps_window_started_{0};
+    std::uint32_t fps_frames_{0};
+    std::uint32_t fps_value_{0};
 
     sim::UnitId moving_ = 0;
     int move_px_ = 0;

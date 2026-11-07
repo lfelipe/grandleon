@@ -73,15 +73,8 @@ inline constexpr Step campaign_autopilot_found[] = {
      "campaign-slot-empty"},
     {Op::press, button_a, 0, 0, nullptr},
 
-    // The company, as the campaign founded it. The narrator has already
-    // checked every name, level and kit against the host derivation by the
-    // time this frame is up.
-    {Op::wait, 10, 0, 0, nullptr},
-    {Op::checkpoint, static_cast<std::uint16_t>(Check::campaign_roster), 0, 0,
-     "campaign-founded"},
-    {Op::press, button_a, 0, 0, nullptr},
-
-    // Three story nodes: twelve authored lines, one press each.
+    // Founding reports and validates the company without pausing on a roster
+    // page. Three story nodes follow: twelve authored lines, one press each.
     {Op::wait, 6, 0, 0, nullptr},
     {Op::checkpoint, static_cast<std::uint16_t>(Check::cutscene), 0, 0,
      "campaign-prologue"},
@@ -177,16 +170,9 @@ inline constexpr Step campaign_autopilot_resume[] = {
      "campaign-slot-held"},
     {Op::press, button_a, 0, 0, nullptr},
 
-    // The company that came back. The narrator checks every claim about it
-    // against the host derivation before this frame is up: the store holding
-    // the tonic, the mage holding nothing, the knight still benched.
-    {Op::wait, 10, 0, 0, nullptr},
-    {Op::checkpoint, static_cast<std::uint16_t>(Check::campaign_roster), 0, 0,
-     "campaign-resumed"},
-    {Op::press, button_a, 0, 0, nullptr},
-
-    // No cutscene lines: the campaign stands on the board it was left before,
-    // and an encounter node authors none. Straight to the company.
+    // Resuming reports and validates the company without pausing on a roster
+    // page. No cutscene lines: the campaign stands on the board it was left
+    // before, and an encounter node authors none. Straight to management.
     {Op::wait, 10, 0, 0, nullptr},
     {Op::checkpoint, static_cast<std::uint16_t>(Check::campaign_management), 0,
      0, "campaign-manage-resumed"},

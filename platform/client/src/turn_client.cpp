@@ -2299,6 +2299,12 @@ void TurnClient::open_board_menu() {
     MenuChoice& leave = menu_[menu_rows_++];
     leave = MenuChoice{};
     leave.label = "LEAVE - THIS BATTLE IS NOT KEPT";
+    if (offers_fps_display()) {
+        MenuChoice& fps = menu_[menu_rows_++];
+        fps = MenuChoice{};
+        fps.label = fps_display_visible() ? "SHOW FPS: ON" : "SHOW FPS: OFF";
+        fps.fps = true;
+    }
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
     // And the Stage picker, when there is one. The row exists exactly when the
     // session handed this board a list of Stages, which it does only in a build
@@ -2334,6 +2340,10 @@ void TurnClient::commit_board_row(const sim::EncounterSnapshot& snapshot) {
     board_menu_open_ = false;
     menu_rows_ = 0;
     if (row.cancel) return;
+    if (row.fps) {
+        set_fps_display_visible(!fps_display_visible());
+        return;
+    }
     if (row.wait) {
         // Every character on this side that still owes the board an activation
         // is finished, one `wait` at a time, by `drain_side`. Nothing is
@@ -3644,15 +3654,9 @@ void TurnClient::campaign_begun(
             .number(history_);
         note(line.c_str());
     }
-    compose_company(
-        resumed ? "THE COMPANY STANDS AS YOU LEFT IT"
-                : "THE COMPANY MUSTERS",
-        roster, store
-    );
-    // Read rather than steered: this is the campaign being handed over, and
-    // there is nothing on it to choose yet.
-    page_choices_ = 0;
-    hold_page(Screen::company, "A  GO ON");
+    // The roster handover is state, not a question. Keep it in the report and
+    // enter the campaign immediately; an actual deployment, shared-store or
+    // refusal decision will still open the management screen before its board.
 }
 
 void TurnClient::slot_refused(const client::SlotFailure& failure) {
@@ -3877,7 +3881,8 @@ client::ManagementIntent TurnClient::next_management_intent(
 ) {
     // This is product behavior, not a platform shortcut: every console and
     // every scripted test takes the same direct path when there is genuinely
-    // nothing to choose before battle.
+    // nothing to choose before battle. Already-equipped items are part of a
+    // ready formation, not a reason to stop the player at an inventory screen.
     if (client::company_can_start_directly(company)) {
         return {client::ManagementVerb::proceed, {}, {}};
     }

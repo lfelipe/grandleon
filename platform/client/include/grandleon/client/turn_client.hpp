@@ -271,6 +271,9 @@ struct MenuChoice final {
     // consulting the label, or the two menus that share this array come to
     // disagree about what a row means.
     bool stage{false};
+    // Toggles the platform's live frame-rate readout. A board-menu row only,
+    // and only on a platform that says it has that display.
+    bool fps{false};
     bool cancel{false};
 };
 
@@ -708,6 +711,20 @@ public:
     // not two board cursors.
     virtual ControllerPress next_controller_press() {
         return ControllerPress{0, next_press()};
+    }
+
+    // Optional board diagnostic. Host clients inherit no row; console clients
+    // that can paint a live counter expose it and own the session-local state.
+    // Every implementation must begin false so shipped games never open with
+    // a diagnostic on top of the board.
+    [[nodiscard]] virtual bool offers_fps_display() const noexcept {
+        return false;
+    }
+    [[nodiscard]] virtual bool fps_display_visible() const noexcept {
+        return false;
+    }
+    virtual void set_fps_display_visible(bool visible) noexcept {
+        static_cast<void>(visible);
     }
 
     // Called once per settled checkpoint, before and after the facts, so a

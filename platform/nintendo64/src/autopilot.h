@@ -108,8 +108,6 @@ enum class Check : std::uint16_t {
     // The slot screen, before anything is founded: what the cartridge holds,
     // and the choice between beginning and continuing.
     campaign_slot,
-    // The company as the campaign was founded or resumed with it.
-    campaign_roster,
     // The management stage: the company, its store, and what the next board
     // has room for.
     campaign_management,

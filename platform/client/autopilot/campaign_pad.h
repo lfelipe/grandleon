@@ -12,9 +12,9 @@
 // the resuming expectations do not have.
 //
 //   `*_found`    the card holds no campaign. The player-count launch menu, the
-//                slot screen's only offer, the company as it was founded, every authored line of
-//                every story node in the way, the management stage, the battle
-//                itself fought to its objective, the aftermath, and the end.
+//                slot screen's only offer, every authored line of every story
+//                node in the way, any management decision the content really
+//                needs, the battle itself, the aftermath, and the end.
 //
 //   `*_resume`   a second process over the same card. The launch menu is the
 //                same; the slot screen now
@@ -109,38 +109,38 @@ namespace grandleon::client::turn {
 // ---------------------------------------------------------------------------
 
 inline constexpr std::uint16_t tarnholt_campaign_found[] = {
-    pad_start, pad_a, pad_start, pad_a, pad_a, pad_a,
+    pad_start, pad_a, pad_a, pad_a, pad_a, pad_a,
     pad_a, pad_a, pad_a, pad_a, pad_a, pad_a,
-    pad_a, pad_a, pad_a, pad_start, pad_a, pad_a,
-    pad_a, pad_b, pad_right, pad_right, pad_a, pad_left,
-    pad_left, pad_left, pad_down, pad_a, pad_b, pad_right,
-    pad_right, pad_up, pad_a, pad_left, pad_left, pad_down,
-    pad_down, pad_a, pad_b, pad_right, pad_right, pad_right,
-    pad_a, pad_left, pad_left, pad_down, pad_a, pad_b,
-    pad_right, pad_right, pad_a, pad_up, pad_up, pad_up,
-    pad_a, pad_b, pad_right, pad_right, pad_right, pad_down,
-    pad_a, pad_left, pad_left, pad_left, pad_left, pad_up,
-    pad_a, pad_b, pad_right, pad_right, pad_down, pad_a,
+    pad_a, pad_a, pad_start, pad_a, pad_a, pad_a,
+    pad_b, pad_right, pad_right, pad_a, pad_left, pad_left,
     pad_left, pad_down, pad_a, pad_b, pad_right, pad_right,
-    pad_up, pad_a, pad_a, pad_b, pad_a, pad_left,
-    pad_left, pad_left, pad_down, pad_down, pad_a, pad_b,
-    pad_right, pad_right, pad_up, pad_a, pad_a, pad_b,
-    pad_up, pad_a, pad_left, pad_left, pad_left, pad_up,
-    pad_a, pad_b, pad_right, pad_right, pad_right, pad_down,
+    pad_up, pad_a, pad_left, pad_left, pad_down, pad_down,
+    pad_a, pad_b, pad_right, pad_right, pad_right, pad_a,
+    pad_left, pad_left, pad_down, pad_a, pad_b, pad_right,
+    pad_right, pad_a, pad_up, pad_up, pad_up, pad_a,
+    pad_b, pad_right, pad_right, pad_right, pad_down, pad_a,
+    pad_left, pad_left, pad_left, pad_left, pad_up, pad_a,
+    pad_b, pad_right, pad_right, pad_down, pad_a, pad_left,
+    pad_down, pad_a, pad_b, pad_right, pad_right, pad_up,
     pad_a, pad_a, pad_b, pad_a, pad_left, pad_left,
-    pad_up, pad_up, pad_a, pad_b, pad_right, pad_down,
-    pad_a, pad_a, pad_b, pad_a, pad_left, pad_up,
-    pad_a, pad_b, pad_right, pad_right, pad_up, pad_a,
-    pad_a, pad_b, pad_a, pad_left, pad_a, pad_b,
-    pad_down, pad_down, pad_down, pad_a, pad_a, pad_b,
-    pad_a, pad_a, pad_a, pad_a, pad_a,
+    pad_left, pad_down, pad_down, pad_a, pad_b, pad_right,
+    pad_right, pad_up, pad_a, pad_a, pad_b, pad_up,
+    pad_a, pad_left, pad_left, pad_left, pad_up, pad_a,
+    pad_b, pad_right, pad_right, pad_right, pad_down, pad_a,
+    pad_a, pad_b, pad_a, pad_left, pad_left, pad_up,
+    pad_up, pad_a, pad_b, pad_right, pad_down, pad_a,
+    pad_a, pad_b, pad_a, pad_left, pad_up, pad_a,
+    pad_b, pad_right, pad_right, pad_up, pad_a, pad_a,
+    pad_b, pad_a, pad_left, pad_a, pad_b, pad_down,
+    pad_down, pad_down, pad_a, pad_a, pad_b, pad_a,
+    pad_a, pad_a, pad_a, pad_a,
 };
 
 inline constexpr std::size_t tarnholt_campaign_found_count =
     sizeof tarnholt_campaign_found / sizeof tarnholt_campaign_found[0];
 
 inline constexpr std::uint16_t tarnholt_campaign_resume[] = {
-    pad_start, pad_a, pad_a, pad_a, pad_a,
+    pad_start, pad_a, pad_a, pad_a,
 };
 
 inline constexpr std::size_t tarnholt_campaign_resume_count =
@@ -155,17 +155,16 @@ inline constexpr std::size_t tarnholt_campaign_resume_count =
 // ---------------------------------------------------------------------------
 
 inline constexpr std::uint16_t demo_campaign_found[] = {
-    pad_start, pad_a, pad_start, pad_start, pad_a, pad_b,
-    pad_right, pad_right, pad_up, pad_a, pad_a, pad_b,
-    pad_a, pad_up, pad_a, pad_b, pad_down, pad_a,
-    pad_a, pad_a,
+    pad_start, pad_a, pad_a, pad_b, pad_right, pad_right,
+    pad_up, pad_a, pad_a, pad_b, pad_a, pad_up,
+    pad_a, pad_b, pad_down, pad_a, pad_a, pad_a,
 };
 
 inline constexpr std::size_t demo_campaign_found_count =
     sizeof demo_campaign_found / sizeof demo_campaign_found[0];
 
 inline constexpr std::uint16_t demo_campaign_resume[] = {
-    pad_start, pad_a, pad_a, pad_a,
+    pad_start, pad_a, pad_a,
 };
 
 inline constexpr std::size_t demo_campaign_resume_count =

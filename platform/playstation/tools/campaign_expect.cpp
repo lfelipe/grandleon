@@ -103,6 +103,16 @@ public:
     void paint(const sim::EncounterSnapshot&, const turn::Overlay&) override {}
     void paint_screen(const turn::ScreenView&) override {}
 
+    [[nodiscard]] bool offers_fps_display() const noexcept override {
+        return true;
+    }
+    [[nodiscard]] bool fps_display_visible() const noexcept override {
+        return fps_visible_;
+    }
+    void set_fps_display_visible(bool visible) noexcept override {
+        fps_visible_ = visible;
+    }
+
     std::uint16_t next_press() override {
         if (index_ >= count_) return turn::pad_end_of_script;
         return presses_[index_++];
@@ -114,6 +124,7 @@ private:
     const std::uint16_t* presses_;
     std::size_t count_;
     std::size_t index_ = 0;
+    bool fps_visible_{false};
 };
 
 // The constant a press is spelled with, so that a recording is committed by
@@ -165,6 +176,16 @@ public:
     void paint_screen(const turn::ScreenView& view) override {
         screen_ = view.screen;
         on_board_ = false;
+    }
+
+    [[nodiscard]] bool offers_fps_display() const noexcept override {
+        return true;
+    }
+    [[nodiscard]] bool fps_display_visible() const noexcept override {
+        return fps_visible_;
+    }
+    void set_fps_display_visible(bool visible) noexcept override {
+        fps_visible_ = visible;
     }
 
     std::uint16_t next_press() override {
@@ -342,6 +363,7 @@ private:
     int drain_ = 0;
     int spent_frames_ = 0;
     bool on_board_ = false;
+    bool fps_visible_{false};
 };
 
 // One pass of a campaign over a device, exactly as the console makes it: ask

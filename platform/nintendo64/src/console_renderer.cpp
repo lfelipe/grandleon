@@ -6,6 +6,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <grandleon/view/motion.hpp>
+
 #include "console_character_assets.h"
 #include "console_backdrop_assets.h"
 #include "console_terrain_assets.h"
@@ -232,7 +234,7 @@ void draw_character(
         return;
     }
     configure_character_pass();
-    const int size = std::max(32, std::min(58, cell_size * 2));
+    const int size = grandleon::view::console_board_unit_size(cell_size);
     draw_loaded_character(
         drawings[drawing].board[pose_index(pose)],
         centre_x, bottom, size, facing_left
@@ -253,7 +255,7 @@ void draw_character_overlay(
     }
     rdpq_attach(display, nullptr);
     configure_character_pass();
-    const int size = std::max(32, std::min(58, cell_size * 2));
+    const int size = grandleon::view::console_board_unit_size(cell_size);
     draw_loaded_character(
         drawings[drawing].board[pose_index(pose)],
         centre_x, bottom, size, facing_left

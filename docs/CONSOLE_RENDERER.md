@@ -16,15 +16,19 @@ the current range easy to inspect. Its seven stages include:
 - one-player and local two-player play; and
 - movement, conversation, attacks, counterattacks, misses, damage, and defeat.
 
-Review builds show live FPS and include a Stage picker. The picker lets a
-reviewer jump between gates without replaying the entire campaign; it does not
-change the content of the stages.
+Review builds include a Stage picker. The picker lets a reviewer jump between
+gates without replaying the entire campaign; it does not change the content of
+the stages. Both console battle menus can show live FPS. The counter begins off
+in every ROM or disc image and stays a session-local testing preference.
 
 Choosing **1 Player** leads to the save choice and then the first playable
-stage. A fixed ready-to-play company does not stop at a roster or deployment
-screen. **Help** is available from the title screen instead of appearing as a
-mandatory page. Choosing **2 Players** retains each unit's authored local
-owner, with one independent cursor and menu state per controller.
+stage. Founding or resuming a campaign no longer pauses on a separate roster
+summary. A fixed ready-to-play company, including characters carrying their
+normal equipment, does not stop at a roster or deployment screen; management
+appears only for a real shared-store, deployment, or recovery decision.
+**Help** is available from the title screen instead of appearing as a mandatory
+page. Choosing **2 Players** retains each unit's authored local owner, with one
+independent cursor and menu state per controller.
 
 ## Graphics
 
@@ -32,11 +36,14 @@ Each console has one renderer. It uses smaller versions of the curated Godot
 character sheets, applies the authored faction colour through the same team
 masks, and draws those characters over textured tactical terrain. Movement and
 attack poses come from the same animation sheets rather than a separate pixel
-roster.
+roster. Tactical figures use about one and a half cells of height, keeping the
+silhouettes readable without hiding as much of the neighbouring terrain.
 
 During combat, the renderer can show the attacker and defender against a
 terrain backdrop before returning to the unchanged tactical board. Characters
-keep the same left/right positions for an attack and its counterattack.
+keep the same left/right positions for an attack and its counterattack. The
+close view now establishes the matchup before impact and holds the damage or
+miss afterward, so an exchange remains readable on hardware.
 
 Console exports contain this renderer and its project-selected artwork only.
 There is no renderer selector or alternate character-art path in an exported

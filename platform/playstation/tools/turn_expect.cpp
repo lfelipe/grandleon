@@ -80,6 +80,16 @@ public:
 
     void paint(const sim::EncounterSnapshot&, const turn::Overlay&) override {}
 
+    [[nodiscard]] bool offers_fps_display() const noexcept override {
+        return true;
+    }
+    [[nodiscard]] bool fps_display_visible() const noexcept override {
+        return fps_visible_;
+    }
+    void set_fps_display_visible(bool visible) noexcept override {
+        fps_visible_ = visible;
+    }
+
     std::uint16_t next_press() override {
         if (index_ >= count_) return turn::pad_end_of_script;
         return presses_[index_++];
@@ -91,6 +101,7 @@ private:
     const std::uint16_t* presses_;
     std::size_t count_;
     std::size_t index_ = 0;
+    bool fps_visible_{false};
 };
 
 }  // namespace

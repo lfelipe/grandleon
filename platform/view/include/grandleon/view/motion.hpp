@@ -87,6 +87,39 @@ inline constexpr int projectile_frames_per_tile = 3;
 // swing's six frames contain the answer, the cast's six contain only the wait.
 inline constexpr int cast_hold_frames = flinch_frames;
 
+// A console close-up needs enough time to be seen as a scene rather than a
+// flash between two board frames. The ordinary gesture remains responsive on
+// the map; these two holds belong only to the optional full-frame presentation
+// both compact consoles use. Ten frames establish who is attacking, and
+// twenty-four leave the damage or miss visible long enough to read.
+inline constexpr int close_intro_hold_frames = 10;
+inline constexpr int close_result_hold_frames = 24;
+
+// Board cutouts should read as people standing on terrain, not as portraits
+// covering neighbouring cells. One and a half cells retains the detailed
+// Godot-derived silhouettes while leaving substantially more of the map
+// visible than the old two-cell figures. Bounds keep fitted large maps legible
+// and prevent small maps from turning figures into close-up art.
+[[nodiscard]] constexpr int console_board_unit_size(int cell) noexcept {
+    const int scaled = cell > 0 ? cell + cell / 2 : 0;
+    if (scaled < 24) return 24;
+    return scaled > 48 ? 48 : scaled;
+}
+
+// A console's small, session-local display preferences. Retail images begin
+// with diagnostics hidden; the board menu is the only thing that changes this
+// state. Keeping the default and label here makes it impossible for the two
+// console front ends to quietly ship with opposite defaults.
+struct ConsoleDisplayOptions final {
+    bool show_fps{false};
+
+    void toggle_fps() noexcept { show_fps = !show_fps; }
+
+    [[nodiscard]] const char* fps_menu_label() const noexcept {
+        return show_fps ? "SHOW FPS: ON" : "SHOW FPS: OFF";
+    }
+};
+
 // The cursor's pulse period, in frames, and the part of it the emphasis is
 // drawn for. Thirty-two frames is a little over half a second at 60 Hz; the
 // emphasis is up for the second half, so the cursor spends as long at rest as
@@ -181,6 +214,26 @@ inline constexpr int held_repeat_period_frames = slide_frames_per_tile;
     if (frames < held_repeat_delay_frames) return false;
     return (frames - held_repeat_delay_frames) % held_repeat_period_frames == 0;
 }
+
+// The state a pad keeps across the individual cursor presses it returns. A
+// repeat is one answer from the poll loop, not the end of the player's hold;
+// resetting here after every answer would charge the full initial delay for
+// every tile and make holding barely better than tapping.
+struct HeldDirectionRepeat final {
+    std::uint16_t direction{0};
+    int frames{0};
+
+    [[nodiscard]] bool update(std::uint16_t held) noexcept {
+        if (held != direction) {
+            direction = held;
+            frames = 0;
+            return false;
+        }
+        if (held == 0) return false;
+        ++frames;
+        return repeat_due(frames);
+    }
+};
 
 // ---------------------------------------------------------------------------
 // Sliding
@@ -828,6 +881,14 @@ enum class AttackGesture : std::uint8_t {
 ) noexcept {
     return gesture_lead_frames(gesture, separation) +
            (landed ? flinch_frames : miss_frames);
+}
+
+[[nodiscard]] constexpr int close_gesture_frames(
+    AttackGesture gesture, int separation, bool landed
+) noexcept {
+    return close_intro_hold_frames +
+           gesture_frames(gesture, separation, landed) +
+           close_result_hold_frames;
 }
 
 // ---------------------------------------------------------------------------

@@ -62,8 +62,9 @@ manifest="${output_dir}/README.txt"
     echo "sevenfold-n64.z64"
     echo "  The playable campaign with a 1-player/2-player choice."
     if [ "${stage_picker}" -eq 1 ]; then
-        echo "  Debug stage picker and live FPS display enabled."
+        echo "  Debug stage picker enabled."
     fi
+    echo "  Live FPS is available from the battle menu and begins off."
     echo "  SHA-256: $(sha256sum "${output_dir}/sevenfold-n64.z64" | cut -d ' ' -f 1)"
 } > "${manifest}"
 

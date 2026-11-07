@@ -14,22 +14,26 @@ cmake --build build --target grandleon_n64_sevenfold_roms
 ```
 
 Open `build-n64-sevenfold-roms/sevenfold-n64.z64` in ares, on a compatible FPGA
-system, or from a flash cartridge. The review build shows live FPS and includes
-a Stage picker so every art style, archetype, and terrain can be inspected
-without replaying the complete campaign.
+system, or from a flash cartridge. The review build includes a Stage picker so
+every art style, archetype, and terrain can be inspected without replaying the
+complete campaign.
 
 Choose **1 Player** or **2 Players** on the title screen. A new campaign goes
-straight to its save choice and first playable stage; fixed formations do not
-open a roster or deployment screen first. **Help** keeps the full controls
-available without placing a mandatory instructions screen in the launch path.
+straight to its save choice and first playable stage; founding or resuming does
+not add a roster-summary page. Fixed equipped formations do not open roster or
+deployment management first. **Help** keeps the full controls available without
+placing a mandatory instructions screen in the launch path.
 
 ## Controls
 
-- D-pad: move the active cursor or menu selection.
+- D-pad: move the active cursor or menu selection; hold to keep moving.
 - A: confirm, select a unit, or choose a destination.
 - B: cancel or go back.
 - Z: open the selected unit's action menu.
 - Start: open the battle menu.
+
+The battle menu has **Show FPS**, which begins off in every ROM and can be
+toggled while testing performance.
 
 In two-player mode, each controller has its own cursor and menu state. Authored
 unit ownership decides which characters each player commands.
