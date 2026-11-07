@@ -2,6 +2,7 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
 const HISTORY_LIMIT := 64
 
 var library
@@ -611,31 +612,7 @@ func _two_player_guidance(gaps: Array[String]) -> String:
 
 
 func _two_player_ownership_gaps() -> Array[String]:
-	var gaps: Array[String] = []
-	var flow_value: Variant = campaign.get("flow", {})
-	if not flow_value is Dictionary:
-		return gaps
-	for node_value: Variant in flow_value.get("nodes", []):
-		if not node_value is Dictionary:
-			continue
-		var node: Dictionary = node_value
-		if str(node.get("kind", "")) != "encounter":
-			continue
-		var has_second_player := false
-		for placement_value: Variant in node.get("placements", []):
-			if not placement_value is Dictionary:
-				continue
-			var placement: Dictionary = placement_value
-			if (
-				str(placement.get("side", "first")) == "first"
-				and int(placement.get("player", 1)) == 2
-				and int(placement.get("minimumPlayers", 1)) <= 2
-			):
-				has_second_player = true
-				break
-		if not has_second_player:
-			gaps.append(str(node.get("name", node.get("id", "unnamed battle"))))
-	return gaps
+	return CampaignReadiness.two_player_ownership_gaps(campaign)
 
 
 func _player_mode_label(mode: String) -> String:

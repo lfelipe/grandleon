@@ -2,6 +2,7 @@
 extends SceneTree
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
 const StandaloneExporter = preload("res://scripts/creator/standalone_exporter.gd")
 
 var failures := 0
@@ -30,6 +31,50 @@ func _run() -> void:
 	var unsafe: Dictionary = unsafe_exporter.linux_availability()
 	_expect("an export directory inside the player shell is refused", unsafe.ok, false)
 	_expect("unsafe export directory refusal is specific", str(unsafe.code), "export_directory_unsafe")
+
+	var policy_project: Dictionary = JSON.parse_string(str(created.source))
+	var policy_campaign: Dictionary = policy_project.campaigns[0]
+	policy_campaign.flow.nodes[1].placements[1].erase("player")
+	policy_campaign.playerMode = "one"
+	_expect(
+		"one-player export does not require a Player 2 character",
+		CampaignReadiness.playable_export(policy_project).ok,
+		true
+	)
+	for mode: String in ["two", "choice"]:
+		policy_campaign.playerMode = mode
+		var readiness: Dictionary = CampaignReadiness.playable_export(policy_project)
+		_expect("%s-player policy requires a Player 2 character" % mode, readiness.ok, false)
+		_expect(
+			"%s-player policy names the incomplete battle" % mode,
+			readiness.gaps,
+			["Hold the Crossing"]
+		)
+	policy_campaign.playerMode = "choice"
+	var incomplete_source := JSON.stringify(_integer_numbers(policy_project), "  ", true) + "\n"
+	var incomplete_saved: Dictionary = library.save_source(str(created.id), incomplete_source)
+	_expect(
+		"incomplete two-player fixture remains valid editable source: %s" % JSON.stringify(incomplete_saved),
+		incomplete_saved.ok,
+		true
+	)
+	var blocked: Dictionary = exporter.export_linux_player(str(created.id))
+	_expect("Linux export refuses a battle without Player 2", blocked.ok, false)
+	_expect(
+		"Linux export returns the player ownership reason",
+		str(blocked.get("code", "")),
+		"player_two_ownership_missing"
+	)
+	_expect(
+		"Linux export tells the author which battle to fix",
+		str(blocked.get("message", "")).contains("Hold the Crossing"),
+		true
+	)
+	_expect(
+		"complete source is restored after the negative export",
+		library.save_source(str(created.id), str(created.source)).ok,
+		true
+	)
 	var built: Dictionary = exporter.export_linux_player(str(created.id))
 	_expect("player-only Linux game is exported", built.ok, true)
 	if built.ok:
@@ -42,6 +87,7 @@ func _run() -> void:
 		_expect("export removes creator scenes", FileAccess.file_exists(output.path_join("project/creator.tscn")), false)
 		_expect("export removes source templates", DirAccess.dir_exists_absolute(output.path_join("project/content/templates")), false)
 		_expect("export removes creator implementation", FileAccess.file_exists(output.path_join("project/scripts/creator/creator_screen.gd")), false)
+		_expect("export removes creator readiness rules", FileAccess.file_exists(output.path_join("project/scripts/creator/campaign_readiness.gd")), false)
 		_expect("export removes console builder host", FileAccess.file_exists(output.path_join("project/scripts/creator/console_builder.gd")), false)
 		var loaded: Dictionary = library.load_source(str(created.id))
 		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
@@ -122,6 +168,7 @@ func _make_fake_shell(root_path: String) -> void:
 	_write(root_path.path_join("project/game.gpk"), "old package\n")
 	_write(root_path.path_join("project/creator.tscn"), "creator\n")
 	_write(root_path.path_join("project/scripts/creator/creator_screen.gd"), "creator\n")
+	_write(root_path.path_join("project/scripts/creator/campaign_readiness.gd"), "readiness\n")
 	_write(root_path.path_join("project/scripts/creator/console_builder.gd"), "console builder\n")
 	_write(root_path.path_join("project/scripts/creator/standalone_exporter.gd"), "exporter\n")
 	_write(root_path.path_join("project/content/templates/starter_campaign.json"), "{}\n")
@@ -138,6 +185,22 @@ func _write(path: String, value: String) -> void:
 		return
 	file.store_string(value)
 	file.close()
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if value is float and value == floor(value):
+		return int(value)
+	return value
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

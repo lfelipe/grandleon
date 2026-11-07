@@ -3,6 +3,7 @@ class_name StandaloneExporter
 extends RefCounted
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
 const REQUIRED_SHELL_FILES := [
 	"BUILD-INFO.txt",
 	"godot",
@@ -27,6 +28,7 @@ const EXCLUDED_FILES := [
 	"project/army_editor.tscn",
 	"project/gear_editor.tscn",
 	"project/scripts/creator/creator_screen.gd",
+	"project/scripts/creator/campaign_readiness.gd",
 	"project/scripts/creator/console_builder.gd",
 	"project/scripts/creator/map_editor.gd",
 	"project/scripts/creator/story_editor.gd",
@@ -107,6 +109,9 @@ func export_linux_player(project_id: String) -> Dictionary:
 			"campaign_missing",
 			"Add a playable campaign before building a PC game."
 		)
+	var ready := CampaignReadiness.playable_export(project)
+	if not ready.ok:
+		return ready
 	var compiled: Dictionary = compiler.compile_source_json(str(loaded.source))
 	if not compiled.ok:
 		return {

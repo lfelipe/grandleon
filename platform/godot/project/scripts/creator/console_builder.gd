@@ -3,6 +3,7 @@ class_name ConsoleBuilder
 extends RefCounted
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
 const FORMAT := "grandleon-console-builder"
 const INVENTORY_FORMAT := "grandleon-console-builder-inventory"
 const RESULT_FORMAT := "grandleon-console-build-result"
@@ -150,6 +151,9 @@ func start(target: String, project_id: String) -> Dictionary:
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
 		return loaded
+	var ready := CampaignReadiness.playable_export(loaded.project)
+	if not ready.ok:
+		return ready
 	var checked: Dictionary = compiler.compile_source_json(str(loaded.source))
 	if not checked.ok:
 		return {

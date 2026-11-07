@@ -197,7 +197,7 @@ than reproduce those implementation details.
   launch from the Campaign screen. Give immediate ownership guidance, disable
   impossible previews, and provide separate isolated **Test 1 Player** and
   **Test 2 Players** actions.
-- [ ] Carry the same player-count readiness checks into export, with focused
+- [x] Carry the same player-count readiness checks into export, with focused
   tests for each policy and for a battle that is missing a Player 2 character.
 
 ### Localization

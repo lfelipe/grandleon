@@ -61,6 +61,35 @@ func _run() -> void:
 		"builder_inventory_invalid"
 	)
 	DirAccess.remove_absolute(payload_root.path_join("extra.dat"))
+	var complete_source := str(created.source)
+	var incomplete_project: Dictionary = JSON.parse_string(complete_source)
+	incomplete_project.campaigns[0].playerMode = "choice"
+	incomplete_project.campaigns[0].flow.nodes[1].placements[1].erase("player")
+	var incomplete_saved: Dictionary = library.save_source(
+		str(created.id), JSON.stringify(_integer_numbers(incomplete_project), "  ", true) + "\n"
+	)
+	_expect(
+		"console negative fixture remains valid editable source: %s" % JSON.stringify(incomplete_saved),
+		incomplete_saved.ok,
+		true
+	)
+	var refused: Dictionary = builder.start("nintendo64", str(created.id))
+	_expect("console export refuses a battle without Player 2", refused.ok, false)
+	_expect(
+		"console export returns the player ownership reason",
+		str(refused.get("code", "")),
+		"player_two_ownership_missing"
+	)
+	_expect(
+		"refused console export never starts its builder",
+		builder.busy(),
+		false
+	)
+	_expect(
+		"complete source is restored after the negative console export",
+		library.save_source(str(created.id), complete_source).ok,
+		true
+	)
 
 	var started: Dictionary = builder.start("nintendo64", str(created.id))
 	_expect("console build starts without blocking the UI", started.ok, true)
@@ -136,6 +165,22 @@ func _wait_for_builder(builder) -> Dictionary:
 			return result
 		await process_frame
 	return {"ok": false, "code": "test_timeout"}
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if value is float and value == floor(value):
+		return int(value)
+	return value
 
 
 func _write_manifest(
