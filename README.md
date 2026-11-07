@@ -13,7 +13,8 @@ its rules.
 
 The animation above is captured from the included sample campaign in the running
 Godot client. It follows the party into close combat and includes the live
-movement, attack, hit, and impact animations—not a mockup or concept render.
+movement, attack, hit, and impact animations. It is not a mockup or concept
+render.
 
 ## Make a game
 
@@ -43,10 +44,10 @@ through the complete workflow with screenshots from the real application.
 The home screen includes two complete examples with their intended player
 counts shown before launch:
 
-- **The Tarnholt Line — one player.** The earlier six-battle campaign is a
+- **The Tarnholt Line** (one player). The earlier six-battle campaign is a
   longer solo test of branching story, recruitment, deployment, survival
   goals, and a final boss.
-- **Emberbound: The Last Dawn — one or two players.** Choose at launch. In
+- **Emberbound: The Last Dawn** (one or two players). Choose at launch. In
   co-op, the five-battle campaign divides one allied company between two
   independent controls; in solo, one player commands the complete company.
 
@@ -63,8 +64,8 @@ authored 3D terrain with animated high-resolution 2D characters.
 ![Godot rendering authored voxel terrain with animated character sprites](docs/screenshots/godot/voxel-sprites.png)
 
 The current Godot art pack covers all eight character archetypes and all
-thirteen terrain kinds. All seven directions—sci-fi, mythical, medieval,
-nature, Sengoku, Undead, and Pirates—have male and female designs for every
+thirteen terrain kinds. Its seven directions are sci-fi, mythical, medieval,
+nature, Sengoku, Undead, and Pirates. Each has male and female designs for every
 archetype. Either body can wear any of the six faction colours without
 recolouring faces, hair, equipment, or effects. The generated portable library
 also remains available as a fallback for every archetype across all seven
@@ -88,9 +89,11 @@ Portable project source is compiled into the same deterministic rules on each
 target. Rendering and controls differ, but movement, combat, objectives,
 campaign state, and random results remain authoritative in the shared engine.
 
+![The same board, attack, counterattack, and return to the board running in Godot, Nintendo 64, and PlayStation](docs/screenshots/renderer-comparison.gif)
+
 | Nintendo 64 | PlayStation |
 |---|---|
-| ![Emberbound running in the ares Nintendo 64 emulator](docs/screenshots/n64.png) | ![Emberbound running in the PCSX-Redux PlayStation emulator](docs/screenshots/psx.png) |
+| ![The current Nintendo 64 console renderer moving from the full tactical board toward battle](docs/screenshots/nintendo64-console-renderer.gif) | ![The current PlayStation console renderer moving from the full tactical board toward battle](docs/screenshots/playstation-console-renderer.gif) |
 
 The installed Export Center can produce:
 
@@ -129,13 +132,12 @@ rest of the documentation describes the current Godot application.
 
 | Version | Focus |
 |---|---|
-| **0.1 — portable foundation** | Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
-| **0.2 — complete campaign runtime** | Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
-| **0.3 — Godot player and creator** | Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
-| **0.4 — broader art and console campaigns** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and promotes one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. This is the current development line. |
-| **0.5 — editor and localization product pass** | Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, better project organization, and the usability and accessibility work needed for larger games. An end-to-end acceptance test will create a complete campaign from an empty project through the normal editor, export it, launch it, and play its first battle. This release will also localize Grandleon's own Godot player/editor and add a final **Translations** step where authors can manually review and translate every player-facing string—including character names—in their game, check missing translations, preview a language, and export the localized project. The editor work will also prepare selected characters to be player-nameable while retaining an authored default. |
-| **Later — living scene backdrops** | Reuses the terrain-aware backdrop library for combat close-ups and in-game conversations, with calmer dialogue compositions that leave room for portraits and text. Optional ambient motion can add moving water, swaying foliage, drifting weather, changing light, and subtle particles; static backdrops remain the dependable fallback, especially on console hardware. |
-| **Every release — better console graphics** | Continues improving character readability, terrain depth and variety, camera composition, movement and attack animation, effects, team and UI clarity, close-up scenes, and measured performance on real PlayStation and Nintendo 64 hardware. A campaign being playable does not mean its presentation is finished. |
+| **0.1** | Portable foundation. Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
+| **0.2** | Complete campaign runtime. Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
+| **0.3** | Godot player and creator. Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
+| **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and promotes one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. This is the current development line. |
+| **0.5** | Editor and localization product pass. Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, better project organization, and the usability and accessibility work needed for larger games. An end-to-end acceptance test will create a complete campaign from an empty project through the normal editor, export it, launch it, and play its first battle. This release will also localize Grandleon's own Godot player/editor and add a final **Translations** step where authors can manually review and translate every player-facing string, including character names, check missing translations, preview a language, and export the localized project. The editor work will also prepare selected characters to be player-nameable while retaining an authored default. |
+| **Prior to 1.0** | Expand terrain-aware backdrops for combat and conversations, with optional ambient motion such as moving water, weather, foliage, light, and particles. Continue improving console character readability, terrain variety, animation, effects, interface clarity, close-up scenes, and performance measured on real hardware. Static backdrops remain the dependable fallback. |
 
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
@@ -216,4 +218,4 @@ retain their own licences and notices.
 
 ## Author
 
-Luis Felipe Strano Moraes — luis.strano at gmail dot com
+Luis Felipe Strano Moraes, luis.strano at gmail dot com

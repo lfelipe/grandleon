@@ -50,10 +50,24 @@ platform/godot/scripts/generate-art-roster.sh
 
 ## Console and terminal captures
 
+The README's three-platform battle movie follows the shared deterministic
+comparison contract. Record the Godot sequence, capture the matching native
+console sequences through their renderer checks, then compose the three films
+with:
+
+```sh
+tools/renderer_comparison/compose-renderer-comparison.sh \
+  GODOT_VIDEO N64_VIDEO PS1_VIDEO OUTPUT_DIRECTORY
+```
+
+The README-sized GIF uses the same board-to-battle timeline for all three
+targets. The individual Nintendo 64 and PlayStation GIFs show the current
+console renderer moving from the full tactical board toward that battle.
+
 The remaining images come from the checks that exercise the matching runtime:
 
 ```sh
-scripts/readme-screenshots.sh          # rebuild all eight
+scripts/readme-screenshots.sh          # rebuild all six diagnostic captures
 scripts/readme-screenshots.sh terminal # or one named capture
 ```
 
@@ -64,8 +78,9 @@ scripts/readme-screenshots.sh terminal # or one named capture
 | `native-guide/*.png` | Godot creator integration fixtures under Xvfb |
 | `art-roster/*.gif` | the committed 4×2 character sheets |
 | `terminal.png` | the real terminal client's ANSI output, rendered by Chromium |
-| `n64.png` | Emberbound's opening board under ares, with window chrome cropped |
-| `psx.png` | the matching verified PlayStation board, cropped to remove its diagnostic backdrop |
+| `renderer-comparison.gif` | the shared Godot, Nintendo 64, and PlayStation battle timeline for the README |
+| `nintendo64-console-renderer.gif` | the current Nintendo 64 tactical scene and battle focus |
+| `playstation-console-renderer.gif` | the current PlayStation tactical scene and battle focus |
 | `n64-autopilot.gif` | the console autopilot run, one frame per checkpoint |
 | `psx-turn.gif` | the PlayStation turn check, one frame per checkpoint |
 | `n64-showcase.gif` | one stretch of the Nintendo 64 run |

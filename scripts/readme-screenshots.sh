@@ -3,17 +3,16 @@
 
 # Regenerates the README's screenshots into docs/screenshots/.
 #
-#   scripts/readme-screenshots.sh            all eight
+#   scripts/readme-screenshots.sh            all six diagnostic captures
 #   scripts/readme-screenshots.sh terminal   just one surface
 #
-# Surfaces: terminal, n64, psx, autopilot, psx-turn, n64-showcase,
-#           psx-showcase, n64-saying.
+# Surfaces: terminal, autopilot, psx-turn, n64-showcase, psx-showcase,
+#           n64-saying.
 #
 # Everything is driven, nothing is posed: the terminal shot comes from the real
-# client's ANSI output rendered by Chromium, and the two console stills come
-# from the same opening Emberbound battle shown by Godot. Both console runs
-# retain their ordinary pixel-verification gates. Re-run after a visual change
-# and commit the PNGs.
+# client's ANSI output rendered by Chromium, and every console film comes from
+# a run that retains its ordinary pixel-verification gates. Re-run after a
+# visual change and commit the updated captures.
 #
 # Two cameras, and the difference matters. The two *trail* animations are
 # built from checkpoints, which are settled frames by construction: the
@@ -50,42 +49,6 @@ surface="${1:-all}"
 if [ "${surface}" = "all" ] || [ "${surface}" = "terminal" ]; then
     echo "== terminal"
     "${repository_root}/scripts/readme-shot-terminal.sh" "${out}/terminal.png"
-fi
-
-if [ "${surface}" = "all" ] || [ "${surface}" = "n64" ]; then
-    echo "== n64"
-    cmake --build "${repository_root}/build" \
-        --target grandleon_n64_readme_capture >/dev/null
-    "${repository_root}/tools/placeholder_art/.venv/bin/python" - "$@" <<'PYEOF'
-from PIL import Image
-image = Image.open("build-n64-readme/ares/trail-readme/001-readme.png")
-# Trim the ares window chrome: menu bar above, status bar below, desktop
-# margins either side. The emulator viewport is what the README wants.
-image.crop((108, 82, 876, 656)).save("docs/screenshots/n64.png")
-PYEOF
-fi
-
-if [ "${surface}" = "all" ] || [ "${surface}" = "psx" ]; then
-    echo "== psx"
-    # The static renderer opens the same scaled Rowanfield encounter as Godot
-    # and N64. Its harness validates the complete 320x240 framebuffer first;
-    # the documentation image then removes only the unique diagnostic backdrop
-    # outside the board.
-    cmake --build "${repository_root}/build" \
-        --target grandleon_playstation_readme_capture >/dev/null
-    "${repository_root}/tools/placeholder_art/.venv/bin/python" - <<'PYEOF'
-from PIL import Image, ImageChops
-
-frame = Image.open(
-    "build-playstation-readme/frames/grandleon_psx_readme.ppm"
-).convert("RGB")
-backdrop = Image.new("RGB", frame.size, frame.getpixel((0, 0)))
-board = ImageChops.difference(frame, backdrop).getbbox()
-if board is None:
-    raise SystemExit("PlayStation README capture contains only the backdrop")
-frame.crop(board).save("docs/screenshots/psx.png", optimize=True)
-print(f"  {board[2] - board[0]}x{board[3] - board[1]}, diagnostic border removed")
-PYEOF
 fi
 
 if [ "${surface}" = "all" ] || [ "${surface}" = "autopilot" ]; then
