@@ -50,8 +50,8 @@ run_godot() {
         "$@"
 }
 
-run_godot timeout 60s "${godot_binary}" --editor --headless --quiet \
-    --path "${stage_dir}" --quit
+run_godot timeout 60s "${godot_binary}" --headless --quiet --import \
+    --path "${stage_dir}"
 run_godot timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
     --script "${repo_root}/platform/godot/tests/combat_presentation_plan_test.gd"
 run_godot timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \

@@ -67,8 +67,8 @@ if [[ "${GRANDLEON_DEMO_CAPTURE_CHILD:-0}" != 1 ]]; then
     XDG_DATA_HOME="${state_dir}/data" \
     XDG_CONFIG_HOME="${state_dir}/config" \
     XDG_CACHE_HOME="${state_dir}/cache" \
-        "${godot_binary}" --editor --headless --quiet \
-        --path "${stage_dir}" --quit
+        "${godot_binary}" --headless --quiet --import \
+        --path "${stage_dir}"
 
     mkdir -p "$(dirname -- "${output_path}")"
     GRANDLEON_DEMO_CAPTURE_CHILD=1 \

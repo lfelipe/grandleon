@@ -99,7 +99,7 @@ mkdir -p "${godot_state}/data" "${godot_state}/config" "${godot_state}/cache"
 XDG_DATA_HOME="${godot_state}/data" \
 XDG_CONFIG_HOME="${godot_state}/config" \
 XDG_CACHE_HOME="${godot_state}/cache" \
-    "${godot_binary}" --editor --headless --quiet --path "${stage_dir}" --quit
+    "${godot_binary}" --headless --quiet --import --path "${stage_dir}"
 cmake -E rm -rf "${stage_dir}/.godot/editor"
 
 extension="${stage_dir}/bin/libgrandleon_godot.so"
