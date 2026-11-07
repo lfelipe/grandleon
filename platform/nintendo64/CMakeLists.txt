@@ -759,6 +759,52 @@ if(GRANDLEON_N64_SEVENFOLD_3D)
         "${CMAKE_CURRENT_BINARY_DIR}/generated/sevenfold_hybrid_assets.h"
         "${hybrid_assets_header}")
 
+    # The terrain-quality viewer keeps its two original atlases separate from
+    # the curated character cutouts: one opaque 64x64 CI4 material atlas and
+    # one alpha-clipped 64x64 CI4 prop atlas. Each is below the RDP's 4 KiB
+    # TMEM ceiling, and the viewer switches between them in explicit passes.
+    set(terrain_asset_dir
+        "${CMAKE_CURRENT_SOURCE_DIR}/prototype/assets/sevenfold_terrain")
+    set(terrain_sprite_dir
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/sevenfold_terrain_sprites")
+    file(MAKE_DIRECTORY "${terrain_sprite_dir}")
+    set(terrain_assets material_atlas prop_atlas)
+    string(CONCAT terrain_assets_header
+        "// Generated from original N64 terrain-quality PNGs via mksprite.\n"
+        "#pragma once\n"
+        "#include <cstddef>\n"
+    )
+    foreach(terrain_asset IN LISTS terrain_assets)
+        execute_process(
+            COMMAND
+                "${N64_BINDIR}/mksprite" -f CI4 -c 0
+                -o "${terrain_sprite_dir}"
+                "${terrain_asset_dir}/${terrain_asset}.png"
+            RESULT_VARIABLE terrain_mksprite_status
+            OUTPUT_QUIET
+        )
+        if(NOT terrain_mksprite_status EQUAL 0)
+            message(FATAL_ERROR
+                "mksprite failed for N64 terrain asset ${terrain_asset}")
+        endif()
+        file(READ
+            "${terrain_sprite_dir}/${terrain_asset}.sprite"
+            terrain_sprite_hex HEX)
+        string(LENGTH "${terrain_sprite_hex}" terrain_sprite_hex_length)
+        math(EXPR terrain_sprite_size "${terrain_sprite_hex_length} / 2")
+        string(REGEX REPLACE
+            "([0-9a-f][0-9a-f])" "0x\\1,"
+            terrain_sprite_bytes "${terrain_sprite_hex}")
+        string(CONCAT terrain_assets_header "${terrain_assets_header}"
+            "inline constexpr unsigned char terrain_${terrain_asset}[] = {"
+            "${terrain_sprite_bytes}};\n"
+            "inline constexpr std::size_t terrain_${terrain_asset}_size = "
+            "${terrain_sprite_size};\n")
+    endforeach()
+    file(WRITE
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/sevenfold_terrain_assets.h"
+        "${terrain_assets_header}")
+
     add_executable(
         grandleon_n64_sevenfold_3d
         prototype/sevenfold_roster_rom.cpp

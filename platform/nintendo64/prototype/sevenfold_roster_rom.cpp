@@ -222,6 +222,41 @@ void build_proxy(
     return 3;
 }
 
+[[nodiscard]] constexpr std::uint8_t terrain_variation(
+    std::uint8_t terrain, int column, int row
+) noexcept {
+    // Stable per cell: repeated materials vary without temporal shimmer or a
+    // runtime random-number dependency.
+    return static_cast<std::uint8_t>(
+        (terrain * 3U + static_cast<unsigned>(column) * 5U +
+         static_cast<unsigned>(row) * 7U +
+         static_cast<unsigned>(column * row)) & 3U
+    );
+}
+
+[[nodiscard]] std::uint32_t terrain_colour(
+    const std::uint8_t* rgb, const std::uint8_t* map, int columns, int rows,
+    int column, int row
+) noexcept {
+    const std::uint8_t terrain = map[row * columns + column];
+    int neighbours = 0;
+    if (column > 0 && map[row * columns + column - 1] == terrain) ++neighbours;
+    if (column + 1 < columns &&
+        map[row * columns + column + 1] == terrain) ++neighbours;
+    if (row > 0 && map[(row - 1) * columns + column] == terrain) ++neighbours;
+    if (row + 1 < rows &&
+        map[(row + 1) * columns + column] == terrain) ++neighbours;
+    // Connected patches lift subtly toward their centre. Edges remain darker,
+    // giving neighbouring terrain clusters a transition cue while preserving
+    // every tactical cell boundary.
+    const unsigned tone = 245U + static_cast<unsigned>(neighbours) * 2U;
+    return rgba(
+        static_cast<std::uint8_t>(rgb[0] * tone / 255U),
+        static_cast<std::uint8_t>(rgb[1] * tone / 255U),
+        static_cast<std::uint8_t>(rgb[2] * tone / 255U)
+    );
+}
+
 void build_board(T3DVertPacked* into, int stage) {
     for (int index = 0; index < packed_board_vertices; ++index) {
         into[index] = T3DVertPacked{};
@@ -240,7 +275,10 @@ void build_board(T3DVertPacked* into, int stage) {
             const std::uint8_t terrain = sevenfold_stage_terrain[stage]
                 [row * sevenfold_board_columns + column];
             const std::uint8_t* rgb = terrain_colours[terrain];
-            const std::uint32_t colour = rgba(rgb[0], rgb[1], rgb[2]);
+            const std::uint32_t colour = terrain_colour(
+                rgb, sevenfold_stage_terrain[stage],
+                sevenfold_board_columns, sevenfold_board_rows, column, row
+            );
             const std::int16_t points[6][3] = {
                 {x0, 0, z0}, {x1, 0, z0}, {x1, 0, z1},
                 {x0, 0, z0}, {x1, 0, z1}, {x0, 0, z1},
@@ -256,7 +294,8 @@ void build_board(T3DVertPacked* into, int stage) {
                 }
                 for (int corner = 0; corner < 3; ++corner) {
                     const texture::UV uv = texture::terrain_uv(
-                        triangle_points, corner, region
+                        triangle_points, corner, region,
+                        terrain_variation(terrain, column, row)
                     );
                     const int point = triangle * 3 + corner;
                     set_vertex(
@@ -288,7 +327,10 @@ void build_matched_board(T3DVertPacked* into) {
             const std::int16_t z1 = static_cast<std::int16_t>(z0 + cell_world);
             const std::uint8_t terrain_id = matched_terrain[row][column];
             const std::uint8_t* rgb = terrain_colours[terrain_id];
-            const std::uint32_t colour = rgba(rgb[0], rgb[1], rgb[2]);
+            const std::uint32_t colour = terrain_colour(
+                rgb, &matched_terrain[0][0], matched_board_columns,
+                matched_board_rows, column, row
+            );
             const std::int16_t points[6][3] = {
                 {x0, 0, z0}, {x1, 0, z0}, {x1, 0, z1},
                 {x0, 0, z0}, {x1, 0, z1}, {x0, 0, z1},
@@ -305,7 +347,8 @@ void build_matched_board(T3DVertPacked* into) {
                 for (int corner = 0; corner < 3; ++corner) {
                     const int point = triangle * 3 + corner;
                     const texture::UV uv = texture::terrain_uv(
-                        triangle_points, corner, region
+                        triangle_points, corner, region,
+                        terrain_variation(terrain_id, column, row)
                     );
                     set_vertex(
                         into[written / 2], (written & 1) != 0,
@@ -321,11 +364,12 @@ void build_matched_board(T3DVertPacked* into) {
 
 void scene_triangle(
     T3DVertPacked* into, int& written, const std::int16_t points[3][3],
-    std::uint32_t colour, std::uint8_t texture_region = 1
+    std::uint32_t colour, std::uint8_t texture_region = 1,
+    std::uint8_t texture_variation = 0
 ) {
     for (int point = 0; point < 3; ++point) {
         const texture::UV uv = texture::terrain_uv(
-            points, point, texture_region
+            points, point, texture_region, texture_variation
         );
         set_vertex(
             into[written / 2], (written & 1) != 0,
@@ -338,7 +382,8 @@ void scene_triangle(
 
 void scene_quad(
     T3DVertPacked* into, int& written, const std::int16_t points[4][3],
-    std::uint32_t colour, std::uint8_t texture_region = 1
+    std::uint32_t colour, std::uint8_t texture_region = 1,
+    std::uint8_t texture_variation = 0
 ) {
     const std::int16_t first[3][3] = {
         {points[0][0], points[0][1], points[0][2]},
@@ -350,8 +395,12 @@ void scene_quad(
         {points[2][0], points[2][1], points[2][2]},
         {points[3][0], points[3][1], points[3][2]},
     };
-    scene_triangle(into, written, first, colour, texture_region);
-    scene_triangle(into, written, second, colour, texture_region);
+    scene_triangle(
+        into, written, first, colour, texture_region, texture_variation
+    );
+    scene_triangle(
+        into, written, second, colour, texture_region, texture_variation
+    );
 }
 
 [[nodiscard]] constexpr int terrain_silhouette_height(
@@ -405,7 +454,8 @@ void scene_quad(
             };
             scene_quad(
                 into, written, floor, colour,
-                terrain_texture_region(terrain)
+                terrain_texture_region(terrain),
+                terrain_variation(terrain, source_x, source_y)
             );
         }
     }
@@ -487,7 +537,8 @@ void scene_quad(
             };
             scene_quad(
                 into, written, floor, rgba(rgb[0], rgb[1], rgb[2]),
-                terrain_texture_region(terrain)
+                terrain_texture_region(terrain),
+                terrain_variation(terrain, column, row)
             );
         }
     }
@@ -680,8 +731,8 @@ std::uint64_t draw_frame_textured(
 
 std::uint64_t draw_hybrid_frame(
     surface_t* display, T3DViewport* viewport, T3DMat4FP* matrix,
-    const T3DVertPacked* scene, int scene_triangles, hybrid::Style style,
-    const hybrid::Frame& hybrid_frame, const char* label,
+    const T3DVertPacked* scene, int scene_triangles, std::uint8_t terrain,
+    hybrid::Style style, const hybrid::Frame& hybrid_frame, const char* label,
     const char* footer, const char* controls, color_t clear_colour
 ) {
     const std::uint64_t started = get_ticks_us();
@@ -703,6 +754,7 @@ std::uint64_t draw_hybrid_frame(
     draw_unindexed(scene, scene_triangles);
     t3d_matrix_pop(1);
     t3d_tri_sync();
+    texture::draw_close_props(terrain);
     hybrid::draw(style, hybrid_frame);
     rdpq_detach_wait();
     graphics_draw_box(
@@ -740,6 +792,7 @@ std::uint64_t draw_tactical_hybrid_frame(
     draw_unindexed(board, board_triangles);
     t3d_matrix_pop(1);
     t3d_tri_sync();
+    texture::draw_board_props(false);
     hybrid::draw_tactical(tactical_frame);
     rdpq_detach_wait();
     graphics_draw_box(
@@ -777,6 +830,7 @@ std::uint64_t draw_matched_board_frame(
     draw_unindexed(board, matched_board_triangles);
     t3d_matrix_pop(1);
     t3d_tri_sync();
+    texture::draw_board_props(true);
     hybrid::draw_matched_board(left_health, right_health, focus);
     rdpq_detach_wait();
     graphics_draw_box(
@@ -955,11 +1009,13 @@ std::uint64_t show_tactical_hybrid(
     if (!report) return elapsed;
     std::fprintf(
         stderr,
-        "sevenfold tactical-hybrid stage=medieval models=8 roles=8 bodies=mixed teams=blue-red scene_triangles=%d us=%llu fps=%llu tmem_peak=%lu embedded=%lu ordering=foot-depth highlights=blue-and-gold\n",
+        "sevenfold tactical-hybrid stage=medieval models=8 roles=8 bodies=mixed teams=blue-red scene_triangles=%d us=%llu fps=%llu tmem_peak=%lu embedded=%lu terrain_tmem=%lu terrain_embedded=%lu props=edge-sparse variation=deterministic cluster=transition-tone ordering=foot-depth highlights=blue-and-gold\n",
         board_triangles, static_cast<unsigned long long>(elapsed),
         static_cast<unsigned long long>(elapsed > 0 ? 1'000'000 / elapsed : 0),
         static_cast<unsigned long>(hybrid::tactical_peak_texture_bytes()),
-        static_cast<unsigned long>(hybrid::tactical_embedded_bytes())
+        static_cast<unsigned long>(hybrid::tactical_embedded_bytes()),
+        static_cast<unsigned long>(texture::terrain_peak_texture_bytes()),
+        static_cast<unsigned long>(texture::terrain_embedded_bytes())
     );
     std::fprintf(stderr, "CHECKPOINT sevenfold-tactical-hybrid-medieval\n");
     std::fflush(stderr);
@@ -1315,7 +1371,7 @@ std::uint64_t show_hybrid_close(
         surface_t* display = display_get();
         elapsed = draw_hybrid_frame(
             display, &viewport, matrix, scene, scene_triangles,
-            hybrid_style(stage), hybrid_frame, page_label,
+            terrain, hybrid_style(stage), hybrid_frame, page_label,
             "2.5D CUTOUTS + TEXTURED 3D TERRAIN",
             "BLUE/RED MASKS - SHADOWS + EFFECT",
             RGBA32(sky[0], sky[1], sky[2], 255)
@@ -1325,13 +1381,15 @@ std::uint64_t show_hybrid_close(
     if (!report) return elapsed;
     std::fprintf(
         stderr,
-        "sevenfold hybrid stage=%s pose=%s terrain=%s sprites=2 scene_triangles=%d us=%llu fps=%llu tmem_peak=%lu embedded=%lu anchors=locked team=blue-red\n",
+        "sevenfold hybrid stage=%s pose=%s terrain=%s sprites=2 scene_triangles=%d us=%llu fps=%llu tmem_peak=%lu embedded=%lu terrain_tmem=%lu terrain_embedded=%lu props=terrain-specific anchors=locked team=blue-red\n",
         sevenfold_style_names[stage], impact ? "impact" : "idle",
         terrain_names[terrain], scene_triangles,
         static_cast<unsigned long long>(elapsed),
         static_cast<unsigned long long>(elapsed > 0 ? 1'000'000 / elapsed : 0),
         static_cast<unsigned long>(hybrid::peak_texture_bytes()),
-        static_cast<unsigned long>(hybrid::embedded_bytes())
+        static_cast<unsigned long>(hybrid::embedded_bytes()),
+        static_cast<unsigned long>(texture::terrain_peak_texture_bytes()),
+        static_cast<unsigned long>(texture::terrain_embedded_bytes())
     );
     std::fprintf(
         stderr, "CHECKPOINT sevenfold-hybrid-%s-%s\n",
@@ -1360,7 +1418,7 @@ std::uint64_t play_hybrid_preview(
         surface_t* display = display_get();
         draw_hybrid_frame(
             display, &viewport, matrix, scene, scene_triangles,
-            hybrid_style(stage), neutral_hybrid_frame(), page_label,
+            terrain, hybrid_style(stage), neutral_hybrid_frame(), page_label,
             "ANTICIPATION - IMPACT - COUNTER - SETTLE",
             "CURATED POSES ON TEXTURED 3D TERRAIN",
             RGBA32(sky[0], sky[1], sky[2], 255)
@@ -1379,7 +1437,7 @@ std::uint64_t play_hybrid_preview(
         surface_t* display = display_get();
         const std::uint64_t elapsed = draw_hybrid_frame(
             display, &viewport, matrix, scene, scene_triangles,
-            hybrid_style(stage), pose, page_label,
+            terrain, hybrid_style(stage), pose, page_label,
             "ANTICIPATION - IMPACT - COUNTER - SETTLE",
             "5 CURATED POSES EACH - FIXED SIDES",
             RGBA32(sky[0], sky[1], sky[2], 255)
@@ -1468,7 +1526,7 @@ std::uint64_t play_matched_readme_sequence(
             const int close_triangles = build_matched_attack_scene(scene);
             elapsed = draw_hybrid_frame(
                 display, &attack_viewport, matrix, scene, close_triangles,
-                hybrid::Style::medieval, pose,
+                2U, hybrid::Style::medieval, pose,
                 counter ? "MATCHED SCENE - COUNTER" :
                     "MATCHED SCENE - ATTACK",
                 counter ? "RED FEMALE RIGHT TO LEFT" :
@@ -1490,7 +1548,7 @@ std::uint64_t play_matched_readme_sequence(
                 const int close_triangles = build_matched_attack_scene(scene);
                 elapsed = draw_hybrid_frame(
                     display, &attack_viewport, matrix, scene, close_triangles,
-                    hybrid::Style::medieval, neutral_hybrid_frame(true),
+                    2U, hybrid::Style::medieval, neutral_hybrid_frame(true),
                     "MATCHED SCENE - RETURN",
                     "BLUE HP8 - RED HP8", "FIXED SIDES RESTORED",
                     RGBA32(
@@ -1641,8 +1699,23 @@ extern "C" int main(void) {
     joypad_init();
     T3DInitParams params{};
     t3d_init(params);
-    texture::initialize();
+    const bool terrain_ready = texture::initialize();
     const bool hybrid_ready = hybrid::initialize();
+    expect(
+        terrain_ready,
+        "original CI4 material and prop atlases allocate"
+    );
+    expect(
+        texture::terrain_peak_texture_bytes() <= 4096U,
+        "each sixty-four-pixel terrain atlas fits four KiB of TMEM"
+    );
+    std::fprintf(
+        stderr,
+        "sevenfold terrain-quality material=64x64-ci4 regions=4 prop=64x64-ci4 cells=4 tmem_peak=%lu embedded=%lu variation=deterministic transitions=cluster-tone provenance=repo-generated\n",
+        static_cast<unsigned long>(texture::terrain_peak_texture_bytes()),
+        static_cast<unsigned long>(texture::terrain_embedded_bytes())
+    );
+    std::fflush(stderr);
     expect(
         hybrid_ready,
         "close and eight-role tactical cutouts plus effects allocate"
@@ -1692,7 +1765,7 @@ extern "C" int main(void) {
     expect(
         allocated, "board and eight maximum-size high-LOD model buffers allocate"
     );
-    if (!allocated || !hybrid_ready) {
+    if (!allocated || !hybrid_ready || !terrain_ready) {
         std::fprintf(stderr, "RESULT FAIL %d/%d\n", checks - failures, checks);
         while (true) wait_ms(1000);
     }

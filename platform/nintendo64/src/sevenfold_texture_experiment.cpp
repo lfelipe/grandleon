@@ -6,26 +6,33 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
+
+#include "sevenfold_terrain_assets.h"
 
 namespace grandleon::nintendo64::sevenfold_texture_experiment {
 namespace {
 
-constexpr int atlas_side = 32;
-constexpr int region_side = 16;
-constexpr int atlas_bytes = atlas_side * atlas_side / 2;
+constexpr int character_atlas_side = 32;
+constexpr int character_region_side = 16;
+constexpr int character_atlas_bytes =
+    character_atlas_side * character_atlas_side / 2;
+constexpr int terrain_atlas_side = 64;
+constexpr int terrain_region_side = 32;
 constexpr int palette_entries = 16;
 
-alignas(16) std::uint8_t character_pixels[atlas_bytes]{};
-alignas(16) std::uint8_t terrain_pixels[atlas_bytes]{};
+alignas(16) std::uint8_t character_pixels[character_atlas_bytes]{};
 alignas(16) std::uint16_t palette[palette_entries]{};
 surface_t character_surface{};
-surface_t terrain_surface{};
+sprite_t* terrain_atlas = nullptr;
+sprite_t* prop_atlas = nullptr;
 bool ready = false;
 
 void put(
     std::uint8_t* pixels, int x, int y, std::uint8_t colour
 ) noexcept {
-    const int byte = (y * atlas_side + x) / 2;
+    const int byte = (y * character_atlas_side + x) / 2;
     if ((x & 1) == 0) {
         pixels[byte] = static_cast<std::uint8_t>(
             (pixels[byte] & 0x0FU) | (colour << 4)
@@ -41,14 +48,15 @@ void put(
     return value < 0 ? -value : value;
 }
 
-[[nodiscard]] int interior_coordinate(int value) noexcept {
-    int wrapped = value % 14;
-    if (wrapped < 0) wrapped += 14;
+[[nodiscard]] int interior_coordinate(int value, int span) noexcept {
+    int wrapped = value % span;
+    if (wrapped < 0) wrapped += span;
     return wrapped + 1;
 }
 
 [[nodiscard]] UV projected_uv(
-    const std::int16_t points[3][3], int corner, int region, int divisor
+    const std::int16_t points[3][3], int corner, int region, int divisor,
+    int region_side, int variation
 ) noexcept {
     const int ux = points[1][0] - points[0][0];
     const int uy = points[1][1] - points[0][1];
@@ -75,20 +83,41 @@ void put(
 
     const int origin_s = (region & 1) * region_side;
     const int origin_t = ((region >> 1) & 1) * region_side;
+    const int span = region_side - 2;
+    // Four stable offsets make repeated cells less obvious while retaining a
+    // one-texel safety inset against neighbouring atlas regions.
+    constexpr int offsets[4][2] = {{0, 0}, {7, 13}, {17, 5}, {23, 19}};
+    const int offset_s = offsets[variation & 3][0];
+    const int offset_t = offsets[variation & 3][1];
     // Tiny3D stores texture coordinates in signed 10.5 fixed-point pixels.
     return {
         static_cast<std::int16_t>(
-            (origin_s + interior_coordinate(source_s / divisor)) * 32
+            (origin_s + interior_coordinate(
+                source_s / divisor + offset_s, span
+            )) * 32
         ),
         static_cast<std::int16_t>(
-            (origin_t + interior_coordinate(source_t / divisor)) * 32
+            (origin_t + interior_coordinate(
+                source_t / divisor + offset_t, span
+            )) * 32
         ),
     };
 }
 
+[[nodiscard]] sprite_t* load(
+    const unsigned char* data, std::size_t size
+) noexcept {
+    void* copy = std::malloc(size);
+    if (copy == nullptr) return nullptr;
+    std::memcpy(copy, data, size);
+    sprite_t* result = sprite_load_buf(copy, static_cast<int>(size));
+    if (result == nullptr) std::free(copy);
+    return result;
+}
+
 void build_character_atlas() noexcept {
-    for (int y = 0; y < atlas_side; ++y) {
-        for (int x = 0; x < atlas_side; ++x) {
+    for (int y = 0; y < character_atlas_side; ++y) {
+        for (int x = 0; x < character_atlas_side; ++x) {
             const int u = x & 15;
             const int v = y & 15;
             const int region = (x / 16) + (y / 16) * 2;
@@ -127,44 +156,8 @@ void build_character_atlas() noexcept {
     }
 }
 
-void build_terrain_atlas() noexcept {
-    for (int y = 0; y < atlas_side; ++y) {
-        for (int x = 0; x < atlas_side; ++x) {
-            const int u = x & 15;
-            const int v = y & 15;
-            const int region = (x / 16) + (y / 16) * 2;
-            std::uint8_t ink = 1;
-            if (region == 0) {
-                // Grass: irregular short blades and light flecks.
-                ink = static_cast<std::uint8_t>(
-                    ((u * 5 + v * 3) % 17) < 3 ? 4 : 1
-                );
-                if (((u + 2 * v) % 19) == 0) ink = 0;
-            } else if (region == 1) {
-                // Stone: offset block courses with dark mortar.
-                const int offset = (v / 5) & 1 ? 4 : 0;
-                ink = static_cast<std::uint8_t>(
-                    v % 5 == 0 || (u + offset) % 8 == 0 ? 5 : 1
-                );
-            } else if (region == 2) {
-                // Dirt: sparse pebbles at two values.
-                const int noise = (u * 11 + v * 7 + u * v) % 23;
-                ink = static_cast<std::uint8_t>(
-                    noise == 0 ? 5 : noise < 4 ? 3 : 1
-                );
-            } else {
-                // Water/swamp/snow: calm horizontal ripples.
-                ink = static_cast<std::uint8_t>(
-                    (v == 3 || v == 10) && ((u + v) & 3) != 0 ? 4 : 1
-                );
-            }
-            put(terrain_pixels, x, y, ink);
-        }
-    }
-}
-
 void bind(const surface_t& surface) {
-    if (!ready) initialize();
+    if (!ready && !initialize()) return;
     rdpq_mode_tlut(TLUT_RGBA16);
     rdpq_tex_upload_tlut(palette, 0, palette_entries);
     rdpq_texparms_t parameters{};
@@ -172,10 +165,37 @@ void bind(const surface_t& surface) {
     rdpq_tex_upload(TILE0, &surface, &parameters);
 }
 
+void begin_props() {
+    if (!ready && !initialize()) return;
+    rdpq_set_mode_standard();
+    rdpq_mode_tlut(TLUT_RGBA16);
+    rdpq_mode_alphacompare(1);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_sprite_upload(TILE0, prop_atlas, nullptr);
+}
+
+void prop(
+    int cell, int left, int top, int width, int height, bool flip = false
+) {
+    const int source_left = (cell & 1) * 32;
+    const int source_top = ((cell >> 1) & 1) * 32;
+    if (!flip) {
+        rdpq_texture_rectangle_scaled(
+            TILE0, left, top, left + width, top + height,
+            source_left, source_top, source_left + 32, source_top + 32
+        );
+    } else {
+        rdpq_texture_rectangle_scaled(
+            TILE0, left, top, left + width, top + height,
+            source_left + 32, source_top, source_left, source_top + 32
+        );
+    }
+}
+
 }  // namespace
 
-void initialize() {
-    if (ready) return;
+bool initialize() {
+    if (ready) return true;
     constexpr std::uint8_t values[palette_entries] = {
         255, 235, 215, 195, 170, 145, 120, 96,
         255, 235, 215, 195, 170, 145, 120, 96,
@@ -188,21 +208,78 @@ void initialize() {
         );
     }
     build_character_atlas();
-    build_terrain_atlas();
     data_cache_hit_writeback(character_pixels, sizeof character_pixels);
-    data_cache_hit_writeback(terrain_pixels, sizeof terrain_pixels);
     data_cache_hit_writeback(palette, sizeof palette);
     character_surface = surface_make_linear(
-        character_pixels, FMT_CI4, atlas_side, atlas_side
+        character_pixels, FMT_CI4,
+        character_atlas_side, character_atlas_side
     );
-    terrain_surface = surface_make_linear(
-        terrain_pixels, FMT_CI4, atlas_side, atlas_side
+    terrain_atlas = load(
+        terrain_material_atlas, terrain_material_atlas_size
     );
-    ready = true;
+    prop_atlas = load(
+        terrain_prop_atlas, terrain_prop_atlas_size
+    );
+    ready = terrain_atlas != nullptr && prop_atlas != nullptr;
+    return ready;
 }
 
-void bind_terrain() { bind(terrain_surface); }
+void bind_terrain() {
+    if (!ready && !initialize()) return;
+    rdpq_mode_tlut(TLUT_RGBA16);
+    rdpq_sprite_upload(TILE0, terrain_atlas, nullptr);
+}
 void bind_character() { bind(character_surface); }
+
+void draw_board_props(bool compact) {
+    begin_props();
+    if (!ready) return;
+    // Kept at the perimeter so the fixed camera gains foreground depth without
+    // obscuring walkable-cell boundaries, selection marks, or any unit feet.
+    if (compact) {
+        prop(3, 5, 73, 29, 51);
+        prop(1, 285, 83, 30, 32, true);
+        prop(0, 3, 162, 27, 30);
+        prop(2, 288, 162, 28, 30);
+    } else {
+        prop(3, 4, 68, 30, 55);
+        prop(1, 283, 82, 32, 34, true);
+        prop(0, 2, 161, 28, 31);
+        prop(2, 288, 160, 28, 32);
+    }
+}
+
+void draw_close_props(std::uint8_t terrain) {
+    begin_props();
+    if (!ready) return;
+    if (terrain == 2U || terrain == 11U) {
+        prop(3, 2, 79, 42, 77);
+        prop(3, 280, 92, 36, 66, true);
+        prop(1, 11, 150, 38, 42);
+        prop(2, 282, 160, 34, 32);
+    } else if (terrain == 3U || terrain == 8U || terrain == 12U) {
+        prop(2, 4, 146, 44, 48);
+        prop(2, 273, 150, 43, 44, true);
+        prop(0, 48, 158, 30, 34);
+    } else if (terrain == 1U || terrain == 4U || terrain == 10U) {
+        prop(2, 3, 151, 39, 41);
+        prop(0, 43, 158, 30, 34);
+        prop(0, 278, 157, 34, 36, true);
+    } else {
+        prop(1, 4, 143, 44, 49);
+        prop(1, 272, 144, 44, 48, true);
+        prop(0, 49, 159, 28, 33);
+    }
+}
+
+std::size_t terrain_peak_texture_bytes() noexcept {
+    // One 64x64 four-bit image plus a sixteen-entry RGBA16 lookup table.
+    return terrain_atlas_side * terrain_atlas_side / 2 + 16 * 2;
+}
+
+std::size_t terrain_embedded_bytes() noexcept {
+    return terrain_material_atlas_size + terrain_prop_atlas_size;
+}
 
 UV character_uv(
     const std::int16_t points[3][3], int corner, std::uint8_t material
@@ -215,13 +292,18 @@ UV character_uv(
     if (material == 0U) region = 3;
     else if (material == 1U) region = 1;
     else if (material == 3U) region = 2;
-    return projected_uv(points, corner, region, 4);
+    return projected_uv(
+        points, corner, region, 4, character_region_side, 0
+    );
 }
 
 UV terrain_uv(
-    const std::int16_t points[3][3], int corner, std::uint8_t region
+    const std::int16_t points[3][3], int corner, std::uint8_t region,
+    std::uint8_t variation
 ) noexcept {
-    return projected_uv(points, corner, region & 3U, 7);
+    return projected_uv(
+        points, corner, region & 3U, 4, terrain_region_side, variation
+    );
 }
 
 }  // namespace grandleon::nintendo64::sevenfold_texture_experiment

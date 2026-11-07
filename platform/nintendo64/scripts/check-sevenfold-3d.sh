@@ -85,6 +85,25 @@ for asset in hybrid_report["assets"]:
         != asset["mask_sha256"]
     ):
         raise SystemExit(f"N64 hybrid mask changed: {mask_path}")
+
+terrain_dir = root / "platform/nintendo64/prototype/assets/sevenfold_terrain"
+terrain_report = json.loads((terrain_dir / "manifest.json").read_text())
+terrain_generator = root / terrain_report["generated_by"]
+if (
+    hashlib.sha256(terrain_generator.read_bytes()).hexdigest()
+    != terrain_report["generator_sha256"]
+):
+    raise SystemExit("N64 terrain generator changed; regenerate its atlases")
+if len(terrain_report["assets"]) != 2:
+    raise SystemExit("N64 terrain manifest must contain two original atlases")
+for asset in terrain_report["assets"]:
+    output = terrain_dir / asset["path"]
+    if not output.is_file() or output.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"N64 terrain asset is missing or not PNG: {output}")
+    if hashlib.sha256(output.read_bytes()).hexdigest() != asset["sha256"]:
+        raise SystemExit(f"N64 terrain asset changed: {output}")
+    if (asset["width"], asset["height"], asset["format"]) != (64, 64, "CI4"):
+        raise SystemExit(f"N64 terrain atlas contract changed: {output}")
 print("Sevenfold 3D roster provenance passed: 112 combinations")
 PYEOF
 
@@ -107,7 +126,7 @@ fi
 
 GRANDLEON_N64_BUILD_DIR="${build_dir}" \
 GRANDLEON_N64_ARES_SECONDS=120 \
-GRANDLEON_N64_ARES_MIN_CHECKS=58 \
+GRANDLEON_N64_ARES_MIN_CHECKS=60 \
 GRANDLEON_N64_ARES_LOG=sevenfold-3d.log \
 GRANDLEON_N64_ARES_TRAIL=trail-sevenfold-3d \
 GRANDLEON_N64_ARES_SHOT=screenshot-sevenfold-3d.png \
@@ -139,6 +158,7 @@ for style in medieval pirates; do
 done
 grep -q '^sevenfold tactical-hybrid stage=medieval models=8 roles=8 bodies=mixed teams=blue-red .* tmem_peak=3648 embedded=.* ordering=foot-depth highlights=blue-and-gold$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-medieval$' "${log}"
+grep -q '^sevenfold terrain-quality material=64x64-ci4 regions=4 prop=64x64-ci4 cells=4 tmem_peak=2080 embedded=.* variation=deterministic transitions=cluster-tone provenance=repo-generated$' "${log}"
 grep -q '^sevenfold tactical-hybrid-animation stage=medieval frames=72 .* motion=tile-move poses=idle2-walk2 easing=smoothstep beats=anticipation-move-settle ordering=foot-depth$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-move-start$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-move-end$' "${log}"
@@ -182,5 +202,5 @@ grep -q '^CHECKPOINT sevenfold-readme-sequence-start$' "${log}"
 for checkpoint in board focus attack counter restored; do
     grep -q "^CHECKPOINT sevenfold-readme-${checkpoint}$" "${log}"
 done
-grep -q '^RESULT PASS 58/58$' "${log}"
+grep -q '^RESULT PASS 60/60$' "${log}"
 echo "Nintendo 64 Sevenfold 3D roster check passed: ${rom}"

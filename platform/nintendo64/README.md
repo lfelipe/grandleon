@@ -148,29 +148,38 @@ views, the proxy animation, and matched proxy/hybrid close views for medieval
 and mythical representatives. It also records the canonical 8.15-second
 cross-renderer scene: the same six-by-four forest/grass/paved board, knights,
 health, damage, counter, and phase timing used by Godot and PlayStation. The
-current run passes `58/58` and records the complete checkpoint trail. The two
-low-poly tactical material views measure 78 and 75 fps,
+current run passes `60/60` and records the complete checkpoint trail. The two
+low-poly tactical material views measure 78 and 74 fps,
 versus 81 and 76 fps for their identical flat views. Textured
-proxy close views measure 157 fps for medieval and 129 fps for mythical. The
-hybrid idle/impact views measure 435–457 fps, and its five-pose attack/counter
-exchange peaks at 2.41 ms. The full 2.5D board measures about 353 fps while
-static and 286 fps at its slowest animated frame. The canonical scene peaks at
-2.43 ms. These are renderer-throughput measurements in
+proxy close views measure 153 fps for medieval and 129 fps for mythical. The
+hybrid idle/impact views measure 403–444 fps, and its five-pose attack/counter
+exchange peaks at 2.64 ms. The full 2.5D board measures about 400 fps while
+static and 290 fps at its slowest animated frame. The canonical scene peaks at
+2.50 ms. These are renderer-throughput measurements in
 ares, not display rate or timings from original hardware.
 
 Both texture paths are deliberately confined to the diagnostic viewer while
-they are evaluated. The material pass uses two generated 32×32 CI4 atlases and
-a shared TLUT, totalling 1,056 bytes in RDRAM. The close candidate embeds
+they are evaluated. The terrain-quality pass uses original, deterministic
+64×64 CI4 material and prop atlases. The material atlas has four 32-pixel
+regions for grass, paved stone, earth and water-like surfaces. Stable per-cell
+offsets break up repetition, while a slight tone change at the edge of a
+connected terrain cluster makes transitions easier to see without hiding the
+tactical grid. A separate alpha-clipped pass groups sparse grass, shrub, rock
+and tree props around board edges and close-view backgrounds. It does not put
+props over active units or movement highlights. The material and prop atlases
+total 4,432 embedded bytes; either atlas occupies 2,080 bytes of TMEM, well
+inside the 4 KiB limit. Loading the two sprite objects copies those same 4,432
+bytes into RDRAM for the viewer. The close candidate embeds
 75,664 bytes for five poses per fighter, two styles, shadows, and impact. One
 84×84 CI4 cutout uses 4,064 bytes of TMEM after the RDP's row alignment,
 leaving 32 bytes free. CI8 at that resolution cannot fit. The board keeps its
 useful 56×56 native footprint but uses CI8: 256 colours improve the small
 silhouettes more than extra pixels would. Its eighteen idle/walk objects total
 68,112 bytes and use 3,648 bytes of TMEM per character. Eight characters and
-shadows upload about 30.8 KiB per frame. The expanded experiment grows the
-aligned ROM by 48 KiB over the first tactical-cutout prototype. Units remain
-sorted by foot position, with smaller far-row figures to keep silhouettes
-apart.
+shadows upload about 30.8 KiB per frame. The terrain atlases and grouped prop
+pass grow the aligned viewer ROM by 16 KiB, from 1,245,184 to 1,261,568 bytes,
+over the previous 2.5D quality checkpoint. Units remain sorted by foot
+position, with smaller far-row figures to keep silhouettes apart.
 
 The close canvas is the useful CI4 limit rather than an arbitrary number. An
 84-pixel row rounds to 48 bytes in TMEM; 84 rows plus the 16-colour palette use
@@ -182,10 +191,12 @@ The playable 3D campaign remains unchanged until the material and hybrid
 treatments pass MiSTer or original-style hardware review.
 
 The checked-in cutouts can be regenerated from the exact curated sheet and
-team-mask hashes with:
+team-mask hashes. The terrain atlases are generated locally from original
+procedural art; their manifest pins both the generator and output hashes:
 
 ```sh
 platform/nintendo64/scripts/generate-sevenfold-hybrid-assets.py
+platform/nintendo64/scripts/generate-sevenfold-terrain-assets.py
 ```
 
 The full-roster models are deterministic procedural console proxies; the

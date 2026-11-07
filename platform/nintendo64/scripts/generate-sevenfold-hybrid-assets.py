@@ -228,8 +228,11 @@ def write_cutout(
 def write_supporting_effects() -> list[dict[str, object]]:
     shadow = Image.new("RGBA", (32, 16), (0, 0, 0, 0))
     shadow_draw = ImageDraw.Draw(shadow)
-    shadow_draw.ellipse((2, 4, 29, 13), fill=(12, 15, 18, 255))
-    shadow_draw.ellipse((7, 6, 24, 11), fill=(22, 25, 28, 255))
+    # Three opaque tonal bands survive CI4 alpha testing while approximating a
+    # soft projected contact shadow without blended-transparency fill cost.
+    shadow_draw.ellipse((1, 3, 30, 14), fill=(31, 35, 34, 255))
+    shadow_draw.ellipse((4, 5, 27, 12), fill=(18, 21, 22, 255))
+    shadow_draw.ellipse((8, 6, 23, 11), fill=(9, 12, 14, 255))
     shadow.save(OUTPUT / "shadow.png", optimize=True)
 
     impact = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
