@@ -123,6 +123,34 @@ func _run() -> void:
 	_expect("role tuning starts with its named side", editor.role_side.has_focus(), true)
 	_expect("starter role owns an independent baseline", editor.role_scope_label.text.contains("INDEPENDENT"), true)
 	_expect("role tuning shows its health baseline", editor.role_stat_labels.health.text, "13")
+	var used_source: String = editor.source
+	var current_role_name := str(editor._role_class().get("name", "Role")).to_upper()
+	var current_character_name := str(editor._role_unit_type().get("name", "Character"))
+	editor._open_role_dependency_review()
+	_expect("role where-used review names selected role", editor.dependency_heading.text.contains(current_role_name), true)
+	_expect("role where-used review names a real character", editor.dependency_uses.text.contains(current_character_name), true)
+	_expect("used role cannot be deleted", editor.dependency_delete_button.disabled, true)
+	_expect("used role deletion is refused", editor._confirm_dependency_delete(), false)
+	_expect("refused role deletion leaves source untouched", editor.source, used_source)
+	editor._close_dependency_review()
+	editor._open_faction_dependency_review()
+	_expect("side where-used review names selected side", editor.dependency_heading.text.contains("TRAVELLERS"), true)
+	_expect("side where-used review names a real character", editor.dependency_uses.text.contains(current_character_name), true)
+	_expect("used side cannot be deleted", editor.dependency_delete_button.disabled, true)
+	_expect("used side deletion is refused", editor._confirm_dependency_delete(), false)
+	_expect("refused side deletion leaves source untouched", editor.source, used_source)
+	editor._close_dependency_review()
+	editor.dependency_category = "character_style"
+	editor.dependency_id = "medieval"
+	_expect("shared artwork deletion fails closed", editor._confirm_dependency_delete(), false)
+	_expect("shared artwork remains untouched", editor.source, used_source)
+	editor.dependency_category = "class"
+	editor.dependency_id = "missing_role"
+	_expect("missing role deletion fails closed", editor._confirm_dependency_delete(), false)
+	editor.dependency_category = "faction"
+	editor.dependency_id = "missing_side"
+	_expect("missing side deletion fails closed", editor._confirm_dependency_delete(), false)
+	_exercise_unused_definition_deletes(editor)
 	_expect("carried weapon family is visibly allowed", editor.role_family_toggle_button.text, "DISALLOW FOR ROLE")
 	editor._toggle_role_family()
 	_expect("carried weapon family cannot be made incompatible", _parse(editor.source).classes[0].allowedWeaponTypeIds.has("blade"), true)
@@ -382,6 +410,94 @@ func _run() -> void:
 	if failures == 0:
 		print("army editor smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _exercise_unused_definition_deletes(editor: Control) -> void:
+	var original_source: String = editor.source
+	var original_dirty: bool = editor.dirty
+	var original_campaign_id := str(editor._current_campaign().get("id", ""))
+	var original_member_id := str(editor._current_member().get("id", ""))
+	var original_unit_type_id := str(editor._current_member().get("unitTypeId", ""))
+	var original_undo: Array[String] = editor.undo_stack.duplicate()
+	var original_redo: Array[String] = editor.redo_stack.duplicate()
+	var fixture := _parse(original_source)
+	var selected_campaign_id := "safe_delete_selection"
+	var selected_campaign: Dictionary = fixture.campaigns[0].duplicate(true)
+	selected_campaign.id = selected_campaign_id
+	selected_campaign.name = "Safe Delete Selection"
+	fixture.campaigns.append(selected_campaign)
+	var unused_role: Dictionary = editor._role_class().duplicate(true)
+	unused_role.id = "unused_role"
+	unused_role.name = "Unused Role"
+	fixture.classes.append(unused_role)
+	fixture.factions.append({
+		"id": "unused_side",
+		"name": "Unused Side",
+		"color": "green",
+	})
+	editor.source = JSON.stringify(editor._integer_numbers(fixture), "  ", true) + "\n"
+	_expect("unused definition fixture compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._read_source()
+	root.get_node("CreatorContext").choose_campaign(selected_campaign_id)
+	editor._refresh_campaigns(original_member_id)
+	editor.role_unit_type_id = original_unit_type_id
+	editor._refresh_role_layer()
+	var role_undo_size: int = editor.undo_stack.size()
+	editor._open_dependency_review("class", "unused_role", editor.role_dependency_button)
+	_expect("unused role can be selected without assigning it", editor._selected_metadata(editor.dependency_kind_select), "unused_role")
+	_expect("unused role review names exact role", editor.dependency_heading.text.contains("UNUSED ROLE"), true)
+	_expect("unused role review reports no references", editor.dependency_uses.text.contains("No character"), true)
+	_expect("unused role reaches explicit confirmation", editor.dependency_delete_button.disabled, false)
+	_expect("unused role deletion succeeds", editor._confirm_dependency_delete(), true)
+	_expect("role deletion is exactly one undo operation", editor.undo_stack.size(), role_undo_size + 1)
+	_expect("role deletion removes only selected definition", _definition_exists(_parse(editor.source).classes, "unused_role"), false)
+	_expect("role deletion candidate compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	_expect("role deletion preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("role deletion preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor._undo()
+	_expect("role delete undo restores definition", _definition_exists(_parse(editor.source).classes, "unused_role"), true)
+	_expect("role delete undo preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("role delete undo preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor._redo()
+	_expect("role delete redo removes definition", _definition_exists(_parse(editor.source).classes, "unused_role"), false)
+	_expect("role delete redo preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("role delete redo preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	var side_undo_size: int = editor.undo_stack.size()
+	editor._open_dependency_review("faction", "unused_side", editor.faction_dependency_button)
+	_expect("unused side can be selected without assigning it", editor._selected_metadata(editor.dependency_kind_select), "unused_side")
+	_expect("unused side review names exact side", editor.dependency_heading.text.contains("UNUSED SIDE"), true)
+	_expect("unused side reaches explicit confirmation", editor.dependency_delete_button.disabled, false)
+	_expect("unused side deletion succeeds", editor._confirm_dependency_delete(), true)
+	_expect("side deletion is exactly one undo operation", editor.undo_stack.size(), side_undo_size + 1)
+	_expect("side deletion removes only selected definition", _definition_exists(_parse(editor.source).factions, "unused_side"), false)
+	_expect("side deletion candidate compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	_expect("side deletion preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("side deletion preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor._undo()
+	_expect("side delete undo restores definition", _definition_exists(_parse(editor.source).factions, "unused_side"), true)
+	_expect("side delete undo preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("side delete undo preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor._redo()
+	_expect("side delete redo removes definition", _definition_exists(_parse(editor.source).factions, "unused_side"), false)
+	_expect("side delete redo preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("side delete redo preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor.source = original_source
+	editor.dirty = original_dirty
+	editor.undo_stack = original_undo
+	editor.redo_stack = original_redo
+	editor._read_source()
+	root.get_node("CreatorContext").choose_campaign(original_campaign_id)
+	editor._refresh_campaigns(original_member_id)
+	editor.role_unit_type_id = original_unit_type_id
+	editor._refresh_role_layer()
+	editor._update_actions()
+
+
+func _definition_exists(collection: Array, content_id: String) -> bool:
+	for value: Variant in collection:
+		if value is Dictionary and str(value.get("id", "")) == content_id:
+			return true
+	return false
 
 
 func _argument_path(prefix: String) -> String:

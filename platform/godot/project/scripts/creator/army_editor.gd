@@ -3,6 +3,9 @@ extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
+const ProjectContentDependencyIndex = preload(
+	"res://scripts/creator/project_content_dependency_index.gd"
+)
 const HISTORY_LIMIT := 64
 const HERO_MODIFIERS := [
 	{"key": "health", "label": "HEALTH"},
@@ -134,6 +137,8 @@ var role_family_toggle_button: Button
 var role_behavior_button: Button
 var role_growth_button: Button
 var role_detach_button: Button
+var role_dependency_button: Button
+var faction_dependency_button: Button
 var role_stat_labels: Dictionary = {}
 var role_stat_buttons: Array[Button] = []
 var role_unit_type_id := ""
@@ -148,6 +153,16 @@ var growth_figure: OptionButton
 var growth_drop: OptionButton
 var growth_value_labels: Dictionary = {}
 var growth_drop_buttons: Array[Button] = []
+var dependency_layer: Control
+var dependency_kind_select: OptionButton
+var dependency_heading: Label
+var dependency_summary: Label
+var dependency_uses: RichTextLabel
+var dependency_delete_button: Button
+var dependency_close_button: Button
+var dependency_category := ""
+var dependency_id := ""
+var dependency_return_button: Button
 
 
 func _ready() -> void:
@@ -161,7 +176,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if guide_layer != null and guide_layer.visible:
+		if dependency_layer != null and dependency_layer.visible:
+			_close_dependency_review()
+		elif guide_layer != null and guide_layer.visible:
 			_close_guided_character()
 		elif new_role_layer.visible:
 			_close_new_role()
@@ -1023,6 +1040,156 @@ func _toggle_role_family() -> void:
 	_accept_role_project(candidate.project, "UNSAVED  /  ROLE WEAPON FAMILIES CHANGED")
 
 
+func _open_role_dependency_review() -> void:
+	_open_dependency_review(
+		"class", str(_role_class().get("id", "")), role_dependency_button
+	)
+
+
+func _open_faction_dependency_review() -> void:
+	_open_dependency_review(
+		"faction", str(_role_unit_type().get("factionId", "")), faction_dependency_button
+	)
+
+
+func _open_dependency_review(
+	category: String, preferred_id: String, return_button: Button
+) -> void:
+	if not _commit_visible_member(false):
+		return
+	dependency_category = category
+	dependency_id = preferred_id
+	dependency_return_button = return_button
+	_refresh_dependency_choices(preferred_id)
+	_refresh_dependency_review()
+	dependency_layer.visible = true
+	if dependency_delete_button.disabled:
+		dependency_close_button.grab_focus()
+	else:
+		dependency_delete_button.grab_focus()
+
+
+func _close_dependency_review() -> void:
+	dependency_layer.visible = false
+	if (
+		dependency_return_button != null
+		and is_instance_valid(dependency_return_button)
+		and dependency_return_button.is_inside_tree()
+	):
+		dependency_return_button.grab_focus()
+
+
+func _dependency_collection_key(category: String) -> String:
+	return str({"class": "classes", "faction": "factions"}.get(category, ""))
+
+
+func _refresh_dependency_choices(preferred_id := "") -> void:
+	dependency_kind_select.clear()
+	var collection_key := _dependency_collection_key(dependency_category)
+	var collection: Array = project.get(collection_key, [])
+	for value: Variant in collection:
+		if not value is Dictionary:
+			continue
+		dependency_kind_select.add_item(str(value.get("name", value.get("id", "Unnamed"))))
+		dependency_kind_select.set_item_metadata(
+			dependency_kind_select.item_count - 1, str(value.get("id", ""))
+		)
+	_select_metadata(dependency_kind_select, preferred_id)
+	dependency_kind_select.disabled = dependency_kind_select.item_count <= 1
+	dependency_id = _selected_metadata(dependency_kind_select)
+
+
+func _select_dependency_choice(index: int) -> void:
+	if index < 0 or index >= dependency_kind_select.item_count:
+		dependency_id = ""
+	else:
+		dependency_id = str(dependency_kind_select.get_item_metadata(index))
+	_refresh_dependency_review()
+
+
+func _dependency_decision(category: String, identity: String) -> Dictionary:
+	return ProjectContentDependencyIndex.new(project).deletion_decision(category, identity)
+
+
+func _refresh_dependency_review() -> Dictionary:
+	var decision := _dependency_decision(dependency_category, dependency_id)
+	var category_label := "ROLE" if dependency_category == "class" else "SIDE"
+	dependency_heading.text = "WHERE %s IS USED  /  %s" % [
+		category_label, str(decision.get("name", dependency_id)).to_upper()
+	]
+	dependency_summary.text = str(decision.get("summary", "Deletion is unavailable."))
+	var lines: Array[String] = []
+	for value: Variant in decision.get("uses", []):
+		if value is Dictionary:
+			lines.append("•  %s  /  %s" % [
+				str(value.get("section", "Project")).to_upper(),
+				str(value.get("label", "This content is still used.")),
+			])
+	dependency_uses.text = (
+		"\n\n".join(lines)
+		if not lines.is_empty()
+		else "No character, campaign, battle, or presentation setting references this %s." % (
+			"role" if dependency_category == "class" else "side"
+		)
+	)
+	var allowed := (
+		dependency_category in ["class", "faction"]
+		and bool(decision.get("allowed", false))
+	)
+	dependency_delete_button.disabled = not allowed
+	dependency_delete_button.text = (
+		"DELETE UNUSED %s" % category_label if allowed else "CANNOT DELETE"
+	)
+	return decision
+
+
+func _confirm_dependency_delete() -> bool:
+	var decision := _refresh_dependency_review()
+	if (
+		dependency_category not in ["class", "faction"]
+		or not bool(decision.get("allowed", false))
+	):
+		_set_status(
+			"NOT DELETED  /  %s" % str(
+				decision.get("reason", "unsupported request")
+			).replace("_", " ").to_upper(),
+			true
+		)
+		return false
+	var collection_key := _dependency_collection_key(dependency_category)
+	var candidate := project.duplicate(true)
+	var collection: Array = candidate.get(collection_key, []).duplicate(true)
+	var remove_index := -1
+	for index in collection.size():
+		if (
+			collection[index] is Dictionary
+			and str(collection[index].get("id", "")) == dependency_id
+		):
+			remove_index = index
+			break
+	if remove_index < 0:
+		_set_status("NOT DELETED  /  CONTENT IS NO LONGER AVAILABLE", true)
+		_refresh_dependency_review()
+		return false
+	var removed_name := str(collection[remove_index].get("name", dependency_id))
+	collection.remove_at(remove_index)
+	candidate[collection_key] = collection
+	var category_label := "ROLE" if dependency_category == "class" else "SIDE"
+	if not _accept_role_project(
+		candidate,
+		"UNSAVED  /  DELETED UNUSED %s %s" % [category_label, removed_name.to_upper()]
+	):
+		return false
+	dependency_layer.visible = false
+	if (
+		dependency_return_button != null
+		and is_instance_valid(dependency_return_button)
+		and dependency_return_button.is_inside_tree()
+	):
+		dependency_return_button.grab_focus()
+	return true
+
+
 func _open_new_side() -> void:
 	side_name.text = ""
 	side_colour.select(0)
@@ -1840,11 +2007,18 @@ func _create_member() -> void:
 func _undo() -> void:
 	if not _commit_visible_member(false) or undo_stack.is_empty():
 		return
+	var selected_campaign_id := str(_current_campaign().get("id", ""))
+	var selected_member_id := str(_current_member().get("id", ""))
+	var role_was_visible := role_layer != null and role_layer.visible
 	_push_history(redo_stack, source)
 	source = undo_stack.pop_back()
 	dirty = source != saved_source
 	_read_source()
-	_refresh_campaigns()
+	CreatorContext.choose_campaign(selected_campaign_id)
+	_refresh_campaigns(selected_member_id)
+	if role_was_visible and not _current_member().is_empty():
+		role_unit_type_id = str(_current_member().get("unitTypeId", ""))
+		_refresh_role_layer()
 	_set_status("UNDO  /  ARMY SOURCE RESTORED", false)
 
 
@@ -1854,11 +2028,18 @@ func _redo() -> void:
 		return
 	if redo_stack.is_empty():
 		return
+	var selected_campaign_id := str(_current_campaign().get("id", ""))
+	var selected_member_id := str(_current_member().get("id", ""))
+	var role_was_visible := role_layer != null and role_layer.visible
 	_push_history(undo_stack, source)
 	source = redo_stack.pop_back()
 	dirty = source != saved_source
 	_read_source()
-	_refresh_campaigns()
+	CreatorContext.choose_campaign(selected_campaign_id)
+	_refresh_campaigns(selected_member_id)
+	if role_was_visible and not _current_member().is_empty():
+		role_unit_type_id = str(_current_member().get("unitTypeId", ""))
+		_refresh_role_layer()
 	_set_status("REDO  /  ARMY SOURCE RESTORED", false)
 
 
@@ -2157,6 +2338,7 @@ func _build_interface() -> void:
 	_build_side_layer()
 	_build_growth_layer()
 	_build_loadout_layer()
+	_build_dependency_layer()
 
 
 func _build_modifier_layer() -> void:
@@ -2680,6 +2862,29 @@ func _build_role_layer() -> void:
 	role_detach_button.tooltip_text = "Copy this shared baseline before tuning it."
 	role_detach_button.pressed.connect(_detach_role_baseline)
 	behavior_row.add_child(role_detach_button)
+	var dependency_row := HBoxContainer.new()
+	dependency_row.add_theme_constant_override("separation", 14)
+	column.add_child(dependency_row)
+	role_dependency_button = _button("WHERE ROLE USED / DELETE", 500, 54)
+	role_dependency_button.tooltip_text = (
+		"Review every character using a project-owned role before deleting it."
+	)
+	role_dependency_button.pressed.connect(_open_role_dependency_review)
+	dependency_row.add_child(role_dependency_button)
+	faction_dependency_button = _button("WHERE SIDE USED / DELETE", 500, 54)
+	faction_dependency_button.tooltip_text = (
+		"Review every character using a project-owned side before deleting it."
+	)
+	faction_dependency_button.pressed.connect(_open_faction_dependency_review)
+	dependency_row.add_child(faction_dependency_button)
+	var dependency_note := _label(
+		"Unused project definitions can be removed after review.",
+		15,
+		Color("718896")
+	)
+	dependency_note.custom_minimum_size = Vector2(420, 54)
+	dependency_note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	dependency_row.add_child(dependency_note)
 	column.add_child(_label("BASELINE STATS", 16, Color("e6b86d")))
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -2723,6 +2928,72 @@ func _build_role_layer() -> void:
 	guidance.custom_minimum_size = Vector2(1120, 60)
 	guidance.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	footer.add_child(guidance)
+
+
+func _build_dependency_layer() -> void:
+	dependency_layer = Control.new()
+	dependency_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dependency_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	dependency_layer.visible = false
+	dependency_layer.z_index = 70
+	add_child(dependency_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.96)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	dependency_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(330, 105)
+	panel.size = Vector2(1260, 870)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
+	)
+	dependency_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 15)
+	panel.add_child(column)
+	column.add_child(_label("SAFE DELETE", 18, Color("e6b86d")))
+	dependency_heading = _label("WHERE THIS ROLE IS USED", 29, Color("f2f7f9"))
+	dependency_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dependency_heading.custom_minimum_size.y = 66
+	column.add_child(dependency_heading)
+	dependency_kind_select = OptionButton.new()
+	dependency_kind_select.custom_minimum_size = Vector2(1120, 60)
+	dependency_kind_select.add_theme_font_size_override("font_size", 19)
+	dependency_kind_select.item_selected.connect(_select_dependency_choice)
+	column.add_child(dependency_kind_select)
+	dependency_summary = _label("", 19, Color("a9bdc9"))
+	dependency_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dependency_summary.custom_minimum_size.y = 78
+	column.add_child(dependency_summary)
+	var uses_panel := PanelContainer.new()
+	uses_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	uses_panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 14, Color(0.35, 0.45, 0.72, 0.42))
+	)
+	column.add_child(uses_panel)
+	dependency_uses = RichTextLabel.new()
+	dependency_uses.custom_minimum_size = Vector2(1120, 350)
+	dependency_uses.add_theme_font_size_override("normal_font_size", 18)
+	dependency_uses.add_theme_color_override("default_color", Color("dce8ed"))
+	uses_panel.add_child(dependency_uses)
+	var note := _label(
+		"Deletion removes only the selected unused definition. Characters, campaigns, battles, and shared artwork are never changed automatically.",
+		16,
+		Color("718896")
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.y = 44
+	column.add_child(note)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	dependency_delete_button = _button("CANNOT DELETE", 380, 64)
+	dependency_delete_button.pressed.connect(_confirm_dependency_delete)
+	actions.add_child(dependency_delete_button)
+	dependency_close_button = _button("KEEP IT", 260, 64)
+	dependency_close_button.pressed.connect(_close_dependency_review)
+	actions.add_child(dependency_close_button)
 
 
 func _build_side_layer() -> void:
