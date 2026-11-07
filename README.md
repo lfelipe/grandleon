@@ -132,13 +132,17 @@ rest of the documentation describes the current Godot application.
 | **0.1 — portable foundation** | Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
 | **0.2 — complete campaign runtime** | Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3 — Godot player and creator** | Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
-| **0.4 — broader art and playable console 3D** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and makes the Sevenfold campaign playable with 3D renderers on PlayStation and Nintendo 64. This is the current development line. |
-| **0.5 — editor product pass** | Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, better project organization, and the usability and accessibility work needed for larger games. |
-| **0.6 — cinematic battles** | Adds an optional terrain-aware close-up attack view with counter-attacks and damage numbers, while retaining the faster board-only presentation as a game setting. |
+| **0.4 — broader art and playable console 3D** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and makes the Sevenfold campaign playable with 3D renderers on PlayStation and Nintendo 64. It also introduces the first optional terrain-aware Godot combat close-up. This is the current development line. |
+| **0.5 — editor and localization product pass** | Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, better project organization, and the usability and accessibility work needed for larger games. It will also localize Grandleon's own Godot player/editor and add a final **Translations** step where authors can manually review and translate every player-facing string—including character names—in their game, check missing translations, preview a language, and export the localized project. The editor work will also prepare selected characters to be player-nameable while retaining an authored default. |
 | **Every release — better console graphics** | Continues improving model readability, terrain depth and variety, camera composition, movement and attack animation, effects, team and UI clarity, close-up scenes, and measured performance on real PlayStation and Nintendo 64 hardware. A campaign being playable does not mean its presentation is finished. |
 
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
+
+The first localization workflow will be deliberately manual. A later version
+may optionally offer translation suggestions from an external AI service, but
+suggestions must never be required, silently overwrite authored text, or
+replace the author's review and approval.
 
 The concrete presentation experiments currently in progress are kept in the
 short [development TODO](TODO.md).

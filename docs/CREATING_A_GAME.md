@@ -229,6 +229,14 @@ PC player, and console players already preserve this policy. Choosing it through
 an ordinary creator control, with ownership guidance and previews, is planned
 for the 0.5 editor pass.
 
+Localization is also planned for the 0.5 editor pass; it is not present in the
+current creator. The intended workflow adds one final **Translations** step that
+collects every player-facing string—including character names—so authors can
+translate them manually, find missing entries, preview a language, and export
+all selected languages. An author will be able to keep a proper name unchanged
+or provide a translated form. Selected characters may later let the player
+choose a name, but each will still require a translated authored default.
+
 If the compiler refuses the draft, the creator keeps the last valid source and
 shows one **Fix** action only while it is useful. That action opens the relevant
 screen and field; for a misplaced unit it selects the unit and cell and prepares

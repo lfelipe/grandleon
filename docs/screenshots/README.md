@@ -19,6 +19,14 @@ demo through its close-combat turns, and creates the compact attack-heavy
 `gameplay.gif` used on GitHub. Internal renderer captures remain available
 through `capture-graphics-prototypes.sh`.
 
+The standalone combat-cinematic review clip is recorded from the same
+production controller, without capturing the desktop or Godot boot screen:
+
+```sh
+platform/godot/scripts/record-combat-cinematic.sh \
+  build-godot out/godot-combat-cinematic.mp4
+```
+
 `native-guide/` belongs to [Creating a game](../CREATING_A_GAME.md). Its
 screens are rendered by the real Godot creator under fresh per-capture user
 data:

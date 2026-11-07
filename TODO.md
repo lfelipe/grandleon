@@ -84,7 +84,43 @@ console-graphics track or a later milestone; it is not a hidden 0.4 blocker.
   the human workflow with combination validation, ownership guidance, explicit
   one/two-player preview actions, and export-focused tests.
 
-## 0.6 cinematic battle presentation
+### Localization
+
+- [ ] Localize Grandleon's own Godot player and editor. Use stable message
+  identifiers, an explicit source language, predictable fallback, fonts and
+  layouts that survive longer translated text, and language selection that is
+  available before a project is open.
+- [ ] Add portable project data for a game's source language and translations.
+  Migration must preserve every authored string, and runtimes must fall back to
+  the source text when a translation is missing rather than showing an empty
+  label or an internal identifier.
+- [ ] Add a final **Translations** step to the editor that gathers every
+  player-facing string in one place: campaign and stage text, dialogue,
+  objectives, choices, unit and item names and descriptions, and other authored
+  labels. Let authors filter missing or outdated entries and enter translations
+  manually without hunting through the rest of the project.
+- [ ] Treat character names as translatable authored text rather than assuming
+  every proper name is universal. Let an author translate a default name per
+  language or deliberately mark it as shared unchanged across languages.
+- [ ] Let authors preview the game in a selected language, validate completeness,
+  and export all chosen languages through the same portable package. Keep the
+  initial workflow fully useful offline and without an external service.
+- [ ] Later, explore optional translation suggestions from an external AI model.
+  Suggestions must be explicitly requested, remain visibly unapproved until a
+  person accepts them, preserve source and manual translations, and never be a
+  requirement for localization or export.
+
+### Player-named characters
+
+- [ ] Let an author mark specific characters as player-nameable while requiring
+  a normal authored default. The translated default appears until the player
+  chooses another name and remains the safe fallback when naming is skipped.
+- [ ] Carry the chosen name through dialogue and objective substitutions,
+  rosters, saves, campaign continuation, co-op views, and every export target.
+  Player-entered names are never sent for translation; validate length, glyphs,
+  duplicate-name clarity, and each platform's text-entry limitations.
+
+## Cinematic battle presentation
 
 The Sevenfold N64 and PS1 3D campaigns and the Godot player now consume real
 hit and miss events in terrain-derived close views. Damage comes from the

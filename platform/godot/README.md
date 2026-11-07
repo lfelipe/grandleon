@@ -87,6 +87,14 @@ the board immediately. Skipping changes only the picture: the accepted
 snapshot already owns health, defeat, counters, and every later legal action.
 If required art cannot load, the ordinary board effects remain available.
 
+To record the short review clip from the production controller and current art
+at a deterministic 1280×720 and 30 fps:
+
+```sh
+platform/godot/scripts/record-combat-cinematic.sh \
+  build-godot out/godot-combat-cinematic.mp4
+```
+
 [UI_GUIDE.md](UI_GUIDE.md) records the battlefield information and interaction
 rules. [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md) documents the semantic
 events shared by sprite, procedural, and imported-character presentation.
