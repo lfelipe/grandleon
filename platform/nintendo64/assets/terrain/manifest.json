@@ -1,7 +1,5 @@
 {
   "format": "Grandleon N64 console terrain assets v1",
-  "generated_by": "platform/nintendo64/scripts/generate-sevenfold-terrain-assets.py",
-  "generator_sha256": "471b89f7c65bffbec76cc1d0da3356e003bb46c3b467a6a4dba3a212ab825beb",
   "assets": [
     {
       "path": "material_atlas.png",

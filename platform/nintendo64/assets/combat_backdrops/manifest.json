@@ -23,8 +23,6 @@
     4,
     6
   ],
-  "generated_by": "platform/nintendo64/scripts/generate-sevenfold-backdrop-assets.py",
-  "generator_sha256": "8816279b9e77a6377f687600cc7cc172e4d94e53ae3136c6bcc29c1f7960f79d",
   "source_manifest": "platform/godot/project/art/combat_backdrops/manifest.json",
   "source_manifest_sha256": "8a067d286cd75aebd05ed5eb5b1b197ff06cba36af7dcce349a08e07bfe08578",
   "source_variants": [
