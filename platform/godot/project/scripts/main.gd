@@ -77,6 +77,8 @@ var combat_cinematic_smoke := false
 var combat_cinematic_preview := false
 var included_campaign_smoke := false
 var draft_preview := false
+var preview_return_scene := ""
+var preview_label := ""
 var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
 var campaign_complete := false
 var final_outcome := "ongoing"
@@ -171,6 +173,10 @@ func _ready() -> void:
 	if not staged.is_empty():
 		campaign_key = str(staged.get("campaign", campaign_key))
 		player_count = clampi(int(staged.get("players", player_count)), 1, 2)
+		preview_return_scene = str(staged.get("preview_return_scene", ""))
+		preview_label = str(staged.get("preview_label", ""))
+		if not preview_label.is_empty():
+			current_stage_name = preview_label
 	# A creator preview must neither resume nor replace the installed game's
 	# campaign checkpoints. It still enters battle through the native company
 	# command below, preserving portable roster and deployment validation.
@@ -1601,8 +1607,12 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_settings_button = _menu_button("SETTINGS")
 	session_menu_settings_button.pressed.connect(_show_settings_page)
 	session_menu_root.add_child(session_menu_settings_button)
-	session_menu_projects = _menu_button("MAIN MENU")
-	session_menu_projects.pressed.connect(_return_home)
+	session_menu_projects = _menu_button(
+		"RETURN TO CAMPAIGN EDITOR"
+		if not preview_return_scene.is_empty()
+		else "MAIN MENU"
+	)
+	session_menu_projects.pressed.connect(_leave_play_session)
 	session_menu_root.add_child(session_menu_projects)
 	session_menu_quit = _menu_button("EXIT GAME")
 	session_menu_quit.pressed.connect(_quit_to_launcher)
@@ -1725,7 +1735,16 @@ func _show_session_menu_page(page: String) -> void:
 			_update_session_diagnostics(true)
 		_:
 			session_menu_page = "root"
-			if campaign_complete:
+			if not preview_return_scene.is_empty():
+				session_menu_title.text = (
+					"BATTLE TEST COMPLETE" if campaign_complete else "TESTING BATTLE"
+				)
+				session_menu_subtitle.text = (
+					("%s  /  " % preview_label.to_upper())
+					if not preview_label.is_empty()
+					else ""
+				) + "This temporary run cannot change campaign saves."
+			elif campaign_complete:
 				session_menu_title.text = (
 					"COMPANY DEFEATED"
 					if final_outcome == "second_side_won"
@@ -2008,10 +2027,19 @@ func _open_projects() -> void:
 	status_label.text = "OPENING CREATOR"
 	if session:
 		session.stop()
-	if CreatorContext.project_id.is_empty():
+	if not preview_return_scene.is_empty():
+		get_tree().change_scene_to_file(preview_return_scene)
+	elif CreatorContext.project_id.is_empty():
 		get_tree().change_scene_to_file("res://creator.tscn")
 	else:
 		get_tree().change_scene_to_file("res://map_editor.tscn")
+
+
+func _leave_play_session() -> void:
+	if draft_preview and not CreatorContext.project_id.is_empty():
+		_open_projects()
+	else:
+		_return_home()
 
 
 func _return_home() -> void:
@@ -2455,7 +2483,7 @@ func _handle_management(company: Dictionary) -> void:
 
 func _remember_campaign_stage(company: Dictionary) -> void:
 	var encounter_id := int(company.get("encounter_id", 0))
-	current_stage_name = ""
+	current_stage_name = preview_label
 	for stage_value: Variant in company.get("stages", []):
 		if not stage_value is Dictionary:
 			continue

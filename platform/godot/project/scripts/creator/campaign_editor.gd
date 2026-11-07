@@ -34,6 +34,8 @@ var undo_button: Button
 var redo_button: Button
 var node_buttons: Dictionary = {}
 var outcome_buttons: Dictionary = {}
+var battle_test_one_buttons: Dictionary = {}
+var battle_test_two_buttons: Dictionary = {}
 var outcome_layer: Control
 var outcome_panel: PanelContainer
 var outcome_title: Label
@@ -319,6 +321,8 @@ func _refresh_route() -> void:
 	chapter_order_button = null
 	node_buttons.clear()
 	outcome_buttons.clear()
+	battle_test_one_buttons.clear()
+	battle_test_two_buttons.clear()
 	if route.is_empty():
 		var empty := _label(
 			"This campaign has no playable path yet.", 22, Color("ff7a83")
@@ -374,6 +378,26 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 			button.disabled = true
 	row.add_child(button)
 	node_buttons[str(node.get("id", ""))] = button
+	if kind == "encounter":
+		var node_id := str(node.get("id", ""))
+		var test_one := _button("TEST\n1 PLAYER", 150)
+		test_one.tooltip_text = (
+			"Start this exact battle in a temporary solo run, without replaying "
+			+ "earlier chapters or changing campaign saves."
+		)
+		test_one.pressed.connect(_play_battle.bind(node_id, 1))
+		row.add_child(test_one)
+		battle_test_one_buttons[node_id] = test_one
+		var test_two := _button("TEST\n2 PLAYERS", 160)
+		test_two.tooltip_text = (
+			"Start this battle with its authored Player 2 characters, positions, "
+			+ "co-op-only forces, and moments."
+		)
+		test_two.pressed.connect(_play_battle.bind(node_id, 2))
+		row.add_child(test_two)
+		battle_test_two_buttons[node_id] = test_two
+		_refresh_battle_test_button(node, 1, test_one)
+		_refresh_battle_test_button(node, 2, test_two)
 	if kind == "terminal":
 		var spacer := Control.new()
 		spacer.custom_minimum_size.x = 300
@@ -538,6 +562,190 @@ func _open_army() -> void:
 	get_tree().change_scene_to_file("res://army_editor.tscn")
 
 
+func _campaign_node(node_id: String) -> Dictionary:
+	var flow_value: Variant = campaign.get("flow", {})
+	if not flow_value is Dictionary:
+		return {}
+	for node_value: Variant in flow_value.get("nodes", []):
+		if node_value is Dictionary and str(node_value.get("id", "")) == node_id:
+			return node_value
+	return {}
+
+
+func _encounter_has_player_two(node: Dictionary) -> bool:
+	for placement_value: Variant in node.get("placements", []):
+		if not placement_value is Dictionary:
+			continue
+		var placement: Dictionary = placement_value
+		if (
+			str(placement.get("side", "first")) == "first"
+			and int(placement.get("player", 1)) == 2
+			and int(placement.get("minimumPlayers", 1)) <= 2
+		):
+			return true
+	return false
+
+
+func _battle_player_count_allowed(node: Dictionary, players: int) -> bool:
+	var mode := str(campaign.get("playerMode", "one"))
+	if players == 1:
+		return mode != "two"
+	return mode != "one" and _encounter_has_player_two(node)
+
+
+func _refresh_battle_test_button(
+	node: Dictionary, players: int, button: Button
+) -> void:
+	button.disabled = not _battle_player_count_allowed(node, players)
+	if players == 1:
+		button.tooltip_text = (
+			"This campaign is authored as two-player only."
+			if button.disabled
+			else (
+				"Start this exact battle in a temporary solo run, without replaying "
+				+ "earlier chapters or changing campaign saves."
+			)
+		)
+	else:
+		button.tooltip_text = (
+			(
+				"Choose a campaign that offers two players and assign an allied "
+				+ "character in this battle to Player 2."
+			)
+			if button.disabled
+			else (
+				"Start this battle with its authored Player 2 characters, positions, "
+				+ "co-op-only forces, and moments."
+			)
+		)
+
+
+func _refresh_battle_test_buttons() -> void:
+	for node_id: Variant in battle_test_one_buttons:
+		var node := _campaign_node(str(node_id))
+		if not node.is_empty():
+			_refresh_battle_test_button(node, 1, battle_test_one_buttons[node_id])
+	for node_id: Variant in battle_test_two_buttons:
+		var node := _campaign_node(str(node_id))
+		if not node.is_empty():
+			_refresh_battle_test_button(node, 2, battle_test_two_buttons[node_id])
+
+
+func _battle_preview_source(node_id: String) -> Dictionary:
+	var candidate: Dictionary = project.duplicate(true)
+	var campaigns: Array = candidate.get("campaigns", [])
+	var campaign_id := str(campaign.get("id", ""))
+	for campaign_index in campaigns.size():
+		if not campaigns[campaign_index] is Dictionary:
+			continue
+		var preview_campaign: Dictionary = campaigns[campaign_index]
+		if str(preview_campaign.get("id", "")) != campaign_id:
+			continue
+		var flow_value: Variant = preview_campaign.get("flow", {})
+		if not flow_value is Dictionary:
+			return {"ok": false, "message": "CAMPAIGN FLOW IS MISSING"}
+		var flow: Dictionary = flow_value
+		var nodes: Array = flow.get("nodes", [])
+		var encounter_index := -1
+		for index in nodes.size():
+			if (
+				nodes[index] is Dictionary
+				and str(nodes[index].get("id", "")) == node_id
+				and str(nodes[index].get("kind", "")) == "encounter"
+			):
+				encounter_index = index
+				break
+		if encounter_index < 0:
+			return {"ok": false, "message": "SELECTED BATTLE IS MISSING"}
+
+		# A direct test is a clean-room campaign run. Make every authored recruit
+		# available so a later battle can field its real roster without replaying
+		# prior chapters; none of this disposable source is written to the project.
+		var roster: Array = preview_campaign.get("roster", [])
+		for member_index in roster.size():
+			if roster[member_index] is Dictionary:
+				var member: Dictionary = roster[member_index]
+				member.erase("joinNodeId")
+				roster[member_index] = member
+		preview_campaign["roster"] = roster
+
+		var terminal_id := "editor_battle_test_complete"
+		var suffix := 1
+		while _node_array_has_id(nodes, terminal_id):
+			terminal_id = "editor_battle_test_complete_%d" % suffix
+			suffix += 1
+		var encounter: Dictionary = nodes[encounter_index]
+		encounter["transitions"] = [{
+			"id": "return_to_editor",
+			"targetNodeId": terminal_id,
+			"priority": 0,
+		}]
+		nodes[encounter_index] = encounter
+		nodes.append({
+			"id": terminal_id,
+			"name": "Return to editor",
+			"kind": "terminal",
+			"transitions": [],
+		})
+		flow["entryNodeId"] = node_id
+		flow["nodes"] = nodes
+		preview_campaign["flow"] = flow
+		campaigns[campaign_index] = preview_campaign
+		candidate["campaigns"] = campaigns
+		return {
+			"ok": true,
+			"source": JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n",
+			"terminal_id": terminal_id,
+		}
+	return {"ok": false, "message": "CAMPAIGN IS MISSING"}
+
+
+func _node_array_has_id(nodes: Array, node_id: String) -> bool:
+	for node_value: Variant in nodes:
+		if node_value is Dictionary and str(node_value.get("id", "")) == node_id:
+			return true
+	return false
+
+
+func _play_battle(node_id: String, players: int) -> void:
+	if compiler == null:
+		_set_status("NATIVE PROJECT COMPILER IS UNAVAILABLE", true)
+		return
+	var node := _campaign_node(node_id)
+	if node.is_empty():
+		_set_status("SELECTED BATTLE IS MISSING", true)
+		return
+	if not _battle_player_count_allowed(node, players):
+		_set_status(
+			"THIS BATTLE DOES NOT OFFER THAT PLAYER COUNT", true
+		)
+		return
+	if dirty and not _save():
+		return
+	var preview := _battle_preview_source(node_id)
+	if not bool(preview.get("ok", false)):
+		_set_status(str(preview.get("message", "BATTLE TEST IS NOT AVAILABLE")), true)
+		return
+	var compiled: Dictionary = compiler.compile_source_json(str(preview.source))
+	if not compiled.ok:
+		_set_status("NOT PLAYABLE YET  /  %s" % _diagnostic_summary(compiled), true)
+		return
+	var campaign_id := str(campaign.get("id", ""))
+	if campaign_id.is_empty():
+		_set_status("CAMPAIGN NEEDS AN ID", true)
+		return
+	CreatorContext.choose_map(str(node.get("mapId", "")), node_id)
+	LaunchContext.stage_package(
+		compiled.package,
+		campaign_id,
+		true,
+		players,
+		"res://campaign_editor.tscn",
+		str(node.get("name", "Battle"))
+	)
+	get_tree().change_scene_to_file("res://main.tscn")
+
+
 func _play_campaign(players: int) -> void:
 	if compiler == null:
 		_set_status("NATIVE PROJECT COMPILER IS UNAVAILABLE", true)
@@ -574,7 +782,14 @@ func _play_campaign(players: int) -> void:
 	if campaign_id.is_empty():
 		_set_status("CAMPAIGN NEEDS AN ID", true)
 		return
-	LaunchContext.stage_package(compiled.package, campaign_id, true, players)
+	LaunchContext.stage_package(
+		compiled.package,
+		campaign_id,
+		true,
+		players,
+		"res://campaign_editor.tscn",
+		"Whole campaign"
+	)
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
@@ -637,6 +852,7 @@ func _refresh_player_mode() -> void:
 		test_one_button.disabled = mode == "two"
 	if test_two_button != null:
 		test_two_button.disabled = mode == "one" or not gaps.is_empty()
+	_refresh_battle_test_buttons()
 
 
 func _two_player_guidance(gaps: Array[String]) -> String:
@@ -2195,11 +2411,11 @@ func _build_interface() -> void:
 	var army := _button("GROW THE ARMY", 260, 58)
 	army.pressed.connect(_open_army)
 	toolbar.add_child(army)
-	test_one_button = _button("TEST 1 PLAYER", 210, 58)
+	test_one_button = _button("TEST WHOLE 1P", 210, 58)
 	test_one_button.tooltip_text = "Play this draft as a solo campaign without touching installed-game saves."
 	test_one_button.pressed.connect(_play_campaign.bind(1))
 	toolbar.add_child(test_one_button)
-	test_two_button = _button("TEST 2 PLAYERS", 220, 58)
+	test_two_button = _button("TEST WHOLE 2P", 220, 58)
 	test_two_button.tooltip_text = "Play this draft with both local player seats active."
 	test_two_button.pressed.connect(_play_campaign.bind(2))
 	toolbar.add_child(test_two_button)
@@ -2224,7 +2440,8 @@ func _build_interface() -> void:
 	column.add_theme_constant_override("separation", 12)
 	panel.add_child(column)
 	var explanation := _label(
-		"This is the order players follow. Story opens the conversation; battle opens its exact map and setup.",
+		"This is the order players follow. Open a battle to edit it, or test that "
+		+ "battle directly in one-player or two-player mode.",
 		18,
 		Color("a9bdc9")
 	)

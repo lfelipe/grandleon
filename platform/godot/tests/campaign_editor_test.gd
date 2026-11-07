@@ -125,6 +125,10 @@ func _run() -> void:
 	)
 	_expect("choice campaign offers a solo preview", editor.test_one_button.disabled, false)
 	_expect("choice campaign offers a two-player preview", editor.test_two_button.disabled, false)
+	_expect("battle row offers its own solo test", editor.battle_test_one_buttons.has("first_battle"), true)
+	_expect("battle row offers its own co-op test", editor.battle_test_two_buttons.has("first_battle"), true)
+	_expect("battle row solo test follows campaign policy", editor.battle_test_one_buttons.first_battle.disabled, false)
+	_expect("battle row co-op test sees its Player 2 hero", editor.battle_test_two_buttons.first_battle.disabled, false)
 	_expect(
 		"two-player guidance confirms every battle has an owner",
 		editor.player_mode_help.text.contains("Every battle gives Player 2"),
@@ -141,12 +145,22 @@ func _run() -> void:
 		true
 	)
 	_expect(
+		"missing Player 2 ownership disables that battle's co-op test",
+		editor.battle_test_two_buttons.first_battle.disabled,
+		true
+	)
+	_expect(
 		"missing Player 2 ownership names the affected battle",
 		editor.player_mode_help.text.contains("Hold the Crossing"),
 		true
 	)
 	editor.campaign = ready_campaign
 	editor._refresh_player_mode()
+	_expect(
+		"restoring Player 2 ownership restores that battle's co-op test",
+		editor.battle_test_two_buttons.first_battle.disabled,
+		false
+	)
 	editor._select_metadata(editor.player_mode_select, "two")
 	editor._change_player_mode(editor.player_mode_select.selected)
 	_expect("campaign can require two players", str(_parse(editor.source).campaigns[0].playerMode), "two")
@@ -392,7 +406,13 @@ func _run() -> void:
 		)
 		_expect("chapter-order fixture adds a third chapter", third_chapter.ok, true)
 		if third_chapter.ok:
-			editor.source = str(third_chapter.source)
+			var later_project := _parse(str(third_chapter.source))
+			# Prove direct testing can reach a later battle whose co-op hero
+			# normally joins only after an earlier chapter.
+			later_project.campaigns[0].roster[1]["joinNodeId"] = "chapter_2_story"
+			editor.source = JSON.stringify(
+				editor._integer_numbers(later_project), "  ", true
+			) + "\n"
 			editor._read_source()
 			editor._collect_route()
 			editor._refresh_route()
@@ -422,6 +442,96 @@ func _run() -> void:
 			_expect("whole chapter move is redoable", str(editor._chapter_pairs()[1].story.id), "chapter_3_story")
 			editor._close_chapter_order()
 			_expect("closing chapter order returns to its one outline action", editor.chapter_order_button.has_focus(), true)
+
+			var authored_later_battle: Dictionary = editor._campaign_node(
+				"chapter_3_battle"
+			)
+			var direct_preview: Dictionary = editor._battle_preview_source(
+				"chapter_3_battle"
+			)
+			_expect("later battle produces a direct preview package", direct_preview.ok, true)
+			if direct_preview.ok:
+				var preview_project := _parse(str(direct_preview.source))
+				var preview_campaign: Dictionary = preview_project.campaigns[0]
+				_expect(
+					"direct preview enters the selected later battle",
+					str(preview_campaign.flow.entryNodeId),
+					"chapter_3_battle"
+				)
+				var preview_battle := _node_by_id(
+					preview_campaign.flow.nodes, "chapter_3_battle"
+				)
+				_expect(
+					"direct preview keeps the authored map",
+					str(preview_battle.get("mapId", "")),
+					str(authored_later_battle.get("mapId", ""))
+				)
+				_expect(
+					"direct preview keeps every authored placement",
+					preview_battle.get("placements", []),
+					authored_later_battle.get("placements", [])
+				)
+				_expect(
+					"direct preview keeps the authored objectives",
+					preview_battle.get("objectiveIds", []),
+					authored_later_battle.get("objectiveIds", [])
+				)
+				_expect(
+					"direct preview keeps the authored battle moments",
+					preview_battle.get("moments", []),
+					authored_later_battle.get("moments", [])
+				)
+				_expect(
+					"later recruits become available only in the disposable preview",
+					preview_campaign.roster[1].has("joinNodeId"),
+					false
+				)
+				_expect(
+					"saved campaign still keeps the recruit's authored join point",
+					editor.project.campaigns[0].roster[1].joinNodeId,
+					"chapter_2_story"
+				)
+				_expect(
+					"direct preview stops after the selected battle",
+					str(preview_battle.transitions[0].targetNodeId),
+					str(direct_preview.terminal_id)
+				)
+				_expect(
+					"direct later-battle source compiles",
+					editor.compiler.compile_source_json(str(direct_preview.source)).ok,
+					true
+				)
+
+			editor._play_battle("chapter_3_battle", 2)
+			for frame in 180:
+				await process_frame
+				if (
+					current_scene.name == "PC"
+					and not current_scene.snapshot.is_empty()
+				):
+					break
+			_expect("direct battle opens in the player", current_scene.name, "PC")
+			if current_scene.name == "PC":
+				_expect("player names the selected later battle", current_scene.current_stage_name, "Chapter Three Battle")
+				_expect("direct battle uses requested co-op policy", current_scene.player_count, 2)
+				_expect(
+					"co-op variant includes its extra authored opponent",
+					current_scene.snapshot.get("units", []).size(),
+					5
+				)
+				_expect("direct test cannot write campaign saves", current_scene.campaign_save_root, "")
+				_expect(
+					"session menu names its editor return",
+					current_scene.session_menu_projects.text,
+					"RETURN TO CAMPAIGN EDITOR"
+				)
+				current_scene._open_projects()
+				await process_frame
+				await process_frame
+				_expect("direct test returns to campaign outline", current_scene.name, "CampaignEditor")
+				if current_scene.name == "CampaignEditor":
+					editor = current_scene
+					_expect("returned outline keeps its project", editor.project_id, created.id)
 
 	editor.source = post_flow_source
 	editor._read_source()
@@ -480,6 +590,13 @@ func _argument_path(prefix: String) -> String:
 		if argument.begins_with(prefix):
 			return argument.trim_prefix(prefix)
 	return ""
+
+
+func _node_by_id(nodes: Array, node_id: String) -> Dictionary:
+	for node_value: Variant in nodes:
+		if node_value is Dictionary and str(node_value.get("id", "")) == node_id:
+			return node_value
+	return {}
 
 
 func _parse(value: String) -> Dictionary:
