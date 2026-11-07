@@ -61,6 +61,20 @@ var new_create_button: Button
 var family_layer: Control
 var family_name: LineEdit
 var family_create_button: Button
+var combat_layer: Control
+var advantage_family_select: OptionButton
+var advantage_target_select: OptionButton
+var advantage_toggle_button: Button
+var advantage_damage_label: Label
+var advantage_accuracy_label: Label
+var advantage_summary_label: Label
+var matchup_attacker_select: OptionButton
+var matchup_defender_select: OptionButton
+var matchup_summary_label: Label
+var shape_choice_select: OptionButton
+var shape_summary_label: Label
+var range_preview_grid: GridContainer
+var area_preview_grid: GridContainer
 
 
 func _ready() -> void:
@@ -73,7 +87,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if family_layer.visible:
+		if combat_layer != null and combat_layer.visible:
+			_close_combat_design()
+		elif family_layer.visible:
 			_close_family()
 		elif new_layer.visible:
 			_close_new()
@@ -709,6 +725,344 @@ func _select_metadata(option: OptionButton, value: String) -> void:
 		option.select(0)
 
 
+func _open_combat_design() -> void:
+	if not _commit_form(true):
+		return
+	_refresh_combat_design()
+	combat_layer.visible = true
+	advantage_family_select.grab_focus()
+
+
+func _close_combat_design() -> void:
+	combat_layer.visible = false
+	category_select.grab_focus()
+
+
+func _refresh_combat_design(_index: int = 0) -> void:
+	var family_id := _selected_metadata(advantage_family_select)
+	var target_id := _selected_metadata(advantage_target_select)
+	_populate_named_records(advantage_family_select, project.get("weaponTypes", []), family_id)
+	if family_id.is_empty():
+		family_id = _selected_metadata(advantage_family_select)
+	_populate_advantage_targets(family_id, target_id)
+	var advantage: Dictionary = project.get("weaponAdvantage", {})
+	advantage_damage_label.text = str(int(advantage.get("damage", 0)))
+	advantage_accuracy_label.text = "%d%%" % int(advantage.get("accuracy", 0))
+	var beats := _weapon_family_beats(family_id, _selected_metadata(advantage_target_select))
+	advantage_toggle_button.text = "REMOVE ADVANTAGE" if beats else "MARK AS STRONG AGAINST"
+	advantage_toggle_button.disabled = (
+		advantage_family_select.item_count == 0 or advantage_target_select.item_count == 0
+	)
+	advantage_summary_label.text = _advantage_summary()
+
+	var attacker_id := _selected_metadata(matchup_attacker_select)
+	var defender_id := _selected_metadata(matchup_defender_select)
+	_populate_named_records(matchup_attacker_select, project.get("unitTypes", []), attacker_id)
+	_populate_named_records(matchup_defender_select, project.get("unitTypes", []), defender_id)
+	if matchup_defender_select.item_count > 1 and matchup_defender_select.selected == 0:
+		matchup_defender_select.select(1)
+	_update_matchup_preview()
+
+	var choice_id := _selected_metadata(shape_choice_select)
+	_populate_shape_choices(choice_id)
+	_update_shape_preview()
+
+
+func _populate_named_records(option: OptionButton, values: Variant, preferred: String) -> void:
+	option.clear()
+	if values is Array:
+		for value: Variant in values:
+			if value is Dictionary:
+				option.add_item(str(value.get("name", value.get("id", "Choice"))))
+				option.set_item_metadata(option.item_count - 1, str(value.get("id", "")))
+	_select_metadata(option, preferred)
+
+
+func _populate_advantage_targets(family_id: String, preferred: String) -> void:
+	advantage_target_select.clear()
+	for value: Variant in project.get("weaponTypes", []):
+		if not value is Dictionary or str(value.get("id", "")) == family_id:
+			continue
+		advantage_target_select.add_item(str(value.get("name", value.get("id", "Family"))))
+		advantage_target_select.set_item_metadata(
+			advantage_target_select.item_count - 1, str(value.get("id", ""))
+		)
+	_select_metadata(advantage_target_select, preferred)
+
+
+func _weapon_family(identity: String) -> Dictionary:
+	for value: Variant in project.get("weaponTypes", []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return value
+	return {}
+
+
+func _weapon_family_beats(attacker_id: String, defender_id: String) -> bool:
+	if attacker_id.is_empty() or defender_id.is_empty():
+		return false
+	var family := _weapon_family(attacker_id)
+	var values: Variant = family.get("strongAgainst", [])
+	return values is Array and values.has(defender_id)
+
+
+func _advantage_summary() -> String:
+	var relationships: Array[String] = []
+	for value: Variant in project.get("weaponTypes", []):
+		if not value is Dictionary:
+			continue
+		var source_name := str(value.get("name", value.get("id", "Family")))
+		for target_value: Variant in value.get("strongAgainst", []):
+			var target := _weapon_family(str(target_value))
+			relationships.append("%s  >  %s" % [
+				source_name, str(target.get("name", target_value)),
+			])
+	if relationships.is_empty():
+		return "NO STRENGTHS YET  /  MATCHUPS USE NORMAL DAMAGE AND ACCURACY"
+	return "   •   ".join(relationships)
+
+
+func _toggle_weapon_advantage() -> void:
+	var source_id := _selected_metadata(advantage_family_select)
+	var target_id := _selected_metadata(advantage_target_select)
+	if source_id.is_empty() or target_id.is_empty():
+		return
+	var candidate: Dictionary = project.duplicate(true)
+	var adding := not _weapon_family_beats(source_id, target_id)
+	for value: Variant in candidate.get("weaponTypes", []):
+		if not value is Dictionary:
+			continue
+		var identity := str(value.get("id", ""))
+		var strong: Array = value.get("strongAgainst", []).duplicate()
+		if identity == source_id:
+			if adding and not strong.has(target_id):
+				strong.append(target_id)
+			elif not adding:
+				strong.erase(target_id)
+		elif adding and identity == target_id:
+			# A pair has one readable direction. Adding the reverse replaces it.
+			strong.erase(source_id)
+		if strong.is_empty():
+			value.erase("strongAgainst")
+		else:
+			value["strongAgainst"] = strong
+	if adding and not candidate.has("weaponAdvantage"):
+		candidate["weaponAdvantage"] = {"damage": 1, "accuracy": 15}
+	if not _candidate_has_advantage_edges(candidate):
+		candidate.erase("weaponAdvantage")
+	if _accept_project(
+		candidate, true,
+		"UNSAVED  /  %s" % ("WEAPON STRENGTH ADDED" if adding else "WEAPON STRENGTH REMOVED")
+	):
+		_refresh_combat_design()
+
+
+func _candidate_has_advantage_edges(candidate: Dictionary) -> bool:
+	for value: Variant in candidate.get("weaponTypes", []):
+		if value is Dictionary and not value.get("strongAgainst", []).is_empty():
+			return true
+	return false
+
+
+func _change_advantage_value(key: String, amount: int) -> void:
+	if not project.has("weaponAdvantage"):
+		_set_status("ADD A WEAPON STRENGTH BEFORE TUNING ITS BONUS", true)
+		return
+	var candidate: Dictionary = project.duplicate(true)
+	var advantage: Dictionary = candidate.get("weaponAdvantage", {}).duplicate(true)
+	var limit := 100 if key == "accuracy" else 999
+	advantage[key] = clampi(int(advantage.get(key, 0)) + amount, 0, limit)
+	candidate["weaponAdvantage"] = advantage
+	if _accept_project(candidate, true, "UNSAVED  /  WEAPON ADVANTAGE TUNED"):
+		_refresh_combat_design()
+
+
+func _unit_type(identity: String) -> Dictionary:
+	for value: Variant in project.get("unitTypes", []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return value
+	return {}
+
+
+func _class(identity: String) -> Dictionary:
+	for value: Variant in project.get("classes", []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return value
+	return {}
+
+
+func _weapon(identity: String) -> Dictionary:
+	for value: Variant in project.get("weapons", []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return value
+	return {}
+
+
+func _held_weapon(unit: Dictionary) -> Dictionary:
+	var carried: Variant = unit.get("startingWeaponIds", [])
+	if carried is Array and not carried.is_empty():
+		return _weapon(str(carried[0]))
+	return {}
+
+
+func _forecast(attacker_id: String, defender_id: String) -> Dictionary:
+	var attacker := _unit_type(attacker_id)
+	var defender := _unit_type(defender_id)
+	var striking := _held_weapon(attacker)
+	var held := _held_weapon(defender)
+	if attacker.is_empty() or defender.is_empty() or striking.is_empty():
+		return {"available": false}
+	var attacker_stats: Dictionary = _class(str(attacker.get("classId", ""))).get("baseStats", {})
+	var defender_stats: Dictionary = _class(str(defender.get("classId", ""))).get("baseStats", {})
+	var striking_type := str(striking.get("weaponTypeId", ""))
+	var held_type := str(held.get("weaponTypeId", ""))
+	var lean := 0
+	if _weapon_family_beats(striking_type, held_type):
+		lean = 1
+	elif _weapon_family_beats(held_type, striking_type):
+		lean = -1
+	var advantage: Dictionary = project.get("weaponAdvantage", {})
+	var damage_bonus := lean * int(advantage.get("damage", 0))
+	var accuracy_bonus := lean * int(advantage.get("accuracy", 0))
+	var damage := maxi(1,
+		int(attacker_stats.get("strength", 0)) + int(striking.get("power", 0))
+		+ damage_bonus - int(defender_stats.get("defense", 0))
+	)
+	var accuracy := clampi(
+		int(striking.get("accuracy", 100)) + accuracy_bonus
+		+ int(attacker_stats.get("skill", 0)) + int(attacker_stats.get("luck", 0))
+		- int(defender_stats.get("evasion", 0)) - int(defender_stats.get("luck", 0)),
+		0, 100
+	)
+	return {
+		"available": true, "damage": damage, "accuracy": accuracy, "lean": lean,
+		"weapon": str(striking.get("name", "Weapon")),
+		"minimum": int(striking.get("minimumRange", 1)),
+		"maximum": int(striking.get("maximumRange", 1)),
+	}
+
+
+func _update_matchup_preview(_index: int = 0) -> void:
+	var attacker_id := _selected_metadata(matchup_attacker_select)
+	var defender_id := _selected_metadata(matchup_defender_select)
+	var attacker := _unit_type(attacker_id)
+	var defender := _unit_type(defender_id)
+	var forward := _forecast(attacker_id, defender_id)
+	var counter := _forecast(defender_id, attacker_id)
+	matchup_summary_label.text = "%s\n\n%s" % [
+		_forecast_line(attacker, defender, forward),
+		_forecast_line(defender, attacker, counter),
+	]
+
+
+func _forecast_line(attacker: Dictionary, defender: Dictionary, forecast: Dictionary) -> String:
+	var names := "%s  →  %s" % [
+		str(attacker.get("name", "Attacker")), str(defender.get("name", "Defender")),
+	]
+	if not bool(forecast.get("available", false)):
+		return "%s  /  NO STARTING WEAPON" % names
+	var lean_text: String = str(
+		{1: "ADVANTAGE", -1: "DISADVANTAGE", 0: "EVEN"}.get(int(forecast.lean), "EVEN")
+	)
+	return "%s\n%s  /  %d DAMAGE  /  %d%% HIT  /  RANGE %d–%d  /  %s" % [
+		names, str(forecast.weapon).to_upper(), int(forecast.damage), int(forecast.accuracy),
+		int(forecast.minimum), int(forecast.maximum), lean_text,
+	]
+
+
+func _populate_shape_choices(preferred: String) -> void:
+	shape_choice_select.clear()
+	for value: Variant in project.get("weapons", []):
+		if value is Dictionary:
+			shape_choice_select.add_item("WEAPON  /  %s" % str(value.get("name", "Weapon")).to_upper())
+			shape_choice_select.set_item_metadata(shape_choice_select.item_count - 1, "weapon:%s" % str(value.get("id", "")))
+	for value: Variant in project.get("abilities", []):
+		if value is Dictionary:
+			shape_choice_select.add_item("ABILITY  /  %s" % str(value.get("name", "Ability")).to_upper())
+			shape_choice_select.set_item_metadata(shape_choice_select.item_count - 1, "ability:%s" % str(value.get("id", "")))
+	_select_metadata(shape_choice_select, preferred)
+
+
+func _shape_choice() -> Dictionary:
+	var identity := _selected_metadata(shape_choice_select)
+	var parts := identity.split(":", true, 1)
+	if parts.size() != 2:
+		return {}
+	var collection: Array = project.get(
+		"weapons" if parts[0] == "weapon" else "abilities", []
+	)
+	for value: Variant in collection:
+		if value is Dictionary and str(value.get("id", "")) == parts[1]:
+			var result: Dictionary = value.duplicate(true)
+			result["previewKind"] = parts[0]
+			return result
+	return {}
+
+
+func _update_shape_preview(_index: int = 0) -> void:
+	var choice := _shape_choice()
+	var minimum := int(choice.get("minimumRange", 1))
+	var maximum := int(choice.get("maximumRange", 1))
+	var shape := str(choice.get("areaShape", "single"))
+	var radius := int(choice.get("radius", 1)) if shape == "diamond" else (1 if shape == "cross" else 0)
+	_paint_preview_grid(range_preview_grid, 9, minimum, maximum, "range", 0)
+	_paint_preview_grid(area_preview_grid, 7, 0, 0, shape, radius)
+	shape_summary_label.text = (
+		"%s  /  TARGET RANGE %d–%d  /  %s" % [
+			str(choice.get("name", "Choose a weapon or ability")).to_upper(),
+			minimum, maximum, _shape_label(shape, radius),
+		]
+		if not choice.is_empty() else "NO WEAPON OR ABILITY TO PREVIEW"
+	)
+
+
+func _shape_label(shape: String, radius: int) -> String:
+	match shape:
+		"cross": return "CROSS  /  CENTRE + 4 NEIGHBOURS"
+		"diamond": return "DIAMOND  /  RADIUS %d" % radius
+		_: return "ONE IMPACT CELL"
+
+
+func _paint_preview_grid(
+	grid: GridContainer, size: int, minimum: int, maximum: int,
+	mode: String, radius: int
+) -> void:
+	var highlighted_cells := _preview_cell_indices(size, minimum, maximum, mode, radius)
+	var centre := int(size / 2)
+	for index in grid.get_child_count():
+		var cell: Label = grid.get_child(index)
+		var x := index % size
+		var y := int(index / size)
+		var distance := absi(x - centre) + absi(y - centre)
+		var colour := Color("296b7c") if mode == "range" else Color("84672d")
+		if highlighted_cells.has(index):
+			cell.add_theme_stylebox_override("normal", _panel(colour, 4, Color("9ceeff") if mode == "range" else Color("ffd47b")))
+		else:
+			cell.add_theme_stylebox_override("normal", _panel(Color("10202a"), 4, Color("29404b")))
+		cell.text = "A" if distance == 0 else ""
+
+
+func _preview_cell_indices(
+	size: int, minimum: int, maximum: int, mode: String, radius: int
+) -> Array[int]:
+	var result: Array[int] = []
+	var centre := int(size / 2)
+	for index in size * size:
+		var x := index % size
+		var y := int(index / size)
+		var distance := absi(x - centre) + absi(y - centre)
+		var highlighted := (
+			(distance >= minimum and distance <= maximum)
+			if mode == "range" else (
+				distance <= 1 if mode == "cross" else (
+					distance <= radius if mode == "diamond" else distance == 0
+				)
+			)
+		)
+		if highlighted:
+			result.append(index)
+	return result
+
+
 func _build_interface() -> void:
 	var background := ColorRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -737,6 +1091,10 @@ func _build_interface() -> void:
 	redo_button = _button("REDO", 170, 58)
 	redo_button.pressed.connect(_redo)
 	toolbar.add_child(redo_button)
+	var combat_design := _button("COMBAT DESIGN", 250, 58)
+	combat_design.tooltip_text = "Set weapon strengths and preview real matchups, ranges, and areas."
+	combat_design.pressed.connect(_open_combat_design)
+	toolbar.add_child(combat_design)
 	var back := _button("BACK TO ARMY", 260, 58)
 	back.pressed.connect(_back_to_army)
 	toolbar.add_child(back)
@@ -819,6 +1177,7 @@ func _build_interface() -> void:
 	add_child(status_label)
 	_build_new_layer()
 	_build_family_layer()
+	_build_combat_layer()
 
 
 func _option_row(parent: VBoxContainer, label_text: String) -> HBoxContainer:
@@ -953,6 +1312,188 @@ func _build_family_layer() -> void:
 	var cancel := _button("CANCEL", 260, 64)
 	cancel.pressed.connect(_close_family)
 	actions.add_child(cancel)
+
+
+func _build_combat_layer() -> void:
+	combat_layer = Control.new()
+	combat_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	combat_layer.visible = false
+	combat_layer.z_index = 60
+	add_child(combat_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.96)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	combat_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(120, 55)
+	panel.size = Vector2(1680, 970)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("091721"), 22, Color("69d9ff"))
+	)
+	combat_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	panel.add_child(column)
+	var heading := HBoxContainer.new()
+	heading.add_theme_constant_override("separation", 16)
+	column.add_child(heading)
+	var title := _label("COMBAT DESIGN", 28, Color("f2f7f9"))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.add_child(title)
+	var done := _button("DONE", 170, 52)
+	done.pressed.connect(_close_combat_design)
+	heading.add_child(done)
+	var explanation := _label(
+		"Give weapon families a readable advantage, then check the exact damage, hit chance, target range, and impact area a player will see.",
+		17, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 42
+	column.add_child(explanation)
+
+	var strength_panel := PanelContainer.new()
+	strength_panel.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), 14, Color("e6b86d")))
+	column.add_child(strength_panel)
+	var strength_column := VBoxContainer.new()
+	strength_column.add_theme_constant_override("separation", 8)
+	strength_panel.add_child(strength_column)
+	strength_column.add_child(_label("WEAPON STRENGTHS", 18, Color("e6b86d")))
+	var relation_row := HBoxContainer.new()
+	relation_row.add_theme_constant_override("separation", 10)
+	strength_column.add_child(relation_row)
+	advantage_family_select = OptionButton.new()
+	advantage_family_select.custom_minimum_size = Vector2(360, 48)
+	advantage_family_select.add_theme_font_size_override("font_size", 17)
+	advantage_family_select.item_selected.connect(_refresh_combat_design)
+	relation_row.add_child(advantage_family_select)
+	relation_row.add_child(_label("IS STRONG AGAINST", 15, Color("a9bdc9")))
+	advantage_target_select = OptionButton.new()
+	advantage_target_select.custom_minimum_size = Vector2(360, 48)
+	advantage_target_select.add_theme_font_size_override("font_size", 17)
+	advantage_target_select.item_selected.connect(_refresh_combat_design)
+	relation_row.add_child(advantage_target_select)
+	advantage_toggle_button = _button("MARK AS STRONG AGAINST", 330, 48)
+	advantage_toggle_button.pressed.connect(_toggle_weapon_advantage)
+	relation_row.add_child(advantage_toggle_button)
+	var bonus_row := HBoxContainer.new()
+	bonus_row.add_theme_constant_override("separation", 8)
+	strength_column.add_child(bonus_row)
+	bonus_row.add_child(_label("WITH ADVANTAGE", 15, Color("a9bdc9")))
+	var damage_minus := _button("−", 50, 42)
+	damage_minus.pressed.connect(_change_advantage_value.bind("damage", -1))
+	bonus_row.add_child(damage_minus)
+	advantage_damage_label = _label("0", 18, Color("f2f7f9"))
+	advantage_damage_label.custom_minimum_size = Vector2(60, 42)
+	advantage_damage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bonus_row.add_child(advantage_damage_label)
+	var damage_plus := _button("+", 50, 42)
+	damage_plus.pressed.connect(_change_advantage_value.bind("damage", 1))
+	bonus_row.add_child(damage_plus)
+	bonus_row.add_child(_label("DAMAGE", 15, Color("e6b86d")))
+	var accuracy_minus := _button("−", 50, 42)
+	accuracy_minus.pressed.connect(_change_advantage_value.bind("accuracy", -5))
+	bonus_row.add_child(accuracy_minus)
+	advantage_accuracy_label = _label("0%", 18, Color("f2f7f9"))
+	advantage_accuracy_label.custom_minimum_size = Vector2(72, 42)
+	advantage_accuracy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bonus_row.add_child(advantage_accuracy_label)
+	var accuracy_plus := _button("+", 50, 42)
+	accuracy_plus.pressed.connect(_change_advantage_value.bind("accuracy", 5))
+	bonus_row.add_child(accuracy_plus)
+	bonus_row.add_child(_label("HIT CHANCE", 15, Color("e6b86d")))
+	advantage_summary_label = _label("", 14, Color("72e08f"))
+	advantage_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	advantage_summary_label.custom_minimum_size.y = 28
+	strength_column.add_child(advantage_summary_label)
+
+	var preview_row := HBoxContainer.new()
+	preview_row.add_theme_constant_override("separation", 12)
+	preview_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(preview_row)
+	var matchup_panel := PanelContainer.new()
+	matchup_panel.custom_minimum_size = Vector2(720, 0)
+	matchup_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	matchup_panel.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), 14, Color("b58cff")))
+	preview_row.add_child(matchup_panel)
+	var matchup_column := VBoxContainer.new()
+	matchup_column.add_theme_constant_override("separation", 10)
+	matchup_panel.add_child(matchup_column)
+	matchup_column.add_child(_label("TWO-CHARACTER MATCHUP", 18, Color("b58cff")))
+	var matchup_choices := HBoxContainer.new()
+	matchup_choices.add_theme_constant_override("separation", 8)
+	matchup_column.add_child(matchup_choices)
+	matchup_attacker_select = OptionButton.new()
+	matchup_attacker_select.custom_minimum_size = Vector2(315, 48)
+	matchup_attacker_select.add_theme_font_size_override("font_size", 16)
+	matchup_attacker_select.item_selected.connect(_update_matchup_preview)
+	matchup_choices.add_child(matchup_attacker_select)
+	matchup_choices.add_child(_label("VS", 16, Color("a9bdc9")))
+	matchup_defender_select = OptionButton.new()
+	matchup_defender_select.custom_minimum_size = Vector2(315, 48)
+	matchup_defender_select.add_theme_font_size_override("font_size", 16)
+	matchup_defender_select.item_selected.connect(_update_matchup_preview)
+	matchup_choices.add_child(matchup_defender_select)
+	matchup_summary_label = _label("", 17, Color("f2f7f9"))
+	matchup_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	matchup_summary_label.custom_minimum_size.y = 200
+	matchup_column.add_child(matchup_summary_label)
+	var formula_note := _label(
+		"Uses each character type's class stats and first starting weapon. Damage is strength + power + advantage − defense; hit chance also folds skill, luck, and evasion.",
+		14, Color("a9bdc9")
+	)
+	formula_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	matchup_column.add_child(formula_note)
+
+	var shape_panel := PanelContainer.new()
+	shape_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shape_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	shape_panel.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), 14, Color("69d9ff")))
+	preview_row.add_child(shape_panel)
+	var shape_column := VBoxContainer.new()
+	shape_column.add_theme_constant_override("separation", 8)
+	shape_panel.add_child(shape_column)
+	shape_column.add_child(_label("RANGE & AREA", 18, Color("69d9ff")))
+	shape_choice_select = OptionButton.new()
+	shape_choice_select.custom_minimum_size = Vector2(760, 46)
+	shape_choice_select.add_theme_font_size_override("font_size", 16)
+	shape_choice_select.item_selected.connect(_update_shape_preview)
+	shape_column.add_child(shape_choice_select)
+	shape_summary_label = _label("", 14, Color("f2f7f9"))
+	shape_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	shape_summary_label.custom_minimum_size.y = 42
+	shape_column.add_child(shape_summary_label)
+	var grids := HBoxContainer.new()
+	grids.add_theme_constant_override("separation", 18)
+	shape_column.add_child(grids)
+	var range_box := VBoxContainer.new()
+	range_box.add_theme_constant_override("separation", 5)
+	grids.add_child(range_box)
+	range_box.add_child(_label("TARGET RANGE", 13, Color("9ceeff")))
+	range_preview_grid = _preview_grid(9, 26)
+	range_box.add_child(range_preview_grid)
+	var area_box := VBoxContainer.new()
+	area_box.add_theme_constant_override("separation", 5)
+	grids.add_child(area_box)
+	area_box.add_child(_label("IMPACT AREA", 13, Color("ffd47b")))
+	area_preview_grid = _preview_grid(7, 30)
+	area_box.add_child(area_preview_grid)
+	var legend := _label("A = attacker or selected impact cell", 13, Color("a9bdc9"))
+	shape_column.add_child(legend)
+
+
+func _preview_grid(size: int, cell_size: int) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = size
+	grid.add_theme_constant_override("h_separation", 2)
+	grid.add_theme_constant_override("v_separation", 2)
+	for _index in size * size:
+		var cell := _label("", 11, Color("f2f7f9"))
+		cell.custom_minimum_size = Vector2(cell_size, cell_size)
+		cell.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cell.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		grid.add_child(cell)
+	return grid
 
 
 func _set_status(message: String, failure: bool) -> void:
