@@ -44,6 +44,26 @@ mountains. They remain impassable mountain terrain in the game rules. The
 console drawing is made from a few flat primitives over the existing terrain
 cell, so these landmarks add no texture upload or VRAM allocation.
 
+The tactical interface uses one compact UI grammar on both machines. Action
+menus have a framed header, a visible focus row, and the real controller's
+confirm and back buttons. Unit status uses an owner accent and a health meter
+instead of relying on an unstructured line of numbers. Panels move to the side
+opposite the selected character, and the PlayStation status panel keeps the
+same 32-pixel reservation, so this work does not shrink the board. The kit is
+flat geometry plus the already-resident font: a full action panel has a fixed
+seven-box base, focus adds three boxes, and a meter adds at most two. It
+allocates no texture, palette, or frame-time memory.
+
+The same grammar continues outside battle. Title and launch, save slots, help,
+story, company and inventory, aftermath, Stage selection, character details,
+warnings, confirmations, and endings use a shared bounded page made of header,
+body, and footer regions. Save, company, inventory, and Stage rows use the same
+focus treatment as battle actions. Footers call the Nintendo 64 buttons A, B,
+Z, and START, and the PlayStation buttons Cross, Circle, Triangle, and START.
+Story pages size their text panel to the lines on that page so unused panel
+space does not cover the backdrop. A complete page costs the same fixed seven
+flat primitives as a complete action panel and adds no texture or allocation.
+
 During combat, the renderer can show the attacker and defender against a
 terrain backdrop before returning to the unchanged tactical board. Characters
 keep the same left/right positions for an attack and its counterattack. The

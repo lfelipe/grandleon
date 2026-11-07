@@ -43,7 +43,16 @@ ownership decides which characters each player commands.
 There is one PlayStation renderer. It draws project-specific, team-coloured
 character cutouts generated from the curated Godot roster over textured
 tactical terrain. Attacks can switch to a closer terrain backdrop, then return
-to the same board state. The campaign contains no alternate graphics mode.
+to the same board state. Tactical action menus use framed focus states,
+Cross/Circle button badges, owner colours, and health meters, and open opposite
+the selected character. The fixed status area remains 32 pixels high, so the
+board is not reduced. The campaign contains no alternate graphics mode.
+
+Save slots, Help, story pages, company and inventory management, aftermaths,
+Stage selection, character details, and confirmations use the same framed
+page and focus treatment. Footer glyphs use Cross, Circle, Triangle, and START;
+story panels fit their actual lines so more of the authored backdrop remains
+visible.
 
 The playable campaign executable is what release testing and disc boot testing
 exercise. It is not paired with a separate renderer demo.

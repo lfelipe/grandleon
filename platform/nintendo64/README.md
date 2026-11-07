@@ -43,7 +43,15 @@ unit ownership decides which characters each player commands.
 There is one Nintendo 64 renderer. It draws project-specific, team-coloured
 character cutouts generated from the curated Godot roster over textured
 tactical terrain. Attacks can switch to a closer terrain backdrop, then return
-to the same board state. The campaign contains no alternate graphics mode.
+to the same board state. Tactical action menus use framed focus states, A/B
+button badges, owner colours, and health meters, and open opposite the selected
+character so the choice does not cover them. The campaign contains no alternate
+graphics mode.
+
+The same framed interface is used for save slots, Help, story pages, company
+and inventory management, aftermaths, Stage selection, character details, and
+confirmations. Focused rows remain visible without relying on colour alone,
+and footer badges use the controller's A, B, Z, and START labels.
 
 The campaign ROM itself is what release testing exercises. It is not paired
 with a separate renderer demo.

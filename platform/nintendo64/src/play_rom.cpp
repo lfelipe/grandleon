@@ -46,6 +46,7 @@
 #include <libdragon.h>
 
 #include "grandleon/view/board_view.hpp"
+#include "grandleon/view/console_ui.hpp"
 #include "grandleon/view/landmark.hpp"
 #include "grandleon/view/motion.hpp"
 #include "grandleon/view/list_view.hpp"
@@ -179,6 +180,101 @@ using grandleon::n64words::refusal_text;
 
 int checks = 0;
 int failures = 0;
+
+[[nodiscard]] std::uint32_t console_ui_colour(view::UiTone tone) {
+    switch (tone) {
+        case view::UiTone::shadow:
+            return graphics_make_color(4, 9, 13, 255);
+        case view::UiTone::frame:
+        case view::UiTone::accent:
+            return graphics_make_color(242, 193, 78, 255);
+        case view::UiTone::header:
+            return graphics_make_color(38, 57, 59, 255);
+        case view::UiTone::focus:
+            return graphics_make_color(65, 83, 79, 255);
+        case view::UiTone::meter_track:
+            return graphics_make_color(7, 16, 24, 255);
+        case view::UiTone::meter_fill:
+            return graphics_make_color(121, 208, 110, 255);
+        case view::UiTone::surface:
+            return graphics_make_color(16, 26, 27, 255);
+    }
+    return graphics_make_color(16, 26, 27, 255);
+}
+
+[[maybe_unused]] void paint_console_ui(
+    surface_t* disp, view::UiRect rectangle, view::UiTone tone
+) {
+    if (!rectangle.valid()) return;
+    graphics_draw_box(
+        disp, rectangle.x, rectangle.y, rectangle.width, rectangle.height,
+        console_ui_colour(tone)
+    );
+}
+
+[[maybe_unused]] void draw_n64_button_badge(
+    surface_t* disp, int left, int top, const char* glyph, const char* label
+) {
+    const int glyphs = glyph == nullptr
+        ? 0 : static_cast<int>(std::strlen(glyph));
+    if (glyphs <= 0) return;
+    const int badge_width = glyphs * 8 + 2;
+    graphics_draw_box(
+        disp, left, top, badge_width, 10,
+        console_ui_colour(view::UiTone::accent)
+    );
+    graphics_draw_box(
+        disp, left + 1, top + 1, badge_width - 2, 8,
+        console_ui_colour(view::UiTone::surface)
+    );
+    graphics_set_color(console_ui_colour(view::UiTone::accent), 0);
+    graphics_draw_text(disp, left + 1, top + 1, glyph);
+    graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
+    graphics_draw_text(disp, left + badge_width + 3, top + 1, label);
+}
+
+[[maybe_unused]] view::ConsolePage draw_n64_page(
+    surface_t* disp, int left, int top, int width, int height,
+    int header_height, int footer_height, const char* title
+) {
+    const view::ConsolePage page = view::console_page(
+        left, top, width, height, header_height, footer_height
+    );
+    view::paint_console_page(
+        page,
+        [disp](view::UiRect rectangle, view::UiTone tone) {
+            paint_console_ui(disp, rectangle, tone);
+        }
+    );
+    if (title != nullptr && title[0] != '\0') {
+        graphics_set_color(console_ui_colour(view::UiTone::accent), 0);
+        graphics_draw_text(
+            disp, page.header.x + 8, page.header.y + 6, title
+        );
+    }
+    return page;
+}
+
+[[maybe_unused]] void draw_n64_page_buttons(
+    surface_t* disp, const view::ConsolePage& page,
+    const char* confirm_label, const char* back_label = nullptr
+) {
+    const view::ButtonLegend buttons = view::button_legend(
+        view::ConsolePlatform::nintendo64
+    );
+    const int top = page.footer.y + 4;
+    if (confirm_label != nullptr) {
+        draw_n64_button_badge(
+            disp, page.footer.x + 8, top, buttons.confirm, confirm_label
+        );
+    }
+    if (back_label != nullptr) {
+        draw_n64_button_badge(
+            disp, page.footer.x + page.footer.width - 84, top,
+            buttons.back, back_label
+        );
+    }
+}
 constexpr std::uint64_t ancient_grove_terrain =
     core::stable_content_id_v1("mountain_ancient_grove");
 constexpr std::uint64_t village_house_terrain =
@@ -503,7 +599,7 @@ std::vector<std::string> title_rows(const std::string& title) {
 }
 
 // The title screen: the engine's mark, the name of the game on the cartridge,
-// and PRESS START blinking at the cadence of the battery-box attract screens
+// and a START/BEGIN badge blinking at the cadence of the battery-box screens
 // this console grew up with.
 //
 // The logo stays where it was and the name goes underneath it, which is the
@@ -546,13 +642,15 @@ void title_screen(const std::string& title) {
             if (painted_count < 3) painted[painted_count++] = disp;
         }
         graphics_draw_box(
-            disp, 114, 188, 92, 11, graphics_make_color(16, 26, 27, 255)
+            disp, 112, 188, 96, 11, graphics_make_color(16, 26, 27, 255)
         );
         if ((frame / 30) % 2 == 0) {
-            graphics_set_color(
-                graphics_make_color(245, 234, 210, 255), 0
+            const view::ButtonLegend buttons = view::button_legend(
+                view::ConsolePlatform::nintendo64
             );
-            graphics_draw_text(disp, 116, 190, "PRESS START");
+            draw_n64_button_badge(
+                disp, 116, 188, buttons.wait, "BEGIN"
+            );
         }
         show(disp);
         ++frame;
@@ -593,15 +691,8 @@ void controls_screen();
                 disp, graphics_make_color(16, 26, 27, 255)
             );
             draw_logo(disp, 24, 1);
-            graphics_set_color(
-                graphics_make_color(242, 193, 78, 255), 0
-            );
-            graphics_draw_text(
-                disp,
-                screen::centred_x(
-                    std::string_view{screen::player_count_title}
-                ),
-                screen::player_count_title_y,
+            const view::ConsolePage page = draw_n64_page(
+                disp, 56, 84, 208, 148, 26, 22,
                 screen::player_count_title
             );
             for (std::size_t index = 0;
@@ -610,15 +701,23 @@ void controls_screen();
                 const bool available = row_available(static_cast<int>(index));
                 const int y = screen::player_count_first_row_y +
                     static_cast<int>(index) * screen::player_count_row_step;
-                const std::uint32_t frame =
-                    on ? graphics_make_color(242, 193, 78, 255)
-                       : available ? graphics_make_color(125, 168, 133, 255)
-                                   : graphics_make_color(105, 112, 108, 255);
-                graphics_draw_box(disp, 78, y - 4, 164, 16, frame);
-                graphics_draw_box(
-                    disp, 80, y - 2, 160, 12,
-                    graphics_make_color(16, 26, 27, 255)
-                );
+                if (on) {
+                    view::paint_focus(
+                        {78, y - 4, 164, 16},
+                        [disp](view::UiRect rectangle, view::UiTone tone) {
+                            paint_console_ui(disp, rectangle, tone);
+                        }
+                    );
+                } else {
+                    const std::uint32_t frame = available
+                        ? graphics_make_color(125, 168, 133, 255)
+                        : graphics_make_color(105, 112, 108, 255);
+                    graphics_draw_box(disp, 78, y - 4, 164, 16, frame);
+                    graphics_draw_box(
+                        disp, 80, y - 2, 160, 12,
+                        graphics_make_color(16, 26, 27, 255)
+                    );
+                }
                 graphics_set_color(
                     on ? graphics_make_color(242, 193, 78, 255)
                        : available ? graphics_make_color(245, 234, 210, 255)
@@ -653,16 +752,13 @@ void controls_screen();
                 disp, screen::centred_x(std::string_view{note}),
                 screen::player_count_note_y, note
             );
-            graphics_set_color(
-                graphics_make_color(125, 168, 133, 255), 0
+            graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
+            graphics_draw_text(disp, page.footer.x + 10, 214, "D-PAD CHOOSE");
+            const view::ButtonLegend buttons = view::button_legend(
+                view::ConsolePlatform::nintendo64
             );
-            graphics_draw_text(
-                disp,
-                screen::centred_x(
-                    std::string_view{screen::player_count_prompt}
-                ),
-                screen::player_count_prompt_y,
-                screen::player_count_prompt
+            draw_n64_button_badge(
+                disp, page.footer.x + 112, 212, buttons.confirm, "CONFIRM"
             );
             show(disp);
             dirty = false;
@@ -909,12 +1005,8 @@ bool any_talkable_neighbour(
 void controls_screen() {
     surface_t* disp = display_get();
     graphics_fill_screen(disp, graphics_make_color(16, 26, 27, 255));
-    graphics_set_color(graphics_make_color(242, 193, 78, 255), 0);
-    graphics_draw_text(
-        disp,
-        screen::centred_x(std::string_view{screen::controls_title}),
-        screen::controls_title_y,
-        screen::controls_title
+    const view::ConsolePage page = draw_n64_page(
+        disp, 12, 12, 296, 216, 28, 22, screen::controls_title
     );
     graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
     // The rows, the margin and the band are all `screen_text.h`'s, so a line
@@ -928,12 +1020,7 @@ void controls_screen() {
             screen::controls_lines[index]
         );
     }
-    graphics_draw_text(
-        disp,
-        screen::centred_x(std::string_view{screen::controls_prompt}),
-        screen::controls_prompt_y,
-        screen::controls_prompt
-    );
+    draw_n64_page_buttons(disp, page, "BACK");
     show(disp);
     while (true) {
         grandleon::n64audio::pump();
@@ -1048,12 +1135,23 @@ std::string slot_screen_heading(const std::string& title) {
             surface_t* disp = display_get();
             graphics_fill_screen(disp, colour(16, 26, 27));
             draw_logo(disp, 20, 1);
+            const view::ConsolePage page = draw_n64_page(
+                disp, 12, 88, 296, 140, 30, 28, heading.c_str()
+            );
             graphics_set_color(colour(242, 193, 78), 0);
-            graphics_draw_text(disp, 20, 96, heading.c_str());
             graphics_set_color(colour(125, 138, 133), 0);
             graphics_draw_text(disp, 20, 112, "CHOOSE A SAVE");
             for (int index = 0; index < menu.rows(); ++index) {
                 const bool on = index == menu.caret();
+                if (on) {
+                    view::paint_focus(
+                        {page.body.x + 8, 128 + index * 16,
+                         page.body.width - 16, 14},
+                        [disp](view::UiRect rectangle, view::UiTone tone) {
+                            paint_console_ui(disp, rectangle, tone);
+                        }
+                    );
+                }
                 graphics_set_color(
                     on ? colour(242, 193, 78) : colour(245, 234, 210), 0
                 );
@@ -1066,8 +1164,35 @@ std::string slot_screen_heading(const std::string& title) {
             // depends on what is under the caret. It is drawn as the model
             // composed it, `Z` and all.
             graphics_set_color(colour(125, 138, 133), 0);
-            graphics_draw_text(disp, 20, 206, menu.footer());
-            graphics_draw_text(disp, 20, 220, "THE GAME SAVES ITSELF");
+            graphics_draw_text(disp, 92, 220, "THE GAME SAVES ITSELF");
+            const view::ButtonLegend buttons = view::button_legend(
+                view::ConsolePlatform::nintendo64
+            );
+            const int button_top = page.footer.y + 4;
+            if (menu.armed()) {
+                draw_n64_button_badge(
+                    disp, page.footer.x + 8, button_top,
+                    buttons.menu, "CONFIRM"
+                );
+                draw_n64_button_badge(
+                    disp, page.footer.x + 132, button_top,
+                    buttons.back, "KEEP"
+                );
+            } else if (menu.holds(menu.caret())) {
+                draw_n64_button_badge(
+                    disp, page.footer.x + 8, button_top,
+                    buttons.confirm, "CONTINUE"
+                );
+                draw_n64_button_badge(
+                    disp, page.footer.x + 132, button_top,
+                    buttons.menu, "NEW"
+                );
+            } else {
+                draw_n64_button_badge(
+                    disp, page.footer.x + 8, button_top,
+                    buttons.confirm, "NEW COMPANY"
+                );
+            }
             show(disp);
             dirty = false;
         }
@@ -1335,8 +1460,18 @@ public:
             const int pages =
                 pages_of(static_cast<int>(rows.size()), per_page);
             for (int page = 0; page < pages; ++page) {
+                const screen::Page shown =
+                    screen::page_of(rows.size(), per_page, page);
+                const int shown_rows = static_cast<int>(
+                    shown.last - shown.first
+                );
+                const int page_height =
+                    4 + 6 + shown_rows * screen::dialogue_band.step + 14;
                 surface_t* disp = display_get();
                 draw_scene_backdrop(disp, dialogue.backdrop);
+                const view::ConsolePage text_page = draw_n64_page(
+                    disp, 12, 116, 296, page_height, 6, 14, nullptr
+                );
                 graphics_draw_box(disp, 22, 42, 68, 68, colour(242, 193, 78));
                 graphics_draw_box(disp, 24, 44, 64, 64, colour(31, 42, 46));
                 draw_portrait(disp, portrait_for(dialogue, line), 24, 44);
@@ -1353,8 +1488,6 @@ public:
                     ).c_str()
                 );
                 graphics_set_color(colour(245, 234, 210), 0);
-                const screen::Page shown =
-                    screen::page_of(rows.size(), per_page, page);
                 for (std::size_t index = shown.first; index < shown.last;
                      ++index) {
                     graphics_draw_text(
@@ -1365,10 +1498,13 @@ public:
                         rows[index].c_str()
                     );
                 }
-                graphics_set_color(colour(125, 138, 133), 0);
-                graphics_draw_text(
-                    disp, 240, screen::dialogue_prompt_y,
-                    page + 1 < pages ? "A: MORE" : "A: NEXT"
+                const view::ButtonLegend buttons = view::button_legend(
+                    view::ConsolePlatform::nintendo64
+                );
+                draw_n64_button_badge(
+                    disp, text_page.footer.x + text_page.footer.width - 76,
+                    text_page.footer.y + 2, buttons.confirm,
+                    page + 1 < pages ? "MORE" : "NEXT"
                 );
                 show(disp);
                 wait_for_a();
@@ -2079,11 +2215,16 @@ public:
         );
         surface_t* disp = display_get();
         graphics_fill_screen(disp, colour(16, 26, 27));
+        const view::ConsolePage page = draw_n64_page(
+            disp, 58, 82, 204, 88, 24, 20,
+            player_won ? "VICTORY" : "DEFEAT"
+        );
         graphics_set_color(colour(245, 234, 210), 0);
         graphics_draw_text(
-            disp, 100, 110, player_won ? "YOUR SIDE WINS" : "THE ENEMY WINS"
+            disp, page.body.x + 28, page.body.y + 12,
+            player_won ? "YOUR SIDE WINS" : "THE ENEMY WINS"
         );
-        graphics_draw_text(disp, 100, 130, "PRESS A");
+        draw_n64_page_buttons(disp, page, "CONTINUE");
         show(disp);
         wait_for_a();
 #endif
@@ -2096,12 +2237,14 @@ public:
         surface_t* disp = display_get();
         graphics_fill_screen(disp, colour(16, 26, 27));
         draw_logo(disp, 22, 2);
-        graphics_set_color(colour(242, 193, 78), 0);
-        graphics_draw_text(disp, 132, 172, "THE END");
+        const view::ConsolePage page = draw_n64_page(
+            disp, 28, 154, 264, 76, 20, 18, "THE END"
+        );
         graphics_set_color(colour(245, 234, 210), 0);
-        graphics_draw_text(disp, 92, 196, "THANKS FOR PLAYING");
+        graphics_draw_text(disp, 92, page.body.y + 8, "THANKS FOR PLAYING");
         graphics_set_color(colour(125, 138, 133), 0);
-        graphics_draw_text(disp, 52, 216, "github.com/lfelipe/grandleon");
+        graphics_draw_text(disp, 52, page.body.y + 20, "github.com/lfelipe/grandleon");
+        draw_n64_page_buttons(disp, page, "DONE");
         show(disp);
         wait_for_a();
 #endif
@@ -2197,6 +2340,9 @@ public:
         // session goes on to play, and the player is told why.
         surface_t* disp = display_get();
         graphics_fill_screen(disp, colour(16, 26, 27));
+        const view::ConsolePage page = draw_n64_page(
+            disp, 12, 44, 296, 184, 44, 22, nullptr
+        );
         graphics_set_color(colour(242, 193, 78), 0);
         graphics_draw_text(disp, 76, 60, "THE SAVED CAMPAIGN");
         graphics_draw_text(disp, 92, 76, "WAS NOT TAKEN");
@@ -2209,8 +2355,7 @@ public:
         );
         graphics_draw_text(disp, 24, 112, line);
         graphics_draw_text(disp, 24, 132, "A NEW COMPANY TAKES THE FIELD");
-        graphics_set_color(colour(125, 138, 133), 0);
-        graphics_draw_text(disp, 240, 210, "A: NEXT");
+        draw_n64_page_buttons(disp, page, "NEXT");
         show(disp);
         wait_for_a();
     }
@@ -2256,10 +2401,9 @@ public:
         );
         surface_t* disp = display_get();
         graphics_fill_screen(disp, colour(16, 26, 27));
-        graphics_draw_box(disp, 12, 12, 320 - 24, 240 - 24, colour(242, 193, 78));
-        graphics_draw_box(disp, 14, 14, 320 - 28, 240 - 28, colour(16, 26, 27));
-        graphics_set_color(colour(242, 193, 78), 0);
-        graphics_draw_text(disp, 24, 26, "AFTER THE BATTLE");
+        const view::ConsolePage page = draw_n64_page(
+            disp, 12, 12, 296, 216, 22, 18, "AFTER THE BATTLE"
+        );
         graphics_set_color(colour(245, 234, 210), 0);
         int y = 48;
         char line[40];
@@ -2375,8 +2519,7 @@ public:
             graphics_draw_text(disp, 24, y, line);
             y += 12;
         }
-        graphics_set_color(colour(125, 138, 133), 0);
-        graphics_draw_text(disp, 240, 216, "A: NEXT");
+        draw_n64_page_buttons(disp, page, "NEXT");
         show(disp);
         wait_for_a();
     }
@@ -2402,8 +2545,9 @@ public:
         report_line("joined %d\n", static_cast<int>(joined.size()));
         surface_t* disp = display_get();
         graphics_fill_screen(disp, colour(16, 26, 27));
-        graphics_set_color(colour(242, 193, 78), 0);
-        graphics_draw_text(disp, 92, 60, "JOINS THE COMPANY");
+        const view::ConsolePage page = draw_n64_page(
+            disp, 12, 44, 296, 184, 28, 22, "JOINS THE COMPANY"
+        );
         graphics_set_color(colour(245, 234, 210), 0);
         char line[64];
         const int arrivals = static_cast<int>(joined.size());
@@ -2430,8 +2574,7 @@ public:
                 line
             );
         }
-        graphics_set_color(colour(125, 138, 133), 0);
-        graphics_draw_text(disp, 240, screen::joined_prompt_y, "A: NEXT");
+        draw_n64_page_buttons(disp, page, "NEXT");
         show(disp);
         wait_for_a();
     }
@@ -3135,8 +3278,10 @@ public:
                     "and it is the character's menu rather than the board's"
                 );
                 expect(
-                    surface_pixel(autopilot_screen, 19, 139) ==
-                        pack16(242, 193, 78),
+                    panel_width_ > 0 && panel_height_ > 0 &&
+                        surface_pixel(
+                            autopilot_screen, panel_left_, panel_top_
+                        ) == pack16(242, 193, 78),
                     "the unit action menu is framed on screen"
                 );
                 expect(
@@ -3262,8 +3407,10 @@ public:
                     "and it is the board's menu rather than a character's"
                 );
                 expect(
-                    surface_pixel(autopilot_screen, 19, 139) ==
-                        pack16(242, 193, 78),
+                    panel_width_ > 0 && panel_height_ > 0 &&
+                        surface_pixel(
+                            autopilot_screen, panel_left_, panel_top_
+                        ) == pack16(242, 193, 78),
                     "the board menu is framed on screen"
                 );
                 expect(
@@ -4064,6 +4211,14 @@ private:
         for (int index = members.top; index < members.end(); ++index) {
             const bool on = caret == index;
             company_row(roster[static_cast<std::size_t>(index)], line, sizeof line);
+            if (on) {
+                view::paint_focus(
+                    {16, y - 2, 288, 12},
+                    [disp](view::UiRect rectangle, view::UiTone tone) {
+                        paint_console_ui(disp, rectangle, tone);
+                    }
+                );
+            }
             graphics_set_color(
                 on ? colour(242, 193, 78) : colour(245, 234, 210), 0
             );
@@ -4082,6 +4237,9 @@ private:
         shelf.rows = company_store_rows;
         shelf.total = static_cast<int>(store.size());
         shelf.top = 0;
+        paint_console_ui(
+            disp, {14, 138, 292, 16}, view::UiTone::header
+        );
         graphics_set_color(colour(242, 193, 78), 0);
         graphics_draw_text(disp, 20, 142, "THE COMPANY'S STORE");
         if (view::scroll_legend(shelf, legend, sizeof legend) > 0) {
@@ -4128,8 +4286,9 @@ private:
         int
     ) {
         graphics_fill_screen(disp, colour(16, 26, 27));
-        graphics_set_color(colour(242, 193, 78), 0);
-        graphics_draw_text(disp, 20, 22, "BEFORE THE BATTLE");
+        const view::ConsolePage page = draw_n64_page(
+            disp, 8, 8, 304, 224, 30, 28, "BEFORE THE BATTLE"
+        );
         if (save_toast_ > 0) {
             graphics_set_color(
                 saved_ ? colour(125, 168, 133) : colour(196, 84, 74), 0
@@ -4169,16 +4328,27 @@ private:
             );
             graphics_draw_text(disp, 20, 194, line);
         }
-        graphics_set_color(colour(125, 138, 133), 0);
-        graphics_draw_text(disp, 20, 212, "A CHOOSE   START TO BATTLE");
-        // Z is named only when it does something, which is only on a campaign
-        // whose author asked for the Stage picker. A footer that listed a
-        // button doing nothing would be a footer a player learns to distrust.
-        graphics_draw_text(
-            disp, 20, 224,
-            company.stages.empty() ? "B SAVE AND LEAVE"
-                                   : "B SAVE AND LEAVE   Z GO TO A STAGE"
+        const view::ButtonLegend buttons = view::button_legend(
+            view::ConsolePlatform::nintendo64
         );
+        draw_n64_button_badge(
+            disp, page.footer.x + 8, page.footer.y + 4,
+            buttons.confirm, "CHOOSE"
+        );
+        draw_n64_button_badge(
+            disp, page.footer.x + 86, page.footer.y + 4,
+            buttons.wait, "BATTLE"
+        );
+        draw_n64_button_badge(
+            disp, page.footer.x + 8, page.footer.y + 16,
+            buttons.back, "LEAVE"
+        );
+        if (!company.stages.empty()) {
+            draw_n64_button_badge(
+                disp, page.footer.x + 86, page.footer.y + 16,
+                buttons.menu, "STAGES"
+            );
+        }
     }
 
     // One member's menu: every verb the stage has, aimed at nothing, in the
@@ -4293,16 +4463,30 @@ private:
                     const int length = static_cast<int>(std::strlen(legend));
                     if (length > width_chars) width_chars = length;
                 }
-                const int width = (width_chars + 2) * 8 + 12;
-                const int height = (visible.shown() + (scrolling ? 1 : 0)) * 11 + 8;
+                const int content_rows =
+                    visible.shown() + (scrolling ? 1 : 0);
+                const int width = (width_chars + 3) * 8 + 12;
                 const int left = 300 - width < 12 ? 12 : 300 - width;
                 const int top = 40;
-                graphics_draw_box(
-                    disp, left - 2, top - 2, width + 4, height + 4,
-                    colour(242, 193, 78)
+                const view::ConsolePanel panel = view::console_panel(
+                    left, top, width, content_rows, 11, 13, 13
                 );
-                graphics_draw_box(
-                    disp, left, top, width, height, colour(16, 26, 27)
+                view::paint_console_panel(
+                    panel,
+                    [disp](view::UiRect rectangle, view::UiTone tone) {
+                        paint_console_ui(disp, rectangle, tone);
+                    }
+                );
+                view::paint_focus_row(
+                    panel, caret - visible.top,
+                    [disp](view::UiRect rectangle, view::UiTone tone) {
+                        paint_console_ui(disp, rectangle, tone);
+                    }
+                );
+                graphics_set_color(colour(242, 193, 78), 0);
+                graphics_draw_text(
+                    disp, panel.header.x + 7, panel.header.y + 2,
+                    "INVENTORY"
                 );
                 int drawn = 0;
                 for (int index = visible.top; index < visible.end(); ++index) {
@@ -4316,17 +4500,30 @@ private:
                         text, sizeof text, "%s%s",
                         index == caret ? "> " : "  ", rows[index].text
                     );
+                    const view::UiRect at = panel.row(drawn);
                     graphics_draw_text(
-                        disp, left + 6, top + 4 + drawn * 11, text
+                        disp, at.x + 6, at.y + 1, text
                     );
                     ++drawn;
                 }
                 if (scrolling) {
                     graphics_set_color(colour(125, 168, 133), 0);
+                    const view::UiRect at = panel.row(drawn);
                     graphics_draw_text(
-                        disp, left + 6, top + 4 + drawn * 11, legend
+                        disp, at.x + 6, at.y + 1, legend
                     );
                 }
+                const view::ButtonLegend buttons = view::button_legend(
+                    view::ConsolePlatform::nintendo64
+                );
+                draw_n64_button_badge(
+                    disp, panel.footer.x + 6, panel.footer.y + 2,
+                    buttons.confirm, "SELECT"
+                );
+                draw_n64_button_badge(
+                    disp, panel.footer.x + 82, panel.footer.y + 2,
+                    buttons.back, "BACK"
+                );
                 show(disp);
                 dirty = false;
             }
@@ -4411,8 +4608,10 @@ private:
             if (dirty) {
                 surface_t* disp = display_get();
                 graphics_fill_screen(disp, colour(16, 26, 27));
-                graphics_set_color(colour(242, 193, 78), 0);
-                graphics_draw_text(disp, 20, 22, "GO TO ANOTHER STAGE");
+                const view::ConsolePage page = draw_n64_page(
+                    disp, 8, 8, 304, 224, 44, 18,
+                    "GO TO ANOTHER STAGE"
+                );
                 char legend[view::scroll_legend_size];
                 if (view::scroll_legend(visible, legend, sizeof legend) > 0) {
                     graphics_set_color(colour(125, 168, 133), 0);
@@ -4428,6 +4627,14 @@ private:
                     const client::CampaignStage& stage =
                         stages[static_cast<std::size_t>(index)];
                     const bool on = index == caret;
+                    if (on) {
+                        view::paint_focus(
+                            {16, y - 2, 288, 12},
+                            [disp](view::UiRect rectangle, view::UiTone tone) {
+                                paint_console_ui(disp, rectangle, tone);
+                            }
+                        );
+                    }
                     graphics_set_color(
                         on ? colour(242, 193, 78) : colour(245, 234, 210), 0
                     );
@@ -4444,10 +4651,7 @@ private:
                     graphics_draw_text(disp, 36, y, line);
                     y += screen::stage_band.step;
                 }
-                graphics_set_color(colour(125, 138, 133), 0);
-                graphics_draw_text(
-                    disp, 20, screen::stage_prompt_y, "A GO   B BACK"
-                );
+                draw_n64_page_buttons(disp, page, "GO", "BACK");
                 show(disp);
                 dirty = false;
             }
@@ -5779,31 +5983,47 @@ private:
             const int length = static_cast<int>(std::strlen(choices[i].text));
             if (length > width_chars) width_chars = length;
         }
-        const int width = (width_chars + 2) * 8 + 12;
-        const int height = count * 11 + 8;
-        const int left = 20;
-        // The box hangs from y 140, which is where every menu this ROM has
-        // drawn has hung and where the checkpoints sample its frame. Eight rows
-        // end at 236 on a 240-line display; a ninth would fall off it, so a
-        // menu that tall rises to meet the same floor instead. Every menu the
-        // shipped content produces is shorter than that and is drawn exactly
-        // where it always was.
+        const int content_chars = width_chars + 3 > 17
+            ? width_chars + 3 : 17;
+        const int width = content_chars * 8 + 4;
+        const int height = view::console_panel(
+            0, 0, width, count, 11, 13, 13
+        ).outer.height;
+        const int left = px(cursor_x_) < 160 ? 320 - 14 - width : 14;
+        // Ordinary menus hang from y 140. A long generated menu rises only as
+        // far as its titled header and button footer need to keep the same
+        // floor, so the extra UI never falls off the 240-line frame.
         const int floor_y = 236;
         const int top = floor_y - height < 140 ? floor_y - height : 140;
-        graphics_draw_box(
-            disp, left - 2, top - 2, width + 4, height + 4,
-            colour(242, 193, 78)
+        const view::ConsolePanel panel = view::console_panel(
+            left, top, width, count, 11, 13, 13
         );
-        graphics_draw_box(disp, left, top, width, height, colour(16, 26, 27));
+        view::paint_console_panel(
+            panel,
+            [disp](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(disp, rectangle, tone);
+            }
+        );
+        view::paint_focus_row(
+            panel, chosen,
+            [disp](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(disp, rectangle, tone);
+            }
+        );
         // Where it landed, kept for the checkpoints. The panel is drawn after
         // the highlights and over them, so a board cell underneath it is a cell
         // whose overlay colour nothing can be claimed for. The rectangle is
         // recorded from the draw rather than recomputed beside it, so the two
         // cannot drift.
-        panel_left_ = left - 2;
-        panel_top_ = top - 2;
-        panel_width_ = width + 4;
-        panel_height_ = height + 4;
+        panel_left_ = panel.outer.x;
+        panel_top_ = panel.outer.y;
+        panel_width_ = panel.outer.width;
+        panel_height_ = panel.outer.height;
+        graphics_set_color(colour(242, 193, 78), 0);
+        graphics_draw_text(
+            disp, panel.header.x + 7, panel.header.y + 2,
+            board_menu_open_ ? "BATTLE" : "ACTION"
+        );
         for (int i = 0; i < count; ++i) {
             graphics_set_color(
                 i == chosen ? colour(242, 193, 78) : colour(245, 234, 210), 0
@@ -5813,8 +6033,20 @@ private:
                 row, sizeof row, "%s%s", i == chosen ? "> " : "  ",
                 choices[i].text
             );
-            graphics_draw_text(disp, left + 6, top + 4 + i * 11, row);
+            const view::UiRect at = panel.row(i);
+            graphics_draw_text(disp, at.x + 6, at.y + 1, row);
         }
+        const view::ButtonLegend buttons = view::button_legend(
+            view::ConsolePlatform::nintendo64
+        );
+        draw_n64_button_badge(
+            disp, panel.footer.x + 6, panel.footer.y + 2,
+            buttons.confirm, "SELECT"
+        );
+        draw_n64_button_badge(
+            disp, panel.footer.x + 82, panel.footer.y + 2,
+            buttons.back, "BACK"
+        );
     }
 
     // The full information sheet, as a screen rather than a panel.
@@ -5864,22 +6096,21 @@ private:
 
     void draw_info_sheet(surface_t* disp) {
         graphics_fill_screen(disp, colour(16, 26, 27));
-        // The same amber frame the action menu wears, so a player reads the
-        // sheet as the menu's own and not as a screen the game changed to.
-        graphics_draw_box(disp, 12, 12, 320 - 24, 240 - 24, colour(242, 193, 78));
-        graphics_draw_box(disp, 14, 14, 320 - 28, 240 - 28, colour(16, 26, 27));
+        const view::ConsolePage page = draw_n64_page(
+            disp, 12, 12, 296, 216, 20, 18,
+            sheet_.count > 0 ? sheet_.lines[0] : "CHARACTER"
+        );
         // Twelve lines apart, from y 24, which puts the sixteenth line the
         // sheet can hold clear of the way out at the foot of the frame. The
         // shipped vocabulary fills eight.
-        for (int i = 0; i < sheet_.count; ++i) {
-            // The header is the character; everything under it is its numbers.
-            graphics_set_color(
-                i == 0 ? colour(242, 193, 78) : colour(245, 234, 210), 0
+        for (int i = 1; i < sheet_.count; ++i) {
+            graphics_set_color(colour(245, 234, 210), 0);
+            graphics_draw_text(
+                disp, page.body.x + 10,
+                page.body.y + 10 + (i - 1) * 12, sheet_.lines[i]
             );
-            graphics_draw_text(disp, 24, 24 + i * 12, sheet_.lines[i]);
         }
-        graphics_set_color(colour(242, 193, 78), 0);
-        graphics_draw_text(disp, 24, 218, "B  BACK");
+        draw_n64_page_buttons(disp, page, nullptr, "BACK");
     }
 
     // The board menu, on START, at any point in a battle.
@@ -6034,26 +6265,17 @@ private:
             if (dirty) {
                 surface_t* disp = display_get();
                 graphics_fill_screen(disp, colour(16, 26, 27));
-                // The same amber frame the menu and the sheet wear, so this
-                // reads as the menu's own question rather than as a screen the
-                // game changed to underneath the player.
-                graphics_draw_box(
-                    disp, 12, 12, 320 - 24, 240 - 24, colour(242, 193, 78)
+                const view::ConsolePage page = draw_n64_page(
+                    disp, 12, 12, 296, 216, 28, 24,
+                    "LEAVE THIS BATTLE?"
                 );
-                graphics_draw_box(
-                    disp, 14, 14, 320 - 28, 240 - 28, colour(16, 26, 27)
-                );
-                graphics_set_color(colour(242, 193, 78), 0);
-                graphics_draw_text(disp, 24, 32, "LEAVE THIS BATTLE?");
                 graphics_set_color(colour(245, 234, 210), 0);
                 int y = 64;
                 for (const char* line : lines) {
                     graphics_draw_text(disp, 24, y, line);
                     y += 12;
                 }
-                graphics_set_color(colour(242, 193, 78), 0);
-                graphics_draw_text(disp, 24, 200, "A  LEAVE");
-                graphics_draw_text(disp, 168, 200, "B  STAY");
+                draw_n64_page_buttons(disp, page, "LEAVE", "STAY");
                 show(disp);
                 dirty = false;
             }
@@ -6567,6 +6789,7 @@ private:
         char lines[7][48];
         int count = 0;
         int forecast_line = -1;
+        int health_line = -1;
         bool lethal = false;
         // Who, then what kind: `WREN ASHDOWN` over `ARCHER`. The name is what
         // a player refers to a character by, and the class says what a
@@ -6598,12 +6821,14 @@ private:
             // number: the grey band on the token is the glance, and this is
             // the answer to "why can I not pick this one".
             if (hovered->has_acted) {
+                health_line = count;
                 std::snprintf(
                     lines[count++], sizeof lines[0], "HP %d/%d  SPENT",
                     static_cast<int>(hovered->health),
                     static_cast<int>(hovered->maximum_health)
                 );
             } else {
+                health_line = count;
                 std::snprintf(
                     lines[count++], sizeof lines[0], "HP %d/%d  AP %d",
                     static_cast<int>(hovered->health),
@@ -6611,6 +6836,7 @@ private:
                 );
             }
         } else {
+            health_line = count;
             std::snprintf(
                 lines[count++], sizeof lines[0], "HP %d/%d",
                 static_cast<int>(hovered->health),
@@ -6686,24 +6912,50 @@ private:
             if (length > width_chars) width_chars = length;
         }
         const int width = width_chars * 8 + 12;
-        const int height = count * 11 + 10;
-        const int left = px(cursor_x_) < 160 ? 320 - 16 - width : 16;
+        const int outer_width = width + 4;
+        const int left = px(cursor_x_) < 160 ? 320 - 14 - outer_width : 14;
         const int top = 16;
-        graphics_draw_box(
-            disp, left - 2, top - 2, width + 4, height + 4,
-            colour(242, 193, 78)
+        const view::ConsolePanel panel = view::console_panel(
+            left, top, outer_width, count - 1, 11, 13, 0
         );
-        graphics_draw_box(disp, left, top, width, height, colour(16, 26, 27));
+        view::paint_console_panel(
+            panel,
+            [disp](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(disp, rectangle, tone);
+            }
+        );
         // Where it landed, kept for the checkpoints. The panel is drawn after
         // the highlights and over them, so a board cell underneath it is a cell
         // whose overlay colour nothing can be claimed for. The rectangle is
         // recorded from the draw rather than recomputed beside it, so the two
         // cannot drift.
-        panel_left_ = left - 2;
-        panel_top_ = top - 2;
-        panel_width_ = width + 4;
-        panel_height_ = height + 4;
-        for (int i = 0; i < count; ++i) {
+        panel_left_ = panel.outer.x;
+        panel_top_ = panel.outer.y;
+        panel_width_ = panel.outer.width;
+        panel_height_ = panel.outer.height;
+        const std::uint32_t owner_colour = hovered->side != player_side_
+            ? colour(224, 75, 91)
+            : hovered->local_player == 2U ? colour(255, 191, 89)
+                                          : colour(103, 217, 255);
+        graphics_draw_box(
+            disp, panel.header.x, panel.header.y, 4, panel.header.height,
+            owner_colour
+        );
+        graphics_set_color(colour(242, 193, 78), 0);
+        graphics_draw_text(
+            disp, panel.header.x + 7, panel.header.y + 2, lines[0]
+        );
+        for (int i = 1; i < count; ++i) {
+            const view::UiRect at = panel.row(i - 1);
+            if (i == health_line) {
+                view::paint_meter(
+                    {at.x + 6, at.y + 9, at.width - 12, 2},
+                    hovered->health, hovered->maximum_health,
+                    [disp](view::UiRect rectangle, view::UiTone tone) {
+                        paint_console_ui(disp, rectangle, tone);
+                    }
+                );
+            }
             if (i == forecast_line) {
                 graphics_set_color(
                     lethal ? colour(179, 72, 63) : colour(242, 193, 78), 0
@@ -6711,7 +6963,7 @@ private:
             } else {
                 graphics_set_color(colour(245, 234, 210), 0);
             }
-            graphics_draw_text(disp, left + 6, top + 5 + i * 11, lines[i]);
+            graphics_draw_text(disp, at.x + 6, at.y + 1, lines[i]);
         }
     }
 #endif

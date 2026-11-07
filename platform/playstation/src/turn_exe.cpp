@@ -72,6 +72,7 @@
 // and it keeps the checked artifact and the played one the same code.
 
 #include "grandleon/view/board_view.hpp"
+#include "grandleon/view/console_ui.hpp"
 #include "grandleon/view/landmark.hpp"
 
 #include <grandleon/client/session.hpp>
@@ -238,6 +239,30 @@ constexpr std::uint16_t flash_colour = 0x131F;    // amber, for a blow
 constexpr std::uint16_t menu_gold_colour = gpu::rgb15(30, 24, 9);
 constexpr std::uint16_t menu_muted_colour = gpu::rgb15(15, 17, 16);
 
+[[nodiscard]] constexpr std::uint16_t console_ui_colour(
+    view::UiTone tone
+) noexcept {
+    switch (tone) {
+        case view::UiTone::shadow: return gpu::rgb15(2, 3, 4);
+        case view::UiTone::frame:
+        case view::UiTone::accent: return menu_gold_colour;
+        case view::UiTone::header: return gpu::rgb15(6, 10, 10);
+        case view::UiTone::focus: return gpu::rgb15(9, 13, 12);
+        case view::UiTone::meter_track: return gpu::rgb15(2, 4, 5);
+        case view::UiTone::meter_fill: return gpu::rgb15(12, 25, 12);
+        case view::UiTone::surface: return paper_colour;
+    }
+    return paper_colour;
+}
+
+void paint_console_ui(view::UiRect rectangle, view::UiTone tone) {
+    if (!rectangle.valid()) return;
+    gpu::fill(
+        rectangle.x, rectangle.y, rectangle.width, rectangle.height,
+        console_ui_colour(tone)
+    );
+}
+
 // The two host callback slots the harness installs itself on, and the only
 // numbers this file and `harness/playstation_turn_probe.lua` have to agree
 // about. Neither is the render executables' 13, on purpose: a harness written
@@ -299,7 +324,6 @@ constexpr int row_aiming = screen_rows - 2;
 constexpr int row_hint = screen_rows - 1;
 constexpr int menu_left = 2;
 constexpr int menu_top = 2;
-constexpr int sheet_top = 3;
 constexpr int sheet_footer_row = screen_rows - 2;
 
 // How thick the wash around a lit cell is, and why it is a frame rather than a
@@ -349,13 +373,13 @@ constexpr int script_dwell_frames = 20;
 // and it is deliberately arithmetic and not judgement: two consoles that put
 // the same page in different places are still drawing the same screen.
 //
-// Column zero is the caret's, so a page row starts at column one and the page's
-// thirty-eight columns end at thirty-nine, which is the display's width. The
-// panel is a row of paper above and below the page, so a page over a scene's
-// backdrop is legible rather than tangled with it.
+// Column one is the caret's and a page row starts at column two, so the page's
+// thirty-eight columns still end exactly at column forty. Column zero stays
+// clear for the backdrop probe and the shared page frame; a page over a scene
+// remains legible rather than tangled with it.
 // ---------------------------------------------------------------------------
-constexpr int screen_caret_column = 0;
-constexpr int screen_page_left = 1;
+constexpr int screen_caret_column = 1;
+constexpr int screen_page_left = 2;
 constexpr int screen_page_top = 5;
 constexpr int screen_panel_top = screen_page_top - 1;
 constexpr int screen_panel_rows = turn::page_capacity + 2;
@@ -369,10 +393,10 @@ static_assert(
     "the page's panel and the footer cannot share a row"
 );
 static_assert(
-    screen_page_left + turn::footer_columns <= screen_cols,
-    "a footer has to fit the display. `write_at` stops at the edge, so one that "
-    "does not is cut in the middle of its last word rather than reported, and "
-    "the last word is where a footer puts the button a player has yet to meet"
+    turn::footer_columns <= screen_cols,
+    "a centred footer has to fit the display. `write_at` stops at the edge, "
+    "so one that does not is cut in the middle of its last word rather than "
+    "reported, and the last word is where a footer puts a button"
 );
 
 // The speaker's face, in the band the panel leaves above itself.
@@ -385,9 +409,7 @@ static_assert(
 // below is what stops that being a coincidence somebody moves.
 //
 // Left-aligned with the page's own text, so the face sits over the name that
-// names it. Column zero is left alone deliberately: the backdrop is claimed
-// there, and a face that covered it would take away the probe that proves the
-// scene behind it was drawn.
+// names it. Column zero remains untouched for the backdrop claim.
 constexpr int screen_face_size = 32;
 constexpr int screen_face_left = screen_page_left * glyph;
 constexpr int screen_face_top = screen_panel_top * glyph - screen_face_size;
@@ -759,6 +781,7 @@ struct MenuBox final {
     int top{0};
     int width{0};
     int height{0};
+    int rows_top{0};
 
     [[nodiscard]] bool covers(int column, int row, int drawn) const noexcept {
         if (width <= 0 || height <= 0) return false;
@@ -1008,7 +1031,8 @@ public:
             }
             claim_first_glyph_at(
                 "titlefooter", centred_column(footer),
-                view.choices <= 0 ? 26 : 27, footer
+                view.choices <= 0 ? 26 : 27, footer,
+                control_first_colour(footer)
             );
             close_probes(before, harness_screen_slot);
             return;
@@ -1021,7 +1045,8 @@ public:
             char footer[screen_cols + 1]{};
             control_text(view.footer, footer, sizeof footer);
             claim_first_glyph_at(
-                "helpfooter", centred_column(footer), 27, footer
+                "helpfooter", centred_column(footer), 27, footer,
+                control_first_colour(footer)
             );
             close_probes(before, harness_screen_slot);
             return;
@@ -1045,7 +1070,8 @@ public:
             char footer[screen_cols + 1]{};
             control_text(view.footer, footer, sizeof footer);
             claim_first_glyph_at(
-                "slotfooter", centred_column(footer), 27, footer
+                "slotfooter", centred_column(footer), 27, footer,
+                control_first_colour(footer)
             );
             close_probes(before, harness_screen_slot);
             return;
@@ -1053,10 +1079,15 @@ public:
 
         // The panel, at both ends, which is a claim no unpainted screen and no
         // screen drawn a row off can satisfy.
-        probe("panel", 0, screen_panel_top * glyph, paper_colour);
+        const int page_rows = view.page == nullptr
+            ? 0 : view.page->count < turn::page_capacity
+                ? view.page->count : turn::page_capacity;
+        const int panel_height = glyph + page_rows * glyph + 4;
+        probe("panel", 2, screen_panel_top * glyph - 2, menu_gold_colour);
         probe(
-            "panelfar", (screen_cols - 1) * glyph,
-            (screen_panel_top + screen_panel_rows - 1) * glyph, paper_colour
+            "panelfar", 317,
+            (screen_panel_top * glyph - 2) + panel_height - 1,
+            menu_gold_colour
         );
 
         // The first ink of the first row that has any, which is what says the
@@ -1077,19 +1108,20 @@ public:
         if (view.caret_row >= 0 && view.caret_row < turn::page_capacity) {
             claim_glyph(
                 "screencaret", screen_caret_column,
-                screen_page_top + view.caret_row, '>'
+                screen_page_top + view.caret_row, '>', menu_gold_colour
             );
         }
 
         if (view.footer != nullptr && view.footer[0] != '\0') {
             probe(
-                "footer", (screen_cols - 1) * glyph, screen_footer_row * glyph,
-                paper_colour
+                "footer", 2, screen_footer_row * glyph - glyph,
+                menu_gold_colour
             );
             char footer[screen_cols + 1]{};
             control_text(view.footer, footer, sizeof footer);
             claim_first_glyph_at(
-                "footertext", screen_page_left, screen_footer_row, footer
+                "footertext", centred_column(footer), screen_footer_row,
+                footer, control_first_colour(footer)
             );
         }
 
@@ -1430,16 +1462,15 @@ public:
             // The sheet covers the board, so there is no lit tile, no unit and
             // no cursor left to claim: claiming one would be claiming a pixel
             // the interface is deliberately drawing over. What is claimed
-            // instead is that the sheet is really there: solid paper at both
-            // ends of the screen, and the first ink pixel of the first letter
-            // of its first line, which is a claim no blank box can satisfy.
-            probe("sheet", 0, 0, paper_colour);
-            probe(
-                "sheetfar", (screen_cols - 1) * glyph, sheet_top * glyph,
-                paper_colour
-            );
+            // instead is that the sheet is really there: its shared amber
+            // frame, the paper body, and the first ink pixel of its title.
+            probe("sheet", 2, 2, menu_gold_colour);
+            probe("sheetfar", 4, 24, paper_colour);
             if (overlay.sheet->count > 0) {
-                claim_first_glyph("sheettext", sheet_top, overlay.sheet->line(0));
+                claim_first_glyph_at(
+                    "sheettext", 2, 1, overlay.sheet->line(0),
+                    menu_gold_colour
+                );
             }
             close_probes(before);
             return;
@@ -1525,28 +1556,35 @@ public:
         // name nothing photographs is a row this executable only claims to
         // draw. The first ink of it, by the same idiom the message row uses.
         if (overlay.hovered_name != nullptr) {
-            claim_first_glyph("hovertext", row_hovered, overlay.hovered_name);
+            claim_first_glyph_at(
+                "hovertext", 1, row_hovered, overlay.hovered_name
+            );
         }
         if (overlay.message != nullptr) {
             probe("bar", (screen_cols - 1) * glyph, row_message * glyph,
                   paper_colour);
-            claim_first_glyph("bartext", row_message, overlay.message);
+            claim_first_glyph_at("bartext", 1, row_message, overlay.message);
         } else if (overlay.hovered_class != nullptr) {
             // The class, on the row the message would have taken. Claimed on
             // the same terms, so the row is photographed whichever of the two
             // is standing in it.
             probe("bar", (screen_cols - 1) * glyph, row_message * glyph,
                   paper_colour);
-            claim_first_glyph("classtext", row_message, overlay.hovered_class);
+            claim_first_glyph_at(
+                "classtext", 1, row_message, overlay.hovered_class
+            );
         }
         if (overlay.aiming != nullptr) {
             probe("aim", (screen_cols - 1) * glyph, row_aiming * glyph,
                   paper_colour);
         }
         if (overlay.menu != nullptr && overlay.menu_rows > 0) {
-            probe("menu", box.left * glyph, box.top * glyph, paper_colour);
+            probe(
+                "menu", box.left * glyph, box.top * glyph, menu_gold_colour
+            );
             claim_glyph(
-                "menucaret", box.left, box.top + overlay.menu_row, '>'
+                "menucaret", box.left + 1,
+                box.rows_top + overlay.menu_row, '>', menu_gold_colour
             );
         }
         close_probes(before);
@@ -1958,42 +1996,57 @@ private:
             0, row_hovered * glyph, gpu::screen_width, bar_rows * glyph,
             paper_colour
         );
+        // Separators and an owner strip make the fixed four-row HUD a panel;
+        // it still reserves exactly the same 32 lines from the board.
+        for (int row = row_hovered; row <= row_hint; ++row) {
+            gpu::fill(
+                4, (row + 1) * glyph - 1, gpu::screen_width - 4, 1,
+                menu_muted_colour
+            );
+        }
         if (hovered != nullptr) {
-            Line status;
-            // Who, not what kind. The name the shared client composed, so this
-            // bar and the transcript beside it cannot call one character two
-            // things. It also lets a board fielding two of a kind tell them
-            // apart, which a unit type never could.
-            status
-                .text(
-                    overlay.hovered_name != nullptr ? overlay.hovered_name : ""
-                )
-                // Second person, as every other line on this console is: the
-                // status bar says YOUR TURN and the board menu END YOUR TURN,
-                // so a panel saying OURS spoke for a different person than the
-                // rest of the screen. THEIRS is unchanged and is still the
-                // longer branch, so the row's budget is untouched.
-                .text(
-                    hovered->side == player_side()
-                        ? (hovered->local_player == 2U ? " P2  HP "
-                                                       : " P1  HP ")
-                        : " ENEMY  HP "
-                )
-                .decimal(static_cast<std::uint32_t>(hovered->health))
+            const std::uint16_t owner_colour = hovered->side != player_side()
+                ? danger_colour
+                : hovered->local_player == 2U ? second_cursor_colour
+                                               : move_colour;
+            gpu::fill(
+                0, row_hovered * glyph, 4, bar_rows * glyph, owner_colour
+            );
+            char name[19]{};
+            const char* source_name =
+                overlay.hovered_name != nullptr ? overlay.hovered_name : "";
+            int name_length = 0;
+            while (name_length < 18 && source_name[name_length] != '\0') {
+                name[name_length] = source_name[name_length];
+                ++name_length;
+            }
+            write_at(1, row_hovered, name);
+            const char* owner = hovered->side != player_side()
+                ? "FOE" : hovered->local_player == 2U ? "P2" : "P1";
+            write_at_with_clut(
+                20, row_hovered, hovered->has_acted ? "DONE" : owner,
+                hovered->has_acted ? font_muted_clut : font_gold_clut
+            );
+            write_at_with_clut(24, row_hovered, "HP", font_muted_clut);
+            view::paint_meter(
+                {27 * glyph, row_hovered * glyph + 2, 6 * glyph, 4},
+                hovered->health, hovered->maximum_health,
+                [](view::UiRect rectangle, view::UiTone tone) {
+                    paint_console_ui(rectangle, tone);
+                }
+            );
+            Line health;
+            health.decimal(static_cast<std::uint32_t>(hovered->health))
                 .text("/")
                 .decimal(static_cast<std::uint32_t>(hovered->maximum_health));
-            // And whether this one is finished. Said in the bar rather than
-            // left to the token, because a character who has already taken
-            // their turn is still worth resting the cursor on while the player
-            // reads their line to plan the next pick, and this is the row that
-            // already answers "who is this".
-            if (hovered->has_acted) status.text("  SPENT");
-            write_row(row_hovered, status.c_str());
+            int health_length = 0;
+            while (health.c_str()[health_length] != '\0') ++health_length;
+            write_at(screen_cols - health_length, row_hovered, health.c_str());
         } else if (overlay.round != nullptr) {
             // Where a board is won by outlasting rounds, the count goes on the
             // hovered row and only when the cursor rests on nobody, so nothing
             // a player was already reading is taken away.
-            write_row(row_hovered, overlay.round);
+            write_at(1, row_hovered, overlay.round);
         }
         // What kind of character that is, on the row directly under their
         // name, and only while that row has nothing more urgent on it.
@@ -2006,12 +2059,20 @@ private:
         // columns, and a bar that clipped would drop the health to keep the
         // class, which is the wrong thing to lose.
         if (overlay.message != nullptr) {
-            write_row(row_message, overlay.message);
+            write_at(1, row_message, overlay.message);
         } else if (overlay.hovered_class != nullptr) {
-            write_row(row_message, overlay.hovered_class);
+            write_at(1, row_message, overlay.hovered_class);
         }
-        if (overlay.aiming != nullptr) write_row(row_aiming, overlay.aiming);
-        write_row(row_hint, "X ACT  O BACK  /\\ MENU  START WAIT");
+        if (overlay.aiming != nullptr) {
+            write_at(1, row_aiming, overlay.aiming);
+        }
+        const view::ButtonLegend buttons = view::button_legend(
+            view::ConsolePlatform::playstation
+        );
+        draw_button_hint(1, row_hint, buttons.confirm, "ACT");
+        draw_button_hint(7, row_hint, buttons.back, "BACK");
+        draw_button_hint(14, row_hint, buttons.menu, "MENU");
+        draw_button_hint(21, row_hint, buttons.wait, "WAIT");
     }
 
     // The sheet is a screen and not a panel, and that is forced rather than
@@ -2021,30 +2082,90 @@ private:
     // whole width, and a board ten cells across has nothing left beside it.
     void draw_sheet(const grandleon::sheet::UnitSheet& sheet) {
         gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, paper_colour);
-        for (int line = 0; line < sheet.count && sheet_top + line < sheet_footer_row;
-             ++line) {
-            write_row(sheet_top + line, sheet.line(line));
+        const view::ConsolePage page = view::console_page(
+            2, 2, 316, 236, 16, 18
+        );
+        view::paint_console_page(
+            page,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+        if (sheet.count > 0) {
+            write_at_with_clut(2, 1, sheet.line(0), font_gold_clut);
         }
-        write_row(sheet_footer_row, "X OR O  BACK");
+        for (int line = 1; line < sheet.count && line < sheet_footer_row - 2;
+             ++line) {
+            write_at(2, 3 + line - 1, sheet.line(line));
+        }
+        write_controls_centred(sheet_footer_row, "X OR O  BACK", font_clut);
     }
 
     void draw_menu(const turn::Overlay& overlay) {
         const MenuBox box = menu_box(overlay);
         if (box.width <= 0) return;
-        gpu::fill(
+        const view::ConsolePanel panel = view::console_panel(
             box.left * glyph, box.top * glyph, box.width * glyph,
-            box.height * glyph, paper_colour
+            overlay.menu_rows, glyph, 14, 14
+        );
+        view::paint_console_panel(
+            panel,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+        view::paint_focus_row(
+            panel, overlay.menu_row,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+        const char* first = overlay.menu_rows > 0
+            ? overlay.menu[0].label : nullptr;
+        constexpr char battle_row[] = "BACK TO BATTLE";
+        bool battle = first != nullptr;
+        for (int index = 0; battle_row[index] != '\0'; ++index) {
+            if (first == nullptr || first[index] != battle_row[index]) {
+                battle = false;
+                break;
+            }
+        }
+        write_at_with_clut(
+            box.left + 1, box.top + 1,
+            battle ? "BATTLE" : "ACTION", font_gold_clut
         );
         for (int row = 0; row < overlay.menu_rows; ++row) {
-            // The chosen row is named by a caret rather than by a colour: a
-            // caret costs no palette entry on any machine, and two consoles
-            // that named a selection differently would be two different menus.
+            // Focus is redundant by design: the framed row gives the glance,
+            // and the caret keeps the choice legible without colour.
             Line line;
             line.text(row == overlay.menu_row ? ">" : " ")
                 .text(" ")
                 .text(overlay.menu[row].label);
-            write_at(box.left, box.top + row, line.c_str());
+            write_at_with_clut(
+                box.left + 1, box.rows_top + row, line.c_str(),
+                row == overlay.menu_row ? font_gold_clut : font_clut
+            );
         }
+        const view::ButtonLegend buttons = view::button_legend(
+            view::ConsolePlatform::playstation
+        );
+        const int footer_row = box.rows_top + overlay.menu_rows;
+        draw_button_hint(box.left + 1, footer_row, buttons.confirm, "SELECT");
+        draw_button_hint(box.left + 10, footer_row, buttons.back, "BACK");
+    }
+
+    void draw_button_hint(
+        int column, int row, const char* glyph_text, const char* label
+    ) {
+        int glyphs = 0;
+        while (glyph_text != nullptr && glyph_text[glyphs] != '\0') ++glyphs;
+        if (glyphs <= 0) return;
+        gpu::fill(
+            column * glyph, row * glyph, glyphs * glyph, glyph,
+            console_ui_colour(view::UiTone::focus)
+        );
+        write_at_with_clut(column, row, glyph_text, font_gold_clut);
+        write_at(column + glyphs + 1, row, label);
     }
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
@@ -2079,7 +2200,7 @@ private:
             const char* replacement = nullptr;
             if (i == 0U && token && value == 'A') replacement = "X";
             if (token && value == 'B') replacement = "O";
-            if (token && value == 'C') replacement = "/\\";
+            if (token && value == 'C') replacement = "^";
             if (replacement == nullptr) {
                 if (at + 1U < capacity) output[at++] = value;
                 continue;
@@ -2093,6 +2214,26 @@ private:
         output[at] = '\0';
     }
 
+    [[nodiscard]] static std::uint16_t control_first_colour(
+        const char* translated
+    ) noexcept {
+        if (translated == nullptr) return ink_colour;
+        if ((translated[0] == 'X' || translated[0] == 'O' ||
+             translated[0] == '^') &&
+            (translated[1] == '\0' || translated[1] == ' ')) {
+            return menu_gold_colour;
+        }
+        constexpr char start[] = "START";
+        for (int index = 0; start[index] != '\0'; ++index) {
+            if (translated[index] == '\0' ||
+                translated[index] != start[index]) {
+                return ink_colour;
+            }
+        }
+        return translated[5] == '\0' || translated[5] == ' '
+            ? menu_gold_colour : ink_colour;
+    }
+
     void write_centred(int row, const char* value, int clut) {
         write_at_with_clut(centred_column(value), row, value, clut);
     }
@@ -2100,11 +2241,75 @@ private:
     void write_controls_centred(int row, const char* value, int clut) {
         char translated[screen_cols + 1]{};
         control_text(value, translated, sizeof translated);
-        write_centred(row, translated, clut);
+        const int column = centred_column(translated);
+        write_at_with_clut(column, row, translated, clut);
+        // Controller names are interface glyphs, not prose. Colouring only
+        // whole tokens keeps the X in NEXT and the O in COMPANY ordinary.
+        const int translated_length = text_length(translated);
+        for (int index = 0; index < translated_length; ++index) {
+            const bool begins = index == 0 || translated[index - 1] == ' ';
+            if (!begins) continue;
+            const bool one = translated[index + 1] == '\0' ||
+                translated[index + 1] == ' ';
+            if (one && (translated[index] == 'X' ||
+                        translated[index] == 'O' ||
+                        translated[index] == '^')) {
+                char glyph_text[2] = {translated[index], '\0'};
+                write_at_with_clut(
+                    column + index, row, glyph_text, font_gold_clut
+                );
+                continue;
+            }
+            constexpr char start[] = "START";
+            if (index + 5 > translated_length) continue;
+            bool is_start = true;
+            for (int letter = 0; start[letter] != '\0'; ++letter) {
+                if (translated[index + letter] != start[letter]) {
+                    is_start = false;
+                    break;
+                }
+            }
+            if (is_start &&
+                (translated[index + 5] == '\0' ||
+                 translated[index + 5] == ' ')) {
+                write_at_with_clut(
+                    column + index, row, start, font_gold_clut
+                );
+            }
+        }
+    }
+
+    [[nodiscard]] static const char* screen_heading(
+        turn::Screen screen
+    ) noexcept {
+        switch (screen) {
+            case turn::Screen::story: return "STORY";
+            case turn::Screen::company: return "COMPANY";
+            case turn::Screen::member: return "INVENTORY";
+            case turn::Screen::aftermath: return "AFTER THE BATTLE";
+            case turn::Screen::refusal: return "NOTICE";
+            case turn::Screen::joined: return "NEW COMPANY MEMBER";
+            case turn::Screen::stages: return "STAGES";
+            case turn::Screen::ended: return "CAMPAIGN COMPLETE";
+            case turn::Screen::none:
+            case turn::Screen::title:
+            case turn::Screen::help:
+            case turn::Screen::slot: return "GRANDLEON";
+        }
+        return "GRANDLEON";
     }
 
     void draw_title_screen(const turn::ScreenView& view) {
         gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, paper_colour);
+        const view::ConsolePage page = view::console_page(
+            16, 12, 288, 216, 52, 24
+        );
+        view::paint_console_page(
+            page,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
         gpu::fill(24, 18, 272, 2, menu_gold_colour);
         gpu::fill(52, 70, 216, 1, menu_muted_colour);
         gpu::fill(52, 198, 216, 1, menu_muted_colour);
@@ -2123,11 +2328,17 @@ private:
                 if (view.page == nullptr || page_row >= view.page->count) break;
                 const int y = 122 + choice * 24;
                 const bool selected = page_row == view.caret_row;
-                gpu::fill(
-                    58, y, 204, 18,
-                    selected ? menu_gold_colour : menu_muted_colour
-                );
-                gpu::fill(60, y + 2, 200, 14, paper_colour);
+                if (selected) {
+                    view::paint_focus(
+                        {58, y, 204, 18},
+                        [](view::UiRect rectangle, view::UiTone tone) {
+                            paint_console_ui(rectangle, tone);
+                        }
+                    );
+                } else {
+                    gpu::fill(58, y, 204, 18, menu_muted_colour);
+                    gpu::fill(60, y + 2, 200, 14, paper_colour);
+                }
                 write_centred(
                     (y + 6) / glyph, view.page->line(page_row),
                     selected ? font_gold_clut : font_clut
@@ -2141,6 +2352,15 @@ private:
 
     void draw_help_screen(const turn::ScreenView& view) {
         gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, paper_colour);
+        const view::ConsolePage page = view::console_page(
+            16, 12, 288, 216, 40, 24
+        );
+        view::paint_console_page(
+            page,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
         gpu::fill(24, 14, 272, 2, menu_gold_colour);
         write_scaled_at(106, 22, "GRANDLEON", 12, font_gold_clut);
         gpu::fill(28, 54, 264, 140, menu_muted_colour);
@@ -2162,6 +2382,15 @@ private:
 
     void draw_slot_screen(const turn::ScreenView& view) {
         gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, paper_colour);
+        const view::ConsolePage page = view::console_page(
+            16, 12, 288, 216, 80, 24
+        );
+        view::paint_console_page(
+            page,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
         gpu::fill(24, 14, 272, 2, menu_gold_colour);
         write_scaled_at(106, 22, "GRANDLEON", 12, font_gold_clut);
         if (view.page != nullptr && view.page->count > 0) {
@@ -2175,8 +2404,12 @@ private:
             const int row = 14 + choice * 2;
             const bool selected = page_row == view.caret_row;
             if (selected) {
-                gpu::fill(24, row * glyph - 2, 272, 12, menu_gold_colour);
-                gpu::fill(26, row * glyph, 268, 8, paper_colour);
+                view::paint_focus(
+                    {24, row * glyph - 2, 272, 12},
+                    [](view::UiRect rectangle, view::UiTone tone) {
+                        paint_console_ui(rectangle, tone);
+                    }
+                );
                 write_at_with_clut(4, row, ">", font_gold_clut);
             }
             write_at_with_clut(
@@ -2206,10 +2439,34 @@ private:
         }
         draw_scene_backdrop(view.backdrop);
         draw_speaker_face(view);
-        gpu::fill(
-            0, screen_panel_top * glyph, gpu::screen_width,
-            screen_panel_rows * glyph, paper_colour
+        const int page_rows = view.page == nullptr
+            ? 0 : view.page->count < turn::page_capacity
+                ? view.page->count : turn::page_capacity;
+        const view::ConsolePage page = view::console_page(
+            2, screen_panel_top * glyph - 2, 316,
+            glyph + page_rows * glyph + 4, glyph, 0
         );
+        view::paint_console_page(
+            page,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+        write_at_with_clut(
+            screen_page_left, screen_panel_top,
+            screen_heading(view.screen), font_gold_clut
+        );
+        if (view.caret_row >= 0 && view.caret_row < turn::page_capacity) {
+            view::paint_focus(
+                {
+                    page.body.x, (screen_page_top + view.caret_row) * glyph,
+                    page.body.width, glyph,
+                },
+                [](view::UiRect rectangle, view::UiTone tone) {
+                    paint_console_ui(rectangle, tone);
+                }
+            );
+        }
         if (view.page != nullptr) {
             for (int row = 0; row < view.page->count &&
                               row < turn::page_capacity;
@@ -2224,18 +2481,22 @@ private:
         // no palette entry on any machine, and two consoles that named a
         // selection differently would be two different menus.
         if (view.caret_row >= 0 && view.caret_row < turn::page_capacity) {
-            write_at(
-                screen_caret_column, screen_page_top + view.caret_row, ">"
+            write_at_with_clut(
+                screen_caret_column, screen_page_top + view.caret_row, ">",
+                font_gold_clut
             );
         }
         if (view.footer != nullptr && view.footer[0] != '\0') {
-            gpu::fill(
-                0, screen_footer_row * glyph, gpu::screen_width, glyph,
-                paper_colour
+            const view::ConsolePage footer = view::console_page(
+                2, screen_footer_row * glyph - glyph, 316, glyph * 3, 0, 0
             );
-            char translated[screen_cols + 1]{};
-            control_text(view.footer, translated, sizeof translated);
-            write_at(screen_page_left, screen_footer_row, translated);
+            view::paint_console_page(
+                footer,
+                [](view::UiRect rectangle, view::UiTone tone) {
+                    paint_console_ui(rectangle, tone);
+                }
+            );
+            write_controls_centred(screen_footer_row, view.footer, font_clut);
         }
     }
 
@@ -2649,7 +2910,7 @@ private:
         return false;
     }
 
-    [[nodiscard]] static MenuBox menu_box(const turn::Overlay& overlay) {
+    [[nodiscard]] MenuBox menu_box(const turn::Overlay& overlay) const {
         MenuBox box;
         if (overlay.menu == nullptr || overlay.menu_rows <= 0) return box;
         int width = 0;
@@ -2659,15 +2920,18 @@ private:
             while (label != nullptr && label[length] != '\0') ++length;
             if (length > width) width = length;
         }
-        box.left = menu_left;
         box.top = menu_top;
-        // The caret, the space after it, and a column of paper on the right so
-        // the box has an edge on both sides.
-        box.width = width + 3;
-        box.height = overlay.menu_rows;
-        if (box.left + box.width > screen_cols) {
-            box.width = screen_cols - box.left;
-        }
+        // Header and footer occupy two glyph rows each. The menu stays on the
+        // side opposite the cursor so its new frame never costs board space or
+        // hides the character whose action is being chosen.
+        box.width = width + 4 > 19 ? width + 4 : 19;
+        if (box.width > screen_cols - 4) box.width = screen_cols - 4;
+        box.height = overlay.menu_rows + 4;
+        box.rows_top = box.top + 2;
+        const int cursor_centre =
+            cell_left(overlay.cursor_x) + drawn_tile() / 2;
+        box.left = cursor_centre < gpu::screen_width / 2
+            ? screen_cols - menu_left - box.width : menu_left;
         return box;
     }
 
