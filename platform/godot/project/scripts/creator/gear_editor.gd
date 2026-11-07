@@ -2,6 +2,9 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const ProjectContentDependencyIndex = preload(
+	"res://scripts/creator/project_content_dependency_index.gd"
+)
 const HISTORY_LIMIT := 64
 const CATEGORIES := [
 	{"id": "weapon", "label": "WEAPONS", "collection": "weapons"},
@@ -75,6 +78,15 @@ var shape_choice_select: OptionButton
 var shape_summary_label: Label
 var range_preview_grid: GridContainer
 var area_preview_grid: GridContainer
+var dependency_button: Button
+var dependency_layer: Control
+var dependency_heading: Label
+var dependency_summary: Label
+var dependency_uses: RichTextLabel
+var dependency_delete_button: Button
+var dependency_close_button: Button
+var dependency_kind := ""
+var dependency_asset_id := ""
 
 
 func _ready() -> void:
@@ -87,7 +99,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if combat_layer != null and combat_layer.visible:
+		if dependency_layer != null and dependency_layer.visible:
+			_close_dependency_review()
+		elif combat_layer != null and combat_layer.visible:
 			_close_combat_design()
 		elif family_layer.visible:
 			_close_family()
@@ -628,6 +642,100 @@ func _default_asset(identity: String, name: String) -> Dictionary:
 	}
 
 
+func _open_dependency_review() -> void:
+	if not _commit_form(true):
+		return
+	dependency_kind = active_kind
+	dependency_asset_id = active_asset_id
+	_refresh_dependency_review()
+	dependency_layer.visible = true
+	if dependency_delete_button.disabled:
+		dependency_close_button.grab_focus()
+	else:
+		dependency_delete_button.grab_focus()
+
+
+func _close_dependency_review() -> void:
+	dependency_layer.visible = false
+	dependency_button.grab_focus()
+
+
+func _dependency_decision(kind: String, identity: String) -> Dictionary:
+	return ProjectContentDependencyIndex.new(project).deletion_decision(kind, identity)
+
+
+func _refresh_dependency_review() -> Dictionary:
+	var decision := _dependency_decision(dependency_kind, dependency_asset_id)
+	var kind_label := str({
+		"weapon": "WEAPON",
+		"item": "ITEM",
+		"ability": "ABILITY",
+	}.get(dependency_kind, dependency_kind.replace("_", " ").to_upper()))
+	dependency_heading.text = "WHERE %s IS USED  /  %s" % [
+		kind_label, str(decision.get("name", dependency_asset_id)).to_upper()
+	]
+	dependency_summary.text = str(decision.get("summary", "Deletion is unavailable."))
+	var lines: Array[String] = []
+	for value: Variant in decision.get("uses", []):
+		if not value is Dictionary:
+			continue
+		lines.append("•  %s  /  %s" % [
+			str(value.get("section", "Project")).to_upper(),
+			str(value.get("label", "This content is still in use.")),
+		])
+	dependency_uses.text = (
+		"\n\n".join(lines)
+		if not lines.is_empty()
+		else "No campaign, battle, roster, gear, dialogue, or presentation reference uses this choice."
+	)
+	var allowed := bool(decision.get("allowed", false))
+	dependency_delete_button.disabled = not allowed
+	dependency_delete_button.text = (
+		"DELETE UNUSED %s" % kind_label if allowed else "CANNOT DELETE"
+	)
+	return decision
+
+
+func _confirm_delete() -> bool:
+	var decision := _refresh_dependency_review()
+	if not bool(decision.get("allowed", false)):
+		_set_status(
+			"NOT DELETED  /  %s" % str(decision.get("reason", "unsafe")).replace(
+				"_", " "
+			).to_upper(),
+			true
+		)
+		return false
+	var collection_key := _collection_key(dependency_kind)
+	var collection: Array = project.get(collection_key, []).duplicate(true)
+	var remove_index := -1
+	for index in collection.size():
+		if (
+			collection[index] is Dictionary
+			and str(collection[index].get("id", "")) == dependency_asset_id
+		):
+			remove_index = index
+			break
+	if collection_key.is_empty() or remove_index < 0:
+		_set_status("NOT DELETED  /  CONTENT IS NO LONGER AVAILABLE", true)
+		_refresh_dependency_review()
+		return false
+	var removed_name := str(collection[remove_index].get("name", dependency_asset_id))
+	collection.remove_at(remove_index)
+	var candidate := project.duplicate(true)
+	candidate[collection_key] = collection
+	if not _accept_project(
+		candidate,
+		true,
+		"UNSAVED  /  DELETED UNUSED %s" % removed_name.to_upper()
+	):
+		return false
+	dependency_layer.visible = false
+	_refresh_assets("")
+	asset_select.grab_focus() if asset_select.item_count > 0 else new_button.grab_focus()
+	return true
+
+
 func _undo() -> void:
 	if form_dirty:
 		_refresh_form()
@@ -692,6 +800,7 @@ func _update_actions() -> void:
 	save_button.disabled = not dirty and not form_dirty
 	undo_button.disabled = undo_stack.is_empty() and not form_dirty
 	redo_button.disabled = redo_stack.is_empty() or form_dirty
+	dependency_button.disabled = active_asset_id.is_empty()
 
 
 func _push_history(stack: Array[String], value: String) -> void:
@@ -1122,6 +1231,12 @@ func _build_interface() -> void:
 	new_button = _button("MAKE A NEW ONE", 460, 62)
 	new_button.pressed.connect(_open_new)
 	list_column.add_child(new_button)
+	dependency_button = _button("WHERE USED / DELETE", 460, 62)
+	dependency_button.tooltip_text = (
+		"Show every named use before allowing an unused project choice to be deleted."
+	)
+	dependency_button.pressed.connect(_open_dependency_review)
+	list_column.add_child(dependency_button)
 	var guidance := _label("Start simple, then tune only what matters. Army Setup decides which roles carry or learn each choice.", 19, Color("a9bdc9"))
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	guidance.custom_minimum_size.y = 150
@@ -1177,6 +1292,7 @@ func _build_interface() -> void:
 	add_child(status_label)
 	_build_new_layer()
 	_build_family_layer()
+	_build_dependency_layer()
 	_build_combat_layer()
 
 
@@ -1312,6 +1428,66 @@ func _build_family_layer() -> void:
 	var cancel := _button("CANCEL", 260, 64)
 	cancel.pressed.connect(_close_family)
 	actions.add_child(cancel)
+
+
+func _build_dependency_layer() -> void:
+	dependency_layer = Control.new()
+	dependency_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dependency_layer.visible = false
+	dependency_layer.z_index = 58
+	add_child(dependency_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.95)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	dependency_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(330, 115)
+	panel.size = Vector2(1260, 850)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.48, 0.24, 0.72))
+	)
+	dependency_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("SAFE DELETE", 18, Color("e6b86d")))
+	dependency_heading = _label("WHERE THIS CHOICE IS USED", 29, Color("f2f7f9"))
+	dependency_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dependency_heading.custom_minimum_size.y = 70
+	column.add_child(dependency_heading)
+	dependency_summary = _label("", 19, Color("a9bdc9"))
+	dependency_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dependency_summary.custom_minimum_size.y = 82
+	column.add_child(dependency_summary)
+	var uses_panel := PanelContainer.new()
+	uses_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	uses_panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 14, Color(0.35, 0.45, 0.72, 0.42))
+	)
+	column.add_child(uses_panel)
+	dependency_uses = RichTextLabel.new()
+	dependency_uses.custom_minimum_size = Vector2(1120, 410)
+	dependency_uses.add_theme_font_size_override("normal_font_size", 18)
+	dependency_uses.add_theme_color_override("default_color", Color("dce8ed"))
+	uses_panel.add_child(dependency_uses)
+	var note := _label(
+		"Deleting removes only this project definition. It does not replace references or delete shared artwork.",
+		16,
+		Color("718896")
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.y = 42
+	column.add_child(note)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	dependency_delete_button = _button("CANNOT DELETE", 360, 62)
+	dependency_delete_button.pressed.connect(_confirm_delete)
+	actions.add_child(dependency_delete_button)
+	dependency_close_button = _button("KEEP IT", 260, 62)
+	dependency_close_button.pressed.connect(_close_dependency_review)
+	actions.add_child(dependency_close_button)
 
 
 func _build_combat_layer() -> void:

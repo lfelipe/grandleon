@@ -45,6 +45,16 @@ func _run() -> void:
 	_expect("diagnostic recovery selects the exact gear", editor.active_asset_id, "apprentice_focus")
 	_expect("diagnostic recovery keeps the asset picker focused", editor.asset_select.has_focus(), true)
 	_expect("diagnostic recovery names the exact field", editor.status_label.text, "FIX APPRENTICE FOCUS  /  POWER")
+	var used_weapon_source: String = editor.source
+	editor._open_dependency_review()
+	_expect("where-used review opens for the selected weapon", editor.dependency_layer.visible, true)
+	_expect("where-used review names the selected weapon", editor.dependency_heading.text.contains("APPRENTICE FOCUS"), true)
+	_expect("where-used review names the character carrying it", editor.dependency_uses.text.contains("Second Hero"), true)
+	_expect("used weapon cannot be deleted", editor.dependency_delete_button.disabled, true)
+	_expect("used weapon deletion is refused", editor._confirm_delete(), false)
+	_expect("refused deletion preserves source", editor.source, used_weapon_source)
+	editor._close_dependency_review()
+	_expect("where-used review returns focus to its action", editor.dependency_button.has_focus(), true)
 	editor._refresh_categories("weapon")
 	editor.category_select.grab_focus()
 
@@ -138,6 +148,32 @@ func _run() -> void:
 	editor._create_family()
 	_expect("item family is added from the same focused flow", editor.project.itemTypes.size(), 1)
 	_expect("new item family is used by the current item", str(editor.project.items[0].itemTypeId), "item_family_1")
+	editor._open_new()
+	editor.new_name.text = "Spare Token"
+	editor._create_asset()
+	_expect("unused deletion fixture is created", _has_asset(editor.project, "items", "item_2"), true)
+	editor._open_dependency_review()
+	_expect("unused item receives a confirmation preview", editor.dependency_layer.visible, true)
+	_expect("unused item preview reports no references", editor.dependency_uses.text.contains("No campaign, battle, roster"), true)
+	_expect("unused item can be deliberately deleted", editor.dependency_delete_button.disabled, false)
+	var history_before_delete: int = editor.undo_stack.size()
+	_expect("unused item deletion succeeds", editor._confirm_delete(), true)
+	_expect("delete closes its confirmation preview", editor.dependency_layer.visible, false)
+	_expect("unused item definition is removed", _has_asset(editor.project, "items", "item_2"), false)
+	_expect("delete records exactly one undo step", editor.undo_stack.size(), history_before_delete + 1)
+	editor._undo()
+	_expect("safe deletion is undoable", _has_asset(editor.project, "items", "item_2"), true)
+	editor._redo()
+	_expect("safe deletion is redoable", _has_asset(editor.project, "items", "item_2"), false)
+	var protected_source: String = editor.source
+	editor.dependency_kind = "backdrop"
+	editor.dependency_asset_id = "night_camp"
+	_expect("shared library content deletion is refused", editor._confirm_delete(), false)
+	_expect("shared content refusal preserves source", editor.source, protected_source)
+	editor.dependency_kind = "item"
+	editor.dependency_asset_id = "missing_item"
+	_expect("missing content deletion is refused", editor._confirm_delete(), false)
+	_expect("missing content refusal preserves source", editor.source, protected_source)
 	_expect("new content enables save", editor.save_button.disabled, false)
 	_expect("gear library saves", editor._save(), true)
 	_expect("save clears dirty state", editor.dirty, false)
@@ -190,6 +226,13 @@ func _select_metadata(option: OptionButton, identity: String) -> void:
 		if str(option.get_item_metadata(index)) == identity:
 			option.select(index)
 			return
+
+
+func _has_asset(project: Dictionary, collection: String, identity: String) -> bool:
+	for value: Variant in project.get(collection, []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return true
+	return false
 
 
 func _argument_path(prefix: String) -> String:
