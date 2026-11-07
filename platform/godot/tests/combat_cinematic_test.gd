@@ -276,6 +276,14 @@ func _test_cluster_landmarks(board) -> void:
 		"a woodland footprint becomes an ancient grove",
 		board._landmark_anchors.get(Vector2i(1, 1), ""), "ancient_grove"
 	)
+	var grove_cutouts := 0
+	for child: Node in board._terrain_root.get_children():
+		if (
+			child.has_meta("landmark_asset")
+			and str(child.get_meta("landmark_asset")).contains("ancient_tree_cluster")
+		):
+			grove_cutouts += 1
+	_expect("one footprint draws one ancient grove cutout", grove_cutouts, 1)
 
 
 func _snapshot(target_health: int) -> Dictionary:

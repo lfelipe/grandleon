@@ -22,6 +22,7 @@ const MEDIEVAL_HOUSE_TEXTURES := [
 	"res://art/map_features/medieval_house_inn.png",
 	"res://art/map_features/medieval_house_craftsperson.png",
 ]
+const ANCIENT_GROVE_TEXTURE := "res://art/map_features/ancient_tree_cluster_2x2.png"
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a87a4f"), Color("316b45"), Color("65717a"),
 	Color("c39a60"), Color("dce7e8"), Color("496c58"), Color("78915b"),
@@ -781,9 +782,31 @@ func _build_medieval_house_cutout(centre: Vector3, variation: int) -> bool:
 
 func _build_ancient_grove(anchor: Vector2i) -> void:
 	var centre := _landmark_centre(anchor)
+	if _build_ancient_grove_cutout(centre):
+		return
 	_tree(centre + Vector3(-0.30, 0.10, 0.16), 1.45, render_profile == "voxel")
 	_tree(centre + Vector3(0.34, 0.10, -0.24), 1.16, render_profile == "voxel")
 	_tree(centre + Vector3(0.40, 0.10, 0.42), 0.88, render_profile == "voxel")
+
+
+func _build_ancient_grove_cutout(centre: Vector3) -> bool:
+	if not ResourceLoader.exists(ANCIENT_GROVE_TEXTURE):
+		return false
+	var resource: Resource = load(ANCIENT_GROVE_TEXTURE)
+	if not resource is Texture2D:
+		return false
+	var grove := Sprite3D.new()
+	grove.texture = resource as Texture2D
+	grove.position = centre + Vector3(0, 0.82, 0)
+	grove.pixel_size = 0.00172
+	grove.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	grove.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	grove.shaded = false
+	grove.double_sided = true
+	grove.set_meta("landmark_style", "ancient_grove")
+	grove.set_meta("landmark_asset", ANCIENT_GROVE_TEXTURE)
+	_terrain_root.add_child(grove)
+	return true
 
 
 func _surrounding_depth() -> int:
