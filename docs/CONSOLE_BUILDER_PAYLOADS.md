@@ -153,10 +153,10 @@ image is compressed and both console builds embed only the drawings a campaign
 actually uses, so a generic ROM template would not preserve the current art or
 memory guarantees.
 
-These creator payloads currently produce the established sprite presentation.
-The 0.4 3D console path is a separately built Sevenfold release showcase, not a
-renderer switch in **Finish & Export**. Its paired sprite and 3D commands are in
-[Console 3D](CONSOLE_3D_EXPERIMENT.md).
+Each creator payload produces its platform's console renderer; there is no
+presentation choice in **Finish & Export**. Sevenfold is the release showcase,
+and the repository's renderer-check executables are diagnostics rather than
+additional export modes. See [Console renderer](CONSOLE_RENDERER.md).
 
 ## One isolated request
 

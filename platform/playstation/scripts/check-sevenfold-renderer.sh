@@ -11,10 +11,10 @@ if [ -z "${GRANDLEON_PCSX_REDUX_BUILD_DIGEST:-}" ] || \
     cmake -S "${repository_root}" -B "${repository_root}/build" \
         -DGRANDLEON_BUILD_TESTS=ON
     exec cmake --build "${repository_root}/build" \
-        --target grandleon_playstation_sevenfold_2_5d_check
+        --target grandleon_playstation_sevenfold_renderer_check
 fi
 
-build_dir="${GRANDLEON_PSX_SEVENFOLD_2_5D_BUILD_DIR:-${repository_root}/build-playstation-sevenfold-2-5d}"
+build_dir="${GRANDLEON_PSX_SEVENFOLD_RENDERER_BUILD_DIR:-${repository_root}/build-playstation-sevenfold-renderer}"
 "${repository_root}/platform/playstation/tools/generate-godot-closeups.py" \
     --output "${repository_root}/platform/playstation/prototype/generated/godot_closeup_ci4.h" \
     --check
@@ -29,17 +29,17 @@ build_dir="${GRANDLEON_PSX_SEVENFOLD_2_5D_BUILD_DIR:-${repository_root}/build-pl
     --scene "${repository_root}/tools/renderer_comparison/scene.json" \
     --output "${repository_root}/platform/playstation/prototype/generated/combat_backdrop_ci8.h" \
     --check
-GRANDLEON_PSX_SEVENFOLD_2_5D_BUILD_DIR="${build_dir}" \
-    "${repository_root}/platform/playstation/scripts/build-sevenfold-2-5d.sh"
+GRANDLEON_PSX_SEVENFOLD_RENDERER_BUILD_DIR="${build_dir}" \
+    "${repository_root}/platform/playstation/scripts/build-sevenfold-renderer.sh"
 
-executable="${build_dir}/target/platform/playstation/grandleon_psx_sevenfold_2_5d.ps-exe"
+executable="${build_dir}/target/platform/playstation/grandleon_psx_sevenfold_renderer.ps-exe"
 if [ ! -f "${executable}" ]; then
-    echo "error: PlayStation 2.5D renderer is missing: ${executable}" >&2
+    echo "error: PlayStation console renderer is missing: ${executable}" >&2
     exit 1
 fi
 
 frame_dir="${build_dir}/renderer-frames"
-log="${build_dir}/sevenfold-2-5d-render.log"
+log="${build_dir}/sevenfold-renderer-render.log"
 mkdir -p "${frame_dir}"
 find "${frame_dir}" -maxdepth 1 -type f -delete
 
@@ -59,23 +59,23 @@ timeout --kill-after=10 300 \
     stdbuf -oL -eL pcsx-redux -no-ui -run -softgpu \
         -bios /usr/local/share/pcsx-redux/openbios.bin \
         -testmode -interpreter \
-        -dofile /harness/playstation_texture_probe.lua \
+        -dofile /harness/playstation_renderer_probe.lua \
         -loadexe "/exe/$(basename "${executable}")" \
     > "${log}" 2>&1
 status=$?
 set -e
 
 if [ "${status}" -ne 0 ]; then
-    echo "error: PlayStation 2.5D renderer exited ${status}." >&2
+    echo "error: PlayStation console renderer exited ${status}." >&2
     tail -n 80 "${log}" >&2 || true
     exit 1
 fi
 "${repository_root}/scripts/assert-harness-verdict.sh" \
     --log "${log}" --require "^RESULT PASS " --min-checks 18 \
-    --what "the PlayStation 2.5D renderer guest"
+    --what "the PlayStation console renderer guest"
 "${repository_root}/scripts/assert-harness-verdict.sh" \
     --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 561 \
-    --what "the PlayStation 2.5D capture harness"
+    --what "the PlayStation renderer capture harness"
 
 frames=(tactical-board combat-backdrop)
 for index in $(seq -w 0 15); do frames+=("movement-${index}"); done
@@ -156,5 +156,5 @@ ffmpeg -hide_banner -loglevel error -y \
     "${frame_dir}/renderer-comparison-playstation.mp4"
 
 grep '^BENCH ' "${log}"
-echo "PlayStation Sevenfold 2.5D renderer passed: ${executable}"
+echo "PlayStation Sevenfold console renderer passed: ${executable}"
 echo "Native captures: ${frame_dir}"

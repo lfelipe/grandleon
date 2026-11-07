@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Derive the N64 2.5D cutouts from the curated Godot sheets.
+"""Derive the N64 console renderer cutouts from the curated Godot sheets.
 
 The checked-in PNGs are build inputs so the pinned N64 container only needs
 libdragon's mksprite. Re-running this script is the explicit provenance path
@@ -276,7 +276,7 @@ def main() -> None:
     (OUTPUT / "manifest.json").write_text(
         json.dumps(
             {
-                "format": "Grandleon N64 fixed-camera 2.5D cutouts v3",
+                "format": "Grandleon N64 console renderer cutouts v3",
                 "generated_by": str(Path(__file__).resolve().relative_to(ROOT)),
                 "generator_sha256": source_digest(Path(__file__).resolve()),
                 "assets": manifest_assets,

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Generate original, deterministic N64 terrain experiment assets.
+"""Generate original, deterministic N64 console terrain assets.
 
 The material atlas is greyscale because the RDP multiplies it by authored
 terrain vertex colours. The prop atlas carries its own restrained palette and
@@ -154,7 +154,7 @@ def main() -> None:
     floor_atlas().save(floor_path, optimize=True)
     generator = Path(__file__).resolve()
     manifest = {
-        "format": "Grandleon N64 terrain experiment assets v1",
+        "format": "Grandleon N64 console terrain assets v1",
         "generated_by": str(generator.relative_to(ROOT)),
         "generator_sha256": sha256(generator),
         "assets": [

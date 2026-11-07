@@ -4,7 +4,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-build_dir="${GRANDLEON_N64_SEVENFOLD_2_5D_BUILD_DIR:-${repository_root}/build-n64-sevenfold-2-5d}"
+build_dir="${GRANDLEON_N64_SEVENFOLD_RENDERER_BUILD_DIR:-${repository_root}/build-n64-sevenfold-renderer}"
 skip_build=0
 rebuild_argument=()
 
@@ -34,16 +34,16 @@ def sha(path: pathlib.Path) -> str:
 
 cutout_dir = root / "platform/nintendo64/prototype/assets/sevenfold_cutouts"
 cutouts = json.loads((cutout_dir / "manifest.json").read_text())
-if cutouts["format"] != "Grandleon N64 fixed-camera 2.5D cutouts v3":
-    raise SystemExit("unexpected 2.5D cutout format")
+if cutouts["format"] != "Grandleon N64 console renderer cutouts v3":
+    raise SystemExit("unexpected renderer cutout format")
 if sha(root / cutouts["generated_by"]) != cutouts["generator_sha256"]:
     raise SystemExit("cutout generator changed; regenerate the cutouts")
 if len(cutouts["assets"]) != 40:
-    raise SystemExit("2.5D pack must contain thirty-eight cutouts and two effects")
+    raise SystemExit("renderer pack must contain thirty-eight cutouts and two effects")
 for asset in cutouts["assets"]:
     output = cutout_dir / asset["path"]
     if not output.is_file() or output.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
-        raise SystemExit(f"missing 2.5D cutout: {output}")
+        raise SystemExit(f"missing renderer cutout: {output}")
     if "source" in asset:
         if sha(root / asset["source"]) != asset["source_sha256"]:
             raise SystemExit(f"cutout source changed: {asset['source']}")
@@ -95,18 +95,18 @@ if (
     or comparison["combat_backdrop"]["foreground_contract"]["live_floor_strip"]
 ):
     raise SystemExit("shared renderer-comparison scene is out of sync")
-print("Nintendo 64 2.5D asset provenance passed")
+print("Nintendo 64 renderer asset provenance passed")
 PYEOF
 
 if [ "${skip_build}" -eq 0 ]; then
-    GRANDLEON_N64_SEVENFOLD_2_5D_BUILD_DIR="${build_dir}" \
-        "${repository_root}/platform/nintendo64/scripts/build-sevenfold-2-5d.sh" \
+    GRANDLEON_N64_SEVENFOLD_RENDERER_BUILD_DIR="${build_dir}" \
+        "${repository_root}/platform/nintendo64/scripts/build-sevenfold-renderer.sh" \
         "${rebuild_argument[@]}"
 fi
 
-rom="${build_dir}/platform/nintendo64/grandleon-n64-sevenfold-2-5d.z64"
+rom="${build_dir}/platform/nintendo64/grandleon-n64-sevenfold-renderer.z64"
 if [ ! -f "${rom}" ]; then
-    echo "error: Sevenfold 2.5D ROM is missing: ${rom}" >&2
+    echo "error: Sevenfold renderer ROM is missing: ${rom}" >&2
     exit 1
 fi
 magic="$(od -An -tx1 -N4 "${rom}" | tr -d ' \n')"
@@ -119,14 +119,14 @@ GRANDLEON_N64_BUILD_DIR="${build_dir}" \
 GRANDLEON_N64_ARES_SECONDS=40 \
 GRANDLEON_N64_ARES_MIN_CHECKS=11 \
 GRANDLEON_N64_ARES_POLL_SECONDS=0.05 \
-GRANDLEON_N64_ARES_LOG=sevenfold-2-5d.log \
-GRANDLEON_N64_ARES_TRAIL=trail-sevenfold-2-5d \
-GRANDLEON_N64_ARES_SHOT=screenshot-sevenfold-2-5d.png \
+GRANDLEON_N64_ARES_LOG=sevenfold-renderer.log \
+GRANDLEON_N64_ARES_TRAIL=trail-sevenfold-renderer \
+GRANDLEON_N64_ARES_SHOT=screenshot-sevenfold-renderer.png \
     "${repository_root}/platform/nintendo64/ares/run-ares.sh" "${rom}"
 
-log="${build_dir}/ares/sevenfold-2-5d.log"
-grep -q '^grandleon n64 2.5d renderer$' "${log}"
-grep -q '^sevenfold 2.5d terrain=64x64-ci4 backdrop=320x240-ci4 tiles=24 cutouts=godot-derived floor=pre-rendered-full-frame ' "${log}"
+log="${build_dir}/ares/sevenfold-renderer.log"
+grep -q '^grandleon n64 renderer$' "${log}"
+grep -q '^sevenfold renderer terrain=64x64-ci4 backdrop=320x240-ci4 tiles=24 cutouts=godot-derived floor=pre-rendered-full-frame ' "${log}"
 grep -q '^sevenfold tactical-cutout stage=medieval models=8 roles=8 bodies=mixed teams=blue-red .* highlights=blue-and-gold$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-cutout-medieval$' "${log}"
 grep -q '^sevenfold tactical-cutout-animation stage=medieval frames=72 .* easing=smoothstep .* ordering=foot-depth$' "${log}"
@@ -137,4 +137,4 @@ for checkpoint in sequence-start board focus attack counter restored; do
     grep -q "^CHECKPOINT sevenfold-readme-${checkpoint}$" "${log}"
 done
 grep -q '^RESULT PASS 11/11$' "${log}"
-echo "Nintendo 64 Sevenfold 2.5D check passed: ${rom}"
+echo "Nintendo 64 Sevenfold renderer check passed: ${rom}"

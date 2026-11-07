@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-// PlayStation fixed-camera 2.5D renderer gate. It exercises the curated
+// PlayStation console renderer gate. It exercises the curated
 // Godot-derived cutouts, textured tactical terrain and full-frame combat
-// backdrop that replace the retired polygon-proxy renderer.
+// backdrop used by the console renderer.
 
 #include "psx_gpu.h"
 #include "psx_runtime.h"
@@ -715,7 +715,7 @@ void draw_quality_grass(
     );
 }
 
-[[nodiscard]] ElevatedCamera close_camera_v2() noexcept {
+[[nodiscard]] ElevatedCamera close_camera() noexcept {
     ElevatedCamera camera{0, 0, 256, -64, 0, 180, 245, 256};
     RawBounds bounds{0, 0, 0, 0, false};
     constexpr int left = -168;
@@ -748,7 +748,7 @@ void draw_quality_grass(
     return mask;
 }
 
-void draw_close_stage_v2(const ElevatedCamera& camera) {
+void draw_close_stage(const ElevatedCamera& camera) {
     constexpr int tile = 48;
     constexpr int left = -168;
     constexpr int far = -96;
@@ -863,7 +863,7 @@ void draw_capture_health(
 }
 
 [[nodiscard]] ElevatedCamera comparison_close_camera() noexcept {
-    ElevatedCamera camera = close_camera_v2();
+    ElevatedCamera camera = close_camera();
     camera.centre_x = gpu::screen_width / 2;
     const ProjectedVertex current_ground = project_elevated(-70, 3, 0, camera);
     const int wanted_ground = gpu::screen_height *
@@ -872,13 +872,13 @@ void draw_capture_health(
     return camera;
 }
 
-[[nodiscard]] SceneResult draw_hybrid_close_v2(
+[[nodiscard]] SceneResult draw_close_battle(
     int phase, const char* title, const char* subtitle, std::uint16_t sky,
     bool capture_mode = false, bool backdrop_mode = true,
     int left_health = 12, int right_health = 11
 ) {
     const ElevatedCamera camera = capture_mode
-        ? comparison_close_camera() : close_camera_v2();
+        ? comparison_close_camera() : close_camera();
     const Cutout& left = quality_left_pose(phase);
     const Cutout& right = quality_right_pose(phase);
     const int left_x = close_left_x(phase) - (capture_mode ? 14 : 0);
@@ -892,7 +892,7 @@ void draw_capture_health(
         draw_combat_backdrop();
         draw_combat_backdrop_overlay();
     } else {
-        draw_close_stage_v2(camera);
+        draw_close_stage(camera);
         draw_close_far_decorations(camera);
     }
     draw_elevated_marker(left_x, 0, 0, 40, camera);
@@ -976,7 +976,7 @@ constexpr int quality_move_progress[quality_movement_frames] = {
 };
 
 
-[[nodiscard]] ElevatedCamera overview_camera_v2() noexcept {
+[[nodiscard]] ElevatedCamera tactical_camera() noexcept {
     ElevatedCamera camera{0, 0, 220, -220, 105, 105, 260, 256};
     RawBounds bounds{0, 0, 0, 0, false};
     constexpr int tile = 46;
@@ -1034,7 +1034,7 @@ struct OverviewUnitOrder final {
     return mask;
 }
 
-void draw_overview_ground_v2(const ElevatedCamera& camera) {
+void draw_tactical_ground(const ElevatedCamera& camera) {
     constexpr int tile = 46;
     constexpr int left = -sevenfold_board_columns * tile / 2;
     constexpr int far = -sevenfold_board_rows * tile / 2;
@@ -1102,7 +1102,7 @@ void make_overview_props(QualityProp* props, const ElevatedCamera& camera) {
               });
 }
 
-void draw_movement_highlights_v2(const ElevatedCamera& camera) {
+void draw_movement_highlights(const ElevatedCamera& camera) {
     constexpr int tile = 46;
     constexpr int left = -sevenfold_board_columns * tile / 2;
     constexpr int far = -sevenfold_board_rows * tile / 2;
@@ -1137,14 +1137,14 @@ void draw_unit_status(
     }
 }
 
-[[nodiscard]] SceneResult draw_overview_v2(int move_step) {
+[[nodiscard]] SceneResult draw_tactical_board(int move_step) {
     constexpr int tile = 46;
     constexpr int left = -sevenfold_board_columns * tile / 2;
     constexpr int far = -sevenfold_board_rows * tile / 2;
     constexpr int unit_count = static_cast<int>(
         sizeof(quality_overview_units) / sizeof(quality_overview_units[0])
     );
-    const ElevatedCamera camera = overview_camera_v2();
+    const ElevatedCamera camera = tactical_camera();
     OverviewUnitOrder order[unit_count]{};
     for (int index = 0; index < unit_count; ++index) {
         const OverviewUnit& unit = quality_overview_units[index];
@@ -1163,8 +1163,8 @@ void draw_unit_status(
 
     gpu::clear(gpu::rgb15(4, 8, 11));
     psx::start_clock();
-    draw_overview_ground_v2(camera);
-    draw_movement_highlights_v2(camera);
+    draw_tactical_ground(camera);
+    draw_movement_highlights(camera);
     QualityProp props[9]{};
     int next_prop = 0;
     make_overview_props(props, camera);
@@ -1196,7 +1196,7 @@ void draw_unit_status(
     }
     gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
     text_at(8, 5, move_step >= 0
-        ? "TACTICAL CAMERA V2 MOVE" : "TACTICAL CAMERA V2");
+        ? "TACTICAL MOVE" : "TACTICAL BOARD");
     gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
     text_at(8, 227, "HIGH ISO  8 UNITS  REACH  HEALTH  TEAM");
     gpu::show();
@@ -1619,19 +1619,19 @@ int main() {
                capture_right.y == expected_ground,
            "fighters keep the shared slots and ground line");
 
-    const SceneResult overview = draw_overview_v2(-1);
+    const SceneResult overview = draw_tactical_board(-1);
     print_benchmark("tactical-board", overview);
     psx::signal_host(24);
 
     std::uint32_t slowest_movement = 0;
     for (int frame = 0; frame < quality_movement_frames; ++frame) {
-        const SceneResult result = draw_overview_v2(frame);
+        const SceneResult result = draw_tactical_board(frame);
         slowest_movement = std::max(slowest_movement, result.ticks);
         psx::signal_host(25);
     }
     print_benchmark("tactical-movement-slowest", {slowest_movement, 104});
 
-    const SceneResult backdrop = draw_hybrid_close_v2(
+    const SceneResult backdrop = draw_close_battle(
         -1, "CLOSE BATTLE", "GODOT CUTOUTS + TERRAIN BACKDROP",
         gpu::rgb15(7, 13, 17), true, true,
         grandleon_psx_comparison_unit_initial_hp[0],
@@ -1642,7 +1642,7 @@ int main() {
 
     std::uint32_t slowest_exchange = 0;
     for (int frame = 0; frame < close_exchange_frames; ++frame) {
-        const SceneResult result = draw_hybrid_close_v2(
+        const SceneResult result = draw_close_battle(
             frame, "ATTACK + COUNTER", "FIXED SIDES  TERRAIN BACKDROP",
             gpu::rgb15(7, 13, 17), true, true
         );
@@ -1668,7 +1668,7 @@ int main() {
         psx::signal_host(29);
     }
     for (int frame = 0; frame < 2; ++frame) {
-        sequence_frames[sequence_at++] = draw_hybrid_close_v2(
+        sequence_frames[sequence_at++] = draw_close_battle(
             -1, "MATCH CLOSE", "BLUE 12  RED 11", gpu::rgb15(7, 13, 17),
             true, true, grandleon_psx_comparison_unit_initial_hp[0],
             grandleon_psx_comparison_unit_initial_hp[1]
@@ -1682,14 +1682,14 @@ int main() {
         const int right_hp = frame >= 12
             ? grandleon_psx_comparison_unit_final_hp[1]
             : grandleon_psx_comparison_unit_initial_hp[1];
-        sequence_frames[sequence_at++] = draw_hybrid_close_v2(
+        sequence_frames[sequence_at++] = draw_close_battle(
             frame, "MATCH CLOSE", frame < 20 ? "BLUE HITS 3" : "RED COUNTERS 4",
             gpu::rgb15(7, 13, 17), true, true, left_hp, right_hp
         );
         psx::signal_host(29);
     }
     for (int frame = 0; frame < 2; ++frame) {
-        sequence_frames[sequence_at++] = draw_hybrid_close_v2(
+        sequence_frames[sequence_at++] = draw_close_battle(
             -1, "MATCH CLOSE", "BLUE 8  RED 8", gpu::rgb15(7, 13, 17),
             true, true, grandleon_psx_comparison_unit_final_hp[0],
             grandleon_psx_comparison_unit_final_hp[1]
@@ -1732,7 +1732,7 @@ int main() {
                quality_terrain_cell(1, 0, 2),
            "terrain transition masks select distinct textures");
 
-    const ElevatedCamera close = close_camera_v2();
+    const ElevatedCamera close = close_camera();
     const ProjectedVertex far_top = project_elevated(0, 0, -96, close);
     const ProjectedVertex near_top = project_elevated(0, 0, 144, close);
     const ProjectedVertex left_foot = project_elevated(-70, 0, 0, close);

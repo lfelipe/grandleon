@@ -1,16 +1,16 @@
-# Reproducible Nintendo 64 fixed-camera 2.5D toolchain.
+# Reproducible Nintendo 64 console toolchain.
 #
 # libdragon publishes a container image, but it holds the mips64-elf GCC cross
 # compiler only: there is no libdragon in it, no n64.mk, no libdragon.a, no
 # n64tool and no linker script. So the published image is pinned by digest and
 # used as a base, and this file adds one pinned libdragon commit on top.
 #
-# Built only by build-sevenfold-2-5d.sh. The ordinary portable campaign
+# Built only by build-sevenfold-renderer.sh. The ordinary portable campaign
 # renderer continues to use Containerfile and its stable libdragon pin.
 
 FROM ghcr.io/dragonminded/libdragon@sha256:cf979424d0c2d3e281fda0820e8244def9b2debea2ab140c6513e41c8b66cdd0
 
-# Tiny3D provides the textured tactical floor used by the 2.5D renderer gate.
+# Tiny3D provides the textured tactical floor used by the console renderer gate.
 ARG LIBDRAGON_COMMIT=c79a52b42ac790e06e797aede43914dd8754cd5f
 ARG TINY3D_COMMIT=517156d9464aaab95bf9531336d9a57624405ca7
 
@@ -62,7 +62,7 @@ RUN mkdir -p /tmp/libdragon \
     && cd / \
     && rm -rf /tmp/libdragon
 
-# Tiny3D is the only additional runtime component in the prototype. Keep its
+# Tiny3D is the only additional runtime component in the renderer check. Keep its
 # exact MIT notice both in the image inventory and in the repository bundle.
 RUN mkdir -p /tmp/tiny3d \
     && cd /tmp/tiny3d \

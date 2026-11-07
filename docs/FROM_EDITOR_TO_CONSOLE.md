@@ -77,12 +77,12 @@ Not stages of one port; each answers a different question.
 | **The Nintendo 64** | the deepest console port (full campaign, title screen, cutscenes, controller, overlays, forecasts, abilities), and the only target that parses authored JSON *on the console* rather than consuming a package compiled on the host. |
 | **The PlayStation** | the widest architectural spread from the host: 32-bit little-endian MIPS-I, no `clz`, no `movn`, no 64-bit load. It plays both shipped campaigns end to end from a controller over bit-banged SIO0 and keeps them on a memory card. |
 
-Sevenfold also has playable 3D campaign builds for N64 and PS1, plus separate
-complete-roster diagnostic viewers. These are currently repository builds
-rather than Export Center choices, but the playable versions consume the same
-campaign rules and state as their sprite counterparts. [Console
-3D](CONSOLE_3D_EXPERIMENT.md) explains what can be run now and which graphics
-areas remain ongoing work.
+Sevenfold is the console presentation showcase. It exercises every style and
+archetype, both body variants, varied terrain, local co-op, and close battles
+through the same portable campaign state used by the other players. The
+repository also carries automated visual checks for both consoles; those are
+diagnostics rather than game modes. [Console renderer](CONSOLE_RENDERER.md)
+explains what can be run now and which graphics areas remain ongoing work.
 
 Local co-op does not fork this chain. A `sideBlocks` encounter, its placements,
 deployment, objectives, and dialogue compile once and are consumed unchanged by
@@ -192,4 +192,4 @@ Six layers, each catching something the one below it structurally cannot.
 | [tools/game_content/README.md](../tools/game_content/README.md) | the compiler that resolves choices to indices |
 | [platform/nintendo64/README.md](../platform/nintendo64/README.md) | the deepest console port, and ares |
 | [platform/playstation/README.md](../platform/playstation/README.md) | the R3000A, the ISA trap, and three-channel pixel verification |
-| [docs/CONSOLE_3D_EXPERIMENT.md](CONSOLE_3D_EXPERIMENT.md) | the bounded N64/PlayStation 3D comparison and its outcome |
+| [docs/CONSOLE_RENDERER.md](CONSOLE_RENDERER.md) | the Nintendo 64 and PlayStation presentation, checks, and performance budgets |

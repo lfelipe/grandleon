@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 
-# Builds the fixed-camera Sevenfold 2.5D renderer ROM with pinned libdragon
+# Builds the Sevenfold console renderer ROM with pinned libdragon
 # and Tiny3D revisions. The removed polygon-proxy campaign/viewer is not part
 # of this build.
 
@@ -10,11 +10,11 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 base_image="${GRANDLEON_LIBDRAGON_BASE_IMAGE:-ghcr.io/dragonminded/libdragon:trunk}"
 base_digest="${GRANDLEON_LIBDRAGON_BASE_DIGEST:-sha256:cf979424d0c2d3e281fda0820e8244def9b2debea2ab140c6513e41c8b66cdd0}"
-libdragon_commit="${GRANDLEON_N64_2_5D_LIBDRAGON_COMMIT:-c79a52b42ac790e06e797aede43914dd8754cd5f}"
-tiny3d_commit="${GRANDLEON_N64_2_5D_TINY3D_COMMIT:-517156d9464aaab95bf9531336d9a57624405ca7}"
+libdragon_commit="${GRANDLEON_N64_RENDERER_LIBDRAGON_COMMIT:-c79a52b42ac790e06e797aede43914dd8754cd5f}"
+tiny3d_commit="${GRANDLEON_N64_RENDERER_TINY3D_COMMIT:-517156d9464aaab95bf9531336d9a57624405ca7}"
 docker="${GRANDLEON_DOCKER:-docker}"
-build_dir="${GRANDLEON_N64_SEVENFOLD_2_5D_BUILD_DIR:-${repository_root}/build-n64-sevenfold-2-5d}"
-image="grandleon/n64-2-5d-toolchain:${libdragon_commit:0:12}-t3d${tiny3d_commit:0:12}"
+build_dir="${GRANDLEON_N64_SEVENFOLD_RENDERER_BUILD_DIR:-${repository_root}/build-n64-sevenfold-renderer}"
+image="grandleon/n64-renderer-toolchain:${libdragon_commit:0:12}-t3d${tiny3d_commit:0:12}"
 rebuild_image=0
 
 usage() {
@@ -51,7 +51,7 @@ if [ "${rebuild_image}" -eq 1 ] || ! "${docker}" image inspect "${image}" >/dev/
             ;;
     esac
     "${docker}" build \
-        --file "${repository_root}/platform/nintendo64/Containerfile.2-5d" \
+        --file "${repository_root}/platform/nintendo64/Containerfile.renderer" \
         --build-arg "LIBDRAGON_COMMIT=${libdragon_commit}" \
         --build-arg "TINY3D_COMMIT=${tiny3d_commit}" \
         --tag "${image}" \
@@ -64,7 +64,7 @@ installed_libdragon="${installed_libdragon//[$'\r\n']/}"
 installed_tiny3d="${installed_tiny3d//[$'\r\n']/}"
 if [ "${installed_libdragon}" != "${libdragon_commit}" ] || \
    [ "${installed_tiny3d}" != "${tiny3d_commit}" ]; then
-    echo "error: 2.5D toolchain image contains the wrong pinned revisions." >&2
+    echo "error: renderer toolchain image contains the wrong pinned revisions." >&2
     exit 1
 fi
 
@@ -73,7 +73,7 @@ build_dir="$(cd "${build_dir}" && pwd)"
 case "${build_dir}/" in
     "${repository_root}/"*) ;;
     *)
-        echo "error: GRANDLEON_N64_SEVENFOLD_2_5D_BUILD_DIR must be inside the repository." >&2
+        echo "error: GRANDLEON_N64_SEVENFOLD_RENDERER_BUILD_DIR must be inside the repository." >&2
         exit 1
         ;;
 esac
@@ -92,19 +92,19 @@ flock 9
             -DCMAKE_TOOLCHAIN_FILE=/src/cmake/toolchains/Nintendo64.cmake \
             -DCMAKE_BUILD_TYPE= \
             -DGRANDLEON_N64=ON \
-            -DGRANDLEON_N64_SEVENFOLD_2_5D=ON \
+            -DGRANDLEON_N64_SEVENFOLD_RENDERER=ON \
             -DGRANDLEON_N64_PROJECT=/src/games/sevenfold/source/project.json \
             -DGRANDLEON_STAGE_PICKER=ON \
             -DGRANDLEON_BUILD_TESTS=OFF \
             -DGRANDLEON_WERROR=ON
         cmake --build "${GRANDLEON_CONTAINER_BUILD_DIR}" --parallel \
-            --target grandleon_n64_sevenfold_2_5d
+            --target grandleon_n64_sevenfold_renderer
     '
 
-rom="${build_dir}/platform/nintendo64/grandleon-n64-sevenfold-2-5d.z64"
+rom="${build_dir}/platform/nintendo64/grandleon-n64-sevenfold-renderer.z64"
 if [ ! -f "${rom}" ]; then
-    echo "error: expected 2.5D ROM was not produced: ${rom}" >&2
+    echo "error: expected renderer ROM was not produced: ${rom}" >&2
     exit 1
 fi
-echo "Sevenfold 2.5D ROM: ${rom} ($(wc -c < "${rom}") bytes)"
+echo "Sevenfold renderer ROM: ${rom} ($(wc -c < "${rom}") bytes)"
 echo "SHA-256: $(sha256sum "${rom}" | cut -d ' ' -f 1)"

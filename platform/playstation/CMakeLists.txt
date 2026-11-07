@@ -489,21 +489,21 @@ target_compile_definitions(
     PRIVATE GRANDLEON_PLAYSTATION_LOCAL_PLAYERS=2
 )
 
-# The fixed-camera 2.5D renderer gate. It uses Godot-derived cutouts and
-# terrain plates, exercises the tactical board and close battle sequence, and
-# keeps every native frame inside the locked 30 fps budget.
+# The console renderer check uses Godot-derived cutouts and terrain plates,
+# exercises the tactical board and close battle sequence, and keeps every
+# native frame inside the locked 30 fps budget.
 grandleon_playstation_executable(
-    grandleon_playstation_sevenfold_2_5d
-    grandleon_psx_sevenfold_2_5d
-    prototype/sevenfold_2_5d_renderer.cpp
+    grandleon_playstation_sevenfold_renderer
+    grandleon_psx_sevenfold_renderer
+    prototype/sevenfold_renderer.cpp
     src/psx_gpu.cpp
 )
 target_link_libraries(
-    grandleon_playstation_sevenfold_2_5d
+    grandleon_playstation_sevenfold_renderer
     PRIVATE grandleon::view
 )
 target_include_directories(
-    grandleon_playstation_sevenfold_2_5d
+    grandleon_playstation_sevenfold_renderer
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${CMAKE_SOURCE_DIR}/platform/client/include"

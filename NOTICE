@@ -24,11 +24,11 @@ by Ajv, and carries Ajv's runtime helpers with it. Ajv is MIT, Copyright (c)
 
     https://github.com/ajv-validator/ajv/blob/master/LICENSE
 
-The optional Nintendo 64 3D character prototype links Tiny3D at commit
+The Nintendo 64 console renderer links Tiny3D at commit
 517156d9464aaab95bf9531336d9a57624405ca7. Tiny3D is distributed under the
 MIT License, Copyright (c) 2023 Max Bebök. Its complete license is retained at
 `third_party/tiny3d/517156d9464aaab95bf9531336d9a57624405ca7/LICENSE` and is
-included beside the prototype ROM when a review bundle is staged.
+included beside the Nintendo 64 ROM when a review bundle is staged.
 
     https://github.com/HailToDodongo/tiny3d
 

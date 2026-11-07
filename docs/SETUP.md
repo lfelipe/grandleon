@@ -157,19 +157,17 @@ to:
 | `--playstation` | PlayStation: conformance, what it drew, a played turn, the memory card, both campaigns, and the disc booted | **a container runtime** |
 | `--consoles` | both of the above | **a container runtime** |
 
-`--n64` runs all five supported Nintendo 64 checks: conformance, the render
-probe, a played autopilot, two-controller co-op, and a campaign that survives
-the power switch. It then separately builds and checks the focused two-role 3D
-prototype. The first four Tarnholt checks share one build; the Emberbound co-op
-ROM is built separately because its authored two-player opening is the test.
+`--n64` runs conformance, the render probe, a played autopilot,
+two-controller co-op, a campaign that survives the power switch, and the
+console renderer gate. The Tarnholt checks share one build; the Emberbound
+co-op ROM is built separately because its authored two-player opening is the
+test.
 
-The complete Sevenfold 3D roster is a separate development check so the normal
-suite does not generate 28 detail-comparison captures, seven terrain close
-views, and an animated hit capture:
+The console renderer can also be checked directly on each platform:
 
 ```sh
-platform/nintendo64/scripts/check-sevenfold-3d.sh
-platform/playstation/scripts/check-sevenfold-3d.sh
+platform/nintendo64/scripts/check-sevenfold-renderer.sh
+platform/playstation/scripts/check-sevenfold-renderer.sh
 ```
 
 The same checks are also CMake targets, which is what a person debugging one
@@ -197,23 +195,16 @@ cmake --build build --target grandleon_playstation_card_check
 cmake --build build --target grandleon_playstation_campaign_check
 cmake --build build --target grandleon_playstation_disc_check
 cmake --build build --target grandleon_n64_sevenfold_roms
-cmake --build build --target grandleon_n64_sevenfold_3d_check
-cmake --build build --target grandleon_playstation_sevenfold_3d_check
+cmake --build build --target grandleon_n64_sevenfold_renderer_check
+cmake --build build --target grandleon_playstation_sevenfold_renderer_check
 ```
 
 Each pulls or builds its pinned toolchain image on first use, which costs
 minutes.
 
-The optional N64 3D character comparison is intentionally outside the normal
-campaign targets. Build and run that fixed prototype with:
-
-```sh
-platform/nintendo64/scripts/check-character-prototype.sh
-```
-
-See [CONSOLE_3D_EXPERIMENT.md](CONSOLE_3D_EXPERIMENT.md) before using it: the
-prototype is a performance and readability comparison, not an editor export or
-a second campaign renderer.
+See [CONSOLE_RENDERER.md](CONSOLE_RENDERER.md) for the presentation contract,
+current performance budgets, and the distinction between playable campaigns
+and the automated renderer checks.
 
 ## Without SDL2
 

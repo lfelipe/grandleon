@@ -1,4 +1,4 @@
--- PlayStation Sevenfold fixed-camera 2.5D capture harness.
+-- PlayStation Sevenfold console capture harness.
 --
 -- The guest exposes only the selected tactical, movement, close battle and
 -- matched comparison frames. Slot 20 carries its final verdict.

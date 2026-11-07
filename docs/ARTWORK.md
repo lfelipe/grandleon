@@ -296,25 +296,26 @@ cyan for player one and amber for player two, with a stronger translucent fill
 and bright perimeter so the range remains visible over light or busy terrain.
 Attack, ability, and talk targets remain red to communicate action type.
 
-## Console 3D comparison
+## Console artwork
 
-The current Godot commander and rogue were reduced into two console LODs and
-tested at native board scale. A second N64 review ROM now supplies procedural
-console models for all 112 combinations of style, archetype, and male/female
-body. It shows one body and all eight roles per page, with runtime red/blue team
-colour replacement, so the complete matrix can be inspected without crowding
-sixteen figures together. Every page can switch between low and high detail.
-The same ROM also places two high-detail models in an experimental close attack
-view, with the floor, skyline, and sky colour derived from the selected map
-terrain.
+Nintendo 64 and PlayStation derive hardware-sized character cutouts from the
+same curated sheets used by Godot. Separate team masks apply player colours at
+runtime, so one authored character remains readable on either side without
+duplicating the source art. The board combines those cutouts with deterministic
+terrain textures, while close battles use terrain-derived full-frame
+backdrops.
 
-These models are deterministic console interpretations, not the curated raster
-artwork converted into hidden meshes. N64 and PS1 use them in playable
-Sevenfold 3D campaigns and also provide complete-roster diagnostic viewers.
-The PS1 board uses conservative model counts and low detail because its older
-sixteen-model stress scene was too slow; close views can spend more detail on
-the two characters involved. [Console 3D](CONSOLE_3D_EXPERIMENT.md) covers the
-builds, measurements, current limitations, and ongoing graphics work.
+The checked-in N64 assets are reproduced by
+`platform/nintendo64/scripts/generate-sevenfold-cutout-assets.py`,
+`platform/nintendo64/scripts/generate-sevenfold-terrain-assets.py`, and
+`platform/nintendo64/scripts/generate-sevenfold-backdrop-assets.py`.
+PlayStation's terrain header is reproduced by
+`platform/playstation/tools/generate-terrain-quality.py`. Their manifests keep
+the source paths and hashes beside the generated output so a future art tweak
+can be traced and repeated.
+
+[Console renderer](CONSOLE_RENDERER.md) covers the builds, performance budgets,
+current limitations, and ongoing graphics work.
 
 ## The full portable library
 

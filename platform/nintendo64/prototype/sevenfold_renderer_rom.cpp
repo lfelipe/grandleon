@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Fixed-camera Sevenfold 2.5D rendering and performance gate.
+// Sevenfold console renderer rendering and performance gate.
 
 #include <libdragon.h>
 
@@ -497,7 +497,7 @@ std::uint64_t show_tactical_cutout(
         surface_t* display = display_get();
         elapsed = draw_tactical_cutout_frame(
             display, &viewport, matrix, board, tactical_frame,
-            "Medieval Gate TACTICAL - 2.5D",
+            "TACTICAL BOARD",
             "8 CURATED ROLES - HEALTH + TEAMS",
             "Z VIEW B MOVE - BLUE + GOLD"
         );
@@ -531,7 +531,7 @@ std::uint64_t play_tactical_cutout_move(
         draw_tactical_cutout_frame(
             display, &viewport, matrix, board,
             cutout::TacticalFrame{0, 0, 0, 0},
-            "Medieval Gate TACTICAL - 2.5D MOVE",
+            "TACTICAL MOVE",
             "ROGUE MOVES INTO SELECTED TILE",
             "ANTICIPATE - WALK - SETTLE"
         );
@@ -559,7 +559,7 @@ std::uint64_t play_tactical_cutout_move(
         surface_t* display = display_get();
         const std::uint64_t elapsed = draw_tactical_cutout_frame(
             display, &viewport, matrix, board, tactical_frame,
-            "Medieval Gate TACTICAL - 2.5D MOVE",
+            "TACTICAL MOVE",
             "ROGUE MOVES INTO SELECTED TILE",
             "ANTICIPATE - EASED WALK - SETTLE"
         );
@@ -800,7 +800,7 @@ std::uint64_t play_matched_readme_sequence(
 
 extern "C" int main(void) {
     debug_init_isviewer();
-    std::fprintf(stderr, "grandleon n64 2.5d renderer\n");
+    std::fprintf(stderr, "grandleon n64 renderer\n");
     display_init(
         RESOLUTION_320x240, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE
     );
@@ -812,7 +812,7 @@ extern "C" int main(void) {
     const bool terrain_ready = texture::initialize();
     const bool backdrop_ready = backdrop::initialize();
     const bool cutout_ready = cutout::initialize();
-    expect(terrain_ready, "2.5D terrain and prop atlases allocate");
+    expect(terrain_ready, "terrain and prop atlases allocate");
     expect(
         texture::terrain_peak_texture_bytes() <= 4096U,
         "each terrain atlas fits four KiB of TMEM"
@@ -837,7 +837,7 @@ extern "C" int main(void) {
     );
     std::fprintf(
         stderr,
-        "sevenfold 2.5d terrain=64x64-ci4 backdrop=320x240-ci4 tiles=24 cutouts=godot-derived floor=pre-rendered-full-frame terrain_embedded=%lu backdrop_embedded=%lu close_embedded=%lu tactical_embedded=%lu\n",
+        "sevenfold renderer terrain=64x64-ci4 backdrop=320x240-ci4 tiles=24 cutouts=godot-derived floor=pre-rendered-full-frame terrain_embedded=%lu backdrop_embedded=%lu close_embedded=%lu tactical_embedded=%lu\n",
         static_cast<unsigned long>(texture::terrain_embedded_bytes()),
         static_cast<unsigned long>(backdrop::embedded_bytes()),
         static_cast<unsigned long>(cutout::embedded_bytes()),
@@ -851,7 +851,7 @@ extern "C" int main(void) {
         malloc_uncached(sizeof(T3DMat4FP))
     );
     const bool allocated = board != nullptr && matrix != nullptr;
-    expect(allocated, "2.5D board and matrix buffers allocate");
+    expect(allocated, "board and matrix buffers allocate");
     if (!allocated || !terrain_ready || !backdrop_ready || !cutout_ready) {
         std::fprintf(stderr, "RESULT FAIL %d/%d\n", checks - failures, checks);
         while (true) wait_ms(1000);
@@ -877,11 +877,11 @@ extern "C" int main(void) {
     const std::uint64_t tactical_us = show_tactical_cutout(
         true, tactical_viewport, matrix, board
     );
-    expect(tactical_us <= frame_budget_us, "2.5D tactical board stays at 30 fps");
+    expect(tactical_us <= frame_budget_us, "tactical board stays at 30 fps");
     const std::uint64_t movement_us = play_tactical_cutout_move(
         true, tactical_viewport, matrix, board
     );
-    expect(movement_us <= frame_budget_us, "2.5D tile movement stays at 30 fps");
+    expect(movement_us <= frame_budget_us, "tile movement stays at 30 fps");
     const std::uint64_t comparison_us = play_matched_readme_sequence(
         matched_viewport, close_viewport, matrix, board, true
     );

@@ -4,20 +4,20 @@ This is the short list of active presentation work. These changes may improve
 how a battle looks and moves, but must not change the authoritative grid,
 terrain rules, routes, timing, or combat results.
 
-The 0.4 release scope below is complete. Unchecked work is either the ongoing
-console-graphics track or a later milestone; it is not a hidden 0.4 blocker.
+The checked items below are implemented. The final unchecked release item is
+the packaging and hardware smoke pass; later sections are roadmap work and do
+not block 0.4.
 
 ## 0.4 release acceptance
 
 - [x] Package the Godot 0.4 player/creator with the separate one-player and
   one-or-two-player campaigns, and pass the native and packaged integration
   suites.
-- [x] Build Sevenfold's sprite and playable 3D campaigns for Nintendo 64 and
-  PlayStation, retain the complete-roster diagnostic viewers, and pass the
-  console campaign and renderer checks.
-- [x] Keep the README, creator walkthrough, artwork guides, platform guides,
-  private review page, controls, build commands, release number, and current
-  limitations aligned with the builds reviewers receive.
+- [x] Keep one console renderer on Nintendo 64 and PlayStation. Pass the
+  campaign, co-op, save, disc and native renderer checks.
+- [ ] Build the final ROM, BIN/CUE and Godot packages, copy the console images
+  to the MiSTer for one hardware smoke pass, align the private review page with
+  those artifacts, and tag 0.4.
 
 ## Terrain joins and variety
 
@@ -48,7 +48,7 @@ console-graphics track or a later milestone; it is not a hidden 0.4 blocker.
   may interpolate the picture between accepted states; it must never invent a
   position, shorten a route, delay input authority, or change a state hash.
 
-## Character art and console 3D
+## Character art and console graphics
 
 - [x] Complete male and female high-resolution bodies for every intended
   archetype and style. All eight archetype pairs in all seven styles are
@@ -56,18 +56,15 @@ console-graphics track or a later milestone; it is not a hidden 0.4 blocker.
 - [x] Add reusable team-colour masks to each complete curated roster so one
   body sheet can render the six faction colours without recolouring faces,
   hair, equipment, or effects.
-- [x] Expand console 3D to all 112 style/archetype/body models and use them in
-  playable Sevenfold campaign builds on N64 and PS1. Keep the complete-roster
-  viewers as reproducible model, camera, and performance diagnostics. See
-  [Console 3D](docs/CONSOLE_3D_EXPERIMENT.md).
-- [ ] Continue improving console graphics across releases: model readability,
+- [x] Make every style, archetype and body used by Sevenfold available to the
+  console campaign through the same curated cutout pipeline and team masks.
+  Keep the tactical and close-view checks reproducible. See
+  [Console renderer](docs/CONSOLE_RENDERER.md).
+- [ ] Continue improving console graphics across releases: character readability,
   terrain depth and variety, camera composition, movement and attack
   animation, effects, UI clarity, close-up scenes, and measured performance on
   original-style hardware.
-  - First finish the fixed-camera Godot-derived cutout path and the matched
-    Godot/N64/PS1 battle capture, including smooth board movement and authored
-    attack, counter, and hurt poses.
-  - Then improve console terrain in both tactical and close views: stronger
+  - Improve console terrain in both tactical and close views: stronger
     material identity, less repetitive tiles, cleaner neighbour transitions,
     clustered scenery, elevation cues, and terrain-specific battle backdrops.
     Preserve walkable-cell clarity and measure the memory and frame cost on
@@ -130,8 +127,8 @@ console-graphics track or a later milestone; it is not a hidden 0.4 blocker.
 
 ## Cinematic battle presentation
 
-The Sevenfold N64 and PS1 3D campaigns and the Godot player now consume real
-hit and miss events in terrain-derived close views. Damage comes from the
+The Sevenfold console renderer and the Godot player now consume real hit and
+miss events in terrain-derived close views. Damage comes from the
 simulation, and a legal counter-attack arrives as the next authoritative event
 with the roles reversed. The remaining work is richer art and animation,
 portable campaign authoring, and complete combat-outcome coverage.

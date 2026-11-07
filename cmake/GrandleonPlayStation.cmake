@@ -229,33 +229,32 @@ add_custom_target(grandleon_playstation
     VERBATIM
 )
 
-# The fixed-camera Sevenfold 2.5D renderer is separate from the ordinary
-# sprite build so its larger Godot-derived cutouts and terrain plates do not
-# change the memory budget of authored sprite campaigns.
-set(grandleon_playstation_sevenfold_2_5d_build_dir
-    "${CMAKE_CURRENT_SOURCE_DIR}/build-playstation-sevenfold-2-5d"
+# This visual-regression executable isolates the console renderer's larger
+# cutouts, terrain plates and capture sequence from the playable campaign.
+set(grandleon_playstation_sevenfold_renderer_build_dir
+    "${CMAKE_CURRENT_SOURCE_DIR}/build-playstation-sevenfold-renderer"
 )
-add_custom_target(grandleon_playstation_sevenfold_2_5d
+add_custom_target(grandleon_playstation_sevenfold_renderer
     COMMAND
         "${CMAKE_COMMAND}" -E env
         ${grandleon_playstation_build_env}
-        "GRANDLEON_PSX_SEVENFOLD_2_5D_BUILD_DIR=${grandleon_playstation_sevenfold_2_5d_build_dir}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-sevenfold-2-5d.sh"
+        "GRANDLEON_PSX_SEVENFOLD_RENDERER_BUILD_DIR=${grandleon_playstation_sevenfold_renderer_build_dir}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-sevenfold-renderer.sh"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Building the PlayStation Sevenfold fixed-camera 2.5D renderer"
+    COMMENT "Building the PlayStation Sevenfold console renderer"
     USES_TERMINAL
     VERBATIM
 )
 
-add_custom_target(grandleon_playstation_sevenfold_2_5d_check
+add_custom_target(grandleon_playstation_sevenfold_renderer_check
     COMMAND
         "${CMAKE_COMMAND}" -E env
         ${grandleon_playstation_build_env}
         ${grandleon_playstation_run_env}
-        "GRANDLEON_PSX_SEVENFOLD_2_5D_BUILD_DIR=${grandleon_playstation_sevenfold_2_5d_build_dir}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/check-sevenfold-2-5d.sh"
+        "GRANDLEON_PSX_SEVENFOLD_RENDERER_BUILD_DIR=${grandleon_playstation_sevenfold_renderer_build_dir}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/check-sevenfold-renderer.sh"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Capturing and timing the PlayStation Sevenfold 2.5D renderer"
+    COMMENT "Capturing and timing the PlayStation Sevenfold console renderer"
     USES_TERMINAL
     VERBATIM
 )

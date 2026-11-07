@@ -102,25 +102,22 @@ The installed Export Center can produce:
 Console builders are separate downloads because their pinned toolchains are
 large. They work offline after installation. The PlayStation image has no Sony
 licence sector and therefore does not boot on an unmodified retail console.
-The creator's optional console builders currently use the established sprite
-presentation. The paired sprite and 3D outputs below are focused Sevenfold
-release builds; choosing either renderer for an arbitrary editor project is
-not yet part of **Finish & Export**.
+Each console has one renderer. It uses the curated character artwork as
+hardware-sized cutouts over textured tactical terrain, with full-frame
+terrain backdrops for close battles. There is no renderer choice in the game
+or in **Finish & Export**.
 
 `games/sevenfold` is the compact N64 showcase campaign. One ROM asks for one or
 two players on its main menu, fields every archetype across all seven art
 styles, and uses seven different maps covering every terrain kind. A debug
 Stage-picker build can jump directly between the gates for review.
 
-0.4 adds playable 3D versions of the Sevenfold campaign for Nintendo 64 and
-PlayStation alongside the sprite versions. They use the complete seven-style,
-eight-archetype, male-and-female roster: 112 low-poly models with board and
-close-view detail levels plus runtime red/blue team colours. Separate roster
-viewers remain available for quickly checking every model and measuring the
-renderers. The 3D campaigns are now a production path that can be tested end
-to end, but their graphics are an early baseline rather than a finished visual
-target.
-[See the current builds, controls, and measurements](docs/CONSOLE_3D_EXPERIMENT.md).
+0.4 brings this renderer to Nintendo 64 and PlayStation. Automated
+renderer-check programs capture the tactical board, movement, attack,
+counterattack, health changes, and return to the board at native resolution.
+Those checks are developer diagnostics, not a second presentation shipped to
+players. Console terrain and animation will continue to improve after 0.4.
+[See the current builds and checks](docs/CONSOLE_RENDERER.md).
 
 [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) explains how one
 authored choice travels through the compiler, shared engine, and each renderer.
@@ -135,10 +132,10 @@ rest of the documentation describes the current Godot application.
 | **0.1 — portable foundation** | Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
 | **0.2 — complete campaign runtime** | Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3 — Godot player and creator** | Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
-| **0.4 — broader art and playable console 3D** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and makes the Sevenfold campaign playable with 3D renderers on PlayStation and Nintendo 64. It also introduces the first optional terrain-aware Godot combat close-up. This is the current development line. |
+| **0.4 — broader art and console campaigns** | Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and promotes one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. This is the current development line. |
 | **0.5 — editor and localization product pass** | Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, better project organization, and the usability and accessibility work needed for larger games. It will also localize Grandleon's own Godot player/editor and add a final **Translations** step where authors can manually review and translate every player-facing string—including character names—in their game, check missing translations, preview a language, and export the localized project. The editor work will also prepare selected characters to be player-nameable while retaining an authored default. |
 | **Later — living scene backdrops** | Reuses the terrain-aware backdrop library for combat close-ups and in-game conversations, with calmer dialogue compositions that leave room for portraits and text. Optional ambient motion can add moving water, swaying foliage, drifting weather, changing light, and subtle particles; static backdrops remain the dependable fallback, especially on console hardware. |
-| **Every release — better console graphics** | Continues improving model readability, terrain depth and variety, camera composition, movement and attack animation, effects, team and UI clarity, close-up scenes, and measured performance on real PlayStation and Nintendo 64 hardware. A campaign being playable does not mean its presentation is finished. |
+| **Every release — better console graphics** | Continues improving character readability, terrain depth and variety, camera composition, movement and attack animation, effects, team and UI clarity, close-up scenes, and measured performance on real PlayStation and Nintendo 64 hardware. A campaign being playable does not mean its presentation is finished. |
 
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
@@ -207,7 +204,7 @@ and playtest progress do not.
 | see current presentation experiments | [Development TODO](TODO.md) |
 | understand the Godot player and creator | [Godot PC application](platform/godot/README.md) |
 | understand portability and console builds | [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) |
-| review the console 3D work | [Console 3D status and builds](docs/CONSOLE_3D_EXPERIMENT.md) |
+| review the console renderer | [Console renderer builds and checks](docs/CONSOLE_RENDERER.md) |
 | set up a development checkout | [Setting up](docs/SETUP.md) |
 | work on the engine | [CODING.md](CODING.md) and [DESIGN.md](DESIGN.md) |
 | contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |

@@ -1,70 +1,38 @@
 # Sevenfold Gate
 
-Sevenfold Gate is a short, deliberately plain showcase campaign. Its seven
-Stages use the medieval, sci-fi, mythical, nature, sengoku, undead and pirate
-character styles in order. Every Stage fields all eight archetypes, split four
-against four, with two male and two female drawings on each side.
+Sevenfold Gate is the compact console showcase campaign. Its seven stages use
+the medieval, sci-fi, mythical, nature, Sengoku, Undead and Pirates styles in
+order. Across the campaign it fields every archetype, mixes male and female
+characters on both sides, and uses every terrain kind.
 
-The maps are not palette swaps of one layout. They cover all thirteen terrain
-kinds across a crossroads, staggered ruins, ridge switchbacks, marsh islands,
-bamboo courtyards, a broken grave road and a coastal landing. The generator
-checks that every starting tile remains connected despite the water and ridges.
+The maps are deliberately different rather than palette swaps. They include a
+crossroads, staggered ruins, ridge switchbacks, marsh islands, bamboo
+courtyards, a broken grave road and a coastal landing. The generator verifies
+that every starting tile remains connected despite water and ridges.
 
-The same campaign supports one or two local players. In one-player mode all
-four Gatewardens belong to Player 1. In two-player mode the four are divided
-evenly between Players 1 and 2, and one additional opponent enters the board.
+The same campaign supports one or two local players. In solo mode Player 1
+controls all four Gatewardens. In co-op, the Gatewardens are split evenly
+between Players 1 and 2 and one additional opponent enters the board.
 
-## Nintendo 64 campaign ROMs
-
-Build the sprite campaign, playable 3D campaign, and complete-roster 3D viewer
-together:
+## Build the Nintendo 64 campaign
 
 ```sh
 cmake --build build --target grandleon_n64_sevenfold_roms
 ```
 
-`build-n64-sevenfold-roms/` receives `sevenfold-n64-sprite.z64`,
-`sevenfold-n64-3d.z64`, and `sevenfold-n64-3d-viewer.z64`. The first two run the
-same persistent campaign with different renderers. Their title flow asks for
-one or two players. During a battle, press Start and choose **Go to another
-Stage** to jump directly to any style. A jump records no victories for skipped
-Stages; that is intentional for this showcase. Both debug campaign builds also
-show live FPS in the lower-right corner.
+The playable ROM is `build-n64-sevenfold-roms/sevenfold-n64.z64`. It asks for
+one or two players on its main menu. Review builds also show live FPS and add
+**Go to another Stage** to the pause menu, so every style and map can be reached
+without recording victories for skipped stages.
 
-`generate_project.py` keeps the regular 56-unit project readable and
-repeatable. Run it after changing the style, archetype, placement or terrain
-tables, then compile `source/project.json` normally.
+The same folder contains `sevenfold-n64-renderer-check.z64`. That is an
+automated visual diagnostic, not another campaign renderer or game mode.
 
-## Nintendo 64 3D roster viewer
+## Regenerate the campaign
 
-The companion 3D ROM makes every planned N64 model easy to review:
+`generate_project.py` keeps the 56-unit source project readable and
+repeatable. Run it after changing style, archetype, placement or terrain tables,
+then compile `source/project.json` normally.
 
-```sh
-platform/nintendo64/scripts/build-sevenfold-3d.sh
-platform/nintendo64/scripts/check-sevenfold-3d.sh
-```
-
-It contains 112 procedural low-poly characters: seven styles, eight
-archetypes, and male and female variants. Each strategic page shows all eight
-archetypes at a readable board distance and alternates red and blue team
-colours. Press **A** to compare low and high detail, use the d-pad to change
-style or body, and press **Start** to enter the close attack view.
-
-The close view places two high-detail characters in a scene built from the
-selected map tile and its surrounding terrain. Use **A** to change the role,
-**B** to preview an attack, hit, counter-attack, and damage callouts, and the
-d-pad to change style or terrain. The damage is illustrative; this review ROM
-does not run campaign combat. The playable `sevenfold-n64-3d.z64` instead
-opens its close view from real campaign combat and displays simulation-owned
-damage and counters.
-
-The automated check captures 28 strategic comparisons, seven terrain-aware
-close views, and one animated hit frame. Its current ares run passes all 38
-checks with depth enabled. Low-detail strategic pages measure 62–87 fps,
-high-detail pages measure 39–51 fps, and close views measure 132–163 fps. These
-are emulator measurements, not original-hardware timings.
-
-The viewer is deliberately separate from the campaign so every model and
-terrain can be inspected quickly. The playable sprite and 3D ROMs share these
-same seven terrain layouts, authored stages, campaign state, controls, and
-one/two-player rules.
+Renderer build commands, native-frame checks and current performance budgets
+are documented in [Console renderer](../../docs/CONSOLE_RENDERER.md).
