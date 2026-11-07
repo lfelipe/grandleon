@@ -615,6 +615,39 @@ func _run() -> void:
 	_expect("deployment cancel exits draft", editor.deployment_editing, false)
 	_expect("deployment cancel preserves source", editor.source, before_invalid_deployment)
 
+	# The starter has one ally, so give this focused capacity check a second
+	# authored company member and restore the fixture afterwards.
+	var before_capacity_check: String = editor.source
+	var capacity_fixture := _parse(editor.source)
+	var reserve_member: Dictionary = capacity_fixture.campaigns[0].roster[0].duplicate(true)
+	reserve_member.id = "capacity_reserve"
+	reserve_member.name = "Capacity Reserve"
+	capacity_fixture.campaigns[0].roster.append(reserve_member)
+	var reserve_placement: Dictionary = capacity_fixture.campaigns[0].flow.nodes[0].placements[0].duplicate(true)
+	reserve_placement.id = "capacity_reserve"
+	reserve_placement.memberId = "capacity_reserve"
+	reserve_placement.x = 1
+	reserve_placement.y = 0
+	capacity_fixture.campaigns[0].flow.nodes[0].placements.append(reserve_placement)
+	editor.source = JSON.stringify(editor._integer_numbers(capacity_fixture), "  ", true) + "\n"
+	_expect("capacity fixture remains portable", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._read_source()
+	editor._refresh_maps_after_edit(0)
+	editor._begin_deployment_edit()
+	_expect("deployment explains an unlimited company by default", editor.deployment_capacity_label.text, "NO FIELDING LIMIT")
+	editor._change_deployment_capacity(1)
+	_expect("capacity guidance names the company size", editor.deployment_capacity_label.text, "FIELD UP TO 1 OF 2 ALLIES")
+	_expect("capacity cannot be raised to an unreachable value", editor.deployment_capacity_plus.disabled, true)
+	editor._apply_deployment_edit()
+	await process_frame
+	_expect("deployment authors its fielding limit", int(_parse(editor.source).campaigns[0].flow.nodes[0].deployment.capacity), 1)
+	_expect("capacity edit preserves the authored zone", _parse(editor.source).campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
+	editor.source = before_capacity_check
+	editor.undo_stack.pop_back()
+	editor.redo_stack.clear()
+	editor._read_source()
+	editor._refresh_maps_after_edit(0)
+
 	var preceding_map: Dictionary = editor._current_map().duplicate(true)
 	editor._open_new_chapter()
 	await process_frame
@@ -844,7 +877,65 @@ func _run() -> void:
 		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
 			_expect("wave can return to the opening force", placement_value.has("arrival"), false)
 			break
+	editor.force_behavior = "patrol"
+	editor._update_forces_view()
+	_expect("patrol behavior reveals its map workflow", editor.forces_patrol_button.visible, true)
+	_expect("a patrol cannot apply without a route", editor.forces_apply_button.disabled, true)
+	editor._begin_patrol_edit()
+	_expect("patrol route is authored directly on the map", editor.active_tool, "patrol")
+	editor._paint_cell(1)
+	editor._paint_cell(2)
+	_expect("patrol draft keeps waypoint order", editor.patrol_draft, [1, 2])
+	_expect("patrol waypoint is numbered on the board", editor.grid.get_child(1).tooltip_text.contains("WAYPOINT 1"), true)
+	editor._apply_patrol_edit()
+	await process_frame
+	var with_patrol := _parse(editor.source)
+	var patrolling_force: Dictionary = {}
+	for placement_value: Variant in with_patrol.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			patrolling_force = placement_value
+			break
+	_expect("patrol route selects portable patrol behavior", str(patrolling_force.behavior), "patrol")
+	_expect("patrol stores two ordered points", patrolling_force.patrolPoints.size(), 2)
+	_expect("first patrol point preserves its x", int(patrolling_force.patrolPoints[0].x), 1)
+	_expect("second patrol point preserves its x", int(patrolling_force.patrolPoints[1].x), 2)
+	editor._begin_patrol_edit()
+	editor._clear_patrol_points()
+	editor._apply_patrol_edit()
+	await process_frame
+	var cleared_patrol := _parse(editor.source)
+	for placement_value: Variant in cleared_patrol.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			_expect("clearing a patrol returns the opponent to holding", str(placement_value.behavior), "hold")
+			_expect("clearing a patrol omits stale waypoints", placement_value.has("patrolPoints"), false)
+			break
 	editor._close_forces()
+	await process_frame
+
+	editor._open_moments()
+	_expect("scripted moments have a focused manager", editor.moments_layer.visible, true)
+	_expect("new moments begin available to both variants", editor.moment_two_player_only, false)
+	editor._add_battle_moment("stageOpens")
+	await process_frame
+	_expect("opening moment receives a reusable scene", _parse(editor.source).campaigns[0].flow.nodes[0].moments.size(), 1)
+	editor.moment_target_index = 1
+	editor._toggle_moment_players()
+	editor._add_battle_moment("characterFalls")
+	await process_frame
+	var with_moments := _parse(editor.source)
+	_expect("fall moment follows the opening in authored order", str(with_moments.campaigns[0].flow.nodes[0].moments[1].when.kind), "characterFalls")
+	_expect("fall moment names the selected character", str(with_moments.campaigns[0].flow.nodes[0].moments[1].when.placementId), wave_placement_id)
+	_expect("a moment can belong only to the co-op story", int(with_moments.campaigns[0].flow.nodes[0].moments[1].minimumPlayers), 2)
+	var fall_moment_id := str(with_moments.campaigns[0].flow.nodes[0].moments[1].id)
+	editor._move_battle_moment(-1)
+	await process_frame
+	var reordered_moments: Array = _parse(editor.source).campaigns[0].flow.nodes[0].moments
+	_expect("moment ordering is portable array order", str(reordered_moments[0].id), fall_moment_id)
+	_expect("moving a moment keeps its scene trigger", str(reordered_moments[0].when.kind), "characterFalls")
+	editor._remove_battle_moment()
+	await process_frame
+	_expect("moment removal leaves the other ordered scene", _parse(editor.source).campaigns[0].flow.nodes[0].moments.size(), 1)
+	editor._close_moments()
 	await process_frame
 
 	editor._save()
@@ -867,6 +958,8 @@ func _run() -> void:
 			stored_force = placement_value
 			break
 	_expect("saved opening-force restoration reopens", stored_force.has("arrival"), false)
+	_expect("saved force no longer carries a cleared patrol", stored_force.has("patrolPoints"), false)
+	_expect("saved ordered battle opening reopens", str(stored.project.campaigns[0].flow.nodes[0].moments[0].when.kind), "stageOpens")
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 

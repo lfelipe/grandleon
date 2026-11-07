@@ -32,7 +32,7 @@ const OBJECTIVE_KINDS := [
 	{"id": "surviveRounds", "label": "SURVIVE ROUNDS"},
 ]
 const FORCE_MODES := ["opening", "once", "repeating"]
-const FORCE_BEHAVIORS := ["hold", "pursue"]
+const FORCE_BEHAVIORS := ["hold", "patrol", "pursue"]
 
 var library
 var compiler
@@ -56,7 +56,14 @@ var deployment_editing := false
 var deployment_id := ""
 var deployment_draft: Array[int] = []
 var deployment_original: Array[int] = []
+var deployment_capacity_draft := 0
+var deployment_capacity_original := 0
 var tool_before_deployment := "brush"
+var patrol_editing := false
+var patrol_placement_id := ""
+var patrol_draft: Array[int] = []
+var patrol_original: Array[int] = []
+var tool_before_patrol := "brush"
 var objective_mode := "assigned"
 var objective_candidates: Array[Dictionary] = []
 var objective_candidate_index := 0
@@ -84,6 +91,11 @@ var force_round := 2
 var force_every := 2
 var force_times := 2
 var force_behavior := "hold"
+var moment_candidates: Array[Dictionary] = []
+var moment_candidate_index := 0
+var moment_target_candidates: Array[Dictionary] = []
+var moment_target_index := 0
+var moment_two_player_only := false
 
 var title_label: Label
 var map_select: OptionButton
@@ -109,6 +121,12 @@ var placement_first_button: Button
 var deployment_button: Button
 var deployment_actions: HBoxContainer
 var deployment_apply_button: Button
+var deployment_capacity_actions: HBoxContainer
+var deployment_capacity_label: Label
+var deployment_capacity_minus: Button
+var deployment_capacity_plus: Button
+var patrol_actions: HBoxContainer
+var patrol_apply_button: Button
 var objective_button: Button
 var objective_layer: Control
 var objective_mode_button: Button
@@ -132,8 +150,18 @@ var forces_repeat_row: HBoxContainer
 var forces_every_label: Label
 var forces_times_label: Label
 var forces_behavior_button: Button
+var forces_patrol_button: Button
 var forces_scaling_button: Button
 var forces_apply_button: Button
+var moments_layer: Control
+var moments_first_button: Button
+var moments_summary_label: Label
+var moments_target_button: Button
+var moments_players_button: Button
+var moments_edit_button: Button
+var moments_remove_button: Button
+var moments_earlier_button: Button
+var moments_later_button: Button
 var resize_layer: Control
 var resize_width_label: Label
 var resize_height_label: Label
@@ -214,6 +242,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_objectives()
 		elif forces_layer != null and forces_layer.visible:
 			_close_forces()
+		elif moments_layer != null and moments_layer.visible:
+			_close_moments()
 		elif placement_layer != null and placement_layer.visible:
 			_close_add_placement()
 		elif resize_layer != null and resize_layer.visible:
@@ -230,6 +260,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_more()
 		elif deployment_editing:
 			_cancel_deployment_edit()
+		elif patrol_editing:
+			_cancel_patrol_edit()
 		else:
 			_request_projects()
 		get_viewport().set_input_as_handled()
@@ -357,6 +389,7 @@ func _select_map(index: int) -> void:
 	if active_tool == "surroundings":
 		active_tool = "brush"
 	_reset_deployment_edit()
+	_reset_patrol_edit()
 	encounter_index = 0
 	rectangle_anchor = -1
 	selected_placement_id = ""
@@ -419,6 +452,7 @@ func _select_encounter(index: int) -> void:
 	encounter_index = index
 	_refresh_target_budget()
 	_reset_deployment_edit()
+	_reset_patrol_edit()
 	selected_placement_id = ""
 	pending_placement = {}
 	_refresh_grid(0)
@@ -578,6 +612,8 @@ func _select_terrain(name: String) -> void:
 func _select_tool(name: String) -> void:
 	if deployment_editing and name != "deployment":
 		_reset_deployment_edit()
+	if patrol_editing and name != "patrol":
+		_reset_patrol_edit()
 	active_tool = name
 	rectangle_anchor = -1
 	selected_placement_id = ""
@@ -664,6 +700,7 @@ func _refresh_grid(focus_index := -1) -> void:
 		)
 	var placements_by_cell: Dictionary = {}
 	var deployment_cells: Array[int] = []
+	var patrol_cells: Array[int] = []
 	var objective_targets_by_cell: Dictionary = {}
 	var encounter := _current_encounter()
 	if not encounter.is_empty():
@@ -673,6 +710,8 @@ func _refresh_grid(focus_index := -1) -> void:
 			if deployment_editing
 			else _deployment_indices(node, width)
 		)
+		if patrol_editing:
+			patrol_cells.assign(patrol_draft)
 		objective_targets_by_cell = _objective_target_cells(node, width)
 		for placement_value: Variant in node.get("placements", []):
 			if not placement_value is Dictionary:
@@ -732,6 +771,8 @@ func _refresh_grid(focus_index := -1) -> void:
 				_add_placement_badge(cell, placements_by_cell[index])
 			if deployment_cells.has(index):
 				_add_deployment_badge(cell, tile_size, deployment_editing)
+			if patrol_cells.has(index):
+				_add_patrol_badge(cell, tile_size, patrol_cells.find(index) + 1)
 			if objective_targets_by_cell.has(index):
 				_add_objective_marker(cell, objective_targets_by_cell[index])
 			cell.pressed.connect(_paint_cell.bind(index))
@@ -953,6 +994,24 @@ func _add_deployment_badge(cell: Button, tile_size: int, pending: bool) -> void:
 	)
 
 
+func _add_patrol_badge(cell: Button, tile_size: int, order: int) -> void:
+	var label := Label.new()
+	label.text = str(order)
+	label.position = Vector2(tile_size - 27, 5)
+	label.size = Vector2(22, 22)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color("07111b"))
+	var badge := StyleBoxFlat.new()
+	badge.bg_color = Color("72e08f")
+	badge.set_corner_radius_all(11)
+	label.add_theme_stylebox_override("normal", badge)
+	cell.add_child(label)
+	cell.tooltip_text += "\nPATROL WAYPOINT %d" % order
+
+
 func _add_objective_marker(cell: Button, names: Array) -> void:
 	var outline := Panel.new()
 	outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1065,6 +1124,8 @@ func _paint_cell(index: int) -> void:
 		return
 	if active_tool == "deployment":
 		_toggle_deployment_cell(index)
+	elif active_tool == "patrol":
+		_toggle_patrol_cell(index)
 	elif active_tool == "add_unit":
 		_add_unit_at(index, width)
 	elif active_tool == "remove_unit":
@@ -1786,12 +1847,18 @@ func _begin_deployment_edit() -> void:
 		deployment_id = _unique_deployment_id()
 	deployment_original = _deployment_indices(node, width)
 	deployment_draft.assign(deployment_original)
+	deployment_capacity_original = (
+		int(deployment_value.get("capacity", 0))
+		if deployment_value is Dictionary else 0
+	)
+	deployment_capacity_draft = deployment_capacity_original
 	tool_before_deployment = active_tool if active_tool != "deployment" else "brush"
 	deployment_editing = true
 	active_tool = "deployment"
 	selected_placement_id = ""
 	pending_placement = {}
 	deployment_actions.visible = true
+	deployment_capacity_actions.visible = true
 	_update_deployment_actions()
 	_update_tool_selection()
 	_refresh_grid(0)
@@ -1826,7 +1893,46 @@ func _toggle_deployment_cell(index: int) -> void:
 
 
 func _update_deployment_actions() -> void:
-	deployment_apply_button.disabled = deployment_draft == deployment_original
+	var fieldable := _deployment_fieldable_count()
+	var maximum := maxi(0, fieldable - 1)
+	deployment_capacity_draft = clampi(deployment_capacity_draft, 0, maximum)
+	deployment_capacity_label.text = (
+		"NO FIELDING LIMIT"
+		if deployment_capacity_draft == 0
+		else "FIELD UP TO %d OF %d ALLIES" % [deployment_capacity_draft, fieldable]
+	)
+	deployment_capacity_minus.disabled = deployment_capacity_draft == 0
+	deployment_capacity_plus.disabled = maximum == 0 or deployment_capacity_draft >= maximum
+	deployment_apply_button.disabled = (
+		deployment_draft == deployment_original
+		and deployment_capacity_draft == deployment_capacity_original
+	)
+
+
+func _deployment_fieldable_count() -> int:
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return 0
+	var count := 0
+	for value: Variant in encounter.node.get("placements", []):
+		if value is Dictionary and str(value.get("side", "second")) == "first":
+			count += 1
+	return count
+
+
+func _change_deployment_capacity(delta: int) -> void:
+	var maximum := maxi(0, _deployment_fieldable_count() - 1)
+	if maximum == 0:
+		deployment_capacity_draft = 0
+	elif delta > 0 and deployment_capacity_draft == 0:
+		deployment_capacity_draft = 1
+	else:
+		deployment_capacity_draft = clampi(deployment_capacity_draft + delta, 0, maximum)
+	_update_deployment_actions()
+	_set_status(
+		"DEPLOYMENT DRAFT  /  %s" % deployment_capacity_label.text,
+		false
+	)
 
 
 func _apply_deployment_edit() -> void:
@@ -1838,24 +1944,56 @@ func _apply_deployment_edit() -> void:
 		_set_status("DEPLOYMENT ENCOUNTER IS NO LONGER AVAILABLE", true)
 		return
 	var width := int(map.get("width", 0))
-	var coordinates := PackedInt32Array()
+	var tiles: Array[Dictionary] = []
 	for index: int in deployment_draft:
-		coordinates.append(index % width)
-		coordinates.append(index / width)
+		tiles.append({"x": index % width, "y": index / width})
 	var node: Dictionary = encounter.node
-	var updated: Dictionary = compiler.set_deployment_tiles(
-		source,
-		str(encounter.get("campaign_id", "")),
-		str(node.get("id", "")),
-		deployment_id,
-		coordinates
-	)
-	if not updated.ok:
-		_set_status("DEPLOYMENT REFUSED  /  %s" % _diagnostic_detail(updated), true)
+	var candidate: Dictionary = project.duplicate(true)
+	var changed := false
+	for campaign_value: Variant in candidate.get("campaigns", []):
+		if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != str(encounter.get("campaign_id", "")):
+			continue
+		var flow: Dictionary = campaign_value.get("flow", {})
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary or str(node_value.get("id", "")) != str(node.get("id", "")):
+				continue
+			if tiles.is_empty() and deployment_capacity_draft == 0:
+				node_value.erase("deployment")
+			else:
+				var deployment: Dictionary = (
+					node_value.get("deployment", {}).duplicate(true)
+					if node_value.get("deployment", {}) is Dictionary else {}
+				)
+				deployment["id"] = deployment_id
+				if tiles.is_empty():
+					deployment.erase("tiles")
+				else:
+					deployment["tiles"] = tiles
+				if deployment_capacity_draft == 0:
+					deployment.erase("capacity")
+				else:
+					deployment["capacity"] = deployment_capacity_draft
+				node_value["deployment"] = deployment
+			changed = true
+			break
+		break
+	if not changed:
+		_set_status("DEPLOYMENT REFUSED  /  BATTLE WAS NOT FOUND", true)
+		return
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status(
+			"DEPLOYMENT REFUSED  /  %s  /  %s" % [
+				_diagnostic_token(checked), _diagnostic_detail(checked),
+			],
+			true
+		)
 		return
 	var count := deployment_draft.size()
+	var capacity := deployment_capacity_draft
 	_push_undo(source)
-	source = updated.source
+	source = candidate_source
 	redo_stack.clear()
 	dirty = true
 	_reset_deployment_edit()
@@ -1863,9 +2001,15 @@ func _apply_deployment_edit() -> void:
 	_refresh_maps_after_edit(0)
 	_set_status(
 		"UNSAVED  /  %s" % (
-			"CLEARED DEPLOYMENT ZONE"
+			(
+				"CLEARED DEPLOYMENT RULE"
+				if capacity == 0 else "FIXED STARTS  /  FIELD UP TO %d" % capacity
+			)
 			if count == 0
-			else "DEPLOYMENT ZONE  /  %d CELL%s" % [count, "" if count == 1 else "S"]
+			else "DEPLOYMENT ZONE  /  %d CELL%s  /  %s" % [
+				count, "" if count == 1 else "S",
+				"NO FIELDING LIMIT" if capacity == 0 else "FIELD UP TO %d" % capacity,
+			]
 		),
 		false
 	)
@@ -1885,8 +2029,149 @@ func _reset_deployment_edit() -> void:
 	deployment_id = ""
 	deployment_draft.clear()
 	deployment_original.clear()
+	deployment_capacity_draft = 0
+	deployment_capacity_original = 0
 	if deployment_actions != null:
 		deployment_actions.visible = false
+	if deployment_capacity_actions != null:
+		deployment_capacity_actions.visible = false
+	if not tool_buttons.is_empty():
+		_update_tool_selection()
+
+
+func _begin_patrol_edit() -> void:
+	var placement := _selected_force()
+	var map := _current_map()
+	if placement.is_empty() or map.is_empty():
+		_set_status("CHOOSE AN OPPONENT BEFORE EDITING A PATROL ROUTE", true)
+		return
+	var width := int(map.get("width", 0))
+	patrol_placement_id = str(placement.get("id", ""))
+	patrol_original.clear()
+	for value: Variant in placement.get("patrolPoints", []):
+		if value is Dictionary:
+			patrol_original.append(int(value.get("y", 0)) * width + int(value.get("x", 0)))
+	patrol_draft.assign(patrol_original)
+	tool_before_patrol = active_tool if active_tool != "patrol" else "brush"
+	patrol_editing = true
+	active_tool = "patrol"
+	forces_layer.visible = false
+	patrol_actions.visible = true
+	_update_patrol_actions()
+	_update_tool_selection()
+	_refresh_grid(0)
+	_set_status("PATROL ROUTE  /  CHOOSE WAYPOINTS IN VISIT ORDER", false)
+
+
+func _toggle_patrol_cell(index: int) -> void:
+	if not patrol_editing:
+		return
+	if patrol_draft.has(index):
+		_set_status("THAT CELL IS ALREADY ON THIS ROUTE  /  USE UNDO POINT TO STEP BACK", true)
+		_focus_cell(index)
+		return
+	if patrol_draft.size() >= 32:
+		_set_status("PATROL ROUTES ARE LIMITED TO 32 WAYPOINTS", true)
+		return
+	patrol_draft.append(index)
+	_update_patrol_actions()
+	_refresh_grid(index)
+	_set_status("PATROL ROUTE  /  WAYPOINT %d ADDED" % patrol_draft.size(), false)
+
+
+func _remove_last_patrol_point() -> void:
+	if patrol_draft.is_empty():
+		return
+	var focus: int = patrol_draft.pop_back()
+	_update_patrol_actions()
+	_refresh_grid(focus)
+
+
+func _clear_patrol_points() -> void:
+	patrol_draft.clear()
+	_update_patrol_actions()
+	_refresh_grid(0)
+	_set_status("PATROL ROUTE CLEARED  /  APPLY TO MAKE THIS UNIT HOLD", false)
+
+
+func _update_patrol_actions() -> void:
+	patrol_apply_button.disabled = patrol_draft == patrol_original
+
+
+func _apply_patrol_edit() -> void:
+	if not patrol_editing or patrol_apply_button.disabled:
+		return
+	var encounter := _current_encounter()
+	var map := _current_map()
+	if encounter.is_empty() or map.is_empty():
+		return
+	var width := int(map.get("width", 0))
+	var points: Array[Dictionary] = []
+	for index: int in patrol_draft:
+		points.append({"x": index % width, "y": index / width})
+	var candidate: Dictionary = project.duplicate(true)
+	var changed := false
+	for campaign_value: Variant in candidate.get("campaigns", []):
+		if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != str(encounter.get("campaign_id", "")):
+			continue
+		var flow: Dictionary = campaign_value.get("flow", {})
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary or str(node_value.get("id", "")) != str(encounter.node.get("id", "")):
+				continue
+			for placement_value: Variant in node_value.get("placements", []):
+				if not placement_value is Dictionary or str(placement_value.get("id", "")) != patrol_placement_id:
+					continue
+				if points.is_empty():
+					placement_value.erase("patrolPoints")
+					placement_value["behavior"] = "hold"
+				else:
+					placement_value["patrolPoints"] = points
+					placement_value["behavior"] = "patrol"
+				changed = true
+				break
+			break
+		break
+	if not changed:
+		_set_status("PATROL ROUTE REFUSED  /  OPPONENT WAS NOT FOUND", true)
+		return
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status("PATROL ROUTE REFUSED  /  %s" % _diagnostic_detail(checked), true)
+		return
+	var selected_id := patrol_placement_id
+	var count := points.size()
+	_push_undo(source)
+	source = candidate_source
+	redo_stack.clear()
+	dirty = true
+	_reset_patrol_edit()
+	_read_source()
+	_refresh_maps_after_edit(0)
+	_collect_force_candidates(selected_id)
+	_load_force_draft()
+	forces_layer.visible = true
+	_update_forces_view()
+	_set_status("UNSAVED  /  %s" % ("PATROL ROUTE CLEARED" if count == 0 else "%d-POINT PATROL ROUTE" % count), false)
+
+
+func _cancel_patrol_edit() -> void:
+	_reset_patrol_edit()
+	_refresh_grid(0)
+	forces_layer.visible = true
+	_update_forces_view()
+	_set_status("PATROL ROUTE DRAFT DISCARDED", false)
+
+
+func _reset_patrol_edit() -> void:
+	if active_tool == "patrol":
+		active_tool = tool_before_patrol if not tool_before_patrol.is_empty() else "brush"
+	patrol_editing = false
+	patrol_placement_id = ""
+	patrol_draft.clear()
+	patrol_original.clear()
+	if patrol_actions != null:
+		patrol_actions.visible = false
 	if not tool_buttons.is_empty():
 		_update_tool_selection()
 
@@ -2121,6 +2406,7 @@ func _undo() -> void:
 		return
 	redo_stack.append(source)
 	_reset_deployment_edit()
+	_reset_patrol_edit()
 	source = undo_stack.pop_back()
 	rectangle_anchor = -1
 	selected_placement_id = ""
@@ -2136,6 +2422,7 @@ func _redo() -> void:
 		return
 	_push_undo(source)
 	_reset_deployment_edit()
+	_reset_patrol_edit()
 	source = redo_stack.pop_back()
 	rectangle_anchor = -1
 	selected_placement_id = ""
@@ -2804,10 +3091,18 @@ func _update_forces_view() -> void:
 		force_every, "" if force_every == 1 else "S"
 	]
 	forces_times_label.text = "%d WAVES TOTAL" % force_times
-	forces_behavior_button.text = (
-		"BEHAVIOR  /  ADVANCE TOWARD PLAYERS"
-		if force_behavior == "pursue" else "BEHAVIOR  /  HOLD POSITION"
-	)
+	forces_behavior_button.text = {
+		"hold": "BEHAVIOR  /  HOLD POSITION",
+		"patrol": "BEHAVIOR  /  FOLLOW PATROL ROUTE",
+		"pursue": "BEHAVIOR  /  ADVANCE TOWARD PLAYERS",
+	}.get(force_behavior, "BEHAVIOR  /  HOLD POSITION")
+	forces_patrol_button.visible = force_behavior == "patrol"
+	forces_patrol_button.disabled = not available
+	if available:
+		var point_count := (_selected_force().get("patrolPoints", []) as Array).size()
+		forces_patrol_button.text = (
+			"EDIT PATROL ROUTE  /  %d WAYPOINT%s" % [point_count, "" if point_count == 1 else "S"]
+		)
 	forces_scaling_button.text = (
 		"PLAYERS  /  2P ADDITION"
 		if int(placement.get("minimumPlayers", 1)) >= 2
@@ -2816,7 +3111,14 @@ func _update_forces_view() -> void:
 	forces_mode_button.disabled = not available
 	forces_behavior_button.disabled = not available
 	forces_scaling_button.disabled = not available
-	forces_apply_button.disabled = not available
+	forces_apply_button.disabled = (
+		not available
+		or (force_behavior == "patrol" and (_selected_force().get("patrolPoints", []) as Array).is_empty())
+	)
+	forces_apply_button.tooltip_text = (
+		"Choose EDIT PATROL ROUTE and add at least one waypoint first."
+		if available and force_behavior == "patrol" and forces_apply_button.disabled else ""
+	)
 
 
 func _apply_force_schedule() -> void:
@@ -2847,6 +3149,8 @@ func _apply_force_schedule() -> void:
 				if str(placement.get("id", "")) != selected_id:
 					continue
 				placement.behavior = force_behavior
+				if force_behavior != "patrol":
+					placement.erase("patrolPoints")
 				if force_mode == "opening":
 					placement.erase("arrival")
 				else:
@@ -2883,6 +3187,251 @@ func _apply_force_schedule() -> void:
 		),
 		false
 	)
+
+
+func _open_moments() -> void:
+	if _current_encounter().is_empty():
+		_set_status("CHOOSE A BATTLE BEFORE EDITING ITS STORY MOMENTS", true)
+		return
+	moment_two_player_only = false
+	_collect_moment_candidates()
+	moments_layer.visible = true
+	_update_moments_view()
+	moments_first_button.call_deferred("grab_focus")
+
+
+func _close_moments() -> void:
+	moments_layer.visible = false
+	setup_layer.visible = true
+	setup_first_button.call_deferred("grab_focus")
+
+
+func _collect_moment_candidates(preferred_id := "") -> void:
+	moment_candidates.clear()
+	moment_target_candidates.clear()
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return
+	for value: Variant in encounter.node.get("moments", []):
+		if value is Dictionary:
+			moment_candidates.append(value)
+			if str(value.get("id", "")) == preferred_id:
+				moment_candidate_index = moment_candidates.size() - 1
+	for value: Variant in encounter.node.get("placements", []):
+		if value is Dictionary:
+			moment_target_candidates.append(value)
+	moment_candidate_index = clampi(moment_candidate_index, 0, maxi(0, moment_candidates.size() - 1))
+	moment_target_index = clampi(moment_target_index, 0, maxi(0, moment_target_candidates.size() - 1))
+
+
+func _cycle_moment(delta: int) -> void:
+	if moment_candidates.is_empty():
+		return
+	moment_candidate_index = posmod(moment_candidate_index + delta, moment_candidates.size())
+	_update_moments_view()
+
+
+func _cycle_moment_target() -> void:
+	if moment_target_candidates.is_empty():
+		return
+	moment_target_index = (moment_target_index + 1) % moment_target_candidates.size()
+	_update_moments_view()
+
+
+func _toggle_moment_players() -> void:
+	moment_two_player_only = not moment_two_player_only
+	_update_moments_view()
+
+
+func _moment_dialogue_name(dialogue_id: String) -> String:
+	for value: Variant in project.get("dialogues", []):
+		if value is Dictionary and str(value.get("id", "")) == dialogue_id:
+			return str(value.get("name", dialogue_id))
+	return dialogue_id
+
+
+func _moment_placement_name(placement_id: String) -> String:
+	var encounter := _current_encounter()
+	if not encounter.is_empty():
+		for value: Variant in encounter.node.get("placements", []):
+			if value is Dictionary and str(value.get("id", "")) == placement_id:
+				return _placement_display_name(value)
+	return placement_id
+
+
+func _update_moments_view() -> void:
+	var available := not moment_candidates.is_empty()
+	if not available:
+		moments_summary_label.text = "NO SCRIPTED MOMENTS YET\nAdd an opening scene or a scene that plays after a named character falls."
+	else:
+		var moment := moment_candidates[moment_candidate_index]
+		var when: Dictionary = moment.get("when", {})
+		var kind := str(when.get("kind", "stageOpens"))
+		var trigger := "WHEN THE BATTLE OPENS"
+		if kind == "characterTalked":
+			trigger = "AFTER TALKING TO %s" % _moment_placement_name(str(when.get("placementId", ""))).to_upper()
+		elif kind == "characterFalls":
+			trigger = "AFTER %s FALLS" % _moment_placement_name(str(when.get("placementId", ""))).to_upper()
+		moments_summary_label.text = "%d OF %d  /  %s\n%s  /  %s" % [
+			moment_candidate_index + 1,
+			moment_candidates.size(),
+			_moment_dialogue_name(str(moment.get("dialogueId", ""))).to_upper(),
+			trigger,
+			"2P ONLY" if int(moment.get("minimumPlayers", 1)) >= 2 else "1P + 2P",
+		]
+	var target_name := "ADD A CHARACTER FIRST"
+	if not moment_target_candidates.is_empty():
+		target_name = _placement_display_name(moment_target_candidates[moment_target_index]).to_upper()
+	moments_target_button.text = "FALL TARGET  /  %s" % target_name
+	moments_target_button.disabled = moment_target_candidates.is_empty()
+	moments_players_button.text = "NEW SCENES  /  %s" % ("2P ONLY" if moment_two_player_only else "1P + 2P")
+	moments_edit_button.disabled = not available
+	moments_earlier_button.disabled = not available or moment_candidate_index == 0
+	moments_later_button.disabled = not available or moment_candidate_index + 1 >= moment_candidates.size()
+	var is_talk := false
+	if available:
+		var when: Variant = moment_candidates[moment_candidate_index].get("when", {})
+		is_talk = when is Dictionary and str(when.get("kind", "")) == "characterTalked"
+	moments_remove_button.disabled = not available or is_talk
+	moments_remove_button.tooltip_text = (
+		"Remove Talk scenes through TALK & STORY CHOICES so the matching interaction is removed too."
+		if is_talk else "The reusable scene stays in the Story editor."
+	)
+
+
+func _unique_battle_moment_id(base: String, values: Array) -> String:
+	var ids: Array[String] = []
+	for value: Variant in values:
+		if value is Dictionary:
+			ids.append(str(value.get("id", "")))
+	return _unique_project_id(base, ids)
+
+
+func _add_battle_moment(kind: String) -> void:
+	var encounter := _current_encounter()
+	if encounter.is_empty() or (kind == "characterFalls" and moment_target_candidates.is_empty()):
+		return
+	var candidate: Dictionary = project.duplicate(true)
+	var dialogues: Array = candidate.get("dialogues", [])
+	var node: Dictionary = {}
+	for campaign_value: Variant in candidate.get("campaigns", []):
+		if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != str(encounter.get("campaign_id", "")):
+			continue
+		var flow: Dictionary = campaign_value.get("flow", {})
+		for node_value: Variant in flow.get("nodes", []):
+			if node_value is Dictionary and str(node_value.get("id", "")) == str(encounter.node.get("id", "")):
+				node = node_value
+				break
+		break
+	if node.is_empty():
+		return
+	var target: Dictionary = {}
+	if kind == "characterFalls":
+		target = moment_target_candidates[moment_target_index]
+	var suffix := "opening" if kind == "stageOpens" else "%s_falls" % str(target.get("id", "character"))
+	var dialogue_id := _unique_battle_moment_id("%s_%s_scene" % [str(node.get("id", "battle")), suffix], dialogues)
+	var moments: Array = node.get("moments", [])
+	var moment_id := _unique_battle_moment_id("%s_moment" % dialogue_id, moments)
+	var speaker := "Narrator" if target.is_empty() else _placement_display_name(target)
+	var dialogue: Dictionary = {
+		"id": dialogue_id,
+		"name": "%s / %s" % [str(node.get("name", "Battle")), "Opening" if target.is_empty() else "%s falls" % speaker],
+		"lines": [{"speaker": speaker.left(160), "text": "..."}],
+	}
+	if not target.is_empty():
+		dialogue["cast"] = [{"speaker": speaker.left(160), "unitTypeId": str(target.get("unitTypeId", ""))}]
+	dialogues.append(dialogue)
+	candidate["dialogues"] = dialogues
+	var when: Dictionary = {"kind": kind}
+	if not target.is_empty():
+		when["placementId"] = str(target.get("id", ""))
+	var moment: Dictionary = {"id": moment_id, "when": when, "dialogueId": dialogue_id}
+	if moment_two_player_only or int(target.get("minimumPlayers", 1)) >= 2:
+		moment["minimumPlayers"] = 2
+	moments.append(moment)
+	node["moments"] = moments
+	if _accept_moment_candidate(candidate, "CREATED SCRIPTED MOMENT"):
+		_collect_moment_candidates(moment_id)
+		_update_moments_view()
+
+
+func _accept_moment_candidate(candidate: Dictionary, message: String) -> bool:
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status("STORY MOMENT REFUSED  /  %s" % _diagnostic_detail(checked), true)
+		return false
+	_push_undo(source)
+	source = candidate_source
+	redo_stack.clear()
+	dirty = true
+	_read_source()
+	_refresh_maps_after_edit(0)
+	_set_status("UNSAVED  /  %s" % message, false)
+	return true
+
+
+func _move_battle_moment(delta: int) -> void:
+	if moment_candidates.is_empty():
+		return
+	var destination := moment_candidate_index + delta
+	if destination < 0 or destination >= moment_candidates.size():
+		return
+	var selected_id := str(moment_candidates[moment_candidate_index].get("id", ""))
+	var candidate: Dictionary = project.duplicate(true)
+	var encounter := _current_encounter()
+	for campaign_value: Variant in candidate.get("campaigns", []):
+		if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != str(encounter.get("campaign_id", "")):
+			continue
+		for node_value: Variant in (campaign_value.get("flow", {}) as Dictionary).get("nodes", []):
+			if node_value is Dictionary and str(node_value.get("id", "")) == str(encounter.node.get("id", "")):
+				var moments: Array = node_value.get("moments", [])
+				var moved: Variant = moments.pop_at(moment_candidate_index)
+				moments.insert(destination, moved)
+				node_value["moments"] = moments
+				break
+		break
+	if _accept_moment_candidate(candidate, "MOVED STORY MOMENT"):
+		_collect_moment_candidates(selected_id)
+		_update_moments_view()
+
+
+func _remove_battle_moment() -> void:
+	if moment_candidates.is_empty() or moments_remove_button.disabled:
+		return
+	var selected_id := str(moment_candidates[moment_candidate_index].get("id", ""))
+	var candidate: Dictionary = project.duplicate(true)
+	var encounter := _current_encounter()
+	for campaign_value: Variant in candidate.get("campaigns", []):
+		if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != str(encounter.get("campaign_id", "")):
+			continue
+		for node_value: Variant in (campaign_value.get("flow", {}) as Dictionary).get("nodes", []):
+			if not node_value is Dictionary or str(node_value.get("id", "")) != str(encounter.node.get("id", "")):
+				continue
+			var moments: Array = node_value.get("moments", [])
+			for at in range(moments.size() - 1, -1, -1):
+				if moments[at] is Dictionary and str(moments[at].get("id", "")) == selected_id:
+					moments.remove_at(at)
+			if moments.is_empty():
+				node_value.erase("moments")
+			else:
+				node_value["moments"] = moments
+			break
+		break
+	if _accept_moment_candidate(candidate, "REMOVED STORY MOMENT; SCENE KEPT FOR REUSE"):
+		_collect_moment_candidates()
+		_update_moments_view()
+
+
+func _edit_battle_moment() -> void:
+	if moment_candidates.is_empty():
+		return
+	var dialogue_id := str(moment_candidates[moment_candidate_index].get("dialogueId", ""))
+	if dialogue_id.is_empty() or (dirty and not _save()):
+		return
+	moments_layer.visible = false
+	CreatorContext.choose_dialogue(dialogue_id)
+	get_tree().change_scene_to_file("res://story_editor.tscn")
 
 
 func _open_surroundings() -> void:
@@ -3329,6 +3878,13 @@ func _diagnostic_code(result: Dictionary) -> String:
 	return str(diagnostics[0].get("code", "PROJECT INCOMPLETE")).replace("_", " ").to_upper()
 
 
+func _diagnostic_token(result: Dictionary) -> String:
+	var diagnostics: Array = result.get("diagnostics", [])
+	if diagnostics.is_empty() or not diagnostics[0] is Dictionary:
+		return "PROJECT_INCOMPLETE"
+	return str(diagnostics[0].get("code", "PROJECT_INCOMPLETE")).to_upper()
+
+
 func _diagnostic_detail(result: Dictionary) -> String:
 	var diagnostics: Array = result.get("diagnostics", [])
 	if diagnostics.is_empty() or not diagnostics[0] is Dictionary:
@@ -3501,6 +4057,38 @@ func _build_interface() -> void:
 	deployment_cancel.add_theme_font_size_override("font_size", 13)
 	deployment_cancel.pressed.connect(_cancel_deployment_edit)
 	deployment_actions.add_child(deployment_cancel)
+	deployment_capacity_actions = HBoxContainer.new()
+	deployment_capacity_actions.add_theme_constant_override("separation", 6)
+	deployment_capacity_actions.visible = false
+	tools_column.add_child(deployment_capacity_actions)
+	deployment_capacity_minus = _button("−", 46, 42)
+	deployment_capacity_minus.tooltip_text = "Raise this to let players choose a smaller company for the battle."
+	deployment_capacity_minus.pressed.connect(_change_deployment_capacity.bind(-1))
+	deployment_capacity_actions.add_child(deployment_capacity_minus)
+	deployment_capacity_label = _label("NO FIELDING LIMIT", 12, Color("ffca63"))
+	deployment_capacity_label.custom_minimum_size = Vector2(226, 42)
+	deployment_capacity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	deployment_capacity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	deployment_capacity_actions.add_child(deployment_capacity_label)
+	deployment_capacity_plus = _button("+", 46, 42)
+	deployment_capacity_plus.pressed.connect(_change_deployment_capacity.bind(1))
+	deployment_capacity_actions.add_child(deployment_capacity_plus)
+	patrol_actions = HBoxContainer.new()
+	patrol_actions.add_theme_constant_override("separation", 6)
+	patrol_actions.visible = false
+	tools_column.add_child(patrol_actions)
+	patrol_apply_button = _button("APPLY ROUTE", 98, 44)
+	patrol_apply_button.pressed.connect(_apply_patrol_edit)
+	patrol_actions.add_child(patrol_apply_button)
+	var patrol_undo := _button("UNDO POINT", 94, 44)
+	patrol_undo.pressed.connect(_remove_last_patrol_point)
+	patrol_actions.add_child(patrol_undo)
+	var patrol_clear := _button("CLEAR", 55, 44)
+	patrol_clear.pressed.connect(_clear_patrol_points)
+	patrol_actions.add_child(patrol_clear)
+	var patrol_cancel := _button("CANCEL", 55, 44)
+	patrol_cancel.pressed.connect(_cancel_patrol_edit)
+	patrol_actions.add_child(patrol_cancel)
 	tools_column.add_child(_label("LANDMARKS", 17, Color("69d9ff")))
 	var landmark_row := HBoxContainer.new()
 	landmark_row.add_theme_constant_override("separation", 6)
@@ -3573,6 +4161,7 @@ func _build_interface() -> void:
 	_build_placement_overlay()
 	_build_objective_overlay()
 	_build_forces_overlay()
+	_build_moments_overlay()
 	_build_resize_overlay()
 	_build_surroundings_overlay()
 	_build_setup_overlay()
@@ -3583,6 +4172,9 @@ func _build_interface() -> void:
 func _open_setup() -> void:
 	if deployment_editing:
 		_set_status("APPLY OR CANCEL THE DEPLOYMENT DRAFT FIRST", true)
+		return
+	if patrol_editing:
+		_set_status("APPLY OR CANCEL THE PATROL ROUTE FIRST", true)
 		return
 	_collect_copy_setup_candidates()
 	copy_setup_button.disabled = copy_setup_candidates.is_empty()
@@ -3628,6 +4220,11 @@ func _setup_objectives() -> void:
 func _setup_forces() -> void:
 	setup_layer.visible = false
 	_open_forces()
+
+
+func _setup_moments() -> void:
+	setup_layer.visible = false
+	_open_moments()
 
 
 func _setup_surroundings() -> void:
@@ -3788,8 +4385,8 @@ func _build_setup_overlay() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	setup_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(390, 105)
-	panel.size = Vector2(1140, 870)
+	panel.position = Vector2(390, 70)
+	panel.size = Vector2(1140, 930)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
 	)
@@ -3838,6 +4435,10 @@ func _build_setup_overlay() -> void:
 	var forces_button := _button("OPENING FORCES & WAVES", 500, 66)
 	forces_button.pressed.connect(_setup_forces)
 	choices.add_child(forces_button)
+	var moments_button := _button("SCRIPTED BATTLE MOMENTS", 500, 66)
+	moments_button.tooltip_text = "Order scenes for the battle opening or after a named character falls."
+	moments_button.pressed.connect(_setup_moments)
+	choices.add_child(moments_button)
 	surroundings_button = _button("MAP SURROUNDINGS", 500, 66)
 	surroundings_button.pressed.connect(_setup_surroundings)
 	choices.add_child(surroundings_button)
@@ -4771,6 +5372,11 @@ func _build_forces_overlay() -> void:
 	forces_behavior_button = _button("BEHAVIOR", 1014, 54)
 	forces_behavior_button.pressed.connect(_cycle_force_behavior)
 	column.add_child(forces_behavior_button)
+	forces_patrol_button = _button("EDIT PATROL ROUTE", 1014, 54)
+	forces_patrol_button.tooltip_text = "Choose ordered waypoints directly on the map."
+	forces_patrol_button.pressed.connect(_begin_patrol_edit)
+	forces_patrol_button.visible = false
+	column.add_child(forces_patrol_button)
 	forces_scaling_button = _button("PLAYERS", 1014, 54)
 	forces_scaling_button.pressed.connect(_toggle_force_scaling)
 	column.add_child(forces_scaling_button)
@@ -4791,6 +5397,86 @@ func _build_forces_overlay() -> void:
 	var close := _button("DONE", 220, 58)
 	close.pressed.connect(_close_forces)
 	actions.add_child(close)
+
+
+func _build_moments_overlay() -> void:
+	moments_layer = Control.new()
+	moments_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	moments_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	moments_layer.visible = false
+	moments_layer.z_index = 35
+	add_child(moments_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.90)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	moments_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(390, 105)
+	panel.size = Vector2(1140, 870)
+	panel.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), 18, Color("b58cff")))
+	moments_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 13)
+	panel.add_child(column)
+	column.add_child(_label("SCRIPTED BATTLE MOMENTS", 24, Color("b58cff")))
+	var explanation := _label(
+		"These scenes play in the order shown when their trigger happens. Add an opening or a character-falls scene here, then write its dialogue in the Story editor.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 58
+	column.add_child(explanation)
+	moments_summary_label = _label("", 20, Color("f2f7f9"))
+	moments_summary_label.custom_minimum_size.y = 82
+	moments_summary_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	column.add_child(moments_summary_label)
+	var navigation := HBoxContainer.new()
+	navigation.add_theme_constant_override("separation", 10)
+	column.add_child(navigation)
+	moments_first_button = _button("PREVIOUS MOMENT", 250, 50)
+	moments_first_button.pressed.connect(_cycle_moment.bind(-1))
+	navigation.add_child(moments_first_button)
+	var next := _button("NEXT MOMENT", 250, 50)
+	next.pressed.connect(_cycle_moment.bind(1))
+	navigation.add_child(next)
+	moments_earlier_button = _button("MOVE EARLIER", 225, 50)
+	moments_earlier_button.pressed.connect(_move_battle_moment.bind(-1))
+	navigation.add_child(moments_earlier_button)
+	moments_later_button = _button("MOVE LATER", 225, 50)
+	moments_later_button.pressed.connect(_move_battle_moment.bind(1))
+	navigation.add_child(moments_later_button)
+	moments_players_button = _button("NEW SCENES  /  1P + 2P", 1014, 52)
+	moments_players_button.pressed.connect(_toggle_moment_players)
+	column.add_child(moments_players_button)
+	var add_opening := _button("ADD BATTLE OPENING SCENE", 1014, 56)
+	add_opening.pressed.connect(_add_battle_moment.bind("stageOpens"))
+	column.add_child(add_opening)
+	moments_target_button = _button("FALL TARGET", 1014, 52)
+	moments_target_button.pressed.connect(_cycle_moment_target)
+	column.add_child(moments_target_button)
+	var add_fall := _button("ADD SCENE FOR WHEN THIS CHARACTER FALLS", 1014, 56)
+	add_fall.pressed.connect(_add_battle_moment.bind("characterFalls"))
+	column.add_child(add_fall)
+	var hint := _label(
+		"Talk scenes also appear in this order, but remove them through Talk & Story Choices so the board interaction stays consistent.",
+		16, Color("72e08f")
+	)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size.y = 44
+	column.add_child(hint)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 10)
+	column.add_child(actions)
+	moments_edit_button = _button("WRITE / EDIT SELECTED SCENE", 360, 58)
+	moments_edit_button.pressed.connect(_edit_battle_moment)
+	actions.add_child(moments_edit_button)
+	moments_remove_button = _button("REMOVE MOMENT", 250, 58)
+	moments_remove_button.pressed.connect(_remove_battle_moment)
+	actions.add_child(moments_remove_button)
+	var done := _button("DONE", 180, 58)
+	done.pressed.connect(_close_moments)
+	actions.add_child(done)
 
 
 func _build_resize_overlay() -> void:
