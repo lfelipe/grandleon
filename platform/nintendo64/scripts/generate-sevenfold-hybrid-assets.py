@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Derive the N64 close-battle cutouts from the curated Godot sheets.
+"""Derive the N64 2.5D cutouts from the curated Godot sheets.
 
 The checked-in PNGs are build inputs so the pinned N64 container only needs
 libdragon's mksprite. Re-running this script is the explicit provenance path
@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from functools import lru_cache
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -21,21 +22,35 @@ ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "platform/godot/project/art/characters"
 OUTPUT = ROOT / "platform/nintendo64/prototype/assets/sevenfold_hybrid"
 CELL = 443
-SIDE = 80
+SIDE = 84
 TACTICAL_SIDE = 56
 TEAM_COLOURS = {
     "blue": (0x23, 0x75, 0xA9),
     "red": (0xB3, 0x48, 0x3F),
 }
+CLOSE_LAYOUT_FRAMES = (0, 1, 4, 5, 6, 7)
+TACTICAL_LAYOUT_FRAMES = (0, 1, 2, 3)
 
 ASSETS = (
     ("medieval_knight_male", "blue", "idle", 0),
+    ("medieval_knight_male", "blue", "idle_b", 1),
+    ("medieval_knight_male", "blue", "windup", 4),
     ("medieval_knight_male", "blue", "attack", 5),
+    ("medieval_knight_male", "blue", "hurt", 7),
     ("medieval_knight_female", "red", "idle", 0),
+    ("medieval_knight_female", "red", "idle_b", 1),
+    ("medieval_knight_female", "red", "windup", 4),
+    ("medieval_knight_female", "red", "attack", 5),
     ("medieval_knight_female", "red", "hurt", 7),
     ("mythical_mage_male", "blue", "idle", 0),
+    ("mythical_mage_male", "blue", "idle_b", 1),
+    ("mythical_mage_male", "blue", "windup", 4),
     ("mythical_mage_male", "blue", "attack", 5),
+    ("mythical_mage_male", "blue", "hurt", 7),
     ("mythical_mage_female", "red", "idle", 0),
+    ("mythical_mage_female", "red", "idle_b", 1),
+    ("mythical_mage_female", "red", "windup", 4),
+    ("mythical_mage_female", "red", "attack", 5),
     ("mythical_mage_female", "red", "hurt", 7),
 )
 
@@ -48,6 +63,14 @@ TACTICAL_ASSETS = (
     ("medieval_commander_female", "red", "idle", 0),
     ("medieval_rogue_male", "blue", "idle", 0),
     ("medieval_beast_female", "red", "idle", 0),
+    ("medieval_knight_male", "blue", "idle_b", 1),
+    ("medieval_archer_female", "red", "idle_b", 1),
+    ("medieval_mage_male", "blue", "idle_b", 1),
+    ("medieval_stormcaller_female", "red", "idle_b", 1),
+    ("medieval_healer_male", "blue", "idle_b", 1),
+    ("medieval_commander_female", "red", "idle_b", 1),
+    ("medieval_rogue_male", "blue", "idle_b", 1),
+    ("medieval_beast_female", "red", "idle_b", 1),
     ("medieval_rogue_male", "blue", "move_a", 2),
     ("medieval_rogue_male", "blue", "move_b", 3),
 )
@@ -111,13 +134,65 @@ def frame(image: Image.Image, index: int) -> Image.Image:
     return image.crop((left, top, left + CELL, top + CELL))
 
 
+@lru_cache(maxsize=None)
+def union_bounds(
+    identity: str, layout_frames: tuple[int, ...]
+) -> tuple[int, int, int, int]:
+    source_path = SOURCE / f"{identity}_hd.png"
+    with Image.open(source_path) as source_image:
+        boxes = [
+            frame(source_image, index)
+            .convert("RGBA")
+            .getchannel("A")
+            .point(lambda value: 255 if value >= 32 else 0)
+            .getbbox()
+            for index in layout_frames
+        ]
+    visible = [box for box in boxes if box is not None]
+    if not visible:
+        return (0, 0, CELL, CELL)
+    return (
+        min(box[0] for box in visible),
+        min(box[1] for box in visible),
+        max(box[2] for box in visible),
+        max(box[3] for box in visible),
+    )
+
+
+def fit_to_canvas(
+    image: Image.Image, bounds: tuple[int, int, int, int], side: int
+) -> Image.Image:
+    left, top, right, bottom = bounds
+    source_pivot_x = CELL * 0.5
+    source_pivot_y = CELL * 0.94
+    target_pivot_x = side * 0.5
+    target_pivot_y = side * 0.94
+    margin = 2.0
+    limits = [
+        (target_pivot_x - margin) / max(source_pivot_x - left, 1.0),
+        (side - margin - target_pivot_x) / max(right - source_pivot_x, 1.0),
+        (target_pivot_y - margin) / max(source_pivot_y - top, 1.0),
+        (side - target_pivot_y) / max(bottom - source_pivot_y, 1.0),
+    ]
+    scale = min(limits)
+    cropped = image.crop(bounds)
+    width = max(1, round(cropped.width * scale))
+    height = max(1, round(cropped.height * scale))
+    resized = cropped.resize((width, height), Image.Resampling.LANCZOS)
+    target_left = round(target_pivot_x - (source_pivot_x - left) * scale)
+    target_top = round(target_pivot_y - (source_pivot_y - top) * scale)
+    result = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    result.alpha_composite(resized, (target_left, target_top))
+    return result
+
+
 def source_digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def write_cutout(
     identity: str, team: str, pose: str, frame_index: int,
-    side: int, prefix: str = ""
+    side: int, layout_frames: tuple[int, ...], prefix: str = ""
 ) -> dict[str, object]:
     source_path = SOURCE / f"{identity}_hd.png"
     mask_path = SOURCE / f"{identity}_hd_team_mask.png"
@@ -127,7 +202,8 @@ def write_cutout(
             frame(mask_image, frame_index),
             TEAM_COLOURS[team],
         )
-    cutout = cutout.resize((side, side), Image.Resampling.LANCZOS)
+    bounds = union_bounds(identity, layout_frames)
+    cutout = fit_to_canvas(cutout, bounds, side)
     alpha = cutout.getchannel("A").point(lambda value: 255 if value >= 32 else 0)
     cutout.putalpha(alpha)
     name = f"{prefix}{identity}_{team}_{pose}.png"
@@ -143,6 +219,9 @@ def write_cutout(
         "pose": pose,
         "width": side,
         "height": side,
+        "layout_frames": list(layout_frames),
+        "union_bounds": list(bounds),
+        "pivot": [0.5, 0.94],
     }
 
 
@@ -177,12 +256,16 @@ def main() -> None:
     manifest_assets = []
     for identity, team, pose, frame_index in ASSETS:
         manifest_assets.append(
-            write_cutout(identity, team, pose, frame_index, SIDE)
+            write_cutout(
+                identity, team, pose, frame_index, SIDE,
+                CLOSE_LAYOUT_FRAMES,
+            )
         )
     for identity, team, pose, frame_index in TACTICAL_ASSETS:
         manifest_assets.append(
             write_cutout(
                 identity, team, pose, frame_index, TACTICAL_SIDE,
+                TACTICAL_LAYOUT_FRAMES,
                 prefix="tactical_",
             )
         )
@@ -190,7 +273,7 @@ def main() -> None:
     (OUTPUT / "manifest.json").write_text(
         json.dumps(
             {
-                "format": "Grandleon N64 hybrid battle cutouts v2",
+                "format": "Grandleon N64 hybrid battle cutouts v3",
                 "generated_by": str(Path(__file__).resolve().relative_to(ROOT)),
                 "generator_sha256": source_digest(Path(__file__).resolve()),
                 "assets": manifest_assets,

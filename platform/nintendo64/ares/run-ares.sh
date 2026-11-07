@@ -196,6 +196,7 @@ set +e
     --env "ARES_FILM_SECONDS=${GRANDLEON_N64_ARES_FILM_SECONDS:-8}" \
     --env "ARES_FILM_GRABBERS=${GRANDLEON_N64_ARES_FILM_GRABBERS:-6}" \
     --env "ARES_FILM_NAME=${GRANDLEON_N64_ARES_FILM:-film}" \
+    --env "ARES_POLL_SECONDS=${GRANDLEON_N64_ARES_POLL_SECONDS:-1}" \
     "${save_mount[@]}" \
     --volume "${rom_dir}:/rom:ro" \
     --volume "${repository_root}/platform/nintendo64/ares/headless.sh:/headless.sh:ro" \

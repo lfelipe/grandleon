@@ -63,9 +63,9 @@ if (
     != hybrid_report["generator_sha256"]
 ):
     raise SystemExit("N64 hybrid generator changed; regenerate its cutouts")
-if len(hybrid_report["assets"]) != 20:
+if len(hybrid_report["assets"]) != 40:
     raise SystemExit(
-        "N64 hybrid manifest must contain eighteen cutouts and two effects"
+        "N64 hybrid manifest must contain thirty-eight cutouts and two effects"
     )
 for asset in hybrid_report["assets"]:
     output = hybrid_dir / asset["path"]
@@ -107,7 +107,7 @@ fi
 
 GRANDLEON_N64_BUILD_DIR="${build_dir}" \
 GRANDLEON_N64_ARES_SECONDS=120 \
-GRANDLEON_N64_ARES_MIN_CHECKS=56 \
+GRANDLEON_N64_ARES_MIN_CHECKS=58 \
 GRANDLEON_N64_ARES_LOG=sevenfold-3d.log \
 GRANDLEON_N64_ARES_TRAIL=trail-sevenfold-3d \
 GRANDLEON_N64_ARES_SHOT=screenshot-sevenfold-3d.png \
@@ -137,9 +137,9 @@ for style in medieval pirates; do
         grep -q "^CHECKPOINT sevenfold-tactical-${style}-${checkpoint}$" "${log}"
     done
 done
-grep -q '^sevenfold tactical-hybrid stage=medieval models=8 roles=8 bodies=mixed teams=blue-red .* tmem_peak=1600 embedded=.* ordering=foot-depth highlights=blue-and-gold$' "${log}"
+grep -q '^sevenfold tactical-hybrid stage=medieval models=8 roles=8 bodies=mixed teams=blue-red .* tmem_peak=3648 embedded=.* ordering=foot-depth highlights=blue-and-gold$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-medieval$' "${log}"
-grep -q '^sevenfold tactical-hybrid-animation stage=medieval frames=48 .* motion=tile-move poses=2 ordering=foot-depth$' "${log}"
+grep -q '^sevenfold tactical-hybrid-animation stage=medieval frames=72 .* motion=tile-move poses=idle2-walk2 easing=smoothstep beats=anticipation-move-settle ordering=foot-depth$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-move-start$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-move-end$' "${log}"
 while read -r style role terrain; do
@@ -155,7 +155,7 @@ mythical mage MOUNTAIN
 EOF
 for style in medieval mythical; do
     for pose in idle impact; do
-        grep -q "^sevenfold hybrid stage=${style} pose=${pose} terrain=.* sprites=2 scene_triangles=.* tmem_peak=3232 embedded=.* team=blue-red$" "${log}"
+        grep -q "^sevenfold hybrid stage=${style} pose=${pose} terrain=.* sprites=2 scene_triangles=.* tmem_peak=4064 embedded=.* team=blue-red$" "${log}"
         grep -q "^CHECKPOINT sevenfold-hybrid-${style}-${pose}$" "${log}"
     done
 done
@@ -173,8 +173,14 @@ pirates SAND
 EOF
 grep -q '^sevenfold attack-animation stage=medieval frames=96 .* anchors=locked counter=right-to-left heading=three-quarter depth=on$' "${log}"
 grep -q '^CHECKPOINT sevenfold-attack-animation-hit$' "${log}"
-grep -q '^sevenfold hybrid-animation stage=medieval frames=60 .* anchors=locked counter=not-in-prototype motion=push-impact-recoil camera=frontal$' "${log}"
+grep -q '^sevenfold hybrid-animation stage=medieval frames=246 .* anchors=locked counter=right-to-left poses=5 easing=smoothstep motion=anticipation-impact-recoil-settle camera=frontal$' "${log}"
 grep -q '^CHECKPOINT sevenfold-hybrid-animation-start$' "${log}"
 grep -q '^CHECKPOINT sevenfold-hybrid-animation-impact$' "${log}"
-grep -q '^RESULT PASS 56/56$' "${log}"
+grep -q '^CHECKPOINT sevenfold-hybrid-animation-counter$' "${log}"
+grep -q '^sevenfold readme-sequence id=medieval_knight_counter_v1 frames=245 fps=30 seconds=8.15 board=6x4 terrain=2-9-12 left=medieval-knight-male-blue-hp12-to8 right=medieval-knight-female-red-hp11-to8 damage=3-4 impacts=3.45-5.50 anchors=locked .* fps_throughput=.*$' "${log}"
+grep -q '^CHECKPOINT sevenfold-readme-sequence-start$' "${log}"
+for checkpoint in board focus attack counter restored; do
+    grep -q "^CHECKPOINT sevenfold-readme-${checkpoint}$" "${log}"
+done
+grep -q '^RESULT PASS 58/58$' "${log}"
 echo "Nintendo 64 Sevenfold 3D roster check passed: ${rom}"

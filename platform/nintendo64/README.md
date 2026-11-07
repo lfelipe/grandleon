@@ -124,11 +124,14 @@ and sky colour are derived from the selected terrain. **B** then plays an
 illustrative attack, hit, counter-attack, and damage callout. In that close
 view, **Z** cycles the flat proxy, material-textured proxy, and, for the
 medieval knight and mythical mage comparisons, a hybrid 2.5D presentation.
-The hybrid uses 80×80 CI4 cutouts derived from the actual curated Godot frames
-over the same textured 3D terrain. **B** shows a frontal push, impact, and
-recoil instead of orbiting the fighters. The first attacker remains on screen
-left and the defender on screen right for the whole exchange. A counter moves
-the right fighter into the left fighter; it never swaps their screen sides.
+The hybrid uses 84×84 CI4 cutouts derived from the actual curated Godot frames
+over the same textured 3D terrain. The generator fits one union crop for all
+poses of a character and preserves Godot's ground pivot, so changing pose does
+not resize or jitter the fighter. **B** plays idle, wind-up, follow-through,
+hurt, recoil, and settle poses with eased movement. The first attacker remains
+on screen left and the defender on screen right for the whole exchange. A
+counter moves the right fighter into the left fighter; it never swaps their
+screen sides.
 
 The playable `sevenfold-n64-3d.z64` uses the same proxies differently: low
 detail on the complete campaign board, actual 3D route movement, and two
@@ -142,26 +145,39 @@ three-quarter pages that expose all eight low-detail roles from opposite
 headings, matched flat/material tactical boards for medieval and pirates,
 an eight-role 2.5D tactical board and tile movement, seven terrain close
 views, the proxy animation, and matched proxy/hybrid close views for medieval
-and mythical representatives. The current run passes `56/56` and records 54
-captures. The two low-poly tactical material views measure 78 and 75 fps,
+and mythical representatives. It also records the canonical 8.15-second
+cross-renderer scene: the same six-by-four forest/grass/paved board, knights,
+health, damage, counter, and phase timing used by Godot and PlayStation. The
+current run passes `58/58` and records the complete checkpoint trail. The two
+low-poly tactical material views measure 78 and 75 fps,
 versus 81 and 76 fps for their identical flat views. Textured
 proxy close views measure 157 fps for medieval and 129 fps for mythical. The
-hybrid idle/impact views measure 423–443 fps, and its 60-frame attack peaks at
-2.35 ms. The full 2.5D board measures about 327 fps while static and 312 fps at
-its slowest animated frame. These are renderer-throughput measurements in
+hybrid idle/impact views measure 435–457 fps, and its five-pose attack/counter
+exchange peaks at 2.41 ms. The full 2.5D board measures about 353 fps while
+static and 286 fps at its slowest animated frame. The canonical scene peaks at
+2.43 ms. These are renderer-throughput measurements in
 ares, not display rate or timings from original hardware.
 
 Both texture paths are deliberately confined to the diagnostic viewer while
 they are evaluated. The material pass uses two generated 32×32 CI4 atlases and
-a shared TLUT, totalling 1,056 bytes in RDRAM. The hybrid embeds 28,688 bytes of
-CI4 sprite data; the ROM grows by 32 KiB because of cartridge alignment. A
-single 80×80 cutout and palette need 3,232 bytes of TMEM, and each sprite is
-uploaded separately. An idle hybrid frame uploads about 7.0 KiB of texture
-payload, rising to about 8.2 KiB on impact. The tactical candidate adds ten
-56×56 cutouts totalling 17,360 bytes and grows the aligned ROM by another
-16 KiB. It peaks at 1,600 bytes of TMEM per character upload and about 15.1
-KiB of texture payload per frame. Its eight units are sorted by foot position
-for correct overlap, with smaller far-row figures to keep silhouettes apart.
+a shared TLUT, totalling 1,056 bytes in RDRAM. The close candidate embeds
+75,664 bytes for five poses per fighter, two styles, shadows, and impact. One
+84×84 CI4 cutout uses 4,064 bytes of TMEM after the RDP's row alignment,
+leaving 32 bytes free. CI8 at that resolution cannot fit. The board keeps its
+useful 56×56 native footprint but uses CI8: 256 colours improve the small
+silhouettes more than extra pixels would. Its eighteen idle/walk objects total
+68,112 bytes and use 3,648 bytes of TMEM per character. Eight characters and
+shadows upload about 30.8 KiB per frame. The expanded experiment grows the
+aligned ROM by 48 KiB over the first tactical-cutout prototype. Units remain
+sorted by foot position, with smaller far-row figures to keep silhouettes
+apart.
+
+The close canvas is the useful CI4 limit rather than an arbitrary number. An
+84-pixel row rounds to 48 bytes in TMEM; 84 rows plus the 16-colour palette use
+4,064 of 4,096 bytes. Moving to CI8 would limit a square cutout to roughly 56
+pixels after its 512-byte palette, which loses visibly more edge detail than
+the extra colours recover. On the board the character is only about 40–50
+screen pixels tall, so 56-pixel CI8 is the complementary quality choice.
 The playable 3D campaign remains unchanged until the material and hybrid
 treatments pass MiSTer or original-style hardware review.
 

@@ -32,6 +32,17 @@ namespace hybrid =
 constexpr int cell_world = 64;
 constexpr int board_triangles =
     sevenfold_board_columns * sevenfold_board_rows * 2;
+constexpr int matched_board_columns = 6;
+constexpr int matched_board_rows = 4;
+constexpr int matched_board_triangles =
+    matched_board_columns * matched_board_rows * 2;
+constexpr std::uint8_t matched_terrain
+    [matched_board_rows][matched_board_columns] = {
+        {2, 2, 9, 12, 12, 2},
+        {2, 9, 9, 12, 12, 2},
+        {2, 9, 9, 12, 9, 2},
+        {2, 2, 9, 12, 2, 2},
+    };
 constexpr int board_vertices = board_triangles * 3;
 constexpr int packed_board_vertices = (board_vertices + 1) / 2;
 constexpr int max_proxy_vertices = sevenfold_high_max_triangles * 3;
@@ -260,6 +271,54 @@ void build_board(T3DVertPacked* into, int stage) {
     }
 }
 
+void build_matched_board(T3DVertPacked* into) {
+    for (int index = 0; index < packed_board_vertices; ++index) {
+        into[index] = T3DVertPacked{};
+    }
+    int written = 0;
+    for (int row = 0; row < matched_board_rows; ++row) {
+        for (int column = 0; column < matched_board_columns; ++column) {
+            const std::int16_t x0 = static_cast<std::int16_t>(
+                (column - matched_board_columns / 2) * cell_world
+            );
+            const std::int16_t x1 = static_cast<std::int16_t>(x0 + cell_world);
+            const std::int16_t z0 = static_cast<std::int16_t>(
+                (row - matched_board_rows / 2) * cell_world
+            );
+            const std::int16_t z1 = static_cast<std::int16_t>(z0 + cell_world);
+            const std::uint8_t terrain_id = matched_terrain[row][column];
+            const std::uint8_t* rgb = terrain_colours[terrain_id];
+            const std::uint32_t colour = rgba(rgb[0], rgb[1], rgb[2]);
+            const std::int16_t points[6][3] = {
+                {x0, 0, z0}, {x1, 0, z0}, {x1, 0, z1},
+                {x0, 0, z0}, {x1, 0, z1}, {x0, 0, z1},
+            };
+            const std::uint8_t region = terrain_texture_region(terrain_id);
+            for (int triangle = 0; triangle < 2; ++triangle) {
+                std::int16_t triangle_points[3][3]{};
+                for (int corner = 0; corner < 3; ++corner) {
+                    const int point = triangle * 3 + corner;
+                    for (int axis = 0; axis < 3; ++axis) {
+                        triangle_points[corner][axis] = points[point][axis];
+                    }
+                }
+                for (int corner = 0; corner < 3; ++corner) {
+                    const int point = triangle * 3 + corner;
+                    const texture::UV uv = texture::terrain_uv(
+                        triangle_points, corner, region
+                    );
+                    set_vertex(
+                        into[written / 2], (written & 1) != 0,
+                        points[point][0], points[point][1], points[point][2],
+                        colour, uv.s, uv.t
+                    );
+                    ++written;
+                }
+            }
+        }
+    }
+}
+
 void scene_triangle(
     T3DVertPacked* into, int& written, const std::int16_t points[3][3],
     std::uint32_t colour, std::uint8_t texture_region = 1
@@ -408,6 +467,75 @@ void scene_quad(
     return written / 3;
 }
 
+[[nodiscard]] int build_matched_attack_scene(T3DVertPacked* into) {
+    for (int index = 0; index < packed_board_vertices; ++index) {
+        into[index] = T3DVertPacked{};
+    }
+    int written = 0;
+    for (int row = 0; row < matched_board_rows; ++row) {
+        for (int column = 0; column < matched_board_columns; ++column) {
+            const std::uint8_t terrain = matched_terrain[row][column];
+            const std::uint8_t* rgb = terrain_colours[terrain];
+            const std::int16_t x0 = static_cast<std::int16_t>(
+                (column - 3) * 70
+            );
+            const std::int16_t x1 = static_cast<std::int16_t>(x0 + 70);
+            const std::int16_t z0 = static_cast<std::int16_t>((row - 1) * 70);
+            const std::int16_t z1 = static_cast<std::int16_t>(z0 + 70);
+            const std::int16_t floor[4][3] = {
+                {x0, 0, z0}, {x1, 0, z0}, {x1, 0, z1}, {x0, 0, z1},
+            };
+            scene_quad(
+                into, written, floor, rgba(rgb[0], rgb[1], rgb[2]),
+                terrain_texture_region(terrain)
+            );
+        }
+    }
+    for (int column = 0; column < matched_board_columns; ++column) {
+        const std::uint8_t terrain = matched_terrain[0][column];
+        const std::uint8_t* rgb = terrain_colours[terrain];
+        const std::uint32_t colour = rgba(
+            static_cast<std::uint8_t>(rgb[0] * 3U / 4U),
+            static_cast<std::uint8_t>(rgb[1] * 3U / 4U),
+            static_cast<std::uint8_t>(rgb[2] * 3U / 4U)
+        );
+        const std::int16_t x0 = static_cast<std::int16_t>(column * 70 - 210);
+        const std::int16_t x1 = static_cast<std::int16_t>(x0 + 70);
+        const std::int16_t middle = static_cast<std::int16_t>((x0 + x1) / 2);
+        const std::int16_t height = static_cast<std::int16_t>(
+            terrain_silhouette_height(terrain)
+        );
+        if (terrain == 2U) {
+            const std::int16_t trunk[4][3] = {
+                {static_cast<std::int16_t>(middle - 5), 0, 235},
+                {static_cast<std::int16_t>(middle + 5), 0, 235},
+                {static_cast<std::int16_t>(middle + 5),
+                 static_cast<std::int16_t>(height * 2 / 3), 235},
+                {static_cast<std::int16_t>(middle - 5),
+                 static_cast<std::int16_t>(height * 2 / 3), 235},
+            };
+            scene_quad(into, written, trunk, rgba(67, 51, 32), 2);
+            const std::int16_t canopy[3][3] = {
+                {x0, static_cast<std::int16_t>(height / 3), 235},
+                {x1, static_cast<std::int16_t>(height / 3), 235},
+                {middle, height, 235},
+            };
+            scene_triangle(into, written, canopy, colour, 0);
+        } else {
+            const std::int16_t wall[4][3] = {
+                {x0, 0, 235}, {x1, 0, 235},
+                {x1, static_cast<std::int16_t>(height * 3 / 4), 235},
+                {x0, height, 235},
+            };
+            scene_quad(
+                into, written, wall, colour,
+                terrain_texture_region(terrain)
+            );
+        }
+    }
+    return written / 3;
+}
+
 void draw_unindexed(const T3DVertPacked* vertices, int triangles) {
     int drawn = 0;
     while (drawn < triangles) {
@@ -431,6 +559,22 @@ void set_camera(T3DViewport& viewport) {
     fm_vec3_t focus;
     focus.v[0] = 0.0F;
     focus.v[1] = 20.0F;
+    focus.v[2] = 0.0F;
+    fm_vec3_t up;
+    up.v[0] = 0.0F;
+    up.v[1] = 1.0F;
+    up.v[2] = 0.0F;
+    t3d_viewport_look_at(&viewport, &eye, &focus, &up);
+}
+
+void set_matched_camera(T3DViewport& viewport) {
+    fm_vec3_t eye;
+    eye.v[0] = 0.0F;
+    eye.v[1] = 405.0F;
+    eye.v[2] = -330.0F;
+    fm_vec3_t focus;
+    focus.v[0] = 0.0F;
+    focus.v[1] = 16.0F;
     focus.v[2] = 0.0F;
     fm_vec3_t up;
     up.v[0] = 0.0F;
@@ -609,6 +753,45 @@ std::uint64_t draw_tactical_hybrid_frame(
     return get_ticks_us() - started;
 }
 
+std::uint64_t draw_matched_board_frame(
+    surface_t* display, T3DViewport* viewport, T3DMat4FP* matrix,
+    const T3DVertPacked* board, int left_health, int right_health,
+    bool focus, const char* label, const char* footer
+) {
+    const std::uint64_t started = get_ticks_us();
+    rdpq_attach(display, display_get_zbuf());
+    t3d_frame_start();
+    rdpq_mode_zbuf(true, true);
+    t3d_viewport_attach(viewport);
+    t3d_screen_clear_color(RGBA32(20, 25, 35, 255));
+    t3d_screen_clear_depth();
+    t3d_light_set_count(0);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_mode_combiner(RDPQ_COMBINER_TEX_SHADE);
+    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
+        T3D_FLAG_TEXTURED | T3D_FLAG_SHADED |
+        T3D_FLAG_NO_LIGHT | T3D_FLAG_DEPTH
+    ));
+    t3d_matrix_push(matrix);
+    texture::bind_terrain();
+    draw_unindexed(board, matched_board_triangles);
+    t3d_matrix_pop(1);
+    t3d_tri_sync();
+    hybrid::draw_matched_board(left_health, right_health, focus);
+    rdpq_detach_wait();
+    graphics_draw_box(
+        display, 0, 196, 320, 44, graphics_make_color(15, 22, 24, 255)
+    );
+    graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
+    graphics_draw_text(display, 8, 8, label);
+    graphics_set_color(graphics_make_color(125, 168, 133, 255), 0);
+    graphics_draw_text(display, 8, 204, footer);
+    graphics_draw_text(
+        display, 8, 220, "FOREST 2 - GRASS 9 - PAVED 12"
+    );
+    return get_ticks_us() - started;
+}
+
 int triangle_total(
     const Figure* figures, int visible_figures = figure_count,
     int scene_triangles = board_triangles
@@ -757,7 +940,7 @@ std::uint64_t show_tactical_hybrid(
     constexpr int stage = 0;
     build_board(board, stage);
     apply_tactical_highlights(board);
-    const hybrid::TacticalFrame tactical_frame{0, 0};
+    const hybrid::TacticalFrame tactical_frame{0, 0, 0, 0};
     std::uint64_t elapsed = 0;
     for (int frame = 0; frame < 3; ++frame) {
         surface_t* display = display_get();
@@ -791,31 +974,45 @@ std::uint64_t play_tactical_hybrid_move(
     build_board(board, stage);
     apply_tactical_highlights(board);
     if (report) {
+        surface_t* display = display_get();
+        draw_tactical_hybrid_frame(
+            display, &viewport, matrix, board,
+            hybrid::TacticalFrame{0, 0, 0, 0},
+            "Medieval Gate TACTICAL - 2.5D MOVE",
+            "ROGUE MOVES INTO SELECTED TILE",
+            "ANTICIPATE - WALK - SETTLE"
+        );
+        display_show(display);
         std::fprintf(
             stderr, "CHECKPOINT sevenfold-tactical-hybrid-move-start\n"
         );
         std::fflush(stderr);
-        wait_ms(500);
+        wait_ms(700);
     }
     std::uint64_t slowest = 0;
-    for (int frame = 0; frame < 48; ++frame) {
-        hybrid::TacticalFrame tactical_frame{0, 0};
-        if (frame >= 8 && frame < 32) {
-            tactical_frame.move_progress = (frame - 7) * 100 / 24;
-            tactical_frame.move_pose = 1 + ((frame / 4) & 1);
-        } else if (frame >= 32) {
+    for (int frame = 0; frame < 72; ++frame) {
+        hybrid::TacticalFrame tactical_frame{0, 0, 0, 0};
+        if (frame >= 8 && frame < 16) {
+            tactical_frame.selected_idle_pose = 1;
+        } else if (frame >= 16 && frame < 48) {
+            tactical_frame.move_progress = (frame - 15) * 100 / 32;
+            tactical_frame.move_pose = 1 + (((frame - 16) / 4) & 1);
+            tactical_frame.ambient_idle_pose = frame >= 32 ? 1 : 0;
+        } else if (frame >= 48) {
             tactical_frame.move_progress = 100;
+            tactical_frame.selected_idle_pose = frame < 56 ? 1 : 0;
+            tactical_frame.ambient_idle_pose = frame < 56 ? 1 : 0;
         }
         surface_t* display = display_get();
         const std::uint64_t elapsed = draw_tactical_hybrid_frame(
             display, &viewport, matrix, board, tactical_frame,
             "Medieval Gate TACTICAL - 2.5D MOVE",
             "ROGUE MOVES INTO SELECTED TILE",
-            "POSE SWAP + SCALE + DEPTH SORT"
+            "ANTICIPATE - EASED WALK - SETTLE"
         );
         display_show(display);
         if (elapsed > slowest) slowest = elapsed;
-        if (report && frame == 40) {
+        if (report && frame == 64) {
             std::fprintf(
                 stderr, "CHECKPOINT sevenfold-tactical-hybrid-move-end\n"
             );
@@ -828,7 +1025,7 @@ std::uint64_t play_tactical_hybrid_move(
     if (report) {
         std::fprintf(
             stderr,
-            "sevenfold tactical-hybrid-animation stage=medieval frames=48 max_us=%llu fps=%llu motion=tile-move poses=2 ordering=foot-depth\n",
+            "sevenfold tactical-hybrid-animation stage=medieval frames=72 max_us=%llu fps=%llu motion=tile-move poses=idle2-walk2 easing=smoothstep beats=anticipation-move-settle ordering=foot-depth\n",
             static_cast<unsigned long long>(slowest),
             static_cast<unsigned long long>(
                 slowest > 0 ? 1'000'000 / slowest : 0
@@ -1044,6 +1241,54 @@ std::uint64_t show_texture_comparison(
     return stage == 2 ? hybrid::Style::mythical : hybrid::Style::medieval;
 }
 
+[[nodiscard]] int eased_distance(
+    int step, int duration, int distance
+) noexcept {
+    if (step <= 0) return 0;
+    if (step >= duration) return distance;
+    const int amount = step * 256 / duration;
+    const int eased = amount * amount * (768 - 2 * amount) / (256 * 256);
+    return distance * eased / 256;
+}
+
+[[nodiscard]] hybrid::Frame neutral_hybrid_frame(bool alternate = false) {
+    const hybrid::Pose pose = alternate
+        ? hybrid::Pose::idle_b : hybrid::Pose::idle_a;
+    return {pose, pose, -1, 0, 0, 0, 0};
+}
+
+[[nodiscard]] hybrid::Frame strike_hybrid_frame(
+    int frame, bool counter
+) {
+    hybrid::Frame pose = neutral_hybrid_frame(frame >= 108);
+    hybrid::Pose& attacker = counter ? pose.right_pose : pose.left_pose;
+    hybrid::Pose& defender = counter ? pose.left_pose : pose.right_pose;
+    int& push = counter ? pose.right_push : pose.left_push;
+    int& recoil = counter ? pose.left_recoil : pose.right_recoil;
+    const int target = counter ? 0 : 1;
+    if (frame >= 24 && frame < 48) {
+        attacker = hybrid::Pose::windup;
+        push = -eased_distance(frame - 24, 23, 4);
+    } else if (frame >= 48 && frame < 72) {
+        attacker = hybrid::Pose::follow_through;
+        push = -4 + eased_distance(frame - 48, 23, 46);
+    } else if (frame >= 72 && frame < 84) {
+        attacker = hybrid::Pose::follow_through;
+        defender = hybrid::Pose::hurt;
+        push = 42;
+        recoil = eased_distance(frame - 72, 11, 8);
+        if (frame < 78) pose.impact_target = target;
+    } else if (frame >= 84 && frame < 108) {
+        attacker = frame < 96
+            ? hybrid::Pose::follow_through : hybrid::Pose::idle_b;
+        defender = frame < 100
+            ? hybrid::Pose::hurt : hybrid::Pose::idle_b;
+        push = 42 - eased_distance(frame - 84, 23, 42);
+        recoil = 8 - eased_distance(frame - 84, 23, 8);
+    }
+    return pose;
+}
+
 std::uint64_t show_hybrid_close(
     int stage, bool impact, bool report, T3DViewport& viewport,
     T3DMat4FP* matrix, T3DVertPacked* scene
@@ -1054,9 +1299,12 @@ std::uint64_t show_hybrid_close(
     const std::uint8_t terrain =
         sevenfold_stage_terrain[stage][selected_cell];
     const std::uint8_t* sky = terrain_sky_colours[terrain];
-    const hybrid::Frame hybrid_frame{
-        impact, impact, impact, impact ? 42 : 0, impact ? 8 : 0,
-    };
+    const hybrid::Frame hybrid_frame = impact
+        ? hybrid::Frame{
+            hybrid::Pose::follow_through, hybrid::Pose::hurt, 1,
+            42, 0, 0, 8,
+        }
+        : neutral_hybrid_frame();
     char page_label[64];
     std::snprintf(
         page_label, sizeof page_label, "%s - CURATED CI4 %s",
@@ -1109,37 +1357,45 @@ std::uint64_t play_hybrid_preview(
         sevenfold_stage_names[stage]
     );
     if (report) {
+        surface_t* display = display_get();
+        draw_hybrid_frame(
+            display, &viewport, matrix, scene, scene_triangles,
+            hybrid_style(stage), neutral_hybrid_frame(), page_label,
+            "ANTICIPATION - IMPACT - COUNTER - SETTLE",
+            "CURATED POSES ON TEXTURED 3D TERRAIN",
+            RGBA32(sky[0], sky[1], sky[2], 255)
+        );
+        display_show(display);
         std::fprintf(stderr, "CHECKPOINT sevenfold-hybrid-animation-start\n");
         std::fflush(stderr);
-        wait_ms(500);
+        wait_ms(700);
     }
     std::uint64_t slowest = 0;
-    for (int frame = 0; frame < 60; ++frame) {
-        hybrid::Frame pose{false, false, false, 0, 0};
-        if (frame >= 12 && frame < 24) {
-            pose.attacker_push = (frame - 11) * 42 / 12;
-        } else if (frame >= 24 && frame < 36) {
-            pose = {true, true, frame < 30, 42, (frame - 23) * 8 / 12};
-        } else if (frame >= 36 && frame < 48) {
-            pose.attacker_pose = frame < 42;
-            pose.defender_hurt = true;
-            pose.attacker_push = (47 - frame) * 42 / 12;
-            pose.defender_recoil = (47 - frame) * 8 / 12;
-        }
+    for (int frame = 0; frame < 246; ++frame) {
+        const bool counter = frame >= 123;
+        const hybrid::Frame pose = strike_hybrid_frame(
+            counter ? frame - 123 : frame, counter
+        );
         surface_t* display = display_get();
         const std::uint64_t elapsed = draw_hybrid_frame(
             display, &viewport, matrix, scene, scene_triangles,
             hybrid_style(stage), pose, page_label,
-            "PUSH - IMPACT - RECOIL - NO ORBIT",
-            "CURATED FRAMES ON TEXTURED 3D TERRAIN",
+            "ANTICIPATION - IMPACT - COUNTER - SETTLE",
+            "5 CURATED POSES EACH - FIXED SIDES",
             RGBA32(sky[0], sky[1], sky[2], 255)
         );
         display_show(display);
         if (elapsed > slowest) slowest = elapsed;
-        if (report && frame == 24) {
+        if (report && frame == 72) {
             std::fprintf(stderr, "CHECKPOINT sevenfold-hybrid-animation-impact\n");
             std::fflush(stderr);
-            wait_ms(1000);
+            wait_ms(700);
+        } else if (report && frame == 195) {
+            std::fprintf(
+                stderr, "CHECKPOINT sevenfold-hybrid-animation-counter\n"
+            );
+            std::fflush(stderr);
+            wait_ms(700);
         } else {
             wait_ms(16);
         }
@@ -1147,7 +1403,7 @@ std::uint64_t play_hybrid_preview(
     if (report) {
         std::fprintf(
             stderr,
-            "sevenfold hybrid-animation stage=%s frames=60 max_us=%llu fps=%llu anchors=locked counter=not-in-prototype motion=push-impact-recoil camera=frontal\n",
+            "sevenfold hybrid-animation stage=%s frames=246 max_us=%llu fps=%llu anchors=locked counter=right-to-left poses=5 easing=smoothstep motion=anticipation-impact-recoil-settle camera=frontal\n",
             sevenfold_style_names[stage],
             static_cast<unsigned long long>(slowest),
             static_cast<unsigned long long>(
@@ -1168,6 +1424,126 @@ void draw_damage_callout(surface_t* display, int target, int damage) {
     char label[16];
     std::snprintf(label, sizeof label, "HIT -%d", damage);
     graphics_draw_text(display, left + 8, 46, label);
+}
+
+std::uint64_t play_matched_readme_sequence(
+    T3DViewport& board_viewport, T3DViewport& attack_viewport,
+    T3DMat4FP* matrix, T3DVertPacked* scene, bool report
+) {
+    build_matched_board(scene);
+    surface_t* opening = display_get();
+    draw_matched_board_frame(
+        opening, &board_viewport, matrix, scene, 12, 11, false,
+        "MATCHED SCENE - MEDIEVAL KNIGHTS",
+        "BLUE MALE HP12 - RED FEMALE HP11"
+    );
+    display_show(opening);
+    if (report) {
+        std::fprintf(stderr, "CHECKPOINT sevenfold-readme-sequence-start\n");
+        std::fflush(stderr);
+        // Give the external ares film grabbers time to start. This is capture
+        // pre-roll; the canonical 245-frame sequence begins after it.
+        wait_ms(1200);
+    }
+
+    std::uint64_t slowest = 0;
+    for (int frame = 0; frame < 245; ++frame) {
+        surface_t* display = display_get();
+        std::uint64_t elapsed = 0;
+        if (frame < 68) {
+            build_matched_board(scene);
+            elapsed = draw_matched_board_frame(
+                display, &board_viewport, matrix, scene, 12, 11,
+                frame >= 35,
+                frame < 35 ? "MATCHED SCENE - BOARD" :
+                    "MATCHED SCENE - FOCUS",
+                "BLUE MALE HP12 - RED FEMALE HP11"
+            );
+        } else if (frame < 191) {
+            const bool counter = frame >= 129;
+            const int local = counter ? frame - 129 : frame - 68;
+            const hybrid::Frame pose = strike_hybrid_frame(
+                local * 2, counter
+            );
+            const int close_triangles = build_matched_attack_scene(scene);
+            elapsed = draw_hybrid_frame(
+                display, &attack_viewport, matrix, scene, close_triangles,
+                hybrid::Style::medieval, pose,
+                counter ? "MATCHED SCENE - COUNTER" :
+                    "MATCHED SCENE - ATTACK",
+                counter ? "RED FEMALE RIGHT TO LEFT" :
+                    "BLUE MALE LEFT TO RIGHT",
+                "FIXED SIDES - FOREST + GRASS + PAVED",
+                RGBA32(
+                    terrain_sky_colours[2][0],
+                    terrain_sky_colours[2][1],
+                    terrain_sky_colours[2][2], 255
+                )
+            );
+            if (!counter && local >= 36 && local < 44) {
+                draw_damage_callout(display, 1, 3);
+            } else if (counter && local >= 36 && local < 44) {
+                draw_damage_callout(display, 0, 4);
+            }
+        } else if (frame < 219) {
+            if (frame < 205) {
+                const int close_triangles = build_matched_attack_scene(scene);
+                elapsed = draw_hybrid_frame(
+                    display, &attack_viewport, matrix, scene, close_triangles,
+                    hybrid::Style::medieval, neutral_hybrid_frame(true),
+                    "MATCHED SCENE - RETURN",
+                    "BLUE HP8 - RED HP8", "FIXED SIDES RESTORED",
+                    RGBA32(
+                        terrain_sky_colours[2][0],
+                        terrain_sky_colours[2][1],
+                        terrain_sky_colours[2][2], 255
+                    )
+                );
+            } else {
+                build_matched_board(scene);
+                elapsed = draw_matched_board_frame(
+                    display, &board_viewport, matrix, scene, 8, 8, true,
+                    "MATCHED SCENE - BOARD RETURN",
+                    "BLUE MALE HP8 - RED FEMALE HP8"
+                );
+            }
+        } else {
+            build_matched_board(scene);
+            elapsed = draw_matched_board_frame(
+                display, &board_viewport, matrix, scene, 8, 8, false,
+                "MATCHED SCENE - RESTORED BOARD",
+                "BLUE MALE HP8 - RED FEMALE HP8"
+            );
+        }
+        display_show(display);
+        if (elapsed > slowest) slowest = elapsed;
+        if (report) {
+            const char* checkpoint = nullptr;
+            if (frame == 15) checkpoint = "sevenfold-readme-board";
+            else if (frame == 51) checkpoint = "sevenfold-readme-focus";
+            else if (frame == 104) checkpoint = "sevenfold-readme-attack";
+            else if (frame == 165) checkpoint = "sevenfold-readme-counter";
+            else if (frame == 227) checkpoint = "sevenfold-readme-restored";
+            if (checkpoint != nullptr) {
+                std::fprintf(stderr, "CHECKPOINT %s\n", checkpoint);
+                std::fflush(stderr);
+            }
+        }
+        wait_ms(16);
+    }
+    wait_ms(1200);
+    if (report) {
+        std::fprintf(
+            stderr,
+            "sevenfold readme-sequence id=medieval_knight_counter_v1 frames=245 fps=30 seconds=8.15 board=6x4 terrain=2-9-12 left=medieval-knight-male-blue-hp12-to8 right=medieval-knight-female-red-hp11-to8 damage=3-4 impacts=3.45-5.50 anchors=locked max_us=%llu fps_throughput=%llu\n",
+            static_cast<unsigned long long>(slowest),
+            static_cast<unsigned long long>(
+                slowest > 0 ? 1'000'000 / slowest : 0
+            )
+        );
+        std::fflush(stderr);
+    }
+    return slowest;
 }
 
 std::uint64_t play_attack_preview(
@@ -1271,6 +1647,11 @@ extern "C" int main(void) {
         hybrid_ready,
         "close and eight-role tactical cutouts plus effects allocate"
     );
+    expect(
+        hybrid::peak_texture_bytes() <= 4096U &&
+            hybrid::tactical_peak_texture_bytes() <= 4096U,
+        "CI4 close and CI8 tactical cutouts each fit four KiB of TMEM"
+    );
 
     bool roster_complete = true;
     int combinations = 0;
@@ -1327,6 +1708,11 @@ extern "C" int main(void) {
         &attack_viewport, T3D_DEG_TO_RAD(45.0F), 16.0F, 900.0F
     );
     set_attack_camera(attack_viewport);
+    T3DViewport matched_viewport = t3d_viewport_create();
+    t3d_viewport_set_projection(
+        &matched_viewport, T3D_DEG_TO_RAD(50.0F), 16.0F, 900.0F
+    );
+    set_matched_camera(matched_viewport);
     for (int stage = 0; stage < sevenfold_stage_count; ++stage) {
         for (int body = 0; body < 2; ++body) {
             for (int lod = 0; lod < 2; ++lod) {
@@ -1464,6 +1850,13 @@ extern "C" int main(void) {
     expect(
         hybrid_animation_elapsed <= frame_budget_us,
         "the frontal hybrid push, impact and recoil stays at 30 fps"
+    );
+    const std::uint64_t matched_sequence_elapsed = play_matched_readme_sequence(
+        matched_viewport, attack_viewport, matrix, board, true
+    );
+    expect(
+        matched_sequence_elapsed <= frame_budget_us,
+        "the matched 8.15-second renderer-comparison scene stays at 30 fps"
     );
     std::fprintf(
         stderr, "RESULT %s %d/%d\n", failures == 0 ? "PASS" : "FAIL",

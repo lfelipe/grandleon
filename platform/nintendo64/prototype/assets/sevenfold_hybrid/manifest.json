@@ -1,7 +1,7 @@
 {
-  "format": "Grandleon N64 hybrid battle cutouts v2",
+  "format": "Grandleon N64 hybrid battle cutouts v3",
   "generated_by": "platform/nintendo64/scripts/generate-sevenfold-hybrid-assets.py",
-  "generator_sha256": "62cbc02aea8fff09d45a6666dd7b595c691047c7a82795852a649c2e97611c45",
+  "generator_sha256": "8d97d756057c207bd7b0b409771953c8379da9fd44aa567a30d89dbcaf398953",
   "assets": [
     {
       "path": "medieval_knight_male_blue_idle.png",
@@ -12,8 +12,86 @@
       "frame": 0,
       "team": "blue",
       "pose": "idle",
-      "width": 80,
-      "height": 80
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        34,
+        14,
+        411,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "medieval_knight_male_blue_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_male_hd.png",
+      "source_sha256": "f2c11b882ea4d21408d051a5d65c10fae1b82b1897046a3e8cfa5a23fb910801",
+      "mask": "platform/godot/project/art/characters/medieval_knight_male_hd_team_mask.png",
+      "mask_sha256": "cfac2e853036e0c5ba3ec3534766a31afacd0c30e332ba58f823c17aa1ce9e28",
+      "frame": 1,
+      "team": "blue",
+      "pose": "idle_b",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        34,
+        14,
+        411,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "medieval_knight_male_blue_windup.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_male_hd.png",
+      "source_sha256": "f2c11b882ea4d21408d051a5d65c10fae1b82b1897046a3e8cfa5a23fb910801",
+      "mask": "platform/godot/project/art/characters/medieval_knight_male_hd_team_mask.png",
+      "mask_sha256": "cfac2e853036e0c5ba3ec3534766a31afacd0c30e332ba58f823c17aa1ce9e28",
+      "frame": 4,
+      "team": "blue",
+      "pose": "windup",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        34,
+        14,
+        411,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "medieval_knight_male_blue_attack.png",
@@ -24,8 +102,56 @@
       "frame": 5,
       "team": "blue",
       "pose": "attack",
-      "width": 80,
-      "height": 80
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        34,
+        14,
+        411,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "medieval_knight_male_blue_hurt.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_male_hd.png",
+      "source_sha256": "f2c11b882ea4d21408d051a5d65c10fae1b82b1897046a3e8cfa5a23fb910801",
+      "mask": "platform/godot/project/art/characters/medieval_knight_male_hd_team_mask.png",
+      "mask_sha256": "cfac2e853036e0c5ba3ec3534766a31afacd0c30e332ba58f823c17aa1ce9e28",
+      "frame": 7,
+      "team": "blue",
+      "pose": "hurt",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        34,
+        14,
+        411,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "medieval_knight_female_red_idle.png",
@@ -36,8 +162,116 @@
       "frame": 0,
       "team": "red",
       "pose": "idle",
-      "width": 80,
-      "height": 80
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        41,
+        15,
+        400,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "medieval_knight_female_red_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_female_hd.png",
+      "source_sha256": "73b1cb6d6ddc4a0cdb455ca6c0cbc710856f5910df62a6d752cb6d0951577e0d",
+      "mask": "platform/godot/project/art/characters/medieval_knight_female_hd_team_mask.png",
+      "mask_sha256": "ac2c8abbf0c84aaed027a15c30a7a790a89f4176680d6558d84d81532956da15",
+      "frame": 1,
+      "team": "red",
+      "pose": "idle_b",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        41,
+        15,
+        400,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "medieval_knight_female_red_windup.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_female_hd.png",
+      "source_sha256": "73b1cb6d6ddc4a0cdb455ca6c0cbc710856f5910df62a6d752cb6d0951577e0d",
+      "mask": "platform/godot/project/art/characters/medieval_knight_female_hd_team_mask.png",
+      "mask_sha256": "ac2c8abbf0c84aaed027a15c30a7a790a89f4176680d6558d84d81532956da15",
+      "frame": 4,
+      "team": "red",
+      "pose": "windup",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        41,
+        15,
+        400,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "medieval_knight_female_red_attack.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_female_hd.png",
+      "source_sha256": "73b1cb6d6ddc4a0cdb455ca6c0cbc710856f5910df62a6d752cb6d0951577e0d",
+      "mask": "platform/godot/project/art/characters/medieval_knight_female_hd_team_mask.png",
+      "mask_sha256": "ac2c8abbf0c84aaed027a15c30a7a790a89f4176680d6558d84d81532956da15",
+      "frame": 5,
+      "team": "red",
+      "pose": "attack",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        41,
+        15,
+        400,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "medieval_knight_female_red_hurt.png",
@@ -48,8 +282,26 @@
       "frame": 7,
       "team": "red",
       "pose": "hurt",
-      "width": 80,
-      "height": 80
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        41,
+        15,
+        400,
+        413
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "mythical_mage_male_blue_idle.png",
@@ -60,8 +312,86 @@
       "frame": 0,
       "team": "blue",
       "pose": "idle",
-      "width": 80,
-      "height": 80
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        16,
+        10,
+        414,
+        420
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "mythical_mage_male_blue_idle_b.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_male_hd.png",
+      "source_sha256": "ff4885f4ba3c32458f2f067fee4497618a08ede462d5272a4baf57ac2040cd7a",
+      "mask": "platform/godot/project/art/characters/mythical_mage_male_hd_team_mask.png",
+      "mask_sha256": "2a01b8c570ea7112c6deb825121faafcf3a64550c8013abeac9df19ee1c69100",
+      "frame": 1,
+      "team": "blue",
+      "pose": "idle_b",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        16,
+        10,
+        414,
+        420
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "mythical_mage_male_blue_windup.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_male_hd.png",
+      "source_sha256": "ff4885f4ba3c32458f2f067fee4497618a08ede462d5272a4baf57ac2040cd7a",
+      "mask": "platform/godot/project/art/characters/mythical_mage_male_hd_team_mask.png",
+      "mask_sha256": "2a01b8c570ea7112c6deb825121faafcf3a64550c8013abeac9df19ee1c69100",
+      "frame": 4,
+      "team": "blue",
+      "pose": "windup",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        16,
+        10,
+        414,
+        420
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "mythical_mage_male_blue_attack.png",
@@ -72,8 +402,56 @@
       "frame": 5,
       "team": "blue",
       "pose": "attack",
-      "width": 80,
-      "height": 80
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        16,
+        10,
+        414,
+        420
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "mythical_mage_male_blue_hurt.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_male_hd.png",
+      "source_sha256": "ff4885f4ba3c32458f2f067fee4497618a08ede462d5272a4baf57ac2040cd7a",
+      "mask": "platform/godot/project/art/characters/mythical_mage_male_hd_team_mask.png",
+      "mask_sha256": "2a01b8c570ea7112c6deb825121faafcf3a64550c8013abeac9df19ee1c69100",
+      "frame": 7,
+      "team": "blue",
+      "pose": "hurt",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        16,
+        10,
+        414,
+        420
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "mythical_mage_female_red_idle.png",
@@ -84,8 +462,116 @@
       "frame": 0,
       "team": "red",
       "pose": "idle",
-      "width": 80,
-      "height": 80
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        27,
+        6,
+        421,
+        433
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "mythical_mage_female_red_idle_b.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_female_hd.png",
+      "source_sha256": "14fdc55b55b0a65436c082bdefc189cd830436b45c65722a97a1a9c50de4cc73",
+      "mask": "platform/godot/project/art/characters/mythical_mage_female_hd_team_mask.png",
+      "mask_sha256": "1f6a98436020207ca2b4ddfb760b2ad2d225ffb7eab36c267d24eeb131ece18c",
+      "frame": 1,
+      "team": "red",
+      "pose": "idle_b",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        27,
+        6,
+        421,
+        433
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "mythical_mage_female_red_windup.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_female_hd.png",
+      "source_sha256": "14fdc55b55b0a65436c082bdefc189cd830436b45c65722a97a1a9c50de4cc73",
+      "mask": "platform/godot/project/art/characters/mythical_mage_female_hd_team_mask.png",
+      "mask_sha256": "1f6a98436020207ca2b4ddfb760b2ad2d225ffb7eab36c267d24eeb131ece18c",
+      "frame": 4,
+      "team": "red",
+      "pose": "windup",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        27,
+        6,
+        421,
+        433
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "mythical_mage_female_red_attack.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_female_hd.png",
+      "source_sha256": "14fdc55b55b0a65436c082bdefc189cd830436b45c65722a97a1a9c50de4cc73",
+      "mask": "platform/godot/project/art/characters/mythical_mage_female_hd_team_mask.png",
+      "mask_sha256": "1f6a98436020207ca2b4ddfb760b2ad2d225ffb7eab36c267d24eeb131ece18c",
+      "frame": 5,
+      "team": "red",
+      "pose": "attack",
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        27,
+        6,
+        421,
+        433
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "mythical_mage_female_red_hurt.png",
@@ -96,8 +582,26 @@
       "frame": 7,
       "team": "red",
       "pose": "hurt",
-      "width": 80,
-      "height": 80
+      "width": 84,
+      "height": 84,
+      "layout_frames": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        7
+      ],
+      "union_bounds": [
+        27,
+        6,
+        421,
+        433
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_knight_male_blue_idle.png",
@@ -109,7 +613,23 @@
       "team": "blue",
       "pose": "idle",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        85,
+        31,
+        360,
+        415
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_archer_female_red_idle.png",
@@ -121,7 +641,23 @@
       "team": "red",
       "pose": "idle",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        68,
+        19,
+        350,
+        423
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_mage_male_blue_idle.png",
@@ -133,7 +669,23 @@
       "team": "blue",
       "pose": "idle",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        59,
+        17,
+        332,
+        443
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_stormcaller_female_red_idle.png",
@@ -145,7 +697,23 @@
       "team": "red",
       "pose": "idle",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        74,
+        5,
+        361,
+        428
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_healer_male_blue_idle.png",
@@ -157,7 +725,23 @@
       "team": "blue",
       "pose": "idle",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        87,
+        25,
+        379,
+        443
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_commander_female_red_idle.png",
@@ -169,7 +753,23 @@
       "team": "red",
       "pose": "idle",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        65,
+        7,
+        377,
+        425
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_rogue_male_blue_idle.png",
@@ -181,7 +781,23 @@
       "team": "blue",
       "pose": "idle",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        74,
+        23,
+        356,
+        427
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_beast_female_red_idle.png",
@@ -193,7 +809,247 @@
       "team": "red",
       "pose": "idle",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        28,
+        26,
+        412,
+        406
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "tactical_medieval_knight_male_blue_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_male_hd.png",
+      "source_sha256": "f2c11b882ea4d21408d051a5d65c10fae1b82b1897046a3e8cfa5a23fb910801",
+      "mask": "platform/godot/project/art/characters/medieval_knight_male_hd_team_mask.png",
+      "mask_sha256": "cfac2e853036e0c5ba3ec3534766a31afacd0c30e332ba58f823c17aa1ce9e28",
+      "frame": 1,
+      "team": "blue",
+      "pose": "idle_b",
+      "width": 56,
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        85,
+        31,
+        360,
+        415
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "tactical_medieval_archer_female_red_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_archer_female_hd.png",
+      "source_sha256": "78f1d9a2f051c73a84982d3d13653bf10704964d9d3cfbf18e3a2962de69522b",
+      "mask": "platform/godot/project/art/characters/medieval_archer_female_hd_team_mask.png",
+      "mask_sha256": "23bb501ffe7f31065752cb9d5d926b91f0f89cf25838043b58eade568c82e1cf",
+      "frame": 1,
+      "team": "red",
+      "pose": "idle_b",
+      "width": 56,
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        68,
+        19,
+        350,
+        423
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "tactical_medieval_mage_male_blue_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_mage_male_hd.png",
+      "source_sha256": "9896f226f844c0aaad112366343326c1647d730d9d60cc37468f7e3c2cfffaa3",
+      "mask": "platform/godot/project/art/characters/medieval_mage_male_hd_team_mask.png",
+      "mask_sha256": "237f61242859785fcc0cf4345ce5388dd28ea2271c51b657bca5292c011d1af2",
+      "frame": 1,
+      "team": "blue",
+      "pose": "idle_b",
+      "width": 56,
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        59,
+        17,
+        332,
+        443
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "tactical_medieval_stormcaller_female_red_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_stormcaller_female_hd.png",
+      "source_sha256": "e314909ab28d7f5a661766d8d530a97ef491789a00f0dfab778733ef854a379a",
+      "mask": "platform/godot/project/art/characters/medieval_stormcaller_female_hd_team_mask.png",
+      "mask_sha256": "debb90074728d1c274cb9271fb57121639da9edd7ec0b7010b1914ed564ff125",
+      "frame": 1,
+      "team": "red",
+      "pose": "idle_b",
+      "width": 56,
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        74,
+        5,
+        361,
+        428
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "tactical_medieval_healer_male_blue_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_healer_male_hd.png",
+      "source_sha256": "c0cab649cd396d25eee078a05bf3a8849cdfc214940c820d1afd536bbbd83f83",
+      "mask": "platform/godot/project/art/characters/medieval_healer_male_hd_team_mask.png",
+      "mask_sha256": "0b4f63696527c4d14b97d15937fc2afc0b76752354c9da92ca1b7c674236f64a",
+      "frame": 1,
+      "team": "blue",
+      "pose": "idle_b",
+      "width": 56,
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        87,
+        25,
+        379,
+        443
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "tactical_medieval_commander_female_red_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_commander_female_hd.png",
+      "source_sha256": "e7fac3f345713faa79a4d100de75abae1239d97bd20dabdff180c72fd63c7ae8",
+      "mask": "platform/godot/project/art/characters/medieval_commander_female_hd_team_mask.png",
+      "mask_sha256": "daeae74f7a9336dc3c012f062454cee7d76c07404bea484674afe2f63f22e7d1",
+      "frame": 1,
+      "team": "red",
+      "pose": "idle_b",
+      "width": 56,
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        65,
+        7,
+        377,
+        425
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "tactical_medieval_rogue_male_blue_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_rogue_male_hd.png",
+      "source_sha256": "ada50b15105e4ed2d0087c97dee553149b291f3638ac82ca380a27c6aeae1248",
+      "mask": "platform/godot/project/art/characters/medieval_rogue_male_hd_team_mask.png",
+      "mask_sha256": "60a06efa6c2fbf98e169707c743cf6a7e00294a31b42683bdfe37b07bce252f7",
+      "frame": 1,
+      "team": "blue",
+      "pose": "idle_b",
+      "width": 56,
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        74,
+        23,
+        356,
+        427
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
+    },
+    {
+      "path": "tactical_medieval_beast_female_red_idle_b.png",
+      "source": "platform/godot/project/art/characters/medieval_beast_female_hd.png",
+      "source_sha256": "f9453b72723fae11399ad7389bcff9856c93d61eae0ce5f390f11eb0fc4a67fd",
+      "mask": "platform/godot/project/art/characters/medieval_beast_female_hd_team_mask.png",
+      "mask_sha256": "b2365a8b8f25090999850dfff3f80a97aee1b99c188771b858beea32eed95b7a",
+      "frame": 1,
+      "team": "red",
+      "pose": "idle_b",
+      "width": 56,
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        28,
+        26,
+        412,
+        406
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_rogue_male_blue_move_a.png",
@@ -205,7 +1061,23 @@
       "team": "blue",
       "pose": "move_a",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        74,
+        23,
+        356,
+        427
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "tactical_medieval_rogue_male_blue_move_b.png",
@@ -217,7 +1089,23 @@
       "team": "blue",
       "pose": "move_b",
       "width": 56,
-      "height": 56
+      "height": 56,
+      "layout_frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "union_bounds": [
+        74,
+        23,
+        356,
+        427
+      ],
+      "pivot": [
+        0.5,
+        0.94
+      ]
     },
     {
       "path": "shadow.png",

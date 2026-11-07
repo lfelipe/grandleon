@@ -49,6 +49,9 @@
 #   ARES_FILM_GRABBERS how many capture loops run at once. One is not enough:
 #                      see the loop itself for the arithmetic.
 #   ARES_FILM_NAME     the film's directory under /out.
+#   ARES_POLL_SECONDS  checkpoint polling interval. Checks default to one
+#                      second; a deterministic film can lower it so its named
+#                      start landmark cannot be skipped by a later checkpoint.
 
 set -euo pipefail
 
@@ -63,6 +66,7 @@ film_after="${ARES_FILM_AFTER:-}"
 film_seconds="${ARES_FILM_SECONDS:-8}"
 film_grabbers="${ARES_FILM_GRABBERS:-6}"
 film="${out}/${ARES_FILM_NAME:-film}"
+poll_seconds="${ARES_POLL_SECONDS:-1}"
 
 # A virtual display. llvmpipe provides GLX on it, so the ares window renders
 # on the CPU; :99 avoids colliding with anything a future container leaks in.
@@ -217,7 +221,7 @@ while [ "${elapsed}" -lt "${deadline}" ]; do
         echo "error: ares exited before the ROM reported." >&2
         break
     fi
-    sleep 1
+    sleep "${poll_seconds}"
     elapsed=$(( $(date +%s) - start_epoch ))
 done
 
