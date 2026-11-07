@@ -27,6 +27,20 @@ output_path="$(absolute_path "${output_path}")"
 frame_dir="$(absolute_path "${frame_dir}")"
 comparison_contract="$(absolute_path "${comparison_contract}")"
 
+if ! jq -e '
+    .schema == 2 and
+    .kind == "renderer_showcase" and
+    .surroundings.mode == "explicit_edge_extension" and
+    .camera.composition.reserved_title_pixels == 0 and
+    .camera.composition.reserved_footer_pixels == 0 and
+    .capture_hud.content_rect_native == [0, 0, 320, 240] and
+    (.capture_hud.forbidden | index("diagnostic_text")) != null and
+    .combat_backdrop.descriptor.freeze_for_exchange == true
+' "${comparison_contract}" >/dev/null; then
+    printf 'Renderer showcase contract is incomplete: %s\n' "${comparison_contract}" >&2
+    exit 1
+fi
+
 GRANDLEON_RENDERER_COMPARISON_CONTRACT="${comparison_contract}" \
     "${script_dir}/record-combat-cinematic.sh" "${build_dir}" "${output_path}"
 

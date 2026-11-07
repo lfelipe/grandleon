@@ -1,92 +1,134 @@
-# Cross-renderer comparison capture
+# Cross-renderer showcase capture
 
-This is Godot's repeatable reference scene for comparing presentation work on
-PC, Nintendo 64, and PlayStation. It uses the production Godot board, combat
-planner, character library, camera flight, and close-view controller. Nothing
-in the capture forecasts or changes combat state.
+This repeatable scene compares Godot, Nintendo 64, and PlayStation presentation
+without pretending it is a campaign battle. It is a renderer showcase: board,
+scenery, combatants, camera, health changes, and timing are fixed while each
+platform implements the same composition within its limits.
 
 The machine-readable source of truth is
 [`tools/renderer_comparison/scene.json`](../../tools/renderer_comparison/scene.json).
-The recorder reads that file directly; the tables below are its human-readable
-summary.
+The recorder reads it directly.
 
-## Scene contract
+## The complete scene
 
-The board is 6×4. `F` is forest (terrain 2), `G` is grass (terrain 9), and `S`
-is paved stone (terrain 12). Coordinates start at `(0, 0)` in the upper-left.
+The playable board is 6×4. `F` is forest, `G` is grass, and `P` is paved
+stone.
 
 ```text
-F F G S S F
-F G G S S F
-F G G S G F
-F F G S F F
+F F G P P F
+F G G P P F
+F G G P G F
+F F G P F F
 ```
 
-Automatic forest/grass/stone surroundings extend three cells beyond the map.
-Only these two units are present:
+That centre is not the whole picture. Three explicit rings extend its edge
+terrain, producing a 12×10 visual footprint. Forest cells use two-tree
+clusters with a taller tree and a sapling; connected clusters vary height
+deterministically. Grass keeps moss, tufts, and field stones. Paved cells keep
+four slabs, dark seams, and cyan inlays. The contract contains the full 12×10
+rows and decoration recipe so a console does not reduce the scene to a tiny
+6×4 grid floating in a diagnostic frame.
 
-| Unit | Portable fields | Start | Before | Accepted result |
+The tactical camera is orthographic at `(7.7, 10.8, 8.8)`, looking at
+`(0, 0.15, 0)`, with vertical size `8.4`. At a native 320×240 reference,
+the scene may use the entire frame except for a four-pixel safe margin. There
+is no reserved title or footer band.
+
+| Role | Unit | Cell | Before | After |
 |---|---|---:|---:|---:|
-| Auren | medieval knight, male/figure 0, blue/colour 0, ID 10 | `(1, 2)` | 12/12 HP | countered for 4, 8/12 HP |
-| Ilyra | medieval knight, female/figure 1, red/colour 1, ID 20 | `(4, 1)` | 11/11 HP | hit for 3, 8/11 HP |
+| Selected attacker | Auren, blue medieval male knight | `(1, 2)` | 12/12 HP | 8/12 HP |
+| Attack target | Ilyra, red medieval female knight | `(4, 1)` | 11/11 HP | 8/11 HP |
 
-Auren attacks Ilyra first. Ilyra's legal counter is the second accepted event.
-The close view keeps Auren on the left and Ilyra on the right; the counter
-travels right-to-left without swapping their positions. The selected blue
-unit and red target cell remain visible on the opening board. The graphics
-profile is **Voxel + Sprites**, cinematic motion is **Full**, and camera impulse
-is enabled.
+Auren attacks for 3. Ilyra counters for 4. Auren stays on the left and Ilyra
+on the right for the complete exchange; the counter travels right-to-left.
 
-## Timing contract
+## Capture HUD
 
-The recorder advances at a fixed 30 frames per second. The expected movie is
-about 8.17 seconds (245 frames); the named entry point rejects a result outside
-0.05 seconds of the canonical 8.15-second duration.
+The showcase is for looking at the game, not diagnostics. The capture HUD may
+show only:
+
+- compact health bars above units;
+- selected-cell and attack-target markers; and
+- the transient damage number beside the unit that was hit.
+
+It must not reserve screen space for titles, instructions, performance
+counters, platform labels, or diagnostic text. Subtle letterboxing and a
+vignette remain part of the cinematic composition, not the HUD. Normal Godot
+gameplay still shows its controls; only deterministic capture mode applies
+this reduced HUD.
+
+## Terrain-derived close backdrop
+
+The close view uses source plates rendered from the existing Godot
+`relay_forest.tscn`, `relay_grass.tscn`, and `relay_paved.tscn` scenes.
+No external artwork is involved.
+
+The descriptor records forest as dominant, grass as secondary, a north–south
+paved transition, the combat-cell direction, flat elevation, and forest
+cluster cues. FNV-1a over
+`medieval_forest_renderer_showcase_v2|1,2|4,1` produces seed
+`2031659219`, selecting variant 2 of 3. The choice and layer order stay
+frozen through attack and counter.
+
+Each 1280×720 sRGB variant has four modular layers:
+
+1. opaque panorama;
+2. grass/paved transition;
+3. forest midground;
+4. foreground props.
+
+The reproducible source render uses a 42-degree perspective camera at
+`(0, 2.55, 6.2)`, looking at `(0, 0.34, -1.35)`, with the lighting values
+recorded beside it in `scene.json`. Transition, midground, and prop plates
+retain alpha; only the panorama is opaque.
+
+Godot then draws a small aligned grass/paved floor strip, shadows, units,
+effects, and damage live. Props never cover units. The generic
+[`manifest.json`](project/art/combat_backdrops/manifest.json) lists all
+13 terrain kinds and deterministic selection fields. A road beside water uses
+the bridge scene as a conditional transition.
+
+Regenerate the proof variants from the repository root:
+
+```sh
+platform/godot/scripts/generate-combat-backdrops.sh
+```
+
+Nintendo 64 and PlayStation textures must derive from these same PNG layers,
+not separate artwork. The contract permits CI8/RGBA16 tiling on Nintendo 64
+and CLUT/RGB16 TIM conversion on PlayStation while preserving variant and
+depth order.
+
+## Timing
+
+The fixed 30 fps movie lasts 8.15 seconds by contract (8.1667 seconds, or 245
+encoded frames, in the Godot recorder).
 
 | Time | Landmark |
 |---:|---|
-| `0.00–1.15` | Tactical board hold |
-| `1.15–2.25` | Real 3D camera flies toward and reframes the pair |
-| `2.25–4.30` | Auren's left-to-right attack and `−3` result |
-| `4.30–6.35` | Ilyra's right-to-left counter and `−4` result |
-| `6.35–7.30` | Close view dissolves; board camera reverses and restores |
-| `7.30–8.15` | Settled board hold |
+| `0.00–1.15` | Full tactical scene |
+| `1.15–2.25` | Live board camera flies toward the pair |
+| `2.25–4.30` | Left-to-right attack and `−3` |
+| `4.30–6.35` | Right-to-left counter and `−4` |
+| `6.35–7.30` | Close view dissolves and camera reverses |
+| `7.30–8.15` | Restored settled board |
 
-The extracted comparison stills are deliberately inside stable visual moments:
-
-| File | Time | What it proves |
-|---|---:|---|
-| `board.png` | `0.50` | Starting units, terrain, selection, and camera |
-| `focus.png` | `1.70` | Actual board-camera move rather than an overlay cut |
-| `attack_impact.png` | `3.45` | Male attack, female reaction, and right-side damage |
-| `counter_impact.png` | `5.50` | Stable sides and right-to-left counter |
-| `restored.png` | `7.55` | Final HP state and exact tactical-camera return |
+The review frames are `board.png` at 0.50, `focus.png` at 1.70,
+`attack_impact.png` at 3.45, `counter_impact.png` at 5.50, and
+`restored.png` at 7.55 seconds.
 
 ## Record it
-
-From the repository root:
 
 ```sh
 platform/godot/scripts/record-cross-renderer-comparison.sh
 ```
 
-The default outputs are:
+The defaults are:
 
 - `out/renderer-comparison/godot.mp4`, H.264 at 1280×720 and 30 fps; and
-- `out/renderer-comparison/godot-frames/*.png`, the five landmarks above.
+- `out/renderer-comparison/godot-frames/*.png`.
 
-Custom build, movie, and frame locations are positional arguments:
-
-```sh
-platform/godot/scripts/record-cross-renderer-comparison.sh \
-  build-godot /tmp/godot-comparison.mp4 /tmp/godot-comparison-frames
-```
-
-The Godot adapter lives in `tests/combat_cinematic_capture.gd`. It loads units,
-cells, terrain, HP, events, and hold durations from the canonical JSON. The
-script reuses `record-combat-cinematic.sh`, reads landmark names and times from
-that same contract, verifies codec, resolution, frame rate, and duration, then
-extracts the stills. The simulation inputs and rendered timeline are
-deterministic. Exact compressed bytes can still differ between FFmpeg versions,
-so review the named frames and motion instead of treating the MP4 hash as a
-compatibility contract.
+The adapter validates schema, surroundings, camera, HUD exclusions, backdrop
+seed, chosen layers, and stable unit slots. The wrapper verifies codec, size,
+frame rate, and duration. MP4 bytes may differ between FFmpeg versions, so
+compare named frames and motion rather than an MP4 hash.

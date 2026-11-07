@@ -1,17 +1,14 @@
 {
-  "schema": 1,
-  "id": "medieval_knight_counter_v1",
-  "description": "One deterministic board-to-close-battle scene recorded by Godot, Nintendo 64, and PlayStation.",
+  "schema": 2,
+  "id": "medieval_forest_renderer_showcase_v2",
+  "kind": "renderer_showcase",
+  "description": "A deterministic presentation benchmark, not a campaign battle: two medieval knights exchange attacks inside a forest-framed tactical diorama.",
   "duration_seconds": 8.15,
   "video_fps": 30,
   "board": {
     "width": 6,
     "height": 4,
-    "terrain_ids": {
-      "forest": 2,
-      "grass": 9,
-      "stone": 12
-    },
+    "terrain_ids": {"forest": 2, "grass": 9, "paved": 12},
     "rows": [
       [2, 2, 9, 12, 12, 2],
       [2, 9, 9, 12, 12, 2],
@@ -19,41 +16,234 @@
       [2, 2, 9, 12, 2, 2]
     ]
   },
+  "surroundings": {
+    "mode": "explicit_edge_extension",
+    "depth": 3,
+    "width": 12,
+    "height": 10,
+    "active_origin": [3, 3],
+    "rows": [
+      [2, 2, 2, 2, 2, 9, 12, 12, 2, 2, 2, 2],
+      [2, 2, 2, 2, 2, 9, 12, 12, 2, 2, 2, 2],
+      [2, 2, 2, 2, 2, 9, 12, 12, 2, 2, 2, 2],
+      [2, 2, 2, 2, 2, 9, 12, 12, 2, 2, 2, 2],
+      [2, 2, 2, 2, 9, 9, 12, 12, 2, 2, 2, 2],
+      [2, 2, 2, 2, 9, 9, 12, 9, 2, 2, 2, 2],
+      [2, 2, 2, 2, 2, 9, 12, 2, 2, 2, 2, 2],
+      [2, 2, 2, 2, 2, 9, 12, 2, 2, 2, 2, 2],
+      [2, 2, 2, 2, 2, 9, 12, 2, 2, 2, 2, 2],
+      [2, 2, 2, 2, 2, 9, 12, 2, 2, 2, 2, 2]
+    ],
+    "decoration": {
+      "forest": {
+        "clustered": true,
+        "active_cell_trees": [
+          {"offset_xz": [-0.18, 0.13], "scale": 1.0},
+          {"offset_xz": [0.23, -0.2], "scale": 0.72}
+        ],
+        "surrounding_cell_trees": [
+          {"offset_xz": [-0.18, 0.12], "scale": 0.82},
+          {"offset_xz": [0.22, -0.18], "scale": 0.62}
+        ],
+        "connected_cluster_vertical_scale_range": [0.82, 1.22],
+        "details": ["trunk", "lower_canopy", "lighter_canopy_tip", "grass_tufts"]
+      },
+      "grass": {
+        "details_per_active_cell": {"moss_patches": 2, "grass_tufts": 4, "field_stones": 2}
+      },
+      "paved": {
+        "details_per_active_cell": {"slabs": 4, "dark_seams": 2, "cyan_inlays": 2}
+      }
+    }
+  },
+  "camera": {
+    "tactical": {
+      "projection": "orthographic",
+      "position": [7.7, 10.8, 8.8],
+      "target": [0.0, 0.15, 0.0],
+      "up": [0.0, 1.0, 0.0],
+      "vertical_size": 8.4
+    },
+    "composition": {
+      "scene_footprint_cells": [12, 10],
+      "scene_center_normalized": [0.5, 0.5],
+      "minimum_scene_fill_normalized": [0.94, 0.88],
+      "native_reference_resolution": [320, 240],
+      "safe_margin_pixels": [4, 4],
+      "reserved_title_pixels": 0,
+      "reserved_footer_pixels": 0
+    },
+    "close_view": {
+      "left_slot_x_normalized": 0.295,
+      "right_slot_x_normalized": 0.705,
+      "ground_y_normalized": 0.67,
+      "horizon_y_normalized": 0.5,
+      "lock_unit_slots_for_exchange": true,
+      "full_motion_board_fly_in": true,
+      "reverse_to_saved_tactical_camera": true,
+      "allow_letterbox_and_vignette": true
+    }
+  },
+  "combat_backdrop": {
+    "schema": 1,
+    "descriptor": {
+      "sample_active_rect": [0, 0, 6, 4],
+      "dominant_terrain": "forest",
+      "secondary_terrain": "grass",
+      "transition_terrain": "paved",
+      "transition_orientation": "north_south",
+      "left_slot_ground": "grass",
+      "right_slot_ground": "paved",
+      "pair_vector_cells": [3, -1],
+      "pair_orientation": "east_north_east",
+      "cluster_cues": ["dense_forest_frame", "open_grass_centre", "paved_gate_ribbon"],
+      "elevation_cue": "flat",
+      "variant_seed_algorithm": "fnv1a32_utf8",
+      "variant_seed_input": "medieval_forest_renderer_showcase_v2|1,2|4,1",
+      "variant_seed": 2031659219,
+      "variant_count": 3,
+      "selected_variant": 2,
+      "freeze_for_exchange": true
+    },
+    "source": {
+      "resolution": [1280, 720],
+      "colour_space": "srgb",
+      "manifest": "platform/godot/project/art/combat_backdrops/manifest.json",
+      "generator": "platform/godot/scripts/generate-combat-backdrops.sh",
+      "godot_script": "platform/godot/tests/combat_backdrop_capture.gd",
+      "render_camera": {
+        "projection": "perspective",
+        "field_of_view_degrees": 42.0,
+        "position": [0.0, 2.55, 6.2],
+        "target": [0.0, 0.34, -1.35]
+      },
+      "render_lighting": {
+        "ambient_colour": "7e9baa",
+        "ambient_energy": 0.62,
+        "key_colour": "f1d7ad",
+        "key_energy": 1.15,
+        "fill_colour": "6bbbd2",
+        "fill_energy": 0.34
+      },
+      "alpha_layers": ["transition", "midground", "props"],
+      "terrain_scenes": [
+        "platform/godot/project/art/terrain/relay_forest.tscn",
+        "platform/godot/project/art/terrain/relay_grass.tscn",
+        "platform/godot/project/art/terrain/relay_paved.tscn"
+      ]
+    },
+    "layer_order": ["panorama", "transition", "midground", "props"],
+    "variants": [
+      {
+        "index": 0,
+        "id": "forest_wall",
+        "layers": [
+          {"role": "panorama", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/panorama_0.png"},
+          {"role": "transition", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/transition_grass_paved_0.png"},
+          {"role": "midground", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/midground_forest_0.png"},
+          {"role": "props", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/props_0.png"}
+        ]
+      },
+      {
+        "index": 1,
+        "id": "forest_gap",
+        "layers": [
+          {"role": "panorama", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/panorama_1.png"},
+          {"role": "transition", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/transition_grass_paved_1.png"},
+          {"role": "midground", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/midground_forest_1.png"},
+          {"role": "props", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/props_1.png"}
+        ]
+      },
+      {
+        "index": 2,
+        "id": "forest_arch",
+        "layers": [
+          {"role": "panorama", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/panorama_2.png"},
+          {"role": "transition", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/transition_grass_paved_2.png"},
+          {"role": "midground", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/midground_forest_2.png"},
+          {"role": "props", "godot_resource": "res://art/combat_backdrops/medieval_forest_gate/props_2.png"}
+        ]
+      }
+    ],
+    "foreground_contract": {
+      "live_floor_strip": true,
+      "floor_strip_top_normalized": 0.66,
+      "floor_left_terrain": "grass",
+      "floor_right_terrain": "paved",
+      "live_units": true,
+      "live_shadows": true,
+      "live_attack_effects": true,
+      "props_may_occlude_units": false,
+      "depth_order": [
+        "panorama_plate",
+        "transition_plate",
+        "midground_plate",
+        "props_plate",
+        "live_floor_strip",
+        "live_shadows",
+        "live_units",
+        "live_attack_effects",
+        "capture_hud"
+      ]
+    },
+    "console_downconversion": {
+      "rule": "derive every platform texture from these source PNG layers",
+      "nintendo64": ["CI8 or RGBA16", "tile or segment layers to fit texture memory"],
+      "playstation": ["8-bit CLUT TIM or RGB16 TIM", "preserve layer order and selected variant"]
+    }
+  },
+  "capture_hud": {
+    "content_rect_native": [0, 0, 320, 240],
+    "allowed": [
+      "in_world_unit_health_bars",
+      "selected_cell_marker",
+      "attack_target_marker",
+      "transient_damage_number"
+    ],
+    "forbidden": [
+      "diagnostic_text",
+      "performance_counter",
+      "persistent_phase_title",
+      "control_help",
+      "reserved_title_band",
+      "reserved_footer_band"
+    ]
+  },
+  "active_cells": {
+    "selected": {"slot": "left", "cell": [1, 2], "marker_colour": "69d9ff"},
+    "attack_target": {"slot": "right", "cell": [4, 1], "marker_colour": "ff5267"}
+  },
   "units": [
     {
       "slot": "left",
+      "unit_id": 10,
+      "name": "Auren",
       "style_id": 2,
       "archetype_id": 0,
       "body": "male",
       "team": "blue",
+      "team_colour": "2375a9",
       "cell": [1, 2],
       "initial_hp": 12,
       "final_hp": 8
     },
     {
       "slot": "right",
+      "unit_id": 20,
+      "name": "Ilyra",
       "style_id": 2,
       "archetype_id": 0,
       "body": "female",
       "team": "red",
+      "team_colour": "b3483f",
       "cell": [4, 1],
       "initial_hp": 11,
       "final_hp": 8
     }
   ],
   "events": [
-    {
-      "time_seconds": 3.45,
-      "attacker": "left",
-      "defender": "right",
-      "damage": 3
-    },
-    {
-      "time_seconds": 5.5,
-      "attacker": "right",
-      "defender": "left",
-      "damage": 4
-    }
+    {"time_seconds": 3.45, "attacker": "left", "defender": "right", "damage": 3},
+    {"time_seconds": 5.5, "attacker": "right", "defender": "left", "damage": 4}
   ],
   "phases": [
     {"name": "board_hold", "start": 0.0, "end": 1.15},

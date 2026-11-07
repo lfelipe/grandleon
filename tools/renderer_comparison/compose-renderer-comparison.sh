@@ -5,9 +5,9 @@ usage() {
     cat >&2 <<'USAGE'
 usage: compose-renderer-comparison.sh GODOT_VIDEO N64_VIDEO PS1_VIDEO OUTPUT_DIR
 
-The three inputs must implement scene.json and be 8.15 seconds long (within
-0.20 seconds). The script writes a full-quality MP4, a README-sized animated
-GIF, and a poster PNG to OUTPUT_DIR.
+The three inputs must implement scene.json and match its duration within 0.20
+seconds. The script writes a full-quality MP4, a README-sized animated GIF,
+and a poster PNG to OUTPUT_DIR.
 USAGE
 }
 
@@ -20,14 +20,22 @@ godot_video="$1"
 n64_video="$2"
 ps1_video="$3"
 output_dir="$4"
-duration="8.15"
+script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+contract="${GRANDLEON_RENDERER_COMPARISON_CONTRACT:-${script_dir}/scene.json}"
 
-for command_name in ffmpeg ffprobe; do
+for command_name in ffmpeg ffprobe jq; do
     if ! command -v "${command_name}" >/dev/null 2>&1; then
         echo "error: ${command_name} is required" >&2
         exit 1
     fi
 done
+
+if [ ! -f "${contract}" ]; then
+    echo "error: missing comparison contract: ${contract}" >&2
+    exit 1
+fi
+duration="$(jq -r '.duration_seconds' "${contract}")"
+poster_time="$(jq -r '.review_frames[] | select(.name == "attack_impact") | .time_seconds' "${contract}")"
 
 for input_path in "${godot_video}" "${n64_video}" "${ps1_video}"; do
     if [ ! -f "${input_path}" ]; then
@@ -72,7 +80,7 @@ ffmpeg -hide_banner -loglevel warning -y \
     "${mp4}"
 
 ffmpeg -hide_banner -loglevel warning -y \
-    -ss 3.45 \
+    -ss "${poster_time}" \
     -i "${mp4}" \
     -frames:v 1 \
     -update 1 \

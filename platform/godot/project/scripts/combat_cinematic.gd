@@ -25,6 +25,7 @@ var art = ArtLibrary.new()
 var motion_mode := "full"
 var camera_impulse_enabled := true
 var text_scale := 1.0
+var capture_hud_mode := false
 var _queue: Array[Dictionary] = []
 var _current: Dictionary = {}
 var _terrain: Array = []
@@ -40,6 +41,9 @@ var _stage_left_unit: Dictionary = {}
 var _stage_right_unit: Dictionary = {}
 var _board_camera_host: Node
 var _board_camera_engaged := false
+var _capture_backdrop_layers: Array[Texture2D] = []
+var _capture_backdrop_variant := ""
+var _capture_floor_strip_top := 0.66
 var _headline: Label
 var _result: Label
 var _actor_name: Label
@@ -64,6 +68,52 @@ func configure(
 	motion_mode = new_motion_mode if new_motion_mode in ["full", "reduced"] else "full"
 	camera_impulse_enabled = new_camera_impulse_enabled
 	_update_font_sizes()
+
+
+func set_capture_hud_mode(value: bool) -> void:
+	capture_hud_mode = value
+	_apply_capture_hud_visibility()
+
+
+func capture_hud_state() -> Dictionary:
+	return {
+		"enabled": capture_hud_mode,
+		"headline_visible": _headline.visible if _headline != null else false,
+		"actor_name_visible": _actor_name.visible if _actor_name != null else false,
+		"target_name_visible": _target_name.visible if _target_name != null else false,
+		"hint_visible": _hint.visible if _hint != null else false,
+		"damage_visible": _result.visible if _result != null else false,
+	}
+
+
+func set_capture_backdrop(
+	layer_paths: Array, variant_id: String, floor_strip_top: float
+) -> bool:
+	_capture_backdrop_layers.clear()
+	_capture_backdrop_variant = variant_id
+	_capture_floor_strip_top = clampf(floor_strip_top, 0.60, 0.82)
+	for value: Variant in layer_paths:
+		var path := String(value)
+		if path.is_empty() or not ResourceLoader.exists(path):
+			_capture_backdrop_layers.clear()
+			push_error("combat backdrop layer is unavailable: " + path)
+			return false
+		var resource: Resource = load(path)
+		if not resource is Texture2D:
+			_capture_backdrop_layers.clear()
+			push_error("combat backdrop layer is not a texture: " + path)
+			return false
+		_capture_backdrop_layers.append(resource as Texture2D)
+	queue_redraw()
+	return not _capture_backdrop_layers.is_empty()
+
+
+func capture_backdrop_state() -> Dictionary:
+	return {
+		"variant": _capture_backdrop_variant,
+		"layer_count": _capture_backdrop_layers.size(),
+		"floor_strip_top": _capture_floor_strip_top,
+	}
 
 
 func enqueue(
@@ -444,6 +494,7 @@ func _update_labels() -> void:
 	for label: Label in [_headline, _result, _actor_name, _target_name, _hint]:
 		label.self_modulate.a = label_alpha
 	_update_hint()
+	_apply_capture_hud_visibility()
 
 
 func _update_hint() -> void:
@@ -454,6 +505,12 @@ func _update_hint() -> void:
 		if _fast_forward
 		else "HOLD CONFIRM TO FAST-FORWARD  ·  CANCEL SKIPS"
 	)
+
+
+func _apply_capture_hud_visibility() -> void:
+	for label: Label in [_headline, _actor_name, _target_name, _hint]:
+		if label != null:
+			label.visible = not capture_hud_mode
 
 
 func _draw() -> void:
@@ -467,9 +524,13 @@ func _draw() -> void:
 	)
 	var ground: Color = TERRAIN_COLOURS[terrain_kind]
 	var sky: Color = ground.darkened(0.68).lerp(Color("13243b"), 0.48)
-	draw_rect(Rect2(Vector2.ZERO, viewport_size), sky)
-	_draw_skyline(viewport_size, stage_context, terrain_kind)
-	_draw_floor(viewport_size, stage_context)
+	if _capture_backdrop_layers.is_empty():
+		draw_rect(Rect2(Vector2.ZERO, viewport_size), sky)
+		_draw_skyline(viewport_size, stage_context, terrain_kind)
+		_draw_floor(viewport_size, stage_context)
+	else:
+		_draw_capture_backdrop(viewport_size)
+		_draw_capture_floor_strip(viewport_size)
 	var progress := _progress()
 	var render_state := stage_render_state()
 	var actor_slot := String(render_state.get("actor_slot", "left"))
@@ -579,6 +640,41 @@ func _draw_floor(size: Vector2, target: Dictionary) -> void:
 					texture,
 					Rect2(Vector2(near_left, far_y), Vector2(near_right - near_left, near_y - far_y)),
 					true, Color(1, 1, 1, 0.18)
+				)
+
+
+func _draw_capture_backdrop(size: Vector2) -> void:
+	var destination := Rect2(Vector2.ZERO, size)
+	for texture: Texture2D in _capture_backdrop_layers:
+		draw_texture_rect(texture, destination, false)
+
+
+func _draw_capture_floor_strip(size: Vector2) -> void:
+	var horizon := size.y * _capture_floor_strip_top
+	var bottom := size.y
+	for row in 2:
+		var far_y := lerpf(horizon, bottom, float(row) / 2.0)
+		var near_y := lerpf(horizon, bottom, float(row + 1) / 2.0)
+		var far_width := lerpf(size.x * 0.72, size.x * 1.10, float(row) / 2.0)
+		var near_width := lerpf(size.x * 0.72, size.x * 1.10, float(row + 1) / 2.0)
+		for column in 6:
+			var kind := 9 if column < 3 else 12
+			var far_left := size.x * 0.5 - far_width * 0.5 + far_width * float(column) / 6.0
+			var far_right := size.x * 0.5 - far_width * 0.5 + far_width * float(column + 1) / 6.0
+			var near_left := size.x * 0.5 - near_width * 0.5 + near_width * float(column) / 6.0
+			var near_right := size.x * 0.5 - near_width * 0.5 + near_width * float(column + 1) / 6.0
+			var colour: Color = TERRAIN_COLOURS[kind].lightened(0.025 if (row + column) % 2 == 0 else 0.0)
+			var polygon := PackedVector2Array([
+				Vector2(far_left, far_y), Vector2(far_right, far_y),
+				Vector2(near_right, near_y), Vector2(near_left, near_y),
+			])
+			draw_colored_polygon(polygon, colour)
+			var texture := art.terrain_texture(kind, _theme)
+			if texture != null:
+				draw_texture_rect(
+					texture,
+					Rect2(Vector2(near_left, far_y), Vector2(near_right - near_left, near_y - far_y)),
+					true, Color(1, 1, 1, 0.16)
 				)
 
 

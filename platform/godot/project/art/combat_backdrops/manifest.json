@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "source_resolution": [1280, 720],
+  "colour_space": "srgb",
+  "layer_roles": ["panorama", "transition", "midground", "props"],
+  "selector": {
+    "neighborhood_fingerprint_fields": [
+      "scenario_or_map_id",
+      "attacker_cell",
+      "defender_cell",
+      "ordered_terrain_histogram",
+      "transition_mask",
+      "transition_orientation",
+      "cluster_cues",
+      "elevation_cue"
+    ],
+    "seed_algorithm": "fnv1a32_utf8",
+    "variant_rule": "seed modulo compatible variant count",
+    "freeze_for_exchange": true
+  },
+  "terrain_kinds": [
+    {"id": 0, "name": "water", "source_scene": "res://art/terrain/relay_water.tscn"},
+    {
+      "id": 1,
+      "name": "road",
+      "source_scene": "res://art/terrain/relay_road.tscn",
+      "conditional_transition": {
+        "adjacent_terrain": "water",
+        "source_scene": "res://art/terrain/relay_bridge.tscn"
+      }
+    },
+    {"id": 2, "name": "forest", "source_scene": "res://art/terrain/relay_forest.tscn"},
+    {"id": 3, "name": "mountain", "source_scene": "res://art/terrain/relay_mountain.tscn"},
+    {"id": 4, "name": "sand", "source_scene": "res://art/terrain/relay_sand.tscn"},
+    {"id": 5, "name": "snow", "source_scene": "res://art/terrain/relay_snow.tscn"},
+    {"id": 6, "name": "swamp", "source_scene": "res://art/terrain/relay_swamp.tscn"},
+    {"id": 7, "name": "hills", "source_scene": "res://art/terrain/relay_hills.tscn"},
+    {"id": 8, "name": "ruins", "source_scene": "res://art/terrain/relay_ruins.tscn"},
+    {"id": 9, "name": "grass", "source_scene": "res://art/terrain/relay_grass.tscn"},
+    {"id": 10, "name": "farmland", "source_scene": "res://art/terrain/relay_farmland.tscn"},
+    {"id": 11, "name": "bamboo", "source_scene": "res://art/terrain/relay_bamboo.tscn"},
+    {"id": 12, "name": "paved", "source_scene": "res://art/terrain/relay_paved.tscn"}
+  ],
+  "packs": [
+    {
+      "id": "medieval_forest_gate",
+      "dominant_terrain": "forest",
+      "secondary_terrain": "grass",
+      "transition_terrain": "paved",
+      "variant_count": 3,
+      "root": "res://art/combat_backdrops/medieval_forest_gate",
+      "filename_patterns": {
+        "panorama": "panorama_{variant}.png",
+        "transition": "transition_grass_paved_{variant}.png",
+        "midground": "midground_forest_{variant}.png",
+        "props": "props_{variant}.png"
+      }
+    }
+  ]
+}

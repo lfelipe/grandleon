@@ -105,16 +105,25 @@ platform/godot/scripts/record-combat-cinematic.sh \
 ```
 
 For matched PC/Nintendo 64/PlayStation review, use the named comparison entry.
-It records the fixed medieval-knight attack/counter scene and extracts the
-agreed board, camera-flight, attack, counter, and restored-board frames:
+It records the fixed medieval forest renderer showcase—not a campaign
+battle—and extracts the agreed board, camera-flight, attack, counter, and
+restored-board frames:
 
 ```sh
 platform/godot/scripts/record-cross-renderer-comparison.sh
 ```
 
-[CROSS_RENDERER_CAPTURE.md](CROSS_RENDERER_CAPTURE.md) gives the exact units,
-terrain grid, HP changes, timestamps, and output contract. The machine-readable
-scene shared by every renderer is
+The showcase includes the complete 12×10 visual footprint, compact capture
+HUD, and deterministic layered combat backdrop. Regenerate its three
+terrain-derived source variants with:
+
+```sh
+platform/godot/scripts/generate-combat-backdrops.sh
+```
+
+[CROSS_RENDERER_CAPTURE.md](CROSS_RENDERER_CAPTURE.md) explains the complete
+composition, units, HP changes, backdrop seed, timing, and console conversion
+rules. The machine-readable scene shared by every renderer is
 [`tools/renderer_comparison/scene.json`](../../tools/renderer_comparison/scene.json).
 
 [UI_GUIDE.md](UI_GUIDE.md) records the battlefield information and interaction

@@ -1,30 +1,43 @@
-# Matched renderer comparison
+# Matched renderer showcase
 
-This folder defines one short battle that Godot, Nintendo 64, and PlayStation
-can record independently. The result is an honest side-by-side comparison:
-the renderer changes, while the map, units, health, damage, counterattack, and
-timing stay the same.
+This folder defines one short visual benchmark that Godot, Nintendo 64, and
+PlayStation record independently. It is deliberately a renderer showcase, not
+a production campaign battle. The renderer changes; the complete environment,
+combatants, health, damage, counterattack, camera landmarks, HUD limits, and
+timing do not.
 
-[`scene.json`](scene.json) is the contract. It uses a compact 6×4 medieval
-board with forest edges, a grass clearing, and a short stone path. A blue male
-knight attacks a red female knight for 3 damage; the red knight counters for 4.
-The units keep their left/right positions in the close view and both return to
-their original board cells.
+[`scene.json`](scene.json) is the contract. Its active board is the familiar
+6×4 medieval forest/grass/paved duel, but the visual scene is 12×10: three
+explicit rings of clustered forest and edge-extended terrain surround the
+playable cells. The camera must frame that complete scene. At 320×240 there are
+no title or footer bands; the board and surroundings use nearly the whole
+screen.
 
-The shared timing is deliberately simple:
+Only compact health bars, selected/target cells, and transient damage numbers
+belong in the capture HUD. Build diagnostics, controls, FPS counters, and
+persistent phase labels do not.
 
-1. Show the board.
-2. Focus the pair and move into the close view.
+The close view freezes a deterministic terrain descriptor and source-layer
+variant for both attack and counter. Godot's first proof uses forest as the
+dominant terrain, grass as secondary, and a paved transition. Its panorama,
+transition, midground, and prop plates come from existing Godot terrain scenes.
+Consoles downconvert those same source PNGs instead of inventing separate
+background artwork. Live units, shadows, attack effects, and the foreground
+floor remain platform-rendered.
+
+The shared sequence is:
+
+1. Show the complete tactical scene.
+2. Fly or focus toward the selected pair.
 3. Play the attack and damage reaction.
-4. Play the counterattack without swapping sides.
-5. Return to the same board view.
+4. Play the counterattack without swapping sides or backdrop.
+5. Return to the exact settled tactical camera.
 
-Each platform recorder owns its camera and rendering details. It must still
-honour the phase boundaries and impact times in `scene.json`; the composition
-script refuses clips whose total duration is too far from the contract rather
-than silently retiming unrelated footage.
+Each recorder owns its implementation, but must honour phase and impact times
+in `scene.json`. The composition script rejects clips with the wrong duration
+instead of silently retiming unrelated footage.
 
-Once the three platform clips exist, compose them with:
+Compose the three finished clips with:
 
 ```sh
 tools/renderer_comparison/compose-renderer-comparison.sh \
@@ -34,11 +47,6 @@ tools/renderer_comparison/compose-renderer-comparison.sh \
     /tmp/grandleon-renderer-comparison
 ```
 
-The output folder contains:
-
-- `renderer-comparison.mp4`: full-quality 1920×480 review video;
-- `renderer-comparison.gif`: 960×240, 12 fps version intended for the README;
-- `renderer-comparison-poster.png`: the shared first-impact frame.
-
-Do not hand-edit one platform's clip to make an event look synchronized. Fix
-that renderer's deterministic capture instead, then regenerate the comparison.
+The output folder contains a full MP4, a smaller animated GIF, and the shared
+first-impact poster. Do not hand-edit one platform's clip to make it agree.
+Fix its deterministic capture, regenerate it, and then compose again.
