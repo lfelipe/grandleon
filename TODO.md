@@ -148,3 +148,9 @@ portable campaign authoring, and complete combat-outcome coverage.
   every exchange.
 - [ ] Expand the close view with richer terrain detail and character animation,
   then cover multi-target abilities, special results, and rapid queued combat.
+- [ ] Reuse the same data-driven backdrop pools for in-game conversations.
+  A conversation on a map should derive a calm composition from the speakers'
+  locations and nearby terrain; an author can choose an explicit backdrop for
+  an off-map scene. Reserve clear areas for portraits, choices, and dialogue,
+  keep one variant stable for the scene, and fall back cleanly when a platform
+  does not have that backdrop pack.
