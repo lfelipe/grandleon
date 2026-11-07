@@ -50,7 +50,8 @@ func save_settings(
 	stick_mode := "deliberate",
 	battle_closeups := true,
 	cinematic_motion := "full",
-	show_fps := false
+	show_fps := false,
+	store_battle_closeups := true
 ) -> bool:
 	_warning = ""
 	if not available_profiles.has(graphics_profile):
@@ -69,6 +70,7 @@ func save_settings(
 		typeof(battle_closeups) != TYPE_BOOL
 		or cinematic_motion not in CINEMATIC_MOTION_MODES
 		or typeof(show_fps) != TYPE_BOOL
+		or typeof(store_battle_closeups) != TYPE_BOOL
 	):
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
@@ -91,10 +93,11 @@ func save_settings(
 		"textScale": text_scale,
 		"effectsLevel": effects_level,
 		"stickMode": stick_mode,
-		"battleCloseups": battle_closeups,
 		"cinematicMotion": cinematic_motion,
 		"showFps": show_fps,
 	}
+	if store_battle_closeups:
+		document["battleCloseups"] = battle_closeups
 	file.store_string(JSON.stringify(document, "  ", true) + "\n")
 	file.flush()
 	file.close()
@@ -184,6 +187,7 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 		"effects_level": effects,
 		"stick_mode": stick_mode,
 		"battle_closeups": bool(battle_closeups_value),
+		"battle_closeups_set": document.has("battleCloseups"),
 		"cinematic_motion": cinematic_motion,
 		"show_fps": bool(show_fps_value),
 	}

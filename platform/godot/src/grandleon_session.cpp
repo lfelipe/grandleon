@@ -658,6 +658,10 @@ void GrandleonSession::_bind_methods() {
         &GrandleonSession::package_languages
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD("package_presentation", "package_bytes"),
+        &GrandleonSession::package_presentation
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("has_progress"), &GrandleonSession::has_progress
     );
     gd::ClassDB::bind_method(
@@ -777,6 +781,36 @@ gd::Dictionary GrandleonSession::package_languages(
     result["ok"] = true;
     result["source"] = text(pr::source_language(loaded.package));
     result["languages"] = values;
+    return result;
+}
+
+gd::Dictionary GrandleonSession::package_presentation(
+    const gd::PackedByteArray& package_bytes
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    std::vector<std::uint8_t> bytes(
+        static_cast<std::size_t>(package_bytes.size())
+    );
+    const std::uint8_t* const input = package_bytes.ptr();
+    for (std::size_t index = 0; index < bytes.size(); ++index) {
+        bytes[index] = input[index];
+    }
+    auto loaded = pf::load_mock_package(
+        bytes, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    if (!loaded) {
+        result["error"] = text(pf::error_name(loaded.error));
+        return result;
+    }
+    const pr::PresentationLoadResult presentation =
+        pr::load_presentation(loaded.package);
+    if (!presentation) {
+        result["error"] = text(pr::error_name(presentation.error));
+        return result;
+    }
+    result["ok"] = true;
+    result["battle_closeups"] = presentation.presentation.battle_closeups;
     return result;
 }
 

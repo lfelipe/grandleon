@@ -206,6 +206,9 @@ public:
     [[nodiscard]] ::godot::Dictionary package_languages(
         const ::godot::PackedByteArray& package_bytes
     ) const;
+    [[nodiscard]] ::godot::Dictionary package_presentation(
+        const ::godot::PackedByteArray& package_bytes
+    ) const;
     [[nodiscard]] bool has_progress() const;
     [[nodiscard]] ::godot::Array checkpoint_slots() const;
     [[nodiscard]] bool checkpoint_save_ready() const;

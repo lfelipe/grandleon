@@ -36,6 +36,9 @@ var text_scale := 1.0
 var effects_level := 1.0
 var stick_mode := "deliberate"
 var battle_closeups_enabled := true
+var battle_closeups_argument_explicit := false
+var battle_closeups_local_override := false
+var persistent_battle_closeups_enabled := true
 var cinematic_motion := "full"
 var show_fps_enabled := false
 var screenshot_path := ""
@@ -192,6 +195,10 @@ func _ready() -> void:
 	var stored_settings: Dictionary = {}
 	if _use_presentation_settings():
 		stored_settings = presentation_settings.load_settings(PUBLIC_GRAPHICS_PROFILES)
+	# The package is inspected after the native bridge and launch bytes are
+	# available. Until then, apply local/CLI precedence over the historical
+	# default so settings-only and controls smokes observe the same local choice.
+	_apply_battle_closeup_precedence(stored_settings, true)
 	stick_mode = String(stored_settings.get("stick_mode", "deliberate"))
 	PCNavigation.configure(
 		controls.stick_press_threshold(),
@@ -219,7 +226,6 @@ func _ready() -> void:
 		1.20
 	)
 	effects_level = float(stored_settings.get("effects_level", 1.0))
-	battle_closeups_enabled = bool(stored_settings.get("battle_closeups", true))
 	cinematic_motion = String(stored_settings.get("cinematic_motion", "full"))
 	show_fps_enabled = bool(stored_settings.get("show_fps", false))
 	PCAudio.set_effects_level(effects_level)
@@ -254,6 +260,12 @@ func _ready() -> void:
 		)
 	else:
 		launch_package = staged.package
+	var presentation_info: Dictionary = session.package_presentation(launch_package)
+	_apply_battle_closeup_precedence(
+		stored_settings,
+		bool(presentation_info.get("battle_closeups", true))
+	)
+	_update_session_labels()
 	var language_info: Dictionary = session.package_languages(launch_package)
 	var authored_languages: Array = language_info.get("languages", [])
 	if game_language.is_empty() and authored_languages.size() > 1:
@@ -524,6 +536,14 @@ func _parse_arguments() -> void:
 			player_count = clampi(int(argument.trim_prefix("--players=")), 1, 2)
 		elif argument.begins_with("--game-language="):
 			game_language = argument.trim_prefix("--game-language=")
+		elif argument == "--battle-closeups":
+			_set_battle_closeups_argument("on")
+		elif argument == "--no-battle-closeups":
+			_set_battle_closeups_argument("off")
+		elif argument.begins_with("--battle-closeups="):
+			_set_battle_closeups_argument(
+				argument.trim_prefix("--battle-closeups=")
+			)
 		elif argument == "--fullscreen":
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		elif argument.begins_with("--screenshot="):
@@ -577,6 +597,34 @@ func _parse_arguments() -> void:
 			included_campaign_smoke = true
 
 
+func _set_battle_closeups_argument(value: String) -> void:
+	var normalized := value.strip_edges().to_lower()
+	if normalized in ["on", "true", "1"]:
+		battle_closeups_enabled = true
+		battle_closeups_argument_explicit = true
+	elif normalized in ["off", "false", "0"]:
+		battle_closeups_enabled = false
+		battle_closeups_argument_explicit = true
+
+
+func _apply_battle_closeup_precedence(
+	stored_settings: Dictionary, authored_default: bool
+) -> void:
+	battle_closeups_local_override = bool(stored_settings.get(
+		"battle_closeups_set", stored_settings.has("battle_closeups")
+	))
+	persistent_battle_closeups_enabled = bool(
+		stored_settings.get("battle_closeups", authored_default)
+	)
+	if battle_closeups_argument_explicit:
+		return
+	battle_closeups_enabled = (
+		persistent_battle_closeups_enabled
+		if battle_closeups_local_override
+		else authored_default
+	)
+
+
 func _resolve_campaign_save_root() -> String:
 	if not campaign_progress_enabled:
 		return ""
@@ -625,7 +673,7 @@ func _run_presentation_settings_smoke() -> void:
 		and is_equal_approx(text_scale, 1.15)
 		and is_equal_approx(effects_level, 0.45)
 		and stick_mode == "extra_firm"
-		and not battle_closeups_enabled
+		and battle_closeups_enabled == (presentation_settings_smoke == "cli")
 		and cinematic_motion == "reduced"
 		and show_fps_enabled
 		and is_equal_approx(PCNavigation.press_threshold(), 0.88)
@@ -1357,6 +1405,8 @@ func _set_stick_mode(value: String) -> void:
 
 func _toggle_battle_closeups() -> void:
 	battle_closeups_enabled = not battle_closeups_enabled
+	battle_closeups_local_override = true
+	persistent_battle_closeups_enabled = battle_closeups_enabled
 	if not battle_closeups_enabled:
 		pending_combat_presentation.clear()
 		if combat_cinematic != null:
@@ -1392,9 +1442,10 @@ func _persist_presentation_settings() -> void:
 		PUBLIC_GRAPHICS_PROFILES,
 		effects_level,
 		stick_mode,
-		battle_closeups_enabled,
+		persistent_battle_closeups_enabled,
 		cinematic_motion,
-		show_fps_enabled
+		show_fps_enabled,
+		battle_closeups_local_override
 	):
 		_show_toast(presentation_settings.warning())
 
