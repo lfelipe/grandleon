@@ -59,6 +59,7 @@ var discard_armed_until := 0
 
 var title_label: Label
 var campaign_select: OptionButton
+var member_filter: LineEdit
 var member_select: OptionButton
 var empty_label: Label
 var editor_column: VBoxContainer
@@ -335,23 +336,63 @@ func _collect_members() -> void:
 
 func _refresh_members() -> void:
 	member_select.clear()
-	for member: Dictionary in members:
+	var visible_indices: Array[int] = []
+	var query := member_filter.text.strip_edges().to_lower() if member_filter != null else ""
+	for index in members.size():
+		var member: Dictionary = members[index]
+		if not _member_matches_filter(member, query):
+			continue
+		visible_indices.append(index)
 		member_select.add_item("%s  /  %s" % [
 			str(member.get("name", "Character")),
 			_unit_type_name(str(member.get("unitTypeId", ""))),
 		])
-	var available := not members.is_empty()
+		member_select.set_item_metadata(member_select.item_count - 1, index)
+	var available := not visible_indices.is_empty()
 	member_select.disabled = not available
 	empty_label.visible = not available
 	editor_column.visible = available
 	if not available:
-		member_select.add_item("NO CHARACTERS")
+		member_select.add_item("NO MATCHING CHARACTERS" if not members.is_empty() else "NO CHARACTERS")
+		empty_label.text = (
+			"NO CHARACTERS MATCH THAT SEARCH"
+			if not members.is_empty()
+			else "THIS CAMPAIGN HAS NO CHARACTERS YET"
+		)
 		member_index = 0
 		_update_actions()
 		return
-	member_index = clampi(member_index, 0, members.size() - 1)
-	member_select.select(member_index)
+	empty_label.text = "THIS CAMPAIGN HAS NO CHARACTERS YET"
+	if not visible_indices.has(member_index):
+		member_index = visible_indices[0]
+	_select_member_option_for_index(member_index)
 	_refresh_member()
+
+
+func _member_matches_filter(member: Dictionary, query: String) -> bool:
+	if query.is_empty():
+		return true
+	var searchable := "%s %s %s" % [
+		str(member.get("name", "")),
+		_unit_type_name(str(member.get("unitTypeId", ""))),
+		str(member.get("join_label", "")),
+	]
+	return searchable.to_lower().contains(query)
+
+
+func _select_member_option_for_index(index: int) -> void:
+	for option in member_select.item_count:
+		if int(member_select.get_item_metadata(option)) == index:
+			member_select.select(option)
+			return
+
+
+func _filter_members(_value: String) -> void:
+	if refreshing:
+		return
+	if not _commit_visible_member(false):
+		return
+	_refresh_members()
 
 
 func _refresh_member() -> void:
@@ -1338,12 +1379,14 @@ func _select_campaign(index: int) -> void:
 
 
 func _select_member(index: int) -> void:
-	if refreshing or index < 0 or index >= members.size():
+	if refreshing or index < 0 or index >= member_select.item_count:
 		return
 	if not _commit_visible_member(false):
-		member_select.select(member_index)
+		_select_member_option_for_index(member_index)
 		return
-	member_index = index
+	member_index = int(member_select.get_item_metadata(index))
+	if member_index < 0 or member_index >= members.size():
+		return
 	_refresh_member()
 	name_input.grab_focus()
 
@@ -1951,6 +1994,13 @@ func _build_interface() -> void:
 	campaign_select.item_selected.connect(_select_campaign)
 	list_column.add_child(campaign_select)
 	list_column.add_child(_label("CHARACTER", 16, Color("e6b86d")))
+	member_filter = LineEdit.new()
+	member_filter.custom_minimum_size = Vector2(510, 52)
+	member_filter.add_theme_font_size_override("font_size", 18)
+	member_filter.placeholder_text = "SEARCH BY NAME, ROLE, OR JOIN TIME"
+	member_filter.clear_button_enabled = true
+	member_filter.text_changed.connect(_filter_members)
+	list_column.add_child(member_filter)
 	member_select = OptionButton.new()
 	member_select.custom_minimum_size = Vector2(510, 66)
 	member_select.add_theme_font_size_override("font_size", 19)
@@ -1968,7 +2018,7 @@ func _build_interface() -> void:
 		19, Color("a9bdc9")
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	guidance.custom_minimum_size.y = 180
+	guidance.custom_minimum_size.y = 120
 	list_column.add_child(guidance)
 
 	var editor_panel := PanelContainer.new()

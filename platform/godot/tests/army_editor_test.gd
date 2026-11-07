@@ -34,6 +34,16 @@ func _run() -> void:
 	_expect("starter company has two heroes", editor.members.size(), 2)
 	_expect("campaign selector receives controller focus", editor.campaign_select.has_focus(), true)
 	_expect("character portrait uses portable art", editor.portrait.texture != null, true)
+	editor.member_filter.text = "mira"
+	editor._filter_members("mira")
+	_expect("large rosters can be searched by character name", editor.member_select.item_count, 1)
+	_expect("filtered choice keeps the real character", str(editor._current_member().name), "Mira")
+	editor.member_filter.text = "young adept"
+	editor._filter_members("young adept")
+	_expect("large rosters can be searched by role", editor.member_select.item_count, 1)
+	editor.member_filter.text = ""
+	editor._filter_members("")
+	_expect("clearing search restores the whole company", editor.member_select.item_count, 2)
 	editor._apply_diagnostic_focus({
 		"category": "classes",
 		"owner_id": editor.compiler.stable_source_id("young_adept"),
