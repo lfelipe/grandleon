@@ -645,9 +645,67 @@ if(GRANDLEON_N64_CHARACTER_PROTOTYPE)
 endif()
 
 if(GRANDLEON_N64_SEVENFOLD_3D)
+    # The hybrid close-battle experiment uses a deliberately tiny subset of
+    # the curated Godot sheets. Its checked-in 80x80 cutouts are regenerated
+    # by scripts/generate-sevenfold-hybrid-assets.py, then the pinned N64
+    # toolchain performs the final CI4 palette quantisation here.
+    set(hybrid_asset_dir
+        "${CMAKE_CURRENT_SOURCE_DIR}/prototype/assets/sevenfold_hybrid")
+    set(hybrid_sprite_dir
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/sevenfold_hybrid_sprites")
+    file(MAKE_DIRECTORY "${hybrid_sprite_dir}")
+    set(hybrid_assets
+        medieval_knight_male_blue_idle
+        medieval_knight_male_blue_attack
+        medieval_knight_female_red_idle
+        medieval_knight_female_red_hurt
+        mythical_mage_male_blue_idle
+        mythical_mage_male_blue_attack
+        mythical_mage_female_red_idle
+        mythical_mage_female_red_hurt
+        shadow
+        impact
+    )
+    string(CONCAT hybrid_assets_header
+        "// Generated from the N64 hybrid close-battle PNGs via mksprite.\n"
+        "#pragma once\n"
+        "#include <cstddef>\n"
+    )
+    foreach(hybrid_asset IN LISTS hybrid_assets)
+        execute_process(
+            COMMAND
+                "${N64_BINDIR}/mksprite" -f CI4 -c 0
+                -o "${hybrid_sprite_dir}"
+                "${hybrid_asset_dir}/${hybrid_asset}.png"
+            RESULT_VARIABLE hybrid_mksprite_status
+            OUTPUT_QUIET
+        )
+        if(NOT hybrid_mksprite_status EQUAL 0)
+            message(FATAL_ERROR
+                "mksprite failed for N64 hybrid asset ${hybrid_asset}")
+        endif()
+        file(READ
+            "${hybrid_sprite_dir}/${hybrid_asset}.sprite"
+            hybrid_sprite_hex HEX)
+        string(LENGTH "${hybrid_sprite_hex}" hybrid_sprite_hex_length)
+        math(EXPR hybrid_sprite_size "${hybrid_sprite_hex_length} / 2")
+        string(REGEX REPLACE
+            "([0-9a-f][0-9a-f])" "0x\\1,"
+            hybrid_sprite_bytes "${hybrid_sprite_hex}")
+        string(CONCAT hybrid_assets_header "${hybrid_assets_header}"
+            "inline constexpr unsigned char hybrid_${hybrid_asset}[] = {"
+            "${hybrid_sprite_bytes}};\n"
+            "inline constexpr std::size_t hybrid_${hybrid_asset}_size = "
+            "${hybrid_sprite_size};\n")
+    endforeach()
+    file(WRITE
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/sevenfold_hybrid_assets.h"
+        "${hybrid_assets_header}")
+
     add_executable(
         grandleon_n64_sevenfold_3d
         prototype/sevenfold_roster_rom.cpp
+        src/sevenfold_hybrid_experiment.cpp
         src/sevenfold_texture_experiment.cpp
     )
     target_link_libraries(
@@ -660,6 +718,7 @@ if(GRANDLEON_N64_SEVENFOLD_3D)
         grandleon_n64_sevenfold_3d
         PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/src"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated"
             "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
             "${CMAKE_SOURCE_DIR}/games/sevenfold/generated"
     )

@@ -54,6 +54,37 @@ for name, model in report["models"].items():
     for lod in ("low", "high"):
         if model[lod]["triangles"] <= 0 or model[lod]["vertices"] <= 0:
             raise SystemExit(f"{name}/{lod}: empty generated model")
+
+hybrid_dir = root / "platform/nintendo64/prototype/assets/sevenfold_hybrid"
+hybrid_report = json.loads((hybrid_dir / "manifest.json").read_text())
+hybrid_generator = root / hybrid_report["generated_by"]
+if (
+    hashlib.sha256(hybrid_generator.read_bytes()).hexdigest()
+    != hybrid_report["generator_sha256"]
+):
+    raise SystemExit("N64 hybrid generator changed; regenerate its cutouts")
+if len(hybrid_report["assets"]) != 10:
+    raise SystemExit(
+        "N64 hybrid manifest must contain eight cutouts and two effects"
+    )
+for asset in hybrid_report["assets"]:
+    output = hybrid_dir / asset["path"]
+    if not output.is_file() or output.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"N64 hybrid asset is missing or not PNG: {output}")
+    if "source" not in asset:
+        continue
+    source_path = root / asset["source"]
+    mask_path = root / asset["mask"]
+    if (
+        hashlib.sha256(source_path.read_bytes()).hexdigest()
+        != asset["source_sha256"]
+    ):
+        raise SystemExit(f"N64 hybrid source changed: {source_path}")
+    if (
+        hashlib.sha256(mask_path.read_bytes()).hexdigest()
+        != asset["mask_sha256"]
+    ):
+        raise SystemExit(f"N64 hybrid mask changed: {mask_path}")
 print("Sevenfold 3D roster provenance passed: 112 combinations")
 PYEOF
 
@@ -76,7 +107,7 @@ fi
 
 GRANDLEON_N64_BUILD_DIR="${build_dir}" \
 GRANDLEON_N64_ARES_SECONDS=120 \
-GRANDLEON_N64_ARES_MIN_CHECKS=44 \
+GRANDLEON_N64_ARES_MIN_CHECKS=54 \
 GRANDLEON_N64_ARES_LOG=sevenfold-3d.log \
 GRANDLEON_N64_ARES_TRAIL=trail-sevenfold-3d \
 GRANDLEON_N64_ARES_SHOT=screenshot-sevenfold-3d.png \
@@ -98,6 +129,14 @@ done <<'EOF'
 blue right
 red left
 EOF
+for style in medieval pirates; do
+    for mode in flat ci4; do
+        grep -q "^sevenfold tactical stage=${style} mode=${mode} models=8 bodies=mixed .* highlights=blue-and-gold depth=on$" "${log}"
+        checkpoint=before
+        [ "${mode}" = ci4 ] && checkpoint=after
+        grep -q "^CHECKPOINT sevenfold-tactical-${style}-${checkpoint}$" "${log}"
+    done
+done
 while read -r style role terrain; do
     for mode in flat ci4; do
         grep -q "^sevenfold texture stage=${style} role=${role} terrain=${terrain} mode=${mode} models=2 .* depth=on$" "${log}"
@@ -109,6 +148,12 @@ done <<'EOF'
 medieval knight FOREST
 mythical mage MOUNTAIN
 EOF
+for style in medieval mythical; do
+    for pose in idle impact; do
+        grep -q "^sevenfold hybrid stage=${style} pose=${pose} terrain=.* sprites=2 scene_triangles=.* tmem_peak=3232 embedded=.* team=blue-red$" "${log}"
+        grep -q "^CHECKPOINT sevenfold-hybrid-${style}-${pose}$" "${log}"
+    done
+done
 while read -r style terrain; do
     grep -q "^sevenfold attack stage=${style} role=.* terrain=${terrain} models=2 .* heading=three-quarter depth=on$" "${log}"
     grep -q "^CHECKPOINT sevenfold-attack-${style}-${terrain}$" "${log}"
@@ -123,5 +168,8 @@ pirates SAND
 EOF
 grep -q '^sevenfold attack-animation stage=medieval frames=96 .* heading=three-quarter depth=on$' "${log}"
 grep -q '^CHECKPOINT sevenfold-attack-animation-hit$' "${log}"
-grep -q '^RESULT PASS 44/44$' "${log}"
+grep -q '^sevenfold hybrid-animation stage=medieval frames=60 .* motion=push-impact-recoil camera=frontal$' "${log}"
+grep -q '^CHECKPOINT sevenfold-hybrid-animation-start$' "${log}"
+grep -q '^CHECKPOINT sevenfold-hybrid-animation-impact$' "${log}"
+grep -q '^RESULT PASS 54/54$' "${log}"
 echo "Nintendo 64 Sevenfold 3D roster check passed: ${rom}"

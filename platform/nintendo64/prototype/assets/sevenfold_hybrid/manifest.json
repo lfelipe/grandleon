@@ -1,0 +1,115 @@
+{
+  "format": "Grandleon N64 hybrid close-battle cutouts v1",
+  "generated_by": "platform/nintendo64/scripts/generate-sevenfold-hybrid-assets.py",
+  "generator_sha256": "66b9a644ca17621383d80ec9baf4491d2082cbefc31c58d6a32c8f17eca6a9e4",
+  "assets": [
+    {
+      "path": "medieval_knight_male_blue_idle.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_male_hd.png",
+      "source_sha256": "f2c11b882ea4d21408d051a5d65c10fae1b82b1897046a3e8cfa5a23fb910801",
+      "mask": "platform/godot/project/art/characters/medieval_knight_male_hd_team_mask.png",
+      "mask_sha256": "cfac2e853036e0c5ba3ec3534766a31afacd0c30e332ba58f823c17aa1ce9e28",
+      "frame": 0,
+      "team": "blue",
+      "pose": "idle",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "path": "medieval_knight_male_blue_attack.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_male_hd.png",
+      "source_sha256": "f2c11b882ea4d21408d051a5d65c10fae1b82b1897046a3e8cfa5a23fb910801",
+      "mask": "platform/godot/project/art/characters/medieval_knight_male_hd_team_mask.png",
+      "mask_sha256": "cfac2e853036e0c5ba3ec3534766a31afacd0c30e332ba58f823c17aa1ce9e28",
+      "frame": 5,
+      "team": "blue",
+      "pose": "attack",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "path": "medieval_knight_female_red_idle.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_female_hd.png",
+      "source_sha256": "73b1cb6d6ddc4a0cdb455ca6c0cbc710856f5910df62a6d752cb6d0951577e0d",
+      "mask": "platform/godot/project/art/characters/medieval_knight_female_hd_team_mask.png",
+      "mask_sha256": "ac2c8abbf0c84aaed027a15c30a7a790a89f4176680d6558d84d81532956da15",
+      "frame": 0,
+      "team": "red",
+      "pose": "idle",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "path": "medieval_knight_female_red_hurt.png",
+      "source": "platform/godot/project/art/characters/medieval_knight_female_hd.png",
+      "source_sha256": "73b1cb6d6ddc4a0cdb455ca6c0cbc710856f5910df62a6d752cb6d0951577e0d",
+      "mask": "platform/godot/project/art/characters/medieval_knight_female_hd_team_mask.png",
+      "mask_sha256": "ac2c8abbf0c84aaed027a15c30a7a790a89f4176680d6558d84d81532956da15",
+      "frame": 7,
+      "team": "red",
+      "pose": "hurt",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "path": "mythical_mage_male_blue_idle.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_male_hd.png",
+      "source_sha256": "ff4885f4ba3c32458f2f067fee4497618a08ede462d5272a4baf57ac2040cd7a",
+      "mask": "platform/godot/project/art/characters/mythical_mage_male_hd_team_mask.png",
+      "mask_sha256": "2a01b8c570ea7112c6deb825121faafcf3a64550c8013abeac9df19ee1c69100",
+      "frame": 0,
+      "team": "blue",
+      "pose": "idle",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "path": "mythical_mage_male_blue_attack.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_male_hd.png",
+      "source_sha256": "ff4885f4ba3c32458f2f067fee4497618a08ede462d5272a4baf57ac2040cd7a",
+      "mask": "platform/godot/project/art/characters/mythical_mage_male_hd_team_mask.png",
+      "mask_sha256": "2a01b8c570ea7112c6deb825121faafcf3a64550c8013abeac9df19ee1c69100",
+      "frame": 5,
+      "team": "blue",
+      "pose": "attack",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "path": "mythical_mage_female_red_idle.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_female_hd.png",
+      "source_sha256": "14fdc55b55b0a65436c082bdefc189cd830436b45c65722a97a1a9c50de4cc73",
+      "mask": "platform/godot/project/art/characters/mythical_mage_female_hd_team_mask.png",
+      "mask_sha256": "1f6a98436020207ca2b4ddfb760b2ad2d225ffb7eab36c267d24eeb131ece18c",
+      "frame": 0,
+      "team": "red",
+      "pose": "idle",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "path": "mythical_mage_female_red_hurt.png",
+      "source": "platform/godot/project/art/characters/mythical_mage_female_hd.png",
+      "source_sha256": "14fdc55b55b0a65436c082bdefc189cd830436b45c65722a97a1a9c50de4cc73",
+      "mask": "platform/godot/project/art/characters/mythical_mage_female_hd_team_mask.png",
+      "mask_sha256": "1f6a98436020207ca2b4ddfb760b2ad2d225ffb7eab36c267d24eeb131ece18c",
+      "frame": 7,
+      "team": "red",
+      "pose": "hurt",
+      "width": 80,
+      "height": 80
+    },
+    {
+      "path": "shadow.png",
+      "generated": "ellipse",
+      "width": 32,
+      "height": 16
+    },
+    {
+      "path": "impact.png",
+      "generated": "starburst",
+      "width": 48,
+      "height": 48
+    }
+  ]
+}

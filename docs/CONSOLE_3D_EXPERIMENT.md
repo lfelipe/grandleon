@@ -85,14 +85,17 @@ cmake --build build --target grandleon_n64_sevenfold_3d_check
 cmake --build build --target grandleon_playstation_sevenfold_3d_check
 ```
 
-The N64 viewer currently passes `44/44` checks and records 42 captures. Its
+The N64 viewer currently passes `54/54` checks and records 52 captures. Its
 capture trail includes two same-team pages showing all eight low-detail roles
-from the opposite camera-facing three-quarter headings, plus matched flat and
-experimental CI4 close views for medieval and mythical representatives. Its
-ares measurements are 62–87 fps for eight low-detail models, 39–51 fps for
-eight high-detail models, and 132–163 fps for two high-detail models in the flat
-close view. The textured close views measure 156 fps for medieval and 129 fps
-for mythical, versus 162 and 134 fps for the identical flat scenes.
+from the opposite camera-facing three-quarter headings, matched flat/material
+tactical boards for medieval and pirates, and proxy/hybrid close views for
+medieval and mythical representatives. Its ares measurements are 62–87 fps for
+eight low-detail models and 39–51 fps for eight high-detail models. The two
+material tactical views measure 79 and 75 fps, versus 81 and 76 fps for the
+same flat boards. Textured proxy close views measure 157 fps for medieval and
+130 fps for mythical; curated hybrid close views measure 462–471 fps because
+the detailed fighters become two RDP cutouts rather than thousands of proxy
+triangles.
 
 The PlayStation viewer currently passes `352/352` guest checks, including
 safe-picture checks for every auto-framed attack pair, and `18/18` independent
@@ -106,14 +109,24 @@ regression ceiling is 33 ms, not a real-hardware claim.
 These are emulator measurements used to catch regressions, not promises about
 original hardware. Real-hardware play remains part of the review process.
 
-The N64 material experiment is viewer-only for now. Press **Z** in its close
-view to toggle it. It uses two 32×32 CI4 greyscale atlases, deterministic UVs
-projected from existing proxy coordinates, and the existing vertex palettes
-for style and team identity. That makes the before/after comparison use the
-same camera, models, geometry, and red/blue team colours. The two atlases plus
-their shared TLUT occupy 1,056 bytes in RDRAM, and only one atlas is resident in
-TMEM at a time. The playable campaign stays on its established presentation
-until the treatment has broader role, terrain, and real-hardware validation.
+The N64 material and hybrid experiments are viewer-only for now. Press **Z** on
+the board for the material comparison. In a close view it cycles the flat
+proxy, textured proxy, and the medieval or mythical hybrid. The material path
+uses two 32×32 CI4 greyscale atlases, deterministic UVs projected from existing
+proxy coordinates, and the existing vertex palettes for style and team
+identity. The tactical evidence keeps all eight roles, mixed male/female
+bodies, mixed terrain, a blue move range, and a gold selected tile visible so
+texture noise can be judged at actual board scale.
+
+The hybrid uses actual curated Godot frames quantised into separate 80×80 CI4
+cutouts. Red and blue versions come from the same team masks Godot uses. The
+cutouts sit over textured 3D terrain with separate shadow and impact sprites;
+the attack uses a frontal push, impact, and recoil instead of an orbit. One
+cutout and its palette peak at 3,232 bytes of TMEM. The embedded hybrid sprites
+total 28,688 bytes and grow the aligned viewer ROM by 32 KiB. Its animation
+peaks at 2.38 ms in ares. The playable campaign stays on its established
+presentation until the treatment covers more roles and has MiSTer or
+original-style hardware validation.
 
 ## Ongoing graphics work
 

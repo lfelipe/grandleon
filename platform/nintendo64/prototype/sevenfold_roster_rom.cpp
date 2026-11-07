@@ -17,6 +17,7 @@
 #include <cstdlib>
 
 #include "n64_showcase.h"
+#include "sevenfold_hybrid_experiment.h"
 #include "sevenfold_presentation.h"
 #include "sevenfold_roster_proxies.h"
 #include "sevenfold_texture_experiment.h"
@@ -25,6 +26,8 @@ namespace {
 
 namespace texture =
     grandleon::nintendo64::sevenfold_texture_experiment;
+namespace hybrid =
+    grandleon::nintendo64::sevenfold_hybrid_experiment;
 
 constexpr int cell_world = 64;
 constexpr int board_triangles =
@@ -531,6 +534,44 @@ std::uint64_t draw_frame_textured(
     return get_ticks_us() - started;
 }
 
+std::uint64_t draw_hybrid_frame(
+    surface_t* display, T3DViewport* viewport, T3DMat4FP* matrix,
+    const T3DVertPacked* scene, int scene_triangles, hybrid::Style style,
+    const hybrid::Frame& hybrid_frame, const char* label,
+    const char* footer, const char* controls, color_t clear_colour
+) {
+    const std::uint64_t started = get_ticks_us();
+    rdpq_attach(display, display_get_zbuf());
+    t3d_frame_start();
+    rdpq_mode_zbuf(true, true);
+    t3d_viewport_attach(viewport);
+    t3d_screen_clear_color(clear_colour);
+    t3d_screen_clear_depth();
+    t3d_light_set_count(0);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_mode_combiner(RDPQ_COMBINER_TEX_SHADE);
+    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
+        T3D_FLAG_TEXTURED | T3D_FLAG_SHADED |
+        T3D_FLAG_NO_LIGHT | T3D_FLAG_DEPTH
+    ));
+    t3d_matrix_push(matrix);
+    texture::bind_terrain();
+    draw_unindexed(scene, scene_triangles);
+    t3d_matrix_pop(1);
+    t3d_tri_sync();
+    hybrid::draw(style, hybrid_frame);
+    rdpq_detach_wait();
+    graphics_draw_box(
+        display, 0, 196, 320, 44, graphics_make_color(15, 22, 24, 255)
+    );
+    graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
+    graphics_draw_text(display, 8, 8, label);
+    graphics_set_color(graphics_make_color(125, 168, 133, 255), 0);
+    graphics_draw_text(display, 8, 204, footer);
+    graphics_draw_text(display, 8, 220, controls);
+    return get_ticks_us() - started;
+}
+
 int triangle_total(
     const Figure* figures, int visible_figures = figure_count,
     int scene_triangles = board_triangles
@@ -572,7 +613,8 @@ std::uint64_t show_page(
         elapsed = draw_frame(
             display, &viewport, matrix, board, board_triangles, figures,
             figure_count, page_label, "8 ROLES - BLUE + RED TEAMS",
-            "A LOD  <> STYLE  ^V BODY  START VIEW", RGBA32(20, 25, 35, 255)
+            "A LOD <> STYLE ^V BODY Z MATERIAL",
+            RGBA32(20, 25, 35, 255)
         );
         display_show(display);
     }
@@ -588,6 +630,84 @@ std::uint64_t show_page(
     std::fprintf(
         stderr, "CHECKPOINT sevenfold-%s-%s-%s\n",
         sevenfold_style_names[stage], body_slugs[body], lod_slugs[lod]
+    );
+    std::fflush(stderr);
+    return elapsed;
+}
+
+void apply_tactical_highlights(T3DVertPacked* board) {
+    constexpr int move_cells[] = {18, 19, 20, 26, 28, 34, 35, 36};
+    for (int cell : move_cells) {
+        for (int packed = 0; packed < 3; ++packed) {
+            T3DVertPacked& vertices = board[cell * 3 + packed];
+            vertices.rgbaA = rgba(52, 112, 178);
+            vertices.rgbaB = rgba(52, 112, 178);
+        }
+    }
+    constexpr int selected_cell = 27;
+    for (int packed = 0; packed < 3; ++packed) {
+        T3DVertPacked& vertices = board[selected_cell * 3 + packed];
+        vertices.rgbaA = rgba(224, 190, 84);
+        vertices.rgbaB = rgba(224, 190, 84);
+    }
+}
+
+std::uint64_t show_tactical_comparison(
+    int stage, bool textured, bool report, T3DViewport& viewport,
+    T3DMat4FP* matrix, T3DVertPacked* board, Figure* figures
+) {
+    build_board(board, stage);
+    apply_tactical_highlights(board);
+    constexpr int positions[8][2] = {
+        {1, 1}, {3, 1}, {5, 1}, {7, 1},
+        {1, 4}, {3, 4}, {5, 4}, {7, 4},
+    };
+    for (int archetype = 0; archetype < figure_count; ++archetype) {
+        const int body = archetype & 1;
+        const int team = (archetype + stage) & 1;
+        build_proxy(
+            figures[archetype],
+            sevenfold_proxies_low[stage][body][archetype],
+            positions[archetype][0], positions[archetype][1], team
+        );
+    }
+    char page_label[64];
+    std::snprintf(
+        page_label, sizeof page_label, "%s TACTICAL - %s",
+        sevenfold_stage_names[stage], textured ? "CI4 MATERIAL" : "FLAT"
+    );
+    std::uint64_t elapsed = 0;
+    for (int frame = 0; frame < 3; ++frame) {
+        surface_t* display = display_get();
+        if (textured) {
+            elapsed = draw_frame_textured(
+                display, &viewport, matrix, board, board_triangles, figures,
+                figure_count, page_label, "8 ROLES + MIXED BODIES/TERRAIN",
+                "Z FLAT - BLUE + GOLD HIGHLIGHTS",
+                RGBA32(20, 25, 35, 255)
+            );
+        } else {
+            elapsed = draw_frame(
+                display, &viewport, matrix, board, board_triangles, figures,
+                figure_count, page_label, "8 ROLES + MIXED BODIES/TERRAIN",
+                "Z MATERIAL - BLUE + GOLD HIGHLIGHTS",
+                RGBA32(20, 25, 35, 255)
+            );
+        }
+        display_show(display);
+    }
+    if (!report) return elapsed;
+    std::fprintf(
+        stderr,
+        "sevenfold tactical stage=%s mode=%s models=8 bodies=mixed triangles=%d us=%llu fps=%llu highlights=blue-and-gold depth=on\n",
+        sevenfold_style_names[stage], textured ? "ci4" : "flat",
+        triangle_total(figures),
+        static_cast<unsigned long long>(elapsed),
+        static_cast<unsigned long long>(elapsed > 0 ? 1'000'000 / elapsed : 0)
+    );
+    std::fprintf(
+        stderr, "CHECKPOINT sevenfold-tactical-%s-%s\n",
+        sevenfold_style_names[stage], textured ? "after" : "before"
     );
     std::fflush(stderr);
     return elapsed;
@@ -710,7 +830,7 @@ std::uint64_t show_attack(
         elapsed = draw_frame(
             display, &viewport, matrix, scene, scene_triangles, figures, 2,
             page_label, footer,
-            "A ROLE B ATTACK Z CI4 <> STYLE ^V TILE",
+            "A ROLE B ATTACK Z VIEW <> STYLE ^V TILE",
             RGBA32(sky[0], sky[1], sky[2], 255)
         );
         display_show(display);
@@ -762,7 +882,7 @@ std::uint64_t show_texture_comparison(
             elapsed = draw_frame_textured(
                 display, &viewport, matrix, scene, scene_triangles,
                 figures, 2, page_label, footer,
-                "Z FLAT B ATTACK - TEAM COLOUR KEPT",
+                "Z HYBRID B ATTACK - TEAM COLOUR KEPT",
                 RGBA32(sky[0], sky[1], sky[2], 255)
             );
         } else {
@@ -792,6 +912,125 @@ std::uint64_t show_texture_comparison(
     );
     std::fflush(stderr);
     return elapsed;
+}
+
+[[nodiscard]] hybrid::Style hybrid_style(int stage) noexcept {
+    return stage == 2 ? hybrid::Style::mythical : hybrid::Style::medieval;
+}
+
+std::uint64_t show_hybrid_close(
+    int stage, bool impact, bool report, T3DViewport& viewport,
+    T3DMat4FP* matrix, T3DVertPacked* scene
+) {
+    const int selected_cell = preferred_attack_cell(stage);
+    const int scene_triangles =
+        build_attack_scene(scene, stage, selected_cell);
+    const std::uint8_t terrain =
+        sevenfold_stage_terrain[stage][selected_cell];
+    const std::uint8_t* sky = terrain_sky_colours[terrain];
+    const hybrid::Frame hybrid_frame{
+        impact, impact, impact, impact ? 42 : 0, impact ? 8 : 0,
+    };
+    char page_label[64];
+    std::snprintf(
+        page_label, sizeof page_label, "%s - CURATED CI4 %s",
+        sevenfold_stage_names[stage], impact ? "IMPACT" : "IDLE"
+    );
+    std::uint64_t elapsed = 0;
+    for (int frame = 0; frame < 3; ++frame) {
+        surface_t* display = display_get();
+        elapsed = draw_hybrid_frame(
+            display, &viewport, matrix, scene, scene_triangles,
+            hybrid_style(stage), hybrid_frame, page_label,
+            "2.5D CUTOUTS + TEXTURED 3D TERRAIN",
+            "BLUE/RED MASKS - SHADOWS + EFFECT",
+            RGBA32(sky[0], sky[1], sky[2], 255)
+        );
+        display_show(display);
+    }
+    if (!report) return elapsed;
+    std::fprintf(
+        stderr,
+        "sevenfold hybrid stage=%s pose=%s terrain=%s sprites=2 scene_triangles=%d us=%llu fps=%llu tmem_peak=%lu embedded=%lu team=blue-red\n",
+        sevenfold_style_names[stage], impact ? "impact" : "idle",
+        terrain_names[terrain], scene_triangles,
+        static_cast<unsigned long long>(elapsed),
+        static_cast<unsigned long long>(elapsed > 0 ? 1'000'000 / elapsed : 0),
+        static_cast<unsigned long>(hybrid::peak_texture_bytes()),
+        static_cast<unsigned long>(hybrid::embedded_bytes())
+    );
+    std::fprintf(
+        stderr, "CHECKPOINT sevenfold-hybrid-%s-%s\n",
+        sevenfold_style_names[stage], impact ? "impact" : "idle"
+    );
+    std::fflush(stderr);
+    return elapsed;
+}
+
+std::uint64_t play_hybrid_preview(
+    int stage, T3DViewport& viewport, T3DMat4FP* matrix,
+    T3DVertPacked* scene, bool report
+) {
+    const int selected_cell = preferred_attack_cell(stage);
+    const int scene_triangles =
+        build_attack_scene(scene, stage, selected_cell);
+    const std::uint8_t terrain =
+        sevenfold_stage_terrain[stage][selected_cell];
+    const std::uint8_t* sky = terrain_sky_colours[terrain];
+    char page_label[64];
+    std::snprintf(
+        page_label, sizeof page_label, "%s - FRONTAL ATTACK",
+        sevenfold_stage_names[stage]
+    );
+    if (report) {
+        std::fprintf(stderr, "CHECKPOINT sevenfold-hybrid-animation-start\n");
+        std::fflush(stderr);
+        wait_ms(500);
+    }
+    std::uint64_t slowest = 0;
+    for (int frame = 0; frame < 60; ++frame) {
+        hybrid::Frame pose{false, false, false, 0, 0};
+        if (frame >= 12 && frame < 24) {
+            pose.attacker_push = (frame - 11) * 42 / 12;
+        } else if (frame >= 24 && frame < 36) {
+            pose = {true, true, frame < 30, 42, (frame - 23) * 8 / 12};
+        } else if (frame >= 36 && frame < 48) {
+            pose.attacker_pose = frame < 42;
+            pose.defender_hurt = true;
+            pose.attacker_push = (47 - frame) * 42 / 12;
+            pose.defender_recoil = (47 - frame) * 8 / 12;
+        }
+        surface_t* display = display_get();
+        const std::uint64_t elapsed = draw_hybrid_frame(
+            display, &viewport, matrix, scene, scene_triangles,
+            hybrid_style(stage), pose, page_label,
+            "PUSH - IMPACT - RECOIL - NO ORBIT",
+            "CURATED FRAMES ON TEXTURED 3D TERRAIN",
+            RGBA32(sky[0], sky[1], sky[2], 255)
+        );
+        display_show(display);
+        if (elapsed > slowest) slowest = elapsed;
+        if (report && frame == 24) {
+            std::fprintf(stderr, "CHECKPOINT sevenfold-hybrid-animation-impact\n");
+            std::fflush(stderr);
+            wait_ms(1000);
+        } else {
+            wait_ms(16);
+        }
+    }
+    if (report) {
+        std::fprintf(
+            stderr,
+            "sevenfold hybrid-animation stage=%s frames=60 max_us=%llu fps=%llu motion=push-impact-recoil camera=frontal\n",
+            sevenfold_style_names[stage],
+            static_cast<unsigned long long>(slowest),
+            static_cast<unsigned long long>(
+                slowest > 0 ? 1'000'000 / slowest : 0
+            )
+        );
+        std::fflush(stderr);
+    }
+    return slowest;
 }
 
 void draw_damage_callout(surface_t* display, int target, int damage) {
@@ -899,6 +1138,11 @@ extern "C" int main(void) {
     T3DInitParams params{};
     t3d_init(params);
     texture::initialize();
+    const bool hybrid_ready = hybrid::initialize();
+    expect(
+        hybrid_ready,
+        "eight curated cutouts plus shadow and impact sprites allocate"
+    );
 
     bool roster_complete = true;
     int combinations = 0;
@@ -939,7 +1183,7 @@ extern "C" int main(void) {
     expect(
         allocated, "board and eight maximum-size high-LOD model buffers allocate"
     );
-    if (!allocated) {
+    if (!allocated || !hybrid_ready) {
         std::fprintf(stderr, "RESULT FAIL %d/%d\n", checks - failures, checks);
         while (true) wait_ms(1000);
     }
@@ -986,6 +1230,25 @@ extern "C" int main(void) {
         expect(elapsed <= frame_budget_us, message);
         wait_ms(1500);
     }
+    constexpr int tactical_stages[] = {0, 6};
+    for (int tactical_stage : tactical_stages) {
+        for (int mode = 0; mode < 2; ++mode) {
+            const bool textured = mode != 0;
+            const std::uint64_t elapsed = show_tactical_comparison(
+                tactical_stage, textured, true, viewport, matrix, board,
+                figures
+            );
+            char message[112];
+            std::snprintf(
+                message, sizeof message,
+                "%s tactical %s overview stays at 30 fps",
+                sevenfold_style_names[tactical_stage],
+                textured ? "CI4" : "flat"
+            );
+            expect(elapsed <= frame_budget_us, message);
+            wait_ms(1500);
+        }
+    }
     constexpr int texture_comparisons[2][2] = {
         {0, 0},  // Medieval knight on forest.
         {2, 2},  // Mythical mage on mountain.
@@ -1006,6 +1269,24 @@ extern "C" int main(void) {
                 "%s %s texture comparison stays at 30 fps",
                 sevenfold_style_names[comparison_stage],
                 textured ? "CI4" : "flat"
+            );
+            expect(elapsed <= frame_budget_us, message);
+            wait_ms(1500);
+        }
+    }
+    constexpr int hybrid_stages[] = {0, 2};
+    for (int hybrid_stage : hybrid_stages) {
+        for (int pose = 0; pose < 2; ++pose) {
+            const bool impact = pose != 0;
+            const std::uint64_t elapsed = show_hybrid_close(
+                hybrid_stage, impact, true, attack_viewport, matrix, board
+            );
+            char message[112];
+            std::snprintf(
+                message, sizeof message,
+                "%s curated CI4 %s close view stays at 30 fps",
+                sevenfold_style_names[hybrid_stage],
+                impact ? "impact" : "idle"
             );
             expect(elapsed <= frame_budget_us, message);
             wait_ms(1500);
@@ -1034,6 +1315,13 @@ extern "C" int main(void) {
         attack_animation_elapsed <= frame_budget_us,
         "the attack-and-counter preview stays at 30 fps"
     );
+    const std::uint64_t hybrid_animation_elapsed = play_hybrid_preview(
+        0, attack_viewport, matrix, board, true
+    );
+    expect(
+        hybrid_animation_elapsed <= frame_budget_us,
+        "the frontal hybrid push, impact and recoil stays at 30 fps"
+    );
     std::fprintf(
         stderr, "RESULT %s %d/%d\n", failures == 0 ? "PASS" : "FAIL",
         checks - failures, checks
@@ -1046,7 +1334,8 @@ extern "C" int main(void) {
     int archetype = 0;
     int selected_cell = preferred_attack_cell(stage);
     bool attack_mode = false;
-    bool texture_mode = false;
+    int close_mode = 0;
+    bool tactical_texture_mode = false;
     show_page(stage, body, lod, false, viewport, matrix, board, figures);
     while (true) {
         joypad_poll();
@@ -1062,11 +1351,13 @@ extern "C" int main(void) {
             stage = (stage + sevenfold_stage_count - 1) %
                 sevenfold_stage_count;
             if (attack_mode) selected_cell = preferred_attack_cell(stage);
+            if (stage != 0 && stage != 2 && close_mode == 2) close_mode = 1;
             changed = true;
         }
         if (pressed.d_right) {
             stage = (stage + 1) % sevenfold_stage_count;
             if (attack_mode) selected_cell = preferred_attack_cell(stage);
+            if (stage != 0 && stage != 2 && close_mode == 2) close_mode = 1;
             changed = true;
         }
         if (pressed.d_up || pressed.d_down) {
@@ -1090,19 +1381,33 @@ extern "C" int main(void) {
             changed = true;
         }
         if (attack_mode && pressed.z) {
-            texture_mode = !texture_mode;
+            const int modes = stage == 0 || stage == 2 ? 3 : 2;
+            close_mode = (close_mode + 1) % modes;
+            changed = true;
+        } else if (!attack_mode && pressed.z) {
+            tactical_texture_mode = !tactical_texture_mode;
             changed = true;
         }
         if (attack_mode && pressed.b) {
-            play_attack_preview(
-                stage, archetype, selected_cell, attack_viewport,
-                matrix, board, figures, false
-            );
+            if (close_mode == 2) {
+                play_hybrid_preview(
+                    stage, attack_viewport, matrix, board, false
+                );
+            } else {
+                play_attack_preview(
+                    stage, archetype, selected_cell, attack_viewport,
+                    matrix, board, figures, false
+                );
+            }
             changed = true;
         }
         if (changed) {
             if (attack_mode) {
-                if (texture_mode) {
+                if (close_mode == 2) {
+                    show_hybrid_close(
+                        stage, false, false, attack_viewport, matrix, board
+                    );
+                } else if (close_mode == 1) {
                     show_texture_comparison(
                         stage, archetype, selected_cell, true, false,
                         attack_viewport, matrix, board, figures
@@ -1114,9 +1419,16 @@ extern "C" int main(void) {
                     );
                 }
             } else {
-                show_page(
-                    stage, body, lod, false, viewport, matrix, board, figures
-                );
+                if (tactical_texture_mode) {
+                    show_tactical_comparison(
+                        stage, true, false, viewport, matrix, board, figures
+                    );
+                } else {
+                    show_page(
+                        stage, body, lod, false, viewport, matrix, board,
+                        figures
+                    );
+                }
             }
         }
         wait_ms(16);
