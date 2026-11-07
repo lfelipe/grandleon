@@ -1297,11 +1297,83 @@ public:
             defender_left ? 0 : 1
         );
 
-        // Compact framed readout: the scenery and figures own nearly the whole
-        // frame, while the authoritative result remains impossible to miss.
-        gpu::fill(0, 0, gpu::screen_width, 18, paper_colour);
-        write_at_with_clut(2, 1, "PLAYER 1", font_gold_clut);
-        write_at_with_clut(29, 1, "PLAYER 2", font_gold_clut);
+        // The scenery and figures still own the frame. The two zero-row panels
+        // leave the centre open and hide less total scene area than the old
+        // full-width strip, but now identify both fixed sides, their health,
+        // team colour and proportion at a glance. A counter changes poses,
+        // never these anchors.
+        constexpr int chip_width = 15 * glyph;
+        constexpr int chip_header = 16;
+        const view::ConsolePanel left_chip = view::console_panel(
+            0, 0, chip_width, 0, glyph, chip_header, 0
+        );
+        const view::ConsolePanel right_chip = view::console_panel(
+            gpu::screen_width - chip_width, 0, chip_width, 0, glyph,
+            chip_header, 0
+        );
+        view::paint_console_panel(
+            left_chip,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+        view::paint_console_panel(
+            right_chip,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+        const sim::UnitSnapshot& left_unit =
+            attacker.side == sim::Side::first ? attacker : defender;
+        const sim::UnitSnapshot& right_unit =
+            attacker.side == sim::Side::first ? defender : attacker;
+        gpu::fill(
+            left_chip.header.x, left_chip.header.y, 3,
+            left_chip.header.height, move_colour
+        );
+        gpu::fill(
+            right_chip.header.x, right_chip.header.y, 3,
+            right_chip.header.height, danger_colour
+        );
+        Line left_status;
+        left_status.text("P1 HP ")
+            .decimal(static_cast<std::uint32_t>(left_unit.health))
+            .text("/")
+            .decimal(static_cast<std::uint32_t>(left_unit.maximum_health));
+        Line right_status;
+        right_status.text("P2 HP ")
+            .decimal(static_cast<std::uint32_t>(right_unit.health))
+            .text("/")
+            .decimal(static_cast<std::uint32_t>(right_unit.maximum_health));
+        write_at_with_clut(1, 1, left_status.c_str(), font_gold_clut);
+        write_at_with_clut(26, 1, right_status.c_str(), font_gold_clut);
+        view::paint_meter(
+            {left_chip.header.x + 7, 16, left_chip.header.width - 13, 2},
+            left_unit.health, left_unit.maximum_health,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+        view::paint_meter(
+            {right_chip.header.x + 7, 16, right_chip.header.width - 13, 2},
+            right_unit.health, right_unit.maximum_health,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+#ifdef GRANDLEON_PSX_AUTOPILOT
+        static bool close_chrome_checked = false;
+        if (!close_chrome_checked) {
+            close_chrome_checked = true;
+            expect(
+                gpu::read_back(left_chip.outer.x, left_chip.outer.y) ==
+                    menu_gold_colour &&
+                    gpu::read_back(right_chip.outer.x, right_chip.outer.y) ==
+                    menu_gold_colour,
+                "the close battle frames both side status chips"
+            );
+        }
+#endif
         if (show_result) {
             Line result;
             if (landed) {
@@ -1313,12 +1385,32 @@ public:
             }
             int length = 0;
             while (result.c_str()[length] != '\0') ++length;
-            const int left = (screen_cols - length) / 2;
-            gpu::fill(
-                left * glyph - 6, 190, length * glyph + 12, 20,
-                paper_colour
+            const int width = length * glyph + 20;
+            const int left = (gpu::screen_width - width) / 2;
+            const view::ConsolePanel result_panel = view::console_panel(
+                left, 190, width, 0, glyph, 16, 0
             );
-            write_at_with_clut(left, 24, result.c_str(), font_gold_clut);
+            view::paint_console_panel(
+                result_panel,
+                [](view::UiRect rectangle, view::UiTone tone) {
+                    paint_console_ui(rectangle, tone);
+                }
+            );
+            write_at_with_clut(
+                (screen_cols - length) / 2, 24, result.c_str(), font_gold_clut
+            );
+#ifdef GRANDLEON_PSX_AUTOPILOT
+            static bool close_result_checked = false;
+            if (!close_result_checked) {
+                close_result_checked = true;
+                expect(
+                    gpu::read_back(
+                        result_panel.outer.x, result_panel.outer.y
+                    ) == menu_gold_colour,
+                    "the close battle frames its damage result"
+                );
+            }
+#endif
         }
     }
 
@@ -2098,7 +2190,14 @@ private:
              ++line) {
             write_at(2, 3 + line - 1, sheet.line(line));
         }
-        write_controls_centred(sheet_footer_row, "X OR O  BACK", font_clut);
+        // This screen is shared by the ordinary turn executable and the
+        // campaign executable, while `write_controls_centred` belongs to the
+        // campaign page renderer below. Keep the same centred controller row
+        // without making the turn build depend on a campaign-only helper.
+        write_at_with_clut(14, sheet_footer_row, "X", font_gold_clut);
+        write_at(16, sheet_footer_row, "OR");
+        write_at_with_clut(19, sheet_footer_row, "O", font_gold_clut);
+        write_at(22, sheet_footer_row, "BACK");
     }
 
     void draw_menu(const turn::Overlay& overlay) {

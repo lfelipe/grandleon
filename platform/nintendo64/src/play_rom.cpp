@@ -575,12 +575,12 @@ void draw_logo(surface_t* disp, int top, int scale) {
 // Where the game's own name sits on the title screen, and what happens to a
 // name too long for it.
 //
-// The logo is 65x60 drawn at scale two from y=28, so it ends at y=148; the
-// prompt's erase box starts at y=188. That leaves 40 rows, which is three
+// The logo is 65x60 drawn at scale two from y=36, so it ends at y=156; the
+// page footer starts at y=202. That leaves 46 rows, which is three
 // lines of this font at the dialogue screen's own 11-pixel step. The band is
 // stated here rather than spelled into the drawing, because the autopilot
 // samples exactly it.
-constexpr int title_band_top = 152;
+constexpr int title_band_top = 160;
 constexpr int title_band_step = 11;
 constexpr int title_band_rows = 3;
 constexpr int title_band_bottom =
@@ -601,13 +601,15 @@ std::vector<std::string> title_rows(const std::string& title) {
 
 // The title screen: the engine's mark, the name of the game on the cartridge,
 // and a START/BEGIN badge blinking at the cadence of the battery-box screens
-// this console grew up with.
+// this console grew up with. The same framed page as launch, help and saves
+// now holds all three; the logo remains the largest thing on the screen.
 //
-// The logo stays where it was and the name goes underneath it, which is the
-// way round these two belong: the mark says what built this, and the name says
-// what the player thinks they are holding. The name is drawn in the cream the
-// screen's other words are drawn in and centred on each of its own rows, so a
-// short title reads as a title rather than as a caption pinned to the left.
+// The logo stays at the same two-times scale and the name goes underneath it,
+// which is the way round these two belong: the mark says what built this, and
+// the name says what the player thinks they are holding. The name is drawn in
+// the cream the screen's other words are drawn in and centred on each of its
+// own rows, so a short title reads as a title rather than as a caption pinned
+// to the left.
 //
 // The static content is painted once per display buffer; every later frame is
 // paced and touches only the prompt, so nothing races the video interface.
@@ -628,7 +630,10 @@ void title_screen(const std::string& title) {
         }
         if (fresh) {
             graphics_fill_screen(disp, graphics_make_color(16, 26, 27, 255));
-            draw_logo(disp, 28, 2);
+            draw_n64_page(
+                disp, 16, 12, 288, 216, 20, 24, "GRANDLEON"
+            );
+            draw_logo(disp, 36, 2);
             graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
             int y = title_band_top;
             for (const std::string& row : title_rows(title)) {
@@ -643,14 +648,14 @@ void title_screen(const std::string& title) {
             if (painted_count < 3) painted[painted_count++] = disp;
         }
         graphics_draw_box(
-            disp, 112, 188, 96, 11, graphics_make_color(16, 26, 27, 255)
+            disp, 112, 206, 96, 11, graphics_make_color(16, 26, 27, 255)
         );
         if ((frame / 30) % 2 == 0) {
             const view::ButtonLegend buttons = view::button_legend(
                 view::ConsolePlatform::nintendo64
             );
             draw_n64_button_badge(
-                disp, 116, 188, buttons.wait, "BEGIN"
+                disp, 116, 206, buttons.wait, "BEGIN"
             );
         }
         show(disp);
@@ -5358,10 +5363,73 @@ private:
         );
         console::end_close();
 
-        graphics_draw_box(disp, 0, 0, frame_width, 20, colour(16, 26, 27));
+        // Two compact status chips replace the old full-width text strip.
+        // Each is twenty lines high with a two-line shadow only beneath itself;
+        // the open centre means they hide less of the scene than the old
+        // full-width strip. Side, health and meter remain fixed left/right
+        // when a counter reverses the attacker.
+        constexpr int chip_width = 118;
+        constexpr int chip_header = 16;
+        const view::ConsolePanel left_chip = view::console_panel(
+            4, 0, chip_width, 0, 8, chip_header, 0
+        );
+        const view::ConsolePanel right_chip = view::console_panel(
+            frame_width - chip_width - 4, 0, chip_width, 0, 8,
+            chip_header, 0
+        );
+        const auto paint = [disp](view::UiRect rectangle, view::UiTone tone) {
+            paint_console_ui(disp, rectangle, tone);
+        };
+        view::paint_console_panel(left_chip, paint);
+        view::paint_console_panel(right_chip, paint);
+        const sim::UnitSnapshot& left_unit =
+            attacker.side == sim::Side::first ? attacker : defender;
+        const sim::UnitSnapshot& right_unit =
+            attacker.side == sim::Side::first ? defender : attacker;
+        graphics_draw_box(
+            disp, left_chip.header.x, left_chip.header.y, 3,
+            left_chip.header.height, colour(35, 117, 169)
+        );
+        graphics_draw_box(
+            disp, right_chip.header.x, right_chip.header.y, 3,
+            right_chip.header.height, colour(179, 72, 63)
+        );
+        char status[20]{};
         graphics_set_color(colour(242, 193, 78), 0);
-        graphics_draw_text(disp, 12, 6, "PLAYER 1");
-        graphics_draw_text(disp, 244, 6, "PLAYER 2");
+        std::snprintf(
+            status, sizeof status, "P1 HP %d/%d",
+            static_cast<int>(left_unit.health),
+            static_cast<int>(left_unit.maximum_health)
+        );
+        graphics_draw_text(disp, left_chip.header.x + 7, 5, status);
+        std::snprintf(
+            status, sizeof status, "P2 HP %d/%d",
+            static_cast<int>(right_unit.health),
+            static_cast<int>(right_unit.maximum_health)
+        );
+        graphics_draw_text(disp, right_chip.header.x + 7, 5, status);
+        view::paint_meter(
+            {left_chip.header.x + 7, 16, left_chip.header.width - 13, 2},
+            left_unit.health, left_unit.maximum_health, paint
+        );
+        view::paint_meter(
+            {right_chip.header.x + 7, 16, right_chip.header.width - 13, 2},
+            right_unit.health, right_unit.maximum_health, paint
+        );
+#ifdef GRANDLEON_N64_AUTOPILOT
+        static bool close_chrome_checked = false;
+        if (!close_chrome_checked) {
+            close_chrome_checked = true;
+            expect(
+                surface_pixel(disp, left_chip.outer.x, left_chip.outer.y) ==
+                    pack16(242, 193, 78) &&
+                    surface_pixel(
+                        disp, right_chip.outer.x, right_chip.outer.y
+                    ) == pack16(242, 193, 78),
+                "the close battle frames both side status chips"
+            );
+        }
+#endif
         if (show_result) {
             char result[24]{};
             if (landed) {
@@ -5371,12 +5439,31 @@ private:
             } else {
                 std::snprintf(result, sizeof result, "MISS");
             }
-            const int width = static_cast<int>(std::strlen(result)) * 8 + 16;
+            const int text_width = static_cast<int>(std::strlen(result)) * 8;
+            const int width = text_width + 20;
             const int left = (frame_width - width) / 2;
-            graphics_draw_box(
-                disp, left, 190, width, 22, colour(16, 26, 27)
+            const view::ConsolePanel result_panel = view::console_panel(
+                left, 190, width, 0, 8, 16, 0
             );
-            graphics_draw_text(disp, left + 8, 196, result);
+            view::paint_console_panel(result_panel, paint);
+            graphics_set_color(colour(242, 193, 78), 0);
+            graphics_draw_text(
+                disp, result_panel.header.x +
+                    (result_panel.header.width - text_width) / 2,
+                195, result
+            );
+#ifdef GRANDLEON_N64_AUTOPILOT
+            static bool close_result_checked = false;
+            if (!close_result_checked) {
+                close_result_checked = true;
+                expect(
+                    surface_pixel(
+                        disp, result_panel.outer.x, result_panel.outer.y
+                    ) == pack16(242, 193, 78),
+                    "the close battle frames its damage result"
+                );
+            }
+#endif
         }
     }
 
@@ -8570,7 +8657,7 @@ void autopilot_checkpoint(ap::Check check) {
                     surface_pixel(
                         autopilot_screen,
                         (320 - grandleon_logo_width * 2) / 2 + logo_x * 2,
-                        28 + logo_y * 2
+                        36 + logo_y * 2
                     ) == static_cast<std::uint16_t>(
                              logo_colour(index) & 0xFFFFU
                          ),
@@ -8579,6 +8666,11 @@ void autopilot_checkpoint(ap::Check check) {
             expect(
                 surface_pixel(autopilot_screen, 4, 4) == pack16(16, 26, 27),
                 "the title backdrop is the house colour"
+            );
+            expect(
+                surface_pixel(autopilot_screen, 16, 12) ==
+                    pack16(242, 193, 78),
+                "the title screen uses the campaign page frame"
             );
             // The game's own name, under the mark. Counted rather than
             // sampled: this is text on a flat colour, and a point assertion

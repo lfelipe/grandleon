@@ -50,6 +50,27 @@ int main() {
         primitives.size() == 7U,
         "a complete panel has a fixed seven-primitive budget"
     );
+    std::vector<Primitive> chip_primitives;
+    const view::ConsolePanel chip = view::console_panel(
+        4, 0, 118, 0, 8, 16, 0
+    );
+    view::paint_console_panel(
+        chip,
+        [&chip_primitives](view::UiRect rectangle, view::UiTone tone) {
+            chip_primitives.push_back({rectangle, tone});
+        }
+    );
+    expect(
+        chip.outer.height == 20 && chip.header.height == 16 &&
+            !chip.rows.valid() && !chip.footer.valid(),
+        "a zero-row status chip stays compact and has no phantom content"
+    );
+    expect(
+        chip_primitives.size() == 4U &&
+            chip_primitives.front().tone == view::UiTone::shadow &&
+            chip_primitives.back().tone == view::UiTone::header,
+        "a status chip costs only shadow, frame, surface and header"
+    );
     view::paint_focus_row(
         panel, 2,
         [&primitives](view::UiRect rectangle, view::UiTone tone) {
