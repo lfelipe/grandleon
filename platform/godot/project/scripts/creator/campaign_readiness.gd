@@ -3,11 +3,30 @@ class_name CampaignReadiness
 extends RefCounted
 
 
-static func playable_export(project: Dictionary) -> Dictionary:
+static func playable_export(project: Dictionary, campaign_id := "") -> Dictionary:
 	var campaigns_value: Variant = project.get("campaigns", [])
 	if not campaigns_value is Array or campaigns_value.is_empty():
 		return {"ok": true}
-	var campaign_value: Variant = campaigns_value[0]
+	var campaign_value: Variant = null
+	if not campaign_id.is_empty():
+		for value: Variant in campaigns_value:
+			if value is Dictionary and str(value.get("id", "")) == campaign_id:
+				campaign_value = value
+				break
+	elif campaigns_value.size() == 1:
+		campaign_value = campaigns_value[0]
+	else:
+		return {
+			"ok": false,
+			"code": "campaign_selection_required",
+			"message": "Choose which campaign this player build should start.",
+		}
+	if campaign_value == null:
+		return {
+			"ok": false,
+			"code": "campaign_not_found",
+			"message": "The selected campaign is no longer available.",
+		}
 	if not campaign_value is Dictionary:
 		return {"ok": true}
 	var campaign: Dictionary = campaign_value

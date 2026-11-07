@@ -24,11 +24,13 @@ var export_layer: Control
 var export_title: Label
 var export_status_label: Label
 var export_first_button: Button
+var export_campaign_select: OptionButton
 var export_linux_button: Button
 var export_nintendo_64_button: Button
 var export_playstation_button: Button
 var export_project_id := ""
 var export_project_name := ""
+var export_campaign_id := ""
 var rename_layer: Control
 var rename_input: LineEdit
 var rename_project_id := ""
@@ -104,7 +106,7 @@ func _build_interface() -> void:
 	add_child(background)
 
 	var header := Label.new()
-	header.text = "GRANDLEON  /  PROJECTS"
+	header.text = _t("creator.header")
 	header.position = Vector2(80, 54)
 	header.size = Vector2(1760, 54)
 	header.add_theme_font_size_override("font_size", 24)
@@ -112,7 +114,7 @@ func _build_interface() -> void:
 	add_child(header)
 
 	var title := Label.new()
-	title.text = "Make a game. Test it right away."
+	title.text = _t("creator.title")
 	title.position = Vector2(80, 112)
 	title.size = Vector2(1760, 72)
 	title.add_theme_font_size_override("font_size", 44)
@@ -120,10 +122,7 @@ func _build_interface() -> void:
 	add_child(title)
 
 	var explanation := Label.new()
-	explanation.text = (
-		"Start from a complete small campaign, change one thing, then play it. "
-		+ "Advanced tools stay available when you need them."
-	)
+	explanation.text = _t("creator.explanation")
 	explanation.position = Vector2(84, 190)
 	explanation.size = Vector2(1700, 70)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -141,22 +140,22 @@ func _build_interface() -> void:
 	var actions := VBoxContainer.new()
 	actions.add_theme_constant_override("separation", 18)
 	actions_panel.add_child(actions)
-	var actions_title := _label("CREATE", 18, Color("69d9ff"))
+	var actions_title := _label(_t("creator.create.heading"), 18, Color("69d9ff"))
 	actions.add_child(actions_title)
-	var campaign := _button("NEW CAMPAIGN")
-	campaign.tooltip_text = "Name a complete small campaign, then begin with its first map."
+	var campaign := _button(_t("creator.new_campaign"))
+	campaign.tooltip_text = _t("creator.new_campaign.help")
 	campaign.pressed.connect(_open_new_campaign)
 	actions.add_child(campaign)
 	first_button = campaign
-	import_open_button = _button("IMPORT PROJECT ARCHIVE")
-	import_open_button.tooltip_text = "Choose a portable project from the controller-friendly inbox."
+	import_open_button = _button(_t("creator.import_project"))
+	import_open_button.tooltip_text = _t("creator.import_project.help")
 	import_open_button.pressed.connect(_open_import)
 	actions.add_child(import_open_button)
-	var home := _button("MAIN MENU")
+	var home := _button(_t("creator.main_menu"))
 	home.pressed.connect(_open_home)
 	actions.add_child(home)
 	var hint := _label(
-		"Choose with the stick or d-pad. Confirm opens. Cancel goes back.",
+		_t("creator.controls_hint"),
 		16, Color("718896")
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -173,7 +172,7 @@ func _build_interface() -> void:
 	var projects_column := VBoxContainer.new()
 	projects_column.add_theme_constant_override("separation", 12)
 	projects_panel.add_child(projects_column)
-	projects_column.add_child(_label("YOUR PROJECTS", 18, Color("69d9ff")))
+	projects_column.add_child(_label(_t("creator.projects.heading"), 18, Color("69d9ff")))
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -182,7 +181,7 @@ func _build_interface() -> void:
 	project_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	project_list.add_theme_constant_override("separation", 10)
 	scroll.add_child(project_list)
-	status_label = _label("READY", 17, Color("a9bdc9"))
+	status_label = _label(_t("creator.status.ready"), 17, Color("a9bdc9"))
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.custom_minimum_size.y = 64
 	projects_column.add_child(status_label)
@@ -274,32 +273,43 @@ func _build_project_actions_layer() -> void:
 	)
 	project_actions_layer.add_child(panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 14)
+	column.add_theme_constant_override("separation", 10)
 	panel.add_child(column)
-	column.add_child(_label("PROJECT OPTIONS", 18, Color("69d9ff")))
+	column.add_child(_label(_t("creator.project_options.heading"), 18, Color("69d9ff")))
 	project_actions_title = _label("CAMPAIGN", 34, Color("f2f7f9"))
 	project_actions_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	project_actions_title.custom_minimum_size.y = 82
+	project_actions_title.custom_minimum_size.y = 64
 	column.add_child(project_actions_title)
-	project_actions_first_button = _button("CAMPAIGN OUTLINE")
+	project_actions_first_button = _button(_t("creator.project_options.outline"))
+	project_actions_first_button.custom_minimum_size.y = 72
 	project_actions_first_button.pressed.connect(_campaign_selected_project)
 	column.add_child(project_actions_first_button)
-	var settings := _button("GAME SETTINGS")
+	var settings := _button(_t("creator.project_options.settings"))
+	settings.custom_minimum_size.y = 72
 	settings.pressed.connect(_settings_selected_project)
 	column.add_child(settings)
-	var army := _button("GROW THE ARMY")
+	var army := _button(_t("creator.project_options.army"))
+	army.custom_minimum_size.y = 72
 	army.pressed.connect(_army_selected_project)
 	column.add_child(army)
-	var rename := _button("RENAME")
+	var translations := _button(_t("creator.project_options.translations"))
+	translations.custom_minimum_size.y = 72
+	translations.pressed.connect(_translations_selected_project)
+	column.add_child(translations)
+	var rename := _button(_t("creator.project_options.rename"))
+	rename.custom_minimum_size.y = 72
 	rename.pressed.connect(_rename_selected_project)
 	column.add_child(rename)
-	var duplicate := _button("MAKE A COPY")
+	var duplicate := _button(_t("creator.project_options.copy"))
+	duplicate.custom_minimum_size.y = 72
 	duplicate.pressed.connect(_duplicate_selected_project)
 	column.add_child(duplicate)
-	var export := _button("FINISH & EXPORT")
+	var export := _button(_t("creator.project_options.export"))
+	export.custom_minimum_size.y = 72
 	export.pressed.connect(_export_selected_project)
 	column.add_child(export)
-	var back := _button("BACK")
+	var back := _button(_t("common.back"))
+	back.custom_minimum_size.y = 72
 	back.pressed.connect(_close_project_actions)
 	column.add_child(back)
 
@@ -338,6 +348,20 @@ func _build_export_layer() -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 50
 	column.add_child(explanation)
+	var campaign_row := HBoxContainer.new()
+	campaign_row.add_theme_constant_override("separation", 14)
+	column.add_child(campaign_row)
+	var campaign_label := _label("STARTING CAMPAIGN", 15, Color("69d9ff"))
+	campaign_label.custom_minimum_size = Vector2(230, 54)
+	campaign_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	campaign_row.add_child(campaign_label)
+	export_campaign_select = OptionButton.new()
+	export_campaign_select.custom_minimum_size = Vector2(0, 54)
+	export_campaign_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	export_campaign_select.add_theme_font_size_override("font_size", 18)
+	export_campaign_select.tooltip_text = "Choose the campaign a built game starts. The portable project keeps every campaign."
+	export_campaign_select.item_selected.connect(_select_export_campaign)
+	campaign_row.add_child(export_campaign_select)
 	export_first_button = _button(
 		"PORTABLE PROJECT  /  READY\nEditable archive for another Grandleon installation"
 	)
@@ -478,6 +502,15 @@ func _settings_selected_project() -> void:
 	get_tree().change_scene_to_file("res://game_settings.tscn")
 
 
+func _translations_selected_project() -> void:
+	var project_id := project_actions_id
+	project_actions_layer.visible = false
+	project_actions_id = ""
+	project_actions_name = ""
+	CreatorContext.open_project(project_id)
+	get_tree().change_scene_to_file("res://translations_editor.tscn")
+
+
 func _duplicate_selected_project() -> void:
 	var project_id := project_actions_id
 	project_actions_layer.visible = false
@@ -496,13 +529,14 @@ func _open_export_center(project_id: String, title: String) -> void:
 	export_project_name = title
 	export_title.text = title
 	export_layer.visible = true
+	_refresh_export_campaigns()
 	_refresh_export_center()
 	export_first_button.grab_focus()
 
 
 func _refresh_export_center() -> void:
 	var available: Dictionary = standalone_exporter.linux_availability()
-	export_linux_button.disabled = not bool(available.ok)
+	export_linux_button.disabled = not bool(available.ok) or export_campaign_id.is_empty()
 	if available.ok:
 		export_linux_button.text = (
 			"LINUX PC GAME  /  READY\nStandalone player build without creator tools or saves"
@@ -517,11 +551,63 @@ func _refresh_export_center() -> void:
 	_set_export_status("CHOOSE A FORMAT", false)
 
 
+func _refresh_export_campaigns() -> void:
+	export_campaign_select.clear()
+	export_campaign_id = ""
+	var loaded: Dictionary = library.load_source(export_project_id)
+	if not loaded.ok:
+		export_campaign_select.add_item("PROJECT COULD NOT BE OPENED")
+		export_campaign_select.disabled = true
+		return
+	var campaigns: Array = loaded.project.get("campaigns", [])
+	var preferred_index := -1
+	for value: Variant in campaigns:
+		if not value is Dictionary:
+			continue
+		var campaign_id := str(value.get("id", ""))
+		if campaign_id.is_empty():
+			continue
+		var mode := str(value.get("playerMode", "one"))
+		var mode_label: String = str({
+			"one": "1 PLAYER",
+			"two": "2 PLAYERS",
+			"choice": "1 OR 2 PLAYERS",
+		}.get(mode, "PLAYABLE"))
+		export_campaign_select.add_item("%s  /  %s" % [
+			str(value.get("name", campaign_id)).to_upper(), mode_label,
+		])
+		export_campaign_select.set_item_metadata(
+			export_campaign_select.item_count - 1, campaign_id
+		)
+		if campaign_id == CreatorContext.campaign_id:
+			preferred_index = export_campaign_select.item_count - 1
+	if export_campaign_select.item_count == 0:
+		export_campaign_select.add_item("ADD A CAMPAIGN BEFORE BUILDING")
+		export_campaign_select.disabled = true
+		return
+	export_campaign_select.disabled = export_campaign_select.item_count <= 1
+	export_campaign_select.select(preferred_index if preferred_index >= 0 else 0)
+	_select_export_campaign(export_campaign_select.selected)
+
+
+func _select_export_campaign(index: int) -> void:
+	if index < 0 or index >= export_campaign_select.item_count:
+		export_campaign_id = ""
+		return
+	export_campaign_id = str(export_campaign_select.get_item_metadata(index))
+	CreatorContext.choose_campaign(export_campaign_id)
+	if export_layer.visible:
+		_refresh_linux_export_availability()
+		_refresh_console_export_availability()
+		_set_export_status("STARTING CAMPAIGN  /  %s" % export_campaign_select.get_item_text(index), false)
+
+
 func _close_export_center() -> void:
 	if console_builder != null and console_builder.busy():
 		_set_export_status("BUILD IN PROGRESS  /  WAIT FOR THE CONSOLE ARTIFACT", false)
 		return
 	export_layer.visible = false
+	export_campaign_id = ""
 	if not project_actions_id.is_empty():
 		project_actions_layer.visible = true
 		project_actions_first_button.call_deferred("grab_focus")
@@ -550,7 +636,9 @@ func _build_linux_export() -> void:
 		_set_export_status("BUILD FAILED  /  NO PROJECT SELECTED", true)
 		_refresh_export_center()
 		return
-	var built: Dictionary = standalone_exporter.export_linux_player(export_project_id)
+	var built: Dictionary = standalone_exporter.export_linux_player(
+		export_project_id, export_campaign_id
+	)
 	if not built.ok:
 		_set_export_status("BUILD FAILED  /  %s" % built.message, true)
 		_refresh_linux_export_availability()
@@ -563,7 +651,7 @@ func _build_linux_export() -> void:
 
 func _refresh_linux_export_availability() -> void:
 	var available: Dictionary = standalone_exporter.linux_availability()
-	export_linux_button.disabled = not bool(available.ok)
+	export_linux_button.disabled = not bool(available.ok) or export_campaign_id.is_empty()
 	export_linux_button.tooltip_text = str(available.message)
 
 
@@ -574,7 +662,11 @@ func _refresh_console_export_availability() -> void:
 			else export_playstation_button
 		)
 		var available: Dictionary = console_builder.availability(target)
-		button.disabled = not bool(available.ok) or console_builder.busy()
+		button.disabled = (
+			not bool(available.ok)
+			or console_builder.busy()
+			or export_campaign_id.is_empty()
+		)
 		button.tooltip_text = str(available.get("message", "Installed builder payload is ready."))
 		var title := "NINTENDO 64 ROM" if target == "nintendo64" else "PLAYSTATION BIN / CUE"
 		if available.ok:
@@ -589,7 +681,9 @@ func _start_console_export(target: String) -> void:
 	if export_project_id.is_empty():
 		_set_export_status("BUILD FAILED  /  NO PROJECT SELECTED", true)
 		return
-	var started: Dictionary = console_builder.start(target, export_project_id)
+	var started: Dictionary = console_builder.start(
+		target, export_project_id, export_campaign_id
+	)
 	if not started.ok:
 		_set_export_status("BUILD FAILED  /  %s" % str(started.message).to_upper(), true)
 		_refresh_console_export_availability()
@@ -1055,6 +1149,10 @@ func _set_status(message: String, failure: bool) -> void:
 	status_label.add_theme_color_override(
 		"font_color", Color("ff7a83") if failure else Color("72e08f")
 	)
+
+
+func _t(message_id: String, values: Dictionary = {}) -> String:
+	return Localization.text(message_id, values)
 
 
 func _label(value: String, size: int, colour: Color) -> Label:

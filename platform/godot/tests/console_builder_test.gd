@@ -103,6 +103,30 @@ func _run() -> void:
 		_expect("ROM is moved into an atomic export directory", DirAccess.dir_exists_absolute(str(completed.path)), true)
 		_expect("ROM bytes are present", FileAccess.file_exists(str(completed.path).path_join("payload-road.z64")), true)
 
+	var multi_project: Dictionary = JSON.parse_string(complete_source)
+	var alternate_campaign: Dictionary = multi_project.campaigns[0].duplicate(true)
+	alternate_campaign.id = "alternate_adventure"
+	alternate_campaign.name = "Alternate Adventure"
+	multi_project.campaigns.append(alternate_campaign)
+	var multi_source := JSON.stringify(_integer_numbers(multi_project), "  ", true) + "\n"
+	_expect("multiple-campaign console fixture saves", library.save_source(str(created.id), multi_source).ok, true)
+	var ambiguous: Dictionary = builder.start("nintendo64", str(created.id))
+	_expect("console build never silently chooses the first campaign", ambiguous.ok, false)
+	_expect("console build asks for an explicit campaign", str(ambiguous.code), "campaign_selection_required")
+	var alternate_started: Dictionary = builder.start(
+		"nintendo64", str(created.id), "alternate_adventure"
+	)
+	_expect("explicit alternate console campaign starts", alternate_started.ok, true)
+	if alternate_started.ok:
+		var request_root := str(builder._active.request_root)
+		var request: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(request_root.path_join("request.json")))
+		var staged: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(request_root.path_join("project.json")))
+		_expect("builder contract names the selected campaign", str(request.campaign), "alternate_adventure")
+		_expect("legacy first-campaign builders receive the selected campaign first", str(staged.campaigns[0].id), "alternate_adventure")
+		var alternate_result := await _wait_for_builder(builder)
+		_expect("explicit alternate console build completes", alternate_result.ok, true)
+	_expect("single-campaign console fixture restores", library.save_source(str(created.id), complete_source).ok, true)
+
 	# A signed payload is still not allowed to return a local project path in a
 	# ROM. Re-signing this synthetic executable models a new valid payload, so
 	# the rejection proves the artifact scan rather than the manifest checksum.

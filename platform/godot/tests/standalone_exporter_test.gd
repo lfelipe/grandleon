@@ -114,6 +114,32 @@ func _run() -> void:
 	var second: Dictionary = exporter.export_linux_player(str(created.id))
 	_expect("a second export receives a new directory", second.ok and str(second.name) != str(built.name), true)
 
+	var multi_project: Dictionary = JSON.parse_string(str(created.source))
+	var alternate_campaign: Dictionary = multi_project.campaigns[0].duplicate(true)
+	alternate_campaign.id = "alternate_adventure"
+	alternate_campaign.name = "Alternate Adventure"
+	multi_project.campaigns.append(alternate_campaign)
+	var multi_source := JSON.stringify(_integer_numbers(multi_project), "  ", true) + "\n"
+	_expect(
+		"multiple-campaign source remains portable",
+		library.save_source(str(created.id), multi_source).ok,
+		true
+	)
+	var ambiguous: Dictionary = exporter.export_linux_player(str(created.id))
+	_expect("multiple campaigns never silently export the first", ambiguous.ok, false)
+	_expect("ambiguous export requests a campaign choice", str(ambiguous.code), "campaign_selection_required")
+	var selected: Dictionary = exporter.export_linux_player(str(created.id), "alternate_adventure")
+	_expect("explicit alternate campaign exports", selected.ok, true)
+	if selected.ok:
+		_expect(
+			"explicit export starts the chosen campaign",
+			FileAccess.get_file_as_string(str(selected.path).path_join("DEFAULT-CAMPAIGN")).strip_edges(),
+			"alternate_adventure"
+		)
+	var missing: Dictionary = exporter.export_linux_player(str(created.id), "removed_campaign")
+	_expect("stale campaign selection is refused", str(missing.code), "campaign_not_found")
+	_expect("single-campaign source restores after selection checks", library.save_source(str(created.id), str(created.source)).ok, true)
+
 	_write(shell.path_join("BUILD-INFO.txt"), "sourceTree=dirty\n")
 	var refused: Dictionary = exporter.linux_availability()
 	_expect("an unclean player shell is refused", refused.ok, false)

@@ -425,7 +425,13 @@ func _refresh_encounters() -> void:
 				"campaign": campaign,
 				"node": node,
 			})
-			if str(node.get("id", "")) == CreatorContext.encounter_id:
+			if (
+				str(node.get("id", "")) == CreatorContext.encounter_id
+				and (
+					CreatorContext.campaign_id.is_empty()
+					or str(campaign.get("id", "")) == CreatorContext.campaign_id
+				)
+			):
 				requested_encounter_index = encounters.size() - 1
 			encounter_select.add_item(
 				"%s / %s" % [
@@ -3838,12 +3844,14 @@ func _play_draft() -> void:
 		_set_status("NOT PLAYABLE  /  %s" % _diagnostic_code(compiled), true)
 		return
 	var campaigns: Array = project.get("campaigns", [])
-	if campaigns.is_empty() or not campaigns[0] is Dictionary:
+	if campaigns.is_empty():
 		_set_status("NOT PLAYABLE  /  ADD A CAMPAIGN", true)
 		return
-	var campaign := str(campaigns[0].get("id", ""))
+	var campaign := str(_current_encounter().get("campaign_id", CreatorContext.campaign_id))
+	if campaign.is_empty() and campaigns.size() == 1 and campaigns[0] is Dictionary:
+		campaign = str(campaigns[0].get("id", ""))
 	if campaign.is_empty():
-		_set_status("NOT PLAYABLE  /  CAMPAIGN NEEDS AN ID", true)
+		_set_status("NOT PLAYABLE  /  CHOOSE A CAMPAIGN BATTLE", true)
 		return
 	if dirty and not _save():
 		return

@@ -129,6 +129,35 @@ func _run() -> void:
 	_expect("battle row offers its own co-op test", editor.battle_test_two_buttons.has("first_battle"), true)
 	_expect("battle row solo test follows campaign policy", editor.battle_test_one_buttons.first_battle.disabled, false)
 	_expect("battle row co-op test sees its Player 2 hero", editor.battle_test_two_buttons.first_battle.disabled, false)
+	var multiple_campaigns: Dictionary = _parse(editor.source)
+	var second_campaign: Dictionary = multiple_campaigns.campaigns[0].duplicate(true)
+	second_campaign.id = "second_adventure"
+	second_campaign.name = "Second Adventure"
+	second_campaign.flow.nodes[1].name = "A Different Crossing"
+	multiple_campaigns.campaigns.append(second_campaign)
+	editor.source = JSON.stringify(editor._integer_numbers(multiple_campaigns), "  ", true) + "\n"
+	_expect("multiple-campaign fixture is readable", editor._read_source(), true)
+	editor._collect_route()
+	editor._refresh_route()
+	_expect("campaign outline lists every campaign", editor.campaign_select.item_count, 2)
+	editor.campaign_select.select(1)
+	editor._change_campaign(1)
+	_expect("campaign outline edits the explicit campaign", str(editor.campaign.id), "second_adventure")
+	_expect("campaign selection is shared with the other editors", creator_context.campaign_id, "second_adventure")
+	_expect("selected campaign shows its own route", str(editor.route[1].name), "A Different Crossing")
+	editor._select_metadata(editor.player_mode_select, "one")
+	editor._change_player_mode(editor.player_mode_select.selected)
+	var independently_edited: Dictionary = _parse(editor.source)
+	_expect("first campaign is not silently edited", str(independently_edited.campaigns[0].playerMode), "choice")
+	_expect("selected campaign receives its player policy", str(independently_edited.campaigns[1].playerMode), "one")
+	editor.source = starter_source
+	editor.saved_source = starter_source
+	editor.undo_stack.clear()
+	editor.redo_stack.clear()
+	editor.dirty = false
+	_expect("single-campaign fixture restores after selector test", editor._read_source(), true)
+	editor._collect_route()
+	editor._refresh_route()
 	_expect(
 		"two-player guidance confirms every battle has an owner",
 		editor.player_mode_help.text.contains("Every battle gives Player 2"),

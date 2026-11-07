@@ -13,6 +13,7 @@ var controls
 var creator_enabled := true
 var controls_path := ""
 var first_button: Button
+var language_select: OptionButton
 var games_list: VBoxContainer
 var status_label: Label
 var screenshot_path := ""
@@ -165,10 +166,29 @@ func _build_interface() -> void:
 	var words := VBoxContainer.new()
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	identity.add_child(words)
-	words.add_child(_label("GRANDLEON", 48, Color("f2f7f9")))
-	words.add_child(_label("Play a game or make one.", 22, Color("8ba5b3")))
+	words.add_child(_label(_t("app.name"), 48, Color("f2f7f9")))
+	words.add_child(_label(_t("home.tagline"), 22, Color("8ba5b3")))
+	var language_column := VBoxContainer.new()
+	language_column.custom_minimum_size.x = 300
+	language_column.add_theme_constant_override("separation", 6)
+	identity.add_child(language_column)
+	var language_label := _label(_t("language.label"), 15, Color("69d9ff"))
+	language_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	language_column.add_child(language_label)
+	language_select = OptionButton.new()
+	language_select.custom_minimum_size = Vector2(300, 54)
+	language_select.add_theme_font_size_override("font_size", 17)
+	var current_language := Localization.current_language()
+	for language: Dictionary in Localization.available_languages():
+		language_select.add_item(str(language.native_name))
+		var at := language_select.item_count - 1
+		language_select.set_item_metadata(at, str(language.code))
+		if str(language.code) == current_language:
+			language_select.select(at)
+	language_select.item_selected.connect(_select_language)
+	language_column.add_child(language_select)
 
-	column.add_child(_label("PLAY", 16, Color("69d9ff")))
+	column.add_child(_label(_t("home.play.heading"), 16, Color("69d9ff")))
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -182,10 +202,10 @@ func _build_interface() -> void:
 	divider.modulate = Color(0.35, 0.70, 0.84, 0.28)
 	column.add_child(divider)
 	if creator_enabled:
-		var editor := _button("CREATE / EDIT GAMES")
+		var editor := _button(_t("home.create_edit"))
 		editor.pressed.connect(_open_editor)
 		column.add_child(editor)
-	var quit := _button("EXIT")
+	var quit := _button(_t("home.exit"))
 	quit.pressed.connect(get_tree().quit)
 	column.add_child(quit)
 	status_label = _label("", 17, Color("8ba5b3"))
@@ -193,7 +213,7 @@ func _build_interface() -> void:
 	status_label.custom_minimum_size.y = 28
 	column.add_child(status_label)
 	var hint := _label(
-		"STICK / D-PAD  CHOOSE     %s  SELECT" % controls.label("confirm"),
+		_t("home.controls_hint", {"confirm": controls.label("confirm")}),
 		16, Color("718896")
 	)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -219,16 +239,16 @@ func _build_player_choice() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	panel.add_child(column)
-	var heading := _label("WHO IS PLAYING?", 28, Color("f2f7f9"))
+	var heading := _label(_t("home.player_choice.heading"), 28, Color("f2f7f9"))
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(heading)
-	player_one_button = _button("1 PLAYER")
+	player_one_button = _button(_t("home.player_choice.one"))
 	player_one_button.pressed.connect(_choose_players.bind(1))
 	column.add_child(player_one_button)
-	var player_two := _button("2 PLAYERS")
+	var player_two := _button(_t("home.player_choice.two"))
 	player_two.pressed.connect(_choose_players.bind(2))
 	column.add_child(player_two)
-	var cancel := _button("BACK")
+	var cancel := _button(_t("common.back"))
 	cancel.pressed.connect(_cancel_player_choice)
 	column.add_child(cancel)
 
@@ -250,7 +270,7 @@ func _refresh_games() -> void:
 			first_button = included
 		game_button_count += 1
 	if included_games.is_empty() and FileAccess.file_exists("res://game.gpk"):
-		var included := _button("INCLUDED GAME\nDEFAULT CAMPAIGN")
+		var included := _button(_t("home.included.default_title"))
 		included.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		included.pressed.connect(_play_default_included)
 		games_list.add_child(included)
@@ -260,14 +280,38 @@ func _refresh_games() -> void:
 		return
 	for project: Dictionary in library.list_projects():
 		var title := String(project.get("title", "Untitled Game"))
-		var button := _button(title)
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.disabled = not bool(project.get("readable", false))
-		button.pressed.connect(_play_project.bind(String(project.get("id", ""))))
-		games_list.add_child(button)
-		if first_button == null:
-			first_button = button
-		game_button_count += 1
+		var project_id := String(project.get("id", ""))
+		var loaded: Dictionary = library.load_source(project_id)
+		var campaigns: Array = (
+			loaded.project.get("campaigns", [])
+			if bool(loaded.get("ok", false))
+			else []
+		)
+		if campaigns.is_empty():
+			var empty := _button(title)
+			empty.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			empty.disabled = true
+			games_list.add_child(empty)
+			if first_button == null:
+				first_button = empty
+			game_button_count += 1
+			continue
+		for campaign_value: Variant in campaigns:
+			if not campaign_value is Dictionary:
+				continue
+			var campaign: Dictionary = campaign_value
+			var campaign_id := String(campaign.get("id", ""))
+			var label := title
+			if campaigns.size() > 1:
+				label += "\n%s" % String(campaign.get("name", campaign_id)).to_upper()
+			var button := _button(label)
+			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			button.disabled = not bool(project.get("readable", false)) or campaign_id.is_empty()
+			button.pressed.connect(_play_project.bind(project_id, campaign_id))
+			games_list.add_child(button)
+			if first_button == null:
+				first_button = button
+			game_button_count += 1
 
 
 func _available_included_games() -> Array[Dictionary]:
@@ -299,7 +343,7 @@ func _available_included_games() -> Array[Dictionary]:
 func _play_included(game: Dictionary) -> void:
 	var bytes := FileAccess.get_file_as_bytes(str(game.path))
 	if bytes.is_empty():
-		_set_status("THIS INCLUDED CAMPAIGN COULD NOT BE OPENED", true)
+		_set_status(_t("home.error.included_open"), true)
 		return
 	_launch_package_for_mode(
 		bytes, str(game.campaign), str(game.playerMode), false
@@ -311,26 +355,36 @@ func _play_default_included() -> void:
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
-func _play_project(project_id: String) -> void:
+func _play_project(project_id: String, selected_campaign := "") -> void:
 	if library == null or compiler == null:
-		_set_status("THIS GAME COULD NOT BE OPENED", true)
+		_set_status(_t("home.error.game_open"), true)
 		return
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.get("ok", false):
-		_set_status("THIS GAME COULD NOT BE OPENED", true)
+		_set_status(_t("home.error.game_open"), true)
 		return
 	var compiled: Dictionary = compiler.compile_source_json(String(loaded.source))
 	if not compiled.get("ok", false):
-		_set_status("FINISH THIS GAME IN CREATE / EDIT BEFORE PLAYING", true)
+		_set_status(_t("home.error.finish_before_play"), true)
 		return
 	var campaigns: Array = loaded.project.get("campaigns", [])
-	if campaigns.is_empty() or not campaigns[0] is Dictionary:
-		_set_status("THIS GAME NEEDS A CAMPAIGN BEFORE PLAYING", true)
+	if campaigns.is_empty():
+		_set_status(_t("home.error.campaign_required"), true)
 		return
-	var campaign_data: Dictionary = campaigns[0]
+	var campaign_data: Dictionary = {}
+	for value: Variant in campaigns:
+		if value is Dictionary and (
+			str(value.get("id", "")) == selected_campaign
+			or (selected_campaign.is_empty() and campaigns.size() == 1)
+		):
+			campaign_data = value
+			break
+	if campaign_data.is_empty():
+		_set_status(_t("home.error.campaign_required"), true)
+		return
 	var campaign := String(campaign_data.get("id", ""))
 	if campaign.is_empty():
-		_set_status("THIS GAME NEEDS A CAMPAIGN BEFORE PLAYING", true)
+		_set_status(_t("home.error.campaign_required"), true)
 		return
 	_launch_package_for_mode(
 		compiled.package,
@@ -390,6 +444,41 @@ func _clear_player_choice() -> void:
 func _open_editor() -> void:
 	CreatorContext.clear()
 	get_tree().change_scene_to_file("res://creator.tscn")
+
+
+func _select_language(index: int) -> void:
+	if language_select == null or index < 0 or index >= language_select.item_count:
+		return
+	var selected := str(language_select.get_item_metadata(index))
+	if selected == Localization.current_language():
+		return
+	Localization.select_language(selected)
+	call_deferred("_rebuild_localized_interface")
+
+
+func _rebuild_localized_interface() -> void:
+	for child: Node in get_children():
+		remove_child(child)
+		child.queue_free()
+	first_button = null
+	language_select = null
+	games_list = null
+	status_label = null
+	player_choice_overlay = null
+	player_one_button = null
+	pending_package = PackedByteArray()
+	pending_campaign = ""
+	pending_preview = false
+	player_choice_return_focus = null
+	_build_interface()
+	_build_player_choice()
+	_refresh_games()
+	if first_button != null:
+		first_button.grab_focus()
+
+
+func _t(message_id: String, values: Dictionary = {}) -> String:
+	return Localization.text(message_id, values)
 
 
 func _activate_focus() -> void:

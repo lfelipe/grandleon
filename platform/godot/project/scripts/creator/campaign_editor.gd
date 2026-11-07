@@ -23,6 +23,7 @@ var route_list: VBoxContainer
 var target_budget_label: Label
 var status_label: Label
 var fix_button: Button
+var campaign_select: OptionButton
 var player_mode_select: OptionButton
 var player_mode_help: Label
 var test_one_button: Button
@@ -146,10 +147,10 @@ func _load_project() -> void:
 	if campaigns.is_empty() or not campaigns[0] is Dictionary:
 		_set_status("ADD A CAMPAIGN BEFORE EDITING ITS OUTLINE", true)
 		return
-	campaign = campaigns[0]
-	title_label.text = "%s  /  CAMPAIGN" % str(
-		project.get("title", "UNTITLED GAME")
-	).to_upper()
+	_refresh_campaign_choices(CreatorContext.campaign_id)
+	if not _set_campaign_from_selection():
+		_set_status("CHOOSE A CAMPAIGN TO EDIT", true)
+		return
 	_collect_route()
 	_refresh_route()
 	_refresh_player_mode()
@@ -158,6 +159,63 @@ func _load_project() -> void:
 	_set_status("CHOOSE A CHAPTER TO EDIT, OR TEST THE WHOLE CAMPAIGN", false)
 	if first_button != null:
 		first_button.call_deferred("grab_focus")
+
+
+func _refresh_campaign_choices(preferred_id := "") -> void:
+	if campaign_select == null:
+		return
+	campaign_select.clear()
+	var preferred_index := -1
+	var campaigns: Array = project.get("campaigns", [])
+	for index in campaigns.size():
+		if not campaigns[index] is Dictionary:
+			continue
+		var value: Dictionary = campaigns[index]
+		var campaign_id := str(value.get("id", ""))
+		campaign_select.add_item(str(value.get("name", campaign_id if not campaign_id.is_empty() else "Campaign")))
+		campaign_select.set_item_metadata(campaign_select.item_count - 1, campaign_id)
+		if campaign_id == preferred_id:
+			preferred_index = campaign_select.item_count - 1
+	campaign_select.disabled = campaign_select.item_count <= 1
+	if campaign_select.item_count > 0:
+		campaign_select.select(preferred_index if preferred_index >= 0 else 0)
+
+
+func _set_campaign_from_selection() -> bool:
+	if campaign_select == null or campaign_select.selected < 0:
+		campaign = {}
+		return false
+	var selected_id := str(campaign_select.get_item_metadata(campaign_select.selected))
+	for value: Variant in project.get("campaigns", []):
+		if value is Dictionary and str(value.get("id", "")) == selected_id:
+			campaign = value
+			CreatorContext.choose_campaign(selected_id)
+			title_label.text = "%s  /  %s" % [
+				str(project.get("title", "UNTITLED GAME")).to_upper(),
+				str(value.get("name", "CAMPAIGN")).to_upper(),
+			]
+			return true
+	campaign = {}
+	return false
+
+
+func _change_campaign(index: int) -> void:
+	if campaign_select == null or index < 0 or index >= campaign_select.item_count:
+		return
+	if not _set_campaign_from_selection():
+		_set_status("CAMPAIGN IS NO LONGER AVAILABLE", true)
+		return
+	_collect_route()
+	_refresh_route()
+	_refresh_player_mode()
+	_refresh_target_budget()
+	_update_actions()
+	_set_status(
+		"EDITING  /  %s" % str(campaign.get("name", campaign.get("id", "CAMPAIGN"))).to_upper(),
+		false
+	)
+	if first_button != null:
+		first_button.grab_focus()
 
 
 func _collect_route() -> void:
@@ -801,12 +859,18 @@ func _change_player_mode(index: int) -> void:
 		return
 	var candidate := project.duplicate(true)
 	var campaigns: Array = candidate.get("campaigns", []).duplicate(true)
-	if campaigns.is_empty() or not campaigns[0] is Dictionary:
+	var campaign_id := str(campaign.get("id", ""))
+	var campaign_index := -1
+	for position in campaigns.size():
+		if campaigns[position] is Dictionary and str(campaigns[position].get("id", "")) == campaign_id:
+			campaign_index = position
+			break
+	if campaign_index < 0:
 		_set_status("ADD A CAMPAIGN BEFORE CHOOSING ITS PLAYERS", true)
 		return
-	var changed: Dictionary = campaigns[0].duplicate(true)
+	var changed: Dictionary = campaigns[campaign_index].duplicate(true)
 	changed["playerMode"] = mode
-	campaigns[0] = changed
+	campaigns[campaign_index] = changed
 	candidate["campaigns"] = campaigns
 	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
@@ -1131,11 +1195,15 @@ func _read_source() -> bool:
 		_set_status("PROJECT SOURCE IS NOT READABLE", true)
 		return false
 	project = parsed
+	var selected_id := str(campaign.get("id", CreatorContext.campaign_id))
 	var campaigns: Array = project.get("campaigns", [])
 	if campaigns.is_empty() or not campaigns[0] is Dictionary:
 		_set_status("ADD A CAMPAIGN BEFORE EDITING ITS OUTLINE", true)
 		return false
-	campaign = campaigns[0]
+	_refresh_campaign_choices(selected_id)
+	if not _set_campaign_from_selection():
+		_set_status("CHOOSE A CAMPAIGN TO EDIT", true)
+		return false
 	_refresh_player_mode()
 	_refresh_target_budget()
 	return true
@@ -2448,6 +2516,29 @@ func _build_interface() -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 38
 	column.add_child(explanation)
+	var campaign_row := HBoxContainer.new()
+	campaign_row.add_theme_constant_override("separation", 16)
+	column.add_child(campaign_row)
+	var campaign_title := _label("CAMPAIGN", 15, Color("69d9ff"))
+	campaign_title.custom_minimum_size = Vector2(110, 54)
+	campaign_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	campaign_row.add_child(campaign_title)
+	campaign_select = OptionButton.new()
+	campaign_select.custom_minimum_size = Vector2(620, 54)
+	campaign_select.add_theme_font_size_override("font_size", 18)
+	campaign_select.tooltip_text = "Choose which campaign in this project you are editing and testing."
+	campaign_select.item_selected.connect(_change_campaign)
+	campaign_row.add_child(campaign_select)
+	var campaign_help := _label(
+		"Each campaign keeps its own route, roster, player-count policy, and starting chapter.",
+		15,
+		Color("a9bdc9")
+	)
+	campaign_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	campaign_help.custom_minimum_size = Vector2(0, 54)
+	campaign_help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	campaign_help.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	campaign_row.add_child(campaign_help)
 	var player_row := HBoxContainer.new()
 	player_row.add_theme_constant_override("separation", 16)
 	column.add_child(player_row)

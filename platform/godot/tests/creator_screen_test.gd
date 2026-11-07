@@ -96,6 +96,12 @@ func _run() -> void:
 		screen._export_selected_project()
 		_expect("finish action opens export center", screen.export_layer.visible, true)
 		_expect("export center focuses portable project", screen.export_first_button.has_focus(), true)
+		_expect("export center names the starting campaign", screen.export_campaign_select.item_count, 1)
+		_expect(
+			"export center carries the explicit campaign identity",
+			str(screen.export_campaign_select.get_item_metadata(0)),
+			"first_adventure"
+		)
 		_expect(
 			"Linux target follows installed player shell availability",
 			screen.export_linux_button.disabled,

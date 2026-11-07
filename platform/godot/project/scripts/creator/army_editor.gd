@@ -289,8 +289,14 @@ func _refresh_campaigns(preferred_member_id := "") -> void:
 		_refresh_members()
 		refreshing = false
 		return
+	if not CreatorContext.campaign_id.is_empty():
+		for index in campaigns.size():
+			if campaigns[index] is Dictionary and str(campaigns[index].get("id", "")) == CreatorContext.campaign_id:
+				campaign_index = index
+				break
 	campaign_index = clampi(campaign_index, 0, campaigns.size() - 1)
 	campaign_select.select(campaign_index)
+	CreatorContext.choose_campaign(str(_current_campaign().get("id", "")))
 	_collect_members()
 	if not preferred_member_id.is_empty():
 		for index in members.size():
@@ -1324,6 +1330,7 @@ func _select_campaign(index: int) -> void:
 		campaign_select.select(campaign_index)
 		return
 	campaign_index = index
+	CreatorContext.choose_campaign(str(_current_campaign().get("id", "")))
 	member_index = 0
 	_collect_members()
 	_refresh_members()

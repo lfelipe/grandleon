@@ -28,6 +28,7 @@ const EXCLUDED_FILES := [
 	"project/army_editor.tscn",
 	"project/gear_editor.tscn",
 	"project/game_settings.tscn",
+	"project/translations_editor.tscn",
 	"project/scripts/creator/creator_screen.gd",
 	"project/scripts/creator/campaign_readiness.gd",
 	"project/scripts/creator/console_builder.gd",
@@ -36,6 +37,7 @@ const EXCLUDED_FILES := [
 	"project/scripts/creator/army_editor.gd",
 	"project/scripts/creator/gear_editor.gd",
 	"project/scripts/creator/game_settings.gd",
+	"project/scripts/creator/translations_editor.gd",
 	"project/scripts/creator/standalone_exporter.gd",
 ]
 
@@ -92,7 +94,7 @@ func linux_availability() -> Dictionary:
 	return {"ok": true, "message": "READY TO BUILD"}
 
 
-func export_linux_player(project_id: String) -> Dictionary:
+func export_linux_player(project_id: String, campaign_id := "") -> Dictionary:
 	var available := linux_availability()
 	if not available.ok:
 		return available
@@ -106,12 +108,33 @@ func export_linux_player(project_id: String) -> Dictionary:
 		return loaded
 	var project: Dictionary = loaded.project
 	var campaigns: Array = project.get("campaigns", [])
-	if campaigns.is_empty() or not campaigns[0] is Dictionary:
+	if campaigns.is_empty():
 		return _failure(
 			"campaign_missing",
 			"Add a playable campaign before building a PC game."
 		)
-	var ready := CampaignReadiness.playable_export(project)
+	var selected_campaign: Dictionary = {}
+	if not campaign_id.is_empty():
+		for value: Variant in campaigns:
+			if value is Dictionary and str(value.get("id", "")) == campaign_id:
+				selected_campaign = value
+				break
+	elif campaigns.size() == 1 and campaigns[0] is Dictionary:
+		selected_campaign = campaigns[0]
+	elif campaigns.size() > 1:
+		return _failure(
+			"campaign_selection_required",
+			"Choose which campaign this Linux game should start."
+		)
+	if selected_campaign.is_empty():
+		return _failure(
+			"campaign_not_found",
+			"The selected campaign is no longer available."
+		)
+	campaign_id = str(selected_campaign.get("id", ""))
+	if campaign_id.is_empty():
+		return _failure("campaign_missing", "The selected campaign needs an ID.")
+	var ready := CampaignReadiness.playable_export(project, campaign_id)
 	if not ready.ok:
 		return ready
 	var compiled: Dictionary = compiler.compile_source_json(str(loaded.source))
@@ -122,7 +145,6 @@ func export_linux_player(project_id: String) -> Dictionary:
 			"message": "Fix the campaign errors before building a PC game.",
 			"diagnostics": compiled.diagnostics,
 		}
-	var campaign_id := str(campaigns[0].get("id", ""))
 	var game_id := str(project.get("gameId", "game"))
 	var package_id := str(project.get("packageId", project_id))
 	var stem := _safe_stem(game_id) + "-linux"
