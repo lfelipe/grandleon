@@ -72,8 +72,23 @@ pf::LoadedPackage compile_the_maintained_demo() {
     const std::string json{
         std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()
     };
-    const gc::SourceParseResult parsed = gc::parse_source_project_json(json);
+    gc::SourceParseResult parsed = gc::parse_source_project_json(json);
     expect(static_cast<bool>(parsed), "and maps natively");
+    const auto campaign = std::find_if(
+        parsed.source.campaigns.begin(), parsed.source.campaigns.end(),
+        [](const gc::Campaign& candidate) {
+            return candidate.id == muster_road;
+        }
+    );
+    expect(
+        campaign != parsed.source.campaigns.end() &&
+            campaign->roster.size() >= 2U,
+        "the maintained management campaign has its two founding members"
+    );
+    if (campaign != parsed.source.campaigns.end() &&
+        campaign->roster.size() >= 2U) {
+        campaign->roster.front().player_nameable = true;
+    }
     const gc::CompileResult compiled = gc::compile(parsed.source);
     expect(static_cast<bool>(compiled), "and compiles");
     const pf::LoadResult loaded = pf::load_mock_package(
@@ -110,6 +125,16 @@ campaign::CampaignState state_in_slot(
     );
     expect(static_cast<bool>(restored), "and is a campaign this build reads");
     return restored.save.state;
+}
+
+std::vector<std::uint8_t> save_bytes_for(
+    const pf::LoadedPackage& package,
+    campaign::CampaignState state
+) {
+    return campaign::save_campaign(campaign::make_campaign_save(
+        std::move(state),
+        {{package.game_id, package.content_revision, 0U}}
+    ));
 }
 
 // How much of the tonic one owner holds, out of the slot. Owner zero is the
@@ -227,6 +252,156 @@ void the_company_is_managed_between_battles() {
     expect(
         opening.has_deployment_options,
         "and reports the opening board's authored deployment region"
+    );
+    expect(
+        opening.roster.front().player_nameable &&
+            !opening.roster.front().has_player_name &&
+            opening.roster.front().name == "Vanguard Rilla" &&
+            opening.roster.front().authored_name == "Vanguard Rilla",
+        "the eligible member begins with the authored name as an unchanged "
+        "default"
+    );
+    expect(
+        !opening.roster[1].player_nameable &&
+            opening.roster[1].authored_name == "Outrider Bevan",
+        "while a member the author kept fixed carries no rename permission"
+    );
+
+    // 1a. A chosen name is its own saved literal, separate from the authored
+    //     default. The session is the permission boundary: a front end cannot
+    //     rename an unknown or fixed member by manufacturing an intent.
+    expect(
+        session.set_player_name(vanguard, "   ").error ==
+            client::ManagementError::invalid_name,
+        "a blank player name is refused"
+    );
+    expect(
+        session.set_player_name(vanguard, std::string(65U, 'x')).error ==
+            client::ManagementError::invalid_name,
+        "a player name beyond the portable UTF-8 byte limit is refused"
+    );
+    expect(
+        session.set_player_name(campaign::PersistentEntityId{99}, "Stranger")
+                .error == client::ManagementError::unknown_member,
+        "a player cannot name a member this campaign does not hold"
+    );
+    expect(
+        session.set_player_name(outrider, "Not Bevan").error ==
+            client::ManagementError::fixed_name,
+        "a fixed-name member cannot be overridden"
+    );
+    const client::ManagementCommit renamed =
+        session.set_player_name(vanguard, "  Luzia  ");
+    expect(
+        static_cast<bool>(renamed) && renamed.saved &&
+            renamed.save == storage::StorageError::none,
+        "an eligible member's valid name is committed and saved immediately"
+    );
+    const client::RosterEntry named = session.roster().front();
+    expect(
+        named.name == "Luzia" && named.authored_name == "Vanguard Rilla" &&
+            named.has_player_name && named.player_nameable,
+        "the effective literal changes without replacing its authored default"
+    );
+    const campaign::CampaignState after_name =
+        state_in_slot(package, device, "management");
+    expect(
+        after_name.player_names ==
+            std::vector<campaign::PlayerName>{{vanguard, "Luzia"}},
+        "the slot carries exactly the optional override"
+    );
+
+    client::CampaignSessionOptions named_resume_options = options;
+    named_resume_options.resume = true;
+    client::CampaignSession named_resume{
+        package, muster_road, boards, device, named_resume_options
+    };
+    client::SlotFailure named_failure;
+    bool named_refused = false;
+    bool named_resumed = false;
+    expect(
+        named_resume.begin(named_failure, named_refused, named_resumed) ==
+                client::CampaignSessionError::none &&
+            named_resumed && !named_refused &&
+            named_resume.roster().front().name == "Luzia" &&
+            named_resume.roster().front().authored_name == "Vanguard Rilla",
+        "save and continue restores the literal while retaining the authored "
+        "fallback"
+    );
+
+    const client::ManagementCommit restored_default =
+        session.set_player_name(vanguard, "Vanguard Rilla");
+    expect(
+        static_cast<bool>(restored_default) && restored_default.saved &&
+            session.roster().front().name == "Vanguard Rilla" &&
+            !session.roster().front().has_player_name &&
+            state_in_slot(package, device, "management").player_names.empty(),
+        "choosing the authored default removes the override instead of "
+        "freezing a value that would bypass later localization"
+    );
+    expect(
+        static_cast<bool>(session.set_player_name(vanguard, "Luzia")),
+        "a new literal can be chosen again after returning to the default"
+    );
+
+    campaign::CampaignState fixed_override = after_name;
+    fixed_override.player_names = {{outrider, "Not Bevan"}};
+    expect(
+        device.write(
+            "fixed-name", save_bytes_for(package, std::move(fixed_override))
+        ) == storage::StorageError::none,
+        "a structurally valid hostile fixed-name slot is installed"
+    );
+    client::CampaignSessionOptions fixed_options = options;
+    fixed_options.slot = "fixed-name";
+    fixed_options.resume = true;
+    client::CampaignSession fixed_resume{
+        package, muster_road, boards, device, fixed_options
+    };
+    client::SlotFailure fixed_failure;
+    bool fixed_refused = false;
+    bool fixed_resumed = false;
+    expect(
+        fixed_resume.begin(fixed_failure, fixed_refused, fixed_resumed) ==
+                client::CampaignSessionError::none &&
+            fixed_refused && !fixed_resumed &&
+            fixed_failure.state ==
+                campaign::StateError::unauthorized_player_name &&
+            fixed_resume.roster().front().name == "Vanguard Rilla",
+        "resume fails closed on a name override for a fixed character"
+    );
+
+    campaign::CampaignState unknown_override = after_name;
+    campaign::PersistentUnit unknown = unknown_override.units.front();
+    unknown.id = campaign::PersistentEntityId{99};
+    unknown_override.units.push_back(std::move(unknown));
+    unknown_override.player_names = {
+        {campaign::PersistentEntityId{99}, "Stranger"}
+    };
+    expect(
+        device.write(
+            "unknown-name",
+            save_bytes_for(package, std::move(unknown_override))
+        ) == storage::StorageError::none,
+        "a structurally valid hostile unknown-member slot is installed"
+    );
+    client::CampaignSessionOptions unknown_options = options;
+    unknown_options.slot = "unknown-name";
+    unknown_options.resume = true;
+    client::CampaignSession unknown_resume{
+        package, muster_road, boards, device, unknown_options
+    };
+    client::SlotFailure unknown_failure;
+    bool unknown_refused = false;
+    bool unknown_resumed = false;
+    expect(
+        unknown_resume.begin(
+            unknown_failure, unknown_refused, unknown_resumed
+        ) == client::CampaignSessionError::none &&
+            unknown_refused && !unknown_resumed &&
+            unknown_failure.state == campaign::StateError::orphaned_player_name,
+        "resume fails closed when a structurally valid save names a member the "
+        "authored campaign does not know"
     );
 
     // 2. A store that cannot pay refuses by the campaign's own name, and
@@ -377,6 +552,12 @@ void the_company_is_managed_between_battles() {
         "the board publishes for a company nobody narrowed"
     );
     if (crossing.error != client::CampaignSessionError::none) return;
+    expect(
+        crossing.board.roster.front().name == "Luzia" &&
+            crossing.board.roster.front().authored_name == "Vanguard Rilla",
+        "the prepared player payload carries the effective name and its "
+        "separate authored fallback"
+    );
     const client::BattleReport battle = fight_the_crossing(crossing.encounter, package);
     expect(
         battle.outcome == sim::Outcome::first_side_won,

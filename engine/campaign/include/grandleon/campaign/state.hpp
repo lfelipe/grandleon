@@ -6,6 +6,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -147,6 +148,27 @@ struct PersistentUnit final {
     std::vector<InventoryStack> carried;
 };
 
+// One player-supplied name, separate from the authored name in the package.
+// The persistent member id is the join: authored defaults remain immutable
+// content, while this optional state survives a save. Sorted by `member`.
+inline constexpr std::size_t maximum_player_name_bytes = 64;
+
+struct PlayerName final {
+    PersistentEntityId member{};
+    std::string value;
+};
+
+[[nodiscard]] inline bool operator==(
+    const PlayerName& lhs,
+    const PlayerName& rhs
+) noexcept {
+    return lhs.member == rhs.member && lhs.value == rhs.value;
+}
+
+// Valid input is visible, bounded UTF-8 without control characters. The bound
+// is bytes because that is what a save and constrained console memory pay for.
+[[nodiscard]] bool player_name_is_valid(std::string_view value) noexcept;
+
 // How an objective ended, as the campaign remembers it. Mirrors
 // `simulation::ObjectiveState` in meaning, and is declared separately because
 // this module does not depend on the simulation: a committed campaign fact is
@@ -254,6 +276,9 @@ struct CampaignState final {
     // The shared store: items belonging to the campaign rather than to any
     // member. Ascending `definition_ref_less` over `item`.
     std::vector<InventoryStack> store;
+    // Optional player names, ascending by member id. Missing means the
+    // authored package name remains effective, as every older save does.
+    std::vector<PlayerName> player_names;
     // Ascending `definition_ref_less` over `objective`.
     std::vector<ObjectiveRecord> objectives;
     // Ascending `definition_ref_less` over `key`.
@@ -275,6 +300,11 @@ struct CampaignState final {
 [[nodiscard]] const PersistentUnit* find_unit(
     const CampaignState& state,
     PersistentEntityId id
+) noexcept;
+
+[[nodiscard]] const PlayerName* find_player_name(
+    const CampaignState& state,
+    PersistentEntityId member
 ) noexcept;
 
 // Whether this character may be placed on a board. The one question an
@@ -335,6 +365,14 @@ enum class StateError : std::uint8_t {
     // active node, a route that names one completion twice, or a step caused
     // by a batch this campaign never committed.
     inconsistent_progression,
+    // A custom name was empty, too long, malformed UTF-8, or held a control
+    // character.
+    invalid_player_name,
+    // A custom name cited no member in the roster.
+    orphaned_player_name,
+    // The mounted campaign does not allow this member's name to be replaced.
+    // Content-aware session validation returns this; state alone cannot know.
+    unauthorized_player_name,
 };
 
 [[nodiscard]] std::string_view state_error_name(StateError error) noexcept;

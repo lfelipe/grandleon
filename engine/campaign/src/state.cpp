@@ -7,6 +7,10 @@ namespace grandleon::campaign {
 
 namespace {
 
+[[nodiscard]] bool continuation(std::uint8_t byte) noexcept {
+    return byte >= 0x80U && byte <= 0xbfU;
+}
+
 template <typename Unsigned>
 [[nodiscard]] std::uint64_t hash_integer(
     std::uint64_t hash,
@@ -167,8 +171,77 @@ std::string_view state_error_name(StateError error) noexcept {
             return "inconsistent_availability";
         case StateError::inconsistent_progression:
             return "inconsistent_progression";
+        case StateError::invalid_player_name:
+            return "invalid_player_name";
+        case StateError::orphaned_player_name:
+            return "orphaned_player_name";
+        case StateError::unauthorized_player_name:
+            return "unauthorized_player_name";
     }
     return "unknown";
+}
+
+bool player_name_is_valid(std::string_view value) noexcept {
+    if (value.empty() || value.size() > maximum_player_name_bytes) return false;
+    bool visible = false;
+    for (std::size_t at = 0; at < value.size();) {
+        const auto byte = static_cast<std::uint8_t>(value[at]);
+        if (byte <= 0x7fU) {
+            if (byte < 0x20U || byte == 0x7fU) return false;
+            visible = visible || byte != 0x20U;
+            ++at;
+            continue;
+        }
+        std::size_t following = 0;
+        if (byte >= 0xc2U && byte <= 0xdfU) {
+            following = 1;
+        } else if (byte == 0xe0U) {
+            if (at + 2U >= value.size() ||
+                static_cast<std::uint8_t>(value[at + 1U]) < 0xa0U ||
+                static_cast<std::uint8_t>(value[at + 1U]) > 0xbfU) {
+                return false;
+            }
+            following = 2;
+        } else if (byte >= 0xe1U && byte <= 0xecU) {
+            following = 2;
+        } else if (byte == 0xedU) {
+            if (at + 2U >= value.size() ||
+                static_cast<std::uint8_t>(value[at + 1U]) < 0x80U ||
+                static_cast<std::uint8_t>(value[at + 1U]) > 0x9fU) {
+                return false;
+            }
+            following = 2;
+        } else if (byte >= 0xeeU && byte <= 0xefU) {
+            following = 2;
+        } else if (byte == 0xf0U) {
+            if (at + 3U >= value.size() ||
+                static_cast<std::uint8_t>(value[at + 1U]) < 0x90U ||
+                static_cast<std::uint8_t>(value[at + 1U]) > 0xbfU) {
+                return false;
+            }
+            following = 3;
+        } else if (byte >= 0xf1U && byte <= 0xf3U) {
+            following = 3;
+        } else if (byte == 0xf4U) {
+            if (at + 3U >= value.size() ||
+                static_cast<std::uint8_t>(value[at + 1U]) < 0x80U ||
+                static_cast<std::uint8_t>(value[at + 1U]) > 0x8fU) {
+                return false;
+            }
+            following = 3;
+        } else {
+            return false;
+        }
+        if (at + following >= value.size()) return false;
+        for (std::size_t offset = 1; offset <= following; ++offset) {
+            if (!continuation(static_cast<std::uint8_t>(value[at + offset]))) {
+                return false;
+            }
+        }
+        visible = true;
+        at += following + 1U;
+    }
+    return visible;
 }
 
 const PersistentUnit* find_unit(
@@ -187,6 +260,21 @@ const PersistentUnit* find_unit(
         return nullptr;
     }
     return &*position;
+}
+
+const PlayerName* find_player_name(
+    const CampaignState& state,
+    PersistentEntityId member
+) noexcept {
+    const auto found = std::lower_bound(
+        state.player_names.begin(), state.player_names.end(), member,
+        [](const PlayerName& name, PersistentEntityId value) {
+            return name.member < value;
+        }
+    );
+    return found != state.player_names.end() && found->member == member
+               ? &*found
+               : nullptr;
 }
 
 bool is_deployable(const CampaignState& state, PersistentEntityId id) noexcept {
@@ -308,6 +396,23 @@ StateError validate(const CampaignState& state) noexcept {
         return store;
     }
 
+    for (std::size_t index = 0; index < state.player_names.size(); ++index) {
+        const PlayerName& name = state.player_names[index];
+        if (!player_name_is_valid(name.value)) {
+            return StateError::invalid_player_name;
+        }
+        if (find_unit(state, name.member) == nullptr) {
+            return StateError::orphaned_player_name;
+        }
+        if (index == 0U) continue;
+        if (state.player_names[index - 1U].member == name.member) {
+            return StateError::duplicate_identity;
+        }
+        if (!(state.player_names[index - 1U].member < name.member)) {
+            return StateError::unordered_collection;
+        }
+    }
+
     for (std::size_t index = 1; index < state.objectives.size(); ++index) {
         const DefinitionRef& previous = state.objectives[index - 1U].objective;
         const DefinitionRef& current = state.objectives[index].objective;
@@ -370,6 +475,26 @@ std::uint64_t canonical_hash(const CampaignState& state) noexcept {
     }
 
     hash = hash_stacks(hash, state.store);
+
+    // Empty is every state authored before player names existed. It folds
+    // nothing so those campaigns keep their historical hash; once present,
+    // the count and records make the optional state part of determinism.
+    if (!state.player_names.empty()) {
+        hash = hash_integer(
+            hash, static_cast<std::uint32_t>(state.player_names.size())
+        );
+        for (const PlayerName& name : state.player_names) {
+            hash = hash_integer(hash, name.member.value);
+            hash = hash_integer(
+                hash, static_cast<std::uint16_t>(name.value.size())
+            );
+            for (const char byte : name.value) {
+                hash = core::fnv1a64_step(
+                    hash, static_cast<std::uint8_t>(byte)
+                );
+            }
+        }
+    }
 
     hash = hash_integer(
         hash,

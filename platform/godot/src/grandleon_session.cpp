@@ -710,6 +710,10 @@ void GrandleonSession::_bind_methods() {
         &GrandleonSession::submit_management,
         DEFVAL(0), DEFVAL(0), DEFVAL(0)
     );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("submit_player_name", "member_id", "name"),
+        &GrandleonSession::submit_player_name
+    );
 }
 
 bool GrandleonSession::start(
@@ -1228,6 +1232,20 @@ bool GrandleonSession::submit_management(
     return presenter_->submit_management(std::move(intent));
 }
 
+bool GrandleonSession::submit_player_name(
+    std::int64_t member_id,
+    const gd::String& name
+) {
+    if (!presenter_) return false;
+    client::ManagementIntent intent;
+    intent.verb = client::ManagementVerb::rename;
+    intent.member = campaign::PersistentEntityId{
+        static_cast<std::uint64_t>(member_id)
+    };
+    intent.name = narrow(name);
+    return presenter_->submit_management(std::move(intent));
+}
+
 gd::Dictionary GrandleonSession::snapshot_dictionary(
     const sim::EncounterSnapshot& snapshot
 ) const {
@@ -1375,10 +1393,23 @@ gd::Dictionary GrandleonSession::management_dictionary(
     for (const client::RosterEntry& member : company.roster) {
         gd::Dictionary value;
         value["member_id"] = signed_id(member.member.value);
-        value["name"] = text(pr::localized_campaign_member_name(
-            package_, language_, campaign_id_, member.placement_source_key,
-            member.name
-        ));
+        const std::string_view authored = member.authored_name.empty()
+                                              ? std::string_view{member.name}
+                                              : std::string_view{
+                                                    member.authored_name
+                                                };
+        const std::string_view localized_default =
+            pr::localized_campaign_member_name(
+                package_, language_, campaign_id_,
+                member.placement_source_key, authored
+            );
+        value["authored_name"] = text(authored);
+        value["default_name"] = text(localized_default);
+        value["name"] = member.has_player_name
+                            ? text(member.name)
+                            : text(localized_default);
+        value["player_nameable"] = member.player_nameable;
+        value["has_player_name"] = member.has_player_name;
         value["availability"] = text(
             campaign::availability_name(member.availability)
         );

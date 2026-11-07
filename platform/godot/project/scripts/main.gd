@@ -1686,6 +1686,7 @@ func _create_campaign_manager(layer: CanvasLayer) -> void:
 		text_scale
 	)
 	campaign_manager.intent_requested.connect(_on_management_intent)
+	campaign_manager.player_name_requested.connect(_on_player_name_requested)
 	campaign_manager.session_menu_requested.connect(_open_management_session_menu)
 	layer.add_child(campaign_manager)
 
@@ -2687,6 +2688,9 @@ func _company_has_management_options(company: Dictionary) -> bool:
 		return true
 	if not company.get("stages", []).is_empty():
 		return true
+	for member: Dictionary in company.get("roster", []):
+		if bool(member.get("player_nameable", false)):
+			return true
 	return String(company.get("refused", "none")) not in ["", "none"]
 
 
@@ -2720,6 +2724,13 @@ func _on_management_intent(kind: String, member_id: int, item_id: int, stage_id:
 		return
 	campaign_manager.submission_refused()
 	_show_toast("COMPANY COMMAND WAS NOT ACCEPTED")
+
+
+func _on_player_name_requested(member_id: int, chosen_name: String) -> void:
+	if session != null and session.submit_player_name(member_id, chosen_name):
+		return
+	campaign_manager.submission_refused()
+	_show_toast("CHARACTER NAME WAS NOT ACCEPTED")
 
 
 func _open_management_session_menu() -> void:

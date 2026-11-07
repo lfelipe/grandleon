@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -630,6 +631,84 @@ void the_route_section_is_absent_rather_than_empty() {
     expect(
         !stripped.save.state.progress.active,
         "it is a campaign that has not started"
+    );
+}
+
+void player_names_are_optional_bounded_and_round_trip() {
+    const std::vector<std::uint8_t> old_bytes =
+        campaign::save_campaign(told_save());
+    expect(
+        entry_of(
+            old_bytes,
+            static_cast<std::uint32_t>(
+                campaign::SaveSectionType::player_names
+            )
+        ) == old_bytes.size(),
+        "a save without player names keeps the optional section absent"
+    );
+
+    campaign::CampaignSave named = told_save();
+    named.state.player_names = {{first, "Luzia"}, {third, "Ren"}};
+    expect(
+        campaign::canonical_hash(named.state) !=
+            campaign::canonical_hash(told_save().state),
+        "a chosen name participates in the campaign's deterministic state"
+    );
+    campaign::CampaignSave returned_to_defaults = named;
+    returned_to_defaults.state.player_names.clear();
+    expect(
+        campaign::canonical_hash(returned_to_defaults.state) ==
+            campaign::canonical_hash(told_save().state),
+        "an absent names section keeps an older campaign's historical hash"
+    );
+    const std::vector<std::uint8_t> bytes = campaign::save_campaign(named);
+    const std::size_t entry = entry_of(
+        bytes,
+        static_cast<std::uint32_t>(campaign::SaveSectionType::player_names)
+    );
+    expect(
+        entry != bytes.size() &&
+            (read_u32(bytes, entry + 8U) &
+             campaign::save_section_flag_required) == 0U,
+        "player names use a forward-skippable optional section"
+    );
+    const campaign::SaveLoadResult loaded =
+        campaign::load_campaign(bytes, campaign::SaveLoadOptions{});
+    expect(
+        loaded && loaded.save.state.player_names.size() == 2U &&
+            loaded.save.state.player_names.front().value == "Luzia" &&
+            loaded.save.state.player_names.back().value == "Ren",
+        "valid player names survive save and continue"
+    );
+
+    campaign::CampaignSave duplicate = named;
+    duplicate.state.player_names.push_back({third, "Again"});
+    expect(
+        campaign::load_campaign(
+            campaign::save_campaign(duplicate), campaign::SaveLoadOptions{}
+        ).error == campaign::SaveError::invalid_state,
+        "duplicate member name overrides are refused"
+    );
+    campaign::CampaignSave malformed = told_save();
+    malformed.state.player_names = {{first, std::string{"\xc0\xaf", 2}}};
+    const campaign::SaveLoadResult malformed_result = campaign::load_campaign(
+        campaign::save_campaign(malformed), campaign::SaveLoadOptions{}
+    );
+    expect(
+        malformed_result.error == campaign::SaveError::invalid_state &&
+            malformed_result.state_error ==
+                campaign::StateError::invalid_player_name,
+        "malformed UTF-8 player names are refused"
+    );
+    campaign::CampaignSave oversized = told_save();
+    oversized.state.player_names = {{first, std::string(
+        campaign::maximum_player_name_bytes + 1U, 'x'
+    )}};
+    expect(
+        campaign::load_campaign(
+            campaign::save_campaign(oversized), campaign::SaveLoadOptions{}
+        ).error == campaign::SaveError::invalid_section,
+        "an oversized name is refused before it is allocated"
     );
 }
 
@@ -1406,6 +1485,7 @@ int main() {
     a_campaign_survives_the_round_trip();
     a_branched_route_survives_the_round_trip();
     the_route_section_is_absent_rather_than_empty();
+    player_names_are_optional_bounded_and_round_trip();
     a_damaged_route_is_refused_and_named();
     the_same_campaign_is_the_same_bytes();
     a_loaded_save_re_encodes_to_the_bytes_it_came_from();

@@ -30,6 +30,7 @@ constexpr std::size_t objective_record_size = definition_ref_size + 4;
 constexpr std::size_t world_record_size = definition_ref_size + 4 + 8;
 constexpr std::size_t outcome_record_size = 8;
 constexpr std::size_t progression_record_size = definition_ref_size + 8;
+constexpr std::size_t player_name_record_minimum_size = 8 + 2 + 1;
 
 // ---------------------------------------------------------------------------
 // Writing
@@ -220,6 +221,20 @@ public:
         return definition_ref(value.item) && u32(value.quantity);
     }
 
+    [[nodiscard]] bool string(
+        std::string& value,
+        std::size_t maximum
+    ) {
+        std::uint16_t size = 0;
+        if (!u16(size) || size > maximum || remaining() < size) return false;
+        value.assign(
+            reinterpret_cast<const char*>(data_ + cursor_),
+            static_cast<std::size_t>(size)
+        );
+        cursor_ += size;
+        return true;
+    }
+
 private:
     const std::uint8_t* data_{};
     std::size_t size_{};
@@ -298,6 +313,17 @@ std::vector<std::uint8_t> encode_stacks(const std::vector<InventoryStack>& stack
     return out;
 }
 
+std::vector<std::uint8_t> encode_player_names(const CampaignState& state) {
+    std::vector<std::uint8_t> out;
+    put_u32(out, static_cast<std::uint32_t>(state.player_names.size()));
+    for (const PlayerName& name : state.player_names) {
+        put_u64(out, name.member.value);
+        put_u16(out, static_cast<std::uint16_t>(name.value.size()));
+        out.insert(out.end(), name.value.begin(), name.value.end());
+    }
+    return out;
+}
+
 std::vector<std::uint8_t> encode_objectives(const CampaignState& state) {
     std::vector<std::uint8_t> out;
     put_u32(out, static_cast<std::uint32_t>(state.objectives.size()));
@@ -358,6 +384,7 @@ std::vector<std::uint8_t> encode_section(
         case SaveSectionType::world: return encode_world(state);
         case SaveSectionType::outcome_history: return encode_outcomes(state);
         case SaveSectionType::progression: return encode_progression(state);
+        case SaveSectionType::player_names: return encode_player_names(state);
     }
     return {};
 }
@@ -370,7 +397,11 @@ std::vector<std::uint8_t> encode_section(
     SaveSectionType type,
     const CampaignState& state
 ) noexcept {
-    return type != SaveSectionType::progression || state.progress.active;
+    if (type == SaveSectionType::progression) return state.progress.active;
+    if (type == SaveSectionType::player_names) {
+        return !state.player_names.empty();
+    }
+    return true;
 }
 
 [[nodiscard]] bool known_availability(std::uint8_t value) noexcept {
@@ -425,6 +456,29 @@ std::vector<std::uint8_t> encode_section(
         }
         unit.availability = static_cast<Availability>(availability);
         if (!decode_stacks(reader, limits.maximum_stacks, unit.carried)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+[[nodiscard]] bool decode_player_names(
+    Reader& reader,
+    const SaveLimits& limits,
+    CampaignState& state
+) {
+    std::uint32_t count = 0;
+    if (!reader.u32(count) || count == 0U ||
+        !bounded_count(
+            reader, count, player_name_record_minimum_size,
+            limits.maximum_player_names
+        )) {
+        return false;
+    }
+    state.player_names.resize(count);
+    for (PlayerName& name : state.player_names) {
+        if (!reader.u64(name.member.value) ||
+            !reader.string(name.value, maximum_player_name_bytes)) {
             return false;
         }
     }
@@ -556,17 +610,20 @@ std::vector<std::uint8_t> encode_section(
         case SaveSectionType::outcome_history: return decode_outcomes(reader, limits, state);
         case SaveSectionType::progression:
             return decode_progression(reader, limits, state);
+        case SaveSectionType::player_names:
+            return decode_player_names(reader, limits, state);
     }
     return false;
 }
 
-constexpr std::array<SaveSectionType, 6> known_sections{
+constexpr std::array<SaveSectionType, 7> known_sections{
     SaveSectionType::roster,
     SaveSectionType::store,
     SaveSectionType::objectives,
     SaveSectionType::world,
     SaveSectionType::outcome_history,
     SaveSectionType::progression,
+    SaveSectionType::player_names,
 };
 
 // Field-by-field campaign equality.
@@ -609,6 +666,15 @@ constexpr std::array<SaveSectionType, 6> known_sections{
                }
            ) &&
            stacks_equal(lhs.store, rhs.store) &&
+           lhs.player_names.size() == rhs.player_names.size() &&
+           std::equal(
+               lhs.player_names.begin(), lhs.player_names.end(),
+               rhs.player_names.begin(),
+               [](const PlayerName& left, const PlayerName& right) {
+                   return left.member == right.member &&
+                          left.value == right.value;
+               }
+           ) &&
            lhs.objectives.size() == rhs.objectives.size() &&
            std::equal(
                lhs.objectives.begin(),
@@ -669,6 +735,7 @@ std::string_view save_section_name(std::uint32_t type) noexcept {
         case SaveSectionType::world: return "world";
         case SaveSectionType::outcome_history: return "outcome_history";
         case SaveSectionType::progression: return "progression";
+        case SaveSectionType::player_names: return "player_names";
     }
     return "unknown";
 }
@@ -694,12 +761,14 @@ SaveSectionSchema save_section_schema(SaveSectionType type) noexcept {
         case SaveSectionType::world: return {1, 0};
         case SaveSectionType::outcome_history: return {1, 0};
         case SaveSectionType::progression: return {1, 0};
+        case SaveSectionType::player_names: return {1, 0};
     }
     return {1, 0};
 }
 
 bool save_section_required(SaveSectionType type) noexcept {
-    return type != SaveSectionType::progression;
+    return type != SaveSectionType::progression &&
+           type != SaveSectionType::player_names;
 }
 
 std::string_view save_error_name(SaveError error) noexcept {
@@ -1126,7 +1195,7 @@ SaveLoadResult interpret_save(DecodedSave decoded, const SaveLoadOptions& option
             !reader.done()) {
             return load_failure(SaveError::invalid_section, view.type);
         }
-        // The known section values are 1..6 and contiguous, which the array
+        // The known section values are contiguous, which the array
         // below relies on; `known_sections` is the list that keeps them so.
         seen[static_cast<std::size_t>(view.type) - 1U] = true;
     }

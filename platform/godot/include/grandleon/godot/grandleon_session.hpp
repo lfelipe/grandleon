@@ -239,6 +239,10 @@ public:
         std::int64_t item_id = 0,
         std::int64_t stage_id = 0
     );
+    [[nodiscard]] bool submit_player_name(
+        std::int64_t member_id,
+        const ::godot::String& name
+    );
 
 protected:
     static void _bind_methods();

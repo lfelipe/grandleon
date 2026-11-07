@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 // The session that plays a campaign the player keeps.
@@ -134,8 +135,8 @@ struct RosterEntry final {
     // placement fielding them carries. The same key on every board they appear
     // on, which is precisely why the roster is joined to a board through it.
     std::uint64_t placement_source_key{};
-    // What the author called them. A narrator says this and never derives a
-    // name from a unit type.
+    // The effective name a narrator says: the authored name unless an eligible
+    // member has a saved player name.
     std::string name;
     campaign::DefinitionRef unit_type{};
     campaign::Availability availability{campaign::Availability::unrecruited};
@@ -146,6 +147,11 @@ struct RosterEntry final {
     // narrator showing it is showing what a player is about to fight with. Read
     // out of the state and never derived.
     std::vector<campaign::InventoryStack> carried;
+    // The immutable authored default, kept separately so a localized front end
+    // can present/reset it without translating a player-supplied literal.
+    std::string authored_name;
+    bool player_nameable{false};
+    bool has_player_name{false};
 };
 
 // Why a named slot did not become a campaign.
@@ -499,6 +505,9 @@ enum class ManagementVerb : std::uint8_t {
     // this screen is where a board the roster refuses sends the player, and it
     // is the only way off a Stage a jump landed on and cannot open.
     jump,
+    // Replace an eligible member's authored default with `name`. The authored
+    // name remains content and this writes only optional campaign state.
+    rename,
     // Leave. Nothing is lost: every gesture was committed and saved when it was
     // made.
     quit,
@@ -511,6 +520,22 @@ struct ManagementIntent final {
     // Which Stage a `jump` is for, as the campaign node identity the session
     // published. Zero for every other verb.
     std::uint64_t stage{};
+    std::string name;
+
+    ManagementIntent() = default;
+
+    ManagementIntent(
+        ManagementVerb requested_verb,
+        campaign::PersistentEntityId requested_member = {},
+        campaign::DefinitionRef requested_item = {},
+        std::uint64_t requested_stage = 0U,
+        std::string requested_name = {}
+    )
+        : verb(requested_verb),
+          member(requested_member),
+          item(requested_item),
+          stage(requested_stage),
+          name(std::move(requested_name)) {}
 };
 
 // Why a management gesture did not become a campaign fact.
@@ -534,6 +559,9 @@ enum class ManagementError : std::uint8_t {
     // The campaign is not standing anywhere a company can be managed: it was
     // never begun, or its flow has stalled.
     not_managing,
+    unknown_member,
+    fixed_name,
+    invalid_name,
 };
 
 [[nodiscard]] std::string_view management_error_name(
@@ -914,6 +942,13 @@ public:
     [[nodiscard]] ManagementCommit set_fielded(
         campaign::PersistentEntityId member,
         bool fielded
+    );
+
+    // Saves a bounded visible UTF-8 name for an author-eligible member. Fixed
+    // members and invalid input are refused without changing state or disk.
+    [[nodiscard]] ManagementCommit set_player_name(
+        campaign::PersistentEntityId member,
+        std::string name
     );
 
     // Turns a finished battle into campaign facts and commits them atomically:

@@ -2,6 +2,7 @@
 extends Control
 
 signal intent_requested(kind: String, member_id: int, item_id: int, stage_id: int)
+signal player_name_requested(member_id: int, name: String)
 signal session_menu_requested
 
 const ACCENT := Color("69d9ff")
@@ -33,6 +34,13 @@ var _actions_list: VBoxContainer
 var _proceed_button: Button
 var _session_button: Button
 var _footer: Label
+var _name_layer: Control
+var _name_heading: Label
+var _name_input: LineEdit
+var _name_default: Label
+var _name_error: Label
+var _name_save: Button
+var _name_use_default: Button
 
 
 func configure(
@@ -100,6 +108,22 @@ func set_text_scale(value: float) -> void:
 
 
 func handle_input(event: InputEvent, controls) -> bool:
+	if _name_layer != null and _name_layer.visible:
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.keycode == KEY_ESCAPE:
+				_close_name_entry()
+				return true
+			if event.keycode == KEY_ENTER:
+				_submit_player_name()
+				return true
+		if event is InputEventJoypadButton and event.pressed:
+			if controls.matches("cancel", event.button_index):
+				_close_name_entry()
+				return true
+			if controls.matches("confirm", event.button_index):
+				_submit_player_name()
+				return true
+		return false
 	if not visible or _pending:
 		return false
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -265,6 +289,7 @@ func _build_interface() -> void:
 	_footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_footer)
 	_update_control_hints()
+	_build_name_layer()
 
 
 func _rebuild() -> void:
@@ -325,6 +350,12 @@ func _rebuild_member() -> void:
 	)
 
 	var actionable := availability.to_lower() not in ["dead", "unrecruited"]
+	if bool(member.get("player_nameable", false)):
+		var name_button := _button("CHOOSE CHARACTER NAME")
+		name_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		name_button.pressed.connect(_open_name_entry)
+		_actions_list.add_child(name_button)
+		_action_buttons.append(name_button)
 	if actionable:
 		var fielded := bool(member.get("fielded", false))
 		var field_button: Button
@@ -417,6 +448,130 @@ func _request(kind: String, member_id := 0, item_id := 0, stage_id := 0) -> void
 	_set_pending_state()
 	_footer.text = "SAVING COMPANY CHANGE…" if kind != "proceed" else "PREPARING BATTLE…"
 	intent_requested.emit(kind, member_id, item_id, stage_id)
+
+
+func _build_name_layer() -> void:
+	_name_layer = Control.new()
+	_name_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_name_layer.visible = false
+	_name_layer.z_index = 20
+	add_child(_name_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.94)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	_name_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(470, 260)
+	panel.size = Vector2(980, 560)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0b1823"), 22, Color(0.30, 0.76, 0.92, 0.62), 26)
+	)
+	_name_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("CHARACTER NAME", 16, ACCENT))
+	_name_heading = _label("Choose a name", 32, TEXT)
+	column.add_child(_name_heading)
+	_name_default = _label("", 18, MUTED)
+	_name_default.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(_name_default)
+	_name_input = LineEdit.new()
+	_name_input.max_length = 64
+	_name_input.custom_minimum_size = Vector2(900, 64)
+	_bind_font(_name_input, "font_size", 22)
+	_name_input.text_changed.connect(_validate_player_name)
+	column.add_child(_name_input)
+	_name_error = _label("", 17, WARNING)
+	_name_error.custom_minimum_size.y = 28
+	column.add_child(_name_error)
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 14)
+	column.add_child(buttons)
+	_name_save = _button("SAVE NAME")
+	_name_save.pressed.connect(_submit_player_name)
+	buttons.add_child(_name_save)
+	_name_use_default = _button("USE GAME DEFAULT")
+	_name_use_default.pressed.connect(_use_default_name)
+	buttons.add_child(_name_use_default)
+	var cancel := _button("CANCEL")
+	cancel.pressed.connect(_close_name_entry)
+	buttons.add_child(cancel)
+
+
+func _open_name_entry() -> void:
+	if _pending:
+		return
+	var member := _member(_selected_member_id)
+	if member.is_empty() or not bool(member.get("player_nameable", false)):
+		return
+	var current := String(member.get("name", "")).strip_edges()
+	var default_name := String(member.get("default_name", current)).strip_edges()
+	_name_heading.text = "Name %s" % default_name
+	_name_default.text = "Game default: %s. It remains the fallback." % default_name
+	_name_input.text = current if not current.is_empty() else default_name
+	_name_use_default.visible = bool(member.get("has_player_name", false))
+	_name_layer.visible = true
+	_validate_player_name(_name_input.text)
+	_name_input.grab_focus()
+	_name_input.select_all()
+
+
+func _validate_player_name(_value: String) -> void:
+	if _name_input == null:
+		return
+	var chosen := _name_input.text.strip_edges()
+	var bytes := chosen.to_utf8_buffer().size()
+	if chosen.is_empty():
+		_name_error.text = "Enter a visible name."
+	elif bytes > 64:
+		_name_error.text = "That name is too long when saved."
+	else:
+		_name_error.text = ""
+	_name_save.disabled = not _name_error.text.is_empty()
+
+
+func _submit_player_name() -> void:
+	_validate_player_name(_name_input.text)
+	if _name_save.disabled:
+		_name_input.grab_focus()
+		return
+	var chosen := _name_input.text.strip_edges()
+	var member := _member(_selected_member_id)
+	var default_name := String(member.get("default_name", "")).strip_edges()
+	if chosen == default_name:
+		if not bool(member.get("has_player_name", false)):
+			_close_name_entry()
+			return
+		chosen = String(member.get("authored_name", default_name)).strip_edges()
+	_emit_player_name(chosen)
+
+
+func _use_default_name() -> void:
+	var member := _member(_selected_member_id)
+	if member.is_empty():
+		return
+	if not bool(member.get("has_player_name", false)):
+		_close_name_entry()
+		return
+	var authored := String(member.get("authored_name", "")).strip_edges()
+	if authored.is_empty():
+		return
+	_emit_player_name(authored)
+
+
+func _emit_player_name(chosen: String) -> void:
+	_name_layer.visible = false
+	_pending = true
+	_set_pending_state()
+	_footer.text = "SAVING CHARACTER NAME…"
+	player_name_requested.emit(_selected_member_id, chosen)
+
+
+func _close_name_entry() -> void:
+	_name_layer.visible = false
+	_focus_first_action()
 
 
 func _back_to_roster() -> void:

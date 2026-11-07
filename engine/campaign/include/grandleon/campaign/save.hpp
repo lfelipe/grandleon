@@ -89,6 +89,13 @@
 //  then one 36-byte step each, in the order they were walked
 //   0 28   the node entered
 //  28  8   the outcome id whose commit entered it; zero for the first step
+//
+// player names section body, type 7, schema 1.0, optional and written only
+// when at least one eligible member has a player-supplied name
+//   0  4   name count
+// then each name in ascending persistent member id
+//   0  8   persistent member id
+//   8  2   UTF-8 byte count, followed by exactly those bytes
 // ```
 //
 // ## What the two checksums are, and are not
@@ -155,7 +162,7 @@ inline constexpr std::uint32_t save_section_flag_required = 1U;
 // The cut follows `CampaignState`'s own fields rather than convenience. A
 // roster and an outcome history change at different rates and will want to
 // change shape at different times; giving each its own schema version is what
-// lets one of them move without a migration for all five.
+// lets one of them move without a migration for every other section.
 enum class SaveSectionType : std::uint32_t {
     roster = 1,
     store = 2,
@@ -169,6 +176,11 @@ enum class SaveSectionType : std::uint32_t {
     // `save_section_required` below for why that is a decision rather than an
     // oversight.
     progression = 6,
+    // Optional player-supplied character names. Authored defaults stay in the
+    // package; an absent section therefore means every authored name remains
+    // effective, which is exactly what every older save says. Written optional
+    // so an older build can retain it even though it cannot present or edit it.
+    player_names = 7,
 };
 
 [[nodiscard]] std::string_view save_section_name(std::uint32_t type) noexcept;
@@ -176,9 +188,9 @@ enum class SaveSectionType : std::uint32_t {
 [[nodiscard]] bool is_known_save_section(std::uint32_t type) noexcept;
 
 // One section's schema version, independent of the envelope's and of the other
-// sections'. Five read 1.0 and the roster reads 2.0, which is the whole point
+// sections'. Most read 1.0 and the roster reads 2.0, which is the whole point
 // of stating them per section rather than once: the day the roster moved was
-// not the day the other five did, and no save had to be rewritten for them.
+// not the day the others did, and no save had to be rewritten for them.
 struct SaveSectionSchema final {
     std::uint16_t major{1};
     std::uint16_t minor{};
@@ -191,16 +203,18 @@ struct SaveSectionSchema final {
 //
 // Four of the five original sections and the roster are required, because a
 // campaign without a roster is not a campaign that was saved: it is a save
-// that lost something. `progression` is the exception, in both directions:
+// that lost something. `progression` and `player_names` are optional in both
+// directions:
 //
-// * **Absent means unstarted.** A campaign that has not entered a graph has no
-//   position to write, so it writes no section, and one byte encoding per
-//   campaign is preserved. Every save written before this section existed is
-//   exactly such a save, so it still loads and means what it always meant.
+// * **Absence preserves the old meaning.** A campaign that has not entered a
+//   graph has no position to write, so it writes no progression section. No
+//   player-named character means no names section. Every save written before
+//   either section existed is exactly such a save, so it still loads and means
+//   what it always meant.
 // * **Written optional.** A build that predates this section retains its bytes
-//   rather than refusing the load, and writes them back out untouched. An
-//   older build cannot advance a graph it does not know about, so retaining
-//   the position is the whole of what it owes a newer one.
+//   rather than refusing the load, and writes them back out untouched. That
+//   preserves the graph position and the player names even when the old build
+//   cannot present either newer field.
 [[nodiscard]] bool save_section_required(SaveSectionType type) noexcept;
 
 // One package the save's contents refer to, and what the save believed about
@@ -302,6 +316,7 @@ struct SaveLimits final {
     std::uint32_t maximum_sections{64};
     std::uint32_t maximum_packages{64};
     std::uint32_t maximum_units{4096};
+    std::uint32_t maximum_player_names{4096};
     // Per owner, and separately for the shared store.
     std::uint32_t maximum_stacks{1024};
     std::uint32_t maximum_objectives{4096};
