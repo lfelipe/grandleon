@@ -195,10 +195,11 @@ def generate(root: Path, scene_path: Path,
     overlay = images["props"].resize(
         (WIDTH, scaled_height), Image.Resampling.LANCZOS
     )
-    floor_top = backdrop["foreground_contract"]["floor_strip_top_normalized"]
-    height = int(math.ceil(round(240 * floor_top) / 16) * 16)
-    require(144 <= height <= 160 and height <= scaled_height,
-            "PS1 proof expects a 144..160 pixel distant backdrop")
+    foreground = backdrop["foreground_contract"]
+    require(not foreground["live_floor_strip"] and
+            foreground["floor_composition"] == "pre_rendered_full_frame",
+            "PS1 proof expects one continuous pre-rendered floor")
+    height = scaled_height
     main = main.crop((0, 0, WIDTH, height))
     overlay = overlay.crop((0, 0, WIDTH, height))
 
@@ -217,10 +218,10 @@ def generate(root: Path, scene_path: Path,
                               MAIN_TILE_WIDTH, MAIN_TILE_HEIGHT)
     overlay_tiles = tile_indices(overlay_indices, overlay.width, overlay.height,
                                  OVERLAY_TILE_WIDTH, OVERLAY_TILE_HEIGHT)
-    require(len(main_tiles) <= 12,
-            "main CI8 backdrop no longer fits two texture pages")
-    require(len(overlay_tiles) <= 8,
-            "props overlay no longer fits one texture page")
+    require(len(main_tiles) <= 18,
+            "main CI8 backdrop no longer fits three texture pages")
+    require(len(overlay_tiles) <= 18,
+            "props overlay no longer fits three texture pages")
 
     if preview_dir is not None:
         preview_dir.mkdir(parents=True, exist_ok=True)

@@ -102,10 +102,13 @@ func _build_panorama(world: Node3D, variant: int) -> void:
 
 
 func _build_transition(world: Node3D, variant: int) -> void:
-	for z_index in 6:
+	# Continue the same grass/paved surface past the camera's lower edge. The
+	# close view can then use one continuous pre-rendered floor instead of
+	# joining the plate to a separately drawn foreground strip.
+	for z_index in 11:
 		var z := -3.55 + float(z_index) * 0.90
-		for x_index in 10:
-			var x := -3.78 + float(x_index) * 0.84
+		for x_index in 16:
+			var x := -6.30 + float(x_index) * 0.84
 			var boundary := 0.25 + 0.18 * sin(float(z_index + variant))
 			var scene := GRASS if x < boundary else PAVED
 			_add_scene(world, scene, Vector3(x, -0.02, z), deg_to_rad(float(((x_index + z_index + variant) % 4) * 90)), Vector3.ONE * 0.90, false, true)

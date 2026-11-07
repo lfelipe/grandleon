@@ -22,8 +22,9 @@ variant for both attack and counter. Godot's first proof uses forest as the
 dominant terrain, grass as secondary, and a paved transition. Its panorama,
 transition, midground, and prop plates come from existing Godot terrain scenes.
 Consoles downconvert those same source PNGs instead of inventing separate
-background artwork. Live units, shadows, attack effects, and the foreground
-floor remain platform-rendered.
+background artwork. The pre-rendered terrain now continues through the lower
+edge instead of meeting a separately rendered floor at a visible seam. Units,
+shadows, attack effects, health, and damage remain live on every platform.
 
 The shared sequence is:
 

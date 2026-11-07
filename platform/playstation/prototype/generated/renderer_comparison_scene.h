@@ -27,4 +27,4 @@ inline constexpr unsigned short grandleon_psx_comparison_event_time_ms[2] = {345
 inline constexpr unsigned char grandleon_psx_comparison_damage[2] = {3,4};
 inline constexpr unsigned int grandleon_psx_comparison_backdrop_seed = 2031659219U;
 inline constexpr int grandleon_psx_comparison_backdrop_variant = 2;
-inline constexpr int grandleon_psx_comparison_floor_strip_top_milli = 660;
+inline constexpr int grandleon_psx_comparison_floor_strip_top_milli = 1000;

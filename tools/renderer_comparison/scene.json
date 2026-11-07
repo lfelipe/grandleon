@@ -166,8 +166,9 @@
       }
     ],
     "foreground_contract": {
-      "live_floor_strip": true,
-      "floor_strip_top_normalized": 0.66,
+      "floor_composition": "pre_rendered_full_frame",
+      "live_floor_strip": false,
+      "floor_strip_top_normalized": 1.0,
       "floor_left_terrain": "grass",
       "floor_right_terrain": "paved",
       "live_units": true,
@@ -179,7 +180,7 @@
         "transition_plate",
         "midground_plate",
         "props_plate",
-        "live_floor_strip",
+        "pre_rendered_near_floor",
         "live_shadows",
         "live_units",
         "live_attack_effects",

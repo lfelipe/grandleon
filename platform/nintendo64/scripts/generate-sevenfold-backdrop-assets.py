@@ -3,8 +3,8 @@
 """Downconvert the shared Godot combat plates for the N64 viewer.
 
 The shared 1280x720 PNG layers remain the source of truth. This script
-composites each approved variant in the documented order, crops the immersive
-close-view band, downsamples it to 320x160, and splits it into 80x40 tiles.
+composites each approved variant in the documented order, applies the shared
+4:3 close-view crop, downsamples it to 320x240, and splits it into 80x40 tiles.
 The pinned N64 toolchain later gives every tile its own CI4 palette, keeping
 each upload below TMEM without reducing the source plates to one global
 sixteen-colour image.
@@ -31,7 +31,7 @@ LAYERS = (
 )
 VARIANTS = 3
 WIDTH = 320
-HEIGHT = 160
+HEIGHT = 240
 TILE_WIDTH = 80
 TILE_HEIGHT = 40
 
@@ -53,10 +53,10 @@ def render_variant(variant: int) -> tuple[Image.Image, list[dict[str, str]]]:
                 "sha256": digest(path),
             }
         )
-    # The approved plate places the useful sky, treeline, grass and paved
-    # transition in this centred 2:1 band. Cropping here removes unused lower
-    # clear colour; the live N64 floor strip owns that part of the frame.
-    composite = composite.crop((80, 0, 1200, 560))
+    # Use the same centred 4:3 crop as the PS1. The source terrain now runs
+    # through the lower edge, so one plate owns the horizon and foreground and
+    # there is no horizontal join to a separately rendered floor.
+    composite = composite.crop((160, 0, 1120, 720))
     composite = composite.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
     return composite, sources
 

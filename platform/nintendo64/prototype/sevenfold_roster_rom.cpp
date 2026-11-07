@@ -798,7 +798,6 @@ std::uint64_t draw_hybrid_frame(
     t3d_screen_clear_depth();
     if (capture_mode) {
         backdrop::draw(matched_backdrop);
-        texture::draw_capture_floor_strip();
     }
     rdpq_mode_zbuf(true, true);
     t3d_light_set_count(0);
@@ -1807,7 +1806,7 @@ extern "C" int main(void) {
     );
     std::fprintf(
         stderr,
-        "sevenfold backdrop pack=forest-grass-paved orientation=north-south variants=3 selected=2 tiles=16 tile=80x40-ci4 composite=320x160 tmem_peak=%lu embedded=%lu rdram=%lu frozen=yes source=godot-plates\n",
+        "sevenfold backdrop pack=forest-grass-paved orientation=north-south variants=3 selected=2 tiles=24 tile=80x40-ci4 composite=320x240 tmem_peak=%lu embedded=%lu rdram=%lu frozen=yes floor=pre-rendered-full-frame source=godot-plates\n",
         static_cast<unsigned long>(backdrop::peak_texture_bytes()),
         static_cast<unsigned long>(backdrop::embedded_bytes()),
         static_cast<unsigned long>(backdrop::rdram_bytes())

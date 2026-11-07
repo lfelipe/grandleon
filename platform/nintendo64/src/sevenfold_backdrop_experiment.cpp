@@ -13,7 +13,7 @@ namespace grandleon::nintendo64::sevenfold_backdrop_experiment {
 namespace {
 
 constexpr int tile_columns = 4;
-constexpr int tile_rows = 4;
+constexpr int tile_rows = 6;
 constexpr int tiles_per_variant = tile_columns * tile_rows;
 constexpr int variants = 3;
 constexpr int tile_count = variants * tiles_per_variant;

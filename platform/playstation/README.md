@@ -227,17 +227,18 @@ costume detail.
 The close-view backdrop proof is derived only from the shared Godot source
 plates and their manifest. It verifies the FNV selector, terrain IDs and frozen
 variant, composites panorama/transition/midground in declared order, and keeps
-the modular props layer separate. A centred 4:3 crop becomes a 320×160 CI8
-plate in ten 64×80 tiles across two texture pages; five props tiles occupy a
-third. Together with two 256-colour CLUTs this uses 72,704 bytes of VRAM. The
-live grass/paved floor overlaps the plate cleanly and still owns shadows,
-large fighters, attack effects, health and damage. The selector is data-driven
+the modular props layer separate. A centred 4:3 crop becomes a full 320×240
+CI8 plate in fifteen 64×80 tiles across three texture pages; ten props tiles
+use two more pages. Together with two 256-colour CLUTs this uses 108,544 bytes
+of VRAM. The single plate owns the distant scenery and near grass/paved floor,
+so there is no straight join between two surfaces. Shadows, large fighters,
+attack effects, health and damage remain live. The selector is data-driven
 by terrain IDs and variant index, so another manifest pack does not require a
 renderer rewrite. `combat-backdrop-before.png` and
 `combat-backdrop-after.png` are matched native proof stills.
 
-With that proof embedded, the experiment executable is 1,560,576 bytes and
-leaves 425,760 bytes of main-memory heap. The production campaign disc remains
+With that proof embedded, the experiment executable is 1,605,632 bytes and
+leaves 380,704 bytes of main-memory heap. The production campaign disc remains
 3,939,600 bytes because the candidate is still isolated.
 
 In the pinned interpreter, the quiet 128×128 close baseline takes about
@@ -248,13 +249,14 @@ the slowest real-pose attack/counter frame 1.57 ms. Even the matched eight-model
 flat overview remains just inside the locked-30-fps ceiling at about 31.4 ms.
 The added terrain remains far below the 33 ms regression ceiling.
 
-The CI8 plate upload takes about 0.68 ms once at close-scene entry in the same
-pinned interpreter. A live-terrain hold takes about 1.32 ms; the richer plate,
-modular props, live foreground and enlarged fighters take about 1.02 ms. The
-quality gain therefore costs VRAM and disc/RAM image space rather than frame
-budget, and the selected plate stays frozen for both attack and counter.
+The full-frame CI8 plate upload takes about 10.92 ms once at close-scene entry
+in the same pinned interpreter. A live-terrain hold takes about 1.32 ms; the
+continuous plate, modular props, and enlarged live fighters take about 0.30 ms.
+The quality gain therefore costs VRAM and disc/RAM image space rather than
+steady frame budget, and the selected plate stays frozen for both attack and
+counter.
 The complete schema-2 map takes about 0.78 ms and the slowest board-to-close
-landmark takes 1.03 ms, both after draining the GPU.
+landmark takes 0.81 ms, both after draining the GPU.
 
 The same check also records the canonical cross-renderer scene from
 `tools/renderer_comparison/scene.json`: the exact 6×4 forest/grass/paved active

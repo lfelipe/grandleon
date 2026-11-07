@@ -91,7 +91,7 @@ func set_capture_backdrop(
 ) -> bool:
 	_capture_backdrop_layers.clear()
 	_capture_backdrop_variant = variant_id
-	_capture_floor_strip_top = clampf(floor_strip_top, 0.60, 0.82)
+	_capture_floor_strip_top = clampf(floor_strip_top, 0.60, 1.0)
 	for value: Variant in layer_paths:
 		var path := String(value)
 		if path.is_empty() or not ResourceLoader.exists(path):
@@ -650,6 +650,11 @@ func _draw_capture_backdrop(size: Vector2) -> void:
 
 
 func _draw_capture_floor_strip(size: Vector2) -> void:
+	# Full-floor backdrop packs own the foreground as well as the horizon. Keep
+	# this path for older packs that still need a live strip, but do not place a
+	# second surface over a continuous plate.
+	if _capture_floor_strip_top >= 0.99:
+		return
 	var horizon := size.y * _capture_floor_strip_top
 	var bottom := size.y
 	for row in 2:

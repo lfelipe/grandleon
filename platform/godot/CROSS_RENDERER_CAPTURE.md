@@ -82,8 +82,10 @@ The reproducible source render uses a 42-degree perspective camera at
 recorded beside it in `scene.json`. Transition, midground, and prop plates
 retain alpha; only the panorama is opaque.
 
-Godot then draws a small aligned grass/paved floor strip, shadows, units,
-effects, and damage live. Props never cover units. The generic
+The grass/paved source surface continues through the lower edge, so the stage
+has no horizontal join between a backdrop and a separately drawn floor. Godot
+draws shadows, units, effects, and damage live over that continuous terrain.
+Props never cover units. The generic
 [`manifest.json`](project/art/combat_backdrops/manifest.json) lists all
 13 terrain kinds and deterministic selection fields. A road beside water uses
 the bridge scene as a conditional transition.

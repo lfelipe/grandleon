@@ -57,7 +57,7 @@ constexpr int quality_grass_clut = 29;
 constexpr int quality_forest_clut = 30;
 constexpr int quality_stone_clut = 31;
 constexpr int backdrop_texture_page = gpu::first_texture_page + 6;
-constexpr int backdrop_overlay_page = gpu::first_texture_page + 8;
+constexpr int backdrop_overlay_page = gpu::first_texture_page + 9;
 constexpr int backdrop_clut_x = 0;
 constexpr int backdrop_overlay_clut_x = 256;
 constexpr int backdrop_clut_y = gpu::clut_y + 1;
@@ -615,8 +615,8 @@ void load_quality_terrain() {
                   grandleon_psx_comparison_backdrop_variant);
     static_assert(grandleon_psx_backdrop_tile_width == 64);
     static_assert(grandleon_psx_backdrop_tile_height == 80);
-    static_assert(grandleon_psx_backdrop_tile_count <= 12);
-    static_assert(grandleon_psx_backdrop_overlay_tile_count <= 8);
+    static_assert(grandleon_psx_backdrop_tile_count <= 18);
+    static_assert(grandleon_psx_backdrop_overlay_tile_count <= 18);
     psx::start_clock();
     constexpr int main_tiles_per_page = 6;
     for (int index = 0; index < grandleon_psx_backdrop_tile_count; ++index) {
@@ -634,12 +634,14 @@ void load_quality_terrain() {
     }
     for (int index = 0;
          index < grandleon_psx_backdrop_overlay_tile_count; ++index) {
-        const int u = (index % 2) *
+        const int page = backdrop_overlay_page + index / main_tiles_per_page;
+        const int within = index % main_tiles_per_page;
+        const int u = (within % 2) *
                       grandleon_psx_backdrop_overlay_tile_width;
-        const int v = (index / 2) *
+        const int v = (within / 2) *
                       grandleon_psx_backdrop_overlay_tile_height;
         gpu::upload(
-            backdrop_overlay_page * gpu::page_halfwords + u / 2,
+            page * gpu::page_halfwords + u / 2,
             gpu::texture_page_y + v,
             grandleon_psx_backdrop_overlay_tile_width / 2,
             grandleon_psx_backdrop_overlay_tile_height,
@@ -703,14 +705,18 @@ void draw_combat_backdrop_overlay() {
             grandleon_psx_backdrop_overlay_tile_height,
             grandleon_psx_backdrop_overlay_height - local_y
         );
-        const int u = (index % 2) *
+        constexpr int overlay_tiles_per_page = 6;
+        const int page = backdrop_overlay_page +
+                         index / overlay_tiles_per_page;
+        const int within = index % overlay_tiles_per_page;
+        const int u = (within % 2) *
                       grandleon_psx_backdrop_overlay_tile_width;
-        const int v = (index / 2) *
+        const int v = (within / 2) *
                       grandleon_psx_backdrop_overlay_tile_height;
         gpu::draw_texture_quad_ci8(
             grandleon_psx_backdrop_overlay_x + local_x,
             grandleon_psx_backdrop_overlay_y + local_y,
-            width, height, backdrop_overlay_page,
+            width, height, page,
             u, v, u + width - 1, v + height - 1,
             backdrop_overlay_clut_x, backdrop_clut_y
         );
@@ -1376,27 +1382,6 @@ void draw_close_stage_v2(const ElevatedCamera& camera, bool rich_terrain) {
     }
 }
 
-void draw_capture_floor_strip(const ElevatedCamera& camera) {
-    constexpr int tile = 48;
-    constexpr int left = -240;
-    constexpr int far = 0;
-    // Three rows overlap the distant plate at its contract floor line and run
-    // past every lower-frame edge. The north/south transition is preserved as
-    // a grass-left / paved-right split, matching the selected Godot plate.
-    for (int row = 0; row < 3; ++row) {
-        for (int column = 0; column < 10; ++column) {
-            const int x0 = left + column * tile;
-            const int z0 = far + row * tile;
-            const int kind = column < 5 ? 0 : 2;  // grass / paved
-            draw_quality_terrain_tile(
-                x0, z0, x0 + tile, z0 + tile, kind,
-                (row * 7 + column * 3) & 3,
-                0, camera
-            );
-        }
-    }
-}
-
 void draw_close_far_decorations(const ElevatedCamera& camera) {
     draw_quality_tree(-143, -64, 32, camera);
     draw_quality_tree(137, -70, 38, camera);
@@ -1522,7 +1507,6 @@ void draw_capture_health(
     if (capture_mode && backdrop_mode) {
         draw_combat_backdrop();
         draw_combat_backdrop_overlay();
-        draw_capture_floor_strip(camera);
     } else {
         draw_close_stage_v2(camera, rich_terrain);
         if (rich_terrain) draw_close_far_decorations(camera);
@@ -1580,7 +1564,7 @@ void draw_capture_health(
     return {psx::clock_ticks(),
             capture_mode && backdrop_mode
                 ? grandleon_psx_backdrop_tile_count +
-                  grandleon_psx_backdrop_overlay_tile_count + 44
+                  grandleon_psx_backdrop_overlay_tile_count + 4
                 : 72};
 }
 
@@ -2430,16 +2414,16 @@ int main() {
            "the equivalent 128px CI8 pose set would require four pages");
     expect(quality_terrain_vram_bytes == 22528,
            "44 deterministic CI4 terrain cells use 22 KiB of one page");
-    expect(backdrop_vram_bytes <= 3 * 32768,
-           "CI8 distant plate, modular props and CLUTs fit three pages");
+    expect(backdrop_vram_bytes <= 6 * 32768,
+           "full-frame CI8 plate, modular props and CLUTs fit six pages");
     expect(backdrop_upload_ticks > 0,
            "combat backdrop upload transition is measured");
     expect(grandleon_psx_backdrop_dominant_terrain_id == 2 &&
                grandleon_psx_backdrop_secondary_terrain_id == 9 &&
                grandleon_psx_backdrop_transition_terrain_id == 12,
            "backdrop keeps the contract forest grass paved terrain IDs");
-    expect(grandleon_psx_backdrop_height == 160,
-           "backdrop meets the live floor in the 144 to 160 pixel target");
+    expect(grandleon_psx_backdrop_height == 240,
+           "one continuous backdrop owns the full close-view floor");
     const ElevatedCamera capture_close = comparison_close_camera();
     const ProjectedVertex capture_left =
         project_elevated(-84, 3, 0, capture_close);

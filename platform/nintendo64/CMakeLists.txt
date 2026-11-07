@@ -815,7 +815,7 @@ if(GRANDLEON_N64_SEVENFOLD_3D)
     file(MAKE_DIRECTORY "${backdrop_sprite_dir}")
     set(backdrop_assets)
     foreach(backdrop_variant RANGE 0 2)
-        foreach(backdrop_row RANGE 0 3)
+        foreach(backdrop_row RANGE 0 5)
             foreach(backdrop_column RANGE 0 3)
                 list(APPEND backdrop_assets
                     "medieval_forest_gate_v${backdrop_variant}_r${backdrop_row}_c${backdrop_column}")

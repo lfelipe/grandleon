@@ -130,8 +130,8 @@ if (
     or not backdrop_report["freeze_for_exchange"]
 ):
     raise SystemExit("N64 backdrop selector contract changed")
-if len(backdrop_report["assets"]) != 48 or len(backdrop_report["composites"]) != 3:
-    raise SystemExit("N64 backdrop must contain three sixteen-tile variants")
+if len(backdrop_report["assets"]) != 72 or len(backdrop_report["composites"]) != 3:
+    raise SystemExit("N64 backdrop must contain three twenty-four-tile variants")
 for variant in backdrop_report["source_variants"]:
     for layer in variant["layers"]:
         path = root / layer["path"]
@@ -170,6 +170,9 @@ if (
     or len(surroundings["rows"]) != 10
     or any(len(row) != 12 for row in surroundings["rows"])
     or layout_hash != 0x66909BD6
+    or comparison["combat_backdrop"]["foreground_contract"]["live_floor_strip"]
+    or comparison["combat_backdrop"]["foreground_contract"]["floor_composition"]
+       != "pre_rendered_full_frame"
 ):
     raise SystemExit("N64 schema-two showcase layout is out of sync")
 print("Sevenfold 3D roster provenance passed: 112 combinations")
@@ -228,7 +231,7 @@ done
 grep -q '^sevenfold tactical-hybrid stage=medieval models=8 roles=8 bodies=mixed teams=blue-red .* tmem_peak=3648 embedded=.* ordering=foot-depth highlights=blue-and-gold$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-medieval$' "${log}"
 grep -q '^sevenfold terrain-quality material=64x64-ci4 regions=4 prop=64x64-ci4 cells=4 tmem_peak=2080 embedded=.* variation=deterministic transitions=cluster-tone provenance=repo-generated$' "${log}"
-grep -q '^sevenfold backdrop pack=forest-grass-paved orientation=north-south variants=3 selected=2 tiles=16 tile=80x40-ci4 composite=320x160 tmem_peak=1632 embedded=.* rdram=.* frozen=yes source=godot-plates$' "${log}"
+grep -q '^sevenfold backdrop pack=forest-grass-paved orientation=north-south variants=3 selected=2 tiles=24 tile=80x40-ci4 composite=320x240 tmem_peak=1632 embedded=.* rdram=.* frozen=yes floor=pre-rendered-full-frame source=godot-plates$' "${log}"
 grep -q '^sevenfold showcase-contract schema=2 surroundings=12x10 active-origin=3,3 layout_hash=66909bd6 diagnostics=none$' "${log}"
 grep -q '^sevenfold tactical-hybrid-animation stage=medieval frames=72 .* motion=tile-move poses=idle2-walk2 easing=smoothstep beats=anticipation-move-settle ordering=foot-depth$' "${log}"
 grep -q '^CHECKPOINT sevenfold-tactical-hybrid-move-start$' "${log}"

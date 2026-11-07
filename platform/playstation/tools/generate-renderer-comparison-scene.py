@@ -131,7 +131,9 @@ def generate(scene_path: Path) -> str:
     foreground = backdrop["foreground_contract"]
     require(backdrop["layer_order"] ==
             ["panorama", "transition", "midground", "props"] and
-            foreground["live_floor_strip"] and foreground["live_units"] and
+            not foreground["live_floor_strip"] and
+            foreground["floor_composition"] ==
+            "pre_rendered_full_frame" and foreground["live_units"] and
             foreground["live_shadows"] and
             foreground["live_attack_effects"] and
             not foreground["props_may_occlude_units"],
