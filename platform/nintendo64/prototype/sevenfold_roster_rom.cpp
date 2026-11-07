@@ -17,10 +17,14 @@
 #include <cstdlib>
 
 #include "n64_showcase.h"
-#include "../src/sevenfold_presentation.h"
+#include "sevenfold_presentation.h"
 #include "sevenfold_roster_proxies.h"
+#include "sevenfold_texture_experiment.h"
 
 namespace {
+
+namespace texture =
+    grandleon::nintendo64::sevenfold_texture_experiment;
 
 constexpr int cell_world = 64;
 constexpr int board_triangles =
@@ -78,7 +82,8 @@ struct Figure final {
 
 void set_vertex(
     T3DVertPacked& packed, bool second, std::int16_t x,
-    std::int16_t y, std::int16_t z, std::uint32_t colour
+    std::int16_t y, std::int16_t z, std::uint32_t colour,
+    std::int16_t s = 0, std::int16_t t = 0
 ) {
     if (second) {
         packed.posB[0] = x;
@@ -86,16 +91,16 @@ void set_vertex(
         packed.posB[2] = z;
         packed.rgbaB = colour;
         packed.normB = 0;
-        packed.stB[0] = 0;
-        packed.stB[1] = 0;
+        packed.stB[0] = s;
+        packed.stB[1] = t;
     } else {
         packed.posA[0] = x;
         packed.posA[1] = y;
         packed.posA[2] = z;
         packed.rgbaA = colour;
         packed.normA = 0;
-        packed.stA[0] = 0;
-        packed.stA[1] = 0;
+        packed.stA[0] = s;
+        packed.stA[1] = t;
     }
 }
 
@@ -151,6 +156,14 @@ void build_proxy_at(
         const std::uint16_t corners[3] = {
             triangle.a, triangle.b, triangle.c,
         };
+        std::int16_t source_points[3][3]{};
+        for (int corner = 0; corner < 3; ++corner) {
+            const SevenfoldProxyVertex& source =
+                proxy.vertices[corners[corner]];
+            source_points[corner][0] = source.x;
+            source_points[corner][1] = source.y;
+            source_points[corner][2] = source.z;
+        }
         const std::uint32_t colour =
             triangle_colour(proxy, triangle, team);
         for (int corner = 0; corner < 3; ++corner) {
@@ -160,12 +173,15 @@ void build_proxy_at(
                 grandleon::nintendo64::sevenfold_presentation::three_quarter(
                     source.x, source.z, facing
                 );
+            const texture::UV uv = texture::character_uv(
+                source_points, corner, triangle.material
+            );
             set_vertex(
                 into.vertices[written / 2], (written & 1) != 0,
                 static_cast<std::int16_t>(rotated.x + origin_x),
                 source.y,
                 static_cast<std::int16_t>(rotated.z + origin_z),
-                colour
+                colour, uv.s, uv.t
             );
             ++written;
         }
@@ -179,6 +195,17 @@ void build_proxy(
         into, proxy, cell_x(column), cell_z(row), team,
         team == 0 ? 1 : -1
     );
+}
+
+[[nodiscard]] constexpr std::uint8_t terrain_texture_region(
+    std::uint8_t terrain
+) noexcept {
+    if (terrain == 2U || terrain == 7U || terrain == 9U || terrain == 11U) {
+        return 0;
+    }
+    if (terrain == 3U || terrain == 8U || terrain == 12U) return 1;
+    if (terrain == 1U || terrain == 4U || terrain == 10U) return 2;
+    return 3;
 }
 
 void build_board(T3DVertPacked* into, int stage) {
@@ -204,13 +231,27 @@ void build_board(T3DVertPacked* into, int stage) {
                 {x0, 0, z0}, {x1, 0, z0}, {x1, 0, z1},
                 {x0, 0, z0}, {x1, 0, z1}, {x0, 0, z1},
             };
-            for (int point = 0; point < 6; ++point) {
-                set_vertex(
-                    into[written / 2], (written & 1) != 0,
-                    points[point][0], points[point][1], points[point][2],
-                    colour
-                );
-                ++written;
+            const std::uint8_t region = terrain_texture_region(terrain);
+            for (int triangle = 0; triangle < 2; ++triangle) {
+                std::int16_t triangle_points[3][3]{};
+                for (int corner = 0; corner < 3; ++corner) {
+                    const int point = triangle * 3 + corner;
+                    for (int axis = 0; axis < 3; ++axis) {
+                        triangle_points[corner][axis] = points[point][axis];
+                    }
+                }
+                for (int corner = 0; corner < 3; ++corner) {
+                    const texture::UV uv = texture::terrain_uv(
+                        triangle_points, corner, region
+                    );
+                    const int point = triangle * 3 + corner;
+                    set_vertex(
+                        into[written / 2], (written & 1) != 0,
+                        points[point][0], points[point][1], points[point][2],
+                        colour, uv.s, uv.t
+                    );
+                    ++written;
+                }
             }
         }
     }
@@ -218,12 +259,16 @@ void build_board(T3DVertPacked* into, int stage) {
 
 void scene_triangle(
     T3DVertPacked* into, int& written, const std::int16_t points[3][3],
-    std::uint32_t colour
+    std::uint32_t colour, std::uint8_t texture_region = 1
 ) {
     for (int point = 0; point < 3; ++point) {
+        const texture::UV uv = texture::terrain_uv(
+            points, point, texture_region
+        );
         set_vertex(
             into[written / 2], (written & 1) != 0,
-            points[point][0], points[point][1], points[point][2], colour
+            points[point][0], points[point][1], points[point][2], colour,
+            uv.s, uv.t
         );
         ++written;
     }
@@ -231,7 +276,7 @@ void scene_triangle(
 
 void scene_quad(
     T3DVertPacked* into, int& written, const std::int16_t points[4][3],
-    std::uint32_t colour
+    std::uint32_t colour, std::uint8_t texture_region = 1
 ) {
     const std::int16_t first[3][3] = {
         {points[0][0], points[0][1], points[0][2]},
@@ -243,8 +288,8 @@ void scene_quad(
         {points[2][0], points[2][1], points[2][2]},
         {points[3][0], points[3][1], points[3][2]},
     };
-    scene_triangle(into, written, first, colour);
-    scene_triangle(into, written, second, colour);
+    scene_triangle(into, written, first, colour, texture_region);
+    scene_triangle(into, written, second, colour, texture_region);
 }
 
 [[nodiscard]] constexpr int terrain_silhouette_height(
@@ -296,7 +341,10 @@ void scene_quad(
             const std::int16_t floor[4][3] = {
                 {x0, 0, z0}, {x1, 0, z0}, {x1, 0, z1}, {x0, 0, z1},
             };
-            scene_quad(into, written, floor, colour);
+            scene_quad(
+                into, written, floor, colour,
+                terrain_texture_region(terrain)
+            );
         }
     }
 
@@ -322,7 +370,10 @@ void scene_quad(
             const std::int16_t peak[3][3] = {
                 {x0, 0, 235}, {x1, 0, 235}, {middle, height, 235},
             };
-            scene_triangle(into, written, peak, colour);
+            scene_triangle(
+                into, written, peak, colour,
+                terrain_texture_region(terrain)
+            );
         } else if (terrain == 2U || terrain == 11U) {
             const std::int16_t trunk[4][3] = {
                 {static_cast<std::int16_t>(middle - 5), 0, 235},
@@ -332,20 +383,23 @@ void scene_quad(
                 {static_cast<std::int16_t>(middle - 5),
                  static_cast<std::int16_t>(height * 2 / 3), 235},
             };
-            scene_quad(into, written, trunk, rgba(67, 51, 32));
+            scene_quad(into, written, trunk, rgba(67, 51, 32), 2);
             const std::int16_t canopy[3][3] = {
                 {x0, static_cast<std::int16_t>(height / 3), 235},
                 {x1, static_cast<std::int16_t>(height / 3), 235},
                 {middle, height, 235},
             };
-            scene_triangle(into, written, canopy, colour);
+            scene_triangle(into, written, canopy, colour, 0);
         } else {
             const std::int16_t wall[4][3] = {
                 {x0, 0, 235}, {x1, 0, 235},
                 {x1, static_cast<std::int16_t>(height * 3 / 4), 235},
                 {x0, height, 235},
             };
-            scene_quad(into, written, wall, colour);
+            scene_quad(
+                into, written, wall, colour,
+                terrain_texture_region(terrain)
+            );
         }
     }
     return written / 3;
@@ -418,6 +472,48 @@ std::uint64_t draw_frame(
     ));
     t3d_matrix_push(matrix);
     draw_unindexed(scene, scene_triangles);
+    for (int index = 0; index < visible_figures; ++index) {
+        draw_unindexed(figures[index].vertices, figures[index].triangles);
+    }
+    t3d_matrix_pop(1);
+    t3d_tri_sync();
+    rdpq_detach_wait();
+    graphics_draw_box(
+        display, 0, 196, 320, 44, graphics_make_color(15, 22, 24, 255)
+    );
+    graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
+    graphics_draw_text(display, 8, 8, label);
+    graphics_set_color(graphics_make_color(125, 168, 133, 255), 0);
+    graphics_draw_text(display, 8, 204, footer);
+    graphics_draw_text(display, 8, 220, controls);
+    return get_ticks_us() - started;
+}
+
+std::uint64_t draw_frame_textured(
+    surface_t* display, T3DViewport* viewport, T3DMat4FP* matrix,
+    const T3DVertPacked* scene, int scene_triangles, const Figure* figures,
+    int visible_figures, const char* label, const char* footer,
+    const char* controls, color_t clear_colour
+) {
+    const std::uint64_t started = get_ticks_us();
+    rdpq_attach(display, display_get_zbuf());
+    t3d_frame_start();
+    rdpq_mode_zbuf(true, true);
+    t3d_viewport_attach(viewport);
+    t3d_screen_clear_color(clear_colour);
+    t3d_screen_clear_depth();
+    t3d_light_set_count(0);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_mode_combiner(RDPQ_COMBINER_TEX_SHADE);
+    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
+        T3D_FLAG_TEXTURED | T3D_FLAG_SHADED |
+        T3D_FLAG_NO_LIGHT | T3D_FLAG_DEPTH
+    ));
+    t3d_matrix_push(matrix);
+    texture::bind_terrain();
+    draw_unindexed(scene, scene_triangles);
+    t3d_tri_sync();
+    texture::bind_character();
     for (int index = 0; index < visible_figures; ++index) {
         draw_unindexed(figures[index].vertices, figures[index].triangles);
     }
@@ -614,7 +710,7 @@ std::uint64_t show_attack(
         elapsed = draw_frame(
             display, &viewport, matrix, scene, scene_triangles, figures, 2,
             page_label, footer,
-            "A ROLE B ATTACK <> STYLE ^V TILE START",
+            "A ROLE B ATTACK Z CI4 <> STYLE ^V TILE",
             RGBA32(sky[0], sky[1], sky[2], 255)
         );
         display_show(display);
@@ -632,6 +728,67 @@ std::uint64_t show_attack(
     std::fprintf(
         stderr, "CHECKPOINT sevenfold-attack-%s-%s\n",
         sevenfold_style_names[stage], terrain_names[terrain]
+    );
+    std::fflush(stderr);
+    return elapsed;
+}
+
+std::uint64_t show_texture_comparison(
+    int stage, int archetype, int selected_cell, bool textured, bool report,
+    T3DViewport& viewport, T3DMat4FP* matrix, T3DVertPacked* scene,
+    Figure* figures
+) {
+    const int scene_triangles =
+        build_attack_scene(scene, stage, selected_cell);
+    build_attack_figures(figures, stage, archetype, -68, 68);
+    const std::uint8_t terrain = sevenfold_stage_terrain[stage][selected_cell];
+    const std::uint8_t* sky = terrain_sky_colours[terrain];
+    char page_label[64];
+    char footer[64];
+    std::snprintf(
+        page_label, sizeof page_label, "%s %s - %s",
+        sevenfold_stage_names[stage], sevenfold_archetype_names[archetype],
+        textured ? "CI4 AFTER" : "FLAT BEFORE"
+    );
+    std::snprintf(
+        footer, sizeof footer, "%s - %s",
+        terrain_names[terrain],
+        textured ? "TEXTURED TERRAIN + FIGURES" : "VERTEX COLOUR BASELINE"
+    );
+    std::uint64_t elapsed = 0;
+    for (int frame = 0; frame < 3; ++frame) {
+        surface_t* display = display_get();
+        if (textured) {
+            elapsed = draw_frame_textured(
+                display, &viewport, matrix, scene, scene_triangles,
+                figures, 2, page_label, footer,
+                "Z FLAT B ATTACK - TEAM COLOUR KEPT",
+                RGBA32(sky[0], sky[1], sky[2], 255)
+            );
+        } else {
+            elapsed = draw_frame(
+                display, &viewport, matrix, scene, scene_triangles,
+                figures, 2, page_label, footer,
+                "SAME CAMERA + MODELS + GEOMETRY",
+                RGBA32(sky[0], sky[1], sky[2], 255)
+            );
+        }
+        display_show(display);
+    }
+    if (!report) return elapsed;
+    const char* mode = textured ? "ci4" : "flat";
+    std::fprintf(
+        stderr,
+        "sevenfold texture stage=%s role=%s terrain=%s mode=%s models=2 triangles=%d us=%llu fps=%llu depth=on\n",
+        sevenfold_style_names[stage], sevenfold_archetype_names[archetype],
+        terrain_names[terrain], mode,
+        triangle_total(figures, 2, scene_triangles),
+        static_cast<unsigned long long>(elapsed),
+        static_cast<unsigned long long>(elapsed > 0 ? 1'000'000 / elapsed : 0)
+    );
+    std::fprintf(
+        stderr, "CHECKPOINT sevenfold-texture-%s-%s\n",
+        sevenfold_style_names[stage], textured ? "after" : "before"
     );
     std::fflush(stderr);
     return elapsed;
@@ -741,6 +898,7 @@ extern "C" int main(void) {
     joypad_init();
     T3DInitParams params{};
     t3d_init(params);
+    texture::initialize();
 
     bool roster_complete = true;
     int combinations = 0;
@@ -828,6 +986,31 @@ extern "C" int main(void) {
         expect(elapsed <= frame_budget_us, message);
         wait_ms(1500);
     }
+    constexpr int texture_comparisons[2][2] = {
+        {0, 0},  // Medieval knight on forest.
+        {2, 2},  // Mythical mage on mountain.
+    };
+    for (const auto& comparison : texture_comparisons) {
+        const int comparison_stage = comparison[0];
+        const int comparison_archetype = comparison[1];
+        for (int mode = 0; mode < 2; ++mode) {
+            const bool textured = mode != 0;
+            const std::uint64_t elapsed = show_texture_comparison(
+                comparison_stage, comparison_archetype,
+                preferred_attack_cell(comparison_stage), textured, true,
+                attack_viewport, matrix, board, figures
+            );
+            char message[112];
+            std::snprintf(
+                message, sizeof message,
+                "%s %s texture comparison stays at 30 fps",
+                sevenfold_style_names[comparison_stage],
+                textured ? "CI4" : "flat"
+            );
+            expect(elapsed <= frame_budget_us, message);
+            wait_ms(1500);
+        }
+    }
     for (int stage = 0; stage < sevenfold_stage_count; ++stage) {
         const int archetype = stage % 8;
         const std::uint64_t elapsed = show_attack(
@@ -863,6 +1046,7 @@ extern "C" int main(void) {
     int archetype = 0;
     int selected_cell = preferred_attack_cell(stage);
     bool attack_mode = false;
+    bool texture_mode = false;
     show_page(stage, body, lod, false, viewport, matrix, board, figures);
     while (true) {
         joypad_poll();
@@ -905,6 +1089,10 @@ extern "C" int main(void) {
             }
             changed = true;
         }
+        if (attack_mode && pressed.z) {
+            texture_mode = !texture_mode;
+            changed = true;
+        }
         if (attack_mode && pressed.b) {
             play_attack_preview(
                 stage, archetype, selected_cell, attack_viewport,
@@ -914,10 +1102,17 @@ extern "C" int main(void) {
         }
         if (changed) {
             if (attack_mode) {
-                show_attack(
-                    stage, archetype, selected_cell, false, attack_viewport,
-                    matrix, board, figures
-                );
+                if (texture_mode) {
+                    show_texture_comparison(
+                        stage, archetype, selected_cell, true, false,
+                        attack_viewport, matrix, board, figures
+                    );
+                } else {
+                    show_attack(
+                        stage, archetype, selected_cell, false,
+                        attack_viewport, matrix, board, figures
+                    );
+                }
             } else {
                 show_page(
                     stage, body, lod, false, viewport, matrix, board, figures

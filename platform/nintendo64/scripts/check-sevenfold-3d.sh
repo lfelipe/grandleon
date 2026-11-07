@@ -76,7 +76,7 @@ fi
 
 GRANDLEON_N64_BUILD_DIR="${build_dir}" \
 GRANDLEON_N64_ARES_SECONDS=120 \
-GRANDLEON_N64_ARES_MIN_CHECKS=40 \
+GRANDLEON_N64_ARES_MIN_CHECKS=44 \
 GRANDLEON_N64_ARES_LOG=sevenfold-3d.log \
 GRANDLEON_N64_ARES_TRAIL=trail-sevenfold-3d \
 GRANDLEON_N64_ARES_SHOT=screenshot-sevenfold-3d.png \
@@ -98,6 +98,17 @@ done <<'EOF'
 blue right
 red left
 EOF
+while read -r style role terrain; do
+    for mode in flat ci4; do
+        grep -q "^sevenfold texture stage=${style} role=${role} terrain=${terrain} mode=${mode} models=2 .* depth=on$" "${log}"
+        checkpoint=before
+        [ "${mode}" = ci4 ] && checkpoint=after
+        grep -q "^CHECKPOINT sevenfold-texture-${style}-${checkpoint}$" "${log}"
+    done
+done <<'EOF'
+medieval knight FOREST
+mythical mage MOUNTAIN
+EOF
 while read -r style terrain; do
     grep -q "^sevenfold attack stage=${style} role=.* terrain=${terrain} models=2 .* heading=three-quarter depth=on$" "${log}"
     grep -q "^CHECKPOINT sevenfold-attack-${style}-${terrain}$" "${log}"
@@ -112,5 +123,5 @@ pirates SAND
 EOF
 grep -q '^sevenfold attack-animation stage=medieval frames=96 .* heading=three-quarter depth=on$' "${log}"
 grep -q '^CHECKPOINT sevenfold-attack-animation-hit$' "${log}"
-grep -q '^RESULT PASS 40/40$' "${log}"
+grep -q '^RESULT PASS 44/44$' "${log}"
 echo "Nintendo 64 Sevenfold 3D roster check passed: ${rom}"

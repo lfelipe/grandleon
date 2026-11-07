@@ -118,7 +118,10 @@ between shadow and highlight faces without paying for runtime lights. **A**
 switches between low and high detail; the d-pad changes style or body.
 **Start** opens a two-character high-detail attack view whose floor, skyline,
 and sky colour are derived from the selected terrain. **B** then plays an
-illustrative attack, hit, counter-attack, and damage callout.
+illustrative attack, hit, counter-attack, and damage callout. In that close
+view, **Z** toggles an experimental textured presentation. It applies small
+greyscale CI4 material patterns to terrain and figures while continuing to
+take style and team colours from the existing vertices.
 
 The playable `sevenfold-n64-3d.z64` uses the same proxies differently: low
 detail on the complete campaign board, actual 3D route movement, and two
@@ -129,11 +132,20 @@ the viewer's illustrative animation.
 
 Its ares check captures 28 roster-matrix comparisons, two same-team
 three-quarter pages that expose all eight low-detail roles from opposite
-headings, seven terrain close views, and one animated hit frame. The current
-run passes `40/40`: low-detail board pages measure 62–87 fps, high-detail pages
-39–51 fps, and close views 132–163 fps with depth enabled. The two dedicated
-heading pages each measure 87 fps. These are emulator measurements, not
-timings from original hardware.
+headings, seven terrain close views, one animated hit frame, and matched flat
+and textured close views for a medieval knight and mythical mage. The current
+run passes `44/44` and records 42 captures: low-detail board pages measure
+62–87 fps, high-detail pages 39–51 fps, and flat close views 132–163 fps with
+depth enabled. The two CI4 close views measure 156 fps for medieval and 129 fps
+for mythical, compared with 162 and 134 fps for the otherwise identical flat
+views. These are emulator measurements, not timings from original hardware.
+
+The texture path is deliberately confined to the diagnostic viewer while it
+is evaluated. Its two procedurally generated 32×32 CI4 atlases and shared TLUT
+use 1,056 bytes in RDRAM; only the active 512-byte atlas and 32-byte palette
+need TMEM at once. The existing playable 3D campaign remains unchanged until
+the material treatment has been tested on a broader set of roles and terrain,
+including real MiSTer or original-style hardware review.
 
 The full-roster models are deterministic procedural console proxies; the
 curated character sheets do not contain hidden 3D source meshes. The 3D

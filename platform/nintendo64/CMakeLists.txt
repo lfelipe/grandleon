@@ -648,6 +648,7 @@ if(GRANDLEON_N64_SEVENFOLD_3D)
     add_executable(
         grandleon_n64_sevenfold_3d
         prototype/sevenfold_roster_rom.cpp
+        src/sevenfold_texture_experiment.cpp
     )
     target_link_libraries(
         grandleon_n64_sevenfold_3d
@@ -658,6 +659,7 @@ if(GRANDLEON_N64_SEVENFOLD_3D)
     target_include_directories(
         grandleon_n64_sevenfold_3d
         PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/src"
             "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
             "${CMAKE_SOURCE_DIR}/games/sevenfold/generated"
     )

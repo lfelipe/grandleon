@@ -85,11 +85,14 @@ cmake --build build --target grandleon_n64_sevenfold_3d_check
 cmake --build build --target grandleon_playstation_sevenfold_3d_check
 ```
 
-The N64 viewer currently passes `40/40` checks. Its capture trail includes two
-same-team pages showing all eight low-detail roles from the opposite
-camera-facing three-quarter headings. Its ares measurements are 62–87 fps for
-eight low-detail models, 39–51 fps for eight high-detail models, and 132–163
-fps for two high-detail models in the close view.
+The N64 viewer currently passes `44/44` checks and records 42 captures. Its
+capture trail includes two same-team pages showing all eight low-detail roles
+from the opposite camera-facing three-quarter headings, plus matched flat and
+experimental CI4 close views for medieval and mythical representatives. Its
+ares measurements are 62–87 fps for eight low-detail models, 39–51 fps for
+eight high-detail models, and 132–163 fps for two high-detail models in the flat
+close view. The textured close views measure 156 fps for medieval and 129 fps
+for mythical, versus 162 and 134 fps for the identical flat scenes.
 
 The PlayStation viewer currently passes `352/352` guest checks, including
 safe-picture checks for every auto-framed attack pair, and `18/18` independent
@@ -102,6 +105,15 @@ regression ceiling is 33 ms, not a real-hardware claim.
 
 These are emulator measurements used to catch regressions, not promises about
 original hardware. Real-hardware play remains part of the review process.
+
+The N64 material experiment is viewer-only for now. Press **Z** in its close
+view to toggle it. It uses two 32×32 CI4 greyscale atlases, deterministic UVs
+projected from existing proxy coordinates, and the existing vertex palettes
+for style and team identity. That makes the before/after comparison use the
+same camera, models, geometry, and red/blue team colours. The two atlases plus
+their shared TLUT occupy 1,056 bytes in RDRAM, and only one atlas is resident in
+TMEM at a time. The playable campaign stays on its established presentation
+until the treatment has broader role, terrain, and real-hardware validation.
 
 ## Ongoing graphics work
 

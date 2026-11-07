@@ -44,7 +44,9 @@ while the 3D presentation continues improving.
 The Nintendo 64 viewer shows all eight roles per page, switches between low and
 high detail, exercises both bodies and team colours, and includes two
 same-team role pages with opposite camera-facing three-quarter headings, seven
-terrain close views, and an animated hit frame. Its ares gate passes `40/40`.
+terrain close views, and an animated hit frame. It also includes matched flat
+and experimental CI4 close views for medieval and mythical representatives.
+Its ares gate passes `44/44` and records 42 captures.
 
 The PlayStation viewer uses four-role pages and auto-framed two-character close
 views. Its guest gate passes `352/352`, including safe-picture checks for all
@@ -57,6 +59,7 @@ Current emulator measurements are:
 | N64, eight low-detail models | 62–87 fps |
 | N64, eight high-detail comparison models | 39–51 fps |
 | N64, two high-detail close-view models | 132–163 fps |
+| N64, two textured high-detail close-view models | 129–156 fps |
 | PS1, four low-detail board models | about 52 fps |
 | PS1, four high-detail comparison models | about 32 fps |
 | PS1, two high-detail close-view models | about 51 fps |
@@ -66,6 +69,16 @@ campaign board. Animated PS1 3D scenes target a locked 30 fps, synchronised to
 every second NTSC retrace, and use a 33 ms regression ceiling. The throughput
 figures above are pinned-emulator measurements rather than display cadence or
 promises about original hardware.
+
+The N64 texture experiment lives only in the diagnostic viewer. Press **Z** in
+its close view to compare the CI4 material pass with the production vertex-
+colour presentation. Two runtime-generated 32×32 greyscale atlases add armour,
+cloth, arcane, grass, stone, dirt, and ripple patterns. Multiplying those
+patterns by the existing vertex colours keeps team red/blue and each style's
+palette independent from texture data. Deterministic planar projection derives
+UVs from the existing proxy coordinates, so the shared generated proxy schema
+does not change. The experiment costs roughly 0.23–0.24 ms in the two measured
+close views and is not enabled in the playable campaign yet.
 
 ## Regenerate the roster
 
