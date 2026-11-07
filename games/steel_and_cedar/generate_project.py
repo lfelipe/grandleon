@@ -173,10 +173,16 @@ def story_node(key: str, name: str, scene: str, target: str) -> dict:
 def build_project() -> dict:
     classes = [
         class_record("knight", "Knight", "blade", stat_block(15, 4, 5, 4, 2, 5, 4)),
-        class_record("field_commander", "Commander", "blade", stat_block(17, 4, 5, 4, 3, 6, 5)),
+        # The four protagonists are a campaign company, not disposable copies
+        # of the rank-and-file classes they fight. Their modest durability and
+        # movement edge lets a small 1P/2P roster survive several encounters
+        # without making ordinary enemies irrelevant.
+        class_record("field_commander", "Commander", "blade", stat_block(24, 5, 7, 6, 5, 8, 6)),
         class_record("archer", "Archer", "bow", stat_block(11, 4, 4, 2, 2, 8, 7)),
-        class_record("healer", "Healer", "focus", stat_block(12, 4, 2, 2, 6, 5, 5, 6)),
+        class_record("vanguard_archer", "Archer", "bow", stat_block(17, 5, 6, 4, 4, 10, 8)),
+        class_record("healer", "Healer", "focus", stat_block(18, 5, 3, 4, 8, 7, 6, 8)),
         class_record("rogue", "Rogue", "blade", stat_block(11, 5, 4, 2, 2, 8, 8)),
+        class_record("vanguard_rogue", "Rogue", "blade", stat_block(18, 6, 6, 4, 4, 10, 9)),
         class_record("mage", "Mage", "focus", stat_block(11, 4, 2, 2, 5, 6, 6, 6)),
         class_record("castellan", "Commander", "blade", stat_block(19, 4, 6, 5, 3, 6, 5)),
         class_record("warlord", "Commander", "blade", stat_block(27, 4, 7, 6, 5, 7, 6, 4)),
@@ -184,12 +190,12 @@ def build_project() -> dict:
     unit_types = [
         unit(
             "rowan_vale", "Commander Rowan Vale", "field_commander",
-            "concord", "march_blade", "medieval", "first",
+            "concord", "concord_blade", "medieval", "first",
             notes="ALLIED COMMANDER: persistent protect target and visual anchor for the shared commander treatment.",
         ),
-        unit("akari_mori", "Akari Mori", "archer", "concord", "cedar_bow", "sengoku", "second"),
+        unit("akari_mori", "Akari Mori", "vanguard_archer", "concord", "cedar_officer_bow", "sengoku", "second"),
         unit("tomas_reed", "Tomas Reed", "healer", "concord", "pilgrim_focus", "medieval", "second", ("field_mend",)),
-        unit("ren_sato", "Ren Sato", "rogue", "concord", "scout_blade", "sengoku", "first"),
+        unit("ren_sato", "Ren Sato", "vanguard_rogue", "concord", "cedar_scout_blade", "sengoku", "first"),
         unit("red_retainer", "Red Retainer", "knight", "war_host", "war_spear", "sengoku", "first", experience=45),
         unit("march_sword", "March Sword", "knight", "war_host", "march_blade", "medieval", "second", experience=45),
         unit("cedar_archer", "Cedar Archer", "archer", "war_host", "cedar_bow", "sengoku", "second", experience=40),
@@ -358,7 +364,10 @@ def build_project() -> dict:
             placement("watch_wave_west", "march_sword", "second", 0, 5, behavior="pursue", arrival={"round": 3, "every": 4, "times": 5}),
             placement("watch_wave_east", "red_retainer", "second", 15, 6, behavior="pursue", arrival={"round": 5, "every": 4, "times": 4}),
             placement("watch_wave_north", "cedar_archer", "second", 8, 0, behavior="hold", arrival={"round": 6, "every": 6, "times": 3}),
-            placement("watch_wave_south", "gate_mystic", "second", 7, 11, behavior="hold", arrival={"round": 10, "every": 6, "times": 2}),
+            # The southern mystics answer Cedar's second army. Keeping them
+            # out of solo leaves Rowan and Tomas three readable approaches to
+            # manage instead of asking two units to cover all four edges.
+            placement("watch_wave_south", "gate_mystic", "second", 7, 11, behavior="hold", coop=True, arrival={"round": 10, "every": 6, "times": 2}),
             placement("watch_coop_east", "march_sword", "second", 15, 3, behavior="pursue", coop=True, arrival={"round": 4, "every": 5, "times": 4}),
             placement("watch_coop_west", "red_retainer", "second", 0, 8, behavior="pursue", coop=True, arrival={"round": 8, "every": 5, "times": 3}),
             placement("watch_coop_south", "march_archer", "second", 8, 11, behavior="hold", coop=True, arrival={"round": 12, "every": 6, "times": 2}),
@@ -411,15 +420,16 @@ def build_project() -> dict:
             placement("ren_gate", "ren_sato", "first", 2, 10, member="ren", player=2, coop=True),
             placement("lord_masatora", "lord_masatora_unit", "second", 16, 6, behavior="hold", name="Lord Masatora"),
             placement("gate_north_guard", "red_retainer", "second", 12, 3, behavior="pursue"),
-            placement("gate_south_guard", "march_sword", "second", 12, 10, behavior="pursue"),
-            placement("gate_north_bow", "cedar_archer", "second", 16, 2, behavior="hold"),
-            placement("gate_south_bow", "march_archer", "second", 16, 11, behavior="hold"),
+            placement("gate_south_guard", "march_sword", "second", 12, 10, behavior="pursue", coop=True),
+            # Two-player armies can answer a second long-range guard; in solo,
+            # the centre mystic already supplies ranged pressure behind the
+            # high-stair melee line.
+            placement("gate_north_bow", "cedar_archer", "second", 16, 2, behavior="hold", coop=True),
+            placement("gate_south_bow", "march_archer", "second", 16, 11, behavior="hold", coop=True),
             placement("gate_center_mystic", "gate_mystic", "second", 13, 7, behavior="hold"),
             placement("gate_west_knife", "court_knife", "second", 8, 2, behavior="pursue"),
-            placement("gate_wave_high", "red_retainer", "second", 10, 0, behavior="pursue", arrival={"round": 4}),
-            placement("gate_wave_low", "march_sword", "second", 10, 13, behavior="pursue", arrival={"round": 6}),
-            placement("gate_coop_high", "gate_mystic", "second", 9, 4, behavior="hold", coop=True),
-            placement("gate_coop_low", "court_knife", "second", 9, 10, behavior="pursue", coop=True),
+            placement("gate_wave_high", "red_retainer", "second", 10, 0, behavior="pursue", coop=True, arrival={"round": 4}),
+            placement("gate_wave_low", "march_sword", "second", 10, 13, behavior="pursue", coop=True, arrival={"round": 6}),
         ],
         "objectiveIds": ["fell_masatora", "protect_rowan"],
         "moments": moments("gate_begins", "gate_orders", "gate_cedar_front", "gate_coop") + [{
@@ -459,10 +469,13 @@ def build_project() -> dict:
         "classes": classes,
         "weapons": [
             {"id": "march_blade", "name": "March Sword", "weaponTypeId": "blade", "power": 2, "minimumRange": 1, "maximumRange": 1, "accuracy": 95},
+            {"id": "concord_blade", "name": "Concord Sword", "weaponTypeId": "blade", "power": 3, "minimumRange": 1, "maximumRange": 1, "accuracy": 100},
             {"id": "scout_blade", "name": "Scout Knife", "weaponTypeId": "blade", "power": 2, "minimumRange": 1, "maximumRange": 1, "accuracy": 100},
+            {"id": "cedar_scout_blade", "name": "Cedar Scout Knife", "weaponTypeId": "blade", "power": 3, "minimumRange": 1, "maximumRange": 1, "accuracy": 100},
             {"id": "war_spear", "name": "War Spear", "weaponTypeId": "blade", "power": 3, "minimumRange": 1, "maximumRange": 1, "accuracy": 90},
             {"id": "gate_glaive", "name": "Gate Glaive", "weaponTypeId": "blade", "power": 4, "minimumRange": 1, "maximumRange": 2, "accuracy": 95},
             {"id": "cedar_bow", "name": "Cedar Bow", "weaponTypeId": "bow", "power": 2, "minimumRange": 2, "maximumRange": 3, "accuracy": 95},
+            {"id": "cedar_officer_bow", "name": "Cedar Officer Bow", "weaponTypeId": "bow", "power": 3, "minimumRange": 2, "maximumRange": 3, "accuracy": 100},
             {"id": "march_bow", "name": "March Longbow", "weaponTypeId": "bow", "power": 2, "minimumRange": 2, "maximumRange": 3, "accuracy": 90},
             {"id": "pilgrim_focus", "name": "Pilgrim Bell", "weaponTypeId": "focus", "power": 1, "minimumRange": 1, "maximumRange": 2, "accuracy": 100},
             {"id": "war_focus", "name": "War Fan", "weaponTypeId": "focus", "power": 2, "minimumRange": 1, "maximumRange": 2, "accuracy": 95},
@@ -473,7 +486,7 @@ def build_project() -> dict:
             {"id": "war_host", "name": "The War Host", "color": "red"},
         ],
         "abilities": [
-            {"id": "field_mend", "name": "Field Mend", "kind": "restore", "damageType": "physical", "areaShape": "single", "power": 6, "minimumRange": 1, "maximumRange": 2},
+            {"id": "field_mend", "name": "Field Mend", "kind": "restore", "damageType": "physical", "areaShape": "single", "power": 8, "minimumRange": 1, "maximumRange": 2},
             {"id": "wind_lance", "name": "Wind Lance", "kind": "damage", "damageType": "magical", "areaShape": "single", "power": 4, "minimumRange": 1, "maximumRange": 3, "accuracy": 95},
             {"id": "gatefall", "name": "Gatefall", "kind": "damage", "damageType": "magical", "areaShape": "cross", "power": 4, "minimumRange": 1, "maximumRange": 3, "radius": 1, "accuracy": 90},
         ],

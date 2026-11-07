@@ -18,9 +18,9 @@ front and when to rendezvous.
 |---|---|---|
 | **The Bell Orchard** (8×6) | A short Rowan-and-Tomas opening that teaches moving, attacking, counter-attacking, terrain, and ending the turn. | Akari and Ren answer the signal on a second orchard road, with another enemy covering the gap. |
 | **Cedar Deepwood** (14×9) | Rowan begins farther along the old track so the forest does not become a long empty walk. Ambushes guard clearings, rocks, and narrow paths. | The March starts on the northern trail and Cedar on the southern trail. Each army must win its route before meeting at the watch road. |
-| **Cedar Watch** (16×12) | Survive 20 rounds and keep Commander Rowan standing. Only two enemies begin on the board; seven readable wave groups arrive from announced approaches over time. | Rowan holds the western command court while Akari owns the eastern steps. Extra waves make both fronts consequential, with room to warn and reinforce one another. |
+| **Cedar Watch** (16×12) | Survive 20 rounds and keep Commander Rowan standing. Only two enemies begin on the board; three wave groups pressure the west, east, and north without asking two units to cover every edge. | Rowan holds the western command court while Akari owns the eastern steps. Seven groups use all four approaches, with room to warn and reinforce one another. |
 | **Gate Village** (18×12) | Rowan pushes from a closer start through the gate, alleys, and village square to defeat Castellan Vere without losing the commander. | The March takes the north gate while Cedar takes the south lane. The companies fight separate street battles before meeting in the square and closing Vere's escape. |
-| **The Twin Gate** (20×14) | Rowan's high stair route and Tomas's healing are tested against guard posts, ranged pressure, reserves, and Lord Masatora. | Akari takes the lower court while Rowan takes the high stair. Neither player is a helper: both routes must break their own defenses before the armies converge on the boss. |
+| **The Twin Gate** (20×14) | Rowan's high stair route and Tomas's stronger field healing are tested against a knife, guard, mystic, and Lord Masatora. | Akari takes the lower court while Rowan takes the high stair. Ranged posts and two reserves make both routes work before the armies converge on the boss. |
 
 Every board after the tutorial is larger than one console view. Enemies are
 placed as route guards, flank threats, ranged pressure, command posts, and wave
@@ -50,22 +50,33 @@ same blocked footprints as high ground until that portable feature work lands.
 ## Current status
 
 The source parses, compiles, and opens every encounter as both a one-player and
-a two-player campaign. Automated checks walk the real terrain to ensure both
+a two-player campaign. The four protagonists now use campaign-specific class
+numbers and equipment while keeping the same shared Commander, Archer, Healer,
+and Rogue art roles. They have a measured durability and mobility edge over
+rank-and-file enemies; Tomas restores eight health so the late solo route can
+recover from a real exchange rather than requiring a flawless run.
+
+Automated checks walk the real terrain to ensure both
 armies have routes to every opponent and reinforcement, keep each co-op player
 within two moves of a consequential opening front, wait through every wave to
 prove it lands on a unique legal cell, and play the 20-round defense to a real
-simulation victory. A deterministic pursue-versus-pursue smoke run also makes
-all ten 1P/2P encounters reach a result instead of deadlocking. Finally, the
+simulation victory. A deterministic player-pursuit run against each enemy's
+authored hold-or-pursue behaviour also gives all ten 1P/2P encounters a
+repeatable completion baseline. Finally, the
 campaign cursor follows the objective results through all five victories and
 the ending; keeping Rowan alive correctly remains a pending protection result,
 while the stage's survival or boss objective advances the story.
 
-That unattended smoke run is a legality and deadlock check, not a balance
-proof. The War Host currently wins all ten simple pursuit traces. A human can
-use terrain, ranges, healing, target priority, and split-route coordination in
-ways that policy does not, so this does not prove any battle is unwinnable. It
-does make difficulty and attrition the clearest current balance risks,
-especially for Rowan and Tomas on the late solo maps.
+That unattended run is a repeatable balance baseline, not proof that a map is
+fun. It now completes all ten 1P/2P traces for the Concord instead of losing all
+ten to the War Host. The opening preserves every deployed protagonist and
+finishes by round four; Deepwood takes seven to nine rounds; both Watch defenses
+reach round twenty; and Village and Twin Gate take eight to twelve rounds. Those
+late traces finish with only one Concord survivor, while Masatora keeps his
+original 27 health. That is intentional evidence that the tuning removed the
+automatic loss without erasing attrition, but it is also the clearest remaining
+warning: human players still need to judge whether the late battles feel tense
+or merely punishing.
 
 It is not ready to replace the current included campaigns until real 1P and 2P
 playtests cover difficulty, duration, instructions, retries, saves,

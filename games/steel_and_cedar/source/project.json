@@ -48,16 +48,16 @@
       "id": "field_commander",
       "name": "Commander",
       "baseStats": {
-        "health": 17,
-        "movement": 4,
-        "strength": 5,
-        "defense": 4,
-        "resistance": 3,
-        "skill": 6,
+        "health": 24,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6,
+        "resistance": 5,
+        "skill": 8,
         "luck": 2,
         "evasion": 2,
         "actionPoints": 2,
-        "speed": 5
+        "speed": 6
       },
       "allowedWeaponTypeIds": [
         "blade"
@@ -83,20 +83,39 @@
       ]
     },
     {
-      "id": "healer",
-      "name": "Healer",
+      "id": "vanguard_archer",
+      "name": "Archer",
       "baseStats": {
-        "health": 12,
-        "movement": 4,
-        "strength": 2,
-        "defense": 2,
-        "resistance": 6,
-        "skill": 5,
+        "health": 17,
+        "movement": 5,
+        "strength": 6,
+        "defense": 4,
+        "resistance": 4,
+        "skill": 10,
         "luck": 2,
         "evasion": 2,
         "actionPoints": 2,
-        "speed": 5,
-        "magic": 6
+        "speed": 8
+      },
+      "allowedWeaponTypeIds": [
+        "bow"
+      ]
+    },
+    {
+      "id": "healer",
+      "name": "Healer",
+      "baseStats": {
+        "health": 18,
+        "movement": 5,
+        "strength": 3,
+        "defense": 4,
+        "resistance": 8,
+        "skill": 7,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 6,
+        "magic": 8
       },
       "allowedWeaponTypeIds": [
         "focus"
@@ -116,6 +135,25 @@
         "evasion": 2,
         "actionPoints": 2,
         "speed": 8
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "vanguard_rogue",
+      "name": "Rogue",
+      "baseStats": {
+        "health": 18,
+        "movement": 6,
+        "strength": 6,
+        "defense": 4,
+        "resistance": 4,
+        "skill": 10,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 9
       },
       "allowedWeaponTypeIds": [
         "blade"
@@ -192,10 +230,28 @@
       "accuracy": 95
     },
     {
+      "id": "concord_blade",
+      "name": "Concord Sword",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    },
+    {
       "id": "scout_blade",
       "name": "Scout Knife",
       "weaponTypeId": "blade",
       "power": 2,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    },
+    {
+      "id": "cedar_scout_blade",
+      "name": "Cedar Scout Knife",
+      "weaponTypeId": "blade",
+      "power": 3,
       "minimumRange": 1,
       "maximumRange": 1,
       "accuracy": 100
@@ -226,6 +282,15 @@
       "minimumRange": 2,
       "maximumRange": 3,
       "accuracy": 95
+    },
+    {
+      "id": "cedar_officer_bow",
+      "name": "Cedar Officer Bow",
+      "weaponTypeId": "bow",
+      "power": 3,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 100
     },
     {
       "id": "march_bow",
@@ -275,7 +340,7 @@
       "kind": "restore",
       "damageType": "physical",
       "areaShape": "single",
-      "power": 6,
+      "power": 8,
       "minimumRange": 1,
       "maximumRange": 2
     },
@@ -310,7 +375,7 @@
       "classId": "field_commander",
       "factionId": "concord",
       "startingWeaponIds": [
-        "march_blade"
+        "concord_blade"
       ],
       "characterStyleId": "medieval",
       "characterFigureId": "first",
@@ -320,10 +385,10 @@
     {
       "id": "akari_mori",
       "name": "Akari Mori",
-      "classId": "archer",
+      "classId": "vanguard_archer",
       "factionId": "concord",
       "startingWeaponIds": [
-        "cedar_bow"
+        "cedar_officer_bow"
       ],
       "characterStyleId": "sengoku",
       "characterFigureId": "second",
@@ -347,10 +412,10 @@
     {
       "id": "ren_sato",
       "name": "Ren Sato",
-      "classId": "rogue",
+      "classId": "vanguard_rogue",
       "factionId": "concord",
       "startingWeaponIds": [
-        "scout_blade"
+        "cedar_scout_blade"
       ],
       "characterStyleId": "sengoku",
       "characterFigureId": "first",
@@ -2384,6 +2449,7 @@
                 "x": 7,
                 "y": 11,
                 "behavior": "hold",
+                "minimumPlayers": 2,
                 "arrival": {
                   "round": 10,
                   "every": 6,
@@ -2781,7 +2847,8 @@
                 "side": "second",
                 "x": 12,
                 "y": 10,
-                "behavior": "pursue"
+                "behavior": "pursue",
+                "minimumPlayers": 2
               },
               {
                 "id": "gate_north_bow",
@@ -2789,7 +2856,8 @@
                 "side": "second",
                 "x": 16,
                 "y": 2,
-                "behavior": "hold"
+                "behavior": "hold",
+                "minimumPlayers": 2
               },
               {
                 "id": "gate_south_bow",
@@ -2797,7 +2865,8 @@
                 "side": "second",
                 "x": 16,
                 "y": 11,
-                "behavior": "hold"
+                "behavior": "hold",
+                "minimumPlayers": 2
               },
               {
                 "id": "gate_center_mystic",
@@ -2822,6 +2891,7 @@
                 "x": 10,
                 "y": 0,
                 "behavior": "pursue",
+                "minimumPlayers": 2,
                 "arrival": {
                   "round": 4
                 }
@@ -2833,27 +2903,10 @@
                 "x": 10,
                 "y": 13,
                 "behavior": "pursue",
+                "minimumPlayers": 2,
                 "arrival": {
                   "round": 6
                 }
-              },
-              {
-                "id": "gate_coop_high",
-                "unitTypeId": "gate_mystic",
-                "side": "second",
-                "x": 9,
-                "y": 4,
-                "behavior": "hold",
-                "minimumPlayers": 2
-              },
-              {
-                "id": "gate_coop_low",
-                "unitTypeId": "court_knife",
-                "side": "second",
-                "x": 9,
-                "y": 10,
-                "behavior": "pursue",
-                "minimumPlayers": 2
               }
             ],
             "objectiveIds": [

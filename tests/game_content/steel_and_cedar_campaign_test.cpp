@@ -54,9 +54,9 @@ struct Stage final {
 constexpr std::array<Stage, 5> stages{{
     {"bell_orchard", 8, 6, 3, 4, 2},
     {"cedar_deepwood", 14, 9, 5, 7, 2},
-    {"cedar_watch", 16, 12, 6, 9, 2},
+    {"cedar_watch", 16, 12, 5, 9, 2},
     {"gate_village", 18, 12, 6, 9, 2},
-    {"twin_gate", 20, 14, 9, 11, 3},
+    {"twin_gate", 20, 14, 4, 9, 3},
 }};
 
 std::size_t count_units(
@@ -266,6 +266,10 @@ struct AutoplayResult final {
     sim::Outcome outcome{sim::Outcome::ongoing};
     std::uint32_t round{};
     std::size_t commands{};
+    std::size_t first_survivors{};
+    std::size_t second_survivors{};
+    int first_health{};
+    int second_health{};
 };
 
 AutoplayResult autoplay(const pr::EncounterLoadResult& board) {
@@ -282,8 +286,21 @@ AutoplayResult autoplay(const pr::EncounterLoadResult& board) {
                 unit.has_acted) {
                 continue;
             }
+            tac::Behavior behavior = tac::Behavior::pursue;
+            if (unit.side == sim::Side::second) {
+                // Match the playable client: authored bindings override hold,
+                // while recurring copies without their own binding stay put.
+                const auto authored = std::find_if(
+                    board.behaviors.begin(), board.behaviors.end(),
+                    [&unit](const pr::UnitBehaviorBinding& binding) {
+                        return binding.unit_id == unit.id;
+                    }
+                );
+                behavior = authored == board.behaviors.end()
+                    ? tac::Behavior::hold : authored->behavior;
+            }
             const tac::Plan plan = tac::decide(
-                snapshot, unit.id, tac::Behavior::pursue, {},
+                snapshot, unit.id, behavior, {},
                 created.encounter.abilities(), created.encounter.weapons()
             );
             if (!plan.actionable) continue;
@@ -301,7 +318,18 @@ AutoplayResult autoplay(const pr::EncounterLoadResult& board) {
         ++commands;
     }
     const sim::EncounterSnapshot final = created.encounter.snapshot();
-    return {final.outcome, final.round, commands};
+    AutoplayResult result{final.outcome, final.round, commands};
+    for (const sim::UnitSnapshot& unit : final.units) {
+        if (!sim::in_the_battle(unit)) continue;
+        if (unit.side == sim::Side::first) {
+            ++result.first_survivors;
+            result.first_health += unit.health;
+        } else {
+            ++result.second_survivors;
+            result.second_health += unit.health;
+        }
+    }
+    return result;
 }
 
 std::vector<sim::ObjectiveResult> victory_results(
@@ -365,15 +393,23 @@ int main() {
 
     std::array<int, 2> styles{};
     const std::uint64_t rowan_id = core::stable_content_id_v1("rowan_vale");
+    const std::uint64_t akari_id = core::stable_content_id_v1("akari_mori");
+    const std::uint64_t tomas_id = core::stable_content_id_v1("tomas_reed");
+    const std::uint64_t ren_id = core::stable_content_id_v1("ren_sato");
     const std::uint64_t boss_id = core::stable_content_id_v1("lord_masatora_unit");
+    const std::map<std::uint64_t, std::uint8_t> expected_archetypes{
+        {rowan_id, 5U}, {akari_id, 1U}, {tomas_id, 4U},
+        {ren_id, 6U}, {boss_id, 5U},
+    };
     for (const gc::UnitType& unit : source.unit_types) {
         const std::uint8_t style = gc::resolved_character_style(source, unit);
         if (style == 0U) ++styles[0];
         if (style == 4U) ++styles[1];
-        if (unit.id == rowan_id || unit.id == boss_id) {
+        const auto expected = expected_archetypes.find(unit.id);
+        if (expected != expected_archetypes.end()) {
             expect(
-                gc::resolved_archetype(source, unit) == 5U,
-                "commanders resolve to the shared Commander visual treatment"
+                gc::resolved_archetype(source, unit) == expected->second,
+                "campaign-specific hero classes keep their shared art roles"
             );
         }
     }
@@ -618,11 +654,43 @@ int main() {
                     " gives the March a terrain route to every opponent and wave"
             );
             const AutoplayResult played = autoplay(*board);
-            expect(
-                played.outcome != sim::Outcome::ongoing,
-                std::string(stage.key) + " " + mode +
-                    " reaches a decision under deterministic legal pursuit"
+            const std::size_t starting_allies = count_units(
+                *board, sim::Side::first
             );
+            expect(
+                played.outcome == sim::Outcome::first_side_won &&
+                    played.first_survivors >= 1U,
+                std::string(stage.key) + " " + mode +
+                    " has a deterministic legal completion baseline"
+            );
+            if (index == 0U) {
+                expect(
+                    played.first_survivors == starting_allies &&
+                        played.round <= 4U,
+                    std::string(stage.key) + " " + mode +
+                        " remains a forgiving introduction"
+                );
+            } else {
+                expect(
+                    played.round >= 6U,
+                    std::string(stage.key) + " " + mode +
+                        " does not collapse into an immediate clear"
+                );
+            }
+            if (index == 2U) {
+                expect(
+                    played.round == 20U,
+                    std::string(stage.key) + " " + mode +
+                        " resolves at the authored defense limit"
+                );
+            }
+            if (index >= 2U) {
+                expect(
+                    played.first_survivors < starting_allies,
+                    std::string(stage.key) + " " + mode +
+                        " still applies meaningful late-campaign attrition"
+                );
+            }
             std::cout << "autoplay " << stage.key << ' ' << mode
                       << " winner="
                       << (played.outcome == sim::Outcome::first_side_won
@@ -630,7 +698,11 @@ int main() {
                               : played.outcome == sim::Outcome::second_side_won
                                   ? "war_host" : "none")
                       << " round=" << played.round
-                      << " commands=" << played.commands << '\n';
+                      << " commands=" << played.commands
+                      << " survivors=" << played.first_survivors << '/'
+                      << played.second_survivors
+                      << " health=" << played.first_health << '/'
+                      << played.second_health << '\n';
         }
         expect(
             every_enemy_has_a_route_from(coop, 2U),
@@ -735,6 +807,29 @@ int main() {
             recurring_waves == 7U,
         "its seven staggered wave groups span both fronts and the full defense"
     );
+    const auto solo_watch = pr::load_encounter(
+        loaded.package,
+        core::stable_content_id_v1("steel_and_cedar/cedar_watch"), {1}
+    );
+    const auto solo_watch_created = sim::create_encounter(
+        solo_watch.definition
+    );
+    const auto coop_watch_created = sim::create_encounter(watch.definition);
+    const auto expanded_enemies = [](const sim::EncounterSnapshot& snapshot) {
+        return static_cast<std::size_t>(std::count_if(
+            snapshot.units.begin(), snapshot.units.end(),
+            [](const sim::UnitSnapshot& unit) {
+                return unit.side == sim::Side::second;
+            }
+        ));
+    };
+    expect(
+        solo_watch_created && coop_watch_created &&
+            expanded_enemies(solo_watch_created.encounter.snapshot()) == 14U &&
+            expanded_enemies(coop_watch_created.encounter.snapshot()) == 25U,
+        "Cedar Watch keeps a lighter three-front solo defense and a "
+        "seven-group, four-front co-op defense"
+    );
 
     for (const Stage& stage : stages) {
         for (std::uint8_t players = 1U; players <= 2U; ++players) {
@@ -826,10 +921,10 @@ int main() {
             finale.definition.units.begin(), finale.definition.units.end(),
             [boss_id](const sim::UnitDefinition& unit) {
                 return unit.side == sim::Side::second &&
-                    unit.unit_type_id == boss_id;
+                    unit.unit_type_id == boss_id && unit.health == 27;
             }
         ),
-        "the final map fields Lord Masatora as its boss"
+        "the final map keeps Lord Masatora's full boss durability"
     );
     expect(
         finale && std::count_if(
