@@ -2,6 +2,9 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const ProjectContentDependencyIndex = preload(
+	"res://scripts/creator/project_content_dependency_index.gd"
+)
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const HISTORY_LIMIT := 64
 const BACKDROPS := [
@@ -30,6 +33,8 @@ var discard_armed_until := 0
 
 var title_label: Label
 var dialogue_select: OptionButton
+var scene_filter: LineEdit
+var scene_filter_summary: Label
 var dialogue_name_label: Label
 var backdrop_select: OptionButton
 var preview_wash: ColorRect
@@ -55,6 +60,7 @@ var more_projects_button: Button
 var move_line_earlier_button: Button
 var move_line_later_button: Button
 var delete_line_button: Button
+var delete_scene_button: Button
 var new_scene_layer: Control
 var new_scene_title: LineEdit
 var new_scene_id_label: Label
@@ -75,6 +81,13 @@ var sequence_later_button: Button
 var sequence_status: Label
 var sequence_order_summary: RichTextLabel
 var sequence_refreshing := false
+var delete_scene_layer: Control
+var delete_scene_title: Label
+var delete_scene_summary: Label
+var delete_scene_uses: RichTextLabel
+var confirm_delete_scene_button: Button
+var close_delete_scene_button: Button
+var pending_delete_scene_id := ""
 
 
 func _ready() -> void:
@@ -88,7 +101,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if new_scene_layer != null and new_scene_layer.visible:
+		if delete_scene_layer != null and delete_scene_layer.visible:
+			_close_delete_scene()
+		elif new_scene_layer != null and new_scene_layer.visible:
 			_close_new_scene()
 		elif sequence_layer != null and sequence_layer.visible:
 			_close_sequence()
@@ -264,15 +279,32 @@ func _add_scene_character(
 	})
 
 
-func _refresh_dialogues() -> void:
+func _refresh_dialogues(refresh_editor := true) -> void:
 	dialogue_select.clear()
-	for value: Variant in dialogues:
-		if value is Dictionary:
-			dialogue_select.add_item(str(value.get("name", value.get("id", "Scene"))))
+	var query := scene_filter.text.strip_edges().to_lower() if scene_filter != null else ""
+	var selected_option := -1
+	var match_count := 0
+	for index in dialogues.size():
+		var value: Variant = dialogues[index]
+		if not value is Dictionary or not _dialogue_matches_filter(value, query):
+			continue
+		dialogue_select.add_item(str(value.get("name", value.get("id", "Scene"))))
+		var option := dialogue_select.item_count - 1
+		dialogue_select.set_item_metadata(option, index)
+		if index == dialogue_index:
+			selected_option = option
+		match_count += 1
 	var available := not dialogues.is_empty()
-	dialogue_select.disabled = not available
+	var has_matches := match_count > 0
+	dialogue_select.disabled = not available or not has_matches
 	empty_label.visible = not available
 	editor_column.visible = available
+	if scene_filter_summary != null:
+		scene_filter_summary.text = (
+			"%d OF %d SCENES" % [match_count, dialogues.size()]
+			if not query.is_empty()
+			else "%d SCENE%s" % [dialogues.size(), "" if dialogues.size() == 1 else "S"]
+		)
 	if not available:
 		dialogue_select.add_item("NO DIALOGUE SCENES")
 		empty_label.text = (
@@ -283,9 +315,44 @@ func _refresh_dialogues() -> void:
 		line_index = 0
 		_update_actions()
 		return
+	if not has_matches:
+		dialogue_select.add_item("NO SCENES MATCH")
+		dialogue_select.select(0)
+	else:
+		dialogue_select.select(selected_option if selected_option >= 0 else 0)
 	dialogue_index = clampi(dialogue_index, 0, dialogues.size() - 1)
-	dialogue_select.select(dialogue_index)
-	_refresh_line()
+	if refresh_editor:
+		_refresh_line()
+
+
+func _dialogue_matches_filter(dialogue: Dictionary, query: String) -> bool:
+	if query.is_empty():
+		return true
+	var searchable := "%s %s" % [
+		str(dialogue.get("name", "")), str(dialogue.get("id", ""))
+	]
+	for cast_value: Variant in dialogue.get("cast", []):
+		if cast_value is Dictionary:
+			searchable += " " + str(cast_value.get("speaker", ""))
+	for term: String in query.split(" ", false):
+		if not searchable.to_lower().contains(term):
+			return false
+	return true
+
+
+func _filter_dialogues(_value: String) -> void:
+	# Filtering changes only the reusable-scene list. It must not rewrite the
+	# open line and discard text the author has not saved yet.
+	_refresh_dialogues(false)
+
+
+func _select_dialogue_option(option: int) -> void:
+	if option < 0 or option >= dialogue_select.item_count:
+		return
+	var value: Variant = dialogue_select.get_item_metadata(option)
+	if value == null:
+		return
+	_select_dialogue(int(value))
 
 
 func _select_dialogue(index: int) -> void:
@@ -583,6 +650,120 @@ func _delete_line() -> void:
 		mini(line_index, lines.size() - 2),
 		"UNSAVED  /  REMOVED THE LINE"
 	)
+
+
+func _request_delete_scene(scene_id := "") -> void:
+	# Do not silently turn one deletion into two history operations by committing
+	# a half-written line first. The author can save or undo that line, then the
+	# confirmed scene deletion is exactly one reversible edit.
+	if line_form_dirty:
+		_set_status("SAVE OR UNDO THE CURRENT LINE BEFORE DELETING A SCENE", true)
+		return
+	var requested_id := scene_id.strip_edges()
+	if requested_id.is_empty():
+		requested_id = str(_current_dialogue().get("id", ""))
+	var index = ProjectContentDependencyIndex.new(project)
+	var decision: Dictionary = index.deletion_decision("dialogue", requested_id)
+	pending_delete_scene_id = requested_id
+	delete_scene_title.text = "DELETE %s?" % str(
+		decision.get("name", requested_id.replace("_", " "))
+	).to_upper()
+	delete_scene_summary.text = str(decision.get(
+		"summary", "Deletion is unavailable for this scene."
+	))
+	var uses: Array = decision.get("uses", [])
+	var use_lines: Array[String] = []
+	for use_value: Variant in uses:
+		if not use_value is Dictionary:
+			continue
+		var use: Dictionary = use_value
+		use_lines.append("[color=#69d9ff][b]%s[/b][/color]  %s" % [
+			str(use.get("section", "Project")),
+			str(use.get("label", "This scene is referenced here.")),
+		])
+	delete_scene_uses.text = (
+		"[color=#72e08f]WHERE USED  /  NOWHERE ELSE[/color]"
+		if uses.is_empty() and bool(decision.get("allowed", false))
+		else "[color=#ffca63]WHERE USED[/color]\n" + "\n".join(use_lines)
+		if not uses.is_empty()
+		else "[color=#ff7a83]WHERE USED  /  COULD NOT BE VERIFIED[/color]"
+	)
+	confirm_delete_scene_button.disabled = not bool(decision.get("allowed", false))
+	confirm_delete_scene_button.text = (
+		"DELETE UNUSED SCENE"
+		if not confirm_delete_scene_button.disabled
+		else "REMOVE REFERENCES FIRST"
+		if str(decision.get("reason", "")) == "in_use"
+		else "DELETION UNAVAILABLE"
+	)
+	delete_scene_layer.visible = true
+	if confirm_delete_scene_button.disabled:
+		close_delete_scene_button.grab_focus()
+	else:
+		confirm_delete_scene_button.grab_focus()
+
+
+func _close_delete_scene() -> void:
+	delete_scene_layer.visible = false
+	pending_delete_scene_id = ""
+	if delete_scene_button != null:
+		delete_scene_button.grab_focus()
+
+
+func _confirm_delete_scene() -> void:
+	var scene_id := pending_delete_scene_id
+	if scene_id.is_empty():
+		_set_status("SCENE NOT DELETED  /  NO SCENE SELECTED", true)
+		return
+	# Rebuild at confirmation time. A stale confirmation must fail closed if a
+	# reference was added or the content disappeared while the overlay was open.
+	var index = ProjectContentDependencyIndex.new(project)
+	var decision: Dictionary = index.deletion_decision("dialogue", scene_id)
+	if not bool(decision.get("allowed", false)):
+		_request_delete_scene(scene_id)
+		_set_status("SCENE NOT DELETED  /  CHECK WHERE USED", true)
+		return
+	var candidate: Dictionary = project.duplicate(true)
+	var candidate_dialogues: Array = candidate.get("dialogues", [])
+	var removed := 0
+	for candidate_index in range(candidate_dialogues.size() - 1, -1, -1):
+		var value: Variant = candidate_dialogues[candidate_index]
+		if value is Dictionary and str(value.get("id", "")) == scene_id:
+			candidate_dialogues.remove_at(candidate_index)
+			removed += 1
+	if removed != 1:
+		_set_status("SCENE NOT DELETED  /  IDENTITY COULD NOT BE VERIFIED", true)
+		return
+	candidate["dialogues"] = candidate_dialogues
+	var candidate_source := JSON.stringify(
+		_integer_numbers(candidate), "  ", true
+	) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not bool(checked.get("ok", false)):
+		_set_status(
+			"SCENE NOT DELETED  /  %s" % _diagnostic_detail(checked), true
+		)
+		return
+	var previous_index := dialogue_index
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = candidate_source
+	dirty = source != saved_source
+	_read_source()
+	dialogue_index = mini(previous_index, maxi(0, dialogues.size() - 1))
+	line_index = 0
+	line_form_dirty = false
+	delete_scene_layer.visible = false
+	more_layer.visible = false
+	pending_delete_scene_id = ""
+	# The deleted scene may have been the filter's only match. Clear the query
+	# so the selector and the newly selected scene cannot describe two different
+	# states after a successful deletion.
+	scene_filter.text = ""
+	_refresh_dialogues()
+	_set_status("UNSAVED  /  DELETED UNUSED SCENE", false)
+	if not dialogue_select.disabled:
+		dialogue_select.grab_focus()
 
 
 func _accept_line_list_edit(
@@ -1201,6 +1382,7 @@ func _update_actions() -> void:
 	play_button.disabled = project.get("campaigns", []).is_empty()
 	new_scene_button.disabled = story_targets.is_empty() or scene_characters.is_empty()
 	sequence_button.disabled = story_targets.is_empty() or dialogues.is_empty()
+	delete_scene_button.disabled = dialogues.is_empty()
 	backdrop_select.disabled = dialogues.is_empty()
 	var lines := _current_lines()
 	add_line_button.disabled = dialogues.is_empty() or lines.size() >= 4096
@@ -1258,13 +1440,21 @@ func _build_interface() -> void:
 	)
 	add_child(scene_panel)
 	var scene_column := VBoxContainer.new()
-	scene_column.add_theme_constant_override("separation", 18)
+	scene_column.add_theme_constant_override("separation", 12)
 	scene_panel.add_child(scene_column)
 	scene_column.add_child(_label("SCENE", 17, Color("b58cff")))
+	scene_filter = LineEdit.new()
+	scene_filter.placeholder_text = "Find by scene title, id, or character"
+	scene_filter.custom_minimum_size = Vector2(420, 48)
+	scene_filter.add_theme_font_size_override("font_size", 17)
+	scene_filter.text_changed.connect(_filter_dialogues)
+	scene_column.add_child(scene_filter)
+	scene_filter_summary = _label("SCENES", 14, Color("718896"))
+	scene_column.add_child(scene_filter_summary)
 	dialogue_select = OptionButton.new()
-	dialogue_select.custom_minimum_size = Vector2(420, 66)
+	dialogue_select.custom_minimum_size = Vector2(420, 58)
 	dialogue_select.add_theme_font_size_override("font_size", 19)
-	dialogue_select.item_selected.connect(_select_dialogue)
+	dialogue_select.item_selected.connect(_select_dialogue_option)
 	scene_column.add_child(dialogue_select)
 	var scene_actions := HBoxContainer.new()
 	scene_actions.add_theme_constant_override("separation", 10)
@@ -1280,11 +1470,11 @@ func _build_interface() -> void:
 	scene_actions.add_child(sequence_button)
 	dialogue_name_label = _label("", 25, Color("f2f7f9"))
 	dialogue_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dialogue_name_label.custom_minimum_size.y = 58
+	dialogue_name_label.custom_minimum_size.y = 44
 	scene_column.add_child(dialogue_name_label)
 	scene_column.add_child(_label("BACKDROP", 16, Color("69d9ff")))
 	backdrop_select = OptionButton.new()
-	backdrop_select.custom_minimum_size = Vector2(420, 54)
+	backdrop_select.custom_minimum_size = Vector2(420, 48)
 	backdrop_select.add_theme_font_size_override("font_size", 18)
 	backdrop_select.add_item("FLAT / NO BACKDROP")
 	for backdrop: String in BACKDROPS:
@@ -1292,7 +1482,7 @@ func _build_interface() -> void:
 	backdrop_select.item_selected.connect(_select_backdrop)
 	scene_column.add_child(backdrop_select)
 	var preview := Control.new()
-	preview.custom_minimum_size = Vector2(420, 260)
+	preview.custom_minimum_size = Vector2(420, 190)
 	scene_column.add_child(preview)
 	preview_wash = ColorRect.new()
 	preview_wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1300,14 +1490,14 @@ func _build_interface() -> void:
 	preview.add_child(preview_wash)
 	preview_portrait = TextureRect.new()
 	preview_portrait.position = Vector2(100, 8)
-	preview_portrait.size = Vector2(220, 205)
+	preview_portrait.size = Vector2(220, 145)
 	preview_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	preview_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	preview_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.add_child(preview_portrait)
 	preview_caption = _label("SCENE PREVIEW", 15, Color("dce8ed"))
-	preview_caption.position = Vector2(10, 218)
+	preview_caption.position = Vector2(10, 150)
 	preview_caption.size = Vector2(400, 34)
 	preview_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	preview.add_child(preview_caption)
@@ -1378,6 +1568,7 @@ func _build_interface() -> void:
 	_build_more_layer()
 	_build_new_scene_layer()
 	_build_sequence_layer()
+	_build_delete_scene_layer()
 
 
 func _open_more() -> void:
@@ -1432,8 +1623,8 @@ func _build_more_layer() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	more_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(570, 210)
-	panel.size = Vector2(780, 660)
+	panel.position = Vector2(570, 180)
+	panel.size = Vector2(780, 720)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0a1823"), 24, Color(0.48, 0.35, 0.72, 0.72))
 	)
@@ -1452,6 +1643,12 @@ func _build_more_layer() -> void:
 	delete_line_button = _button("DELETE THIS LINE", 680, 58)
 	delete_line_button.pressed.connect(_delete_line)
 	column.add_child(delete_line_button)
+	delete_scene_button = _button("DELETE THIS SCENE", 680, 58)
+	delete_scene_button.tooltip_text = (
+		"Shows every place this reusable scene is used before deletion is considered."
+	)
+	delete_scene_button.pressed.connect(_request_delete_scene)
+	column.add_child(delete_scene_button)
 	redo_button = _button("REDO", 680, 58)
 	redo_button.pressed.connect(_more_redo)
 	column.add_child(redo_button)
@@ -1659,6 +1856,61 @@ func _build_sequence_layer() -> void:
 	var done := _button("DONE", 240, 58)
 	done.pressed.connect(_close_sequence)
 	column.add_child(done)
+
+
+func _build_delete_scene_layer() -> void:
+	delete_scene_layer = Control.new()
+	delete_scene_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	delete_scene_layer.visible = false
+	delete_scene_layer.z_index = 60
+	add_child(delete_scene_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.94)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	delete_scene_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(360, 150)
+	panel.size = Vector2(1200, 760)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.72, 0.34, 0.42, 0.76))
+	)
+	delete_scene_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("SCENE SAFETY CHECK", 17, Color("ffca63")))
+	delete_scene_title = _label("DELETE SCENE?", 30, Color("f2f7f9"))
+	delete_scene_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(delete_scene_title)
+	delete_scene_summary = _label("", 19, Color("dce8ed"))
+	delete_scene_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	delete_scene_summary.custom_minimum_size.y = 90
+	column.add_child(delete_scene_summary)
+	delete_scene_uses = RichTextLabel.new()
+	delete_scene_uses.bbcode_enabled = true
+	delete_scene_uses.fit_content = false
+	delete_scene_uses.scroll_active = true
+	delete_scene_uses.custom_minimum_size = Vector2(1100, 350)
+	delete_scene_uses.add_theme_font_size_override("normal_font_size", 18)
+	delete_scene_uses.add_theme_color_override("default_color", Color("dce8ed"))
+	column.add_child(delete_scene_uses)
+	var note := _label(
+		"A reusable scene must be detached everywhere before the project can delete it.",
+		16,
+		Color("8ba5b3")
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(note)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	confirm_delete_scene_button = _button("DELETE UNUSED SCENE", 360, 62)
+	confirm_delete_scene_button.pressed.connect(_confirm_delete_scene)
+	actions.add_child(confirm_delete_scene_button)
+	close_delete_scene_button = _button("KEEP SCENE", 240, 62)
+	close_delete_scene_button.pressed.connect(_close_delete_scene)
+	actions.add_child(close_delete_scene_button)
 
 
 func _set_status(message: String, failure: bool) -> void:

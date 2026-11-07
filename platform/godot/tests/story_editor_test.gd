@@ -26,6 +26,17 @@ func _run() -> void:
 	if not created.ok:
 		quit(1)
 		return
+	var seeded: Dictionary = library.load_source(created.id)
+	var seeded_project: Dictionary = seeded.project.duplicate(true)
+	var unused_scene: Dictionary = seeded_project.dialogues[0].duplicate(true)
+	unused_scene["id"] = "unused_safety_scene"
+	unused_scene["name"] = "Unused Safety Scene"
+	seeded_project.dialogues.append(unused_scene)
+	var seeded_source := JSON.stringify(
+		_integer_numbers(seeded_project), "  ", true
+	) + "\n"
+	var seeded_save: Dictionary = library.save_source(created.id, seeded_source)
+	_expect("unused deletion fixture saves as a valid project", seeded_save.ok, true)
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
 	var packed: PackedScene = load("res://story_editor.tscn")
@@ -41,6 +52,83 @@ func _run() -> void:
 	_expect("dialogue selector receives controller focus", editor.dialogue_select.has_focus(), true)
 	_expect("story screen previews the portable character art", editor.preview_portrait.texture != null, true)
 	_expect("story screen offers every portable backdrop", editor.backdrop_select.item_count, editor.BACKDROPS.size() + 1)
+	editor.scene_filter.text = "unused safety"
+	editor._filter_dialogues(editor.scene_filter.text)
+	_expect("scene search narrows a large reusable list", editor.dialogue_select.item_count, 1)
+	_expect("scene search finds by title", editor.dialogue_select.get_item_text(0), "Unused Safety Scene")
+	_expect("scene search reports its result count", editor.scene_filter_summary.text, "1 OF %d SCENES" % editor.dialogues.size())
+	editor.scene_filter.text = "no such conversation"
+	editor._filter_dialogues(editor.scene_filter.text)
+	_expect("empty scene search fails visibly", editor.dialogue_select.disabled, true)
+	_expect("empty scene search names no match", editor.dialogue_select.get_item_text(0), "NO SCENES MATCH")
+	editor.scene_filter.text = ""
+	editor._filter_dialogues("")
+	_expect("clearing scene search restores the library", editor.dialogue_select.item_count, editor.dialogues.size())
+	editor.dialogue_text.text = "An unfinished line stays visible while searching."
+	editor._mark_line_form_dirty()
+	editor.scene_filter.text = "unused"
+	editor._filter_dialogues(editor.scene_filter.text)
+	_expect("scene search preserves unfinished dialogue", editor.dialogue_text.text, "An unfinished line stays visible while searching.")
+	_expect("scene search preserves the unsaved-line state", editor.line_form_dirty, true)
+	editor._refresh_line()
+	editor.scene_filter.text = ""
+	editor._filter_dialogues("")
+
+	var referenced_scene_index := -1
+	for index in editor.dialogues.size():
+		var scene_id := str(editor.dialogues[index].get("id", ""))
+		if _dialogue_attachment_count(_parse(editor.source), scene_id) > 0:
+			referenced_scene_index = index
+			break
+	_expect("fixture has a referenced reusable scene", referenced_scene_index >= 0, true)
+	if referenced_scene_index >= 0:
+		editor._select_dialogue(referenced_scene_index)
+		var protected_source: String = editor.source
+		editor._request_delete_scene()
+		_expect("scene safety check opens", editor.delete_scene_layer.visible, true)
+		_expect("used reusable scene cannot be deleted", editor.confirm_delete_scene_button.disabled, true)
+		_expect("used scene shows named where-used references", editor.delete_scene_uses.text.contains("Campaign"), true)
+		_expect("shared scene reports more than one named use", editor.delete_scene_uses.text.count("\n") >= 2, true)
+		_expect("where-used view does not expose raw source paths", editor.delete_scene_uses.text.contains("$."), false)
+		editor._confirm_delete_scene()
+		_expect("direct confirmation still fails closed", editor.source, protected_source)
+		editor._close_delete_scene()
+
+	var unused_index := -1
+	for index in editor.dialogues.size():
+		if str(editor.dialogues[index].get("id", "")) == "unused_safety_scene":
+			unused_index = index
+			break
+	_expect("fixture has one project-owned unused scene", unused_index >= 0, true)
+	if unused_index >= 0:
+		editor._select_dialogue(unused_index)
+		editor.scene_filter.text = "unused safety"
+		editor._filter_dialogues(editor.scene_filter.text)
+		var deletion_history_size: int = editor.undo_stack.size()
+		editor._request_delete_scene()
+		_expect("unused scene requires an explicit confirmation", editor.confirm_delete_scene_button.text, "DELETE UNUSED SCENE")
+		_expect("unused scene says it is used nowhere else", editor.delete_scene_uses.text.contains("NOWHERE ELSE"), true)
+		_expect("opening confirmation does not mutate source", _has_dialogue(_parse(editor.source), "unused_safety_scene"), true)
+		editor._confirm_delete_scene()
+		_expect("confirmed unused scene is deleted", _has_dialogue(_parse(editor.source), "unused_safety_scene"), false)
+		_expect("deleting the only match clears the scene filter", editor.scene_filter.text, "")
+		_expect("scene selector realigns with the displayed scene", editor.dialogue_select.disabled, false)
+		_expect("scene deletion is exactly one undoable edit", editor.undo_stack.size(), deletion_history_size + 1)
+		var deletion_compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+		_expect("deleted-scene candidate remains compilable", deletion_compiler.compile_source_json(editor.source).ok, true)
+		editor._undo()
+		_expect("one undo restores the deleted scene", _has_dialogue(_parse(editor.source), "unused_safety_scene"), true)
+		editor._redo()
+		_expect("redo deletes the same unused scene again", _has_dialogue(_parse(editor.source), "unused_safety_scene"), false)
+		editor._undo()
+		_expect("scene can be restored after redo coverage", _has_dialogue(_parse(editor.source), "unused_safety_scene"), true)
+
+	var missing_source: String = editor.source
+	editor._request_delete_scene("missing_scene")
+	_expect("missing scene deletion fails closed", editor.confirm_delete_scene_button.disabled, true)
+	_expect("missing scene does not mutate source", editor.source, missing_source)
+	editor._close_delete_scene()
+
 	creator_context.choose_dialogue(str(editor.dialogues[0].id))
 	editor._load_project()
 	await process_frame
@@ -393,6 +481,22 @@ func _argument_path(prefix: String) -> String:
 
 func _has_argument(value: String) -> bool:
 	return value in OS.get_cmdline_user_args()
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if typeof(value) == TYPE_FLOAT and value == floor(value):
+		return int(value)
+	return value
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:
