@@ -9,6 +9,14 @@ const TERRAIN_COLOURS := [
 	Color("85877f"), Color("68a45f"), Color("8da85f"), Color("5b9561"),
 	Color("8f9187"),
 ]
+const PHASE_IDLE := "idle"
+const PHASE_ENTERING := "entering"
+const PHASE_PLAYING := "playing"
+const PHASE_EXITING := "exiting"
+const FULL_ENTER_SECONDS := 0.72
+const FULL_EXIT_SECONDS := 0.58
+const REDUCED_ENTER_SECONDS := 0.34
+const REDUCED_EXIT_SECONDS := 0.30
 
 signal exchange_finished
 signal queue_drained
@@ -25,6 +33,9 @@ var _beat_index := 0
 var _elapsed := 0.0
 var _fast_forward := false
 var _playback_paused := false
+var _phase := PHASE_IDLE
+var _transition_elapsed := 0.0
+var _focus_points: Array[Vector2] = []
 var _headline: Label
 var _result: Label
 var _actor_name: Label
@@ -51,13 +62,16 @@ func configure(
 	_update_font_sizes()
 
 
-func enqueue(plan: Dictionary, terrain: Array, theme: int) -> bool:
+func enqueue(
+	plan: Dictionary, terrain: Array, theme: int, focus_points: Array = []
+) -> bool:
 	if not bool(plan.get("valid", false)) or plan.get("beats", []).is_empty():
 		return false
 	_queue.append({
 		"plan": plan.duplicate(true),
 		"terrain": terrain.duplicate(),
 		"theme": theme,
+		"focus_points": focus_points.duplicate(),
 	})
 	if _current.is_empty():
 		_start_next()
@@ -70,6 +84,18 @@ func is_active() -> bool:
 
 func queued_exchange_count() -> int:
 	return _queue.size() + (0 if _current.is_empty() else 1)
+
+
+func transition_phase() -> String:
+	return _phase
+
+
+func transition_opacity() -> float:
+	return modulate.a if visible else 0.0
+
+
+func focus_points() -> Array[Vector2]:
+	return _focus_points.duplicate()
 
 
 func set_fast_forward(value: bool) -> void:
@@ -88,7 +114,7 @@ func set_playback_paused(value: bool) -> void:
 func skip_exchange() -> void:
 	if _current.is_empty():
 		return
-	_finish_exchange()
+	_complete_exchange()
 
 
 func clear() -> void:
@@ -98,6 +124,11 @@ func clear() -> void:
 	_beat_index = 0
 	_elapsed = 0.0
 	_fast_forward = false
+	_phase = PHASE_IDLE
+	_transition_elapsed = 0.0
+	_focus_points.clear()
+	modulate.a = 0.0
+	scale = Vector2.ONE
 	visible = false
 	queue_redraw()
 
@@ -105,15 +136,34 @@ func clear() -> void:
 func _process(delta: float) -> void:
 	if _current.is_empty() or _playback_paused:
 		return
-	_elapsed += delta * (3.0 if _fast_forward else 1.0)
+	var presentation_delta := delta * (3.0 if _fast_forward else 1.0)
+	if _phase == PHASE_ENTERING:
+		_transition_elapsed += presentation_delta
+		if _transition_elapsed >= _entrance_duration():
+			_phase = PHASE_PLAYING
+			_transition_elapsed = 0.0
+			_elapsed = 0.0
+		_update_transition_visuals()
+		_update_labels()
+		queue_redraw()
+		return
+	if _phase == PHASE_EXITING:
+		_transition_elapsed += presentation_delta
+		if _transition_elapsed >= _exit_duration():
+			_complete_exchange()
+			return
+		_update_transition_visuals()
+		_update_labels()
+		queue_redraw()
+		return
+	_elapsed += presentation_delta
 	var duration := _beat_duration()
 	while _elapsed >= duration and not _current.is_empty():
 		_elapsed -= duration
 		_beat_index += 1
 		if _beat_index >= _beats().size():
-			_finish_exchange()
-			if _current.is_empty():
-				return
+			_begin_exit()
+			return
 		duration = _beat_duration()
 	_update_labels()
 	queue_redraw()
@@ -128,21 +178,80 @@ func _start_next() -> void:
 	_current = _queue.pop_front()
 	_terrain = Array(_current.get("terrain", [])).duplicate()
 	_theme = int(_current.get("theme", 0))
+	_focus_points.clear()
+	for value: Variant in _current.get("focus_points", []):
+		if value is Vector2:
+			_focus_points.append(value)
 	_beat_index = 0
 	_elapsed = 0.0
+	_phase = PHASE_ENTERING
+	_transition_elapsed = 0.0
+	modulate.a = 0.0
+	pivot_offset = get_viewport_rect().size * 0.5
+	scale = Vector2.ONE if motion_mode == "reduced" else Vector2(0.91, 0.91)
 	visible = true
 	move_to_front()
 	_update_labels()
 	queue_redraw()
 
 
-func _finish_exchange() -> void:
+func _begin_exit() -> void:
+	_phase = PHASE_EXITING
+	_transition_elapsed = 0.0
+	_elapsed = _beat_duration()
+	_update_transition_visuals()
+	_update_labels()
+	queue_redraw()
+
+
+func _complete_exchange() -> void:
 	exchange_finished.emit()
 	_current.clear()
 	_beat_index = 0
 	_elapsed = 0.0
 	_fast_forward = false
+	_phase = PHASE_IDLE
+	_transition_elapsed = 0.0
+	_focus_points.clear()
+	modulate.a = 0.0
+	scale = Vector2.ONE
 	_start_next()
+
+
+func _entrance_duration() -> float:
+	return REDUCED_ENTER_SECONDS if motion_mode == "reduced" else FULL_ENTER_SECONDS
+
+
+func _exit_duration() -> float:
+	return REDUCED_EXIT_SECONDS if motion_mode == "reduced" else FULL_EXIT_SECONDS
+
+
+func _transition_progress() -> float:
+	if _phase == PHASE_ENTERING:
+		return clampf(_transition_elapsed / _entrance_duration(), 0.0, 1.0)
+	if _phase == PHASE_EXITING:
+		return clampf(_transition_elapsed / _exit_duration(), 0.0, 1.0)
+	return 1.0 if _phase == PHASE_PLAYING else 0.0
+
+
+func _update_transition_visuals() -> void:
+	var progress := _transition_progress()
+	pivot_offset = get_viewport_rect().size * 0.5
+	if _phase == PHASE_ENTERING:
+		modulate.a = smoothstep(0.08, 0.92, progress)
+		scale = (
+			Vector2.ONE if motion_mode == "reduced"
+			else Vector2.ONE * lerpf(0.91, 1.0, smoothstep(0.0, 1.0, progress))
+		)
+	elif _phase == PHASE_EXITING:
+		modulate.a = 1.0 - smoothstep(0.08, 0.92, progress)
+		scale = (
+			Vector2.ONE if motion_mode == "reduced"
+			else Vector2.ONE * lerpf(1.0, 0.965, smoothstep(0.0, 1.0, progress))
+		)
+	elif _phase == PHASE_PLAYING:
+		modulate.a = 1.0
+		scale = Vector2.ONE
 
 
 func _beats() -> Array:
@@ -240,6 +349,13 @@ func _update_labels() -> void:
 		_result.add_theme_color_override("font_color", Color("d8edf2"))
 	_hint.position = Vector2(viewport_size.x * 0.25, viewport_size.y - 72)
 	_hint.size = Vector2(viewport_size.x * 0.5, 40)
+	var label_alpha := 1.0
+	if _phase == PHASE_ENTERING:
+		label_alpha = smoothstep(0.52, 0.92, _transition_progress())
+	elif _phase == PHASE_EXITING:
+		label_alpha = 1.0 - smoothstep(0.0, 0.58, _transition_progress())
+	for label: Label in [_headline, _result, _actor_name, _target_name, _hint]:
+		label.self_modulate.a = label_alpha
 	_update_hint()
 
 
@@ -276,18 +392,78 @@ func _draw() -> void:
 		if camera_impulse_enabled and progress >= 0.54 and progress <= 0.64:
 			pan += Vector2(sin(progress * 173.0), cos(progress * 137.0)) * 7.0
 	var centre := viewport_size * 0.5 + pan
+	var actor_at := centre + Vector2(-viewport_size.x * 0.205, viewport_size.y * 0.17) * zoom
+	var target_at := centre + Vector2(viewport_size.x * 0.205, viewport_size.y * 0.17) * zoom
+	var handoff_scale := zoom
+	if motion_mode == "full" and _phase in [PHASE_ENTERING, PHASE_EXITING]:
+		var handoff := _transition_progress()
+		if _phase == PHASE_EXITING:
+			handoff = 1.0 - handoff
+		var eased := smoothstep(0.0, 1.0, handoff)
+		actor_at = _focus_point(0, actor_at).lerp(actor_at, eased)
+		target_at = _focus_point(1, target_at).lerp(target_at, eased)
+		handoff_scale *= lerpf(0.24, 1.0, eased)
+		_draw_focus_handoff(viewport_size, actor_at, target_at, eased)
 	_draw_actor(
 		beat.actor,
-		centre + Vector2(-viewport_size.x * 0.205, viewport_size.y * 0.17) * zoom,
-		true, progress, false, false, zoom
+		actor_at, true, progress, false, false, handoff_scale
 	)
 	_draw_actor(
 		beat.target,
-		centre + Vector2(viewport_size.x * 0.205, viewport_size.y * 0.17) * zoom,
+		target_at,
 		false, progress, bool(beat.get("landed", false)),
-		bool(beat.get("defeated", false)), zoom
+		bool(beat.get("defeated", false)), handoff_scale
 	)
 	_draw_impact(viewport_size, beat, progress, centre, zoom)
+	_draw_cinematic_frame(viewport_size)
+
+
+func _focus_point(index: int, fallback: Vector2) -> Vector2:
+	if index < 0 or index >= _focus_points.size():
+		return fallback
+	var point := _focus_points[index]
+	var viewport_size := get_viewport_rect().size
+	if point.x < 0.0 or point.y < 0.0 or point.x > viewport_size.x or point.y > viewport_size.y:
+		return fallback
+	return point
+
+
+func _draw_focus_handoff(
+	viewport_size: Vector2, actor_at: Vector2, target_at: Vector2, settled: float
+) -> void:
+	var trail_alpha := (1.0 - settled) * 0.72
+	if trail_alpha <= 0.01:
+		return
+	var actor_start := _focus_point(0, actor_at)
+	var target_start := _focus_point(1, target_at)
+	var actor_colour := Color("69d9ff")
+	var target_colour := Color("ffca63")
+	actor_colour.a = trail_alpha
+	target_colour.a = trail_alpha
+	draw_line(actor_start, actor_at, actor_colour, 5.0, true)
+	draw_line(target_start, target_at, target_colour, 5.0, true)
+	var pulse := 18.0 + (1.0 - settled) * minf(viewport_size.x, viewport_size.y) * 0.028
+	draw_arc(actor_start, pulse, 0.0, TAU, 32, actor_colour, 5.0, true)
+	draw_arc(target_start, pulse, 0.0, TAU, 32, target_colour, 5.0, true)
+
+
+func _draw_cinematic_frame(viewport_size: Vector2) -> void:
+	var bar_height := maxf(46.0, viewport_size.y * 0.065)
+	draw_rect(Rect2(0, 0, viewport_size.x, bar_height), Color(0.008, 0.012, 0.02, 0.90))
+	draw_rect(
+		Rect2(0, viewport_size.y - bar_height, viewport_size.x, bar_height),
+		Color(0.008, 0.012, 0.02, 0.90)
+	)
+	# Soft side bands keep attention on the exchange without hiding either
+	# board anchor during the handoff.
+	for edge in 5:
+		var width := viewport_size.x * (0.012 + float(edge) * 0.010)
+		var alpha := 0.09 * (1.0 - float(edge) / 5.0)
+		draw_rect(Rect2(0, 0, width, viewport_size.y), Color(0, 0, 0, alpha))
+		draw_rect(
+			Rect2(viewport_size.x - width, 0, width, viewport_size.y),
+			Color(0, 0, 0, alpha)
+		)
 
 
 func _draw_skyline(size: Vector2, target: Dictionary, fallback_kind: int) -> void:

@@ -81,14 +81,21 @@ order published by the simulation. **Battle Close-ups** turns the view on or
 off. **Cinematic Motion / Reduced** keeps the same information while removing
 camera punch and rapid zoom.
 
+The transition starts on the live board. The full-motion treatment focuses the
+attacker and target, pushes into the terrain-derived stage, and dissolves back
+to the already-settled board after the last result. Reduced motion uses a short,
+calm crossfade instead. The handoff is anchored to the two units, so it does not
+place an information card over either character while the player is following
+the exchange.
+
 The close view is deliberately skippable because it adds time to every
 exchange. Hold **Confirm** to fast-forward it, or press **Cancel** to return to
 the board immediately. Skipping changes only the picture: the accepted
 snapshot already owns health, defeat, counters, and every later legal action.
 If required art cannot load, the ordinary board effects remain available.
 
-To record the short review clip from the production controller and current art
-at a deterministic 1280×720 and 30 fps:
+To record the full board-to-close-view-to-board handoff from the production
+controller and current art at a deterministic 1280×720 and 30 fps:
 
 ```sh
 platform/godot/scripts/record-combat-cinematic.sh \

@@ -99,6 +99,15 @@ player sees the already-current board. `smoke-combat-cinematic.sh` checks the
 pure planner, controller queue, persisted settings, and this native
 event/snapshot boundary.
 
+The presentation controller has explicit entering, playing, and exiting
+phases. `main.gd` projects the first attacker and target cells into screen
+coordinates and passes those points as visual anchors. Full motion grows the
+stage from those anchors with a focus trail, camera push, letterbox, and soft
+dissolve; Reduced motion keeps the stage fixed and uses a shorter crossfade.
+The exit reveals the authoritative settled board that was already underneath.
+Fast-forward advances every phase, while skip removes the visual layer
+immediately. Neither path delays, rewrites, or replays simulation state.
+
 An accepted move now carries an optional motion record. The native bridge uses
 the same portable route planner as the Nintendo 64 client over the pre-command
 snapshot: engine-reachable cells plus friendly occupied cells that may be

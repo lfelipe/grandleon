@@ -132,6 +132,9 @@ portable campaign authoring, and complete combat-outcome coverage.
   terrain-derived backdrop, reported damage or miss, authoritative counter and
   defeat order, board-only fallback, persisted on/off and reduced-motion
   settings, hold-to-fast-forward, and skip.
+- [x] Hand the Godot close-up smoothly from the real board to the focused
+  attacker/target stage and back to the authoritative settled board, with a
+  calm crossfade under Reduced motion.
 - [ ] Make the preference a portable game setting authors can choose, while
   retaining the local player override because the view adds meaningful time to
   every exchange.

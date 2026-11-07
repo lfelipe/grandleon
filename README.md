@@ -78,6 +78,9 @@ defeat. The session menu can disable these **Battle Close-ups** or use
 **Reduced** cinematic motion. Hold Confirm to fast-forward a close-up or press
 Cancel to skip it; either choice returns to the authoritative board state that
 the shared engine already accepted.
+The live board remains visible as the camera focuses the two units and pushes
+into the close view, then the result dissolves back to that settled board.
+Reduced motion replaces the push with a short crossfade.
 
 ## One project, several targets
 

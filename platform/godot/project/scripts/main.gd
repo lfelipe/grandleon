@@ -2282,13 +2282,19 @@ func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
 	)
 	if plan.is_empty():
 		return
-	if combat_cinematic.enqueue(plan, battle_terrain, battle_theme):
+	if combat_cinematic.enqueue(
+		plan, battle_terrain, battle_theme, _combat_cinematic_focus_points(plan)
+	):
 		for seat in action_popups.size():
 			_close_action_popup(seat)
 		unit_panel.visible = false
 		if combat_cinematic_smoke:
-			if not combat_cinematic.is_active() or board.get("snapshot") != snapshot:
-				push_error("combat cinematic did not preserve the accepted snapshot")
+			if (
+				not combat_cinematic.is_active()
+				or board.get("snapshot") != snapshot
+				or combat_cinematic.focus_points().size() != 2
+			):
+				push_error("combat cinematic did not preserve the snapshot and board anchors")
 				get_tree().quit(2)
 				return
 			combat_cinematic.set_fast_forward(true)
@@ -2305,6 +2311,24 @@ func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
 			combat_cinematic_smoke = false
 			print("combat cinematic native event, snapshot, fast-forward, and skip smoke passed")
 			get_tree().quit()
+
+
+func _combat_cinematic_focus_points(plan: Dictionary) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	if board == null or not board.has_method("screen_position_for_cell"):
+		return result
+	var beats: Array = plan.get("beats", [])
+	if beats.is_empty():
+		return result
+	var beat: Dictionary = beats[0]
+	for role: String in ["actor", "target"]:
+		var unit: Dictionary = beat.get(role, {})
+		if unit.is_empty():
+			continue
+		result.append(board.screen_position_for_cell(
+			Vector2i(int(unit.get("x", 0)), int(unit.get("y", 0)))
+		))
+	return result
 
 
 func _maybe_show_campaign_result() -> void:

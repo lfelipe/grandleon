@@ -33,30 +33,71 @@ func _run() -> void:
 		"attack"
 	)
 	var terrain := [9, 9, 2, 2, 1, 0, 2, 3, 9, 9, 8, 8]
-	_expect_true("valid exchange enqueues", cinematic.enqueue(plan, terrain, 0))
+	var focus_points: Array[Vector2] = [Vector2(420, 510), Vector2(1460, 430)]
+	_expect_true(
+		"valid exchange enqueues",
+		cinematic.enqueue(plan, terrain, 0, focus_points)
+	)
 	_expect_true("enqueued exchange is active", cinematic.is_active())
 	_expect("active exchange is counted", cinematic.queued_exchange_count(), 1)
+	_expect("exchange begins with the board handoff", cinematic.transition_phase(), "entering")
+	_expect("handoff begins on the unobscured board", cinematic.transition_opacity(), 0.0)
+	_expect("handoff preserves both board anchors", cinematic.focus_points(), focus_points)
+	_expect("reduced-motion entrance does not push the camera", cinematic.scale, Vector2.ONE)
+	cinematic._process(0.17)
+	_expect_true(
+		"reduced-motion entrance is a calm crossfade",
+		cinematic.transition_opacity() > 0.0 and cinematic.transition_opacity() < 1.0
+	)
+	cinematic._process(0.18)
+	_expect("entrance reaches the close stage", cinematic.transition_phase(), "playing")
+	_expect("close stage becomes opaque", cinematic.transition_opacity(), 1.0)
 	cinematic.set_fast_forward(true)
 	_expect_true("fast-forward state is explicit", cinematic.is_fast_forwarding())
-	await process_frame
-	await process_frame
-	_expect_true("rendered exchange remains active", cinematic.is_active())
-	cinematic.skip_exchange()
-	_expect_true("skip restores settled presentation", not cinematic.is_active())
-	_expect("skip completes one exchange", finished, 1)
-	_expect("empty queue publishes drain", drained, 1)
+	cinematic.set_fast_forward(false)
+	cinematic._process(1.36)
+	_expect("counterattack remains in the close stage", cinematic.transition_phase(), "playing")
+	cinematic._process(1.36)
+	_expect("final beat dissolves toward the settled board", cinematic.transition_phase(), "exiting")
+	cinematic._process(0.15)
+	_expect_true(
+		"settled board is visible during the exit",
+		cinematic.transition_opacity() > 0.0 and cinematic.transition_opacity() < 1.0
+	)
+	cinematic._process(0.16)
+	_expect_true("completed exit restores settled presentation", not cinematic.is_active())
+	_expect("completed exit publishes one exchange", finished, 1)
+	_expect("completed exit publishes drain", drained, 1)
 
 	cinematic.configure(
 		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "full", true
 	)
-	cinematic.enqueue(plan, terrain, 0)
-	cinematic.enqueue(plan, terrain, 0)
+	cinematic.enqueue(plan, terrain, 0, focus_points)
+	_expect("full-motion exchange also begins at entrance", cinematic.transition_phase(), "entering")
+	_expect_true("full-motion entrance begins with a camera push", cinematic.scale.x < 1.0)
+	cinematic.skip_exchange()
+	_expect_true("skip from entrance restores settled board immediately", not cinematic.is_active())
+	_expect("skip from entrance completes one exchange", finished, 2)
+	_expect("skip from entrance drains the queue", drained, 2)
+	cinematic.enqueue(plan, terrain, 0, focus_points)
+	cinematic.enqueue(plan, terrain, 0, focus_points)
 	_expect("two exchanges queue", cinematic.queued_exchange_count(), 2)
 	cinematic.skip_exchange()
 	_expect_true("skipping one exchange starts the next", cinematic.is_active())
+	_expect("queued exchange restarts its entrance", cinematic.transition_phase(), "entering")
 	cinematic.clear()
 	_expect_true("clear removes presentation without touching game state", not cinematic.is_active())
 	_expect("planner source snapshot remains unchanged", before.units[1].health, 7)
+
+	cinematic.configure(
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "reduced", false
+	)
+	cinematic.enqueue(plan, terrain, 0, focus_points)
+	cinematic._process(0.35)
+	cinematic._process(2.71)
+	_expect("exchange reaches exit before teardown", cinematic.transition_phase(), "exiting")
+	cinematic.skip_exchange()
+	_expect_true("skip stays responsive during exit", not cinematic.is_active())
 
 	if failures == 0:
 		print("combat cinematic controller smoke passed")
