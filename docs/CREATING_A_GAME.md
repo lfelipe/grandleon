@@ -74,7 +74,8 @@ other story moment, so the same conversation can be reused safely.
 Large story libraries can be searched by scene title, internal identity, or
 speaker. **Delete This Scene** first shows every campaign or battle that still
 uses the scene. A referenced scene cannot be deleted; an unused scene requires
-a separate confirmation and can be restored with **Undo**.
+a separate confirmation and can be restored with **Undo**. Campaigns, battles,
+roles, sides, maps, gear, and abilities use the same fail-safe review.
 
 ![Writing dialogue, adding a scene, and opening the additional story actions](screenshots/native-guide/03-write-the-story.gif)
 
@@ -125,14 +126,22 @@ then be tuned independently.
 
 ![Creating and tuning a role, setting growth, and editing campaign supplies](screenshots/native-guide/05-grow-the-army.gif)
 
-Visible names can change without breaking campaign progress. Keep roles and
-gear small at first; add new choices when a chapter gives the player a reason
-to use them.
+Visible names can change without breaking campaign progress. A character may
+also be marked **Player can choose this name** while keeping its normal name as
+the translated fallback. In Godot, the player can choose or reset that name
+from the Company screen, and it survives save and continue. Console name entry
+and use inside authored dialogue are still being completed.
 
-The project, roster, gear, story, and translation screens include search for
-larger games. **Where Used / Delete** on maps, gear, abilities, and reusable
-story scenes shows named dependencies before an unused definition can be
-removed. Used, shared, missing, or unverifiable content is never deleted.
+Keep roles and gear small at first; add new choices when a chapter gives the
+player a reason to use them.
+
+The project, roster, gear, story, campaign, and translation screens include
+search for larger games. **Where Used / Delete** on campaigns, battles, maps,
+roles, sides, gear, abilities, and reusable story scenes shows named
+dependencies before an unused definition can be removed. Used, shared,
+missing, or unverifiable content is never deleted. Built-in terrain art,
+character bodies, themes, and backdrops are library choices rather than
+project-owned definitions, so they can be replaced but not deleted here.
 
 For a new cast member, **Guided New Character** creates the named character,
 an independent role, appearance, side, first weapon, and compatible loadout in

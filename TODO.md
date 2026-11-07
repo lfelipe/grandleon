@@ -223,7 +223,7 @@ editor and its separate browser runtime.
   testing, playing, or exporting only the first campaign. The campaign outline,
   project play list, Linux build, and console builders all carry an explicit
   campaign identity; a portable project continues to keep every campaign.
-- [ ] Add safe deletion with a dependency preview, **Where used** summaries,
+- [x] Add safe deletion with a dependency preview, **Where used** summaries,
   and search and filtering for projects with large rosters or content lists.
   - [x] Build the shared dependency index and fail-closed deletion decision for
     campaigns, battles, maps, rosters, roles, factions, gear, dialogue, and
@@ -231,8 +231,12 @@ editor and its separate browser runtime.
   - [x] Expose named, confirmation-based safe deletion for project-owned maps,
     gear, abilities, and reusable story scenes. Add search for projects,
     rosters, gear, story scenes, and translation catalogs.
-  - [ ] Apply the same dependency preview consistently to campaign routes,
-    battles, roles, factions, and presentation definitions that can be removed.
+  - [x] Apply the same dependency preview consistently to campaign routes,
+    battles, roles, and factions. Terrain art, character bodies, themes, and
+    backdrops are shared library choices: authors can replace them, but the
+    editor does not pretend they are project-owned definitions that can be
+    deleted. Add safe deletion if project-owned presentation definitions are
+    introduced later.
 - [x] Add a guided character flow that creates a useful character, role,
   appearance, side, weapon, and starting loadout together, with an optional
   randomized starting point.
@@ -312,13 +316,18 @@ than reproduce those implementation details.
 
 ### Player-named characters
 
-- [ ] Let an author mark specific characters as player-nameable while requiring
+- [x] Let an author mark specific characters as player-nameable while requiring
   a normal authored default. The translated default appears until the player
   chooses another name and remains the safe fallback when naming is skipped.
 - [ ] Carry the chosen name through dialogue and objective substitutions,
   rosters, saves, campaign continuation, co-op views, and every export target.
   Player-entered names are never sent for translation; validate length, glyphs,
   duplicate-name clarity, and each platform's text-entry limitations.
+  - [x] Save and restore an eligible character's chosen name in Godot, keep the
+    authored and translated defaults separate, validate portable UTF-8 input,
+    and fail closed on invalid or unauthorized save data.
+  - [ ] Finish battle and dialogue substitution, duplicate-name guidance, and
+    player name entry on Nintendo 64 and PlayStation.
 
 ## Cinematic battle presentation
 
