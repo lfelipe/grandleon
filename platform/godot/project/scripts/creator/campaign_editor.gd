@@ -3,6 +3,9 @@ extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
+const ProjectContentDependencyIndex = preload(
+	"res://scripts/creator/project_content_dependency_index.gd"
+)
 const HISTORY_LIMIT := 64
 
 var library
@@ -20,6 +23,7 @@ var redo_stack: Array[String] = []
 
 var title_label: Label
 var route_list: VBoxContainer
+var route_filter: LineEdit
 var target_budget_label: Label
 var status_label: Label
 var fix_button: Button
@@ -37,6 +41,7 @@ var node_buttons: Dictionary = {}
 var outcome_buttons: Dictionary = {}
 var battle_test_one_buttons: Dictionary = {}
 var battle_test_two_buttons: Dictionary = {}
+var battle_dependency_buttons: Dictionary = {}
 var outcome_layer: Control
 var outcome_panel: PanelContainer
 var outcome_title: Label
@@ -102,6 +107,16 @@ var chapter_order_status: Label
 var new_campaign_layer: Control
 var new_campaign_name: LineEdit
 var new_campaign_create_button: Button
+var campaign_dependency_button: Button
+var dependency_layer: Control
+var dependency_heading: Label
+var dependency_summary: Label
+var dependency_uses: RichTextLabel
+var dependency_confirm_button: Button
+var dependency_close_button: Button
+var dependency_category := ""
+var dependency_id := ""
+var dependency_return_button: Button
 
 
 func _ready() -> void:
@@ -114,7 +129,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if compound_layer != null and compound_layer.visible:
+		if dependency_layer != null and dependency_layer.visible:
+			_close_dependency_review()
+		elif compound_layer != null and compound_layer.visible:
 			_close_compound()
 		elif new_campaign_layer != null and new_campaign_layer.visible:
 			_close_new_campaign()
@@ -288,6 +305,195 @@ func _next_campaign_id(campaigns: Array) -> String:
 	return "campaign_%d" % sequence
 
 
+func _open_dependency_review(category: String, identity: String, return_button: Button) -> void:
+	dependency_category = category
+	dependency_id = identity
+	dependency_return_button = return_button
+	_refresh_dependency_review()
+	dependency_layer.visible = true
+	if dependency_confirm_button.disabled:
+		dependency_close_button.grab_focus()
+	else:
+		dependency_confirm_button.grab_focus()
+
+
+func _close_dependency_review() -> void:
+	dependency_layer.visible = false
+	if (
+		dependency_return_button != null
+		and is_instance_valid(dependency_return_button)
+		and dependency_return_button.is_inside_tree()
+	):
+		dependency_return_button.grab_focus()
+
+
+func _dependency_decision(category: String, identity: String) -> Dictionary:
+	var decision := ProjectContentDependencyIndex.new(project).deletion_decision(
+		category, identity
+	)
+	if (
+		category == "campaign"
+		and bool(decision.get("allowed", false))
+		and project.get("campaigns", []).size() <= 1
+	):
+		decision["allowed"] = false
+		decision["blocked"] = true
+		decision["reason"] = "last_campaign"
+		decision["summary"] = (
+			"This is the project's only campaign. Add another campaign before deleting it."
+		)
+	return decision
+
+
+func _campaign_after_delete(campaign_id: String) -> Dictionary:
+	for value: Variant in project.get("campaigns", []):
+		if value is Dictionary and str(value.get("id", "")) != campaign_id:
+			return value
+	return {}
+
+
+func _refresh_dependency_review() -> Dictionary:
+	var decision := _dependency_decision(dependency_category, dependency_id)
+	var category_label := "CAMPAIGN" if dependency_category == "campaign" else "BATTLE"
+	dependency_heading.text = "WHERE %s IS USED  /  %s" % [
+		category_label, str(decision.get("name", dependency_id)).to_upper()
+	]
+	var summary := str(decision.get("summary", "Deletion is unavailable."))
+	if dependency_category == "campaign" and bool(decision.get("allowed", false)):
+		var continuation := _campaign_after_delete(dependency_id)
+		if continuation.is_empty():
+			decision["allowed"] = false
+			decision["blocked"] = true
+			decision["reason"] = "last_campaign"
+			summary = "No other campaign is available, so deletion was blocked."
+		else:
+			summary += " After deletion, the editor will explicitly continue with campaign “%s”." % str(
+				continuation.get("name", continuation.get("id", "Campaign"))
+			)
+	dependency_summary.text = summary
+	var lines: Array[String] = []
+	for value: Variant in decision.get("uses", []):
+		if value is Dictionary:
+			lines.append("•  %s  /  %s" % [
+				str(value.get("section", "Project")).to_upper(),
+				str(value.get("label", "This content is still in use.")),
+			])
+	if lines.is_empty():
+		dependency_uses.text = (
+			"No other project content references this campaign."
+			if dependency_category == "campaign"
+			else "No campaign route points to this battle."
+		)
+	else:
+		dependency_uses.text = "\n\n".join(lines)
+	var allowed := (
+		dependency_category in ["campaign", "battle"]
+		and bool(decision.get("allowed", false))
+	)
+	dependency_confirm_button.disabled = not allowed
+	dependency_confirm_button.text = (
+		"DELETE UNUSED %s" % category_label if allowed else "CANNOT DELETE"
+	)
+	return decision
+
+
+func _confirm_dependency_delete() -> bool:
+	var decision := _refresh_dependency_review()
+	if (
+		dependency_category not in ["campaign", "battle"]
+		or not bool(decision.get("allowed", false))
+	):
+		_set_status(
+			"NOT DELETED  /  %s" % str(
+				decision.get("reason", "unsupported request")
+			).replace("_", " ").to_upper(),
+			true
+		)
+		return false
+	var selected_campaign_id := str(campaign.get("id", ""))
+	if selected_campaign_id.is_empty():
+		_set_status("NOT DELETED  /  CHOOSE A CAMPAIGN FIRST", true)
+		return false
+	if dependency_category == "campaign" and dependency_id != selected_campaign_id:
+		_set_status("NOT DELETED  /  SELECTED CAMPAIGN CHANGED", true)
+		return false
+	var candidate := project.duplicate(true)
+	var campaigns: Array = candidate.get("campaigns", []).duplicate(true)
+	var removed_name := str(decision.get("name", dependency_id))
+	var continuation_id := selected_campaign_id
+	var removed := false
+	if dependency_category == "campaign":
+		for index in campaigns.size():
+			if (
+				campaigns[index] is Dictionary
+				and str(campaigns[index].get("id", "")) == dependency_id
+			):
+				campaigns.remove_at(index)
+				removed = true
+				break
+		var continuation := _campaign_after_delete(dependency_id)
+		continuation_id = str(continuation.get("id", ""))
+	else:
+		for campaign_index in campaigns.size():
+			if (
+				not campaigns[campaign_index] is Dictionary
+				or str(campaigns[campaign_index].get("id", "")) != selected_campaign_id
+			):
+				continue
+			var changed_campaign: Dictionary = campaigns[campaign_index].duplicate(true)
+			var flow: Dictionary = changed_campaign.get("flow", {}).duplicate(true)
+			var nodes: Array = flow.get("nodes", []).duplicate(true)
+			for node_index in nodes.size():
+				if (
+					nodes[node_index] is Dictionary
+					and str(nodes[node_index].get("kind", "")) == "encounter"
+					and str(nodes[node_index].get("id", "")) == dependency_id
+				):
+					nodes.remove_at(node_index)
+					removed = true
+					break
+			flow["nodes"] = nodes
+			changed_campaign["flow"] = flow
+			campaigns[campaign_index] = changed_campaign
+			break
+	if not removed or continuation_id.is_empty():
+		_set_status("NOT DELETED  /  CONTENT IS NO LONGER AVAILABLE", true)
+		_refresh_dependency_review()
+		return false
+	candidate["campaigns"] = campaigns
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status(
+			"NOT DELETED  /  %s" % _diagnostic_summary(checked), true
+		)
+		return false
+	undo_stack.append(source)
+	if undo_stack.size() > HISTORY_LIMIT:
+		undo_stack.pop_front()
+	redo_stack.clear()
+	source = candidate_source
+	dirty = source != saved_source
+	campaign = {"id": continuation_id}
+	if not _read_source():
+		return false
+	_collect_route()
+	_refresh_route()
+	_update_actions()
+	dependency_layer.visible = false
+	_set_status(
+		"UNSAVED  /  DELETED UNUSED %s %s" % [
+			dependency_category.to_upper(), removed_name.to_upper()
+		],
+		false
+	)
+	if dependency_category == "campaign":
+		campaign_select.grab_focus()
+	elif first_button != null:
+		first_button.grab_focus()
+	return true
+
+
 func _collect_route() -> void:
 	var flow_value: Variant = campaign.get("flow", {})
 	if not flow_value is Dictionary:
@@ -451,6 +657,7 @@ func _refresh_route() -> void:
 	outcome_buttons.clear()
 	battle_test_one_buttons.clear()
 	battle_test_two_buttons.clear()
+	battle_dependency_buttons.clear()
 	if route.is_empty():
 		var empty := _label(
 			"This campaign has no playable path yet.", 22, Color("ff7a83")
@@ -458,13 +665,32 @@ func _refresh_route() -> void:
 		empty.custom_minimum_size.y = 90
 		route_list.add_child(empty)
 		return
-	route_list.add_child(_section_label("MAIN PATH"))
-	var battle_number := 0
+	var query := "" if route_filter == null else route_filter.text.strip_edges().to_lower()
+	var main_nodes: Array[Dictionary] = []
+	var alternate_nodes: Array[Dictionary] = []
 	for node: Dictionary in route:
+		if _route_node_matches(node, query):
+			main_nodes.append(node)
+	for node: Dictionary in other_nodes:
+		if _route_node_matches(node, query):
+			alternate_nodes.append(node)
+	if main_nodes.is_empty() and alternate_nodes.is_empty():
+		var no_match := _label(
+			"No chapters or battles match “%s”." % route_filter.text.strip_edges(),
+			20,
+			Color("718896")
+		)
+		no_match.custom_minimum_size.y = 80
+		no_match.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		route_list.add_child(no_match)
+		return
+	route_list.add_child(_section_label("MAIN PATH" if query.is_empty() else "MATCHING MAIN PATH"))
+	var battle_number := 0
+	for node: Dictionary in main_nodes:
 		if str(node.get("kind", "")) == "encounter":
-			battle_number += 1
+			battle_number = _route_battle_number(str(node.get("id", "")))
 		_add_node_button(node, battle_number, false)
-	if _chapter_pairs().size() > 1:
+	if query.is_empty() and _chapter_pairs().size() > 1:
 		chapter_order_button = _button(
 			"CHANGE CHAPTER ORDER\nMOVE A WHOLE STORY + BATTLE TOGETHER", 160, 82
 		)
@@ -473,19 +699,53 @@ func _refresh_route() -> void:
 		)
 		chapter_order_button.pressed.connect(_open_chapter_order)
 		route_list.add_child(chapter_order_button)
-	var add_chapter := _button(
-		"ADD NEXT CHAPTER\nSTART FROM THE LAST WORKING BATTLE", 160, 92
-	)
-	add_chapter.tooltip_text = (
-		"Create a new story moment, battle, and map from the last playable chapter."
-	)
-	add_chapter.disabled = _last_route_encounter().is_empty()
-	add_chapter.pressed.connect(_add_next_chapter)
-	route_list.add_child(add_chapter)
-	if not other_nodes.is_empty():
-		route_list.add_child(_section_label("OTHER OUTCOMES"))
-		for node: Dictionary in other_nodes:
+	if query.is_empty():
+		var add_chapter := _button(
+			"ADD NEXT CHAPTER\nSTART FROM THE LAST WORKING BATTLE", 160, 92
+		)
+		add_chapter.tooltip_text = (
+			"Create a new story moment, battle, and map from the last playable chapter."
+		)
+		add_chapter.disabled = _last_route_encounter().is_empty()
+		add_chapter.pressed.connect(_add_next_chapter)
+		route_list.add_child(add_chapter)
+	if not alternate_nodes.is_empty():
+		route_list.add_child(_section_label(
+			"OTHER OUTCOMES" if query.is_empty() else "MATCHING OTHER OUTCOMES"
+		))
+		for node: Dictionary in alternate_nodes:
 			_add_node_button(node, 0, true)
+
+
+func _route_node_matches(node: Dictionary, query: String) -> bool:
+	if query.is_empty():
+		return true
+	var kind := str(node.get("kind", ""))
+	var kind_name: String = str({
+		"encounter": "battle",
+		"story": "story",
+		"terminal": "ending",
+	}.get(kind, kind))
+	return ("%s %s %s %s" % [
+		node.get("name", ""),
+		node.get("id", ""),
+		kind_name,
+		node.get("mapId", ""),
+	]).to_lower().contains(query)
+
+
+func _route_battle_number(node_id: String) -> int:
+	var number := 0
+	for node: Dictionary in route:
+		if str(node.get("kind", "")) == "encounter":
+			number += 1
+		if str(node.get("id", "")) == node_id:
+			return number
+	return 0
+
+
+func _filter_route(_value: String) -> void:
+	_refresh_route()
 
 
 func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> void:
@@ -526,6 +786,15 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 		battle_test_two_buttons[node_id] = test_two
 		_refresh_battle_test_button(node, 1, test_one)
 		_refresh_battle_test_button(node, 2, test_two)
+		var dependencies := _button("WHERE USED\nDELETE", 180)
+		dependencies.tooltip_text = (
+			"Review every route that points to this battle before deleting it."
+		)
+		dependencies.pressed.connect(
+			_open_dependency_review.bind("battle", node_id, dependencies)
+		)
+		row.add_child(dependencies)
+		battle_dependency_buttons[node_id] = dependencies
 	if kind == "terminal":
 		var spacer := Control.new()
 		spacer.custom_minimum_size.x = 300
@@ -2603,6 +2872,17 @@ func _build_interface() -> void:
 	add_campaign.tooltip_text = "Start another campaign from this working outline, then change its route, roster, and player policy independently."
 	add_campaign.pressed.connect(_open_new_campaign)
 	campaign_row.add_child(add_campaign)
+	campaign_dependency_button = _button("WHERE USED / DELETE", 280, 54)
+	campaign_dependency_button.tooltip_text = (
+		"Review references and confirm before deleting this exact campaign."
+	)
+	campaign_dependency_button.pressed.connect(
+		func() -> void:
+			_open_dependency_review(
+				"campaign", str(campaign.get("id", "")), campaign_dependency_button
+			)
+	)
+	campaign_row.add_child(campaign_dependency_button)
 	var campaign_help := _label(
 		"Each campaign keeps its own route, roster, player-count policy, and starting chapter.",
 		15,
@@ -2642,6 +2922,15 @@ func _build_interface() -> void:
 	target_budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	target_budget_label.custom_minimum_size.y = 28
 	column.add_child(target_budget_label)
+	route_filter = LineEdit.new()
+	route_filter.placeholder_text = "Search chapters, battles, maps, or endings…"
+	route_filter.custom_minimum_size = Vector2(0, 46)
+	route_filter.add_theme_font_size_override("font_size", 17)
+	route_filter.tooltip_text = (
+		"Filter this campaign's outline without changing its route or unsaved work."
+	)
+	route_filter.text_changed.connect(_filter_route)
+	column.add_child(route_filter)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -2666,6 +2955,7 @@ func _build_interface() -> void:
 	_build_outcome_layer()
 	_build_chapter_order_layer()
 	_build_new_campaign_layer()
+	_build_dependency_layer()
 
 
 func _build_new_campaign_layer() -> void:
@@ -2713,6 +3003,67 @@ func _build_new_campaign_layer() -> void:
 	var cancel := _button("CANCEL", 240, 66)
 	cancel.pressed.connect(_close_new_campaign)
 	actions.add_child(cancel)
+
+
+func _build_dependency_layer() -> void:
+	dependency_layer = Control.new()
+	dependency_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dependency_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	dependency_layer.visible = false
+	dependency_layer.z_index = 58
+	add_child(dependency_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.95)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	dependency_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(330, 115)
+	panel.size = Vector2(1260, 850)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.20, 0.62, 0.78, 0.72))
+	)
+	dependency_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("SAFE DELETE", 18, Color("69d9ff")))
+	dependency_heading = _label("WHERE THIS CONTENT IS USED", 29, Color("f2f7f9"))
+	dependency_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dependency_heading.custom_minimum_size.y = 70
+	column.add_child(dependency_heading)
+	dependency_summary = _label("", 19, Color("a9bdc9"))
+	dependency_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dependency_summary.custom_minimum_size.y = 90
+	column.add_child(dependency_summary)
+	var uses_panel := PanelContainer.new()
+	uses_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	uses_panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 14, Color(0.35, 0.45, 0.72, 0.42))
+	)
+	column.add_child(uses_panel)
+	dependency_uses = RichTextLabel.new()
+	dependency_uses.custom_minimum_size = Vector2(1120, 390)
+	dependency_uses.add_theme_font_size_override("normal_font_size", 18)
+	dependency_uses.add_theme_color_override("default_color", Color("dce8ed"))
+	uses_panel.add_child(dependency_uses)
+	var note := _label(
+		"Deletion changes only the named campaign or battle. Maps, scenes, and other campaigns are never removed automatically.",
+		16,
+		Color("718896")
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.y = 44
+	column.add_child(note)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	dependency_confirm_button = _button("CANNOT DELETE", 380, 64)
+	dependency_confirm_button.pressed.connect(_confirm_dependency_delete)
+	actions.add_child(dependency_confirm_button)
+	dependency_close_button = _button("KEEP IT", 260, 64)
+	dependency_close_button.pressed.connect(_close_dependency_review)
+	actions.add_child(dependency_close_button)
 
 
 func _build_chapter_order_layer() -> void:

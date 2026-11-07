@@ -129,6 +129,40 @@ func _run() -> void:
 	_expect("battle row offers its own co-op test", editor.battle_test_two_buttons.has("first_battle"), true)
 	_expect("battle row solo test follows campaign policy", editor.battle_test_one_buttons.first_battle.disabled, false)
 	_expect("battle row co-op test sees its Player 2 hero", editor.battle_test_two_buttons.first_battle.disabled, false)
+	var filter_source: String = editor.source
+	var filter_dirty: bool = editor.dirty
+	editor.route_filter.text = "crossing"
+	editor._filter_route(editor.route_filter.text)
+	_expect("route search finds a battle by human name", editor.node_buttons.has("first_battle"), true)
+	_expect("route search hides nonmatching story", editor.node_buttons.has("first_steps"), false)
+	_expect("route search preserves exact campaign identity", str(editor.campaign.id), "first_adventure")
+	_expect("route search preserves source", editor.source, filter_source)
+	_expect("route search preserves unsaved state", editor.dirty, filter_dirty)
+	editor.route_filter.text = "nothing matches this"
+	editor._filter_route(editor.route_filter.text)
+	_expect("route search can show an empty result", editor.node_buttons.is_empty(), true)
+	editor.route_filter.text = ""
+	editor._filter_route(editor.route_filter.text)
+	_expect("clearing route search restores battle actions", editor.node_buttons.has("first_battle"), true)
+	editor._open_dependency_review("campaign", "first_adventure", editor.campaign_dependency_button)
+	_expect("campaign where-used review names the selected campaign", editor.dependency_heading.text.contains("FIRST ADVENTURE"), true)
+	_expect("only campaign cannot be deleted", editor.dependency_confirm_button.disabled, true)
+	_expect("only campaign deletion is refused", editor._confirm_dependency_delete(), false)
+	editor._close_dependency_review()
+	editor._open_dependency_review(
+		"battle", "first_battle", editor.battle_dependency_buttons.first_battle
+	)
+	_expect("battle where-used review names the battle", editor.dependency_heading.text.contains("HOLD THE CROSSING"), true)
+	_expect("battle where-used review names its real route", editor.dependency_uses.text.contains("First Adventure"), true)
+	_expect("used battle cannot be deleted", editor.dependency_confirm_button.disabled, true)
+	_expect("used battle deletion is refused", editor._confirm_dependency_delete(), false)
+	editor._close_dependency_review()
+	editor.dependency_category = "theme"
+	editor.dependency_id = "woodland"
+	_expect("shared content deletion fails closed", editor._confirm_dependency_delete(), false)
+	editor.dependency_category = "battle"
+	editor.dependency_id = "missing_battle"
+	_expect("missing battle deletion fails closed", editor._confirm_dependency_delete(), false)
 	editor._open_new_campaign()
 	_expect("add-campaign flow opens by name", editor.new_campaign_layer.visible, true)
 	_expect("new campaign name receives focus", editor.new_campaign_name.has_focus(), true)
@@ -143,6 +177,25 @@ func _run() -> void:
 	var independently_edited: Dictionary = _parse(editor.source)
 	_expect("first campaign is not silently edited", str(independently_edited.campaigns[0].playerMode), "choice")
 	_expect("selected campaign receives its player policy", str(independently_edited.campaigns[1].playerMode), "one")
+	_exercise_unused_battle_delete(editor)
+	var first_campaign_before_delete: Dictionary = _parse(editor.source).campaigns[0].duplicate(true)
+	var campaign_delete_undo_size: int = editor.undo_stack.size()
+	editor._open_dependency_review("campaign", "campaign_2", editor.campaign_dependency_button)
+	_expect("unused campaign can reach explicit confirmation", editor.dependency_confirm_button.disabled, false)
+	_expect("campaign deletion names the next explicit campaign", editor.dependency_summary.text.contains("First Adventure"), true)
+	_expect("unused campaign deletion succeeds", editor._confirm_dependency_delete(), true)
+	_expect("campaign deletion is exactly one undo operation", editor.undo_stack.size(), campaign_delete_undo_size + 1)
+	_expect("campaign deletion preserves the other campaign", _parse(editor.source).campaigns[0], first_campaign_before_delete)
+	_expect("campaign deletion keeps one valid campaign", _parse(editor.source).campaigns.size(), 1)
+	_expect("campaign deletion explicitly selects the named survivor", str(editor.campaign.id), "first_adventure")
+	_expect("campaign deletion updates shared selection explicitly", creator_context.campaign_id, "first_adventure")
+	_expect("campaign deletion candidate compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._undo()
+	_expect("campaign delete undo restores only the deleted campaign", _parse(editor.source).campaigns.size(), 2)
+	_expect("undo does not silently jump back to the restored campaign", str(editor.campaign.id), "first_adventure")
+	editor._select_metadata(editor.campaign_select, "campaign_2")
+	editor._change_campaign(editor.campaign_select.selected)
+	_expect("author can explicitly return to restored campaign", str(editor.campaign.id), "campaign_2")
 	editor._undo()
 	editor._undo()
 	_expect("new campaign creation is one undoable operation", _parse(editor.source).campaigns.size(), 1)
@@ -604,6 +657,69 @@ func _run() -> void:
 	if failures == 0:
 		print("campaign outline smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _exercise_unused_battle_delete(editor: Control) -> void:
+	var original_source: String = editor.source
+	var original_dirty: bool = editor.dirty
+	var original_campaign_id := str(editor.campaign.get("id", ""))
+	var original_undo: Array[String] = editor.undo_stack.duplicate()
+	var original_redo: Array[String] = editor.redo_stack.duplicate()
+	var fixture := _parse(original_source)
+	var first_campaign: Dictionary = fixture.campaigns[0].duplicate(true)
+	var selected_index := -1
+	for index in fixture.campaigns.size():
+		if str(fixture.campaigns[index].get("id", "")) == original_campaign_id:
+			selected_index = index
+			break
+	_expect("unused battle fixture finds selected campaign", selected_index >= 0, true)
+	if selected_index < 0:
+		return
+	var selected_campaign: Dictionary = fixture.campaigns[selected_index].duplicate(true)
+	var flow: Dictionary = selected_campaign.flow.duplicate(true)
+	var nodes: Array = flow.nodes.duplicate(true)
+	var unused_battle: Dictionary = nodes[1].duplicate(true)
+	unused_battle.id = "unused_skirmish"
+	unused_battle.name = "Unused Skirmish"
+	nodes.append(unused_battle)
+	flow.nodes = nodes
+	selected_campaign.flow = flow
+	fixture.campaigns[selected_index] = selected_campaign
+	editor.source = JSON.stringify(editor._integer_numbers(fixture), "  ", true) + "\n"
+	_expect("unused battle fixture compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor.campaign = {"id": original_campaign_id}
+	editor._read_source()
+	editor._collect_route()
+	editor._refresh_route()
+	var undo_size: int = editor.undo_stack.size()
+	editor._open_dependency_review(
+		"battle", "unused_skirmish", editor.battle_dependency_buttons.unused_skirmish
+	)
+	_expect("unused battle review names exact battle", editor.dependency_heading.text.contains("UNUSED SKIRMISH"), true)
+	_expect("unused battle review reports no incoming route", editor.dependency_uses.text, "No campaign route points to this battle.")
+	_expect("unused battle can reach explicit confirmation", editor.dependency_confirm_button.disabled, false)
+	_expect("unused battle deletion succeeds", editor._confirm_dependency_delete(), true)
+	_expect("battle deletion is exactly one undo operation", editor.undo_stack.size(), undo_size + 1)
+	var deleted := _parse(editor.source)
+	_expect("battle deletion preserves exact selected campaign", str(editor.campaign.id), original_campaign_id)
+	_expect("battle deletion preserves the other campaign", deleted.campaigns[0], first_campaign)
+	_expect("battle deletion removes only named node", _node_by_id(deleted.campaigns[selected_index].flow.nodes, "unused_skirmish").is_empty(), true)
+	_expect("battle deletion candidate compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._undo()
+	_expect("battle delete undo restores named node", _node_by_id(_parse(editor.source).campaigns[selected_index].flow.nodes, "unused_skirmish").is_empty(), false)
+	_expect("battle delete undo preserves campaign identity", str(editor.campaign.id), original_campaign_id)
+	editor._redo()
+	_expect("battle delete redo removes named node", _node_by_id(_parse(editor.source).campaigns[selected_index].flow.nodes, "unused_skirmish").is_empty(), true)
+	_expect("battle delete redo preserves campaign identity", str(editor.campaign.id), original_campaign_id)
+	editor.source = original_source
+	editor.dirty = original_dirty
+	editor.undo_stack = original_undo
+	editor.redo_stack = original_redo
+	editor.campaign = {"id": original_campaign_id}
+	editor._read_source()
+	editor._collect_route()
+	editor._refresh_route()
+	editor._update_actions()
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:
