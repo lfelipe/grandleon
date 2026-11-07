@@ -32,6 +32,13 @@ func _run() -> void:
 	_expect("project opens in gear library", editor.project_id, created.id)
 	_expect("weapons are the first simple category", editor.active_kind, "weapon")
 	_expect("starter weapons are available", editor.asset_select.item_count, 3)
+	editor.asset_filter.text = "apprentice"
+	editor._filter_assets(editor.asset_filter.text)
+	_expect("gear search narrows a large content list", editor.asset_select.item_count, 1)
+	_expect("gear search preserves the real asset identity", str(editor.asset_select.get_item_metadata(0)), "apprentice_focus")
+	editor.asset_filter.text = ""
+	editor._filter_assets(editor.asset_filter.text)
+	_expect("clearing gear search restores all choices", editor.asset_select.item_count, 3)
 	_expect("category receives controller focus", editor.category_select.has_focus(), true)
 	_expect("weapon editor shows family", editor.type_row.visible, true)
 	_expect("weapon editor hides area", editor.area_row.visible, false)

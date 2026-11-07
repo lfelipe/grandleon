@@ -36,6 +36,7 @@ var redo_stack: Array[String] = []
 
 var title_label: Label
 var category_select: OptionButton
+var asset_filter: LineEdit
 var asset_select: OptionButton
 var empty_label: Label
 var editor_column: VBoxContainer
@@ -202,16 +203,34 @@ func _refresh_categories(preferred_kind: String) -> void:
 func _refresh_assets(preferred_id: String) -> void:
 	refreshing = true
 	asset_select.clear()
+	var query := "" if asset_filter == null else asset_filter.text.strip_edges().to_lower()
 	for value: Variant in _collection():
-		if value is Dictionary:
-			asset_select.add_item(str(value.get("name", value.get("id", "Choice"))))
-			asset_select.set_item_metadata(
-				asset_select.item_count - 1, str(value.get("id", ""))
-			)
+		if not value is Dictionary:
+			continue
+		var searchable := "%s %s %s %s" % [
+			str(value.get("name", "")),
+			str(value.get("id", "")),
+			str(value.get("kind", "")),
+			str(value.get("damageType", "")),
+		]
+		if not query.is_empty() and not searchable.to_lower().contains(query):
+			continue
+		asset_select.add_item(str(value.get("name", value.get("id", "Choice"))))
+		asset_select.set_item_metadata(
+			asset_select.item_count - 1, str(value.get("id", ""))
+		)
 	_select_metadata(asset_select, preferred_id)
 	active_asset_id = _selected_metadata(asset_select)
 	_refresh_form()
 	refreshing = false
+
+
+func _filter_assets(_value: String) -> void:
+	if refreshing:
+		return
+	if not _commit_form(true):
+		return
+	_refresh_assets(active_asset_id)
 
 
 func _choose_category(_index: int) -> void:
@@ -1222,6 +1241,14 @@ func _build_interface() -> void:
 	category_select.add_theme_font_size_override("font_size", 20)
 	category_select.item_selected.connect(_choose_category)
 	list_column.add_child(category_select)
+	list_column.add_child(_label("SEARCH", 16, Color("e6b86d")))
+	asset_filter = LineEdit.new()
+	asset_filter.placeholder_text = "NAME, ID, EFFECT, OR DAMAGE"
+	asset_filter.clear_button_enabled = true
+	asset_filter.custom_minimum_size = Vector2(460, 54)
+	asset_filter.add_theme_font_size_override("font_size", 18)
+	asset_filter.text_changed.connect(_filter_assets)
+	list_column.add_child(asset_filter)
 	list_column.add_child(_label("CHOICE", 16, Color("e6b86d")))
 	asset_select = OptionButton.new()
 	asset_select.custom_minimum_size = Vector2(460, 66)
