@@ -80,10 +80,11 @@ roles, sides, maps, gear, and abilities use the same fail-safe review.
 ![Writing dialogue, adding a scene, and opening the additional story actions](screenshots/native-guide/03-write-the-story.gif)
 
 Story text is saved with the project and shown consistently on PC, Nintendo
-64, and PlayStation. Grandleon's own home and project screens are available in
-English, Spanish, and Brazilian Portuguese. Choose the language on either the
-home or project screen; the open screen updates immediately, and Grandleon
-remembers the explicit choice instead of relying on the system locale again.
+64, and PlayStation. Grandleon's own home, project, and creator screens are
+available in English, Spanish, and Brazilian Portuguese. Choose the language
+on either the home or project screen; the open screen updates immediately, and
+Grandleon remembers the explicit choice instead of relying on the system
+locale again.
 
 To translate your game, open its project options and choose
 **Translations**. Confirm the language the original text was written in, add a
@@ -97,10 +98,10 @@ replaces its original string, and missing or outdated work resolves to the
 current source text.
 
 A game with translated catalogs asks for its language before play. The Godot
-player currently applies it to the game title, campaign and stage names,
+player applies it to the game title, campaign and stage names,
 dialogue, company character names, objectives, named battle placements, and
-named units, weapons, abilities, and items. Remaining shell copy and console
-localization are still being audited.
+named units, weapons, abilities, and items. Godot's remaining in-battle
+interface and console localization are still being audited.
 
 ## Add chapters and branches
 

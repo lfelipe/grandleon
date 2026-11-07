@@ -154,12 +154,13 @@ suggestions must never be required, silently overwrite authored text, or
 replace the author's review and approval.
 
 The first localization workflow is usable end to end. Grandleon's home,
-project, Game Settings, Campaign Outline, Army, Story, and Gear & Abilities
-screens are available in English, Spanish, and Brazilian Portuguese. A clean
+project, and every current creator screen are available in English, Spanish,
+and Brazilian Portuguese. A clean
 install follows the system locale when it is supported, but the language can be
 changed explicitly from either the home or project screen, applies immediately
 without a restart, and is remembered from then on. Missing shell copy falls
-back to English.
+back to English. An automated catalog audit keeps all three languages on the
+same non-empty message IDs and formatting placeholders.
 
 Games now record their own source language and carry manual translations in
 the same portable project and compiled package. Open a project's
@@ -170,8 +171,8 @@ from its authored languages. Godot then applies that choice to the game title,
 campaign and stage names, dialogue, objectives, company character names, named
 battle placements, and named units, weapons, abilities, and items. Grandleon
 keeps the original source strings; missing or outdated work falls back to the
-current source rather than stale or empty text. The remaining editor/player
-shell surfaces and console localization are still being audited during the 0.5
+current source rather than stale or empty text. The remaining Godot in-battle
+interface and console localization are still being audited during the 0.5
 work. Player-chosen character names remain literal player input rather than
 translation material; they survive save and continue and can appear in
 dialogue, objectives, rosters, and exact on-board unit labels. The compact

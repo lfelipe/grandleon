@@ -11,6 +11,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+	_audit_catalogs()
 	var service = LocalizationService.new(
 		"res://localization/languages.json", "", "en-US"
 	)
@@ -28,9 +29,9 @@ func _run() -> void:
 	_expect("selected language changes", service.current_language(), "es")
 	_expect("Spanish shell message resolves", service.text("home.create_edit"), "CREAR / EDITAR JUEGOS")
 	_expect(
-		"missing Spanish message falls back to English",
+		"Spanish fallback guidance is translated",
 		service.text("localization.fallback_notice"),
-		"English is used when a translation is missing."
+		"Se usa el inglés cuando falta una traducción."
 	)
 	_expect("unknown message is visible and deterministic", service.text("missing.message"), "[missing.message]")
 	service.select_language("pt-BR", false)
@@ -103,6 +104,78 @@ func _run() -> void:
 	if failures == 0:
 		print("localization shell smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _audit_catalogs() -> void:
+	var descriptor := _json_dictionary("res://localization/languages.json")
+	var source_code := str(descriptor.get("sourceLanguage", ""))
+	var catalogs: Dictionary = {}
+	for language_value: Variant in descriptor.get("languages", []):
+		if not language_value is Dictionary:
+			continue
+		var language: Dictionary = language_value
+		var code := str(language.get("code", ""))
+		var catalog := _json_dictionary(str(language.get("catalog", "")))
+		catalogs[code] = catalog.get("messages", {})
+	_expect("the source catalog is available", catalogs.has(source_code), true)
+	if not catalogs.has(source_code):
+		return
+	var source_messages: Dictionary = catalogs[source_code]
+	var source_ids := _sorted_keys(source_messages)
+	for code_value: Variant in catalogs.keys():
+		var code := str(code_value)
+		var messages: Dictionary = catalogs[code]
+		_expect(
+			"%s catalog has exactly the source message IDs" % code,
+			_sorted_keys(messages),
+			source_ids
+		)
+		for message_id: String in source_ids:
+			var source_text := str(source_messages.get(message_id, ""))
+			var translated_text := str(messages.get(message_id, ""))
+			_expect(
+				"%s / %s is not empty" % [code, message_id],
+				translated_text.is_empty(),
+				false
+			)
+			_expect(
+				"%s / %s preserves formatting placeholders" % [code, message_id],
+				_placeholders(translated_text),
+				_placeholders(source_text)
+			)
+
+
+func _json_dictionary(path: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if parsed is Dictionary:
+		return parsed
+	_expect("%s contains a JSON object" % path, true, false)
+	return {}
+
+
+func _sorted_keys(values: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for key: Variant in values.keys():
+		result.append(str(key))
+	result.sort()
+	return result
+
+
+func _placeholders(text: String) -> Array[String]:
+	var result: Array[String] = []
+	var cursor := 0
+	while cursor < text.length():
+		var opening := text.find("{", cursor)
+		if opening < 0:
+			break
+		var closing := text.find("}", opening + 1)
+		if closing < 0:
+			result.append(text.substr(opening))
+			break
+		result.append(text.substr(opening, closing - opening + 1))
+		cursor = closing + 1
+	result.sort()
+	return result
 
 
 func _tree_has_text(node: Node, expected: String) -> bool:

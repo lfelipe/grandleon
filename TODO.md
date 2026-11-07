@@ -289,8 +289,13 @@ than reproduce those implementation details.
     home/player-launch and creator-project screens. Use a supported system
     locale only on first launch, persist the user's explicit override, and
     switch either open shell live without restarting or losing the project list.
-  - [ ] Move the remaining player and creator screens into the same catalog and
-    audit longer translations, glyph coverage, focus order, and compact layouts.
+  - [x] Move every current creator screen into the same catalog and audit longer
+    translations, focus order, and compact layouts. English, Spanish, and
+    Brazilian Portuguese now have exactly the same non-empty message IDs and
+    formatting placeholders; the localization smoke test rejects catalog drift.
+  - [ ] Move the remaining Godot player and in-battle interface into the same
+    catalog, then audit longer translations, glyph coverage, focus order, and
+    compact layouts there.
 - [x] Add portable project data for a game's source language and translations.
   Migration must preserve every authored string, and runtimes must fall back to
   the source text when a translation is missing rather than showing an empty
