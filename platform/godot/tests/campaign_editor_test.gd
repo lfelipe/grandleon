@@ -20,6 +20,9 @@ func _run() -> void:
 	if not created.ok:
 		quit(1)
 		return
+	var localization: Node = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
 	var packed: PackedScene = load("res://campaign_editor.tscn")
@@ -83,6 +86,26 @@ func _run() -> void:
 
 	_expect("project opens in campaign outline", editor.project_id, created.id)
 	_expect(
+		"Campaign Outline uses the selected editor language",
+		editor.title_label.text,
+		"A CLEAR ROAD  /  FIRST ADVENTURE  /  CAMPANHA"
+	)
+	_expect(
+		"Portuguese Campaign subtitle is visible",
+		_tree_has_text(editor, "Construa a aventura, um capítulo jogável de cada vez."),
+		true
+	)
+	_expect(
+		"Portuguese route search guidance is visible",
+		editor.route_filter.placeholder_text,
+		"Buscar capítulos, batalhas, mapas ou finais…"
+	)
+	_expect(
+		"long Portuguese player guidance wraps",
+		editor.player_mode_help.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect(
 		"diagnostic summary routes a named role without exposing its id",
 		editor._diagnostic_summary({
 			"diagnostics": [{
@@ -92,7 +115,7 @@ func _run() -> void:
 				"code": "missing_reference",
 			}]
 		}),
-		"FIX IN GROW THE ARMY  /  WAYFARER  /  ROLE  /  MISSING REFERENCE"
+		"CORRIGIR EM EXPANDIR O EXÉRCITO  /  WAYFARER  /  FUNÇÃO  /  MISSING REFERENCE"
 	)
 	_expect("fix action stays hidden until testing finds an issue", editor.fix_button.visible, false)
 	var map_target: Dictionary = editor._map_target_for_diagnostic({
@@ -114,7 +137,7 @@ func _run() -> void:
 				"code": "invalid_placement",
 			}]
 		}),
-		"FIX IN MAP & BATTLE  /  FIRST BATTLE  /  NORTH RAIDER  /  CELL 6, 2  /  STARTING POSITION  /  INVALID PLACEMENT"
+		"CORRIGIR EM MAPA E BATALHA  /  FIRST BATTLE  /  NORTH RAIDER  /  CÉLULA 6, 2  /  POSIÇÃO INICIAL  /  INVALID PLACEMENT"
 	)
 	_expect("starter route has story battle and ending", editor.route.size(), 3)
 	_expect("first editable chapter receives controller focus", editor.first_button.has_focus(), true)
@@ -211,7 +234,7 @@ func _run() -> void:
 	editor._refresh_route()
 	_expect(
 		"two-player guidance confirms every battle has an owner",
-		editor.player_mode_help.text.contains("Every battle gives Player 2"),
+		editor.player_mode_help.text.contains("Cada batalha dá um personagem ao Jogador 2"),
 		true
 	)
 	var ready_campaign: Dictionary = editor.campaign
@@ -253,7 +276,7 @@ func _run() -> void:
 	editor._select_metadata(editor.player_mode_select, "choice")
 	editor._change_player_mode(editor.player_mode_select.selected)
 	_expect("campaign can restore launch-time choice", str(_parse(editor.source).campaigns[0].playerMode), "choice")
-	_expect("campaign outline keeps PC target visible", editor.target_budget_label.text.contains("PC READY"), true)
+	_expect("campaign outline keeps PC target visible", editor.target_budget_label.text.contains("PC PRONTO"), true)
 	_expect("campaign outline shows Nintendo 64 fielded impact", editor.target_budget_label.text.contains("N64 5 / 48"), true)
 	_expect("campaign outline shows PlayStation fielded impact", editor.target_budget_label.text.contains("PS1 5 / 48"), true)
 	if editor.route.size() == 3:
@@ -263,17 +286,17 @@ func _run() -> void:
 	_expect("linear starter has no alternate outcomes", editor.other_nodes.size(), 0)
 	_expect(
 		"story chapter explains its action",
-		editor._node_text(editor.route[0], 0, false).contains("WRITE CONVERSATION"),
+		editor._node_text(editor.route[0], 0, false).contains("ESCREVER CONVERSA"),
 		true
 	)
 	_expect(
 		"battle chapter explains co-op readiness",
-		editor._node_text(editor.route[1], 1, false).contains("2-PLAYER READY"),
+		editor._node_text(editor.route[1], 1, false).contains("PRONTO PARA 2 JOGADORES"),
 		true
 	)
 	_expect(
 		"ending is visibly terminal",
-		editor._node_text(editor.route[2], 0, false).contains("CAMPAIGN STOPS HERE"),
+		editor._node_text(editor.route[2], 0, false).contains("A CAMPANHA TERMINA AQUI"),
 		true
 	)
 	_expect("ending row opens instead of looking disabled", editor.node_buttons.chapter_complete.disabled, false)
@@ -654,6 +677,7 @@ func _run() -> void:
 	_expect("add chapter opens its focused dialog", map_editor.chapter_layer.visible, true)
 	_expect("add chapter dialog receives controller focus", map_editor.chapter_title.has_focus(), true)
 
+	localization.call("select_language", prior_language, false)
 	if failures == 0:
 		print("campaign outline smoke passed")
 	quit(1 if failures > 0 else 0)
@@ -696,7 +720,7 @@ func _exercise_unused_battle_delete(editor: Control) -> void:
 		"battle", "unused_skirmish", editor.battle_dependency_buttons.unused_skirmish
 	)
 	_expect("unused battle review names exact battle", editor.dependency_heading.text.contains("UNUSED SKIRMISH"), true)
-	_expect("unused battle review reports no incoming route", editor.dependency_uses.text, "No campaign route points to this battle.")
+	_expect("unused battle review reports no incoming route", editor.dependency_uses.text, "Nenhuma rota ou conteúdo do projeto usa esta batalha.")
 	_expect("unused battle can reach explicit confirmation", editor.dependency_confirm_button.disabled, false)
 	_expect("unused battle deletion succeeds", editor._confirm_dependency_delete(), true)
 	_expect("battle deletion is exactly one undo operation", editor.undo_stack.size(), undo_size + 1)
@@ -740,6 +764,17 @@ func _node_by_id(nodes: Array, node_id: String) -> Dictionary:
 		if node_value is Dictionary and str(node_value.get("id", "")) == node_id:
 			return node_value
 	return {}
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label and node.text == expected:
+		return true
+	if node is BaseButton and node.text == expected:
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
 
 
 func _parse(value: String) -> Dictionary:

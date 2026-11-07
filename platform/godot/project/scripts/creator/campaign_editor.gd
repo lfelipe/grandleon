@@ -152,33 +152,33 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _load_project() -> void:
 	if project_id.is_empty():
-		_set_status("NO PROJECT SELECTED", true)
+		_set_status(_t("campaign.error.no_project"), true)
 		return
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
-		_set_status("OPEN FAILED  /  %s" % loaded.message, true)
+		_set_status(_t("campaign.error.open", {"message": str(loaded.message)}), true)
 		return
 	source = str(loaded.get("source", ""))
 	saved_source = source
 	var value: Variant = loaded.get("project", {})
 	if not value is Dictionary:
-		_set_status("PROJECT SOURCE IS NOT READABLE", true)
+		_set_status(_t("campaign.error.source_unreadable"), true)
 		return
 	project = value
 	var campaigns: Array = project.get("campaigns", [])
 	if campaigns.is_empty() or not campaigns[0] is Dictionary:
-		_set_status("ADD A CAMPAIGN BEFORE EDITING ITS OUTLINE", true)
+		_set_status(_t("campaign.error.add_campaign_first"), true)
 		return
 	_refresh_campaign_choices(CreatorContext.campaign_id)
 	if not _set_campaign_from_selection():
-		_set_status("CHOOSE A CAMPAIGN TO EDIT", true)
+		_set_status(_t("campaign.error.choose_campaign"), true)
 		return
 	_collect_route()
 	_refresh_route()
 	_refresh_player_mode()
 	_refresh_target_budget()
 	_update_actions()
-	_set_status("CHOOSE A CHAPTER TO EDIT, OR TEST THE WHOLE CAMPAIGN", false)
+	_set_status(_t("campaign.status.ready"), false)
 	if first_button != null:
 		first_button.call_deferred("grab_focus")
 
@@ -194,7 +194,9 @@ func _refresh_campaign_choices(preferred_id := "") -> void:
 			continue
 		var value: Dictionary = campaigns[index]
 		var campaign_id := str(value.get("id", ""))
-		campaign_select.add_item(str(value.get("name", campaign_id if not campaign_id.is_empty() else "Campaign")))
+		campaign_select.add_item(str(value.get(
+			"name", campaign_id if not campaign_id.is_empty() else _t("campaign.fallback.campaign")
+		)))
 		campaign_select.set_item_metadata(campaign_select.item_count - 1, campaign_id)
 		if campaign_id == preferred_id:
 			preferred_index = campaign_select.item_count - 1
@@ -212,10 +214,10 @@ func _set_campaign_from_selection() -> bool:
 		if value is Dictionary and str(value.get("id", "")) == selected_id:
 			campaign = value
 			CreatorContext.choose_campaign(selected_id)
-			title_label.text = "%s  /  %s" % [
-				str(project.get("title", "UNTITLED GAME")).to_upper(),
-				str(value.get("name", "CAMPAIGN")).to_upper(),
-			]
+			title_label.text = _t("campaign.project_title", {
+				"project": str(project.get("title", _t("campaign.untitled_game"))).to_upper(),
+				"campaign": str(value.get("name", _t("campaign.fallback.campaign"))).to_upper(),
+			})
 			return true
 	campaign = {}
 	return false
@@ -225,17 +227,18 @@ func _change_campaign(index: int) -> void:
 	if campaign_select == null or index < 0 or index >= campaign_select.item_count:
 		return
 	if not _set_campaign_from_selection():
-		_set_status("CAMPAIGN IS NO LONGER AVAILABLE", true)
+		_set_status(_t("campaign.error.campaign_missing"), true)
 		return
 	_collect_route()
 	_refresh_route()
 	_refresh_player_mode()
 	_refresh_target_budget()
 	_update_actions()
-	_set_status(
-		"EDITING  /  %s" % str(campaign.get("name", campaign.get("id", "CAMPAIGN"))).to_upper(),
-		false
-	)
+	_set_status(_t("campaign.status.editing", {
+		"campaign": str(campaign.get(
+			"name", campaign.get("id", _t("campaign.fallback.campaign"))
+		)).to_upper(),
+	}), false)
 	if first_button != null:
 		first_button.grab_focus()
 
@@ -259,11 +262,11 @@ func _create_new_campaign_from_text(_value: String) -> void:
 func _create_new_campaign() -> void:
 	var name := new_campaign_name.text.strip_edges()
 	if name.is_empty():
-		_set_status("GIVE THE CAMPAIGN A NAME", true)
+		_set_status(_t("campaign.error.campaign_name"), true)
 		new_campaign_name.grab_focus()
 		return
 	if campaign.is_empty():
-		_set_status("ADD A WORKING CAMPAIGN FIRST", true)
+		_set_status(_t("campaign.error.working_campaign_first"), true)
 		return
 	var candidate := project.duplicate(true)
 	var campaigns: Array = candidate.get("campaigns", []).duplicate(true)
@@ -276,7 +279,9 @@ func _create_new_campaign() -> void:
 	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
-		_set_status("CAMPAIGN COULD NOT BE CREATED  /  %s" % _diagnostic_summary(checked), true)
+		_set_status(_t("campaign.error.create_campaign", {
+			"detail": _diagnostic_summary(checked),
+		}), true)
 		return
 	undo_stack.append(source)
 	if undo_stack.size() > HISTORY_LIMIT:
@@ -290,7 +295,7 @@ func _create_new_campaign() -> void:
 	_refresh_route()
 	_update_actions()
 	new_campaign_layer.visible = false
-	_set_status("UNSAVED  /  CREATED %s" % name.to_upper(), false)
+	_set_status(_t("campaign.status.created", {"name": name.to_upper()}), false)
 	campaign_select.grab_focus()
 
 
@@ -339,10 +344,88 @@ func _dependency_decision(category: String, identity: String) -> Dictionary:
 		decision["allowed"] = false
 		decision["blocked"] = true
 		decision["reason"] = "last_campaign"
-		decision["summary"] = (
-			"This is the project's only campaign. Add another campaign before deleting it."
-		)
+		decision["summary"] = _t("campaign.delete.summary.last_campaign")
 	return decision
+
+
+func _dependency_summary(decision: Dictionary) -> String:
+	var reason := str(decision.get("reason", "unsupported_request"))
+	var kind := _t(
+		"campaign.kind.campaign_name"
+		if dependency_category == "campaign" else "campaign.kind.battle_name"
+	)
+	var name := str(decision.get("name", dependency_id))
+	var use_count: int = decision.get("uses", []).size()
+	match reason:
+		"last_campaign":
+			return _t("campaign.delete.summary.last_campaign")
+		"content_not_found":
+			return _t("campaign.delete.summary.missing", {"kind": kind})
+		"unused":
+			return _t("campaign.delete.summary.unused", {"kind": kind, "name": name})
+		"in_use":
+			return _t(
+				"campaign.delete.summary.in_use_one"
+				if use_count == 1 else "campaign.delete.summary.in_use_many",
+				{"kind": kind, "name": name, "count": use_count}
+			)
+		_:
+			return _t("campaign.delete.summary.unavailable")
+
+
+func _dependency_section_label(section: String) -> String:
+	var message_id := str({
+		"Project": "campaign.delete.section.project",
+		"Campaigns": "campaign.delete.section.campaigns",
+		"Battles": "campaign.delete.section.battles",
+		"Dialogue": "campaign.delete.section.dialogue",
+		"Maps": "campaign.delete.section.maps",
+		"Objectives": "campaign.delete.section.objectives",
+	}.get(section, ""))
+	return _t(message_id) if not message_id.is_empty() else section.to_upper()
+
+
+func _dependency_owner_name(use: Dictionary) -> String:
+	var owner_kind := str(use.get("owner_category", ""))
+	var owner_id := str(use.get("owner_id", ""))
+	if owner_id.is_empty():
+		return _t("campaign.delete.project_owner")
+	if owner_kind == "campaign":
+		var found := _record_name(project.get("campaigns", []), owner_id)
+		if not found.is_empty():
+			return found
+	if owner_kind in ["battle", "campaign_node"]:
+		for campaign_value: Variant in project.get("campaigns", []):
+			if campaign_value is Dictionary:
+				var flow: Variant = campaign_value.get("flow", {})
+				if flow is Dictionary:
+					var found := _record_name(flow.get("nodes", []), owner_id)
+					if not found.is_empty():
+						return _t("campaign.delete.owner_in_campaign", {
+							"campaign": str(campaign_value.get(
+								"name", campaign_value.get("id", _t("campaign.fallback.campaign"))
+							)),
+							"node": found,
+						})
+	return owner_id.replace("_", " ").capitalize()
+
+
+func _record_name(values: Variant, identity: String) -> String:
+	if values is Array:
+		for value: Variant in values:
+			if value is Dictionary and str(value.get("id", "")) == identity:
+				return str(value.get("name", identity.replace("_", " ").capitalize()))
+	return ""
+
+
+func _delete_reason(reason: String) -> String:
+	var message_id := str({
+		"unsupported_request": "campaign.delete.reason.unavailable",
+		"last_campaign": "campaign.delete.reason.last_campaign",
+		"content_not_found": "campaign.delete.reason.missing",
+		"in_use": "campaign.delete.reason.in_use",
+	}.get(reason, "campaign.delete.reason.unsafe"))
+	return _t(message_id)
 
 
 func _campaign_after_delete(campaign_id: String) -> Dictionary:
@@ -354,35 +437,40 @@ func _campaign_after_delete(campaign_id: String) -> Dictionary:
 
 func _refresh_dependency_review() -> Dictionary:
 	var decision := _dependency_decision(dependency_category, dependency_id)
-	var category_label := "CAMPAIGN" if dependency_category == "campaign" else "BATTLE"
-	dependency_heading.text = "WHERE %s IS USED  /  %s" % [
-		category_label, str(decision.get("name", dependency_id)).to_upper()
-	]
-	var summary := str(decision.get("summary", "Deletion is unavailable."))
+	var category_label := _t(
+		"campaign.kind.campaign" if dependency_category == "campaign" else "campaign.kind.battle"
+	)
+	dependency_heading.text = _t("campaign.delete.where_used", {
+		"kind": category_label,
+		"name": str(decision.get("name", dependency_id)).to_upper(),
+	})
+	var summary := _dependency_summary(decision)
 	if dependency_category == "campaign" and bool(decision.get("allowed", false)):
 		var continuation := _campaign_after_delete(dependency_id)
 		if continuation.is_empty():
 			decision["allowed"] = false
 			decision["blocked"] = true
 			decision["reason"] = "last_campaign"
-			summary = "No other campaign is available, so deletion was blocked."
+			summary = _t("campaign.delete.summary.no_continuation")
 		else:
-			summary += " After deletion, the editor will explicitly continue with campaign “%s”." % str(
-				continuation.get("name", continuation.get("id", "Campaign"))
-			)
+			summary += _t("campaign.delete.summary.continuation", {
+				"campaign": str(continuation.get(
+					"name", continuation.get("id", _t("campaign.fallback.campaign"))
+				)),
+			})
 	dependency_summary.text = summary
 	var lines: Array[String] = []
 	for value: Variant in decision.get("uses", []):
 		if value is Dictionary:
-			lines.append("•  %s  /  %s" % [
-				str(value.get("section", "Project")).to_upper(),
-				str(value.get("label", "This content is still in use.")),
-			])
+			lines.append(_t("campaign.delete.use", {
+				"section": _dependency_section_label(str(value.get("section", "Project"))),
+				"owner": _dependency_owner_name(value),
+			}))
 	if lines.is_empty():
 		dependency_uses.text = (
-			"No other project content references this campaign."
+			_t("campaign.delete.no_campaign_uses")
 			if dependency_category == "campaign"
-			else "No campaign route points to this battle."
+			else _t("campaign.delete.no_battle_uses")
 		)
 	else:
 		dependency_uses.text = "\n\n".join(lines)
@@ -392,7 +480,8 @@ func _refresh_dependency_review() -> Dictionary:
 	)
 	dependency_confirm_button.disabled = not allowed
 	dependency_confirm_button.text = (
-		"DELETE UNUSED %s" % category_label if allowed else "CANNOT DELETE"
+		_t("campaign.delete.confirm", {"kind": category_label})
+		if allowed else _t("campaign.delete.cannot")
 	)
 	return decision
 
@@ -403,19 +492,16 @@ func _confirm_dependency_delete() -> bool:
 		dependency_category not in ["campaign", "battle"]
 		or not bool(decision.get("allowed", false))
 	):
-		_set_status(
-			"NOT DELETED  /  %s" % str(
-				decision.get("reason", "unsupported request")
-			).replace("_", " ").to_upper(),
-			true
-		)
+		_set_status(_t("campaign.error.not_deleted", {
+			"reason": _delete_reason(str(decision.get("reason", "unsupported_request"))),
+		}), true)
 		return false
 	var selected_campaign_id := str(campaign.get("id", ""))
 	if selected_campaign_id.is_empty():
-		_set_status("NOT DELETED  /  CHOOSE A CAMPAIGN FIRST", true)
+		_set_status(_t("campaign.error.delete_choose_campaign"), true)
 		return false
 	if dependency_category == "campaign" and dependency_id != selected_campaign_id:
-		_set_status("NOT DELETED  /  SELECTED CAMPAIGN CHANGED", true)
+		_set_status(_t("campaign.error.delete_campaign_changed"), true)
 		return false
 	var candidate := project.duplicate(true)
 	var campaigns: Array = candidate.get("campaigns", []).duplicate(true)
@@ -457,16 +543,16 @@ func _confirm_dependency_delete() -> bool:
 			campaigns[campaign_index] = changed_campaign
 			break
 	if not removed or continuation_id.is_empty():
-		_set_status("NOT DELETED  /  CONTENT IS NO LONGER AVAILABLE", true)
+		_set_status(_t("campaign.error.delete_missing"), true)
 		_refresh_dependency_review()
 		return false
 	candidate["campaigns"] = campaigns
 	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
-		_set_status(
-			"NOT DELETED  /  %s" % _diagnostic_summary(checked), true
-		)
+		_set_status(_t("campaign.error.delete", {
+			"detail": _diagnostic_summary(checked),
+		}), true)
 		return false
 	undo_stack.append(source)
 	if undo_stack.size() > HISTORY_LIMIT:
@@ -481,12 +567,13 @@ func _confirm_dependency_delete() -> bool:
 	_refresh_route()
 	_update_actions()
 	dependency_layer.visible = false
-	_set_status(
-		"UNSAVED  /  DELETED UNUSED %s %s" % [
-			dependency_category.to_upper(), removed_name.to_upper()
-		],
-		false
-	)
+	_set_status(_t("campaign.status.deleted", {
+		"kind": _t(
+			"campaign.kind.campaign"
+			if dependency_category == "campaign" else "campaign.kind.battle"
+		),
+		"name": removed_name.to_upper(),
+	}), false)
 	if dependency_category == "campaign":
 		campaign_select.grab_focus()
 	elif first_button != null:
@@ -583,11 +670,11 @@ func _refresh_chapter_order(preferred_story_id := "") -> void:
 		var chapter: Dictionary = chapters[index]
 		var story: Dictionary = chapter.story
 		var battle: Dictionary = chapter.battle
-		chapter_order_select.add_item("CHAPTER %d  /  %s  +  %s" % [
-			index + 1,
-			str(story.get("name", "Story")).to_upper(),
-			str(battle.get("name", "Battle")).to_upper(),
-		])
+		chapter_order_select.add_item(_t("campaign.chapter.entry", {
+			"number": index + 1,
+			"story": str(story.get("name", _t("campaign.fallback.story"))).to_upper(),
+			"battle": str(battle.get("name", _t("campaign.fallback.battle"))).to_upper(),
+		}))
 		chapter_order_select.set_item_metadata(
 			chapter_order_select.item_count - 1, str(story.get("id", ""))
 		)
@@ -601,9 +688,7 @@ func _refresh_chapter_order_actions(_index: int = 0) -> void:
 	chapter_later_button.disabled = (
 		index < 0 or index >= chapter_order_select.item_count - 1
 	)
-	_set_chapter_order_status(
-		"Choose a chapter, then move its story and battle together.", false
-	)
+	_set_chapter_order_status(_t("campaign.chapter.move_help"), false)
 
 
 func _move_chapter(direction: int) -> void:
@@ -614,12 +699,14 @@ func _move_chapter(direction: int) -> void:
 		source, str(campaign.get("id", "")), story_id, direction
 	)
 	if not moved.ok:
-		var detail := "CHAPTER CANNOT MOVE THERE"
+		var detail := _t("campaign.error.chapter_cannot_move")
 		if not moved.diagnostics.is_empty():
 			detail = str(moved.diagnostics[0].get(
 				"detail", moved.diagnostics[0].get("code", detail)
 			))
-		_set_chapter_order_status("NOT MOVED  /  %s" % detail.to_upper(), true)
+		_set_chapter_order_status(_t("campaign.error.chapter_not_moved", {
+			"detail": detail.to_upper(),
+		}), true)
 		return
 	undo_stack.append(source)
 	if undo_stack.size() > HISTORY_LIMIT:
@@ -632,12 +719,11 @@ func _move_chapter(direction: int) -> void:
 	_refresh_route()
 	_update_actions()
 	_refresh_chapter_order(story_id)
-	_set_chapter_order_status(
-		"UNSAVED  /  MOVED WHOLE CHAPTER %s" % (
-			"EARLIER" if direction < 0 else "LATER"
+	_set_chapter_order_status(_t("campaign.chapter.moved", {
+		"direction": _t(
+			"campaign.chapter.earlier" if direction < 0 else "campaign.chapter.later"
 		),
-		false
-	)
+	}), false)
 	chapter_order_select.grab_focus()
 
 
@@ -660,7 +746,7 @@ func _refresh_route() -> void:
 	battle_dependency_buttons.clear()
 	if route.is_empty():
 		var empty := _label(
-			"This campaign has no playable path yet.", 22, Color("ff7a83")
+			_t("campaign.route.empty"), 22, Color("ff7a83")
 		)
 		empty.custom_minimum_size.y = 90
 		route_list.add_child(empty)
@@ -676,7 +762,7 @@ func _refresh_route() -> void:
 			alternate_nodes.append(node)
 	if main_nodes.is_empty() and alternate_nodes.is_empty():
 		var no_match := _label(
-			"No chapters or battles match “%s”." % route_filter.text.strip_edges(),
+			_t("campaign.route.no_matches", {"query": route_filter.text.strip_edges()}),
 			20,
 			Color("718896")
 		)
@@ -684,7 +770,9 @@ func _refresh_route() -> void:
 		no_match.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		route_list.add_child(no_match)
 		return
-	route_list.add_child(_section_label("MAIN PATH" if query.is_empty() else "MATCHING MAIN PATH"))
+	route_list.add_child(_section_label(_t(
+		"campaign.route.main" if query.is_empty() else "campaign.route.matching_main"
+	)))
 	var battle_number := 0
 	for node: Dictionary in main_nodes:
 		if str(node.get("kind", "")) == "encounter":
@@ -692,26 +780,25 @@ func _refresh_route() -> void:
 		_add_node_button(node, battle_number, false)
 	if query.is_empty() and _chapter_pairs().size() > 1:
 		chapter_order_button = _button(
-			"CHANGE CHAPTER ORDER\nMOVE A WHOLE STORY + BATTLE TOGETHER", 160, 82
+			_t("campaign.chapter.order_button"), 160, 82
 		)
-		chapter_order_button.tooltip_text = (
-			"Move one complete playable chapter without separating its story, map, or battle."
-		)
+		chapter_order_button.tooltip_text = _t("campaign.chapter.order_tooltip")
 		chapter_order_button.pressed.connect(_open_chapter_order)
 		route_list.add_child(chapter_order_button)
 	if query.is_empty():
 		var add_chapter := _button(
-			"ADD NEXT CHAPTER\nSTART FROM THE LAST WORKING BATTLE", 160, 92
+			_t("campaign.chapter.add_button"), 160, 92
 		)
-		add_chapter.tooltip_text = (
-			"Create a new story moment, battle, and map from the last playable chapter."
-		)
+		add_chapter.tooltip_text = _t("campaign.chapter.add_tooltip")
 		add_chapter.disabled = _last_route_encounter().is_empty()
 		add_chapter.pressed.connect(_add_next_chapter)
 		route_list.add_child(add_chapter)
 	if not alternate_nodes.is_empty():
 		route_list.add_child(_section_label(
-			"OTHER OUTCOMES" if query.is_empty() else "MATCHING OTHER OUTCOMES"
+			_t(
+				"campaign.route.other_outcomes"
+				if query.is_empty() else "campaign.route.matching_outcomes"
+			)
 		))
 		for node: Dictionary in alternate_nodes:
 			_add_node_button(node, 0, true)
@@ -722,9 +809,9 @@ func _route_node_matches(node: Dictionary, query: String) -> bool:
 		return true
 	var kind := str(node.get("kind", ""))
 	var kind_name: String = str({
-		"encounter": "battle",
-		"story": "story",
-		"terminal": "ending",
+		"encounter": _t("campaign.kind.battle_name"),
+		"story": _t("campaign.kind.story_name"),
+		"terminal": _t("campaign.kind.ending_name"),
 	}.get(kind, kind))
 	return ("%s %s %s %s" % [
 		node.get("name", ""),
@@ -768,28 +855,20 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 	node_buttons[str(node.get("id", ""))] = button
 	if kind == "encounter":
 		var node_id := str(node.get("id", ""))
-		var test_one := _button("TEST\n1 PLAYER", 150)
-		test_one.tooltip_text = (
-			"Start this exact battle in a temporary solo run, without replaying "
-			+ "earlier chapters or changing campaign saves."
-		)
+		var test_one := _button(_t("campaign.test.battle_one"), 150)
+		test_one.tooltip_text = _t("campaign.test.battle_one_tooltip")
 		test_one.pressed.connect(_play_battle.bind(node_id, 1))
 		row.add_child(test_one)
 		battle_test_one_buttons[node_id] = test_one
-		var test_two := _button("TEST\n2 PLAYERS", 160)
-		test_two.tooltip_text = (
-			"Start this battle with its authored Player 2 characters, positions, "
-			+ "co-op-only forces, and moments."
-		)
+		var test_two := _button(_t("campaign.test.battle_two"), 160)
+		test_two.tooltip_text = _t("campaign.test.battle_two_tooltip")
 		test_two.pressed.connect(_play_battle.bind(node_id, 2))
 		row.add_child(test_two)
 		battle_test_two_buttons[node_id] = test_two
 		_refresh_battle_test_button(node, 1, test_one)
 		_refresh_battle_test_button(node, 2, test_two)
-		var dependencies := _button("WHERE USED\nDELETE", 180)
-		dependencies.tooltip_text = (
-			"Review every route that points to this battle before deleting it."
-		)
+		var dependencies := _button(_t("campaign.delete.battle_button"), 180)
+		dependencies.tooltip_text = _t("campaign.delete.battle_tooltip")
 		dependencies.pressed.connect(
 			_open_dependency_review.bind("battle", node_id, dependencies)
 		)
@@ -800,15 +879,17 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 		spacer.custom_minimum_size.x = 300
 		row.add_child(spacer)
 	else:
+		var route_count: int = node.get("transitions", []).size()
 		var outcomes := _button(
-			"OUTCOMES\n%d ROUTE%s" % [
-				node.get("transitions", []).size(),
-				"" if node.get("transitions", []).size() == 1 else "S",
-			],
+			_t(
+				"campaign.outcome.button_one"
+				if route_count == 1 else "campaign.outcome.button_many",
+				{"count": route_count}
+			),
 			300
 		)
 		outcomes.size_flags_horizontal = Control.SIZE_SHRINK_END
-		outcomes.tooltip_text = "Choose when this chapter leads to each named destination."
+		outcomes.tooltip_text = _t("campaign.outcome.button_tooltip")
 		outcomes.pressed.connect(_open_outcomes.bind(str(node.get("id", ""))))
 		row.add_child(outcomes)
 		outcome_buttons[str(node.get("id", ""))] = outcomes
@@ -817,31 +898,31 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 
 
 func _node_text(node: Dictionary, battle_number: int, alternate: bool) -> String:
-	var name := str(node.get("name", node.get("id", "Untitled chapter"))).to_upper()
+	var name := str(node.get(
+		"name", node.get("id", _t("campaign.fallback.untitled_chapter"))
+	)).to_upper()
 	var kind := str(node.get("kind", ""))
+	var alternate_text := _t("campaign.route.alternate") if alternate else ""
 	if kind == "story":
 		var scenes: Array = node.get("dialogueIds", [])
-		return "%sSTORY  ·  %s\nWRITE CONVERSATION  ·  %d SCENE%s" % [
-			"ALTERNATE  ·  " if alternate else "",
-			name,
-			scenes.size(),
-			"" if scenes.size() == 1 else "S",
-		]
+		return _t(
+			"campaign.node.story_one" if scenes.size() == 1 else "campaign.node.story_many",
+			{"alternate": alternate_text, "name": name, "count": scenes.size()}
+		)
 	if kind == "encounter":
-		var prefix := "BATTLE %d" % battle_number if battle_number > 0 else "BATTLE"
-		return "%s%s  ·  %s\n%s" % [
-			"ALTERNATE  ·  " if alternate else "",
-			prefix,
-			name,
-			_encounter_summary(node),
-		]
-	return "%sENDING  ·  %s\nCAMPAIGN STOPS HERE" % [
-		"ALTERNATE  ·  " if alternate else "", name
-	]
+		var prefix := _t(
+			"campaign.node.battle_numbered" if battle_number > 0 else "campaign.kind.battle",
+			{"number": battle_number}
+		)
+		return _t("campaign.node.battle", {
+			"alternate": alternate_text, "prefix": prefix,
+			"name": name, "summary": _encounter_summary(node),
+		})
+	return _t("campaign.node.ending", {"alternate": alternate_text, "name": name})
 
 
 func _encounter_summary(node: Dictionary) -> String:
-	var map_name := str(node.get("mapId", "MAP")).replace("_", " ").to_upper()
+	var map_name := str(node.get("mapId", _t("campaign.fallback.map"))).replace("_", " ").to_upper()
 	for map_value: Variant in project.get("maps", []):
 		if map_value is Dictionary and str(map_value.get("id", "")) == str(node.get("mapId", "")):
 			map_name = str(map_value.get("name", map_name)).to_upper()
@@ -871,38 +952,45 @@ func _encounter_summary(node: Dictionary) -> String:
 	for moment_value: Variant in node.get("moments", []):
 		if moment_value is Dictionary and int(moment_value.get("minimumPlayers", 1)) >= 2:
 			coop_scenes += 1
-	var variant := "1P %d %s" % [
-		solo_allies, "ALLY" if solo_allies == 1 else "ALLIES"
-	]
+	var variant := _t(
+		"campaign.summary.solo_one" if solo_allies == 1 else "campaign.summary.solo_many",
+		{"count": solo_allies}
+	)
 	if coop_only_allies > 0 or coop_only_enemies > 0:
-		variant += "  ·  2P +%d %s / +%d %s" % [
-			coop_only_allies,
-			"ALLY" if coop_only_allies == 1 else "ALLIES",
-			coop_only_enemies,
-			"ENEMY" if coop_only_enemies == 1 else "ENEMIES",
-		]
+		variant += _t("campaign.summary.coop_forces", {
+			"allies": coop_only_allies,
+			"ally_label": _t("campaign.summary.ally_one" if coop_only_allies == 1 else "campaign.summary.ally_many"),
+			"enemies": coop_only_enemies,
+			"enemy_label": _t("campaign.summary.enemy_one" if coop_only_enemies == 1 else "campaign.summary.enemy_many"),
+		})
 	if alternate_starts > 0:
-		variant += "  ·  %d CO-OP START%s" % [
-			alternate_starts, "" if alternate_starts == 1 else "S"
-		]
+		variant += _t(
+			"campaign.summary.coop_start_one"
+			if alternate_starts == 1 else "campaign.summary.coop_start_many",
+			{"count": alternate_starts}
+		)
 	if coop_scenes > 0:
-		variant += "  ·  %d CO-OP SCENE%s" % [coop_scenes, "" if coop_scenes == 1 else "S"]
-	return "EDIT MAP & BATTLE  ·  %s%s\n%s" % [
-		map_name,
-		"  ·  2-PLAYER READY" if coop_ready else "",
-		variant,
-	]
+		variant += _t(
+			"campaign.summary.coop_scene_one"
+			if coop_scenes == 1 else "campaign.summary.coop_scene_many",
+			{"count": coop_scenes}
+		)
+	return _t("campaign.summary.battle", {
+		"map": map_name,
+		"ready": _t("campaign.summary.two_ready") if coop_ready else "",
+		"variant": variant,
+	})
 
 
 func _node_tooltip(node: Dictionary) -> String:
 	match str(node.get("kind", "")):
 		"story":
-			return "Open this chapter's conversation in the story editor."
+			return _t("campaign.node.story_tooltip")
 		"encounter":
-			return "Open this chapter's exact map and battle setup."
+			return _t("campaign.node.battle_tooltip")
 		"terminal":
-			return "Rename this ending without changing its saved identity."
-	return "This chapter kind is not editable here."
+			return _t("campaign.node.ending_tooltip")
+	return _t("campaign.node.uneditable_tooltip")
 
 
 func _open_story_node(node: Dictionary) -> void:
@@ -922,13 +1010,11 @@ func _open_encounter_node(node: Dictionary) -> void:
 
 func _open_terminal_node(node: Dictionary) -> void:
 	ending_node_id = str(node.get("id", ""))
-	ending_kicker.text = "EDIT ENDING"
-	ending_question.text = "What should players call this ending?"
-	ending_explanation.text = (
-		"Only the player-facing name changes. Campaign routes and saved identities stay intact."
-	)
-	ending_create_button.text = "SAVE ENDING"
-	ending_name.text = str(node.get("name", "Ending"))
+	ending_kicker.text = _t("campaign.ending.edit")
+	ending_question.text = _t("campaign.ending.edit_question")
+	ending_explanation.text = _t("campaign.ending.edit_help")
+	ending_create_button.text = _t("campaign.ending.save")
+	ending_name.text = str(node.get("name", _t("campaign.fallback.ending")))
 	ending_layer.visible = true
 	ending_name.grab_focus()
 	ending_name.select_all()
@@ -944,7 +1030,7 @@ func _last_route_encounter() -> Dictionary:
 func _add_next_chapter() -> void:
 	var node := _last_route_encounter()
 	if node.is_empty():
-		_set_status("ADD A PLAYABLE BATTLE BEFORE ITS NEXT CHAPTER", true)
+		_set_status(_t("campaign.error.add_battle_before_chapter"), true)
 		return
 	if dirty and not _save():
 		return
@@ -995,25 +1081,14 @@ func _refresh_battle_test_button(
 ) -> void:
 	button.disabled = not _battle_player_count_allowed(node, players)
 	if players == 1:
-		button.tooltip_text = (
-			"This campaign is authored as two-player only."
-			if button.disabled
-			else (
-				"Start this exact battle in a temporary solo run, without replaying "
-				+ "earlier chapters or changing campaign saves."
-			)
+		button.tooltip_text = _t(
+			"campaign.test.solo_unavailable_tooltip"
+			if button.disabled else "campaign.test.solo_tooltip"
 		)
 	else:
-		button.tooltip_text = (
-			(
-				"Choose a campaign that offers two players and assign an allied "
-				+ "character in this battle to Player 2."
-			)
-			if button.disabled
-			else (
-				"Start this battle with its authored Player 2 characters, positions, "
-				+ "co-op-only forces, and moments."
-			)
+		button.tooltip_text = _t(
+			"campaign.test.coop_unavailable_tooltip"
+			if button.disabled else "campaign.test.coop_tooltip"
 		)
 
 
@@ -1040,7 +1115,7 @@ func _battle_preview_source(node_id: String) -> Dictionary:
 			continue
 		var flow_value: Variant = preview_campaign.get("flow", {})
 		if not flow_value is Dictionary:
-			return {"ok": false, "message": "CAMPAIGN FLOW IS MISSING"}
+			return {"ok": false, "message": _t("campaign.error.flow_missing")}
 		var flow: Dictionary = flow_value
 		var nodes: Array = flow.get("nodes", [])
 		var encounter_index := -1
@@ -1053,7 +1128,7 @@ func _battle_preview_source(node_id: String) -> Dictionary:
 				encounter_index = index
 				break
 		if encounter_index < 0:
-			return {"ok": false, "message": "SELECTED BATTLE IS MISSING"}
+			return {"ok": false, "message": _t("campaign.error.battle_missing")}
 
 		# A direct test is a clean-room campaign run. Make every authored recruit
 		# available so a later battle can field its real roster without replaying
@@ -1080,7 +1155,7 @@ func _battle_preview_source(node_id: String) -> Dictionary:
 		nodes[encounter_index] = encounter
 		nodes.append({
 			"id": terminal_id,
-			"name": "Return to editor",
+			"name": _t("campaign.test.return_to_editor"),
 			"kind": "terminal",
 			"transitions": [],
 		})
@@ -1094,7 +1169,7 @@ func _battle_preview_source(node_id: String) -> Dictionary:
 			"source": JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n",
 			"terminal_id": terminal_id,
 		}
-	return {"ok": false, "message": "CAMPAIGN IS MISSING"}
+	return {"ok": false, "message": _t("campaign.error.campaign_missing")}
 
 
 func _node_array_has_id(nodes: Array, node_id: String) -> bool:
@@ -1106,30 +1181,28 @@ func _node_array_has_id(nodes: Array, node_id: String) -> bool:
 
 func _play_battle(node_id: String, players: int) -> void:
 	if compiler == null:
-		_set_status("NATIVE PROJECT COMPILER IS UNAVAILABLE", true)
+		_set_status(_t("campaign.error.compiler_unavailable"), true)
 		return
 	var node := _campaign_node(node_id)
 	if node.is_empty():
-		_set_status("SELECTED BATTLE IS MISSING", true)
+		_set_status(_t("campaign.error.battle_missing"), true)
 		return
 	if not _battle_player_count_allowed(node, players):
-		_set_status(
-			"THIS BATTLE DOES NOT OFFER THAT PLAYER COUNT", true
-		)
+		_set_status(_t("campaign.error.battle_player_count"), true)
 		return
 	if dirty and not _save():
 		return
 	var preview := _battle_preview_source(node_id)
 	if not bool(preview.get("ok", false)):
-		_set_status(str(preview.get("message", "BATTLE TEST IS NOT AVAILABLE")), true)
+		_set_status(str(preview.get("message", _t("campaign.error.battle_test_unavailable"))), true)
 		return
 	var compiled: Dictionary = compiler.compile_source_json(str(preview.source))
 	if not compiled.ok:
-		_set_status("NOT PLAYABLE YET  /  %s" % _diagnostic_summary(compiled), true)
+		_set_status(_t("campaign.error.not_playable", {"detail": _diagnostic_summary(compiled)}), true)
 		return
 	var campaign_id := str(campaign.get("id", ""))
 	if campaign_id.is_empty():
-		_set_status("CAMPAIGN NEEDS AN ID", true)
+		_set_status(_t("campaign.error.campaign_id"), true)
 		return
 	CreatorContext.choose_map(str(node.get("mapId", "")), node_id)
 	LaunchContext.stage_package(
@@ -1138,37 +1211,36 @@ func _play_battle(node_id: String, players: int) -> void:
 		true,
 		players,
 		"res://campaign_editor.tscn",
-		str(node.get("name", "Battle"))
+		str(node.get("name", _t("campaign.fallback.battle")))
 	)
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
 func _play_campaign(players: int) -> void:
 	if compiler == null:
-		_set_status("NATIVE PROJECT COMPILER IS UNAVAILABLE", true)
+		_set_status(_t("campaign.error.compiler_unavailable"), true)
 		return
 	var mode := str(campaign.get("playerMode", "one"))
 	if (mode == "one" and players != 1) or (mode == "two" and players != 2):
-		_set_status("THIS CAMPAIGN DOES NOT OFFER THAT PLAYER COUNT", true)
+		_set_status(_t("campaign.error.campaign_player_count"), true)
 		return
 	if players == 2:
 		var gaps := _two_player_ownership_gaps()
 		if not gaps.is_empty():
-			_set_status(
-				"ASSIGN A PLAYER 2 CHARACTER IN  /  %s" % ", ".join(gaps).to_upper(),
-				true
-			)
+			_set_status(_t("campaign.error.assign_player_two", {
+				"battles": ", ".join(gaps).to_upper()
+			}), true)
 			return
 	if dirty and not _save():
 		return
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
-		_set_status("OPEN FAILED  /  %s" % loaded.message, true)
+		_set_status(_t("campaign.error.open", {"message": loaded.message}), true)
 		return
 	var compiled: Dictionary = compiler.compile_source_json(loaded.source)
 	if not compiled.ok:
 		var diagnostics: Array = compiled.get("diagnostics", [])
-		_set_status("NOT PLAYABLE YET  /  %s" % _diagnostic_summary(compiled), true)
+		_set_status(_t("campaign.error.not_playable", {"detail": _diagnostic_summary(compiled)}), true)
 		if not diagnostics.is_empty() and diagnostics[0] is Dictionary:
 			pending_diagnostic = diagnostics[0].duplicate(true)
 			fix_button.text = _diagnostic_fix_label(pending_diagnostic)
@@ -1177,7 +1249,7 @@ func _play_campaign(players: int) -> void:
 		return
 	var campaign_id := str(campaign.get("id", ""))
 	if campaign_id.is_empty():
-		_set_status("CAMPAIGN NEEDS AN ID", true)
+		_set_status(_t("campaign.error.campaign_id"), true)
 		return
 	LaunchContext.stage_package(
 		compiled.package,
@@ -1185,7 +1257,7 @@ func _play_campaign(players: int) -> void:
 		true,
 		players,
 		"res://campaign_editor.tscn",
-		"Whole campaign"
+		_t("campaign.test.whole_campaign")
 	)
 	get_tree().change_scene_to_file("res://main.tscn")
 
@@ -1205,7 +1277,7 @@ func _change_player_mode(index: int) -> void:
 			campaign_index = position
 			break
 	if campaign_index < 0:
-		_set_status("ADD A CAMPAIGN BEFORE CHOOSING ITS PLAYERS", true)
+		_set_status(_t("campaign.error.players_need_campaign"), true)
 		return
 	var changed: Dictionary = campaigns[campaign_index].duplicate(true)
 	changed["playerMode"] = mode
@@ -1214,7 +1286,7 @@ func _change_player_mode(index: int) -> void:
 	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
-		_set_status("PLAYER CHOICE COULD NOT BE SAVED  /  %s" % _diagnostic_summary(checked), true)
+		_set_status(_t("campaign.error.player_choice", {"detail": _diagnostic_summary(checked)}), true)
 		_refresh_player_mode()
 		return
 	undo_stack.append(source)
@@ -1226,7 +1298,7 @@ func _change_player_mode(index: int) -> void:
 	_read_source()
 	_update_actions()
 	_refresh_player_mode()
-	_set_status("UNSAVED  /  %s" % _player_mode_label(mode), false)
+	_set_status(_t("campaign.status.unsaved", {"change": _player_mode_label(mode)}), false)
 
 
 func _refresh_player_mode() -> void:
@@ -1237,20 +1309,15 @@ func _refresh_player_mode() -> void:
 	var gaps := _two_player_ownership_gaps()
 	match mode:
 		"two":
-			player_mode_help.text = (
-				"Two local players are required. "
-				+ _two_player_guidance(gaps)
-			)
+			player_mode_help.text = _t("campaign.players.two_help", {
+				"guidance": _two_player_guidance(gaps)
+			})
 		"choice":
-			player_mode_help.text = (
-				"Players choose solo or two-player when they start. "
-				+ _two_player_guidance(gaps)
-			)
+			player_mode_help.text = _t("campaign.players.choice_help", {
+				"guidance": _two_player_guidance(gaps)
+			})
 		_:
-			player_mode_help.text = (
-				"The campaign starts solo. Two-player-only armies, enemies, opening "
-				+ "positions, and story moments stay out."
-			)
+			player_mode_help.text = _t("campaign.players.one_help")
 	if test_one_button != null:
 		test_one_button.disabled = mode == "two"
 	if test_two_button != null:
@@ -1260,15 +1327,12 @@ func _refresh_player_mode() -> void:
 
 func _two_player_guidance(gaps: Array[String]) -> String:
 	if gaps.is_empty():
-		var guidance := (
-			"Every battle gives Player 2 a character. Use each battle's 1P and 2P "
-			+ "previews to keep the solo baseline and co-op additions playable."
-		)
+		var guidance := _t("campaign.players.coop_ready")
 		var sameness := _two_player_variant_gaps()
 		if not sameness.is_empty():
-			guidance += " Add distinct co-op forces, pressure, starts, or story in: %s." % ", ".join(sameness)
+			guidance += _t("campaign.players.coop_distinct", {"battles": ", ".join(sameness)})
 		return guidance
-	return "Assign Player 2 at least one allied character in: %s." % ", ".join(gaps)
+	return _t("campaign.players.assign_two", {"battles": ", ".join(gaps)})
 
 
 func _two_player_variant_gaps() -> Array[String]:
@@ -1292,7 +1356,7 @@ func _two_player_variant_gaps() -> Array[String]:
 					distinct = true
 					break
 		if not distinct:
-			gaps.append(str(node_value.get("name", node_value.get("id", "unnamed battle"))))
+			gaps.append(str(node_value.get("name", node_value.get("id", _t("campaign.fallback.unnamed_battle")))))
 	return gaps
 
 
@@ -1301,28 +1365,28 @@ func _two_player_ownership_gaps() -> Array[String]:
 
 
 func _player_mode_label(mode: String) -> String:
-	return str({
-		"one": "ONE-PLAYER CAMPAIGN",
-		"two": "TWO-PLAYER CAMPAIGN",
-		"choice": "PLAYERS CHOOSE AT LAUNCH",
-	}.get(mode, "ONE-PLAYER CAMPAIGN"))
+	return _t(str({
+		"one": "campaign.players.mode_one_status",
+		"two": "campaign.players.mode_two_status",
+		"choice": "campaign.players.mode_choice_status",
+	}.get(mode, "campaign.players.mode_one_status")))
 
 
 func _diagnostic_summary(result: Dictionary) -> String:
 	var diagnostics: Array = result.get("diagnostics", [])
 	if diagnostics.is_empty() or not diagnostics[0] is Dictionary:
-		return "PROJECT INCOMPLETE"
+		return _t("campaign.error.project_incomplete")
 	var diagnostic: Dictionary = diagnostics[0]
 	var screen := str(diagnostic.get("screen", "project"))
 	var destinations := {
-		"map": "FIX IN MAP & BATTLE",
-		"story": "FIX IN STORY",
-		"army": "FIX IN GROW THE ARMY",
-		"gear": "FIX IN GEAR & ABILITIES",
-		"campaign": "FIX IN CAMPAIGN OUTLINE",
-		"project": "FIX PROJECT",
+		"map": "campaign.diagnostic.destination.map",
+		"story": "campaign.diagnostic.destination.story",
+		"army": "campaign.diagnostic.destination.army",
+		"gear": "campaign.diagnostic.destination.gear",
+		"campaign": "campaign.diagnostic.destination.campaign",
+		"project": "campaign.diagnostic.destination.project",
 	}
-	var parts: Array[String] = [str(destinations.get(screen, "FIX PROJECT"))]
+	var parts: Array[String] = [_t(str(destinations.get(screen, "campaign.diagnostic.destination.project")))]
 	var subject := str(diagnostic.get("subject", "")).strip_edges()
 	if not subject.is_empty():
 		parts.append(subject.to_upper())
@@ -1330,7 +1394,7 @@ func _diagnostic_summary(result: Dictionary) -> String:
 	if not object_name.is_empty() and object_name != subject:
 		parts.append(object_name.to_upper())
 	if diagnostic.has("x") and diagnostic.has("y"):
-		parts.append("CELL %d, %d" % [int(diagnostic.x), int(diagnostic.y)])
+		parts.append(_t("campaign.diagnostic.cell", {"x": int(diagnostic.x), "y": int(diagnostic.y)}))
 	var field := _diagnostic_field_label(str(diagnostic.get("field", "")))
 	if not field.is_empty():
 		parts.append(field)
@@ -1343,55 +1407,30 @@ func _diagnostic_summary(result: Dictionary) -> String:
 
 func _diagnostic_field_label(field: String) -> String:
 	var normalized := field.replace("_", "").to_lower()
-	return str({
-		"id": "IDENTITY",
-		"name": "NAME",
-		"classid": "ROLE",
-		"basestats": "BASE STATS",
-		"health": "HEALTH",
-		"strength": "STRENGTH",
-		"defense": "DEFENSE",
-		"resistance": "RESISTANCE",
-		"movement": "MOVEMENT",
-		"actionpoints": "ACTIONS",
-		"skill": "SKILL",
-		"luck": "LUCK",
-		"evasion": "EVASION",
-		"magic": "MAGIC",
-		"speed": "SPEED",
-		"range": "RANGE",
-		"accuracy": "ACCURACY",
-		"power": "POWER",
-		"terrain": "TERRAIN",
-		"surroundings": "OUTSIDE TERRAIN",
-		"placements": "STARTING POSITION",
-		"minimumplayers": "2-PLAYER SCALING",
-		"localplayer": "PLAYER OWNERSHIP",
-		"deployment": "DEPLOYMENT",
-		"tiles": "DEPLOYMENT CELLS",
-		"objectiveids": "GOALS",
-		"targetplacementid": "GOAL TARGET",
-		"lines": "CONVERSATION",
-		"speaker": "SPEAKER",
-		"text": "DIALOGUE",
-		"backgroundid": "BACKDROP",
-		"roster": "CHARACTERS",
-		"transitions": "OUTCOMES",
-		"targetid": "DESTINATION",
-		"priority": "OUTCOME ORDER",
-		"quantity": "AMOUNT",
-	}.get(normalized, field.replace("_", " ").to_upper()))
+	var key := str({
+		"id": "identity", "name": "name", "classid": "role", "basestats": "base_stats",
+		"health": "health", "strength": "strength", "defense": "defense",
+		"resistance": "resistance", "movement": "movement", "actionpoints": "actions",
+		"skill": "skill", "luck": "luck", "evasion": "evasion", "magic": "magic",
+		"speed": "speed", "range": "range", "accuracy": "accuracy", "power": "power",
+		"terrain": "terrain", "surroundings": "outside_terrain",
+		"placements": "starting_position", "minimumplayers": "two_player_scaling",
+		"localplayer": "player_ownership", "deployment": "deployment",
+		"tiles": "deployment_cells", "objectiveids": "goals",
+		"targetplacementid": "goal_target", "lines": "conversation", "speaker": "speaker",
+		"text": "dialogue", "backgroundid": "backdrop", "roster": "characters",
+		"transitions": "outcomes", "targetid": "destination", "priority": "outcome_order",
+		"quantity": "amount",
+	}.get(normalized, ""))
+	return _t("campaign.diagnostic.field." + key) if not key.is_empty() else field.replace("_", " ").to_upper()
 
 
 func _diagnostic_fix_label(diagnostic: Dictionary) -> String:
-	return str({
-		"map": "FIX MAP & BATTLE",
-		"story": "FIX STORY",
-		"army": "FIX ARMY",
-		"gear": "FIX GEAR",
-		"campaign": "FIX CAMPAIGN",
-		"project": "FIX PROJECT",
-	}.get(str(diagnostic.get("screen", "project")), "FIX ISSUE"))
+	return _t(str({
+		"map": "campaign.diagnostic.fix.map", "story": "campaign.diagnostic.fix.story",
+		"army": "campaign.diagnostic.fix.army", "gear": "campaign.diagnostic.fix.gear",
+		"campaign": "campaign.diagnostic.fix.campaign", "project": "campaign.diagnostic.fix.project",
+	}.get(str(diagnostic.get("screen", "project")), "campaign.diagnostic.fix.issue")))
 
 
 func _stable_source_matches(source_key: String, stable_id: String) -> bool:
@@ -1493,12 +1532,12 @@ func _open_projects() -> void:
 func _save() -> bool:
 	var saved: Dictionary = library.save_source(project_id, source)
 	if not saved.ok:
-		_set_status("SAVE FAILED  /  %s" % saved.message, true)
+		_set_status(_t("campaign.error.save", {"message": saved.message}), true)
 		return false
 	saved_source = source
 	dirty = false
 	_update_actions()
-	_set_status("SAVED  /  PORTABLE CAMPAIGN FLOW", false)
+	_set_status(_t("campaign.status.saved"), false)
 	return true
 
 
@@ -1512,7 +1551,7 @@ func _undo() -> void:
 	_collect_route()
 	_refresh_route()
 	_update_actions()
-	_set_status("UNDO  /  CAMPAIGN FLOW RESTORED", false)
+	_set_status(_t("campaign.status.undo"), false)
 
 
 func _redo() -> void:
@@ -1525,23 +1564,23 @@ func _redo() -> void:
 	_collect_route()
 	_refresh_route()
 	_update_actions()
-	_set_status("REDO  /  CAMPAIGN FLOW RESTORED", false)
+	_set_status(_t("campaign.status.redo"), false)
 
 
 func _read_source() -> bool:
 	var parsed: Variant = JSON.parse_string(source)
 	if not parsed is Dictionary:
-		_set_status("PROJECT SOURCE IS NOT READABLE", true)
+		_set_status(_t("campaign.error.source_unreadable"), true)
 		return false
 	project = parsed
 	var selected_id := str(campaign.get("id", CreatorContext.campaign_id))
 	var campaigns: Array = project.get("campaigns", [])
 	if campaigns.is_empty() or not campaigns[0] is Dictionary:
-		_set_status("ADD A CAMPAIGN BEFORE EDITING ITS OUTLINE", true)
+		_set_status(_t("campaign.error.add_campaign_first"), true)
 		return false
 	_refresh_campaign_choices(selected_id)
 	if not _set_campaign_from_selection():
-		_set_status("CHOOSE A CAMPAIGN TO EDIT", true)
+		_set_status(_t("campaign.error.choose_campaign"), true)
 		return false
 	_refresh_player_mode()
 	_refresh_target_budget()
@@ -1553,7 +1592,7 @@ func _refresh_target_budget() -> void:
 		return
 	var report: Dictionary = compiler.target_budget_report(source)
 	if not bool(report.get("ok", false)):
-		target_budget_label.text = "TARGETS  /  CHECK UNAVAILABLE"
+		target_budget_label.text = _t("campaign.targets.unavailable")
 		target_budget_label.add_theme_color_override("font_color", Color("ff7a83"))
 		return
 	var targets: Dictionary = {}
@@ -1565,24 +1604,19 @@ func _refresh_target_budget() -> void:
 	var n64_units := int(n64.get("maximum_units", 0))
 	var ps1_units := int(ps1.get("maximum_units", 0))
 	var over := not bool(n64.get("fits", true)) or not bool(ps1.get("fits", true))
-	target_budget_label.text = (
-		"TARGETS  /  PC READY  ·  N64 %d / %d  ·  PS1 %d / %d" % [
-			n64_units,
-			int(n64.get("units_per_encounter", 0)),
-			ps1_units,
-			int(ps1.get("units_per_encounter", 0)),
-		]
-	)
+	target_budget_label.text = _t("campaign.targets.summary", {
+		"n64_max": n64_units, "n64_units": int(n64.get("units_per_encounter", 0)),
+		"ps1_max": ps1_units, "ps1_units": int(ps1.get("units_per_encounter", 0)),
+	})
 	if over:
-		var stage := str(n64.get("worst_stage", ps1.get("worst_stage", "BATTLE")))
-		target_budget_label.text += "  ·  %s NEEDS FEWER FIELDED UNITS FOR CONSOLES" % stage.to_upper()
+		var stage := str(n64.get(
+			"worst_stage", ps1.get("worst_stage", _t("campaign.fallback.battle"))
+		))
+		target_budget_label.text += _t("campaign.targets.over", {"stage": stage.to_upper()})
 	target_budget_label.add_theme_color_override(
 		"font_color", Color("ffca63") if over else Color("a9bdc9")
 	)
-	target_budget_label.tooltip_text = (
-		"The largest battle is shown. Recurring waves count as every arrival. "
-		+ "A console overrun never blocks saving or testing on PC."
-	)
+	target_budget_label.tooltip_text = _t("campaign.targets.tooltip")
 
 
 func _update_actions() -> void:
@@ -1618,8 +1652,8 @@ func _current_outcome_node() -> Dictionary:
 func _unit_type_name(unit_type_id: String) -> String:
 	for value: Variant in project.get("unitTypes", []):
 		if value is Dictionary and str(value.get("id", "")) == unit_type_id:
-			return str(value.get("name", "Character"))
-	return "Character"
+			return str(value.get("name", _t("campaign.fallback.character")))
+	return _t("campaign.fallback.character")
 
 
 func _talk_placement_name(placement: Dictionary) -> String:
@@ -1629,7 +1663,7 @@ func _talk_placement_name(placement: Dictionary) -> String:
 	var member_id := str(placement.get("memberId", ""))
 	for value: Variant in campaign.get("roster", []):
 		if value is Dictionary and str(value.get("id", "")) == member_id:
-			return str(value.get("name", "Character"))
+			return str(value.get("name", _t("campaign.fallback.character")))
 	return _unit_type_name(str(placement.get("unitTypeId", "")))
 
 
@@ -1657,7 +1691,7 @@ func _talk_choices() -> Array[Dictionary]:
 			result.append({
 				"id": flag_id,
 				"name": _talk_placement_name(placement),
-				"battle": str(node.get("name", "Battle")),
+				"battle": str(node.get("name", _t("campaign.fallback.battle"))),
 			})
 	return result
 
@@ -1702,48 +1736,48 @@ func _editable_compound(when: Dictionary) -> bool:
 func _predicate_text(predicate: Dictionary) -> String:
 	match _editable_predicate_kind(predicate):
 		"victory":
-			return "GOAL WON  /  %s" % _objective_name(str(predicate.get("objectiveId", "")))
+			return _t("campaign.condition.goal_won_named", {"name": _objective_name(str(predicate.get("objectiveId", "")))})
 		"defeat":
-			return "GOAL LOST  /  %s" % _objective_name(str(predicate.get("objectiveId", "")))
+			return _t("campaign.condition.goal_lost_named", {"name": _objective_name(str(predicate.get("objectiveId", "")))})
 		"item":
-			return "HAVE %d  /  %s" % [
-				maxi(1, int(predicate.get("quantity", 1))),
-				_item_name(str(predicate.get("itemId", ""))),
-			]
+			return _t("campaign.condition.have_item_named", {
+				"count": maxi(1, int(predicate.get("quantity", 1))),
+				"name": _item_name(str(predicate.get("itemId", ""))),
+			})
 		"talked":
-			return "TALKED TO  /  %s" % _talk_choice_name(str(predicate.get("flagId", "")))
+			return _t("campaign.condition.talked_named", {"name": _talk_choice_name(str(predicate.get("flagId", "")))})
 		"not_talked":
-			return "DID NOT TALK TO  /  %s" % _talk_choice_name(str(predicate.get("flagId", "")))
-	return "ADVANCED REQUIREMENT"
+			return _t("campaign.condition.not_talked_named", {"name": _talk_choice_name(str(predicate.get("flagId", "")))})
+	return _t("campaign.condition.advanced_requirement")
 
 
 func _objective_name(objective_id: String) -> String:
 	for value: Variant in project.get("objectives", []):
 		if value is Dictionary and str(value.get("id", "")) == objective_id:
-			return str(value.get("name", "Goal")).to_upper()
-	return "GOAL"
+			return str(value.get("name", _t("campaign.fallback.goal"))).to_upper()
+	return _t("campaign.fallback.goal").to_upper()
 
 
 func _item_name(item_id: String) -> String:
 	for value: Variant in project.get("items", []):
 		if value is Dictionary and str(value.get("id", "")) == item_id:
-			return str(value.get("name", "Item")).to_upper()
-	return "ITEM"
+			return str(value.get("name", _t("campaign.fallback.item"))).to_upper()
+	return _t("campaign.fallback.item").to_upper()
 
 
 func _talk_choice_name(flag_id: String) -> String:
 	for choice: Dictionary in _talk_choices():
 		if str(choice.id) == flag_id:
 			return str(choice.name).to_upper()
-	return "CHARACTER"
+	return _t("campaign.fallback.character").to_upper()
 
 
 func _refresh_outcome_layer(preferred_id := "") -> void:
 	outcome_refreshing = true
 	var node := _current_outcome_node()
-	outcome_title.text = "%s  /  OUTCOMES" % str(
-		node.get("name", node.get("id", "CHAPTER"))
-	).to_upper()
+	outcome_title.text = _t("campaign.outcome.title", {"chapter": str(
+		node.get("name", node.get("id", _t("campaign.fallback.chapter")))
+	).to_upper()})
 	var previous_id := preferred_id
 	if previous_id.is_empty() and outcome_select.selected >= 0:
 		previous_id = str(outcome_select.get_item_metadata(outcome_select.selected))
@@ -1758,7 +1792,7 @@ func _refresh_outcome_layer(preferred_id := "") -> void:
 			outcome_select.item_count - 1, str(transition.get("id", ""))
 		)
 	if outcome_select.item_count == 0:
-		outcome_select.add_item("NO OUTCOMES YET")
+		outcome_select.add_item(_t("campaign.outcome.none"))
 		outcome_select.set_item_metadata(0, "")
 	outcome_select.disabled = transitions.is_empty()
 	_select_metadata(outcome_select, previous_id)
@@ -1766,22 +1800,23 @@ func _refresh_outcome_layer(preferred_id := "") -> void:
 	outcome_objective.clear()
 	for value: Variant in project.get("objectives", []):
 		if value is Dictionary:
-			outcome_objective.add_item(str(value.get("name", value.get("id", "Goal"))))
+			outcome_objective.add_item(str(value.get("name", value.get("id", _t("campaign.fallback.goal")))))
 			outcome_objective.set_item_metadata(
 				outcome_objective.item_count - 1, str(value.get("id", ""))
 			)
 	outcome_item.clear()
 	for value: Variant in project.get("items", []):
 		if value is Dictionary:
-			outcome_item.add_item(str(value.get("name", value.get("id", "Item"))))
+			outcome_item.add_item(str(value.get("name", value.get("id", _t("campaign.fallback.item")))))
 			outcome_item.set_item_metadata(
 				outcome_item.item_count - 1, str(value.get("id", ""))
 			)
 	outcome_flag.clear()
 	for choice: Dictionary in _talk_choices():
-		outcome_flag.add_item("%s  /  %s" % [
-			str(choice.name).to_upper(), str(choice.battle).to_upper()
-		])
+		outcome_flag.add_item(_t("campaign.outcome.talk_choice", {
+			"character": str(choice.name).to_upper(),
+			"battle": str(choice.battle).to_upper(),
+		}))
 		outcome_flag.set_item_metadata(outcome_flag.item_count - 1, choice.id)
 	outcome_target.clear()
 	var flow: Variant = campaign.get("flow", {})
@@ -1789,10 +1824,10 @@ func _refresh_outcome_layer(preferred_id := "") -> void:
 		for value: Variant in flow.get("nodes", []):
 			if not value is Dictionary:
 				continue
-			outcome_target.add_item("%s  /  %s" % [
-				str(value.get("kind", "chapter")).to_upper(),
-				str(value.get("name", value.get("id", "Chapter"))),
-			])
+			outcome_target.add_item(_t("campaign.outcome.target", {
+				"kind": _node_kind_label(str(value.get("kind", ""))),
+				"name": str(value.get("name", value.get("id", _t("campaign.fallback.chapter")))),
+			}))
 			outcome_target.set_item_metadata(
 				outcome_target.item_count - 1, str(value.get("id", ""))
 			)
@@ -1821,22 +1856,22 @@ func _refresh_selected_outcome(_index: int = 0) -> void:
 			flag_id = str(when.get("flagId", ""))
 			quantity = int(when.get("quantity", 1))
 	outcome_condition.clear()
-	var choices: Array[Dictionary] = [{"id": "always", "label": "ALWAYS"}]
+	var choices: Array[Dictionary] = [{"id": "always", "label": _t("campaign.condition.always")}]
 	if outcome_objective.item_count > 0:
-		choices.append({"id": "victory", "label": "GOAL WON"})
-		choices.append({"id": "defeat", "label": "GOAL LOST"})
+		choices.append({"id": "victory", "label": _t("campaign.condition.goal_won")})
+		choices.append({"id": "defeat", "label": _t("campaign.condition.goal_lost")})
 	if outcome_item.item_count > 0:
-		choices.append({"id": "item", "label": "HAVE ENOUGH OF AN ITEM"})
+		choices.append({"id": "item", "label": _t("campaign.condition.have_item")})
 	if outcome_flag.item_count > 0:
-		choices.append({"id": "talked", "label": "TALKED TO A CHARACTER"})
-		choices.append({"id": "not_talked", "label": "DID NOT TALK TO A CHARACTER"})
+		choices.append({"id": "talked", "label": _t("campaign.condition.talked")})
+		choices.append({"id": "not_talked", "label": _t("campaign.condition.not_talked")})
 	if outcome_objective.item_count > 0 or outcome_item.item_count > 0 or outcome_flag.item_count > 0:
-		choices.append({"id": "compound", "label": "MULTIPLE REQUIREMENTS…"})
+		choices.append({"id": "compound", "label": _t("campaign.condition.multiple")})
 	for choice: Dictionary in choices:
 		outcome_condition.add_item(str(choice.label))
 		outcome_condition.set_item_metadata(outcome_condition.item_count - 1, choice.id)
 	if condition_kind == "advanced":
-		outcome_condition.add_item("ADVANCED CONDITION  /  KEEP AS WRITTEN")
+		outcome_condition.add_item(_t("campaign.condition.advanced_keep"))
 		outcome_condition.set_item_metadata(outcome_condition.item_count - 1, "advanced")
 	_select_metadata(outcome_condition, condition_kind)
 	_select_metadata(outcome_objective, objective_id)
@@ -1852,12 +1887,9 @@ func _refresh_selected_outcome(_index: int = 0) -> void:
 	outcome_later_button.disabled = transition_index < 0 or transition_index >= _outcome_transitions().size() - 1
 	outcome_refreshing = false
 	_refresh_outcome_fields()
-	_set_outcome_status(
-		"Choose ADD OUTCOME to make another route. Lowest first-match order wins."
-		if has_transition
-		else "This chapter has no route yet. Add one before players can continue.",
-		false
-	)
+	_set_outcome_status(_t(
+		"campaign.outcome.status.choose" if has_transition else "campaign.outcome.status.no_route"
+	), false)
 
 
 func _refresh_outcome_fields(_index: int = 0) -> void:
@@ -1881,7 +1913,7 @@ func _refresh_outcome_fields(_index: int = 0) -> void:
 	if kind == "compound":
 		var when: Variant = _selected_outcome().get("when", {})
 		outcome_compound_summary.text = (
-			_compound_summary(when) if when is Dictionary else "ADD REQUIREMENTS"
+			_compound_summary(when) if when is Dictionary else _t("campaign.compound.add_requirements")
 		)
 
 
@@ -1925,25 +1957,26 @@ func _outcome_condition_kind(transition: Dictionary) -> String:
 
 func _outcome_text(transition: Dictionary, index: int) -> String:
 	var kind := _outcome_condition_kind(transition)
-	var condition := "ALWAYS"
+	var condition := _t("campaign.condition.always")
 	match kind:
 		"victory":
-			condition = "GOAL WON"
+			condition = _t("campaign.condition.goal_won")
 		"defeat":
-			condition = "GOAL LOST"
+			condition = _t("campaign.condition.goal_lost")
 		"item":
-			condition = "HAVE ITEM"
+			condition = _t("campaign.condition.have_item_short")
 		"talked":
-			condition = "TALKED TO CHARACTER"
+			condition = _t("campaign.condition.talked_short")
 		"not_talked":
-			condition = "DID NOT TALK"
+			condition = _t("campaign.condition.not_talked_short")
 		"compound":
 			condition = _compound_summary(transition.get("when", {}))
 		"advanced":
-			condition = "ADVANCED CONDITION"
-	return "%d  /  %s  →  %s" % [
-		index + 1, condition, _node_name(str(transition.get("targetNodeId", "")))
-	]
+			condition = _t("campaign.condition.advanced")
+	return _t("campaign.outcome.entry", {
+		"number": index + 1, "condition": condition,
+		"target": _node_name(str(transition.get("targetNodeId", ""))),
+	})
 
 
 func _node_name(node_id: String) -> String:
@@ -1951,8 +1984,16 @@ func _node_name(node_id: String) -> String:
 	if flow is Dictionary:
 		for value: Variant in flow.get("nodes", []):
 			if value is Dictionary and str(value.get("id", "")) == node_id:
-				return str(value.get("name", value.get("id", "Chapter"))).to_upper()
-	return "MISSING DESTINATION"
+				return str(value.get("name", value.get("id", _t("campaign.fallback.chapter")))).to_upper()
+	return _t("campaign.outcome.missing_destination")
+
+
+func _node_kind_label(kind: String) -> String:
+	return _t(str({
+		"story": "campaign.kind.story",
+		"encounter": "campaign.kind.battle",
+		"terminal": "campaign.kind.ending",
+	}.get(kind, "campaign.kind.chapter")))
 
 
 func _default_outcome_target() -> String:
@@ -1992,9 +2033,9 @@ func _open_add_route() -> void:
 	var choice := _branch_choice()
 	add_branch_button.disabled = choice.is_empty()
 	add_branch_button.text = (
-		"NEW PLAYABLE CHAPTER\nCOPY THIS BATTLE, THEN REJOIN THE SELECTED DESTINATION"
+		_t("campaign.add_route.branch_available")
 		if not choice.is_empty()
-		else "NEW PLAYABLE CHAPTER\nNEEDS ONE GOAL WITH AN UNUSED WIN OR LOSS ROUTE"
+		else _t("campaign.add_route.branch_unavailable")
 	)
 	add_route_layer.visible = true
 	add_existing_button.grab_focus()
@@ -2124,13 +2165,13 @@ func _create_branch_from_text(_value: String) -> void:
 func _create_branch() -> void:
 	var name := branch_name.text.strip_edges()
 	if name.is_empty():
-		_set_outcome_status("GIVE THE PLAYABLE CHAPTER A NAME", true)
+		_set_outcome_status(_t("campaign.error.branch_name"), true)
 		branch_name.grab_focus()
 		return
 	var choice := _branch_choice()
 	if choice.is_empty():
 		branch_layer.visible = false
-		_set_outcome_status("ADD A GOAL OR FREE A WIN / LOSS ROUTE FIRST", true)
+		_set_outcome_status(_t("campaign.error.branch_route"), true)
 		return
 	var sequence := _next_chapter_sequence()
 	var base := "chapter_%d" % sequence
@@ -2150,12 +2191,12 @@ func _create_branch() -> void:
 		_branch_fill_terrain()
 	)
 	if not added.ok:
-		var detail := "PROJECT INCOMPLETE"
+		var detail := _t("campaign.error.project_incomplete")
 		if not added.diagnostics.is_empty():
 			detail = str(added.diagnostics[0].get(
 				"detail", added.diagnostics[0].get("code", detail)
 			))
-		_set_outcome_status("CHAPTER NOT CREATED  /  %s" % detail.to_upper(), true)
+		_set_outcome_status(_t("campaign.error.chapter_not_created", {"detail": detail.to_upper()}), true)
 		return
 	undo_stack.append(source)
 	if undo_stack.size() > HISTORY_LIMIT:
@@ -2169,19 +2210,15 @@ func _create_branch() -> void:
 	_update_actions()
 	branch_layer.visible = false
 	_refresh_outcome_layer(base + "_story_begins")
-	_set_outcome_status(
-		"UNSAVED  /  %s IS READY TO SHAPE AND WRITE" % name.to_upper(), false
-	)
+	_set_outcome_status(_t("campaign.status.branch_created", {"name": name.to_upper()}), false)
 
 
 func _open_new_ending() -> void:
 	ending_node_id = ""
-	ending_kicker.text = "NEW ENDING"
-	ending_question.text = "Where can this path finish?"
-	ending_explanation.text = (
-		"This creates a named ending and connects it as one new outcome. If this chapter already has a victory route, the new ending begins as the defeat route."
-	)
-	ending_create_button.text = "CREATE & USE"
+	ending_kicker.text = _t("campaign.ending.new")
+	ending_question.text = _t("campaign.ending.new_question")
+	ending_explanation.text = _t("campaign.ending.new_help")
+	ending_create_button.text = _t("campaign.ending.create_use")
 	ending_name.text = "New Ending"
 	ending_layer.visible = true
 	ending_name.grab_focus()
@@ -2215,7 +2252,7 @@ func _next_ending_id(nodes: Array) -> String:
 func _create_ending() -> void:
 	var name := ending_name.text.strip_edges()
 	if name.is_empty():
-		_set_outcome_status("GIVE THE ENDING A NAME", true)
+		_set_outcome_status(_t("campaign.error.ending_name"), true)
 		ending_name.grab_focus()
 		return
 	if not ending_node_id.is_empty():
@@ -2259,7 +2296,7 @@ func _create_ending() -> void:
 	})
 	ending_layer.visible = false
 	_accept_outcome_candidate(
-		candidate, "CREATED ENDING %s" % name.to_upper(), transition_id
+		candidate, _t("campaign.status.ending_created", {"name": name.to_upper()}), transition_id
 	)
 
 
@@ -2288,17 +2325,17 @@ func _rename_ending(name: String) -> void:
 		break
 	if not found:
 		ending_layer.visible = false
-		_set_status("ENDING IS NO LONGER AVAILABLE", true)
+		_set_status(_t("campaign.error.ending_missing"), true)
 		return
 	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
-		var detail := "PROJECT INCOMPLETE"
+		var detail := _t("campaign.error.project_incomplete")
 		if not checked.diagnostics.is_empty():
 			detail = str(checked.diagnostics[0].get(
 				"detail", checked.diagnostics[0].get("code", detail)
 			))
-		_set_outcome_status("ENDING NOT CHANGED  /  %s" % detail.to_upper(), true)
+		_set_outcome_status(_t("campaign.error.ending_not_changed", {"detail": detail.to_upper()}), true)
 		return
 	if candidate_source == source:
 		_close_new_ending()
@@ -2316,7 +2353,7 @@ func _rename_ending(name: String) -> void:
 	_update_actions()
 	ending_layer.visible = false
 	ending_node_id = ""
-	_set_status("UNSAVED  /  ENDING RENAMED", false)
+	_set_status(_t("campaign.status.ending_renamed"), false)
 	if node_buttons.has(renamed_id):
 		var button: Button = node_buttons[renamed_id]
 		button.grab_focus()
@@ -2391,7 +2428,7 @@ func _apply_outcome() -> void:
 		return
 	var target_id := _selected_metadata(outcome_target)
 	if target_id.is_empty():
-		_set_outcome_status("CHOOSE A DESTINATION", true)
+		_set_outcome_status(_t("campaign.error.choose_destination"), true)
 		return
 	var node: Dictionary = candidate.node
 	var transitions: Array = node.get("transitions", []).duplicate(true)
@@ -2399,7 +2436,7 @@ func _apply_outcome() -> void:
 	transition.targetNodeId = target_id
 	var when: Variant = _when_from_controls(transition)
 	if when is Dictionary and when.is_empty() and _selected_metadata(outcome_condition) != "advanced":
-		_set_outcome_status("CHOOSE THE GOAL, ITEM, OR CHARACTER FOR THIS CONDITION", true)
+		_set_outcome_status(_t("campaign.error.choose_condition_content"), true)
 		return
 	if when == null:
 		transition.erase("when")
@@ -2408,18 +2445,18 @@ func _apply_outcome() -> void:
 	transitions[transition_index] = transition
 	node.transitions = transitions
 	candidate.node = node
-	_accept_outcome_candidate(candidate, "OUTCOME CHANGED", str(transition.get("id", "")))
+	_accept_outcome_candidate(candidate, _t("campaign.status.outcome_changed"), str(transition.get("id", "")))
 
 
 func _compound_summary(when: Dictionary) -> String:
 	match str(when.get("kind", "")):
 		"all":
-			return "ALL OF %d REQUIREMENTS" % when.get("conditions", []).size()
+			return _t("campaign.compound.all_summary", {"count": when.get("conditions", []).size()})
 		"any":
-			return "ANY OF %d REQUIREMENTS" % when.get("conditions", []).size()
+			return _t("campaign.compound.any_summary", {"count": when.get("conditions", []).size()})
 		"not":
-			return "NOT THIS REQUIREMENT"
-	return "ADD REQUIREMENTS"
+			return _t("campaign.compound.not_summary")
+	return _t("campaign.compound.add_requirements")
 
 
 func _default_compound_predicate() -> Dictionary:
@@ -2451,18 +2488,18 @@ func _open_compound() -> void:
 	compound_kind.clear()
 	if outcome_objective.item_count > 0:
 		for choice: Dictionary in [
-			{"id": "victory", "label": "GOAL WON"},
-			{"id": "defeat", "label": "GOAL LOST"},
+			{"id": "victory", "label": _t("campaign.condition.goal_won")},
+			{"id": "defeat", "label": _t("campaign.condition.goal_lost")},
 		]:
 			compound_kind.add_item(choice.label)
 			compound_kind.set_item_metadata(compound_kind.item_count - 1, choice.id)
 	if outcome_item.item_count > 0:
-		compound_kind.add_item("HAVE ENOUGH OF AN ITEM")
+		compound_kind.add_item(_t("campaign.condition.have_item"))
 		compound_kind.set_item_metadata(compound_kind.item_count - 1, "item")
 	if outcome_flag.item_count > 0:
-		compound_kind.add_item("TALKED TO A CHARACTER")
+		compound_kind.add_item(_t("campaign.condition.talked"))
 		compound_kind.set_item_metadata(compound_kind.item_count - 1, "talked")
-		compound_kind.add_item("DID NOT TALK TO A CHARACTER")
+		compound_kind.add_item(_t("campaign.condition.not_talked"))
 		compound_kind.set_item_metadata(compound_kind.item_count - 1, "not_talked")
 	_copy_option_items(outcome_objective, compound_objective)
 	_copy_option_items(outcome_item, compound_item)
@@ -2484,7 +2521,7 @@ func _open_compound() -> void:
 		if not first.is_empty():
 			compound_conditions.append(first)
 	if compound_conditions.is_empty():
-		_set_outcome_status("ADD A GOAL, ITEM, OR TALK CHOICE BEFORE COMBINING REQUIREMENTS", true)
+		_set_outcome_status(_t("campaign.error.compound_content"), true)
 		return
 	compound_refreshing = true
 	_select_metadata(compound_mode, mode)
@@ -2511,9 +2548,10 @@ func _refresh_compound_list(preferred_index := -1) -> void:
 	var selected := preferred_index if preferred_index >= 0 else compound_select.selected
 	compound_select.clear()
 	for index in compound_conditions.size():
-		compound_select.add_item("%d  /  %s" % [
-			index + 1, _predicate_text(compound_conditions[index])
-		])
+		compound_select.add_item(_t("campaign.compound.entry", {
+			"number": index + 1,
+			"requirement": _predicate_text(compound_conditions[index]),
+		}))
 	compound_select.select(clampi(selected, 0, maxi(0, compound_select.item_count - 1)))
 	compound_remove_button.disabled = compound_conditions.size() <= 1
 	compound_refreshing = false
@@ -2605,10 +2643,10 @@ func _change_compound_mode(_index: int = 0) -> void:
 		compound_refreshing = true
 		_select_metadata(compound_mode, "all")
 		compound_refreshing = false
-		compound_status.text = "NOT THIS holds one requirement. Remove the others first."
+		compound_status.text = _t("campaign.compound.not_limit")
 		compound_status.add_theme_color_override("font_color", Color("ff7a83"))
 	else:
-		compound_status.text = "Requirements stay named and are checked together on every target."
+		compound_status.text = _t("campaign.compound.help")
 		compound_status.add_theme_color_override("font_color", Color("a9bdc9"))
 
 
@@ -2616,7 +2654,7 @@ func _apply_compound() -> void:
 	_update_compound_condition()
 	var mode := _selected_metadata(compound_mode)
 	if compound_conditions.is_empty() or (mode == "not" and compound_conditions.size() != 1):
-		compound_status.text = "Choose one or more valid requirements."
+		compound_status.text = _t("campaign.error.compound_invalid")
 		compound_status.add_theme_color_override("font_color", Color("ff7a83"))
 		return
 	var candidate := _candidate_outcome_node()
@@ -2636,7 +2674,7 @@ func _apply_compound() -> void:
 	candidate.node = node
 	compound_layer.visible = false
 	if _accept_outcome_candidate(
-		candidate, "REQUIREMENTS CHANGED", str(transition.get("id", ""))
+		candidate, _t("campaign.status.requirements_changed"), str(transition.get("id", ""))
 	):
 		outcome_compound_button.grab_focus()
 
@@ -2682,7 +2720,7 @@ func _add_outcome() -> void:
 	transitions.append(added)
 	node.transitions = transitions
 	candidate.node = node
-	_accept_outcome_candidate(candidate, "ADDED OUTCOME", transition_id)
+	_accept_outcome_candidate(candidate, _t("campaign.status.outcome_added"), transition_id)
 
 
 func _remove_outcome() -> void:
@@ -2693,14 +2731,14 @@ func _remove_outcome() -> void:
 	var node: Dictionary = candidate.node
 	var transitions: Array = node.get("transitions", []).duplicate(true)
 	if transitions.size() <= 1:
-		_set_outcome_status("KEEP ONE ROUTE SO THIS CHAPTER CAN CONTINUE", true)
+		_set_outcome_status(_t("campaign.error.keep_route"), true)
 		return
 	transitions.remove_at(transition_index)
 	for index in transitions.size():
 		transitions[index].priority = index * 10
 	node.transitions = transitions
 	candidate.node = node
-	_accept_outcome_candidate(candidate, "REMOVED OUTCOME")
+	_accept_outcome_candidate(candidate, _t("campaign.status.outcome_removed"))
 
 
 func _move_outcome(offset: int) -> void:
@@ -2721,7 +2759,7 @@ func _move_outcome(offset: int) -> void:
 		transitions[index].priority = index * 10
 	node.transitions = transitions
 	candidate.node = node
-	_accept_outcome_candidate(candidate, "CHANGED FIRST-MATCH ORDER", transition_id)
+	_accept_outcome_candidate(candidate, _t("campaign.status.outcome_reordered"), transition_id)
 
 
 func _accept_outcome_candidate(
@@ -2735,10 +2773,10 @@ func _accept_outcome_candidate(
 	var candidate_source := JSON.stringify(portable, "  ", true) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
-		var detail := "PROJECT INCOMPLETE"
+		var detail := _t("campaign.error.project_incomplete")
 		if not checked.diagnostics.is_empty():
 			detail = str(checked.diagnostics[0].get("detail", checked.diagnostics[0].get("code", detail)))
-		_set_outcome_status("NOT CHANGED  /  %s" % detail.to_upper(), true)
+		_set_outcome_status(_t("campaign.error.not_changed", {"detail": detail.to_upper()}), true)
 		return false
 	if candidate_source == source:
 		return true
@@ -2753,7 +2791,7 @@ func _accept_outcome_candidate(
 	_refresh_route()
 	_update_actions()
 	_refresh_outcome_layer(preferred_id)
-	_set_outcome_status("UNSAVED  /  %s" % message, false)
+	_set_outcome_status(_t("campaign.status.unsaved", {"change": message}), false)
 	return true
 
 
@@ -2787,12 +2825,12 @@ func _build_interface() -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
 
-	title_label = _label("GRANDLEON  /  CAMPAIGN", 24, Color("69d9ff"))
+	title_label = _label(_t("campaign.heading"), 24, Color("69d9ff"))
 	title_label.position = Vector2(80, 42)
 	title_label.size = Vector2(1760, 42)
 	add_child(title_label)
 	var subtitle := _label(
-		"Build the adventure one playable chapter at a time.", 36, Color("f2f7f9")
+		_t("campaign.subtitle"), 36, Color("f2f7f9")
 	)
 	subtitle.position = Vector2(80, 84)
 	subtitle.size = Vector2(1760, 54)
@@ -2803,31 +2841,31 @@ func _build_interface() -> void:
 	toolbar.size = Vector2(1760, 62)
 	toolbar.add_theme_constant_override("separation", 12)
 	add_child(toolbar)
-	save_button = _button("SAVE", 170, 58)
+	save_button = _button(_t("campaign.save"), 170, 58)
 	save_button.pressed.connect(_save)
 	toolbar.add_child(save_button)
-	undo_button = _button("UNDO", 150, 58)
+	undo_button = _button(_t("campaign.undo"), 150, 58)
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
-	redo_button = _button("REDO", 150, 58)
+	redo_button = _button(_t("campaign.redo"), 150, 58)
 	redo_button.pressed.connect(_redo)
 	toolbar.add_child(redo_button)
-	var projects := _button("PROJECTS", 200, 58)
+	var projects := _button(_t("campaign.projects"), 200, 58)
 	projects.pressed.connect(_open_projects)
 	toolbar.add_child(projects)
-	var army := _button("GROW THE ARMY", 260, 58)
+	var army := _button(_t("campaign.army"), 260, 58)
 	army.pressed.connect(_open_army)
 	toolbar.add_child(army)
-	test_one_button = _button("TEST WHOLE 1P", 210, 58)
-	test_one_button.tooltip_text = "Play this draft as a solo campaign without touching installed-game saves."
+	test_one_button = _button(_t("campaign.test.whole_one"), 210, 58)
+	test_one_button.tooltip_text = _t("campaign.test.whole_one_tooltip")
 	test_one_button.pressed.connect(_play_campaign.bind(1))
 	toolbar.add_child(test_one_button)
-	test_two_button = _button("TEST WHOLE 2P", 220, 58)
-	test_two_button.tooltip_text = "Play this draft with both local player seats active."
+	test_two_button = _button(_t("campaign.test.whole_two"), 220, 58)
+	test_two_button.tooltip_text = _t("campaign.test.whole_two_tooltip")
 	test_two_button.pressed.connect(_play_campaign.bind(2))
 	toolbar.add_child(test_two_button)
 	var hint := _label(
-		"Confirm opens  •  Cancel: projects",
+		_t("campaign.controls_hint"),
 		15,
 		Color("718896")
 	)
@@ -2847,8 +2885,7 @@ func _build_interface() -> void:
 	column.add_theme_constant_override("separation", 12)
 	panel.add_child(column)
 	var explanation := _label(
-		"This is the order players follow. Open a battle to edit it, or test that "
-		+ "battle directly in one-player or two-player mode.",
+		_t("campaign.guidance"),
 		18,
 		Color("a9bdc9")
 	)
@@ -2858,24 +2895,22 @@ func _build_interface() -> void:
 	var campaign_row := HBoxContainer.new()
 	campaign_row.add_theme_constant_override("separation", 16)
 	column.add_child(campaign_row)
-	var campaign_title := _label("CAMPAIGN", 15, Color("69d9ff"))
+	var campaign_title := _label(_t("campaign.campaign_label"), 15, Color("69d9ff"))
 	campaign_title.custom_minimum_size = Vector2(110, 54)
 	campaign_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	campaign_row.add_child(campaign_title)
 	campaign_select = OptionButton.new()
 	campaign_select.custom_minimum_size = Vector2(620, 54)
 	campaign_select.add_theme_font_size_override("font_size", 18)
-	campaign_select.tooltip_text = "Choose which campaign in this project you are editing and testing."
+	campaign_select.tooltip_text = _t("campaign.selector_tooltip")
 	campaign_select.item_selected.connect(_change_campaign)
 	campaign_row.add_child(campaign_select)
-	var add_campaign := _button("ADD CAMPAIGN", 220, 54)
-	add_campaign.tooltip_text = "Start another campaign from this working outline, then change its route, roster, and player policy independently."
+	var add_campaign := _button(_t("campaign.add"), 220, 54)
+	add_campaign.tooltip_text = _t("campaign.add_tooltip")
 	add_campaign.pressed.connect(_open_new_campaign)
 	campaign_row.add_child(add_campaign)
-	campaign_dependency_button = _button("WHERE USED / DELETE", 280, 54)
-	campaign_dependency_button.tooltip_text = (
-		"Review references and confirm before deleting this exact campaign."
-	)
+	campaign_dependency_button = _button(_t("campaign.delete.open"), 280, 54)
+	campaign_dependency_button.tooltip_text = _t("campaign.delete.open_tooltip")
 	campaign_dependency_button.pressed.connect(
 		func() -> void:
 			_open_dependency_review(
@@ -2884,7 +2919,7 @@ func _build_interface() -> void:
 	)
 	campaign_row.add_child(campaign_dependency_button)
 	var campaign_help := _label(
-		"Each campaign keeps its own route, roster, player-count policy, and starting chapter.",
+		_t("campaign.campaign_help"),
 		15,
 		Color("a9bdc9")
 	)
@@ -2896,7 +2931,7 @@ func _build_interface() -> void:
 	var player_row := HBoxContainer.new()
 	player_row.add_theme_constant_override("separation", 16)
 	column.add_child(player_row)
-	var player_title := _label("PLAYERS", 15, Color("69d9ff"))
+	var player_title := _label(_t("campaign.players.label"), 15, Color("69d9ff"))
 	player_title.custom_minimum_size = Vector2(110, 54)
 	player_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	player_row.add_child(player_title)
@@ -2904,9 +2939,9 @@ func _build_interface() -> void:
 	player_mode_select.custom_minimum_size = Vector2(390, 54)
 	player_mode_select.add_theme_font_size_override("font_size", 18)
 	for choice: Dictionary in [
-		{"id": "one", "label": "ONE PLAYER"},
-		{"id": "two", "label": "TWO PLAYERS"},
-		{"id": "choice", "label": "CHOOSE WHEN PLAYING"},
+		{"id": "one", "label": _t("campaign.players.one")},
+		{"id": "two", "label": _t("campaign.players.two")},
+		{"id": "choice", "label": _t("campaign.players.choice")},
 	]:
 		player_mode_select.add_item(choice.label)
 		player_mode_select.set_item_metadata(player_mode_select.item_count - 1, choice.id)
@@ -2918,17 +2953,15 @@ func _build_interface() -> void:
 	player_mode_help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	player_mode_help.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	player_row.add_child(player_mode_help)
-	target_budget_label = _label("TARGETS  /  CHECKING…", 16, Color("a9bdc9"))
+	target_budget_label = _label(_t("campaign.targets.checking"), 16, Color("a9bdc9"))
 	target_budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	target_budget_label.custom_minimum_size.y = 28
 	column.add_child(target_budget_label)
 	route_filter = LineEdit.new()
-	route_filter.placeholder_text = "Search chapters, battles, maps, or endings…"
+	route_filter.placeholder_text = _t("campaign.route.search")
 	route_filter.custom_minimum_size = Vector2(0, 46)
 	route_filter.add_theme_font_size_override("font_size", 17)
-	route_filter.tooltip_text = (
-		"Filter this campaign's outline without changing its route or unsaved work."
-	)
+	route_filter.tooltip_text = _t("campaign.route.search_tooltip")
 	route_filter.text_changed.connect(_filter_route)
 	column.add_child(route_filter)
 	var scroll := ScrollContainer.new()
@@ -2942,12 +2975,12 @@ func _build_interface() -> void:
 	var status_row := HBoxContainer.new()
 	status_row.add_theme_constant_override("separation", 12)
 	column.add_child(status_row)
-	status_label = _label("OPENING CAMPAIGN…", 17, Color("a9bdc9"))
+	status_label = _label(_t("campaign.opening"), 17, Color("a9bdc9"))
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.custom_minimum_size.y = 36
 	status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status_row.add_child(status_label)
-	fix_button = _button("FIX ISSUE", 280, 56)
+	fix_button = _button(_t("campaign.diagnostic.fix.issue"), 280, 56)
 	fix_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	fix_button.visible = false
 	fix_button.pressed.connect(_fix_diagnostic)
@@ -2979,10 +3012,10 @@ func _build_new_campaign_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
-	column.add_child(_label("ADD CAMPAIGN", 18, Color("69d9ff")))
-	column.add_child(_label("What should players call it?", 32, Color("f2f7f9")))
+	column.add_child(_label(_t("campaign.new.heading"), 18, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.new.question"), 32, Color("f2f7f9")))
 	var explanation := _label(
-		"The new campaign starts from this working outline so it is playable immediately. Its route, roster, player count, and starting chapter can then change independently.",
+		_t("campaign.new.help"),
 		18,
 		Color("a9bdc9")
 	)
@@ -2997,10 +3030,10 @@ func _build_new_campaign_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	new_campaign_create_button = _button("CREATE CAMPAIGN", 400, 66)
+	new_campaign_create_button = _button(_t("campaign.new.create"), 400, 66)
 	new_campaign_create_button.pressed.connect(_create_new_campaign)
 	actions.add_child(new_campaign_create_button)
-	var cancel := _button("CANCEL", 240, 66)
+	var cancel := _button(_t("campaign.cancel"), 240, 66)
 	cancel.pressed.connect(_close_new_campaign)
 	actions.add_child(cancel)
 
@@ -3027,8 +3060,8 @@ func _build_dependency_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
 	panel.add_child(column)
-	column.add_child(_label("SAFE DELETE", 18, Color("69d9ff")))
-	dependency_heading = _label("WHERE THIS CONTENT IS USED", 29, Color("f2f7f9"))
+	column.add_child(_label(_t("campaign.delete.safe"), 18, Color("69d9ff")))
+	dependency_heading = _label(_t("campaign.delete.heading"), 29, Color("f2f7f9"))
 	dependency_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dependency_heading.custom_minimum_size.y = 70
 	column.add_child(dependency_heading)
@@ -3048,7 +3081,7 @@ func _build_dependency_layer() -> void:
 	dependency_uses.add_theme_color_override("default_color", Color("dce8ed"))
 	uses_panel.add_child(dependency_uses)
 	var note := _label(
-		"Deletion changes only the named campaign or battle. Maps, scenes, and other campaigns are never removed automatically.",
+		_t("campaign.delete.help"),
 		16,
 		Color("718896")
 	)
@@ -3058,10 +3091,10 @@ func _build_dependency_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	dependency_confirm_button = _button("CANNOT DELETE", 380, 64)
+	dependency_confirm_button = _button(_t("campaign.delete.cannot"), 380, 64)
 	dependency_confirm_button.pressed.connect(_confirm_dependency_delete)
 	actions.add_child(dependency_confirm_button)
-	dependency_close_button = _button("KEEP IT", 260, 64)
+	dependency_close_button = _button(_t("campaign.delete.keep"), 260, 64)
 	dependency_close_button.pressed.connect(_close_dependency_review)
 	actions.add_child(dependency_close_button)
 
@@ -3087,16 +3120,16 @@ func _build_chapter_order_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
-	column.add_child(_label("CAMPAIGN OUTLINE", 18, Color("69d9ff")))
-	column.add_child(_label("Change chapter order", 32, Color("f2f7f9")))
+	column.add_child(_label(_t("campaign.order.heading"), 18, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.order.title"), 32, Color("f2f7f9")))
 	var explanation := _label(
-		"A chapter's story, map, battle, outcomes, and alternate routes stay together. Only its place on the main path changes.",
+		_t("campaign.order.help"),
 		18, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 76
 	column.add_child(explanation)
-	column.add_child(_label("CHAPTER", 15, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.order.chapter"), 15, Color("69d9ff")))
 	chapter_order_select = OptionButton.new()
 	chapter_order_select.custom_minimum_size = Vector2(960, 64)
 	chapter_order_select.add_theme_font_size_override("font_size", 19)
@@ -3105,16 +3138,16 @@ func _build_chapter_order_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	chapter_earlier_button = _button("MOVE EARLIER", 280, 66)
+	chapter_earlier_button = _button(_t("campaign.order.earlier"), 280, 66)
 	chapter_earlier_button.pressed.connect(_move_chapter.bind(-1))
 	actions.add_child(chapter_earlier_button)
-	chapter_later_button = _button("MOVE LATER", 280, 66)
+	chapter_later_button = _button(_t("campaign.order.later"), 280, 66)
 	chapter_later_button.pressed.connect(_move_chapter.bind(1))
 	actions.add_child(chapter_later_button)
-	var done := _button("DONE", 240, 66)
+	var done := _button(_t("campaign.done"), 240, 66)
 	done.pressed.connect(_close_chapter_order)
 	actions.add_child(done)
-	chapter_order_status = _label("READY", 17, Color("72e08f"))
+	chapter_order_status = _label(_t("campaign.ready"), 17, Color("72e08f"))
 	chapter_order_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	chapter_order_status.custom_minimum_size.y = 52
 	column.add_child(chapter_order_status)
@@ -3141,17 +3174,17 @@ func _build_outcome_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 13)
 	outcome_panel.add_child(column)
-	column.add_child(_label("CHAPTER FLOW", 18, Color("69d9ff")))
-	outcome_title = _label("CHAPTER  /  OUTCOMES", 31, Color("f2f7f9"))
+	column.add_child(_label(_t("campaign.outcome.heading"), 18, Color("69d9ff")))
+	outcome_title = _label(_t("campaign.outcome.default_title"), 31, Color("f2f7f9"))
 	column.add_child(outcome_title)
 	var explanation := _label(
-		"Outcomes are tried from first to last. The first condition that matches chooses the next named chapter.",
+		_t("campaign.outcome.help"),
 		18, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 48
 	column.add_child(explanation)
-	column.add_child(_label("OUTCOME", 15, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.outcome.label"), 15, Color("69d9ff")))
 	outcome_select = OptionButton.new()
 	outcome_select.custom_minimum_size = Vector2(1320, 60)
 	outcome_select.add_theme_font_size_override("font_size", 19)
@@ -3165,7 +3198,7 @@ func _build_outcome_layer() -> void:
 	condition_column.custom_minimum_size.x = 650
 	condition_column.add_theme_constant_override("separation", 7)
 	route_row.add_child(condition_column)
-	condition_column.add_child(_label("WHEN", 15, Color("69d9ff")))
+	condition_column.add_child(_label(_t("campaign.outcome.when"), 15, Color("69d9ff")))
 	outcome_condition = OptionButton.new()
 	outcome_condition.custom_minimum_size = Vector2(650, 58)
 	outcome_condition.add_theme_font_size_override("font_size", 18)
@@ -3175,7 +3208,7 @@ func _build_outcome_layer() -> void:
 	target_column.custom_minimum_size.x = 650
 	target_column.add_theme_constant_override("separation", 7)
 	route_row.add_child(target_column)
-	target_column.add_child(_label("GO TO", 15, Color("69d9ff")))
+	target_column.add_child(_label(_t("campaign.outcome.go_to"), 15, Color("69d9ff")))
 	outcome_target = OptionButton.new()
 	outcome_target.custom_minimum_size = Vector2(650, 58)
 	outcome_target.add_theme_font_size_override("font_size", 18)
@@ -3188,7 +3221,7 @@ func _build_outcome_layer() -> void:
 	outcome_objective_column.custom_minimum_size.x = 650
 	outcome_objective_column.add_theme_constant_override("separation", 7)
 	outcome_detail_row.add_child(outcome_objective_column)
-	outcome_objective_column.add_child(_label("GOAL", 15, Color("69d9ff")))
+	outcome_objective_column.add_child(_label(_t("campaign.outcome.goal"), 15, Color("69d9ff")))
 	outcome_objective = OptionButton.new()
 	outcome_objective.custom_minimum_size = Vector2(650, 58)
 	outcome_objective.add_theme_font_size_override("font_size", 18)
@@ -3197,7 +3230,7 @@ func _build_outcome_layer() -> void:
 	outcome_item_column.custom_minimum_size.x = 650
 	outcome_item_column.add_theme_constant_override("separation", 7)
 	outcome_detail_row.add_child(outcome_item_column)
-	outcome_item_column.add_child(_label("ITEM", 15, Color("69d9ff")))
+	outcome_item_column.add_child(_label(_t("campaign.outcome.item"), 15, Color("69d9ff")))
 	outcome_item = OptionButton.new()
 	outcome_item.custom_minimum_size = Vector2(650, 58)
 	outcome_item.add_theme_font_size_override("font_size", 18)
@@ -3206,7 +3239,7 @@ func _build_outcome_layer() -> void:
 	outcome_flag_column.custom_minimum_size.x = 650
 	outcome_flag_column.add_theme_constant_override("separation", 7)
 	outcome_detail_row.add_child(outcome_flag_column)
-	outcome_flag_column.add_child(_label("CHARACTER TALKED TO", 15, Color("69d9ff")))
+	outcome_flag_column.add_child(_label(_t("campaign.outcome.character_talked"), 15, Color("69d9ff")))
 	outcome_flag = OptionButton.new()
 	outcome_flag.custom_minimum_size = Vector2(650, 58)
 	outcome_flag.add_theme_font_size_override("font_size", 18)
@@ -3215,7 +3248,7 @@ func _build_outcome_layer() -> void:
 	outcome_quantity_row = HBoxContainer.new()
 	outcome_quantity_row.add_theme_constant_override("separation", 10)
 	column.add_child(outcome_quantity_row)
-	var quantity_title := _label("ITEM AMOUNT", 15, Color("69d9ff"))
+	var quantity_title := _label(_t("campaign.outcome.item_amount"), 15, Color("69d9ff"))
 	quantity_title.custom_minimum_size = Vector2(260, 52)
 	quantity_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	outcome_quantity_row.add_child(quantity_title)
@@ -3234,40 +3267,40 @@ func _build_outcome_layer() -> void:
 	outcome_compound_row = HBoxContainer.new()
 	outcome_compound_row.add_theme_constant_override("separation", 16)
 	column.add_child(outcome_compound_row)
-	outcome_compound_summary = _label("ADD REQUIREMENTS", 17, Color("a9bdc9"))
+	outcome_compound_summary = _label(_t("campaign.compound.add_requirements"), 17, Color("a9bdc9"))
 	outcome_compound_summary.custom_minimum_size = Vector2(860, 58)
 	outcome_compound_summary.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	outcome_compound_row.add_child(outcome_compound_summary)
-	outcome_compound_button = _button("EDIT REQUIREMENTS…", 420, 58)
+	outcome_compound_button = _button(_t("campaign.compound.edit"), 420, 58)
 	outcome_compound_button.pressed.connect(_open_compound)
 	outcome_compound_row.add_child(outcome_compound_button)
 
 	var edit_actions := HBoxContainer.new()
 	edit_actions.add_theme_constant_override("separation", 12)
 	column.add_child(edit_actions)
-	outcome_apply_button = _button("APPLY OUTCOME", 300, 60)
+	outcome_apply_button = _button(_t("campaign.outcome.apply"), 300, 60)
 	outcome_apply_button.pressed.connect(_apply_outcome)
 	edit_actions.add_child(outcome_apply_button)
-	add_route_button = _button("ADD ROUTE…", 300, 60)
+	add_route_button = _button(_t("campaign.outcome.add_route"), 300, 60)
 	add_route_button.pressed.connect(_open_add_route)
 	edit_actions.add_child(add_route_button)
-	outcome_remove_button = _button("REMOVE OUTCOME", 300, 60)
+	outcome_remove_button = _button(_t("campaign.outcome.remove"), 300, 60)
 	outcome_remove_button.pressed.connect(_remove_outcome)
 	edit_actions.add_child(outcome_remove_button)
 
 	var order_actions := HBoxContainer.new()
 	order_actions.add_theme_constant_override("separation", 12)
 	column.add_child(order_actions)
-	outcome_earlier_button = _button("TRY EARLIER", 260, 56)
+	outcome_earlier_button = _button(_t("campaign.outcome.earlier"), 260, 56)
 	outcome_earlier_button.pressed.connect(_move_outcome.bind(-1))
 	order_actions.add_child(outcome_earlier_button)
-	outcome_later_button = _button("TRY LATER", 260, 56)
+	outcome_later_button = _button(_t("campaign.outcome.later"), 260, 56)
 	outcome_later_button.pressed.connect(_move_outcome.bind(1))
 	order_actions.add_child(outcome_later_button)
-	var done := _button("DONE", 240, 56)
+	var done := _button(_t("campaign.done"), 240, 56)
 	done.pressed.connect(_close_outcomes)
 	order_actions.add_child(done)
-	outcome_status = _label("READY", 16, Color("72e08f"))
+	outcome_status = _label(_t("campaign.ready"), 16, Color("72e08f"))
 	outcome_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	outcome_status.custom_minimum_size.y = 44
 	column.add_child(outcome_status)
@@ -3298,10 +3331,10 @@ func _build_compound_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 13)
 	panel.add_child(column)
-	column.add_child(_label("OUTCOME REQUIREMENTS", 18, Color("69d9ff")))
-	column.add_child(_label("When should this route happen?", 30, Color("f2f7f9")))
+	column.add_child(_label(_t("campaign.compound.heading"), 18, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.compound.title"), 30, Color("f2f7f9")))
 	var explanation := _label(
-		"Keep ordinary routes simple. Use this only when several named facts must be checked together.",
+		_t("campaign.compound.explanation"),
 		18, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3312,13 +3345,13 @@ func _build_compound_layer() -> void:
 	column.add_child(top_row)
 	var mode_column := VBoxContainer.new()
 	mode_column.custom_minimum_size.x = 380
-	mode_column.add_child(_label("MATCH", 15, Color("69d9ff")))
+	mode_column.add_child(_label(_t("campaign.compound.match"), 15, Color("69d9ff")))
 	compound_mode = OptionButton.new()
 	compound_mode.custom_minimum_size = Vector2(380, 60)
 	for choice: Dictionary in [
-		{"id": "all", "label": "ALL OF THESE"},
-		{"id": "any", "label": "ANY OF THESE"},
-		{"id": "not", "label": "NOT THIS"},
+		{"id": "all", "label": _t("campaign.compound.all")},
+		{"id": "any", "label": _t("campaign.compound.any")},
+		{"id": "not", "label": _t("campaign.compound.not")},
 	]:
 		compound_mode.add_item(choice.label)
 		compound_mode.set_item_metadata(compound_mode.item_count - 1, choice.id)
@@ -3327,14 +3360,14 @@ func _build_compound_layer() -> void:
 	top_row.add_child(mode_column)
 	var requirement_column := VBoxContainer.new()
 	requirement_column.custom_minimum_size.x = 730
-	requirement_column.add_child(_label("REQUIREMENT", 15, Color("69d9ff")))
+	requirement_column.add_child(_label(_t("campaign.compound.requirement"), 15, Color("69d9ff")))
 	compound_select = OptionButton.new()
 	compound_select.custom_minimum_size = Vector2(730, 60)
 	compound_select.item_selected.connect(_refresh_compound_fields)
 	requirement_column.add_child(compound_select)
 	top_row.add_child(requirement_column)
 
-	column.add_child(_label("THIS REQUIREMENT", 15, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.compound.this_requirement"), 15, Color("69d9ff")))
 	compound_kind = OptionButton.new()
 	compound_kind.custom_minimum_size = Vector2(1130, 58)
 	compound_kind.item_selected.connect(_update_compound_condition)
@@ -3344,7 +3377,7 @@ func _build_compound_layer() -> void:
 	column.add_child(compound_detail_row)
 	compound_objective_column = VBoxContainer.new()
 	compound_objective_column.custom_minimum_size.x = 550
-	compound_objective_column.add_child(_label("GOAL", 15, Color("69d9ff")))
+	compound_objective_column.add_child(_label(_t("campaign.outcome.goal"), 15, Color("69d9ff")))
 	compound_objective = OptionButton.new()
 	compound_objective.custom_minimum_size = Vector2(550, 58)
 	compound_objective.item_selected.connect(_update_compound_condition)
@@ -3352,7 +3385,7 @@ func _build_compound_layer() -> void:
 	compound_detail_row.add_child(compound_objective_column)
 	compound_item_column = VBoxContainer.new()
 	compound_item_column.custom_minimum_size.x = 550
-	compound_item_column.add_child(_label("ITEM", 15, Color("69d9ff")))
+	compound_item_column.add_child(_label(_t("campaign.outcome.item"), 15, Color("69d9ff")))
 	compound_item = OptionButton.new()
 	compound_item.custom_minimum_size = Vector2(550, 58)
 	compound_item.item_selected.connect(_update_compound_condition)
@@ -3360,7 +3393,7 @@ func _build_compound_layer() -> void:
 	compound_detail_row.add_child(compound_item_column)
 	compound_flag_column = VBoxContainer.new()
 	compound_flag_column.custom_minimum_size.x = 550
-	compound_flag_column.add_child(_label("CHARACTER", 15, Color("69d9ff")))
+	compound_flag_column.add_child(_label(_t("campaign.compound.character"), 15, Color("69d9ff")))
 	compound_flag = OptionButton.new()
 	compound_flag.custom_minimum_size = Vector2(550, 58)
 	compound_flag.item_selected.connect(_update_compound_condition)
@@ -3370,7 +3403,7 @@ func _build_compound_layer() -> void:
 	compound_quantity_row = HBoxContainer.new()
 	compound_quantity_row.add_theme_constant_override("separation", 12)
 	column.add_child(compound_quantity_row)
-	var amount_title := _label("ITEM AMOUNT", 15, Color("69d9ff"))
+	var amount_title := _label(_t("campaign.outcome.item_amount"), 15, Color("69d9ff"))
 	amount_title.custom_minimum_size = Vector2(240, 52)
 	amount_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	compound_quantity_row.add_child(amount_title)
@@ -3389,23 +3422,23 @@ func _build_compound_layer() -> void:
 	var list_actions := HBoxContainer.new()
 	list_actions.add_theme_constant_override("separation", 14)
 	column.add_child(list_actions)
-	var add := _button("ADD REQUIREMENT", 350, 60)
+	var add := _button(_t("campaign.compound.add"), 350, 60)
 	add.pressed.connect(_add_compound_condition)
 	list_actions.add_child(add)
-	compound_remove_button = _button("REMOVE REQUIREMENT", 350, 60)
+	compound_remove_button = _button(_t("campaign.compound.remove"), 350, 60)
 	compound_remove_button.pressed.connect(_remove_compound_condition)
 	list_actions.add_child(compound_remove_button)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	var apply := _button("APPLY REQUIREMENTS", 430, 64)
+	var apply := _button(_t("campaign.compound.apply"), 430, 64)
 	apply.pressed.connect(_apply_compound)
 	actions.add_child(apply)
-	var cancel := _button("CANCEL", 280, 64)
+	var cancel := _button(_t("campaign.cancel"), 280, 64)
 	cancel.pressed.connect(_close_compound)
 	actions.add_child(cancel)
 	compound_status = _label(
-		"Requirements stay named and are checked together on every target.",
+		_t("campaign.compound.help"),
 		16, Color("a9bdc9")
 	)
 	compound_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3434,32 +3467,32 @@ func _build_add_route_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
 	panel.add_child(column)
-	column.add_child(_label("ADD ROUTE", 18, Color("69d9ff")))
-	column.add_child(_label("Where should players go next?", 32, Color("f2f7f9")))
+	column.add_child(_label(_t("campaign.add_route.heading"), 18, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.add_route.title"), 32, Color("f2f7f9")))
 	var explanation := _label(
-		"Choose an existing destination, make another playable chapter from this battle, or finish at a new ending.",
+		_t("campaign.add_route.help"),
 		18, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 62
 	column.add_child(explanation)
 	add_existing_button = _button(
-		"EXISTING CHAPTER\nADD A CONDITION, THEN CHOOSE ITS DESTINATION", 960, 96
+		_t("campaign.add_route.existing"), 960, 96
 	)
 	add_existing_button.pressed.connect(_choose_existing_route)
 	column.add_child(add_existing_button)
 	add_branch_button = _button(
-		"NEW PLAYABLE CHAPTER\nCOPY THIS BATTLE, THEN REJOIN THE SELECTED DESTINATION",
+		_t("campaign.add_route.branch_available"),
 		960, 96
 	)
 	add_branch_button.pressed.connect(_choose_new_branch)
 	column.add_child(add_branch_button)
 	var ending := _button(
-		"NEW ENDING\nCREATE A NAMED PLACE WHERE THE CAMPAIGN STOPS", 960, 96
+		_t("campaign.add_route.ending"), 960, 96
 	)
 	ending.pressed.connect(_choose_new_ending)
 	column.add_child(ending)
-	var cancel := _button("CANCEL", 260, 58)
+	var cancel := _button(_t("campaign.cancel"), 260, 58)
 	cancel.pressed.connect(_close_add_route)
 	column.add_child(cancel)
 
@@ -3485,16 +3518,16 @@ func _build_branch_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
-	column.add_child(_label("NEW PLAYABLE CHAPTER", 18, Color("69d9ff")))
-	column.add_child(_label("What is this path called?", 32, Color("f2f7f9")))
+	column.add_child(_label(_t("campaign.branch.heading"), 18, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.branch.title"), 32, Color("f2f7f9")))
 	var explanation := _label(
-		"The new path copies this battle's working units, goals, co-op setup, and map size. It gets a fresh map and story moment, then rejoins the selected destination.",
+		_t("campaign.branch.help"),
 		18, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 92
 	column.add_child(explanation)
-	column.add_child(_label("CHAPTER NAME", 15, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.branch.name"), 15, Color("69d9ff")))
 	branch_name = LineEdit.new()
 	branch_name.max_length = 140
 	branch_name.custom_minimum_size = Vector2(960, 64)
@@ -3504,10 +3537,10 @@ func _build_branch_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	var create := _button("CREATE PLAYABLE PATH", 360, 66)
+	var create := _button(_t("campaign.branch.create"), 360, 66)
 	create.pressed.connect(_create_branch)
 	actions.add_child(create)
-	var cancel := _button("CANCEL", 240, 66)
+	var cancel := _button(_t("campaign.cancel"), 240, 66)
 	cancel.pressed.connect(_close_new_branch)
 	actions.add_child(cancel)
 
@@ -3533,18 +3566,18 @@ func _build_ending_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
-	ending_kicker = _label("NEW ENDING", 18, Color("69d9ff"))
+	ending_kicker = _label(_t("campaign.ending.new"), 18, Color("69d9ff"))
 	column.add_child(ending_kicker)
-	ending_question = _label("Where can this path finish?", 32, Color("f2f7f9"))
+	ending_question = _label(_t("campaign.ending.new_question"), 32, Color("f2f7f9"))
 	column.add_child(ending_question)
 	ending_explanation = _label(
-		"This creates a named ending and connects it as one new outcome. If this chapter already has a victory route, the new ending begins as the defeat route.",
+		_t("campaign.ending.new_help"),
 		18, Color("a9bdc9")
 	)
 	ending_explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ending_explanation.custom_minimum_size.y = 82
 	column.add_child(ending_explanation)
-	column.add_child(_label("ENDING NAME", 15, Color("69d9ff")))
+	column.add_child(_label(_t("campaign.ending.name"), 15, Color("69d9ff")))
 	ending_name = LineEdit.new()
 	ending_name.max_length = 160
 	ending_name.custom_minimum_size = Vector2(960, 64)
@@ -3554,10 +3587,10 @@ func _build_ending_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	ending_create_button = _button("CREATE & USE", 320, 66)
+	ending_create_button = _button(_t("campaign.ending.create_use"), 320, 66)
 	ending_create_button.pressed.connect(_create_ending)
 	actions.add_child(ending_create_button)
-	var cancel := _button("CANCEL", 240, 66)
+	var cancel := _button(_t("campaign.cancel"), 240, 66)
 	cancel.pressed.connect(_close_new_ending)
 	actions.add_child(cancel)
 
@@ -3576,6 +3609,10 @@ func _set_status(message: String, failure: bool) -> void:
 	status_label.add_theme_color_override(
 		"font_color", Color("ff7a83") if failure else Color("72e08f")
 	)
+
+
+func _t(message_id: String, values: Dictionary = {}) -> String:
+	return Localization.text(message_id, values)
 
 
 func _label(value: String, size: int, colour: Color) -> Label:
