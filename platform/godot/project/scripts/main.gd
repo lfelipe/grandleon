@@ -36,6 +36,7 @@ var effects_level := 1.0
 var stick_mode := "deliberate"
 var battle_closeups_enabled := true
 var cinematic_motion := "full"
+var show_fps_enabled := false
 var screenshot_path := ""
 var screenshot_frames := -1
 var smoke_auto := false
@@ -115,6 +116,7 @@ var unit_stats: RichTextLabel
 var controller_label: RichTextLabel
 var help_label: RichTextLabel
 var toast_label: Label
+var fps_overlay: Label
 var toast_tween: Tween
 var dialogue_layer: Control
 var dialogue_shade: ColorRect
@@ -142,6 +144,7 @@ var session_menu_stick: Button
 var session_menu_audio: Button
 var session_menu_closeups: Button
 var session_menu_cinematic_motion: Button
+var session_menu_fps: Button
 var session_menu_new_campaign: Button
 var session_menu_quit: Button
 var session_menu_checkpoint_buttons: Array[Button] = []
@@ -155,6 +158,7 @@ var presentation_settings
 var controls
 var frame_timing = FrameTiming.new()
 var frame_timing_next_update_msec := 0
+var fps_overlay_next_update_msec := 0
 var combat_cinematic: Control
 
 
@@ -205,6 +209,7 @@ func _ready() -> void:
 	effects_level = float(stored_settings.get("effects_level", 1.0))
 	battle_closeups_enabled = bool(stored_settings.get("battle_closeups", true))
 	cinematic_motion = String(stored_settings.get("cinematic_motion", "full"))
+	show_fps_enabled = bool(stored_settings.get("show_fps", false))
 	PCAudio.set_effects_level(effects_level)
 	_create_background()
 	_create_board(graphics_profile)
@@ -264,6 +269,8 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	frame_timing.sample(delta)
+	if show_fps_enabled:
+		_update_fps_overlay()
 	if _session_menu_visible():
 		_update_session_diagnostics()
 	if not session:
@@ -498,6 +505,7 @@ func _run_presentation_settings_smoke() -> void:
 		and stick_mode == "extra_firm"
 		and not battle_closeups_enabled
 		and cinematic_motion == "reduced"
+		and show_fps_enabled
 		and is_equal_approx(PCNavigation.press_threshold(), 0.88)
 		and PCAudio.level_name() == "LOW"
 	)
@@ -520,6 +528,7 @@ func _run_presentation_settings_smoke() -> void:
 			and String(saved.get("stick_mode", "")) == "extra_firm"
 			and not bool(saved.get("battle_closeups", true))
 			and String(saved.get("cinematic_motion", "")) == "reduced"
+			and bool(saved.get("show_fps", false))
 		)
 		if not valid:
 			push_error("a launch override replaced the stored graphics choice")
@@ -548,6 +557,8 @@ func _run_controls_smoke() -> void:
 		"audio label": session_menu_audio.text == "SOUND EFFECTS  /  FULL",
 		"close-up label": session_menu_closeups.text == "BATTLE CLOSE-UPS  /  ON",
 		"cinematic motion label": session_menu_cinematic_motion.text == "CINEMATIC MOTION  /  FULL",
+		"FPS label defaults off": session_menu_fps.text == "SHOW FPS  /  OFF",
+		"FPS overlay defaults hidden": not fps_overlay.visible,
 		"stick label": session_menu_stick.text == "STICK INPUT  /  DELIBERATE",
 		"filtered stick UI": PCNavigation.raw_stick_ui_event_count() == 0,
 		"exit label": session_menu_quit.text == "EXIT GAME",
@@ -604,6 +615,16 @@ func _run_controls_smoke() -> void:
 		or not is_equal_approx(PCNavigation.press_threshold(), 0.90)
 	):
 		failed.append("deliberate stick setting")
+	session_menu_fps.pressed.emit()
+	if (
+		not show_fps_enabled
+		or session_menu_fps.text != "SHOW FPS  /  ON"
+		or not fps_overlay.visible
+	):
+		failed.append("FPS display setting")
+	session_menu_fps.pressed.emit()
+	if show_fps_enabled or fps_overlay.visible:
+		failed.append("FPS display turns off")
 	_show_root_page()
 	final_outcome = "second_side_won"
 	campaign_complete = true
@@ -1226,6 +1247,16 @@ func _toggle_cinematic_motion() -> void:
 	_persist_presentation_settings()
 
 
+func _toggle_show_fps() -> void:
+	show_fps_enabled = not show_fps_enabled
+	if fps_overlay != null:
+		fps_overlay.visible = show_fps_enabled
+	if show_fps_enabled:
+		_update_fps_overlay(true)
+	_update_session_labels()
+	_persist_presentation_settings()
+
+
 func _persist_presentation_settings() -> void:
 	if presentation_settings == null or not _use_presentation_settings():
 		return
@@ -1237,7 +1268,8 @@ func _persist_presentation_settings() -> void:
 		effects_level,
 		stick_mode,
 		battle_closeups_enabled,
-		cinematic_motion
+		cinematic_motion,
+		show_fps_enabled
 	):
 		_show_toast(presentation_settings.warning())
 
@@ -1278,6 +1310,10 @@ func _update_session_labels() -> void:
 	if session_menu_cinematic_motion != null:
 		session_menu_cinematic_motion.text = "CINEMATIC MOTION  /  %s" % (
 			"REDUCED" if cinematic_motion == "reduced" else "FULL"
+		)
+	if session_menu_fps != null:
+		session_menu_fps.text = "SHOW FPS  /  %s" % (
+			"ON" if show_fps_enabled else "OFF"
 		)
 
 
@@ -1407,6 +1443,20 @@ func _create_interface() -> void:
 	toast_label.add_theme_stylebox_override("normal", _panel(Color(0.08, 0.02, 0.03, 0.94), 12, Color(1.0, 0.30, 0.38, 0.6)))
 	toast_label.modulate.a = 0.0
 	layer.add_child(toast_label)
+	fps_overlay = _label("FPS --", 18, Color("dcebf0"))
+	fps_overlay.position = Vector2(1744, 18)
+	fps_overlay.size = Vector2(150, 46)
+	fps_overlay.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fps_overlay.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	fps_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fps_overlay.add_theme_stylebox_override(
+		"normal", _panel(
+			Color(0.012, 0.027, 0.043, 0.90), 10,
+			Color(0.30, 0.76, 0.92, 0.46), 8
+		)
+	)
+	fps_overlay.visible = show_fps_enabled
+	layer.add_child(fps_overlay)
 
 	_create_action_popups(layer)
 	_create_dialogue(layer)
@@ -1599,6 +1649,9 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_cinematic_motion = _settings_button("")
 	session_menu_cinematic_motion.pressed.connect(_toggle_cinematic_motion)
 	session_menu_settings.add_child(session_menu_cinematic_motion)
+	session_menu_fps = _settings_button("")
+	session_menu_fps.pressed.connect(_toggle_show_fps)
+	session_menu_settings.add_child(session_menu_fps)
 	session_menu_diagnostics = _label("", 16, Color("718896"))
 	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_diagnostics.custom_minimum_size.y = 86
@@ -1643,7 +1696,7 @@ func _menu_button(value: String) -> Button:
 
 func _settings_button(value: String) -> Button:
 	var button := _menu_button(value)
-	button.custom_minimum_size.y = 64
+	button.custom_minimum_size.y = 58
 	return button
 
 
@@ -1842,6 +1895,21 @@ func _update_session_diagnostics(force := false) -> void:
 		+ "WINDOW %d×%d · CANVAS %d×%d · %s" % [
 			window.x, window.y, canvas.x, canvas.y, save_summary
 		]
+	)
+
+
+func _update_fps_overlay(force := false) -> void:
+	if fps_overlay == null or not show_fps_enabled:
+		return
+	var now := Time.get_ticks_msec()
+	if not force and now < fps_overlay_next_update_msec:
+		return
+	fps_overlay_next_update_msec = now + 500
+	var values: Dictionary = frame_timing.metrics()
+	fps_overlay.text = (
+		"FPS %d" % roundi(float(values.fps))
+		if bool(values.get("ready", false))
+		else "FPS --"
 	)
 
 

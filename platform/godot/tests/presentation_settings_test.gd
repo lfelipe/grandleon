@@ -16,7 +16,7 @@ func _init() -> void:
 		"valid settings save",
 		settings.save_settings(
 			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm",
-			false, "reduced"
+			false, "reduced", true
 		)
 	)
 
@@ -29,6 +29,7 @@ func _init() -> void:
 	_expect("stored stick input", values.get("stick_mode"), "extra_firm")
 	_expect("stored battle close-ups", values.get("battle_closeups"), false)
 	_expect("stored cinematic motion", values.get("cinematic_motion"), "reduced")
+	_expect("stored FPS choice", values.get("show_fps"), true)
 	_expect("valid settings have no warning", reloaded.warning(), "")
 
 	var raw: Variant = JSON.parse_string(
@@ -45,7 +46,7 @@ func _init() -> void:
 			[
 				"battleCloseups", "cameraImpulse", "cinematicMotion",
 				"contractVersion", "effectsLevel", "graphicsProfile",
-				"stickMode", "textScale"
+				"showFps", "stickMode", "textScale"
 			]
 		)
 
@@ -95,6 +96,7 @@ func _init() -> void:
 	_expect("previous stick input recovers", recovered_values.get("stick_mode"), "extra_firm")
 	_expect("previous close-up choice recovers", recovered_values.get("battle_closeups"), false)
 	_expect("previous motion choice recovers", recovered_values.get("cinematic_motion"), "reduced")
+	_expect("previous FPS choice recovers", recovered_values.get("show_fps"), true)
 	_expect("recovery is coarse", recovered.warning(), "PREVIOUS DISPLAY SETTINGS RESTORED")
 	var restored = PresentationSettings.new(path)
 	_expect(
@@ -139,6 +141,11 @@ func _init() -> void:
 		PresentationSettings.new(path).load_settings(PROFILES).get("cinematic_motion"),
 		"full"
 	)
+	_expect(
+		"settings written before the FPS toggle default safely",
+		PresentationSettings.new(path).load_settings(PROFILES).get("show_fps"),
+		false
+	)
 	_expect_true("legacy fixture reset", PresentationSettings.new(path).reset())
 
 	var integration = PresentationSettings.new()
@@ -146,7 +153,7 @@ func _init() -> void:
 		"integration settings save",
 		integration.save_settings(
 			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm",
-			false, "reduced"
+			false, "reduced", true
 		)
 	)
 

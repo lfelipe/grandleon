@@ -87,6 +87,8 @@ the shared engine already accepted.
 The live board remains visible as the camera focuses the two units and pushes
 into the close view, then the result dissolves back to that settled board.
 Reduced motion replaces the push with a short crossfade.
+The in-game Settings menu can also show a small live FPS counter on any
+renderer. It is off by default, including in console ROMs and disc images.
 
 ## One project, several targets
 
