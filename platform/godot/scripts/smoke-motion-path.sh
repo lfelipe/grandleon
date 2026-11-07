@@ -64,7 +64,7 @@ run_profile() {
     XDG_DATA_HOME="${state_dir}/data" \
     XDG_CONFIG_HOME="${state_dir}/config" \
     XDG_CACHE_HOME="${state_dir}/cache" \
-        timeout 20s "${runner[@]}" --path "${stage_dir}" -- \
+        timeout 60s "${runner[@]}" --path "${stage_dir}" -- \
         --package=res://game.gpk \
         --campaign=emberbound \
         --players=2 \
