@@ -295,6 +295,44 @@ func _test_cluster_landmarks(board) -> void:
 		):
 			grove_cutouts += 1
 	_expect("one footprint draws one ancient grove cutout", grove_cutouts, 1)
+	_test_castle_reveal(board)
+
+
+func _test_castle_reveal(board) -> void:
+	var features: Array = []
+	for y in 6:
+		for x in 6:
+			if y in [0, 5] or x == 5 or (x == 0 and y not in [2, 3]):
+				features.append("castle_wall")
+			elif x == 0:
+				features.append("castle_door")
+			elif x == 4 and y in [2, 3]:
+				features.append("castle_dais")
+			else:
+				features.append("castle_floor")
+	var kinds: Array = []
+	for feature: String in features:
+		kinds.append(3 if feature == "castle_wall" else 12)
+	var outside := {
+		"width": 6, "height": 6,
+		"units": [{
+			"id": 31, "name": "Rowan", "side": "first", "player": 1,
+			"x": 0, "y": 1, "health": 10, "maximum_health": 10,
+			"on_board": true, "archetype": 5, "colour": 0,
+			"style": 0, "figure": 0,
+		}],
+	}
+	board.configure(outside, kinds, 0, {}, features)
+	_expect("the castle keeps its exact six-cell footprint", board._castle_bounds, Rect2i(0, 0, 6, 6))
+	_expect_true("the castle starts with its exterior visible", board._castle_exterior != null and board._castle_exterior.modulate.a > 0.99)
+	_expect_true("the hidden room uses a matching dedicated cutaway", board._castle_cutaway != null and str(board._castle_cutaway.get_meta("landmark_asset")).contains("cutaway"))
+	var inside := outside.duplicate(true)
+	inside.units[0].x = 1
+	inside.units[0].y = 2
+	board.update_snapshot(inside)
+	_expect("entering the room arms its reveal", board._castle_reveal_target, 1.0)
+	board._update_castle_reveal(0.35)
+	_expect_true("the keep dissolves smoothly instead of popping", board._castle_exterior.modulate.a < 1.0 and board._castle_exterior.modulate.a > 0.0 and board._castle_cutaway.modulate.a > 0.0)
 
 
 func _snapshot(target_health: int) -> Dictionary:

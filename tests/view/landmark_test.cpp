@@ -42,6 +42,18 @@ std::vector<Rectangle> rectangles(view::LandmarkCell cell) {
     return result;
 }
 
+std::vector<Rectangle> castle_rectangles(view::CastleTile tile) {
+    std::vector<Rectangle> result;
+    view::paint_castle_tile(
+        tile, 100, 50, 32,
+        [&result](int x, int y, int width, int height,
+                  view::LandmarkTone tone) {
+            result.push_back({x, y, width, height, tone});
+        }
+    );
+    return result;
+}
+
 }  // namespace
 
 int main() {
@@ -110,6 +122,45 @@ int main() {
 
     const std::vector<Rectangle> no_landmark = rectangles({});
     expect(no_landmark.empty(), "ordinary terrain emits no landmark geometry");
+
+    constexpr std::uint64_t wall = 101U;
+    constexpr std::uint64_t door = 102U;
+    constexpr std::uint64_t floor = 103U;
+    constexpr std::uint64_t dais = 104U;
+    const std::array<view::CastleTile, 4> castle_tiles{{
+        view::CastleTile::wall, view::CastleTile::door,
+        view::CastleTile::floor, view::CastleTile::dais,
+    }};
+    expect(
+        view::castle_tile(wall, wall, door, floor, dais) ==
+            view::CastleTile::wall &&
+        view::castle_tile(door, wall, door, floor, dais) ==
+            view::CastleTile::door &&
+        view::castle_tile(floor, wall, door, floor, dais) ==
+            view::CastleTile::floor &&
+        view::castle_tile(dais, wall, door, floor, dais) ==
+            view::CastleTile::dais &&
+        view::castle_tile(999U, wall, door, floor, dais) ==
+            view::CastleTile::none,
+        "exact castle identities keep walls, doors, room and dais distinct"
+    );
+    for (const view::CastleTile tile : castle_tiles) {
+        const std::vector<Rectangle> drawn = castle_rectangles(tile);
+        expect(!drawn.empty(), "every castle tile emits visible geometry");
+        for (const Rectangle& rectangle : drawn) {
+            expect(
+                rectangle.x >= 100 && rectangle.y >= 50 &&
+                    rectangle.width > 0 && rectangle.height > 0 &&
+                    rectangle.x + rectangle.width <= 132 &&
+                    rectangle.y + rectangle.height <= 82,
+                "castle geometry stays inside its tactical cell"
+            );
+        }
+    }
+    expect(
+        castle_rectangles(view::CastleTile::none).empty(),
+        "ordinary terrain emits no castle geometry"
+    );
 
     return failures == 0 ? 0 : 1;
 }

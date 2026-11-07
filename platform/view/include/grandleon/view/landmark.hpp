@@ -36,6 +36,14 @@ enum class LandmarkTone : std::uint8_t {
     highlight,
 };
 
+enum class CastleTile : std::uint8_t {
+    none = 0,
+    wall,
+    door,
+    floor,
+    dais,
+};
+
 struct LandmarkCell final {
     TacticalLandmark landmark{TacticalLandmark::none};
     LandmarkQuadrant quadrant{LandmarkQuadrant::top_left};
@@ -171,6 +179,75 @@ inline void paint_landmark_cell(
             fill(2, 11, 10, 3, LandmarkTone::outline);
             fill(0, 13, 15, 3, LandmarkTone::primary);
             break;
+    }
+}
+
+// The castle is a connected 6x6 tactical room rather than a 2x2 blocked
+// landmark. Each exact identity therefore supplies its own tile treatment;
+// adjacency comes from the shared stone edges and the authored footprint.
+[[nodiscard]] constexpr CastleTile castle_tile(
+    std::uint64_t identity,
+    std::uint64_t wall_identity,
+    std::uint64_t door_identity,
+    std::uint64_t floor_identity,
+    std::uint64_t dais_identity
+) noexcept {
+    if (identity == wall_identity) return CastleTile::wall;
+    if (identity == door_identity) return CastleTile::door;
+    if (identity == floor_identity) return CastleTile::floor;
+    if (identity == dais_identity) return CastleTile::dais;
+    return CastleTile::none;
+}
+
+template<typename Paint>
+inline void paint_castle_tile(
+    CastleTile tile, int left, int top, int size, Paint paint
+) {
+    if (tile == CastleTile::none || size <= 0) return;
+    const auto fill = [&](int x, int y, int width, int height,
+                          LandmarkTone tone) {
+        int x0 = left + x * size / 16;
+        int y0 = top + y * size / 16;
+        int x1 = left + (x + width) * size / 16;
+        int y1 = top + (y + height) * size / 16;
+        if (x1 <= x0) x1 = x0 + 1;
+        if (y1 <= y0) y1 = y0 + 1;
+        paint(x0, y0, x1 - x0, y1 - y0, tone);
+    };
+    switch (tile) {
+        case CastleTile::wall:
+            fill(0, 2, 16, 14, LandmarkTone::outline);
+            fill(1, 3, 14, 13, LandmarkTone::primary);
+            fill(1, 3, 14, 3, LandmarkTone::highlight);
+            fill(1, 0, 3, 5, LandmarkTone::secondary);
+            fill(7, 0, 3, 5, LandmarkTone::secondary);
+            fill(13, 0, 3, 5, LandmarkTone::secondary);
+            fill(3, 9, 10, 2, LandmarkTone::secondary);
+            break;
+        case CastleTile::door:
+            fill(0, 0, 16, 16, LandmarkTone::primary);
+            fill(1, 1, 14, 15, LandmarkTone::outline);
+            fill(3, 2, 10, 14, LandmarkTone::accent);
+            fill(7, 2, 2, 14, LandmarkTone::outline);
+            fill(5, 8, 1, 1, LandmarkTone::highlight);
+            fill(10, 8, 1, 1, LandmarkTone::highlight);
+            break;
+        case CastleTile::floor:
+            fill(0, 0, 16, 16, LandmarkTone::primary);
+            fill(0, 0, 16, 1, LandmarkTone::highlight);
+            fill(0, 8, 16, 1, LandmarkTone::secondary);
+            fill(7, 0, 1, 8, LandmarkTone::secondary);
+            fill(3, 8, 1, 8, LandmarkTone::secondary);
+            fill(11, 8, 1, 8, LandmarkTone::secondary);
+            break;
+        case CastleTile::dais:
+            fill(0, 0, 16, 16, LandmarkTone::outline);
+            fill(1, 1, 14, 15, LandmarkTone::secondary);
+            fill(2, 3, 12, 12, LandmarkTone::accent);
+            fill(2, 3, 12, 2, LandmarkTone::highlight);
+            fill(6, 6, 4, 8, LandmarkTone::primary);
+            break;
+        case CastleTile::none: break;
     }
 }
 

@@ -15,6 +15,10 @@ TERRAIN_CODES = {
     # Keeping "mountain" in each landmark identity makes all four cells
     # impassable on every target, including a renderer that has no landmark art.
     "T": "mountain_ancient_grove", "V": "mountain_village_house",
+    # The final keep is terrain, not a non-interactive decoration. Its walls
+    # stay blocked while the doors, chamber and dais retain paved movement.
+    "K": "mountain_castle_wall", "D": "paved_castle_door",
+    "I": "paved_castle_floor", "Q": "paved_castle_dais",
 }
 
 # The opening is intentionally one screen. Every later board is larger than a
@@ -45,9 +49,9 @@ MAP_ROWS = {
     "twin_gate": (
         "MMMUURRRRPPPRRRRUUMM", "MMURRGGGRPPPRGGGRRUM",
         "MURRGPPPPUUUPPPPGRRU", "URRGPPUUPPPPPUUPPGRR",
-        "RRGPPUPPPUUUPPPUPGRR", "RGPPUPPPPPPPPPPPUPGR",
-        "RGPPPPUUUPPPUUUPPPGR", "RGPPPPUUUPPPUUUPPPGR",
-        "RGPPUPPPPPPPPPPPUPGR", "RRGPPUPPPUUUPPPUPGRR",
+        "RRGPPUPPPUUUPKKKKKKR", "RGPPUPPPPPPPPKIIIIKR",
+        "RGPPPPUUUPPPUDIIIQKR", "RGPPPPUUUPPPUDIIIQKR",
+        "RGPPUPPPPPPPPKIIIIKR", "RRGPPUPPPUUUPKKKKKKR",
         "URRGPPUUPPPPPUUPPGRR", "MURRGPPPPUUUPPPPGRRU",
         "MMURRGGGRPPPRGGGRRUM", "MMMUURRRRPPPRRRRUUMM",
     ),
@@ -214,7 +218,7 @@ def build_project() -> dict:
         map_record("cedar_deepwood", "Cedar Deepwood"),
         map_record("cedar_watch", "Cedar Watch"),
         map_record("gate_village", "Gate Village"),
-        map_record("twin_gate", "The Twin Gate"),
+        map_record("twin_gate", "Twin Gate Keep"),
     ]
     cast = {
         "Rowan": "rowan_vale", "Akari": "akari_mori",
@@ -273,20 +277,20 @@ def build_project() -> dict:
             ("Ren", "The square is our rendezvous. Until then, each army owns its own street fight."),
         ), cast),
         dialogue("village_won", "The Last Banner", (
-            ("Vere", "Masatora never wanted a partner. The Twin Gate is his now."),
-            ("Rowan", "The record survives you. I will carry it to the gate and end this before either realm can deny it."),
+            ("Vere", "Masatora never wanted a partner. He has sealed himself inside Twin Gate Keep."),
+            ("Rowan", "The record survives you. I will carry it through those doors and end this before either realm can deny it."),
         ), cast, "throne_hall"),
         dialogue("gate_parley", "What Peace Costs", (
             ("Masatora", "One gate, one law, one hand on the sword. That is peace that lasts."),
             ("Rowan", "That is fear made permanent. The gate opens for both realms, or for neither."),
         ), cast, "throne_hall"),
         dialogue("gate_orders", "The Twin Gate", (
-            ("Tomas", "The side stairs avoid the glaive, but his reserves will close them behind us."),
-            ("Rowan", "We break each guard post, converge on Masatora, and keep the treaty record standing with me."),
+            ("Tomas", "The outer routes avoid the glaive, but his reserves can close them before we reach the keep."),
+            ("Rowan", "Break each guard post, open the double doors, then advance together when the throne room is revealed."),
         ), cast),
         dialogue("gate_coop", "Steel and Cedar", (
-            ("Akari", "Rowan takes the high stair. I take the lower court. We meet at Masatora with both armies intact."),
-            ("Ren", "Separate openings, one finish. Neither route can wait for the other to do the work."),
+            ("Akari", "Rowan takes the high approach. I take the lower court. We meet at the keep doors with both armies intact."),
+            ("Ren", "Separate openings, one throne room. Neither route can wait for the other to do the work."),
         ), cast),
         dialogue("gate_coop_victory", "Both Banners", (
             ("Akari", "Cedar heard the truth from its own soldiers, not from a foreign court."),
@@ -411,7 +415,7 @@ def build_project() -> dict:
     nodes.append(story_node("village_camp", "The Last Banner", "village_won", "gate_parley"))
     nodes.append(story_node("gate_parley", "What Peace Costs", "gate_parley", "twin_gate"))
     nodes.append({
-        "id": "twin_gate", "name": "V — The Twin Gate", "kind": "encounter",
+        "id": "twin_gate", "name": "V — Twin Gate Keep", "kind": "encounter",
         "mapId": "twin_gate", "turnOrder": "sideBlocks",
         "placements": [
             placement("rowan_gate", "rowan_vale", "first", 6, 6, member="rowan", two_position=(2, 4)),
@@ -424,8 +428,6 @@ def build_project() -> dict:
             # Two-player armies can answer a second long-range guard; in solo,
             # the centre mystic already supplies ranged pressure behind the
             # high-stair melee line.
-            placement("gate_north_bow", "cedar_archer", "second", 16, 2, behavior="hold", coop=True),
-            placement("gate_south_bow", "march_archer", "second", 16, 11, behavior="hold", coop=True),
             placement("gate_center_mystic", "gate_mystic", "second", 13, 7, behavior="hold"),
             placement("gate_west_knife", "court_knife", "second", 8, 2, behavior="pursue"),
             placement("gate_wave_high", "red_retainer", "second", 10, 0, behavior="pursue", coop=True, arrival={"round": 4}),
@@ -450,7 +452,8 @@ def build_project() -> dict:
     ))
 
     project = {
-        "schemaVersion": "1.3.0",
+        "schemaVersion": "1.4.0",
+        "sourceLanguage": "en",
         "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
         "gameId": "grandleon.steel_and_cedar",
         "title": "Steel and Cedar",

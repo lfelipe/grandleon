@@ -25,6 +25,10 @@ const MEDIEVAL_HOUSE_TEXTURES := [
 const MEDIEVAL_HOUSE_PIXEL_SIZE := 0.00320
 const MEDIEVAL_HOUSE_CENTRE_HEIGHT := 0.79
 const ANCIENT_GROVE_TEXTURE := "res://art/map_features/ancient_tree_cluster_2x2.png"
+const CASTLE_EXTERIOR_TEXTURE := "res://art/map_features/medieval_castle_keep_exterior.png"
+const CASTLE_CUTAWAY_TEXTURE := "res://art/map_features/medieval_castle_keep_cutaway.png"
+const CASTLE_PIXEL_SIZE := 0.00530
+const CASTLE_CENTRE_HEIGHT := 2.38
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a87a4f"), Color("316b45"), Color("65717a"),
 	Color("c39a60"), Color("dce7e8"), Color("496c58"), Color("78915b"),
@@ -78,6 +82,11 @@ var _unit_flash_until: Dictionary = {}
 var _unit_flash_colours: Dictionary = {}
 var _landmark_cells: Dictionary = {}
 var _landmark_anchors: Dictionary = {}
+var _castle_bounds := Rect2i()
+var _castle_exterior: Sprite3D
+var _castle_cutaway: Sprite3D
+var _castle_reveal_progress := 0.0
+var _castle_reveal_target := 0.0
 var _materials: Dictionary = {}
 var _effects: Array[Dictionary] = []
 var _impact_texture: Texture2D
@@ -239,6 +248,7 @@ func update_snapshot(value: Dictionary) -> void:
 				_pending_unit_removal[id] = remove_after
 			else:
 				_remove_unit(int(id))
+	_update_castle_reveal_target()
 	_rebuild_markers()
 
 
@@ -449,6 +459,7 @@ func unit_at(cell: Vector2i) -> Dictionary:
 
 func _process(delta: float) -> void:
 	_pulse += delta
+	_update_castle_reveal(delta)
 	var now_msec := Time.get_ticks_msec()
 	_update_effects(now_msec)
 	_update_camera_shake(now_msec)
@@ -524,6 +535,7 @@ func _rebuild_terrain() -> void:
 	_terrain_root = Node3D.new()
 	_world.add_child(_terrain_root)
 	_detect_cluster_landmarks()
+	_detect_castle_landmark()
 	var width := int(snapshot.width)
 	var height := int(snapshot.height)
 	var depth := _surrounding_depth()
@@ -560,6 +572,7 @@ func _rebuild_terrain() -> void:
 			else:
 				_build_diorama_tile(x, y, kind)
 	_build_cluster_landmarks()
+	_build_castle_landmark()
 
 
 func _detect_cluster_landmarks() -> void:
@@ -608,6 +621,99 @@ func _build_cluster_landmarks() -> void:
 			_build_ancient_grove(anchor)
 		else:
 			_build_village_house(anchor)
+
+
+func _detect_castle_landmark() -> void:
+	_castle_bounds = Rect2i()
+	_castle_exterior = null
+	_castle_cutaway = null
+	_castle_reveal_progress = 0.0
+	_castle_reveal_target = 0.0
+	var width := int(snapshot.get("width", 0))
+	var minimum := Vector2i(width, int(snapshot.get("height", 0)))
+	var maximum := Vector2i(-1, -1)
+	for index in mini(terrain.size(), terrain_features.size()):
+		if not str(terrain_features[index]).begins_with("castle_"):
+			continue
+		var cell := Vector2i(index % width, index / width)
+		minimum.x = mini(minimum.x, cell.x)
+		minimum.y = mini(minimum.y, cell.y)
+		maximum.x = maxi(maximum.x, cell.x)
+		maximum.y = maxi(maximum.y, cell.y)
+	if maximum.x < minimum.x or maximum.y < minimum.y:
+		return
+	_castle_bounds = Rect2i(minimum, maximum - minimum + Vector2i.ONE)
+
+
+func _build_castle_landmark() -> void:
+	if _castle_bounds.size == Vector2i.ZERO:
+		return
+	if not ResourceLoader.exists(CASTLE_EXTERIOR_TEXTURE) or not ResourceLoader.exists(CASTLE_CUTAWAY_TEXTURE):
+		return
+	var exterior_resource: Resource = load(CASTLE_EXTERIOR_TEXTURE)
+	var cutaway_resource: Resource = load(CASTLE_CUTAWAY_TEXTURE)
+	if not exterior_resource is Texture2D or not cutaway_resource is Texture2D:
+		return
+	var first := _cell_position(_castle_bounds.position.x, _castle_bounds.position.y)
+	var last_cell := _castle_bounds.end - Vector2i.ONE
+	var last := _cell_position(last_cell.x, last_cell.y)
+	var centre := (first + last) * 0.5 + Vector3(0, CASTLE_CENTRE_HEIGHT, 0)
+	_castle_exterior = _castle_sprite(
+		exterior_resource as Texture2D, centre, CASTLE_EXTERIOR_TEXTURE, "exterior"
+	)
+	_castle_cutaway = _castle_sprite(
+		cutaway_resource as Texture2D, centre, CASTLE_CUTAWAY_TEXTURE, "cutaway"
+	)
+	_castle_cutaway.modulate.a = 0.0
+	_update_castle_reveal_target()
+
+
+func _castle_sprite(texture: Texture2D, centre: Vector3, path: String, layer: String) -> Sprite3D:
+	var sprite := Sprite3D.new()
+	sprite.texture = texture
+	sprite.position = centre
+	sprite.pixel_size = CASTLE_PIXEL_SIZE
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sprite.shaded = false
+	sprite.double_sided = true
+	sprite.set_meta("landmark_style", "medieval_castle")
+	sprite.set_meta("landmark_asset", path)
+	sprite.set_meta("castle_layer", layer)
+	_terrain_root.add_child(sprite)
+	return sprite
+
+
+func _update_castle_reveal_target() -> void:
+	if _castle_bounds.size == Vector2i.ZERO:
+		_castle_reveal_target = 0.0
+		return
+	_castle_reveal_target = 0.0
+	var width := int(snapshot.get("width", 0))
+	for unit: Dictionary in snapshot.get("units", []):
+		if not bool(unit.get("on_board", false)) or str(unit.get("side", "")) != "first":
+			continue
+		var cell := Vector2i(int(unit.get("x", -1)), int(unit.get("y", -1)))
+		if not _castle_bounds.has_point(cell):
+			continue
+		var index := cell.y * width + cell.x
+		var feature := str(terrain_features[index]) if index >= 0 and index < terrain_features.size() else ""
+		if feature in ["castle_door", "castle_floor", "castle_dais"]:
+			_castle_reveal_target = 1.0
+			return
+
+
+func _update_castle_reveal(delta: float) -> void:
+	if _castle_exterior == null or _castle_cutaway == null:
+		return
+	_castle_reveal_progress = move_toward(
+		_castle_reveal_progress, _castle_reveal_target, delta * 1.8
+	)
+	var eased := smoothstep(0.0, 1.0, _castle_reveal_progress)
+	_castle_exterior.modulate.a = 1.0 - eased
+	_castle_cutaway.modulate.a = eased
+	_castle_exterior.set_meta("castle_reveal", _castle_reveal_progress)
+	_castle_cutaway.set_meta("castle_reveal", _castle_reveal_progress)
 
 
 func _landmark_centre(anchor: Vector2i) -> Vector3:

@@ -45,6 +45,9 @@ void draw_terrain(
 void draw_landmark(
     int left, int top, int size, grandleon::view::LandmarkCell cell
 );
+void draw_castle_tile(
+    int left, int top, int size, grandleon::view::CastleTile tile
+);
 void draw_character(
     int drawing, Pose pose, int centre_x, int bottom, int cell_size,
     bool facing_left = false

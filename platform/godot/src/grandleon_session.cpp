@@ -44,8 +44,20 @@ const char* terrain_feature_name(std::uint64_t terrain_id) {
         core::stable_content_id_v1("mountain_village_house");
     static const std::uint64_t ancient_grove =
         core::stable_content_id_v1("mountain_ancient_grove");
+    static const std::uint64_t castle_wall =
+        core::stable_content_id_v1("mountain_castle_wall");
+    static const std::uint64_t castle_door =
+        core::stable_content_id_v1("paved_castle_door");
+    static const std::uint64_t castle_floor =
+        core::stable_content_id_v1("paved_castle_floor");
+    static const std::uint64_t castle_dais =
+        core::stable_content_id_v1("paved_castle_dais");
     if (terrain_id == village_house) return "village_house";
     if (terrain_id == ancient_grove) return "ancient_grove";
+    if (terrain_id == castle_wall) return "castle_wall";
+    if (terrain_id == castle_door) return "castle_door";
+    if (terrain_id == castle_floor) return "castle_floor";
+    if (terrain_id == castle_dais) return "castle_dais";
     return "";
 }
 

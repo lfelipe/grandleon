@@ -271,6 +271,42 @@ void draw_landmark(
     rdpq_mode_combiner(RDPQ_COMBINER_TEX_FLAT);
 }
 
+void draw_castle_tile(
+    int left, int top, int size, grandleon::view::CastleTile tile
+) {
+    if (!ready || tile == grandleon::view::CastleTile::none || size <= 0) {
+        return;
+    }
+    rdpq_set_mode_standard();
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_dithering(DITHER_NONE_NONE);
+    grandleon::view::paint_castle_tile(
+        tile, left, top, size,
+        [](int x, int y, int width, int height,
+           grandleon::view::LandmarkTone tone) {
+            struct Colour final {
+                std::uint8_t red;
+                std::uint8_t green;
+                std::uint8_t blue;
+            };
+            constexpr Colour colours[] = {
+                {42, 40, 38}, {146, 137, 120}, {88, 84, 78},
+                {98, 49, 31}, {218, 180, 90},
+            };
+            const Colour colour = colours[static_cast<std::size_t>(tone)];
+            rdpq_set_prim_color(
+                RGBA32(colour.red, colour.green, colour.blue, 255)
+            );
+            rdpq_fill_rectangle(x, y, x + width, y + height);
+        }
+    );
+    rdpq_set_mode_standard();
+    rdpq_mode_tlut(TLUT_RGBA16);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_mode_dithering(DITHER_NONE_NONE);
+    rdpq_mode_combiner(RDPQ_COMBINER_TEX_FLAT);
+}
+
 void draw_character(
     int drawing, Pose pose, int centre_x, int bottom, int cell_size,
     bool facing_left

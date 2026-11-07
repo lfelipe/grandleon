@@ -208,11 +208,11 @@ and the terrain scenes live in
 
 ### Large map-feature prototypes
 
-The village and deep-forest landmarks are preserved as transparent source
-renders: a four-building Medieval family and a 2×2 ancient-tree cluster.
-They are not ordinary one-cell terrain. Steel and Cedar now authors each as an
-explicit four-cell blocked footprint, and Godot groups that footprint into one
-coherent building or natural mass.
+The village, deep-forest and final-castle landmarks are preserved as transparent
+source renders: a four-building Medieval family, a 2×2 ancient-tree cluster,
+and matched exterior/cutaway states for the 6×6 Twin Gate Keep. They are not
+ordinary one-cell terrain. Steel and Cedar authors exact tactical footprints,
+and Godot groups each footprint into one coherent structure or natural mass.
 
 [Review the source renders and their intended footprints](../platform/godot/project/art/map_features/README.md).
 
@@ -233,8 +233,15 @@ identities `mountain_village_house` and `mountain_ancient_grove` and refuses
 partial, overlapping, out-of-bounds, occupied, or deployment-area footprints.
 Nintendo 64 and PlayStation draw recognizable connected house and grove
 silhouettes over the same blocked mountain cells without spending additional
-texture memory. The castle-gate draft was deliberately not committed because
-its alpha retained a dark halo.
+texture memory.
+
+Twin Gate Keep uses distinct terrain identities for blocked walls, passable
+double doors, the walkable throne-room floor and the boss dais. Godot initially
+draws the closed exterior; once a friendly unit enters a door or room cell, it
+dissolves to the aligned cutaway without moving the board, units, or camera.
+The accepted 1024×936 pair had alpha below 25% discarded to remove the earlier
+coloured fringe. The exact prompts, generation mode and cleanup are recorded
+with the source files so the art can be regenerated or deliberately revised.
 
 ## The full portable library
 

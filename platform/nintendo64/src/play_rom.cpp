@@ -280,6 +280,14 @@ constexpr std::uint64_t ancient_grove_terrain =
     core::stable_content_id_v1("mountain_ancient_grove");
 constexpr std::uint64_t village_house_terrain =
     core::stable_content_id_v1("mountain_village_house");
+constexpr std::uint64_t castle_wall_terrain =
+    core::stable_content_id_v1("mountain_castle_wall");
+constexpr std::uint64_t castle_door_terrain =
+    core::stable_content_id_v1("paved_castle_door");
+constexpr std::uint64_t castle_floor_terrain =
+    core::stable_content_id_v1("paved_castle_floor");
+constexpr std::uint64_t castle_dais_terrain =
+    core::stable_content_id_v1("paved_castle_dais");
 
 void expect(bool condition, const char* message) {
     ++checks;
@@ -5221,6 +5229,14 @@ private:
                     item.x, item.y, item.w, landmark
                 );
             }
+            const view::CastleTile castle = castle_at(
+                item.cell_x, item.cell_y
+            );
+            if (castle != view::CastleTile::none) {
+                console::draw_castle_tile(
+                    item.x, item.y, item.w, castle
+                );
+            }
         }
         for (int i = 0; i < draw_list_.size(); ++i) {
             const view::DrawItem& item = draw_list_[i];
@@ -8237,6 +8253,21 @@ private:
         return view::landmark_cell(
             identity, left, above, ancient_grove_terrain,
             village_house_terrain
+        );
+    }
+
+    [[nodiscard]] view::CastleTile castle_at(int x, int y) const {
+        if (x < 0 || y < 0 || x >= board_width_) {
+            return view::CastleTile::none;
+        }
+        const std::size_t index =
+            static_cast<std::size_t>(y) *
+                static_cast<std::size_t>(board_width_) +
+            static_cast<std::size_t>(x);
+        if (index >= terrain_.size()) return view::CastleTile::none;
+        return view::castle_tile(
+            terrain_[index], castle_wall_terrain, castle_door_terrain,
+            castle_floor_terrain, castle_dais_terrain
         );
     }
 

@@ -56,7 +56,7 @@ constexpr std::array<Stage, 5> stages{{
     {"cedar_deepwood", 14, 9, 5, 7, 2},
     {"cedar_watch", 16, 12, 5, 9, 2},
     {"gate_village", 18, 12, 6, 9, 2},
-    {"twin_gate", 20, 14, 4, 9, 3},
+    {"twin_gate", 20, 14, 4, 7, 3},
 }};
 
 std::size_t count_units(
@@ -468,6 +468,13 @@ int main() {
         landmark_cells("gate_village", "mountain_village_house") == 24U,
         "Gate Village authors six explicit four-cell houses"
     );
+    expect(
+        landmark_cells("twin_gate", "mountain_castle_wall") == 18U &&
+        landmark_cells("twin_gate", "paved_castle_door") == 2U &&
+        landmark_cells("twin_gate", "paved_castle_floor") == 14U &&
+        landmark_cells("twin_gate", "paved_castle_dais") == 2U,
+        "Twin Gate authors one connected 6x6 keep with a passable chamber"
+    );
     const auto landmark_quadrants = [&maps](
         std::string_view map_key, std::string_view terrain_key
     ) {
@@ -518,6 +525,33 @@ int main() {
                 expect(
                     map.terrain_kinds[cell] == gc::terrain_kind_index("mountain"),
                     "every landmark footprint keeps impassable mountain rules"
+                );
+            }
+        }
+    }
+    {
+        const gc::Map& map = *maps.at(core::stable_content_id_v1("twin_gate"));
+        const std::uint64_t wall =
+            core::stable_content_id_v1("mountain_castle_wall");
+        const std::array<std::uint64_t, 3> passable{{
+            core::stable_content_id_v1("paved_castle_door"),
+            core::stable_content_id_v1("paved_castle_floor"),
+            core::stable_content_id_v1("paved_castle_dais"),
+        }};
+        for (std::size_t cell = 0; cell < map.terrain.size(); ++cell) {
+            if (map.terrain[cell] == wall) {
+                expect(
+                    map.terrain_kinds[cell] ==
+                        gc::terrain_kind_index("mountain"),
+                    "castle walls keep blocked mountain rules"
+                );
+            }
+            if (std::find(
+                    passable.begin(), passable.end(), map.terrain[cell]
+                ) != passable.end()) {
+                expect(
+                    map.terrain_kinds[cell] == gc::terrain_kind_index("paved"),
+                    "castle doors, floor and dais keep passable paved rules"
                 );
             }
         }

@@ -101,6 +101,37 @@ stylized 3D painterly render, clear at roughly 180 pixels. One isolated uncroppe
 cluster; no terrain base, grid, people, buildings, text, watermark, magical
 glow, or distant shadow.”
 
-The castle-gate draft is not included yet: its generated alpha retained a broad
-dark halo that would stain the board underneath. It remains a concept until a
-clean cutout and a deliberate passable centre-cell footprint are ready.
+## Twin Gate Keep
+
+- `medieval_castle_keep_exterior.png` is the closed keep seen while the army
+  crosses the outer court.
+- `medieval_castle_keep_cutaway.png` keeps the same camera, scale and silhouette
+  but opens the double doors and exposes the stone throne room, columns, dais,
+  chair and torchlight.
+- Intended footprint: 6 × 6 cells. Eighteen wall cells are blocked; two door,
+  fourteen chamber and two dais cells are paved and walkable.
+
+The pair was generated on 2026-11-07 with Codex's built-in OpenAI
+image-generation tool. The service did not expose a model-version identifier,
+so one is not guessed here. The cutaway was produced as an edit of the accepted
+exterior so the two states align during a dissolve. Both accepted images were
+resampled to 1024×936, and alpha below 25% was discarded to remove a faint
+coloured fringe; the subject itself was not repainted during that cleanup.
+
+**Exterior prompt:** “One imposing but readable medieval border keep for an
+isometric tactical board, occupying an exact connected 6×6 footprint. Warm
+fieldstone walls, two flanking towers, crenellations, steep weathered red-brown
+roofs, and a closed central double oak door facing the lower-left approach.
+Fixed three-quarter isometric camera from above, entire silhouette visible,
+polished stylized 3D painterly game render matching the Medieval village family,
+clear at board scale, genuinely transparent background. One isolated uncropped
+castle; no terrain base, grid, people, units, foliage, text, watermark, modern
+materials, detached props, or distant shadow.”
+
+**Cutaway edit prompt:** “Keep the exact castle, camera, lighting, scale,
+silhouette and transparent background. Open the central double doors and remove
+the near wall and roof only where needed to reveal the room beneath: a readable
+stone throne chamber with a tiled floor, columns, warm wall torches, a short
+dais and one period chair. The result must align pixel-for-pixel with the closed
+exterior for a smooth gameplay dissolve. No units, people, text, grid, terrain
+base, modern objects, extra wings, or changed camera angle.”

@@ -250,6 +250,7 @@ func _draw() -> void:
 	_draw_surrounding_terrain()
 	_draw_terrain()
 	_draw_cluster_landmarks()
+	_draw_castle_landmark()
 	_draw_selected_tiles()
 	_draw_units()
 	_draw_combat_effects()
@@ -480,6 +481,43 @@ func _draw_cluster_landmarks() -> void:
 				])
 				draw_colored_polygon(roof, Color("7f342d"))
 				draw_rect(Rect2(bounds.get_center() + Vector2(tile_size * 0.26, tile_size * 0.12), Vector2(tile_size * 0.34, tile_size * 0.58)), Color("251c1a"), true)
+
+
+func _draw_castle_landmark() -> void:
+	var width := int(snapshot.width)
+	var height := int(snapshot.height)
+	var minimum := Vector2i(width, height)
+	var maximum := Vector2i(-1, -1)
+	for index in mini(terrain.size(), terrain_features.size()):
+		if not str(terrain_features[index]).begins_with("castle_"):
+			continue
+		var cell := Vector2i(index % width, index / width)
+		minimum.x = mini(minimum.x, cell.x)
+		minimum.y = mini(minimum.y, cell.y)
+		maximum.x = maxi(maximum.x, cell.x)
+		maximum.y = maxi(maximum.y, cell.y)
+	if maximum.x < minimum.x:
+		return
+	var bounds := Rect2(
+		origin + Vector2(minimum) * tile_size,
+		Vector2(maximum - minimum + Vector2i.ONE) * tile_size
+	).grow(-tile_size * 0.06)
+	# The 2D fallback keeps the same authored footprint visibly connected. The
+	# 3D player supplies the full exterior-to-interior cutaway transition.
+	draw_rect(bounds, Color("61584c"), true)
+	draw_rect(bounds.grow(-tile_size * 0.16), Color("a59a84"), true)
+	var door_height := tile_size * 1.75
+	draw_rect(Rect2(
+		Vector2(bounds.position.x, bounds.get_center().y - door_height * 0.5),
+		Vector2(tile_size * 0.34, door_height)
+	), Color("422c22"), true)
+	var chamber := Rect2(
+		bounds.position + Vector2(tile_size * 1.05, tile_size * 1.0),
+		bounds.size - Vector2(tile_size * 2.0, tile_size * 2.0)
+	)
+	draw_rect(chamber, Color("81766a"), true)
+	for column_x in [chamber.position.x + tile_size * 0.45, chamber.end.x - tile_size * 0.45]:
+		draw_circle(Vector2(column_x, chamber.position.y + tile_size * 0.45), tile_size * 0.16, Color("c4b69a"))
 
 
 func _draw_terrain_cell(x: int, y: int, kind: int, mask: int) -> void:

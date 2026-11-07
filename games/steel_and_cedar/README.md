@@ -20,7 +20,7 @@ front and when to rendezvous.
 | **Cedar Deepwood** (14×9) | Rowan begins farther along the old track so the forest does not become a long empty walk. Ambushes guard clearings, rocks, and narrow paths. | The March starts on the northern trail and Cedar on the southern trail. Each army must win its route before meeting at the watch road. |
 | **Cedar Watch** (16×12) | Survive 20 rounds and keep Commander Rowan standing. Only two enemies begin on the board; three wave groups pressure the west, east, and north without asking two units to cover every edge. | Rowan holds the western command court while Akari owns the eastern steps. Seven groups use all four approaches, with room to warn and reinforce one another. |
 | **Gate Village** (18×12) | Rowan pushes from a closer start through the gate, alleys, and village square to defeat Castellan Vere without losing the commander. | The March takes the north gate while Cedar takes the south lane. The companies fight separate street battles before meeting in the square and closing Vere's escape. |
-| **The Twin Gate** (20×14) | Rowan's high stair route and Tomas's stronger field healing are tested against a knife, guard, mystic, and Lord Masatora. | Akari takes the lower court while Rowan takes the high stair. Ranged posts and two reserves make both routes work before the armies converge on the boss. |
+| **Twin Gate Keep** (20×14) | Rowan's outer approach and Tomas's stronger field healing are tested before the company opens the keep and fights Lord Masatora inside its throne room. | Akari takes the lower court while Rowan takes the high approach. A second guard line and two reserves pressure both routes before the armies converge at the keep doors and enter together. |
 
 Every board after the tutorial is larger than one console view. Enemies are
 placed as route guards, flank threats, ranged pressure, command posts, and wave
@@ -41,6 +41,11 @@ but not the final environment presentation.
   two cross streets, narrow alleys, a paved square, a wall with three entries,
   and a defended court. The houses occupy real impassable cells, so an archer
   cannot shoot a visual prop that everybody else walks through.
+
+Twin Gate Keep adds a connected 6×6 castle footprint: blocked outer walls,
+two passable doors, a walkable chamber and a boss dais. Entering the keep
+reveals the room beneath its exterior cutout without changing any tactical
+cells or unit positions.
 
 The current Godot grouping is a campaign prototype. These should become named,
 portable map features that an author can place and preview in one action and
