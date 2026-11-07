@@ -4,6 +4,7 @@
 // keyboard and that its answer is the existing portable rename intent.
 
 #include <grandleon/client/turn_client.hpp>
+#include <grandleon/core/content_identity.hpp>
 
 #include <iostream>
 #include <string_view>
@@ -37,6 +38,13 @@ public:
 
     void paint_screen(const turn::ScreenView& view) override {
         if (view.screen == turn::Screen::name) ++name_screens_;
+        if (view.screen == turn::Screen::story && view.page != nullptr) {
+            std::vector<std::string> page;
+            for (int row = 0; row < view.page->count; ++row) {
+                page.emplace_back(view.page->line(row));
+            }
+            story_pages_.push_back(std::move(page));
+        }
         if (view.screen == turn::Screen::member && view.verbs != nullptr) {
             member_offered_rename_ = false;
             for (int row = 0; row < view.items; ++row) {
@@ -59,9 +67,14 @@ public:
     [[nodiscard]] bool member_offered_rename() const noexcept {
         return member_offered_rename_;
     }
+    [[nodiscard]] const std::vector<std::vector<std::string>>& story_pages()
+        const noexcept {
+        return story_pages_;
+    }
 
 private:
     std::vector<std::uint16_t> presses_;
+    std::vector<std::vector<std::string>> story_pages_;
     int name_screens_{0};
     bool member_offered_rename_{false};
 };
@@ -71,6 +84,8 @@ client::RosterEntry member(
 ) {
     client::RosterEntry out;
     out.member = {1};
+    out.placement_source_key =
+        grandleon::core::stable_content_id_v1("aren");
     out.name = custom ? "Luzia" : "Aren";
     out.authored_name = "Aren";
     out.player_nameable = nameable;
@@ -94,6 +109,28 @@ void type_lu(NamePilot& pilot) {
     pilot.press(turn::pad_down);
     pilot.press(turn::pad_a);  // U
     pilot.press(turn::pad_start);
+}
+
+bool page_contains(
+    const std::vector<std::vector<std::string>>& pages,
+    std::string_view wanted
+) {
+    for (const auto& page : pages) {
+        for (const std::string& line : page) {
+            if (line.find(wanted) != std::string::npos) return true;
+        }
+    }
+    return false;
+}
+
+void present_name_tokens(NamePilot& pilot) {
+    grandleon::package_runtime::Dialogue dialogue;
+    grandleon::package_runtime::DialogueLine line;
+    line.speaker = "{{member:aren}}";
+    line.text = "Hold, {{member:aren}}. Missing {{member:missing}}.";
+    dialogue.lines.push_back(line);
+    pilot.press(turn::pad_a);
+    pilot.present_dialogue(dialogue);
 }
 
 }  // namespace
@@ -229,6 +266,28 @@ int main() {
         external_intent.verb == client::ManagementVerb::none &&
             keep_external.name_screens() > 0,
         "Cancel preserves an unsupported external name without a rename intent"
+    );
+
+    NamePilot authored_dialogue{sink};
+    authored_dialogue.campaign_begun({member(true)}, {}, "slot", true);
+    present_name_tokens(authored_dialogue);
+    expect(
+        page_contains(authored_dialogue.story_pages(), "AREN:") &&
+            page_contains(authored_dialogue.story_pages(), "HOLD, AREN.") &&
+            page_contains(
+                authored_dialogue.story_pages(), "MEMBER:MISSING"
+            ),
+        "console dialogue resolves the authored effective name and keeps an "
+        "unknown token visibly diagnosable"
+    );
+
+    NamePilot custom_dialogue{sink};
+    custom_dialogue.campaign_begun({member(true, true)}, {}, "slot", true);
+    present_name_tokens(custom_dialogue);
+    expect(
+        page_contains(custom_dialogue.story_pages(), "LUZIA:") &&
+            page_contains(custom_dialogue.story_pages(), "HOLD, LUZIA."),
+        "console dialogue resolves the player's effective custom name"
     );
 
     if (failures != 0) return 1;

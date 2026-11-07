@@ -1435,10 +1435,26 @@ public:
     //
     // The prompt says which of the two the press does. Every line the shipped
     // game authors fits on one page and reads A: NEXT exactly as it did.
+    [[nodiscard]] grandleon::package_runtime::DialogueLine presented_line(
+        const grandleon::package_runtime::DialogueLine& authored
+    ) const {
+        grandleon::package_runtime::DialogueLine shown = authored;
+#ifdef GRANDLEON_N64_CAMPAIGN
+        shown.speaker = client::substitute_campaign_member_names(
+            authored.speaker, campaign_roster_
+        );
+        shown.text = client::substitute_campaign_member_names(
+            authored.text, campaign_roster_
+        );
+#endif
+        return shown;
+    }
+
     void present_dialogue(
         const grandleon::package_runtime::Dialogue& dialogue
     ) override {
-        for (const auto& line : dialogue.lines) {
+        for (const auto& authored : dialogue.lines) {
+            const auto line = presented_line(authored);
             report_line("say  %s: %s\n", line.speaker.c_str(),
                         line.text.c_str());
 #ifndef GRANDLEON_N64_PROBE
@@ -1733,7 +1749,8 @@ public:
                 "say  scene %d lines\n",
                 static_cast<int>(scene.dialogue.lines.size())
             );
-            for (const auto& line : scene.dialogue.lines) {
+            for (const auto& authored : scene.dialogue.lines) {
+                const auto line = presented_line(authored);
                 report_line(
                     "say  %s: %s\n", line.speaker.c_str(), line.text.c_str()
                 );
@@ -1763,9 +1780,9 @@ public:
         weapons_ = weapons;
         abilities_ = abilities;
         items_ = items;
-        // How many rounds this board is won by surviving, and zero where
-        // nothing on it is. That is every board this ROM has been handed, and
-        // is why the status line says exactly what it always said.
+        // Objective UI is derived from kind and bound targets: the status line
+        // shows this survive count and unit UI uses roster names. The ROM never
+        // draws an authored objective label, so there is no label to resolve.
         rounds_to_survive_ = grandleon::sheet::rounds_to_survive(objectives);
     }
 
@@ -2291,6 +2308,7 @@ public:
         std::string_view slot,
         bool resumed
     ) override {
+        campaign_roster_ = roster;
         pending_player_names_.clear();
         if (!resumed) queue_player_names(roster);
         // The line the persistence check keys on. Which of the two words this
@@ -2376,6 +2394,7 @@ public:
         // dropped again in `battle_aftermath`, which is the far end of that
         // window, rather than left to be overwritten by the next battle's.
         board_ = &board;
+        campaign_roster_ = board.roster;
         report_line(
             "board node=%llu encounter=%llu roster=%d excluded=%d\n",
             static_cast<unsigned long long>(board.node.stable_id),
@@ -2394,6 +2413,7 @@ public:
         // the aftermath's own roster, which is the company as the commit left
         // it and is the right list to read after a battle anyway.
         board_ = nullptr;
+        campaign_roster_ = aftermath.roster;
         report_line(
             "aftermath outcome=%d fallen=%d joined=%d levels=%d moved=%d\n",
             static_cast<int>(aftermath.outcome),
@@ -2545,6 +2565,16 @@ public:
         const std::vector<client::RosterEntry>& joined
     ) override {
         if (joined.empty()) return;
+        for (const client::RosterEntry& arrival : joined) {
+            bool replaced = false;
+            for (client::RosterEntry& member : campaign_roster_) {
+                if (member.member != arrival.member) continue;
+                member = arrival;
+                replaced = true;
+                break;
+            }
+            if (!replaced) campaign_roster_.push_back(arrival);
+        }
         queue_player_names(joined);
         report_line("joined %d\n", static_cast<int>(joined.size()));
         surface_t* disp = display_get();
@@ -2685,6 +2715,9 @@ public:
     [[nodiscard]] client::ManagementIntent next_management_intent(
         const client::CompanyManagement& company
     ) override {
+        // A rename commit returns through this callback before story can
+        // continue, so later tokens see the effective company immediately.
+        campaign_roster_ = company.roster;
         while (!pending_player_names_.empty()) {
             const campaign::PersistentEntityId wanted =
                 pending_player_names_.front();
@@ -4964,6 +4997,9 @@ private:
     // moves it, through `ListWindow::follow`, which clamps.
     int roster_top_{0};
     std::vector<campaign::PersistentEntityId> pending_player_names_;
+    // Effective authored-or-player campaign names, retained because story
+    // pages also exist between battles when `board_` is deliberately null.
+    std::vector<client::RosterEntry> campaign_roster_;
     // Counts down over the company redraws that follow a save, so the word
     // appears where the player is looking rather than on a screen of its own.
     // Saving happens between every gesture, and a screen per save would put a

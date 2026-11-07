@@ -1431,6 +1431,12 @@ private:
     // fixed formation leaves this empty and takes the byte-for-byte direct
     // start path it had before names existed.
     std::vector<campaign::PersistentEntityId> pending_player_names_;
+    // The campaign roster as the session most recently published it. Story
+    // text can be presented between boards, so the borrowed `board_` alone is
+    // not enough to resolve an authored `{{member:id}}` token. This copy keeps
+    // the effective authored-or-player name and is refreshed at every session
+    // boundary that can change the company.
+    std::vector<client::RosterEntry> campaign_roster_;
     bool resumed_{false};
     bool leaving_{false};
     int saves_{0};

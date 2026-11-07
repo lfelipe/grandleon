@@ -108,6 +108,57 @@ void copy_line(char* out, std::size_t capacity, const char* text) noexcept {
     out[i] = '\0';
 }
 
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+// The pinned PlayStation standard library supplies pointer-length string
+// assignment but not the hosted lvalue string copy symbols. Copy the two text
+// fields explicitly and keep the remaining value/vector fields ordinary.
+void copy_roster_entry(
+    client::RosterEntry& target, const client::RosterEntry& source
+) {
+    target.member = source.member;
+    target.placement_source_key = source.placement_source_key;
+    target.name.assign(source.name.data(), source.name.size());
+    target.unit_type = source.unit_type;
+    target.availability = source.availability;
+    target.progression = source.progression;
+    target.carried = source.carried;
+    target.authored_name.assign(
+        source.authored_name.data(), source.authored_name.size()
+    );
+    target.player_nameable = source.player_nameable;
+    target.has_player_name = source.has_player_name;
+}
+
+void copy_campaign_roster(
+    std::vector<client::RosterEntry>& target,
+    const std::vector<client::RosterEntry>& source
+) {
+    target.clear();
+    target.reserve(source.size());
+    for (const client::RosterEntry& member : source) {
+        target.emplace_back();
+        copy_roster_entry(target.back(), member);
+    }
+}
+
+void merge_campaign_roster(
+    std::vector<client::RosterEntry>& target,
+    const std::vector<client::RosterEntry>& additions
+) {
+    for (const client::RosterEntry& arrival : additions) {
+        client::RosterEntry* destination = nullptr;
+        for (client::RosterEntry& member : target) {
+            if (member.member == arrival.member) destination = &member;
+        }
+        if (destination == nullptr) {
+            target.emplace_back();
+            destination = &target.back();
+        }
+        copy_roster_entry(*destination, arrival);
+    }
+}
+#endif
+
 }  // namespace
 
 const char* reason_name(Reason reason) noexcept {
@@ -444,6 +495,12 @@ void TurnClient::present_dialogue(const package_runtime::Dialogue& dialogue) {
     // What it costs is presses: a five-line scene is five pages where it was
     // two. What it buys is that every page names and shows exactly one person.
     for (const package_runtime::DialogueLine& spoken : dialogue.lines) {
+        const std::string speaker = substitute_campaign_member_names(
+            spoken.speaker, campaign_roster_
+        );
+        const std::string text = substitute_campaign_member_names(
+            spoken.text, campaign_roster_
+        );
         begin_page();
         // Set after the page is begun, because `begin_page` clears both: a
         // backdrop belongs to the scene and a speaker to the saying, and
@@ -461,7 +518,7 @@ void TurnClient::present_dialogue(const package_runtime::Dialogue& dialogue) {
         // `push_wrapped`, which is the one break a page per saying cannot make
         // unnecessary.
         push_wrapped(
-            spoken.speaker.c_str(), spoken.text.c_str(), dialogue.backdrop
+            speaker.c_str(), text.c_str(), dialogue.backdrop
         );
         hold_page(Screen::story, "A  GO ON");
     }
@@ -801,9 +858,10 @@ void TurnClient::battle_definitions(
     weapons_ = weapons;
     abilities_ = abilities;
     items_ = items;
-    // How many rounds this board is won by surviving, and zero where nothing
-    // on it is. That is every board this client has ever been handed, and is
-    // why the status row it feeds says exactly what it always said.
+    // Console objective presentation is derived from kind and bound targets:
+    // the status row shows this survive count and unit UI uses roster names.
+    // It never draws an authored objective label, so there is no label text to
+    // substitute here.
     rounds_to_survive_ = sheet::rounds_to_survive(objectives);
 }
 
@@ -3763,6 +3821,7 @@ void TurnClient::campaign_begun(
 ) {
     static_cast<void>(slot);
     resumed_ = resumed;
+    copy_campaign_roster(campaign_roster_, roster);
     pending_player_names_.clear();
     if (!resumed) queue_player_names(roster);
     // Evidence that this campaign has a history, counted where the campaign is
@@ -3825,6 +3884,7 @@ void TurnClient::board_prepared(const client::CampaignBoard& board) {
     // the join saying which numbered unit each member is standing in, and this
     // is the only moment a client is handed them together.
     board_ = &board;
+    copy_campaign_roster(campaign_roster_, board.roster);
     Text line;
     line.text("board roster ")
         .number(static_cast<std::int32_t>(board.roster.size()))
@@ -3843,6 +3903,7 @@ void TurnClient::battle_aftermath(const client::BattleAftermath& aftermath) {
     // left to be replaced by the next `board_prepared`, so that the window it is
     // readable in is the window it is valid in.
     board_ = nullptr;
+    copy_campaign_roster(campaign_roster_, aftermath.roster);
     {
         Text line;
         line.text("aftermath outcome ")
@@ -3934,6 +3995,7 @@ void TurnClient::members_joined(
     const std::vector<client::RosterEntry>& joined
 ) {
     if (joined.empty()) return;
+    merge_campaign_roster(campaign_roster_, joined);
     queue_player_names(joined);
     begin_page();
     push_line("JOINS THE COMPANY");
@@ -4016,6 +4078,10 @@ void TurnClient::stage_jumped(const client::StageJump& jump) {
 client::ManagementIntent TurnClient::next_management_intent(
     const client::CompanyManagement& company
 ) {
+    // This is the first callback after a rename commit and the last callback
+    // before proceeding, so subsequent story text sees the exact effective
+    // roster the session will use.
+    copy_campaign_roster(campaign_roster_, company.roster);
     while (!pending_player_names_.empty()) {
         const campaign::PersistentEntityId wanted =
             pending_player_names_.front();

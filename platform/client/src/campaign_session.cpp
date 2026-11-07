@@ -89,18 +89,24 @@ std::string substitute_campaign_member_names(
     constexpr std::string_view opening = "{{member:";
     constexpr std::string_view closing = "}}";
     std::string result;
+    // Nugget's PlayStation libstdc++ omits the hosted pointer-length append
+    // symbol. A token is bounded source text, so copying its bytes one at a
+    // time is equivalent and keeps unknown-token fallback byte-for-byte.
+    const auto append_bytes = [&result](std::string_view text) {
+        for (char byte : text) result.push_back(byte);
+    };
     std::size_t cursor = 0;
     while (cursor < authored_text.size()) {
         const std::size_t begin = authored_text.find(opening, cursor);
         if (begin == std::string_view::npos) {
-            result.append(authored_text.substr(cursor));
+            append_bytes(authored_text.substr(cursor));
             break;
         }
-        result.append(authored_text.substr(cursor, begin - cursor));
+        append_bytes(authored_text.substr(cursor, begin - cursor));
         const std::size_t key_begin = begin + opening.size();
         const std::size_t end = authored_text.find(closing, key_begin);
         if (end == std::string_view::npos) {
-            result.append(authored_text.substr(begin));
+            append_bytes(authored_text.substr(begin));
             break;
         }
         const std::string_view key = authored_text.substr(
@@ -120,9 +126,9 @@ std::string substitute_campaign_member_names(
             }
         }
         if (member != nullptr) {
-            result.append(member->name);
+            append_bytes(member->name);
         } else {
-            result.append(authored_text.substr(
+            append_bytes(authored_text.substr(
                 begin, end + closing.size() - begin
             ));
         }
