@@ -50,6 +50,7 @@ inline constexpr std::uint16_t button_d_right = 1U << 7;
 // whenever the real code path shows one.
 enum class Check : std::uint16_t {
     title = 1,
+    launch_menu,
     controls,
     cutscene,
     // A word said over the board while the battle is on, which is a different

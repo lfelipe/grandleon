@@ -74,8 +74,7 @@ wood and skin; a Daimyo names lacquer, cloth, steel, gold and skin; a Shinobi
 names four and is the leanest sprite in the style. Choosing which five is most
 of what drawing a style is, and two of the choices here were made by
 measurement rather than by taste. The third rung dropped off the lacquer, and
-the Temple monk's staff moved to the off side, which took the share of opaque
-texels the ``n64_ci4`` remap moves from 0.14% to **0.04%**.
+the Temple monk's staff moved to the off side to simplify the silhouette.
 
 The margin rule
 ---------------

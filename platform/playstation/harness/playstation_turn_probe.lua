@@ -1,7 +1,6 @@
 -- The host half of the turn check: what the emulator says is on screen, at
 -- every instant the executable settles.
 --
--- `playstation_probe.lua` photographs one still picture at the end of one main.
 -- This photographs a session: the turn executable signals once per settled
 -- checkpoint, from inside the store that names the instant, and every one of
 -- those frames is written out for the joiner to compare against the pixel
@@ -313,10 +312,8 @@ end
 -- Global, and it has to be. `createEventListener` hands back an object that
 -- *is* the subscription: let it be collected and the listener goes with it, and
 -- a `local` in a `-dofile` chunk nothing else closes over is collectable the
--- moment the chunk returns. `playstation_probe.lua` gets away with dropping its
--- listener only because that one fires on the very first retrace, before a
--- collection can happen; this one has to survive forty-odd checkpoints first,
--- and does not get away with it. Dropped, it wrote no frames at all.
+-- moment the chunk returns. This listener has to survive forty-odd checkpoints;
+-- dropped, it would write no frames at all.
 grandleon_film_listener = nil
 
 if film_dir then

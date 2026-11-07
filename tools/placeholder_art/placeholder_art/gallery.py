@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from . import (autotile, backdrops, characters, figures, frames,
-               pixelfont, playstation_header, pngio, profiles,
+               pixelfont, pngio, profiles,
                styles, terrain, themes)
 from .palette import PALETTE_SIZE, RAMPS, RGB, TRANSPARENT
 from .raster import Canvas

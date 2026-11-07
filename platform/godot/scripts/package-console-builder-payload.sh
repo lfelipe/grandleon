@@ -153,7 +153,7 @@ python3 - "${temp}/packages.tsv" "${temp}/components.json" "${target}" \
 import json, sys
 packages, output, target, busybox, source, toolchain = sys.argv[1:]
 components = [
-    {"name": "Grand Leon", "version": source, "license": "MIT"},
+    {"name": "Grandleon", "version": source, "license": "MIT"},
     {"name": "Bubblewrap system runtime", "version": "host provided", "license": "LGPL-2.0-or-later"},
     {"name": "BusyBox", "version": busybox, "license": "GPL-2.0-only"},
 ]

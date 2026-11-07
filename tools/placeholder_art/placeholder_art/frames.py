@@ -28,9 +28,7 @@ Three consequences, and all three are load-bearing:
   which routine drew the pixels, so a style cannot ship a partial sequence any
   more than it can ship a partial roster. :mod:`.styles` asserts it anyway.
 * **Zero palette entries are appended.** A pose only ever *moves* an index it
-  was handed. It cannot invent a colour, so the master palette is untouched and
-  the ``n64_ci8`` profile's ``PLTE`` chunk, which carries the whole palette into
-  every asset, is byte-identical to what it was.
+  was handed. It cannot invent a colour, so the master palette is untouched.
 * **The frames are as deterministic as the standing sprite.** No RNG is drawn
   here; the pose is integer displacement of an already-deterministic canvas.
 

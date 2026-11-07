@@ -140,7 +140,7 @@ func export_linux_player(project_id: String) -> Dictionary:
 		return _failure("write_failed", "The compiled game package could not be written.")
 	if not _write_text(
 		staging.path_join("PLAYER-ONLY"),
-		"Player-only Grand Leon game bundle.\n"
+		"Player-only Grandleon game bundle.\n"
 	) or not _write_text(staging.path_join("DEFAULT-CAMPAIGN"), campaign_id + "\n"):
 		_remove_tree(staging)
 		return _failure("write_failed", "The player launch metadata could not be written.")

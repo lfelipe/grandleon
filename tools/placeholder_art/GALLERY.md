@@ -17,8 +17,6 @@ Drawn by `placeholder_art/logo.py` from the master palette and the gallery's own
 | Profile | Tile | Sprite | Encoding | Colours | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `modern` | 32x32 | 32x32 | RGBA8888 | 124 | Full 124-entry master palette written as straight RGBA8888. |
-| `n64_ci8` | 32x32 | 32x32 | indexed 8bpp | 256 | 8bpp indexed against the shared 124-entry master palette. Power-of-two dimensions; feed straight to mksprite as CI8. |
-| `n64_ci4` | 32x32 | 32x32 | indexed 4bpp | 16 | 4bpp indexed against a per-asset 16-colour TLUT bank chosen from the master palette. Power-of-two dimensions; CI4 for mksprite. |
 
 ## Palette
 
@@ -32,14 +30,6 @@ terrain underneath. Units are placed so the sprites can be judged at true scale 
 **Modern / web**
 
 ![sample map modern](gallery/sample_map_modern.png)
-
-**Nintendo 64 CI8**
-
-![sample map n64_ci8](gallery/sample_map_n64_ci8.png)
-
-**Nintendo 64 CI4**
-
-![sample map n64_ci4](gallery/sample_map_n64_ci4.png)
 
 ## Themes
 

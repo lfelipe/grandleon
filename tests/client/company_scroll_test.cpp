@@ -130,7 +130,10 @@ public:
 
     void paint(const sim::EncounterSnapshot&, const turn::Overlay&) override {}
 
-    void paint_screen(const turn::ScreenView& view) override { screen_ = view; }
+    void paint_screen(const turn::ScreenView& view) override {
+        screen_ = view;
+        if (view.screen == turn::Screen::help) saw_help_ = true;
+    }
 
     // A queued press when the walk has one, and otherwise the press that means
     // "go on" for whichever screen is up. That is the same shape a console's
@@ -165,6 +168,7 @@ public:
 
     void queue(std::uint16_t press) { queued_.push_back(press); }
     [[nodiscard]] bool stalled() const noexcept { return stalled_; }
+    [[nodiscard]] bool saw_help() const noexcept { return saw_help_; }
     [[nodiscard]] int presses() const noexcept { return presses_; }
 
 protected:
@@ -175,6 +179,7 @@ private:
     std::vector<std::uint16_t> queued_{};
     int presses_{0};
     bool stalled_{false};
+    bool saw_help_{false};
 };
 
 // A sink that keeps nothing. The transcript is not what is under test here;
@@ -394,12 +399,27 @@ int main() {
         Emptier emptier(sink);
         emptier.set_viewport(turn::viewport_cols, turn::viewport_rows);
         bool holds[view::slot_menu_rows] = {};
+        turn::TurnClient::LaunchMenu launch;
+        launch.offer = true;
+        launch.allow_one = true;
+        launch.allow_two = true;
+        launch.second_controller_connected = true;
+        emptier.queue(turn::pad_down);
+        emptier.queue(turn::pad_down);
+        emptier.queue(turn::pad_a);
+        emptier.queue(turn::pad_b);
+        emptier.queue(turn::pad_up);
+        emptier.queue(turn::pad_up);
+        emptier.queue(turn::pad_a);
+        emptier.queue(turn::pad_a);
         const turn::TurnClient::SlotChoice chosen =
             emptier.open_campaign(
                 pr::project_title(package), campaign_slot, holds,
-                view::slot_menu_rows
+                view::slot_menu_rows, launch
             );
         expect(!chosen.resume, "an empty cartridge founds");
+        expect(chosen.local_players == 1U, "the first launch row starts solo");
+        expect(emptier.saw_help(), "Help is optional and returns to launch");
         expect(
             std::string_view(chosen.slot) == campaign_slot,
             "and the first row is the slot the flow has always used"

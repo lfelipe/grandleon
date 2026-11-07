@@ -23,7 +23,7 @@ name and choose **Create & Open First Map**. The new campaign starts playable:
 it already has two heroes, opponents, a goal, a conversation, local co-op
 ownership, and an ending.
 
-![The Godot creator starts a complete playable campaign from one name](docs/screenshots/native-guide/01-new-campaign.png)
+![Creating a campaign, opening its outline, and reaching the first map](docs/screenshots/native-guide/01-start-a-campaign.gif)
 
 From there you can:
 
@@ -36,8 +36,9 @@ From there you can:
 - export an editable project or a player-only game.
 
 The creator is designed around ordinary game-making tasks rather than source
-files or internal identifiers. [Creating a game](docs/CREATING_A_GAME.md) walks
-through the complete workflow with screenshots from the real application.
+files or internal identifiers. [Creating a game](docs/CREATING_A_GAME.md) is a
+short visual tour of the current workflow; the full tutorial is planned once
+the editor settles closer to 1.0.
 
 ## Play the included campaigns
 
@@ -67,9 +68,13 @@ The current Godot art pack covers all eight character archetypes and all
 thirteen terrain kinds. Its seven directions are sci-fi, mythical, medieval,
 nature, Sengoku, Undead, and Pirates. Each has male and female designs for every
 archetype. Either body can wear any of the six faction colours without
-recolouring faces, hair, equipment, or effects. The generated portable library
-also remains available as a fallback for every archetype across all seven
-styles, six faction colours, and two bodies. See the
+recolouring faces, hair, equipment, or effects. A separate lower-resolution
+pixel library covers the same combinations for browser-compatible editor
+previews; console exports require the curated sheets shown here.
+
+![Examples of Grandleon's seven art themes and eight unit roles](docs/screenshots/art-roster/readme-art-sampler.png)
+
+This is a quick sample rather than the whole catalog. See the
 [artwork and animation roster](docs/ARTWORK.md) for animated previews and exact
 coverage.
 
@@ -91,9 +96,10 @@ campaign state, and random results remain authoritative in the shared engine.
 
 ![The same board, attack, counterattack, and return to the board running in Godot, Nintendo 64, and PlayStation](docs/screenshots/renderer-comparison.gif)
 
-| Nintendo 64 | PlayStation |
-|---|---|
-| ![The current Nintendo 64 console renderer moving from the full tactical board toward battle](docs/screenshots/nintendo64-console-renderer.gif) | ![The current PlayStation console renderer moving from the full tactical board toward battle](docs/screenshots/playstation-console-renderer.gif) |
+This is a matched capture from the playable Godot, Nintendo 64, and PlayStation
+campaign presentations. The console release checks exercise these same
+renderers inside their campaign executables, rather than separate graphics
+demos.
 
 The installed Export Center can produce:
 
@@ -115,15 +121,13 @@ two players on its main menu, fields every archetype across all seven art
 styles, and uses seven different maps covering every terrain kind. A debug
 Stage-picker build can jump directly between the gates for review.
 
-0.4 brings this renderer to Nintendo 64 and PlayStation. Automated
-renderer-check programs capture the tactical board, movement, attack,
-counterattack, health changes, and return to the board at native resolution.
-Those checks are developer diagnostics, not a second presentation shipped to
-players. Console terrain and animation will continue to improve after 0.4.
-[See the current builds and checks](docs/CONSOLE_RENDERER.md).
+Ready-to-test Nintendo 64 and PlayStation images are included with the source
+under [release/0.4.0](release/0.4.0/README.md).
 
-[From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) explains how one
-authored choice travels through the compiler, shared engine, and each renderer.
+0.4 brings this renderer to Nintendo 64 and PlayStation. Console terrain and
+animation will continue to improve after 0.4. See
+[Playing on Nintendo 64 and PlayStation](docs/CONSOLE_RENDERER.md) for exports,
+controls, limits, and development builds.
 
 ## Roadmap
 
@@ -135,9 +139,9 @@ rest of the documentation describes the current Godot application.
 | **0.1** | Portable foundation. Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
 | **0.2** | Complete campaign runtime. Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3** | Godot player and creator. Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
-| **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and promotes one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. This is the current development line. |
+| **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and uses one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. |
 | **0.5** | Editor and localization product pass. Concentrates on the complete authoring experience: a friendly player-mode workflow, clearer creation steps, stronger previews and validation, better project organization, and the usability and accessibility work needed for larger games. An end-to-end acceptance test will create a complete campaign from an empty project through the normal editor, export it, launch it, and play its first battle. This release will also localize Grandleon's own Godot player/editor and add a final **Translations** step where authors can manually review and translate every player-facing string, including character names, check missing translations, preview a language, and export the localized project. The editor work will also prepare selected characters to be player-nameable while retaining an authored default. |
-| **Prior to 1.0** | Expand terrain-aware backdrops for combat and conversations, with optional ambient motion such as moving water, weather, foliage, light, and particles. Continue improving console character readability, terrain variety, animation, effects, interface clarity, close-up scenes, and performance measured on real hardware. Static backdrops remain the dependable fallback. |
+| **Prior to 1.0** | Expand terrain-aware backdrops for combat and conversations, with optional ambient motion such as moving water, weather, foliage, light, and particles. Continue improving console character readability, terrain variety, animation, effects, interface clarity, close-up scenes, and performance measured on real hardware. Experiment with Android and, if practical, iOS exports of the Godot player and creator using the same portable games and presentation. Completely rework audio across music, ambience, battle effects, interface feedback, mixing, and platform consistency. Static backdrops remain the dependable fallback. |
 
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
@@ -183,8 +187,8 @@ Projects, saves, controls, recovery data, and exports live in per-user runtime
 storage. Portable archives do not contain usernames, machine paths,
 credentials, controller identities, or local settings.
 
-Projects exported by Grandleon 0.2 or 0.3 remain compatible with the current
-0.4 development line. Export a `.grandleon.zip` from the earlier editor and
+Projects exported by Grandleon 0.2 or 0.3 remain compatible with the 0.4
+release. Export a `.grandleon.zip` from the earlier editor and
 import it from the Godot Projects screen. Grandleon migrates the authored source
 before validating it; project assets transfer, while browser-local recovery data
 and playtest progress do not.
@@ -203,13 +207,8 @@ and playtest progress do not.
 | make a campaign | [Creating a game](docs/CREATING_A_GAME.md) |
 | inspect characters, animation, and terrain | [Artwork and animation roster](docs/ARTWORK.md) |
 | tweak or regenerate a character | [Artwork generation and tweak guide](docs/ARTWORK_GENERATION.md) |
-| see current presentation experiments | [Development TODO](TODO.md) |
-| understand the Godot player and creator | [Godot PC application](platform/godot/README.md) |
-| understand portability and console builds | [From the editor to a console](docs/FROM_EDITOR_TO_CONSOLE.md) |
-| review the console renderer | [Console renderer builds and checks](docs/CONSOLE_RENDERER.md) |
-| set up a development checkout | [Setting up](docs/SETUP.md) |
-| work on the engine | [CODING.md](CODING.md) and [DESIGN.md](DESIGN.md) |
-| contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| play or export on a console | [Nintendo 64 and PlayStation](docs/CONSOLE_RENDERER.md) |
+| build or contribute | [Setting up](docs/SETUP.md) and [Contributing](CONTRIBUTING.md) |
 
 ## Licence
 

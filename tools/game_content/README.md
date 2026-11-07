@@ -90,7 +90,6 @@ what it charges, both from the terrain's name, and the presentation joins from
 names to art-library indices, for theme, character style, faction colour,
 terrain kind and archetype. A client sees hashes, not names, and could not redo
 either.
-`docs/FROM_EDITOR_TO_CONSOLE.md` describes where those indices go.
 
 ## Semantic model
 

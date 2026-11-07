@@ -3,7 +3,7 @@
 
 // The Tarnholt campaign's autopilot: synthetic controller input that drives
 // the interactive ROM from power-on through five rounds of the Fordlight
-// Crossing (title, the controls screen, all twelve cutscene lines, and the
+// Crossing (title, all twelve cutscene lines, and the
 // battle itself), with named checkpoints where the harness samples the
 // framebuffer and captures the screenshot trail.
 //
@@ -126,10 +126,11 @@ inline constexpr Step fordlight_autopilot[] = {
      "title"},
     {Op::press, button_start, 0, 0, nullptr},
 
-    // The controls screen.
-    {Op::wait, 60, 0, 0, nullptr},
-    {Op::checkpoint, static_cast<std::uint16_t>(Check::controls), 0, 0,
-     "controls"},
+    // The same launch menu a player sees. Tarnholt is a fixed solo campaign,
+    // so its only play row starts immediately and Help remains optional.
+    {Op::wait, 30, 0, 0, nullptr},
+    {Op::checkpoint, static_cast<std::uint16_t>(Check::launch_menu), 0, 0,
+     "launch-menu"},
     {Op::press, button_a, 0, 0, nullptr},
 
     // Three cutscenes, twelve lines. Photograph the first, advance them all.

@@ -232,8 +232,8 @@ struct LoadOptions final {
     // a host with four gigabytes wants and what every caller written before
     // this said.
     //
-    // **This is the working-set budget DESIGN.md §6 promises and nothing here
-    // used to supply.** The two numbers above bound what a package *is*; this
+    // **This is the target's working-set budget.** The two numbers above bound
+    // what a package *is*; this
     // bounds what playing one *costs*, which is a different question and the
     // one a console actually loses on. `simulation::danger_tiles` runs one
     // movement search per character on a side, so the cost of the queries a

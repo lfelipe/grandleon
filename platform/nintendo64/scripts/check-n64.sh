@@ -110,12 +110,12 @@ run_check() {
                 "${build_dir}/platform/nintendo64/grandleon_n64.z64"
             ;;
         play)
-            # 26 framebuffer assertions, fixed by the two boards it samples:
+            # 24 framebuffer assertions, fixed by the two boards it samples:
             # the campaign's first, and the first the game authors whose turns
             # are taken in blocks, which is the only kind of board a character
             # can be standing finished on, and so the only one the greyed
             # drawing can be photographed on.
-            GRANDLEON_N64_ARES_MIN_CHECKS=26 \
+            GRANDLEON_N64_ARES_MIN_CHECKS=24 \
                 "${ares}/run-ares.sh" \
                 "${build_dir}/platform/nintendo64/grandleon_n64_probe.z64"
             ;;
@@ -135,10 +135,10 @@ run_check() {
             ;;
         campaign)
             # Two boots of one ROM over one cartridge, and they assert
-            # different things: the first founds a campaign and checks 70, the
-            # second resumes it and checks 52.
-            GRANDLEON_N64_ARES_MIN_CHECKS_FOUND=70 \
-                GRANDLEON_N64_ARES_MIN_CHECKS_RESUMED=52 \
+            # different things: the first founds a campaign and checks 69, the
+            # second resumes it and checks at least 51.
+            GRANDLEON_N64_ARES_MIN_CHECKS_FOUND=69 \
+                GRANDLEON_N64_ARES_MIN_CHECKS_RESUMED=51 \
                 "${ares}/run-ares-persistence.sh"
             ;;
         coop)
@@ -147,7 +147,7 @@ run_check() {
             # edges alternate controller ports inside the actual presenter.
             GRANDLEON_N64_BUILD_DIR="${coop_build_dir}" \
                 GRANDLEON_N64_ARES_SECONDS=360 \
-                GRANDLEON_N64_ARES_MIN_CHECKS=40 \
+                GRANDLEON_N64_ARES_MIN_CHECKS=37 \
                 "${ares}/run-ares.sh" \
                 "${coop_build_dir}/platform/nintendo64/grandleon_n64_coop_autopilot.z64"
             ;;
@@ -177,7 +177,7 @@ what_failed() {
 # measure nothing (absent, silent, `0/0`, partial, under the floor, countless,
 # and a diagnostic that merely echoes the verdict) and is required to refuse
 # every one. It costs no emulator and no measurable time, so there is no run
-# this cannot afford. `run-playstation-render.sh` is the precedent.
+# this cannot afford.
 echo "== Proving the verdict check can still fail =="
 "${repository_root}/scripts/assert-harness-verdict.sh" --self-test
 

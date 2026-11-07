@@ -1,81 +1,70 @@
-# Console renderer
+# Playing on Nintendo 64 and PlayStation
 
-Nintendo 64 and PlayStation each ship one Grandleon renderer. There is no
-graphics-mode choice in a campaign or in the editor.
+Grandleon projects use the same campaign and combat rules on PC, Nintendo 64,
+and PlayStation. Console builds adapt the controls, graphics, saves, and file
+format to each machine; authors do not maintain a separate console version of
+their game.
 
-The renderer uses hardware-sized versions of the curated character artwork,
-team-colour masks, textured tactical terrain, and terrain-derived full-frame
-backdrops for close battles. Movement, damage, counterattacks, objectives and
-saves still come from the shared engine; the renderer only presents accepted
-state.
+## Sevenfold Gate
 
-## What ships in 0.4
+The 0.4 console showcase is **Sevenfold Gate**, a short campaign built to make
+the current range easy to inspect. Its seven stages include:
 
-Sevenfold Gate is the console showcase. Its seven stages collectively exercise:
-
-- all seven character styles and eight archetypes;
+- all seven character themes and all eight unit roles;
 - male and female characters on both sides;
-- all thirteen terrain kinds across varied layouts;
-- one-player and local two-player launch modes;
-- movement, attacks, misses, damage, counterattacks and defeat; and
-- a debug Stage picker and live FPS display in review builds.
+- every terrain kind across maps with different shapes and routes;
+- one-player and local two-player play; and
+- movement, conversation, attacks, counterattacks, misses, damage, and defeat.
 
-The renderer-check programs are automated visual tests, not alternate game
-modes.
+Review builds show live FPS and include a Stage picker. The picker lets a
+reviewer jump between gates without replaying the entire campaign; it does not
+change the content of the stages.
 
-## Nintendo 64
+Choosing **1 Player** leads to the save choice and then the first playable
+stage. A fixed ready-to-play company does not stop at a roster or deployment
+screen. **Help** is available from the title screen instead of appearing as a
+mandatory page. Choosing **2 Players** retains each unit's authored local
+owner, with one independent cursor and menu state per controller.
 
-Build the playable campaign and renderer check:
+## Graphics
 
-```sh
-cmake --build build --target grandleon_n64_sevenfold_roms
-cmake --build build --target grandleon_n64_sevenfold_renderer_check
-```
+Each console has one renderer. It uses smaller versions of the curated Godot
+character sheets, applies the authored faction colour through the same team
+masks, and draws those characters over textured tactical terrain. Movement and
+attack poses come from the same animation sheets rather than a separate pixel
+roster.
 
-The review folder is `build-n64-sevenfold-roms/`:
+During combat, the renderer can show the attacker and defender against a
+terrain backdrop before returning to the unchanged tactical board. Characters
+keep the same left/right positions for an attack and its counterattack.
 
-- `sevenfold-n64.z64` is the playable campaign.
-- `sevenfold-n64-renderer-check.z64` is the automated visual diagnostic.
+Console exports contain this renderer and its project-selected artwork only.
+There is no renderer selector or alternate character-art path in an exported
+game.
 
-The renderer check uses the pinned libdragon/Tiny3D toolchain and runs under
-the pinned ares build. It verifies asset provenance, TMEM limits, a tactical
-board, eased tile movement, an attack/counterattack close view, health changes,
-and return to the board. The current gate reports `11/11`.
+Console graphics remain deliberately lighter than Godot's presentation. The
+current priorities are readable units and walkable cells, stable performance,
+clear selection and movement ranges, and smooth transitions. Terrain variety,
+effects, animation, close scenes, and interface artwork will continue to
+improve before 1.0.
 
-## PlayStation
+## Export a game
 
-Run the native renderer capture gate with:
+Open **Finish & Export** in the Godot creator. With the matching optional
+builder installed, Grandleon can produce:
 
-```sh
-cmake --build build --target grandleon_playstation_sevenfold_renderer_check
-```
+- a Nintendo 64 `.z64` ROM; or
+- a PlayStation `.bin` file with its matching `.cue` file.
 
-It builds `grandleon_psx_sevenfold_renderer.ps-exe`, runs it in the pinned
-PCSX-Redux interpreter, and captures native 320×240 frames. The check covers
-the tactical board, sixteen eased movement frames, forty attack/counterattack
-frames, and the 52-frame matched comparison sequence. The current run reports
-`18/18` guest checks and `561/561` independent framebuffer checks.
+The builders are separate downloads because their pinned toolchains are large.
+Once installed, they work offline. A battle can field at most 48 characters on
+either console; the creator warns about that console limit without preventing
+the project from being played on PC.
 
-The diagnostic executable is not the release disc. The PlayStation campaign
-disc is built through the normal campaign target and consumes the same portable
-Sevenfold project as the N64 and Godot builds.
+The PlayStation image intentionally omits Sony's licence sector. It works with
+compatible emulators and FPGA systems but does not boot on an unmodified retail
+PlayStation. Keep each `.bin` and `.cue` together and open the `.cue`.
 
-## Performance contract
-
-PlayStation presentation is budgeted for a stable 30 fps, not an unstable
-32 fps average. The emulator regression ceiling is 33 ms per presented frame.
-The current slowest captured tactical frame is roughly 4.4 ms in the pinned
-interpreter; close battle and full-map comparison frames remain below 1 ms.
-
-Nintendo 64 checks also require each tactical, movement and close sequence to
-remain within a 33 ms frame budget. Emulator measurements catch regressions;
-the final release still receives a MiSTer or original-style hardware smoke test.
-
-## Ongoing graphics work
-
-Console graphics will keep improving after 0.4. The next work is richer and
-less repetitive tactical terrain, clearer neighbour transitions, more varied
-clustered scenery, additional terrain-specific close backdrops, and smoother
-character animation. These improvements must preserve walkable-cell clarity,
-fixed attack/counterattack sides, deterministic output, and measured memory and
-frame budgets.
+Platform-specific controls, build commands, and verification are in the
+[Nintendo 64 guide](../platform/nintendo64/README.md) and
+[PlayStation guide](../platform/playstation/README.md).

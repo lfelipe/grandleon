@@ -18,8 +18,7 @@ and a crest. What separates two units here is never the hat.
 No new palette entries
 ----------------------
 None, as *Adding a style* in ``tools/placeholder_art/README.md`` requires: the
-``n64_ci8`` profile writes the whole master palette into every asset's ``PLTE``
-chunk, so one appended entry would rewrite art nobody asked to change. The kit
+editor's board art keeps one stable shared palette. The kit
 is four ramps that already exist, beside the skin, the ink and the faction
 colour every style is drawn with:
 
@@ -53,18 +52,15 @@ also, measured, what parts the gunner's colour set from the musketeer's on the
 
 Five ramps a sprite
 -------------------
-The rule the ``mythical`` and ``nature`` commissions paid to learn: the
-``n64_ci4`` profile keeps a sprite's sixteen most-used colours and remaps the
-rest, and a shading ramp costs three to five of the sixteen, so what binds is
-the number of **materials** a cell names, not the number of colours. Name about
+The rule the ``mythical`` and ``nature`` commissions paid to learn: what binds
+is the number of **materials** a cell names, not the number of colours. Name about
 five and pick them before drawing. Every routine below names
 five or fewer, and three of them do it by dropping something the setting would
 have offered: the gunner's brass gun became an iron one, because brass beside
 steel is two metals where the silhouette needed one; the captain wears no metal
 at all, its buttons and its truck being the timber's own lit step; and the
 parrot names four, which is the leanest sprite in the style. Measured over all
-forty-eight sprites, the ``n64_ci4`` subset moves **0.66%** of opaque texels,
-against ``medieval``'s 0.40% and ``nature``'s 0.55%.
+forty-eight sprites, the material budget remains consistent with the other styles.
 
 The silhouettes, and why each is the one it is
 ----------------------------------------------

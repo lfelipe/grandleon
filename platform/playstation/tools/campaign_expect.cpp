@@ -360,13 +360,24 @@ client::CampaignSessionError play(
     // as an argument, because that is where the executable reads it from. A
     // title this tool was *told* would derive the screen the console is then
     // required to draw, which is the one input a derivation must not have.
+    turn::TurnClient::LaunchMenu launch;
+    launch.offer = true;
+    const auto campaign = pr::load_campaign(package, campaign_id);
+    if (campaign) {
+        launch.allow_one =
+            campaign.definition.player_mode != pr::LocalPlayerMode::two;
+        launch.allow_two =
+            campaign.definition.player_mode != pr::LocalPlayerMode::one;
+    }
     const turn::TurnClient::SlotChoice chosen = host.open_campaign(
-        pr::project_title(package), slot_base, holds, view::slot_menu_rows
+        pr::project_title(package), slot_base, holds, view::slot_menu_rows,
+        launch
     );
     client::CampaignSessionOptions options;
     options.slot = chosen.slot;
     options.resume = chosen.resume;
     options.player_side = sim::Side::first;
+    options.local_players = chosen.local_players;
     return client::run_persistent_campaign(
         package, campaign_id, host, host, device, options
     );

@@ -32,8 +32,7 @@ Adding a backdrop
 manifest, the generated header and the compiled package alike, so an insertion
 would renumber a choice an author already made. Spend only entries the master
 palette already holds: a backdrop adds no colour, for the same reason a style
-adds none. The ``n64_ci8`` profile writes the whole master palette into every
-asset, so one appended entry rewrites art nobody asked to change.
+adds none. That keeps the editor's shared board palette stable.
 
 The two rules below are asserted at import time rather than reviewed.
 """

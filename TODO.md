@@ -4,20 +4,30 @@ This is the short list of active presentation work. These changes may improve
 how a battle looks and moves, but must not change the authoritative grid,
 terrain rules, routes, timing, or combat results.
 
-The checked items below are implemented. The final unchecked release item is
-the packaging and hardware smoke pass; later sections are roadmap work and do
-not block 0.4.
+The checked items below are implemented. Unchecked items in **0.4 release
+acceptance** block the release; unchecked items in later sections are ongoing
+roadmap work.
 
 ## 0.4 release acceptance
 
 - [x] Package the Godot 0.4 player/creator with the separate one-player and
   one-or-two-player campaigns, and pass the native and packaged integration
   suites.
-- [x] Keep one console renderer on Nintendo 64 and PlayStation. Pass the
-  campaign, co-op, save, disc and native renderer checks.
-- [ ] Build the final ROM, BIN/CUE and Godot packages, copy the console images
-  to the MiSTer for one hardware smoke pass, align the private review page with
-  those artifacts, and tag 0.4.
+- [x] Use the console renderer in the playable Nintendo 64 and PlayStation
+  campaign builds, with campaign, co-op, save, disc, renderer, and packaging
+  checks exercising those same executables. The superseded console renderer,
+  its prototype viewers, and its generated art are no longer in the project.
+- [x] Streamline the first-play path on both consoles. Choosing **1 Player**
+  must lead straight to the save choice, when one is needed, and then the
+  campaign. Do not put a controls page, company screen, roster picker, or
+  deployment prompt in front of a fixed ready-to-play formation. Keep controls
+  as a compact **Help** choice on the start menu and as contextual button hints;
+  preserve management or deployment only when the authored game presents a
+  real player decision. Exercise 1P, 2P, new-save, and continue paths in the
+  final ROM and disc.
+- [x] Build and verify the final ROM, BIN/CUE, and Godot package; publish the
+  review branch; and copy the exact console images to the MiSTer for hardware
+  review. Tag 0.4 only after the branch is approved and merged.
 
 ## Terrain joins and variety
 
@@ -64,6 +74,10 @@ not block 0.4.
   terrain depth and variety, camera composition, movement and attack
   animation, effects, UI clarity, close-up scenes, and measured performance on
   original-style hardware.
+  - Replace text drawn directly over backgrounds with a small coherent console
+    UI kit: readable panels, selection frames, button glyphs, icons, meters,
+    focus states, and concise labels. Keep the board visible and use text where
+    it communicates something useful rather than as the entire visual design.
   - Improve console terrain in both tactical and close views: stronger
     material identity, less repetitive tiles, cleaner neighbour transitions,
     clustered scenery, elevation cues, and terrain-specific battle backdrops.

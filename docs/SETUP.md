@@ -157,22 +157,13 @@ to:
 | `--playstation` | PlayStation: conformance, what it drew, a played turn, the memory card, both campaigns, and the disc booted | **a container runtime** |
 | `--consoles` | both of the above | **a container runtime** |
 
-`--n64` runs conformance, the render probe, a played autopilot,
-two-controller co-op, a campaign that survives the power switch, and the
-console renderer gate. The Tarnholt checks share one build; the Emberbound
-co-op ROM is built separately because its authored two-player opening is the
-test.
+`--n64` runs conformance, the framebuffer probe, a played autopilot,
+two-controller co-op, and a campaign that survives the power switch. The
+Tarnholt checks share one build; the Emberbound co-op ROM is built separately
+because its authored two-player opening is the test.
 
-The console renderer can also be checked directly on each platform:
-
-```sh
-platform/nintendo64/scripts/check-sevenfold-renderer.sh
-platform/playstation/scripts/check-sevenfold-renderer.sh
-```
-
-The same checks are also CMake targets, which is what a person debugging one
-wants. They build through `build/`, so configure it first if you have not
-already:
+The console checks build through `build/`, so configure it first if you have
+not already:
 
 ```sh
 cmake -S . -B build -DGRANDLEON_BUILD_TESTS=ON
@@ -189,22 +180,18 @@ cmake --build build --target grandleon_n64_autopilot_check
 cmake --build build --target grandleon_n64_coop_check
 cmake --build build --target grandleon_n64_campaign_check
 cmake --build build --target grandleon_playstation_check
-cmake --build build --target grandleon_playstation_render_check
 cmake --build build --target grandleon_playstation_turn_check
 cmake --build build --target grandleon_playstation_card_check
 cmake --build build --target grandleon_playstation_campaign_check
 cmake --build build --target grandleon_playstation_disc_check
 cmake --build build --target grandleon_n64_sevenfold_roms
-cmake --build build --target grandleon_n64_sevenfold_renderer_check
-cmake --build build --target grandleon_playstation_sevenfold_renderer_check
 ```
 
 Each pulls or builds its pinned toolchain image on first use, which costs
 minutes.
 
-See [CONSOLE_RENDERER.md](CONSOLE_RENDERER.md) for the presentation contract,
-current performance budgets, and the distinction between playable campaigns
-and the automated renderer checks.
+See [CONSOLE_RENDERER.md](CONSOLE_RENDERER.md) for the playable console
+experience, exports, and current limits.
 
 ## Without SDL2
 

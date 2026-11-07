@@ -4,7 +4,7 @@
 // What a conversation between maps is drawn against: an ordered run of flat
 // horizontal bands, top to bottom, in master palette entries. No pixels, so a
 // backdrop costs no tile, no TMEM and no VRAM on any client: the same picture
-// as CI4 texels would be 38,400 bytes against the Nintendo 64's 2,048 usable.
+// while keeping the file tiny for every client.
 // Presentation only: no rule reads it, it never enters canonical state, and a
 // scene that names none is drawn exactly as it was before this menu existed.
 inline constexpr int grandleon_backdrop_count = 7;

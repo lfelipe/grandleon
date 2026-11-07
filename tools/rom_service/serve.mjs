@@ -174,7 +174,7 @@ export const consoles = {
         // variants are the gate's, not an author's.
         target: "grandleon_n64_campaign",
         buildScript: "platform/nintendo64/scripts/build-n64.sh",
-        artManifest: "tools/placeholder_art/assets/n64_ci4/manifest.json",
+        artManifest: "platform/godot/project/content/graphics_profiles.json",
         // Where a request's build tree is staged, inside the repository
         // because only the repository is mounted into the container.
         staging: "build-n64",
@@ -214,7 +214,7 @@ export const consoles = {
         // no menu on the image to choose between two, so it carries the
         // campaign, which is the thing a person plays.
         executable: "grandleon_psx_campaign.ps-exe",
-        artManifest: "tools/placeholder_art/assets/n64_ci4/manifest.json",
+        artManifest: "platform/godot/project/content/graphics_profiles.json",
         staging: "build-playstation",
         pins: pinsFrom("GrandleonPlayStation.cmake", [
             "GRANDLEON_PCSX_REDUX_BUILD_IMAGE",

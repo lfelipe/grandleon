@@ -24,8 +24,7 @@
  * Why this program knows nothing
  *
  * It never reads the package, never sees the art, and knows nothing about the
- * board or the rules, the same discipline `playstation_probe.c` follows and
- * for the same reason. It links nothing from this repository at all, so it
+ * board or the rules. It links nothing from this repository at all, so it
  * cannot agree with the executable by sharing a mistake with it. Its only
  * numbers of its own are the frame's dimensions, and it takes those from the
  * harness's own `FRAMES` line rather than assuming them.

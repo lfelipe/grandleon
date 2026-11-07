@@ -86,8 +86,7 @@ enum class OutcomeOperationKind : std::uint8_t {
 //
 // Flat rather than a variant on purpose. A save writes these fields in this
 // order and a Nintendo 64 reads them back; a `std::variant` would put a
-// standard-library layout across that boundary, which `DESIGN.md` §3.3
-// forbids. The tag says which fields carry meaning, the constructor functions
+// standard-library layout across that boundary. The tag says which fields carry meaning, the constructor functions
 // below make the right ones for each kind, and the unused fields are zero so
 // that two operations that mean the same thing encode the same way.
 struct CampaignOutcomeOperation final {

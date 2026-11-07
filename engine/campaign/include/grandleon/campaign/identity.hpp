@@ -14,11 +14,9 @@
 
 // The three names a durable thing goes by.
 //
-// `DESIGN.md` §8 requires that persistent references "use stable package and
-// content identities, never memory addresses or transient array positions",
-// and the accepted change's design separates three levels rather than two.
-// Each answers a different question, and collapsing any pair of them loses
-// something a roster needs:
+// Persistent references use stable package and content identities, never
+// memory addresses or transient array positions. Three identity levels answer
+// different questions, and collapsing any pair loses something a roster needs:
 //
 // * `DefinitionRef`: *what kind of thing is this?* The package that authored
 //   it, the category it belongs to, and its stable content id. Two recruits of

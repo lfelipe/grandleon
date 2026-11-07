@@ -11,12 +11,13 @@
 // that forgot would take the founding script a second time and reach a screen
 // the resuming expectations do not have.
 //
-//   `*_found`    the card holds no campaign. The title, the slot screen's only
-//                offer, the company as it was founded, every authored line of
+//   `*_found`    the card holds no campaign. The player-count launch menu, the
+//                slot screen's only offer, the company as it was founded, every authored line of
 //                every story node in the way, the management stage, the battle
 //                itself fought to its objective, the aftermath, and the end.
 //
-//   `*_resume`   a second process over the same card. The slot screen now
+//   `*_resume`   a second process over the same card. The launch menu is the
+//                same; the slot screen now
 //                offers CONTINUE and the caret is already on it, so the same
 //                press means the other thing. The campaign comes back where the
 //                first run left it.

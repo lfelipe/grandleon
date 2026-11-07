@@ -212,7 +212,7 @@ def main() -> int:
         ):
             fail("component inventory contains a duplicate or incomplete entry")
         components[name] = component
-    if components.get("Grand Leon", {}).get("version") != args.source_revision:
+    if components.get("Grandleon", {}).get("version") != args.source_revision:
         fail("component inventory does not name the packaged source revision")
     if not re.fullmatch(r"[0-9a-f]{40}", args.source_revision):
         fail("packaged source revision is not a full Git object name")

@@ -1,25 +1,27 @@
 # Nintendo 64
 
-Grandleon's Nintendo 64 target runs the same compiled projects and tactical
-rules as the Godot player. The console layer supplies controller input, SRAM
-saves, audio timing and an RDP renderer; it does not reimplement campaign or
-combat rules.
+Grandleon can turn a portable campaign into a Nintendo 64 ROM. The ROM uses the
+same campaign and combat rules as the Godot player, with controller input, SRAM
+saves, and a presentation designed for the console.
 
-## Play Sevenfold Gate
+## Play the 0.4 showcase
 
-Configure the repository once, then build the review artifacts:
+Build Sevenfold Gate from the repository root:
 
 ```sh
 cmake -S . -B build -DGRANDLEON_BUILD_TESTS=ON
 cmake --build build --target grandleon_n64_sevenfold_roms
 ```
 
-Open `build-n64-sevenfold-roms/sevenfold-n64.z64` in ares, on a flash cartridge,
-or on a compatible FPGA system. The main menu lets you choose one or two local
-players. Review builds include a Stage picker and live FPS display.
+Open `build-n64-sevenfold-roms/sevenfold-n64.z64` in ares, on a compatible FPGA
+system, or from a flash cartridge. The review build shows live FPS and includes
+a Stage picker so every art style, archetype, and terrain can be inspected
+without replaying the complete campaign.
 
-`sevenfold-n64-renderer-check.z64` in the same folder is an automated visual
-diagnostic. It is not a second renderer or a playable campaign variant.
+Choose **1 Player** or **2 Players** on the title screen. A new campaign goes
+straight to its save choice and first playable stage; fixed formations do not
+open a roster or deployment screen first. **Help** keeps the full controls
+available without placing a mandatory instructions screen in the launch path.
 
 ## Controls
 
@@ -29,39 +31,20 @@ diagnostic. It is not a second renderer or a playable campaign variant.
 - Z: open the selected unit's action menu.
 - Start: open the battle menu.
 
-Each local player has an independent cursor, selection and menu state. Campaign
-ownership decides which units each controller can command.
+In two-player mode, each controller has its own cursor and menu state. Authored
+unit ownership decides which characters each player commands.
 
-## Renderer
+## Graphics
 
-The console has one renderer. It draws curated, team-coloured character
-cutouts over deterministic textured terrain and uses terrain-derived backdrops
-for close battle checks. Tactical range, selected cells, health and team
-identity remain visible at native resolution.
+There is one Nintendo 64 renderer. It draws project-specific, team-coloured
+character cutouts generated from the curated Godot roster over textured
+tactical terrain. Attacks can switch to a closer terrain backdrop, then return
+to the same board state. The campaign contains no alternate graphics mode.
 
-The renderer check is built with pinned libdragon and Tiny3D revisions. Run it
-under the pinned ares build with:
+The campaign ROM itself is what release testing exercises. It is not paired
+with a separate renderer demo.
 
-```sh
-cmake --build build --target grandleon_n64_sevenfold_renderer_check
-```
-
-The gate verifies asset provenance, TMEM limits, an eight-role tactical board,
-eased movement, attack and counterattack framing, health changes, and return to
-the board. Its current result is `11/11`.
-
-The checked-in cutouts are regenerated from the curated Godot sheets and team
-masks:
-
-```sh
-platform/nintendo64/scripts/generate-sevenfold-cutout-assets.py
-platform/nintendo64/scripts/generate-sevenfold-terrain-assets.py
-platform/nintendo64/scripts/generate-sevenfold-backdrop-assets.py
-```
-
-## Build another project
-
-The normal build accepts a portable source project:
+## Build another campaign
 
 ```sh
 platform/nintendo64/scripts/build-n64.sh \
@@ -69,25 +52,20 @@ platform/nintendo64/scripts/build-n64.sh \
   --targets grandleon_n64_campaign
 ```
 
-The project is compiled and embedded during the cross-build. Character style,
-body, archetype and team drawings are selected from authored data; a campaign
-does not need console-specific rules or a second source file.
+The project is compiled and embedded during the cross-build. Its authored art
+style, body, archetype, and faction colours select drawings from the same
+curated art source used by Godot.
 
-## Automated checks
-
-Run every supported Nintendo 64 check with:
+## Verify the target
 
 ```sh
 cmake --build build --target grandleon_n64_check_all
 ```
 
-The suite covers conformance, rendered pixels, a played campaign route,
-two-controller co-op and SRAM persistence. `scripts/local-ci.sh --n64` runs
-that suite and the renderer check.
+This runs engine conformance, framebuffer checks, a played route, two-controller
+co-op, and SRAM persistence in the pinned ares environment. The first run also
+builds the pinned toolchain and emulator images, so it takes several minutes.
 
-The first run builds pinned toolchain and emulator images and therefore takes
-several minutes. Later runs reuse those images. Set `GRANDLEON_DOCKER` while
-configuring CMake if the container runtime is not named `docker`.
-
-Current renderer design, performance budgets and remaining graphics work are
-summarized in [Console renderer](../../docs/CONSOLE_RENDERER.md).
+See [Playing on Nintendo 64 and PlayStation](../../docs/CONSOLE_RENDERER.md) for
+export limits and release expectations. Contributor setup is in
+[Setting up](../../docs/SETUP.md).

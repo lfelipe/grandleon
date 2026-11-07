@@ -119,6 +119,16 @@ if(NOT EXISTS "${GRANDLEON_PLAYSTATION_PROJECT}")
         "${GRANDLEON_PLAYSTATION_PROJECT}")
 endif()
 message(STATUS "PlayStation source project: ${GRANDLEON_PLAYSTATION_PROJECT}")
+if(NOT DEFINED GRANDLEON_PLAYSTATION_CONSOLE_ART OR
+   NOT EXISTS "${GRANDLEON_PLAYSTATION_CONSOLE_ART}")
+    message(FATAL_ERROR
+        "GRANDLEON_PLAYSTATION_CONSOLE_ART is missing; build-playstation.sh "
+        "generates the project-specific Godot-derived CI4 header")
+endif()
+get_filename_component(
+    playstation_console_art_dir
+    "${GRANDLEON_PLAYSTATION_CONSOLE_ART}" DIRECTORY
+)
 
 grandleon_playstation_embed_package(
     PLAYSTATION_BOARD_PACKAGE board_package
@@ -130,164 +140,8 @@ grandleon_write_project_identity(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/board_identity.h"
 )
 
-# The exact character drawings each project can request. The generated art
-# library gives every drawing its own collectable array; this function writes
-# the small project-specific table that points only at the arrays its compiled
-# package can name. That makes mixed styles and figures ordinary content while
-# preserving the console rule that unused art costs the executable nothing.
-#
-# Resolution is shared with Nintendo 64, including faction colours and the
-# fallback for a unit type that names no faction. Unlike N64, PS1 includes the
-# project's normal drawings sparsely as well: it has no reason to pay for a
-# complete default roster when a campaign uses three of its cells.
-include("${CMAKE_SOURCE_DIR}/cmake/GrandleonCharacterStyle.cmake")
-function(grandleon_playstation_character_header project what stem header_var)
-    set(manifest
-        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/n64_ci4/manifest.json")
-    set(colour_header
-        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/sprites.h")
-    grandleon_resolve_character_style("${project}" "${manifest}" default_style)
-    grandleon_resolve_character_figure("${project}" "${manifest}" default_figure)
-    grandleon_resolve_character_drawings(
-        "${project}" "${manifest}" "${colour_header}" drawings INCLUDE_DEFAULT)
-
-    file(READ "${manifest}" manifest_json)
-    string(JSON style_count LENGTH "${manifest_json}" character_styles menu)
-    math(EXPR style_last "${style_count} - 1")
-    set(style_menu "")
-    foreach(index RANGE ${style_last})
-        string(JSON name GET
-            "${manifest_json}" character_styles menu ${index} name)
-        list(APPEND style_menu "${name}")
-    endforeach()
-    string(JSON figure_count LENGTH
-        "${manifest_json}" character_styles figures menu)
-    math(EXPR figure_last "${figure_count} - 1")
-    set(figure_menu "")
-    foreach(index RANGE ${figure_last})
-        string(JSON name GET
-            "${manifest_json}" character_styles figures menu ${index} name)
-        list(APPEND figure_menu "${name}")
-    endforeach()
-    string(JSON archetype_count LENGTH
-        "${manifest_json}" character_styles archetypes)
-    math(EXPR archetype_last "${archetype_count} - 1")
-    set(archetype_menu "")
-    foreach(index RANGE ${archetype_last})
-        string(JSON name GET
-            "${manifest_json}" character_styles archetypes ${index})
-        list(APPEND archetype_menu "${name}")
-    endforeach()
-    grandleon_character_faction_colours("${colour_header}" colour_menu)
-
-    list(FIND style_menu "${default_style}" default_style_index)
-    list(FIND figure_menu "${default_figure}" default_figure_index)
-    if(default_style_index EQUAL -1 OR default_figure_index EQUAL -1)
-        message(FATAL_ERROR
-            "${what} defaults to ${default_style}/${default_figure}, which "
-            "the art library menus do not hold")
-    endif()
-
-    set(included_styles "")
-    set(rows "")
-    foreach(drawing IN LISTS drawings)
-        string(REPLACE "/" ";" parts "${drawing}")
-        list(GET parts 0 style)
-        list(GET parts 1 figure)
-        list(GET parts 2 archetype)
-        list(GET parts 3 colour)
-        list(FIND style_menu "${style}" style_index)
-        list(FIND figure_menu "${figure}" figure_index)
-        list(FIND archetype_menu "${archetype}" archetype_index)
-        list(FIND colour_menu "${colour}" colour_index)
-        if(style_index EQUAL -1 OR figure_index EQUAL -1 OR
-           archetype_index EQUAL -1 OR colour_index EQUAL -1)
-            message(FATAL_ERROR
-                "${what} resolved '${drawing}', which the art library menus "
-                "do not hold")
-        endif()
-        list(APPEND included_styles "${style}")
-        string(APPEND rows
-            "    {${style_index},${figure_index},${archetype_index},"
-            "${colour_index},grandleon_playstation_character_${style}_"
-            "${figure}_${archetype}_${colour},"
-            "grandleon_playstation_character_${style}_${figure}_"
-            "${archetype}_${colour}_clut},\n")
-    endforeach()
-    list(REMOVE_DUPLICATES included_styles)
-    list(SORT included_styles)
-    list(LENGTH drawings drawing_count)
-
-    set(text
-        "// Generated from ${project}. Do not edit.\n#pragma once\n")
-    foreach(style IN LISTS included_styles)
-        set(style_header "playstation_characters_${style}.h")
-        if(NOT EXISTS
-            "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets/${style_header}")
-            message(FATAL_ERROR
-                "the art library holds style '${style}' but emitted no "
-                "${style_header}; regenerate the placeholder art")
-        endif()
-        string(APPEND text "#include \"${style_header}\"\n")
-    endforeach()
-    string(APPEND text
-        "struct GrandleonPlaystationProjectCharacter final {\n"
-        "    int style; int figure; int archetype; int colour;\n"
-        "    const unsigned short* texels;\n"
-        "    const unsigned short* clut;\n"
-        "};\n"
-        "inline constexpr int grandleon_playstation_project_default_style = "
-        "${default_style_index};\n"
-        "inline constexpr int grandleon_playstation_project_default_figure = "
-        "${default_figure_index};\n"
-        "inline constexpr int grandleon_playstation_project_character_count = "
-        "${drawing_count};\n")
-    if(drawing_count EQUAL 0)
-        string(APPEND text
-            "inline constexpr GrandleonPlaystationProjectCharacter "
-            "grandleon_playstation_project_characters[1] = "
-            "{{-1,-1,-1,-1,nullptr,nullptr}};\n")
-    else()
-        string(APPEND text
-            "inline constexpr GrandleonPlaystationProjectCharacter "
-            "grandleon_playstation_project_characters[] = {\n${rows}};\n")
-    endif()
-    set(header "generated/${stem}_character_art.h")
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${header}" "${text}")
-    message(STATUS
-        "${what} character drawings (${drawing_count}): ${drawings}")
-    set(${header_var} "${header}" PARENT_SCOPE)
-endfunction()
-
-grandleon_playstation_character_header(
-    "${GRANDLEON_PLAYSTATION_PROJECT}"
-    "the PlayStation turn and campaign executables"
-    board playstation_character_header
-)
-grandleon_playstation_character_header(
-    "${CMAKE_SOURCE_DIR}/games/demo/source/project.json"
-    "the PlayStation demo campaign executable"
-    demo playstation_demo_character_header
-)
-
-# The art library's headers, and the name of the project-specific sparse
-# character table a target includes. Written once so a second drawing
-# executable cannot forget it.
-#
-# The header is an argument and has no default, because there is no longer a
-# single right answer to give: the executables of the project above draw that
-# project's style, the demo campaign draws the demo's, and the measurement
-# program draws whichever style is being measured. A default here would be the
-# board project's, which is the wrong answer for two of the three and silently
-# so.
-function(grandleon_playstation_art target header)
-    target_include_directories(
-        ${target} PRIVATE "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
-    )
-    target_compile_definitions(
-        ${target} PRIVATE "GRANDLEON_PSX_CHARACTER_HEADER=\"${header}\""
-    )
-endfunction()
+# Project-specific character art is generated from the curated Godot roster by
+# build-playstation.sh.
 
 # Nugget's own sources, compiled on Nugget's own terms.
 #
@@ -448,68 +302,7 @@ target_include_directories(
     grandleon_playstation_card PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
-# The play executables. They link `grandleon::view` for the projection, the
-# draw order and the autotile convention, the arithmetic three other renderers
-# already share. They read the art library's generated PlayStation header and
-# its terrain registry straight out of the generator's own asset directory.
-#
-# Two builds of it, differing in one string: which of the project's encounters
-# the executable draws. The second exists to exercise raised terrain, and
-# therefore the lift, the headroom and the occlusion order that expresses it,
-# which the first cannot because the Fordlight is level ground throughout.
-function(grandleon_playstation_play_executable target output encounter)
-    grandleon_playstation_executable(
-        ${target} ${output} src/play_exe.cpp src/psx_gpu.cpp
-    )
-    target_link_libraries(${target} PRIVATE grandleon::view)
-    grandleon_playstation_art(${target} "${playstation_character_header}")
-    target_compile_definitions(
-        ${target} PRIVATE "GRANDLEON_PLAYSTATION_ENCOUNTER=\"${encounter}\""
-    )
-endfunction()
-
-grandleon_playstation_play_executable(
-    grandleon_playstation_play grandleon_psx_play
-    "tarnholt_line/fordlight_battle"
-)
-grandleon_playstation_play_executable(
-    grandleon_playstation_play_raised grandleon_psx_play_raised
-    "tarnholt_line/ashen_watch_battle"
-)
-
-# The README comparison: the exact first Emberbound battle the Godot capture
-# opens, including its two-player placement scaling. It is opt-in and normally
-# built against games/emberbound through the root capture target.
-grandleon_playstation_play_executable(
-    grandleon_playstation_readme grandleon_psx_readme
-    "emberbound/rowanfield"
-)
-target_compile_definitions(
-    grandleon_playstation_readme
-    PRIVATE GRANDLEON_PLAYSTATION_LOCAL_PLAYERS=2
-)
-
-# The console renderer check uses Godot-derived cutouts and terrain plates,
-# exercises the tactical board and close battle sequence, and keeps every
-# native frame inside the locked 30 fps budget.
-grandleon_playstation_executable(
-    grandleon_playstation_sevenfold_renderer
-    grandleon_psx_sevenfold_renderer
-    prototype/sevenfold_renderer.cpp
-    src/psx_gpu.cpp
-)
-target_link_libraries(
-    grandleon_playstation_sevenfold_renderer
-    PRIVATE grandleon::view
-)
-target_include_directories(
-    grandleon_playstation_sevenfold_renderer
-    PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src"
-        "${CMAKE_SOURCE_DIR}/platform/client/include"
-        "${CMAKE_SOURCE_DIR}/games/sevenfold/generated"
-        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
-)
+# The playable board and campaign executables below are the only renderer path.
 
 # The played executables, which are all one translation unit
 #
@@ -538,7 +331,7 @@ target_include_directories(
 # The character header is the first argument because it is the one thing here
 # that is not the same for every build of this file: the demo campaign draws
 # the demo project's style, and the rest draw the project's above.
-function(grandleon_playstation_played_executable target output header)
+function(grandleon_playstation_played_executable target output)
     set(campaign FALSE)
     if("GRANDLEON_TURN_CLIENT_CAMPAIGN" IN_LIST ARGN)
         set(campaign TRUE)
@@ -553,11 +346,19 @@ function(grandleon_playstation_played_executable target output header)
     # decides the executable's layout: written any other way these targets still
     # work and no longer reproduce their own bytes, which would cost every
     # comparison in this directory its meaning.
-    set(sources src/turn_exe.cpp src/psx_gpu.cpp src/psx_pad.cpp)
+    set(sources
+        src/turn_exe.cpp
+        src/console_renderer.cpp
+        src/psx_gpu.cpp
+        src/psx_pad.cpp
+    )
     set(libraries grandleon::view grandleon::client)
     set(includes
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        "${playstation_console_art_dir}"
         "${CMAKE_SOURCE_DIR}/platform/client/autopilot"
+        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
     )
     if(campaign)
         list(APPEND sources src/psx_card.cpp)
@@ -566,8 +367,6 @@ function(grandleon_playstation_played_executable target output header)
     list(APPEND libraries grandleon::sheet)
     if(campaign)
         list(APPEND libraries grandleon::storage)
-        # A scene's backdrop bands, which only a campaign draws.
-        list(APPEND includes "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets")
     endif()
 
     grandleon_playstation_executable(${target} ${output} ${sources})
@@ -580,32 +379,30 @@ function(grandleon_playstation_played_executable target output header)
         target_compile_definitions(${target} PRIVATE ${ARGN})
     endif()
     target_include_directories(${target} PRIVATE ${includes})
-    grandleon_playstation_art(${target} "${header}")
+    target_compile_definitions(
+        ${target}
+        PRIVATE GRANDLEON_PSX_CONSOLE_ART_HEADER="console_character_art.h"
+    )
 endfunction()
 
 # The turn executable: the Fordlight Crossing, played, and nothing around it.
 grandleon_playstation_played_executable(
     grandleon_playstation_turn grandleon_psx_turn
-    "${playstation_character_header}"
 )
 grandleon_playstation_played_executable(
     grandleon_playstation_turn_autopilot grandleon_psx_turn_autopilot
-    "${playstation_character_header}"
     GRANDLEON_PSX_AUTOPILOT
 )
 
-# The campaign executable: the same board, played, with the rest of the game
-# around it. Two files would have been two renderers of one board, which is
-# exactly the thing this repository refuses everywhere else.
+# The campaign executable: the same board renderer and controls, surrounded by
+# campaign screens, saves, dialogue, and stage progression.
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign grandleon_psx_campaign
-    "${playstation_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN
 )
 
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign_autopilot grandleon_psx_campaign_autopilot
-    "${playstation_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_AUTOPILOT
 )
 
@@ -627,13 +424,11 @@ grandleon_playstation_played_executable(
 # includes one header, and that is what the resolver refuses on, per project.
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign_demo grandleon_psx_campaign_demo
-    "${playstation_demo_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_DEMO_CAMPAIGN
 )
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign_demo_autopilot
     grandleon_psx_campaign_demo_autopilot
-    "${playstation_demo_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_DEMO_CAMPAIGN
     GRANDLEON_PSX_AUTOPILOT
 )

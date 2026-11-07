@@ -48,8 +48,7 @@ to show and the knight's is under plate.
 No new palette entries
 ----------------------
 None, for the reason *Adding a style* in ``tools/placeholder_art/README.md``
-gives: the ``n64_ci8`` profile writes the whole master palette into every
-asset's ``PLTE`` chunk. Four materials, which is the shortest list any style has
+gives: styles share one stable palette. Four materials, the shortest list any style has
 brought:
 
 ``BONE``

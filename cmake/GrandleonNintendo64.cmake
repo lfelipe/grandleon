@@ -74,25 +74,14 @@ add_custom_target(grandleon_n64
     VERBATIM
 )
 
-# Builds Sevenfold's playable campaign and its renderer-check ROM together.
+# Builds Sevenfold's playable campaign with the only console renderer.
 add_custom_target(grandleon_n64_sevenfold_roms
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}
         "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/build-sevenfold-roms.sh"
         --stage-picker
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Building the Sevenfold campaign and renderer check"
-    USES_TERMINAL
-    VERBATIM
-)
-
-# Runs the console renderer under the pinned ares harness.
-add_custom_target(grandleon_n64_sevenfold_renderer_check
-    COMMAND
-        "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/check-sevenfold-renderer.sh"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Checking the Nintendo 64 Sevenfold renderer board and battle scene"
+    COMMENT "Building the Sevenfold Nintendo 64 campaign"
     USES_TERMINAL
     VERBATIM
 )

@@ -3,8 +3,7 @@
 
 The package renders a terrain tileset, autotiled terrain variants, terrain
 transition sheets, and unit sprites from a single set of source definitions,
-then emits them through a set of output *profiles* (modern/web, Nintendo 64
-CI8, Nintendo 64 CI4).
+then emits them through the modern editor and web output profile.
 
 Module map
 ----------

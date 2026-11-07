@@ -82,9 +82,9 @@ export interface TargetBudget {
 /**
  * The consoles with measured limits, and where each number came from.
  *
- * **Nintendo 64.** CI4 is sixteen colours per asset, and the `n64_ci4` profile in
- * `tools/placeholder_art` is built to it and `platform/nintendo64` feeds it to
- * `mksprite` unchanged. TMEM's upper half holds 256 palette entries, which is
+ * **Nintendo 64.** The console-art generator converts the selected Godot
+ * cutouts to CI4 through libdragon's pinned `mksprite`. TMEM's upper half holds
+ * 256 palette entries, which is
  * sixteen CI4 palettes at once (libdragon's own `tmem_size`). RGBA5551 is five
  * bits per channel, and all 124 master entries survive it, measured. Its
  * resident art is not a budget at all: TMEM holds four 32x32 CI4 tiles and the

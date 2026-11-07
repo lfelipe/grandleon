@@ -45,10 +45,8 @@ Adding a style
    the generated tables for the editor and the console, and the editor's
    contracts all enumerate this registry.
 
-Brief a commission at **sixteen colours per sprite**: the ``n64_ci4`` profile
-caps a sprite there, and most of the checked-in character sprites already spend
-all sixteen. Review a new style in ``n64_ci4`` and at the legibility reduction
-before ``modern``.
+Brief a commission with a compact, shared palette and review it at the
+legibility reduction before ``modern``.
 """
 
 from __future__ import annotations

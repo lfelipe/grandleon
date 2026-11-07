@@ -112,7 +112,7 @@ func _argument(prefix: String) -> String:
 
 
 func _make_fake_shell(root_path: String) -> void:
-	_write(root_path.path_join("BUILD-INFO.txt"), "Grand Leon Linux PC bundle\nreleaseVersion=0.3.0\nsourceRevision=test\nsourceTree=clean\ndefaultCampaign=old\ncreatorIncluded=yes\n")
+	_write(root_path.path_join("BUILD-INFO.txt"), "Grandleon Linux PC bundle\nreleaseVersion=0.3.0\nsourceRevision=test\nsourceTree=clean\ndefaultCampaign=old\ncreatorIncluded=yes\n")
 	_write(root_path.path_join("godot"), "fake runtime\n")
 	_write(root_path.path_join("launch-pc.sh"), "#!/usr/bin/env bash\n")
 	_write(root_path.path_join("control-pc.sh"), "#!/usr/bin/env bash\n")

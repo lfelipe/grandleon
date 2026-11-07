@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // The PlayStation turn executable: a board, played.
 //
-// `src/play_exe.cpp` opens on the board the content authored and holds it.
-// This one is steered. The cursor, the selection, the engine's reachable and
+// This is the console's one playable renderer. The cursor, the selection, the
+// engine's reachable and
 // threatened tiles, a move, a priced strike, the unit action menu, the full
 // information sheet: everything a player expresses is
 // `platform/client/src/turn_client.cpp`, the same translation unit the host
@@ -91,7 +91,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "psx_art.h"
+#include "console_art.h"
+#include "console_renderer.h"
 #include "psx_gpu.h"
 #include "psx_pad.h"
 #include "psx_runtime.h"
@@ -146,6 +147,7 @@ namespace turn = grandleon::client::turn;
 
 namespace psx = grandleon::playstation;
 namespace art = grandleon::playstation::art;
+namespace console = grandleon::playstation::console_renderer;
 namespace gpu = grandleon::playstation::gpu;
 namespace pad = grandleon::playstation::pad;
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
@@ -194,11 +196,10 @@ constexpr std::size_t campaign_package_size = board_package_size;
 constexpr const char* campaign_slot_base = project_campaign_slot;
 #endif
 
-// The backdrop, and why it is this colour: nothing the art library can draw is
-// (31, 0, 31), so a probe that comes back as the backdrop is a pixel nothing
-// drew rather than a pixel drawn in a colour that happens to match.
-// `play_exe.cpp` checks that separation against the art and so does this.
-constexpr std::uint16_t backdrop = 0x7C1F;
+// The dark navy behind a fitted board. It remains distinct from every art and
+// interface colour, which keeps an undrawn probe unambiguous without putting
+// diagnostic-magenta bars around a real game on a television.
+constexpr std::uint16_t backdrop = 0x10C4;
 
 // The interface's five colours, as fifteen-bit words.
 //
@@ -304,7 +305,7 @@ constexpr int sheet_footer_row = screen_rows - 2;
 // rather than about the picture, which is a much weaker thing to assert and a
 // much harder thing to be exactly right about. A frame in a flat colour is
 // exact, leaves the cell's own art legible in the middle, and leaves the
-// centre-sampling probe idiom `play_exe.cpp` established untouched.
+// centre-sampling framebuffer probes untouched.
 constexpr int wash_thickness = 3;
 
 // The cursor's four corner brackets: how long an arm is and how thick. The arm
@@ -498,10 +499,6 @@ void expect(bool condition, const char* name) {
 
 int terrain_cell_of[art::terrain_kind_count][art::variant_count];
 int terrain_clut_of[art::terrain_kind_count];
-constexpr int character_cache_capacity =
-    art::character_count > 0 ? art::character_count : 1;
-int character_cell_of[character_cache_capacity];
-int character_clut_of[character_cache_capacity];
 int font_clut = -1;
 int font_gold_clut = -1;
 int font_muted_clut = -1;
@@ -542,7 +539,7 @@ std::uint16_t font_sheet[gpu::font_lines][gpu::font_halfwords_across];
 
 // Four texels to a halfword, the leftmost in the *low* nibble. That is the one
 // thing this format reverses against every other 4bpp layout in this
-// repository, and `psx_art.h` records why it is easy to get backwards.
+// repository, so the packing order is stated explicitly here.
 void build_font() {
     for (auto& row : font_sheet) {
         for (std::uint16_t& word : row) word = 0;
@@ -599,8 +596,7 @@ void build_font_clut() {
 // different question: what the GPU actually stored at that address. The joiner
 // requires them, and the emulator's own frame, to agree.
 //
-// This is `play_exe.cpp`'s idiom, extended from one still picture to a
-// checkpoint of a session.
+// Each claim belongs to a settled checkpoint of the played session.
 // ---------------------------------------------------------------------------
 
 void report_colour(Line& line, std::uint16_t colour) {
@@ -643,14 +639,16 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
 // At the native size a cell is drawn by a textured rectangle, which samples one
 // texel per pixel, so the answer is the pixel itself and every claim this
 // executable made before boards were fitted is unmoved.
-[[nodiscard]] constexpr int texel_under(int screen, int drawn) noexcept {
-    if (drawn >= native_tile) return screen;
-    // The quad carries `u` at its near edge and `u + native_tile - 1` at its
+[[nodiscard]] constexpr int texel_under(
+    int screen, int drawn, int source_side
+) noexcept {
+    if (drawn <= 0 || source_side <= 0) return 0;
+    // The quad carries `u` at its near edge and `u + source_side - 1` at its
     // far one, and the hardware samples at a pixel's *centre*, half a pixel in.
     // Both halves of that matter and each was got wrong once here: dropping the
     // half-pixel reads a texel early over most of the cell, and spanning 32
     // texels rather than 31 reads past the cell's own last column.
-    return ((2 * screen + 1) * (native_tile - 1)) / (2 * drawn);
+    return ((2 * screen + 1) * (source_side - 1)) / (2 * drawn);
 }
 
 // Whether every texel touching this one carries the same colour, so that a
@@ -665,7 +663,7 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
         for (int dx = -1; dx <= 1; ++dx) {
             const int x = tx + dx;
             const int y = ty + dy;
-            if (x < 0 || y < 0 || x >= native_tile || y >= native_tile) {
+            if (x < 0 || y < 0 || x >= asset.side || y >= asset.side) {
                 return false;
             }
             if (art::colour_at(asset, x, y) != here) return false;
@@ -676,8 +674,7 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
 
 // The opaque texel of a cell nearest its centre, searched outward in rings and
 // confined to the middle half so the texel it finds can never be one the
-// cursor's brackets or a wash's frame is drawn over. `play_exe.cpp` searches
-// the whole cell because it draws neither.
+// cursor's brackets or a wash's frame is drawn over.
 //
 // On a shrunk cell it wants more than an opaque texel: it wants one whose
 // neighbours are the same colour. The reason is that a probe claims an exact
@@ -692,7 +689,7 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
 // At the native size no margin is asked for, so the texel found is the texel
 // that was always found.
 [[nodiscard]] bool opaque_near_centre(
-    const art::Asset& asset, int drawn, int& out_sx, int& out_sy,
+    const art::Asset& asset, int drawn, bool mirrored, int& out_sx, int& out_sy,
     int& out_tx, int& out_ty
 ) {
     const int centre = drawn / 2;
@@ -719,8 +716,10 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
                 if (drawn < native_tile && sx - sy <= 1 && sy - sx <= 1) {
                     continue;
                 }
-                const int tx = texel_under(sx, drawn);
-                const int ty = texel_under(sy, drawn);
+                const int sampled_tx = texel_under(sx, drawn, asset.side);
+                const int tx = mirrored ? asset.side - 1 - sampled_tx
+                                        : sampled_tx;
+                const int ty = texel_under(sy, drawn, asset.side);
                 const std::uint16_t here = art::colour_at(asset, tx, ty);
                 if (here == 0) continue;
                 // The margin the note above this function describes, which
@@ -729,7 +728,7 @@ void probe(const char* label, int x, int y, std::uint16_t claimed) {
                 // them the hardware reaches is its own rounding, so a texel is
                 // only claimable when its neighbours carry the same colour. At
                 // the native size a pixel is a texel and nothing is asked.
-                if (drawn < native_tile && !neighbours_agree(asset, tx, ty)) {
+                if (drawn < asset.side && !neighbours_agree(asset, tx, ty)) {
                     continue;
                 }
                 out_sx = sx;
@@ -930,23 +929,6 @@ public:
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
     // ----- a campaign screen -----------------------------------------------
 
-    [[nodiscard]] client::ManagementIntent next_management_intent(
-        const client::CompanyManagement& company
-    ) override {
-#ifndef GRANDLEON_PSX_AUTOPILOT
-        // Match the Godot player's direct-start rule. An authored fixed
-        // formation with no inventory choices is already ready; opening the full
-        // company editor only hides the battle behind an unexplained START
-        // press. Real deployment choices, inventory management and roster
-        // refusals still use the complete screen. Debug Stages remain in the
-        // in-battle menu.
-        if (client::company_can_start_directly(company)) {
-            return {client::ManagementVerb::proceed, {}, {}};
-        }
-#endif
-        return turn::TurnClient::next_management_intent(company);
-    }
-
     // A page of text, placed. Everything about *what* is on it was decided by
     // `platform/client/src/turn_client.cpp`, which is the same translation unit
     // the host compiles to derive this run's expectations. A screen this
@@ -998,8 +980,34 @@ public:
             }
             char footer[screen_cols + 1]{};
             control_text(view.footer, footer, sizeof footer);
+            if (view.choices > 0 && view.page != nullptr &&
+                view.caret_row >= view.first_choice_row &&
+                view.caret_row < view.page->count) {
+                const int choice = view.caret_row - view.first_choice_row;
+                const int y = 122 + choice * 24;
+                probe("launchchoice", 58, y, menu_gold_colour);
+                claim_first_glyph_at(
+                    "launchtext", centred_column(view.page->line(view.caret_row)),
+                    (y + 6) / glyph, view.page->line(view.caret_row),
+                    menu_gold_colour
+                );
+            }
             claim_first_glyph_at(
-                "titlefooter", centred_column(footer), 26, footer
+                "titlefooter", centred_column(footer),
+                view.choices <= 0 ? 26 : 27, footer
+            );
+            close_probes(before, harness_screen_slot);
+            return;
+        }
+
+        if (view.screen == turn::Screen::help) {
+            probe("helpbg", 0, 0, paper_colour);
+            probe("helpbar", 24, 14, menu_gold_colour);
+            probe("helppanel", 28, 54, menu_muted_colour);
+            char footer[screen_cols + 1]{};
+            control_text(view.footer, footer, sizeof footer);
+            claim_first_glyph_at(
+                "helpfooter", centred_column(footer), 27, footer
             );
             close_probes(before, harness_screen_slot);
             return;
@@ -1097,7 +1105,9 @@ public:
             int py = 0;
             int sx = 0;
             int sy = 0;
-            if (opaque_near_centre(asset, screen_face_size, sx, sy, px, py)) {
+            if (opaque_near_centre(
+                    asset, screen_face_size, false, sx, sy, px, py
+                )) {
                 probe(
                     "face", screen_face_left + sx, screen_face_top + sy,
                     art::colour_at(asset, px, py)
@@ -1220,25 +1230,56 @@ public:
         );
     }
 
-    // What this machine can say about the three gestures, and what it cannot.
-    //
-    // **It can say the timing and the travel.** A shot opens with a mark
-    // crossing the board from the shooter to the target and a cast opens with a
-    // flare held on the target tile, both for exactly the frame counts the
-    // shared model states, so a player watching this machine sees the same
-    // three gestures take the same three lengths of time they take everywhere
-    // else. The mark costs nothing new: it is the cell flash the board already
-    // draws for a struck tile, moved a tile at a time instead of parked.
-    //
-    // **It cannot say the pose.** The generated PlayStation art header carries
-    // one 25x25 standing cell per figure and no frame dimension at all, so
-    // there is no lunge to draw and no cast pose to hold. `art::character`
-    // takes an archetype and a colour and there is no third index to give it.
-    // Slices 2 and 3 recorded that; slice 4 records what it now costs, which is
-    // the pose half of every attack rather than only of a walk. See
-    // Reaching it means `frame_count` and `frame_names` on the generated
-    // header, a `..._frames.png` read in `playstation_header.emit_characters`,
-    // and four more cells per figure in the header.
+    void draw_close_exchange(
+        const sim::UnitSnapshot& attacker,
+        const sim::UnitSnapshot& defender,
+        art::Pose attacker_pose,
+        art::Pose defender_pose,
+        bool show_result,
+        bool landed,
+        int damage
+    ) {
+        console::draw_close_background();
+        const bool attacker_left = attacker.side == sim::Side::first;
+        const bool defender_left = defender.side == sim::Side::first;
+        console::draw_close_character(
+            drawing_index_of(attacker), attacker_pose, attacker_left,
+            attacker_left ? 0 : 1
+        );
+        console::draw_close_character(
+            drawing_index_of(defender), defender_pose, defender_left,
+            defender_left ? 0 : 1
+        );
+
+        // Compact framed readout: the scenery and figures own nearly the whole
+        // frame, while the authoritative result remains impossible to miss.
+        gpu::fill(0, 0, gpu::screen_width, 18, paper_colour);
+        write_at_with_clut(2, 1, "PLAYER 1", font_gold_clut);
+        write_at_with_clut(29, 1, "PLAYER 2", font_gold_clut);
+        if (show_result) {
+            Line result;
+            if (landed) {
+                result.text("DAMAGE ").decimal(
+                    static_cast<std::uint32_t>(damage < 0 ? 0 : damage)
+                );
+            } else {
+                result.text("MISS");
+            }
+            int length = 0;
+            while (result.c_str()[length] != '\0') ++length;
+            const int left = (screen_cols - length) / 2;
+            gpu::fill(
+                left * glyph - 6, 190, length * glyph + 12, 20,
+                paper_colour
+            );
+            write_at_with_clut(left, 24, result.c_str(), font_gold_clut);
+        }
+    }
+
+    // The same accepted attack event now drives both board timing and the
+    // production close presentation. Attacker and defender are placed by
+    // faction side, not by who happens to strike, so a following counterattack
+    // reverses the poses without making the two characters swap sides.
     void play_attack(
         const sim::EncounterSnapshot& before,
         sim::UnitId struck,
@@ -1250,7 +1291,6 @@ public:
         bool landed,
         int damage
     ) {
-        static_cast<void>(damage);
         const sim::UnitSnapshot* target = unit_of(before, struck);
         if (target == nullptr || last_overlay_ == nullptr) return;
         const std::uint32_t opened = psx::clock_ticks();
@@ -1258,10 +1298,14 @@ public:
         const sim::UnitSnapshot* thrower =
             striker != 0 ? unit_of(before, striker) : nullptr;
         int frames = 0;
+        striking_ = thrower != nullptr ? thrower->id : 0;
+        if (thrower != nullptr) console::prepare_close();
 
         // ---- the opening -------------------------------------------------
         const int lead = view::gesture_lead_frames(gesture, separation);
         for (int frame = 0; frame < lead; ++frame) {
+            strike_pose_ = frame * 2 < lead
+                ? art::Pose::windup : art::Pose::attack;
             if (gesture == view::AttackGesture::shot && thrower != nullptr) {
                 // The same interpolation a token walks on, read back to a cell:
                 // the mark is a tile of the board rather than a pixel on it,
@@ -1279,7 +1323,14 @@ public:
                 flash_lit_ = (frame % 2) == 0;
             }
             psx::wait_vblank();
-            draw(before, *last_overlay_, false);
+            if (thrower != nullptr) {
+                draw_close_exchange(
+                    *thrower, *target, strike_pose_, art::Pose::idle,
+                    false, landed, damage
+                );
+            } else {
+                draw(before, *last_overlay_, false);
+            }
             ++frames;
         }
 
@@ -1298,7 +1349,15 @@ public:
             }
             flash_lit_ = (frame % 2) == 0;
             psx::wait_vblank();
-            draw(before, *last_overlay_, false);
+            if (thrower != nullptr) {
+                draw_close_exchange(
+                    *thrower, *target, art::Pose::attack,
+                    landed ? art::Pose::hurt : art::Pose::idle,
+                    true, landed, damage
+                );
+            } else {
+                draw(before, *last_overlay_, false);
+            }
             ++frames;
         }
         flinch_dx_ = 0;
@@ -1307,6 +1366,8 @@ public:
         flash_x_ = -1;
         flash_y_ = -1;
         flash_lit_ = false;
+        striking_ = 0;
+        strike_pose_ = art::Pose::idle;
         report_animation(landed ? "hit" : "miss", 1, frames, opened);
     }
 
@@ -1353,6 +1414,7 @@ public:
                 const int left = cell_left(x);
                 const int top = cell_top(x, y);
                 if (box.covers(left / glyph, top / glyph, drawn_tile())) continue;
+                if (covered_after_terrain(snapshot, x, y, left, top)) continue;
                 Line label;
                 label.text(splash ? "s" : danger ? "d" : "m")
                     .decimal(static_cast<std::uint32_t>(x))
@@ -1374,23 +1436,36 @@ public:
             const art::Asset asset = unit_asset(unit);
             int px = 0;
             int py = 0;
-            const int drawn = drawn_tile();
+            const int drawn = drawn_tile() * 2 < 32
+                ? 32 : (drawn_tile() * 2 > 58 ? 58 : drawn_tile() * 2);
             int sx = 0;
             int sy = 0;
-            if (!opaque_near_centre(asset, drawn, sx, sy, px, py)) continue;
-            const int at_x = cell_left(unit.position.x) + sx;
-            const int at_y = cell_top(unit.position.x, unit.position.y) + sy;
+            if (!opaque_near_centre(
+                    asset, drawn, unit.side != player_side(), sx, sy, px, py
+                )) {
+                continue;
+            }
+            const int cell_x = cell_left(unit.position.x);
+            const int cell_y = cell_top(unit.position.x, unit.position.y);
+            const int at_x = cell_x + drawn_tile() / 2 - drawn / 2 + sx;
+            const int at_y = cell_y + drawn_tile() - drawn + sy;
             // Claiming a texel the menu is drawn over would be claiming a
             // pixel the interface is deliberately hiding. That is the reason a
             // lit tile under the box is skipped a few lines above, and the
             // reason a sheet claims nothing about the board at all.
             if (box.covers_pixel(at_x, at_y)) continue;
+            if (covered_after_unit(snapshot, i, at_x, at_y)) continue;
+            if (cursor_cell_covers_pixel(overlay, at_x, at_y)) continue;
             Line label;
             label.text("u")
                 .decimal(static_cast<std::uint32_t>(unit.position.x))
                 .text("_")
                 .decimal(static_cast<std::uint32_t>(unit.position.y));
-            probe(label.c_str(), at_x, at_y, art::colour_at(asset, px, py));
+            const std::uint16_t expected =
+                unit.has_acted && wash_covers_pixel(cell_x, cell_y, at_x, at_y)
+                    ? spent_colour
+                    : art::colour_at(asset, px, py);
+            probe(label.c_str(), at_x, at_y, expected);
         }
         if (camera().visible(overlay.cursor_x, overlay.cursor_y)) {
             const int cursor_at_x = cell_left(overlay.cursor_x);
@@ -1436,6 +1511,86 @@ public:
     }
 
 private:
+    [[nodiscard]] int drawn_unit_size() const noexcept {
+        return drawn_tile() * 2 < 32
+            ? 32 : (drawn_tile() * 2 > 58 ? 58 : drawn_tile() * 2);
+    }
+
+    [[nodiscard]] bool item_covers_pixel(
+        const view::DrawItem& item, const sim::EncounterSnapshot& snapshot,
+        int x, int y
+    ) const {
+        if (item.layer == view::Layer::terrain) {
+            return x >= item.x && x < item.x + drawn_tile() && y >= item.y &&
+                   y < item.y + drawn_tile();
+        }
+        if (item.layer != view::Layer::unit ||
+            item.subject >= snapshot.units.size()) {
+            return false;
+        }
+        const int size = drawn_unit_size();
+        const int left = item.x + drawn_tile() / 2 - size / 2;
+        const int top = item.y + drawn_tile() - size;
+        return x >= left && x < left + size && y >= top && y < top + size;
+    }
+
+    [[nodiscard]] bool wash_covers_pixel(
+        int left, int top, int x, int y
+    ) const noexcept {
+        const int drawn = drawn_tile();
+        if (x < left || x >= left + drawn || y < top || y >= top + drawn) {
+            return false;
+        }
+        return x < left + wash_thickness ||
+               x >= left + drawn - wash_thickness ||
+               y < top + wash_thickness ||
+               y >= top + drawn - wash_thickness;
+    }
+
+    [[nodiscard]] bool cursor_cell_covers_pixel(
+        const turn::Overlay& overlay, int x, int y
+    ) const noexcept {
+        if (!camera().visible(overlay.cursor_x, overlay.cursor_y)) return false;
+        const int left = cell_left(overlay.cursor_x);
+        const int top = cell_top(overlay.cursor_x, overlay.cursor_y);
+        return x >= left && x < left + drawn_tile() && y >= top &&
+               y < top + drawn_tile();
+    }
+
+    [[nodiscard]] bool covered_after_terrain(
+        const sim::EncounterSnapshot& snapshot, int cell_x, int cell_y,
+        int x, int y
+    ) const {
+        bool found = false;
+        for (int i = 0; i < list_.size(); ++i) {
+            const view::DrawItem& item = list_[i];
+            if (!found) {
+                found = item.layer == view::Layer::terrain &&
+                        item.cell_x == cell_x && item.cell_y == cell_y;
+                continue;
+            }
+            if (item_covers_pixel(item, snapshot, x, y)) return true;
+        }
+        return false;
+    }
+
+    [[nodiscard]] bool covered_after_unit(
+        const sim::EncounterSnapshot& snapshot, std::size_t subject,
+        int x, int y
+    ) const {
+        bool found = false;
+        for (int i = 0; i < list_.size(); ++i) {
+            const view::DrawItem& item = list_[i];
+            if (!found) {
+                found = item.layer == view::Layer::unit &&
+                        item.subject == subject;
+                continue;
+            }
+            if (item_covers_pixel(item, snapshot, x, y)) return true;
+        }
+        return false;
+    }
+
     void close_probes(int before) { close_probes(before, harness_slot); }
 
     void close_probes(int before, int slot) {
@@ -1623,10 +1778,23 @@ private:
     void draw_unit(const sim::UnitSnapshot& unit, int x, int y) {
         const int drawing = drawing_index_of(unit);
         if (drawing < 0) return;
-        const int cell = character_cell_of[drawing];
-        const int clut = character_clut_of[drawing];
-        if (cell < 0 || clut < 0) return;
-        gpu::draw_cell_scaled(x, y, drawn_tile(), cell, clut);
+        art::Pose pose = art::Pose::idle;
+        int stream_slot = 0;
+        if (unit.id == moving_) {
+            pose = art::Pose::move;
+        } else if (unit.id == striking_) {
+            pose = strike_pose_;
+        } else if (unit.id == flinching_) {
+            pose = art::Pose::hurt;
+            stream_slot = 1;
+        }
+        const int size = drawn_tile() * 2 < 32
+            ? 32 : (drawn_tile() * 2 > 58 ? 58 : drawn_tile() * 2);
+        console::draw_character(
+            drawing, pose, x + drawn_tile() / 2,
+            y + drawn_tile() - (unit.id == moving_ ? move_bob_ : 0),
+            size, unit.side != player_side(), stream_slot
+        );
     }
 
     void draw_wash(int left, int top, std::uint16_t colour) {
@@ -1855,10 +2023,52 @@ private:
         if (view.page != nullptr && view.page->count > 2) {
             write_centred(11, view.page->line(2), font_gold_clut);
         }
-        write_centred(
-            14, "A CAMPAIGN YOUR MEMORY CARD KEEPS", font_muted_clut
+        if (view.choices <= 0) {
+            write_centred(
+                14, "A CAMPAIGN YOUR MEMORY CARD KEEPS", font_muted_clut
+            );
+        } else {
+            write_centred(14, "CHOOSE HOW TO PLAY", font_muted_clut);
+            for (int choice = 0; choice < view.choices; ++choice) {
+                const int page_row = view.first_choice_row + choice;
+                if (view.page == nullptr || page_row >= view.page->count) break;
+                const int y = 122 + choice * 24;
+                const bool selected = page_row == view.caret_row;
+                gpu::fill(
+                    58, y, 204, 18,
+                    selected ? menu_gold_colour : menu_muted_colour
+                );
+                gpu::fill(60, y + 2, 200, 14, paper_colour);
+                write_centred(
+                    (y + 6) / glyph, view.page->line(page_row),
+                    selected ? font_gold_clut : font_clut
+                );
+            }
+        }
+        write_controls_centred(
+            view.choices <= 0 ? 26 : 27, view.footer, font_clut
         );
-        write_controls_centred(26, view.footer, font_clut);
+    }
+
+    void draw_help_screen(const turn::ScreenView& view) {
+        gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, paper_colour);
+        gpu::fill(24, 14, 272, 2, menu_gold_colour);
+        write_scaled_at(106, 22, "GRANDLEON", 12, font_gold_clut);
+        gpu::fill(28, 54, 264, 140, menu_muted_colour);
+        gpu::fill(30, 56, 260, 136, paper_colour);
+        if (view.page != nullptr) {
+            for (int row = 0; row < view.page->count; ++row) {
+                char translated[screen_cols + 1]{};
+                control_text(
+                    view.page->line(row), translated, sizeof translated
+                );
+                write_at_with_clut(
+                    6, 8 + row * 2, translated,
+                    row == 0 ? font_gold_clut : font_clut
+                );
+            }
+        }
+        write_controls_centred(27, view.footer, font_clut);
     }
 
     void draw_slot_screen(const turn::ScreenView& view) {
@@ -1895,6 +2105,10 @@ private:
     void draw_screen(const turn::ScreenView& view) {
         if (view.screen == turn::Screen::title) {
             draw_title_screen(view);
+            return;
+        }
+        if (view.screen == turn::Screen::help) {
+            draw_help_screen(view);
             return;
         }
         if (view.screen == turn::Screen::slot) {
@@ -1950,11 +2164,11 @@ private:
         if (view.speaker == nullptr) return;
         const int drawing = speaker_drawing_index(*view.speaker);
         if (drawing < 0) return;
-        const int cell = character_cell_of[drawing];
-        const int clut = character_clut_of[drawing];
-        if (cell < 0 || clut < 0) return;
-        gpu::draw_cell_scaled(
-            screen_face_left, screen_face_top, screen_face_size, cell, clut
+        console::draw_character(
+            drawing, art::Pose::idle,
+            screen_face_left + screen_face_size / 2,
+            screen_face_top + screen_face_size,
+            screen_face_size, false
         );
     }
 
@@ -2403,6 +2617,8 @@ private:
     int move_facing_ = 1;
     int move_lean_ = 0;
     sim::UnitId flinching_ = 0;
+    sim::UnitId striking_ = 0;
+    art::Pose strike_pose_ = art::Pose::idle;
     int flinch_dx_ = 0;
     int flinch_dy_ = 0;
     int flash_x_ = -1;
@@ -2464,13 +2680,17 @@ int main() {
     if (loaded.error != pf::Error::none) give_up();
 
     std::uint8_t local_players = 1U;
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+    turn::TurnClient::LaunchMenu launch_menu;
+#endif
+    bool second_controller_connected = false;
 #ifndef GRANDLEON_PSX_AUTOPILOT
     // Presence is learned by a real poll, not by an answer counter left at
     // zero after pad::begin(). Consuming an edge here also prevents a button
     // held during boot from becoming the first board command.
     (void)pad::pressed(pad::Port::two);
-    const bool second_controller_connected =
-        pad::answers(pad::Port::two) > 0;
+    second_controller_connected = pad::answers(pad::Port::two) > 0;
+#endif
     const auto launched_campaign = pr::load_campaign(
         loaded.package, core::stable_content_id_v1(campaign_path)
     );
@@ -2478,27 +2698,43 @@ int main() {
         static_cast<bool>(launched_campaign),
         "the campaign launch policy loads"
     );
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+    launch_menu.offer = true;
+    launch_menu.second_controller_connected = second_controller_connected;
+#endif
     if (launched_campaign) {
         switch (launched_campaign.definition.player_mode) {
             case pr::LocalPlayerMode::one:
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+                launch_menu.allow_one = true;
+                launch_menu.allow_two = false;
+#else
                 local_players = 1U;
+#endif
                 break;
             case pr::LocalPlayerMode::two:
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+                launch_menu.allow_one = false;
+                launch_menu.allow_two = true;
+#else
                 expect(
                     second_controller_connected,
                     "the two-player campaign has controller two"
                 );
                 if (!second_controller_connected) give_up();
                 local_players = 2U;
+#endif
                 break;
             case pr::LocalPlayerMode::choice:
-                // On PlayStation the physical choice is enough: boot with a
-                // second pad connected for co-op, or with one for solo.
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+                launch_menu.allow_one = true;
+                launch_menu.allow_two = true;
+#else
                 local_players = second_controller_connected ? 2U : 1U;
+#endif
                 break;
         }
     }
-#endif
 
     const auto presentation = pr::load_presentation(loaded.package);
     expect(static_cast<bool>(presentation), "the presentation section reads");
@@ -2548,14 +2784,9 @@ int main() {
             terrain_cell_of[kind][variant] = -1;
         }
     }
-    for (int drawing = 0; drawing < art::character_count; ++drawing) {
-        character_cell_of[drawing] = -1;
-        character_clut_of[drawing] = -1;
-    }
-
-    // Everything the board can draw, resident before the first press. A repaint
-    // costs primitives and no transfers, which is what makes a frame's cost
-    // independent of what is on it.
+    // Terrain and every idle drawing are resident before the first press.
+    // Animation poses use two reserved streaming slots owned by the production
+    // console renderer.
     for (int kind = 0; kind < art::terrain_kind_count; ++kind) {
         const art::Asset first = art::terrain(theme, kind, 0);
         terrain_clut_of[kind] = claim_clut(first.clut);
@@ -2564,11 +2795,10 @@ int main() {
                 claim_cell(art::terrain(theme, kind, variant).texels);
         }
     }
-    for (int drawing = 0; drawing < art::character_count; ++drawing) {
-        const art::Asset asset = art::character(drawing);
-        character_clut_of[drawing] = claim_clut(asset.clut);
-        character_cell_of[drawing] = claim_cell(asset.texels);
-    }
+    expect(
+        console::initialize(),
+        "the project-specific Godot-derived character atlas fits in VRAM"
+    );
     build_font();
     build_font_clut();
 
@@ -2726,8 +2956,9 @@ int main() {
     // what this one adds is the question a player answers before it starts.
     const turn::TurnClient::SlotChoice chosen = game.open_campaign(
         pr::project_title(loaded.package), campaign_slot_base, holds,
-        view::slot_menu_rows
+        view::slot_menu_rows, launch_menu
     );
+    local_players = chosen.local_players;
     Line()
         .text("SLOT ")
         .text(chosen.slot)

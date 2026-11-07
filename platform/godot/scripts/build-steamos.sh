@@ -155,7 +155,7 @@ if [[ "${player_only}" == "1" ]]; then
         "${temporary_dir}/project/scripts/creator/army_editor.gd" \
         "${temporary_dir}/project/scripts/creator/gear_editor.gd" \
         "${temporary_dir}/project/scripts/creator/standalone_exporter.gd"
-    printf 'Player-only Grand Leon game bundle.\n' >"${temporary_dir}/PLAYER-ONLY"
+    printf 'Player-only Grandleon game bundle.\n' >"${temporary_dir}/PLAYER-ONLY"
 fi
 printf '%s\n' "${campaign_key}" >"${temporary_dir}/DEFAULT-CAMPAIGN"
 source_revision="$(git -C "${repo_root}" rev-parse HEAD)"
@@ -169,7 +169,7 @@ if [[ "${player_only}" == "1" ]]; then
     creator_included="no"
 fi
 {
-    printf 'Grand Leon Linux PC bundle\n'
+    printf 'Grandleon Linux PC bundle\n'
     printf 'releaseVersion=%s\n' "${release_version}"
     printf 'sourceRevision=%s\n' "${source_revision}"
     printf 'sourceTree=%s\n' "${source_state}"

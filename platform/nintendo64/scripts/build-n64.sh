@@ -187,6 +187,16 @@ container_build_dir="/src/${build_dir#"${repository_root}"/}"
 exec 9>"${build_dir}.lock"
 flock 9
 
+# Produce only the cutouts the selected project can name, from the same HD
+# sheets and team masks Godot uses.  This runs on the host because Pillow and
+# NumPy are authoring dependencies; the pinned container still performs the
+# final N64 CI4 conversion with its own mksprite.
+art_project="${project:-${repository_root}/games/tarnholt/source/project.json}"
+console_art_dir="${build_dir}/console-art"
+python3 "${repository_root}/platform/console_art/generate-character-art.py" \
+    --project "${art_project}" --platform n64 --output "${console_art_dir}"
+container_console_art_dir="/src/${console_art_dir#"${repository_root}"/}"
+
 # The container runs as the invoking user so that build artifacts are not
 # root-owned.
 "${docker}" run --rm \
@@ -195,6 +205,7 @@ flock 9
     --env "GRANDLEON_CONTAINER_BUILD_DIR=${container_build_dir}" \
     --env "GRANDLEON_CONTAINER_PROJECT_ARG=${project_arg}" \
     --env "GRANDLEON_CONTAINER_PICKER_ARG=${picker_arg}" \
+    --env "GRANDLEON_CONTAINER_CONSOLE_ART_DIR=${container_console_art_dir}" \
     --env "GRANDLEON_CONTAINER_TARGETS=${targets//,/ }" \
     --volume "${repository_root}:/src" \
     --workdir /src \
@@ -204,6 +215,7 @@ flock 9
             -DCMAKE_TOOLCHAIN_FILE=/src/cmake/toolchains/Nintendo64.cmake \
             -DCMAKE_BUILD_TYPE= \
             -DGRANDLEON_N64=ON \
+            -DGRANDLEON_N64_CONSOLE_ART_DIR="${GRANDLEON_CONTAINER_CONSOLE_ART_DIR}" \
             -DGRANDLEON_BUILD_TESTS=OFF \
             -DGRANDLEON_WERROR=ON \
             ${GRANDLEON_CONTAINER_PICKER_ARG} \

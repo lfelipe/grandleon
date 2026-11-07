@@ -22,8 +22,8 @@ enum class EncounterLoadError : std::uint8_t {
     // The board puts more characters on the field than the target profile this
     // package was opened under will carry.
     //
-    // A refusal before play with a diagnostic, which is what DESIGN.md §3.4
-    // asks of a console that cannot support something: the alternative is a
+    // Refuse before play with a diagnostic when a target cannot support the
+    // board. The alternative is a
     // board that loads, opens and then answers a button press half a second
     // later, which reads as a broken machine rather than as a limit. See
     // `package_format::LoadOptions::maximum_units_per_encounter` for the

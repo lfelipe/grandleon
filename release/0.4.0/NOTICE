@@ -1,0 +1,42 @@
+Grandleon is distributed under the MIT License; see LICENSE.
+
+The Linux PC build includes Godot Engine 4.7.2 and links godot-cpp
+10.0.0-stable.
+Both are distributed under the MIT License and retain their upstream
+copyrights. The release bundle includes their complete license files and the
+Godot Engine third-party copyright inventory in its `licenses` directory.
+
+    https://godotengine.org/license/
+    https://github.com/godotengine/godot-cpp
+
+Two generated files carry third-party code.
+
+`editor/src/generated/simulation-module.ts` is the engine compiled to
+WebAssembly by the pinned Emscripten SDK, and the module it embeds links parts
+of the LLVM runtime that Emscripten ships (libc++, libc++abi and compiler-rt),
+licensed under the Apache License 2.0 with the LLVM exception:
+
+    https://llvm.org/LICENSE.txt
+
+`editor/src/generated/source-v1-validator.ts` is this project's schema compiled
+by Ajv, and carries Ajv's runtime helpers with it. Ajv is MIT, Copyright (c)
+2015-2021 Evgeny Poberezkin:
+
+    https://github.com/ajv-validator/ajv/blob/master/LICENSE
+
+Nintendo 64 ROMs link libdragon. The pinned libdragon revision is released
+into the public domain under the Unlicense. Its full licence is packaged by the
+pinned toolchain used to build review ROMs.
+
+    https://github.com/DragonMinded/libdragon/blob/trunk/LICENSE.md
+
+PlayStation executables use Nugget's startup and C++ support under the MIT
+License and the GNU libstdc++ runtime under GPLv3 with the GCC Runtime Library
+Exception. The pinned toolchain retains the complete upstream licence texts and
+release packaging copies them beside distributed console artifacts.
+
+    https://github.com/pcsx-redux/nugget
+    https://www.gnu.org/licenses/gcc-exception-3.1.html
+
+Everything else in this repository is the project's own work, generated art and
+the console font included.

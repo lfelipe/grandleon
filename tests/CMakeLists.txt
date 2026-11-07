@@ -1406,25 +1406,6 @@ if(GRANDLEON_PLAYSTATION_TESTS)
     )
     set_tests_properties(grandleon.playstation PROPERTIES TIMEOUT 3600)
 
-    # What the play executables drew, out of the emulator's own composited
-    # display. A separate test from the one above because it asks a different
-    # question of the same binary: that one reads text over the BIOS teletype,
-    # and this one attaches a Lua script that captures the frame, checks the
-    # GPU's display registers, and joins the frame against the executable's own
-    # per-cell claims.
-    configure_file(
-        cmake/playstation_render_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_render_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_render
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_render_test.cmake"
-    )
-    set_tests_properties(grandleon.playstation_render PROPERTIES TIMEOUT 3600)
-
     # The same board, played. A third test rather than a flag on the second
     # because its subject is not one picture but a session: the transcript the
     # rules say a controller script adds up to, and the pixels the console drew

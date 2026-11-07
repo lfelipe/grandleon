@@ -2709,6 +2709,7 @@ const char* screen_name(Screen screen) noexcept {
     switch (screen) {
         case Screen::none: return "none";
         case Screen::title: return "title";
+        case Screen::help: return "help";
         case Screen::slot: return "slot";
         case Screen::story: return "story";
         case Screen::company: return "company";
@@ -3431,6 +3432,18 @@ TurnClient::SlotChoice TurnClient::open_campaign(
     const bool* holds,
     int slots
 ) {
+    return open_campaign(
+        project_title, slot_base, holds, slots, LaunchMenu{}
+    );
+}
+
+TurnClient::SlotChoice TurnClient::open_campaign(
+    std::string_view project_title,
+    const char* slot_base,
+    const bool* holds,
+    int slots,
+    LaunchMenu launch
+) {
     // The name, kept before it is drawn: the title screen says it here and the
     // ending screen says it again, and the campaign in between hands this
     // client no second chance to be told.
@@ -3443,13 +3456,86 @@ TurnClient::SlotChoice TurnClient::open_campaign(
         }
         project_title_[length] = '\0';
     }
-    begin_page();
-    push_line("GRANDLEON");
-    push_line("");
-    push_line(project_title_);
-    push_line("");
-    push_line("A CAMPAIGN THIS CARTRIDGE KEEPS");
-    hold_page(Screen::title, "PRESS START");
+    SlotChoice chosen;
+    if (!launch.offer) {
+        begin_page();
+        push_line("GRANDLEON");
+        push_line("");
+        push_line(project_title_);
+        push_line("");
+        push_line("A CAMPAIGN THIS CARTRIDGE KEEPS");
+        hold_page(Screen::title, "PRESS START");
+    } else {
+        // At most three rows: one player, two players, and optional help. The
+        // modes the campaign forbids do not appear, so a fixed solo game does
+        // not advertise co-op it cannot actually start.
+        std::uint8_t row_players[3]{};
+        int row_count = 0;
+        if (launch.allow_one) row_players[row_count++] = 1U;
+        if (launch.allow_two) row_players[row_count++] = 2U;
+        const int help_row = row_count;
+        row_players[row_count++] = 0U;
+        list_caret_ = 0;
+
+        bool choosing = true;
+        while (choosing && !leaving_) {
+            begin_page();
+            push_line("GRANDLEON");
+            push_line("");
+            push_line(project_title_);
+            push_line("");
+            page_first_choice_ = page_.count;
+            if (launch.allow_one) push_line("1 PLAYER");
+            if (launch.allow_two) push_line("2 PLAYERS");
+            push_line("HELP");
+            page_choices_ = row_count;
+            list_.rows = row_count;
+            list_.total = row_count;
+            list_.top = 0;
+
+            const bool needs_pad =
+                row_players[list_caret_] == 2U &&
+                !launch.second_controller_connected;
+            const char* footer = needs_pad
+                ? "CONNECT CONTROLLER 2"
+                : "D-PAD CHOOSE  A CONFIRM";
+            const ScreenView title = view_of(Screen::title, footer);
+            paint_screen(title);
+            hold_for_checkpoint();
+            screen_checkpoint(title);
+            after_screen(title);
+            hold_for_checkpoint();
+            if (leaving_) break;
+
+            const std::uint16_t buttons = next_press();
+            if ((buttons & pad_end_of_script) != 0U) {
+                leaving_ = true;
+                break;
+            }
+            if ((buttons & pad_up) != 0U && list_caret_ > 0) --list_caret_;
+            if ((buttons & pad_down) != 0U && list_caret_ + 1 < row_count) {
+                ++list_caret_;
+            }
+            if ((buttons & (pad_a | pad_start)) == 0U) continue;
+            if (list_caret_ == help_row) {
+                begin_page();
+                push_line("HOW TO PLAY");
+                push_line("");
+                push_line("D-PAD   MOVE CURSOR");
+                push_line("A       SELECT OR CONFIRM");
+                push_line("B       BACK");
+                push_line("C       ACTION MENU");
+                push_line("START   BOARD MENU");
+                push_line("");
+                push_line("BUTTON HINTS APPEAR IN PLAY");
+                hold_page(Screen::help, "A OR B  BACK");
+                continue;
+            }
+            if (needs_pad) continue;
+            chosen.local_players = row_players[list_caret_];
+            choosing = false;
+        }
+    }
 
     slots_.open(slot_base, holds, slots);
     // The screen is driven here rather than through `choose_on_page`, because
@@ -3489,7 +3575,6 @@ TurnClient::SlotChoice TurnClient::open_campaign(
         if (answer != view::SlotMenu::Answer::none) break;
     }
 
-    SlotChoice chosen;
     chosen.slot = slots_.slot_name(slots_.caret());
     chosen.resume = answer == view::SlotMenu::Answer::resume;
     {
@@ -3790,6 +3875,12 @@ void TurnClient::stage_jumped(const client::StageJump& jump) {
 client::ManagementIntent TurnClient::next_management_intent(
     const client::CompanyManagement& company
 ) {
+    // This is product behavior, not a platform shortcut: every console and
+    // every scripted test takes the same direct path when there is genuinely
+    // nothing to choose before battle.
+    if (client::company_can_start_directly(company)) {
+        return {client::ManagementVerb::proceed, {}, {}};
+    }
     company_ = &company;
     const int rows = static_cast<int>(company.roster.size());
     if (rows == 0 || leaving_) {

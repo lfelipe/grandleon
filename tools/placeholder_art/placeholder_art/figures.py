@@ -167,8 +167,8 @@ class Figure:
 def _pinch(body: Canvas) -> Canvas:
     """Narrower across the shoulders and through the waist, hips left alone.
 
-    The retired transform, kept as the stand-in a style without a commission is
-    drawn by. Every displacement is horizontal and toward the centreline, so it
+    The deterministic stand-in used where a style has no commissioned second
+    body. Every displacement is horizontal and toward the centreline, so it
     cannot fail the margin rule at any cell size: no pixel moves to a column
     further out than the one it came from, and the sprite's outermost opaque
     column can only come in.

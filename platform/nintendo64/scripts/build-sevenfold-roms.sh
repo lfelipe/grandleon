@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 
-# Builds Sevenfold's one playable Nintendo 64 campaign plus the renderer-check
-# ROM used by automated visual tests. The check ROM is not a second gameplay
-# renderer or a release choice.
+# Builds Sevenfold's playable Nintendo 64 campaign. The campaign itself is the
+# renderer test: there is no standalone viewer or second graphics path.
 
 set -euo pipefail
 
@@ -37,7 +36,6 @@ esac
 mkdir -p "${output_dir}"
 
 campaign_build="${GRANDLEON_N64_SEVENFOLD_CAMPAIGN_BUILD_DIR:-${repository_root}/build-n64-sevenfold-campaign}"
-renderer_build="${GRANDLEON_N64_SEVENFOLD_RENDERER_BUILD_DIR:-${repository_root}/build-n64-sevenfold-renderer}"
 picker_argument=()
 [ "${stage_picker}" -eq 0 ] || picker_argument=(--stage-picker)
 
@@ -48,12 +46,6 @@ GRANDLEON_N64_BUILD_DIR="${campaign_build}" \
     "${picker_argument[@]}" "${rebuild_argument[@]}"
 campaign_rom="${campaign_build}/platform/nintendo64/grandleon_n64_campaign.z64"
 cp "${campaign_rom}" "${output_dir}/sevenfold-n64.z64"
-
-GRANDLEON_N64_SEVENFOLD_RENDERER_BUILD_DIR="${renderer_build}" \
-    "${repository_root}/platform/nintendo64/scripts/build-sevenfold-renderer.sh" \
-    "${rebuild_argument[@]}"
-renderer_rom="${renderer_build}/platform/nintendo64/grandleon-n64-sevenfold-renderer.z64"
-cp "${renderer_rom}" "${output_dir}/sevenfold-n64-renderer-check.z64"
 
 for rom in "${output_dir}"/*.z64; do
     magic="$(od -An -tx1 -N4 "${rom}" | tr -d ' \n')"
@@ -73,10 +65,6 @@ manifest="${output_dir}/README.txt"
         echo "  Debug stage picker and live FPS display enabled."
     fi
     echo "  SHA-256: $(sha256sum "${output_dir}/sevenfold-n64.z64" | cut -d ' ' -f 1)"
-    echo
-    echo "sevenfold-n64-renderer-check.z64"
-    echo "  Automated tactical/close-view visual check; not a second game mode."
-    echo "  SHA-256: $(sha256sum "${output_dir}/sevenfold-n64-renderer-check.z64" | cut -d ' ' -f 1)"
 } > "${manifest}"
 
 echo "Sevenfold N64 artifacts: ${output_dir}"

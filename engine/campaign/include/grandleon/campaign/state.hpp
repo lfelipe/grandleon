@@ -11,12 +11,11 @@
 
 // What a campaign remembers between battles.
 //
-// `DESIGN.md` §5 divides simulation state into "battle-local state and
-// persistent campaign state", and §8 lists what a persistent unit record
-// retains: "identity, availability, progression, inventory, injuries, death or
-// retirement state, relationships, and game-defined variables". This header is
-// the second half of that division. It holds no board, no turn, no position:
-// nothing that ends when a battle ends.
+// Simulation state is divided into battle-local and persistent campaign state.
+// A persistent unit retains identity, availability, progression, inventory,
+// injuries, death or retirement state, relationships, and game-defined
+// variables. This header holds the persistent half: no board, turn, position,
+// or anything else that ends when a battle ends.
 //
 // It is plain data with a stated canonical order, and every collection is kept
 // sorted so that two campaigns that were told the same things are byte-for-byte
@@ -29,9 +28,9 @@ namespace grandleon::campaign {
 //
 // The distinction the roster exists for is between the last two. `retired` is
 // a state a rule may reverse; `dead` is the one it may not, and the whole
-// point of persisting it is that "a permanently dead character cannot reappear
-// merely because a later map lists that character as available" (`DESIGN.md`
-// §5). Values are persisted, so this list is append-only.
+// point of persisting it is that a permanently dead character cannot reappear
+// merely because a later map lists that character as available. Values are
+// persisted, so this list is append-only.
 enum class Availability : std::uint8_t {
     // Known to the campaign, not yet part of the roster. A character an author
     // has written but the player has not met.
@@ -163,10 +162,9 @@ struct ObjectiveRecord final {
     ObjectiveOutcome result{ObjectiveOutcome::satisfied};
 };
 
-// The type of a world value. `DESIGN.md` §5 requires "typed world flags"
-// rather than free-form strings, and requires that campaign conditions be
-// data rather than expressions; a closed two-member vocabulary is what makes a
-// predicate over them decidable. Append-only.
+// The type of a world value. World flags are typed rather than free-form
+// strings, and campaign conditions are data rather than expressions; a closed
+// vocabulary makes a predicate over them decidable. Append-only.
 enum class WorldValueType : std::uint8_t {
     boolean = 1,
     integer = 2,
@@ -351,8 +349,8 @@ enum class StateError : std::uint8_t {
 // FNV-1a-64 over fixed-width little-endian fields, exactly as
 // `simulation::Encounter::canonical_hash` folds a battle.
 //
-// It is a testing and comparison diagnostic, as `DESIGN.md` §3.2 says a
-// canonical hash is. Nothing in the gate pins a literal value for it; what the
+// It is a testing and comparison diagnostic. Nothing in the gate pins a
+// literal value for it; what the
 // tests use it for is equality: that applying an outcome twice leaves the
 // campaign the same campaign it was after applying it once.
 [[nodiscard]] std::uint64_t canonical_hash(const CampaignState& state) noexcept;

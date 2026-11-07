@@ -9,9 +9,6 @@ particular machine's constraints. Nothing in :mod:`.terrain` or
 Profiles shipped
 ----------------
 ``modern``     32x32 RGBA. The web build. Full master palette, no quantisation.
-``n64_ci8``    32x32 indexed, 8bpp, master palette. Straight CI8 for ``mksprite``.
-``n64_ci4``    32x32 indexed, 4bpp, a per-asset 16-colour subset of the master
-               palette. This is the TLUT bank model the hardware actually uses.
 
 One profile is not shipped
 --------------------------
@@ -28,10 +25,9 @@ Leaving colour reduction to a conversion tool at build time would make the
 low-end output unreviewable and unreproducible. Instead each reduction is a
 deliberate, checked-in step:
 
-* **Palette subsetting (CI4)** picks the 16 most-used master colours in that
+* **Palette subsetting** picks the requested number of master colours in an
   asset, ties broken by palette index, then maps the rest to their nearest
-  surviving neighbour. Deterministic, and it keeps an asset's own colours
-  rather than a global compromise.
+  surviving neighbour.
 * **Ordered dithering** uses the same 8x8 Bayer matrix as the renderers,
   indexed by *destination* pixel coordinates. Every tile dimension is a
   multiple of 8, so the dither pattern is continuous across tile boundaries and
@@ -165,35 +161,6 @@ PROFILES: Tuple[Profile, ...] = (
         palette_mode="master",
         notes=f"Full {palette.PALETTE_SIZE}-entry master palette written as "
               "straight RGBA8888.",
-    ),
-    Profile(
-        name="n64_ci8",
-        label="Nintendo 64 CI8",
-        tile_size=32,
-        sprite_size=32,
-        encoding="indexed",
-        bit_depth=8,
-        max_colours=256,
-        palette_mode="master",
-        notes=(
-            f"8bpp indexed against the shared {palette.PALETTE_SIZE}-entry "
-            "master palette. Power-of-"
-            "two dimensions; feed straight to mksprite as CI8."
-        ),
-    ),
-    Profile(
-        name="n64_ci4",
-        label="Nintendo 64 CI4",
-        tile_size=32,
-        sprite_size=32,
-        encoding="indexed",
-        bit_depth=4,
-        max_colours=16,
-        palette_mode="subset",
-        notes=(
-            "4bpp indexed against a per-asset 16-colour TLUT bank chosen from "
-            "the master palette. Power-of-two dimensions; CI4 for mksprite."
-        ),
     ),
 )
 

@@ -127,10 +127,8 @@ class Figure(Protocol):
 
 #: Ground line: where feet sit, and what the faction disc is placed against.
 #:
-#: The disc is drawn a little *above* this rather than centred on it, so that
-#: its ink ring stops at row 30. Row 31 is the console's dead margin and no
-#: cell size samples it (:func:`.decimation.always_dropped`); the disc used to
-#: be the one drawing in the library that reached it.
+#: The disc is drawn a little above this rather than centred on it so its edge
+#: stays inside the cell when a map-scale sprite is resized.
 GROUND_Y = 28
 
 
@@ -270,17 +268,8 @@ def drop_shadow() -> Canvas:
 def faction_disc(canvas: Canvas, faction: FactionColour) -> None:
     """The faction-coloured stand under the unit, drawn before anything else."""
     colours = faction.colours
-    # Lifted one row clear of the cell's last row, which is the dead margin:
-    # the console samples row 31 at no cell size it can draw a board at, so
-    # anything drawn there is drawn, stored, uploaded and seen by nobody (see
-    # `decimation.always_dropped`). The disc's ink ring was the only thing in
-    # the library that reached it, and it reached it in every one of the 3,361
-    # figure cells, which made a twelve-texel band of the unit's own faction
-    # marker invisible on the machine the marker matters most on.
-    #
-    # A lift rather than a flattening. The ring reads as a contact edge because
-    # it is as deep as it is wide, and taking the depth out to buy the same
-    # clearance would have kept the pixels and spent the shape.
+    # Keep the complete marker inside the sprite cell while retaining enough
+    # depth for it to read as a contact edge at map scale.
     raster.ground_shadow(canvas, 16, GROUND_Y - 0.2, 9.2, 3.4, RAMPS["ink"][1])
     raster.ground_shadow(canvas, 16, GROUND_Y - 0.2, 8.1, 2.7, colours[1])
     raster.ground_shadow(canvas, 16, GROUND_Y - 0.5, 6.1, 1.9, colours[2])
@@ -313,16 +302,9 @@ def head(canvas: Canvas, cy: float = 9.0, radius: float = 4.3) -> None:
 
 #: How deep an eye is drawn, in rows.
 #:
-#: Two, and the second row is not decoration. The console point samples figures
-#: and drops whole native rows to fit a cell (:mod:`.decimation`), so a mark one
-#: row deep is a coin flip: the rows these faces put an eye on are sampled at
-#: eight of the thirteen cell sizes a board can produce, which loses the eye on
-#: about two boards in five. Two rows, at these positions, are sampled at all
-#: thirteen.
-#:
-#: It is worth the row. An eye is what makes a figure read as alive and as
-#: facing somewhere, it is the smallest mark in the vocabulary that does either,
-#: and being the smallest is exactly what put it at risk.
+#: Two rows keep the eye readable when the map-scale sprite is reduced. An eye
+#: is the smallest mark that makes a figure read as alive and facing somewhere,
+#: so it should not depend on a single source pixel surviving a resize.
 EYE_ROWS = 2
 
 

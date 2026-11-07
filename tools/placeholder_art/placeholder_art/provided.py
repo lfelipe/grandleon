@@ -76,7 +76,7 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 from PIL import Image
 
 from . import (characters, figures, frames, palette,
-               profiles, styles, terrain, themes)
+               styles, terrain, themes)
 from .raster import Canvas
 
 #: Where a contributor puts a replacement, relative to the repository root.
@@ -123,15 +123,6 @@ MARGIN_ROW = frames.KNEE_Y
 #: rule the art it replaces would fail.
 MAX_RAMPS = 8
 
-#: The most opaque texels, as a fraction, that the Nintendo 64's CI4 subset may
-#: move to a neighbouring colour. The sixteen-colour cap is not a rule a sprite
-#: can break, since the profile always produces sixteen, so what there is to
-#: check is what obeying it *costs*. Measured over the shipped library, the
-#: worst single sheet is ``undead``'s stormcaller at 2.46% and the worst whole
-#: style is ``pirates`` at 0.63%. Five per cent is twice the worst thing
-#: shipped.
-MAX_CI4_LOSS = 0.05
-
 #: Every rule, in the order it is applied, with the code its refusal carries.
 #: Published as data rather than restated anywhere, so that the command line and
 #: every other consumer state the one list the code applies.
@@ -169,9 +160,6 @@ RULES: Tuple[Tuple[str, str], ...] = (
      f"no opaque pixel on the first or last column at or below row "
      f"{MARGIN_ROW} of a cell, or the walk pose would push it off"),
     ("too-many-ramps", f"a sprite names at most {MAX_RAMPS} palette ramps"),
-    ("ci4-cost",
-     f"the Nintendo 64's sixteen-colour subset moves at most "
-     f"{MAX_CI4_LOSS:.0%} of a sheet's opaque texels"),
 )
 
 RULE_CODES: Tuple[str, ...] = tuple(code for code, _ in RULES)
@@ -536,9 +524,8 @@ def _decode(data: bytes, chunks: Sequence[Tuple[bytes, bytes]],
                 "off-palette",
                 f"the pixel at ({x}, {y}) is #{red:02x}{green:02x}{blue:02x}, "
                 "which is not one of the master palette's 123 opaque colours. "
-                "A replacement may not grow the palette: the n64_ci8 profile "
-                "writes the whole palette into every asset, so one appended "
-                "entry would rewrite art nobody asked to change")
+                "A replacement stays on the shared palette so it remains "
+                "compatible with the editor's generated board art")
         canvas.data[position] = index
     return canvas
 
@@ -560,26 +547,16 @@ def _measure(canvas: Canvas, spec: Specification) -> Dict[str, object]:
     """Everything the sheet rules ask about a sheet, measured once.
 
     Reported whether or not it refuses: a contributor who is inside every bound
-    still wants the numbers. These bounds are budgets: ramps and CI4 cost are
-    spent, not merely obeyed, and a budget nobody can see is advice.
+    still wants the numbers. These bounds are budgets: ramps are spent, not
+    merely obeyed, and a budget nobody can see is advice.
     """
     used = {index for index in canvas.data if index != palette.TRANSPARENT}
     ramps = sorted({palette.RAMP_OF_INDEX[index][0] for index in used})
     opaque = sum(1 for index in canvas.data if index != palette.TRANSPARENT)
-    # The profile's own subset routine, reached through its private name on
-    # purpose: a second implementation of "which sixteen survive" would be a
-    # second opinion, and the number reported here has to be the number the
-    # Nintendo 64 sheet will actually spend.
-    ci4 = profiles.PROFILES_BY_NAME["n64_ci4"]
-    mapping = profiles._subset(canvas.data, ci4.max_colours)
-    moved = sum(1 for index in canvas.data
-                if index != palette.TRANSPARENT and mapping[index] != index)
     return {
         "colours": len(used),
         "ramps": ramps,
         "opaque_texels": opaque,
-        "ci4_moved_texels": moved,
-        "ci4_loss": (moved / opaque) if opaque else 0.0,
         "cells": spec.columns,
     }
 
@@ -623,18 +600,8 @@ def _contract_refusals(file_label: str, canvas: Canvas,
             file_label, "too-many-ramps",
             f"it names {len(ramps)} palette ramps ({', '.join(ramps)}); a "
             f"sprite may name at most {MAX_RAMPS}, and a commission is briefed "
-            f"at about five, because each shading ramp costs three to five of "
-            f"the sixteen colours the Nintendo 64's subset leaves it. Name the "
+            f"at about five so the silhouette stays coherent. Name the "
             f"materials before drawing and spend the budget on those"))
-    loss = float(measured["ci4_loss"])  # type: ignore[arg-type]
-    if loss > MAX_CI4_LOSS:
-        out.append(Refusal(
-            file_label, "ci4-cost",
-            f"the Nintendo 64's sixteen-colour subset moves {loss:.2%} of its "
-            f"{measured['opaque_texels']} opaque texels to another colour, "
-            f"above the {MAX_CI4_LOSS:.0%} a replacement may spend. It names "
-            f"{measured['colours']} colours; the cap is sixteen, and the "
-            f"shipped library's worst sheet spends 2.46%"))
     return out
 
 
@@ -860,5 +827,4 @@ def describe(replacement: Replacement) -> str:
     ramps = list(measured["ramps"])  # type: ignore[arg-type]
     return (f"{replacement.key}: {measured['colours']} colours, "
             f"{len(ramps)} ramps ({', '.join(ramps)}), "
-            f"CI4 moves {float(measured['ci4_loss']):.2%} of "
             f"{measured['opaque_texels']} opaque texels")

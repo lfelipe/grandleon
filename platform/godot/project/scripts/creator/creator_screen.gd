@@ -336,7 +336,7 @@ func _build_export_layer() -> void:
 	explanation.custom_minimum_size.y = 50
 	column.add_child(explanation)
 	export_first_button = _button(
-		"PORTABLE PROJECT  /  READY\nEditable archive for another Grand Leon installation"
+		"PORTABLE PROJECT  /  READY\nEditable archive for another Grandleon installation"
 	)
 	export_first_button.custom_minimum_size.y = 92
 	export_first_button.pressed.connect(_export_portable_from_center)
@@ -657,11 +657,11 @@ func _build_rename_layer() -> void:
 
 func _build_import_dialog() -> void:
 	import_dialog = FileDialog.new()
-	import_dialog.title = "Import a Grand Leon project"
+	import_dialog.title = "Import a Grandleon project"
 	import_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	import_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	import_dialog.filters = PackedStringArray([
-		"*.grandleon.zip ; Grand Leon project archives",
+		"*.grandleon.zip ; Grandleon project archives",
 	])
 	import_dialog.current_dir = library.import_directory()
 	import_dialog.use_native_dialog = false

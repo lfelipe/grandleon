@@ -8,9 +8,9 @@
 
 // Deterministic randomness for the authoritative simulation.
 //
-// `DESIGN.md` §3.2 requires "a project-owned pseudo-random number generator
-// whose complete state is saved", and §9 that random decisions come from
-// recorded deterministic streams. This header is that generator. It is the
+// Grandleon uses a project-owned pseudo-random number generator whose complete
+// state is saved, and every random decision comes from a recorded deterministic
+// stream. This header is that generator. It is the
 // only source of dice in the engine; nothing else may roll.
 //
 // Three properties are load-bearing, and every choice below serves one of

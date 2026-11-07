@@ -18,9 +18,8 @@ are the frame every style is drawn inside.
 No new palette entries
 ----------------------
 This commission appends **nothing** to the master palette, and that is a
-constraint the pipeline imposes rather than a saving taken. The ``n64_ci8``
-profile writes the whole 124-entry master palette into every asset's ``PLTE``
-chunk, so growing the palette rewrites every checked-in indexed asset. That
+constraint the pipeline imposes rather than a saving taken. Growing the shared
+palette would rewrite generated editor art that the commission did not touch. That
 would move ``medieval``'s bytes, which nothing about drawing a second style may
 do.
 

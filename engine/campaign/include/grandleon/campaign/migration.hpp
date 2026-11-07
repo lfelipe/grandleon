@@ -31,9 +31,8 @@
 //   node that the mounted package no longer has under that identity. This is
 //   repaired by rewriting the *references* in the interpreted candidate,
 //   through the `DefinitionRenameTable` that `identity.hpp` already defines and
-//   that a package supplies explicitly. `DESIGN.md` and the accepted change
-//   both refuse to let a loader guess here: a rename is declared or it is not a
-//   rename.
+//   that a package supplies explicitly. The loader never guesses: a rename is
+//   declared or it is not a rename.
 //
 // ## Version by version, never in a leap
 //

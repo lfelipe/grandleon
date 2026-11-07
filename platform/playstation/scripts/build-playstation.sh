@@ -100,7 +100,6 @@ picker_arg=OFF
 default_targets="grandleon_core,grandleon_simulation,grandleon_tactics,\
 grandleon_package_format,grandleon_package_runtime,\
 grandleon_playstation_conformance,grandleon_playstation_card,\
-grandleon_playstation_play,grandleon_playstation_play_raised,\
 grandleon_playstation_turn,grandleon_playstation_campaign,\
 grandleon_playstation_campaign_demo,grandleon_playstation_turn_autopilot,\
 grandleon_playstation_campaign_autopilot,\
@@ -232,6 +231,18 @@ container_build_dir="/src/${build_dir#"${repository_root}"/}"
 exec 9>"${build_dir}.lock"
 flock 9
 
+# The console character payload is generated from the same project-specific HD
+# Godot bindings used by N64.  It is intentionally outside the source tree:
+# generated CI4 arrays are build products, not a second checked-in art library.
+console_art_dir="${build_dir}/console-art"
+mkdir -p "${console_art_dir}"
+console_art_header="${console_art_dir}/console_character_art.h"
+python3 "${repository_root}/platform/console_art/generate-character-art.py" \
+    --project "${project}" \
+    --also-project "${repository_root}/games/demo/source/project.json" \
+    --platform ps1 --output "${console_art_header}"
+container_console_art="/src/${console_art_header#"${repository_root}"/}"
+
 # The container runs as the invoking user so that build artifacts are not
 # root-owned.
 "${docker}" run --rm \
@@ -241,6 +252,7 @@ flock 9
     --env "GRANDLEON_CONTAINER_PROJECT=${container_project}" \
     --env "GRANDLEON_CONTAINER_TARGETS=${targets//,/ }" \
     --env "GRANDLEON_CONTAINER_PICKER=${picker_arg}" \
+    --env "GRANDLEON_CONTAINER_CONSOLE_ART=${container_console_art}" \
     --env "GRANDLEON_CONTAINER_EXECUTABLES=${executables}" \
     --volume "${repository_root}:/src" \
     --workdir /src \
@@ -270,6 +282,7 @@ flock 9
             -DGRANDLEON_WERROR=ON \
             -DGRANDLEON_STAGE_PICKER="${GRANDLEON_CONTAINER_PICKER}" \
             -DGRANDLEON_PLAYSTATION_PROJECT="${GRANDLEON_CONTAINER_PROJECT}" \
+            -DGRANDLEON_PLAYSTATION_CONSOLE_ART="${GRANDLEON_CONTAINER_CONSOLE_ART}" \
             -DPLAYSTATION_DEMO_PACKAGE="${GRANDLEON_CONTAINER_BUILD_DIR}/demo.gpk" \
             -DPLAYSTATION_BOARD_PACKAGE="${GRANDLEON_CONTAINER_BUILD_DIR}/board.gpk"
         # shellcheck disable=SC2086

@@ -536,6 +536,9 @@ enum class Screen : std::uint8_t {
     none = 0,
     // The mark, the campaign's name, and a button.
     title,
+    // Optional controls reached from the launch menu, never a compulsory gate
+    // between choosing a player count and entering the campaign.
+    help,
     // What the cartridge is holding, and the one choice made before a campaign
     // begins.
     slot,
@@ -912,6 +915,16 @@ public:
         const sim::EncounterSnapshot& snapshot, const client::Roster& roster
     ) override;
 
+    // A compact console launch menu. Kept available to both forms of the
+    // client because the PlayStation builds its campaign and single-battle
+    // executable from the same source file.
+    struct LaunchMenu final {
+        bool offer{false};
+        bool allow_one{true};
+        bool allow_two{false};
+        bool second_controller_connected{false};
+    };
+
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
     // ----- what a campaign build's platform supplies ---------------------
 
@@ -933,6 +946,7 @@ public:
         // because it is a member of this client.
         const char* slot{""};
         bool resume{false};
+        std::uint8_t local_players{1};
     };
 
     // The mark, and then the choice a player makes before a campaign begins:
@@ -966,6 +980,13 @@ public:
         const char* slot_base,
         const bool* holds,
         int slots
+    );
+    [[nodiscard]] SlotChoice open_campaign(
+        std::string_view project_title,
+        const char* slot_base,
+        const bool* holds,
+        int slots,
+        LaunchMenu launch
     );
 
     // ----- the CampaignNarrator seam -------------------------------------

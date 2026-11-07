@@ -229,36 +229,6 @@ add_custom_target(grandleon_playstation
     VERBATIM
 )
 
-# This visual-regression executable isolates the console renderer's larger
-# cutouts, terrain plates and capture sequence from the playable campaign.
-set(grandleon_playstation_sevenfold_renderer_build_dir
-    "${CMAKE_CURRENT_SOURCE_DIR}/build-playstation-sevenfold-renderer"
-)
-add_custom_target(grandleon_playstation_sevenfold_renderer
-    COMMAND
-        "${CMAKE_COMMAND}" -E env
-        ${grandleon_playstation_build_env}
-        "GRANDLEON_PSX_SEVENFOLD_RENDERER_BUILD_DIR=${grandleon_playstation_sevenfold_renderer_build_dir}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-sevenfold-renderer.sh"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Building the PlayStation Sevenfold console renderer"
-    USES_TERMINAL
-    VERBATIM
-)
-
-add_custom_target(grandleon_playstation_sevenfold_renderer_check
-    COMMAND
-        "${CMAKE_COMMAND}" -E env
-        ${grandleon_playstation_build_env}
-        ${grandleon_playstation_run_env}
-        "GRANDLEON_PSX_SEVENFOLD_RENDERER_BUILD_DIR=${grandleon_playstation_sevenfold_renderer_build_dir}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/check-sevenfold-renderer.sh"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Capturing and timing the PlayStation Sevenfold console renderer"
-    USES_TERMINAL
-    VERBATIM
-)
-
 # Builds the executable and then runs it, failing unless it reports that every
 # check passed. This is the target that turns "it links" into "it runs".
 #
@@ -345,6 +315,45 @@ add_custom_target(grandleon_playstation_disc
     VERBATIM
 )
 
+# The 0.4 review disc: Sevenfold's authored campaign, using the same playable
+# executable and disc writer as any exported game. A separate build directory
+# keeps it from replacing the Tarnholt artifacts used by the conformance and
+# persistence checks.
+set(grandleon_playstation_sevenfold_build_dir
+    "${CMAKE_CURRENT_SOURCE_DIR}/build-playstation-sevenfold"
+)
+set(grandleon_playstation_sevenfold_build_env
+    "GRANDLEON_PCSX_REDUX_BUILD_IMAGE=${GRANDLEON_PCSX_REDUX_BUILD_IMAGE}"
+    "GRANDLEON_PCSX_REDUX_BUILD_DIGEST=${GRANDLEON_PCSX_REDUX_BUILD_DIGEST}"
+    "GRANDLEON_NUGGET_REVISION=${GRANDLEON_NUGGET_REVISION}"
+    "GRANDLEON_DOCKER=${GRANDLEON_DOCKER}"
+    "GRANDLEON_PLAYSTATION_BUILD_DIR=${grandleon_playstation_sevenfold_build_dir}"
+)
+set(grandleon_playstation_sevenfold_disc_env
+    "GRANDLEON_PCSX_REDUX_BUILD_IMAGE=${GRANDLEON_PCSX_REDUX_BUILD_IMAGE}"
+    "GRANDLEON_PCSX_REDUX_BUILD_DIGEST=${GRANDLEON_PCSX_REDUX_BUILD_DIGEST}"
+    "GRANDLEON_MKPSXISO_REVISION=${GRANDLEON_MKPSXISO_REVISION}"
+    "GRANDLEON_DOCKER=${GRANDLEON_DOCKER}"
+    "GRANDLEON_PLAYSTATION_BUILD_DIR=${grandleon_playstation_sevenfold_build_dir}"
+    "GRANDLEON_PLAYSTATION_DISC_NAME=sevenfold-ps1"
+    "GRANDLEON_PLAYSTATION_DISC_VOLUME=SEVENFOLD_GATE"
+)
+add_custom_target(grandleon_playstation_sevenfold_disc
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_sevenfold_build_env}
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-playstation.sh"
+        --project "${CMAKE_CURRENT_SOURCE_DIR}/games/sevenfold/source/project.json"
+        --targets grandleon_playstation_campaign
+        --stage-picker
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_sevenfold_disc_env}
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-disc.sh"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Writing the Sevenfold PlayStation review disc"
+    USES_TERMINAL
+    VERBATIM
+)
+
 # Boots that disc, and this is in the gate's PlayStation lane rather than beside
 # the showcase.
 #
@@ -398,13 +407,6 @@ add_dependencies(
 # Builds the play executables and then asks the emulator what they actually
 # drew.
 #
-# A separate target from the one above because it answers a different question
-# with a different invocation: run-playstation.sh runs the emulator and reads an
-# executable's text, and this attaches a Lua script to the same emulator, takes
-# the composited display at an instant the executable names, and joins that
-# frame against the executable's own per-cell claims. It also runs the
-# render-less conformance executable through the same harness and requires it to
-# fail, so a harness that had stopped measuring anything would say so.
 # Plays a controller script into the turn executable, and requires the R3000A
 # to reach the state the rules say it should, and to draw it.
 #
@@ -417,9 +419,8 @@ add_dependencies(
 # choreography this check plays rather than of the script that starts the
 # emulator. 18 is what one photographed board costs: the fifteen display-register
 # and frame-geometry checks the observer makes on its first capture and the
-# checks on the picture itself, which is the same eighteen
-# `run-playstation-render.sh` requires of a single frame. A run under it
-# photographed no board at all, and `HARNESS RESULT PASS 0/0` stops being a pass.
+# checks on the picture itself. A run under it photographed no board at all,
+# and `HARNESS RESULT PASS 0/0` stops being a pass.
 add_custom_target(grandleon_playstation_turn_check
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_playstation_build_env}
@@ -480,43 +481,4 @@ add_custom_target(grandleon_playstation_showcase
 )
 add_dependencies(
     grandleon_playstation_showcase grandleon_playstation_turn_expectations
-)
-
-add_custom_target(grandleon_playstation_render_check
-    COMMAND
-        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_build_env}
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-playstation.sh"
-    COMMAND
-        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_run_env}
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/run-playstation-render.sh"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Verifying what the PlayStation play executables drew"
-    USES_TERMINAL
-    VERBATIM
-)
-
-# The matching Emberbound opening board for the README. The render harness
-# still verifies every claimed pixel; the screenshot script only crops away
-# the diagnostic backdrop outside the board after that check passes.
-set(grandleon_playstation_readme_build_dir
-    "${CMAKE_CURRENT_SOURCE_DIR}/build-playstation-readme"
-)
-add_custom_target(grandleon_playstation_readme_capture
-    COMMAND
-        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_build_env}
-        "GRANDLEON_PLAYSTATION_BUILD_DIR=${grandleon_playstation_readme_build_dir}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-playstation.sh"
-        --project
-        "${CMAKE_CURRENT_SOURCE_DIR}/games/emberbound/source/project.json"
-        --targets
-        grandleon_playstation_conformance,grandleon_playstation_readme
-    COMMAND
-        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_run_env}
-        "GRANDLEON_PLAYSTATION_BUILD_DIR=${grandleon_playstation_readme_build_dir}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/run-playstation-render.sh"
-        grandleon_psx_readme
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Capturing Emberbound's opening battle on PlayStation"
-    USES_TERMINAL
-    VERBATIM
 )

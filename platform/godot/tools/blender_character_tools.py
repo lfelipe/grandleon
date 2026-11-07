@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Small deterministic Blender helpers for Grand Leon character prototypes."""
+"""Small deterministic Blender helpers for Grandleon character prototypes."""
 
 import math
 import pathlib

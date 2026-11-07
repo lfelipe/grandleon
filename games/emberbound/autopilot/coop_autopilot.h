@@ -16,9 +16,13 @@ inline constexpr Step emberbound_coop_autopilot[] = {
     {Op::checkpoint, static_cast<std::uint16_t>(Check::title), 0, 0,
      "coop-title"},
     {Op::press, button_start},
-    {Op::wait, 60},
-    {Op::checkpoint, static_cast<std::uint16_t>(Check::controls), 0, 0,
-     "coop-controls"},
+
+    // Exercise the actual launch menu: move from 1P to 2P and confirm with the
+    // scripted second controller connected.
+    {Op::wait, 30},
+    {Op::checkpoint, static_cast<std::uint16_t>(Check::launch_menu), 0, 0,
+     "coop-launch-menu"},
+    {Op::press, button_d_down},
     {Op::press, button_a},
 
     // Six prologue lines.

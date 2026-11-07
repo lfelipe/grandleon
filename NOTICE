@@ -1,4 +1,4 @@
-Grand Leon is distributed under the MIT License; see LICENSE.
+Grandleon is distributed under the MIT License; see LICENSE.
 
 The Linux PC build includes Godot Engine 4.7.2 and links godot-cpp
 10.0.0-stable.
@@ -24,13 +24,19 @@ by Ajv, and carries Ajv's runtime helpers with it. Ajv is MIT, Copyright (c)
 
     https://github.com/ajv-validator/ajv/blob/master/LICENSE
 
-The Nintendo 64 console renderer links Tiny3D at commit
-517156d9464aaab95bf9531336d9a57624405ca7. Tiny3D is distributed under the
-MIT License, Copyright (c) 2023 Max Bebök. Its complete license is retained at
-`third_party/tiny3d/517156d9464aaab95bf9531336d9a57624405ca7/LICENSE` and is
-included beside the Nintendo 64 ROM when a review bundle is staged.
+Nintendo 64 ROMs link libdragon. The pinned libdragon revision is released
+into the public domain under the Unlicense. Its full licence is packaged by the
+pinned toolchain used to build review ROMs.
 
-    https://github.com/HailToDodongo/tiny3d
+    https://github.com/DragonMinded/libdragon/blob/trunk/LICENSE.md
+
+PlayStation executables use Nugget's startup and C++ support under the MIT
+License and the GNU libstdc++ runtime under GPLv3 with the GCC Runtime Library
+Exception. The pinned toolchain retains the complete upstream licence texts and
+release packaging copies them beside distributed console artifacts.
+
+    https://github.com/pcsx-redux/nugget
+    https://www.gnu.org/licenses/gcc-exception-3.1.html
 
 Everything else in this repository is the project's own work, generated art and
 the console font included.

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Build Grand Leon's first imported, animated PC character asset.
+"""Build Grandleon's first imported, animated PC character asset.
 
 Run through Blender rather than CPython. The output is a self-contained GLB
 with a rigid-weighted humanoid mesh, armature, materials, and six in-place

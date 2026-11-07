@@ -27,6 +27,3 @@ inline constexpr unsigned char grandleon_theme_palette[4][124] = {{0,1,2,3,4,5,6
 inline constexpr int grandleon_water_cycle_entries = 4;
 // Master palette indices, for a client holding art in them.
 inline constexpr unsigned char grandleon_water_cycle_master[4][4] = {{16,17,18,19},{16,17,18,19},{101,102,103,104},{116,117,118,119}};
-// Slots in the water base sheet's own palette, for a client whose hardware
-// holds one lookup table per texture — the Nintendo 64's CI4 TLUT.
-inline constexpr unsigned char grandleon_water_cycle_tlut[4][4] = {{1,2,3,4},{1,2,3,4},{1,2,3,4},{1,2,3,4}};

@@ -656,9 +656,8 @@ CampaignEncounter join_campaign_roster(
     };
 
     // One pass over the placements decides who stays. The roster decides, and
-    // the map only proposes: `DESIGN.md` §5 puts it as "a permanently dead
-    // character cannot reappear merely because a later map lists that
-    // character as available".
+    // the map only proposes: a permanently dead character cannot reappear
+    // merely because a later map lists that character as available.
     std::vector<simulation::UnitId> removed;
     for (const package_runtime::PlacementIdentity& placement :
          loaded.placements) {

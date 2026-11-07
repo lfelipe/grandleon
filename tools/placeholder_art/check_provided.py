@@ -21,7 +21,7 @@ The default run takes ten seconds and asserts these:
 
 ``--end-to-end`` adds the expensive half: two whole builds, one with nothing
 provided and one with the worked example. It reads the provided figure's own
-pixels back out of every profile tree and the console character header.
+pixels back out of every generated profile tree.
 
 **Both halves are in the gate** (``scripts/local-ci.sh``), including the
 expensive one. It is the only thing in this repository that stands a submission
@@ -52,8 +52,8 @@ sys.path.insert(0, str(ROOT))
 
 from placeholder_art import build as build_module  # noqa: E402
 from placeholder_art import (characters, figures, frames,  # noqa: E402
-                             palette, playstation_header, profiles,
-                             provided, styles)
+                             palette, profiles,
+                             provided)
 
 REPOSITORY = ROOT.parent.parent
 EXAMPLE = REPOSITORY / provided.EXAMPLES_DIRECTORY / "lantern-keeper"
@@ -143,13 +143,6 @@ def _cases() -> List[Tuple[str, str, Dict[str, object]]]:
     for index, name in enumerate(ramps):
         many_ramps[(2 + index) * SPRITE + 12] = \
             palette.RGB[palette.RAMPS[name][0]] + (255,)
-    # Enough distinct colours that the sixteen-entry subset has to move a
-    # noticeable share of them, without leaving the palette.
-    costly = _decoded(good)
-    for index in range(1, 60):
-        costly[(index % 24 + 4) * SPRITE + (index % 12 + 10)] = \
-            palette.RGB[index] + (255,)
-
     return [
         ("symlink", "a symbolic link where a file should be",
          {**both, STANDING: "symlink"}),
@@ -212,8 +205,6 @@ def _cases() -> List[Tuple[str, str, Dict[str, object]]]:
          {**both, STANDING: _paint(good, (0, 30), palette.RGB[1] + (255,))}),
         ("too-many-ramps", "nine ramps named by one sprite",
          {**both, STANDING: _png(SPRITE, SPRITE, many_ramps)}),
-        ("ci4-cost", "more colours than the sixteen-entry subset can keep",
-         {**both, STANDING: _png(SPRITE, SPRITE, costly)}),
         ("incomplete-sequence", "a standing sprite without its sequence sheet",
          {STANDING: good}),
     ]
@@ -324,9 +315,8 @@ def check_end_to_end() -> None:
 
     This is the half of the claim that cannot be argued: a replacement has to
     *appear*. One build with nothing provided is the ground the other is
-    compared against. The assertions are made against the same files the
-    Nintendo 64's ``mksprite`` step and the PlayStation's ``psx_art.h``
-    compile.
+    compared against. The assertions are made against the generated modern
+    profile consumed by the browser-compatible editor.
     """
     with tempfile.TemporaryDirectory(prefix="provided-e2e-") as scratch:
         base = Path(scratch)
@@ -356,20 +346,7 @@ def check_end_to_end() -> None:
         if got != expected:
             raise Failure("the modern profile did not draw the provided pixels")
 
-        # 2. The PlayStation header a console build compiles.
-        for name, symbol in (
-                (playstation_header.characters_header_name(
-                    styles.STYLES_BY_NAME["pirates"]),
-                 "grandleon_playstation_character_pirates_first_mage_blue"),):
-            after = (replaced / "assets" / name).read_text(encoding="utf-8")
-            before = (plain / "assets" / name).read_text(encoding="utf-8")
-            if after == before:
-                raise Failure(f"{name} is unchanged; the replacement did not "
-                              "reach the console header")
-            if symbol not in after:
-                raise Failure(f"{name} no longer declares {symbol}")
-
-        # 3. And what else moved, named rather than waved at. Locality is exact
+        # 2. And what else moved, named rather than waved at. Locality is exact
         #    on the native canvas, as `check_substitution_is_local` asserts.
         differing = sorted(
             path.relative_to(replaced).as_posix()
@@ -384,19 +361,12 @@ def check_end_to_end() -> None:
         # is the one distinction this section exists to keep.
         own = {f"assets/{profile.name}/{key}"
                for profile in profiles.PROFILES for key in (STANDING, STRIP)}
-        style = styles.STYLES_BY_NAME["pirates"]
         indexes = ("manifest.json", "palettes.json", "palette_usage.json",
-                   "GALLERY.md", "ROSTER.md", "DECIMATION.md")
-        headers = {
-            f"assets/{playstation_header.characters_header_name(style)}":
-                "the PlayStation character header for the style",
-        }
+                   "GALLERY.md", "ROSTER.md")
 
         def category(path: str) -> str:
             if path in own:
                 return "the replaced key's own outputs"
-            if path in headers:
-                return headers[path]
             if path.endswith(indexes):
                 return "an index of the whole library"
             if path.startswith("gallery/"):

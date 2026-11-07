@@ -45,8 +45,7 @@ already holds four browns and a grey:
 Five ramps a sprite, not eight
 ------------------------------
 The list above is what the *style* holds; what binds is what one **sprite**
-spends, because ``n64_ci4`` keeps a sprite's sixteen most-used colours and
-remaps the rest. Drawn first with a fur, a brown, a bark, a horn, a white, a
+spends. Drawn first with a fur, a brown, a bark, a horn, a white, a
 leaf and a leather all in the same 32×32 cell, the badger and the lion were
 losing several times what ``medieval`` loses. Merging the near-duplicates (grey
 boots on a grey badger, a stone spearhead rather than a horn one, the gold this

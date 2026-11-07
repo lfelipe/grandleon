@@ -26,6 +26,30 @@ func _run() -> void:
 	current_scene = editor
 	await process_frame
 	await process_frame
+	var terrain_guide_directory := _argument_path("--terrain-guide-frames=")
+	if not terrain_guide_directory.is_empty():
+		DirAccess.make_dir_recursive_absolute(terrain_guide_directory)
+		await _capture_guide_frame(terrain_guide_directory, "01-map.png")
+		editor._select_tool("brush")
+		editor._select_terrain("water")
+		editor._paint_cell(0)
+		await _capture_guide_frame(terrain_guide_directory, "02-brush.png")
+		editor._select_tool("fill")
+		editor._select_terrain("ruins")
+		editor._paint_cell(2)
+		await _capture_guide_frame(terrain_guide_directory, "03-fill.png")
+		editor._select_tool("rectangle")
+		editor._select_terrain("forest")
+		editor._paint_cell(0)
+		editor._paint_cell(7)
+		await _capture_guide_frame(terrain_guide_directory, "04-rectangle.png")
+		editor._undo()
+		await _capture_guide_frame(terrain_guide_directory, "05-undo.png")
+		editor._redo()
+		await _capture_guide_frame(terrain_guide_directory, "06-redo.png")
+		print("terrain guide frames saved: %s" % terrain_guide_directory)
+		quit()
+		return
 	var placement_screenshot_path := _argument_path("--placement-screenshot=")
 	if not placement_screenshot_path.is_empty():
 		editor._open_add_placement()
@@ -714,6 +738,18 @@ func _parse(value: String) -> Dictionary:
 		_fail("source was not readable JSON")
 		return {}
 	return parsed
+
+
+func _capture_guide_frame(directory: String, file_name: String) -> void:
+	for frame in 8:
+		await process_frame
+	var texture := get_root().get_texture()
+	if texture == null:
+		_fail("terrain guide viewport texture was unavailable")
+		return
+	var error := texture.get_image().save_png(directory.path_join(file_name))
+	if error != OK:
+		_fail("terrain guide frame could not be saved: %s" % file_name)
 
 
 func _argument_path(prefix: String) -> String:

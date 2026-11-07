@@ -19,8 +19,8 @@ The split is the point of this README.
 
 `FilesystemSlotStorage` is the first thing in this repository below the tools
 layer that touches a filesystem. Everything else that opens a file is a host
-tool. The dependency rule of [DESIGN.md](../../DESIGN.md) §3.1 says why: the
-engine must build for a cartridge, and a cartridge has no `<filesystem>`, no
+tool. The [architectural invariants](../../CODING.md#architectural-invariants)
+explain why: the engine must build for a cartridge, and a cartridge has no `<filesystem>`, no
 `fopen`, and no path. A single `grandleon_storage` target holding both the
 interface and the desktop implementation would put `#include <filesystem>` on
 the far side of a link line that a Nintendo 64 build follows, and a convenience

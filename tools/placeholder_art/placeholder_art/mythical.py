@@ -15,9 +15,7 @@ the melee archetype whichever style is drawing it.
 No new palette entries
 ----------------------
 None, for the reason :mod:`.scifi` records and *Adding a style* in
-``tools/placeholder_art/README.md`` states: the
-``n64_ci8`` profile writes the whole master palette into every asset's ``PLTE``
-chunk, so appending one entry would rewrite art nobody asked to change.
+``tools/placeholder_art/README.md`` states: styles share one stable palette.
 The kit is a deliberately short list of ramps that already exist, and the
 shortness is a second constraint rather than taste, as below:
 
@@ -38,10 +36,8 @@ shortness is a second constraint rather than taste, as below:
 
 Why the list is short
 ---------------------
-The binding constraint is per *sprite*, not per library
-(``tools/placeholder_art/README.md``): the ``n64_ci4`` profile keeps a sprite's
-sixteen most-used colours and remaps the rest to their nearest survivor. Drawn
-first with a steel ramp beside the scale and a wood ramp beside the horn, this
+The binding constraint is per *sprite*, not per library. Drawn first with a
+steel ramp beside the scale and a wood ramp beside the horn, this
 style spent 2.3% of its opaque texels on that remap against ``medieval``'s
 0.4%, and one sprite lost 56. Two materials merged into two the style already
 had brought it to 0.3%, which is **better** than either style drawn before it.

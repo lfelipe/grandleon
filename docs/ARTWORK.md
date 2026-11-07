@@ -1,29 +1,22 @@
 # Artwork and animation roster
 
-Grandleon has artwork for all eight character archetypes and all thirteen
-terrain kinds. The supported Godot presentation, **Voxel + Sprites**, combines
-authored 3D terrain with animated high-resolution characters.
+Grandleon's Godot player includes seven complete character themes: sci-fi,
+mythical, medieval, nature, Sengoku, Undead, and Pirates. Each theme has male
+and female designs for all eight unit roles, and each design supports blue,
+red, green, violet, amber, and bone team colours.
 
-This page separates two useful meanings of “complete”:
+![Examples of the seven themes and eight unit roles](screenshots/art-roster/readme-art-sampler.png)
 
-- The supported Godot presentation has male and female high-resolution
-  characters for every archetype in the sci-fi, mythical, medieval, nature,
-  Sengoku, Undead, and Pirates directions. All seven support the six faction
-  colours. Godot also
-  has one
-  authored scene for each of the thirteen terrains.
-- The portable generated library covers every combination of eight archetypes,
-  seven styles, six faction colours, and two figures. These are the assets shared
-  with the constrained renderers and used as a safe fallback in Godot.
+The compact image above is only an introduction. The tables below show the
+actual animated sheets used in the game. Each preview includes idle, walk,
+attack, ability, and hurt or defeat poses.
 
-The sci-fi direction established the high-resolution sheet contract. Mythical
-was the first expansion; medieval, nature, Sengoku, Undead, and Pirates are
-0.4 additions. All seven follow the same contract. This is the mythical roster:
-
-To revise an individual character later, use the
+For a later correction or redesign, use the
 [artwork generation and tweak guide](ARTWORK_GENERATION.md). It records the
-authoring model, preserved prompts, shared design rules, and the safe review
-workflow without pretending that missing generation metadata can be recovered.
+confirmed authoring model, the preserved prompts, and the rules that keep a new
+sheet consistent with the rest of the game.
+
+## Animated mythical roster
 
 | Portable identity | Animated preview |
 |---|---|
@@ -46,8 +39,8 @@ workflow without pretending that missing generation metadata can be recovered.
 
 These eight finished body pairs cover every mythical archetype. The names
 describe their portable art identity, not a campaign. The same coverage now
-exists for all seven styles. The portable generated library remains available
-as a safe fallback if an individual curated binding or file is missing.
+exists for all seven styles. Godot keeps an original sheet colour if a team
+mask is malformed; missing character sheets are reported as content errors.
 
 ## Bodies and team colours
 
@@ -77,30 +70,14 @@ texture for the battlefield, portraits, and creator previews. Faces, hair,
 weapons, and spell effects remain unchanged. If a mask is missing or malformed,
 Godot keeps the original source colour instead of failing the character.
 
-The generated comparison galleries show every curated body in every faction
-colour at portrait and board scale:
-
-- [Browse all 96 mythical body-and-colour combinations](screenshots/art-roster/team-colours/index.html).
-- [Inspect the mask selection on idle poses](screenshots/art-roster/team-colours/mythical-team-masks-idle.png).
-- [Inspect the mask selection across every action](screenshots/art-roster/team-colours/mythical-team-masks-actions.png).
-- [Browse all 96 sci-fi body-and-colour combinations](screenshots/art-roster/team-colours/scifi/index.html).
-- [Inspect the sci-fi masks on idle poses](screenshots/art-roster/team-colours/scifi/scifi-team-masks-idle.png).
-- [Inspect the sci-fi masks across every action](screenshots/art-roster/team-colours/scifi/scifi-team-masks-actions.png).
-- [Browse all 96 medieval body-and-colour combinations](screenshots/art-roster/team-colours/medieval/index.html).
-- [Inspect the medieval masks on idle poses](screenshots/art-roster/team-colours/medieval/medieval-team-masks-idle.png).
-- [Inspect the medieval masks across every action](screenshots/art-roster/team-colours/medieval/medieval-team-masks-actions.png).
-- [Browse all 96 nature body-and-colour combinations](screenshots/art-roster/team-colours/nature/index.html).
-- [Inspect the nature masks on idle poses](screenshots/art-roster/team-colours/nature/nature-team-masks-idle.png).
-- [Inspect the nature masks across every action](screenshots/art-roster/team-colours/nature/nature-team-masks-actions.png).
-- [Browse all 96 Sengoku body-and-colour combinations](screenshots/art-roster/team-colours/sengoku/index.html).
-- [Inspect the Sengoku masks on idle poses](screenshots/art-roster/team-colours/sengoku/sengoku-team-masks-idle.png).
-- [Inspect the Sengoku masks across every action](screenshots/art-roster/team-colours/sengoku/sengoku-team-masks-actions.png).
-- [Browse all 96 Undead body-and-colour combinations](screenshots/art-roster/team-colours/undead/index.html).
-- [Inspect the Undead masks on idle poses](screenshots/art-roster/team-colours/undead/undead-team-masks-idle.png).
-- [Inspect the Undead masks across every action](screenshots/art-roster/team-colours/undead/undead-team-masks-actions.png).
-- [Browse all 96 Pirates body-and-colour combinations](screenshots/art-roster/team-colours/pirates/index.html).
-- [Inspect the Pirates masks on idle poses](screenshots/art-roster/team-colours/pirates/pirates-team-masks-idle.png).
-- [Inspect the Pirates masks across every action](screenshots/art-roster/team-colours/pirates/pirates-team-masks-actions.png).
+The colour galleries show every body in all six faction colours at portrait and
+board scale: [mythical](screenshots/art-roster/team-colours/index.html),
+[sci-fi](screenshots/art-roster/team-colours/scifi/index.html),
+[medieval](screenshots/art-roster/team-colours/medieval/index.html),
+[nature](screenshots/art-roster/team-colours/nature/index.html),
+[Sengoku](screenshots/art-roster/team-colours/sengoku/index.html),
+[Undead](screenshots/art-roster/team-colours/undead/index.html), and
+[Pirates](screenshots/art-roster/team-colours/pirates/index.html).
 
 ## Animated sci-fi Godot roster
 
@@ -210,39 +187,6 @@ clothing construction, and movement silhouettes.
 | Rogue | ![The male Pirates rogue runs through the production actions](screenshots/art-roster/pirates-rogue-male.gif) | ![The female Pirates rogue runs through the production actions](screenshots/art-roster/pirates-rogue-female.gif) |
 | Beast | ![The male Pirates beast runs through the production actions](screenshots/art-roster/pirates-beast-male.gif) | ![The female Pirates beast runs through the production actions](screenshots/art-roster/pirates-beast-female.gif) |
 
-Run the following command after changing a sheet to rebuild the previews:
-
-```sh
-platform/godot/scripts/generate-art-roster.sh
-```
-
-Run these after changing a curated sheet, mask, or faction palette to rebuild
-the masks and both six-colour review galleries:
-
-```sh
-tools/placeholder_art/.venv/bin/python \
-  platform/godot/scripts/generate-mythical-team-masks.py --style mythical
-tools/placeholder_art/.venv/bin/python \
-  platform/godot/scripts/generate-mythical-team-masks.py --style scifi
-tools/placeholder_art/.venv/bin/python \
-  platform/godot/scripts/generate-mythical-team-masks.py --style medieval
-tools/placeholder_art/.venv/bin/python \
-  platform/godot/scripts/generate-mythical-team-masks.py --style nature
-tools/placeholder_art/.venv/bin/python \
-  platform/godot/scripts/generate-mythical-team-masks.py --style sengoku
-tools/placeholder_art/.venv/bin/python \
-  platform/godot/scripts/generate-mythical-team-masks.py --style undead
-tools/placeholder_art/.venv/bin/python \
-  platform/godot/scripts/generate-mythical-team-masks.py --style pirates
-platform/godot/scripts/generate-team-colour-showcase.sh
-platform/godot/scripts/generate-team-colour-showcase.sh --style scifi
-platform/godot/scripts/generate-team-colour-showcase.sh --style medieval
-platform/godot/scripts/generate-team-colour-showcase.sh --style nature
-platform/godot/scripts/generate-team-colour-showcase.sh --style sengoku
-platform/godot/scripts/generate-team-colour-showcase.sh --style undead
-platform/godot/scripts/generate-team-colour-showcase.sh --style pirates
-```
-
 ## Terrain coverage
 
 The authored Godot terrain pack covers:
@@ -250,22 +194,10 @@ The authored Godot terrain pack covers:
 > grass, farmland, sand, snow, swamp, hills, bamboo, forest, mountain, water,
 > road, paved, and ruins
 
-Road tiles can select the separate bridge scene when they meet water. Several
-asymmetric scenes also have deterministic rotated variants, giving repeated
-terrain some variety without adding randomness to portable game data. If a
-replacement scene is missing or invalid, the renderer falls back on that tile
-instead of making the whole art pack unusable.
-
-Authored foundations and primary surfaces now fill the whole cell, so adjoining
-tiles meet without the old dark trench around every block. The renderer also
-derives a four-way neighbour mask from terrain identity, family, and map
-coordinates. Forest and bamboo grow taller, broader interior clusters; exposed
-edges stay smaller, can omit a secondary plant, and pull their props inward.
-Hills, mountains, snow, swamp, fields, sand, and ruins use gentler versions of
-the same deterministic scaling and rotation. Scenery can overlap a fully
-surrounded tile boundary to form a shared canopy, but edge tiles do not expand
-their props across a different terrain kind. Walkable cell boundaries remain
-visible and the portable terrain array is unchanged.
+Roads form bridges where they meet water. Forest, bamboo, hills, mountains,
+snow, swamp, fields, sand, and ruins vary their scenery when several matching
+tiles meet, while exposed edges remain smaller and readable. These changes are
+visual only; walkable cells and campaign rules stay the same.
 
 The bindings live in
 [`graphics_profiles.json`](../platform/godot/project/content/graphics_profiles.json),
@@ -274,63 +206,20 @@ the character sources live in
 and the terrain scenes live in
 [`platform/godot/project/art/terrain`](../platform/godot/project/art/terrain).
 
-## Movement presentation
-
-Godot keeps the accepted grid route exactly as supplied by the simulation. The
-authoritative move is already committed; the renderer gives its picture a
-slower 2.4-cells-per-second pace, eases the beginning and end, and blends facing
-across route corners. Terrain height is interpolated between accepted cells.
-Interrupted moves start from the current visual position, while simultaneous
-two-player moves retain independent presentation state.
-
-Walk frames, imported 3D run clips, body rise, and alternating weight transfer
-all advance from distance travelled. Each cell has two planted contacts, so a
-character accelerates and slows without its feet cycling in place. This
-smoothing never changes movement range, route cells, destination, input
-authority, or the portable state hash.
-
-![A closer capture of two characters taking independent multi-cell routes with distance-matched steps](screenshots/godot/movement.gif)
-
-Reachable movement cells use the same player identity as the rest of the HUD:
-cyan for player one and amber for player two, with a stronger translucent fill
-and bright perimeter so the range remains visible over light or busy terrain.
-Attack, ability, and talk targets remain red to communicate action type.
-
-## Console artwork
-
-Nintendo 64 and PlayStation derive hardware-sized character cutouts from the
-same curated sheets used by Godot. Separate team masks apply player colours at
-runtime, so one authored character remains readable on either side without
-duplicating the source art. The board combines those cutouts with deterministic
-terrain textures, while close battles use terrain-derived full-frame
-backdrops.
-
-The checked-in N64 assets are reproduced by
-`platform/nintendo64/scripts/generate-sevenfold-cutout-assets.py`,
-`platform/nintendo64/scripts/generate-sevenfold-terrain-assets.py`, and
-`platform/nintendo64/scripts/generate-sevenfold-backdrop-assets.py`.
-PlayStation's terrain header is reproduced by
-`platform/playstation/tools/generate-terrain-quality.py`. Their manifests keep
-the source paths and hashes beside the generated output so a future art tweak
-can be traced and repeated.
-
-[Console renderer](CONSOLE_RENDERER.md) covers the builds, performance budgets,
-current limitations, and ongoing graphics work.
-
 ## The full portable library
 
-The portable art generator contains 672 standing character assets: eight
+The portable pixel-art generator contains 672 standing character assets: eight
 archetypes × seven styles × six faction colours × two figures. It also emits
-their animation poses and the complete thirteen-terrain set for the modern and
-console-oriented output profiles.
+their map-scale animation poses and the complete thirteen-terrain set for the
+browser-compatible editor's modern profile.
 
 - [Browse all 56 archetype-and-style combinations](../tools/placeholder_art/ROSTER.md).
 - [Browse terrain, transitions, animation frames, palettes, and output profiles](../tools/placeholder_art/GALLERY.md).
 
-This larger library is deliberately lower resolution. It exists so every valid
-portable project remains visible on every renderer. The curated Godot rosters
-are the high-resolution presentation, not a promise of a separately painted
-sheet for every colour and body combination.
+This larger library is deliberately lower resolution and remains useful to the
+browser-compatible editor. Godot and both consoles use the curated
+high-resolution sheets and team masks instead; a console build refuses a
+project whose required curated binding is missing.
 
 ## Source and licence
 

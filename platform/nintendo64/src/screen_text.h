@@ -241,21 +241,24 @@ inline constexpr TextBand stage_band = TextBand::above(56, 13, stage_prompt_y);
 inline constexpr int controls_title_y = 30;
 inline constexpr int controls_prompt_y = 210;
 inline constexpr const char* controls_title = "HOW TO PLAY";
-inline constexpr const char* controls_prompt = "PRESS A TO BEGIN";
+inline constexpr const char* controls_prompt = "A OR B BACK";
 
-// The played campaign's local-player choice. It appears only when the package
-// actually assigns at least one allied placement to Player 2, so a solo-only
-// game does not offer a mode its content cannot show. Player 1 makes this
-// choice before the second port is admitted to the input poll.
+// The played campaign's launch menu. It shows only the player-count rows the
+// package allows, plus optional Help. Player 1 makes this choice before the
+// second port is admitted to the input poll.
 inline constexpr const char* player_count_title = "CHOOSE PLAYERS";
 inline constexpr const char* player_count_rows[] = {
     "1 PLAYER",
     "2 PLAYERS",
+    "HELP",
 };
 inline constexpr std::size_t player_count_row_count =
     std::size(player_count_rows);
 inline constexpr const char* player_count_need_pad =
     "CONNECT CONTROLLER 2 FOR CO-OP";
+inline constexpr const char* player_count_ready_pad = "CONTROLLER 2 READY";
+inline constexpr const char* player_count_solo_note = "START SOLO CAMPAIGN";
+inline constexpr const char* player_count_help_note = "CONTROLS AND BOARD LEGEND";
 inline constexpr const char* player_count_prompt =
     "D-PAD CHOOSE   A CONFIRM";
 inline constexpr int player_count_title_y = 92;
@@ -271,6 +274,15 @@ static_assert(
         centred_x(std::string_view{player_count_need_pad}) >= safe_left &&
         centred_x(std::string_view{player_count_need_pad}) +
                 text_width(std::string_view{player_count_need_pad}) <= safe_right &&
+        centred_x(std::string_view{player_count_ready_pad}) >= safe_left &&
+        centred_x(std::string_view{player_count_ready_pad}) +
+                text_width(std::string_view{player_count_ready_pad}) <= safe_right &&
+        centred_x(std::string_view{player_count_solo_note}) >= safe_left &&
+        centred_x(std::string_view{player_count_solo_note}) +
+                text_width(std::string_view{player_count_solo_note}) <= safe_right &&
+        centred_x(std::string_view{player_count_help_note}) >= safe_left &&
+        centred_x(std::string_view{player_count_help_note}) +
+                text_width(std::string_view{player_count_help_note}) <= safe_right &&
         centred_x(std::string_view{player_count_prompt}) >= safe_left &&
         centred_x(std::string_view{player_count_prompt}) +
                 text_width(std::string_view{player_count_prompt}) <= safe_right,

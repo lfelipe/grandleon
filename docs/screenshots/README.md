@@ -27,22 +27,22 @@ platform/godot/scripts/record-combat-cinematic.sh \
   build-godot out/godot-combat-cinematic.mp4
 ```
 
-`native-guide/` belongs to [Creating a game](../CREATING_A_GAME.md). Its
-screens are rendered by the real Godot creator under fresh per-capture user
-data:
+`native-guide/` belongs to [Creating a game](../CREATING_A_GAME.md). Its six
+short GIFs are built from real creator interactions under fresh per-capture
+user data:
 
 ```sh
 platform/godot/scripts/capture-creator-guide.sh
 ```
 
-Pass `--player-shell path/to/pc-bundle` after building the PC bundle to also
-capture an enabled Export Center.
+Pass `--player-shell path/to/pc-bundle` after building the PC bundle to show an
+enabled Linux target in the final Export Center frame.
 
 ## Artwork roster
 
-`art-roster/` belongs to [Artwork](../ARTWORK.md). Its animated previews are
-rebuilt directly from the committed Godot character sheets, including work in
-progress on additional 0.4 styles:
+`art-roster/` belongs to [Artwork](../ARTWORK.md). Its animated previews and
+the root README's compact theme-and-role sampler are rebuilt directly from the
+committed Godot character sheets:
 
 ```sh
 platform/godot/scripts/generate-art-roster.sh
@@ -51,9 +51,9 @@ platform/godot/scripts/generate-art-roster.sh
 ## Console and terminal captures
 
 The README's three-platform battle movie follows the shared deterministic
-comparison contract. Record the Godot sequence, capture the matching native
-console sequences through their renderer checks, then compose the three films
-with:
+comparison contract. Record the Godot sequence, capture the matching playable
+console sequences through their normal runtime checks, then compose the three
+films with:
 
 ```sh
 tools/renderer_comparison/compose-renderer-comparison.sh \
@@ -75,8 +75,9 @@ scripts/readme-screenshots.sh terminal # or one named capture
 |---|---|
 | `godot/gameplay.gif` | close combat from a recorded run of the Godot guided demo |
 | `godot/voxel-sprites.png` | the supported Godot presentation |
-| `native-guide/*.png` | Godot creator integration fixtures under Xvfb |
+| `native-guide/*.gif` | the visual creator walkthrough, captured under Xvfb |
 | `art-roster/*.gif` | the committed 4×2 character sheets |
+| `art-roster/readme-art-sampler.png` | a compact sample of the seven themes and eight roles |
 | `terminal.png` | the real terminal client's ANSI output, rendered by Chromium |
 | `renderer-comparison.gif` | the shared Godot, Nintendo 64, and PlayStation battle timeline for the README |
 | `nintendo64-console-renderer.gif` | the current Nintendo 64 tactical scene and battle focus |

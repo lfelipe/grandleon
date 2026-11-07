@@ -108,11 +108,18 @@ nothing:
 ```sh
 cmake --build build --target grandleon_n64_check_all
 cmake --build build --target grandleon_playstation_check
-cmake --build build --target grandleon_playstation_render_check
+cmake --build build --target grandleon_playstation_turn_check
 ```
 
 A change is not complete until the behaviour it claims is demonstrably true, not
 merely until it compiles.
+
+Test builds must exercise the same product behavior as played builds. They may
+inject controller input, simulate attached hardware, capture frames, expose
+diagnostics, and extend observation timing; they must not add or remove screens,
+skip launch policy, change rules, or preserve an obsolete flow to keep a frozen
+script green. When intended behavior changes, update the script and its
+expectations.
 
 ### Worktrees
 
@@ -297,7 +304,6 @@ the disc:
 ```sh
 cmake --build build --target grandleon_playstation                 # build the executables
 cmake --build build --target grandleon_playstation_check           # conformance: run it
-cmake --build build --target grandleon_playstation_render_check    # play: check the pixels
 cmake --build build --target grandleon_playstation_turn_check      # play a turn into it
 cmake --build build --target grandleon_playstation_card_check      # the memory card, across processes
 cmake --build build --target grandleon_playstation_campaign_check  # both campaigns, twice over one card
@@ -305,11 +311,11 @@ cmake --build build --target grandleon_playstation_disc            # write a bur
 cmake --build build --target grandleon_playstation_disc_check      # boot that disc through the BIOS shell
 ```
 
-`scripts/local-ci.sh --playstation` runs those six checks.
+`scripts/local-ci.sh --playstation` runs those five checks.
 
 Artifacts land in the gitignored `build-playstation/`. Nothing produced by this
 target is committed. Configure with `-DGRANDLEON_PLAYSTATION_TESTS=ON` to add
-the runs to `ctest` as `grandleon.playstation`, `grandleon.playstation_render`,
+the runs to `ctest` as `grandleon.playstation`,
 `grandleon.playstation_turn`, `grandleon.playstation_card`,
 `grandleon.playstation_campaign`, `grandleon.playstation_disc` and
 `grandleon.playstation_other_game`; they are off by default because they pull a
@@ -409,10 +415,6 @@ Every module under `engine/`, `platform/`, `tools/`, `games/` and `editor/`
 carries its own README describing what it owns. The ones a contributor reaches
 for first:
 
-- [docs/FROM_EDITOR_TO_CONSOLE.md](docs/FROM_EDITOR_TO_CONSOLE.md) describes the
-  whole chain from authored source to compiled package to console pixel, how
-  the target surfaces relate, and what each layer of verification proves. Start
-  here if the module boundaries are not yet obvious.
 - [engine/core/README.md](engine/core/README.md) describes the substrate:
   version, content identity, and the deterministic random stream.
 - [engine/simulation/README.md](engine/simulation/README.md) describes the
@@ -455,12 +457,9 @@ for first:
 
 ## Architectural invariants
 
-[DESIGN.md](DESIGN.md) §3 and §3.1 give the layering and the reasoning behind
-it. This section is what that layering asks of a change: the rules a change has
-to keep, stated as rules. They are separate from the architecture because these
-are the ones that actually get broken. Nobody disagrees with them; they break
-when a second copy of an answer appears somewhere it was cheaper to write than
-to ask for.
+These are the layering rules a change has to keep. They are the ones that get
+broken when a second copy of an answer appears somewhere it was cheaper to
+write than to ask for.
 
 Nothing here is checked by a linter, and there is no architecture check that
 names a forbidden dependency edge. What enforces these is the shape of the
@@ -660,9 +659,8 @@ Where a layer's art cannot survive filtering, draw it point-sampled and record
 the evidence that settled it rather than leaving the next reader to infer it
 from the other layer's choice.
 
-Keep [DESIGN.md](DESIGN.md) for the architecture and the reasoning, this
-section for the rules a change has to keep, and the module READMEs for concrete
-usage. [platform/view/README.md](platform/view/README.md) and
+Keep this section for the project-wide rules and the module READMEs for
+concrete usage and local reasoning. [platform/view/README.md](platform/view/README.md) and
 [platform/client/README.md](platform/client/README.md) carry most of the detail
 behind the drawing and console rules above.
 

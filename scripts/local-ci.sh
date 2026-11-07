@@ -326,8 +326,6 @@ step "WebAssembly module is not stale"
 if [ "${run_n64}" -eq 1 ]; then
     step "Nintendo 64: every supported check"
     (cd "${clone}" && cmake --build build --target grandleon_n64_check_all)
-    step "Nintendo 64: console renderer"
-    (cd "${clone}" && platform/nintendo64/scripts/check-sevenfold-renderer.sh)
 fi
 
 # The PlayStation's six checks: the conformance executable's own assertions,
@@ -346,7 +344,6 @@ fi
 if [ "${run_playstation}" -eq 1 ]; then
     step "PlayStation: conformance, what it drew, a turn, a save, two campaigns, a disc"
     (cd "${clone}" && cmake --build build --target grandleon_playstation_check)
-    (cd "${clone}" && cmake --build build --target grandleon_playstation_render_check)
     (cd "${clone}" && cmake --build build --target grandleon_playstation_turn_check)
     (cd "${clone}" && cmake --build build --target grandleon_playstation_card_check)
     (cd "${clone}" && cmake --build build --target grandleon_playstation_campaign_check)

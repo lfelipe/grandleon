@@ -10,8 +10,8 @@
 // a cartridge that forgot would take the founding script a second time,
 // report FOUNDED twice, and fail the harness on the word.
 //
-//   `campaign_autopilot_found`   the cartridge is empty. Title, controls, the
-//                                slot screen's only row, the company as it was
+//   `campaign_autopilot_found`   the cartridge is empty. Title, the slot
+//                                screen's only row, the company as it was
 //                                founded (carrying the store the campaign
 //                                authors), the twelve authored cutscene lines
 //                                of the three story nodes, and then the
@@ -62,8 +62,8 @@ inline constexpr Step campaign_autopilot_found[] = {
     {Op::checkpoint, static_cast<std::uint16_t>(Check::title), 0, 0, "title"},
     {Op::press, button_start, 0, 0, nullptr},
     {Op::wait, 10, 0, 0, nullptr},
-    {Op::checkpoint, static_cast<std::uint16_t>(Check::controls), 0, 0,
-     "controls"},
+    {Op::checkpoint, static_cast<std::uint16_t>(Check::launch_menu), 0, 0,
+     "launch-menu"},
     {Op::press, button_a, 0, 0, nullptr},
 
     // The slot screen. The cartridge is empty, so A NEW COMPANY is the only
@@ -166,8 +166,8 @@ inline constexpr Step campaign_autopilot_resume[] = {
     {Op::checkpoint, static_cast<std::uint16_t>(Check::title), 0, 0, "title"},
     {Op::press, button_start, 0, 0, nullptr},
     {Op::wait, 10, 0, 0, nullptr},
-    {Op::checkpoint, static_cast<std::uint16_t>(Check::controls), 0, 0,
-     "controls"},
+    {Op::checkpoint, static_cast<std::uint16_t>(Check::launch_menu), 0, 0,
+     "launch-menu"},
     {Op::press, button_a, 0, 0, nullptr},
 
     // The slot screen now says the cartridge is holding one, and CONTINUE is
