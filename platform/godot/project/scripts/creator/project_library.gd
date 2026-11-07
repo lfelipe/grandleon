@@ -5,6 +5,9 @@ extends RefCounted
 const ProjectArchive = preload("res://scripts/creator/project_archive.gd")
 const PROJECT_FILE := "project.json"
 const PREVIOUS_FILE := "project.previous.json"
+const RECOVERY_DIRECTORY := "recovered"
+const CURRENT_SCHEMA_VERSION := "1.4.0"
+const LEGACY_SCHEMA_VERSION := "1.3.0"
 
 var root_path: String
 var compiler: RefCounted
@@ -161,10 +164,12 @@ func import_project(archive_path: String) -> Dictionary:
 	if parsed.parse(str(opened.source)) != OK or not parsed.data is Dictionary:
 		return _failure("source_invalid", "The archive's project.json is not readable JSON.")
 	var source := str(opened.source)
+	var original_source := source
 	var upgraded: Dictionary = _upgrade_legacy_source(source)
 	if not bool(upgraded.get("ok", false)):
 		return upgraded
 	source = str(upgraded.source)
+	var migration: Dictionary = upgraded.migration.duplicate(true)
 	parsed.parse(source)
 	var checked: Dictionary = compiler.compile_source_json(source)
 	for diagnostic: Dictionary in checked.diagnostics:
@@ -210,9 +215,20 @@ func import_project(archive_path: String) -> Dictionary:
 	var staging := root_path.path_join(".import-%s" % _new_uuid())
 	if DirAccess.make_dir_recursive_absolute(staging) != OK:
 		return _failure("directory_failed", "The imported project could not be staged.")
+	if bool(upgraded.get("migrated", false)):
+		var backed_up := _create_migration_backup(staging, original_source, migration)
+		if not bool(backed_up.get("ok", false)):
+			_remove_tree(staging)
+			return backed_up
+		migration = backed_up.migration
 	if not _write_bytes(staging.path_join(PROJECT_FILE), source.to_utf8_buffer()):
 		_remove_tree(staging)
-		return _failure("write_failed", "The imported project source could not be staged.")
+		return _failure_with_details(
+			"write_failed",
+			"The imported project source could not be staged.",
+			migration,
+			_recovery_details()
+		)
 	var asset_paths: Array = opened.assets.keys()
 	asset_paths.sort()
 	for value: Variant in asset_paths:
@@ -231,6 +247,8 @@ func import_project(archive_path: String) -> Dictionary:
 	if DirAccess.rename_absolute(staging, destination) != OK:
 		_remove_tree(staging)
 		return _failure("replace_failed", "The imported project could not enter the project library.")
+	if bool(upgraded.get("migrated", false)):
+		migration = _completed_migration(migration)
 	return {
 		"ok": true,
 		"id": project_id,
@@ -238,6 +256,9 @@ func import_project(archive_path: String) -> Dictionary:
 		"project": project,
 		"identity_replaced": identity_replaced,
 		"assets": asset_paths.size(),
+		"migrated": bool(upgraded.get("migrated", false)),
+		"migration": migration,
+		"recovery": _recovery_details(),
 	}
 
 
@@ -286,7 +307,9 @@ func save_source(project_id: String, source: String) -> Dictionary:
 	var upgraded: Dictionary = _upgrade_legacy_source(source)
 	if not bool(upgraded.get("ok", false)):
 		return upgraded
+	var original_source := source
 	source = str(upgraded.source)
+	var migration: Dictionary = upgraded.migration.duplicate(true)
 	parsed.parse(source)
 	if parsed.data.get("packageId", "") != project_id:
 		return _failure(
@@ -309,10 +332,34 @@ func save_source(project_id: String, source: String) -> Dictionary:
 		return _failure("directory_failed", "The project directory could not be created.")
 	var target := directory.path_join(PROJECT_FILE)
 	var previous := directory.path_join(PREVIOUS_FILE)
+	if FileAccess.file_exists(target) and not _source_file_is_readable(target):
+		return _failure_with_details(
+			"stored_project_unreadable",
+			"The stored project is unreadable and was left untouched.",
+			migration,
+			_source_preserved_recovery(PROJECT_FILE, previous)
+		)
+	if FileAccess.file_exists(previous) and not _source_file_is_readable(previous):
+		return _failure_with_details(
+			"recovery_source_unreadable",
+			"The previous project copy is unreadable and was left untouched.",
+			migration,
+			_source_preserved_recovery(PREVIOUS_FILE)
+		)
+	if bool(upgraded.get("migrated", false)):
+		var backed_up := _create_migration_backup(directory, original_source, migration)
+		if not bool(backed_up.get("ok", false)):
+			return backed_up
+		migration = backed_up.migration
 	var temporary := directory.path_join(".%s.tmp" % _new_uuid())
 	var file := FileAccess.open(temporary, FileAccess.WRITE)
 	if file == null:
-		return _failure("write_failed", "The new project file could not be written.")
+		return _failure_with_details(
+			"write_failed",
+			"The new project file could not be written.",
+			migration,
+			_recovery_details()
+		)
 	file.store_string(source)
 	file.flush()
 	file.close()
@@ -323,17 +370,31 @@ func save_source(project_id: String, source: String) -> Dictionary:
 		error = DirAccess.rename_absolute(target, previous)
 		if error != OK:
 			DirAccess.remove_absolute(temporary)
-			return _failure("replace_failed", "The stored project could not be prepared for replacement.")
+			return _failure_with_details(
+				"replace_failed",
+				"The stored project could not be prepared for replacement.",
+				migration,
+				_recovery_details()
+			)
 	error = DirAccess.rename_absolute(temporary, target)
 	if error != OK:
 		if FileAccess.file_exists(previous):
 			DirAccess.rename_absolute(previous, target)
 		DirAccess.remove_absolute(temporary)
-		return _failure("replace_failed", "The new project could not replace the stored project.")
+		return _failure_with_details(
+			"replace_failed",
+			"The new project could not replace the stored project.",
+			migration,
+			_recovery_details()
+		)
+	if bool(upgraded.get("migrated", false)):
+		migration = _completed_migration(migration)
 	return {
 		"ok": true,
 		"diagnostics": checked.diagnostics,
 		"migrated": bool(upgraded.get("migrated", false)),
+		"migration": migration,
+		"recovery": _recovery_details(),
 		"source": source,
 	}
 
@@ -344,24 +405,74 @@ func load_source(project_id: String) -> Dictionary:
 	var directory := _project_path(project_id)
 	var target := directory.path_join(PROJECT_FILE)
 	var previous := directory.path_join(PREVIOUS_FILE)
+	var recovery := _recovery_details()
 	if not FileAccess.file_exists(target) and FileAccess.file_exists(previous):
-		DirAccess.rename_absolute(previous, target)
+		if not _source_file_is_readable(previous):
+			return _failure_with_details(
+				"project_unreadable",
+				"The previous project copy is unreadable and was left untouched.",
+				_migration_details(),
+				_source_preserved_recovery(PREVIOUS_FILE)
+			)
+		var previous_bytes := FileAccess.get_file_as_bytes(previous)
+		if not _write_bytes(target, previous_bytes):
+			return _failure_with_details(
+				"recovery_failed",
+				"The previous project copy could not be restored; the copy was left untouched.",
+				_migration_details(),
+				{
+					"status": "available",
+					"performed": false,
+					"source_file": PREVIOUS_FILE,
+					"target_file": PROJECT_FILE,
+					"preserved_file": PREVIOUS_FILE,
+					"backup_available": true,
+				}
+			)
+		recovery = {
+			"status": "restored_previous",
+			"performed": true,
+			"source_file": PREVIOUS_FILE,
+			"target_file": PROJECT_FILE,
+			"preserved_file": "",
+			"backup_available": true,
+		}
 	if not FileAccess.file_exists(target):
-		return _failure("project_missing", "The project source does not exist.")
+		return _failure_with_details(
+			"project_missing",
+			"The project source does not exist.",
+			_migration_details(),
+			recovery
+		)
 	var source := FileAccess.get_file_as_string(target)
 	var parsed := JSON.new()
 	if parsed.parse(source) != OK or not parsed.data is Dictionary:
-		return _failure("project_unreadable", "The stored project is not readable JSON.")
+		return _failure_with_details(
+			"project_unreadable",
+			"The stored project is unreadable and was left untouched.",
+			_migration_details(),
+			_source_preserved_recovery(PROJECT_FILE, previous)
+		)
 	var upgraded: Dictionary = _upgrade_legacy_source(source)
 	if not bool(upgraded.get("ok", false)):
 		return upgraded
+	var migration: Dictionary = upgraded.migration.duplicate(true)
 	if bool(upgraded.get("migrated", false)):
-		var saved: Dictionary = save_source(project_id, str(upgraded.source))
+		var saved: Dictionary = save_source(project_id, source)
 		if not bool(saved.get("ok", false)):
 			return saved
 		source = str(saved.source)
+		migration = saved.migration
 		parsed.parse(source)
-	return {"ok": true, "id": project_id, "source": source, "project": parsed.data}
+	return {
+		"ok": true,
+		"id": project_id,
+		"source": source,
+		"project": parsed.data,
+		"migrated": bool(upgraded.get("migrated", false)),
+		"migration": migration,
+		"recovery": recovery,
+	}
 
 
 func _upgrade_legacy_source(source: String) -> Dictionary:
@@ -370,22 +481,35 @@ func _upgrade_legacy_source(source: String) -> Dictionary:
 		return _failure("source_invalid", "The source is not readable JSON.")
 	var project: Dictionary = parsed.data
 	var version := str(project.get("schemaVersion", ""))
-	if version == "1.4.0":
-		return {"ok": true, "source": source, "migrated": false}
-	if version != "1.3.0":
-		return {"ok": true, "source": source, "migrated": false}
+	if version == CURRENT_SCHEMA_VERSION:
+		return {
+			"ok": true,
+			"source": source,
+			"migrated": false,
+			"migration": _migration_details("not_needed", version, version),
+		}
+	if version != LEGACY_SCHEMA_VERSION:
+		return {
+			"ok": true,
+			"source": source,
+			"migrated": false,
+			"migration": _migration_details("not_supported", version, CURRENT_SCHEMA_VERSION),
+		}
 	# Every project written before language metadata used English source copy.
 	# Record that fact; never infer from the machine doing the import and never
 	# invent a translation catalog. Integer restoration keeps an otherwise
 	# unchanged legacy project valid after Godot's JSON parser represented its
 	# numbers as floats.
-	project["schemaVersion"] = "1.4.0"
+	project["schemaVersion"] = CURRENT_SCHEMA_VERSION
 	project["sourceLanguage"] = "en"
 	var portable: Dictionary = _integer_numbers(project)
 	return {
 		"ok": true,
 		"source": JSON.stringify(portable, "  ", true) + "\n",
 		"migrated": true,
+		"migration": _migration_details(
+			"pending", LEGACY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION
+		),
 	}
 
 
@@ -519,6 +643,120 @@ func _write_bytes(path: String, bytes: PackedByteArray) -> bool:
 	file.flush()
 	file.close()
 	return true
+
+
+func _source_file_is_readable(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		return false
+	var parsed := JSON.new()
+	return (
+		parsed.parse(FileAccess.get_file_as_string(path)) == OK
+		and parsed.data is Dictionary
+	)
+
+
+func _create_migration_backup(
+	directory: String, source: String, pending: Dictionary
+) -> Dictionary:
+	var migration: Dictionary = pending.duplicate(true)
+	var recovery_directory := directory.path_join(RECOVERY_DIRECTORY)
+	if DirAccess.make_dir_recursive_absolute(recovery_directory) != OK:
+		migration["status"] = "backup_failed"
+		return _failure_with_details(
+			"migration_backup_failed",
+			"The project could not be backed up, so migration was not applied.",
+			migration,
+			_recovery_details()
+		)
+	var stem := "project-schema-%s" % str(migration.get("from_schema", "legacy"))
+	var file_name := stem + ".json"
+	var number := 2
+	while FileAccess.file_exists(recovery_directory.path_join(file_name)):
+		file_name = "%s-%d.json" % [stem, number]
+		number += 1
+	var relative_file := RECOVERY_DIRECTORY + "/" + file_name
+	var destination := directory.path_join(relative_file)
+	var temporary := recovery_directory.path_join(".%s.tmp" % _new_uuid())
+	var bytes := source.to_utf8_buffer()
+	if not _write_bytes(temporary, bytes):
+		migration["status"] = "backup_failed"
+		return _failure_with_details(
+			"migration_backup_failed",
+			"The project could not be backed up, so migration was not applied.",
+			migration,
+			_recovery_details()
+		)
+	if DirAccess.rename_absolute(temporary, destination) != OK:
+		DirAccess.remove_absolute(temporary)
+		migration["status"] = "backup_failed"
+		return _failure_with_details(
+			"migration_backup_failed",
+			"The project could not be backed up, so migration was not applied.",
+			migration,
+			_recovery_details()
+		)
+	migration["status"] = "backup_created"
+	migration["performed"] = false
+	migration["backup"] = {
+		"status": "created",
+		"file": relative_file,
+		"bytes": bytes.size(),
+	}
+	return {"ok": true, "migration": migration}
+
+
+func _completed_migration(pending: Dictionary) -> Dictionary:
+	var migration: Dictionary = pending.duplicate(true)
+	migration["status"] = "completed"
+	migration["performed"] = true
+	return migration
+
+
+func _migration_details(
+	status: String = "not_needed", from_schema: String = "", to_schema: String = ""
+) -> Dictionary:
+	return {
+		"status": status,
+		"performed": false,
+		"from_schema": from_schema,
+		"to_schema": to_schema,
+		"backup": {"status": "not_needed", "file": "", "bytes": 0},
+	}
+
+
+func _recovery_details() -> Dictionary:
+	return {
+		"status": "not_needed",
+		"performed": false,
+		"source_file": "",
+		"target_file": "",
+		"preserved_file": "",
+		"backup_available": false,
+	}
+
+
+func _source_preserved_recovery(
+	preserved_file: String, previous_path: String = ""
+) -> Dictionary:
+	return {
+		"status": "source_preserved",
+		"performed": false,
+		"source_file": "",
+		"target_file": PROJECT_FILE,
+		"preserved_file": preserved_file,
+		"backup_available": (
+			not previous_path.is_empty() and _source_file_is_readable(previous_path)
+		),
+	}
+
+
+func _failure_with_details(
+	code: String, message: String, migration: Dictionary, recovery: Dictionary
+) -> Dictionary:
+	var failed := _failure(code, message)
+	failed["migration"] = migration
+	failed["recovery"] = recovery
+	return failed
 
 
 func _remove_tree(path: String) -> void:

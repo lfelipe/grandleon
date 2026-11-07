@@ -53,6 +53,9 @@ func _init() -> void:
 		_expect("previous source recovers", recovered.ok, true)
 		if recovered.ok:
 			_expect("recovered prior title", recovered.project.title, "Signal & Stone")
+			_expect("recovery is reported", recovered.recovery.status, "restored_previous")
+			_expect("recovery keeps its source copy", recovered.recovery.backup_available, true)
+			_expect("recovery names a portable source", recovered.recovery.source_file, "project.previous.json")
 
 		var renamed: Dictionary = library.rename_project(created.id, "Signal Beacon")
 		_expect("project renames", renamed.ok, true)
@@ -176,8 +179,9 @@ func _init() -> void:
 		_expect("archive Windows punctuation refused", guard._valid_archive_path("assets/rook?.png"), false)
 
 		var legacy_path: String = library.root_path.path_join("legacy.grandleon.zip")
+		var legacy_source := _to_legacy_source(renamed.source)
 		var legacy_entries: Array[Dictionary] = [
-			{"path": "project.json", "bytes": renamed.source.to_utf8_buffer()},
+			{"path": "project.json", "bytes": legacy_source.to_utf8_buffer()},
 		]
 		_expect(
 			"legacy unmarked archive fixture writes",
@@ -191,6 +195,19 @@ func _init() -> void:
 		_expect("legacy editor archive imports", legacy_import.ok, true)
 		if legacy_import.ok:
 			_expect("legacy archive preserves identity", legacy_import.id, created.id)
+			_expect("legacy archive migration is reported", legacy_import.migration.status, "completed")
+			_expect("legacy archive migration source", legacy_import.migration.from_schema, "1.3.0")
+			_expect("legacy archive migration target", legacy_import.migration.to_schema, "1.4.0")
+			var imported_backup := str(legacy_import.migration.backup.file)
+			_expect("legacy archive backup is relative", imported_backup.begins_with("recovered/"), true)
+			_expect("legacy archive backup uses portable separators", imported_backup.contains("\\"), false)
+			_expect(
+				"legacy archive backup preserves source",
+				FileAccess.get_file_as_string(
+					legacy_library.root_path.path_join(str(legacy_import.id)).path_join(imported_backup)
+				),
+				legacy_source
+			)
 
 		var traversal_path: String = library.root_path.path_join("traversal.grandleon.zip")
 		var traversal_entries: Array[Dictionary] = [
@@ -258,6 +275,85 @@ func _init() -> void:
 	_expect("path traversal copy refused", library.duplicate_project("../outside").code, "invalid_project_id")
 	_expect("empty title refused", library.create_project("  ", template).code, "invalid_title")
 
+	var migration_library = ProjectLibrary.new(
+		"user://project-library-migration-test/%s" % _new_test_id()
+	)
+	var migration_created: Dictionary = migration_library.create_project("Migration Keep", template)
+	_expect("migration fixture created", migration_created.ok, true)
+	if migration_created.ok:
+		var legacy_source := _to_legacy_source(str(migration_created.source))
+		var migration_target: String = (
+			migration_library.root_path.path_join(str(migration_created.id)).path_join("project.json")
+		)
+		_expect("legacy source fixture written", _write_file(migration_target, legacy_source), true)
+		var migrated: Dictionary = migration_library.load_source(str(migration_created.id))
+		_expect("stored legacy source migrates", migrated.ok, true)
+		if migrated.ok:
+			_expect("stored migration is explicit", migrated.migration.status, "completed")
+			_expect("stored migration reports old schema", migrated.migration.from_schema, "1.3.0")
+			_expect("stored migration reports new schema", migrated.migration.to_schema, "1.4.0")
+			_expect("stored migration reaches new schema", str(migrated.project.schemaVersion), "1.4.0")
+			var backup_file := str(migrated.migration.backup.file)
+			_expect("stored migration backup is portable", backup_file.begins_with("recovered/"), true)
+			_expect("stored migration backup is not absolute", backup_file.begins_with("/"), false)
+			_expect("stored migration backup has no machine path", backup_file.contains(migration_library.root_path), false)
+			_expect(
+				"stored migration backup is the pre-migration source",
+				FileAccess.get_file_as_string(
+					migration_library.root_path.path_join(str(migration_created.id)).path_join(backup_file)
+				),
+				legacy_source
+			)
+
+	var unreadable_library = ProjectLibrary.new(
+		"user://project-library-unreadable-test/%s" % _new_test_id()
+	)
+	var unreadable_created: Dictionary = unreadable_library.create_project("Broken Keep", template)
+	_expect("unreadable fixture created", unreadable_created.ok, true)
+	if unreadable_created.ok:
+		var unreadable_target: String = (
+			unreadable_library.root_path.path_join(str(unreadable_created.id)).path_join("project.json")
+		)
+		var unreadable_source := "{ this is not readable project JSON\n"
+		_expect("unreadable source fixture written", _write_file(unreadable_target, unreadable_source), true)
+		var unreadable_load: Dictionary = unreadable_library.load_source(str(unreadable_created.id))
+		_expect("unreadable source is refused", unreadable_load.code, "project_unreadable")
+		_expect("unreadable source is reported preserved", unreadable_load.recovery.status, "source_preserved")
+		_expect("unreadable source names only its portable file", unreadable_load.recovery.preserved_file, "project.json")
+		_expect("unreadable message omits machine path", str(unreadable_load.message).contains(unreadable_library.root_path), false)
+		var refused_replacement: Dictionary = unreadable_library.save_source(
+			str(unreadable_created.id), str(unreadable_created.source)
+		)
+		_expect("unreadable source is not replaced", refused_replacement.code, "stored_project_unreadable")
+		_expect("replacement refusal reports preservation", refused_replacement.recovery.status, "source_preserved")
+		_expect(
+			"replacement refusal leaves unreadable bytes untouched",
+			FileAccess.get_file_as_string(unreadable_target),
+			unreadable_source
+		)
+
+	var prior_library = ProjectLibrary.new(
+		"user://project-library-prior-test/%s" % _new_test_id()
+	)
+	var prior_created: Dictionary = prior_library.create_project("Prior Keep", template)
+	_expect("prior-copy fixture created", prior_created.ok, true)
+	if prior_created.ok:
+		var prior_changed := _parse(str(prior_created.source)).duplicate(true)
+		prior_changed["title"] = "Prior Keep Revised"
+		var prior_source := JSON.stringify(prior_changed, "  ", true) + "\n"
+		_expect("prior-copy fixture saves once", prior_library.save_source(prior_created.id, prior_source).ok, true)
+		var prior_directory: String = prior_library.root_path.path_join(str(prior_created.id))
+		var prior_target := prior_directory.path_join("project.json")
+		var prior_copy := prior_directory.path_join("project.previous.json")
+		var unreadable_prior := "not a project\n"
+		_expect("unreadable prior-copy fixture written", _write_file(prior_copy, unreadable_prior), true)
+		var target_before := FileAccess.get_file_as_string(prior_target)
+		var prior_refusal: Dictionary = prior_library.save_source(prior_created.id, target_before)
+		_expect("unreadable prior copy blocks rotation", prior_refusal.code, "recovery_source_unreadable")
+		_expect("unreadable prior copy is reported preserved", prior_refusal.recovery.preserved_file, "project.previous.json")
+		_expect("blocked rotation preserves current source", FileAccess.get_file_as_string(prior_target), target_before)
+		_expect("blocked rotation preserves prior bytes", FileAccess.get_file_as_string(prior_copy), unreadable_prior)
+
 	if failures == 0:
 		print("project library smoke passed")
 	quit(1 if failures > 0 else 0)
@@ -269,6 +365,13 @@ func _parse(source: String) -> Dictionary:
 		_fail("source was not readable JSON")
 		return {}
 	return parsed.data
+
+
+func _to_legacy_source(source: String) -> String:
+	var legacy := _parse(source).duplicate(true)
+	legacy["schemaVersion"] = "1.3.0"
+	legacy.erase("sourceLanguage")
+	return JSON.stringify(legacy, "  ", true) + "\n"
 
 
 func _write_file(path: String, value: String) -> bool:
