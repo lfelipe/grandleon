@@ -294,21 +294,24 @@ than reproduce those implementation details.
   source copy, dialogue, stage and campaign labels, content names, and character
   names. It supports manual language codes, a first-class Brazilian Portuguese
   shortcut, source/translation preview, and missing/outdated filters.
-- [ ] Complete the final **Translations** step by auditing every remaining
-  player-facing string in one place: campaign and stage text, dialogue,
-  objectives, choices, unit and item names and descriptions, and other authored
-  labels. Let authors filter missing or outdated entries and enter translations
-  manually without hunting through the rest of the project.
+- [x] Complete the final **Translations** gathering audit for every
+  player-facing field in the current schema: project, campaign and stage text,
+  dialogue, objectives, named battle placements, content names, and character
+  names. Authors can filter missing or outdated entries and enter translations
+  manually without hunting through the rest of the project. Internal route
+  identities and author notes are deliberately excluded; the current schema
+  does not yet define player-facing choice labels or content descriptions.
 - [x] Treat character names as translatable authored text rather than assuming
   every proper name is universal. An author can save the same spelling as the
   reviewed translation when a proper name is deliberately shared.
 - [ ] Let authors preview the game in a selected language and validate
   completeness. Authored catalogs travel through the portable project and
   compiled package, the Godot player offers the authored languages before
-  launch, and it localizes campaign/stage names, dialogue, company character
-  names, unit types, weapons, abilities, and items with current-source fallback.
-  Finish the remaining named placement, objective, console, and shell surfaces.
-  Keep the workflow fully useful offline and without an external service.
+  launch, and it localizes the project title, campaign/stage names, dialogue,
+  objectives, company character names, named battle placements, unit types,
+  weapons, abilities, and items with current-source fallback. Finish the
+  remaining console and shell surfaces. Keep the workflow fully useful offline
+  and without an external service.
 - [ ] Later, explore optional translation suggestions from an external AI model.
   Suggestions must be explicitly requested, remain visibly unapproved until a
   person accepts them, preserve source and manual translations, and never be a
@@ -326,8 +329,11 @@ than reproduce those implementation details.
   - [x] Save and restore an eligible character's chosen name in Godot, keep the
     authored and translated defaults separate, validate portable UTF-8 input,
     and fail closed on invalid or unauthorized save data.
-  - [ ] Finish battle and dialogue substitution, duplicate-name guidance, and
-    player name entry on Nintendo 64 and PlayStation.
+  - [x] Apply chosen names to exact Godot battle units and explicit dialogue or
+    objective member tokens, and warn clearly about duplicate company names
+    without forbidding a deliberate duplicate.
+  - [ ] Add controller-driven player name entry on Nintendo 64 and PlayStation,
+    with clear limits for each console font and input method.
 
 ## Cinematic battle presentation
 

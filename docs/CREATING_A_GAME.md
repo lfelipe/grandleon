@@ -88,17 +88,19 @@ remembers the explicit choice instead of relying on the system locale again.
 To translate your game, open its project options and choose
 **Translations**. Confirm the language the original text was written in, add a
 target such as `es` or `pt-BR`, then work through the gathered dialogue, stage
-labels, content names, and character names. Search finds source copy, context,
-or stable message identity. **Missing** shows work not started; **Outdated**
-shows translations reviewed before their source copy changed. Saving a
-translation records both your translated text and the exact source text you
-reviewed. A translation never replaces its original string, and missing or
-outdated work resolves to the current source text.
+labels, objectives, named battle characters, content names, and character
+names. Search finds source copy, context, or stable message identity.
+**Missing** shows work not started; **Outdated** shows translations reviewed
+before their source copy changed. Saving a translation records both your
+translated text and the exact source text you reviewed. A translation never
+replaces its original string, and missing or outdated work resolves to the
+current source text.
 
 A game with translated catalogs asks for its language before play. The Godot
-player currently applies it to campaign and stage names, dialogue, company
-character names, and named units, weapons, abilities, and items. Named battle
-placements, objectives, and remaining shell copy are still being audited.
+player currently applies it to the game title, campaign and stage names,
+dialogue, company character names, objectives, named battle placements, and
+named units, weapons, abilities, and items. Remaining shell copy and console
+localization are still being audited.
 
 ## Add chapters and branches
 
@@ -129,8 +131,14 @@ then be tuned independently.
 Visible names can change without breaking campaign progress. A character may
 also be marked **Player can choose this name** while keeping its normal name as
 the translated fallback. In Godot, the player can choose or reset that name
-from the Company screen, and it survives save and continue. Console name entry
-and use inside authored dialogue are still being completed.
+from the Company screen, and it survives save and continue. A duplicate company
+name is allowed but called out clearly.
+
+To use that choice in dialogue or an objective label, write an explicit member
+token such as `{{member:aren}}`, using the character's internal campaign ID.
+Godot replaces it with the translated default or the player's literal choice;
+an unknown or malformed token stays visible so an authoring mistake is easy to
+find. Console name entry is still being completed.
 
 Keep roles and gear small at first; add new choices when a chapter gives the
 player a reason to use them.
