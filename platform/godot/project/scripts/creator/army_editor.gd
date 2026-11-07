@@ -88,6 +88,17 @@ var new_role_layer: Control
 var new_role_name: LineEdit
 var new_role_template: OptionButton
 var new_role_create_button: Button
+var guide_layer: Control
+var guide_name: LineEdit
+var guide_role_name: LineEdit
+var guide_template: OptionButton
+var guide_style: OptionButton
+var guide_figure: OptionButton
+var guide_side: OptionButton
+var guide_weapon: OptionButton
+var guide_join: OptionButton
+var guide_create_button: Button
+var guide_rng := RandomNumberGenerator.new()
 var modifier_layer: Control
 var modifier_role_label: Label
 var modifier_value_labels: Dictionary = {}
@@ -148,7 +159,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if new_role_layer.visible:
+		if guide_layer != null and guide_layer.visible:
+			_close_guided_character()
+		elif new_role_layer.visible:
 			_close_new_role()
 		elif side_layer.visible:
 			_close_new_side()
@@ -1420,6 +1433,190 @@ func _close_add() -> void:
 	add_button.grab_focus()
 
 
+func _open_guided_character() -> void:
+	guide_name.text = "New Hero"
+	guide_role_name.text = "New Role"
+	_populate_named_choices(guide_template, project.get("unitTypes", []), _selected_metadata(add_role))
+	_populate_named_choices(guide_side, project.get("factions", []), "")
+	_populate_named_choices(guide_weapon, project.get("weapons", []), "")
+	guide_style.clear()
+	for style: String in ["medieval", "sengoku", "mythical", "nature", "pirates", "undead", "scifi"]:
+		guide_style.add_item(style.replace("_", " ").to_upper())
+		guide_style.set_item_metadata(guide_style.item_count - 1, style)
+	guide_figure.clear()
+	for figure: Dictionary in [
+		{"id": "first", "label": "FIRST BODY"},
+		{"id": "second", "label": "SECOND BODY"},
+	]:
+		guide_figure.add_item(str(figure.label))
+		guide_figure.set_item_metadata(guide_figure.item_count - 1, str(figure.id))
+	_copy_option_items(add_join, guide_join)
+	_apply_guide_template_defaults()
+	guide_layer.visible = true
+	guide_name.grab_focus()
+	guide_name.select_all()
+
+
+func _close_guided_character() -> void:
+	guide_layer.visible = false
+	add_name.grab_focus()
+
+
+func _populate_named_choices(option: OptionButton, values: Variant, preferred: String) -> void:
+	option.clear()
+	if values is Array:
+		for value: Variant in values:
+			if value is Dictionary:
+				option.add_item(str(value.get("name", value.get("id", "Choice"))))
+				option.set_item_metadata(option.item_count - 1, str(value.get("id", "")))
+	_select_metadata(option, preferred)
+
+
+func _copy_option_items(source_option: OptionButton, target: OptionButton) -> void:
+	target.clear()
+	for index in source_option.item_count:
+		target.add_item(source_option.get_item_text(index))
+		target.set_item_metadata(index, source_option.get_item_metadata(index))
+	if target.item_count > 0:
+		target.select(source_option.selected if source_option.selected >= 0 else 0)
+
+
+func _apply_guide_template_defaults(_index: int = 0) -> void:
+	var unit_type := _unit_type(_selected_metadata(guide_template))
+	if unit_type.is_empty():
+		return
+	guide_role_name.text = "%s Role" % str(unit_type.get("name", "New"))
+	_select_metadata(
+		guide_style,
+		str(unit_type.get("characterStyleId", project.get("characterStyleId", "medieval")))
+	)
+	_select_metadata(
+		guide_figure,
+		str(unit_type.get("characterFigureId", project.get("characterFigureId", "first")))
+	)
+	_select_metadata(guide_side, str(unit_type.get("factionId", "")))
+	var weapons: Variant = unit_type.get("startingWeaponIds", [])
+	if weapons is Array and not weapons.is_empty():
+		_select_metadata(guide_weapon, str(weapons[0]))
+
+
+func _randomize_guided_character() -> void:
+	var names := ["Alden", "Bria", "Corin", "Dara", "Elian", "Fara", "Galen", "Hana"]
+	guide_name.text = str(names[guide_rng.randi_range(0, names.size() - 1)])
+	guide_role_name.text = "%s Role" % guide_name.text
+	_random_option(guide_template)
+	_random_option(guide_style)
+	_random_option(guide_figure)
+	_random_option(guide_side)
+	_random_option(guide_weapon)
+	_set_status("GUIDED CHARACTER  /  RANDOM STARTING POINT READY TO REVIEW", false)
+
+
+func _random_option(option: OptionButton) -> void:
+	if option.item_count > 0:
+		option.select(guide_rng.randi_range(0, option.item_count - 1))
+
+
+func _create_guided_character() -> void:
+	var character_name := guide_name.text.strip_edges()
+	var role_name := guide_role_name.text.strip_edges()
+	if (
+		character_name.is_empty() or role_name.is_empty()
+		or guide_template.selected < 0 or guide_join.selected < 0
+	):
+		_set_status("CHARACTER, ROLE, STARTING POINT, AND JOIN TIME ARE REQUIRED", true)
+		return
+	var role_id := _next_role_id()
+	var role_result: Dictionary = compiler.add_role_from_template(
+		source,
+		_selected_metadata(guide_template),
+		role_id,
+		_next_class_id(role_id),
+		role_name
+	)
+	if not role_result.ok:
+		_set_status("CHARACTER NOT ADDED  /  %s" % _diagnostic_detail(role_result), true)
+		return
+	var candidate_value: Variant = JSON.parse_string(str(role_result.source))
+	if not candidate_value is Dictionary:
+		_set_status("CHARACTER NOT ADDED  /  GENERATED ROLE WAS NOT READABLE", true)
+		return
+	var candidate: Dictionary = candidate_value
+	var selected_weapon_id := _selected_metadata(guide_weapon)
+	var selected_weapon := _weapon_by_id(selected_weapon_id)
+	var new_class_id := ""
+	for value: Variant in candidate.get("unitTypes", []):
+		if not value is Dictionary or str(value.get("id", "")) != role_id:
+			continue
+		new_class_id = str(value.get("classId", ""))
+		value["characterStyleId"] = _selected_metadata(guide_style)
+		value["characterFigureId"] = _selected_metadata(guide_figure)
+		var side_id := _selected_metadata(guide_side)
+		if side_id.is_empty():
+			value.erase("factionId")
+		else:
+			value["factionId"] = side_id
+		if selected_weapon_id.is_empty():
+			value.erase("startingWeaponIds")
+		else:
+			value["startingWeaponIds"] = [selected_weapon_id]
+		break
+	if not selected_weapon.is_empty():
+		var family_id := str(selected_weapon.get("weaponTypeId", ""))
+		for value: Variant in candidate.get("classes", []):
+			if not value is Dictionary or str(value.get("id", "")) != new_class_id:
+				continue
+			var allowed: Array = value.get("allowedWeaponTypeIds", []).duplicate()
+			if not family_id.is_empty() and not allowed.has(family_id):
+				allowed.append(family_id)
+			value["allowedWeaponTypeIds"] = allowed
+			break
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status("CHARACTER NOT ADDED  /  %s" % _diagnostic_detail(checked), true)
+		return
+	var campaign := _current_campaign()
+	var member_id := _next_member_id()
+	var member_result: Dictionary = compiler.add_campaign_member(
+		candidate_source,
+		str(campaign.get("id", "")),
+		_selected_metadata(guide_join),
+		member_id,
+		character_name,
+		role_id
+	)
+	if not member_result.ok:
+		_set_status("CHARACTER NOT ADDED  /  %s" % _diagnostic_detail(member_result), true)
+		return
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = str(member_result.source)
+	dirty = source != saved_source
+	_read_source()
+	_collect_members()
+	for index in members.size():
+		if str(members[index].get("id", "")) == member_id:
+			member_index = index
+			break
+	guide_layer.visible = false
+	add_layer.visible = false
+	_refresh_members()
+	_update_actions()
+	_set_status(
+		"UNSAVED  /  ADDED %s WITH A READY ROLE AND LOADOUT" % character_name.to_upper(),
+		false
+	)
+	member_select.grab_focus()
+
+
+func _weapon_by_id(identity: String) -> Dictionary:
+	for value: Variant in project.get("weapons", []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return value
+	return {}
+
+
 func _open_new_role() -> void:
 	if project.get("unitTypes", []).is_empty():
 		_set_status("ADD A STARTING ROLE BEFORE COPYING ONE", true)
@@ -1842,6 +2039,7 @@ func _build_interface() -> void:
 	_build_more_layer()
 	_build_add_layer()
 	_build_new_role_layer()
+	_build_guided_character_layer()
 	_build_supply_layer()
 	_build_role_layer()
 	_build_side_layer()
@@ -1999,6 +2197,10 @@ func _build_add_layer() -> void:
 	new_role_button.tooltip_text = "Copy a working role, then give the copy a new name."
 	new_role_button.pressed.connect(_open_new_role)
 	column.add_child(new_role_button)
+	var guided_button := _button("GUIDED NEW CHARACTER", 1100, 56)
+	guided_button.tooltip_text = "Create the character, independent role, appearance, side, and starting weapon together."
+	guided_button.pressed.connect(_open_guided_character)
+	column.add_child(guided_button)
 	column.add_child(_label("WHEN THEY JOIN", 15, Color("69d9ff")))
 	add_join = OptionButton.new()
 	add_join.custom_minimum_size = Vector2(1100, 62)
@@ -2084,6 +2286,116 @@ func _build_new_role_layer() -> void:
 
 func _create_role_from_text(_value: String) -> void:
 	_create_role()
+
+
+func _build_guided_character_layer() -> void:
+	guide_layer = Control.new()
+	guide_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	guide_layer.visible = false
+	guide_layer.z_index = 70
+	add_child(guide_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.97)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	guide_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(245, 65)
+	panel.size = Vector2(1430, 950)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color("72e08f"))
+	)
+	guide_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	panel.add_child(column)
+	column.add_child(_label("GUIDED NEW CHARACTER", 19, Color("72e08f")))
+	column.add_child(_label("One useful character, ready to field.", 30, Color("f2f7f9")))
+	var explanation := _label(
+		"Start from a working role, then choose this character's independent role, look, side, and first weapon together. Every choice stays editable after creation.",
+		16, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 48
+	column.add_child(explanation)
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 18)
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(columns)
+	var identity := VBoxContainer.new()
+	identity.custom_minimum_size = Vector2(670, 0)
+	identity.add_theme_constant_override("separation", 9)
+	columns.add_child(identity)
+	identity.add_child(_label("CHARACTER NAME", 14, Color("69d9ff")))
+	guide_name = _guide_line_edit()
+	identity.add_child(guide_name)
+	identity.add_child(_label("INDEPENDENT ROLE NAME", 14, Color("69d9ff")))
+	guide_role_name = _guide_line_edit()
+	identity.add_child(guide_role_name)
+	identity.add_child(_label("START ROLE LIKE", 14, Color("69d9ff")))
+	guide_template = _guide_option()
+	guide_template.item_selected.connect(_apply_guide_template_defaults)
+	identity.add_child(guide_template)
+	identity.add_child(_label("SIDE", 14, Color("69d9ff")))
+	guide_side = _guide_option()
+	identity.add_child(guide_side)
+	identity.add_child(_label("WHEN THEY JOIN", 14, Color("69d9ff")))
+	guide_join = _guide_option()
+	identity.add_child(guide_join)
+	var presentation := VBoxContainer.new()
+	presentation.custom_minimum_size = Vector2(670, 0)
+	presentation.add_theme_constant_override("separation", 9)
+	columns.add_child(presentation)
+	presentation.add_child(_label("CHARACTER STYLE", 14, Color("e6b86d")))
+	guide_style = _guide_option()
+	presentation.add_child(guide_style)
+	presentation.add_child(_label("BODY", 14, Color("e6b86d")))
+	guide_figure = _guide_option()
+	presentation.add_child(guide_figure)
+	presentation.add_child(_label("FIRST WEAPON", 14, Color("e6b86d")))
+	guide_weapon = _guide_option()
+	presentation.add_child(guide_weapon)
+	var weapon_note := _label(
+		"The new role is made compatible with the chosen weapon family automatically. Other copied gear and abilities remain available to tune afterwards.",
+		15, Color("a9bdc9")
+	)
+	weapon_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	weapon_note.custom_minimum_size.y = 78
+	presentation.add_child(weapon_note)
+	var randomize := _button("RANDOM STARTING POINT", 670, 56)
+	randomize.tooltip_text = "Suggest a name and valid role, look, side, and weapon. Review every choice before creating."
+	randomize.pressed.connect(_randomize_guided_character)
+	presentation.add_child(randomize)
+	var guidance := _label(
+		"This is one undoable creation. Battle Setup still decides where the character appears on each map.",
+		15, Color("72e08f")
+	)
+	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(guidance)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	guide_create_button = _button("CREATE READY CHARACTER", 410, 64)
+	guide_create_button.pressed.connect(_create_guided_character)
+	actions.add_child(guide_create_button)
+	var back := _button("BACK", 230, 64)
+	back.pressed.connect(_close_guided_character)
+	actions.add_child(back)
+
+
+func _guide_line_edit() -> LineEdit:
+	var input := LineEdit.new()
+	input.max_length = 160
+	input.custom_minimum_size = Vector2(670, 54)
+	input.add_theme_font_size_override("font_size", 20)
+	return input
+
+
+func _guide_option() -> OptionButton:
+	var option := OptionButton.new()
+	option.custom_minimum_size = Vector2(670, 54)
+	option.add_theme_font_size_override("font_size", 18)
+	return option
 
 
 func _build_supply_layer() -> void:
