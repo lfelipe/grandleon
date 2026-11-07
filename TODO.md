@@ -293,9 +293,12 @@ than reproduce those implementation details.
     translations, focus order, and compact layouts. English, Spanish, and
     Brazilian Portuguese now have exactly the same non-empty message IDs and
     formatting placeholders; the localization smoke test rejects catalog drift.
-  - [ ] Move the remaining Godot player and in-battle interface into the same
-    catalog, then audit longer translations, glyph coverage, focus order, and
-    compact layouts there.
+  - [x] Move the Godot player's session menu, display settings, checkpoint
+    flow, diagnostics, and dialogue-continue prompt into the same catalog, with
+    a Portuguese smoke test over the real player controls and compact layout.
+  - [ ] Move the remaining Godot battle HUD, action prompts, controller status,
+    outcomes, and error copy into the same catalog, then audit longer
+    translations, glyph coverage, focus order, and compact layouts there.
 - [x] Add portable project data for a game's source language and translations.
   Migration must preserve every authored string, and runtimes must fall back to
   the source text when a translation is missing rather than showing an empty
@@ -304,6 +307,11 @@ than reproduce those implementation details.
   source copy, dialogue, stage and campaign labels, content names, and character
   names. It supports manual language codes, a first-class Brazilian Portuguese
   shortcut, source/translation preview, and missing/outdated filters.
+- [ ] Add lossless gettext `.po` export and import to the **Translations**
+  screen so human translators can review a catalog in familiar tools. Keep the
+  portable project catalog as the runtime source of truth for Godot, Nintendo
+  64, and PlayStation; preserve stable message IDs, source text, review state,
+  language tags, and named placeholders across the round trip.
 - [x] Complete the final **Translations** gathering audit for every
   player-facing field in the current schema: project, campaign and stage text,
   dialogue, objectives, named battle placements, content names, and character

@@ -80,10 +80,11 @@ var fixed_formation_skipped := false
 var combat_cinematic_smoke := false
 var combat_cinematic_preview := false
 var included_campaign_smoke := false
+var player_localization_preview := false
 var draft_preview := false
 var preview_return_scene := ""
 var preview_label := ""
-var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
+var campaign_save_state := ""
 var campaign_complete := false
 var final_outcome := "ongoing"
 var current_stage_name := ""
@@ -175,6 +176,7 @@ var pending_language_launch: Dictionary = {}
 func _ready() -> void:
 	PCNavigation.set_ui_button_bridge(false)
 	_parse_arguments()
+	campaign_save_state = _ui("player.save.auto_no_checkpoint")
 	var staged: Dictionary = LaunchContext.take_package()
 	draft_preview = bool(staged.get("draft_preview", false))
 	if not staged.is_empty():
@@ -234,6 +236,8 @@ func _ready() -> void:
 	_create_interface()
 	_create_combat_cinematic(initial_profile)
 	_update_session_labels()
+	if player_localization_preview:
+		return
 	if frame_timing_smoke:
 		_run_frame_timing_smoke()
 		return
@@ -1470,31 +1474,33 @@ func _update_session_labels() -> void:
 			else name
 		)
 	if session_menu_camera != null:
-		session_menu_camera.text = "CAMERA IMPULSE  /  %s" % (
-			"ON" if camera_impulse_enabled else "OFF"
-		)
+		session_menu_camera.text = _ui("player.settings.camera_impulse", {
+			"value": _state_text("on" if camera_impulse_enabled else "off"),
+		})
 	if session_menu_text != null:
-		session_menu_text.text = "TEXT SIZE  /  %s" % (
-			"LARGE" if text_scale > 1.05 else "NORMAL"
-		)
+		session_menu_text.text = _ui("player.settings.text_size", {
+			"value": _state_text("large" if text_scale > 1.05 else "normal"),
+		})
 	if session_menu_stick != null:
-		session_menu_stick.text = "STICK INPUT  /  %s" % (
-			"EXTRA FIRM" if stick_mode == "extra_firm" else "DELIBERATE"
-		)
+		session_menu_stick.text = _ui("player.settings.stick_input", {
+			"value": _state_text("extra_firm" if stick_mode == "extra_firm" else "deliberate"),
+		})
 	if session_menu_audio != null:
-		session_menu_audio.text = "SOUND EFFECTS  /  %s" % PCAudio.level_name()
+		session_menu_audio.text = _ui("player.settings.sound_effects", {
+			"value": _state_text(PCAudio.level_name().to_lower()),
+		})
 	if session_menu_closeups != null:
-		session_menu_closeups.text = "BATTLE CLOSE-UPS  /  %s" % (
-			"ON" if battle_closeups_enabled else "OFF"
-		)
+		session_menu_closeups.text = _ui("player.settings.battle_closeups", {
+			"value": _state_text("on" if battle_closeups_enabled else "off"),
+		})
 	if session_menu_cinematic_motion != null:
-		session_menu_cinematic_motion.text = "CINEMATIC MOTION  /  %s" % (
-			"REDUCED" if cinematic_motion == "reduced" else "FULL"
-		)
+		session_menu_cinematic_motion.text = _ui("player.settings.cinematic_motion", {
+			"value": _state_text("reduced" if cinematic_motion == "reduced" else "full"),
+		})
 	if session_menu_fps != null:
-		session_menu_fps.text = "SHOW FPS  /  %s" % (
-			"ON" if show_fps_enabled else "OFF"
-		)
+		session_menu_fps.text = _ui("player.settings.show_fps", {
+			"value": _state_text("on" if show_fps_enabled else "off"),
+		})
 
 
 func _board_matches_current_state() -> bool:
@@ -1727,7 +1733,7 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	dialogue_text.add_theme_color_override("default_color", Color("e9f0f4"))
 	words.add_child(dialogue_text)
 	dialogue_hint = _label(
-		"%s / ENTER  CONTINUE" % controls.label("confirm"),
+		_ui("player.dialogue.continue", {"confirm": controls.label("confirm")}),
 		15, Color("89a8b8")
 	)
 	dialogue_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1758,34 +1764,34 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	panel.add_child(column)
-	column.add_child(_label("GRANDLEON  /  SESSION MENU", 16, Color("69d9ff")))
-	session_menu_title = _label("PAUSED", 38, Color("f2f7f9"))
+	column.add_child(_label(_ui("player.session.header"), 16, Color("69d9ff")))
+	session_menu_title = _label(_ui("player.session.paused"), 38, Color("f2f7f9"))
 	column.add_child(session_menu_title)
-	session_menu_subtitle = _label("Choose one option.", 18, Color("a9bdc9"))
+	session_menu_subtitle = _label(_ui("player.session.choose_option"), 18, Color("a9bdc9"))
 	session_menu_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_subtitle.custom_minimum_size.y = 54
 	column.add_child(session_menu_subtitle)
 
 	session_menu_root = _session_menu_page()
 	column.add_child(session_menu_root)
-	session_menu_resume = _menu_button("RESUME")
+	session_menu_resume = _menu_button(_ui("player.session.resume"))
 	session_menu_resume.pressed.connect(_close_session_menu)
 	session_menu_root.add_child(session_menu_resume)
-	session_menu_save_load = _menu_button("SAVE / LOAD")
+	session_menu_save_load = _menu_button(_ui("player.session.save_load"))
 	session_menu_save_load.pressed.connect(_show_save_page)
 	session_menu_save_load.disabled = campaign_save_root.is_empty()
 	session_menu_root.add_child(session_menu_save_load)
-	session_menu_settings_button = _menu_button("SETTINGS")
+	session_menu_settings_button = _menu_button(_ui("player.session.settings"))
 	session_menu_settings_button.pressed.connect(_show_settings_page)
 	session_menu_root.add_child(session_menu_settings_button)
 	session_menu_projects = _menu_button(
-		"RETURN TO CAMPAIGN EDITOR"
+		_ui("player.session.return_editor")
 		if not preview_return_scene.is_empty()
-		else "MAIN MENU"
+		else _ui("player.session.main_menu")
 	)
 	session_menu_projects.pressed.connect(_leave_play_session)
 	session_menu_root.add_child(session_menu_projects)
-	session_menu_quit = _menu_button("EXIT GAME")
+	session_menu_quit = _menu_button(_ui("player.session.exit_game"))
 	session_menu_quit.pressed.connect(_quit_to_launcher)
 	session_menu_root.add_child(session_menu_quit)
 
@@ -1800,19 +1806,19 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 		session_menu_new_campaign = _menu_button("")
 		session_menu_new_campaign.pressed.connect(_request_progress_reset)
 		session_menu_saves.add_child(session_menu_new_campaign)
-	var saves_back := _menu_button("BACK")
+	var saves_back := _menu_button(_ui("player.session.back"))
 	saves_back.pressed.connect(_show_root_page)
 	session_menu_saves.add_child(saves_back)
 
 	session_menu_slot_actions = _session_menu_page()
 	column.add_child(session_menu_slot_actions)
-	session_menu_checkpoint_save = _menu_button("SAVE HERE")
+	session_menu_checkpoint_save = _menu_button(_ui("player.session.save_here"))
 	session_menu_checkpoint_save.pressed.connect(_save_selected_checkpoint)
 	session_menu_slot_actions.add_child(session_menu_checkpoint_save)
-	session_menu_checkpoint_load = _menu_button("LOAD CHECKPOINT")
+	session_menu_checkpoint_load = _menu_button(_ui("player.session.load_checkpoint"))
 	session_menu_checkpoint_load.pressed.connect(_load_selected_checkpoint)
 	session_menu_slot_actions.add_child(session_menu_checkpoint_load)
-	var slot_back := _menu_button("BACK")
+	var slot_back := _menu_button(_ui("player.session.back"))
 	slot_back.pressed.connect(_show_save_page)
 	session_menu_slot_actions.add_child(slot_back)
 
@@ -1843,7 +1849,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_diagnostics.custom_minimum_size.y = 86
 	session_menu_settings.add_child(session_menu_diagnostics)
-	var settings_back := _settings_button("BACK")
+	var settings_back := _settings_button(_ui("player.session.back"))
 	settings_back.pressed.connect(_show_root_page)
 	session_menu_settings.add_child(settings_back)
 
@@ -1895,48 +1901,54 @@ func _show_session_menu_page(page: String) -> void:
 	session_menu_settings.visible = page == "settings"
 	match page:
 		"saves":
-			session_menu_title.text = "SAVE / LOAD"
-			session_menu_subtitle.text = "Choose one of three manual checkpoints."
+			session_menu_title.text = _ui("player.session.save_load")
+			session_menu_subtitle.text = _ui("player.session.saves_help")
 			_refresh_checkpoint_slots()
 		"slot":
 			_refresh_checkpoint_action()
 		"settings":
-			session_menu_title.text = "SETTINGS"
-			session_menu_subtitle.text = "Choose an option to change it."
+			session_menu_title.text = _ui("player.session.settings")
+			session_menu_subtitle.text = _ui("player.session.settings_help")
 			_update_session_diagnostics(true)
 		_:
 			session_menu_page = "root"
 			if not preview_return_scene.is_empty():
 				session_menu_title.text = (
-					"BATTLE TEST COMPLETE" if campaign_complete else "TESTING BATTLE"
+					_ui("player.session.test_complete")
+					if campaign_complete else _ui("player.session.testing_battle")
 				)
 				session_menu_subtitle.text = (
 					("%s  /  " % preview_label.to_upper())
 					if not preview_label.is_empty()
 					else ""
-				) + "This temporary run cannot change campaign saves."
+				) + _ui("player.session.test_no_saves")
 			elif campaign_complete:
 				session_menu_title.text = (
-					"COMPANY DEFEATED"
+					_ui("player.session.company_defeated")
 					if final_outcome == "second_side_won"
-					else "CAMPAIGN COMPLETE"
+					else _ui("player.session.campaign_complete")
 				)
-				session_menu_subtitle.text = (
-					"The battle is over. Load a checkpoint, start a new campaign, "
-					+ "return to the main menu, or exit."
-				)
+				session_menu_subtitle.text = _ui("player.session.battle_over")
 			else:
-				session_menu_title.text = "PAUSED"
-				session_menu_subtitle.text = "Choose one option.  " + campaign_save_state
+				session_menu_title.text = _ui("player.session.paused")
+				session_menu_subtitle.text = _ui(
+					"player.session.paused_save", {"save": campaign_save_state}
+				)
 	session_menu_resume.visible = not campaign_complete
 	session_menu_settings_button.visible = not campaign_complete
 	session_menu_save_load.text = (
-		"LOAD / NEW CAMPAIGN" if campaign_complete else "SAVE / LOAD"
+		_ui("player.session.load_new_campaign")
+		if campaign_complete else _ui("player.session.save_load")
 	)
-	var back_text := "RESUME" if session_menu_page == "root" else "BACK"
-	session_menu_hint.text = "STICK / D-PAD  MOVE   ·   %s / ENTER  SELECT   ·   %s / ESC  %s" % [
-		controls.label("confirm"), controls.label("cancel"), back_text
-	]
+	var back_text := (
+		_ui("player.session.resume")
+		if session_menu_page == "root" else _ui("player.session.back")
+	)
+	session_menu_hint.text = _ui("player.session.hint", {
+		"confirm": controls.label("confirm"),
+		"cancel": controls.label("cancel"),
+		"back": back_text,
+	})
 	_grab_first_session_menu_focus()
 
 
@@ -1991,12 +2003,15 @@ func _refresh_checkpoint_slots() -> void:
 		return
 	for index in session_menu_checkpoint_buttons.size():
 		var entry := _checkpoint_entry(index + 1)
-		var state := "SAVED" if bool(entry.get("exists", false)) else "EMPTY"
+		var state := (
+			_ui("player.checkpoint.saved")
+			if bool(entry.get("exists", false)) else _ui("player.checkpoint.empty")
+		)
 		if bool(entry.get("active", false)):
-			state += " / CURRENT"
-		session_menu_checkpoint_buttons[index].text = "CHECKPOINT %d  /  %s" % [
-			index + 1, state
-		]
+			state += " / " + _ui("player.checkpoint.current")
+		session_menu_checkpoint_buttons[index].text = _ui(
+			"player.checkpoint.entry", {"slot": index + 1, "state": state}
+		)
 
 
 func _select_checkpoint_slot(slot: int) -> void:
@@ -2008,29 +2023,42 @@ func _refresh_checkpoint_action() -> void:
 	var entry := _checkpoint_entry(selected_checkpoint_slot)
 	var exists := bool(entry.get("exists", false))
 	var ready: bool = session != null and session.checkpoint_save_ready()
-	session_menu_title.text = "CHECKPOINT %d" % selected_checkpoint_slot
+	session_menu_title.text = _ui(
+		"player.checkpoint.title", {"slot": selected_checkpoint_slot}
+	)
 	if ready:
-		session_menu_subtitle.text = "Save current progress here, or load the stored checkpoint."
+		session_menu_subtitle.text = _ui("player.checkpoint.ready_help")
 	else:
-		session_menu_subtitle.text = "Saving is available between battles. Stored checkpoints can still be loaded."
+		session_menu_subtitle.text = _ui("player.checkpoint.between_help")
 	session_menu_checkpoint_save.disabled = not ready
 	session_menu_checkpoint_load.disabled = not exists
-	session_menu_checkpoint_save.text = "SAVE HERE" if not exists else "REPLACE CHECKPOINT"
-	session_menu_checkpoint_load.text = "LOAD CHECKPOINT"
+	session_menu_checkpoint_save.text = (
+		_ui("player.session.save_here")
+		if not exists else _ui("player.checkpoint.replace")
+	)
+	session_menu_checkpoint_load.text = _ui("player.session.load_checkpoint")
 
 
 func _save_selected_checkpoint() -> void:
 	if session == null or not session.save_checkpoint(selected_checkpoint_slot):
-		_show_toast(session.last_error() if session != null else "CHECKPOINT IS UNAVAILABLE")
+		_show_toast(
+			session.last_error()
+			if session != null else _ui("player.checkpoint.unavailable")
+		)
 		_refresh_checkpoint_action()
 		return
-	_show_toast("CHECKPOINT %d SAVED" % selected_checkpoint_slot)
+	_show_toast(_ui(
+		"player.checkpoint.saved_toast", {"slot": selected_checkpoint_slot}
+	))
 	_show_save_page()
 
 
 func _load_selected_checkpoint() -> void:
 	if session == null or not session.load_checkpoint(selected_checkpoint_slot):
-		_show_toast(session.last_error() if session != null else "CHECKPOINT IS UNAVAILABLE")
+		_show_toast(
+			session.last_error()
+			if session != null else _ui("player.checkpoint.unavailable")
+		)
 		_refresh_checkpoint_action()
 		return
 	management_menu_suspended = false
@@ -2038,8 +2066,13 @@ func _load_selected_checkpoint() -> void:
 		campaign_manager.dismiss()
 	_clear_session_presentation()
 	_close_session_menu()
-	status_label.text = "LOADING CHECKPOINT %d" % selected_checkpoint_slot
-	campaign_save_state = "CHECKPOINT %d / LOADING" % selected_checkpoint_slot
+	status_label.text = _ui(
+		"player.checkpoint.loading", {"slot": selected_checkpoint_slot}
+	)
+	campaign_save_state = _ui("player.save.manual_state", {
+		"slot": selected_checkpoint_slot,
+		"state": _ui("player.checkpoint.loading_state"),
+	})
 	_update_session_diagnostics(true)
 
 
@@ -2052,7 +2085,7 @@ func _session_menu_back() -> void:
 			_show_root_page()
 		_:
 			if campaign_complete:
-				_show_toast("CHOOSE LOAD, NEW CAMPAIGN, MAIN MENU, OR EXIT")
+				_show_toast(_ui("player.checkpoint.choose_after_end"))
 			else:
 				_close_session_menu()
 
@@ -2073,7 +2106,7 @@ func _update_session_diagnostics(force := false) -> void:
 		return
 	frame_timing_next_update_msec = now + 500
 	var values: Dictionary = frame_timing.metrics()
-	var timing := "WARMING UP"
+	var timing := _ui("player.session.warming_up")
 	if bool(values.ready):
 		timing = "%d FPS · P95 %.1f MS · PEAK %.1f MS" % [
 			roundi(float(values.fps)),
@@ -2083,14 +2116,19 @@ func _update_session_diagnostics(force := false) -> void:
 	var window := DisplayServer.window_get_size()
 	var canvas := Vector2i(get_viewport().get_visible_rect().size)
 	var save_summary := (
-		campaign_save_state if not campaign_save_root.is_empty() else "NOT SAVED"
+		campaign_save_state
+		if not campaign_save_root.is_empty() else _ui("player.session.not_saved")
 	)
 	session_menu_diagnostics.text = (
-		"Commands pause here; deterministic actions already in flight may finish.\n"
-		+ "LIVE PERFORMANCE / %s\n" % timing
-		+ "WINDOW %d×%d · CANVAS %d×%d · %s" % [
-			window.x, window.y, canvas.x, canvas.y, save_summary
-		]
+		_ui("player.session.diagnostics_paused") + "\n"
+		+ _ui("player.session.live_performance", {"timing": timing}) + "\n"
+		+ _ui("player.session.window", {
+			"width": window.x,
+			"height": window.y,
+			"canvas_width": canvas.x,
+			"canvas_height": canvas.y,
+			"save": save_summary,
+		})
 	)
 
 
@@ -2123,7 +2161,7 @@ func _close_session_menu() -> void:
 
 
 func _quit_to_launcher() -> void:
-	status_label.text = "EXITING"
+	status_label.text = _ui("player.status.exiting")
 	get_tree().quit()
 
 
@@ -2133,7 +2171,7 @@ func _request_progress_reset() -> void:
 	if not progress_reset_armed:
 		progress_reset_armed = true
 		_update_progress_reset_label()
-		_show_toast("PRESS AGAIN TO START A NEW AUTO-SAVE CAMPAIGN")
+		_show_toast(_ui("player.progress.press_again"))
 		return
 	_restart_without_progress()
 
@@ -2142,9 +2180,9 @@ func _update_progress_reset_label() -> void:
 	if session_menu_new_campaign == null:
 		return
 	if progress_reset_armed:
-		session_menu_new_campaign.text = "CONFIRM NEW CAMPAIGN"
+		session_menu_new_campaign.text = _ui("player.progress.confirm_new")
 	else:
-		session_menu_new_campaign.text = "NEW CAMPAIGN"
+		session_menu_new_campaign.text = _ui("player.progress.new")
 
 
 func _restart_without_progress() -> void:
@@ -2155,8 +2193,8 @@ func _restart_without_progress() -> void:
 		campaign_manager.dismiss()
 	_clear_session_presentation()
 	_close_session_menu()
-	status_label.text = "STARTING NEW CAMPAIGN"
-	campaign_save_state = "AUTO-SAVE / NO CHECKPOINT"
+	status_label.text = _ui("player.progress.starting")
+	campaign_save_state = _ui("player.save.auto_no_checkpoint")
 	if not session.reset_progress():
 		_show_fatal(session.last_error())
 		return
@@ -2195,7 +2233,7 @@ func _exercise_progress_reset_smoke() -> void:
 func _open_projects() -> void:
 	if not creator_enabled:
 		return
-	status_label.text = "OPENING CREATOR"
+	status_label.text = _ui("player.status.opening_creator")
 	if session:
 		session.stop()
 	if not preview_return_scene.is_empty():
@@ -2214,7 +2252,7 @@ func _leave_play_session() -> void:
 
 
 func _return_home() -> void:
-	status_label.text = "OPENING MAIN MENU"
+	status_label.text = _ui("player.status.opening_main_menu")
 	if session:
 		session.stop()
 	get_tree().change_scene_to_file("res://home.tscn")
@@ -2373,16 +2411,20 @@ func _handle_event(event: Dictionary) -> void:
 			var resumed := bool(event.get("resumed", false))
 			var manual_slot := _active_checkpoint_slot()
 			if manual_slot > 0:
-				campaign_save_state = "CHECKPOINT %d / %s" % [
-					manual_slot, "RESUMED" if resumed else "NEW"
-				]
+				campaign_save_state = _ui("player.save.manual_state", {
+					"slot": manual_slot,
+					"state": _ui(
+						"player.checkpoint.resumed"
+						if resumed else "player.checkpoint.new"
+					),
+				})
 			else:
 				campaign_save_state = (
-					"AUTO-SAVE / CHECKPOINT RESUMED"
-					if resumed else "AUTO-SAVE / NO CHECKPOINT"
+					_ui("player.save.auto_resumed")
+					if resumed else _ui("player.save.auto_no_checkpoint")
 				)
 			if resumed:
-				status_label.text = "CAMPAIGN RESUMED"
+				status_label.text = _ui("player.save.campaign_resumed")
 			if campaign_persistence_smoke and resumed and not campaign_persistence_resetting:
 				campaign_persistence_resetting = true
 				call_deferred("_exercise_progress_reset_smoke")
@@ -2393,22 +2435,25 @@ func _handle_event(event: Dictionary) -> void:
 			if bool(event.get("successful", false)):
 				var manual_slot := _active_checkpoint_slot()
 				campaign_save_state = (
-					"CHECKPOINT %d / CURRENT" % manual_slot
-					if manual_slot > 0 else "AUTO-SAVE / CHECKPOINT CURRENT"
+					_ui("player.save.manual_state", {
+						"slot": manual_slot,
+						"state": _ui("player.checkpoint.current"),
+					})
+					if manual_slot > 0 else _ui("player.save.auto_current")
 				)
-				_show_toast("CAMPAIGN CHECKPOINT SAVED")
+				_show_toast(_ui("player.save.campaign_saved"))
 				if campaign_persistence_smoke and not campaign_persistence_resetting:
 					print("campaign persistence wrote a checkpoint")
 					get_tree().quit()
 			else:
-				campaign_save_state = "AUTO-SAVE / WRITE FAILED"
-				_show_toast("CAMPAIGN CHECKPOINT COULD NOT BE SAVED")
+				campaign_save_state = _ui("player.save.auto_failed")
+				_show_toast(_ui("player.save.campaign_failed"))
 				if campaign_persistence_smoke:
 					push_error("campaign persistence smoke could not save")
 					get_tree().quit(2)
 		"checkpoint_refused":
-			campaign_save_state = "AUTO-SAVE / CHECKPOINT REJECTED"
-			_show_toast("OLD CHECKPOINT REJECTED / STARTED NEW CAMPAIGN")
+			campaign_save_state = _ui("player.save.auto_rejected")
+			_show_toast(_ui("player.save.old_rejected"))
 		"management":
 			var company: Dictionary = event.get("company", {})
 			_remember_campaign_stage(company)
@@ -3683,6 +3728,14 @@ func _show_fatal(message: String) -> void:
 
 func _help_text() -> String:
 	return "[color=#69d9ff][b]%s[/b][/color]  SELECT" % controls.label("confirm")
+
+
+func _ui(message_id: String, values: Dictionary = {}) -> String:
+	return Localization.text(message_id, values)
+
+
+func _state_text(state: String) -> String:
+	return _ui("player.state.%s" % state)
 
 
 func _bind_font_size(control: Control, key: String, base: int) -> void:

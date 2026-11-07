@@ -93,6 +93,43 @@ func _run() -> void:
 	_expect("open creator shell switches language live", creator.first_button.text, "NUEVA CAMPAÑA")
 	_expect("live creator switch keeps the project library ready", creator.project_list != null, true)
 	creator.queue_free()
+	await process_frame
+
+	localization.call("select_language", "pt-BR", false)
+	var player = load("res://main.tscn").instantiate()
+	player.player_localization_preview = true
+	root.add_child(player)
+	current_scene = player
+	await process_frame
+	await process_frame
+	_expect("player session menu uses Portuguese", player.session_menu_resume.text, "CONTINUAR")
+	_expect("player save flow uses Portuguese", player.session_menu_save_load.text, "SALVAR / CARREGAR")
+	_expect("player exit action uses Portuguese", player.session_menu_quit.text, "SAIR DO JOGO")
+	_expect(
+		"player dialogue control uses Portuguese",
+		player.dialogue_hint.text.contains("CONTINUAR"),
+		true
+	)
+	player._show_session_menu_page("settings")
+	_expect("player settings title uses Portuguese", player.session_menu_title.text, "CONFIGURAÇÕES")
+	_expect(
+		"player settings choices use Portuguese",
+		player.session_menu_camera.text,
+		"IMPULSO DA CÂMERA  /  LIGADO"
+	)
+	_expect(
+		"long player settings guidance wraps",
+		player.session_menu_subtitle.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	player._show_session_menu_page("saves")
+	_expect("player checkpoint page uses Portuguese", player.session_menu_title.text, "SALVAR / CARREGAR")
+	_expect(
+		"player checkpoint entry uses Portuguese",
+		player.session_menu_checkpoint_buttons[0].text,
+		"PONTO 1  /  VAZIO"
+	)
+	player.queue_free()
 	localization.call("select_language", "en", false)
 	service.free()
 	persisted.free()

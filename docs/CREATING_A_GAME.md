@@ -101,7 +101,9 @@ A game with translated catalogs asks for its language before play. The Godot
 player applies it to the game title, campaign and stage names,
 dialogue, company character names, objectives, named battle placements, and
 named units, weapons, abilities, and items. Godot's remaining in-battle
-interface and console localization are still being audited.
+interface and console localization are still being audited. Its session menu,
+display settings, checkpoint flow, diagnostics, and dialogue-continue prompt
+already follow the chosen Grandleon interface language.
 
 ## Add chapters and branches
 
