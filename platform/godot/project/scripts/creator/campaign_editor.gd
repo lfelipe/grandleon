@@ -99,6 +99,9 @@ var chapter_order_select: OptionButton
 var chapter_earlier_button: Button
 var chapter_later_button: Button
 var chapter_order_status: Label
+var new_campaign_layer: Control
+var new_campaign_name: LineEdit
+var new_campaign_create_button: Button
 
 
 func _ready() -> void:
@@ -113,6 +116,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if compound_layer != null and compound_layer.visible:
 			_close_compound()
+		elif new_campaign_layer != null and new_campaign_layer.visible:
+			_close_new_campaign()
 		elif chapter_order_layer != null and chapter_order_layer.visible:
 			_close_chapter_order()
 		elif branch_layer != null and branch_layer.visible:
@@ -216,6 +221,71 @@ func _change_campaign(index: int) -> void:
 	)
 	if first_button != null:
 		first_button.grab_focus()
+
+
+func _open_new_campaign() -> void:
+	new_campaign_name.text = "New Campaign"
+	new_campaign_layer.visible = true
+	new_campaign_name.grab_focus()
+	new_campaign_name.select_all()
+
+
+func _close_new_campaign() -> void:
+	new_campaign_layer.visible = false
+	campaign_select.grab_focus()
+
+
+func _create_new_campaign_from_text(_value: String) -> void:
+	_create_new_campaign()
+
+
+func _create_new_campaign() -> void:
+	var name := new_campaign_name.text.strip_edges()
+	if name.is_empty():
+		_set_status("GIVE THE CAMPAIGN A NAME", true)
+		new_campaign_name.grab_focus()
+		return
+	if campaign.is_empty():
+		_set_status("ADD A WORKING CAMPAIGN FIRST", true)
+		return
+	var candidate := project.duplicate(true)
+	var campaigns: Array = candidate.get("campaigns", []).duplicate(true)
+	var added: Dictionary = campaign.duplicate(true)
+	var added_id := _next_campaign_id(campaigns)
+	added["id"] = added_id
+	added["name"] = name
+	campaigns.append(added)
+	candidate["campaigns"] = campaigns
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status("CAMPAIGN COULD NOT BE CREATED  /  %s" % _diagnostic_summary(checked), true)
+		return
+	undo_stack.append(source)
+	if undo_stack.size() > HISTORY_LIMIT:
+		undo_stack.pop_front()
+	redo_stack.clear()
+	source = candidate_source
+	dirty = source != saved_source
+	campaign = {"id": added_id}
+	_read_source()
+	_collect_route()
+	_refresh_route()
+	_update_actions()
+	new_campaign_layer.visible = false
+	_set_status("UNSAVED  /  CREATED %s" % name.to_upper(), false)
+	campaign_select.grab_focus()
+
+
+func _next_campaign_id(campaigns: Array) -> String:
+	var used: Dictionary = {}
+	for value: Variant in campaigns:
+		if value is Dictionary:
+			used[str(value.get("id", ""))] = true
+	var sequence := campaigns.size() + 1
+	while used.has("campaign_%d" % sequence):
+		sequence += 1
+	return "campaign_%d" % sequence
 
 
 func _collect_route() -> void:
@@ -2529,6 +2599,10 @@ func _build_interface() -> void:
 	campaign_select.tooltip_text = "Choose which campaign in this project you are editing and testing."
 	campaign_select.item_selected.connect(_change_campaign)
 	campaign_row.add_child(campaign_select)
+	var add_campaign := _button("ADD CAMPAIGN", 220, 54)
+	add_campaign.tooltip_text = "Start another campaign from this working outline, then change its route, roster, and player policy independently."
+	add_campaign.pressed.connect(_open_new_campaign)
+	campaign_row.add_child(add_campaign)
 	var campaign_help := _label(
 		"Each campaign keeps its own route, roster, player-count policy, and starting chapter.",
 		15,
@@ -2591,6 +2665,54 @@ func _build_interface() -> void:
 	status_row.add_child(fix_button)
 	_build_outcome_layer()
 	_build_chapter_order_layer()
+	_build_new_campaign_layer()
+
+
+func _build_new_campaign_layer() -> void:
+	new_campaign_layer = Control.new()
+	new_campaign_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	new_campaign_layer.visible = false
+	new_campaign_layer.z_index = 45
+	add_child(new_campaign_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.96)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	new_campaign_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(500, 250)
+	panel.size = Vector2(920, 520)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color("69d9ff"))
+	)
+	new_campaign_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label("ADD CAMPAIGN", 18, Color("69d9ff")))
+	column.add_child(_label("What should players call it?", 32, Color("f2f7f9")))
+	var explanation := _label(
+		"The new campaign starts from this working outline so it is playable immediately. Its route, roster, player count, and starting chapter can then change independently.",
+		18,
+		Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 82
+	column.add_child(explanation)
+	new_campaign_name = LineEdit.new()
+	new_campaign_name.custom_minimum_size = Vector2(0, 62)
+	new_campaign_name.add_theme_font_size_override("font_size", 22)
+	new_campaign_name.text_submitted.connect(_create_new_campaign_from_text)
+	column.add_child(new_campaign_name)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	new_campaign_create_button = _button("CREATE CAMPAIGN", 400, 66)
+	new_campaign_create_button.pressed.connect(_create_new_campaign)
+	actions.add_child(new_campaign_create_button)
+	var cancel := _button("CANCEL", 240, 66)
+	cancel.pressed.connect(_close_new_campaign)
+	actions.add_child(cancel)
 
 
 func _build_chapter_order_layer() -> void:
