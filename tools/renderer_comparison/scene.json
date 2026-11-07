@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "id": "medieval_knight_counter_v1",
+  "description": "One deterministic board-to-close-battle scene recorded by Godot, Nintendo 64, and PlayStation.",
+  "duration_seconds": 8.15,
+  "video_fps": 30,
+  "board": {
+    "width": 6,
+    "height": 4,
+    "terrain_ids": {
+      "forest": 2,
+      "grass": 9,
+      "stone": 12
+    },
+    "rows": [
+      [2, 2, 9, 12, 12, 2],
+      [2, 9, 9, 12, 12, 2],
+      [2, 9, 9, 12, 9, 2],
+      [2, 2, 9, 12, 2, 2]
+    ]
+  },
+  "units": [
+    {
+      "slot": "left",
+      "style_id": 2,
+      "archetype_id": 0,
+      "body": "male",
+      "team": "blue",
+      "cell": [1, 2],
+      "initial_hp": 12,
+      "final_hp": 8
+    },
+    {
+      "slot": "right",
+      "style_id": 2,
+      "archetype_id": 0,
+      "body": "female",
+      "team": "red",
+      "cell": [4, 1],
+      "initial_hp": 11,
+      "final_hp": 8
+    }
+  ],
+  "events": [
+    {
+      "time_seconds": 3.45,
+      "attacker": "left",
+      "defender": "right",
+      "damage": 3
+    },
+    {
+      "time_seconds": 5.5,
+      "attacker": "right",
+      "defender": "left",
+      "damage": 4
+    }
+  ],
+  "phases": [
+    {"name": "board_hold", "start": 0.0, "end": 1.15},
+    {"name": "focus_transition", "start": 1.15, "end": 2.25},
+    {"name": "attack", "start": 2.25, "end": 4.3},
+    {"name": "counter", "start": 4.3, "end": 6.35},
+    {"name": "return_transition", "start": 6.35, "end": 7.3},
+    {"name": "restored_board_hold", "start": 7.3, "end": 8.15}
+  ],
+  "review_frames": [
+    {"name": "board", "time_seconds": 0.5},
+    {"name": "focus", "time_seconds": 1.7},
+    {"name": "attack_impact", "time_seconds": 3.45},
+    {"name": "counter_impact", "time_seconds": 5.5},
+    {"name": "restored", "time_seconds": 7.55}
+  ]
+}

@@ -64,6 +64,14 @@ console-graphics track or a later milestone; it is not a hidden 0.4 blocker.
   terrain depth and variety, camera composition, movement and attack
   animation, effects, UI clarity, close-up scenes, and measured performance on
   original-style hardware.
+  - First finish the fixed-camera Godot-derived cutout path and the matched
+    Godot/N64/PS1 battle capture, including smooth board movement and authored
+    attack, counter, and hurt poses.
+  - Then improve console terrain in both tactical and close views: stronger
+    material identity, less repetitive tiles, cleaner neighbour transitions,
+    clustered scenery, elevation cues, and terrain-specific battle backdrops.
+    Preserve walkable-cell clarity and measure the memory and frame cost on
+    each console.
 
 ## 0.4 player foundation and battle view
 
