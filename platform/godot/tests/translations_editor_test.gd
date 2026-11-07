@@ -45,6 +45,40 @@ func _run() -> void:
 		not editor._message_by_id("dialogues.first_steps_dialogue.lines.0.text").is_empty(),
 		true
 	)
+	var audited: Dictionary = editor.project.duplicate(true)
+	audited["notes"] = "AUTHOR ONLY PROJECT NOTE"
+	audited.objectives[0]["notes"] = "AUTHOR ONLY OBJECTIVE NOTE"
+	for node_value: Variant in audited.campaigns[0].flow.nodes:
+		if node_value is Dictionary and str(node_value.get("id", "")) == "first_battle":
+			node_value.placements[2]["name"] = "Warden Kesh"
+			node_value.transitions[0]["notes"] = "AUTHOR ONLY ROUTE NOTE"
+	_expect("audited player-copy fixture remains valid", editor._save_candidate(audited), true)
+	_expect(
+		"objective labels are gathered",
+		str(editor._message_by_id("objectives.defeat_all_opponents.name").source),
+		"Defeat all opponents"
+	)
+	var placement_message: Dictionary = editor._message_by_id(
+		"campaigns.first_adventure.nodes.first_battle.placements.raider_north.name"
+	)
+	_expect("named battle characters are gathered", str(placement_message.source), "Warden Kesh")
+	_expect(
+		"named battle character context identifies its battle",
+		str(placement_message.context),
+		"Named battle character / Hold the Crossing"
+	)
+	_expect(
+		"author notes are not offered as player translations",
+		_messages_contain_source(editor.messages, "AUTHOR ONLY"),
+		false
+	)
+	_expect(
+		"internal route choices are not invented as player copy",
+		editor._message_by_id(
+			"campaigns.first_adventure.nodes.first_battle.transitions.crossing_won.name"
+		).is_empty(),
+		true
+	)
 	editor.search_input.text = "road was quiet"
 	editor._search_messages(editor.search_input.text)
 	_expect("translation search finds source dialogue", editor.message_list.item_count, 1)
@@ -64,6 +98,24 @@ func _run() -> void:
 	editor._save_translation()
 	_expect("manual translation becomes reviewed", editor.translation_status("pt-BR", "project.title"), "translated")
 	_expect("Portuguese preview uses reviewed copy", editor.fallback_text("pt-BR", "project.title"), "Palavras Portáteis")
+	editor.selected_message_id = "objectives.defeat_all_opponents.name"
+	editor.translation_input.text = "Derrote todos os oponentes"
+	editor._save_translation()
+	_expect(
+		"objective translation is reviewed",
+		editor.translation_status("pt-BR", "objectives.defeat_all_opponents.name"),
+		"translated"
+	)
+	editor.selected_message_id = (
+		"campaigns.first_adventure.nodes.first_battle.placements.raider_north.name"
+	)
+	editor.translation_input.text = "Guardião Kesh"
+	editor._save_translation()
+	_expect(
+		"named battle character translation is reviewed",
+		editor.translation_status("pt-BR", editor.selected_message_id),
+		"translated"
+	)
 
 	var changed: Dictionary = editor.project.duplicate(true)
 	changed["title"] = "Portable Words Revised"
@@ -101,3 +153,10 @@ func _expect(label: String, actual: Variant, expected: Variant) -> void:
 	if actual != expected:
 		failures += 1
 		push_error("%s: expected %s, got %s" % [label, expected, actual])
+
+
+func _messages_contain_source(messages: Array[Dictionary], needle: String) -> bool:
+	for message: Dictionary in messages:
+		if str(message.get("source", "")).contains(needle):
+			return true
+	return false

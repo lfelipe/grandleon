@@ -52,6 +52,9 @@ func _unhandled_input(event: InputEvent) -> void:
 static func gather_player_strings(value: Dictionary) -> Array[Dictionary]:
 	var gathered: Array[Dictionary] = []
 	_add_message(gathered, "project.title", str(value.get("title", "")), "Game title")
+	# Gather display copy only. Stable ids, transition keys, script values and
+	# author notes are not presented to a player and must not become translation
+	# work merely because they contain text.
 	for collection: String in NAMED_COLLECTIONS:
 		for entry_value: Variant in value.get(collection, []):
 			if not entry_value is Dictionary:
@@ -118,21 +121,41 @@ static func gather_player_strings(value: Dictionary) -> Array[Dictionary]:
 			var node_prefix := "campaigns.%s.nodes.%s" % [campaign_id, node_id]
 			_add_message(gathered, node_prefix + ".name", str(node.get("name", "")), "Stage name")
 			_add_member_names(gathered, campaign_id, node.get("recruits", []), "recruits")
-			for placement_value: Variant in node.get("placements", []):
-				if not placement_value is Dictionary:
-					continue
-				var placement: Dictionary = placement_value
-				if not placement.has("name"):
-					continue
-				_add_message(
-					gathered,
-					"%s.placements.%s.name" % [node_prefix, str(placement.get("id", ""))],
-					str(placement.get("name", "")), "Character name"
-				)
+			_add_placement_names(
+				gathered, campaign_id, node_id,
+				str(node.get("name", node_id)), node.get("placements", [])
+			)
 	gathered.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		return str(left.id) < str(right.id)
 	)
 	return gathered
+
+
+static func _add_placement_names(
+	gathered: Array[Dictionary],
+	campaign_id: String,
+	node_id: String,
+	node_name: String,
+	values: Variant
+) -> void:
+	if campaign_id.is_empty() or node_id.is_empty() or not values is Array:
+		return
+	for placement_value: Variant in values:
+		if not placement_value is Dictionary:
+			continue
+		var placement: Dictionary = placement_value
+		var placement_id := str(placement.get("id", ""))
+		var placement_name := str(placement.get("name", ""))
+		if placement_id.is_empty() or placement_name.is_empty():
+			continue
+		_add_message(
+			gathered,
+			"campaigns.%s.nodes.%s.placements.%s.name" % [
+				campaign_id, node_id, placement_id,
+			],
+			placement_name,
+			"Named battle character / %s" % node_name
+		)
 
 
 static func _add_member_names(

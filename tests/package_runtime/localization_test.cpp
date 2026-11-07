@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <string_view>
+#include <vector>
 
 namespace gc = grandleon::game_content;
 namespace pf = grandleon::package_format;
@@ -23,6 +24,12 @@ void expect(bool condition, std::string_view message) {
 
 gc::GameSource source() {
     gc::GameSource value;
+    const auto objective_id = core::stable_content_id_v1("hold_gate");
+    const auto encounter_id =
+        core::stable_content_id_v1("first_adventure/village");
+    const auto placement_id = core::stable_content_id_v1(
+        "first_adventure/village/gate_captain"
+    );
     value.game_id[0] = 0x4d;
     value.title = "Localized";
     value.source_language = "en";
@@ -33,9 +40,28 @@ gc::GameSource source() {
     value.weapons = {{40, "Sword", 10, 3, 1, 1}};
     value.items = {};
     value.unit_types = {{60, "Rowan", 30, 0, {40}, {}}};
+    value.maps = {{70, "Gate", 3, 2, std::vector<std::uint64_t>(6, 1)}};
+    value.objectives = {{
+        objective_id, "Hold the gate",
+        gc::ObjectiveKind::defeat_all_opponents
+    }};
+    gc::Placement hero{
+        1000, 2000, 0, 60, gc::EncounterSide::first, 0, 0
+    };
+    gc::Placement captain{
+        placement_id, 2001, 0, 60, gc::EncounterSide::second, 2, 1
+    };
+    captain.name = "Gate Captain";
+    value.encounters = {{
+        encounter_id, "Village", 70, {objective_id}, {hero, captain}
+    }};
     value.translations = {
         {"es", {
+            {"project.title", "Localized", "Localizado"},
             {"unit_types.rowan.name", "Rowan", "Roldán"},
+            {"objectives.hold_gate.name", "Hold the gate", "Defiende la puerta"},
+            {"campaigns.first_adventure.nodes.village.placements.gate_captain.name",
+             "Gate Captain", "Capitán de la puerta"},
             {"dialogues.opening.name", "At Dawn", "Al amanecer"},
             {"dialogues.opening.lines.0.speaker", "Rowan", "Roldán"},
             {"dialogues.opening.lines.0.text", "Hold the gate.", "Defiende la puerta."},
@@ -83,6 +109,18 @@ int main() {
         ) == "Rowan",
         "missing language visibly falls back to source"
     );
+    expect(
+        pr::localized_project_title(
+            loaded.package, "es", "Localized"
+        ) == "Localizado",
+        "project title resolves through its manifest-level message"
+    );
+    expect(
+        pr::localized_project_title(
+            loaded.package, "es", "Localized revised"
+        ) == "Localized revised",
+        "stale project-title translation falls back to source"
+    );
     const auto languages = pr::available_languages(loaded.package);
     expect(
         languages.size() == 3U && languages[0] == "en" &&
@@ -95,6 +133,40 @@ int main() {
             core::stable_content_id_v1("rowan"), "Rowan"
         ) == "Roldán",
         "portable unit-type identity resolves its authored translation"
+    );
+    const auto objective_id = core::stable_content_id_v1("hold_gate");
+    expect(
+        pr::localized_objective_name(
+            loaded.package, "es", objective_id, "Hold the gate"
+        ) == "Defiende la puerta",
+        "objective label resolves by portable identity"
+    );
+    expect(
+        pr::localized_objective_name(
+            loaded.package, "es", objective_id, "Hold this gate"
+        ) == "Hold this gate",
+        "stale objective translation falls back to current source"
+    );
+    const auto placement_id = core::stable_content_id_v1(
+        "first_adventure/village/gate_captain"
+    );
+    expect(
+        pr::localized_placement_name(
+            loaded.package, "es", placement_id, "Gate Captain"
+        ) == "Capitán de la puerta",
+        "named battle placement resolves through its scoped identity"
+    );
+    expect(
+        pr::localized_placement_name(
+            loaded.package, "fr", placement_id, "Gate Captain"
+        ) == "Gate Captain",
+        "missing placement language falls back to source"
+    );
+    expect(
+        pr::localized_placement_name(
+            loaded.package, "es", placement_id, "Gate Warden"
+        ) == "Gate Warden",
+        "stale placement translation falls back to current source"
     );
     expect(
         pr::localized_dialogue_name(

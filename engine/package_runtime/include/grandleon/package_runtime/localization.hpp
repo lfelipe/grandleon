@@ -32,6 +32,14 @@ namespace grandleon::package_runtime {
     std::string_view current_source
 ) noexcept;
 
+// The game's own authored title. Kept separate from content-name lookups
+// because the manifest record uses a format identity rather than a source key.
+[[nodiscard]] std::string_view localized_project_title(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::string_view current_source
+) noexcept;
+
 // Languages offered by this authored game, in source-first order. Views borrow
 // the package bytes. Malformed optional localization metadata returns an empty
 // list so an older game remains playable in its source copy.
@@ -48,6 +56,24 @@ namespace grandleon::package_runtime {
     std::string_view language,
     package_format::SectionType section,
     std::uint64_t content_id,
+    std::string_view current_source
+) noexcept;
+
+// Semantic wrappers for player-facing labels whose source identities are not
+// ordinary top-level content paths. Objective names are top-level definitions,
+// while a placement name is scoped by campaign and encounter in source and is
+// keyed by the compiler's combined placement identity in the package.
+[[nodiscard]] std::string_view localized_objective_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t objective_id,
+    std::string_view current_source
+) noexcept;
+
+[[nodiscard]] std::string_view localized_placement_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t placement_id,
     std::string_view current_source
 ) noexcept;
 

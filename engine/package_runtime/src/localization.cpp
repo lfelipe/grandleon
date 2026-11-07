@@ -174,6 +174,57 @@ bool nested_named_ids(
                second_id;
 }
 
+std::uint64_t scoped_placement_id(
+    std::string_view campaign,
+    std::string_view node,
+    std::string_view placement
+) noexcept {
+    std::uint64_t value = 14695981039346656037ULL;
+    const auto append = [&value](std::string_view text) {
+        for (const char character : text) {
+            value ^= static_cast<std::uint8_t>(character);
+            value *= 1099511628211ULL;
+        }
+    };
+    append(campaign);
+    append("/");
+    append(node);
+    append("/");
+    append(placement);
+    return value;
+}
+
+bool placement_named_id(
+    std::string_view message_id,
+    std::uint64_t placement_id
+) noexcept {
+    std::string_view middle;
+    if (!remove_edges(message_id, "campaigns.", ".name", middle)) {
+        return false;
+    }
+    constexpr std::string_view node_separator = ".nodes.";
+    constexpr std::string_view placement_separator = ".placements.";
+    const std::size_t node_at = middle.find(node_separator);
+    if (node_at == std::string_view::npos || node_at == 0) return false;
+    const std::size_t placement_at = middle.find(
+        placement_separator, node_at + node_separator.size()
+    );
+    if (placement_at == std::string_view::npos ||
+        placement_at == node_at + node_separator.size() ||
+        placement_at + placement_separator.size() >= middle.size()) {
+        return false;
+    }
+    const std::string_view campaign = middle.substr(0, node_at);
+    const std::string_view node = middle.substr(
+        node_at + node_separator.size(),
+        placement_at - node_at - node_separator.size()
+    );
+    const std::string_view placement = middle.substr(
+        placement_at + placement_separator.size()
+    );
+    return scoped_placement_id(campaign, node, placement) == placement_id;
+}
+
 }  // namespace
 
 std::string_view source_language(
@@ -227,6 +278,16 @@ std::string_view localized_text(
     return current_source;
 }
 
+std::string_view localized_project_title(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::string_view current_source
+) noexcept {
+    return localized_text(
+        package, language, "project.title", current_source
+    );
+}
+
 std::vector<std::string_view> available_languages(
     const package_format::LoadedPackage& package
 ) {
@@ -271,6 +332,32 @@ std::string_view localized_content_name(
         package, language, current_source,
         [prefix, content_id](std::string_view message_id) {
             return stable_named_id(message_id, prefix, content_id);
+        }
+    );
+}
+
+std::string_view localized_objective_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t objective_id,
+    std::string_view current_source
+) noexcept {
+    return localized_content_name(
+        package, language, package_format::SectionType::objectives,
+        objective_id, current_source
+    );
+}
+
+std::string_view localized_placement_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t placement_id,
+    std::string_view current_source
+) noexcept {
+    return localized_matching(
+        package, language, current_source,
+        [placement_id](std::string_view message_id) {
+            return placement_named_id(message_id, placement_id);
         }
     );
 }
