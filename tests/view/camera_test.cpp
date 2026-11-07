@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Host-side test for the shared board camera. The header is pure arithmetic
 // precisely so this suite can pin its edge behaviour without a console, a
-// window or a browser.
+// window.
 
 #include "grandleon/view/board_view.hpp"
 

@@ -531,8 +531,8 @@ struct Placement final {
     // authored before waves says.
     //
     // `every` and `times` are authored together or not at all. The recurrence
-    // is not expanded here: the simulation expands it, so the browser and the
-    // consoles cannot disagree about what a wave means, and the package carries
+    // is not expanded here: the simulation expands it, so content paths cannot
+    // disagree about what a wave means, and the package carries
     // what the author wrote.
     //
     // Zero costs nothing anywhere downstream, on the talk record's terms: an

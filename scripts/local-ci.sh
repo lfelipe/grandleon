@@ -9,7 +9,6 @@
 #   scripts/local-ci.sh --n64              only the Nintendo 64 of the two
 #   scripts/local-ci.sh --playstation      only the PlayStation of the two
 #   scripts/local-ci.sh --consoles         both, and insist on them
-#   scripts/local-ci.sh --preview-port N   serve the browser suite on port N
 #
 # **The consoles are on by default, and that is a change.** They were behind a
 # flag, and the comment beside them argued against the flag without removing it:
@@ -32,15 +31,10 @@
 # the working tree. Everything runs against the commit, not the checkout.
 #
 # Requirements are CODING.md's prerequisites table; scripts/setup.sh puts them
-# in place. The repo-local Chromium and the placeholder-art venv are borrowed
-# rather than reinstalled per run, because their versions are pinned by
-# lockfiles, not by the checkout they happen to sit in. Run from a worktree
-# that has not been set up, they are borrowed from the primary checkout
-# directly, so this runner works there whether or not setup.sh has been.
-#
-# The preview port is a parameter because parallel workstreams each need their
-# own: the browser suite refuses to reuse a server it did not start, so two
-# runs sharing a port collide instead of quietly testing each other's build.
+# in place. The placeholder-art venv is borrowed rather than reinstalled per
+# run. From a worktree that has not been set up, it is borrowed from the primary
+# checkout directly, so this runner works there whether or not setup.sh has
+# been.
 
 set -euo pipefail
 
@@ -49,7 +43,6 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # means telling "nobody chose" apart from "chose no".
 run_n64=""
 run_playstation=""
-preview_port=4521
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --n64)
@@ -72,25 +65,13 @@ while [ "$#" -gt 0 ]; do
             run_playstation=0
             shift
             ;;
-        --preview-port)
-            [ "$#" -ge 2 ] || { echo "--preview-port needs a port" >&2; exit 2; }
-            preview_port="$2"
-            shift 2
-            ;;
         *)
             echo "usage: $(basename "$0") [--n64] [--playstation] [--consoles]" >&2
-            echo "                        [--no-consoles] [--preview-port N]" >&2
+            echo "                        [--no-consoles]" >&2
             exit 2
             ;;
     esac
 done
-case "${preview_port}" in
-    ''|*[!0-9]*)
-        echo "--preview-port must be a number, not '${preview_port}'" >&2
-        exit 2
-        ;;
-esac
-
 # What nobody chose, decided here rather than defaulted to nothing.
 #
 # Both consoles build inside a pinned container, so the one thing that decides
@@ -133,7 +114,6 @@ borrowed() {
         return 1
     fi
 }
-browsers_path="$(borrowed .playwright-browsers)"
 art_python="$(borrowed tools/placeholder_art/.venv)/bin/python"
 
 workspace="$(mktemp -d /tmp/grandleon-ci.XXXXXX)"
@@ -166,16 +146,7 @@ clone="${workspace}/repo"
 export CCACHE_BASEDIR="${clone}"
 export CCACHE_NOHASHDIR=true
 
-# This is a CI run, and the JavaScript tooling decides several things by asking.
-#
-# Both test runners in the editor read `CI` when they decide whether a committed
-# `.only` is an error or an instruction. With it unset, `test.only` on one
-# Playwright test runs that test, skips the other twenty-four and exits 0: most
-# of the browser gate deleted by one line nobody would notice in review.
-# vitest's `allowOnly` defaults the same way. Both configurations refuse `.only`
-# unconditionally, because there is no machine on which committing one is right;
-# this line is the belt to that pair of braces. It also pins Playwright to one
-# worker and its line reporter, which is what makes a gate log readable.
+# This is a CI run, and JavaScript tooling may change behaviour based on it.
 export CI=1
 
 step() { printf '\n== %s\n' "$1"; }
@@ -200,7 +171,6 @@ fi
 
 step "npm ci"
 npm ci --prefix "${clone}/tools/source_schema" >/dev/null
-npm ci --prefix "${clone}/editor" >/dev/null
 
 # `--no-tests=error` on both, because `ctest` finding nothing to run is a pass
 # by default: an empty suite, a build that produced no test executables, or a
@@ -229,72 +199,8 @@ cmake -S "${clone}" -B "${clone}/build-nosdl" \
     -DGRANDLEON_WERROR=ON >/dev/null
 cmake --build "${clone}/build-nosdl" --target grandleon_play --parallel >/dev/null
 
-step "editor: production build, typecheck, unit tests"
-npm run --prefix "${clone}/editor" build >/dev/null
-
-step "editor: real browser (preview port ${preview_port})"
-PLAYWRIGHT_BROWSERS_PATH="${browsers_path}" \
-    GRANDLEON_EDITOR_PREVIEW_PORT="${preview_port}" \
-    npm run --prefix "${clone}/editor" test:browser
-
-# The other server, and the one a newcomer meets first. Every check above runs
-# against `vite preview` over a production build, which shares neither the dev
-# server's inline stylesheets nor the origin it derives for module URLs, so a
-# dev server that serves an unstyled page or cannot construct its worker passes
-# all of them. It borrows the preview port, which the browser suite has by now
-# released, rather than needing a fourth of its own.
-step "editor: the development server is styled and error-free"
-PLAYWRIGHT_BROWSERS_PATH="${browsers_path}" \
-    GRANDLEON_EDITOR_DEV_PORT="${preview_port}" \
-    npm run --prefix "${clone}/editor" test:dev
-
-step "editor: startup, deployment, offline smoke"
-npm run --prefix "${clone}/editor" test:startup >/dev/null
-npm run --prefix "${clone}/editor" test:deployment >/dev/null
-npm run --prefix "${clone}/editor" test:offline >/dev/null
-
-# The ROM build service's refusals and failure paths. Deliberately container-
-# free: the service's job is to have said no to everything it can decide from
-# the project alone *before* a container exists, so this half runs in a second
-# and belongs in every gate. The half that needs a container is a console lane.
-#
-# The count is kept rather than discarded, and it is compared against a floor.
-# `node --test` on a file containing no tests exits 0 and reports
-# `# tests 1 # pass 1`, the file itself counting as the one passing test, so an
-# emptied suite is indistinguishable from a suite that ran unless somebody looks
-# at the number. The TAP reporter is what makes the number machine-readable.
-# The floor is below the count this suite has, so adding a test needs no edit
-# here and removing most of them cannot go unnoticed.
-step "ROM build service: refusals and failure paths"
-rom_service_floor=20
-rom_service_tap="${workspace}/rom-service.tap"
-if ! (cd "${clone}" && node --test --test-reporter=tap \
-        tools/rom_service/serve.test.mjs) >"${rom_service_tap}" 2>&1; then
-    cat "${rom_service_tap}"
-    exit 1
-fi
-rom_service_passed="$(awk '/^# pass /{print $3}' "${rom_service_tap}")"
-if [ "${rom_service_passed:-0}" -lt "${rom_service_floor}" ]; then
-    printf 'the ROM build service suite reported %s passing tests; %s is the floor\n' \
-        "${rom_service_passed:-no}" "${rom_service_floor}" >&2
-    printf 'Either its tests were removed or the runner found no file to run.\n' >&2
-    tail -n 20 "${rom_service_tap}" >&2
-    exit 1
-fi
-printf '%s tests passed, floor %s\n' \
-    "${rom_service_passed}" "${rom_service_floor}"
-
 step "generated art is not stale"
 "${art_python}" "${clone}/tools/placeholder_art/generate.py" --check
-
-# The editor's board assets come from their own generator, not from
-# generate.py, so the check above says nothing about them. Left unwired, the
-# only thing standing between a stale board and a merge was somebody
-# remembering to run it by hand. A style commission that regenerated one tree
-# and not the other passed every gate, and four editor tests were the thing
-# that eventually caught it.
-step "editor board assets are not stale"
-"${art_python}" "${clone}/editor/scripts/generate-board-assets.py" --check
 
 # Both halves, and the expensive one is the point. The first is every rule a
 # replacement must satisfy, provoked by its own code, and costs ten seconds.
@@ -310,9 +216,6 @@ step "editor board assets are not stale"
 # until the day somebody types it.
 step "provided art: every rule refuses, and a submission reaches every client"
 "${art_python}" "${clone}/tools/placeholder_art/check_provided.py" --end-to-end
-
-step "WebAssembly module is not stale"
-(cd "${clone}" && cmake --build build --target grandleon_wasm_check)
 
 # The consoles, each behind its own flag because each builds a cross toolchain
 # and an emulator from source the first time it is asked to.

@@ -2607,7 +2607,7 @@ const sim::UnitSnapshot* TurnClient::unit_by_id(
 // and every consequence of a battle arrive from the session exactly as
 // `campaign_runtime` derived them, and this arranges them into forty-column
 // lines. That is the same division the board already keeps, and it is why the
-// terminal, the browser, the Nintendo 64 and this machine can never disagree
+// terminal, Godot, the Nintendo 64 and this machine can never disagree
 // about what a campaign holds.
 // ---------------------------------------------------------------------------
 

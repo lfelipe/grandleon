@@ -8,7 +8,7 @@
 // is on a given frame. Same rules as its neighbour: pure integer arithmetic,
 // no libdragon, no SDL, no engine header, no allocation, no clock. The host
 // suite compiles it and pins every number, so the parts of motion that can
-// silently go wrong are verified off the console and out of the browser.
+// silently go wrong are verified off the console and outside a window.
 //
 // Two properties are load-bearing rather than tidy, because every console
 // check in this repository asserts framebuffer pixels at named checkpoints:
@@ -24,9 +24,7 @@
 //     samples at phase zero therefore sees the board it saw before, and no
 //     assertion had to be loosened to admit motion.
 //
-// The numbers themselves are stated here and mirrored in
-// `editor/src/domain/board-motion.ts`, and the two test suites pin them
-// against each other. Change one here and change it there.
+// The numbers themselves are stated here and shared by every native renderer.
 
 #pragma once
 
@@ -39,9 +37,9 @@ namespace grandleon::view {
 // ---------------------------------------------------------------------------
 //
 // All of them are counted in *drawn frames*, and every client that animates
-// draws at its display's refresh: 60 Hz on an NTSC console, and one browser
-// animation-frame tick in Play. A frame is therefore about 16.7 ms everywhere
-// it matters. This repository does not build for PAL, and a PAL machine would
+// draws at its display's refresh: 60 Hz on an NTSC console and in the Godot
+// player. A frame is therefore about 16.7 ms everywhere it matters. This
+// repository does not build for PAL, and a PAL machine would
 // run the same counts one sixth slower rather than drawing a different picture.
 
 // How long a token spends crossing one tile. Six frames is a tenth of a second
@@ -225,11 +223,8 @@ inline constexpr int held_repeat_period_frames = slide_frames_per_tile;
 // the edge or cutting to the column play begins at. A reveal that cut would be
 // two pictures where the gesture is meant to be one.
 //
-// This is the one gesture in this file with no mirror in
-// `editor/src/domain/board-motion.ts`, and the reason is not an omission. The
-// browser draws every board whole at whatever size the page gives it, so Play
-// has no camera, no edges, and nothing to sweep. The mirror exists where both
-// draw the same motion; here only the consoles draw any.
+// This reveal is used by the console cameras. Godot uses its own board-opening
+// camera because it has a continuous viewport rather than a fixed tile window.
 //
 // It is not interruptible, which is a decision rather than a simplification. A
 // press that skipped it would have to be read inside the sweep and then not
@@ -840,8 +835,8 @@ enum class AttackGesture : std::uint8_t {
 // ---------------------------------------------------------------------------
 //
 // Water moves by **palette cycling**: a few entries of its ramp are rotated in
-// the display palette, by a TLUT override on the Nintendo 64's rdpq path and a
-// lookup substitution in the browser. Which entries is a property of the art
+// the display palette, by a TLUT override on the Nintendo 64's rdpq path and
+// the corresponding renderer-specific lookup elsewhere. Which entries is a property of the art
 // and is published by the generator (`grandleon_water_cycle_*` in `themes.h`).
 // *When* is here, because it is timing.
 //

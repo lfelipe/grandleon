@@ -3,15 +3,13 @@
 
 # Regenerates the README's screenshots into docs/screenshots/.
 #
-#   scripts/readme-screenshots.sh            all six diagnostic captures
-#   scripts/readme-screenshots.sh terminal   just one surface
+#   scripts/readme-screenshots.sh            all five diagnostic captures
 #
-# Surfaces: terminal, autopilot, psx-turn, n64-showcase, psx-showcase,
+# Surfaces: autopilot, psx-turn, n64-showcase, psx-showcase,
 #           n64-saying.
 #
-# Everything is driven, nothing is posed: the terminal shot comes from the real
-# client's ANSI output rendered by Chromium, and every console film comes from
-# a run that retains its ordinary pixel-verification gates. Re-run after a
+# Everything is driven, nothing is posed: every console film comes from a run
+# that retains its ordinary pixel-verification gates. Re-run after a
 # visual change and commit the updated captures.
 #
 # Two cameras, and the difference matters. The two *trail* animations are
@@ -31,7 +29,6 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out="${repository_root}/docs/screenshots"
 mkdir -p "${out}"
-export PLAYWRIGHT_BROWSERS_PATH="${repository_root}/.playwright-browsers"
 # The three PlayStation arms decode raw 15-bit frames, and share one decoder
 # rather than carrying three copies of the widening rule.
 export PYTHONPATH="${repository_root}/scripts${PYTHONPATH:+:${PYTHONPATH}}"
@@ -45,11 +42,6 @@ want() {
 }
 
 surface="${1:-all}"
-
-if [ "${surface}" = "all" ] || [ "${surface}" = "terminal" ]; then
-    echo "== terminal"
-    "${repository_root}/scripts/readme-shot-terminal.sh" "${out}/terminal.png"
-fi
 
 if [ "${surface}" = "all" ] || [ "${surface}" = "autopilot" ]; then
     echo "== autopilot"

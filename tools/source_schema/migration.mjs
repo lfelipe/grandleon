@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-// What happens when the project file on disk is older than the editor opening
-// it.
+// What happens when an authoring tool opens an older project file.
 //
 // The save format solved this problem first and argued it out in
 // `engine/campaign/include/grandleon/campaign/migration.hpp`. This is the same
@@ -9,7 +8,7 @@
 // rather than inventing a second philosophy for the same question:
 //
 // * **Version by version, never in a leap.** A step goes from one version to
-//   the next and no further. A project at `1.0.0` reaching an editor at `1.3.0`
+//   the next and no further. A project at `1.0.0` reaching tooling at `1.3.0`
 //   runs each registered step in order, including 1.2.0 -> 1.3.0, rather than
 //   leaping over the versions in between
 //   with its own test. One function per (old, new) pair is quadratic in the
@@ -19,7 +18,7 @@
 //   one version at a time and stops at the first version with no step out of
 //   it, saying which version that was. Never a silent skip, and never running
 //   the far end of the chain against the near end's fields.
-// * **Downgrade is refused by name.** A project written by a newer editor knows
+// * **Downgrade is refused by name.** A project written by newer tooling knows
 //   things this one does not, and the only honest transform from a newer format
 //   to an older one is a lossy one. `downgrade_refused` says so instead of
 //   dropping the fields this build cannot see.
@@ -38,19 +37,16 @@
 // and you cannot add a step without saying what changed.
 //
 // Every other site that spells the version out (the schema's `const`, the
-// native compiler's refusal, the project the editor makes for a new game) is
+// native compiler's refusal, and starter projects) is
 // pinned to this one by `test.mjs`, which the gate runs. JSON Schema and C++
 // cannot import a JavaScript module, so the copies exist; what must not exist
 // is a copy that has drifted.
 //
 // ## Why here and not in the engine
 //
-// The editor's load path is pure TypeScript and reaches no WebAssembly: a
-// project is parsed, validated by the generated Ajv validator, and handed to a
-// session, none of which waits for the simulation module to instantiate. A
-// migration in C++ would be unavailable at exactly the moment it is needed. The
-// native compiler keeps refusing anything that is not current, and names what
-// it found, what it wants, and how to bring the file up.
+// Keeping the migration plan beside the source schema makes it usable before a
+// project is compiled. The native compiler continues to refuse anything that
+// is not current and names what it found and what it wants.
 
 /** The first version of the authoring source format. */
 export const FIRST_SOURCE_VERSION = "1.0.0";

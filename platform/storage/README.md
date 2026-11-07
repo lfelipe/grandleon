@@ -96,7 +96,7 @@ There are no directories, no paths, no handles, no seeking, no partial reads,
 and no timestamps. That is not minimalism for its own sake; it is the
 intersection of the targets. A Nintendo 64 has EEPROM of 512 or 2,048
 bytes addressed in sixty-four-bit blocks, or a byte-wide battery-backed SRAM window.
-A browser has a key-value store whose values are strings. "A short name, a blob,
+A simple object store has string keys and whole values. "A short name, a blob,
 all of it at once" is what all of those can do, so that is the interface. The
 desktop adapter is the one that gives something up, rather than the consoles
 inventing something they do not have.
@@ -131,26 +131,6 @@ not a contract:
 its final file leaves a truncated save behind if the process dies mid-write, and
 the player finds out the next time they load. The rename means the slot holds
 the old save or the new one and never half of each.
-
-## The browser, which keeps bytes on a later turn
-
-A browser has durable storage and cannot answer within the call. IndexedDB
-resolves on a subsequent turn of the event loop; `campaign::save_campaign`
-returns on this one. So there is no browser adapter here, and there should not
-be one: a device that waited for the browser would have to suspend the whole
-WebAssembly module in the middle of a save.
-
-The browser uses `MemorySlotStorage` instead, with the *caller* moving the
-bytes. That is the target-without-a-device case this interface was written to
-cover. `platform/web` exposes three entry points over its module-level device
-(read a slot, replace one, forget one), and the editor mirrors a slot into
-IndexedDB after each save the session makes and puts it back before a session
-begins. The session is unchanged and unaware; it writes an envelope to a
-`SlotStorage`, as it does on a desktop and on a cartridge.
-
-The lesson for a future adapter is the general one: a host whose store cannot
-complete inside the call does not get a new interface, it gets a mirror outside
-the session. `platform/web/README.md` states it from the other side.
 
 ## The budget
 

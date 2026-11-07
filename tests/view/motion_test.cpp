@@ -5,7 +5,7 @@
 // that ends a pixel short, a route that cuts a corner through a river, a pulse
 // whose phase drifts, all look approximately right on a console and none of
 // them can be reviewed from a screenshot. So the arithmetic is pinned here, on
-// the host, with no console and no browser in the loop, and the renderers own
+// the host, with no console or window in the loop, and the renderers own
 // only the blitting.
 //
 // Two properties are asserted rather than assumed, because every console check

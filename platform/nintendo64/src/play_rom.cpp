@@ -2131,7 +2131,7 @@ public:
     // levels and every consequence of a battle arrive from the session exactly
     // as `campaign_runtime` derived them, and this file arranges them into
     // pixels. That is the same division the board already keeps, and it is why
-    // the terminal, the browser and this console can never disagree about what
+    // the terminal, Godot and this console can never disagree about what
     // a campaign holds.
     // -----------------------------------------------------------------------
 

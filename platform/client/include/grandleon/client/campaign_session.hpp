@@ -750,10 +750,9 @@ private:
 // so that whoever owns the loop can be somebody else: found or resume, stand on
 // a node, prepare a board through the roster, play, derive, commit, save, walk
 // the edge. A terminal front end owns its own loop and calls
-// `run_persistent_campaign`, which is a thin driver over this. A browser cannot
-// own a blocking loop at all: its battle is a sequence of clicks arriving over
-// many event-loop turns, and it must be able to leave a battle and come back to
-// an authoring surface. Both drive the identical steps, which is the point: a
+// `run_persistent_campaign`, which is a thin driver over this. A graphical
+// client advances the session over many input and drawing frames and may leave
+// a battle for an authoring surface. Both drive identical steps, which is the point: a
 // campaign fact is derived once, in C++, and read by every client.
 //
 // The session derives nothing itself. Every number it hands out came from

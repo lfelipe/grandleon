@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
-// The board's presentation model: the arithmetic three renderers would
-// otherwise write three times.
+// The board's presentation model: arithmetic every renderer would otherwise
+// rewrite.
 //
 // Everything here is pure arithmetic over integers. There is no libdragon, no
 // SDL, no engine header and no allocation, deliberately: the host test suite
 // compiles this file and pins the projection, the ordering and the autotile
 // lookup, so the parts of drawing that can silently go wrong are verified off
-// the console and out of the browser. `camera.h` proved the idea; this is the
+// the console and outside a window. `camera.h` proved the idea; this is the
 // rest of it.
 //
-// It sits above the three renderers and below the presenter seam. Nothing in
+// It sits above the renderers and below the presenter seam. Nothing in
 // platform/client knows it exists, and nothing here is canonical state: an
 // elevation, a depth key and a pixel rectangle are drawing concerns, they
 // never enter a snapshot and they are never hashed.

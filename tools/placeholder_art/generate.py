@@ -10,8 +10,7 @@ Usage::
 
 The default run rewrites ``assets/``, ``gallery/``, ``GALLERY.md`` and
 ``ROSTER.md`` in this folder. ``--check`` regenerates into a temporary directory and fails if a
-single byte differs from what is committed, mirroring the drift gate in
-``editor/scripts/generate-source-types.mjs``.
+single byte differs from what is committed.
 
 Both runs first read ``art/provided/`` at the repository root: art somebody
 else drew, which stands in for a generated asset key by key. That tree is an

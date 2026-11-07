@@ -241,16 +241,13 @@ consequence of a battle rather than a second kind of thing.
 - `platform/playstation`: through `src/turn_client.cpp` below, which is *one*
   presenter a console compiles, and the host tool that derives that console's
   expected behaviour by replaying the same intents against the real engine.
-- `platform/web`: the editor's Play mode, which links
-  `grandleon_client_campaign` and drives `CampaignSession` step by step across
-  the WebAssembly ABI.
+- `platform/godot`: the creator's Play mode and the main PC player.
 
-The browser is the reason `CampaignSession` exists as an object: a terminal
-owns its loop and calls `run_persistent_campaign`, a browser's battle is
-clicks over many event-loop turns, so the sequence is a re-entrant object
-and `run_persistent_campaign` is a thin driver over it. One thing genuinely
-differs: where boards come from. A compiled game loads them out of a
-package; an authoring session plays content that was never compiled.
+`CampaignSession` is re-entrant so a graphical front end can advance it over
+many input and drawing frames; `run_persistent_campaign` is a thin synchronous
+driver over the same sequence. One thing genuinely differs between clients:
+where boards come from. A compiled game loads them out of a package; an
+authoring session may play content before a player-only export exists.
 `CampaignBoards` is that one seam, `PackageBoards` the answer every client
 with a package uses, and everything above it (founding, exclusion, growth,
 drops, the commit, the envelope) is one implementation.

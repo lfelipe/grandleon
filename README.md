@@ -69,8 +69,8 @@ thirteen terrain kinds. Its seven directions are sci-fi, mythical, medieval,
 nature, Sengoku, Undead, and Pirates. Each has male and female designs for every
 archetype. Either body can wear any of the six faction colours without
 recolouring faces, hair, equipment, or effects. A separate lower-resolution
-pixel library covers the same combinations for browser-compatible editor
-previews; console exports require the curated sheets shown here.
+pixel library supplies shared previews and interface art; console exports
+require the curated sheets shown here.
 
 ![Examples of Grandleon's seven art themes and eight unit roles](docs/screenshots/art-roster/readme-art-sampler.png)
 
@@ -136,7 +136,7 @@ rest of the documentation describes the current Godot application.
 
 | Version | Focus |
 |---|---|
-| **0.1** | Portable foundation. Established readable project source, deterministic tactical rules, browser authoring, and working terminal, Nintendo 64, PlayStation, and web presentations. |
+| **0.1** | Portable foundation. Established readable project source, deterministic tactical rules, an early creator, and working terminal and console presentations. |
 | **0.2** | Complete campaign runtime. Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3** | Godot player and creator. Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
 | **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and uses one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. |
@@ -190,7 +190,7 @@ credentials, controller identities, or local settings.
 Projects exported by Grandleon 0.2 or 0.3 remain compatible with the 0.4
 release. Export a `.grandleon.zip` from the earlier editor and
 import it from the Godot Projects screen. Grandleon migrates the authored source
-before validating it; project assets transfer, while browser-local recovery data
+before validating it; project assets transfer, while local recovery data
 and playtest progress do not.
 
 > **Back up projects while the editor evolves.** We still plan to do heavy work

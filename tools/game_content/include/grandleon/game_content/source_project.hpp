@@ -13,10 +13,8 @@ namespace grandleon::game_content {
 //
 // It refuses every other version rather than migrating between them, and that
 // is deliberate. Bringing an out-of-date project up is a thing an author does
-// once, to a file they then keep. It belongs where the author is, which is the
-// editor, and the editor's load path is pure TypeScript that reaches no
-// WebAssembly. A migration living here would be unavailable at the moment it is
-// needed and duplicated at the moment it is not. So this end names the version
+// once, to a file they then keep. It belongs in the authoring workflow rather
+// than a compiler that deliberately accepts only the current contract. So this end names the version
 // it found, the version it wants, and the command that closes the gap;
 // `tools/source_schema/migration.mjs` is the other end, and
 // `tools/source_schema/test.mjs` pins this string to it.

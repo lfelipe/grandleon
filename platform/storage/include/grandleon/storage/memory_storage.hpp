@@ -12,7 +12,7 @@
 // Two jobs. It is the reference implementation, the one the contract tests
 // pin the meaning of every error against, so that a device adapter has
 // something to be wrong compared to. And it is the storage a target without a
-// device uses: a browser tab before persistence is granted, a headless test, a
+// device uses: an authoring preview, a headless test, a
 // console emulator with no memory card in the port. A game that saves into it
 // works exactly as it does anywhere else and forgets everything on exit, which
 // is a better answer than a save path that only exists on some platforms.

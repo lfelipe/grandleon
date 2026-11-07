@@ -1,6 +1,6 @@
 # Coding Grandleon
 
-This document is for contributors working on the engine, editor, schemas,
+This document is for contributors working on the engine, Godot application, schemas,
 package tools, platform adapters, or project documentation. The root
 [README.md](README.md) is intentionally written for people developing games, and
 [CONTRIBUTING.md](CONTRIBUTING.md) says how to propose a change and under what
@@ -26,14 +26,12 @@ at a green gate.
 | Clang | any C++17-capable | second `-Werror` leg of the gate; warning sets differ from GCC and each catches what the other misses |
 | SDL2 development headers | 2.x (`libsdl2-dev`) | optional; the desktop client's windowed presenter, `grandleon_play --sdl`. Without it `grandleon_play` builds and plays in the terminal, and the only host lane that disappears is `grandleon.sdl_presenter`. The gate compiles that configuration so it stays true |
 | ccache | any | optional; used automatically when present, so the gate's second cold build of an unchanged file is a lookup. Absent, everything builds identically and more slowly |
-| Node.js | 22.12 or newer | editor, schema tooling |
-| Python3 | any, with `venv` (`python3`, `python3-venv`) | the placeholder-art virtual environment `scripts/setup.sh` builds, the art and board-asset staleness legs, and `scripts/check_links.py`, which needs the interpreter alone |
-| Container runtime | any Docker-compatible | WebAssembly, Nintendo 64, and PlayStation builds (§Reproducible toolchains) |
-| Chromium via Playwright | pinned by `editor/package-lock.json` | real-browser verification |
+| Node.js | 22.12 or newer | schema tooling |
+| Python3 | any, with `venv` (`python3`, `python3-venv`) | art generation and documentation checks |
+| Container runtime | any Docker-compatible | Nintendo 64 and PlayStation builds (§Reproducible toolchains) |
 
-The last two are pinned rather than "whatever is installed", because their
-output is checked in or gates a release-shaped behaviour. See **Reproducible
-toolchains** below before installing either by hand.
+Console toolchains are pinned rather than taken from the host. See
+**Reproducible toolchains** below.
 
 ## Build and test
 
@@ -46,12 +44,10 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-`scripts/setup.sh` installs both Node dependency trees (`editor` and
-`tools/source_schema`, which are separate and the second of which is the one
-people forget), the pinned Chromium, and the placeholder-art virtual
-environment. It is safe to re-run, it reports what is already in place rather
-than redoing it, and `scripts/setup.sh --check` reports what is missing without
-changing anything. What it deliberately leaves alone is the container
+`scripts/setup.sh` installs the source-schema dependencies and placeholder-art
+virtual environment. It is safe to re-run, reports what is already in place,
+and `scripts/setup.sh --check` reports what is missing without changing
+anything. It deliberately leaves alone the container
 toolchains of **Reproducible toolchains** below: those are pinned by digest,
 pulled or built by their own targets on first use, and cost minutes rather than
 seconds, so preparing them eagerly would tax every change that never touches a
@@ -74,17 +70,14 @@ compiler's output is exactly what stops a hit from being a hit.
 The gate every change has to pass, in one command:
 
 ```sh
-scripts/local-ci.sh --preview-port 4521
+scripts/local-ci.sh
 ```
 
-It clones HEAD into a temporary directory and runs, in order: both native legs
-under `-Werror`, the desktop client built without SDL2, the editor's production
-build, typecheck and unit tests, the real-browser suite, the development server
-in a real browser, the startup, deployment
-and offline smoke tests, the ROM build service's refusal paths, the staleness
-checks over the generated art, the editor's board assets and the WebAssembly module, the provided-art
-refusal battery, `scripts/check_links.py`, and `git diff --check`. Run it
-before every push, and give it a preview port nobody else is using.
+It clones HEAD into a temporary directory and runs both native legs under
+`-Werror`, the desktop client without SDL2, the ROM builder's refusal paths,
+art and provided-art checks, console checks when their toolchains are
+available, documentation links, and whitespace checks. Run it before every
+push.
 
 It is a clone of HEAD, so uncommitted work is not in it. Commit before you run
 it.
@@ -95,8 +88,6 @@ The pieces it is made of, if you need one on its own:
 cmake -S . -B build -DGRANDLEON_BUILD_TESTS=ON -DGRANDLEON_WERROR=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
-npm run --prefix editor typecheck
-npm test --prefix editor
 git diff --check
 ```
 
@@ -123,12 +114,9 @@ expectations.
 
 ### Worktrees
 
-A `git worktree` starts with none of the above, and two pieces of it are
-expensive to obtain a second time: Chromium is about 650 MB, and the
-placeholder-art environment is a pinned Pillow build. `scripts/setup.sh`
-borrows both from the primary checkout by symlink instead of fetching them
-again; their versions are pinned by lockfiles, not by the checkout they sit in,
-so a fresh worktree reaches the gate in seconds:
+A `git worktree` starts with none of the above. The placeholder-art environment
+is expensive enough that `scripts/setup.sh` borrows it from the primary
+checkout by symlink rather than building it again:
 
 ```sh
 git worktree add ../grandleon-topic -b topic
@@ -136,16 +124,8 @@ cd ../grandleon-topic
 scripts/setup.sh
 ```
 
-Parallel worktrees must not share the browser suite's preview port: it refuses
-to reuse a server it did not start, so two runs on one port collide rather than
-quietly photographing each other's build. Pass your own:
-
-```sh
-scripts/local-ci.sh --preview-port 4531
-```
-
 `scripts/local-ci.sh` also runs from a worktree that has not been set up,
-borrowing the same two artefacts directly.
+borrowing that environment directly.
 
 Verification runs locally, under both GCC and Clang with `-DGRANDLEON_WERROR=ON`.
 Both legs matter: the two compilers catch different things, and Clang's
@@ -185,42 +165,26 @@ to, so the first run is slow; where no runtime is installed they are skipped and
 the run names what it did not verify.
 
 ```sh
-scripts/local-ci.sh --preview-port 4531                 # everything available
-scripts/local-ci.sh --preview-port 4531 --no-consoles   # the host gate alone
-scripts/local-ci.sh --preview-port 4531 --n64           # only the N64 of the two
-scripts/local-ci.sh --preview-port 4531 --playstation   # only the PlayStation
+scripts/local-ci.sh                     # everything available
+scripts/local-ci.sh --no-consoles       # the host gate alone
+scripts/local-ci.sh --n64               # only the N64 of the two
+scripts/local-ci.sh --playstation       # only the PlayStation
 ```
 
 ## Reproducible toolchains
 
-Five parts of the build deliberately do not use host tooling, because their
+The two console builds deliberately do not use host tooling, because their
 output is either committed to the repository or is the only place a
 release-shaped failure can appear. All of them install into the checkout and are
 gitignored, so nothing lands outside the repository and nothing needs `sudo`.
-
-### WebAssembly (pinned container)
-
-The engine's browser build runs inside `emscripten/emsdk:4.0.23`, whose digest
-is verified before every build. Nothing needs installing by hand; the target
-pulls the image on first use:
-
-```sh
-cmake --build build --target grandleon_wasm        # rebuild the module
-cmake --build build --target grandleon_wasm_check  # fail if it is stale
-```
-
-Artifacts land in the gitignored `build-wasm/`. The compiled module is packed
-into `editor/src/generated/simulation-module.ts`, which **is** committed, so the
-editor builds and tests without a container. Full detail, including the ABI, is
-in [platform/web/README.md](platform/web/README.md).
 
 ### Nintendo 64 (pinned container)
 
 The console build runs inside a container built from
 `platform/nintendo64/Containerfile`, which pins the published libdragon
 toolchain image by digest and installs one pinned libdragon commit on top of it.
-The published image carries the cross compiler only, so unlike Emscripten there
-is nothing ready-made to pull:
+The published image carries the cross compiler only, so the project builds its
+pinned layer on first use:
 
 ```sh
 cmake --build build --target grandleon_n64            # build the ROM
@@ -287,8 +251,7 @@ emulator.
 Configure with `-DGRANDLEON_N64_TESTS=ON` to add these runs to `ctest` as
 `grandleon.nintendo64`, `grandleon.nintendo64_play`,
 `grandleon.nintendo64_autopilot`, `grandleon.nintendo64_campaign`,
-`grandleon.nintendo64_editor_rom` and `grandleon.nintendo64_other_game`; they
-are off by default because they build a cross toolchain and an emulator from
+`grandleon.nintendo64_other_game`; they are off by default because they build a cross toolchain and an emulator from
 source on first use. Full detail, including why ares is the authoritative
 emulator, is in
 [platform/nintendo64/README.md](platform/nintendo64/README.md).
@@ -346,79 +309,26 @@ prebuilt libraries are built for a later ISA and the R3000A's response to an
 instruction it does not implement is a wrong answer rather than a crash. Full
 detail is in [platform/playstation/README.md](platform/playstation/README.md).
 
-### Real-browser verification (Playwright)
-
-Chromium is the only engine that enforces a Content Security Policy against
-WebAssembly compilation, so it is the only place a CSP regression is
-observable. The `happy-dom` suites structurally cannot see one. It installs
-into the gitignored `.playwright-browsers/` at the repository root, which
-`scripts/setup.sh` does for you. By hand it is:
-
-```sh
-npm ci --prefix editor
-PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" \
-  npx --prefix editor playwright install chromium
-```
-
-`editor/playwright.config.ts` defaults `PLAYWRIGHT_BROWSERS_PATH` to that
-directory, so after the one-time install the suite needs no environment:
-
-```sh
-npm run --prefix editor test:browser
-```
-
-It builds the production bundle and serves it through `vite preview`, so the
-browser sees the same CSP, bundling, and embedded WebAssembly module a
-deployment does. Add `--with-deps` to the install command on a bare CI machine
-to pull Chromium's system libraries; that one needs root and is why it is not
-part of the local instructions.
-
 ### Whole environment (dev container)
 
-`.devcontainer/` pins the host toolchain (compilers, CMake, Node, and
-Chromium's shared libraries) for contributors who would rather not install
-them. It mounts the host container runtime's socket so the Emscripten build
-still works from inside; see
-[.devcontainer/README.md](.devcontainer/README.md) for that trade-off. The dev
-container is a convenience, not the definition of the build: the gate runs on
-a plain machine with the versions in the table above.
-
-The editor’s focused commands are:
-
-```sh
-npm run --prefix editor typecheck
-npm test --prefix editor
-npm run --prefix editor build
-npm run --prefix editor test:startup
-npm run --prefix editor test:deployment
-npm run --prefix editor test:offline
-npm run --prefix editor test:browser
-npm run --prefix editor test:dev
-```
-
-`test:browser` and `test:dev` need the one-time Chromium install described
-above; the others do not. `test:dev` is the only one that loads the development
-server rather than a production build, which is the difference between a page
-whose stylesheets are bundled files and one whose stylesheets are inline
-elements a Content Security Policy can refuse. `editor/README.md` has the
-detail.
-
-`npm run --prefix editor preview` serves the built editor, which is what the
-browser suite drives; both it and `dev` take `-- --port N`.
+`.devcontainer/` pins the host toolchain for contributors who would rather not
+install it. It mounts the host container runtime's socket for console builds;
+see [.devcontainer/README.md](.devcontainer/README.md) for that trade-off. The
+dev container is a convenience, not the definition of the build.
 
 Before submitting a change, run the complete applicable gate and
 `git diff --check`.
 
 ## Module documentation
 
-Every module under `engine/`, `platform/`, `tools/`, `games/` and `editor/`
+Every module under `engine/`, `platform/`, `tools/` and `games/`
 carries its own README describing what it owns. The ones a contributor reaches
 for first:
 
 - [engine/core/README.md](engine/core/README.md) describes the substrate:
   version, content identity, and the deterministic random stream.
 - [engine/simulation/README.md](engine/simulation/README.md) describes the
-  deterministic encounter contract and browser/native conformance.
+  deterministic encounter contract.
 - [engine/tactics/README.md](engine/tactics/README.md) describes how a unit
   nobody is steering chooses a command, and why that is policy rather than
   rules.
@@ -437,8 +347,6 @@ for first:
   display-name table both console action menus read.
 - [platform/desktop/README.md](platform/desktop/README.md) describes the
   desktop client and the presenter seam its front ends share.
-- [platform/web/README.md](platform/web/README.md) describes the pinned
-  Emscripten toolchain and the WebAssembly binding surface.
 - [platform/nintendo64/README.md](platform/nintendo64/README.md) describes the
   pinned libdragon toolchain and the console conformance ROM.
 - [platform/playstation/README.md](platform/playstation/README.md) describes the
@@ -452,8 +360,6 @@ for first:
   the art generator, its output profiles, and its reproducibility check.
 - [tools/package_check/README.md](tools/package_check/README.md) describes the
   container-only validator for a compiled `.gpk`.
-- [editor/README.md](editor/README.md) describes the web compatibility client
-  and its checks.
 
 ## Architectural invariants
 
@@ -482,28 +388,16 @@ a read-only query (reachability, the danger zone, the tiles an aimed gesture
 may land on), every client draws that query's own tiles in that query's own
 order. A client may decide whether to show an answer; it may not decide what
 the answer is. A platform boundary carries the query rather than obliging a
-client to copy the rule across it, which is why the WebAssembly ABI exposes the
-queries instead of hiding a TypeScript reimplementation behind them. Spelling a
-predicate out again is the same mistake in miniature: who is standing on the
+client to copy the rule. Spelling a predicate out again is the same mistake in miniature: who is standing on the
 board is `simulation::on_board`, never `health > 0`. `engine/tactics` is under
 the rule too: a behaviour policy may choose among the moves the rules allow,
 and asks the simulation what the ground allows rather than keeping its own
 answer.
 
-**A rule the simulation applies but exposes no query for gets exactly one
-client copy, pinned to the engine by an agreement test.** The Manhattan reach
-band and the Manhattan area of impact are the worked example, and the shape of
-the answer is the lesson. A board being played derives neither: the engine
-answers both (`gesture_available`, `aimable_tiles`, `area_tiles`), so nothing
-on the play path computes a tile at all, and a board can never light a square
-the engine will refuse. What is left is the surface that has no encounter to
-ask, a shape picker drawing a shape and a radius before there is a caster or a
-board, and it holds the rule exactly once
-(`editor/src/domain/targeting-geometry.ts`). Its tests derive the expected
-answer from the running engine (apply commands, observe what it accepts,
-refuses and affects) rather than from what the author of the copy believed the
-rule was. A second surface computing a band for itself is precisely the failure
-those tests exist to catch.
+**A design preview that has no encounter to query is pinned to the engine by an
+agreement test.** Its expected results come from applying commands to the
+running engine and observing what it accepts, refuses, and affects, not from a
+second hand-written interpretation of the rule.
 
 **A refusal crosses a binding as a name, not as a number.** A binding carries
 the refusing layer's own word for the refusal, read out of the module that
@@ -567,7 +461,7 @@ elapsed time, or interpolates against a refresh rate, so one sequence of
 presses produces one sequence of frames on every run and every emulator. The
 model links no rendering SDK, no engine module and no host tooling, and
 allocates nothing, which is what lets a console animate without a heap and the
-whole of it be tested with no console, window or browser in the loop.
+whole of it be tested without launching a console or window.
 
 **A drawn route comes from the reachability query.** Every tile a token is
 drawn standing on is a tile that query returned, and the route is no longer
@@ -666,17 +560,10 @@ behind the drawing and console rules above.
 
 ## Contract drift gates
 
-The editor build regenerates canonical source-schema TypeScript contracts in
-check mode and fails when committed output is stale. The command-line source
-validator and browser analyzer run against the same conformance fixtures and
-compare stable diagnostic code/path pairs.
-
-The editor's playtest and Play mode run the authoritative portable C++
-simulation compiled to WebAssembly, not a JavaScript reimplementation of it. The
-compiled module is checked in at `editor/src/generated/simulation-module.ts` and
-is rebuilt inside a pinned Emscripten SDK container; the gate fails when the
-checked-in copy is not what that toolchain produces. See
-[platform/web/README.md](platform/web/README.md).
+The command-line source validator, native compiler, Godot creator, and runtime
+must agree on the canonical source schema and stable diagnostic paths. Godot
+playtests use the same compiled campaign and authoritative C++ simulation as a
+normal game, not a second editor-only implementation.
 
 Every new authorable feature must update the source schema, compatibility rules,
 shared validation, editor coverage, transactional commands, fixtures, runtime
@@ -686,19 +573,17 @@ mapping, public documentation, and applicable conformance tests.
 
 ```text
 engine/       core, simulation, tactics, package format, and package runtime
-platform/     the shared client session and presenter seam, the board
-              presentation model every renderer shares, and the adapters:
-              SDL and terminal, web, libdragon, Nugget
+platform/     Godot, desktop, Nintendo 64, PlayStation, and their shared client,
+              storage, sheet, and presentation models
 tools/        source validation, package compilation, package checking,
               and the placeholder-art generator
-editor/       local-first web authoring application
 games/
   template/   reusable separately built game skeleton
   demo/       maintained two-team vertical slice, and the conformance reference
   tarnholt/   the larger sample campaign: six maps, abilities, branching flow
 schemas/      the canonical source schema, version 1
 tests/        cross-module and repository-level tests
-cmake/        the opt-in console and WebAssembly target definitions
+cmake/        the opt-in console target definitions
 scripts/      setup, the local gate, and README screenshot generation
 docs/         evaluations, measurements, and decisions
 ```

@@ -117,7 +117,7 @@
 //
 // ## Untrusted input
 //
-// Save bytes come from a filesystem, a memory card, or a browser's local
+// Save bytes come from a filesystem, a memory card, or other local
 // storage, and none of those is a promise. Every count and every length is
 // checked against the bytes that remain *and* against a hard cap from
 // `SaveLimits` before anything is reserved or resized, exactly as

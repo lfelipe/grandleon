@@ -1190,23 +1190,8 @@ assert.ok(
     );
   }
 
-  // The editor is not on that list because it does not restate the version at
-  // all: it imports this registry. That is the better answer wherever a site
-  // can reach a module, and it is checked where it can be run rather than
-  // read: `editor/src/domain/source-migration.test.ts` asserts that the project
-  // a new game starts from declares exactly `CURRENT_SOURCE_VERSION`. What is
-  // pinned here is only what cannot import: a JSON schema, a C++ constant, and
-  // two authored files.
-  for (const editorFile of [
-    "../../editor/src/domain/source-project-document.ts",
-    "../../editor/src/analysis/source-analysis.ts"
-  ]) {
-    assert.ok(
-      read(editorFile).includes("CURRENT_SOURCE_VERSION"),
-      `${editorFile} must ask the registry for the version rather than write `
-        + "it again; a literal here is a site this check cannot see drift in"
-    );
-  }
+  // These are the sites that cannot import the registry directly: a JSON
+  // schema, a C++ constant, and the authored sample projects.
 }
 
 {

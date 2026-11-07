@@ -6,7 +6,7 @@
 //
 // Left to themselves, clients say different amounts about a character: a
 // six-row panel that follows the cursor on one, a status line on another, a
-// sentence in the browser. None of those is the sheet the genre means by
+// sentence in a popup. None of those is the sheet the genre means by
 // "info": the numbers a player consults *before* committing, deliberately,
 // rather than glimpses at while steering.
 //

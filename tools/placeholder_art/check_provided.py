@@ -316,7 +316,7 @@ def check_end_to_end() -> None:
     This is the half of the claim that cannot be argued: a replacement has to
     *appear*. One build with nothing provided is the ground the other is
     compared against. The assertions are made against the generated modern
-    profile consumed by the browser-compatible editor.
+    profile consumed by the Godot and shared presentation builds.
     """
     with tempfile.TemporaryDirectory(prefix="provided-e2e-") as scratch:
         base = Path(scratch)

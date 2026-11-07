@@ -67,8 +67,8 @@ console renderer moving from the full tactical board toward that battle.
 The remaining images come from the checks that exercise the matching runtime:
 
 ```sh
-scripts/readme-screenshots.sh          # rebuild all six diagnostic captures
-scripts/readme-screenshots.sh terminal # or one named capture
+scripts/readme-screenshots.sh           # rebuild all five diagnostic captures
+scripts/readme-screenshots.sh autopilot # or one named capture
 ```
 
 | File | Source |
@@ -78,7 +78,6 @@ scripts/readme-screenshots.sh terminal # or one named capture
 | `native-guide/*.gif` | the visual creator walkthrough, captured under Xvfb |
 | `art-roster/*.gif` | the committed 4×2 character sheets |
 | `art-roster/readme-art-sampler.png` | a compact sample of the seven themes and eight roles |
-| `terminal.png` | the real terminal client's ANSI output, rendered by Chromium |
 | `renderer-comparison.gif` | the shared Godot, Nintendo 64, and PlayStation battle timeline for the README |
 | `nintendo64-console-renderer.gif` | the current Nintendo 64 tactical scene and battle focus |
 | `playstation-console-renderer.gif` | the current PlayStation tactical scene and battle focus |

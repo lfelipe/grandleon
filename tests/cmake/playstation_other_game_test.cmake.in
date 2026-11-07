@@ -10,8 +10,8 @@
 # `games/demo`. A build that quietly kept naming one of them would satisfy
 # every host check there is.
 #
-# So: build a third game through the *export path*, the same POST-poll-collect
-# the editor uses, boot the disc it produced in the pinned emulator through the
+# So: build a third game through the same platform scripts the installed Godot
+# builder payload uses, boot the disc in the pinned emulator through the
 # drive rather than with `-loadexe`, and require the machine's own words to name
 # that game's campaign and title and neither shipped one's.
 #
@@ -33,6 +33,10 @@ set(build_dir "@GRANDLEON_PLAYSTATION_BUILD_DIR@")
 set(work "${build_dir}/other-game")
 file(REMOVE_RECURSE "${work}")
 file(MAKE_DIRECTORY "${work}")
+set(export_build_dir "${work}/build")
+set(ENV{GRANDLEON_PLAYSTATION_BUILD_DIR} "${export_build_dir}")
+set(ENV{GRANDLEON_PLAYSTATION_DISC_NAME} "longford")
+set(ENV{GRANDLEON_PLAYSTATION_DISC_VOLUME} "THE_LONG_FORD")
 
 # The third game, made here rather than checked in.
 #
@@ -66,28 +70,31 @@ foreach(shipped tarnholt demo)
     list(APPEND shipped_campaigns "${campaign}")
 endforeach()
 
-# Nothing here says where the build happens, and nothing here should: the
-# service stages every request under `build-playstation/requests/<job>/` of its
-# own accord, which is already not the tree the other PlayStation lanes share,
-# and it drops that tree when the files have been written out.
 execute_process(
-    COMMAND node "${source_root}/tools/rom_service/build-rom.mjs"
-            --console playstation
-            "${work}/project.json"
-            "${work}/disc"
+    COMMAND "${source_root}/platform/playstation/scripts/build-playstation.sh"
+            --project "${work}/project.json"
+            --targets grandleon_playstation_campaign
     WORKING_DIRECTORY "${source_root}"
     RESULT_VARIABLE build_result
 )
 if(NOT build_result EQUAL 0)
-    message(FATAL_ERROR "the export path could not build the other game's disc")
+    message(FATAL_ERROR "the export path could not build the other game")
+endif()
+execute_process(
+    COMMAND "${source_root}/platform/playstation/scripts/build-disc.sh"
+    WORKING_DIRECTORY "${source_root}"
+    RESULT_VARIABLE disc_result
+)
+if(NOT disc_result EQUAL 0)
+    message(FATAL_ERROR "the export path could not create the other game's disc")
 endif()
 
 # Both files, and the cue is what the emulator is handed, because the cue is
 # the disc and the bin is one track of it. It is also the file a burning
 # program is given, so pointing the emulator at it means the emulator read the
 # thing that would be burned.
-file(GLOB other_cues "${work}/disc/*.cue")
-file(GLOB other_bins "${work}/disc/*.bin")
+file(GLOB other_cues "${export_build_dir}/disc/*.cue")
+file(GLOB other_bins "${export_build_dir}/disc/*.bin")
 list(LENGTH other_cues other_cue_count)
 list(LENGTH other_bins other_bin_count)
 if(NOT other_cue_count EQUAL 1 OR NOT other_bin_count EQUAL 1)
@@ -145,7 +152,7 @@ execute_process(
             --name "${container}"
             --user "${user_id}:${group_id}"
             --env HOME=/tmp
-            --volume "${work}/disc:/disc:ro"
+            --volume "${export_build_dir}/disc:/disc:ro"
             --workdir /tmp
             "${emulator}"
             stdbuf -oL -eL pcsx-redux -no-ui -run -softgpu

@@ -501,11 +501,9 @@ class Parrot(Archetype):
     is a shape nothing else in any style holds.
 
     It is drawn standing rather than flying, and that is a rule rather than a
-    preference. Flight is a *movement capability* the catalogue grants exactly
-    one entry (`editor/src/domain/character-recipe.ts`, `TRAVERSING_ENTRY`), and
-    a beast whose picture flies while its record walks would be a promise the
-    numbers do not keep. Numbers belong to the role; names and pictures belong
-    to the setting.
+    preference. Flight is an authored movement capability, and a beast whose
+    picture flies while its record walks would be a promise the numbers do not
+    keep. Numbers belong to the role; names and pictures belong to the setting.
     """
 
     name = "beast"

@@ -15,8 +15,8 @@ returns fixed lines of text.
 ## Why it is not a panel per client
 
 Left to themselves, clients say different amounts about a character: six rows
-that follow the cursor on one, a status line on another, a sentence in the
-browser. Each decides for itself which of a character's numbers are worth
+that follow the cursor on one, a status line on another, a sentence in a
+popup. Each decides for itself which of a character's numbers are worth
 saying. That is how a client comes to disagree with the rules about what a
 character is: not by computing something wrong, but by quietly never mentioning
 the stat that decided the last fight.
@@ -68,8 +68,8 @@ The three stat lines are groups rather than a wrap, and each answers one
 question: what a character can spend this turn (`HP AP MOV SPD`), what it deals
 and what it takes (`STR DEF RES MAG`), and whether a blow lands either way
 (`SKL LCK EVA`). Four labels is the widest line; a fifth stat on a line splits
-the line rather than shortening the words. Browser Play has no pixel budget and
-still draws the same three groups in the same order, with the words spelled out.
+the line rather than shortening the words. Godot has no comparable pixel budget
+and still draws the same three groups in the same order, with the words spelled out.
 
 Reach is not among them, and deliberately. A character's reach is a property of
 what they are holding rather than of the character, so it is stated once per

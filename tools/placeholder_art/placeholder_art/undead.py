@@ -93,10 +93,9 @@ hang at rows 14 to 21, well above it.
 
 Nothing floats but the drawing
 ------------------------------
-The wraith has no legs and clears its own faction disc by three rows. It is still
-a ``mage`` that walks: ``RoleDress.traversal`` in
-``editor/src/domain/character-recipe.ts`` is a fence with exactly one occupant,
-the Dragon, and a picture is a name rather than a number.
+The wraith has no legs and clears its own faction disc by three rows. Its
+picture does not silently grant flight: movement belongs to the authored class,
+not the silhouette.
 """
 
 from __future__ import annotations

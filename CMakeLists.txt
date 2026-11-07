@@ -420,11 +420,6 @@ target_compile_options(grandleon_game_content PRIVATE ${GRANDLEON_WARNING_FLAGS}
 # The command-line tools and the installed SDK are host concerns. A cross build
 # compiles the engine libraries, the content compiler, and its own platform
 # adapter only.
-if(EMSCRIPTEN)
-    add_subdirectory(platform/web)
-    return()
-endif()
-
 if(GRANDLEON_N64)
     add_subdirectory(platform/nintendo64)
     return()
@@ -435,7 +430,6 @@ if(GRANDLEON_PLAYSTATION)
     return()
 endif()
 
-include(cmake/GrandleonWebAssembly.cmake)
 include(cmake/GrandleonNintendo64.cmake)
 include(cmake/GrandleonPlayStation.cmake)
 

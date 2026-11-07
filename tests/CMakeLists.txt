@@ -376,10 +376,9 @@ add_test(
     COMMAND grandleon_n64_campaign_expectation_tests
 )
 
-# Every board the shipped campaign fights, as the compiler builds it, so that
-# the browser's own build of the same six can be held to it. The four that were
-# never pinned are the ones carrying what the engine has grown since; the first
-# thing this caught was that the browser could not build the last Stage at all.
+# Every board the shipped campaign fights, as the compiler builds it, so every
+# authoring path can be held to the same six. The four that were never pinned
+# are the ones carrying what the engine has grown since.
 add_executable(grandleon_tarnholt_boards_tests
     game_content/tarnholt_boards_test.cpp
 )
@@ -888,8 +887,7 @@ add_test(
 # The board's presentation model: the camera, the elevation-offset
 # projection, the autotile lookup and the depth-ordered draw list every
 # renderer shares. Pure arithmetic, so the whole of it is checked here rather
-# than three times over inside three renderers that need a console, a window
-# or a browser to say anything.
+# inside renderers that need a console or window to say anything.
 add_executable(grandleon_view_camera_tests
     view/camera_test.cpp
 )
@@ -1017,25 +1015,6 @@ target_link_libraries(
     PRIVATE grandleon::tactics
 )
 add_test(NAME grandleon.tactics COMMAND grandleon_tactics_tests)
-
-# The WebAssembly binding surface, compiled for the host and driven through
-# the same exported functions the browser calls.
-add_executable(grandleon_abi_tests
-    abi/simulation_abi_test.cpp
-    "${PROJECT_SOURCE_DIR}/platform/web/src/simulation_abi.cpp"
-)
-target_link_libraries(
-    grandleon_abi_tests
-    PRIVATE
-        grandleon::simulation
-        grandleon::tactics
-        grandleon::core
-        grandleon::package_runtime
-        grandleon::client_campaign
-        grandleon::storage
-        grandleon::game_content
-)
-add_test(NAME grandleon.abi COMMAND grandleon_abi_tests)
 
 add_executable(grandleon_package_format_tests
     package_format/package_test.cpp
@@ -1334,35 +1313,7 @@ if(GRANDLEON_N64_TESTS)
         grandleon.nintendo64_campaign PROPERTIES TIMEOUT 3600
     )
 
-    # The two lanes the editor's export path owes.
-    #
-    # The first says the ROM an author downloads is the ROM this repository
-    # checks. On this route that is nearly a tautology, because the export
-    # path runs the same build script the gate runs. So the lane is deliberately
-    # shaped to check the parts that are not: that the path really reaches the
-    # toolchain, and that the toolchain is deterministic. It builds a different
-    # game through the export path first, so a stale tree or a cached answer
-    # fails on the bytes rather than passing by accident.
-    #
-    # A shell script rather than a `cmake -P` one, because the reference build
-    # runs beside the export path's two rather than before them and CMake's
-    # script mode runs one process at a time. The lane's header says which of
-    # its builds are ordered against each other and why the third is not.
-    configure_file(
-        cmake/nintendo64_editor_rom_test.sh.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_editor_rom_test.sh"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_editor_rom
-        COMMAND
-            bash "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_editor_rom_test.sh"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_editor_rom PROPERTIES TIMEOUT 3600
-    )
-
-    # The second boots a ROM built for a *different* game and requires the
+    # Boot a ROM built for a *different* game and require the
     # machine to say which game it is running. Host checks structurally cannot
     # make that claim: a template that patches cleanly and runs the wrong game
     # satisfies every one of them, byte identity included, so this lane is a
@@ -1534,26 +1485,6 @@ add_test(
     COMMAND
         "${GRANDLEON_NODE_EXECUTABLE}"
         "${PROJECT_SOURCE_DIR}/tools/source_schema/test.mjs"
-)
-
-find_program(GRANDLEON_NPM_EXECUTABLE npm REQUIRED)
-add_test(
-    NAME grandleon.editor
-    COMMAND
-        "${GRANDLEON_NPM_EXECUTABLE}"
-        run --prefix "${PROJECT_SOURCE_DIR}/editor" build
-)
-add_test(
-    NAME grandleon.editor_deployment
-    COMMAND
-        "${GRANDLEON_NPM_EXECUTABLE}"
-        run --prefix "${PROJECT_SOURCE_DIR}/editor" test:deployment
-)
-add_test(
-    NAME grandleon.editor_offline
-    COMMAND
-        "${GRANDLEON_NPM_EXECUTABLE}"
-        run --prefix "${PROJECT_SOURCE_DIR}/editor" test:offline
 )
 
 # The warning standard, applied to every test executable this file defines.

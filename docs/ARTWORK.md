@@ -211,13 +211,12 @@ and the terrain scenes live in
 The portable pixel-art generator contains 672 standing character assets: eight
 archetypes × seven styles × six faction colours × two figures. It also emits
 their map-scale animation poses and the complete thirteen-terrain set for the
-browser-compatible editor's modern profile.
+portable modern profile used by previews and shared interface art.
 
 - [Browse all 56 archetype-and-style combinations](../tools/placeholder_art/ROSTER.md).
 - [Browse terrain, transitions, animation frames, palettes, and output profiles](../tools/placeholder_art/GALLERY.md).
 
-This larger library is deliberately lower resolution and remains useful to the
-browser-compatible editor. Godot and both consoles use the curated
+This larger library is deliberately lower resolution. Godot and both consoles use the curated
 high-resolution sheets and team masks instead; a console build refuses a
 project whose required curated binding is missing.
 

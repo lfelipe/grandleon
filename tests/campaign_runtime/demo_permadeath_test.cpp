@@ -301,7 +301,7 @@ void the_maintained_conformance_slice_is_untouched(const pf::LoadedPackage& pack
     );
     expect(
         played.hash == 0x673e5a59765c94c5ULL,
-        "at the golden hash the demo, the browser and the PlayStation all pin"
+        "at the golden hash every platform pins"
     );
 }
 

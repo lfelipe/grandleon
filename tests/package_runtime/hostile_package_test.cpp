@@ -18,8 +18,7 @@
 //
 // The same allocator poisons memory as it is freed. That is the second
 // property: a decoded definition may borrow the package's bytes, and a
-// `LoadedPackage` may be copied and may have its bytes appended to. The
-// browser's campaign entry points do the second on every attached record. A
+// `LoadedPackage` may be copied and may have its bytes appended to. A
 // borrow that is a captured pointer is wrong after either, and reading a
 // poisoned byte is a wrong answer every time rather than an occasional one.
 //
@@ -616,7 +615,7 @@ void a_missing_target_does_not_move_the_cursor_past_its_nodes() {
 }
 
 // A decoded campaign borrows the package's bytes for its members' names, and
-// the browser's campaign entry points append to those bytes after the decode.
+// callers may append to those bytes after the decode.
 // The name has to still be the author's name afterwards.
 void a_members_name_survives_the_packages_bytes_growing() {
     const std::vector<std::uint8_t> bytes = fixture_bytes();

@@ -301,8 +301,6 @@ ctest --test-dir build -R grandleon.tarnholt_branch --output-on-failure
 - `tests/client/tarnholt_branch_test.cpp` plays **both threads** through
   `client::CampaignSession` and proves the flag survives the board and the
   save.
-- `editor/src/domain/tarnholt-campaign.test.ts` covers the browser's reading
-  of the same source.
 
 ## Playing it
 
@@ -351,7 +349,7 @@ would read as a broken board rather than as a rule.
 The campaign declares `contentRevision` `0.2.0`. A save written against
 `0.1.0` is refused by name rather than silently replaced: the migration
 registry's content axis is deliberately empty, every client shows the
-refusal, and the browser offers "Start fresh" rather than doing it unasked.
+refusal, and Godot offers **Start fresh** rather than doing it unasked.
 
 ## What is still not expressible
 

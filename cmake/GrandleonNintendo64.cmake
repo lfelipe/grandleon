@@ -5,7 +5,7 @@
 # contributor happens to have installed. Nothing here runs during a normal host
 # build; the target below is opt-in and excluded from ALL.
 #
-# Unlike the Emscripten target, the pinned image is not published ready to use:
+# The pinned base image does not contain the complete SDK used by this target:
 # ghcr.io/dragonminded/libdragon carries the mips64-elf cross compiler only, with
 # no libdragon, no n64.mk, and no n64tool. So the published image is pinned by
 # digest and platform/nintendo64/Containerfile builds one pinned libdragon

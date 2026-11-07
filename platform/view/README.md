@@ -7,7 +7,7 @@ what.
 Header only, integer arithmetic, no allocation. It includes no engine header,
 no SDL and no libdragon, so the Nintendo 64 ROM, the SDL presenter and the host
 test suite all compile the same file, and the whole of it is verified in
-`tests/view/` with no console, window or browser in the loop. `camera.h` proved
+`tests/view/` with no console or window in the loop. `camera.h` proved
 the idea on the console; this is the rest of it.
 
 ```cpp
@@ -23,8 +23,8 @@ matters most: **no clock**. Everything there is counted in drawn frames,
 because the console checks assert framebuffer pixels at named checkpoints and a
 picture that depended on how fast the machine happened to be is a picture
 nobody can pin. The numbers themselves live in `motion.hpp`, pinned by
-`tests/view/motion_test.cpp`, and are mirrored in
-`editor/src/domain/board-motion.ts` for the browser.
+`tests/view/motion_test.cpp`; Godot consumes the same C++ definitions through
+its session extension.
 
 ## Where it sits
 
@@ -114,10 +114,8 @@ context. This is the one place the two deliberately differ.
 
 ## Consumers, and the one place they legitimately differ
 
-`platform/desktop`, `platform/nintendo64`, `platform/playstation`, and the
-editor board, a TypeScript restatement in
-`editor/src/domain/board-view.ts`. The C++ header is the specification; when
-the two must change, they change together.
+`platform/desktop`, `platform/godot`, `platform/nintendo64`, and
+`platform/playstation` consume the C++ model directly.
 
 `list_view.hpp` and `slot_menu.hpp` have two consumers each and both are
 consoles: `platform/client/src/turn_client.cpp` and
@@ -132,7 +130,7 @@ The PlayStation expands the whole sheet into a 4bpp texture page.
 `tests/view/glyph_test.cpp` pins the shapes, and the box most of all, because
 every expansion walks a fixed rectangle per glyph and the PlayStation's pixel
 claims name a particular ink pixel of a particular letter. The
-desktop and the browser have their own idea of a list and their own save
+desktop and Godot have their own idea of a list and their own save
 picker, and neither is a fixed-height window over a fixed-width row, so neither
 would gain anything from being made to share this one.
 

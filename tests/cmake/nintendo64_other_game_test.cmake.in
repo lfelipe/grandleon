@@ -20,13 +20,13 @@ set(ENV{GRANDLEON_LIBDRAGON_BASE_IMAGE} "@GRANDLEON_LIBDRAGON_BASE_IMAGE@")
 set(ENV{GRANDLEON_LIBDRAGON_BASE_DIGEST} "@GRANDLEON_LIBDRAGON_BASE_DIGEST@")
 set(ENV{GRANDLEON_LIBDRAGON_COMMIT} "@GRANDLEON_LIBDRAGON_COMMIT@")
 set(ENV{GRANDLEON_DOCKER} "@GRANDLEON_DOCKER@")
-set(ENV{GRANDLEON_N64_BUILD_DIR} "@GRANDLEON_N64_BUILD_DIR@")
-
 set(source_root "@PROJECT_SOURCE_DIR@")
 set(build_dir "@GRANDLEON_N64_BUILD_DIR@")
 set(work "${build_dir}/other-game")
 file(REMOVE_RECURSE "${work}")
 file(MAKE_DIRECTORY "${work}")
+set(export_build_dir "${work}/build")
+set(ENV{GRANDLEON_N64_BUILD_DIR} "${export_build_dir}")
 
 # What the other game is, read from its own project rather than written here,
 # so a lane cannot go on asserting a campaign the content has renamed.
@@ -43,26 +43,24 @@ if(other_campaign STREQUAL shipped_campaign)
         "lane could not tell them apart")
 endif()
 
-# The export path writes each file under the name it gave it, into a directory
-# of its own, so nothing here has to restate how a download is named.
+# Build through the same platform script the installed Godot builder payload
+# runs inside its sandbox.
 execute_process(
-    COMMAND node "${source_root}/tools/rom_service/build-rom.mjs"
-            "${source_root}/games/demo/source/project.json"
-            "${work}/other-game"
+    COMMAND "${source_root}/platform/nintendo64/scripts/build-n64.sh"
+            --project "${source_root}/games/demo/source/project.json"
+            --targets grandleon_n64_campaign
     WORKING_DIRECTORY "${source_root}"
     RESULT_VARIABLE build_result
 )
 if(NOT build_result EQUAL 0)
     message(FATAL_ERROR "the export path could not build the other game")
 endif()
-file(GLOB other_roms "${work}/other-game/*.z64")
-list(LENGTH other_roms other_rom_count)
-if(NOT other_rom_count EQUAL 1)
+set(other_rom
+    "${export_build_dir}/platform/nintendo64/grandleon_n64_campaign.z64")
+if(NOT EXISTS "${other_rom}")
     message(FATAL_ERROR
-        "the export path wrote ${other_rom_count} ROMs into "
-        "${work}/other-game")
+        "the export path did not write ${other_rom}")
 endif()
-list(GET other_roms 0 other_rom)
 
 # The ROM has no autopilot script. It is an ordinary interactive campaign ROM
 # of somebody else's game, so it never ends and never prints a verdict. What
@@ -90,7 +88,7 @@ endif()
 # game's campaign must be nowhere in what this ROM said. A
 # ROM carrying one game's content while running another's campaign would
 # satisfy the requirement above and fail here.
-file(READ "${build_dir}/ares/other-game.log" boot_log)
+file(READ "${export_build_dir}/ares/other-game.log" boot_log)
 string(FIND "${boot_log}" "campaign=${shipped_campaign}" shipped_named)
 if(NOT shipped_named EQUAL -1)
     message(FATAL_ERROR

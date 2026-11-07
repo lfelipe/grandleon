@@ -112,9 +112,9 @@ int main(int argc, char** argv) {
         return 1;
     }
     // Golden value for the demo encounter, played through this exact command
-    // sequence. The browser build reaches the same value from the same source
-    // project, which is what makes "play the demo and read the hash" a real
-    // native/browser conformance check rather than a smoke test.
+    // sequence. Platform builds reach the same value from the same source
+    // project, which makes "play the demo and read the hash" a conformance
+    // check rather than a smoke test.
     //
     // A class stat is the widest thing that can move it. `canonical_hash`
     // folds every unit's own numbers in, and a class stands under every

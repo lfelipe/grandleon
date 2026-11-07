@@ -2306,8 +2306,8 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                 // nothing: no field is materialised and no section is written.
                 //
                 // The recurrence is carried as authored rather than expanded
-                // here. The simulation expands it, so the browser (which never
-                // sees a package) and the consoles cannot disagree about what
+                // here. The simulation expands it, so authoring and packaged
+                // content cannot disagree about what
                 // "every three rounds, four times" means.
                 const Json* arrival = mapper.member(
                     *placement, "arrival", placement_path, false

@@ -71,7 +71,7 @@ const std::map<std::string, std::string> accepted_though_invalid = {
 // Rules both analyzers hold, pinned on one fixture that carries them and
 // nothing else. `tools/source_schema/test.mjs` asserts the same file produces
 // exactly the three matching JS diagnostics, and
-// `editor/src/analysis/source-conformance.test.ts` asserts the editor produces
+// Godot creator tests assert the editor produces
 // the same three again. A rule held in one of three places is a rule that will
 // drift, so the three lists are the same length by construction and a change to
 // any one of them shows up as a failure in the other two.

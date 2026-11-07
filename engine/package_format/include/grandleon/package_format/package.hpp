@@ -303,7 +303,7 @@ struct LoadedPackage final {
     // which is what `borrowed` below is for. Public and a `std::vector` so that
     // a caller can look at a package it opened the ordinary way, and because a
     // caller assembling a package out of records that arrive one at a time
-    // appends to it, as the browser's campaign entry points do.
+    // appends to it.
     //
     // Appending is safe, and it is safe for the same reason copying is: nothing
     // decoded out of a package holds a pointer into these bytes. Every view is

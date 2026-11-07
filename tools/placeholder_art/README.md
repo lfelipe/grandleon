@@ -1,8 +1,8 @@
 # Generated pixel map art
 
-This folder contains the small pixel-art library used by the browser-compatible
-editor, documentation gallery, and a few shared interface elements. It provides
-terrain tiles, map-scale unit sprites, icons, portraits, and the Grandleon logo.
+This folder contains the small pixel-art library used by Godot previews,
+documentation, and shared interface elements. It provides terrain tiles,
+map-scale unit sprites, icons, portraits, and the Grandleon logo.
 
 It is not the Nintendo 64 or PlayStation character renderer. Console characters
 are generated from the curated Godot sheets and team-colour masks described in

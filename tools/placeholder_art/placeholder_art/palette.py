@@ -20,9 +20,8 @@ position along a ramp from a lighting term, which is what keeps the light
 direction consistent across every asset (see :mod:`.raster`).
 
 The grass, water, road, forest, mountain, sand, snow, and swamp base colours
-are the same values the editor already uses in
-``editor/src/domain/terrain-presentation.ts``, so generated tiles agree with
-the flat colours the map editor draws today.
+are shared across the generated terrain library so thumbnails and rendered
+tiles stay visually consistent.
 
 Adding a colour
 ---------------

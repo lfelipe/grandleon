@@ -1591,9 +1591,7 @@ void the_better_weapon_is_worth_the_advantage() {
 //
 // Every one of these is refused by the package loader as it decodes a kind and
 // by the compiler where the author is. None of them was refused here, which
-// left the two routes that do not go through a package -- the WebAssembly
-// binding and a direct call -- running boards a cartridge would have turned
-// down.
+// left a direct call running boards a cartridge would have turned down.
 void a_malformed_weapon_triangle_is_refused() {
     const auto board = [](std::vector<sim::WeaponTypeDefinition> types) {
         sim::EncounterDefinition definition;
@@ -3429,7 +3427,7 @@ bool has_event(const sim::CommandResult& result, sim::EventType type) {
 // The zero-cost claim, and the only one that has to be proved from inside this
 // suite rather than argued: a board on which nobody is talkable folds no talk
 // record and no departure, so it is byte for byte the board an author who never
-// heard of the gesture writes. The identity checked against is the browser
+// heard of the gesture writes. The identity checked against is the shared
 // conformance vector, which authors no talk.
 void a_parley_nobody_authors_costs_nothing() {
     auto created = sim::create_encounter(
@@ -4126,8 +4124,8 @@ void enduring_is_canonical_only_where_it_is_authored() {
         "a board nobody can be lost on is not the board they can"
     );
     // And the load-bearing half: a board that authors none of this folds no
-    // byte for it, so it hashes to the reference vector every console and the
-    // browser are pinned to rather than to some value of its own.
+    // byte for it, so it hashes to the reference vector every platform is
+    // pinned to rather than to some value of its own.
     auto reference = sim::create_encounter(
         {
             4,
@@ -4190,7 +4188,7 @@ void matches_browser_conformance_vector() {
     );
     expect(
         created.encounter.canonical_hash() == 0x0e41227fef2c075fULL,
-        "initial state matches browser conformance hash, got " +
+        "initial state matches platform conformance hash, got " +
             hex(created.encounter.canonical_hash())
     );
     const sim::Command commands[] = {
@@ -4203,12 +4201,12 @@ void matches_browser_conformance_vector() {
     for (const sim::Command& command : commands) {
         expect(
             static_cast<bool>(created.encounter.apply(command)),
-            "browser conformance command succeeds natively"
+            "platform conformance command succeeds natively"
         );
     }
     expect(
         created.encounter.canonical_hash() == 0x9090072b2c0a69c5ULL,
-        "completed state matches browser conformance hash, got " +
+        "completed state matches platform conformance hash, got " +
             hex(created.encounter.canonical_hash())
     );
 }
@@ -6138,7 +6136,7 @@ std::uint32_t steps_between(sim::Position from, sim::Position to) {
 }
 
 void a_board_that_counts_no_rounds_costs_nothing() {
-    // The browser conformance board, played through its own vector. It authors
+    // The shared conformance board, played through its own vector. It authors
     // no survive objective and nobody arrives on it, so the round it reports
     // and the bytes it folds are the ones it reported and folded before rounds
     // were counted under alternating order. That is what the golden says.
@@ -6422,10 +6420,9 @@ void a_wave_arrives_again_and_again() {
 // seeds and different dice. They are handed out in identifier order instead, so
 // the listing cannot reach the battle.
 //
-// This is what a board's conformance across the browser and the consoles rests
-// on. The editor builds an `EncounterDefinition` in TypeScript and the package
-// loader builds one out of a package; neither promises the other an order, and
-// with this nothing has to.
+// This is what a board's conformance across content paths rests on. Different
+// loaders do not promise one another an insertion order, and with this they do
+// not need to.
 void two_waves_listed_either_way_are_one_battle() {
     auto authored = wave_definition();
     authored.units.back().arrival_every = 2;
@@ -6866,10 +6863,8 @@ void a_wave_is_never_deployable_and_never_lands_in_the_phase() {
 
 
 // A second conformance vector, for the two things the first cannot reach: a
-// battle that counts rounds and a battle a wave arrives in. Replayed through
-// the WebAssembly build by `editor/src/domain/encounter-simulation.test.ts`,
-// which must arrive at the same two hashes: one set of rules rather than two
-// agreeing sets.
+// battle that counts rounds and a battle a wave arrives in. Platform tests use
+// the same hashes so every target is held to one set of rules.
 sim::EncounterDefinition surviving_vector() {
     sim::EncounterDefinition value{
         5,
@@ -6893,7 +6888,7 @@ void the_surviving_vector_hashes_the_same_on_every_build() {
     expect(static_cast<bool>(created), "the surviving vector is valid content");
     expect(
         created.encounter.canonical_hash() == 0x31f90d9772d39bedULL,
-        "the opening state matches the browser conformance hash, got " +
+        "the opening state matches the platform conformance hash, got " +
             hex(created.encounter.canonical_hash())
     );
     for (int round = 0; round < 3; ++round) pass(created.encounter, 10, 20);
@@ -6904,7 +6899,7 @@ void the_surviving_vector_hashes_the_same_on_every_build() {
     );
     expect(
         created.encounter.canonical_hash() == 0x03377a446b1b5ac3ULL,
-        "the completed state matches the browser conformance hash, got " +
+        "the completed state matches the platform conformance hash, got " +
             hex(created.encounter.canonical_hash())
     );
 }

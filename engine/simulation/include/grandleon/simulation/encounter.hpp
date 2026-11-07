@@ -429,8 +429,7 @@ struct UnitDefinition final {
     // landing on one round, which is a stack rather than a wave.
     //
     // `create_encounter` expands the recurrence, here in the rules rather than
-    // in either loader, because the browser builds a definition in TypeScript
-    // and the consoles build one out of a package: expanding in a loader would
+    // in a content loader: expanding in a loader would
     // be one rule kept in two places that have to agree. The first arrival
     // keeps this definition's identifier, so an objective or a talk that names
     // the placement names the first of the wave; every later arrival takes the
@@ -629,9 +628,9 @@ enum class CreateError : std::uint8_t {
     // one table an author writes about the relationships *between* records, so
     // it is the one whose refusal most needs to say which table it means.
     //
-    // Appended, like every enumerator here: the WebAssembly binding reads these
-    // names out of the engine rather than restating them, so a value that
-    // renumbered would re-mean every refusal a browser has ever shown.
+    // Appended, like every enumerator here: platform bindings read these names
+    // out of the engine rather than restating them, so renumbering a value
+    // would re-mean an existing refusal.
     invalid_weapon_type,
 };
 

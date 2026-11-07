@@ -1054,8 +1054,8 @@ export function validateProject(filename) {
       }
     }
 
-    // Who a scene says its speakers are. The same three checks the browser
-    // analyzer makes, on the same paths: the unit type cast must be one this
+    // Who a scene says its speakers are. The same three checks authoring tools
+    // make, on the same paths: the unit type cast must be one this
     // project declares, one speaker must not be answered twice, and a cast
     // entry that speaks no line is named rather than left to show itself as
     // the wrong drawing.

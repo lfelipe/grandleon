@@ -31,7 +31,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # these to be treated as a citation at all, which is what keeps a Lua script
 # name inside a test fixture from being mistaken for a file.
 TOP = {
-    "art", "cmake", "docs", "editor", "engine", "games", "platform",
+    "art", "cmake", "docs", "engine", "games", "platform",
     "schemas", "scripts", "spikes", "tests", "tools", ".github", ".devcontainer",
 }
 
@@ -39,8 +39,7 @@ TOP = {
 # who may not have supplied them. A citation into one of these is describing a
 # path that is correct when the thing exists.
 OPTIONAL = (
-    "art/provided", "editor/dist", "editor/node_modules", "editor/public/board",
-    "editor/src/generated", "tools/placeholder_art/assets",
+    "art/provided", "tools/placeholder_art/assets",
     "tools/placeholder_art/gallery", "platform/playstation/scratch/grandleon_",
 )
 
@@ -56,7 +55,6 @@ SKIP_FILES = (
 ILLUSTRATIVE = {
     "scripts/rally.lua", "scripts/alternate.lua", "scripts/reinforce.js",
     "scripts/alternate.js", "games/tworivers/", "games/tworivers",
-    "editor/build",
 }
 
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")

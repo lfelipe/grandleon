@@ -3,7 +3,7 @@
 //
 // The projection, the draw order and the autotile lookup are the arithmetic
 // three renderers share, so this is where they are pinned: on the host, with
-// no console, no window and no browser in the loop. A renderer that disagrees
+// no console and no window in the loop. A renderer that disagrees
 // with this file is wrong about where the board is.
 //
 // The generated autotile table is included directly rather than copied, so the

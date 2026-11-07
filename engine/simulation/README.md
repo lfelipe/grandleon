@@ -21,7 +21,7 @@ semantic events.
 - [What a defeated character leaves behind](#what-a-defeated-character-leaves-behind)
 - [A character who cannot be felled](#a-character-who-cannot-be-felled)
 - [The hash that names a battle](#the-hash-that-names-a-battle)
-- [Browser/native conformance](#browsernative-conformance)
+- [Reference vector](#reference-vector)
 
 ## The core loop
 
@@ -86,7 +86,7 @@ the round, not the one after it.
 
 A unit definition may state the round it enters on, how many rounds separate
 its arrivals, and how many arrivals it makes. `create_encounter` expands the
-recurrence in the rules, not in a loader, so the browser and the consoles
+recurrence in the rules, not in a loader, so authoring and packaged clients
 cannot disagree about what "every three rounds, four times" means. The first
 arrival keeps the definition's identifier; every later one takes the lowest
 identifier the definition does not use, and those identifiers are handed out
@@ -611,17 +611,12 @@ added to any of them **stops the build** until whoever added it writes the
 line saying which verdict it takes. The verdicts are checked, not asserted in
 a comment.
 
-## Browser/native conformance
+## Reference vector
 
-The browser runs *this* implementation: `platform/web` compiles it to
-WebAssembly and `editor/src/domain/encounter-simulation.ts` binds it, so there
-is one set of rules rather than two agreeing sets. JavaScript identifiers and
-counters are `bigint`; the JSON-safe `canonicalState()` projection renders
-them as decimal strings. Conformance is therefore about the boundary: the
-reference vectors below are replayed through the WebAssembly build and must
-produce the same canonical hashes as the native build. A change to the rules
-is incomplete until both the native simulation test and
-`editor/src/domain/encounter-simulation.test.ts` agree.
+The shared reference vector below pins a complete command sequence and its
+canonical hashes. A change to the rules is incomplete until the native
+simulation tests and every platform conformance test agree with the intended
+result.
 
 The shared reference vector is embedded in both test suites:
 

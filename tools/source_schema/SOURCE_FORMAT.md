@@ -221,7 +221,7 @@ all. A character nobody named is called after their unit type, with an ordinal
 appended only when the board holds more than one of that kind. Three
 `line-captain` placements read `LINE CAPTAIN 1`, `2`, `3`; a lone one reads
 `LINE CAPTAIN`. **The ordinal runs in ascending placement identity**, so a
-console and a browser number a crowd the same way. A first-side placement naming
+console and Godot number a crowd the same way. A first-side placement naming
 a `memberId` takes the roster's name; a `name` beside it is accepted and ignored.
 
 **Talking.** A `talk` on a placement makes that character talkable on that board

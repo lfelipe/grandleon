@@ -30,9 +30,9 @@ npm run --prefix tools/source_schema upgrade -- games/demo/source/project.json
 npm run --prefix tools/source_schema upgrade -- --check <project.json>
 ```
 
-`migration.mjs` holds the version and every step between versions, and the
-editor imports it rather than keeping a second copy. One registry, so a project
-upgraded here and a project upgraded in a browser are the same project.
+`migration.mjs` holds the version and every step between versions. One registry
+keeps command-line upgrades predictable and gives the Godot migration workflow
+the contract it must match.
 `--check` writes nothing and exits 1 when a file is behind.
 [SOURCE_FORMAT.md](SOURCE_FORMAT.md) states the rules the registry keeps and
 [CONTRIBUTING.md](../../CONTRIBUTING.md) what changing a schema costs.
@@ -44,8 +44,8 @@ identities, and map cell counts.
 
 The unchanged `valid/minimal.json` fixture proves legacy source remains valid.
 `valid/typed-content.json` exercises weapon/item type definitions, class
-allow-lists, typed records, and starting equipment. Browser conformance tests use
-these same files and compare stable diagnostic code/path pairs.
+allow-lists, typed records, and starting equipment. Authoring conformance tests
+use these same files and compare stable diagnostic code/path pairs.
 `valid/authoring-registries.json` covers the explicitly authoring-only faction,
 ability, objective, campaign, and dialogue registries without claiming runtime
 support that does not yet exist.

@@ -7,7 +7,7 @@ rows in one master palette entry, and that is the whole of it: no pixels, no
 sheet, no tile, no texture.
 
 That shape was chosen by measurement rather than taste. A full-screen picture
-behind a scene is cheap in a browser and unaffordable on the consoles this
+behind a scene is cheap on a desktop GPU and unaffordable on the consoles this
 repository targets:
 
 * **Nintendo 64.** A CI4 texture may hold 2,048 bytes of TMEM, which is one
