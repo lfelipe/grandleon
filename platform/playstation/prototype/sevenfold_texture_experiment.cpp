@@ -2,10 +2,11 @@
 // PlayStation-only texture experiment for Sevenfold's 3D close battle view.
 //
 // This is deliberately a separate executable from the production campaign.
-// It projects the existing 32x32 character paintings onto the existing high
-// LOD proxy geometry, using only native 4bpp texture pages and CLUTs. The
-// experiment can therefore be judged from native captures and timing before
-// its asset contract is allowed to complicate the production renderer.
+// It preserves the first 32x32-on-proxy experiment as a comparison, then puts
+// CI4 reductions of the actual curated Godot frames on camera-facing cutouts
+// over quiet textured 3D terrain. Matched close and tactical-map captures make
+// the recognisability/performance trade-off visible before either approach is
+// allowed to complicate the production renderer.
 
 #include "psx_gpu.h"
 #include "psx_runtime.h"
@@ -18,6 +19,8 @@
 #include "playstation.h"
 #include "playstation_characters_medieval.h"
 #include "playstation_characters_mythical.h"
+#include "generated/godot_closeup_ci4.h"
+#include "n64_showcase.h"
 #include "sevenfold_roster_proxies.h"
 
 namespace {
@@ -39,6 +42,22 @@ constexpr int terrain_a_clut = 1;
 constexpr int terrain_b_clut = 2;
 constexpr int left_clut = 3;
 constexpr int right_clut = 4;
+constexpr int cutout_texture_page = gpu::first_texture_page + 1;
+constexpr int cutout_medieval_male_clut = 5;
+constexpr int cutout_medieval_female_clut = 6;
+constexpr int cutout_mythical_male_clut = 7;
+constexpr int cutout_mythical_female_clut = 8;
+
+struct Cutout final {
+    int u;
+    int v;
+    int clut;
+};
+
+constexpr Cutout medieval_male_cutout{0, 0, cutout_medieval_male_clut};
+constexpr Cutout medieval_female_cutout{128, 0, cutout_medieval_female_clut};
+constexpr Cutout mythical_male_cutout{0, 128, cutout_mythical_male_clut};
+constexpr Cutout mythical_female_cutout{128, 128, cutout_mythical_female_clut};
 
 struct Camera final {
     int distance;
@@ -73,6 +92,12 @@ ProjectedVertex projected[max_vertices];
 OrderedTriangle ordered[max_triangles];
 std::uint16_t font_sheet[gpu::font_lines][gpu::font_halfwords_across];
 std::uint16_t opaque_cell[gpu::cell_texels * gpu::cell_halfwords];
+std::uint16_t refined_terrain_a[gpu::cell_texels * gpu::cell_halfwords];
+std::uint16_t refined_terrain_b[gpu::cell_texels * gpu::cell_halfwords];
+std::uint16_t refined_terrain_c[gpu::cell_texels * gpu::cell_halfwords];
+std::uint16_t refined_terrain_a_palette[gpu::clut_entries];
+std::uint16_t refined_terrain_b_palette[gpu::clut_entries];
+std::uint16_t refined_terrain_c_palette[gpu::clut_entries];
 int checks = 0;
 int failures = 0;
 
@@ -253,9 +278,9 @@ void rotate_vertex(
         const ProjectedVertex& b = projected[triangle.b];
         const ProjectedVertex& c = projected[triangle.c];
 
-        // The sprite projection is used for cloth, skin and the large body
-        // masses. Metal and small props retain their generated flat material,
-        // so silhouette-defining weapons do not dissolve into a decal.
+        // The current experiment projects the whole sprite over cloth, skin
+        // and large body masses. The hybrid comparison keeps this unchanged so
+        // its capture remains an honest record of the approach being replaced.
         const bool use_texture = textured && triangle.material <= 2;
         if (use_texture) {
             int ax = 0;
@@ -323,6 +348,111 @@ void upload_clut(int clut, const unsigned short* source) {
     );
 }
 
+void set_cell_texel(std::uint16_t* cell, int x, int y, int index) {
+    const int word = y * gpu::cell_halfwords + x / 4;
+    const int shift = (x & 3) * 4;
+    const std::uint16_t mask = static_cast<std::uint16_t>(0x0fU << shift);
+    cell[word] = static_cast<std::uint16_t>(
+        (cell[word] & ~mask) | static_cast<std::uint16_t>(index << shift)
+    );
+}
+
+void make_low_frequency_cell(std::uint16_t* cell, int pattern) {
+    for (int index = 0; index < gpu::cell_texels * gpu::cell_halfwords;
+         ++index) {
+        cell[index] = 0;
+    }
+    for (int y = 0; y < gpu::cell_texels; ++y) {
+        for (int x = 0; x < gpu::cell_texels; ++x) {
+            int value = 2;
+            if (pattern == 0) {
+                // Sixteen-pixel grass/earth masses, not per-pixel speckle.
+                value = 1 + ((x / 16 + y / 16) % 3);
+            } else if (pattern == 1) {
+                // Broad, offset road slabs.
+                value = 1 + ((x / 16 + (y / 8 + 1) / 2) % 3);
+            } else {
+                // Large masonry blocks for forest/rock/ruin zones.
+                value = 1 + ((x / 8 + y / 16) % 3);
+            }
+            set_cell_texel(cell, x, y, value);
+        }
+    }
+}
+
+void make_low_contrast_palette(
+    std::uint16_t* palette, int red, int green, int blue
+) {
+    for (int index = 0; index < gpu::clut_entries; ++index) palette[index] = 0;
+    palette[1] = gpu::rgb15(red - 1, green - 1, blue - 1);
+    palette[2] = gpu::rgb15(red, green, blue);
+    palette[3] = gpu::rgb15(red + 1, green + 1, blue + 1);
+}
+
+void load_refined_terrain(bool mythical) {
+    make_low_frequency_cell(refined_terrain_a, 0);
+    make_low_frequency_cell(refined_terrain_b, 1);
+    make_low_frequency_cell(refined_terrain_c, 2);
+    if (mythical) {
+        make_low_contrast_palette(refined_terrain_a_palette, 7, 10, 8);
+        make_low_contrast_palette(refined_terrain_b_palette, 10, 8, 11);
+        make_low_contrast_palette(refined_terrain_c_palette, 8, 8, 10);
+    } else {
+        make_low_contrast_palette(refined_terrain_a_palette, 7, 11, 7);
+        make_low_contrast_palette(refined_terrain_b_palette, 11, 9, 6);
+        make_low_contrast_palette(refined_terrain_c_palette, 8, 8, 9);
+    }
+    upload_cell(terrain_a_cell, refined_terrain_a, false);
+    upload_cell(terrain_b_cell, refined_terrain_b, false);
+    upload_cell(2, refined_terrain_c, false);
+    upload_clut(terrain_a_clut, refined_terrain_a_palette);
+    upload_clut(terrain_b_clut, refined_terrain_b_palette);
+    upload_clut(3, refined_terrain_c_palette);
+}
+
+void upload_cutout(const Cutout& cutout, const unsigned short* pixels) {
+    gpu::upload(
+        cutout_texture_page * gpu::page_halfwords + cutout.u / 4,
+        gpu::texture_page_y + cutout.v,
+        grandleon_psx_godot_closeup_width / 4,
+        grandleon_psx_godot_closeup_height,
+        pixels
+    );
+}
+
+void load_godot_cutouts() {
+    upload_cutout(
+        medieval_male_cutout, grandleon_psx_godot_closeup_medieval_male_blue
+    );
+    upload_cutout(
+        medieval_female_cutout,
+        grandleon_psx_godot_closeup_medieval_female_red
+    );
+    upload_cutout(
+        mythical_male_cutout, grandleon_psx_godot_closeup_mythical_male_blue
+    );
+    upload_cutout(
+        mythical_female_cutout,
+        grandleon_psx_godot_closeup_mythical_female_red
+    );
+    upload_clut(
+        medieval_male_cutout.clut,
+        grandleon_psx_godot_closeup_medieval_male_blue_clut
+    );
+    upload_clut(
+        medieval_female_cutout.clut,
+        grandleon_psx_godot_closeup_medieval_female_red_clut
+    );
+    upload_clut(
+        mythical_male_cutout.clut,
+        grandleon_psx_godot_closeup_mythical_male_blue_clut
+    );
+    upload_clut(
+        mythical_female_cutout.clut,
+        grandleon_psx_godot_closeup_mythical_female_red_clut
+    );
+}
+
 void load_textures(
     const unsigned short* terrain_a, const unsigned short* terrain_a_palette,
     const unsigned short* terrain_b, const unsigned short* terrain_b_palette,
@@ -339,7 +469,7 @@ void load_textures(
     upload_clut(right_clut, right_palette);
 }
 
-void draw_ground(const Camera& camera, bool textured) {
+void draw_ground(const Camera& camera, int treatment) {
     constexpr int tile = 64;
     for (int row = 0; row < 5; ++row) {
         for (int column = 0; column < 8; ++column) {
@@ -351,10 +481,25 @@ void draw_ground(const Camera& camera, bool textured) {
             const ProjectedVertex b = project(x1, 0, z0, camera);
             const ProjectedVertex c = project(x1, 0, z1, camera);
             const ProjectedVertex d = project(x0, 0, z1, camera);
-            if (textured) {
+            if (treatment == 1) {
                 const bool alternate = ((row + column) & 3) == 0;
                 const int cell = alternate ? terrain_b_cell : terrain_a_cell;
                 const int clut = alternate ? terrain_b_clut : terrain_a_clut;
+                gpu::draw_cell_triangle(
+                    a.x, a.y, 0, 0, b.x, b.y, 31, 0,
+                    c.x, c.y, 31, 31, cell, clut
+                );
+                gpu::draw_cell_triangle(
+                    a.x, a.y, 0, 0, c.x, c.y, 31, 31,
+                    d.x, d.y, 0, 31, cell, clut
+                );
+            } else if (treatment == 2) {
+                // Terrain type changes form contiguous macro planes: a broad
+                // central route, quiet field and distant rock/wood edges.
+                const bool route = column == 3 || column == 4;
+                const bool edge = (column == 0 || column == 7) && row < 3;
+                const int cell = route ? terrain_b_cell : (edge ? 2 : terrain_a_cell);
+                const int clut = route ? terrain_b_clut : (edge ? 3 : terrain_a_clut);
                 gpu::draw_cell_triangle(
                     a.x, a.y, 0, 0, b.x, b.y, 31, 0,
                     c.x, c.y, 31, 31, cell, clut
@@ -394,7 +539,7 @@ void draw_team_marker(
     const Camera camera{360, 420, 211};
     gpu::clear(sky);
     psx::start_clock();
-    draw_ground(camera, textured);
+    draw_ground(camera, textured ? 1 : 0);
     draw_team_marker(-70, 0, 0, camera);
     draw_team_marker(70, 0, 1, camera);
     int textured_triangles = draw_model(
@@ -416,6 +561,186 @@ void draw_team_marker(
     gpu::show();
     static_cast<void>(gpu::read_back(0, 0));
     return {psx::clock_ticks(), textured_triangles};
+}
+
+void draw_cutout(int centre_x, int bottom, int size, const Cutout& cutout) {
+    gpu::draw_texture_quad(
+        centre_x - size / 2, bottom - size, size, size,
+        cutout_texture_page, cutout.u, cutout.v,
+        cutout.u + grandleon_psx_godot_closeup_width - 1,
+        cutout.v + grandleon_psx_godot_closeup_height - 1,
+        cutout.clut
+    );
+}
+
+void draw_screen_shadow(int centre_x, int bottom, int team, int width) {
+    gpu::fill(
+        centre_x - width / 2, bottom - 5, width, 5, gpu::rgb15(2, 3, 3)
+    );
+    gpu::fill(
+        centre_x - width / 3, bottom - 2, width * 2 / 3, 2,
+        colour15(team_colours[team], 220)
+    );
+}
+
+[[nodiscard]] SceneResult draw_hybrid_close(
+    bool mythical, const char* title, const char* subtitle, std::uint16_t sky
+) {
+    const Camera camera{360, 420, 211};
+    const Cutout& left = mythical ? mythical_male_cutout : medieval_male_cutout;
+    const Cutout& right = mythical ? mythical_female_cutout : medieval_female_cutout;
+    gpu::clear(sky);
+    psx::start_clock();
+    draw_ground(camera, 2);
+    draw_screen_shadow(86, 216, 0, 70);
+    draw_screen_shadow(234, 216, 1, 70);
+    draw_cutout(86, 216, 112, left);
+    draw_cutout(234, 216, 112, right);
+
+    // A small layered contact effect gives the still comparison some battle
+    // staging without obscuring either silhouette.
+    gpu::draw_triangle(151, 145, 160, 130, 169, 145, gpu::rgb15(31, 24, 8));
+    gpu::draw_triangle(153, 145, 160, 157, 167, 145, gpu::rgb15(31, 30, 20));
+    gpu::fill(158, 139, 5, 12, gpu::rgb15(31, 27, 13));
+
+    gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    gpu::fill(6, 4, 7, 10, colour15(team_colours[0]));
+    text_at(18, 5, title);
+    gpu::fill(306, 4, 7, 10, colour15(team_colours[1]));
+    gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    text_at(8, 227, subtitle);
+    gpu::show();
+    static_cast<void>(gpu::read_back(0, 0));
+    return {psx::clock_ticks(), 82};
+}
+
+constexpr std::uint8_t overview_terrain_colours[4][3] = {
+    {77, 145, 71}, {168, 135, 83}, {39, 97, 58}, {117, 105, 93},
+};
+
+[[nodiscard]] int overview_kind(int row, int column) noexcept {
+    if (column == 3 || column == 4) return 1;          // broad road
+    if (row < 2 && column < 3) return 2;               // forest mass
+    if (row < 2 && column > 5) return 3;               // mountain mass
+    if (row > 3 && column < 2) return 3;               // ruin/stone mass
+    return 0;                                          // open field
+}
+
+void draw_world_quad(
+    int x0, int z0, int x1, int z1, int y, const Camera& camera,
+    std::uint16_t colour
+) {
+    const ProjectedVertex a = project(x0, y, z0, camera);
+    const ProjectedVertex b = project(x1, y, z0, camera);
+    const ProjectedVertex c = project(x1, y, z1, camera);
+    const ProjectedVertex d = project(x0, y, z1, camera);
+    gpu::draw_triangle(a.x, a.y, b.x, b.y, c.x, c.y, colour);
+    gpu::draw_triangle(a.x, a.y, c.x, c.y, d.x, d.y, colour);
+}
+
+void draw_overview_ground(const Camera& camera, bool refined) {
+    constexpr int tile = 46;
+    for (int row = 0; row < sevenfold_board_rows; ++row) {
+        for (int column = 0; column < sevenfold_board_columns; ++column) {
+            const int x0 = (column - sevenfold_board_columns / 2) * tile;
+            const int x1 = x0 + tile;
+            const int z0 = (row - sevenfold_board_rows / 2) * tile;
+            const int z1 = z0 + tile;
+            const int kind = overview_kind(row, column);
+            const ProjectedVertex a = project(x0, 0, z0, camera);
+            const ProjectedVertex b = project(x1, 0, z0, camera);
+            const ProjectedVertex c = project(x1, 0, z1, camera);
+            const ProjectedVertex d = project(x0, 0, z1, camera);
+            if (refined) {
+                const int cell = kind == 0 ? terrain_a_cell
+                    : (kind == 1 ? terrain_b_cell : 2);
+                const int clut = kind == 0 ? terrain_a_clut
+                    : (kind == 1 ? terrain_b_clut : 3);
+                gpu::draw_cell_triangle(
+                    a.x, a.y, 0, 0, b.x, b.y, 31, 0,
+                    c.x, c.y, 31, 31, cell, clut
+                );
+                gpu::draw_cell_triangle(
+                    a.x, a.y, 0, 0, c.x, c.y, 31, 31,
+                    d.x, d.y, 0, 31, cell, clut
+                );
+            } else {
+                const std::uint16_t colour = colour15(overview_terrain_colours[kind]);
+                gpu::draw_triangle(a.x, a.y, b.x, b.y, c.x, c.y, colour);
+                gpu::draw_triangle(a.x, a.y, c.x, c.y, d.x, d.y, colour);
+            }
+        }
+        static_cast<void>(psx::clock_ticks());
+    }
+}
+
+void draw_movement_highlights(const Camera& camera) {
+    constexpr int tile = 46;
+    constexpr int cells[][2] = {{3, 2}, {2, 2}, {4, 2}, {3, 1}, {3, 3}};
+    for (int index = 0; index < 5; ++index) {
+        const int row = cells[index][0];
+        const int column = cells[index][1];
+        const int x0 = (column - sevenfold_board_columns / 2) * tile + 5;
+        const int z0 = (row - sevenfold_board_rows / 2) * tile + 5;
+        const std::uint16_t colour = index == 0
+            ? gpu::rgb15(8, 22, 31) : gpu::rgb15(6, 16, 24);
+        draw_world_quad(x0, z0, x0 + tile - 10, z0 + tile - 10, 2, camera, colour);
+    }
+}
+
+struct OverviewUnit final {
+    int column;
+    int row;
+    int team;
+    int style;
+    int body;
+    int archetype;
+    const Cutout* cutout;
+};
+
+constexpr OverviewUnit overview_units[] = {
+    {0, 1, 0, 0, 0, 0, &medieval_male_cutout},
+    {7, 1, 1, 0, 1, 0, &medieval_female_cutout},
+    {2, 2, 0, 2, 0, 2, &mythical_male_cutout},
+    {5, 2, 1, 2, 1, 2, &mythical_female_cutout},
+    {0, 3, 0, 0, 0, 0, &medieval_male_cutout},
+    {7, 3, 1, 0, 1, 0, &medieval_female_cutout},
+    {2, 4, 0, 2, 0, 2, &mythical_male_cutout},
+    {5, 4, 1, 2, 1, 2, &mythical_female_cutout},
+};
+
+[[nodiscard]] SceneResult draw_overview(bool refined) {
+    constexpr int tile = 46;
+    const Camera camera{570, 350, 185};
+    gpu::clear(gpu::rgb15(5, 9, 11));
+    psx::start_clock();
+    draw_overview_ground(camera, refined);
+    draw_movement_highlights(camera);
+    for (const OverviewUnit& unit : overview_units) {
+        const int x = (unit.column - sevenfold_board_columns / 2) * tile + tile / 2;
+        const int z = (unit.row - sevenfold_board_rows / 2) * tile + tile / 2;
+        if (refined) {
+            const ProjectedVertex anchor = project(x, 2, z, camera);
+            draw_screen_shadow(anchor.x, anchor.y + 2, unit.team, 24);
+            draw_cutout(anchor.x, anchor.y + 2, 38, *unit.cutout);
+        } else {
+            draw_team_marker(x, z, unit.team, camera);
+            const SevenfoldProxy& proxy =
+                sevenfold_proxies_low[unit.style][unit.body][unit.archetype];
+            static_cast<void>(draw_model(
+                proxy, x, z, unit.team, 0, camera, false, 0, 0
+            ));
+        }
+    }
+    gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    text_at(8, 5, refined ? "TACTICAL MAP HYBRID" : "TACTICAL MAP FLAT 3D");
+    gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    text_at(8, 227, refined
+        ? "MACRO TERRAIN  STRONG REACH  CI4 UNITS"
+        : "MATCHED CAMERA  UNITS  TERRAIN  REACH");
+    gpu::show();
+    static_cast<void>(gpu::read_back(0, 0));
+    return {psx::clock_ticks(), refined ? 104 : 0};
 }
 
 void print_benchmark(const char* label, const SceneResult& result) {
@@ -452,13 +777,24 @@ int main() {
                mythical_right.archetype == 2,
            "mythical female mage proxy is selected");
 
-    // The baseline is the same medieval geometry and camera, before the
-    // texture experiment. The host captures this slot at native 320x240.
-    const SceneResult baseline = draw_scene(
-        medieval_left, medieval_right, false, "FLAT BASELINE",
-        "SAME HIGH LOD GEOMETRY AND CAMERA", gpu::rgb15(7, 13, 17)
+    load_godot_cutouts();
+    constexpr int cutout_vram_bytes =
+        4 * grandleon_psx_godot_closeup_width *
+        grandleon_psx_godot_closeup_height / 2;
+    constexpr int texture_page_bytes =
+        gpu::page_halfwords * gpu::page_lines * 2;
+    expect(cutout_vram_bytes == 18432,
+           "four Godot-derived CI4 cutouts use 18 KiB of VRAM");
+    expect(cutout_vram_bytes <= texture_page_bytes,
+           "all four close-up cutouts fit one 32 KiB texture page");
+
+    // Each style is captured three ways with the same native frame: the flat
+    // proxy, the first planar texture experiment and the proposed 2.5D hybrid.
+    const SceneResult medieval_flat = draw_scene(
+        medieval_left, medieval_right, false, "MEDIEVAL FLAT 3D",
+        "BEFORE  SAME IDENTITIES AND CAMERA", gpu::rgb15(7, 13, 17)
     );
-    print_benchmark("baseline", baseline);
+    print_benchmark("medieval-flat", medieval_flat);
     psx::signal_host(10);
 
     load_textures(
@@ -474,12 +810,27 @@ int main() {
     expect(gpu::read_back(gpu::cell_texture_x(left_cell),
                           gpu::cell_texture_y(left_cell)) != 0,
            "opaque medieval character texture reached VRAM");
-    const SceneResult medieval = draw_scene(
-        medieval_left, medieval_right, true, "MEDIEVAL KNIGHTS",
-        "CI4 CHARACTER AND TERRAIN TEXTURES", gpu::rgb15(7, 13, 17)
+    const SceneResult medieval_current = draw_scene(
+        medieval_left, medieval_right, true, "MEDIEVAL PLANAR 3D",
+        "CURRENT  WHOLE-SPRITE PROJECTION", gpu::rgb15(7, 13, 17)
     );
-    print_benchmark("medieval-textured", medieval);
+    print_benchmark("medieval-current", medieval_current);
     psx::signal_host(11);
+
+    load_refined_terrain(false);
+    const SceneResult medieval_hybrid = draw_hybrid_close(
+        false, "MEDIEVAL GODOT CI4", "REFINED  2.5D CUTOUTS ON 3D TERRAIN",
+        gpu::rgb15(7, 13, 17)
+    );
+    print_benchmark("medieval-hybrid", medieval_hybrid);
+    psx::signal_host(12);
+
+    const SceneResult mythical_flat = draw_scene(
+        mythical_left, mythical_right, false, "MYTHICAL FLAT 3D",
+        "BEFORE  SAME IDENTITIES AND CAMERA", gpu::rgb15(12, 8, 17)
+    );
+    print_benchmark("mythical-flat", mythical_flat);
+    psx::signal_host(13);
 
     load_textures(
         grandleon_playstation_terrain_autumn_grass_1,
@@ -494,28 +845,52 @@ int main() {
     expect(gpu::read_back(gpu::cell_texture_x(right_cell),
                           gpu::cell_texture_y(right_cell)) != 0,
            "opaque mythical character texture reached VRAM");
-    const SceneResult mythical = draw_scene(
-        mythical_left, mythical_right, true, "MYTHICAL MAGES",
-        "TEAM COLOURS RETAINED ON TEXTURED PROXIES", gpu::rgb15(12, 8, 17)
+    const SceneResult mythical_current = draw_scene(
+        mythical_left, mythical_right, true, "MYTHICAL PLANAR 3D",
+        "CURRENT  WHOLE-SPRITE PROJECTION", gpu::rgb15(12, 8, 17)
     );
-    print_benchmark("mythical-textured", mythical);
-    psx::signal_host(12);
+    print_benchmark("mythical-current", mythical_current);
+    psx::signal_host(14);
 
-    expect(baseline.ticks > 0 && baseline.ticks <= frame_budget_ticks,
-           "flat comparison stays inside locked 30 fps budget");
-    expect(medieval.ticks > 0 && medieval.ticks <= frame_budget_ticks,
-           "textured medieval close view stays inside locked 30 fps budget");
-    expect(mythical.ticks > 0 && mythical.ticks <= frame_budget_ticks,
-           "textured mythical close view stays inside locked 30 fps budget");
-    expect(medieval.textured_triangles >= 100,
-           "medieval pair uses textures across major body surfaces");
-    expect(mythical.textured_triangles >= 100,
-           "mythical pair uses textures across major body surfaces");
+    load_refined_terrain(true);
+    const SceneResult mythical_hybrid = draw_hybrid_close(
+        true, "MYTHICAL GODOT CI4", "REFINED  2.5D CUTOUTS ON 3D TERRAIN",
+        gpu::rgb15(12, 8, 17)
+    );
+    print_benchmark("mythical-hybrid", mythical_hybrid);
+    psx::signal_host(15);
+
+    const SceneResult overview_flat = draw_overview(false);
+    print_benchmark("overview-flat", overview_flat);
+    psx::signal_host(16);
+
+    load_refined_terrain(false);
+    const SceneResult overview_hybrid = draw_overview(true);
+    print_benchmark("overview-hybrid", overview_hybrid);
+    psx::signal_host(17);
+
+    const SceneResult measured[] = {
+        medieval_flat, medieval_current, medieval_hybrid, mythical_flat,
+        mythical_current, mythical_hybrid, overview_flat, overview_hybrid,
+    };
+    for (const SceneResult& scene : measured) {
+        expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
+               "captured comparison stays inside locked 30 fps budget");
+    }
+    expect(medieval_current.textured_triangles >= 100,
+           "current medieval pair preserves its planar texture coverage");
+    expect(mythical_current.textured_triangles >= 100,
+           "current mythical pair preserves its planar texture coverage");
+    expect(medieval_hybrid.textured_triangles == 82 &&
+               mythical_hybrid.textured_triangles == 82,
+           "hybrid close views use quiet terrain and two CI4 cutouts");
+    expect(overview_hybrid.textured_triangles == 104,
+           "hybrid overview uses textured macro terrain and eight cutouts");
 
     psx::Line result;
     result.text(failures == 0 ? "RESULT PASS " : "RESULT FAIL ")
         .decimal(static_cast<std::uint32_t>(checks - failures))
         .text("/").decimal(static_cast<std::uint32_t>(checks)).flush();
-    psx::signal_host(13);
+    psx::signal_host(18);
     return failures == 0 ? 0 : 1;
 }

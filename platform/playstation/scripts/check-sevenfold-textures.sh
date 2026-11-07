@@ -17,6 +17,9 @@ if [ -z "${GRANDLEON_PCSX_REDUX_BUILD_DIGEST:-}" ] || \
 fi
 
 build_dir="${GRANDLEON_PSX_SEVENFOLD_3D_BUILD_DIR:-${repository_root}/build-playstation-sevenfold-3d}"
+"${repository_root}/platform/playstation/tools/generate-godot-closeups.py" \
+    --output "${repository_root}/platform/playstation/prototype/generated/godot_closeup_ci4.h" \
+    --check
 GRANDLEON_PSX_SEVENFOLD_3D_BUILD_DIR="${build_dir}" \
     "${repository_root}/platform/playstation/scripts/build-sevenfold-3d.sh"
 
@@ -30,12 +33,22 @@ frame_dir="${build_dir}/texture-frames"
 log="${build_dir}/sevenfold-texture-render.log"
 mkdir -p "${frame_dir}"
 rm -f \
-    "${frame_dir}/baseline.bin" \
-    "${frame_dir}/medieval-textured.bin" \
-    "${frame_dir}/mythical-textured.bin" \
-    "${frame_dir}/baseline.ppm" \
-    "${frame_dir}/medieval-textured.ppm" \
-    "${frame_dir}/mythical-textured.ppm"
+    "${frame_dir}/medieval-flat.bin" \
+    "${frame_dir}/medieval-current.bin" \
+    "${frame_dir}/medieval-hybrid.bin" \
+    "${frame_dir}/mythical-flat.bin" \
+    "${frame_dir}/mythical-current.bin" \
+    "${frame_dir}/mythical-hybrid.bin" \
+    "${frame_dir}/overview-flat.bin" \
+    "${frame_dir}/overview-hybrid.bin" \
+    "${frame_dir}/medieval-flat.ppm" \
+    "${frame_dir}/medieval-current.ppm" \
+    "${frame_dir}/medieval-hybrid.ppm" \
+    "${frame_dir}/mythical-flat.ppm" \
+    "${frame_dir}/mythical-current.ppm" \
+    "${frame_dir}/mythical-hybrid.ppm" \
+    "${frame_dir}/overview-flat.ppm" \
+    "${frame_dir}/overview-hybrid.ppm"
 
 docker="${GRANDLEON_DOCKER:-docker}"
 image="grandleon/playstation-emulator:${GRANDLEON_PCSX_REDUX_REVISION}"
@@ -65,13 +78,16 @@ if [ "${status}" -ne 0 ]; then
     exit 1
 fi
 "${repository_root}/scripts/assert-harness-verdict.sh" \
-    --log "${log}" --require "^RESULT PASS " --min-checks 11 \
+    --log "${log}" --require "^RESULT PASS " --min-checks 18 \
     --what "the PlayStation texture experiment guest"
 "${repository_root}/scripts/assert-harness-verdict.sh" \
-    --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 18 \
+    --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 47 \
     --what "the PlayStation texture capture harness"
 
-for name in baseline medieval-textured mythical-textured; do
+for name in \
+    medieval-flat medieval-current medieval-hybrid \
+    mythical-flat mythical-current mythical-hybrid \
+    overview-flat overview-hybrid; do
     frame="${frame_dir}/${name}.bin"
     ppm="${frame_dir}/${name}.ppm"
     if [ ! -s "${frame}" ]; then

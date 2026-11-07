@@ -147,23 +147,34 @@ only 18 fps, which is why the campaign uses conservative model counts and
 detail levels instead of filling
 the board with high-detail models. See [the plain-language console 3D status](../../docs/CONSOLE_3D_EXPERIMENT.md).
 
-There is also a separate texture experiment. It projects the existing 32×32
-CI4 character paintings onto the existing high-detail models, leaves small
-metal and weapon surfaces flat for a clean silhouette, and uses native terrain
-textures under the close view. It does not change the campaign or the shared
-model generator. Its repeatable check captures a flat baseline, medieval
-knights, and mythical mages at the console's native 320×240 resolution:
+There is also a separate texture experiment. Its first pass projected existing
+32×32 character paintings over high-detail models; native captures showed that
+faces and ornaments could land on the wrong body regions and become harder to
+read. That unsuccessful pass remains in the comparison instead of being hidden.
+
+The clearer follow-up is a 2.5D close view. It reduces the actual curated Godot
+idle frames to 96×96 PS1 CI4 cutouts, applies the same blue/red team masks,
+places them over low-frequency textured 3D terrain, and adds grounding shadows
+and a small layered hit effect. A tactical overview uses the same cutouts at a
+smaller scale over broad grass, road, forest and stone zones, with a stronger
+movement highlight. It does not change the production campaign or shared model
+generator. Its repeatable check captures flat, first-pass and refined close
+views for medieval and mythical units, plus matched flat/refined tactical maps,
+all at the console's native 320×240 resolution:
 
 ```sh
 cmake --build build --target grandleon_playstation_sevenfold_texture_check
 ```
 
-The captures land in `build-playstation-sevenfold-3d/texture-frames/`. In the
-pinned interpreter, the GPU-drained frame costs are 13.1 ms for the flat
-baseline, 16.3 ms for the textured medieval pair, and 20.1 ms for the textured
-mythical pair. All remain inside the locked-30-fps 33 ms budget. Those results
-make this a promising integration direction, not yet a promise about original
-hardware or a reason to remove the proven flat path.
+The captures land in `build-playstation-sevenfold-3d/texture-frames/`. Four
+96×96 cutouts use 18 KiB of one 32 KiB texture page. In the pinned interpreter,
+the refined close views take about 1.2 ms and the refined eight-unit tactical
+overview about 1.5 ms after GPU completion; even the matched eight-model flat
+overview remains just inside the locked-30-fps ceiling at about 31.5 ms. The
+2.5D captures are materially clearer than the planar projection and retain
+faces, silhouettes, equipment and team identity. This makes the hybrid path a
+strong candidate for production integration, but it remains isolated until it
+has been reviewed on MiSTer or original-style hardware.
 
 The disc target writes `sevenfold-ps1-3d.bin` and `sevenfold-ps1-3d.cue` under
 `build-playstation-sevenfold-3d/disc/`. The disc boots the playable

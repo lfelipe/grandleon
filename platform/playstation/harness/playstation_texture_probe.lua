@@ -1,16 +1,21 @@
 -- PlayStation Sevenfold texture experiment capture harness.
 --
--- The guest names three completed, GPU-drained frames through exec slots:
--- flat baseline (10), textured medieval (11), textured mythical (12). This
--- writes the native 320x240 15-bit pictures without a front-end scaler. Slot
--- 13 is the guest's final verdict and ends the emulator run.
+-- The guest names matched flat/current/refined close views for medieval and
+-- mythical art, then matched flat/refined tactical overviews. This writes the
+-- native 320x240 15-bit pictures without a front-end scaler. Slot 18 is the
+-- guest's final verdict and ends the emulator run.
 
 local band = bit.band
 local frame_dir = os.getenv('GRANDLEON_PLAYSTATION_FRAME_DIR') or '/out'
 local names = {
-  [10] = 'baseline',
-  [11] = 'medieval-textured',
-  [12] = 'mythical-textured',
+  [10] = 'medieval-flat',
+  [11] = 'medieval-current',
+  [12] = 'medieval-hybrid',
+  [13] = 'mythical-flat',
+  [14] = 'mythical-current',
+  [15] = 'mythical-hybrid',
+  [16] = 'overview-flat',
+  [17] = 'overview-hybrid',
 }
 
 local checks = 0
@@ -77,15 +82,23 @@ for slot, _ in pairs(names) do
   end
 end
 
-PCSX.execSlots[13] = function()
-  expect(captures == 3, 'all three comparison frames were captured')
+PCSX.execSlots[18] = function()
+  expect(captures == 8, 'all eight comparison frames were captured')
   expect(signatures[10] ~= signatures[11],
-         'medieval texture frame differs from the flat baseline')
+         'medieval current frame differs from its flat baseline')
   expect(signatures[11] ~= signatures[12],
-         'mythical and medieval texture frames differ')
+         'medieval hybrid differs from the current projection')
+  expect(signatures[13] ~= signatures[14],
+         'mythical current frame differs from its flat baseline')
+  expect(signatures[14] ~= signatures[15],
+         'mythical hybrid differs from the current projection')
+  expect(signatures[16] ~= signatures[17],
+         'hybrid tactical overview differs from its flat baseline')
+  expect(signatures[12] ~= signatures[15],
+         'medieval and mythical hybrid close views remain distinct')
   say(string.format('RESULT %s %d/%d', failures == 0 and 'PASS' or 'FAIL',
                     checks - failures, checks))
   PCSX.quit(failures == 0 and 0 or 1)
 end
 
-say('installed comparison slots 10, 11, 12 and done slot 13')
+say('installed comparison slots 10..17 and done slot 18')

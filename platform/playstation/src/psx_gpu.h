@@ -242,6 +242,15 @@ void draw_cell_triangle(
     int cell, int clut
 );
 
+// Draws an arbitrary rectangle from one 4bpp texture page. This is the larger
+// counterpart to `draw_cell_scaled`: it exists for camera-facing close-battle
+// cutouts which are intentionally bigger than a 32x32 board cell. `u0/v0` and
+// `u1/v1` are inclusive page coordinates, and may be reversed to mirror art.
+void draw_texture_quad(
+    int screen_x, int screen_y, int width, int height,
+    int texture_page, int u0, int v0, int u1, int v1, int clut
+);
+
 // Where a cell lives, so a caller can upload into it and a probe can name it.
 [[nodiscard]] constexpr int cell_texture_x(int cell) noexcept {
     const int page = cell / cells_per_page;
