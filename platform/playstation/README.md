@@ -155,37 +155,47 @@ read. That unsuccessful pass remains in the comparison instead of being hidden.
 The clearer follow-up is a 2.5D close view. It reduces the actual curated Godot
 idle frames to 96×96 PS1 CI4 cutouts, applies the same blue/red team masks,
 places them over low-frequency textured 3D terrain, and adds grounding shadows
-and a small layered hit effect. The first hybrid camera was too low: the floor
-converged behind the figures as if the viewer were below their boots. It remains
-as an explicit comparison. The corrected stage places the horizon behind the
-units' torsos, gives both figures one foot line, and keeps visible floor in
-front of them. This close-stage rule is independent of the overhead tactical
-camera.
+and a small layered hit effect. Both early hybrid stages were rejected: moving
+a horizon did not fix the below-the-boots read while their floor was still
+assembled in screen coordinates. They remain explicit comparison captures.
 
-A tactical candidate uses the same cutouts at a smaller scale over broad grass,
-road, forest and stone zones, with a stronger movement highlight, health bars,
-selection and team marks. Two additional CI4 walking poses drive an eight-frame
-movement film with real pose changes and depth-ordered placement. It does not
-change the production campaign or shared model generator. Its repeatable check
-captures flat, first-pass, low-angle and corrected close views for medieval and
-mythical units, matched flat/refined tactical maps, and the movement film, all
-at the console's native 320×240 resolution:
+Camera v2 has no synthetic horizon or terrain walls. One bounds-fitted,
+fixed-point world-to-screen projection places every tile top, foot point,
+grounding mark, cutout and hit effect. Its close view looks modestly down across
+five rows of visible tile tops, keeps both figures on one projected ground line,
+and leaves terrain in front of their feet. Attack and counter also keep their
+original screen sides for the whole exchange: the first unit attacks from the
+left, then the right unit counters toward the left without swapping the scene.
+
+A tactical camera-v2 candidate uses the same projection in a higher isometric
+configuration. It fills the frame with broad grass, road, forest and stone
+zones and eight mixed units, with projected grounding marks, a stronger
+movement highlight, health bars, selection and team marks. Foot-point sorting
+controls overlap. Two additional CI4 walking poses drive an eight-frame
+movement film with position and pose changes. It does not change the production
+campaign or shared model generator. Its repeatable check captures flat,
+first-pass and both rejected close views beside camera v2 for medieval and
+mythical units, the old and camera-v2 tactical maps, the old and camera-v2
+movement films, and a fixed-side attack/counter film, all at the console's
+native 320×240 resolution:
 
 ```sh
 cmake --build build --target grandleon_playstation_sevenfold_texture_check
 ```
 
-The captures land in `build-playstation-sevenfold-3d/texture-frames/`, with the
-movement film at `overview-movement.gif`. Four idle cutouts use 18 KiB of one
-32 KiB texture page; the two movement poses bring the total to 27 KiB across
-two pages. In the pinned interpreter, the corrected close views take about
-0.4 ms, the refined eight-unit tactical overview about 1.4 ms, and its slowest
-movement frame about 1.4 ms after GPU completion; even the matched eight-model
-flat overview remains just inside the locked-30-fps ceiling at about 31.4 ms. The
-2.5D captures are materially clearer than the planar projection and retain
-faces, silhouettes, equipment and team identity. This makes the hybrid path a
-strong candidate for production integration, but it remains isolated until it
-has been reviewed on MiSTer or original-style hardware.
+The captures land in `build-playstation-sevenfold-3d/texture-frames/`.
+`overview-movement-camera-v2.gif` and `close-exchange-camera-v2.gif` are the two
+camera-v2 films; `overview-movement.gif` preserves the earlier tactical pass.
+Four idle cutouts use 18 KiB of one 32 KiB texture page; the two movement poses
+bring the total to 27 KiB across two pages. In the pinned interpreter, a
+camera-v2 close view takes about 1.2 ms, the eight-unit isometric overview about
+2.4 ms, and the slowest camera-v2 movement frame about 2.4 ms after GPU
+completion. Even the matched eight-model flat overview remains just inside the
+locked-30-fps ceiling at about 31.4 ms. The camera-v2 captures visibly expose
+top surfaces while retaining faces, silhouettes, equipment and team identity.
+This makes the hybrid path a strong candidate for production integration, but
+it remains isolated until it has been reviewed on MiSTer or original-style
+hardware.
 
 The disc target writes `sevenfold-ps1-3d.bin` and `sevenfold-ps1-3d.cue` under
 `build-playstation-sevenfold-3d/disc/`. The disc boots the playable

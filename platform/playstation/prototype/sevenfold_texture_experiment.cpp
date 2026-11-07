@@ -82,6 +82,30 @@ struct Camera final {
     int horizon;
 };
 
+// Camera v2 deliberately uses one orthographic world-to-screen contract for
+// terrain, feet, shadows, cutouts and effects.  The basis can be frontal for
+// the close view or isometric for the board, while the fit remains derived
+// from world bounds.  This avoids the old mixture of perspective terrain and
+// hand-placed screen sprites that could read as a camera below the actors.
+struct ElevatedCamera final {
+    int centre_x;
+    int centre_y;
+    int xx;
+    int xz;
+    int yx;
+    int yz;
+    int up;
+    int zoom;
+};
+
+struct RawBounds final {
+    std::int32_t left;
+    std::int32_t right;
+    std::int32_t top;
+    std::int32_t bottom;
+    bool valid;
+};
+
 struct ProjectedVertex final {
     std::int16_t x;
     std::int16_t y;
@@ -195,6 +219,93 @@ void text_at(int x, int y, const char* value) {
         static_cast<std::int16_t>(camera.horizon - vertical * camera.focal / depth),
         depth,
     };
+}
+
+[[nodiscard]] std::int32_t elevated_raw_x(
+    int x, int z, const ElevatedCamera& camera
+) noexcept {
+    return x * camera.xx + z * camera.xz;
+}
+
+[[nodiscard]] std::int32_t elevated_raw_y(
+    int x, int y, int z, const ElevatedCamera& camera
+) noexcept {
+    return x * camera.yx + z * camera.yz - y * camera.up;
+}
+
+[[nodiscard]] ProjectedVertex project_elevated(
+    int x, int y, int z, const ElevatedCamera& camera
+) noexcept {
+    constexpr std::int32_t scale = 256 * 256;
+    const std::int32_t raw_x = elevated_raw_x(x, z, camera);
+    const std::int32_t raw_y = elevated_raw_y(x, y, z, camera);
+    return {
+        static_cast<std::int16_t>(
+            camera.centre_x + raw_x * camera.zoom / scale
+        ),
+        static_cast<std::int16_t>(
+            camera.centre_y + raw_y * camera.zoom / scale
+        ),
+        raw_y,
+    };
+}
+
+void include_raw(RawBounds& bounds, std::int32_t x, std::int32_t y) noexcept {
+    if (!bounds.valid) {
+        bounds = {x, x, y, y, true};
+        return;
+    }
+    if (x < bounds.left) bounds.left = x;
+    if (x > bounds.right) bounds.right = x;
+    if (y < bounds.top) bounds.top = y;
+    if (y > bounds.bottom) bounds.bottom = y;
+}
+
+void include_world(
+    RawBounds& bounds, int x, int y, int z, const ElevatedCamera& camera
+) noexcept {
+    include_raw(
+        bounds, elevated_raw_x(x, z, camera),
+        elevated_raw_y(x, y, z, camera)
+    );
+}
+
+void include_billboard(
+    RawBounds& bounds, int x, int z, int world_size,
+    const ElevatedCamera& camera
+) noexcept {
+    const std::int32_t raw_x = elevated_raw_x(x, z, camera);
+    const std::int32_t raw_y = elevated_raw_y(x, 0, z, camera);
+    const std::int32_t half_width = world_size * 128;
+    include_raw(bounds, raw_x - half_width, raw_y - world_size * 256);
+    include_raw(bounds, raw_x + half_width, raw_y);
+}
+
+[[nodiscard]] ElevatedCamera fit_elevated_camera(
+    ElevatedCamera camera, const RawBounds& bounds,
+    int left, int top, int right, int bottom
+) noexcept {
+    constexpr std::int32_t scale = 256 * 256;
+    const std::int32_t width = bounds.right - bounds.left;
+    const std::int32_t height = bounds.bottom - bounds.top;
+    const int zoom_x = width > 0
+        ? static_cast<int>((right - left) * scale / width) : 256;
+    const int zoom_y = height > 0
+        ? static_cast<int>((bottom - top) * scale / height) : 256;
+    camera.zoom = std::min(zoom_x, zoom_y);
+    const std::int32_t raw_centre_x = (bounds.left + bounds.right) / 2;
+    const std::int32_t raw_centre_y = (bounds.top + bounds.bottom) / 2;
+    camera.centre_x = (left + right) / 2 -
+        static_cast<int>(raw_centre_x * camera.zoom / scale);
+    camera.centre_y = (top + bottom) / 2 -
+        static_cast<int>(raw_centre_y * camera.zoom / scale);
+    return camera;
+}
+
+[[nodiscard]] int elevated_billboard_size(
+    int world_size, const ElevatedCamera& camera
+) noexcept {
+    return world_size * camera.zoom / 256;
 }
 
 void rotate_vertex(
@@ -743,6 +854,153 @@ void draw_corrected_close_stage(std::uint16_t sky) {
     return {psx::clock_ticks(), 14};
 }
 
+void draw_elevated_solid_quad(
+    int x0, int z0, int x1, int z1, int y,
+    const ElevatedCamera& camera, std::uint16_t colour
+) {
+    const ProjectedVertex a = project_elevated(x0, y, z0, camera);
+    const ProjectedVertex b = project_elevated(x1, y, z0, camera);
+    const ProjectedVertex c = project_elevated(x1, y, z1, camera);
+    const ProjectedVertex d = project_elevated(x0, y, z1, camera);
+    gpu::draw_triangle(a.x, a.y, b.x, b.y, c.x, c.y, colour);
+    gpu::draw_triangle(a.x, a.y, c.x, c.y, d.x, d.y, colour);
+}
+
+void draw_elevated_cell_quad(
+    int x0, int z0, int x1, int z1, int y,
+    const ElevatedCamera& camera, int cell, int clut
+) {
+    const ProjectedVertex a = project_elevated(x0, y, z0, camera);
+    const ProjectedVertex b = project_elevated(x1, y, z0, camera);
+    const ProjectedVertex c = project_elevated(x1, y, z1, camera);
+    const ProjectedVertex d = project_elevated(x0, y, z1, camera);
+    gpu::draw_cell_triangle(
+        a.x, a.y, 0, 0, b.x, b.y, 31, 0,
+        c.x, c.y, 31, 31, cell, clut
+    );
+    gpu::draw_cell_triangle(
+        a.x, a.y, 0, 0, c.x, c.y, 31, 31,
+        d.x, d.y, 0, 31, cell, clut
+    );
+}
+
+[[nodiscard]] ElevatedCamera close_camera_v2() noexcept {
+    ElevatedCamera camera{0, 0, 256, -64, 0, 180, 245, 256};
+    RawBounds bounds{0, 0, 0, 0, false};
+    constexpr int left = -168;
+    constexpr int right = 168;
+    constexpr int far = -96;
+    constexpr int near = 144;
+    include_world(bounds, left, 0, far, camera);
+    include_world(bounds, right, 0, far, camera);
+    include_world(bounds, left, 0, near, camera);
+    include_world(bounds, right, 0, near, camera);
+    include_billboard(bounds, -70, 0, 132, camera);
+    include_billboard(bounds, 70, 0, 132, camera);
+    return fit_elevated_camera(camera, bounds, 6, 22, 314, 219);
+}
+
+void draw_close_stage_v2(const ElevatedCamera& camera) {
+    constexpr int tile = 48;
+    constexpr int left = -168;
+    constexpr int far = -96;
+    // Every visible terrain primitive is a tile top in the same projection as
+    // the combatants' feet. There are no vertical walls or fake horizons that
+    // can rise behind the boots and invert the camera read.
+    for (int row = 0; row < 5; ++row) {
+        for (int column = 0; column < 7; ++column) {
+            const int x0 = left + column * tile;
+            const int z0 = far + row * tile;
+            const bool route = column == 3;
+            const bool edge = column == 0 || column == 6;
+            const int cell = route ? terrain_b_cell : (edge ? 2 : terrain_a_cell);
+            const int clut = route ? terrain_b_clut : (edge ? 3 : terrain_a_clut);
+            draw_elevated_cell_quad(
+                x0, z0, x0 + tile, z0 + tile, 0, camera, cell, clut
+            );
+        }
+    }
+}
+
+void draw_elevated_marker(
+    int x, int z, int team, int radius, const ElevatedCamera& camera
+) {
+    draw_elevated_solid_quad(
+        x - radius, z - radius / 3, x + radius, z + radius / 3, 2,
+        camera, gpu::rgb15(2, 3, 3)
+    );
+    draw_elevated_solid_quad(
+        x - radius * 2 / 3, z - 2, x + radius * 2 / 3, z + 3, 3,
+        camera, colour15(team_colours[team], 220)
+    );
+}
+
+[[nodiscard]] constexpr int close_left_x(int phase) noexcept {
+    return phase == 1 ? -62 : (phase == 2 ? -52 : (phase == 3 ? -60 : -70));
+}
+
+[[nodiscard]] constexpr int close_right_x(int phase) noexcept {
+    return phase == 5 ? 62 : (phase == 6 ? 52 : (phase == 7 ? 60 : 70));
+}
+
+void draw_world_impact(
+    int x, int y, int z, const ElevatedCamera& camera
+) {
+    const ProjectedVertex centre = project_elevated(x, y, z, camera);
+    gpu::draw_triangle(
+        centre.x - 11, centre.y, centre.x, centre.y - 17,
+        centre.x + 11, centre.y, gpu::rgb15(31, 22, 5)
+    );
+    gpu::draw_triangle(
+        centre.x - 8, centre.y, centre.x, centre.y + 13,
+        centre.x + 8, centre.y, gpu::rgb15(31, 30, 18)
+    );
+    gpu::fill(centre.x - 2, centre.y - 10, 5, 20, gpu::rgb15(31, 27, 10));
+}
+
+[[nodiscard]] SceneResult draw_hybrid_close_v2(
+    bool mythical, int phase, const char* title, const char* subtitle,
+    std::uint16_t sky
+) {
+    const ElevatedCamera camera = close_camera_v2();
+    const Cutout& left = mythical ? mythical_male_cutout : medieval_male_cutout;
+    const Cutout& right = mythical ? mythical_female_cutout : medieval_female_cutout;
+    const int left_x = close_left_x(phase);
+    const int right_x = close_right_x(phase);
+    constexpr int unit_world_size = 132;
+    const int unit_size = elevated_billboard_size(unit_world_size, camera);
+
+    gpu::clear(sky);
+    psx::start_clock();
+    draw_close_stage_v2(camera);
+    draw_elevated_marker(left_x, 0, 0, 40, camera);
+    draw_elevated_marker(right_x, 0, 1, 40, camera);
+    const ProjectedVertex left_foot = project_elevated(left_x, 3, 0, camera);
+    const ProjectedVertex right_foot = project_elevated(right_x, 3, 0, camera);
+    // The curated square has transparent breathing room below the painted
+    // shoes. Move only that transparent margin through the projected foot
+    // line so the visible soles meet their world-space grounding marks.
+    const int transparent_sole_margin = unit_size * 8 / 96;
+    draw_cutout(
+        left_foot.x, left_foot.y + transparent_sole_margin, unit_size, left
+    );
+    draw_cutout(
+        right_foot.x, right_foot.y + transparent_sole_margin, unit_size, right
+    );
+    if (phase == 2) draw_world_impact(right_x - 13, 68, 0, camera);
+    if (phase == 6) draw_world_impact(left_x + 13, 68, 0, camera);
+
+    gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    gpu::fill(6, 4, 7, 10, colour15(team_colours[0]));
+    text_at(18, 5, title);
+    gpu::fill(306, 4, 7, 10, colour15(team_colours[1]));
+    gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    text_at(8, 227, subtitle);
+    gpu::show();
+    static_cast<void>(gpu::read_back(0, 0));
+    return {psx::clock_ticks(), 72};
+}
+
 constexpr std::uint8_t overview_terrain_colours[4][3] = {
     {77, 145, 71}, {168, 135, 83}, {39, 97, 58}, {117, 105, 93},
 };
@@ -909,6 +1167,153 @@ void draw_unit_status(
     return draw_overview_frame(refined, -1);
 }
 
+[[nodiscard]] ElevatedCamera overview_camera_v2() noexcept {
+    ElevatedCamera camera{0, 0, 220, -220, 105, 105, 260, 256};
+    RawBounds bounds{0, 0, 0, 0, false};
+    constexpr int tile = 46;
+    constexpr int left = -sevenfold_board_columns * tile / 2;
+    constexpr int right = left + sevenfold_board_columns * tile;
+    constexpr int far = -sevenfold_board_rows * tile / 2;
+    constexpr int near = far + sevenfold_board_rows * tile;
+    include_world(bounds, left, 0, far, camera);
+    include_world(bounds, right, 0, far, camera);
+    include_world(bounds, left, 0, near, camera);
+    include_world(bounds, right, 0, near, camera);
+    for (const OverviewUnit& unit : overview_units) {
+        const int x = left + unit.column * tile + tile / 2;
+        const int z = far + unit.row * tile + tile / 2;
+        include_billboard(bounds, x, z, 80, camera);
+    }
+    // The selected unit's final movement destination is part of the fitted
+    // scene bounds too, so a real animation never escapes the camera contract.
+    include_billboard(bounds, left + tile / 2, far + 4 * tile + tile / 2,
+                      80, camera);
+    return fit_elevated_camera(camera, bounds, 7, 22, 313, 218);
+}
+
+struct OverviewTileOrder final {
+    int row;
+    int column;
+    std::int32_t depth;
+};
+
+struct OverviewUnitOrder final {
+    int index;
+    int x;
+    int z;
+    std::int32_t depth;
+};
+
+void draw_overview_ground_v2(const ElevatedCamera& camera) {
+    constexpr int tile = 46;
+    constexpr int left = -sevenfold_board_columns * tile / 2;
+    constexpr int far = -sevenfold_board_rows * tile / 2;
+    OverviewTileOrder order[sevenfold_board_rows * sevenfold_board_columns]{};
+    int count = 0;
+    for (int row = 0; row < sevenfold_board_rows; ++row) {
+        for (int column = 0; column < sevenfold_board_columns; ++column) {
+            const int x = left + column * tile + tile / 2;
+            const int z = far + row * tile + tile / 2;
+            order[count++] = {row, column, elevated_raw_y(x, 0, z, camera)};
+        }
+    }
+    std::sort(order, order + count,
+              [](const OverviewTileOrder& a, const OverviewTileOrder& b) {
+                  return a.depth < b.depth;
+              });
+    for (int index = 0; index < count; ++index) {
+        const int row = order[index].row;
+        const int column = order[index].column;
+        const int x0 = left + column * tile;
+        const int z0 = far + row * tile;
+        const int kind = overview_kind(row, column);
+        if (kind == 3) {
+            draw_elevated_solid_quad(
+                x0, z0, x0 + tile, z0 + tile, 0, camera,
+                colour15(overview_terrain_colours[kind])
+            );
+        } else {
+            const int cell = kind == 0 ? terrain_a_cell
+                : (kind == 1 ? terrain_b_cell : 2);
+            const int clut = kind == 0 ? terrain_a_clut
+                : (kind == 1 ? terrain_b_clut : 3);
+            draw_elevated_cell_quad(
+                x0, z0, x0 + tile, z0 + tile, 0, camera, cell, clut
+            );
+        }
+    }
+}
+
+void draw_movement_highlights_v2(const ElevatedCamera& camera) {
+    constexpr int tile = 46;
+    constexpr int left = -sevenfold_board_columns * tile / 2;
+    constexpr int far = -sevenfold_board_rows * tile / 2;
+    constexpr int cells[][2] = {{3, 0}, {2, 0}, {4, 0}, {3, 1}, {2, 1}};
+    for (int index = 0; index < 5; ++index) {
+        const int row = cells[index][0];
+        const int column = cells[index][1];
+        const int x0 = left + column * tile + 5;
+        const int z0 = far + row * tile + 5;
+        const std::uint16_t colour = index == 0
+            ? gpu::rgb15(10, 24, 31) : gpu::rgb15(6, 17, 24);
+        draw_elevated_solid_quad(
+            x0, z0, x0 + tile - 10, z0 + tile - 10, 2, camera, colour
+        );
+    }
+}
+
+[[nodiscard]] SceneResult draw_overview_v2(int move_step) {
+    constexpr int tile = 46;
+    constexpr int left = -sevenfold_board_columns * tile / 2;
+    constexpr int far = -sevenfold_board_rows * tile / 2;
+    constexpr int unit_count =
+        static_cast<int>(sizeof(overview_units) / sizeof(overview_units[0]));
+    const ElevatedCamera camera = overview_camera_v2();
+    OverviewUnitOrder order[unit_count]{};
+    for (int index = 0; index < unit_count; ++index) {
+        const OverviewUnit& unit = overview_units[index];
+        const int x = left + unit.column * tile + tile / 2;
+        int z = far + unit.row * tile + tile / 2;
+        if (move_step >= 0 && index == 4) z += tile * move_step / 7;
+        order[index] = {index, x, z, elevated_raw_y(x, 0, z, camera)};
+    }
+    std::sort(order, order + unit_count,
+              [](const OverviewUnitOrder& a, const OverviewUnitOrder& b) {
+                  return a.depth < b.depth;
+              });
+
+    gpu::clear(gpu::rgb15(4, 8, 11));
+    psx::start_clock();
+    draw_overview_ground_v2(camera);
+    draw_movement_highlights_v2(camera);
+    const int unit_size = elevated_billboard_size(80, camera);
+    for (int sorted = 0; sorted < unit_count; ++sorted) {
+        const OverviewUnitOrder& placed = order[sorted];
+        const OverviewUnit& unit = overview_units[placed.index];
+        const bool moving = move_step >= 0 && placed.index == 4;
+        draw_elevated_marker(placed.x, placed.z, unit.team, 17, camera);
+        const ProjectedVertex foot =
+            project_elevated(placed.x, 3, placed.z, camera);
+        const Cutout& art = moving
+            ? ((move_step & 1) == 0
+                ? medieval_move_a_cutout : medieval_move_b_cutout)
+            : *unit.cutout;
+        draw_cutout(foot.x, foot.y + unit_size * 8 / 96, unit_size, art);
+        draw_unit_status(
+            foot, unit_size, unit.team, 92 - placed.index * 5,
+            placed.index == 4
+        );
+    }
+    gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    text_at(8, 5, move_step >= 0
+        ? "TACTICAL CAMERA V2 MOVE" : "TACTICAL CAMERA V2");
+    gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    text_at(8, 227, "HIGH ISO  8 UNITS  REACH  HEALTH  TEAM");
+    gpu::show();
+    static_cast<void>(gpu::read_back(0, 0));
+    return {psx::clock_ticks(), 86};
+}
+
 void print_benchmark(const char* label, const SceneResult& result) {
     psx::Line ticks;
     ticks.text("BENCH ").text(label).text(" ticks=").decimal(result.ticks)
@@ -963,8 +1368,8 @@ int main() {
            "idle plus two movement poses use 27 KiB across two pages");
 
     // Each style keeps the flat proxy and first planar texture pass, then
-    // captures both the rejected low-angle hybrid and corrected torso-height
-    // stage. That makes the camera correction reviewable rather than asserted.
+    // captures both rejected hybrid stages before camera v2. That makes the
+    // above-ground projection reviewable rather than merely asserted.
     const SceneResult medieval_flat = draw_scene(
         medieval_left, medieval_right, false, "MEDIEVAL FLAT 3D",
         "BEFORE  SAME IDENTITIES AND CAMERA", gpu::rgb15(7, 13, 17)
@@ -1001,11 +1406,18 @@ int main() {
     psx::signal_host(12);
 
     const SceneResult medieval_corrected = draw_corrected_hybrid_close(
-        false, "MEDIEVAL CORRECTED", "TORSO EYE LINE  SHARED FEET  FOREGROUND",
+        false, "MEDIEVAL SCREEN STAGE", "REJECTED  FLOOR STILL READS FROM BELOW",
         gpu::rgb15(7, 13, 17)
     );
-    print_benchmark("medieval-corrected", medieval_corrected);
+    print_benchmark("medieval-screen-stage-rejected", medieval_corrected);
     psx::signal_host(13);
+
+    const SceneResult medieval_v2 = draw_hybrid_close_v2(
+        false, -1, "MEDIEVAL CAMERA V2", "ELEVATED TILE TOPS  FIT FROM BOUNDS",
+        gpu::rgb15(7, 13, 17)
+    );
+    print_benchmark("medieval-camera-v2", medieval_v2);
+    psx::signal_host(22);
 
     const SceneResult mythical_flat = draw_scene(
         mythical_left, mythical_right, false, "MYTHICAL FLAT 3D",
@@ -1043,11 +1455,18 @@ int main() {
     psx::signal_host(16);
 
     const SceneResult mythical_corrected = draw_corrected_hybrid_close(
-        true, "MYTHICAL CORRECTED", "TORSO EYE LINE  SHARED FEET  FOREGROUND",
+        true, "MYTHICAL SCREEN STAGE", "REJECTED  FLOOR STILL READS FROM BELOW",
         gpu::rgb15(12, 8, 17)
     );
-    print_benchmark("mythical-corrected", mythical_corrected);
+    print_benchmark("mythical-screen-stage-rejected", mythical_corrected);
     psx::signal_host(17);
+
+    const SceneResult mythical_v2 = draw_hybrid_close_v2(
+        true, -1, "MYTHICAL CAMERA V2", "ELEVATED TILE TOPS  FIT FROM BOUNDS",
+        gpu::rgb15(12, 8, 17)
+    );
+    print_benchmark("mythical-camera-v2", mythical_v2);
+    psx::signal_host(23);
 
     const SceneResult overview_flat = draw_overview(false);
     print_benchmark("overview-flat", overview_flat);
@@ -1057,6 +1476,10 @@ int main() {
     const SceneResult overview_hybrid = draw_overview(true);
     print_benchmark("overview-hybrid", overview_hybrid);
     psx::signal_host(19);
+
+    const SceneResult overview_v2 = draw_overview_v2(-1);
+    print_benchmark("overview-camera-v2", overview_v2);
+    psx::signal_host(24);
 
     SceneResult movement_frames[8]{};
     std::uint32_t slowest_movement = 0;
@@ -1069,10 +1492,38 @@ int main() {
     }
     print_benchmark("overview-move-slowest", {slowest_movement, 104});
 
+    SceneResult movement_v2_frames[8]{};
+    std::uint32_t slowest_movement_v2 = 0;
+    for (int frame = 0; frame < 8; ++frame) {
+        movement_v2_frames[frame] = draw_overview_v2(frame);
+        if (movement_v2_frames[frame].ticks > slowest_movement_v2) {
+            slowest_movement_v2 = movement_v2_frames[frame].ticks;
+        }
+        psx::signal_host(25);
+    }
+    print_benchmark("overview-camera-v2-move-slowest",
+                    {slowest_movement_v2, 86});
+
+    SceneResult exchange_frames[8]{};
+    std::uint32_t slowest_exchange = 0;
+    for (int frame = 0; frame < 8; ++frame) {
+        exchange_frames[frame] = draw_hybrid_close_v2(
+            false, frame, "CAMERA V2 ATTACK + COUNTER",
+            "FIXED SIDES  WORLD EFFECT  TILE-TOP FEET",
+            gpu::rgb15(7, 13, 17)
+        );
+        if (exchange_frames[frame].ticks > slowest_exchange) {
+            slowest_exchange = exchange_frames[frame].ticks;
+        }
+        psx::signal_host(26);
+    }
+    print_benchmark("camera-v2-exchange-slowest", {slowest_exchange, 72});
+
     const SceneResult measured[] = {
         medieval_flat, medieval_current, medieval_low_angle,
-        medieval_corrected, mythical_flat, mythical_current,
-        mythical_low_angle, mythical_corrected, overview_flat, overview_hybrid,
+        medieval_corrected, medieval_v2, mythical_flat, mythical_current,
+        mythical_low_angle, mythical_corrected, mythical_v2, overview_flat,
+        overview_hybrid, overview_v2,
     };
     for (const SceneResult& scene : measured) {
         expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
@@ -1081,6 +1532,14 @@ int main() {
     for (const SceneResult& scene : movement_frames) {
         expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
                "animated hybrid overview stays inside locked 30 fps budget");
+    }
+    for (const SceneResult& scene : movement_v2_frames) {
+        expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
+               "camera-v2 tactical movement stays inside locked 30 fps budget");
+    }
+    for (const SceneResult& scene : exchange_frames) {
+        expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
+               "camera-v2 attack exchange stays inside locked 30 fps budget");
     }
     expect(medieval_current.textured_triangles >= 100,
            "current medieval pair preserves its planar texture coverage");
@@ -1091,9 +1550,32 @@ int main() {
            "old hybrid captures retain their low-angle terrain treatment");
     expect(medieval_corrected.textured_triangles == 14 &&
                mythical_corrected.textured_triangles == 14,
-           "corrected close views use shallow floor and two CI4 cutouts");
+           "rejected screen stages remain available for comparison");
+    expect(medieval_v2.textured_triangles == 72 &&
+               mythical_v2.textured_triangles == 72,
+           "camera-v2 close views use 35 tile tops and two CI4 cutouts");
     expect(overview_hybrid.textured_triangles == 104,
            "hybrid overview uses textured macro terrain and eight cutouts");
+    expect(overview_v2.textured_triangles == 86,
+           "camera-v2 overview keeps broad terrain and eight cutouts");
+
+    const ElevatedCamera close_v2 = close_camera_v2();
+    const ProjectedVertex far_top = project_elevated(0, 0, -96, close_v2);
+    const ProjectedVertex near_top = project_elevated(0, 0, 144, close_v2);
+    const ProjectedVertex left_foot = project_elevated(-70, 0, 0, close_v2);
+    const ProjectedVertex right_foot = project_elevated(70, 0, 0, close_v2);
+    const ProjectedVertex left_head = project_elevated(-70, 100, 0, close_v2);
+    expect(near_top.y - far_top.y >= 80,
+           "camera-v2 close stage exposes substantial tile-top depth");
+    expect(left_head.y < left_foot.y,
+           "camera-v2 world up projects above the shared ground line");
+    expect(left_foot.y == right_foot.y,
+           "camera-v2 close slots share one projected foot line");
+    for (int phase = 0; phase < 8; ++phase) {
+        expect(close_left_x(phase) < 0 && close_right_x(phase) > 0 &&
+                   close_left_x(phase) < close_right_x(phase),
+               "attacker and defender retain screen sides through counter");
+    }
 
     psx::Line result;
     result.text(failures == 0 ? "RESULT PASS " : "RESULT FAIL ")

@@ -1,7 +1,7 @@
 -- PlayStation Sevenfold texture experiment capture harness.
 --
--- The guest names matched flat/current/old-low-angle/corrected close views for
--- medieval and mythical art, then matched flat/refined tactical overviews.
+-- The guest names matched flat/current/rejected close views for medieval and
+-- mythical art, then captures elevated camera-v2 close and tactical views.
 -- This writes native 320x240 pictures without a front-end scaler. Slot 20 is the
 -- guest's final verdict and ends the emulator run.
 
@@ -11,19 +11,24 @@ local names = {
   [10] = 'medieval-flat',
   [11] = 'medieval-current',
   [12] = 'medieval-low-angle',
-  [13] = 'medieval-corrected',
+  [13] = 'medieval-screen-stage-rejected',
   [14] = 'mythical-flat',
   [15] = 'mythical-current',
   [16] = 'mythical-low-angle',
-  [17] = 'mythical-corrected',
+  [17] = 'mythical-screen-stage-rejected',
   [18] = 'overview-flat',
   [19] = 'overview-hybrid',
+  [22] = 'medieval-camera-v2',
+  [23] = 'mythical-camera-v2',
+  [24] = 'overview-camera-v2',
 }
 
 local checks = 0
 local failures = 0
 local captures = 0
 local animation_frames = 0
+local camera_v2_animation_frames = 0
+local exchange_frames = 0
 local signatures = {}
 
 local function say(text)
@@ -97,30 +102,73 @@ PCSX.execSlots[21] = function()
   animation_frames = animation_frames + 1
 end
 
+PCSX.execSlots[25] = function()
+  local name = string.format('movement-camera-v2-%02d',
+                             camera_v2_animation_frames)
+  local key = 200 + camera_v2_animation_frames
+  local ok, err = pcall(capture, 25, name, key)
+  if not ok then
+    say('CHECK ' .. name .. ' capture completes FAIL')
+    say('DETAIL ' .. tostring(err))
+    PCSX.quit(1)
+  end
+  camera_v2_animation_frames = camera_v2_animation_frames + 1
+end
+
+PCSX.execSlots[26] = function()
+  local name = string.format('close-exchange-camera-v2-%02d', exchange_frames)
+  local key = 300 + exchange_frames
+  local ok, err = pcall(capture, 26, name, key)
+  if not ok then
+    say('CHECK ' .. name .. ' capture completes FAIL')
+    say('DETAIL ' .. tostring(err))
+    PCSX.quit(1)
+  end
+  exchange_frames = exchange_frames + 1
+end
+
 PCSX.execSlots[20] = function()
-  expect(captures == 18, 'all still and movement frames were captured')
+  expect(captures == 37, 'all still and animation frames were captured')
   expect(signatures[10] ~= signatures[11],
          'medieval current frame differs from its flat baseline')
   expect(signatures[11] ~= signatures[12],
          'medieval low-angle hybrid differs from the current projection')
   expect(signatures[12] ~= signatures[13],
-         'medieval corrected camera differs from the low-angle hybrid')
+         'medieval rejected screen stage differs from the low-angle hybrid')
+  expect(signatures[13] ~= signatures[22],
+         'medieval camera v2 differs from the rejected screen stage')
   expect(signatures[14] ~= signatures[15],
          'mythical current frame differs from its flat baseline')
   expect(signatures[15] ~= signatures[16],
          'mythical low-angle hybrid differs from the current projection')
   expect(signatures[16] ~= signatures[17],
-         'mythical corrected camera differs from the low-angle hybrid')
+         'mythical rejected screen stage differs from the low-angle hybrid')
+  expect(signatures[17] ~= signatures[23],
+         'mythical camera v2 differs from the rejected screen stage')
   expect(signatures[18] ~= signatures[19],
          'hybrid tactical overview differs from its flat baseline')
+  expect(signatures[19] ~= signatures[24],
+         'camera-v2 overview differs from the earlier hybrid')
   expect(signatures[13] ~= signatures[17],
-         'medieval and mythical corrected close views remain distinct')
+         'medieval and mythical rejected close views remain distinct')
+  expect(signatures[22] ~= signatures[23],
+         'medieval and mythical camera-v2 views remain distinct')
   expect(animation_frames == 8, 'all eight movement frames were captured')
   expect(signatures[100] ~= signatures[107],
          'the movement film changes position and pose')
+  expect(camera_v2_animation_frames == 8,
+         'all eight camera-v2 movement frames were captured')
+  expect(signatures[200] ~= signatures[207],
+         'camera-v2 movement changes position and pose')
+  expect(exchange_frames == 8,
+         'all eight fixed-side exchange frames were captured')
+  expect(signatures[300] ~= signatures[302],
+         'left attack reaches a distinct camera-v2 impact frame')
+  expect(signatures[304] ~= signatures[306],
+         'right counter reaches a distinct camera-v2 impact frame')
   say(string.format('RESULT %s %d/%d', failures == 0 and 'PASS' or 'FAIL',
                     checks - failures, checks))
   PCSX.quit(failures == 0 and 0 or 1)
 end
 
-say('installed comparison slots 10..19, movement slot 21 and done slot 20')
+say('installed still slots 10..19 and 22..24, animation slots 21,25,26 and done slot 20')

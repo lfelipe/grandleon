@@ -36,27 +36,39 @@ rm -f \
     "${frame_dir}/medieval-flat.bin" \
     "${frame_dir}/medieval-current.bin" \
     "${frame_dir}/medieval-low-angle.bin" \
-    "${frame_dir}/medieval-corrected.bin" \
+    "${frame_dir}/medieval-screen-stage-rejected.bin" \
+    "${frame_dir}/medieval-camera-v2.bin" \
     "${frame_dir}/mythical-flat.bin" \
     "${frame_dir}/mythical-current.bin" \
     "${frame_dir}/mythical-low-angle.bin" \
-    "${frame_dir}/mythical-corrected.bin" \
+    "${frame_dir}/mythical-screen-stage-rejected.bin" \
+    "${frame_dir}/mythical-camera-v2.bin" \
     "${frame_dir}/overview-flat.bin" \
     "${frame_dir}/overview-hybrid.bin" \
+    "${frame_dir}/overview-camera-v2.bin" \
     "${frame_dir}/medieval-flat.ppm" \
     "${frame_dir}/medieval-current.ppm" \
     "${frame_dir}/medieval-low-angle.ppm" \
-    "${frame_dir}/medieval-corrected.ppm" \
+    "${frame_dir}/medieval-screen-stage-rejected.ppm" \
+    "${frame_dir}/medieval-camera-v2.ppm" \
     "${frame_dir}/mythical-flat.ppm" \
     "${frame_dir}/mythical-current.ppm" \
     "${frame_dir}/mythical-low-angle.ppm" \
-    "${frame_dir}/mythical-corrected.ppm" \
+    "${frame_dir}/mythical-screen-stage-rejected.ppm" \
+    "${frame_dir}/mythical-camera-v2.ppm" \
     "${frame_dir}/overview-flat.ppm" \
     "${frame_dir}/overview-hybrid.ppm" \
-    "${frame_dir}/overview-movement.gif"
+    "${frame_dir}/overview-camera-v2.ppm" \
+    "${frame_dir}/overview-movement.gif" \
+    "${frame_dir}/overview-movement-camera-v2.gif" \
+    "${frame_dir}/close-exchange-camera-v2.gif"
 for index in 00 01 02 03 04 05 06 07; do
     rm -f "${frame_dir}/movement-${index}.bin" \
-        "${frame_dir}/movement-${index}.ppm"
+        "${frame_dir}/movement-${index}.ppm" \
+        "${frame_dir}/movement-camera-v2-${index}.bin" \
+        "${frame_dir}/movement-camera-v2-${index}.ppm" \
+        "${frame_dir}/close-exchange-camera-v2-${index}.bin" \
+        "${frame_dir}/close-exchange-camera-v2-${index}.ppm"
 done
 
 docker="${GRANDLEON_DOCKER:-docker}"
@@ -90,15 +102,25 @@ fi
     --log "${log}" --require "^RESULT PASS " --min-checks 32 \
     --what "the PlayStation texture experiment guest"
 "${repository_root}/scripts/assert-harness-verdict.sh" \
-    --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 101 \
+    --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 200 \
     --what "the PlayStation texture capture harness"
 
 for name in \
-    medieval-flat medieval-current medieval-low-angle medieval-corrected \
-    mythical-flat mythical-current mythical-low-angle mythical-corrected \
-    overview-flat overview-hybrid \
+    medieval-flat medieval-current medieval-low-angle \
+    medieval-screen-stage-rejected medieval-camera-v2 \
+    mythical-flat mythical-current mythical-low-angle \
+    mythical-screen-stage-rejected mythical-camera-v2 \
+    overview-flat overview-hybrid overview-camera-v2 \
     movement-00 movement-01 movement-02 movement-03 \
-    movement-04 movement-05 movement-06 movement-07; do
+    movement-04 movement-05 movement-06 movement-07 \
+    movement-camera-v2-00 movement-camera-v2-01 \
+    movement-camera-v2-02 movement-camera-v2-03 \
+    movement-camera-v2-04 movement-camera-v2-05 \
+    movement-camera-v2-06 movement-camera-v2-07 \
+    close-exchange-camera-v2-00 close-exchange-camera-v2-01 \
+    close-exchange-camera-v2-02 close-exchange-camera-v2-03 \
+    close-exchange-camera-v2-04 close-exchange-camera-v2-05 \
+    close-exchange-camera-v2-06 close-exchange-camera-v2-07; do
     frame="${frame_dir}/${name}.bin"
     ppm="${frame_dir}/${name}.ppm"
     if [ ! -s "${frame}" ]; then
@@ -141,9 +163,35 @@ frames[0].save(
     loop=0,
     disposal=2,
 )
+camera_v2_frames = [
+    Image.open(frame_dir / f"movement-camera-v2-{index:02d}.ppm").convert("RGB")
+    for index in range(8)
+]
+camera_v2_frames[0].save(
+    frame_dir / "overview-movement-camera-v2.gif",
+    save_all=True,
+    append_images=camera_v2_frames[1:],
+    duration=120,
+    loop=0,
+    disposal=2,
+)
+exchange_frames = [
+    Image.open(frame_dir / f"close-exchange-camera-v2-{index:02d}.ppm").convert("RGB")
+    for index in range(8)
+]
+exchange_frames[0].save(
+    frame_dir / "close-exchange-camera-v2.gif",
+    save_all=True,
+    append_images=exchange_frames[1:],
+    duration=150,
+    loop=0,
+    disposal=2,
+)
 PYEOF
 
 grep '^BENCH ' "${log}"
 echo "PlayStation Sevenfold texture experiment passed: ${executable}"
 echo "Native comparison captures: ${frame_dir}/*.ppm"
 echo "Native movement film: ${frame_dir}/overview-movement.gif"
+echo "Native camera-v2 movement film: ${frame_dir}/overview-movement-camera-v2.gif"
+echo "Native camera-v2 exchange film: ${frame_dir}/close-exchange-camera-v2.gif"
