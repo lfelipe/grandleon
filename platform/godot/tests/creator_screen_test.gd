@@ -134,7 +134,7 @@ func _run() -> void:
 			true
 		)
 		screen._refresh_projects()
-		screen._open_project_actions(original_id, "Signal Road")
+		_exercise_migration_cards(screen, original_id, single_source.source)
 		_expect("project options open", screen.project_actions_layer.visible, true)
 		_expect("project options focus story", screen.project_actions_first_button.has_focus(), true)
 		screen._export_selected_project()
@@ -271,6 +271,82 @@ func _run() -> void:
 	quit(1 if failures > 0 else 0)
 
 
+func _exercise_migration_cards(screen: Control, project_id: String, source: String) -> void:
+	var legacy_source := _to_legacy_source(source)
+	var project_directory: String = screen.library.root_path.path_join(project_id)
+	var project_file := project_directory.path_join("project.json")
+	_expect("legacy card fixture writes", _write_file(project_file, legacy_source), true)
+	screen._refresh_projects()
+	_expect(
+		"legacy project card shows migration notice",
+		screen.project_notice_labels.has(project_id),
+		true
+	)
+	if screen.project_notice_labels.has(project_id):
+		_expect(
+			"legacy project card explains recovery copy",
+			screen.project_notice_labels[project_id].text.contains("1.3 → 1.4"),
+			true
+		)
+	_expect(
+		"refreshing creator does not migrate legacy source",
+		FileAccess.get_file_as_string(project_file),
+		legacy_source
+	)
+	_expect(
+		"refreshing creator creates no migration backup",
+		DirAccess.dir_exists_absolute(project_directory.path_join("recovered")),
+		false
+	)
+	var unreadable_id := "00000000-0000-4000-8000-000000000099"
+	var unreadable_directory: String = screen.library.root_path.path_join(unreadable_id)
+	_expect(
+		"unreadable card fixture directory writes",
+		DirAccess.make_dir_recursive_absolute(unreadable_directory),
+		OK
+	)
+	var unreadable_file := unreadable_directory.path_join("project.json")
+	_expect("unreadable card fixture writes", _write_file(unreadable_file, "not json\n"), true)
+	screen._refresh_projects()
+	_expect(
+		"unreadable project gets a human notice",
+		screen.project_notice_labels.has(unreadable_id),
+		true
+	)
+	if screen.project_notice_labels.has(unreadable_id):
+		var unreadable_notice := str(screen.project_notice_labels[unreadable_id].text)
+		_expect(
+			"unreadable notice explains preservation",
+			unreadable_notice.contains("left untouched"),
+			true
+		)
+		_expect(
+			"unreadable notice omits machine path",
+			unreadable_notice.contains(screen.library.root_path),
+			false
+		)
+	_expect("unreadable card is disabled", screen.project_buttons[unreadable_id].disabled, true)
+	_expect("unreadable fixture source removes", DirAccess.remove_absolute(unreadable_file), OK)
+	_expect("unreadable fixture directory removes", DirAccess.remove_absolute(unreadable_directory), OK)
+	screen._refresh_projects()
+	screen._open_project_actions(project_id, "Signal Road")
+	_expect(
+		"opening legacy project reports completed migration",
+		screen.status_label.text,
+		"UPDATED 1.3 → 1.4  /  ORIGINAL RECOVERY COPY KEPT"
+	)
+	_expect(
+		"opened legacy source reaches current schema",
+		str(screen.library.inspect_source(project_id).project.schemaVersion),
+		"1.4.0"
+	)
+	_expect(
+		"completed migration stays visible on project card",
+		screen.project_notice_labels[project_id].text.contains("RECOVERY COPY AVAILABLE"),
+		true
+	)
+
+
 func _expect(label: String, actual: Variant, expected: Variant) -> void:
 	if actual != expected:
 		failures += 1
@@ -291,6 +367,25 @@ func _integer_numbers(value: Variant) -> Variant:
 	if value is float and value == floor(value):
 		return int(value)
 	return value
+
+
+func _to_legacy_source(source: String) -> String:
+	var parsed := JSON.new()
+	if parsed.parse(source) != OK or not parsed.data is Dictionary:
+		return source
+	var project: Dictionary = parsed.data
+	project["schemaVersion"] = "1.3.0"
+	project.erase("sourceLanguage")
+	return JSON.stringify(_integer_numbers(project), "  ", true) + "\n"
+
+
+func _write_file(path: String, value: String) -> bool:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(value)
+	file.close()
+	return true
 
 
 func _argument_path(prefix: String) -> String:

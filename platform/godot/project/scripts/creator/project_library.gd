@@ -475,6 +475,69 @@ func load_source(project_id: String) -> Dictionary:
 	}
 
 
+func inspect_source(project_id: String) -> Dictionary:
+	if not _valid_project_id(project_id):
+		return _failure("invalid_project_id", "That project identifier is not valid.")
+	var directory := _project_path(project_id)
+	var target := directory.path_join(PROJECT_FILE)
+	var previous := directory.path_join(PREVIOUS_FILE)
+	var source_path := target
+	var recovery := _recovery_details()
+	if not FileAccess.file_exists(target):
+		if not FileAccess.file_exists(previous):
+			return _failure_with_details(
+				"project_missing",
+				"The project source does not exist.",
+				_migration_details(),
+				recovery
+			)
+		if not _source_file_is_readable(previous):
+			return _failure_with_details(
+				"project_unreadable",
+				"The previous project copy is unreadable and was left untouched.",
+				_migration_details(),
+				_source_preserved_recovery(PREVIOUS_FILE)
+			)
+		source_path = previous
+		recovery = {
+			"status": "available",
+			"performed": false,
+			"source_file": PREVIOUS_FILE,
+			"target_file": PROJECT_FILE,
+			"preserved_file": PREVIOUS_FILE,
+			"backup_available": true,
+		}
+	var source := FileAccess.get_file_as_string(source_path)
+	var parsed := JSON.new()
+	if parsed.parse(source) != OK or not parsed.data is Dictionary:
+		return _failure_with_details(
+			"project_unreadable",
+			"The stored project is unreadable and was left untouched.",
+			_migration_details(),
+			_source_preserved_recovery(source_path.get_file(), previous)
+		)
+	var checked: Dictionary = _upgrade_legacy_source(source)
+	if not bool(checked.get("ok", false)):
+		return checked
+	var migration: Dictionary = checked.migration.duplicate(true)
+	if str(migration.get("status", "")) == "not_needed":
+		var prior_backup := _existing_migration_backup(directory, LEGACY_SCHEMA_VERSION)
+		if not prior_backup.is_empty():
+			migration = _migration_details(
+				"previously_completed", LEGACY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION
+			)
+			migration["backup"] = prior_backup
+	return {
+		"ok": true,
+		"id": project_id,
+		"source": source,
+		"project": parsed.data,
+		"migrated": false,
+		"migration": migration,
+		"recovery": recovery,
+	}
+
+
 func _upgrade_legacy_source(source: String) -> Dictionary:
 	var parsed := JSON.new()
 	if parsed.parse(source) != OK or not parsed.data is Dictionary:
@@ -531,20 +594,28 @@ func _integer_numbers(value: Variant) -> Variant:
 
 func list_projects() -> Array[Dictionary]:
 	var projects: Array[Dictionary] = []
-	if DirAccess.make_dir_recursive_absolute(root_path) != OK:
+	if not DirAccess.dir_exists_absolute(root_path):
 		return projects
 	var directories := DirAccess.get_directories_at(root_path)
 	directories.sort()
 	for project_id in directories:
 		if not _valid_project_id(project_id):
 			continue
-		var loaded := load_source(project_id)
-		if loaded.ok:
+		var inspected := inspect_source(project_id)
+		if inspected.ok:
+			var notice: Dictionary = _project_listing_notice(
+				inspected.migration, inspected.recovery
+			)
 			projects.append({
 				"id": project_id,
-				"title": str(loaded.project.get("title", "Untitled Game")),
-				"game_id": str(loaded.project.get("gameId", "")),
+				"title": str(inspected.project.get("title", "Untitled Game")),
+				"game_id": str(inspected.project.get("gameId", "")),
 				"readable": true,
+				"project": inspected.project,
+				"migration": inspected.migration,
+				"recovery": inspected.recovery,
+				"notice": str(notice.get("message", "")),
+				"notice_kind": str(notice.get("kind", "")),
 			})
 		else:
 			projects.append({
@@ -552,9 +623,46 @@ func list_projects() -> Array[Dictionary]:
 				"title": "Unreadable project",
 				"game_id": "",
 				"readable": false,
-				"reason": loaded.message,
+				"project": {},
+				"migration": inspected.get("migration", _migration_details()),
+				"recovery": inspected.get("recovery", _recovery_details()),
+				"reason": inspected.message,
+				"notice": "CANNOT OPEN  /  %s" % inspected.message,
+				"notice_kind": "failure",
 			})
 	return projects
+
+
+func _project_listing_notice(migration: Dictionary, recovery: Dictionary) -> Dictionary:
+	var migration_status := str(migration.get("status", ""))
+	var recovery_status := str(recovery.get("status", ""))
+	if migration_status == "pending" and recovery_status == "available":
+		return {
+			"kind": "warning",
+			"message": (
+				"OPENING WILL RESTORE THE PREVIOUS COPY AND UPDATE 1.3 → 1.4\n"
+				+ "AN ORIGINAL RECOVERY COPY WILL BE KEPT"
+			),
+		}
+	if migration_status == "pending":
+		return {
+			"kind": "warning",
+			"message": (
+				"OPENING WILL UPDATE 1.3 → 1.4\n"
+				+ "AN ORIGINAL RECOVERY COPY WILL BE KEPT"
+			),
+		}
+	if recovery_status == "available":
+		return {
+			"kind": "warning",
+			"message": "OPENING WILL RESTORE THE PRESERVED PREVIOUS COPY",
+		}
+	if migration_status == "previously_completed":
+		return {
+			"kind": "completed",
+			"message": "UPDATED TO 1.4  /  ORIGINAL 1.3 RECOVERY COPY AVAILABLE",
+		}
+	return {"kind": "", "message": ""}
 
 
 func _project_path(project_id: String) -> String:
@@ -653,6 +761,23 @@ func _source_file_is_readable(path: String) -> bool:
 		parsed.parse(FileAccess.get_file_as_string(path)) == OK
 		and parsed.data is Dictionary
 	)
+
+
+func _existing_migration_backup(directory: String, schema_version: String) -> Dictionary:
+	var recovery_directory := directory.path_join(RECOVERY_DIRECTORY)
+	if not DirAccess.dir_exists_absolute(recovery_directory):
+		return {}
+	var prefix := "project-schema-%s" % schema_version
+	var names := DirAccess.get_files_at(recovery_directory)
+	names.sort()
+	for file_name: String in names:
+		if file_name.begins_with(prefix) and file_name.ends_with(".json"):
+			return {
+				"status": "available",
+				"file": RECOVERY_DIRECTORY + "/" + file_name,
+				"bytes": 0,
+			}
+	return {}
 
 
 func _create_migration_backup(

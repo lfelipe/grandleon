@@ -15,6 +15,7 @@ var language_select: OptionButton
 var project_filter: LineEdit
 var project_buttons: Dictionary = {}
 var project_campaign_selects: Dictionary = {}
+var project_notice_labels: Dictionary = {}
 var new_campaign_layer: Control
 var new_campaign_title: LineEdit
 var new_campaign_create_button: Button
@@ -479,6 +480,10 @@ func _create_campaign_from(template_path: String, title: String, open_editor: bo
 
 
 func _open_project_actions(project_id: String, title: String) -> void:
+	var loaded := _prepare_project_open(project_id)
+	if not loaded.ok:
+		return
+	title = str(loaded.project.get("title", title))
 	project_actions_id = project_id
 	project_actions_name = title
 	project_actions_title.text = title
@@ -519,6 +524,8 @@ func _army_selected_project() -> void:
 
 func _settings_selected_project() -> void:
 	var project_id := project_actions_id
+	if not _prepare_project_open(project_id).ok:
+		return
 	project_actions_layer.visible = false
 	project_actions_id = ""
 	project_actions_name = ""
@@ -528,6 +535,8 @@ func _settings_selected_project() -> void:
 
 func _translations_selected_project() -> void:
 	var project_id := project_actions_id
+	if not _prepare_project_open(project_id).ok:
+		return
 	project_actions_layer.visible = false
 	project_actions_id = ""
 	project_actions_name = ""
@@ -887,6 +896,7 @@ func _create_from(template_path: String, title: String) -> void:
 func _refresh_projects() -> void:
 	project_buttons.clear()
 	project_campaign_selects.clear()
+	project_notice_labels.clear()
 	for child in project_list.get_children():
 		child.queue_free()
 	var projects: Array[Dictionary] = library.list_projects()
@@ -908,7 +918,8 @@ func _refresh_projects() -> void:
 		var entry := VBoxContainer.new()
 		entry.add_theme_constant_override("separation", 8)
 		project_list.add_child(entry)
-		var progress := _project_progress(str(project.id))
+		var project_source: Dictionary = project.get("project", {})
+		var progress := _project_progress(project_source)
 		var edit := _button("CONTINUE CREATING  /  %s\n%s" % [title, progress])
 		edit.disabled = not bool(project.get("readable", false))
 		edit.custom_minimum_size = Vector2(1040, 86)
@@ -916,10 +927,25 @@ func _refresh_projects() -> void:
 		edit.pressed.connect(_edit_project.bind(str(project.id)))
 		entry.add_child(edit)
 		project_buttons[str(project.id)] = edit
+		var notice_text := str(project.get("notice", ""))
+		if not notice_text.is_empty():
+			var notice_kind := str(project.get("notice_kind", ""))
+			var notice_colour := Color("f4c66a")
+			if notice_kind == "failure":
+				notice_colour = Color("ff7a83")
+			elif notice_kind == "completed":
+				notice_colour = Color("72e08f")
+			var notice := _label(notice_text, 16, notice_colour)
+			notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			notice.tooltip_text = notice_text
+			entry.add_child(notice)
+			project_notice_labels[str(project.id)] = notice
+		if edit.disabled:
+			edit.tooltip_text = str(project.get("reason", "This project cannot be opened."))
 		var actions := HBoxContainer.new()
 		actions.add_theme_constant_override("separation", 10)
 		entry.add_child(actions)
-		var choices := _project_campaign_choices(str(project.id))
+		var choices := _project_campaign_choices(project_source)
 		var campaign_select: OptionButton = null
 		if choices.size() > 1:
 			campaign_select = OptionButton.new()
@@ -961,12 +987,9 @@ func _filter_projects(_value: String) -> void:
 	_refresh_projects()
 
 
-func _project_campaign_choices(project_id: String) -> Array[Dictionary]:
+func _project_campaign_choices(project: Dictionary) -> Array[Dictionary]:
 	var choices: Array[Dictionary] = []
-	var loaded: Dictionary = library.load_source(project_id)
-	if not loaded.ok:
-		return choices
-	for value: Variant in loaded.project.get("campaigns", []):
+	for value: Variant in project.get("campaigns", []):
 		if not value is Dictionary:
 			continue
 		var campaign: Dictionary = value
@@ -981,14 +1004,9 @@ func _project_campaign_choices(project_id: String) -> Array[Dictionary]:
 	return choices
 
 
-func _project_progress(project_id: String) -> String:
-	var loaded: Dictionary = library.load_source(project_id)
-	if not loaded.ok:
+func _project_progress(project: Dictionary) -> String:
+	if project.is_empty():
 		return "NEEDS REPAIR"
-	var value: Variant = loaded.get("project", {})
-	if not value is Dictionary:
-		return "NEEDS REPAIR"
-	var project: Dictionary = value
 	var maps: Array = project.get("maps", [])
 	var campaigns: Array = project.get("campaigns", [])
 	var dialogues: Array = project.get("dialogues", [])
@@ -1179,17 +1197,46 @@ func _focus_project_now(project_id: String) -> void:
 		first_button.grab_focus()
 
 
+func _prepare_project_open(project_id: String) -> Dictionary:
+	var loaded: Dictionary = library.load_source(project_id)
+	if not loaded.ok:
+		_set_status("OPEN FAILED  /  %s" % loaded.message, true)
+		return loaded
+	var migration: Dictionary = loaded.get("migration", {})
+	var recovery: Dictionary = loaded.get("recovery", {})
+	var migration_completed := str(migration.get("status", "")) == "completed"
+	var recovery_completed := bool(recovery.get("performed", false))
+	if migration_completed or recovery_completed:
+		_refresh_projects()
+		if migration_completed and recovery_completed:
+			_set_status(
+				"RESTORED PREVIOUS COPY  /  UPDATED 1.3 → 1.4  /  RECOVERY COPY KEPT",
+				false
+			)
+		elif migration_completed:
+			_set_status("UPDATED 1.3 → 1.4  /  ORIGINAL RECOVERY COPY KEPT", false)
+		else:
+			_set_status("RESTORED PREVIOUS COPY  /  PRESERVED COPY STILL AVAILABLE", false)
+	return loaded
+
+
 func _edit_project(project_id: String) -> void:
+	if not _prepare_project_open(project_id).ok:
+		return
 	CreatorContext.open_project(project_id)
 	get_tree().change_scene_to_file("res://campaign_editor.tscn")
 
 
 func _edit_campaign(project_id: String) -> void:
+	if not _prepare_project_open(project_id).ok:
+		return
 	CreatorContext.open_project(project_id)
 	get_tree().change_scene_to_file("res://campaign_editor.tscn")
 
 
 func _edit_army(project_id: String) -> void:
+	if not _prepare_project_open(project_id).ok:
+		return
 	CreatorContext.open_project(project_id)
 	get_tree().change_scene_to_file("res://army_editor.tscn")
 
@@ -1203,9 +1250,8 @@ func _play_selected_project(project_id: String, selector: OptionButton) -> void:
 
 func _play_project(project_id: String, selected_campaign_id := "") -> void:
 	CreatorContext.clear()
-	var loaded: Dictionary = library.load_source(project_id)
+	var loaded: Dictionary = _prepare_project_open(project_id)
 	if not loaded.ok:
-		_set_status("OPEN FAILED  /  %s" % loaded.message, true)
 		return
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	if compiler == null:
@@ -1270,6 +1316,7 @@ func _rebuild_localized_interface() -> void:
 	status_label = null
 	project_buttons.clear()
 	project_campaign_selects.clear()
+	project_notice_labels.clear()
 	new_campaign_layer = null
 	project_actions_layer = null
 	project_actions_id = ""

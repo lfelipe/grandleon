@@ -286,6 +286,38 @@ func _init() -> void:
 			migration_library.root_path.path_join(str(migration_created.id)).path_join("project.json")
 		)
 		_expect("legacy source fixture written", _write_file(migration_target, legacy_source), true)
+		var migration_directory := migration_target.get_base_dir()
+		var directories_before := DirAccess.get_directories_at(migration_directory)
+		var inspected_legacy: Dictionary = migration_library.inspect_source(str(migration_created.id))
+		_expect("legacy inspection succeeds", inspected_legacy.ok, true)
+		if inspected_legacy.ok:
+			_expect("legacy inspection reports pending migration", inspected_legacy.migration.status, "pending")
+			_expect("legacy inspection keeps source schema", inspected_legacy.project.schemaVersion, "1.3.0")
+		var migration_projects := migration_library.list_projects()
+		_expect("legacy project lists without opening", migration_projects.size(), 1)
+		if migration_projects.size() == 1:
+			_expect("legacy project remains readable", migration_projects[0].readable, true)
+			_expect("legacy card reports pending migration", migration_projects[0].migration.status, "pending")
+			_expect(
+				"legacy card explains update",
+				str(migration_projects[0].notice).contains("1.3 → 1.4"),
+				true
+			)
+			_expect(
+				"legacy card explains recovery copy",
+				str(migration_projects[0].notice).contains("RECOVERY COPY"),
+				true
+			)
+		_expect(
+			"listing leaves legacy bytes untouched",
+			FileAccess.get_file_as_string(migration_target),
+			legacy_source
+		)
+		_expect(
+			"listing creates no migration directory",
+			DirAccess.get_directories_at(migration_directory),
+			directories_before
+		)
 		var migrated: Dictionary = migration_library.load_source(str(migration_created.id))
 		_expect("stored legacy source migrates", migrated.ok, true)
 		if migrated.ok:
@@ -304,6 +336,18 @@ func _init() -> void:
 				),
 				legacy_source
 			)
+			var migrated_projects := migration_library.list_projects()
+			if migrated_projects.size() == 1:
+				_expect(
+					"completed migration remains visible on card",
+					migrated_projects[0].migration.status,
+					"previously_completed"
+				)
+				_expect(
+					"completed migration card keeps recovery visible",
+					str(migrated_projects[0].notice).contains("RECOVERY COPY AVAILABLE"),
+					true
+				)
 
 	var unreadable_library = ProjectLibrary.new(
 		"user://project-library-unreadable-test/%s" % _new_test_id()
@@ -316,6 +360,25 @@ func _init() -> void:
 		)
 		var unreadable_source := "{ this is not readable project JSON\n"
 		_expect("unreadable source fixture written", _write_file(unreadable_target, unreadable_source), true)
+		var unreadable_projects := unreadable_library.list_projects()
+		_expect("unreadable project is still listed", unreadable_projects.size(), 1)
+		if unreadable_projects.size() == 1:
+			_expect("unreadable project card is disabled", unreadable_projects[0].readable, false)
+			_expect(
+				"unreadable project card explains preservation",
+				str(unreadable_projects[0].reason).contains("left untouched"),
+				true
+			)
+			_expect(
+				"unreadable card reason omits machine path",
+				str(unreadable_projects[0].reason).contains(unreadable_library.root_path),
+				false
+			)
+		_expect(
+			"unreadable listing preserves exact bytes",
+			FileAccess.get_file_as_string(unreadable_target),
+			unreadable_source
+		)
 		var unreadable_load: Dictionary = unreadable_library.load_source(str(unreadable_created.id))
 		_expect("unreadable source is refused", unreadable_load.code, "project_unreadable")
 		_expect("unreadable source is reported preserved", unreadable_load.recovery.status, "source_preserved")
