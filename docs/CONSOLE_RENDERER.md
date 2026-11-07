@@ -38,6 +38,11 @@ masks, and draws those characters over textured tactical terrain. Movement and
 attack poses come from the same animation sheets rather than a separate pixel
 roster. Tactical figures use about one and a half cells of height, keeping the
 silhouettes readable without hiding as much of the neighbouring terrain.
+Steel and Cedar's authored 2×2 village houses and ancient groves have their
+own connected silhouettes on both consoles rather than appearing as ordinary
+mountains. They remain impassable mountain terrain in the game rules. The
+console drawing is made from a few flat primitives over the existing terrain
+cell, so these landmarks add no texture upload or VRAM allocation.
 
 During combat, the renderer can show the attacker and defender against a
 terrain backdrop before returning to the unchanged tactical board. Characters

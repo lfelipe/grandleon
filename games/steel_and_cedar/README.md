@@ -50,10 +50,22 @@ same blocked footprints as high ground until that portable feature work lands.
 ## Current status
 
 The source parses, compiles, and opens every encounter as both a one-player and
-a two-player campaign. Automated checks cover the distinct armies and story
-beats, mode-specific opening positions, additional co-op opposition, larger
-scrolling maps, tactical distribution, the 20-round commander defense, wave
-timing, the final boss, and console encounter budgets.
+a two-player campaign. Automated checks walk the real terrain to ensure both
+armies have routes to every opponent and reinforcement, keep each co-op player
+within two moves of a consequential opening front, wait through every wave to
+prove it lands on a unique legal cell, and play the 20-round defense to a real
+simulation victory. A deterministic pursue-versus-pursue smoke run also makes
+all ten 1P/2P encounters reach a result instead of deadlocking. Finally, the
+campaign cursor follows the objective results through all five victories and
+the ending; keeping Rowan alive correctly remains a pending protection result,
+while the stage's survival or boss objective advances the story.
+
+That unattended smoke run is a legality and deadlock check, not a balance
+proof. The War Host currently wins all ten simple pursuit traces. A human can
+use terrain, ranges, healing, target priority, and split-route coordination in
+ways that policy does not, so this does not prove any battle is unwinnable. It
+does make difficulty and attrition the clearest current balance risks,
+especially for Rowan and Tomas on the late solo maps.
 
 It is not ready to replace the current included campaigns until real 1P and 2P
 playtests cover difficulty, duration, instructions, retries, saves,

@@ -607,27 +607,146 @@ func _landmark_centre(anchor: Vector2i) -> Vector3:
 
 func _build_village_house(anchor: Vector2i) -> void:
 	var centre := _landmark_centre(anchor)
-	var timber := _material("house_timber", _palette("houseTimber", Color("6e4933")), 0.96)
-	var plaster := _material("house_plaster", _palette("housePlaster", Color("d6bd8e")), 0.92)
-	var roof := _material("house_roof", _palette("houseRoof", Color("7f342d")), 0.96)
-	var dark := _material("house_opening", _palette("houseOpening", Color("251c1a")), 1.0)
-	_box(_terrain_root, centre + Vector3(0, 0.48, 0), Vector3(1.68, 0.78, 1.68), plaster)
-	for x_offset in [-0.76, 0.76]:
-		_box(_terrain_root, centre + Vector3(x_offset, 0.50, 0), Vector3(0.10, 0.84, 1.72), timber)
-	for z_offset in [-0.76, 0.76]:
-		_box(_terrain_root, centre + Vector3(0, 0.50, z_offset), Vector3(1.72, 0.84, 0.10), timber)
-	var left_roof := _box(
-		_terrain_root, centre + Vector3(-0.43, 1.08, 0),
-		Vector3(1.12, 0.12, 1.94), roof
+	var style := _landmark_visual_style("village_house")
+	var variation := _village_house_variation(anchor)
+	# Steel and Cedar currently authors a Medieval border settlement. Keeping the
+	# dispatch explicit lets future terrain features or graphics profiles select a
+	# Sengoku, pirate, science-fiction, or other family without changing the
+	# tactical four-cell footprint.
+	match style:
+		_:
+			_build_medieval_village_house(centre, variation)
+
+
+func _landmark_visual_style(kind: String) -> String:
+	var values: Dictionary = profile_config.get("landmarks", {})
+	var configured := String(values.get("%sStyle" % kind, "")).strip_edges().to_lower()
+	if not configured.is_empty():
+		return configured
+	for candidate: String in ["medieval", "sengoku", "pirates", "scifi", "mythical", "nature", "undead"]:
+		if kind.begins_with(candidate + "_"):
+			return candidate
+	return "medieval"
+
+
+func _village_house_variation(anchor: Vector2i) -> int:
+	return posmod(anchor.x * 17 + anchor.y * 31, 4)
+
+
+func _build_medieval_village_house(centre: Vector3, variation: int) -> void:
+	var house := Node3D.new()
+	house.position = centre
+	house.rotation.y = PI * 0.5 if variation in [1, 3] else 0.0
+	house.set_meta("landmark_style", "medieval")
+	house.set_meta("landmark_variation", variation)
+	_terrain_root.add_child(house)
+
+	var plaster_base := _palette("housePlaster", Color("d8c39b"))
+	var roof_base := _palette("houseRoof", Color("8d4935"))
+	var plaster_colours := [
+		plaster_base, plaster_base.darkened(0.08),
+		plaster_base.lightened(0.08), plaster_base.darkened(0.15),
+	]
+	var roof_colours := [
+		roof_base, roof_base.darkened(0.18),
+		Color("76513b"), roof_base.lightened(0.10),
+	]
+	var timber := _material(
+		"medieval_house_timber", _palette("houseTimber", Color("563824")), 0.98
 	)
-	left_roof.rotation_degrees.z = 28.0
-	var right_roof := _box(
-		_terrain_root, centre + Vector3(0.43, 1.08, 0),
-		Vector3(1.12, 0.12, 1.94), roof
+	var plaster := _material(
+		"medieval_house_plaster_%d" % variation,
+		plaster_colours[variation], 0.94
 	)
-	right_roof.rotation_degrees.z = -28.0
-	_box(_terrain_root, centre + Vector3(0.36, 0.38, 0.86), Vector3(0.38, 0.58, 0.035), dark)
-	_box(_terrain_root, centre + Vector3(-0.38, 0.58, 0.86), Vector3(0.30, 0.28, 0.035), dark)
+	var roof := _material(
+		"medieval_house_roof_%d" % variation,
+		roof_colours[variation], 0.98
+	)
+	var stone := _material(
+		"medieval_house_stone", _palette("houseStone", Color("716b5e")), 1.0
+	)
+	var stone_light := _material(
+		"medieval_house_stone_light",
+		_palette("houseStoneLight", Color("908878")), 1.0
+	)
+	var door := _material(
+		"medieval_house_door", _palette("houseDoor", Color("34261d")), 1.0
+	)
+	var window := _material(
+		"medieval_house_window", _palette("houseWindow", Color("80a8a4")), 0.34
+	)
+	var chimney := _material(
+		"medieval_house_chimney", _palette("houseChimney", Color("664a3c")), 1.0
+	)
+
+	var width: float = [1.54, 1.68, 1.48, 1.64][variation]
+	var depth: float = [1.42, 1.34, 1.52, 1.38][variation]
+	var wall_height: float = [0.72, 0.78, 0.92, 0.74][variation]
+	var wall_y := 0.24 + wall_height * 0.5
+	var wall_top := 0.24 + wall_height
+	_box(house, Vector3(0, 0.12, 0), Vector3(width + 0.10, 0.24, depth + 0.10), stone)
+	_box(house, Vector3(0, wall_y, 0), Vector3(width, wall_height, depth), plaster)
+
+	# Irregular foundation stones keep the base from reading as one clean box.
+	for stone_index in 5:
+		var stone_x := -width * 0.38 + float(stone_index) * width * 0.19
+		var stone_width := width * (0.17 if stone_index % 2 == 0 else 0.15)
+		_box(
+			house, Vector3(stone_x, 0.17, depth * 0.5 + 0.055),
+			Vector3(stone_width, 0.16, 0.08),
+			stone_light if stone_index % 2 == 0 else stone
+		)
+
+	# Heavy posts, belts and braces carry the Medieval visual language from the
+	# reference art into real board geometry.
+	for x_offset in [-width * 0.46, width * 0.46]:
+		for z_offset in [-depth * 0.46, depth * 0.46]:
+			_box(house, Vector3(x_offset, wall_y, z_offset), Vector3(0.09, wall_height + 0.06, 0.09), timber)
+	for z_offset in [-depth * 0.505, depth * 0.505]:
+		_box(house, Vector3(0, 0.34, z_offset), Vector3(width + 0.08, 0.08, 0.065), timber)
+		_box(house, Vector3(0, wall_top - 0.08, z_offset), Vector3(width + 0.08, 0.08, 0.065), timber)
+	for x_offset in [-width * 0.30, width * 0.30]:
+		var brace := _box(
+			house, Vector3(x_offset, wall_y, depth * 0.51),
+			Vector3(0.065, wall_height * 0.72, 0.065), timber
+		)
+		brace.rotation_degrees.z = 31.0 if x_offset < 0.0 else -31.0
+
+	var roof_y := wall_top + 0.20
+	var roof_half := width * 0.62
+	for roof_side in [-1, 1]:
+		var roof_panel := _box(
+			house, Vector3(float(roof_side) * width * 0.25, roof_y, 0),
+			Vector3(roof_half, 0.13, depth + 0.28), roof
+		)
+		roof_panel.rotation_degrees.z = float(roof_side) * -31.0
+	_box(house, Vector3(0, roof_y + 0.20, 0), Vector3(0.10, 0.10, depth + 0.31), timber)
+
+	# Doors and windows face a road-facing side of the rotated building.
+	var front_z := depth * 0.505
+	var door_x := width * (0.24 if variation % 2 == 0 else -0.24)
+	_box(house, Vector3(door_x, 0.47, front_z + 0.038), Vector3(0.34, 0.58, 0.045), door)
+	_box(house, Vector3(-door_x, 0.58, front_z + 0.042), Vector3(0.32, 0.27, 0.05), timber)
+	_box(house, Vector3(-door_x, 0.58, front_z + 0.048), Vector3(0.24, 0.19, 0.055), window)
+	_box(house, Vector3(-width * 0.505, 0.58, -depth * 0.12), Vector3(0.05, 0.30, 0.30), timber)
+	_box(house, Vector3(-width * 0.512, 0.58, -depth * 0.12), Vector3(0.055, 0.21, 0.21), window)
+
+	if variation != 2:
+		var chimney_x := width * (-0.28 if variation == 0 else 0.27)
+		_box(house, Vector3(chimney_x, wall_top + 0.38, -depth * 0.16), Vector3(0.20, 0.64, 0.22), chimney)
+		_box(house, Vector3(chimney_x, wall_top + 0.71, -depth * 0.16), Vector3(0.27, 0.09, 0.29), chimney)
+
+	# Two variants gain an asymmetric lean-to or porch, giving a settlement a
+	# believable family of buildings rather than six colour-swapped clones.
+	if variation in [1, 3]:
+		var side := 1.0 if variation == 1 else -1.0
+		var annex_x := side * (width * 0.5 + 0.18)
+		_box(house, Vector3(annex_x, 0.31, -0.10), Vector3(0.42, 0.48, depth * 0.68), plaster)
+		var annex_roof := _box(
+			house, Vector3(annex_x + side * 0.02, 0.62, -0.10),
+			Vector3(0.54, 0.10, depth * 0.78), roof
+		)
+		annex_roof.rotation_degrees.z = side * -12.0
 
 
 func _build_ancient_grove(anchor: Vector2i) -> void:

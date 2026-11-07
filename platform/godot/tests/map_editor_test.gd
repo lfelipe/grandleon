@@ -227,6 +227,81 @@ func _run() -> void:
 		]
 	)
 	_expect("the same footprint follows its forest context", grove_feature.kind, "ancient_grove")
+	_expect("the editor offers a one-action house stamp", editor.tool_buttons.has("landmark_house"), true)
+	_expect("the editor offers a one-action grove stamp", editor.tool_buttons.has("landmark_grove"), true)
+	_expect("the editor offers whole-landmark removal", editor.tool_buttons.has("landmark_remove"), true)
+	_expect(
+		"raw house cells are not offered as a one-cell terrain brush",
+		editor.palette_buttons.has("mountain_village_house"),
+		false
+	)
+	var original_landmark_source: String = editor.source
+	editor._select_tool("landmark_house")
+	editor._paint_cell(16)
+	await process_frame
+	var house_terrain: Array = _parse(editor.source).maps[0].terrain
+	for index: int in [16, 17, 22, 23]:
+		_expect(
+			"house stamp writes its exact source id at cell %d" % index,
+			house_terrain[index],
+			"mountain_village_house"
+		)
+	_expect("house placement is one undo command", editor.undo_stack.size(), 1)
+	_expect("house is labelled from its one top-left anchor", editor.grid.get_child(16).tooltip_text.contains("HOUSE 2×2"), true)
+	var complete_house_source: String = editor.source
+	editor._select_tool("brush")
+	editor._select_terrain("grass")
+	editor._paint_cell(16)
+	_expect("a one-cell brush cannot split a landmark", editor.source, complete_house_source)
+	_expect("partial landmark edit explains the whole-footprint action", editor.status_label.text.contains("REMOVE LANDMARK"), true)
+	editor._select_tool("landmark_grove")
+	editor._paint_cell(23)
+	_expect("a 2x2 stamp cannot extend beyond the map", editor.source, complete_house_source)
+	_expect("edge refusal explains the required bounds", editor.status_label.text.contains("INSIDE THE MAP"), true)
+	editor._paint_cell(15)
+	_expect("a shifted stamp cannot overlap an existing landmark", editor.source, complete_house_source)
+	_expect("overlap refusal is explicit", editor.status_label.text.contains("CANNOT OVERLAP"), true)
+	editor._select_tool("landmark_remove")
+	editor._paint_cell(23)
+	await process_frame
+	var cleared_house: Array = _parse(editor.source).maps[0].terrain
+	for index: int in [16, 17, 22, 23]:
+		_expect("house removal restores paved terrain at cell %d" % index, cleared_house[index], "paved")
+	_expect("whole house removal is one undo command", editor.undo_stack.size(), 2)
+	editor._undo()
+	editor._undo()
+	await process_frame
+	_expect("house placement and removal undo to the original source", editor.source, original_landmark_source)
+
+	editor._select_tool("landmark_grove")
+	editor._paint_cell(4)
+	await process_frame
+	var grove_terrain: Array = _parse(editor.source).maps[0].terrain
+	for index: int in [4, 5, 10, 11]:
+		_expect(
+			"grove stamp writes its exact source id at cell %d" % index,
+			grove_terrain[index],
+			"mountain_ancient_grove"
+		)
+	editor._select_tool("landmark_remove")
+	editor._paint_cell(11)
+	await process_frame
+	var cleared_grove: Array = _parse(editor.source).maps[0].terrain
+	for index: int in [4, 5, 10, 11]:
+		_expect("grove removal restores forest at cell %d" % index, cleared_grove[index], "forest")
+	editor._undo()
+	editor._undo()
+	await process_frame
+	_expect("grove placement and removal undo to the original source", editor.source, original_landmark_source)
+	_expect("landmark round trips leave no undo history", editor.undo_stack.size(), 0)
+	editor._select_tool("landmark_house")
+	editor._paint_cell(0)
+	_expect("a blocked footprint cannot be stamped under a character", editor.source, original_landmark_source)
+	_expect("occupied-footprint refusal tells the creator what to move", editor.status_label.text.contains("MOVE CHARACTERS"), true)
+	editor._select_tool("landmark_grove")
+	editor._paint_cell(13)
+	_expect("a blocked footprint cannot cover another battle's deployment", editor.source, original_landmark_source)
+	_expect("deployment-footprint refusal explains what to change", editor.status_label.text.contains("DEPLOYMENT AREA"), true)
 	editor._apply_diagnostic_focus({
 		"object_id": editor.compiler.stable_source_id(
 			"demo_campaign/bridge_encounter/river_watch_leader"

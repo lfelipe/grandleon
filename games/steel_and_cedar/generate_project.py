@@ -365,7 +365,13 @@ def build_project() -> dict:
         ],
         "objectiveIds": ["hold_watch", "protect_rowan"],
         "moments": moments("watch_begins", "watch_orders", "watch_cedar_front", "watch_coop"),
-        "transitions": outcome_transitions("watch", "protect_rowan", "watch_camp", compound=("hold_watch", "protect_rowan")),
+        # Protect objectives remain pending while their target lives; making
+        # one a victory predicate would leave a won defense with no campaign
+        # edge. Its failed result is still the loss branch below, while the
+        # survival objective is the positive result that advances the story.
+        "transitions": outcome_transitions(
+            "watch", "protect_rowan", "watch_camp", compound=("hold_watch",)
+        ),
     })
     nodes.append(story_node("watch_camp", "Answering Fires", "watch_won", "gate_village"))
     nodes.append({
@@ -388,7 +394,10 @@ def build_project() -> dict:
         ],
         "objectiveIds": ["fell_castellan", "protect_rowan"],
         "moments": moments("village_begins", "village_orders", "village_cedar_front", "village_coop"),
-        "transitions": outcome_transitions("village", "protect_rowan", "village_camp", compound=("fell_castellan", "protect_rowan")),
+        "transitions": outcome_transitions(
+            "village", "protect_rowan", "village_camp",
+            compound=("fell_castellan",),
+        ),
     })
     nodes.append(story_node("village_camp", "The Last Banner", "village_won", "gate_parley"))
     nodes.append(story_node("gate_parley", "What Peace Costs", "gate_parley", "twin_gate"))
@@ -418,7 +427,10 @@ def build_project() -> dict:
             "when": {"kind": "characterFalls", "placementId": "lord_masatora"},
             "dialogueId": "gate_coop_victory", "minimumPlayers": 2,
         }],
-        "transitions": outcome_transitions("gate", "protect_rowan", "epilogue", compound=("fell_masatora", "protect_rowan")),
+        "transitions": outcome_transitions(
+            "gate", "protect_rowan", "epilogue",
+            compound=("fell_masatora",),
+        ),
     })
     nodes.extend((
         story_node("epilogue", "An Open Gate", "ending", "campaign_complete"),

@@ -46,6 +46,7 @@
 #include <libdragon.h>
 
 #include "grandleon/view/board_view.hpp"
+#include "grandleon/view/landmark.hpp"
 #include "grandleon/view/motion.hpp"
 #include "grandleon/view/list_view.hpp"
 
@@ -178,6 +179,10 @@ using grandleon::n64words::refusal_text;
 
 int checks = 0;
 int failures = 0;
+constexpr std::uint64_t ancient_grove_terrain =
+    core::stable_content_id_v1("mountain_ancient_grove");
+constexpr std::uint64_t village_house_terrain =
+    core::stable_content_id_v1("mountain_village_house");
 
 void expect(bool condition, const char* message) {
     ++checks;
@@ -4769,6 +4774,17 @@ private:
                     : gc::terrain_kind_unknown,
                 static_cast<std::uint8_t>(item.variant)
             );
+            // The gameplay kind remains mountain. A flat overlay adds this
+            // cell's quarter of the exact authored landmark immediately, so
+            // the terrain list's occlusion order remains intact.
+            const view::LandmarkCell landmark = landmark_at(
+                item.cell_x, item.cell_y
+            );
+            if (landmark) {
+                console::draw_landmark(
+                    item.x, item.y, item.w, landmark
+                );
+            }
         }
         for (int i = 0; i < draw_list_.size(); ++i) {
             const view::DrawItem& item = draw_list_[i];
@@ -7639,6 +7655,23 @@ private:
     [[nodiscard]] std::uint8_t kind_of(std::uint64_t id) const {
         const std::uint8_t kind = shown_.kind_of_terrain(id);
         return kind < terrain_kind_count ? kind : gc::terrain_kind_unknown;
+    }
+
+    [[nodiscard]] view::LandmarkCell landmark_at(int x, int y) const {
+        if (x < 0 || y < 0 || x >= board_width_) return {};
+        const std::size_t index =
+            static_cast<std::size_t>(y) *
+                static_cast<std::size_t>(board_width_) +
+            static_cast<std::size_t>(x);
+        if (index >= terrain_.size()) return {};
+        const std::uint64_t identity = terrain_[index];
+        const std::uint64_t left = x > 0 ? terrain_[index - 1U] : 0U;
+        const std::uint64_t above = y > 0
+            ? terrain_[index - static_cast<std::size_t>(board_width_)] : 0U;
+        return view::landmark_cell(
+            identity, left, above, ancient_grove_terrain,
+            village_house_terrain
+        );
     }
 
     sim::Side player_side_{sim::Side::first};

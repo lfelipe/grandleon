@@ -217,11 +217,23 @@ procedural building or natural mass that follows the scene lighting.
 [Review the source renders and their intended footprints](../platform/godot/project/art/map_features/README.md).
 
 The transparent renders are visual references, not the current in-game
-textures. The map editor recognizes and labels existing footprints, but still
-needs a one-action landmark stamp. Nintendo 64 and PlayStation currently keep
-the correct blocked cells and use their mountain fallback until dedicated
-structure art is ready. The castle-gate draft was deliberately not committed
-because its alpha retained a dark halo.
+textures. Godot uses the house reference as the visual direction for a family
+of four deterministic Medieval buildings: their proportions, orientation,
+plaster and roof tones, chimneys, timber frames, foundations, windows, and side
+structures vary while their tactical footprint stays the same. This is the
+first scenario-specific family, not a universal house that should be recoloured
+for every setting; Sengoku, pirate, science-fiction, and other settings need
+their own landmark families.
+
+In the Godot map editor, **House 2×2** and **Grove 2×2** place the complete
+blocked footprint with one action, and **Remove** clears the whole landmark
+from any of its four cells. The editor keeps the exact portable source
+identities `mountain_village_house` and `mountain_ancient_grove` and refuses
+partial, overlapping, out-of-bounds, occupied, or deployment-area footprints.
+Nintendo 64 and PlayStation draw recognizable connected house and grove
+silhouettes over the same blocked mountain cells without spending additional
+texture memory. The castle-gate draft was deliberately not committed because
+its alpha retained a dark halo.
 
 ## The full portable library
 

@@ -3,19 +3,25 @@
 #include <grandleon/game_content/compiler.hpp>
 #include <grandleon/game_content/source_project.hpp>
 #include <grandleon/package_format/package.hpp>
+#include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/simulation/encounter.hpp>
+#include <grandleon/tactics/policy.hpp>
+#include <grandleon/view/landmark.hpp>
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <deque>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace core = grandleon::core;
@@ -23,6 +29,8 @@ namespace gc = grandleon::game_content;
 namespace pf = grandleon::package_format;
 namespace pr = grandleon::package_runtime;
 namespace sim = grandleon::simulation;
+namespace tac = grandleon::tactics;
+namespace view = grandleon::view;
 
 namespace {
 
@@ -98,6 +106,218 @@ std::set<unsigned> enemy_quadrants(const pr::EncounterLoadResult& board) {
         quadrants.insert(right + lower);
     }
     return quadrants;
+}
+
+std::vector<unsigned> terrain_distances(
+    const sim::EncounterDefinition& board,
+    const sim::UnitDefinition& unit
+) {
+    constexpr unsigned unreachable = std::numeric_limits<unsigned>::max();
+    const std::size_t cells =
+        static_cast<std::size_t>(board.width) * board.height;
+    std::vector<unsigned> distance(cells, unreachable);
+    const auto index_of = [&board](sim::Position position) {
+        return static_cast<std::size_t>(position.y) * board.width +
+            static_cast<std::size_t>(position.x);
+    };
+    std::deque<sim::Position> frontier;
+    distance[index_of(unit.position)] = 0U;
+    frontier.push_back(unit.position);
+    constexpr std::array<sim::Position, 4> steps{{
+        {0, -1}, {1, 0}, {0, 1}, {-1, 0},
+    }};
+    while (!frontier.empty()) {
+        const sim::Position position = frontier.front();
+        frontier.pop_front();
+        for (const sim::Position step : steps) {
+            const sim::Position next{
+                static_cast<std::int16_t>(position.x + step.x),
+                static_cast<std::int16_t>(position.y + step.y),
+            };
+            if (next.x < 0 || next.y < 0 ||
+                next.x >= static_cast<std::int16_t>(board.width) ||
+                next.y >= static_cast<std::int16_t>(board.height)) {
+                continue;
+            }
+            const std::size_t next_index = index_of(next);
+            const sim::Terrain terrain = board.terrain.empty()
+                ? sim::Terrain::open : board.terrain[next_index];
+            if (!sim::can_enter(terrain, unit.crossings) ||
+                distance[next_index] != unreachable) {
+                continue;
+            }
+            distance[next_index] = distance[index_of(position)] + 1U;
+            frontier.push_back(next);
+        }
+    }
+    return distance;
+}
+
+struct NearestFront final {
+    unsigned distance{std::numeric_limits<unsigned>::max()};
+    sim::UnitId enemy{};
+};
+
+NearestFront nearest_front_for_player(
+    const pr::EncounterLoadResult& board,
+    std::uint8_t local_player
+) {
+    NearestFront nearest;
+    for (const sim::UnitDefinition& ally : board.definition.units) {
+        if (ally.side != sim::Side::first ||
+            ally.local_player != local_player || ally.arrival_round != 0U) {
+            continue;
+        }
+        const std::vector<unsigned> distance =
+            terrain_distances(board.definition, ally);
+        for (const sim::UnitDefinition& enemy : board.definition.units) {
+            if (enemy.side != sim::Side::second ||
+                enemy.arrival_round != 0U) {
+                continue;
+            }
+            const std::size_t cell =
+                static_cast<std::size_t>(enemy.position.y) *
+                    board.definition.width +
+                static_cast<std::size_t>(enemy.position.x);
+            if (distance[cell] < nearest.distance ||
+                (distance[cell] == nearest.distance &&
+                 (nearest.enemy == 0U || enemy.id < nearest.enemy))) {
+                nearest = {distance[cell], enemy.id};
+            }
+        }
+    }
+    return nearest;
+}
+
+bool every_enemy_has_a_route_from(
+    const pr::EncounterLoadResult& board,
+    std::uint8_t local_player
+) {
+    constexpr unsigned unreachable = std::numeric_limits<unsigned>::max();
+    std::vector<std::vector<unsigned>> routes;
+    for (const sim::UnitDefinition& ally : board.definition.units) {
+        if (ally.side == sim::Side::first &&
+            ally.local_player == local_player && ally.arrival_round == 0U) {
+            routes.push_back(terrain_distances(board.definition, ally));
+        }
+    }
+    if (routes.empty()) return false;
+    for (const sim::UnitDefinition& enemy : board.definition.units) {
+        if (enemy.side != sim::Side::second) continue;
+        const std::size_t cell =
+            static_cast<std::size_t>(enemy.position.y) *
+                board.definition.width +
+            static_cast<std::size_t>(enemy.position.x);
+        if (std::none_of(
+                routes.begin(), routes.end(),
+                [cell](const std::vector<unsigned>& route) {
+                    return route[cell] != unreachable;
+                }
+            )) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::uint32_t last_arrival_round(
+    const sim::EncounterDefinition& board
+) {
+    std::uint32_t last = 0U;
+    for (const sim::UnitDefinition& unit : board.units) {
+        if (unit.arrival_round == 0U) continue;
+        std::uint32_t arrival = unit.arrival_round;
+        if (unit.arrival_times > 1U) {
+            arrival += unit.arrival_every *
+                static_cast<std::uint32_t>(unit.arrival_times - 1U);
+        }
+        last = std::max(last, arrival);
+    }
+    return last;
+}
+
+bool wait_until_completed_round(
+    sim::Encounter& encounter,
+    std::uint32_t target,
+    std::size_t& commands
+) {
+    while (encounter.snapshot().round < target &&
+           encounter.snapshot().outcome == sim::Outcome::ongoing &&
+           commands < 10'000U) {
+        const sim::EncounterSnapshot snapshot = encounter.snapshot();
+        const auto actor = std::find_if(
+            snapshot.units.begin(), snapshot.units.end(),
+            [&snapshot](const sim::UnitSnapshot& unit) {
+                return unit.side == snapshot.active_side &&
+                    sim::on_board(unit) && !unit.has_acted;
+            }
+        );
+        if (actor == snapshot.units.end()) return false;
+        const sim::CommandResult applied = encounter.apply(
+            {sim::CommandType::wait, actor->id, {}, 0}
+        );
+        if (!applied) return false;
+        ++commands;
+    }
+    return encounter.snapshot().round >= target;
+}
+
+struct AutoplayResult final {
+    sim::Outcome outcome{sim::Outcome::ongoing};
+    std::uint32_t round{};
+    std::size_t commands{};
+};
+
+AutoplayResult autoplay(const pr::EncounterLoadResult& board) {
+    auto created = sim::create_encounter(board.definition);
+    if (!created) return {};
+    std::size_t commands = 0U;
+    while (created.encounter.snapshot().outcome == sim::Outcome::ongoing &&
+           created.encounter.snapshot().round < 100U &&
+           commands < 10'000U) {
+        const sim::EncounterSnapshot snapshot = created.encounter.snapshot();
+        bool applied_anything = false;
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (unit.side != snapshot.active_side || !sim::on_board(unit) ||
+                unit.has_acted) {
+                continue;
+            }
+            const tac::Plan plan = tac::decide(
+                snapshot, unit.id, tac::Behavior::pursue, {},
+                created.encounter.abilities(), created.encounter.weapons()
+            );
+            if (!plan.actionable) continue;
+            sim::CommandResult applied = created.encounter.apply(plan.command);
+            if (!applied) {
+                applied = created.encounter.apply(
+                    {sim::CommandType::wait, unit.id, {}, 0}
+                );
+            }
+            if (!applied) return {};
+            applied_anything = true;
+            break;
+        }
+        if (!applied_anything) return {};
+        ++commands;
+    }
+    const sim::EncounterSnapshot final = created.encounter.snapshot();
+    return {final.outcome, final.round, commands};
+}
+
+std::vector<sim::ObjectiveResult> victory_results(
+    const sim::EncounterDefinition& board,
+    std::uint64_t winning_objective
+) {
+    std::vector<sim::ObjectiveResult> results;
+    for (const sim::ObjectiveDefinition& objective : board.objectives) {
+        results.push_back({
+            objective.id,
+            objective.id == winning_objective
+                ? sim::ObjectiveState::satisfied
+                : sim::ObjectiveState::pending,
+        });
+    }
+    return results;
 }
 
 }  // namespace
@@ -211,6 +431,42 @@ int main() {
     expect(
         landmark_cells("gate_village", "mountain_village_house") == 24U,
         "Gate Village authors six explicit four-cell houses"
+    );
+    const auto landmark_quadrants = [&maps](
+        std::string_view map_key, std::string_view terrain_key
+    ) {
+        std::array<std::size_t, 4> counts{};
+        const gc::Map& map = *maps.at(core::stable_content_id_v1(map_key));
+        const std::uint64_t identity = core::stable_content_id_v1(terrain_key);
+        const std::uint64_t grove =
+            core::stable_content_id_v1("mountain_ancient_grove");
+        const std::uint64_t house =
+            core::stable_content_id_v1("mountain_village_house");
+        for (std::size_t index = 0; index < map.terrain.size(); ++index) {
+            if (map.terrain[index] != identity) continue;
+            const std::size_t x = index % map.width;
+            const std::size_t y = index / map.width;
+            const view::LandmarkCell cell = view::landmark_cell(
+                identity,
+                x > 0U ? map.terrain[index - 1U] : 0U,
+                y > 0U ? map.terrain[index - map.width] : 0U,
+                grove, house
+            );
+            ++counts[static_cast<std::size_t>(cell.quadrant)];
+        }
+        return counts;
+    };
+    expect(
+        landmark_quadrants(
+            "cedar_deepwood", "mountain_ancient_grove"
+        ) == std::array<std::size_t, 4>{{2U, 2U, 2U, 2U}},
+        "Deepwood's exact grove cells form two complete console composites"
+    );
+    expect(
+        landmark_quadrants(
+            "gate_village", "mountain_village_house"
+        ) == std::array<std::size_t, 4>{{6U, 6U, 6U, 6U}},
+        "Gate Village's exact house cells form six complete console composites"
     );
     for (const std::string_view map_key : {"cedar_deepwood", "gate_village"}) {
         const gc::Map& map = *maps.at(core::stable_content_id_v1(map_key));
@@ -352,6 +608,82 @@ int main() {
                 std::string(stage.key) + " distributes tactical groups across the board"
             );
         }
+
+        for (const auto& [board, mode] : std::array{
+                 std::pair{&solo, "1P"}, std::pair{&coop, "2P"},
+             }) {
+            expect(
+                every_enemy_has_a_route_from(*board, 1U),
+                std::string(stage.key) + " " + mode +
+                    " gives the March a terrain route to every opponent and wave"
+            );
+            const AutoplayResult played = autoplay(*board);
+            expect(
+                played.outcome != sim::Outcome::ongoing,
+                std::string(stage.key) + " " + mode +
+                    " reaches a decision under deterministic legal pursuit"
+            );
+            std::cout << "autoplay " << stage.key << ' ' << mode
+                      << " winner="
+                      << (played.outcome == sim::Outcome::first_side_won
+                              ? "concord"
+                              : played.outcome == sim::Outcome::second_side_won
+                                  ? "war_host" : "none")
+                      << " round=" << played.round
+                      << " commands=" << played.commands << '\n';
+        }
+        expect(
+            every_enemy_has_a_route_from(coop, 2U),
+            std::string(stage.key) +
+                " gives Cedar a terrain route to every opponent and wave"
+        );
+        unsigned solo_movement = 0U;
+        unsigned solo_reach = 0U;
+        for (const sim::UnitDefinition& unit : solo.definition.units) {
+            if (unit.side != sim::Side::first || unit.arrival_round != 0U) {
+                continue;
+            }
+            solo_movement = std::max(
+                solo_movement, unsigned{unit.movement}
+            );
+            solo_reach = std::max(
+                solo_reach, unsigned{unit.maximum_reach}
+            );
+        }
+        const NearestFront solo_front = nearest_front_for_player(solo, 1U);
+        expect(
+            solo_front.distance <= solo_movement * 2U + solo_reach,
+            std::string(stage.key) +
+                " gives the solo company a consequential front within two moves"
+        );
+        std::array<sim::UnitId, 2> opening_fronts{};
+        for (std::uint8_t player = 1U; player <= 2U; ++player) {
+            unsigned movement = 0U;
+            unsigned reach = 0U;
+            for (const sim::UnitDefinition& unit : coop.definition.units) {
+                if (unit.side != sim::Side::first ||
+                    unit.local_player != player || unit.arrival_round != 0U) {
+                    continue;
+                }
+                movement = std::max(movement, unsigned{unit.movement});
+                reach = std::max(reach, unsigned{unit.maximum_reach});
+            }
+            const NearestFront nearest =
+                nearest_front_for_player(coop, player);
+            opening_fronts[player - 1U] = nearest.enemy;
+            expect(
+                nearest.distance <= movement * 2U + reach,
+                std::string(stage.key) + " gives Player " +
+                    std::to_string(player) +
+                    " a consequential front within two moves"
+            );
+        }
+        expect(
+            opening_fronts[0] != 0U && opening_fronts[1] != 0U &&
+                opening_fronts[0] != opening_fronts[1],
+            std::string(stage.key) +
+                " gives the co-op players distinct opening fronts"
+        );
     }
 
     for (const char* key : {"cedar_deepwood", "cedar_watch", "gate_village", "twin_gate"}) {
@@ -404,6 +736,87 @@ int main() {
         "its seven staggered wave groups span both fronts and the full defense"
     );
 
+    for (const Stage& stage : stages) {
+        for (std::uint8_t players = 1U; players <= 2U; ++players) {
+            const auto board = pr::load_encounter(
+                loaded.package,
+                core::stable_content_id_v1(
+                    std::string("steel_and_cedar/") + stage.key
+                ),
+                {players}
+            );
+            const std::uint32_t final_arrival =
+                last_arrival_round(board.definition);
+            if (final_arrival == 0U) continue;
+            auto created = sim::create_encounter(board.definition);
+            std::size_t commands = 0U;
+            expect(
+                created && wait_until_completed_round(
+                    created.encounter, final_arrival - 1U, commands
+                ),
+                std::string(stage.key) + " " +
+                    std::to_string(players) +
+                    "P legally reaches its last authored arrival"
+            );
+            if (!created) continue;
+            const sim::EncounterSnapshot arrived = created.encounter.snapshot();
+            std::set<std::pair<std::int16_t, std::int16_t>> occupied;
+            bool legal = true;
+            for (const sim::UnitSnapshot& unit : arrived.units) {
+                if (!unit.arrived) legal = false;
+                if (!sim::on_board(unit)) continue;
+                const std::size_t cell =
+                    static_cast<std::size_t>(unit.position.y) * arrived.width +
+                    static_cast<std::size_t>(unit.position.x);
+                const sim::Terrain terrain = arrived.terrain.empty()
+                    ? sim::Terrain::open : arrived.terrain[cell];
+                legal = legal && sim::can_enter(terrain, unit.crossings) &&
+                    occupied.insert({unit.position.x, unit.position.y}).second;
+            }
+            expect(
+                legal,
+                std::string(stage.key) + " " +
+                    std::to_string(players) +
+                    "P lands every wave on a unique legal cell"
+            );
+        }
+    }
+
+    for (std::uint8_t players = 1U; players <= 2U; ++players) {
+        const auto board = pr::load_encounter(
+            loaded.package,
+            core::stable_content_id_v1("steel_and_cedar/cedar_watch"),
+            {players}
+        );
+        auto created = sim::create_encounter(board.definition);
+        std::size_t commands = 0U;
+        expect(
+            created && wait_until_completed_round(
+                created.encounter, 20U, commands
+            ),
+            std::string("Cedar Watch ") + std::to_string(players) +
+                "P can legally hold through round twenty"
+        );
+        if (created) {
+            const sim::EncounterSnapshot survived =
+                created.encounter.snapshot();
+            expect(
+                survived.outcome == sim::Outcome::first_side_won &&
+                    std::any_of(
+                        survived.objectives.begin(),
+                        survived.objectives.end(),
+                        [hold_id](const sim::ObjectiveResult& result) {
+                            return result.id == hold_id &&
+                                result.state ==
+                                    sim::ObjectiveState::satisfied;
+                        }
+                    ),
+                std::string("Cedar Watch ") + std::to_string(players) +
+                    "P makes its survival objective attainable"
+            );
+        }
+    }
+
     const auto finale = pr::load_encounter(
         loaded.package,
         core::stable_content_id_v1("steel_and_cedar/twin_gate"), {2}
@@ -428,8 +841,70 @@ int main() {
         "the final map adds two readable reinforcement pressures"
     );
 
+    const auto campaign = pr::load_campaign(
+        loaded.package, core::stable_content_id_v1("steel_and_cedar")
+    );
+    expect(static_cast<bool>(campaign), "the campaign flow loads");
+    if (campaign) {
+        pr::CampaignCursor cursor(campaign.definition);
+        expect(
+            cursor.current().kind == pr::CampaignNodeKind::story &&
+                cursor.advance_story() == pr::CampaignError::none,
+            "the prologue reaches the first battle"
+        );
+        const std::array<std::uint64_t, 5> winning_objectives{{
+            core::stable_content_id_v1("defeat_all"),
+            core::stable_content_id_v1("defeat_all"),
+            core::stable_content_id_v1("hold_watch"),
+            core::stable_content_id_v1("fell_castellan"),
+            core::stable_content_id_v1("fell_masatora"),
+        }};
+        for (std::size_t index = 0; index < stages.size(); ++index) {
+            const Stage& stage = stages[index];
+            const std::uint64_t encounter_id = core::stable_content_id_v1(
+                std::string("steel_and_cedar/") + stage.key
+            );
+            expect(
+                !cursor.complete() &&
+                    cursor.current().kind ==
+                        pr::CampaignNodeKind::encounter &&
+                    cursor.current().encounter_id == encounter_id,
+                std::string(stage.key) +
+                    " is the next campaign battle"
+            );
+            const auto board = pr::load_encounter(
+                loaded.package, encounter_id, {1}
+            );
+            expect(
+                cursor.advance_after(
+                    sim::Outcome::first_side_won,
+                    victory_results(
+                        board.definition, winning_objectives[index]
+                    )
+                ) == pr::CampaignError::none,
+                std::string(stage.key) +
+                    " advances on the objective state the rules produce"
+            );
+            while (!cursor.complete() &&
+                   cursor.current().kind == pr::CampaignNodeKind::story) {
+                expect(
+                    cursor.advance_story() == pr::CampaignError::none,
+                    std::string(stage.key) +
+                        " advances through its aftermath story"
+                );
+            }
+        }
+        expect(
+            cursor.complete() &&
+                cursor.current().id ==
+                    core::stable_content_id_v1("campaign_complete"),
+            "five victories reach the authored campaign ending"
+        );
+    }
+
     if (failures == 0) {
-        std::cout << "steel and cedar: distinct solo and co-op campaigns across five designed battles\n";
+        std::cout << "steel and cedar: connected 1P/2P routes, legal waves, "
+                     "decisive autoplay and five-battle progression\n";
     }
     return failures == 0 ? 0 : 1;
 }

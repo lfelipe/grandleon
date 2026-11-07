@@ -3,6 +3,8 @@
 
 #include <libdragon.h>
 
+#include "grandleon/view/landmark.hpp"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -37,6 +39,11 @@ void begin_board(surface_t* display);
 void draw_terrain(
     int left, int top, int width, int height,
     std::uint8_t terrain_kind, std::uint8_t variation
+);
+// Draws one quarter of a 2x2 authored landmark over its mountain base. Flat
+// primitives keep this free of extra texture memory and uploads.
+void draw_landmark(
+    int left, int top, int size, grandleon::view::LandmarkCell cell
 );
 void draw_character(
     int drawing, Pose pose, int centre_x, int bottom, int cell_size,

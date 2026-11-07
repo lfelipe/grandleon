@@ -240,6 +240,17 @@ func _test_cluster_landmarks(board) -> void:
 		board._landmark_anchors.get(Vector2i(0, 0), ""), "village_house"
 	)
 	_expect("the landmark owns all four tactical cells", board._landmark_cells.size(), 4)
+	_expect(
+		"the current village family follows its Medieval scenario",
+		board._landmark_visual_style("village_house"), "medieval"
+	)
+	var house_variations: Dictionary = {}
+	for house_x in 4:
+		house_variations[board._village_house_variation(Vector2i(house_x, 0))] = true
+	_expect(
+		"a settlement has four stable house variations",
+		house_variations.size(), 4
+	)
 	board.configure(empty_board, [
 		2, 2, 2, 9,
 		2, 3, 3, 2,

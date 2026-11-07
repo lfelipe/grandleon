@@ -56,7 +56,19 @@ func _run() -> void:
 	map_editor._paint_cell(33)
 	map_editor._select_tool("remove_unit")
 	map_editor._paint_cell(38)
+	_expect(
+		"solo preview hides the co-op-only opponent",
+		map_editor._placement_at(23, 8).is_empty(),
+		true
+	)
+	map_editor._select_experience_preview(1)
+	_expect(
+		"two-player preview exposes the co-op-only opponent",
+		str(map_editor._placement_at(23, 8).get("id", "")),
+		"raider_coop"
+	)
 	map_editor._paint_cell(23)
+	map_editor._select_experience_preview(0)
 	map_editor._select_tool("unit")
 	map_editor._paint_cell(14)
 	map_editor._paint_cell(10)
@@ -68,7 +80,20 @@ func _run() -> void:
 	var mapped := _parse(map_editor.source)
 	_expect("terrain was painted", str(mapped.maps[0].terrain[0]), "water")
 	var battle: Dictionary = mapped.campaigns[0].flow.nodes[1]
-	_expect("battle keeps two authored teams", battle.placements.size(), 3)
+	var allied_placements := 0
+	var opposing_placements := 0
+	var remaining_opponent_id := ""
+	for placement_value: Variant in battle.placements:
+		if not placement_value is Dictionary:
+			continue
+		if str(placement_value.get("side", "second")) == "first":
+			allied_placements += 1
+		else:
+			opposing_placements += 1
+			remaining_opponent_id = str(placement_value.get("id", ""))
+	_expect("battle keeps its two authored allies", allied_placements, 2)
+	_expect("battle keeps one baseline opponent", opposing_placements, 1)
+	_expect("the co-op-only opponent was deliberately removed", remaining_opponent_id, "raider_north")
 	_expect("enemy was placed beside the lead hero", int(battle.placements[2].x), 2)
 	_expect("deployment zone was authored", battle.deployment.tiles.size(), 2)
 	_expect(

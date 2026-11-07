@@ -25,11 +25,19 @@ The map screen is where you paint terrain and arrange the encounter. **Brush**,
 **Fill**, and **Rectangle** cover the common painting jobs; **Undo** and
 **Redo** make it safe to experiment.
 
+The **Landmarks** row places a village house or ancient grove as one complete
+2×2 blocked feature. Choose the feature, then choose its top-left map cell.
+**Remove** clears the whole feature even when you choose a different one of its
+four cells; houses return to paved ground and groves return to forest. The
+editor refuses an edge, overlapping feature, character, or deployment area
+that cannot hold the complete footprint, so it never saves half a landmark.
+
 ![Painting terrain, undoing a change, opening battle setup, and choosing the look](screenshots/native-guide/02-shape-a-battle.gif)
 
 From the same screen you can:
 
 - place, move, and remove allied and opposing units;
+- place and remove complete 2×2 houses and ancient groves;
 - assign allied units to Player 1 or Player 2;
 - add opponents that appear only in a two-player game;
 - choose deployment areas and battle goals;

@@ -434,6 +434,8 @@ target_link_libraries(
         grandleon::game_content
         grandleon::package_runtime
         grandleon::simulation
+        grandleon::tactics
+        grandleon::view
 )
 target_compile_definitions(
     grandleon_steel_and_cedar_campaign_tests
@@ -952,6 +954,15 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/tools/placeholder_art/assets"
 )
 add_test(NAME grandleon.view COMMAND grandleon_view_tests)
+
+# Exact authored 2x2 landmarks remain presentation-only mountain overlays on
+# the compact consoles. The primitive geometry is shared and pure, so its
+# identity selection, quadrants and cell bounds are pinned on the host.
+add_executable(grandleon_view_landmark_tests
+    view/landmark_test.cpp
+)
+target_link_libraries(grandleon_view_landmark_tests PRIVATE grandleon::view)
+add_test(NAME grandleon.view_landmark COMMAND grandleon_view_landmark_tests)
 
 # The same model in time: frames per tile, the route a slide is drawn along,
 # the cursor's pulse phase and the flinch. Pinned here for the same reason the

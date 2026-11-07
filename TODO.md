@@ -146,8 +146,14 @@ the included campaigns on all three players.
   draw the same feature footprint. The first playable prototype now gives
   Deepwood two explicit blocked ancient groves and Gate Village six explicit
   blocked houses; Godot groups each four-cell footprint into one landmark and
-  the map editor labels it. A one-action editor stamp, fences, gates, more
-  variants, and dedicated Nintendo 64 and PlayStation landmark art remain.
+  the map editor can place or remove the complete validated 2×2 feature in one
+  action. Nintendo 64 and PlayStation give both features connected composite
+  silhouettes while preserving the same blocked cells. Godot's first house
+  family now has four coherent Medieval variants instead of repeating one
+  generic building. Add different landmark families for Sengoku, pirate,
+  science-fiction, and the other scenario styles rather than recolouring the
+  Medieval set; add corresponding console variants, fences, gates, larger
+  civic buildings, walls, bridges, and other multi-cell features.
 - [ ] Tune 1P and 2P separately. Co-op must give both players useful characters
   and decisions without merely doubling the battle size; solo play must retain
   the same strategic possibilities at a manageable pace. Playtest every map

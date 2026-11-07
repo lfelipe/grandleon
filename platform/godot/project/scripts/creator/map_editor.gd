@@ -11,6 +11,20 @@ const TERRAIN_PALETTE := [
 	"grass", "forest", "mountain", "water", "road", "bridge", "sand",
 	"ruins", "farmland", "snow", "swamp", "hills", "bamboo", "paved",
 ]
+const LANDMARKS := {
+	"landmark_house": {
+		"kind": "village_house",
+		"source_id": "mountain_village_house",
+		"label": "VILLAGE HOUSE",
+		"clear_terrain": "paved",
+	},
+	"landmark_grove": {
+		"kind": "ancient_grove",
+		"source_id": "mountain_ancient_grove",
+		"label": "ANCIENT GROVE",
+		"clear_terrain": "forest",
+	},
+}
 const OBJECTIVE_KINDS := [
 	{"id": "defeatAllOpponents", "label": "DEFEAT ALL OPPONENTS"},
 	{"id": "defeatTarget", "label": "DEFEAT A TARGET"},
@@ -529,9 +543,16 @@ func _refresh_palette() -> void:
 	var map := _current_map()
 	for value: Variant in map.get("terrain", []):
 		var name := str(value)
-		if not name.is_empty() and not names.has(name):
+		if (
+			not name.is_empty()
+			and _landmark_definition_for_source(name).is_empty()
+			and not names.has(name)
+		):
 			names.append(name)
-	if not names.has(selected_terrain) and not names.is_empty():
+	if (
+		not _landmark_definition_for_source(selected_terrain).is_empty()
+		or (not names.has(selected_terrain) and not names.is_empty())
+	):
 		selected_terrain = names[0]
 	for name: String in names:
 		var button := _button(name.to_upper(), 330, 54)
@@ -544,6 +565,10 @@ func _refresh_palette() -> void:
 
 
 func _select_terrain(name: String) -> void:
+	var landmark := _landmark_definition_for_source(name)
+	if not landmark.is_empty():
+		_select_tool(str(landmark.tool))
+		return
 	selected_terrain = name
 	_update_palette_selection()
 	_set_status("TERRAIN  /  %s" % name.to_upper(), false)
@@ -577,6 +602,9 @@ func _update_tool_selection() -> void:
 			"ownership": "PLAYER OWNERSHIP", "scaling": "TWO-PLAYER SCALING",
 			"talk": "TALK & STORY CHOICES",
 			"surroundings": "MAP SURROUNDINGS",
+			"landmark_house": "PLACE HOUSE 2×2",
+			"landmark_grove": "PLACE GROVE 2×2",
+			"landmark_remove": "REMOVE LANDMARK",
 		}
 		var display := str(display_names.get(name, name.to_upper()))
 		button.text = ("● " if name == active_tool else "  ") + display
@@ -614,6 +642,7 @@ func _refresh_grid(focus_index := -1) -> void:
 	var width := maxi(1, int(map.get("width", 1)))
 	var height := maxi(1, int(map.get("height", 1)))
 	var terrain: Array = map.get("terrain", [])
+	var landmark_cells := _landmark_cells_by_index(width, height, terrain)
 	var outside: Dictionary = (
 		map.get("surroundings", {}) if map.get("surroundings", {}) is Dictionary else {}
 	)
@@ -689,9 +718,7 @@ func _refresh_grid(focus_index := -1) -> void:
 			var cell := _button("", tile_size, tile_size)
 			cell.icon = _terrain_icon(name, _terrain_mask(index, width, height, terrain))
 			cell.expand_icon = true
-			var landmark := _cluster_landmark_for_cell(
-				outer_x, outer_y, width, height, terrain
-			)
+			var landmark: Dictionary = landmark_cells.get(index, {})
 			cell.tooltip_text = "%d, %d  /  %s%s" % [
 				outer_x, outer_y, name,
 				(
@@ -716,27 +743,84 @@ func _refresh_grid(focus_index := -1) -> void:
 func _cluster_landmark_for_cell(
 	x: int, y: int, width: int, height: int, terrain: Array
 ) -> Dictionary:
-	for anchor_y in range(maxi(0, y - 1), mini(y, height - 2) + 1):
-		for anchor_x in range(maxi(0, x - 1), mini(x, width - 2) + 1):
-			var complete := true
-			var terrain_id := str(terrain[anchor_y * width + anchor_x])
-			var kind := str({
-				"mountain_village_house": "village_house",
-				"mountain_ancient_grove": "ancient_grove",
-			}.get(terrain_id, ""))
-			if kind.is_empty():
-				continue
-			for cell_y in range(anchor_y, anchor_y + 2):
-				for cell_x in range(anchor_x, anchor_x + 2):
-					if str(terrain[cell_y * width + cell_x]) != terrain_id:
-						complete = false
-			if not complete:
-				continue
-			return {
-				"anchor": Vector2i(anchor_x, anchor_y),
-				"kind": kind,
-			}
+	var layout := _landmark_layout(width, height, terrain)
+	if not bool(layout.ok):
+		return {}
+	var index := y * width + x
+	for feature_value: Variant in layout.features:
+		var feature: Dictionary = feature_value
+		if feature.cells.has(index):
+			return feature
 	return {}
+
+
+func _landmark_definition_for_source(source_id: String) -> Dictionary:
+	for tool: String in LANDMARKS:
+		var definition: Dictionary = LANDMARKS[tool]
+		if str(definition.source_id) == source_id:
+			var result := definition.duplicate()
+			result["tool"] = tool
+			return result
+	return {}
+
+
+func _landmark_layout(width: int, height: int, terrain: Array) -> Dictionary:
+	if width < 1 or height < 1 or terrain.size() != width * height:
+		return {"ok": false, "detail": "MAP TERRAIN IS INCOMPLETE", "features": []}
+	var visited: Dictionary = {}
+	var features: Array[Dictionary] = []
+	for y in height:
+		for x in width:
+			var index := y * width + x
+			if visited.has(index):
+				continue
+			var source_id := str(terrain[index])
+			var definition := _landmark_definition_for_source(source_id)
+			if definition.is_empty():
+				continue
+			if x + 1 >= width or y + 1 >= height:
+				return {
+					"ok": false,
+					"detail": "%s AT %d, %d EXTENDS OUTSIDE THE MAP" % [
+						str(definition.label), x, y,
+					],
+					"features": features,
+				}
+			var cells: Array[int] = [
+				index, index + 1, index + width, index + width + 1,
+			]
+			for cell: int in cells:
+				if visited.has(cell) or str(terrain[cell]) != source_id:
+					return {
+						"ok": false,
+						"detail": "%s AT %d, %d MUST FILL ONE COMPLETE 2×2 FOOTPRINT" % [
+							str(definition.label), x, y,
+						],
+						"features": features,
+					}
+			for cell: int in cells:
+				visited[cell] = true
+			features.append({
+				"anchor": Vector2i(x, y),
+				"kind": str(definition.kind),
+				"source_id": source_id,
+				"clear_terrain": str(definition.clear_terrain),
+				"label": str(definition.label),
+				"cells": cells,
+			})
+	return {"ok": true, "detail": "", "features": features}
+
+
+func _landmark_cells_by_index(width: int, height: int, terrain: Array) -> Dictionary:
+	var by_cell := {}
+	var layout := _landmark_layout(width, height, terrain)
+	if not bool(layout.ok):
+		return by_cell
+	for feature_value: Variant in layout.features:
+		var feature: Dictionary = feature_value
+		for index: int in feature.cells:
+			by_cell[index] = feature
+	return by_cell
 
 
 func _add_landmark_badge(cell: Button, kind: String, tile_size: int) -> void:
@@ -993,6 +1077,10 @@ func _paint_cell(index: int) -> void:
 		_toggle_placement_talk_at(index, width)
 	elif active_tool == "unit":
 		_move_unit_at(index, width)
+	elif LANDMARKS.has(active_tool):
+		_place_landmark_at(index, width, terrain, active_tool)
+	elif active_tool == "landmark_remove":
+		_remove_landmark_at(index, width, terrain)
 	elif active_tool == "fill":
 		_fill_from(index, width, terrain)
 	elif active_tool == "rectangle":
@@ -1001,6 +1089,108 @@ func _paint_cell(index: int) -> void:
 		var changed := terrain.duplicate()
 		changed[index] = selected_terrain
 		_apply_terrain(changed, index, "PAINTED %s" % selected_terrain.to_upper())
+
+
+func _landmark_footprint_blocker(cells: Array[int], width: int) -> String:
+	for encounter_value: Variant in encounters:
+		if not encounter_value is Dictionary:
+			continue
+		var node: Dictionary = encounter_value.get("node", {})
+		for placement_value: Variant in node.get("placements", []):
+			if not placement_value is Dictionary:
+				continue
+			var placement: Dictionary = placement_value
+			var positions: Array[Vector2i] = [Vector2i(
+				int(placement.get("x", -1)), int(placement.get("y", -1))
+			)]
+			if placement.get("twoPlayerPosition", {}) is Dictionary:
+				var alternate: Dictionary = placement.get("twoPlayerPosition", {})
+				if alternate.has("x") and alternate.has("y"):
+					positions.append(Vector2i(int(alternate.x), int(alternate.y)))
+			for position: Vector2i in positions:
+				if position.x >= 0 and position.y >= 0 and cells.has(
+					position.y * width + position.x
+				):
+					return "MOVE CHARACTERS OUT OF THE FOUR LANDMARK CELLS FIRST"
+		var deployment: Dictionary = (
+			node.get("deployment", {}) if node.get("deployment", {}) is Dictionary else {}
+		)
+		for tile_value: Variant in deployment.get("tiles", []):
+			if not tile_value is Dictionary:
+				continue
+			var tile: Dictionary = tile_value
+			var tile_index := int(tile.get("y", -1)) * width + int(tile.get("x", -1))
+			if cells.has(tile_index):
+				return "REMOVE THESE CELLS FROM THE DEPLOYMENT AREA FIRST"
+	return ""
+
+
+func _place_landmark_at(index: int, width: int, terrain: Array, tool: String) -> void:
+	var definition: Dictionary = LANDMARKS.get(tool, {})
+	if definition.is_empty():
+		_set_status("THAT LANDMARK IS NOT AVAILABLE", true)
+		return
+	var height := terrain.size() / width
+	var x := index % width
+	var y := index / width
+	if x + 1 >= width or y + 1 >= height:
+		_set_status(
+			"%s NEEDS FOUR CELLS INSIDE THE MAP  /  CHOOSE ITS TOP-LEFT CELL" %
+				str(definition.label),
+			true
+		)
+		_focus_cell(index)
+		return
+	var cells: Array[int] = [
+		index, index + 1, index + width, index + width + 1,
+	]
+	var layout := _landmark_layout(width, height, terrain)
+	if not bool(layout.ok):
+		_set_status("FIX LANDMARK FOOTPRINT  /  %s" % str(layout.detail), true)
+		_focus_cell(index)
+		return
+	for feature_value: Variant in layout.features:
+		var feature: Dictionary = feature_value
+		var overlaps := false
+		for cell: int in feature.cells:
+			if cells.has(cell):
+				overlaps = true
+		if overlaps and feature.anchor != Vector2i(x, y):
+			_set_status("LANDMARKS CANNOT OVERLAP  /  REMOVE THE EXISTING ONE FIRST", true)
+			_focus_cell(index)
+			return
+	var blocker := _landmark_footprint_blocker(cells, width)
+	if not blocker.is_empty():
+		_set_status("LANDMARK NOT PLACED  /  %s" % blocker, true)
+		_focus_cell(index)
+		return
+	var changed := terrain.duplicate()
+	for cell: int in cells:
+		changed[cell] = str(definition.source_id)
+	_apply_terrain(
+		changed, index,
+		"PLACED %s  /  2×2 BLOCKED FOOTPRINT" % str(definition.label)
+	)
+
+
+func _remove_landmark_at(index: int, width: int, terrain: Array) -> void:
+	var height := terrain.size() / width
+	var feature := _cluster_landmark_for_cell(
+		index % width, index / width, width, height, terrain
+	)
+	if feature.is_empty():
+		_set_status("CHOOSE ANY CELL OF A COMPLETE HOUSE OR ANCIENT GROVE", true)
+		_focus_cell(index)
+		return
+	var changed := terrain.duplicate()
+	for cell: int in feature.cells:
+		changed[cell] = str(feature.clear_terrain)
+	_apply_terrain(
+		changed, int(feature.cells[0]),
+		"REMOVED %s  /  RESTORED %s" % [
+			str(feature.label), str(feature.clear_terrain).to_upper(),
+		]
+	)
 
 
 func _placement_at(index: int, width: int) -> Dictionary:
@@ -1852,6 +2042,17 @@ func _apply_terrain(changed: Array, focus_index: int, message: String) -> void:
 	var map := _current_map()
 	var current: Array = map.get("terrain", [])
 	if changed == current:
+		_focus_cell(focus_index)
+		return
+	var width := int(map.get("width", 0))
+	var height := int(map.get("height", 0))
+	var landmark_layout := _landmark_layout(width, height, changed)
+	if not bool(landmark_layout.ok):
+		_set_status(
+			"EDIT REFUSED  /  %s  /  USE REMOVE LANDMARK FOR THE WHOLE 2×2" %
+				str(landmark_layout.detail),
+			true
+		)
 		_focus_cell(focus_index)
 		return
 	var terrain_ids := PackedStringArray()
@@ -3300,6 +3501,26 @@ func _build_interface() -> void:
 	deployment_cancel.add_theme_font_size_override("font_size", 13)
 	deployment_cancel.pressed.connect(_cancel_deployment_edit)
 	deployment_actions.add_child(deployment_cancel)
+	tools_column.add_child(_label("LANDMARKS", 17, Color("69d9ff")))
+	var landmark_row := HBoxContainer.new()
+	landmark_row.add_theme_constant_override("separation", 6)
+	tools_column.add_child(landmark_row)
+	for landmark_tool: String in ["landmark_house", "landmark_grove", "landmark_remove"]:
+		var landmark_names := {
+			"landmark_house": "HOUSE 2×2",
+			"landmark_grove": "GROVE 2×2",
+			"landmark_remove": "REMOVE",
+		}
+		var landmark_button := _button(str(landmark_names[landmark_tool]), 102, 46)
+		landmark_button.add_theme_font_size_override("font_size", 12)
+		landmark_button.tooltip_text = {
+			"landmark_house": "Place one blocked village house over four cells.",
+			"landmark_grove": "Place one blocked ancient grove over four cells.",
+			"landmark_remove": "Remove an entire house or grove by choosing any of its cells.",
+		}[landmark_tool]
+		landmark_button.pressed.connect(_select_tool.bind(landmark_tool))
+		landmark_row.add_child(landmark_button)
+		tool_buttons[landmark_tool] = landmark_button
 	_update_tool_selection()
 	tools_column.add_child(_label("TERRAIN", 17, Color("69d9ff")))
 	var palette_scroll := ScrollContainer.new()

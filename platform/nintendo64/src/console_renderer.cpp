@@ -225,6 +225,52 @@ void draw_terrain(
     );
 }
 
+void draw_landmark(
+    int left, int top, int size, grandleon::view::LandmarkCell cell
+) {
+    if (!ready || !cell || size <= 0) return;
+    rdpq_set_mode_standard();
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_dithering(DITHER_NONE_NONE);
+    grandleon::view::paint_landmark_cell(
+        cell, left, top, size,
+        [cell](
+            int x, int y, int width, int height,
+            grandleon::view::LandmarkTone tone
+        ) {
+            struct Colour final {
+                std::uint8_t red;
+                std::uint8_t green;
+                std::uint8_t blue;
+            };
+            constexpr Colour house[] = {
+                {55, 35, 25}, {220, 190, 135}, {145, 52, 44},
+                {92, 58, 36}, {238, 205, 105},
+            };
+            constexpr Colour grove[] = {
+                {48, 42, 27}, {50, 104, 55}, {34, 75, 44},
+                {106, 73, 40}, {93, 145, 70},
+            };
+            const std::size_t index = static_cast<std::size_t>(tone);
+            const Colour colour =
+                cell.landmark == grandleon::view::TacticalLandmark::village_house
+                    ? house[index] : grove[index];
+            rdpq_set_prim_color(
+                RGBA32(colour.red, colour.green, colour.blue, 255)
+            );
+            rdpq_fill_rectangle(x, y, x + width, y + height);
+        }
+    );
+    // Another terrain cell can follow in the shared depth order. Return the
+    // RDP to the atlas mode established by begin_board; the sprite remains in
+    // TMEM, so this is state only and performs no upload.
+    rdpq_set_mode_standard();
+    rdpq_mode_tlut(TLUT_RGBA16);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_mode_dithering(DITHER_NONE_NONE);
+    rdpq_mode_combiner(RDPQ_COMBINER_TEX_FLAT);
+}
+
 void draw_character(
     int drawing, Pose pose, int centre_x, int bottom, int cell_size,
     bool facing_left

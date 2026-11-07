@@ -72,6 +72,7 @@
 // and it keeps the checked artifact and the played one the same code.
 
 #include "grandleon/view/board_view.hpp"
+#include "grandleon/view/landmark.hpp"
 
 #include <grandleon/client/session.hpp>
 #include <grandleon/client/turn_client.hpp>
@@ -173,6 +174,10 @@ using psx::Line;
 // `fordlight_pad.h`'s script was written against. `campaign_pad.h` carries a
 // script for each.
 constexpr const char* campaign_path = project_campaign_key;
+constexpr std::uint64_t ancient_grove_terrain =
+    core::stable_content_id_v1("mountain_ancient_grove");
+constexpr std::uint64_t village_house_terrain =
+    core::stable_content_id_v1("mountain_village_house");
 #ifdef GRANDLEON_PSX_DEMO_CAMPAIGN
 constexpr const std::uint8_t* campaign_package_bytes = demo_package_bytes;
 constexpr std::size_t campaign_package_size = demo_package_size;
@@ -1798,6 +1803,14 @@ private:
                         item.x, item.y, drawn_tile(), cell, clut
                     );
                 }
+                // These exact authored identities still use mountain rules.
+                // Paint their quarter of the 2x2 landmark over that mountain
+                // base with flat primitives, which adds no texture upload or
+                // VRAM allocation to this frame.
+                draw_landmark(
+                    item.x, item.y, drawn_tile(),
+                    landmark_at(item.cell_x, item.cell_y)
+                );
                 // The wash, drawn where the cell was so the depth order the
                 // list computed is the depth order it is painted in. A lit
                 // tile behind a raised one is washed before that cell lifts
@@ -2506,6 +2519,48 @@ private:
     [[nodiscard]] int kind_of(std::uint64_t identity) const {
         const std::uint8_t kind = shown_->kind_of_terrain(identity);
         return kind < art::terrain_kind_count ? static_cast<int>(kind) : -1;
+    }
+    [[nodiscard]] view::LandmarkCell landmark_at(int x, int y) const {
+        if (x < 0 || y < 0 || x >= board_width_) return {};
+        const std::size_t index =
+            static_cast<std::size_t>(y) *
+                static_cast<std::size_t>(board_width_) +
+            static_cast<std::size_t>(x);
+        if (index >= terrain().size()) return {};
+        const std::uint64_t identity = terrain()[index];
+        const std::uint64_t left = x > 0 ? terrain()[index - 1U] : 0U;
+        const std::uint64_t above = y > 0
+            ? terrain()[index - static_cast<std::size_t>(board_width_)] : 0U;
+        return view::landmark_cell(
+            identity, left, above, ancient_grove_terrain,
+            village_house_terrain
+        );
+    }
+    static void draw_landmark(
+        int left, int top, int size, view::LandmarkCell cell
+    ) {
+        if (!cell) return;
+        static constexpr std::uint16_t house[] = {
+            gpu::rgb15(7, 4, 3), gpu::rgb15(27, 24, 17),
+            gpu::rgb15(18, 7, 6), gpu::rgb15(12, 7, 4),
+            gpu::rgb15(30, 26, 13),
+        };
+        static constexpr std::uint16_t grove[] = {
+            gpu::rgb15(6, 5, 3), gpu::rgb15(6, 13, 7),
+            gpu::rgb15(4, 9, 5), gpu::rgb15(13, 9, 5),
+            gpu::rgb15(12, 18, 9),
+        };
+        view::paint_landmark_cell(
+            cell, left, top, size,
+            [cell](int x, int y, int width, int height,
+                   view::LandmarkTone tone) {
+                const std::size_t index = static_cast<std::size_t>(tone);
+                const std::uint16_t colour =
+                    cell.landmark == view::TacticalLandmark::village_house
+                        ? house[index] : grove[index];
+                gpu::fill(x, y, width, height, colour);
+            }
+        );
     }
     [[nodiscard]] int archetype_of(std::uint64_t unit_type) const {
         const std::uint8_t archetype = shown_->archetype_of_unit_type(unit_type);

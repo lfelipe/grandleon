@@ -2466,11 +2466,6 @@
                       "kind": "objectiveResult",
                       "objectiveId": "hold_watch",
                       "result": "victory"
-                    },
-                    {
-                      "kind": "objectiveResult",
-                      "objectiveId": "protect_rowan",
-                      "result": "victory"
                     }
                   ]
                 }
@@ -2665,11 +2660,6 @@
                     {
                       "kind": "objectiveResult",
                       "objectiveId": "fell_castellan",
-                      "result": "victory"
-                    },
-                    {
-                      "kind": "objectiveResult",
-                      "objectiveId": "protect_rowan",
                       "result": "victory"
                     }
                   ]
@@ -2907,11 +2897,6 @@
                     {
                       "kind": "objectiveResult",
                       "objectiveId": "fell_masatora",
-                      "result": "victory"
-                    },
-                    {
-                      "kind": "objectiveResult",
-                      "objectiveId": "protect_rowan",
                       "result": "victory"
                     }
                   ]
