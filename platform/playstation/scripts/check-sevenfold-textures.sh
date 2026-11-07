@@ -23,6 +23,14 @@ build_dir="${GRANDLEON_PSX_SEVENFOLD_3D_BUILD_DIR:-${repository_root}/build-play
 "${repository_root}/platform/playstation/tools/generate-terrain-quality.py" \
     --output "${repository_root}/platform/playstation/prototype/generated/quality_terrain_ci4.h" \
     --check
+"${repository_root}/platform/playstation/tools/generate-renderer-comparison-scene.py" \
+    --scene "${repository_root}/tools/renderer_comparison/scene.json" \
+    --output "${repository_root}/platform/playstation/prototype/generated/renderer_comparison_scene.h" \
+    --check
+"${repository_root}/platform/playstation/tools/generate-combat-backdrop.py" \
+    --scene "${repository_root}/tools/renderer_comparison/scene.json" \
+    --output "${repository_root}/platform/playstation/prototype/generated/combat_backdrop_ci8.h" \
+    --check
 GRANDLEON_PSX_SEVENFOLD_3D_BUILD_DIR="${build_dir}" \
     "${repository_root}/platform/playstation/scripts/build-sevenfold-3d.sh"
 
@@ -77,7 +85,13 @@ rm -f \
     "${frame_dir}/terrain-close-before.png" \
     "${frame_dir}/terrain-close-after.png" \
     "${frame_dir}/terrain-board-before.png" \
-    "${frame_dir}/terrain-board-after.png"
+    "${frame_dir}/terrain-board-after.png" \
+    "${frame_dir}/combat-backdrop-before.bin" \
+    "${frame_dir}/combat-backdrop-before.ppm" \
+    "${frame_dir}/combat-backdrop-before.png" \
+    "${frame_dir}/combat-backdrop-after.bin" \
+    "${frame_dir}/combat-backdrop-after.ppm" \
+    "${frame_dir}/combat-backdrop-after.png"
 for index in 00 01 02 03 04 05 06 07; do
     rm -f "${frame_dir}/movement-${index}.bin" \
         "${frame_dir}/movement-${index}.ppm"
@@ -136,6 +150,7 @@ frames=( \
     mythical-flat mythical-current mythical-low-angle \
     mythical-screen-stage-rejected mythical-camera-v2 \
     overview-flat overview-hybrid overview-camera-v2 overview-terrain-before \
+    combat-backdrop-before combat-backdrop-after \
     movement-00 movement-01 movement-02 movement-03 \
     movement-04 movement-05 movement-06 movement-07
 )
@@ -250,6 +265,8 @@ for output, source in {
     "terrain-close-after.png": "medieval-camera-v2.ppm",
     "terrain-board-before.png": "overview-terrain-before.ppm",
     "terrain-board-after.png": "overview-camera-v2.ppm",
+    "combat-backdrop-before.png": "combat-backdrop-before.ppm",
+    "combat-backdrop-after.png": "combat-backdrop-after.ppm",
 }.items():
     Image.open(frame_dir / source).convert("RGB").save(frame_dir / output)
 PYEOF
@@ -277,3 +294,4 @@ echo "Native camera-v2 exchange film: ${frame_dir}/close-exchange-camera-v2.gif"
 echo "Matched 8.15s renderer clip: ${frame_dir}/renderer-comparison-playstation.mp4"
 echo "Matched native GIF: ${frame_dir}/renderer-comparison-playstation.gif"
 echo "Terrain before/after stills: ${frame_dir}/terrain-*-before.png and *-after.png"
+echo "Combat backdrop proof: ${frame_dir}/combat-backdrop-before.png and combat-backdrop-after.png"

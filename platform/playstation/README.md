@@ -204,18 +204,41 @@ review stills.
 
 The captures land in `build-playstation-sevenfold-3d/texture-frames/`.
 `overview-movement-camera-v2.gif` and `close-exchange-camera-v2.gif` show the
-quality movement and exchange. One active eight-pose close style occupies
+quality movement and exchange. The schema-2 comparison also renders the full
+explicit 12×10 forest extension around its 6×4 active board. The complete
+diorama fills native 320×240 with no diagnostic title or footer; only selected
+and target cells, in-world health and transient damage remain. Its generated
+header is checked directly against `tools/renderer_comparison/scene.json`, so
+terrain rows, unit cells, colours, framing and backdrop selection cannot drift
+into a visually similar hard-coded scene.
+
+One active eight-pose close style occupies
 exactly 64 KiB in two 32 KiB texture pages; the ten tactical poses occupy
 20 KiB in one page. The terrain atlas occupies 22 KiB of another page and
 three sixteen-colour CLUTs, or 96 bytes. The active close working set is thus
-86 KiB; the active tactical set is 42 KiB. Textures are uploaded when the
-experiment changes scene, not during animation. Equivalent 128×128 CI8 close
+86 KiB before a distant backdrop; the active tactical set is 42 KiB. Textures
+are uploaded when the experiment changes scene, not during animation.
+Equivalent 128×128 CI8 close
 poses would need 128 KiB in four pages plus larger palettes. That remains
 possible within the eleven-page texture region, but CI4 keeps twice as much
 room for terrain and effects while preserving the important silhouette and
-costume detail. The experiment executable is 1,480,704 bytes and still leaves
-505,632 bytes of main-memory heap. The production campaign disc remains
-3,939,600 bytes because this candidate is still isolated.
+costume detail.
+
+The close-view backdrop proof is derived only from the shared Godot source
+plates and their manifest. It verifies the FNV selector, terrain IDs and frozen
+variant, composites panorama/transition/midground in declared order, and keeps
+the modular props layer separate. A centred 4:3 crop becomes a 320×160 CI8
+plate in ten 64×80 tiles across two texture pages; five props tiles occupy a
+third. Together with two 256-colour CLUTs this uses 72,704 bytes of VRAM. The
+live grass/paved floor overlaps the plate cleanly and still owns shadows,
+large fighters, attack effects, health and damage. The selector is data-driven
+by terrain IDs and variant index, so another manifest pack does not require a
+renderer rewrite. `combat-backdrop-before.png` and
+`combat-backdrop-after.png` are matched native proof stills.
+
+With that proof embedded, the experiment executable is 1,560,576 bytes and
+leaves 425,760 bytes of main-memory heap. The production campaign disc remains
+3,939,600 bytes because the candidate is still isolated.
 
 In the pinned interpreter, the quiet 128×128 close baseline takes about
 1.27 ms and the richer terrain version 1.50 ms after GPU completion. The quiet
@@ -225,10 +248,19 @@ the slowest real-pose attack/counter frame 1.57 ms. Even the matched eight-model
 flat overview remains just inside the locked-30-fps ceiling at about 31.4 ms.
 The added terrain remains far below the 33 ms regression ceiling.
 
+The CI8 plate upload takes about 0.68 ms once at close-scene entry in the same
+pinned interpreter. A live-terrain hold takes about 1.32 ms; the richer plate,
+modular props, live foreground and enlarged fighters take about 1.02 ms. The
+quality gain therefore costs VRAM and disc/RAM image space rather than frame
+budget, and the selected plate stays frozen for both attack and counter.
+The complete schema-2 map takes about 0.78 ms and the slowest board-to-close
+landmark takes 1.03 ms, both after draining the GPU.
+
 The same check also records the canonical cross-renderer scene from
-`tools/renderer_comparison/scene.json`: the exact 6×4 forest/grass/stone board,
-blue male knight at `(1,2)`, red female knight at `(4,1)`, fixed close-view
-sides, 3 and 4 damage, and return to the same camera with both units at 8 HP.
+`tools/renderer_comparison/scene.json`: the exact 6×4 forest/grass/paved active
+board and explicit 12×10 surroundings, blue male knight at `(1,2)`, red female
+knight at `(4,1)`, fixed close-view sides, 3 and 4 damage, and return to the
+same full-frame camera with both units at 8 HP.
 `renderer-comparison-playstation.mp4` is the 30 fps, 8.17-second PS1 input for
 the shared composer; `renderer-comparison-playstation.gif` is the native
 320×240 review version. Five named PNG landmarks cover board, focus, both

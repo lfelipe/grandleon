@@ -319,6 +319,35 @@ void draw_texture_quad(
     *gp0 = uv(u1, v1);
 }
 
+void draw_texture_quad_ci8(
+    int screen_x, int screen_y, int width, int height,
+    int texture_page, int u0, int v0, int u1, int v1,
+    int clut_x, int clut_y
+) {
+    if (width <= 0 || height <= 0) return;
+    const std::uint32_t texpage =
+        static_cast<std::uint32_t>(texture_page) |
+        (static_cast<std::uint32_t>(texture_page_y / page_lines) << 4) |
+        (1u << 7);  // 8bpp indexed texture depth
+    const std::uint32_t palette =
+        (static_cast<std::uint32_t>(clut_y) << 6) |
+        static_cast<std::uint32_t>(clut_x / 16);
+    const auto uv = [](int u, int v) {
+        return (static_cast<std::uint32_t>(v & 0xff) << 8) |
+               static_cast<std::uint32_t>(u & 0xff);
+    };
+
+    command(0x2Du << 24 | 0x808080u);
+    coordinates(screen_x, screen_y);
+    *gp0 = (palette << 16) | uv(u0, v0);
+    coordinates(screen_x + width, screen_y);
+    *gp0 = (texpage << 16) | uv(u1, v0);
+    coordinates(screen_x, screen_y + height);
+    *gp0 = uv(u0, v1);
+    coordinates(screen_x + width, screen_y + height);
+    *gp0 = uv(u1, v1);
+}
+
 void fill(int screen_x, int screen_y, int width, int height,
           std::uint16_t colour) {
     if (width <= 0 || height <= 0) return;

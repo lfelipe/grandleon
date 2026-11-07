@@ -20,7 +20,9 @@
 #include "playstation_characters_medieval.h"
 #include "playstation_characters_mythical.h"
 #include "generated/godot_closeup_ci4.h"
+#include "generated/combat_backdrop_ci8.h"
 #include "generated/quality_terrain_ci4.h"
+#include "generated/renderer_comparison_scene.h"
 #include "n64_showcase.h"
 #include "sevenfold_roster_proxies.h"
 
@@ -54,6 +56,11 @@ constexpr int quality_terrain_cell_base = 4;
 constexpr int quality_grass_clut = 29;
 constexpr int quality_forest_clut = 30;
 constexpr int quality_stone_clut = 31;
+constexpr int backdrop_texture_page = gpu::first_texture_page + 6;
+constexpr int backdrop_overlay_page = gpu::first_texture_page + 8;
+constexpr int backdrop_clut_x = 0;
+constexpr int backdrop_overlay_clut_x = 256;
+constexpr int backdrop_clut_y = gpu::clut_y + 1;
 
 struct Cutout final {
     int page;
@@ -599,6 +606,115 @@ void load_quality_terrain() {
     upload_clut(quality_grass_clut, grandleon_psx_quality_terrain_cluts[0]);
     upload_clut(quality_forest_clut, grandleon_psx_quality_terrain_cluts[1]);
     upload_clut(quality_stone_clut, grandleon_psx_quality_terrain_cluts[2]);
+}
+
+[[nodiscard]] std::uint32_t load_combat_backdrop() {
+    static_assert(grandleon_psx_backdrop_seed ==
+                  grandleon_psx_comparison_backdrop_seed);
+    static_assert(grandleon_psx_backdrop_variant ==
+                  grandleon_psx_comparison_backdrop_variant);
+    static_assert(grandleon_psx_backdrop_tile_width == 64);
+    static_assert(grandleon_psx_backdrop_tile_height == 80);
+    static_assert(grandleon_psx_backdrop_tile_count <= 12);
+    static_assert(grandleon_psx_backdrop_overlay_tile_count <= 8);
+    psx::start_clock();
+    constexpr int main_tiles_per_page = 6;
+    for (int index = 0; index < grandleon_psx_backdrop_tile_count; ++index) {
+        const int page = backdrop_texture_page + index / main_tiles_per_page;
+        const int within = index % main_tiles_per_page;
+        const int u = (within % 2) * grandleon_psx_backdrop_tile_width;
+        const int v = (within / 2) * grandleon_psx_backdrop_tile_height;
+        gpu::upload(
+            page * gpu::page_halfwords + u / 2,
+            gpu::texture_page_y + v,
+            grandleon_psx_backdrop_tile_width / 2,
+            grandleon_psx_backdrop_tile_height,
+            grandleon_psx_backdrop_tiles[index]
+        );
+    }
+    for (int index = 0;
+         index < grandleon_psx_backdrop_overlay_tile_count; ++index) {
+        const int u = (index % 2) *
+                      grandleon_psx_backdrop_overlay_tile_width;
+        const int v = (index / 2) *
+                      grandleon_psx_backdrop_overlay_tile_height;
+        gpu::upload(
+            backdrop_overlay_page * gpu::page_halfwords + u / 2,
+            gpu::texture_page_y + v,
+            grandleon_psx_backdrop_overlay_tile_width / 2,
+            grandleon_psx_backdrop_overlay_tile_height,
+            grandleon_psx_backdrop_overlay_tiles[index]
+        );
+    }
+    gpu::upload(backdrop_clut_x, backdrop_clut_y, 256, 1,
+                grandleon_psx_backdrop_clut);
+    gpu::upload(backdrop_overlay_clut_x, backdrop_clut_y, 256, 1,
+                grandleon_psx_backdrop_overlay_clut);
+    static_cast<void>(gpu::read_back(
+        backdrop_texture_page * gpu::page_halfwords, gpu::texture_page_y
+    ));
+    return psx::clock_ticks();
+}
+
+void draw_combat_backdrop() {
+    constexpr int columns = grandleon_psx_backdrop_width /
+                            grandleon_psx_backdrop_tile_width;
+    constexpr int main_tiles_per_page = 6;
+    for (int index = 0; index < grandleon_psx_backdrop_tile_count; ++index) {
+        const int screen_x = (index % columns) *
+                             grandleon_psx_backdrop_tile_width;
+        const int screen_y = (index / columns) *
+                             grandleon_psx_backdrop_tile_height;
+        const int width = std::min(
+            grandleon_psx_backdrop_tile_width,
+            grandleon_psx_backdrop_width - screen_x
+        );
+        const int height = std::min(
+            grandleon_psx_backdrop_tile_height,
+            grandleon_psx_backdrop_height - screen_y
+        );
+        const int page = backdrop_texture_page + index / main_tiles_per_page;
+        const int within = index % main_tiles_per_page;
+        const int u = (within % 2) * grandleon_psx_backdrop_tile_width;
+        const int v = (within / 2) * grandleon_psx_backdrop_tile_height;
+        gpu::draw_texture_quad_ci8(
+            screen_x, screen_y, width, height, page,
+            u, v, u + width - 1, v + height - 1,
+            backdrop_clut_x, backdrop_clut_y
+        );
+    }
+}
+
+void draw_combat_backdrop_overlay() {
+    const int columns = (grandleon_psx_backdrop_overlay_width +
+                         grandleon_psx_backdrop_overlay_tile_width - 1) /
+                        grandleon_psx_backdrop_overlay_tile_width;
+    for (int index = 0;
+         index < grandleon_psx_backdrop_overlay_tile_count; ++index) {
+        const int local_x = (index % columns) *
+                            grandleon_psx_backdrop_overlay_tile_width;
+        const int local_y = (index / columns) *
+                            grandleon_psx_backdrop_overlay_tile_height;
+        const int width = std::min(
+            grandleon_psx_backdrop_overlay_tile_width,
+            grandleon_psx_backdrop_overlay_width - local_x
+        );
+        const int height = std::min(
+            grandleon_psx_backdrop_overlay_tile_height,
+            grandleon_psx_backdrop_overlay_height - local_y
+        );
+        const int u = (index % 2) *
+                      grandleon_psx_backdrop_overlay_tile_width;
+        const int v = (index / 2) *
+                      grandleon_psx_backdrop_overlay_tile_height;
+        gpu::draw_texture_quad_ci8(
+            grandleon_psx_backdrop_overlay_x + local_x,
+            grandleon_psx_backdrop_overlay_y + local_y,
+            width, height, backdrop_overlay_page,
+            u, v, u + width - 1, v + height - 1,
+            backdrop_overlay_clut_x, backdrop_clut_y
+        );
+    }
 }
 
 void upload_cutout(const Cutout& cutout, const unsigned short* pixels) {
@@ -1260,6 +1376,27 @@ void draw_close_stage_v2(const ElevatedCamera& camera, bool rich_terrain) {
     }
 }
 
+void draw_capture_floor_strip(const ElevatedCamera& camera) {
+    constexpr int tile = 48;
+    constexpr int left = -240;
+    constexpr int far = 0;
+    // Three rows overlap the distant plate at its contract floor line and run
+    // past every lower-frame edge. The north/south transition is preserved as
+    // a grass-left / paved-right split, matching the selected Godot plate.
+    for (int row = 0; row < 3; ++row) {
+        for (int column = 0; column < 10; ++column) {
+            const int x0 = left + column * tile;
+            const int z0 = far + row * tile;
+            const int kind = column < 5 ? 0 : 2;  // grass / paved
+            draw_quality_terrain_tile(
+                x0, z0, x0 + tile, z0 + tile, kind,
+                (row * 7 + column * 3) & 3,
+                0, camera
+            );
+        }
+    }
+}
+
 void draw_close_far_decorations(const ElevatedCamera& camera) {
     draw_quality_tree(-143, -64, 32, camera);
     draw_quality_tree(137, -70, 38, camera);
@@ -1341,24 +1478,55 @@ void draw_world_impact(
     gpu::fill(centre.x - 2, centre.y - 10, 5, 20, gpu::rgb15(31, 27, 10));
 }
 
+void draw_capture_health(
+    const ProjectedVertex& foot, int size, int health, std::uint16_t team
+) {
+    const int top = std::max(4, foot.y - size + 1);
+    gpu::fill(foot.x - 14, top, 28, 5, gpu::rgb15(2, 2, 3));
+    gpu::fill(foot.x - 13, top + 1, health * 2, 3,
+              health > 8 ? gpu::rgb15(7, 24, 9) : gpu::rgb15(27, 17, 5));
+    gpu::fill(foot.x - 18, top, 4, 5, team);
+    text_at(foot.x - 5, top - 9,
+            health == 12 ? "12" : (health == 11 ? "11" : "8"));
+}
+
+[[nodiscard]] ElevatedCamera comparison_close_camera() noexcept {
+    ElevatedCamera camera = close_camera_v2();
+    camera.centre_x = gpu::screen_width / 2;
+    const ProjectedVertex current_ground = project_elevated(-70, 3, 0, camera);
+    const int wanted_ground = gpu::screen_height *
+        grandleon_psx_comparison_close_layout_milli[2] / 1000;
+    camera.centre_y += wanted_ground - current_ground.y;
+    return camera;
+}
+
 [[nodiscard]] SceneResult draw_hybrid_close_v2(
     bool mythical, int phase, const char* title, const char* subtitle,
-    std::uint16_t sky, bool quality = true, bool rich_terrain = true
+    std::uint16_t sky, bool quality = true, bool rich_terrain = true,
+    bool capture_mode = false, bool backdrop_mode = true,
+    int left_health = 12, int right_health = 11
 ) {
-    const ElevatedCamera camera = close_camera_v2();
+    const ElevatedCamera camera = capture_mode
+        ? comparison_close_camera() : close_camera_v2();
     const Cutout& left = quality ? quality_left_pose(phase)
         : (mythical ? mythical_male_cutout : medieval_male_cutout);
     const Cutout& right = quality ? quality_right_pose(phase)
         : (mythical ? mythical_female_cutout : medieval_female_cutout);
-    const int left_x = close_left_x(phase);
-    const int right_x = close_right_x(phase);
-    constexpr int unit_world_size = 132;
+    const int left_x = close_left_x(phase) - (capture_mode ? 14 : 0);
+    const int right_x = close_right_x(phase) + (capture_mode ? 14 : 0);
+    const int unit_world_size = capture_mode ? 170 : 132;
     const int unit_size = elevated_billboard_size(unit_world_size, camera);
 
     gpu::clear(sky);
     psx::start_clock();
-    draw_close_stage_v2(camera, rich_terrain);
-    if (rich_terrain) draw_close_far_decorations(camera);
+    if (capture_mode && backdrop_mode) {
+        draw_combat_backdrop();
+        draw_combat_backdrop_overlay();
+        draw_capture_floor_strip(camera);
+    } else {
+        draw_close_stage_v2(camera, rich_terrain);
+        if (rich_terrain) draw_close_far_decorations(camera);
+    }
     draw_elevated_marker(left_x, 0, 0, 40, camera);
     draw_elevated_marker(right_x, 0, 1, 40, camera);
     const ProjectedVertex left_foot = project_elevated(left_x, 3, 0, camera);
@@ -1377,24 +1545,43 @@ void draw_world_impact(
     if (phase == 12) {
         draw_world_impact(right_x - 13, 68, 0, camera);
         const ProjectedVertex damage = project_elevated(right_x, 102, 0, camera);
-        text_at(damage.x - 3, damage.y, "3");
+        text_at(damage.x - 3, damage.y,
+                grandleon_psx_comparison_damage[0] == 3 ? "3" : "?");
     }
     if (phase == 32) {
         draw_world_impact(left_x + 13, 68, 0, camera);
         const ProjectedVertex damage = project_elevated(left_x, 102, 0, camera);
-        text_at(damage.x - 3, damage.y, "4");
+        text_at(damage.x - 3, damage.y,
+                grandleon_psx_comparison_damage[1] == 4 ? "4" : "?");
     }
-    if (rich_terrain) draw_close_near_decorations(camera);
+    if (rich_terrain && (!capture_mode || !backdrop_mode)) {
+        draw_close_near_decorations(camera);
+    }
 
-    gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
-    gpu::fill(6, 4, 7, 10, colour15(team_colours[0]));
-    text_at(18, 5, title);
-    gpu::fill(306, 4, 7, 10, colour15(team_colours[1]));
-    gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
-    text_at(8, 227, subtitle);
+    if (capture_mode) {
+        draw_capture_health(
+            left_foot, unit_size, left_health,
+            grandleon_psx_comparison_team_colours[0]
+        );
+        draw_capture_health(
+            right_foot, unit_size, right_health,
+            grandleon_psx_comparison_team_colours[1]
+        );
+    } else {
+        gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+        gpu::fill(6, 4, 7, 10, colour15(team_colours[0]));
+        text_at(18, 5, title);
+        gpu::fill(306, 4, 7, 10, colour15(team_colours[1]));
+        gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+        text_at(8, 227, subtitle);
+    }
     gpu::show();
     static_cast<void>(gpu::read_back(0, 0));
-    return {psx::clock_ticks(), 72};
+    return {psx::clock_ticks(),
+            capture_mode && backdrop_mode
+                ? grandleon_psx_backdrop_tile_count +
+                  grandleon_psx_backdrop_overlay_tile_count + 44
+                : 72};
 }
 
 constexpr std::uint8_t overview_terrain_colours[4][3] = {
@@ -1811,78 +1998,241 @@ void draw_movement_highlights_v2(const ElevatedCamera& camera) {
     return {psx::clock_ticks(), rich_terrain ? 104 : 86};
 }
 
-[[nodiscard]] ElevatedCamera comparison_board_camera() noexcept {
-    ElevatedCamera camera{0, 0, 220, -220, 105, 105, 260, 256};
+constexpr int comparison_tile = 40;
+constexpr int comparison_grass = 0;
+constexpr int comparison_forest = 1;
+constexpr int comparison_paved = 2;
+
+[[nodiscard]] int comparison_kind(int row, int column) noexcept {
+    return grandleon_psx_comparison_surroundings[
+        row * grandleon_psx_comparison_surrounding_width + column
+    ];
+}
+
+[[nodiscard]] ElevatedCamera comparison_board_camera(int focus = 0) noexcept {
+    // The steeper basis mirrors the schema-2 Godot camera: the complete 12x10
+    // diorama reads from above and fills the native frame without title bands.
+    ElevatedCamera camera{0, 0, 220, -220, 150, 150, 270, 256};
     RawBounds bounds{0, 0, 0, 0, false};
-    constexpr int left = -144;
-    constexpr int right = 144;
-    constexpr int far = -96;
-    constexpr int near = 96;
+    constexpr int left = -grandleon_psx_comparison_surrounding_width *
+                         comparison_tile / 2;
+    constexpr int right = left + grandleon_psx_comparison_surrounding_width *
+                          comparison_tile;
+    constexpr int far = -grandleon_psx_comparison_surrounding_height *
+                        comparison_tile / 2;
+    constexpr int near = far + grandleon_psx_comparison_surrounding_height *
+                         comparison_tile;
     include_world(bounds, left, 0, far, camera);
     include_world(bounds, right, 0, far, camera);
     include_world(bounds, left, 0, near, camera);
     include_world(bounds, right, 0, near, camera);
-    include_billboard(bounds, -72, 24, 88, camera);
-    include_billboard(bounds, 72, -24, 88, camera);
-    return fit_elevated_camera(camera, bounds, 7, 22, 313, 218);
-}
-
-[[nodiscard]] int comparison_terrain_kind(int row, int column) noexcept {
-    constexpr int terrain[4][6] = {
-        {2, 2, 9, 12, 12, 2},
-        {2, 9, 9, 12, 12, 2},
-        {2, 9, 9, 12, 9, 2},
-        {2, 2, 9, 12, 2, 2},
-    };
-    return terrain[row][column];
-}
-
-[[nodiscard]] int comparison_quality_kind(int terrain_id) noexcept {
-    return terrain_id == 9 ? 0 : (terrain_id == 2 ? 1 : 2);
+    camera = fit_elevated_camera(
+        camera, bounds,
+        grandleon_psx_comparison_safe_margin[0],
+        grandleon_psx_comparison_safe_margin[1],
+        gpu::screen_width - grandleon_psx_comparison_safe_margin[0],
+        gpu::screen_height - grandleon_psx_comparison_safe_margin[1]
+    );
+    if (focus > 0) {
+        const int step = std::min(focus, 3);
+        camera.zoom = camera.zoom * (100 + step * 7) / 100;
+    }
+    return camera;
 }
 
 [[nodiscard]] int comparison_transition_mask(
-    int row, int column, int quality_kind
+    int row, int column, int kind
 ) noexcept {
+    if (kind == comparison_grass) return 0;
     int mask = 0;
-    if (row > 0 && comparison_quality_kind(
-            comparison_terrain_kind(row - 1, column)) != quality_kind) mask |= 1;
-    if (column < 5 && comparison_quality_kind(
-            comparison_terrain_kind(row, column + 1)) != quality_kind) mask |= 2;
-    if (row < 3 && comparison_quality_kind(
-            comparison_terrain_kind(row + 1, column)) != quality_kind) mask |= 4;
-    if (column > 0 && comparison_quality_kind(
-            comparison_terrain_kind(row, column - 1)) != quality_kind) mask |= 8;
+    if (row > 0 && comparison_kind(row - 1, column) != kind) mask |= 1;
+    if (column + 1 < grandleon_psx_comparison_surrounding_width &&
+        comparison_kind(row, column + 1) != kind) mask |= 2;
+    if (row + 1 < grandleon_psx_comparison_surrounding_height &&
+        comparison_kind(row + 1, column) != kind) mask |= 4;
+    if (column > 0 && comparison_kind(row, column - 1) != kind) mask |= 8;
     return mask;
 }
 
-void draw_exact_hp(
-    const ProjectedVertex& foot, int size, int team, int health
-) {
-    const int top = foot.y - size + 1;
-    gpu::fill(foot.x - 13, top, 26, 5, gpu::rgb15(2, 2, 3));
-    gpu::fill(
-        foot.x - 12, top + 1, health * 2, 3,
-        health > 8 ? gpu::rgb15(7, 24, 9) : gpu::rgb15(27, 17, 5)
-    );
-    text_at(foot.x - 5, top - 9, health == 12 ? "12" :
-        (health == 11 ? "11" : "8"));
-    gpu::fill(foot.x - 17, top, 4, 5, colour15(team_colours[team]));
+[[nodiscard]] bool comparison_active_cell(int row, int column) noexcept {
+    return column >= grandleon_psx_comparison_active_origin_x &&
+           column < grandleon_psx_comparison_active_origin_x +
+                    grandleon_psx_comparison_board_width &&
+           row >= grandleon_psx_comparison_active_origin_y &&
+           row < grandleon_psx_comparison_active_origin_y +
+                 grandleon_psx_comparison_board_height;
 }
+
+void draw_comparison_marker(
+    int row, int column, std::uint16_t colour, const ElevatedCamera& camera
+) {
+    constexpr int left = -grandleon_psx_comparison_surrounding_width *
+                         comparison_tile / 2;
+    constexpr int far = -grandleon_psx_comparison_surrounding_height *
+                        comparison_tile / 2;
+    const int x0 = left + column * comparison_tile + 4;
+    const int z0 = far + row * comparison_tile + 4;
+    const int x1 = x0 + comparison_tile - 8;
+    const int z1 = z0 + comparison_tile - 8;
+    draw_elevated_solid_quad(x0, z0, x1, z0 + 3, 3, camera, colour);
+    draw_elevated_solid_quad(x0, z1 - 3, x1, z1, 3, camera, colour);
+    draw_elevated_solid_quad(x0, z0, x0 + 3, z1, 3, camera, colour);
+    draw_elevated_solid_quad(x1 - 3, z0, x1, z1, 3, camera, colour);
+}
+
+int make_comparison_props(QualityProp* props, const ElevatedCamera& camera) {
+    constexpr int left = -grandleon_psx_comparison_surrounding_width *
+                         comparison_tile / 2;
+    constexpr int far = -grandleon_psx_comparison_surrounding_height *
+                        comparison_tile / 2;
+    int count = 0;
+    for (int row = 0; row < grandleon_psx_comparison_surrounding_height;
+         ++row) {
+        for (int column = 0;
+             column < grandleon_psx_comparison_surrounding_width; ++column) {
+            const int kind = comparison_kind(row, column);
+            const bool active = comparison_active_cell(row, column);
+            const int centre_x = left + column * comparison_tile +
+                                 comparison_tile / 2;
+            const int centre_z = far + row * comparison_tile +
+                                 comparison_tile / 2;
+            if (kind == comparison_forest) {
+                const short* offsets = active
+                    ? grandleon_psx_comparison_active_tree_xz_milli
+                    : grandleon_psx_comparison_surrounding_tree_xz_milli;
+                const unsigned short* scales = active
+                    ? grandleon_psx_comparison_active_tree_scale_milli
+                    : grandleon_psx_comparison_surrounding_tree_scale_milli;
+                for (int tree = 0; tree < 2; ++tree) {
+                    const int x = centre_x +
+                        offsets[tree * 2] * comparison_tile / 1000;
+                    const int z = centre_z +
+                        offsets[tree * 2 + 1] * comparison_tile / 1000;
+                    const int variation =
+                        grandleon_psx_comparison_cluster_height_milli[0] +
+                        ((row * 17 + column * 11 + tree * 23) % 401);
+                    const int size = comparison_tile * 2 * scales[tree] *
+                        variation / 3000000;
+                    props[count++] = {
+                        x, z, 0, std::max(12, size),
+                        elevated_raw_y(x, 0, z, camera),
+                    };
+                }
+                if (active) {
+                    props[count++] = {
+                        centre_x, centre_z + 9, 2, 8,
+                        elevated_raw_y(centre_x, 0, centre_z + 9, camera),
+                    };
+                }
+            } else if (active && kind == comparison_grass) {
+                constexpr int offsets[6][2] = {
+                    {-11, -9}, {10, -7}, {-7, 10}, {12, 9}, {-13, 3}, {5, 13},
+                };
+                for (int detail = 0; detail < 6; ++detail) {
+                    const int x = centre_x + offsets[detail][0];
+                    const int z = centre_z + offsets[detail][1];
+                    props[count++] = {
+                        x, z, detail < 4 ? 2 : 1, detail < 4 ? 7 : 5,
+                        elevated_raw_y(x, 0, z, camera),
+                    };
+                }
+            }
+        }
+    }
+    std::sort(props, props + count,
+              [](const QualityProp& a, const QualityProp& b) {
+                  return a.depth < b.depth;
+              });
+    return count;
+}
+
+void draw_comparison_prop(
+    const QualityProp& prop, const ElevatedCamera& camera
+) {
+    if (prop.kind != 0) {
+        draw_quality_prop(prop, camera);
+        return;
+    }
+    draw_elevated_solid_quad(
+        prop.x - prop.size / 3, prop.z - 2,
+        prop.x + prop.size / 3, prop.z + 2, 2, camera,
+        gpu::rgb15(2, 5, 3)
+    );
+    const ProjectedVertex base = project_elevated(prop.x, 2, prop.z, camera);
+    const ProjectedVertex trunk =
+        project_elevated(prop.x, prop.size * 3 / 4, prop.z, camera);
+    const ProjectedVertex crown =
+        project_elevated(prop.x, prop.size * 3 / 2, prop.z, camera);
+    gpu::fill(base.x - 1, trunk.y, 3, std::max(2, base.y - trunk.y),
+              gpu::rgb15(9, 6, 3));
+    const int radius = std::max(3, (base.y - crown.y) / 3);
+    const int colour_shift = (prop.x / 7 + prop.z / 11) & 3;
+    gpu::draw_triangle(
+        crown.x, crown.y - radius,
+        crown.x - radius, trunk.y + 1,
+        crown.x + radius, trunk.y + 1,
+        gpu::rgb15(4, 13 + colour_shift, 7)
+    );
+    gpu::draw_triangle(
+        crown.x, crown.y,
+        crown.x - radius * 3 / 4, trunk.y - radius / 2,
+        crown.x + radius * 3 / 4, trunk.y - radius / 2,
+        gpu::rgb15(7, 19 + colour_shift, 9)
+    );
+}
+
+void draw_comparison_paved_details(const ElevatedCamera& camera) {
+    constexpr int left = -grandleon_psx_comparison_surrounding_width *
+                         comparison_tile / 2;
+    constexpr int far = -grandleon_psx_comparison_surrounding_height *
+                        comparison_tile / 2;
+    const std::uint16_t cyan = gpu::rgb15(5, 20, 23);
+    for (int active_row = 0;
+         active_row < grandleon_psx_comparison_board_height; ++active_row) {
+        for (int active_column = 0;
+             active_column < grandleon_psx_comparison_board_width;
+             ++active_column) {
+            const int row = active_row + grandleon_psx_comparison_active_origin_y;
+            const int column = active_column +
+                               grandleon_psx_comparison_active_origin_x;
+            if (comparison_kind(row, column) != comparison_paved) continue;
+            const int x0 = left + column * comparison_tile;
+            const int z0 = far + row * comparison_tile;
+            draw_elevated_solid_quad(
+                x0 + 8, z0 + 10, x0 + 18, z0 + 12, 2, camera, cyan
+            );
+            draw_elevated_solid_quad(
+                x0 + 24, z0 + 27, x0 + 34, z0 + 29, 2, camera, cyan
+            );
+        }
+    }
+}
+
+struct ComparisonUnitOrder final {
+    int index;
+    int x;
+    int z;
+    std::int32_t depth;
+};
 
 [[nodiscard]] SceneResult draw_comparison_board(
     int focus, int blue_hp, int red_hp, bool rich_terrain = true
 ) {
-    constexpr int tile = 48;
-    constexpr int left = -144;
-    constexpr int far = -96;
-    const ElevatedCamera camera = comparison_board_camera();
-    OverviewTileOrder order[24]{};
+    constexpr int left = -grandleon_psx_comparison_surrounding_width *
+                         comparison_tile / 2;
+    constexpr int far = -grandleon_psx_comparison_surrounding_height *
+                        comparison_tile / 2;
+    const ElevatedCamera camera = comparison_board_camera(focus);
+    constexpr int cell_count = grandleon_psx_comparison_surrounding_width *
+                               grandleon_psx_comparison_surrounding_height;
+    OverviewTileOrder order[cell_count]{};
     int count = 0;
-    for (int row = 0; row < 4; ++row) {
-        for (int column = 0; column < 6; ++column) {
-            const int x = left + column * tile + tile / 2;
-            const int z = far + row * tile + tile / 2;
+    for (int row = 0; row < grandleon_psx_comparison_surrounding_height;
+         ++row) {
+        for (int column = 0;
+             column < grandleon_psx_comparison_surrounding_width; ++column) {
+            const int x = left + column * comparison_tile + comparison_tile / 2;
+            const int z = far + row * comparison_tile + comparison_tile / 2;
             order[count++] = {row, column, elevated_raw_y(x, 0, z, camera)};
         }
     }
@@ -1896,102 +2246,107 @@ void draw_exact_hp(
     for (int index = 0; index < count; ++index) {
         const int row = order[index].row;
         const int column = order[index].column;
-        const int x0 = left + column * tile;
-        const int z0 = far + row * tile;
-        const int kind = comparison_terrain_kind(row, column);
+        const int x0 = left + column * comparison_tile;
+        const int z0 = far + row * comparison_tile;
+        const int kind = comparison_kind(row, column);
         if (rich_terrain) {
-            const int quality_kind = comparison_quality_kind(kind);
             draw_quality_terrain_tile(
-                x0, z0, x0 + tile, z0 + tile, quality_kind,
+                x0, z0, x0 + comparison_tile, z0 + comparison_tile, kind,
                 (row * 5 + column * 3) & 3,
-                comparison_transition_mask(row, column, quality_kind), camera
+                comparison_transition_mask(row, column, kind), camera
             );
-            draw_quality_cell_boundary(
-                x0, z0, x0 + tile, z0 + tile, camera
-            );
-        } else if (kind == 12) {
-            draw_elevated_solid_quad(
-                x0, z0, x0 + tile, z0 + tile, 0, camera,
-                colour15(overview_terrain_colours[3])
-            );
+            if (comparison_active_cell(row, column)) {
+                draw_quality_cell_boundary(
+                    x0, z0, x0 + comparison_tile, z0 + comparison_tile, camera
+                );
+            }
         } else {
-            const int cell = kind == 2 ? 2 : terrain_a_cell;
-            const int clut = kind == 2 ? 3 : terrain_a_clut;
-            draw_elevated_cell_quad(
-                x0, z0, x0 + tile, z0 + tile, 0, camera, cell, clut
+            const std::uint16_t colours[3] = {
+                gpu::rgb15(7, 17, 8), gpu::rgb15(4, 11, 7),
+                gpu::rgb15(14, 14, 13),
+            };
+            draw_elevated_solid_quad(
+                x0, z0, x0 + comparison_tile, z0 + comparison_tile,
+                0, camera, colours[kind]
             );
         }
     }
-    if (focus > 0) {
-        draw_elevated_solid_quad(
-            -91, 5, -53, 43, 2, camera, gpu::rgb15(8, 22, 31)
-        );
-        draw_elevated_solid_quad(
-            53, -43, 91, -5, 2, camera, gpu::rgb15(25, 12, 9)
-        );
-    }
+    if (rich_terrain) draw_comparison_paved_details(camera);
 
-    QualityProp props[6]{};
-    int next_prop = 0;
+    // The forest extension frames the active board, but never wins the final
+    // painter pass over tactical information. This retains the explicit two
+    // trees per forest cell while keeping the compact units and grid legible.
+    QualityProp props[240]{};
+    const int prop_count = rich_terrain ? make_comparison_props(props, camera) : 0;
+    for (int index = 0; index < prop_count; ++index) {
+        draw_comparison_prop(props[index], camera);
+    }
     if (rich_terrain) {
-        constexpr int definitions[6][4] = {
-            {-122, -73, 0, 24}, {121, -73, 0, 20}, {-124, 73, 0, 18},
-            {25, -38, 1, 11}, {26, 67, 1, 10}, {-22, 33, 2, 10},
-        };
-        for (int index = 0; index < 6; ++index) {
-            props[index] = {
-                definitions[index][0], definitions[index][1],
-                definitions[index][2], definitions[index][3],
-                elevated_raw_y(
-                    definitions[index][0], 0, definitions[index][1], camera
-                ),
-            };
+        for (int row = grandleon_psx_comparison_active_origin_y;
+             row < grandleon_psx_comparison_active_origin_y +
+                   grandleon_psx_comparison_board_height; ++row) {
+            for (int column = grandleon_psx_comparison_active_origin_x;
+                 column < grandleon_psx_comparison_active_origin_x +
+                          grandleon_psx_comparison_board_width; ++column) {
+                const int x0 = left + column * comparison_tile;
+                const int z0 = far + row * comparison_tile;
+                draw_quality_cell_boundary(
+                    x0, z0, x0 + comparison_tile, z0 + comparison_tile, camera
+                );
+            }
         }
-        std::sort(props, props + 6,
-                  [](const QualityProp& a, const QualityProp& b) {
-                      return a.depth < b.depth;
-                  });
     }
 
-    const ProjectedVertex blue_foot = project_elevated(-72, 3, 24, camera);
-    const ProjectedVertex red_foot = project_elevated(72, 3, -24, camera);
-    const int unit_size = elevated_billboard_size(88, camera);
-    const std::int32_t blue_depth = elevated_raw_y(-72, 0, 24, camera);
-    const std::int32_t red_depth = elevated_raw_y(72, 0, -24, camera);
-    while (rich_terrain && next_prop < 6 &&
-           props[next_prop].depth <= blue_depth) {
-        draw_quality_prop(props[next_prop++], camera);
-    }
-    draw_elevated_marker(-72, 24, 0, 20, camera);
-    draw_cutout(
-        blue_foot.x, blue_foot.y + unit_size * 2 /
-            quality_left_slots.idle.source_size,
-        unit_size, quality_left_slots.idle
+    const int selected_column = grandleon_psx_comparison_active_origin_x +
+                                grandleon_psx_comparison_unit_cells[0];
+    const int selected_row = grandleon_psx_comparison_active_origin_y +
+                             grandleon_psx_comparison_unit_cells[1];
+    const int target_column = grandleon_psx_comparison_active_origin_x +
+                              grandleon_psx_comparison_unit_cells[2];
+    const int target_row = grandleon_psx_comparison_active_origin_y +
+                           grandleon_psx_comparison_unit_cells[3];
+    draw_comparison_marker(
+        selected_row, selected_column,
+        grandleon_psx_comparison_marker_colours[0], camera
     );
-    draw_exact_hp(blue_foot, unit_size, 0, blue_hp);
-    while (rich_terrain && next_prop < 6 &&
-           props[next_prop].depth <= red_depth) {
-        draw_quality_prop(props[next_prop++], camera);
-    }
-    draw_elevated_marker(72, -24, 1, 20, camera);
-    draw_cutout(
-        red_foot.x, red_foot.y + unit_size * 2 /
-            quality_right_slots.idle.source_size,
-        unit_size, quality_right_slots.idle
+    draw_comparison_marker(
+        target_row, target_column,
+        grandleon_psx_comparison_marker_colours[1], camera
     );
-    draw_exact_hp(red_foot, unit_size, 1, red_hp);
-    while (rich_terrain && next_prop < 6) {
-        draw_quality_prop(props[next_prop++], camera);
+
+    ComparisonUnitOrder units[2]{};
+    const int unit_columns[2] = {selected_column, target_column};
+    const int unit_rows[2] = {selected_row, target_row};
+    for (int index = 0; index < 2; ++index) {
+        const int x = left + unit_columns[index] * comparison_tile +
+                      comparison_tile / 2;
+        const int z = far + unit_rows[index] * comparison_tile +
+                      comparison_tile / 2;
+        units[index] = {index, x, z, elevated_raw_y(x, 0, z, camera)};
+    }
+    std::sort(units, units + 2,
+              [](const ComparisonUnitOrder& a, const ComparisonUnitOrder& b) {
+                  return a.depth < b.depth;
+              });
+
+    const int unit_size = elevated_billboard_size(118, camera);
+    for (const ComparisonUnitOrder& unit : units) {
+        const ProjectedVertex foot = project_elevated(unit.x, 3, unit.z, camera);
+        const Cutout& art = unit.index == 0
+            ? quality_left_slots.idle : quality_right_slots.idle;
+        draw_elevated_marker(unit.x, unit.z, unit.index, 16, camera);
+        draw_cutout(
+            foot.x, foot.y + unit_size * 2 / art.source_size, unit_size, art
+        );
+        draw_capture_health(
+            foot, unit_size, unit.index == 0 ? blue_hp : red_hp,
+            grandleon_psx_comparison_team_colours[unit.index]
+        );
     }
 
-    gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
-    text_at(8, 5, focus > 0 ? "MATCH FOCUS  STYLE 2  KNIGHT 0"
-                            : "MATCH BOARD  STYLE 2  KNIGHT 0");
-    gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
-    text_at(8, 227, "6X4  FOREST 2  GRASS 9  STONE 12");
     gpu::show();
     static_cast<void>(gpu::read_back(0, 0));
-    return {psx::clock_ticks(), 50};
+    return {psx::clock_ticks(), rich_terrain ? cell_count * 2 : 0};
 }
 
 void print_benchmark(const char* label, const SceneResult& result) {
@@ -2030,6 +2385,8 @@ int main() {
 
     load_godot_cutouts();
     load_quality_terrain();
+    const std::uint32_t backdrop_upload_ticks = load_combat_backdrop();
+    print_benchmark("combat-backdrop-upload", {backdrop_upload_ticks, 0});
     constexpr int idle_cutout_vram_bytes =
         4 * grandleon_psx_godot_closeup_width *
         grandleon_psx_godot_closeup_height / 2;
@@ -2050,6 +2407,10 @@ int main() {
     constexpr int quality_terrain_vram_bytes =
         grandleon_psx_quality_terrain_cell_count * gpu::cell_texels *
         gpu::cell_texels / 2;
+    constexpr int backdrop_vram_bytes =
+        grandleon_psx_backdrop_width * grandleon_psx_backdrop_height +
+        grandleon_psx_backdrop_overlay_width *
+        grandleon_psx_backdrop_overlay_height + 2 * 256 * 2;
     constexpr int texture_page_bytes =
         gpu::page_halfwords * gpu::page_lines * 2;
     expect(idle_cutout_vram_bytes == 18432,
@@ -2069,6 +2430,34 @@ int main() {
            "the equivalent 128px CI8 pose set would require four pages");
     expect(quality_terrain_vram_bytes == 22528,
            "44 deterministic CI4 terrain cells use 22 KiB of one page");
+    expect(backdrop_vram_bytes <= 3 * 32768,
+           "CI8 distant plate, modular props and CLUTs fit three pages");
+    expect(backdrop_upload_ticks > 0,
+           "combat backdrop upload transition is measured");
+    expect(grandleon_psx_backdrop_dominant_terrain_id == 2 &&
+               grandleon_psx_backdrop_secondary_terrain_id == 9 &&
+               grandleon_psx_backdrop_transition_terrain_id == 12,
+           "backdrop keeps the contract forest grass paved terrain IDs");
+    expect(grandleon_psx_backdrop_height == 160,
+           "backdrop meets the live floor in the 144 to 160 pixel target");
+    const ElevatedCamera capture_close = comparison_close_camera();
+    const ProjectedVertex capture_left =
+        project_elevated(-84, 3, 0, capture_close);
+    const ProjectedVertex capture_right =
+        project_elevated(84, 3, 0, capture_close);
+    const int expected_left = gpu::screen_width *
+        grandleon_psx_comparison_close_layout_milli[0] / 1000;
+    const int expected_right = gpu::screen_width *
+        grandleon_psx_comparison_close_layout_milli[1] / 1000;
+    const int expected_ground = gpu::screen_height *
+        grandleon_psx_comparison_close_layout_milli[2] / 1000;
+    expect(capture_left.x >= expected_left - 2 &&
+               capture_left.x <= expected_left + 2 &&
+               capture_right.x >= expected_right - 2 &&
+               capture_right.x <= expected_right + 2 &&
+               capture_left.y == expected_ground &&
+               capture_right.y == expected_ground,
+           "capture fighters keep contract slots on one ground line");
     expect(gpu::read_back(
                gpu::cell_texture_x(quality_terrain_cell_base),
                gpu::cell_texture_y(quality_terrain_cell_base)) != 0,
@@ -2234,6 +2623,22 @@ int main() {
                     {slowest_movement_v2, 104});
 
     load_quality_close_cutouts(false);
+    const SceneResult backdrop_before = draw_hybrid_close_v2(
+        false, -1, "BACKDROP BEFORE", "LIVE TERRAIN ONLY",
+        gpu::rgb15(7, 13, 17), true, true, true, false,
+        grandleon_psx_comparison_unit_initial_hp[0],
+        grandleon_psx_comparison_unit_initial_hp[1]
+    );
+    print_benchmark("combat-backdrop-before", backdrop_before);
+    psx::signal_host(32);
+    const SceneResult backdrop_after = draw_hybrid_close_v2(
+        false, -1, "BACKDROP AFTER", "GODOT PLATE + LIVE FLOOR",
+        gpu::rgb15(7, 13, 17), true, true, true, true,
+        grandleon_psx_comparison_unit_initial_hp[0],
+        grandleon_psx_comparison_unit_initial_hp[1]
+    );
+    print_benchmark("combat-backdrop-after", backdrop_after);
+    psx::signal_host(33);
     SceneResult exchange_frames[close_exchange_frames]{};
     std::uint32_t slowest_exchange = 0;
     for (int frame = 0; frame < close_exchange_frames; ++frame) {
@@ -2249,52 +2654,83 @@ int main() {
     }
     print_benchmark("camera-v2-exchange-slowest", {slowest_exchange, 72});
 
-    // Deterministic README comparison sequence: exact 6x4 board and IDs,
-    // fixed start/focus/close/return landmarks, then the authoritative HP
-    // result (12->8 and 11->8) restored on the same board.
+    // Deterministic README comparison sequence: the schema-2 contract's exact
+    // 6x4 active cells inside its explicit 12x10 forest extension, compact
+    // capture HUD, fixed close slots and authoritative health result.
     SceneResult sequence_frames[52]{};
     int sequence_at = 0;
     for (int frame = 0; frame < 2; ++frame) {
-        sequence_frames[sequence_at++] = draw_comparison_board(0, 12, 11);
+        sequence_frames[sequence_at++] = draw_comparison_board(
+            0, grandleon_psx_comparison_unit_initial_hp[0],
+            grandleon_psx_comparison_unit_initial_hp[1]
+        );
         psx::signal_host(29);
     }
     for (int frame = 0; frame < 2; ++frame) {
-        sequence_frames[sequence_at++] = draw_comparison_board(1, 12, 11);
+        sequence_frames[sequence_at++] = draw_comparison_board(
+            frame + 1, grandleon_psx_comparison_unit_initial_hp[0],
+            grandleon_psx_comparison_unit_initial_hp[1]
+        );
         psx::signal_host(29);
     }
     for (int frame = 0; frame < 2; ++frame) {
         sequence_frames[sequence_at++] = draw_hybrid_close_v2(
             false, -1, "MATCH CLOSE  TARGET 8",
-            "BLUE 12  RED 11  FIXED SIDES", gpu::rgb15(7, 13, 17)
+            "BLUE 12  RED 11  FIXED SIDES", gpu::rgb15(7, 13, 17),
+            true, true, true, true,
+            grandleon_psx_comparison_unit_initial_hp[0],
+            grandleon_psx_comparison_unit_initial_hp[1]
         );
         psx::signal_host(29);
     }
     for (int frame = 0; frame < close_exchange_frames; ++frame) {
+        const int left_hp = frame >= 32
+            ? grandleon_psx_comparison_unit_final_hp[0]
+            : grandleon_psx_comparison_unit_initial_hp[0];
+        const int right_hp = frame >= 12
+            ? grandleon_psx_comparison_unit_final_hp[1]
+            : grandleon_psx_comparison_unit_initial_hp[1];
         sequence_frames[sequence_at++] = draw_hybrid_close_v2(
             false, frame, "MATCH CLOSE  TARGET 8",
             frame < 20 ? "BLUE HITS 3  RED 11 TO 8"
                        : "RED COUNTERS 4  BLUE 12 TO 8",
-            gpu::rgb15(7, 13, 17)
+            gpu::rgb15(7, 13, 17), true, true, true, true,
+            left_hp, right_hp
         );
         psx::signal_host(29);
     }
     for (int frame = 0; frame < 2; ++frame) {
         sequence_frames[sequence_at++] = draw_hybrid_close_v2(
             false, -1, "MATCH CLOSE  TARGET 8",
-            "RETURN  BLUE 8  RED 8", gpu::rgb15(7, 13, 17)
+            "RETURN  BLUE 8  RED 8", gpu::rgb15(7, 13, 17),
+            true, true, true, true,
+            grandleon_psx_comparison_unit_final_hp[0],
+            grandleon_psx_comparison_unit_final_hp[1]
         );
         psx::signal_host(29);
     }
     for (int frame = 0; frame < 2; ++frame) {
-        sequence_frames[sequence_at++] = draw_comparison_board(1, 8, 8);
+        sequence_frames[sequence_at++] = draw_comparison_board(
+            2 - frame, grandleon_psx_comparison_unit_final_hp[0],
+            grandleon_psx_comparison_unit_final_hp[1]
+        );
         psx::signal_host(29);
     }
     for (int frame = 0; frame < 2; ++frame) {
-        sequence_frames[sequence_at++] = draw_comparison_board(0, 8, 8);
+        sequence_frames[sequence_at++] = draw_comparison_board(
+            0, grandleon_psx_comparison_unit_final_hp[0],
+            grandleon_psx_comparison_unit_final_hp[1]
+        );
         psx::signal_host(29);
     }
     expect(sequence_at == 52,
            "matched README sequence emits all 52 timed landmarks");
+    std::uint32_t slowest_sequence = 0;
+    for (const SceneResult& frame : sequence_frames) {
+        if (frame.ticks > slowest_sequence) slowest_sequence = frame.ticks;
+    }
+    print_benchmark("schema2-full-map", sequence_frames[0]);
+    print_benchmark("schema2-sequence-slowest", {slowest_sequence, 0});
 
     const SceneResult measured[] = {
         medieval_flat, medieval_current, medieval_low_angle,
@@ -2303,6 +2739,7 @@ int main() {
         mythical_flat, mythical_current,
         mythical_low_angle, mythical_corrected, mythical_v2, overview_flat,
         overview_hybrid, overview_terrain_before, overview_v2,
+        backdrop_before, backdrop_after,
     };
     for (const SceneResult& scene : measured) {
         expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,

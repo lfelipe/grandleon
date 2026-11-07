@@ -251,6 +251,16 @@ void draw_texture_quad(
     int texture_page, int u0, int v0, int u1, int v1, int clut
 );
 
+// Prototype-facing 8bpp counterpart used by high-colour pre-rendered combat
+// plates. The CLUT is a 256-entry row at an explicit VRAM coordinate; callers
+// remain responsible for page packing and for keeping it outside the standard
+// 16-colour CLUT allocator.
+void draw_texture_quad_ci8(
+    int screen_x, int screen_y, int width, int height,
+    int texture_page, int u0, int v0, int u1, int v1,
+    int clut_x, int clut_y
+);
+
 // Where a cell lives, so a caller can upload into it and a probe can name it.
 [[nodiscard]] constexpr int cell_texture_x(int cell) noexcept {
     const int page = cell / cells_per_page;
