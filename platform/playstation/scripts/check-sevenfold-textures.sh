@@ -35,20 +35,29 @@ mkdir -p "${frame_dir}"
 rm -f \
     "${frame_dir}/medieval-flat.bin" \
     "${frame_dir}/medieval-current.bin" \
-    "${frame_dir}/medieval-hybrid.bin" \
+    "${frame_dir}/medieval-low-angle.bin" \
+    "${frame_dir}/medieval-corrected.bin" \
     "${frame_dir}/mythical-flat.bin" \
     "${frame_dir}/mythical-current.bin" \
-    "${frame_dir}/mythical-hybrid.bin" \
+    "${frame_dir}/mythical-low-angle.bin" \
+    "${frame_dir}/mythical-corrected.bin" \
     "${frame_dir}/overview-flat.bin" \
     "${frame_dir}/overview-hybrid.bin" \
     "${frame_dir}/medieval-flat.ppm" \
     "${frame_dir}/medieval-current.ppm" \
-    "${frame_dir}/medieval-hybrid.ppm" \
+    "${frame_dir}/medieval-low-angle.ppm" \
+    "${frame_dir}/medieval-corrected.ppm" \
     "${frame_dir}/mythical-flat.ppm" \
     "${frame_dir}/mythical-current.ppm" \
-    "${frame_dir}/mythical-hybrid.ppm" \
+    "${frame_dir}/mythical-low-angle.ppm" \
+    "${frame_dir}/mythical-corrected.ppm" \
     "${frame_dir}/overview-flat.ppm" \
-    "${frame_dir}/overview-hybrid.ppm"
+    "${frame_dir}/overview-hybrid.ppm" \
+    "${frame_dir}/overview-movement.gif"
+for index in 00 01 02 03 04 05 06 07; do
+    rm -f "${frame_dir}/movement-${index}.bin" \
+        "${frame_dir}/movement-${index}.ppm"
+done
 
 docker="${GRANDLEON_DOCKER:-docker}"
 image="grandleon/playstation-emulator:${GRANDLEON_PCSX_REDUX_REVISION}"
@@ -78,16 +87,18 @@ if [ "${status}" -ne 0 ]; then
     exit 1
 fi
 "${repository_root}/scripts/assert-harness-verdict.sh" \
-    --log "${log}" --require "^RESULT PASS " --min-checks 18 \
+    --log "${log}" --require "^RESULT PASS " --min-checks 32 \
     --what "the PlayStation texture experiment guest"
 "${repository_root}/scripts/assert-harness-verdict.sh" \
-    --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 47 \
+    --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 101 \
     --what "the PlayStation texture capture harness"
 
 for name in \
-    medieval-flat medieval-current medieval-hybrid \
-    mythical-flat mythical-current mythical-hybrid \
-    overview-flat overview-hybrid; do
+    medieval-flat medieval-current medieval-low-angle medieval-corrected \
+    mythical-flat mythical-current mythical-low-angle mythical-corrected \
+    overview-flat overview-hybrid \
+    movement-00 movement-01 movement-02 movement-03 \
+    movement-04 movement-05 movement-06 movement-07; do
     frame="${frame_dir}/${name}.bin"
     ppm="${frame_dir}/${name}.ppm"
     if [ ! -s "${frame}" ]; then
@@ -111,6 +122,28 @@ pathlib.Path(sys.argv[2]).write_bytes(out)
 PYEOF
 done
 
+python3 - "${frame_dir}" <<'PYEOF'
+import pathlib
+import sys
+
+from PIL import Image
+
+frame_dir = pathlib.Path(sys.argv[1])
+frames = [
+    Image.open(frame_dir / f"movement-{index:02d}.ppm").convert("RGB")
+    for index in range(8)
+]
+frames[0].save(
+    frame_dir / "overview-movement.gif",
+    save_all=True,
+    append_images=frames[1:],
+    duration=120,
+    loop=0,
+    disposal=2,
+)
+PYEOF
+
 grep '^BENCH ' "${log}"
 echo "PlayStation Sevenfold texture experiment passed: ${executable}"
 echo "Native comparison captures: ${frame_dir}/*.ppm"
+echo "Native movement film: ${frame_dir}/overview-movement.gif"

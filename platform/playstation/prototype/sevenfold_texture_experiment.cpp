@@ -47,17 +47,34 @@ constexpr int cutout_medieval_male_clut = 5;
 constexpr int cutout_medieval_female_clut = 6;
 constexpr int cutout_mythical_male_clut = 7;
 constexpr int cutout_mythical_female_clut = 8;
+constexpr int cutout_move_a_clut = 9;
+constexpr int cutout_move_b_clut = 10;
 
 struct Cutout final {
+    int page;
     int u;
     int v;
     int clut;
 };
 
-constexpr Cutout medieval_male_cutout{0, 0, cutout_medieval_male_clut};
-constexpr Cutout medieval_female_cutout{128, 0, cutout_medieval_female_clut};
-constexpr Cutout mythical_male_cutout{0, 128, cutout_mythical_male_clut};
-constexpr Cutout mythical_female_cutout{128, 128, cutout_mythical_female_clut};
+constexpr Cutout medieval_male_cutout{
+    cutout_texture_page, 0, 0, cutout_medieval_male_clut
+};
+constexpr Cutout medieval_female_cutout{
+    cutout_texture_page, 128, 0, cutout_medieval_female_clut
+};
+constexpr Cutout mythical_male_cutout{
+    cutout_texture_page, 0, 128, cutout_mythical_male_clut
+};
+constexpr Cutout mythical_female_cutout{
+    cutout_texture_page, 128, 128, cutout_mythical_female_clut
+};
+constexpr Cutout medieval_move_a_cutout{
+    cutout_texture_page + 1, 0, 0, cutout_move_a_clut
+};
+constexpr Cutout medieval_move_b_cutout{
+    cutout_texture_page + 1, 128, 0, cutout_move_b_clut
+};
 
 struct Camera final {
     int distance;
@@ -412,7 +429,7 @@ void load_refined_terrain(bool mythical) {
 
 void upload_cutout(const Cutout& cutout, const unsigned short* pixels) {
     gpu::upload(
-        cutout_texture_page * gpu::page_halfwords + cutout.u / 4,
+        cutout.page * gpu::page_halfwords + cutout.u / 4,
         gpu::texture_page_y + cutout.v,
         grandleon_psx_godot_closeup_width / 4,
         grandleon_psx_godot_closeup_height,
@@ -435,6 +452,14 @@ void load_godot_cutouts() {
         mythical_female_cutout,
         grandleon_psx_godot_closeup_mythical_female_red
     );
+    upload_cutout(
+        medieval_move_a_cutout,
+        grandleon_psx_godot_closeup_medieval_male_blue_move_a
+    );
+    upload_cutout(
+        medieval_move_b_cutout,
+        grandleon_psx_godot_closeup_medieval_male_blue_move_b
+    );
     upload_clut(
         medieval_male_cutout.clut,
         grandleon_psx_godot_closeup_medieval_male_blue_clut
@@ -450,6 +475,14 @@ void load_godot_cutouts() {
     upload_clut(
         mythical_female_cutout.clut,
         grandleon_psx_godot_closeup_mythical_female_red_clut
+    );
+    upload_clut(
+        medieval_move_a_cutout.clut,
+        grandleon_psx_godot_closeup_medieval_male_blue_move_a_clut
+    );
+    upload_clut(
+        medieval_move_b_cutout.clut,
+        grandleon_psx_godot_closeup_medieval_male_blue_move_b_clut
     );
 }
 
@@ -566,7 +599,7 @@ void draw_team_marker(
 void draw_cutout(int centre_x, int bottom, int size, const Cutout& cutout) {
     gpu::draw_texture_quad(
         centre_x - size / 2, bottom - size, size, size,
-        cutout_texture_page, cutout.u, cutout.v,
+        cutout.page, cutout.u, cutout.v,
         cutout.u + grandleon_psx_godot_closeup_width - 1,
         cutout.v + grandleon_psx_godot_closeup_height - 1,
         cutout.clut
@@ -580,6 +613,69 @@ void draw_screen_shadow(int centre_x, int bottom, int team, int width) {
     gpu::fill(
         centre_x - width / 3, bottom - 2, width * 2 / 3, 2,
         colour15(team_colours[team], 220)
+    );
+}
+
+void draw_textured_floor_quad(
+    int far_left, int far_y, int far_right,
+    int near_left, int near_y, int near_right,
+    int cell, int clut
+) {
+    gpu::draw_cell_triangle(
+        far_left, far_y, 0, 0,
+        far_right, far_y, 31, 0,
+        near_right, near_y, 31, 31,
+        cell, clut
+    );
+    gpu::draw_cell_triangle(
+        far_left, far_y, 0, 0,
+        near_right, near_y, 31, 31,
+        near_left, near_y, 0, 31,
+        cell, clut
+    );
+}
+
+void draw_corrected_close_stage(std::uint16_t sky) {
+    constexpr int horizon = 142;
+    constexpr int middle = 178;
+    constexpr int front = 222;
+
+    // The eye line is behind the units' torsos, not beneath their boots. A
+    // shallow distant silhouette establishes that line before the quiet floor
+    // begins; the floor then keeps twenty-four visible pixels in front of the
+    // shared foot line instead of climbing all the way up the background.
+    gpu::fill(0, 18, gpu::screen_width, horizon - 18, sky);
+    const std::uint16_t distance = gpu::rgb15(5, 8, 8);
+    gpu::draw_triangle(0, horizon, 70, 96, 148, horizon, distance);
+    gpu::draw_triangle(172, horizon, 252, 100, 320, horizon, distance);
+    gpu::fill(0, horizon - 4, gpu::screen_width, 5, gpu::rgb15(4, 6, 7));
+
+    // Two depth bands are enough to read as floor without the tunnel-like
+    // convergence of the old ground-level camera. The central path expands
+    // gently toward the viewer while the field stays one calm macro plane.
+    draw_textured_floor_quad(
+        0, horizon, 139, 0, middle, 121,
+        terrain_a_cell, terrain_a_clut
+    );
+    draw_textured_floor_quad(
+        181, horizon, 320, 199, middle, 320,
+        terrain_a_cell, terrain_a_clut
+    );
+    draw_textured_floor_quad(
+        139, horizon, 181, 121, middle, 199,
+        terrain_b_cell, terrain_b_clut
+    );
+    draw_textured_floor_quad(
+        0, middle, 121, 0, front, 92,
+        terrain_a_cell, terrain_a_clut
+    );
+    draw_textured_floor_quad(
+        199, middle, 320, 228, front, 320,
+        terrain_a_cell, terrain_a_clut
+    );
+    draw_textured_floor_quad(
+        121, middle, 199, 92, front, 228,
+        terrain_b_cell, terrain_b_clut
     );
 }
 
@@ -612,6 +708,39 @@ void draw_screen_shadow(int centre_x, int bottom, int team, int width) {
     gpu::show();
     static_cast<void>(gpu::read_back(0, 0));
     return {psx::clock_ticks(), 82};
+}
+
+[[nodiscard]] SceneResult draw_corrected_hybrid_close(
+    bool mythical, const char* title, const char* subtitle, std::uint16_t sky
+) {
+    const Cutout& left = mythical ? mythical_male_cutout : medieval_male_cutout;
+    const Cutout& right = mythical ? mythical_female_cutout : medieval_female_cutout;
+    gpu::clear(sky);
+    psx::start_clock();
+    draw_corrected_close_stage(sky);
+
+    constexpr int ground_line = 198;
+    draw_screen_shadow(86, ground_line, 0, 68);
+    draw_screen_shadow(234, ground_line, 1, 68);
+    draw_cutout(86, ground_line, 108, left);
+    draw_cutout(234, ground_line, 108, right);
+
+    // Contact sits between the upper bodies at the new eye line. It leaves
+    // both faces and both weapons readable and has space to grow for a recoil
+    // or damage-number pass later.
+    gpu::draw_triangle(151, 140, 160, 126, 169, 140, gpu::rgb15(31, 24, 8));
+    gpu::draw_triangle(153, 140, 160, 152, 167, 140, gpu::rgb15(31, 30, 20));
+    gpu::fill(158, 134, 5, 12, gpu::rgb15(31, 27, 13));
+
+    gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    gpu::fill(6, 4, 7, 10, colour15(team_colours[0]));
+    text_at(18, 5, title);
+    gpu::fill(306, 4, 7, 10, colour15(team_colours[1]));
+    gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    text_at(8, 227, subtitle);
+    gpu::show();
+    static_cast<void>(gpu::read_back(0, 0));
+    return {psx::clock_ticks(), 14};
 }
 
 constexpr std::uint8_t overview_terrain_colours[4][3] = {
@@ -676,7 +805,7 @@ void draw_overview_ground(const Camera& camera, bool refined) {
 
 void draw_movement_highlights(const Camera& camera) {
     constexpr int tile = 46;
-    constexpr int cells[][2] = {{3, 2}, {2, 2}, {4, 2}, {3, 1}, {3, 3}};
+    constexpr int cells[][2] = {{3, 0}, {2, 0}, {4, 0}, {3, 1}, {2, 1}};
     for (int index = 0; index < 5; ++index) {
         const int row = cells[index][0];
         const int column = cells[index][1];
@@ -709,20 +838,51 @@ constexpr OverviewUnit overview_units[] = {
     {5, 4, 1, 2, 1, 2, &mythical_female_cutout},
 };
 
-[[nodiscard]] SceneResult draw_overview(bool refined) {
+void draw_unit_status(
+    const ProjectedVertex& anchor, int size, int team, int health,
+    bool selected
+) {
+    const int top = anchor.y - size + 2;
+    gpu::fill(anchor.x - 11, top, 22, 4, gpu::rgb15(2, 2, 3));
+    const std::uint16_t health_colour = health >= 60
+        ? gpu::rgb15(7, 24, 9) : gpu::rgb15(27, 17, 5);
+    gpu::fill(anchor.x - 10, top + 1, health / 5, 2, health_colour);
+    if (selected) {
+        gpu::draw_triangle(
+            anchor.x - 5, top - 5,
+            anchor.x + 5, top - 5,
+            anchor.x, top, colour15(team_colours[team])
+        );
+    }
+}
+
+[[nodiscard]] SceneResult draw_overview_frame(bool refined, int move_step) {
     constexpr int tile = 46;
     const Camera camera{570, 350, 185};
     gpu::clear(gpu::rgb15(5, 9, 11));
     psx::start_clock();
     draw_overview_ground(camera, refined);
     draw_movement_highlights(camera);
-    for (const OverviewUnit& unit : overview_units) {
+    constexpr int overview_unit_count =
+        static_cast<int>(sizeof(overview_units) / sizeof(overview_units[0]));
+    for (int index = 0; index < overview_unit_count; ++index) {
+        const OverviewUnit& unit = overview_units[index];
         const int x = (unit.column - sevenfold_board_columns / 2) * tile + tile / 2;
-        const int z = (unit.row - sevenfold_board_rows / 2) * tile + tile / 2;
+        int z = (unit.row - sevenfold_board_rows / 2) * tile + tile / 2;
+        const bool moving = refined && move_step >= 0 && index == 4;
+        if (moving) z += tile * move_step / 7;
         if (refined) {
             const ProjectedVertex anchor = project(x, 2, z, camera);
             draw_screen_shadow(anchor.x, anchor.y + 2, unit.team, 24);
-            draw_cutout(anchor.x, anchor.y + 2, 38, *unit.cutout);
+            const Cutout& art = moving
+                ? ((move_step & 1) == 0
+                    ? medieval_move_a_cutout : medieval_move_b_cutout)
+                : *unit.cutout;
+            draw_cutout(anchor.x, anchor.y + 2, 38, art);
+            draw_unit_status(
+                anchor, 38, unit.team, 92 - index * 5,
+                index == 4
+            );
         } else {
             draw_team_marker(x, z, unit.team, camera);
             const SevenfoldProxy& proxy =
@@ -733,14 +893,20 @@ constexpr OverviewUnit overview_units[] = {
         }
     }
     gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
-    text_at(8, 5, refined ? "TACTICAL MAP HYBRID" : "TACTICAL MAP FLAT 3D");
+    text_at(8, 5, move_step >= 0 ? "TACTICAL MOVE 2.5D"
+        : (refined ? "TACTICAL MAP HYBRID" : "TACTICAL MAP FLAT 3D"));
     gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
-    text_at(8, 227, refined
-        ? "MACRO TERRAIN  STRONG REACH  CI4 UNITS"
-        : "MATCHED CAMERA  UNITS  TERRAIN  REACH");
+    text_at(8, 227, move_step >= 0
+        ? "MOVE POSE  DEPTH ORDER  HEALTH  TEAM"
+        : (refined ? "MACRO TERRAIN  STRONG REACH  CI4 UNITS"
+        : "MATCHED CAMERA  UNITS  TERRAIN  REACH"));
     gpu::show();
     static_cast<void>(gpu::read_back(0, 0));
     return {psx::clock_ticks(), refined ? 104 : 0};
+}
+
+[[nodiscard]] SceneResult draw_overview(bool refined) {
+    return draw_overview_frame(refined, -1);
 }
 
 void print_benchmark(const char* label, const SceneResult& result) {
@@ -778,18 +944,27 @@ int main() {
            "mythical female mage proxy is selected");
 
     load_godot_cutouts();
-    constexpr int cutout_vram_bytes =
+    constexpr int idle_cutout_vram_bytes =
         4 * grandleon_psx_godot_closeup_width *
         grandleon_psx_godot_closeup_height / 2;
+    constexpr int movement_cutout_vram_bytes =
+        2 * grandleon_psx_godot_closeup_width *
+        grandleon_psx_godot_closeup_height / 2;
+    constexpr int cutout_vram_bytes =
+        idle_cutout_vram_bytes + movement_cutout_vram_bytes;
     constexpr int texture_page_bytes =
         gpu::page_halfwords * gpu::page_lines * 2;
-    expect(cutout_vram_bytes == 18432,
+    expect(idle_cutout_vram_bytes == 18432,
            "four Godot-derived CI4 cutouts use 18 KiB of VRAM");
-    expect(cutout_vram_bytes <= texture_page_bytes,
+    expect(idle_cutout_vram_bytes <= texture_page_bytes,
            "all four close-up cutouts fit one 32 KiB texture page");
+    expect(cutout_vram_bytes == 27648 &&
+               cutout_vram_bytes <= texture_page_bytes * 2,
+           "idle plus two movement poses use 27 KiB across two pages");
 
-    // Each style is captured three ways with the same native frame: the flat
-    // proxy, the first planar texture experiment and the proposed 2.5D hybrid.
+    // Each style keeps the flat proxy and first planar texture pass, then
+    // captures both the rejected low-angle hybrid and corrected torso-height
+    // stage. That makes the camera correction reviewable rather than asserted.
     const SceneResult medieval_flat = draw_scene(
         medieval_left, medieval_right, false, "MEDIEVAL FLAT 3D",
         "BEFORE  SAME IDENTITIES AND CAMERA", gpu::rgb15(7, 13, 17)
@@ -818,19 +993,26 @@ int main() {
     psx::signal_host(11);
 
     load_refined_terrain(false);
-    const SceneResult medieval_hybrid = draw_hybrid_close(
-        false, "MEDIEVAL GODOT CI4", "REFINED  2.5D CUTOUTS ON 3D TERRAIN",
+    const SceneResult medieval_low_angle = draw_hybrid_close(
+        false, "MEDIEVAL LOW ANGLE", "OLD HYBRID  EYE BELOW THE BOOTS",
         gpu::rgb15(7, 13, 17)
     );
-    print_benchmark("medieval-hybrid", medieval_hybrid);
+    print_benchmark("medieval-low-angle", medieval_low_angle);
     psx::signal_host(12);
+
+    const SceneResult medieval_corrected = draw_corrected_hybrid_close(
+        false, "MEDIEVAL CORRECTED", "TORSO EYE LINE  SHARED FEET  FOREGROUND",
+        gpu::rgb15(7, 13, 17)
+    );
+    print_benchmark("medieval-corrected", medieval_corrected);
+    psx::signal_host(13);
 
     const SceneResult mythical_flat = draw_scene(
         mythical_left, mythical_right, false, "MYTHICAL FLAT 3D",
         "BEFORE  SAME IDENTITIES AND CAMERA", gpu::rgb15(12, 8, 17)
     );
     print_benchmark("mythical-flat", mythical_flat);
-    psx::signal_host(13);
+    psx::signal_host(14);
 
     load_textures(
         grandleon_playstation_terrain_autumn_grass_1,
@@ -850,40 +1032,66 @@ int main() {
         "CURRENT  WHOLE-SPRITE PROJECTION", gpu::rgb15(12, 8, 17)
     );
     print_benchmark("mythical-current", mythical_current);
-    psx::signal_host(14);
+    psx::signal_host(15);
 
     load_refined_terrain(true);
-    const SceneResult mythical_hybrid = draw_hybrid_close(
-        true, "MYTHICAL GODOT CI4", "REFINED  2.5D CUTOUTS ON 3D TERRAIN",
+    const SceneResult mythical_low_angle = draw_hybrid_close(
+        true, "MYTHICAL LOW ANGLE", "OLD HYBRID  EYE BELOW THE BOOTS",
         gpu::rgb15(12, 8, 17)
     );
-    print_benchmark("mythical-hybrid", mythical_hybrid);
-    psx::signal_host(15);
+    print_benchmark("mythical-low-angle", mythical_low_angle);
+    psx::signal_host(16);
+
+    const SceneResult mythical_corrected = draw_corrected_hybrid_close(
+        true, "MYTHICAL CORRECTED", "TORSO EYE LINE  SHARED FEET  FOREGROUND",
+        gpu::rgb15(12, 8, 17)
+    );
+    print_benchmark("mythical-corrected", mythical_corrected);
+    psx::signal_host(17);
 
     const SceneResult overview_flat = draw_overview(false);
     print_benchmark("overview-flat", overview_flat);
-    psx::signal_host(16);
+    psx::signal_host(18);
 
     load_refined_terrain(false);
     const SceneResult overview_hybrid = draw_overview(true);
     print_benchmark("overview-hybrid", overview_hybrid);
-    psx::signal_host(17);
+    psx::signal_host(19);
+
+    SceneResult movement_frames[8]{};
+    std::uint32_t slowest_movement = 0;
+    for (int frame = 0; frame < 8; ++frame) {
+        movement_frames[frame] = draw_overview_frame(true, frame);
+        if (movement_frames[frame].ticks > slowest_movement) {
+            slowest_movement = movement_frames[frame].ticks;
+        }
+        psx::signal_host(21);
+    }
+    print_benchmark("overview-move-slowest", {slowest_movement, 104});
 
     const SceneResult measured[] = {
-        medieval_flat, medieval_current, medieval_hybrid, mythical_flat,
-        mythical_current, mythical_hybrid, overview_flat, overview_hybrid,
+        medieval_flat, medieval_current, medieval_low_angle,
+        medieval_corrected, mythical_flat, mythical_current,
+        mythical_low_angle, mythical_corrected, overview_flat, overview_hybrid,
     };
     for (const SceneResult& scene : measured) {
         expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
                "captured comparison stays inside locked 30 fps budget");
     }
+    for (const SceneResult& scene : movement_frames) {
+        expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
+               "animated hybrid overview stays inside locked 30 fps budget");
+    }
     expect(medieval_current.textured_triangles >= 100,
            "current medieval pair preserves its planar texture coverage");
     expect(mythical_current.textured_triangles >= 100,
            "current mythical pair preserves its planar texture coverage");
-    expect(medieval_hybrid.textured_triangles == 82 &&
-               mythical_hybrid.textured_triangles == 82,
-           "hybrid close views use quiet terrain and two CI4 cutouts");
+    expect(medieval_low_angle.textured_triangles == 82 &&
+               mythical_low_angle.textured_triangles == 82,
+           "old hybrid captures retain their low-angle terrain treatment");
+    expect(medieval_corrected.textured_triangles == 14 &&
+               mythical_corrected.textured_triangles == 14,
+           "corrected close views use shallow floor and two CI4 cutouts");
     expect(overview_hybrid.textured_triangles == 104,
            "hybrid overview uses textured macro terrain and eight cutouts");
 
@@ -891,6 +1099,6 @@ int main() {
     result.text(failures == 0 ? "RESULT PASS " : "RESULT FAIL ")
         .decimal(static_cast<std::uint32_t>(checks - failures))
         .text("/").decimal(static_cast<std::uint32_t>(checks)).flush();
-    psx::signal_host(18);
+    psx::signal_host(20);
     return failures == 0 ? 0 : 1;
 }

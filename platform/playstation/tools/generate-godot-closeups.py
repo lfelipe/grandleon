@@ -15,10 +15,12 @@ SIZE = 96
 FRAME = 443
 TEAM_COLOURS = {"blue": (0x23, 0x75, 0xA9), "red": (0xB3, 0x48, 0x3F)}
 SOURCES = (
-    ("medieval_male_blue", "medieval_knight_male_hd.png", "blue", False),
-    ("medieval_female_red", "medieval_knight_female_hd.png", "red", True),
-    ("mythical_male_blue", "mythical_mage_male_hd.png", "blue", False),
-    ("mythical_female_red", "mythical_mage_female_hd.png", "red", True),
+    ("medieval_male_blue", "medieval_knight_male_hd.png", "blue", False, 0),
+    ("medieval_female_red", "medieval_knight_female_hd.png", "red", True, 0),
+    ("mythical_male_blue", "mythical_mage_male_hd.png", "blue", False, 0),
+    ("mythical_female_red", "mythical_mage_female_hd.png", "red", True, 0),
+    ("medieval_male_blue_move_a", "medieval_knight_male_hd.png", "blue", False, 2),
+    ("medieval_male_blue_move_b", "medieval_knight_male_hd.png", "blue", False, 3),
 )
 
 
@@ -62,9 +64,13 @@ def recolour(source: Image.Image, mask: Image.Image, team: tuple[int, int, int])
     return result
 
 
-def fitted_frame(source: Image.Image, mask: Image.Image, team: str, flip: bool) -> Image.Image:
-    source = source.crop((0, 0, FRAME, FRAME))
-    mask = mask.crop((0, 0, FRAME, FRAME))
+def fitted_frame(
+    source: Image.Image, mask: Image.Image, team: str, flip: bool, frame: int
+) -> Image.Image:
+    left = (frame % 4) * FRAME
+    top = (frame // 4) * FRAME
+    source = source.crop((left, top, left + FRAME, top + FRAME))
+    mask = mask.crop((left, top, left + FRAME, top + FRAME))
     result = recolour(source, mask, TEAM_COLOURS[team])
     bounds = result.getchannel("A").getbbox()
     if bounds is None:
@@ -140,16 +146,16 @@ def generate(root: Path, preview_dir: Path | None) -> str:
         f"inline constexpr int grandleon_psx_godot_closeup_width = {SIZE};",
         f"inline constexpr int grandleon_psx_godot_closeup_height = {SIZE};",
     ]
-    for name, filename, team, flip in SOURCES:
+    for name, filename, team, flip, frame_index in SOURCES:
         source_path = art / filename
         mask_path = art / filename.replace(".png", "_team_mask.png")
         source = Image.open(source_path)
         mask = Image.open(mask_path)
-        frame = fitted_frame(source, mask, team, flip)
+        frame = fitted_frame(source, mask, team, flip, frame_index)
         texels, clut, preview = quantize(frame)
         digest = hashlib.sha256(source_path.read_bytes() + mask_path.read_bytes()).hexdigest()
         symbol = f"grandleon_psx_godot_closeup_{name}"
-        lines.append(f"// {filename} + team mask sha256 {digest}")
+        lines.append(f"// {filename} frame {frame_index} + team mask sha256 {digest}")
         lines.append(array(symbol, texels))
         lines.append(array(symbol + "_clut", clut))
         if preview_dir is not None:

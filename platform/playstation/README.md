@@ -155,22 +155,33 @@ read. That unsuccessful pass remains in the comparison instead of being hidden.
 The clearer follow-up is a 2.5D close view. It reduces the actual curated Godot
 idle frames to 96×96 PS1 CI4 cutouts, applies the same blue/red team masks,
 places them over low-frequency textured 3D terrain, and adds grounding shadows
-and a small layered hit effect. A tactical overview uses the same cutouts at a
-smaller scale over broad grass, road, forest and stone zones, with a stronger
-movement highlight. It does not change the production campaign or shared model
-generator. Its repeatable check captures flat, first-pass and refined close
-views for medieval and mythical units, plus matched flat/refined tactical maps,
-all at the console's native 320×240 resolution:
+and a small layered hit effect. The first hybrid camera was too low: the floor
+converged behind the figures as if the viewer were below their boots. It remains
+as an explicit comparison. The corrected stage places the horizon behind the
+units' torsos, gives both figures one foot line, and keeps visible floor in
+front of them. This close-stage rule is independent of the overhead tactical
+camera.
+
+A tactical candidate uses the same cutouts at a smaller scale over broad grass,
+road, forest and stone zones, with a stronger movement highlight, health bars,
+selection and team marks. Two additional CI4 walking poses drive an eight-frame
+movement film with real pose changes and depth-ordered placement. It does not
+change the production campaign or shared model generator. Its repeatable check
+captures flat, first-pass, low-angle and corrected close views for medieval and
+mythical units, matched flat/refined tactical maps, and the movement film, all
+at the console's native 320×240 resolution:
 
 ```sh
 cmake --build build --target grandleon_playstation_sevenfold_texture_check
 ```
 
-The captures land in `build-playstation-sevenfold-3d/texture-frames/`. Four
-96×96 cutouts use 18 KiB of one 32 KiB texture page. In the pinned interpreter,
-the refined close views take about 1.2 ms and the refined eight-unit tactical
-overview about 1.5 ms after GPU completion; even the matched eight-model flat
-overview remains just inside the locked-30-fps ceiling at about 31.5 ms. The
+The captures land in `build-playstation-sevenfold-3d/texture-frames/`, with the
+movement film at `overview-movement.gif`. Four idle cutouts use 18 KiB of one
+32 KiB texture page; the two movement poses bring the total to 27 KiB across
+two pages. In the pinned interpreter, the corrected close views take about
+0.4 ms, the refined eight-unit tactical overview about 1.4 ms, and its slowest
+movement frame about 1.4 ms after GPU completion; even the matched eight-model
+flat overview remains just inside the locked-30-fps ceiling at about 31.4 ms. The
 2.5D captures are materially clearer than the planar projection and retain
 faces, silhouettes, equipment and team identity. This makes the hybrid path a
 strong candidate for production integration, but it remains isolated until it
