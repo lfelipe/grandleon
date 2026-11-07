@@ -20,6 +20,7 @@
 #include "playstation_characters_medieval.h"
 #include "playstation_characters_mythical.h"
 #include "generated/godot_closeup_ci4.h"
+#include "generated/quality_terrain_ci4.h"
 #include "n64_showcase.h"
 #include "sevenfold_roster_proxies.h"
 
@@ -49,6 +50,10 @@ constexpr int cutout_mythical_male_clut = 7;
 constexpr int cutout_mythical_female_clut = 8;
 constexpr int cutout_move_a_clut = 9;
 constexpr int cutout_move_b_clut = 10;
+constexpr int quality_terrain_cell_base = 4;
+constexpr int quality_grass_clut = 29;
+constexpr int quality_forest_clut = 30;
+constexpr int quality_stone_clut = 31;
 
 struct Cutout final {
     int page;
@@ -581,6 +586,21 @@ void load_refined_terrain(bool mythical) {
     upload_clut(3, refined_terrain_c_palette);
 }
 
+void load_quality_terrain() {
+    static_assert(grandleon_psx_quality_terrain_side == gpu::cell_texels);
+    static_assert(grandleon_psx_quality_terrain_cell_count == 44);
+    for (int index = 0; index < grandleon_psx_quality_terrain_cell_count;
+         ++index) {
+        upload_cell(
+            quality_terrain_cell_base + index,
+            grandleon_psx_quality_terrain_cells[index], false
+        );
+    }
+    upload_clut(quality_grass_clut, grandleon_psx_quality_terrain_cluts[0]);
+    upload_clut(quality_forest_clut, grandleon_psx_quality_terrain_cluts[1]);
+    upload_clut(quality_stone_clut, grandleon_psx_quality_terrain_cluts[2]);
+}
+
 void upload_cutout(const Cutout& cutout, const unsigned short* pixels) {
     gpu::upload(
         cutout.page * gpu::page_halfwords + cutout.u / 4,
@@ -1074,6 +1094,106 @@ void draw_elevated_cell_quad(
     );
 }
 
+[[nodiscard]] int quality_terrain_cell(
+    int kind, int variant, int transition_mask
+) noexcept {
+    variant &= 3;
+    if (kind == 0) return quality_terrain_cell_base + variant;
+    if (kind == 1 && transition_mask != 0) {
+        return quality_terrain_cell_base + 12 + transition_mask;
+    }
+    if (kind == 2 && transition_mask != 0) {
+        return quality_terrain_cell_base + 28 + transition_mask;
+    }
+    return quality_terrain_cell_base + (kind == 1 ? 4 : 8) + variant;
+}
+
+[[nodiscard]] int quality_terrain_clut(int kind) noexcept {
+    return kind == 0 ? quality_grass_clut
+        : (kind == 1 ? quality_forest_clut : quality_stone_clut);
+}
+
+void draw_quality_terrain_tile(
+    int x0, int z0, int x1, int z1, int kind, int variant,
+    int transition_mask, const ElevatedCamera& camera
+) {
+    draw_elevated_cell_quad(
+        x0, z0, x1, z1, 0, camera,
+        quality_terrain_cell(kind, variant, transition_mask),
+        quality_terrain_clut(kind)
+    );
+}
+
+void draw_quality_cell_boundary(
+    int x0, int z0, int x1, int z1, const ElevatedCamera& camera
+) {
+    const std::uint16_t colour = gpu::rgb15(4, 8, 6);
+    draw_elevated_solid_quad(x1 - 2, z0, x1, z1, 2, camera, colour);
+    draw_elevated_solid_quad(x0, z1 - 2, x1, z1, 2, camera, colour);
+}
+
+void draw_quality_tree(
+    int x, int z, int size, const ElevatedCamera& camera
+) {
+    draw_elevated_solid_quad(
+        x - size / 2, z - size / 5, x + size / 2, z + size / 5, 2,
+        camera, gpu::rgb15(2, 5, 3)
+    );
+    const ProjectedVertex base = project_elevated(x, 2, z, camera);
+    const ProjectedVertex trunk_top =
+        project_elevated(x, size * 3 / 4, z, camera);
+    const ProjectedVertex crown =
+        project_elevated(x, size * 3 / 2, z, camera);
+    gpu::fill(
+        base.x - 2, trunk_top.y, 5, std::max(2, base.y - trunk_top.y),
+        gpu::rgb15(10, 7, 4)
+    );
+    const int radius = std::max(6, size / 3);
+    gpu::draw_triangle(
+        crown.x, crown.y - radius,
+        crown.x - radius, trunk_top.y + 2,
+        crown.x + radius, trunk_top.y + 2,
+        gpu::rgb15(4, 14, 7)
+    );
+    gpu::draw_triangle(
+        crown.x, crown.y - radius / 3,
+        crown.x - radius * 4 / 5, trunk_top.y - radius / 3,
+        crown.x + radius * 4 / 5, trunk_top.y - radius / 3,
+        gpu::rgb15(7, 20, 9)
+    );
+}
+
+void draw_quality_rock(
+    int x, int z, int size, const ElevatedCamera& camera
+) {
+    const ProjectedVertex base = project_elevated(x, 2, z, camera);
+    const ProjectedVertex top = project_elevated(x - size / 5, size / 2, z, camera);
+    gpu::draw_triangle(
+        base.x - size / 2, base.y, top.x, top.y,
+        base.x + size / 2, base.y, gpu::rgb15(13, 15, 15)
+    );
+    gpu::draw_triangle(
+        base.x - size / 2, base.y, top.x, top.y,
+        base.x - size / 5, base.y - size / 4, gpu::rgb15(17, 18, 17)
+    );
+}
+
+void draw_quality_grass(
+    int x, int z, int size, const ElevatedCamera& camera
+) {
+    const ProjectedVertex base = project_elevated(x, 2, z, camera);
+    const ProjectedVertex tip = project_elevated(x, size, z, camera);
+    const std::uint16_t colour = gpu::rgb15(10, 21, 9);
+    gpu::draw_triangle(
+        base.x - size / 4, base.y, tip.x - 2, tip.y,
+        base.x, base.y, colour
+    );
+    gpu::draw_triangle(
+        base.x, base.y, tip.x + 3, tip.y + 2,
+        base.x + size / 4, base.y, colour
+    );
+}
+
 [[nodiscard]] ElevatedCamera close_camera_v2() noexcept {
     ElevatedCamera camera{0, 0, 256, -64, 0, 180, 245, 256};
     RawBounds bounds{0, 0, 0, 0, false};
@@ -1090,7 +1210,24 @@ void draw_elevated_cell_quad(
     return fit_elevated_camera(camera, bounds, 6, 22, 314, 219);
 }
 
-void draw_close_stage_v2(const ElevatedCamera& camera) {
+[[nodiscard]] int close_terrain_kind(int row, int column) noexcept {
+    if (column == 3) return 2;
+    if (column == 0 || column == 6 ||
+        (row < 2 && (column == 1 || column == 5))) return 1;
+    return 0;
+}
+
+[[nodiscard]] int close_transition_mask(int row, int column, int kind) noexcept {
+    if (kind == 0) return 0;
+    int mask = 0;
+    if (row > 0 && close_terrain_kind(row - 1, column) != kind) mask |= 1;
+    if (column < 6 && close_terrain_kind(row, column + 1) != kind) mask |= 2;
+    if (row < 4 && close_terrain_kind(row + 1, column) != kind) mask |= 4;
+    if (column > 0 && close_terrain_kind(row, column - 1) != kind) mask |= 8;
+    return mask;
+}
+
+void draw_close_stage_v2(const ElevatedCamera& camera, bool rich_terrain) {
     constexpr int tile = 48;
     constexpr int left = -168;
     constexpr int far = -96;
@@ -1101,15 +1238,41 @@ void draw_close_stage_v2(const ElevatedCamera& camera) {
         for (int column = 0; column < 7; ++column) {
             const int x0 = left + column * tile;
             const int z0 = far + row * tile;
-            const bool route = column == 3;
-            const bool edge = column == 0 || column == 6;
-            const int cell = route ? terrain_b_cell : (edge ? 2 : terrain_a_cell);
-            const int clut = route ? terrain_b_clut : (edge ? 3 : terrain_a_clut);
-            draw_elevated_cell_quad(
-                x0, z0, x0 + tile, z0 + tile, 0, camera, cell, clut
-            );
+            if (rich_terrain) {
+                const int kind = close_terrain_kind(row, column);
+                draw_quality_terrain_tile(
+                    x0, z0, x0 + tile, z0 + tile, kind,
+                    (row * 7 + column * 3) & 3,
+                    close_transition_mask(row, column, kind), camera
+                );
+            } else {
+                const bool route = column == 3;
+                const bool edge = column == 0 || column == 6;
+                const int cell = route ? terrain_b_cell
+                    : (edge ? 2 : terrain_a_cell);
+                const int clut = route ? terrain_b_clut
+                    : (edge ? 3 : terrain_a_clut);
+                draw_elevated_cell_quad(
+                    x0, z0, x0 + tile, z0 + tile, 0, camera, cell, clut
+                );
+            }
         }
     }
+}
+
+void draw_close_far_decorations(const ElevatedCamera& camera) {
+    draw_quality_tree(-143, -64, 32, camera);
+    draw_quality_tree(137, -70, 38, camera);
+    draw_quality_tree(-124, -34, 24, camera);
+    draw_quality_rock(-18, -65, 13, camera);
+    draw_quality_rock(25, -42, 10, camera);
+    draw_quality_grass(-90, -18, 12, camera);
+}
+
+void draw_close_near_decorations(const ElevatedCamera& camera) {
+    draw_quality_grass(-145, 108, 13, camera);
+    draw_quality_grass(132, 117, 11, camera);
+    draw_quality_rock(18, 104, 12, camera);
 }
 
 void draw_elevated_marker(
@@ -1180,7 +1343,7 @@ void draw_world_impact(
 
 [[nodiscard]] SceneResult draw_hybrid_close_v2(
     bool mythical, int phase, const char* title, const char* subtitle,
-    std::uint16_t sky, bool quality = true
+    std::uint16_t sky, bool quality = true, bool rich_terrain = true
 ) {
     const ElevatedCamera camera = close_camera_v2();
     const Cutout& left = quality ? quality_left_pose(phase)
@@ -1194,7 +1357,8 @@ void draw_world_impact(
 
     gpu::clear(sky);
     psx::start_clock();
-    draw_close_stage_v2(camera);
+    draw_close_stage_v2(camera, rich_terrain);
+    if (rich_terrain) draw_close_far_decorations(camera);
     draw_elevated_marker(left_x, 0, 0, 40, camera);
     draw_elevated_marker(right_x, 0, 1, 40, camera);
     const ProjectedVertex left_foot = project_elevated(left_x, 3, 0, camera);
@@ -1220,6 +1384,7 @@ void draw_world_impact(
         const ProjectedVertex damage = project_elevated(left_x, 102, 0, camera);
         text_at(damage.x - 3, damage.y, "4");
     }
+    if (rich_terrain) draw_close_near_decorations(camera);
 
     gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
     gpu::fill(6, 4, 7, 10, colour15(team_colours[0]));
@@ -1451,7 +1616,30 @@ struct OverviewUnitOrder final {
     std::int32_t depth;
 };
 
-void draw_overview_ground_v2(const ElevatedCamera& camera) {
+[[nodiscard]] int overview_quality_kind(int row, int column) noexcept {
+    const int kind = overview_kind(row, column);
+    if (kind == 0) return 0;
+    if (kind == 2) return 1;
+    return 2;
+}
+
+[[nodiscard]] int overview_transition_mask(
+    int row, int column, int kind
+) noexcept {
+    if (kind == 0) return 0;
+    int mask = 0;
+    if (row > 0 && overview_quality_kind(row - 1, column) != kind) mask |= 1;
+    if (column + 1 < sevenfold_board_columns &&
+        overview_quality_kind(row, column + 1) != kind) mask |= 2;
+    if (row + 1 < sevenfold_board_rows &&
+        overview_quality_kind(row + 1, column) != kind) mask |= 4;
+    if (column > 0 && overview_quality_kind(row, column - 1) != kind) mask |= 8;
+    return mask;
+}
+
+void draw_overview_ground_v2(
+    const ElevatedCamera& camera, bool rich_terrain
+) {
     constexpr int tile = 46;
     constexpr int left = -sevenfold_board_columns * tile / 2;
     constexpr int far = -sevenfold_board_rows * tile / 2;
@@ -1474,7 +1662,17 @@ void draw_overview_ground_v2(const ElevatedCamera& camera) {
         const int x0 = left + column * tile;
         const int z0 = far + row * tile;
         const int kind = overview_kind(row, column);
-        if (kind == 3) {
+        if (rich_terrain) {
+            const int quality_kind = overview_quality_kind(row, column);
+            draw_quality_terrain_tile(
+                x0, z0, x0 + tile, z0 + tile, quality_kind,
+                (row * 5 + column * 3) & 3,
+                overview_transition_mask(row, column, quality_kind), camera
+            );
+            draw_quality_cell_boundary(
+                x0, z0, x0 + tile, z0 + tile, camera
+            );
+        } else if (kind == 3) {
             draw_elevated_solid_quad(
                 x0, z0, x0 + tile, z0 + tile, 0, camera,
                 colour15(overview_terrain_colours[kind])
@@ -1489,6 +1687,40 @@ void draw_overview_ground_v2(const ElevatedCamera& camera) {
             );
         }
     }
+}
+
+struct QualityProp final {
+    int x;
+    int z;
+    int kind;
+    int size;
+    std::int32_t depth;
+};
+
+void draw_quality_prop(const QualityProp& prop, const ElevatedCamera& camera) {
+    if (prop.kind == 0) draw_quality_tree(prop.x, prop.z, prop.size, camera);
+    else if (prop.kind == 1) draw_quality_rock(prop.x, prop.z, prop.size, camera);
+    else draw_quality_grass(prop.x, prop.z, prop.size, camera);
+}
+
+void make_overview_props(QualityProp* props, const ElevatedCamera& camera) {
+    constexpr int definitions[9][4] = {
+        {-164, -116, 0, 20}, {-120, -108, 0, 25}, {-78, -104, 0, 18},
+        {118, -112, 1, 13}, {162, -70, 1, 16}, {-160, 112, 1, 12},
+        {-115, 105, 1, 10}, {115, 88, 2, 11}, {158, 104, 2, 9},
+    };
+    for (int index = 0; index < 9; ++index) {
+        props[index] = {
+            definitions[index][0], definitions[index][1], definitions[index][2],
+            definitions[index][3], elevated_raw_y(
+                definitions[index][0], 0, definitions[index][1], camera
+            ),
+        };
+    }
+    std::sort(props, props + 9,
+              [](const QualityProp& a, const QualityProp& b) {
+                  return a.depth < b.depth;
+              });
 }
 
 void draw_movement_highlights_v2(const ElevatedCamera& camera) {
@@ -1509,7 +1741,9 @@ void draw_movement_highlights_v2(const ElevatedCamera& camera) {
     }
 }
 
-[[nodiscard]] SceneResult draw_overview_v2(int move_step) {
+[[nodiscard]] SceneResult draw_overview_v2(
+    int move_step, bool rich_terrain = true
+) {
     constexpr int tile = 46;
     constexpr int left = -sevenfold_board_columns * tile / 2;
     constexpr int far = -sevenfold_board_rows * tile / 2;
@@ -1535,11 +1769,18 @@ void draw_movement_highlights_v2(const ElevatedCamera& camera) {
 
     gpu::clear(gpu::rgb15(4, 8, 11));
     psx::start_clock();
-    draw_overview_ground_v2(camera);
+    draw_overview_ground_v2(camera, rich_terrain);
     draw_movement_highlights_v2(camera);
+    QualityProp props[9]{};
+    int next_prop = 0;
+    if (rich_terrain) make_overview_props(props, camera);
     const int unit_size = elevated_billboard_size(80, camera);
     for (int sorted = 0; sorted < unit_count; ++sorted) {
         const OverviewUnitOrder& placed = order[sorted];
+        while (rich_terrain && next_prop < 9 &&
+               props[next_prop].depth <= placed.depth) {
+            draw_quality_prop(props[next_prop++], camera);
+        }
         const OverviewUnit& unit = quality_overview_units[placed.index];
         const bool moving = move_step >= 0 && placed.index == 4;
         draw_elevated_marker(placed.x, placed.z, unit.team, 17, camera);
@@ -1557,6 +1798,9 @@ void draw_movement_highlights_v2(const ElevatedCamera& camera) {
             placed.index == 4
         );
     }
+    while (rich_terrain && next_prop < 9) {
+        draw_quality_prop(props[next_prop++], camera);
+    }
     gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
     text_at(8, 5, move_step >= 0
         ? "TACTICAL CAMERA V2 MOVE" : "TACTICAL CAMERA V2");
@@ -1564,7 +1808,7 @@ void draw_movement_highlights_v2(const ElevatedCamera& camera) {
     text_at(8, 227, "HIGH ISO  8 UNITS  REACH  HEALTH  TEAM");
     gpu::show();
     static_cast<void>(gpu::read_back(0, 0));
-    return {psx::clock_ticks(), 86};
+    return {psx::clock_ticks(), rich_terrain ? 104 : 86};
 }
 
 [[nodiscard]] ElevatedCamera comparison_board_camera() noexcept {
@@ -1593,6 +1837,25 @@ void draw_movement_highlights_v2(const ElevatedCamera& camera) {
     return terrain[row][column];
 }
 
+[[nodiscard]] int comparison_quality_kind(int terrain_id) noexcept {
+    return terrain_id == 9 ? 0 : (terrain_id == 2 ? 1 : 2);
+}
+
+[[nodiscard]] int comparison_transition_mask(
+    int row, int column, int quality_kind
+) noexcept {
+    int mask = 0;
+    if (row > 0 && comparison_quality_kind(
+            comparison_terrain_kind(row - 1, column)) != quality_kind) mask |= 1;
+    if (column < 5 && comparison_quality_kind(
+            comparison_terrain_kind(row, column + 1)) != quality_kind) mask |= 2;
+    if (row < 3 && comparison_quality_kind(
+            comparison_terrain_kind(row + 1, column)) != quality_kind) mask |= 4;
+    if (column > 0 && comparison_quality_kind(
+            comparison_terrain_kind(row, column - 1)) != quality_kind) mask |= 8;
+    return mask;
+}
+
 void draw_exact_hp(
     const ProjectedVertex& foot, int size, int team, int health
 ) {
@@ -1608,7 +1871,7 @@ void draw_exact_hp(
 }
 
 [[nodiscard]] SceneResult draw_comparison_board(
-    int focus, int blue_hp, int red_hp
+    int focus, int blue_hp, int red_hp, bool rich_terrain = true
 ) {
     constexpr int tile = 48;
     constexpr int left = -144;
@@ -1636,7 +1899,17 @@ void draw_exact_hp(
         const int x0 = left + column * tile;
         const int z0 = far + row * tile;
         const int kind = comparison_terrain_kind(row, column);
-        if (kind == 12) {
+        if (rich_terrain) {
+            const int quality_kind = comparison_quality_kind(kind);
+            draw_quality_terrain_tile(
+                x0, z0, x0 + tile, z0 + tile, quality_kind,
+                (row * 5 + column * 3) & 3,
+                comparison_transition_mask(row, column, quality_kind), camera
+            );
+            draw_quality_cell_boundary(
+                x0, z0, x0 + tile, z0 + tile, camera
+            );
+        } else if (kind == 12) {
             draw_elevated_solid_quad(
                 x0, z0, x0 + tile, z0 + tile, 0, camera,
                 colour15(overview_terrain_colours[3])
@@ -1658,9 +1931,37 @@ void draw_exact_hp(
         );
     }
 
+    QualityProp props[6]{};
+    int next_prop = 0;
+    if (rich_terrain) {
+        constexpr int definitions[6][4] = {
+            {-122, -73, 0, 24}, {121, -73, 0, 20}, {-124, 73, 0, 18},
+            {25, -38, 1, 11}, {26, 67, 1, 10}, {-22, 33, 2, 10},
+        };
+        for (int index = 0; index < 6; ++index) {
+            props[index] = {
+                definitions[index][0], definitions[index][1],
+                definitions[index][2], definitions[index][3],
+                elevated_raw_y(
+                    definitions[index][0], 0, definitions[index][1], camera
+                ),
+            };
+        }
+        std::sort(props, props + 6,
+                  [](const QualityProp& a, const QualityProp& b) {
+                      return a.depth < b.depth;
+                  });
+    }
+
     const ProjectedVertex blue_foot = project_elevated(-72, 3, 24, camera);
     const ProjectedVertex red_foot = project_elevated(72, 3, -24, camera);
     const int unit_size = elevated_billboard_size(88, camera);
+    const std::int32_t blue_depth = elevated_raw_y(-72, 0, 24, camera);
+    const std::int32_t red_depth = elevated_raw_y(72, 0, -24, camera);
+    while (rich_terrain && next_prop < 6 &&
+           props[next_prop].depth <= blue_depth) {
+        draw_quality_prop(props[next_prop++], camera);
+    }
     draw_elevated_marker(-72, 24, 0, 20, camera);
     draw_cutout(
         blue_foot.x, blue_foot.y + unit_size * 2 /
@@ -1668,6 +1969,10 @@ void draw_exact_hp(
         unit_size, quality_left_slots.idle
     );
     draw_exact_hp(blue_foot, unit_size, 0, blue_hp);
+    while (rich_terrain && next_prop < 6 &&
+           props[next_prop].depth <= red_depth) {
+        draw_quality_prop(props[next_prop++], camera);
+    }
     draw_elevated_marker(72, -24, 1, 20, camera);
     draw_cutout(
         red_foot.x, red_foot.y + unit_size * 2 /
@@ -1675,6 +1980,9 @@ void draw_exact_hp(
         unit_size, quality_right_slots.idle
     );
     draw_exact_hp(red_foot, unit_size, 1, red_hp);
+    while (rich_terrain && next_prop < 6) {
+        draw_quality_prop(props[next_prop++], camera);
+    }
 
     gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
     text_at(8, 5, focus > 0 ? "MATCH FOCUS  STYLE 2  KNIGHT 0"
@@ -1721,6 +2029,7 @@ int main() {
            "mythical female mage proxy is selected");
 
     load_godot_cutouts();
+    load_quality_terrain();
     constexpr int idle_cutout_vram_bytes =
         4 * grandleon_psx_godot_closeup_width *
         grandleon_psx_godot_closeup_height / 2;
@@ -1738,6 +2047,9 @@ int main() {
     constexpr int quality_close_ci8_estimate =
         8 * grandleon_psx_godot_quality_close_width *
         grandleon_psx_godot_quality_close_height;
+    constexpr int quality_terrain_vram_bytes =
+        grandleon_psx_quality_terrain_cell_count * gpu::cell_texels *
+        gpu::cell_texels / 2;
     constexpr int texture_page_bytes =
         gpu::page_halfwords * gpu::page_lines * 2;
     expect(idle_cutout_vram_bytes == 18432,
@@ -1755,6 +2067,12 @@ int main() {
            "ten exact 64px tactical poses fit one 32 KiB page");
     expect(quality_close_ci8_estimate == 131072,
            "the equivalent 128px CI8 pose set would require four pages");
+    expect(quality_terrain_vram_bytes == 22528,
+           "44 deterministic CI4 terrain cells use 22 KiB of one page");
+    expect(gpu::read_back(
+               gpu::cell_texture_x(quality_terrain_cell_base),
+               gpu::cell_texture_y(quality_terrain_cell_base)) != 0,
+           "quality grass texture reached VRAM");
 
     // Each style keeps the flat proxy and first planar texture pass, then
     // captures both rejected hybrid stages before camera v2. That makes the
@@ -1803,14 +2121,22 @@ int main() {
 
     const SceneResult medieval_v2_legacy = draw_hybrid_close_v2(
         false, -1, "MEDIEVAL CAMERA V2 96", "MATCHED CI4 RESOLUTION BASELINE",
-        gpu::rgb15(7, 13, 17), false
+        gpu::rgb15(7, 13, 17), false, false
     );
     print_benchmark("medieval-camera-v2-96", medieval_v2_legacy);
     psx::signal_host(27);
 
     load_quality_close_cutouts(false);
+    const SceneResult medieval_terrain_before = draw_hybrid_close_v2(
+        false, -1, "MEDIEVAL TERRAIN BEFORE",
+        "SAME 128 ART  LOW-FREQUENCY FLOOR",
+        gpu::rgb15(7, 13, 17), true, false
+    );
+    print_benchmark("medieval-terrain-before", medieval_terrain_before);
+    psx::signal_host(30);
+
     const SceneResult medieval_v2 = draw_hybrid_close_v2(
-        false, -1, "MEDIEVAL QUALITY 128", "EXACT GODOT ART  FIT FROM BOUNDS",
+        false, -1, "MEDIEVAL TERRAIN AFTER", "FOREST  GRASS  STONE  CLUSTERS",
         gpu::rgb15(7, 13, 17)
     );
     print_benchmark("medieval-camera-v2", medieval_v2);
@@ -1876,6 +2202,10 @@ int main() {
     psx::signal_host(19);
 
     load_tactical_cutouts();
+    const SceneResult overview_terrain_before = draw_overview_v2(-1, false);
+    print_benchmark("overview-terrain-before", overview_terrain_before);
+    psx::signal_host(31);
+
     const SceneResult overview_v2 = draw_overview_v2(-1);
     print_benchmark("overview-camera-v2", overview_v2);
     psx::signal_host(24);
@@ -1901,7 +2231,7 @@ int main() {
         psx::signal_host(25);
     }
     print_benchmark("overview-camera-v2-move-slowest",
-                    {slowest_movement_v2, 86});
+                    {slowest_movement_v2, 104});
 
     load_quality_close_cutouts(false);
     SceneResult exchange_frames[close_exchange_frames]{};
@@ -1968,10 +2298,11 @@ int main() {
 
     const SceneResult measured[] = {
         medieval_flat, medieval_current, medieval_low_angle,
-        medieval_corrected, medieval_v2_legacy, medieval_v2,
+        medieval_corrected, medieval_v2_legacy, medieval_terrain_before,
+        medieval_v2,
         mythical_flat, mythical_current,
         mythical_low_angle, mythical_corrected, mythical_v2, overview_flat,
-        overview_hybrid, overview_v2,
+        overview_hybrid, overview_terrain_before, overview_v2,
     };
     for (const SceneResult& scene : measured) {
         expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
@@ -2008,8 +2339,12 @@ int main() {
            "camera-v2 close views use 35 tile tops and two CI4 cutouts");
     expect(overview_hybrid.textured_triangles == 104,
            "hybrid overview uses textured macro terrain and eight cutouts");
-    expect(overview_v2.textured_triangles == 86,
-           "camera-v2 overview keeps broad terrain and eight cutouts");
+    expect(overview_terrain_before.textured_triangles == 86 &&
+               overview_v2.textured_triangles == 104,
+           "quality overview textures every tile and adds ordered props");
+    expect(quality_terrain_cell(1, 0, 0) !=
+               quality_terrain_cell(1, 0, 2),
+           "forest transition masks select distinct offline textures");
 
     const ElevatedCamera close_v2 = close_camera_v2();
     const ProjectedVertex far_top = project_elevated(0, 0, -96, close_v2);

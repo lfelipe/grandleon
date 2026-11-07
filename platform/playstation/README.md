@@ -189,25 +189,41 @@ console's native 320×240 resolution:
 cmake --build build --target grandleon_playstation_sevenfold_texture_check
 ```
 
+The terrain-quality pass is generated offline as forty-four 32×32 CI4 cells:
+four broad variants each for grass, forest floor and stone, plus sixteen
+cardinal transition masks for forest and stone. Variation is deterministic by
+board coordinate, so a capture and a console run choose the same moss patch,
+root fork or slab layout. Adjacent forest cells form a visual cluster, stone
+keeps a continuous route, and one subtle projected line preserves every
+walkable-cell boundary. Sparse trees, rocks and grass tufts are ordered by
+their projected foot point together with units; the close view keeps far props
+behind the fighters and near props at the outer floor edge, never over a face
+or weapon. `terrain-close-before.png`, `terrain-close-after.png`,
+`terrain-board-before.png` and `terrain-board-after.png` are matched native
+review stills.
+
 The captures land in `build-playstation-sevenfold-3d/texture-frames/`.
 `overview-movement-camera-v2.gif` and `close-exchange-camera-v2.gif` show the
 quality movement and exchange. One active eight-pose close style occupies
 exactly 64 KiB in two 32 KiB texture pages; the ten tactical poses occupy
-20 KiB in one page. Textures are uploaded when the experiment changes scene,
-not during animation. Equivalent 128×128 CI8 close poses would need 128 KiB in
-four pages plus larger palettes. That remains possible within the eleven-page
-texture region, but CI4 keeps twice as much room for terrain and effects while
-the 128×128 CI4 capture already preserves the important silhouette and costume
-detail. The experiment executable still leaves 538,400 bytes of main-memory
-heap.
+20 KiB in one page. The terrain atlas occupies 22 KiB of another page and
+three sixteen-colour CLUTs, or 96 bytes. The active close working set is thus
+86 KiB; the active tactical set is 42 KiB. Textures are uploaded when the
+experiment changes scene, not during animation. Equivalent 128×128 CI8 close
+poses would need 128 KiB in four pages plus larger palettes. That remains
+possible within the eleven-page texture region, but CI4 keeps twice as much
+room for terrain and effects while preserving the important silhouette and
+costume detail. The experiment executable is 1,480,704 bytes and still leaves
+505,632 bytes of main-memory heap. The production campaign disc remains
+3,939,600 bytes because this candidate is still isolated.
 
-In the pinned interpreter, the matched 96×96 and 128×128 close pictures both
-take about 1.23 ms after GPU completion. The eight-role isometric map takes
-about 2.41 ms, its slowest movement frame about 2.43 ms, and the slowest real
-pose attack/counter frame about 1.30 ms. Even the matched eight-model flat
-overview remains just inside the locked-30-fps ceiling at about 31.4 ms. The
-quality gain therefore costs texture memory and executable size, not measured
-frame time in this scene.
+In the pinned interpreter, the quiet 128×128 close baseline takes about
+1.27 ms and the richer terrain version 1.50 ms after GPU completion. The quiet
+eight-role isometric map takes about 2.47 ms; the richer map with visible cell
+edges and ordered props takes 4.49 ms, its slowest movement frame 4.51 ms, and
+the slowest real-pose attack/counter frame 1.57 ms. Even the matched eight-model
+flat overview remains just inside the locked-30-fps ceiling at about 31.4 ms.
+The added terrain remains far below the 33 ms regression ceiling.
 
 The same check also records the canonical cross-renderer scene from
 `tools/renderer_comparison/scene.json`: the exact 6×4 forest/grass/stone board,

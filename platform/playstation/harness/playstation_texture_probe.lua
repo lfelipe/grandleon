@@ -22,6 +22,8 @@ local names = {
   [23] = 'mythical-camera-v2',
   [24] = 'overview-camera-v2',
   [27] = 'medieval-camera-v2-96',
+  [30] = 'medieval-terrain-before',
+  [31] = 'overview-terrain-before',
 }
 
 local checks = 0
@@ -142,7 +144,7 @@ PCSX.execSlots[29] = function()
 end
 
 PCSX.execSlots[20] = function()
-  expect(captures == 130, 'all still and animation frames were captured')
+  expect(captures == 132, 'all still and animation frames were captured')
   expect(signatures[10] ~= signatures[11],
          'medieval current frame differs from its flat baseline')
   expect(signatures[11] ~= signatures[12],
@@ -153,6 +155,8 @@ PCSX.execSlots[20] = function()
          'medieval camera v2 differs from the rejected screen stage')
   expect(signatures[27] ~= signatures[22],
          '128px close art differs from its matched 96px baseline')
+  expect(signatures[30] ~= signatures[22],
+         'quality close terrain differs from its matched quiet baseline')
   expect(signatures[14] ~= signatures[15],
          'mythical current frame differs from its flat baseline')
   expect(signatures[15] ~= signatures[16],
@@ -165,6 +169,8 @@ PCSX.execSlots[20] = function()
          'hybrid tactical overview differs from its flat baseline')
   expect(signatures[19] ~= signatures[24],
          'camera-v2 overview differs from the earlier hybrid')
+  expect(signatures[31] ~= signatures[24],
+         'quality tactical terrain differs from its matched quiet baseline')
   expect(signatures[13] ~= signatures[17],
          'medieval and mythical rejected close views remain distinct')
   expect(signatures[22] ~= signatures[23],
@@ -197,4 +203,4 @@ PCSX.execSlots[20] = function()
   PCSX.quit(failures == 0 and 0 or 1)
 end
 
-say('installed still slots 10..19,22..24,27; animation slots 21,25,26,29; done slot 20')
+say('installed still slots 10..19,22..24,27,30,31; animation slots 21,25,26,29; done slot 20')
