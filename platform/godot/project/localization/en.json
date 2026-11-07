@@ -49,6 +49,7 @@
     "translations.add_language": "ADD LANGUAGE",
     "translations.add_portuguese": "Add Brazilian Portuguese",
     "translations.show": "SHOW",
+    "translations.search": "SEARCH SOURCE TEXT OR CONTEXT",
     "translations.filter.all": "ALL STRINGS",
     "translations.filter.missing": "MISSING",
     "translations.filter.outdated": "OUTDATED",

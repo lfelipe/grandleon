@@ -48,6 +48,7 @@
     "translations.add_language": "AÑADIR IDIOMA",
     "translations.add_portuguese": "Añadir portugués de Brasil",
     "translations.show": "MOSTRAR",
+    "translations.search": "BUSCAR TEXTO O CONTEXTO",
     "translations.filter.all": "TODOS LOS TEXTOS",
     "translations.filter.missing": "PENDIENTES",
     "translations.filter.outdated": "DESACTUALIZADOS",

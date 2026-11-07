@@ -49,6 +49,7 @@
     "translations.add_language": "ADICIONAR IDIOMA",
     "translations.add_portuguese": "Adicionar português do Brasil",
     "translations.show": "MOSTRAR",
+    "translations.search": "PESQUISAR TEXTO OU CONTEXTO",
     "translations.filter.all": "TODOS OS TEXTOS",
     "translations.filter.missing": "PENDENTES",
     "translations.filter.outdated": "DESATUALIZADOS",

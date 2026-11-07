@@ -45,6 +45,16 @@ func _run() -> void:
 		not editor._message_by_id("dialogues.first_steps_dialogue.lines.0.text").is_empty(),
 		true
 	)
+	editor.search_input.text = "road was quiet"
+	editor._search_messages(editor.search_input.text)
+	_expect("translation search finds source dialogue", editor.message_list.item_count, 1)
+	_expect(
+		"translation search preserves stable message identity",
+		str(editor.message_list.get_item_metadata(0)),
+		"dialogues.first_steps_dialogue.lines.0.text"
+	)
+	editor.search_input.text = ""
+	editor._search_messages(editor.search_input.text)
 
 	editor._add_language_code("pt-BR")
 	_expect("Brazilian Portuguese can be added directly", editor.selected_language, "pt-BR")

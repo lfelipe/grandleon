@@ -25,6 +25,7 @@ var source_language_input: LineEdit
 var language_select: OptionButton
 var add_language_input: LineEdit
 var filter_select: OptionButton
+var search_input: LineEdit
 var summary_label: Label
 var message_list: ItemList
 var source_label: Label
@@ -277,6 +278,13 @@ func _build_interface() -> void:
 		filter_select.set_item_metadata(filter_select.item_count - 1, filter)
 	filter_select.item_selected.connect(_select_filter)
 	filters.add_child(filter_select)
+	search_input = LineEdit.new()
+	search_input.placeholder_text = _t("translations.search")
+	search_input.clear_button_enabled = true
+	search_input.custom_minimum_size = Vector2(440, 50)
+	search_input.add_theme_font_size_override("font_size", 17)
+	search_input.text_changed.connect(_search_messages)
+	filters.add_child(search_input)
 	summary_label = _label("", 17, Color("a9bdc9"))
 	summary_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	filters.add_child(summary_label)
@@ -355,6 +363,7 @@ func _refresh_languages() -> void:
 func _refresh_messages() -> void:
 	visible_messages.clear()
 	message_list.clear()
+	var query := "" if search_input == null else search_input.text.strip_edges().to_lower()
 	var missing := 0
 	var outdated := 0
 	var translated := 0
@@ -365,6 +374,13 @@ func _refresh_messages() -> void:
 			"outdated": outdated += 1
 			_: translated += 1
 		if active_filter != "all" and state != active_filter:
+			continue
+		var searchable := "%s %s %s" % [
+			str(message.get("id", "")),
+			str(message.get("context", "")),
+			str(message.get("source", "")),
+		]
+		if not query.is_empty() and not searchable.to_lower().contains(query):
 			continue
 		visible_messages.append(message)
 		var marker := "✓" if state == "translated" else ("!" if state == "outdated" else "·")
@@ -403,6 +419,10 @@ func _select_filter(index: int) -> void:
 	if index < 0:
 		return
 	active_filter = str(filter_select.get_item_metadata(index))
+	_refresh_messages()
+
+
+func _search_messages(_value: String) -> void:
 	_refresh_messages()
 
 
