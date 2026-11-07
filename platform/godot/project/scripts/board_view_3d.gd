@@ -22,6 +22,8 @@ const MEDIEVAL_HOUSE_TEXTURES := [
 	"res://art/map_features/medieval_house_inn.png",
 	"res://art/map_features/medieval_house_craftsperson.png",
 ]
+const MEDIEVAL_HOUSE_PIXEL_SIZE := 0.00320
+const MEDIEVAL_HOUSE_CENTRE_HEIGHT := 0.79
 const ANCIENT_GROVE_TEXTURE := "res://art/map_features/ancient_tree_cluster_2x2.png"
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a87a4f"), Color("316b45"), Color("65717a"),
@@ -767,8 +769,11 @@ func _build_medieval_house_cutout(centre: Vector3, variation: int) -> bool:
 		return false
 	var house := Sprite3D.new()
 	house.texture = resource as Texture2D
-	house.position = centre + Vector3(0, 0.92, 0)
-	house.pixel_size = 0.00355
+	# Keep the broadest roof and side bay inside the blocked 2x2 footprint. The
+	# lower centre preserves the building's planted foundation after scaling the
+	# whole cutout down, instead of making it appear to hover over the paving.
+	house.position = centre + Vector3(0, MEDIEVAL_HOUSE_CENTRE_HEIGHT, 0)
+	house.pixel_size = MEDIEVAL_HOUSE_PIXEL_SIZE
 	house.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	house.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	house.shaded = false

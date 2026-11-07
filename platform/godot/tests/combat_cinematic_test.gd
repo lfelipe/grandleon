@@ -259,6 +259,17 @@ func _test_cluster_landmarks(board) -> void:
 				"the Medieval house uses a dedicated transparent cutout",
 				str(child.get_meta("landmark_asset")).contains("medieval_house_")
 			)
+			_expect_true(
+				"the Medieval house stays inside its blocked footprint",
+				child is Sprite3D and (child as Sprite3D).pixel_size <= 0.00320
+			)
+			_expect_true(
+				"the resized Medieval house remains planted on the board",
+				child is Sprite3D and is_equal_approx(
+					(child as Sprite3D).position.y,
+					board._landmark_centre(Vector2i(0, 0)).y + 0.79
+				)
+			)
 	_expect("one footprint draws one Medieval building", cutout_count, 1)
 	board.configure(empty_board, [
 		2, 2, 2, 9,
