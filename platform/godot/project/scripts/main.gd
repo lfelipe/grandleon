@@ -1562,9 +1562,9 @@ func _create_interface() -> void:
 	title_label = _label("PC", 19, Color("e9f7ff"))
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title_label)
-	turn_label = _label("WAITING", 17, Color("69d9ff"))
+	turn_label = _label(_ui("player.hud.waiting"), 17, Color("69d9ff"))
 	top_row.add_child(turn_label)
-	status_label = _label("STARTING", 16, Color("9db6c5"))
+	status_label = _label(_ui("player.hud.starting"), 16, Color("9db6c5"))
 	# Kept as the internal status sink for loading and automation, but routine
 	# play communicates state through the compact turn chip and transient toast.
 	status_label.visible = false
@@ -1670,7 +1670,7 @@ func _create_action_popups(layer: CanvasLayer) -> void:
 		var column := VBoxContainer.new()
 		column.add_theme_constant_override("separation", 2)
 		panel.add_child(column)
-		var heading := _label("ACTION", 15, PLAYER_COLOURS[seat])
+		var heading := _label(_ui("player.hud.action"), 15, PLAYER_COLOURS[seat])
 		heading.visible = false
 		column.add_child(heading)
 		action_popup_titles.append(heading)
@@ -2391,16 +2391,25 @@ func _update_controller_label() -> void:
 	for index in min(player_count, seats.size()):
 		var seat: Dictionary = seats[index]
 		var colour: String = Color(PLAYER_COLOURS[index]).to_html()
-		var state := "READY" if seat.get("active", false) else "WAITING"
-		lines.append("[color=#%s][b]%s[/b][/color]  %s CONTROL  /  %s" % [
-			colour, _control_colour_name(index), "FIRST" if index == 0 else "SECOND", state
+		var state := _ui(
+			"player.controller.ready"
+			if seat.get("active", false) else "player.controller.waiting"
+		)
+		lines.append("[color=#%s][b]%s[/b][/color]  %s %s  /  %s" % [
+			colour,
+			_control_colour_name(index),
+			_ui("player.controller.first" if index == 0 else "player.controller.second"),
+			_ui("player.controller.control"),
+			state,
 		])
-	lines.append("[color=#ff5267][b]RED[/b][/color]  ENEMY")
+	lines.append("[color=#ff5267][b]%s[/b][/color]  %s" % [
+		_ui("player.controller.red"), _ui("player.controller.enemy")
+	])
 	controller_label.text = "\n".join(lines)
 
 
 func _control_colour_name(seat: int) -> String:
-	return "AMBER" if seat == 1 else "CYAN"
+	return _ui("player.controller.amber" if seat == 1 else "player.controller.cyan")
 
 
 func _handle_event(event: Dictionary) -> void:
@@ -3030,20 +3039,21 @@ func _accept_at(seat: int) -> void:
 	var selected := selected_units[seat]
 	if not occupant.is_empty() and String(occupant.side) == "first":
 		if not _unit_owned_by_seat(occupant, seat):
-			_show_toast(
-				"%s ARMY  /  OTHER CONTROL"
-				% _control_colour_name(clampi(int(occupant.get("player", 1)) - 1, 0, 1))
-			)
+			_show_toast(_ui("player.toast.other_army", {
+				"army": _control_colour_name(
+					clampi(int(occupant.get("player", 1)) - 1, 0, 1)
+				),
+			}))
 			return
 		var owner := _selected_by_other_seat(seat, int(occupant.id))
 		if owner >= 0:
-			_show_toast("OTHER CONTROL IS COMMANDING THAT CHARACTER")
+			_show_toast(_ui("player.toast.other_commanding"))
 			return
 		if _unit_is_pending(int(occupant.id)):
-			_show_toast("THAT CHARACTER IS ALREADY MOVING")
+			_show_toast(_ui("player.toast.already_moving"))
 			return
 		if occupant.get("has_acted", false):
-			_show_toast("THAT CHARACTER HAS FINISHED THIS ROUND")
+			_show_toast(_ui("player.toast.finished_round"))
 			return
 		_close_action_popup(seat)
 		selected_units[seat] = int(occupant.id)
@@ -3052,13 +3062,12 @@ func _accept_at(seat: int) -> void:
 		_show_unit(occupant, seat)
 		return
 	if selected == 0:
-		_show_toast(
-			"CHOOSE A FRIENDLY CHARACTER  /  %s FINISHES THE READY TEAM"
-			% controls.label("end_turn")
-		)
+		_show_toast(_ui("player.toast.choose_friendly", {
+			"finish": controls.label("end_turn"),
+		}))
 		return
 	if _unit_is_pending(selected):
-		_show_toast("THAT CHARACTER IS ALREADY MOVING")
+		_show_toast(_ui("player.toast.already_moving"))
 		return
 	if snapshot.get("deploying", false):
 		_submit("deploy", selected, 0, cursor)
@@ -3068,7 +3077,7 @@ func _accept_at(seat: int) -> void:
 		var actor := _unit_by_id(selected)
 		var abilities: Array = actor.get("abilities", [])
 		if abilities.is_empty():
-			_show_toast("THIS CHARACTER KNOWS NO ABILITY")
+			_show_toast(_ui("player.toast.no_ability"))
 			return
 		_submit("ability", selected, 0, cursor, int(abilities[0]))
 		return
@@ -3079,7 +3088,7 @@ func _accept_at(seat: int) -> void:
 			_submit("attack", selected, int(occupant.id), cursor)
 		return
 	if mode == "talk":
-		_show_toast("TALK NEEDS A CHARACTER BESIDE YOU")
+		_show_toast(_ui("player.toast.talk_adjacent"))
 	else:
 		_submit("move", selected, 0, cursor)
 
@@ -3159,16 +3168,16 @@ func _open_action_popup(seat: int, unit_id: int) -> void:
 		return
 	var options: Array[Dictionary] = []
 	if not session.query_tiles("attack", unit_id, 0).is_empty():
-		options.append({"mode": "attack", "label": "ATTACK"})
+		options.append({"mode": "attack", "label": _action_text("attack")})
 	var abilities: Array = unit.get("abilities", [])
 	if (
 		not abilities.is_empty()
 		and not session.query_tiles("ability", unit_id, int(abilities[0])).is_empty()
 	):
-		options.append({"mode": "ability", "label": "ABILITY"})
+		options.append({"mode": "ability", "label": _action_text("ability")})
 	if not session.query_tiles("talk", unit_id, 0).is_empty():
-		options.append({"mode": "talk", "label": "TALK"})
-	options.append({"mode": "wait", "label": "WAIT"})
+		options.append({"mode": "talk", "label": _action_text("talk")})
+	options.append({"mode": "wait", "label": _action_text("wait")})
 	action_popups[seat] = {
 		"open": true,
 		"unit_id": unit_id,
@@ -3194,7 +3203,7 @@ func _render_action_popup(seat: int) -> void:
 	var row := int(popup.get("row", 0))
 	var options: Array = popup.get("options", [])
 	for index in options.size():
-		var label := String(options[index].get("label", "ACTION"))
+		var label := String(options[index].get("label", _ui("player.hud.action")))
 		if index == row:
 			lines.append("[color=#%s][b]▶ %s[/b][/color]" % [PLAYER_COLOURS[seat].to_html(), label])
 		else:
@@ -3375,7 +3384,9 @@ func _activate_action_popup(seat: int) -> bool:
 	board.set_selected(seat, unit_id, mode)
 	_update_highlights(seat)
 	_refresh_selected_panel(seat)
-	_show_toast("CHOOSE %s TARGET" % mode.to_upper())
+	_show_toast(_ui("player.toast.choose_target", {
+		"action": _action_text(mode),
+	}))
 	return true
 
 
@@ -3463,7 +3474,7 @@ func _wait_selected(seat: int) -> void:
 	var selected := selected_units[seat]
 	if selected != 0:
 		if _unit_is_pending(selected):
-			_show_toast("THAT CHARACTER IS STILL MOVING")
+			_show_toast(_ui("player.toast.still_moving"))
 			_update_context_help(seat)
 			return
 		var unit := _unit_by_id(selected)
@@ -3488,14 +3499,16 @@ func _wait_selected(seat: int) -> void:
 		_submit("wait", unit_id)
 		submitted += 1
 	if submitted == 0:
-		_show_toast("%s HAS NO READY CHARACTERS" % _control_colour_name(seat))
+		_show_toast(_ui("player.toast.no_ready", {
+			"army": _control_colour_name(seat),
+		}))
 		_update_context_help(seat)
 	else:
-		_show_toast(
-			"FINISHING %d READY CHARACTER%s" % [
-				submitted, "" if submitted == 1 else "S"
-			]
-		)
+		_show_toast(_ui(
+			"player.toast.finishing_one"
+			if submitted == 1 else "player.toast.finishing_many",
+			{"count": submitted}
+		))
 
 
 func _seed_cursors() -> void:
@@ -3516,13 +3529,18 @@ func _show_unit(unit: Dictionary, seat := 0) -> void:
 		var player := clampi(int(unit.get("player", 1)), 1, 2)
 		heading_colour = PLAYER_COLOURS[player - 1].to_html()
 	unit_stats.text = (
-		"[color=%s][b]HP %d/%d[/b][/color]   " % [
-			heading_colour, unit.health, unit.maximum_health
+		"[color=%s][b]%s %d/%d[/b][/color]   " % [
+			heading_colour, _ui("player.hud.hp"), unit.health, unit.maximum_health
 		]
-		+ "MOVE %d   RANGE %d–%d   " % [
-			unit.movement, unit.minimum_reach, unit.maximum_reach
+		+ "%s %d   %s %d–%d   " % [
+			_ui("player.hud.move"), unit.movement,
+			_ui("player.hud.range"), unit.minimum_reach, unit.maximum_reach
 		]
-		+ ("[color=#718896]DONE[/color]" if unit.get("has_acted", false) else "[color=#72e08f]READY[/color]")
+		+ (
+			"[color=#718896]%s[/color]" % _ui("player.hud.done")
+			if unit.get("has_acted", false)
+			else "[color=#72e08f]%s[/color]" % _ui("player.hud.ready")
+		)
 	)
 	_position_unit_panel(unit, seat)
 	_update_context_help(seat)
@@ -3573,39 +3591,42 @@ func _context_help_text(seat: int) -> String:
 	var finish: String = controls.label("end_turn")
 	var menu: String = controls.label("menu")
 	if String(snapshot.get("active_side", "")) != "first":
-		return "[color=#ff5267][b]ENEMY TURN[/b][/color]"
+		return "[color=#ff5267][b]%s[/b][/color]" % _ui("player.hud.enemy_turn")
 	if bool(action_popups[seat].get("open", false)):
 		return ""
 	var selected := selected_units[seat]
 	if selected == 0:
-		var final_hint := "[b]%s[/b]  FINISH" % finish
+		var final_hint := "[b]%s[/b]  %s" % [finish, _ui("player.hud.finish")]
 		if snapshot.get("deploying", false):
-			final_hint = "[b]%s[/b]  BEGIN" % menu
+			final_hint = "[b]%s[/b]  %s" % [menu, _ui("player.hud.begin")]
 		return (
-			"[color=#%s][b]%s[/b][/color]  SELECT     %s" % [
-				PLAYER_COLOURS[seat].to_html(), confirm, final_hint
+			"[color=#%s][b]%s[/b][/color]  %s     %s" % [
+				PLAYER_COLOURS[seat].to_html(), confirm,
+				_ui("player.hud.select"), final_hint,
 			]
 		)
 	var unit := _unit_by_id(selected)
 	if _unit_is_pending(selected):
-		return "[color=#69d9ff][b]MOVING…[/b][/color]"
+		return "[color=#69d9ff][b]%s[/b][/color]" % _ui("player.hud.moving")
 	if not unit.is_empty() and unit.get("has_acted", false):
-		return "[color=#718896][b]DONE[/b][/color]"
+		return "[color=#718896][b]%s[/b][/color]" % _ui("player.hud.done")
 	if snapshot.get("deploying", false):
-		return "[b]%s[/b]  PLACE     [b]%s[/b]  BACK     [b]%s[/b]  BEGIN" % [
-			confirm, cancel, menu
+		return "[b]%s[/b]  %s     [b]%s[/b]  %s     [b]%s[/b]  %s" % [
+			confirm, _ui("player.hud.place"),
+			cancel, _ui("player.hud.back"),
+			menu, _ui("player.hud.begin"),
 		]
 	var mode := action_modes[seat]
-	var action: String = {
-		"move": "MOVE",
-		"attack": "ATTACK",
-		"ability": "ABILITY",
-		"talk": "TALK",
-	}.get(mode, "CONFIRM")
+	var action := (
+		_action_text(mode)
+		if mode in MODES else _ui("player.hud.confirm")
+	)
 	return (
 		"[color=#69d9ff][b]%s[/b][/color]  %s     " % [confirm, action]
-		+ "[b]%s[/b]  ACTION     [b]%s[/b]  BACK     [b]%s[/b]  FINISH" % [
-			next_action, cancel, finish
+		+ "[b]%s[/b]  %s     [b]%s[/b]  %s     [b]%s[/b]  %s" % [
+			next_action, _ui("player.hud.action_button"),
+			cancel, _ui("player.hud.back"),
+			finish, _ui("player.hud.finish"),
 		]
 	)
 
@@ -3620,10 +3641,14 @@ func _unit_by_id(id: int) -> Dictionary:
 func _update_status() -> void:
 	if snapshot.is_empty():
 		return
-	var phase := "DEPLOY" if snapshot.get("deploying", false) else (
-		"TEAM" if String(snapshot.active_side) == "first" else "ENEMY"
+	var phase := _ui("player.hud.phase.deploy") if snapshot.get("deploying", false) else (
+		_ui("player.hud.phase.team")
+		if String(snapshot.active_side) == "first" else _ui("player.hud.phase.enemy")
 	)
-	turn_label.text = "ROUND %d  •  %s" % [int(snapshot.round) + 1, phase]
+	turn_label.text = _ui("player.hud.round", {
+		"round": int(snapshot.round) + 1,
+		"phase": phase,
+	})
 	turn_label.add_theme_color_override(
 		"font_color",
 		Color("69d9ff") if String(snapshot.active_side) == "first" else Color("ff7182")
@@ -3645,7 +3670,7 @@ func _show_dialogue_line() -> void:
 	dialogue_speaker.text = String(line.get("speaker", ""))
 	dialogue_text.text = String(line.get("text", ""))
 	var confirm_label: String = controls.label("confirm")
-	dialogue_hint.text = "%s / ENTER  CONTINUE" % confirm_label
+	dialogue_hint.text = _ui("player.dialogue.continue", {"confirm": confirm_label})
 	_set_dialogue_backdrop(int(line.get("backdrop", 0)))
 	if line.has("archetype"):
 		var portrait_frame := art.character_frame(line, "idle")
@@ -3719,15 +3744,17 @@ func _position_toast() -> void:
 
 
 func _show_fatal(message: String) -> void:
-	status_label.text = "CANNOT START"
+	status_label.text = _ui("player.error.cannot_start")
 	unit_panel.visible = true
-	unit_name.text = "PC client error"
+	unit_name.text = _ui("player.error.client")
 	unit_stats.text = "[color=#ff7182]%s[/color]" % message
 	_show_toast(message)
 
 
 func _help_text() -> String:
-	return "[color=#69d9ff][b]%s[/b][/color]  SELECT" % controls.label("confirm")
+	return "[color=#69d9ff][b]%s[/b][/color]  %s" % [
+		controls.label("confirm"), _ui("player.hud.select")
+	]
 
 
 func _ui(message_id: String, values: Dictionary = {}) -> String:
@@ -3736,6 +3763,10 @@ func _ui(message_id: String, values: Dictionary = {}) -> String:
 
 func _state_text(state: String) -> String:
 	return _ui("player.state.%s" % state)
+
+
+func _action_text(action: String) -> String:
+	return _ui("player.action.%s" % action)
 
 
 func _bind_font_size(control: Control, key: String, base: int) -> void:

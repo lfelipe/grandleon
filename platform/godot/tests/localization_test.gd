@@ -129,6 +129,22 @@ func _run() -> void:
 		player.session_menu_checkpoint_buttons[0].text,
 		"PONTO 1  /  VAZIO"
 	)
+	player.snapshot = {"active_side": "first", "deploying": false, "round": 0}
+	player._update_status()
+	_expect("battle round chip uses Portuguese", player.turn_label.text, "RODADA 1  •  EQUIPE")
+	_expect(
+		"battle control strip uses Portuguese",
+		player.help_label.text.contains("ESCOLHER"),
+		true
+	)
+	_expect("battle action names use Portuguese", player._action_text("attack"), "ATACAR")
+	_expect("controller ownership uses Portuguese", player._control_colour_name(0), "CIANO")
+	player.snapshot.active_side = "second"
+	_expect(
+		"enemy turn notice uses Portuguese",
+		player._context_help_text(0).contains("TURNO INIMIGO"),
+		true
+	)
 	player.queue_free()
 	localization.call("select_language", "en", false)
 	service.free()

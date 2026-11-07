@@ -103,7 +103,9 @@ dialogue, company character names, objectives, named battle placements, and
 named units, weapons, abilities, and items. Godot's remaining in-battle
 interface and console localization are still being audited. Its session menu,
 display settings, checkpoint flow, diagnostics, and dialogue-continue prompt
-already follow the chosen Grandleon interface language.
+already follow the chosen Grandleon interface language, as do the live battle
+turn chip, unit card, action popup, contextual controls, controller ownership,
+and common refusal messages.
 
 ## Add chapters and branches
 

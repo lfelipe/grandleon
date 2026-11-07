@@ -296,9 +296,12 @@ than reproduce those implementation details.
   - [x] Move the Godot player's session menu, display settings, checkpoint
     flow, diagnostics, and dialogue-continue prompt into the same catalog, with
     a Portuguese smoke test over the real player controls and compact layout.
-  - [ ] Move the remaining Godot battle HUD, action prompts, controller status,
-    outcomes, and error copy into the same catalog, then audit longer
-    translations, glyph coverage, focus order, and compact layouts there.
+  - [x] Move the Godot turn chip, unit card, action popup, contextual controls,
+    controller ownership, and common command refusals into the same catalog;
+    exercise the Portuguese battle HUD in the real player smoke test.
+  - [ ] Move the remaining Godot campaign outcomes, deployment notices,
+    connection changes, and uncommon error copy into the same catalog, then
+    audit longer translations and glyph coverage there.
 - [x] Add portable project data for a game's source language and translations.
   Migration must preserve every authored string, and runtimes must fall back to
   the source text when a translation is missing rather than showing an empty
