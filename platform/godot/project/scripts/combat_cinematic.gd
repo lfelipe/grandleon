@@ -13,8 +13,8 @@ const PHASE_IDLE := "idle"
 const PHASE_ENTERING := "entering"
 const PHASE_PLAYING := "playing"
 const PHASE_EXITING := "exiting"
-const FULL_ENTER_SECONDS := 0.72
-const FULL_EXIT_SECONDS := 0.58
+const FULL_ENTER_SECONDS := 1.10
+const FULL_EXIT_SECONDS := 0.95
 const REDUCED_ENTER_SECONDS := 0.34
 const REDUCED_EXIT_SECONDS := 0.30
 
@@ -36,6 +36,10 @@ var _playback_paused := false
 var _phase := PHASE_IDLE
 var _transition_elapsed := 0.0
 var _focus_points: Array[Vector2] = []
+var _stage_left_unit: Dictionary = {}
+var _stage_right_unit: Dictionary = {}
+var _board_camera_host: Node
+var _board_camera_engaged := false
 var _headline: Label
 var _result: Label
 var _actor_name: Label
@@ -98,6 +102,29 @@ func focus_points() -> Array[Vector2]:
 	return _focus_points.duplicate()
 
 
+func stage_render_state() -> Dictionary:
+	var beat := _beat()
+	if beat.is_empty() or _stage_left_unit.is_empty() or _stage_right_unit.is_empty():
+		return {}
+	var actor_slot := _stage_slot(int(beat.get("actor_id", 0)))
+	var target_slot := _stage_slot(int(beat.get("target_id", 0)))
+	return {
+		"beat_index": _beat_index,
+		"left_unit_id": int(_stage_left_unit.get("id", 0)),
+		"right_unit_id": int(_stage_right_unit.get("id", 0)),
+		"actor_slot": actor_slot,
+		"target_slot": target_slot,
+		"impact_slot": target_slot,
+	}
+
+
+func set_board_camera_host(value: Node) -> void:
+	if _board_camera_host == value:
+		return
+	_restore_board_camera()
+	_board_camera_host = value
+
+
 func set_fast_forward(value: bool) -> void:
 	_fast_forward = value
 	_update_hint()
@@ -118,6 +145,7 @@ func skip_exchange() -> void:
 
 
 func clear() -> void:
+	_restore_board_camera()
 	_queue.clear()
 	_current.clear()
 	_terrain.clear()
@@ -127,6 +155,8 @@ func clear() -> void:
 	_phase = PHASE_IDLE
 	_transition_elapsed = 0.0
 	_focus_points.clear()
+	_stage_left_unit.clear()
+	_stage_right_unit.clear()
 	modulate.a = 0.0
 	scale = Vector2.ONE
 	visible = false
@@ -139,6 +169,7 @@ func _process(delta: float) -> void:
 	var presentation_delta := delta * (3.0 if _fast_forward else 1.0)
 	if _phase == PHASE_ENTERING:
 		_transition_elapsed += presentation_delta
+		_update_board_camera_focus(_transition_elapsed / _entrance_duration())
 		if _transition_elapsed >= _entrance_duration():
 			_phase = PHASE_PLAYING
 			_transition_elapsed = 0.0
@@ -149,6 +180,7 @@ func _process(delta: float) -> void:
 		return
 	if _phase == PHASE_EXITING:
 		_transition_elapsed += presentation_delta
+		_update_board_camera_focus(1.0 - _transition_elapsed / _exit_duration())
 		if _transition_elapsed >= _exit_duration():
 			_complete_exchange()
 			return
@@ -182,13 +214,17 @@ func _start_next() -> void:
 	for value: Variant in _current.get("focus_points", []):
 		if value is Vector2:
 			_focus_points.append(value)
+	var first_beat: Dictionary = _beats()[0]
+	_stage_left_unit = Dictionary(first_beat.get("actor", {})).duplicate(true)
+	_stage_right_unit = Dictionary(first_beat.get("target", {})).duplicate(true)
+	_begin_board_camera_focus()
 	_beat_index = 0
 	_elapsed = 0.0
 	_phase = PHASE_ENTERING
 	_transition_elapsed = 0.0
 	modulate.a = 0.0
 	pivot_offset = get_viewport_rect().size * 0.5
-	scale = Vector2.ONE if motion_mode == "reduced" else Vector2(0.91, 0.91)
+	scale = Vector2.ONE
 	visible = true
 	move_to_front()
 	_update_labels()
@@ -199,12 +235,14 @@ func _begin_exit() -> void:
 	_phase = PHASE_EXITING
 	_transition_elapsed = 0.0
 	_elapsed = _beat_duration()
+	_update_board_camera_focus(1.0)
 	_update_transition_visuals()
 	_update_labels()
 	queue_redraw()
 
 
 func _complete_exchange() -> void:
+	_restore_board_camera()
 	exchange_finished.emit()
 	_current.clear()
 	_beat_index = 0
@@ -213,6 +251,8 @@ func _complete_exchange() -> void:
 	_phase = PHASE_IDLE
 	_transition_elapsed = 0.0
 	_focus_points.clear()
+	_stage_left_unit.clear()
+	_stage_right_unit.clear()
 	modulate.a = 0.0
 	scale = Vector2.ONE
 	_start_next()
@@ -238,20 +278,57 @@ func _update_transition_visuals() -> void:
 	var progress := _transition_progress()
 	pivot_offset = get_viewport_rect().size * 0.5
 	if _phase == PHASE_ENTERING:
-		modulate.a = smoothstep(0.08, 0.92, progress)
-		scale = (
-			Vector2.ONE if motion_mode == "reduced"
-			else Vector2.ONE * lerpf(0.91, 1.0, smoothstep(0.0, 1.0, progress))
+		modulate.a = (
+			smoothstep(0.08, 0.92, progress)
+			if motion_mode == "reduced" or not _board_camera_engaged
+			else smoothstep(0.74, 1.0, progress)
 		)
 	elif _phase == PHASE_EXITING:
-		modulate.a = 1.0 - smoothstep(0.08, 0.92, progress)
-		scale = (
-			Vector2.ONE if motion_mode == "reduced"
-			else Vector2.ONE * lerpf(1.0, 0.965, smoothstep(0.0, 1.0, progress))
+		modulate.a = (
+			1.0 - smoothstep(0.08, 0.92, progress)
+			if motion_mode == "reduced" or not _board_camera_engaged
+			else 1.0 - smoothstep(0.05, 0.34, progress)
 		)
 	elif _phase == PHASE_PLAYING:
 		modulate.a = 1.0
-		scale = Vector2.ONE
+	scale = Vector2.ONE
+
+
+func _begin_board_camera_focus() -> void:
+	_board_camera_engaged = false
+	if (
+		motion_mode != "full"
+		or _board_camera_host == null
+		or not is_instance_valid(_board_camera_host)
+		or not _board_camera_host.has_method("begin_combat_focus")
+	):
+		return
+	_board_camera_engaged = bool(_board_camera_host.call(
+		"begin_combat_focus",
+		Vector2i(int(_stage_left_unit.get("x", 0)), int(_stage_left_unit.get("y", 0))),
+		Vector2i(int(_stage_right_unit.get("x", 0)), int(_stage_right_unit.get("y", 0)))
+	))
+
+
+func _update_board_camera_focus(progress: float) -> void:
+	if (
+		not _board_camera_engaged
+		or _board_camera_host == null
+		or not is_instance_valid(_board_camera_host)
+	):
+		return
+	_board_camera_host.call("set_combat_focus_progress", clampf(progress, 0.0, 1.0))
+
+
+func _restore_board_camera() -> void:
+	if (
+		_board_camera_engaged
+		and _board_camera_host != null
+		and is_instance_valid(_board_camera_host)
+		and _board_camera_host.has_method("end_combat_focus")
+	):
+		_board_camera_host.call("end_combat_focus")
+	_board_camera_engaged = false
 
 
 func _beats() -> Array:
@@ -265,6 +342,14 @@ func _beat() -> Dictionary:
 	if _beat_index < 0 or _beat_index >= values.size():
 		return {}
 	return values[_beat_index]
+
+
+func _stage_slot(unit_id: int) -> String:
+	if unit_id == int(_stage_left_unit.get("id", 0)):
+		return "left"
+	if unit_id == int(_stage_right_unit.get("id", 0)):
+		return "right"
+	return "unassigned"
 
 
 func _beat_duration() -> float:
@@ -329,11 +414,13 @@ func _update_labels() -> void:
 	)
 	_actor_name.position = Vector2(viewport_size.x * 0.12, viewport_size.y - 150)
 	_actor_name.size = Vector2(viewport_size.x * 0.30, 44)
-	_actor_name.text = String(beat.actor.get("name", "Unit"))
+	_actor_name.text = String(_stage_left_unit.get("name", "Unit"))
 	_target_name.position = Vector2(viewport_size.x * 0.58, viewport_size.y - 150)
 	_target_name.size = Vector2(viewport_size.x * 0.30, 44)
-	_target_name.text = String(beat.target.get("name", "Unit"))
-	_result.position = Vector2(viewport_size.x * 0.58, viewport_size.y * 0.24)
+	_target_name.text = String(_stage_right_unit.get("name", "Unit"))
+	var render_state := stage_render_state()
+	var result_x := 0.12 if String(render_state.get("target_slot", "right")) == "left" else 0.58
+	_result.position = Vector2(viewport_size.x * result_x, viewport_size.y * 0.24)
 	_result.size = Vector2(viewport_size.x * 0.30, 80)
 	var progress := _progress()
 	_result.visible = progress >= 0.52
@@ -374,77 +461,50 @@ func _draw() -> void:
 	if beat.is_empty():
 		return
 	var viewport_size := get_viewport_rect().size
-	var target: Dictionary = beat.target
-	var terrain_kind := _terrain_kind(int(target.get("x", 0)), int(target.get("y", 0)))
+	var stage_context := _stage_right_unit
+	var terrain_kind := _terrain_kind(
+		int(stage_context.get("x", 0)), int(stage_context.get("y", 0))
+	)
 	var ground: Color = TERRAIN_COLOURS[terrain_kind]
 	var sky: Color = ground.darkened(0.68).lerp(Color("13243b"), 0.48)
 	draw_rect(Rect2(Vector2.ZERO, viewport_size), sky)
-	_draw_skyline(viewport_size, target, terrain_kind)
-	_draw_floor(viewport_size, target)
+	_draw_skyline(viewport_size, stage_context, terrain_kind)
+	_draw_floor(viewport_size, stage_context)
 	var progress := _progress()
+	var render_state := stage_render_state()
+	var actor_slot := String(render_state.get("actor_slot", "left"))
+	var target_slot := String(render_state.get("target_slot", "right"))
 	var zoom := 1.0
 	var pan := Vector2.ZERO
 	if motion_mode == "full":
 		zoom = lerpf(0.88, 1.0, smoothstep(0.0, 0.18, progress))
 		if progress >= 0.48:
 			zoom += sin(clampf((progress - 0.48) / 0.18, 0.0, 1.0) * PI) * 0.075
-		pan.x = lerpf(-viewport_size.x * 0.025, viewport_size.x * 0.03, progress)
+		var pan_direction := 1.0 if actor_slot == "left" else -1.0
+		pan.x = lerpf(-viewport_size.x * 0.025, viewport_size.x * 0.03, progress) * pan_direction
 		if camera_impulse_enabled and progress >= 0.54 and progress <= 0.64:
 			pan += Vector2(sin(progress * 173.0), cos(progress * 137.0)) * 7.0
 	var centre := viewport_size * 0.5 + pan
-	var actor_at := centre + Vector2(-viewport_size.x * 0.205, viewport_size.y * 0.17) * zoom
-	var target_at := centre + Vector2(viewport_size.x * 0.205, viewport_size.y * 0.17) * zoom
+	var left_at := centre + Vector2(-viewport_size.x * 0.205, viewport_size.y * 0.17) * zoom
+	var right_at := centre + Vector2(viewport_size.x * 0.205, viewport_size.y * 0.17) * zoom
 	var handoff_scale := zoom
-	if motion_mode == "full" and _phase in [PHASE_ENTERING, PHASE_EXITING]:
-		var handoff := _transition_progress()
-		if _phase == PHASE_EXITING:
-			handoff = 1.0 - handoff
-		var eased := smoothstep(0.0, 1.0, handoff)
-		actor_at = _focus_point(0, actor_at).lerp(actor_at, eased)
-		target_at = _focus_point(1, target_at).lerp(target_at, eased)
-		handoff_scale *= lerpf(0.24, 1.0, eased)
-		_draw_focus_handoff(viewport_size, actor_at, target_at, eased)
+	var landed := bool(beat.get("landed", false))
+	var defeated := bool(beat.get("defeated", false))
 	_draw_actor(
-		beat.actor,
-		actor_at, true, progress, false, false, handoff_scale
+		_stage_left_unit, left_at, true, progress,
+		actor_slot == "left", landed and target_slot == "left",
+		defeated and target_slot == "left", handoff_scale
 	)
 	_draw_actor(
-		beat.target,
-		target_at,
-		false, progress, bool(beat.get("landed", false)),
-		bool(beat.get("defeated", false)), handoff_scale
+		_stage_right_unit, right_at, false, progress,
+		actor_slot == "right", landed and target_slot == "right",
+		defeated and target_slot == "right", handoff_scale
 	)
-	_draw_impact(viewport_size, beat, progress, centre, zoom)
+	_draw_impact(
+		viewport_size, beat, progress,
+		left_at if target_slot == "left" else right_at, zoom
+	)
 	_draw_cinematic_frame(viewport_size)
-
-
-func _focus_point(index: int, fallback: Vector2) -> Vector2:
-	if index < 0 or index >= _focus_points.size():
-		return fallback
-	var point := _focus_points[index]
-	var viewport_size := get_viewport_rect().size
-	if point.x < 0.0 or point.y < 0.0 or point.x > viewport_size.x or point.y > viewport_size.y:
-		return fallback
-	return point
-
-
-func _draw_focus_handoff(
-	viewport_size: Vector2, actor_at: Vector2, target_at: Vector2, settled: float
-) -> void:
-	var trail_alpha := (1.0 - settled) * 0.72
-	if trail_alpha <= 0.01:
-		return
-	var actor_start := _focus_point(0, actor_at)
-	var target_start := _focus_point(1, target_at)
-	var actor_colour := Color("69d9ff")
-	var target_colour := Color("ffca63")
-	actor_colour.a = trail_alpha
-	target_colour.a = trail_alpha
-	draw_line(actor_start, actor_at, actor_colour, 5.0, true)
-	draw_line(target_start, target_at, target_colour, 5.0, true)
-	var pulse := 18.0 + (1.0 - settled) * minf(viewport_size.x, viewport_size.y) * 0.028
-	draw_arc(actor_start, pulse, 0.0, TAU, 32, actor_colour, 5.0, true)
-	draw_arc(target_start, pulse, 0.0, TAU, 32, target_colour, 5.0, true)
 
 
 func _draw_cinematic_frame(viewport_size: Vector2) -> void:
@@ -524,10 +584,10 @@ func _draw_floor(size: Vector2, target: Dictionary) -> void:
 
 func _draw_actor(
 	unit: Dictionary, offset: Vector2, faces_right: bool, progress: float,
-	struck: bool, defeated: bool, view_scale: float
+	is_actor: bool, struck: bool, defeated: bool, view_scale: float
 ) -> void:
 	var state := "idle"
-	if not struck and progress >= 0.12 and progress < 0.66:
+	if is_actor and progress >= 0.12 and progress < 0.66:
 		state = "ability" if String(_current.plan.get("action", "")) == "ability" else "attack"
 	elif struck and progress >= 0.52:
 		state = "defeat" if defeated and progress >= 0.76 else "hurt"
@@ -551,12 +611,15 @@ func _draw_actor(
 	if flip:
 		pivot.x = 1.0 - pivot.x
 	var lunge := 0.0
-	if not struck and motion_mode == "full":
+	if is_actor and motion_mode == "full":
 		lunge = sin(clampf((progress - 0.12) / 0.52, 0.0, 1.0) * PI) * 82.0
 	var recoil := 0.0
 	if struck and progress >= 0.52 and motion_mode == "full":
 		recoil = sin(clampf((progress - 0.52) / 0.32, 0.0, 1.0) * PI) * 42.0
-	var ground := offset + Vector2(lunge + recoil, 0.0) * view_scale
+	var facing_direction := 1.0 if faces_right else -1.0
+	var ground := offset + Vector2(
+		lunge * facing_direction - recoil * facing_direction, 0.0
+	) * view_scale
 	_draw_oval(
 		ground + Vector2(0, 4), Vector2(dimensions.x * 0.30, 22 * view_scale),
 		Color(0.01, 0.02, 0.025, 0.48)
@@ -578,12 +641,12 @@ func _draw_oval(at: Vector2, radius: Vector2, colour: Color) -> void:
 
 func _draw_impact(
 	size: Vector2, beat: Dictionary, progress: float,
-	centre: Vector2, view_scale: float
+	target_ground: Vector2, view_scale: float
 ) -> void:
 	if progress < 0.48 or progress > 0.76:
 		return
 	var phase := clampf((progress - 0.48) / 0.28, 0.0, 1.0)
-	var at := centre + Vector2(size.x * 0.205, size.y * 0.03) * view_scale
+	var at := target_ground + Vector2(0.0, -size.y * 0.14 * view_scale)
 	var colour := Color("fff0b0") if bool(beat.get("landed", false)) else Color("d8edf2")
 	colour.a = 1.0 - phase
 	var radius := lerpf(28.0, 135.0, phase) * view_scale

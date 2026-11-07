@@ -76,6 +76,14 @@ var _aura_texture: Texture2D
 var _camera_base_position := Vector3.ZERO
 var _camera_shake_until := 0
 var _camera_shake_strength := 0.0
+var _combat_camera_active := false
+var _combat_camera_progress := 0.0
+var _combat_camera_start_transform := Transform3D.IDENTITY
+var _combat_camera_focus_transform := Transform3D.IDENTITY
+var _combat_camera_start_size := 8.4
+var _combat_camera_focus_size := 4.8
+var _combat_camera_actor_id := 0
+var _combat_camera_target_id := 0
 var _pulse := 0.0
 
 
@@ -318,6 +326,105 @@ func screen_position_for_cell(cell: Vector2i) -> Vector2:
 	var at := _cell_position(cell.x, cell.y)
 	at.y = _surface_height(cell.x, cell.y) + 1.15
 	return global_position + _camera.unproject_position(at)
+
+
+func begin_combat_focus(actor_cell: Vector2i, target_cell: Vector2i) -> bool:
+	if _camera == null or snapshot.is_empty():
+		return false
+	if not _cell_is_valid(actor_cell) or not _cell_is_valid(target_cell):
+		return false
+	var actor_at := _cell_position(actor_cell.x, actor_cell.y)
+	var target_at := _cell_position(target_cell.x, target_cell.y)
+	actor_at.y = _surface_height(actor_cell.x, actor_cell.y) + 0.72
+	target_at.y = _surface_height(target_cell.x, target_cell.y) + 0.72
+	var pair_axis := Vector3(target_at.x - actor_at.x, 0.0, target_at.z - actor_at.z)
+	var pair_distance := pair_axis.length()
+	if pair_distance < 0.01:
+		return false
+	# Combat events may have armed an impulse in the same frame. The drone move
+	# starts from the stable tactical camera, not a random shake offset.
+	_camera_shake_until = 0
+	_camera_shake_strength = 0.0
+	_camera.position = _camera_base_position
+	_combat_camera_start_transform = _camera.transform
+	_combat_camera_start_size = _camera.size
+	var pair_direction := pair_axis / pair_distance
+	# This perpendicular guarantees actor → target projects left → right. It is
+	# independent of map orientation and works equally at corners and edges.
+	var view_forward := Vector3(pair_direction.z, 0.0, -pair_direction.x)
+	var midpoint := (actor_at + target_at) * 0.5
+	midpoint.y = maxf(actor_at.y, target_at.y) + 0.22
+	var aspect := 16.0 / 9.0
+	if _viewport != null and _viewport.size.y > 0:
+		aspect = float(_viewport.size.x) / float(_viewport.size.y)
+	var desired_size := pair_distance / maxf(0.01, 0.38 * aspect)
+	_combat_camera_focus_size = clampf(
+		desired_size, 2.15, maxf(2.15, _combat_camera_start_size * 0.96)
+	)
+	var horizontal_distance := clampf(_combat_camera_focus_size * 0.82 + 1.3, 3.1, 10.0)
+	var camera_height := clampf(horizontal_distance * 0.72, 2.8, 7.6)
+	var focus_position := midpoint - view_forward * horizontal_distance
+	focus_position.y += camera_height
+	_combat_camera_focus_transform = _looking_transform(focus_position, midpoint)
+	_combat_camera_actor_id = int(unit_at(actor_cell).get("id", 0))
+	_combat_camera_target_id = int(unit_at(target_cell).get("id", 0))
+	_combat_camera_active = true
+	set_combat_focus_progress(0.0)
+	return true
+
+
+func set_combat_focus_progress(value: float) -> void:
+	if not _combat_camera_active or _camera == null:
+		return
+	_combat_camera_progress = clampf(value, 0.0, 1.0)
+	var eased := smoothstep(0.0, 1.0, _combat_camera_progress)
+	_camera.transform = _combat_camera_start_transform.interpolate_with(
+		_combat_camera_focus_transform, eased
+	)
+	_camera.size = lerpf(_combat_camera_start_size, _combat_camera_focus_size, eased)
+	if _combat_camera_actor_id != 0 and _combat_camera_target_id != 0:
+		_face_unit_toward(_combat_camera_actor_id, _combat_camera_target_id)
+		_face_unit_toward(_combat_camera_target_id, _combat_camera_actor_id)
+
+
+func end_combat_focus() -> void:
+	if not _combat_camera_active or _camera == null:
+		return
+	_camera.transform = _combat_camera_start_transform
+	_camera.size = _combat_camera_start_size
+	_camera_base_position = _camera.position
+	_combat_camera_active = false
+	_combat_camera_progress = 0.0
+	_combat_camera_actor_id = 0
+	_combat_camera_target_id = 0
+
+
+func combat_focus_state() -> Dictionary:
+	return {
+		"active": _combat_camera_active,
+		"progress": _combat_camera_progress,
+		"start_transform": _combat_camera_start_transform,
+		"focus_transform": _combat_camera_focus_transform,
+		"current_transform": _camera.transform if _camera != null else Transform3D.IDENTITY,
+		"start_size": _combat_camera_start_size,
+		"focus_size": _combat_camera_focus_size,
+		"current_size": _camera.size if _camera != null else 0.0,
+	}
+
+
+func _cell_is_valid(cell: Vector2i) -> bool:
+	return (
+		cell.x >= 0 and cell.y >= 0
+		and cell.x < int(snapshot.get("width", 0))
+		and cell.y < int(snapshot.get("height", 0))
+	)
+
+
+func _looking_transform(position: Vector3, target: Vector3) -> Transform3D:
+	var forward := (target - position).normalized()
+	var right := forward.cross(Vector3.UP).normalized()
+	var up := right.cross(forward).normalized()
+	return Transform3D(Basis(right, up, -forward).orthonormalized(), position)
 
 
 func unit_at(cell: Vector2i) -> Dictionary:
@@ -1348,6 +1455,8 @@ func _shake_camera(duration_msec: int, strength: float) -> void:
 
 func _update_camera_shake(now_msec: int) -> void:
 	if _camera == null:
+		return
+	if _combat_camera_active:
 		return
 	if now_msec < _camera_shake_until:
 		var offset := Vector3(

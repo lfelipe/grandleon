@@ -39,6 +39,7 @@ func _run() -> void:
 	var cinematic = CombatCinematic.new()
 	get_root().add_child(cinematic)
 	cinematic.configure(profile, 1.08, "full", true)
+	cinematic.set_board_camera_host(board)
 	var plan := CombatPresentationPlan.build(
 		before, after,
 		[

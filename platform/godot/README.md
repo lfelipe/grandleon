@@ -81,12 +81,14 @@ order published by the simulation. **Battle Close-ups** turns the view on or
 off. **Cinematic Motion / Reduced** keeps the same information while removing
 camera punch and rapid zoom.
 
-The transition starts on the live board. The full-motion treatment focuses the
-attacker and target, pushes into the terrain-derived stage, and dissolves back
-to the already-settled board after the last result. Reduced motion uses a short,
-calm crossfade instead. The handoff is anchored to the two units, so it does not
-place an information card over either character while the player is following
-the exchange.
+The transition starts on the live board. The full-motion treatment saves the
+tactical camera, flies the real 3D camera down toward the two units, rotates so
+the first attacker remains on the left and defender on the right, and blends
+into the terrain-derived stage only at the end of that flight. A counterattack
+reverses the action without swapping either character's screen position. After
+the final result, the close view reveals the focused board and the camera flies
+back to its exact saved position. Reduced motion leaves the board camera alone
+and uses a short, calm crossfade instead.
 
 The close view is deliberately skippable because it adds time to every
 exchange. Hold **Confirm** to fast-forward it, or press **Cancel** to return to

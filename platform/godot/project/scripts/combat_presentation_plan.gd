@@ -81,15 +81,34 @@ static func build(
 			passthrough.append(event.duplicate(true))
 	if beats.is_empty():
 		return {}
+	# The first accepted strike establishes the stage geography for the whole
+	# exchange. A reversed authoritative event is a counterattack, not a cue to
+	# teleport both figures to the opposite side of the close view.
+	var stage := {
+		"left_unit_id": int(beats[0].actor_id),
+		"right_unit_id": int(beats[0].target_id),
+	}
+	for beat: Dictionary in beats:
+		beat["actor_slot"] = _stage_slot(int(beat.actor_id), stage)
+		beat["target_slot"] = _stage_slot(int(beat.target_id), stage)
 	return {
 		"valid": true,
 		"action": action,
 		"content_id": int(content_id),
 		"before_snapshot": before_snapshot.duplicate(true),
 		"after_snapshot": after_snapshot.duplicate(true),
+		"stage": stage,
 		"beats": beats,
 		"passthrough_events": passthrough,
 	}
+
+
+static func _stage_slot(unit_id: int, stage: Dictionary) -> String:
+	if unit_id == int(stage.get("left_unit_id", 0)):
+		return "left"
+	if unit_id == int(stage.get("right_unit_id", 0)):
+		return "right"
+	return "unassigned"
 
 
 static func _units_by_id(snapshot: Dictionary) -> Dictionary:

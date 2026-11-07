@@ -1094,6 +1094,8 @@ func _create_board(profile: String) -> void:
 	board.set_profile(profile, graphics_profiles.profile(profile))
 	add_child(board)
 	board.set_camera_impulse_enabled(camera_impulse_enabled)
+	if combat_cinematic != null:
+		combat_cinematic.set_board_camera_host(board)
 
 
 func _create_combat_cinematic(profile: Dictionary) -> void:
@@ -1102,6 +1104,7 @@ func _create_combat_cinematic(profile: Dictionary) -> void:
 	add_child(layer)
 	combat_cinematic = CombatCinematic.new()
 	layer.add_child(combat_cinematic)
+	combat_cinematic.set_board_camera_host(board)
 	combat_cinematic.set_playback_paused(combat_cinematic_smoke)
 	combat_cinematic.configure(
 		profile, text_scale, cinematic_motion, camera_impulse_enabled

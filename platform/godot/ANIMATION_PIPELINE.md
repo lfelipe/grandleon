@@ -100,13 +100,21 @@ pure planner, controller queue, persisted settings, and this native
 event/snapshot boundary.
 
 The presentation controller has explicit entering, playing, and exiting
-phases. `main.gd` projects the first attacker and target cells into screen
-coordinates and passes those points as visual anchors. Full motion grows the
-stage from those anchors with a focus trail, camera push, letterbox, and soft
-dissolve; Reduced motion keeps the stage fixed and uses a shorter crossfade.
-The exit reveals the authoritative settled board that was already underneath.
-Fast-forward advances every phase, while skip removes the visual layer
-immediately. Neither path delays, rewrites, or replays simulation state.
+phases. The first beat also locks two stage slots: its actor stays on the left
+and its target stays on the right for the whole exchange. A reversed counter
+therefore makes the right unit attack leftward, puts recoil and damage on the
+left, and never teleports either figure between beats.
+
+Under Full motion, `combat_cinematic.gd` asks `board_view_3d.gd` to save its
+tactical camera and focus the two cells. The board computes their 3D midpoint
+and axis, rotates and lowers the real camera so actor → target projects left →
+right, adjusts the orthographic size with a safe character margin, and
+interpolates transform and size. The close stage blends in only near the end of
+that flight. On exit it reveals the still-focused board, reverses the camera
+path, and restores the saved transform exactly. Reduced motion never moves the
+board camera and uses a shorter crossfade. Fast-forward advances every phase;
+skip restores the camera and removes the visual layer immediately. None of
+these paths delays, rewrites, or replays simulation state.
 
 An accepted move now carries an optional motion record. The native bridge uses
 the same portable route planner as the Nintendo 64 client over the pre-command
