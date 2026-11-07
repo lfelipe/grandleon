@@ -20,7 +20,65 @@ func _run() -> void:
 		return
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
+	var localization = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var packed: PackedScene = load("res://map_editor.tscn")
+	var localized_editor = packed.instantiate()
+	root.add_child(localized_editor)
+	current_scene = localized_editor
+	await process_frame
+	await process_frame
+	_expect(
+		"Map Editor opens in Brazilian Portuguese",
+		localized_editor.title_label.text,
+		"PAINTED CROSSING  /  MAPA E BATALHA"
+	)
+	_expect(
+		"Portuguese workflow guidance is visible",
+		_tree_has_text(localized_editor, "MODELE O MAPA"),
+		true
+	)
+	_expect(
+		"Portuguese ready status is visible",
+		localized_editor.status_label.text,
+		"PRONTO  /  ESCOLHA O TERRENO E PINTE O TABULEIRO"
+	)
+	_expect(
+		"Portuguese solo preview is visible",
+		localized_editor.experience_select.get_item_text(0),
+		"1J  /  CAMPANHA BASE"
+	)
+	_expect(
+		"Portuguese long status copy keeps smart wrapping",
+		localized_editor.status_label.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect(
+		"localized Map selector receives controller focus",
+		localized_editor.map_select.has_focus(),
+		true
+	)
+	localized_editor._open_surroundings()
+	await process_frame
+	_expect(
+		"Portuguese surroundings help is visible",
+		localized_editor.surroundings_guidance_label.text.contains("A cor escolhida"),
+		true
+	)
+	_expect(
+		"localized surroundings help keeps smart wrapping",
+		localized_editor.surroundings_guidance_label.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect(
+		"localized surroundings workflow keeps controller focus",
+		localized_editor.surroundings_first_button.has_focus(),
+		true
+	)
+	localized_editor.queue_free()
+	await process_frame
+	localization.call("select_language", "en", false)
 	var editor = packed.instantiate()
 	root.add_child(editor)
 	current_scene = editor
@@ -1051,6 +1109,7 @@ func _run() -> void:
 
 	if failures == 0:
 		print("map editor smoke passed")
+	localization.call("select_language", prior_language, false)
 	quit(1 if failures > 0 else 0)
 
 
@@ -1065,6 +1124,16 @@ func _parse(value: String) -> Dictionary:
 func _has_map(project: Dictionary, identity: String) -> bool:
 	for value: Variant in project.get("maps", []):
 		if value is Dictionary and str(value.get("id", "")) == identity:
+			return true
+	return false
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label or node is Button:
+		if expected in str(node.text):
+			return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
 			return true
 	return false
 
