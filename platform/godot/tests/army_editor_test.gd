@@ -231,6 +231,14 @@ func _run() -> void:
 	_expect("redo restores the role default", editor._current_member().has("specificity"), false)
 	editor._close_modifiers()
 	_expect("closing hero tuning returns to its single entry action", editor.customize_button.has_focus(), true)
+	_expect("older characters begin with fixed authored names", editor.player_nameable_toggle.button_pressed, false)
+	editor._set_player_nameable(true)
+	_expect("author can allow a player-selected name", bool(editor._current_member().playerNameable), true)
+	_expect("name choice permission is portable source data", bool(_parse(editor.source).campaigns[0].roster[0].playerNameable), true)
+	editor._undo()
+	_expect("name choice permission is undoable", editor._current_member().has("playerNameable"), false)
+	editor._redo()
+	_expect("name choice permission is redoable", bool(editor._current_member().playerNameable), true)
 
 	var first_id := str(editor.members[0].id)
 	editor.name_input.text = "Aren of the Vale"

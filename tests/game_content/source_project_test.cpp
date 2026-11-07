@@ -2736,8 +2736,9 @@ void adds_and_renames_campaign_members_without_retyping_the_project() {
             parsed_added.source.campaigns.front().roster[1].name ==
                 "Blue Two" &&
             parsed_added.source.campaigns.front().roster[1].join_node_id == 0 &&
+            !parsed_added.source.campaigns.front().roster[1].player_nameable &&
             gc::compile(parsed_added.source),
-        "a character can join the starting company and remain playable"
+        "a character can join fixed-name by default and remain playable"
     );
     const auto renamed = gc::rename_source_campaign_member_json(
         added.json, "demo", "blue_two", "Cobalt"
@@ -2751,8 +2752,36 @@ void adds_and_renames_campaign_members_without_retyping_the_project() {
                 parsed_added.source.campaigns.front().roster[1].id,
         "renaming a character preserves persistent identity"
     );
+    const auto nameable =
+        gc::set_source_campaign_member_player_nameable_json(
+            renamed.json, "demo", "blue_two", true
+        );
+    const auto parsed_nameable =
+        gc::parse_source_project_json(nameable.json);
+    expect(
+        nameable && parsed_nameable &&
+            parsed_nameable.source.campaigns.front()
+                .roster[1]
+                .player_nameable &&
+            parsed_nameable.source.campaigns.front().roster[1].name ==
+                "Cobalt" &&
+            gc::compile(parsed_nameable.source),
+        "name choice permission keeps a required playable authored default"
+    );
+    const auto fixed = gc::set_source_campaign_member_player_nameable_json(
+        nameable.json, "demo", "blue_two", false
+    );
+    const auto parsed_fixed = gc::parse_source_project_json(fixed.json);
+    expect(
+        fixed && parsed_fixed &&
+            !parsed_fixed.source.campaigns.front()
+                 .roster[1]
+                 .player_nameable &&
+            fixed.json.find("playerNameable") == std::string::npos,
+        "fixing a name removes the optional field and restores the old shape"
+    );
     const auto recruited = gc::add_source_campaign_member_json(
-        renamed.json, "demo", "battle", "blue_three", "Blue Three",
+        nameable.json, "demo", "battle", "blue_three", "Blue Three",
         "blue_unit"
     );
     const auto parsed_recruited =
@@ -2787,8 +2816,11 @@ void adds_and_renames_campaign_members_without_retyping_the_project() {
         ) &&
             !gc::rename_source_campaign_member_json(
                 source, "demo", "missing", "Nobody"
+            ) &&
+            !gc::set_source_campaign_member_player_nameable_json(
+                source, "demo", "missing", true
             ),
-        "a character rename needs a real character and a visible name"
+        "character name options need a real character and a visible default"
     );
 
     const auto tougher = gc::set_source_campaign_member_modifier_json(

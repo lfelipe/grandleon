@@ -203,6 +203,7 @@ bool is_known_section(std::uint32_t type) {
         case SectionType::campaign_players:
         case SectionType::placement_two_player_positions:
         case SectionType::localizations:
+        case SectionType::player_nameable_members:
             return true;
     }
     return false;

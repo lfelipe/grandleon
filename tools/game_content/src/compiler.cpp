@@ -2847,6 +2847,46 @@ CompileResult compile(const GameSource& source) {
             }
             return section;
         }(),
+        // Permission to replace an authored character name. The authored name
+        // stays in the ordinary campaign record and remains required; this
+        // optional sparse join only says which defaults a player may replace.
+        // A campaign with none emits no record and a project with none emits
+        // no section, preserving older package bytes and their fixed names.
+        [&source]() {
+            package_format::SectionSource section;
+            section.type =
+                package_format::SectionType::player_nameable_members;
+            section.flags = 0;
+            std::vector<const Campaign*> ordered;
+            for (const Campaign& campaign : source.campaigns) {
+                const bool any = std::any_of(
+                    campaign.roster.begin(), campaign.roster.end(),
+                    [](const CampaignMember& member) {
+                        return member.player_nameable;
+                    }
+                );
+                if (any) ordered.push_back(&campaign);
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Campaign* lhs, const Campaign* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Campaign* campaign : ordered) {
+                Bytes bytes;
+                std::uint16_t count = 0;
+                for (const CampaignMember& member : campaign->roster) {
+                    if (member.player_nameable) ++count;
+                }
+                put_u16(bytes, count);
+                for (const CampaignMember& member : campaign->roster) {
+                    if (member.player_nameable) put_u64(bytes, member.id);
+                }
+                section.records.push_back({campaign->id, std::move(bytes)});
+            }
+            return section;
+        }(),
         // What the author called a placement, one record each, keyed by the
         // placement's own identity, which is already namespaced by its
         // encounter, so a record needs no enclosing list and no encounter

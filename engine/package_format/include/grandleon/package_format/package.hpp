@@ -149,6 +149,11 @@ enum class SectionType : std::uint32_t {
     // it and continue drawing source strings, so localization never changes a
     // rule or prevents an older target from playing the game.
     localizations = 25,
+    // Which campaign members a player may rename, keyed by campaign. Sparse
+    // and optional: a campaign with no such members has no record, and a
+    // project with none has no section. Older runtimes therefore skip the
+    // feature and continue using every required authored default name.
+    player_nameable_members = 26,
 };
 
 // The presentation section holds records about the whole game, the way the

@@ -792,6 +792,12 @@ struct CampaignMember final {
     //: it is a claim that a character is specific without saying how, and that
     //: is refused rather than read as omission.
     bool states_specificity{false};
+    //: Whether a player may replace this character's authored name. The name
+    //: above remains required: it is the default shown before a choice and the
+    //: fallback when no custom name was saved. Omitted is false, which is what
+    //: every project authored before this option means. Last so positional
+    //: aggregate initializers do not change meaning.
+    bool player_nameable{false};
 };
 
 // A quantity of one item the campaign puts into its shared store, and where in

@@ -23,7 +23,7 @@
 // poisoned byte is a wrong answer every time rather than an occasional one.
 //
 // The sweep itself is the second mechanism: one valid package covering all
-// eighteen section types, and every two- and four-byte field in it in turn
+// nineteen section types, and every two- and four-byte field in it in turn
 // replaced by the largest value it can hold, with the checksums repaired so
 // the damaged file still authenticates and reaches the decoders rather than
 // being turned away at the envelope. Every reader is run over every variant.
@@ -39,6 +39,7 @@
 #include <grandleon/package_runtime/progression.hpp>
 #include <grandleon/package_runtime/starting_kit.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -298,6 +299,7 @@ gc::GameSource complete_source() {
     kestrel.specificity.stat_deltas[0] = 2;
     kestrel.specificity.stated[0] = true;
     kestrel.specificity.reach_bonus = 1;
+    kestrel.player_nameable = true;
     gc::Campaign campaign;
     campaign.id = 110;
     campaign.name = "Muster";
@@ -411,8 +413,8 @@ void the_fixture_covers_every_section() {
     const pf::LoadResult loaded = pf::load_mock_package(bytes, options());
     expect(static_cast<bool>(loaded), "the hostile-input fixture loads");
     expect(
-        loaded.package.sections.size() == 18U,
-        "the hostile-input fixture authors all eighteen sections"
+        loaded.package.sections.size() == 19U,
+        "the hostile-input fixture authors all nineteen sections"
     );
     expect(
         pr::project_title(loaded.package) == "Hostile input",
@@ -424,8 +426,17 @@ void the_fixture_covers_every_section() {
     expect(
         campaign.definition.members.size() == 2U &&
             campaign.definition.members.front().name_in(loaded.package) ==
-                "Kestrel",
-        "and holds the company the author wrote"
+                "Kestrel" &&
+            campaign.definition.members.front().player_nameable &&
+            !campaign.definition.members.back().player_nameable,
+        "and holds the company and name choices the author wrote"
+    );
+    const pf::SectionView* name_choices =
+        loaded.package.find(pf::SectionType::player_nameable_members);
+    expect(
+        name_choices != nullptr &&
+            (name_choices->flags & pf::section_flag_required) == 0U,
+        "and keeps name choice optional for older console runtimes"
     );
     const pr::EncounterLoadResult encounter =
         pr::load_encounter(loaded.package, 100);
@@ -648,6 +659,36 @@ void a_members_name_survives_the_packages_bytes_growing() {
     );
 }
 
+void an_absent_nameable_section_keeps_authored_names_fixed() {
+    gc::GameSource source = complete_source();
+    for (gc::CampaignMember& member : source.campaigns.front().roster) {
+        member.player_nameable = false;
+    }
+    const gc::CompileResult compiled = gc::compile(source);
+    expect(static_cast<bool>(compiled), "a fixed-name campaign compiles");
+    const pf::LoadResult loaded =
+        pf::load_mock_package(compiled.package, options());
+    expect(static_cast<bool>(loaded), "the fixed-name package loads");
+    expect(
+        loaded.package.find(pf::SectionType::player_nameable_members) ==
+            nullptr,
+        "fixed-name campaigns emit no optional nameable section"
+    );
+    const pr::CampaignLoadResult campaign =
+        pr::load_campaign(loaded.package, 110);
+    const bool all_fixed = std::all_of(
+        campaign.definition.members.begin(),
+        campaign.definition.members.end(),
+        [](const pr::CampaignMember& member) {
+            return !member.player_nameable;
+        }
+    );
+    expect(
+        campaign && all_fixed,
+        "a package without the section infers every member is fixed-name"
+    );
+}
+
 }  // namespace
 
 int main() {
@@ -657,6 +698,7 @@ int main() {
     every_truncation_is_refused_within_its_allowance();
     a_missing_target_does_not_move_the_cursor_past_its_nodes();
     a_members_name_survives_the_packages_bytes_growing();
+    an_absent_nameable_section_keeps_authored_names_fixed();
     if (failures != 0) {
         std::cerr << failures << " check(s) failed\n";
         return 1;

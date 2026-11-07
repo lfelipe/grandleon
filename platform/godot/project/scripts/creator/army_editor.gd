@@ -64,6 +64,7 @@ var member_select: OptionButton
 var empty_label: Label
 var editor_column: VBoxContainer
 var name_input: LineEdit
+var player_nameable_toggle: CheckButton
 var role_label: Label
 var join_label: Label
 var customize_button: Button
@@ -399,6 +400,9 @@ func _refresh_member() -> void:
 	refreshing = true
 	var member := _current_member()
 	name_input.text = str(member.get("name", ""))
+	player_nameable_toggle.set_pressed_no_signal(
+		bool(member.get("playerNameable", false))
+	)
 	var unit_type_id := str(member.get("unitTypeId", ""))
 	role_label.text = "ROLE  /  %s" % _unit_type_name(unit_type_id).to_upper()
 	join_label.text = "JOINS  /  %s" % str(member.get("join_label", "STARTING COMPANY"))
@@ -1398,6 +1402,48 @@ func _mark_form_dirty(_value: Variant = null) -> void:
 	_update_actions()
 
 
+func _set_player_nameable(enabled: bool) -> void:
+	if refreshing:
+		return
+	if not _commit_visible_member(false):
+		player_nameable_toggle.set_pressed_no_signal(
+			bool(_current_member().get("playerNameable", false))
+		)
+		return
+	var member := _current_member()
+	if member.is_empty():
+		_set_status("CHOOSE A CHARACTER FIRST", true)
+		return
+	var campaign := _current_campaign()
+	var updated: Dictionary = compiler.set_campaign_member_player_nameable(
+		source, str(campaign.get("id", "")), str(member.get("id", "")), enabled
+	)
+	if not updated.ok:
+		player_nameable_toggle.set_pressed_no_signal(
+			bool(member.get("playerNameable", false))
+		)
+		_set_status("NAME CHOICE NOT CHANGED  /  %s" % _diagnostic_detail(updated), true)
+		return
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	var selected_id := str(member.get("id", ""))
+	source = str(updated.source)
+	dirty = source != saved_source
+	_read_source()
+	_collect_members()
+	for index in members.size():
+		if str(members[index].id) == selected_id:
+			member_index = index
+			break
+	_refresh_members()
+	_set_status(
+		"UNSAVED  /  PLAYER MAY CHOOSE THIS NAME"
+		if enabled
+		else "UNSAVED  /  AUTHORED NAME IS FIXED",
+		false
+	)
+
+
 func _commit_visible_member(announce: bool) -> bool:
 	if not form_dirty:
 		return true
@@ -2058,6 +2104,15 @@ func _build_interface() -> void:
 	name_input.add_theme_font_size_override("font_size", 23)
 	name_input.text_changed.connect(_mark_form_dirty)
 	editor_column.add_child(name_input)
+	player_nameable_toggle = CheckButton.new()
+	player_nameable_toggle.text = "PLAYER MAY CHOOSE THIS CHARACTER'S NAME"
+	player_nameable_toggle.custom_minimum_size = Vector2(1050, 46)
+	player_nameable_toggle.add_theme_font_size_override("font_size", 18)
+	player_nameable_toggle.tooltip_text = (
+		"The authored name above stays required and is used as the default and fallback."
+	)
+	player_nameable_toggle.toggled.connect(_set_player_nameable)
+	editor_column.add_child(player_nameable_toggle)
 	role_label = _label("ROLE", 22, Color("f2f7f9"))
 	editor_column.add_child(role_label)
 	join_label = _label("JOINS", 20, Color("72e08f"))

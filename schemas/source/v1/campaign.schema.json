@@ -326,6 +326,10 @@
           "$ref": "common.schema.json#/$defs/stableId",
           "description": "What this member is. Every placement fielding them must name the same unit type."
         },
+        "playerNameable": {
+          "type": "boolean",
+          "description": "Whether a player may replace this character's authored name. The required name remains the default and fallback. Omitted means the name is fixed, preserving projects authored before this option existed."
+        },
         "specificity": {
           "$ref": "#/$defs/campaignMemberSpecificity"
         },

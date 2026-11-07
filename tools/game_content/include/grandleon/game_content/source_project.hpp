@@ -406,6 +406,16 @@ struct SourceMapCell final {
     std::string_view name
 );
 
+// Allows or disallows replacing one member's required authored default name.
+// Disallowing removes the optional field, preserving the source shape and the
+// false default used by projects authored before this option existed.
+[[nodiscard]] SourceTextResult set_source_campaign_member_player_nameable_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view member_id,
+    bool player_nameable
+);
+
 // Changes one portable character modifier. Stat names use the source schema's
 // statDeltaBlock vocabulary; `rangeBonus` uses its own bounded positive value.
 // Zero removes that modifier and removes an empty specificity object, which is
