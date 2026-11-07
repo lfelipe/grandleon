@@ -77,6 +77,20 @@ func _run() -> void:
 	await process_frame
 	_expect("creator shell inherits live home language", creator.first_button.text, "NOVA CAMPANHA")
 	_expect("creator title uses stable Portuguese copy", _tree_has_text(creator, "Crie um jogo. Teste na mesma hora."), true)
+	_expect(
+		"creator picker reflects the explicit language",
+		str(creator.language_select.get_item_metadata(creator.language_select.selected)),
+		"pt-BR"
+	)
+	var creator_spanish_index := -1
+	for index: int in creator.language_select.item_count:
+		if str(creator.language_select.get_item_metadata(index)) == "es":
+			creator_spanish_index = index
+	creator.call("_select_language", creator_spanish_index)
+	await process_frame
+	await process_frame
+	_expect("open creator shell switches language live", creator.first_button.text, "NUEVA CAMPAÑA")
+	_expect("live creator switch keeps the project library ready", creator.project_list != null, true)
 	creator.queue_free()
 	localization.call("select_language", "en", false)
 	service.free()

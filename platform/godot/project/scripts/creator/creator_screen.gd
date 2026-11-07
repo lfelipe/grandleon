@@ -11,6 +11,7 @@ var console_builder
 var project_list: VBoxContainer
 var status_label: Label
 var first_button: Button
+var language_select: OptionButton
 var project_buttons: Dictionary = {}
 var new_campaign_layer: Control
 var new_campaign_title: LineEdit
@@ -112,6 +113,20 @@ func _build_interface() -> void:
 	header.add_theme_font_size_override("font_size", 24)
 	header.add_theme_color_override("font_color", Color("69d9ff"))
 	add_child(header)
+	language_select = OptionButton.new()
+	language_select.position = Vector2(1500, 52)
+	language_select.size = Vector2(340, 56)
+	language_select.add_theme_font_size_override("font_size", 17)
+	language_select.tooltip_text = _t("language.label")
+	var current_language := Localization.current_language()
+	for language: Dictionary in Localization.available_languages():
+		language_select.add_item(str(language.native_name))
+		var item_index := language_select.item_count - 1
+		language_select.set_item_metadata(item_index, str(language.code))
+		if str(language.code) == current_language:
+			language_select.select(item_index)
+	language_select.item_selected.connect(_select_language)
+	add_child(language_select)
 
 	var title := Label.new()
 	title.text = _t("creator.title")
@@ -1142,6 +1157,43 @@ func _open_home() -> void:
 	LaunchContext.clear()
 	CreatorContext.clear()
 	get_tree().change_scene_to_file("res://home.tscn")
+
+
+func _select_language(index: int) -> void:
+	if language_select == null or index < 0 or index >= language_select.item_count:
+		return
+	var selected := str(language_select.get_item_metadata(index))
+	if selected == Localization.current_language():
+		return
+	Localization.select_language(selected)
+	call_deferred("_rebuild_localized_interface")
+
+
+func _rebuild_localized_interface() -> void:
+	for child: Node in get_children():
+		remove_child(child)
+		child.queue_free()
+	first_button = null
+	language_select = null
+	project_list = null
+	status_label = null
+	project_buttons.clear()
+	new_campaign_layer = null
+	project_actions_layer = null
+	project_actions_id = ""
+	project_actions_name = ""
+	export_layer = null
+	export_project_id = ""
+	export_project_name = ""
+	export_campaign_id = ""
+	rename_layer = null
+	rename_project_id = ""
+	import_layer = null
+	import_buttons.clear()
+	_build_interface()
+	_refresh_projects()
+	if first_button != null:
+		first_button.grab_focus()
 
 
 func _set_status(message: String, failure: bool) -> void:
