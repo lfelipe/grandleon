@@ -55,25 +55,68 @@ struct Cutout final {
     int u;
     int v;
     int clut;
+    int source_size;
 };
 
 constexpr Cutout medieval_male_cutout{
-    cutout_texture_page, 0, 0, cutout_medieval_male_clut
+    cutout_texture_page, 0, 0, cutout_medieval_male_clut,
+    grandleon_psx_godot_closeup_width
 };
 constexpr Cutout medieval_female_cutout{
-    cutout_texture_page, 128, 0, cutout_medieval_female_clut
+    cutout_texture_page, 128, 0, cutout_medieval_female_clut,
+    grandleon_psx_godot_closeup_width
 };
 constexpr Cutout mythical_male_cutout{
-    cutout_texture_page, 0, 128, cutout_mythical_male_clut
+    cutout_texture_page, 0, 128, cutout_mythical_male_clut,
+    grandleon_psx_godot_closeup_width
 };
 constexpr Cutout mythical_female_cutout{
-    cutout_texture_page, 128, 128, cutout_mythical_female_clut
+    cutout_texture_page, 128, 128, cutout_mythical_female_clut,
+    grandleon_psx_godot_closeup_width
 };
 constexpr Cutout medieval_move_a_cutout{
-    cutout_texture_page + 1, 0, 0, cutout_move_a_clut
+    cutout_texture_page + 1, 0, 0, cutout_move_a_clut,
+    grandleon_psx_godot_closeup_width
 };
 constexpr Cutout medieval_move_b_cutout{
-    cutout_texture_page + 1, 128, 0, cutout_move_b_clut
+    cutout_texture_page + 1, 128, 0, cutout_move_b_clut,
+    grandleon_psx_godot_closeup_width
+};
+
+constexpr int quality_close_page = gpu::first_texture_page + 3;
+constexpr int tactical_cutout_page = gpu::first_texture_page + 5;
+
+struct ClosePoseSlots final {
+    Cutout idle;
+    Cutout windup;
+    Cutout follow;
+    Cutout hurt;
+};
+
+constexpr ClosePoseSlots quality_left_slots{
+    {quality_close_page, 0, 0, 11, grandleon_psx_godot_quality_close_width},
+    {quality_close_page, 128, 0, 12, grandleon_psx_godot_quality_close_width},
+    {quality_close_page, 0, 128, 13, grandleon_psx_godot_quality_close_width},
+    {quality_close_page, 128, 128, 14, grandleon_psx_godot_quality_close_width},
+};
+constexpr ClosePoseSlots quality_right_slots{
+    {quality_close_page + 1, 0, 0, 15, grandleon_psx_godot_quality_close_width},
+    {quality_close_page + 1, 128, 0, 16, grandleon_psx_godot_quality_close_width},
+    {quality_close_page + 1, 0, 128, 17, grandleon_psx_godot_quality_close_width},
+    {quality_close_page + 1, 128, 128, 18, grandleon_psx_godot_quality_close_width},
+};
+
+constexpr Cutout tactical_cutouts[] = {
+    {tactical_cutout_page, 0, 0, 19, grandleon_psx_godot_tactical_width},
+    {tactical_cutout_page, 64, 0, 20, grandleon_psx_godot_tactical_width},
+    {tactical_cutout_page, 128, 0, 21, grandleon_psx_godot_tactical_width},
+    {tactical_cutout_page, 192, 0, 22, grandleon_psx_godot_tactical_width},
+    {tactical_cutout_page, 0, 64, 23, grandleon_psx_godot_tactical_width},
+    {tactical_cutout_page, 64, 64, 24, grandleon_psx_godot_tactical_width},
+    {tactical_cutout_page, 128, 64, 25, grandleon_psx_godot_tactical_width},
+    {tactical_cutout_page, 192, 64, 26, grandleon_psx_godot_tactical_width},
+    {tactical_cutout_page, 0, 128, 27, grandleon_psx_godot_tactical_width},
+    {tactical_cutout_page, 64, 128, 28, grandleon_psx_godot_tactical_width},
 };
 
 struct Camera final {
@@ -542,10 +585,18 @@ void upload_cutout(const Cutout& cutout, const unsigned short* pixels) {
     gpu::upload(
         cutout.page * gpu::page_halfwords + cutout.u / 4,
         gpu::texture_page_y + cutout.v,
-        grandleon_psx_godot_closeup_width / 4,
-        grandleon_psx_godot_closeup_height,
+        cutout.source_size / 4,
+        cutout.source_size,
         pixels
     );
+}
+
+void upload_cutout_and_clut(
+    const Cutout& cutout, const unsigned short* pixels,
+    const unsigned short* palette
+) {
+    upload_cutout(cutout, pixels);
+    upload_clut(cutout.clut, palette);
 }
 
 void load_godot_cutouts() {
@@ -594,6 +645,145 @@ void load_godot_cutouts() {
     upload_clut(
         medieval_move_b_cutout.clut,
         grandleon_psx_godot_closeup_medieval_male_blue_move_b_clut
+    );
+}
+
+void load_quality_close_cutouts(bool mythical) {
+    if (mythical) {
+        upload_cutout_and_clut(
+            quality_left_slots.idle,
+            grandleon_psx_godot_closeup_quality_mythical_male_blue_idle,
+            grandleon_psx_godot_closeup_quality_mythical_male_blue_idle_clut
+        );
+        upload_cutout_and_clut(
+            quality_left_slots.windup,
+            grandleon_psx_godot_closeup_quality_mythical_male_blue_windup,
+            grandleon_psx_godot_closeup_quality_mythical_male_blue_windup_clut
+        );
+        upload_cutout_and_clut(
+            quality_left_slots.follow,
+            grandleon_psx_godot_closeup_quality_mythical_male_blue_follow,
+            grandleon_psx_godot_closeup_quality_mythical_male_blue_follow_clut
+        );
+        upload_cutout_and_clut(
+            quality_left_slots.hurt,
+            grandleon_psx_godot_closeup_quality_mythical_male_blue_hurt,
+            grandleon_psx_godot_closeup_quality_mythical_male_blue_hurt_clut
+        );
+        upload_cutout_and_clut(
+            quality_right_slots.idle,
+            grandleon_psx_godot_closeup_quality_mythical_female_red_idle,
+            grandleon_psx_godot_closeup_quality_mythical_female_red_idle_clut
+        );
+        upload_cutout_and_clut(
+            quality_right_slots.windup,
+            grandleon_psx_godot_closeup_quality_mythical_female_red_windup,
+            grandleon_psx_godot_closeup_quality_mythical_female_red_windup_clut
+        );
+        upload_cutout_and_clut(
+            quality_right_slots.follow,
+            grandleon_psx_godot_closeup_quality_mythical_female_red_follow,
+            grandleon_psx_godot_closeup_quality_mythical_female_red_follow_clut
+        );
+        upload_cutout_and_clut(
+            quality_right_slots.hurt,
+            grandleon_psx_godot_closeup_quality_mythical_female_red_hurt,
+            grandleon_psx_godot_closeup_quality_mythical_female_red_hurt_clut
+        );
+        return;
+    }
+    upload_cutout_and_clut(
+        quality_left_slots.idle,
+        grandleon_psx_godot_closeup_quality_medieval_male_blue_idle,
+        grandleon_psx_godot_closeup_quality_medieval_male_blue_idle_clut
+    );
+    upload_cutout_and_clut(
+        quality_left_slots.windup,
+        grandleon_psx_godot_closeup_quality_medieval_male_blue_windup,
+        grandleon_psx_godot_closeup_quality_medieval_male_blue_windup_clut
+    );
+    upload_cutout_and_clut(
+        quality_left_slots.follow,
+        grandleon_psx_godot_closeup_quality_medieval_male_blue_follow,
+        grandleon_psx_godot_closeup_quality_medieval_male_blue_follow_clut
+    );
+    upload_cutout_and_clut(
+        quality_left_slots.hurt,
+        grandleon_psx_godot_closeup_quality_medieval_male_blue_hurt,
+        grandleon_psx_godot_closeup_quality_medieval_male_blue_hurt_clut
+    );
+    upload_cutout_and_clut(
+        quality_right_slots.idle,
+        grandleon_psx_godot_closeup_quality_medieval_female_red_idle,
+        grandleon_psx_godot_closeup_quality_medieval_female_red_idle_clut
+    );
+    upload_cutout_and_clut(
+        quality_right_slots.windup,
+        grandleon_psx_godot_closeup_quality_medieval_female_red_windup,
+        grandleon_psx_godot_closeup_quality_medieval_female_red_windup_clut
+    );
+    upload_cutout_and_clut(
+        quality_right_slots.follow,
+        grandleon_psx_godot_closeup_quality_medieval_female_red_follow,
+        grandleon_psx_godot_closeup_quality_medieval_female_red_follow_clut
+    );
+    upload_cutout_and_clut(
+        quality_right_slots.hurt,
+        grandleon_psx_godot_closeup_quality_medieval_female_red_hurt,
+        grandleon_psx_godot_closeup_quality_medieval_female_red_hurt_clut
+    );
+}
+
+void load_tactical_cutouts() {
+    upload_cutout_and_clut(
+        tactical_cutouts[0],
+        grandleon_psx_godot_closeup_tactical_medieval_knight_male_blue_idle,
+        grandleon_psx_godot_closeup_tactical_medieval_knight_male_blue_idle_clut
+    );
+    upload_cutout_and_clut(
+        tactical_cutouts[1],
+        grandleon_psx_godot_closeup_tactical_medieval_archer_female_red_idle,
+        grandleon_psx_godot_closeup_tactical_medieval_archer_female_red_idle_clut
+    );
+    upload_cutout_and_clut(
+        tactical_cutouts[2],
+        grandleon_psx_godot_closeup_tactical_medieval_mage_male_blue_idle,
+        grandleon_psx_godot_closeup_tactical_medieval_mage_male_blue_idle_clut
+    );
+    upload_cutout_and_clut(
+        tactical_cutouts[3],
+        grandleon_psx_godot_closeup_tactical_medieval_stormcaller_female_red_idle,
+        grandleon_psx_godot_closeup_tactical_medieval_stormcaller_female_red_idle_clut
+    );
+    upload_cutout_and_clut(
+        tactical_cutouts[4],
+        grandleon_psx_godot_closeup_tactical_medieval_rogue_male_blue_idle,
+        grandleon_psx_godot_closeup_tactical_medieval_rogue_male_blue_idle_clut
+    );
+    upload_cutout_and_clut(
+        tactical_cutouts[5],
+        grandleon_psx_godot_closeup_tactical_medieval_beast_female_red_idle,
+        grandleon_psx_godot_closeup_tactical_medieval_beast_female_red_idle_clut
+    );
+    upload_cutout_and_clut(
+        tactical_cutouts[6],
+        grandleon_psx_godot_closeup_tactical_medieval_healer_male_blue_idle,
+        grandleon_psx_godot_closeup_tactical_medieval_healer_male_blue_idle_clut
+    );
+    upload_cutout_and_clut(
+        tactical_cutouts[7],
+        grandleon_psx_godot_closeup_tactical_medieval_commander_female_red_idle,
+        grandleon_psx_godot_closeup_tactical_medieval_commander_female_red_idle_clut
+    );
+    upload_cutout_and_clut(
+        tactical_cutouts[8],
+        grandleon_psx_godot_closeup_tactical_medieval_rogue_male_blue_move_a,
+        grandleon_psx_godot_closeup_tactical_medieval_rogue_male_blue_move_a_clut
+    );
+    upload_cutout_and_clut(
+        tactical_cutouts[9],
+        grandleon_psx_godot_closeup_tactical_medieval_rogue_male_blue_move_b,
+        grandleon_psx_godot_closeup_tactical_medieval_rogue_male_blue_move_b_clut
     );
 }
 
@@ -711,8 +901,8 @@ void draw_cutout(int centre_x, int bottom, int size, const Cutout& cutout) {
     gpu::draw_texture_quad(
         centre_x - size / 2, bottom - size, size, size,
         cutout.page, cutout.u, cutout.v,
-        cutout.u + grandleon_psx_godot_closeup_width - 1,
-        cutout.v + grandleon_psx_godot_closeup_height - 1,
+        cutout.u + cutout.source_size - 1,
+        cutout.v + cutout.source_size - 1,
         cutout.clut
     );
 }
@@ -935,12 +1125,42 @@ void draw_elevated_marker(
     );
 }
 
+constexpr int close_exchange_frames = 40;
+constexpr int close_left_positions[close_exchange_frames] = {
+    -70, -70, -70, -70, -71, -73, -74, -72, -67, -61,
+    -54, -48, -45, -46, -50, -56, -62, -67, -69, -70,
+    -70, -70, -70, -70, -70, -70, -70, -70, -70, -70,
+    -70, -70, -78, -77, -76, -74, -72, -71, -70, -70,
+};
+constexpr int close_right_positions[close_exchange_frames] = {
+    70, 70, 70, 70, 70, 70, 70, 70, 70, 70,
+    70, 70, 78, 77, 76, 74, 72, 71, 70, 70,
+    70, 70, 70, 70, 71, 73, 74, 72, 67, 61,
+    54, 48, 45, 46, 50, 56, 62, 67, 69, 70,
+};
+
 [[nodiscard]] constexpr int close_left_x(int phase) noexcept {
-    return phase == 1 ? -62 : (phase == 2 ? -52 : (phase == 3 ? -60 : -70));
+    return phase >= 0 && phase < close_exchange_frames
+        ? close_left_positions[phase] : -70;
 }
 
 [[nodiscard]] constexpr int close_right_x(int phase) noexcept {
-    return phase == 5 ? 62 : (phase == 6 ? 52 : (phase == 7 ? 60 : 70));
+    return phase >= 0 && phase < close_exchange_frames
+        ? close_right_positions[phase] : 70;
+}
+
+[[nodiscard]] const Cutout& quality_left_pose(int phase) noexcept {
+    if (phase >= 32 && phase <= 36) return quality_left_slots.hurt;
+    if (phase >= 12 && phase <= 16) return quality_left_slots.follow;
+    if (phase >= 4 && phase <= 11) return quality_left_slots.windup;
+    return quality_left_slots.idle;
+}
+
+[[nodiscard]] const Cutout& quality_right_pose(int phase) noexcept {
+    if (phase >= 12 && phase <= 16) return quality_right_slots.hurt;
+    if (phase >= 32 && phase <= 36) return quality_right_slots.follow;
+    if (phase >= 24 && phase <= 31) return quality_right_slots.windup;
+    return quality_right_slots.idle;
 }
 
 void draw_world_impact(
@@ -960,11 +1180,13 @@ void draw_world_impact(
 
 [[nodiscard]] SceneResult draw_hybrid_close_v2(
     bool mythical, int phase, const char* title, const char* subtitle,
-    std::uint16_t sky
+    std::uint16_t sky, bool quality = true
 ) {
     const ElevatedCamera camera = close_camera_v2();
-    const Cutout& left = mythical ? mythical_male_cutout : medieval_male_cutout;
-    const Cutout& right = mythical ? mythical_female_cutout : medieval_female_cutout;
+    const Cutout& left = quality ? quality_left_pose(phase)
+        : (mythical ? mythical_male_cutout : medieval_male_cutout);
+    const Cutout& right = quality ? quality_right_pose(phase)
+        : (mythical ? mythical_female_cutout : medieval_female_cutout);
     const int left_x = close_left_x(phase);
     const int right_x = close_right_x(phase);
     constexpr int unit_world_size = 132;
@@ -980,15 +1202,24 @@ void draw_world_impact(
     // The curated square has transparent breathing room below the painted
     // shoes. Move only that transparent margin through the projected foot
     // line so the visible soles meet their world-space grounding marks.
-    const int transparent_sole_margin = unit_size * 8 / 96;
+    const int transparent_sole_margin = unit_size *
+        (quality ? 2 : 8) / left.source_size;
     draw_cutout(
         left_foot.x, left_foot.y + transparent_sole_margin, unit_size, left
     );
     draw_cutout(
         right_foot.x, right_foot.y + transparent_sole_margin, unit_size, right
     );
-    if (phase == 2) draw_world_impact(right_x - 13, 68, 0, camera);
-    if (phase == 6) draw_world_impact(left_x + 13, 68, 0, camera);
+    if (phase == 12) {
+        draw_world_impact(right_x - 13, 68, 0, camera);
+        const ProjectedVertex damage = project_elevated(right_x, 102, 0, camera);
+        text_at(damage.x - 3, damage.y, "3");
+    }
+    if (phase == 32) {
+        draw_world_impact(left_x + 13, 68, 0, camera);
+        const ProjectedVertex damage = project_elevated(left_x, 102, 0, camera);
+        text_at(damage.x - 3, damage.y, "4");
+    }
 
     gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
     gpu::fill(6, 4, 7, 10, colour15(team_colours[0]));
@@ -1096,6 +1327,22 @@ constexpr OverviewUnit overview_units[] = {
     {5, 4, 1, 2, 1, 2, &mythical_female_cutout},
 };
 
+constexpr OverviewUnit quality_overview_units[] = {
+    {0, 1, 0, 0, 0, 0, &tactical_cutouts[0]},
+    {7, 1, 1, 0, 1, 1, &tactical_cutouts[1]},
+    {2, 2, 0, 0, 0, 2, &tactical_cutouts[2]},
+    {5, 2, 1, 0, 1, 3, &tactical_cutouts[3]},
+    {0, 3, 0, 0, 0, 5, &tactical_cutouts[4]},
+    {7, 3, 1, 0, 1, 6, &tactical_cutouts[5]},
+    {2, 4, 0, 0, 0, 4, &tactical_cutouts[6]},
+    {5, 4, 1, 0, 1, 7, &tactical_cutouts[7]},
+};
+
+constexpr int quality_movement_frames = 16;
+constexpr int quality_move_progress[quality_movement_frames] = {
+    0, 1, 2, 4, 7, 11, 16, 22, 28, 34, 39, 42, 44, 45, 46, 46,
+};
+
 void draw_unit_status(
     const ProjectedVertex& anchor, int size, int team, int health,
     bool selected
@@ -1179,7 +1426,7 @@ void draw_unit_status(
     include_world(bounds, right, 0, far, camera);
     include_world(bounds, left, 0, near, camera);
     include_world(bounds, right, 0, near, camera);
-    for (const OverviewUnit& unit : overview_units) {
+    for (const OverviewUnit& unit : quality_overview_units) {
         const int x = left + unit.column * tile + tile / 2;
         const int z = far + unit.row * tile + tile / 2;
         include_billboard(bounds, x, z, 80, camera);
@@ -1266,15 +1513,19 @@ void draw_movement_highlights_v2(const ElevatedCamera& camera) {
     constexpr int tile = 46;
     constexpr int left = -sevenfold_board_columns * tile / 2;
     constexpr int far = -sevenfold_board_rows * tile / 2;
-    constexpr int unit_count =
-        static_cast<int>(sizeof(overview_units) / sizeof(overview_units[0]));
+    constexpr int unit_count = static_cast<int>(
+        sizeof(quality_overview_units) / sizeof(quality_overview_units[0])
+    );
     const ElevatedCamera camera = overview_camera_v2();
     OverviewUnitOrder order[unit_count]{};
     for (int index = 0; index < unit_count; ++index) {
-        const OverviewUnit& unit = overview_units[index];
+        const OverviewUnit& unit = quality_overview_units[index];
         const int x = left + unit.column * tile + tile / 2;
         int z = far + unit.row * tile + tile / 2;
-        if (move_step >= 0 && index == 4) z += tile * move_step / 7;
+        if (move_step >= 0 && index == 4) {
+            const int frame = std::min(move_step, quality_movement_frames - 1);
+            z += quality_move_progress[frame];
+        }
         order[index] = {index, x, z, elevated_raw_y(x, 0, z, camera)};
     }
     std::sort(order, order + unit_count,
@@ -1289,16 +1540,18 @@ void draw_movement_highlights_v2(const ElevatedCamera& camera) {
     const int unit_size = elevated_billboard_size(80, camera);
     for (int sorted = 0; sorted < unit_count; ++sorted) {
         const OverviewUnitOrder& placed = order[sorted];
-        const OverviewUnit& unit = overview_units[placed.index];
+        const OverviewUnit& unit = quality_overview_units[placed.index];
         const bool moving = move_step >= 0 && placed.index == 4;
         draw_elevated_marker(placed.x, placed.z, unit.team, 17, camera);
         const ProjectedVertex foot =
             project_elevated(placed.x, 3, placed.z, camera);
         const Cutout& art = moving
             ? ((move_step & 1) == 0
-                ? medieval_move_a_cutout : medieval_move_b_cutout)
+                ? tactical_cutouts[8] : tactical_cutouts[9])
             : *unit.cutout;
-        draw_cutout(foot.x, foot.y + unit_size * 8 / 96, unit_size, art);
+        draw_cutout(
+            foot.x, foot.y + unit_size * 2 / art.source_size, unit_size, art
+        );
         draw_unit_status(
             foot, unit_size, unit.team, 92 - placed.index * 5,
             placed.index == 4
@@ -1312,6 +1565,125 @@ void draw_movement_highlights_v2(const ElevatedCamera& camera) {
     gpu::show();
     static_cast<void>(gpu::read_back(0, 0));
     return {psx::clock_ticks(), 86};
+}
+
+[[nodiscard]] ElevatedCamera comparison_board_camera() noexcept {
+    ElevatedCamera camera{0, 0, 220, -220, 105, 105, 260, 256};
+    RawBounds bounds{0, 0, 0, 0, false};
+    constexpr int left = -144;
+    constexpr int right = 144;
+    constexpr int far = -96;
+    constexpr int near = 96;
+    include_world(bounds, left, 0, far, camera);
+    include_world(bounds, right, 0, far, camera);
+    include_world(bounds, left, 0, near, camera);
+    include_world(bounds, right, 0, near, camera);
+    include_billboard(bounds, -72, 24, 88, camera);
+    include_billboard(bounds, 72, -24, 88, camera);
+    return fit_elevated_camera(camera, bounds, 7, 22, 313, 218);
+}
+
+[[nodiscard]] int comparison_terrain_kind(int row, int column) noexcept {
+    constexpr int terrain[4][6] = {
+        {2, 2, 9, 12, 12, 2},
+        {2, 9, 9, 12, 12, 2},
+        {2, 9, 9, 12, 9, 2},
+        {2, 2, 9, 12, 2, 2},
+    };
+    return terrain[row][column];
+}
+
+void draw_exact_hp(
+    const ProjectedVertex& foot, int size, int team, int health
+) {
+    const int top = foot.y - size + 1;
+    gpu::fill(foot.x - 13, top, 26, 5, gpu::rgb15(2, 2, 3));
+    gpu::fill(
+        foot.x - 12, top + 1, health * 2, 3,
+        health > 8 ? gpu::rgb15(7, 24, 9) : gpu::rgb15(27, 17, 5)
+    );
+    text_at(foot.x - 5, top - 9, health == 12 ? "12" :
+        (health == 11 ? "11" : "8"));
+    gpu::fill(foot.x - 17, top, 4, 5, colour15(team_colours[team]));
+}
+
+[[nodiscard]] SceneResult draw_comparison_board(
+    int focus, int blue_hp, int red_hp
+) {
+    constexpr int tile = 48;
+    constexpr int left = -144;
+    constexpr int far = -96;
+    const ElevatedCamera camera = comparison_board_camera();
+    OverviewTileOrder order[24]{};
+    int count = 0;
+    for (int row = 0; row < 4; ++row) {
+        for (int column = 0; column < 6; ++column) {
+            const int x = left + column * tile + tile / 2;
+            const int z = far + row * tile + tile / 2;
+            order[count++] = {row, column, elevated_raw_y(x, 0, z, camera)};
+        }
+    }
+    std::sort(order, order + count,
+              [](const OverviewTileOrder& a, const OverviewTileOrder& b) {
+                  return a.depth < b.depth;
+              });
+
+    gpu::clear(gpu::rgb15(4, 8, 11));
+    psx::start_clock();
+    for (int index = 0; index < count; ++index) {
+        const int row = order[index].row;
+        const int column = order[index].column;
+        const int x0 = left + column * tile;
+        const int z0 = far + row * tile;
+        const int kind = comparison_terrain_kind(row, column);
+        if (kind == 12) {
+            draw_elevated_solid_quad(
+                x0, z0, x0 + tile, z0 + tile, 0, camera,
+                colour15(overview_terrain_colours[3])
+            );
+        } else {
+            const int cell = kind == 2 ? 2 : terrain_a_cell;
+            const int clut = kind == 2 ? 3 : terrain_a_clut;
+            draw_elevated_cell_quad(
+                x0, z0, x0 + tile, z0 + tile, 0, camera, cell, clut
+            );
+        }
+    }
+    if (focus > 0) {
+        draw_elevated_solid_quad(
+            -91, 5, -53, 43, 2, camera, gpu::rgb15(8, 22, 31)
+        );
+        draw_elevated_solid_quad(
+            53, -43, 91, -5, 2, camera, gpu::rgb15(25, 12, 9)
+        );
+    }
+
+    const ProjectedVertex blue_foot = project_elevated(-72, 3, 24, camera);
+    const ProjectedVertex red_foot = project_elevated(72, 3, -24, camera);
+    const int unit_size = elevated_billboard_size(88, camera);
+    draw_elevated_marker(-72, 24, 0, 20, camera);
+    draw_cutout(
+        blue_foot.x, blue_foot.y + unit_size * 2 /
+            quality_left_slots.idle.source_size,
+        unit_size, quality_left_slots.idle
+    );
+    draw_exact_hp(blue_foot, unit_size, 0, blue_hp);
+    draw_elevated_marker(72, -24, 1, 20, camera);
+    draw_cutout(
+        red_foot.x, red_foot.y + unit_size * 2 /
+            quality_right_slots.idle.source_size,
+        unit_size, quality_right_slots.idle
+    );
+    draw_exact_hp(red_foot, unit_size, 1, red_hp);
+
+    gpu::fill(0, 0, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    text_at(8, 5, focus > 0 ? "MATCH FOCUS  STYLE 2  KNIGHT 0"
+                            : "MATCH BOARD  STYLE 2  KNIGHT 0");
+    gpu::fill(0, 222, gpu::screen_width, 18, gpu::rgb15(2, 3, 5));
+    text_at(8, 227, "6X4  FOREST 2  GRASS 9  STONE 12");
+    gpu::show();
+    static_cast<void>(gpu::read_back(0, 0));
+    return {psx::clock_ticks(), 50};
 }
 
 void print_benchmark(const char* label, const SceneResult& result) {
@@ -1357,6 +1729,15 @@ int main() {
         grandleon_psx_godot_closeup_height / 2;
     constexpr int cutout_vram_bytes =
         idle_cutout_vram_bytes + movement_cutout_vram_bytes;
+    constexpr int quality_close_vram_bytes =
+        8 * grandleon_psx_godot_quality_close_width *
+        grandleon_psx_godot_quality_close_height / 2;
+    constexpr int tactical_vram_bytes =
+        10 * grandleon_psx_godot_tactical_width *
+        grandleon_psx_godot_tactical_height / 2;
+    constexpr int quality_close_ci8_estimate =
+        8 * grandleon_psx_godot_quality_close_width *
+        grandleon_psx_godot_quality_close_height;
     constexpr int texture_page_bytes =
         gpu::page_halfwords * gpu::page_lines * 2;
     expect(idle_cutout_vram_bytes == 18432,
@@ -1366,6 +1747,14 @@ int main() {
     expect(cutout_vram_bytes == 27648 &&
                cutout_vram_bytes <= texture_page_bytes * 2,
            "idle plus two movement poses use 27 KiB across two pages");
+    expect(quality_close_vram_bytes == 65536 &&
+               quality_close_vram_bytes == texture_page_bytes * 2,
+           "eight 128px CI4 close poses fill two 32 KiB pages");
+    expect(tactical_vram_bytes == 20480 &&
+               tactical_vram_bytes < texture_page_bytes,
+           "ten exact 64px tactical poses fit one 32 KiB page");
+    expect(quality_close_ci8_estimate == 131072,
+           "the equivalent 128px CI8 pose set would require four pages");
 
     // Each style keeps the flat proxy and first planar texture pass, then
     // captures both rejected hybrid stages before camera v2. That makes the
@@ -1412,8 +1801,16 @@ int main() {
     print_benchmark("medieval-screen-stage-rejected", medieval_corrected);
     psx::signal_host(13);
 
+    const SceneResult medieval_v2_legacy = draw_hybrid_close_v2(
+        false, -1, "MEDIEVAL CAMERA V2 96", "MATCHED CI4 RESOLUTION BASELINE",
+        gpu::rgb15(7, 13, 17), false
+    );
+    print_benchmark("medieval-camera-v2-96", medieval_v2_legacy);
+    psx::signal_host(27);
+
+    load_quality_close_cutouts(false);
     const SceneResult medieval_v2 = draw_hybrid_close_v2(
-        false, -1, "MEDIEVAL CAMERA V2", "ELEVATED TILE TOPS  FIT FROM BOUNDS",
+        false, -1, "MEDIEVAL QUALITY 128", "EXACT GODOT ART  FIT FROM BOUNDS",
         gpu::rgb15(7, 13, 17)
     );
     print_benchmark("medieval-camera-v2", medieval_v2);
@@ -1461,8 +1858,9 @@ int main() {
     print_benchmark("mythical-screen-stage-rejected", mythical_corrected);
     psx::signal_host(17);
 
+    load_quality_close_cutouts(true);
     const SceneResult mythical_v2 = draw_hybrid_close_v2(
-        true, -1, "MYTHICAL CAMERA V2", "ELEVATED TILE TOPS  FIT FROM BOUNDS",
+        true, -1, "MYTHICAL QUALITY 128", "EXACT GODOT ART  FIT FROM BOUNDS",
         gpu::rgb15(12, 8, 17)
     );
     print_benchmark("mythical-camera-v2", mythical_v2);
@@ -1477,6 +1875,7 @@ int main() {
     print_benchmark("overview-hybrid", overview_hybrid);
     psx::signal_host(19);
 
+    load_tactical_cutouts();
     const SceneResult overview_v2 = draw_overview_v2(-1);
     print_benchmark("overview-camera-v2", overview_v2);
     psx::signal_host(24);
@@ -1492,9 +1891,9 @@ int main() {
     }
     print_benchmark("overview-move-slowest", {slowest_movement, 104});
 
-    SceneResult movement_v2_frames[8]{};
+    SceneResult movement_v2_frames[quality_movement_frames]{};
     std::uint32_t slowest_movement_v2 = 0;
-    for (int frame = 0; frame < 8; ++frame) {
+    for (int frame = 0; frame < quality_movement_frames; ++frame) {
         movement_v2_frames[frame] = draw_overview_v2(frame);
         if (movement_v2_frames[frame].ticks > slowest_movement_v2) {
             slowest_movement_v2 = movement_v2_frames[frame].ticks;
@@ -1504,9 +1903,10 @@ int main() {
     print_benchmark("overview-camera-v2-move-slowest",
                     {slowest_movement_v2, 86});
 
-    SceneResult exchange_frames[8]{};
+    load_quality_close_cutouts(false);
+    SceneResult exchange_frames[close_exchange_frames]{};
     std::uint32_t slowest_exchange = 0;
-    for (int frame = 0; frame < 8; ++frame) {
+    for (int frame = 0; frame < close_exchange_frames; ++frame) {
         exchange_frames[frame] = draw_hybrid_close_v2(
             false, frame, "CAMERA V2 ATTACK + COUNTER",
             "FIXED SIDES  WORLD EFFECT  TILE-TOP FEET",
@@ -1519,9 +1919,57 @@ int main() {
     }
     print_benchmark("camera-v2-exchange-slowest", {slowest_exchange, 72});
 
+    // Deterministic README comparison sequence: exact 6x4 board and IDs,
+    // fixed start/focus/close/return landmarks, then the authoritative HP
+    // result (12->8 and 11->8) restored on the same board.
+    SceneResult sequence_frames[52]{};
+    int sequence_at = 0;
+    for (int frame = 0; frame < 2; ++frame) {
+        sequence_frames[sequence_at++] = draw_comparison_board(0, 12, 11);
+        psx::signal_host(29);
+    }
+    for (int frame = 0; frame < 2; ++frame) {
+        sequence_frames[sequence_at++] = draw_comparison_board(1, 12, 11);
+        psx::signal_host(29);
+    }
+    for (int frame = 0; frame < 2; ++frame) {
+        sequence_frames[sequence_at++] = draw_hybrid_close_v2(
+            false, -1, "MATCH CLOSE  TARGET 8",
+            "BLUE 12  RED 11  FIXED SIDES", gpu::rgb15(7, 13, 17)
+        );
+        psx::signal_host(29);
+    }
+    for (int frame = 0; frame < close_exchange_frames; ++frame) {
+        sequence_frames[sequence_at++] = draw_hybrid_close_v2(
+            false, frame, "MATCH CLOSE  TARGET 8",
+            frame < 20 ? "BLUE HITS 3  RED 11 TO 8"
+                       : "RED COUNTERS 4  BLUE 12 TO 8",
+            gpu::rgb15(7, 13, 17)
+        );
+        psx::signal_host(29);
+    }
+    for (int frame = 0; frame < 2; ++frame) {
+        sequence_frames[sequence_at++] = draw_hybrid_close_v2(
+            false, -1, "MATCH CLOSE  TARGET 8",
+            "RETURN  BLUE 8  RED 8", gpu::rgb15(7, 13, 17)
+        );
+        psx::signal_host(29);
+    }
+    for (int frame = 0; frame < 2; ++frame) {
+        sequence_frames[sequence_at++] = draw_comparison_board(1, 8, 8);
+        psx::signal_host(29);
+    }
+    for (int frame = 0; frame < 2; ++frame) {
+        sequence_frames[sequence_at++] = draw_comparison_board(0, 8, 8);
+        psx::signal_host(29);
+    }
+    expect(sequence_at == 52,
+           "matched README sequence emits all 52 timed landmarks");
+
     const SceneResult measured[] = {
         medieval_flat, medieval_current, medieval_low_angle,
-        medieval_corrected, medieval_v2, mythical_flat, mythical_current,
+        medieval_corrected, medieval_v2_legacy, medieval_v2,
+        mythical_flat, mythical_current,
         mythical_low_angle, mythical_corrected, mythical_v2, overview_flat,
         overview_hybrid, overview_v2,
     };
@@ -1540,6 +1988,10 @@ int main() {
     for (const SceneResult& scene : exchange_frames) {
         expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
                "camera-v2 attack exchange stays inside locked 30 fps budget");
+    }
+    for (const SceneResult& scene : sequence_frames) {
+        expect(scene.ticks > 0 && scene.ticks <= frame_budget_ticks,
+               "matched README sequence stays inside locked 30 fps budget");
     }
     expect(medieval_current.textured_triangles >= 100,
            "current medieval pair preserves its planar texture coverage");
@@ -1571,7 +2023,7 @@ int main() {
            "camera-v2 world up projects above the shared ground line");
     expect(left_foot.y == right_foot.y,
            "camera-v2 close slots share one projected foot line");
-    for (int phase = 0; phase < 8; ++phase) {
+    for (int phase = 0; phase < close_exchange_frames; ++phase) {
         expect(close_left_x(phase) < 0 && close_right_x(phase) > 0 &&
                    close_left_x(phase) < close_right_x(phase),
                "attacker and defender retain screen sides through counter");

@@ -152,50 +152,72 @@ There is also a separate texture experiment. Its first pass projected existing
 faces and ornaments could land on the wrong body regions and become harder to
 read. That unsuccessful pass remains in the comparison instead of being hidden.
 
-The clearer follow-up is a 2.5D close view. It reduces the actual curated Godot
-idle frames to 96×96 PS1 CI4 cutouts, applies the same blue/red team masks,
-places them over low-frequency textured 3D terrain, and adds grounding shadows
-and a small layered hit effect. Both early hybrid stages were rejected: moving
-a horizon did not fix the below-the-boots read while their floor was still
-assembled in screen coordinates. They remain explicit comparison captures.
+The clearer follow-up is a 2.5D view made from the actual curated Godot sheets.
+The repeatable generator crops the source alpha, applies the same blue/red team
+masks, and quantises each pose to PS1 CI4. A 96×96 idle pair remains as the
+matched baseline. The quality candidate uses 128×128 idle, wind-up,
+follow-through and hurt poses for both combatants. All four poses for one
+identity share one crop and scale, so changing pose does not make a fighter
+jump in size. Both early hybrid stages were rejected: moving a horizon did not
+fix the below-the-boots read while their floor was still assembled in screen
+coordinates. They remain explicit comparison captures.
 
 Camera v2 has no synthetic horizon or terrain walls. One bounds-fitted,
 fixed-point world-to-screen projection places every tile top, foot point,
 grounding mark, cutout and hit effect. Its close view looks modestly down across
 five rows of visible tile tops, keeps both figures on one projected ground line,
 and leaves terrain in front of their feet. Attack and counter also keep their
-original screen sides for the whole exchange: the first unit attacks from the
-left, then the right unit counters toward the left without swapping the scene.
+original screen sides for the whole exchange. The first unit anticipates,
+strikes from the left and recoils; the right unit uses its real hurt frame,
+then answers with its own wind-up and follow-through while the left unit reacts.
+The positions use an eased forty-frame path rather than an idle sprite sliding
+at one speed.
 
 A tactical camera-v2 candidate uses the same projection in a higher isometric
 configuration. It fills the frame with broad grass, road, forest and stone
-zones and eight mixed units, with projected grounding marks, a stronger
-movement highlight, health bars, selection and team marks. Foot-point sorting
-controls overlap. Two additional CI4 walking poses drive an eight-frame
-movement film with position and pose changes. It does not change the production
-campaign or shared model generator. Its repeatable check captures flat,
-first-pass and both rejected close views beside camera v2 for medieval and
-mythical units, the old and camera-v2 tactical maps, the old and camera-v2
-movement films, and a fixed-side attack/counter film, all at the console's
-native 320×240 resolution:
+zones and eight different medieval roles, with projected grounding marks, a
+stronger movement highlight, health bars, selection and team marks. These are
+ten exact 64×64 Godot-derived cutouts: eight idle roles plus the selected
+rogue's two walk poses. Foot-point sorting controls overlap. A sixteen-frame
+ease curve advances the rogue by one tile while alternating the real walk
+poses. It does not change the production campaign or shared model generator.
+Its repeatable check captures the baselines and rejected views beside the
+quality close and tactical candidates, plus both animation films, all at the
+console's native 320×240 resolution:
 
 ```sh
 cmake --build build --target grandleon_playstation_sevenfold_texture_check
 ```
 
 The captures land in `build-playstation-sevenfold-3d/texture-frames/`.
-`overview-movement-camera-v2.gif` and `close-exchange-camera-v2.gif` are the two
-camera-v2 films; `overview-movement.gif` preserves the earlier tactical pass.
-Four idle cutouts use 18 KiB of one 32 KiB texture page; the two movement poses
-bring the total to 27 KiB across two pages. In the pinned interpreter, a
-camera-v2 close view takes about 1.2 ms, the eight-unit isometric overview about
-2.4 ms, and the slowest camera-v2 movement frame about 2.4 ms after GPU
-completion. Even the matched eight-model flat overview remains just inside the
-locked-30-fps ceiling at about 31.4 ms. The camera-v2 captures visibly expose
-top surfaces while retaining faces, silhouettes, equipment and team identity.
-This makes the hybrid path a strong candidate for production integration, but
-it remains isolated until it has been reviewed on MiSTer or original-style
-hardware.
+`overview-movement-camera-v2.gif` and `close-exchange-camera-v2.gif` show the
+quality movement and exchange. One active eight-pose close style occupies
+exactly 64 KiB in two 32 KiB texture pages; the ten tactical poses occupy
+20 KiB in one page. Textures are uploaded when the experiment changes scene,
+not during animation. Equivalent 128×128 CI8 close poses would need 128 KiB in
+four pages plus larger palettes. That remains possible within the eleven-page
+texture region, but CI4 keeps twice as much room for terrain and effects while
+the 128×128 CI4 capture already preserves the important silhouette and costume
+detail. The experiment executable still leaves 538,400 bytes of main-memory
+heap.
+
+In the pinned interpreter, the matched 96×96 and 128×128 close pictures both
+take about 1.23 ms after GPU completion. The eight-role isometric map takes
+about 2.41 ms, its slowest movement frame about 2.43 ms, and the slowest real
+pose attack/counter frame about 1.30 ms. Even the matched eight-model flat
+overview remains just inside the locked-30-fps ceiling at about 31.4 ms. The
+quality gain therefore costs texture memory and executable size, not measured
+frame time in this scene.
+
+The same check also records the canonical cross-renderer scene from
+`tools/renderer_comparison/scene.json`: the exact 6×4 forest/grass/stone board,
+blue male knight at `(1,2)`, red female knight at `(4,1)`, fixed close-view
+sides, 3 and 4 damage, and return to the same camera with both units at 8 HP.
+`renderer-comparison-playstation.mp4` is the 30 fps, 8.17-second PS1 input for
+the shared composer; `renderer-comparison-playstation.gif` is the native
+320×240 review version. Five named PNG landmarks cover board, focus, both
+impacts and restored board. The experiment remains isolated until it has been
+reviewed on MiSTer or original-style hardware.
 
 The disc target writes `sevenfold-ps1-3d.bin` and `sevenfold-ps1-3d.cue` under
 `build-playstation-sevenfold-3d/disc/`. The disc boots the playable

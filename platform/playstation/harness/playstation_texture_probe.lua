@@ -21,6 +21,7 @@ local names = {
   [22] = 'medieval-camera-v2',
   [23] = 'mythical-camera-v2',
   [24] = 'overview-camera-v2',
+  [27] = 'medieval-camera-v2-96',
 }
 
 local checks = 0
@@ -29,6 +30,7 @@ local captures = 0
 local animation_frames = 0
 local camera_v2_animation_frames = 0
 local exchange_frames = 0
+local comparison_frames = 0
 local signatures = {}
 
 local function say(text)
@@ -127,8 +129,20 @@ PCSX.execSlots[26] = function()
   exchange_frames = exchange_frames + 1
 end
 
+PCSX.execSlots[29] = function()
+  local name = string.format('comparison-sequence-%02d', comparison_frames)
+  local key = 400 + comparison_frames
+  local ok, err = pcall(capture, 29, name, key)
+  if not ok then
+    say('CHECK ' .. name .. ' capture completes FAIL')
+    say('DETAIL ' .. tostring(err))
+    PCSX.quit(1)
+  end
+  comparison_frames = comparison_frames + 1
+end
+
 PCSX.execSlots[20] = function()
-  expect(captures == 37, 'all still and animation frames were captured')
+  expect(captures == 130, 'all still and animation frames were captured')
   expect(signatures[10] ~= signatures[11],
          'medieval current frame differs from its flat baseline')
   expect(signatures[11] ~= signatures[12],
@@ -137,6 +151,8 @@ PCSX.execSlots[20] = function()
          'medieval rejected screen stage differs from the low-angle hybrid')
   expect(signatures[13] ~= signatures[22],
          'medieval camera v2 differs from the rejected screen stage')
+  expect(signatures[27] ~= signatures[22],
+         '128px close art differs from its matched 96px baseline')
   expect(signatures[14] ~= signatures[15],
          'mythical current frame differs from its flat baseline')
   expect(signatures[15] ~= signatures[16],
@@ -156,19 +172,29 @@ PCSX.execSlots[20] = function()
   expect(animation_frames == 8, 'all eight movement frames were captured')
   expect(signatures[100] ~= signatures[107],
          'the movement film changes position and pose')
-  expect(camera_v2_animation_frames == 8,
-         'all eight camera-v2 movement frames were captured')
-  expect(signatures[200] ~= signatures[207],
+  expect(camera_v2_animation_frames == 16,
+         'all sixteen eased camera-v2 movement frames were captured')
+  expect(signatures[200] ~= signatures[215],
          'camera-v2 movement changes position and pose')
-  expect(exchange_frames == 8,
-         'all eight fixed-side exchange frames were captured')
-  expect(signatures[300] ~= signatures[302],
+  expect(exchange_frames == 40,
+         'all forty eased fixed-side exchange frames were captured')
+  expect(signatures[300] ~= signatures[312],
          'left attack reaches a distinct camera-v2 impact frame')
-  expect(signatures[304] ~= signatures[306],
+  expect(signatures[320] ~= signatures[332],
          'right counter reaches a distinct camera-v2 impact frame')
+  expect(comparison_frames == 52,
+         'all 52 matched renderer-comparison landmarks were captured')
+  expect(signatures[400] == signatures[401],
+         'matched scene begins with a deterministic board hold')
+  expect(signatures[418] ~= signatures[438],
+         'matched attack and counter impacts are visually distinct')
+  expect(signatures[450] == signatures[451],
+         'matched scene ends on a deterministic restored board hold')
+  expect(signatures[400] ~= signatures[450],
+         'restored board exposes the authoritative health change')
   say(string.format('RESULT %s %d/%d', failures == 0 and 'PASS' or 'FAIL',
                     checks - failures, checks))
   PCSX.quit(failures == 0 and 0 or 1)
 end
 
-say('installed still slots 10..19 and 22..24, animation slots 21,25,26 and done slot 20')
+say('installed still slots 10..19,22..24,27; animation slots 21,25,26,29; done slot 20')

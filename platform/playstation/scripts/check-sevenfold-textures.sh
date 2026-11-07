@@ -38,6 +38,7 @@ rm -f \
     "${frame_dir}/medieval-low-angle.bin" \
     "${frame_dir}/medieval-screen-stage-rejected.bin" \
     "${frame_dir}/medieval-camera-v2.bin" \
+    "${frame_dir}/medieval-camera-v2-96.bin" \
     "${frame_dir}/mythical-flat.bin" \
     "${frame_dir}/mythical-current.bin" \
     "${frame_dir}/mythical-low-angle.bin" \
@@ -51,6 +52,7 @@ rm -f \
     "${frame_dir}/medieval-low-angle.ppm" \
     "${frame_dir}/medieval-screen-stage-rejected.ppm" \
     "${frame_dir}/medieval-camera-v2.ppm" \
+    "${frame_dir}/medieval-camera-v2-96.ppm" \
     "${frame_dir}/mythical-flat.ppm" \
     "${frame_dir}/mythical-current.ppm" \
     "${frame_dir}/mythical-low-angle.ppm" \
@@ -61,14 +63,29 @@ rm -f \
     "${frame_dir}/overview-camera-v2.ppm" \
     "${frame_dir}/overview-movement.gif" \
     "${frame_dir}/overview-movement-camera-v2.gif" \
-    "${frame_dir}/close-exchange-camera-v2.gif"
+    "${frame_dir}/close-exchange-camera-v2.gif" \
+    "${frame_dir}/renderer-comparison-playstation.gif" \
+    "${frame_dir}/renderer-comparison-playstation.mp4" \
+    "${frame_dir}/comparison-board.png" \
+    "${frame_dir}/comparison-focus.png" \
+    "${frame_dir}/comparison-attack-impact.png" \
+    "${frame_dir}/comparison-counter-impact.png" \
+    "${frame_dir}/comparison-restored.png"
 for index in 00 01 02 03 04 05 06 07; do
     rm -f "${frame_dir}/movement-${index}.bin" \
-        "${frame_dir}/movement-${index}.ppm" \
-        "${frame_dir}/movement-camera-v2-${index}.bin" \
-        "${frame_dir}/movement-camera-v2-${index}.ppm" \
-        "${frame_dir}/close-exchange-camera-v2-${index}.bin" \
+        "${frame_dir}/movement-${index}.ppm"
+done
+for index in $(seq -w 0 15); do
+    rm -f "${frame_dir}/movement-camera-v2-${index}.bin" \
+        "${frame_dir}/movement-camera-v2-${index}.ppm"
+done
+for index in $(seq -w 0 39); do
+    rm -f "${frame_dir}/close-exchange-camera-v2-${index}.bin" \
         "${frame_dir}/close-exchange-camera-v2-${index}.ppm"
+done
+for index in $(seq -w 0 51); do
+    rm -f "${frame_dir}/comparison-sequence-${index}.bin" \
+        "${frame_dir}/comparison-sequence-${index}.ppm"
 done
 
 docker="${GRANDLEON_DOCKER:-docker}"
@@ -102,25 +119,28 @@ fi
     --log "${log}" --require "^RESULT PASS " --min-checks 32 \
     --what "the PlayStation texture experiment guest"
 "${repository_root}/scripts/assert-harness-verdict.sh" \
-    --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 200 \
+    --log "${log}" --require "^HARNESS RESULT PASS " --min-checks 660 \
     --what "the PlayStation texture capture harness"
 
-for name in \
+frames=( \
     medieval-flat medieval-current medieval-low-angle \
-    medieval-screen-stage-rejected medieval-camera-v2 \
+    medieval-screen-stage-rejected medieval-camera-v2 medieval-camera-v2-96 \
     mythical-flat mythical-current mythical-low-angle \
     mythical-screen-stage-rejected mythical-camera-v2 \
     overview-flat overview-hybrid overview-camera-v2 \
     movement-00 movement-01 movement-02 movement-03 \
-    movement-04 movement-05 movement-06 movement-07 \
-    movement-camera-v2-00 movement-camera-v2-01 \
-    movement-camera-v2-02 movement-camera-v2-03 \
-    movement-camera-v2-04 movement-camera-v2-05 \
-    movement-camera-v2-06 movement-camera-v2-07 \
-    close-exchange-camera-v2-00 close-exchange-camera-v2-01 \
-    close-exchange-camera-v2-02 close-exchange-camera-v2-03 \
-    close-exchange-camera-v2-04 close-exchange-camera-v2-05 \
-    close-exchange-camera-v2-06 close-exchange-camera-v2-07; do
+    movement-04 movement-05 movement-06 movement-07
+)
+for index in $(seq -w 0 15); do
+    frames+=("movement-camera-v2-${index}")
+done
+for index in $(seq -w 0 39); do
+    frames+=("close-exchange-camera-v2-${index}")
+done
+for index in $(seq -w 0 51); do
+    frames+=("comparison-sequence-${index}")
+done
+for name in "${frames[@]}"; do
     frame="${frame_dir}/${name}.bin"
     ppm="${frame_dir}/${name}.ppm"
     if [ ! -s "${frame}" ]; then
@@ -165,29 +185,73 @@ frames[0].save(
 )
 camera_v2_frames = [
     Image.open(frame_dir / f"movement-camera-v2-{index:02d}.ppm").convert("RGB")
-    for index in range(8)
+    for index in range(16)
 ]
 camera_v2_frames[0].save(
     frame_dir / "overview-movement-camera-v2.gif",
     save_all=True,
     append_images=camera_v2_frames[1:],
-    duration=120,
+    duration=80,
     loop=0,
     disposal=2,
 )
 exchange_frames = [
     Image.open(frame_dir / f"close-exchange-camera-v2-{index:02d}.ppm").convert("RGB")
-    for index in range(8)
+    for index in range(40)
 ]
 exchange_frames[0].save(
     frame_dir / "close-exchange-camera-v2.gif",
     save_all=True,
     append_images=exchange_frames[1:],
-    duration=150,
+    duration=100,
     loop=0,
     disposal=2,
 )
+comparison_frames = [
+    Image.open(frame_dir / f"comparison-sequence-{index:02d}.ppm").convert("RGB")
+    for index in range(52)
+]
+# Exactly 8.15 seconds. Attack and counter impacts begin at 3.45 and 5.50,
+# matching tools/renderer_comparison/scene.json without retiming the footage.
+combat_durations = [100] * 12 + [110] * 7 + [80]
+durations = (
+    [580, 570] + [280, 280, 270, 270] +
+    combat_durations + combat_durations +
+    [240, 240, 240, 230] + [430, 420]
+)
+assert len(comparison_frames) == len(durations) == 52
+assert sum(durations) == 8150
+comparison_frames[0].save(
+    frame_dir / "renderer-comparison-playstation.gif",
+    save_all=True,
+    append_images=comparison_frames[1:],
+    duration=durations,
+    loop=0,
+    disposal=2,
+)
+for output, index in {
+    "comparison-board.png": 0,
+    "comparison-focus.png": 3,
+    "comparison-attack-impact.png": 18,
+    "comparison-counter-impact.png": 38,
+    "comparison-restored.png": 50,
+}.items():
+    comparison_frames[index].save(frame_dir / output)
 PYEOF
+
+ffmpeg -hide_banner -loglevel error -y \
+    -i "${frame_dir}/renderer-comparison-playstation.gif" \
+    -vf "fps=30,format=yuv420p" -t 8.15 \
+    -an "${frame_dir}/renderer-comparison-playstation.mp4"
+comparison_duration="$(ffprobe -v error -show_entries format=duration \
+    -of default=noprint_wrappers=1:nokey=1 \
+    "${frame_dir}/renderer-comparison-playstation.mp4")"
+awk -v actual="${comparison_duration}" 'BEGIN {
+    if (actual < 8.14 || actual > 8.18) exit 1
+}' || {
+    echo "error: PlayStation renderer comparison duration is ${comparison_duration}s" >&2
+    exit 1
+}
 
 grep '^BENCH ' "${log}"
 echo "PlayStation Sevenfold texture experiment passed: ${executable}"
@@ -195,3 +259,5 @@ echo "Native comparison captures: ${frame_dir}/*.ppm"
 echo "Native movement film: ${frame_dir}/overview-movement.gif"
 echo "Native camera-v2 movement film: ${frame_dir}/overview-movement-camera-v2.gif"
 echo "Native camera-v2 exchange film: ${frame_dir}/close-exchange-camera-v2.gif"
+echo "Matched 8.15s renderer clip: ${frame_dir}/renderer-comparison-playstation.mp4"
+echo "Matched native GIF: ${frame_dir}/renderer-comparison-playstation.gif"
