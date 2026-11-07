@@ -12,7 +12,9 @@ var project_list: VBoxContainer
 var status_label: Label
 var first_button: Button
 var language_select: OptionButton
+var project_filter: LineEdit
 var project_buttons: Dictionary = {}
+var project_campaign_selects: Dictionary = {}
 var new_campaign_layer: Control
 var new_campaign_title: LineEdit
 var new_campaign_create_button: Button
@@ -188,6 +190,13 @@ func _build_interface() -> void:
 	projects_column.add_theme_constant_override("separation", 12)
 	projects_panel.add_child(projects_column)
 	projects_column.add_child(_label(_t("creator.projects.heading"), 18, Color("69d9ff")))
+	project_filter = LineEdit.new()
+	project_filter.placeholder_text = "SEARCH PROJECTS"
+	project_filter.clear_button_enabled = true
+	project_filter.custom_minimum_size = Vector2(1040, 54)
+	project_filter.add_theme_font_size_override("font_size", 18)
+	project_filter.text_changed.connect(_filter_projects)
+	projects_column.add_child(project_filter)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -877,6 +886,7 @@ func _create_from(template_path: String, title: String) -> void:
 
 func _refresh_projects() -> void:
 	project_buttons.clear()
+	project_campaign_selects.clear()
 	for child in project_list.get_children():
 		child.queue_free()
 	var projects: Array[Dictionary] = library.list_projects()
@@ -888,8 +898,13 @@ func _refresh_projects() -> void:
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		project_list.add_child(empty)
 		return
+	var query := "" if project_filter == null else project_filter.text.strip_edges().to_lower()
+	var matches := 0
 	for project: Dictionary in projects:
 		var title := str(project.get("title", "Untitled Game"))
+		if not query.is_empty() and not title.to_lower().contains(query):
+			continue
+		matches += 1
 		var entry := VBoxContainer.new()
 		entry.add_theme_constant_override("separation", 8)
 		project_list.add_child(entry)
@@ -904,16 +919,66 @@ func _refresh_projects() -> void:
 		var actions := HBoxContainer.new()
 		actions.add_theme_constant_override("separation", 10)
 		entry.add_child(actions)
-		var play := _button("TEST CAMPAIGN")
+		var choices := _project_campaign_choices(str(project.id))
+		var campaign_select: OptionButton = null
+		if choices.size() > 1:
+			campaign_select = OptionButton.new()
+			campaign_select.custom_minimum_size = Vector2(390, 58)
+			campaign_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			campaign_select.add_theme_font_size_override("font_size", 17)
+			for choice: Dictionary in choices:
+				var mode := str(choice.get("player_mode", "1P/2P"))
+				campaign_select.add_item("%s  ·  %s" % [str(choice.name), mode])
+				campaign_select.set_item_metadata(
+					campaign_select.item_count - 1, str(choice.id)
+				)
+			campaign_select.disabled = edit.disabled
+			actions.add_child(campaign_select)
+			project_campaign_selects[str(project.id)] = campaign_select
+		var play := _button("TEST SELECTED" if campaign_select != null else "TEST CAMPAIGN")
 		play.disabled = edit.disabled
-		play.custom_minimum_size = Vector2(310, 58)
-		play.pressed.connect(_play_project.bind(str(project.id)))
+		play.custom_minimum_size = Vector2(280 if campaign_select != null else 310, 58)
+		if campaign_select != null:
+			play.pressed.connect(_play_selected_project.bind(str(project.id), campaign_select))
+		else:
+			play.pressed.connect(_play_project.bind(str(project.id)))
 		actions.add_child(play)
 		var more := _button("MORE")
 		more.disabled = edit.disabled
-		more.custom_minimum_size = Vector2(470, 58)
+		more.custom_minimum_size = Vector2(270 if campaign_select != null else 470, 58)
 		more.pressed.connect(_open_project_actions.bind(str(project.id), title))
 		actions.add_child(more)
+	if matches == 0:
+		var empty_match := _label(
+			"No projects match ‘%s’." % project_filter.text.strip_edges(),
+			20, Color("718896")
+		)
+		empty_match.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		project_list.add_child(empty_match)
+
+
+func _filter_projects(_value: String) -> void:
+	_refresh_projects()
+
+
+func _project_campaign_choices(project_id: String) -> Array[Dictionary]:
+	var choices: Array[Dictionary] = []
+	var loaded: Dictionary = library.load_source(project_id)
+	if not loaded.ok:
+		return choices
+	for value: Variant in loaded.project.get("campaigns", []):
+		if not value is Dictionary:
+			continue
+		var campaign: Dictionary = value
+		var campaign_id := str(campaign.get("id", ""))
+		if campaign_id.is_empty():
+			continue
+		choices.append({
+			"id": campaign_id,
+			"name": str(campaign.get("name", campaign_id)),
+			"player_mode": str(campaign.get("playerMode", "1P/2P")),
+		})
+	return choices
 
 
 func _project_progress(project_id: String) -> String:
@@ -930,8 +995,9 @@ func _project_progress(project_id: String) -> String:
 	if campaigns.is_empty():
 		return "EMPTY PROJECT  ·  START WITH A MAP"
 	var battles := 0
-	var campaign_value: Variant = campaigns[0]
-	if campaign_value is Dictionary:
+	for campaign_value: Variant in campaigns:
+		if not campaign_value is Dictionary:
+			continue
 		var flow_value: Variant = campaign_value.get("flow", {})
 		if flow_value is Dictionary:
 			for node_value: Variant in flow_value.get("nodes", []):
@@ -939,7 +1005,11 @@ func _project_progress(project_id: String) -> String:
 					battles += 1
 	if battles == 0:
 		battles = maps.size()
-	return "READY TO TEST  ·  %d BATTLE%s  ·  %d STORY SCENE%s" % [
+	var campaign_summary := ""
+	if campaigns.size() > 1:
+		campaign_summary = "%d CAMPAIGNS  ·  " % campaigns.size()
+	return "READY TO TEST  ·  %s%d BATTLE%s  ·  %d STORY SCENE%s" % [
+		campaign_summary,
 		battles, "" if battles == 1 else "S",
 		dialogues.size(), "" if dialogues.size() == 1 else "S",
 	]
@@ -1124,7 +1194,14 @@ func _edit_army(project_id: String) -> void:
 	get_tree().change_scene_to_file("res://army_editor.tscn")
 
 
-func _play_project(project_id: String) -> void:
+func _play_selected_project(project_id: String, selector: OptionButton) -> void:
+	if selector == null or selector.selected < 0:
+		_set_status("CHOOSE A CAMPAIGN TO TEST", true)
+		return
+	_play_project(project_id, str(selector.get_item_metadata(selector.selected)))
+
+
+func _play_project(project_id: String, selected_campaign_id := "") -> void:
 	CreatorContext.clear()
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
@@ -1142,12 +1219,25 @@ func _play_project(project_id: String) -> void:
 		_set_status("NOT PLAYABLE YET  /  %s" % first.to_upper(), true)
 		return
 	var campaigns: Array = loaded.project.get("campaigns", [])
-	if campaigns.is_empty() or not campaigns[0] is Dictionary:
+	if campaigns.is_empty():
 		_set_status("NOT PLAYABLE YET  /  ADD A CAMPAIGN", true)
 		return
-	var campaign := str(campaigns[0].get("id", ""))
+	if selected_campaign_id.is_empty() and campaigns.size() > 1:
+		_set_status("CHOOSE WHICH CAMPAIGN TO TEST", true)
+		return
+	var campaign := ""
+	for value: Variant in campaigns:
+		if not value is Dictionary:
+			continue
+		var candidate := str(value.get("id", ""))
+		if selected_campaign_id.is_empty() or candidate == selected_campaign_id:
+			campaign = candidate
+			break
 	if campaign.is_empty():
-		_set_status("NOT PLAYABLE YET  /  CAMPAIGN NEEDS AN ID", true)
+		if selected_campaign_id.is_empty():
+			_set_status("NOT PLAYABLE YET  /  CAMPAIGN NEEDS AN ID", true)
+		else:
+			_set_status("CAMPAIGN NOT FOUND  /  REFRESH THE PROJECT", true)
 		return
 	LaunchContext.stage_package(compiled.package, campaign)
 	get_tree().change_scene_to_file("res://main.tscn")
@@ -1175,9 +1265,11 @@ func _rebuild_localized_interface() -> void:
 		child.queue_free()
 	first_button = null
 	language_select = null
+	project_filter = null
 	project_list = null
 	status_label = null
 	project_buttons.clear()
+	project_campaign_selects.clear()
 	new_campaign_layer = null
 	project_actions_layer = null
 	project_actions_id = ""

@@ -85,11 +85,55 @@ func _run() -> void:
 	_expect("creator reports creation", screen.status_label.text, "CREATED  /  Signal Road  /  READY TO EDIT")
 	if projects.size() == 1:
 		var original_id := str(projects[0].id)
+		screen.project_filter.text = "no such project"
+		screen._filter_projects(screen.project_filter.text)
+		await process_frame
+		_expect("project search hides non-matches", screen.project_buttons.has(original_id), false)
+		screen.project_filter.text = "signal"
+		screen._filter_projects(screen.project_filter.text)
+		await process_frame
+		_expect("project search finds a campaign", screen.project_buttons.has(original_id), true)
+		screen.project_filter.text = ""
+		screen._filter_projects(screen.project_filter.text)
+		await process_frame
 		_expect(
 			"project card shows the next action",
 			screen.project_buttons[original_id].text.begins_with("CONTINUE CREATING"),
 			true
 		)
+		var single_source: Dictionary = screen.library.load_source(original_id)
+		var multi_project: Dictionary = single_source.project.duplicate(true)
+		var alternate: Dictionary = multi_project.campaigns[0].duplicate(true)
+		alternate.id = "alternate_adventure"
+		alternate.name = "Alternate Adventure"
+		multi_project.campaigns.append(alternate)
+		_expect(
+			"multiple-campaign fixture saves",
+			screen.library.save_source(
+				original_id, JSON.stringify(_integer_numbers(multi_project), "  ", true) + "\n"
+			).ok,
+			true
+		)
+		screen._refresh_projects()
+		_expect(
+			"multiple campaigns get an explicit test selector",
+			screen.project_campaign_selects.has(original_id),
+			true
+		)
+		if screen.project_campaign_selects.has(original_id):
+			_expect(
+				"campaign test selector lists every campaign",
+				screen.project_campaign_selects[original_id].item_count,
+				2
+			)
+		screen._play_project(original_id)
+		_expect("ambiguous campaign launch is refused", screen.status_label.text, "CHOOSE WHICH CAMPAIGN TO TEST")
+		_expect(
+			"single-campaign fixture restores",
+			screen.library.save_source(original_id, single_source.source).ok,
+			true
+		)
+		screen._refresh_projects()
 		screen._open_project_actions(original_id, "Signal Road")
 		_expect("project options open", screen.project_actions_layer.visible, true)
 		_expect("project options focus story", screen.project_actions_first_button.has_focus(), true)
@@ -231,6 +275,22 @@ func _expect(label: String, actual: Variant, expected: Variant) -> void:
 	if actual != expected:
 		failures += 1
 		push_error("%s: expected %s, got %s" % [label, expected, actual])
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if value is float and value == floor(value):
+		return int(value)
+	return value
 
 
 func _argument_path(prefix: String) -> String:
