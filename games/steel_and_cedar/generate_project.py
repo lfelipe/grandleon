@@ -1,0 +1,520 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Generate the Steel and Cedar cross-platform demo campaign."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+
+TERRAIN_CODES = {
+    "F": "forest", "A": "farmland", "R": "road", "G": "grass",
+    "H": "hills", "W": "water", "B": "bridge", "C": "bamboo",
+    "P": "paved", "U": "ruins", "M": "mountain",
+    # Keeping "mountain" in each landmark identity makes all four cells
+    # impassable on every target, including a renderer that has no landmark art.
+    "T": "mountain_ancient_grove", "V": "mountain_village_house",
+}
+
+# The opening is intentionally one screen. Every later board is larger than a
+# console viewport, so its routes, threats and co-op partners cannot all be
+# watched without scrolling.
+MAP_ROWS = {
+    "bell_orchard": (
+        "FAARGFFH", "GRA RGGRH".replace(" ", ""), "FRPPRGRF",
+        "FRGRPPRF", "GRGRA RGH".replace(" ", ""), "FAARGFFH",
+    ),
+    "cedar_deepwood": (
+        "FFFFFFFHBBBBBB", "FRRRRGFFGRRRCB", "FRFFGGTTGFFRCB",
+        "FRRRGGTTGFRRCB", "FFFRRGGGFFRFBB", "FFRFFGFFGTTRCB",
+        "FRRRGGFFGTTRCB", "FRRRRGGGRRRRCB", "FFFFFHHHBBBBBB",
+    ),
+    "cedar_watch": (
+        "CCCHHRRRRRHHCCCF", "CCGRRRGPPGRRGCFF", "HGRRGPPPPGGRRHFF",
+        "RRRGPPUUUPPGRRRH", "RRGPPUPPPUPPGRRH", "RRGPPPPPPPPGGRRH",
+        "RRGPPPPPPPPGGRRH", "RRGPPUPPPUPPGRRH", "RRRGPPUUUPPGRRRH",
+        "HGRRGPPPPGGRRHFF", "CCGRRRGPPGRRGCFF", "CCCHHRRRRRHHCCCF",
+    ),
+    "gate_village": (
+        "HHRHHHHHRHHHHHUHHH", "AARGVVGGRVVGGGUGCC", "AARGVVGGRVVGGGUGCC",
+        "RRRRRRRRRRRRRRRRRR", "GGRGGVVGPPPVVGUPPP", "GGRGGVVGPPPVVGUPPP",
+        "RRRRRRGGRRRGGRRPPP", "GGRGGGGGPPPGGGUPPP", "RRRRRRRRRRRRRRRRRR",
+        "AARGVVGGRVVGGGUGCC", "AARGVVGGRVVGGGUGCC", "HHRHHHHHRHHHHHUHHH",
+    ),
+    "twin_gate": (
+        "MMMUURRRRPPPRRRRUUMM", "MMURRGGGRPPPRGGGRRUM",
+        "MURRGPPPPUUUPPPPGRRU", "URRGPPUUPPPPPUUPPGRR",
+        "RRGPPUPPPUUUPPPUPGRR", "RGPPUPPPPPPPPPPPUPGR",
+        "RGPPPPUUUPPPUUUPPPGR", "RGPPPPUUUPPPUUUPPPGR",
+        "RGPPUPPPPPPPPPPPUPGR", "RRGPPUPPPUUUPPPUPGRR",
+        "URRGPPUUPPPPPUUPPGRR", "MURRGPPPPUUUPPPPGRRU",
+        "MMURRGGGRPPPRGGGRRUM", "MMMUURRRRPPPRRRRUUMM",
+    ),
+}
+
+
+def stat_block(health: int, movement: int, strength: int, defense: int,
+               resistance: int, skill: int, speed: int, magic: int = 0) -> dict:
+    stats = {
+        "health": health, "movement": movement, "strength": strength,
+        "defense": defense, "resistance": resistance, "skill": skill,
+        "luck": 2, "evasion": 2, "actionPoints": 2, "speed": speed,
+    }
+    if magic:
+        stats["magic"] = magic
+    return stats
+
+
+def class_record(key: str, name: str, weapon: str, stats: dict) -> dict:
+    return {
+        "id": key, "name": name, "baseStats": stats,
+        "allowedWeaponTypeIds": [weapon],
+    }
+
+
+def unit(key: str, name: str, unit_class: str, faction: str, weapon: str,
+         style: str, figure: str, abilities: tuple[str, ...] = (),
+         experience: int = 0, notes: str = "") -> dict:
+    value = {
+        "id": key, "name": name, "classId": unit_class,
+        "factionId": faction, "startingWeaponIds": [weapon],
+        "characterStyleId": style, "characterFigureId": figure,
+    }
+    if abilities:
+        value["abilityIds"] = list(abilities)
+    if notes:
+        value["notes"] = notes
+    if faction == "concord":
+        value["experiencePerLevel"] = 80
+    else:
+        value["experienceAward"] = experience
+    return value
+
+
+def map_record(key: str, name: str) -> dict:
+    rows = MAP_ROWS[key]
+    width, height = len(rows[0]), len(rows)
+    assert all(len(row) == width for row in rows)
+    terrain = [TERRAIN_CODES[cell] for row in rows for cell in row]
+    assert len(set(terrain)) >= 5
+    return {
+        "id": key, "name": name, "width": width, "height": height,
+        "terrain": terrain, "surroundings": {"mode": "automatic", "depth": 5},
+    }
+
+
+def placement(key: str, unit_type: str, side: str, x: int, y: int,
+              *, member: str = "", player: int = 1, behavior: str = "",
+              coop: bool = False, arrival: dict | None = None,
+              name: str = "", two_position: tuple[int, int] | None = None) -> dict:
+    value = {
+        "id": key, "unitTypeId": unit_type, "side": side, "x": x, "y": y,
+    }
+    if member:
+        value["memberId"] = member
+    if player == 2:
+        value["player"] = 2
+    if behavior:
+        value["behavior"] = behavior
+    if coop:
+        value["minimumPlayers"] = 2
+    if arrival:
+        value["arrival"] = arrival
+    if name:
+        value["name"] = name
+    if two_position:
+        value["twoPlayerPosition"] = {"x": two_position[0], "y": two_position[1]}
+    return value
+
+
+def dialogue(key: str, name: str, lines: tuple[tuple[str, str], ...],
+             cast: dict[str, str], background: str = "") -> dict:
+    speakers = {speaker for speaker, _text in lines}
+    value = {
+        "id": key, "name": name,
+        "cast": [{"speaker": speaker, "unitTypeId": unit_type}
+                 for speaker, unit_type in cast.items() if speaker in speakers],
+        "lines": [{"speaker": speaker, "text": text} for speaker, text in lines],
+    }
+    if background:
+        value["backgroundId"] = background
+    return value
+
+
+def outcome_transitions(stage: str, objective: str, target: str,
+                        *, compound: tuple[str, ...] = ()) -> list[dict]:
+    if compound:
+        won = {
+            "kind": "all",
+            "conditions": [
+                {"kind": "objectiveResult", "objectiveId": item, "result": "victory"}
+                for item in compound
+            ],
+        }
+    else:
+        won = {"kind": "objectiveResult", "objectiveId": objective, "result": "victory"}
+    return [
+        {"id": f"{stage}_won", "targetNodeId": target, "priority": 0, "when": won},
+        {
+            "id": f"{stage}_lost", "targetNodeId": "campaign_defeat", "priority": 1,
+            "when": {"kind": "objectiveResult", "objectiveId": objective, "result": "defeat"},
+        },
+    ]
+
+
+def story_node(key: str, name: str, scene: str, target: str) -> dict:
+    return {
+        "id": key, "name": name, "kind": "story", "dialogueIds": [scene],
+        "transitions": [{"id": f"{key}_next", "targetNodeId": target, "priority": 0}],
+    }
+
+
+def build_project() -> dict:
+    classes = [
+        class_record("knight", "Knight", "blade", stat_block(15, 4, 5, 4, 2, 5, 4)),
+        class_record("field_commander", "Commander", "blade", stat_block(17, 4, 5, 4, 3, 6, 5)),
+        class_record("archer", "Archer", "bow", stat_block(11, 4, 4, 2, 2, 8, 7)),
+        class_record("healer", "Healer", "focus", stat_block(12, 4, 2, 2, 6, 5, 5, 6)),
+        class_record("rogue", "Rogue", "blade", stat_block(11, 5, 4, 2, 2, 8, 8)),
+        class_record("mage", "Mage", "focus", stat_block(11, 4, 2, 2, 5, 6, 6, 6)),
+        class_record("castellan", "Commander", "blade", stat_block(19, 4, 6, 5, 3, 6, 5)),
+        class_record("warlord", "Commander", "blade", stat_block(27, 4, 7, 6, 5, 7, 6, 4)),
+    ]
+    unit_types = [
+        unit(
+            "rowan_vale", "Commander Rowan Vale", "field_commander",
+            "concord", "march_blade", "medieval", "first",
+            notes="ALLIED COMMANDER: persistent protect target and visual anchor for the shared commander treatment.",
+        ),
+        unit("akari_mori", "Akari Mori", "archer", "concord", "cedar_bow", "sengoku", "second"),
+        unit("tomas_reed", "Tomas Reed", "healer", "concord", "pilgrim_focus", "medieval", "second", ("field_mend",)),
+        unit("ren_sato", "Ren Sato", "rogue", "concord", "scout_blade", "sengoku", "first"),
+        unit("red_retainer", "Red Retainer", "knight", "war_host", "war_spear", "sengoku", "first", experience=45),
+        unit("march_sword", "March Sword", "knight", "war_host", "march_blade", "medieval", "second", experience=45),
+        unit("cedar_archer", "Cedar Archer", "archer", "war_host", "cedar_bow", "sengoku", "second", experience=40),
+        unit("march_archer", "March Archer", "archer", "war_host", "march_bow", "medieval", "first", experience=40),
+        unit("gate_mystic", "Gate Mystic", "mage", "war_host", "war_focus", "sengoku", "second", ("wind_lance",), 60),
+        unit("court_knife", "Court Knife", "rogue", "war_host", "scout_blade", "medieval", "first", experience=50),
+        unit("castellan_vere_unit", "Castellan Vere", "castellan", "war_host", "war_spear", "medieval", "second", experience=120),
+        unit(
+            "lord_masatora_unit", "Lord Masatora", "warlord", "war_host",
+            "gate_glaive", "sengoku", "first", ("gatefall",), 300,
+            notes="FINAL BOSS COMMANDER: named visual anchor for the shared boss treatment.",
+        ),
+    ]
+    maps = [
+        map_record("bell_orchard", "The Bell Orchard"),
+        map_record("cedar_deepwood", "Cedar Deepwood"),
+        map_record("cedar_watch", "Cedar Watch"),
+        map_record("gate_village", "Gate Village"),
+        map_record("twin_gate", "The Twin Gate"),
+    ]
+    cast = {
+        "Rowan": "rowan_vale", "Akari": "akari_mori",
+        "Tomas": "tomas_reed", "Ren": "ren_sato",
+        "Vere": "castellan_vere_unit", "Masatora": "lord_masatora_unit",
+    }
+    dialogues = [
+        dialogue("opening", "The Orchard Bell", (
+            ("Rowan", "The treaty bell rang from an abandoned orchard. Someone wants the March to answer with steel."),
+            ("Tomas", "Then we reach the bell before a frightened patrol becomes a war."),
+            ("Rowan", "Stay close. We learn who gave the order, and we leave witnesses alive to refute it."),
+        ), cast, "deep_wood"),
+        dialogue("orchard_orders", "The First Exchange", (
+            ("Tomas", "Use the road to close the distance. I can mend you, but only if I can reach you."),
+            ("Rowan", "We focus one threat at a time, then end the turn together."),
+        ), cast),
+        dialogue("orchard_coop", "The Cedar Answer", (
+            ("Akari", "Cedar heard the same false signal. Ren and I will hold the lower road while you take the bell."),
+            ("Ren", "Two armies, two approaches. If either route folds, the other one gets surrounded."),
+        ), cast),
+        dialogue("orchard_won", "A Paid Lie", (
+            ("Tomas", "Their purses carry coins from both courts."),
+            ("Rowan", "Then this is not a border mistake. The courier trail enters Cedar Deepwood."),
+        ), cast, "night_camp"),
+        dialogue("deepwood_orders", "Under the Cedar", (
+            ("Tomas", "The old track is narrow. The archers can watch a clearing without standing inside it."),
+            ("Rowan", "We clear the near ambush, use the rock line as cover, and reach the eastern courier."),
+        ), cast),
+        dialogue("deepwood_coop", "Separate Trails", (
+            ("Akari", "My company begins on the southern trail. We can cut the courier off beyond the cedar wall."),
+            ("Ren", "Do not hurry to meet us. Win your route first; we rendezvous at the watch road."),
+        ), cast),
+        dialogue("deepwood_won", "The False Order", (
+            ("Rowan", "Vere's seal orders the March to burn Cedar villages."),
+            ("Tomas", "And the captured courier carried Masatora's matching order. Each court is feeding the other's fear."),
+            ("Rowan", "Cedar Watch can show both capitals the same signal. We hold it long enough for both to answer."),
+        ), cast, "open_sea"),
+        dialogue("watch_orders", "Twenty Rounds", (
+            ("Tomas", "The relay needs twenty rounds to reach both capitals."),
+            ("Rowan", "I stay with the signal. Watch the four approaches and never chase a wave past the next entry path."),
+        ), cast),
+        dialogue("watch_coop", "Two Fronts", (
+            ("Akari", "Cedar holds the eastern steps. Rowan, keep the western court and the commander line intact."),
+            ("Ren", "We will trade warnings across the courtyard. Neither front is a reserve for the other."),
+        ), cast),
+        dialogue("watch_won", "Answering Fires", (
+            ("Tomas", "Both capitals answered. The lie is exposed."),
+            ("Rowan", "Vere is barricading Gate Village with the treaty record. We take the streets before he burns it."),
+        ), cast, "mountain_dusk"),
+        dialogue("village_orders", "The Village Gate", (
+            ("Rowan", "The north gate reaches the square quickly, but the alleys leave no room to turn."),
+            ("Tomas", "The south lane is longer and safer. Keep the houses between us and their archers."),
+        ), cast),
+        dialogue("village_coop", "Streets Apart", (
+            ("Akari", "Cedar enters by the south lane and cuts off Vere's escape."),
+            ("Ren", "The square is our rendezvous. Until then, each army owns its own street fight."),
+        ), cast),
+        dialogue("village_won", "The Last Banner", (
+            ("Vere", "Masatora never wanted a partner. The Twin Gate is his now."),
+            ("Rowan", "The record survives you. I will carry it to the gate and end this before either realm can deny it."),
+        ), cast, "throne_hall"),
+        dialogue("gate_parley", "What Peace Costs", (
+            ("Masatora", "One gate, one law, one hand on the sword. That is peace that lasts."),
+            ("Rowan", "That is fear made permanent. The gate opens for both realms, or for neither."),
+        ), cast, "throne_hall"),
+        dialogue("gate_orders", "The Twin Gate", (
+            ("Tomas", "The side stairs avoid the glaive, but his reserves will close them behind us."),
+            ("Rowan", "We break each guard post, converge on Masatora, and keep the treaty record standing with me."),
+        ), cast),
+        dialogue("gate_coop", "Steel and Cedar", (
+            ("Akari", "Rowan takes the high stair. I take the lower court. We meet at Masatora with both armies intact."),
+            ("Ren", "Separate openings, one finish. Neither route can wait for the other to do the work."),
+        ), cast),
+        dialogue("gate_coop_victory", "Both Banners", (
+            ("Akari", "Cedar heard the truth from its own soldiers, not from a foreign court."),
+            ("Rowan", "And the March heard it from mine. That is how this peace begins."),
+        ), cast),
+        dialogue("ending", "An Open Gate", (
+            ("Tomas", "The March sent a new bell for the gate tower."),
+            ("Rowan", "Hang it beside Cedar's drum. One signal should never command two realms in secret again."),
+        ), cast, "star_field"),
+        dialogue("defeat", "The Signal Fades", (
+            ("Tomas", "The road is still here, even if we lost it today."),
+            ("Rowan", "Then we remember where the line broke and take it again."),
+        ), cast, "mountain_dusk"),
+    ]
+
+    def moments(shared_id: str, shared_dialogue: str,
+                coop_id: str, coop_dialogue: str) -> list[dict]:
+        return [
+            {"id": shared_id, "when": {"kind": "stageOpens"},
+             "dialogueId": shared_dialogue},
+            {"id": coop_id, "when": {"kind": "stageOpens"},
+             "dialogueId": coop_dialogue, "minimumPlayers": 2},
+        ]
+
+    nodes = [story_node("prologue", "The Orchard Bell", "opening", "bell_orchard")]
+    nodes.append({
+        "id": "bell_orchard", "name": "I — The Bell Orchard", "kind": "encounter",
+        "mapId": "bell_orchard", "turnOrder": "sideBlocks",
+        "placements": [
+            placement("rowan_orchard", "rowan_vale", "first", 1, 2, member="rowan"),
+            placement("tomas_orchard", "tomas_reed", "first", 1, 3, member="tomas"),
+            placement("akari_orchard", "akari_mori", "first", 1, 1, member="akari", player=2, coop=True),
+            placement("ren_orchard", "ren_sato", "first", 2, 4, member="ren", player=2, coop=True),
+            placement("orchard_sword", "march_sword", "second", 5, 1, behavior="pursue"),
+            placement("orchard_retainer", "red_retainer", "second", 6, 4, behavior="pursue"),
+            placement("orchard_archer", "cedar_archer", "second", 5, 4, behavior="hold"),
+            placement("orchard_coop", "march_sword", "second", 7, 2, behavior="pursue", coop=True),
+        ],
+        "objectiveIds": ["defeat_all"],
+        "moments": moments("orchard_begins", "orchard_orders", "orchard_cedar_arrives", "orchard_coop"),
+        "transitions": outcome_transitions("orchard", "defeat_all", "orchard_camp"),
+    })
+    nodes.append(story_node("orchard_camp", "A Paid Lie", "orchard_won", "cedar_deepwood"))
+    nodes.append({
+        "id": "cedar_deepwood", "name": "II — Cedar Deepwood", "kind": "encounter",
+        "mapId": "cedar_deepwood", "turnOrder": "sideBlocks",
+        "placements": [
+            placement("rowan_deepwood", "rowan_vale", "first", 5, 3, member="rowan", two_position=(3, 1)),
+            placement("tomas_deepwood", "tomas_reed", "first", 5, 5, member="tomas", two_position=(3, 2)),
+            placement("akari_deepwood", "akari_mori", "first", 3, 7, member="akari", player=2, coop=True),
+            placement("ren_deepwood", "ren_sato", "first", 3, 6, member="ren", player=2, coop=True),
+            placement("deepwood_north_blade", "march_sword", "second", 5, 1, behavior="pursue"),
+            placement("deepwood_north_bow", "cedar_archer", "second", 10, 1, behavior="hold"),
+            placement("deepwood_courier_guard", "red_retainer", "second", 9, 4, behavior="pursue"),
+            placement("deepwood_south_knife", "court_knife", "second", 5, 7, behavior="pursue"),
+            placement("deepwood_east_guard", "march_sword", "second", 12, 4, behavior="hold"),
+            placement("deepwood_coop_north", "march_archer", "second", 11, 2, behavior="hold", coop=True),
+            placement("deepwood_coop_south", "red_retainer", "second", 11, 6, behavior="pursue", coop=True),
+        ],
+        "objectiveIds": ["defeat_all"],
+        "moments": moments("deepwood_begins", "deepwood_orders", "deepwood_cedar_front", "deepwood_coop"),
+        "transitions": outcome_transitions("deepwood", "defeat_all", "deepwood_camp"),
+    })
+    nodes.append(story_node("deepwood_camp", "The False Order", "deepwood_won", "cedar_watch"))
+    nodes.append({
+        "id": "cedar_watch", "name": "III — Cedar Watch", "kind": "encounter",
+        "mapId": "cedar_watch", "turnOrder": "sideBlocks",
+        "placements": [
+            placement("rowan_watch", "rowan_vale", "first", 7, 6, member="rowan", two_position=(4, 5)),
+            placement("tomas_watch", "tomas_reed", "first", 6, 6, member="tomas", two_position=(4, 6)),
+            placement("akari_watch", "akari_mori", "first", 11, 5, member="akari", player=2, coop=True),
+            placement("ren_watch", "ren_sato", "first", 11, 6, member="ren", player=2, coop=True),
+            placement("watch_open_west", "court_knife", "second", 1, 3, behavior="pursue"),
+            placement("watch_open_east", "march_archer", "second", 14, 8, behavior="hold"),
+            placement("watch_wave_west", "march_sword", "second", 0, 5, behavior="pursue", arrival={"round": 3, "every": 4, "times": 5}),
+            placement("watch_wave_east", "red_retainer", "second", 15, 6, behavior="pursue", arrival={"round": 5, "every": 4, "times": 4}),
+            placement("watch_wave_north", "cedar_archer", "second", 8, 0, behavior="hold", arrival={"round": 6, "every": 6, "times": 3}),
+            placement("watch_wave_south", "gate_mystic", "second", 7, 11, behavior="hold", arrival={"round": 10, "every": 6, "times": 2}),
+            placement("watch_coop_east", "march_sword", "second", 15, 3, behavior="pursue", coop=True, arrival={"round": 4, "every": 5, "times": 4}),
+            placement("watch_coop_west", "red_retainer", "second", 0, 8, behavior="pursue", coop=True, arrival={"round": 8, "every": 5, "times": 3}),
+            placement("watch_coop_south", "march_archer", "second", 8, 11, behavior="hold", coop=True, arrival={"round": 12, "every": 6, "times": 2}),
+        ],
+        "objectiveIds": ["hold_watch", "protect_rowan"],
+        "moments": moments("watch_begins", "watch_orders", "watch_cedar_front", "watch_coop"),
+        "transitions": outcome_transitions("watch", "protect_rowan", "watch_camp", compound=("hold_watch", "protect_rowan")),
+    })
+    nodes.append(story_node("watch_camp", "Answering Fires", "watch_won", "gate_village"))
+    nodes.append({
+        "id": "gate_village", "name": "IV — Gate Village", "kind": "encounter",
+        "mapId": "gate_village", "turnOrder": "sideBlocks",
+        "placements": [
+            placement("rowan_village", "rowan_vale", "first", 7, 5, member="rowan", two_position=(2, 3)),
+            placement("tomas_village", "tomas_reed", "first", 7, 6, member="tomas", two_position=(2, 4)),
+            placement("akari_village", "akari_mori", "first", 2, 8, member="akari", player=2, coop=True),
+            placement("ren_village", "ren_sato", "first", 3, 9, member="ren", player=2, coop=True),
+            placement("castellan_vere", "castellan_vere_unit", "second", 15, 5, behavior="hold", name="Castellan Vere"),
+            placement("village_north_flank", "court_knife", "second", 6, 2, behavior="pursue"),
+            placement("village_south_flank", "march_sword", "second", 6, 9, behavior="pursue"),
+            placement("village_square_guard", "red_retainer", "second", 10, 5, behavior="pursue"),
+            placement("village_north_bow", "cedar_archer", "second", 13, 1, behavior="hold"),
+            placement("village_south_bow", "march_archer", "second", 13, 10, behavior="hold"),
+            placement("village_coop_north", "gate_mystic", "second", 14, 3, behavior="hold", coop=True),
+            placement("village_coop_south", "court_knife", "second", 14, 8, behavior="pursue", coop=True),
+            placement("village_coop_gate", "red_retainer", "second", 16, 6, behavior="pursue", coop=True, arrival={"round": 5}),
+        ],
+        "objectiveIds": ["fell_castellan", "protect_rowan"],
+        "moments": moments("village_begins", "village_orders", "village_cedar_front", "village_coop"),
+        "transitions": outcome_transitions("village", "protect_rowan", "village_camp", compound=("fell_castellan", "protect_rowan")),
+    })
+    nodes.append(story_node("village_camp", "The Last Banner", "village_won", "gate_parley"))
+    nodes.append(story_node("gate_parley", "What Peace Costs", "gate_parley", "twin_gate"))
+    nodes.append({
+        "id": "twin_gate", "name": "V — The Twin Gate", "kind": "encounter",
+        "mapId": "twin_gate", "turnOrder": "sideBlocks",
+        "placements": [
+            placement("rowan_gate", "rowan_vale", "first", 6, 6, member="rowan", two_position=(2, 4)),
+            placement("tomas_gate", "tomas_reed", "first", 5, 6, member="tomas", two_position=(2, 5)),
+            placement("akari_gate", "akari_mori", "first", 2, 9, member="akari", player=2, coop=True),
+            placement("ren_gate", "ren_sato", "first", 2, 10, member="ren", player=2, coop=True),
+            placement("lord_masatora", "lord_masatora_unit", "second", 16, 6, behavior="hold", name="Lord Masatora"),
+            placement("gate_north_guard", "red_retainer", "second", 12, 3, behavior="pursue"),
+            placement("gate_south_guard", "march_sword", "second", 12, 10, behavior="pursue"),
+            placement("gate_north_bow", "cedar_archer", "second", 16, 2, behavior="hold"),
+            placement("gate_south_bow", "march_archer", "second", 16, 11, behavior="hold"),
+            placement("gate_center_mystic", "gate_mystic", "second", 13, 7, behavior="hold"),
+            placement("gate_west_knife", "court_knife", "second", 8, 2, behavior="pursue"),
+            placement("gate_wave_high", "red_retainer", "second", 10, 0, behavior="pursue", arrival={"round": 4}),
+            placement("gate_wave_low", "march_sword", "second", 10, 13, behavior="pursue", arrival={"round": 6}),
+            placement("gate_coop_high", "gate_mystic", "second", 9, 4, behavior="hold", coop=True),
+            placement("gate_coop_low", "court_knife", "second", 9, 10, behavior="pursue", coop=True),
+        ],
+        "objectiveIds": ["fell_masatora", "protect_rowan"],
+        "moments": moments("gate_begins", "gate_orders", "gate_cedar_front", "gate_coop") + [{
+            "id": "gate_two_armies_win",
+            "when": {"kind": "characterFalls", "placementId": "lord_masatora"},
+            "dialogueId": "gate_coop_victory", "minimumPlayers": 2,
+        }],
+        "transitions": outcome_transitions("gate", "protect_rowan", "epilogue", compound=("fell_masatora", "protect_rowan")),
+    })
+    nodes.extend((
+        story_node("epilogue", "An Open Gate", "ending", "campaign_complete"),
+        {"id": "campaign_complete", "name": "Both Banners Fly", "kind": "terminal", "transitions": []},
+        story_node("campaign_defeat", "The Signal Fades", "defeat", "campaign_failed"),
+        {"id": "campaign_failed", "name": "Try the Road Again", "kind": "terminal", "transitions": []},
+    ))
+
+    project = {
+        "schemaVersion": "1.3.0",
+        "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
+        "gameId": "grandleon.steel_and_cedar",
+        "title": "Steel and Cedar",
+        "contentRevision": "0.1.0",
+        "themeId": "temperate",
+        "characterStyleId": "medieval",
+        "characterFigureId": "first",
+        "defaultTurnOrder": "sideBlocks",
+        "characterLoss": "recoverable",
+        "weaponTypes": [
+            {"id": "blade", "name": "Blade"},
+            {"id": "bow", "name": "Bow"},
+            {"id": "focus", "name": "Focus"},
+        ],
+        "itemTypes": [],
+        "classes": classes,
+        "weapons": [
+            {"id": "march_blade", "name": "March Sword", "weaponTypeId": "blade", "power": 2, "minimumRange": 1, "maximumRange": 1, "accuracy": 95},
+            {"id": "scout_blade", "name": "Scout Knife", "weaponTypeId": "blade", "power": 2, "minimumRange": 1, "maximumRange": 1, "accuracy": 100},
+            {"id": "war_spear", "name": "War Spear", "weaponTypeId": "blade", "power": 3, "minimumRange": 1, "maximumRange": 1, "accuracy": 90},
+            {"id": "gate_glaive", "name": "Gate Glaive", "weaponTypeId": "blade", "power": 4, "minimumRange": 1, "maximumRange": 2, "accuracy": 95},
+            {"id": "cedar_bow", "name": "Cedar Bow", "weaponTypeId": "bow", "power": 2, "minimumRange": 2, "maximumRange": 3, "accuracy": 95},
+            {"id": "march_bow", "name": "March Longbow", "weaponTypeId": "bow", "power": 2, "minimumRange": 2, "maximumRange": 3, "accuracy": 90},
+            {"id": "pilgrim_focus", "name": "Pilgrim Bell", "weaponTypeId": "focus", "power": 1, "minimumRange": 1, "maximumRange": 2, "accuracy": 100},
+            {"id": "war_focus", "name": "War Fan", "weaponTypeId": "focus", "power": 2, "minimumRange": 1, "maximumRange": 2, "accuracy": 95},
+        ],
+        "items": [],
+        "factions": [
+            {"id": "concord", "name": "The Concord", "color": "blue"},
+            {"id": "war_host", "name": "The War Host", "color": "red"},
+        ],
+        "abilities": [
+            {"id": "field_mend", "name": "Field Mend", "kind": "restore", "damageType": "physical", "areaShape": "single", "power": 6, "minimumRange": 1, "maximumRange": 2},
+            {"id": "wind_lance", "name": "Wind Lance", "kind": "damage", "damageType": "magical", "areaShape": "single", "power": 4, "minimumRange": 1, "maximumRange": 3, "accuracy": 95},
+            {"id": "gatefall", "name": "Gatefall", "kind": "damage", "damageType": "magical", "areaShape": "cross", "power": 4, "minimumRange": 1, "maximumRange": 3, "radius": 1, "accuracy": 90},
+        ],
+        "unitTypes": unit_types,
+        "maps": maps,
+        "objectives": [
+            {"id": "defeat_all", "name": "Defeat every opponent", "kind": "defeatAllOpponents", "side": "first"},
+            {"id": "hold_watch", "name": "Hold Cedar Watch for twenty rounds", "kind": "surviveRounds", "side": "first", "rounds": 20},
+            {"id": "protect_rowan", "name": "Keep Commander Rowan standing", "kind": "protectTarget", "side": "first", "targetPlacementId": "rowan"},
+            {"id": "fell_castellan", "name": "Defeat Castellan Vere", "kind": "defeatTarget", "side": "first", "targetPlacementId": "castellan_vere"},
+            {"id": "fell_masatora", "name": "Defeat Lord Masatora", "kind": "defeatTarget", "side": "first", "targetPlacementId": "lord_masatora"},
+        ],
+        "dialogues": dialogues,
+        "campaigns": [{
+            "id": "steel_and_cedar", "name": "Steel and Cedar", "playerMode": "choice",
+            "roster": [
+                {"id": "rowan", "name": "Ser Rowan Vale", "unitTypeId": "rowan_vale"},
+                {"id": "tomas", "name": "Tomas Reed", "unitTypeId": "tomas_reed"},
+                {"id": "akari", "name": "Akari Mori", "unitTypeId": "akari_mori"},
+                {"id": "ren", "name": "Ren Sato", "unitTypeId": "ren_sato"},
+            ],
+            "objectiveIds": ["defeat_all", "hold_watch", "protect_rowan", "fell_castellan", "fell_masatora"],
+            "dialogueIds": [scene["id"] for scene in dialogues],
+            "flow": {"contractVersion": "1.0.0", "entryNodeId": "prologue", "nodes": nodes},
+        }],
+        "notes": "A five-battle Medieval-and-Sengoku campaign designed as the future common demo. One player follows Commander Rowan and Tomas through a complete story. With two local players, Akari and Ren arrive as a separate Cedar army with their own dialogue, deployment fronts, route responsibilities and additional opposition. The compact opening teaches the rules; four larger boards exercise scrolling, split routes, rendezvous decisions, a twenty-round commander defense, a village assault and a final boss while staying within console encounter budgets.",
+    }
+    encounters = [node for node in nodes if node["kind"] == "encounter"]
+    assert len(encounters) == 5
+    assert all(any(p.get("player") == 2 and p.get("minimumPlayers") == 2 and
+                       p["side"] == "first"
+                   for p in node["placements"]) for node in encounters)
+    assert all(len(node["placements"]) <= 16 for node in encounters)
+    assert all(
+        any(moment.get("minimumPlayers") == 2 for moment in node["moments"])
+        for node in encounters
+    )
+    assert all(
+        len(MAP_ROWS[node["mapId"]][0]) >= 14 and len(MAP_ROWS[node["mapId"]]) >= 9
+        for node in encounters[1:]
+    )
+    assert {unit["characterStyleId"] for unit in unit_types} == {"medieval", "sengoku"}
+    return project
+
+
+def main() -> None:
+    root = Path(__file__).resolve().parent
+    project = build_project()
+    output = root / "source" / "project.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(project, indent=2) + "\n", encoding="utf-8")
+    print(f"wrote {output}")
+
+
+if __name__ == "__main__":
+    main()

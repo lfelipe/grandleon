@@ -1,0 +1,2979 @@
+{
+  "schemaVersion": "1.3.0",
+  "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
+  "gameId": "grandleon.steel_and_cedar",
+  "title": "Steel and Cedar",
+  "contentRevision": "0.1.0",
+  "themeId": "temperate",
+  "characterStyleId": "medieval",
+  "characterFigureId": "first",
+  "defaultTurnOrder": "sideBlocks",
+  "characterLoss": "recoverable",
+  "weaponTypes": [
+    {
+      "id": "blade",
+      "name": "Blade"
+    },
+    {
+      "id": "bow",
+      "name": "Bow"
+    },
+    {
+      "id": "focus",
+      "name": "Focus"
+    }
+  ],
+  "itemTypes": [],
+  "classes": [
+    {
+      "id": "knight",
+      "name": "Knight",
+      "baseStats": {
+        "health": 15,
+        "movement": 4,
+        "strength": 5,
+        "defense": 4,
+        "resistance": 2,
+        "skill": 5,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 4
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "field_commander",
+      "name": "Commander",
+      "baseStats": {
+        "health": 17,
+        "movement": 4,
+        "strength": 5,
+        "defense": 4,
+        "resistance": 3,
+        "skill": 6,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 5
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "archer",
+      "name": "Archer",
+      "baseStats": {
+        "health": 11,
+        "movement": 4,
+        "strength": 4,
+        "defense": 2,
+        "resistance": 2,
+        "skill": 8,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 7
+      },
+      "allowedWeaponTypeIds": [
+        "bow"
+      ]
+    },
+    {
+      "id": "healer",
+      "name": "Healer",
+      "baseStats": {
+        "health": 12,
+        "movement": 4,
+        "strength": 2,
+        "defense": 2,
+        "resistance": 6,
+        "skill": 5,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 5,
+        "magic": 6
+      },
+      "allowedWeaponTypeIds": [
+        "focus"
+      ]
+    },
+    {
+      "id": "rogue",
+      "name": "Rogue",
+      "baseStats": {
+        "health": 11,
+        "movement": 5,
+        "strength": 4,
+        "defense": 2,
+        "resistance": 2,
+        "skill": 8,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 8
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "mage",
+      "name": "Mage",
+      "baseStats": {
+        "health": 11,
+        "movement": 4,
+        "strength": 2,
+        "defense": 2,
+        "resistance": 5,
+        "skill": 6,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 6,
+        "magic": 6
+      },
+      "allowedWeaponTypeIds": [
+        "focus"
+      ]
+    },
+    {
+      "id": "castellan",
+      "name": "Commander",
+      "baseStats": {
+        "health": 19,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5,
+        "resistance": 3,
+        "skill": 6,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 5
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "warlord",
+      "name": "Commander",
+      "baseStats": {
+        "health": 27,
+        "movement": 4,
+        "strength": 7,
+        "defense": 6,
+        "resistance": 5,
+        "skill": 7,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 6,
+        "magic": 4
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "march_blade",
+      "name": "March Sword",
+      "weaponTypeId": "blade",
+      "power": 2,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 95
+    },
+    {
+      "id": "scout_blade",
+      "name": "Scout Knife",
+      "weaponTypeId": "blade",
+      "power": 2,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    },
+    {
+      "id": "war_spear",
+      "name": "War Spear",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 90
+    },
+    {
+      "id": "gate_glaive",
+      "name": "Gate Glaive",
+      "weaponTypeId": "blade",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 95
+    },
+    {
+      "id": "cedar_bow",
+      "name": "Cedar Bow",
+      "weaponTypeId": "bow",
+      "power": 2,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 95
+    },
+    {
+      "id": "march_bow",
+      "name": "March Longbow",
+      "weaponTypeId": "bow",
+      "power": 2,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 90
+    },
+    {
+      "id": "pilgrim_focus",
+      "name": "Pilgrim Bell",
+      "weaponTypeId": "focus",
+      "power": 1,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 100
+    },
+    {
+      "id": "war_focus",
+      "name": "War Fan",
+      "weaponTypeId": "focus",
+      "power": 2,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 95
+    }
+  ],
+  "items": [],
+  "factions": [
+    {
+      "id": "concord",
+      "name": "The Concord",
+      "color": "blue"
+    },
+    {
+      "id": "war_host",
+      "name": "The War Host",
+      "color": "red"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "field_mend",
+      "name": "Field Mend",
+      "kind": "restore",
+      "damageType": "physical",
+      "areaShape": "single",
+      "power": 6,
+      "minimumRange": 1,
+      "maximumRange": 2
+    },
+    {
+      "id": "wind_lance",
+      "name": "Wind Lance",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "single",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 3,
+      "accuracy": 95
+    },
+    {
+      "id": "gatefall",
+      "name": "Gatefall",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "cross",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 3,
+      "radius": 1,
+      "accuracy": 90
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "rowan_vale",
+      "name": "Commander Rowan Vale",
+      "classId": "field_commander",
+      "factionId": "concord",
+      "startingWeaponIds": [
+        "march_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "notes": "ALLIED COMMANDER: persistent protect target and visual anchor for the shared commander treatment.",
+      "experiencePerLevel": 80
+    },
+    {
+      "id": "akari_mori",
+      "name": "Akari Mori",
+      "classId": "archer",
+      "factionId": "concord",
+      "startingWeaponIds": [
+        "cedar_bow"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "experiencePerLevel": 80
+    },
+    {
+      "id": "tomas_reed",
+      "name": "Tomas Reed",
+      "classId": "healer",
+      "factionId": "concord",
+      "startingWeaponIds": [
+        "pilgrim_focus"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "field_mend"
+      ],
+      "experiencePerLevel": 80
+    },
+    {
+      "id": "ren_sato",
+      "name": "Ren Sato",
+      "classId": "rogue",
+      "factionId": "concord",
+      "startingWeaponIds": [
+        "scout_blade"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "experiencePerLevel": 80
+    },
+    {
+      "id": "red_retainer",
+      "name": "Red Retainer",
+      "classId": "knight",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "war_spear"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "experienceAward": 45
+    },
+    {
+      "id": "march_sword",
+      "name": "March Sword",
+      "classId": "knight",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "march_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "experienceAward": 45
+    },
+    {
+      "id": "cedar_archer",
+      "name": "Cedar Archer",
+      "classId": "archer",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "cedar_bow"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "experienceAward": 40
+    },
+    {
+      "id": "march_archer",
+      "name": "March Archer",
+      "classId": "archer",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "march_bow"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "experienceAward": 40
+    },
+    {
+      "id": "gate_mystic",
+      "name": "Gate Mystic",
+      "classId": "mage",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "war_focus"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "wind_lance"
+      ],
+      "experienceAward": 60
+    },
+    {
+      "id": "court_knife",
+      "name": "Court Knife",
+      "classId": "rogue",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "scout_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "experienceAward": 50
+    },
+    {
+      "id": "castellan_vere_unit",
+      "name": "Castellan Vere",
+      "classId": "castellan",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "war_spear"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "experienceAward": 120
+    },
+    {
+      "id": "lord_masatora_unit",
+      "name": "Lord Masatora",
+      "classId": "warlord",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "gate_glaive"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "gatefall"
+      ],
+      "notes": "FINAL BOSS COMMANDER: named visual anchor for the shared boss treatment.",
+      "experienceAward": 300
+    }
+  ],
+  "maps": [
+    {
+      "id": "bell_orchard",
+      "name": "The Bell Orchard",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "forest",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "forest",
+        "forest",
+        "hills",
+        "grass",
+        "road",
+        "farmland",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "hills",
+        "forest",
+        "road",
+        "paved",
+        "paved",
+        "road",
+        "grass",
+        "road",
+        "forest",
+        "forest",
+        "road",
+        "grass",
+        "road",
+        "paved",
+        "paved",
+        "road",
+        "forest",
+        "grass",
+        "road",
+        "grass",
+        "road",
+        "farmland",
+        "road",
+        "grass",
+        "hills",
+        "forest",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "forest",
+        "forest",
+        "hills"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    },
+    {
+      "id": "cedar_deepwood",
+      "name": "Cedar Deepwood",
+      "width": 14,
+      "height": 9,
+      "terrain": [
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "hills",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "forest",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "forest",
+        "forest",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "road",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "mountain_ancient_grove",
+        "mountain_ancient_grove",
+        "grass",
+        "forest",
+        "forest",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "mountain_ancient_grove",
+        "mountain_ancient_grove",
+        "grass",
+        "forest",
+        "road",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "forest",
+        "forest",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "road",
+        "forest",
+        "bridge",
+        "bridge",
+        "forest",
+        "forest",
+        "road",
+        "forest",
+        "forest",
+        "grass",
+        "forest",
+        "forest",
+        "grass",
+        "mountain_ancient_grove",
+        "mountain_ancient_grove",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "grass",
+        "mountain_ancient_grove",
+        "mountain_ancient_grove",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "hills",
+        "hills",
+        "hills",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    },
+    {
+      "id": "cedar_watch",
+      "name": "Cedar Watch",
+      "width": 16,
+      "height": 12,
+      "terrain": [
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "hills",
+        "hills",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "hills",
+        "hills",
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "forest",
+        "bamboo",
+        "bamboo",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "bamboo",
+        "forest",
+        "forest",
+        "hills",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "forest",
+        "forest",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "hills",
+        "hills",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "forest",
+        "forest",
+        "bamboo",
+        "bamboo",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "bamboo",
+        "forest",
+        "forest",
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "hills",
+        "hills",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "hills",
+        "hills",
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "forest"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    },
+    {
+      "id": "gate_village",
+      "name": "Gate Village",
+      "width": 18,
+      "height": 12,
+      "terrain": [
+        "hills",
+        "hills",
+        "road",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "road",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "ruins",
+        "hills",
+        "hills",
+        "hills",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "road",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "grass",
+        "bamboo",
+        "bamboo",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "road",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "grass",
+        "bamboo",
+        "bamboo",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "grass",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "grass",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "road",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "grass",
+        "bamboo",
+        "bamboo",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "road",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "grass",
+        "bamboo",
+        "bamboo",
+        "hills",
+        "hills",
+        "road",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "road",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "ruins",
+        "hills",
+        "hills",
+        "hills"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    },
+    {
+      "id": "twin_gate",
+      "name": "The Twin Gate",
+      "width": 20,
+      "height": 14,
+      "terrain": [
+        "mountain",
+        "mountain",
+        "mountain",
+        "ruins",
+        "ruins",
+        "road",
+        "road",
+        "road",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "road",
+        "ruins",
+        "ruins",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "ruins",
+        "mountain",
+        "mountain",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "ruins",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "mountain",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "ruins",
+        "mountain",
+        "mountain",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "ruins",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "ruins",
+        "ruins",
+        "road",
+        "road",
+        "road",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "road",
+        "ruins",
+        "ruins",
+        "mountain",
+        "mountain"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all",
+      "name": "Defeat every opponent",
+      "kind": "defeatAllOpponents",
+      "side": "first"
+    },
+    {
+      "id": "hold_watch",
+      "name": "Hold Cedar Watch for twenty rounds",
+      "kind": "surviveRounds",
+      "side": "first",
+      "rounds": 20
+    },
+    {
+      "id": "protect_rowan",
+      "name": "Keep Commander Rowan standing",
+      "kind": "protectTarget",
+      "side": "first",
+      "targetPlacementId": "rowan"
+    },
+    {
+      "id": "fell_castellan",
+      "name": "Defeat Castellan Vere",
+      "kind": "defeatTarget",
+      "side": "first",
+      "targetPlacementId": "castellan_vere"
+    },
+    {
+      "id": "fell_masatora",
+      "name": "Defeat Lord Masatora",
+      "kind": "defeatTarget",
+      "side": "first",
+      "targetPlacementId": "lord_masatora"
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "opening",
+      "name": "The Orchard Bell",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Rowan",
+          "text": "The treaty bell rang from an abandoned orchard. Someone wants the March to answer with steel."
+        },
+        {
+          "speaker": "Tomas",
+          "text": "Then we reach the bell before a frightened patrol becomes a war."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Stay close. We learn who gave the order, and we leave witnesses alive to refute it."
+        }
+      ],
+      "backgroundId": "deep_wood"
+    },
+    {
+      "id": "orchard_orders",
+      "name": "The First Exchange",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "Use the road to close the distance. I can mend you, but only if I can reach you."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "We focus one threat at a time, then end the turn together."
+        }
+      ]
+    },
+    {
+      "id": "orchard_coop",
+      "name": "The Cedar Answer",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Cedar heard the same false signal. Ren and I will hold the lower road while you take the bell."
+        },
+        {
+          "speaker": "Ren",
+          "text": "Two armies, two approaches. If either route folds, the other one gets surrounded."
+        }
+      ]
+    },
+    {
+      "id": "orchard_won",
+      "name": "A Paid Lie",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "Their purses carry coins from both courts."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Then this is not a border mistake. The courier trail enters Cedar Deepwood."
+        }
+      ],
+      "backgroundId": "night_camp"
+    },
+    {
+      "id": "deepwood_orders",
+      "name": "Under the Cedar",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The old track is narrow. The archers can watch a clearing without standing inside it."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "We clear the near ambush, use the rock line as cover, and reach the eastern courier."
+        }
+      ]
+    },
+    {
+      "id": "deepwood_coop",
+      "name": "Separate Trails",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "My company begins on the southern trail. We can cut the courier off beyond the cedar wall."
+        },
+        {
+          "speaker": "Ren",
+          "text": "Do not hurry to meet us. Win your route first; we rendezvous at the watch road."
+        }
+      ]
+    },
+    {
+      "id": "deepwood_won",
+      "name": "The False Order",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Rowan",
+          "text": "Vere's seal orders the March to burn Cedar villages."
+        },
+        {
+          "speaker": "Tomas",
+          "text": "And the captured courier carried Masatora's matching order. Each court is feeding the other's fear."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Cedar Watch can show both capitals the same signal. We hold it long enough for both to answer."
+        }
+      ],
+      "backgroundId": "open_sea"
+    },
+    {
+      "id": "watch_orders",
+      "name": "Twenty Rounds",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The relay needs twenty rounds to reach both capitals."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "I stay with the signal. Watch the four approaches and never chase a wave past the next entry path."
+        }
+      ]
+    },
+    {
+      "id": "watch_coop",
+      "name": "Two Fronts",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Cedar holds the eastern steps. Rowan, keep the western court and the commander line intact."
+        },
+        {
+          "speaker": "Ren",
+          "text": "We will trade warnings across the courtyard. Neither front is a reserve for the other."
+        }
+      ]
+    },
+    {
+      "id": "watch_won",
+      "name": "Answering Fires",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "Both capitals answered. The lie is exposed."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Vere is barricading Gate Village with the treaty record. We take the streets before he burns it."
+        }
+      ],
+      "backgroundId": "mountain_dusk"
+    },
+    {
+      "id": "village_orders",
+      "name": "The Village Gate",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Rowan",
+          "text": "The north gate reaches the square quickly, but the alleys leave no room to turn."
+        },
+        {
+          "speaker": "Tomas",
+          "text": "The south lane is longer and safer. Keep the houses between us and their archers."
+        }
+      ]
+    },
+    {
+      "id": "village_coop",
+      "name": "Streets Apart",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Cedar enters by the south lane and cuts off Vere's escape."
+        },
+        {
+          "speaker": "Ren",
+          "text": "The square is our rendezvous. Until then, each army owns its own street fight."
+        }
+      ]
+    },
+    {
+      "id": "village_won",
+      "name": "The Last Banner",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Vere",
+          "unitTypeId": "castellan_vere_unit"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Vere",
+          "text": "Masatora never wanted a partner. The Twin Gate is his now."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "The record survives you. I will carry it to the gate and end this before either realm can deny it."
+        }
+      ],
+      "backgroundId": "throne_hall"
+    },
+    {
+      "id": "gate_parley",
+      "name": "What Peace Costs",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Masatora",
+          "unitTypeId": "lord_masatora_unit"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Masatora",
+          "text": "One gate, one law, one hand on the sword. That is peace that lasts."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "That is fear made permanent. The gate opens for both realms, or for neither."
+        }
+      ],
+      "backgroundId": "throne_hall"
+    },
+    {
+      "id": "gate_orders",
+      "name": "The Twin Gate",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The side stairs avoid the glaive, but his reserves will close them behind us."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "We break each guard post, converge on Masatora, and keep the treaty record standing with me."
+        }
+      ]
+    },
+    {
+      "id": "gate_coop",
+      "name": "Steel and Cedar",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Rowan takes the high stair. I take the lower court. We meet at Masatora with both armies intact."
+        },
+        {
+          "speaker": "Ren",
+          "text": "Separate openings, one finish. Neither route can wait for the other to do the work."
+        }
+      ]
+    },
+    {
+      "id": "gate_coop_victory",
+      "name": "Both Banners",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Cedar heard the truth from its own soldiers, not from a foreign court."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "And the March heard it from mine. That is how this peace begins."
+        }
+      ]
+    },
+    {
+      "id": "ending",
+      "name": "An Open Gate",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The March sent a new bell for the gate tower."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Hang it beside Cedar's drum. One signal should never command two realms in secret again."
+        }
+      ],
+      "backgroundId": "star_field"
+    },
+    {
+      "id": "defeat",
+      "name": "The Signal Fades",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The road is still here, even if we lost it today."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Then we remember where the line broke and take it again."
+        }
+      ],
+      "backgroundId": "mountain_dusk"
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "steel_and_cedar",
+      "name": "Steel and Cedar",
+      "playerMode": "choice",
+      "roster": [
+        {
+          "id": "rowan",
+          "name": "Ser Rowan Vale",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "id": "tomas",
+          "name": "Tomas Reed",
+          "unitTypeId": "tomas_reed"
+        },
+        {
+          "id": "akari",
+          "name": "Akari Mori",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "id": "ren",
+          "name": "Ren Sato",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "objectiveIds": [
+        "defeat_all",
+        "hold_watch",
+        "protect_rowan",
+        "fell_castellan",
+        "fell_masatora"
+      ],
+      "dialogueIds": [
+        "opening",
+        "orchard_orders",
+        "orchard_coop",
+        "orchard_won",
+        "deepwood_orders",
+        "deepwood_coop",
+        "deepwood_won",
+        "watch_orders",
+        "watch_coop",
+        "watch_won",
+        "village_orders",
+        "village_coop",
+        "village_won",
+        "gate_parley",
+        "gate_orders",
+        "gate_coop",
+        "gate_coop_victory",
+        "ending",
+        "defeat"
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "prologue",
+        "nodes": [
+          {
+            "id": "prologue",
+            "name": "The Orchard Bell",
+            "kind": "story",
+            "dialogueIds": [
+              "opening"
+            ],
+            "transitions": [
+              {
+                "id": "prologue_next",
+                "targetNodeId": "bell_orchard",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "bell_orchard",
+            "name": "I \u2014 The Bell Orchard",
+            "kind": "encounter",
+            "mapId": "bell_orchard",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_orchard",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 1,
+                "y": 2,
+                "memberId": "rowan"
+              },
+              {
+                "id": "tomas_orchard",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 1,
+                "y": 3,
+                "memberId": "tomas"
+              },
+              {
+                "id": "akari_orchard",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 1,
+                "y": 1,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_orchard",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 2,
+                "y": 4,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "orchard_sword",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 5,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "orchard_retainer",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "orchard_archer",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 5,
+                "y": 4,
+                "behavior": "hold"
+              },
+              {
+                "id": "orchard_coop",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 7,
+                "y": 2,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all"
+            ],
+            "moments": [
+              {
+                "id": "orchard_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "orchard_orders"
+              },
+              {
+                "id": "orchard_cedar_arrives",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "orchard_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "orchard_won",
+                "targetNodeId": "orchard_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "orchard_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "orchard_camp",
+            "name": "A Paid Lie",
+            "kind": "story",
+            "dialogueIds": [
+              "orchard_won"
+            ],
+            "transitions": [
+              {
+                "id": "orchard_camp_next",
+                "targetNodeId": "cedar_deepwood",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "cedar_deepwood",
+            "name": "II \u2014 Cedar Deepwood",
+            "kind": "encounter",
+            "mapId": "cedar_deepwood",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_deepwood",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 5,
+                "y": 3,
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 3,
+                  "y": 1
+                }
+              },
+              {
+                "id": "tomas_deepwood",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 5,
+                "y": 5,
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 3,
+                  "y": 2
+                }
+              },
+              {
+                "id": "akari_deepwood",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 3,
+                "y": 7,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_deepwood",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 3,
+                "y": 6,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "deepwood_north_blade",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 5,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "deepwood_north_bow",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 10,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "deepwood_courier_guard",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 9,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "deepwood_south_knife",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 5,
+                "y": 7,
+                "behavior": "pursue"
+              },
+              {
+                "id": "deepwood_east_guard",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 12,
+                "y": 4,
+                "behavior": "hold"
+              },
+              {
+                "id": "deepwood_coop_north",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 11,
+                "y": 2,
+                "behavior": "hold",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "deepwood_coop_south",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 11,
+                "y": 6,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all"
+            ],
+            "moments": [
+              {
+                "id": "deepwood_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "deepwood_orders"
+              },
+              {
+                "id": "deepwood_cedar_front",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "deepwood_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "deepwood_won",
+                "targetNodeId": "deepwood_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "deepwood_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "deepwood_camp",
+            "name": "The False Order",
+            "kind": "story",
+            "dialogueIds": [
+              "deepwood_won"
+            ],
+            "transitions": [
+              {
+                "id": "deepwood_camp_next",
+                "targetNodeId": "cedar_watch",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "cedar_watch",
+            "name": "III \u2014 Cedar Watch",
+            "kind": "encounter",
+            "mapId": "cedar_watch",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_watch",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 7,
+                "y": 6,
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 4,
+                  "y": 5
+                }
+              },
+              {
+                "id": "tomas_watch",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 6,
+                "y": 6,
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 4,
+                  "y": 6
+                }
+              },
+              {
+                "id": "akari_watch",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 11,
+                "y": 5,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_watch",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 11,
+                "y": 6,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "watch_open_west",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 1,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "watch_open_east",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 14,
+                "y": 8,
+                "behavior": "hold"
+              },
+              {
+                "id": "watch_wave_west",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 3,
+                  "every": 4,
+                  "times": 5
+                }
+              },
+              {
+                "id": "watch_wave_east",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 15,
+                "y": 6,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 5,
+                  "every": 4,
+                  "times": 4
+                }
+              },
+              {
+                "id": "watch_wave_north",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 8,
+                "y": 0,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 6,
+                  "every": 6,
+                  "times": 3
+                }
+              },
+              {
+                "id": "watch_wave_south",
+                "unitTypeId": "gate_mystic",
+                "side": "second",
+                "x": 7,
+                "y": 11,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 10,
+                  "every": 6,
+                  "times": 2
+                }
+              },
+              {
+                "id": "watch_coop_east",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 15,
+                "y": 3,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 4,
+                  "every": 5,
+                  "times": 4
+                }
+              },
+              {
+                "id": "watch_coop_west",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 0,
+                "y": 8,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 8,
+                  "every": 5,
+                  "times": 3
+                }
+              },
+              {
+                "id": "watch_coop_south",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 8,
+                "y": 11,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 12,
+                  "every": 6,
+                  "times": 2
+                }
+              }
+            ],
+            "objectiveIds": [
+              "hold_watch",
+              "protect_rowan"
+            ],
+            "moments": [
+              {
+                "id": "watch_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "watch_orders"
+              },
+              {
+                "id": "watch_cedar_front",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "watch_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "watch_won",
+                "targetNodeId": "watch_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "hold_watch",
+                      "result": "victory"
+                    },
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "protect_rowan",
+                      "result": "victory"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "watch_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "protect_rowan",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "watch_camp",
+            "name": "Answering Fires",
+            "kind": "story",
+            "dialogueIds": [
+              "watch_won"
+            ],
+            "transitions": [
+              {
+                "id": "watch_camp_next",
+                "targetNodeId": "gate_village",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "gate_village",
+            "name": "IV \u2014 Gate Village",
+            "kind": "encounter",
+            "mapId": "gate_village",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_village",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 7,
+                "y": 5,
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 2,
+                  "y": 3
+                }
+              },
+              {
+                "id": "tomas_village",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 7,
+                "y": 6,
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 2,
+                  "y": 4
+                }
+              },
+              {
+                "id": "akari_village",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 2,
+                "y": 8,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_village",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 3,
+                "y": 9,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "castellan_vere",
+                "unitTypeId": "castellan_vere_unit",
+                "side": "second",
+                "x": 15,
+                "y": 5,
+                "behavior": "hold",
+                "name": "Castellan Vere"
+              },
+              {
+                "id": "village_north_flank",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 6,
+                "y": 2,
+                "behavior": "pursue"
+              },
+              {
+                "id": "village_south_flank",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 6,
+                "y": 9,
+                "behavior": "pursue"
+              },
+              {
+                "id": "village_square_guard",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 10,
+                "y": 5,
+                "behavior": "pursue"
+              },
+              {
+                "id": "village_north_bow",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 13,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "village_south_bow",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 13,
+                "y": 10,
+                "behavior": "hold"
+              },
+              {
+                "id": "village_coop_north",
+                "unitTypeId": "gate_mystic",
+                "side": "second",
+                "x": 14,
+                "y": 3,
+                "behavior": "hold",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "village_coop_south",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 14,
+                "y": 8,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "village_coop_gate",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 16,
+                "y": 6,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 5
+                }
+              }
+            ],
+            "objectiveIds": [
+              "fell_castellan",
+              "protect_rowan"
+            ],
+            "moments": [
+              {
+                "id": "village_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "village_orders"
+              },
+              {
+                "id": "village_cedar_front",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "village_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "village_won",
+                "targetNodeId": "village_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "fell_castellan",
+                      "result": "victory"
+                    },
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "protect_rowan",
+                      "result": "victory"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "village_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "protect_rowan",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "village_camp",
+            "name": "The Last Banner",
+            "kind": "story",
+            "dialogueIds": [
+              "village_won"
+            ],
+            "transitions": [
+              {
+                "id": "village_camp_next",
+                "targetNodeId": "gate_parley",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "gate_parley",
+            "name": "What Peace Costs",
+            "kind": "story",
+            "dialogueIds": [
+              "gate_parley"
+            ],
+            "transitions": [
+              {
+                "id": "gate_parley_next",
+                "targetNodeId": "twin_gate",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "twin_gate",
+            "name": "V \u2014 The Twin Gate",
+            "kind": "encounter",
+            "mapId": "twin_gate",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_gate",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 6,
+                "y": 6,
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 2,
+                  "y": 4
+                }
+              },
+              {
+                "id": "tomas_gate",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 5,
+                "y": 6,
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 2,
+                  "y": 5
+                }
+              },
+              {
+                "id": "akari_gate",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 2,
+                "y": 9,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_gate",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 2,
+                "y": 10,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "lord_masatora",
+                "unitTypeId": "lord_masatora_unit",
+                "side": "second",
+                "x": 16,
+                "y": 6,
+                "behavior": "hold",
+                "name": "Lord Masatora"
+              },
+              {
+                "id": "gate_north_guard",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 12,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "gate_south_guard",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 12,
+                "y": 10,
+                "behavior": "pursue"
+              },
+              {
+                "id": "gate_north_bow",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 16,
+                "y": 2,
+                "behavior": "hold"
+              },
+              {
+                "id": "gate_south_bow",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 16,
+                "y": 11,
+                "behavior": "hold"
+              },
+              {
+                "id": "gate_center_mystic",
+                "unitTypeId": "gate_mystic",
+                "side": "second",
+                "x": 13,
+                "y": 7,
+                "behavior": "hold"
+              },
+              {
+                "id": "gate_west_knife",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 8,
+                "y": 2,
+                "behavior": "pursue"
+              },
+              {
+                "id": "gate_wave_high",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 10,
+                "y": 0,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 4
+                }
+              },
+              {
+                "id": "gate_wave_low",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 10,
+                "y": 13,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 6
+                }
+              },
+              {
+                "id": "gate_coop_high",
+                "unitTypeId": "gate_mystic",
+                "side": "second",
+                "x": 9,
+                "y": 4,
+                "behavior": "hold",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "gate_coop_low",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 9,
+                "y": 10,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "fell_masatora",
+              "protect_rowan"
+            ],
+            "moments": [
+              {
+                "id": "gate_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "gate_orders"
+              },
+              {
+                "id": "gate_cedar_front",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "gate_coop",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "gate_two_armies_win",
+                "when": {
+                  "kind": "characterFalls",
+                  "placementId": "lord_masatora"
+                },
+                "dialogueId": "gate_coop_victory",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "gate_won",
+                "targetNodeId": "epilogue",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "fell_masatora",
+                      "result": "victory"
+                    },
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "protect_rowan",
+                      "result": "victory"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "gate_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "protect_rowan",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "epilogue",
+            "name": "An Open Gate",
+            "kind": "story",
+            "dialogueIds": [
+              "ending"
+            ],
+            "transitions": [
+              {
+                "id": "epilogue_next",
+                "targetNodeId": "campaign_complete",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "campaign_complete",
+            "name": "Both Banners Fly",
+            "kind": "terminal",
+            "transitions": []
+          },
+          {
+            "id": "campaign_defeat",
+            "name": "The Signal Fades",
+            "kind": "story",
+            "dialogueIds": [
+              "defeat"
+            ],
+            "transitions": [
+              {
+                "id": "campaign_defeat_next",
+                "targetNodeId": "campaign_failed",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "campaign_failed",
+            "name": "Try the Road Again",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ],
+  "notes": "A five-battle Medieval-and-Sengoku campaign designed as the future common demo. One player follows Commander Rowan and Tomas through a complete story. With two local players, Akari and Ren arrive as a separate Cedar army with their own dialogue, deployment fronts, route responsibilities and additional opposition. The compact opening teaches the rules; four larger boards exercise scrolling, split routes, rendezvous decisions, a twenty-round commander defense, a village assault and a final boss while staying within console encounter budgets."
+}

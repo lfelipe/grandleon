@@ -2233,6 +2233,81 @@ void assigns_allies_to_one_or_two_local_armies() {
     );
 }
 
+void carries_a_distinct_coop_army_story_and_opening_layout() {
+    auto authored = ranked_source();
+
+    // Rook is the same persistent member in either variant, but begins farther
+    // back when a second army needs room on the board.
+    gc::Placement& rook = authored.encounters.front().placements.back();
+    rook.two_player_x = 1;
+    rook.two_player_y = 2;
+    rook.states_two_player_position = true;
+
+    // Kite belongs only to the second local player's version of this battle.
+    // The member still has one campaign identity: filtering the placement does
+    // not manufacture or discard a roster record.
+    authored.campaigns.front().roster.push_back({2004, "Kite", 60, 0});
+    gc::Placement kite{
+        1004, 2004, 2004, 60, gc::EncounterSide::first, 3, 2
+    };
+    kite.minimum_players = 2;
+    kite.local_player = 2;
+    authored.encounters.front().placements.push_back(kite);
+    authored.encounters.front().moments = {
+        {21U, gc::MomentTrigger::stage_opens, 0U, 101U},
+        {22U, gc::MomentTrigger::stage_opens, 0U, 102U, 2U},
+    };
+
+    const pf::LoadedPackage package = compile_and_load(authored);
+    expect(
+        package.find(pf::SectionType::placement_two_player_positions, 100) !=
+            nullptr,
+        "the alternate opening position has its portable sparse record"
+    );
+    const pf::SectionView* moment_section =
+        package.find(pf::SectionType::moments);
+    expect(
+        moment_section != nullptr && moment_section->schema_minor == 1U,
+        "conditional story advances the moments section without changing its kind"
+    );
+
+    const auto solo = pr::load_encounter(package, 100, {1});
+    const auto coop = pr::load_encounter(package, 100, {2});
+    expect(solo && coop, "both variants decode from one authored encounter");
+
+    const auto unit = [](const pr::EncounterLoadResult& board,
+                         std::uint64_t id) -> const sim::UnitDefinition* {
+        const auto found = std::find_if(
+            board.definition.units.begin(), board.definition.units.end(),
+            [id](const sim::UnitDefinition& candidate) {
+                return candidate.id == id;
+            }
+        );
+        return found == board.definition.units.end() ? nullptr : &*found;
+    };
+    const sim::UnitDefinition* solo_rook = unit(solo, 1003);
+    const sim::UnitDefinition* coop_rook = unit(coop, 1003);
+    expect(
+        solo_rook != nullptr && solo_rook->position == sim::Position{0, 2} &&
+            coop_rook != nullptr && coop_rook->position == sim::Position{1, 2},
+        "one persistent member resolves the opening coordinate for each mode"
+    );
+    expect(
+        unit(solo, 1004) == nullptr && unit(coop, 1004) != nullptr &&
+            unit(coop, 1004)->local_player == 2U,
+        "the second army is absent in solo and independently owned in co-op"
+    );
+    expect(
+        solo.moments.size() == 1U && solo.moments.front().dialogue_id == 101U &&
+            coop.moments.size() == 2U && coop.moments.back().dialogue_id == 102U,
+        "the second army's story beat appears only in its co-op variant"
+    );
+    expect(
+        solo.placements.size() + 1U == coop.placements.size(),
+        "filtering one army keeps placement joins aligned in both variants"
+    );
+}
+
 void carries_the_survive_count_onto_the_objective() {
     auto authored = ranked_source();
     authored.objectives.front().kind = gc::ObjectiveKind::survive_rounds;
@@ -2375,6 +2450,7 @@ int main() {
     carries_the_arrivals_onto_the_board();
     scales_authored_opponents_with_the_local_party();
     assigns_allies_to_one_or_two_local_armies();
+    carries_a_distinct_coop_army_story_and_opening_layout();
     carries_the_survive_count_onto_the_objective();
     a_triangle_reaches_the_blow();
     carries_the_deployment_capacity_beside_the_board();

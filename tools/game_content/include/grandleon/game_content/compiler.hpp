@@ -551,18 +551,25 @@ struct Placement final {
     // section, so a package where nobody is named is byte-identical to the
     // package it always was.
     std::string name;
-    // How many local players must be participating for this opposing
-    // placement to be fielded. One is the default and writes no scaling
-    // record; two adds difficulty through authored characters rather than an
-    // opaque stat multiplier. Allied roster placements may not be conditional.
+    // How many local players must be participating for this placement to be
+    // fielded. One is the default and writes no scaling record. Two either
+    // adds an opposing character for co-op difficulty or, on a player-two
+    // roster placement, adds that distinct allied army to the co-op variant.
     // Appended to preserve aggregate initializers written before the rule.
     std::uint8_t minimum_players{1};
     // Which local person commands this allied placement in a two-player game.
-    // One is the default and writes no ownership record. A one-player runtime
-    // deliberately normalises every ally back to one, so this is one complete
-    // army in solo and two allied armies in co-op rather than two campaigns.
-    // Opposing placements may not name a local player.
+    // One is the default and writes no ownership record. An unconditional
+    // player-two ally is normalised back to one in solo; a player-two ally
+    // whose minimum is two is absent there instead. Opposing placements may
+    // not name a local player.
     std::uint8_t local_player{1};
+    // Optional opening coordinate for a two-player session. Keeping this on
+    // the placement preserves the persistent member and placement identities;
+    // only the layout changes when the second army is present. Appended so
+    // aggregate initializers authored before it keep their meaning.
+    std::int16_t two_player_x{};
+    std::int16_t two_player_y{};
+    bool states_two_player_position{false};
 };
 
 // What an encounter says about the player's own troops before the first
@@ -612,6 +619,9 @@ struct Moment final {
     // Zero for a moment about the board rather than about anybody.
     StableId placement_id{};
     StableId dialogue_id{};
+    // One is the historical default. Two makes this a co-op-only story beat
+    // without splitting or duplicating the campaign graph.
+    std::uint8_t minimum_players{1};
 };
 
 struct Encounter final {

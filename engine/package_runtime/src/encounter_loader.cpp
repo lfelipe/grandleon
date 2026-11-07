@@ -17,6 +17,7 @@ namespace {
 using package_format::LoadedPackage;
 using package_format::RecordView;
 using package_format::SectionType;
+using package_format::SectionView;
 
 // Whether a decoded number may stand in the rules' damage arithmetic.
 //
@@ -765,8 +766,9 @@ EncounterLoadResult load_encounter(
     }
     // Sparse ownership is the co-op counterpart to sparse scaling. Only
     // player-two allies are recorded; player one is the historical default.
-    // The same package becomes one complete army in solo by normalising every
-    // ally to player one below.
+    // Unconditional ownership becomes one complete army in solo by
+    // normalising to player one below. A scaled player-two placement is the
+    // other supported shape: it is filtered out of solo instead.
     std::map<std::uint64_t, std::uint8_t> placement_players;
     if (const RecordView* ownership =
             package.find(SectionType::placement_players, encounter_id)) {
@@ -789,11 +791,42 @@ EncounterLoadResult load_encounter(
             return fail(EncounterLoadError::malformed_payload);
         }
     }
+    // A placement may keep its identity and use a different opening coordinate
+    // when the second army is present. This sparse required section is applied
+    // before scaling, so even a co-op-only ally has exactly one authored
+    // placement rather than a duplicate roster identity.
+    std::map<std::uint64_t, simulation::Position> two_player_positions;
+    if (const RecordView* positions = package.find(
+            SectionType::placement_two_player_positions, encounter_id
+        )) {
+        Reader position_reader(package, *positions);
+        std::uint16_t position_count = 0;
+        if (!position_reader.u16(position_count) || position_count == 0) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        for (std::uint16_t index = 0; index < position_count; ++index) {
+            std::uint64_t placement_id = 0;
+            std::int16_t x = 0;
+            std::int16_t y = 0;
+            if (!position_reader.u64(placement_id) ||
+                !position_reader.i16(x) || !position_reader.i16(y) ||
+                placement_id == 0 ||
+                !two_player_positions.emplace(
+                    placement_id, simulation::Position{x, y}
+                ).second) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+        }
+        if (!position_reader.finished()) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+    }
     const std::uint8_t local_players =
         options.local_players == 0 ? 1U : options.local_players;
     std::map<std::uint64_t, std::uint64_t> placement_instances;
     std::set<std::uint64_t> scaled_placements_seen;
     std::set<std::uint64_t> owned_placements_seen;
+    std::set<std::uint64_t> two_player_positions_seen;
     std::set<std::uint64_t> excluded_placements;
 
     std::uint16_t placement_count = 0;
@@ -837,6 +870,14 @@ EncounterLoadResult load_encounter(
             }
             binding.patrol.push_back({px, py});
         }
+        const auto two_position = two_player_positions.find(instance_id);
+        if (two_position != two_player_positions.end()) {
+            two_player_positions_seen.insert(instance_id);
+            if (local_players > 1U) {
+                x = two_position->second.x;
+                y = two_position->second.y;
+            }
+        }
         const RecordView* unit_type =
             package.find(SectionType::unit_types, unit_type_id);
         if (unit_type == nullptr) {
@@ -877,20 +918,24 @@ EncounterLoadResult load_encounter(
         }
         const auto scaling = minimum_players.find(instance_id);
         const bool scaled = scaling != minimum_players.end();
+        const auto ownership = placement_players.find(instance_id);
         if (scaled) {
             scaled_placements_seen.insert(instance_id);
-            // Player-count scaling is deliberately an opposing-side rule.
-            // Conditional allies would make roster membership and save state
-            // depend on controller presence.
-            if (encoded_side != 2U) {
+            const bool conditional_opponent = encoded_side == 2U;
+            const bool conditional_player_two =
+                encoded_side == 1U && ownership != placement_players.end() &&
+                ownership->second == 2U;
+            if (!conditional_opponent && !conditional_player_two) {
                 return fail(EncounterLoadError::malformed_payload);
             }
             if (local_players < scaling->second) {
+                if (ownership != placement_players.end()) {
+                    owned_placements_seen.insert(instance_id);
+                }
                 excluded_placements.insert(instance_id);
                 continue;
             }
         }
-        const auto ownership = placement_players.find(instance_id);
         if (ownership != placement_players.end()) {
             owned_placements_seen.insert(instance_id);
             if (encoded_side != 1U) {
@@ -951,6 +996,9 @@ EncounterLoadResult load_encounter(
         return fail(EncounterLoadError::missing_reference);
     }
     if (owned_placements_seen.size() != placement_players.size()) {
+        return fail(EncounterLoadError::missing_reference);
+    }
+    if (two_player_positions_seen.size() != two_player_positions.size()) {
         return fail(EncounterLoadError::missing_reference);
     }
     for (std::size_t index = 0; index < objectives.size(); ++index) {
@@ -1015,8 +1063,11 @@ EncounterLoadResult load_encounter(
     // where talks and arrivals are required: a runtime that cannot read this
     // plays the same battle in silence, so a package holding none simply has no
     // such section and every encounter keeps the empty list it decoded with.
+    const SectionView* moment_section = package.find(SectionType::moments);
     if (const RecordView* moments = package.find(SectionType::moments, encounter_id)) {
         Reader moment_reader(package, *moments);
+        const bool carries_minimum_players =
+            moment_section != nullptr && moment_section->schema_minor >= 1U;
         std::uint16_t moment_count = 0;
         if (!moment_reader.u16(moment_count) || moment_count == 0) {
             return fail(EncounterLoadError::malformed_payload);
@@ -1026,9 +1077,12 @@ EncounterLoadResult load_encounter(
             std::uint8_t trigger = 0;
             std::uint64_t placement_id = 0;
             std::uint64_t dialogue_id = 0;
+            std::uint8_t minimum = 1;
             if (!moment_reader.u64(moment_id) || !moment_reader.u8(trigger) ||
                 !moment_reader.u64(placement_id) ||
-                !moment_reader.u64(dialogue_id) || moment_id == 0 ||
+                !moment_reader.u64(dialogue_id) ||
+                (carries_minimum_players && !moment_reader.u8(minimum)) ||
+                minimum < 1U || minimum > 2U || moment_id == 0 ||
                 dialogue_id == 0) {
                 return fail(EncounterLoadError::malformed_payload);
             }
@@ -1037,6 +1091,7 @@ EncounterLoadResult load_encounter(
                 return fail(EncounterLoadError::malformed_payload);
             }
             const auto kind = static_cast<MomentTrigger>(trigger);
+            if (local_players < minimum) continue;
             // A moment about somebody has to be about somebody this board
             // fields, on the terms a talk mark is held to: naming a placement
             // the board does not have is a package disagreeing with itself, and

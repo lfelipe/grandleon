@@ -2266,6 +2266,38 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                                 output_placement.y =
                                     static_cast<std::int16_t>(*y);
                             }
+                            const Json* two_player_position = mapper.member(
+                                *placement, "twoPlayerPosition", placement_path,
+                                false
+                            );
+                            if (two_player_position != nullptr) {
+                                const Object* position = mapper.object(
+                                    *two_player_position,
+                                    placement_path + ".twoPlayerPosition"
+                                );
+                                if (position != nullptr) {
+                                    const auto two_x = mapper.integer(
+                                        *position, "x",
+                                        placement_path + ".twoPlayerPosition",
+                                        std::numeric_limits<std::int16_t>::min(),
+                                        std::numeric_limits<std::int16_t>::max()
+                                    );
+                                    const auto two_y = mapper.integer(
+                                        *position, "y",
+                                        placement_path + ".twoPlayerPosition",
+                                        std::numeric_limits<std::int16_t>::min(),
+                                        std::numeric_limits<std::int16_t>::max()
+                                    );
+                                    if (two_x && two_y) {
+                                        output_placement.two_player_x =
+                                            static_cast<std::int16_t>(*two_x);
+                                        output_placement.two_player_y =
+                                            static_cast<std::int16_t>(*two_y);
+                                        output_placement.states_two_player_position =
+                                            true;
+                                    }
+                                }
+                            }
                             const auto minimum_players = mapper.integer(
                                 *placement, "minimumPlayers", placement_path,
                                 2, 2, false
@@ -2376,6 +2408,16 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                                 output_moment.dialogue_id = mapper.reference(
                                     *moment, "dialogueId", moment_path
                                 );
+                                const auto minimum_players = mapper.integer(
+                                    *moment, "minimumPlayers", moment_path,
+                                    2, 2, false
+                                );
+                                if (minimum_players) {
+                                    output_moment.minimum_players =
+                                        static_cast<std::uint8_t>(
+                                            *minimum_players
+                                        );
+                                }
                                 const Json* when = mapper.member(
                                     *moment, "when", moment_path, true
                                 );
@@ -5010,12 +5052,17 @@ SourceTextResult set_source_placement_minimum_players_json(
     const std::string placement_path = placements_path + "[" +
                                        std::to_string(placement_index) + "]";
     const std::string* side = string_member(*placement, "side");
-    if (minimum_players == 2 && (side == nullptr || *side != "second")) {
+    const std::int64_t* player = integer_member(*placement, "player");
+    const bool player_two = player != nullptr && *player == 2;
+    const bool conditional_opponent = side != nullptr && *side == "second";
+    const bool conditional_ally =
+        side != nullptr && *side == "first" && player_two;
+    if (minimum_players == 2 && !conditional_opponent && !conditional_ally) {
         refuse_edit(
             result,
             SourceDiagnosticCode::invalid_value,
             placement_path + ".minimumPlayers",
-            "only opposing placements can be limited to two players"
+            "only opponents or Player 2 allies can require two players"
         );
         return result;
     }
@@ -5079,6 +5126,10 @@ SourceTextResult set_source_placement_player_json(
     }
     if (player == 1) {
         placement->erase("player");
+        // A conditional ally is valid only as Player 2's distinct army. When
+        // an editor returns it to Player 1, return it to the solo baseline too
+        // rather than leaving a half-valid placement behind.
+        placement->erase("minimumPlayers");
     } else {
         (*placement)["player"] = Json{player};
     }

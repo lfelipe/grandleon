@@ -117,10 +117,10 @@ enum class SectionType : std::uint32_t {
     // different battle, and one skipping this plays the same battle in silence.
     // Nothing here is read by a rule; the engine never learns a moment exists.
     moments = 19,
-    // Which opposing placements are added when more local players take part,
-    // per encounter. Required when present because omitting it changes the
-    // battle, and pruned entirely when every placement is always present so
-    // packages authored before player scaling remain byte-identical.
+    // Which placements are added when more local players take part, per
+    // encounter. Required when present because omitting it changes the battle,
+    // and pruned entirely when every placement is always present so packages
+    // authored before player scaling remain byte-identical.
     placement_scaling = 20,
     // Optional presentation around a tactical map: a solid colour, an
     // automatically derived impassable border, or authored perimeter terrain.
@@ -138,6 +138,11 @@ enum class SectionType : std::uint32_t {
     // Packages compiled before launch policy existed omit the section; the
     // campaign loader preserves their old Player 2 ownership inference.
     campaign_players = 23,
+    // Optional two-player opening coordinates for placements that use a
+    // different layout when the second army is present. Required when present:
+    // ignoring it can overlap units or erase the authored distance between
+    // fronts. Sparse so old and shared-layout projects remain byte-identical.
+    placement_two_player_positions = 24,
 };
 
 // The presentation section holds records about the whole game, the way the

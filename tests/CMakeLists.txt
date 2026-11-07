@@ -421,6 +421,29 @@ add_test(
     COMMAND grandleon_emberbound_campaign_tests
 )
 
+# The candidate unified demo: a deliberately paced Medieval-versus-Sengoku
+# campaign whose same five battles are complete in solo and split evenly in
+# local co-op. It remains beside the shipped campaigns until playtesting says
+# it is ready to replace them.
+add_executable(grandleon_steel_and_cedar_campaign_tests
+    game_content/steel_and_cedar_campaign_test.cpp
+)
+target_link_libraries(
+    grandleon_steel_and_cedar_campaign_tests
+    PRIVATE
+        grandleon::game_content
+        grandleon::package_runtime
+        grandleon::simulation
+)
+target_compile_definitions(
+    grandleon_steel_and_cedar_campaign_tests
+    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+add_test(
+    NAME grandleon.steel_and_cedar_campaign
+    COMMAND grandleon_steel_and_cedar_campaign_tests
+)
+
 # The compact portal showcase used to review every art direction on one ROM:
 # seven distinct maps, all roles, both bodies, and one package that is a small
 # solo battle or a two-owner co-op battle depending on the main-menu choice.
@@ -560,7 +583,8 @@ add_test(
 )
 
 # A fixed formation should not be hidden behind a company screen that offers
-# no choice, while deployment, inventory and repair still need that screen.
+# no choice, including one already carrying its normal equipment; deployment,
+# shared inventory and repair still need that screen.
 # Both compact consoles call the helper this pins.
 add_executable(grandleon_client_company_direct_start_tests
     client/company_direct_start_test.cpp

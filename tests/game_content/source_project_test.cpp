@@ -716,6 +716,29 @@ void updates_one_map_cell_without_retyping_the_project() {
             gc::compile(player_two_parsed.source),
         "an allied placement can be assigned to player two portably"
     );
+    const auto conditional_player_two =
+        gc::set_source_placement_minimum_players_json(
+            player_two.json, "demo", "battle", "blue_1", 2
+        );
+    const auto conditional_player_two_parsed =
+        gc::parse_source_project_json(conditional_player_two.json);
+    expect(
+        conditional_player_two && conditional_player_two_parsed &&
+            conditional_player_two_parsed.source.encounters.front()
+                    .placements.front().local_player == 2 &&
+            conditional_player_two_parsed.source.encounters.front()
+                    .placements.front().minimum_players == 2,
+        "a Player 2 ally can belong only to the distinct co-op variant"
+    );
+    const auto conditional_back_to_one = gc::set_source_placement_player_json(
+        conditional_player_two.json, "demo", "battle", "blue_1", 1
+    );
+    expect(
+        conditional_back_to_one &&
+            conditional_back_to_one.json.find("minimumPlayers") ==
+                std::string::npos,
+        "returning that ally to Player 1 also returns it to the solo baseline"
+    );
     const auto player_one = gc::set_source_placement_player_json(
         player_two.json, "demo", "battle", "blue_1", 1
     );
@@ -734,7 +757,7 @@ void updates_one_map_cell_without_retyping_the_project() {
         !gc::set_source_placement_minimum_players_json(
             enlarged.json, "demo", "battle", "blue_1", 2
         ),
-        "an allied roster placement cannot be made conditional"
+        "a Player 1 ally cannot be removed from the solo baseline"
     );
     const auto talkable_enemy = gc::set_source_placement_talkable_json(
         enlarged.json, "demo", "battle", "red_1", true

@@ -1184,7 +1184,8 @@ CompileResult compile(const GameSource& source) {
             path + ".deployment.tiles", definition.id, result.diagnostics
         );
         std::set<StableId> placement_ids;
-        std::set<std::pair<std::int16_t, std::int16_t>> placement_tiles;
+        std::set<std::pair<std::int16_t, std::int16_t>> solo_placement_tiles;
+        std::set<std::pair<std::int16_t, std::int16_t>> two_placement_tiles;
         bool has_unscaled_opponent = false;
         bool has_scaled_placement = false;
         const auto found_map = maps_by_id.find(definition.map_id);
@@ -1226,12 +1227,28 @@ CompileResult compile(const GameSource& source) {
                 has_unscaled_opponent ||
                 (placement.side == EncounterSide::second &&
                  placement.minimum_players == 1);
-            const bool tile_taken =
+            const std::int16_t two_x = placement.states_two_player_position
+                ? placement.two_player_x
+                : placement.x;
+            const std::int16_t two_y = placement.states_two_player_position
+                ? placement.two_player_y
+                : placement.y;
+            const bool two_on_board =
+                found_map != maps_by_id.end() && two_x >= 0 && two_y >= 0 &&
+                two_x < static_cast<std::int16_t>(found_map->second->width) &&
+                two_y < static_cast<std::int16_t>(found_map->second->height);
+            const bool solo_tile_taken =
+                !arrives && placement.minimum_players == 1 &&
+                !solo_placement_tiles.emplace(placement.x, placement.y).second;
+            const bool two_tile_taken =
                 !arrives &&
-                !placement_tiles.emplace(placement.x, placement.y).second;
+                !two_placement_tiles.emplace(two_x, two_y).second;
             if (placement.id == 0 ||
-                !placement_ids.insert(placement.id).second || tile_taken ||
-                (found_map != maps_by_id.end() && !on_board)) {
+                !placement_ids.insert(placement.id).second ||
+                solo_tile_taken || two_tile_taken ||
+                (found_map != maps_by_id.end() &&
+                 (!on_board || !two_on_board)) ||
+                (arrives && placement.states_two_player_position)) {
                 result.diagnostics.push_back(
                     {
                         DiagnosticCode::invalid_placement,
@@ -1244,8 +1261,13 @@ CompileResult compile(const GameSource& source) {
             if (placement.minimum_players < 1 ||
                 placement.minimum_players > 2 ||
                 (placement.minimum_players > 1 &&
-                 (placement.side != EncounterSide::second ||
-                  placement.member_id != 0))) {
+                 !(
+                     (placement.side == EncounterSide::second &&
+                      placement.member_id == 0) ||
+                     (placement.side == EncounterSide::first &&
+                      placement.member_id != 0 &&
+                      placement.local_player == 2)
+                 ))) {
                 result.diagnostics.push_back(
                     {
                         DiagnosticCode::invalid_placement,
@@ -1314,9 +1336,18 @@ CompileResult compile(const GameSource& source) {
                     crossings = found_placed_class->second->crossings;
                 }
             }
-            if (!crossing_admits(
-                    terrain_passability(map.terrain_kinds[cell]), crossings
-                )) {
+            const std::size_t two_cell =
+                static_cast<std::size_t>(two_y) * map.width +
+                static_cast<std::size_t>(two_x);
+            const bool base_admits = crossing_admits(
+                terrain_passability(map.terrain_kinds[cell]), crossings
+            );
+            const bool two_admits =
+                two_cell < map.terrain_kinds.size() &&
+                crossing_admits(
+                    terrain_passability(map.terrain_kinds[two_cell]), crossings
+                );
+            if (!base_admits || !two_admits) {
                 result.diagnostics.push_back(
                     {
                         DiagnosticCode::invalid_placement,
@@ -1330,6 +1361,16 @@ CompileResult compile(const GameSource& source) {
             result.diagnostics.push_back(
                 {DiagnosticCode::invalid_placement, path + ".placements", 0}
             );
+        }
+        for (const Moment& moment : definition.moments) {
+            if (moment.minimum_players < 1 || moment.minimum_players > 2) {
+                result.diagnostics.push_back(
+                    {
+                        DiagnosticCode::invalid_range,
+                        path + ".moments.minimum_players", moment.id
+                    }
+                );
+            }
         }
         if (has_scaled_placement && !has_unscaled_opponent) {
             result.diagnostics.push_back(
@@ -2529,9 +2570,18 @@ CompileResult compile(const GameSource& source) {
             // runtime that cannot read this plays the same battle in silence.
             section.flags = 0;
             std::vector<const Encounter*> ordered;
+            bool carries_player_conditions = false;
             for (const Encounter& encounter : source.encounters) {
                 if (!encounter.moments.empty()) ordered.push_back(&encounter);
+                carries_player_conditions = carries_player_conditions ||
+                    std::any_of(
+                        encounter.moments.begin(), encounter.moments.end(),
+                        [](const Moment& moment) {
+                            return moment.minimum_players > 1;
+                        }
+                    );
             }
+            section.schema_minor = carries_player_conditions ? 1U : 0U;
             std::sort(
                 ordered.begin(),
                 ordered.end(),
@@ -2549,6 +2599,9 @@ CompileResult compile(const GameSource& source) {
                     bytes.push_back(static_cast<std::uint8_t>(moment.trigger));
                     put_u64(bytes, moment.placement_id);
                     put_u64(bytes, moment.dialogue_id);
+                    if (carries_player_conditions) {
+                        bytes.push_back(moment.minimum_players);
+                    }
                 }
                 section.records.push_back({encounter->id, std::move(bytes)});
             }
@@ -2675,6 +2728,46 @@ CompileResult compile(const GameSource& source) {
                     if (placement.local_player <= 1) continue;
                     put_u64(bytes, placement.id);
                     bytes.push_back(placement.local_player);
+                }
+                section.records.push_back({encounter->id, std::move(bytes)});
+            }
+            return section;
+        }(),
+        // Two-player opening coordinates, sparse beside the ordinary position
+        // for the same reason ownership and scaling are sparse: projects whose
+        // layouts do not change produce exactly their historical records.
+        [&source]() {
+            package_format::SectionSource section;
+            section.type =
+                package_format::SectionType::placement_two_player_positions;
+            std::vector<const Encounter*> ordered;
+            for (const Encounter& encounter : source.encounters) {
+                const bool any = std::any_of(
+                    encounter.placements.begin(), encounter.placements.end(),
+                    [](const Placement& placement) {
+                        return placement.states_two_player_position;
+                    }
+                );
+                if (any) ordered.push_back(&encounter);
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Encounter* lhs, const Encounter* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Encounter* encounter : ordered) {
+                Bytes bytes;
+                std::uint16_t count = 0;
+                for (const Placement& placement : encounter->placements) {
+                    if (placement.states_two_player_position) ++count;
+                }
+                put_u16(bytes, count);
+                for (const Placement& placement : encounter->placements) {
+                    if (!placement.states_two_player_position) continue;
+                    put_u64(bytes, placement.id);
+                    put_i16(bytes, placement.two_player_x);
+                    put_i16(bytes, placement.two_player_y);
                 }
                 section.records.push_back({encounter->id, std::move(bytes)});
             }
