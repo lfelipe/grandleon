@@ -24,6 +24,7 @@ var board: Node
 var player_count := 2
 var package_path := "res://game.gpk"
 var campaign_key := "emberbound"
+var game_language := ""
 var creator_enabled := true
 var graphics_profile := ""
 var graphics_argument_explicit := false
@@ -83,6 +84,7 @@ var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
 var campaign_complete := false
 var final_outcome := "ongoing"
 var current_stage_name := ""
+var current_campaign_name := ""
 var progress_reset_armed := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
@@ -163,6 +165,8 @@ var frame_timing = FrameTiming.new()
 var frame_timing_next_update_msec := 0
 var fps_overlay_next_update_msec := 0
 var combat_cinematic: Control
+var game_language_picker_layer: CanvasLayer
+var pending_language_launch: Dictionary = {}
 
 
 func _ready() -> void:
@@ -173,6 +177,7 @@ func _ready() -> void:
 	if not staged.is_empty():
 		campaign_key = str(staged.get("campaign", campaign_key))
 		player_count = clampi(int(staged.get("players", player_count)), 1, 2)
+		game_language = str(staged.get("language", game_language))
 		preview_return_scene = str(staged.get("preview_return_scene", ""))
 		preview_label = str(staged.get("preview_label", ""))
 		if not preview_label.is_empty():
@@ -238,21 +243,37 @@ func _ready() -> void:
 	if controls_smoke:
 		_run_controls_smoke()
 		return
-	_configure_seats()
-	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	session = ClassDB.instantiate("GrandleonSession")
 	if session == null:
 		_show_fatal("The native Grandleon bridge did not load")
 		return
+	var launch_package := PackedByteArray()
+	if staged.is_empty():
+		launch_package = FileAccess.get_file_as_bytes(
+			ProjectSettings.globalize_path(package_path)
+		)
+	else:
+		launch_package = staged.package
+	var language_info: Dictionary = session.package_languages(launch_package)
+	var authored_languages: Array = language_info.get("languages", [])
+	if game_language.is_empty() and authored_languages.size() > 1:
+		_show_game_language_picker(staged, launch_package, language_info)
+		return
+	if game_language.is_empty():
+		game_language = str(language_info.get("source", ""))
+	_configure_seats()
+	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	var started := false
 	if staged.is_empty():
 		var absolute_package := ProjectSettings.globalize_path(package_path)
 		started = session.start(
-			absolute_package, campaign_key, player_count, campaign_save_root
+			absolute_package, campaign_key, player_count, campaign_save_root,
+			game_language
 		)
 	else:
 		started = session.start_package(
-			staged.package, campaign_key, player_count, campaign_save_root
+			staged.package, campaign_key, player_count, campaign_save_root,
+			game_language
 		)
 	if not started:
 		_show_fatal(session.last_error())
@@ -341,6 +362,8 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if game_language_picker_layer != null:
+		return
 	if combat_cinematic != null and combat_cinematic.is_active():
 		if event is InputEventKey and not event.echo:
 			if event.keycode in [KEY_ENTER, KEY_SPACE]:
@@ -392,6 +415,96 @@ func _input(event: InputEvent) -> void:
 		return
 
 
+func _show_game_language_picker(
+	staged: Dictionary, launch_package: PackedByteArray, language_info: Dictionary
+) -> void:
+	pending_language_launch = {
+		"package": launch_package.duplicate(),
+		"campaign": campaign_key,
+		"players": player_count,
+		"draft_preview": bool(staged.get("draft_preview", false)),
+		"preview_return_scene": str(staged.get("preview_return_scene", "")),
+		"preview_label": str(staged.get("preview_label", "")),
+	}
+	game_language_picker_layer = CanvasLayer.new()
+	game_language_picker_layer.layer = 100
+	add_child(game_language_picker_layer)
+
+	var shade := ColorRect.new()
+	shade.color = Color("e90b1320")
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	game_language_picker_layer.add_child(shade)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(520, 0)
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-260, -180)
+	game_language_picker_layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 38)
+	margin.add_theme_constant_override("margin_right", 38)
+	margin.add_theme_constant_override("margin_top", 32)
+	margin.add_theme_constant_override("margin_bottom", 32)
+	panel.add_child(margin)
+	var choices := VBoxContainer.new()
+	choices.add_theme_constant_override("separation", 12)
+	margin.add_child(choices)
+
+	var heading := Label.new()
+	heading.text = _shell_text("player.language.heading")
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_font_size_override("font_size", 28)
+	choices.add_child(heading)
+	var explanation := Label.new()
+	explanation.text = _shell_text("player.language.explanation")
+	explanation.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	choices.add_child(explanation)
+
+	var source_language := str(language_info.get("source", ""))
+	var first_button: Button = null
+	for value: Variant in language_info.get("languages", []):
+		var language := str(value)
+		var button := Button.new()
+		button.text = _game_language_name(language)
+		if language == source_language:
+			button.text += "  /  " + _shell_text("player.language.original")
+		button.custom_minimum_size = Vector2(0, 48)
+		button.pressed.connect(_select_game_language.bind(language))
+		choices.add_child(button)
+		if first_button == null:
+			first_button = button
+	if first_button != null:
+		first_button.grab_focus.call_deferred()
+
+
+func _game_language_name(language: String) -> String:
+	for available: Dictionary in Localization.available_languages():
+		if str(available.get("code", "")) == language:
+			return "%s  (%s)" % [str(available.get("native_name", language)), language]
+	return language
+
+
+func _select_game_language(language: String) -> void:
+	if pending_language_launch.is_empty():
+		return
+	LaunchContext.stage_package(
+		pending_language_launch.package,
+		str(pending_language_launch.campaign),
+		bool(pending_language_launch.draft_preview),
+		int(pending_language_launch.players),
+		str(pending_language_launch.preview_return_scene),
+		str(pending_language_launch.preview_label),
+		language
+	)
+	get_tree().reload_current_scene()
+
+
+func _shell_text(message_id: String) -> String:
+	return Localization.text(message_id)
+
+
 func _parse_arguments() -> void:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--package="):
@@ -409,6 +522,8 @@ func _parse_arguments() -> void:
 			controls_path = argument.trim_prefix("--controls=")
 		elif argument.begins_with("--players="):
 			player_count = clampi(int(argument.trim_prefix("--players=")), 1, 2)
+		elif argument.begins_with("--game-language="):
+			game_language = argument.trim_prefix("--game-language=")
 		elif argument == "--fullscreen":
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		elif argument.begins_with("--screenshot="):
@@ -1297,7 +1412,11 @@ func _update_session_labels() -> void:
 	var name := _graphics_profile_name()
 	if title_label != null:
 		title_label.text = (
-			current_stage_name.to_upper() if not current_stage_name.is_empty() else name
+			current_stage_name.to_upper()
+			if not current_stage_name.is_empty()
+			else current_campaign_name.to_upper()
+			if not current_campaign_name.is_empty()
+			else name
 		)
 	if session_menu_camera != null:
 		session_menu_camera.text = "CAMERA IMPULSE  /  %s" % (
@@ -2197,6 +2316,8 @@ func _control_colour_name(seat: int) -> String:
 func _handle_event(event: Dictionary) -> void:
 	match String(event.get("type", "")):
 		"campaign_begun":
+			current_campaign_name = str(event.get("campaign_name", "")).strip_edges()
+			_update_session_labels()
 			var resumed := bool(event.get("resumed", false))
 			var manual_slot := _active_checkpoint_slot()
 			if manual_slot > 0:
@@ -2483,7 +2604,11 @@ func _handle_management(company: Dictionary) -> void:
 
 func _remember_campaign_stage(company: Dictionary) -> void:
 	var encounter_id := int(company.get("encounter_id", 0))
-	current_stage_name = preview_label
+	current_stage_name = (
+		preview_label
+		if not preview_label.is_empty()
+		else str(company.get("stage_name", "")).strip_edges()
+	)
 	for stage_value: Variant in company.get("stages", []):
 		if not stage_value is Dictionary:
 			continue

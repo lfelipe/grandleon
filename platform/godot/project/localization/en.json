@@ -3,6 +3,9 @@
   "messages": {
     "app.name": "GRANDLEON",
     "language.label": "LANGUAGE",
+    "player.language.heading": "GAME LANGUAGE",
+    "player.language.explanation": "Choose the language for this game's story and character names.",
+    "player.language.original": "ORIGINAL",
     "home.tagline": "Play a game or make one.",
     "home.play.heading": "PLAY",
     "home.create_edit": "CREATE / EDIT GAMES",

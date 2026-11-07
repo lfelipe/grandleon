@@ -193,14 +193,19 @@ public:
         const ::godot::String& package_path,
         const ::godot::String& campaign_key,
         std::int64_t local_players = 1,
-        const ::godot::String& save_root = {}
+        const ::godot::String& save_root = {},
+        const ::godot::String& language = {}
     );
     [[nodiscard]] bool start_package(
         const ::godot::PackedByteArray& package_bytes,
         const ::godot::String& campaign_key,
         std::int64_t local_players = 1,
-        const ::godot::String& save_root = {}
+        const ::godot::String& save_root = {},
+        const ::godot::String& language = {}
     );
+    [[nodiscard]] ::godot::Dictionary package_languages(
+        const ::godot::PackedByteArray& package_bytes
+    ) const;
     [[nodiscard]] bool has_progress() const;
     [[nodiscard]] ::godot::Array checkpoint_slots() const;
     [[nodiscard]] bool checkpoint_save_ready() const;
@@ -250,7 +255,8 @@ private:
         const std::vector<std::uint8_t>& package_bytes,
         const ::godot::String& campaign_key,
         std::int64_t local_players,
-        const ::godot::String& save_root
+        const ::godot::String& save_root,
+        const ::godot::String& language
     );
     [[nodiscard]] bool launch_worker();
     [[nodiscard]] std::string manual_slot_name(std::int64_t slot) const;
@@ -264,6 +270,7 @@ private:
     mutable std::mutex state_mutex_;
     std::string last_error_;
     std::string save_slot_;
+    std::string language_;
     std::uint64_t campaign_id_{};
     simulation::EncounterSnapshot latest_snapshot_;
     std::vector<simulation::WeaponDefinition> latest_weapons_;

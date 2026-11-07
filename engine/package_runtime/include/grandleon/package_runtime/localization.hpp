@@ -3,7 +3,10 @@
 
 #include <grandleon/package_format/package.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <string_view>
+#include <vector>
 
 namespace grandleon::package_runtime {
 
@@ -26,6 +29,64 @@ namespace grandleon::package_runtime {
     const package_format::LoadedPackage& package,
     std::string_view language,
     std::string_view message_id,
+    std::string_view current_source
+) noexcept;
+
+// Languages offered by this authored game, in source-first order. Views borrow
+// the package bytes. Malformed optional localization metadata returns an empty
+// list so an older game remains playable in its source copy.
+[[nodiscard]] std::vector<std::string_view> available_languages(
+    const package_format::LoadedPackage& package
+);
+
+// Stable-ID lookups used by runtimes after source-project string keys have
+// become portable numeric identities. Each function applies the same
+// source-snapshot check as localized_text, so incomplete or outdated catalogs
+// visibly fall back to the current authored string.
+[[nodiscard]] std::string_view localized_content_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    package_format::SectionType section,
+    std::uint64_t content_id,
+    std::string_view current_source
+) noexcept;
+
+[[nodiscard]] std::string_view localized_dialogue_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t dialogue_id,
+    std::string_view current_source
+) noexcept;
+
+[[nodiscard]] std::string_view localized_dialogue_line(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t dialogue_id,
+    std::size_t line_index,
+    std::string_view field,
+    std::string_view current_source
+) noexcept;
+
+[[nodiscard]] std::string_view localized_campaign_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t campaign_id,
+    std::string_view current_source
+) noexcept;
+
+[[nodiscard]] std::string_view localized_campaign_node_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t campaign_id,
+    std::uint64_t node_id,
+    std::string_view current_source
+) noexcept;
+
+[[nodiscard]] std::string_view localized_campaign_member_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t campaign_id,
+    std::uint64_t member_id,
     std::string_view current_source
 ) noexcept;
 

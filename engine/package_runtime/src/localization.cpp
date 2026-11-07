@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/package_runtime/localization.hpp>
 
+#include <grandleon/core/content_identity.hpp>
+
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
+#include <vector>
 
 namespace grandleon::package_runtime {
 namespace {
@@ -64,6 +69,111 @@ const package_format::RecordView* record(
     );
 }
 
+bool remove_edges(
+    std::string_view value,
+    std::string_view prefix,
+    std::string_view suffix,
+    std::string_view& middle
+) noexcept {
+    if (value.size() <= prefix.size() + suffix.size() ||
+        value.compare(0, prefix.size(), prefix) != 0 ||
+        value.compare(value.size() - suffix.size(), suffix.size(), suffix) !=
+            0) {
+        return false;
+    }
+    middle = value.substr(
+        prefix.size(), value.size() - prefix.size() - suffix.size()
+    );
+    return !middle.empty();
+}
+
+std::string_view section_prefix(package_format::SectionType section) noexcept {
+    using package_format::SectionType;
+    switch (section) {
+        case SectionType::classes: return "classes.";
+        case SectionType::weapon_types: return "weapon_types.";
+        case SectionType::item_types: return "item_types.";
+        case SectionType::unit_types: return "unit_types.";
+        case SectionType::weapons: return "weapons.";
+        case SectionType::items: return "items.";
+        case SectionType::maps: return "maps.";
+        case SectionType::factions: return "factions.";
+        case SectionType::abilities: return "abilities.";
+        case SectionType::objectives: return "objectives.";
+        default: return {};
+    }
+}
+
+template <typename Match>
+std::string_view localized_matching(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::string_view current_source,
+    Match&& matches
+) noexcept {
+    const auto* held = record(package);
+    if (held == nullptr) return current_source;
+    Reader reader(package, *held);
+    std::string_view authored_language;
+    std::uint16_t catalog_count = 0;
+    if (!reader.text(authored_language) || !reader.u16(catalog_count) ||
+        language.empty() || language == authored_language) {
+        return current_source;
+    }
+    for (std::uint16_t catalog_index = 0;
+         catalog_index < catalog_count; ++catalog_index) {
+        std::string_view catalog_language;
+        std::uint32_t entry_count = 0;
+        if (!reader.text(catalog_language) || !reader.u32(entry_count)) {
+            return current_source;
+        }
+        for (std::uint32_t entry_index = 0;
+             entry_index < entry_count; ++entry_index) {
+            std::string_view id;
+            std::string_view source;
+            std::string_view translated;
+            if (!reader.text(id) || !reader.text(source) ||
+                !reader.text(translated)) {
+                return current_source;
+            }
+            if (catalog_language == language && matches(id)) {
+                return source == current_source ? translated : current_source;
+            }
+        }
+    }
+    return current_source;
+}
+
+bool stable_named_id(
+    std::string_view message_id,
+    std::string_view prefix,
+    std::uint64_t stable_id
+) noexcept {
+    std::string_view source_id;
+    return remove_edges(message_id, prefix, ".name", source_id) &&
+           core::stable_content_id_v1(source_id) == stable_id;
+}
+
+bool nested_named_ids(
+    std::string_view message_id,
+    std::string_view relation,
+    std::uint64_t first_id,
+    std::uint64_t second_id
+) noexcept {
+    std::string_view middle;
+    if (!remove_edges(message_id, "campaigns.", ".name", middle)) {
+        return false;
+    }
+    const std::size_t split = middle.find(relation);
+    if (split == std::string_view::npos || split == 0 ||
+        split + relation.size() >= middle.size()) {
+        return false;
+    }
+    return core::stable_content_id_v1(middle.substr(0, split)) == first_id &&
+           core::stable_content_id_v1(middle.substr(split + relation.size())) ==
+               second_id;
+}
+
 }  // namespace
 
 std::string_view source_language(
@@ -115,6 +225,155 @@ std::string_view localized_text(
         }
     }
     return current_source;
+}
+
+std::vector<std::string_view> available_languages(
+    const package_format::LoadedPackage& package
+) {
+    std::vector<std::string_view> result;
+    const auto* held = record(package);
+    if (held == nullptr) return result;
+    Reader reader(package, *held);
+    std::string_view source;
+    std::uint16_t catalog_count = 0;
+    if (!reader.text(source) || source.empty() || !reader.u16(catalog_count)) {
+        return {};
+    }
+    result.push_back(source);
+    for (std::uint16_t catalog_index = 0;
+         catalog_index < catalog_count; ++catalog_index) {
+        std::string_view language;
+        std::uint32_t entry_count = 0;
+        if (!reader.text(language) || !reader.u32(entry_count)) return {};
+        if (!language.empty() && language != source) result.push_back(language);
+        for (std::uint32_t entry_index = 0;
+             entry_index < entry_count; ++entry_index) {
+            std::string_view ignored;
+            if (!reader.text(ignored) || !reader.text(ignored) ||
+                !reader.text(ignored)) {
+                return {};
+            }
+        }
+    }
+    return result;
+}
+
+std::string_view localized_content_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    package_format::SectionType section,
+    std::uint64_t content_id,
+    std::string_view current_source
+) noexcept {
+    const std::string_view prefix = section_prefix(section);
+    if (prefix.empty()) return current_source;
+    return localized_matching(
+        package, language, current_source,
+        [prefix, content_id](std::string_view message_id) {
+            return stable_named_id(message_id, prefix, content_id);
+        }
+    );
+}
+
+std::string_view localized_dialogue_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t dialogue_id,
+    std::string_view current_source
+) noexcept {
+    return localized_matching(
+        package, language, current_source,
+        [dialogue_id](std::string_view message_id) {
+            return stable_named_id(message_id, "dialogues.", dialogue_id);
+        }
+    );
+}
+
+std::string_view localized_dialogue_line(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t dialogue_id,
+    std::size_t line_index,
+    std::string_view field,
+    std::string_view current_source
+) noexcept {
+    return localized_matching(
+        package, language, current_source,
+        [dialogue_id, line_index, field](std::string_view message_id) {
+            std::string_view middle;
+            const std::string_view suffix = field == "speaker"
+                                                ? ".speaker"
+                                            : field == "text" ? ".text"
+                                                              : std::string_view{};
+            if (suffix.empty() ||
+                !remove_edges(message_id, "dialogues.", suffix, middle)) {
+                return false;
+            }
+            constexpr std::string_view separator = ".lines.";
+            const std::size_t split = middle.find(separator);
+            if (split == std::string_view::npos || split == 0) return false;
+            std::size_t parsed_index = 0;
+            const std::string_view number = middle.substr(
+                split + separator.size()
+            );
+            const auto parsed = std::from_chars(
+                number.data(), number.data() + number.size(), parsed_index
+            );
+            return parsed.ec == std::errc{} &&
+                   parsed.ptr == number.data() + number.size() &&
+                   parsed_index == line_index &&
+                   core::stable_content_id_v1(middle.substr(0, split)) ==
+                       dialogue_id;
+        }
+    );
+}
+
+std::string_view localized_campaign_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t campaign_id,
+    std::string_view current_source
+) noexcept {
+    return localized_matching(
+        package, language, current_source,
+        [campaign_id](std::string_view message_id) {
+            return stable_named_id(message_id, "campaigns.", campaign_id);
+        }
+    );
+}
+
+std::string_view localized_campaign_node_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t campaign_id,
+    std::uint64_t node_id,
+    std::string_view current_source
+) noexcept {
+    return localized_matching(
+        package, language, current_source,
+        [campaign_id, node_id](std::string_view message_id) {
+            return nested_named_ids(
+                message_id, ".nodes.", campaign_id, node_id
+            );
+        }
+    );
+}
+
+std::string_view localized_campaign_member_name(
+    const package_format::LoadedPackage& package,
+    std::string_view language,
+    std::uint64_t campaign_id,
+    std::uint64_t member_id,
+    std::string_view current_source
+) noexcept {
+    return localized_matching(
+        package, language, current_source,
+        [campaign_id, member_id](std::string_view message_id) {
+            return nested_named_ids(
+                message_id, ".members.", campaign_id, member_id
+            );
+        }
+    );
 }
 
 }  // namespace grandleon::package_runtime

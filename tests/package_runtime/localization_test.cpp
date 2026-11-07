@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/game_content/compiler.hpp>
+#include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_runtime/localization.hpp>
 
 #include <iostream>
@@ -8,6 +9,7 @@
 namespace gc = grandleon::game_content;
 namespace pf = grandleon::package_format;
 namespace pr = grandleon::package_runtime;
+namespace core = grandleon::core;
 
 namespace {
 int failures = 0;
@@ -32,7 +34,15 @@ gc::GameSource source() {
     value.items = {};
     value.unit_types = {{60, "Rowan", 30, 0, {40}, {}}};
     value.translations = {
-        {"es", {{"unit_types.rowan.name", "Rowan", "Roldán"}}},
+        {"es", {
+            {"unit_types.rowan.name", "Rowan", "Roldán"},
+            {"dialogues.opening.name", "At Dawn", "Al amanecer"},
+            {"dialogues.opening.lines.0.speaker", "Rowan", "Roldán"},
+            {"dialogues.opening.lines.0.text", "Hold the gate.", "Defiende la puerta."},
+            {"campaigns.first_adventure.name", "First Adventure", "Primera aventura"},
+            {"campaigns.first_adventure.nodes.village.name", "Village", "Aldea"},
+            {"campaigns.first_adventure.members.rowan.name", "Sir Rowan", "Don Roldán"}
+        }},
         {"pt-BR", {{"unit_types.rowan.name", "Rowan", "Rowan"}}}
     };
     return value;
@@ -72,6 +82,71 @@ int main() {
             loaded.package, "fr", "unit_types.rowan.name", "Rowan"
         ) == "Rowan",
         "missing language visibly falls back to source"
+    );
+    const auto languages = pr::available_languages(loaded.package);
+    expect(
+        languages.size() == 3U && languages[0] == "en" &&
+            languages[1] == "es" && languages[2] == "pt-BR",
+        "authored source and catalog languages are offered source-first"
+    );
+    expect(
+        pr::localized_content_name(
+            loaded.package, "es", pf::SectionType::unit_types,
+            core::stable_content_id_v1("rowan"), "Rowan"
+        ) == "Roldán",
+        "portable unit-type identity resolves its authored translation"
+    );
+    expect(
+        pr::localized_dialogue_name(
+            loaded.package, "es", core::stable_content_id_v1("opening"),
+            "At Dawn"
+        ) == "Al amanecer",
+        "dialogue title resolves by portable identity"
+    );
+    expect(
+        pr::localized_dialogue_line(
+            loaded.package, "es", core::stable_content_id_v1("opening"),
+            0, "speaker", "Rowan"
+        ) == "Roldán",
+        "dialogue speaker resolves by scene and line"
+    );
+    expect(
+        pr::localized_dialogue_line(
+            loaded.package, "es", core::stable_content_id_v1("opening"),
+            0, "text", "Hold the gate."
+        ) == "Defiende la puerta.",
+        "dialogue copy resolves by scene and line"
+    );
+    expect(
+        pr::localized_campaign_name(
+            loaded.package, "es",
+            core::stable_content_id_v1("first_adventure"), "First Adventure"
+        ) == "Primera aventura",
+        "campaign title resolves by portable identity"
+    );
+    expect(
+        pr::localized_campaign_node_name(
+            loaded.package, "es",
+            core::stable_content_id_v1("first_adventure"),
+            core::stable_content_id_v1("village"), "Village"
+        ) == "Aldea",
+        "stage name resolves within its campaign"
+    );
+    expect(
+        pr::localized_campaign_member_name(
+            loaded.package, "es",
+            core::stable_content_id_v1("first_adventure"),
+            core::stable_content_id_v1("rowan"), "Sir Rowan"
+        ) == "Don Roldán",
+        "character name resolves within its campaign"
+    );
+    expect(
+        pr::localized_campaign_member_name(
+            loaded.package, "es",
+            core::stable_content_id_v1("first_adventure"),
+            core::stable_content_id_v1("rowan"), "Sir Rowan II"
+        ) == "Sir Rowan II",
+        "semantic lookup also rejects stale character-name translations"
     );
     return failures == 0 ? 0 : 1;
 }

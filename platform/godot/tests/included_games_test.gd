@@ -27,7 +27,7 @@ func _init() -> void:
 	var context = LaunchContextScript.new()
 	context.stage_package(
 		PackedByteArray([1, 2, 3]), "tarnholt_line", true, 1,
-		"res://campaign_editor.tscn", "Cedar Watch"
+		"res://campaign_editor.tscn", "Cedar Watch", "pt-BR"
 	)
 	var staged: Dictionary = context.take_package()
 	_expect("staged campaign retained", staged.campaign, "tarnholt_line")
@@ -35,11 +35,13 @@ func _init() -> void:
 	_expect("staged package retained", staged.package, PackedByteArray([1, 2, 3]))
 	_expect("staged editor return retained", staged.preview_return_scene, "res://campaign_editor.tscn")
 	_expect("staged battle label retained", staged.preview_label, "Cedar Watch")
+	_expect("staged authored language retained", staged.language, "pt-BR")
 	_expect("taking a package clears it", context.take_package().is_empty(), true)
 	context.stage_package(PackedByteArray([4]), "emberbound", false, 99)
 	var ordinary: Dictionary = context.take_package()
 	_expect("staged count is bounded", int(ordinary.players), 2)
 	_expect("ordinary launch has no editor return", ordinary.preview_return_scene, "")
+	_expect("ordinary launch leaves game language for the player", ordinary.language, "")
 	context.free()
 
 	if failures == 0:

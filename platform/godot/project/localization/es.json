@@ -3,6 +3,9 @@
   "messages": {
     "app.name": "GRANDLEON",
     "language.label": "IDIOMA",
+    "player.language.heading": "IDIOMA DEL JUEGO",
+    "player.language.explanation": "Elige el idioma de la historia y los nombres de personajes de este juego.",
+    "player.language.original": "ORIGINAL",
     "home.tagline": "Juega o crea tu propio juego.",
     "home.play.heading": "JUGAR",
     "home.create_edit": "CREAR / EDITAR JUEGOS",

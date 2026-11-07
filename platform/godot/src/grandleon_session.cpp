@@ -3,6 +3,7 @@
 
 #include <grandleon/client/session.hpp>
 #include <grandleon/core/content_identity.hpp>
+#include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/view/motion.hpp>
 
@@ -639,18 +640,22 @@ void GrandleonSession::_bind_methods() {
     gd::ClassDB::bind_method(
         gd::D_METHOD(
             "start", "package_path", "campaign_key", "local_players",
-            "save_root"
+            "save_root", "language"
         ),
         &GrandleonSession::start,
-        DEFVAL(1), DEFVAL(gd::String())
+        DEFVAL(1), DEFVAL(gd::String()), DEFVAL(gd::String())
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
             "start_package", "package_bytes", "campaign_key", "local_players",
-            "save_root"
+            "save_root", "language"
         ),
         &GrandleonSession::start_package,
-        DEFVAL(1), DEFVAL(gd::String())
+        DEFVAL(1), DEFVAL(gd::String()), DEFVAL(gd::String())
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("package_languages", "package_bytes"),
+        &GrandleonSession::package_languages
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD("has_progress"), &GrandleonSession::has_progress
@@ -707,7 +712,8 @@ bool GrandleonSession::start(
     const gd::String& package_path,
     const gd::String& campaign_key,
     std::int64_t local_players,
-    const gd::String& save_root
+    const gd::String& save_root,
+    const gd::String& language
 ) {
     reset_for_start();
 
@@ -722,14 +728,15 @@ bool GrandleonSession::start(
         std::istreambuf_iterator<char>(input),
         std::istreambuf_iterator<char>()
     };
-    return start_bytes(bytes, campaign_key, local_players, save_root);
+    return start_bytes(bytes, campaign_key, local_players, save_root, language);
 }
 
 bool GrandleonSession::start_package(
     const gd::PackedByteArray& package_bytes,
     const gd::String& campaign_key,
     std::int64_t local_players,
-    const gd::String& save_root
+    const gd::String& save_root,
+    const gd::String& language
 ) {
     reset_for_start();
     std::vector<std::uint8_t> bytes(
@@ -739,7 +746,38 @@ bool GrandleonSession::start_package(
     for (std::size_t index = 0; index < bytes.size(); ++index) {
         bytes[index] = input[index];
     }
-    return start_bytes(bytes, campaign_key, local_players, save_root);
+    return start_bytes(bytes, campaign_key, local_players, save_root, language);
+}
+
+gd::Dictionary GrandleonSession::package_languages(
+    const gd::PackedByteArray& package_bytes
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    std::vector<std::uint8_t> bytes(
+        static_cast<std::size_t>(package_bytes.size())
+    );
+    const std::uint8_t* const input = package_bytes.ptr();
+    for (std::size_t index = 0; index < bytes.size(); ++index) {
+        bytes[index] = input[index];
+    }
+    auto loaded = pf::load_mock_package(
+        bytes, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    if (!loaded) {
+        result["error"] = text(pf::error_name(loaded.error));
+        return result;
+    }
+    const std::vector<std::string_view> languages =
+        pr::available_languages(loaded.package);
+    gd::Array values;
+    for (const std::string_view language : languages) {
+        values.push_back(text(language));
+    }
+    result["ok"] = true;
+    result["source"] = text(pr::source_language(loaded.package));
+    result["languages"] = values;
+    return result;
 }
 
 void GrandleonSession::reset_for_start() {
@@ -758,7 +796,8 @@ bool GrandleonSession::start_bytes(
     const std::vector<std::uint8_t>& package_bytes,
     const gd::String& campaign_key,
     std::int64_t local_players,
-    const gd::String& save_root
+    const gd::String& save_root,
+    const gd::String& language
 ) {
     auto loaded = pf::load_mock_package(
         package_bytes,
@@ -781,6 +820,10 @@ bool GrandleonSession::start_bytes(
     package_ = std::move(loaded.package);
     presentation_ = std::move(presentation.presentation);
     campaign_id_ = core::stable_content_id_v1(narrow(campaign_key));
+    language_ = narrow(language);
+    if (language_.empty()) {
+        language_ = std::string(pr::source_language(package_));
+    }
     local_players_ = static_cast<std::uint8_t>(
         std::clamp<std::int64_t>(local_players, 1, 2)
     );
@@ -1192,7 +1235,13 @@ gd::Dictionary GrandleonSession::snapshot_dictionary(
         const std::string_view name = pr::content_name(
             package_, pf::SectionType::unit_types, unit.unit_type_id
         );
-        row["name"] = name.empty() ? gd::String("Unit") : text(name);
+        row["name"] = name.empty()
+                          ? gd::String("Unit")
+                          : text(pr::localized_content_name(
+                                package_, language_,
+                                pf::SectionType::unit_types,
+                                unit.unit_type_id, name
+                            ));
         row["colour"] = presentation_.colour_of_unit_type(unit.unit_type_id);
         row["archetype"] =
             presentation_.archetype_of_unit_type(unit.unit_type_id);
@@ -1241,7 +1290,13 @@ gd::Dictionary GrandleonSession::management_dictionary(
             const std::string_view name = pr::content_name(
                 package_, pf::SectionType::items, stack.item.stable_id
             );
-            value["name"] = name.empty() ? gd::String("Item") : text(name);
+            value["name"] = name.empty()
+                                ? gd::String("Item")
+                                : text(pr::localized_content_name(
+                                      package_, language_,
+                                      pf::SectionType::items,
+                                      stack.item.stable_id, name
+                                  ));
             value["count"] = static_cast<std::int64_t>(stack.quantity);
             result.push_back(value);
         }
@@ -1249,7 +1304,15 @@ gd::Dictionary GrandleonSession::management_dictionary(
     };
 
     gd::Dictionary result;
+    result["node_id"] = signed_id(company.node.stable_id);
     result["encounter_id"] = signed_id(company.encounter_id);
+    const std::string_view stage_name = pr::content_name(
+        package_, pf::SectionType::encounters, company.encounter_id
+    );
+    result["stage_name"] = text(pr::localized_campaign_node_name(
+        package_, language_, campaign_id_, company.node.stable_id,
+        stage_name
+    ));
     result["capacity"] = company.capacity;
     result["has_deployment_options"] = company.has_deployment_options;
     result["fielded_count"] = static_cast<std::int64_t>(
@@ -1265,7 +1328,9 @@ gd::Dictionary GrandleonSession::management_dictionary(
         gd::Dictionary value;
         value["node_id"] = signed_id(stage.node_id);
         value["encounter_id"] = signed_id(stage.encounter_id);
-        value["name"] = text(stage.name);
+        value["name"] = text(pr::localized_campaign_node_name(
+            package_, language_, campaign_id_, stage.node_id, stage.name
+        ));
         value["reached"] = stage.reached;
         value["standing"] = stage.standing;
         stages.push_back(value);
@@ -1276,7 +1341,10 @@ gd::Dictionary GrandleonSession::management_dictionary(
     for (const client::RosterEntry& member : company.roster) {
         gd::Dictionary value;
         value["member_id"] = signed_id(member.member.value);
-        value["name"] = text(member.name);
+        value["name"] = text(pr::localized_campaign_member_name(
+            package_, language_, campaign_id_, member.placement_source_key,
+            member.name
+        ));
         value["availability"] = text(
             campaign::availability_name(member.availability)
         );
@@ -1304,13 +1372,23 @@ gd::Dictionary GrandleonSession::event_dictionary(
     switch (event.kind) {
         case FrontendEvent::Kind::dialogue: {
             result["id"] = signed_id(event.dialogue.id);
-            result["name"] = text(event.dialogue.name);
+            result["name"] = text(pr::localized_dialogue_name(
+                package_, language_, event.dialogue.id, event.dialogue.name
+            ));
             result["backdrop"] = event.dialogue.backdrop;
             gd::Array lines;
-            for (const pr::DialogueLine& line : event.dialogue.lines) {
+            for (std::size_t line_index = 0;
+                 line_index < event.dialogue.lines.size(); ++line_index) {
+                const pr::DialogueLine& line = event.dialogue.lines[line_index];
                 gd::Dictionary value;
-                value["speaker"] = text(line.speaker);
-                value["text"] = text(line.text);
+                value["speaker"] = text(pr::localized_dialogue_line(
+                    package_, language_, event.dialogue.id, line_index,
+                    "speaker", line.speaker
+                ));
+                value["text"] = text(pr::localized_dialogue_line(
+                    package_, language_, event.dialogue.id, line_index,
+                    "text", line.text
+                ));
                 value["cast_entry"] = line.cast_entry;
                 if (const std::uint64_t* unit_type =
                         event.dialogue.speaker_unit_type(line)) {
@@ -1372,8 +1450,12 @@ gd::Dictionary GrandleonSession::event_dictionary(
             for (const sim::WeaponDefinition& weapon : event.weapons) {
                 gd::Dictionary value;
                 value["id"] = signed_id(weapon.id);
-                value["name"] = text(pr::content_name(
+                const std::string_view name = pr::content_name(
                     package_, pf::SectionType::weapons, weapon.id
+                );
+                value["name"] = text(pr::localized_content_name(
+                    package_, language_, pf::SectionType::weapons,
+                    weapon.id, name
                 ));
                 value["power"] = weapon.power;
                 value["minimum_reach"] = weapon.minimum_reach;
@@ -1386,8 +1468,12 @@ gd::Dictionary GrandleonSession::event_dictionary(
             for (const sim::AbilityDefinition& ability : event.abilities) {
                 gd::Dictionary value;
                 value["id"] = signed_id(ability.id);
-                value["name"] = text(pr::content_name(
+                const std::string_view name = pr::content_name(
                     package_, pf::SectionType::abilities, ability.id
+                );
+                value["name"] = text(pr::localized_content_name(
+                    package_, language_, pf::SectionType::abilities,
+                    ability.id, name
                 ));
                 value["kind"] = ability.kind == sim::AbilityKind::damage
                                       ? "damage"
@@ -1404,8 +1490,12 @@ gd::Dictionary GrandleonSession::event_dictionary(
             for (const sim::ItemDefinition& item : event.items) {
                 gd::Dictionary value;
                 value["id"] = signed_id(item.id);
-                value["name"] = text(pr::content_name(
+                const std::string_view name = pr::content_name(
                     package_, pf::SectionType::items, item.id
+                );
+                value["name"] = text(pr::localized_content_name(
+                    package_, language_, pf::SectionType::items,
+                    item.id, name
                 ));
                 value["kind"] = item.kind == sim::ItemKind::restore
                                       ? "restore"
@@ -1460,9 +1550,16 @@ gd::Dictionary GrandleonSession::event_dictionary(
         case FrontendEvent::Kind::campaign_ended: {
             break;
         }
-        case FrontendEvent::Kind::campaign_begun:
+        case FrontendEvent::Kind::campaign_begun: {
             result["resumed"] = event.resumed;
+            const std::string_view name = pr::content_name(
+                package_, pf::SectionType::campaigns, campaign_id_
+            );
+            result["campaign_name"] = text(pr::localized_campaign_name(
+                package_, language_, campaign_id_, name
+            ));
             break;
+        }
         case FrontendEvent::Kind::checkpoint_saved:
             result["successful"] = event.successful;
             break;
