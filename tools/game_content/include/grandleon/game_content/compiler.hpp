@@ -887,6 +887,13 @@ inline constexpr std::uint8_t theme_count = 4;
 //: which substitutes nothing and is therefore the art as it always was.
 inline constexpr std::uint8_t default_theme = 0;
 
+//: The closer combat presentation a game requests when the player has made no
+//: local display choice. Presentation only: a player's local preference may
+//: override it without changing the game, its saves, or canonical state.
+//: Enabled is the historical behavior and therefore the meaning of an omitted
+//: source field and of a package written before the preference record existed.
+inline constexpr bool default_battle_closeups = true;
+
 //: The menu index of a theme name, or `theme_count` for a name the menu does
 //: not hold.
 [[nodiscard]] std::uint8_t theme_index(std::string_view name) noexcept;
@@ -952,6 +959,9 @@ struct GameSource final {
     //: The season this game's ground is drawn in. Presentation only: no rule
     //: reads it, so it never enters canonical state.
     std::uint8_t theme{default_theme};
+    //: Whether close combat presentation starts enabled for a player who has
+    //: made no local choice. A local choice remains the final authority.
+    bool battle_closeups{default_battle_closeups};
     //: The style this game's characters are drawn in. Presentation only, for
     //: the same reason as the theme above: no rule reads it, so it never
     //: enters canonical state. A console build resolves it once, at build

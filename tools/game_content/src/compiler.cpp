@@ -2949,6 +2949,26 @@ CompileResult compile(const GameSource& source) {
             break;
         }
     }
+    // Portable presentation defaults a player may override locally. Enabled
+    // close-ups are the historical behavior, so that choice writes nothing:
+    // an old package and a current package asking for the old default remain
+    // identical here. A disabled authored default gets its own one-byte record
+    // rather than widening the theme/faction record old readers already know;
+    // those readers skip the new identity and continue using their old default.
+    if (!source.battle_closeups) {
+        for (package_format::SectionSource& section : package.sections) {
+            if (section.type != package_format::SectionType::presentation) {
+                continue;
+            }
+            section.records.push_back(
+                package_format::RecordSource{
+                    package_format::presentation_preferences_record_id,
+                    {0U}
+                }
+            );
+            break;
+        }
+    }
     // Manual translations travel with every target in one optional record.
     // A runtime that does not know the section skips it and uses the source
     // strings already present in normal content records. A runtime that does

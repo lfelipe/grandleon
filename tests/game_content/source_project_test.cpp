@@ -1489,6 +1489,54 @@ void maps_authored_theme() {
     );
 }
 
+// The game's recommendation for the optional close combat view. It is
+// portable presentation rather than a rule: omission keeps the historical
+// enabled default, an explicit recommendation survives compilation, and a
+// player's local display choice remains outside this source entirely.
+void maps_the_battle_closeup_default() {
+    const std::string needle = R"json("contentRevision":)json";
+    const auto with_flag = [&needle](const char* value) {
+        std::string project{source};
+        const auto at = project.find(needle);
+        project.insert(
+            at, std::string(R"json("battleCloseups":)json") + value + ","
+        );
+        return project;
+    };
+
+    const auto silent = gc::parse_source_project_json(source);
+    const auto enabled = gc::parse_source_project_json(with_flag("true"));
+    const auto disabled = gc::parse_source_project_json(with_flag("false"));
+    expect(
+        silent && enabled && disabled &&
+            silent.source.battle_closeups == gc::default_battle_closeups &&
+            enabled.source.battle_closeups &&
+            !disabled.source.battle_closeups,
+        "an authored close-up recommendation maps with the historical enabled "
+        "default"
+    );
+
+    const auto silent_package = gc::compile(silent.source);
+    const auto enabled_package = gc::compile(enabled.source);
+    const auto disabled_package = gc::compile(disabled.source);
+    expect(
+        silent_package && enabled_package && disabled_package &&
+            silent_package.package == enabled_package.package &&
+            silent_package.package != disabled_package.package,
+        "stating the old close-up default costs no package byte, while opting "
+        "out reaches portable presentation"
+    );
+
+    const auto refused = gc::parse_source_project_json(with_flag("\"off\""));
+    expect(
+        !refused && has_source_diagnostic(
+            refused, gc::SourceDiagnosticCode::invalid_value
+        ),
+        "a close-up recommendation must be a boolean rather than a private "
+        "client vocabulary"
+    );
+}
+
 void maps_authored_character_style() {
     const std::string needle = R"json("contentRevision":)json";
     const auto insert_style = [&needle](const char* name) {
@@ -3491,6 +3539,7 @@ int main() {
     maps_authored_growth();
     maps_authored_faction_colour();
     maps_authored_theme();
+    maps_the_battle_closeup_default();
     maps_authored_character_style();
     maps_a_characters_own_style();
     maps_a_scene_backdrop();

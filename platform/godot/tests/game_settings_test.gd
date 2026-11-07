@@ -40,6 +40,7 @@ func _run() -> void:
 		"recoverable"
 	)
 	_expect("starter begins with ordinary damage", settings.testing_toggle.button_pressed, false)
+	_expect("starter recommends battle close-ups", settings.battle_closeups_toggle.button_pressed, true)
 	_expect("starter content revision is visible", settings.revision_label.text, "0.1.0")
 	_expect("starter battle has an override row", settings.battle_list.get_child_count(), 1)
 
@@ -63,6 +64,20 @@ func _run() -> void:
 		bool(_parse(settings.source).invulnerableForTesting),
 		true
 	)
+	settings._toggle_battle_closeups(false)
+	_expect(
+		"disabled close-up default is portable source data",
+		bool(_parse(settings.source).battleCloseups),
+		false
+	)
+	settings._toggle_battle_closeups(true)
+	_expect(
+		"historical close-up default restores omission",
+		_parse(settings.source).has("battleCloseups"),
+		false
+	)
+	settings._toggle_battle_closeups(false)
+	_expect("close-up control reflects authored default", settings.battle_closeups_toggle.button_pressed, false)
 	settings._bump_revision("patch")
 	_expect("revision bump is controlled", str(_parse(settings.source).contentRevision), "0.1.1")
 
@@ -95,6 +110,7 @@ func _run() -> void:
 		_expect("stored turn order matches", str(stored.project.defaultTurnOrder), "alternating")
 		_expect("stored character loss matches", str(stored.project.characterLoss), "permanent")
 		_expect("stored testing aid matches", bool(stored.project.invulnerableForTesting), true)
+		_expect("stored close-up default matches", bool(stored.project.battleCloseups), false)
 		_expect("stored revision matches", str(stored.project.contentRevision), "0.1.1")
 		_expect(
 			"stored battle inherits the default",

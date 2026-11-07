@@ -194,6 +194,12 @@ inline constexpr std::uint64_t presentation_style_record_id = 4;
 // and a reader that knows one of them finds it by its identity and is
 // unaffected by the other.
 inline constexpr std::uint64_t presentation_figure_record_id = 5;
+// Optional project-wide presentation defaults that a player may override
+// locally. The first byte is whether close combat presentation begins enabled.
+// The record is absent when every preference has its historical default, so a
+// project written before it existed and a current project asking for those
+// defaults remain the same package shape.
+inline constexpr std::uint64_t presentation_preferences_record_id = 6;
 
 struct RecordSource final {
     std::uint64_t stable_id{};

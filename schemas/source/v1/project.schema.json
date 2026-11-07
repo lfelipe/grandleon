@@ -104,6 +104,10 @@
       ],
       "description": "The body this game's characters are drawn with wherever a character names none of its own. 'first' is drawn male and 'second' female; the stored values are positions in a menu every client indexes by, and the words a person reads for them are the art library's. A figure is the body a role is drawn at, not the role: every figure draws all eight archetypes, in every style and every faction colour, and choosing one changes no stat, no reach and no rule. It is a default and never a gate, exactly as characterStyleId is. Omit it and the characters that name no figure of their own are drawn with the first, which is what they looked like before figures existed."
     },
+    "battleCloseups": {
+      "type": "boolean",
+      "description": "Whether a player who has not made a local display choice begins with the closer combat presentation enabled. This is an authored presentation default, not a rule: a player may override it on their own machine without changing the game or its saves. Omit it and close-ups begin enabled, which preserves projects authored before this choice existed."
+    },
     "defaultTurnOrder": {
       "type": "string",
       "enum": [

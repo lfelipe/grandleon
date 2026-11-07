@@ -1108,6 +1108,25 @@ SourceParseResult parse_source_project_json(std::string_view json) {
             );
         }
     }
+    // A game's recommendation for the optional close combat view. The player
+    // still owns the final display choice on their machine; this portable bit
+    // is what a runtime uses only when no such local choice exists. Omitted is
+    // enabled, preserving every project written before the recommendation was
+    // authorable.
+    const Json* battle_closeups =
+        mapper.member(*root, "battleCloseups", "$", false);
+    if (battle_closeups != nullptr) {
+        const auto* flag = std::get_if<bool>(&battle_closeups->value);
+        if (flag == nullptr) {
+            mapper.error(
+                SourceDiagnosticCode::invalid_value,
+                "$.battleCloseups",
+                "expected a boolean"
+            );
+        } else {
+            mapper.result.source.battle_closeups = *flag;
+        }
+    }
     const auto character_style =
         mapper.string(*root, "characterStyleId", "$", false);
     if (character_style) {

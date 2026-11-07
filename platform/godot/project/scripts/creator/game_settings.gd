@@ -39,6 +39,7 @@ var turn_order_help: Label
 var character_loss_select: OptionButton
 var character_loss_help: Label
 var testing_toggle: CheckButton
+var battle_closeups_toggle: CheckButton
 var revision_label: Label
 var battle_list: VBoxContainer
 var status_label: Label
@@ -91,6 +92,7 @@ func _refresh_form() -> void:
 	)
 	_refresh_character_loss_help()
 	testing_toggle.button_pressed = bool(project.get("invulnerableForTesting", false))
+	battle_closeups_toggle.button_pressed = bool(project.get("battleCloseups", true))
 	revision_label.text = str(project.get("contentRevision", "0.1.0"))
 	_refresh_battles()
 	refreshing = false
@@ -147,6 +149,22 @@ func _toggle_invulnerable(enabled: bool) -> void:
 	_accept_candidate(
 		candidate,
 		"INVULNERABLE PLAYTESTING  /  %s" % ("ON" if enabled else "OFF")
+	)
+
+
+func _toggle_battle_closeups(enabled: bool) -> void:
+	if refreshing:
+		return
+	var candidate := project.duplicate(true)
+	if enabled:
+		# Enabled is the portable default for projects authored before this
+		# choice existed. Omission keeps that source shape backward-compatible.
+		candidate.erase("battleCloseups")
+	else:
+		candidate["battleCloseups"] = false
+	_accept_candidate(
+		candidate,
+		"BATTLE CLOSE-UPS DEFAULT  /  %s" % ("ON" if enabled else "OFF")
 	)
 
 
@@ -443,6 +461,20 @@ func _build_interface() -> void:
 	var revision_help := _help_label()
 	revision_help.text = "Increase this when exported content changes. Versions only move forward here."
 	revision_column.add_child(revision_help)
+
+	var presentation_panel := _settings_panel()
+	column.add_child(presentation_panel)
+	var presentation_column: VBoxContainer = presentation_panel.get_child(0)
+	presentation_column.add_child(_label("PLAYER PRESENTATION DEFAULT", 15, Color("69d9ff")))
+	battle_closeups_toggle = CheckButton.new()
+	battle_closeups_toggle.text = "BEGIN WITH BATTLE CLOSE-UPS"
+	battle_closeups_toggle.custom_minimum_size = Vector2(535, 58)
+	battle_closeups_toggle.add_theme_font_size_override("font_size", 17)
+	battle_closeups_toggle.toggled.connect(_toggle_battle_closeups)
+	presentation_column.add_child(battle_closeups_toggle)
+	var closeups_help := _help_label()
+	closeups_help.text = "Players begin here, then may override this in their own display settings."
+	presentation_column.add_child(closeups_help)
 
 	column.add_child(_label("BATTLE TURN ORDER", 15, Color("69d9ff")))
 	var scroll := ScrollContainer.new()
