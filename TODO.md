@@ -97,6 +97,46 @@ roadmap work.
 
 ## 0.5 editor workflow
 
+### Web editor retirement audit
+
+The retired browser editor was compared with the Godot editor before removal.
+Godot already covers the everyday authoring path: projects and portable
+archives, maps and terrain, units and deployment, dialogue, campaign routes and
+outcomes, armies, gear, validation, playtesting, saves, and exports. The
+remaining author-facing gaps are tracked here rather than preserving a second
+editor and its separate browser runtime.
+
+- [ ] Add a clear **Game settings** screen for default turn order, permanent or
+  recoverable character loss, an invulnerable testing mode, and controlled
+  content-revision updates. Also expose per-battle turn-order overrides.
+- [ ] Complete advanced battle setup: enemy behaviour and patrol paths,
+  deployment capacity, timed and repeating reinforcement waves, and scripted
+  moments when a battle opens or a character falls.
+- [ ] Let an author playtest the currently selected battle directly, including
+  later battles, without having to play from the campaign entrance.
+- [ ] Add combat-design tools for weapon strengths and weaknesses, damage and
+  accuracy bonuses, a two-character matchup preview, and a visual preview of
+  attack range and area shapes.
+- [ ] Support more than one campaign in a project without silently editing or
+  exporting only the first campaign.
+- [ ] Add safe deletion with a dependency preview, **Where used** summaries,
+  and search and filtering for projects with large rosters or content lists.
+- [ ] Add a guided character flow that creates a useful character, role,
+  appearance, side, weapon, and starting loadout together, with an optional
+  randomized starting point.
+- [ ] Finish story sequencing: order, attach, detach, and reorder multiple
+  scenes around a story or battle, including mid-battle moments.
+- [ ] Add human-readable project migration and recovery: explain an upcoming
+  schema update, make a backup before rewriting, and preserve an unreadable
+  source file so an author can recover or report it.
+
+Browser-only infrastructure is deliberately not a Godot requirement. This
+includes the PWA shell, IndexedDB storage, browser-side WebAssembly play mode,
+HTTP ROM client, raw schema-record editor, and arbitrary terrain identifiers
+without a matching art workflow. Godot should provide the equivalent author
+outcomes through its native project library, player, and export tools rather
+than reproduce those implementation details.
+
 - [ ] Add an end-to-end editor acceptance test that begins with an empty
   project, creates a small but complete campaign through the normal human
   workflow, validates and exports it, then launches the exported game and
