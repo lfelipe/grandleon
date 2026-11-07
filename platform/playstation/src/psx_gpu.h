@@ -228,6 +228,20 @@ void draw_cell(int screen_x, int screen_y, int cell, int clut);
 // primitive it has always used and its pixels are unchanged.
 void draw_cell_scaled(int screen_x, int screen_y, int size, int cell, int clut);
 
+// Draws one textured triangle from a 32 by 32 texture cell. Texture
+// coordinates are relative to that cell (0..31), so a 3D caller cannot
+// accidentally sample an adjacent sprite packed into the same texture page.
+//
+// GP0(0x25) is the raw, opaque three-point polygon. As with `draw_cell`, a
+// zero CLUT entry is transparent. The PS1 has no perspective correction, so
+// callers should keep projected triangles modest in size or subdivide them.
+void draw_cell_triangle(
+    int x0, int y0, int u0, int v0,
+    int x1, int y1, int u1, int v1,
+    int x2, int y2, int u2, int v2,
+    int cell, int clut
+);
+
 // Where a cell lives, so a caller can upload into it and a probe can name it.
 [[nodiscard]] constexpr int cell_texture_x(int cell) noexcept {
     const int page = cell / cells_per_page;

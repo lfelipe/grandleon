@@ -526,6 +526,30 @@ target_compile_definitions(
     PRIVATE GRANDLEON_PSX_SEVENFOLD_3D_CHECK
 )
 
+# A quarantined native-texture experiment: it consumes the existing high-LOD
+# proxies and generated 32x32 CI4 artwork without changing either contract.
+# Keeping it out of the production campaign lets native captures and the
+# locked-30-fps budget decide whether the approach deserves integration.
+grandleon_playstation_executable(
+    grandleon_playstation_sevenfold_texture_experiment
+    grandleon_psx_sevenfold_texture_experiment
+    prototype/sevenfold_texture_experiment.cpp
+    src/psx_gpu.cpp
+)
+target_link_libraries(
+    grandleon_playstation_sevenfold_texture_experiment
+    PRIVATE grandleon::view
+)
+target_include_directories(
+    grandleon_playstation_sevenfold_texture_experiment
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_SOURCE_DIR}/platform/client/include"
+        "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
+        "${CMAKE_SOURCE_DIR}/games/sevenfold/generated"
+        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
+)
+
 # The played executables, which are all one translation unit
 #
 # `src/turn_exe.cpp` is a board played from a controller, and every executable

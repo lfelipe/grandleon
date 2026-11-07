@@ -260,6 +260,23 @@ add_custom_target(grandleon_playstation_sevenfold_3d_check
     VERBATIM
 )
 
+# Builds the quarantined CI4-on-proxy experiment, captures its flat baseline
+# and two textured scenes at native resolution, and checks GPU-complete frame
+# cost under the pinned interpreter. It is deliberately not a dependency of a
+# production disc target.
+add_custom_target(grandleon_playstation_sevenfold_texture_check
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        ${grandleon_playstation_build_env}
+        ${grandleon_playstation_run_env}
+        "GRANDLEON_PSX_SEVENFOLD_3D_BUILD_DIR=${grandleon_playstation_sevenfold_3d_build_dir}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/check-sevenfold-textures.sh"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Capturing and timing the PlayStation Sevenfold CI4 texture experiment"
+    USES_TERMINAL
+    VERBATIM
+)
+
 # A PS-EXE is convenient for the automated emulator but awkward for a person.
 # Package the full Sevenfold campaign with its production 3D board as an
 # ordinary BIN/CUE pair. The roster viewer remains in the same build as a

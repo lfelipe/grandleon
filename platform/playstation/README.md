@@ -47,6 +47,7 @@ card, a frame, and the pixel claims that make a picture checkable.
 | `grandleon_psx_campaign_demo_autopilot.ps-exe` | The Bridge at Dawn campaign, likewise |
 | `grandleon_psx_campaign_3d.ps-exe` | the playable Sevenfold campaign using the 3D board renderer |
 | `grandleon_psx_sevenfold_3d.ps-exe` | diagnostic 3D roster viewer: 112 models, four-role strategic pages, and a high-detail attack view |
+| `grandleon_psx_sevenfold_texture_experiment.ps-exe` | isolated proof that native CI4 character and terrain textures can improve the 3D close view without replacing the production renderer |
 
 Each check prints `RESULT PASS n/n` counts; the gate is the authority on the
 numbers. The Tarnholt Line campaign is also written onto a disc image somebody
@@ -83,6 +84,7 @@ cmake --build build --target grandleon_playstation_campaign_check # the campaign
 cmake --build build --target grandleon_playstation_disc           # a burnable disc
 cmake --build build --target grandleon_playstation_disc_check     # the disc, booted
 cmake --build build --target grandleon_playstation_showcase       # the turn check, filmed
+cmake --build build --target grandleon_playstation_sevenfold_texture_check # native 3D texture comparison
 ```
 
 Run these from the repository root. Artifacts land in the gitignored
@@ -144,6 +146,24 @@ original-hardware claims. The older sixteen-model stress scene still reaches
 only 18 fps, which is why the campaign uses conservative model counts and
 detail levels instead of filling
 the board with high-detail models. See [the plain-language console 3D status](../../docs/CONSOLE_3D_EXPERIMENT.md).
+
+There is also a separate texture experiment. It projects the existing 32×32
+CI4 character paintings onto the existing high-detail models, leaves small
+metal and weapon surfaces flat for a clean silhouette, and uses native terrain
+textures under the close view. It does not change the campaign or the shared
+model generator. Its repeatable check captures a flat baseline, medieval
+knights, and mythical mages at the console's native 320×240 resolution:
+
+```sh
+cmake --build build --target grandleon_playstation_sevenfold_texture_check
+```
+
+The captures land in `build-playstation-sevenfold-3d/texture-frames/`. In the
+pinned interpreter, the GPU-drained frame costs are 13.1 ms for the flat
+baseline, 16.3 ms for the textured medieval pair, and 20.1 ms for the textured
+mythical pair. All remain inside the locked-30-fps 33 ms budget. Those results
+make this a promising integration direction, not yet a promise about original
+hardware or a reason to remove the proven flat path.
 
 The disc target writes `sevenfold-ps1-3d.bin` and `sevenfold-ps1-3d.cue` under
 `build-playstation-sevenfold-3d/disc/`. The disc boots the playable

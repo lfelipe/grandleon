@@ -255,6 +255,43 @@ void draw_cell_scaled(int screen_x, int screen_y, int size, int cell,
            static_cast<std::uint32_t>(u_far);
 }
 
+void draw_cell_triangle(
+    int x0, int y0, int u0, int v0,
+    int x1, int y1, int u1, int v1,
+    int x2, int y2, int u2, int v2,
+    int cell, int clut
+) {
+    const int page = first_texture_page + cell / cells_per_page;
+    const int within = cell % cells_per_page;
+    const int cell_u = (within % cells_per_page_row) * cell_texels;
+    const int cell_v = (within / cells_per_page_row) * cell_texels;
+    const std::uint32_t texpage =
+        static_cast<std::uint32_t>(page) |
+        (static_cast<std::uint32_t>(texture_page_y / page_lines) << 4);
+    const std::uint32_t palette =
+        (static_cast<std::uint32_t>(clut_y_of(clut)) << 6) |
+        static_cast<std::uint32_t>(clut_x_of(clut) / clut_entries);
+    const auto texture_word = [cell_u, cell_v](int u, int v) {
+        if (u < 0) u = 0;
+        if (v < 0) v = 0;
+        if (u >= cell_texels) u = cell_texels - 1;
+        if (v >= cell_texels) v = cell_texels - 1;
+        return (static_cast<std::uint32_t>(cell_v + v) << 8) |
+               static_cast<std::uint32_t>(cell_u + u);
+    };
+
+    // GP0(0x25): textured three-point polygon, opaque and raw. The texture
+    // page travels with vertex 1 and the CLUT with vertex 0, exactly as they do
+    // in the four-point packet used by `draw_cell_scaled`.
+    command(0x25u << 24 | 0x808080u);
+    coordinates(x0, y0);
+    *gp0 = (palette << 16) | texture_word(u0, v0);
+    coordinates(x1, y1);
+    *gp0 = (texpage << 16) | texture_word(u1, v1);
+    coordinates(x2, y2);
+    *gp0 = texture_word(u2, v2);
+}
+
 void fill(int screen_x, int screen_y, int width, int height,
           std::uint16_t colour) {
     if (width <= 0 || height <= 0) return;
