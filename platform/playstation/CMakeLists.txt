@@ -489,63 +489,24 @@ target_compile_definitions(
     PRIVATE GRANDLEON_PLAYSTATION_LOCAL_PLAYERS=2
 )
 
-# The complete Sevenfold 3D roster, kept as an explicit target because its two
-# generated LODs are much larger than the project-specific sprite set a normal
-# campaign executable embeds. The interactive build is a viewer; the check
-# build walks all 112 style/body/archetype combinations and leaves a
-# representative high-detail attack frame for the emulator harness to inspect.
-function(grandleon_playstation_sevenfold_3d target output)
-    grandleon_playstation_executable(
-        ${target} ${output}
-        prototype/sevenfold_roster_exe.cpp
-        src/psx_gpu.cpp
-        src/psx_pad.cpp
-    )
-    target_link_libraries(
-        ${target} PRIVATE grandleon::view grandleon::client grandleon::sheet
-    )
-    target_include_directories(
-        ${target}
-        PRIVATE
-            "${CMAKE_CURRENT_SOURCE_DIR}/src"
-            "${CMAKE_SOURCE_DIR}/platform/client/include"
-            "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
-            "${CMAKE_SOURCE_DIR}/games/sevenfold/generated"
-    )
-endfunction()
-
-grandleon_playstation_sevenfold_3d(
-    grandleon_playstation_sevenfold_3d grandleon_psx_sevenfold_3d
-)
-grandleon_playstation_sevenfold_3d(
-    grandleon_playstation_sevenfold_3d_check
-    grandleon_psx_sevenfold_3d_check
-)
-target_compile_definitions(
-    grandleon_playstation_sevenfold_3d_check
-    PRIVATE GRANDLEON_PSX_SEVENFOLD_3D_CHECK
-)
-
-# A quarantined native-texture experiment: it consumes the existing high-LOD
-# proxies and generated 32x32 CI4 artwork without changing either contract.
-# Keeping it out of the production campaign lets native captures and the
-# locked-30-fps budget decide whether the approach deserves integration.
+# The fixed-camera 2.5D renderer gate. It uses Godot-derived cutouts and
+# terrain plates, exercises the tactical board and close battle sequence, and
+# keeps every native frame inside the locked 30 fps budget.
 grandleon_playstation_executable(
-    grandleon_playstation_sevenfold_texture_experiment
-    grandleon_psx_sevenfold_texture_experiment
-    prototype/sevenfold_texture_experiment.cpp
+    grandleon_playstation_sevenfold_2_5d
+    grandleon_psx_sevenfold_2_5d
+    prototype/sevenfold_2_5d_renderer.cpp
     src/psx_gpu.cpp
 )
 target_link_libraries(
-    grandleon_playstation_sevenfold_texture_experiment
+    grandleon_playstation_sevenfold_2_5d
     PRIVATE grandleon::view
 )
 target_include_directories(
-    grandleon_playstation_sevenfold_texture_experiment
+    grandleon_playstation_sevenfold_2_5d
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${CMAKE_SOURCE_DIR}/platform/client/include"
-        "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
         "${CMAKE_SOURCE_DIR}/games/sevenfold/generated"
         "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
 )
@@ -640,22 +601,6 @@ grandleon_playstation_played_executable(
     grandleon_playstation_campaign grandleon_psx_campaign
     "${playstation_character_header}"
     GRANDLEON_TURN_CLIENT_CAMPAIGN
-)
-
-# The production 3D campaign: the same executable, shared campaign session,
-# controller path, memory-card storage and content as the sprite campaign. The
-# one extra definition replaces only the board and attack-scene painting with
-# the generated low/high proxy roster. Keeping this as a build of turn_exe.cpp
-# is deliberate: a renderer must not become a second implementation of the
-# game merely because it is three-dimensional.
-grandleon_playstation_played_executable(
-    grandleon_playstation_campaign_3d grandleon_psx_campaign_3d
-    "${playstation_character_header}"
-    GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_3D
-)
-target_include_directories(
-    grandleon_playstation_campaign_3d
-    PRIVATE "${CMAKE_SOURCE_DIR}/tools/console_3d/generated"
 )
 
 grandleon_playstation_played_executable(

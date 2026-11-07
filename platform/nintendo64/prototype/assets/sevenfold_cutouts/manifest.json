@@ -1,7 +1,7 @@
 {
-  "format": "Grandleon N64 hybrid battle cutouts v3",
-  "generated_by": "platform/nintendo64/scripts/generate-sevenfold-hybrid-assets.py",
-  "generator_sha256": "85bd66e2f2c6ea06221536d2dbc2f92f0f664d56195c7518b9e84b747754bba9",
+  "format": "Grandleon N64 fixed-camera 2.5D cutouts v3",
+  "generated_by": "platform/nintendo64/scripts/generate-sevenfold-cutout-assets.py",
+  "generator_sha256": "7004eec1e5fed137ab1967795a82713376e6a808be695953326faea0ff425d7b",
   "assets": [
     {
       "path": "medieval_knight_male_blue_idle.png",

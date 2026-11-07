@@ -20,7 +20,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "platform/godot/project/art/characters"
-OUTPUT = ROOT / "platform/nintendo64/prototype/assets/sevenfold_hybrid"
+OUTPUT = ROOT / "platform/nintendo64/prototype/assets/sevenfold_cutouts"
 CELL = 443
 SIDE = 84
 TACTICAL_SIDE = 56
@@ -276,7 +276,7 @@ def main() -> None:
     (OUTPUT / "manifest.json").write_text(
         json.dumps(
             {
-                "format": "Grandleon N64 hybrid battle cutouts v3",
+                "format": "Grandleon N64 fixed-camera 2.5D cutouts v3",
                 "generated_by": str(Path(__file__).resolve().relative_to(ROOT)),
                 "generator_sha256": source_digest(Path(__file__).resolve()),
                 "assets": manifest_assets,

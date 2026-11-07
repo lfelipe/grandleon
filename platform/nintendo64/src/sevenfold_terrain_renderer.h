@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace grandleon::nintendo64::sevenfold_texture_experiment {
+namespace grandleon::nintendo64::sevenfold_terrain_renderer {
 
 struct UV final {
     std::int16_t s;
@@ -39,4 +39,4 @@ void draw_capture_floor_strip();
     std::uint8_t variation = 0
 ) noexcept;
 
-}  // namespace grandleon::nintendo64::sevenfold_texture_experiment
+}  // namespace grandleon::nintendo64::sevenfold_terrain_renderer

@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace grandleon::nintendo64::sevenfold_backdrop_experiment {
+namespace grandleon::nintendo64::sevenfold_backdrop_renderer {
 
 enum class TransitionOrientation : std::uint8_t {
     north_south = 0,
@@ -31,4 +31,4 @@ void draw(const Descriptor& descriptor);
     return 80U * 40U / 2U + 16U * 2U;
 }
 
-}  // namespace grandleon::nintendo64::sevenfold_backdrop_experiment
+}  // namespace grandleon::nintendo64::sevenfold_backdrop_renderer

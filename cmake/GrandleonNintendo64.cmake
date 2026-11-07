@@ -74,29 +74,26 @@ add_custom_target(grandleon_n64
     VERBATIM
 )
 
-# Builds the playable Sevenfold sprite and 3D campaigns plus the complete
-# Tiny3D roster diagnostic together.
+# Builds the playable Sevenfold sprite campaign and the fixed-camera 2.5D
+# renderer gate together.
 add_custom_target(grandleon_n64_sevenfold_roms
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}
         "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/build-sevenfold-roms.sh"
         --renderer both --stage-picker
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Building Sevenfold's sprite campaign, 3D campaign, and diagnostic ROM"
+    COMMENT "Building Sevenfold's sprite campaign and 2.5D renderer ROM"
     USES_TERMINAL
     VERBATIM
 )
 
-# Runs the complete-roster Tiny3D diagnostic under the pinned ares harness.
-# This remains separate from the normal N64 gate because it uses the dedicated
-# Tiny3D/libdragon toolchain image, but it is a first-class release check rather
-# than a command hidden inside the platform scripts.
-add_custom_target(grandleon_n64_sevenfold_3d_check
+# Runs the fixed-camera 2.5D renderer under the pinned ares harness.
+add_custom_target(grandleon_n64_sevenfold_2_5d_check
     COMMAND
         "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/check-sevenfold-3d.sh"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/check-sevenfold-2-5d.sh"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Checking every Nintendo 64 Sevenfold 3D roster and attack scene"
+    COMMENT "Checking the Nintendo 64 Sevenfold 2.5D board and battle scene"
     USES_TERMINAL
     VERBATIM
 )

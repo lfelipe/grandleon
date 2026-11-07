@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 
-# Builds Sevenfold in the two N64 forms that are useful to reviewers:
+# Builds Sevenfold in the two N64 forms useful to reviewers:
 #
 #   sprite  the complete playable campaign, including its 1P/2P choice
-#   3d      the complete playable campaign through Tiny3D, plus its roster
-#           viewer for model and performance diagnostics
+#   2-5d    the fixed-camera board and close-battle renderer gate
 
 set -euo pipefail
 
@@ -16,7 +15,7 @@ output_dir="${GRANDLEON_N64_SEVENFOLD_OUTPUT_DIR:-${repository_root}/build-n64-s
 rebuild_argument=()
 
 usage() {
-    echo "usage: $(basename "$0") [--renderer sprite|3d|both]" \
+    echo "usage: $(basename "$0") [--renderer sprite|2-5d|both]" \
          "[--stage-picker] [--output DIR] [--rebuild-image]" >&2
     exit 2
 }
@@ -39,7 +38,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 case "${renderer}" in
-    sprite|3d|both) ;;
+    sprite|2-5d|both) ;;
     *) usage ;;
 esac
 
@@ -50,7 +49,7 @@ esac
 mkdir -p "${output_dir}"
 
 sprite_build="${GRANDLEON_N64_SEVENFOLD_SPRITE_BUILD_DIR:-${repository_root}/build-n64-sevenfold-sprite}"
-three_d_build="${GRANDLEON_N64_SEVENFOLD_3D_BUILD_DIR:-${repository_root}/build-n64-sevenfold-3d}"
+two_five_d_build="${GRANDLEON_N64_SEVENFOLD_2_5D_BUILD_DIR:-${repository_root}/build-n64-sevenfold-2-5d}"
 
 if [ "${renderer}" = sprite ] || [ "${renderer}" = both ]; then
     picker_argument=()
@@ -64,14 +63,12 @@ if [ "${renderer}" = sprite ] || [ "${renderer}" = both ]; then
     cp "${sprite_rom}" "${output_dir}/sevenfold-n64-sprite.z64"
 fi
 
-if [ "${renderer}" = 3d ] || [ "${renderer}" = both ]; then
-    GRANDLEON_N64_SEVENFOLD_3D_BUILD_DIR="${three_d_build}" \
-        "${repository_root}/platform/nintendo64/scripts/build-sevenfold-3d.sh" \
+if [ "${renderer}" = 2-5d ] || [ "${renderer}" = both ]; then
+    GRANDLEON_N64_SEVENFOLD_2_5D_BUILD_DIR="${two_five_d_build}" \
+        "${repository_root}/platform/nintendo64/scripts/build-sevenfold-2-5d.sh" \
         "${rebuild_argument[@]}"
-    three_d_rom="${three_d_build}/platform/nintendo64/grandleon_n64_campaign_3d.z64"
-    three_d_viewer="${three_d_build}/platform/nintendo64/grandleon-n64-sevenfold-3d.z64"
-    cp "${three_d_rom}" "${output_dir}/sevenfold-n64-3d.z64"
-    cp "${three_d_viewer}" "${output_dir}/sevenfold-n64-3d-viewer.z64"
+    two_five_d_rom="${two_five_d_build}/platform/nintendo64/grandleon-n64-sevenfold-2-5d.z64"
+    cp "${two_five_d_rom}" "${output_dir}/sevenfold-n64-2-5d.z64"
 fi
 
 for rom in "${output_dir}"/*.z64; do
@@ -96,17 +93,10 @@ manifest="${output_dir}/README.txt"
         echo "  SHA-256: $(sha256sum "${output_dir}/sevenfold-n64-sprite.z64" | cut -d ' ' -f 1)"
         echo
     fi
-    if [ -f "${output_dir}/sevenfold-n64-3d.z64" ]; then
-        echo "sevenfold-n64-3d.z64"
-        echo "  Playable Sevenfold campaign using the Tiny3D board renderer."
-        echo "  1-player/2-player choice, SRAM saves, stage picker and live FPS."
-        echo "  SHA-256: $(sha256sum "${output_dir}/sevenfold-n64-3d.z64" | cut -d ' ' -f 1)"
-        echo
-    fi
-    if [ -f "${output_dir}/sevenfold-n64-3d-viewer.z64" ]; then
-        echo "sevenfold-n64-3d-viewer.z64"
-        echo "  Diagnostic roster/terrain/attack viewer for all 112 models."
-        echo "  SHA-256: $(sha256sum "${output_dir}/sevenfold-n64-3d-viewer.z64" | cut -d ' ' -f 1)"
+    if [ -f "${output_dir}/sevenfold-n64-2-5d.z64" ]; then
+        echo "sevenfold-n64-2-5d.z64"
+        echo "  Fixed-camera 2.5D tactical and close-battle renderer gate."
+        echo "  SHA-256: $(sha256sum "${output_dir}/sevenfold-n64-2-5d.z64" | cut -d ' ' -f 1)"
         echo
     fi
 } > "${manifest}"

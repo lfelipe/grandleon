@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-#include "sevenfold_backdrop_experiment.h"
+#include "sevenfold_backdrop_renderer.h"
 
 #include <libdragon.h>
 
@@ -9,7 +9,7 @@
 
 #include "sevenfold_backdrop_assets.h"
 
-namespace grandleon::nintendo64::sevenfold_backdrop_experiment {
+namespace grandleon::nintendo64::sevenfold_backdrop_renderer {
 namespace {
 
 constexpr int tile_columns = 4;
@@ -116,4 +116,4 @@ std::size_t embedded_bytes() noexcept {
     return result;
 }
 
-}  // namespace grandleon::nintendo64::sevenfold_backdrop_experiment
+}  // namespace grandleon::nintendo64::sevenfold_backdrop_renderer

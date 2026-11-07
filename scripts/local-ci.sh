@@ -326,8 +326,8 @@ step "WebAssembly module is not stale"
 if [ "${run_n64}" -eq 1 ]; then
     step "Nintendo 64: every supported check"
     (cd "${clone}" && cmake --build build --target grandleon_n64_check_all)
-    step "Nintendo 64: fixed 3D character prototype"
-    (cd "${clone}" && platform/nintendo64/scripts/check-character-prototype.sh)
+    step "Nintendo 64: fixed-camera renderer"
+    (cd "${clone}" && platform/nintendo64/scripts/check-sevenfold-2-5d.sh)
 fi
 
 # The PlayStation's six checks: the conformance executable's own assertions,

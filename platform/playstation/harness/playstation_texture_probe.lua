@@ -1,38 +1,14 @@
--- PlayStation Sevenfold texture experiment capture harness.
+-- PlayStation Sevenfold fixed-camera 2.5D capture harness.
 --
--- The guest names matched flat/current/rejected close views for medieval and
--- mythical art, then captures elevated camera-v2 close and tactical views.
--- This writes native 320x240 pictures without a front-end scaler. Slot 20 is the
--- guest's final verdict and ends the emulator run.
+-- The guest exposes only the selected tactical, movement, close battle and
+-- matched comparison frames. Slot 20 carries its final verdict.
 
 local band = bit.band
 local frame_dir = os.getenv('GRANDLEON_PLAYSTATION_FRAME_DIR') or '/out'
-local names = {
-  [10] = 'medieval-flat',
-  [11] = 'medieval-current',
-  [12] = 'medieval-low-angle',
-  [13] = 'medieval-screen-stage-rejected',
-  [14] = 'mythical-flat',
-  [15] = 'mythical-current',
-  [16] = 'mythical-low-angle',
-  [17] = 'mythical-screen-stage-rejected',
-  [18] = 'overview-flat',
-  [19] = 'overview-hybrid',
-  [22] = 'medieval-camera-v2',
-  [23] = 'mythical-camera-v2',
-  [24] = 'overview-camera-v2',
-  [27] = 'medieval-camera-v2-96',
-  [30] = 'medieval-terrain-before',
-  [31] = 'overview-terrain-before',
-  [32] = 'combat-backdrop-before',
-  [33] = 'combat-backdrop-after',
-}
-
 local checks = 0
 local failures = 0
 local captures = 0
-local animation_frames = 0
-local camera_v2_animation_frames = 0
+local movement_frames = 0
 local exchange_frames = 0
 local comparison_frames = 0
 local signatures = {}
@@ -47,8 +23,7 @@ local function expect(condition, name)
   say('CHECK ' .. name .. (condition and ' PASS' or ' FAIL'))
 end
 
-local function capture(slot, name_override, key_override)
-  local name = name_override or names[slot]
+local function capture(name, key)
   local shot = PCSX.GPU.takeScreenShot()
   local width = tonumber(shot.width)
   local height = tonumber(shot.height)
@@ -74,59 +49,47 @@ local function capture(slot, name_override, key_override)
   expect(largest * 100 < 320 * 240 * 60,
          name .. ' is not mostly one blank colour')
 
-  signatures[key_override or slot] = signature
+  signatures[key] = signature
   captures = captures + 1
-  local path = string.format('%s/%s.bin', frame_dir, name)
-  local out = Support.File.open(path, 'TRUNCATE')
+  local out = Support.File.open(frame_dir .. '/' .. name .. '.bin', 'TRUNCATE')
   out:writeMoveSlice(shot.data)
   out:close()
-  say(string.format('FRAME %s 320x240 distinct %d largest %d%% signature %08x',
-                    name, distinct, math.floor(largest * 100 / (320 * 240)),
-                    signature))
+  say(string.format('FRAME %s 320x240 distinct %d signature %08x',
+                    name, distinct, signature))
 end
 
-for slot, _ in pairs(names) do
+local function install(slot, name, key)
   PCSX.execSlots[slot] = function()
-    local ok, err = pcall(capture, slot)
+    local ok, err = pcall(capture, name, key)
     if not ok then
-      say('CHECK ' .. names[slot] .. ' capture completes FAIL')
+      say('CHECK ' .. name .. ' capture completes FAIL')
       say('DETAIL ' .. tostring(err))
       PCSX.quit(1)
     end
   end
 end
 
-PCSX.execSlots[21] = function()
-  local name = string.format('movement-%02d', animation_frames)
-  local key = 100 + animation_frames
-  local ok, err = pcall(capture, 21, name, key)
-  if not ok then
-    say('CHECK ' .. name .. ' capture completes FAIL')
-    say('DETAIL ' .. tostring(err))
-    PCSX.quit(1)
-  end
-  animation_frames = animation_frames + 1
-end
+install(24, 'tactical-board', 24)
+install(33, 'combat-backdrop', 33)
 
 PCSX.execSlots[25] = function()
-  local name = string.format('movement-camera-v2-%02d',
-                             camera_v2_animation_frames)
-  local key = 200 + camera_v2_animation_frames
-  local ok, err = pcall(capture, 25, name, key)
+  local index = movement_frames
+  local ok, err = pcall(capture,
+    string.format('movement-%02d', index), 100 + index)
   if not ok then
-    say('CHECK ' .. name .. ' capture completes FAIL')
+    say('CHECK movement capture completes FAIL')
     say('DETAIL ' .. tostring(err))
     PCSX.quit(1)
   end
-  camera_v2_animation_frames = camera_v2_animation_frames + 1
+  movement_frames = movement_frames + 1
 end
 
 PCSX.execSlots[26] = function()
-  local name = string.format('close-exchange-camera-v2-%02d', exchange_frames)
-  local key = 300 + exchange_frames
-  local ok, err = pcall(capture, 26, name, key)
+  local index = exchange_frames
+  local ok, err = pcall(capture,
+    string.format('exchange-%02d', index), 200 + index)
   if not ok then
-    say('CHECK ' .. name .. ' capture completes FAIL')
+    say('CHECK exchange capture completes FAIL')
     say('DETAIL ' .. tostring(err))
     PCSX.quit(1)
   end
@@ -134,11 +97,11 @@ PCSX.execSlots[26] = function()
 end
 
 PCSX.execSlots[29] = function()
-  local name = string.format('comparison-sequence-%02d', comparison_frames)
-  local key = 400 + comparison_frames
-  local ok, err = pcall(capture, 29, name, key)
+  local index = comparison_frames
+  local ok, err = pcall(capture,
+    string.format('comparison-%02d', index), 300 + index)
   if not ok then
-    say('CHECK ' .. name .. ' capture completes FAIL')
+    say('CHECK comparison capture completes FAIL')
     say('DETAIL ' .. tostring(err))
     PCSX.quit(1)
   end
@@ -146,65 +109,28 @@ PCSX.execSlots[29] = function()
 end
 
 PCSX.execSlots[20] = function()
-  expect(captures == 134, 'all still and animation frames were captured')
-  expect(signatures[10] ~= signatures[11],
-         'medieval current frame differs from its flat baseline')
-  expect(signatures[11] ~= signatures[12],
-         'medieval low-angle hybrid differs from the current projection')
-  expect(signatures[12] ~= signatures[13],
-         'medieval rejected screen stage differs from the low-angle hybrid')
-  expect(signatures[13] ~= signatures[22],
-         'medieval camera v2 differs from the rejected screen stage')
-  expect(signatures[27] ~= signatures[22],
-         '128px close art differs from its matched 96px baseline')
-  expect(signatures[30] ~= signatures[22],
-         'quality close terrain differs from its matched quiet baseline')
-  expect(signatures[14] ~= signatures[15],
-         'mythical current frame differs from its flat baseline')
-  expect(signatures[15] ~= signatures[16],
-         'mythical low-angle hybrid differs from the current projection')
-  expect(signatures[16] ~= signatures[17],
-         'mythical rejected screen stage differs from the low-angle hybrid')
-  expect(signatures[17] ~= signatures[23],
-         'mythical camera v2 differs from the rejected screen stage')
-  expect(signatures[18] ~= signatures[19],
-         'hybrid tactical overview differs from its flat baseline')
-  expect(signatures[19] ~= signatures[24],
-         'camera-v2 overview differs from the earlier hybrid')
-  expect(signatures[31] ~= signatures[24],
-         'quality tactical terrain differs from its matched quiet baseline')
-  expect(signatures[32] ~= signatures[33],
-         'Godot-derived combat backdrop differs from live-terrain baseline')
-  expect(signatures[13] ~= signatures[17],
-         'medieval and mythical rejected close views remain distinct')
-  expect(signatures[22] ~= signatures[23],
-         'medieval and mythical camera-v2 views remain distinct')
-  expect(animation_frames == 8, 'all eight movement frames were captured')
-  expect(signatures[100] ~= signatures[107],
-         'the movement film changes position and pose')
-  expect(camera_v2_animation_frames == 16,
-         'all sixteen eased camera-v2 movement frames were captured')
-  expect(signatures[200] ~= signatures[215],
-         'camera-v2 movement changes position and pose')
-  expect(exchange_frames == 40,
-         'all forty eased fixed-side exchange frames were captured')
-  expect(signatures[300] ~= signatures[312],
-         'left attack reaches a distinct camera-v2 impact frame')
-  expect(signatures[320] ~= signatures[332],
-         'right counter reaches a distinct camera-v2 impact frame')
+  expect(captures == 110, 'all selected renderer frames were captured')
+  expect(movement_frames == 16, 'all sixteen movement frames were captured')
+  expect(signatures[100] ~= signatures[115],
+         'movement changes position and pose')
+  expect(exchange_frames == 40, 'all forty exchange frames were captured')
+  expect(signatures[200] ~= signatures[212],
+         'attack reaches a distinct impact frame')
+  expect(signatures[220] ~= signatures[232],
+         'counter reaches a distinct impact frame')
   expect(comparison_frames == 52,
-         'all 52 matched renderer-comparison landmarks were captured')
-  expect(signatures[400] == signatures[401],
-         'matched scene begins with a deterministic board hold')
-  expect(signatures[418] ~= signatures[438],
-         'matched attack and counter impacts are visually distinct')
-  expect(signatures[450] == signatures[451],
-         'matched scene ends on a deterministic restored board hold')
-  expect(signatures[400] ~= signatures[450],
-         'restored board exposes the authoritative health change')
+         'all fifty-two comparison landmarks were captured')
+  expect(signatures[300] == signatures[301],
+         'comparison begins with a deterministic board hold')
+  expect(signatures[318] ~= signatures[338],
+         'attack and counter impacts are distinct')
+  expect(signatures[350] == signatures[351],
+         'comparison ends with a deterministic restored board hold')
+  expect(signatures[300] ~= signatures[350],
+         'restored board exposes the health change')
   say(string.format('RESULT %s %d/%d', failures == 0 and 'PASS' or 'FAIL',
                     checks - failures, checks))
   PCSX.quit(failures == 0 and 0 or 1)
 end
 
-say('installed still slots 10..19,22..24,27,30..33; animation slots 21,25,26,29; done slot 20')
+say('installed tactical, movement, close battle and comparison capture slots')

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 
-#include "sevenfold_hybrid_experiment.h"
+#include "sevenfold_cutout_renderer.h"
 
 #include <libdragon.h>
 
 #include <cstdlib>
 #include <cstring>
 
-#include "sevenfold_hybrid_assets.h"
+#include "sevenfold_cutout_assets.h"
 
-namespace grandleon::nintendo64::sevenfold_hybrid_experiment {
+namespace grandleon::nintendo64::sevenfold_cutout_renderer {
 namespace {
 
 struct Fighter final {
@@ -142,127 +142,127 @@ void draw_tactical_marks(const TacticalFrame& frame) {
 bool initialize() {
     if (ready) return true;
     medieval.left = {
-        load(hybrid_medieval_knight_male_blue_idle,
-             hybrid_medieval_knight_male_blue_idle_size),
-        load(hybrid_medieval_knight_male_blue_idle_b,
-             hybrid_medieval_knight_male_blue_idle_b_size),
-        load(hybrid_medieval_knight_male_blue_windup,
-             hybrid_medieval_knight_male_blue_windup_size),
-        load(hybrid_medieval_knight_male_blue_attack,
-             hybrid_medieval_knight_male_blue_attack_size),
-        load(hybrid_medieval_knight_male_blue_hurt,
-             hybrid_medieval_knight_male_blue_hurt_size),
+        load(cutout_medieval_knight_male_blue_idle,
+             cutout_medieval_knight_male_blue_idle_size),
+        load(cutout_medieval_knight_male_blue_idle_b,
+             cutout_medieval_knight_male_blue_idle_b_size),
+        load(cutout_medieval_knight_male_blue_windup,
+             cutout_medieval_knight_male_blue_windup_size),
+        load(cutout_medieval_knight_male_blue_attack,
+             cutout_medieval_knight_male_blue_attack_size),
+        load(cutout_medieval_knight_male_blue_hurt,
+             cutout_medieval_knight_male_blue_hurt_size),
     };
     medieval.right = {
-        load(hybrid_medieval_knight_female_red_idle,
-             hybrid_medieval_knight_female_red_idle_size),
-        load(hybrid_medieval_knight_female_red_idle_b,
-             hybrid_medieval_knight_female_red_idle_b_size),
-        load(hybrid_medieval_knight_female_red_windup,
-             hybrid_medieval_knight_female_red_windup_size),
-        load(hybrid_medieval_knight_female_red_attack,
-             hybrid_medieval_knight_female_red_attack_size),
-        load(hybrid_medieval_knight_female_red_hurt,
-             hybrid_medieval_knight_female_red_hurt_size),
+        load(cutout_medieval_knight_female_red_idle,
+             cutout_medieval_knight_female_red_idle_size),
+        load(cutout_medieval_knight_female_red_idle_b,
+             cutout_medieval_knight_female_red_idle_b_size),
+        load(cutout_medieval_knight_female_red_windup,
+             cutout_medieval_knight_female_red_windup_size),
+        load(cutout_medieval_knight_female_red_attack,
+             cutout_medieval_knight_female_red_attack_size),
+        load(cutout_medieval_knight_female_red_hurt,
+             cutout_medieval_knight_female_red_hurt_size),
     };
     mythical.left = {
-        load(hybrid_mythical_mage_male_blue_idle,
-             hybrid_mythical_mage_male_blue_idle_size),
-        load(hybrid_mythical_mage_male_blue_idle_b,
-             hybrid_mythical_mage_male_blue_idle_b_size),
-        load(hybrid_mythical_mage_male_blue_windup,
-             hybrid_mythical_mage_male_blue_windup_size),
-        load(hybrid_mythical_mage_male_blue_attack,
-             hybrid_mythical_mage_male_blue_attack_size),
-        load(hybrid_mythical_mage_male_blue_hurt,
-             hybrid_mythical_mage_male_blue_hurt_size),
+        load(cutout_mythical_mage_male_blue_idle,
+             cutout_mythical_mage_male_blue_idle_size),
+        load(cutout_mythical_mage_male_blue_idle_b,
+             cutout_mythical_mage_male_blue_idle_b_size),
+        load(cutout_mythical_mage_male_blue_windup,
+             cutout_mythical_mage_male_blue_windup_size),
+        load(cutout_mythical_mage_male_blue_attack,
+             cutout_mythical_mage_male_blue_attack_size),
+        load(cutout_mythical_mage_male_blue_hurt,
+             cutout_mythical_mage_male_blue_hurt_size),
     };
     mythical.right = {
-        load(hybrid_mythical_mage_female_red_idle,
-             hybrid_mythical_mage_female_red_idle_size),
-        load(hybrid_mythical_mage_female_red_idle_b,
-             hybrid_mythical_mage_female_red_idle_b_size),
-        load(hybrid_mythical_mage_female_red_windup,
-             hybrid_mythical_mage_female_red_windup_size),
-        load(hybrid_mythical_mage_female_red_attack,
-             hybrid_mythical_mage_female_red_attack_size),
-        load(hybrid_mythical_mage_female_red_hurt,
-             hybrid_mythical_mage_female_red_hurt_size),
+        load(cutout_mythical_mage_female_red_idle,
+             cutout_mythical_mage_female_red_idle_size),
+        load(cutout_mythical_mage_female_red_idle_b,
+             cutout_mythical_mage_female_red_idle_b_size),
+        load(cutout_mythical_mage_female_red_windup,
+             cutout_mythical_mage_female_red_windup_size),
+        load(cutout_mythical_mage_female_red_attack,
+             cutout_mythical_mage_female_red_attack_size),
+        load(cutout_mythical_mage_female_red_hurt,
+             cutout_mythical_mage_female_red_hurt_size),
     };
     tactical_idle[0] = load(
-        hybrid_tactical_medieval_knight_male_blue_idle,
-        hybrid_tactical_medieval_knight_male_blue_idle_size
+        cutout_tactical_medieval_knight_male_blue_idle,
+        cutout_tactical_medieval_knight_male_blue_idle_size
     );
     tactical_idle[1] = load(
-        hybrid_tactical_medieval_archer_female_red_idle,
-        hybrid_tactical_medieval_archer_female_red_idle_size
+        cutout_tactical_medieval_archer_female_red_idle,
+        cutout_tactical_medieval_archer_female_red_idle_size
     );
     tactical_idle[2] = load(
-        hybrid_tactical_medieval_mage_male_blue_idle,
-        hybrid_tactical_medieval_mage_male_blue_idle_size
+        cutout_tactical_medieval_mage_male_blue_idle,
+        cutout_tactical_medieval_mage_male_blue_idle_size
     );
     tactical_idle[3] = load(
-        hybrid_tactical_medieval_stormcaller_female_red_idle,
-        hybrid_tactical_medieval_stormcaller_female_red_idle_size
+        cutout_tactical_medieval_stormcaller_female_red_idle,
+        cutout_tactical_medieval_stormcaller_female_red_idle_size
     );
     tactical_idle[4] = load(
-        hybrid_tactical_medieval_healer_male_blue_idle,
-        hybrid_tactical_medieval_healer_male_blue_idle_size
+        cutout_tactical_medieval_healer_male_blue_idle,
+        cutout_tactical_medieval_healer_male_blue_idle_size
     );
     tactical_idle[5] = load(
-        hybrid_tactical_medieval_commander_female_red_idle,
-        hybrid_tactical_medieval_commander_female_red_idle_size
+        cutout_tactical_medieval_commander_female_red_idle,
+        cutout_tactical_medieval_commander_female_red_idle_size
     );
     tactical_idle[6] = load(
-        hybrid_tactical_medieval_rogue_male_blue_idle,
-        hybrid_tactical_medieval_rogue_male_blue_idle_size
+        cutout_tactical_medieval_rogue_male_blue_idle,
+        cutout_tactical_medieval_rogue_male_blue_idle_size
     );
     tactical_idle[7] = load(
-        hybrid_tactical_medieval_beast_female_red_idle,
-        hybrid_tactical_medieval_beast_female_red_idle_size
+        cutout_tactical_medieval_beast_female_red_idle,
+        cutout_tactical_medieval_beast_female_red_idle_size
     );
     tactical_idle_b[0] = load(
-        hybrid_tactical_medieval_knight_male_blue_idle_b,
-        hybrid_tactical_medieval_knight_male_blue_idle_b_size
+        cutout_tactical_medieval_knight_male_blue_idle_b,
+        cutout_tactical_medieval_knight_male_blue_idle_b_size
     );
     tactical_idle_b[1] = load(
-        hybrid_tactical_medieval_archer_female_red_idle_b,
-        hybrid_tactical_medieval_archer_female_red_idle_b_size
+        cutout_tactical_medieval_archer_female_red_idle_b,
+        cutout_tactical_medieval_archer_female_red_idle_b_size
     );
     tactical_idle_b[2] = load(
-        hybrid_tactical_medieval_mage_male_blue_idle_b,
-        hybrid_tactical_medieval_mage_male_blue_idle_b_size
+        cutout_tactical_medieval_mage_male_blue_idle_b,
+        cutout_tactical_medieval_mage_male_blue_idle_b_size
     );
     tactical_idle_b[3] = load(
-        hybrid_tactical_medieval_stormcaller_female_red_idle_b,
-        hybrid_tactical_medieval_stormcaller_female_red_idle_b_size
+        cutout_tactical_medieval_stormcaller_female_red_idle_b,
+        cutout_tactical_medieval_stormcaller_female_red_idle_b_size
     );
     tactical_idle_b[4] = load(
-        hybrid_tactical_medieval_healer_male_blue_idle_b,
-        hybrid_tactical_medieval_healer_male_blue_idle_b_size
+        cutout_tactical_medieval_healer_male_blue_idle_b,
+        cutout_tactical_medieval_healer_male_blue_idle_b_size
     );
     tactical_idle_b[5] = load(
-        hybrid_tactical_medieval_commander_female_red_idle_b,
-        hybrid_tactical_medieval_commander_female_red_idle_b_size
+        cutout_tactical_medieval_commander_female_red_idle_b,
+        cutout_tactical_medieval_commander_female_red_idle_b_size
     );
     tactical_idle_b[6] = load(
-        hybrid_tactical_medieval_rogue_male_blue_idle_b,
-        hybrid_tactical_medieval_rogue_male_blue_idle_b_size
+        cutout_tactical_medieval_rogue_male_blue_idle_b,
+        cutout_tactical_medieval_rogue_male_blue_idle_b_size
     );
     tactical_idle_b[7] = load(
-        hybrid_tactical_medieval_beast_female_red_idle_b,
-        hybrid_tactical_medieval_beast_female_red_idle_b_size
+        cutout_tactical_medieval_beast_female_red_idle_b,
+        cutout_tactical_medieval_beast_female_red_idle_b_size
     );
     tactical_rogue_move[0] = load(
-        hybrid_tactical_medieval_rogue_male_blue_move_a,
-        hybrid_tactical_medieval_rogue_male_blue_move_a_size
+        cutout_tactical_medieval_rogue_male_blue_move_a,
+        cutout_tactical_medieval_rogue_male_blue_move_a_size
     );
     tactical_rogue_move[1] = load(
-        hybrid_tactical_medieval_rogue_male_blue_move_b,
-        hybrid_tactical_medieval_rogue_male_blue_move_b_size
+        cutout_tactical_medieval_rogue_male_blue_move_b,
+        cutout_tactical_medieval_rogue_male_blue_move_b_size
     );
-    shadow = load(hybrid_shadow, hybrid_shadow_size);
-    impact = load(hybrid_impact, hybrid_impact_size);
+    shadow = load(cutout_shadow, cutout_shadow_size);
+    impact = load(cutout_impact, cutout_impact_size);
     ready = shadow != nullptr && impact != nullptr;
     const Fighter* fighters[] = {
         &medieval.left, &medieval.right, &mythical.left, &mythical.right,
@@ -414,48 +414,48 @@ void draw_tactical(const TacticalFrame& frame) {
 }
 
 std::size_t embedded_bytes() noexcept {
-    return hybrid_medieval_knight_male_blue_idle_size +
-        hybrid_medieval_knight_male_blue_idle_b_size +
-        hybrid_medieval_knight_male_blue_windup_size +
-        hybrid_medieval_knight_male_blue_attack_size +
-        hybrid_medieval_knight_male_blue_hurt_size +
-        hybrid_medieval_knight_female_red_idle_size +
-        hybrid_medieval_knight_female_red_idle_b_size +
-        hybrid_medieval_knight_female_red_windup_size +
-        hybrid_medieval_knight_female_red_attack_size +
-        hybrid_medieval_knight_female_red_hurt_size +
-        hybrid_mythical_mage_male_blue_idle_size +
-        hybrid_mythical_mage_male_blue_idle_b_size +
-        hybrid_mythical_mage_male_blue_windup_size +
-        hybrid_mythical_mage_male_blue_attack_size +
-        hybrid_mythical_mage_male_blue_hurt_size +
-        hybrid_mythical_mage_female_red_idle_size +
-        hybrid_mythical_mage_female_red_idle_b_size +
-        hybrid_mythical_mage_female_red_windup_size +
-        hybrid_mythical_mage_female_red_attack_size +
-        hybrid_mythical_mage_female_red_hurt_size +
-        hybrid_shadow_size + hybrid_impact_size;
+    return cutout_medieval_knight_male_blue_idle_size +
+        cutout_medieval_knight_male_blue_idle_b_size +
+        cutout_medieval_knight_male_blue_windup_size +
+        cutout_medieval_knight_male_blue_attack_size +
+        cutout_medieval_knight_male_blue_hurt_size +
+        cutout_medieval_knight_female_red_idle_size +
+        cutout_medieval_knight_female_red_idle_b_size +
+        cutout_medieval_knight_female_red_windup_size +
+        cutout_medieval_knight_female_red_attack_size +
+        cutout_medieval_knight_female_red_hurt_size +
+        cutout_mythical_mage_male_blue_idle_size +
+        cutout_mythical_mage_male_blue_idle_b_size +
+        cutout_mythical_mage_male_blue_windup_size +
+        cutout_mythical_mage_male_blue_attack_size +
+        cutout_mythical_mage_male_blue_hurt_size +
+        cutout_mythical_mage_female_red_idle_size +
+        cutout_mythical_mage_female_red_idle_b_size +
+        cutout_mythical_mage_female_red_windup_size +
+        cutout_mythical_mage_female_red_attack_size +
+        cutout_mythical_mage_female_red_hurt_size +
+        cutout_shadow_size + cutout_impact_size;
 }
 
 std::size_t tactical_embedded_bytes() noexcept {
-    return hybrid_tactical_medieval_knight_male_blue_idle_size +
-        hybrid_tactical_medieval_archer_female_red_idle_size +
-        hybrid_tactical_medieval_mage_male_blue_idle_size +
-        hybrid_tactical_medieval_stormcaller_female_red_idle_size +
-        hybrid_tactical_medieval_healer_male_blue_idle_size +
-        hybrid_tactical_medieval_commander_female_red_idle_size +
-        hybrid_tactical_medieval_rogue_male_blue_idle_size +
-        hybrid_tactical_medieval_beast_female_red_idle_size +
-        hybrid_tactical_medieval_knight_male_blue_idle_b_size +
-        hybrid_tactical_medieval_archer_female_red_idle_b_size +
-        hybrid_tactical_medieval_mage_male_blue_idle_b_size +
-        hybrid_tactical_medieval_stormcaller_female_red_idle_b_size +
-        hybrid_tactical_medieval_healer_male_blue_idle_b_size +
-        hybrid_tactical_medieval_commander_female_red_idle_b_size +
-        hybrid_tactical_medieval_rogue_male_blue_idle_b_size +
-        hybrid_tactical_medieval_beast_female_red_idle_b_size +
-        hybrid_tactical_medieval_rogue_male_blue_move_a_size +
-        hybrid_tactical_medieval_rogue_male_blue_move_b_size;
+    return cutout_tactical_medieval_knight_male_blue_idle_size +
+        cutout_tactical_medieval_archer_female_red_idle_size +
+        cutout_tactical_medieval_mage_male_blue_idle_size +
+        cutout_tactical_medieval_stormcaller_female_red_idle_size +
+        cutout_tactical_medieval_healer_male_blue_idle_size +
+        cutout_tactical_medieval_commander_female_red_idle_size +
+        cutout_tactical_medieval_rogue_male_blue_idle_size +
+        cutout_tactical_medieval_beast_female_red_idle_size +
+        cutout_tactical_medieval_knight_male_blue_idle_b_size +
+        cutout_tactical_medieval_archer_female_red_idle_b_size +
+        cutout_tactical_medieval_mage_male_blue_idle_b_size +
+        cutout_tactical_medieval_stormcaller_female_red_idle_b_size +
+        cutout_tactical_medieval_healer_male_blue_idle_b_size +
+        cutout_tactical_medieval_commander_female_red_idle_b_size +
+        cutout_tactical_medieval_rogue_male_blue_idle_b_size +
+        cutout_tactical_medieval_beast_female_red_idle_b_size +
+        cutout_tactical_medieval_rogue_male_blue_move_a_size +
+        cutout_tactical_medieval_rogue_male_blue_move_b_size;
 }
 
-}  // namespace grandleon::nintendo64::sevenfold_hybrid_experiment
+}  // namespace grandleon::nintendo64::sevenfold_cutout_renderer

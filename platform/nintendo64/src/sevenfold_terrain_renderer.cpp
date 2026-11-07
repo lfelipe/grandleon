@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-#include "sevenfold_texture_experiment.h"
+#include "sevenfold_terrain_renderer.h"
 
 #include <libdragon.h>
 
@@ -11,7 +11,7 @@
 
 #include "sevenfold_terrain_assets.h"
 
-namespace grandleon::nintendo64::sevenfold_texture_experiment {
+namespace grandleon::nintendo64::sevenfold_terrain_renderer {
 namespace {
 
 constexpr int character_atlas_side = 32;
@@ -353,4 +353,4 @@ UV terrain_uv(
     );
 }
 
-}  // namespace grandleon::nintendo64::sevenfold_texture_experiment
+}  // namespace grandleon::nintendo64::sevenfold_terrain_renderer

@@ -3,7 +3,7 @@
 
 #include <cstddef>
 
-namespace grandleon::nintendo64::sevenfold_hybrid_experiment {
+namespace grandleon::nintendo64::sevenfold_cutout_renderer {
 
 enum class Style {
     medieval,
@@ -58,4 +58,4 @@ void draw_matched_board(int left_health, int right_health, bool focus);
     return 56U * 56U + 256U * sizeof(unsigned short);
 }
 
-}  // namespace grandleon::nintendo64::sevenfold_hybrid_experiment
+}  // namespace grandleon::nintendo64::sevenfold_cutout_renderer
