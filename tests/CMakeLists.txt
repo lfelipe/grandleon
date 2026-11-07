@@ -603,6 +603,50 @@ add_test(
     COMMAND grandleon_client_company_direct_start_tests
 )
 
+# The fixed-storage keyboard shared by Nintendo 64 and PlayStation, and the
+# real shared campaign presenter carrying its result into the portable rename
+# intent. The second target compiles the same TurnClient translation unit the
+# PlayStation executable does; the N64 consumes the same editor model directly.
+add_executable(grandleon_client_console_name_editor_tests
+    client/console_name_editor_test.cpp
+)
+target_link_libraries(
+    grandleon_client_console_name_editor_tests PRIVATE grandleon::client
+)
+target_compile_features(
+    grandleon_client_console_name_editor_tests PRIVATE cxx_std_17
+)
+add_test(
+    NAME grandleon.client_console_name_editor
+    COMMAND grandleon_client_console_name_editor_tests
+)
+
+add_executable(grandleon_client_console_name_entry_tests
+    client/console_name_entry_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(
+    grandleon_client_console_name_entry_tests
+    PRIVATE
+        grandleon::client
+        grandleon::client_campaign
+        grandleon::package_format
+        grandleon::sheet
+        grandleon::storage
+        grandleon::view
+)
+target_compile_definitions(
+    grandleon_client_console_name_entry_tests
+    PRIVATE GRANDLEON_TURN_CLIENT_CAMPAIGN
+)
+target_compile_features(
+    grandleon_client_console_name_entry_tests PRIVATE cxx_std_17
+)
+add_test(
+    NAME grandleon.client_console_name_entry
+    COMMAND grandleon_client_console_name_entry_tests
+)
+
 # The Stage picker as a console offers it, driven by a thumb.
 #
 # Same arrangement and for the same reason as the walk above: it compiles

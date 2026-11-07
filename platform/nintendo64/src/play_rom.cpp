@@ -90,6 +90,7 @@
 
 #ifdef GRANDLEON_N64_CAMPAIGN
 #include <grandleon/client/campaign_session.hpp>
+#include <grandleon/client/console_name_editor.hpp>
 
 // The slot screen's own state machine: its rows, its caret, its verbs and the
 // arming that stands between a held slot and being written over. Shared with
@@ -2290,6 +2291,8 @@ public:
         std::string_view slot,
         bool resumed
     ) override {
+        pending_player_names_.clear();
+        if (!resumed) queue_player_names(roster);
         // The line the persistence check keys on. Which of the two words this
         // is comes from what the cartridge held and from nothing else, which is
         // exactly the property under test: a cartridge that forgot would say
@@ -2542,6 +2545,7 @@ public:
         const std::vector<client::RosterEntry>& joined
     ) override {
         if (joined.empty()) return;
+        queue_player_names(joined);
         report_line("joined %d\n", static_cast<int>(joined.size()));
         surface_t* disp = display_get();
         graphics_fill_screen(disp, colour(16, 26, 27));
@@ -2681,6 +2685,21 @@ public:
     [[nodiscard]] client::ManagementIntent next_management_intent(
         const client::CompanyManagement& company
     ) override {
+        while (!pending_player_names_.empty()) {
+            const campaign::PersistentEntityId wanted =
+                pending_player_names_.front();
+            pending_player_names_.erase(pending_player_names_.begin());
+            const client::RosterEntry* member = nullptr;
+            for (const client::RosterEntry& candidate : company.roster) {
+                if (candidate.member == wanted) member = &candidate;
+            }
+            if (member == nullptr || !member->player_nameable ||
+                member->has_player_name) {
+                continue;
+            }
+            client::ManagementIntent named;
+            if (run_name_editor(*member, named)) return named;
+        }
         // Fixed formations are ready to play, including characters carrying
         // their normal equipment. Do not put the company editor between the
         // title and a board when there is no shared-store or deployment
@@ -4369,16 +4388,17 @@ private:
             client::ManagementVerb verb;
             campaign::DefinitionRef item;
         };
-        // Twenty rather than twelve because a menu capped at twelve drops rows,
+        // Twenty-one rather than twelve because a menu capped at twelve drops
+        // rows,
         // which is the other half of the truncation this screen's window exists
         // to end: the rows past the twelfth are the store's and the member's
-        // own kit, which is to say items nothing on screen can reach. Twenty
-        // covers the availability row, nine store stacks, nine carried stacks
-        // and CANCEL; the window shows eight of them at a time. This is a
-        // stack frame in a function `main` calls, on a machine with four
-        // megabytes and a measured watermark, so the cost is reported rather
-        // than budgeted.
-        constexpr int capacity = 20;
+        // own kit, which is to say items nothing on screen can reach.
+        // Twenty-one covers RENAME, the availability row, nine store stacks,
+        // nine carried stacks and CANCEL; the window shows eight of them at a
+        // time. This is a stack frame in a function `main` calls, on a machine
+        // with four megabytes and a measured watermark, so the cost is
+        // reported rather than budgeted.
+        constexpr int capacity = 21;
         Row rows[capacity];
         int count = 0;
         const client::RosterEntry& entry = company.roster[static_cast<std::size_t>(row)];
@@ -4391,6 +4411,15 @@ private:
         const bool actionable =
             entry.availability != campaign::Availability::dead &&
             entry.availability != campaign::Availability::unrecruited;
+        if (entry.player_nameable) {
+            std::snprintf(
+                rows[count].text, sizeof rows[count].text, "%s",
+                entry.has_player_name ? "CHANGE NAME" : "CHOOSE NAME"
+            );
+            rows[count].verb = client::ManagementVerb::rename;
+            rows[count].item = {};
+            ++count;
+        }
         if (actionable) {
             // The row stays offered when the board is full: taking it is how
             // a player is told why, and a row that vanished would leave the
@@ -4544,6 +4573,9 @@ private:
                 if (rows[caret].verb == client::ManagementVerb::none) {
                     return false;
                 }
+                if (rows[caret].verb == client::ManagementVerb::rename) {
+                    return run_name_editor(entry, chosen);
+                }
                 // A board its author capped fields no more than it says, so the
                 // press is refused here rather than committed and undone. The
                 // sentence is the roster's own name for it, never one written
@@ -4567,6 +4599,164 @@ private:
                 return true;
             }
             wait_ms(16);
+        }
+    }
+
+    // The same model and key layout the shared PlayStation client drives,
+    // painted with this machine's page widgets and button names. A custom name
+    // enters campaign state only by returning the existing rename intent; this
+    // screen owns no save logic and cannot bypass the session's permission or
+    // validation checks.
+    [[nodiscard]] bool run_name_editor(
+        const client::RosterEntry& member,
+        client::ManagementIntent& chosen
+    ) {
+        client::ConsoleNameEditor editor{member.name, member.authored_name};
+        bool dirty = true;
+        while (true) {
+            if (dirty) {
+                surface_t* disp = display_get();
+                graphics_fill_screen(disp, colour(16, 26, 27));
+                const view::ConsolePage page = draw_n64_page(
+                    disp, 12, 12, 296, 220, 32, 28, "CHARACTER NAME"
+                );
+                graphics_set_color(colour(245, 234, 210), 0);
+                graphics_draw_text(disp, 24, 48, "CURRENT");
+                graphics_draw_text(
+                    disp, 96, 48,
+                    clipped(
+                        grandleon::sheet::person_name(
+                            member.name.c_str()
+                        ).c_str(),
+                        client::console_player_name_glyphs
+                    ).c_str()
+                );
+                char draft[32]{};
+                std::snprintf(
+                    draft, sizeof draft, "NAME  %s",
+                    editor.name().empty() ? "_" : editor.c_str()
+                );
+                graphics_draw_text(disp, 24, 64, draft);
+                graphics_set_color(
+                    editor.invalid() ? colour(196, 84, 74)
+                                     : colour(125, 168, 133),
+                    0
+                );
+                graphics_draw_text(
+                    disp, 24, 80,
+                    editor.invalid()
+                        ? "ENTER AT LEAST ONE LETTER"
+                        : editor.current_is_editable()
+                              ? "EDIT OR CHOOSE DEFAULT"
+                              : "CURRENT NAME STAYS UNTIL SAVED"
+                );
+                for (int row = 0; row < client::ConsoleNameEditor::rows;
+                     ++row) {
+                    char line[40]{};
+                    int at = 0;
+                    const auto append = [&line, &at](char value) {
+                        if (at + 1 < static_cast<int>(sizeof line)) {
+                            line[at++] = value;
+                        }
+                    };
+                    const auto append_text = [&append](const char* value) {
+                        for (int i = 0;
+                             value != nullptr && value[i] != '\0'; ++i) {
+                            append(value[i]);
+                        }
+                    };
+                    for (int column = 0;
+                         column < client::ConsoleNameEditor::columns(row);
+                         ++column) {
+                        const bool selected = row == editor.row() &&
+                                              column == editor.column();
+                        const client::ConsoleNameKey key =
+                            client::ConsoleNameEditor::key(row, column);
+                        append(selected ? '[' : ' ');
+                        append_text(key.label);
+                        append(selected ? ']' : ' ');
+                        append(' ');
+                    }
+                    line[at] = '\0';
+                    graphics_set_color(
+                        colour(245, 234, 210), 0
+                    );
+                    graphics_draw_text(disp, 24, 104 + row * 16, line);
+                }
+                const view::ButtonLegend buttons = view::button_legend(
+                    view::ConsolePlatform::nintendo64
+                );
+                graphics_set_color(colour(125, 168, 133), 0);
+                graphics_draw_text(
+                    disp, page.footer.x + 6, page.footer.y + 2, "D-PAD MOVE"
+                );
+                draw_n64_button_badge(
+                    disp, page.footer.x + 102, page.footer.y + 2,
+                    buttons.confirm, "TYPE"
+                );
+                draw_n64_button_badge(
+                    disp, page.footer.x + 178, page.footer.y + 2,
+                    buttons.back, "ERASE"
+                );
+                draw_n64_button_badge(
+                    disp, page.footer.x + 6, page.footer.y + 14,
+                    buttons.menu, "KEEP"
+                );
+                draw_n64_button_badge(
+                    disp, page.footer.x + 102, page.footer.y + 14,
+                    buttons.wait, "SAVE"
+                );
+                show(disp);
+                dirty = false;
+            }
+            grandleon::n64audio::pump();
+            const joypad_buttons_t pressed = poll_buttons();
+            if (pressed.z) return false;
+            const int across = pressed.d_left
+                                   ? -1
+                                   : pressed.d_right ? 1 : 0;
+            const int down = pressed.d_up ? -1 : pressed.d_down ? 1 : 0;
+            if (across != 0 || down != 0) {
+                editor.move(across, down);
+                dirty = true;
+            }
+            if (pressed.b) {
+                editor.erase();
+                dirty = true;
+            }
+            client::ConsoleNameAnswer answer =
+                client::ConsoleNameAnswer::editing;
+            if (pressed.a) answer = editor.activate();
+            if (pressed.start) answer = editor.save();
+            if (pressed.a || pressed.start) dirty = true;
+            if (answer == client::ConsoleNameAnswer::use_default) {
+                chosen = {
+                    client::ManagementVerb::rename, member.member, {}, 0U,
+                    member.authored_name
+                };
+                return true;
+            }
+            if (answer == client::ConsoleNameAnswer::save) {
+                chosen = {
+                    client::ManagementVerb::rename, member.member, {}, 0U,
+                    editor.name()
+                };
+                return true;
+            }
+            wait_ms(16);
+        }
+    }
+
+    void queue_player_names(
+        const std::vector<client::RosterEntry>& members
+    ) {
+        for (const client::RosterEntry& member : members) {
+            if (!member.player_nameable || member.has_player_name) continue;
+            bool already_queued = false;
+            for (campaign::PersistentEntityId queued : pending_player_names_) {
+                if (queued == member.member) already_queued = true;
+            }
+            if (!already_queued) pending_player_names_.push_back(member.member);
         }
     }
 
@@ -4773,6 +4963,7 @@ private:
     // never moves it, being a drawing routine. The caret's own loop is what
     // moves it, through `ListWindow::follow`, which clamps.
     int roster_top_{0};
+    std::vector<campaign::PersistentEntityId> pending_player_names_;
     // Counts down over the company redraws that follow a save, so the word
     // appears where the player is looking rather than on a screen of its own.
     // Saving happens between every gesture, and a screen per save would put a

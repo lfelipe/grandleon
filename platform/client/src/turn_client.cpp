@@ -2724,6 +2724,7 @@ const char* screen_name(Screen screen) noexcept {
         case Screen::story: return "story";
         case Screen::company: return "company";
         case Screen::member: return "member";
+        case Screen::name: return "name";
         case Screen::aftermath: return "aftermath";
         case Screen::refusal: return "refusal";
         case Screen::joined: return "joined";
@@ -3099,6 +3100,12 @@ void TurnClient::compose_member_menu(
         choice.item = item;
     };
 
+    if (member.player_nameable) {
+        add(
+            member.has_player_name ? "CHANGE NAME" : "CHOOSE NAME",
+            client::ManagementVerb::rename, {}
+        );
+    }
     if (actionable) {
         // The row stays offered when the board is full, because taking it is
         // how a player is told why, and a row that vanished would leave the
@@ -3167,6 +3174,133 @@ void TurnClient::compose_member_menu(
     // the caret's row is the page's row.
     for (int index = list_.top; index < list_.end(); ++index) {
         push_line(verbs_[index].label);
+    }
+}
+
+// One controller keyboard, composed into the same fixed page both the host
+// tests and PlayStation draw. The selected key carries its own brackets, so a
+// two-dimensional caret does not have to masquerade as the vertical list caret
+// used by company and inventory screens.
+void TurnClient::compose_name_editor(
+    const client::RosterEntry& member,
+    const client::ConsoleNameEditor& editor
+) {
+    begin_page();
+    push_line(member.name.c_str());
+    push_line(
+        editor.current_is_editable()
+            ? "EDIT OR USE THE AUTHORED DEFAULT"
+            : "CURRENT NAME IS KEPT UNTIL YOU SAVE"
+    );
+    {
+        Text draft;
+        draft.text("NAME  ").text(
+            editor.name().empty() ? "_" : editor.c_str()
+        );
+        push_line(draft.c_str());
+    }
+    push_line(editor.invalid() ? "ENTER AT LEAST ONE LETTER" : "");
+    push_line("");
+    for (int row = 0; row < client::ConsoleNameEditor::rows; ++row) {
+        char line[page_columns + 1]{};
+        int at = 0;
+        const auto append = [&line, &at](char value) {
+            if (at < page_columns) line[at++] = value;
+        };
+        const auto append_text = [&append](const char* value) {
+            for (int i = 0; value != nullptr && value[i] != '\0'; ++i) {
+                append(value[i]);
+            }
+        };
+        for (int column = 0;
+             column < client::ConsoleNameEditor::columns(row); ++column) {
+            const bool selected = row == editor.row() &&
+                                  column == editor.column();
+            const client::ConsoleNameKey key =
+                client::ConsoleNameEditor::key(row, column);
+            append(selected ? '[' : ' ');
+            append_text(key.label);
+            append(selected ? ']' : ' ');
+            append(' ');
+        }
+        line[at] = '\0';
+        push_line(line);
+    }
+}
+
+client::ConsoleNameAnswer TurnClient::edit_player_name(
+    const client::RosterEntry& member,
+    std::string& chosen_name
+) {
+    client::ConsoleNameEditor editor{member.name, member.authored_name};
+    static constexpr char footer[] =
+        "D-PAD A TYPE B ERASE C KEEP START SAVE";
+    static_assert(
+        sizeof(footer) - 1U <= footer_columns,
+        "the shared name-editor controls must fit every compact console"
+    );
+    bool dirty = true;
+    for (;;) {
+        if (dirty) {
+            compose_name_editor(member, editor);
+            const ScreenView view = view_of(Screen::name, footer);
+            paint_screen(view);
+            hold_for_checkpoint();
+            screen_checkpoint(view);
+            after_screen(view);
+            hold_for_checkpoint();
+            dirty = false;
+        }
+        if (leaving_) return client::ConsoleNameAnswer::cancel;
+        const std::uint16_t buttons = next_press();
+        if ((buttons & pad_end_of_script) != 0U) {
+            leaving_ = true;
+            return client::ConsoleNameAnswer::cancel;
+        }
+        if ((buttons & pad_c) != 0U) {
+            return client::ConsoleNameAnswer::cancel;
+        }
+        const int across = (buttons & pad_left) != 0U
+                               ? -1
+                               : (buttons & pad_right) != 0U ? 1 : 0;
+        const int down = (buttons & pad_up) != 0U
+                             ? -1
+                             : (buttons & pad_down) != 0U ? 1 : 0;
+        if (across != 0 || down != 0) {
+            editor.move(across, down);
+            dirty = true;
+        }
+        if ((buttons & pad_b) != 0U) {
+            editor.erase();
+            dirty = true;
+        }
+        client::ConsoleNameAnswer answer = client::ConsoleNameAnswer::editing;
+        if ((buttons & pad_a) != 0U) answer = editor.activate();
+        if ((buttons & pad_start) != 0U) answer = editor.save();
+        if ((buttons & (pad_a | pad_start)) != 0U) dirty = true;
+        if (answer == client::ConsoleNameAnswer::use_default) {
+            chosen_name.assign(
+                member.authored_name.data(), member.authored_name.size()
+            );
+            return answer;
+        }
+        if (answer == client::ConsoleNameAnswer::save) {
+            chosen_name.assign(editor.name().data(), editor.name().size());
+            return answer;
+        }
+    }
+}
+
+void TurnClient::queue_player_names(
+    const std::vector<client::RosterEntry>& members
+) {
+    for (const client::RosterEntry& member : members) {
+        if (!member.player_nameable || member.has_player_name) continue;
+        bool already_queued = false;
+        for (campaign::PersistentEntityId queued : pending_player_names_) {
+            if (queued == member.member) already_queued = true;
+        }
+        if (!already_queued) pending_player_names_.push_back(member.member);
     }
 }
 
@@ -3629,6 +3763,8 @@ void TurnClient::campaign_begun(
 ) {
     static_cast<void>(slot);
     resumed_ = resumed;
+    pending_player_names_.clear();
+    if (!resumed) queue_player_names(roster);
     // Evidence that this campaign has a history, counted where the campaign is
     // handed over rather than reconstructed later. A founding always has an
     // empty store, because the founding batch puts a unit type's starting kit
@@ -3798,6 +3934,7 @@ void TurnClient::members_joined(
     const std::vector<client::RosterEntry>& joined
 ) {
     if (joined.empty()) return;
+    queue_player_names(joined);
     begin_page();
     push_line("JOINS THE COMPANY");
     push_line("");
@@ -3879,6 +4016,29 @@ void TurnClient::stage_jumped(const client::StageJump& jump) {
 client::ManagementIntent TurnClient::next_management_intent(
     const client::CompanyManagement& company
 ) {
+    while (!pending_player_names_.empty()) {
+        const campaign::PersistentEntityId wanted =
+            pending_player_names_.front();
+        pending_player_names_.erase(pending_player_names_.begin());
+        const client::RosterEntry* member = nullptr;
+        for (const client::RosterEntry& candidate : company.roster) {
+            if (candidate.member == wanted) member = &candidate;
+        }
+        if (member == nullptr || !member->player_nameable ||
+            member->has_player_name) {
+            continue;
+        }
+        std::string chosen_name;
+        const client::ConsoleNameAnswer answer =
+            edit_player_name(*member, chosen_name);
+        if (leaving_) return {client::ManagementVerb::quit, {}, {}};
+        if (answer == client::ConsoleNameAnswer::cancel) continue;
+        client::ManagementIntent intent;
+        intent.verb = client::ManagementVerb::rename;
+        intent.member = member->member;
+        intent.name.assign(chosen_name.data(), chosen_name.size());
+        return intent;
+    }
     // This is product behavior, not a platform shortcut: every console and
     // every scripted test takes the same direct path when there is genuinely
     // nothing to choose before battle. Already-equipped items are part of a
@@ -3984,8 +4144,20 @@ client::ManagementIntent TurnClient::next_management_intent(
     }
     client::ManagementIntent intent;
     intent.verb = verbs_[verb].verb;
-    intent.member = company.roster[static_cast<std::size_t>(manage_row_)].member;
+    const client::RosterEntry& member =
+        company.roster[static_cast<std::size_t>(manage_row_)];
+    intent.member = member.member;
     intent.item = verbs_[verb].item;
+    if (intent.verb == client::ManagementVerb::rename) {
+        std::string chosen_name;
+        const client::ConsoleNameAnswer answer =
+            edit_player_name(member, chosen_name);
+        if (leaving_) return {client::ManagementVerb::quit, {}, {}};
+        if (answer == client::ConsoleNameAnswer::cancel) {
+            return {client::ManagementVerb::none, {}, {}};
+        }
+        intent.name.assign(chosen_name.data(), chosen_name.size());
+    }
     // A board its author capped fields no more than it says, so the press is
     // refused here rather than committed and undone. The sentence is the
     // roster's own name for it, never one written on this console, because it

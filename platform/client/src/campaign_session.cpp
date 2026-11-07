@@ -65,11 +65,19 @@ campaign::MountedContent mounted_content(
     return mounted;
 }
 
-std::string trim_player_name(std::string value) {
-    const auto first = value.find_first_not_of(' ');
-    if (first == std::string::npos) return {};
-    const auto last = value.find_last_not_of(' ');
-    return value.substr(first, last - first + 1U);
+// In place and in the portable source format's one whitespace character.
+// Besides avoiding a second allocation, this keeps the campaign path within
+// the subset of libstdc++ supplied by the pinned PlayStation toolchain, which
+// has pointer-length construction/assignment but not the hosted string search
+// helpers.
+void trim_player_name(std::string& value) {
+    std::size_t first = 0U;
+    while (first < value.size() && value[first] == ' ') ++first;
+    std::size_t last = value.size();
+    while (last > first && value[last - 1U] == ' ') --last;
+    const std::size_t kept = last - first;
+    const std::string trimmed{value.data() + first, kept};
+    value.assign(trimmed.data(), trimmed.size());
 }
 
 }  // namespace
@@ -990,8 +998,9 @@ ManagementCommit CampaignSession::set_fielded(
 
 ManagementCommit CampaignSession::set_player_name(
     campaign::PersistentEntityId member,
-    std::string name
+    std::string_view requested_name
 ) {
+    std::string name{requested_name.data(), requested_name.size()};
     ManagementCommit result;
     if (!loaded_ || !live_.state.progress.active) {
         result.error = ManagementError::not_managing;
@@ -1012,7 +1021,7 @@ ManagementCommit CampaignSession::set_player_name(
         result.error = ManagementError::fixed_name;
         return result;
     }
-    name = trim_player_name(std::move(name));
+    trim_player_name(name);
     const bool use_authored_default = name == authored->entry.authored_name;
     if (!use_authored_default && !campaign::player_name_is_valid(name)) {
         result.error = ManagementError::invalid_name;
@@ -1033,10 +1042,13 @@ ManagementCommit CampaignSession::set_player_name(
         }
     } else if (position != candidate.player_names.end() &&
                position->member == member) {
-        position->value = std::move(name);
+        position->value.assign(name.data(), name.size());
     } else {
         candidate.player_names.insert(
-            position, campaign::PlayerName{member, std::move(name)}
+            position,
+            campaign::PlayerName{
+                member, std::string{name.data(), name.size()}
+            }
         );
     }
     if (campaign::validate(candidate) != campaign::StateError::none) {
@@ -1180,9 +1192,7 @@ CampaignSessionError run_persistent_campaign(
                         continue;
                     case ManagementVerb::rename:
                         narrator.management_committed(
-                            session.set_player_name(
-                                intent.member, std::move(intent.name)
-                            )
+                            session.set_player_name(intent.member, intent.name)
                         );
                         continue;
                 }

@@ -67,6 +67,7 @@
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
 #include <grandleon/client/campaign_session.hpp>
+#include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/view/slot_menu.hpp>
 #endif
 
@@ -552,6 +553,9 @@ enum class Screen : std::uint8_t {
     company,
     // One member's verbs, over the company.
     member,
+    // The compact consoles' shared controller-driven character-name editor.
+    // It is offered only for a campaign member the author marked nameable.
+    name,
     // What a battle did to the campaign, as the campaign committed it.
     aftermath,
     // A slot the session could not honour, in the vocabulary of whichever layer
@@ -615,10 +619,10 @@ inline constexpr int company_scroll_margin = 1;
 // Twenty rather than ten because a menu that dropped rows was the other half of
 // the truncation this screen's window exists to end: the rows past the tenth
 // were the store's and the member's own kit, which is to say the items a
-// deferral recorded as unreachable. Twenty covers the availability row, nine
-// store stacks, nine carried stacks and CANCEL, and the window shows eight of
-// them at a time. What it costs is `.bss`, which on a console is heap.
-inline constexpr int company_menu_capacity = 20;
+// deferral recorded as unreachable. Twenty-one covers RENAME, the availability
+// row, nine store stacks, nine carried stacks and CANCEL, and the window shows
+// eight of them at a time. What it costs is `.bss`, which on a console is heap.
+inline constexpr int company_menu_capacity = 21;
 inline constexpr int company_menu_label_size = 28;
 
 struct CompanyChoice final {
@@ -1288,6 +1292,17 @@ private:
         const client::CompanyManagement* company = nullptr
     );
     void compose_member_menu(const client::CompanyManagement& company, int row);
+    void compose_name_editor(
+        const client::RosterEntry& member,
+        const client::ConsoleNameEditor& editor
+    );
+    [[nodiscard]] client::ConsoleNameAnswer edit_player_name(
+        const client::RosterEntry& member,
+        std::string& chosen_name
+    );
+    void queue_player_names(
+        const std::vector<client::RosterEntry>& members
+    );
     // The campaign's Stages as a page, one row each, marked with where the
     // campaign is and where it has been. `stages_` is what it reads and is
     // borrowed from whichever surface opened the picker.
@@ -1411,6 +1426,11 @@ private:
     // then and this client offers the row only when the list it was handed is
     // not. Nothing here reads a setting.
     const std::vector<client::CampaignStage>* stages_{nullptr};
+    // One compact prompt per author-explicit nameable founder or recruit.
+    // Founders are queued only on a new game, never on resume; an ordinary
+    // fixed formation leaves this empty and takes the byte-for-byte direct
+    // start path it had before names existed.
+    std::vector<campaign::PersistentEntityId> pending_player_names_;
     bool resumed_{false};
     bool leaving_{false};
     int saves_{0};

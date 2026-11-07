@@ -540,19 +540,57 @@ struct ManagementIntent final {
     std::string name;
 
     ManagementIntent() = default;
+    ManagementIntent(const ManagementIntent& other)
+        : verb(other.verb),
+          member(other.member),
+          item(other.item),
+          stage(other.stage),
+          name(other.name.data(), other.name.size()) {}
+
+    ManagementIntent& operator=(const ManagementIntent& other) {
+        if (this == &other) return *this;
+        verb = other.verb;
+        member = other.member;
+        item = other.item;
+        stage = other.stage;
+        name.assign(other.name.data(), other.name.size());
+        return *this;
+    }
+
+    // The pinned PlayStation runtime carries pointer-length string operations,
+    // but not libstdc++'s out-of-line string copy/move constructors. A
+    // management intent is tiny and crosses one UI boundary at a time, so
+    // reconstructing its optional name here keeps the portable API usable on
+    // that target without changing the state or save contract.
+    ManagementIntent(ManagementIntent&& other)
+        : verb(other.verb),
+          member(other.member),
+          item(other.item),
+          stage(other.stage),
+          name(other.name.data(), other.name.size()) {}
+
+    ManagementIntent& operator=(ManagementIntent&& other) {
+        if (this == &other) return *this;
+        verb = other.verb;
+        member = other.member;
+        item = other.item;
+        stage = other.stage;
+        name.assign(other.name.data(), other.name.size());
+        return *this;
+    }
 
     ManagementIntent(
         ManagementVerb requested_verb,
         campaign::PersistentEntityId requested_member = {},
         campaign::DefinitionRef requested_item = {},
         std::uint64_t requested_stage = 0U,
-        std::string requested_name = {}
+        std::string_view requested_name = {}
     )
         : verb(requested_verb),
           member(requested_member),
           item(requested_item),
           stage(requested_stage),
-          name(std::move(requested_name)) {}
+          name(requested_name.data(), requested_name.size()) {}
 };
 
 // Why a management gesture did not become a campaign fact.
@@ -965,7 +1003,7 @@ public:
     // members and invalid input are refused without changing state or disk.
     [[nodiscard]] ManagementCommit set_player_name(
         campaign::PersistentEntityId member,
-        std::string name
+        std::string_view requested_name
     );
 
     // Turns a finished battle into campaign facts and commits them atomically:

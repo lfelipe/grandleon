@@ -32,6 +32,13 @@ placing a mandatory instructions screen in the launch path.
 - Z: open the selected unit's action menu.
 - Start: open the battle menu.
 
+If a campaign author lets players name a character, a new game shows a compact
+keyboard for that character. Use the D-pad and A to type, B to erase, Start to
+save, or Z to keep the current name. The same option appears as **Choose name**
+or **Change name** when that character's company menu is available. Fixed-name
+characters never show it, and continuing a save does not repeat the new-game
+prompt.
+
 The battle menu has **Show FPS**, which begins off in every ROM and can be
 toggled while testing performance.
 

@@ -2286,6 +2286,7 @@ private:
             case turn::Screen::story: return "STORY";
             case turn::Screen::company: return "COMPANY";
             case turn::Screen::member: return "INVENTORY";
+            case turn::Screen::name: return "CHARACTER NAME";
             case turn::Screen::aftermath: return "AFTER THE BATTLE";
             case turn::Screen::refusal: return "NOTICE";
             case turn::Screen::joined: return "NEW COMPANY MEMBER";
