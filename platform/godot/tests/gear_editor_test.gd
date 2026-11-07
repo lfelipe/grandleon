@@ -20,6 +20,9 @@ func _run() -> void:
 	if not created.ok:
 		quit(1)
 		return
+	var localization: Node = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
 	var packed: PackedScene = load("res://gear_editor.tscn")
@@ -30,6 +33,35 @@ func _run() -> void:
 	await process_frame
 
 	_expect("project opens in gear library", editor.project_id, created.id)
+	_expect(
+		"Gear editor uses the selected editor language",
+		editor.title_label.text,
+		"PORTABLE CHOICES  /  EQUIPAMENTOS E HABILIDADES"
+	)
+	_expect(
+		"Portuguese Gear subtitle is visible",
+		_tree_has_text(editor, "Crie o que seus personagens podem carregar e aprender."),
+		true
+	)
+	_expect("Portuguese category is visible", editor.category_select.get_item_text(0), "ARMAS")
+	_expect(
+		"Portuguese search help is visible",
+		editor.asset_filter.placeholder_text,
+		"NOME, ID, EFEITO OU DANO"
+	)
+	_expect(
+		"long Portuguese guidance remains wrapped",
+		_tree_has_wrapped_text(
+			editor,
+			"Comece pelo básico e ajuste apenas o que importa. A Configuração do exército define quais funções carregam ou aprendem cada opção."
+		),
+		true
+	)
+	_expect(
+		"Portuguese ready status is visible",
+		editor.status_label.text,
+		"PRONTO  /  ESCOLHA ALGO PARA AJUSTAR OU CRIE UMA OPÇÃO"
+	)
 	_expect("weapons are the first simple category", editor.active_kind, "weapon")
 	_expect("starter weapons are available", editor.asset_select.item_count, 3)
 	editor.asset_filter.text = "apprentice"
@@ -51,7 +83,7 @@ func _run() -> void:
 	await process_frame
 	_expect("diagnostic recovery selects the exact gear", editor.active_asset_id, "apprentice_focus")
 	_expect("diagnostic recovery keeps the asset picker focused", editor.asset_select.has_focus(), true)
-	_expect("diagnostic recovery names the exact field", editor.status_label.text, "FIX APPRENTICE FOCUS  /  POWER")
+	_expect("diagnostic recovery names the exact field", editor.status_label.text, "CORRIGIR APPRENTICE FOCUS  /  POTÊNCIA")
 	var used_weapon_source: String = editor.source
 	editor._open_dependency_review()
 	_expect("where-used review opens for the selected weapon", editor.dependency_layer.visible, true)
@@ -125,7 +157,7 @@ func _run() -> void:
 	_expect("reverse matchup shows its reduced hit chance", int(unfavourable.accuracy), 80)
 	_select_metadata(editor.shape_choice_select, "ability:ability_1")
 	editor._update_shape_preview()
-	_expect("shape preview names the authored diamond", editor.shape_summary_label.text.contains("DIAMOND  /  RADIUS 2"), true)
+	_expect("shape preview names the authored diamond", editor.shape_summary_label.text.contains("LOSANGO  /  RAIO 2"), true)
 	_expect("range preview shows the four distance-one targets", editor._preview_cell_indices(9, 1, 1, "range", 0).size(), 4)
 	_expect("area preview shows all thirteen radius-two cells", editor._preview_cell_indices(7, 0, 0, "diamond", 2).size(), 13)
 	editor._close_combat_design()
@@ -161,7 +193,7 @@ func _run() -> void:
 	_expect("unused deletion fixture is created", _has_asset(editor.project, "items", "item_2"), true)
 	editor._open_dependency_review()
 	_expect("unused item receives a confirmation preview", editor.dependency_layer.visible, true)
-	_expect("unused item preview reports no references", editor.dependency_uses.text.contains("No campaign, battle, roster"), true)
+	_expect("unused item preview reports no references", editor.dependency_uses.text.contains("Nenhuma referência de campanha, batalha, exército"), true)
 	_expect("unused item can be deliberately deleted", editor.dependency_delete_button.disabled, false)
 	var history_before_delete: int = editor.undo_stack.size()
 	_expect("unused item deletion succeeds", editor._confirm_delete(), true)
@@ -214,6 +246,7 @@ func _run() -> void:
 			image.save_png(screenshot_path)
 			print("gear editor capture saved: %s" % screenshot_path)
 
+	localization.call("select_language", prior_language, false)
 	editor._back_to_army()
 	await process_frame
 	await process_frame
@@ -251,6 +284,30 @@ func _argument_path(prefix: String) -> String:
 
 func _has_argument(value: String) -> bool:
 	return value in OS.get_cmdline_user_args()
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label and node.text == expected:
+		return true
+	if node is BaseButton and node.text == expected:
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
+
+
+func _tree_has_wrapped_text(node: Node, expected: String) -> bool:
+	if (
+		node is Label
+		and node.text == expected
+		and node.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
+	):
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_wrapped_text(child, expected):
+			return true
+	return false
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:
