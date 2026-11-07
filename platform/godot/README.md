@@ -104,6 +104,19 @@ platform/godot/scripts/record-combat-cinematic.sh \
   build-godot out/godot-combat-cinematic.mp4
 ```
 
+For matched PC/Nintendo 64/PlayStation review, use the named comparison entry.
+It records the fixed medieval-knight attack/counter scene and extracts the
+agreed board, camera-flight, attack, counter, and restored-board frames:
+
+```sh
+platform/godot/scripts/record-cross-renderer-comparison.sh
+```
+
+[CROSS_RENDERER_CAPTURE.md](CROSS_RENDERER_CAPTURE.md) gives the exact units,
+terrain grid, HP changes, timestamps, and output contract. The machine-readable
+scene shared by every renderer is
+[`tools/renderer_comparison/scene.json`](../../tools/renderer_comparison/scene.json).
+
 [UI_GUIDE.md](UI_GUIDE.md) records the battlefield information and interaction
 rules. [ANIMATION_PIPELINE.md](ANIMATION_PIPELINE.md) documents the semantic
 events shared by sprite, procedural, and imported-character presentation.

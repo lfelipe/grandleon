@@ -7,6 +7,7 @@ repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
 build_dir="${1:-${repo_root}/build-godot}"
 output_path="${2:-${build_dir}/grandleon-combat-cinematic.mp4}"
 godot_binary="${GRANDLEON_GODOT_BINARY:-}"
+comparison_contract="${GRANDLEON_RENDERER_COMPARISON_CONTRACT:-${repo_root}/tools/renderer_comparison/scene.json}"
 
 absolute_path() {
     case "$1" in
@@ -17,6 +18,7 @@ absolute_path() {
 
 build_dir="$(absolute_path "${build_dir}")"
 output_path="$(absolute_path "${output_path}")"
+comparison_contract="$(absolute_path "${comparison_contract}")"
 if [[ -n "${godot_binary}" ]]; then
     godot_binary="$(absolute_path "${godot_binary}")"
 else
@@ -26,6 +28,10 @@ fi
 if [[ ! -x "${godot_binary}" ]]; then
     printf 'Godot executable not found: %s\n' "${godot_binary}" >&2
     exit 69
+fi
+if [[ ! -f "${comparison_contract}" ]]; then
+    printf 'Renderer comparison contract not found: %s\n' "${comparison_contract}" >&2
+    exit 66
 fi
 for command in cmake ffmpeg xvfb-run; do
     if ! command -v "${command}" >/dev/null 2>&1; then
@@ -63,7 +69,8 @@ XDG_CACHE_HOME="${state_dir}/cache" \
     xvfb-run -a -s '-screen 0 1280x720x24' \
     "${godot_binary}" --path "${stage_dir}" \
     --resolution 1280x720 --write-movie "${raw_path}" --fixed-fps 30 \
-    --script "${repo_root}/platform/godot/tests/combat_cinematic_capture.gd"
+    --script "${repo_root}/platform/godot/tests/combat_cinematic_capture.gd" -- \
+    --comparison-contract="${comparison_contract}"
 
 ffmpeg -hide_banner -loglevel warning -y -i "${raw_path}" -an \
     -c:v libx264 -preset medium -crf 21 \
