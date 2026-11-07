@@ -179,6 +179,14 @@ constexpr std::uint64_t ancient_grove_terrain =
     core::stable_content_id_v1("mountain_ancient_grove");
 constexpr std::uint64_t village_house_terrain =
     core::stable_content_id_v1("mountain_village_house");
+constexpr std::uint64_t castle_wall_terrain =
+    core::stable_content_id_v1("mountain_castle_wall");
+constexpr std::uint64_t castle_door_terrain =
+    core::stable_content_id_v1("paved_castle_door");
+constexpr std::uint64_t castle_floor_terrain =
+    core::stable_content_id_v1("paved_castle_floor");
+constexpr std::uint64_t castle_dais_terrain =
+    core::stable_content_id_v1("paved_castle_dais");
 #ifdef GRANDLEON_PSX_DEMO_CAMPAIGN
 constexpr const std::uint8_t* campaign_package_bytes = demo_package_bytes;
 constexpr std::size_t campaign_package_size = demo_package_size;
@@ -323,7 +331,6 @@ constexpr int row_message = screen_rows - 3;
 constexpr int row_aiming = screen_rows - 2;
 constexpr int row_hint = screen_rows - 1;
 constexpr int menu_left = 2;
-constexpr int menu_top = 2;
 constexpr int sheet_footer_row = screen_rows - 2;
 
 // How thick the wash around a lit cell is, and why it is a frame rather than a
@@ -1557,7 +1564,9 @@ public:
             // instead is that the sheet is really there: its shared amber
             // frame, the paper body, and the first ink pixel of its title.
             probe("sheet", 2, 2, menu_gold_colour);
-            probe("sheetfar", 4, 24, paper_colour);
+            // The first status row is deliberately surface-coloured; the
+            // loadout's corresponding point is a section header now.
+            probe("sheetfar", 12, 60, paper_colour);
             if (overlay.sheet->count > 0) {
                 claim_first_glyph_at(
                     "sheettext", 2, 1, overlay.sheet->line(0),
@@ -1941,6 +1950,10 @@ private:
                     item.x, item.y, drawn_tile(),
                     landmark_at(item.cell_x, item.cell_y)
                 );
+                draw_castle(
+                    item.x, item.y, drawn_tile(),
+                    castle_at(item.cell_x, item.cell_y)
+                );
                 // The wash, drawn where the cell was so the depth order the
                 // list computed is the depth order it is painted in. A lit
                 // tile behind a raised one is washed before that cell lifts
@@ -2167,15 +2180,48 @@ private:
         draw_button_hint(21, row_hint, buttons.wait, "WAIT");
     }
 
-    // The sheet is a screen and not a panel, and that is forced rather than
-    // chosen. `grandleon::sheet` composes forty columns because that is what a
-    // 320-pixel console holds in an eight-pixel font, and this display is forty
-    // columns wide. There is no rectangle a sheet could occupy that is not the
-    // whole width, and a board ten cells across has nothing left beside it.
+    [[nodiscard]] static bool begins_with(
+        const char* value, const char* prefix
+    ) noexcept {
+        if (value == nullptr || prefix == nullptr) return false;
+        for (int index = 0; prefix[index] != '\0'; ++index) {
+            if (value[index] != prefix[index]) return false;
+        }
+        return true;
+    }
+
+    [[nodiscard]] static int sheet_line(
+        const grandleon::sheet::UnitSheet& sheet, const char* prefix
+    ) noexcept {
+        for (int line = 0; line < sheet.count; ++line) {
+            if (begins_with(sheet.line(line), prefix)) return line;
+        }
+        return -1;
+    }
+
+    [[nodiscard]] static int decimal_after(
+        const char* value, const char* prefix
+    ) noexcept {
+        if (!begins_with(value, prefix)) return 0;
+        int at = 0;
+        while (prefix[at] != '\0') ++at;
+        int number = 0;
+        while (value[at] >= '0' && value[at] <= '9') {
+            number = number * 10 + value[at] - '0';
+            ++at;
+        }
+        return number;
+    }
+
+    // Character details are a full screen because forty columns leave no
+    // useful board beside them. They are no longer a raw text dump, however:
+    // identity, battle numbers and carried actions each have their own visual
+    // card, with a real health meter and section bands that can be read at a
+    // television distance.
     void draw_sheet(const grandleon::sheet::UnitSheet& sheet) {
         gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, paper_colour);
         const view::ConsolePage page = view::console_page(
-            2, 2, 316, 236, 16, 18
+            2, 2, 316, 236, 28, 18
         );
         view::paint_console_page(
             page,
@@ -2186,9 +2232,65 @@ private:
         if (sheet.count > 0) {
             write_at_with_clut(2, 1, sheet.line(0), font_gold_clut);
         }
-        for (int line = 1; line < sheet.count && line < sheet_footer_row - 2;
-             ++line) {
-            write_at(2, 3 + line - 1, sheet.line(line));
+        const int hp_line = sheet_line(sheet, "HP ");
+        const int level_line = sheet_line(sheet, "LEVEL ");
+        if (sheet.count > 1) write_at(2, 2, sheet.line(1));
+        if (level_line >= 0) {
+            write_at_with_clut(21, 2, sheet.line(level_line), font_gold_clut);
+        }
+
+        const view::ConsolePanel status = view::console_panel(
+            8, 38, 304, 3, 16, 16, 0
+        );
+        view::paint_console_panel(
+            status,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+        write_at_with_clut(2, 6, "STATUS", font_gold_clut);
+        if (hp_line >= 0) {
+            for (int row = 0; row < 3 && hp_line + row < sheet.count; ++row) {
+                write_at(2, 7 + row * 2, sheet.line(hp_line + row));
+            }
+            const char* health = sheet.line(hp_line);
+            const int current = decimal_after(health, "HP ");
+            int slash = 0;
+            while (health[slash] != '\0' && health[slash] != '/') ++slash;
+            const int maximum = health[slash] == '/'
+                ? decimal_after(health + slash + 1, "") : 0;
+            view::paint_meter(
+                {16, 68, 288, 4}, current, maximum,
+                [](view::UiRect rectangle, view::UiTone tone) {
+                    paint_console_ui(rectangle, tone);
+                }
+            );
+        }
+
+        const int inventory_line = hp_line >= 0 ? hp_line + 3 : 1;
+        const int inventory_rows = sheet.count > inventory_line
+            ? sheet.count - inventory_line : 0;
+        const view::ConsolePanel loadout = view::console_panel(
+            8, 110, 304, inventory_rows, 8, 16, 0
+        );
+        view::paint_console_panel(
+            loadout,
+            [](view::UiRect rectangle, view::UiTone tone) {
+                paint_console_ui(rectangle, tone);
+            }
+        );
+        write_at_with_clut(2, 15, "LOADOUT", font_gold_clut);
+        for (int row = 0; row < inventory_rows; ++row) {
+            const char* text = sheet.line(inventory_line + row);
+            const bool section = begins_with(text, "WEAPONS") ||
+                begins_with(text, "ABILITIES") || begins_with(text, "ITEMS");
+            if (section) {
+                paint_console_ui(loadout.row(row), view::UiTone::header);
+            }
+            write_at_with_clut(
+                2, 16 + row, text,
+                section ? font_gold_clut : font_clut
+            );
         }
         // This screen is shared by the ordinary turn executable and the
         // campaign executable, while `write_controls_centred` belongs to the
@@ -2897,6 +2999,18 @@ private:
             village_house_terrain
         );
     }
+    [[nodiscard]] view::CastleTile castle_at(int x, int y) const {
+        if (x < 0 || y < 0 || x >= board_width_) return view::CastleTile::none;
+        const std::size_t index =
+            static_cast<std::size_t>(y) *
+                static_cast<std::size_t>(board_width_) +
+            static_cast<std::size_t>(x);
+        if (index >= terrain().size()) return view::CastleTile::none;
+        return view::castle_tile(
+            terrain()[index], castle_wall_terrain, castle_door_terrain,
+            castle_floor_terrain, castle_dais_terrain
+        );
+    }
     static void draw_landmark(
         int left, int top, int size, view::LandmarkCell cell
     ) {
@@ -2920,6 +3034,26 @@ private:
                     cell.landmark == view::TacticalLandmark::village_house
                         ? house[index] : grove[index];
                 gpu::fill(x, y, width, height, colour);
+            }
+        );
+    }
+    static void draw_castle(
+        int left, int top, int size, view::CastleTile tile
+    ) {
+        if (tile == view::CastleTile::none) return;
+        static constexpr std::uint16_t colours[] = {
+            gpu::rgb15(5, 5, 5), gpu::rgb15(18, 17, 15),
+            gpu::rgb15(11, 11, 11), gpu::rgb15(12, 6, 3),
+            gpu::rgb15(27, 22, 12),
+        };
+        view::paint_castle_tile(
+            tile, left, top, size,
+            [](int x, int y, int width, int height,
+               view::LandmarkTone tone) {
+                gpu::fill(
+                    x, y, width, height,
+                    colours[static_cast<std::size_t>(tone)]
+                );
             }
         );
     }
@@ -3020,13 +3154,15 @@ private:
             while (label != nullptr && label[length] != '\0') ++length;
             if (length > width) width = length;
         }
-        box.top = menu_top;
         // Header and footer occupy two glyph rows each. The menu stays on the
-        // side opposite the cursor so its new frame never costs board space or
-        // hides the character whose action is being chosen.
-        box.width = width + 4 > 19 ? width + 4 : 19;
+        // side opposite the cursor and just above the compact battle bar. This
+        // puts the choices beside the active play instead of marooning a tiny
+        // text box in a top corner.
+        box.width = width + 4 > 23 ? width + 4 : 23;
         if (box.width > screen_cols - 4) box.width = screen_cols - 4;
         box.height = overlay.menu_rows + 4;
+        box.top = bar_top / glyph - box.height - 1;
+        if (box.top < 1) box.top = 1;
         box.rows_top = box.top + 2;
         const int cursor_centre =
             cell_left(overlay.cursor_x) + drawn_tile() / 2;
