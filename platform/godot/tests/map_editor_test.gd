@@ -801,6 +801,53 @@ func _run() -> void:
 	_expect("rename redo restores map name", str(_parse(editor.source).maps[0].name), "Fordlight Crossing")
 	_expect("rename redo restores battle name", str(_parse(editor.source).campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
 
+	editor._select_map(0)
+	var used_map_source: String = editor.source
+	editor._open_more()
+	editor._more_delete_map()
+	await process_frame
+	_expect("map where-used review opens from map options", editor.dependency_layer.visible, true)
+	_expect("map where-used review names the selected map", editor.dependency_heading.text.contains("FORDLIGHT CROSSING"), true)
+	_expect("map where-used review names a real battle", editor.dependency_uses.text.contains("First Stand at Fordlight"), true)
+	_expect("used map cannot be deleted", editor.dependency_confirm_button.disabled, true)
+	_expect("used map deletion is refused", editor._confirm_map_delete(), false)
+	_expect("used map refusal preserves source", editor.source, used_map_source)
+	editor._close_dependency_review()
+	await process_frame
+	_expect("map delete review returns to map options", editor.more_layer.visible, true)
+	_expect("map delete review returns focus", editor.delete_map_button.has_focus(), true)
+	editor._close_more()
+
+	editor._create_map()
+	await process_frame
+	_expect("unused map fixture is selected", str(editor._current_map().id), "map_1")
+	editor._open_more()
+	editor._more_delete_map()
+	_expect("unused map receives a confirmation preview", editor.dependency_layer.visible, true)
+	_expect("unused map preview reports no references", editor.dependency_uses.text, "No campaign or battle references this map.")
+	_expect("unused map can be deliberately deleted", editor.dependency_confirm_button.disabled, false)
+	var history_before_map_delete: int = editor.undo_stack.size()
+	_expect("unused map deletion succeeds", editor._confirm_map_delete(), true)
+	_expect("map deletion closes confirmation", editor.dependency_layer.visible, false)
+	_expect("unused map definition is removed", _has_map(_parse(editor.source), "map_1"), false)
+	_expect("map deletion records exactly one undo step", editor.undo_stack.size(), history_before_map_delete + 1)
+	editor._undo()
+	await process_frame
+	_expect("map deletion is undoable", _has_map(_parse(editor.source), "map_1"), true)
+	editor._redo()
+	await process_frame
+	_expect("map deletion is redoable", _has_map(_parse(editor.source), "map_1"), false)
+	var protected_map_source: String = editor.source
+	editor.dependency_category = "theme"
+	editor.dependency_id = "autumn"
+	_expect("shared terrain theme deletion is refused", editor._confirm_map_delete(), false)
+	_expect("shared terrain refusal preserves source", editor.source, protected_map_source)
+	editor.dependency_category = "map"
+	editor.dependency_id = "missing_map"
+	_expect("missing map deletion is refused", editor._confirm_map_delete(), false)
+	_expect("missing map refusal preserves source", editor.source, protected_map_source)
+	editor._select_map(0)
+
 	var before_variant := _parse(editor.source)
 	var baseline_ally: Dictionary = before_variant.campaigns[0].flow.nodes[0].placements[0]
 	var baseline_width := int(before_variant.maps[0].width)
@@ -1013,6 +1060,13 @@ func _parse(value: String) -> Dictionary:
 		_fail("source was not readable JSON")
 		return {}
 	return parsed
+
+
+func _has_map(project: Dictionary, identity: String) -> bool:
+	for value: Variant in project.get("maps", []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return true
+	return false
 
 
 func _capture_guide_frame(directory: String, file_name: String) -> void:

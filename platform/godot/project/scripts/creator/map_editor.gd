@@ -3,6 +3,9 @@ extends Control
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const ProjectContentDependencyIndex = preload(
+	"res://scripts/creator/project_content_dependency_index.gd"
+)
 const TILE_SOURCE := 32
 const BLOB_COLUMNS := 8
 const HISTORY_LIMIT := 64
@@ -220,6 +223,15 @@ var look_character_preview: TextureRect
 var look_character_label: Label
 var look_terrain_previews: Array[TextureRect] = []
 var look_refreshing := false
+var delete_map_button: Button
+var dependency_layer: Control
+var dependency_heading: Label
+var dependency_summary: Label
+var dependency_uses: RichTextLabel
+var dependency_confirm_button: Button
+var dependency_close_button: Button
+var dependency_category := "map"
+var dependency_id := ""
 
 
 func _ready() -> void:
@@ -232,7 +244,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if talk_layer != null and talk_layer.visible:
+		if dependency_layer != null and dependency_layer.visible:
+			_close_dependency_review()
+		elif talk_layer != null and talk_layer.visible:
 			_close_talk_choice()
 		elif look_layer != null and look_layer.visible:
 			_close_look()
@@ -3956,6 +3970,7 @@ func _update_actions() -> void:
 	undo_button.disabled = undo_stack.is_empty()
 	redo_button.disabled = redo_stack.is_empty()
 	play_button.disabled = maps.is_empty()
+	delete_map_button.disabled = maps.is_empty()
 
 
 func _build_interface() -> void:
@@ -4594,6 +4609,116 @@ func _more_resize() -> void:
 	_open_resize()
 
 
+func _more_delete_map() -> void:
+	var map := _current_map()
+	dependency_category = "map"
+	dependency_id = str(map.get("id", ""))
+	more_layer.visible = false
+	_refresh_dependency_review()
+	dependency_layer.visible = true
+	if dependency_confirm_button.disabled:
+		dependency_close_button.call_deferred("grab_focus")
+	else:
+		dependency_confirm_button.call_deferred("grab_focus")
+
+
+func _close_dependency_review() -> void:
+	dependency_layer.visible = false
+	more_layer.visible = true
+	delete_map_button.call_deferred("grab_focus")
+
+
+func _dependency_decision(category: String, identity: String) -> Dictionary:
+	return ProjectContentDependencyIndex.new(project).deletion_decision(
+		category, identity
+	)
+
+
+func _refresh_dependency_review() -> Dictionary:
+	var decision := _dependency_decision(dependency_category, dependency_id)
+	var category_label := str({
+		"map": "MAP",
+		"theme": "TERRAIN THEME",
+	}.get(dependency_category, dependency_category.replace("_", " ").to_upper()))
+	dependency_heading.text = "WHERE %s IS USED  /  %s" % [
+		category_label, str(decision.get("name", dependency_id)).to_upper()
+	]
+	dependency_summary.text = str(decision.get("summary", "Deletion is unavailable."))
+	var lines: Array[String] = []
+	for value: Variant in decision.get("uses", []):
+		if value is Dictionary:
+			lines.append("•  %s  /  %s" % [
+				str(value.get("section", "Project")).to_upper(),
+				str(value.get("label", "This map is still in use.")),
+			])
+	dependency_uses.text = (
+		"\n\n".join(lines)
+		if not lines.is_empty()
+		else "No campaign or battle references this map."
+	)
+	var allowed := (
+		dependency_category == "map"
+		and bool(decision.get("allowed", false))
+	)
+	dependency_confirm_button.disabled = not allowed
+	dependency_confirm_button.text = "DELETE UNUSED MAP" if allowed else "CANNOT DELETE"
+	return decision
+
+
+func _confirm_map_delete() -> bool:
+	var decision := _refresh_dependency_review()
+	if (
+		dependency_category != "map"
+		or not bool(decision.get("allowed", false))
+	):
+		_set_status(
+			"NOT DELETED  /  %s" % str(
+				decision.get("reason", "unsupported request")
+			).replace("_", " ").to_upper(),
+			true
+		)
+		return false
+	var candidate: Dictionary = project.duplicate(true)
+	var candidate_maps: Array = candidate.get("maps", []).duplicate(true)
+	var remove_index := -1
+	for index in candidate_maps.size():
+		if (
+			candidate_maps[index] is Dictionary
+			and str(candidate_maps[index].get("id", "")) == dependency_id
+		):
+			remove_index = index
+			break
+	if remove_index < 0:
+		_set_status("NOT DELETED  /  MAP IS NO LONGER AVAILABLE", true)
+		_refresh_dependency_review()
+		return false
+	var removed_name := str(candidate_maps[remove_index].get("name", dependency_id))
+	candidate_maps.remove_at(remove_index)
+	candidate.maps = candidate_maps
+	var portable: Dictionary = _integer_numbers(candidate)
+	var candidate_source := JSON.stringify(portable, "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status(
+			"MAP NOT DELETED  /  %s" % _diagnostic_detail(checked), true
+		)
+		return false
+	_push_undo(source)
+	redo_stack.clear()
+	source = candidate_source
+	dirty = true
+	_read_source()
+	map_index = clampi(remove_index, 0, maxi(0, maps.size() - 1))
+	dependency_layer.visible = false
+	more_layer.visible = false
+	_refresh_maps_after_edit(0)
+	_set_status(
+		"UNSAVED  /  DELETED UNUSED MAP %s" % removed_name.to_upper(), false
+	)
+	map_select.call_deferred("grab_focus")
+	return true
+
+
 func _more_rename() -> void:
 	more_layer.visible = false
 	rename_map_input.text = _current_map_name()
@@ -4893,8 +5018,8 @@ func _build_more_overlay() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	more_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(560, 110)
-	panel.size = Vector2(800, 860)
+	panel.position = Vector2(560, 55)
+	panel.size = Vector2(800, 970)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
 	)
@@ -4929,6 +5054,12 @@ func _build_more_overlay() -> void:
 	var resize_button := _button("RESIZE THIS MAP", 680, 70)
 	resize_button.pressed.connect(_more_resize)
 	column.add_child(resize_button)
+	delete_map_button = _button("WHERE USED / DELETE MAP", 680, 70)
+	delete_map_button.tooltip_text = (
+		"Show every named battle that uses this map before allowing deletion."
+	)
+	delete_map_button.pressed.connect(_more_delete_map)
+	column.add_child(delete_map_button)
 	var projects := _button("RETURN TO PROJECTS", 680, 70)
 	projects.pressed.connect(_more_projects)
 	column.add_child(projects)
@@ -4938,6 +5069,68 @@ func _build_more_overlay() -> void:
 	_build_chapter_overlay()
 	_build_look_overlay()
 	_build_rename_overlay()
+	_build_dependency_overlay()
+
+
+func _build_dependency_overlay() -> void:
+	dependency_layer = Control.new()
+	dependency_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dependency_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	dependency_layer.visible = false
+	dependency_layer.z_index = 45
+	add_child(dependency_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.94)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	dependency_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(330, 115)
+	panel.size = Vector2(1260, 850)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.20, 0.62, 0.78, 0.72))
+	)
+	dependency_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+	column.add_child(_label("SAFE DELETE", 18, Color("69d9ff")))
+	dependency_heading = _label("WHERE THIS MAP IS USED", 29, Color("f2f7f9"))
+	dependency_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dependency_heading.custom_minimum_size.y = 70
+	column.add_child(dependency_heading)
+	dependency_summary = _label("", 19, Color("a9bdc9"))
+	dependency_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dependency_summary.custom_minimum_size.y = 82
+	column.add_child(dependency_summary)
+	var uses_panel := PanelContainer.new()
+	uses_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	uses_panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 14, Color(0.35, 0.45, 0.72, 0.42))
+	)
+	column.add_child(uses_panel)
+	dependency_uses = RichTextLabel.new()
+	dependency_uses.custom_minimum_size = Vector2(1120, 410)
+	dependency_uses.add_theme_font_size_override("normal_font_size", 18)
+	dependency_uses.add_theme_color_override("default_color", Color("dce8ed"))
+	uses_panel.add_child(dependency_uses)
+	var note := _label(
+		"Deleting removes this map definition only. Battles and shared terrain art are never changed automatically.",
+		16,
+		Color("718896")
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.y = 42
+	column.add_child(note)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	column.add_child(actions)
+	dependency_confirm_button = _button("CANNOT DELETE", 360, 62)
+	dependency_confirm_button.pressed.connect(_confirm_map_delete)
+	actions.add_child(dependency_confirm_button)
+	dependency_close_button = _button("KEEP MAP", 260, 62)
+	dependency_close_button.pressed.connect(_close_dependency_review)
+	actions.add_child(dependency_close_button)
 
 
 func _build_rename_overlay() -> void:
