@@ -63,6 +63,18 @@ var new_scene_character: OptionButton
 var new_scene_backdrop: OptionButton
 var new_scene_text: TextEdit
 var create_scene_button: Button
+var sequence_layer: Control
+var sequence_button: Button
+var sequence_story_select: OptionButton
+var sequence_attached_select: OptionButton
+var sequence_available_select: OptionButton
+var sequence_attach_button: Button
+var sequence_detach_button: Button
+var sequence_earlier_button: Button
+var sequence_later_button: Button
+var sequence_status: Label
+var sequence_order_summary: RichTextLabel
+var sequence_refreshing := false
 
 
 func _ready() -> void:
@@ -78,6 +90,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if new_scene_layer != null and new_scene_layer.visible:
 			_close_new_scene()
+		elif sequence_layer != null and sequence_layer.visible:
+			_close_sequence()
 		elif more_layer != null and more_layer.visible:
 			_close_more()
 		else:
@@ -202,6 +216,7 @@ func _collect_story_options() -> void:
 				"label": "%s  /  %s" % [
 					campaign_name, str(node.get("name", node.get("id", "Story")))
 				],
+				"dialogue_ids": node.get("dialogueIds", []).duplicate(),
 			})
 	for unit_value: Variant in project.get("unitTypes", []):
 		if not unit_value is Dictionary:
@@ -833,6 +848,290 @@ func _create_new_scene() -> void:
 	dialogue_select.grab_focus()
 
 
+func _open_sequence() -> void:
+	if not _commit_visible_line(false):
+		return
+	if story_targets.is_empty() or dialogues.is_empty():
+		_set_status("ADD A STORY MOMENT AND SCENE BEFORE SETTING PLAY ORDER", true)
+		return
+	var current_id := str(_current_dialogue().get("id", ""))
+	var preferred_key := ""
+	for target: Dictionary in story_targets:
+		if current_id in target.get("dialogue_ids", []):
+			preferred_key = _story_target_key(target)
+			break
+	_refresh_sequence_stories(preferred_key)
+	_refresh_sequence_lists(current_id, current_id)
+	sequence_layer.visible = true
+	sequence_story_select.grab_focus()
+
+
+func _close_sequence() -> void:
+	sequence_layer.visible = false
+	sequence_button.grab_focus()
+
+
+func _story_target_key(target: Dictionary) -> String:
+	return "%s\u001f%s" % [target.get("campaign_id", ""), target.get("node_id", "")]
+
+
+func _refresh_sequence_stories(preferred_key := "") -> void:
+	sequence_refreshing = true
+	var previous_key := preferred_key
+	if previous_key.is_empty() and sequence_story_select.selected >= 0:
+		previous_key = str(sequence_story_select.get_item_metadata(
+			sequence_story_select.selected
+		))
+	sequence_story_select.clear()
+	for target: Dictionary in story_targets:
+		sequence_story_select.add_item(str(target.label))
+		sequence_story_select.set_item_metadata(
+			sequence_story_select.item_count - 1, _story_target_key(target)
+		)
+	var selected := 0
+	for index in sequence_story_select.item_count:
+		if str(sequence_story_select.get_item_metadata(index)) == previous_key:
+			selected = index
+			break
+	if sequence_story_select.item_count > 0:
+		sequence_story_select.select(selected)
+	sequence_refreshing = false
+
+
+func _selected_sequence_target() -> Dictionary:
+	if sequence_story_select.selected < 0:
+		return {}
+	var key := str(sequence_story_select.get_item_metadata(
+		sequence_story_select.selected
+	))
+	for target: Dictionary in story_targets:
+		if _story_target_key(target) == key:
+			return target
+	return {}
+
+
+func _dialogue_name(dialogue_id: String) -> String:
+	for value: Variant in dialogues:
+		if value is Dictionary and str(value.get("id", "")) == dialogue_id:
+			return str(value.get("name", dialogue_id))
+	return dialogue_id.replace("_", " ")
+
+
+func _select_sequence_story(_index: int) -> void:
+	if sequence_refreshing:
+		return
+	_refresh_sequence_lists()
+
+
+func _refresh_sequence_lists(
+	preferred_attached := "", preferred_available := ""
+) -> void:
+	sequence_refreshing = true
+	var target := _selected_sequence_target()
+	var attached_ids: Array = target.get("dialogue_ids", [])
+	sequence_attached_select.clear()
+	var order_lines: Array[String] = []
+	for index in attached_ids.size():
+		var dialogue_id := str(attached_ids[index])
+		order_lines.append("%d. %s" % [index + 1, _dialogue_name(dialogue_id)])
+		sequence_attached_select.add_item(
+			"%d  ·  %s" % [index + 1, _dialogue_name(dialogue_id)]
+		)
+		sequence_attached_select.set_item_metadata(index, dialogue_id)
+	if attached_ids.is_empty():
+		sequence_attached_select.add_item("NO SCENES ATTACHED")
+		sequence_attached_select.set_item_metadata(0, "")
+		order_lines.append("No scenes attached. This story moment will pass without dialogue.")
+	sequence_order_summary.text = "\n".join(order_lines)
+	sequence_available_select.clear()
+	for value: Variant in dialogues:
+		if not value is Dictionary:
+			continue
+		var dialogue_id := str(value.get("id", ""))
+		if dialogue_id.is_empty() or dialogue_id in attached_ids:
+			continue
+		sequence_available_select.add_item(str(value.get("name", dialogue_id)))
+		sequence_available_select.set_item_metadata(
+			sequence_available_select.item_count - 1, dialogue_id
+		)
+	if sequence_available_select.item_count == 0:
+		sequence_available_select.add_item("EVERY SCENE IS ALREADY ATTACHED")
+		sequence_available_select.set_item_metadata(0, "")
+	_select_sequence_metadata(sequence_attached_select, preferred_attached)
+	_select_sequence_metadata(sequence_available_select, preferred_available)
+	sequence_refreshing = false
+	_refresh_sequence_actions()
+
+
+func _select_sequence_metadata(select: OptionButton, preferred: String) -> void:
+	if select.item_count == 0:
+		return
+	var index := 0
+	for candidate in select.item_count:
+		if str(select.get_item_metadata(candidate)) == preferred:
+			index = candidate
+			break
+	select.select(index)
+
+
+func _selected_sequence_id(select: OptionButton) -> String:
+	if select.selected < 0 or select.selected >= select.item_count:
+		return ""
+	return str(select.get_item_metadata(select.selected))
+
+
+func _refresh_sequence_actions(_index: int = 0) -> void:
+	if sequence_refreshing:
+		return
+	var attached_id := _selected_sequence_id(sequence_attached_select)
+	var available_id := _selected_sequence_id(sequence_available_select)
+	var attached_index := sequence_attached_select.selected
+	var attached_count: int = _selected_sequence_target().get("dialogue_ids", []).size()
+	sequence_attach_button.disabled = available_id.is_empty()
+	sequence_detach_button.disabled = attached_id.is_empty()
+	sequence_earlier_button.disabled = attached_id.is_empty() or attached_index <= 0
+	sequence_later_button.disabled = (
+		attached_id.is_empty() or attached_index >= attached_count - 1
+	)
+	sequence_status.text = (
+		"%d SCENE%s  /  PLAYED TOP TO BOTTOM" % [
+			attached_count, "" if attached_count == 1 else "S"
+		]
+	)
+	sequence_status.add_theme_color_override("font_color", Color("a9bdc9"))
+
+
+func _attach_sequence_scene() -> void:
+	var dialogue_id := _selected_sequence_id(sequence_available_select)
+	var target := _selected_sequence_target()
+	if dialogue_id.is_empty() or target.is_empty():
+		return
+	var ids: Array = target.get("dialogue_ids", []).duplicate()
+	if dialogue_id in ids:
+		return
+	ids.append(dialogue_id)
+	_commit_story_sequence(
+		ids, "ATTACHED %s" % _dialogue_name(dialogue_id).to_upper(), dialogue_id
+	)
+
+
+func _detach_sequence_scene() -> void:
+	var dialogue_id := _selected_sequence_id(sequence_attached_select)
+	var target := _selected_sequence_target()
+	if dialogue_id.is_empty() or target.is_empty():
+		return
+	var ids: Array = target.get("dialogue_ids", []).duplicate()
+	ids.erase(dialogue_id)
+	_commit_story_sequence(
+		ids, "DETACHED %s" % _dialogue_name(dialogue_id).to_upper()
+	)
+
+
+func _move_sequence_scene(delta: int) -> void:
+	var dialogue_id := _selected_sequence_id(sequence_attached_select)
+	var target := _selected_sequence_target()
+	if dialogue_id.is_empty() or target.is_empty():
+		return
+	var ids: Array = target.get("dialogue_ids", []).duplicate()
+	var index := ids.find(dialogue_id)
+	var destination := index + delta
+	if index < 0 or destination < 0 or destination >= ids.size():
+		return
+	var swap: Variant = ids[destination]
+	ids[destination] = ids[index]
+	ids[index] = swap
+	_commit_story_sequence(
+		ids,
+		"MOVED %s %s" % [
+			_dialogue_name(dialogue_id).to_upper(),
+			"EARLIER" if delta < 0 else "LATER",
+		],
+		dialogue_id
+	)
+
+
+func _commit_story_sequence(
+	ids: Array, message: String, preferred_attached := ""
+) -> bool:
+	var target := _selected_sequence_target()
+	if target.is_empty():
+		return false
+	var candidate: Dictionary = project.duplicate(true)
+	var changed := false
+	for campaign_value: Variant in candidate.get("campaigns", []):
+		if (
+			not campaign_value is Dictionary
+			or str(campaign_value.get("id", "")) != str(target.campaign_id)
+		):
+			continue
+		var flow_value: Variant = campaign_value.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if (
+				node_value is Dictionary
+				and str(node_value.get("id", "")) == str(target.node_id)
+				and str(node_value.get("kind", "")) == "story"
+			):
+				node_value["dialogueIds"] = ids.duplicate()
+				changed = true
+				break
+	if not changed:
+		_set_sequence_status("STORY MOMENT IS NO LONGER AVAILABLE", true)
+		return false
+	var candidate_source := JSON.stringify(
+		_integer_numbers(candidate), "  ", true
+	) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_sequence_status(
+			"NOT CHANGED  /  %s" % _diagnostic_detail(checked), true
+		)
+		return false
+	var target_key := _story_target_key(target)
+	var current_dialogue_id := str(_current_dialogue().get("id", ""))
+	var current_line := line_index
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = candidate_source
+	dirty = source != saved_source
+	_read_source()
+	for index in dialogues.size():
+		if str(dialogues[index].get("id", "")) == current_dialogue_id:
+			dialogue_index = index
+			break
+	line_index = current_line
+	_refresh_dialogues()
+	_refresh_sequence_stories(target_key)
+	_refresh_sequence_lists(preferred_attached)
+	_set_sequence_status("UNSAVED  /  %s" % message, false)
+	_set_status("UNSAVED  /  STORY PLAY ORDER CHANGED", false)
+	return true
+
+
+func _set_sequence_status(message: String, failure: bool) -> void:
+	sequence_status.text = message
+	sequence_status.add_theme_color_override(
+		"font_color", Color("ff7a83") if failure else Color("72e08f")
+	)
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if typeof(value) == TYPE_FLOAT and value == floor(value):
+		return int(value)
+	return value
+
+
 func _play_draft() -> void:
 	if not _commit_visible_line(false):
 		return
@@ -901,6 +1200,7 @@ func _update_actions() -> void:
 	redo_button.disabled = redo_stack.is_empty() or line_form_dirty
 	play_button.disabled = project.get("campaigns", []).is_empty()
 	new_scene_button.disabled = story_targets.is_empty() or scene_characters.is_empty()
+	sequence_button.disabled = story_targets.is_empty() or dialogues.is_empty()
 	backdrop_select.disabled = dialogues.is_empty()
 	var lines := _current_lines()
 	add_line_button.disabled = dialogues.is_empty() or lines.size() >= 4096
@@ -966,9 +1266,18 @@ func _build_interface() -> void:
 	dialogue_select.add_theme_font_size_override("font_size", 19)
 	dialogue_select.item_selected.connect(_select_dialogue)
 	scene_column.add_child(dialogue_select)
-	new_scene_button = _button("ADD A SCENE", 420, 58)
+	var scene_actions := HBoxContainer.new()
+	scene_actions.add_theme_constant_override("separation", 10)
+	scene_column.add_child(scene_actions)
+	new_scene_button = _button("ADD SCENE", 205, 58)
 	new_scene_button.pressed.connect(_open_new_scene)
-	scene_column.add_child(new_scene_button)
+	scene_actions.add_child(new_scene_button)
+	sequence_button = _button("PLAY ORDER", 205, 58)
+	sequence_button.tooltip_text = (
+		"Attach reusable scenes to a story moment and arrange their real play order."
+	)
+	sequence_button.pressed.connect(_open_sequence)
+	scene_actions.add_child(sequence_button)
 	dialogue_name_label = _label("", 25, Color("f2f7f9"))
 	dialogue_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dialogue_name_label.custom_minimum_size.y = 58
@@ -1068,6 +1377,7 @@ func _build_interface() -> void:
 	add_child(controls_hint)
 	_build_more_layer()
 	_build_new_scene_layer()
+	_build_sequence_layer()
 
 
 func _open_more() -> void:
@@ -1236,6 +1546,119 @@ func _build_new_scene_layer() -> void:
 	back.pressed.connect(_close_new_scene)
 	actions.add_child(back)
 	actions.add_child(_label("Confirm chooses. Keyboard writes. Cancel returns.", 16, Color("718896")))
+
+
+func _build_sequence_layer() -> void:
+	sequence_layer = Control.new()
+	sequence_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sequence_layer.visible = false
+	sequence_layer.z_index = 50
+	add_child(sequence_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.92)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	sequence_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(260, 86)
+	panel.size = Vector2(1400, 900)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0a1823"), 24, Color(0.48, 0.35, 0.72, 0.72))
+	)
+	sequence_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	panel.add_child(column)
+	column.add_child(_label("STORY PLAY ORDER", 18, Color("b58cff")))
+	var heading := _label(
+		"Choose which reusable scenes play around one story moment.",
+		30,
+		Color("f2f7f9")
+	)
+	column.add_child(heading)
+	column.add_child(_label("CAMPAIGN STORY MOMENT", 15, Color("69d9ff")))
+	sequence_story_select = OptionButton.new()
+	sequence_story_select.custom_minimum_size = Vector2(1300, 58)
+	sequence_story_select.add_theme_font_size_override("font_size", 19)
+	sequence_story_select.item_selected.connect(_select_sequence_story)
+	column.add_child(sequence_story_select)
+	var columns := HBoxContainer.new()
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	columns.add_theme_constant_override("separation", 18)
+	column.add_child(columns)
+	var order_panel := PanelContainer.new()
+	order_panel.custom_minimum_size = Vector2(640, 510)
+	order_panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 16, Color(0.35, 0.45, 0.72, 0.36))
+	)
+	columns.add_child(order_panel)
+	var order_column := VBoxContainer.new()
+	order_column.add_theme_constant_override("separation", 10)
+	order_panel.add_child(order_column)
+	order_column.add_child(_label("SCENES PLAY TOP TO BOTTOM", 16, Color("69d9ff")))
+	sequence_order_summary = RichTextLabel.new()
+	sequence_order_summary.fit_content = true
+	sequence_order_summary.custom_minimum_size = Vector2(580, 190)
+	sequence_order_summary.add_theme_font_size_override("normal_font_size", 18)
+	sequence_order_summary.add_theme_color_override("default_color", Color("dce8ed"))
+	order_column.add_child(sequence_order_summary)
+	sequence_attached_select = OptionButton.new()
+	sequence_attached_select.custom_minimum_size = Vector2(580, 56)
+	sequence_attached_select.add_theme_font_size_override("font_size", 18)
+	sequence_attached_select.item_selected.connect(_refresh_sequence_actions)
+	order_column.add_child(sequence_attached_select)
+	var order_actions := HBoxContainer.new()
+	order_actions.add_theme_constant_override("separation", 8)
+	order_column.add_child(order_actions)
+	sequence_earlier_button = _button("EARLIER", 175, 56)
+	sequence_earlier_button.pressed.connect(_move_sequence_scene.bind(-1))
+	order_actions.add_child(sequence_earlier_button)
+	sequence_later_button = _button("LATER", 175, 56)
+	sequence_later_button.pressed.connect(_move_sequence_scene.bind(1))
+	order_actions.add_child(sequence_later_button)
+	sequence_detach_button = _button("DETACH", 190, 56)
+	sequence_detach_button.pressed.connect(_detach_sequence_scene)
+	order_actions.add_child(sequence_detach_button)
+	var library_panel := PanelContainer.new()
+	library_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	library_panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 16, Color(0.35, 0.45, 0.72, 0.36))
+	)
+	columns.add_child(library_panel)
+	var library_column := VBoxContainer.new()
+	library_column.add_theme_constant_override("separation", 12)
+	library_panel.add_child(library_column)
+	library_column.add_child(_label("REUSABLE SCENES", 16, Color("69d9ff")))
+	var reuse_help := _label(
+		"Attaching a scene here does not copy or remove it anywhere else.",
+		17,
+		Color("a9bdc9")
+	)
+	reuse_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	reuse_help.custom_minimum_size.y = 80
+	library_column.add_child(reuse_help)
+	sequence_available_select = OptionButton.new()
+	sequence_available_select.custom_minimum_size = Vector2(580, 56)
+	sequence_available_select.add_theme_font_size_override("font_size", 18)
+	sequence_available_select.item_selected.connect(_refresh_sequence_actions)
+	library_column.add_child(sequence_available_select)
+	sequence_attach_button = _button("ATTACH AFTER CURRENT SCENES", 580, 62)
+	sequence_attach_button.pressed.connect(_attach_sequence_scene)
+	library_column.add_child(sequence_attach_button)
+	var reuse_note := _label(
+		"Detach changes only this story moment. The scene stays in the project and can be attached again.",
+		16,
+		Color("718896")
+	)
+	reuse_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	library_column.add_child(reuse_note)
+	sequence_status = _label("READY", 17, Color("a9bdc9"))
+	sequence_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sequence_status.custom_minimum_size.y = 34
+	column.add_child(sequence_status)
+	var done := _button("DONE", 240, 58)
+	done.pressed.connect(_close_sequence)
+	column.add_child(done)
 
 
 func _set_status(message: String, failure: bool) -> void:

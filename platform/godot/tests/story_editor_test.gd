@@ -16,7 +16,13 @@ func _run() -> void:
 		"res://content/templates/starter_battle.json"
 	)
 	var created: Dictionary = library.create_project("Authored Story", template)
-	_expect("starter project created", created.ok, true)
+	_expect(
+		"starter project created  /  %s  /  %s" % [
+			created.get("message", ""), created.get("diagnostics", [])
+		],
+		created.ok,
+		true
+	)
 	if not created.ok:
 		quit(1)
 		return
@@ -210,8 +216,74 @@ func _run() -> void:
 	_expect("scene creation undo removes the scene", editor.dialogues.size(), dialogue_count)
 	editor._redo()
 	_expect("scene creation redo restores the scene", editor.dialogues.size(), dialogue_count + 1)
+	for scene_index in editor.dialogues.size():
+		if str(editor.dialogues[scene_index].get("id", "")) == "scene_1":
+			editor._select_dialogue(scene_index)
+			break
 	editor._save()
 	_expect("created scene saves", editor.dirty, false)
+	editor._open_sequence()
+	_expect("story play order opens from the scene screen", editor.sequence_layer.visible, true)
+	_expect("story moment choice receives focus", editor.sequence_story_select.has_focus(), true)
+	_expect("play order shows the newly attached scene", editor.sequence_order_summary.text.contains("The Second Signal"), true)
+	var sequence_target: Dictionary = editor._selected_sequence_target()
+	var target_campaign_id := str(sequence_target.campaign_id)
+	var target_node_id := str(sequence_target.node_id)
+	var initial_sequence: Array = sequence_target.get("dialogue_ids", []).duplicate()
+	_expect("story moment begins with multiple ordered scenes", initial_sequence.size() >= 2, true)
+	var reusable_id := ""
+	for option in editor.sequence_available_select.item_count:
+		var candidate_id := str(editor.sequence_available_select.get_item_metadata(option))
+		if _dialogue_attachment_count(_parse(editor.source), candidate_id) > 0:
+			reusable_id = candidate_id
+			editor.sequence_available_select.select(option)
+			break
+	_expect("another story's scene is offered for reuse", reusable_id.is_empty(), false)
+	if not reusable_id.is_empty():
+		var prior_attachment_count := _dialogue_attachment_count(
+			_parse(editor.source), reusable_id
+		)
+		editor._attach_sequence_scene()
+		var attached_order := _story_node_dialogues(
+			_parse(editor.source), target_campaign_id, target_node_id
+		)
+		_expect("reusable scene attaches at the end", str(attached_order[-1]), reusable_id)
+		_expect("attach marks story source dirty", editor.dirty, true)
+		editor._move_sequence_scene(-1)
+		var moved_order := _story_node_dialogues(
+			_parse(editor.source), target_campaign_id, target_node_id
+		)
+		_expect("attached scene moves earlier in real play order", moved_order.find(reusable_id), attached_order.size() - 2)
+		editor._detach_sequence_scene()
+		var detached_order := _story_node_dialogues(
+			_parse(editor.source), target_campaign_id, target_node_id
+		)
+		_expect("detach removes only this story attachment", reusable_id in detached_order, false)
+		_expect(
+			"detach preserves the reusable scene's other attachment",
+			_dialogue_attachment_count(_parse(editor.source), reusable_id),
+			prior_attachment_count
+		)
+		_expect("detach does not delete the reusable scene", _has_dialogue(_parse(editor.source), reusable_id), true)
+		editor._close_sequence()
+		_expect("closing play order returns focus", editor.sequence_button.has_focus(), true)
+		editor._undo()
+		_expect(
+			"detach is undoable",
+			reusable_id in _story_node_dialogues(
+				_parse(editor.source), target_campaign_id, target_node_id
+			),
+			true
+		)
+		editor._redo()
+		_expect(
+			"detach is redoable",
+			reusable_id in _story_node_dialogues(
+				_parse(editor.source), target_campaign_id, target_node_id
+			),
+			false
+		)
+		editor._save()
 	var stored: Dictionary = library.load_source(created.id)
 	_expect("saved story reopens", stored.ok, true)
 	if stored.ok:
@@ -270,6 +342,45 @@ func _has_dialogue_attachment(data: Dictionary, dialogue_id: String) -> bool:
 		for node_value: Variant in flow_value.get("nodes", []):
 			if node_value is Dictionary and dialogue_id in node_value.get("dialogueIds", []):
 				return true
+	return false
+
+
+func _dialogue_attachment_count(data: Dictionary, dialogue_id: String) -> int:
+	var count := 0
+	for campaign_value: Variant in data.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var flow_value: Variant = campaign_value.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if node_value is Dictionary and dialogue_id in node_value.get("dialogueIds", []):
+				count += 1
+	return count
+
+
+func _story_node_dialogues(
+	data: Dictionary, campaign_id: String, node_id: String
+) -> Array:
+	for campaign_value: Variant in data.get("campaigns", []):
+		if (
+			not campaign_value is Dictionary
+			or str(campaign_value.get("id", "")) != campaign_id
+		):
+			continue
+		var flow_value: Variant = campaign_value.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if node_value is Dictionary and str(node_value.get("id", "")) == node_id:
+				return node_value.get("dialogueIds", []).duplicate()
+	return []
+
+
+func _has_dialogue(data: Dictionary, dialogue_id: String) -> bool:
+	for dialogue_value: Variant in data.get("dialogues", []):
+		if dialogue_value is Dictionary and str(dialogue_value.get("id", "")) == dialogue_id:
+			return true
 	return false
 
 
