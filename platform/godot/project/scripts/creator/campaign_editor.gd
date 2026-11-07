@@ -22,6 +22,10 @@ var route_list: VBoxContainer
 var target_budget_label: Label
 var status_label: Label
 var fix_button: Button
+var player_mode_select: OptionButton
+var player_mode_help: Label
+var test_one_button: Button
+var test_two_button: Button
 var pending_diagnostic: Dictionary = {}
 var first_button: Button
 var save_button: Button
@@ -145,6 +149,7 @@ func _load_project() -> void:
 	).to_upper()
 	_collect_route()
 	_refresh_route()
+	_refresh_player_mode()
 	_refresh_target_budget()
 	_update_actions()
 	_set_status("CHOOSE A CHAPTER TO EDIT, OR TEST THE WHOLE CAMPAIGN", false)
@@ -498,10 +503,22 @@ func _open_army() -> void:
 	get_tree().change_scene_to_file("res://army_editor.tscn")
 
 
-func _play_campaign() -> void:
+func _play_campaign(players: int) -> void:
 	if compiler == null:
 		_set_status("NATIVE PROJECT COMPILER IS UNAVAILABLE", true)
 		return
+	var mode := str(campaign.get("playerMode", "one"))
+	if (mode == "one" and players != 1) or (mode == "two" and players != 2):
+		_set_status("THIS CAMPAIGN DOES NOT OFFER THAT PLAYER COUNT", true)
+		return
+	if players == 2:
+		var gaps := _two_player_ownership_gaps()
+		if not gaps.is_empty():
+			_set_status(
+				"ASSIGN A PLAYER 2 CHARACTER IN  /  %s" % ", ".join(gaps).to_upper(),
+				true
+			)
+			return
 	if dirty and not _save():
 		return
 	var loaded: Dictionary = library.load_source(project_id)
@@ -522,8 +539,111 @@ func _play_campaign() -> void:
 	if campaign_id.is_empty():
 		_set_status("CAMPAIGN NEEDS AN ID", true)
 		return
-	LaunchContext.stage_package(compiled.package, campaign_id)
+	LaunchContext.stage_package(compiled.package, campaign_id, true, players)
 	get_tree().change_scene_to_file("res://main.tscn")
+
+
+func _change_player_mode(index: int) -> void:
+	if player_mode_select == null or index < 0 or index >= player_mode_select.item_count:
+		return
+	var mode := str(player_mode_select.get_item_metadata(index))
+	if mode not in ["one", "two", "choice"] or mode == str(campaign.get("playerMode", "one")):
+		return
+	var candidate := project.duplicate(true)
+	var campaigns: Array = candidate.get("campaigns", []).duplicate(true)
+	if campaigns.is_empty() or not campaigns[0] is Dictionary:
+		_set_status("ADD A CAMPAIGN BEFORE CHOOSING ITS PLAYERS", true)
+		return
+	var changed: Dictionary = campaigns[0].duplicate(true)
+	changed["playerMode"] = mode
+	campaigns[0] = changed
+	candidate["campaigns"] = campaigns
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status("PLAYER CHOICE COULD NOT BE SAVED  /  %s" % _diagnostic_summary(checked), true)
+		_refresh_player_mode()
+		return
+	undo_stack.append(source)
+	if undo_stack.size() > HISTORY_LIMIT:
+		undo_stack.pop_front()
+	redo_stack.clear()
+	source = candidate_source
+	dirty = source != saved_source
+	_read_source()
+	_update_actions()
+	_refresh_player_mode()
+	_set_status("UNSAVED  /  %s" % _player_mode_label(mode), false)
+
+
+func _refresh_player_mode() -> void:
+	if player_mode_select == null:
+		return
+	var mode := str(campaign.get("playerMode", "one"))
+	_select_metadata(player_mode_select, mode)
+	var gaps := _two_player_ownership_gaps()
+	match mode:
+		"two":
+			player_mode_help.text = (
+				"Two local players are required. "
+				+ _two_player_guidance(gaps)
+			)
+		"choice":
+			player_mode_help.text = (
+				"Players choose solo or two-player when they start. "
+				+ _two_player_guidance(gaps)
+			)
+		_:
+			player_mode_help.text = (
+				"The campaign starts solo. Any Player 2 allies join Player 1, and "
+				+ "two-player-only enemies stay out."
+			)
+	if test_one_button != null:
+		test_one_button.disabled = mode == "two"
+	if test_two_button != null:
+		test_two_button.disabled = mode == "one" or not gaps.is_empty()
+
+
+func _two_player_guidance(gaps: Array[String]) -> String:
+	if gaps.is_empty():
+		return "Every battle gives Player 2 a character; optional two-player enemies can scale the challenge."
+	return "Assign Player 2 at least one allied character in: %s." % ", ".join(gaps)
+
+
+func _two_player_ownership_gaps() -> Array[String]:
+	var gaps: Array[String] = []
+	var flow_value: Variant = campaign.get("flow", {})
+	if not flow_value is Dictionary:
+		return gaps
+	for node_value: Variant in flow_value.get("nodes", []):
+		if not node_value is Dictionary:
+			continue
+		var node: Dictionary = node_value
+		if str(node.get("kind", "")) != "encounter":
+			continue
+		var has_second_player := false
+		for placement_value: Variant in node.get("placements", []):
+			if not placement_value is Dictionary:
+				continue
+			var placement: Dictionary = placement_value
+			if (
+				str(placement.get("side", "first")) == "first"
+				and int(placement.get("player", 1)) == 2
+				and int(placement.get("minimumPlayers", 1)) <= 2
+			):
+				has_second_player = true
+				break
+		if not has_second_player:
+			gaps.append(str(node.get("name", node.get("id", "unnamed battle"))))
+	return gaps
+
+
+func _player_mode_label(mode: String) -> String:
+	return str({
+		"one": "ONE-PLAYER CAMPAIGN",
+		"two": "TWO-PLAYER CAMPAIGN",
+		"choice": "PLAYERS CHOOSE AT LAUNCH",
+	}.get(mode, "ONE-PLAYER CAMPAIGN"))
 
 
 func _diagnostic_summary(result: Dictionary) -> String:
@@ -757,6 +877,7 @@ func _read_source() -> bool:
 		_set_status("ADD A CAMPAIGN BEFORE EDITING ITS OUTLINE", true)
 		return false
 	campaign = campaigns[0]
+	_refresh_player_mode()
 	_refresh_target_budget()
 	return true
 
@@ -2031,9 +2152,14 @@ func _build_interface() -> void:
 	var army := _button("GROW THE ARMY", 260, 58)
 	army.pressed.connect(_open_army)
 	toolbar.add_child(army)
-	var test := _button("TEST CAMPAIGN", 280, 58)
-	test.pressed.connect(_play_campaign)
-	toolbar.add_child(test)
+	test_one_button = _button("TEST 1 PLAYER", 210, 58)
+	test_one_button.tooltip_text = "Play this draft as a solo campaign without touching installed-game saves."
+	test_one_button.pressed.connect(_play_campaign.bind(1))
+	toolbar.add_child(test_one_button)
+	test_two_button = _button("TEST 2 PLAYERS", 220, 58)
+	test_two_button.tooltip_text = "Play this draft with both local player seats active."
+	test_two_button.pressed.connect(_play_campaign.bind(2))
+	toolbar.add_child(test_two_button)
 	var hint := _label(
 		"Confirm opens  •  Cancel: projects",
 		15,
@@ -2062,6 +2188,31 @@ func _build_interface() -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 38
 	column.add_child(explanation)
+	var player_row := HBoxContainer.new()
+	player_row.add_theme_constant_override("separation", 16)
+	column.add_child(player_row)
+	var player_title := _label("PLAYERS", 15, Color("69d9ff"))
+	player_title.custom_minimum_size = Vector2(110, 54)
+	player_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	player_row.add_child(player_title)
+	player_mode_select = OptionButton.new()
+	player_mode_select.custom_minimum_size = Vector2(390, 54)
+	player_mode_select.add_theme_font_size_override("font_size", 18)
+	for choice: Dictionary in [
+		{"id": "one", "label": "ONE PLAYER"},
+		{"id": "two", "label": "TWO PLAYERS"},
+		{"id": "choice", "label": "CHOOSE WHEN PLAYING"},
+	]:
+		player_mode_select.add_item(choice.label)
+		player_mode_select.set_item_metadata(player_mode_select.item_count - 1, choice.id)
+	player_mode_select.item_selected.connect(_change_player_mode)
+	player_row.add_child(player_mode_select)
+	player_mode_help = _label("", 15, Color("a9bdc9"))
+	player_mode_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	player_mode_help.custom_minimum_size = Vector2(0, 54)
+	player_mode_help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	player_mode_help.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	player_row.add_child(player_mode_help)
 	target_budget_label = _label("TARGETS  /  CHECKING…", 16, Color("a9bdc9"))
 	target_budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	target_budget_label.custom_minimum_size.y = 28

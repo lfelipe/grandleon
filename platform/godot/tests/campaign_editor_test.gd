@@ -117,6 +117,48 @@ func _run() -> void:
 		"FIX IN MAP & BATTLE  /  FIRST BATTLE  /  NORTH RAIDER  /  CELL 6, 2  /  STARTING POSITION  /  INVALID PLACEMENT"
 	)
 	_expect("starter route has story battle and ending", editor.route.size(), 3)
+	_expect("first editable chapter receives controller focus", editor.first_button.has_focus(), true)
+	_expect(
+		"starter lets players choose their local player count",
+		str(editor.player_mode_select.get_item_metadata(editor.player_mode_select.selected)),
+		"choice"
+	)
+	_expect("choice campaign offers a solo preview", editor.test_one_button.disabled, false)
+	_expect("choice campaign offers a two-player preview", editor.test_two_button.disabled, false)
+	_expect(
+		"two-player guidance confirms every battle has an owner",
+		editor.player_mode_help.text.contains("Every battle gives Player 2"),
+		true
+	)
+	var ready_campaign: Dictionary = editor.campaign
+	var campaign_without_player_two := ready_campaign.duplicate(true)
+	campaign_without_player_two.flow.nodes[1].placements[1].erase("player")
+	editor.campaign = campaign_without_player_two
+	editor._refresh_player_mode()
+	_expect(
+		"missing Player 2 ownership disables the co-op preview",
+		editor.test_two_button.disabled,
+		true
+	)
+	_expect(
+		"missing Player 2 ownership names the affected battle",
+		editor.player_mode_help.text.contains("Hold the Crossing"),
+		true
+	)
+	editor.campaign = ready_campaign
+	editor._refresh_player_mode()
+	editor._select_metadata(editor.player_mode_select, "two")
+	editor._change_player_mode(editor.player_mode_select.selected)
+	_expect("campaign can require two players", str(_parse(editor.source).campaigns[0].playerMode), "two")
+	_expect("two-player campaign disables solo preview", editor.test_one_button.disabled, true)
+	_expect("two-player campaign keeps co-op preview", editor.test_two_button.disabled, false)
+	editor._undo()
+	_expect("player-count choice is undoable", str(_parse(editor.source).campaigns[0].playerMode), "choice")
+	editor._redo()
+	_expect("player-count choice is redoable", str(_parse(editor.source).campaigns[0].playerMode), "two")
+	editor._select_metadata(editor.player_mode_select, "choice")
+	editor._change_player_mode(editor.player_mode_select.selected)
+	_expect("campaign can restore launch-time choice", str(_parse(editor.source).campaigns[0].playerMode), "choice")
 	_expect("campaign outline keeps PC target visible", editor.target_budget_label.text.contains("PC READY"), true)
 	_expect("campaign outline shows Nintendo 64 fielded impact", editor.target_budget_label.text.contains("N64 5 / 48"), true)
 	_expect("campaign outline shows PlayStation fielded impact", editor.target_budget_label.text.contains("PS1 5 / 48"), true)
@@ -125,7 +167,6 @@ func _run() -> void:
 		_expect("route continues to battle", str(editor.route[1].kind), "encounter")
 		_expect("route finishes at ending", str(editor.route[2].kind), "terminal")
 	_expect("linear starter has no alternate outcomes", editor.other_nodes.size(), 0)
-	_expect("first editable chapter receives controller focus", editor.first_button.has_focus(), true)
 	_expect(
 		"story chapter explains its action",
 		editor._node_text(editor.route[0], 0, false).contains("WRITE CONVERSATION"),

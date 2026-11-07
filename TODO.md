@@ -103,11 +103,12 @@ roadmap work.
   plays its first battle to a deterministic objective. Cover authored terrain,
   units, teams, deployment, dialogue, victory rules, and player-count policy so
   this proves the full path from creation to play rather than export alone.
-- [ ] Let a campaign author choose whether a game is one-player, two-player,
-  or allows the players to choose at launch through an ordinary editor control.
-  The portable format, migration, package data, and launchers now exist; finish
-  the human workflow with combination validation, ownership guidance, explicit
-  one/two-player preview actions, and export-focused tests.
+- [x] Let a campaign author choose one player, two players, or a choice at
+  launch from the Campaign screen. Give immediate ownership guidance, disable
+  impossible previews, and provide separate isolated **Test 1 Player** and
+  **Test 2 Players** actions.
+- [ ] Carry the same player-count readiness checks into export, with focused
+  tests for each policy and for a battle that is missing a Player 2 character.
 
 ### Localization
 
