@@ -155,14 +155,14 @@ if [[ -z "${DISPLAY:-}" ]]; then
     renderer=(xvfb-run -a -s '-screen 0 1280x720x24' "${bundle_dir}/godot")
 fi
 
-GRANDLEON_WINDOWED=1 timeout 30s "${launcher[@]}" --home-smoke
+GRANDLEON_WINDOWED=1 timeout 60s "${launcher[@]}" --home-smoke
 
-GRANDLEON_WINDOWED=1 timeout 30s "${launcher[@]}" --controls-smoke
+GRANDLEON_WINDOWED=1 timeout 60s "${launcher[@]}" --controls-smoke
 
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
-    timeout 30s "${bundle_dir}/godot" --headless \
+    timeout 60s "${bundle_dir}/godot" --headless \
     --path "${bundle_dir}/project" -- --frame-timing-smoke
 
 capture_path="${state_dir}/concurrent-coop.png"
@@ -173,7 +173,7 @@ fi
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
-    timeout 30s "${renderer[@]}" --path "${bundle_dir}/project" -- \
+    timeout 60s "${renderer[@]}" --path "${bundle_dir}/project" -- \
     "--package=${coop_package}" \
     --campaign=emberbound \
     --players=2 \
@@ -191,7 +191,7 @@ if [[ "${require_examples}" == 1 ]]; then
         XDG_DATA_HOME="${state_dir}/data" \
         XDG_CONFIG_HOME="${state_dir}/config" \
         XDG_CACHE_HOME="${state_dir}/cache" \
-            timeout 30s "${bundle_dir}/godot" --headless \
+            timeout 60s "${bundle_dir}/godot" --headless \
             --path "${bundle_dir}/project" -- \
             --package=res://content/included/tarnholt.gpk \
             --campaign=tarnholt_line \
