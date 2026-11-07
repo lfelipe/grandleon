@@ -426,16 +426,50 @@ func _encounter_summary(node: Dictionary) -> String:
 			map_name = str(map_value.get("name", map_name)).to_upper()
 			break
 	var coop_ready := false
+	var solo_allies := 0
+	var coop_only_allies := 0
+	var coop_only_enemies := 0
+	var alternate_starts := 0
 	for placement_value: Variant in node.get("placements", []):
 		if not placement_value is Dictionary:
 			continue
 		var placement: Dictionary = placement_value
-		if int(placement.get("player", 1)) == 2 or int(placement.get("minimumPlayers", 1)) >= 2:
+		var side := str(placement.get("side", "first"))
+		var two_only := int(placement.get("minimumPlayers", 1)) >= 2
+		if side == "first" and not two_only:
+			solo_allies += 1
+		elif side == "first" and two_only:
+			coop_only_allies += 1
+		elif side == "second" and two_only:
+			coop_only_enemies += 1
+		if placement.has("twoPlayerPosition"):
+			alternate_starts += 1
+		if side == "first" and int(placement.get("player", 1)) == 2:
 			coop_ready = true
-			break
-	return "EDIT MAP & BATTLE  ·  %s%s" % [
+	var coop_scenes := 0
+	for moment_value: Variant in node.get("moments", []):
+		if moment_value is Dictionary and int(moment_value.get("minimumPlayers", 1)) >= 2:
+			coop_scenes += 1
+	var variant := "1P %d %s" % [
+		solo_allies, "ALLY" if solo_allies == 1 else "ALLIES"
+	]
+	if coop_only_allies > 0 or coop_only_enemies > 0:
+		variant += "  ·  2P +%d %s / +%d %s" % [
+			coop_only_allies,
+			"ALLY" if coop_only_allies == 1 else "ALLIES",
+			coop_only_enemies,
+			"ENEMY" if coop_only_enemies == 1 else "ENEMIES",
+		]
+	if alternate_starts > 0:
+		variant += "  ·  %d CO-OP START%s" % [
+			alternate_starts, "" if alternate_starts == 1 else "S"
+		]
+	if coop_scenes > 0:
+		variant += "  ·  %d CO-OP SCENE%s" % [coop_scenes, "" if coop_scenes == 1 else "S"]
+	return "EDIT MAP & BATTLE  ·  %s%s\n%s" % [
 		map_name,
 		"  ·  2-PLAYER READY" if coop_ready else "",
+		variant,
 	]
 
 
@@ -596,8 +630,8 @@ func _refresh_player_mode() -> void:
 			)
 		_:
 			player_mode_help.text = (
-				"The campaign starts solo. Any Player 2 allies join Player 1, and "
-				+ "two-player-only enemies stay out."
+				"The campaign starts solo. Two-player-only armies, enemies, opening "
+				+ "positions, and story moments stay out."
 			)
 	if test_one_button != null:
 		test_one_button.disabled = mode == "two"
@@ -607,8 +641,40 @@ func _refresh_player_mode() -> void:
 
 func _two_player_guidance(gaps: Array[String]) -> String:
 	if gaps.is_empty():
-		return "Every battle gives Player 2 a character; optional two-player enemies can scale the challenge."
+		var guidance := (
+			"Every battle gives Player 2 a character. Use each battle's 1P and 2P "
+			+ "previews to keep the solo baseline and co-op additions playable."
+		)
+		var sameness := _two_player_variant_gaps()
+		if not sameness.is_empty():
+			guidance += " Add distinct co-op forces, pressure, starts, or story in: %s." % ", ".join(sameness)
+		return guidance
 	return "Assign Player 2 at least one allied character in: %s." % ", ".join(gaps)
+
+
+func _two_player_variant_gaps() -> Array[String]:
+	var gaps: Array[String] = []
+	var flow_value: Variant = campaign.get("flow", {})
+	if not flow_value is Dictionary:
+		return gaps
+	for node_value: Variant in flow_value.get("nodes", []):
+		if not node_value is Dictionary or str(node_value.get("kind", "")) != "encounter":
+			continue
+		var distinct := false
+		for placement_value: Variant in node_value.get("placements", []):
+			if not placement_value is Dictionary:
+				continue
+			if int(placement_value.get("minimumPlayers", 1)) >= 2 or placement_value.has("twoPlayerPosition"):
+				distinct = true
+				break
+		if not distinct:
+			for moment_value: Variant in node_value.get("moments", []):
+				if moment_value is Dictionary and int(moment_value.get("minimumPlayers", 1)) >= 2:
+					distinct = true
+					break
+		if not distinct:
+			gaps.append(str(node_value.get("name", node_value.get("id", "unnamed battle"))))
+	return gaps
 
 
 func _two_player_ownership_gaps() -> Array[String]:

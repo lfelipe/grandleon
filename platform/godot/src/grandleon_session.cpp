@@ -38,6 +38,16 @@ std::int64_t signed_id(std::uint64_t value) {
     return static_cast<std::int64_t>(value);
 }
 
+const char* terrain_feature_name(std::uint64_t terrain_id) {
+    static const std::uint64_t village_house =
+        core::stable_content_id_v1("mountain_village_house");
+    static const std::uint64_t ancient_grove =
+        core::stable_content_id_v1("mountain_ancient_grove");
+    if (terrain_id == village_house) return "village_house";
+    if (terrain_id == ancient_grove) return "ancient_grove";
+    return "";
+}
+
 gd::Dictionary position_dictionary(sim::Position position) {
     gd::Dictionary result;
     result["x"] = position.x;
@@ -1324,12 +1334,15 @@ gd::Dictionary GrandleonSession::event_dictionary(
             result["player_side"] = side_name(event.player_side);
             result["theme"] = presentation_.theme;
             gd::Array terrain;
+            gd::Array terrain_features;
             for (const std::uint64_t id : event.terrain) {
                 terrain.push_back(
                     presentation_.kind_of_terrain(id)
                 );
+                terrain_features.push_back(terrain_feature_name(id));
             }
             result["terrain"] = terrain;
+            result["terrain_features"] = terrain_features;
             break;
         }
         case FrontendEvent::Kind::battle_surroundings: {

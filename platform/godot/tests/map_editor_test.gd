@@ -208,6 +208,25 @@ func _run() -> void:
 	_expect("enemy placement shown on board", editor.grid.get_child(8).tooltip_text.contains("SECOND"), true)
 	_expect("board tooltip hides enemy source identity", editor.grid.get_child(8).tooltip_text.contains("river_watch_leader"), false)
 	_expect("map selector receives controller focus", editor.map_select.has_focus(), true)
+	var house_feature: Dictionary = editor._cluster_landmark_for_cell(
+		0, 0, 4, 4, [
+			"mountain_village_house", "mountain_village_house", "grass", "grass",
+			"mountain_village_house", "mountain_village_house", "grass", "grass",
+			"grass", "grass", "grass", "grass",
+			"grass", "grass", "grass", "grass",
+		]
+	)
+	_expect("a four-cell obstacle is recognized as one house", house_feature.kind, "village_house")
+	_expect("the house keeps one stable top-left anchor", house_feature.anchor, Vector2i(0, 0))
+	var grove_feature: Dictionary = editor._cluster_landmark_for_cell(
+		1, 1, 4, 4, [
+			"forest", "forest", "forest", "grass",
+			"forest", "mountain_ancient_grove", "mountain_ancient_grove", "forest",
+			"forest", "mountain_ancient_grove", "mountain_ancient_grove", "forest",
+			"grass", "forest", "forest", "grass",
+		]
+	)
+	_expect("the same footprint follows its forest context", grove_feature.kind, "ancient_grove")
 	editor._apply_diagnostic_focus({
 		"object_id": editor.compiler.stable_source_id(
 			"demo_campaign/bridge_encounter/river_watch_leader"
@@ -424,7 +443,10 @@ func _run() -> void:
 	await process_frame
 	var scaled_placement: Dictionary = _parse(editor.source).campaigns[0].flow.nodes[0].placements[2]
 	_expect("2P tool authors the player minimum", int(scaled_placement.minimumPlayers), 2)
-	_expect("scaled enemy has a visible board badge", editor.grid.get_child(3).tooltip_text.contains("2 PLAYERS"), true)
+	_expect("solo preview hides a 2P-only enemy", editor.grid.get_child(3).tooltip_text.contains("2 PLAYERS"), false)
+	editor._select_experience_preview(1)
+	_expect("co-op preview shows a 2P-only enemy", editor.grid.get_child(3).tooltip_text.contains("2 PLAYERS"), true)
+	editor._select_experience_preview(0)
 	_expect("player scaling is one undo command", editor.undo_stack.size(), 7)
 	editor._undo()
 	await process_frame
@@ -671,6 +693,85 @@ func _run() -> void:
 	_expect("rename redo restores map name", str(_parse(editor.source).maps[0].name), "Fordlight Crossing")
 	_expect("rename redo restores battle name", str(_parse(editor.source).campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
 
+	var before_variant := _parse(editor.source)
+	var baseline_ally: Dictionary = before_variant.campaigns[0].flow.nodes[0].placements[0]
+	var baseline_width := int(before_variant.maps[0].width)
+	var baseline_cell := int(baseline_ally.y) * baseline_width + int(baseline_ally.x)
+	var coop_cell := -1
+	for candidate_cell in baseline_width * int(before_variant.maps[0].height):
+		if candidate_cell == baseline_cell or not editor._placement_at(candidate_cell, baseline_width).is_empty():
+			continue
+		var terrain_name := str(before_variant.maps[0].terrain[candidate_cell])
+		if not terrain_name.contains("water") and not terrain_name.contains("mountain"):
+			coop_cell = candidate_cell
+			break
+	_expect("fixture has room for a distinct co-op start", coop_cell >= 0, true)
+	editor._select_experience_preview(1)
+	_expect("map can preview the co-op variant", editor.preview_players, 2)
+	editor._select_tool("unit")
+	editor._paint_cell(baseline_cell)
+	editor._paint_cell(coop_cell)
+	await process_frame
+	var with_coop_start := _parse(editor.source)
+	var moved_ally: Dictionary = with_coop_start.campaigns[0].flow.nodes[0].placements[0]
+	_expect("co-op move preserves the solo x", int(moved_ally.x), int(baseline_ally.x))
+	_expect("co-op move preserves the solo y", int(moved_ally.y), int(baseline_ally.y))
+	_expect("co-op move authors its own x", int(moved_ally.twoPlayerPosition.x), coop_cell % baseline_width)
+	_expect("co-op move authors its own y", int(moved_ally.twoPlayerPosition.y), coop_cell / baseline_width)
+	_expect(
+		"co-op board explains both starting cells",
+		editor.grid.get_child(coop_cell).tooltip_text.contains("1P"),
+		true
+	)
+	editor._select_experience_preview(0)
+	_expect("solo preview returns the ally to its baseline", editor._placement_at(baseline_cell, baseline_width).is_empty(), false)
+
+	editor._open_forces()
+	await process_frame
+	_expect("opening forces and waves opens from battle setup", editor.forces_layer.visible, true)
+	_expect("wave editor lists authored opponents", editor.force_candidates.is_empty(), false)
+	_expect("ordinary opponents start on the board", editor.force_mode, "opening")
+	var wave_placement_id := str(editor._selected_force().get("id", ""))
+	editor.force_mode = "repeating"
+	editor.force_round = 5
+	editor.force_every = 3
+	editor.force_times = 4
+	editor.force_behavior = "pursue"
+	editor._update_forces_view()
+	_expect("repeating mode reveals cadence controls", editor.forces_repeat_row.visible, true)
+	_expect("wave editor explains the total wave count", editor.forces_times_label.text, "4 WAVES TOTAL")
+	editor._apply_force_schedule()
+	await process_frame
+	var with_wave := _parse(editor.source)
+	var authored_wave: Dictionary = {}
+	for placement_value: Variant in with_wave.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			authored_wave = placement_value
+			break
+	_expect("wave keeps the selected opponent", authored_wave.is_empty(), false)
+	_expect("wave authors its first arrival", int(authored_wave.arrival.round), 5)
+	_expect("wave authors its cadence", int(authored_wave.arrival.every), 3)
+	_expect("wave authors its total arrivals", int(authored_wave.arrival.times), 4)
+	_expect("wave can advance toward the players", str(authored_wave.behavior), "pursue")
+	var wave_cell := int(authored_wave.y) * int(with_wave.maps[0].width) + int(authored_wave.x)
+	_expect(
+		"scheduled arrival remains visible on the board",
+		editor.grid.get_child(wave_cell).tooltip_text.contains("ARRIVES ROUND 5"),
+		true
+	)
+	# This fixture has one opponent. Restore it to the opening force so the
+	# existing draft-play handoff below still enters a live battle.
+	editor.force_mode = "opening"
+	editor._apply_force_schedule()
+	await process_frame
+	var restored_opening := _parse(editor.source)
+	for placement_value: Variant in restored_opening.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			_expect("wave can return to the opening force", placement_value.has("arrival"), false)
+			break
+	editor._close_forces()
+	await process_frame
+
 	editor._save()
 	_expect("save clears dirty state", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
@@ -685,6 +786,12 @@ func _run() -> void:
 	_expect("saved outside presentation reopens", stored.project.maps[0].surroundings.color, "#1234ab")
 	_expect("saved map name reopens", str(stored.project.maps[0].name), "Fordlight Crossing")
 	_expect("saved battle name reopens", str(stored.project.campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
+	var stored_force: Dictionary = {}
+	for placement_value: Variant in stored.project.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			stored_force = placement_value
+			break
+	_expect("saved opening-force restoration reopens", stored_force.has("arrival"), false)
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 

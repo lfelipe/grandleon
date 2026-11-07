@@ -209,7 +209,53 @@ func _test_real_board_camera(before: Dictionary, terrain: Array) -> void:
 	_expect_true("real board camera becomes inactive after restore", not bool(restored.active))
 	_expect("real board camera restores its exact tactical transform", restored.current_transform, tactical.current_transform)
 	_expect("real board camera restores its exact tactical size", restored.current_size, tactical.current_size)
+	_test_cluster_landmarks(board)
 	board.queue_free()
+
+
+func _test_cluster_landmarks(board) -> void:
+	var empty_board := {"width": 4, "height": 4, "units": []}
+	var blocked_terrain := [
+		3, 3, 9, 9,
+		3, 3, 9, 9,
+		9, 9, 9, 9,
+		9, 9, 9, 9,
+	]
+	board.configure(empty_board, blocked_terrain, 0)
+	_expect("ordinary mountain blocks stay ordinary", board._landmark_anchors.size(), 0)
+	board.configure(empty_board, [
+		3, 3, 9, 9,
+		3, 3, 9, 9,
+		9, 9, 9, 9,
+		9, 9, 9, 9,
+	], 0, {}, [
+		"village_house", "village_house", "", "",
+		"village_house", "village_house", "", "",
+		"", "", "", "",
+		"", "", "", "",
+	])
+	_expect("one blocked 2x2 footprint becomes one landmark", board._landmark_anchors.size(), 1)
+	_expect(
+		"an open-ground footprint becomes a village house",
+		board._landmark_anchors.get(Vector2i(0, 0), ""), "village_house"
+	)
+	_expect("the landmark owns all four tactical cells", board._landmark_cells.size(), 4)
+	board.configure(empty_board, [
+		2, 2, 2, 9,
+		2, 3, 3, 2,
+		2, 3, 3, 2,
+		9, 2, 2, 9,
+	], 0, {}, [
+		"", "", "", "",
+		"", "ancient_grove", "ancient_grove", "",
+		"", "ancient_grove", "ancient_grove", "",
+		"", "", "", "",
+	])
+	_expect("one forest footprint becomes one landmark", board._landmark_anchors.size(), 1)
+	_expect(
+		"a woodland footprint becomes an ancient grove",
+		board._landmark_anchors.get(Vector2i(1, 1), ""), "ancient_grove"
+	)
 
 
 func _snapshot(target_health: int) -> Dictionary:

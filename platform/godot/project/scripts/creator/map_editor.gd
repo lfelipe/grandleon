@@ -17,6 +17,8 @@ const OBJECTIVE_KINDS := [
 	{"id": "protectTarget", "label": "PROTECT A TARGET"},
 	{"id": "surviveRounds", "label": "SURVIVE ROUNDS"},
 ]
+const FORCE_MODES := ["opening", "once", "repeating"]
+const FORCE_BEHAVIORS := ["hold", "pursue"]
 
 var library
 var compiler
@@ -60,10 +62,19 @@ var resize_preview: Dictionary = {}
 var surroundings_mode := "solid"
 var surroundings_depth := SURROUNDINGS_RECOMMENDED_DEPTH
 var surroundings_colour := Color("07131d")
+var preview_players := 1
+var force_candidates: Array[Dictionary] = []
+var force_candidate_index := 0
+var force_mode := "opening"
+var force_round := 2
+var force_every := 2
+var force_times := 2
+var force_behavior := "hold"
 
 var title_label: Label
 var map_select: OptionButton
 var encounter_select: OptionButton
+var experience_select: OptionButton
 var tool_buttons: Dictionary = {}
 var palette_list: VBoxContainer
 var palette_buttons: Dictionary = {}
@@ -98,6 +109,17 @@ var objective_rounds_row: HBoxContainer
 var objective_rounds_label: Label
 var objective_primary_button: Button
 var objective_first_button: Button
+var forces_layer: Control
+var forces_first_button: Button
+var forces_candidate_label: Label
+var forces_mode_button: Button
+var forces_round_label: Label
+var forces_repeat_row: HBoxContainer
+var forces_every_label: Label
+var forces_times_label: Label
+var forces_behavior_button: Button
+var forces_scaling_button: Button
+var forces_apply_button: Button
 var resize_layer: Control
 var resize_width_label: Label
 var resize_height_label: Label
@@ -176,6 +198,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_surroundings()
 		elif objective_layer != null and objective_layer.visible:
 			_close_objectives()
+		elif forces_layer != null and forces_layer.visible:
+			_close_forces()
 		elif placement_layer != null and placement_layer.visible:
 			_close_add_placement()
 		elif resize_layer != null and resize_layer.visible:
@@ -388,6 +412,33 @@ func _select_encounter(index: int) -> void:
 	_set_status("ENCOUNTER  /  %s" % str(node.get("name", node.get("id", ""))).to_upper(), false)
 
 
+func _select_experience_preview(index: int) -> void:
+	if experience_select == null or index < 0 or index >= experience_select.item_count:
+		return
+	preview_players = clampi(int(experience_select.get_item_metadata(index)), 1, 2)
+	selected_placement_id = ""
+	pending_placement = {}
+	_refresh_grid(0)
+	_set_status(
+		"PREVIEW  /  %s" % (
+			"SOLO BASELINE" if preview_players == 1 else "TWO-PLAYER CO-OP VARIANT"
+		),
+		false
+	)
+
+
+func _placement_preview_position(placement: Dictionary) -> Vector2i:
+	if preview_players >= 2 and placement.get("twoPlayerPosition", {}) is Dictionary:
+		var alternate: Dictionary = placement.get("twoPlayerPosition", {})
+		if alternate.has("x") and alternate.has("y"):
+			return Vector2i(int(alternate.x), int(alternate.y))
+	return Vector2i(int(placement.get("x", -1)), int(placement.get("y", -1)))
+
+
+func _placement_visible_in_preview(placement: Dictionary) -> bool:
+	return int(placement.get("minimumPlayers", 1)) <= preview_players
+
+
 func _current_encounter() -> Dictionary:
 	if encounter_index < 0 or encounter_index >= encounters.size():
 		return {}
@@ -598,8 +649,11 @@ func _refresh_grid(focus_index := -1) -> void:
 			if not placement_value is Dictionary:
 				continue
 			var placement: Dictionary = placement_value
-			var placement_x := int(placement.get("x", -1))
-			var placement_y := int(placement.get("y", -1))
+			if not _placement_visible_in_preview(placement):
+				continue
+			var position := _placement_preview_position(placement)
+			var placement_x := position.x
+			var placement_y := position.y
 			if placement_x < 0 or placement_y < 0 or placement_x >= width or placement_y >= height:
 				continue
 			var placement_cell := placement_y * width + placement_x
@@ -635,7 +689,18 @@ func _refresh_grid(focus_index := -1) -> void:
 			var cell := _button("", tile_size, tile_size)
 			cell.icon = _terrain_icon(name, _terrain_mask(index, width, height, terrain))
 			cell.expand_icon = true
-			cell.tooltip_text = "%d, %d  /  %s" % [outer_x, outer_y, name]
+			var landmark := _cluster_landmark_for_cell(
+				outer_x, outer_y, width, height, terrain
+			)
+			cell.tooltip_text = "%d, %d  /  %s%s" % [
+				outer_x, outer_y, name,
+				(
+					"\n%s 2×2 BLOCKED FOOTPRINT" % str(landmark.kind).replace("_", " ").to_upper()
+					if not landmark.is_empty() else ""
+				),
+			]
+			if not landmark.is_empty() and landmark.anchor == Vector2i(outer_x, outer_y):
+				_add_landmark_badge(cell, str(landmark.kind), tile_size)
 			if placements_by_cell.has(index):
 				_add_placement_badge(cell, placements_by_cell[index])
 			if deployment_cells.has(index):
@@ -646,6 +711,46 @@ func _refresh_grid(focus_index := -1) -> void:
 			grid.add_child(cell)
 	if focus_index >= 0:
 		call_deferred("_focus_cell", focus_index)
+
+
+func _cluster_landmark_for_cell(
+	x: int, y: int, width: int, height: int, terrain: Array
+) -> Dictionary:
+	for anchor_y in range(maxi(0, y - 1), mini(y, height - 2) + 1):
+		for anchor_x in range(maxi(0, x - 1), mini(x, width - 2) + 1):
+			var complete := true
+			var terrain_id := str(terrain[anchor_y * width + anchor_x])
+			var kind := str({
+				"mountain_village_house": "village_house",
+				"mountain_ancient_grove": "ancient_grove",
+			}.get(terrain_id, ""))
+			if kind.is_empty():
+				continue
+			for cell_y in range(anchor_y, anchor_y + 2):
+				for cell_x in range(anchor_x, anchor_x + 2):
+					if str(terrain[cell_y * width + cell_x]) != terrain_id:
+						complete = false
+			if not complete:
+				continue
+			return {
+				"anchor": Vector2i(anchor_x, anchor_y),
+				"kind": kind,
+			}
+	return {}
+
+
+func _add_landmark_badge(cell: Button, kind: String, tile_size: int) -> void:
+	var label := Label.new()
+	label.text = "GROVE 2×2" if kind == "ancient_grove" else "HOUSE 2×2"
+	label.add_theme_font_size_override("font_size", clampi(tile_size / 6, 8, 13))
+	label.add_theme_color_override("font_color", Color("fff0b0"))
+	label.add_theme_color_override("font_shadow_color", Color("07131d"))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE, Control.PRESET_MODE_MINSIZE, 4)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(label)
 
 
 func _automatic_surrounding_name(map: Dictionary, x: int, y: int) -> String:
@@ -676,10 +781,16 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 		colour = Color("ffca63")
 	var label := Label.new()
 	var two_player_only := int(first.get("minimumPlayers", 1)) >= 2
+	var arrival: Dictionary = (
+		first.get("arrival", {}) if first.get("arrival", {}) is Dictionary else {}
+	)
+	var arrival_round := int(arrival.get("round", 0))
 	label.text = "MOVE" if selected else (
 		"%d×" % placements.size() if placements.size() > 1 else (
 			"P%d" % local_player if first_side else (
-				"2P" if two_player_only else ("TALK" if first.has("talk") else "ENEMY")
+				"W%d" % arrival_round if arrival_round > 0 else (
+					"2P" if two_player_only else ("TALK" if first.has("talk") else "ENEMY")
+				)
 			)
 		)
 	)
@@ -699,14 +810,38 @@ func _add_placement_badge(cell: Button, placements: Array) -> void:
 	var details := PackedStringArray()
 	for placement_value: Variant in placements:
 		var placement: Dictionary = placement_value
+		var placement_arrival: Dictionary = (
+			placement.get("arrival", {})
+			if placement.get("arrival", {}) is Dictionary else {}
+		)
+		var arrival_detail := ""
+		var position_detail := ""
+		if placement.get("twoPlayerPosition", {}) is Dictionary and not placement.get("twoPlayerPosition", {}).is_empty():
+			var solo_position := Vector2i(
+				int(placement.get("x", -1)), int(placement.get("y", -1))
+			)
+			var coop_position: Dictionary = placement.get("twoPlayerPosition", {})
+			position_detail = " / 1P %d,%d / 2P %d,%d" % [
+				solo_position.x, solo_position.y,
+				int(coop_position.get("x", -1)), int(coop_position.get("y", -1)),
+			]
+		if not placement_arrival.is_empty():
+			arrival_detail = " / ARRIVES ROUND %d" % int(placement_arrival.get("round", 2))
+			if placement_arrival.has("every") and placement_arrival.has("times"):
+				arrival_detail += " / EVERY %d ROUNDS / %d WAVES" % [
+					int(placement_arrival.get("every", 1)),
+					int(placement_arrival.get("times", 2)),
+				]
 		details.append(
-			"%s%s%s: %s" % [
+			"%s%s%s%s%s: %s" % [
 				str(placement.get("side", "unit")).to_upper(),
 				(
 					" / PLAYER %d" % clampi(int(placement.get("player", 1)), 1, 2)
 					if str(placement.get("side", "second")) == "first" else ""
 				),
 				" / 2 PLAYERS" if int(placement.get("minimumPlayers", 1)) >= 2 else "",
+				arrival_detail,
+				position_detail,
 				_placement_display_name(placement) + (
 					" / TALKABLE" if placement.has("talk") else ""
 				),
@@ -781,11 +916,14 @@ func _objective_target_cells(node: Dictionary, width: int) -> Dictionary:
 	for placement_value: Variant in node.get("placements", []):
 		if not placement_value is Dictionary:
 			continue
+		if not _placement_visible_in_preview(placement_value):
+			continue
 		var source_key := str(placement_value.get("memberId", placement_value.get("id", "")))
 		if not targets.has(source_key):
 			continue
-		var x := int(placement_value.get("x", -1))
-		var y := int(placement_value.get("y", -1))
+		var position := _placement_preview_position(placement_value)
+		var x := position.x
+		var y := position.y
 		if x >= 0 and y >= 0:
 			result[y * width + x] = targets[source_key]
 	return result
@@ -873,7 +1011,10 @@ func _placement_at(index: int, width: int) -> Dictionary:
 	var y := index / width
 	var node: Dictionary = encounter.node
 	for placement_value: Variant in node.get("placements", []):
-		if placement_value is Dictionary and int(placement_value.get("x", -1)) == x and int(placement_value.get("y", -1)) == y:
+		if not placement_value is Dictionary or not _placement_visible_in_preview(placement_value):
+			continue
+		var position := _placement_preview_position(placement_value)
+		if position.x == x and position.y == y:
 			return placement_value
 	return {}
 
@@ -1198,6 +1339,162 @@ func _write_talk_conversation() -> void:
 	get_tree().change_scene_to_file("res://story_editor.tscn")
 
 
+func _coop_opening_dialogue_id() -> String:
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return ""
+	var node: Dictionary = encounter.node
+	for value: Variant in node.get("moments", []):
+		if not value is Dictionary or int(value.get("minimumPlayers", 1)) < 2:
+			continue
+		var when: Variant = value.get("when", {})
+		if when is Dictionary and str(when.get("kind", "")) == "stageOpens":
+			return str(value.get("dialogueId", ""))
+	return ""
+
+
+func _coop_opening_character() -> Dictionary:
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return {}
+	var node: Dictionary = encounter.node
+	var placement: Dictionary = {}
+	for value: Variant in node.get("placements", []):
+		if (
+			value is Dictionary
+			and str(value.get("side", "first")) == "first"
+			and int(value.get("player", 1)) == 2
+		):
+			placement = value
+			break
+	if placement.is_empty():
+		return {}
+	var unit_type_id := str(placement.get("unitTypeId", ""))
+	var display_name := str(placement.get("name", ""))
+	var member_id := str(placement.get("memberId", ""))
+	if not member_id.is_empty():
+		var campaign_id := str(encounter.get("campaign_id", ""))
+		for campaign_value: Variant in project.get("campaigns", []):
+			if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != campaign_id:
+				continue
+			for member_value: Variant in campaign_value.get("roster", []):
+				if member_value is Dictionary and str(member_value.get("id", "")) == member_id:
+					unit_type_id = str(member_value.get("unitTypeId", unit_type_id))
+					display_name = str(member_value.get("name", display_name))
+					break
+	if display_name.is_empty():
+		for unit_value: Variant in project.get("unitTypes", []):
+			if unit_value is Dictionary and str(unit_value.get("id", "")) == unit_type_id:
+				display_name = str(unit_value.get("name", unit_type_id))
+				break
+	if unit_type_id.is_empty():
+		return {}
+	return {
+		"speaker": display_name if not display_name.is_empty() else "Player 2",
+		"unit_type_id": unit_type_id,
+	}
+
+
+func _unique_project_id(base: String, keys: Array[String]) -> String:
+	var candidate := base
+	var sequence := 2
+	while keys.has(candidate):
+		candidate = "%s_%d" % [base, sequence]
+		sequence += 1
+	return candidate
+
+
+func _ensure_coop_opening_dialogue() -> String:
+	var existing := _coop_opening_dialogue_id()
+	if not existing.is_empty():
+		return existing
+	var character := _coop_opening_character()
+	if character.is_empty():
+		_set_status(
+			"ADD AN ALLY FOR PLAYER 2 BEFORE WRITING ITS OPENING STORY", true
+		)
+		return ""
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return ""
+	var portable: Variant = JSON.parse_string(source)
+	if not portable is Dictionary:
+		_set_status("CO-OP STORY NOT CREATED  /  PROJECT SOURCE IS INVALID", true)
+		return ""
+	var dialogue_ids: Array[String] = []
+	for value: Variant in portable.get("dialogues", []):
+		if value is Dictionary:
+			dialogue_ids.append(str(value.get("id", "")))
+	var node: Dictionary = {}
+	var campaign_id := str(encounter.get("campaign_id", ""))
+	var node_id := str(encounter.node.get("id", ""))
+	for campaign_value: Variant in portable.get("campaigns", []):
+		if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != campaign_id:
+			continue
+		var flow: Variant = campaign_value.get("flow", {})
+		if not flow is Dictionary:
+			continue
+		for node_value: Variant in flow.get("nodes", []):
+			if node_value is Dictionary and str(node_value.get("id", "")) == node_id:
+				node = node_value
+				break
+	if node.is_empty():
+		_set_status("CO-OP STORY NOT CREATED  /  BATTLE WAS NOT FOUND", true)
+		return ""
+	var dialogue_id := _unique_project_id("%s_coop_opening" % node_id, dialogue_ids)
+	var moment_ids: Array[String] = []
+	for value: Variant in node.get("moments", []):
+		if value is Dictionary:
+			moment_ids.append(str(value.get("id", "")))
+	var moment_id := _unique_project_id("%s_begins" % dialogue_id, moment_ids)
+	var dialogues: Array = portable.get("dialogues", [])
+	dialogues.append({
+		"id": dialogue_id,
+		"name": "%s / Two-player opening" % str(node.get("name", "Battle")),
+		"cast": [{
+			"speaker": str(character.speaker),
+			"unitTypeId": str(character.unit_type_id),
+		}],
+		"lines": [{
+			"speaker": str(character.speaker),
+			"text": "...",
+		}],
+	})
+	portable["dialogues"] = dialogues
+	var moments: Array = node.get("moments", [])
+	moments.append({
+		"id": moment_id,
+		"when": {"kind": "stageOpens"},
+		"dialogueId": dialogue_id,
+		"minimumPlayers": 2,
+	})
+	node["moments"] = moments
+	var candidate_source := JSON.stringify(_integer_numbers(portable), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status(
+			"CO-OP STORY NOT CREATED  /  %s" % _diagnostic_detail(checked), true
+		)
+		return ""
+	_push_undo(source)
+	redo_stack.clear()
+	source = candidate_source
+	dirty = true
+	_read_source()
+	_update_actions()
+	_set_status("UNSAVED  /  TWO-PLAYER OPENING STORY CREATED", false)
+	return dialogue_id
+
+
+func _write_coop_opening_story() -> void:
+	var dialogue_id := _ensure_coop_opening_dialogue()
+	if dialogue_id.is_empty() or (dirty and not _save()):
+		return
+	setup_layer.visible = false
+	CreatorContext.choose_dialogue(dialogue_id)
+	get_tree().change_scene_to_file("res://story_editor.tscn")
+
+
 func _remove_talk_choice() -> void:
 	var updated: Dictionary = compiler.set_placement_talkable(
 		source, talk_campaign_id, talk_node_id, talk_placement_id, false
@@ -1415,10 +1712,11 @@ func _move_unit_at(index: int, width: int) -> void:
 	var placements: Array = node.get("placements", [])
 	if selected_placement_id.is_empty():
 		for placement_value: Variant in placements:
-			if not placement_value is Dictionary:
+			if not placement_value is Dictionary or not _placement_visible_in_preview(placement_value):
 				continue
 			var placement: Dictionary = placement_value
-			if int(placement.get("x", -1)) == x and int(placement.get("y", -1)) == y:
+			var position := _placement_preview_position(placement)
+			if position.x == x and position.y == y:
 				selected_placement_id = str(placement.get("id", ""))
 				if selected_placement_id.is_empty():
 					break
@@ -1435,7 +1733,8 @@ func _move_unit_at(index: int, width: int) -> void:
 
 	for placement_value: Variant in placements:
 		if placement_value is Dictionary and str(placement_value.get("id", "")) == selected_placement_id:
-			if int(placement_value.get("x", -1)) == x and int(placement_value.get("y", -1)) == y:
+			var position := _placement_preview_position(placement_value)
+			if position.x == x and position.y == y:
 				selected_placement_id = ""
 				_refresh_grid(index)
 				_set_status("UNIT MOVE CANCELLED", false)
@@ -1446,13 +1745,17 @@ func _move_unit_at(index: int, width: int) -> void:
 		if placement_value is Dictionary and str(placement_value.get("id", "")) == selected_placement_id:
 			moved_name = _placement_display_name(placement_value)
 			break
-	var moved: Dictionary = compiler.move_placement(
-		source,
-		str(encounter.get("campaign_id", "")),
-		str(node.get("id", "")),
-		selected_placement_id,
-		x,
-		y
+	var moved: Dictionary = (
+		_move_two_player_position(selected_placement_id, x, y)
+		if preview_players >= 2
+		else compiler.move_placement(
+			source,
+			str(encounter.get("campaign_id", "")),
+			str(node.get("id", "")),
+			selected_placement_id,
+			x,
+			y
+		)
 	)
 	if not moved.ok:
 		_set_status("MOVE REFUSED  /  %s" % _diagnostic_code(moved), true)
@@ -1466,6 +1769,38 @@ func _move_unit_at(index: int, width: int) -> void:
 	_read_source()
 	_refresh_maps_after_edit(index)
 	_set_status("UNSAVED  /  MOVED %s" % moved_name.to_upper(), false)
+
+
+func _move_two_player_position(placement_id: String, x: int, y: int) -> Dictionary:
+	var encounter := _current_encounter()
+	var candidate: Dictionary = project.duplicate(true)
+	var changed := false
+	for campaign_value: Variant in candidate.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var campaign: Dictionary = campaign_value
+		if str(campaign.get("id", "")) != str(encounter.get("campaign_id", "")):
+			continue
+		var flow: Dictionary = campaign.get("flow", {})
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary or str(node_value.get("id", "")) != str(encounter.node.get("id", "")):
+				continue
+			var node: Dictionary = node_value
+			for placement_value: Variant in node.get("placements", []):
+				if not placement_value is Dictionary or str(placement_value.get("id", "")) != placement_id:
+					continue
+				placement_value["twoPlayerPosition"] = {"x": x, "y": y}
+				changed = true
+				break
+			break
+		break
+	if not changed:
+		return {"ok": false, "diagnostics": [{"detail": "placement is no longer available"}]}
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		return checked
+	return {"ok": true, "source": candidate_source}
 
 
 func _fill_from(index: int, width: int, terrain: Array) -> void:
@@ -2092,6 +2427,263 @@ func _accept_objective_edit(updated: Dictionary, message: String, selected_id: S
 	objective_mode_button.call_deferred("grab_focus")
 
 
+func _open_forces() -> void:
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		_set_status("CHOOSE A BATTLE BEFORE EDITING ITS FORCES", true)
+		return
+	_collect_force_candidates()
+	_load_force_draft()
+	forces_layer.visible = true
+	_update_forces_view()
+	forces_first_button.call_deferred("grab_focus")
+
+
+func _close_forces() -> void:
+	forces_layer.visible = false
+	setup_layer.visible = true
+	setup_first_button.call_deferred("grab_focus")
+
+
+func _collect_force_candidates(preferred_id := "") -> void:
+	force_candidates.clear()
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		force_candidate_index = 0
+		return
+	for placement_value: Variant in encounter.node.get("placements", []):
+		if not placement_value is Dictionary:
+			continue
+		var placement: Dictionary = placement_value
+		if str(placement.get("side", "second")) != "second":
+			continue
+		force_candidates.append(placement)
+		if str(placement.get("id", "")) == preferred_id:
+			force_candidate_index = force_candidates.size() - 1
+	force_candidate_index = clampi(
+		force_candidate_index, 0, maxi(0, force_candidates.size() - 1)
+	)
+
+
+func _selected_force() -> Dictionary:
+	if force_candidate_index < 0 or force_candidate_index >= force_candidates.size():
+		return {}
+	return force_candidates[force_candidate_index]
+
+
+func _cycle_force_candidate(delta: int) -> void:
+	if force_candidates.is_empty():
+		return
+	force_candidate_index = posmod(force_candidate_index + delta, force_candidates.size())
+	_load_force_draft()
+	_update_forces_view()
+
+
+func _load_force_draft() -> void:
+	var placement := _selected_force()
+	if placement.is_empty():
+		force_mode = "opening"
+		force_round = 2
+		force_every = 2
+		force_times = 2
+		force_behavior = "hold"
+		return
+	var arrival: Dictionary = (
+		placement.get("arrival", {})
+		if placement.get("arrival", {}) is Dictionary else {}
+	)
+	if arrival.is_empty():
+		force_mode = "opening"
+	else:
+		force_mode = "repeating" if arrival.has("every") else "once"
+	force_round = clampi(int(arrival.get("round", 2)), 2, 4095)
+	force_every = clampi(int(arrival.get("every", 2)), 1, 4095)
+	force_times = clampi(int(arrival.get("times", 2)), 2, 64)
+	force_behavior = str(placement.get("behavior", "hold"))
+	if not FORCE_BEHAVIORS.has(force_behavior):
+		force_behavior = "hold"
+
+
+func _cycle_force_mode() -> void:
+	var index := maxi(0, FORCE_MODES.find(force_mode))
+	force_mode = FORCE_MODES[(index + 1) % FORCE_MODES.size()]
+	_update_forces_view()
+
+
+func _change_force_round(delta: int) -> void:
+	force_round = clampi(force_round + delta, 2, 4095)
+	_update_forces_view()
+
+
+func _change_force_every(delta: int) -> void:
+	force_every = clampi(force_every + delta, 1, 4095)
+	_update_forces_view()
+
+
+func _change_force_times(delta: int) -> void:
+	force_times = clampi(force_times + delta, 2, 64)
+	_update_forces_view()
+
+
+func _cycle_force_behavior() -> void:
+	var index := maxi(0, FORCE_BEHAVIORS.find(force_behavior))
+	force_behavior = FORCE_BEHAVIORS[(index + 1) % FORCE_BEHAVIORS.size()]
+	_update_forces_view()
+
+
+func _toggle_force_scaling() -> void:
+	var placement := _selected_force()
+	if placement.is_empty():
+		return
+	var encounter := _current_encounter()
+	var minimum_players := (
+		1 if int(placement.get("minimumPlayers", 1)) >= 2 else 2
+	)
+	var updated: Dictionary = compiler.set_placement_minimum_players(
+		source,
+		str(encounter.get("campaign_id", "")),
+		str(encounter.node.get("id", "")),
+		str(placement.get("id", "")),
+		minimum_players
+	)
+	if not updated.ok:
+		_set_status("PLAYER SCALING REFUSED  /  %s" % _diagnostic_detail(updated), true)
+		return
+	var selected_id := str(placement.get("id", ""))
+	_push_undo(source)
+	source = updated.source
+	redo_stack.clear()
+	dirty = true
+	_read_source()
+	_refresh_maps_after_edit(0)
+	_collect_force_candidates(selected_id)
+	_load_force_draft()
+	_update_forces_view()
+	_set_status(
+		"UNSAVED  /  %s" % (
+			"PRESENT IN 1P AND 2P" if minimum_players == 1 else "ADDED FOR 2P"
+		),
+		false
+	)
+
+
+func _update_forces_view() -> void:
+	var placement := _selected_force()
+	var available := not placement.is_empty()
+	if not available:
+		forces_candidate_label.text = (
+			"NO OPPONENTS YET\n"
+			+ "Add an opposing character on the board, then return here to schedule it."
+		)
+	else:
+		var arrival: Dictionary = (
+			placement.get("arrival", {})
+			if placement.get("arrival", {}) is Dictionary else {}
+		)
+		var schedule := "ON THE BOARD WHEN THE BATTLE OPENS"
+		if not arrival.is_empty():
+			schedule = "ARRIVES ON ROUND %d" % int(arrival.get("round", 2))
+			if arrival.has("every"):
+				schedule += "  ·  EVERY %d ROUNDS  ·  %d WAVES" % [
+					int(arrival.get("every", 1)), int(arrival.get("times", 2))
+				]
+		forces_candidate_label.text = "%s\n%s  ·  CELL %d, %d" % [
+			_placement_display_name(placement).to_upper(),
+			schedule,
+			int(placement.get("x", 0)), int(placement.get("y", 0)),
+		]
+	forces_mode_button.text = {
+		"opening": "STARTS ON THE BOARD",
+		"once": "ARRIVES ONCE",
+		"repeating": "REPEATING WAVE",
+	}.get(force_mode, "STARTS ON THE BOARD")
+	forces_round_label.text = "ROUND %d" % force_round
+	forces_repeat_row.visible = force_mode == "repeating"
+	forces_every_label.text = "EVERY %d ROUND%s" % [
+		force_every, "" if force_every == 1 else "S"
+	]
+	forces_times_label.text = "%d WAVES TOTAL" % force_times
+	forces_behavior_button.text = (
+		"BEHAVIOR  /  ADVANCE TOWARD PLAYERS"
+		if force_behavior == "pursue" else "BEHAVIOR  /  HOLD POSITION"
+	)
+	forces_scaling_button.text = (
+		"PLAYERS  /  2P ADDITION"
+		if int(placement.get("minimumPlayers", 1)) >= 2
+		else "PLAYERS  /  1P + 2P"
+	) if available else "PLAYERS"
+	forces_mode_button.disabled = not available
+	forces_behavior_button.disabled = not available
+	forces_scaling_button.disabled = not available
+	forces_apply_button.disabled = not available
+
+
+func _apply_force_schedule() -> void:
+	var selected := _selected_force()
+	var encounter := _current_encounter()
+	if selected.is_empty() or encounter.is_empty():
+		return
+	var selected_id := str(selected.get("id", ""))
+	var candidate: Dictionary = project.duplicate(true)
+	var changed := false
+	for campaign_value: Variant in candidate.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var campaign: Dictionary = campaign_value
+		if str(campaign.get("id", "")) != str(encounter.get("campaign_id", "")):
+			continue
+		var flow: Dictionary = campaign.get("flow", {})
+		for node_value: Variant in flow.get("nodes", []):
+			if not node_value is Dictionary:
+				continue
+			var node: Dictionary = node_value
+			if str(node.get("id", "")) != str(encounter.node.get("id", "")):
+				continue
+			for placement_value: Variant in node.get("placements", []):
+				if not placement_value is Dictionary:
+					continue
+				var placement: Dictionary = placement_value
+				if str(placement.get("id", "")) != selected_id:
+					continue
+				placement.behavior = force_behavior
+				if force_mode == "opening":
+					placement.erase("arrival")
+				else:
+					placement.arrival = {"round": force_round}
+					if force_mode == "repeating":
+						placement.arrival.every = force_every
+						placement.arrival.times = force_times
+				changed = true
+				break
+			break
+		break
+	if not changed:
+		return
+	var portable: Dictionary = _integer_numbers(candidate)
+	var candidate_source := JSON.stringify(portable, "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.ok:
+		_set_status("FORCE SCHEDULE REFUSED  /  %s" % _diagnostic_detail(checked), true)
+		return
+	if candidate_source != source:
+		_push_undo(source)
+		source = candidate_source
+		redo_stack.clear()
+		dirty = true
+		_read_source()
+		_refresh_maps_after_edit(0)
+	_collect_force_candidates(selected_id)
+	_load_force_draft()
+	_update_forces_view()
+	_set_status(
+		"UNSAVED  /  %s" % (
+			"OPENING FORCE UPDATED"
+			if force_mode == "opening" else "REINFORCEMENT WAVE UPDATED"
+		),
+		false
+	)
+
+
 func _open_surroundings() -> void:
 	if deployment_editing:
 		_set_status("APPLY OR CANCEL THE DEPLOYMENT DRAFT FIRST", true)
@@ -2665,6 +3257,20 @@ func _build_interface() -> void:
 	encounter_select.add_theme_font_size_override("font_size", 15)
 	encounter_select.item_selected.connect(_select_encounter)
 	tools_column.add_child(encounter_select)
+	tools_column.add_child(_label("EXPERIENCE PREVIEW", 17, Color("69d9ff")))
+	experience_select = OptionButton.new()
+	experience_select.custom_minimum_size = Vector2(330, 52)
+	experience_select.add_theme_font_size_override("font_size", 15)
+	experience_select.add_item("1P  /  BASELINE CAMPAIGN")
+	experience_select.set_item_metadata(0, 1)
+	experience_select.add_item("2P  /  CO-OP VARIANT")
+	experience_select.set_item_metadata(1, 2)
+	experience_select.select(0)
+	experience_select.tooltip_text = (
+		"Switch the board between the actual solo layout and the co-op additions."
+	)
+	experience_select.item_selected.connect(_select_experience_preview)
+	tools_column.add_child(experience_select)
 	tools_column.add_child(_label("TOOL", 17, Color("69d9ff")))
 	var tool_row := HBoxContainer.new()
 	tool_row.add_theme_constant_override("separation", 6)
@@ -2745,6 +3351,7 @@ func _build_interface() -> void:
 	add_child(status_label)
 	_build_placement_overlay()
 	_build_objective_overlay()
+	_build_forces_overlay()
 	_build_resize_overlay()
 	_build_surroundings_overlay()
 	_build_setup_overlay()
@@ -2795,6 +3402,11 @@ func _setup_deployment() -> void:
 func _setup_objectives() -> void:
 	setup_layer.visible = false
 	_open_objectives()
+
+
+func _setup_forces() -> void:
+	setup_layer.visible = false
+	_open_forces()
 
 
 func _setup_surroundings() -> void:
@@ -2955,8 +3567,8 @@ func _build_setup_overlay() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	setup_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(390, 150)
-	panel.size = Vector2(1140, 780)
+	panel.position = Vector2(390, 105)
+	panel.size = Vector2(1140, 870)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color("69d9ff"))
 	)
@@ -3002,10 +3614,9 @@ func _build_setup_overlay() -> void:
 	ownership_button.pressed.connect(_choose_setup_tool.bind("ownership"))
 	choices.add_child(ownership_button)
 	tool_buttons["ownership"] = ownership_button
-	var scaling_button := _button("TWO-PLAYER ENEMY SCALING", 500, 66)
-	scaling_button.pressed.connect(_choose_setup_tool.bind("scaling"))
-	choices.add_child(scaling_button)
-	tool_buttons["scaling"] = scaling_button
+	var forces_button := _button("OPENING FORCES & WAVES", 500, 66)
+	forces_button.pressed.connect(_setup_forces)
+	choices.add_child(forces_button)
 	surroundings_button = _button("MAP SURROUNDINGS", 500, 66)
 	surroundings_button.pressed.connect(_setup_surroundings)
 	choices.add_child(surroundings_button)
@@ -3019,6 +3630,14 @@ func _build_setup_overlay() -> void:
 	talk_button.pressed.connect(_choose_setup_tool.bind("talk"))
 	column.add_child(talk_button)
 	tool_buttons["talk"] = talk_button
+	var coop_story_button := _button(
+		"TWO-PLAYER OPENING STORY\nWRITE THE SCENE ONLY CO-OP PLAYERS SEE", 1014, 66
+	)
+	coop_story_button.tooltip_text = (
+		"Create or edit the conversation that plays when this battle opens with two players."
+	)
+	coop_story_button.pressed.connect(_write_coop_opening_story)
+	column.add_child(coop_story_button)
 	copy_setup_button = _button("COPY ANOTHER BATTLE SETUP", 1014, 66)
 	copy_setup_button.pressed.connect(_setup_copy)
 	column.add_child(copy_setup_button)
@@ -3837,6 +4456,119 @@ func _build_objective_overlay() -> void:
 	actions.add_child(objective_primary_button)
 	var close := _button("CLOSE", 220, 62)
 	close.pressed.connect(_close_objectives)
+	actions.add_child(close)
+
+
+func _build_forces_overlay() -> void:
+	forces_layer = Control.new()
+	forces_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	forces_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	forces_layer.visible = false
+	forces_layer.z_index = 34
+	add_child(forces_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.90)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	forces_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(390, 105)
+	panel.size = Vector2(1140, 870)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 18, Color("ffca63"))
+	)
+	forces_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	panel.add_child(column)
+	column.add_child(_label("OPENING FORCES & REINFORCEMENT WAVES", 24, Color("ffca63")))
+	var explanation := _label(
+		"Every character you place normally starts on the board. Choose an opponent "
+		+ "below only when it should enter later. Repeating waves create matching "
+		+ "opponents at the same entry point.",
+		18, Color("a9bdc9")
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size.y = 64
+	column.add_child(explanation)
+	forces_candidate_label = _label("", 22, Color("f2f7f9"))
+	forces_candidate_label.custom_minimum_size.y = 80
+	forces_candidate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	column.add_child(forces_candidate_label)
+	var navigation := HBoxContainer.new()
+	navigation.add_theme_constant_override("separation", 12)
+	column.add_child(navigation)
+	forces_first_button = _button("PREVIOUS OPPONENT", 330, 52)
+	forces_first_button.pressed.connect(_cycle_force_candidate.bind(-1))
+	navigation.add_child(forces_first_button)
+	var next := _button("NEXT OPPONENT", 330, 52)
+	next.pressed.connect(_cycle_force_candidate.bind(1))
+	navigation.add_child(next)
+	forces_mode_button = _button("STARTS ON THE BOARD", 1014, 56)
+	forces_mode_button.pressed.connect(_cycle_force_mode)
+	column.add_child(forces_mode_button)
+	var round_row := HBoxContainer.new()
+	round_row.add_theme_constant_override("separation", 10)
+	column.add_child(round_row)
+	var round_minus := _button("−", 110, 52)
+	round_minus.pressed.connect(_change_force_round.bind(-1))
+	round_row.add_child(round_minus)
+	forces_round_label = _label("ROUND 2", 21, Color("f2f7f9"))
+	forces_round_label.custom_minimum_size = Vector2(260, 52)
+	forces_round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	forces_round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	round_row.add_child(forces_round_label)
+	var round_plus := _button("+", 110, 52)
+	round_plus.pressed.connect(_change_force_round.bind(1))
+	round_row.add_child(round_plus)
+	round_row.add_child(_label("FIRST ARRIVAL", 16, Color("718896")))
+	forces_repeat_row = HBoxContainer.new()
+	forces_repeat_row.add_theme_constant_override("separation", 8)
+	column.add_child(forces_repeat_row)
+	var every_minus := _button("−", 70, 50)
+	every_minus.pressed.connect(_change_force_every.bind(-1))
+	forces_repeat_row.add_child(every_minus)
+	forces_every_label = _label("EVERY 2 ROUNDS", 17, Color("f2f7f9"))
+	forces_every_label.custom_minimum_size = Vector2(220, 50)
+	forces_every_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	forces_every_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	forces_repeat_row.add_child(forces_every_label)
+	var every_plus := _button("+", 70, 50)
+	every_plus.pressed.connect(_change_force_every.bind(1))
+	forces_repeat_row.add_child(every_plus)
+	var times_minus := _button("−", 70, 50)
+	times_minus.pressed.connect(_change_force_times.bind(-1))
+	forces_repeat_row.add_child(times_minus)
+	forces_times_label = _label("2 WAVES TOTAL", 17, Color("f2f7f9"))
+	forces_times_label.custom_minimum_size = Vector2(210, 50)
+	forces_times_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	forces_times_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	forces_repeat_row.add_child(forces_times_label)
+	var times_plus := _button("+", 70, 50)
+	times_plus.pressed.connect(_change_force_times.bind(1))
+	forces_repeat_row.add_child(times_plus)
+	forces_behavior_button = _button("BEHAVIOR", 1014, 54)
+	forces_behavior_button.pressed.connect(_cycle_force_behavior)
+	column.add_child(forces_behavior_button)
+	forces_scaling_button = _button("PLAYERS", 1014, 54)
+	forces_scaling_button.pressed.connect(_toggle_force_scaling)
+	column.add_child(forces_scaling_button)
+	var note := _label(
+		"Tip: add separate entry points around a large map instead of stacking every "
+		+ "wave together. Use 2P additions to give both armies meaningful pressure.",
+		16, Color("72e08f")
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.y = 48
+	column.add_child(note)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 12)
+	column.add_child(actions)
+	forces_apply_button = _button("APPLY FORCE SCHEDULE", 430, 58)
+	forces_apply_button.pressed.connect(_apply_force_schedule)
+	actions.add_child(forces_apply_button)
+	var close := _button("DONE", 220, 58)
+	close.pressed.connect(_close_forces)
 	actions.add_child(close)
 
 

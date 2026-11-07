@@ -57,6 +57,10 @@ roadmap work.
 - [x] Preserve the simulation's authoritative route and destination. Smoothing
   may interpolate the picture between accepted states; it must never invent a
   position, shorten a route, delay input authority, or change a state hash.
+- [ ] Evaluate directional board poses for the curated roster, beginning with
+  distinct north/south walking silhouettes and mirrored east/west movement.
+  Keep the route authoritative, choose poses from its current direction, and
+  preserve the Nintendo 64 and PlayStation memory and frame budgets.
 
 ## Character art and console graphics
 
@@ -90,19 +94,30 @@ The 0.4 PlayStation and Nintendo 64 builds are accepted for release. Carry
 these observed issues into the next console pass rather than holding that
 release:
 
-- [ ] Skip the pre-battle **Company Musters** screen when the ready formation
+- [x] Skip the pre-battle **Company Musters** screen when the ready formation
   leaves the player with no meaningful roster, stage, loadout, or deployment
   choice. Apply the same rule consistently in Godot, Nintendo 64, and
   PlayStation; retain the screen only when an authored decision exists.
-- [ ] Tighten PlayStation and Nintendo 64 board navigation so selecting a
+- [x] Tighten PlayStation and Nintendo 64 board navigation so selecting a
   character, choosing an action, moving between legal cells, cancelling, and
   ending a turn feel predictable on each controller.
-- [ ] Reduce tactical unit scale on both consoles so characters remain distinct
+- [x] Reduce tactical unit scale on both consoles so characters remain distinct
   without obscuring the map or nearby cells.
-- [ ] Slow close-up combat timing on both consoles enough for the attack,
+- [x] Slow close-up combat timing on both consoles enough for the attack,
   impact, damage, and counter-attack to be read comfortably on hardware.
 
 ## Unified demo campaign
+
+The first playable candidate is now under `games/steel_and_cedar`: five
+purpose-built Medieval-versus-Sengoku battles and one portable source with two
+deliberate variants. Solo is Commander Rowan's complete story and army; co-op
+adds Akari's separate army, dialogue, deployment fronts, tactical duties,
+opening layouts, enemies, and waves. Later maps require scrolling, Cedar Watch
+is a 20-round protect-the-commander defense, and automated checks cover both
+variants, map dimensions and tactical regions, objective and wave timing,
+roster identity, the final boss, and console budgets. The work below remains
+open until human playtests prove its pacing and balance and it safely replaces
+the included campaigns on all three players.
 
 - [ ] Design and build one cohesive campaign to replace the current included
   campaigns as Grandleon's main demo on Godot, Nintendo 64, and PlayStation.
@@ -123,6 +138,16 @@ release:
   terrain regions, readable routes, flanks, cover, chokepoints, landmarks, and
   objective spaces; remove random-looking terrain patches and avoid repeating
   the same central-lane layout.
+- [ ] Add portable multi-tile map features for the campaign's two anchor
+  environments. Deepwood needs connected tree clusters and trunks, rock
+  outcrops, clearings, and narrow paths. Gate Village needs house footprints,
+  connected fences, a gate, square details, and alley pieces. Authors must be
+  able to place and preview them in the Godot editor, and every renderer must
+  draw the same feature footprint. The first playable prototype now gives
+  Deepwood two explicit blocked ancient groves and Gate Village six explicit
+  blocked houses; Godot groups each four-cell footprint into one landmark and
+  the map editor labels it. A one-action editor stamp, fences, gates, more
+  variants, and dedicated Nintendo 64 and PlayStation landmark art remain.
 - [ ] Tune 1P and 2P separately. Co-op must give both players useful characters
   and decisions without merely doubling the battle size; solo play must retain
   the same strategic possibilities at a manageable pace. Playtest every map
@@ -155,12 +180,16 @@ outcomes, armies, gear, validation, playtesting, saves, and exports. The
 remaining author-facing gaps are tracked here rather than preserving a second
 editor and its separate browser runtime.
 
-- [ ] Add a clear **Game settings** screen for default turn order, permanent or
+- [x] Add a clear **Game settings** screen for default turn order, permanent or
   recoverable character loss, an invulnerable testing mode, and controlled
   content-revision updates. Also expose per-battle turn-order overrides.
-- [ ] Complete advanced battle setup: enemy behaviour and patrol paths,
-  deployment capacity, timed and repeating reinforcement waves, and scripted
-  moments when a battle opens or a character falls.
+- [x] Add straightforward opening-force and reinforcement-wave editing,
+  including arrival round, repeat cadence, wave count, hold or pursue
+  behaviour, co-op-only forces, 1P/2P layout previews, alternate co-op starts,
+  and a focused two-player opening-story action.
+- [ ] Complete the remaining advanced battle setup: patrol paths, deployment
+  capacity, and ordered scripted moments during battle or when a character
+  falls.
 - [ ] Let an author playtest the currently selected battle directly, including
   later battles, without having to play from the campaign entrance.
 - [ ] Add combat-design tools for weapon strengths and weaknesses, damage and

@@ -28,6 +28,7 @@ var render_profile := "diorama"
 var profile_config: Dictionary = {}
 var snapshot: Dictionary = {}
 var terrain: Array = []
+var terrain_features: Array = []
 var surroundings: Dictionary = {}
 var terrain_theme := 0
 var seats: Array = []
@@ -66,6 +67,8 @@ var _authored_units: Dictionary = {}
 var _pending_unit_removal: Dictionary = {}
 var _unit_flash_until: Dictionary = {}
 var _unit_flash_colours: Dictionary = {}
+var _landmark_cells: Dictionary = {}
+var _landmark_anchors: Dictionary = {}
 var _materials: Dictionary = {}
 var _effects: Array[Dictionary] = []
 var _impact_texture: Texture2D
@@ -172,10 +175,11 @@ func _create_environment() -> void:
 
 func configure(
 	new_snapshot: Dictionary, new_terrain: Array, new_theme: int,
-	new_surroundings: Dictionary = {}
+	new_surroundings: Dictionary = {}, new_terrain_features: Array = []
 ) -> void:
 	snapshot = new_snapshot
 	terrain = new_terrain
+	terrain_features = new_terrain_features.duplicate()
 	terrain_theme = new_theme
 	surroundings = new_surroundings.duplicate(true)
 	_update_surrounding_background()
@@ -510,6 +514,7 @@ func _rebuild_terrain() -> void:
 	_terrain_root.queue_free()
 	_terrain_root = Node3D.new()
 	_world.add_child(_terrain_root)
+	_detect_cluster_landmarks()
 	var width := int(snapshot.width)
 	var height := int(snapshot.height)
 	var depth := _surrounding_depth()
@@ -539,12 +544,97 @@ func _rebuild_terrain() -> void:
 			var kind := int(terrain[index]) if index < terrain.size() else 9
 			if kind == 255:
 				kind = 9
-			if _create_authored_tile(x, y, kind):
+			if not _landmark_cells.has(Vector2i(x, y)) and _create_authored_tile(x, y, kind):
 				continue
 			if String(profile_config.get("terrainRenderer", render_profile)) == "voxel":
 				_build_voxel_tile(x, y, kind)
 			else:
 				_build_diorama_tile(x, y, kind)
+	_build_cluster_landmarks()
+
+
+func _detect_cluster_landmarks() -> void:
+	_landmark_cells.clear()
+	_landmark_anchors.clear()
+	var width := int(snapshot.get("width", 0))
+	var height := int(snapshot.get("height", 0))
+	for y in range(maxi(0, height - 1)):
+		for x in range(maxi(0, width - 1)):
+			var anchor := Vector2i(x, y)
+			if _landmark_cells.has(anchor):
+				continue
+			var cells := [
+				anchor, Vector2i(x + 1, y),
+				Vector2i(x, y + 1), Vector2i(x + 1, y + 1),
+			]
+			var complete := true
+			var anchor_index := y * width + x
+			var landmark_kind := (
+				str(terrain_features[anchor_index])
+				if anchor_index < terrain_features.size() else ""
+			)
+			if landmark_kind not in ["village_house", "ancient_grove"]:
+				continue
+			for cell: Vector2i in cells:
+				var index := cell.y * width + cell.x
+				if (
+					index >= terrain.size() or index >= terrain_features.size()
+					or int(terrain[index]) != 3
+					or str(terrain_features[index]) != landmark_kind
+					or _landmark_cells.has(cell)
+				):
+					complete = false
+					break
+			if not complete:
+				continue
+			_landmark_anchors[anchor] = landmark_kind
+			for cell: Vector2i in cells:
+				_landmark_cells[cell] = landmark_kind
+
+
+func _build_cluster_landmarks() -> void:
+	for anchor_value: Variant in _landmark_anchors:
+		var anchor: Vector2i = anchor_value
+		if str(_landmark_anchors[anchor]) == "ancient_grove":
+			_build_ancient_grove(anchor)
+		else:
+			_build_village_house(anchor)
+
+
+func _landmark_centre(anchor: Vector2i) -> Vector3:
+	return (_cell_position(anchor.x, anchor.y) + _cell_position(anchor.x + 1, anchor.y + 1)) * 0.5
+
+
+func _build_village_house(anchor: Vector2i) -> void:
+	var centre := _landmark_centre(anchor)
+	var timber := _material("house_timber", _palette("houseTimber", Color("6e4933")), 0.96)
+	var plaster := _material("house_plaster", _palette("housePlaster", Color("d6bd8e")), 0.92)
+	var roof := _material("house_roof", _palette("houseRoof", Color("7f342d")), 0.96)
+	var dark := _material("house_opening", _palette("houseOpening", Color("251c1a")), 1.0)
+	_box(_terrain_root, centre + Vector3(0, 0.48, 0), Vector3(1.68, 0.78, 1.68), plaster)
+	for x_offset in [-0.76, 0.76]:
+		_box(_terrain_root, centre + Vector3(x_offset, 0.50, 0), Vector3(0.10, 0.84, 1.72), timber)
+	for z_offset in [-0.76, 0.76]:
+		_box(_terrain_root, centre + Vector3(0, 0.50, z_offset), Vector3(1.72, 0.84, 0.10), timber)
+	var left_roof := _box(
+		_terrain_root, centre + Vector3(-0.43, 1.08, 0),
+		Vector3(1.12, 0.12, 1.94), roof
+	)
+	left_roof.rotation_degrees.z = 28.0
+	var right_roof := _box(
+		_terrain_root, centre + Vector3(0.43, 1.08, 0),
+		Vector3(1.12, 0.12, 1.94), roof
+	)
+	right_roof.rotation_degrees.z = -28.0
+	_box(_terrain_root, centre + Vector3(0.36, 0.38, 0.86), Vector3(0.38, 0.58, 0.035), dark)
+	_box(_terrain_root, centre + Vector3(-0.38, 0.58, 0.86), Vector3(0.30, 0.28, 0.035), dark)
+
+
+func _build_ancient_grove(anchor: Vector2i) -> void:
+	var centre := _landmark_centre(anchor)
+	_tree(centre + Vector3(-0.30, 0.10, 0.16), 1.45, render_profile == "voxel")
+	_tree(centre + Vector3(0.34, 0.10, -0.24), 1.16, render_profile == "voxel")
+	_tree(centre + Vector3(0.40, 0.10, 0.42), 0.88, render_profile == "voxel")
 
 
 func _surrounding_depth() -> int:
@@ -585,6 +675,8 @@ func _update_surrounding_background() -> void:
 
 
 func _build_diorama_tile(x: int, y: int, kind: int) -> void:
+	if _landmark_cells.has(Vector2i(x, y)):
+		kind = 2 if str(_landmark_cells[Vector2i(x, y)]) == "ancient_grove" else 9
 	var centre := _cell_position(x, y)
 	_box(_terrain_root, centre + Vector3(0, -0.12, 0), Vector3(0.97, 0.22, 0.97), _material("edge", _palette("edge", Color("182733")), 0.92))
 	var colour := _terrain_colour(kind)
@@ -619,6 +711,8 @@ func _build_diorama_tile(x: int, y: int, kind: int) -> void:
 
 
 func _build_voxel_tile(x: int, y: int, kind: int) -> void:
+	if _landmark_cells.has(Vector2i(x, y)):
+		kind = 2 if str(_landmark_cells[Vector2i(x, y)]) == "ancient_grove" else 9
 	var centre := _cell_position(x, y)
 	_box(_terrain_root, centre + Vector3(0, -0.14, 0), Vector3(0.94, 0.26, 0.94), _material("voxel_edge", _palette("edge", Color("17232d")), 1.0))
 	var top := 0.10
@@ -715,6 +809,16 @@ func _create_unit(unit: Dictionary, target: Vector3) -> void:
 	else:
 		_create_sprite_figure(root, unit, id)
 	var sprite_config: Dictionary = profile_config.get("sprite", {})
+	if int(unit.get("archetype", -1)) == 5:
+		# A shared gold base marks commanders while their authored faction
+		# colour remains untouched on the figure itself.
+		var command_material := _material(
+			"commander_marker", Color("f4cc62"), 0.38, true
+		)
+		_cylinder(
+			root, Vector3(0, 0.012, 0), 0.36, 0.018,
+			command_material, 32, Vector3(1.0, 1.0, 0.70)
+		)
 	var shadow_colour := Color(0.01, 0.02, 0.025, float(sprite_config.get("shadowOpacity", 0.46)))
 	var shadow := _material("shadow", shadow_colour, 1.0, true)
 	_cylinder(root, Vector3(0, 0.015, 0), float(sprite_config.get("shadowRadius", 0.27)), 0.025, shadow, 24, Vector3(1.0, 1.0, 0.66))

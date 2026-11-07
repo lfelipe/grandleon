@@ -14,6 +14,7 @@ const ATTACK_TINT := Color(1.0, 0.25, 0.31, 0.38)
 var art = ArtLibrary.new()
 var snapshot: Dictionary = {}
 var terrain: Array = []
+var terrain_features: Array = []
 var surroundings: Dictionary = {}
 var theme := 0
 var profile_config: Dictionary = {}
@@ -55,9 +56,10 @@ func set_camera_impulse_enabled(value: bool) -> void:
 
 func configure(
 	new_snapshot: Dictionary, new_terrain: Array, new_theme: int,
-	new_surroundings: Dictionary = {}
+	new_surroundings: Dictionary = {}, new_terrain_features: Array = []
 ) -> void:
 	terrain = new_terrain
+	terrain_features = new_terrain_features.duplicate()
 	theme = new_theme
 	surroundings = new_surroundings.duplicate(true)
 	update_snapshot(new_snapshot)
@@ -247,6 +249,7 @@ func _draw() -> void:
 	_draw_board_shadow()
 	_draw_surrounding_terrain()
 	_draw_terrain()
+	_draw_cluster_landmarks()
 	_draw_selected_tiles()
 	_draw_units()
 	_draw_combat_effects()
@@ -425,6 +428,60 @@ func _draw_terrain() -> void:
 			_draw_terrain_cell(x, y, kind, mask)
 
 
+func _draw_cluster_landmarks() -> void:
+	var width := int(snapshot.width)
+	var height := int(snapshot.height)
+	var occupied: Dictionary = {}
+	for y in range(maxi(0, height - 1)):
+		for x in range(maxi(0, width - 1)):
+			var cells := [
+				Vector2i(x, y), Vector2i(x + 1, y),
+				Vector2i(x, y + 1), Vector2i(x + 1, y + 1),
+			]
+			var complete := true
+			var anchor_index := y * width + x
+			var landmark_kind := (
+				str(terrain_features[anchor_index])
+				if anchor_index < terrain_features.size() else ""
+			)
+			if landmark_kind not in ["village_house", "ancient_grove"]:
+				continue
+			for cell: Vector2i in cells:
+				var index := cell.y * width + cell.x
+				if (
+					occupied.has(cell) or index >= terrain_features.size()
+					or int(terrain[index]) != 3
+					or str(terrain_features[index]) != landmark_kind
+				):
+					complete = false
+					break
+			if not complete:
+				continue
+			for cell: Vector2i in cells:
+				occupied[cell] = true
+			var bounds := Rect2(
+				origin + Vector2(x, y) * tile_size,
+				Vector2(tile_size * 2.0, tile_size * 2.0)
+			).grow(-tile_size * 0.08)
+			if landmark_kind == "ancient_grove":
+				var trunk := bounds.get_center() + Vector2(0, tile_size * 0.18)
+				draw_rect(Rect2(trunk - Vector2(tile_size * 0.15, tile_size * 0.55), Vector2(tile_size * 0.30, tile_size * 0.90)), Color("654733"), true)
+				draw_circle(bounds.get_center() + Vector2(0, -tile_size * 0.22), tile_size * 0.72, Color("28583c"))
+				draw_circle(bounds.get_center() + Vector2(-tile_size * 0.35, -tile_size * 0.08), tile_size * 0.46, Color("3f8151"))
+				draw_circle(bounds.get_center() + Vector2(tile_size * 0.38, -tile_size * 0.04), tile_size * 0.42, Color("5a9b5d"))
+			else:
+				draw_rect(bounds.grow(-tile_size * 0.16), Color("d6bd8e"), true)
+				var roof := PackedVector2Array([
+					bounds.position + Vector2(tile_size * 0.08, tile_size * 0.64),
+					bounds.position + Vector2(tile_size, tile_size * 0.08),
+					bounds.position + Vector2(tile_size * 1.92, tile_size * 0.64),
+					bounds.position + Vector2(tile_size * 1.70, tile_size),
+					bounds.position + Vector2(tile_size * 0.30, tile_size),
+				])
+				draw_colored_polygon(roof, Color("7f342d"))
+				draw_rect(Rect2(bounds.get_center() + Vector2(tile_size * 0.26, tile_size * 0.12), Vector2(tile_size * 0.34, tile_size * 0.58)), Color("251c1a"), true)
+
+
 func _draw_terrain_cell(x: int, y: int, kind: int, mask: int) -> void:
 	var variant := art.terrain_variant(mask)
 	var source := Rect2(
@@ -547,6 +604,20 @@ func _draw_units() -> void:
 		)
 		var sprite_dimensions := Vector2(cell_size) * scale
 		var sprite_size := maxf(sprite_dimensions.x, sprite_dimensions.y)
+		if int(unit.get("archetype", -1)) == 5:
+			# Keep the faction colour on the character itself. A gold command ring
+			# makes leaders immediately findable without making them look like a
+			# third team.
+			draw_arc(
+				centre + Vector2(0, tile_size * 0.28), tile_size * 0.31,
+				0.0, TAU, 32, Color("f4cc62"), maxf(2.0, tile_size * 0.045), true
+			)
+			var pennant := PackedVector2Array([
+				centre + Vector2(-tile_size * 0.10, -tile_size * 0.42),
+				centre + Vector2(tile_size * 0.10, -tile_size * 0.42),
+				centre + Vector2(0, -tile_size * 0.27),
+			])
+			draw_colored_polygon(pennant, Color("f4cc62"))
 		# Soft layered shadows make units sit on the board without changing art.
 		draw_circle(centre + Vector2(0, tile_size * 0.31), tile_size * 0.27, Color(0.01, 0.02, 0.025, 0.24))
 		draw_circle(centre + Vector2(0, tile_size * 0.30), tile_size * 0.18, Color(0.01, 0.02, 0.025, 0.32))

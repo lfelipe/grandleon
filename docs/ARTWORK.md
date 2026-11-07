@@ -206,6 +206,23 @@ the character sources live in
 and the terrain scenes live in
 [`platform/godot/project/art/terrain`](../platform/godot/project/art/terrain).
 
+### Large map-feature prototypes
+
+The first village and deep-forest landmarks are preserved as transparent
+source renders: a 2×2 timber-and-stone house and a 2×2 ancient-tree cluster.
+They are not ordinary one-cell terrain. Steel and Cedar now authors each as an
+explicit four-cell blocked footprint, and Godot groups that footprint into one
+procedural building or natural mass that follows the scene lighting.
+
+[Review the source renders and their intended footprints](../platform/godot/project/art/map_features/README.md).
+
+The transparent renders are visual references, not the current in-game
+textures. The map editor recognizes and labels existing footprints, but still
+needs a one-action landmark stamp. Nintendo 64 and PlayStation currently keep
+the correct blocked cells and use their mountain fallback until dedicated
+structure art is ready. The castle-gate draft was deliberately not committed
+because its alpha retained a dark halo.
+
 ## The full portable library
 
 The portable pixel-art generator contains 672 standing character assets: eight
