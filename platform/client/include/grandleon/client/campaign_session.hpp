@@ -206,6 +206,23 @@ struct SlotFailure final {
     return nullptr;
 }
 
+// Replaces explicit campaign-member tokens in player-facing authored text.
+//
+// The portable spelling is `{{member:source_member_id}}`, where the id is the
+// same source key the campaign roster authors. The key is hashed through the
+// normal stable-content identity and matched to `placement_source_key`; no
+// display-name comparison or unit-type guess is made. An unknown member, an
+// empty key, a malformed/unclosed token, or an empty effective name remains
+// byte-for-byte visible so a content mistake cannot silently eat prose.
+//
+// Callers localize authored text and authored default names before calling
+// this. Player-supplied names already in `RosterEntry::name` are literals and
+// must never be sent through a translation lookup.
+[[nodiscard]] std::string substitute_campaign_member_names(
+    std::string_view authored_text,
+    const std::vector<RosterEntry>& roster
+);
+
 // One Stage of a campaign, as a picker offers it.
 //
 // A Stage is an encounter node: a board somebody fights. A story node is not

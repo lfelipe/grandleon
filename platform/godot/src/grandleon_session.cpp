@@ -86,6 +86,17 @@ const char* outcome_name(sim::Outcome outcome) {
     return "unknown";
 }
 
+const char* objective_kind_name(sim::ObjectiveKind kind) {
+    switch (kind) {
+        case sim::ObjectiveKind::defeat_all_opponents:
+            return "defeat_all_opponents";
+        case sim::ObjectiveKind::defeat_target: return "defeat_target";
+        case sim::ObjectiveKind::protect_target: return "protect_target";
+        case sim::ObjectiveKind::survive_rounds: return "survive_rounds";
+    }
+    return "unknown";
+}
+
 const char* turn_order_name(sim::TurnOrder order) {
     switch (order) {
         case sim::TurnOrder::alternating: return "alternating";
@@ -433,9 +444,13 @@ void AsyncPresenter::campaign_begun(
     std::string_view slot,
     bool resumed
 ) {
-    static_cast<void>(roster);
     static_cast<void>(store);
     static_cast<void>(slot);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        campaign_roster_ = roster;
+        campaign_board_.reset();
+    }
     FrontendEvent event;
     event.kind = FrontendEvent::Kind::campaign_begun;
     event.resumed = resumed;
@@ -450,19 +465,36 @@ void AsyncPresenter::slot_refused(const client::SlotFailure& failure) {
 }
 
 void AsyncPresenter::board_prepared(const client::CampaignBoard& board) {
-    static_cast<void>(board);
+    std::lock_guard<std::mutex> lock(mutex_);
+    campaign_board_ = board;
+    campaign_roster_ = board.roster;
 }
 
 void AsyncPresenter::battle_aftermath(
     const client::BattleAftermath& aftermath
 ) {
-    static_cast<void>(aftermath);
+    std::lock_guard<std::mutex> lock(mutex_);
+    campaign_roster_ = aftermath.roster;
+    campaign_board_.reset();
 }
 
 void AsyncPresenter::members_joined(
     const std::vector<client::RosterEntry>& joined
 ) {
-    static_cast<void>(joined);
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const client::RosterEntry& member : joined) {
+        const auto present = std::find_if(
+            campaign_roster_.begin(), campaign_roster_.end(),
+            [&member](const client::RosterEntry& candidate) {
+                return candidate.member == member.member;
+            }
+        );
+        if (present == campaign_roster_.end()) {
+            campaign_roster_.push_back(member);
+        } else {
+            *present = member;
+        }
+    }
 }
 
 void AsyncPresenter::campaign_saved(
@@ -515,6 +547,7 @@ client::ManagementIntent AsyncPresenter::next_management_intent(
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (stopping_) return {client::ManagementVerb::quit};
+        campaign_roster_ = company.roster;
         management_intent_.reset();
         awaiting_management_ = true;
     }
@@ -612,6 +645,8 @@ void AsyncPresenter::stop() {
         stopping_ = true;
         intents_.clear();
         management_intent_.reset();
+        campaign_roster_.clear();
+        campaign_board_.reset();
         awaiting_management_ = false;
         active_motion_.reset();
     }
@@ -620,7 +655,10 @@ void AsyncPresenter::stop() {
 
 void AsyncPresenter::push(FrontendEvent event) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!stopping_) events_.push_back(std::move(event));
+    if (stopping_) return;
+    event.campaign_roster = campaign_roster_;
+    event.campaign_board = campaign_board_;
+    events_.push_back(std::move(event));
 }
 
 std::deque<FrontendEvent> AsyncPresenter::take_events() {
@@ -1246,9 +1284,32 @@ bool GrandleonSession::submit_player_name(
     return presenter_->submit_management(std::move(intent));
 }
 
-gd::Dictionary GrandleonSession::snapshot_dictionary(
-    const sim::EncounterSnapshot& snapshot
+std::vector<client::RosterEntry> GrandleonSession::localized_roster(
+    const std::vector<client::RosterEntry>& roster
 ) const {
+    std::vector<client::RosterEntry> result = roster;
+    for (client::RosterEntry& member : result) {
+        if (member.has_player_name) continue;
+        const std::string_view authored = member.authored_name.empty()
+                                              ? std::string_view{member.name}
+                                              : std::string_view{
+                                                    member.authored_name
+                                                };
+        member.name = pr::localized_campaign_member_name(
+            package_, language_, campaign_id_, member.placement_source_key,
+            authored
+        );
+    }
+    return result;
+}
+
+gd::Dictionary GrandleonSession::snapshot_dictionary(
+    const sim::EncounterSnapshot& snapshot,
+    const std::vector<client::RosterEntry>& roster,
+    const std::optional<client::CampaignBoard>& board
+) const {
+    const std::vector<client::RosterEntry> display_roster =
+        localized_roster(roster);
     gd::Dictionary result;
     result["width"] = snapshot.width;
     result["height"] = snapshot.height;
@@ -1284,16 +1345,31 @@ gd::Dictionary GrandleonSession::snapshot_dictionary(
         row["on_board"] = sim::on_board(unit);
         row["minimum_reach"] = unit.minimum_reach;
         row["maximum_reach"] = unit.maximum_reach;
-        const std::string_view name = pr::content_name(
-            package_, pf::SectionType::unit_types, unit.unit_type_id
-        );
-        row["name"] = name.empty()
-                          ? gd::String("Unit")
-                          : text(pr::localized_content_name(
-                                package_, language_,
-                                pf::SectionType::unit_types,
-                                unit.unit_type_id, name
-                            ));
+        const char* member_name =
+            board.has_value()
+                ? client::member_name_on_board(
+                      board->binding, display_roster, unit.id
+                  )
+                : nullptr;
+        if (member_name != nullptr) {
+            row["name"] = text(member_name);
+            const campaign::PersistentEntityId persistent =
+                board->binding.persistent_of(
+                    campaign::BattleEntityId{unit.id}
+                );
+            row["member_id"] = signed_id(persistent.value);
+        } else {
+            const std::string_view name = pr::content_name(
+                package_, pf::SectionType::unit_types, unit.unit_type_id
+            );
+            row["name"] = name.empty()
+                              ? gd::String("Unit")
+                              : text(pr::localized_content_name(
+                                    package_, language_,
+                                    pf::SectionType::unit_types,
+                                    unit.unit_type_id, name
+                                ));
+        }
         row["colour"] = presentation_.colour_of_unit_type(unit.unit_type_id);
         row["archetype"] =
             presentation_.archetype_of_unit_type(unit.unit_type_id);
@@ -1436,6 +1512,8 @@ gd::Dictionary GrandleonSession::event_dictionary(
 
     switch (event.kind) {
         case FrontendEvent::Kind::dialogue: {
+            const std::vector<client::RosterEntry> display_roster =
+                localized_roster(event.campaign_roster);
             result["id"] = signed_id(event.dialogue.id);
             result["name"] = text(pr::localized_dialogue_name(
                 package_, language_, event.dialogue.id, event.dialogue.name
@@ -1446,14 +1524,26 @@ gd::Dictionary GrandleonSession::event_dictionary(
                  line_index < event.dialogue.lines.size(); ++line_index) {
                 const pr::DialogueLine& line = event.dialogue.lines[line_index];
                 gd::Dictionary value;
-                value["speaker"] = text(pr::localized_dialogue_line(
-                    package_, language_, event.dialogue.id, line_index,
-                    "speaker", line.speaker
-                ));
-                value["text"] = text(pr::localized_dialogue_line(
-                    package_, language_, event.dialogue.id, line_index,
-                    "text", line.text
-                ));
+                const std::string_view localized_speaker =
+                    pr::localized_dialogue_line(
+                        package_, language_, event.dialogue.id, line_index,
+                        "speaker", line.speaker
+                    );
+                const std::string_view localized_line =
+                    pr::localized_dialogue_line(
+                        package_, language_, event.dialogue.id, line_index,
+                        "text", line.text
+                    );
+                value["speaker"] = text(
+                    client::substitute_campaign_member_names(
+                        localized_speaker, display_roster
+                    )
+                );
+                value["text"] = text(
+                    client::substitute_campaign_member_names(
+                        localized_line, display_roster
+                    )
+                );
                 value["cast_entry"] = line.cast_entry;
                 if (const std::uint64_t* unit_type =
                         event.dialogue.speaker_unit_type(line)) {
@@ -1473,7 +1563,9 @@ gd::Dictionary GrandleonSession::event_dictionary(
             break;
         }
         case FrontendEvent::Kind::battle_begins: {
-            result["snapshot"] = snapshot_dictionary(event.snapshot);
+            result["snapshot"] = snapshot_dictionary(
+                event.snapshot, event.campaign_roster, event.campaign_board
+            );
             result["player_side"] = side_name(event.player_side);
             result["theme"] = presentation_.theme;
             gd::Array terrain;
@@ -1569,10 +1661,57 @@ gd::Dictionary GrandleonSession::event_dictionary(
                 items.push_back(value);
             }
             result["items"] = items;
+            const std::vector<client::RosterEntry> display_roster =
+                localized_roster(event.campaign_roster);
+            gd::Array objectives;
+            for (const sim::ObjectiveDefinition& objective : event.objectives) {
+                gd::Dictionary value;
+                value["id"] = signed_id(objective.id);
+                value["kind"] = objective_kind_name(objective.kind);
+                value["side"] = side_name(objective.side);
+                value["target_unit_id"] = signed_id(objective.target_unit_id);
+                value["round_count"] = static_cast<std::int64_t>(
+                    objective.round_count
+                );
+                const std::string_view source_name = pr::content_name(
+                    package_, pf::SectionType::objectives, objective.id
+                );
+                const std::string_view localized_name =
+                    pr::localized_content_name(
+                        package_, language_, pf::SectionType::objectives,
+                        objective.id, source_name
+                    );
+                value["name"] = text(
+                    client::substitute_campaign_member_names(
+                        localized_name, display_roster
+                    )
+                );
+                if (objective.target_unit_id != 0U &&
+                    event.campaign_board.has_value()) {
+                    const char* target_name = client::member_name_on_board(
+                        event.campaign_board->binding, display_roster,
+                        objective.target_unit_id
+                    );
+                    if (target_name != nullptr) {
+                        value["target_name"] = text(target_name);
+                        const campaign::PersistentEntityId persistent =
+                            event.campaign_board->binding.persistent_of(
+                                campaign::BattleEntityId{
+                                    objective.target_unit_id
+                                }
+                            );
+                        value["target_member_id"] = signed_id(persistent.value);
+                    }
+                }
+                objectives.push_back(value);
+            }
+            result["objectives"] = objectives;
             break;
         }
         case FrontendEvent::Kind::deployment_begins:
-            result["snapshot"] = snapshot_dictionary(event.snapshot);
+            result["snapshot"] = snapshot_dictionary(
+                event.snapshot, event.campaign_roster, event.campaign_board
+            );
             result["zone"] = positions_array(event.zone);
             break;
         case FrontendEvent::Kind::presentation: {
@@ -1606,7 +1745,9 @@ gd::Dictionary GrandleonSession::event_dictionary(
         }
         case FrontendEvent::Kind::snapshot:
         case FrontendEvent::Kind::battle_ended:
-            result["snapshot"] = snapshot_dictionary(event.snapshot);
+            result["snapshot"] = snapshot_dictionary(
+                event.snapshot, event.campaign_roster, event.campaign_board
+            );
             if (event.canonical_hash != 0) {
                 result["canonical_hash"] = signed_id(event.canonical_hash);
             }

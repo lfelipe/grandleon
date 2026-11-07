@@ -74,6 +74,55 @@ std::string trim_player_name(std::string value) {
 
 }  // namespace
 
+std::string substitute_campaign_member_names(
+    std::string_view authored_text,
+    const std::vector<RosterEntry>& roster
+) {
+    constexpr std::string_view opening = "{{member:";
+    constexpr std::string_view closing = "}}";
+    std::string result;
+    std::size_t cursor = 0;
+    while (cursor < authored_text.size()) {
+        const std::size_t begin = authored_text.find(opening, cursor);
+        if (begin == std::string_view::npos) {
+            result.append(authored_text.substr(cursor));
+            break;
+        }
+        result.append(authored_text.substr(cursor, begin - cursor));
+        const std::size_t key_begin = begin + opening.size();
+        const std::size_t end = authored_text.find(closing, key_begin);
+        if (end == std::string_view::npos) {
+            result.append(authored_text.substr(begin));
+            break;
+        }
+        const std::string_view key = authored_text.substr(
+            key_begin, end - key_begin
+        );
+        const RosterEntry* member = nullptr;
+        if (!key.empty()) {
+            const std::uint64_t source_key = core::stable_content_id_v1(key);
+            const auto found = std::find_if(
+                roster.begin(), roster.end(),
+                [source_key](const RosterEntry& candidate) {
+                    return candidate.placement_source_key == source_key;
+                }
+            );
+            if (found != roster.end() && !found->name.empty()) {
+                member = &*found;
+            }
+        }
+        if (member != nullptr) {
+            result.append(member->name);
+        } else {
+            result.append(authored_text.substr(
+                begin, end + closing.size() - begin
+            ));
+        }
+        cursor = end + closing.size();
+    }
+    return result;
+}
+
 std::string_view campaign_session_error_name(
     CampaignSessionError error
 ) noexcept {

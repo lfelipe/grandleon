@@ -66,6 +66,12 @@ struct FrontendEvent final {
     simulation::ContentId action_content_id{};
     package_runtime::Dialogue dialogue;
     client::CompanyManagement company;
+    // Campaign presentation context captured when the event is queued. A
+    // dialogue/objective token can therefore resolve against the exact roster
+    // at that point, and a board unit can use the campaign's published join
+    // rather than guessing from its class or display text.
+    std::vector<client::RosterEntry> campaign_roster;
+    std::optional<client::CampaignBoard> campaign_board;
     simulation::Side player_side{simulation::Side::first};
     std::uint64_t canonical_hash{};
     std::int64_t request_id{};
@@ -178,6 +184,8 @@ private:
     simulation::ContentId active_action_content_id_{};
     std::optional<MotionPresentation> active_motion_;
     std::optional<client::ManagementIntent> management_intent_;
+    std::vector<client::RosterEntry> campaign_roster_;
+    std::optional<client::CampaignBoard> campaign_board_;
     bool awaiting_management_{false};
     bool stopping_{false};
 };
@@ -252,7 +260,12 @@ private:
         const FrontendEvent& event
     ) const;
     [[nodiscard]] ::godot::Dictionary snapshot_dictionary(
-        const simulation::EncounterSnapshot& snapshot
+        const simulation::EncounterSnapshot& snapshot,
+        const std::vector<client::RosterEntry>& roster,
+        const std::optional<client::CampaignBoard>& board
+    ) const;
+    [[nodiscard]] std::vector<client::RosterEntry> localized_roster(
+        const std::vector<client::RosterEntry>& roster
     ) const;
     [[nodiscard]] ::godot::Dictionary management_dictionary(
         const client::CompanyManagement& company

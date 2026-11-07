@@ -266,6 +266,20 @@ void the_company_is_managed_between_battles() {
             opening.roster[1].authored_name == "Outrider Bevan",
         "while a member the author kept fixed carries no rename permission"
     );
+    expect(
+        client::substitute_campaign_member_names(
+            "Hold, {{member:muster_vanguard}}.", opening.roster
+        ) == "Hold, Vanguard Rilla.",
+        "an explicit source-member token resolves to the effective default"
+    );
+    expect(
+        client::substitute_campaign_member_names(
+            "{{member:missing}} / {{member:}} / {{member:muster_vanguard",
+            opening.roster
+        ) ==
+            "{{member:missing}} / {{member:}} / {{member:muster_vanguard",
+        "unknown, empty, and malformed tokens stay visibly authored"
+    );
 
     // 1a. A chosen name is its own saved literal, separate from the authored
     //     default. The session is the permission boundary: a front end cannot
@@ -302,6 +316,15 @@ void the_company_is_managed_between_battles() {
         named.name == "Luzia" && named.authored_name == "Vanguard Rilla" &&
             named.has_player_name && named.player_nameable,
         "the effective literal changes without replacing its authored default"
+    );
+    expect(
+        client::substitute_campaign_member_names(
+            "{{member:muster_vanguard}}, ride with "
+            "{{member:muster_outrider}}.",
+            session.roster()
+        ) == "Luzia, ride with Outrider Bevan.",
+        "the same identity token carries the custom literal without "
+        "translating it"
     );
     const campaign::CampaignState after_name =
         state_in_slot(package, device, "management");
@@ -557,6 +580,21 @@ void the_company_is_managed_between_battles() {
             crossing.board.roster.front().authored_name == "Vanguard Rilla",
         "the prepared player payload carries the effective name and its "
         "separate authored fallback"
+    );
+    const char* const bound_vanguard = client::member_name_on_board(
+        crossing.board.binding, crossing.board.roster,
+        crossing.board.binding.battle_of(vanguard).value
+    );
+    expect(
+        bound_vanguard != nullptr &&
+            std::string_view{bound_vanguard} == "Luzia" &&
+            client::member_name_on_board(
+                crossing.board.binding, crossing.board.roster,
+                core::stable_content_id_v1(
+                    "muster_road/river_skirmish/muster_picket"
+                )
+            ) == nullptr,
+        "the exact board binding names the campaign member and never an enemy"
     );
     const client::BattleReport battle = fight_the_crossing(crossing.encounter, package);
     expect(
