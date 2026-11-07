@@ -817,11 +817,21 @@ gd::Dictionary GrandleonSession::package_languages(
     const std::vector<std::string_view> languages =
         pr::available_languages(loaded.package);
     gd::Array values;
+    gd::Dictionary titles;
+    const std::string_view source_title = pr::content_name(
+        loaded.package, pf::SectionType::manifest,
+        pf::manifest_title_record_id
+    );
     for (const std::string_view language : languages) {
         values.push_back(text(language));
+        titles[text(language)] = text(pr::localized_project_title(
+            loaded.package, language, source_title
+        ));
     }
     result["ok"] = true;
     result["source"] = text(pr::source_language(loaded.package));
+    result["title"] = text(source_title);
+    result["titles"] = titles;
     result["languages"] = values;
     return result;
 }
@@ -1359,16 +1369,25 @@ gd::Dictionary GrandleonSession::snapshot_dictionary(
                 );
             row["member_id"] = signed_id(persistent.value);
         } else {
-            const std::string_view name = pr::content_name(
-                package_, pf::SectionType::unit_types, unit.unit_type_id
+            const std::string_view placement_name = pr::content_name(
+                package_, pf::SectionType::placement_names, unit.id
             );
-            row["name"] = name.empty()
-                              ? gd::String("Unit")
-                              : text(pr::localized_content_name(
-                                    package_, language_,
-                                    pf::SectionType::unit_types,
-                                    unit.unit_type_id, name
-                                ));
+            if (!placement_name.empty()) {
+                row["name"] = text(pr::localized_placement_name(
+                    package_, language_, unit.id, placement_name
+                ));
+            } else {
+                const std::string_view name = pr::content_name(
+                    package_, pf::SectionType::unit_types, unit.unit_type_id
+                );
+                row["name"] = name.empty()
+                                  ? gd::String("Unit")
+                                  : text(pr::localized_content_name(
+                                        package_, language_,
+                                        pf::SectionType::unit_types,
+                                        unit.unit_type_id, name
+                                    ));
+            }
         }
         row["colour"] = presentation_.colour_of_unit_type(unit.unit_type_id);
         row["archetype"] =
@@ -1677,9 +1696,8 @@ gd::Dictionary GrandleonSession::event_dictionary(
                     package_, pf::SectionType::objectives, objective.id
                 );
                 const std::string_view localized_name =
-                    pr::localized_content_name(
-                        package_, language_, pf::SectionType::objectives,
-                        objective.id, source_name
+                    pr::localized_objective_name(
+                        package_, language_, objective.id, source_name
                     );
                 value["name"] = text(
                     client::substitute_campaign_member_names(
@@ -1701,6 +1719,20 @@ gd::Dictionary GrandleonSession::event_dictionary(
                                 }
                             );
                         value["target_member_id"] = signed_id(persistent.value);
+                    } else {
+                        const std::string_view placement_name =
+                            pr::content_name(
+                                package_, pf::SectionType::placement_names,
+                                objective.target_unit_id
+                            );
+                        if (!placement_name.empty()) {
+                            value["target_name"] = text(
+                                pr::localized_placement_name(
+                                    package_, language_,
+                                    objective.target_unit_id, placement_name
+                                )
+                            );
+                        }
                     }
                 }
                 objectives.push_back(value);

@@ -20,13 +20,20 @@ func _run() -> void:
 	var source := FileAccess.get_file_as_string(
 		"res://content/templates/starter_campaign.json"
 	)
+	source = source.replace(
+		'                "id": "raider_north",\n                "unitTypeId": "raider",',
+		'                "id": "raider_north",\n                "name": "Warden Kesh",\n                "unitTypeId": "raider",'
+	)
 	var catalogs := [{
 		"language": "pt-BR",
 		"entries": [
+			{"id": "project.title", "source": "New Adventure", "text": "Nova Aventura"},
 			{"id": "campaigns.first_adventure.name", "source": "First Adventure", "text": "Primeira Aventura"},
 			{"id": "campaigns.first_adventure.nodes.first_battle.name", "source": "Hold the Crossing", "text": "Defenda a Travessia"},
 			{"id": "campaigns.first_adventure.members.aren.name", "source": "Aren", "text": "Aren da Ponte"},
 			{"id": "unit_types.first_hero.name", "source": "First Hero", "text": "Primeiro Herói"},
+			{"id": "objectives.defeat_all_opponents.name", "source": "Defeat all opponents", "text": "Derrote todos os oponentes"},
+			{"id": "campaigns.first_adventure.nodes.first_battle.placements.raider_north.name", "source": "Warden Kesh", "text": "Guardião Kesh"},
 			{"id": "dialogues.first_steps_dialogue.name", "source": "First Steps", "text": "Primeiros Passos"},
 			{"id": "dialogues.first_steps_dialogue.lines.0.speaker", "source": "Aren", "text": "Aren da Ponte"},
 			{"id": "dialogues.first_steps_dialogue.lines.0.text", "source": "The road was quiet when we left home. I was hoping it would stay that way.", "text": "A estrada estava tranquila quando saímos de casa. Eu esperava que continuasse assim."},
@@ -48,6 +55,12 @@ func _run() -> void:
 	_expect("language inspection accepts the package", language_info.ok, true)
 	_expect("source language remains explicit", language_info.source, "en")
 	_expect("source and Portuguese are offered", language_info.languages, ["en", "pt-BR"])
+	_expect("source project title is inspectable", language_info.title, "New Adventure")
+	_expect(
+		"translated project title is inspectable before launch",
+		str(language_info.titles["pt-BR"]),
+		"Nova Aventura"
+	)
 	var player = load("res://scripts/main.gd").new()
 	player.campaign_key = "first_adventure"
 	player.player_count = 1
@@ -85,6 +98,7 @@ func _run() -> void:
 	var saw_campaign := false
 	var saw_dialogue := false
 	var saw_company := false
+	var saw_definitions := false
 	var saw_battle := false
 	for _frame: int in 360:
 		await process_frame
@@ -121,21 +135,37 @@ func _run() -> void:
 							_expect("stage name is localized", stage_value.name, "Defenda a Travessia")
 					if not session.submit_management("proceed"):
 						_fail("fixed company could not proceed")
+				"definitions":
+					saw_definitions = true
+					var localized_objective_found := false
+					for objective_value: Variant in event.get("objectives", []):
+						if str(objective_value.get("name", "")) == "Derrote todos os oponentes":
+							localized_objective_found = true
+					_expect("objective label is localized", localized_objective_found, true)
 				"battle_begins":
 					saw_battle = true
 					var units: Array = event.snapshot.units
-					var localized_unit_found := false
+					var localized_member_found := false
+					var localized_placement_found := false
 					for unit_value: Variant in units:
-						if str(unit_value.get("name", "")) == "Primeiro Herói":
-							localized_unit_found = true
-					_expect("battle content name is localized", localized_unit_found, true)
-		if saw_campaign and saw_dialogue and saw_company and saw_battle:
+						if str(unit_value.get("name", "")) == "Aren da Ponte":
+							localized_member_found = true
+						if str(unit_value.get("name", "")) == "Guardião Kesh":
+							localized_placement_found = true
+					_expect(
+						"localized campaign member outranks its unit type on the board",
+						localized_member_found,
+						true
+					)
+					_expect("named battle placement is localized", localized_placement_found, true)
+		if saw_campaign and saw_dialogue and saw_company and saw_definitions and saw_battle:
 			break
 	session.stop()
 	context.free()
 	_expect("campaign event reached the player", saw_campaign, true)
 	_expect("dialogue event reached the player", saw_dialogue, true)
 	_expect("company event reached the player", saw_company, true)
+	_expect("definition event reached the player", saw_definitions, true)
 	_expect("battle event reached the player", saw_battle, true)
 
 	if failures == 0:
