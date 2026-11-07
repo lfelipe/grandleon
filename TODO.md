@@ -322,7 +322,7 @@ than reproduce those implementation details.
 - [x] Let an author mark specific characters as player-nameable while requiring
   a normal authored default. The translated default appears until the player
   chooses another name and remains the safe fallback when naming is skipped.
-- [ ] Carry the chosen name through dialogue and objective substitutions,
+- [x] Carry the chosen name through dialogue and objective substitutions,
   rosters, saves, campaign continuation, co-op views, and every export target.
   Player-entered names are never sent for translation; validate length, glyphs,
   duplicate-name clarity, and each platform's text-entry limitations.
@@ -332,8 +332,10 @@ than reproduce those implementation details.
   - [x] Apply chosen names to exact Godot battle units and explicit dialogue or
     objective member tokens, and warn clearly about duplicate company names
     without forbidding a deliberate duplicate.
-  - [ ] Add controller-driven player name entry on Nintendo 64 and PlayStation,
-    with clear limits for each console font and input method.
+  - [x] Add controller-driven player name entry on Nintendo 64 and PlayStation,
+    with an explicit 18-glyph shared-console limit, authored-default reset,
+    Cancel-without-writing, fixed-name exclusion, and no repeated prompt when a
+    save is continued.
 
 ## Cinematic battle presentation
 

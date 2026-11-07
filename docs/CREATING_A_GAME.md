@@ -136,9 +136,15 @@ name is allowed but called out clearly.
 
 To use that choice in dialogue or an objective label, write an explicit member
 token such as `{{member:aren}}`, using the character's internal campaign ID.
-Godot replaces it with the translated default or the player's literal choice;
-an unknown or malformed token stays visible so an authoring mistake is easy to
-find. Console name entry is still being completed.
+Each player replaces it with the authored default or the player's literal
+choice; an unknown or malformed token stays visible so an authoring mistake is
+easy to find.
+
+Nintendo 64 and PlayStation show a compact controller keyboard only for a
+character the author marked nameable. It accepts up to 18 shared-font glyphs,
+can restore the authored default, and can be cancelled without changing the
+save. Fixed-name characters and continued games do not show that new-game
+prompt.
 
 Keep roles and gear small at first; add new choices when a chapter gives the
 player a reason to use them.
