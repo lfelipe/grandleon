@@ -2,7 +2,7 @@
 extends SceneTree
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
-const EXPECTED_COVERAGE := 7
+const EXPECTED_COVERAGE := 23
 const EXPECTED_SIZE := Vector2(1772, 886)
 
 var failures := 0
@@ -61,6 +61,39 @@ func _init() -> void:
 		_expect("%s runtime mask" % key, north.team_mask_path, binding.directionalSheet.teamMaskPath)
 		_expect("%s runtime team colour" % key, north.team_colour, "red")
 		_expect("%s front/back does not mirror" % key, north.directional_flip, false)
+
+	var uncovered_key := "commander|*|scifi|first"
+	var uncovered: Dictionary = bindings[uncovered_key]
+	var uncovered_unit := {
+		"archetype": ArtLibrary.ARCHETYPE_NAMES.find("commander"),
+		"colour": 1,
+		"style": ArtLibrary.STYLE_NAMES.find("scifi"),
+		"figure": 0,
+	}
+	var fallback: Dictionary = art.character_frame(
+		uncovered_unit, "move", 0.15, "north"
+	)
+	_expect("uncovered north keeps base source", fallback.path, uncovered.path)
+	_expect("uncovered north keeps base walk timing", fallback.frame, 3)
+	_expect(
+		"uncovered north keeps base mask",
+		fallback.team_mask_path, uncovered.teamMaskPath
+	)
+	_expect("uncovered north keeps base mirroring", fallback.directional_flip, true)
+
+	var covered_key := "commander|*|medieval|second"
+	var covered: Dictionary = bindings[covered_key]
+	var covered_unit := {
+		"archetype": ArtLibrary.ARCHETYPE_NAMES.find("commander"),
+		"colour": 1,
+		"style": ArtLibrary.STYLE_NAMES.find("medieval"),
+		"figure": 1,
+	}
+	var attack: Dictionary = art.character_frame(
+		covered_unit, "attack", 0.0, "north"
+	)
+	_expect("covered attack keeps action source", attack.path, covered.path)
+	_expect("covered attack keeps action cell", attack.frame, 4)
 
 	if failures == 0:
 		print("directional art ResourceLoader smoke passed")

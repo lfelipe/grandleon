@@ -14,10 +14,10 @@ pivot at `(0.5, 0.94)`. The adjacent `*_team_mask.png` is mandatory. East and
 west continue to use the original right-facing walk and its mirror, so combat
 and side silhouettes do not change.
 
-## First production set
+## Production coverage
 
-The first slice deliberately spans every visual style and several roles and
-body types rather than pretending the whole 112-body roster is complete:
+The first slice deliberately spanned every visual style and several roles and
+body types:
 
 - medieval knight male
 - sci-fi knight female
@@ -27,17 +27,25 @@ body types rather than pretending the whole 112-body roster is complete:
 - undead healer male
 - pirates rogue female
 
+Directional batches A and B add another sixteen identities, bringing actual
+coverage to 23 of 112 curated bodies. Their exact identity keys, reference
+files, generation anchors, and accepted follow-up edits are recorded in
+`DIRECTIONAL_ART_BATCH_A.md` and `DIRECTIONAL_ART_BATCH_B.md`. The remaining 89
+bodies still use the documented side-view fallback.
+
 The explicit bindings live in `content/graphics_profiles.json`. Missing
 directional art falls back independently to the ordinary side walk.
 
 ## Generation record
 
-These seven sheets were produced on 2026-11-07 with the OpenAI image generator
-available through Codex, using each existing `*_hd.png` combat sheet as the
-visual reference. The service response did not expose an immutable model
-version, so recording a guessed model name here would make later reproduction
-less reliable. The durable inputs are the committed reference image, this
-prompt contract, and the deterministic normalization command.
+The first seven sheets were produced on 2026-11-07 with the OpenAI image
+generator available through Codex, using each existing `*_hd.png` combat sheet
+as the visual reference. Batches A and B used the same service and contract;
+their per-identity provenance is linked above. The service response did not
+expose an immutable model version, so recording a guessed model name here would
+make later reproduction less reliable. The durable inputs are the committed
+reference image, this prompt contract, the batch records, and the deterministic
+normalization command.
 
 Common prompt contract:
 

@@ -11,12 +11,12 @@ right-facing view. The renderers use that view for eastward travel and mirror
 it for westward travel. This costs no additional texture memory and keeps the
 current character ROM, RDRAM/VRAM and frame budgets unchanged.
 
-Seven representative bodies now have a separate authored 4×2 directional
-sheet: genuine north idle/walk on the top row and genuine south idle/walk on
-the bottom row. They span all seven styles. The matching team mask and explicit
+Twenty-three bodies now have a separate authored 4×2 directional sheet:
+genuine north idle/walk on the top row and genuine south idle/walk on the
+bottom row. They span all seven styles. The matching team mask and explicit
 `directionalSheet` profile binding keep the same faction-colour workflow.
 Godot uses these views on vertical route legs and falls back to the side walk
-for the remaining 105 bodies. The compact-console generator reports which
+for the remaining 89 bodies. The compact-console generator reports which
 project drawings have source coverage and their projected CI4 cost; console
 runtime integration remains deliberately disabled until more roster coverage
 and a renderer-specific visual/performance gate are ready.
@@ -27,10 +27,10 @@ Run the focused source audit with:
 python3 platform/console_art/check-directional-art.py
 ```
 
-The current seven-body projection is 58,240 bytes per platform: four 64×64 CI4
+The current 23-body projection is 191,360 bytes per platform: four 64×64 CI4
 frames per body, including one 32-byte palette per frame. That is source/ROM
 payload, not persistent TMEM/VRAM; a later renderer can stream into the current
-character slot. The complete 112-body projection would be 931,840 bytes, so
+character slot. The complete 112-body projection remains 931,840 bytes, so
 project-specific selection remains important. The generator records coverage
 and projected bytes in the N64 manifest and PS1 header without changing either
 production renderer or its current executable budget.

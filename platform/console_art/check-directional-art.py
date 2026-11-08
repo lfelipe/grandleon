@@ -19,13 +19,29 @@ EXPECTED_SHEET_SIZE = (1772, 886)
 EXPECTED_MOVE_FRAMES = [2, 3]
 DIRECTIONAL_WALK_FRAMES = {"north": [2, 3], "south": [6, 7]}
 DIRECTIONAL_COVERAGE = {
-    "knight|*|medieval|first",
-    "knight|*|scifi|second",
-    "mage|*|mythical|second",
-    "beast|*|nature|first",
+    "archer|*|medieval|first",
+    "archer|*|sengoku|first",
     "archer|*|sengoku|second",
+    "archer|*|undead|second",
+    "beast|*|nature|first",
+    "beast|*|nature|second",
+    "beast|*|scifi|first",
+    "commander|*|medieval|second",
+    "healer|*|mythical|first",
     "healer|*|undead|first",
+    "healer|*|undead|second",
+    "knight|*|medieval|first",
+    "knight|*|medieval|second",
+    "knight|*|scifi|first",
+    "knight|*|scifi|second",
+    "knight|*|sengoku|first",
+    "mage|*|medieval|second",
+    "mage|*|mythical|first",
+    "mage|*|mythical|second",
+    "rogue|*|nature|second",
+    "rogue|*|pirates|first",
     "rogue|*|pirates|second",
+    "stormcaller|*|pirates|first",
 }
 CI4_FRAME_BYTES = 64 * 64 // 2 + 16 * 2
 
@@ -138,6 +154,7 @@ def main() -> int:
         fail("one or more walk cells is horizontally symmetric and cannot show a turn")
 
     console_bytes = len(DIRECTIONAL_COVERAGE) * 4 * CI4_FRAME_BYTES
+    full_console_bytes = EXPECTED_BINDINGS * 4 * CI4_FRAME_BYTES
     print(
         "directional art audit passed: "
         f"{len(inspected_sources)} bodies, {asymmetric_move_frames} asymmetric "
@@ -149,6 +166,7 @@ def main() -> int:
         f"Godot PNG {directional_source_bytes + directional_mask_bytes} bytes "
         f"({directional_source_bytes} source + {directional_mask_bytes} masks); "
         f"console CI4 projection {console_bytes} bytes/platform, "
+        f"full roster {full_console_bytes} bytes/platform, "
         f"{CI4_FRAME_BYTES} bytes/frame including palette"
     )
     return 0

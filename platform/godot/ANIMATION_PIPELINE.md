@@ -82,20 +82,21 @@ changing simulation behavior.
 
 The base 4×2 sprite sheets contain action phases, not compass views. Godot
 mirrors their right-facing walk against east/west route travel; both compact
-consoles do the same. Seven representative bodies—one per style—now bind a
-separate 4×2 directional sheet with north idle/walk above south idle/walk and a
-matching team mask. The 2D and 3D Godot boards select it from the current
-authoritative route leg, never from predicted simulation state. Combat poses
-remain on the original action sheet. Every uncovered identity falls back to
-the existing side silhouette, so partial coverage is safe and visible.
+consoles do the same. Twenty-three bodies now bind a separate 4×2 directional
+sheet with north idle/walk above south idle/walk and a matching team mask. The
+2D and 3D Godot boards select it from the current authoritative route leg,
+never from predicted simulation state. Combat poses remain on the original
+action sheet. Every uncovered identity falls back to the existing side
+silhouette, so partial coverage is safe and visible.
 
 The source/profile audit is `platform/console_art/check-directional-art.py`.
-It currently reports 7/112 bodies and a 58,240-byte CI4 projection per compact
-platform. The console generator publishes that coverage and budget, but the
-N64 and PS1 production renderers stay unchanged until representative gameplay
-captures establish that partial compass coverage is worth enabling there.
-Generation provenance and the exact cell contract are in
-`project/art/characters/DIRECTIONAL_ART.md`.
+It currently reports 23/112 bodies and a 191,360-byte CI4 projection per
+compact platform; the full 112-body projection is 931,840 bytes. The console
+generator publishes project-specific coverage and budget, but the N64 and PS1
+production renderers stay unchanged until representative gameplay captures
+establish that partial compass coverage is worth enabling there. Generation
+provenance and the exact cell contract are in
+`project/art/characters/DIRECTIONAL_ART.md` and its batch records.
 
 ## Optional close attack view
 
