@@ -82,7 +82,7 @@ func _run() -> void:
 	_expect("real source resolves the exact keep footprint", state.bounds, KEEP_BOUNDS)
 	_expect("the real temperate route selects Medieval terrain", state.terrain_family, "medieval_temperate")
 	_expect("the keep begins closed", state.revealed, false)
-	_expect_true("the keep begins on its reviewed exterior", float(state.exterior_alpha) > 0.99)
+	_expect_true("the keep begins under its grounded roof", float(state.roof_alpha) > 0.99)
 	if boss_id != 0 and board._unit_sprites.has(boss_id):
 		_expect(
 			"the exterior hides the live boss inside",
@@ -120,8 +120,8 @@ func _run() -> void:
 			await _capture(frames_dir.path_join("twin-gate-%03d.png" % frame))
 	state = board.castle_presentation_state()
 	_expect("the rendered threshold crossing reveals the room", state.revealed, true)
-	_expect_true("the exterior finishes dissolved", float(state.exterior_alpha) < 0.01)
-	_expect_true("the matching room finishes visible", float(state.cutaway_alpha) > 0.99)
+	_expect_true("the roof finishes dissolved", float(state.roof_alpha) < 0.01)
+	_expect_true("the live room finishes visible", float(state.interior_visibility) > 0.99)
 	_expect("the reveal leaves the tactical camera untouched", board._camera.transform, camera_transform)
 	_expect("the reveal leaves the board untouched", board._terrain_root.position, board_position)
 	_expect("the reveal leaves the entering unit on its path", rowan.position, room_position)
@@ -151,7 +151,7 @@ func _run() -> void:
 	)
 	state = board.castle_presentation_state()
 	_expect("a featureless map receives no castle", state.valid_footprint, false)
-	_expect("a featureless map receives no castle layer", state.exterior_alpha, -1.0)
+	_expect("a featureless map receives no castle roof", state.roof_alpha, -1.0)
 	board.queue_free()
 	await process_frame
 	if failures == 0:

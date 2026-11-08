@@ -487,10 +487,18 @@ func _test_castle_reveal(board) -> void:
 	}
 	board.configure(outside, kinds, 0, {}, features)
 	_expect("the castle keeps its exact six-cell footprint", board._castle_bounds, Rect2i(2, 0, 6, 6))
-	_expect_true("the castle starts with its exterior visible", board._castle_exterior != null and board.castle_presentation_state().exterior_alpha > 0.99)
-	_expect_true("the hidden room uses a matching dedicated cutaway", board._castle_cutaway != null and str(board._castle_cutaway.get_meta("landmark_asset")).contains("cutaway"))
-	_expect("the matched states use blendable alpha", board._castle_exterior.alpha_cut, SpriteBase3D.ALPHA_CUT_DISABLED)
-	_expect_true("one transition material owns both matched states", board._castle_exterior.material_override is ShaderMaterial and not board._castle_cutaway.visible)
+	_expect_true(
+		"the castle starts under a grounded roof",
+		board._castle_roof != null
+			and board.castle_presentation_state().roof_alpha > 0.99
+			and board._castle_roof.get_meta("grounded_bounds") == Rect2i(2, 0, 6, 6)
+	)
+	_expect_true(
+		"the roof owns one blendable material",
+		board._castle_roof_material is StandardMaterial3D
+			and board._castle_roof_material.transparency
+				== BaseMaterial3D.TRANSPARENCY_ALPHA
+	)
 	var inside := outside.duplicate(true)
 	inside.units[0].x = 2
 	inside.units[0].y = 2
@@ -505,7 +513,11 @@ func _test_castle_reveal(board) -> void:
 	_expect("crossing the rendered doorway arms its reveal", board._castle_reveal_target, 1.0)
 	board._update_castle_reveal(0.35)
 	var reveal_state: Dictionary = board.castle_presentation_state()
-	_expect_true("the keep dissolves smoothly instead of popping", reveal_state.exterior_alpha < 1.0 and reveal_state.exterior_alpha > 0.0 and reveal_state.cutaway_alpha > 0.0)
+	_expect_true(
+		"the keep roof dissolves smoothly instead of popping",
+		reveal_state.roof_alpha < 1.0 and reveal_state.roof_alpha > 0.0
+			and reveal_state.interior_visibility > 0.0
+	)
 	_expect("the reveal does not move the camera", board._camera.transform, camera_transform)
 	_expect("the reveal does not move the board", board._terrain_root.position, terrain_position)
 	_expect("the reveal does not move the entering unit", rowan.position, entered_position)
@@ -515,8 +527,8 @@ func _test_castle_reveal(board) -> void:
 	var malformed: Array = features.duplicate()
 	malformed[2] = ""
 	board.configure(outside, kinds, 0, {}, malformed)
-	_expect("a partial keep receives no misleading cutout", board._castle_bounds, Rect2i())
-	_expect_true("a partial keep creates no exterior layer", board._castle_exterior == null)
+	_expect("a partial keep receives no misleading roof", board._castle_bounds, Rect2i())
+	_expect_true("a partial keep creates no roof layer", board._castle_roof == null)
 
 
 func _snapshot(target_health: int) -> Dictionary:

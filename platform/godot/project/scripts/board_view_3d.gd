@@ -25,10 +25,6 @@ const MEDIEVAL_HOUSE_TEXTURES := [
 const MEDIEVAL_HOUSE_PIXEL_SIZE := 0.00320
 const MEDIEVAL_HOUSE_CENTRE_HEIGHT := 0.79
 const ANCIENT_GROVE_TEXTURE := "res://art/map_features/ancient_tree_cluster_2x2.png"
-const CASTLE_EXTERIOR_TEXTURE := "res://art/map_features/medieval_castle_keep_exterior.png"
-const CASTLE_CUTAWAY_TEXTURE := "res://art/map_features/medieval_castle_keep_cutaway.png"
-const CASTLE_PIXEL_SIZE := 0.00530
-const CASTLE_CENTRE_HEIGHT := 2.38
 const STEEL_AND_CEDAR_MAP_IDS := [
 	"935b03cf7490233c", # Bell Orchard
 	"a6b11e9ea987638a", # Cedar Deepwood
@@ -92,8 +88,8 @@ var _unit_flash_colours: Dictionary = {}
 var _landmark_cells: Dictionary = {}
 var _landmark_anchors: Dictionary = {}
 var _castle_bounds := Rect2i()
-var _castle_exterior: Sprite3D
-var _castle_cutaway: Sprite3D
+var _castle_roof: Node3D
+var _castle_roof_material: StandardMaterial3D
 var _castle_reveal_progress := 0.0
 var _castle_reveal_target := 0.0
 var _castle_revealed := false
@@ -741,8 +737,8 @@ func _build_cluster_landmarks() -> void:
 
 func _detect_castle_landmark() -> void:
 	_castle_bounds = Rect2i()
-	_castle_exterior = null
-	_castle_cutaway = null
+	_castle_roof = null
+	_castle_roof_material = null
 	_castle_reveal_progress = 0.0
 	_castle_reveal_target = 0.0
 	_castle_revealed = false
@@ -791,80 +787,55 @@ func _castle_footprint_matches(bounds: Rect2i) -> bool:
 func _build_castle_landmark() -> void:
 	if _castle_bounds.size == Vector2i.ZERO:
 		return
-	if not ResourceLoader.exists(CASTLE_EXTERIOR_TEXTURE) or not ResourceLoader.exists(CASTLE_CUTAWAY_TEXTURE):
-		return
-	var exterior_resource: Resource = load(CASTLE_EXTERIOR_TEXTURE)
-	var cutaway_resource: Resource = load(CASTLE_CUTAWAY_TEXTURE)
-	if not exterior_resource is Texture2D or not cutaway_resource is Texture2D:
-		return
-	var first := _cell_position(_castle_bounds.position.x, _castle_bounds.position.y)
-	var last_cell := _castle_bounds.end - Vector2i.ONE
-	var last := _cell_position(last_cell.x, last_cell.y)
-	var centre := (first + last) * 0.5 + Vector3(0, CASTLE_CENTRE_HEIGHT, 0)
-	_castle_exterior = _castle_sprite(
-		exterior_resource as Texture2D, centre, CASTLE_EXTERIOR_TEXTURE, "exterior"
+	# The keep is part of the board, not a billboard hovering over it. Its wall,
+	# doorway, floor and dais geometry are built by the authored cells below.
+	# This grounded roof only occludes the four-by-four room until an allied unit
+	# crosses a doorway, then fades away like local fog of war.
+	var room_min := _castle_bounds.position + Vector2i.ONE
+	var room_max := _castle_bounds.end - Vector2i(2, 2)
+	var first := _cell_position(room_min.x, room_min.y)
+	var last := _cell_position(room_max.x, room_max.y)
+	var centre := (first + last) * 0.5
+	_castle_roof = Node3D.new()
+	_castle_roof.position = centre
+	_castle_roof.set_meta("landmark_style", "medieval_castle_roof")
+	_castle_roof.set_meta("castle_layer", "roof")
+	_castle_roof.set_meta("grounded_bounds", _castle_bounds)
+	_terrain_root.add_child(_castle_roof)
+	_castle_roof_material = StandardMaterial3D.new()
+	_castle_roof_material.albedo_color = Color("5d332d")
+	_castle_roof_material.roughness = 0.92
+	_castle_roof_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_castle_roof_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# Two shallow planes meet at a raised ridge. Their eaves rest on the wall
+	# tops, so the closed state reads as a roofed keep rather than a floating
+	# opaque plate. Every piece shares one fade material.
+	var left_plane := _box(
+		_castle_roof, Vector3(-1.0, 1.20, 0), Vector3(2.12, 0.14, 4.08),
+		_castle_roof_material
 	)
-	_castle_cutaway = _castle_sprite(
-		cutaway_resource as Texture2D, centre, CASTLE_CUTAWAY_TEXTURE, "cutaway"
+	left_plane.rotation.z = 0.25
+	var right_plane := _box(
+		_castle_roof, Vector3(1.0, 1.20, 0), Vector3(2.12, 0.14, 4.08),
+		_castle_roof_material
 	)
-	# One shader-owned plane blends the reviewed, pixel-aligned states. Two
-	# transparent billboards at the same pose can z-fight on software and older
-	# drivers, producing an alternating or banded transition.
-	_castle_exterior.material_override = _castle_transition_material(
-		exterior_resource as Texture2D, cutaway_resource as Texture2D
+	right_plane.rotation.z = -0.25
+	for z_offset in [-1.55, -0.78, 0.0, 0.78, 1.55]:
+		var left_row := _box(
+			_castle_roof, Vector3(-1.0, 1.25, float(z_offset)),
+			Vector3(2.08, 0.055, 0.065), _castle_roof_material
+		)
+		left_row.rotation.z = 0.25
+		var right_row := _box(
+			_castle_roof, Vector3(1.0, 1.25, float(z_offset)),
+			Vector3(2.08, 0.055, 0.065), _castle_roof_material
+		)
+		right_row.rotation.z = -0.25
+	_box(
+		_castle_roof, Vector3(0, 1.47, 0), Vector3(0.18, 0.18, 4.16),
+		_castle_roof_material
 	)
-	_castle_cutaway.visible = false
 	_update_castle_reveal_target()
-
-
-func _castle_sprite(texture: Texture2D, centre: Vector3, path: String, layer: String) -> Sprite3D:
-	var sprite := Sprite3D.new()
-	sprite.texture = texture
-	sprite.position = centre
-	sprite.pixel_size = CASTLE_PIXEL_SIZE
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	# The paired states cross-fade in one shader-owned plane. Alpha cutout would
-	# turn the transition into disappearing bands at the discard threshold.
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
-	sprite.shaded = false
-	sprite.double_sided = true
-	sprite.set_meta("landmark_style", "medieval_castle")
-	sprite.set_meta("landmark_asset", path)
-	sprite.set_meta("castle_layer", layer)
-	_terrain_root.add_child(sprite)
-	return sprite
-
-
-func _castle_transition_material(exterior: Texture2D, cutaway: Texture2D) -> ShaderMaterial:
-	var shader := Shader.new()
-	shader.code = """
-shader_type spatial;
-render_mode unshaded, cull_disabled, depth_prepass_alpha;
-uniform sampler2D exterior_texture : source_color, filter_linear_mipmap;
-uniform sampler2D cutaway_texture : source_color, filter_linear_mipmap;
-uniform float reveal : hint_range(0.0, 1.0) = 0.0;
-void vertex() {
-	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
-		INV_VIEW_MATRIX[0],
-		INV_VIEW_MATRIX[1],
-		INV_VIEW_MATRIX[2],
-		MODEL_MATRIX[3]
-	);
-}
-void fragment() {
-	vec4 closed = texture(exterior_texture, UV);
-	vec4 open = texture(cutaway_texture, UV);
-	vec4 combined = mix(closed, open, reveal);
-	ALBEDO = combined.rgb;
-	ALPHA = combined.a;
-}
-"""
-	var material := ShaderMaterial.new()
-	material.shader = shader
-	material.set_shader_parameter("exterior_texture", exterior)
-	material.set_shader_parameter("cutaway_texture", cutaway)
-	material.set_shader_parameter("reveal", 0.0)
-	return material
 
 
 func _update_castle_reveal_target() -> void:
@@ -893,25 +864,23 @@ func _update_castle_reveal_target() -> void:
 
 
 func _update_castle_reveal(delta: float) -> void:
-	if _castle_exterior == null or _castle_cutaway == null:
+	if _castle_roof == null or _castle_roof_material == null:
 		return
 	_castle_reveal_progress = move_toward(
 		_castle_reveal_progress, _castle_reveal_target, delta * 1.8
 	)
 	var eased := smoothstep(0.0, 1.0, _castle_reveal_progress)
-	var material := _castle_exterior.material_override as ShaderMaterial
-	if material != null:
-		material.set_shader_parameter("reveal", eased)
-	_castle_exterior.set_meta("castle_reveal", _castle_reveal_progress)
-	_castle_cutaway.set_meta("castle_reveal", _castle_reveal_progress)
+	var roof_colour := _castle_roof_material.albedo_color
+	roof_colour.a = 1.0 - eased
+	_castle_roof_material.albedo_color = roof_colour
+	_castle_roof.visible = roof_colour.a > 0.01
+	_castle_roof.set_meta("castle_reveal", _castle_reveal_progress)
 
 
 func _update_castle_unit_presentation() -> void:
-	# The exterior and cutaway are a matched billboard pair. Units standing in
-	# the chamber must be hidden behind the closed shell, then drawn over the
-	# revealed floor so the live roster—not figures baked into the art—occupies
-	# the room. This changes only transparency/depth order, never simulation or
-	# any unit transform.
+	# Units in the room stay hidden under its closed roof, then become visible on
+	# the live castle floor as the roof fades. This changes presentation only;
+	# simulation coordinates and movement remain authoritative.
 	var width := int(snapshot.get("width", 0))
 	for id: Variant in _unit_nodes:
 		var alpha := 1.0
@@ -942,6 +911,7 @@ func _update_castle_unit_presentation() -> void:
 
 
 func castle_presentation_state() -> Dictionary:
+	var reveal := smoothstep(0.0, 1.0, _castle_reveal_progress)
 	return {
 		"bounds": _castle_bounds,
 		"valid_footprint": _castle_bounds.size == Vector2i(6, 6),
@@ -949,8 +919,8 @@ func castle_presentation_state() -> Dictionary:
 		"terrain_family": "medieval_temperate" if _uses_medieval_campaign_terrain() else "default",
 		"target": _castle_reveal_target,
 		"progress": _castle_reveal_progress,
-		"exterior_alpha": 1.0 - smoothstep(0.0, 1.0, _castle_reveal_progress) if _castle_exterior != null else -1.0,
-		"cutaway_alpha": smoothstep(0.0, 1.0, _castle_reveal_progress) if _castle_cutaway != null else -1.0,
+		"roof_alpha": 1.0 - reveal if _castle_roof != null else -1.0,
+		"interior_visibility": reveal if _castle_roof != null else -1.0,
 	}
 
 
@@ -1254,7 +1224,25 @@ func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
 	var index := y * width + x
 	var feature := str(terrain_features[index]) if index >= 0 and index < terrain_features.size() else ""
 	if feature.begins_with("castle_"):
+		_build_medieval_castle_cell(cell, feature, top, variation)
 		return
+	# These identities are authored landmarks with unchanged walkability. Keep
+	# the props edge-weighted or overhead so they explain the place without
+	# pretending that a portable passable cell is blocked.
+	match feature:
+		"orchard_tree":
+			_build_medieval_orchard_tree(cell, top, variation)
+			return
+		"orchard_bell":
+			if _terrain_feature_at(x - 1, y) != "orchard_bell":
+				_build_medieval_orchard_bell(cell, top)
+			return
+		"signal_beacon":
+			_build_medieval_signal_beacon(cell, top, variation)
+			return
+		"watch_ruin":
+			_build_medieval_watch_ruin(cell, top, x, y, variation)
+			return
 	match kind:
 		2:
 			var trunk := _material("medieval_campaign_trunk", Color("59402d"), 1.0)
@@ -1293,6 +1281,168 @@ func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
 			var bamboo := _material("medieval_campaign_bamboo", Color("557742"), 0.92)
 			for offset: Vector3 in [Vector3(-0.18, top + 0.28, 0.12), Vector3(0.14, top + 0.34, -0.12), Vector3(0.24, top + 0.24, 0.18)]:
 				_cylinder(cell, offset, 0.035, (offset.y - top) * 2.0, bamboo, 7)
+
+
+func _terrain_feature_at(x: int, y: int) -> String:
+	var width := int(snapshot.get("width", 0))
+	var height := int(snapshot.get("height", 0))
+	if x < 0 or y < 0 or x >= width or y >= height:
+		return ""
+	var index := y * width + x
+	return str(terrain_features[index]) if index < terrain_features.size() else ""
+
+
+func _medieval_landmark(parent: Node3D, style: String) -> Node3D:
+	var landmark := Node3D.new()
+	landmark.set_meta("landmark_style", style)
+	parent.add_child(landmark)
+	return landmark
+
+
+func _build_medieval_castle_cell(
+	parent: Node3D, feature: String, top: float, variation: int
+) -> void:
+	var stone := _material("medieval_castle_stone", Color("756c60"), 0.94)
+	var stone_light := _material(
+		"medieval_castle_stone_light", Color("928575"), 0.92
+	)
+	var stone_dark := _material(
+		"medieval_castle_stone_dark", Color("4d4b48"), 0.96
+	)
+	var floor_inlay := _material(
+		"medieval_castle_floor_inlay", Color("64615b"), 0.96
+	)
+	match feature:
+		"castle_wall":
+			parent.set_meta("landmark_style", "medieval_castle_wall")
+			_box(
+				parent, Vector3(0, top + 0.36, 0), Vector3(0.94, 0.72, 0.94),
+				stone
+			)
+			# Alternating corner merlons keep the wall silhouette legible without
+			# turning every cell into an excessively noisy miniature tower.
+			var corners := [
+				Vector3(-0.34, top + 0.81, -0.34),
+				Vector3(0.34, top + 0.81, 0.34),
+			]
+			if variation % 2 != 0:
+				corners = [
+					Vector3(0.34, top + 0.81, -0.34),
+					Vector3(-0.34, top + 0.81, 0.34),
+				]
+			for corner: Vector3 in corners:
+				_box(parent, corner, Vector3(0.20, 0.20, 0.20), stone_light)
+		"castle_door":
+			parent.set_meta("landmark_style", "medieval_castle_door")
+			# The two west-facing cells form one broad gate. Posts stay at the cell
+			# edges so the live unit can visibly cross the playable centre.
+			for z_offset in [-0.38, 0.38]:
+				_box(
+					parent, Vector3(0, top + 0.39, float(z_offset)),
+					Vector3(0.26, 0.78, 0.18), stone
+				)
+			_box(
+				parent, Vector3(0, top + 0.80, 0), Vector3(0.26, 0.18, 0.94),
+				stone_light
+			)
+			_box(
+				parent, Vector3(0, top + 0.015, 0), Vector3(0.78, 0.03, 0.76),
+				stone_dark
+			)
+		"castle_dais":
+			parent.set_meta("landmark_style", "medieval_castle_interior")
+			_box(
+				parent, Vector3(0, top + 0.10, 0), Vector3(0.84, 0.20, 0.84),
+				stone_light
+			)
+			_box(
+				parent, Vector3(-0.26, top + 0.215, 0),
+				Vector3(0.12, 0.03, 0.72), floor_inlay
+			)
+		"castle_floor":
+			parent.set_meta("landmark_style", "medieval_castle_interior")
+			var line_offset := -0.22 if variation % 2 == 0 else 0.22
+			_box(
+				parent, Vector3(line_offset, top + 0.012, 0),
+				Vector3(0.025, 0.018, 0.82), floor_inlay
+			)
+
+
+func _build_medieval_orchard_tree(parent: Node3D, top: float, variation: int) -> void:
+	var tree := _medieval_landmark(parent, "orchard_tree")
+	var offsets := [
+		Vector3(-0.20, 0, 0.14), Vector3(0.18, 0, -0.17),
+		Vector3(-0.17, 0, -0.18), Vector3(0.20, 0, 0.16),
+	]
+	var offset: Vector3 = offsets[variation % offsets.size()]
+	var trunk := _material("medieval_orchard_trunk", Color("65452e"), 1.0)
+	var leaves := _material(
+		"medieval_orchard_leaves_%d" % (variation % 2),
+		Color("567a43") if variation % 2 == 0 else Color("607f47"), 0.96
+	)
+	var fruit := _material("medieval_orchard_fruit", Color("a55238"), 0.90)
+	_cylinder(tree, offset + Vector3(0, top + 0.23, 0), 0.055, 0.46, trunk, 8)
+	_sphere(tree, offset + Vector3(-0.07, top + 0.50, 0.02), Vector3(0.25, 0.20, 0.23), leaves)
+	_sphere(tree, offset + Vector3(0.12, top + 0.48, -0.06), Vector3(0.20, 0.17, 0.19), leaves)
+	_sphere(tree, offset + Vector3(-0.13, top + 0.49, -0.11), Vector3(0.026, 0.026, 0.026), fruit)
+	_sphere(tree, offset + Vector3(0.14, top + 0.45, 0.08), Vector3(0.022, 0.022, 0.022), fruit)
+
+
+func _build_medieval_orchard_bell(parent: Node3D, top: float) -> void:
+	var bell := _medieval_landmark(parent, "orchard_bell")
+	bell.position.x = 0.5
+	var timber := _material("medieval_orchard_bell_timber", Color("66452d"), 1.0)
+	var timber_light := _material("medieval_orchard_bell_beam", Color("825b39"), 0.98)
+	var stone := _material("medieval_orchard_bell_stone", Color("817869"), 1.0)
+	var bronze := _material("medieval_orchard_bell_bronze", Color("aa7537"), 0.74)
+	for post_x in [-0.39, 0.39]:
+		_box(bell, Vector3(post_x, top + 0.10, 0), Vector3(0.24, 0.16, 0.28), stone)
+		_box(bell, Vector3(post_x, top + 0.62, 0), Vector3(0.12, 0.94, 0.12), timber)
+	_box(bell, Vector3(0, top + 1.08, 0), Vector3(1.02, 0.14, 0.16), timber_light)
+	_box(bell, Vector3(0, top + 0.90, 0), Vector3(0.07, 0.28, 0.07), timber)
+	_cone(bell, Vector3(0, top + 0.76, 0), 0.17, 0.10, 0.25, bronze, 10)
+	_sphere(bell, Vector3(0, top + 0.61, 0), Vector3(0.045, 0.045, 0.045), bronze)
+
+
+func _build_medieval_signal_beacon(
+	parent: Node3D, top: float, variation: int
+) -> void:
+	var beacon := _medieval_landmark(parent, "signal_beacon")
+	var side := -1.0 if variation % 2 == 0 else 1.0
+	beacon.position = Vector3(0.22 * side, 0, -0.20 if variation % 3 == 0 else 0.18)
+	var stone := _material("medieval_signal_stone", Color("736d62"), 1.0)
+	var iron := _material("medieval_signal_iron", Color("393733"), 0.88)
+	var ember := _material("medieval_signal_ember", Color("d67b2f"), 0.40, false, true)
+	_box(beacon, Vector3(0, top + 0.07, 0), Vector3(0.30, 0.14, 0.30), stone)
+	for post: Vector3 in [Vector3(-0.09, top + 0.33, 0), Vector3(0.09, top + 0.33, 0)]:
+		_cylinder(beacon, post, 0.025, 0.52, iron, 7)
+	_cone(beacon, Vector3(0, top + 0.55, 0), 0.16, 0.11, 0.13, iron, 9)
+	_cone(beacon, Vector3(0, top + 0.72, 0), 0.10, 0.02, 0.30, ember, 8)
+	_sphere(beacon, Vector3(0.03, top + 0.67, 0), Vector3(0.08, 0.13, 0.07), ember)
+
+
+func _build_medieval_watch_ruin(
+	parent: Node3D, top: float, x: int, y: int, variation: int
+) -> void:
+	var ruin := _medieval_landmark(parent, "watch_ruin")
+	var stone := _material(
+		"medieval_watch_stone_%d" % (variation % 2),
+		Color("776f62") if variation % 2 == 0 else Color("847a6b"), 1.0
+	)
+	# The authored footprint is a broken ring around the command court. Lay the
+	# low masonry along that ring's outside edge, leaving each cell's centre open.
+	var horizontal := y in [3, 8]
+	var edge_offset := Vector3(0, 0, -0.34 if y == 3 else 0.34)
+	var dimensions := Vector3(0.78, 0.20 + float(variation % 2) * 0.08, 0.16)
+	if not horizontal:
+		edge_offset = Vector3(-0.34 if x == 5 else 0.34, 0, 0)
+		dimensions = Vector3(0.16, 0.20 + float(variation % 2) * 0.08, 0.78)
+	_box(ruin, edge_offset + Vector3(0, top + dimensions.y * 0.5, 0), dimensions, stone)
+	var fragment := _box(
+		ruin, edge_offset + Vector3(0.18 if horizontal else 0, top + dimensions.y + 0.06, 0.18 if not horizontal else 0),
+		Vector3(0.22, 0.12, 0.18), stone
+	)
+	fragment.rotation.y = 0.22 if variation % 2 == 0 else -0.22
 
 
 func _medieval_keep_surface_material(kind: int, variation: int) -> Material:

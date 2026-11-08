@@ -103,28 +103,31 @@ glow, or distant shadow.”
 
 ## Twin Gate Keep
 
-- `medieval_castle_keep_exterior.png` is the closed keep seen while the army
-  crosses the outer court.
-- `medieval_castle_keep_cutaway.png` keeps the same camera, scale and silhouette
-  but opens the double doors and exposes the stone throne room, columns, dais,
-  chair and torchlight.
 - Intended footprint: 6 × 6 cells. Eighteen wall cells are blocked; two door,
   fourteen chamber and two dais cells are paved and walkable.
-- Godot validates that complete footprint before adding the landmark. A live
-  allied unit crossing either door dissolves the exterior into the aligned
-  room on one shader-owned plane; the reveal latches open and never moves the
-  tactical board, camera, or unit. Units already inside are hidden by the
-  closed shell and restored over the revealed room.
+- Godot validates the complete footprint, then builds the walls, doorway,
+  chamber and dais on their real board cells. The closed room has a grounded
+  pitched roof rather than a large image floating over the map.
+- A live allied unit crossing either door fades the roof to reveal the room.
+  The reveal stays open and never moves the tactical board, camera, or unit.
+  Units already inside remain hidden until the room becomes visible.
 - The real Steel and Cedar route uses a muted Medieval terrain family across
   all five maps, with continuous world-space wear and stable cell variation so
-  the detailed keep is not surrounded by unrelated Relay art or a repeated
-  debug-tile texture. The exact route identity prevents this presentation from
-  leaking into other projects.
+  the keep is not surrounded by unrelated Relay art or a repeated debug-tile
+  texture. Exact route identity prevents this presentation from leaking into
+  other projects.
 
 Review the production-route
 [approach and reveal](../../../../../docs/screenshots/godot/twin-gate-keep-reveal.gif),
 [closed exterior](../../../../../docs/screenshots/godot/twin-gate-keep-exterior.png),
 and [walkable interior](../../../../../docs/screenshots/godot/twin-gate-keep-interior.png).
+
+### Reference plates
+
+`medieval_castle_keep_exterior.png` and
+`medieval_castle_keep_cutaway.png` are retained as visual references for a
+future close-up or conversation scene. They are not drawn over the tactical
+board.
 
 The pair was generated on 2026-11-07 with Codex's built-in OpenAI
 image-generation tool. The service did not expose a model-version identifier,

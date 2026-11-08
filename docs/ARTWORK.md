@@ -206,13 +206,14 @@ the character sources live in
 and the terrain scenes live in
 [`platform/godot/project/art/terrain`](../platform/godot/project/art/terrain).
 
-### Large map-feature prototypes
+### Larger map features
 
-The village, deep-forest and final-castle landmarks are preserved as transparent
-source renders: a four-building Medieval family, a 2×2 ancient-tree cluster,
-and matched exterior/cutaway states for the 6×6 Twin Gate Keep. They are not
+The village and deep-forest landmarks use transparent source renders: a
+four-building Medieval family and a 2×2 ancient-tree cluster. They are not
 ordinary one-cell terrain. Steel and Cedar authors exact tactical footprints,
 and Godot groups each footprint into one coherent structure or natural mass.
+Twin Gate Keep is different: its walls, doors, floor, dais and roof are built
+on their actual terrain cells so the interior can be revealed during play.
 
 [Review the source renders and their intended footprints](../platform/godot/project/art/map_features/README.md).
 
@@ -237,11 +238,11 @@ texture memory.
 
 Twin Gate Keep uses distinct terrain identities for blocked walls, passable
 double doors, the walkable throne-room floor and the boss dais. Godot initially
-draws the closed exterior; once a friendly unit enters a door or room cell, it
-dissolves to the aligned cutaway without moving the board, units, or camera.
-The accepted 1024×936 pair had alpha below 25% discarded to remove the earlier
-coloured fringe. The exact prompts, generation mode and cleanup are recorded
-with the source files so the art can be regenerated or deliberately revised.
+draws a grounded pitched roof over the room; once a friendly unit enters a door
+or room cell, that roof fades without moving the board, units, or camera. The
+older matched exterior and cutaway images remain documented as references for
+a future close-up or conversation scene, but they are not placed over the
+tactical board.
 
 ## The full portable library
 
