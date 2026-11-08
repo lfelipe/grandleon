@@ -101,11 +101,17 @@ roadmap work.
     names use each machine's own controller vocabulary.
   - [ ] Add compact non-controller icons only where a measured player test
     shows they communicate faster than the concise labels already in place.
-  - Improve console terrain in both tactical and close views: stronger
-    material identity, less repetitive tiles, cleaner neighbour transitions,
-    clustered scenery, elevation cues, and terrain-specific battle backdrops.
-    Preserve walkable-cell clarity and measure the memory and frame cost on
-    each console.
+  - [x] Improve console terrain in both tactical and close views with a first
+    deterministic composition pass: stronger material identity, stable
+    variants, cleaner neighbour transitions, clustered scenery, elevation
+    cues, and terrain-specific close-view composition. The shared rules cover
+    all 13 terrain kinds while preserving walkable-cell clarity. The N64 pass
+    adds no packaged texture payload; the PlayStation keeps its existing VRAM
+    allocation and remains inside its measured frame budget.
+  - [ ] Expand that runtime composition with richer reviewed texture and art
+    packs for the campaign's important terrain families. Keep the shared map
+    footprint and tactical readability authoritative, then recheck ROM, RAM,
+    VRAM, frame time, and original-style hardware for every new pack.
 
 ### Follow-up from 0.4 hardware review
 
