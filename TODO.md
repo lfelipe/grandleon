@@ -89,7 +89,7 @@ roadmap work.
   terrain depth and variety, camera composition, movement and attack
   animation, effects, UI clarity, close-up scenes, and measured performance on
   original-style hardware.
-  - [ ] Replace the current flat top-down tactical board with a depth-bearing
+  - [x] Replace the flat top-down tactical board with a depth-bearing
     production view on both consoles. Start from the proven isometric textured
     terrain, elevation faces, grounded shadows, and recognizable Godot-derived
     character cutouts; do not bring back the unrecognizable low-poly character
@@ -100,14 +100,20 @@ roadmap work.
       Godot-derived cutouts. Tarnholt's independent framebuffer probe and the
       normal Steel and Cedar campaign flow exercise this same path. The flat
       board, floating whole-castle art and their capture-only targets are gone.
-    - [ ] Complete and review the equivalent production replacement on
-      PlayStation before closing the cross-console item.
-  - [ ] Judge console graphics from the ordinary release artifact, driven from
+    - [x] PlayStation now uses the same production rule for Steel and Cedar,
+      Tarnholt, the demo, and arbitrary exports: textured diamond terrain,
+      elevation faces, diagonal depth order, smaller Godot-derived cutouts and
+      popup avoidance. The flat board and floating keep code, art, tests and
+      build targets are gone.
+  - [x] Judge console graphics from the ordinary release artifact, driven from
     title screen through save, story, real campaign movement, and combat. Record
     the reviewed ROM or disc hash and reject capture-only viewers as release
     evidence. Compare composition, material identity, unit silhouette, terrain
     depth, UI overlap, animation readability, and stable frame time against
-    representative tactical games on each machine.
+    representative tactical games on each machine. The accepted Steel and
+    Cedar ROM and disc were each driven through title, save, story and the real
+    board; the N64 autopilot and depth probe pass, while the PS1 turn, campaign,
+    resume, BIOS-disc and framebuffer gates pass inside their measured budgets.
   - [ ] Evaluate Pyrite/Tiny3D as the N64 production runtime, including the
     libdragon Preview toolchain, real-RSP emulator and hardware path, generated
     scene data, ROM/RAM/frame budgets, and the cost of hosting Grandleon's
