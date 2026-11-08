@@ -197,9 +197,11 @@ set +e
     --env "ARES_FILM_GRABBERS=${GRANDLEON_N64_ARES_FILM_GRABBERS:-6}" \
     --env "ARES_FILM_NAME=${GRANDLEON_N64_ARES_FILM:-film}" \
     --env "ARES_POLL_SECONDS=${GRANDLEON_N64_ARES_POLL_SECONDS:-1}" \
+    --env "ARES_INPUT_SEQUENCE=${GRANDLEON_N64_ARES_INPUT_SEQUENCE:-}" \
     "${save_mount[@]}" \
     --volume "${rom_dir}:/rom:ro" \
     --volume "${repository_root}/platform/nintendo64/ares/headless.sh:/headless.sh:ro" \
+    --volume "${repository_root}/platform/nintendo64/ares/send-x11-input.py:/send-x11-input.py:ro" \
     --volume "${out_dir}:/out" \
     --workdir /tmp \
     "${image}" \

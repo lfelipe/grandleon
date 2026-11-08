@@ -118,19 +118,48 @@ mkdir -p "${saves}"
 #                              the persistence check this is a mounted host
 #                              directory, so what one process writes the next
 #                              process finds.
+input_sequence="${ARES_INPUT_SEQUENCE:-}"
+input_settings=(--setting "Input/Driver=None")
+if [ -n "${input_sequence}" ]; then
+    # The review driver presses an ordinary external keyboard.  The ROM is the
+    # production artifact, with no autopilot or capture-only input compiled in.
+    # Bind a compact virtual pad here so the same sequence is reproducible in
+    # the otherwise headless X server.
+    input_settings=(
+        --setting "Input/Driver=Xlib"
+        --setting "Nintendo64/Input/Controller.Port.1=Gamepad"
+        --setting "VirtualPad1/Pad.Up=0x1/0/84"
+        --setting "VirtualPad1/Pad.Down=0x1/0/85"
+        --setting "VirtualPad1/Pad.Left=0x1/0/86"
+        --setting "VirtualPad1/Pad.Right=0x1/0/87"
+        --setting "VirtualPad1/A..South=0x1/0/89"
+        --setting "VirtualPad1/B..East=0x1/0/90"
+        --setting "VirtualPad1/X..West=0x1/0/88"
+        --setting "VirtualPad1/R-Trigger=0x1/0/95"
+        --setting "VirtualPad1/Start=0x1/0/15"
+    )
+fi
+
 start_epoch=$(date +%s)
 stdbuf -oL -eL ares \
     --system "Nintendo 64" \
     --no-file-prompt \
     --setting "Video/Driver=OpenGL 3.2" \
     --setting "Audio/Driver=None" \
-    --setting "Input/Driver=None" \
+    "${input_settings[@]}" \
     --setting "Input/Defocus=Allow" \
     --setting "General/HomebrewMode=true" \
     --setting "General/AutoSaveMemory=true" \
     --setting "Paths/Saves=${saves}/" \
     "${rom}" > "${log}" 2>&1 &
 ares_pid=$!
+
+input_pid=""
+if [ -n "${input_sequence}" ]; then
+    ARES_OUT_DIR="${out}" ARES_INPUT_SEQUENCE="${input_sequence}" \
+        python3 /send-x11-input.py > "${out}/input-sequence.log" 2>&1 &
+    input_pid=$!
+fi
 
 # Wait for the ROM's verdict. The banner line marks boot, the RESULT line
 # marks completion; both timestamps go to stdout for the wrapper to report.
@@ -247,6 +276,11 @@ fi
 
 kill "${ares_pid}" 2>/dev/null || true
 wait "${ares_pid}" 2>/dev/null || true
+[ -z "${input_pid}" ] || wait "${input_pid}" || {
+    echo "error: external controller sequence failed." >&2
+    cat "${out}/input-sequence.log" >&2 || true
+    exit 1
+}
 kill "${xvfb_pid}" 2>/dev/null || true
 
 if [ "${result}" -eq 0 ]; then
