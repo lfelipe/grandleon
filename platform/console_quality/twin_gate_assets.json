@@ -754,6 +754,258 @@
       "sha256": "c9c3f4243a57a419b47a1787aaa35bb469ed21c8d4ca0057d6ea29c59951d81f"
     }
   ],
+  "nintendo64BoardImage": {
+    "width": 96,
+    "height": 88
+  },
+  "nintendo64BoardTile": {
+    "width": 48,
+    "height": 32,
+    "count": 6,
+    "runtimeEncoding": "per-tile CI4, transparent index 0, local 16-entry palette"
+  },
+  "nintendo64BoardAssets": [
+    {
+      "state": "exterior",
+      "stateIndex": 0,
+      "row": 0,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/exterior_r0_c0.png",
+      "sha256": "4bebd3787afbae7b0d2c5aca6386dff1734f2a171e2fac33d7c25049e945813c"
+    },
+    {
+      "state": "exterior",
+      "stateIndex": 0,
+      "row": 0,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/exterior_r0_c1.png",
+      "sha256": "a8d303fd54b2e1659aeb46a1c8297435826b2ae4f6467594c128e7fd6ff3875c"
+    },
+    {
+      "state": "exterior",
+      "stateIndex": 0,
+      "row": 1,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/exterior_r1_c0.png",
+      "sha256": "52e775ef9df3c1fb195d7aaf952fdf5ac1ef5f72e93ddc165bb9410cb127b3e2"
+    },
+    {
+      "state": "exterior",
+      "stateIndex": 0,
+      "row": 1,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/exterior_r1_c1.png",
+      "sha256": "bdc508ef5dd52fce37db74c1cd0ee19133b13b388a69461d9e179d8905fc5767"
+    },
+    {
+      "state": "exterior",
+      "stateIndex": 0,
+      "row": 2,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/exterior_r2_c0.png",
+      "sha256": "fe6537888d53f47879177f3632ba584189d532bb87b3c0973500275344c4e122"
+    },
+    {
+      "state": "exterior",
+      "stateIndex": 0,
+      "row": 2,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/exterior_r2_c1.png",
+      "sha256": "15a5da166f853842dcb3ae56d2d313881cef344e33a7806c88bc67818f3e6794"
+    },
+    {
+      "state": "threshold_1",
+      "stateIndex": 1,
+      "row": 0,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_1_r0_c0.png",
+      "sha256": "789a844a0b189c331ad23cc13270a216840f452bc92a228cb9a864083e48778c"
+    },
+    {
+      "state": "threshold_1",
+      "stateIndex": 1,
+      "row": 0,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_1_r0_c1.png",
+      "sha256": "2d6736d2e13ddc2395105be379ff78a705aa234558cd58a5af36000d65817d93"
+    },
+    {
+      "state": "threshold_1",
+      "stateIndex": 1,
+      "row": 1,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_1_r1_c0.png",
+      "sha256": "2f867f26df34c33d20bb1e7f4513957904e6202bbdfe9a7b3867b13bb0129b7d"
+    },
+    {
+      "state": "threshold_1",
+      "stateIndex": 1,
+      "row": 1,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_1_r1_c1.png",
+      "sha256": "90727102a20b5fd60f7d11050ab89aa7363ec3eef9736cf882514c9d1ce1c868"
+    },
+    {
+      "state": "threshold_1",
+      "stateIndex": 1,
+      "row": 2,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_1_r2_c0.png",
+      "sha256": "a44014e33b1b62213dc0db13bf08062bb345ba25ec1d9bd6e55a30ffb3c57962"
+    },
+    {
+      "state": "threshold_1",
+      "stateIndex": 1,
+      "row": 2,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_1_r2_c1.png",
+      "sha256": "fbab89a80dc6ffc0d96af99aed669fe5babf24cbf0c7ce266689cb990e1b3371"
+    },
+    {
+      "state": "threshold_2",
+      "stateIndex": 2,
+      "row": 0,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_2_r0_c0.png",
+      "sha256": "95bdccb71cfbd4653d45787cddfc630e496b83f25d9a4dd63264d27b427426f5"
+    },
+    {
+      "state": "threshold_2",
+      "stateIndex": 2,
+      "row": 0,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_2_r0_c1.png",
+      "sha256": "bc5762b06cdc468b31c5af59472600dc68ede06fe12b47fd752d96f5576fe361"
+    },
+    {
+      "state": "threshold_2",
+      "stateIndex": 2,
+      "row": 1,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_2_r1_c0.png",
+      "sha256": "5ea4863bd10c8ccee2a3c81deb7c3fe657ac6f45d394d1c20060c1913f7a108b"
+    },
+    {
+      "state": "threshold_2",
+      "stateIndex": 2,
+      "row": 1,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_2_r1_c1.png",
+      "sha256": "6a3adc6efff35a441b130566d88e83fd5abfbc606c22ec154f970d8825904907"
+    },
+    {
+      "state": "threshold_2",
+      "stateIndex": 2,
+      "row": 2,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_2_r2_c0.png",
+      "sha256": "5089a4aceb09c1cd09010e2b33314014c9b79402f6af6b10233181746fd34037"
+    },
+    {
+      "state": "threshold_2",
+      "stateIndex": 2,
+      "row": 2,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_2_r2_c1.png",
+      "sha256": "072be3e74addac1951c9940884327fd9bce4cdaecf7e75589e61547d83c00908"
+    },
+    {
+      "state": "threshold_3",
+      "stateIndex": 3,
+      "row": 0,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_3_r0_c0.png",
+      "sha256": "6ad7e9c447dcca33641c03d284804074252baaca1fed59876a2d3ecf0241db68"
+    },
+    {
+      "state": "threshold_3",
+      "stateIndex": 3,
+      "row": 0,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_3_r0_c1.png",
+      "sha256": "484f9c275a815c5c424ba999b7e91d9c294a84e4aa49b4594985a4e3ebcbc42a"
+    },
+    {
+      "state": "threshold_3",
+      "stateIndex": 3,
+      "row": 1,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_3_r1_c0.png",
+      "sha256": "72da55f2bb477b5f9e2a18280f95563e0f49a5d9cfd37ce570f79e14149517e4"
+    },
+    {
+      "state": "threshold_3",
+      "stateIndex": 3,
+      "row": 1,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_3_r1_c1.png",
+      "sha256": "dd0a03a2934b55d0ca6a468835b5e35716267c61a07f817b489f417c3f472c08"
+    },
+    {
+      "state": "threshold_3",
+      "stateIndex": 3,
+      "row": 2,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_3_r2_c0.png",
+      "sha256": "0d617dff864b55faff93e7f48f9a8eaaf1914bf079e8e119dcba022b0122c470"
+    },
+    {
+      "state": "threshold_3",
+      "stateIndex": 3,
+      "row": 2,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/threshold_3_r2_c1.png",
+      "sha256": "203d269ecfa1523013d2b855b0478843665f26e521de198c6356abe2a2b36c8a"
+    },
+    {
+      "state": "cutaway",
+      "stateIndex": 4,
+      "row": 0,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/cutaway_r0_c0.png",
+      "sha256": "10a0cc84dbac412cb1d4ff3901ae4e7b1d646f653bc310a9da52fe4319a48f0a"
+    },
+    {
+      "state": "cutaway",
+      "stateIndex": 4,
+      "row": 0,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/cutaway_r0_c1.png",
+      "sha256": "849359bd12c03c143a9963fcee52cd1bfad9cd3a0727d1a1f53759b3d56b7192"
+    },
+    {
+      "state": "cutaway",
+      "stateIndex": 4,
+      "row": 1,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/cutaway_r1_c0.png",
+      "sha256": "0f931ffefd1a00851f68e8ca76cf56966eabf5b87d282fc108326f265ea296cc"
+    },
+    {
+      "state": "cutaway",
+      "stateIndex": 4,
+      "row": 1,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/cutaway_r1_c1.png",
+      "sha256": "b51e044da7a9447e2547de61e097464df5664fbfaed07876ca9c884c4bcf1197"
+    },
+    {
+      "state": "cutaway",
+      "stateIndex": 4,
+      "row": 2,
+      "column": 0,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/cutaway_r2_c0.png",
+      "sha256": "0c786bc823f7735596adb4f1c64e061ce48c2fa2642f4eb630211d882720c015"
+    },
+    {
+      "state": "cutaway",
+      "stateIndex": 4,
+      "row": 2,
+      "column": 1,
+      "path": "platform/nintendo64/assets/twin_gate_quality_board/cutaway_r2_c1.png",
+      "sha256": "d981fdc3f9520846ea21bd0327defc1db82b7e5a083ff1d1e3a7e45a73d2eecf"
+    }
+  ],
   "playstationHeader": "platform/playstation/assets/twin_gate_quality.h",
   "playstationHeaderSha256": "20dd4bf469b58dfb90529557f21dc5a23e83adee544200983b66a8b0659706cb",
   "sceneHeader": "platform/console_quality/twin_gate_scene.h",

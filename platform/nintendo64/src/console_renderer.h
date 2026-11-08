@@ -56,6 +56,16 @@ void draw_landmark(
 void draw_castle_tile(
     int left, int top, int size, grandleon::view::CastleTile tile
 );
+// Replaces only the validated Medieval 6x6 keep footprint. The five states
+// are file-backed CI8 tiles in DragonFS, loaded lazily so an ordinary map pays
+// no RDRAM cost. Returns false without drawing if the pack is unavailable.
+[[nodiscard]] bool draw_twin_gate_keep(
+    int left, int top, int width, int height, int state
+);
+[[nodiscard]] bool prepare_twin_gate_keep();
+[[nodiscard]] std::size_t twin_gate_loaded_bytes() noexcept;
+[[nodiscard]] std::size_t twin_gate_pack_bytes() noexcept;
+[[nodiscard]] std::size_t twin_gate_board_pack_bytes() noexcept;
 void draw_character(
     int drawing, Pose pose, int centre_x, int bottom, int cell_size,
     bool facing_left = false

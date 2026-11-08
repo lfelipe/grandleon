@@ -3,6 +3,7 @@
 #include "console_renderer.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -11,6 +12,7 @@
 #include "console_character_assets.h"
 #include "console_backdrop_assets.h"
 #include "console_terrain_assets.h"
+#include "console_twin_gate_runtime.h"
 
 namespace grandleon::nintendo64::console_renderer {
 namespace {
@@ -30,6 +32,12 @@ constexpr int backdrop_rows = 6;
 constexpr int backdrop_tiles_per_variant = backdrop_columns * backdrop_rows;
 constexpr int backdrop_variants = 3;
 sprite_t* backdrop_tiles[backdrop_tiles_per_variant * backdrop_variants]{};
+sprite_t* twin_gate_full_tiles[console_twin_gate_runtime_state_count]
+                              [console_twin_gate_runtime_tile_count]{};
+sprite_t* twin_gate_board_tiles[console_twin_gate_runtime_state_count]
+                               [console_twin_gate_board_tile_count]{};
+bool twin_gate_full_ready[console_twin_gate_runtime_state_count]{};
+bool twin_gate_board_ready[console_twin_gate_runtime_state_count]{};
 bool ready = false;
 bool close_attached = false;
 
@@ -125,6 +133,46 @@ void draw_loaded_character(
         }
         complete = complete && backdrop_tiles[index] != nullptr;
     }
+    return complete;
+}
+
+[[nodiscard]] bool ensure_twin_gate_state(int state, bool board_pack) {
+    if (state < 0 || state >= console_twin_gate_runtime_state_count) {
+        return false;
+    }
+    bool& state_ready = board_pack
+        ? twin_gate_board_ready[state] : twin_gate_full_ready[state];
+    if (state_ready) return true;
+    constexpr const char* names[] = {
+        "exterior", "threshold_1", "threshold_2", "threshold_3", "cutaway",
+    };
+    const int tile_rows = board_pack
+        ? console_twin_gate_board_tile_rows
+        : console_twin_gate_runtime_tile_rows;
+    const int tile_columns = board_pack
+        ? console_twin_gate_board_tile_columns
+        : console_twin_gate_runtime_tile_columns;
+    bool complete = true;
+    for (int row = 0; row < tile_rows; ++row) {
+        for (int column = 0; column < tile_columns; ++column) {
+            const int tile = row * tile_columns + column;
+            sprite_t*& loaded = board_pack
+                ? twin_gate_board_tiles[state][tile]
+                : twin_gate_full_tiles[state][tile];
+            if (loaded != nullptr) continue;
+            char path[96]{};
+            std::snprintf(
+                path, sizeof path,
+                board_pack
+                    ? "rom:/art/twin_gate_board/%s_r%d_c%d.sprite"
+                    : "rom:/art/twin_gate/%s_r%d_c%d.sprite",
+                names[state], row, column
+            );
+            loaded = sprite_load(path);
+            complete = complete && loaded != nullptr;
+        }
+    }
+    state_ready = complete;
     return complete;
 }
 
@@ -307,6 +355,95 @@ void draw_castle_tile(
             rdpq_fill_rectangle(x, y, x + width, y + height);
         }
     );
+}
+
+bool draw_twin_gate_keep(
+    int left, int top, int width, int height, int state
+) {
+    // The authored keep spans 108 pixels in Steel and Cedar's 16x11
+    // scrolling view. A small amount of filtered enlargement is cheaper and
+    // visually equivalent there; the full pack begins with close framing.
+    const bool board_pack = width <= 128 && height <= 128;
+    if (!ready || width <= 0 || height <= 0 ||
+        !ensure_twin_gate_state(state, board_pack)) {
+        return false;
+    }
+    rdpq_set_mode_standard();
+    rdpq_mode_tlut(TLUT_RGBA16);
+    rdpq_mode_alphacompare(1);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_mode_dithering(DITHER_NONE_NONE);
+    rdpq_mode_combiner(RDPQ_COMBINER_TEX);
+    const int source_width = board_pack
+        ? console_twin_gate_board_width : console_twin_gate_runtime_width;
+    const int source_height = board_pack
+        ? console_twin_gate_board_height : console_twin_gate_runtime_height;
+    const int tile_width = board_pack
+        ? console_twin_gate_board_tile_width
+        : console_twin_gate_runtime_tile_width;
+    const int tile_height = board_pack
+        ? console_twin_gate_board_tile_height
+        : console_twin_gate_runtime_tile_height;
+    const int tile_columns = board_pack
+        ? console_twin_gate_board_tile_columns
+        : console_twin_gate_runtime_tile_columns;
+    const int tile_rows = board_pack
+        ? console_twin_gate_board_tile_rows
+        : console_twin_gate_runtime_tile_rows;
+    const float scale_x = static_cast<float>(width) /
+        static_cast<float>(source_width);
+    const float scale_y = static_cast<float>(height) /
+        static_cast<float>(source_height);
+    rdpq_blitparms_t parameters{};
+    parameters.scale_x = scale_x;
+    parameters.scale_y = scale_y;
+    for (int row = 0; row < tile_rows; ++row) {
+        for (int column = 0; column < tile_columns; ++column) {
+            const int tile = row * tile_columns + column;
+            sprite_t* sprite = board_pack
+                ? twin_gate_board_tiles[state][tile]
+                : twin_gate_full_tiles[state][tile];
+            rdpq_sprite_upload(TILE0, sprite, nullptr);
+            rdpq_sprite_blit(
+                sprite,
+                static_cast<float>(left) +
+                    static_cast<float>(column * tile_width) * scale_x,
+                static_cast<float>(top) +
+                    static_cast<float>(row * tile_height) * scale_y,
+                &parameters
+            );
+        }
+    }
+    return true;
+}
+
+bool prepare_twin_gate_keep() {
+    bool complete = true;
+    for (int state = 0; state < console_twin_gate_runtime_state_count; ++state) {
+        complete = ensure_twin_gate_state(state, true) && complete;
+    }
+    return complete;
+}
+
+std::size_t twin_gate_loaded_bytes() noexcept {
+    std::size_t total = 0;
+    for (int state = 0; state < console_twin_gate_runtime_state_count; ++state) {
+        if (twin_gate_board_ready[state]) {
+            total += console_twin_gate_board_state_bytes[state];
+        }
+        if (twin_gate_full_ready[state]) {
+            total += console_twin_gate_runtime_state_bytes[state];
+        }
+    }
+    return total;
+}
+
+std::size_t twin_gate_pack_bytes() noexcept {
+    return console_twin_gate_packaged_bytes;
+}
+
+std::size_t twin_gate_board_pack_bytes() noexcept {
+    return console_twin_gate_board_total_bytes;
 }
 
 void draw_character(

@@ -1765,33 +1765,43 @@ public:
         // Three hundred by two hundred is what the status line leaves, a cell
         // is never larger than 26 nor smaller than 14, and a board too large
         // for that draws at 18.
-        constexpr view::FitRule frame{300, 200, 26, 14, 18};
-        const view::BoardFit fit =
-            view::fit_board(frame, snapshot.width, snapshot.height);
-        tile_ = fit.tile;
-        camera_ = {0, 0, fit.view_w, fit.view_h,
-                   snapshot.width, snapshot.height};
         board_width_ = snapshot.width;
-        // High ground is drawn above the row it stands in, so the board needs
-        // headroom for its tallest terrain or the first row's peaks would
-        // climb into the status line. A board with no raised terrain reserves
-        // nothing and lands on exactly the origin the flat renderer used.
-        //
-        // The reservation is clamped to the slack the frame has, so on a board
-        // that already fills it a peak can be drawn above the reservation. It
-        // cannot leave the frame: the model bounds a lift at three eighths of
-        // a cell, at most nine pixels at the largest cell chosen here, and the
-        // board never starts above row 14, so the worst case intrudes into
-        // the status line, which is drawn after the board and covers it.
-        const int step = view::elevation_step_for(tile_);
-        int slack = 216 - tile_ * camera_.view_h;
-        if (slack < 0) slack = 0;
-        int reserved = view::headroom(highest_elevation(snapshot), step, tile_);
-        if (reserved > slack) reserved = slack;
-        origin_x_ = (320 - tile_ * camera_.view_w) / 2;
-        origin_y_ =
-            14 + reserved + (216 - reserved - tile_ * camera_.view_h) / 2;
-        projection_ = view::Projection{origin_x_, origin_y_, tile_, step};
+        const auto configure_view = [this, &snapshot](view::FitRule rule) {
+            const view::BoardFit fit =
+                view::fit_board(rule, snapshot.width, snapshot.height);
+            tile_ = fit.tile;
+            camera_ = {0, 0, fit.view_w, fit.view_h,
+                       snapshot.width, snapshot.height};
+            // High ground is drawn above the row it stands in, so the board
+            // needs headroom for its tallest terrain or the first row's peaks
+            // would climb into the status line. The reservation is clamped to
+            // the slack the frame has.
+            const int step = view::elevation_step_for(tile_);
+            int slack = 216 - tile_ * camera_.view_h;
+            if (slack < 0) slack = 0;
+            int reserved = view::headroom(
+                highest_elevation(snapshot), step, tile_
+            );
+            if (reserved > slack) reserved = slack;
+            origin_x_ = (320 - tile_ * camera_.view_w) / 2;
+            origin_y_ = 14 + reserved +
+                (216 - reserved - tile_ * camera_.view_h) / 2;
+            projection_ = view::Projection{
+                origin_x_, origin_y_, tile_, step
+            };
+        };
+        constexpr view::FitRule frame{300, 200, 26, 14, 18};
+        configure_view(frame);
+        detect_twin_gate_keep();
+        // Steel and Cedar's exact authored keep opts into the richer ground
+        // treatment at an 18px cell instead of shrinking all 280 cells to
+        // fourteen. The resulting 16x11 camera is the ordinary scrolling
+        // camera: routes, positions and map bounds stay untouched, while both
+        // terrain texture and character silhouettes gain useful screen area.
+        if (castle_visual_valid_) {
+            constexpr view::FitRule twin_gate_frame{300, 200, 26, 18, 18};
+            configure_view(twin_gate_frame);
+        }
     }
 
     // Kept so the danger zone counts every band a unit could use, not only the
@@ -1895,6 +1905,12 @@ public:
         const sim::EncounterSnapshot& snapshot,
         const client::Roster&
     ) override {
+        const bool castle_just_revealed = update_twin_gate_reveal(snapshot);
+#ifndef GRANDLEON_N64_PROBE
+        if (castle_just_revealed) animate_twin_gate_reveal(snapshot);
+#else
+        static_cast<void>(castle_just_revealed);
+#endif
 #ifndef GRANDLEON_N64_PROBE
         // The hand-off is announced, not implied: a banner interstitial when
         // the active side changes, and one at battle start.
@@ -2374,7 +2390,9 @@ public:
     ) override {
 #ifdef GRANDLEON_N64_PROBE
         static_cast<void>(roster);
-#ifdef GRANDLEON_N64_README
+#ifdef GRANDLEON_N64_TWIN_GATE_CAPTURE
+        const client::Intent intent = twin_gate_capture_intent(snapshot);
+#elif defined(GRANDLEON_N64_README)
         const client::Intent intent = readme_intent(snapshot);
 #else
         const client::Intent intent = probe_intent(snapshot);
@@ -5363,6 +5381,12 @@ private:
         for (int i = 0; i < draw_list_.size(); ++i) {
             const view::DrawItem& item = draw_list_[i];
             if (item.layer != view::Layer::terrain) continue;
+            const bool quality_keep_cell = castle_visual_valid_ &&
+                item.cell_x >= castle_left_ &&
+                item.cell_x < castle_left_ + castle_size_ &&
+                item.cell_y >= castle_top_ &&
+                item.cell_y < castle_top_ + castle_size_;
+            if (quality_keep_cell) continue;
             console::draw_terrain_detail(
                 item.x, item.y, item.w,
                 terrain_composition_at(item.cell_x, item.cell_y)
@@ -5387,10 +5411,26 @@ private:
                 );
             }
         }
+        bool quality_keep_drawn = false;
+        if (castle_visual_valid_) {
+            const int left = projection_.cell_left(camera_, castle_left_);
+            const int top = projection_.cell_top(camera_, castle_top_, 0);
+            const int extent = castle_size_ * tile_;
+            if (left < 320 && left + extent > 0 && top < 216 &&
+                top + extent > 14) {
+                quality_keep_drawn = console::draw_twin_gate_keep(
+                    left, top, extent, extent, castle_state_
+                );
+            }
+        }
         for (int i = 0; i < draw_list_.size(); ++i) {
             const view::DrawItem& item = draw_list_[i];
             if (item.layer == view::Layer::unit) {
                 const sim::UnitSnapshot& unit = snapshot.units[item.subject];
+                if (quality_keep_drawn && twin_gate_hides(
+                        unit.position.x, unit.position.y)) {
+                    continue;
+                }
                 console::draw_character(
                     console_drawing_of(unit), console::Pose::idle,
                     item.x + item.w / 2, item.y + item.h, tile_,
@@ -7906,6 +7946,130 @@ private:
 #endif
 
 #ifdef GRANDLEON_N64_PROBE
+#ifdef GRANDLEON_N64_TWIN_GATE_CAPTURE
+    client::Intent twin_gate_capture_intent(
+        const sim::EncounterSnapshot& snapshot
+    ) {
+        client::Intent intent;
+        intent.kind = client::IntentKind::quit;
+        if (twin_gate_capture_done_) return intent;
+        twin_gate_capture_done_ = true;
+
+        expect(
+            snapshot.width == 20 && snapshot.height == 14,
+            "the production capture is the authored twenty-by-fourteen map"
+        );
+        expect(
+            camera_.view_w == 16 && camera_.view_h == 11 &&
+                camera_.rightmost_x() == 4 &&
+                camera_.map_h - camera_.view_h == 3,
+            "the real renderer scrolls the twenty-by-fourteen board through "
+            "a sixteen-by-eleven view"
+        );
+        expect(
+            castle_visual_valid_ && castle_left_ == 13 && castle_top_ == 4,
+            "the production renderer recognizes only the exact six-by-six keep"
+        );
+        namespace console = grandleon::nintendo64::console_renderer;
+        expect(
+            console::twin_gate_loaded_bytes() ==
+                console::twin_gate_board_pack_bytes(),
+            "all five board-distance states fit the bounded Twin Gate cache"
+        );
+        expect(
+            twin_gate_hides(16, 6) && twin_gate_hides(13, 7),
+            "the closed shell hides the authored boss and door mystic"
+        );
+
+        const std::size_t board_rdram = console::twin_gate_loaded_bytes();
+        camera_.clamp();
+        std::uint64_t slowest = 0;
+        const auto draw_capture = [this, &snapshot, &slowest](int state) {
+            castle_state_ = state;
+            for (int frame = 0; frame < 3; ++frame) {
+                const std::uint64_t started = get_ticks_us();
+                surface_t* display = display_get();
+                render(display, snapshot, 0);
+                show(display);
+                slowest = std::max(slowest, get_ticks_us() - started);
+            }
+        };
+        const auto checkpoint = [](const char* name) {
+            report_line("CHECKPOINT %s\n", name);
+            std::fflush(stderr);
+            wait_ms(500);
+        };
+
+        // The west approach is a real scroll position, deliberately dominated
+        // by road, farmland and stone instead of the landmark. This prevents
+        // the quality gate from passing on a beautiful keep over a flat map.
+        camera_.x = 0;
+        camera_.y = 0;
+        camera_.clamp();
+        draw_capture(0);
+        checkpoint("twin-gate-runtime-approach");
+
+        camera_.x = camera_.rightmost_x();
+        camera_.y = camera_.map_h - camera_.view_h;
+        camera_.clamp();
+        draw_capture(0);
+        checkpoint("twin-gate-runtime-exterior-wide");
+        for (int state = 1; state <= 3; ++state) {
+            draw_capture(state);
+            if (state == 2) {
+                checkpoint("twin-gate-runtime-threshold");
+            }
+        }
+        castle_revealed_ = true;
+        draw_capture(4);
+        expect(
+            !twin_gate_hides(16, 6) && !twin_gate_hides(13, 7),
+            "the cutaway restores the live room units over the floor"
+        );
+        checkpoint("twin-gate-runtime-revealed-wide");
+
+        // The same real snapshot through a six-cell camera demonstrates the
+        // close framing available to an encounter cinematic. No unit, terrain
+        // or gameplay coordinate is rewritten for this capture.
+        camera_ = {castle_left_, castle_top_, castle_size_, castle_size_,
+                   snapshot.width, snapshot.height};
+        tile_ = 32;
+        origin_x_ = 64;
+        origin_y_ = 24;
+        projection_ = view::Projection{
+            origin_x_, origin_y_, tile_, view::elevation_step_for(tile_)
+        };
+        draw_capture(4);
+        checkpoint("twin-gate-runtime-revealed-close");
+
+        const std::size_t peak_rdram = console::twin_gate_loaded_bytes();
+        expect(
+            peak_rdram > board_rdram &&
+                peak_rdram < console::twin_gate_pack_bytes(),
+            "close framing loads one detailed state without caching the whole pack"
+        );
+
+        expect(slowest <= 33'333U, "production Twin Gate frames sustain 30 fps");
+        report_line(
+            "BENCH n64 production twin-gate map=20x14 view=16x11 keep=6x6 "
+            "pack=%u board_rdram=%u peak_rdram=%u max_us=%llu fps=%llu\n",
+            static_cast<unsigned>(console::twin_gate_pack_bytes()),
+            static_cast<unsigned>(board_rdram),
+            static_cast<unsigned>(peak_rdram),
+            static_cast<unsigned long long>(slowest),
+            static_cast<unsigned long long>(
+                slowest > 0 ? 1'000'000 / slowest : 0
+            )
+        );
+        report_line(
+            "RESULT %s %d/%d\n", failures == 0 ? "PASS" : "FAIL",
+            checks - failures, checks
+        );
+        return intent;
+    }
+    bool twin_gate_capture_done_{false};
+#endif
+
 #ifdef GRANDLEON_N64_README
     // Hold the first Emberbound battle exactly where the Godot and PlayStation
     // documentation captures hold it. The checkpoint lets the emulator take a
@@ -8588,6 +8752,118 @@ private:
         );
     }
 
+    void detect_twin_gate_keep() {
+        castle_visual_valid_ = false;
+        castle_revealed_ = false;
+        castle_state_ = 0;
+        castle_left_ = 0;
+        castle_top_ = 0;
+        if (theme_ != 0U || board_width_ <= 0 || terrain_.empty()) return;
+        const int board_height = static_cast<int>(
+            terrain_.size() / static_cast<std::size_t>(board_width_)
+        );
+        int minimum_x = board_width_;
+        int minimum_y = board_height;
+        int maximum_x = -1;
+        int maximum_y = -1;
+        int count = 0;
+        for (int y = 0; y < board_height; ++y) {
+            for (int x = 0; x < board_width_; ++x) {
+                if (castle_at(x, y) == view::CastleTile::none) continue;
+                minimum_x = std::min(minimum_x, x);
+                minimum_y = std::min(minimum_y, y);
+                maximum_x = std::max(maximum_x, x);
+                maximum_y = std::max(maximum_y, y);
+                ++count;
+            }
+        }
+        if (count != 36 || maximum_x - minimum_x + 1 != castle_size_ ||
+            maximum_y - minimum_y + 1 != castle_size_) {
+            return;
+        }
+        for (int local_y = 0; local_y < castle_size_; ++local_y) {
+            for (int local_x = 0; local_x < castle_size_; ++local_x) {
+                view::CastleTile expected = view::CastleTile::floor;
+                if (local_y == 0 || local_y == castle_size_ - 1 ||
+                    local_x == castle_size_ - 1 ||
+                    (local_x == 0 && (local_y == 1 || local_y == 4))) {
+                    expected = view::CastleTile::wall;
+                } else if (local_x == 0) {
+                    expected = view::CastleTile::door;
+                } else if (local_x == 4 &&
+                           (local_y == 2 || local_y == 3)) {
+                    expected = view::CastleTile::dais;
+                }
+                if (castle_at(minimum_x + local_x, minimum_y + local_y) !=
+                    expected) {
+                    return;
+                }
+            }
+        }
+        castle_left_ = minimum_x;
+        castle_top_ = minimum_y;
+        castle_visual_valid_ =
+            grandleon::nintendo64::console_renderer::prepare_twin_gate_keep();
+        report_line(
+            "n64 twin-gate keep=%d,%d 6x6 art=%u bytes=%u\n",
+            castle_left_, castle_top_, castle_visual_valid_ ? 1U : 0U,
+            static_cast<unsigned>(
+                grandleon::nintendo64::console_renderer::twin_gate_loaded_bytes()
+            )
+        );
+    }
+
+    [[nodiscard]] bool twin_gate_hides(int x, int y) const {
+        if (!castle_visual_valid_ || castle_state_ >= 4 ||
+            x < castle_left_ || x >= castle_left_ + castle_size_ ||
+            y < castle_top_ || y >= castle_top_ + castle_size_) {
+            return false;
+        }
+        const view::CastleTile tile = castle_at(x, y);
+        return tile == view::CastleTile::door ||
+            tile == view::CastleTile::floor ||
+            tile == view::CastleTile::dais;
+    }
+
+    [[nodiscard]] bool update_twin_gate_reveal(
+        const sim::EncounterSnapshot& snapshot
+    ) {
+        if (!castle_visual_valid_ || castle_revealed_) return false;
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (!sim::on_board(unit) || unit.side != player_side_) continue;
+            if (unit.position.x < castle_left_ ||
+                unit.position.x >= castle_left_ + castle_size_ ||
+                unit.position.y < castle_top_ ||
+                unit.position.y >= castle_top_ + castle_size_) {
+                continue;
+            }
+            const view::CastleTile tile = castle_at(
+                unit.position.x, unit.position.y
+            );
+            if (tile == view::CastleTile::door ||
+                tile == view::CastleTile::floor ||
+                tile == view::CastleTile::dais) {
+                castle_revealed_ = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void animate_twin_gate_reveal(
+        const sim::EncounterSnapshot& snapshot
+    ) {
+        for (int state = 1; state <= 4; ++state) {
+            castle_state_ = state;
+            for (int held = 0; held < 3; ++held) {
+                surface_t* display = display_get();
+                render(display, snapshot, 0);
+                show(display);
+                wait_ms(16);
+            }
+        }
+    }
+
     sim::Side player_side_{sim::Side::first};
     // The season this game's ground is drawn in, from its package.
     std::uint8_t theme_{gc::default_theme};
@@ -8615,6 +8891,12 @@ private:
     // How wide the terrain vector's rows are, so a cell's elevation can be
     // looked up without a snapshot in hand.
     int board_width_{0};
+    static constexpr int castle_size_ = 6;
+    int castle_left_{0};
+    int castle_top_{0};
+    int castle_state_{0};
+    bool castle_visual_valid_{false};
+    bool castle_revealed_{false};
     std::int16_t cursor_x_{0};
     std::int16_t cursor_y_{0};
     sim::UnitId selected_{0};
@@ -8734,7 +9016,8 @@ private:
 #endif
 };
 
-#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README)
+#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README) && \
+    !defined(GRANDLEON_N64_TWIN_GATE_CAPTURE)
 // One board played for the renderer's sake, before the campaign's own.
 //
 // A character who has taken their turn is drawn greyed, and on a board whose
@@ -9251,6 +9534,10 @@ int main() {
     paint_the_stack();
 #endif
     debug_init_emulog();
+    expect(
+        dfs_init(DFS_DEFAULT_LOCATION) == DFS_ESUCCESS,
+        "the cartridge art filesystem mounts"
+    );
     display_init(
         RESOLUTION_320x240, DEPTH_16_BPP, 2, GAMMA_NONE, FILTERS_RESAMPLE
     );
@@ -9573,7 +9860,8 @@ int main() {
 #ifdef GRANDLEON_N64_AUTOPILOT
         autopilot_presenter = &presenter;
 #endif
-#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README)
+#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README) && \
+    !defined(GRANDLEON_N64_TWIN_GATE_CAPTURE)
         probe_the_spent_figure(loaded.package, presenter);
 #endif
 #ifdef GRANDLEON_N64_CAMPAIGN

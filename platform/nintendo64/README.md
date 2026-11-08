@@ -63,31 +63,36 @@ and footer badges use the controller's A, B, Z, and START labels.
 The campaign ROM itself is what release testing exercises. It is not paired
 with a separate renderer demo.
 
-### Twin Gate quality proof
+### Twin Gate richer production path
 
-The opt-in Twin Gate proof tests a larger architectural step before it reaches
-the campaign renderer. It renders Steel and Cedar's real 20×14 map and exact
-connected 6×6 keep in a fixed isometric view, then shows the exterior,
-threshold opening and revealed room with the authored unit roles. A matched
-flat-board frame makes the change easy to judge on the same map rather than
-against a hand-picked unrelated scene.
+Steel and Cedar's authored Twin Gate battle now exercises the richer renderer
+inside the playable campaign, not only in a separate demo. The exact 20×14 map
+uses the normal textured, shaded terrain and a scrolling 16×11 view. Its exact
+connected 6×6 keep starts closed, opens when the player's unit reaches its
+door or interior, and reveals the real room units and boss. Movement,
+collision, objectives, placements, saves, and campaign progression are not
+rewritten for the effect.
 
 ```sh
-cmake --build build --target grandleon_n64_twin_gate_quality_check
+cmake --build build --target grandleon_n64_twin_gate_runtime_check
 ```
 
-The proof uses one resident CI4 terrain atlas, bilinear-filtered shaded
-triangles, visible elevation sides, filtered character cutouts and an original
-CI8 landmark derived from the approved Godot keep plates. The keep streams in
-64×32 tiles: each tile uses the CI8 texture bank's full 2,048 bytes while its
-512-byte palette occupies the TLUT bank. The checked ares run measured a
-16,467 μs worst frame (60 fps), 242,640 embedded keep bytes and a 573,440-byte
-ROM. Captures and the full hardware log are written under
-`build-n64-twin-gate-quality/ares/`.
+The board uses the resident CI4 terrain atlas, filtered character cutouts, and
+a six-upload CI4 keep image at board distance. Close framing loads one detailed
+CI8 state rather than caching every detailed state. Ordinary maps allocate no
+keep art. The pinned ares run passes 13/13 with a 21,905 μs worst frame
+(45 fps), 28,080 bytes resident during the board, 76,608 bytes at the close
+view's peak, 270,720 packaged art bytes, and a 2,080,768-byte review ROM. Each
+board tile occupies 768 texel bytes plus a 32-byte palette in TMEM; a detailed
+close tile occupies 2,048 texel bytes plus a 512-byte palette.
 
-This is a renderer candidate, not a second campaign mode. Production remains
-unchanged until the native captures are reviewed and the same architecture is
-wired to live camera, selection and visibility state.
+The gate writes native 320×240 approach, exterior, threshold, revealed-room,
+and close frames under
+`build-n64-twin-gate-runtime/ares/native-twin-gate-runtime/`. The west approach
+is deliberately mostly road, farmland, grass, and stone so the check cannot
+pass on the landmark while leaving the playable ground flat. The older fixed
+camera comparison remains available as
+`grandleon_n64_twin_gate_quality_check`, but it is not the playable path.
 
 North/south board frames are already packaged outside the executable at
 `rom:/art/directional.gdb`. They are not selected by the production renderer

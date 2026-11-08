@@ -191,6 +191,46 @@ add_custom_target(grandleon_n64_twin_gate_quality_check
     VERBATIM
 )
 
+# The production proof enters the authored final encounter directly, then
+# captures the ordinary scrolling presenter rather than the isolated renderer
+# above. The derived project changes only entryNodeId and stays under build/.
+set(grandleon_n64_twin_gate_runtime_build_dir
+    "${CMAKE_CURRENT_SOURCE_DIR}/build-n64-twin-gate-runtime"
+)
+set(grandleon_n64_twin_gate_capture_project
+    "${grandleon_n64_twin_gate_runtime_build_dir}/steel-and-cedar-twin-gate.json"
+)
+add_custom_target(grandleon_n64_twin_gate_runtime_check
+    COMMAND
+        python3
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/prepare-twin-gate-capture.py"
+        --source
+        "${CMAKE_CURRENT_SOURCE_DIR}/games/steel_and_cedar/source/project.json"
+        --output "${grandleon_n64_twin_gate_capture_project}"
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_n64_build_env}
+        "GRANDLEON_N64_BUILD_DIR=${grandleon_n64_twin_gate_runtime_build_dir}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/scripts/build-n64.sh"
+        --project "${grandleon_n64_twin_gate_capture_project}"
+        --targets grandleon_n64_twin_gate_runtime_capture
+    COMMAND
+        "${CMAKE_COMMAND}" -E env
+        "GRANDLEON_DOCKER=${GRANDLEON_DOCKER}"
+        "GRANDLEON_N64_BUILD_DIR=${grandleon_n64_twin_gate_runtime_build_dir}"
+        "GRANDLEON_N64_ARES_SECONDS=120"
+        "GRANDLEON_N64_ARES_LOG=twin-gate-runtime.log"
+        "GRANDLEON_N64_ARES_TRAIL=trail-twin-gate-runtime"
+        "GRANDLEON_N64_ARES_SHOT=twin-gate-runtime-final.png"
+        "GRANDLEON_N64_ARES_MIN_CHECKS=10"
+        "GRANDLEON_N64_ARES_POLL_SECONDS=0.1"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/nintendo64/ares/run-ares.sh"
+        "${grandleon_n64_twin_gate_runtime_build_dir}/platform/nintendo64/grandleon_n64_twin_gate_runtime_capture.z64"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Checking Twin Gate in the real scrolling Nintendo 64 runtime"
+    USES_TERMINAL
+    VERBATIM
+)
+
 # Builds every ROM and replays the campaign's autopilot under ares: a
 # deterministic script of synthetic controller input drives the real
 # interactive screens (title, cutscenes, unit selection, the movement and

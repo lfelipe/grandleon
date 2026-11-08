@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "games/steel_and_cedar/source/project.json"
 FEATURES = ROOT / "platform/godot/project/art/map_features"
 N64_OUTPUT = ROOT / "platform/nintendo64/assets/twin_gate_quality"
+N64_BOARD_OUTPUT = ROOT / "platform/nintendo64/assets/twin_gate_quality_board"
 PS1_OUTPUT = ROOT / "platform/playstation/assets/twin_gate_quality.h"
 SCENE_OUTPUT = ROOT / "platform/console_quality/twin_gate_scene.h"
 MANIFEST_OUTPUT = ROOT / "platform/console_quality/twin_gate_assets.json"
@@ -33,6 +34,13 @@ TILE_HEIGHT = 32
 TILE_COLUMNS = WIDTH // TILE_WIDTH
 TILE_ROWS = (HEIGHT + TILE_HEIGHT - 1) // TILE_HEIGHT
 TILE_COUNT = TILE_COLUMNS * TILE_ROWS
+BOARD_WIDTH = 96
+BOARD_HEIGHT = 88
+BOARD_TILE_WIDTH = 48
+BOARD_TILE_HEIGHT = 32
+BOARD_TILE_COLUMNS = BOARD_WIDTH // BOARD_TILE_WIDTH
+BOARD_TILE_ROWS = (BOARD_HEIGHT + BOARD_TILE_HEIGHT - 1) // BOARD_TILE_HEIGHT
+BOARD_TILE_COUNT = BOARD_TILE_COLUMNS * BOARD_TILE_ROWS
 TERRAIN_KINDS = (
     "water", "road", "forest", "mountain", "sand", "snow", "swamp",
     "hills", "ruins", "grass", "farmland", "bamboo", "paved",
@@ -152,6 +160,7 @@ def transition(exterior: Image.Image, cutaway: Image.Image, level: int) -> Image
 
 def palette_for(image: Image.Image) -> tuple[list[int], list[int]]:
     rgba = image.convert("RGBA")
+    width, height = rgba.size
     # A restrained ordered perturbation makes gradients read as deliberate
     # PS1 colour rather than broad accidental bands. It is shared with N64 so
     # the matched landmark itself stays comparable.
@@ -159,7 +168,7 @@ def palette_for(image: Image.Image) -> tuple[list[int], list[int]]:
     converted: list[tuple[int, int, int]] = []
     opaque: list[tuple[int, int, int]] = []
     for x, y, red, green, blue, alpha in (
-        (index % WIDTH, index // WIDTH, *pixel)
+        (index % width, index // width, *pixel)
         for index, pixel in enumerate(pixels(rgba))
     ):
         amount = BAYER[y & 3][x & 3] - 8
@@ -199,8 +208,10 @@ def palette_for(image: Image.Image) -> tuple[list[int], list[int]]:
     return indices, flattened
 
 
-def indexed_image(indices: list[int], palette: list[int]) -> Image.Image:
-    result = Image.new("P", (WIDTH, HEIGHT))
+def indexed_image(
+    indices: list[int], palette: list[int], width: int, height: int
+) -> Image.Image:
+    result = Image.new("P", (width, height))
     result.putdata(indices)
     result.putpalette(palette)
     result.info["transparency"] = 0
@@ -247,6 +258,59 @@ def write_scene(terrain: list[int], features: list[int]) -> None:
     )
 
 
+def write_board_assets(states: dict[str, Image.Image]) -> list[dict[str, object]]:
+    """Emit the board-distance N64 pack without changing the PS contract.
+
+    Twin Gate occupies only 84x84 pixels on the real 20x14 view. A 96x88
+    source therefore retains every displayed pixel while reducing each state
+    from eighteen CI8 uploads to six. The full pack remains the source for
+    close framing.
+    """
+    N64_BOARD_OUTPUT.mkdir(parents=True, exist_ok=True)
+    for old in N64_BOARD_OUTPUT.glob("*.png"):
+        old.unlink()
+    assets: list[dict[str, object]] = []
+    for state_index, state_name in enumerate(STATES):
+        reduced = states[state_name].resize(
+            (BOARD_WIDTH, BOARD_HEIGHT), Image.Resampling.LANCZOS
+        )
+        alpha = reduced.getchannel("A").point(
+            lambda value: 255 if value >= 64 else 0
+        )
+        reduced.putalpha(alpha)
+        indices, palette = palette_for(reduced)
+        indexed = indexed_image(
+            indices, palette, BOARD_WIDTH, BOARD_HEIGHT
+        )
+        for tile_y in range(BOARD_TILE_ROWS):
+            for tile_x in range(BOARD_TILE_COLUMNS):
+                box = (
+                    tile_x * BOARD_TILE_WIDTH,
+                    tile_y * BOARD_TILE_HEIGHT,
+                    (tile_x + 1) * BOARD_TILE_WIDTH,
+                    (tile_y + 1) * BOARD_TILE_HEIGHT,
+                )
+                tile = indexed.crop(box)
+                filename = f"{state_name}_r{tile_y}_c{tile_x}.png"
+                tile.save(
+                    N64_BOARD_OUTPUT / filename,
+                    optimize=True,
+                    transparency=0,
+                )
+                assets.append({
+                    "state": state_name,
+                    "stateIndex": state_index,
+                    "row": tile_y,
+                    "column": tile_x,
+                    "path": (
+                        "platform/nintendo64/assets/"
+                        f"twin_gate_quality_board/{filename}"
+                    ),
+                    "sha256": sha256(N64_BOARD_OUTPUT / filename),
+                })
+    return assets
+
+
 def write_assets(states: dict[str, Image.Image]) -> list[dict[str, object]]:
     N64_OUTPUT.mkdir(parents=True, exist_ok=True)
     for old in N64_OUTPUT.glob("*.png"):
@@ -265,7 +329,7 @@ def write_assets(states: dict[str, Image.Image]) -> list[dict[str, object]]:
     manifest_assets: list[dict[str, object]] = []
     for state_index, state_name in enumerate(STATES):
         indices, palette = palette_for(states[state_name])
-        indexed = indexed_image(indices, palette)
+        indexed = indexed_image(indices, palette, WIDTH, HEIGHT)
         clut = bgr555(palette)
         declarations.append(
             f"inline constexpr unsigned short twin_gate_quality_clut_{state_name}[256] = {{\n"
@@ -318,6 +382,7 @@ def main() -> None:
     }
     write_scene(terrain, features)
     assets = write_assets(states)
+    board_assets = write_board_assets(states)
     manifest = {
         "format": "Grandleon Twin Gate console quality prototype v1",
         "project": str(PROJECT.relative_to(ROOT)),
@@ -335,6 +400,19 @@ def main() -> None:
         "encoding": "CI8, transparent index 0, shared 256-entry BGR555 palette per state",
         "dithering": "original 4x4 ordered colour perturbation before deterministic median-cut",
         "nintendo64Assets": assets,
+        "nintendo64BoardImage": {
+            "width": BOARD_WIDTH,
+            "height": BOARD_HEIGHT,
+        },
+        "nintendo64BoardTile": {
+            "width": BOARD_TILE_WIDTH,
+            "height": BOARD_TILE_HEIGHT,
+            "count": BOARD_TILE_COUNT,
+            "runtimeEncoding": (
+                "per-tile CI4, transparent index 0, local 16-entry palette"
+            ),
+        },
+        "nintendo64BoardAssets": board_assets,
         "playstationHeader": str(PS1_OUTPUT.relative_to(ROOT)),
         "playstationHeaderSha256": sha256(PS1_OUTPUT),
         "sceneHeader": str(SCENE_OUTPUT.relative_to(ROOT)),
@@ -343,7 +421,8 @@ def main() -> None:
     MANIFEST_OUTPUT.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(
         f"Twin Gate quality assets: {len(STATES)} states, "
-        f"{len(assets)} N64 tiles, {PS1_OUTPUT.stat().st_size} PS1 header bytes"
+        f"{len(assets)} N64 close tiles, {len(board_assets)} N64 board tiles, "
+        f"{PS1_OUTPUT.stat().st_size} PS1 header bytes"
     )
 
 
