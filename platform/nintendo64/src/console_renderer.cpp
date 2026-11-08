@@ -51,9 +51,6 @@ bool close_attached = false;
 
 struct TerrainLook final {
     std::uint8_t material;
-    std::uint8_t red;
-    std::uint8_t green;
-    std::uint8_t blue;
 };
 
 // Package terrain kinds are in the shared registry's order:
@@ -61,11 +58,7 @@ struct TerrainLook final {
 // farmland, bamboo and paved.  The four material regions provide structure;
 // authored colour keeps every kind immediately distinguishable.
 constexpr TerrainLook terrain_looks[] = {
-    {3, 43, 121, 158}, {2, 142, 104, 66}, {0, 58, 112, 63},
-    {1, 112, 124, 132}, {2, 190, 150, 86}, {3, 205, 224, 230},
-    {3, 72, 104, 82}, {0, 108, 137, 73}, {1, 116, 105, 96},
-    {0, 89, 151, 70}, {2, 157, 129, 72}, {0, 65, 127, 78},
-    {1, 144, 151, 145},
+    {3}, {2}, {0}, {1}, {2}, {3}, {3}, {0}, {1}, {0}, {2}, {0}, {1},
 };
 
 [[nodiscard]] constexpr TerrainLook terrain_look(
@@ -206,18 +199,20 @@ void begin_board(surface_t* display) {
 
 void draw_terrain(
     int left, int top, int width, int height,
-    std::uint8_t terrain_kind, std::uint8_t variation
+    grandleon::view::TerrainComposition terrain
 ) {
     if (!ready || width <= 0 || height <= 0) return;
-    const TerrainLook look = terrain_look(terrain_kind);
+    const TerrainLook look = terrain_look(terrain.kind);
+    const grandleon::view::TerrainColour colour =
+        grandleon::view::terrain_base_colour(terrain.kind);
     const int source_left = (look.material & 1) * material_side;
     const int source_top = ((look.material >> 1) & 1) * material_side;
     // Stable offsets keep a repeated material from reading as wallpaper while
     // staying inside its 32-pixel atlas region.
     constexpr int offsets[][2] = {{0, 0}, {5, 9}, {11, 3}, {17, 13}};
-    const int offset_s = offsets[variation & 3][0];
-    const int offset_t = offsets[variation & 3][1];
-    rdpq_set_prim_color(RGBA32(look.red, look.green, look.blue, 255));
+    const int offset_s = offsets[terrain.variation & 3][0];
+    const int offset_t = offsets[terrain.variation & 3][1];
+    rdpq_set_prim_color(RGBA32(colour.red, colour.green, colour.blue, 255));
     rdpq_texture_rectangle_scaled(
         TILE0, left, top, left + width, top + height,
         source_left + offset_s, source_top + offset_t,
@@ -225,13 +220,36 @@ void draw_terrain(
     );
 }
 
+void begin_terrain_details() {
+    if (!ready) return;
+    rdpq_set_mode_standard();
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_dithering(DITHER_NONE_NONE);
+}
+
+void draw_terrain_detail(
+    int left, int top, int size,
+    grandleon::view::TerrainComposition terrain
+) {
+    if (!ready || size <= 0) return;
+    grandleon::view::paint_console_terrain(
+        terrain, left, top, size,
+        [terrain](int x, int y, int width, int height,
+                  grandleon::view::TerrainTone tone) {
+            const grandleon::view::TerrainColour colour =
+                grandleon::view::terrain_colour(terrain.kind, tone);
+            rdpq_set_prim_color(
+                RGBA32(colour.red, colour.green, colour.blue, 255)
+            );
+            rdpq_fill_rectangle(x, y, x + width, y + height);
+        }
+    );
+}
+
 void draw_landmark(
     int left, int top, int size, grandleon::view::LandmarkCell cell
 ) {
     if (!ready || !cell || size <= 0) return;
-    rdpq_set_mode_standard();
-    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
-    rdpq_mode_dithering(DITHER_NONE_NONE);
     grandleon::view::paint_landmark_cell(
         cell, left, top, size,
         [cell](
@@ -261,14 +279,6 @@ void draw_landmark(
             rdpq_fill_rectangle(x, y, x + width, y + height);
         }
     );
-    // Another terrain cell can follow in the shared depth order. Return the
-    // RDP to the atlas mode established by begin_board; the sprite remains in
-    // TMEM, so this is state only and performs no upload.
-    rdpq_set_mode_standard();
-    rdpq_mode_tlut(TLUT_RGBA16);
-    rdpq_mode_filter(FILTER_BILINEAR);
-    rdpq_mode_dithering(DITHER_NONE_NONE);
-    rdpq_mode_combiner(RDPQ_COMBINER_TEX_FLAT);
 }
 
 void draw_castle_tile(
@@ -277,9 +287,6 @@ void draw_castle_tile(
     if (!ready || tile == grandleon::view::CastleTile::none || size <= 0) {
         return;
     }
-    rdpq_set_mode_standard();
-    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
-    rdpq_mode_dithering(DITHER_NONE_NONE);
     grandleon::view::paint_castle_tile(
         tile, left, top, size,
         [](int x, int y, int width, int height,
@@ -300,11 +307,6 @@ void draw_castle_tile(
             rdpq_fill_rectangle(x, y, x + width, y + height);
         }
     );
-    rdpq_set_mode_standard();
-    rdpq_mode_tlut(TLUT_RGBA16);
-    rdpq_mode_filter(FILTER_BILINEAR);
-    rdpq_mode_dithering(DITHER_NONE_NONE);
-    rdpq_mode_combiner(RDPQ_COMBINER_TEX_FLAT);
 }
 
 void draw_character(
@@ -345,10 +347,12 @@ void draw_character_overlay(
     rdpq_detach_wait();
 }
 
-void begin_close(surface_t* display, std::uint32_t variation) {
+void begin_close(
+    surface_t* display, grandleon::view::TerrainComposition terrain
+) {
     close_attached = false;
     if ((!ready && !initialize()) ||
-        !ensure_backdrop_variant(variation)) {
+        !ensure_backdrop_variant(terrain.battle_variant)) {
         return;
     }
     rdpq_attach(display, nullptr);
@@ -359,7 +363,7 @@ void begin_close(surface_t* display, std::uint32_t variation) {
     rdpq_mode_filter(FILTER_POINT);
     rdpq_mode_dithering(DITHER_NONE_NONE);
     rdpq_mode_combiner(RDPQ_COMBINER_TEX);
-    const int first = static_cast<int>(variation % backdrop_variants) *
+    const int first = static_cast<int>(terrain.battle_variant % backdrop_variants) *
         backdrop_tiles_per_variant;
     for (int row = 0; row < backdrop_rows; ++row) {
         for (int column = 0; column < backdrop_columns; ++column) {
@@ -376,6 +380,21 @@ void begin_close(surface_t* display, std::uint32_t variation) {
             );
         }
     }
+    rdpq_set_mode_standard();
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_dithering(DITHER_NONE_NONE);
+    grandleon::view::paint_console_close_terrain(
+        terrain, 320, 240,
+        [terrain](int x, int y, int width, int height,
+                  grandleon::view::TerrainTone tone) {
+            const grandleon::view::TerrainColour colour =
+                grandleon::view::terrain_colour(terrain.kind, tone);
+            rdpq_set_prim_color(
+                RGBA32(colour.red, colour.green, colour.blue, 255)
+            );
+            rdpq_fill_rectangle(x, y, x + width, y + height);
+        }
+    );
 }
 
 void draw_close_character(

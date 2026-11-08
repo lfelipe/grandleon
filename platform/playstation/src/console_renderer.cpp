@@ -175,7 +175,7 @@ void prepare_close() {
     streamed_drawing[1] = -1;
 }
 
-void draw_close_background() {
+void draw_close_background(grandleon::view::TerrainComposition terrain) {
     constexpr int columns = grandleon_psx_backdrop_width /
         grandleon_psx_backdrop_tile_width;
     constexpr int tiles_per_page = 6;
@@ -230,6 +230,22 @@ void draw_close_background() {
             backdrop_overlay_clut_x, backdrop_clut_y
         );
     }
+    grandleon::view::paint_console_close_terrain(
+        terrain, gpu::screen_width, gpu::screen_height,
+        [terrain](int x, int y, int width, int height,
+                  grandleon::view::TerrainTone tone) {
+            const grandleon::view::TerrainColour colour =
+                grandleon::view::terrain_colour(terrain.kind, tone);
+            gpu::fill(
+                x, y, width, height,
+                gpu::rgb15(
+                    static_cast<int>(colour.red) >> 3,
+                    static_cast<int>(colour.green) >> 3,
+                    static_cast<int>(colour.blue) >> 3
+                )
+            );
+        }
+    );
 }
 
 void draw_close_character(

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "console_art.h"
+#include "grandleon/view/terrain_composition.hpp"
 
 namespace grandleon::playstation::console_renderer {
 
@@ -19,7 +20,7 @@ void draw_character(
 // texture pages; the two animated poses stream through a page kept separate
 // from it, so attacker and defender never swap sides or corrupt the scenery.
 void prepare_close();
-void draw_close_background();
+void draw_close_background(grandleon::view::TerrainComposition terrain);
 void draw_close_character(
     int drawing, art::Pose pose, bool left_side, int stream_slot
 );

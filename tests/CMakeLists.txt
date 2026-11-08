@@ -1040,6 +1040,21 @@ add_executable(grandleon_view_landmark_tests
 target_link_libraries(grandleon_view_landmark_tests PRIVATE grandleon::view)
 add_test(NAME grandleon.view_landmark COMMAND grandleon_view_landmark_tests)
 
+# Compact-console terrain composition is shared arithmetic: material seams,
+# cluster details, elevation lips and terrain-specific close scenery. The
+# renderers consume this exact paint list, so bounds and the clear cell centre
+# are pinned before either console turns the rectangles into GPU primitives.
+add_executable(grandleon_view_terrain_composition_tests
+    view/terrain_composition_test.cpp
+)
+target_link_libraries(
+    grandleon_view_terrain_composition_tests PRIVATE grandleon::view
+)
+add_test(
+    NAME grandleon.view_terrain_composition
+    COMMAND grandleon_view_terrain_composition_tests
+)
+
 add_executable(grandleon_view_console_ui_tests
     view/console_ui_test.cpp
 )

@@ -4,6 +4,7 @@
 #include <libdragon.h>
 
 #include "grandleon/view/landmark.hpp"
+#include "grandleon/view/terrain_composition.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -38,7 +39,14 @@ struct DrawingKey final {
 void begin_board(surface_t* display);
 void draw_terrain(
     int left, int top, int width, int height,
-    std::uint8_t terrain_kind, std::uint8_t variation
+    grandleon::view::TerrainComposition terrain
+);
+// Flat detail is a second, batched pass: material boundaries, cluster cues and
+// elevation lips add no texture upload and no per-cell renderer state switch.
+void begin_terrain_details();
+void draw_terrain_detail(
+    int left, int top, int size,
+    grandleon::view::TerrainComposition terrain
 );
 // Draws one quarter of a 2x2 authored landmark over its mountain base. Flat
 // primitives keep this free of extra texture memory and uploads.
@@ -62,10 +70,13 @@ void draw_character_overlay(
     int centre_x, int bottom, int cell_size, bool facing_left = false
 );
 
-// Full-screen combat presentation. Variation is stable for the exchange;
+// Full-screen combat presentation. The actual cell selects the approved plate
+// variation and adds sparse terrain-specific foreground composition;
 // characters keep faction side positions so a counterattack changes poses,
 // never places.
-void begin_close(surface_t* display, std::uint32_t variation);
+void begin_close(
+    surface_t* display, grandleon::view::TerrainComposition terrain
+);
 void draw_close_character(
     int drawing, Pose pose, bool left_side, bool facing_left
 );

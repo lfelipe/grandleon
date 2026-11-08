@@ -469,13 +469,29 @@ static_assert(
     return overlay.aiming != nullptr ? aim_colour : move_colour;
 }
 
-[[nodiscard]] constexpr int terrain_variant(int x, int y) noexcept {
-    return (x + y * 3) % art::variant_count;
-}
-
 [[nodiscard]] int elevation_of_kind(int kind) noexcept {
     if (kind < 0 || kind >= grandleon_terrain_kind_count) return 0;
     return grandleon_terrain_elevation[kind];
+}
+
+[[nodiscard]] constexpr std::uint16_t terrain_clut_colour(
+    std::uint16_t source, int kind
+) noexcept {
+    if (source == 0U) return 0U;
+    const unsigned red = source & 0x1FU;
+    const unsigned green = (source >> 5U) & 0x1FU;
+    const unsigned blue = (source >> 10U) & 0x1FU;
+    const std::uint8_t luminance = static_cast<std::uint8_t>(
+        (red * 2U + green * 3U + blue) / 6U
+    );
+    const view::TerrainColour target = view::terrain_base_colour(
+        kind >= 0 ? static_cast<std::uint8_t>(kind) : 9U
+    );
+    return gpu::rgb15(
+        view::console_terrain_tint_level(luminance, target.red),
+        view::console_terrain_tint_level(luminance, target.green),
+        view::console_terrain_tint_level(luminance, target.blue)
+    );
 }
 
 
@@ -1294,7 +1310,7 @@ public:
         bool landed,
         int damage
     ) {
-        console::draw_close_background();
+        console::draw_close_background(close_terrain_);
         const bool attacker_left = attacker.side == sim::Side::first;
         const bool defender_left = defender.side == sim::Side::first;
         console::draw_close_character(
@@ -1447,6 +1463,9 @@ public:
         int frames = 0;
         striking_ = thrower != nullptr ? thrower->id : 0;
         if (thrower != nullptr) console::prepare_close();
+        close_terrain_ = terrain_composition_at(
+            target->position.x, target->position.y
+        );
 
         // Establish the two characters before the strike. A swing has no
         // ordinary lead, which made its first close frame the impact and let
@@ -1643,6 +1662,64 @@ public:
                     : art::colour_at(asset, px, py);
             probe(label.c_str(), at_x, at_y, expected);
         }
+#ifdef GRANDLEON_PSX_AUTOPILOT
+        // One exact readback pins the new composition to the real GPU path.
+        // The host recipe test proves every cue's geometry; this proves a
+        // neighbour seam survives texture drawing, depth order and the final
+        // framebuffer rather than existing only as planned rectangles.
+        static bool terrain_detail_checked = false;
+        if (!terrain_detail_checked) {
+            for (int i = 0; i < list_.size() && !terrain_detail_checked; ++i) {
+                const view::DrawItem& item = list_[i];
+                if (item.layer != view::Layer::terrain) continue;
+                if (turn::contains(
+                        overlay.splash, item.cell_x, item.cell_y
+                    ) ||
+                    turn::contains(overlay.danger, item.cell_x, item.cell_y) ||
+                    turn::contains(overlay.moves, item.cell_x, item.cell_y) ||
+                    landmark_at(item.cell_x, item.cell_y) ||
+                    castle_at(item.cell_x, item.cell_y) !=
+                        view::CastleTile::none) {
+                    continue;
+                }
+                const view::TerrainComposition terrain =
+                    terrain_composition_at(item.cell_x, item.cell_y);
+                int at_x = -1;
+                int at_y = -1;
+                view::paint_console_terrain(
+                    terrain, item.x, item.y, drawn_tile(),
+                    [&at_x, &at_y](int x, int y, int width, int height,
+                                    view::TerrainTone tone) {
+                        if (at_x >= 0 || tone != view::TerrainTone::seam) {
+                            return;
+                        }
+                        at_x = x + width / 2;
+                        at_y = y + height / 2;
+                    }
+                );
+                if (at_x < 0 || box.covers_pixel(at_x, at_y) ||
+                    cursor_cell_covers_pixel(overlay, at_x, at_y) ||
+                    covered_after_terrain(
+                        snapshot, item.cell_x, item.cell_y, at_x, at_y
+                    )) {
+                    continue;
+                }
+                const view::TerrainColour colour = view::terrain_colour(
+                    terrain.kind, view::TerrainTone::seam
+                );
+                const std::uint16_t expected = gpu::rgb15(
+                    static_cast<int>(colour.red) >> 3,
+                    static_cast<int>(colour.green) >> 3,
+                    static_cast<int>(colour.blue) >> 3
+                );
+                terrain_detail_checked = true;
+                expect(
+                    gpu::read_back(at_x, at_y) == expected,
+                    "a neighbour-aware terrain seam reaches the framebuffer"
+                );
+            }
+        }
+#endif
         if (camera().visible(overlay.cursor_x, overlay.cursor_y)) {
             const int cursor_at_x = cell_left(overlay.cursor_x);
             const int cursor_at_y =
@@ -1905,7 +1982,7 @@ private:
                 list_.add(
                     view::terrain_item(
                         camera(), projection_, x, y, elevation_of_kind(kind),
-                        kind, terrain_variant(x, y),
+                        kind, terrain_composition_at(x, y).variation,
                         static_cast<std::uint32_t>(kind)
                     ),
                     kind
@@ -1949,6 +2026,24 @@ private:
                         item.x, item.y, drawn_tile(), cell, clut
                     );
                 }
+                const view::TerrainComposition composition =
+                    terrain_composition_at(item.cell_x, item.cell_y);
+                view::paint_console_terrain(
+                    composition, item.x, item.y, drawn_tile(),
+                    [composition](int x, int y, int width, int height,
+                                  view::TerrainTone tone) {
+                        const view::TerrainColour colour =
+                            view::terrain_colour(composition.kind, tone);
+                        gpu::fill(
+                            x, y, width, height,
+                            gpu::rgb15(
+                                static_cast<int>(colour.red) >> 3,
+                                static_cast<int>(colour.green) >> 3,
+                                static_cast<int>(colour.blue) >> 3
+                            )
+                        );
+                    }
+                );
                 // These exact authored identities still use mountain rules.
                 // Paint their quarter of the 2x2 landmark over that mountain
                 // base with flat primitives, which adds no texture upload or
@@ -2993,6 +3088,20 @@ private:
         if (index >= terrain().size()) return -1;
         return kind_of(terrain()[index]);
     }
+    [[nodiscard]] view::TerrainComposition terrain_composition_at(
+        int x, int y
+    ) const {
+        int kind = kind_at(x, y);
+        if (kind < 0) {
+            kind = static_cast<int>(view::ConsoleTerrainKind::grass);
+        }
+        return view::compose_console_terrain(
+            static_cast<std::uint8_t>(kind), x, y,
+            kind_at(x, y - 1), kind_at(x + 1, y), kind_at(x, y + 1),
+            kind_at(x - 1, y), elevation_at(x, y), elevation_at(x + 1, y),
+            elevation_at(x, y + 1)
+        );
+    }
     [[nodiscard]] int kind_of(std::uint64_t identity) const {
         const std::uint8_t kind = shown_->kind_of_terrain(identity);
         return kind < art::terrain_kind_count ? static_cast<int>(kind) : -1;
@@ -3297,6 +3406,7 @@ private:
     int flash_x_ = -1;
     int flash_y_ = -1;
     bool flash_lit_ = false;
+    view::TerrainComposition close_terrain_{};
 
     std::uint32_t paints_ = 0;
     std::uint32_t paint_microseconds_ = 0;
@@ -3462,7 +3572,11 @@ int main() {
     // console renderer.
     for (int kind = 0; kind < art::terrain_kind_count; ++kind) {
         const art::Asset first = art::terrain(theme, kind, 0);
-        terrain_clut_of[kind] = claim_clut(first.clut);
+        std::uint16_t tinted_clut[art::clut_size]{};
+        for (int entry = 0; entry < art::clut_size; ++entry) {
+            tinted_clut[entry] = terrain_clut_colour(first.clut[entry], kind);
+        }
+        terrain_clut_of[kind] = claim_clut(tinted_clut);
         for (int variant = 0; variant < art::variant_count; ++variant) {
             terrain_cell_of[kind][variant] =
                 claim_cell(art::terrain(theme, kind, variant).texels);

@@ -50,6 +50,7 @@
 #include "grandleon/view/landmark.hpp"
 #include "grandleon/view/motion.hpp"
 #include "grandleon/view/list_view.hpp"
+#include "grandleon/view/terrain_composition.hpp"
 
 #include <grandleon/client/attack_gesture.hpp>
 #include <grandleon/client/console_localization.hpp>
@@ -516,19 +517,6 @@ constexpr const char* faction_colour_names[faction_count] = {
         tx % 2 == 0 ? pair >> 4 : pair & 0x0F
     );
     return sprite_get_palette(sprite)[index];
-}
-
-// Deterministic interior-variant choice, shared by the renderer and by the
-// probe's expected values.
-//
-// This is the one place the console deliberately does not use the shared
-// model's autotile lookup: the ROM embeds the four-variant base sheets, whose
-// whole point is that all four variants sit in TMEM at once, and the 47-blob
-// sheet the mask table indexes is 24 KB and can never be resident against
-// 2,048 bytes of usable CI4 TMEM. The desktop and the editor, which do
-// hold the blob sheets, both go through `view::autotile_variant`.
-constexpr int terrain_variant(int x, int y) {
-    return (x + y * 3) % 4;
 }
 
 // The frame's draw list lives here rather than inside the presenter so it
@@ -5205,7 +5193,7 @@ private:
                 draw_list_.add(
                     view::terrain_item(
                         camera_, projection_, x, y, elevation_at(x, y), kind,
-                        terrain_variant(x, y), kind
+                        terrain_composition_at(x, y).variation, kind
                     ),
                     kind
                 );
@@ -5365,10 +5353,19 @@ private:
             if (item.layer != view::Layer::terrain) continue;
             console::draw_terrain(
                 item.x, item.y, item.w, item.h,
-                item.sheet >= 0
-                    ? static_cast<std::uint8_t>(item.sheet)
-                    : gc::terrain_kind_unknown,
-                static_cast<std::uint8_t>(item.variant)
+                terrain_composition_at(item.cell_x, item.cell_y)
+            );
+        }
+        // One flat pass after every textured base avoids a texture/flat state
+        // switch for every cell. The same depth-ordered list keeps raised
+        // lips, clustered scenery and authored landmarks deterministic.
+        console::begin_terrain_details();
+        for (int i = 0; i < draw_list_.size(); ++i) {
+            const view::DrawItem& item = draw_list_[i];
+            if (item.layer != view::Layer::terrain) continue;
+            console::draw_terrain_detail(
+                item.x, item.y, item.w,
+                terrain_composition_at(item.cell_x, item.cell_y)
             );
             // The gameplay kind remains mountain. A flat overlay adds this
             // cell's quarter of the exact authored landmark immediately, so
@@ -5530,13 +5527,13 @@ private:
         const sim::UnitSnapshot& defender,
         grandleon::nintendo64::console_renderer::Pose attacker_pose,
         grandleon::nintendo64::console_renderer::Pose defender_pose,
-        std::uint32_t variation,
+        view::TerrainComposition terrain,
         bool show_result,
         bool landed,
         int damage
     ) {
         namespace console = grandleon::nintendo64::console_renderer;
-        console::begin_close(disp, variation);
+        console::begin_close(disp, terrain);
         const bool attacker_left = attacker.side == sim::Side::first;
         const bool defender_left = defender.side == sim::Side::first;
         console::draw_close_character(
@@ -5710,9 +5707,8 @@ private:
         const int thrower_x = posed ? px(striker->position.x) : 0;
         const int thrower_y =
             posed ? py(striker->position.x, striker->position.y) : 0;
-        const std::uint32_t close_variation = static_cast<std::uint32_t>(
-            event.unit_id ^ (event.related_unit_id << 1U)
-        );
+        const view::TerrainComposition close_terrain =
+            terrain_composition_at(event.position.x, event.position.y);
 
         // Establish the matchup before the blow moves. A swing has no shared
         // lead frames at all, so without this hold its first close frame was
@@ -5727,7 +5723,7 @@ private:
                     disp, *striker, *struck,
                     grandleon::nintendo64::console_renderer::Pose::windup,
                     grandleon::nintendo64::console_renderer::Pose::idle,
-                    close_variation, false, landed, event.amount
+                    close_terrain, false, landed, event.amount
                 );
                 grandleon::n64audio::pump();
                 show(disp);
@@ -5745,7 +5741,7 @@ private:
                 draw_close_exchange(
                     disp, *striker, *struck, pose,
                     grandleon::nintendo64::console_renderer::Pose::idle,
-                    close_variation, false, landed, event.amount
+                    close_terrain, false, landed, event.amount
                 );
                 grandleon::n64audio::pump();
                 show(disp);
@@ -5822,7 +5818,7 @@ private:
                     landed
                         ? grandleon::nintendo64::console_renderer::Pose::hurt
                         : grandleon::nintendo64::console_renderer::Pose::idle,
-                    close_variation, true, landed, event.amount
+                    close_terrain, true, landed, event.amount
                 );
                 grandleon::n64audio::pump();
                 show(disp);
@@ -5877,7 +5873,7 @@ private:
                     landed
                         ? grandleon::nintendo64::console_renderer::Pose::hurt
                         : grandleon::nintendo64::console_renderer::Pose::idle,
-                    close_variation, true, landed, event.amount
+                    close_terrain, true, landed, event.amount
                 );
                 grandleon::n64audio::pump();
                 show(disp);
@@ -7537,6 +7533,39 @@ private:
         );
     }
 
+    [[nodiscard]] int terrain_kind_at(int cell_x, int cell_y) const {
+        if (cell_x < 0 || cell_y < 0 || board_width_ <= 0 ||
+            cell_x >= board_width_) {
+            return -1;
+        }
+        const std::size_t index =
+            static_cast<std::size_t>(cell_y) *
+                static_cast<std::size_t>(board_width_) +
+            static_cast<std::size_t>(cell_x);
+        if (index >= terrain_.size()) return -1;
+        const std::uint8_t kind = kind_of(terrain_[index]);
+        return kind < terrain_kind_count ? static_cast<int>(kind) : -1;
+    }
+
+    [[nodiscard]] view::TerrainComposition terrain_composition_at(
+        int cell_x, int cell_y
+    ) const {
+        int kind = terrain_kind_at(cell_x, cell_y);
+        if (kind < 0) {
+            kind = static_cast<int>(view::ConsoleTerrainKind::grass);
+        }
+        return view::compose_console_terrain(
+            static_cast<std::uint8_t>(kind), cell_x, cell_y,
+            terrain_kind_at(cell_x, cell_y - 1),
+            terrain_kind_at(cell_x + 1, cell_y),
+            terrain_kind_at(cell_x, cell_y + 1),
+            terrain_kind_at(cell_x - 1, cell_y),
+            elevation_at(cell_x, cell_y),
+            elevation_at(cell_x + 1, cell_y),
+            elevation_at(cell_x, cell_y + 1)
+        );
+    }
+
     // How many levels above the valley floor a cell's terrain reads as, from
     // the art library's own table (tools/placeholder_art/assets/themes.h).
     // Presentation only: no rule reads it, no snapshot carries it, and no
@@ -7783,6 +7812,73 @@ private:
         return reinterpret_cast<const std::uint16_t*>(row)[sample_x];
     }
 
+    [[nodiscard]] std::uint16_t sample_pixel(
+        surface_t* disp, int x, int y
+    ) const {
+        if (disp == nullptr || x < 0 || y < 0 || x >= frame_width ||
+            y >= frame_height) {
+            return 0;
+        }
+        const auto* base =
+            static_cast<const std::uint8_t*>(UncachedAddr(disp->buffer));
+        const auto* row =
+            base + static_cast<std::size_t>(y) * disp->stride;
+        return reinterpret_cast<const std::uint16_t*>(row)[x];
+    }
+
+#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README)
+    [[nodiscard]] bool terrain_detail_matches_framebuffer(
+        const sim::EncounterSnapshot& snapshot
+    ) const {
+        if (last_buffer_ == nullptr) return false;
+        for (int y = camera_.y;
+             y < camera_.y + camera_.view_h && y < snapshot.height; ++y) {
+            for (int x = camera_.x;
+                 x < camera_.x + camera_.view_w && x < snapshot.width; ++x) {
+                bool unit_near = false;
+                for (const sim::UnitSnapshot& unit : snapshot.units) {
+                    if (!sim::on_board(unit)) continue;
+                    const int dx = unit.position.x - x;
+                    const int dy = unit.position.y - y;
+                    if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1) {
+                        unit_near = true;
+                    }
+                }
+                if (unit_near || landmark_at(x, y) ||
+                    castle_at(x, y) != view::CastleTile::none) {
+                    continue;
+                }
+                const view::TerrainComposition terrain =
+                    terrain_composition_at(x, y);
+                int at_x = -1;
+                int at_y = -1;
+                view::paint_console_terrain(
+                    terrain, px(x), py(x, y), tile_,
+                    [&at_x, &at_y](int left, int top, int width, int height,
+                                    view::TerrainTone tone) {
+                        if (at_x >= 0 || tone != view::TerrainTone::seam) {
+                            return;
+                        }
+                        at_x = left + width / 2;
+                        at_y = top + height / 2;
+                    }
+                );
+                if (at_x < 0) continue;
+                const view::TerrainColour expected = view::terrain_colour(
+                    terrain.kind, view::TerrainTone::seam
+                );
+                const std::uint16_t packed = static_cast<std::uint16_t>(
+                    graphics_make_color(
+                        expected.red, expected.green, expected.blue, 255
+                    ) & 0xFFFFU
+                );
+                return sample_pixel(last_buffer_, at_x, at_y) == packed;
+            }
+        }
+        return false;
+    }
+#endif
+
     [[nodiscard]] std::uint16_t sample_at(int cell_x, int cell_y) const {
         return last_buffer_ != nullptr
                    ? sample(last_buffer_, cell_x, cell_y)
@@ -7870,6 +7966,10 @@ private:
             expect(classified.blue == 4, "framebuffer shows 4 blue units");
             expect(classified.red == 4, "framebuffer shows 4 red units");
             expect(classified.unknown == 0, "no unclassifiable cell");
+            expect(
+                terrain_detail_matches_framebuffer(snapshot),
+                "a neighbour-aware terrain seam reaches the framebuffer"
+            );
             // The knight standing at (0,3) walks onto the bridge road.
             for (const sim::UnitSnapshot& unit : snapshot.units) {
                 if (unit.position.x == 0 && unit.position.y == 3) {
