@@ -458,6 +458,25 @@ target_link_libraries(
 target_compile_features(grandleon_content_compile PRIVATE cxx_std_17)
 target_compile_options(grandleon_content_compile PRIVATE ${GRANDLEON_WARNING_FLAGS})
 
+# Host side of the experimental Mipsync PlayStation path. It deliberately
+# emits a renderer-neutral scene manifest from a real package and a real
+# simulation snapshot; no Mipsync ABI enters an engine library.
+add_executable(grandleon_ps1_mipsync_scene_export
+    platform/playstation/mipsync/tools/scene_export.cpp
+)
+target_link_libraries(
+    grandleon_ps1_mipsync_scene_export
+    PRIVATE
+        grandleon::core
+        grandleon::package_format
+        grandleon::package_runtime
+        grandleon::simulation
+)
+target_compile_features(grandleon_ps1_mipsync_scene_export PRIVATE cxx_std_17)
+target_compile_options(
+    grandleon_ps1_mipsync_scene_export PRIVATE ${GRANDLEON_WARNING_FLAGS}
+)
+
 # Desktop client. Presentation sits behind a Presenter seam, so the terminal
 # front end and the SDL one share the session and nothing else. SDL is optional:
 # without it the client still builds and still plays.
