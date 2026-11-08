@@ -7334,7 +7334,8 @@ private:
         // board's list is the terminal client's addressing scheme and means
         // nothing to somebody holding a controller.
         std::snprintf(
-            lines[count++], sizeof lines[0], "%s",
+            lines[count++], sizeof lines[0], "%.*s",
+            static_cast<int>(sizeof lines[0] - 1U),
             grandleon::sheet::character_name(
                 package_, snapshot, hovered->id,
                 campaign_name_of(hovered->id), language()
@@ -7345,7 +7346,10 @@ private:
                     package_, hovered->unit_type_id, language()
                 );
             kind.text[0] != '\0') {
-            std::snprintf(lines[count++], sizeof lines[0], "%s", kind.c_str());
+            std::snprintf(
+                lines[count++], sizeof lines[0], "%.*s",
+                static_cast<int>(sizeof lines[0] - 1U), kind.c_str()
+            );
         }
         if (hovered->side == snapshot.active_side) {
             // The engine's own answer, so the panel and an accepted command

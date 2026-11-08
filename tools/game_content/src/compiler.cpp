@@ -3014,7 +3014,7 @@ CompileResult compile(const GameSource& source) {
     // strings already present in normal content records. A runtime that does
     // know it compares each entry's source snapshot before using its text, so
     // edited copy never silently displays an obsolete translation.
-    if (!source.translations.empty()) {
+    {
         std::vector<const TranslationCatalog*> catalogs;
         catalogs.reserve(source.translations.size());
         for (const TranslationCatalog& catalog : source.translations) {

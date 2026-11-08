@@ -40,6 +40,39 @@
 
 namespace grandleon::sheet {
 
+// What a platform can actually draw. The shared console behavior remains the
+// compact ASCII fold by default; a platform with an owned Latin atlas opts in
+// explicitly and receives preserved, upper-cased UTF-8 instead.
+enum class TextEncoding : std::uint8_t {
+    ascii_console,
+    latin_utf8,
+};
+
+struct TextCopy final {
+    std::size_t bytes{};
+    std::size_t glyphs{};
+    bool valid{true};
+};
+
+// Copies one player-facing string into fixed storage for a Latin UTF-8 display.
+// Invalid or unsupported input becomes one visible '?', never a split sequence
+// or a silent hole. `source_bytes` and `glyph_limit` independently bound what
+// may be read and what may be shown.
+[[nodiscard]] TextCopy copy_latin_text(
+    char* out,
+    std::size_t capacity,
+    const char* source,
+    std::size_t source_bytes,
+    std::size_t glyph_limit
+) noexcept;
+
+// Bytes consumed by the next well-formed UTF-8 scalar, or one for malformed
+// input. This is exposed so the campaign pager and the sheet break the same
+// string at the same character boundary.
+[[nodiscard]] std::size_t utf8_source_glyph_bytes(
+    const char* source, std::size_t available
+) noexcept;
+
 namespace sim = grandleon::simulation;
 
 // ---------------------------------------------------------------------------
@@ -81,6 +114,8 @@ namespace sim = grandleon::simulation;
 // draws a name also draws; a longer name is cut rather than allowed to push
 // them off.
 inline constexpr std::size_t content_name_capacity = 24;
+inline constexpr std::size_t content_name_storage_capacity =
+    content_name_capacity * 2;
 
 // One resolved name, in storage the caller owns.
 //
@@ -96,7 +131,7 @@ inline constexpr std::size_t content_name_capacity = 24;
 // temporary outlives it. Storing the `const char*` past the statement does
 // not; hold the `ContentName` instead.
 struct ContentName final {
-    char text[content_name_capacity + 1]{};
+    char text[content_name_storage_capacity + 1]{};
 
     [[nodiscard]] const char* c_str() const noexcept { return text; }
 };
@@ -114,23 +149,27 @@ struct ContentName final {
 [[nodiscard]] ContentName unit_type_name(
     const package_format::LoadedPackage* package,
     std::uint64_t unit_type_id,
-    std::string_view language = {}
+    std::string_view language = {},
+    TextEncoding encoding = TextEncoding::ascii_console
 ) noexcept;
 
 // The same, for the three other sections a sheet names.
 [[nodiscard]] ContentName weapon_name(
     const package_format::LoadedPackage* package, std::uint64_t weapon_id,
-    std::string_view language = {}
+    std::string_view language = {},
+    TextEncoding encoding = TextEncoding::ascii_console
 ) noexcept;
 
 [[nodiscard]] ContentName ability_name(
     const package_format::LoadedPackage* package, std::uint64_t ability_id,
-    std::string_view language = {}
+    std::string_view language = {},
+    TextEncoding encoding = TextEncoding::ascii_console
 ) noexcept;
 
 [[nodiscard]] ContentName item_name(
     const package_format::LoadedPackage* package, std::uint64_t item_id,
-    std::string_view language = {}
+    std::string_view language = {},
+    TextEncoding encoding = TextEncoding::ascii_console
 ) noexcept;
 
 // ---------------------------------------------------------------------------
@@ -186,7 +225,8 @@ struct ContentName final {
     const simulation::EncounterSnapshot& snapshot,
     simulation::UnitId unit,
     const char* member_name = nullptr,
-    std::string_view language = {}
+    std::string_view language = {},
+    TextEncoding encoding = TextEncoding::ascii_console
 ) noexcept;
 
 // One name a client already holds, folded on the terms above and cut to the
@@ -196,7 +236,10 @@ struct ContentName final {
 // roster, an aftermath or a recruitment line. There is no board unit to ask
 // about and so nothing for `character_name` to derive from, but the same fold
 // has to apply or one client spells one person's name two ways.
-[[nodiscard]] ContentName person_name(const char* name) noexcept;
+[[nodiscard]] ContentName person_name(
+    const char* name,
+    TextEncoding encoding = TextEncoding::ascii_console
+) noexcept;
 
 // What kind of character that is: the class its unit type belongs to.
 //
@@ -210,7 +253,8 @@ struct ContentName final {
 // caller with nothing to draw draws nothing, rather than a row reading `CLASS`.
 [[nodiscard]] ContentName class_name(
     const package_format::LoadedPackage* package, std::uint64_t unit_type_id,
-    std::string_view language = {}
+    std::string_view language = {},
+    TextEncoding encoding = TextEncoding::ascii_console
 ) noexcept;
 
 // ---------------------------------------------------------------------------
@@ -257,6 +301,14 @@ void round_line(
 // that fits the narrowest surface fits
 // every surface, so there is one width rather than one per machine.
 inline constexpr int unit_sheet_columns = 40;
+// At most one authored name appears on a row. That name is capped at 24
+// glyphs and each supported Latin glyph is at most two UTF-8 bytes; the rest
+// of the forty-column row is shared ASCII vocabulary and numbers. Reserving
+// one extra byte per possible authored-name glyph therefore covers the actual
+// worst case without doubling every N64 sheet row for a capability it does
+// not use.
+inline constexpr int unit_sheet_storage_bytes =
+    unit_sheet_columns + static_cast<int>(content_name_capacity);
 
 // What a campaign knows about a character that a battle does not.
 //
@@ -293,7 +345,7 @@ inline constexpr int unit_sheet_max_abilities = 4;
 inline constexpr int unit_sheet_max_items = 4;
 
 struct UnitSheet final {
-    char lines[unit_sheet_capacity][unit_sheet_columns + 1]{};
+    char lines[unit_sheet_capacity][unit_sheet_storage_bytes + 1]{};
     int count{0};
 
     // The line at `index`, or the empty string past the end, so a renderer
@@ -343,7 +395,8 @@ struct UnitSheet final {
     const std::vector<sim::ItemDefinition>& items,
     const CampaignContext* campaign = nullptr,
     const package_format::LoadedPackage* package = nullptr,
-    std::string_view language = {}
+    std::string_view language = {},
+    TextEncoding encoding = TextEncoding::ascii_console
 );
 
 }  // namespace grandleon::sheet

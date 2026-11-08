@@ -15,10 +15,174 @@ namespace pr = grandleon::package_runtime;
 
 namespace {
 
+struct DecodedUtf8 final {
+    std::uint32_t codepoint{'?'};
+    std::size_t bytes{1U};
+    bool valid{false};
+};
+
+DecodedUtf8 decode_utf8(const char* source, std::size_t available) noexcept {
+    if (source == nullptr || available == 0U || source[0] == '\0') {
+        return {0U, 0U, true};
+    }
+    const auto first = static_cast<unsigned char>(source[0]);
+    if (first < 0x80U) return {first, 1U, true};
+    const auto continuation = [](unsigned char byte) {
+        return (byte & 0xC0U) == 0x80U;
+    };
+    if ((first & 0xE0U) == 0xC0U && available >= 2U && source[1] != '\0') {
+        const auto second = static_cast<unsigned char>(source[1]);
+        if (continuation(second)) {
+            const std::uint32_t value =
+                (static_cast<std::uint32_t>(first & 0x1FU) << 6U) |
+                static_cast<std::uint32_t>(second & 0x3FU);
+            if (value >= 0x80U) return {value, 2U, true};
+        }
+    }
+    if ((first & 0xF0U) == 0xE0U && available >= 3U &&
+        source[1] != '\0' && source[2] != '\0') {
+        const auto second = static_cast<unsigned char>(source[1]);
+        const auto third = static_cast<unsigned char>(source[2]);
+        if (continuation(second) && continuation(third)) {
+            const std::uint32_t value =
+                (static_cast<std::uint32_t>(first & 0x0FU) << 12U) |
+                (static_cast<std::uint32_t>(second & 0x3FU) << 6U) |
+                static_cast<std::uint32_t>(third & 0x3FU);
+            if (value >= 0x800U && !(value >= 0xD800U && value <= 0xDFFFU)) {
+                return {value, 3U, true};
+            }
+        }
+    }
+    if ((first & 0xF8U) == 0xF0U && available >= 4U &&
+        source[1] != '\0' && source[2] != '\0' && source[3] != '\0') {
+        const auto second = static_cast<unsigned char>(source[1]);
+        const auto third = static_cast<unsigned char>(source[2]);
+        const auto fourth = static_cast<unsigned char>(source[3]);
+        if (continuation(second) && continuation(third) &&
+            continuation(fourth)) {
+            const std::uint32_t value =
+                (static_cast<std::uint32_t>(first & 0x07U) << 18U) |
+                (static_cast<std::uint32_t>(second & 0x3FU) << 12U) |
+                (static_cast<std::uint32_t>(third & 0x3FU) << 6U) |
+                static_cast<std::uint32_t>(fourth & 0x3FU);
+            if (value >= 0x10000U && value <= 0x10FFFFU) {
+                return {value, 4U, true};
+            }
+        }
+    }
+    return {'?', 1U, false};
+}
+
+std::uint32_t upper_latin(std::uint32_t codepoint) noexcept {
+    if (codepoint >= 'a' && codepoint <= 'z') return codepoint - 0x20U;
+    switch (codepoint) {
+        case 0x00E0U: return 0x00C0U; case 0x00E1U: return 0x00C1U;
+        case 0x00E2U: return 0x00C2U; case 0x00E3U: return 0x00C3U;
+        case 0x00E4U: return 0x00C4U; case 0x00E7U: return 0x00C7U;
+        case 0x00E8U: return 0x00C8U; case 0x00E9U: return 0x00C9U;
+        case 0x00EAU: return 0x00CAU; case 0x00EBU: return 0x00CBU;
+        case 0x00ECU: return 0x00CCU; case 0x00EDU: return 0x00CDU;
+        case 0x00EEU: return 0x00CEU; case 0x00EFU: return 0x00CFU;
+        case 0x00F1U: return 0x00D1U; case 0x00F2U: return 0x00D2U;
+        case 0x00F3U: return 0x00D3U; case 0x00F4U: return 0x00D4U;
+        case 0x00F5U: return 0x00D5U; case 0x00F6U: return 0x00D6U;
+        case 0x00F9U: return 0x00D9U; case 0x00FAU: return 0x00DAU;
+        case 0x00FBU: return 0x00DBU; case 0x00FCU: return 0x00DCU;
+        case 0x00FDU: return 0x00DDU;
+        default: return codepoint;
+    }
+}
+
+bool supported_latin(std::uint32_t codepoint) noexcept {
+    if (codepoint >= 0x20U && codepoint <= 0x5FU) return true;
+    if (codepoint == 0x00A1U || codepoint == 0x00BFU) return true;
+    switch (codepoint) {
+        case 0x00C0U: case 0x00C1U: case 0x00C2U: case 0x00C3U:
+        case 0x00C4U: case 0x00C7U: case 0x00C8U: case 0x00C9U:
+        case 0x00CAU: case 0x00CBU: case 0x00CCU: case 0x00CDU:
+        case 0x00CEU: case 0x00CFU: case 0x00D1U: case 0x00D2U:
+        case 0x00D3U: case 0x00D4U: case 0x00D5U: case 0x00D6U:
+        case 0x00D9U: case 0x00DAU: case 0x00DBU: case 0x00DCU:
+        case 0x00DDU:
+            return true;
+        default:
+            return false;
+    }
+}
+
+std::size_t encode_utf8(std::uint32_t codepoint, char out[2]) noexcept {
+    if (codepoint < 0x80U) {
+        out[0] = static_cast<char>(codepoint);
+        return 1U;
+    }
+    out[0] = static_cast<char>(0xC0U | (codepoint >> 6U));
+    out[1] = static_cast<char>(0x80U | (codepoint & 0x3FU));
+    return 2U;
+}
+
+}  // namespace
+
+std::size_t utf8_source_glyph_bytes(
+    const char* source, std::size_t available
+) noexcept {
+    const DecodedUtf8 decoded = decode_utf8(source, available);
+    return decoded.bytes == 0U ? 0U : decoded.bytes;
+}
+
+TextCopy copy_latin_text(
+    char* out,
+    std::size_t capacity,
+    const char* source,
+    std::size_t source_bytes,
+    std::size_t glyph_limit
+) noexcept {
+    TextCopy result;
+    if (out == nullptr || capacity == 0U) return result;
+    out[0] = '\0';
+    std::size_t at = 0;
+    while (source != nullptr && at < source_bytes && source[at] != '\0' &&
+           result.glyphs < glyph_limit) {
+        DecodedUtf8 decoded = decode_utf8(source + at, source_bytes - at);
+        if (decoded.bytes == 0U) break;
+        at += decoded.bytes;
+        std::uint32_t codepoint = upper_latin(decoded.codepoint);
+        if (!decoded.valid || !supported_latin(codepoint)) {
+            codepoint = '?';
+            result.valid = false;
+        }
+        char encoded[2]{};
+        const std::size_t bytes = encode_utf8(codepoint, encoded);
+        if (result.bytes + bytes + 1U > capacity) break;
+        for (std::size_t i = 0; i < bytes; ++i) {
+            out[result.bytes++] = encoded[i];
+        }
+        ++result.glyphs;
+    }
+    out[result.bytes] = '\0';
+    return result;
+}
+
+namespace {
+
 struct NamedId final {
     std::uint64_t id;
     const char* name;
 };
+
+[[nodiscard]] const char* shell_word(
+    std::string_view language,
+    const char* english,
+    const char* spanish,
+    const char* portuguese
+) noexcept {
+    if (language.size() >= 2U && language[0] == 'e' && language[1] == 's') {
+        return spanish;
+    }
+    if (language.size() >= 2U && language[0] == 'p' && language[1] == 't') {
+        return portuguese;
+    }
+    return english;
+}
 
 // The shipped projects' display names, in one table rather than one per client.
 //
@@ -93,7 +257,22 @@ public:
     explicit Line(char* buffer) noexcept : buffer_(buffer) { buffer_[0] = '\0'; }
 
     Line& text(const char* value) noexcept {
-        while (value != nullptr && *value != '\0') push(*value++);
+        while (value != nullptr && *value != '\0' &&
+               columns_ < unit_sheet_columns) {
+            std::size_t available = 0;
+            while (available < 4U && value[available] != '\0') ++available;
+            const std::size_t bytes = utf8_source_glyph_bytes(value, available);
+            if (bytes == 0U || length_ + bytes >
+                    static_cast<std::size_t>(unit_sheet_storage_bytes)) {
+                break;
+            }
+            for (std::size_t i = 0; i < bytes; ++i) {
+                buffer_[length_++] = value[i];
+            }
+            buffer_[length_] = '\0';
+            ++columns_;
+            value += bytes;
+        }
         return *this;
     }
 
@@ -113,9 +292,13 @@ public:
 
 private:
     void push(char value) noexcept {
-        if (length_ >= unit_sheet_columns) return;
+        if (columns_ >= unit_sheet_columns ||
+            length_ >= static_cast<std::size_t>(unit_sheet_storage_bytes)) {
+            return;
+        }
         buffer_[length_++] = value;
         buffer_[length_] = '\0';
+        ++columns_;
     }
 
     Line& unsigned_number(unsigned value) noexcept {
@@ -130,7 +313,8 @@ private:
     }
 
     char* buffer_;
-    int length_{0};
+    std::size_t length_{0};
+    int columns_{0};
 };
 
 [[nodiscard]] const sim::WeaponDefinition* weapon_definition(
@@ -223,9 +407,15 @@ std::size_t fold_into(
     ContentName& out,
     const char* source,
     std::size_t length,
-    std::size_t limit = content_name_capacity
+    std::size_t limit = content_name_capacity,
+    TextEncoding encoding = TextEncoding::ascii_console
 ) noexcept {
     if (limit > content_name_capacity) limit = content_name_capacity;
+    if (encoding == TextEncoding::latin_utf8) {
+        return copy_latin_text(
+            out.text, sizeof out.text, source, length, limit
+        ).bytes;
+    }
     std::size_t written = 0;
     for (std::size_t i = 0; i < length && written < limit; ++i) {
         const auto byte = static_cast<unsigned char>(source[i]);
@@ -256,7 +446,8 @@ ContentName resolved(
     pf::SectionType section,
     std::uint64_t id,
     const char* fallback,
-    std::string_view language
+    std::string_view language,
+    TextEncoding encoding
 ) noexcept {
     ContentName out;
     std::string_view authored;
@@ -270,8 +461,10 @@ ContentName resolved(
     }
     const std::size_t written =
         !authored.empty()
-            ? fold_into(out, authored.data(), authored.size())
-            : fold_into(out, fallback, length_of(fallback));
+            ? fold_into(out, authored.data(), authored.size(),
+                        content_name_capacity, encoding)
+            : fold_into(out, fallback, length_of(fallback),
+                        content_name_capacity, encoding);
     // A name that folded away to nothing, every byte of it outside ASCII and
     // not a lead byte, is no name at all, and the category is a better answer
     // than a blank row.
@@ -290,40 +483,41 @@ ContentName resolved(
 
 ContentName unit_type_name(
     const pf::LoadedPackage* package, std::uint64_t unit_type_id,
-    std::string_view language
+    std::string_view language, TextEncoding encoding
 ) noexcept {
     return resolved(
         package, pf::SectionType::unit_types, unit_type_id,
-        unit_type_name(unit_type_id), language
+        unit_type_name(unit_type_id), language, encoding
     );
 }
 
 ContentName weapon_name(
     const pf::LoadedPackage* package, std::uint64_t weapon_id,
-    std::string_view language
+    std::string_view language, TextEncoding encoding
 ) noexcept {
     return resolved(
         package, pf::SectionType::weapons, weapon_id, weapon_name(weapon_id),
-        language
+        language, encoding
     );
 }
 
 ContentName ability_name(
     const pf::LoadedPackage* package, std::uint64_t ability_id,
-    std::string_view language
+    std::string_view language, TextEncoding encoding
 ) noexcept {
     return resolved(
         package, pf::SectionType::abilities, ability_id,
-        ability_name(ability_id), language
+        ability_name(ability_id), language, encoding
     );
 }
 
 ContentName item_name(
     const pf::LoadedPackage* package, std::uint64_t item_id,
-    std::string_view language
+    std::string_view language, TextEncoding encoding
 ) noexcept {
     return resolved(
-        package, pf::SectionType::items, item_id, item_name(item_id), language
+        package, pf::SectionType::items, item_id, item_name(item_id), language,
+        encoding
     );
 }
 
@@ -344,9 +538,11 @@ std::size_t digits_of(std::size_t value) noexcept {
 
 }  // namespace
 
-ContentName person_name(const char* name) noexcept {
+ContentName person_name(const char* name, TextEncoding encoding) noexcept {
     ContentName out;
-    fold_into(out, name, length_of(name));
+    fold_into(
+        out, name, length_of(name), content_name_capacity, encoding
+    );
     return out;
 }
 
@@ -355,13 +551,14 @@ ContentName character_name(
     const sim::EncounterSnapshot& snapshot,
     sim::UnitId unit,
     const char* member_name,
-    std::string_view language
+    std::string_view language,
+    TextEncoding encoding
 ) noexcept {
     // The campaign's own name, when a member stands in this unit. A person's
     // name, and it outranks everything below because everything below describes
     // a kind of character rather than a character.
     if (member_name != nullptr && member_name[0] != '\0') {
-        const ContentName out = person_name(member_name);
+        const ContentName out = person_name(member_name, encoding);
         if (out.text[0] != '\0') return out;
     }
 
@@ -378,7 +575,10 @@ ContentName character_name(
             : source;
         if (!authored.empty()) {
             ContentName out;
-            if (fold_into(out, authored.data(), authored.size()) != 0U) {
+            if (fold_into(
+                    out, authored.data(), authored.size(),
+                    content_name_capacity, encoding
+                ) != 0U) {
                 return out;
             }
         }
@@ -393,7 +593,7 @@ ContentName character_name(
     }
     if (standing == nullptr) {
         ContentName out;
-        fold_into(out, "SOMEBODY", 8);
+        fold_into(out, "SOMEBODY", 8, content_name_capacity, encoding);
         return out;
     }
 
@@ -408,7 +608,7 @@ ContentName character_name(
         if (candidate.id < unit) ++ordinal;
     }
     const ContentName kind = unit_type_name(
-        package, standing->unit_type_id, language
+        package, standing->unit_type_id, language, encoding
     );
     if (kindred < 2U) return kind;
 
@@ -420,7 +620,8 @@ ContentName character_name(
     ContentName out;
     const std::size_t base = fold_into(
         out, kind.text, length_of(kind.text),
-        width < content_name_capacity ? content_name_capacity - width : 0U
+        width < content_name_capacity ? content_name_capacity - width : 0U,
+        encoding
     );
     std::size_t at = base;
     out.text[at++] = ' ';
@@ -435,7 +636,7 @@ ContentName character_name(
 
 ContentName class_name(
     const pf::LoadedPackage* package, std::uint64_t unit_type_id,
-    std::string_view language
+    std::string_view language, TextEncoding encoding
 ) noexcept {
     ContentName out;
     if (package == nullptr) return out;
@@ -450,7 +651,9 @@ ContentName class_name(
           )
         : source;
     if (authored.empty()) return out;
-    fold_into(out, authored.data(), authored.size());
+    fold_into(
+        out, authored.data(), authored.size(), content_name_capacity, encoding
+    );
     return out;
 }
 
@@ -519,7 +722,8 @@ UnitSheet build(
     const std::vector<sim::ItemDefinition>& items,
     const CampaignContext* campaign,
     const pf::LoadedPackage* package,
-    std::string_view language
+    std::string_view language,
+    TextEncoding encoding
 ) {
     UnitSheet sheet;
     const auto next = [&sheet]() -> char* {
@@ -534,11 +738,13 @@ UnitSheet build(
     // makes the second word look like part of the first.
     if (char* row = next()) {
         Line(row).text(
-            character_name(package, snapshot, unit.id, name, language).c_str()
+            character_name(
+                package, snapshot, unit.id, name, language, encoding
+            ).c_str()
         );
     }
     if (const ContentName kind = class_name(
-            package, unit.unit_type_id, language
+            package, unit.unit_type_id, language, encoding
         );
         kind.text[0] != '\0') {
         if (char* row = next()) Line(row).text(kind.c_str());
@@ -552,7 +758,7 @@ UnitSheet build(
     if (campaign != nullptr) {
         if (char* row = next()) {
             Line(row)
-                .text("LEVEL ")
+                .text(shell_word(language, "LEVEL ", "NIVEL ", "NIVEL "))
                 .number(static_cast<int>(campaign->level))
                 .gap()
                 .text("EXP ")
@@ -617,10 +823,14 @@ UnitSheet build(
     }
 
     if (char* row = next()) {
-        Line(row).text("WEAPONS");
+        Line(row).text(shell_word(language, "WEAPONS", "ARMAS", "ARMAS"));
     }
     if (unit.weapon_ids.empty()) {
-        if (char* row = next()) Line(row).text("  NONE");
+        if (char* row = next()) {
+            Line(row).text(shell_word(
+                language, "  NONE", "  NINGUNA", "  NENHUMA"
+            ));
+        }
     }
     for (std::size_t i = 0;
          i < unit.weapon_ids.size() &&
@@ -630,7 +840,9 @@ UnitSheet build(
         if (row == nullptr) break;
         const sim::ContentId id = unit.weapon_ids[i];
         Line line(row);
-        line.text("  ").text(weapon_name(package, id, language).c_str()).gap();
+        line.text("  ")
+            .text(weapon_name(package, id, language, encoding).c_str())
+            .gap();
         const sim::WeaponDefinition* definition = weapon_definition(weapons, id);
         if (definition == nullptr) {
             // The registry the encounter was created with does not describe
@@ -663,10 +875,16 @@ UnitSheet build(
     }
 
     if (char* row = next()) {
-        Line(row).text("ABILITIES");
+        Line(row).text(shell_word(
+            language, "ABILITIES", "HABILIDADES", "HABILIDADES"
+        ));
     }
     if (unit.ability_ids.empty()) {
-        if (char* row = next()) Line(row).text("  NONE");
+        if (char* row = next()) {
+            Line(row).text(shell_word(
+                language, "  NONE", "  NINGUNA", "  NENHUMA"
+            ));
+        }
     }
     for (std::size_t i = 0;
          i < unit.ability_ids.size() &&
@@ -676,7 +894,9 @@ UnitSheet build(
         if (row == nullptr) break;
         const sim::ContentId id = unit.ability_ids[i];
         Line line(row);
-        line.text("  ").text(ability_name(package, id, language).c_str()).gap();
+        line.text("  ")
+            .text(ability_name(package, id, language, encoding).c_str())
+            .gap();
         const sim::AbilityDefinition* definition =
             ability_definition(abilities, id);
         if (definition == nullptr) {
@@ -701,10 +921,16 @@ UnitSheet build(
     // draught was drunk says so; an item the registry does not describe is
     // still named, and what is missing is what it does.
     if (char* row = next()) {
-        Line(row).text("ITEMS");
+        Line(row).text(shell_word(
+            language, "ITEMS", "OBJETOS", "ITENS"
+        ));
     }
     if (unit.item_ids.empty()) {
-        if (char* row = next()) Line(row).text("  NONE");
+        if (char* row = next()) {
+            Line(row).text(shell_word(
+                language, "  NONE", "  NINGUNO", "  NENHUM"
+            ));
+        }
     }
     for (std::size_t i = 0;
          i < unit.item_ids.size() &&
@@ -715,7 +941,7 @@ UnitSheet build(
         const sim::ContentId id = unit.item_ids[i];
         Line line(row);
         line.text("  ")
-            .text(item_name(package, id, language).c_str())
+            .text(item_name(package, id, language, encoding).c_str())
             .gap()
             .text("x")
             .number(static_cast<int>(unit.item_counts[i]));

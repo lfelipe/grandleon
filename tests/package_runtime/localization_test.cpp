@@ -77,6 +77,36 @@ gc::GameSource source() {
 }  // namespace
 
 int main() {
+    for (const std::string_view source_language : {"es", "pt-BR"}) {
+        gc::GameSource source_only = source();
+        source_only.source_language = std::string(source_language);
+        source_only.translations.clear();
+        const auto source_only_compiled = gc::compile(source_only);
+        expect(
+            static_cast<bool>(source_only_compiled),
+            "source-only localized project compiles"
+        );
+        const auto source_only_loaded = pf::load_mock_package(
+            source_only_compiled.package,
+            {{0, 1, 0}, pf::TargetProfile::desktop, 0, 64, 10000}
+        );
+        expect(
+            static_cast<bool>(source_only_loaded),
+            "source-only localized package loads"
+        );
+        expect(
+            pr::source_language(source_only_loaded.package) == source_language,
+            "source-only language travels without translation catalogs"
+        );
+        const auto source_only_languages =
+            pr::available_languages(source_only_loaded.package);
+        expect(
+            source_only_languages.size() == 1U &&
+                source_only_languages.front() == source_language,
+            "source-only package offers its authored language"
+        );
+    }
+
     const auto compiled = gc::compile(source());
     expect(static_cast<bool>(compiled), "localized source compiles");
     const auto loaded = pf::load_mock_package(

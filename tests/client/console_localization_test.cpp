@@ -67,12 +67,12 @@ gc::GameSource localized_source() {
              "Defiende la puerta."}
         }},
         {"pt-BR", {
-            {"project.title", "The Gate", "O Portao"},
+            {"project.title", "The Gate", u8"O Portão"},
             {"unit_types.rowan.name", "An old Rowan", "Cavaleiro"},
-            {"weapons.sword.name", "Sword", "Espada"},
+            {"weapons.sword.name", "Sword", u8"Espada Épica"},
             {"dialogues.opening.lines.0.speaker", "Rowan", "Comandante"},
             {"dialogues.opening.lines.0.text", "Hold the gate.",
-             "Segure o portao."}
+             u8"Segure o portão."}
         }}
     };
     return value;
@@ -85,7 +85,8 @@ public:
 
 class Reader final : public turn::TurnClient {
 public:
-    explicit Reader(turn::ReportSink& sink) : TurnClient(sink) {}
+    explicit Reader(turn::ReportSink& sink, bool latin = true)
+        : TurnClient(sink), latin_(latin) {}
 
     void paint(const sim::EncounterSnapshot&, const turn::Overlay&) override {}
 
@@ -102,6 +103,11 @@ public:
     std::uint16_t next_press() override {
         if (at < presses.size()) return presses[at++];
         return turn::pad_a;
+    }
+
+    [[nodiscard]] sheet::TextEncoding text_encoding() const noexcept override {
+        return latin_ ? sheet::TextEncoding::latin_utf8
+                      : sheet::TextEncoding::ascii_console;
     }
 
     bool saw(std::string_view row) const {
@@ -121,6 +127,9 @@ public:
     };
     std::size_t at{0};
     std::vector<std::vector<std::string>> pages;
+
+private:
+    bool latin_{true};
 };
 
 }  // namespace
@@ -130,9 +139,26 @@ int main() {
         std::string_view(console::text("es", console::Message::attack)) ==
             "ATACAR" &&
         std::string_view(console::text("pt-BR", console::Message::two_players)) ==
-            "2 JOGADORES",
-        "Spanish and Brazilian Portuguese carry compact interface copy"
+            "2 JOGADORES" &&
+        std::string_view(console::text(
+            "es", console::Message::choose_how_to_play
+        )) == "ELIGE COMO JUGAR" &&
+        std::string_view(console::text(
+            "pt-BR", console::Message::status
+        )) == "ESTADO",
+        "Spanish and Brazilian Portuguese carry shared and renderer UI copy"
     );
+    for (const std::string_view language : {"en", "es", "pt-BR"}) {
+        expect(
+            std::string_view(console::text(
+                language, console::Message::company_footer
+            )).size() <= static_cast<std::size_t>(turn::footer_columns) &&
+                std::string_view(console::text(
+                    language, console::Message::company_footer_stages
+                )).size() <= static_cast<std::size_t>(turn::footer_columns),
+            "localized company controls stay inside the measured footer"
+        );
+    }
 
     const auto compiled = gc::compile(localized_source());
     expect(static_cast<bool>(compiled), "localized console fixture compiles");
@@ -156,7 +182,10 @@ int main() {
     );
     expect(choice.local_players == 1U, "language selection preserves launch mode");
     expect(reader.language() == "pt-BR", "launch menu selects Brazilian Portuguese");
-    expect(reader.saw("O PORTAO"), "selected language updates the authored title");
+    expect(
+        reader.saw(u8"O PORTÃO"),
+        "a Latin-capable console retains accents in the authored title"
+    );
     expect(reader.saw("1 JOGADOR"), "selected language updates interface copy live");
     expect(reader.saw("IDIOMA  PT-BR"), "launch menu identifies the selected catalog");
 
@@ -166,19 +195,76 @@ int main() {
     dialogue.lines.push_back({"Rowan", "Hold the gate.", 0});
     reader.present_dialogue(dialogue);
     expect(reader.saw("COMANDANTE:"), "dialogue speaker uses the selected catalog");
-    expect(reader.saw("SEGURE O PORTAO."), "dialogue text uses the selected catalog");
+    expect(
+        reader.saw(u8"SEGURE O PORTÃO."),
+        "dialogue text retains selected-language accents end to end"
+    );
+    {
+        pr::Dialogue stress;
+        stress.id = core::stable_content_id_v1("utf8-stress");
+        stress.name = "UTF-8 stress";
+        std::string malformed{"A"};
+        malformed.push_back(static_cast<char>(0xC3));
+        malformed.push_back('B');
+        stress.lines.push_back({"", malformed, 0});
+        std::string unsupported;
+        for (int glyph = 0; glyph < 39; ++glyph) {
+            unsupported += u8"😀";
+        }
+        stress.lines.push_back({"", unsupported, 0});
+        std::string accents;
+        for (int glyph = 0; glyph < 39; ++glyph) accents += u8"á";
+        stress.lines.push_back({"", accents, 0});
+        reader.present_dialogue(stress);
+        expect(
+            reader.saw("A?B"),
+            "malformed authored UTF-8 becomes one visible replacement"
+        );
+        expect(
+            reader.saw(std::string(38, '?')) && reader.saw("?"),
+            "unsupported scalars wrap by glyph without overrunning a row"
+        );
+        std::string accent_row;
+        for (int glyph = 0; glyph < 38; ++glyph) accent_row += u8"Á";
+        expect(
+            reader.saw(accent_row) && reader.saw(u8"Á"),
+            "a long accented word wraps at glyph rather than byte boundaries"
+        );
+    }
 
     expect(
         std::string_view(sheet::weapon_name(
             &loaded.package, core::stable_content_id_v1("sword"), "pt-BR"
-        ).c_str()) == "ESPADA",
-        "content names use the selected authored catalog"
+        ).c_str()) == "ESPADA -PICA",
+        "the default content-name fold stays byte-for-byte ASCII compatible"
+    );
+    expect(
+        std::string_view(sheet::weapon_name(
+            &loaded.package, core::stable_content_id_v1("sword"), "pt-BR",
+            sheet::TextEncoding::latin_utf8
+        ).c_str()) == u8"ESPADA ÉPICA",
+        "a Latin-capable console retains accents in content names"
     );
     expect(
         std::string_view(sheet::unit_type_name(
             &loaded.package, core::stable_content_id_v1("rowan"), "pt-BR"
         ).c_str()) == "ROWAN",
         "a stale optional translation falls back to current source copy"
+    );
+
+    Reader ascii_reader(sink, false);
+    ascii_reader.set_package(&loaded.package);
+    const auto ascii_choice = ascii_reader.open_campaign(
+        "The Gate", "console-localization-ascii", holds, 1, launch
+    );
+    expect(
+        ascii_choice.local_players == 1U &&
+            ascii_reader.language() == "pt-BR",
+        "the default console follows the same language-selection behavior"
+    );
+    expect(
+        ascii_reader.saw("O PORT  O"),
+        "the default page fold remains exactly the existing ASCII behavior"
     );
 
     return failures == 0 ? 0 : 1;

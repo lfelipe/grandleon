@@ -154,6 +154,56 @@ int main(int argc, char** argv) {
         sheet::person_name("Wren Ashdown"), "WREN ASHDOWN",
         "and a name a client already holds folds the same way"
     );
+    expect_name(
+        sheet::person_name(u8"Ação Épica"), "A--O -PICA",
+        "the default console fold remains byte-for-byte ASCII compatible"
+    );
+    expect_name(
+        sheet::person_name("abcdefghijklmnopqrstuvwxyz123456"),
+        "ABCDEFGHIJKLMNOPQRSTUVWX",
+        "default console names remain capped at the original 24 glyphs"
+    );
+    expect_name(
+        sheet::person_name(
+            u8"Ação Épica", sheet::TextEncoding::latin_utf8
+        ),
+        u8"AÇÃO ÉPICA",
+        "a platform with Latin glyphs retains and upper-cases authored UTF-8"
+    );
+    expect_name(
+        sheet::person_name(
+            u8"¿Niño?", sheet::TextEncoding::latin_utf8
+        ),
+        u8"¿NIÑO?",
+        "the Latin path retains Spanish punctuation and enye"
+    );
+    {
+        const char malformed[] = {'A', static_cast<char>(0xC3), 'B', '\0'};
+        char copied[16]{};
+        const sheet::TextCopy result = sheet::copy_latin_text(
+            copied, sizeof copied, malformed, 3U, 8U
+        );
+        expect(
+            std::string(copied) == "A?B" && !result.valid &&
+                result.glyphs == 3U,
+            "malformed UTF-8 becomes one visible glyph and parsing continues"
+        );
+    }
+    {
+        const char unsupported[] = {
+            static_cast<char>(0xF0), static_cast<char>(0x9F),
+            static_cast<char>(0x98), static_cast<char>(0x80), '\0'
+        };
+        char copied[8]{};
+        const sheet::TextCopy result = sheet::copy_latin_text(
+            copied, sizeof copied, unsupported, 4U, 4U
+        );
+        expect(
+            std::string(copied) == "?" && !result.valid &&
+                result.glyphs == 1U,
+            "an unsupported valid scalar becomes one replacement, not four"
+        );
+    }
 
     // ---------------------------------------------------------------------
     // 2. The author's own name for a placement, out of the package. This is

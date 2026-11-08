@@ -76,6 +76,7 @@
 #include "grandleon/view/landmark.hpp"
 
 #include <grandleon/client/session.hpp>
+#include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/turn_client.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_format/package.hpp>
@@ -147,6 +148,7 @@ namespace sim = grandleon::simulation;
 namespace view = grandleon::view;
 namespace client = grandleon::client;
 namespace turn = grandleon::client::turn;
+namespace ui_text = grandleon::client::console_localization;
 
 namespace psx = grandleon::playstation;
 namespace art = grandleon::playstation::art;
@@ -891,6 +893,11 @@ public:
 
     [[nodiscard]] bool offers_fps_display() const noexcept override {
         return true;
+    }
+
+    [[nodiscard]] grandleon::sheet::TextEncoding text_encoding()
+        const noexcept override {
+        return grandleon::sheet::TextEncoding::latin_utf8;
     }
 
     [[nodiscard]] bool fps_display_visible() const noexcept override {
@@ -2428,7 +2435,9 @@ private:
         );
         (void)write_pixels_with_clut(
             placed.status.header.x + 8, placed.status.header.y + 3,
-            placed.status.header.width - 16, "STATUS", font_gold_clut
+            placed.status.header.width - 16,
+            ui_text::text(language(), ui_text::Message::status),
+            font_gold_clut
         );
         if (hp_line >= 0) {
             for (int row = 0; row < 3 && hp_line + row < sheet.count; ++row) {
@@ -2466,12 +2475,18 @@ private:
         );
         (void)write_pixels_with_clut(
             placed.loadout.header.x + 8, placed.loadout.header.y + 3,
-            placed.loadout.header.width - 16, "LOADOUT", font_gold_clut
+            placed.loadout.header.width - 16,
+            ui_text::text(language(), ui_text::Message::loadout),
+            font_gold_clut
         );
         for (int row = 0; row < shown_inventory_rows; ++row) {
             const char* text = sheet.line(inventory_line + row);
             const bool section = begins_with(text, "WEAPONS") ||
-                begins_with(text, "ABILITIES") || begins_with(text, "ITEMS");
+                begins_with(text, "ARMAS") ||
+                begins_with(text, "ABILITIES") ||
+                begins_with(text, "HABILIDADES") ||
+                begins_with(text, "ITEMS") ||
+                begins_with(text, "OBJETOS") || begins_with(text, "ITENS");
             // Keep the card body on one surface, as the N64 sheet does. The
             // section names are already gold; repainting their whole rows as
             // headers made the interleaved heading/content pairs look like
@@ -2507,7 +2522,9 @@ private:
         );
         const char* first = overlay.menu_rows > 0
             ? overlay.menu[0].label : nullptr;
-        constexpr char battle_row[] = "BACK TO BATTLE";
+        const char* battle_row = ui_text::text(
+            language(), ui_text::Message::back_to_battle
+        );
         bool battle = first != nullptr;
         for (int index = 0; battle_row[index] != '\0'; ++index) {
             if (first == nullptr || first[index] != battle_row[index]) {
@@ -2518,7 +2535,11 @@ private:
         (void)write_pixels_with_clut(
             box.heading_x, box.heading_y,
             box.panel.header.x + box.panel.header.width - box.heading_x - 6,
-            battle ? "BATTLE" : "ACTION", font_gold_clut
+            ui_text::text(
+                language(), battle ? ui_text::Message::battle_heading
+                                    : ui_text::Message::action_heading
+            ),
+            font_gold_clut
         );
         for (int row = 0; row < overlay.menu_rows; ++row) {
             // Focus is redundant by design: the framed row gives the glance,
@@ -2540,12 +2561,16 @@ private:
         );
         draw_button_hint_pixels(
             box.footer_text_x, box.footer_text_y,
-            buttons.confirm, "SELECT"
+            buttons.confirm,
+            ui_text::text(language(), ui_text::Message::select)
         );
-        const int back_width = button_hint_width(buttons.back, "BACK");
+        const char* back = ui_text::text(
+            language(), ui_text::Message::back_button
+        );
+        const int back_width = button_hint_width(buttons.back, back);
         draw_button_hint_pixels(
             box.panel.footer.x + box.panel.footer.width - back_width - 8,
-            box.footer_text_y, buttons.back, "BACK"
+            box.footer_text_y, buttons.back, back
         );
     }
 
@@ -2590,10 +2615,16 @@ private:
     }
 
     void draw_sheet_footer() {
+        const char* or_word = ui_text::text(
+            language(), ui_text::Message::or_word
+        );
+        const char* back = ui_text::text(
+            language(), ui_text::Message::back_button
+        );
         const int cross_width = font::advance(font::controller_cross);
         const int circle_width = font::advance(font::controller_circle);
-        const int total = cross_width + 4 + text_width("OR") + 6 +
-            circle_width + 4 + text_width("BACK");
+        const int total = cross_width + 4 + text_width(or_word) + 6 +
+            circle_width + 4 + text_width(back);
         int x = (gpu::screen_width - total) / 2;
         const int y = sheet_footer_row * glyph;
         gpu::draw_glyph(
@@ -2601,14 +2632,14 @@ private:
         );
         x += cross_width + 4;
         x += write_pixels_with_clut(
-            x, y, total, "OR", font_clut, false
+            x, y, total, or_word, font_clut, false
         ) + 6;
         gpu::draw_glyph(
             x, y, font::slot_for(font::controller_circle), font_gold_clut
         );
         x += circle_width + 4;
         (void)write_pixels_with_clut(
-            x, y, gpu::screen_width - x - 8, "BACK", font_clut, false
+            x, y, gpu::screen_width - x - 8, back, font_clut, false
         );
     }
 
@@ -2773,19 +2804,36 @@ private:
         }
     }
 
-    [[nodiscard]] static const char* screen_heading(
+    [[nodiscard]] const char* screen_heading(
         turn::Screen screen
-    ) noexcept {
+    ) const noexcept {
         switch (screen) {
-            case turn::Screen::story: return "STORY";
-            case turn::Screen::company: return "COMPANY";
-            case turn::Screen::member: return "INVENTORY";
-            case turn::Screen::name: return "CHARACTER NAME";
-            case turn::Screen::aftermath: return "AFTER THE BATTLE";
-            case turn::Screen::refusal: return "NOTICE";
-            case turn::Screen::joined: return "NEW COMPANY MEMBER";
-            case turn::Screen::stages: return "STAGES";
-            case turn::Screen::ended: return "CAMPAIGN COMPLETE";
+            case turn::Screen::story:
+                return ui_text::text(language(), ui_text::Message::story);
+            case turn::Screen::company:
+                return ui_text::text(language(), ui_text::Message::company);
+            case turn::Screen::member:
+                return ui_text::text(language(), ui_text::Message::inventory);
+            case turn::Screen::name:
+                return ui_text::text(
+                    language(), ui_text::Message::character_name
+                );
+            case turn::Screen::aftermath:
+                return ui_text::text(
+                    language(), ui_text::Message::after_battle
+                );
+            case turn::Screen::refusal:
+                return ui_text::text(language(), ui_text::Message::notice);
+            case turn::Screen::joined:
+                return ui_text::text(
+                    language(), ui_text::Message::new_company_member
+                );
+            case turn::Screen::stages:
+                return ui_text::text(language(), ui_text::Message::stages);
+            case turn::Screen::ended:
+                return ui_text::text(
+                    language(), ui_text::Message::campaign_complete
+                );
             case turn::Screen::none:
             case turn::Screen::title:
             case turn::Screen::help:
@@ -2818,10 +2866,16 @@ private:
         }
         if (view.choices <= 0) {
             write_centred(
-                14, "A CAMPAIGN YOUR MEMORY CARD KEEPS", font_muted_clut
+                14,
+                ui_text::text(language(), ui_text::Message::campaign_tagline),
+                font_muted_clut
             );
         } else {
-            write_centred(14, "CHOOSE HOW TO PLAY", font_muted_clut);
+            write_centred(
+                14,
+                ui_text::text(language(), ui_text::Message::choose_how_to_play),
+                font_muted_clut
+            );
             for (int choice = 0; choice < view.choices; ++choice) {
                 const int page_row = view.first_choice_row + choice;
                 if (view.page == nullptr || page_row >= view.page->count) break;
@@ -2903,7 +2957,10 @@ private:
         if (view.page != nullptr && view.page->count > 0) {
             write_centred(7, view.page->line(0), font_gold_clut);
         }
-        write_centred(10, "CHOOSE A SAVE", font_muted_clut);
+        write_centred(
+            10, ui_text::text(language(), ui_text::Message::choose_save),
+            font_muted_clut
+        );
 
         for (int choice = 0; choice < view.choices; ++choice) {
             const int page_row = view.first_choice_row + choice;
@@ -2924,7 +2981,11 @@ private:
                 selected ? font_gold_clut : font_clut
             );
         }
-        write_centred(24, "THE GAME SAVES ITSELF", font_muted_clut);
+        write_centred(
+            24,
+            ui_text::text(language(), ui_text::Message::game_saves_itself),
+            font_muted_clut
+        );
         write_controls_centred(27, view.footer, font_clut);
     }
 

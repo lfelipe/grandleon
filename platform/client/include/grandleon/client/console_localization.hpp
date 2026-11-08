@@ -62,6 +62,45 @@ enum class Message : std::uint8_t {
     new_company,
     your_turn,
     enemy_turn,
+    select,
+    back_button,
+    or_word,
+    status,
+    loadout,
+    story,
+    company,
+    inventory,
+    character_name,
+    notice,
+    new_company_member,
+    stages,
+    campaign_complete,
+    choose_how_to_play,
+    before_battle,
+    action_heading,
+    battle_heading,
+    away,
+    field,
+    bench,
+    lost,
+    fielded,
+    of_word,
+    company_store,
+    nothing_but_carry,
+    levels,
+    fell,
+    joined,
+    company_buries,
+    carried_off_back,
+    choose_name,
+    change_name,
+    sit_out,
+    take_field,
+    take_field_full,
+    give,
+    take,
+    company_footer,
+    company_footer_stages,
 };
 
 enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
@@ -298,6 +337,166 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
             return selected == Language::spanish ? "TURNO ENEMIGO"
                  : selected == Language::portuguese_brazil ? "TURNO INIMIGO"
                  : "ENEMY TURN";
+        case Message::select:
+            return selected == Language::spanish ? "ELEGIR"
+                 : selected == Language::portuguese_brazil ? "SELECIONAR"
+                 : "SELECT";
+        case Message::back_button:
+            return selected == Language::spanish ? "VOLVER"
+                 : selected == Language::portuguese_brazil ? "VOLTAR"
+                 : "BACK";
+        case Message::or_word:
+            return selected == Language::spanish ? "O"
+                 : selected == Language::portuguese_brazil ? "OU"
+                 : "OR";
+        case Message::status:
+            return selected == Language::spanish ? "ESTADO"
+                 : selected == Language::portuguese_brazil ? "ESTADO"
+                 : "STATUS";
+        case Message::loadout:
+            return selected == Language::spanish ? "EQUIPO"
+                 : selected == Language::portuguese_brazil ? "EQUIPAMENTO"
+                 : "LOADOUT";
+        case Message::story:
+            return selected == Language::spanish ? "HISTORIA"
+                 : selected == Language::portuguese_brazil ? "HISTORIA"
+                 : "STORY";
+        case Message::company:
+            return selected == Language::spanish ? "COMPANIA"
+                 : selected == Language::portuguese_brazil ? "COMPANHIA"
+                 : "COMPANY";
+        case Message::inventory:
+            return selected == Language::spanish ? "INVENTARIO"
+                 : selected == Language::portuguese_brazil ? "INVENTARIO"
+                 : "INVENTORY";
+        case Message::character_name:
+            return selected == Language::spanish ? "NOMBRE DEL PERSONAJE"
+                 : selected == Language::portuguese_brazil ? "NOME DO PERSONAGEM"
+                 : "CHARACTER NAME";
+        case Message::notice:
+            return selected == Language::spanish ? "AVISO"
+                 : selected == Language::portuguese_brazil ? "AVISO"
+                 : "NOTICE";
+        case Message::new_company_member:
+            return selected == Language::spanish ? "NUEVO MIEMBRO"
+                 : selected == Language::portuguese_brazil ? "NOVO MEMBRO"
+                 : "NEW COMPANY MEMBER";
+        case Message::stages:
+            return selected == Language::spanish ? "FASES"
+                 : selected == Language::portuguese_brazil ? "FASES"
+                 : "STAGES";
+        case Message::campaign_complete:
+            return selected == Language::spanish ? "CAMPANA COMPLETA"
+                 : selected == Language::portuguese_brazil ? "CAMPANHA CONCLUIDA"
+                 : "CAMPAIGN COMPLETE";
+        case Message::choose_how_to_play:
+            return selected == Language::spanish ? "ELIGE COMO JUGAR"
+                 : selected == Language::portuguese_brazil ? "ESCOLHA COMO JOGAR"
+                 : "CHOOSE HOW TO PLAY";
+        case Message::before_battle:
+            return selected == Language::spanish ? "ANTES DE LA BATALLA"
+                 : selected == Language::portuguese_brazil ? "ANTES DA BATALHA"
+                 : "BEFORE THE BATTLE";
+        case Message::action_heading:
+            return selected == Language::spanish ? "ACCION"
+                 : selected == Language::portuguese_brazil ? "ACAO"
+                 : "ACTION";
+        case Message::battle_heading:
+            return selected == Language::spanish ? "BATALLA"
+                 : selected == Language::portuguese_brazil ? "BATALHA"
+                 : "BATTLE";
+        case Message::away:
+            return selected == Language::spanish ? "FUERA"
+                 : selected == Language::portuguese_brazil ? "FORA"
+                 : "AWAY";
+        case Message::field:
+            return selected == Language::spanish ? "CAMPO"
+                 : selected == Language::portuguese_brazil ? "CAMPO"
+                 : "FIELD";
+        case Message::bench:
+            return selected == Language::spanish ? "RESERVA"
+                 : selected == Language::portuguese_brazil ? "RESERVA"
+                 : "BENCH";
+        case Message::lost:
+            return selected == Language::spanish ? "PERDIDO"
+                 : selected == Language::portuguese_brazil ? "PERDIDO"
+                 : "LOST";
+        case Message::fielded:
+            return selected == Language::spanish ? "EN CAMPO"
+                 : selected == Language::portuguese_brazil ? "EM CAMPO"
+                 : "FIELDED";
+        case Message::of_word:
+            return selected == Language::spanish ? "DE"
+                 : selected == Language::portuguese_brazil ? "DE"
+                 : "OF";
+        case Message::company_store:
+            return selected == Language::spanish ? "ALMACEN DE LA COMPANIA"
+                 : selected == Language::portuguese_brazil ? "ARMAZEM DA COMPANHIA"
+                 : "THE COMPANY'S STORE";
+        case Message::nothing_but_carry:
+            return selected == Language::spanish ? "SOLO LO QUE LLEVAN"
+                 : selected == Language::portuguese_brazil ? "APENAS O QUE CARREGAM"
+                 : "NOTHING BUT WHAT THEY CARRY";
+        case Message::levels:
+            return selected == Language::spanish ? "NIVELES"
+                 : selected == Language::portuguese_brazil ? "NIVEIS"
+                 : "LEVELS";
+        case Message::fell:
+            return selected == Language::spanish ? "CAIDOS"
+                 : selected == Language::portuguese_brazil ? "CAIDOS"
+                 : "FELL";
+        case Message::joined:
+            return selected == Language::spanish ? "UNIDOS"
+                 : selected == Language::portuguese_brazil ? "RECRUTADOS"
+                 : "JOINED";
+        case Message::company_buries:
+            return selected == Language::spanish ? "LA COMPANIA SEPULTA"
+                 : selected == Language::portuguese_brazil ? "A COMPANHIA SEPULTA"
+                 : "THE COMPANY BURIES";
+        case Message::carried_off_back:
+            return selected == Language::spanish ? "RETIRADOS, YA DE VUELTA"
+                 : selected == Language::portuguese_brazil ? "RETIRADOS, JA DE VOLTA"
+                 : "CARRIED OFF, AND BACK";
+        case Message::choose_name:
+            return selected == Language::spanish ? "ELEGIR NOMBRE"
+                 : selected == Language::portuguese_brazil ? "ESCOLHER NOME"
+                 : "CHOOSE NAME";
+        case Message::change_name:
+            return selected == Language::spanish ? "CAMBIAR NOMBRE"
+                 : selected == Language::portuguese_brazil ? "MUDAR NOME"
+                 : "CHANGE NAME";
+        case Message::sit_out:
+            return selected == Language::spanish ? "DEJAR EN RESERVA"
+                 : selected == Language::portuguese_brazil ? "DEIXAR NA RESERVA"
+                 : "SIT THIS ONE OUT";
+        case Message::take_field:
+            return selected == Language::spanish ? "LLEVAR AL CAMPO"
+                 : selected == Language::portuguese_brazil ? "LEVAR AO CAMPO"
+                 : "TAKE THE FIELD";
+        case Message::take_field_full:
+            return selected == Language::spanish ? "LLEVAR AL CAMPO (LLENO)"
+                 : selected == Language::portuguese_brazil ? "LEVAR AO CAMPO (CHEIO)"
+                 : "TAKE THE FIELD (FULL)";
+        case Message::give:
+            return selected == Language::spanish ? "DAR"
+                 : selected == Language::portuguese_brazil ? "DAR"
+                 : "GIVE";
+        case Message::take:
+            return selected == Language::spanish ? "TOMAR"
+                 : selected == Language::portuguese_brazil ? "PEGAR"
+                 : "TAKE";
+        case Message::company_footer:
+            return selected == Language::spanish
+                     ? "A ELIGE  START BATALLA  B SALIR"
+                 : selected == Language::portuguese_brazil
+                     ? "A ESCOLHE START BATALHA B SAIR"
+                 : "A CHOOSE  START BATTLE  B LEAVE";
+        case Message::company_footer_stages:
+            return selected == Language::spanish
+                     ? "A ELIGE START BATALLA B SAL C FASES"
+                 : selected == Language::portuguese_brazil
+                     ? "A ESCOLHE START BATALHA B SAI C FASES"
+                 : "A CHOOSE  START BATTLE  B LEAVE  C GO";
     }
     return "";
 }

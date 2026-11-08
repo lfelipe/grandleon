@@ -118,6 +118,11 @@ std::vector<sim::ItemDefinition> make_items() {
 }  // namespace
 
 int main() {
+    expect(
+        sizeof(sheet::UnitSheet) == 1044U,
+        "Latin-capable sheet storage stays within its 1,044-byte RAM budget"
+    );
+
     const std::vector<sim::WeaponDefinition> weapons = make_weapons();
     const std::vector<sim::AbilityDefinition> abilities = make_abilities();
     const std::vector<sim::ItemDefinition> items = make_items();
@@ -165,6 +170,22 @@ int main() {
         expect_line(
             built, 9, "  FIELD TONIC  x2  HEAL 4",
             "a carried item states how many are left and what it gives back"
+        );
+        const sheet::UnitSheet portuguese = sheet::build(
+            snapshot, snapshot.units[0], nullptr, weapons, abilities, items,
+            nullptr, nullptr, "pt-BR", sheet::TextEncoding::latin_utf8
+        );
+        expect_line(
+            portuguese, 4, "ARMAS",
+            "the PlayStation sheet localizes its weapon section"
+        );
+        expect_line(
+            portuguese, 6, "HABILIDADES",
+            "the PlayStation sheet localizes its ability section"
+        );
+        expect_line(
+            portuguese, 8, "ITENS",
+            "the PlayStation sheet localizes its item section"
         );
     }
 

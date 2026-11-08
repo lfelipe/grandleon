@@ -302,7 +302,8 @@ inline constexpr int menu_capacity = 8;
 // longest shipped item name plus " x99". Item rows are the only menu text that
 // is not a constant, because a row says how many are left.
 inline constexpr int menu_item_labels = 4;
-inline constexpr int menu_item_label_size = 24;
+inline constexpr int menu_item_label_size =
+    static_cast<int>(grandleon::sheet::content_name_storage_capacity) + 6;
 
 // What the player picked out of the menu and has not yet pointed at anything.
 //
@@ -476,6 +477,7 @@ enum class Reason : std::uint8_t {
 // number is the one that says whether the *content* path fits.
 // ---------------------------------------------------------------------------
 inline constexpr int page_columns = 38;
+inline constexpr int page_storage_bytes = page_columns * 2;
 
 // Sixteen rows. The tallest page the shipped content produces is a member's
 // verbs, at a name, a stat line, a blank and one row per verb; the aftermath is
@@ -522,10 +524,14 @@ inline constexpr int footer_columns = 39;
 // Free rather than a member because it reads nothing but its argument, and
 // because a test has to be able to ask the property that matters about it:
 // that it counts exactly the rows `push_wrapped` lays down.
-[[nodiscard]] int wrapped_rows(const char* text) noexcept;
+[[nodiscard]] int wrapped_rows(
+    const char* text,
+    grandleon::sheet::TextEncoding encoding =
+        grandleon::sheet::TextEncoding::ascii_console
+) noexcept;
 
 struct TextPage final {
-    char lines[page_capacity][page_columns + 1]{};
+    char lines[page_capacity][page_storage_bytes + 1]{};
     int count{0};
 
     [[nodiscard]] const char* line(int index) const noexcept {
@@ -729,6 +735,14 @@ public:
     }
     virtual void set_fps_display_visible(bool visible) noexcept {
         static_cast<void>(visible);
+    }
+
+    // The shared console vocabulary remains the original compact ASCII fold.
+    // A platform with an owned Latin atlas opts in explicitly so authored
+    // UTF-8 survives the shared page and sheet composers on its way there.
+    [[nodiscard]] virtual grandleon::sheet::TextEncoding text_encoding()
+        const noexcept {
+        return grandleon::sheet::TextEncoding::ascii_console;
     }
 
     // Called once per settled checkpoint, before and after the facts, so a
@@ -1352,7 +1366,7 @@ private:
     // is the honest reading of "no game said its name" and, since
     // `open_campaign` cannot be called without one, is a state only a build
     // that reached an ending without a beginning can be in.
-    char project_title_[page_columns + 1]{};
+    char project_title_[page_storage_bytes + 1]{};
 #endif
     // What the scene composed onto this page is set against, or 0 for every
     // page that is not a scene. Cleared by `begin_page`, so a screen has to
@@ -1474,8 +1488,8 @@ private:
     // at, on the same terms and for the same reason. One more than
     // `sheet::content_name_capacity`, which is the whole of what either can
     // hold, plus the terminator.
-    char hovered_name_[grandleon::sheet::content_name_capacity + 1]{};
-    char hovered_class_[grandleon::sheet::content_name_capacity + 1]{};
+    char hovered_name_[grandleon::sheet::content_name_storage_capacity + 1]{};
+    char hovered_class_[grandleon::sheet::content_name_storage_capacity + 1]{};
 
     view::Camera camera_{};
     int viewport_w_{10};
@@ -1495,7 +1509,7 @@ private:
     MenuChoice menu_[menu_capacity]{};
     char item_labels_[menu_item_labels][menu_item_label_size]{};
     char content_labels_[menu_capacity]
-                        [grandleon::sheet::content_name_capacity + 1]{};
+                        [grandleon::sheet::content_name_storage_capacity + 1]{};
     int menu_rows_{0};
     int menu_row_{0};
     bool menu_open_{false};
