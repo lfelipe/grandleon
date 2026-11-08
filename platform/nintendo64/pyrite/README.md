@@ -68,8 +68,11 @@ sliding directly to the already-landed simulation position.
 
 This phase also exercises a complete live combat handoff. The camera stores
 the current tactical pose, keeps its yaw/pitch fixed while it dollies toward
-the combat pair, then crossfades over eight frames to a terrain-derived close
-stage. Original 84px Godot-derived idle/attack/hurt cutouts are streamed by the
+the combat pair, then crossfades during the final ten fly-in frames to a
+purpose-built 4:3 terrain stage. Original 84px Godot-derived idle/attack/hurt
+cutouts share a fixed floor baseline, readable center gap and I8 contact
+shadows; compact team-framed HP bars and a short impact/result widget stay
+clear of both silhouettes. The art is streamed by the
 RDP in screen space, so the first attacker stays physically left and the
 defender right across the counterattack without exceeding one CI4 TMEM upload.
 The return restores the exact saved tactical pose and verifies that the
@@ -85,8 +88,8 @@ attacks and abilities, objectives, deployment, menus, saves, story traversal,
 co-op and the remaining four Steel and Cedar battles are not exposed. The
 deterministic opposing tactics are what trigger the three reviewed combat
 exchanges. The close backdrop pack currently covers only this medieval
-forest/grass/paved proof, and effects/audio/result widgets still need their
-production presentation.
+forest/grass/paved proof; audio and the remaining terrain/style stages still
+need production coverage.
 
 The authored tactical rectangle remains finite. A temporary
 `EnvironmentPolicy` adapter supplies the renderer with the planned portable

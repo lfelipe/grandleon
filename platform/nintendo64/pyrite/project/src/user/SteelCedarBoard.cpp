@@ -111,6 +111,7 @@ struct BoardResources final {
     T3DVertPacked* cursor{};
     sprite_t* terrain{};
     sprite_t* combat_backdrop{};
+    sprite_t* combat_shadow{};
     UnitArt rowan{};
     UnitArt tomas{};
     UnitArt march_sword{};
@@ -777,16 +778,23 @@ bool close_combat_phase() {
          combat.phase == CombatPhase::counter);
 }
 
-constexpr std::uint32_t kCloseBlendFrames = 8U;
+constexpr std::uint32_t kCloseBlendFrames = 10U;
 
 std::uint8_t close_overlay_alpha() {
     if (!combat.active) return 0U;
-    if (combat.phase == CombatPhase::first_strike) {
+    if (combat.phase == CombatPhase::entering) {
+        const std::uint32_t duration = combat.reduced_motion ? 8U : 66U;
+        const std::uint32_t blend_start = duration > kCloseBlendFrames
+            ? duration - kCloseBlendFrames : 0U;
+        if (combat.phase_ticks <= blend_start) return 0U;
         return static_cast<std::uint8_t>(std::min<std::uint32_t>(
-            255U, combat.phase_ticks * 255U / kCloseBlendFrames
+            255U,
+            (combat.phase_ticks - blend_start) * 255U /
+                std::max(std::uint32_t{1}, duration - blend_start)
         ));
     }
-    if (combat.phase == CombatPhase::counter) return 255U;
+    if (combat.phase == CombatPhase::first_strike ||
+        combat.phase == CombatPhase::counter) return 255U;
     if (combat.phase == CombatPhase::returning) {
         return static_cast<std::uint8_t>(
             255U - std::min<std::uint32_t>(
@@ -1022,6 +1030,7 @@ void load_runtime_board() {
         board.trees && board.landmark && board.units && board.cursor);
     board.terrain = sprite_load("rom:/material_atlas.sprite");
     board.combat_backdrop = sprite_load("rom:/combat_backdrop.sprite");
+    board.combat_shadow = sprite_load("rom:/soft_shadow.sprite");
     board.rowan = {
         sprite_load("rom:/rowan.sprite"),
         sprite_load("rom:/rowan_move.sprite"),
@@ -1060,7 +1069,7 @@ void load_runtime_board() {
     const auto complete_art = [](const UnitArt& art) {
         return art.idle && art.moving && art.close_idle && art.attack && art.hurt;
     };
-    assert(board.terrain && board.combat_backdrop &&
+    assert(board.terrain && board.combat_backdrop && board.combat_shadow &&
         complete_art(board.rowan) && complete_art(board.tomas) &&
         complete_art(board.march_sword) && complete_art(board.retainer) &&
         complete_art(board.archer));
@@ -1397,7 +1406,7 @@ CameraPose close_camera_for(
             direction_z * direction_z
         )
     );
-    constexpr float distance = 4.35F;
+    constexpr float distance = 4.85F;
     const float target_y = surface + 0.52F;
     return {
         midpoint_x + direction_x / direction_length * distance,
@@ -1406,7 +1415,7 @@ CameraPose close_camera_for(
         midpoint_x,
         target_y,
         midpoint_z,
-        1.18F,
+        1.48F,
     };
 }
 
@@ -1831,12 +1840,16 @@ void draw_combat_stage_2d() {
     const sim::UnitSnapshot* left = find_unit(combat.attacker);
     const sim::UnitSnapshot* right = find_unit(combat.defender);
     assert(left && right);
-    sprite_t* left_sprite = sprite_for_type(left->unit_type_id, pose_for_unit(*left));
-    sprite_t* right_sprite = sprite_for_type(right->unit_type_id, pose_for_unit(*right));
+    const VisualPose left_pose = close_combat_phase()
+        ? pose_for_unit(*left) : VisualPose::close_idle;
+    const VisualPose right_pose = close_combat_phase()
+        ? pose_for_unit(*right) : VisualPose::close_idle;
+    sprite_t* left_sprite = sprite_for_type(left->unit_type_id, left_pose);
+    sprite_t* right_sprite = sprite_for_type(right->unit_type_id, right_pose);
     assert(left_sprite && right_sprite);
 
-    int left_x = 47;
-    int right_x = 189;
+    int left_x = 44;
+    int right_x = 192;
     const int lunge = std::max(lunge_percent(*left), lunge_percent(*right)) / 2;
     if (combat.phase == CombatPhase::first_strike) left_x += lunge;
     if (combat.phase == CombatPhase::counter) right_x -= lunge;
@@ -1854,13 +1867,133 @@ void draw_combat_stage_2d() {
     rdpq_blitparms_t backdrop_parms{};
     backdrop_parms.filtering = true;
     rdpq_sprite_blit(board.combat_backdrop, 0.0F, 0.0F, &backdrop_parms);
+
+    // Soft screen-space contact shadows anchor both cutouts to one baseline.
+    // They deliberately reuse the tiny I8 radial sprite used on the board.
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(false, false);
+        rdpq_mode_tlut(TLUT_NONE);
+        rdpq_mode_filter(FILTER_BILINEAR);
+        rdpq_mode_combiner(
+            RDPQ_COMBINER1((0, 0, 0, PRIM), (TEX0, 0, PRIM, 0))
+        );
+        rdpq_mode_alphacompare(8);
+        rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+    rdpq_set_prim_color({0, 0, 0, static_cast<std::uint8_t>(alpha * 88U / 255U)});
+    rdpq_blitparms_t shadow_parms{};
+    shadow_parms.scale_x = 2.0F;
+    shadow_parms.scale_y = 0.42F;
+    shadow_parms.filtering = true;
+    rdpq_sprite_blit(
+        board.combat_shadow, static_cast<float>(left_x + 10), 207.0F,
+        &shadow_parms
+    );
+    rdpq_sprite_blit(
+        board.combat_shadow, static_cast<float>(right_x + 10), 207.0F,
+        &shadow_parms
+    );
+
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(false, false);
+        rdpq_mode_tlut(TLUT_RGBA16);
+        rdpq_mode_filter(FILTER_BILINEAR);
+        rdpq_mode_combiner(RDPQ_COMBINER_TEX_FLAT);
+        rdpq_mode_alphacompare(1);
+        rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+    rdpq_set_prim_color({255, 255, 255, alpha});
     rdpq_blitparms_t left_parms{};
     left_parms.filtering = true;
-    rdpq_sprite_blit(left_sprite, static_cast<float>(left_x), 133.0F, &left_parms);
+    rdpq_sprite_blit(left_sprite, static_cast<float>(left_x), 136.0F, &left_parms);
     rdpq_blitparms_t right_parms{};
     right_parms.flip_x = true;
     right_parms.filtering = true;
-    rdpq_sprite_blit(right_sprite, static_cast<float>(right_x), 133.0F, &right_parms);
+    rdpq_sprite_blit(right_sprite, static_cast<float>(right_x), 136.0F, &right_parms);
+
+    // A short impact glint supplements the authored slash/hurt frames without
+    // obscuring either silhouette.
+    const bool impact = close_combat_phase() &&
+        combat.phase_ticks >= 30U && combat.phase_ticks < 38U;
+    if (impact) {
+        const bool counter = combat.phase == CombatPhase::counter;
+        const int impact_x = counter ? left_x + 70 : right_x + 14;
+        constexpr int impact_y = 158;
+        rdpq_mode_begin();
+            rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+            rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+            rdpq_mode_fog(0);
+        rdpq_mode_end();
+        rdpq_set_prim_color({255, 218, 104, alpha});
+        rdpq_fill_rectangle(impact_x - 8, impact_y - 2, impact_x + 9, impact_y + 3);
+        rdpq_fill_rectangle(impact_x - 2, impact_y - 8, impact_x + 3, impact_y + 9);
+    }
+
+    // Compact framed HP widgets live inside the close stage; the development
+    // proof/FPS overlay remains independently off by default.
+    if (alpha >= 224U) {
+        std::int16_t left_health = combat.attacker_health_before;
+        std::int16_t right_health = combat.defender_health_before;
+        const char* result = nullptr;
+        int amount = 0;
+        if (combat.phase == CombatPhase::first_strike) {
+            if (combat.phase_ticks >= 30U) {
+                right_health = combat.defender_health_after;
+                result = combat.first_missed ? "MISS" : "HIT";
+                amount = combat.first_damage;
+            }
+        } else if (combat.phase == CombatPhase::counter) {
+            right_health = combat.defender_health_after;
+            if (combat.phase_ticks >= 30U) {
+                left_health = combat.attacker_health_after;
+                result = combat.counter_missed ? "MISS" : "COUNTER";
+                amount = combat.counter_damage;
+            }
+        } else if (combat.phase == CombatPhase::returning) {
+            left_health = combat.attacker_health_after;
+            right_health = combat.defender_health_after;
+        }
+        rdpq_mode_begin();
+            rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+            rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+            rdpq_mode_fog(0);
+        rdpq_mode_end();
+        const color_t left_team = left->side == sim::Side::first
+            ? color_t{47, 116, 190, 235} : color_t{166, 66, 55, 235};
+        const color_t right_team = right->side == sim::Side::first
+            ? color_t{47, 116, 190, 235} : color_t{166, 66, 55, 235};
+        rdpq_set_prim_color(left_team);
+        rdpq_fill_rectangle(7, 7, 125, 31);
+        rdpq_set_prim_color(right_team);
+        rdpq_fill_rectangle(195, 7, 313, 31);
+        rdpq_set_prim_color({22, 25, 30, 235});
+        rdpq_fill_rectangle(10, 10, 122, 28);
+        rdpq_fill_rectangle(198, 10, 310, 28);
+        const int left_bar = std::clamp(
+            96 * static_cast<int>(left_health) /
+                std::max(1, static_cast<int>(left->maximum_health)), 0, 96
+        );
+        const int right_bar = std::clamp(
+            96 * static_cast<int>(right_health) /
+                std::max(1, static_cast<int>(right->maximum_health)), 0, 96
+        );
+        rdpq_set_prim_color({80, 191, 111, 255});
+        rdpq_fill_rectangle(14, 23, 14 + left_bar, 27);
+        rdpq_fill_rectangle(202, 23, 202 + right_bar, 27);
+        if (result != nullptr) {
+            rdpq_set_prim_color({22, 25, 30, 235});
+            rdpq_fill_rectangle(116, 36, 204, 54);
+        }
+        P64::Debug::printStart();
+        P64::Debug::printf(14, 11, "ATK %d/%d", left_health, left->maximum_health);
+        P64::Debug::printf(202, 11, "DEF %d/%d", right_health, right->maximum_health);
+        if (result != nullptr) {
+            if (amount > 0) P64::Debug::printf(130, 40, "%s -%d", result, amount);
+            else P64::Debug::printf(142, 40, "%s", result);
+        }
+    }
     rdpq_mode_pop();
 }
 
