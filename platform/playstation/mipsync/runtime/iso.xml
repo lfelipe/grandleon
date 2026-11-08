@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<iso_project>
+    <track type="data">
+        <identifiers
+            system="PLAYSTATION"
+            volume="GRANDLEON_MIPSYNC"
+            volume_set="GRANDLEON_MIPSYNC"
+            publisher="GRANDLEON"
+            data_preparer="GRANDLEON"
+            application="PLAYSTATION"
+            copyright="SYSTEM.CNF;1"
+        />
+        <directory_tree>
+            <file name="SYSTEM.CNF" type="data" source="${PROJECT_SOURCE_DIR}/system.cnf" />
+            <file name="PSX.EXE" type="data" source="grandleon_mipsync.exe" />
+            <dummy sectors="1024" />
+        </directory_tree>
+    </track>
+</iso_project>
+

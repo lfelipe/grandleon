@@ -35,11 +35,19 @@ every 64-bit value.
 
 The generic Mipsync runtime is not small enough to coexist with Grandleon's
 campaign runtime unchanged. The first measured full build used about 1.53 MiB
-of resident main RAM. A renderer-only probe, with 1,024-entry vertex and
-triangle caches and 24 KiB packet buffers per frame, used 445,252 bytes
-(`text=192,532`, `data=412`, `bss=252,308`). An 8x6 Bell Orchard board batched
-into one terrain mesh rendered in about 9.6 ms on PCSX-Redux; emitting one mesh
-per tile took about 93.8 ms and is prohibited by the production design.
+of resident main RAM. The exact Bell Orchard renderer-only disc now uses
+384,428 bytes (`text=256,916`, `data=412`, `bss=127,100`), including 114,688
+bytes of real terrain and Godot-derived character textures. Its visible scene
+uses 320 of 1,024 cached vertices and 176 of 1,024 cached triangles. The atlas
+reserves another 81,920 VRAM bytes in its bounded texture region.
+
+The BIOS-style PCSX-Redux interpreter measured 241 HBlanks (about 15.32 ms)
+average and 242 maximum over 600 post-warmup frames, with zero missed VBlanks.
+An earlier 8x6 board emitted as one mesh rendered in about 9.6 ms; emitting one
+mesh per tile took about 93.8 ms. Per-tile draw objects are therefore prohibited
+by the production design. Authored terrain remains one batched mesh, the
+decorative apron uses coarse noninteractive chunks, and neighbouring forest
+cells select deterministic volumetric tree clusters.
 
 The replacement cannot cut over until the exact CUE/BIN passes all of these:
 
@@ -60,4 +68,17 @@ The renderer-only probe does not compile Mipsync's generic audio system. That
 does **not** remove PlayStation audio from Grandleon: the platform audio seam and
 its RAM/SPU budget remain independent, ready for the shared music and effects
 work.
+
+Build the exact renderer disc after exporting a manifest:
+
+```sh
+PSN00BSDK_ROOT=/path/to/PSn00bSDK \
+platform/playstation/mipsync/scripts/build-renderer-probe.sh \
+  /tmp/bell-orchard.json /tmp/empty-mipsync-output
+```
+
+The wrapper checks out the pinned upstream revision, applies the reviewed patch
+series, regenerates all target data, builds the CUE/BIN, verifies the embedded
+renderer identity and fails if resident size exceeds the 512 KiB renderer-probe
+gate. See `VALIDATION.md` for the current exact evidence and remaining gates.
 
