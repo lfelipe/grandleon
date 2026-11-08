@@ -19,6 +19,20 @@ const REDUCED_ENTER_SECONDS := 0.34
 const REDUCED_EXIT_SECONDS := 0.30
 const QUEUED_ENTER_SECONDS := 0.55
 const QUEUED_EXIT_SECONDS := 0.42
+const DEFAULT_COPY := {
+	"player.cinematic.attack": "ATTACK",
+	"player.cinematic.counterattack": "COUNTERATTACK",
+	"player.cinematic.ability": "ABILITY",
+	"player.cinematic.restore": "RESTORE",
+	"player.cinematic.damage": "−{amount}",
+	"player.cinematic.restored": "+{amount}  RESTORED",
+	"player.cinematic.defeated": "DEFEATED",
+	"player.cinematic.held_on": "HELD ON",
+	"player.cinematic.item_found": "ITEM FOUND",
+	"player.cinematic.miss": "MISS",
+	"player.cinematic.fast_forward": "FAST-FORWARDING  ·  RELEASE {confirm} FOR NORMAL SPEED  ·  {cancel} SKIPS",
+	"player.cinematic.controls": "HOLD {confirm} TO FAST-FORWARD  ·  {cancel} SKIPS",
+}
 
 signal exchange_finished
 signal queue_drained
@@ -28,6 +42,8 @@ var motion_mode := "full"
 var camera_impulse_enabled := true
 var text_scale := 1.0
 var capture_hud_mode := false
+var _translate: Callable
+var _control_labels := {"confirm": "CONFIRM", "cancel": "CANCEL"}
 var _queue: Array[Dictionary] = []
 var _current: Dictionary = {}
 var _terrain: Array = []
@@ -64,13 +80,20 @@ func _ready() -> void:
 
 func configure(
 	profile: Dictionary, new_text_scale: float, new_motion_mode: String,
-	new_camera_impulse_enabled: bool
+	new_camera_impulse_enabled: bool, new_translate := Callable(),
+	new_control_labels: Dictionary = {}
 ) -> void:
 	art.configure_profile(profile)
 	text_scale = clampf(new_text_scale, 1.0, 1.20)
 	motion_mode = new_motion_mode if new_motion_mode in ["full", "reduced"] else "full"
 	camera_impulse_enabled = new_camera_impulse_enabled
+	_translate = new_translate
+	_control_labels = {
+		"confirm": String(new_control_labels.get("confirm", "CONFIRM")),
+		"cancel": String(new_control_labels.get("cancel", "CANCEL")),
+	}
 	_update_font_sizes()
+	_update_labels()
 
 
 func set_capture_hud_mode(value: bool) -> void:
@@ -480,10 +503,10 @@ func _update_labels() -> void:
 	_headline.position = Vector2(viewport_size.x * 0.25, 35)
 	_headline.size = Vector2(viewport_size.x * 0.5, 58)
 	_headline.text = (
-		"COUNTERATTACK" if bool(beat.get("counter", false))
-		else "RESTORE" if bool(beat.get("restored", false))
-		else "ABILITY" if String(_current.plan.get("action", "")) == "ability"
-		else "ATTACK"
+		_text("player.cinematic.counterattack") if bool(beat.get("counter", false))
+		else _text("player.cinematic.restore") if bool(beat.get("restored", false))
+		else _text("player.cinematic.ability") if String(_current.plan.get("action", "")) == "ability"
+		else _text("player.cinematic.attack")
 	)
 	_actor_name.position = Vector2(viewport_size.x * 0.12, viewport_size.y - 150)
 	_actor_name.size = Vector2(viewport_size.x * 0.30, 44)
@@ -498,19 +521,23 @@ func _update_labels() -> void:
 	var progress := _progress()
 	_result.visible = progress >= 0.52
 	if bool(beat.get("restored", false)):
-		_result.text = "+%d  RESTORED" % int(beat.get("amount", 0))
+		_result.text = _text("player.cinematic.restored", {
+			"amount": int(beat.get("amount", 0)),
+		})
 		_result.add_theme_color_override("font_color", Color("7ff0a6"))
 	elif bool(beat.get("landed", false)):
-		_result.text = "−%d" % int(beat.get("damage", 0))
+		_result.text = _text("player.cinematic.damage", {
+			"amount": int(beat.get("damage", 0)),
+		})
 		if bool(beat.get("defeated", false)) and progress >= 0.78:
-			_result.text += "  DEFEATED"
+			_result.text += "  " + _text("player.cinematic.defeated")
 		elif bool(beat.get("endured", false)) and progress >= 0.78:
-			_result.text += "  HELD ON"
+			_result.text += "  " + _text("player.cinematic.held_on")
 		if not beat.get("special_results", []).is_empty() and progress >= 0.88:
-			_result.text += "  ·  ITEM FOUND"
+			_result.text += "  ·  " + _text("player.cinematic.item_found")
 		_result.add_theme_color_override("font_color", Color("ffcf72"))
 	else:
-		_result.text = "MISS"
+		_result.text = _text("player.cinematic.miss")
 		_result.add_theme_color_override("font_color", Color("d8edf2"))
 	_hint.position = Vector2(viewport_size.x * 0.25, viewport_size.y - 72)
 	_hint.size = Vector2(viewport_size.x * 0.5, 40)
@@ -529,10 +556,18 @@ func _update_hint() -> void:
 	if _hint == null:
 		return
 	_hint.text = (
-		"FAST-FORWARDING  ·  RELEASE CONFIRM FOR NORMAL SPEED  ·  CANCEL SKIPS"
+		_text("player.cinematic.fast_forward", _control_labels)
 		if _fast_forward
-		else "HOLD CONFIRM TO FAST-FORWARD  ·  CANCEL SKIPS"
+		else _text("player.cinematic.controls", _control_labels)
 	)
+
+
+func _text(message_id: String, values: Dictionary = {}) -> String:
+	if _translate.is_valid():
+		var translated: Variant = _translate.call(message_id, values)
+		if translated is String and not String(translated).is_empty():
+			return String(translated)
+	return String(DEFAULT_COPY.get(message_id, "[%s]" % message_id)).format(values)
 
 
 func _apply_capture_hud_visibility() -> void:

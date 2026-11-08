@@ -209,7 +209,16 @@ func _test_restoration(
 		"ability"
 	)
 	cinematic.configure(
-		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "reduced", false
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "reduced", false,
+		func(message_id: String, values: Dictionary) -> String:
+			return {
+				"player.cinematic.restore": "RESTAURAR",
+				"player.cinematic.restored": "+{amount}  RESTAURADO",
+			}.get(
+				message_id,
+				String(CombatCinematic.DEFAULT_COPY.get(message_id, message_id))
+			).format(values),
+		{"confirm": "A", "cancel": "B"}
 	)
 	_expect_true(
 		"restoration close view enqueues",
@@ -220,7 +229,8 @@ func _test_restoration(
 	var state: Dictionary = cinematic.stage_render_state()
 	_expect_true("restoration close view marks its result", bool(state.restored))
 	_expect("restoration remains between distinct units", state.right_unit_id, 20)
-	_expect("restoration result is readable", cinematic._result.text, "+4  RESTORED")
+	_expect("restoration heading is localized", cinematic._headline.text, "RESTAURAR")
+	_expect("restoration result is localized", cinematic._result.text, "+4  RESTAURADO")
 	cinematic.clear()
 
 
