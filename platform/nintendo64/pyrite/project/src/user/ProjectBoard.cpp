@@ -135,6 +135,7 @@ struct Motion final {
     std::size_t route_count{};
     std::uint32_t total_frames{};
     std::uint32_t started{};
+    bool facing_left{};
     bool active{};
 };
 
@@ -1194,12 +1195,16 @@ std::uint8_t close_overlay_alpha() {
 VisualPose pose_for_unit(const sim::UnitSnapshot& unit) {
     if (!close_combat_phase() ||
         (unit.id != combat.attacker && unit.id != combat.defender)) {
-        const bool walking = motion.active && motion.unit == unit.id &&
-            view::walk_cell(
-                static_cast<int>(frame_count - motion.started),
-                static_cast<int>(motion.total_frames)
-            ) != view::sequence_cell_stand;
-        return walking ? VisualPose::moving : VisualPose::idle;
+        if (!motion.active || motion.unit != unit.id) return VisualPose::idle;
+        const int cell = view::walk_cell(
+            static_cast<int>(frame_count - motion.started),
+            static_cast<int>(motion.total_frames)
+        );
+        // The exported idle image is the walk-contact pose and the move image
+        // is the passing pose. Keep both halves of the shared two-pose walk;
+        // using the move image for every in-between frame made the actor slide.
+        return cell == view::sequence_cell_walk_pass
+            ? VisualPose::moving : VisualPose::idle;
     }
     const bool counter_phase = combat.phase == CombatPhase::counter;
     const sim::UnitId striker = counter_phase ? combat.defender : combat.attacker;
@@ -1247,6 +1252,8 @@ void build_unit_vertices() {
             : 0;
         std::int16_t cx = world_x(unit.position.x, width);
         std::int16_t cz = world_z(unit.position.y, height);
+        int walk_bob = 0;
+        bool facing_left = unit.id == motion.unit && motion.facing_left;
         if (motion.active && motion.unit == unit.id) {
             const std::uint32_t elapsed = frame_count - motion.started;
             const std::size_t route_index = std::min<std::size_t>(
@@ -1256,6 +1263,14 @@ void build_unit_vertices() {
             const sim::Position segment_from = route_index == 0U
                 ? motion.from : motion.route[route_index - 1U];
             const sim::Position segment_to = motion.route[route_index];
+            const view::BoardHeading heading = view::board_heading_between(
+                segment_from.x, segment_from.y,
+                segment_to.x, segment_to.y
+            );
+            motion.facing_left = view::board_heading_faces_left(
+                heading, motion.facing_left
+            );
+            facing_left = motion.facing_left;
             const int segment_frame = static_cast<int>(
                 elapsed - route_index * view::slide_frames_per_tile
             );
@@ -1285,6 +1300,11 @@ void build_unit_vertices() {
             lift = static_cast<std::int16_t>(view::slide_between(
                 from_lift, to_lift, segment_frame, view::slide_frames_per_tile
             ));
+            // A shallow, one-step arc gives the two authored poses a visible
+            // footfall without making a tactical move read as a jump.
+            walk_bob = 3 * 4 * segment_frame *
+                (view::slide_frames_per_tile - segment_frame) /
+                (view::slide_frames_per_tile * view::slide_frames_per_tile);
         }
         const std::int16_t right_x = 17;
         const std::int16_t right_z = 17;
@@ -1292,13 +1312,17 @@ void build_unit_vertices() {
         const std::int16_t uv_end = static_cast<std::int16_t>(
             64 << 5
         );
-        const std::int16_t bottom = lift + 3;
+        const std::int16_t bottom = static_cast<std::int16_t>(
+            lift + 3 + walk_bob
+        );
         const std::size_t first = board.unit_count * kUnitVertexCount;
         const std::uint32_t white = pack_rgba(255U, 255U, 255U);
-        set_vertex(board.units, first + 0U, cx - right_x, bottom, cz - right_z, white, 0, uv_end, normal);
-        set_vertex(board.units, first + 1U, cx + right_x, bottom, cz + right_z, white, uv_end, uv_end, normal);
-        set_vertex(board.units, first + 2U, cx + right_x, bottom + sprite_height, cz + right_z, white, uv_end, 0, normal);
-        set_vertex(board.units, first + 3U, cx - right_x, bottom + sprite_height, cz - right_z, white, 0, 0, normal);
+        const std::int16_t left_u = facing_left ? uv_end : 0;
+        const std::int16_t right_u = facing_left ? 0 : uv_end;
+        set_vertex(board.units, first + 0U, cx - right_x, bottom, cz - right_z, white, left_u, uv_end, normal);
+        set_vertex(board.units, first + 1U, cx + right_x, bottom, cz + right_z, white, right_u, uv_end, normal);
+        set_vertex(board.units, first + 2U, cx + right_x, bottom + sprite_height, cz + right_z, white, right_u, 0, normal);
+        set_vertex(board.units, first + 3U, cx - right_x, bottom + sprite_height, cz - right_z, white, left_u, 0, normal);
         board.shadows.add(cx, static_cast<std::int16_t>(lift + 2), cz, 11);
         if (unit.id == board.rowan_id) {
             board.rowan_x = unit.position.x;
@@ -2497,6 +2521,7 @@ void remember_motion() {
         planned_motion.from == transition.from &&
         planned_motion.to == transition.to &&
         planned_motion.route_count > 0U);
+    if (motion.unit != transition.command.unit_id) motion.facing_left = false;
     motion.unit = transition.command.unit_id;
     motion.from = transition.from;
     motion.to = transition.to;
