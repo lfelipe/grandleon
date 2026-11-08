@@ -1,0 +1,9 @@
+/.cache/
+/.work/
+/*.z64
+project/Makefile
+project/engine/
+project/assets/
+project/filesystem/
+project/build/
+project/src/p64/

@@ -1,0 +1,64 @@
+# Inputs are provided by scripts/build.sh. Pyrite owns the generated Makefile;
+# this is its supported extension point and is kept path-independent.
+ifndef GRANDLEON_REPO
+$(error GRANDLEON_REPO must point at the Grandleon source checkout)
+endif
+ifndef GRANDLEON_N64_BUILD
+$(error GRANDLEON_N64_BUILD must point at the cross-compiled Grandleon build)
+endif
+
+N64_CXXFLAGS += -std=gnu++20 -fno-exceptions -O3 -Isrc -Isrc/user \
+	-I$(GRANDLEON_REPO)/engine/core/include \
+	-I$(GRANDLEON_REPO)/engine/package_format/include \
+	-I$(GRANDLEON_REPO)/engine/package_runtime/include \
+	-I$(GRANDLEON_REPO)/engine/simulation/include \
+	-I$(GRANDLEON_REPO)/engine/tactics/include
+
+GRANDLEON_LIBS := \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_package_runtime.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_tactics.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_package_format.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_simulation.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_core.a
+
+# Keep the libraries out of the generated target's automatic archive ordering,
+# then link them as one group after all Pyrite objects and engine archives.
+$(BUILD_DIR)/grandleon-libs-ready: $(GRANDLEON_LIBS)
+	@mkdir -p $(dir $@)
+	@touch $@
+$(BUILD_DIR)/$(ROM_NAME).elf: $(BUILD_DIR)/grandleon-libs-ready
+LDFLAGS += --start-group $(GRANDLEON_LIBS) --end-group
+
+filesystem/steel-and-cedar.gpk: assets/steel-and-cedar.gpk
+	@mkdir -p $(dir $@)
+	$(N64_BINDIR)/mkasset -c 1 -w 256 -o $(dir $@) "$<"
+
+filesystem/material_atlas.sprite: assets/material_atlas.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+
+filesystem/rowan.sprite: assets/rowan.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/tomas.sprite: assets/tomas.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/march_sword.sprite: assets/march_sword.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/retainer.sprite: assets/retainer.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/archer.sprite: assets/archer.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+
+GRANDLEON_DFS_INPUTS := \
+	filesystem/steel-and-cedar.gpk \
+	filesystem/material_atlas.sprite \
+	filesystem/rowan.sprite \
+	filesystem/tomas.sprite \
+	filesystem/march_sword.sprite \
+	filesystem/retainer.sprite \
+	filesystem/archer.sprite
+$(BUILD_DIR)/$(ROM_NAME).dfs: $(GRANDLEON_DFS_INPUTS)

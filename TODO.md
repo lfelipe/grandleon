@@ -119,6 +119,11 @@ roadmap work.
     scene data, ROM/RAM/frame budgets, and the cost of hosting Grandleon's
     existing simulation inside Pyrite's application shell. Adopt it only if a
     playable Steel and Cedar slice materially improves the real ROM.
+    - [x] Prove the isolated runtime boundary on a real Bell Orchard GPK and
+      generated character cutouts: the 835,584-byte ROM holds 60.00 fps over a
+      measured 120-frame window under accurate real-RSP ares in 4 MB mode,
+      using 836,056 bytes of heap with 2,370,128 bytes free. Keep the migration
+      non-shipping and non-selectable until gameplay parity and hardware review.
   - [x] Establish the shared console UI kit with framed tactical action panels,
     focus rows, platform-correct button badges, owner accents, concise labels,
     and health meters on Nintendo 64 and PlayStation. It uses only bounded flat
