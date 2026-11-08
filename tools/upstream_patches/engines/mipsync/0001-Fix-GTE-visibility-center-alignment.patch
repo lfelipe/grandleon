@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Grandleon contributors <grandleon@example.invalid>
+Date: Sat, 7 Nov 2026 23:15:19 -0800
+Subject: [PATCH] Fix GTE visibility-center alignment
+
+---
+ templates/ps1/starter/runtime/render.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index 47f7e22..adcdbea 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -709,10 +709,13 @@ static uint8_t s_static_safe_clip_cache[PS1_STATIC_TRI_CACHE_TOTAL];
+ typedef struct {
+     uint32_t vertex_offset;
+     uint16_t vertex_count, triangle_begin, triangle_end;
++    uint16_t center_alignment_padding;
+     SVECTOR center;
+     uint16_t extent[3];
+     int8_t plane_winding;
+ } ps1_visibility_batch;
++_Static_assert(offsetof(ps1_visibility_batch, center) % 4 == 0,
++               "GTE LWC2 requires a four-byte-aligned visibility center");
+ typedef struct {
+     const ps1_mesh* mesh;
+     uint16_t batch_offset, batch_count;
