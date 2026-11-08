@@ -23,7 +23,7 @@
 // poisoned byte is a wrong answer every time rather than an occasional one.
 //
 // The sweep itself is the second mechanism: one valid package covering all
-// nineteen section types, and every two- and four-byte field in it in turn
+// twenty section types, and every two- and four-byte field in it in turn
 // replaced by the largest value it can hold, with the checksums repaired so
 // the damaged file still authenticates and reaches the decoders rather than
 // being turned away at the envelope. Every reader is run over every variant.
@@ -196,8 +196,9 @@ void repair(std::vector<std::uint8_t>& bytes) {
     write_u32(bytes, 68, fnv1a(bytes, 0, directory_end, true));
 }
 
-// A project that authors something in every one of the eighteen sections the
-// format defines, so the sweep below has a field of every kind to lie about.
+// A project that authors something in every one of the nineteen content
+// sections used by this fixture, plus the manifest, so the sweep below has a
+// field of every kind to lie about.
 gc::GameSource complete_source() {
     gc::GameSource value;
     value.game_id[0] = 0x47U;
@@ -396,11 +397,11 @@ void read_everything(const pf::LoadedPackage& package) {
 // twelve-byte record becomes a sixteen-byte view plus a set node, and a
 // twenty-three-byte campaign node becomes an eighty-eight-byte structure.
 //
-// Measured on this file's fixture, which is 2,012 bytes: a valid load and a full
-// read of every reader peaks at 4,832 bytes, and so does the worst of the
-// 2,759 damaged variants that reach the decoders. That is 2.4 times the input
-// in both cases. The bound is eight times the input over a four-kilobyte
-// floor, so it has room for a section growing a richer decoded form without
+// Measured on this file's fixture, which is 2,168 bytes: a valid load and a full
+// read of every reader peaks at 5,212 bytes, and the worst of the 2,909 damaged
+// variants that reach the decoders peaks at 5,252 bytes. That is less than 2.5
+// times the input in both cases. The bound is eight times the input over a
+// four-kilobyte floor, so it has room for a richer decoded form without
 // having room for a decoder that believes a number. A count believed rather
 // than checked is not near this line: it asks for tens of kilobytes from a
 // hundred and twenty bytes, and megabytes from a few hundred.
@@ -413,8 +414,9 @@ void the_fixture_covers_every_section() {
     const pf::LoadResult loaded = pf::load_mock_package(bytes, options());
     expect(static_cast<bool>(loaded), "the hostile-input fixture loads");
     expect(
-        loaded.package.sections.size() == 19U,
-        "the hostile-input fixture authors all nineteen sections"
+        loaded.package.sections.size() == 20U,
+        "the hostile-input fixture authors all twenty sections (got " +
+            std::to_string(loaded.package.sections.size()) + ")"
     );
     expect(
         pr::project_title(loaded.package) == "Hostile input",
