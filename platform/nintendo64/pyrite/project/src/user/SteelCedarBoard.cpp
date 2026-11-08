@@ -65,6 +65,9 @@ constexpr auto kBellOrchard =
     core::stable_content_id_v1("steel_and_cedar/bell_orchard");
 constexpr auto kBellOrchardMap = core::stable_content_id_v1("bell_orchard");
 constexpr auto kCedarDeepwoodMap = core::stable_content_id_v1("cedar_deepwood");
+constexpr auto kCedarWatchMap = core::stable_content_id_v1("cedar_watch");
+constexpr auto kGateVillageMap = core::stable_content_id_v1("gate_village");
+constexpr auto kTwinGateMap = core::stable_content_id_v1("twin_gate");
 constexpr auto kRoad = core::stable_content_id_v1("road");
 constexpr auto kFarmland = core::stable_content_id_v1("farmland_orchard_tree");
 constexpr auto kForest = core::stable_content_id_v1("forest_orchard_tree");
@@ -78,6 +81,14 @@ constexpr auto kTomasType = core::stable_content_id_v1("tomas_reed");
 constexpr auto kMarchSwordType = core::stable_content_id_v1("march_sword");
 constexpr auto kRetainerType = core::stable_content_id_v1("red_retainer");
 constexpr auto kArcherType = core::stable_content_id_v1("cedar_archer");
+
+constexpr std::array<std::uint64_t, 5> kCampaignMaps{
+    kBellOrchardMap,
+    kCedarDeepwoodMap,
+    kCedarWatchMap,
+    kGateVillageMap,
+    kTwinGateMap,
+};
 
 enum class VisualPose : std::uint8_t {
     idle,
@@ -180,6 +191,7 @@ enum class ShellPhase : std::uint8_t {
     story,
     deployment,
     aftermath,
+    complete,
     battle,
 };
 
@@ -193,6 +205,11 @@ struct ShellState final {
     bool resumed{};
     bool user_took_over{};
     bool cedar_loaded{};
+    std::size_t stage_index{};
+    std::size_t completed_battles{};
+    std::size_t total_commands{};
+    std::size_t total_enemy_commands{};
+    std::size_t total_combats{};
     bool bell_committed{};
     bool campaign_advanced_checkpoint{};
     bool allow_one{true};
@@ -1326,15 +1343,25 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
         }
     }
     assert(replay.rowan_destination != rowan->position);
-    assert(content.map_id == kBellOrchardMap ||
-        content.map_id == kCedarDeepwoodMap);
-    shell.cedar_loaded = content.map_id == kCedarDeepwoodMap;
-    replay.phase = shell.cedar_loaded
-        ? ReplayPhase::explore_northwest : ReplayPhase::select_rowan;
+    const auto stage = std::find(
+        kCampaignMaps.begin(), kCampaignMaps.end(), content.map_id
+    );
+    assertf(stage != kCampaignMaps.end(), "Unknown Steel and Cedar map");
+    shell.stage_index = static_cast<std::size_t>(stage - kCampaignMaps.begin());
+    if (shell.resumed && shell.completed_battles < shell.stage_index) {
+        shell.completed_battles = shell.stage_index;
+    }
+    shell.cedar_loaded = shell.stage_index >= 1U;
+    replay.phase = shell.stage_index == 0U
+        ? ReplayPhase::select_rowan : ReplayPhase::explore_northwest;
     replay.next_frame = frame_count + 30U;
     motion = {};
     planned_motion = {};
+    const bool close_enabled = combat.enabled;
+    const bool reduced_motion = combat.reduced_motion;
     combat = {};
+    combat.enabled = close_enabled;
+    combat.reduced_motion = reduced_motion;
     battle_ui = {};
     board.battle_events.clear();
     camera_configured = false;
@@ -1348,13 +1375,18 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     build_cursor_vertices();
     debugf(
         "GRANDLEON_PYRITE_CAMPAIGN_BOARD encounter=%llu map=%llu size=%ux%u "
-        "players=%u apron=%lu\n",
+        "players=%u stage=%lu apron=%lu\n",
         board.campaign->standing().encounter_id, content.map_id,
         content.definition.width, content.definition.height,
         static_cast<unsigned>(shell.local_players),
+        static_cast<unsigned long>(shell.stage_index + 1U),
         static_cast<unsigned long>(board.apron_cell_count)
     );
-    if (!shell.cedar_loaded) debugf("CHECKPOINT PYRITE_CAMPAIGN_BELL\n");
+    debugf(
+        "CHECKPOINT PYRITE_CAMPAIGN_STAGE index=%lu map=%llu\n",
+        static_cast<unsigned long>(shell.stage_index + 1U), content.map_id
+    );
+    if (shell.stage_index == 0U) debugf("CHECKPOINT PYRITE_CAMPAIGN_BELL\n");
 }
 
 bool load_story_dialogue() {
@@ -1410,6 +1442,8 @@ bool begin_required_deployment() {
     return true;
 }
 
+void begin_performance_sample();
+
 bool stand_on_campaign_encounter() {
     assert(board.campaign.has_value());
     for (unsigned step = 0; step < 8U; ++step) {
@@ -1440,7 +1474,23 @@ bool stand_on_campaign_encounter() {
             shell.phase = ShellPhase::battle;
             return true;
         }
-        if (standing.kind == pr::CampaignNodeKind::terminal) return false;
+        if (standing.kind == pr::CampaignNodeKind::terminal) {
+            if (shell.resumed) {
+                shell.completed_battles = kCampaignMaps.size();
+                shell.stage_index = kCampaignMaps.size() - 1U;
+            }
+            shell.phase = ShellPhase::complete;
+            shell.campaign_advanced_checkpoint = true;
+            shell.next_automatic_frame = 0U;
+            begin_performance_sample();
+            debugf(
+                "CHECKPOINT PYRITE_CAMPAIGN_COMPLETE battles=%lu "
+                "slot_bytes=%lu\n",
+                static_cast<unsigned long>(shell.completed_battles),
+                static_cast<unsigned long>(storage::used_bytes(*board.saves))
+            );
+            return true;
+        }
         if (!standing.dialogue_ids.empty()) return begin_story(standing);
         std::vector<client::RosterEntry> joined;
         if (board.campaign->advance_story(joined) !=
@@ -1469,8 +1519,8 @@ bool advance_story_beat() {
     shell.story_ids.clear();
     shell.story = {};
     if (!stand_on_campaign_encounter()) return false;
-    if (shell.bell_committed && shell.cedar_loaded) {
-        shell.campaign_advanced_checkpoint = true;
+    if (shell.phase == ShellPhase::battle && shell.bell_committed &&
+        shell.stage_index == 1U) {
         debugf(
             "CHECKPOINT PYRITE_CAMPAIGN_CEDAR bell_commands=%lu enemy=%lu "
             "slot_bytes=%lu\n",
@@ -1512,8 +1562,12 @@ bool begin_campaign(bool resume) {
     if (begun != client::CampaignSessionError::none) return false;
     shell.resumed = resumed;
     if (!stand_on_campaign_encounter()) return false;
-    if (resumed && shell.cedar_loaded) {
-        debugf("CHECKPOINT PYRITE_CAMPAIGN_CEDAR resumed=1\n");
+    if (resumed && shell.phase == ShellPhase::battle) {
+        debugf(
+            "CHECKPOINT PYRITE_CAMPAIGN_RESUME stage=%lu map=%llu\n",
+            static_cast<unsigned long>(shell.stage_index + 1U),
+            board.content->map_id
+        );
     }
     debugf(
         "GRANDLEON_PYRITE_CAMPAIGN_BEGIN players=%u requested_resume=%u "
@@ -1595,6 +1649,8 @@ bool confirm_shell_choice() {
             shell.aftermath = {};
             shell.aftermath_objectives.clear();
             return stand_on_campaign_encounter();
+        case ShellPhase::complete:
+            return false;
         case ShellPhase::battle:
             return false;
     }
@@ -1639,7 +1695,8 @@ void update_shell_input() {
         (void)confirm_shell_choice();
         return;
     }
-    if (!shell.user_took_over && frame_count >= shell.next_automatic_frame) {
+    if (shell.phase != ShellPhase::complete && !shell.user_took_over &&
+        frame_count >= shell.next_automatic_frame) {
         (void)confirm_shell_choice();
     }
 }
@@ -2545,7 +2602,10 @@ bool advance_ai() {
             remember_motion();
         }
         ++replay.opponent_commands;
-        if (!friendly) ++shell.bell_enemy_commands;
+        if (!friendly) {
+            ++shell.total_enemy_commands;
+            if (shell.stage_index == 0U) ++shell.bell_enemy_commands;
+        }
         if (!replay.enemy_checkpoint) {
             debugf("CHECKPOINT PYRITE_ENEMY\n");
             replay.enemy_checkpoint = true;
@@ -2555,12 +2615,12 @@ bool advance_ai() {
     return false;
 }
 
-bool finish_bell_and_advance() {
+bool finish_battle_and_advance() {
     assert(board.campaign.has_value());
     const sim::EncounterSnapshot& snapshot = board.game.snapshot();
     assertf(
         snapshot.outcome == sim::Outcome::first_side_won,
-        "Bell Orchard deterministic campaign replay did not win"
+        "Steel and Cedar deterministic campaign replay did not win"
     );
     client::BattleReport report;
     report.outcome = snapshot.outcome;
@@ -2574,22 +2634,28 @@ bool finish_bell_and_advance() {
     );
     if (committed != client::CampaignSessionError::none) return false;
     if (board.campaign->save() != storage::StorageError::none) return false;
-    shell.bell_commands = board.game.accepted_commands();
-    shell.bell_combats = combat.exchanges;
-    shell.bell_committed = true;
+    ++shell.completed_battles;
+    shell.total_commands += board.game.accepted_commands();
+    shell.total_combats += combat.exchanges;
+    if (shell.stage_index == 0U) {
+        shell.bell_commands = board.game.accepted_commands();
+        shell.bell_combats = combat.exchanges;
+        shell.bell_committed = true;
+    }
     assert(board.saves->contains("steel_cedar"));
     shell.phase = ShellPhase::aftermath;
     shell.next_automatic_frame = frame_count + 90U;
     debugf(
         "CHECKPOINT PYRITE_AFTERMATH outcome=%u objectives=%lu "
-        "fallen=%lu recruited=%lu bell_commands=%lu enemy=%lu events=%lu "
-        "slot_bytes=%lu\n",
+        "fallen=%lu recruited=%lu stage=%lu commands=%lu enemy=%lu "
+        "events=%lu slot_bytes=%lu\n",
         static_cast<unsigned>(shell.aftermath.outcome),
         static_cast<unsigned long>(shell.aftermath_objectives.size()),
         static_cast<unsigned long>(shell.aftermath.fallen.size()),
         static_cast<unsigned long>(shell.aftermath.recruited.size()),
-        static_cast<unsigned long>(shell.bell_commands),
-        static_cast<unsigned long>(shell.bell_enemy_commands),
+        static_cast<unsigned long>(shell.stage_index + 1U),
+        static_cast<unsigned long>(board.game.accepted_commands()),
+        static_cast<unsigned long>(shell.total_enemy_commands),
         static_cast<unsigned long>(report.events.size()),
         static_cast<unsigned long>(storage::used_bytes(*board.saves))
     );
@@ -2603,6 +2669,62 @@ void begin_performance_sample() {
     previous_frame = 0;
     min_frame_ticks = ~std::uint64_t{0};
     max_frame_ticks = 0;
+}
+
+void update_performance_sample() {
+    if (!performance_sample_started || verdict_reported) return;
+    const std::uint64_t now = get_ticks();
+    if (previous_frame == 0U) {
+        sample_start = now;
+    } else {
+        const std::uint64_t interval = now - previous_frame;
+        min_frame_ticks = std::min(min_frame_ticks, interval);
+        max_frame_ticks = std::max(max_frame_ticks, interval);
+        ++performance_frames;
+    }
+    previous_frame = now;
+    if (performance_frames != 120U) return;
+
+    verdict_reported = true;
+    heap_stats_t heap{};
+    sys_get_heap_stats(&heap);
+    const std::uint64_t elapsed = now - sample_start;
+    assert(shell.phase == ShellPhase::complete);
+    assert(shell.campaign_advanced_checkpoint);
+    assert(shell.completed_battles == kCampaignMaps.size());
+    assert(shell.stage_index + 1U == kCampaignMaps.size());
+    assert(board.saves->contains("steel_cedar"));
+    assert(!combat.active);
+    if (!shell.resumed) {
+        assert(shell.total_commands > 0U && shell.total_enemy_commands > 0U);
+        assert(shell.total_combats > 0U);
+        assert(replay.camera_x_checkpoint && replay.camera_y_checkpoint);
+        assert(camera_max_x - camera_min_x > 3.5F);
+        assert(camera_max_z - camera_min_z > 1.8F);
+    }
+    assertf(
+        get_memory_size() <= 4 * 1024 * 1024,
+        "Pyrite campaign parity requires more than base N64 memory"
+    );
+    debugf(
+        "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=%llu "
+        "min_frame_us=%llu max_frame_us=%llu fps_x100=%lu heap_used=%lu "
+        "heap_total=%lu heap_free=%lu rdram=%d battles=%lu commands=%lu "
+        "enemy_commands=%lu combat=%lu slot_bytes=%lu hash=%llu\n",
+        TICKS_TO_US(elapsed) / 120U, TICKS_TO_US(min_frame_ticks),
+        TICKS_TO_US(max_frame_ticks),
+        static_cast<unsigned long>(P64::VI::SwapChain::getFPS() * 100.0F),
+        static_cast<unsigned long>(heap.used),
+        static_cast<unsigned long>(heap.total),
+        static_cast<unsigned long>(heap.total - heap.used), get_memory_size(),
+        static_cast<unsigned long>(shell.completed_battles),
+        static_cast<unsigned long>(shell.total_commands),
+        static_cast<unsigned long>(shell.total_enemy_commands),
+        static_cast<unsigned long>(shell.total_combats),
+        static_cast<unsigned long>(storage::used_bytes(*board.saves)),
+        board.game.encounter().canonical_hash()
+    );
+    debugf("RESULT PASS PYRITE_GAMEPLAY\n");
 }
 
 void update_replay() {
@@ -2647,12 +2769,14 @@ void update_replay() {
         }
         case ReplayPhase::return_to_rowan:
             if (board.game.cursor() == replay.rowan_start) {
-                if (shell.cedar_loaded) {
-                    replay.phase = ReplayPhase::complete;
-                    debugf("CHECKPOINT PYRITE_CEDAR_SETTLED\n");
-                    begin_performance_sample();
-                } else {
+                if (shell.stage_index == 0U) {
                     replay.phase = ReplayPhase::select_rowan;
+                } else {
+                    replay.phase = ReplayPhase::autoplay_battle;
+                    debugf(
+                        "CHECKPOINT PYRITE_STAGE_SETTLED index=%lu\n",
+                        static_cast<unsigned long>(shell.stage_index + 1U)
+                    );
                 }
             } else {
                 nudge_toward(replay.rowan_start);
@@ -2800,8 +2924,8 @@ void update_replay() {
         case ReplayPhase::autoplay_battle:
             if (board.game.snapshot().outcome != sim::Outcome::ongoing) {
                 assertf(
-                    finish_bell_and_advance(),
-                    "Bell Orchard did not advance to Cedar Deepwood"
+                    finish_battle_and_advance(),
+                    "Steel and Cedar battle did not advance"
                 );
             } else {
                 assertf(advance_ai(), "No campaign autoplay command was available");
@@ -3260,6 +3384,14 @@ void draw_shell() {
             P64::Debug::printf(202, 194, "A NEXT");
             break;
         }
+        case ShellPhase::complete:
+            P64::Debug::printf(74, 112, "CAMPAIGN COMPLETE");
+            P64::Debug::printf(
+                68, 142, "%lu BATTLES CLEARED",
+                static_cast<unsigned long>(shell.completed_battles)
+            );
+            P64::Debug::printf(72, 178, "PROGRESS SAVED");
+            break;
         case ShellPhase::battle:
             break;
     }
@@ -3298,6 +3430,7 @@ void onSceneUpdate() {
     if (shell.phase != ShellPhase::battle) {
         update_shell_input();
         ++frame_count;
+        update_performance_sample();
         return;
     }
     if (!camera_configured) {
@@ -3327,64 +3460,8 @@ void onSceneUpdate() {
     build_unit_vertices();
     build_cursor_vertices();
 
-    const std::uint64_t now = get_ticks();
-    if (performance_sample_started && !verdict_reported) {
-        if (previous_frame == 0U) {
-            sample_start = now;
-        } else {
-            const std::uint64_t interval = now - previous_frame;
-            min_frame_ticks = std::min(min_frame_ticks, interval);
-            max_frame_ticks = std::max(max_frame_ticks, interval);
-            ++performance_frames;
-        }
-        previous_frame = now;
-    }
     ++frame_count;
-    if (performance_sample_started && performance_frames == 120U &&
-        !verdict_reported) {
-        verdict_reported = true;
-        heap_stats_t heap{};
-        sys_get_heap_stats(&heap);
-        const std::uint64_t elapsed = now - sample_start;
-        const sim::UnitSnapshot* rowan = find_unit(board.rowan_id);
-        assert(rowan && rowan->position == replay.rowan_start);
-        assert(shell.campaign_advanced_checkpoint || shell.resumed);
-        assert(shell.cedar_loaded && board.content->map_id == kCedarDeepwoodMap);
-        if (!shell.resumed) {
-            assert(shell.bell_commands >= 4U);
-            assert(shell.bell_enemy_commands > 0U);
-            assert(shell.bell_combats > 0U);
-        }
-        assert(board.saves->contains("steel_cedar"));
-        assert(!combat.active);
-        assert(replay.camera_x_checkpoint && replay.camera_y_checkpoint);
-        assert(camera_max_x - camera_min_x > 3.5F);
-        assert(camera_max_z - camera_min_z > 1.8F);
-        assertf(
-            get_memory_size() <= 4 * 1024 * 1024,
-            "Pyrite gameplay slice requires more than base N64 memory"
-        );
-        debugf(
-            "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=%llu min_frame_us=%llu "
-            "max_frame_us=%llu fps_x100=%lu heap_used=%lu heap_total=%lu heap_free=%lu "
-            "rdram=%d bell_commands=%lu enemy_commands=%lu round=%lu combat=%lu "
-            "rowan=%d,%d camera_span_x_x100=%d camera_span_y_x100=%d hash=%llu\n",
-            TICKS_TO_US(elapsed) / 120U, TICKS_TO_US(min_frame_ticks),
-            TICKS_TO_US(max_frame_ticks),
-            static_cast<unsigned long>(VI::SwapChain::getFPS() * 100.0F),
-            static_cast<unsigned long>(heap.used), static_cast<unsigned long>(heap.total),
-            static_cast<unsigned long>(heap.total - heap.used), get_memory_size(),
-            static_cast<unsigned long>(shell.bell_commands),
-            static_cast<unsigned long>(shell.bell_enemy_commands),
-            static_cast<unsigned long>(board.game.snapshot().round),
-            static_cast<unsigned long>(shell.bell_combats),
-            rowan->position.x, rowan->position.y,
-            static_cast<int>((camera_max_x - camera_min_x) * 100.0F),
-            static_cast<int>((camera_max_z - camera_min_z) * 100.0F),
-            board.game.encounter().canonical_hash()
-        );
-        debugf("RESULT PASS PYRITE_GAMEPLAY\n");
-    }
+    update_performance_sample();
 }
 
 void onScenePreDraw3D() {

@@ -5,8 +5,9 @@ It builds one Steel and Cedar ROM through Pyrite while continuing to use
 Grandleon's simulation, compiled campaign package, saves and authoring
 pipeline. The ROM starts at a small title screen, follows the campaign's own
 one/two-player launch policy, offers New Game or Continue from cartridge SRAM,
-opens Bell Orchard, and reaches Cedar Deepwood through the real campaign
-graph and battle commit.
+and follows the complete five-battle Steel and Cedar route—from Bell Orchard
+through Twin Gate Keep and the ending—through the real campaign graph and
+battle commits.
 
 **Migration status:** this is the intended replacement renderer, but it remains
 an active, non-shipping integration path until export, campaign and gameplay
@@ -56,8 +57,8 @@ marker files match `versions.env`.
 
 `GpkRuntimeAdapter` owns the ROM-loaded package bytes and performs target-budget
 validation. `CampaignSession` reads the packaged Steel and Cedar graph,
-prepares each encounter with the campaign roster, commits the completed Bell
-Orchard battle and saves the result through a bounded 32 KiB SRAM adapter.
+prepares each encounter with the campaign roster, commits all five completed
+battles and saves each result through a bounded 32 KiB SRAM adapter.
 `GameplaySlice` owns the resulting real `simulation::Encounter` and routes
 cursor selection, movement and wait commands through its authoritative
 `apply` boundary. The deterministic review sequence and a physical controller
@@ -95,31 +96,31 @@ fast-forward is 3x and skip restores immediately.
 The tactical board has filtered CI4 terrain materials, elevation sidewalls,
 deterministic tree clusters, generated directional walk poses and I8 falloff
 contact shadows. Campaign launch, player-count selection, authored story
-dialogue, interactive attacks and abilities, Bell-to-Cedar progression and
-cartridge saving now run in this ROM, but this is still not full campaign
-parity. A packaged deployment screen is entered only when the encounter authors
-a deployment rule; Steel and Cedar's current fixed formations correctly skip
-it. Objective results, fallen/recruited counts and the campaign outcome are
-shown after a committed battle. In-battle conversations and the later three
-Steel and Cedar battles remain.
+dialogue, interactive attacks and abilities, all five Steel and Cedar battles,
+aftermath/objective results, the ending and cartridge saving now run in this
+ROM, but this is still not full player-facing parity. A packaged deployment
+screen is entered only when the encounter authors a deployment rule; Steel and
+Cedar's current fixed formations correctly skip it. Objective results,
+fallen/recruited counts and the campaign outcome are shown after every
+committed battle. In-battle conversations, full audio and complete art coverage
+for every late-campaign unit, terrain and landmark remain.
 The bounded review driver uses the real tactics policy for both sides to finish
-Bell Orchard, presents one complete optional close handoff, then hands the real
-committed campaign state to Cedar Deepwood; it is test scaffolding, not a
-second simulation. Physical player attacks continue to use the close setting
-for every command. The close backdrop pack currently covers only this medieval
-forest/grass/paved proof; audio and the remaining terrain/style stages still
-need production coverage.
+each battle and presents one complete optional close handoff per encounter; it
+is test scaffolding, not a second simulation. Physical player attacks continue
+to use the close setting for every command. The close backdrop pack currently
+covers only this medieval forest/grass/paved proof; the remaining terrain/style
+stages still need production coverage.
 
 The authored tactical rectangle remains finite. The renderer consumes the
 portable packaged `surroundings` contract directly: automatic mode extends
 the nearest authored edge, while manual/fill/blend use the package's fully
 materialized perimeter and solid uses its authored colour. Cedar Deepwood's
-five-cell automatic apron is decorative only, carries no tactical grid or
-highlight, adds deterministic edge foliage, and fades into one coarse ground
-plane. Cursor, routing and selection remain limited to the authored 14x9
-cells. The viewport follows those cells horizontally and vertically, centers
-small maps, and clamps its focus before the decorative apron can become a pan
-target. A host policy test pins those centering and clamp rules.
+five-cell automatic apron is representative: each map's apron is decorative
+only, carries no tactical grid or highlight, adds deterministic edge foliage,
+and fades into one coarse ground plane. Cursor, routing and selection remain
+limited to authored cells. The viewport follows playable cells horizontally
+and vertically, centers small maps, and clamps its focus before the decorative
+apron can become a pan target. A host policy test pins those rules.
 
 The runtime prints `GRANDLEON_RENDERER identity=pyrite-tiny3d fallback=none`.
 The build also fails closed unless the ROM header identifies the Pyrite target;
