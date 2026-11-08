@@ -84,14 +84,8 @@ require() {
 require 'GRANDLEON_PS1_RENDERER=MIPSYNC' 'the Mipsync renderer identity'
 require 'MIPSYNC_SIM_READY width=8 height=6 units=8 hash=cd555b4fda38d374' 'the real Bell Orchard simulation'
 require 'MIPSYNC_SIM_PROOF select=4 move=1 wait=4 ai_wait=4 hash=cec012b51530befc' 'the complete player and opposing turn'
-require 'MIPSYNC_GRANDLEON_METRICS frames=600 .*max_elapsed_vblanks=[12]$' 'the bounded active-play frame result'
+require 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=591 deferred_frames=9 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the frame-sliced active-play result'
 require 'MIPSYNC_INPUT_CAPTURE 320x240 bytes=153600' 'the final framebuffer capture'
-
 metrics=$(grep 'MIPSYNC_GRANDLEON_METRICS frames=600 ' "$log" | tail -n 1)
-missed=$(printf '%s\n' "$metrics" | sed -n 's/.* missed_vblanks=\([0-9][0-9]*\).*/\1/p')
-test -n "$missed" && test "$missed" -le 15 || {
-    echo "active-play frame budget exceeded: $metrics" >&2
-    exit 1
-}
 printf 'Mipsync Bell Orchard input boundary passed: %s\n' "$metrics"
 printf 'Log: %s\nCapture: %s\n' "$log" "$output/mipsync-input-final.bin"

@@ -66,11 +66,14 @@ static void present(void) {
 int main(void) {
     uint32_t frame = 0;
     uint32_t measured_frames = 0;
+    uint32_t rendered_frames = 0;
+    uint32_t deferred_frames = 0;
     uint32_t render_total = 0;
     uint32_t ready_total = 0;
     uint32_t missed_vblanks = 0;
     uint16_t render_max = 0;
     uint16_t ready_max = 0;
+    uint16_t mutation_max = 0;
     int last_vblank;
     int maximum_elapsed = 1;
 
@@ -96,6 +99,7 @@ int main(void) {
         uint16_t render_ticks;
         uint16_t ready_ticks;
         uint16_t pressed = 0;
+        int deferred;
         PADTYPE* pad = (PADTYPE*)s_pad_buffers[0];
         last_vblank = current_vblank;
         if (frame >= 60) {
@@ -109,7 +113,23 @@ int main(void) {
             pressed = (uint16_t)(s_last_buttons & (uint16_t)~pad->btn);
             s_last_buttons = pad->btn;
         }
-        grandleon_game_update(pressed);
+        deferred = grandleon_game_update(pressed);
+
+        if (deferred) {
+            const uint16_t mutation_ticks =
+                (uint16_t)((uint16_t)TIMER_VALUE(1) - frame_start);
+            if (mutation_ticks > mutation_max) mutation_max = mutation_ticks;
+            /* Keep the already-complete front buffer for one retrace.  Rules
+             * work and a full 3D redraw each fit separately; scheduling them
+             * as two slices prevents either from making the other miss 60 Hz. */
+            VSync(0);
+            ++frame;
+            if (frame > 60) {
+                ++measured_frames;
+                ++deferred_frames;
+            }
+            goto report_metrics;
+        }
 
         render_start = (uint16_t)TIMER_VALUE(1);
         ps1_render_frame(
@@ -126,13 +146,16 @@ int main(void) {
             if (render_ticks > render_max) render_max = render_ticks;
             if (ready_ticks > ready_max) ready_max = ready_ticks;
             ++measured_frames;
+            ++rendered_frames;
         }
 
+report_metrics:
         if (measured_frames == 600) {
             grandleon_game_log_metrics(
-                measured_frames, render_total / measured_frames, render_max,
-                ready_total / measured_frames, ready_max, missed_vblanks,
-                maximum_elapsed
+                measured_frames, rendered_frames, deferred_frames,
+                render_total / rendered_frames, render_max,
+                ready_total / rendered_frames, ready_max, mutation_max,
+                missed_vblanks, maximum_elapsed
             );
             /* Serial telemetry is intentionally outside the frame budget. */
             last_vblank = VSync(-1);

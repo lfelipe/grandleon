@@ -94,14 +94,14 @@ std::uint32_t distance(sim::Position a, sim::Position b) {
     return static_cast<std::uint32_t>(dx + dy);
 }
 
-void update_ai() {
-    if (!s_ai_active) return;
+bool update_ai() {
+    if (!s_ai_active) return false;
     sim::EncounterSnapshot snapshot = s_created->encounter.snapshot();
     if (snapshot.active_side != sim::Side::second || snapshot.outcome != sim::Outcome::ongoing) {
         s_ai_active = false;
-        return;
+        return false;
     }
-    if (s_ai_delay > 0) { --s_ai_delay; return; }
+    if (s_ai_delay > 0) { --s_ai_delay; return false; }
 
     const sim::UnitSnapshot* actor = nullptr;
     for (const auto& unit : snapshot.units) {
@@ -110,7 +110,7 @@ void update_ai() {
             break;
         }
     }
-    if (!actor) return;
+    if (!actor) return false;
 
     sim::Position destination = actor->position;
     std::uint32_t best = 0xffffffffU;
@@ -133,7 +133,8 @@ void update_ai() {
                 .decimal(static_cast<unsigned>(moved.error)).flush();
         }
     }
-    if (apply_wait(actor->id, "ai_wait", &snapshot)) ++s_ai_wait_count;
+    const bool waited = apply_wait(actor->id, "ai_wait", &snapshot);
+    if (waited) ++s_ai_wait_count;
     s_ai_delay = 12;
     if (snapshot.active_side == sim::Side::first) {
         s_ai_active = false;
@@ -143,6 +144,7 @@ void update_ai() {
             .decimal(s_wait_count).text(" ai_wait=").decimal(s_ai_wait_count)
             .text(" hash=").hex64(s_created->encounter.canonical_hash()).flush();
     }
+    return waited;
 }
 
 }  // namespace
@@ -186,28 +188,32 @@ extern "C" void grandleon_game_log_boot(unsigned int packet_bytes) {
 }
 
 extern "C" void grandleon_game_log_metrics(
-    uint32_t frames, uint32_t render_average, uint16_t render_maximum,
-    uint32_t ready_average, uint16_t ready_maximum, uint32_t missed_vblanks,
-    int maximum_elapsed
+    uint32_t frames, uint32_t rendered_frames, uint32_t deferred_frames,
+    uint32_t render_average, uint16_t render_maximum,
+    uint32_t ready_average, uint16_t ready_maximum,
+    uint16_t mutation_maximum, uint32_t missed_vblanks, int maximum_elapsed
 ) {
     psx::Line().text("MIPSYNC_GRANDLEON_METRICS frames=").decimal(frames)
+        .text(" rendered_frames=").decimal(rendered_frames)
+        .text(" deferred_frames=").decimal(deferred_frames)
         .text(" render_hbl_avg=").decimal(render_average)
         .text(" render_hbl_max=").decimal(render_maximum)
         .text(" ready_hbl_avg=").decimal(ready_average)
         .text(" ready_hbl_max=").decimal(ready_maximum)
+        .text(" mutation_hbl_max=").decimal(mutation_maximum)
         .text(" missed_vblanks=").decimal(missed_vblanks)
         .text(" max_elapsed_vblanks=").signed_decimal(maximum_elapsed).flush();
 }
 
-void grandleon_game_update(uint16_t pressed) {
-    if (!s_created || !*s_created) return;
+int grandleon_game_update(uint16_t pressed) {
+    if (!s_created || !*s_created) return 0;
     if (s_ai_active) {
-        update_ai();
-        return;
+        return update_ai() ? 1 : 0;
     }
-    if (pressed == 0) return;
+    if (pressed == 0) return 0;
     sim::EncounterSnapshot snapshot = s_created->encounter.snapshot();
-    if (snapshot.active_side != sim::Side::first) return;
+    if (snapshot.active_side != sim::Side::first) return 0;
+    bool mutated = false;
 
     if (pressed & pad_left) --s_cursor.x;
     if (pressed & pad_right) ++s_cursor.x;
@@ -238,6 +244,7 @@ void grandleon_game_update(uint16_t pressed) {
                 const sim::CommandResult result = s_created->encounter.apply(command);
                 if (result) {
                     ++s_move_count;
+                    mutated = true;
                     snapshot = s_created->encounter.snapshot();
                     sync_scene(snapshot);
                 }
@@ -247,10 +254,12 @@ void grandleon_game_update(uint16_t pressed) {
     if ((pressed & pad_square) && s_selected != 0) {
         if (apply_wait(s_selected, "wait", &snapshot)) {
             ++s_wait_count;
+            mutated = true;
             s_selected = 0;
         }
         s_ai_active = snapshot.active_side == sim::Side::second;
     }
     ps1_entity* cursor = grandleon_scene_mutable_entity(g_grandleon_cursor_entity_index);
     if (cursor) place_entity(*cursor, s_cursor, snapshot.width, snapshot.height);
+    return mutated ? 1 : 0;
 }

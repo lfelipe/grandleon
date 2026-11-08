@@ -73,7 +73,7 @@ Cutover requires all of the following on the exact CUE/BIN:
 
 - BIOS-style emulator and real PlayStation hardware boot;
 - a clear visual improvement over the explicit baseline;
-- steady 60 Hz rendering and bounded rule-update spikes;
+- steady 60 Hz rendering with rule mutations scheduled as bounded redraw slices;
 - main RAM, VRAM and packet headroom for the full campaign;
 - real packages, complete encounters, controls, UI, saves and campaign flow;
 - embedded `GRANDLEON_PS1_RENDERER=MIPSYNC` plus the fail-closed cutover audit.
