@@ -28,7 +28,8 @@ func _init(manifest: Dictionary = {}) -> void:
 func resolve_for_conversation(
 	scene_id: Variant, authored_backdrop: int, over_board: bool,
 	snapshot: Dictionary = {}, terrain: Array = [], cast_unit_types: Array = [],
-	subject_unit_id: int = 0
+	subject_unit_id: int = 0, terrain_features: Array = [],
+	route_identity: Dictionary = {}
 ) -> Dictionary:
 	var backdrop_id := authored_backdrop_id(authored_backdrop)
 	var fallback := {
@@ -52,7 +53,9 @@ func resolve_for_conversation(
 
 	if over_board and _valid_board(snapshot, terrain):
 		var anchor := _speaker_anchor(snapshot, cast_unit_types, int(subject_unit_id))
-		var context := _terrain_context(snapshot, terrain, anchor)
+		var context := _terrain_context(
+			snapshot, terrain, anchor, terrain_features, [anchor], route_identity
+		)
 		var terrain_pack := _terrain_pack(packs_value, context)
 		if not terrain_pack.is_empty():
 			return _selection(
@@ -78,7 +81,8 @@ func resolve_for_conversation(
 # attack/counter exchange, as the combat manifest requires.
 func resolve_for_exchange(
 	exchange_key: Variant, snapshot: Dictionary, terrain: Array,
-	focus_cells: Array = []
+	focus_cells: Array = [], terrain_features: Array = [],
+	route_identity: Dictionary = {}
 ) -> Dictionary:
 	var fallback := {
 		"mode": "fallback", "source": "terrain",
@@ -108,7 +112,9 @@ func resolve_for_exchange(
 		sum += cell
 		cell_key.append("%d,%d" % [cell.x, cell.y])
 	var anchor := Vector2i(sum.x / cells.size(), sum.y / cells.size())
-	var context := _terrain_context(snapshot, terrain, anchor)
+	var context := _terrain_context(
+		snapshot, terrain, anchor, terrain_features, cells, route_identity
+	)
 	context["seed_detail"] = ";".join(cell_key)
 	var packs_value: Variant = _manifest.get("packs", [])
 	if not packs_value is Array:
@@ -143,10 +149,14 @@ func _selection(
 			"layer_paths": [],
 		}
 	var histogram: Array = context.get("histogram", [])
-	var seed_input := "%s|%s|%s|%d,%d|%s|%d" % [
+	var route: Dictionary = context.get("route_identity", {})
+	var seed_input := "%s|%s|%s|%d,%d|%s|%s|%s|%s|%d|%s" % [
 		str(scene_id), source, backdrop_id, anchor.x, anchor.y,
+		String(route.get("stage_id", "")), String(route.get("map_id", "")),
+		String(route.get("encounter_id", "")),
 		_histogram_key(histogram) + ":" + String(context.get("seed_detail", "")),
 		int(context.get("transition_mask", 0)),
+		_feature_key(context),
 	]
 	var seed := _fnv1a32(seed_input)
 	var variant := seed % count
@@ -191,6 +201,10 @@ func _selection(
 		"anchor": anchor,
 		"terrain_histogram": histogram,
 		"transition_mask": int(context.get("transition_mask", 0)),
+		"floor_strip_top": float(pack.get("floor_strip_top", 1.0)),
+		"route_identity": route.duplicate(true),
+		"focus_features": context.get("focus_features", []).duplicate(),
+		"nearby_features": context.get("nearby_features", {}).duplicate(true),
 		"layer_paths": paths,
 	}
 
@@ -208,6 +222,21 @@ func _terrain_pack(packs: Array, context: Dictionary) -> Dictionary:
 		if not value is Dictionary:
 			continue
 		var pack: Dictionary = value
+		var compatibility_value: Variant = pack.get("compatibility", {})
+		if compatibility_value is Dictionary and not compatibility_value.is_empty():
+			if not _compatible(compatibility_value, context):
+				continue
+			var exact_score := 1000000
+			var explicit_dominant := TERRAIN_NAMES.find(String(pack.get("dominant_terrain", "")))
+			if explicit_dominant >= 0:
+				exact_score += int(histogram[explicit_dominant])
+			if exact_score > chosen_score or (
+				exact_score == chosen_score
+				and String(pack.get("id", "")) < String(chosen.get("id", ""))
+			):
+				chosen = pack
+				chosen_score = exact_score
+			continue
 		var dominant := String(pack.get("dominant_terrain", ""))
 		var dominant_index := TERRAIN_NAMES.find(dominant)
 		if dominant_index < 0 or int(histogram[dominant_index]) != most or most <= 0:
@@ -244,6 +273,9 @@ func _include_role(
 	role: String, source: String, pack: Dictionary, context: Dictionary
 ) -> bool:
 	if source == "authored" or role == "panorama":
+		return true
+	var compatibility_value: Variant = pack.get("compatibility", {})
+	if compatibility_value is Dictionary and not compatibility_value.is_empty():
 		return true
 	if role == "transition":
 		return int(context.get("transition_mask", 0)) != 0
@@ -295,13 +327,16 @@ func _speaker_anchor(
 
 
 func _terrain_context(
-	snapshot: Dictionary, terrain: Array, anchor: Vector2i
+	snapshot: Dictionary, terrain: Array, anchor: Vector2i,
+	terrain_features: Array = [], focus_cells: Array = [],
+	route_identity: Dictionary = {}
 ) -> Dictionary:
 	var width := int(snapshot.get("width", 0))
 	var height := int(snapshot.get("height", 0))
 	var histogram: Array[int] = []
 	histogram.resize(TERRAIN_NAMES.size())
 	histogram.fill(0)
+	var nearby_features: Dictionary = {}
 	for y: int in range(maxi(0, anchor.y - 2), mini(height, anchor.y + 3)):
 		for x: int in range(maxi(0, anchor.x - 2), mini(width, anchor.x + 3)):
 			var index := y * width + x
@@ -312,6 +347,26 @@ func _terrain_context(
 				kind = TERRAIN_NAMES.find("grass")
 			if kind >= 0 and kind < histogram.size():
 				histogram[kind] += 1
+			if index < terrain_features.size():
+				var feature := String(terrain_features[index])
+				if not feature.is_empty():
+					nearby_features[feature] = int(nearby_features.get(feature, 0)) + 1
+	var focus_features: Array[String] = []
+	for value: Variant in focus_cells:
+		var cell := Vector2i(-1, -1)
+		if value is Vector2i:
+			cell = value
+		elif value is Vector2:
+			cell = Vector2i(roundi(value.x), roundi(value.y))
+		elif value is Dictionary:
+			cell = Vector2i(int(value.get("x", -1)), int(value.get("y", -1)))
+		if cell.x < 0 or cell.y < 0 or cell.x >= width or cell.y >= height:
+			continue
+		var feature_index := cell.y * width + cell.x
+		if feature_index < terrain_features.size():
+			var focus_feature := String(terrain_features[feature_index])
+			if not focus_feature.is_empty():
+				focus_features.append(focus_feature)
 	var transition_mask := 0
 	var directions := [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
 	for direction_index: int in directions.size():
@@ -321,7 +376,67 @@ func _terrain_context(
 		var index := at.y * width + at.x
 		if index < terrain.size() and int(terrain[index]) == TERRAIN_NAMES.find("paved"):
 			transition_mask |= 1 << direction_index
-	return {"histogram": histogram, "transition_mask": transition_mask}
+	return {
+		"histogram": histogram,
+		"transition_mask": transition_mask,
+		"nearby_features": nearby_features,
+		"focus_features": focus_features,
+		"route_identity": {
+			"stage_id": String(route_identity.get("stage_id", "")),
+			"map_id": String(route_identity.get("map_id", "")),
+			"encounter_id": String(route_identity.get("encounter_id", "")),
+		},
+	}
+
+
+func _compatible(compatibility: Dictionary, context: Dictionary) -> bool:
+	var route: Dictionary = context.get("route_identity", {})
+	for field: String in ["stage_ids", "map_ids"]:
+		var allowed_value: Variant = compatibility.get(field, [])
+		if not allowed_value is Array or allowed_value.is_empty():
+			continue
+		var identity_field := field.trim_suffix("s")
+		if String(route.get(identity_field, "")) not in allowed_value:
+			return false
+	var nearby: Dictionary = context.get("nearby_features", {})
+	var nearby_any: Variant = compatibility.get("nearby_features_any", [])
+	if nearby_any is Array and not nearby_any.is_empty():
+		var found_nearby := false
+		for feature: Variant in nearby_any:
+			if int(nearby.get(String(feature), 0)) > 0:
+				found_nearby = true
+				break
+		if not found_nearby:
+			return false
+	var focus: Array = context.get("focus_features", [])
+	var focus_any: Variant = compatibility.get("focus_features_any", [])
+	if focus_any is Array and not focus_any.is_empty():
+		var found_focus := false
+		for feature: Variant in focus:
+			if String(feature) in focus_any:
+				found_focus = true
+				break
+		if not found_focus:
+			return false
+	var focus_none: Variant = compatibility.get("focus_features_none", [])
+	if focus_none is Array and not focus_none.is_empty():
+		for feature: Variant in focus:
+			if String(feature) in focus_none:
+				return false
+	return true
+
+
+func _feature_key(context: Dictionary) -> String:
+	var nearby: Dictionary = context.get("nearby_features", {})
+	var keys: Array = nearby.keys()
+	keys.sort()
+	var values := PackedStringArray()
+	for key: Variant in keys:
+		values.append("%s=%d" % [String(key), int(nearby[key])])
+	var focus_values := PackedStringArray()
+	for value: Variant in context.get("focus_features", []):
+		focus_values.append(String(value))
+	return "%s;%s" % [",".join(values), ",".join(focus_values)]
 
 
 func _valid_board(snapshot: Dictionary, terrain: Array) -> bool:

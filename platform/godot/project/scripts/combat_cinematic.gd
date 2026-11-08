@@ -142,7 +142,8 @@ func capture_backdrop_state() -> Dictionary:
 
 
 func enqueue(
-	plan: Dictionary, terrain: Array, theme: int, focus_points: Array = []
+	plan: Dictionary, terrain: Array, theme: int, focus_points: Array = [],
+	terrain_features: Array = [], route_identity: Dictionary = {}
 ) -> bool:
 	if not bool(plan.get("valid", false)) or plan.get("beats", []).is_empty():
 		return false
@@ -151,7 +152,9 @@ func enqueue(
 		"terrain": terrain.duplicate(),
 		"theme": theme,
 		"focus_points": focus_points.duplicate(),
-		"backdrop": _resolve_backdrop(plan, terrain),
+		"backdrop": _resolve_backdrop(
+			plan, terrain, terrain_features, route_identity
+		),
 	})
 	if _current.is_empty():
 		_start_next()
@@ -443,7 +446,10 @@ func _set_stage_for_beat(beat: Dictionary) -> void:
 	).duplicate(true)
 
 
-func _resolve_backdrop(plan: Dictionary, terrain: Array) -> Dictionary:
+func _resolve_backdrop(
+	plan: Dictionary, terrain: Array, terrain_features: Array = [],
+	route_identity: Dictionary = {}
+) -> Dictionary:
 	var focus_cells: Array[Vector2i] = []
 	var seen: Dictionary = {}
 	for value: Variant in plan.get("beats", []):
@@ -465,7 +471,8 @@ func _resolve_backdrop(plan: Dictionary, terrain: Array) -> Dictionary:
 		int(first.get("actor_id", 0)), int(first.get("target_id", 0)),
 	]
 	return backdrop_resolver.resolve_for_exchange(
-		exchange_key, plan.get("before_snapshot", {}), terrain, focus_cells
+		exchange_key, plan.get("before_snapshot", {}), terrain, focus_cells,
+		terrain_features, route_identity
 	)
 
 

@@ -101,6 +101,11 @@ struct MapSurroundings final {
 
 struct EncounterLoadResult final {
     EncounterLoadError error{EncounterLoadError::none};
+    // Authored map identity read from the encounter record. This remains
+    // presentation metadata: the simulation consumes the decoded definition,
+    // while clients can distinguish two stages whose local terrain happens to
+    // have the same shape and material histogram.
+    std::uint64_t map_id{};
     simulation::EncounterDefinition definition;
     std::vector<UnitBehaviorBinding> behaviors;
     // One entry per unit in `definition.units`, in the same order.

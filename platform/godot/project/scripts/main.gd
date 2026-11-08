@@ -101,6 +101,7 @@ var hud_seat := 0
 var snapshot: Dictionary = {}
 var battle_terrain: Array = []
 var battle_terrain_features: Array = []
+var battle_route_identity: Dictionary = {}
 var battle_theme := 0
 var battle_surroundings: Dictionary = {}
 var definitions: Dictionary = {"weapons": [], "abilities": [], "items": []}
@@ -2536,6 +2537,11 @@ func _handle_event(event: Dictionary) -> void:
 			snapshot = event.snapshot
 			battle_terrain = event.get("terrain", []).duplicate()
 			battle_terrain_features = event.get("terrain_features", []).duplicate()
+			battle_route_identity = {
+				"stage_id": String(event.get("stage_id", "")),
+				"map_id": String(event.get("map_id", "")),
+				"encounter_id": String(event.get("encounter_id", "")),
+			}
 			battle_theme = int(event.get("theme", 0))
 			battle_surroundings = {}
 			board.configure(
@@ -2659,7 +2665,8 @@ func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
 	if plan.is_empty():
 		return
 	if combat_cinematic.enqueue(
-		plan, battle_terrain, battle_theme, _combat_cinematic_focus_points(plan)
+		plan, battle_terrain, battle_theme, _combat_cinematic_focus_points(plan),
+		battle_terrain_features, battle_route_identity
 	):
 		for seat in action_popups.size():
 			_close_action_popup(seat)
@@ -3716,7 +3723,8 @@ func _show_dialogue_line() -> void:
 	var backdrop_selection := backdrop_pack_resolver.resolve_for_conversation(
 		line.get("dialogue_id", 0), int(line.get("backdrop", 0)),
 		bool(line.get("over_board", false)), snapshot, battle_terrain,
-		line.get("scene_cast", []), int(line.get("subject_unit_id", 0))
+		line.get("scene_cast", []), int(line.get("subject_unit_id", 0)),
+		battle_terrain_features, battle_route_identity
 	)
 	var layered: bool = (
 		conversation_backdrop != null

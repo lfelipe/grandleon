@@ -75,6 +75,9 @@ struct FrontendEvent final {
     // rather than guessing from its class or display text.
     std::vector<client::RosterEntry> campaign_roster;
     std::optional<client::CampaignBoard> campaign_board;
+    std::uint64_t stage_id{};
+    std::uint64_t encounter_id{};
+    std::uint64_t map_id{};
     simulation::Side player_side{simulation::Side::first};
     std::uint64_t canonical_hash{};
     std::int64_t request_id{};
@@ -96,6 +99,11 @@ public:
         const client::Roster& roster,
         simulation::Side player_side,
         const std::vector<std::uint64_t>& terrain
+    ) override;
+    void battle_route(
+        std::uint64_t stage_id,
+        std::uint64_t encounter_id,
+        std::uint64_t map_id
     ) override;
     void battle_surroundings(
         const package_runtime::MapSurroundings& surroundings
@@ -199,6 +207,9 @@ private:
     std::optional<client::ManagementIntent> management_intent_;
     std::vector<client::RosterEntry> campaign_roster_;
     std::optional<client::CampaignBoard> campaign_board_;
+    std::uint64_t active_stage_id_{};
+    std::uint64_t active_encounter_id_{};
+    std::uint64_t active_map_id_{};
     const package_format::LoadedPackage* package_{nullptr};
     std::vector<package_runtime::EncounterMoment> moments_;
     std::vector<package_runtime::PlacementIdentity> moment_placements_;

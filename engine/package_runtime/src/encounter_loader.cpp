@@ -678,6 +678,7 @@ EncounterLoadResult load_encounter(
         return fail(EncounterLoadError::missing_reference);
     }
     EncounterLoadResult result;
+    result.map_id = map_id;
     if (!read_map(package, *map, result.definition.width,
                   result.definition.height, result.terrain,
                   result.definition.terrain,

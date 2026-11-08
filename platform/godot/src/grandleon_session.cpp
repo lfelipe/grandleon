@@ -3,6 +3,7 @@
 
 #include <grandleon/client/session.hpp>
 #include <grandleon/core/content_identity.hpp>
+#include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/view/motion.hpp>
@@ -336,6 +337,17 @@ void AsyncPresenter::battle_begins(
     event.terrain = terrain;
     event.player_side = player_side;
     push(std::move(event));
+}
+
+void AsyncPresenter::battle_route(
+    std::uint64_t stage_id,
+    std::uint64_t encounter_id,
+    std::uint64_t map_id
+) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    active_stage_id_ = stage_id;
+    active_encounter_id_ = encounter_id;
+    active_map_id_ = map_id;
 }
 
 void AsyncPresenter::battle_surroundings(
@@ -746,6 +758,9 @@ void AsyncPresenter::stop() {
         management_intent_.reset();
         campaign_roster_.clear();
         campaign_board_.reset();
+        active_stage_id_ = 0;
+        active_encounter_id_ = 0;
+        active_map_id_ = 0;
         moments_.clear();
         moment_placements_.clear();
         battle_active_ = false;
@@ -764,6 +779,9 @@ void AsyncPresenter::push(FrontendEvent event) {
     }
     event.campaign_roster = campaign_roster_;
     event.campaign_board = campaign_board_;
+    event.stage_id = active_stage_id_;
+    event.encounter_id = active_encounter_id_;
+    event.map_id = active_map_id_;
     events_.push_back(std::move(event));
 }
 
@@ -1711,6 +1729,16 @@ gd::Dictionary GrandleonSession::event_dictionary(
             }
             result["terrain"] = terrain;
             result["terrain_features"] = terrain_features;
+            if (event.stage_id != 0) {
+                result["stage_id"] = text(hexadecimal(event.stage_id));
+            }
+            if (event.encounter_id != 0) {
+                result["encounter_id"] =
+                    text(hexadecimal(event.encounter_id));
+            }
+            if (event.map_id != 0) {
+                result["map_id"] = text(hexadecimal(event.map_id));
+            }
             break;
         }
         case FrontendEvent::Kind::battle_surroundings: {

@@ -131,6 +131,10 @@ void decodes_compiled_encounter() {
     const auto decoded = pr::load_encounter(loaded, 100);
     expect(static_cast<bool>(decoded), "encounter payload decodes");
     expect(
+        decoded.map_id == 70,
+        "the encounter publishes its authoritative authored map identity"
+    );
+    expect(
         decoded.definition.width == 4 &&
             decoded.definition.height == 3 &&
             decoded.definition.units.size() == 2,

@@ -70,6 +70,7 @@ func _run() -> void:
 	)
 	_expect("combat can reuse the production resolver", exchange.mode, "layers")
 	_expect("combat focus cells stay in its stable seed", exchange.seed_input.contains("1,2;4,1"), true)
+	_verify_steel_and_cedar_routes(resolver, snapshot)
 
 	var view = ConversationBackdrop.new()
 	get_root().add_child(view)
@@ -97,6 +98,84 @@ func _run() -> void:
 	if failures == 0:
 		print("conversation backdrop resolver, presentation, and native context passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _verify_steel_and_cedar_routes(resolver, snapshot: Dictionary) -> void:
+	var paved: Array = []
+	paved.resize(24)
+	paved.fill(12)
+	var village_features: Array = []
+	village_features.resize(24)
+	village_features.fill("")
+	village_features[7] = "village_house"
+	var village_route := {
+		"stage_id": "07cb9d097af3a9a1",
+		"map_id": "07cb9d097af3a9a1",
+		"encounter_id": "4cfd6b6cadf829de",
+	}
+	var village: Dictionary = resolver.resolve_for_exchange(
+		"gate_exchange", snapshot, paved,
+		[Vector2i(2, 2), Vector2i(3, 2)], village_features, village_route
+	)
+	_expect("Gate Village house context selects its exact pack", village.pack_id, "medieval_village")
+	_expect("Gate Village loads every ordered layer", village.layer_paths.size(), 4)
+	_expect("Gate Village begins with its panorama", String(village.layer_paths[0]).get_file().begins_with("panorama_"), true)
+	_expect("Gate Village keeps its transition second", String(village.layer_paths[1]).get_file().begins_with("transition_road_paved_"), true)
+	_expect("Gate Village keeps its midground third", String(village.layer_paths[2]).get_file().begins_with("midground_village_"), true)
+	_expect("Gate Village keeps its props last", String(village.layer_paths[3]).get_file().begins_with("props_"), true)
+	_expect("Gate Village owns its complete floor", float(village.floor_strip_top), 1.0)
+	_expect("route identity participates in the stable seed", village.seed_input.contains("07cb9d097af3a9a1|07cb9d097af3a9a1"), true)
+	var village_dialogue: Dictionary = resolver.resolve_for_conversation(
+		"village_orders", 0, true, snapshot, paved, [101], 0,
+		village_features, village_route
+	)
+	_expect("over-board village dialogue reuses the exact pack", village_dialogue.pack_id, "medieval_village")
+
+	var wrong_route: Dictionary = village_route.duplicate(true)
+	wrong_route.map_id = "e5c0ef3904d2b0a3"
+	var ambiguous: Dictionary = resolver.resolve_for_exchange(
+		"same_materials_elsewhere", snapshot, paved,
+		[Vector2i(2, 2), Vector2i(3, 2)], village_features, wrong_route
+	)
+	_expect("a similar paved map cannot borrow Gate Village", ambiguous.mode, "fallback")
+	var no_house: Array = village_features.duplicate()
+	no_house.fill("")
+	var missing_house: Dictionary = resolver.resolve_for_exchange(
+		"gate_without_house", snapshot, paved,
+		[Vector2i(2, 2), Vector2i(3, 2)], no_house, village_route
+	)
+	_expect("Gate Village without exact house context falls back", missing_house.mode, "fallback")
+
+	var castle_features: Array = []
+	castle_features.resize(24)
+	castle_features.fill("castle_wall")
+	castle_features[14] = "castle_floor"
+	castle_features[15] = "castle_dais"
+	var castle_route := {
+		"stage_id": "e5c0ef3904d2b0a3",
+		"map_id": "e5c0ef3904d2b0a3",
+		"encounter_id": "152f9b70708ceaaa",
+	}
+	var castle: Dictionary = resolver.resolve_for_exchange(
+		"twin_gate_exchange", snapshot, paved,
+		[Vector2i(2, 2), Vector2i(3, 2)], castle_features, castle_route
+	)
+	_expect("walkable Twin Gate cells select the castle pack", castle.pack_id, "medieval_castle")
+	_expect("Twin Gate loads every ordered layer", castle.layer_paths.size(), 4)
+	_expect("Twin Gate owns its complete floor", float(castle.floor_strip_top), 1.0)
+	_expect("Twin Gate records the exact focus features", castle.focus_features, ["castle_floor", "castle_dais"])
+	var wall_focus: Array = castle_features.duplicate()
+	wall_focus[14] = "castle_wall"
+	var blocked_castle: Dictionary = resolver.resolve_for_exchange(
+		"blocked_wall", snapshot, paved,
+		[Vector2i(2, 2), Vector2i(3, 2)], wall_focus, castle_route
+	)
+	_expect("a castle wall focus never selects the interior", blocked_castle.mode, "fallback")
+	var identity_only: Dictionary = resolver.resolve_for_exchange(
+		"featureless_keep", snapshot, paved,
+		[Vector2i(2, 2), Vector2i(3, 2)], [], castle_route
+	)
+	_expect("route identity alone cannot invent castle context", identity_only.mode, "fallback")
 
 
 func _verify_native_context() -> void:
@@ -132,6 +211,7 @@ func _verify_native_context() -> void:
 	)
 	var saw_story := false
 	var saw_board := false
+	var saw_route_identity := false
 	for _frame: int in 360:
 		await process_frame
 		for event_value: Variant in session.poll():
@@ -146,11 +226,16 @@ func _verify_native_context() -> void:
 				"management":
 					if not session.submit_management("proceed"):
 						_fail("fixed company must proceed")
-		if saw_story and saw_board:
+				"battle_begins":
+					_expect("native battle publishes its stage identity", String(event.get("stage_id", "")), "59fcce0888295cd0")
+					_expect("native battle publishes its map identity", String(event.get("map_id", "")), "bc589e9692f4f1c6")
+					saw_route_identity = true
+		if saw_story and saw_board and saw_route_identity:
 			break
 	session.stop()
 	_expect("between-map story is explicitly off-map", saw_story, true)
 	_expect("battle moment is explicitly over the board", saw_board, true)
+	_expect("battle route identity crosses the native bridge", saw_route_identity, true)
 
 
 func _verify_triggered_battle_moment(

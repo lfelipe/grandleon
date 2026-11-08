@@ -1226,6 +1226,11 @@ CampaignSessionError run_persistent_campaign(
         }
         if (!published) return prepared.error;
         narrator.board_prepared(prepared.board);
+        presenter.battle_route(
+            prepared.board.node.stable_id,
+            prepared.board.encounter_id,
+            prepared.encounter.encounter.map_id
+        );
 
         BattleReport battle;
         if (play_battle(

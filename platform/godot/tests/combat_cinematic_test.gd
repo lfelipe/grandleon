@@ -261,6 +261,37 @@ func _test_runtime_backdrop(
 	)
 	cinematic.clear()
 
+	var keep_terrain: Array = []
+	keep_terrain.resize(12)
+	keep_terrain.fill(12)
+	var keep_features: Array = []
+	keep_features.resize(12)
+	keep_features.fill("castle_wall")
+	keep_features[4] = "castle_floor"
+	keep_features[5] = "castle_dais"
+	_expect_true(
+		"production combat with exact Twin Gate context enqueues",
+		cinematic.enqueue(
+			plan, keep_terrain, 0, focus_points, keep_features, {
+				"stage_id": "e5c0ef3904d2b0a3",
+				"map_id": "e5c0ef3904d2b0a3",
+				"encounter_id": "152f9b70708ceaaa",
+			}
+		)
+	)
+	var keep_selected: Dictionary = cinematic.capture_backdrop_state()
+	_expect("production combat selects the exact castle pack", keep_selected.pack_id, "medieval_castle")
+	_expect("the full-floor castle pack loads every layer", keep_selected.layer_count, 4)
+	_expect("the castle source floor suppresses a live strip", float(keep_selected.floor_strip_top), 1.0)
+	var keep_variant := String(keep_selected.variant)
+	cinematic._process(0.35)
+	cinematic._process(1.36)
+	_expect(
+		"castle attack and counter keep one frozen variant",
+		cinematic.capture_backdrop_state().variant, keep_variant
+	)
+	cinematic.clear()
+
 
 func _test_multi_target(
 	cinematic, terrain: Array, focus_points: Array[Vector2]
