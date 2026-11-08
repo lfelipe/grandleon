@@ -21,6 +21,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -575,6 +576,18 @@ int main() {
         "Gate Village authors six explicit four-cell houses"
     );
     expect(
+        landmark_cells("bell_orchard", "farmland_orchard_tree") == 6U &&
+        landmark_cells("bell_orchard", "forest_orchard_tree") == 10U &&
+        landmark_cells("bell_orchard", "paved_orchard_bell") == 2U,
+        "Bell Orchard identifies its orchard rows and bell without changing layout"
+    );
+    expect(
+        landmark_cells("cedar_watch", "ruins_watch_ruin") == 10U &&
+        landmark_cells("cedar_watch", "paved_signal_beacon") == 2U &&
+        landmark_cells("cedar_watch", "road_signal_beacon") == 4U,
+        "Cedar Watch identifies its ruins and four approach beacons"
+    );
+    expect(
         landmark_cells("twin_gate", "mountain_castle_wall") == 18U &&
         landmark_cells("twin_gate", "paved_castle_door") == 2U &&
         landmark_cells("twin_gate", "paved_castle_floor") == 14U &&
@@ -658,6 +671,25 @@ int main() {
                 expect(
                     map.terrain_kinds[cell] == gc::terrain_kind_index("paved"),
                     "castle doors, floor and dais keep passable paved rules"
+                );
+            }
+        }
+    }
+    for (const auto& [map_key, terrain_key, kind] : std::array{
+            std::tuple{"bell_orchard", "farmland_orchard_tree", "farmland"},
+            std::tuple{"bell_orchard", "forest_orchard_tree", "forest"},
+            std::tuple{"bell_orchard", "paved_orchard_bell", "paved"},
+            std::tuple{"cedar_watch", "ruins_watch_ruin", "ruins"},
+            std::tuple{"cedar_watch", "paved_signal_beacon", "paved"},
+            std::tuple{"cedar_watch", "road_signal_beacon", "road"},
+        }) {
+        const gc::Map& map = *maps.at(core::stable_content_id_v1(map_key));
+        const std::uint64_t terrain = core::stable_content_id_v1(terrain_key);
+        for (std::size_t cell = 0; cell < map.terrain.size(); ++cell) {
+            if (map.terrain[cell] == terrain) {
+                expect(
+                    map.terrain_kinds[cell] == gc::terrain_kind_index(kind),
+                    std::string(terrain_key) + " keeps its original movement kind"
                 );
             }
         }

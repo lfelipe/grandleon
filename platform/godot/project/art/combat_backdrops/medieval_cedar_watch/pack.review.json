@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "status": "reviewed_asset_only",
-  "runtime_registered": false,
+  "status": "production_registered",
+  "runtime_registered": true,
   "id": "medieval_cedar_watch",
   "campaign": "steel_and_cedar",
   "source_resolution": [1280, 720],
@@ -24,10 +24,11 @@
     "encounter_ids": ["a91cac5b07854756"],
     "terrain_kinds": ["paved", "ruins", "road", "grass", "bamboo", "forest", "hills"],
     "nearby_features_any": ["watch_ruin", "signal_beacon"],
-    "authored_feature_status": "proposed_not_yet_in_source",
-    "proposed_source_terrain_ids": [
+    "authored_feature_status": "authored_and_exposed",
+    "source_terrain_ids": [
       "ruins_watch_ruin",
-      "paved_signal_beacon"
+      "paved_signal_beacon",
+      "road_signal_beacon"
     ],
     "conversation_scene_ids": [
       "watch_orders",

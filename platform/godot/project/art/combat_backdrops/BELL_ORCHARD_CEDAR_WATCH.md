@@ -1,15 +1,20 @@
 # Bell Orchard and Cedar Watch close-view packs
 
-These are asset-only candidate packs for the two Steel and Cedar Medieval
-environments that did not yet have their own close-combat and conversation
-backdrops. They are deliberately absent from `manifest.json`; the six reviewed
-composites are shown in
+These are production packs for the two Steel and Cedar Medieval environments.
+Combat and on-map conversations share the exact same route-and-landmark-gated
+selection. The six reviewed composites are shown in
 [`steel-cedar-orchard-watch-review.png`](../../../../../docs/screenshots/godot/steel-cedar-orchard-watch-review.png).
 
 Bell Orchard is bright, rural, and welcoming enough for the tutorial. Cedar
 Watch is a cool dusk frontier relay built to withstand a twenty-round siege.
 The lighting, architecture, floor materials, and edge props keep the two stages
 visually distinct even when the same Medieval character cutouts are used.
+
+Production-resolver captures: [Bell Orchard](../../../../../docs/screenshots/godot/bell-orchard-production-backdrop.png)
+and [Cedar Watch](../../../../../docs/screenshots/godot/cedar-watch-production-backdrop.png).
+These are not hand-composited review plates: the capture harness asks the
+shipping resolver for an over-board conversation and presents the returned
+four layers through `GrandleonConversationBackdrop`.
 
 ## Technical contract
 
@@ -212,37 +217,34 @@ Lighting/mood: cool dusk ambient, restrained warm fire key, readable
 Constraints: genuinely transparent background; no floor plane, scenery, walls, people, units, loose weapons, shields, heraldry, signs, lettering, text, logos, watermark, interface, grid, modern objects, fantasy magic, giant flame, detached objects, or cast shadows beyond clusters
 ```
 
-## Compatibility proposals
+## Production compatibility
 
-The exact proposal is recorded in each `pack.review.json`. The runtime route
-identities are:
+The registered runtime route identities are:
 
 | Pack | Source stage/map | Runtime stage/map | Runtime encounter |
 |---|---|---|---|
 | Bell Orchard | `bell_orchard` | `935b03cf7490233c` | `4c67d9e3fd41410e` |
 | Cedar Watch | `cedar_watch` | `0079abb4797ff5b4` | `a91cac5b07854756` |
 
-Route identity must be required, because generic farmland or paved terrain
-should not select campaign-specific scenery. Both maps currently contain only
-base terrain kinds, so their semantic landmarks do not yet reach
-`terrain_features`. Before production registration, author and expose these
-portable feature pairs:
+Route identity is required because generic farmland or paved terrain should
+not select campaign-specific scenery. The source maps expose these portable
+landmarks without changing their terrain kinds or movement rules:
 
-- Bell Orchard: source terrain IDs `farmland_orchard_tree` and
-  `paved_orchard_bell`, exposed as `orchard_tree` and `orchard_bell`.
+- Bell Orchard: source terrain IDs `farmland_orchard_tree`,
+  `forest_orchard_tree`, and `paved_orchard_bell`, exposed as
+  `orchard_tree` and `orchard_bell`.
 - Cedar Watch: source terrain IDs `ruins_watch_ruin` and
-  `paved_signal_beacon`, exposed as `watch_ruin` and `signal_beacon`.
+  `paved_signal_beacon`/`road_signal_beacon`, exposed as `watch_ruin` and
+  `signal_beacon`.
 
-The resulting manifest entries should combine the exact `stage_ids` and
-`map_ids` with each pack's `nearby_features_any`; they should not rely on
-terrain histograms alone. Over-board stage dialogue then selects the same pack
-as combat. Off-map scenes `orchard_won` and `watch_won` can use the proposed
-authored backdrop IDs `bell_orchard` and `cedar_watch` after those values are
-added to the portable backdrop list.
+The manifest combines the exact `stage_ids` and `map_ids` with each pack's
+`nearby_features_any`; it does not rely on terrain histograms alone. Over-board
+stage dialogue therefore selects the same pack as combat. Off-map scenes keep
+their current authored portable backdrops and safe fallback behavior.
 
 ## Validation
 
-The candidate pack passed these asset-only checks:
+The production layers passed these structural checks before registration:
 
 - all 24 layers are exactly 1280×720, 8-bit sRGB;
 - all six panoramas are opaque, and all 18 transition/midground/prop plates
@@ -257,22 +259,10 @@ The candidate pack passed these asset-only checks:
   visual separation between tutorial orchard and survival watch;
 - no text, watermark, unit, modern object, black band, or floor seam was found.
 
-The 24 runtime-candidate layers total approximately 25 MiB. The montage is
+The 24 runtime layers total approximately 25 MiB. The montage is
 review-only and must not be added to the runtime pack.
 
-## Precise integration hooks
-
-1. Add the proposed feature terrain IDs to Steel and Cedar's source maps at
-   their actual orchard rows/bell and watch ruins/beacons; keep the base terrain
-   movement kinds unchanged.
-2. Extend the Godot terrain-feature bridge to emit the four semantic feature
-   names above.
-3. Add the two reviewed entries to `manifest.json` with the exact roots,
-   filename patterns, route IDs, feature gates, three variants, and
-   `floor_strip_top: 1.0`.
-4. Add `bell_orchard` and `cedar_watch` to the portable authored-backdrop list
-   only if the off-map victory conversations are authored to use them.
-5. Add resolver tests for exact route plus feature, wrong route, missing
-   feature, stable three-variant selection, layer order, full-floor composition,
-   and over-board/off-map conversation behavior.
-6. Keep the selected variant frozen across attack and counterattack.
+The shared resolver keeps one of three variants stable for an exchange or
+conversation, composes panorama/transition/midground/props in that order, and
+uses the pack's full floor. A wrong route or missing nearby landmark retains
+the normal safe fallback.

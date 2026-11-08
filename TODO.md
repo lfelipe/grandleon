@@ -413,9 +413,10 @@ portable campaign authoring, and complete combat-outcome coverage.
   command-line player choice remains final.
 - [ ] Continue expanding the close view with more terrain packs and richer
   character animation. Production packs now cover compatible forest scenes,
-  Gate Village houses and the walkable interior of Twin Gate Keep. The two
-  Medieval packs require exact stage, map and landmark context; maps without a
-  compatible pack retain the safe terrain-derived fallback.
+  Bell Orchard, Cedar Watch, Gate Village houses and the walkable interior of
+  Twin Gate Keep. The four campaign-specific Medieval packs require exact
+  stage, map and landmark context; maps without a compatible pack retain the
+  safe terrain-derived fallback.
 - [x] Cover multi-target abilities, special results, and rapid queued combat.
   Area attacks keep their initiating character planted while targets rotate
   through the other stage slot; restoration, defeat, endurance and item drops
@@ -429,6 +430,7 @@ portable campaign authoring, and complete combat-outcome coverage.
   keep one variant stable for the scene, and fall back cleanly when a platform
   does not have that backdrop pack. Godot now plays native stage-opening, Talk
   and character-fall moments over the board, anchors them to the exact authored
-  placement, and shares the same forest, village and castle pools with combat.
+  placement, and shares the same forest, orchard, watch, village and castle
+  pools with combat.
   Unsupported scenes retain the existing readable wash until more art pools
   are authored.

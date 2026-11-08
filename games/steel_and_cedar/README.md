@@ -47,6 +47,13 @@ two passable doors, a walkable chamber and a boss dais. Entering the keep
 reveals the room beneath its exterior cutout without changing any tactical
 cells or unit positions.
 
+Bell Orchard and Cedar Watch also carry named, walkable landmark identities
+for their orchard rows, bell, ruins, and signal beacons. These retain the exact
+farmland, forest, paved, ruins, and road movement rules while letting Godot use
+the reviewed environment-specific close views for both combat and on-map
+conversations. An exact map route and a nearby landmark are both required, so
+unrelated maps with similar terrain keep the safe generic presentation.
+
 The current Godot grouping is a campaign prototype. These should become named,
 portable map features that an author can place and preview in one action and
 that every renderer draws consistently; the console fallback still reads the

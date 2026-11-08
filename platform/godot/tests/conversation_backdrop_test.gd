@@ -145,6 +145,7 @@ func _verify_steel_and_cedar_routes(resolver, snapshot: Dictionary) -> void:
 		[Vector2i(2, 2), Vector2i(3, 2)], no_house, village_route
 	)
 	_expect("Gate Village without exact house context falls back", missing_house.mode, "fallback")
+	_verify_orchard_and_watch_routes(resolver, snapshot)
 
 	var castle_features: Array = []
 	castle_features.resize(24)
@@ -178,6 +179,109 @@ func _verify_steel_and_cedar_routes(resolver, snapshot: Dictionary) -> void:
 	_expect("route identity alone cannot invent castle context", identity_only.mode, "fallback")
 
 
+func _verify_orchard_and_watch_routes(resolver, snapshot: Dictionary) -> void:
+	var orchard_terrain: Array = []
+	orchard_terrain.resize(24)
+	orchard_terrain.fill(10)
+	var orchard_features: Array = []
+	orchard_features.resize(24)
+	orchard_features.fill("")
+	orchard_features[7] = "orchard_tree"
+	orchard_features[14] = "orchard_bell"
+	var orchard_route := {
+		"stage_id": "935b03cf7490233c",
+		"map_id": "935b03cf7490233c",
+		"encounter_id": "4c67d9e3fd41410e",
+	}
+	var orchard: Dictionary = resolver.resolve_for_exchange(
+		"orchard_exchange", snapshot, orchard_terrain,
+		[Vector2i(2, 2), Vector2i(3, 2)], orchard_features, orchard_route
+	)
+	var orchard_repeat: Dictionary = resolver.resolve_for_exchange(
+		"orchard_exchange", snapshot, orchard_terrain,
+		[Vector2i(2, 2), Vector2i(3, 2)], orchard_features, orchard_route
+	)
+	_expect("Bell Orchard exact landmarks select its pack", orchard.pack_id, "medieval_bell_orchard")
+	_expect("Bell Orchard selection is stable", orchard_repeat, orchard)
+	_expect("Bell Orchard uses one of three stable variants", orchard.variant, orchard.seed % 3)
+	_expect("Bell Orchard loads four ordered layers", orchard.layer_paths.size(), 4)
+	_expect("Bell Orchard panorama is first", String(orchard.layer_paths[0]).get_file().begins_with("panorama_"), true)
+	_expect("Bell Orchard transition is second", String(orchard.layer_paths[1]).get_file().begins_with("transition_farmland_road_"), true)
+	_expect("Bell Orchard midground is third", String(orchard.layer_paths[2]).get_file().begins_with("midground_orchard_"), true)
+	_expect("Bell Orchard props are last", String(orchard.layer_paths[3]).get_file().begins_with("props_"), true)
+	_expect("Bell Orchard owns the complete floor", float(orchard.floor_strip_top), 1.0)
+	var orchard_dialogue: Dictionary = resolver.resolve_for_conversation(
+		"orchard_orders", 0, true, snapshot, orchard_terrain, [101], 0,
+		orchard_features, orchard_route
+	)
+	_expect("Bell Orchard conversation uses the same pack", orchard_dialogue.pack_id, "medieval_bell_orchard")
+	var wrong_orchard_route: Dictionary = orchard_route.duplicate(true)
+	wrong_orchard_route.stage_id = "bell_elsewhere"
+	_expect(
+		"Bell Orchard landmarks on a wrong route fall back",
+		resolver.resolve_for_exchange(
+			"wrong_orchard", snapshot, orchard_terrain,
+			[Vector2i(2, 2)], orchard_features, wrong_orchard_route
+		).mode, "fallback"
+	)
+	var no_orchard_features: Array = orchard_features.duplicate()
+	no_orchard_features.fill("")
+	_expect(
+		"Bell Orchard route without landmarks falls back",
+		resolver.resolve_for_exchange(
+			"empty_orchard", snapshot, orchard_terrain,
+			[Vector2i(2, 2)], no_orchard_features, orchard_route
+		).mode, "fallback"
+	)
+
+	var watch_terrain: Array = []
+	watch_terrain.resize(24)
+	watch_terrain.fill(12)
+	var watch_features: Array = []
+	watch_features.resize(24)
+	watch_features.fill("")
+	watch_features[7] = "watch_ruin"
+	watch_features[14] = "signal_beacon"
+	var watch_route := {
+		"stage_id": "0079abb4797ff5b4",
+		"map_id": "0079abb4797ff5b4",
+		"encounter_id": "a91cac5b07854756",
+	}
+	var watch: Dictionary = resolver.resolve_for_exchange(
+		"watch_exchange", snapshot, watch_terrain,
+		[Vector2i(2, 2), Vector2i(3, 2)], watch_features, watch_route
+	)
+	_expect("Cedar Watch exact landmarks select its pack", watch.pack_id, "medieval_cedar_watch")
+	_expect("Cedar Watch uses one of three stable variants", watch.variant, watch.seed % 3)
+	_expect("Cedar Watch loads four ordered layers", watch.layer_paths.size(), 4)
+	_expect("Cedar Watch transition is second", String(watch.layer_paths[1]).get_file().begins_with("transition_paved_ruins_"), true)
+	_expect("Cedar Watch midground is third", String(watch.layer_paths[2]).get_file().begins_with("midground_watch_"), true)
+	_expect("Cedar Watch owns the complete floor", float(watch.floor_strip_top), 1.0)
+	var watch_dialogue: Dictionary = resolver.resolve_for_conversation(
+		"watch_orders", 0, true, snapshot, watch_terrain, [101], 0,
+		watch_features, watch_route
+	)
+	_expect("Cedar Watch conversation uses the same pack", watch_dialogue.pack_id, "medieval_cedar_watch")
+	var wrong_watch_route: Dictionary = watch_route.duplicate(true)
+	wrong_watch_route.map_id = "watch_elsewhere"
+	_expect(
+		"Cedar Watch landmarks on a wrong route fall back",
+		resolver.resolve_for_exchange(
+			"wrong_watch", snapshot, watch_terrain,
+			[Vector2i(2, 2)], watch_features, wrong_watch_route
+		).mode, "fallback"
+	)
+	var no_watch_features: Array = watch_features.duplicate()
+	no_watch_features.fill("")
+	_expect(
+		"Cedar Watch route without landmarks falls back",
+		resolver.resolve_for_exchange(
+			"empty_watch", snapshot, watch_terrain,
+			[Vector2i(2, 2)], no_watch_features, watch_route
+		).mode, "fallback"
+	)
+
+
 func _verify_native_context() -> void:
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	var session = ClassDB.instantiate("GrandleonSession")
@@ -186,6 +290,10 @@ func _verify_native_context() -> void:
 		return
 	var source := FileAccess.get_file_as_string(
 		"res://content/templates/starter_campaign.json"
+	)
+	source = source.replace(
+		'"forest", "grass", "grass", "road", "road", "grass", "grass", "forest",',
+		'"forest", "farmland_orchard_tree", "grass", "road", "road", "grass", "grass", "forest",'
 	)
 	source = source.replace(
 		'      "name": "First Steps",\n      "cast": [',
@@ -212,6 +320,7 @@ func _verify_native_context() -> void:
 	var saw_story := false
 	var saw_board := false
 	var saw_route_identity := false
+	var saw_terrain_feature := false
 	for _frame: int in 360:
 		await process_frame
 		for event_value: Variant in session.poll():
@@ -230,12 +339,19 @@ func _verify_native_context() -> void:
 					_expect("native battle publishes its stage identity", String(event.get("stage_id", "")), "59fcce0888295cd0")
 					_expect("native battle publishes its map identity", String(event.get("map_id", "")), "bc589e9692f4f1c6")
 					saw_route_identity = true
-		if saw_story and saw_board and saw_route_identity:
+					var features: Array = event.get("terrain_features", [])
+					var kinds: Array = event.get("terrain", [])
+					if features.size() > 1 and kinds.size() > 1:
+						_expect("portable orchard identity keeps farmland movement", int(kinds[1]), 10)
+						_expect("native bridge exposes the orchard landmark", String(features[1]), "orchard_tree")
+						saw_terrain_feature = true
+		if saw_story and saw_board and saw_route_identity and saw_terrain_feature:
 			break
 	session.stop()
 	_expect("between-map story is explicitly off-map", saw_story, true)
 	_expect("battle moment is explicitly over the board", saw_board, true)
 	_expect("battle route identity crosses the native bridge", saw_route_identity, true)
+	_expect("battle terrain feature crosses the native bridge", saw_terrain_feature, true)
 
 
 func _verify_triggered_battle_moment(

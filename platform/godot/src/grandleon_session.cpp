@@ -53,12 +53,30 @@ const char* terrain_feature_name(std::uint64_t terrain_id) {
         core::stable_content_id_v1("paved_castle_floor");
     static const std::uint64_t castle_dais =
         core::stable_content_id_v1("paved_castle_dais");
+    static const std::uint64_t farmland_orchard_tree =
+        core::stable_content_id_v1("farmland_orchard_tree");
+    static const std::uint64_t forest_orchard_tree =
+        core::stable_content_id_v1("forest_orchard_tree");
+    static const std::uint64_t orchard_bell =
+        core::stable_content_id_v1("paved_orchard_bell");
+    static const std::uint64_t watch_ruin =
+        core::stable_content_id_v1("ruins_watch_ruin");
+    static const std::uint64_t paved_signal_beacon =
+        core::stable_content_id_v1("paved_signal_beacon");
+    static const std::uint64_t road_signal_beacon =
+        core::stable_content_id_v1("road_signal_beacon");
     if (terrain_id == village_house) return "village_house";
     if (terrain_id == ancient_grove) return "ancient_grove";
     if (terrain_id == castle_wall) return "castle_wall";
     if (terrain_id == castle_door) return "castle_door";
     if (terrain_id == castle_floor) return "castle_floor";
     if (terrain_id == castle_dais) return "castle_dais";
+    if (terrain_id == farmland_orchard_tree ||
+        terrain_id == forest_orchard_tree) return "orchard_tree";
+    if (terrain_id == orchard_bell) return "orchard_bell";
+    if (terrain_id == watch_ruin) return "watch_ruin";
+    if (terrain_id == paved_signal_beacon ||
+        terrain_id == road_signal_beacon) return "signal_beacon";
     return "";
 }
 

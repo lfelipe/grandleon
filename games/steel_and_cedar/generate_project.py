@@ -19,6 +19,12 @@ TERRAIN_CODES = {
     # stay blocked while the doors, chamber and dais retain paved movement.
     "K": "mountain_castle_wall", "D": "paved_castle_door",
     "I": "paved_castle_floor", "Q": "paved_castle_dais",
+    # These campaign landmarks retain the movement kind named by their prefix.
+    # Godot can therefore select exact close-view scenery without changing one
+    # tactical cost or blocking a previously walkable cell.
+    "X": "farmland_orchard_tree", "Y": "forest_orchard_tree",
+    "Z": "paved_orchard_bell", "O": "ruins_watch_ruin",
+    "S": "paved_signal_beacon", "E": "road_signal_beacon",
 }
 
 # The opening is intentionally one screen. Every later board is larger than a
@@ -26,8 +32,8 @@ TERRAIN_CODES = {
 # watched without scrolling.
 MAP_ROWS = {
     "bell_orchard": (
-        "FAARGFFH", "GRA RGGRH".replace(" ", ""), "FRPPRGRF",
-        "FRGRPPRF", "GRGRA RGH".replace(" ", ""), "FAARGFFH",
+        "YXXRGYYH", "GRXRGGRH", "YRZZRGRY",
+        "YRGRPPRY", "GRGRXRGH", "YXXRGYYH",
     ),
     "cedar_deepwood": (
         "FFFFFFFHBBBBBB", "FRRRRGFFGRRRCB", "FRFFGGTTGFFRCB",
@@ -35,10 +41,10 @@ MAP_ROWS = {
         "FRRRGGFFGTTRCB", "FRRRRGGGRRRRCB", "FFFFFHHHBBBBBB",
     ),
     "cedar_watch": (
-        "CCCHHRRRRRHHCCCF", "CCGRRRGPPGRRGCFF", "HGRRGPPPPGGRRHFF",
-        "RRRGPPUUUPPGRRRH", "RRGPPUPPPUPPGRRH", "RRGPPPPPPPPGGRRH",
-        "RRGPPPPPPPPGGRRH", "RRGPPUPPPUPPGRRH", "RRRGPPUUUPPGRRRH",
-        "HGRRGPPPPGGRRHFF", "CCGRRRGPPGRRGCFF", "CCCHHRRRRRHHCCCF",
+        "CCCHHRRRERHHCCCF", "CCGRRRGSPGRRGCFF", "HGRRGPPPPGGRRHFF",
+        "RREGPPOOOPPGRRRH", "RRGPPOPPPOPPGRRH", "RRGPPPPPPPPGGRRH",
+        "RRGPPPPPPPPGGRRH", "RRGPPOPPPOPPGRRH", "RRRGPPOOOPPGRERH",
+        "HGRRGPPPPGGRRHFF", "CCGRRRGPSGRRGCFF", "CCCHHRRERRHHCCCF",
     ),
     "gate_village": (
         "HHRHHHHHRHHHHHUHHH", "AARGVVGGRVVGGGUGCC", "AARGVVGGRVVGGGUGCC",
