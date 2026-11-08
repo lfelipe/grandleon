@@ -17,6 +17,8 @@ const FULL_ENTER_SECONDS := 1.10
 const FULL_EXIT_SECONDS := 0.95
 const REDUCED_ENTER_SECONDS := 0.34
 const REDUCED_EXIT_SECONDS := 0.30
+const QUEUED_ENTER_SECONDS := 0.55
+const QUEUED_EXIT_SECONDS := 0.42
 
 signal exchange_finished
 signal queue_drained
@@ -41,6 +43,7 @@ var _stage_left_unit: Dictionary = {}
 var _stage_right_unit: Dictionary = {}
 var _board_camera_host: Node
 var _board_camera_engaged := false
+var _queued_handoff := false
 var _capture_backdrop_layers: Array[Texture2D] = []
 var _capture_backdrop_variant := ""
 var _capture_floor_strip_top := 0.66
@@ -207,6 +210,7 @@ func clear() -> void:
 	_focus_points.clear()
 	_stage_left_unit.clear()
 	_stage_right_unit.clear()
+	_queued_handoff = false
 	modulate.a = 0.0
 	scale = Vector2.ONE
 	visible = false
@@ -292,6 +296,7 @@ func _begin_exit() -> void:
 
 
 func _complete_exchange() -> void:
+	var continue_queue := not _queue.is_empty()
 	_restore_board_camera()
 	exchange_finished.emit()
 	_current.clear()
@@ -305,14 +310,19 @@ func _complete_exchange() -> void:
 	_stage_right_unit.clear()
 	modulate.a = 0.0
 	scale = Vector2.ONE
+	_queued_handoff = continue_queue
 	_start_next()
 
 
 func _entrance_duration() -> float:
+	if _queued_handoff and motion_mode != "reduced":
+		return QUEUED_ENTER_SECONDS
 	return REDUCED_ENTER_SECONDS if motion_mode == "reduced" else FULL_ENTER_SECONDS
 
 
 func _exit_duration() -> float:
+	if not _queue.is_empty() and motion_mode != "reduced":
+		return QUEUED_EXIT_SECONDS
 	return REDUCED_EXIT_SECONDS if motion_mode == "reduced" else FULL_EXIT_SECONDS
 
 
@@ -491,6 +501,8 @@ func _update_labels() -> void:
 			_result.text += "  DEFEATED"
 		elif bool(beat.get("endured", false)) and progress >= 0.78:
 			_result.text += "  HELD ON"
+		if not beat.get("special_results", []).is_empty() and progress >= 0.88:
+			_result.text += "  ·  ITEM FOUND"
 		_result.add_theme_color_override("font_color", Color("ffcf72"))
 	else:
 		_result.text = "MISS"

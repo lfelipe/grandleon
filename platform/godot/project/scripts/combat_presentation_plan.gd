@@ -62,6 +62,7 @@ static func build(
 				"counter": counter,
 				"defeated": false,
 				"endured": false,
+				"special_results": [],
 				"event": event.duplicate(true),
 			})
 		elif kind in ["unit_defeated", "unit_endured"]:
@@ -77,6 +78,18 @@ static func build(
 				break
 			if not attached:
 				passthrough.append(event.duplicate(true))
+		elif kind == "item_dropped":
+			# Inventory presenters still receive the event below. The close view
+			# also keeps a compact visual result on the authoritative defeat beat.
+			for index in range(beats.size() - 1, -1, -1):
+				if int(beats[index].target_id) != int(event.get("unit_id", 0)):
+					continue
+				beats[index].special_results.append({
+					"kind": kind,
+					"content_id": int(event.get("content_id", 0)),
+				})
+				break
+			passthrough.append(event.duplicate(true))
 		else:
 			passthrough.append(event.duplicate(true))
 	if beats.is_empty():

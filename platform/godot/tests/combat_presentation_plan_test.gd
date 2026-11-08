@@ -81,6 +81,8 @@ func _init() -> void:
 	)
 	_expect_true("lethal exchange plans", bool(lethal.get("valid", false)))
 	_expect_true("defeat attaches to its hit", bool(lethal.beats[0].defeated))
+	_expect("drop result attaches to the defeat beat", lethal.beats[0].special_results.size(), 1)
+	_expect("drop result keeps its content identity", lethal.beats[0].special_results[0].content_id, 91)
 	_expect(
 		"non-cinematic events remain available to other presenters",
 		lethal.passthrough_events[0].kind, "item_dropped"

@@ -166,12 +166,32 @@ func _run() -> void:
 	cinematic.skip_exchange()
 	_expect_true("skip during full-motion exit restores the board", not cinematic.is_active())
 	_expect("every camera flight has an exact restore", board_camera.end_count, board_camera.begin_count)
+	_test_rapid_queue(cinematic, plan, terrain, focus_points)
 	_test_multi_target(cinematic, terrain, focus_points)
 	await _test_real_board_camera(before, terrain)
 
 	if failures == 0:
 		print("combat cinematic controller smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _test_rapid_queue(
+	cinematic, plan: Dictionary, terrain: Array, focus_points: Array[Vector2]
+) -> void:
+	cinematic.configure(
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "full", true
+	)
+	cinematic.enqueue(plan, terrain, 0, focus_points)
+	cinematic.enqueue(plan, terrain, 0, focus_points)
+	cinematic._process(1.11)
+	cinematic._process(4.11)
+	_expect("queued combat reaches its first exit", cinematic.transition_phase(), "exiting")
+	cinematic._process(0.43)
+	_expect_true("queued combat keeps the next exchange active", cinematic.is_active())
+	_expect("queued combat begins its short board handoff", cinematic.transition_phase(), "entering")
+	cinematic._process(0.56)
+	_expect("queued combat returns promptly to the close stage", cinematic.transition_phase(), "playing")
+	cinematic.clear()
 
 
 func _test_multi_target(
