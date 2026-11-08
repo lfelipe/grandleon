@@ -191,6 +191,31 @@ void carries_map_surroundings_beside_the_tactical_board() {
     );
 }
 
+void carries_visual_visibility_beside_the_tactical_board() {
+    auto authored = source();
+    authored.maps.front().visual_visibility.reveal_radius = 2;
+    authored.maps.front().visual_visibility.hidden_cells = {5, 6, 9, 10};
+    const auto compiled = gc::compile(authored);
+    expect(static_cast<bool>(compiled), "the visibility runtime fixture compiles");
+    const auto loaded = pf::load_mock_package(
+        compiled.package,
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    const auto decoded = pr::load_encounter(loaded.package, 100);
+    expect(static_cast<bool>(decoded), "the visibility encounter decodes");
+    expect(
+        decoded.visual_visibility.reveal_radius == 2 &&
+            decoded.visual_visibility.hidden_cells ==
+                std::vector<std::uint32_t>({5, 6, 9, 10}),
+        "covered cells reach presentation in authored order"
+    );
+    expect(
+        decoded.definition.width == 4 && decoded.definition.height == 3 &&
+            decoded.terrain.size() == 12,
+        "visual visibility never changes the playable board or rules"
+    );
+}
+
 // Every weapon identity a unit type lists survives into the definition rather
 // than only the first, the registry resolves each of them once, and the first
 // is still what the unit's own band describes.
@@ -2435,6 +2460,7 @@ void a_triangle_reaches_the_blow() {
 int main() {
     decodes_compiled_encounter();
     carries_map_surroundings_beside_the_tactical_board();
+    carries_visual_visibility_beside_the_tactical_board();
     carries_every_weapon_a_unit_type_lists();
     carries_the_richer_stat_line();
     carries_passability_and_traversal();

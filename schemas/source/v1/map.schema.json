@@ -40,6 +40,35 @@
       "required": ["mode"],
       "additionalProperties": false
     },
+    "visualVisibility": {
+      "type": "object",
+      "description": "Presentation-only cells that begin visually covered and uncover around friendly units that enter them. This never changes movement, targeting, AI, line of sight, objectives, or canonical battle state. It can describe rooms in one or several buildings today and leaves room for broader exploration looks later.",
+      "properties": {
+        "revealRadius": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8,
+          "description": "Manhattan distance, in map cells, uncovered around a friendly unit standing in a covered cell. Revealed cells stay visible for the rest of that battle."
+        },
+        "hiddenCells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 65536,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "integer", "minimum": 0, "maximum": 255 },
+              "y": { "type": "integer", "minimum": 0, "maximum": 255 }
+            },
+            "required": ["x", "y"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["revealRadius", "hiddenCells"],
+      "additionalProperties": false
+    },
     "notes": { "$ref": "common.schema.json#/$defs/notes" },
     "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
   },

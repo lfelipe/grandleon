@@ -76,6 +76,23 @@ func _run() -> void:
 		localized_editor.surroundings_first_button.has_focus(),
 		true
 	)
+	localized_editor._close_surroundings()
+	localized_editor._open_visibility()
+	await process_frame
+	_expect(
+		"Portuguese interior visibility guidance is visible",
+		localized_editor.visibility_help_label.text.contains("apenas um efeito visual"),
+		true
+	)
+	_expect(
+		"localized visibility guidance keeps smart wrapping",
+		localized_editor.visibility_help_label.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect(
+		"localized visibility workflow keeps controller focus",
+		localized_editor.visibility_first_button.has_focus(), true
+	)
 	localized_editor.queue_free()
 	await process_frame
 	localization.call("select_language", "en", false)
@@ -266,6 +283,34 @@ func _run() -> void:
 	_expect("enemy placement shown on board", editor.grid.get_child(8).tooltip_text.contains("SECOND"), true)
 	_expect("board tooltip hides enemy source identity", editor.grid.get_child(8).tooltip_text.contains("river_watch_leader"), false)
 	_expect("map selector receives controller focus", editor.map_select.has_focus(), true)
+	var visibility_original_source: String = editor.source
+	editor._open_visibility()
+	_expect("interior visibility controls open", editor.interior_visibility_layer.visible, true)
+	_expect("new maps use a two-cell reveal radius", editor.visibility_radius, 2)
+	editor._begin_visibility_paint()
+	_expect("visibility paint is a direct map tool", editor.active_tool, "visibility")
+	editor._paint_cell(0)
+	editor._paint_cell(1)
+	var visibility_map: Dictionary = _parse(editor.source).maps[0]
+	_expect("visibility painting authors two covered cells", visibility_map.visualVisibility.hiddenCells.size(), 2)
+	_expect("visibility painting preserves the chosen radius", int(visibility_map.visualVisibility.revealRadius), 2)
+	_expect("covered cells are visibly previewed on the board", editor.grid.get_child(0).tooltip_text.contains("Begins visually covered"), true)
+	var visibility_history: int = editor.undo_stack.size()
+	editor._open_visibility()
+	editor._change_visibility_radius(-1)
+	_expect("reveal radius is authored without repainting", int(_parse(editor.source).maps[0].visualVisibility.revealRadius), 1)
+	_expect("radius editing is undoable", editor.undo_stack.size(), visibility_history + 1)
+	editor._clear_visibility()
+	_expect("clearing visibility removes the optional source object", _parse(editor.source).maps[0].has("visualVisibility"), false)
+	editor.interior_visibility_layer.visible = false
+	editor.setup_layer.visible = false
+	editor._select_tool("brush")
+	editor.source = visibility_original_source
+	editor.undo_stack.clear()
+	editor.redo_stack.clear()
+	editor.dirty = false
+	editor._read_source()
+	editor._refresh_maps()
 	var house_feature: Dictionary = editor._cluster_landmark_for_cell(
 		0, 0, 4, 4, [
 			"mountain_village_house", "mountain_village_house", "grass", "grass",
@@ -1043,6 +1088,11 @@ func _run() -> void:
 	editor._close_moments()
 	await process_frame
 
+	# Keep one authored mask in the saved draft so the real compiler/session/player
+	# path is exercised rather than only the editor's source mutation.
+	editor.visibility_radius = 1
+	var saved_visibility_cells: Array[int] = [0, 1]
+	editor._apply_visual_visibility(saved_visibility_cells, -1, "visibility fixture")
 	editor._save()
 	_expect("save clears dirty state", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
@@ -1055,6 +1105,7 @@ func _run() -> void:
 	_expect("saved deployment reopens", stored.project.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
 	_expect("saved objective reopens", stored.project.campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
 	_expect("saved outside presentation reopens", stored.project.maps[0].surroundings.color, "#1234ab")
+	_expect("saved visibility mask reopens", stored.project.maps[0].visualVisibility.hiddenCells.size(), 2)
 	_expect("saved map name reopens", str(stored.project.maps[0].name), "Fordlight Crossing")
 	_expect("saved battle name reopens", str(stored.project.campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
 	var stored_force: Dictionary = {}
@@ -1074,7 +1125,11 @@ func _run() -> void:
 	# assuming they land within two render frames on every PC.
 	for frame in 120:
 		await process_frame
-		if current_scene.name == "PC" and not current_scene.battle_surroundings.is_empty():
+		if (
+			current_scene.name == "PC"
+			and not current_scene.battle_surroundings.is_empty()
+			and not current_scene.battle_visual_visibility.is_empty()
+		):
 			break
 	_expect("edited draft opens in play scene", current_scene.name, "PC")
 	if current_scene.name == "PC":
@@ -1084,6 +1139,8 @@ func _run() -> void:
 		_expect("draft publishes outside presentation", current_scene.battle_surroundings.get("mode", ""), "solid")
 		_expect("draft publishes selected outside colour", int(current_scene.battle_surroundings.get("colour", 0)), 0x1234ab)
 		_expect("active renderer receives outside presentation", current_scene.board.get("surroundings"), current_scene.battle_surroundings)
+		_expect("draft publishes visual visibility", current_scene.battle_visual_visibility.hidden_cells.size(), 2)
+		_expect("active renderer receives visual visibility", current_scene.board.get("visual_visibility"), current_scene.battle_visual_visibility)
 		_expect("draft remembers creator return", creator_context.project_id, created.id)
 		current_scene._open_projects()
 		await process_frame

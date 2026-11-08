@@ -6,6 +6,7 @@ const ArtLibrary = preload("res://scripts/art_library.gd")
 const Locomotion = preload("res://scripts/locomotion.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
 const PresentationFacing = preload("res://scripts/presentation_facing.gd")
+const VisualVisibility = preload("res://scripts/visual_visibility.gd")
 const TILE_SOURCE := 32
 const BLOB_COLUMNS := 8
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
@@ -16,6 +17,7 @@ var snapshot: Dictionary = {}
 var terrain: Array = []
 var terrain_features: Array = []
 var surroundings: Dictionary = {}
+var visual_visibility: Dictionary = {}
 var theme := 0
 var profile_config: Dictionary = {}
 var seats: Array = []
@@ -39,6 +41,7 @@ var _unit_facing_right: Dictionary = {}
 var _unit_headings: Dictionary = {}
 var _combat_effects: Array[Dictionary] = []
 var _pulse := 0.0
+var _visibility = VisualVisibility.new()
 
 
 func _ready() -> void:
@@ -58,17 +61,25 @@ func set_camera_impulse_enabled(value: bool) -> void:
 
 func configure(
 	new_snapshot: Dictionary, new_terrain: Array, new_theme: int,
-	new_surroundings: Dictionary = {}, new_terrain_features: Array = []
+	new_surroundings: Dictionary = {}, new_terrain_features: Array = [],
+	_new_route_identity: Dictionary = {}
 ) -> void:
 	terrain = new_terrain
 	terrain_features = new_terrain_features.duplicate()
 	theme = new_theme
 	surroundings = new_surroundings.duplicate(true)
 	update_snapshot(new_snapshot)
+	_configure_visual_visibility()
 
 
 func set_surroundings(value: Dictionary) -> void:
 	surroundings = value.duplicate(true)
+	queue_redraw()
+
+
+func set_visual_visibility(value: Dictionary) -> void:
+	visual_visibility = value.duplicate(true)
+	_configure_visual_visibility()
 	queue_redraw()
 
 
@@ -244,6 +255,15 @@ func _process(delta: float) -> void:
 	for index in range(_combat_effects.size() - 1, -1, -1):
 		if now >= int(_combat_effects[index].end):
 			_combat_effects.remove_at(index)
+	var positions: Array = []
+	for id: Variant in _last_units:
+		var unit: Dictionary = _last_units[id].duplicate()
+		var visual := _animated_position(int(id), now)
+		unit["x"] = visual.x
+		unit["y"] = visual.y
+		positions.append(unit)
+	_visibility.reveal_from_positions(positions)
+	_visibility.advance(delta)
 	queue_redraw()
 
 
@@ -257,6 +277,7 @@ func _draw() -> void:
 	_draw_terrain()
 	_draw_cluster_landmarks()
 	_draw_castle_landmark()
+	_draw_visual_visibility()
 	_draw_selected_tiles()
 	_draw_units()
 	_draw_combat_effects()
@@ -433,6 +454,31 @@ func _draw_terrain() -> void:
 				kind = 9
 			var mask := _neighbour_mask(x, y, kind, width, height)
 			_draw_terrain_cell(x, y, kind, mask)
+
+
+func _draw_visual_visibility() -> void:
+	var width := int(snapshot.get("width", 0))
+	for index: int in _visibility.hidden_cells():
+		var alpha := 0.82 * (1.0 - _visibility.visibility_at(index))
+		if alpha <= 0.001:
+			continue
+		var x := index % width
+		var y := index / width
+		draw_rect(
+			Rect2(origin + Vector2(x, y) * tile_size, Vector2.ONE * tile_size),
+			Color(0.025, 0.045, 0.065, alpha), true
+		)
+
+
+func _configure_visual_visibility() -> void:
+	_visibility.configure(
+		visual_visibility, terrain_features,
+		int(snapshot.get("width", 0)), int(snapshot.get("height", 0)), false
+	)
+
+
+func visibility_presentation_state() -> Dictionary:
+	return _visibility.presentation_state()
 
 
 func _draw_cluster_landmarks() -> void:
@@ -624,6 +670,9 @@ func _draw_units() -> void:
 			continue
 		var id := int(unit.id)
 		var board_position := _animated_position(id, now)
+		var unit_cell := roundi(board_position.y) * int(snapshot.width) + roundi(board_position.x)
+		if _visibility.visibility_at(unit_cell) < 0.5:
+			continue
 		var centre := origin + (board_position + Vector2(0.5, 0.5)) * tile_size
 		var state := _unit_animation_state(id, now)
 		var elapsed := _unit_animation_elapsed(id, state, now)

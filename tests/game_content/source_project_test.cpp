@@ -382,6 +382,52 @@ void updates_one_map_cell_without_retyping_the_project() {
         ),
         "a partially populated manual ring is refused"
     );
+    const auto visibility = gc::set_source_map_visual_visibility_json(
+        source, "field", 1, {0, 1}
+    );
+    const auto visibility_parsed = gc::parse_source_project_json(
+        visibility.json
+    );
+    expect(
+        visibility_parsed &&
+            visibility_parsed.source.maps.front()
+                    .visual_visibility.reveal_radius == 1 &&
+            visibility_parsed.source.maps.front()
+                    .visual_visibility.hidden_cells ==
+                std::vector<std::uint32_t>({0, 1}),
+        "a map can author presentation-only covered cells and reveal radius"
+    );
+    expect(
+        !gc::set_source_map_visual_visibility_json(
+            source, "field", 2, {0, 0}
+        ) &&
+            !gc::set_source_map_visual_visibility_json(
+                source, "field", 2, {2}
+            ),
+        "duplicate and out-of-map covered cells are refused"
+    );
+    const auto clipped_visibility = gc::resize_source_map_json(
+        visibility.json, "field", 1, 1, "forest"
+    );
+    const auto clipped_visibility_parsed = gc::parse_source_project_json(
+        clipped_visibility.json
+    );
+    expect(
+        clipped_visibility_parsed &&
+            clipped_visibility_parsed.source.maps.front()
+                    .visual_visibility.hidden_cells ==
+                std::vector<std::uint32_t>({0}),
+        "shrinking a map clips covered cells outside its new bounds"
+    );
+    const auto cleared_visibility = gc::set_source_map_visual_visibility_json(
+        visibility.json, "field", 2, {}
+    );
+    expect(
+        cleared_visibility &&
+            cleared_visibility.json.find("visualVisibility") ==
+                std::string::npos,
+        "clearing the mask restores the backward-compatible omitted shape"
+    );
     const auto resized_manual = gc::resize_source_map_json(
         manual_outside.json, "field", 3, 2, "forest"
     );

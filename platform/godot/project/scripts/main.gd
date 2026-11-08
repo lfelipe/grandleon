@@ -104,6 +104,7 @@ var battle_terrain_features: Array = []
 var battle_route_identity: Dictionary = {}
 var battle_theme := 0
 var battle_surroundings: Dictionary = {}
+var battle_visual_visibility: Dictionary = {}
 var definitions: Dictionary = {"weapons": [], "abilities": [], "items": []}
 var dialogue_lines: Array = []
 var dialogue_index := -1
@@ -1346,6 +1347,7 @@ func _set_graphics_profile(requested: String) -> void:
 			snapshot, battle_terrain, battle_theme, battle_surroundings,
 			battle_terrain_features, battle_route_identity
 		)
+		board.set_visual_visibility(battle_visual_visibility)
 	board.set_seats(seats)
 	for seat in min(2, seats.size()):
 		board.set_selected(seat, selected_units[seat], action_modes[seat])
@@ -2544,6 +2546,7 @@ func _handle_event(event: Dictionary) -> void:
 			}
 			battle_theme = int(event.get("theme", 0))
 			battle_surroundings = {}
+			battle_visual_visibility = {}
 			board.configure(
 				snapshot, battle_terrain, battle_theme, battle_surroundings,
 				battle_terrain_features, battle_route_identity
@@ -2570,6 +2573,12 @@ func _handle_event(event: Dictionary) -> void:
 				"terrain": event.get("terrain", []).duplicate(),
 			}
 			board.set_surroundings(battle_surroundings)
+		"battle_visual_visibility":
+			battle_visual_visibility = {
+				"reveal_radius": int(event.get("reveal_radius", 2)),
+				"hidden_cells": event.get("hidden_cells", []).duplicate(),
+			}
+			board.set_visual_visibility(battle_visual_visibility)
 		"definitions":
 			definitions = event
 		"deployment_begins":

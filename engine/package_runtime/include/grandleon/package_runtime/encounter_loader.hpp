@@ -99,6 +99,14 @@ struct MapSurroundings final {
     std::vector<std::uint64_t> terrain;
 };
 
+// Presentation-only local exploration. The indices address the playable map;
+// they never enter the simulation definition and therefore cannot affect a
+// legal move, target, objective, AI choice, or replay hash.
+struct MapVisualVisibility final {
+    std::uint8_t reveal_radius{2};
+    std::vector<std::uint32_t> hidden_cells;
+};
+
 struct EncounterLoadResult final {
     EncounterLoadError error{EncounterLoadError::none};
     // Authored map identity read from the encounter record. This remains
@@ -121,6 +129,7 @@ struct EncounterLoadResult final {
     // `definition.terrain`, because that is a rule.
     std::vector<std::uint64_t> terrain;
     MapSurroundings surroundings;
+    MapVisualVisibility visual_visibility;
     // The identity of the deployment region this encounter authors, or zero
     // for one that authors none. The region's *tiles* travel inside the
     // definition, as `definition.deployment_tiles`, because they are a rule;

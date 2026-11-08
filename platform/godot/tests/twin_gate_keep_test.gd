@@ -3,6 +3,7 @@ extends SceneTree
 
 const BoardView3D = preload("res://scripts/board_view_3d.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
+const VisualVisibility = preload("res://scripts/visual_visibility.gd")
 const CAPTURE_SIZE := Vector2i(1280, 720)
 const KEEP_BOUNDS := Rect2i(13, 4, 6, 6)
 const STEEL_AND_CEDAR_MAP_IDS := [
@@ -18,6 +19,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+	_verify_portable_visibility_model()
 	var source_path := _argument("--source=")
 	if source_path.is_empty():
 		_fail("Twin Gate keep smoke requires --source=<project.json>")
@@ -119,18 +121,30 @@ func _run() -> void:
 		if not frames_dir.is_empty():
 			await _capture(frames_dir.path_join("twin-gate-%03d.png" % frame))
 	state = board.castle_presentation_state()
-	_expect("the rendered threshold crossing reveals the room", state.revealed, true)
-	_expect_true("the roof finishes dissolved", float(state.roof_alpha) < 0.01)
-	_expect_true("the live room finishes visible", float(state.interior_visibility) > 0.99)
+	_expect("the rendered threshold crossing begins revealing the room", state.revealed, true)
+	_expect_true(
+		"one doorway position reveals only a local part of the room",
+		float(state.roof_alpha) > 0.01 and float(state.roof_alpha) < 0.99
+	)
 	_expect("the reveal leaves the tactical camera untouched", board._camera.transform, camera_transform)
 	_expect("the reveal leaves the board untouched", board._terrain_root.position, board_position)
 	_expect("the reveal leaves the entering unit on its path", rowan.position, room_position)
 	if board._unit_sprites.has(rowan_id):
 		_expect_true(
-			"the entering unit draws over the revealed room",
-			(board._unit_sprites[rowan_id] as Sprite3D).no_depth_test
-				and (board._unit_sprites[rowan_id] as Sprite3D).render_priority == 2
+			"the entering unit is visible on its explored cell",
+			(board._unit_sprites[rowan_id] as Sprite3D).modulate.a > 0.99
 		)
+	for y in range(5, 9):
+		for x in range(14, 18):
+			rowan.position = board._cell_position(x, y)
+			board._update_castle_reveal_target()
+			board._update_castle_reveal(0.5)
+	rowan.position = room_position
+	board._update_castle_reveal(1.0)
+	board._update_castle_unit_presentation()
+	state = board.castle_presentation_state()
+	_expect_true("exploring the whole room dissolves the roof", float(state.roof_alpha) < 0.01)
+	_expect_true("the explored room finishes visible", float(state.interior_visibility) > 0.99)
 	if boss_id != 0 and board._unit_sprites.has(boss_id):
 		_expect_true(
 			"the revealed room restores the live boss",
@@ -157,6 +171,26 @@ func _run() -> void:
 	if failures == 0:
 		print("Twin Gate real source, threshold reveal, stable framing, and safe fallback passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _verify_portable_visibility_model() -> void:
+	var visibility = VisualVisibility.new()
+	visibility.configure(
+		{"reveal_radius": 1, "hidden_cells": [5, 6, 9, 10]}, [], 4, 3
+	)
+	_expect("authored visibility uses the portable source", visibility.presentation_state().source, "authored")
+	visibility.reveal_from_positions([{"x": 1, "y": 1, "side": "second"}])
+	_expect("an opponent cannot reveal player presentation", visibility.presentation_state().explored_count, 0)
+	visibility.reveal_from_positions([{"x": 0, "y": 0, "side": "first"}])
+	_expect("an ally outside the mask cannot reveal it", visibility.presentation_state().explored_count, 0)
+	visibility.reveal_from_positions([{"x": 1, "y": 1, "side": "first"}])
+	_expect("an ally inside reveals only nearby covered cells", visibility.presentation_state().explored_count, 3)
+	visibility.advance(1.0)
+	var remembered := visibility.visibility_at(5)
+	visibility.reveal_from_positions([])
+	visibility.advance(1.0)
+	_expect("an explored cell remains visible for the battle", visibility.visibility_at(5), remembered)
+	_expect("visual visibility explicitly has no gameplay effect", visibility.presentation_state().gameplay_effect, false)
 
 
 func _load_real_twin_gate(source_path: String) -> Dictionary:

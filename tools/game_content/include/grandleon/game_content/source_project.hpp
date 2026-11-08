@@ -196,6 +196,16 @@ struct SourceMapCell final {
     const std::vector<std::string>& terrain_ids
 );
 
+// Replaces one map's presentation-only visibility mask. Empty `cell_indices`
+// removes the optional record; otherwise every index is row-major within the
+// current map and the reveal radius is zero through eight.
+[[nodiscard]] SourceTextResult set_source_map_visual_visibility_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::int64_t reveal_radius,
+    const std::vector<std::int64_t>& cell_indices
+);
+
 // Moves one encounter placement within the map used by its node. The nested
 // identities keep the command unambiguous without exposing array positions to
 // an authoring client. A project that compiled before the edit is never

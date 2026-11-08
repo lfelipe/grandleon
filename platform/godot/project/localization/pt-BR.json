@@ -1883,6 +1883,23 @@
     "map.tool.talk": "CONVERSAS E ESCOLHAS DA HISTÓRIA",
     "map.tool.unit": "MOVER PERSONAGEM",
     "map.tool_label": "FERRAMENTA",
-    "map.undo": "DESFAZER"
+    "map.undo": "DESFAZER",
+    "map.tool.visibility": "VISIBILIDADE INTERNA",
+    "map.visibility.open": "VISIBILIDADE INTERNA",
+    "map.visibility.open_tooltip": "Escolha quais casas começam visualmente encobertas e confira no tabuleiro.",
+    "map.visibility.heading": "VISIBILIDADE INTERNA",
+    "map.visibility.help": "Pinte salas ou outras áreas que devem começar visualmente encobertas. Unidades aliadas revelam as casas marcadas próximas quando entram na área, e as casas exploradas permanecem visíveis durante esta batalha. Este é apenas um efeito visual: movimento, alvos, IA e objetivos não mudam.",
+    "map.visibility.summary": "{count} CASAS ENCOBERTAS",
+    "map.visibility.radius": "RAIO DE REVELAÇÃO  /  {radius}",
+    "map.visibility.paint": "PINTAR CASAS ENCOBERTAS NO MAPA",
+    "map.visibility.clear": "LIMPAR TODAS AS CASAS ENCOBERTAS",
+    "map.visibility.cell_badge": "ENCOBERTA",
+    "map.visibility.cell_tooltip": "Começa visualmente encoberta; entre na área para revelá-la.",
+    "map.visibility.radius_changed": "RAIO DE REVELAÇÃO DEFINIDO COMO {radius}",
+    "map.visibility.cleared": "VISIBILIDADE INTERNA LIMPA",
+    "map.visibility.cell_added": "A CASA COMEÇARÁ ENCOBERTA",
+    "map.visibility.cell_removed": "A CASA COMEÇARÁ VISÍVEL",
+    "map.error.visibility_need_map": "ADICIONE UM MAPA ANTES DE EDITAR A VISIBILIDADE INTERNA",
+    "map.error.visibility_refused": "VISIBILIDADE INTERNA RECUSADA  /  {detail}"
   }
 }

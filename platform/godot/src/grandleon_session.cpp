@@ -143,6 +143,8 @@ const char* event_name(FrontendEvent::Kind kind) {
         case FrontendEvent::Kind::battle_begins: return "battle_begins";
         case FrontendEvent::Kind::battle_surroundings:
             return "battle_surroundings";
+        case FrontendEvent::Kind::battle_visual_visibility:
+            return "battle_visual_visibility";
         case FrontendEvent::Kind::definitions: return "definitions";
         case FrontendEvent::Kind::deployment_begins:
             return "deployment_begins";
@@ -374,6 +376,15 @@ void AsyncPresenter::battle_surroundings(
     FrontendEvent event;
     event.kind = FrontendEvent::Kind::battle_surroundings;
     event.surroundings = surroundings;
+    push(std::move(event));
+}
+
+void AsyncPresenter::battle_visual_visibility(
+    const pr::MapVisualVisibility& visibility
+) {
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::battle_visual_visibility;
+    event.visual_visibility = visibility;
     push(std::move(event));
 }
 
@@ -1779,6 +1790,16 @@ gd::Dictionary GrandleonSession::event_dictionary(
                 terrain.push_back(presentation_.kind_of_terrain(id));
             }
             result["terrain"] = terrain;
+            break;
+        }
+        case FrontendEvent::Kind::battle_visual_visibility: {
+            result["reveal_radius"] = event.visual_visibility.reveal_radius;
+            gd::Array cells;
+            for (const std::uint32_t cell :
+                 event.visual_visibility.hidden_cells) {
+                cells.push_back(static_cast<std::int64_t>(cell));
+            }
+            result["hidden_cells"] = cells;
             break;
         }
         case FrontendEvent::Kind::definitions: {

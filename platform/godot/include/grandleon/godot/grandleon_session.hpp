@@ -35,6 +35,7 @@ struct FrontendEvent final {
         dialogue,
         battle_begins,
         battle_surroundings,
+        battle_visual_visibility,
         definitions,
         deployment_begins,
         presentation,
@@ -55,6 +56,7 @@ struct FrontendEvent final {
     simulation::EncounterSnapshot snapshot;
     std::vector<std::uint64_t> terrain;
     package_runtime::MapSurroundings surroundings;
+    package_runtime::MapVisualVisibility visual_visibility;
     std::vector<simulation::Position> zone;
     std::vector<simulation::WeaponDefinition> weapons;
     std::vector<simulation::AbilityDefinition> abilities;
@@ -107,6 +109,9 @@ public:
     ) override;
     void battle_surroundings(
         const package_runtime::MapSurroundings& surroundings
+    ) override;
+    void battle_visual_visibility(
+        const package_runtime::MapVisualVisibility& visibility
     ) override;
     void battle_definitions(
         const std::vector<simulation::WeaponDefinition>& weapons,

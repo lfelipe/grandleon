@@ -336,6 +336,16 @@ struct MapSurroundings final {
     std::vector<std::uint8_t> terrain_kinds;
 };
 
+// Presentation-only local exploration authored on a tactical map. A listed
+// cell begins covered; a renderer may reveal cells within `reveal_radius` of a
+// friendly unit that enters the covered area and remember them for that
+// battle. Rules deliberately receive none of this data.
+struct MapVisualVisibility final {
+    std::uint8_t reveal_radius{2};
+    // Row-major indices into the map's playable width x height rectangle.
+    std::vector<std::uint32_t> hidden_cells;
+};
+
 struct Map final {
     StableId id{};
     std::string name;
@@ -347,6 +357,7 @@ struct Map final {
     //: no rule reads this.
     std::vector<std::uint8_t> terrain_kinds;
     MapSurroundings surroundings;
+    MapVisualVisibility visual_visibility;
 };
 
 //: How many colours the art library's faction colour menu holds. The source

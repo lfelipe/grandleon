@@ -185,6 +185,12 @@ var surroundings_channel_sliders: Array[HSlider] = []
 var surroundings_guidance_label: Label
 var surroundings_apply_button: Button
 var surroundings_first_button: Button
+var interior_visibility_layer: Control
+var visibility_first_button: Button
+var visibility_help_label: Label
+var visibility_radius_label: Label
+var visibility_summary_label: Label
+var visibility_radius := 2
 var board_panel: PanelContainer
 var setup_button: Button
 var setup_layer: Control
@@ -252,6 +258,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_look()
 		elif surroundings_layer != null and surroundings_layer.visible:
 			_close_surroundings()
+		elif interior_visibility_layer != null and interior_visibility_layer.visible:
+			_close_visibility()
 		elif objective_layer != null and objective_layer.visible:
 			_close_objectives()
 		elif forces_layer != null and forces_layer.visible:
@@ -402,7 +410,7 @@ func _select_map(index: int) -> void:
 	if index < 0 or index >= maps.size():
 		return
 	map_index = index
-	if active_tool == "surroundings":
+	if active_tool in ["surroundings", "visibility"]:
 		active_tool = "brush"
 	_reset_deployment_edit()
 	_reset_patrol_edit()
@@ -660,7 +668,7 @@ func _update_tool_selection() -> void:
 	if setup_button != null:
 		var setup_names := [
 			"add_unit", "unit", "remove_unit", "deployment", "ownership",
-			"scaling", "talk", "surroundings",
+			"scaling", "talk", "surroundings", "visibility",
 		]
 		setup_button.text = (
 			"● %s" % _tool_label(active_tool, true)
@@ -689,6 +697,7 @@ func _refresh_grid(focus_index := -1) -> void:
 	var height := maxi(1, int(map.get("height", 1)))
 	var terrain: Array = map.get("terrain", [])
 	var landmark_cells := _landmark_cells_by_index(width, height, terrain)
+	var visibility_cells := _visibility_cells(map)
 	var outside: Dictionary = (
 		map.get("surroundings", {}) if map.get("surroundings", {}) is Dictionary else {}
 	)
@@ -776,6 +785,8 @@ func _refresh_grid(focus_index := -1) -> void:
 					if not landmark.is_empty() else ""
 				),
 			})
+			if visibility_cells.has(index):
+				_add_visibility_marker(cell, tile_size)
 			if not landmark.is_empty() and landmark.anchor == Vector2i(outer_x, outer_y):
 				_add_landmark_badge(cell, str(landmark.kind), tile_size)
 			if placements_by_cell.has(index):
@@ -1048,6 +1059,38 @@ func _add_objective_marker(cell: Button, names: Array) -> void:
 	cell.tooltip_text += "\n" + _t("map.objective.target_marker", {"names": ", ".join(details)})
 
 
+func _visibility_cells(map: Dictionary) -> Array[int]:
+	var result: Array[int] = []
+	var value: Variant = map.get("visualVisibility", {})
+	if not value is Dictionary:
+		return result
+	var width := int(map.get("width", 0))
+	var height := int(map.get("height", 0))
+	for cell_value: Variant in value.get("hiddenCells", []):
+		if not cell_value is Dictionary:
+			continue
+		var x := int(cell_value.get("x", -1))
+		var y := int(cell_value.get("y", -1))
+		if x >= 0 and y >= 0 and x < width and y < height:
+			result.append(y * width + x)
+	return result
+
+
+func _add_visibility_marker(cell: Button, tile_size: int) -> void:
+	var shade := ColorRect.new()
+	shade.color = Color(0.025, 0.045, 0.065, 0.66)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(shade)
+	var label := _label(_t("map.visibility.cell_badge"), 9, Color("d6c8ff"))
+	label.position = Vector2(4, tile_size - 22)
+	label.size = Vector2(maxi(28, tile_size - 8), 18)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(label)
+	cell.tooltip_text += "\n" + _t("map.visibility.cell_tooltip")
+
+
 func _objective_definitions_by_id() -> Dictionary:
 	var result := {}
 	for value: Variant in project.get("objectives", []):
@@ -1155,6 +1198,8 @@ func _paint_cell(index: int) -> void:
 		_toggle_placement_scaling_at(index, width)
 	elif active_tool == "talk":
 		_toggle_placement_talk_at(index, width)
+	elif active_tool == "visibility":
+		_toggle_visibility_cell(index)
 	elif active_tool == "unit":
 		_move_unit_at(index, width)
 	elif LANDMARKS.has(active_tool):
@@ -3672,6 +3717,99 @@ func _paint_surrounding_cell(ring_index: int) -> void:
 	)
 
 
+func _open_visibility() -> void:
+	var map := _current_map()
+	if map.is_empty():
+		_set_status(_t("map.error.visibility_need_map"), true)
+		return
+	var value: Dictionary = (
+		map.get("visualVisibility", {})
+		if map.get("visualVisibility", {}) is Dictionary else {}
+	)
+	visibility_radius = clampi(int(value.get("revealRadius", 2)), 0, 8)
+	_update_visibility_summary()
+	interior_visibility_layer.visible = true
+	visibility_first_button.call_deferred("grab_focus")
+
+
+func _close_visibility() -> void:
+	interior_visibility_layer.visible = false
+	setup_layer.visible = true
+	tool_buttons["visibility"].call_deferred("grab_focus")
+
+
+func _begin_visibility_paint() -> void:
+	interior_visibility_layer.visible = false
+	setup_layer.visible = false
+	_select_tool("visibility")
+
+
+func _change_visibility_radius(delta: int) -> void:
+	visibility_radius = clampi(visibility_radius + delta, 0, 8)
+	var cells := _visibility_cells(_current_map())
+	if not cells.is_empty():
+		_apply_visual_visibility(
+			cells, -1,
+			_t("map.visibility.radius_changed", {"radius": visibility_radius})
+		)
+	_update_visibility_summary()
+
+
+func _clear_visibility() -> void:
+	if _visibility_cells(_current_map()).is_empty():
+		return
+	_apply_visual_visibility([], -1, _t("map.visibility.cleared"))
+	_update_visibility_summary()
+
+
+func _toggle_visibility_cell(index: int) -> void:
+	var cells := _visibility_cells(_current_map())
+	var removed := cells.has(index)
+	if removed:
+		cells.erase(index)
+	else:
+		cells.append(index)
+		cells.sort()
+	_apply_visual_visibility(
+		cells, index,
+		_t("map.visibility.cell_removed" if removed else "map.visibility.cell_added")
+	)
+
+
+func _apply_visual_visibility(cells: Array[int], focus_index: int, message: String) -> void:
+	var map := _current_map()
+	var packed := PackedInt32Array(cells)
+	var updated: Dictionary = compiler.set_map_visual_visibility(
+		source, str(map.get("id", "")), visibility_radius, packed
+	)
+	if not bool(updated.get("ok", false)):
+		_set_status(
+			_t("map.error.visibility_refused", {"detail": _diagnostic_detail(updated)}), true
+		)
+		return
+	if str(updated.source) == source:
+		return
+	_push_undo(source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = true
+	_read_source()
+	_refresh_maps_after_edit(focus_index)
+	_set_status(_t("map.status.unsaved_detail", {"detail": message}), false)
+
+
+func _update_visibility_summary() -> void:
+	if visibility_radius_label == null:
+		return
+	var count := _visibility_cells(_current_map()).size()
+	visibility_radius_label.text = _t(
+		"map.visibility.radius", {"radius": visibility_radius}
+	)
+	visibility_summary_label.text = _t(
+		"map.visibility.summary", {"count": count}
+	)
+
+
 func _open_resize() -> void:
 	var map := _current_map()
 	if map.is_empty():
@@ -4183,6 +4321,7 @@ func _build_interface() -> void:
 	_build_moments_overlay()
 	_build_resize_overlay()
 	_build_surroundings_overlay()
+	_build_visibility_overlay()
 	_build_setup_overlay()
 	_build_talk_overlay()
 	_build_more_overlay()
@@ -4249,6 +4388,11 @@ func _setup_moments() -> void:
 func _setup_surroundings() -> void:
 	setup_layer.visible = false
 	_open_surroundings()
+
+
+func _setup_visibility() -> void:
+	setup_layer.visible = false
+	_open_visibility()
 
 
 func _collect_copy_setup_candidates() -> void:
@@ -4459,6 +4603,11 @@ func _build_setup_overlay() -> void:
 	surroundings_button.pressed.connect(_setup_surroundings)
 	choices.add_child(surroundings_button)
 	tool_buttons["surroundings"] = surroundings_button
+	var visibility_button := _button(_t("map.visibility.open"), 500, 66)
+	visibility_button.tooltip_text = _t("map.visibility.open_tooltip")
+	visibility_button.pressed.connect(_setup_visibility)
+	choices.add_child(visibility_button)
+	tool_buttons["visibility"] = visibility_button
 	var talk_button := _button(
 		_t("map.setup.talk"), 1014, 72
 	)
@@ -5855,6 +6004,60 @@ func _build_surroundings_overlay() -> void:
 	actions.add_child(cancel)
 
 
+func _build_visibility_overlay() -> void:
+	interior_visibility_layer = Control.new()
+	interior_visibility_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	interior_visibility_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	interior_visibility_layer.visible = false
+	interior_visibility_layer.z_index = 34
+	add_child(interior_visibility_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.88)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	interior_visibility_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(470, 190)
+	panel.size = Vector2(980, 700)
+	panel.add_theme_stylebox_override(
+		"panel", _panel(Color("0c1d29"), 18, Color("b58cff"))
+	)
+	interior_visibility_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	column.add_child(_label(_t("map.visibility.heading"), 24, Color("b58cff")))
+	visibility_help_label = _label(_t("map.visibility.help"), 19, Color("a9bdc9"))
+	visibility_help_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	visibility_help_label.custom_minimum_size.y = 112
+	column.add_child(visibility_help_label)
+	visibility_summary_label = _label("", 20, Color("f2f7f9"))
+	column.add_child(visibility_summary_label)
+	var radius_row := HBoxContainer.new()
+	radius_row.add_theme_constant_override("separation", 12)
+	column.add_child(radius_row)
+	visibility_first_button = _button("−", 100, 60)
+	visibility_first_button.pressed.connect(_change_visibility_radius.bind(-1))
+	radius_row.add_child(visibility_first_button)
+	visibility_radius_label = _label("", 22, Color("d6c8ff"))
+	visibility_radius_label.custom_minimum_size = Vector2(430, 60)
+	visibility_radius_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	visibility_radius_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	radius_row.add_child(visibility_radius_label)
+	var radius_plus := _button("+", 100, 60)
+	radius_plus.pressed.connect(_change_visibility_radius.bind(1))
+	radius_row.add_child(radius_plus)
+	var paint := _button(_t("map.visibility.paint"), 880, 68)
+	paint.pressed.connect(_begin_visibility_paint)
+	column.add_child(paint)
+	var clear := _button(_t("map.visibility.clear"), 880, 62)
+	clear.pressed.connect(_clear_visibility)
+	column.add_child(clear)
+	var back := _button(_t("map.back_setup"), 420, 62)
+	back.pressed.connect(_close_visibility)
+	column.add_child(back)
+
+
 func _t(message_id: String, values: Dictionary = {}) -> String:
 	return Localization.text(message_id, values)
 
@@ -5875,6 +6078,7 @@ func _tool_label(tool: String, compact := false) -> String:
 	var known := [
 		"brush", "fill", "rectangle", "add_unit", "unit", "move",
 		"remove_unit", "deployment", "ownership", "scaling", "talk",
+		"visibility",
 		"surroundings", "landmark_house", "landmark_grove", "landmark_remove",
 		"patrol",
 	]

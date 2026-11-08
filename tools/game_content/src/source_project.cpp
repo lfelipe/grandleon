@@ -1716,6 +1716,80 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                             );
                     }
                 }
+                const Json* visual_visibility = mapper.member(
+                    value, "visualVisibility", path, false
+                );
+                if (visual_visibility != nullptr) {
+                    const std::string visibility_path =
+                        path + ".visualVisibility";
+                    const Object* visibility =
+                        mapper.object(*visual_visibility, visibility_path);
+                    if (visibility != nullptr) {
+                        const auto radius = mapper.integer(
+                            *visibility, "revealRadius", visibility_path,
+                            0, 8
+                        );
+                        if (radius) {
+                            result.visual_visibility.reveal_radius =
+                                static_cast<std::uint8_t>(*radius);
+                        }
+                        const Array* cells = mapper.array(
+                            *visibility, "hiddenCells", visibility_path
+                        );
+                        if (cells != nullptr) {
+                            if (cells->empty()) {
+                                mapper.error(
+                                    SourceDiagnosticCode::invalid_value,
+                                    visibility_path + ".hiddenCells",
+                                    "at least one covered cell is required"
+                                );
+                            }
+                            std::set<std::uint32_t> seen;
+                            for (std::size_t index = 0;
+                                 index < cells->size(); ++index) {
+                                const std::string cell_path =
+                                    visibility_path + ".hiddenCells[" +
+                                    std::to_string(index) + "]";
+                                const Object* cell =
+                                    mapper.object((*cells)[index], cell_path);
+                                if (cell == nullptr) continue;
+                                const auto x = mapper.integer(
+                                    *cell, "x", cell_path, 0,
+                                    maximum_map_side - 1
+                                );
+                                const auto y = mapper.integer(
+                                    *cell, "y", cell_path, 0,
+                                    maximum_map_side - 1
+                                );
+                                if (!x || !y) continue;
+                                if (*x >= result.width ||
+                                    *y >= result.height) {
+                                    mapper.error(
+                                        SourceDiagnosticCode::invalid_value,
+                                        cell_path,
+                                        "covered cell is outside this map"
+                                    );
+                                    continue;
+                                }
+                                const auto cell_index =
+                                    static_cast<std::uint32_t>(
+                                        *y * result.width + *x
+                                    );
+                                if (!seen.insert(cell_index).second) {
+                                    mapper.error(
+                                        SourceDiagnosticCode::invalid_value,
+                                        cell_path,
+                                        "covered cell is listed twice"
+                                    );
+                                    continue;
+                                }
+                                result.visual_visibility.hidden_cells.push_back(
+                                    cell_index
+                                );
+                            }
+                        }
+                    }
+                }
                 return result;
             }
         );
@@ -3825,6 +3899,38 @@ SourceTextResult resize_source_map_json(
     if (manual_surroundings != nullptr) {
         *manual_surroundings = std::move(resized_surroundings);
     }
+    // Covered cells keep their coordinates when the top-left anchored map
+    // grows, and cells clipped by a shrink disappear. If none remain, omit the
+    // optional object rather than leave an invalid empty mask.
+    if (Object* visibility =
+            mutable_object(*editable.map, "visualVisibility")) {
+        Array* hidden = mutable_array(*visibility, "hiddenCells");
+        if (hidden == nullptr) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                path + ".visualVisibility.hiddenCells",
+                "visual visibility must state its covered cells"
+            );
+            return result;
+        }
+        Array retained;
+        for (const Json& value : *hidden) {
+            const auto* cell = std::get_if<Object>(&value.value);
+            const std::int64_t* x =
+                cell == nullptr ? nullptr : integer_member(*cell, "x");
+            const std::int64_t* y =
+                cell == nullptr ? nullptr : integer_member(*cell, "y");
+            if (x != nullptr && y != nullptr && *x >= 0 && *y >= 0 &&
+                *x < width && *y < height) {
+                retained.push_back(value);
+            }
+        }
+        if (retained.empty()) {
+            editable.map->erase("visualVisibility");
+        } else {
+            *hidden = std::move(retained);
+        }
+    }
     finish_map_edit(editable, result);
     return result;
 }
@@ -4971,6 +5077,58 @@ SourceTextResult set_source_map_surroundings_json(
         outside.emplace("terrain", Json{std::move(terrain)});
     }
     (*editable.map)["surroundings"] = Json{std::move(outside)};
+    finish_map_edit(editable, result);
+    return result;
+}
+
+SourceTextResult set_source_map_visual_visibility_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::int64_t reveal_radius,
+    const std::vector<std::int64_t>& cell_indices
+) {
+    SourceTextResult result;
+    EditableMapDocument editable;
+    if (!open_editable_map(source_json, map_id, editable, result)) return result;
+    const std::string path = "$.maps[" + std::to_string(editable.index) +
+                             "].visualVisibility";
+    if (cell_indices.empty()) {
+        editable.map->erase("visualVisibility");
+        finish_map_edit(editable, result);
+        return result;
+    }
+    if (reveal_radius < 0 || reveal_radius > 8) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            path + ".revealRadius",
+            "visual reveal radius must be between 0 and 8"
+        );
+        return result;
+    }
+    const auto area = editable.width * editable.height;
+    std::set<std::int64_t> seen;
+    Array cells;
+    cells.reserve(cell_indices.size());
+    for (const std::int64_t index : cell_indices) {
+        if (index < 0 || index >= area || !seen.insert(index).second) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                path + ".hiddenCells",
+                index < 0 || index >= area
+                    ? "covered cell is outside this map"
+                    : "covered cell is listed twice"
+            );
+            return result;
+        }
+        Object cell;
+        cell.emplace("x", Json{index % editable.width});
+        cell.emplace("y", Json{index / editable.width});
+        cells.push_back(Json{std::move(cell)});
+    }
+    Object visibility;
+    visibility.emplace("revealRadius", Json{reveal_radius});
+    visibility.emplace("hiddenCells", Json{std::move(cells)});
+    (*editable.map)["visualVisibility"] = Json{std::move(visibility)};
     finish_map_edit(editable, result);
     return result;
 }

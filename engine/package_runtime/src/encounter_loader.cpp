@@ -736,6 +736,35 @@ EncounterLoadResult load_encounter(
             return fail(EncounterLoadError::malformed_payload);
         }
     }
+    if (const RecordView* visibility =
+            package.find(SectionType::map_visual_visibility, map_id)) {
+        Reader visibility_reader(package, *visibility);
+        std::uint8_t radius = 0;
+        std::uint32_t count = 0;
+        if (!visibility_reader.u8(radius) ||
+            !visibility_reader.u32(count) || radius > 8U || count == 0U ||
+            static_cast<std::size_t>(count) >
+                visibility_reader.remaining() / 4U) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        const std::uint64_t cell_count =
+            static_cast<std::uint64_t>(result.definition.width) *
+            result.definition.height;
+        std::set<std::uint32_t> seen;
+        result.visual_visibility.reveal_radius = radius;
+        result.visual_visibility.hidden_cells.reserve(count);
+        for (std::uint32_t index = 0; index < count; ++index) {
+            std::uint32_t cell = 0;
+            if (!visibility_reader.u32(cell) || cell >= cell_count ||
+                !seen.insert(cell).second) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+            result.visual_visibility.hidden_cells.push_back(cell);
+        }
+        if (!visibility_reader.finished()) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+    }
     if (!read_abilities(package, result.definition.abilities)) {
         return fail(EncounterLoadError::malformed_payload);
     }

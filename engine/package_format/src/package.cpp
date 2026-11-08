@@ -204,6 +204,7 @@ bool is_known_section(std::uint32_t type) {
         case SectionType::placement_two_player_positions:
         case SectionType::localizations:
         case SectionType::player_nameable_members:
+        case SectionType::map_visual_visibility:
             return true;
     }
     return false;

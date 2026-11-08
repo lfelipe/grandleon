@@ -446,6 +446,13 @@ void GrandleonProjectCompiler::_bind_methods() {
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
+            "set_map_visual_visibility", "source_json", "map_id",
+            "reveal_radius", "cell_indices"
+        ),
+        &GrandleonProjectCompiler::set_map_visual_visibility
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
             "move_placement", "source_json", "campaign_id", "node_id",
             "placement_id", "x", "y"
         ),
@@ -1018,6 +1025,38 @@ gd::Dictionary GrandleonProjectCompiler::set_map_surroundings(
         gc::set_source_map_surroundings_json(
             narrow(source_json), narrow(map_id), narrow(mode), narrow(colour),
             depth, ids
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_map_visual_visibility(
+    const gd::String& source_json,
+    const gd::String& map_id,
+    std::int64_t reveal_radius,
+    const gd::PackedInt32Array& cell_indices
+) const {
+    std::vector<std::int64_t> cells;
+    cells.reserve(static_cast<std::size_t>(cell_indices.size()));
+    for (std::int64_t index = 0; index < cell_indices.size(); ++index) {
+        cells.push_back(cell_indices[index]);
+    }
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated =
+        gc::set_source_map_visual_visibility_json(
+            narrow(source_json), narrow(map_id), reveal_radius, cells
         );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {

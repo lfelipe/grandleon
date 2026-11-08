@@ -41,6 +41,7 @@ From the same screen you can:
 - assign allied units to Player 1 or Player 2;
 - add opponents that appear only in a two-player game;
 - choose deployment areas, limit how many allies may be fielded, and set battle goals;
+- paint rooms that begin visually covered and choose their local reveal radius;
 - schedule reinforcement waves or give an opponent a numbered patrol route;
 - order scenes that play when the battle opens or a named character falls;
 - add a conversation that starts when a unit is approached; and
@@ -54,6 +55,14 @@ limits that could actually change the authored company. **Scripted Battle
 Moments** shows scenes in their real play order, including Talk scenes, and can
 create openings or character-fall scenes for everyone or only for co-op. The
 scene itself is still written in **Story**, so it can be reused later.
+
+**Interior Visibility** is also under Battle Setup. Choose a reveal radius,
+then paint the rooms or building cells that should begin covered. The map shows
+those cells immediately, and a friendly unit reveals nearby marked cells after
+entering during a PC test. Explored cells stay visible for that battle. This is
+currently presentation only—it does not hide legal moves or enemies from the
+rules, change the AI, or alter objectives—and matching console presentation is
+still planned rather than implied.
 
 The [artwork and animation roster](ARTWORK.md) shows every included style and
 unit. Grandleon currently uses its built-in art library; importing a custom art

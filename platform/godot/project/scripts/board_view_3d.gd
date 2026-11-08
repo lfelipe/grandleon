@@ -7,6 +7,7 @@ const Locomotion = preload("res://scripts/locomotion.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
 const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
+const VisualVisibility = preload("res://scripts/visual_visibility.gd")
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const TERRAIN_NAMES := [
 	"water", "road", "forest", "mountain", "sand", "snow", "swamp",
@@ -47,6 +48,7 @@ var terrain: Array = []
 var terrain_features: Array = []
 var route_identity: Dictionary = {}
 var surroundings: Dictionary = {}
+var visual_visibility: Dictionary = {}
 var terrain_theme := 0
 var seats: Array = []
 var selected_units: Array[int] = [0, 0]
@@ -93,6 +95,9 @@ var _castle_roof_material: StandardMaterial3D
 var _castle_reveal_progress := 0.0
 var _castle_reveal_target := 0.0
 var _castle_revealed := false
+var _visibility = VisualVisibility.new()
+var _visibility_cover_root: Node3D
+var _visibility_cover_materials: Dictionary = {}
 var _materials: Dictionary = {}
 var _effects: Array[Dictionary] = []
 var _impact_texture: Texture2D
@@ -219,6 +224,7 @@ func configure(
 	surroundings = new_surroundings.duplicate(true)
 	_update_surrounding_background()
 	_rebuild_terrain()
+	_configure_visual_visibility()
 	update_snapshot(new_snapshot)
 
 
@@ -226,6 +232,13 @@ func set_surroundings(value: Dictionary) -> void:
 	surroundings = value.duplicate(true)
 	_update_surrounding_background()
 	_rebuild_terrain()
+	_configure_visual_visibility()
+
+
+func set_visual_visibility(value: Dictionary) -> void:
+	visual_visibility = value.duplicate(true)
+	_configure_visual_visibility()
+	_update_castle_reveal_target()
 
 
 func update_snapshot(value: Dictionary) -> void:
@@ -839,36 +852,30 @@ func _build_castle_landmark() -> void:
 
 
 func _update_castle_reveal_target() -> void:
-	if _castle_bounds.size == Vector2i.ZERO:
-		_castle_reveal_target = 0.0
-		return
-	if _castle_revealed:
-		_castle_reveal_target = 1.0
-		return
-	_castle_reveal_target = 0.0
-	var width := int(snapshot.get("width", 0))
+	var positions: Array = []
 	for id: Variant in _unit_nodes:
-		var unit := _unit_by_id(int(id))
-		if not bool(unit.get("on_board", false)) or str(unit.get("side", "")) != "first":
-			continue
+		var unit := _unit_by_id(int(id)).duplicate()
 		var visual := _cell_from_world((_unit_nodes[id] as Node3D).position)
-		var cell := Vector2i(roundi(visual.x), roundi(visual.y))
-		if not _castle_bounds.has_point(cell):
-			continue
-		var index := cell.y * width + cell.x
-		var feature := str(terrain_features[index]) if index >= 0 and index < terrain_features.size() else ""
-		if feature in ["castle_door", "castle_floor", "castle_dais"]:
-			_castle_revealed = true
-			_castle_reveal_target = 1.0
-			return
+		unit["x"] = visual.x
+		unit["y"] = visual.y
+		positions.append(unit)
+	_visibility.reveal_from_positions(positions)
+	var state := _visibility.presentation_state()
+	_castle_revealed = int(state.explored_count) > 0
+	_castle_reveal_target = 1.0 if _castle_revealed else 0.0
 
 
 func _update_castle_reveal(delta: float) -> void:
+	_visibility.advance(delta)
+	var state := _visibility.presentation_state()
+	_castle_reveal_progress = float(state.progress)
+	for index: int in _visibility_cover_materials:
+		var cover_material: StandardMaterial3D = _visibility_cover_materials[index]
+		var cover_colour := cover_material.albedo_color
+		cover_colour.a = 0.82 * (1.0 - _visibility.visibility_at(index))
+		cover_material.albedo_color = cover_colour
 	if _castle_roof == null or _castle_roof_material == null:
 		return
-	_castle_reveal_progress = move_toward(
-		_castle_reveal_progress, _castle_reveal_target, delta * 1.8
-	)
 	var eased := smoothstep(0.0, 1.0, _castle_reveal_progress)
 	var roof_colour := _castle_roof_material.albedo_color
 	roof_colour.a = 1.0 - eased
@@ -885,15 +892,12 @@ func _update_castle_unit_presentation() -> void:
 	for id: Variant in _unit_nodes:
 		var alpha := 1.0
 		var foreground := false
-		if _castle_bounds.size != Vector2i.ZERO:
-			var visual := _cell_from_world((_unit_nodes[id] as Node3D).position)
-			var cell := Vector2i(roundi(visual.x), roundi(visual.y))
-			if _castle_bounds.has_point(cell):
-				var index := cell.y * width + cell.x
-				var feature := str(terrain_features[index]) if index >= 0 and index < terrain_features.size() else ""
-				if feature in ["castle_door", "castle_floor", "castle_dais"]:
-					alpha = _castle_reveal_progress
-					foreground = _castle_reveal_progress > 0.0
+		var visual := _cell_from_world((_unit_nodes[id] as Node3D).position)
+		var cell := Vector2i(roundi(visual.x), roundi(visual.y))
+		if cell.x >= 0 and cell.y >= 0 and cell.x < width:
+			var index := cell.y * width + cell.x
+			alpha = _visibility.visibility_at(index)
+			foreground = alpha > 0.0 and alpha < 1.0
 		if _unit_sprites.has(id):
 			var sprite: Sprite3D = _unit_sprites[id]
 			var tint := sprite.modulate
@@ -922,6 +926,40 @@ func castle_presentation_state() -> Dictionary:
 		"roof_alpha": 1.0 - reveal if _castle_roof != null else -1.0,
 		"interior_visibility": reveal if _castle_roof != null else -1.0,
 	}
+
+
+func visibility_presentation_state() -> Dictionary:
+	return _visibility.presentation_state()
+
+
+func _configure_visual_visibility() -> void:
+	_visibility.configure(
+		visual_visibility, terrain_features,
+		int(snapshot.get("width", 0)), int(snapshot.get("height", 0)),
+		_castle_bounds.size == Vector2i(6, 6)
+	)
+	_visibility_cover_materials.clear()
+	if _visibility_cover_root != null:
+		_visibility_cover_root.queue_free()
+	_visibility_cover_root = Node3D.new()
+	_visibility_cover_root.name = "VisualVisibility"
+	_terrain_root.add_child(_visibility_cover_root)
+	var width := int(snapshot.get("width", 0))
+	for index: int in _visibility.hidden_cells():
+		var material := StandardMaterial3D.new()
+		material.albedo_color = Color(0.025, 0.045, 0.065, 0.82)
+		material.roughness = 1.0
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var x := index % width
+		var y := index / width
+		var cover := _box(
+			_visibility_cover_root,
+			_cell_position(x, y) + Vector3(0, _surface_height(x, y) + 0.055, 0),
+			Vector3(0.96, 0.035, 0.96), material
+		)
+		cover.set_meta("visual_visibility_cell", index)
+		_visibility_cover_materials[index] = material
 
 
 func _landmark_centre(anchor: Vector2i) -> Vector3:

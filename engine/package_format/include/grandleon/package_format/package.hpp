@@ -154,6 +154,10 @@ enum class SectionType : std::uint32_t {
     // project with none has no section. Older runtimes therefore skip the
     // feature and continue using every required authored default name.
     player_nameable_members = 26,
+    // Presentation-only covered map cells and their local reveal radius.
+    // Optional and sparse: runtimes that do not know it draw the same playable
+    // board fully visible, while rules and canonical state remain unchanged.
+    map_visual_visibility = 27,
 };
 
 // The presentation section holds records about the whole game, the way the

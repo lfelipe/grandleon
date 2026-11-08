@@ -1883,6 +1883,23 @@
     "map.error.chapter_name": "GIVE THE CHAPTER A NAME",
     "map.error.preceding_battle_missing": "THE PRECEDING BATTLE IS NO LONGER AVAILABLE",
     "map.error.chapter_not_created": "CHAPTER NOT CREATED  /  {detail}",
-    "map.error.project_incomplete": "PROJECT INCOMPLETE"
+    "map.error.project_incomplete": "PROJECT INCOMPLETE",
+    "map.tool.visibility": "INTERIOR VISIBILITY",
+    "map.visibility.open": "INTERIOR VISIBILITY",
+    "map.visibility.open_tooltip": "Choose which map cells begin visually covered and preview them on the board.",
+    "map.visibility.heading": "INTERIOR VISIBILITY",
+    "map.visibility.help": "Paint rooms or other areas that should begin visually covered. Friendly units uncover nearby marked cells after entering them, and explored cells stay visible for this battle. This is a visual effect only: movement, targeting, AI and objectives do not change.",
+    "map.visibility.summary": "{count} COVERED CELLS",
+    "map.visibility.radius": "REVEAL RADIUS  /  {radius}",
+    "map.visibility.paint": "PAINT COVERED CELLS ON THE MAP",
+    "map.visibility.clear": "CLEAR ALL COVERED CELLS",
+    "map.visibility.cell_badge": "COVERED",
+    "map.visibility.cell_tooltip": "Begins visually covered; enter the area to reveal it.",
+    "map.visibility.radius_changed": "REVEAL RADIUS SET TO {radius}",
+    "map.visibility.cleared": "INTERIOR VISIBILITY CLEARED",
+    "map.visibility.cell_added": "CELL WILL BEGIN COVERED",
+    "map.visibility.cell_removed": "CELL WILL BEGIN VISIBLE",
+    "map.error.visibility_need_map": "ADD A MAP BEFORE EDITING INTERIOR VISIBILITY",
+    "map.error.visibility_refused": "INTERIOR VISIBILITY REFUSED  /  {detail}"
   }
 }

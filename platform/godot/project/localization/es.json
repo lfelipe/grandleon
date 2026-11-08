@@ -1883,6 +1883,23 @@
     "map.tool.talk": "HABLAR Y DECISIONES DE HISTORIA",
     "map.tool.unit": "MOVER PERSONAJE",
     "map.tool_label": "HERRAMIENTA",
-    "map.undo": "DESHACER"
+    "map.undo": "DESHACER",
+    "map.tool.visibility": "VISIBILIDAD INTERIOR",
+    "map.visibility.open": "VISIBILIDAD INTERIOR",
+    "map.visibility.open_tooltip": "Elige qué casillas empiezan cubiertas visualmente y revísalas en el tablero.",
+    "map.visibility.heading": "VISIBILIDAD INTERIOR",
+    "map.visibility.help": "Pinta habitaciones u otras zonas que deban empezar cubiertas visualmente. Las unidades aliadas descubren las casillas marcadas cercanas al entrar y las casillas exploradas permanecen visibles durante esta batalla. Es solo un efecto visual: no cambia el movimiento, los objetivos, la IA ni la selección de blancos.",
+    "map.visibility.summary": "{count} CASILLAS CUBIERTAS",
+    "map.visibility.radius": "RADIO DE REVELADO  /  {radius}",
+    "map.visibility.paint": "PINTAR CASILLAS CUBIERTAS EN EL MAPA",
+    "map.visibility.clear": "BORRAR TODAS LAS CASILLAS CUBIERTAS",
+    "map.visibility.cell_badge": "CUBIERTA",
+    "map.visibility.cell_tooltip": "Empieza cubierta visualmente; entra en la zona para revelarla.",
+    "map.visibility.radius_changed": "RADIO DE REVELADO AJUSTADO A {radius}",
+    "map.visibility.cleared": "VISIBILIDAD INTERIOR BORRADA",
+    "map.visibility.cell_added": "LA CASILLA EMPEZARÁ CUBIERTA",
+    "map.visibility.cell_removed": "LA CASILLA EMPEZARÁ VISIBLE",
+    "map.error.visibility_need_map": "AÑADE UN MAPA ANTES DE EDITAR LA VISIBILIDAD INTERIOR",
+    "map.error.visibility_refused": "VISIBILIDAD INTERIOR RECHAZADA  /  {detail}"
   }
 }

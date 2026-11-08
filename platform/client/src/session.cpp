@@ -403,6 +403,7 @@ SessionError play_battle(
         created.encounter.snapshot(), roster, player_side, loaded.terrain
     );
     presenter.battle_surroundings(loaded.surroundings);
+    presenter.battle_visual_visibility(loaded.visual_visibility);
     presenter.battle_definitions(
         created.encounter.weapons(), created.encounter.abilities(),
         created.encounter.items(), created.encounter.objectives()

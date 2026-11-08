@@ -278,6 +278,14 @@ public:
     ) {
         static_cast<void>(surroundings);
     }
+    // Optional presentation-only cells that begin covered and reveal locally.
+    // Default no-op preserves clients that have no fog surface; simulation and
+    // input never consult this value.
+    virtual void battle_visual_visibility(
+        const package_runtime::MapVisualVisibility& visibility
+    ) {
+        static_cast<void>(visibility);
+    }
     // The weapon, ability and item definitions the encounter was created
     // with, handed over once before the first frame. A snapshot names only the
     // identities a unit holds, so a front end that draws a danger zone needs

@@ -149,6 +149,24 @@ playable cell exposed by a shrink keeps its terrain, and a newly introduced
 outside coordinate uses the resize fill terrain, leaving a complete perimeter
 that can be repainted rather than an invalid partial one.
 
+## Interior visibility
+
+A map's optional `visualVisibility` is a presentation layer over playable map
+cells. `hiddenCells` lists `{x, y}` cells that begin visually covered, and
+`revealRadius` says how many Manhattan steps around a friendly unit are
+uncovered after that unit enters the covered area. Revealed cells remain
+explored for the current battle. Separate buildings can share one mask: entering
+one disconnected group does not uncover another distant group.
+
+This data never enters the encounter rules. It does not change passability,
+movement range, targeting, AI knowledge, objectives, enemy turns, saves, or the
+canonical battle hash. A client that does not implement the optional
+presentation record draws the board fully visible and plays the same battle.
+Removing every covered cell removes the optional object; resizing clips cells
+outside the new map bounds. Broader gameplay fog of war—including sight
+blockers, hidden enemies, per-player knowledge, night rules, and console
+presentation—remains future work rather than an implied part of this field.
+
 ## Rules the schema cannot express
 
 Everything below is enforced by the analyzers, the compiler, or both; the schema

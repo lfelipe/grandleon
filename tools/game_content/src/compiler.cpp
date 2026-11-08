@@ -1111,6 +1111,26 @@ CompileResult compile(const GameSource& source) {
                 );
             }
         }
+        const MapVisualVisibility& visibility =
+            definition.visual_visibility;
+        std::set<std::uint32_t> visibility_cells;
+        bool visibility_sound = visibility.reveal_radius <= 8U;
+        for (const std::uint32_t cell : visibility.hidden_cells) {
+            if (cell >= cell_count || !visibility_cells.insert(cell).second) {
+                visibility_sound = false;
+                break;
+            }
+        }
+        if (!visibility_sound) {
+            result.diagnostics.push_back(
+                {
+                    DiagnosticCode::invalid_map,
+                    "maps[" + std::to_string(definition.id) +
+                        "].visual_visibility",
+                    definition.id
+                }
+            );
+        }
     }
     std::map<StableId, const Objective*> objectives_by_id;
     for (const Objective& definition : source.objectives) {
@@ -2157,6 +2177,39 @@ CompileResult compile(const GameSource& source) {
                 );
                 for (StableId terrain : outside.terrain) {
                     put_u64(bytes, terrain);
+                }
+                section.records.push_back({map->id, std::move(bytes)});
+            }
+            return section;
+        }(),
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::map_visual_visibility;
+            section.flags = 0;
+            std::vector<const Map*> ordered;
+            for (const Map& map : source.maps) {
+                if (!map.visual_visibility.hidden_cells.empty()) {
+                    ordered.push_back(&map);
+                }
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Map* lhs, const Map* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Map* map : ordered) {
+                Bytes bytes;
+                bytes.push_back(map->visual_visibility.reveal_radius);
+                put_u32(
+                    bytes,
+                    static_cast<std::uint32_t>(
+                        map->visual_visibility.hidden_cells.size()
+                    )
+                );
+                for (const std::uint32_t cell :
+                     map->visual_visibility.hidden_cells) {
+                    put_u32(bytes, cell);
                 }
                 section.records.push_back({map->id, std::move(bytes)});
             }

@@ -110,6 +110,12 @@ public:
         std::int64_t depth,
         const ::godot::PackedStringArray& terrain_ids
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_map_visual_visibility(
+        const ::godot::String& source_json,
+        const ::godot::String& map_id,
+        std::int64_t reveal_radius,
+        const ::godot::PackedInt32Array& cell_indices
+    ) const;
     [[nodiscard]] ::godot::Dictionary move_placement(
         const ::godot::String& source_json,
         const ::godot::String& campaign_id,
