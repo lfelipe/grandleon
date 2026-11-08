@@ -36,6 +36,7 @@ var _unit_animation_states: Dictionary = {}
 var _unit_animation_started: Dictionary = {}
 var _unit_animation_until: Dictionary = {}
 var _unit_facing_right: Dictionary = {}
+var _unit_headings: Dictionary = {}
 var _combat_effects: Array[Dictionary] = []
 var _pulse := 0.0
 
@@ -48,6 +49,7 @@ func set_profile(_name: String, value: Dictionary) -> void:
 	profile_config = value
 	art.configure_profile(profile_config)
 	_unit_facing_right.clear()
+	_unit_headings.clear()
 
 
 func set_camera_impulse_enabled(value: bool) -> void:
@@ -99,6 +101,7 @@ func update_snapshot(value: Dictionary) -> void:
 			_pending_motion_records.erase(id)
 			_unit_stride_distances.erase(id)
 			_unit_facing_right.erase(id)
+			_unit_headings.erase(id)
 	queue_redraw()
 
 
@@ -197,6 +200,9 @@ func _face_unit_toward(actor_id: int, target_id: int) -> void:
 func _face_unit_in_direction(id: int, direction: Vector2) -> void:
 	if not _last_units.has(id):
 		return
+	_unit_headings[id] = PresentationFacing.cardinal_canvas(
+		direction, String(_unit_headings.get(id, ""))
+	)
 	var unit: Dictionary = _last_units[id]
 	var info := art.character_frame(unit)
 	if not bool(info.get("directional_flip", true)):
@@ -630,7 +636,9 @@ func _draw_units() -> void:
 			if state == "move"
 			else sin(_pulse * 3.0 + float(id % 11)) * tile_size * 0.025
 		)
-		var frame_info := art.character_frame(unit, state, elapsed)
+		var frame_info := art.character_frame(
+			unit, state, elapsed, String(_unit_headings.get(id, ""))
+		)
 		var cell_size: Vector2i = frame_info.cell_size
 		var flip_h := _character_flip_h(id, frame_info)
 		var pivot := PresentationFacing.pivot_for_flip(

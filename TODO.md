@@ -63,10 +63,15 @@ roadmap work.
   shared right-facing walk cells mirror at no texture-memory cost; compact-
   console vertical legs retain the last horizontal view rather than changing
   the route or inventing art.
-- [ ] Author distinct north/south walk cells and matching team masks for the
-  curated roster. The current 4×2 sheets contain animation phases, not compass
-  views, so the source audit deliberately blocks claiming this coverage until
-  those cells, profile metadata, and measured console budgets exist.
+- [x] Establish the genuine north/south art pipeline with matching team masks,
+  explicit profile metadata, Godot route-driven selection, fallback behavior,
+  source audits, and measured compact-console projection. The representative
+  set covers 7/112 bodies—one per style—at 58,240 bytes of projected CI4 source
+  payload per platform without changing current console executables.
+- [ ] Expand genuine north/south idle/walk coverage from 7/112 to the remaining
+  105 curated bodies, reviewing identity, front/back readability, team tint,
+  and planted walk phases for each. Enable it on N64/PS1 only after gameplay
+  captures and frame/ROM gates justify the partial-coverage transition.
 
 ## Character art and console graphics
 

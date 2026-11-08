@@ -68,6 +68,7 @@ var _unit_sprites: Dictionary = {}
 var _unit_sprite_facing_right: Dictionary = {}
 var _unit_sprite_native_right: Dictionary = {}
 var _unit_sprite_directional: Dictionary = {}
+var _unit_sprite_headings: Dictionary = {}
 var _health_sprites: Dictionary = {}
 var _health_textures: Dictionary = {}
 var _unit_animators: Dictionary = {}
@@ -115,6 +116,7 @@ func set_profile(value: String, config := {}) -> void:
 	render_profile = value if value in ["diorama", "voxel-sprites", "voxel"] else "diorama"
 	profile_config = config if config is Dictionary else {}
 	art.configure_profile(profile_config)
+	_unit_sprite_headings.clear()
 	_update_surrounding_background()
 
 
@@ -1213,7 +1215,7 @@ func _apply_sprite_frame(
 			stride_distance, animation_config
 		).animation_time)
 	var info := art.character_frame(
-		unit, state, elapsed
+		unit, state, elapsed, String(_unit_sprite_headings.get(id, ""))
 	)
 	sprite.texture = art.character_frame_texture(info)
 	sprite.hframes = int(info.columns)
@@ -1595,6 +1597,9 @@ func _face_unit_in_direction(id: int, direction: Vector3, turn_weight: float) ->
 		return
 	var node: Node3D = _unit_nodes[id]
 	if _unit_sprites.has(id):
+		_unit_sprite_headings[id] = PresentationFacing.cardinal_world(
+			direction, String(_unit_sprite_headings.get(id, ""))
+		)
 		if not bool(_unit_sprite_directional.get(id, true)) or _camera == null:
 			return
 		var current := bool(_unit_sprite_facing_right.get(id, true))
@@ -1946,6 +1951,7 @@ func _remove_unit(id: int) -> void:
 	_unit_sprite_facing_right.erase(id)
 	_unit_sprite_native_right.erase(id)
 	_unit_sprite_directional.erase(id)
+	_unit_sprite_headings.erase(id)
 	_health_sprites.erase(id)
 	_unit_animators.erase(id)
 	_unit_animation_clips.erase(id)

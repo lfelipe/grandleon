@@ -134,11 +134,17 @@ func team_colour(name: String) -> Color:
 	return _team_colours.get(name, Color.WHITE)
 
 
-func character_frame(unit: Dictionary, state := "idle", elapsed := 0.0) -> Dictionary:
+func character_frame(
+	unit: Dictionary, state := "idle", elapsed := 0.0, heading := ""
+) -> Dictionary:
 	var override := _character_sprite_override(unit)
-	var sequence := _resolved_character_sequence(String(state), override)
+	var entry := _directional_character_override(
+		override, String(state), String(heading)
+	)
+	if entry.is_empty():
+		entry = override
+	var sequence := _resolved_character_sequence(String(state), entry)
 	var kind := String(sequence.get("asset_kind", "character"))
-	var entry: Dictionary = override
 	if entry.is_empty():
 		entry = _character_asset(unit, kind)
 		if entry.is_empty():
@@ -176,7 +182,7 @@ func character_frame(unit: Dictionary, state := "idle", elapsed := 0.0) -> Dicti
 		"columns": columns,
 		"rows": rows,
 		"cell_size": Vector2i(cell_width, cell_height),
-		"pivot": _character_pivot(override),
+		"pivot": _character_pivot(entry),
 		"faces_right": bool(entry.get("facesRight", true)),
 		"directional_flip": bool(entry.get("directionalFlip", true)),
 		"team_mask_path": String(entry.get("_team_mask_path", "")),
@@ -219,6 +225,16 @@ func configure_profile(config: Dictionary) -> void:
 			continue
 		var resolved := entry.duplicate(true)
 		resolved["_team_mask_path"] = _valid_team_mask_path(resolved)
+		var directional_value: Variant = resolved.get("directionalSheet", {})
+		if directional_value is Dictionary:
+			var directional: Dictionary = directional_value
+			if _valid_character_sprite(directional):
+				var resolved_directional := directional.duplicate(true)
+				resolved_directional["directionalFlip"] = false
+				resolved_directional["_team_mask_path"] = _valid_team_mask_path(
+					resolved_directional
+				)
+				resolved["_directional_sheet"] = resolved_directional
 		_character_sprite_overrides[String(key_value)] = resolved
 
 
@@ -258,6 +274,37 @@ func _character_sprite_override(unit: Dictionary) -> Dictionary:
 		fields[1] = "*"
 		return _character_sprite_overrides.get("|".join(fields), {})
 	return {}
+
+
+func _directional_character_override(
+	override: Dictionary, state: String, heading: String
+) -> Dictionary:
+	if state not in ["idle", "move"] or heading not in ["north", "south"]:
+		return {}
+	var value: Variant = override.get("_directional_sheet", {})
+	if not value is Dictionary:
+		return {}
+	var directional: Dictionary = value
+	var headings_value: Variant = directional.get("headings", {})
+	if not headings_value is Dictionary:
+		return {}
+	var heading_value: Variant = headings_value.get(heading, {})
+	if not heading_value is Dictionary:
+		return {}
+	var heading_sequences: Dictionary = heading_value
+	var sequence_value: Variant = heading_sequences.get(state, {})
+	if not sequence_value is Dictionary:
+		return {}
+	var sequence: Dictionary = sequence_value
+	var frames_value: Variant = sequence.get("frames", [])
+	if not frames_value is Array or frames_value.is_empty():
+		return {}
+	var result := directional.duplicate(true)
+	result["sequences"] = {
+		"idle": heading_sequences.get("idle", sequence),
+		"move": heading_sequences.get("move", sequence),
+	}
+	return result
 
 
 # `teamMaskPath` is optional. A malformed, missing or differently-sized mask

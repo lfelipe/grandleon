@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Audit the directional coverage of the curated Godot/console roster.
-
-This check intentionally does not generate substitute north/south frames. It
-pins what the shared source actually contains, so the renderer may safely use
-mirrored east/west movement without documentation claiming four authored
-views. When real compass frames are added, this check is the place that must
-change alongside their profile metadata and console budget measurements.
-"""
+"""Audit authored compass coverage in the curated Godot/console roster."""
 
 from __future__ import annotations
 
@@ -24,6 +17,17 @@ PROJECT_ROOT = ROOT / "platform/godot/project"
 EXPECTED_BINDINGS = 7 * 2 * 8
 EXPECTED_SHEET_SIZE = (1772, 886)
 EXPECTED_MOVE_FRAMES = [2, 3]
+DIRECTIONAL_WALK_FRAMES = {"north": [2, 3], "south": [6, 7]}
+DIRECTIONAL_COVERAGE = {
+    "knight|*|medieval|first",
+    "knight|*|scifi|second",
+    "mage|*|mythical|second",
+    "beast|*|nature|first",
+    "archer|*|sengoku|second",
+    "healer|*|undead|first",
+    "rogue|*|pirates|second",
+}
+CI4_FRAME_BYTES = 64 * 64 // 2 + 16 * 2
 
 
 def fail(message: str) -> None:
@@ -37,6 +41,12 @@ def resolved_resource(value: object) -> Path:
     return PROJECT_ROOT / path.removeprefix("res://")
 
 
+def sheet_frame(sheet: Image.Image, index: int) -> Image.Image:
+    left = index % 4 * 443
+    top = index // 4 * 443
+    return sheet.crop((left, top, left + 443, top + 443))
+
+
 def main() -> int:
     document = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
     bindings = document["profiles"]["voxel-sprites"]["assets"]["characterSprites"]
@@ -47,6 +57,8 @@ def main() -> int:
 
     inspected_sources: set[Path] = set()
     asymmetric_move_frames = 0
+    directional_source_bytes = 0
+    directional_mask_bytes = 0
     for key, binding in bindings.items():
         if binding.get("columns") != 4 or binding.get("rows") != 2:
             fail(f"{key}: curated sheet is no longer the audited 4x2 layout")
@@ -54,15 +66,42 @@ def main() -> int:
             fail(f"{key}: east/west mirroring is not enabled")
         if binding.get("sequences", {}).get("move", {}).get("frames") != EXPECTED_MOVE_FRAMES:
             fail(f"{key}: walk frames are not the curated cells 2 and 3")
-        # There is deliberately no accepted spelling hidden here. Adding any
-        # compass metadata without teaching this audit/runtime about it is a
-        # contract change and must fail visibly.
-        unexpected = {
-            name for name in binding
-            if "direction" in name.lower() and name != "directionalFlip"
-        }
-        if unexpected:
-            fail(f"{key}: unaudited directional metadata {sorted(unexpected)}")
+        directional = binding.get("directionalSheet")
+        if key in DIRECTIONAL_COVERAGE and not isinstance(directional, dict):
+            fail(f"{key}: representative identity has no directional sheet")
+        if key not in DIRECTIONAL_COVERAGE and directional is not None:
+            fail(f"{key}: directional coverage changed without updating the audit")
+        if isinstance(directional, dict):
+            if directional.get("columns") != 4 or directional.get("rows") != 2:
+                fail(f"{key}: directional sheet is not a 4x2 grid")
+            headings = directional.get("headings", {})
+            for heading, expected_frames in DIRECTIONAL_WALK_FRAMES.items():
+                if headings.get(heading, {}).get("move", {}).get("frames") != expected_frames:
+                    fail(f"{key}: {heading} walk cells are not {expected_frames}")
+            directional_source = resolved_resource(directional.get("path"))
+            directional_mask = resolved_resource(directional.get("teamMaskPath"))
+            for resource in (directional_source, directional_mask):
+                if not resource.is_file():
+                    fail(f"{key}: missing directional resource {resource.name}")
+                with Image.open(resource) as image:
+                    if image.size != EXPECTED_SHEET_SIZE:
+                        fail(
+                            f"{key}: {resource.name} is {image.size}, expected "
+                            f"{EXPECTED_SHEET_SIZE}"
+                        )
+            directional_source_bytes += directional_source.stat().st_size
+            directional_mask_bytes += directional_mask.stat().st_size
+            with Image.open(directional_source) as sheet:
+                rgba = sheet.convert("RGBA")
+                north = rgba.crop((0, 0, 443, 443))
+                south = rgba.crop((0, 443, 443, 886))
+                if ImageChops.difference(north, south).getbbox() is None:
+                    fail(f"{key}: north and south silhouettes are identical")
+                for frames in DIRECTIONAL_WALK_FRAMES.values():
+                    first = sheet_frame(rgba, frames[0])
+                    second = sheet_frame(rgba, frames[1])
+                    if ImageChops.difference(first, second).getbbox() is None:
+                        fail(f"{key}: directional walk phases are identical")
 
         source = resolved_resource(binding.get("path"))
         mask = resolved_resource(binding.get("teamMaskPath"))
@@ -98,10 +137,19 @@ def main() -> int:
     if asymmetric_move_frames != expected_sources * len(EXPECTED_MOVE_FRAMES):
         fail("one or more walk cells is horizontally symmetric and cannot show a turn")
 
+    console_bytes = len(DIRECTIONAL_COVERAGE) * 4 * CI4_FRAME_BYTES
     print(
         "directional art audit passed: "
         f"{len(inspected_sources)} bodies, {asymmetric_move_frames} asymmetric "
-        "walk cells; east/west mirror-ready, north/south source frames absent"
+        f"east/west walk cells; authored north/south {len(DIRECTIONAL_COVERAGE)}/"
+        f"{EXPECTED_BINDINGS} bodies ({EXPECTED_BINDINGS - len(DIRECTIONAL_COVERAGE)} open)"
+    )
+    print(
+        "directional budgets: "
+        f"Godot PNG {directional_source_bytes + directional_mask_bytes} bytes "
+        f"({directional_source_bytes} source + {directional_mask_bytes} masks); "
+        f"console CI4 projection {console_bytes} bytes/platform, "
+        f"{CI4_FRAME_BYTES} bytes/frame including palette"
     )
     return 0
 
@@ -109,6 +157,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
         print(f"directional art audit failed: {error}", file=sys.stderr)
         raise SystemExit(1)

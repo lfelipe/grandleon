@@ -5,19 +5,21 @@ the same curated high-resolution sheets and team-colour masks as Godot. Run
 `generate-character-art.py` with a project source and a platform name; the
 output belongs in a build directory, not in source control.
 
-Each current body sheet is a 4×2 animation sheet: two idle cells, two walking
+Each base body sheet is a 4×2 animation sheet: two idle cells, two walking
 cells, wind-up, follow-through, ability and hurt. It has one native
 right-facing view. The renderers use that view for eastward travel and mirror
 it for westward travel. This costs no additional texture memory and keeps the
 current character ROM, RDRAM/VRAM and frame budgets unchanged.
 
-There are no authored north- or south-facing cells in the current 112-body
-roster. Vertical route legs therefore retain the last horizontal silhouette;
-the route and destination still come directly from the simulation. We do not
-stretch, squash or relabel a side view as a compass view because that would
-make the roster less recognizable. Real north/south presentation needs two
-additional walk cells per body, matching team masks, profile metadata and new
-measured console budgets before it can be enabled.
+Seven representative bodies now have a separate authored 4×2 directional
+sheet: genuine north idle/walk on the top row and genuine south idle/walk on
+the bottom row. They span all seven styles. The matching team mask and explicit
+`directionalSheet` profile binding keep the same faction-colour workflow.
+Godot uses these views on vertical route legs and falls back to the side walk
+for the remaining 105 bodies. The compact-console generator reports which
+project drawings have source coverage and their projected CI4 cost; console
+runtime integration remains deliberately disabled until more roster coverage
+and a renderer-specific visual/performance gate are ready.
 
 Run the focused source audit with:
 
@@ -25,6 +27,10 @@ Run the focused source audit with:
 python3 platform/console_art/check-directional-art.py
 ```
 
-The generator records this coverage in the N64 manifest and PS1 header. That
-makes a future directional-art addition an explicit pipeline contract change,
-instead of an accidental increase hidden inside a renderer.
+The current seven-body projection is 58,240 bytes per platform: four 64×64 CI4
+frames per body, including one 32-byte palette per frame. That is source/ROM
+payload, not persistent TMEM/VRAM; a later renderer can stream into the current
+character slot. The complete 112-body projection would be 931,840 bytes, so
+project-specific selection remains important. The generator records coverage
+and projected bytes in the N64 manifest and PS1 header without changing either
+production renderer or its current executable budget.

@@ -42,6 +42,16 @@ func _test_direction_math() -> void:
 		"canvas vertical preserves facing",
 		PresentationFacing.faces_canvas_right(Vector2.DOWN, false), false
 	)
+	_expect("canvas route resolves east", PresentationFacing.cardinal_canvas(Vector2.RIGHT), "east")
+	_expect("canvas route resolves west", PresentationFacing.cardinal_canvas(Vector2.LEFT), "west")
+	_expect("canvas route resolves north", PresentationFacing.cardinal_canvas(Vector2.UP), "north")
+	_expect("canvas route resolves south", PresentationFacing.cardinal_canvas(Vector2.DOWN), "south")
+	_expect(
+		"zero canvas route preserves heading",
+		PresentationFacing.cardinal_canvas(Vector2.ZERO, "north"), "north"
+	)
+	_expect("world route resolves north", PresentationFacing.cardinal_world(Vector3.FORWARD), "north")
+	_expect("world route resolves south", PresentationFacing.cardinal_world(Vector3.BACK), "south")
 	_expect(
 		"ordinary pivot is unchanged",
 		PresentationFacing.pivot_for_flip(Vector2(0.3, 0.9), false),
@@ -68,13 +78,33 @@ func _test_pixel_board_facing() -> void:
 	board._last_units[2] = target
 	board._face_unit_toward(1, 2)
 	_expect("pixel actor faces target on its left", board._unit_facing_right[1], false)
+	_expect("pixel actor records west heading", board._unit_headings[1], "west")
 	var frame: Dictionary = board.art.character_frame(actor)
 	_expect("pixel right-facing sheet mirrors left", board._character_flip_h(1, frame), true)
 	target.x = 2
 	board._last_units[2] = target
 	board._face_unit_toward(1, 2)
 	_expect("pixel actor faces target on its right", board._unit_facing_right[1], true)
+	_expect("pixel actor records east heading", board._unit_headings[1], "east")
 	_expect("pixel right-facing sheet remains native right", board._character_flip_h(1, frame), false)
+	var profiles: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string("res://content/graphics_profiles.json")
+	)
+	if profiles is Dictionary:
+		var voxel_sprites: Dictionary = profiles.get("profiles", {}).get("voxel-sprites", {})
+		board.set_profile("voxel-sprites", voxel_sprites)
+		board._face_unit_in_direction(1, Vector2.UP)
+		var north_frame: Dictionary = board.art.character_frame(
+			actor, "move", 0.0, String(board._unit_headings[1])
+		)
+		_expect("pixel north route selects authored sheet", north_frame.frame, 2)
+		_expect(
+			"pixel north route uses genuine compass art",
+			north_frame.path.ends_with("_directions_hd.png"), true
+		)
+	else:
+		failures += 1
+		push_error("graphics profile parses for pixel route test")
 	board.free()
 
 
@@ -100,6 +130,9 @@ func _test_board_facing() -> void:
 	target.position = Vector3.RIGHT
 	board._face_unit_toward(1, 2)
 	_expect("right-facing sheet remains native toward right", sprite.flip_h, false)
+	target.position = Vector3.FORWARD
+	board._face_unit_toward(1, 2)
+	_expect("3D sprite records north heading", board._unit_sprite_headings[1], "north")
 
 	board._unit_sprite_native_right[1] = false
 	board._face_unit_toward(1, 2)

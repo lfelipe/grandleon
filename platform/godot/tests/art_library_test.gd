@@ -96,6 +96,25 @@ func _init() -> void:
 					"pivot": [0.5, 0.94],
 					"facesRight": false,
 					"directionalFlip": true,
+					"directionalSheet": {
+						"path": "res://art/characters/medieval_knight_male_directions_hd.png",
+						"teamMaskPath": "res://art/characters/medieval_knight_male_directions_hd_team_mask.png",
+						"columns": 4,
+						"rows": 2,
+						"tile_width": 443,
+						"tile_height": 443,
+						"pivot": [0.5, 0.94],
+						"headings": {
+							"north": {
+								"idle": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+								"move": {"frames": [2, 3], "frames_per_second": 7.0, "loop": true},
+							},
+							"south": {
+								"idle": {"frames": [4, 5], "frames_per_second": 2.0, "loop": true},
+								"move": {"frames": [6, 7], "frames_per_second": 7.0, "loop": true},
+							},
+						},
+					},
 					"sequences": {
 						"idle": {
 							"frames": [0, 1],
@@ -131,6 +150,31 @@ func _init() -> void:
 	_expect("profile pivot", replacement_idle.pivot, Vector2(0.5, 0.94))
 	_expect("profile native facing", replacement_idle.faces_right, false)
 	_expect("profile directional mirroring", replacement_idle.directional_flip, true)
+	var north_move := art.character_frame(unit, "move", 0.15, "north")
+	_expect(
+		"north route uses authored directional sheet",
+		north_move.path,
+		"res://art/characters/medieval_knight_male_directions_hd.png"
+	)
+	_expect("north route uses north walk phase", north_move.frame, 3)
+	_expect("north route never mirrors front/back art", north_move.directional_flip, false)
+	_expect(
+		"north route keeps its matching team mask",
+		north_move.team_mask_path,
+		"res://art/characters/medieval_knight_male_directions_hd_team_mask.png"
+	)
+	var south_idle := art.character_frame(unit, "idle", 0.6, "south")
+	_expect("south route uses south idle phase", south_idle.frame, 5)
+	_expect(
+		"combat pose stays on the original action sheet",
+		art.character_frame(unit, "attack", 0.0, "north").path,
+		"res://art/characters/rook_commander_hd.png"
+	)
+	_expect(
+		"east route stays on the original action sheet",
+		art.character_frame(unit, "move", 0.0, "east").path,
+		"res://art/characters/rook_commander_hd.png"
+	)
 
 	art.configure_profile({
 		"assets": {
@@ -399,6 +443,15 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"hurt": {"frames": [7.0]},
 		"defeat": {"frames": [7.0]},
 	}
+	var expected_directional := {
+		"knight|*|medieval|first": "medieval_knight_male",
+		"knight|*|scifi|second": "scifi_knight_female",
+		"mage|*|mythical|second": "mythical_mage_female",
+		"beast|*|nature|first": "nature_beast_male",
+		"archer|*|sengoku|second": "sengoku_archer_female",
+		"healer|*|undead|first": "undead_healer_male",
+		"rogue|*|pirates|second": "pirates_rogue_female",
+	}
 	for key: String in expected:
 		_expect("%s sprite is bound" % key, bindings.has(key), true)
 		if not bindings.has(key):
@@ -421,6 +474,35 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 			"%s uses the production action timing" % key,
 			binding.get("sequences", {}), expected_sequences
 		)
+		var directional_value: Variant = binding.get("directionalSheet", {})
+		_expect(
+			"%s directional coverage is explicit" % key,
+			directional_value is Dictionary and not directional_value.is_empty(),
+			expected_directional.has(key)
+		)
+		if expected_directional.has(key) and directional_value is Dictionary:
+			var directional: Dictionary = directional_value
+			var stem := String(expected_directional[key])
+			_expect(
+				"%s directional source" % key,
+				String(directional.get("path", "")),
+				"res://art/characters/%s_directions_hd.png" % stem
+			)
+			_expect(
+				"%s directional team mask" % key,
+				String(directional.get("teamMaskPath", "")),
+				"res://art/characters/%s_directions_hd_team_mask.png" % stem
+			)
+			_expect(
+				"%s north walk cells" % key,
+				directional.get("headings", {}).get("north", {}).get("move", {}).get("frames", []),
+				[2.0, 3.0]
+			)
+			_expect(
+				"%s south walk cells" % key,
+				directional.get("headings", {}).get("south", {}).get("move", {}).get("frames", []),
+				[6.0, 7.0]
+			)
 		_expect("%s sprite exists" % key, ResourceLoader.exists(path, "Texture2D"), true)
 		if ResourceLoader.exists(path, "Texture2D"):
 			var texture := ResourceLoader.load(path, "Texture2D") as Texture2D
@@ -449,12 +531,13 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		var style_index := ArtLibrary.STYLE_NAMES.find(style_name)
 		var figure_index := 0 if fields[3] == "first" else 1
 		for colour_index in ArtLibrary.COLOUR_NAMES.size():
-			var frame: Dictionary = art.character_frame({
+			var unit := {
 				"archetype": archetype_index,
 				"colour": colour_index,
 				"style": style_index,
 				"figure": figure_index,
-			}, "idle")
+			}
+			var frame: Dictionary = art.character_frame(unit, "idle")
 			var identity := "%s %s %s %s" % [
 				style_name, fields[0], fields[3], ArtLibrary.COLOUR_NAMES[colour_index],
 			]
@@ -466,6 +549,25 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 				"%s keeps its requested team colour" % identity,
 				frame.team_colour, ArtLibrary.COLOUR_NAMES[colour_index]
 			)
+			if expected_directional.has(key):
+				var north := art.character_frame(unit, "move", 0.0, "north")
+				var south := art.character_frame(unit, "move", 0.0, "south")
+				_expect(
+					"%s resolves authored north" % identity,
+					north.path.ends_with("_directions_hd.png"), true
+				)
+				_expect("%s north starts at cell 2" % identity, north.frame, 2)
+				_expect("%s south starts at cell 6" % identity, south.frame, 6)
+				_expect(
+					"%s compass art cannot be mirrored" % identity,
+					north.directional_flip, false
+				)
+			else:
+				_expect(
+					"%s north falls back to its side sheet" % identity,
+					art.character_frame(unit, "move", 0.0, "north").path,
+					expected[key]
+				)
 			resolution_counts[style_name] += 1
 	_expect(
 		"all mythical body and faction identities resolve",

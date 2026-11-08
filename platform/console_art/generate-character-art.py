@@ -47,14 +47,12 @@ POSES = (
     ("hurt", 7),
 )
 
-# The committed 4x2 Godot sheets are right-facing animation sheets, not
-# compass sheets. Both console renderers may mirror these frames for westward
-# travel without another texture. North/south stay an explicit unsupported
-# source view instead of silently pretending that a side silhouette is one.
-DIRECTIONAL_ART = {
-    "eastWest": "mirrored-native-right",
-    "northSouth": "source-frames-required",
-}
+# The base 4x2 Godot sheets are right-facing action sheets. Both console
+# renderers mirror them for westward travel without another texture. Optional
+# sibling compass sheets now make north/south source coverage explicit; this
+# generator measures it without enabling an unreviewed console runtime path.
+CI4_FRAME_BYTES = BOARD_SIDE * BOARD_SIDE // 2 + 16 * 2
+DIRECTIONAL_POSE_COUNT = 4
 
 
 @dataclass(frozen=True, order=True)
@@ -67,6 +65,18 @@ class Drawing:
     @property
     def stem(self) -> str:
         return f"{self.style}_{self.figure}_{self.archetype}_{self.colour}"
+
+
+@dataclass(frozen=True)
+class Binding:
+    source: Path
+    mask: Path
+    directional_source: Path | None = None
+    directional_mask: Path | None = None
+
+    @property
+    def has_north_south(self) -> bool:
+        return self.directional_source is not None and self.directional_mask is not None
 
 
 def project_drawings(project: dict[str, object]) -> tuple[Drawing, ...]:
@@ -105,20 +115,31 @@ def project_drawings(project: dict[str, object]) -> tuple[Drawing, ...]:
     return tuple(sorted(result))
 
 
-def profile_bindings() -> dict[tuple[str, str, str], tuple[Path, Path]]:
+def project_resource(path: object) -> Path:
+    value = str(path)
+    if not value.startswith("res://"):
+        raise ValueError(f"graphics profile resource is not project-relative: {value!r}")
+    return ROOT / "platform/godot/project" / value.removeprefix("res://")
+
+
+def profile_bindings() -> dict[tuple[str, str, str], Binding]:
     document = json.loads(PROFILES.read_text(encoding="utf-8"))
     sprites = document["profiles"]["voxel-sprites"]["assets"]["characterSprites"]
-    result: dict[tuple[str, str, str], tuple[Path, Path]] = {}
+    result: dict[tuple[str, str, str], Binding] = {}
     for key, binding in sprites.items():
         archetype, _identity, style, figure = key.split("|")
-        source = ROOT / str(binding["path"]).removeprefix("res://")
-        mask = ROOT / str(binding["teamMaskPath"]).removeprefix("res://")
-        # res:// is rooted at the Godot project, not the repository.
-        if not source.exists():
-            source = ROOT / "platform/godot/project" / str(binding["path"]).removeprefix("res://")
-        if not mask.exists():
-            mask = ROOT / "platform/godot/project" / str(binding["teamMaskPath"]).removeprefix("res://")
-        result[(style, figure, archetype)] = (source, mask)
+        directional = binding.get("directionalSheet", {})
+        directional_source = None
+        directional_mask = None
+        if isinstance(directional, dict) and directional:
+            directional_source = project_resource(directional["path"])
+            directional_mask = project_resource(directional["teamMaskPath"])
+        result[(style, figure, archetype)] = Binding(
+            project_resource(binding["path"]),
+            project_resource(binding["teamMaskPath"]),
+            directional_source,
+            directional_mask,
+        )
     return result
 
 
@@ -214,10 +235,19 @@ def painted_frame(source_name: str, mask_name: str, colour: str, pose: int) -> I
         return recolour(frame(source, pose), frame(mask, pose), colour)
 
 
-def rendered_frame(binding: tuple[Path, Path], drawing: Drawing, pose: int, side: int) -> Image.Image:
-    source_path, mask_path = binding
-    painted = painted_frame(str(source_path), str(mask_path), drawing.colour, pose)
-    return fitted(painted, shared_bounds(str(source_path)), side)
+def rendered_frame(binding: Binding, drawing: Drawing, pose: int, side: int) -> Image.Image:
+    painted = painted_frame(str(binding.source), str(binding.mask), drawing.colour, pose)
+    return fitted(painted, shared_bounds(str(binding.source)), side)
+
+
+def directional_budget(
+    drawings: tuple[Drawing, ...], bindings: dict[tuple[str, str, str], Binding]
+) -> tuple[int, int]:
+    count = sum(
+        bindings[(drawing.style, drawing.figure, drawing.archetype)].has_north_south
+        for drawing in drawings
+    )
+    return count, count * DIRECTIONAL_POSE_COUNT * CI4_FRAME_BYTES
 
 
 def psx_colour(colour: tuple[int, int, int]) -> tuple[int, int, int]:
@@ -263,7 +293,7 @@ def cpp_array(name: str, values: list[int]) -> str:
 
 def write_n64(
     output: Path, project: dict[str, object], drawings: tuple[Drawing, ...],
-    bindings: dict[tuple[str, str, str], tuple[Path, Path]],
+    bindings: dict[tuple[str, str, str], Binding],
 ) -> None:
     output.mkdir(parents=True, exist_ok=True)
     records = []
@@ -283,21 +313,33 @@ def write_n64(
             "name": drawing.stem,
             "assets": assets,
         })
+    directional_count, directional_bytes = directional_budget(drawings, bindings)
     manifest = {
         "format": "Grandleon project console cutouts v1",
         "boardSide": BOARD_SIDE,
         "closeSide": N64_CLOSE_SIDE,
         "defaultStyle": STYLES.index(str(project.get("characterStyleId") or "medieval")),
         "defaultFigure": FIGURES.index(str(project.get("characterFigureId") or "first")),
-        "directionalArt": DIRECTIONAL_ART,
+        "directionalArt": {
+            "eastWest": "mirrored-native-right",
+            "northSouth": "profile-authored-partial",
+            "availableDrawingCount": directional_count,
+            "generatedRuntimeEnabled": False,
+            "projectedCi4Bytes": directional_bytes,
+            "projectedFramesPerDrawing": DIRECTIONAL_POSE_COUNT,
+        },
         "poses": [name for name, _ in POSES],
         "drawings": records,
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
-def write_ps1(output: Path, project: dict[str, object], drawings: tuple[Drawing, ...], bindings: dict[tuple[str, str, str], tuple[Path, Path]]) -> None:
+def write_ps1(
+    output: Path, project: dict[str, object], drawings: tuple[Drawing, ...],
+    bindings: dict[tuple[str, str, str], Binding],
+) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
+    directional_count, directional_bytes = directional_budget(drawings, bindings)
     chunks = [
         "// Generated from the curated Godot HD roster. Do not edit.\n",
         "#pragma once\n#include <cstddef>\n",
@@ -305,6 +347,8 @@ def write_ps1(output: Path, project: dict[str, object], drawings: tuple[Drawing,
         f"inline constexpr int grandleon_console_character_pose_count = {len(POSES)};\n",
         "inline constexpr bool grandleon_console_mirrors_east_west = true;\n",
         "inline constexpr bool grandleon_console_has_north_south = false;\n",
+        f"inline constexpr int grandleon_console_directional_source_count = {directional_count};\n",
+        f"inline constexpr std::size_t grandleon_console_directional_projected_ci4_bytes = {directional_bytes};\n",
     ]
     rows = []
     for index, drawing in enumerate(drawings):
