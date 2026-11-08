@@ -61,6 +61,14 @@ page and focus treatment. Footer glyphs use Cross, Circle, Triangle, and START;
 story panels fit their actual lines so more of the authored backdrop remains
 visible.
 
+The interface typeface is drawn for Grandleon and released under the
+repository's MIT licence; it is not converted from an external font. Its
+editable bitmap source is `src/ui_font.h`. The PlayStation expands that source
+into a transparent 4bpp atlas at boot, with proportional spacing, accented
+Latin letters for English, Spanish and Brazilian Portuguese, and the four pad
+marks. Pixel-measured rows clip or add an ellipsis inside their panels rather
+than drawing through a border or meter.
+
 The playable campaign executable is what release testing and disc boot testing
 exercise. It is not paired with a separate renderer demo.
 

@@ -36,7 +36,7 @@
 // Where things go in VRAM
 //
 //     Y 0..239    X 0..319     the framebuffer, and the display
-//     Y 0..15     X 320..383   the font, one 4bpp sheet of sixty-four glyphs
+//     Y 0..31     X 320..383   the font, one 4bpp sheet of 128 glyphs
 //     Y 240..255  X 0..1023    CLUTs, sixteen halfwords each on a 16-halfword
 //                              grid: 64 to a row, 16 rows, 1,024 in all
 //     Y 256..511  X 320..1023  eleven 4bpp texture pages, 64 cells each
@@ -46,8 +46,8 @@
 // to the right of the framebuffer and above the CLUT band (Y 0..239,
 // X 320..1023) is 168 KiB that no region above claims, because a texture page
 // whose Y base is zero overlaps the framebuffer for its first 320 halfwords and
-// was therefore never usable as a page. Sixteen lines of it are, as long as
-// nothing needs a whole page there, and a font does not.
+// was therefore never usable as a page. Thirty-two lines of it are, as long
+// as nothing needs a whole page there, and a font does not.
 //
 // A texture page is fixed at 64 halfwords by 256 lines, and its X base must be
 // a multiple of 64. That is the hardware's arithmetic, not a choice. A cell is
@@ -97,18 +97,18 @@ constexpr int texture_page_count = 11;
 constexpr int texture_page_y = 256;
 constexpr int cell_capacity = texture_page_count * cells_per_page;
 
-// The font sheet: sixty-four glyphs of eight texels square, thirty-two across
-// and two down, at 4bpp. Thirty-two glyphs of eight texels is 256, which is
+// The font sheet: 128 glyphs of eight texels square, thirty-two across and four
+// down, at 4bpp. Thirty-two glyphs of eight texels is 256, which is
 // exactly a texture page's width, and it is the widest a texture coordinate can
 // address: the U field of a rectangle packet is eight bits.
 //
 // It lives in texture page `first_texture_page` at Y base zero: the page's X
-// base is clear of the framebuffer, and its first sixteen lines are clear of
+// base is clear of the framebuffer, and its first thirty-two lines are clear of
 // the CLUT band, which is the whole of what the map above has to be true about.
 constexpr int glyph_texels = 8;
 constexpr int glyph_halfwords = glyph_texels / 4;
 constexpr int font_columns = 32;
-constexpr int font_rows = 2;
+constexpr int font_rows = 4;
 constexpr int font_page = first_texture_page;
 constexpr int font_page_y = 0;
 constexpr int font_x = font_page * page_halfwords;
@@ -298,9 +298,8 @@ void draw_triangle(int x0, int y0, int x1, int y1, int x2, int y2,
                    std::uint16_t colour);
 
 // Draws one glyph of the font sheet at (`screen_x`, `screen_y`) through `clut`.
-// `slot` is the glyph's index into the sheet, which is its character less
-// `view::first_glyph`; out of range draws nothing rather than whatever is next
-// in the page.
+// `slot` is the glyph's index in the PlayStation-owned UI atlas; out of range
+// draws nothing rather than whatever is next in the page.
 void draw_glyph(int screen_x, int screen_y, int slot, int clut);
 
 // Draws a font glyph into a square of `size` pixels. The campaign title uses

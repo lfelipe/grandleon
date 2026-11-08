@@ -177,9 +177,16 @@ project_for() {
 min_checks_for() {
     case "$1 $2" in
         "tarnholt_line found") echo 319 ;;
-        "tarnholt_line resume") echo 29 ;;
-        "demo_campaign found") echo 65 ;;
-        "demo_campaign resume") echo 25 ;;
+        # Resume now has five real screens: title, slot, two ending story
+        # pages and the campaign end. The removed pre-battle screen must not
+        # be recreated merely to satisfy its old six-frame assertion floor.
+        "tarnholt_line resume") echo 27 ;;
+        # The short demo likewise has four real screens around its battle.
+        # Its former pre-battle screen accounted for the stale four checks.
+        "demo_campaign found") echo 61 ;;
+        # Resume has title, slot and campaign end; the obsolete pre-battle
+        # page was the fourth screen behind the former floor.
+        "demo_campaign resume") echo 23 ;;
         *) echo "error: no assertion floor is recorded for '$1 $2'." >&2; exit 2 ;;
     esac
 }

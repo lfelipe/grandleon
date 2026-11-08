@@ -21,10 +21,10 @@
 //     vertical retrace. `psx_runtime.h` explains what a retrace is on a
 //     machine with no interrupt handler installed.
 //
-//   * **A font.** This console has none; the sixty-four glyphs are
-//     `grandleon/view/glyphs.hpp`'s and what this file
-//     does is expand them, once, into a 4bpp sheet in the corner of VRAM that
-//     the framebuffer and the CLUT band between them leave empty.
+//   * **A font.** This console has none; `ui_font.h` is Grandleon's original
+//     variable-width television typeface. This file expands its transparent,
+//     shadowed texels once into a 4bpp sheet in the corner of VRAM that the
+//     framebuffer and the CLUT band between them leave empty.
 //
 //   * **A controller.** SIO0, bit-banged, with its acknowledgement budget set
 //     by measurement. `psx_pad.h` carries the numbers.
@@ -86,7 +86,6 @@
 #include <grandleon/package_runtime/target_budget.hpp>
 #include <grandleon/sheet/unit_sheet.hpp>
 #include <grandleon/simulation/encounter.hpp>
-#include <grandleon/view/glyphs.hpp>
 #include <grandleon/view/motion.hpp>
 
 #include <cstddef>
@@ -99,6 +98,8 @@
 #include "psx_pad.h"
 #include "psx_runtime.h"
 #include "themes.h"
+#include "ui_font.h"
+#include "ui_layout.h"
 
 #ifdef GRANDLEON_PSX_AUTOPILOT
 #include "fordlight_pad.h"
@@ -152,6 +153,8 @@ namespace art = grandleon::playstation::art;
 namespace console = grandleon::playstation::console_renderer;
 namespace gpu = grandleon::playstation::gpu;
 namespace pad = grandleon::playstation::pad;
+namespace font = grandleon::playstation::ui_font;
+namespace layout = grandleon::playstation::ui_layout;
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
 namespace card = grandleon::playstation::card;
 namespace storage = grandleon::storage;
@@ -330,7 +333,6 @@ constexpr int row_hovered = screen_rows - 4;
 constexpr int row_message = screen_rows - 3;
 constexpr int row_aiming = screen_rows - 2;
 constexpr int row_hint = screen_rows - 1;
-constexpr int menu_left = 2;
 constexpr int sheet_footer_row = screen_rows - 2;
 
 // How thick the wash around a lit cell is, and why it is a frame rather than a
@@ -558,8 +560,8 @@ int cluts_used = 0;
 bool cells_fit = true;
 bool cluts_fit = true;
 
-// The font, expanded. Two kilobytes of `.bss`, built once and uploaded once;
-// the compact one-bit form stays in `.rodata` where `grandleon::view` put it.
+// The font, expanded. Four kilobytes of `.bss`, built once and uploaded once;
+// the compact two-tone recipe stays in `.rodata` in `ui_font.h`.
 std::uint16_t font_sheet[gpu::font_lines][gpu::font_halfwords_across];
 
 [[nodiscard]] int claim_cell(const unsigned short* texels) {
@@ -594,18 +596,19 @@ void build_font() {
     for (auto& row : font_sheet) {
         for (std::uint16_t& word : row) word = 0;
     }
-    for (int slot = 0; slot < view::glyph_count && slot < gpu::font_capacity;
+    for (int slot = 0; slot < font::glyph_count && slot < gpu::font_capacity;
          ++slot) {
         const int base_line = gpu::glyph_texture_v(slot);
         const int base_word = gpu::glyph_texture_u(slot) / art::texels_per_halfword;
         for (int row = 0; row < gpu::glyph_texels; ++row) {
             for (int x = 0; x < gpu::glyph_texels; ++x) {
-                if (!view::glyph_pixel(view::first_glyph + slot, x, row)) continue;
+                const std::uint8_t texel = font::texel(slot, x, row);
+                if (texel == 0U) continue;
                 const int word = base_word + x / art::texels_per_halfword;
                 const int shift = 4 * (x % art::texels_per_halfword);
                 font_sheet[base_line + row][word] = static_cast<std::uint16_t>(
                     font_sheet[base_line + row][word] |
-                    static_cast<std::uint16_t>(1u << shift)
+                    static_cast<std::uint16_t>(texel << shift)
                 );
             }
         }
@@ -616,7 +619,8 @@ void build_font() {
     );
 }
 
-// The font's CLUT: index 0 is transparent and index 1 is ink. Every surface
+// The font's CLUT: index 0 is transparent, index 1 its dark offset and index 2
+// its face. Every surface
 // that writes text paints its panel, page, bar or chip first, so the glyph must
 // preserve that surface between its strokes. Making index 0 paper-coloured
 // stamped an opaque 8x8 black tile around every letter; over a header or focus
@@ -624,7 +628,8 @@ void build_font() {
 // Nintendo 64 preserves the row beneath its glyphs, and this does the same.
 [[nodiscard]] int claim_font_clut(std::uint16_t ink) {
     unsigned short entries[art::clut_size]{};
-    entries[1] = ink;
+    entries[1] = console_ui_colour(view::UiTone::shadow);
+    entries[2] = ink;
     return claim_clut(entries);
 }
 
@@ -795,20 +800,24 @@ public:
     void line(const char* value) override { psx::print(value); }
 };
 
-// The box the action menu occupies, in glyph cells, so a probe over a lit tile
-// can tell whether the menu is standing on it.
+// The box the action menu occupies, in exact pixels. Painting, text bounds and
+// framebuffer exclusions all read this one geometry; a panel cannot reserve a
+// 16-pixel header while its text mistakenly advances by two unrelated cells.
 struct MenuBox final {
-    int left{0};
-    int top{0};
-    int width{0};
-    int height{0};
-    int rows_top{0};
+    view::ConsolePanel panel{};
+    int heading_x{0};
+    int heading_y{0};
+    int row_text_x{0};
+    int row_text_y{0};
+    int footer_text_x{0};
+    int footer_text_y{0};
 
-    [[nodiscard]] bool covers(int column, int row, int drawn) const noexcept {
-        if (width <= 0 || height <= 0) return false;
-        const int span = drawn / glyph > 0 ? drawn / glyph : 1;
-        return column + span > left && column < left + width &&
-               row + span > top && row < top + height;
+    [[nodiscard]] bool valid() const noexcept { return panel.outer.valid(); }
+
+    [[nodiscard]] bool covers(
+        int x, int y, int width, int height
+    ) const noexcept {
+        return layout::overlaps(panel.outer, {x, y, width, height});
     }
 
     // Whether one *pixel* is under the box, rather than one cell. A cell is
@@ -817,9 +826,7 @@ struct MenuBox final {
     // small enough for the menu to stand over a character that texel can be
     // one the menu is painted on.
     [[nodiscard]] bool covers_pixel(int x, int y) const noexcept {
-        if (width <= 0 || height <= 0) return false;
-        return x >= left * glyph && x < (left + width) * glyph &&
-               y >= top * glyph && y < (top + height) * glyph;
+        return panel.outer.contains(x, y);
     }
 };
 
@@ -1031,12 +1038,12 @@ public:
             probe("titlebar", 24, 18, menu_gold_colour);
             if (view.page != nullptr && view.page->count > 2) {
                 const char* title = view.page->line(2);
-                claim_first_glyph_at(
-                    "gametitle", centred_column(title), 11, title,
+                claim_first_glyph_at_pixel(
+                    "gametitle", centred_x(title, 8, 304), 11 * glyph, title,
                     menu_gold_colour
                 );
             }
-            char footer[screen_cols + 1]{};
+            char footer[128]{};
             control_text(view.footer, footer, sizeof footer);
             if (view.choices > 0 && view.page != nullptr &&
                 view.caret_row >= view.first_choice_row &&
@@ -1044,16 +1051,15 @@ public:
                 const int choice = view.caret_row - view.first_choice_row;
                 const int y = 122 + choice * 24;
                 probe("launchchoice", 58, y, menu_gold_colour);
-                claim_first_glyph_at(
-                    "launchtext", centred_column(view.page->line(view.caret_row)),
-                    (y + 6) / glyph, view.page->line(view.caret_row),
+                const char* choice_text = view.page->line(view.caret_row);
+                claim_first_glyph_at_pixel(
+                    "launchtext", centred_x(choice_text, 66, 188), y + 5,
+                    choice_text,
                     menu_gold_colour
                 );
             }
-            claim_first_glyph_at(
-                "titlefooter", centred_column(footer),
-                view.choices <= 0 ? 26 : 27, footer,
-                control_first_colour(footer)
+            claim_first_control_glyph(
+                "titlefooter", view.choices <= 0 ? 26 : 27, footer
             );
             close_probes(before, harness_screen_slot);
             return;
@@ -1063,12 +1069,9 @@ public:
             probe("helpbg", 0, 0, paper_colour);
             probe("helpbar", 24, 14, menu_gold_colour);
             probe("helppanel", 28, 54, menu_muted_colour);
-            char footer[screen_cols + 1]{};
+            char footer[128]{};
             control_text(view.footer, footer, sizeof footer);
-            claim_first_glyph_at(
-                "helpfooter", centred_column(footer), 27, footer,
-                control_first_colour(footer)
-            );
+            claim_first_control_glyph("helpfooter", 27, footer);
             close_probes(before, harness_screen_slot);
             return;
         }
@@ -1088,12 +1091,9 @@ public:
                     menu_gold_colour
                 );
             }
-            char footer[screen_cols + 1]{};
+            char footer[128]{};
             control_text(view.footer, footer, sizeof footer);
-            claim_first_glyph_at(
-                "slotfooter", centred_column(footer), 27, footer,
-                control_first_colour(footer)
-            );
+            claim_first_control_glyph("slotfooter", 27, footer);
             close_probes(before, harness_screen_slot);
             return;
         }
@@ -1138,11 +1138,10 @@ public:
                 "footer", 2, screen_footer_row * glyph - glyph,
                 menu_gold_colour
             );
-            char footer[screen_cols + 1]{};
+            char footer[128]{};
             control_text(view.footer, footer, sizeof footer);
-            claim_first_glyph_at(
-                "footertext", centred_column(footer), screen_footer_row,
-                footer, control_first_colour(footer)
+            claim_first_control_glyph(
+                "footertext", screen_footer_row, footer
             );
         }
 
@@ -1584,16 +1583,41 @@ public:
             // the interface is deliberately drawing over. What is claimed
             // instead is that the sheet is really there: its shared amber
             // frame, the paper body, and the first ink pixel of its title.
-            probe("sheet", 2, 2, menu_gold_colour);
-            // The first status row is deliberately surface-coloured; the
-            // loadout's corresponding point is a section header now.
-            probe("sheetfar", 12, 60, paper_colour);
+            const int hp_line = sheet_line(*overlay.sheet, "HP ");
+            const int inventory_line = hp_line >= 0 ? hp_line + 3 : 1;
+            const int inventory_rows = overlay.sheet->count > inventory_line
+                ? overlay.sheet->count - inventory_line : 0;
+            const int shown_inventory_rows = inventory_rows < 8
+                ? inventory_rows : 8;
+            const layout::Sheet placed = layout::sheet(shown_inventory_rows);
+            probe("sheet", placed.page.outer.x, placed.page.outer.y,
+                  menu_gold_colour);
+            probe("sheetstatus", placed.status.outer.x, placed.status.outer.y,
+                  menu_gold_colour);
+            probe("sheetstatusdivider", placed.status.rows.x,
+                  placed.status.rows.y, menu_gold_colour);
+            probe("sheetloadout", placed.loadout.outer.x,
+                  placed.loadout.outer.y, menu_gold_colour);
+            probe("sheetloadoutdivider", placed.loadout.rows.x,
+                  placed.loadout.rows.y, menu_gold_colour);
+            probe("sheetfooter", placed.page.footer.x,
+                  placed.page.footer.y + 1, paper_colour);
             if (overlay.sheet->count > 0) {
-                claim_first_glyph_at(
-                    "sheettext", 2, 1, overlay.sheet->line(0),
+                claim_first_glyph_at_pixel(
+                    "sheettext", 16, 10, overlay.sheet->line(0),
                     menu_gold_colour
                 );
             }
+#ifdef GRANDLEON_PSX_AUTOPILOT
+            static bool sheet_layout_checked = false;
+            if (!sheet_layout_checked) {
+                sheet_layout_checked = true;
+                expect(
+                    layout::sheet_regions_are_separate(shown_inventory_rows),
+                    "sheet headings rows meter and footer reserve separate pixels"
+                );
+            }
+#endif
             close_probes(before);
             return;
         }
@@ -1609,7 +1633,7 @@ public:
                 if (x == overlay.cursor_x && y == overlay.cursor_y) continue;
                 const int left = cell_left(x);
                 const int top = cell_top(x, y);
-                if (box.covers(left / glyph, top / glyph, drawn_tile())) continue;
+                if (box.covers(left, top, drawn_tile(), drawn_tile())) continue;
                 if (covered_after_terrain(snapshot, x, y, left, top)) continue;
                 Line label;
                 label.text(splash ? "s" : danger ? "d" : "m")
@@ -1760,17 +1784,44 @@ public:
         }
         if (overlay.menu != nullptr && overlay.menu_rows > 0) {
             probe(
-                "menu", box.left * glyph, box.top * glyph, menu_gold_colour
+                "menu", box.panel.outer.x, box.panel.outer.y, menu_gold_colour
             );
-            claim_glyph(
-                "menucaret", box.left + 1,
-                box.rows_top + overlay.menu_row, '>', menu_gold_colour
+            claim_glyph_at_pixel(
+                "menucaret", box.row_text_x,
+                box.row_text_y + overlay.menu_row * box.panel.row_height,
+                '>', menu_gold_colour
             );
-            claim_glyph_background(
-                "menutextbg", box.left + 1,
-                box.rows_top + overlay.menu_row, '>',
+            claim_glyph_background_at_pixel(
+                "menutextbg", box.row_text_x,
+                box.row_text_y + overlay.menu_row * box.panel.row_height, '>',
                 console_ui_colour(view::UiTone::focus)
             );
+            // The footer's first pixel and the row above it prove that the
+            // choices end before the divider rather than merely being painted
+            // over by it, which was the old action-menu regression.
+            probe(
+                "menufooter", box.panel.footer.x,
+                box.panel.footer.y + 1, paper_colour
+            );
+#ifdef GRANDLEON_PSX_AUTOPILOT
+            static bool menu_layout_checked = false;
+            if (!menu_layout_checked) {
+                menu_layout_checked = true;
+                bool labels_fit = true;
+                for (int row = 0; row < overlay.menu_rows; ++row) {
+                    if (font::measure(overlay.menu[row].label) >
+                        box.panel.rows.width - 28) {
+                        labels_fit = false;
+                    }
+                }
+                expect(
+                    !layout::overlaps(box.panel.header, box.panel.rows) &&
+                    !layout::overlaps(box.panel.rows, box.panel.footer) &&
+                    labels_fit,
+                    "action rows reserve their header footer and label pixels"
+                );
+            }
+#endif
         }
         close_probes(before);
     }
@@ -2221,36 +2272,40 @@ private:
             gpu::fill(
                 0, row_hovered * glyph, 4, bar_rows * glyph, owner_colour
             );
-            char name[19]{};
             const char* source_name =
                 overlay.hovered_name != nullptr ? overlay.hovered_name : "";
-            int name_length = 0;
-            while (name_length < 18 && source_name[name_length] != '\0') {
-                name[name_length] = source_name[name_length];
-                ++name_length;
-            }
-            write_at(1, row_hovered, name);
+            (void)write_pixels_with_clut(
+                8, row_hovered * glyph, 144, source_name, font_clut
+            );
             const char* owner = hovered->side != player_side()
                 ? "FOE" : hovered->local_player == 2U ? "P2" : "P1";
-            write_at_with_clut(
-                20, row_hovered, hovered->has_acted ? "DONE" : owner,
+            (void)write_pixels_with_clut(
+                158, row_hovered * glyph, 30,
+                hovered->has_acted ? "DONE" : owner,
                 hovered->has_acted ? font_muted_clut : font_gold_clut
             );
-            write_at_with_clut(24, row_hovered, "HP", font_muted_clut);
-            view::paint_meter(
-                {27 * glyph, row_hovered * glyph + 2, 6 * glyph, 4},
-                hovered->health, hovered->maximum_health,
-                [](view::UiRect rectangle, view::UiTone tone) {
-                    paint_console_ui(rectangle, tone);
-                }
+            (void)write_pixels_with_clut(
+                190, row_hovered * glyph, 16, "HP", font_muted_clut, false
             );
             Line health;
             health.decimal(static_cast<std::uint32_t>(hovered->health))
                 .text("/")
                 .decimal(static_cast<std::uint32_t>(hovered->maximum_health));
-            int health_length = 0;
-            while (health.c_str()[health_length] != '\0') ++health_length;
-            write_at(screen_cols - health_length, row_hovered, health.c_str());
+            const int health_width = text_width(health.c_str());
+            const int health_x = gpu::screen_width - 8 - health_width;
+            const int meter_x = 210;
+            const int meter_width = health_x - meter_x - 6;
+            view::paint_meter(
+                {meter_x, row_hovered * glyph + 2, meter_width, 4},
+                hovered->health, hovered->maximum_health,
+                [](view::UiRect rectangle, view::UiTone tone) {
+                    paint_console_ui(rectangle, tone);
+                }
+            );
+            (void)write_pixels_with_clut(
+                health_x, row_hovered * glyph, health_width,
+                health.c_str(), font_clut, false
+            );
         } else if (overlay.round != nullptr) {
             // Where a board is won by outlasting rounds, the count goes on the
             // hovered row and only when the cursor rests on nobody, so nothing
@@ -2268,12 +2323,18 @@ private:
         // columns, and a bar that clipped would drop the health to keep the
         // class, which is the wrong thing to lose.
         if (overlay.message != nullptr) {
-            write_at(1, row_message, overlay.message);
+            (void)write_pixels_with_clut(
+                8, row_message * glyph, 304, overlay.message, font_clut
+            );
         } else if (overlay.hovered_class != nullptr) {
-            write_at(1, row_message, overlay.hovered_class);
+            (void)write_pixels_with_clut(
+                8, row_message * glyph, 304, overlay.hovered_class, font_clut
+            );
         }
         if (overlay.aiming != nullptr) {
-            write_at(1, row_aiming, overlay.aiming);
+            (void)write_pixels_with_clut(
+                8, row_aiming * glyph, 304, overlay.aiming, font_clut
+            );
         }
         const view::ButtonLegend buttons = view::button_legend(
             view::ConsolePlatform::playstation
@@ -2324,38 +2385,59 @@ private:
     // television distance.
     void draw_sheet(const grandleon::sheet::UnitSheet& sheet) {
         gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, paper_colour);
-        const view::ConsolePage page = view::console_page(
-            2, 2, 316, 236, 28, 18
-        );
+        const int hp_line = sheet_line(sheet, "HP ");
+        const int level_line = sheet_line(sheet, "LEVEL ");
+        const int inventory_line = hp_line >= 0 ? hp_line + 3 : 1;
+        const int inventory_rows = sheet.count > inventory_line
+            ? sheet.count - inventory_line : 0;
+        const int shown_inventory_rows = inventory_rows < 8
+            ? inventory_rows : 8;
+        const layout::Sheet placed = layout::sheet(shown_inventory_rows);
         view::paint_console_page(
-            page,
+            placed.page,
             [](view::UiRect rectangle, view::UiTone tone) {
                 paint_console_ui(rectangle, tone);
             }
         );
         if (sheet.count > 0) {
-            write_at_with_clut(2, 1, sheet.line(0), font_gold_clut);
+            const int level_width = level_line >= 0
+                ? text_width(sheet.line(level_line)) : 0;
+            (void)write_pixels_with_clut(
+                16, 10, 288 - (level_width > 0 ? level_width + 12 : 0),
+                sheet.line(0), font_gold_clut
+            );
         }
-        const int hp_line = sheet_line(sheet, "HP ");
-        const int level_line = sheet_line(sheet, "LEVEL ");
-        if (sheet.count > 1) write_at(2, 2, sheet.line(1));
+        if (sheet.count > 1) {
+            (void)write_pixels_with_clut(
+                16, 21, 288, sheet.line(1), font_clut
+            );
+        }
         if (level_line >= 0) {
-            write_at_with_clut(21, 2, sheet.line(level_line), font_gold_clut);
+            const char* level = sheet.line(level_line);
+            const int width = text_width(level);
+            (void)write_pixels_with_clut(
+                304 - width, 10, width, level, font_gold_clut, false
+            );
         }
 
-        const view::ConsolePanel status = view::console_panel(
-            8, 38, 304, 3, 16, 16, 0
-        );
         view::paint_console_panel(
-            status,
+            placed.status,
             [](view::UiRect rectangle, view::UiTone tone) {
                 paint_console_ui(rectangle, tone);
             }
         );
-        write_at_with_clut(2, 6, "STATUS", font_gold_clut);
+        (void)write_pixels_with_clut(
+            placed.status.header.x + 8, placed.status.header.y + 3,
+            placed.status.header.width - 16, "STATUS", font_gold_clut
+        );
         if (hp_line >= 0) {
             for (int row = 0; row < 3 && hp_line + row < sheet.count; ++row) {
-                write_at(2, 7 + row * 2, sheet.line(hp_line + row));
+                (void)write_pixels_with_clut(
+                    placed.status.rows.x + 8,
+                    placed.status.rows.y + 2 + row * placed.status.row_height,
+                    placed.status.rows.width - 16,
+                    sheet.line(hp_line + row), font_clut
+                );
             }
             const char* health = sheet.line(hp_line);
             const int current = decimal_after(health, "HP ");
@@ -2364,27 +2446,29 @@ private:
             const int maximum = health[slash] == '/'
                 ? decimal_after(health + slash + 1, "") : 0;
             view::paint_meter(
-                {16, 68, 288, 4}, current, maximum,
+                {
+                    placed.status.rows.x + 8,
+                    placed.status.rows.y + 3 * placed.status.row_height + 4,
+                    placed.status.rows.width - 16, 4,
+                },
+                current, maximum,
                 [](view::UiRect rectangle, view::UiTone tone) {
                     paint_console_ui(rectangle, tone);
                 }
             );
         }
 
-        const int inventory_line = hp_line >= 0 ? hp_line + 3 : 1;
-        const int inventory_rows = sheet.count > inventory_line
-            ? sheet.count - inventory_line : 0;
-        const view::ConsolePanel loadout = view::console_panel(
-            8, 110, 304, inventory_rows, 8, 16, 0
-        );
         view::paint_console_panel(
-            loadout,
+            placed.loadout,
             [](view::UiRect rectangle, view::UiTone tone) {
                 paint_console_ui(rectangle, tone);
             }
         );
-        write_at_with_clut(2, 15, "LOADOUT", font_gold_clut);
-        for (int row = 0; row < inventory_rows; ++row) {
+        (void)write_pixels_with_clut(
+            placed.loadout.header.x + 8, placed.loadout.header.y + 3,
+            placed.loadout.header.width - 16, "LOADOUT", font_gold_clut
+        );
+        for (int row = 0; row < shown_inventory_rows; ++row) {
             const char* text = sheet.line(inventory_line + row);
             const bool section = begins_with(text, "WEAPONS") ||
                 begins_with(text, "ABILITIES") || begins_with(text, "ITEMS");
@@ -2392,8 +2476,10 @@ private:
             // section names are already gold; repainting their whole rows as
             // headers made the interleaved heading/content pairs look like
             // alternating stripes rather than one readable loadout.
-            write_at_with_clut(
-                2, 16 + row, text,
+            (void)write_pixels_with_clut(
+                placed.loadout.rows.x + 8,
+                placed.loadout.rows.y + 2 + row * placed.loadout.row_height,
+                placed.loadout.rows.width - 16, text,
                 section ? font_gold_clut : font_clut
             );
         }
@@ -2401,27 +2487,20 @@ private:
         // campaign executable, while `write_controls_centred` belongs to the
         // campaign page renderer below. Keep the same centred controller row
         // without making the turn build depend on a campaign-only helper.
-        write_at_with_clut(14, sheet_footer_row, "X", font_gold_clut);
-        write_at(16, sheet_footer_row, "OR");
-        write_at_with_clut(19, sheet_footer_row, "O", font_gold_clut);
-        write_at(22, sheet_footer_row, "BACK");
+        draw_sheet_footer();
     }
 
     void draw_menu(const turn::Overlay& overlay) {
         const MenuBox box = menu_box(overlay);
-        if (box.width <= 0) return;
-        const view::ConsolePanel panel = view::console_panel(
-            box.left * glyph, box.top * glyph, box.width * glyph,
-            overlay.menu_rows, glyph, 14, 14
-        );
+        if (!box.valid()) return;
         view::paint_console_panel(
-            panel,
+            box.panel,
             [](view::UiRect rectangle, view::UiTone tone) {
                 paint_console_ui(rectangle, tone);
             }
         );
         view::paint_focus_row(
-            panel, overlay.menu_row,
+            box.panel, overlay.menu_row,
             [](view::UiRect rectangle, view::UiTone tone) {
                 paint_console_ui(rectangle, tone);
             }
@@ -2436,8 +2515,9 @@ private:
                 break;
             }
         }
-        write_at_with_clut(
-            box.left + 1, box.top + 1,
+        (void)write_pixels_with_clut(
+            box.heading_x, box.heading_y,
+            box.panel.header.x + box.panel.header.width - box.heading_x - 6,
             battle ? "BATTLE" : "ACTION", font_gold_clut
         );
         for (int row = 0; row < overlay.menu_rows; ++row) {
@@ -2447,43 +2527,97 @@ private:
             line.text(row == overlay.menu_row ? ">" : " ")
                 .text(" ")
                 .text(overlay.menu[row].label);
-            write_at_with_clut(
-                box.left + 1, box.rows_top + row, line.c_str(),
+            (void)write_pixels_with_clut(
+                box.row_text_x,
+                box.row_text_y + row * box.panel.row_height,
+                box.panel.rows.x + box.panel.rows.width - box.row_text_x - 6,
+                line.c_str(),
                 row == overlay.menu_row ? font_gold_clut : font_clut
             );
         }
         const view::ButtonLegend buttons = view::button_legend(
             view::ConsolePlatform::playstation
         );
-        const int footer_row = box.rows_top + overlay.menu_rows;
-        draw_button_hint(box.left + 1, footer_row, buttons.confirm, "SELECT");
-        draw_button_hint(box.left + 10, footer_row, buttons.back, "BACK");
+        draw_button_hint_pixels(
+            box.footer_text_x, box.footer_text_y,
+            buttons.confirm, "SELECT"
+        );
+        const int back_width = button_hint_width(buttons.back, "BACK");
+        draw_button_hint_pixels(
+            box.panel.footer.x + box.panel.footer.width - back_width - 8,
+            box.footer_text_y, buttons.back, "BACK"
+        );
+    }
+
+    [[nodiscard]] static std::uint32_t controller_mark(
+        const char* value
+    ) noexcept {
+        if (value == nullptr) return '?';
+        if (value[0] == 'X' && value[1] == '\0') return font::controller_cross;
+        if (value[0] == 'O' && value[1] == '\0') return font::controller_circle;
+        if (value[0] == '^' && value[1] == '\0') return font::controller_triangle;
+        return static_cast<unsigned char>(value[0]);
+    }
+
+    [[nodiscard]] static int button_hint_width(
+        const char* glyph_text, const char* label
+    ) noexcept {
+        return font::advance(controller_mark(glyph_text)) + 4 +
+            font::measure(label);
+    }
+
+    void draw_button_hint_pixels(
+        int x, int y, const char* glyph_text, const char* label
+    ) {
+        const std::uint32_t mark = controller_mark(glyph_text);
+        const int badge_width = font::advance(mark);
+        gpu::fill(
+            x, y, badge_width, glyph,
+            console_ui_colour(view::UiTone::focus)
+        );
+        gpu::draw_glyph(x, y, font::slot_for(mark), font_gold_clut);
+        (void)write_pixels_with_clut(
+            x + badge_width + 4, y,
+            gpu::screen_width - (x + badge_width + 4),
+            label, font_clut
+        );
     }
 
     void draw_button_hint(
         int column, int row, const char* glyph_text, const char* label
     ) {
-        int glyphs = 0;
-        while (glyph_text != nullptr && glyph_text[glyphs] != '\0') ++glyphs;
-        if (glyphs <= 0) return;
-        gpu::fill(
-            column * glyph, row * glyph, glyphs * glyph, glyph,
-            console_ui_colour(view::UiTone::focus)
+        draw_button_hint_pixels(column * glyph, row * glyph, glyph_text, label);
+    }
+
+    void draw_sheet_footer() {
+        const int cross_width = font::advance(font::controller_cross);
+        const int circle_width = font::advance(font::controller_circle);
+        const int total = cross_width + 4 + text_width("OR") + 6 +
+            circle_width + 4 + text_width("BACK");
+        int x = (gpu::screen_width - total) / 2;
+        const int y = sheet_footer_row * glyph;
+        gpu::draw_glyph(
+            x, y, font::slot_for(font::controller_cross), font_gold_clut
         );
-        write_at_with_clut(column, row, glyph_text, font_gold_clut);
-        write_at(column + glyphs + 1, row, label);
+        x += cross_width + 4;
+        x += write_pixels_with_clut(
+            x, y, total, "OR", font_clut, false
+        ) + 6;
+        gpu::draw_glyph(
+            x, y, font::slot_for(font::controller_circle), font_gold_clut
+        );
+        x += circle_width + 4;
+        (void)write_pixels_with_clut(
+            x, y, gpu::screen_width - x - 8, "BACK", font_clut, false
+        );
     }
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
-    [[nodiscard]] static int text_length(const char* value) noexcept {
-        int length = 0;
-        while (value != nullptr && value[length] != '\0') ++length;
-        return length;
-    }
-
-    [[nodiscard]] static int centred_column(const char* value) noexcept {
-        const int length = text_length(value);
-        return length < screen_cols ? (screen_cols - length) / 2 : 0;
+    [[nodiscard]] static int centred_x(
+        const char* value, int left = 0, int width = gpu::screen_width
+    ) noexcept {
+        const int measured = font::measure(value);
+        return measured < width ? left + (width - measured) / 2 : left;
     }
 
     // Shared campaign pages name the three abstract actions A/B/C so recorded
@@ -2504,7 +2638,15 @@ private:
                 (i == 0U || source[i - 1U] == ' ') &&
                 (source[i + 1U] == '\0' || source[i + 1U] == ' ');
             const char* replacement = nullptr;
-            if (i == 0U && token && value == 'A') replacement = "X";
+            // A leading abstract A is Confirm. The compact help/title copy
+            // also aligns a later button token with two spaces; an ordinary
+            // article has one, as in `A START A NEW COMPANY`, so it remains A.
+            if (token && value == 'A' &&
+                (i == 0U ||
+                 (i >= 2U && source[i - 1U] == ' ' &&
+                  source[i - 2U] == ' '))) {
+                replacement = "X";
+            }
             if (token && value == 'B') replacement = "O";
             if (token && value == 'C') replacement = "^";
             if (replacement == nullptr) {
@@ -2540,47 +2682,93 @@ private:
             ? menu_gold_colour : ink_colour;
     }
 
-    void write_centred(int row, const char* value, int clut) {
-        write_at_with_clut(centred_column(value), row, value, clut);
-    }
-
-    void write_controls_centred(int row, const char* value, int clut) {
-        char translated[screen_cols + 1]{};
-        control_text(value, translated, sizeof translated);
-        const int column = centred_column(translated);
-        write_at_with_clut(column, row, translated, clut);
-        // Controller names are interface glyphs, not prose. Colouring only
-        // whole tokens keeps the X in NEXT and the O in COMPANY ordinary.
-        const int translated_length = text_length(translated);
-        for (int index = 0; index < translated_length; ++index) {
-            const bool begins = index == 0 || translated[index - 1] == ' ';
-            if (!begins) continue;
-            const bool one = translated[index + 1] == '\0' ||
-                translated[index + 1] == ' ';
-            if (one && (translated[index] == 'X' ||
-                        translated[index] == 'O' ||
-                        translated[index] == '^')) {
-                char glyph_text[2] = {translated[index], '\0'};
-                write_at_with_clut(
-                    column + index, row, glyph_text, font_gold_clut
-                );
-                continue;
-            }
-            constexpr char start[] = "START";
-            if (index + 5 > translated_length) continue;
-            bool is_start = true;
-            for (int letter = 0; start[letter] != '\0'; ++letter) {
-                if (translated[index + letter] != start[letter]) {
-                    is_start = false;
+    [[nodiscard]] static bool inside_start_token(
+        const char* text, std::size_t at
+    ) noexcept {
+        constexpr char start[] = "START";
+        for (std::size_t offset = 0U; offset < 5U && offset <= at; ++offset) {
+            const std::size_t first = at - offset;
+            if (first > 0U && text[first - 1U] != ' ') continue;
+            bool matches = true;
+            for (std::size_t letter = 0U; letter < 5U; ++letter) {
+                if (text[first + letter] != start[letter]) {
+                    matches = false;
                     break;
                 }
             }
-            if (is_start &&
-                (translated[index + 5] == '\0' ||
-                 translated[index + 5] == ' ')) {
-                write_at_with_clut(
-                    column + index, row, start, font_gold_clut
+            if (matches &&
+                (text[first + 5U] == '\0' || text[first + 5U] == ' ')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void write_centred(int row, const char* value, int clut) {
+        const int x = centred_x(value, 8, gpu::screen_width - 16);
+        (void)write_pixels_with_clut(
+            x, row * glyph, gpu::screen_width - 8 - x, value, clut
+        );
+    }
+
+    void write_centred_in(
+        int left, int top, int width, const char* value, int clut
+    ) {
+        const int x = centred_x(value, left, width);
+        (void)write_pixels_with_clut(
+            x, top, left + width - x, value, clut
+        );
+    }
+
+    void write_controls_centred(int row, const char* value, int clut) {
+        char translated[128]{};
+        control_text(value, translated, sizeof translated);
+        constexpr int content_left = 8;
+        constexpr int content_width = gpu::screen_width - 16;
+        const int full_width = text_width(translated);
+        const bool shortened = full_width > content_width;
+        const int dots = shortened ? text_width("...") : 0;
+        const int available = content_width - dots;
+        const int x = centred_x(
+            translated, content_left,
+            shortened ? content_width : content_width
+        );
+        int used = 0;
+        for (std::size_t at = 0U; translated[at] != '\0';) {
+            const font::Decoded decoded = font::decode(translated + at);
+            if (decoded.bytes == 0U) break;
+            const int advance = font::advance(decoded.codepoint);
+            if (used + advance > available) break;
+            const bool begins = at == 0U || translated[at - 1U] == ' ';
+            const bool one = decoded.bytes == 1U &&
+                (translated[at + 1U] == '\0' || translated[at + 1U] == ' ');
+            std::uint32_t shown = decoded.codepoint;
+            int shown_clut = clut;
+            if (begins && one && decoded.codepoint == 'X') {
+                shown = font::controller_cross;
+                shown_clut = font_gold_clut;
+            } else if (begins && one && decoded.codepoint == 'O') {
+                shown = font::controller_circle;
+                shown_clut = font_gold_clut;
+            } else if (begins && one && decoded.codepoint == '^') {
+                shown = font::controller_triangle;
+                shown_clut = font_gold_clut;
+            } else if (inside_start_token(translated, at)) {
+                shown_clut = font_gold_clut;
+            }
+            if (shown != ' ') {
+                gpu::draw_glyph(x + used, row * glyph, font::slot_for(shown),
+                                shown_clut);
+            }
+            used += advance;
+            at += decoded.bytes;
+        }
+        if (shortened) {
+            for (int dot = 0; dot < 3; ++dot) {
+                gpu::draw_glyph(
+                    x + used, row * glyph, font::slot_for('.'), clut
                 );
+                used += font::advance('.');
             }
         }
     }
@@ -2620,7 +2808,11 @@ private:
         gpu::fill(24, 18, 272, 2, menu_gold_colour);
         gpu::fill(52, 70, 216, 1, menu_muted_colour);
         gpu::fill(52, 198, 216, 1, menu_muted_colour);
-        write_scaled_at(88, 30, "GRANDLEON", 16, font_gold_clut);
+        const int mark_width = scaled_text_width("GRANDLEON", 16);
+        write_scaled_at(
+            (gpu::screen_width - mark_width) / 2, 30,
+            "GRANDLEON", 16, font_gold_clut
+        );
         if (view.page != nullptr && view.page->count > 2) {
             write_centred(11, view.page->line(2), font_gold_clut);
         }
@@ -2646,8 +2838,8 @@ private:
                     gpu::fill(58, y, 204, 18, menu_muted_colour);
                     gpu::fill(60, y + 2, 200, 14, paper_colour);
                 }
-                write_centred(
-                    (y + 6) / glyph, view.page->line(page_row),
+                write_centred_in(
+                    66, y + 5, 188, view.page->line(page_row),
                     selected ? font_gold_clut : font_clut
                 );
             }
@@ -2669,7 +2861,11 @@ private:
             }
         );
         gpu::fill(24, 14, 272, 2, menu_gold_colour);
-        write_scaled_at(106, 22, "GRANDLEON", 12, font_gold_clut);
+        const int mark_width = scaled_text_width("GRANDLEON", 12);
+        write_scaled_at(
+            (gpu::screen_width - mark_width) / 2, 22,
+            "GRANDLEON", 12, font_gold_clut
+        );
         gpu::fill(28, 54, 264, 140, menu_muted_colour);
         gpu::fill(30, 56, 260, 136, paper_colour);
         if (view.page != nullptr) {
@@ -2678,8 +2874,8 @@ private:
                 control_text(
                     view.page->line(row), translated, sizeof translated
                 );
-                write_at_with_clut(
-                    6, 8 + row * 2, translated,
+                (void)write_pixels_with_clut(
+                    48, (8 + row * 2) * glyph, 224, translated,
                     row == 0 ? font_gold_clut : font_clut
                 );
             }
@@ -2699,7 +2895,11 @@ private:
             }
         );
         gpu::fill(24, 14, 272, 2, menu_gold_colour);
-        write_scaled_at(106, 22, "GRANDLEON", 12, font_gold_clut);
+        const int mark_width = scaled_text_width("GRANDLEON", 12);
+        write_scaled_at(
+            (gpu::screen_width - mark_width) / 2, 22,
+            "GRANDLEON", 12, font_gold_clut
+        );
         if (view.page != nullptr && view.page->count > 0) {
             write_centred(7, view.page->line(0), font_gold_clut);
         }
@@ -2719,8 +2919,8 @@ private:
                 );
                 write_at_with_clut(4, row, ">", font_gold_clut);
             }
-            write_at_with_clut(
-                6, row, view.page->line(page_row),
+            (void)write_pixels_with_clut(
+                48, row * glyph, 240, view.page->line(page_row),
                 selected ? font_gold_clut : font_clut
             );
         }
@@ -2759,9 +2959,9 @@ private:
                 paint_console_ui(rectangle, tone);
             }
         );
-        write_at_with_clut(
-            screen_page_left, screen_panel_top,
-            screen_heading(view.screen), font_gold_clut
+        (void)write_pixels_with_clut(
+            screen_page_left * glyph, screen_panel_top * glyph,
+            296, screen_heading(view.screen), font_gold_clut
         );
         if (view.caret_row >= 0 && view.caret_row < turn::page_capacity) {
             view::paint_focus(
@@ -2778,8 +2978,10 @@ private:
             for (int row = 0; row < view.page->count &&
                               row < turn::page_capacity;
                  ++row) {
-                write_at(
-                    screen_page_left, screen_page_top + row, view.page->line(row)
+                (void)write_pixels_with_clut(
+                    screen_page_left * glyph,
+                    (screen_page_top + row) * glyph,
+                    296, view.page->line(row), font_clut
                 );
             }
         }
@@ -2853,27 +3055,72 @@ private:
 
     void write_row(int row, const char* value) { write_at(0, row, value); }
 
-    // Only glyphs that are not spaces. The surface beneath them is already
-    // filled, and index zero in the font CLUT preserves it. That turns a
-    // full-screen sheet from twelve hundred textured rectangles into a few
-    // hundred without stamping paper-coloured boxes over coloured rows.
+    [[nodiscard]] static int text_width(const char* value) noexcept {
+        return font::measure(value);
+    }
+
+    [[nodiscard]] static int scaled_text_width(
+        const char* value, int size
+    ) noexcept {
+        int width = 0;
+        for (std::size_t at = 0U;
+             value != nullptr && value[at] != '\0';) {
+            const font::Decoded decoded = font::decode(value + at);
+            if (decoded.bytes == 0U) break;
+            width += (font::advance(decoded.codepoint) * size + glyph - 1) /
+                glyph;
+            at += decoded.bytes;
+        }
+        return width;
+    }
+
+    // Draws within an exact pixel budget. If the authored or translated copy
+    // does not fit, the final three dots are inside that same budget; no glyph
+    // is allowed to wander into a meter, divider or frame and be hidden later.
+    int write_pixels_with_clut(
+        int x, int y, int max_width, const char* value, int clut,
+        bool ellipsis = true
+    ) {
+        if (value == nullptr || clut < 0 || max_width <= 0) return 0;
+        if (y < 0 || y + glyph > gpu::screen_height) return 0;
+        const int dots_width = ellipsis ? text_width("...") : 0;
+        const font::Fit fit = font::fit(value, max_width, dots_width);
+        int used = 0;
+        std::size_t at = 0U;
+        while (at < fit.bytes) {
+            const font::Decoded decoded = font::decode(value + at);
+            if (decoded.bytes == 0U) break;
+            const int advance = font::advance(decoded.codepoint);
+            if (decoded.codepoint != ' ') {
+                gpu::draw_glyph(
+                    x + used, y, font::slot_for(decoded.codepoint), clut
+                );
+            }
+            used += advance;
+            at += decoded.bytes;
+        }
+        if (fit.truncated && ellipsis) {
+            for (int dot = 0; dot < 3; ++dot) {
+                gpu::draw_glyph(
+                    x + used, y, font::slot_for('.'), clut
+                );
+                used += font::advance('.');
+            }
+        }
+        return used;
+    }
+
+    // Grid coordinates remain useful for the shared page contract, but only
+    // the anchor is a grid coordinate now. Every following glyph advances by
+    // its real width and the display edge is an explicit clipping boundary.
     void write_at_with_clut(
         int column, int row, const char* value, int clut
     ) {
-        if (value == nullptr || clut < 0) return;
         if (row < 0 || row >= screen_rows) return;
-        for (int i = 0; value[i] != '\0'; ++i) {
-            const int at = column + i;
-            if (at >= screen_cols) break;
-            char character = value[i];
-            if (character >= 'a' && character <= 'z') {
-                character = static_cast<char>(character - ('a' - 'A'));
-            }
-            if (character == ' ') continue;
-            const int slot = character - view::first_glyph;
-            if (slot <= 0 || slot >= view::glyph_count) continue;
-            gpu::draw_glyph(at * glyph, row * glyph, slot, clut);
-        }
+        const int x = column * glyph;
+        (void)write_pixels_with_clut(
+            x, row * glyph, gpu::screen_width - x, value, clut
+        );
     }
 
     void write_at(int column, int row, const char* value) {
@@ -2884,15 +3131,18 @@ private:
         int x, int y, const char* value, int size, int clut
     ) {
         if (value == nullptr || clut < 0 || size <= 0) return;
-        for (int i = 0; value[i] != '\0'; ++i) {
-            char character = value[i];
-            if (character >= 'a' && character <= 'z') {
-                character = static_cast<char>(character - ('a' - 'A'));
+        int used = 0;
+        for (std::size_t at = 0U; value[at] != '\0';) {
+            const font::Decoded decoded = font::decode(value + at);
+            if (decoded.bytes == 0U) break;
+            if (decoded.codepoint != ' ') {
+                gpu::draw_glyph_scaled(
+                    x + used, y, size, font::slot_for(decoded.codepoint), clut
+                );
             }
-            if (character == ' ') continue;
-            const int slot = character - view::first_glyph;
-            if (slot <= 0 || slot >= view::glyph_count) continue;
-            gpu::draw_glyph_scaled(x + i * size, y, size, slot, clut);
+            used += (font::advance(decoded.codepoint) * size + glyph - 1) /
+                glyph;
+            at += decoded.bytes;
         }
     }
 
@@ -2905,6 +3155,8 @@ private:
     // standing anywhere on the screen.
     static constexpr int bubble_columns = 30;
     static constexpr int bubble_rows = 3;
+    static constexpr int bubble_width = bubble_columns * glyph;
+    static constexpr int bubble_row_bytes = 96;
 
     // One saying over the board, beside whoever is speaking.
     //
@@ -2940,25 +3192,41 @@ private:
 
         // Wrapped here rather than by the client, because how many columns fit
         // is this display's business and the two consoles have different ones.
-        char rows[bubble_rows][bubble_columns + 1] = {};
+        char rows[bubble_rows][bubble_row_bytes + 1] = {};
         int row_count = 0;
-        int at = 0;
+        int row_bytes = 0;
+        int row_width = 0;
         for (int i = 0; what != nullptr && what[i] != '\0';) {
-            // The next word, and whether it still fits on this row.
-            int word = 0;
-            while (what[i + word] != '\0' && what[i + word] != ' ') ++word;
-            if (at > 0 && at + 1 + word > bubble_columns) {
+            // The next UTF-8 word, and whether its measured pixels still fit.
+            int word_bytes = 0;
+            int word_width = 0;
+            while (what[i + word_bytes] != '\0' &&
+                   what[i + word_bytes] != ' ') {
+                const font::Decoded decoded = font::decode(
+                    what + i + word_bytes
+                );
+                if (decoded.bytes == 0U) break;
+                word_width += font::advance(decoded.codepoint);
+                word_bytes += static_cast<int>(decoded.bytes);
+            }
+            const int spacing = row_bytes > 0 ? font::advance(' ') : 0;
+            if (row_bytes > 0 && row_width + spacing + word_width > bubble_width) {
                 if (++row_count >= bubble_rows) break;
-                at = 0;
+                row_bytes = 0;
+                row_width = 0;
             }
-            if (at > 0) rows[row_count][at++] = ' ';
-            for (int c = 0; c < word && at < bubble_columns; ++c) {
-                rows[row_count][at++] = what[i + c];
+            if (row_bytes > 0 && row_bytes < bubble_row_bytes) {
+                rows[row_count][row_bytes++] = ' ';
+                row_width += font::advance(' ');
             }
-            i += word;
+            for (int c = 0; c < word_bytes && row_bytes < bubble_row_bytes; ++c) {
+                rows[row_count][row_bytes++] = what[i + c];
+            }
+            row_width += word_width;
+            i += word_bytes;
             while (what[i] == ' ') ++i;
         }
-        if (at > 0) ++row_count;
+        if (row_bytes > 0) ++row_count;
         if (row_count == 0) row_count = 1;
 
         // Against the speaker, and never off the screen: above them when they
@@ -2992,9 +3260,14 @@ private:
             left * glyph, top * glyph, bubble_columns * glyph, height * glyph,
             paper_colour
         );
-        write_at(left, top, who);
+        (void)write_pixels_with_clut(
+            left * glyph, top * glyph, bubble_width, who, font_gold_clut
+        );
         for (int row = 0; row < row_count; ++row) {
-            write_at(left, top + 1 + row, rows[row]);
+            (void)write_pixels_with_clut(
+                left * glyph, (top + 1 + row) * glyph,
+                bubble_width, rows[row], font_clut
+            );
         }
         gpu::show();
         next_press();
@@ -3270,74 +3543,83 @@ private:
     [[nodiscard]] MenuBox menu_box(const turn::Overlay& overlay) const {
         MenuBox box;
         if (overlay.menu == nullptr || overlay.menu_rows <= 0) return box;
-        int width = 0;
+        int widest = 0;
         for (int row = 0; row < overlay.menu_rows; ++row) {
-            int length = 0;
             const char* label = overlay.menu[row].label;
-            while (label != nullptr && label[length] != '\0') ++length;
-            if (length > width) width = length;
+            const int width = font::measure(label);
+            if (width > widest) widest = width;
         }
-        // Header and footer occupy two glyph rows each. The menu stays on the
-        // side opposite the cursor and just above the compact battle bar. This
-        // puts the choices beside the active play instead of marooning a tiny
-        // text box in a top corner.
-        box.width = width + 4 > 23 ? width + 4 : 23;
-        if (box.width > screen_cols - 4) box.width = screen_cols - 4;
-        box.height = overlay.menu_rows + 4;
-        box.top = bar_top / glyph - box.height - 1;
-        if (box.top < 1) box.top = 1;
-        box.rows_top = box.top + 2;
         const int cursor_centre =
             cell_left(overlay.cursor_x) + drawn_tile() / 2;
-        box.left = cursor_centre < gpu::screen_width / 2
-            ? screen_cols - menu_left - box.width : menu_left;
+        const layout::Menu placed = layout::menu(
+            widest, overlay.menu_rows, cursor_centre
+        );
+        box.panel = placed.panel;
+        box.heading_x = placed.heading_x;
+        box.heading_y = placed.heading_y;
+        box.row_text_x = placed.row_text_x;
+        box.row_text_y = placed.row_text_y;
+        box.footer_text_x = placed.footer_text_x;
+        box.footer_text_y = placed.footer_text_y;
         return box;
     }
 
     // The first ink pixel of a glyph, computed out of the font this executable
     // uploaded rather than looked for in the frame. A claim about a pixel the
     // letter itself sets is a claim no blank box can satisfy.
-    void claim_glyph(
-        const char* label, int column, int row, char value,
+    void claim_glyph_at_pixel(
+        const char* label, int at_x, int at_y, std::uint32_t codepoint,
         std::uint16_t colour = ink_colour
     ) {
-        char character = value;
-        if (character >= 'a' && character <= 'z') {
-            character = static_cast<char>(character - ('a' - 'A'));
-        }
+        const int slot = font::slot_for(codepoint);
         for (int y = 0; y < gpu::glyph_texels; ++y) {
             for (int x = 0; x < gpu::glyph_texels; ++x) {
-                if (!view::glyph_pixel(character, x, y)) continue;
-                probe(label, column * glyph + x, row * glyph + y, colour);
+                if (font::texel(slot, x, y) != 2U) continue;
+                probe(label, at_x + x, at_y + y, colour);
                 return;
             }
         }
         // A glyph with no ink at all is a space, and the already-painted
         // surface is the whole of what there is to claim about one.
-        probe(label, column * glyph, row * glyph, paper_colour);
+        probe(label, at_x, at_y, paper_colour);
+    }
+
+    void claim_glyph(
+        const char* label, int column, int row, char value,
+        std::uint16_t colour = ink_colour
+    ) {
+        claim_glyph_at_pixel(
+            label, column * glyph, row * glyph,
+            static_cast<unsigned char>(value), colour
+        );
     }
 
     // One pixel inside a glyph cell that the glyph itself does not draw. This
     // is the pixel that catches an opaque font background: on a focused row it
     // must remain the row's colour rather than changing back to paper around
     // every letter.
+    void claim_glyph_background_at_pixel(
+        const char* label, int at_x, int at_y, std::uint32_t codepoint,
+        std::uint16_t background
+    ) {
+        const int slot = font::slot_for(codepoint);
+        for (int y = 0; y < gpu::glyph_texels; ++y) {
+            for (int x = 0; x < gpu::glyph_texels; ++x) {
+                if (font::texel(slot, x, y) != 0U) continue;
+                probe(label, at_x + x, at_y + y, background);
+                return;
+            }
+        }
+    }
+
     void claim_glyph_background(
         const char* label, int column, int row, char value,
         std::uint16_t background
     ) {
-        char character = value;
-        if (character >= 'a' && character <= 'z') {
-            character = static_cast<char>(character - ('a' - 'A'));
-        }
-        for (int y = 0; y < gpu::glyph_texels; ++y) {
-            for (int x = 0; x < gpu::glyph_texels; ++x) {
-                if (view::glyph_pixel(character, x, y)) continue;
-                probe(
-                    label, column * glyph + x, row * glyph + y, background
-                );
-                return;
-            }
-        }
+        claim_glyph_background_at_pixel(
+            label, column * glyph, row * glyph,
+            static_cast<unsigned char>(value), background
+        );
     }
 
     void claim_first_glyph(const char* label, int row, const char* text) {
@@ -3353,12 +3635,68 @@ private:
         std::uint16_t colour = ink_colour
     ) {
         if (text == nullptr) return;
-        for (int i = 0; text[i] != '\0' && column + i < screen_cols; ++i) {
-            if (text[i] == ' ') continue;
-            claim_glyph(label, column + i, row, text[i], colour);
+        int used = 0;
+        for (std::size_t at = 0U; text[at] != '\0';) {
+            const font::Decoded decoded = font::decode(text + at);
+            if (decoded.bytes == 0U) break;
+            if (column * glyph + used >= gpu::screen_width) return;
+            if (decoded.codepoint == ' ') {
+                used += font::advance(decoded.codepoint);
+                at += decoded.bytes;
+                continue;
+            }
+            claim_glyph_at_pixel(
+                label, column * glyph + used, row * glyph,
+                decoded.codepoint, colour
+            );
             return;
         }
     }
+
+    void claim_first_glyph_at_pixel(
+        const char* label, int x, int y, const char* text,
+        std::uint16_t colour = ink_colour
+    ) {
+        if (text == nullptr) return;
+        int used = 0;
+        for (std::size_t at = 0U; text[at] != '\0';) {
+            const font::Decoded decoded = font::decode(text + at);
+            if (decoded.bytes == 0U) break;
+            if (decoded.codepoint == ' ') {
+                used += font::advance(decoded.codepoint);
+                at += decoded.bytes;
+                continue;
+            }
+            claim_glyph_at_pixel(
+                label, x + used, y, decoded.codepoint, colour
+            );
+            return;
+        }
+    }
+
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+    void claim_first_control_glyph(
+        const char* label, int row, const char* translated
+    ) {
+        if (translated == nullptr || translated[0] == '\0') return;
+        const int x = centred_x(translated, 8, gpu::screen_width - 16);
+        const font::Decoded decoded = font::decode(translated);
+        std::uint32_t shown = decoded.codepoint;
+        if (decoded.codepoint == 'X' &&
+            (translated[1] == '\0' || translated[1] == ' ')) {
+            shown = font::controller_cross;
+        } else if (decoded.codepoint == 'O' &&
+                   (translated[1] == '\0' || translated[1] == ' ')) {
+            shown = font::controller_circle;
+        } else if (decoded.codepoint == '^' &&
+                   (translated[1] == '\0' || translated[1] == ' ')) {
+            shown = font::controller_triangle;
+        }
+        claim_glyph_at_pixel(
+            label, x, row * glyph, shown, control_first_colour(translated)
+        );
+    }
+#endif
 
     // What this board is drawn at. The shared client works it out from the
     // fit rule when the battle opens, so this asks rather than deciding: a
@@ -3441,6 +3779,42 @@ int main() {
         grandleon_terrain_kind_count == art::terrain_kind_count,
         "the art library's terrain registry and its PlayStation header disagree"
     );
+    static_assert(
+        font::glyph_count <= gpu::font_capacity,
+        "the owned Latin/controller font does not fit its VRAM atlas"
+    );
+
+    {
+        constexpr std::uint32_t required[] = {
+            'A', 'Z', '0', '9', font::inverted_exclamation,
+            font::inverted_question, 0x00C1U, 0x00C9U, 0x00CDU, 0x00D1U,
+            0x00D3U, 0x00DAU, 0x00DCU, 0x00C7U, 0x00C3U, 0x00D5U,
+            0x00E1U, 0x00E9U, 0x00EDU, 0x00F1U, 0x00F3U, 0x00FAU,
+            0x00FCU, 0x00E7U, 0x00E3U, 0x00F5U,
+            font::controller_cross, font::controller_circle,
+            font::controller_triangle, font::controller_square,
+        };
+        bool coverage = true;
+        for (std::uint32_t codepoint : required) {
+            if (!font::supports(codepoint)) coverage = false;
+        }
+        expect(
+            coverage,
+            "the UI font covers EN ES PT-BR and every PlayStation mark"
+        );
+        expect(
+            font::measure(u8"AÇÃO  ¿MOVER?  NIÑO  △○×□") > 0,
+            "UTF-8 text has real proportional pixel metrics"
+        );
+        const int dots = font::measure("...");
+        const font::Fit clipped = font::fit(
+            "A VERY LONG TRANSLATED LABEL", 48, dots
+        );
+        expect(
+            clipped.truncated && clipped.width + dots <= 48,
+            "bounded labels reserve ellipsis without crossing their panel"
+        );
+    }
 
     psx::start_clock();
     pad::begin();
