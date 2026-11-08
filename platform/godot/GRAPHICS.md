@@ -45,6 +45,23 @@ Missing or invalid bindings fall back one asset at a time. Portable source does
 not contain Godot paths, and simulation code does not know which profile is
 active.
 
+## Layered terrain backdrops
+
+[`combat_backdrops/manifest.json`](project/art/combat_backdrops/manifest.json)
+is the shared pool for close combat and conversations. The backdrop resolver
+accepts either a battle exchange key and focus cells or a dialogue identity,
+authored backdrop, and optional live-board context. It returns one frozen pack,
+variant, terrain fingerprint, and ordered list of layers. Both uses therefore
+apply the same compatibility and FNV selection rule rather than maintaining
+similar-looking selectors.
+
+An in-battle conversation anchors its terrain sample on the first cast
+character currently on the board. A story scene between maps uses its authored
+backdrop instead. The first production pool supports **Deep Wood** and
+forest-dominant map neighbourhoods; unsupported terrain or authored backdrops
+retain the existing colour wash. The dialogue panel remains inside a dedicated
+dark safe region, independent of how detailed later backdrop pools become.
+
 The editor currently offers the included world themes and character styles.
 External art-pack import is not part of the current editor; it may be revisited
 after the built-in art directions and preview workflow are complete.
@@ -69,6 +86,7 @@ imported models, and facing behavior:
 ```sh
 platform/godot/scripts/smoke-art-library.sh build-godot
 platform/godot/scripts/smoke-animated-characters.sh build-godot
+platform/godot/scripts/smoke-conversation-backdrops.sh build-godot
 ```
 
 The project roadmap in the root [README](../../README.md#roadmap) places broader

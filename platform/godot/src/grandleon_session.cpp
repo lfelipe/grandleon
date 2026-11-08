@@ -323,6 +323,13 @@ void AsyncPresenter::battle_begins(
     const std::vector<std::uint64_t>& terrain
 ) {
     static_cast<void>(roster);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        battle_active_ = true;
+        moments_.clear();
+        moment_placements_.clear();
+        opening_moments_played_ = false;
+    }
     FrontendEvent event;
     event.kind = FrontendEvent::Kind::battle_begins;
     event.snapshot = snapshot;
@@ -355,6 +362,16 @@ void AsyncPresenter::battle_definitions(
     push(std::move(event));
 }
 
+void AsyncPresenter::battle_moments(
+    const std::vector<pr::EncounterMoment>& moments,
+    const std::vector<pr::PlacementIdentity>& placements
+) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    moments_ = moments;
+    moment_placements_ = placements;
+    opening_moments_played_ = false;
+}
+
 void AsyncPresenter::deployment_begins(
     const sim::EncounterSnapshot& snapshot,
     const client::Roster& roster,
@@ -382,6 +399,7 @@ void AsyncPresenter::draw(
         active_request_id_ = 0;
     }
     push(std::move(event));
+    play_moments(pr::MomentTrigger::stage_opens);
 }
 
 void AsyncPresenter::report(
@@ -403,6 +421,17 @@ void AsyncPresenter::report(
     event.kind = FrontendEvent::Kind::presentation;
     event.presentation_events = result.events;
     push(std::move(event));
+    for (const sim::Event& presented : result.events) {
+        if (presented.type == sim::EventType::unit_defeated) {
+            play_moments(
+                pr::MomentTrigger::character_falls, presented.unit_id
+            );
+        } else if (presented.type == sim::EventType::unit_talked) {
+            play_moments(
+                pr::MomentTrigger::character_talked, presented.unit_id
+            );
+        }
+    }
 }
 
 void AsyncPresenter::refused(sim::CommandError error) {
@@ -442,6 +471,13 @@ void AsyncPresenter::battle_ended(
     event.snapshot = snapshot;
     event.canonical_hash = canonical_hash;
     push(std::move(event));
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        battle_active_ = false;
+        moments_.clear();
+        moment_placements_.clear();
+        opening_moments_played_ = false;
+    }
 }
 
 void AsyncPresenter::campaign_ended() {
@@ -651,6 +687,57 @@ bool AsyncPresenter::awaiting_management() const {
     return awaiting_management_ && !stopping_;
 }
 
+void AsyncPresenter::use_package(const pf::LoadedPackage* package) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    package_ = package;
+}
+
+void AsyncPresenter::play_moments(
+    pr::MomentTrigger trigger,
+    sim::UnitId unit_id
+) {
+    std::vector<std::uint64_t> dialogues;
+    const pf::LoadedPackage* package = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (trigger == pr::MomentTrigger::stage_opens) {
+            if (opening_moments_played_) return;
+            opening_moments_played_ = true;
+        }
+        std::uint64_t placement_id = 0;
+        if (unit_id != 0) {
+            const auto placement = std::find_if(
+                moment_placements_.begin(), moment_placements_.end(),
+                [unit_id](const pr::PlacementIdentity& candidate) {
+                    return candidate.unit_id == unit_id;
+                }
+            );
+            if (placement == moment_placements_.end()) return;
+            placement_id = placement->unit_id;
+        }
+        for (const pr::EncounterMoment& moment : moments_) {
+            if (moment.trigger != trigger) continue;
+            if (trigger != pr::MomentTrigger::stage_opens &&
+                moment.placement_id != placement_id) {
+                continue;
+            }
+            dialogues.push_back(moment.dialogue_id);
+        }
+        package = package_;
+    }
+    if (package == nullptr) return;
+    for (const std::uint64_t dialogue_id : dialogues) {
+        const pr::DialogueLoadResult loaded =
+            pr::load_dialogue(*package, dialogue_id);
+        if (!loaded) continue;
+        FrontendEvent event;
+        event.kind = FrontendEvent::Kind::dialogue;
+        event.dialogue = loaded.dialogue;
+        event.dialogue_subject_id = unit_id;
+        push(std::move(event));
+    }
+}
+
 void AsyncPresenter::stop() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -659,6 +746,10 @@ void AsyncPresenter::stop() {
         management_intent_.reset();
         campaign_roster_.clear();
         campaign_board_.reset();
+        moments_.clear();
+        moment_placements_.clear();
+        battle_active_ = false;
+        opening_moments_played_ = false;
         awaiting_management_ = false;
         active_motion_.reset();
     }
@@ -668,6 +759,9 @@ void AsyncPresenter::stop() {
 void AsyncPresenter::push(FrontendEvent event) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (stopping_) return;
+    if (event.kind == FrontendEvent::Kind::dialogue) {
+        event.over_board = battle_active_;
+    }
     event.campaign_roster = campaign_roster_;
     event.campaign_board = campaign_board_;
     events_.push_back(std::move(event));
@@ -945,6 +1039,7 @@ bool GrandleonSession::start_bytes(
 
 bool GrandleonSession::launch_worker() {
     presenter_ = std::make_shared<AsyncPresenter>();
+    presenter_->use_package(&package_);
     const bool resume = storage_ && storage_->contains(save_slot_);
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -1550,6 +1645,13 @@ gd::Dictionary GrandleonSession::event_dictionary(
                 package_, language_, event.dialogue.id, event.dialogue.name
             ));
             result["backdrop"] = event.dialogue.backdrop;
+            // Captured when the presenter queues the dialogue, so a creator
+            // preview without persistent campaign state gets the same exact
+            // on-map answer as an ordinary saved campaign.
+            result["over_board"] = event.over_board;
+            result["subject_unit_id"] = signed_id(
+                event.dialogue_subject_id
+            );
             gd::Array lines;
             for (std::size_t line_index = 0;
                  line_index < event.dialogue.lines.size(); ++line_index) {

@@ -49,6 +49,9 @@
       "transition_terrain": "paved",
       "variant_count": 3,
       "root": "res://art/combat_backdrops/medieval_forest_gate",
+      "conversation": {
+        "authored_backdrops": ["deep_wood"]
+      },
       "filename_patterns": {
         "panorama": "panorama_{variant}.png",
         "transition": "transition_grass_paved_{variant}.png",

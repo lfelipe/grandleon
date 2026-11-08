@@ -65,6 +65,9 @@ struct FrontendEvent final {
     std::string action;
     simulation::ContentId action_content_id{};
     package_runtime::Dialogue dialogue;
+    // Encounter-scoped placement instance this scene is about. Zero for
+    // between-map scenes and board-wide opening moments.
+    simulation::UnitId dialogue_subject_id{};
     client::CompanyManagement company;
     // Campaign presentation context captured when the event is queued. A
     // dialogue/objective token can therefore resolve against the exact roster
@@ -77,6 +80,7 @@ struct FrontendEvent final {
     std::int64_t request_id{};
     bool resumed{false};
     bool successful{false};
+    bool over_board{false};
     std::string message;
 };
 
@@ -101,6 +105,10 @@ public:
         const std::vector<simulation::AbilityDefinition>& abilities,
         const std::vector<simulation::ItemDefinition>& items,
         const std::vector<simulation::ObjectiveDefinition>& objectives
+    ) override;
+    void battle_moments(
+        const std::vector<package_runtime::EncounterMoment>& moments,
+        const std::vector<package_runtime::PlacementIdentity>& placements
     ) override;
     void deployment_begins(
         const simulation::EncounterSnapshot& snapshot,
@@ -161,6 +169,7 @@ public:
     void submit(client::Intent intent, std::int64_t request_id);
     [[nodiscard]] bool submit_management(client::ManagementIntent intent);
     [[nodiscard]] bool awaiting_management() const;
+    void use_package(const package_format::LoadedPackage* package);
     void stop();
     void push(FrontendEvent event);
     [[nodiscard]] std::deque<FrontendEvent> take_events();
@@ -174,6 +183,10 @@ private:
     [[nodiscard]] client::Intent wait_for_intent(
         const simulation::EncounterSnapshot& snapshot
     );
+    void play_moments(
+        package_runtime::MomentTrigger trigger,
+        simulation::UnitId unit_id = 0
+    );
 
     mutable std::mutex mutex_;
     std::condition_variable condition_;
@@ -186,6 +199,11 @@ private:
     std::optional<client::ManagementIntent> management_intent_;
     std::vector<client::RosterEntry> campaign_roster_;
     std::optional<client::CampaignBoard> campaign_board_;
+    const package_format::LoadedPackage* package_{nullptr};
+    std::vector<package_runtime::EncounterMoment> moments_;
+    std::vector<package_runtime::PlacementIdentity> moment_placements_;
+    bool battle_active_{false};
+    bool opening_moments_played_{false};
     bool awaiting_management_{false};
     bool stopping_{false};
 };

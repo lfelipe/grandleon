@@ -7,6 +7,8 @@ const BoardView3D = preload("res://scripts/board_view_3d.gd")
 const CampaignManager = preload("res://scripts/campaign_manager.gd")
 const CombatCinematic = preload("res://scripts/combat_cinematic.gd")
 const CombatPresentationPlan = preload("res://scripts/combat_presentation_plan.gd")
+const BackdropPackResolver = preload("res://scripts/conversation_backdrop_resolver.gd")
+const ConversationBackdrop = preload("res://scripts/conversation_backdrop.gd")
 const ControlProfile = preload("res://scripts/control_profile.gd")
 const ControllerSeats = preload("res://scripts/controller_seats.gd")
 const FrameTiming = preload("res://scripts/frame_timing.gd")
@@ -133,6 +135,7 @@ var dialogue_speaker: Label
 var dialogue_text: RichTextLabel
 var dialogue_portrait: TextureRect
 var dialogue_hint: Label
+var conversation_backdrop: Control
 var campaign_manager: Control
 var session_menu_layer: Control
 var session_menu_title: Label
@@ -166,6 +169,7 @@ var graphics_profiles
 var presentation_settings
 var controls
 var frame_timing = FrameTiming.new()
+var backdrop_pack_resolver = BackdropPackResolver.new()
 var frame_timing_next_update_msec := 0
 var fps_overlay_next_update_msec := 0
 var combat_cinematic: Control
@@ -1703,6 +1707,8 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	dialogue_layer.visible = false
 	dialogue_layer.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(dialogue_layer)
+	conversation_backdrop = ConversationBackdrop.new()
+	dialogue_layer.add_child(conversation_backdrop)
 	dialogue_shade = ColorRect.new()
 	dialogue_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dialogue_shade.color = Color(0.005, 0.009, 0.016, 0.68)
@@ -2208,6 +2214,8 @@ func _clear_session_presentation() -> void:
 	dialogue_index = -1
 	if dialogue_layer != null:
 		dialogue_layer.visible = false
+	if conversation_backdrop != null:
+		conversation_backdrop.clear()
 	pending_requests.clear()
 	pending_combat_presentation.clear()
 	if combat_cinematic != null:
@@ -2482,9 +2490,20 @@ func _handle_event(event: Dictionary) -> void:
 					"reason": reason.to_upper().replace("_", " "),
 				}))
 		"dialogue":
+			var scene_cast: Array[int] = []
+			for cast_line_value: Variant in event.get("lines", []):
+				if not cast_line_value is Dictionary:
+					continue
+				var cast_unit_type := int(cast_line_value.get("unit_type_id", 0))
+				if cast_unit_type != 0 and cast_unit_type not in scene_cast:
+					scene_cast.append(cast_unit_type)
 			for source_line: Dictionary in event.get("lines", []):
 				var line := source_line.duplicate()
 				line["backdrop"] = int(event.get("backdrop", 0))
+				line["dialogue_id"] = event.get("id", 0)
+				line["over_board"] = bool(event.get("over_board", false))
+				line["subject_unit_id"] = event.get("subject_unit_id", 0)
+				line["scene_cast"] = scene_cast.duplicate()
 				dialogue_lines.append(line)
 			if not _dialogue_visible():
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
@@ -3674,6 +3693,8 @@ func _update_status() -> void:
 func _show_dialogue_line() -> void:
 	if dialogue_index < 0 or dialogue_index >= dialogue_lines.size():
 		dialogue_layer.visible = false
+		if conversation_backdrop != null:
+			conversation_backdrop.clear()
 		_update_context_help()
 		return
 	var line: Dictionary = dialogue_lines[dialogue_index]
@@ -3685,7 +3706,16 @@ func _show_dialogue_line() -> void:
 	dialogue_text.text = String(line.get("text", ""))
 	var confirm_label: String = controls.label("confirm")
 	dialogue_hint.text = _ui("player.dialogue.continue", {"confirm": confirm_label})
-	_set_dialogue_backdrop(int(line.get("backdrop", 0)))
+	var backdrop_selection := backdrop_pack_resolver.resolve_for_conversation(
+		line.get("dialogue_id", 0), int(line.get("backdrop", 0)),
+		bool(line.get("over_board", false)), snapshot, battle_terrain,
+		line.get("scene_cast", []), int(line.get("subject_unit_id", 0))
+	)
+	var layered: bool = (
+		conversation_backdrop != null
+		and conversation_backdrop.present(backdrop_selection)
+	)
+	_set_dialogue_backdrop(int(line.get("backdrop", 0)), layered)
 	if line.has("archetype"):
 		var portrait_frame := art.character_frame(line, "idle")
 		var portrait := AtlasTexture.new()
@@ -3697,7 +3727,7 @@ func _show_dialogue_line() -> void:
 		dialogue_portrait.texture = null
 
 
-func _set_dialogue_backdrop(index: int) -> void:
+func _set_dialogue_backdrop(index: int, layered := false) -> void:
 	var washes := [
 		Color(0.005, 0.009, 0.016, 0.68),
 		Color(0.10, 0.045, 0.03, 0.72),
@@ -3708,7 +3738,10 @@ func _set_dialogue_backdrop(index: int) -> void:
 		Color(0.018, 0.012, 0.075, 0.72),
 		Color(0.055, 0.025, 0.075, 0.72),
 	]
-	dialogue_shade.color = washes[clampi(index, 0, washes.size() - 1)]
+	dialogue_shade.color = (
+		Color(0.004, 0.008, 0.014, 0.16)
+		if layered else washes[clampi(index, 0, washes.size() - 1)]
+	)
 
 
 func _advance_dialogue() -> void:
@@ -3719,6 +3752,8 @@ func _advance_dialogue() -> void:
 		dialogue_lines.clear()
 		dialogue_index = -1
 		dialogue_layer.visible = false
+		if conversation_backdrop != null:
+			conversation_backdrop.clear()
 		_show_pending_management()
 		_maybe_show_campaign_result()
 		_update_context_help()
