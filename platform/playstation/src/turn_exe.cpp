@@ -600,16 +600,14 @@ void build_font() {
     );
 }
 
-// The font's CLUT: index 0 is paper and index 1 is ink, and every other entry
-// is paper because no glyph ever names one.
-//
-// Paper is opaque, which is the whole reason it is not left as CLUT zero: the
-// GPU skips a texel whose CLUT word is zero, and a message bar that let the
-// board show through between its letters would be a message bar nobody could
-// read over a mountain.
+// The font's CLUT: index 0 is transparent and index 1 is ink. Every surface
+// that writes text paints its panel, page, bar or chip first, so the glyph must
+// preserve that surface between its strokes. Making index 0 paper-coloured
+// stamped an opaque 8x8 black tile around every letter; over a header or focus
+// row those little tiles made the text appear to alternate backgrounds. The
+// Nintendo 64 preserves the row beneath its glyphs, and this does the same.
 [[nodiscard]] int claim_font_clut(std::uint16_t ink) {
-    unsigned short entries[art::clut_size];
-    for (int i = 0; i < art::clut_size; ++i) entries[i] = paper_colour;
+    unsigned short entries[art::clut_size]{};
     entries[1] = ink;
     return claim_clut(entries);
 }
@@ -1687,6 +1685,11 @@ public:
                 "menucaret", box.left + 1,
                 box.rows_top + overlay.menu_row, '>', menu_gold_colour
             );
+            claim_glyph_background(
+                "menutextbg", box.left + 1,
+                box.rows_top + overlay.menu_row, '>',
+                console_ui_colour(view::UiTone::focus)
+            );
         }
         close_probes(before);
     }
@@ -2749,10 +2752,10 @@ private:
 
     void write_row(int row, const char* value) { write_at(0, row, value); }
 
-    // Only the glyphs that are not spaces, because the box beneath them has
-    // already been filled with paper and a space glyph is solid paper. That
-    // turns a full-screen sheet from twelve hundred textured rectangles into a
-    // few hundred, and changes not one pixel.
+    // Only glyphs that are not spaces. The surface beneath them is already
+    // filled, and index zero in the font CLUT preserves it. That turns a
+    // full-screen sheet from twelve hundred textured rectangles into a few
+    // hundred without stamping paper-coloured boxes over coloured rows.
     void write_at_with_clut(
         int column, int row, const char* value, int clut
     ) {
@@ -3190,9 +3193,32 @@ private:
                 return;
             }
         }
-        // A glyph with no ink at all is a space, and solid paper is the whole
-        // of what there is to claim about one.
+        // A glyph with no ink at all is a space, and the already-painted
+        // surface is the whole of what there is to claim about one.
         probe(label, column * glyph, row * glyph, paper_colour);
+    }
+
+    // One pixel inside a glyph cell that the glyph itself does not draw. This
+    // is the pixel that catches an opaque font background: on a focused row it
+    // must remain the row's colour rather than changing back to paper around
+    // every letter.
+    void claim_glyph_background(
+        const char* label, int column, int row, char value,
+        std::uint16_t background
+    ) {
+        char character = value;
+        if (character >= 'a' && character <= 'z') {
+            character = static_cast<char>(character - ('a' - 'A'));
+        }
+        for (int y = 0; y < gpu::glyph_texels; ++y) {
+            for (int x = 0; x < gpu::glyph_texels; ++x) {
+                if (view::glyph_pixel(character, x, y)) continue;
+                probe(
+                    label, column * glyph + x, row * glyph + y, background
+                );
+                return;
+            }
+        }
     }
 
     void claim_first_glyph(const char* label, int row, const char* text) {
