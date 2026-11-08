@@ -23,6 +23,16 @@ unsigned s_select_count{};
 unsigned s_move_count{};
 unsigned s_wait_count{};
 unsigned s_ai_wait_count{};
+std::int32_t s_camera_min_x{};
+std::int32_t s_camera_max_x{};
+std::int32_t s_camera_min_z{};
+std::int32_t s_camera_max_z{};
+std::int32_t s_map_width{};
+std::int32_t s_map_height{};
+unsigned s_active_terrain_chunks{};
+bool s_unit_on_board[64]{};
+unsigned s_camera_settle_frames{};
+unsigned s_active_terrain_page{0xffffffffU};
 constexpr std::uint16_t pad_up = 1U << 4U;
 constexpr std::uint16_t pad_right = 1U << 5U;
 constexpr std::uint16_t pad_down = 1U << 6U;
@@ -56,6 +66,122 @@ void place_entity(ps1_entity& entity, sim::Position position, int width, int hei
     entity.position[2] = (height - static_cast<std::int32_t>(position.y) * 2 - 1) * 65536;
 }
 
+std::int32_t clamp_camera_focus(
+    std::int32_t world, std::int32_t extent, std::int32_t visible
+) {
+    if (extent <= visible) return 0;
+    const std::int32_t world_min = 1 - extent;
+    const std::int32_t world_max = extent - 1;
+    const std::int32_t margin = visible - 1;
+    const std::int32_t minimum = world_min + margin;
+    const std::int32_t maximum = world_max - margin;
+    if (world < minimum) return minimum;
+    if (world > maximum) return maximum;
+    return world;
+}
+
+std::int32_t approach(std::int32_t current, std::int32_t target) {
+    const std::int32_t delta = target - current;
+    if (delta > -1024 && delta < 1024) return target;
+    return current + delta / 4;
+}
+
+void tick_camera() {
+    ps1_entity* camera = grandleon_scene_mutable_entity(
+        g_grandleon_camera_entity_index
+    );
+    if (!camera) return;
+    const std::int32_t cursor_world_x =
+        static_cast<std::int32_t>(s_cursor.x) * 2 + 1 - s_map_width;
+    const std::int32_t cursor_world_z =
+        s_map_height - static_cast<std::int32_t>(s_cursor.y) * 2 - 1;
+    const std::int32_t focus_x = clamp_camera_focus(
+        cursor_world_x, s_map_width, g_grandleon_camera_view_tiles_x
+    );
+    const std::int32_t focus_z = clamp_camera_focus(
+        cursor_world_z, s_map_height, g_grandleon_camera_view_tiles_y
+    );
+    const std::int32_t previous_camera_x = camera->position[0];
+    const std::int32_t previous_camera_z = camera->position[2];
+    camera->position[0] = approach(camera->position[0], focus_x * 65536);
+    camera->position[1] = g_grandleon_camera_height;
+    camera->position[2] = approach(
+        camera->position[2], focus_z * 65536 +
+            g_grandleon_camera_trailing_distance
+    );
+    const bool camera_moved =
+        camera->position[0] != previous_camera_x ||
+        camera->position[2] != previous_camera_z;
+    if (camera_moved) s_camera_settle_frames = 0;
+    else if (s_camera_settle_frames < 3) ++s_camera_settle_frames;
+    const std::int32_t camera_x = camera->position[0] / 65536;
+    const std::int32_t camera_z = camera->position[2] / 65536;
+    const std::int32_t camera_focus_z =
+        (camera->position[2] - g_grandleon_camera_trailing_distance) / 65536;
+    const std::int32_t half_x = g_grandleon_camera_view_tiles_x;
+    const std::int32_t half_z = g_grandleon_camera_view_tiles_y;
+    unsigned closest_page = 0;
+    std::uint32_t closest_distance = 0xffffffffU;
+    for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
+        const std::int32_t dx =
+            camera_x - g_grandleon_terrain_page_focus[index][0];
+        const std::int32_t dz =
+            camera_focus_z - g_grandleon_terrain_page_focus[index][1];
+        const std::uint32_t page_distance =
+            static_cast<std::uint32_t>(dx * dx + dz * dz);
+        if (page_distance < closest_distance) {
+            closest_distance = page_distance;
+            closest_page = index;
+        }
+    }
+    const bool terrain_page_changed =
+        g_grandleon_terrain_chunk_count && closest_page != s_active_terrain_page;
+    s_active_terrain_page = closest_page;
+    s_active_terrain_chunks = g_grandleon_terrain_chunk_count ? 1U : 0U;
+    for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
+        ps1_entity* chunk = grandleon_scene_mutable_entity(
+            g_grandleon_terrain_entity_indices[index]
+        );
+        if (!chunk) continue;
+        chunk->mesh_enabled = index == closest_page;
+    }
+    const std::int32_t prop_half_x = half_x;
+    const std::int32_t prop_half_z = half_z;
+    for (unsigned index = 0; index < g_grandleon_tree_count; ++index) {
+        ps1_entity* tree = grandleon_scene_mutable_entity(
+            g_grandleon_tree_entity_indices[index]
+        );
+        if (!tree) continue;
+        const std::int32_t tree_x = tree->position[0] / 65536;
+        const std::int32_t tree_z = tree->position[2] / 65536;
+        tree->mesh_enabled = s_camera_settle_frames >= 2 &&
+            tree_x >= camera_x - prop_half_x &&
+            tree_x <= camera_x + prop_half_x &&
+            tree_z >= camera_focus_z - prop_half_z &&
+            tree_z <= camera_focus_z + prop_half_z;
+    }
+    for (unsigned index = 0; index < g_grandleon_unit_count; ++index) {
+        ps1_entity* unit = grandleon_scene_mutable_entity(
+            g_grandleon_unit_entity_indices[index]
+        );
+        if (!unit) continue;
+        const std::int32_t unit_x = unit->position[0] / 65536;
+        const std::int32_t unit_z = unit->position[2] / 65536;
+        /* A newly paged terrain mesh gets one uncluttered cache-fill frame.
+         * The cursor remains visible, and units return on the following frame;
+         * no rules or input are deferred. */
+        unit->mesh_enabled = !terrain_page_changed && s_unit_on_board[index] &&
+            unit_x >= camera_x - prop_half_x &&
+            unit_x <= camera_x + prop_half_x &&
+            unit_z >= camera_focus_z - prop_half_z &&
+            unit_z <= camera_focus_z + prop_half_z;
+    }
+    if (camera_x < s_camera_min_x) s_camera_min_x = camera_x;
+    if (camera_x > s_camera_max_x) s_camera_max_x = camera_x;
+    if (camera_z < s_camera_min_z) s_camera_min_z = camera_z;
+    if (camera_z > s_camera_max_z) s_camera_max_z = camera_z;
+}
+
 void sync_scene(const sim::EncounterSnapshot& snapshot) {
     for (unsigned binding = 0; binding < g_grandleon_unit_count; ++binding) {
         ps1_entity* entity = grandleon_scene_mutable_entity(
@@ -63,7 +189,8 @@ void sync_scene(const sim::EncounterSnapshot& snapshot) {
         );
         const sim::UnitSnapshot* unit = find_unit(snapshot, g_grandleon_unit_ids[binding]);
         if (!entity || !unit) continue;
-        entity->mesh_enabled = sim::on_board(*unit) ? 1 : 0;
+        s_unit_on_board[binding] = sim::on_board(*unit);
+        entity->mesh_enabled = s_unit_on_board[binding] ? 1 : 0;
         place_entity(*entity, unit->position, snapshot.width, snapshot.height);
     }
     ps1_entity* cursor = grandleon_scene_mutable_entity(g_grandleon_cursor_entity_index);
@@ -160,6 +287,8 @@ int grandleon_game_init(void) {
         return 0;
     }
     const sim::EncounterSnapshot snapshot = s_created->encounter.snapshot();
+    s_map_width = snapshot.width;
+    s_map_height = snapshot.height;
     if (s_created->encounter.canonical_hash() != grandleon_generated_canonical_hash) {
         psx::Line().text("MIPSYNC_SIM_HASH_FAIL expected=")
             .hex64(grandleon_generated_canonical_hash).text(" actual=")
@@ -173,6 +302,14 @@ int grandleon_game_init(void) {
         }
     }
     sync_scene(snapshot);
+    ps1_entity* camera = grandleon_scene_mutable_entity(
+        g_grandleon_camera_entity_index
+    );
+    if (camera) {
+        s_camera_min_x = s_camera_max_x = camera->position[0] / 65536;
+        s_camera_min_z = s_camera_max_z = camera->position[2] / 65536;
+    }
+    tick_camera();
     s_ai_active = snapshot.active_side == sim::Side::second;
     psx::Line().text("MIPSYNC_SIM_READY width=").decimal(snapshot.width)
         .text(" height=").decimal(snapshot.height).text(" units=")
@@ -203,10 +340,24 @@ extern "C" void grandleon_game_log_metrics(
         .text(" mutation_hbl_max=").decimal(mutation_maximum)
         .text(" missed_vblanks=").decimal(missed_vblanks)
         .text(" max_elapsed_vblanks=").signed_decimal(maximum_elapsed).flush();
+    ps1_entity* camera = grandleon_scene_mutable_entity(
+        g_grandleon_camera_entity_index
+    );
+    if (camera) {
+        psx::Line().text("MIPSYNC_CAMERA_PROOF min_x=")
+            .signed_decimal(s_camera_min_x).text(" max_x=")
+            .signed_decimal(s_camera_max_x).text(" min_z=")
+            .signed_decimal(s_camera_min_z).text(" max_z=")
+            .signed_decimal(s_camera_max_z).text(" current_x=")
+            .signed_decimal(camera->position[0] / 65536).text(" current_z=")
+            .signed_decimal(camera->position[2] / 65536).text(" chunks=")
+            .decimal(s_active_terrain_chunks).flush();
+    }
 }
 
 int grandleon_game_update(uint16_t pressed) {
     if (!s_created || !*s_created) return 0;
+    tick_camera();
     if (s_ai_active) {
         return update_ai() ? 1 : 0;
     }

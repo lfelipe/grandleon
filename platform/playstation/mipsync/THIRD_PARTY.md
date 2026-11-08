@@ -2,7 +2,7 @@
 
 Mipsync is MIT-licensed and pinned to
 `866f405a0e34b5925a8d832272fe52c657688430`. Grandleon does not vendor its
-source. The build fetches that revision and applies the three engine-generic
+source. The build fetches that revision and applies the four engine-generic
 patches under `tools/upstream_patches/engines/mipsync` with `git am`.
 Grandleon package loading, assets and runtime adaptation remain MIT code under
 `platform/playstation/mipsync`.

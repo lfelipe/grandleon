@@ -4,9 +4,9 @@ This directory is the in-progress replacement for Grandleon's PlayStation
 renderer. It now boots a real Steel and Cedar Bell Orchard encounter, runs the
 shared simulation and accepts enough controller input to select and move units,
 wait, and complete the opposing turn. It is not the shipping path yet: the
-explicit baseline remains available for comparison until scrolling, complete
-UI, saves, campaign flow, combat presentation, audio and hardware validation
-reach parity. It is never used as a fallback.
+explicit baseline remains available for comparison until complete UI, saves,
+campaign flow, combat presentation, audio and hardware validation reach
+parity. It is never used as a fallback.
 
 Mipsync is pinned to commit `866f405a0e34b5925a8d832272fe52c657688430`.
 The upstream source is not copied into Grandleon. Generic engine fixes live as
@@ -52,12 +52,18 @@ platform/playstation/mipsync/scripts/build-renderer-probe.sh \
 PSN00BSDK_ROOT=/path/to/PSn00bSDK \
 platform/playstation/mipsync/tests/run-input-probe.sh \
   /tmp/empty-mipsync-output/build /tmp/empty-probe-output
+
+PSN00BSDK_ROOT=/path/to/PSn00bSDK \
+platform/playstation/mipsync/tests/run-scroll-probe.sh \
+  /tmp/deepwood-output/build /tmp/deepwood-probe-output
 ```
 
-The second command boots the CUE through the pinned BIOS-style PCSX-Redux
+The input probe boots the CUE through the pinned BIOS-style PCSX-Redux
 interpreter, injects controller edges only at the public update boundary and
 requires four selections, one move, four player waits and four opposing-side
-waits. See `VALIDATION.md` for exact hashes and measurements.
+waits. The scroll probe drives both axes on the real 14x9 Cedar Deepwood map and
+requires viewport clamp, one active terrain page and zero missed VBlanks. See
+`VALIDATION.md` for exact hashes and measurements.
 
 ## Budgets and cutover gates
 
@@ -68,6 +74,13 @@ future Grandleon platform audio seam, 32 KiB for stack and 512 KiB for gameplay
 heap inside the PlayStation's 2 MiB RAM. Omitting Mipsync's generic audio from
 this target does not remove PlayStation music or effects from the production
 plan.
+
+Larger maps are split into overlapping viewport-sized terrain pages. Only the
+closest page is visible, while the camera follows the cursor and clamps to the
+authored playable rectangle. Trees and units outside the viewport are culled
+only from presentation; the complete encounter remains in the shared
+simulation. The generated surroundings policy remains portable across
+renderers (`natural_blend`, `extend_edges` or `fixed_terrain`).
 
 Cutover requires all of the following on the exact CUE/BIN:
 
