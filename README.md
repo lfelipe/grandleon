@@ -129,7 +129,7 @@ Console builders are separate downloads because their pinned toolchains are
 large. They work offline after installation. The PlayStation image has no Sony
 licence sector and therefore does not boot on an unmodified retail console.
 Each console has one renderer. It uses the curated character artwork as
-hardware-sized cutouts over textured tactical terrain, with full-frame
+hardware-sized cutouts over shaped, textured tactical terrain, with full-frame
 terrain backdrops for close battles. There is no renderer choice in the game
 or in **Finish & Export**.
 

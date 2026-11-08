@@ -36,6 +36,7 @@ TEAM_COLOURS = (
     (0x6B, 0x42, 0xA3), (0xBC, 0x83, 0x25), (0x9E, 0x98, 0x86),
 )
 POLICIES = ("extend_edges", "fixed_terrain", "natural_blend")
+RELIEF_MODES = ("flat", "smooth")
 CELL_SOURCE_SIZE = 443
 TEXTURE_X = 640
 TEXTURE_Y = 0
@@ -63,6 +64,13 @@ TERRAIN_FORM_STYLES = (
     ((155, 158, 153), (0.58, 0.34, 0.48)), # paved kerb
 )
 
+# Board-space height, where 64 mesh units equal one scene unit.  The values are
+# deliberately shallow: they must read as a landscape without hiding units or
+# turning an authored tactical tile into an apparent cliff.
+TERRAIN_RELIEF_HEIGHTS = (
+    -4, 0, 3, 14, 3, 6, -2, 9, 5, 2, 3, 5, 2,
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -72,6 +80,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--surroundings-policy", choices=POLICIES)
     parser.add_argument("--surroundings-seed", type=int, default=0x47A4D1E)
     parser.add_argument("--apron-depth", type=int)
+    parser.add_argument("--terrain-relief", choices=RELIEF_MODES, default="smooth")
     return parser.parse_args()
 
 
@@ -377,6 +386,58 @@ def page_starts(extent: int, visible: int) -> list[int]:
     return starts
 
 
+def relief_height(kind: int, x: int, y: int, seed: int) -> int:
+    """Return a deterministic, restrained height for one terrain cell."""
+    base = TERRAIN_RELIEF_HEIGHTS[kind]
+    if kind in (0, 1, 6, 12):
+        return base
+    variation = int((hash_cell(x, y, seed) >> 9) % 5) - 2
+    return base + variation
+
+
+def raw_corner_relief(
+    x: int, y: int, cell_lifts: dict[tuple[int, int], int],
+) -> int:
+    values = [
+        cell_lifts[(cell_x, cell_y)]
+        for cell_x, cell_y in (
+            (x - 1, y - 1), (x, y - 1), (x - 1, y), (x, y),
+        )
+        if (cell_x, cell_y) in cell_lifts
+    ]
+    return round(sum(values) / len(values)) if values else 0
+
+
+def corner_relief(
+    x: int, y: int, cell_lifts: dict[tuple[int, int], int],
+) -> int:
+    """Sample a terrain-aware height field linear across four-cell bands."""
+    minimum_x = min(cell[0] for cell in cell_lifts)
+    maximum_x = max(cell[0] for cell in cell_lifts) + 1
+    clamped_x = max(minimum_x, min(maximum_x, x))
+    left = minimum_x + ((clamped_x - minimum_x) // 4) * 4
+    right = min(maximum_x, left + 4)
+    if left == right:
+        return raw_corner_relief(left, y, cell_lifts)
+    left_height = raw_corner_relief(left, y, cell_lifts)
+    right_height = raw_corner_relief(right, y, cell_lifts)
+    return round(
+        (left_height * (right - clamped_x) +
+         right_height * (clamped_x - left)) / (right - left)
+    )
+
+
+def surface_relief(
+    x: int, y: int, cell_lifts: dict[tuple[int, int], int],
+) -> int:
+    return round(sum((
+        corner_relief(x, y, cell_lifts),
+        corner_relief(x + 1, y, cell_lifts),
+        corner_relief(x, y + 1, cell_lifts),
+        corner_relief(x + 1, y + 1, cell_lifts),
+    )) / 4)
+
+
 def page_cells(
     cells: list[tuple[int, int, int, bool, int, int]],
     width: int, height: int, apron_depth: int,
@@ -412,6 +473,7 @@ def write_meshes(
     width: int, height: int,
     terrain_form_cells: list[tuple[int, int, int]],
     terrain_indices: dict[int, int], tree_texture_index: int, seed: int,
+    relief_mode: str, cell_lifts: dict[tuple[int, int], int],
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     board_groups: list[tuple[
         list[tuple[int, int, int, int]], list[tuple[int, int]],
@@ -419,29 +481,6 @@ def write_meshes(
         tuple[int, int, int, int],
     ]] = []
     page_origins: list[tuple[int, int]] = []
-    page_keys = [key for key, _cells in cell_groups]
-    page_loads = {key: 0 for key in page_keys}
-    form_owners: dict[tuple[int, int], tuple[int, int]] = {}
-    for x, y, _kind in sorted(
-        terrain_form_cells,
-        key=lambda cell: hash_cell(cell[0], cell[1], seed),
-    ):
-        candidates = [
-            key for key in page_keys
-            if key[0] <= x < min(width, key[0] + CAMERA_VIEW_TILES_X)
-            and key[1] <= y < min(height, key[1] + CAMERA_VIEW_TILES_Y)
-        ]
-        owner = min(
-            candidates,
-            key=lambda key: (
-                page_loads[key],
-                abs((key[0] * 2 + CAMERA_VIEW_TILES_X) - x * 2) +
-                abs((key[1] * 2 + CAMERA_VIEW_TILES_Y) - y * 2),
-                key,
-            ),
-        )
-        form_owners[(x, y)] = owner
-        page_loads[owner] += 1
     for key, group_cells in cell_groups:
         page_origins.append(key)
         board_vertices: list[tuple[int, int, int, int]] = []
@@ -451,32 +490,74 @@ def write_meshes(
         min_y = min(cell[1] for cell in group_cells)
         max_x = max(cell[0] + cell[4] for cell in group_cells)
         max_y = max(cell[1] + cell[5] for cell in group_cells)
-        for x, y, kind, authored, span_x, span_y in group_cells:
-            left = (x * 2 - width) * 64
-            right = left + span_x * 128
-            top = (height - y * 2) * 64
-            bottom = top - span_y * 128
-            first = len(board_vertices)
-            board_vertices.extend((
-                (left, 0, top, 0), (right, 0, top, 0),
-                (left, 0, bottom, 0), (right, 0, bottom, 0),
-            ))
-            if authored:
-                variant = hash_cell(x, y, seed) % (5 - span_x)
-                u0 = variant * 32
-                u1 = u0 + span_x * 32 - 1
-            else:
-                u0 = 0
-                u1 = min(127, span_x * 32 - 1)
-            board_uvs.extend(((u0, 31), (u1, 31), (u0, 0), (u1, 0)))
-            shade = 255 if authored else 210
-            texture = terrain_indices[kind]
-            board_triangles.extend((
-                (first, first + 1, first + 2, texture, shade, 255, 255, 255),
-                (first + 2, first + 1, first + 3, texture, shade, 255, 255, 255),
-            ))
+        if relief_mode == "smooth":
+            # Runs align to four-cell anchors. A shared grid can therefore use
+            # a monotonic 0..127 texture ramp inside one anchor and reverse it
+            # in the next without collapsing a patch's UVs at the apex.
+            u_wave = (0, 31, 63, 95, 127, 95, 63, 31)
+            relief_min_x = min(cell[0] for cell in cell_lifts)
+            grid: dict[tuple[int, int], int] = {}
+            for grid_y in range(min_y, max_y + 1):
+                for grid_x in range(min_x, max_x + 1):
+                    grid[(grid_x, grid_y)] = len(board_vertices)
+                    board_vertices.append((
+                        (grid_x * 2 - width) * 64,
+                        corner_relief(grid_x, grid_y, cell_lifts),
+                        (height - grid_y * 2) * 64,
+                        0,
+                    ))
+                    board_uvs.append((
+                        u_wave[(grid_x - relief_min_x) % len(u_wave)],
+                        31 if grid_y & 1 else 0,
+                    ))
+            for x, y, kind, authored, span_x, span_y in group_cells:
+                top_left = grid[(x, y)]
+                top_right = grid[(x + span_x, y)]
+                bottom_left = grid[(x, y + span_y)]
+                bottom_right = grid[(x + span_x, y + span_y)]
+                heights = (
+                    board_vertices[top_left][1], board_vertices[top_right][1],
+                    board_vertices[bottom_left][1],
+                    board_vertices[bottom_right][1],
+                )
+                relief_shade = min(24, (max(heights) - min(heights)) * 2)
+                shade = max(0, (255 if authored else 210) - relief_shade)
+                texture = terrain_indices[kind]
+                board_triangles.extend((
+                    (top_left, top_right, bottom_left, texture, shade,
+                     255, 255, 255),
+                    (bottom_left, top_right, bottom_right, texture,
+                     shade, 255, 255, 255),
+                ))
+        else:
+            for x, y, kind, authored, span_x, span_y in group_cells:
+                left = (x * 2 - width) * 64
+                right = left + span_x * 128
+                top = (height - y * 2) * 64
+                bottom = top - span_y * 128
+                first = len(board_vertices)
+                board_vertices.extend((
+                    (left, 0, top, 0), (right, 0, top, 0),
+                    (left, 0, bottom, 0), (right, 0, bottom, 0),
+                ))
+                if authored:
+                    variant = hash_cell(x, y, seed) % (5 - span_x)
+                    u0 = variant * 32
+                    u1 = u0 + span_x * 32 - 1
+                else:
+                    u0 = 0
+                    u1 = min(127, span_x * 32 - 1)
+                board_uvs.extend(((u0, 31), (u1, 31), (u0, 0), (u1, 0)))
+                shade = 255 if authored else 210
+                texture = terrain_indices[kind]
+                board_triangles.extend((
+                    (first, first + 1, first + 2, texture, shade,
+                     255, 255, 255),
+                    (first + 2, first + 1, first + 3, texture, shade,
+                     255, 255, 255),
+                ))
         for x, y, kind in terrain_form_cells:
-            if form_owners[(x, y)] != key:
+            if not (min_x <= x < max_x and min_y <= y < max_y):
                 continue
             roll = hash_cell(x, y, seed)
             colour, scale = TERRAIN_FORM_STYLES[kind]
@@ -485,18 +566,17 @@ def write_meshes(
             half_x = max(4, round(24 * scale[0]))
             half_z = max(4, round(24 * scale[2]))
             form_height = max(8, round(48 * scale[1]))
+            floor = surface_relief(x, y, cell_lifts) if relief_mode == "smooth" else 0
             first = len(board_vertices)
             board_vertices.extend((
-                (cx - half_x, 1, cz + half_z, 0),
-                (cx + half_x, 1, cz + half_z, 0),
-                (cx + half_x, 1, cz - half_z, 0),
-                (cx, 1 + form_height, cz, 0),
+                (cx - half_x, floor + 1, cz + half_z, 0),
+                (cx + half_x, floor + 1, cz + half_z, 0),
+                (cx, floor + 1 + form_height, cz, 0),
             ))
-            board_uvs.extend(((0, 0),) * 4)
-            board_triangles.extend((
-                (first, first + 1, first + 3, 0, 215, *colour),
-                (first + 1, first + 2, first + 3, 0, 170, *colour),
-            ))
+            board_uvs.extend(((0, 0),) * 3)
+            board_triangles.append(
+                (first, first + 1, first + 2, 0, 205, *colour)
+            )
         board_groups.append((
             board_vertices, board_uvs, board_triangles,
             (min_x, min_y, max_x, max_y),
@@ -627,9 +707,9 @@ def select_terrain_form_cells(
     ]
     budget = max(
         len(set(terrain)),
-        max(1, (width * height + 11) // 12),
+        max(1, (width * height + 23) // 24),
     )
-    budget = min(20, budget)
+    budget = min(13, budget)
     selected: list[tuple[int, int, int]] = []
     selected_coordinates: set[tuple[int, int]] = set()
     for kind in sorted(set(terrain)):
@@ -691,6 +771,7 @@ def write_scene(
     tree_cells: list[tuple[int, int]],
     terrain_chunks: list[tuple[int, int, int, int, int, int, int]],
     seed: int, ui_texture_index: int, ui_label_texture_index: int,
+    surface_lifts: list[int],
 ) -> int:
     width = int(document["width"])
     height = int(document["height"])
@@ -723,8 +804,9 @@ def write_scene(
         scale = 1.05 + (roll & 7) * 0.045
         world_x = (x + 0.5 - width / 2) * 2
         world_z = (height / 2 - y - 0.5) * 2
+        world_y = fixed((surface_lifts[y * width + x] + 1) / 64)
         lines.append(
-            f"    {{ .id={next_id}u, .name=\"forest_tree\", .parent_entity_index=-1, .position={{{fixed(world_x)},1311,{fixed(world_z)}}}, .rotation={{0,{fixed(((roll >> 8) % 25) - 12)},0}}, .scale={{{fixed(scale)},{fixed(scale)},{fixed(scale)}}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=2, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_PROP, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+            f"    {{ .id={next_id}u, .name=\"forest_tree\", .parent_entity_index=-1, .position={{{fixed(world_x)},{world_y},{fixed(world_z)}}}, .rotation={{0,{fixed(((roll >> 8) % 25) - 12)},0}}, .scale={{{fixed(scale)},{fixed(scale)},{fixed(scale)}}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=2, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_PROP, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
         )
         next_id += 1
         entity_index += 1
@@ -739,8 +821,9 @@ def write_scene(
         unit_entity_indices.append(entity_index)
         world_x = (x + 0.5 - width / 2) * 2
         world_z = (height / 2 - y - 0.5) * 2
+        world_y = fixed((surface_lifts[y * width + x] + 3) / 64)
         lines.append(
-            f"    {{ .id={next_id}u, .name=\"unit\", .parent_entity_index=-1, .position={{{fixed(world_x)},2621,{fixed(world_z)}}}, .scale={{{fixed(1.35)},{fixed(1.9)},65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=1, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_index={texture}, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_CHARACTER, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+            f"    {{ .id={next_id}u, .name=\"unit\", .parent_entity_index=-1, .position={{{fixed(world_x)},{world_y},{fixed(world_z)}}}, .scale={{{fixed(1.35)},{fixed(1.9)},65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=1, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_index={texture}, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_CHARACTER, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
         )
         next_id += 1
         entity_index += 1
@@ -755,10 +838,11 @@ def write_scene(
     cursor_world_z = (height / 2 - cursor_y - 0.5) * 2
     camera_focus_x = camera_focus(cursor_x, width, CAMERA_VIEW_TILES_X)
     camera_focus_z = -camera_focus(cursor_y, height, CAMERA_VIEW_TILES_Y)
+    cursor_world_y = fixed(surface_lifts[cursor_y * width + cursor_x] / 64)
     cursor_index = entity_index
     cursor_mesh_index = 4 + len(terrain_chunks)
     lines.append(
-        f"    {{ .id={next_id}u, .name=\"tactical_cursor\", .parent_entity_index=-1, .position={{{fixed(cursor_world_x)},0,{fixed(cursor_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=225, .color_b=48, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+        f"    {{ .id={next_id}u, .name=\"tactical_cursor\", .parent_entity_index=-1, .position={{{fixed(cursor_world_x)},{cursor_world_y},{fixed(cursor_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=225, .color_b=48, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
     )
     next_id += 1
     entity_index += 1
@@ -773,6 +857,10 @@ def write_scene(
         *(f"    {index}u," for index in unit_entity_indices),
         "};",
         "const unsigned int g_grandleon_unit_count = sizeof(g_grandleon_unit_ids) / sizeof(g_grandleon_unit_ids[0]);",
+        "const int32_t g_grandleon_terrain_surface_y_q16[] = {",
+        *(f"    {fixed(value / 64)}," for value in surface_lifts),
+        "};",
+        "const unsigned int g_grandleon_terrain_surface_count = sizeof(g_grandleon_terrain_surface_y_q16) / sizeof(g_grandleon_terrain_surface_y_q16[0]);",
         "const unsigned int g_grandleon_terrain_entity_indices[] = {",
         *(f"    {index}u," for index in terrain_entity_indices),
         "};",
@@ -811,6 +899,8 @@ extern "C" {
 extern const uint64_t g_grandleon_unit_ids[];
 extern const unsigned int g_grandleon_unit_entity_indices[];
 extern const unsigned int g_grandleon_unit_count;
+extern const int32_t g_grandleon_terrain_surface_y_q16[];
+extern const unsigned int g_grandleon_terrain_surface_count;
 extern const unsigned int g_grandleon_terrain_entity_indices[];
 extern const int16_t g_grandleon_terrain_chunk_bounds[][4];
 extern const int16_t g_grandleon_terrain_page_focus[][2];
@@ -857,37 +947,74 @@ def main() -> int:
     for index, kind in enumerate(fixed_terrain):
         require_int(kind, f"surroundings terrain[{index}]", 0, len(TERRAIN_NAMES) - 1)
 
+    def kind_at(x: int, y: int) -> int:
+        if 0 <= x < width and 0 <= y < height:
+            return terrain[y * width + x]
+        return apron_kind(
+            terrain, width, height, x, y, policy, fixed_terrain,
+            args.surroundings_seed,
+        )
+
+    cell_lifts = {
+        (x, y): relief_height(kind_at(x, y), x, y, args.surroundings_seed)
+        for y in range(-depth, height + depth)
+        for x in range(-depth, width + depth)
+    }
     cells: list[tuple[int, int, int, bool, int, int]] = []
-    # Coalesce horizontal runs of authored terrain. The PS1 can draw a strip
-    # with the same texture in two triangles, so retaining four independent
-    # vertices and two triangles per cell only burns CPU/cache without adding
-    # detail. Runs stop at four cells because each terrain strip contains four
-    # authored 32-pixel variants.
-    for y in range(height):
-        x = 0
-        while x < width:
-            kind = terrain[y * width + x]
-            span = 1
-            while (
-                span < 4 and x + span < width
-                and terrain[y * width + x + span] == kind
-            ):
-                span += 1
-            cells.append((x, y, kind, True, span, 1))
-            x += span
-    if depth:
-        horizontal_chunk = math.ceil((width + depth * 2) / 2)
-        for y in (-depth, height):
-            for x in range(-depth, width + depth, horizontal_chunk):
-                span_x = min(horizontal_chunk, width + depth - x)
-                kind = apron_kind(terrain, width, height, x, y, policy, fixed_terrain, args.surroundings_seed)
-                cells.append((x, y, kind, False, span_x, depth))
-        vertical_chunk = math.ceil(height / 2)
-        for y in range(0, height, vertical_chunk):
-            span_y = min(vertical_chunk, height - y)
-            for x in (-depth, width):
-                kind = apron_kind(terrain, width, height, x, y, policy, fixed_terrain, args.surroundings_seed)
-                cells.append((x, y, kind, False, depth, span_y))
+    if args.terrain_relief == "smooth":
+        # Coherent horizontal patches share globally-derived corner heights.
+        # Runs stop at the four-cell relief anchors and when terrain changes;
+        # this preserves authored materials while allowing the PS1 to submit
+        # one native textured quad instead of a primitive for every cell.
+        minimum_x = -depth
+        maximum_x = width + depth
+        for y in range(-depth, height + depth):
+            x = minimum_x
+            while x < maximum_x:
+                kind = kind_at(x, y)
+                authored = 0 <= x < width and 0 <= y < height
+                anchor_end = min(
+                    maximum_x,
+                    minimum_x + ((x - minimum_x) // 4 + 1) * 4,
+                )
+                span = 1
+                while x + span < anchor_end:
+                    next_authored = (
+                        0 <= x + span < width and 0 <= y < height
+                    )
+                    if kind_at(x + span, y) != kind or next_authored != authored:
+                        break
+                    span += 1
+                cells.append((
+                    x, y, kind, authored, span, 1,
+                ))
+                x += span
+    else:
+        # Flat comparison mode retains the compact run-coalesced board used by
+        # the previous renderer so captures can isolate the value of relief.
+        for y in range(height):
+            x = 0
+            while x < width:
+                kind = terrain[y * width + x]
+                span = 1
+                while (
+                    span < 4 and x + span < width
+                    and terrain[y * width + x + span] == kind
+                ):
+                    span += 1
+                cells.append((x, y, kind, True, span, 1))
+                x += span
+        if depth:
+            horizontal_chunk = math.ceil((width + depth * 2) / 2)
+            for y in (-depth, height):
+                for x in range(-depth, width + depth, horizontal_chunk):
+                    span_x = min(horizontal_chunk, width + depth - x)
+                    cells.append((x, y, kind_at(x, y), False, span_x, depth))
+            vertical_chunk = math.ceil(height / 2)
+            for y in range(0, height, vertical_chunk):
+                span_y = min(vertical_chunk, height - y)
+                for x in (-depth, width):
+                    cells.append((x, y, kind_at(x, y), False, depth, span_y))
 
     units = document["units"]
     assert isinstance(units, list)
@@ -903,6 +1030,7 @@ def main() -> int:
     board_vertices, board_triangles, terrain_chunks = write_meshes(
         output, terrain_groups, width, height, terrain_form_cells,
         terrain_indices, tree_texture, args.surroundings_seed,
+        args.terrain_relief, cell_lifts,
     )
     tree_cells = []
     for y in range(height):
@@ -921,13 +1049,17 @@ def main() -> int:
             if neighbours > 0 and hash_cell(x, y, args.surroundings_seed) <= min(nearby_hashes):
                 tree_cells.append((x, y))
     # Keep board-scale landmarks sparse enough for 60 Hz while retaining one
-    # deterministic volume cluster per roughly twenty-four tactical cells.
-    tree_budget = max(1, (width * height + 23) // 24)
+    # deterministic volume cluster per roughly thirty-two tactical cells.
+    # The continuous relief and undergrowth forms now carry the terrain shape,
+    # so a dense perimeter of overlapping tree cards is no longer necessary.
+    tree_budget = max(1, (width * height + 31) // 32)
     tree_cells.sort(key=lambda cell: hash_cell(cell[0], cell[1], args.surroundings_seed))
     tree_cells = tree_cells[:tree_budget]
     entities = write_scene(
         output, document, unit_indices, tree_cells, terrain_chunks,
         args.surroundings_seed, ui_texture, ui_label_texture,
+        [surface_relief(x, y, cell_lifts) for y in range(height) for x in range(width)]
+        if args.terrain_relief == "smooth" else [0] * (width * height),
     )
     visible_trees = visible_position_peak(tree_cells, width, height)
     visible_units = visible_position_peak(
@@ -948,6 +1080,7 @@ def main() -> int:
         "entities": entities,
         "terrain_chunks": len(terrain_chunks),
         "terrain_forms": len(terrain_form_cells),
+        "terrain_relief": args.terrain_relief,
         "visible": {"trees": visible_trees, "units": visible_units},
         "cache": {"vertices": cache_vertices, "vertex_limit": MAX_CACHE_VERTICES, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TRIANGLES},
         "vram": texture_metrics,

@@ -243,9 +243,19 @@ const sim::UnitSnapshot* unit_at(
     return nullptr;
 }
 
-void place_entity(ps1_entity& entity, sim::Position position, int width, int height) {
+void place_entity(
+    ps1_entity& entity, sim::Position position, int width, int height,
+    std::int32_t vertical_offset, bool follow_terrain = true
+) {
     entity.position[0] =
         (static_cast<std::int32_t>(position.x) * 2 + 1 - width) * 65536;
+    const unsigned terrain_index =
+        static_cast<unsigned>(position.y) * static_cast<unsigned>(width) +
+        static_cast<unsigned>(position.x);
+    entity.position[1] = vertical_offset;
+    if (follow_terrain && terrain_index < g_grandleon_terrain_surface_count) {
+        entity.position[1] += g_grandleon_terrain_surface_y_q16[terrain_index];
+    }
     entity.position[2] =
         (height - static_cast<std::int32_t>(position.y) * 2 - 1) * 65536;
 }
@@ -287,8 +297,14 @@ void animate_combat_units(const sim::EncounterSnapshot& snapshot) {
         }
     }
     if (!attacker_entity || !target_entity) return;
-    place_entity(*attacker_entity, attacker->position, snapshot.width, snapshot.height);
-    place_entity(*target_entity, target->position, snapshot.width, snapshot.height);
+    place_entity(
+        *attacker_entity, attacker->position, snapshot.width, snapshot.height,
+        3072, false
+    );
+    place_entity(
+        *target_entity, target->position, snapshot.width, snapshot.height,
+        3072, false
+    );
     const unsigned elapsed = s_result_duration - s_result_frames;
     unsigned phase = 0;
     bool counter = false;
@@ -438,12 +454,16 @@ void sync_scene(const sim::EncounterSnapshot& snapshot) {
         if (!entity || !unit) continue;
         s_unit_on_board[binding] = sim::on_board(*unit);
         entity->mesh_enabled = s_unit_on_board[binding] ? 1 : 0;
-        place_entity(*entity, unit->position, snapshot.width, snapshot.height);
+        place_entity(
+            *entity, unit->position, snapshot.width, snapshot.height, 3072
+        );
     }
     ps1_entity* cursor = grandleon_scene_mutable_entity(
         g_grandleon_cursor_entity_index
     );
-    if (cursor) place_entity(*cursor, s_cursor, snapshot.width, snapshot.height);
+    if (cursor) {
+        place_entity(*cursor, s_cursor, snapshot.width, snapshot.height, 0);
+    }
 }
 
 bool apply_command(
@@ -1193,6 +1213,8 @@ int grandleon_game_update(uint16_t pressed) {
     ps1_entity* cursor = grandleon_scene_mutable_entity(
         g_grandleon_cursor_entity_index
     );
-    if (cursor) place_entity(*cursor, s_cursor, snapshot.width, snapshot.height);
+    if (cursor) {
+        place_entity(*cursor, s_cursor, snapshot.width, snapshot.height, 0);
+    }
     return mutated ? 1 : 0;
 }

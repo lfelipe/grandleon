@@ -60,6 +60,10 @@ platform/playstation/mipsync/tests/run-scroll-probe.sh \
   /tmp/deepwood-output/build /tmp/deepwood-probe-output
 ```
 
+To review motion rather than still frames, run
+`scripts/capture-review-motion.sh` against a full campaign build. It records a
+real routed move and attack from the CUE/BIN and writes a browser-ready MP4.
+
 The combat probe boots the CUE through the pinned BIOS-style PCSX-Redux
 interpreter, injects controller edges only at the public update boundary and
 requires real movement, player Attack, an equipped healing ability, Wait and
@@ -84,13 +88,15 @@ Larger maps are split into overlapping viewport-sized terrain pages. Only the
 closest page is visible, while the camera follows the cursor and clamps to the
 authored playable rectangle. Trees and units outside the viewport are culled
 only from presentation; the complete encounter remains in the shared
-simulation. Each terrain family contributes deterministic rendered forms such
-as outcrops, shrubs, reeds, crops, bamboo, or rubble; forests also use trunks
-and crossed canopies. These forms are folded into the existing terrain pages,
-rather than becoming extra draw calls, and every form belongs to exactly one
-overlapping page so scrolling keeps the zero-missed-VBlank budget. The generated
-surroundings policy remains portable across renderers (`natural_blend`,
-`extend_edges` or `fixed_terrain`).
+simulation. Terrain textures now follow a continuous low-poly surface instead
+of a flat board. Hills, paths, marshes, and forest floors meet at shared edges,
+and characters, the cursor, and trees follow the resulting height. Sparse
+outcrops, shrubs, reeds, crops, bamboo, rubble, trunks, and crossed canopies add
+recognizable detail without filling every cell with a separate object. These
+features are part of the existing terrain pages rather than extra draw calls,
+which keeps the zero-missed-VBlank budget. The generated surroundings policy
+remains portable across renderers (`natural_blend`, `extend_edges` or
+`fixed_terrain`).
 
 Cutover requires all of the following on the exact CUE/BIN:
 

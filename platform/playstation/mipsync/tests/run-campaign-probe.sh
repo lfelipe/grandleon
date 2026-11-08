@@ -41,6 +41,8 @@ for filename in sys.argv[1:]:
     vram = scene["vram"]
     if document.get("identity") != "GRANDLEON_PS1_RENDERER=MIPSYNC":
         raise SystemExit(f"{path}: wrong renderer identity")
+    if scene.get("terrain_relief") != "smooth":
+        raise SystemExit(f"{path}: production terrain relief is not enabled")
     if not memory.get("passes_playable_slice_budget"):
         raise SystemExit(f"{path}: playable slice exceeds main RAM")
     if memory["playable_slice_committed_bytes"] > memory["main_ram_bytes"]:

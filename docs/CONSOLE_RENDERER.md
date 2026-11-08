@@ -34,15 +34,18 @@ independent cursor and menu state per controller.
 
 Each console has one renderer. It uses smaller versions of the curated Godot
 character sheets, applies the authored faction colour through the same team
-masks, and draws those characters over textured tactical terrain. Movement and
-attack poses come from the same animation sheets rather than a separate pixel
-roster. Tactical figures use about one and a half cells of height, keeping the
-silhouettes readable without hiding as much of the neighbouring terrain.
+masks, and draws those characters over shaped, textured tactical terrain.
+Movement and attack poses come from the same animation sheets rather than a
+separate pixel roster. Tactical figures use about one and a half cells of
+height, keeping the silhouettes readable without hiding as much of the
+neighbouring terrain.
 Steel and Cedar's authored 2×2 village houses and ancient groves have their
 own connected silhouettes on both consoles rather than appearing as ordinary
 mountains. They remain impassable mountain terrain in the game rules. The
-console drawing is made from a few flat primitives over the existing terrain
-cell, so these landmarks add no texture upload or VRAM allocation.
+console drawing is made from a few primitives over the existing terrain cell,
+so these landmarks add no texture upload or VRAM allocation. On PlayStation,
+the terrain textures follow a continuous low-poly surface and units, trees,
+and the cursor follow its height rather than floating over a flat board.
 
 The tactical interface uses one compact UI grammar on both machines. Action
 menus have a framed header, a visible focus row, and the real controller's
