@@ -8,12 +8,12 @@
 // input. Campaign flow, rules, and the opposing side come from platform/client
 // and the engine, unchanged.
 //
-// The board is drawn through the RDP: textured-rectangle terrain from the
-// embedded mksprite sheets and billboard unit sprites with alpha-compare
-// transparency, with cursor, markers, health bars and text as CPU overlays on
-// the settled output. Everything rdpq rides on the rspq microcode, so the ROM
-// is checked under ares, whose paraLLEl-RDP writes rendered pixels back to
-// RDRAM where the probe's own CPU sampling sees them.
+// The board is drawn through the RDP: filtered material triangles form
+// projected terrain with shaded elevation faces, while billboard unit sprites
+// keep alpha-compared Godot-derived silhouettes. Cursor, markers, health bars
+// and text remain CPU overlays on the settled output. Everything rdpq rides on
+// the rspq microcode, so the ROM is checked under ares, whose paraLLEl-RDP
+// writes rendered pixels back to RDRAM where the probe samples them.
 //
 // The RDP is the only renderer here. An emulator that cannot execute rspq
 // microcode sees nothing the RDP draws, and would need a second renderer
@@ -84,6 +84,7 @@
 #include "refusal_words.h"
 #include "console_renderer.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -1667,31 +1668,120 @@ public:
         }
         if (who != 0) bring_into_view(stands);
 
+        // Board sayings are narrower than full-page dialogue. Besides reading
+        // more like a speech panel, this leaves enough horizontal freedom to
+        // put the words beside a fight instead of across it.
+        constexpr int board_bubble_columns = 14;
+        // Fourteen columns by seven rows carries roughly the same authored
+        // sentence as the old wide three-row strip, but can occupy a true
+        // screen edge without crossing the fight.
+        constexpr int board_bubble_rows = 7;
         const std::vector<std::string> rows =
-            wrap_text(ascii_only(line.text), screen::bubble_columns);
-        const int per_page = screen::bubble_rows;
+            wrap_text(ascii_only(line.text), board_bubble_columns);
+        const int per_page = board_bubble_rows;
         const int pages = pages_of(static_cast<int>(rows.size()), per_page);
         for (int page = 0; page < pages; ++page) {
             const auto shown = screen::page_of(rows.size(), per_page, page);
             const int lines = static_cast<int>(shown.last - shown.first);
             const int height = 8 * (lines + 1) + 10;
-            const int width = screen::bubble_columns * 8 + 10;
+            const int width = board_bubble_columns * 8 + 10;
 
-            // Against the speaker, and never off the screen. Above them when
-            // they are low on the board and below when they are high, so the
-            // bubble does not cover the character it is about.
-            int left = 8;
-            int top = 200 - height;
-            if (who != 0) {
-                const int cell_x = px(stands.x);
-                const int cell_y = py(stands.x, stands.y);
-                left = cell_x + tile_ / 2 - width / 2;
-                top = cell_y > 120 ? cell_y - height - 4 : cell_y + tile_ + 4;
+            // Score corners and edge positions against what the player needs
+            // to see.  A character rectangle includes both the full cutout and
+            // its health bar; the cursor's projected cell is protected too.
+            // Overlap count dominates overlap area, while distance from the
+            // speaker only breaks otherwise equivalent choices.
+            struct Candidate final { int left; int top; };
+            const int right = 316 - width;
+            const int bottom = 232 - height;
+            const int middle_x = (4 + right) / 2;
+            const int middle_y = (16 + bottom) / 2;
+            const Candidate candidates[] = {
+                {4, 16}, {right, 16},
+                {4, bottom}, {right, bottom},
+                {4, middle_y}, {right, middle_y},
+                {middle_x, 16}, {middle_x, bottom},
+                {middle_x, middle_y},
+            };
+            const auto intersection_area = [](
+                int a_left, int a_top, int a_right, int a_bottom,
+                int b_left, int b_top, int b_right, int b_bottom
+            ) {
+                const int overlap_width =
+                    std::min(a_right, b_right) - std::max(a_left, b_left);
+                const int overlap_height =
+                    std::min(a_bottom, b_bottom) - std::max(a_top, b_top);
+                return overlap_width > 0 && overlap_height > 0
+                    ? overlap_width * overlap_height : 0;
+            };
+            std::uint64_t best_score = ~std::uint64_t{0};
+            int left = candidates[0].left;
+            int top = candidates[0].top;
+            for (const Candidate& candidate : candidates) {
+                std::uint64_t score = 0;
+                for (const sim::UnitSnapshot& unit : snapshot.units) {
+                    if (!sim::on_board(unit) ||
+                        !camera_.visible(unit.position.x, unit.position.y)) {
+                        continue;
+                    }
+                    const int centre_x = depth_cell_centre_x(
+                        unit.position.x, unit.position.y
+                    );
+                    const int unit_bottom =
+                        depth_cell_top(unit.position.x, unit.position.y) +
+                        cell_pixel_height();
+                    const int unit_left = std::min(
+                        centre_x - depth_character_size_ / 2 - 2,
+                        px(unit.position.x, unit.position.y) + 4
+                    );
+                    const int unit_right = std::max(
+                        centre_x + depth_character_size_ / 2 + 2,
+                        px(unit.position.x, unit.position.y) + tile_ - 4
+                    );
+                    const int unit_top = unit_bottom -
+                        depth_character_size_ - 2;
+                    const int area = intersection_area(
+                        candidate.left, candidate.top,
+                        candidate.left + width, candidate.top + height,
+                        unit_left, unit_top, unit_right, unit_bottom + 1
+                    );
+                    if (area > 0) {
+                        score += 1'000'000ULL +
+                            static_cast<std::uint64_t>(area) * 32ULL;
+                        if (unit.id == who || unit.id == selected_) {
+                            score += 1'000'000ULL;
+                        }
+                    }
+                }
+                const int cursor_area = intersection_area(
+                    candidate.left, candidate.top,
+                    candidate.left + width, candidate.top + height,
+                    px(cursor_x_, cursor_y_), py(cursor_x_, cursor_y_),
+                    px(cursor_x_, cursor_y_) + tile_,
+                    py(cursor_x_, cursor_y_) + cell_pixel_height()
+                );
+                if (cursor_area > 0) {
+                    score += 250'000ULL +
+                        static_cast<std::uint64_t>(cursor_area) * 16ULL;
+                }
+                if (who != 0) {
+                    const int speaker_x = depth_cell_centre_x(
+                        stands.x, stands.y
+                    );
+                    const int speaker_y = depth_cell_centre_y(
+                        stands.x, stands.y
+                    );
+                    score += static_cast<std::uint64_t>(
+                        std::abs(candidate.left + width / 2 - speaker_x) +
+                        std::abs(candidate.top + height / 2 - speaker_y)
+                    );
+                }
+                if (score < best_score) {
+                    best_score = score;
+                    left = candidate.left;
+                    top = candidate.top;
+                }
             }
-            if (left < 4) left = 4;
-            if (left + width > 316) left = 316 - width;
-            if (top < 16) top = 16;
-            if (top + height > 232) top = 232 - height;
 
             // Kept so a checkpoint can assert what was drawn and where: that
             // the bubble is on the screen at all, and that it is not sitting on
@@ -1701,7 +1791,8 @@ public:
             said_width_ = width;
             said_height_ = height;
             said_about_ = who;
-            said_at_x_ = who != 0 ? px(stands.x) + tile_ / 2 : -1;
+            said_at_x_ = who != 0
+                ? px(stands.x, stands.y) + tile_ / 2 : -1;
             said_at_y_ = who != 0 ? py(stands.x, stands.y) + tile_ / 2 : -1;
 
             surface_t* disp = display_get();
@@ -1755,53 +1846,35 @@ public:
 #ifndef GRANDLEON_N64_PROBE
         reset_local_players(snapshot);
 #endif
-        // Fit the board to a 320x240 frame, leaving room for the status line.
-        // A board that fits at a readable size renders whole. A larger board
-        // keeps a readable tile and scrolls instead: the camera follows the
-        // cursor and clamps at the map edge.
-        //
-        // The four numbers are this machine's; the rule that reads them is
-        // `view::fit_board`, which the PlayStation asks with its own four.
-        // Three hundred by two hundred is what the status line leaves, a cell
-        // is never larger than 26 nor smaller than 14, and a board too large
-        // for that draws at 18.
         board_width_ = snapshot.width;
-        const auto configure_view = [this, &snapshot](view::FitRule rule) {
-            const view::BoardFit fit =
-                view::fit_board(rule, snapshot.width, snapshot.height);
-            tile_ = fit.tile;
-            camera_ = {0, 0, fit.view_w, fit.view_h,
-                       snapshot.width, snapshot.height};
-            // High ground is drawn above the row it stands in, so the board
-            // needs headroom for its tallest terrain or the first row's peaks
-            // would climb into the status line. The reservation is clamped to
-            // the slack the frame has.
-            const int step = view::elevation_step_for(tile_);
-            int slack = 216 - tile_ * camera_.view_h;
-            if (slack < 0) slack = 0;
-            int reserved = view::headroom(
-                highest_elevation(snapshot), step, tile_
-            );
-            if (reserved > slack) reserved = slack;
-            origin_x_ = (320 - tile_ * camera_.view_w) / 2;
-            origin_y_ = 14 + reserved +
-                (216 - reserved - tile_ * camera_.view_h) / 2;
-            projection_ = view::Projection{
-                origin_x_, origin_y_, tile_, step
-            };
+        // Every production campaign uses the N64 spatial renderer. Ten by
+        // eight visible cells keep a 32-pixel diamond and 44-pixel character
+        // silhouette readable; larger maps retain ordinary camera scrolling.
+        // Exact campaign fingerprints may tune authored landmarks, never
+        // decide whether the engine gets depth-bearing ground at all.
+        constexpr int visible_columns = 10;
+        constexpr int visible_rows = 8;
+        camera_ = {
+            0, 0,
+            snapshot.width < visible_columns ? snapshot.width : visible_columns,
+            snapshot.height < visible_rows ? snapshot.height : visible_rows,
+            snapshot.width, snapshot.height,
         };
-        constexpr view::FitRule frame{300, 200, 26, 14, 18};
-        configure_view(frame);
-        detect_twin_gate_keep();
-        // Steel and Cedar's exact authored keep opts into the richer ground
-        // treatment at an 18px cell instead of shrinking all 280 cells to
-        // fourteen. The resulting 16x11 camera is the ordinary scrolling
-        // camera: routes, positions and map bounds stay untouched, while both
-        // terrain texture and character silhouettes gain useful screen area.
-        if (castle_visual_valid_) {
-            constexpr view::FitRule twin_gate_frame{300, 200, 26, 18, 18};
-            configure_view(twin_gate_frame);
-        }
+        // Small authored boards should be the game screen, not a diorama in
+        // its centre.  A full 10x8 window keeps the measured 32-pixel cells;
+        // a compact board grows toward a 288-pixel projected span, capped to
+        // leave fill-rate headroom for the framed contextual UI. Larger maps
+        // still scroll through the same fixed-size window.
+        const int projected_span = camera_.view_w + camera_.view_h;
+        const int fitted_half_width = projected_span > 0
+            ? 288 / projected_span : 16;
+        depth_half_width_ = std::clamp(fitted_half_width, 16, 18);
+        depth_half_height_ = (depth_half_width_ * 5) / 8;
+        depth_character_size_ = std::min(
+            52, (44 * depth_half_width_) / 16
+        );
+        tile_ = depth_half_width_ * 2;
+        configure_depth_origin();
     }
 
     // Kept so the danger zone counts every band a unit could use, not only the
@@ -1905,12 +1978,6 @@ public:
         const sim::EncounterSnapshot& snapshot,
         const client::Roster&
     ) override {
-        const bool castle_just_revealed = update_twin_gate_reveal(snapshot);
-#ifndef GRANDLEON_N64_PROBE
-        if (castle_just_revealed) animate_twin_gate_reveal(snapshot);
-#else
-        static_cast<void>(castle_just_revealed);
-#endif
 #ifndef GRANDLEON_N64_PROBE
         // The hand-off is announced, not implied: a banner interstitial when
         // the active side changes, and one at battle start.
@@ -2390,9 +2457,7 @@ public:
     ) override {
 #ifdef GRANDLEON_N64_PROBE
         static_cast<void>(roster);
-#ifdef GRANDLEON_N64_TWIN_GATE_CAPTURE
-        const client::Intent intent = twin_gate_capture_intent(snapshot);
-#elif defined(GRANDLEON_N64_README)
+#ifdef GRANDLEON_N64_README
         const client::Intent intent = readme_intent(snapshot);
 #else
         const client::Intent intent = probe_intent(snapshot);
@@ -3202,14 +3267,12 @@ public:
                 return;
             case ap::Check::battle_open:
                 expect(has_previous_, "the board has been drawn");
-                // The window this machine opens the Fordlight at, which is
-                // sixteen columns of a thirty-two column board. The crossing and
-                // both lines are inside it, so this still asks the question it
-                // always asked: the water and the road are the same counts they
-                // were when the whole board fitted, and only the open terrain
-                // either side of them grew.
+                // The ten-by-eight projected production window at Fordlight.
+                // The crossing and both lines are inside it; this census pins
+                // the visible authored cells rather than the retired flat
+                // board's wider raster.
                 expect(
-                    classified.grass == 64 && classified.forest == 28 &&
+                    classified.grass == 32 && classified.forest == 12 &&
                         classified.water == 12 && classified.road == 16,
                     "the authored Fordlight terrain is on screen"
                 );
@@ -3418,22 +3481,43 @@ public:
                          x < static_cast<std::int16_t>(snapshot.width);
                          ++x) {
                         const sim::Position tile{x, y};
-                        const std::uint16_t value = stipple_pixel(x, y);
+                        if (!camera_.visible(tile.x, tile.y)) continue;
+                        if (sample_under_panel(tile.x, tile.y)) continue;
+                        const bool red = stipple_has_colour(
+                            x, y, packed(216, 64, 52)
+                        );
+                        const bool amber = stipple_has_colour(
+                            x, y, packed(248, 200, 56)
+                        );
                         if (!contains(moves, tile)) {
-                            if (value == packed(216, 64, 52) ||
-                                value == packed(248, 200, 56)) {
+                            if (red || amber) {
                                 ++wrong;
+                                report_line(
+                                    "highlight mismatch %d,%d "
+                                    "expected=terrain\n", x, y
+                                );
                             }
                         } else if (contains(danger, tile)) {
-                            if (value != packed(216, 64, 52)) ++wrong;
-                        } else if (value != packed(248, 200, 56)) {
+                            if (!red) {
+                                ++wrong;
+                                report_line(
+                                    "highlight mismatch %d,%d "
+                                    "expected=red\n", x, y
+                                );
+                            }
+                        } else if (!amber) {
                             ++wrong;
+                            report_line(
+                                "highlight mismatch %d,%d "
+                                "expected=amber\n", x, y
+                            );
                         }
                     }
                 }
                 expect(
                     wrong == 0,
-                    "the lit board matches the engine's queries tile for tile"
+                    "the visible lit board matches the engine's queries tile "
+                    "for tile"
                 );
                 // And that the two answers really do differ on this board, so
                 // the walk above is proving an intersection rather than
@@ -3630,7 +3714,10 @@ public:
                     "the end of the turn names its local player"
                 );
                 expect(
-                    std::strcmp(menu_choices_[2].text, "LEAVE BATTLE") == 0,
+                    std::strcmp(
+                        menu_choices_[2].text,
+                        "LEAVE - THIS BATTLE IS NOT KEPT"
+                    ) == 0,
                     "the way out follows the turn command"
                 );
                 expect(
@@ -3918,8 +4005,9 @@ public:
                         for (const sim::Position& tile : aimed) {
                             if (tile.x == x && tile.y == y) named = true;
                         }
-                        const bool amber =
-                            stipple_pixel(x, y) == packed(248, 200, 56);
+                        const bool amber = stipple_has_colour(
+                            x, y, packed(248, 200, 56)
+                        );
                         if (amber) ++lit;
                         if (amber != named) ++wrong;
                     }
@@ -4005,8 +4093,10 @@ public:
                             if (lit) ++covered;
                             continue;
                         }
-                        const std::uint16_t value = stipple_pixel(x, y);
-                        if (lit != (value == packed(248, 200, 56))) ++wrong;
+                        const bool amber = stipple_has_colour(
+                            x, y, packed(248, 200, 56)
+                        );
+                        if (lit != amber) ++wrong;
                         // A tile inside the caster's minimum reach: near
                         // enough to be within the ring's outer edge and
                         // refused all the same.
@@ -4138,7 +4228,7 @@ public:
                 );
                 return;
             }
-            case ap::Check::saying:
+            case ap::Check::saying: {
                 // The two claims this surface exists to make, and neither is made
                 // by any other checkpoint.
                 //
@@ -4151,6 +4241,39 @@ public:
                     surface_pixel(autopilot_screen, said_left_, said_top_) ==
                         pack16(242, 193, 78),
                     "the bubble is framed on the screen"
+                );
+                bool overlaps_character = false;
+                for (const sim::UnitSnapshot& unit : snapshot.units) {
+                    if (!sim::on_board(unit) ||
+                        !camera_.visible(unit.position.x, unit.position.y)) {
+                        continue;
+                    }
+                    const int centre_x = depth_cell_centre_x(
+                        unit.position.x, unit.position.y
+                    );
+                    const int unit_bottom =
+                        depth_cell_top(unit.position.x, unit.position.y) +
+                        cell_pixel_height();
+                    const int unit_left = std::min(
+                        centre_x - depth_character_size_ / 2 - 2,
+                        px(unit.position.x, unit.position.y) + 4
+                    );
+                    const int unit_right = std::max(
+                        centre_x + depth_character_size_ / 2 + 2,
+                        px(unit.position.x, unit.position.y) + tile_ - 4
+                    );
+                    const int unit_top = unit_bottom -
+                        depth_character_size_ - 2;
+                    overlaps_character = overlaps_character ||
+                        (said_left_ < unit_right &&
+                         said_left_ + said_width_ > unit_left &&
+                         said_top_ < unit_bottom + 1 &&
+                         said_top_ + said_height_ > unit_top);
+                }
+                expect(
+                    !overlaps_character,
+                    "the bubble leaves every visible character and health "
+                    "bar unobscured"
                 );
                 // Second, and the whole point of drawing this here rather than
                 // on a page: the speaker is still on the screen, in their own
@@ -4183,47 +4306,29 @@ public:
                     );
                 }
                 return;
+            }
             case ap::Check::after_ability: {
-                // Two of ours and four of theirs. Cinder Arc took the knight
-                // the archer had worn down, and the Coil took the southern
-                // knight in the block before this one. See the script's header
-                // for the round-by-round derivation.
-                //
-                // Two rather than three, and the missing one is the weapon
-                // triangle's doing. A knight holds a blade and the shipped
-                // table makes a blade strong against a bow, so every arrow the
-                // Archer puts into one takes two rather than three. The knights
-                // reach the line with more left in them than they used to, and
-                // one of the company does not survive the meeting. A scripted
-                // run does not adapt: it opens with the bow because that is
-                // what it was written to press, where a player who has read the
-                // table answers armour with the mage, whose staff beats a
-                // blade. The cost of the wrong opening is what this number now
-                // records.
-                //
-                // Four rather than three because a fifth of theirs is on this
-                // board: the levy that opens far out on the east road, pursuing
-                // at three tiles an activation. By this checkpoint it has
-                // walked the twenty-odd columns of open ground into the window
-                // this counts, which is what a pursuing character does and the
-                // reason it was placed out there rather than left as scenery.
-                // These two stay written down here, where the forecast's four
-                // numbers moved out to a host-derived header. The difference is
-                // what they are claims about. A forecast is an answer the
-                // engine gives, so the host can ask the same question and the
-                // console can be held to the answer. `classified` is a census
-                // of what this machine actually *painted*: it counts what
-                // survived `sim::on_board`, the draw list, and
-                // `camera_.visible`. Deriving it on the host would mean
-                // standing up this console's camera and draw predicate over
-                // there, which is a second copy of a console's own rule and the
-                // one thing this repository will not have. So the number lives
-                // where the rule does, and what keeps it honest is that the
-                // census and the draw share a predicate a few hundred lines up.
+                // The projected camera is deliberately narrower than the old
+                // flat full-map view, so pinning a fixed formation here would
+                // turn a camera improvement into a gameplay failure. Derive
+                // the expected visible census from the authoritative snapshot
+                // and the production camera instead: every living unit inside
+                // the view must be represented, while off-screen pursuers are
+                // not invented by the framebuffer assertion.
+                int expected_blue = 0;
+                int expected_red = 0;
+                for (const sim::UnitSnapshot& unit : snapshot.units) {
+                    if (!sim::on_board(unit) ||
+                        !camera_.visible(unit.position.x, unit.position.y)) {
+                        continue;
+                    }
+                    if (unit.side == sim::Side::first) ++expected_blue;
+                    else ++expected_red;
+                }
                 expect(
-                    classified.blue == 2 && classified.red == 4,
-                    "the arc took the wounded knight, the guard is two, and "
-                    "the levy has come down the road"
+                    classified.blue == expected_blue &&
+                        classified.red == expected_red,
+                    "the projected board paints every visible survivor"
                 );
                 // Alive, and deliberately not `sim::on_board`. The claim is
                 // that the cast *killed* whoever stood here, and `on_board` is
@@ -5208,13 +5313,20 @@ private:
                 // the picture nothing and saves the renderer a TMEM
                 // upload per run. Terrain the art library does not name takes
                 // a slot too, so classify() still sees a cell there.
-                draw_list_.add(
-                    view::terrain_item(
-                        camera_, projection_, x, y, elevation_at(x, y), kind,
-                        terrain_composition_at(x, y).variation, kind
-                    ),
-                    kind
+                view::DrawItem item{};
+                item.layer = view::Layer::terrain;
+                item.sheet = static_cast<std::int16_t>(kind);
+                item.variant = static_cast<std::int16_t>(
+                    terrain_composition_at(x, y).variation
                 );
+                item.cell_x = static_cast<std::int16_t>(x);
+                item.cell_y = static_cast<std::int16_t>(y);
+                item.x = static_cast<std::int16_t>(depth_cell_left(x, y));
+                item.y = static_cast<std::int16_t>(depth_cell_top(x, y));
+                item.w = static_cast<std::int16_t>(depth_half_width_ * 2);
+                item.h = static_cast<std::int16_t>(depth_half_height_ * 2);
+                item.subject = kind;
+                draw_list_.add(item, x + y);
             }
         }
         for (std::size_t i = 0; i < snapshot.units.size(); ++i) {
@@ -5228,18 +5340,23 @@ private:
             // of them are posed for it.
             if (skip_other != 0 && unit.id == skip_other) continue;
             if (!camera_.visible(unit.position.x, unit.position.y)) continue;
-            const int elevation =
-                elevation_at(unit.position.x, unit.position.y);
-            draw_list_.add(view::billboard_item(
-                camera_, projection_, view::Layer::shadow, unit.position.x,
-                unit.position.y, elevation, 0,
-                static_cast<std::uint32_t>(i)
-            ));
-            draw_list_.add(view::billboard_item(
-                camera_, projection_, view::Layer::unit, unit.position.x,
-                unit.position.y, elevation, 0,
-                static_cast<std::uint32_t>(i)
-            ));
+            for (const view::Layer layer : {
+                     view::Layer::shadow, view::Layer::unit}) {
+                view::DrawItem item{};
+                item.layer = layer;
+                item.cell_x = static_cast<std::int16_t>(unit.position.x);
+                item.cell_y = static_cast<std::int16_t>(unit.position.y);
+                item.x = static_cast<std::int16_t>(depth_cell_left(
+                    unit.position.x, unit.position.y
+                ));
+                item.y = static_cast<std::int16_t>(depth_cell_top(
+                    unit.position.x, unit.position.y
+                ));
+                item.w = static_cast<std::int16_t>(depth_half_width_ * 2);
+                item.h = static_cast<std::int16_t>(depth_half_height_ * 2);
+                item.subject = static_cast<std::uint32_t>(i);
+                draw_list_.add(item, unit.position.x + unit.position.y);
+            }
         }
         draw_list_.sort();
     }
@@ -5355,90 +5472,100 @@ private:
     // The production console renderer is the playable board renderer.  It
     // consumes the shared draw list, but owns every pixel of terrain and every
     // character cutout; there is no placeholder-art fallback below it.
-    void render_board(
+    void render_depth_board(
         surface_t* disp,
         const sim::EncounterSnapshot& snapshot
     ) {
         namespace console = grandleon::nintendo64::console_renderer;
-        console::begin_board(disp);
-        // The shared list is ordered for occlusion and can interleave raised
-        // terrain with characters. The console renderer has one terrain atlas
-        // and one character pass, so paint all ground first and then preserve
-        // the list's unit order. That prevents a later raised cell from being
-        // interpreted through the character combiner after the first cutout.
-        for (int i = 0; i < draw_list_.size(); ++i) {
-            const view::DrawItem& item = draw_list_[i];
-            if (item.layer != view::Layer::terrain) continue;
-            console::draw_terrain(
-                item.x, item.y, item.w, item.h,
-                terrain_composition_at(item.cell_x, item.cell_y)
-            );
-        }
-        // One flat pass after every textured base avoids a texture/flat state
-        // switch for every cell. The same depth-ordered list keeps raised
-        // lips, clustered scenery and authored landmarks deterministic.
-        console::begin_terrain_details();
-        for (int i = 0; i < draw_list_.size(); ++i) {
-            const view::DrawItem& item = draw_list_[i];
-            if (item.layer != view::Layer::terrain) continue;
-            const bool quality_keep_cell = castle_visual_valid_ &&
-                item.cell_x >= castle_left_ &&
-                item.cell_x < castle_left_ + castle_size_ &&
-                item.cell_y >= castle_top_ &&
-                item.cell_y < castle_top_ + castle_size_;
-            if (quality_keep_cell) continue;
-            console::draw_terrain_detail(
-                item.x, item.y, item.w,
-                terrain_composition_at(item.cell_x, item.cell_y)
-            );
-            // The gameplay kind remains mountain. A flat overlay adds this
-            // cell's quarter of the exact authored landmark immediately, so
-            // the terrain list's occlusion order remains intact.
-            const view::LandmarkCell landmark = landmark_at(
-                item.cell_x, item.cell_y
-            );
-            if (landmark) {
-                console::draw_landmark(
-                    item.x, item.y, item.w, landmark
-                );
-            }
-            const view::CastleTile castle = castle_at(
-                item.cell_x, item.cell_y
-            );
-            if (castle != view::CastleTile::none) {
-                console::draw_castle_tile(
-                    item.x, item.y, item.w, castle
+        console::begin_depth_board(disp);
+
+        // Back-to-front diagonals are the spatial painter's order. The atlas
+        // remains uploaded throughout this pass; every cell is two
+        // shade+texture triangles, and elevation adds genuinely vertical
+        // faces instead of an offset square.
+        for (int diagonal = 0;
+             diagonal < camera_.view_w + camera_.view_h - 1; ++diagonal) {
+            for (int i = 0; i < draw_list_.size(); ++i) {
+                const view::DrawItem& item = draw_list_[i];
+                if (item.layer != view::Layer::terrain) continue;
+                const int local_x = item.cell_x - camera_.x;
+                const int local_y = item.cell_y - camera_.y;
+                if (local_x + local_y != diagonal) continue;
+                const int centre_x = item.x + depth_half_width_;
+                const int centre_y = item.y + depth_half_height_ +
+                    depth_lift(item.cell_x, item.cell_y);
+                console::draw_depth_terrain(
+                    centre_x, centre_y, depth_half_width_, depth_half_height_,
+                    depth_lift(item.cell_x, item.cell_y),
+                    terrain_composition_at(item.cell_x, item.cell_y)
                 );
             }
         }
-        bool quality_keep_drawn = false;
-        if (castle_visual_valid_) {
-            const int left = projection_.cell_left(camera_, castle_left_);
-            const int top = projection_.cell_top(camera_, castle_top_, 0);
-            const int extent = castle_size_ * tile_;
-            if (left < 320 && left + extent > 0 && top < 216 &&
-                top + extent > 14) {
-                quality_keep_drawn = console::draw_twin_gate_keep(
-                    left, top, extent, extent, castle_state_
+
+        // Props and characters share the same diagonals, so a tree in front
+        // can cover boots while one behind never covers a face. Shadows are
+        // projected onto the cell immediately before their character.
+        for (int diagonal = 0;
+             diagonal < camera_.view_w + camera_.view_h - 1; ++diagonal) {
+            for (int i = 0; i < draw_list_.size(); ++i) {
+                const view::DrawItem& item = draw_list_[i];
+                if (item.layer != view::Layer::terrain) continue;
+                const int local_x = item.cell_x - camera_.x;
+                const int local_y = item.cell_y - camera_.y;
+                if (local_x + local_y != diagonal) continue;
+                const int centre_x = item.x + depth_half_width_;
+                const int base_y = item.y + depth_half_height_ * 2;
+                console::draw_depth_detail(
+                    centre_x, base_y, depth_half_width_, depth_half_height_,
+                    terrain_composition_at(item.cell_x, item.cell_y)
                 );
-            }
-        }
-        for (int i = 0; i < draw_list_.size(); ++i) {
-            const view::DrawItem& item = draw_list_[i];
-            if (item.layer == view::Layer::unit) {
-                const sim::UnitSnapshot& unit = snapshot.units[item.subject];
-                if (quality_keep_drawn && twin_gate_hides(
-                        unit.position.x, unit.position.y)) {
-                    continue;
+                const view::LandmarkCell landmark = landmark_at(
+                    item.cell_x, item.cell_y
+                );
+                if (landmark) {
+                    console::draw_depth_landmark(
+                        centre_x, base_y, depth_half_width_,
+                        depth_half_height_, landmark
+                    );
                 }
-                console::draw_character(
+                const view::CastleTile castle = castle_at(
+                    item.cell_x, item.cell_y
+                );
+                if (castle != view::CastleTile::none) {
+                    console::draw_depth_castle(
+                        centre_x, base_y, depth_half_width_,
+                        depth_half_height_, castle
+                    );
+                }
+            }
+            for (int i = 0; i < draw_list_.size(); ++i) {
+                const view::DrawItem& item = draw_list_[i];
+                if (item.layer != view::Layer::unit) continue;
+                const sim::UnitSnapshot& unit = snapshot.units[item.subject];
+                const int local_x = unit.position.x - camera_.x;
+                const int local_y = unit.position.y - camera_.y;
+                if (local_x + local_y != diagonal) continue;
+                const int centre_x = item.x + depth_half_width_;
+                const int bottom = item.y + depth_half_height_ * 2;
+                console::draw_depth_shadow(
+                    centre_x, bottom - 2, depth_half_width_,
+                    depth_half_height_
+                );
+                console::draw_depth_character(
                     console_drawing_of(unit), console::Pose::idle,
-                    item.x + item.w / 2, item.y + item.h, tile_,
+                    centre_x, bottom, depth_character_size_,
                     unit.side != player_side_
                 );
             }
         }
         console::end_board();
+    }
+
+    void render_board(
+        surface_t* disp,
+        const sim::EncounterSnapshot& snapshot
+    ) {
+        render_depth_board(disp, snapshot);
     }
 
 #ifndef GRANDLEON_N64_PROBE
@@ -5453,9 +5580,10 @@ private:
         namespace console = grandleon::nintendo64::console_renderer;
         const console::Pose pose = cell == view::sequence_cell_stand
             ? console::Pose::idle : console::Pose::move;
-        console::draw_character_overlay(
+        console::draw_depth_character_overlay(
             disp, console_drawing_of(unit), pose,
-            x + tile_ / 2, y + tile_, tile_, facing_left
+            x + tile_ / 2, y + cell_pixel_height(),
+            depth_character_size_, facing_left
         );
     }
 
@@ -5495,9 +5623,9 @@ private:
         );
         facing_left = view::board_heading_faces_left(heading, facing_left);
         const int whole = total > 0 ? total : frames;
-        const int from_x = px(from.x);
+        const int from_x = px(from.x, from.y);
         const int from_y = py(from.x, from.y);
-        const int to_x = px(to.x);
+        const int to_x = px(to.x, to.y);
         const int to_y = py(to.x, to.y);
         for (int frame = 1; frame <= frames; ++frame) {
             surface_t* disp = display_get();
@@ -5737,14 +5865,15 @@ private:
 
         if (!camera_.visible(event.position.x, event.position.y)) return;
 
-        const int cell_x = px(event.position.x);
+        const int cell_x = px(event.position.x, event.position.y);
         const int cell_y = py(event.position.x, event.position.y);
         // The thrower is lifted out of the board with the struck token so it
         // can be drawn posed: the two of them are the two ends of one gesture.
         const bool posed =
             striker != nullptr &&
             camera_.visible(striker->position.x, striker->position.y);
-        const int thrower_x = posed ? px(striker->position.x) : 0;
+        const int thrower_x = posed
+            ? px(striker->position.x, striker->position.y) : 0;
         const int thrower_y =
             posed ? py(striker->position.x, striker->position.y) : 0;
         const view::TerrainComposition close_terrain =
@@ -6234,7 +6363,7 @@ private:
                     if (flash % 2 == 0) {
                         graphics_draw_box(
                             disp,
-                            px(event.position.x),
+                            px(event.position.x, event.position.y),
                             py(event.position.x, event.position.y),
                             tile_ - 1,
                             tile_ - 1,
@@ -6261,7 +6390,7 @@ private:
                     if (flash % 2 == 0) {
                         graphics_draw_box(
                             disp,
-                            px(event.position.x) + 4,
+                            px(event.position.x, event.position.y) + 4,
                             py(event.position.x, event.position.y) + 4,
                             tile_ - 9,
                             tile_ - 9,
@@ -6281,7 +6410,7 @@ private:
                 if (!camera_.visible(actor->position.x, actor->position.y)) {
                     return;
                 }
-                const int x = px(actor->position.x);
+                const int x = px(actor->position.x, actor->position.y);
                 const int y = py(actor->position.x, actor->position.y);
                 for (int flash = 0; flash < 6; ++flash) {
                     surface_t* disp = display_get();
@@ -6338,9 +6467,8 @@ private:
     // find out is to sweep the cursor over the board and read a refusal.
     //
     // Both sets still come from the engine and neither is derived here; they
-    // are intersected rather than stacked. Drawn as a one-pixel checker so the
-    // terrain stays readable, and so the sampled cell centres stay exact for
-    // the probes.
+    // are intersected rather than stacked. Three short native bars leave the
+    // terrain readable while making the projected cell's state unmistakable.
     void draw_highlights(
         surface_t* disp,
         const sim::EncounterSnapshot& snapshot
@@ -6438,13 +6566,23 @@ private:
     // leaves the exact centre untouched for classify() and the samplers.
     void stipple(surface_t* disp, sim::Position tile, std::uint32_t highlight) {
         if (!camera_.visible(tile.x, tile.y)) return;
-        const int left = px(tile.x);
+        const int left = px(tile.x, tile.y);
         const int top = py(tile.x, tile.y);
-        for (int dy = 1; dy < tile_ - 2; ++dy) {
-            for (int dx = 1 + (dy & 1); dx < tile_ - 2; dx += 2) {
-                graphics_draw_pixel(disp, left + dx, top + dy, highlight);
-            }
-        }
+        const int centre_x = left + depth_half_width_;
+        const int middle_y = top + depth_half_height_;
+        // Three short native rectangles mark the cell without replacing its
+        // texture. The retired per-pixel dither touched thousands of CPU
+        // pixels over a movement range and obscured both terrain and units.
+        graphics_draw_box(
+            disp, centre_x - depth_half_width_ / 2, middle_y - 1,
+            depth_half_width_, 2, highlight
+        );
+        graphics_draw_box(
+            disp, centre_x - 3, middle_y - 5, 6, 1, highlight
+        );
+        graphics_draw_box(
+            disp, centre_x - 3, middle_y + 4, 6, 1, highlight
+        );
     }
 
     // The action menu, over the settled board: a bordered list, the d-pad to
@@ -7556,14 +7694,69 @@ private:
     // rather than a failure.
     [[nodiscard]] bool sample_under_panel(int cell_x, int cell_y) const {
         if (panel_width_ <= 0) return false;
-        const int sx = px(cell_x) + tile_ / 2;
-        const int sy = py(cell_x, cell_y) + tile_ / 2 + 1;
+        const int sx = px(cell_x, cell_y) + tile_ / 2;
+        const int sy = py(cell_x, cell_y) + cell_pixel_height() / 2 + 1;
         return sx >= panel_left_ && sx < panel_left_ + panel_width_ &&
                sy >= panel_top_ && sy < panel_top_ + panel_height_;
     }
 
+    [[nodiscard]] int depth_lift(int cell_x, int cell_y) const {
+        const int lift = elevation_at(cell_x, cell_y) * 4;
+        return lift < 12 ? lift : 12;
+    }
+
+    void configure_depth_origin() {
+        int tallest = 0;
+        for (int y = 0; y < camera_.map_h; ++y) {
+            for (int x = 0; x < camera_.map_w; ++x) {
+                const int lift = depth_lift(x, y);
+                if (lift > tallest) tallest = lift;
+            }
+        }
+        const int width =
+            (camera_.view_w + camera_.view_h) * depth_half_width_;
+        depth_origin_x_ = (320 - width) / 2 +
+            camera_.view_h * depth_half_width_;
+        const int height =
+            (camera_.view_w + camera_.view_h) * depth_half_height_ + tallest;
+        constexpr int frame_top = 18;
+        constexpr int frame_height = 198;
+        const int spare = frame_height > height ? frame_height - height : 0;
+        depth_origin_y_ = frame_top + spare / 2 +
+            depth_half_height_ + tallest;
+    }
+
+    [[nodiscard]] int depth_cell_centre_x(int cell_x, int cell_y) const {
+        const int x = cell_x - camera_.x;
+        const int y = cell_y - camera_.y;
+        return depth_origin_x_ + (x - y) * depth_half_width_;
+    }
+
+    [[nodiscard]] int depth_cell_centre_y(int cell_x, int cell_y) const {
+        const int x = cell_x - camera_.x;
+        const int y = cell_y - camera_.y;
+        return depth_origin_y_ + (x + y) * depth_half_height_;
+    }
+
+    [[nodiscard]] int depth_cell_left(int cell_x, int cell_y) const {
+        return depth_cell_centre_x(cell_x, cell_y) - depth_half_width_;
+    }
+
+    [[nodiscard]] int depth_cell_top(int cell_x, int cell_y) const {
+        return depth_cell_centre_y(cell_x, cell_y) - depth_half_height_ -
+            depth_lift(cell_x, cell_y);
+    }
+
+    [[nodiscard]] int cell_pixel_height() const {
+        return depth_half_height_ * 2;
+    }
+
+    [[nodiscard]] int px(int cell_x, int cell_y) const {
+        return depth_cell_left(cell_x, cell_y);
+    }
+
     [[nodiscard]] int px(int cell_x) const {
-        return projection_.cell_left(camera_, cell_x);
+        return px(cell_x, cursor_y_);
     }
 
     // A cell's top edge needs both coordinates because how high it is drawn
@@ -7572,9 +7765,7 @@ private:
     // the animations, and the probe's own sampler. So nothing can end up half
     // a step out of register with the ground.
     [[nodiscard]] int py(int cell_x, int cell_y) const {
-        return projection_.cell_top(
-            camera_, cell_y, elevation_at(cell_x, cell_y)
-        );
+        return depth_cell_top(cell_x, cell_y);
     }
 
     [[nodiscard]] int terrain_kind_at(int cell_x, int cell_y) const {
@@ -7627,21 +7818,6 @@ private:
                    : 0;
     }
 
-    // The tallest terrain anywhere on the board, which is what the layout
-    // reserves headroom for.
-    [[nodiscard]] int highest_elevation(
-        const sim::EncounterSnapshot& snapshot
-    ) const {
-        int highest = 0;
-        for (int y = 0; y < snapshot.height; ++y) {
-            for (int x = 0; x < snapshot.width; ++x) {
-                const int level = elevation_at(x, y);
-                if (level > highest) highest = level;
-            }
-        }
-        return highest;
-    }
-
     static std::uint32_t colour(int r, int g, int b) {
         return graphics_make_color(r, g, b, 255);
     }
@@ -7655,10 +7831,14 @@ private:
         const sim::EncounterSnapshot& snapshot,
         const sim::UnitSnapshot& unit
     ) {
-        const int x = px(unit.position.x);
+        const int x = px(unit.position.x, unit.position.y);
         const int y = py(unit.position.x, unit.position.y);
+        const int cell_height = cell_pixel_height();
         if (unit.id == snapshot.active_unit_id) {
-            graphics_draw_box(disp, x, y, tile_ - 1, 2, colour(242, 193, 78));
+            graphics_draw_box(
+                disp, x + 5, y, tile_ - 11, 2,
+                colour(242, 193, 78)
+            );
         } else if (unit.has_acted) {
             // Somebody who has already taken their turn is banded top and
             // bottom in the grey of a finished action. The generated cutout
@@ -7670,9 +7850,13 @@ private:
             // their whole line to plan the next one, and hiding a spent
             // character would take that away to say something grey already
             // says.
-            graphics_draw_box(disp, x, y, tile_ - 1, 2, colour(112, 108, 102));
             graphics_draw_box(
-                disp, x, y + tile_ - 2, tile_ - 1, 2, colour(112, 108, 102)
+                disp, x + 5, y, tile_ - 11, 2,
+                colour(112, 108, 102)
+            );
+            graphics_draw_box(
+                disp, x + 5, y + cell_height - 2, tile_ - 11, 2,
+                colour(112, 108, 102)
             );
         }
         // Health along the bottom edge, and nothing else written on the cell.
@@ -7683,7 +7867,9 @@ private:
         // there is room to say it in words. The *terminal* client is the one
         // surface that draws the numbered roster, because there a player types
         // `move 3 5 2`.
-        const int span = ((tile_ - 4) * unit.health) /
+        constexpr int bar_inset = 5;
+        const int bar_width = tile_ - 2 - bar_inset * 2;
+        const int span = ((bar_width - 2) * unit.health) /
                          (unit.maximum_health > 0 ? unit.maximum_health : 1);
         std::uint32_t owner = colour(224, 75, 91);
         if (unit.side == player_side_) {
@@ -7691,14 +7877,15 @@ private:
                                              : colour(103, 217, 255);
         }
         graphics_draw_box(
-            disp, x + 1, y + tile_ - 5, tile_ - 2, 4, owner
+            disp, x + 1 + bar_inset, y + cell_height - 5, bar_width, 4, owner
         );
         graphics_draw_box(
-            disp, x + 2, y + tile_ - 4, tile_ - 4, 2,
+            disp, x + 2 + bar_inset, y + cell_height - 4, bar_width - 2, 2,
             colour(7, 16, 24)
         );
         graphics_draw_box(
-            disp, x + 2, y + tile_ - 4, span > 0 ? span : 1, 2,
+            disp, x + 2 + bar_inset, y + cell_height - 4,
+            span > 0 ? span : 1, 2,
             colour(121, 208, 110)
         );
     }
@@ -7714,12 +7901,17 @@ private:
     void draw_cursor_ring(
         surface_t* disp, std::int16_t tx, std::int16_t ty, std::uint32_t c
     ) {
-        const int x = px(tx);
+        const int x = px(tx, ty);
         const int y = py(tx, ty);
-        graphics_draw_box(disp, x, y, tile_ - 1, 1, c);
-        graphics_draw_box(disp, x, y + tile_ - 2, tile_ - 1, 1, c);
-        graphics_draw_box(disp, x, y, 1, tile_ - 1, c);
-        graphics_draw_box(disp, x + tile_ - 2, y, 1, tile_ - 1, c);
+        const int centre_x = x + depth_half_width_;
+        const int middle_y = y + depth_half_height_;
+        for (int dx = 0; dx <= depth_half_width_; ++dx) {
+            const int dy = (dx * depth_half_height_) / depth_half_width_;
+            graphics_draw_pixel(disp, centre_x - dx, middle_y - dy, c);
+            graphics_draw_pixel(disp, centre_x + dx, middle_y - dy, c);
+            graphics_draw_pixel(disp, centre_x - dx, middle_y + dy, c);
+            graphics_draw_pixel(disp, centre_x + dx, middle_y + dy, c);
+        }
     }
 
     void draw_cursor_ring(surface_t* disp, std::int16_t tx, std::int16_t ty) {
@@ -7771,7 +7963,7 @@ private:
 #endif
         draw_cursor_ring(disp, cursor_x_, cursor_y_);
 #ifndef GRANDLEON_N64_PROBE
-        const int x = px(cursor_x_);
+        const int x = px(cursor_x_, cursor_y_);
         const int y = py(cursor_x_, cursor_y_);
         const std::uint32_t c = cursor_colour();
         // The pulse: a second ring inside the cursor's own rectangle, up for
@@ -7781,17 +7973,16 @@ private:
         // cell can never be one of these. And at phase zero it draws nothing
         // at all, leaving the plain cursor.
         if (!view::cursor_emphasised(pulse_frame_)) return;
-        const int inset = view::cursor_emphasis_inset(tile_);
-        const int span = tile_ - 1 - 2 * inset;
-        if (inset <= 0 || span <= 1) return;
-        graphics_draw_box(disp, x + inset, y + inset, span, 1, c);
-        graphics_draw_box(
-            disp, x + inset, y + inset + span - 1, span, 1, c
-        );
-        graphics_draw_box(disp, x + inset, y + inset, 1, span, c);
-        graphics_draw_box(
-            disp, x + inset + span - 1, y + inset, 1, span, c
-        );
+        const int centre_x = x + depth_half_width_;
+        const int middle_y = y + depth_half_height_;
+        for (int dx = 2; dx < depth_half_width_ - 1; ++dx) {
+            const int dy =
+                (dx * (depth_half_height_ - 2)) / depth_half_width_;
+            graphics_draw_pixel(disp, centre_x - dx, middle_y - dy, c);
+            graphics_draw_pixel(disp, centre_x + dx, middle_y - dy, c);
+            graphics_draw_pixel(disp, centre_x - dx, middle_y + dy, c);
+            graphics_draw_pixel(disp, centre_x + dx, middle_y + dy, c);
+        }
 #endif
     }
 
@@ -7845,8 +8036,9 @@ private:
         int cell_x,
         int cell_y
     ) const {
-        const int sample_x = px(cell_x) + tile_ / 2;
-        const int sample_y = py(cell_x, cell_y) + tile_ / 2;
+        const int sample_x = px(cell_x, cell_y) + tile_ / 2;
+        const int sample_y =
+            py(cell_x, cell_y) + cell_pixel_height() / 2;
         // Read what the RDP wrote through the uncached segment, past any
         // stale cache line.
         const auto* base =
@@ -7871,7 +8063,7 @@ private:
     }
 
 #if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README)
-    [[nodiscard]] bool terrain_detail_matches_framebuffer(
+    [[nodiscard]] bool depth_geometry_matches_framebuffer(
         const sim::EncounterSnapshot& snapshot
     ) const {
         if (last_buffer_ == nullptr) return false;
@@ -7888,35 +8080,22 @@ private:
                         unit_near = true;
                     }
                 }
-                if (unit_near || landmark_at(x, y) ||
-                    castle_at(x, y) != view::CastleTile::none) {
-                    continue;
-                }
-                const view::TerrainComposition terrain =
-                    terrain_composition_at(x, y);
-                int at_x = -1;
-                int at_y = -1;
-                view::paint_console_terrain(
-                    terrain, px(x), py(x, y), tile_,
-                    [&at_x, &at_y](int left, int top, int width, int height,
-                                    view::TerrainTone tone) {
-                        if (at_x >= 0 || tone != view::TerrainTone::seam) {
-                            return;
-                        }
-                        at_x = left + width / 2;
-                        at_y = top + height / 2;
-                    }
+                const int lift = depth_lift(x, y);
+                if (unit_near) continue;
+                const int centre_x = depth_cell_centre_x(x, y);
+                const int centre_y = depth_cell_centre_y(x, y);
+                // Both samples are well inside one projected diamond.  The
+                // production material pass shades its far and near halves
+                // differently; a flat rectangle would not satisfy this.
+                const std::uint16_t far = sample_pixel(
+                    last_buffer_, centre_x,
+                    centre_y - depth_half_height_ / 2 - lift
                 );
-                if (at_x < 0) continue;
-                const view::TerrainColour expected = view::terrain_colour(
-                    terrain.kind, view::TerrainTone::seam
+                const std::uint16_t near = sample_pixel(
+                    last_buffer_, centre_x,
+                    centre_y + depth_half_height_ / 2 - lift
                 );
-                const std::uint16_t packed = static_cast<std::uint16_t>(
-                    graphics_make_color(
-                        expected.red, expected.green, expected.blue, 255
-                    ) & 0xFFFFU
-                );
-                return sample_pixel(last_buffer_, at_x, at_y) == packed;
+                if (far != 0 && near != 0 && far != near) return true;
             }
         }
         return false;
@@ -7930,146 +8109,30 @@ private:
     }
 
 #ifdef GRANDLEON_N64_AUTOPILOT
-    // The stipple pixel of a cell, where draw_highlights plots its checker one
-    // row below the sampled centre. Read through the CPU's own view because
-    // the interface checker is drawn there after the RDP board pass.
-    [[nodiscard]] std::uint16_t stipple_pixel(int cell_x, int cell_y) const {
-        if (last_buffer_ == nullptr) return 0;
-        const int x = px(cell_x) + tile_ / 2;
-        const int y = py(cell_x, cell_y) + tile_ / 2 + 1;
-        const auto* base =
-            static_cast<const std::uint8_t*>(last_buffer_->buffer);
-        const auto* row =
-            base + static_cast<std::size_t>(y) * last_buffer_->stride;
-        return reinterpret_cast<const std::uint16_t*>(row)[x];
+    // A colour present in the sparse projected-cell marker's long centre bar.
+    // The cursor ring deliberately touches the exact cell centre, so checking
+    // only that pixel turns every selected tile white.  Walking the short bar
+    // proves the player-visible marker while allowing the cursor to remain on
+    // top. Read through the CPU's view because both overlays are drawn after
+    // the RDP terrain pass.
+    [[nodiscard]] bool stipple_has_colour(
+        int cell_x, int cell_y, std::uint16_t wanted
+    ) const {
+        if (autopilot_screen == nullptr) return false;
+        const int centre_x = px(cell_x, cell_y) + depth_half_width_;
+        const int centre_y = py(cell_x, cell_y) + depth_half_height_;
+        const int first_x = centre_x - depth_half_width_ / 2;
+        const int last_x = first_x + depth_half_width_;
+        for (int x = first_x; x < last_x; ++x) {
+            if (surface_pixel(autopilot_screen, x, centre_y) == wanted) {
+                return true;
+            }
+        }
+        return false;
     }
 #endif
 
 #ifdef GRANDLEON_N64_PROBE
-#ifdef GRANDLEON_N64_TWIN_GATE_CAPTURE
-    client::Intent twin_gate_capture_intent(
-        const sim::EncounterSnapshot& snapshot
-    ) {
-        client::Intent intent;
-        intent.kind = client::IntentKind::quit;
-        if (twin_gate_capture_done_) return intent;
-        twin_gate_capture_done_ = true;
-
-        expect(
-            snapshot.width == 20 && snapshot.height == 14,
-            "the production capture is the authored twenty-by-fourteen map"
-        );
-        expect(
-            camera_.view_w == 16 && camera_.view_h == 11 &&
-                camera_.rightmost_x() == 4 &&
-                camera_.map_h - camera_.view_h == 3,
-            "the real renderer scrolls the twenty-by-fourteen board through "
-            "a sixteen-by-eleven view"
-        );
-        expect(
-            castle_visual_valid_ && castle_left_ == 13 && castle_top_ == 4,
-            "the production renderer recognizes only the exact six-by-six keep"
-        );
-        namespace console = grandleon::nintendo64::console_renderer;
-        expect(
-            console::twin_gate_loaded_bytes() ==
-                console::twin_gate_board_pack_bytes(),
-            "all five board-distance states fit the bounded Twin Gate cache"
-        );
-        expect(
-            twin_gate_hides(16, 6) && twin_gate_hides(13, 7),
-            "the closed shell hides the authored boss and door mystic"
-        );
-
-        const std::size_t board_rdram = console::twin_gate_loaded_bytes();
-        camera_.clamp();
-        std::uint64_t slowest = 0;
-        const auto draw_capture = [this, &snapshot, &slowest](int state) {
-            castle_state_ = state;
-            for (int frame = 0; frame < 3; ++frame) {
-                const std::uint64_t started = get_ticks_us();
-                surface_t* display = display_get();
-                render(display, snapshot, 0);
-                show(display);
-                slowest = std::max(slowest, get_ticks_us() - started);
-            }
-        };
-        const auto checkpoint = [](const char* name) {
-            report_line("CHECKPOINT %s\n", name);
-            std::fflush(stderr);
-            wait_ms(500);
-        };
-
-        // The west approach is a real scroll position, deliberately dominated
-        // by road, farmland and stone instead of the landmark. This prevents
-        // the quality gate from passing on a beautiful keep over a flat map.
-        camera_.x = 0;
-        camera_.y = 0;
-        camera_.clamp();
-        draw_capture(0);
-        checkpoint("twin-gate-runtime-approach");
-
-        camera_.x = camera_.rightmost_x();
-        camera_.y = camera_.map_h - camera_.view_h;
-        camera_.clamp();
-        draw_capture(0);
-        checkpoint("twin-gate-runtime-exterior-wide");
-        for (int state = 1; state <= 3; ++state) {
-            draw_capture(state);
-            if (state == 2) {
-                checkpoint("twin-gate-runtime-threshold");
-            }
-        }
-        castle_revealed_ = true;
-        draw_capture(4);
-        expect(
-            !twin_gate_hides(16, 6) && !twin_gate_hides(13, 7),
-            "the cutaway restores the live room units over the floor"
-        );
-        checkpoint("twin-gate-runtime-revealed-wide");
-
-        // The same real snapshot through a six-cell camera demonstrates the
-        // close framing available to an encounter cinematic. No unit, terrain
-        // or gameplay coordinate is rewritten for this capture.
-        camera_ = {castle_left_, castle_top_, castle_size_, castle_size_,
-                   snapshot.width, snapshot.height};
-        tile_ = 32;
-        origin_x_ = 64;
-        origin_y_ = 24;
-        projection_ = view::Projection{
-            origin_x_, origin_y_, tile_, view::elevation_step_for(tile_)
-        };
-        draw_capture(4);
-        checkpoint("twin-gate-runtime-revealed-close");
-
-        const std::size_t peak_rdram = console::twin_gate_loaded_bytes();
-        expect(
-            peak_rdram > board_rdram &&
-                peak_rdram < console::twin_gate_pack_bytes(),
-            "close framing loads one detailed state without caching the whole pack"
-        );
-
-        expect(slowest <= 33'333U, "production Twin Gate frames sustain 30 fps");
-        report_line(
-            "BENCH n64 production twin-gate map=20x14 view=16x11 keep=6x6 "
-            "pack=%u board_rdram=%u peak_rdram=%u max_us=%llu fps=%llu\n",
-            static_cast<unsigned>(console::twin_gate_pack_bytes()),
-            static_cast<unsigned>(board_rdram),
-            static_cast<unsigned>(peak_rdram),
-            static_cast<unsigned long long>(slowest),
-            static_cast<unsigned long long>(
-                slowest > 0 ? 1'000'000 / slowest : 0
-            )
-        );
-        report_line(
-            "RESULT %s %d/%d\n", failures == 0 ? "PASS" : "FAIL",
-            checks - failures, checks
-        );
-        return intent;
-    }
-    bool twin_gate_capture_done_{false};
-#endif
-
 #ifdef GRANDLEON_N64_README
     // Hold the first Emberbound battle exactly where the Godot and PlayStation
     // documentation captures hold it. The checkpoint lets the emulator take a
@@ -8119,24 +8182,28 @@ private:
         if (probe_step_ >= spent_probe_step) return spent_probe(snapshot);
         if (probe_step_ == 0) {
             ++probe_step_;
-            // The Fordlight's terrain inside this machine's window, minus the
-            // eight cells covered by units (all of which stand on grass). The
-            // board is wider than the window, so this is what the camera holds
-            // at rest rather than the whole authored board: sixteen columns by
-            // eight, which is a hundred and twenty-eight cells and every one of
-            // them classified. The crossing itself is entirely inside it, which
-            // is why the water and the road below did not move when the board
-            // grew and the two open terrains did.
-            expect(classified.grass == 64, "framebuffer shows 64 grass cells");
-            expect(classified.forest == 28, "framebuffer shows 28 forest cells");
+            report_line(
+                "depth census grass=%d forest=%d water=%d road=%d blue=%d "
+                "red=%d unknown=%d\n",
+                classified.grass, classified.forest, classified.water,
+                classified.road, classified.blue, classified.red,
+                classified.unknown
+            );
+            // The Fordlight inside the projected camera, minus the eight cells
+            // covered by units (all of which stand on grass).  This is the
+            // settled ten-by-eight production view, not the retired flat
+            // sixteen-column raster.  Every visible authored cell still has a
+            // material classification, including the whole crossing.
+            expect(classified.grass == 32, "framebuffer shows 32 grass cells");
+            expect(classified.forest == 12, "framebuffer shows 12 forest cells");
             expect(classified.water == 12, "framebuffer shows 12 water cells");
             expect(classified.road == 16, "framebuffer shows 16 road cells");
             expect(classified.blue == 4, "framebuffer shows 4 blue units");
             expect(classified.red == 4, "framebuffer shows 4 red units");
             expect(classified.unknown == 0, "no unclassifiable cell");
             expect(
-                terrain_detail_matches_framebuffer(snapshot),
-                "a neighbour-aware terrain seam reaches the framebuffer"
+                depth_geometry_matches_framebuffer(snapshot),
+                "a shaded terrain diamond reaches the framebuffer"
             );
             // The knight standing at (0,3) walks onto the bridge road.
             for (const sim::UnitSnapshot& unit : snapshot.units) {
@@ -8752,118 +8819,6 @@ private:
         );
     }
 
-    void detect_twin_gate_keep() {
-        castle_visual_valid_ = false;
-        castle_revealed_ = false;
-        castle_state_ = 0;
-        castle_left_ = 0;
-        castle_top_ = 0;
-        if (theme_ != 0U || board_width_ <= 0 || terrain_.empty()) return;
-        const int board_height = static_cast<int>(
-            terrain_.size() / static_cast<std::size_t>(board_width_)
-        );
-        int minimum_x = board_width_;
-        int minimum_y = board_height;
-        int maximum_x = -1;
-        int maximum_y = -1;
-        int count = 0;
-        for (int y = 0; y < board_height; ++y) {
-            for (int x = 0; x < board_width_; ++x) {
-                if (castle_at(x, y) == view::CastleTile::none) continue;
-                minimum_x = std::min(minimum_x, x);
-                minimum_y = std::min(minimum_y, y);
-                maximum_x = std::max(maximum_x, x);
-                maximum_y = std::max(maximum_y, y);
-                ++count;
-            }
-        }
-        if (count != 36 || maximum_x - minimum_x + 1 != castle_size_ ||
-            maximum_y - minimum_y + 1 != castle_size_) {
-            return;
-        }
-        for (int local_y = 0; local_y < castle_size_; ++local_y) {
-            for (int local_x = 0; local_x < castle_size_; ++local_x) {
-                view::CastleTile expected = view::CastleTile::floor;
-                if (local_y == 0 || local_y == castle_size_ - 1 ||
-                    local_x == castle_size_ - 1 ||
-                    (local_x == 0 && (local_y == 1 || local_y == 4))) {
-                    expected = view::CastleTile::wall;
-                } else if (local_x == 0) {
-                    expected = view::CastleTile::door;
-                } else if (local_x == 4 &&
-                           (local_y == 2 || local_y == 3)) {
-                    expected = view::CastleTile::dais;
-                }
-                if (castle_at(minimum_x + local_x, minimum_y + local_y) !=
-                    expected) {
-                    return;
-                }
-            }
-        }
-        castle_left_ = minimum_x;
-        castle_top_ = minimum_y;
-        castle_visual_valid_ =
-            grandleon::nintendo64::console_renderer::prepare_twin_gate_keep();
-        report_line(
-            "n64 twin-gate keep=%d,%d 6x6 art=%u bytes=%u\n",
-            castle_left_, castle_top_, castle_visual_valid_ ? 1U : 0U,
-            static_cast<unsigned>(
-                grandleon::nintendo64::console_renderer::twin_gate_loaded_bytes()
-            )
-        );
-    }
-
-    [[nodiscard]] bool twin_gate_hides(int x, int y) const {
-        if (!castle_visual_valid_ || castle_state_ >= 4 ||
-            x < castle_left_ || x >= castle_left_ + castle_size_ ||
-            y < castle_top_ || y >= castle_top_ + castle_size_) {
-            return false;
-        }
-        const view::CastleTile tile = castle_at(x, y);
-        return tile == view::CastleTile::door ||
-            tile == view::CastleTile::floor ||
-            tile == view::CastleTile::dais;
-    }
-
-    [[nodiscard]] bool update_twin_gate_reveal(
-        const sim::EncounterSnapshot& snapshot
-    ) {
-        if (!castle_visual_valid_ || castle_revealed_) return false;
-        for (const sim::UnitSnapshot& unit : snapshot.units) {
-            if (!sim::on_board(unit) || unit.side != player_side_) continue;
-            if (unit.position.x < castle_left_ ||
-                unit.position.x >= castle_left_ + castle_size_ ||
-                unit.position.y < castle_top_ ||
-                unit.position.y >= castle_top_ + castle_size_) {
-                continue;
-            }
-            const view::CastleTile tile = castle_at(
-                unit.position.x, unit.position.y
-            );
-            if (tile == view::CastleTile::door ||
-                tile == view::CastleTile::floor ||
-                tile == view::CastleTile::dais) {
-                castle_revealed_ = true;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void animate_twin_gate_reveal(
-        const sim::EncounterSnapshot& snapshot
-    ) {
-        for (int state = 1; state <= 4; ++state) {
-            castle_state_ = state;
-            for (int held = 0; held < 3; ++held) {
-                surface_t* display = display_get();
-                render(display, snapshot, 0);
-                show(display);
-                wait_ms(16);
-            }
-        }
-    }
-
     sim::Side player_side_{sim::Side::first};
     // The season this game's ground is drawn in, from its package.
     std::uint8_t theme_{gc::default_theme};
@@ -8883,20 +8838,14 @@ private:
     // refusal it raises itself.
     sim::UnitId commanded_{0};
     int tile_{16};
-    int origin_x_{20};
-    int origin_y_{20};
-    // The board's pixel geometry, shared with the desktop and the editor
-    // through platform/view. Everything that asks where a cell is asks this.
-    view::Projection projection_{20, 20, 16, 0};
     // How wide the terrain vector's rows are, so a cell's elevation can be
     // looked up without a snapshot in hand.
     int board_width_{0};
-    static constexpr int castle_size_ = 6;
-    int castle_left_{0};
-    int castle_top_{0};
-    int castle_state_{0};
-    bool castle_visual_valid_{false};
-    bool castle_revealed_{false};
+    int depth_half_width_{16};
+    int depth_half_height_{10};
+    int depth_character_size_{44};
+    int depth_origin_x_{160};
+    int depth_origin_y_{48};
     std::int16_t cursor_x_{0};
     std::int16_t cursor_y_{0};
     sim::UnitId selected_{0};
@@ -9016,8 +8965,7 @@ private:
 #endif
 };
 
-#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README) && \
-    !defined(GRANDLEON_N64_TWIN_GATE_CAPTURE)
+#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README)
 // One board played for the renderer's sake, before the campaign's own.
 //
 // A character who has taken their turn is drawn greyed, and on a board whose
@@ -9860,8 +9808,7 @@ int main() {
 #ifdef GRANDLEON_N64_AUTOPILOT
         autopilot_presenter = &presenter;
 #endif
-#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README) && \
-    !defined(GRANDLEON_N64_TWIN_GATE_CAPTURE)
+#if defined(GRANDLEON_N64_PROBE) && !defined(GRANDLEON_N64_README)
         probe_the_spent_figure(loaded.package, presenter);
 #endif
 #ifdef GRANDLEON_N64_CAMPAIGN

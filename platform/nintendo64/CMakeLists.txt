@@ -191,9 +191,8 @@ configure_file(
     "${console_directional_index}"
     "${console_directional_romfs_root}/art/directional.json" COPYONLY
 )
-# The DFS is sealed after the optional landmark sprites are converted below.
-# Directional art and streamed landmark art therefore remain one filesystem,
-# which DragonFS can locate from the cartridge TOC without a second mount.
+# The directional bank stays file-backed in DragonFS so the dormant console
+# cache work does not enlarge resident executable data.
 
 # Packages a bootable .z64 from an ELF target, reproducing the %.z64 recipe in
 # libdragon's n64.mk: emit the symbol table, strip and compress a copy of the
@@ -210,8 +209,7 @@ function(grandleon_package_rom target rom_name rom_title)
     set(rom_elf "$<TARGET_FILE:${target}>")
     set(rom_dir "$<TARGET_FILE_DIR:${target}>")
     set(romfs_arguments "")
-    if(NOT "${target}" STREQUAL "grandleon_n64_conformance"
-       AND NOT "${target}" STREQUAL "grandleon_n64_twin_gate_quality")
+    if(NOT "${target}" STREQUAL "grandleon_n64_conformance")
         set_property(
             TARGET ${target} APPEND PROPERTY LINK_DEPENDS
             "${console_directional_romfs}"
@@ -333,188 +331,6 @@ file(WRITE
     "#pragma once\n#include <cstddef>\n${console_terrain_arrays}"
 )
 
-# A visually ambitious, production-shaped renderer proof for Steel and
-# Cedar's real Twin Gate encounter.  It is deliberately a separate ROM until
-# native captures prove that the richer architecture fits both the frame and
-# memory budgets.  Every keep upload is a 64x32 CI8 tile plus one 256-colour
-# palette. CI8 can use only TMEM's lower 2 KiB while the TLUT occupies part of
-# the upper half, so 64x32 is the largest safe rectangular tile here.
-set(console_twin_gate_asset_dir
-    "${CMAKE_CURRENT_SOURCE_DIR}/assets/twin_gate_quality")
-set(console_twin_gate_sprite_dir
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/twin_gate_quality_sprites")
-set(console_twin_gate_board_asset_dir
-    "${CMAKE_CURRENT_SOURCE_DIR}/assets/twin_gate_quality_board")
-set(console_twin_gate_board_sprite_dir
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/twin_gate_quality_board_sprites")
-file(MAKE_DIRECTORY "${console_twin_gate_sprite_dir}")
-file(MAKE_DIRECTORY "${console_twin_gate_board_sprite_dir}")
-file(MAKE_DIRECTORY "${console_directional_romfs_root}/art/twin_gate")
-file(MAKE_DIRECTORY "${console_directional_romfs_root}/art/twin_gate_board")
-set(console_twin_gate_states
-    exterior threshold_1 threshold_2 threshold_3 cutaway)
-set(console_twin_gate_arrays "")
-set(console_twin_gate_pointers "")
-set(console_twin_gate_sizes "")
-set(console_twin_gate_embedded_bytes 0)
-set(console_twin_gate_runtime_state_bytes "")
-set(console_twin_gate_board_state_bytes "")
-set(console_twin_gate_board_total_bytes 0)
-foreach(twin_gate_state IN LISTS console_twin_gate_states)
-    set(twin_gate_state_bytes 0)
-    foreach(twin_gate_row RANGE 0 5)
-        foreach(twin_gate_column RANGE 0 2)
-            set(twin_gate_name
-                "${twin_gate_state}_r${twin_gate_row}_c${twin_gate_column}")
-            set(twin_gate_source
-                "${console_twin_gate_asset_dir}/${twin_gate_name}.png")
-            if(NOT EXISTS "${twin_gate_source}")
-                message(FATAL_ERROR
-                    "Twin Gate quality texture is missing: ${twin_gate_source}")
-            endif()
-            execute_process(
-                COMMAND "${N64_BINDIR}/mksprite" -f CI8 -c 0
-                    -o "${console_twin_gate_sprite_dir}"
-                    "${twin_gate_source}"
-                RESULT_VARIABLE twin_gate_mksprite_status
-                OUTPUT_QUIET
-            )
-            if(NOT twin_gate_mksprite_status EQUAL 0)
-                message(FATAL_ERROR
-                    "mksprite failed for Twin Gate texture ${twin_gate_name}")
-            endif()
-            configure_file(
-                "${console_twin_gate_sprite_dir}/${twin_gate_name}.sprite"
-                "${console_directional_romfs_root}/art/twin_gate/${twin_gate_name}.sprite"
-                COPYONLY
-            )
-            file(READ
-                "${console_twin_gate_sprite_dir}/${twin_gate_name}.sprite"
-                twin_gate_hex HEX)
-            string(LENGTH "${twin_gate_hex}" twin_gate_hex_length)
-            math(EXPR twin_gate_size "${twin_gate_hex_length} / 2")
-            math(EXPR console_twin_gate_embedded_bytes
-                "${console_twin_gate_embedded_bytes} + ${twin_gate_size}")
-            math(EXPR twin_gate_state_bytes
-                "${twin_gate_state_bytes} + ${twin_gate_size}")
-            string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1,"
-                twin_gate_bytes "${twin_gate_hex}")
-            set(twin_gate_array "console_twin_gate_${twin_gate_name}")
-            string(APPEND console_twin_gate_arrays
-                "inline constexpr unsigned char ${twin_gate_array}[] = {"
-                "${twin_gate_bytes}};\n"
-                "inline constexpr std::size_t ${twin_gate_array}_size = "
-                "${twin_gate_size};\n")
-            string(APPEND console_twin_gate_pointers
-                "${twin_gate_array},")
-            string(APPEND console_twin_gate_sizes
-                "${twin_gate_array}_size,")
-        endforeach()
-    endforeach()
-    string(APPEND console_twin_gate_runtime_state_bytes
-        "${twin_gate_state_bytes},")
-endforeach()
-
-# The real 20x14 board displays the 6x6 keep at only 84x84 pixels. A separate
-# 96x88 pack retains that native result while cutting each board state from
-# eighteen CI8 uploads to six. Close framing continues to use the full pack.
-foreach(twin_gate_state IN LISTS console_twin_gate_states)
-    set(twin_gate_board_state_size 0)
-    foreach(twin_gate_row RANGE 0 2)
-        foreach(twin_gate_column RANGE 0 1)
-            set(twin_gate_name
-                "${twin_gate_state}_r${twin_gate_row}_c${twin_gate_column}")
-            set(twin_gate_source
-                "${console_twin_gate_board_asset_dir}/${twin_gate_name}.png")
-            if(NOT EXISTS "${twin_gate_source}")
-                message(FATAL_ERROR
-                    "Twin Gate board texture is missing: ${twin_gate_source}")
-            endif()
-            # Each 48x32 board tile has its own compact palette. CI4 keeps
-            # sixteen local colours (up to 96 across the landmark) while
-            # halving texel traffic and cutting the TLUT upload to 32 bytes.
-            execute_process(
-                COMMAND "${N64_BINDIR}/mksprite" -f CI4 -c 0
-                    -o "${console_twin_gate_board_sprite_dir}"
-                    "${twin_gate_source}"
-                RESULT_VARIABLE twin_gate_board_mksprite_status
-                OUTPUT_QUIET
-            )
-            if(NOT twin_gate_board_mksprite_status EQUAL 0)
-                message(FATAL_ERROR
-                    "mksprite failed for Twin Gate board texture ${twin_gate_name}")
-            endif()
-            configure_file(
-                "${console_twin_gate_board_sprite_dir}/${twin_gate_name}.sprite"
-                "${console_directional_romfs_root}/art/twin_gate_board/${twin_gate_name}.sprite"
-                COPYONLY
-            )
-            file(SIZE
-                "${console_twin_gate_board_sprite_dir}/${twin_gate_name}.sprite"
-                twin_gate_board_size)
-            math(EXPR twin_gate_board_state_size
-                "${twin_gate_board_state_size} + ${twin_gate_board_size}")
-            math(EXPR console_twin_gate_board_total_bytes
-                "${console_twin_gate_board_total_bytes} + ${twin_gate_board_size}")
-        endforeach()
-    endforeach()
-    string(APPEND console_twin_gate_board_state_bytes
-        "${twin_gate_board_state_size},")
-endforeach()
-file(WRITE
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/console_twin_gate_quality_assets.h"
-    "// Generated from the approved Twin Gate source pair. Do not edit.\n"
-    "#pragma once\n#include <cstddef>\n${console_twin_gate_arrays}"
-    "inline constexpr int console_twin_gate_quality_state_count = 5;\n"
-    "inline constexpr int console_twin_gate_quality_tile_width = 64;\n"
-    "inline constexpr int console_twin_gate_quality_tile_height = 32;\n"
-    "inline constexpr int console_twin_gate_quality_tile_columns = 3;\n"
-    "inline constexpr int console_twin_gate_quality_tile_rows = 6;\n"
-    "inline constexpr int console_twin_gate_quality_tile_count = 18;\n"
-    "inline constexpr std::size_t console_twin_gate_quality_tile_texels = 2048;\n"
-    "inline constexpr std::size_t console_twin_gate_quality_palette_bytes = 512;\n"
-    "inline constexpr std::size_t console_twin_gate_quality_peak_tmem = 2560;\n"
-    "inline constexpr std::size_t console_twin_gate_quality_embedded_bytes = "
-    "${console_twin_gate_embedded_bytes};\n"
-    "inline constexpr const unsigned char* console_twin_gate_quality_data[] = {"
-    "${console_twin_gate_pointers}};\n"
-    "inline constexpr std::size_t console_twin_gate_quality_sizes[] = {"
-    "${console_twin_gate_sizes}};\n"
-)
-file(WRITE
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/console_twin_gate_runtime.h"
-    "// Generated metadata for file-backed production landmark art.\n"
-    "#pragma once\n#include <cstddef>\n"
-    "inline constexpr int console_twin_gate_runtime_state_count = 5;\n"
-    "inline constexpr int console_twin_gate_runtime_tile_columns = 3;\n"
-    "inline constexpr int console_twin_gate_runtime_tile_rows = 6;\n"
-    "inline constexpr int console_twin_gate_runtime_tile_count = 18;\n"
-    "inline constexpr int console_twin_gate_runtime_tile_width = 64;\n"
-    "inline constexpr int console_twin_gate_runtime_tile_height = 32;\n"
-    "inline constexpr int console_twin_gate_runtime_width = 192;\n"
-    "inline constexpr int console_twin_gate_runtime_height = 176;\n"
-    "inline constexpr std::size_t console_twin_gate_runtime_state_bytes[] = {"
-    "${console_twin_gate_runtime_state_bytes}};\n"
-    "inline constexpr std::size_t console_twin_gate_runtime_total_bytes = "
-    "${console_twin_gate_embedded_bytes};\n"
-    "inline constexpr int console_twin_gate_board_tile_columns = 2;\n"
-    "inline constexpr int console_twin_gate_board_tile_rows = 3;\n"
-    "inline constexpr int console_twin_gate_board_tile_count = 6;\n"
-    "inline constexpr int console_twin_gate_board_tile_width = 48;\n"
-    "inline constexpr int console_twin_gate_board_tile_height = 32;\n"
-    "inline constexpr int console_twin_gate_board_width = 96;\n"
-    "inline constexpr int console_twin_gate_board_height = 88;\n"
-    "inline constexpr std::size_t console_twin_gate_board_tile_texels = 768;\n"
-    "inline constexpr std::size_t console_twin_gate_board_palette_bytes = 32;\n"
-    "inline constexpr std::size_t console_twin_gate_board_peak_tmem = 800;\n"
-    "inline constexpr std::size_t console_twin_gate_board_state_bytes[] = {"
-    "${console_twin_gate_board_state_bytes}};\n"
-    "inline constexpr std::size_t console_twin_gate_board_total_bytes = "
-    "${console_twin_gate_board_total_bytes};\n"
-    "inline constexpr std::size_t console_twin_gate_packaged_bytes = "
-    "${console_twin_gate_embedded_bytes} + ${console_twin_gate_board_total_bytes};\n"
-)
-
 execute_process(
     COMMAND "${N64_BINDIR}/mkdfs"
         "${console_directional_romfs}" "${console_directional_romfs_root}"
@@ -522,41 +338,8 @@ execute_process(
     OUTPUT_QUIET
 )
 if(NOT console_directional_romfs_status EQUAL 0)
-    message(FATAL_ERROR
-        "mkdfs failed for directional and Twin Gate streamed art")
+    message(FATAL_ERROR "mkdfs failed for directional streamed art")
 endif()
-
-add_executable(
-    grandleon_n64_twin_gate_quality
-    prototype/twin_gate_quality_rom.cpp
-)
-target_link_libraries(
-    grandleon_n64_twin_gate_quality PRIVATE -lc -ldragon -lm -ldragonsys
-)
-target_include_directories(
-    grandleon_n64_twin_gate_quality
-    PRIVATE
-        "${CMAKE_CURRENT_BINARY_DIR}/generated"
-        "${CMAKE_SOURCE_DIR}/platform/console_quality"
-)
-target_compile_features(grandleon_n64_twin_gate_quality PRIVATE cxx_std_17)
-target_compile_options(
-    grandleon_n64_twin_gate_quality
-    PRIVATE ${GRANDLEON_WARNING_FLAGS} -fno-exceptions -fno-rtti
-)
-target_link_options(
-    grandleon_n64_twin_gate_quality
-    PRIVATE
-        "-Wl,-Map=$<TARGET_FILE_DIR:grandleon_n64_twin_gate_quality>/grandleon_n64_twin_gate_quality.map"
-)
-set_target_properties(
-    grandleon_n64_twin_gate_quality
-    PROPERTIES OUTPUT_NAME grandleon_n64_twin_gate_quality SUFFIX ".elf"
-)
-grandleon_package_rom(
-    grandleon_n64_twin_gate_quality grandleon_n64_twin_gate_quality.z64
-    "Twin Gate quality"
-)
 
 # Three approved full-frame combat plates, tiled so each CI4 upload fits TMEM.
 # They are production assets: the playable campaign selects a stable variation
@@ -625,7 +408,7 @@ file(WRITE
 # banners) verify headlessly; the input sequence lives beside the campaign in
 # games/tarnholt/autopilot/.
 foreach(variant IN ITEMS
-    play probe readme twin_gate_runtime_capture autopilot coop_autopilot
+    play probe readme autopilot coop_autopilot
     campaign campaign_autopilot
 )
     set(rom_target grandleon_n64_${variant})
@@ -692,10 +475,6 @@ target_compile_definitions(
     PRIVATE GRANDLEON_N64_PROBE GRANDLEON_N64_README
 )
 target_compile_definitions(
-    grandleon_n64_twin_gate_runtime_capture
-    PRIVATE GRANDLEON_N64_PROBE GRANDLEON_N64_TWIN_GATE_CAPTURE
-)
-target_compile_definitions(
     grandleon_n64_autopilot PRIVATE GRANDLEON_N64_AUTOPILOT
 )
 target_compile_definitions(
@@ -713,10 +492,6 @@ grandleon_package_rom(grandleon_n64_play grandleon_n64_play.z64 "Grandleon")
 grandleon_package_rom(grandleon_n64_probe grandleon_n64_probe.z64 "Grandleon probe")
 grandleon_package_rom(
     grandleon_n64_readme grandleon_n64_readme.z64 "Grandleon README"
-)
-grandleon_package_rom(
-    grandleon_n64_twin_gate_runtime_capture
-    grandleon_n64_twin_gate_runtime_capture.z64 "Twin Gate runtime"
 )
 grandleon_package_rom(
     grandleon_n64_autopilot grandleon_n64_autopilot.z64 "Grandleon autopilot"

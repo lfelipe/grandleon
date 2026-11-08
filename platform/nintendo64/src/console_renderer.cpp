@@ -3,7 +3,6 @@
 #include "console_renderer.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -12,13 +11,11 @@
 #include "console_character_assets.h"
 #include "console_backdrop_assets.h"
 #include "console_terrain_assets.h"
-#include "console_twin_gate_runtime.h"
 
 namespace grandleon::nintendo64::console_renderer {
 namespace {
 
 constexpr int pose_count = grandleon_console_pose_count;
-constexpr int material_side = 32;
 
 struct LoadedDrawing final {
     sprite_t* board[pose_count]{};
@@ -32,12 +29,6 @@ constexpr int backdrop_rows = 6;
 constexpr int backdrop_tiles_per_variant = backdrop_columns * backdrop_rows;
 constexpr int backdrop_variants = 3;
 sprite_t* backdrop_tiles[backdrop_tiles_per_variant * backdrop_variants]{};
-sprite_t* twin_gate_full_tiles[console_twin_gate_runtime_state_count]
-                              [console_twin_gate_runtime_tile_count]{};
-sprite_t* twin_gate_board_tiles[console_twin_gate_runtime_state_count]
-                               [console_twin_gate_board_tile_count]{};
-bool twin_gate_full_ready[console_twin_gate_runtime_state_count]{};
-bool twin_gate_board_ready[console_twin_gate_runtime_state_count]{};
 bool ready = false;
 bool close_attached = false;
 
@@ -61,6 +52,11 @@ struct TerrainLook final {
     std::uint8_t material;
 };
 
+struct DepthPoint final {
+    int x;
+    int y;
+};
+
 // Package terrain kinds are in the shared registry's order:
 // water, road, forest, mountain, sand, snow, swamp, hills, ruins, grass,
 // farmland, bamboo and paved.  The four material regions provide structure;
@@ -74,6 +70,62 @@ constexpr TerrainLook terrain_looks[] = {
 ) noexcept {
     return kind < sizeof terrain_looks / sizeof terrain_looks[0]
         ? terrain_looks[kind] : terrain_looks[9];
+}
+
+void depth_flat_triangle(
+    DepthPoint first, DepthPoint second, DepthPoint third, color_t colour
+) {
+    rdpq_set_prim_color(colour);
+    const float a[] = {
+        static_cast<float>(first.x), static_cast<float>(first.y),
+    };
+    const float b[] = {
+        static_cast<float>(second.x), static_cast<float>(second.y),
+    };
+    const float c[] = {
+        static_cast<float>(third.x), static_cast<float>(third.y),
+    };
+    rdpq_triangle(&TRIFMT_FILL, a, b, c);
+}
+
+void depth_textured_triangle(
+    DepthPoint first, float first_s, float first_t,
+    float first_r, float first_g, float first_b,
+    DepthPoint second, float second_s, float second_t,
+    float second_r, float second_g, float second_b,
+    DepthPoint third, float third_s, float third_t,
+    float third_r, float third_g, float third_b
+) {
+    const float a[] = {
+        static_cast<float>(first.x), static_cast<float>(first.y),
+        first_r, first_g, first_b, 1.0F, first_s, first_t, 1.0F,
+    };
+    const float b[] = {
+        static_cast<float>(second.x), static_cast<float>(second.y),
+        second_r, second_g, second_b, 1.0F, second_s, second_t, 1.0F,
+    };
+    const float c[] = {
+        static_cast<float>(third.x), static_cast<float>(third.y),
+        third_r, third_g, third_b, 1.0F, third_s, third_t, 1.0F,
+    };
+    rdpq_triangle(&TRIFMT_SHADE_TEX, a, b, c);
+}
+
+void configure_depth_terrain_pass() {
+    rdpq_set_mode_standard();
+    rdpq_mode_tlut(TLUT_RGBA16);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_mode_dithering(DITHER_BAYER_NONE);
+    rdpq_mode_combiner(RDPQ_COMBINER_TEX_SHADE);
+}
+
+[[nodiscard]] constexpr std::uint8_t scaled_channel(
+    std::uint8_t channel, int numerator, int denominator
+) noexcept {
+    return static_cast<std::uint8_t>(
+        (static_cast<unsigned>(channel) * static_cast<unsigned>(numerator)) /
+        static_cast<unsigned>(denominator)
+    );
 }
 
 void configure_character_pass() {
@@ -136,46 +188,6 @@ void draw_loaded_character(
     return complete;
 }
 
-[[nodiscard]] bool ensure_twin_gate_state(int state, bool board_pack) {
-    if (state < 0 || state >= console_twin_gate_runtime_state_count) {
-        return false;
-    }
-    bool& state_ready = board_pack
-        ? twin_gate_board_ready[state] : twin_gate_full_ready[state];
-    if (state_ready) return true;
-    constexpr const char* names[] = {
-        "exterior", "threshold_1", "threshold_2", "threshold_3", "cutaway",
-    };
-    const int tile_rows = board_pack
-        ? console_twin_gate_board_tile_rows
-        : console_twin_gate_runtime_tile_rows;
-    const int tile_columns = board_pack
-        ? console_twin_gate_board_tile_columns
-        : console_twin_gate_runtime_tile_columns;
-    bool complete = true;
-    for (int row = 0; row < tile_rows; ++row) {
-        for (int column = 0; column < tile_columns; ++column) {
-            const int tile = row * tile_columns + column;
-            sprite_t*& loaded = board_pack
-                ? twin_gate_board_tiles[state][tile]
-                : twin_gate_full_tiles[state][tile];
-            if (loaded != nullptr) continue;
-            char path[96]{};
-            std::snprintf(
-                path, sizeof path,
-                board_pack
-                    ? "rom:/art/twin_gate_board/%s_r%d_c%d.sprite"
-                    : "rom:/art/twin_gate/%s_r%d_c%d.sprite",
-                names[state], row, column
-            );
-            loaded = sprite_load(path);
-            complete = complete && loaded != nullptr;
-        }
-    }
-    state_ready = complete;
-    return complete;
-}
-
 }  // namespace
 
 bool initialize() {
@@ -233,255 +245,323 @@ std::uint8_t default_figure() noexcept {
     return static_cast<std::uint8_t>(grandleon_console_default_figure);
 }
 
-void begin_board(surface_t* display) {
+void begin_depth_board(surface_t* display) {
     if (!ready && !initialize()) return;
     rdpq_attach(display, nullptr);
-    rdpq_clear(color_t{7, 19, 29, 255});
+    rdpq_clear(color_t{8, 21, 31, 255});
+    // A quiet vertical field gives the projected board atmosphere and makes
+    // its silhouette visible without spending a texture upload on scenery
+    // outside the authored map.
     rdpq_set_mode_standard();
-    rdpq_mode_tlut(TLUT_RGBA16);
-    rdpq_mode_filter(FILTER_BILINEAR);
-    rdpq_mode_dithering(DITHER_NONE_NONE);
-    rdpq_mode_combiner(RDPQ_COMBINER_TEX_FLAT);
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_dithering(DITHER_BAYER_NONE);
+    for (int band = 0; band < 6; ++band) {
+        rdpq_set_prim_color(RGBA32(
+            static_cast<std::uint8_t>(10 + band * 3),
+            static_cast<std::uint8_t>(24 + band * 4),
+            static_cast<std::uint8_t>(34 + band * 5), 255
+        ));
+        rdpq_fill_rectangle(0, band * 40, 320, (band + 1) * 40);
+    }
+    configure_depth_terrain_pass();
     rdpq_sprite_upload(TILE0, terrain_atlas, nullptr);
 }
 
-void draw_terrain(
-    int left, int top, int width, int height,
+void draw_depth_terrain(
+    int centre_x, int centre_y, int half_width, int half_height, int lift,
     grandleon::view::TerrainComposition terrain
 ) {
-    if (!ready || width <= 0 || height <= 0) return;
-    const TerrainLook look = terrain_look(terrain.kind);
-    const grandleon::view::TerrainColour colour =
+    if (!ready || half_width <= 0 || half_height <= 0) return;
+    const DepthPoint top{centre_x, centre_y - half_height - lift};
+    const DepthPoint right{centre_x + half_width, centre_y - lift};
+    const DepthPoint bottom{centre_x, centre_y + half_height - lift};
+    const DepthPoint left{centre_x - half_width, centre_y - lift};
+    const grandleon::view::TerrainColour tint =
         grandleon::view::terrain_base_colour(terrain.kind);
-    const int source_left = (look.material & 1) * material_side;
-    const int source_top = ((look.material >> 1) & 1) * material_side;
-    // Stable offsets keep a repeated material from reading as wallpaper while
-    // staying inside its 32-pixel atlas region.
-    constexpr int offsets[][2] = {{0, 0}, {5, 9}, {11, 3}, {17, 13}};
-    const int offset_s = offsets[terrain.variation & 3][0];
-    const int offset_t = offsets[terrain.variation & 3][1];
-    rdpq_set_prim_color(RGBA32(colour.red, colour.green, colour.blue, 255));
-    rdpq_texture_rectangle_scaled(
-        TILE0, left, top, left + width, top + height,
-        source_left + offset_s, source_top + offset_t,
-        source_left + material_side, source_top + material_side
+
+    if (lift > 0) {
+        rdpq_set_mode_standard();
+        rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+        rdpq_mode_dithering(DITHER_BAYER_NONE);
+        const color_t west = RGBA32(
+            scaled_channel(tint.red, 9, 16),
+            scaled_channel(tint.green, 9, 16),
+            scaled_channel(tint.blue, 9, 16), 255
+        );
+        const color_t east = RGBA32(
+            scaled_channel(tint.red, 7, 16),
+            scaled_channel(tint.green, 7, 16),
+            scaled_channel(tint.blue, 7, 16), 255
+        );
+        depth_flat_triangle(left, bottom, {bottom.x, bottom.y + lift}, west);
+        depth_flat_triangle(
+            left, {bottom.x, bottom.y + lift}, {left.x, left.y + lift}, west
+        );
+        depth_flat_triangle(bottom, right, {right.x, right.y + lift}, east);
+        depth_flat_triangle(
+            bottom, {right.x, right.y + lift},
+            {bottom.x, bottom.y + lift}, east
+        );
+        configure_depth_terrain_pass();
+    }
+
+    const TerrainLook look = terrain_look(terrain.kind);
+    const float source_left = static_cast<float>((look.material & 1U) * 32U);
+    const float source_top =
+        static_cast<float>(((look.material >> 1U) & 1U) * 32U);
+    constexpr float variation[][2] = {
+        {0.0F, 0.0F}, {3.0F, 5.0F}, {7.0F, 2.0F}, {5.0F, 7.0F},
+    };
+    const float offset_s = variation[terrain.variation & 3U][0];
+    const float offset_t = variation[terrain.variation & 3U][1];
+    const float red = static_cast<float>(tint.red) / 255.0F;
+    const float green = static_cast<float>(tint.green) / 255.0F;
+    const float blue = static_cast<float>(tint.blue) / 255.0F;
+    depth_textured_triangle(
+        top, source_left + 16.0F + offset_s, source_top + offset_t,
+        red, green, blue,
+        right, source_left + 31.0F, source_top + 16.0F + offset_t,
+        red * 0.96F, green * 0.96F, blue * 0.96F,
+        bottom, source_left + 16.0F + offset_s, source_top + 31.0F,
+        red * 0.76F, green * 0.76F, blue * 0.76F
+    );
+    depth_textured_triangle(
+        top, source_left + 16.0F + offset_s, source_top + offset_t,
+        red, green, blue,
+        bottom, source_left + 16.0F + offset_s, source_top + 31.0F,
+        red * 0.76F, green * 0.76F, blue * 0.76F,
+        left, source_left, source_top + 16.0F + offset_t,
+        red * 0.88F, green * 0.88F, blue * 0.88F
     );
 }
 
-void begin_terrain_details() {
-    if (!ready) return;
+void draw_depth_detail(
+    int centre_x, int base_y, int half_width, int half_height,
+    grandleon::view::TerrainComposition terrain
+) {
+    if (!ready || half_width < 8 || half_height < 4) return;
     rdpq_set_mode_standard();
     rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
-    rdpq_mode_dithering(DITHER_NONE_NONE);
-}
-
-void draw_terrain_detail(
-    int left, int top, int size,
-    grandleon::view::TerrainComposition terrain
-) {
-    if (!ready || size <= 0) return;
-    grandleon::view::paint_console_terrain(
-        terrain, left, top, size,
-        [terrain](int x, int y, int width, int height,
-                  grandleon::view::TerrainTone tone) {
-            const grandleon::view::TerrainColour colour =
-                grandleon::view::terrain_colour(terrain.kind, tone);
-            rdpq_set_prim_color(
-                RGBA32(colour.red, colour.green, colour.blue, 255)
-            );
-            rdpq_fill_rectangle(x, y, x + width, y + height);
-        }
+    rdpq_mode_dithering(DITHER_BAYER_NONE);
+    const auto kind = static_cast<grandleon::view::ConsoleTerrainKind>(
+        terrain.kind
     );
-}
-
-void draw_landmark(
-    int left, int top, int size, grandleon::view::LandmarkCell cell
-) {
-    if (!ready || !cell || size <= 0) return;
-    grandleon::view::paint_landmark_cell(
-        cell, left, top, size,
-        [cell](
-            int x, int y, int width, int height,
-            grandleon::view::LandmarkTone tone
-        ) {
-            struct Colour final {
-                std::uint8_t red;
-                std::uint8_t green;
-                std::uint8_t blue;
-            };
-            constexpr Colour house[] = {
-                {55, 35, 25}, {220, 190, 135}, {145, 52, 44},
-                {92, 58, 36}, {238, 205, 105},
-            };
-            constexpr Colour grove[] = {
-                {48, 42, 27}, {50, 104, 55}, {34, 75, 44},
-                {106, 73, 40}, {93, 145, 70},
-            };
-            const std::size_t index = static_cast<std::size_t>(tone);
-            const Colour colour =
-                cell.landmark == grandleon::view::TacticalLandmark::village_house
-                    ? house[index] : grove[index];
-            rdpq_set_prim_color(
-                RGBA32(colour.red, colour.green, colour.blue, 255)
-            );
-            rdpq_fill_rectangle(x, y, x + width, y + height);
-        }
+    const grandleon::view::TerrainColour accent =
+        grandleon::view::terrain_colour(
+            terrain.kind, grandleon::view::TerrainTone::accent
+        );
+    const color_t bright = RGBA32(accent.red, accent.green, accent.blue, 255);
+    const color_t shade = RGBA32(
+        scaled_channel(accent.red, 9, 16),
+        scaled_channel(accent.green, 9, 16),
+        scaled_channel(accent.blue, 9, 16), 255
     );
+    const int flip = (terrain.detail & 1U) != 0U ? 1 : -1;
+    switch (kind) {
+        case grandleon::view::ConsoleTerrainKind::forest:
+        case grandleon::view::ConsoleTerrainKind::bamboo: {
+            if ((terrain.detail & 1U) != 0U) break;
+            const int trunk_x = centre_x + flip * (half_width / 4);
+            const int crown_y = base_y - half_height - 12;
+            rdpq_set_prim_color(RGBA32(78, 53, 31, 255));
+            rdpq_fill_rectangle(trunk_x - 2, crown_y + 8,
+                                trunk_x + 2, base_y - 1);
+            depth_flat_triangle(
+                {trunk_x, crown_y - 7},
+                {trunk_x + 9, crown_y + 9},
+                {trunk_x - 9, crown_y + 9}, bright
+            );
+            if (terrain.cluster >= 2U) {
+                const int other_x = centre_x - flip * (half_width / 3);
+                depth_flat_triangle(
+                    {other_x, crown_y - 1},
+                    {other_x + 6, crown_y + 10},
+                    {other_x - 6, crown_y + 10}, shade
+                );
+            }
+            break;
+        }
+        case grandleon::view::ConsoleTerrainKind::mountain:
+        case grandleon::view::ConsoleTerrainKind::hills:
+            depth_flat_triangle(
+                {centre_x, base_y - half_height - 10},
+                {centre_x + half_width - 3, base_y - 2},
+                {centre_x - half_width + 3, base_y - 2}, shade
+            );
+            depth_flat_triangle(
+                {centre_x, base_y - half_height - 10},
+                {centre_x + half_width - 3, base_y - 2},
+                {centre_x + 2, base_y - 5}, bright
+            );
+            break;
+        case grandleon::view::ConsoleTerrainKind::ruins:
+        case grandleon::view::ConsoleTerrainKind::paved:
+            rdpq_set_prim_color(shade);
+            rdpq_fill_rectangle(
+                centre_x - half_width / 2, base_y - half_height,
+                centre_x - half_width / 2 + 3, base_y - 2
+            );
+            rdpq_fill_rectangle(
+                centre_x + half_width / 4, base_y - half_height + 3,
+                centre_x + half_width / 4 + 3, base_y - 2
+            );
+            break;
+        case grandleon::view::ConsoleTerrainKind::farmland:
+            rdpq_set_prim_color(bright);
+            for (int row = -1; row <= 1; ++row) {
+                const int y = base_y - half_height / 2 + row * 3;
+                rdpq_fill_rectangle(
+                    centre_x - half_width / 2, y,
+                    centre_x + half_width / 2, y + 1
+                );
+            }
+            break;
+        default:
+            break;
+    }
 }
 
-void draw_castle_tile(
-    int left, int top, int size, grandleon::view::CastleTile tile
+void draw_depth_landmark(
+    int centre_x, int base_y, int half_width, int half_height,
+    grandleon::view::LandmarkCell cell
 ) {
-    if (!ready || tile == grandleon::view::CastleTile::none || size <= 0) {
+    if (!ready || !cell) return;
+    rdpq_set_mode_standard();
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_dithering(DITHER_BAYER_NONE);
+    const bool house = cell.landmark ==
+        grandleon::view::TacticalLandmark::village_house;
+    const bool right = cell.quadrant ==
+                           grandleon::view::LandmarkQuadrant::top_right ||
+        cell.quadrant ==
+            grandleon::view::LandmarkQuadrant::bottom_right;
+    const bool bottom = cell.quadrant ==
+                            grandleon::view::LandmarkQuadrant::bottom_left ||
+        cell.quadrant ==
+            grandleon::view::LandmarkQuadrant::bottom_right;
+    const int offset_x = (right ? -1 : 1) * half_width / 3;
+    if (house) {
+        const int left = centre_x + offset_x - half_width / 2;
+        const int top = base_y - half_height - (bottom ? 16 : 10);
+        rdpq_set_prim_color(RGBA32(213, 186, 132, 255));
+        rdpq_fill_rectangle(left, top + 7, left + half_width, base_y);
+        depth_flat_triangle(
+            {left - 2, top + 8}, {left + half_width / 2, top - 2},
+            {left + half_width + 2, top + 8}, RGBA32(132, 55, 43, 255)
+        );
+        rdpq_set_prim_color(RGBA32(74, 47, 31, 255));
+        rdpq_fill_rectangle(
+            left + half_width / 2 - 2, base_y - 8,
+            left + half_width / 2 + 2, base_y
+        );
         return;
     }
-    grandleon::view::paint_castle_tile(
-        tile, left, top, size,
-        [](int x, int y, int width, int height,
-           grandleon::view::LandmarkTone tone) {
-            struct Colour final {
-                std::uint8_t red;
-                std::uint8_t green;
-                std::uint8_t blue;
-            };
-            constexpr Colour colours[] = {
-                {42, 40, 38}, {146, 137, 120}, {88, 84, 78},
-                {98, 49, 31}, {218, 180, 90},
-            };
-            const Colour colour = colours[static_cast<std::size_t>(tone)];
-            rdpq_set_prim_color(
-                RGBA32(colour.red, colour.green, colour.blue, 255)
-            );
-            rdpq_fill_rectangle(x, y, x + width, y + height);
-        }
+    const int trunk_x = centre_x + offset_x;
+    const int crown_y = base_y - half_height - (bottom ? 12 : 18);
+    rdpq_set_prim_color(RGBA32(80, 55, 32, 255));
+    rdpq_fill_rectangle(trunk_x - 2, crown_y + 8, trunk_x + 2, base_y);
+    depth_flat_triangle(
+        {trunk_x, crown_y - 8}, {trunk_x + half_width / 2, crown_y + 10},
+        {trunk_x - half_width / 2, crown_y + 10},
+        RGBA32(49, 105, 58, 255)
     );
 }
 
-bool draw_twin_gate_keep(
-    int left, int top, int width, int height, int state
+void draw_depth_castle(
+    int centre_x, int base_y, int half_width, int half_height,
+    grandleon::view::CastleTile tile
 ) {
-    // The authored keep spans 108 pixels in Steel and Cedar's 16x11
-    // scrolling view. A small amount of filtered enlargement is cheaper and
-    // visually equivalent there; the full pack begins with close framing.
-    const bool board_pack = width <= 128 && height <= 128;
-    if (!ready || width <= 0 || height <= 0 ||
-        !ensure_twin_gate_state(state, board_pack)) {
-        return false;
-    }
+    if (!ready || tile == grandleon::view::CastleTile::none) return;
     rdpq_set_mode_standard();
-    rdpq_mode_tlut(TLUT_RGBA16);
-    rdpq_mode_alphacompare(1);
-    rdpq_mode_filter(FILTER_BILINEAR);
-    rdpq_mode_dithering(DITHER_NONE_NONE);
-    rdpq_mode_combiner(RDPQ_COMBINER_TEX);
-    const int source_width = board_pack
-        ? console_twin_gate_board_width : console_twin_gate_runtime_width;
-    const int source_height = board_pack
-        ? console_twin_gate_board_height : console_twin_gate_runtime_height;
-    const int tile_width = board_pack
-        ? console_twin_gate_board_tile_width
-        : console_twin_gate_runtime_tile_width;
-    const int tile_height = board_pack
-        ? console_twin_gate_board_tile_height
-        : console_twin_gate_runtime_tile_height;
-    const int tile_columns = board_pack
-        ? console_twin_gate_board_tile_columns
-        : console_twin_gate_runtime_tile_columns;
-    const int tile_rows = board_pack
-        ? console_twin_gate_board_tile_rows
-        : console_twin_gate_runtime_tile_rows;
-    const float scale_x = static_cast<float>(width) /
-        static_cast<float>(source_width);
-    const float scale_y = static_cast<float>(height) /
-        static_cast<float>(source_height);
-    rdpq_blitparms_t parameters{};
-    parameters.scale_x = scale_x;
-    parameters.scale_y = scale_y;
-    for (int row = 0; row < tile_rows; ++row) {
-        for (int column = 0; column < tile_columns; ++column) {
-            const int tile = row * tile_columns + column;
-            sprite_t* sprite = board_pack
-                ? twin_gate_board_tiles[state][tile]
-                : twin_gate_full_tiles[state][tile];
-            rdpq_sprite_upload(TILE0, sprite, nullptr);
-            rdpq_sprite_blit(
-                sprite,
-                static_cast<float>(left) +
-                    static_cast<float>(column * tile_width) * scale_x,
-                static_cast<float>(top) +
-                    static_cast<float>(row * tile_height) * scale_y,
-                &parameters
-            );
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_dithering(DITHER_BAYER_NONE);
+    if (tile == grandleon::view::CastleTile::floor) return;
+    const int left = centre_x - half_width + 2;
+    const int right = centre_x + half_width - 2;
+    if (tile == grandleon::view::CastleTile::dais) {
+        const int top = base_y - half_height - 5;
+        rdpq_set_prim_color(RGBA32(104, 91, 78, 255));
+        rdpq_fill_rectangle(left + 4, top, right - 4, base_y - 1);
+        rdpq_set_prim_color(RGBA32(204, 170, 91, 255));
+        rdpq_fill_rectangle(left + 7, top + 2, right - 7, top + 4);
+        return;
+    }
+    const int top = base_y - half_height - 20;
+    rdpq_set_prim_color(RGBA32(76, 74, 71, 255));
+    rdpq_fill_rectangle(left, top + 3, right, base_y - 1);
+    rdpq_set_prim_color(RGBA32(147, 141, 129, 255));
+    rdpq_fill_rectangle(left + 2, top + 5, right - 2, base_y - 2);
+    rdpq_set_prim_color(RGBA32(207, 193, 159, 255));
+    rdpq_fill_rectangle(left + 2, top + 5, right - 2, top + 8);
+    if (tile == grandleon::view::CastleTile::door) {
+        rdpq_set_prim_color(RGBA32(67, 38, 29, 255));
+        rdpq_fill_rectangle(
+            centre_x - half_width / 3, top + 10,
+            centre_x + half_width / 3, base_y - 1
+        );
+    } else {
+        for (int notch = 0; notch < 3; ++notch) {
+            const int x = left + 2 + notch * (half_width - 2) / 2;
+            rdpq_set_prim_color(RGBA32(76, 74, 71, 255));
+            rdpq_fill_rectangle(x, top, x + 4, top + 6);
         }
     }
-    return true;
 }
 
-bool prepare_twin_gate_keep() {
-    bool complete = true;
-    for (int state = 0; state < console_twin_gate_runtime_state_count; ++state) {
-        complete = ensure_twin_gate_state(state, true) && complete;
-    }
-    return complete;
+void draw_depth_shadow(
+    int centre_x, int base_y, int half_width, int half_height
+) {
+    if (!ready || half_width <= 0 || half_height <= 0) return;
+    rdpq_set_mode_standard();
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_dithering(DITHER_BAYER_NONE);
+    const int wide = std::max(5, (half_width * 3) / 4);
+    const int tall = std::max(2, half_height / 3);
+    const color_t shadow = RGBA32(18, 20, 22, 255);
+    depth_flat_triangle(
+        {centre_x - wide, base_y}, {centre_x, base_y - tall},
+        {centre_x + wide, base_y}, shadow
+    );
+    depth_flat_triangle(
+        {centre_x - wide, base_y}, {centre_x + wide, base_y},
+        {centre_x, base_y + tall}, shadow
+    );
 }
 
-std::size_t twin_gate_loaded_bytes() noexcept {
-    std::size_t total = 0;
-    for (int state = 0; state < console_twin_gate_runtime_state_count; ++state) {
-        if (twin_gate_board_ready[state]) {
-            total += console_twin_gate_board_state_bytes[state];
-        }
-        if (twin_gate_full_ready[state]) {
-            total += console_twin_gate_runtime_state_bytes[state];
-        }
-    }
-    return total;
-}
-
-std::size_t twin_gate_pack_bytes() noexcept {
-    return console_twin_gate_packaged_bytes;
-}
-
-std::size_t twin_gate_board_pack_bytes() noexcept {
-    return console_twin_gate_board_total_bytes;
-}
-
-void draw_character(
-    int drawing, Pose pose, int centre_x, int bottom, int cell_size,
+void draw_depth_character(
+    int drawing, Pose pose, int centre_x, int bottom, int size,
     bool facing_left
 ) {
-    if (!ready || drawing < 0 ||
+    if (!ready || drawing < 0 || size <= 0 ||
         static_cast<std::size_t>(drawing) >= grandleon_console_drawing_count) {
         return;
     }
     configure_character_pass();
-    const int size = grandleon::view::console_board_unit_size(cell_size);
     draw_loaded_character(
-        drawings[drawing].board[pose_index(pose)],
-        centre_x, bottom, size, facing_left
+        drawings[drawing].board[pose_index(pose)], centre_x, bottom, size,
+        facing_left
     );
+}
+
+void draw_depth_character_overlay(
+    surface_t* display, int drawing, Pose pose, int centre_x, int bottom,
+    int size, bool facing_left
+) {
+    if (!ready || drawing < 0 || size <= 0 ||
+        static_cast<std::size_t>(drawing) >= grandleon_console_drawing_count) {
+        return;
+    }
+    rdpq_attach(display, nullptr);
+    configure_character_pass();
+    draw_loaded_character(
+        drawings[drawing].board[pose_index(pose)], centre_x, bottom, size,
+        facing_left
+    );
+    rdpq_detach_wait();
 }
 
 void end_board() {
     if (ready) rdpq_detach_wait();
-}
-
-void draw_character_overlay(
-    surface_t* display, int drawing, Pose pose,
-    int centre_x, int bottom, int cell_size, bool facing_left
-) {
-    if (!ready || drawing < 0 ||
-        static_cast<std::size_t>(drawing) >= grandleon_console_drawing_count) {
-        return;
-    }
-    rdpq_attach(display, nullptr);
-    configure_character_pass();
-    const int size = grandleon::view::console_board_unit_size(cell_size);
-    draw_loaded_character(
-        drawings[drawing].board[pose_index(pose)],
-        centre_x, bottom, size, facing_left
-    );
-    rdpq_detach_wait();
 }
 
 void begin_close(

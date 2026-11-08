@@ -33,53 +33,45 @@ struct DrawingKey final {
 [[nodiscard]] std::uint8_t default_style() noexcept;
 [[nodiscard]] std::uint8_t default_figure() noexcept;
 
-// A complete tactical frame.  Terrain is tinted from one material atlas;
-// characters are larger, bottom-anchored Godot cutouts so their silhouettes
-// stay readable even when a board is fitted below native cell size.
-void begin_board(surface_t* display);
-void draw_terrain(
-    int left, int top, int width, int height,
+// The production board uses the N64's RDP as a spatial renderer rather than
+// stretching the same square-tile picture. Each cell is
+// a filtered, lit diamond with real vertical sides; character cutouts remain
+// the curated Godot-derived art, grounded by a projected shadow.  The caller
+// supplies screen-space geometry so simulation coordinates and camera policy
+// stay in the campaign presenter.
+void begin_depth_board(surface_t* display);
+void draw_depth_terrain(
+    int centre_x, int centre_y, int half_width, int half_height, int lift,
     grandleon::view::TerrainComposition terrain
 );
-// Flat detail is a second, batched pass: material boundaries, cluster cues and
-// elevation lips add no texture upload and no per-cell renderer state switch.
-void begin_terrain_details();
-void draw_terrain_detail(
-    int left, int top, int size,
+void draw_depth_detail(
+    int centre_x, int base_y, int half_width, int half_height,
     grandleon::view::TerrainComposition terrain
 );
-// Draws one quarter of a 2x2 authored landmark over its mountain base. Flat
-// primitives keep this free of extra texture memory and uploads.
-void draw_landmark(
-    int left, int top, int size, grandleon::view::LandmarkCell cell
+void draw_depth_landmark(
+    int centre_x, int base_y, int half_width, int half_height,
+    grandleon::view::LandmarkCell cell
 );
-void draw_castle_tile(
-    int left, int top, int size, grandleon::view::CastleTile tile
+void draw_depth_castle(
+    int centre_x, int base_y, int half_width, int half_height,
+    grandleon::view::CastleTile tile
 );
-// Replaces only the validated Medieval 6x6 keep footprint. The five states
-// are file-backed CI8 tiles in DragonFS, loaded lazily so an ordinary map pays
-// no RDRAM cost. Returns false without drawing if the pack is unavailable.
-[[nodiscard]] bool draw_twin_gate_keep(
-    int left, int top, int width, int height, int state
+void draw_depth_shadow(
+    int centre_x, int base_y, int half_width, int half_height
 );
-[[nodiscard]] bool prepare_twin_gate_keep();
-[[nodiscard]] std::size_t twin_gate_loaded_bytes() noexcept;
-[[nodiscard]] std::size_t twin_gate_pack_bytes() noexcept;
-[[nodiscard]] std::size_t twin_gate_board_pack_bytes() noexcept;
-void draw_character(
-    int drawing, Pose pose, int centre_x, int bottom, int cell_size,
+void draw_depth_character(
+    int drawing, Pose pose, int centre_x, int bottom, int size,
     bool facing_left = false
+);
+void draw_depth_character_overlay(
+    surface_t* display, int drawing, Pose pose, int centre_x, int bottom,
+    int size, bool facing_left = false
 );
 void end_board();
 
 // Used by movement and attack animation frames after the settled board has
 // been drawn.  It attaches, draws one bottom-anchored cutout, and waits before
 // returning, so the CPU overlays may safely continue on the same surface.
-void draw_character_overlay(
-    surface_t* display, int drawing, Pose pose,
-    int centre_x, int bottom, int cell_size, bool facing_left = false
-);
-
 // Full-screen combat presentation. The actual cell selects the approved plate
 // variation and adds sparse terrain-specific foreground composition;
 // characters keep faction side positions so a counterattack changes poses,

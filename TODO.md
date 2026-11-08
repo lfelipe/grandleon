@@ -94,6 +94,14 @@ roadmap work.
     terrain, elevation faces, grounded shadows, and recognizable Godot-derived
     character cutouts; do not bring back the unrecognizable low-poly character
     experiments or the floating castle cutaway.
+    - [x] Nintendo 64 now uses one projected renderer for normal campaign and
+      custom-project ROMs: a scrolling 10-by-8 view, filtered CI4 materials,
+      shaded elevation faces, depth-ordered landmarks, projected shadows and
+      Godot-derived cutouts. Tarnholt's independent framebuffer probe and the
+      normal Steel and Cedar campaign flow exercise this same path. The flat
+      board, floating whole-castle art and their capture-only targets are gone.
+    - [ ] Complete and review the equivalent production replacement on
+      PlayStation before closing the cross-console item.
   - [ ] Judge console graphics from the ordinary release artifact, driven from
     title screen through save, story, real campaign movement, and combat. Record
     the reviewed ROM or disc hash and reject capture-only viewers as release

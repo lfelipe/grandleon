@@ -47,54 +47,42 @@ unit ownership decides which characters each player commands.
 
 ## Graphics
 
-There is one Nintendo 64 renderer. It draws project-specific, team-coloured
-character cutouts generated from the curated Godot roster over textured
-tactical terrain. Attacks can switch to a closer terrain backdrop, then return
-to the same board state. Tactical action menus use framed focus states, A/B
-button badges, owner colours, and health meters, and open opposite the selected
-character so the choice does not cover them. The campaign contains no alternate
-graphics mode.
+There is one Nintendo 64 tactical renderer. It draws every campaign as a
+projected, depth-bearing board: filtered CI4 terrain materials form diamonds,
+elevated cells have shaded vertical faces, and trees, rocks, houses and castle
+parts share the board's depth order. Godot-derived, team-coloured character
+cutouts remain recognizable and are grounded with projected shadows. The
+10-by-8 camera scrolls over larger authored maps. Smaller boards scale their
+diamonds and characters up to use the available 320-by-240 play area instead
+of sitting as a small diorama in its centre. Neither case switches back to a
+flat renderer for custom projects or for maps outside the showcase.
+
+Movement and danger ranges use sparse cell marks so the terrain and units stay
+visible. Attacks can switch to the closer terrain backdrop and animated
+character poses, then return to the same board state. Tactical action menus use
+framed focus states, A/B button badges, owner colours, and health meters, and
+open opposite the selected character so the choice does not cover them. Short
+in-battle sayings score screen-edge placements against every visible character,
+health bar and cursor cell before choosing where to open.
 
 The same framed interface is used for save slots, Help, story pages, company
 and inventory management, aftermaths, Stage selection, character details, and
 confirmations. Focused rows remain visible without relying on colour alone,
 and footer badges use the controller's A, B, Z, and START labels.
 
-The campaign ROM itself is what release testing exercises. It is not paired
-with a separate renderer demo.
+Release review uses the normal campaign ROM, driven from title and save screens
+into real movement and combat. The automated framebuffer probe also builds
+Tarnholt, a separate project, and checks the projected terrain, materials,
+units and played route so campaign-specific art cannot stand in for engine
+support.
 
-### Twin Gate richer production path
+Twin Gate's authored wall, door, floor and dais cells use the same ground-level
+depth geometry as the rest of its 20-by-14 map. A portable visibility system is
+still needed to hide roofs and reveal nearby interior cells progressively;
+until then the renderer shows the authoritative walkable footprint without
+inventing a second castle state.
 
-Steel and Cedar's authored Twin Gate battle now exercises the richer renderer
-inside the playable campaign, not only in a separate demo. The exact 20×14 map
-uses the normal textured, shaded terrain and a scrolling 16×11 view. Its exact
-connected 6×6 keep starts closed, opens when the player's unit reaches its
-door or interior, and reveals the real room units and boss. Movement,
-collision, objectives, placements, saves, and campaign progression are not
-rewritten for the effect.
-
-```sh
-cmake --build build --target grandleon_n64_twin_gate_runtime_check
-```
-
-The board uses the resident CI4 terrain atlas, filtered character cutouts, and
-a six-upload CI4 keep image at board distance. Close framing loads one detailed
-CI8 state rather than caching every detailed state. Ordinary maps allocate no
-keep art. The pinned ares run passes 13/13 with a 21,905 μs worst frame
-(45 fps), 28,080 bytes resident during the board, 76,608 bytes at the close
-view's peak, 270,720 packaged art bytes, and a 2,080,768-byte review ROM. Each
-board tile occupies 768 texel bytes plus a 32-byte palette in TMEM; a detailed
-close tile occupies 2,048 texel bytes plus a 512-byte palette.
-
-The gate writes native 320×240 approach, exterior, threshold, revealed-room,
-and close frames under
-`build-n64-twin-gate-runtime/ares/native-twin-gate-runtime/`. The west approach
-is deliberately mostly road, farmland, grass, and stone so the check cannot
-pass on the landmark while leaving the playable ground flat. The older fixed
-camera comparison remains available as
-`grandleon_n64_twin_gate_quality_check`, but it is not the playable path.
-
-North/south board frames are already packaged outside the executable at
+North/south board frames are packaged outside the executable at
 `rom:/art/directional.gdb`. They are not selected by the production renderer
 yet: keeping that switch off means this preparation adds cartridge bytes but
 does not consume RDRAM or change frame time. The renderer will enable them only
