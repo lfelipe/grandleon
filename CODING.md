@@ -180,80 +180,25 @@ gitignored, so nothing lands outside the repository and nothing needs `sudo`.
 
 ### Nintendo 64 (pinned container)
 
-The console build runs inside a container built from
-`platform/nintendo64/Containerfile`, which pins the published libdragon
-toolchain image by digest and installs one pinned libdragon commit on top of it.
-The published image carries the cross compiler only, so the project builds its
-pinned layer on first use:
+Nintendo 64 exports use the Pyrite/Tiny3D player under
+`platform/nintendo64/pyrite/`. Its toolchain container pins libdragon and
+Tiny3D, and the exporter pins the Pyrite revision. There is no alternate
+renderer or fallback path.
 
 ```sh
 cmake --build build --target grandleon_n64            # build the ROM
-cmake --build build --target grandleon_n64_check      # build it and run it
-cmake --build build --target grandleon_n64_check_all  # build once, run every check
+cmake --build build --target grandleon_n64_check      # build and boot two projects
 ```
 
 Artifacts land in the gitignored `build-n64/`. Nothing produced by this target
-is committed. `grandleon_n64_check` runs the ROM in a second pinned container,
-headlessly, and fails unless the ROM reports that every conformance check
-passed.
+is committed. The check builds both the small demo and Steel and Cedar through
+the same generic export command, verifies the ROM header identifies the
+Pyrite player with `fallback=none`, and boots both on an exact 4 MB machine in
+the pinned ares container. A project-specific hard-coded path therefore cannot
+make the gate pass.
 
-**ares is the authoritative emulator for this console.** It
-lives in that container and is what `grandleon_n64_check`,
-`grandleon_n64_play_check`, `grandleon_n64_autopilot_check` and
-`grandleon_n64_campaign_check` run, through
-`platform/nintendo64/ares/run-ares.sh`. Every one of those four builds every ROM
-first, because every one of them needs every ROM, so running the four is one
-build and three waits on the build script's lock;
-`grandleon_n64_check_all` builds once and runs the four concurrently instead,
-and is what `scripts/local-ci.sh --n64` asks for. The four stay for debugging
-one of them.
-
-**A check is judged on its assertion count, not on the word `PASS`.**
-`RESULT PASS 0/0` contains the word and is what a ROM whose assertion table was
-emptied prints, so `platform/nintendo64/scripts/check-n64.sh` states the number
-of assertions each ROM must clear and
-[scripts/assert-harness-verdict.sh](scripts/assert-harness-verdict.sh) decides.
-The numbers are floors, not equalities, because the count moves between runs of
-one ROM. That script also carries the negative control: `--self-test` feeds it
-a battery of logs that measure nothing and requires every one to be refused,
-and `check-n64.sh` runs it before it builds anything. It is the decision for
-every console here, not this one: the PlayStation's six run scripts state
-their own floors and run the same self-test before they start an emulator.
-
-**A check compared against a stale answer is worse than no check.** The
-PlayStation's two run scripts compare a run against a transcript derived on the
-host beforehand, and a derivation older than the client it compiles answers for
-a build that is no longer here: the comparison then prints dozens of mismatched
-checkpoints in the exact shape a real regression takes, and a stale run that
-happens to still match reports a green check that proved nothing. It has cost an
-afternoon.
-[scripts/assert-expectations-fresh.sh](scripts/assert-expectations-fresh.sh)
-refuses the run rather than deriving the file itself, because a check that
-quietly fixes its own inputs is a check that can hide a change; the refusal
-prints the one command that puts it right. It carries the same `--self-test`
-negative control, for the same reason. The CMake targets already regenerate
-before comparing and are unchanged — it is the scripts, the path their own
-headers recommend for iterating, that were unguarded.
-
-**A change that shortens the gate leaves every check, every budget and every
-wait intact**, and is justified by a before-and-after measurement of the same
-lanes on the same host rather than by the argument for it. One that measures
-no gain is dropped along with its measurement. Sharing one build between the
-four Nintendo 64 checks is the worked example: the checks did not change, and
-the numbers that bought it are in `platform/nintendo64/scripts/check-n64.sh`.
-
-The autopilot check is also what produces the README's Nintendo 64 screenshot
-and animation. There is deliberately only one emulator here: a second one blind
-to the RDP could only witness a second renderer written for its benefit, and the
-cross-check that earns its keep is host against console, not emulator against
-emulator.
-
-Configure with `-DGRANDLEON_N64_TESTS=ON` to add these runs to `ctest` as
-`grandleon.nintendo64`, `grandleon.nintendo64_play`,
-`grandleon.nintendo64_autopilot`, `grandleon.nintendo64_campaign`,
-`grandleon.nintendo64_other_game`; they are off by default because they build a cross toolchain and an emulator from
-source on first use. Full detail, including why ares is the authoritative
-emulator, is in
+Configure with `-DGRANDLEON_N64_TESTS=ON` to add the same dual-project gate to
+`ctest` as `grandleon.nintendo64`. Full commands and controls are in
 [platform/nintendo64/README.md](platform/nintendo64/README.md).
 
 ### PlayStation (pinned container, pinned SDK, pinned BIOS)

@@ -1,9 +1,8 @@
-# Pyrite cutover audit
+# Nintendo 64 renderer audit
 
-This is the release-facing checklist for replacing the current Nintendo 64
-presenter. A row marked **ready** has both a real runtime path and a focused
-test or exact-4-MB ares checkpoint. A row marked **blocked** prevents cutover;
-the existing renderer must remain the release target until it is cleared.
+This is the release-facing checklist for the sole Nintendo 64 player. A row
+marked **ready** has both a real runtime path and a focused test or exact-4-MB
+ares checkpoint.
 
 | Release contract | Status | Evidence |
 | --- | --- | --- |
@@ -17,10 +16,9 @@ the existing renderer must remain the release target until it is cleared.
 | Optional close presentation | Ready | Full, reduced, 3x and skip paths keep physical sides stable and restore the exact tactical camera/hash. |
 | Audio | Ready baseline | Original deterministic ambience, UI, impact and victory cues are generated at build time and converted by the pinned libdragon toolchain. |
 | Exact hardware-style budget | Ready for two projects | Distinct demo and Steel ROMs pass in real-RSP ares with Expansion Pak disabled and renderer identity `pyrite-tiny3d`. |
-| Normal creator/export path | **Blocked** | The generic source-to-ROM wrapper is ready, but the creator's normal Nintendo 64 export button and release artifact still invoke the current renderer. |
+| Normal creator/export path | Ready | CMake, the creator payload and release builds all invoke the same generic source-to-ROM wrapper and record `fallback=none`. |
 | General project/content coverage | Ready, bounded and fail-closed | The exporter derives package, campaign, saves, terrain atlas, close plate and character bindings from the selected project. It refuses ambiguous routes, unknown terrains, more than nine terrain families or more than 16 drawings instead of substituting demo content. |
 
-Cutover is therefore not authorized yet. Both source projects have passed the
-same artifact and exact-4-MB gate; the remaining blocker is connecting this
-generic wrapper to the normal creator/export contract. That switch and removal
-of the old renderer must remain separate, reviewable commits.
+The cutover is complete. The export switch and deletion of the retired source,
+art, generators and tests remain separate commits in history, and both the
+demo and Steel and Cedar pass the same exact-4-MB artifact gate.

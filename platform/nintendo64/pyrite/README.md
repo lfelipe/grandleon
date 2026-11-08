@@ -1,6 +1,6 @@
 # Nintendo 64 Pyrite target
 
-This directory is Grandleon's self-contained candidate Nintendo 64 renderer.
+This directory contains Grandleon's Nintendo 64 renderer.
 It builds an authored Grandleon source project through Pyrite while continuing
 to use the same simulation, compiled campaign package, saves and authoring
 pipeline as the other players. The ROM starts at a small title screen, follows
@@ -8,14 +8,10 @@ the selected campaign's one/two-player launch policy, offers New Game or
 Continue from cartridge SRAM, and advances through the real campaign graph and
 battle commits.
 
-**Migration status:** this is the intended replacement renderer, but it remains
-an active, non-shipping integration path until export, campaign and gameplay
-parity are complete. It is
-not connected to CMake, campaign export, release ROMs, or a player/creator
-renderer choice. Grandleon still has one Nintendo 64 renderer. Once this path
-has gameplay, save, input, UI, and campaign parity and proves a material visual
-improvement on real-style hardware, it should replace that renderer rather
-than become a second selectable option.
+The normal CMake, creator payload and release-export paths all call this
+renderer. Grandleon has no second Nintendo 64 presenter or compatibility
+fallback; an unavailable pinned dependency makes the export fail with a clear
+diagnostic.
 
 The target deliberately contains no ROM, compiled GPK, generated cutout, or
 vendored Pyrite source. `scripts/build.sh` derives the game inputs from the
@@ -121,8 +117,9 @@ fallen/recruited counts and the campaign outcome are shown after every
 committed battle. Packaged stage-open, character-fall and character-talk
 moments use the same dialogue loader during battle. A small original generated
 audio set provides ambience plus UI, impact and victory cues without tracking
-binary audio sources. Complete art and close-stage coverage for every exported
-unit, terrain and landmark remain.
+binary audio sources. Every exported unit receives board and close-stage art.
+Terrain and landmark detail continues to improve within the same renderer and
+hardware budgets.
 The bounded review driver uses the real tactics policy for both sides to finish
 each battle and presents one complete optional close handoff per encounter; it
 is test scaffolding, not a second simulation. Physical player attacks continue
