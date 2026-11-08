@@ -2,7 +2,7 @@
 extends SceneTree
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
-const EXPECTED_COVERAGE := 39
+const EXPECTED_COVERAGE := 47
 const EXPECTED_SIZE := Vector2(1772, 886)
 
 var failures := 0
