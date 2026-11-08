@@ -9,14 +9,15 @@ test "$#" -eq 2 || {
 test -n "${PSN00BSDK_ROOT:-}" || { echo "PSN00BSDK_ROOT is required" >&2; exit 1; }
 build=$(CDPATH= cd -- "$1" && pwd)
 output=$2
-for artifact in \
-    "$build/bell-build/grandleon_mipsync.elf" \
-    "$build/deep-build/grandleon_mipsync.elf" \
-    "$build/grandleon-mipsync-campaign.cue" \
-    "$build/grandleon-mipsync-campaign.bin" \
-    "$build/bell-build-manifest.json" \
-    "$build/deep-build-manifest.json"; do
+for artifact in "$build/grandleon-mipsync-campaign.cue" \
+        "$build/grandleon-mipsync-campaign.bin"; do
     test -f "$artifact" || { echo "missing campaign artifact: $artifact" >&2; exit 1; }
+done
+for stage in bell deep watch village gate; do
+    for artifact in "$build/$stage-build/grandleon_mipsync.elf" \
+            "$build/$stage-build-manifest.json"; do
+        test -f "$artifact" || { echo "missing campaign artifact: $artifact" >&2; exit 1; }
+    done
 done
 
 # The campaign proof is only useful if the two executable stages leave the
@@ -24,7 +25,10 @@ done
 # runtime hand-off so a visually green disc cannot hide an over-budget build.
 python3 - \
     "$build/bell-build-manifest.json" \
-    "$build/deep-build-manifest.json" <<'PY'
+    "$build/deep-build-manifest.json" \
+    "$build/watch-build-manifest.json" \
+    "$build/village-build-manifest.json" \
+    "$build/gate-build-manifest.json" <<'PY'
 import json
 from pathlib import Path
 import sys
@@ -74,11 +78,13 @@ address_of() {
     } END { if (!found) exit 1 }'
 }
 bell_update=$(address_of "$build/bell-build/grandleon_mipsync.elf")
-deep_update=$(address_of "$build/deep-build/grandleon_mipsync.elf")
-test "$bell_update" = "$deep_update" || {
-    echo "campaign probe update seam differs: $bell_update vs $deep_update" >&2
-    exit 1
-}
+for stage in deep watch village gate; do
+    stage_update=$(address_of "$build/$stage-build/grandleon_mipsync.elf")
+    test "$bell_update" = "$stage_update" || {
+        echo "campaign probe update seam differs: $bell_update vs $stage_update ($stage)" >&2
+        exit 1
+    }
+done
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 docker=${GRANDLEON_DOCKER:-docker}
@@ -114,8 +120,8 @@ run_mode new
 before=$(sha256sum "$output/campaign.mcd" | awk '{print $1}')
 run_mode continue
 after=$(sha256sum "$output/campaign.mcd" | awk '{print $1}')
-test "$before" = "$after" || {
-    echo "Continue rewrote the memory card: $before != $after" >&2
+test "$before" != "$after" || {
+    echo "full campaign traversal did not advance the memory card" >&2
     exit 1
 }
 
@@ -129,22 +135,23 @@ require() {
         exit 1
     }
 }
-for mode in new continue; do
-    log=$output/$mode.log
-    require "$log" 'MIPSYNC_CAMPAIGN_RESUME node=a6b11e9ea987638a players=2' 'the real Deepwood campaign position'
-    require "$log" 'MIPSYNC_SIM_READY width=14 height=9 units=11 .* players=2 hash=72216135b6c8e9d3' 'the real two-player Deepwood simulation'
-    require "$log" 'MIPSYNC_GRANDLEON_METRICS frames=600 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the 60 Hz gameplay result'
-    require "$log" 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
-    require "$log" 'MIPSYNC_CAMPAIGN_TITLE_CAPTURE 320x240' 'the title capture'
-    require "$log" 'MIPSYNC_CAMPAIGN_DEEP_CAPTURE 320x240' 'the Deepwood capture'
-done
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_READY card=1 continue=0' 'a fresh card'
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_SAVE bytes=[1-9][0-9]* status=0' 'successful card saves'
+require "$output/new.log" 'MIPSYNC_CAMPAIGN_RESUME node=a6b11e9ea987638a players=2' 'the Deepwood hand-off'
+require "$output/new.log" 'MIPSYNC_SIM_READY width=14 height=9 units=11 .* players=2 hash=72216135b6c8e9d3' 'the real two-player Deepwood simulation'
+require "$output/new.log" 'MIPSYNC_CAMPAIGN_CAPTURE name=bell 320x240' 'the Bell capture'
+require "$output/new.log" 'MIPSYNC_CAMPAIGN_CAPTURE name=deepwood 320x240' 'the Deepwood capture'
+require "$output/new.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the Deepwood 60 Hz result'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_READY card=1 continue=1' 'Continue from a later process'
-if grep -q 'MIPSYNC_CAMPAIGN_SAVE' "$output/continue.log"; then
-    echo "Continue wrote a save before gameplay" >&2
-    exit 1
-fi
+require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=0079abb4797ff5b4 players=2' 'the Cedar Watch hand-off'
+require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=07cb9d097af3a9a1 players=2' 'the Gate Village hand-off'
+require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=e5c0ef3904d2b0a3 players=2' 'the Twin Gate hand-off'
+require "$output/continue.log" 'MIPSYNC_SIM_READY width=20 height=14 units=11 .* players=2 hash=25b92e2ee75b62e2' 'the real two-player Twin Gate simulation'
+for capture in deepwood watch village gate; do
+    require "$output/continue.log" "MIPSYNC_CAMPAIGN_CAPTURE name=$capture 320x240" "$capture capture"
+done
+require "$output/continue.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the Twin Gate 60 Hz result'
+require "$output/continue.log" 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
 
-printf 'Mipsync campaign/card passed: card_sha256=%s update=%s\n' "$after" "$bell_update"
+printf 'Mipsync full campaign/card passed: card_sha256=%s update=%s\n' "$after" "$bell_update"
 printf 'New log: %s\nContinue log: %s\n' "$output/new.log" "$output/continue.log"

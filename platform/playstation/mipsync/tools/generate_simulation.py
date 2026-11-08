@@ -17,6 +17,31 @@ def nums(values: list[object]) -> str:
     return "{" + ",".join(str(int(value)) for value in values) + "}"
 
 
+def cpp_string(value: object) -> str:
+    text = str(value)
+    for source, replacement in (
+        ("\u2014", "-"), ("\u2013", "-"), ("\u2018", "'"),
+        ("\u2019", "'"), ("\u201c", '"'), ("\u201d", '"'),
+        ("\u2026", "..."),
+    ):
+        text = text.replace(source, replacement)
+    return json.dumps(text, ensure_ascii=True)
+
+
+def campaign_stage_names(campaign: dict[str, object]) -> dict[int, str]:
+    encounters = sorted(
+        int(node["id"])
+        for node in campaign.get("nodes", [])
+        if int(node.get("kind", 0)) == 1
+    )
+    if len(encounters) > 99:
+        raise ValueError("PlayStation campaign supports at most 99 encounter executables")
+    return {
+        node_id: f"STG{index + 1:02d}.EXE"
+        for index, node_id in enumerate(encounters)
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
@@ -38,6 +63,23 @@ def main() -> int:
         one_player_ids = {
             int(unit["id"]) for unit in one_player["simulation"]["units"]
         }
+    campaign = document.get("campaign")
+    if not isinstance(campaign, dict) or not isinstance(campaign.get("nodes"), list):
+        raise ValueError("manifest has no package-authored campaign graph")
+    stage_names = campaign_stage_names(campaign)
+    current_node_id = int(campaign.get("current_node_id", 0))
+    if current_node_id not in stage_names:
+        raise ValueError("current encounter has no campaign node")
+    entry_node = next(
+        (node for node in campaign["nodes"]
+         if int(node["id"]) == int(campaign["entry_node_id"])),
+        None,
+    )
+    if not entry_node or not int(entry_node.get("has_fallback", 0)):
+        raise ValueError("campaign entry must lead to its first encounter")
+    boot_node_id = int(entry_node["fallback"])
+    if boot_node_id not in stage_names:
+        raise ValueError("campaign entry does not lead to an encounter")
     lines = [
         "/* Generated from a real Grandleon package. Do not edit. */",
         '#include "grandleon_simulation.hpp"', "",
@@ -129,10 +171,106 @@ def main() -> int:
             "{" + patrol + "}},"
         )
     lines += ["    };", "    return values;", "}", ""]
+    lines += [
+        "namespace camp = grandleon::campaign;", "",
+        "namespace {",
+        "camp::DefinitionRef generated_ref(grandleon::core::ContentCategory category, std::uint64_t stable_id) {",
+        "    camp::DefinitionRef result{};",
+        "    for (unsigned i = 0; i < 16; ++i) result.package_id[i] = grandleon_generated_game_id[i];",
+        "    result.category = category; result.stable_id = stable_id; return result;",
+        "}",
+        "}", "",
+        "camp::CampaignGraph grandleon_generated_campaign_graph() {",
+        f"    const auto campaign = generated_ref(grandleon::core::ContentCategory::campaign, {int(campaign['id'])}ULL);",
+        "    std::vector<camp::CampaignGraphNode> nodes;",
+    ]
+    for node in campaign["nodes"]:
+        lines += [
+            "    { camp::CampaignGraphNode node{};",
+            f"      node.node=generated_ref(grandleon::core::ContentCategory::campaign_node, {int(node['id'])}ULL);",
+            f"      node.terminal={'true' if int(node['kind']) == 2 else 'false'};",
+            f"      node.has_fallback={'true' if int(node.get('has_fallback', 0)) else 'false'};",
+        ]
+        if int(node.get("has_fallback", 0)):
+            lines.append(
+                "      node.fallback=generated_ref("
+                "grandleon::core::ContentCategory::campaign_node, "
+                f"{int(node['fallback'])}ULL);"
+            )
+        for branch in node.get("branches", []):
+            lines += [
+                "      { camp::CampaignTransition transition{};",
+                "        transition.target=generated_ref("
+                "grandleon::core::ContentCategory::campaign_node, "
+                f"{int(branch['target'])}ULL);",
+                f"        transition.priority={int(branch['priority'])}U;",
+                "        transition.combinator=static_cast<camp::ConditionCombinator>("
+                f"{int(branch['combinator'])});",
+            ]
+            for predicate in branch.get("predicates", []):
+                kind = int(predicate["kind"])
+                if kind == 3:
+                    value_type = 2 if int(predicate.get("value_type", 0)) == 2 else 1
+                    lines.append(
+                        "        transition.predicates.push_back(camp::world_flag_equals("
+                        "generated_ref(grandleon::core::ContentCategory::world_flag, "
+                        f"{int(predicate['subject'])}ULL), "
+                        "{static_cast<camp::WorldValueType>("
+                        f"{value_type}), {int(predicate.get('value', 0))}LL}}));"
+                    )
+                elif kind == 4:
+                    quantity = int(predicate.get("value", 0))
+                    if quantity < 1 or quantity > 0xFFFFFFFF:
+                        quantity = 0
+                    lines.append(
+                        "        transition.predicates.push_back(camp::inventory_at_least("
+                        "camp::PersistentEntityId{}, generated_ref("
+                        "grandleon::core::ContentCategory::item, "
+                        f"{int(predicate['subject'])}ULL), {quantity}U));"
+                    )
+                else:
+                    result = 2 if int(predicate.get("result", 1)) == 2 else 1
+                    lines.append(
+                        "        transition.predicates.push_back(camp::objective_result_is("
+                        "generated_ref(grandleon::core::ContentCategory::objective, "
+                        f"{int(predicate['subject'])}ULL), "
+                        f"static_cast<camp::ObjectiveOutcome>({result})));"
+                    )
+            lines += ["        node.transitions.push_back(std::move(transition)); }",]
+        lines += ["      nodes.push_back(std::move(node)); }",]
+    lines += [
+        "    return camp::make_campaign_graph(campaign,",
+        "        generated_ref(grandleon::core::ContentCategory::campaign_node, "
+        f"{int(campaign['entry_node_id'])}ULL), std::move(nodes));",
+        "}", "",
+        "const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campaign_nodes() {",
+        "    static const std::vector<grandleon_generated_campaign_node> values = {",
+    ]
+    for node in campaign["nodes"]:
+        stage_name = stage_names.get(int(node["id"]), "")
+        disc_path = "cdrom:\\" + stage_name + ";1" if stage_name else ""
+        lines.append(
+            "        {"
+            f"{int(node['id'])}ULL, {int(node.get('encounter_id', 0))}ULL, "
+            f"{int(node['kind'])}, {cpp_string(node.get('name', ''))}, "
+            f"{cpp_string(node.get('dialogue', ''))}, {cpp_string(disc_path)}"
+            "},"
+        )
+    lines += [
+        "    };", "    return values;", "}", "",
+        "const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id) {",
+        "    for (const auto& node : grandleon_generated_campaign_nodes()) if (node.id == id) return &node;",
+        "    return nullptr;", "}", "",
+        "const std::vector<std::uint64_t>& grandleon_generated_objective_ids() {",
+        "    static const std::vector<std::uint64_t> values = "
+        + ids([source["id"] for source in simulation["objectives"]]) + ";",
+        "    return values;", "}", "",
+    ]
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "simulation_data.cpp").write_text("\n".join(lines), encoding="utf-8")
     header = f"""/* Generated from a real Grandleon package. Do not edit. */
 #pragma once
+#include <grandleon/campaign/graph.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/tactics/policy.hpp>
 #include <cstdint>
@@ -142,20 +280,40 @@ struct grandleon_generated_behavior final {{
     grandleon::tactics::Behavior behavior{{grandleon::tactics::Behavior::hold}};
     std::vector<grandleon::simulation::Position> patrol;
 }};
+struct grandleon_generated_campaign_node final {{
+    std::uint64_t id{{}};
+    std::uint64_t encounter_id{{}};
+    std::uint8_t kind{{}};
+    const char* name{{}};
+    const char* dialogue{{}};
+    const char* disc_path{{}};
+}};
 grandleon::simulation::EncounterDefinition grandleon_generated_definition(unsigned local_players = 2);
 const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors();
+grandleon::campaign::CampaignGraph grandleon_generated_campaign_graph();
+const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campaign_nodes();
+const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id);
+const std::vector<std::uint64_t>& grandleon_generated_objective_ids();
 inline constexpr std::uint64_t grandleon_generated_canonical_hash(unsigned local_players) {{
     return local_players > 1 ? {int(document['canonical_hash'])}ULL : {int(one_player['canonical_hash']) if one_player else int(document['canonical_hash'])}ULL;
 }}
 inline constexpr unsigned char grandleon_generated_game_id[16] = {{{','.join(str(int(document.get('game_id', '0' * 32)[i:i+2], 16)) for i in range(0, 32, 2))}}};
 inline constexpr unsigned grandleon_generated_content_revision = {int(document.get('content_revision', 0))}U;
 inline constexpr unsigned grandleon_generated_local_players = {int(document.get('local_players', 2))}U;
-inline constexpr const char* grandleon_generated_project_title = "{str(document.get('project_title', 'Grandleon')).replace('\\', '\\\\').replace('"', '\\"')}";
-inline constexpr const char* grandleon_generated_prologue = {json.dumps(str(document.get('campaign', {}).get('prologue', 'The orchard bell has sounded.')))};
-inline constexpr const char* grandleon_generated_aftermath = {json.dumps(str(document.get('campaign', {}).get('aftermath', 'The trail leads into Cedar Deepwood.')))};
-inline constexpr const char* grandleon_generated_objective = {json.dumps(str(document.get('campaign', {}).get('objective', 'Defeat the enemy company.')))};
+inline constexpr const char* grandleon_generated_project_title = {cpp_string(document.get('project_title', 'Grandleon'))};
+inline constexpr std::uint64_t grandleon_generated_current_node_id = {current_node_id}ULL;
+inline constexpr std::uint64_t grandleon_generated_boot_node_id = {boot_node_id}ULL;
+inline constexpr std::uint64_t grandleon_generated_current_encounter_id = {int(document['encounter_id'])}ULL;
+inline constexpr const char* grandleon_generated_objective = {cpp_string(campaign.get('objective', 'Complete the objective.'))};
+inline constexpr const char* grandleon_generated_stage_filename = {cpp_string(stage_names[current_node_id])};
 """
     (args.output / "grandleon_simulation.hpp").write_text(header, encoding="utf-8")
+    (args.output / "stage-filename.txt").write_text(
+        stage_names[current_node_id] + "\n", encoding="ascii"
+    )
+    (args.output / "stage-is-boot.txt").write_text(
+        ("1\n" if current_node_id == boot_node_id else "0\n"), encoding="ascii"
+    )
     return 0
 
 

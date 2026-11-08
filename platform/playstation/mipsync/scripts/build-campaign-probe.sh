@@ -3,17 +3,25 @@
 set -eu
 
 usage() {
-    echo "usage: PSN00BSDK_ROOT=/path/to/sdk $0 bell-1p.json bell-2p.json deepwood-1p.json deepwood-2p.json empty-output-directory" >&2
+    echo "usage: PSN00BSDK_ROOT=/path/to/sdk $0 bell-1p.json bell-2p.json deepwood-1p.json deepwood-2p.json watch-1p.json watch-2p.json village-1p.json village-2p.json gate-1p.json gate-2p.json empty-output-directory" >&2
     exit 2
 }
 
-test "$#" -eq 5 || usage
+test "$#" -eq 11 || usage
 bell_one=$1
 bell_two=$2
 deep_one=$3
 deep_two=$4
-output=$5
-for manifest in "$bell_one" "$bell_two" "$deep_one" "$deep_two"; do
+watch_one=$5
+watch_two=$6
+village_one=$7
+village_two=$8
+gate_one=$9
+gate_two=${10}
+output=${11}
+for manifest in "$bell_one" "$bell_two" "$deep_one" "$deep_two" \
+        "$watch_one" "$watch_two" "$village_one" "$village_two" \
+        "$gate_one" "$gate_two"; do
     test -f "$manifest" || { echo "scene manifest does not exist: $manifest" >&2; exit 1; }
 done
 test -n "${PSN00BSDK_ROOT:-}" || { echo "PSN00BSDK_ROOT is required" >&2; exit 1; }
@@ -72,6 +80,9 @@ stage_scene() {
 
 stage_scene "$output/bell-source" "$bell_two" "$bell_one"
 stage_scene "$output/deep-source" "$deep_two" "$deep_one"
+stage_scene "$output/watch-source" "$watch_two" "$watch_one"
+stage_scene "$output/village-source" "$village_two" "$village_one"
+stage_scene "$output/gate-source" "$gate_two" "$gate_one"
 
 psn00b_root=$(CDPATH= cd -- "$PSN00BSDK_ROOT" && pwd)
 docker=${GRANDLEON_DOCKER:-docker}
@@ -90,7 +101,6 @@ image=${GRANDLEON_PLAYSTATION_TOOLCHAIN_IMAGE:-grandleon/playstation-toolchain:e
         configure() {
             source_dir=$1
             build_dir=$2
-            stage=$3
             cmake -S "$source_dir" -B "$build_dir" \
                 -DCMAKE_TOOLCHAIN_FILE=/src/cmake/toolchains/PlayStation.cmake \
                 -DPLAYSTATION_NUGGET=/nugget \
@@ -99,34 +109,51 @@ image=${GRANDLEON_PLAYSTATION_TOOLCHAIN_IMAGE:-grandleon/playstation-toolchain:e
                 -DPSN00BSDK_ROOT=/psn \
                 -DGRANDLEON_PSN00B_ARCHIVE_ROOT=/work/dependencies/psn00b \
                 -DGRANDLEON_MIPSYNC_CAMPAIGN=ON \
-                -DGRANDLEON_MIPSYNC_CAMPAIGN_PROBE=ON \
-                -DGRANDLEON_MIPSYNC_STAGE="$stage"
+                -DGRANDLEON_MIPSYNC_CAMPAIGN_PROBE=ON
             cmake --build "$build_dir" --target grandleon_mipsync --parallel
         }
-        configure /work/bell-source /work/bell-build BELL
-        configure /work/deep-source /work/deep-build DEEPWOOD
+        configure /work/bell-source /work/bell-build
+        configure /work/deep-source /work/deep-build
+        configure /work/watch-source /work/watch-build
+        configure /work/village-source /work/village-build
+        configure /work/gate-source /work/gate-build
     '
 
 disc=$output/disc
 mkdir -p "$disc"
-cp "$output/bell-build/grandleon_mipsync.exe" "$disc/bell.exe"
-cp "$output/deep-build/grandleon_mipsync.exe" "$disc/deep.exe"
-printf 'BOOT = cdrom:\\BELL.EXE;1\nTCB = 4\nEVENT = 16\nSTACK = 801FFFF0\n' > "$disc/system.cnf"
+boot_file=
+for stage in bell deep watch village gate; do
+    disc_file=$(tr -d '\r\n' < "$output/${stage}-source/generated/stage-filename.txt")
+    case "$disc_file" in
+        STG[0-9][0-9].EXE) ;;
+        *) echo "invalid generated stage filename: $disc_file" >&2; exit 1 ;;
+    esac
+    cp "$output/${stage}-build/grandleon_mipsync.exe" "$disc/$disc_file"
+    if test "$(tr -d '\r\n' < "$output/${stage}-source/generated/stage-is-boot.txt")" = 1; then
+        test -z "$boot_file" || { echo "campaign has more than one boot stage" >&2; exit 1; }
+        boot_file=$disc_file
+    fi
+done
+test -n "$boot_file" || { echo "campaign has no boot stage" >&2; exit 1; }
+printf 'BOOT = cdrom:\\%s;1\nTCB = 4\nEVENT = 16\nSTACK = 801FFFF0\n' "$boot_file" > "$disc/system.cnf"
 printf '%s\n' \
     '<?xml version="1.0" encoding="utf-8"?>' \
     '<iso_project><track type="data">' \
     '<identifiers system="PLAYSTATION" volume="GRANDLEON_CAMPAIGN" volume_set="GRANDLEON_CAMPAIGN" publisher="GRANDLEON" data_preparer="GRANDLEON" application="PLAYSTATION" copyright="SYSTEM.CNF;1" />' \
     '<directory_tree>' \
     '<file name="SYSTEM.CNF" type="data" source="system.cnf" />' \
-    '<file name="BELL.EXE" type="data" source="bell.exe" />' \
-    '<file name="DEEP.EXE" type="data" source="deep.exe" />' \
+    '<file name="STG01.EXE" type="data" source="STG01.EXE" />' \
+    '<file name="STG02.EXE" type="data" source="STG02.EXE" />' \
+    '<file name="STG03.EXE" type="data" source="STG03.EXE" />' \
+    '<file name="STG04.EXE" type="data" source="STG04.EXE" />' \
+    '<file name="STG05.EXE" type="data" source="STG05.EXE" />' \
     '<dummy sectors="1024" />' \
     '</directory_tree></track></iso_project>' > "$disc/disc.xml"
 (cd "$disc" && "$PSN00BSDK_ROOT/bin/mkpsxiso" -y \
     -o "$output/grandleon-mipsync-campaign.bin" \
     -c "$output/grandleon-mipsync-campaign.cue" disc.xml)
 
-for stage in bell deep; do
+for stage in bell deep watch village gate; do
     python3 "$mipsync_dir/tools/write_build_manifest.py" \
         --elf "$output/${stage}-build/grandleon_mipsync.elf" \
         --exe "$output/${stage}-build/grandleon_mipsync.exe" \
@@ -143,7 +170,10 @@ done
 sha256sum "$output/grandleon-mipsync-campaign.cue" \
     "$output/grandleon-mipsync-campaign.bin" \
     "$output/bell-build/grandleon_mipsync.elf" \
-    "$output/deep-build/grandleon_mipsync.elf" > "$output/SHA256SUMS"
+    "$output/deep-build/grandleon_mipsync.elf" \
+    "$output/watch-build/grandleon_mipsync.elf" \
+    "$output/village-build/grandleon_mipsync.elf" \
+    "$output/gate-build/grandleon_mipsync.elf" > "$output/SHA256SUMS"
 printf 'CUE=%s\nBIN=%s\nHASHES=%s\n' \
     "$output/grandleon-mipsync-campaign.cue" \
     "$output/grandleon-mipsync-campaign.bin" "$output/SHA256SUMS"

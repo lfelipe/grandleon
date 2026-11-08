@@ -46,13 +46,14 @@ void grandleon_platform_card_end(void) {
     s_last_buttons = 0xffffu;
 }
 
-void grandleon_platform_load_deepwood(void) {
+void grandleon_platform_load_stage(const char* disc_path) {
+    if (!disc_path || !disc_path[0]) return;
     DrawSync(0);
     StopPAD();
     StopCallback();
     _96_remove();
     _96_init();
-    LoadExec("cdrom:\\DEEP.EXE;1", 0, 0);
+    LoadExec(disc_path, 0, 0);
     RestartCallback();
     StartPAD();
 }

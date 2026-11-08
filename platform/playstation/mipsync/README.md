@@ -1,13 +1,14 @@
 # Mipsync PlayStation renderer
 
 This directory is the in-progress replacement for Grandleon's PlayStation
-renderer. It now boots real Steel and Cedar encounters, runs the shared
-simulation and supports cursor movement, unit movement, Attack, every equipped
-ability, Wait and the package-authored opposing turn. A compact forecast and
-result UI plus the optional close-combat camera use the same disc and rules.
-It is not the shipping path yet: the explicit baseline remains available for
-comparison until saves, campaign flow, audio and hardware validation reach
-parity. It is never used as a fallback.
+renderer. It now boots the full five-encounter Steel and Cedar campaign, saves
+and resumes on a PlayStation memory card, and supports both one- and two-player
+campaigns. Battles use the shared simulation for movement, Attack, equipped
+abilities, Wait, reinforcements, objectives, and package-authored opposing
+turns. A compact forecast and result UI plus the optional close-combat camera
+use the same disc and rules. It is not the shipping path yet: audio, real
+hardware validation, and the final cutover remain. It is never used as a
+fallback.
 
 Mipsync is pinned to commit `866f405a0e34b5925a8d832272fe52c657688430`.
 The upstream source is not copied into Grandleon. Generic engine fixes live as
@@ -18,11 +19,11 @@ and rendering adapters stay here.
 ## Package and simulation boundary
 
 `grandleon_ps1_mipsync_scene_export` opens a real `.gpk`, loads the selected
-encounter through `package_runtime`, creates the real simulation and writes a
-renderer-neutral JSON build input. The target generator reconstructs the same
-`EncounterDefinition`, and `game_bridge.cpp` is the deliberately narrow seam
-between the shared rules and Mipsync scene entities. Mipsync types do not enter
-the engine or package format.
+encounter and its campaign through `package_runtime`, creates the real
+simulation, and writes a renderer-neutral JSON build input. The target
+generator reconstructs the same encounter and package-authored campaign graph.
+`game_bridge.cpp` is the narrow seam between the shared rules and Mipsync scene
+entities; Mipsync types do not enter the engine or package format.
 
 ```sh
 cmake -S . -B build-mipsync-host -G Ninja \
@@ -65,7 +66,9 @@ requires real movement, player Attack, an equipped healing ability, Wait and
 seven package-authored opposing actions. It captures the live forecast, close
 combat and completed board views. The scroll probe drives both axes on the real
 14x9 Cedar Deepwood map and requires viewport clamp, one active terrain page
-and zero missed VBlanks. See `VALIDATION.md` for exact hashes and measurements.
+and zero missed VBlanks. The campaign probe additionally starts, saves, resumes,
+and traverses all five encounters from the same disc. See `VALIDATION.md` for
+the current measurements and hashes.
 
 ## Budgets and cutover gates
 
@@ -81,12 +84,13 @@ Larger maps are split into overlapping viewport-sized terrain pages. Only the
 closest page is visible, while the camera follows the cursor and clamps to the
 authored playable rectangle. Trees and units outside the viewport are culled
 only from presentation; the complete encounter remains in the shared
-simulation. Each terrain family also contributes a small deterministic
-low-poly form, such as a rock, shrub, reed, crop, bamboo stalk or rubble. These
-forms are folded into the existing terrain pages, rather than becoming extra
-draw calls, and every form belongs to exactly one overlapping page so scrolling
-keeps the zero-missed-VBlank budget. The generated surroundings policy remains
-portable across renderers (`natural_blend`, `extend_edges` or `fixed_terrain`).
+simulation. Each terrain family contributes deterministic rendered forms such
+as outcrops, shrubs, reeds, crops, bamboo, or rubble; forests also use trunks
+and crossed canopies. These forms are folded into the existing terrain pages,
+rather than becoming extra draw calls, and every form belongs to exactly one
+overlapping page so scrolling keeps the zero-missed-VBlank budget. The generated
+surroundings policy remains portable across renderers (`natural_blend`,
+`extend_edges` or `fixed_terrain`).
 
 Cutover requires all of the following on the exact CUE/BIN:
 
@@ -97,7 +101,7 @@ Cutover requires all of the following on the exact CUE/BIN:
 - real packages, complete encounters, save data and campaign flow;
 - embedded `GRANDLEON_PS1_RENDERER=MIPSYNC` plus the fail-closed cutover audit.
 
-Until those gates pass, rollback means selecting the separately named baseline
-build. At cutover, release/export will point only to Mipsync and fail if it
-cannot build; the baseline renderer code and assets will then be removed in the
+Until the remaining gates pass, comparison uses a separately named build; it is
+never selected as a fallback. At cutover, release/export will point only to
+Mipsync and fail if it cannot build, then remove the comparison renderer in the
 same transition series.

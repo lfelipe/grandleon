@@ -58,10 +58,6 @@ target_include_directories(grandleon_mipsync PRIVATE
     "${GRANDLEON_SOURCE_ROOT}/platform/storage/include"
     "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src"
 )
-if(GRANDLEON_MIPSYNC_STAGE STREQUAL "DEEPWOOD")
-    target_compile_definitions(grandleon_mipsync PRIVATE
-        GRANDLEON_MIPSYNC_STAGE_DEEPWOOD=1)
-endif()
 if(GRANDLEON_MIPSYNC_CAMPAIGN)
     target_compile_definitions(grandleon_mipsync PRIVATE
         GRANDLEON_MIPSYNC_CAMPAIGN=1)

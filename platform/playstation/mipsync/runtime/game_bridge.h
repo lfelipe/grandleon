@@ -61,7 +61,7 @@ void grandleon_game_ui_state(grandleon_ui_state* output);
 void grandleon_game_log_boot(unsigned int packet_bytes);
 void grandleon_platform_card_begin(void);
 void grandleon_platform_card_end(void);
-void grandleon_platform_load_deepwood(void);
+void grandleon_platform_load_stage(const char* disc_path);
 void grandleon_game_log_metrics(
     uint32_t frames, uint32_t rendered_frames, uint32_t deferred_frames,
     uint32_t render_average, uint16_t render_maximum,

@@ -1,116 +1,74 @@
-# Mipsync playable-slice validation
+# PlayStation renderer validation
 
-Validated 2026-11-08 with real two-player Steel and Cedar encounters. The
-target reconstructs each exported encounter and calls the shared simulation;
-it is not a hand-authored Mipsync rules demo.
+Validated on 2026-11-08 with the real two-player Steel and Cedar campaign.
+This is package content running through Grandleon's shared campaign and battle
+rules, not a hand-authored renderer demo.
 
-## Bell Orchard combat
+## What the proof covers
 
-- input JSON SHA-256:
-  `20e000c8166082acba527e38938cf1af63824b3b4753e2b695fe631a465aaaa3`
-- CUE: 80 bytes, SHA-256
-  `dfc6af46abf9ff89f0137b9d1b7ce4b3b4776d7ef757c8e5d135199d6b7fcbaf`
-- BIN: 2,982,336 bytes, SHA-256
-  `684620a687f27569a2edf99dc9a4964f184c9cb31383f37a0632ae7874074d27`
-- build manifest SHA-256:
-  `6cbc91773c00ac1dbd7dd9df4474f53cc3424c039c979cbee4446676e9849a6d`
-- forecast frame SHA-256:
-  `a0d1c70495c251979cba042b56127ac3757aba32c36989075ebe0a9251cdef2d`
-- close-combat frame SHA-256:
-  `e42082b4de216fb73a6c6a1b3952742d07406d561efd169c8ac056f9d0479451`
-- completed-board frame SHA-256:
-  `ec58a6df0b7e1e23aa63ab3a92f587e496d3790188a58c8c674a6c6f458e0398`
-- emulator log SHA-256:
-  `689445bb5b9fe899b94da58e6bd5ae71fe974a4b3b24610d3fd60a4ed8602c2f`
+The exact CUE/BIN boots through the pinned BIOS-style PCSX-Redux interpreter,
+starts a new two-player campaign, saves it to a PlayStation memory card, and
+continues it in a second emulator process. The probe visits live board views
+for all five encounters:
 
-The scripted player turn selects four units, moves two, performs an Attack,
-uses Elowen's equipped healing ability and spends the remaining units with
-Wait. The package-authored opponent then performs seven deterministic actions.
-The proof counts four selections, two moves, two waits, five total attacks and
-one ability; both required player combat actions are present. The final
-canonical simulation hash is `f636e495cd97c83a`.
+- Bell Orchard, 8x6;
+- Cedar Deepwood, 14x9;
+- Cedar Watch, 16x12, including the survival objective and reinforcements;
+- Gate Village, 18x12;
+- Twin Gate Keep, 20x14.
 
-Over 600 measured frames, 592 render and eight bounded rules mutations keep the
-already-complete front buffer. Render work averages 121 HBlanks and peaks at
-244; ready-to-ready work averages 122 and peaks at 251. The slowest mutation
-is 96 HBlanks. No VBlank is missed and the maximum elapsed
-interval is one VBlank.
+The disc follows the campaign graph compiled into the game package. Story and
+terminal nodes stay in that graph, and each encounter is a separate PS-EXE on
+the same disc. The probe verifies every memory-card handoff before running the
+real Twin Gate simulation. The same build supports one or two local players.
 
-Bell Orchard uses 595,600 resident bytes. With 64 KiB reserved for the
-future platform audio seam, 32 KiB for stack and 512 KiB for gameplay heap,
-committed RAM is 1,218,192 of 2,097,152 bytes. The scene uses 284 cached
-vertices and 142 triangles. Texture VRAM uses 135,168 bytes and preserves a
-61,440-byte atlas reserve.
+## Performance and memory
 
-## Cedar Deepwood scrolling
+Both measured gameplay windows rendered all 600 frames with zero missed
+VBlanks and a maximum interval of one VBlank. Cedar Deepwood averaged 199
+HBlanks and peaked at 200; Twin Gate averaged 117 and peaked at 118.
 
-- input JSON SHA-256:
-  `d4bfa261a947b8d8a9497cee0a50d64685591ae85a8fc14bcfa4fac7a10572eb`
-- CUE: 80 bytes, SHA-256
-  `dfc6af46abf9ff89f0137b9d1b7ce4b3b4776d7ef757c8e5d135199d6b7fcbaf`
-- BIN: 3,017,616 bytes, SHA-256
-  `128ff201f028f0fff41d1351b138ec5bc8e1e56001d670e0789a9a731d200d45`
-- build manifest SHA-256:
-  `fe5f7d24e4451485b81f3cef2a7c345b340223f807e2bde2e9ccf5114a5eb779`
-- scrolled frame SHA-256:
-  `9e38daddcb5e71b7418544a3da555d0f2dcf171d197ac5453c9fb93af7e71755`
-- emulator log SHA-256:
-  `88e9fd8853f75ca7ea8dd0f39a067842708cb7a796b92ef86fc941263b8cd5e4`
+The build keeps the planned 64 KiB audio reserve, 32 KiB stack reserve, and
+512 KiB gameplay heap on every stage:
 
-This is the real 14x9, 11-unit Cedar Deepwood encounter with canonical initial
-hash `72216135b6c8e9d3`. The scripted proof moves the cursor across both axes and
-requires camera extrema `x=-6..6` and `z=11..17`. The viewport activates one
-of four overlapping 8x6 terrain pages; unit and prop culling changes only
-presentation. A page transition gets one uncluttered cache-fill frame while the
-cursor remains visible, with no rules or input deferred.
+| Encounter | Committed RAM | Texture VRAM | Active cache |
+| --- | ---: | ---: | ---: |
+| Bell Orchard | 1,383,800 / 2,097,152 | 135,168 / 196,608 | 292 vertices, 146 triangles |
+| Cedar Deepwood | 1,414,520 / 2,097,152 | 151,552 / 196,608 | 304 vertices, 152 triangles |
+| Cedar Watch | 1,461,624 / 2,097,152 | 167,936 / 196,608 | 252 vertices, 126 triangles |
+| Gate Village | 1,461,624 / 2,097,152 | 184,320 / 196,608 | 156 vertices, 78 triangles |
+| Twin Gate Keep | 1,420,664 / 2,097,152 | 143,360 / 196,608 | 160 vertices, 80 triangles |
 
-All 600 measured frames render. Render work averages 133 HBlanks and peaks at
-247; ready-to-ready work averages 136 and peaks at 250. No VBlank is missed
-and the maximum elapsed interval is one VBlank. Resident RAM is 626,320 bytes,
-or 1,248,912 bytes including the same audio, stack and gameplay-heap
-reserves. The four generated pages contain 676 cached vertices and 338
-triangles in total, but only one page is active. Texture VRAM uses 151,552
-bytes and preserves a 45,056-byte atlas reserve.
+Larger maps use overlapping 8x6 terrain pages, with only the nearest page
+active. Unit and prop culling changes presentation only; the full encounter
+continues to run in the shared simulation.
 
-## Reproduction and boundary
+## Visual checks
 
-Both discs were built by the checked-in wrapper from Mipsync
-`866f405a0e34b5925a8d832272fe52c657688430` plus the checked-in four-patch
-series. The PS-EXE and BIN contain `GRANDLEON_PS1_RENDERER=MIPSYNC`. The probes
-boot the exact CUE through the pinned BIOS-style PCSX-Redux interpreter with
-the software GPU and OpenBIOS. Controller edges are injected only at the public
-update boundary; the executable owns input interpretation, rules, scene
-synchronization, combat presentation and opposing-turn behavior.
+Unit cutouts come from the Godot graphics profile and retain authored figure
+and team-colour differences. Terrain is not only a flat colour layer: the
+paged board meshes contain deterministic low-poly outcrops, shrubs, reeds,
+crops, bamboo, rubble, and other forms, while forests add trunks and crossed
+canopies. The full campaign capture is produced by the checked-in campaign
+probe so every stage can be compared from the same build.
 
-The Grandleon compiler uses Debian's o32 hard-float ABI metadata because its
-hosted C++ headers do not include the o32-soft stubs. Generated R3000A code
-contains no floating-point operations, and calls into the PSn00bSDK renderer
-are integer- or pointer-only. The linker reports a metadata warning; exact disc
-boot and both runtime proofs exercise the boundary. A dedicated bare-metal C++
-toolchain remains the long-term clean fix.
+The optional close-combat presentation keeps attacker and defender on fixed
+sides during attacks and counterattacks. Forecasts, results, objectives, and
+story screens use the compact in-game UI rather than Sony's debug font.
 
-## Visual and surroundings policy
+## Exact artifact
 
-The tactical rectangle remains finite and the viewport-aware camera clamps to
-its authored bounds, centering maps smaller than the viewport. Bell Orchard and
-Cedar Deepwood select `natural_blend`: deterministic edge-influenced terrain
-continues into a noninteractive apron with no tactical grid or highlights. The
-portable adapter also exposes `extend_edges` and `fixed_terrain`, with an
-optional terrain, seed and variation. Larger maps generate bounded,
-overlapping camera pages rather than one monolithic terrain mesh.
+- CUE SHA-256: `29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff`
+- BIN SHA-256: `f55e3613d0e081fb84fc5745cf63ab24428a1d0ebf7fda1bd971ad3496e1c8ba`
+- final memory-card SHA-256: `48fc152503401d53e177aaf1b60898ec904d0c09a1534a0b459bfd65c0a7cf5a`
 
-Forest cells use low-poly trunks and crossed/layered canopies with deterministic
-scale and restrained rotation variation. Unit cutouts come from the Godot
-graphics profile and team masks. The board stays clear while browsing; unit
-controls appear after selection, forecasts appear only on valid targets and
-results use a compact widget. The optional close-combat presentation keeps the
-attacker and defender on consistent sides during attack and counterattack.
+The executable and BIN embed `GRANDLEON_PS1_RENDERER=MIPSYNC`. Mipsync is
+pinned to `866f405a0e34b5925a8d832272fe52c657688430` and receives the four
+checked-in upstream patches before each clean build.
 
-## Gates still open
+## Still required before cutover
 
-This proves the real simulation/action boundary, package-authored opponent,
-forecast/result UI, optional close combat, bounded mutation schedule,
-viewport-aware scrolling and paging, asset conversion, disc and memory shape.
-It is not a cutover build. Production still needs memory-card saves, campaign
-flow, the Grandleon platform audio seam and real-hardware validation. Until
-then the current player is an explicitly named baseline, never a fallback.
+The remaining platform gates are the Grandleon audio implementation, testing
+on real PlayStation hardware, continued visual and control polish, and the
+final removal of the explicitly named comparison renderer. Mipsync is never a
+silent fallback.

@@ -118,44 +118,7 @@ camp::DefinitionRef keyed_ref(
 }
 
 camp::CampaignGraph make_campaign_graph() {
-    const auto campaign = keyed_ref(
-        grandleon::core::ContentCategory::campaign, "steel_and_cedar"
-    );
-    const auto prologue = keyed_ref(
-        grandleon::core::ContentCategory::campaign_node, "prologue"
-    );
-    const auto bell = keyed_ref(
-        grandleon::core::ContentCategory::campaign_node, "bell_orchard"
-    );
-    const auto orchard = keyed_ref(
-        grandleon::core::ContentCategory::campaign_node, "orchard_camp"
-    );
-    const auto deep = keyed_ref(
-        grandleon::core::ContentCategory::campaign_node, "cedar_deepwood"
-    );
-    const auto ending = keyed_ref(
-        grandleon::core::ContentCategory::campaign_node, "mipsync_preview_end"
-    );
-    const auto defeat = keyed_ref(
-        grandleon::core::ContentCategory::campaign_node, "campaign_defeat"
-    );
-    const auto objective = keyed_ref(
-        grandleon::core::ContentCategory::objective, "defeat_all"
-    );
-    std::vector<camp::CampaignGraphNode> nodes;
-    nodes.push_back({prologue, false, {}, true, bell});
-    camp::CampaignTransition victory;
-    victory.target = orchard;
-    victory.priority = 0;
-    victory.predicates.push_back(camp::objective_result_is(
-        objective, camp::ObjectiveOutcome::satisfied
-    ));
-    nodes.push_back({bell, false, {victory}, true, defeat});
-    nodes.push_back({orchard, false, {}, true, deep});
-    nodes.push_back({deep, false, {}, true, ending});
-    nodes.push_back({ending, true, {}, false, {}});
-    nodes.push_back({defeat, true, {}, false, {}});
-    return camp::make_campaign_graph(campaign, prologue, std::move(nodes));
+    return grandleon_generated_campaign_graph();
 }
 
 camp::CampaignOutcomeBatch outcome_batch(
@@ -164,6 +127,20 @@ camp::CampaignOutcomeBatch outcome_batch(
     camp::OutcomeSource provenance;
     provenance.encounter = keyed_ref(
         grandleon::core::ContentCategory::encounter, source
+    );
+    provenance.battle_hash = s_created && *s_created
+        ? s_created->encounter.canonical_hash() : 1U;
+    provenance.sequence = s_campaign_save.state.progress.history.size() + 1U;
+    return camp::make_outcome_batch(provenance, std::move(operations));
+}
+
+camp::CampaignOutcomeBatch outcome_batch(
+    std::uint64_t source_id,
+    std::vector<camp::CampaignOutcomeOperation> operations
+) {
+    camp::OutcomeSource provenance;
+    provenance.encounter = content_ref(
+        grandleon::core::ContentCategory::encounter, source_id
     );
     provenance.battle_hash = s_created && *s_created
         ? s_created->encounter.canonical_hash() : 1U;
@@ -633,13 +610,22 @@ unsigned action_count(const sim::UnitSnapshot* actor) {
     return actor ? static_cast<unsigned>(actor->ability_ids.size()) + 2U : 0U;
 }
 
-bool node_is(const char* key) {
-    return s_campaign_save.state.progress.active &&
-        s_campaign_save.state.progress.active_node.stable_id ==
-            grandleon::core::stable_content_id_v1(key);
+const grandleon_generated_campaign_node* active_campaign_node() {
+    if (!s_campaign_save.state.progress.active) return nullptr;
+    return grandleon_generated_campaign_node_for(
+        s_campaign_save.state.progress.active_node.stable_id
+    );
 }
 
-bool advance_story(const char* source) {
+bool active_node_is(std::uint64_t id) {
+    return s_campaign_save.state.progress.active &&
+        s_campaign_save.state.progress.active_node.stable_id == id;
+}
+
+bool advance_story() {
+    const std::uint64_t source = s_campaign_save.state.progress.active
+        ? s_campaign_save.state.progress.active_node.stable_id
+        : grandleon_generated_current_encounter_id;
     const camp::NodeCompletion completion = camp::complete_node(
         s_campaign_save.state, s_campaign_graph, outcome_batch(source, {})
     );
@@ -651,21 +637,31 @@ bool advance_story(const char* source) {
     return save_campaign();
 }
 
-bool complete_battle(bool victory) {
+bool complete_battle(bool victory, bool force_pending = false) {
     std::vector<camp::CampaignOutcomeOperation> operations;
-    operations.push_back(camp::record_objective(
-        keyed_ref(grandleon::core::ContentCategory::objective, "defeat_all"),
-        victory ? camp::ObjectiveOutcome::satisfied
+    if (force_pending) {
+        for (const std::uint64_t objective : grandleon_generated_objective_ids()) {
+            operations.push_back(camp::record_objective(
+                content_ref(grandleon::core::ContentCategory::objective,
+                            objective),
+                victory ? camp::ObjectiveOutcome::satisfied
+                        : camp::ObjectiveOutcome::failed
+            ));
+        }
+    } else for (const sim::ObjectiveResult& objective : s_snapshot.objectives) {
+        if (objective.state == sim::ObjectiveState::pending) continue;
+        operations.push_back(camp::record_objective(
+            content_ref(grandleon::core::ContentCategory::objective,
+                        objective.id),
+            objective.state == sim::ObjectiveState::satisfied
+                ? camp::ObjectiveOutcome::satisfied
                 : camp::ObjectiveOutcome::failed
-    ));
-#ifdef GRANDLEON_MIPSYNC_STAGE_DEEPWOOD
-    const char* source = "cedar_deepwood";
-#else
-    const char* source = "bell_orchard";
-#endif
+        ));
+    }
     const camp::NodeCompletion completion = camp::complete_node(
         s_campaign_save.state, s_campaign_graph,
-        outcome_batch(source, std::move(operations))
+        outcome_batch(grandleon_generated_current_encounter_id,
+                      std::move(operations))
     );
     if (!completion) {
         psx::Line().text("MIPSYNC_CAMPAIGN_BATTLE_FAIL error=")
@@ -673,6 +669,37 @@ bool complete_battle(bool victory) {
         return false;
     }
     return save_campaign();
+}
+
+void route_active_campaign_node() {
+    const grandleon_generated_campaign_node* node = active_campaign_node();
+    if (!node) {
+        s_campaign_mode = CampaignMode::save_error;
+        return;
+    }
+    if (node->kind == 1U) {
+        if (node->id == grandleon_generated_current_node_id) {
+            s_campaign_mode = CampaignMode::objective;
+            return;
+        }
+        if (!node->disc_path || !node->disc_path[0]) {
+            s_campaign_mode = CampaignMode::save_error;
+            return;
+        }
+        grandleon_platform_load_stage(node->disc_path);
+        s_campaign_mode = CampaignMode::save_error;
+        return;
+    }
+    if (node->kind == 3U) {
+        s_campaign_mode = active_node_is(s_campaign_graph.entry.stable_id)
+            ? CampaignMode::prologue : CampaignMode::aftermath;
+        return;
+    }
+    if (node->kind == 2U) {
+        s_campaign_mode = CampaignMode::aftermath;
+        return;
+    }
+    s_campaign_mode = CampaignMode::save_error;
 }
 
 bool start_encounter() {
@@ -743,19 +770,13 @@ int grandleon_game_init(void) {
     grandleon_platform_card_end();
     s_continue_available = s_card_available && load_saved_campaign();
     hide_board();
-#ifdef GRANDLEON_MIPSYNC_STAGE_DEEPWOOD
-    if (!s_continue_available) {
+    if (grandleon_generated_current_node_id == grandleon_generated_boot_node_id) {
+        s_campaign_mode = CampaignMode::title;
+    } else if (!s_continue_available) {
         s_campaign_mode = CampaignMode::save_error;
-    } else if (node_is("orchard_camp")) {
-        s_campaign_mode = CampaignMode::aftermath;
-    } else if (node_is("cedar_deepwood")) {
-        s_campaign_mode = CampaignMode::objective;
     } else {
-        s_campaign_mode = CampaignMode::save_error;
+        route_active_campaign_node();
     }
-#else
-    s_campaign_mode = CampaignMode::title;
-#endif
     psx::Line().text("MIPSYNC_CAMPAIGN_READY card=")
         .decimal(s_card_available ? 1U : 0U).text(" continue=")
         .decimal(s_continue_available ? 1U : 0U).flush();
@@ -811,6 +832,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     output->campaign_menu_index = static_cast<std::uint8_t>(s_campaign_menu_index);
     output->continue_available = s_continue_available ? 1 : 0;
     if (s_campaign_mode != CampaignMode::battle) {
+        const grandleon_generated_campaign_node* node = active_campaign_node();
         output->headline = grandleon_generated_project_title;
         switch (s_campaign_mode) {
             case CampaignMode::title:
@@ -825,25 +847,24 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 break;
             case CampaignMode::prologue:
                 output->mode = GRANDLEON_UI_STORY;
-                output->headline = "THE ORCHARD BELL";
-                output->body = grandleon_generated_prologue;
+                output->headline = node && node->name ? node->name : "STORY";
+                output->body = node && node->dialogue ? node->dialogue : "";
                 break;
             case CampaignMode::objective:
                 output->mode = GRANDLEON_UI_OBJECTIVE;
-#ifdef GRANDLEON_MIPSYNC_STAGE_DEEPWOOD
-                output->headline = "II  CEDAR DEEPWOOD";
+                output->headline = node && node->name ? node->name : "BATTLE";
                 output->body = grandleon_generated_objective;
-#else
-                output->headline = "I  THE BELL ORCHARD";
-                output->body = grandleon_generated_objective;
-#endif
                 break;
             case CampaignMode::aftermath:
                 output->mode = GRANDLEON_UI_AFTERMATH;
-                output->headline = s_campaign_victory ? "A PAID LIE" : "DEFEAT";
-                output->body = s_campaign_victory
-                    ? grandleon_generated_aftermath
-                    : "THE COMPANY MUST REGROUP";
+                output->headline = node && node->kind == 2U ? "CAMPAIGN ENDED"
+                    : node && node->name ? node->name
+                    : (s_campaign_victory ? "STORY" : "DEFEAT");
+                output->body = node && node->kind == 2U ? "RETURN TO TITLE"
+                    : node && node->dialogue && node->dialogue[0]
+                        ? node->dialogue
+                        : (s_campaign_victory ? "CAMPAIGN COMPLETE"
+                                              : "THE COMPANY MUST REGROUP");
                 break;
             case CampaignMode::save_error:
                 output->mode = GRANDLEON_UI_SAVE_ERROR;
@@ -932,13 +953,8 @@ int grandleon_game_update(uint16_t pressed) {
                 if (s_campaign_menu_index == 0) {
                     s_campaign_menu_index = 0;
                     s_campaign_mode = CampaignMode::players;
-                } else if (node_is("prologue")) {
-                    s_campaign_mode = CampaignMode::prologue;
-                } else if (node_is("bell_orchard")) {
-                    s_campaign_mode = CampaignMode::objective;
-                } else if (node_is("orchard_camp") ||
-                           node_is("cedar_deepwood")) {
-                    grandleon_platform_load_deepwood();
+                } else {
+                    route_active_campaign_node();
                 }
             }
             return 0;
@@ -956,25 +972,19 @@ int grandleon_game_update(uint16_t pressed) {
             return 0;
         }
         if (s_campaign_mode == CampaignMode::prologue && (pressed & pad_cross)) {
-            if (advance_story("prologue")) {
+            if (advance_story()) {
                 s_continue_available = true;
-                s_campaign_mode = CampaignMode::objective;
+                route_active_campaign_node();
             } else {
                 s_campaign_mode = CampaignMode::save_error;
             }
             return 0;
         }
         if (s_campaign_mode == CampaignMode::objective) {
-#if defined(GRANDLEON_MIPSYNC_CAMPAIGN_PROBE) && \
-    !defined(GRANDLEON_MIPSYNC_STAGE_DEEPWOOD)
-            if ((pressed & pad_square) && node_is("bell_orchard")) {
-                const camp::NodeCompletion jumped = camp::jump_to_node(
-                    s_campaign_save.state, s_campaign_graph,
-                    outcome_batch("debug_stage_jump", {}),
-                    keyed_ref(grandleon::core::ContentCategory::campaign_node,
-                              "orchard_camp")
-                );
-                if (jumped && save_campaign()) {
+#if defined(GRANDLEON_MIPSYNC_CAMPAIGN_PROBE)
+            if ((pressed & pad_square) &&
+                active_node_is(grandleon_generated_current_node_id)) {
+                if (complete_battle(true, true)) {
                     s_campaign_victory = true;
                     s_campaign_mode = CampaignMode::aftermath;
                 } else {
@@ -991,27 +1001,16 @@ int grandleon_game_update(uint16_t pressed) {
             return 2;
         }
         if (s_campaign_mode == CampaignMode::aftermath && (pressed & pad_cross)) {
-            if (!s_campaign_victory) {
-#ifdef GRANDLEON_MIPSYNC_STAGE_DEEPWOOD
-                s_campaign_mode = CampaignMode::save_error;
-#else
+            const grandleon_generated_campaign_node* node = active_campaign_node();
+            if (node && node->kind == 2U) {
                 s_campaign_mode = CampaignMode::title;
-#endif
                 return 0;
             }
-#ifdef GRANDLEON_MIPSYNC_STAGE_DEEPWOOD
-            if (node_is("orchard_camp") && advance_story("orchard_camp")) {
-                s_campaign_mode = CampaignMode::objective;
+            if (node && node->kind == 3U && advance_story()) {
+                route_active_campaign_node();
             } else {
                 s_campaign_mode = CampaignMode::save_error;
             }
-#else
-            if (node_is("orchard_camp") && !advance_story("orchard_camp")) {
-                s_campaign_mode = CampaignMode::save_error;
-                return 0;
-            }
-            grandleon_platform_load_deepwood();
-#endif
             return 0;
         }
         return 0;
@@ -1030,6 +1029,20 @@ int grandleon_game_update(uint16_t pressed) {
         }
         return 1;
     }
+#if defined(GRANDLEON_MIPSYNC_CAMPAIGN_PROBE)
+    if ((pressed & pad_square) && s_mode == InputMode::browse &&
+        !s_result_frames && !s_camera_return_frames) {
+        s_campaign_victory = true;
+        s_campaign_completion_handled = true;
+        if (complete_battle(true, true)) {
+            hide_board();
+            s_campaign_mode = CampaignMode::aftermath;
+        } else {
+            s_campaign_mode = CampaignMode::save_error;
+        }
+        return 1;
+    }
+#endif
     if (s_result_frames) {
         --s_result_frames;
         if (s_result_frames == 0) {

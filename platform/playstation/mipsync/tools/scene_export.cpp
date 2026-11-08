@@ -68,6 +68,100 @@ std::string first_dialogue_text(
     return {};
 }
 
+std::string campaign_node_name(
+    const pf::LoadedPackage& package,
+    const pr::CampaignNode& node
+) {
+    if (node.kind == pr::CampaignNodeKind::encounter && node.encounter_id != 0U) {
+        return std::string(pr::content_name(
+            package, pf::SectionType::encounters, node.encounter_id
+        ));
+    }
+    if (node.kind == pr::CampaignNodeKind::terminal) return "Campaign ended";
+    return "Story";
+}
+
+void write_campaign(
+    std::ostream& output,
+    const pf::LoadedPackage& package,
+    const pr::CampaignDefinition& campaign,
+    std::uint64_t campaign_id,
+    std::uint64_t current_encounter_id,
+    const sim::EncounterDefinition& encounter
+) {
+    output << "{\"id\":";
+    write_id(output, campaign_id);
+    output << ",\"entry_node_id\":";
+    write_id(output, campaign.entry_node_id);
+    output << ",\"current_node_id\":";
+    std::uint64_t current_node_id = 0U;
+    for (const pr::CampaignNode& node : campaign.nodes) {
+        if (node.kind == pr::CampaignNodeKind::encounter &&
+            node.encounter_id == current_encounter_id) {
+            current_node_id = node.id;
+            break;
+        }
+    }
+    write_id(output, current_node_id);
+    output << ",\"objective\":";
+    if (!encounter.objectives.empty()) {
+        write_string(output, pr::content_name(
+            package, pf::SectionType::objectives,
+            encounter.objectives.front().id
+        ));
+    } else {
+        write_string(output, {});
+    }
+    output << ",\"nodes\":[";
+    for (std::size_t node_index = 0;
+         node_index < campaign.nodes.size(); ++node_index) {
+        if (node_index != 0) output << ',';
+        const pr::CampaignNode& node = campaign.nodes[node_index];
+        output << "{\"id\":";
+        write_id(output, node.id);
+        output << ",\"kind\":" << static_cast<unsigned>(node.kind)
+               << ",\"encounter_id\":";
+        write_id(output, node.encounter_id);
+        output << ",\"name\":";
+        write_string(output, campaign_node_name(package, node));
+        output << ",\"dialogue\":";
+        write_string(output, first_dialogue_text(package, campaign, node.id));
+        output << ",\"has_fallback\":"
+               << (node.has_unconditional_target ? 1 : 0)
+               << ",\"fallback\":";
+        write_id(output, node.unconditional_target_id);
+        output << ",\"branches\":[";
+        for (std::size_t branch_index = 0;
+             branch_index < node.branches.size(); ++branch_index) {
+            if (branch_index != 0) output << ',';
+            const pr::CampaignBranch& branch = node.branches[branch_index];
+            output << "{\"target\":";
+            write_id(output, branch.target_id);
+            output << ",\"priority\":" << branch.priority
+                   << ",\"combinator\":"
+                   << static_cast<unsigned>(branch.combinator)
+                   << ",\"predicates\":[";
+            for (std::size_t predicate_index = 0;
+                 predicate_index < branch.predicates.size(); ++predicate_index) {
+                if (predicate_index != 0) output << ',';
+                const pr::CampaignPredicate& predicate =
+                    branch.predicates[predicate_index];
+                output << "{\"kind\":" << static_cast<unsigned>(predicate.kind)
+                       << ",\"subject\":";
+                write_id(output, predicate.subject);
+                output << ",\"result\":"
+                       << static_cast<unsigned>(predicate.result)
+                       << ",\"value_type\":"
+                       << static_cast<unsigned>(predicate.value_type)
+                       << ",\"value\":" << predicate.value << '}';
+            }
+            output << "]}";
+        }
+        output << "]}";
+    }
+    output << "]}";
+}
+
 template <typename T>
 void write_numbers(std::ostream& output, const std::vector<T>& values) {
     output << '[';
@@ -217,28 +311,12 @@ int main(int argc, char** argv) {
             shown.presentation.kind_of_terrain(loaded.surroundings.terrain[index])
         );
     }
-    output << "]},\n  \"campaign\": {\"id\": ";
-    write_id(output, campaign_id);
-    output << ", \"prologue\": ";
-    write_string(output, first_dialogue_text(
-        package.package, campaign.definition,
-        core::stable_content_id_v1("prologue")
-    ));
-    output << ", \"aftermath\": ";
-    write_string(output, first_dialogue_text(
-        package.package, campaign.definition,
-        core::stable_content_id_v1("orchard_camp")
-    ));
-    output << ", \"objective\": ";
-    if (!loaded.definition.objectives.empty()) {
-        write_string(output, pr::content_name(
-            package.package, pf::SectionType::objectives,
-            loaded.definition.objectives.front().id
-        ));
-    } else {
-        write_string(output, {});
-    }
-    output << "},\n  \"terrain\": [";
+    output << "]},\n  \"campaign\": ";
+    write_campaign(
+        output, package.package, campaign.definition, campaign_id,
+        encounter_id, loaded.definition
+    );
+    output << ",\n  \"terrain\": [";
     for (std::size_t index = 0; index < loaded.terrain.size(); ++index) {
         if (index != 0) output << ',';
         output << static_cast<unsigned>(

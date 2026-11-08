@@ -271,8 +271,7 @@ def write_textures(
         path = repo / "tools/placeholder_art/assets/modern/terrain" / f"{TERRAIN_NAMES[kind]}_base.png"
         with Image.open(path) as image:
             texture = image.convert("RGBA")
-        x, y = packer.place(texture.width, texture.height)
-        textures.append((f"terrain_{TERRAIN_NAMES[kind]}", texture, False, x, y))
+        textures.append((f"terrain_{TERRAIN_NAMES[kind]}", texture, False, 0, 0))
         terrain_indices[kind] = len(textures)
 
     for unit in units:
@@ -283,13 +282,11 @@ def write_textures(
         if key in unit_indices:
             continue
         texture = unit_image(repo, unit, profiles)
-        x, y = packer.place(texture.width, texture.height)
-        textures.append((f"unit_{len(unit_indices)}", texture, True, x, y))
+        textures.append((f"unit_{len(unit_indices)}", texture, True, 0, 0))
         unit_indices[key] = len(textures)
 
     canopy = tree_image(repo)
-    x, y = packer.place(canopy.width, canopy.height)
-    textures.append(("tree_canopy", canopy, True, x, y))
+    textures.append(("tree_canopy", canopy, True, 0, 0))
     tree_index = len(textures)
 
     # One tiny, deterministic font atlas lets the target draw live health,
@@ -305,8 +302,7 @@ def write_textures(
             ((slot % 8) * 8, (slot // 8) * 10 - 2), chr(code),
             font=font, fill=(255, 255, 255, 255),
         )
-    x, y = packer.place(ui.width, ui.height)
-    textures.append(("compact_ui_font", ui, True, x, y))
+    textures.append(("compact_ui_font", ui, True, 0, 0))
     ui_index = len(textures)
 
     labels = Image.new("RGBA", (64, 80), (0, 0, 0, 0))
@@ -319,9 +315,28 @@ def write_textures(
         (60, "X MOVE", 0), (70, "O BACK", 0),
     ):
         label_draw.text((x, y - 2), label, font=font, fill=(255, 255, 255, 255))
-    x, y = packer.place(labels.width, labels.height)
-    textures.append(("compact_ui_labels", labels, True, x, y))
+    textures.append(("compact_ui_labels", labels, True, 0, 0))
     ui_label_index = len(textures)
+
+    # Pack the tallest rectangles first. Scene order is semantic (indices are
+    # embedded in meshes), but atlas placement is not; separating the two
+    # avoids the narrow holes produced by first-fit terrain strips on stages
+    # with a broader unit roster.
+    placements: dict[int, tuple[int, int]] = {}
+    for index in sorted(
+        range(len(textures)),
+        key=lambda item: (
+            -math.ceil(textures[item][1].height / 32),
+            -math.ceil(textures[item][1].width / 64),
+            item,
+        ),
+    ):
+        image = textures[index][1]
+        placements[index] = packer.place(image.width, image.height)
+    textures = [
+        (name, image, cutout, *placements[index])
+        for index, (name, image, cutout, _x, _y) in enumerate(textures)
+    ]
 
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/textures.h"', ""]
     occupied_pixels = 0
@@ -531,8 +546,11 @@ def write_meshes(
     combat_floor_uvs = [(0, 31), (31, 31), (0, 0), (31, 0)]
     combat_floor_texture = terrain_indices[sorted(terrain_indices)[0]]
 
-    vertex_count = sum(len(group[0]) for group in board_groups)
-    triangle_count = sum(len(group[2]) for group in board_groups)
+    # Only one terrain page is enabled by the camera at a time. All pages stay
+    # in executable data, but the renderer's transformed-geometry cache must
+    # hold the largest active page, not the sum of mutually exclusive pages.
+    vertex_count = max(len(group[0]) for group in board_groups)
+    triangle_count = max(len(group[2]) for group in board_groups)
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/scene.h"', ""]
     lines += emit_vectors("k_billboard_vertices", billboard_vertices)
     lines += emit_vectors("k_billboard_normals", [(0, 0, 4096, 0)] * 4)
@@ -609,7 +627,7 @@ def select_terrain_form_cells(
     ]
     budget = max(
         len(set(terrain)),
-        max(1, (width * height + 23) // 24),
+        max(1, (width * height + 11) // 12),
     )
     budget = min(20, budget)
     selected: list[tuple[int, int, int]] = []
@@ -646,6 +664,26 @@ def camera_focus(coordinate: int, extent: int, visible: int) -> int:
     world_max = extent - 1
     margin = visible - 1
     return max(world_min + margin, min(world_max - margin, world))
+
+
+def visible_position_peak(
+    positions: list[tuple[int, int]], width: int, height: int,
+) -> int:
+    peak = 0
+    for cursor_y in range(height):
+        focus_z = -camera_focus(cursor_y, height, CAMERA_VIEW_TILES_Y)
+        for cursor_x in range(width):
+            focus_x = camera_focus(cursor_x, width, CAMERA_VIEW_TILES_X)
+            visible = sum(
+                focus_x - CAMERA_VIEW_TILES_X <= x * 2 + 1 - width
+                <= focus_x + CAMERA_VIEW_TILES_X
+                and focus_z - CAMERA_VIEW_TILES_Y
+                <= height - y * 2 - 1
+                <= focus_z + CAMERA_VIEW_TILES_Y
+                for x, y in positions
+            )
+            peak = max(peak, visible)
+    return peak
 
 
 def write_scene(
@@ -891,8 +929,13 @@ def main() -> int:
         output, document, unit_indices, tree_cells, terrain_chunks,
         args.surroundings_seed, ui_texture, ui_label_texture,
     )
-    cache_vertices = board_vertices + len(tree_cells) * 16 + len(units) * 4
-    cache_triangles = board_triangles + len(tree_cells) * 8 + len(units) * 2
+    visible_trees = visible_position_peak(tree_cells, width, height)
+    visible_units = visible_position_peak(
+        [(int(unit["x"]), int(unit["y"])) for unit in typed_units],
+        width, height,
+    )
+    cache_vertices = board_vertices + visible_trees * 16 + visible_units * 4
+    cache_triangles = board_triangles + visible_trees * 8 + visible_units * 2
     if cache_vertices > MAX_CACHE_VERTICES or cache_triangles > MAX_CACHE_TRIANGLES:
         raise ValueError(
             f"visible scene exceeds trimmed Mipsync caches: {cache_vertices}/{MAX_CACHE_VERTICES} vertices, "
@@ -905,6 +948,7 @@ def main() -> int:
         "entities": entities,
         "terrain_chunks": len(terrain_chunks),
         "terrain_forms": len(terrain_form_cells),
+        "visible": {"trees": visible_trees, "units": visible_units},
         "cache": {"vertices": cache_vertices, "vertex_limit": MAX_CACHE_VERTICES, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TRIANGLES},
         "vram": texture_metrics,
         "camera": {
