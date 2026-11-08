@@ -95,6 +95,8 @@ func _run() -> void:
 	_expect("opening damage lands on the right", opening_state.impact_slot, "right")
 	_expect("opening left slot is stable", opening_state.left_unit_id, 10)
 	_expect("opening right slot is stable", opening_state.right_unit_id, 20)
+	var gameplay_backdrop: Dictionary = cinematic.capture_backdrop_state()
+	_expect("ordinary sparse terrain keeps its procedural fallback", gameplay_backdrop.layer_count, 0)
 	cinematic.set_fast_forward(true)
 	_expect_true("fast-forward state is explicit", cinematic.is_fast_forwarding())
 	cinematic.set_fast_forward(false)
@@ -169,6 +171,7 @@ func _run() -> void:
 	_test_rapid_queue(cinematic, plan, terrain, focus_points)
 	_test_restoration(cinematic, terrain, focus_points)
 	_test_multi_target(cinematic, terrain, focus_points)
+	_test_runtime_backdrop(cinematic, plan, focus_points)
 	await _test_real_board_camera(before, terrain)
 
 	if failures == 0:
@@ -231,6 +234,31 @@ func _test_restoration(
 	_expect("restoration remains between distinct units", state.right_unit_id, 20)
 	_expect("restoration heading is localized", cinematic._headline.text, "RESTAURAR")
 	_expect("restoration result is localized", cinematic._result.text, "+4  RESTAURADO")
+	cinematic.clear()
+
+
+func _test_runtime_backdrop(
+	cinematic, plan: Dictionary, focus_points: Array[Vector2]
+) -> void:
+	var forest_terrain := [2, 2, 12, 9, 2, 2, 12, 9, 2, 2, 9, 9]
+	cinematic.configure(
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "reduced", false
+	)
+	_expect_true(
+		"production combat with a compatible neighbourhood enqueues",
+		cinematic.enqueue(plan, forest_terrain, 0, focus_points)
+	)
+	var selected: Dictionary = cinematic.capture_backdrop_state()
+	_expect("production combat selects the terrain pack", selected.pack_id, "medieval_forest_gate")
+	_expect_true("production combat loads layered terrain art", int(selected.layer_count) >= 3)
+	_expect_true("production combat selection is not a capture override", not bool(selected.forced))
+	var frozen_variant := String(selected.variant)
+	cinematic._process(0.35)
+	cinematic._process(1.36)
+	_expect(
+		"attack and counter keep one frozen terrain variant",
+		cinematic.capture_backdrop_state().variant, frozen_variant
+	)
 	cinematic.clear()
 
 

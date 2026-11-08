@@ -3,6 +3,7 @@ class_name GrandleonCombatCinematic
 extends Control
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
+const BackdropPackResolver = preload("res://scripts/conversation_backdrop_resolver.gd")
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a8845b"), Color("3f8151"), Color("75838a"),
 	Color("b89a62"), Color("d6e4e6"), Color("486f5b"), Color("789568"),
@@ -38,6 +39,7 @@ signal exchange_finished
 signal queue_drained
 
 var art = ArtLibrary.new()
+var backdrop_resolver = BackdropPackResolver.new()
 var motion_mode := "full"
 var camera_impulse_enabled := true
 var text_scale := 1.0
@@ -63,6 +65,8 @@ var _queued_handoff := false
 var _capture_backdrop_layers: Array[Texture2D] = []
 var _capture_backdrop_variant := ""
 var _capture_floor_strip_top := 0.66
+var _backdrop_selection: Dictionary = {}
+var _capture_backdrop_forced := false
 var _headline: Label
 var _result: Label
 var _actor_name: Label
@@ -115,23 +119,15 @@ func capture_hud_state() -> Dictionary:
 func set_capture_backdrop(
 	layer_paths: Array, variant_id: String, floor_strip_top: float
 ) -> bool:
-	_capture_backdrop_layers.clear()
-	_capture_backdrop_variant = variant_id
-	_capture_floor_strip_top = clampf(floor_strip_top, 0.60, 1.0)
-	for value: Variant in layer_paths:
-		var path := String(value)
-		if path.is_empty() or not ResourceLoader.exists(path):
-			_capture_backdrop_layers.clear()
-			push_error("combat backdrop layer is unavailable: " + path)
-			return false
-		var resource: Resource = load(path)
-		if not resource is Texture2D:
-			_capture_backdrop_layers.clear()
-			push_error("combat backdrop layer is not a texture: " + path)
-			return false
-		_capture_backdrop_layers.append(resource as Texture2D)
-	queue_redraw()
-	return not _capture_backdrop_layers.is_empty()
+	_capture_backdrop_forced = true
+	return _apply_backdrop_selection({
+		"mode": "layers",
+		"source": "capture",
+		"pack_id": "capture",
+		"variant_id": variant_id,
+		"layer_paths": layer_paths.duplicate(),
+		"floor_strip_top": floor_strip_top,
+	})
 
 
 func capture_backdrop_state() -> Dictionary:
@@ -139,6 +135,9 @@ func capture_backdrop_state() -> Dictionary:
 		"variant": _capture_backdrop_variant,
 		"layer_count": _capture_backdrop_layers.size(),
 		"floor_strip_top": _capture_floor_strip_top,
+		"source": String(_backdrop_selection.get("source", "fallback")),
+		"pack_id": String(_backdrop_selection.get("pack_id", "")),
+		"forced": _capture_backdrop_forced,
 	}
 
 
@@ -152,6 +151,7 @@ func enqueue(
 		"terrain": terrain.duplicate(),
 		"theme": theme,
 		"focus_points": focus_points.duplicate(),
+		"backdrop": _resolve_backdrop(plan, terrain),
 	})
 	if _current.is_empty():
 		_start_next()
@@ -235,6 +235,8 @@ func clear() -> void:
 	_stage_left_unit.clear()
 	_stage_right_unit.clear()
 	_queued_handoff = false
+	if not _capture_backdrop_forced:
+		_apply_backdrop_selection({})
 	modulate.a = 0.0
 	scale = Vector2.ONE
 	visible = false
@@ -289,6 +291,8 @@ func _start_next() -> void:
 	_current = _queue.pop_front()
 	_terrain = Array(_current.get("terrain", [])).duplicate()
 	_theme = int(_current.get("theme", 0))
+	if not _capture_backdrop_forced:
+		_apply_backdrop_selection(_current.get("backdrop", {}))
 	_focus_points.clear()
 	for value: Variant in _current.get("focus_points", []):
 		if value is Vector2:
@@ -437,6 +441,62 @@ func _set_stage_for_beat(beat: Dictionary) -> void:
 	_stage_right_unit = Dictionary(
 		beat.get("stage_right", beat.get("target", {}))
 	).duplicate(true)
+
+
+func _resolve_backdrop(plan: Dictionary, terrain: Array) -> Dictionary:
+	var focus_cells: Array[Vector2i] = []
+	var seen: Dictionary = {}
+	for value: Variant in plan.get("beats", []):
+		if not value is Dictionary:
+			continue
+		var beat: Dictionary = value
+		for role: String in ["actor", "target"]:
+			var unit: Dictionary = beat.get(role, {})
+			if unit.is_empty():
+				continue
+			var cell := Vector2i(int(unit.get("x", 0)), int(unit.get("y", 0)))
+			if seen.has(cell):
+				continue
+			seen[cell] = true
+			focus_cells.append(cell)
+	var first: Dictionary = plan.get("beats", [])[0]
+	var exchange_key := "%s:%d:%d:%d" % [
+		String(plan.get("action", "attack")), int(plan.get("content_id", 0)),
+		int(first.get("actor_id", 0)), int(first.get("target_id", 0)),
+	]
+	return backdrop_resolver.resolve_for_exchange(
+		exchange_key, plan.get("before_snapshot", {}), terrain, focus_cells
+	)
+
+
+func _apply_backdrop_selection(selection: Dictionary) -> bool:
+	_capture_backdrop_layers.clear()
+	_backdrop_selection = selection.duplicate(true)
+	_capture_backdrop_variant = String(selection.get("variant_id", ""))
+	_capture_floor_strip_top = clampf(
+		float(selection.get("floor_strip_top", 1.0)), 0.60, 1.0
+	)
+	if String(selection.get("mode", "fallback")) != "layers":
+		queue_redraw()
+		return false
+	for value: Variant in selection.get("layer_paths", []):
+		var path := String(value)
+		if path.is_empty() or not ResourceLoader.exists(path):
+			_capture_backdrop_layers.clear()
+			_backdrop_selection["mode"] = "fallback"
+			push_error("combat backdrop layer is unavailable: " + path)
+			queue_redraw()
+			return false
+		var resource: Resource = load(path)
+		if not resource is Texture2D:
+			_capture_backdrop_layers.clear()
+			_backdrop_selection["mode"] = "fallback"
+			push_error("combat backdrop layer is not a texture: " + path)
+			queue_redraw()
+			return false
+		_capture_backdrop_layers.append(resource as Texture2D)
+	queue_redraw()
+	return not _capture_backdrop_layers.is_empty()
 
 
 func _stage_slot(unit_id: int) -> String:

@@ -125,6 +125,11 @@ func _run() -> void:
 		player.dialogue_hint.text.contains("CONTINUAR"),
 		true
 	)
+	_expect(
+		"player combat close-ups use Portuguese",
+		player.combat_cinematic._text("player.cinematic.counterattack"),
+		"CONTRA-ATAQUE"
+	)
 	player._show_session_menu_page("settings")
 	_expect("player settings title uses Portuguese", player.session_menu_title.text, "CONFIGURAÇÕES")
 	_expect(

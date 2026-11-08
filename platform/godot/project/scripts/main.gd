@@ -1306,7 +1306,11 @@ func _create_combat_cinematic(profile: Dictionary) -> void:
 	combat_cinematic.set_board_camera_host(board)
 	combat_cinematic.set_playback_paused(combat_cinematic_smoke)
 	combat_cinematic.configure(
-		profile, text_scale, cinematic_motion, camera_impulse_enabled
+		profile, text_scale, cinematic_motion, camera_impulse_enabled,
+		Callable(self, "_ui"), {
+			"confirm": controls.label("confirm"),
+			"cancel": controls.label("cancel"),
+		}
 	)
 
 
@@ -1315,7 +1319,10 @@ func _configure_combat_cinematic() -> void:
 		return
 	combat_cinematic.configure(
 		graphics_profiles.profile(graphics_profile), text_scale,
-		cinematic_motion, camera_impulse_enabled
+		cinematic_motion, camera_impulse_enabled, Callable(self, "_ui"), {
+			"confirm": controls.label("confirm"),
+			"cancel": controls.label("cancel"),
+		}
 	)
 
 
