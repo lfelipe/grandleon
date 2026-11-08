@@ -71,6 +71,8 @@ int main(void) {
     uint32_t render_total = 0;
     uint32_t ready_total = 0;
     uint32_t missed_vblanks = 0;
+    uint32_t first_missed_frame = 0;
+    uint32_t last_missed_frame = 0;
     uint16_t render_max = 0;
     uint16_t ready_max = 0;
     uint16_t mutation_max = 0;
@@ -103,7 +105,11 @@ int main(void) {
         PADTYPE* pad = (PADTYPE*)s_pad_buffers[0];
         last_vblank = current_vblank;
         if (frame >= 60) {
-            if (elapsed > 1) missed_vblanks += (uint32_t)(elapsed - 1);
+            if (elapsed > 1) {
+                missed_vblanks += (uint32_t)(elapsed - 1);
+                if (!first_missed_frame) first_missed_frame = frame;
+                last_missed_frame = frame;
+            }
             if (elapsed > maximum_elapsed) maximum_elapsed = elapsed;
         }
 
@@ -155,7 +161,8 @@ report_metrics:
                 measured_frames, rendered_frames, deferred_frames,
                 render_total / rendered_frames, render_max,
                 ready_total / rendered_frames, ready_max, mutation_max,
-                missed_vblanks, maximum_elapsed
+                missed_vblanks, maximum_elapsed,
+                first_missed_frame, last_missed_frame
             );
             /* Serial telemetry is intentionally outside the frame budget. */
             last_vblank = VSync(-1);

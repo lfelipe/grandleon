@@ -101,14 +101,37 @@ def main() -> int:
             f"      value.id={int(source['id'])}ULL; value.kind=static_cast<sim::ItemKind>({int(source['kind'])}); value.power={int(source['power'])};",
             "      definition.items.push_back(value); }",
         ]
-    lines += ["    return definition;", "}", ""]
+    lines += ["    return definition;", "}", "",
+        "const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors() {",
+        "    static const std::vector<grandleon_generated_behavior> values = {",
+    ]
+    for source in simulation.get("behaviors", []):
+        patrol = ",".join(
+            f"sim::Position{{{int(value[0])},{int(value[1])}}}"
+            for value in source["patrol"]
+        )
+        lines.append(
+            "        {"
+            f"{int(source['unit_id'])}ULL, "
+            f"static_cast<grandleon::tactics::Behavior>({int(source['behavior'])}), "
+            "{" + patrol + "}},"
+        )
+    lines += ["    };", "    return values;", "}", ""]
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "simulation_data.cpp").write_text("\n".join(lines), encoding="utf-8")
     header = f"""/* Generated from a real Grandleon package. Do not edit. */
 #pragma once
 #include <grandleon/simulation/encounter.hpp>
+#include <grandleon/tactics/policy.hpp>
 #include <cstdint>
+#include <vector>
+struct grandleon_generated_behavior final {{
+    grandleon::simulation::UnitId unit_id{{}};
+    grandleon::tactics::Behavior behavior{{grandleon::tactics::Behavior::hold}};
+    std::vector<grandleon::simulation::Position> patrol;
+}};
 grandleon::simulation::EncounterDefinition grandleon_generated_definition();
+const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors();
 inline constexpr std::uint64_t grandleon_generated_canonical_hash = {int(document['canonical_hash'])}ULL;
 """
     (args.output / "grandleon_simulation.hpp").write_text(header, encoding="utf-8")

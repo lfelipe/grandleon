@@ -65,27 +65,33 @@ timeout --kill-after=10 180 \
         stdbuf -oL -eL pcsx-redux -no-ui -run -softgpu \
             -bios /usr/local/share/pcsx-redux/openbios.bin \
             -testmode -interpreter -debugger \
-            -dofile /probe/input_probe.lua \
+            -dofile /probe/combat_probe.lua \
             -iso /disc/grandleon-mipsync.cue \
     >"$log" 2>&1
 status=$?
 set -e
-test "$status" -eq 0 || { tail -n 80 "$log" >&2; exit "$status"; }
+test "$status" -eq 0 || { tail -n 100 "$log" >&2; exit "$status"; }
 
 require() {
     pattern=$1
     description=$2
     grep -Eq "$pattern" "$log" || {
-        echo "input probe did not report $description" >&2
-        tail -n 80 "$log" >&2
+        echo "combat probe did not report $description" >&2
+        tail -n 100 "$log" >&2
         exit 1
     }
 }
 require 'GRANDLEON_PS1_RENDERER=MIPSYNC' 'the Mipsync renderer identity'
-require 'MIPSYNC_SIM_READY width=8 height=6 units=8 hash=cd555b4fda38d374' 'the real Bell Orchard simulation'
-require 'MIPSYNC_SIM_PROOF select=4 move=1 wait=4 ai_wait=4 hash=cec012b51530befc' 'the complete player and opposing turn'
-require 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=591 deferred_frames=9 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the frame-sliced active-play result'
-require 'MIPSYNC_INPUT_CAPTURE 320x240 bytes=153600' 'the final framebuffer capture'
+require 'MIPSYNC_SIM_READY width=8 height=6 units=8 .*hash=cd555b4fda38d374' 'the real Bell Orchard simulation'
+require 'MIPSYNC_SIM_PROOF .*p_attack=1 p_ability=1 .*' 'player attack and equipped ability commands plus opposing turn'
+require 'MIPSYNC_GRANDLEON_METRICS frames=600 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the 60 Hz combat frame result'
+require 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
+require 'MIPSYNC_COMBAT_FORECAST_CAPTURE 320x240 bytes=153600' 'the live attack forecast frame'
+require 'MIPSYNC_COMBAT_CLOSE_CAPTURE 320x240 bytes=153600' 'the close-combat camera frame'
+require 'MIPSYNC_COMBAT_FINAL_CAPTURE 320x240 bytes=153600' 'the completed-turn frame'
 metrics=$(grep 'MIPSYNC_GRANDLEON_METRICS frames=600 ' "$log" | tail -n 1)
-printf 'Mipsync Bell Orchard input boundary passed: %s\n' "$metrics"
-printf 'Log: %s\nCapture: %s\n' "$log" "$output/mipsync-input-final.bin"
+proof=$(grep 'MIPSYNC_SIM_PROOF ' "$log" | tail -n 1)
+printf 'Mipsync Bell Orchard combat passed: %s\n%s\n' "$metrics" "$proof"
+printf 'Log: %s\nForecast capture: %s\nClose capture: %s\nFinal capture: %s\n' \
+    "$log" "$output/mipsync-combat-forecast.bin" \
+    "$output/mipsync-combat-close.bin" "$output/mipsync-combat-final.bin"

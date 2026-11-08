@@ -1,11 +1,12 @@
 # Mipsync PlayStation renderer
 
 This directory is the in-progress replacement for Grandleon's PlayStation
-renderer. It now boots a real Steel and Cedar Bell Orchard encounter, runs the
-shared simulation and accepts enough controller input to select and move units,
-wait, and complete the opposing turn. It is not the shipping path yet: the
-explicit baseline remains available for comparison until complete UI, saves,
-campaign flow, combat presentation, audio and hardware validation reach
+renderer. It now boots real Steel and Cedar encounters, runs the shared
+simulation and supports cursor movement, unit movement, Attack, every equipped
+ability, Wait and the package-authored opposing turn. A compact forecast and
+result UI plus the optional close-combat camera use the same disc and rules.
+It is not the shipping path yet: the explicit baseline remains available for
+comparison until saves, campaign flow, audio and hardware validation reach
 parity. It is never used as a fallback.
 
 Mipsync is pinned to commit `866f405a0e34b5925a8d832272fe52c657688430`.
@@ -50,7 +51,7 @@ platform/playstation/mipsync/scripts/build-renderer-probe.sh \
   /tmp/bell-orchard.json /tmp/empty-mipsync-output
 
 PSN00BSDK_ROOT=/path/to/PSn00bSDK \
-platform/playstation/mipsync/tests/run-input-probe.sh \
+platform/playstation/mipsync/tests/run-combat-probe.sh \
   /tmp/empty-mipsync-output/build /tmp/empty-probe-output
 
 PSN00BSDK_ROOT=/path/to/PSn00bSDK \
@@ -58,12 +59,13 @@ platform/playstation/mipsync/tests/run-scroll-probe.sh \
   /tmp/deepwood-output/build /tmp/deepwood-probe-output
 ```
 
-The input probe boots the CUE through the pinned BIOS-style PCSX-Redux
+The combat probe boots the CUE through the pinned BIOS-style PCSX-Redux
 interpreter, injects controller edges only at the public update boundary and
-requires four selections, one move, four player waits and four opposing-side
-waits. The scroll probe drives both axes on the real 14x9 Cedar Deepwood map and
-requires viewport clamp, one active terrain page and zero missed VBlanks. See
-`VALIDATION.md` for exact hashes and measurements.
+requires real movement, player Attack, an equipped healing ability, Wait and
+seven package-authored opposing actions. It captures the live forecast, close
+combat and completed board views. The scroll probe drives both axes on the real
+14x9 Cedar Deepwood map and requires viewport clamp, one active terrain page
+and zero missed VBlanks. See `VALIDATION.md` for exact hashes and measurements.
 
 ## Budgets and cutover gates
 
@@ -88,7 +90,7 @@ Cutover requires all of the following on the exact CUE/BIN:
 - a clear visual improvement over the explicit baseline;
 - steady 60 Hz rendering with rule mutations scheduled as bounded redraw slices;
 - main RAM, VRAM and packet headroom for the full campaign;
-- real packages, complete encounters, controls, UI, saves and campaign flow;
+- real packages, complete encounters, save data and campaign flow;
 - embedded `GRANDLEON_PS1_RENDERER=MIPSYNC` plus the fail-closed cutover audit.
 
 Until those gates pass, rollback means selecting the separately named baseline

@@ -240,7 +240,7 @@ def tree_image(repo: Path) -> Image.Image:
 
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
-) -> tuple[dict[int, int], dict[tuple[int, int, int, int], int], int, int, dict[str, int]]:
+) -> tuple[dict[int, int], dict[tuple[int, int, int, int], int], int, int, int, dict[str, int]]:
     profiles_path = repo / "platform/godot/project/content/graphics_profiles.json"
     profiles = json.loads(profiles_path.read_text(encoding="utf-8"))["profiles"]["voxel-sprites"]["assets"]["characterSprites"]
     packer = TexturePacker()
@@ -273,17 +273,36 @@ def write_textures(
     textures.append(("tree_canopy", canopy, True, x, y))
     tree_index = len(textures)
 
-    ui = Image.new("RGBA", (128, 32), (12, 19, 30, 255))
+    # One tiny, deterministic font atlas lets the target draw live health,
+    # forecasts and arbitrary ability counts without shipping Sony's debug
+    # font or baking encounter-specific text into the background.
+    # Keep the atlas inside one 16-bit PS1 texture page (64 pixels wide).
+    ui = Image.new("RGBA", (64, 80), (0, 0, 0, 0))
     draw = ImageDraw.Draw(ui)
     font = ImageFont.load_default()
-    draw.rounded_rectangle(
-        (0, 0, 127, 31), radius=4, outline=(94, 206, 227, 255), width=1,
-    )
-    draw.text((5, 3), "MIPSYNC", font=font, fill=(94, 206, 227, 255))
-    draw.text((5, 17), "X MOVE   [] WAIT", font=font, fill=(247, 239, 209, 255))
+    for code in range(32, 96):
+        slot = code - 32
+        draw.text(
+            ((slot % 8) * 8, (slot // 8) * 10 - 2), chr(code),
+            font=font, fill=(255, 255, 255, 255),
+        )
     x, y = packer.place(ui.width, ui.height)
-    textures.append(("compact_ui", ui, False, x, y))
+    textures.append(("compact_ui_font", ui, True, x, y))
     ui_index = len(textures)
+
+    labels = Image.new("RGBA", (64, 80), (0, 0, 0, 0))
+    label_draw = ImageDraw.Draw(labels)
+    for y, label, x in (
+        (0, "ATTACK", 0), (10, "ABILITY", 0),
+        (20, "HIT", 0), (20, "DMG", 22), (20, "HEAL", 40),
+        (30, "ACTION", 0), (40, "WAIT", 0), (40, "MISS", 30),
+        (50, "COUNTER", 0),
+        (60, "X MOVE", 0), (70, "O BACK", 0),
+    ):
+        label_draw.text((x, y - 2), label, font=font, fill=(255, 255, 255, 255))
+    x, y = packer.place(labels.width, labels.height)
+    textures.append(("compact_ui_labels", labels, True, x, y))
+    ui_label_index = len(textures)
 
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/textures.h"', ""]
     occupied_pixels = 0
@@ -303,7 +322,7 @@ def write_textures(
         "texture_bytes": occupied_pixels * 2,
         "vram_reserved_bytes": TEXTURE_WIDTH * TEXTURE_HEIGHT * 2 - occupied_pixels * 2,
     }
-    return terrain_indices, unit_indices, tree_index, ui_index, metrics
+    return terrain_indices, unit_indices, tree_index, ui_index, ui_label_index, metrics
 
 
 def emit_vectors(name: str, values: list[tuple[int, int, int, int]]) -> list[str]:
@@ -405,9 +424,11 @@ def write_meshes(
     billboard_vertices = [(-512, 0, 0, 0), (512, 0, 0, 0), (512, 1024, 0, 0), (-512, 1024, 0, 0)]
     billboard_uvs = [(0, 63), (63, 63), (63, 0), (0, 0)]
 
-    # Crossed trunk plus two crossed/layered canopy cards. The cards are
-    # double-sided: tactical cameras may orbit later, while the far-LOD path
-    # can still collapse these instances to one card without changing art.
+    # Crossed trunk plus two crossed/layered canopy cards. The main canopy
+    # faces the fixed tactical camera and only needs its visible winding. The
+    # cross card stays double-sided because horizontal scrolling can put the
+    # camera on either side of it. This keeps the volumetric silhouette while
+    # avoiding six invisible triangles in a Bell-sized page.
     tree_vertices = [
         (-72, 0, 0, 0), (72, 0, 0, 0), (72, 560, 0, 0), (-72, 560, 0, 0),
         (0, 0, -72, 0), (0, 0, 72, 0), (0, 560, 72, 0), (0, 560, -72, 0),
@@ -415,24 +436,34 @@ def write_meshes(
         (0, 360, -420, 0), (0, 360, 420, 0), (0, 1320, 420, 0), (0, 1320, -420, 0),
     ]
     tree_uvs = [(0, 0)] * 8 + [(0, 63), (63, 63), (63, 0), (0, 0)] * 2
-    # Two crossed trunk planes are enough at board scale and preserve volume
-    # without spending twelve triangles on a cube that occupies four pixels.
-    trunk_faces = [(0, 1, 2), (0, 2, 3), (4, 5, 6), (4, 6, 7)]
+    # One camera-facing trunk card is enough at board scale; the crossed
+    # canopy carries the volume while the trunk occupies only a few pixels.
+    trunk_faces = [(0, 1, 2), (0, 2, 3)]
     tree_faces: list[tuple[int, int, int, int, tuple[int, int, int]]] = [
         (a, b, c, 0, (112, 74, 45)) for a, b, c in trunk_faces
     ]
-    for first in (8, 12):
-        tree_faces.extend((
-            (first, first + 1, first + 2, tree_texture_index, (255, 255, 255)),
-            (first, first + 2, first + 3, tree_texture_index, (255, 255, 255)),
-            (first + 2, first + 1, first, tree_texture_index, (255, 255, 255)),
-            (first + 3, first + 2, first, tree_texture_index, (255, 255, 255)),
-        ))
+    tree_faces.extend((
+        (8, 9, 10, tree_texture_index, (255, 255, 255)),
+        (8, 10, 11, tree_texture_index, (255, 255, 255)),
+    ))
+    first = 12
+    tree_faces.extend((
+        (first, first + 1, first + 2, tree_texture_index, (255, 255, 255)),
+        (first, first + 2, first + 3, tree_texture_index, (255, 255, 255)),
+        (first + 2, first + 1, first, tree_texture_index, (255, 255, 255)),
+        (first + 3, first + 2, first, tree_texture_index, (255, 255, 255)),
+    ))
 
     cursor_vertices = [
         (-450, 24, -450, 0), (450, 24, -450, 0),
         (450, 24, 450, 0), (-450, 24, 450, 0),
     ]
+    combat_floor_vertices = [
+        (-192, 0, 192, 0), (192, 0, 192, 0),
+        (-192, 0, -192, 0), (192, 0, -192, 0),
+    ]
+    combat_floor_uvs = [(0, 31), (31, 31), (0, 0), (31, 0)]
+    combat_floor_texture = terrain_indices[sorted(terrain_indices)[0]]
 
     vertex_count = sum(len(group[0]) for group in board_groups)
     triangle_count = sum(len(group[2]) for group in board_groups)
@@ -472,6 +503,14 @@ def write_meshes(
         focus_x = start_x + end_x - width
         focus_z = height - start_y - end_y
         chunk_descriptors.append((chunk_index + 3, *bounds, focus_x, focus_z))
+    lines += emit_vectors("k_combat_floor_vertices", combat_floor_vertices)
+    lines += emit_vectors("k_combat_floor_normals", [(0, 4096, 0, 0)] * 4)
+    lines.append("static const ps1_uv8 k_combat_floor_uvs[] = {")
+    lines.extend(f"    {{ {u}, {v} }}," for u, v in combat_floor_uvs)
+    lines.extend(("};", "", "static const ps1_mesh_tri k_combat_floor_triangles[] = {"))
+    lines.append(f"    {{ .i0=0, .i1=1, .i2=2, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255, .texture_index={combat_floor_texture} }},")
+    lines.append(f"    {{ .i0=2, .i1=1, .i2=3, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255, .texture_index={combat_floor_texture} }},")
+    lines.extend(("};", ""))
     lines += emit_vectors("k_cursor_vertices", cursor_vertices)
     lines += emit_vectors("k_cursor_normals", [(0, 4096, 0, 0)] * 4)
     lines.extend((
@@ -483,10 +522,11 @@ def write_meshes(
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         "    { .verts=k_tree_vertices, .norms=k_tree_normals, .vert_count=sizeof(k_tree_vertices)/sizeof(k_tree_vertices[0]), .uvs=k_tree_uvs, .tris=k_tree_triangles, .tri_count=sizeof(k_tree_triangles)/sizeof(k_tree_triangles[0]), .scale_q12=256, .bounds_center_y=660, .bounds_radius=1000 },",
         *chunk_mesh_lines,
+        "    { .verts=k_combat_floor_vertices, .norms=k_combat_floor_normals, .vert_count=4, .uvs=k_combat_floor_uvs, .tris=k_combat_floor_triangles, .tri_count=2, .scale_q12=4096, .bounds_radius=272, .flags=PS1_MESH_FLAG_TERRAIN },",
         "    { .verts=k_cursor_vertices, .norms=k_cursor_normals, .vert_count=4, .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=2, .scale_q12=256, .bounds_radius=640, .flags=PS1_MESH_FLAG_TERRAIN },",
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
-    return vertex_count + 4, triangle_count + 2, chunk_descriptors
+    return vertex_count + 8, triangle_count + 4, chunk_descriptors
 
 
 def fixed(value: float) -> int:
@@ -514,7 +554,7 @@ def write_scene(
     output: Path, document: dict[str, object], unit_indices: dict[tuple[int, int, int, int], int],
     tree_cells: list[tuple[int, int]],
     terrain_chunks: list[tuple[int, int, int, int, int, int, int]],
-    seed: int, ui_texture_index: int,
+    seed: int, ui_texture_index: int, ui_label_texture_index: int,
 ) -> int:
     width = int(document["width"])
     height = int(document["height"])
@@ -534,6 +574,13 @@ def write_scene(
         )
         next_id += 1
         entity_index += 1
+    combat_floor_index = entity_index
+    combat_floor_mesh_index = 3 + len(terrain_chunks)
+    lines.append(
+        f"    {{ .id={next_id}u, .name=\"close_combat_floor\", .parent_entity_index=-1, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={combat_floor_mesh_index}, .mesh_size=65536, .mesh_enabled=0, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+    )
+    next_id += 1
+    entity_index += 1
     for x, y in tree_cells:
         tree_entity_indices.append(entity_index)
         roll = hash_cell(x, y, seed)
@@ -541,7 +588,7 @@ def write_scene(
         world_x = (x + 0.5 - width / 2) * 2
         world_z = (height / 2 - y - 0.5) * 2
         lines.append(
-            f"    {{ .id={next_id}u, .name=\"forest_tree\", .parent_entity_index=-1, .position={{{fixed(world_x)},1311,{fixed(world_z)}}}, .rotation={{0,{fixed((roll >> 8) % 180)},0}}, .scale={{{fixed(scale)},{fixed(scale)},{fixed(scale)}}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=2, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_PROP, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+            f"    {{ .id={next_id}u, .name=\"forest_tree\", .parent_entity_index=-1, .position={{{fixed(world_x)},1311,{fixed(world_z)}}}, .rotation={{0,{fixed(((roll >> 8) % 25) - 12)},0}}, .scale={{{fixed(scale)},{fixed(scale)},{fixed(scale)}}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=2, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_PROP, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
         )
         next_id += 1
         entity_index += 1
@@ -573,7 +620,7 @@ def write_scene(
     camera_focus_x = camera_focus(cursor_x, width, CAMERA_VIEW_TILES_X)
     camera_focus_z = -camera_focus(cursor_y, height, CAMERA_VIEW_TILES_Y)
     cursor_index = entity_index
-    cursor_mesh_index = 3 + len(terrain_chunks)
+    cursor_mesh_index = 4 + len(terrain_chunks)
     lines.append(
         f"    {{ .id={next_id}u, .name=\"tactical_cursor\", .parent_entity_index=-1, .position={{{fixed(cursor_world_x)},0,{fixed(cursor_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=225, .color_b=48, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
     )
@@ -605,12 +652,14 @@ def write_scene(
         "};",
         "const unsigned int g_grandleon_tree_count = sizeof(g_grandleon_tree_entity_indices) / sizeof(g_grandleon_tree_entity_indices[0]);",
         f"const unsigned int g_grandleon_cursor_entity_index = {cursor_index}u;",
+        f"const unsigned int g_grandleon_combat_floor_entity_index = {combat_floor_index}u;",
         f"const unsigned int g_grandleon_camera_entity_index = {camera_index}u;",
         f"const int32_t g_grandleon_camera_height = {fixed(CAMERA_HEIGHT)};",
         f"const int32_t g_grandleon_camera_trailing_distance = {fixed(CAMERA_TRAILING_DISTANCE)};",
         f"const unsigned int g_grandleon_camera_view_tiles_x = {CAMERA_VIEW_TILES_X}u;",
         f"const unsigned int g_grandleon_camera_view_tiles_y = {CAMERA_VIEW_TILES_Y}u;",
         f"const unsigned int g_grandleon_ui_texture_index = {ui_texture_index}u;",
+        f"const unsigned int g_grandleon_ui_label_texture_index = {ui_label_texture_index}u;",
         "ps1_entity* grandleon_scene_mutable_entity(unsigned int index) {",
         "    return index < g_ps1_scene.entity_count ? &k_ps1_entities[index] : 0;",
         "}", ""))
@@ -633,12 +682,14 @@ extern const unsigned int g_grandleon_terrain_chunk_count;
 extern const unsigned int g_grandleon_tree_entity_indices[];
 extern const unsigned int g_grandleon_tree_count;
 extern const unsigned int g_grandleon_cursor_entity_index;
+extern const unsigned int g_grandleon_combat_floor_entity_index;
 extern const unsigned int g_grandleon_camera_entity_index;
 extern const int32_t g_grandleon_camera_height;
 extern const int32_t g_grandleon_camera_trailing_distance;
 extern const unsigned int g_grandleon_camera_view_tiles_x;
 extern const unsigned int g_grandleon_camera_view_tiles_y;
 extern const unsigned int g_grandleon_ui_texture_index;
+extern const unsigned int g_grandleon_ui_label_texture_index;
 ps1_entity* grandleon_scene_mutable_entity(unsigned int index);
 #ifdef __cplusplus
 }
@@ -646,7 +697,7 @@ ps1_entity* grandleon_scene_mutable_entity(unsigned int index);
 #endif
 """
     (output / "grandleon_scene.h").write_text(header, encoding="utf-8")
-    return len(terrain_chunks) + len(tree_cells) + len(units) + 2
+    return len(terrain_chunks) + len(tree_cells) + len(units) + 3
 
 
 def main() -> int:
@@ -706,7 +757,7 @@ def main() -> int:
     assert isinstance(units, list)
     typed_units = [unit for unit in units if isinstance(unit, dict)]
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
-    terrain_indices, unit_indices, tree_texture, ui_texture, texture_metrics = write_textures(
+    terrain_indices, unit_indices, tree_texture, ui_texture, ui_label_texture, texture_metrics = write_textures(
         output, repo, all_kinds, typed_units,
     )
     terrain_groups = page_cells(cells, width, height, depth)
@@ -737,10 +788,10 @@ def main() -> int:
     tree_cells = tree_cells[:tree_budget]
     entities = write_scene(
         output, document, unit_indices, tree_cells, terrain_chunks,
-        args.surroundings_seed, ui_texture,
+        args.surroundings_seed, ui_texture, ui_label_texture,
     )
     cache_vertices = board_vertices + len(tree_cells) * 16 + len(units) * 4
-    cache_triangles = board_triangles + len(tree_cells) * 12 + len(units) * 2
+    cache_triangles = board_triangles + len(tree_cells) * 8 + len(units) * 2
     if cache_vertices > MAX_CACHE_VERTICES or cache_triangles > MAX_CACHE_TRIANGLES:
         raise ValueError(
             f"visible scene exceeds trimmed Mipsync caches: {cache_vertices}/{MAX_CACHE_VERTICES} vertices, "

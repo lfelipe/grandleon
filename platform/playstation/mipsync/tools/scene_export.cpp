@@ -311,6 +311,17 @@ int main(int argc, char** argv) {
         output << ",\"kind\":" << static_cast<unsigned>(item.kind)
                << ",\"power\":" << item.power << '}';
     }
+    output << "],\n    \"behaviors\": [";
+    for (std::size_t index = 0; index < loaded.behaviors.size(); ++index) {
+        const pr::UnitBehaviorBinding& binding = loaded.behaviors[index];
+        if (index != 0) output << ',';
+        output << "{\"unit_id\":";
+        write_id(output, binding.unit_id);
+        output << ",\"behavior\":" << static_cast<unsigned>(binding.behavior)
+               << ",\"patrol\":";
+        write_positions(output, binding.patrol);
+        output << '}';
+    }
     output << "]\n  }\n}\n";
     if (!output) {
         std::cerr << "failed writing scene manifest: " << argv[4] << '\n';

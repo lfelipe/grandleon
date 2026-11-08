@@ -25,6 +25,7 @@ add_executable(grandleon_mipsync
     main.c scene_adapter.c game_bridge.cpp
     "${GRANDLEON_SOURCE_ROOT}/engine/core/src/random.cpp"
     "${GRANDLEON_SOURCE_ROOT}/engine/simulation/src/encounter.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/engine/tactics/src/policy.cpp"
     "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src/psx_runtime.cpp"
     "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src/psx_arith.c"
     "${GRANDLEON_LIBSTDCXX_TREE}"
@@ -43,6 +44,7 @@ target_include_directories(grandleon_mipsync PRIVATE
     "$<$<COMPILE_LANGUAGE:C>:${PSN00BSDK_ROOT}/include/libpsn00b>"
     "${GRANDLEON_SOURCE_ROOT}/engine/core/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/simulation/include"
+    "${GRANDLEON_SOURCE_ROOT}/engine/tactics/include"
     "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src"
 )
 target_compile_definitions(grandleon_mipsync PRIVATE
@@ -50,7 +52,7 @@ target_compile_definitions(grandleon_mipsync PRIVATE
     PS1_RIGID_VERTEX_CACHE_MAX=64 PS1_STATIC_VERTEX_CACHE_MAX=768
     PS1_STATIC_VERTEX_CACHE_TOTAL=1024 PS1_STATIC_TRI_CACHE_TOTAL=1024
     PS1_STATIC_ENTITY_CACHE_MAX=64 PS1_STATIC_TOPOLOGY_CACHE_MAX=32
-    PS1_UI_PACKET_RESERVE=1024 PS1_OCCLUDER_CACHE_MAX=8
+    PS1_UI_PACKET_RESERVE=4096 PS1_OCCLUDER_CACHE_MAX=8
     PS1_OCCLUDER_PROJECTED_VERTEX_MAX=64 PS1_OCCLUDER_PROJECTED_TRI_MAX=64
     PS1_RENDER_ENTITY_LIST_MAX=64
 )
