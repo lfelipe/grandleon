@@ -1,9 +1,12 @@
-# Nintendo 64 Pyrite target (migration phase 2)
+# Nintendo 64 Pyrite target (campaign-parity work)
 
-This directory is a self-contained candidate for
-`platform/nintendo64/pyrite/`. It builds one deterministic, playable Steel and
-Cedar Deepwood encounter slice through Pyrite without replacing
-Grandleon's simulation, campaign package, or authoring pipeline.
+This directory is Grandleon's self-contained candidate Nintendo 64 renderer.
+It builds one Steel and Cedar ROM through Pyrite while continuing to use
+Grandleon's simulation, compiled campaign package, saves and authoring
+pipeline. The ROM starts at a small title screen, follows the campaign's own
+one/two-player launch policy, offers New Game or Continue from cartridge SRAM,
+opens Bell Orchard, and reaches Cedar Deepwood through the real campaign
+graph and battle commit.
 
 **Migration status:** this is the intended replacement renderer, but it remains
 an active, non-shipping integration path until export, campaign and gameplay
@@ -42,7 +45,7 @@ exports that toolchain into the build cache, verifies Pyrite and toolchain
 pins, and leaves the ROM at:
 
 ```text
-/tmp/grandleon-pyrite-build/project/grandleon_pyrite_cedar_deepwood.z64
+/tmp/grandleon-pyrite-build/project/grandleon_pyrite_steel_cedar.z64
 ```
 
 Set `GRANDLEON_PYRITE_N64_INST` to a previously exported toolchain directory to
@@ -51,15 +54,18 @@ marker files match `versions.env`.
 
 ## Boundary
 
-`GpkRuntimeAdapter` is the only cartridge/package boundary. It owns the
-ROM-loaded bytes, performs target-budget validation, and exposes a decoded
-`EncounterLoadResult`. `GameplaySlice` owns a real `simulation::Encounter` and
-routes cursor selection, movement and wait commands through its authoritative
-`apply` boundary. The unattended side uses the real tactics planner. The
-deterministic review sequence and a physical controller therefore exercise the
-same input/update path instead of moving display-only actors.
+`GpkRuntimeAdapter` owns the ROM-loaded package bytes and performs target-budget
+validation. `CampaignSession` reads the packaged Steel and Cedar graph,
+prepares each encounter with the campaign roster, commits the completed Bell
+Orchard battle and saves the result through a bounded 32 KiB SRAM adapter.
+`GameplaySlice` owns the resulting real `simulation::Encounter` and routes
+cursor selection, movement and wait commands through its authoritative
+`apply` boundary. The deterministic review sequence and a physical controller
+therefore share the same input and simulation path instead of moving
+display-only actors.
 
-The current controls are D-pad to move the cursor, A to select/move, Z to wait
+On the launch screens, use the D-pad to choose and A or START to confirm. In a
+battle, the controls are D-pad to move the cursor, A to select/move, Z to wait
 and B to cancel. START toggles the optional combat presentation, L toggles its
 reduced-motion entry/exit, B skips an active presentation, and holding R runs
 it at 3x. Movement follows the authoritative multi-cell route at ten frames per
@@ -80,16 +86,17 @@ authoritative encounter hash did not change during presentation. Full timing
 is 1.10 s in / 0.95 s out; reduced motion uses a direct 8/6-frame settle;
 fast-forward is 3x and skip restores immediately.
 
-The tactical board now has filtered CI4 terrain materials, elevation
-sidewalls, deterministic tree clusters, generated
-directional walk poses and I8 falloff contact shadows. This is a material
-quality and runtime-architecture proof, not campaign parity: player-issued
-attacks and abilities, objectives, deployment, menus, saves, story traversal,
-co-op and the remaining four Steel and Cedar battles are not exposed. The
-deterministic opposing tactics are what trigger the three reviewed combat
-exchanges. The close backdrop pack currently covers only this medieval
-forest/grass/paved proof; audio and the remaining terrain/style stages still
-need production coverage.
+The tactical board has filtered CI4 terrain materials, elevation sidewalls,
+deterministic tree clusters, generated directional walk poses and I8 falloff
+contact shadows. Campaign launch, player-count selection, Bell-to-Cedar
+progression and cartridge saving now run in this ROM, but this is still not
+full campaign parity. The normal player battle controls do not yet expose
+attack/ability menus, deployment, story dialogue or the later three Steel and
+Cedar battles. The bounded review driver uses the real tactics policy for both
+sides to finish Bell Orchard, then hands the real committed campaign state to
+Cedar Deepwood; it is test scaffolding, not a second simulation. The close
+backdrop pack currently covers only this medieval forest/grass/paved proof;
+audio and the remaining terrain/style stages still need production coverage.
 
 The authored tactical rectangle remains finite. The renderer consumes the
 portable packaged `surroundings` contract directly: automatic mode extends

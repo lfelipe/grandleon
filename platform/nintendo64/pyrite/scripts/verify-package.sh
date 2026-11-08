@@ -22,6 +22,7 @@ for file in \
     project/src/user/BoardShadows.cpp.conf \
     project/src/user/BoardCamera.hpp \
     project/src/user/BoardSurroundings.hpp \
+    project/src/user/CartridgeStorage.hpp \
     project/src/user/GameplaySlice.hpp \
     project/src/user/GameplaySlice.cpp \
     project/src/user/GameplaySlice.cpp.conf \

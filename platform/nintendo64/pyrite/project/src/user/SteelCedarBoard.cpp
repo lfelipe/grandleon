@@ -1,6 +1,9 @@
 #include "script/globalScript.h"
 
 #include <grandleon/core/content_identity.hpp>
+#include <grandleon/client/campaign_session.hpp>
+#include <grandleon/client/session.hpp>
+#include <grandleon/storage/byte_window_storage.hpp>
 #include <libdragon.h>
 #include <t3d/t3d.h>
 
@@ -9,11 +12,14 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <vector>
 
 #include "debug/debugDraw.h"
 #include "BoardShadows.hpp"
 #include "BoardCamera.hpp"
 #include "BoardSurroundings.hpp"
+#include "CartridgeStorage.hpp"
 #include "GameplaySlice.hpp"
 #include "GpkRuntimeAdapter.hpp"
 #include "scene/camera.h"
@@ -23,8 +29,10 @@
 #include <grandleon/view/motion.hpp>
 
 namespace core = grandleon::core;
+namespace client = grandleon::client;
 namespace pr = grandleon::package_runtime;
 namespace sim = grandleon::simulation;
+namespace storage = grandleon::storage;
 namespace tac = grandleon::tactics;
 namespace view = grandleon::view;
 namespace gp = grandleon::nintendo64::pyrite;
@@ -46,8 +54,12 @@ constexpr std::size_t kMaxUnits = 32U;
 constexpr std::size_t kCursorVertexCount = 16U;
 constexpr std::size_t kMaxLandmarkVertices = 40U;
 
-constexpr auto kCedarDeepwood =
-    core::stable_content_id_v1("steel_and_cedar/cedar_deepwood");
+constexpr auto kSteelAndCedar =
+    core::stable_content_id_v1("steel_and_cedar");
+constexpr auto kBellOrchard =
+    core::stable_content_id_v1("steel_and_cedar/bell_orchard");
+constexpr auto kBellOrchardMap = core::stable_content_id_v1("bell_orchard");
+constexpr auto kCedarDeepwoodMap = core::stable_content_id_v1("cedar_deepwood");
 constexpr auto kRoad = core::stable_content_id_v1("road");
 constexpr auto kFarmland = core::stable_content_id_v1("farmland_orchard_tree");
 constexpr auto kForest = core::stable_content_id_v1("forest_orchard_tree");
@@ -83,6 +95,12 @@ struct BoardResources final {
     const pr::EncounterLoadResult* content{};
     gp::GameplaySlice game{};
     gp::BoardShadows shadows{};
+    pr::EncounterLoadResult campaign_content{};
+    std::optional<gp::CartridgeStorage> cartridge;
+    std::optional<storage::ByteWindowSlotStorage> saves;
+    std::optional<client::PackageBoards> campaign_boards;
+    std::optional<client::CampaignSession> campaign;
+    std::vector<sim::Event> battle_events;
     T3DVertPacked* cells{};
     T3DVertPacked* ground{};
     T3DVertPacked* apron{};
@@ -146,7 +164,34 @@ enum class ReplayPhase : std::uint8_t {
     select_tomas,
     wait_tomas,
     opponent,
+    autoplay_battle,
     complete,
+};
+
+enum class ShellPhase : std::uint8_t {
+    title,
+    players,
+    save,
+    opening,
+    battle,
+};
+
+struct ShellState final {
+    ShellPhase phase{ShellPhase::title};
+    std::uint8_t local_players{1U};
+    std::uint8_t player_choice{};
+    std::uint8_t save_choice{};
+    std::uint32_t next_automatic_frame{75U};
+    bool save_present{};
+    bool resumed{};
+    bool user_took_over{};
+    bool cedar_loaded{};
+    bool campaign_advanced_checkpoint{};
+    bool allow_one{true};
+    bool allow_two{};
+    std::size_t bell_commands{};
+    std::size_t bell_enemy_commands{};
+    std::size_t bell_combats{};
 };
 
 struct ReplayState final {
@@ -227,6 +272,7 @@ Motion motion;
 PlannedMotion planned_motion;
 ReplayState replay;
 CombatPresentation combat;
+ShellState shell;
 CameraPose current_camera{kTacticalCamera};
 std::uint32_t frame_count = 0;
 std::uint64_t sample_start = 0;
@@ -1048,7 +1094,7 @@ void build_cursor_vertices() {
 void load_runtime_board() {
     const bool loaded = board.runtime.load(
         "rom:/steel-and-cedar.gpk",
-        kCedarDeepwood,
+        kBellOrchard,
         1
     );
     assertf(
@@ -1057,13 +1103,13 @@ void load_runtime_board() {
         static_cast<unsigned>(board.runtime.error())
     );
     board.content = &board.runtime.encounter();
-    assertf(board.content->definition.width == 14 && board.content->definition.height == 9,
-        "Unexpected Cedar Deepwood dimensions");
+    assertf(board.content->definition.width == 8 && board.content->definition.height == 6,
+        "Unexpected Bell Orchard dimensions");
     assertf(
         board.content->surroundings.mode == pr::MapSurroundingMode::automatic &&
             board.content->surroundings.depth == 5U &&
             board.content->surroundings.terrain.empty(),
-        "Cedar Deepwood packaged surroundings were not preserved"
+        "Bell Orchard packaged surroundings were not preserved"
     );
     for (std::size_t index = 0; index < board.content->placements.size(); ++index) {
         const auto source = board.content->placements[index].source_key_id;
@@ -1099,7 +1145,7 @@ void load_runtime_board() {
     }
     assertf(
         replay.rowan_destination != rowan.position,
-        "Cedar Deepwood must give Rowan a legal movement destination"
+        "Bell Orchard must give Rowan a legal movement destination"
     );
     board.cells = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxCells * kCellVertexCount / 2U)));
@@ -1195,6 +1241,208 @@ void load_runtime_board() {
         static_cast<unsigned>(board.content->surroundings.depth),
         static_cast<unsigned long>(board.content->surroundings.terrain.size())
     );
+}
+
+void configure_campaign_board(const pr::EncounterLoadResult& content) {
+    board.content = &content;
+    board.rowan_id = 0U;
+    board.tomas_id = 0U;
+    for (std::size_t index = 0; index < content.placements.size(); ++index) {
+        const auto source = content.placements[index].source_key_id;
+        const auto unit = content.placements[index].unit_id;
+        if (source == kRowanMember) board.rowan_id = unit;
+        if (index < content.definition.units.size() &&
+            content.definition.units[index].unit_type_id == kTomasType) {
+            board.tomas_id = unit;
+        }
+    }
+    assert(board.rowan_id != 0U && board.tomas_id != 0U);
+    board.game = {};
+    assertf(
+        board.game.open(content.definition, board.rowan_id),
+        "Campaign encounter could not be created"
+    );
+    const sim::UnitSnapshot* rowan = nullptr;
+    for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
+        if (unit.id == board.rowan_id) rowan = &unit;
+    }
+    assert(rowan != nullptr);
+    replay = {};
+    replay.rowan_start = rowan->position;
+    replay.rowan_destination = rowan->position;
+    int best_score = -1;
+    for (const sim::Position candidate :
+         sim::reachable_tiles(board.game.snapshot(), board.rowan_id)) {
+        if (candidate == rowan->position) continue;
+        const int dx = std::abs(candidate.x - rowan->position.x);
+        const int dy = std::abs(candidate.y - rowan->position.y);
+        const int score = (dx > 0 && dy > 0 ? 100 : 0) + dx + dy;
+        if (score > best_score) {
+            best_score = score;
+            replay.rowan_destination = candidate;
+        }
+    }
+    assert(replay.rowan_destination != rowan->position);
+    assert(content.map_id == kBellOrchardMap ||
+        content.map_id == kCedarDeepwoodMap);
+    shell.cedar_loaded = content.map_id == kCedarDeepwoodMap;
+    replay.phase = shell.cedar_loaded
+        ? ReplayPhase::explore_northwest : ReplayPhase::select_rowan;
+    replay.next_frame = frame_count + 30U;
+    motion = {};
+    planned_motion = {};
+    combat = {};
+    board.battle_events.clear();
+    camera_configured = false;
+    restore_checkpoint_delay = 0U;
+    build_environment_vertices();
+    build_cell_vertices();
+    build_elevation_vertices();
+    build_tree_vertices();
+    build_landmark_vertices();
+    build_unit_vertices();
+    build_cursor_vertices();
+    debugf(
+        "GRANDLEON_PYRITE_CAMPAIGN_BOARD encounter=%llu map=%llu size=%ux%u "
+        "players=%u apron=%lu\n",
+        board.campaign->standing().encounter_id, content.map_id,
+        content.definition.width, content.definition.height,
+        static_cast<unsigned>(shell.local_players),
+        static_cast<unsigned long>(board.apron_cell_count)
+    );
+}
+
+bool stand_on_campaign_encounter() {
+    assert(board.campaign.has_value());
+    for (unsigned step = 0; step < 8U; ++step) {
+        const client::CampaignSession::Standing standing =
+            board.campaign->standing();
+        if (standing.error != client::CampaignSessionError::none) return false;
+        if (standing.kind == pr::CampaignNodeKind::encounter) {
+            client::CampaignSession::PreparedBoard prepared =
+                board.campaign->prepare_board();
+            if (prepared.error != client::CampaignSessionError::none) return false;
+            board.campaign_content = std::move(prepared.encounter.encounter);
+            configure_campaign_board(board.campaign_content);
+            return true;
+        }
+        if (standing.kind == pr::CampaignNodeKind::terminal) return false;
+        std::vector<client::RosterEntry> joined;
+        if (board.campaign->advance_story(joined) !=
+            client::CampaignSessionError::none) return false;
+        if (board.campaign->save() != storage::StorageError::none) return false;
+    }
+    return false;
+}
+
+bool begin_campaign(bool resume) {
+    assert(board.saves.has_value());
+    if (!resume && board.saves->contains("steel_cedar")) {
+        if (board.saves->erase("steel_cedar") != storage::StorageError::none) {
+            return false;
+        }
+    }
+    board.campaign.reset();
+    board.campaign_boards.reset();
+    board.campaign_boards.emplace(
+        board.runtime.package(), shell.local_players
+    );
+    client::CampaignSessionOptions options;
+    options.slot = "steel_cedar";
+    options.resume = resume;
+    options.player_side = sim::Side::first;
+    options.local_players = shell.local_players;
+    options.stage_picker = false;
+    board.campaign.emplace(
+        board.runtime.package(), kSteelAndCedar,
+        *board.campaign_boards, *board.saves, options
+    );
+    client::SlotFailure failure;
+    bool refused = false;
+    bool resumed = false;
+    const client::CampaignSessionError begun =
+        board.campaign->begin(failure, refused, resumed);
+    if (begun != client::CampaignSessionError::none) return false;
+    shell.resumed = resumed;
+    if (!stand_on_campaign_encounter()) return false;
+    if (resumed && shell.cedar_loaded) {
+        debugf("CHECKPOINT PYRITE_CAMPAIGN_CEDAR resumed=1\n");
+    }
+    shell.phase = ShellPhase::battle;
+    debugf(
+        "GRANDLEON_PYRITE_CAMPAIGN_BEGIN players=%u requested_resume=%u "
+        "resumed=%u refused=%u slot_bytes=%lu\n",
+        static_cast<unsigned>(shell.local_players), resume ? 1U : 0U,
+        resumed ? 1U : 0U, refused ? 1U : 0U,
+        static_cast<unsigned long>(storage::used_bytes(*board.saves))
+    );
+    if (!shell.cedar_loaded) debugf("CHECKPOINT PYRITE_CAMPAIGN_BELL\n");
+    return true;
+}
+
+void enter_shell_phase(ShellPhase phase) {
+    shell.phase = phase;
+    shell.next_automatic_frame = frame_count + 75U;
+    if (phase == ShellPhase::save) {
+        shell.save_present = board.saves->contains("steel_cedar");
+        shell.save_choice = shell.save_present ? 1U : 0U;
+    }
+}
+
+bool confirm_shell_choice() {
+    switch (shell.phase) {
+        case ShellPhase::title:
+            enter_shell_phase(ShellPhase::players);
+            debugf("CHECKPOINT PYRITE_TITLE\n");
+            return true;
+        case ShellPhase::players:
+            shell.local_players = shell.player_choice == 0U ? 1U : 2U;
+            enter_shell_phase(ShellPhase::save);
+            debugf(
+                "CHECKPOINT PYRITE_PLAYERS count=%u\n",
+                static_cast<unsigned>(shell.local_players)
+            );
+            return true;
+        case ShellPhase::save: {
+            const bool resume = shell.save_choice == 1U && shell.save_present;
+            shell.phase = ShellPhase::opening;
+            const bool opened = begin_campaign(resume);
+            assertf(opened, "Steel and Cedar campaign could not begin");
+            debugf(
+                "CHECKPOINT PYRITE_SAVE mode=%s\n",
+                resume ? "continue" : "new"
+            );
+            return opened;
+        }
+        case ShellPhase::opening:
+        case ShellPhase::battle:
+            return false;
+    }
+    return false;
+}
+
+void update_shell_input() {
+    if (shell.phase == ShellPhase::battle || shell.phase == ShellPhase::opening) {
+        return;
+    }
+    const joypad_buttons_t pressed = joypad_get_buttons_pressed(JOYPAD_PORT_1);
+    const bool physical = pressed.a || pressed.start || pressed.d_up ||
+        pressed.d_down || pressed.d_left || pressed.d_right;
+    if (physical) shell.user_took_over = true;
+    if (shell.phase == ShellPhase::players &&
+        (pressed.d_up || pressed.d_down || pressed.d_left || pressed.d_right)) {
+        if (shell.allow_one && shell.allow_two) shell.player_choice ^= 1U;
+    } else if (shell.phase == ShellPhase::save && shell.save_present &&
+        (pressed.d_up || pressed.d_down || pressed.d_left || pressed.d_right)) {
+        shell.save_choice ^= 1U;
+    }
+    if (pressed.a || pressed.start) {
+        (void)confirm_shell_choice();
+        return;
+    }
+    if (!shell.user_took_over && frame_count >= shell.next_automatic_frame) {
+        (void)confirm_shell_choice();
+    }
 }
 
 void draw_environment() {
@@ -1708,6 +1956,15 @@ void remember_motion() {
     planned_motion.valid = false;
 }
 
+void remember_transition_events() {
+    const gp::GameplaySlice::Transition& transition = board.game.transition();
+    if (!transition.accepted) return;
+    board.battle_events.insert(
+        board.battle_events.end(), transition.events.begin(),
+        transition.events.end()
+    );
+}
+
 bool issue(gp::GameplaySlice::Action action) {
     if (action == gp::GameplaySlice::Action::confirm &&
         board.game.selected() != 0U) {
@@ -1716,6 +1973,7 @@ bool issue(gp::GameplaySlice::Action action) {
         );
     }
     const bool handled = board.game.input(action);
+    remember_transition_events();
     remember_motion();
     build_cursor_vertices();
     return handled;
@@ -1783,15 +2041,18 @@ const std::vector<sim::Position>& patrol_for(sim::UnitId unit) {
     return empty;
 }
 
-bool advance_opponent() {
+bool advance_ai() {
     const sim::EncounterSnapshot& snapshot = board.game.snapshot();
     for (const sim::UnitSnapshot& unit : snapshot.units) {
         if (unit.side != snapshot.active_side || !sim::on_board(unit) ||
             unit.has_acted) {
             continue;
         }
+        const bool friendly = unit.side == sim::Side::first;
+        const tac::Behavior behavior = friendly
+            ? tac::Behavior::pursue : behavior_for(unit.id);
         const tac::Plan plan = tac::decide(
-            snapshot, unit.id, behavior_for(unit.id), patrol_for(unit.id),
+            snapshot, unit.id, behavior, patrol_for(unit.id),
             board.game.encounter().abilities(),
             board.game.encounter().weapons()
         );
@@ -1810,12 +2071,14 @@ bool advance_opponent() {
             command = {sim::CommandType::wait, unit.id, {}, 0, 0, 0, 0};
             assertf(board.game.apply(command), "Opponent fallback was refused");
         }
+        remember_transition_events();
         remember_motion();
-        if (command.type == sim::CommandType::attack) {
+        if (command.type == sim::CommandType::attack && combat.exchanges == 0U) {
             assert(target != nullptr);
             start_combat(actor_before, target_before);
         }
         ++replay.opponent_commands;
+        if (!friendly) ++shell.bell_enemy_commands;
         if (!replay.enemy_checkpoint) {
             debugf("CHECKPOINT PYRITE_ENEMY\n");
             replay.enemy_checkpoint = true;
@@ -1823,6 +2086,51 @@ bool advance_opponent() {
         return true;
     }
     return false;
+}
+
+bool finish_bell_and_advance() {
+    assert(board.campaign.has_value());
+    const sim::EncounterSnapshot& snapshot = board.game.snapshot();
+    assertf(
+        snapshot.outcome == sim::Outcome::first_side_won,
+        "Bell Orchard deterministic campaign replay did not win"
+    );
+    client::BattleReport report;
+    report.outcome = snapshot.outcome;
+    report.canonical_hash = board.game.encounter().canonical_hash();
+    report.final_snapshot = snapshot;
+    report.objectives = snapshot.objectives;
+    report.events = board.battle_events;
+    client::BattleAftermath aftermath;
+    const auto committed = board.campaign->commit_battle(report, aftermath);
+    if (committed != client::CampaignSessionError::none) return false;
+    if (board.campaign->save() != storage::StorageError::none) return false;
+    shell.bell_commands = board.game.accepted_commands();
+    shell.bell_combats = combat.exchanges;
+    assert(board.saves->contains("steel_cedar"));
+    if (!stand_on_campaign_encounter()) return false;
+    if (!shell.cedar_loaded || board.content->map_id != kCedarDeepwoodMap) {
+        return false;
+    }
+    shell.campaign_advanced_checkpoint = true;
+    debugf(
+        "CHECKPOINT PYRITE_CAMPAIGN_CEDAR bell_commands=%lu enemy=%lu "
+        "events=%lu slot_bytes=%lu\n",
+        static_cast<unsigned long>(shell.bell_commands),
+        static_cast<unsigned long>(shell.bell_enemy_commands),
+        static_cast<unsigned long>(report.events.size()),
+        static_cast<unsigned long>(storage::used_bytes(*board.saves))
+    );
+    return true;
+}
+
+void begin_performance_sample() {
+    performance_sample_started = true;
+    performance_frames = 0;
+    sample_start = 0;
+    previous_frame = 0;
+    min_frame_ticks = ~std::uint64_t{0};
+    max_frame_ticks = 0;
 }
 
 void update_replay() {
@@ -1867,7 +2175,13 @@ void update_replay() {
         }
         case ReplayPhase::return_to_rowan:
             if (board.game.cursor() == replay.rowan_start) {
-                replay.phase = ReplayPhase::select_rowan;
+                if (shell.cedar_loaded) {
+                    replay.phase = ReplayPhase::complete;
+                    debugf("CHECKPOINT PYRITE_CEDAR_SETTLED\n");
+                    begin_performance_sample();
+                } else {
+                    replay.phase = ReplayPhase::select_rowan;
+                }
             } else {
                 nudge_toward(replay.rowan_start);
             }
@@ -1940,21 +2254,28 @@ void update_replay() {
         case ReplayPhase::opponent:
             if (board.game.snapshot().active_side == sim::Side::first &&
                 replay.opponent_commands > 0U) {
-                replay.phase = ReplayPhase::complete;
+                replay.phase = ReplayPhase::autoplay_battle;
                 if (!replay.round_checkpoint) {
                     debugf("CHECKPOINT PYRITE_ROUND\n");
                     replay.round_checkpoint = true;
                 }
-                performance_sample_started = true;
-                performance_frames = 0;
-                sample_start = 0;
-                previous_frame = 0;
-                min_frame_ticks = ~std::uint64_t{0};
-                max_frame_ticks = 0;
+                replay.next_frame = frame_count + 12U;
             } else {
-                assertf(advance_opponent(), "No opposing command was available");
+                assertf(advance_ai(), "No opposing command was available");
                 replay.next_frame = frame_count +
                     (motion.active ? motion.total_frames + 2U : 12U);
+            }
+            break;
+        case ReplayPhase::autoplay_battle:
+            if (board.game.snapshot().outcome != sim::Outcome::ongoing) {
+                assertf(
+                    finish_bell_and_advance(),
+                    "Bell Orchard did not advance to Cedar Deepwood"
+                );
+            } else {
+                assertf(advance_ai(), "No campaign autoplay command was available");
+                replay.next_frame = frame_count +
+                    (motion.active ? motion.total_frames + 2U : 8U);
             }
             break;
         case ReplayPhase::complete:
@@ -2125,15 +2446,103 @@ void draw_combat_stage_2d() {
     rdpq_mode_pop();
 }
 
+void draw_shell() {
+    rdpq_mode_push();
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(false, false);
+        rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+        rdpq_mode_blender(0);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+    rdpq_set_prim_color({8, 16, 27, 255});
+    rdpq_fill_rectangle(0, 0, 320, 240);
+    rdpq_set_prim_color({58, 84, 104, 255});
+    rdpq_fill_rectangle(18, 24, 302, 216);
+    rdpq_set_prim_color({14, 26, 39, 255});
+    rdpq_fill_rectangle(22, 28, 298, 212);
+    rdpq_set_prim_color({184, 145, 66, 255});
+    rdpq_fill_rectangle(42, 56, 278, 59);
+    P64::Debug::printStart();
+    P64::Debug::printf(67, 38, "STEEL AND CEDAR");
+    P64::Debug::printf(74, 66, "PYRITE / TINY3D");
+    switch (shell.phase) {
+        case ShellPhase::title:
+            P64::Debug::printf(87, 132, "PRESS START");
+            P64::Debug::printf(61, 174, "RENDERER: PYRITE");
+            break;
+        case ShellPhase::players:
+            P64::Debug::printf(78, 100, "LOCAL PLAYERS");
+            if (shell.allow_one) {
+                P64::Debug::printf(
+                    91, 128, "%s ONE PLAYER",
+                    shell.player_choice == 0U ? ">" : " "
+                );
+            }
+            if (shell.allow_two) {
+                P64::Debug::printf(
+                    91, 150, "%s TWO PLAYERS",
+                    shell.player_choice == 1U ? ">" : " "
+                );
+            }
+            break;
+        case ShellPhase::save:
+            P64::Debug::printf(84, 100, "START CAMPAIGN");
+            P64::Debug::printf(
+                96, 128, "%s NEW GAME",
+                shell.save_choice == 0U ? ">" : " "
+            );
+            if (shell.save_present) {
+                P64::Debug::printf(
+                    96, 150, "%s CONTINUE",
+                    shell.save_choice == 1U ? ">" : " "
+                );
+            } else {
+                P64::Debug::printf(75, 178, "NO SAVE ON CARTRIDGE");
+            }
+            break;
+        case ShellPhase::opening:
+            P64::Debug::printf(90, 132, "OPENING...");
+            break;
+        case ShellPhase::battle:
+            break;
+    }
+    rdpq_mode_pop();
+}
+
 }  // namespace
 
 namespace P64::GlobalScript::C47524E444C454F4 {
 
 void onGameInit() {
     load_runtime_board();
+    board.cartridge.emplace();
+    board.saves.emplace(*board.cartridge, gp::CartridgeStorage::budget());
+    assertf(board.saves->available(), "Cartridge save storage is unavailable");
+    const pr::CampaignLoadResult campaign = pr::load_campaign(
+        board.runtime.package(), kSteelAndCedar
+    );
+    assertf(static_cast<bool>(campaign), "Steel and Cedar campaign did not load");
+    shell.allow_one = campaign.definition.player_mode == pr::LocalPlayerMode::one ||
+        campaign.definition.player_mode == pr::LocalPlayerMode::choice;
+    shell.allow_two = campaign.definition.player_mode == pr::LocalPlayerMode::two ||
+        campaign.definition.player_mode == pr::LocalPlayerMode::choice;
+    assert(shell.allow_one || shell.allow_two);
+    shell.player_choice = shell.allow_one ? 0U : 1U;
+    shell.save_present = board.saves->contains("steel_cedar");
+    debugf(
+        "GRANDLEON_PYRITE_LAUNCH campaign=steel_and_cedar player_mode=%s "
+        "save=%u renderer=pyrite-tiny3d fallback=none\n",
+        pr::local_player_mode_name(campaign.definition.player_mode).data(),
+        shell.save_present ? 1U : 0U
+    );
 }
 
 void onSceneUpdate() {
+    if (shell.phase != ShellPhase::battle) {
+        update_shell_input();
+        ++frame_count;
+        return;
+    }
     if (!camera_configured) {
         apply_camera(tactical_camera_for(board.game.cursor()));
         camera_min_x = current_camera.target_x;
@@ -2177,11 +2586,15 @@ void onSceneUpdate() {
         sys_get_heap_stats(&heap);
         const std::uint64_t elapsed = now - sample_start;
         const sim::UnitSnapshot* rowan = find_unit(board.rowan_id);
-        assert(rowan && rowan->position == replay.rowan_destination);
-        assert(board.game.encounter().canonical_hash() != board.game.opening_hash());
-        assert(board.game.accepted_commands() >= 4U);
-        assert(replay.opponent_commands > 0U);
-        assert(board.game.snapshot().round >= 1U);
+        assert(rowan && rowan->position == replay.rowan_start);
+        assert(shell.campaign_advanced_checkpoint || shell.resumed);
+        assert(shell.cedar_loaded && board.content->map_id == kCedarDeepwoodMap);
+        if (!shell.resumed) {
+            assert(shell.bell_commands >= 4U);
+            assert(shell.bell_enemy_commands > 0U);
+            assert(shell.bell_combats > 0U);
+        }
+        assert(board.saves->contains("steel_cedar"));
         assert(!combat.active);
         assert(replay.camera_x_checkpoint && replay.camera_y_checkpoint);
         assert(camera_max_x - camera_min_x > 3.5F);
@@ -2193,17 +2606,17 @@ void onSceneUpdate() {
         debugf(
             "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=%llu min_frame_us=%llu "
             "max_frame_us=%llu fps_x100=%lu heap_used=%lu heap_total=%lu heap_free=%lu "
-            "rdram=%d commands=%lu enemy_commands=%lu round=%lu combat=%lu "
+            "rdram=%d bell_commands=%lu enemy_commands=%lu round=%lu combat=%lu "
             "rowan=%d,%d camera_span_x_x100=%d camera_span_y_x100=%d hash=%llu\n",
             TICKS_TO_US(elapsed) / 120U, TICKS_TO_US(min_frame_ticks),
             TICKS_TO_US(max_frame_ticks),
             static_cast<unsigned long>(VI::SwapChain::getFPS() * 100.0F),
             static_cast<unsigned long>(heap.used), static_cast<unsigned long>(heap.total),
             static_cast<unsigned long>(heap.total - heap.used), get_memory_size(),
-            static_cast<unsigned long>(board.game.accepted_commands()),
-            static_cast<unsigned long>(replay.opponent_commands),
+            static_cast<unsigned long>(shell.bell_commands),
+            static_cast<unsigned long>(shell.bell_enemy_commands),
             static_cast<unsigned long>(board.game.snapshot().round),
-            static_cast<unsigned long>(combat.exchanges),
+            static_cast<unsigned long>(shell.bell_combats),
             rowan->position.x, rowan->position.y,
             static_cast<int>((camera_max_x - camera_min_x) * 100.0F),
             static_cast<int>((camera_max_z - camera_min_z) * 100.0F),
@@ -2214,7 +2627,7 @@ void onSceneUpdate() {
 }
 
 void onScenePreDraw3D() {
-    if (!board.loaded) return;
+    if (!board.loaded || shell.phase != ShellPhase::battle) return;
     draw_environment();
     draw_elevation();
     draw_board_cells();
@@ -2226,6 +2639,10 @@ void onScenePreDraw3D() {
 }
 
 void onSceneDraw2D() {
+    if (shell.phase != ShellPhase::battle) {
+        draw_shell();
+        return;
+    }
     draw_combat_stage_2d();
     if (!debug_hud) return;
     Debug::printStart();

@@ -34,7 +34,7 @@
       }
     ]
   },
-  "name": "Grandleon Pyrite Cedar Deepwood",
+  "name": "Grandleon Pyrite Steel Cedar",
   "pathEmu": "ares",
   "pathN64Inst": "",
   "romHeader": {
@@ -48,9 +48,9 @@
     "region": 0,
     "regionFree": true,
     "rtc": false,
-    "saveType": 0
+    "saveType": 3
   },
-  "romName": "grandleon_pyrite_cedar_deepwood",
+  "romName": "grandleon_pyrite_steel_cedar",
   "sceneIdLastOpened": 1,
   "sceneIdOnBoot": 1,
   "sceneIdOnReset": 1,

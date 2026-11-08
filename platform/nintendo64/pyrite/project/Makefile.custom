@@ -9,13 +9,22 @@ endif
 
 N64_CXXFLAGS += -std=gnu++20 -fno-exceptions -O3 -Isrc -Isrc/user \
 	-I$(GRANDLEON_REPO)/engine/core/include \
+	-I$(GRANDLEON_REPO)/engine/campaign/include \
+	-I$(GRANDLEON_REPO)/engine/campaign_runtime/include \
 	-I$(GRANDLEON_REPO)/engine/package_format/include \
 	-I$(GRANDLEON_REPO)/engine/package_runtime/include \
 	-I$(GRANDLEON_REPO)/engine/simulation/include \
 	-I$(GRANDLEON_REPO)/engine/tactics/include \
+	-I$(GRANDLEON_REPO)/platform/client/include \
+	-I$(GRANDLEON_REPO)/platform/storage/include \
 	-I$(GRANDLEON_REPO)/platform/view/include
 
 GRANDLEON_LIBS := \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_client_campaign.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_client.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_campaign_runtime.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_campaign.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_storage.a \
 	$(GRANDLEON_N64_BUILD)/libgrandleon_package_runtime.a \
 	$(GRANDLEON_N64_BUILD)/libgrandleon_tactics.a \
 	$(GRANDLEON_N64_BUILD)/libgrandleon_package_format.a \

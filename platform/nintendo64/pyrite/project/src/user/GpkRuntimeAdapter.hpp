@@ -42,6 +42,9 @@ public:
         const noexcept {
         return encounter_;
     }
+    [[nodiscard]] const package_format::LoadedPackage& package() const noexcept {
+        return package_.package;
+    }
 
 private:
     void* package_bytes_{};

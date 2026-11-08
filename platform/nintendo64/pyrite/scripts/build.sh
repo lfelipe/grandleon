@@ -46,23 +46,28 @@ N64_INST="$n64_inst" cmake \
 N64_INST="$n64_inst" cmake --build "$n64_build" --parallel \
     --target \
         grandleon_core \
+        grandleon_campaign \
         grandleon_simulation \
         grandleon_package_format \
         grandleon_tactics \
-        grandleon_package_runtime
+        grandleon_package_runtime \
+        grandleon_campaign_runtime \
+        grandleon_storage \
+        grandleon_client \
+        grandleon_client_campaign
 
 export N64_INST="$n64_inst"
 export GRANDLEON_REPO="$repo_root"
 export GRANDLEON_N64_BUILD="$n64_build"
 "$pyrite_cli" --cli --cmd build "$output_dir/project/project.p64proj"
 
-rom="$output_dir/project/grandleon_pyrite_cedar_deepwood.z64"
+rom="$output_dir/project/grandleon_pyrite_steel_cedar.z64"
 test -s "$rom"
 # A release/export cutover must distinguish this artifact without trusting a
 # filename. The canonical big-endian ROM header is stable even though scanning
 # arbitrary N64 code strings is not (the linker may word-swap string data).
 rom_identity=$(dd if="$rom" bs=1 skip=32 count=20 status=none | tr -d '\000')
-if [ "$rom_identity" != 'Grandleon Pyrite Ced' ]; then
+if [ "$rom_identity" != 'Grandleon Pyrite Ste' ]; then
     echo "unexpected renderer identity in N64 ROM header: $rom_identity" >&2
     exit 1
 fi
