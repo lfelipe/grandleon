@@ -24,21 +24,23 @@ real Twin Gate simulation. The same build supports one or two local players.
 
 ## Performance and memory
 
-Both measured gameplay windows rendered all 600 frames with zero missed
-VBlanks and a maximum interval of one VBlank. Cedar Deepwood averaged 225
-HBlanks and peaked at 226; Twin Gate averaged 150 and peaked at 151. These
-figures include the continuous terrain relief described below.
+Both measured campaign windows rendered all 600 frames with zero missed
+VBlanks and a maximum interval of one VBlank. Cedar Deepwood averaged 165
+HBlanks and peaked at 166; Twin Gate averaged 169 and peaked at 170. A separate
+two-axis Deepwood scrolling stress pass averaged 163 HBlanks and peaked at 253,
+again with zero missed VBlanks. These figures include the terrain relief,
+native forms, seam fill, and live unit rendering described below.
 
 The build keeps the planned 64 KiB audio reserve, 32 KiB stack reserve, and
 512 KiB gameplay heap on every stage:
 
 | Encounter | Committed RAM | Texture VRAM | Active cache |
 | --- | ---: | ---: | ---: |
-| Bell Orchard | 1,383,800 / 2,097,152 | 135,168 / 196,608 | 233 vertices, 230 triangles |
-| Cedar Deepwood | 1,414,520 / 2,097,152 | 151,552 / 196,608 | 220 vertices, 159 triangles |
-| Cedar Watch | 1,461,624 / 2,097,152 | 167,936 / 196,608 | 223 vertices, 175 triangles |
-| Gate Village | 1,461,624 / 2,097,152 | 184,320 / 196,608 | 143 vertices, 109 triangles |
-| Twin Gate Keep | 1,420,664 / 2,097,152 | 143,360 / 196,608 | 132 vertices, 119 triangles |
+| Bell Orchard | 1,375,608 / 2,097,152 | 126,976 / 196,608 | 214 vertices, 212 triangles |
+| Cedar Deepwood | 1,406,328 / 2,097,152 | 143,360 / 196,608 | 193 vertices, 140 triangles |
+| Cedar Watch | 1,457,528 / 2,097,152 | 159,744 / 196,608 | 199 vertices, 158 triangles |
+| Gate Village | 1,459,576 / 2,097,152 | 176,128 / 196,608 | 183 vertices, 128 triangles |
+| Twin Gate Keep | 1,420,664 / 2,097,152 | 135,168 / 196,608 | 165 vertices, 146 triangles |
 
 Larger maps use overlapping 8x6 terrain pages, with only the nearest page
 active. Unit and prop culling changes presentation only; the full encounter
@@ -47,12 +49,14 @@ continues to run in the shared simulation.
 ## Visual checks
 
 Unit cutouts come from the Godot graphics profile and retain authored figure
-and team-colour differences. Terrain textures follow a continuous low-poly
-surface whose shared corners keep neighbouring materials connected. Units,
-trees, and the cursor use the generated surface height. Deterministic
-outcrops, shrubs, reeds, crops, bamboo, rubble, trunks, and crossed canopies
-provide sparse extra detail. The full campaign capture is produced by the
-checked-in campaign probe so every stage can be compared from the same build.
+and team-colour differences. Terrain uses Godot-derived palettes on a
+continuous low-poly surface whose shared corners keep neighbouring materials
+connected. Units and the cursor use the generated surface height. Native
+conifers, outcrops, reeds, crops, bamboo, rubble, and ice forms provide sparse
+volume, while clustered surroundings, terrain-matched fog, and opt-in seam
+fill remove the previous flat-card and floating-board appearance. The full
+campaign capture is produced by the checked-in campaign probe so every stage
+can be compared from the same build.
 
 The optional close-combat presentation keeps attacker and defender on fixed
 sides during attacks and counterattacks. Forecasts, results, objectives, and
@@ -61,11 +65,11 @@ story screens use the compact in-game UI rather than Sony's debug font.
 ## Exact artifact
 
 - CUE SHA-256: `29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff`
-- BIN SHA-256: `ea0df5abd59c3961a553fd1484f54ae37ca40afdf3791a11573a0d203ac82996`
+- BIN SHA-256: `f5c6c37b266f134d4e716fffe6d2509c1579c1052f3c197344865ec8329e1d89`
 - final memory-card SHA-256: `48fc152503401d53e177aaf1b60898ec904d0c09a1534a0b459bfd65c0a7cf5a`
 
 The executable and BIN embed `GRANDLEON_PS1_RENDERER=MIPSYNC`. Mipsync is
-pinned to `866f405a0e34b5925a8d832272fe52c657688430` and receives the four
+pinned to `866f405a0e34b5925a8d832272fe52c657688430` and receives the five
 checked-in upstream patches before each clean build.
 
 ## Still required before cutover

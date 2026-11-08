@@ -86,17 +86,18 @@ plan.
 
 Larger maps are split into overlapping viewport-sized terrain pages. Only the
 closest page is visible, while the camera follows the cursor and clamps to the
-authored playable rectangle. Trees and units outside the viewport are culled
-only from presentation; the complete encounter remains in the shared
-simulation. Terrain textures now follow a continuous low-poly surface instead
-of a flat board. Hills, paths, marshes, and forest floors meet at shared edges,
-and characters, the cursor, and trees follow the resulting height. Sparse
-outcrops, shrubs, reeds, crops, bamboo, rubble, trunks, and crossed canopies add
-recognizable detail without filling every cell with a separate object. These
-features are part of the existing terrain pages rather than extra draw calls,
-which keeps the zero-missed-VBlank budget. The generated surroundings policy
-remains portable across renderers (`natural_blend`, `extend_edges` or
-`fixed_terrain`).
+authored playable rectangle. Units outside the viewport are culled only from
+presentation; the complete encounter remains in the shared simulation.
+Terrain follows a continuous low-poly surface instead of a flat board. Ground
+materials use the matching Godot terrain palettes, while sparse native
+conifers, outcrops, reeds, crops, bamboo, rubble, and ice forms provide height
+and recognizable silhouettes without turning every cell into a separate
+object. Characters and the cursor follow the same surface. The distant fog
+colour follows the dominant natural terrain, and clustered surroundings plus
+opt-in seam fill keep the board from reading as a noisy grid floating in a blue
+void. These features remain inside the paged terrain mesh, preserving the
+zero-missed-VBlank budget. The generated surroundings policy stays portable
+across renderers (`natural_blend`, `extend_edges` or `fixed_terrain`).
 
 Cutover requires all of the following on the exact CUE/BIN:
 

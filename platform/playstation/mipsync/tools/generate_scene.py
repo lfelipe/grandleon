@@ -12,6 +12,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+import re
 import struct
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
@@ -68,7 +69,7 @@ TERRAIN_FORM_STYLES = (
 # deliberately shallow: they must read as a landscape without hiding units or
 # turning an authored tactical tile into an apparent cliff.
 TERRAIN_RELIEF_HEIGHTS = (
-    -4, 0, 3, 14, 3, 6, -2, 9, 5, 2, 3, 5, 2,
+    -5, 0, 7, 26, 6, 10, -3, 17, 10, 3, 6, 9, 3,
 )
 
 
@@ -152,6 +153,11 @@ def apron_kind(
     # Natural blend keeps the authored edge dominant, but occasionally borrows
     # a nearby edge cell. It is deterministic in world coordinates, so panning
     # or rebuilding a visible chunk cannot make the surroundings shimmer.
+    # Sample one decision for a 2x2 world patch.  Cell-by-cell borrowing made
+    # the infinite apron look like a noisy checkerboard and fragmented the
+    # PS1 mesh into needless tiny runs.  Broad patches read as landscape and
+    # remain deterministic while the camera scrolls.
+    roll = hash_cell(x // 2, y // 2, seed)
     candidates = [edge, edge, edge]
     if x < 0 or x >= width:
         candidates.extend(
@@ -230,6 +236,100 @@ def fitted_cutout(image: Image.Image, side: int = 64) -> Image.Image:
     return result
 
 
+def shifted_colour(
+    colour: tuple[int, int, int], numerator: int,
+) -> tuple[int, int, int]:
+    return tuple(
+        max(0, min(255, channel * numerator // 100)) for channel in colour
+    )
+
+
+def blended_colour(
+    first: tuple[int, int, int], second: tuple[int, int, int],
+    second_weight: int,
+) -> tuple[int, int, int]:
+    return tuple(
+        (left * (100 - second_weight) + right * second_weight) // 100
+        for left, right in zip(first, second)
+    )
+
+
+def relay_colours(repo: Path, kind: int) -> tuple[tuple[int, int, int], ...]:
+    """Read the palette from the Godot terrain scene used as our reference."""
+    scene = repo / "platform/godot/project/art/terrain" / (
+        f"relay_{TERRAIN_NAMES[kind]}.tscn"
+    )
+    values = re.findall(
+        r"albedo_color = Color\(([^,]+), ([^,]+), ([^,]+), [^)]+\)",
+        scene.read_text(encoding="utf-8"),
+    )
+    colours = tuple(
+        tuple(round(float(channel) * 255) for channel in value)
+        for value in values
+    )
+    if len(colours) < 2:
+        raise ValueError(f"Godot terrain scene has no surface palette: {scene}")
+    return colours[1:]
+
+
+def relay_terrain_image(repo: Path, kind: int) -> Image.Image:
+    """Make a restrained ground material from the matching Godot palette.
+
+    Terrain identity comes primarily from native geometry.  The material is
+    deliberately broad and low-contrast so the board does not turn back into
+    a repeated icon sheet when viewed from the tactical camera.
+    """
+    colours = relay_colours(repo, kind)
+    base = colours[0]
+    accent = colours[-1]
+    dark = blended_colour(base, shifted_colour(accent, 72), 28)
+    light = blended_colour(base, shifted_colour(accent, 122), 24)
+    image = Image.new("RGB", (128, 32), base)
+    draw = ImageDraw.Draw(image)
+    for variant in range(4):
+        x0 = variant * 32
+        tile_base = shifted_colour(base, 96 + variant * 2)
+        draw.rectangle((x0, 0, x0 + 31, 31), fill=tile_base)
+        if kind == 0:  # water
+            for y, offset in ((10, 2), (24, 9)):
+                start = x0 + (offset + variant * 3) % 12
+                draw.line((start, y, min(x0 + 28, start + 15), y), fill=light)
+        elif kind in (1, 12):  # road / paved
+            for row, y in enumerate((6, 21)):
+                shift = 7 if (row + variant) & 1 else 0
+                draw.line((x0, y, x0 + 31, y), fill=dark)
+                for x in range(x0 + shift, x0 + 32, 16):
+                    draw.line((x, y - 5, x, y + 5), fill=dark)
+        elif kind in (3, 8):  # mountain / ruins
+            draw.polygon(
+                ((x0, 23), (x0 + 10 + variant, 13),
+                 (x0 + 22, 16), (x0 + 31, 8), (x0 + 31, 31), (x0, 31)),
+                fill=dark,
+            )
+            draw.line((x0 + 9, 13, x0 + 20, 16), fill=light)
+        elif kind in (4, 5):  # sand / snow
+            for y, length in ((11, 18), (26, 14)):
+                start = x0 + (variant * 7 + y) % 11
+                draw.arc(
+                    (start, y - 4, min(x0 + 30, start + length), y + 3),
+                    190, 350, fill=light,
+                )
+        elif kind == 6:  # swamp
+            draw.ellipse((x0 + 3, 8, x0 + 25, 24), fill=dark)
+            draw.arc((x0 + 6, 10, x0 + 22, 21), 20, 160, fill=light)
+        elif kind == 10:  # farmland
+            for y in (7, 17, 27):
+                draw.line((x0, y, x0 + 31, y), fill=dark)
+                draw.line((x0, y + 1, x0 + 31, y + 1), fill=light)
+        elif kind == 11:  # bamboo
+            draw.line((x0 + 8, 31, x0 + 9, 12), fill=dark)
+            draw.line((x0 + 24, 24, x0 + 23, 5), fill=light)
+        else:  # forest, hills, grass
+            draw.ellipse((x0 + 4 + variant, 8, x0 + 17 + variant, 16), fill=dark)
+            draw.ellipse((x0 + 18, 21, x0 + 28, 27), fill=light)
+    return image.convert("RGBA")
+
+
 def unit_image(repo: Path, unit: dict[str, object], profiles: dict[str, object]) -> Image.Image:
     style_index = require_int(unit.get("style"), "unit style", 0, len(STYLE_NAMES) - 1)
     archetype_index = require_int(unit.get("archetype"), "unit archetype", 0, len(ARCHETYPE_NAMES) - 1)
@@ -260,15 +360,9 @@ def unit_image(repo: Path, unit: dict[str, object], profiles: dict[str, object])
     return fitted_cutout(Image.composite(tinted, source, mask))
 
 
-def tree_image(repo: Path) -> Image.Image:
-    path = repo / "platform/godot/project/art/map_features/ancient_tree_cluster_2x2.png"
-    with Image.open(path) as image:
-        return fitted_cutout(image)
-
-
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
-) -> tuple[dict[int, int], dict[tuple[int, int, int, int], int], int, int, int, dict[str, int]]:
+) -> tuple[dict[int, int], dict[tuple[int, int, int, int], int], int, int, dict[str, int]]:
     profiles_path = repo / "platform/godot/project/content/graphics_profiles.json"
     profiles = json.loads(profiles_path.read_text(encoding="utf-8"))["profiles"]["voxel-sprites"]["assets"]["characterSprites"]
     packer = TexturePacker()
@@ -277,9 +371,7 @@ def write_textures(
     unit_indices: dict[tuple[int, int, int, int], int] = {}
 
     for kind in sorted(set(terrain_kinds)):
-        path = repo / "tools/placeholder_art/assets/modern/terrain" / f"{TERRAIN_NAMES[kind]}_base.png"
-        with Image.open(path) as image:
-            texture = image.convert("RGBA")
+        texture = relay_terrain_image(repo, kind)
         textures.append((f"terrain_{TERRAIN_NAMES[kind]}", texture, False, 0, 0))
         terrain_indices[kind] = len(textures)
 
@@ -293,10 +385,6 @@ def write_textures(
         texture = unit_image(repo, unit, profiles)
         textures.append((f"unit_{len(unit_indices)}", texture, True, 0, 0))
         unit_indices[key] = len(textures)
-
-    canopy = tree_image(repo)
-    textures.append(("tree_canopy", canopy, True, 0, 0))
-    tree_index = len(textures)
 
     # One tiny, deterministic font atlas lets the target draw live health,
     # forecasts and arbitrary ability counts without shipping Sony's debug
@@ -365,7 +453,7 @@ def write_textures(
         "texture_bytes": occupied_pixels * 2,
         "vram_reserved_bytes": TEXTURE_WIDTH * TEXTURE_HEIGHT * 2 - occupied_pixels * 2,
     }
-    return terrain_indices, unit_indices, tree_index, ui_index, ui_label_index, metrics
+    return terrain_indices, unit_indices, ui_index, ui_label_index, metrics
 
 
 def emit_vectors(name: str, values: list[tuple[int, int, int, int]]) -> list[str]:
@@ -467,12 +555,138 @@ def page_cells(
     return pages
 
 
+def coalesce_vertical_runs(
+    cells: list[tuple[int, int, int, bool, int, int]],
+    cell_lifts: dict[tuple[int, int], int],
+) -> list[tuple[int, int, int, bool, int, int]]:
+    """Join compatible row pairs; seam-fill covers PS1 T-junction pinholes."""
+    lookup = {
+        (x, y, kind, authored, span_x): cell
+        for cell in cells
+        for x, y, kind, authored, span_x, span_y in (cell,)
+        if span_y == 1
+    }
+    consumed: set[tuple[int, int, int, bool, int]] = set()
+    merged: list[tuple[int, int, int, bool, int, int]] = []
+    for cell in sorted(cells, key=lambda value: (value[1], value[0])):
+        x, y, kind, authored, span_x, span_y = cell
+        key = (x, y, kind, authored, span_x)
+        if key in consumed:
+            continue
+        below = (x, y + 1, kind, authored, span_x)
+        can_merge = span_y == 1 and below in lookup and below not in consumed
+        if can_merge:
+            for edge_x in (x, x + span_x):
+                top = corner_relief(edge_x, y, cell_lifts)
+                middle = corner_relief(edge_x, y + 1, cell_lifts)
+                bottom = corner_relief(edge_x, y + 2, cell_lifts)
+                if middle * 2 != top + bottom:
+                    can_merge = False
+                    break
+        merged.append((x, y, kind, authored, span_x, 2 if can_merge else span_y))
+        consumed.add(key)
+        if can_merge:
+            consumed.add(below)
+    return merged
+
+
+def append_terrain_form(
+    vertices: list[tuple[int, int, int, int]],
+    uvs: list[tuple[int, int]],
+    triangles: list[tuple[int, int, int, int, int, int, int, int]],
+    kind: int, cx: int, floor: int, cz: int, roll: int,
+) -> None:
+    """Append one small native low-poly landmark for a terrain cell."""
+    colour, scale = TERRAIN_FORM_STYLES[kind]
+    light = shifted_colour(colour, 122)
+
+    def vertex(x: int, y: int, z: int) -> int:
+        index = len(vertices)
+        vertices.append((x, y, z, 0))
+        uvs.append((0, 0))
+        return index
+
+    def face(a: int, b: int, c: int, face_colour: tuple[int, int, int]) -> None:
+        triangles.append((a, b, c, 0, 218, *face_colour))
+
+    def pyramid(
+        x: int, z: int, radius_x: int, radius_z: int, height: int,
+        face_colour: tuple[int, int, int], bottom: int = 1,
+    ) -> None:
+        front_left = vertex(x - radius_x, floor + bottom, z + radius_z)
+        front_right = vertex(x + radius_x, floor + bottom, z + radius_z)
+        back_right = vertex(x + radius_x, floor + bottom, z - radius_z)
+        back_left = vertex(x - radius_x, floor + bottom, z - radius_z)
+        apex = vertex(x, floor + bottom + height, z)
+        face(front_left, front_right, apex, light)
+        face(front_right, back_right, apex, face_colour)
+        face(back_right, back_left, apex, shifted_colour(face_colour, 82))
+        face(back_left, front_left, apex, shifted_colour(face_colour, 92))
+
+    def box(
+        x: int, z: int, radius_x: int, radius_z: int, height: int,
+        face_colour: tuple[int, int, int], bottom: int = 1,
+    ) -> None:
+        base = floor + bottom
+        top = base + height
+        front_left = vertex(x - radius_x, base, z + radius_z)
+        front_right = vertex(x + radius_x, base, z + radius_z)
+        back_right = vertex(x + radius_x, base, z - radius_z)
+        back_left = vertex(x - radius_x, base, z - radius_z)
+        top_front_left = vertex(x - radius_x, top, z + radius_z)
+        top_front_right = vertex(x + radius_x, top, z + radius_z)
+        top_back_right = vertex(x + radius_x, top, z - radius_z)
+        top_back_left = vertex(x - radius_x, top, z - radius_z)
+        face(front_left, front_right, top_front_right, light)
+        face(front_left, top_front_right, top_front_left, light)
+        face(front_right, back_right, top_back_right, face_colour)
+        face(front_right, top_back_right, top_front_right, face_colour)
+        face(top_front_left, top_front_right, top_back_right,
+             shifted_colour(face_colour, 128))
+        face(top_front_left, top_back_right, top_back_left,
+             shifted_colour(face_colour, 128))
+
+    if kind == 2:  # forest: one efficient solid, faceted canopy
+        canopy_height = 88 + int((roll >> 5) % 17)
+        canopy_width = 40 + int((roll >> 11) % 8)
+        pyramid(cx, cz, canopy_width, canopy_width - 5,
+                canopy_height, colour, 18)
+    elif kind == 3:  # mountain: a small range, not one isolated pyramid
+        pyramid(cx - 12, cz + 7, 48, 42, 108, colour)
+        pyramid(cx + 32, cz - 17, 31, 29, 76, light)
+    elif kind == 11:  # bamboo: solid clustered stalks
+        box(cx - 9, cz + 4, 4, 4, 108, colour)
+        box(cx + 10, cz - 3, 4, 4, 128, light)
+    elif kind == 10:  # farmland: short crop rows with visible volume
+        for offset, height in ((-15, 48), (16, 58)):
+            box(cx + offset, cz + offset // 6, 4, 5, height, colour)
+    elif kind in (0, 6):  # water/swamp: sparse native reed fans
+        for offset, height in ((-11, 45), (12, 58)):
+            pyramid(
+                cx + offset, cz + offset // 5, 4, 5, height,
+                light if offset == 0 else colour,
+            )
+    elif kind in (1, 12):  # road/paved: two shallow raised stones
+        box(cx - 22, cz + 8, 27, 20, 9, colour)
+        box(cx + 24, cz - 14, 24, 18, 7, light)
+    elif kind == 8:  # ruins: broken wall profile plus fallen masonry
+        box(cx - 10, cz, 28, 8, 58, colour)
+        box(cx + 29, cz + 15, 20, 16, 15, light)
+    elif kind == 5:  # snow: one clear faceted ice shard
+        pyramid(cx, cz, 19, 16, 82, light)
+    elif kind == 4:  # sand: broad, low dune crest
+        pyramid(cx, cz, 48, 31, 30, colour)
+    else:  # hills/grass: a restrained cluster of low-poly shrubs or rocks
+        pyramid(cx - 18, cz + 7, 25, 22, round(50 * scale[1]), colour)
+        pyramid(cx + 24, cz - 13, 18, 16, round(38 * scale[1]), light)
+
+
 def write_meshes(
     output: Path,
     cell_groups: list[tuple[tuple[int, int], list[tuple[int, int, int, bool, int, int]]]],
     width: int, height: int,
     terrain_form_cells: list[tuple[int, int, int]],
-    terrain_indices: dict[int, int], tree_texture_index: int, seed: int,
+    terrain_indices: dict[int, int], seed: int,
     relief_mode: str, cell_lifts: dict[tuple[int, int], int],
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     board_groups: list[tuple[
@@ -560,22 +774,12 @@ def write_meshes(
             if not (min_x <= x < max_x and min_y <= y < max_y):
                 continue
             roll = hash_cell(x, y, seed)
-            colour, scale = TERRAIN_FORM_STYLES[kind]
             cx = (x * 2 + 1 - width) * 64 + (26 if roll & 1 else -26)
             cz = (height - y * 2 - 1) * 64 + (22 if roll & 2 else -22)
-            half_x = max(4, round(24 * scale[0]))
-            half_z = max(4, round(24 * scale[2]))
-            form_height = max(8, round(48 * scale[1]))
             floor = surface_relief(x, y, cell_lifts) if relief_mode == "smooth" else 0
-            first = len(board_vertices)
-            board_vertices.extend((
-                (cx - half_x, floor + 1, cz + half_z, 0),
-                (cx + half_x, floor + 1, cz + half_z, 0),
-                (cx, floor + 1 + form_height, cz, 0),
-            ))
-            board_uvs.extend(((0, 0),) * 3)
-            board_triangles.append(
-                (first, first + 1, first + 2, 0, 205, *colour)
+            append_terrain_form(
+                board_vertices, board_uvs, board_triangles,
+                kind, cx, floor, cz, roll,
             )
         board_groups.append((
             board_vertices, board_uvs, board_triangles,
@@ -584,36 +788,6 @@ def write_meshes(
 
     billboard_vertices = [(-512, 0, 0, 0), (512, 0, 0, 0), (512, 1024, 0, 0), (-512, 1024, 0, 0)]
     billboard_uvs = [(0, 63), (63, 63), (63, 0), (0, 0)]
-
-    # Crossed trunk plus two crossed/layered canopy cards. The main canopy
-    # faces the fixed tactical camera and only needs its visible winding. The
-    # cross card stays double-sided because horizontal scrolling can put the
-    # camera on either side of it. This keeps the volumetric silhouette while
-    # avoiding six invisible triangles in a Bell-sized page.
-    tree_vertices = [
-        (-72, 0, 0, 0), (72, 0, 0, 0), (72, 560, 0, 0), (-72, 560, 0, 0),
-        (0, 0, -72, 0), (0, 0, 72, 0), (0, 560, 72, 0), (0, 560, -72, 0),
-        (-420, 360, 0, 0), (420, 360, 0, 0), (420, 1320, 0, 0), (-420, 1320, 0, 0),
-        (0, 360, -420, 0), (0, 360, 420, 0), (0, 1320, 420, 0), (0, 1320, -420, 0),
-    ]
-    tree_uvs = [(0, 0)] * 8 + [(0, 63), (63, 63), (63, 0), (0, 0)] * 2
-    # One camera-facing trunk card is enough at board scale; the crossed
-    # canopy carries the volume while the trunk occupies only a few pixels.
-    trunk_faces = [(0, 1, 2), (0, 2, 3)]
-    tree_faces: list[tuple[int, int, int, int, tuple[int, int, int]]] = [
-        (a, b, c, 0, (112, 74, 45)) for a, b, c in trunk_faces
-    ]
-    tree_faces.extend((
-        (8, 9, 10, tree_texture_index, (255, 255, 255)),
-        (8, 10, 11, tree_texture_index, (255, 255, 255)),
-    ))
-    first = 12
-    tree_faces.extend((
-        (first, first + 1, first + 2, tree_texture_index, (255, 255, 255)),
-        (first, first + 2, first + 3, tree_texture_index, (255, 255, 255)),
-        (first + 2, first + 1, first, tree_texture_index, (255, 255, 255)),
-        (first + 3, first + 2, first, tree_texture_index, (255, 255, 255)),
-    ))
 
     cursor_vertices = [
         (-450, 24, -450, 0), (450, 24, -450, 0),
@@ -635,14 +809,6 @@ def write_meshes(
     lines += emit_vectors("k_billboard_vertices", billboard_vertices)
     lines += emit_vectors("k_billboard_normals", [(0, 0, 4096, 0)] * 4)
     lines.extend(("static const ps1_uv8 k_billboard_uvs[] = {", "    { 0, 63 }, { 63, 63 }, { 63, 0 }, { 0, 0 },", "};", "", "static const ps1_mesh_tri k_billboard_triangles[] = {", "    { .i0=0, .i1=1, .i2=2, .nz=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 },", "    { .i0=0, .i1=2, .i2=3, .nz=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 },", "};", ""))
-    lines += emit_vectors("k_tree_vertices", tree_vertices)
-    lines += emit_vectors("k_tree_normals", [(0, 0, 4096, 0)] * len(tree_vertices))
-    lines.append("static const ps1_uv8 k_tree_uvs[] = {")
-    lines.extend(f"    {{ {u}, {v} }}," for u, v in tree_uvs)
-    lines.extend(("};", "", "static const ps1_mesh_tri k_tree_triangles[] = {"))
-    for i0, i1, i2, texture, colour in tree_faces:
-        lines.append(f"    {{ .i0={i0}, .i1={i1}, .i2={i2}, .nz=4096, .shade=255, .color_r={colour[0]}, .color_g={colour[1]}, .color_b={colour[2]}, .texture_index={texture} }},")
-    lines.extend(("};", ""))
     chunk_descriptors: list[tuple[int, int, int, int, int, int, int]] = []
     chunk_mesh_lines: list[str] = []
     for chunk_index, (vertices, uvs, triangles, bounds) in enumerate(board_groups):
@@ -666,7 +832,7 @@ def write_meshes(
         end_y = min(height, start_y + CAMERA_VIEW_TILES_Y)
         focus_x = start_x + end_x - width
         focus_z = height - start_y - end_y
-        chunk_descriptors.append((chunk_index + 3, *bounds, focus_x, focus_z))
+        chunk_descriptors.append((chunk_index + 2, *bounds, focus_x, focus_z))
     lines += emit_vectors("k_combat_floor_vertices", combat_floor_vertices)
     lines += emit_vectors("k_combat_floor_normals", [(0, 4096, 0, 0)] * 4)
     lines.append("static const ps1_uv8 k_combat_floor_uvs[] = {")
@@ -684,7 +850,6 @@ def write_meshes(
         "    { .i0=0, .i1=3, .i2=2, .ny=4096, .shade=255, .color_r=255, .color_g=225, .color_b=48 },",
         "};", "", "const ps1_mesh g_ps1_meshes[] = {",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
-        "    { .verts=k_tree_vertices, .norms=k_tree_normals, .vert_count=sizeof(k_tree_vertices)/sizeof(k_tree_vertices[0]), .uvs=k_tree_uvs, .tris=k_tree_triangles, .tri_count=sizeof(k_tree_triangles)/sizeof(k_tree_triangles[0]), .scale_q12=256, .bounds_center_y=660, .bounds_radius=1000 },",
         *chunk_mesh_lines,
         "    { .verts=k_combat_floor_vertices, .norms=k_combat_floor_normals, .vert_count=4, .uvs=k_combat_floor_uvs, .tris=k_combat_floor_triangles, .tri_count=2, .scale_q12=4096, .bounds_radius=272, .flags=PS1_MESH_FLAG_TERRAIN },",
         "    { .verts=k_cursor_vertices, .norms=k_cursor_normals, .vert_count=4, .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=2, .scale_q12=256, .bounds_radius=640, .flags=PS1_MESH_FLAG_TERRAIN },",
@@ -700,32 +865,52 @@ def fixed(value: float) -> int:
 def select_terrain_form_cells(
     terrain: list[int], width: int, height: int, seed: int,
 ) -> list[tuple[int, int, int]]:
-    """Choose a bounded, deterministic set with at least one of each terrain."""
+    """Choose sparse geometry only where relief/material cannot carry identity."""
+    structured_kinds = {0, 2, 3, 4, 5, 6, 7, 8, 10, 11}
     candidates = [
         (x, y, terrain[y * width + x])
         for y in range(height) for x in range(width)
+        if terrain[y * width + x] in structured_kinds
     ]
-    budget = max(
-        len(set(terrain)),
-        max(1, (width * height + 23) // 24),
-    )
-    budget = min(13, budget)
+    if not candidates:
+        return []
+    present_kinds = {cell[2] for cell in candidates}
+    # A handful of props over an entire large map still reads as a flat tile
+    # sheet.  The active PS1 page has ample transformed-geometry headroom, so
+    # give roughly one structural form to every eighteen cells while keeping
+    # a firm global ceiling. This is dense enough to define regions but keeps
+    # worst-case terrain-page changes inside one PS1 VBlank. Open grass, road
+    # and paved cells remain uncluttered.
+    budget = max(len(present_kinds), max(1, (width * height + 17) // 18))
+    budget = min(14, budget, len(candidates))
     selected: list[tuple[int, int, int]] = []
     selected_coordinates: set[tuple[int, int]] = set()
-    for kind in sorted(set(terrain)):
+    for kind in sorted(present_kinds):
         member = min(
             (cell for cell in candidates if cell[2] == kind),
             key=lambda cell: hash_cell(cell[0], cell[1], seed),
         )
         selected.append(member)
         selected_coordinates.add((member[0], member[1]))
-    for cell in sorted(candidates, key=lambda item: hash_cell(item[0], item[1], seed)):
-        if len(selected) >= budget:
-            break
-        if (cell[0], cell[1]) in selected_coordinates:
-            continue
-        selected.append(cell)
-        selected_coordinates.add((cell[0], cell[1]))
+    ordered = sorted(
+        candidates, key=lambda item: hash_cell(item[0], item[1], seed)
+    )
+    # Prefer coverage before density. This produces readable forest/mountain
+    # regions without erecting a prop on every tactical square.
+    for allow_adjacent in (False, True):
+        for cell in ordered:
+            if len(selected) >= budget:
+                break
+            coordinate = (cell[0], cell[1])
+            if coordinate in selected_coordinates:
+                continue
+            if not allow_adjacent and any(
+                abs(cell[0] - other_x) <= 1 and abs(cell[1] - other_y) <= 1
+                for other_x, other_y in selected_coordinates
+            ):
+                continue
+            selected.append(cell)
+            selected_coordinates.add(coordinate)
     return selected
 
 
@@ -768,10 +953,9 @@ def visible_position_peak(
 
 def write_scene(
     output: Path, document: dict[str, object], unit_indices: dict[tuple[int, int, int, int], int],
-    tree_cells: list[tuple[int, int]],
     terrain_chunks: list[tuple[int, int, int, int, int, int, int]],
-    seed: int, ui_texture_index: int, ui_label_texture_index: int,
-    surface_lifts: list[int],
+    ui_texture_index: int, ui_label_texture_index: int,
+    surface_lifts: list[int], fog_colour: tuple[int, int, int],
 ) -> int:
     width = int(document["width"])
     height = int(document["height"])
@@ -787,29 +971,17 @@ def write_scene(
     for mesh_index, _min_x, _min_y, _max_x, _max_y, _focus_x, _focus_z in terrain_chunks:
         terrain_entity_indices.append(entity_index)
         lines.append(
-            f"    {{ .id={next_id}u, .name=\"terrain_apron_chunk\", .parent_entity_index=-1, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+            f"    {{ .id={next_id}u, .name=\"terrain_apron_chunk\", .parent_entity_index=-1, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .seam_fill=1, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
         )
         next_id += 1
         entity_index += 1
     combat_floor_index = entity_index
-    combat_floor_mesh_index = 3 + len(terrain_chunks)
+    combat_floor_mesh_index = 2 + len(terrain_chunks)
     lines.append(
         f"    {{ .id={next_id}u, .name=\"close_combat_floor\", .parent_entity_index=-1, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={combat_floor_mesh_index}, .mesh_size=65536, .mesh_enabled=0, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
     )
     next_id += 1
     entity_index += 1
-    for x, y in tree_cells:
-        tree_entity_indices.append(entity_index)
-        roll = hash_cell(x, y, seed)
-        scale = 1.05 + (roll & 7) * 0.045
-        world_x = (x + 0.5 - width / 2) * 2
-        world_z = (height / 2 - y - 0.5) * 2
-        world_y = fixed((surface_lifts[y * width + x] + 1) / 64)
-        lines.append(
-            f"    {{ .id={next_id}u, .name=\"forest_tree\", .parent_entity_index=-1, .position={{{fixed(world_x)},{world_y},{fixed(world_z)}}}, .rotation={{0,{fixed(((roll >> 8) % 25) - 12)},0}}, .scale={{{fixed(scale)},{fixed(scale)},{fixed(scale)}}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=2, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_PROP, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
-        )
-        next_id += 1
-        entity_index += 1
     unit_entity_indices: list[int] = []
     for unit in units:
         if not isinstance(unit, dict):
@@ -840,7 +1012,7 @@ def write_scene(
     camera_focus_z = -camera_focus(cursor_y, height, CAMERA_VIEW_TILES_Y)
     cursor_world_y = fixed(surface_lifts[cursor_y * width + cursor_x] / 64)
     cursor_index = entity_index
-    cursor_mesh_index = 4 + len(terrain_chunks)
+    cursor_mesh_index = 3 + len(terrain_chunks)
     lines.append(
         f"    {{ .id={next_id}u, .name=\"tactical_cursor\", .parent_entity_index=-1, .position={{{fixed(cursor_world_x)},{cursor_world_y},{fixed(cursor_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=225, .color_b=48, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
     )
@@ -849,7 +1021,7 @@ def write_scene(
     camera_index = cursor_index + 1
     lines.extend((
         f"    {{ .id={next_id}u, .name=\"clamped_board_camera\", .parent_entity_index=-1, .position={{{fixed(camera_focus_x)},{fixed(CAMERA_HEIGHT)},{fixed(camera_focus_z + CAMERA_TRAILING_DISTANCE)}}}, .rotation={{{fixed(-40)},0,0}}, .scale={{65536,65536,65536}}, .rigid_root_entity_index=-1, .collider_shape=-1, .has_camera=1, .camera_primary=1, .camera_fov={fixed(45)}, .camera_near={fixed(0.2)}, .camera_far={fixed(80)}, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},",
-        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", "    .fog_enabled=1, .fog_r=88, .fog_g=132, .fog_b=170,", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index},", "};", "",
+        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index},", "};", "",
         "const uint64_t g_grandleon_unit_ids[] = {",
         *(f"    {int(unit['id'])}ULL," for unit in units if isinstance(unit, dict)),
         "};",
@@ -923,7 +1095,7 @@ ps1_entity* grandleon_scene_mutable_entity(unsigned int index);
 #endif
 """
     (output / "grandleon_scene.h").write_text(header, encoding="utf-8")
-    return len(terrain_chunks) + len(tree_cells) + len(units) + 3
+    return len(terrain_chunks) + len(units) + 3
 
 
 def main() -> int:
@@ -939,7 +1111,7 @@ def main() -> int:
     assert isinstance(surroundings, dict)
     mode = require_int(surroundings.get("mode"), "surroundings mode", 0, 3)
     requested_depth = require_int(surroundings.get("depth"), "surroundings depth", 0, 32)
-    depth = min(requested_depth, 2) if args.apron_depth is None else require_int(args.apron_depth, "apron depth", 0, 2)
+    depth = min(requested_depth, 2) if args.apron_depth is None else require_int(args.apron_depth, "apron depth", 0, 8)
     if mode == 0 and args.apron_depth is None:
         depth = 0
     policy = args.surroundings_policy or default_policy(mode)
@@ -989,6 +1161,7 @@ def main() -> int:
                     x, y, kind, authored, span, 1,
                 ))
                 x += span
+        cells = coalesce_vertical_runs(cells, cell_lifts)
     else:
         # Flat comparison mode retains the compact run-coalesced board used by
         # the previous renderer so captures can isolate the value of relief.
@@ -1020,54 +1193,35 @@ def main() -> int:
     assert isinstance(units, list)
     typed_units = [unit for unit in units if isinstance(unit, dict)]
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
-    terrain_indices, unit_indices, tree_texture, ui_texture, ui_label_texture, texture_metrics = write_textures(
+    terrain_indices, unit_indices, ui_texture, ui_label_texture, texture_metrics = write_textures(
         output, repo, all_kinds, typed_units,
     )
     terrain_form_cells = select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,
     )
     terrain_groups = page_cells(cells, width, height, depth)
+    distant_kind = max(
+        sorted({kind for kind in terrain if kind not in (1, 12)} or set(terrain)),
+        key=terrain.count,
+    )
     board_vertices, board_triangles, terrain_chunks = write_meshes(
         output, terrain_groups, width, height, terrain_form_cells,
-        terrain_indices, tree_texture, args.surroundings_seed,
+        terrain_indices, args.surroundings_seed,
         args.terrain_relief, cell_lifts,
     )
-    tree_cells = []
-    for y in range(height):
-        for x in range(width):
-            if terrain[y * width + x] != 2:
-                continue
-            neighbours = sum(
-                0 <= xx < width and 0 <= yy < height and terrain[yy * width + xx] == 2
-                for xx, yy in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
-            )
-            nearby_hashes = [
-                hash_cell(xx, yy, args.surroundings_seed)
-                for xx, yy in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
-                if 0 <= xx < width and 0 <= yy < height and terrain[yy * width + xx] == 2
-            ]
-            if neighbours > 0 and hash_cell(x, y, args.surroundings_seed) <= min(nearby_hashes):
-                tree_cells.append((x, y))
-    # Keep board-scale landmarks sparse enough for 60 Hz while retaining one
-    # deterministic volume cluster per roughly thirty-two tactical cells.
-    # The continuous relief and undergrowth forms now carry the terrain shape,
-    # so a dense perimeter of overlapping tree cards is no longer necessary.
-    tree_budget = max(1, (width * height + 31) // 32)
-    tree_cells.sort(key=lambda cell: hash_cell(cell[0], cell[1], args.surroundings_seed))
-    tree_cells = tree_cells[:tree_budget]
     entities = write_scene(
-        output, document, unit_indices, tree_cells, terrain_chunks,
-        args.surroundings_seed, ui_texture, ui_label_texture,
+        output, document, unit_indices, terrain_chunks,
+        ui_texture, ui_label_texture,
         [surface_relief(x, y, cell_lifts) for y in range(height) for x in range(width)]
         if args.terrain_relief == "smooth" else [0] * (width * height),
+        shifted_colour(relay_colours(repo, distant_kind)[0], 65),
     )
-    visible_trees = visible_position_peak(tree_cells, width, height)
     visible_units = visible_position_peak(
         [(int(unit["x"]), int(unit["y"])) for unit in typed_units],
         width, height,
     )
-    cache_vertices = board_vertices + visible_trees * 16 + visible_units * 4
-    cache_triangles = board_triangles + visible_trees * 8 + visible_units * 2
+    cache_vertices = board_vertices + visible_units * 4
+    cache_triangles = board_triangles + visible_units * 2
     if cache_vertices > MAX_CACHE_VERTICES or cache_triangles > MAX_CACHE_TRIANGLES:
         raise ValueError(
             f"visible scene exceeds trimmed Mipsync caches: {cache_vertices}/{MAX_CACHE_VERTICES} vertices, "
@@ -1081,7 +1235,8 @@ def main() -> int:
         "terrain_chunks": len(terrain_chunks),
         "terrain_forms": len(terrain_form_cells),
         "terrain_relief": args.terrain_relief,
-        "visible": {"trees": visible_trees, "units": visible_units},
+        "terrain_material": "relay",
+        "visible": {"units": visible_units},
         "cache": {"vertices": cache_vertices, "vertex_limit": MAX_CACHE_VERTICES, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TRIANGLES},
         "vram": texture_metrics,
         "camera": {

@@ -43,6 +43,10 @@ for filename in sys.argv[1:]:
         raise SystemExit(f"{path}: wrong renderer identity")
     if scene.get("terrain_relief") != "smooth":
         raise SystemExit(f"{path}: production terrain relief is not enabled")
+    if scene.get("terrain_material") != "relay":
+        raise SystemExit(f"{path}: Godot-derived terrain material is not enabled")
+    if scene.get("terrain_forms", 0) < 1:
+        raise SystemExit(f"{path}: native terrain geometry is missing")
     if not memory.get("passes_playable_slice_budget"):
         raise SystemExit(f"{path}: playable slice exceeds main RAM")
     if memory["playable_slice_committed_bytes"] > memory["main_ram_bytes"]:
