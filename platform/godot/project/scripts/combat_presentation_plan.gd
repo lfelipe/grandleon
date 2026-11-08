@@ -11,7 +11,7 @@ extends RefCounted
 static func has_combat(events: Array) -> bool:
 	for value: Variant in events:
 		if value is Dictionary and String(value.get("kind", "")) in [
-			"unit_damaged", "attack_missed",
+			"unit_damaged", "attack_missed", "unit_restored",
 		]:
 			return true
 	return false
@@ -32,7 +32,7 @@ static func build(
 			continue
 		var event: Dictionary = value
 		var kind := String(event.get("kind", ""))
-		if kind in ["unit_damaged", "attack_missed"]:
+		if kind in ["unit_damaged", "attack_missed", "unit_restored"]:
 			var target_id := int(event.get("unit_id", 0))
 			var actor_id := int(event.get("related_unit_id", 0))
 			if (
@@ -41,10 +41,18 @@ static func build(
 				or not before_units.has(target_id)
 			):
 				return {}
+			# A self-use already has a clear board effect. Duplicating that unit
+			# into both sides of a two-character close stage would be misleading.
+			if kind == "unit_restored" and actor_id == target_id:
+				passthrough.append(event.duplicate(true))
+				continue
 			var counter := false
 			if not beats.is_empty():
 				var previous: Dictionary = beats[-1]
 				counter = (
+					kind != "unit_restored"
+					and String(previous.kind) != "unit_restored"
+					and
 					int(previous.actor_id) == target_id
 					and int(previous.target_id) == actor_id
 				)
@@ -57,8 +65,13 @@ static func build(
 				"target_after": Dictionary(
 					after_units.get(target_id, before_units[target_id])
 				).duplicate(true),
-				"landed": kind == "unit_damaged",
-				"damage": maxi(0, int(event.get("amount", 0))),
+				"landed": kind != "attack_missed",
+				"restored": kind == "unit_restored",
+				"amount": maxi(0, int(event.get("amount", 0))),
+				"damage": (
+					0 if kind == "unit_restored"
+					else maxi(0, int(event.get("amount", 0)))
+				),
 				"counter": counter,
 				"defeated": false,
 				"endured": false,

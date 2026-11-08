@@ -167,6 +167,7 @@ func _run() -> void:
 	_expect_true("skip during full-motion exit restores the board", not cinematic.is_active())
 	_expect("every camera flight has an exact restore", board_camera.end_count, board_camera.begin_count)
 	_test_rapid_queue(cinematic, plan, terrain, focus_points)
+	_test_restoration(cinematic, terrain, focus_points)
 	_test_multi_target(cinematic, terrain, focus_points)
 	await _test_real_board_camera(before, terrain)
 
@@ -191,6 +192,35 @@ func _test_rapid_queue(
 	_expect("queued combat begins its short board handoff", cinematic.transition_phase(), "entering")
 	cinematic._process(0.56)
 	_expect("queued combat returns promptly to the close stage", cinematic.transition_phase(), "playing")
+	cinematic.clear()
+
+
+func _test_restoration(
+	cinematic, terrain: Array, focus_points: Array[Vector2]
+) -> void:
+	var before := _snapshot(3)
+	var after := _snapshot(7)
+	var plan := CombatPresentationPlan.build(
+		before, after,
+		[{
+			"kind": "unit_restored", "unit_id": 20,
+			"related_unit_id": 10, "amount": 4,
+		}],
+		"ability"
+	)
+	cinematic.configure(
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "reduced", false
+	)
+	_expect_true(
+		"restoration close view enqueues",
+		cinematic.enqueue(plan, terrain, 0, focus_points)
+	)
+	cinematic._process(0.35)
+	cinematic._process(1.10)
+	var state: Dictionary = cinematic.stage_render_state()
+	_expect_true("restoration close view marks its result", bool(state.restored))
+	_expect("restoration remains between distinct units", state.right_unit_id, 20)
+	_expect("restoration result is readable", cinematic._result.text, "+4  RESTORED")
 	cinematic.clear()
 
 

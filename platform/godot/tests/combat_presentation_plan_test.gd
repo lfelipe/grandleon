@@ -43,6 +43,33 @@ func _init() -> void:
 	_expect("source before snapshot is unchanged", before.units[1].health, 7)
 	_expect("source events are unchanged", events[0].amount, 4)
 
+	var restored_after := before.duplicate(true)
+	restored_after.units[1].health = 7
+	var restored := CombatPresentationPlan.build(
+		_snapshot(9, 3), restored_after,
+		[{
+			"kind": "unit_restored", "unit_id": 20,
+			"related_unit_id": 10, "amount": 4,
+		}],
+		"ability", 44
+	)
+	_expect_true("ally restoration plans", bool(restored.get("valid", false)))
+	_expect_true("restoration beat is explicit", bool(restored.beats[0].restored))
+	_expect("restoration amount is authoritative", restored.beats[0].amount, 4)
+	_expect_true("restoration is not labelled a counter", not restored.beats[0].counter)
+	_expect(
+		"self restoration stays on the board",
+		CombatPresentationPlan.build(
+			before, before,
+			[{
+				"kind": "unit_restored", "unit_id": 10,
+				"related_unit_id": 10, "amount": 2,
+			}],
+			"item"
+		),
+		{}
+	)
+
 	var area_before := before.duplicate(true)
 	area_before.units.append({
 		"id": 30, "name": "Sentinel", "side": "second", "player": 0,

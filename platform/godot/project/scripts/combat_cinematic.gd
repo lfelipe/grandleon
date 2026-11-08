@@ -168,6 +168,7 @@ func stage_render_state() -> Dictionary:
 		"actor_slot": actor_slot,
 		"target_slot": target_slot,
 		"impact_slot": target_slot,
+		"restored": bool(beat.get("restored", false)),
 	}
 
 
@@ -480,6 +481,7 @@ func _update_labels() -> void:
 	_headline.size = Vector2(viewport_size.x * 0.5, 58)
 	_headline.text = (
 		"COUNTERATTACK" if bool(beat.get("counter", false))
+		else "RESTORE" if bool(beat.get("restored", false))
 		else "ABILITY" if String(_current.plan.get("action", "")) == "ability"
 		else "ATTACK"
 	)
@@ -495,7 +497,10 @@ func _update_labels() -> void:
 	_result.size = Vector2(viewport_size.x * 0.30, 80)
 	var progress := _progress()
 	_result.visible = progress >= 0.52
-	if bool(beat.get("landed", false)):
+	if bool(beat.get("restored", false)):
+		_result.text = "+%d  RESTORED" % int(beat.get("amount", 0))
+		_result.add_theme_color_override("font_color", Color("7ff0a6"))
+	elif bool(beat.get("landed", false)):
 		_result.text = "−%d" % int(beat.get("damage", 0))
 		if bool(beat.get("defeated", false)) and progress >= 0.78:
 			_result.text += "  DEFEATED"
@@ -712,7 +717,12 @@ func _draw_actor(
 ) -> void:
 	var state := "idle"
 	if is_actor and progress >= 0.12 and progress < 0.66:
-		state = "ability" if String(_current.plan.get("action", "")) == "ability" else "attack"
+		state = (
+			"ability"
+			if bool(_beat().get("restored", false))
+				or String(_current.plan.get("action", "")) == "ability"
+			else "attack"
+		)
 	elif struck and progress >= 0.52:
 		state = "defeat" if defeated and progress >= 0.76 else "hurt"
 	var info := art.character_frame(unit, state, progress * _beat_duration())
@@ -771,10 +781,24 @@ func _draw_impact(
 		return
 	var phase := clampf((progress - 0.48) / 0.28, 0.0, 1.0)
 	var at := target_ground + Vector2(0.0, -size.y * 0.14 * view_scale)
-	var colour := Color("fff0b0") if bool(beat.get("landed", false)) else Color("d8edf2")
+	var restored := bool(beat.get("restored", false))
+	var colour := (
+		Color("7ff0a6") if restored
+		else Color("fff0b0") if bool(beat.get("landed", false))
+		else Color("d8edf2")
+	)
 	colour.a = 1.0 - phase
 	var radius := lerpf(28.0, 135.0, phase) * view_scale
-	if bool(beat.get("landed", false)):
+	if restored:
+		draw_arc(at, radius * 0.72, 0.0, TAU, 30, colour, 9.0)
+		for ray in 6:
+			var direction := Vector2.from_angle(float(ray) * TAU / 6.0)
+			draw_line(
+				at + direction * radius * 0.30,
+				at + direction * radius * 0.72,
+				colour, 7.0
+			)
+	elif bool(beat.get("landed", false)):
 		draw_arc(at, radius, -1.5, 1.2, 28, colour, 14.0)
 		draw_line(at + Vector2(-radius * 0.6, radius * 0.5), at + Vector2(radius * 0.65, -radius * 0.55), colour, 10.0)
 	else:
