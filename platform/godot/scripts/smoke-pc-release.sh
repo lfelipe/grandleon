@@ -103,6 +103,7 @@ godot_smokes=(
     smoke-project-compiler.sh
     smoke-project-library.sh
     smoke-standalone-exporter.sh
+    smoke-steel-cedar-editor.sh
     smoke-story-editor.sh
 )
 

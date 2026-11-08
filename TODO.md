@@ -202,6 +202,11 @@ and it safely replaces the included campaigns on all three players.
   conflict extents, opening-group distribution, dead-turn gaps, co-op combat
   participation, explicit survival-wave orders, and final-castle access, and
   pins broad difficulty signals without claiming that automation proves fun.
+- [x] Run the actual candidate through the Godot Campaign and Map editors, not
+  only source-level fixtures. The focused smoke imports Steel and Cedar through
+  the project library, compiles direct 1P/2P tests for all five battles, proves
+  the Watch previews have distinct western/eastern starts and unique roster
+  identities, and checks all 23 staggered arrivals through the real force setup.
 - [ ] Keep the campaign within the real Nintendo 64 and PlayStation budgets
   from the beginning. Validate the same source on all three players, then add
   automated completion routes and human playtest notes for difficulty,

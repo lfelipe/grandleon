@@ -84,6 +84,13 @@ campaign cursor follows the objective results through all five victories and
 the ending; keeping Rowan alive correctly remains a pending protection result,
 while the stage's survival or boss objective advances the story.
 
+A separate Godot smoke imports this exact source through the normal project
+library, opens all five battles in Campaign Editor, compiles every isolated
+direct-test project, and then opens Cedar Watch in Map Editor. It proves that
+the 1P preview excludes Akari's company, the 2P preview uses the separated
+western/eastern starts without duplicating roster members, and all 23 staggered
+arrivals remain visible and editable with their intended player scaling.
+
 That unattended run is a repeatable balance baseline, not proof that a map is
 fun. It now completes all ten 1P/2P traces for the Concord instead of losing all
 ten to the War Host. The opening preserves every deployed protagonist and
@@ -103,4 +110,10 @@ source with:
 
 ```sh
 python3 games/steel_and_cedar/generate_project.py
+```
+
+To run the real-editor readiness check:
+
+```sh
+platform/godot/scripts/smoke-steel-cedar-editor.sh
 ```
