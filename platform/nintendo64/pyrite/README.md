@@ -67,7 +67,7 @@ display-only actors.
 On the launch screens, use the D-pad to choose and A or START to confirm; A
 also advances each authored story line. In battle, use the D-pad to move the
 cursor and A to select and move. A on the selected character opens a compact
-action panel for Attack, the character's first ability, Wait, or Cancel. Attack
+action panel for Attack, every equipped ability, Wait, or Cancel. Attack
 and ability targeting show the authoritative hit, damage, counter, restoration,
 area and refusal forecast before A commits the real simulation command; the
 result panel then reports the actual hit, miss, healing or refusal. Z remains a
@@ -97,9 +97,11 @@ deterministic tree clusters, generated directional walk poses and I8 falloff
 contact shadows. Campaign launch, player-count selection, authored story
 dialogue, interactive attacks and abilities, Bell-to-Cedar progression and
 cartridge saving now run in this ROM, but this is still not full campaign
-parity. The action panel currently exposes the first equipped ability rather
-than a separate multi-ability picker, and deployment, in-battle conversations,
-aftermath/recruitment UI and the later three Steel and Cedar battles remain.
+parity. A packaged deployment screen is entered only when the encounter authors
+a deployment rule; Steel and Cedar's current fixed formations correctly skip
+it. Objective results, fallen/recruited counts and the campaign outcome are
+shown after a committed battle. In-battle conversations and the later three
+Steel and Cedar battles remain.
 The bounded review driver uses the real tactics policy for both sides to finish
 Bell Orchard, presents one complete optional close handoff, then hands the real
 committed campaign state to Cedar Deepwood; it is test scaffolding, not a

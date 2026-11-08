@@ -4,6 +4,7 @@
 #include <grandleon/client/campaign_session.hpp>
 #include <grandleon/client/session.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
+#include <grandleon/package_runtime/names.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <libdragon.h>
 #include <t3d/t3d.h>
@@ -31,7 +32,9 @@
 #include <grandleon/view/motion.hpp>
 
 namespace core = grandleon::core;
+namespace campaign = grandleon::campaign;
 namespace client = grandleon::client;
+namespace package_format = grandleon::package_format;
 namespace pr = grandleon::package_runtime;
 namespace sim = grandleon::simulation;
 namespace storage = grandleon::storage;
@@ -175,6 +178,8 @@ enum class ShellPhase : std::uint8_t {
     players,
     save,
     story,
+    deployment,
+    aftermath,
     battle,
 };
 
@@ -192,6 +197,8 @@ struct ShellState final {
     bool campaign_advanced_checkpoint{};
     bool allow_one{true};
     bool allow_two{};
+    bool deployment_approved{};
+    std::size_t deployment_row{};
     std::size_t bell_commands{};
     std::size_t bell_enemy_commands{};
     std::size_t bell_combats{};
@@ -199,6 +206,9 @@ struct ShellState final {
     std::size_t story_id_index{};
     std::size_t story_line_index{};
     pr::Dialogue story;
+    client::CompanyManagement deployment;
+    client::BattleAftermath aftermath;
+    std::vector<sim::ObjectiveResult> aftermath_objectives;
 };
 
 enum class BattleUiPhase : std::uint8_t {
@@ -1372,6 +1382,34 @@ bool begin_story(const client::CampaignSession::Standing& standing) {
     return true;
 }
 
+bool deployment_contains(campaign::PersistentEntityId member) {
+    return std::any_of(
+        shell.deployment.fielded.begin(), shell.deployment.fielded.end(),
+        [member](campaign::PersistentEntityId candidate) {
+            return candidate.value == member.value;
+        }
+    );
+}
+
+bool begin_required_deployment() {
+    shell.deployment = board.campaign->management();
+    if (shell.deployment.error != client::CampaignSessionError::none) {
+        return false;
+    }
+    if (!shell.deployment.has_deployment_options) return false;
+    shell.deployment_row = 0U;
+    shell.phase = ShellPhase::deployment;
+    shell.next_automatic_frame = frame_count + 90U;
+    debugf(
+        "CHECKPOINT PYRITE_DEPLOYMENT required=1 placeable=%lu fielded=%lu "
+        "capacity=%u\n",
+        static_cast<unsigned long>(shell.deployment.placeable.size()),
+        static_cast<unsigned long>(shell.deployment.fielded.size()),
+        static_cast<unsigned>(shell.deployment.capacity)
+    );
+    return true;
+}
+
 bool stand_on_campaign_encounter() {
     assert(board.campaign.has_value());
     for (unsigned step = 0; step < 8U; ++step) {
@@ -1379,11 +1417,26 @@ bool stand_on_campaign_encounter() {
             board.campaign->standing();
         if (standing.error != client::CampaignSessionError::none) return false;
         if (standing.kind == pr::CampaignNodeKind::encounter) {
+            if (!shell.deployment_approved) {
+                const client::CompanyManagement company =
+                    board.campaign->management();
+                if (company.error != client::CampaignSessionError::none) {
+                    return false;
+                }
+                if (company.has_deployment_options) {
+                    return begin_required_deployment();
+                }
+                debugf(
+                    "CHECKPOINT PYRITE_DEPLOYMENT required=0 encounter=%llu\n",
+                    standing.encounter_id
+                );
+            }
             client::CampaignSession::PreparedBoard prepared =
                 board.campaign->prepare_board();
             if (prepared.error != client::CampaignSessionError::none) return false;
             board.campaign_content = std::move(prepared.encounter.encounter);
             configure_campaign_board(board.campaign_content);
+            shell.deployment_approved = false;
             shell.phase = ShellPhase::battle;
             return true;
         }
@@ -1481,6 +1534,34 @@ void enter_shell_phase(ShellPhase phase) {
     }
 }
 
+bool toggle_deployment_member() {
+    if (shell.deployment_row >= shell.deployment.roster.size()) return false;
+    const client::RosterEntry& entry =
+        shell.deployment.roster[shell.deployment_row];
+    const bool fielded = deployment_contains(entry.member);
+    if (fielded && shell.deployment.fielded.size() <= 1U) return false;
+    const bool placeable = std::any_of(
+        shell.deployment.placeable.begin(), shell.deployment.placeable.end(),
+        [&entry](campaign::PersistentEntityId candidate) {
+            return candidate.value == entry.member.value;
+        }
+    );
+    if (!fielded && (!placeable ||
+        (shell.deployment.capacity != 0U &&
+         shell.deployment.fielded.size() >= shell.deployment.capacity))) {
+        return false;
+    }
+    const client::ManagementCommit committed =
+        board.campaign->set_fielded(entry.member, !fielded);
+    if (committed.error != client::ManagementError::none || !committed.saved ||
+        committed.save != storage::StorageError::none ||
+        !committed.application) {
+        return false;
+    }
+    shell.deployment = board.campaign->management();
+    return shell.deployment.error == client::CampaignSessionError::none;
+}
+
 bool confirm_shell_choice() {
     switch (shell.phase) {
         case ShellPhase::title:
@@ -1507,6 +1588,13 @@ bool confirm_shell_choice() {
         }
         case ShellPhase::story:
             return advance_story_beat();
+        case ShellPhase::deployment:
+            shell.deployment_approved = true;
+            return stand_on_campaign_encounter();
+        case ShellPhase::aftermath:
+            shell.aftermath = {};
+            shell.aftermath_objectives.clear();
+            return stand_on_campaign_encounter();
         case ShellPhase::battle:
             return false;
     }
@@ -1527,8 +1615,27 @@ void update_shell_input() {
     } else if (shell.phase == ShellPhase::save && shell.save_present &&
         (pressed.d_up || pressed.d_down || pressed.d_left || pressed.d_right)) {
         shell.save_choice ^= 1U;
+    } else if (shell.phase == ShellPhase::deployment &&
+               !shell.deployment.roster.empty()) {
+        if (pressed.d_up) {
+            shell.deployment_row = shell.deployment_row == 0U
+                ? shell.deployment.roster.size() - 1U
+                : shell.deployment_row - 1U;
+        } else if (pressed.d_down) {
+            shell.deployment_row =
+                (shell.deployment_row + 1U) % shell.deployment.roster.size();
+        }
+        if (pressed.a) {
+            (void)toggle_deployment_member();
+            return;
+        }
+        if (pressed.start) {
+            (void)confirm_shell_choice();
+            return;
+        }
     }
-    if (pressed.a || pressed.start) {
+    if ((pressed.a || pressed.start) &&
+        shell.phase != ShellPhase::deployment) {
         (void)confirm_shell_choice();
         return;
     }
@@ -2094,8 +2201,15 @@ bool actor_has_ability() {
     return actor != nullptr && !actor->ability_ids.empty();
 }
 
+std::size_t actor_ability_count() {
+    const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
+    return actor != nullptr ? actor->ability_ids.size() : 0U;
+}
+
 std::uint8_t action_rows() {
-    return actor_has_ability() ? 4U : 3U;
+    return static_cast<std::uint8_t>(std::min<std::size_t>(
+        actor_ability_count() + 3U, 255U
+    ));
 }
 
 void open_action_menu(sim::UnitId actor) {
@@ -2116,12 +2230,9 @@ enum class ActionChoice : std::uint8_t {
 
 ActionChoice action_choice() {
     if (battle_ui.row == 0U) return ActionChoice::attack;
-    if (actor_has_ability()) {
-        if (battle_ui.row == 1U) return ActionChoice::ability;
-        if (battle_ui.row == 2U) return ActionChoice::wait;
-    } else if (battle_ui.row == 1U) {
-        return ActionChoice::wait;
-    }
+    const std::size_t abilities = actor_ability_count();
+    if (battle_ui.row <= abilities) return ActionChoice::ability;
+    if (battle_ui.row == abilities + 1U) return ActionChoice::wait;
     return ActionChoice::cancel;
 }
 
@@ -2205,6 +2316,11 @@ bool confirm_action_choice() {
             battle_ui.phase = BattleUiPhase::attack_target;
             return true;
         case ActionChoice::ability:
+            if (battle_ui.row == 0U ||
+                battle_ui.row > actor->ability_ids.size()) {
+                return false;
+            }
+            battle_ui.ability = actor->ability_ids[battle_ui.row - 1U];
             battle_ui.phase = BattleUiPhase::ability_target;
             return true;
         case ActionChoice::wait:
@@ -2452,21 +2568,26 @@ bool finish_bell_and_advance() {
     report.final_snapshot = snapshot;
     report.objectives = snapshot.objectives;
     report.events = board.battle_events;
-    client::BattleAftermath aftermath;
-    const auto committed = board.campaign->commit_battle(report, aftermath);
+    shell.aftermath_objectives = report.objectives;
+    const auto committed = board.campaign->commit_battle(
+        report, shell.aftermath
+    );
     if (committed != client::CampaignSessionError::none) return false;
     if (board.campaign->save() != storage::StorageError::none) return false;
     shell.bell_commands = board.game.accepted_commands();
     shell.bell_combats = combat.exchanges;
     shell.bell_committed = true;
     assert(board.saves->contains("steel_cedar"));
-    if (!stand_on_campaign_encounter()) return false;
-    if (shell.phase != ShellPhase::story) {
-        return false;
-    }
+    shell.phase = ShellPhase::aftermath;
+    shell.next_automatic_frame = frame_count + 90U;
     debugf(
-        "CHECKPOINT PYRITE_BELL_COMMITTED bell_commands=%lu enemy=%lu "
-        "events=%lu slot_bytes=%lu\n",
+        "CHECKPOINT PYRITE_AFTERMATH outcome=%u objectives=%lu "
+        "fallen=%lu recruited=%lu bell_commands=%lu enemy=%lu events=%lu "
+        "slot_bytes=%lu\n",
+        static_cast<unsigned>(shell.aftermath.outcome),
+        static_cast<unsigned long>(shell.aftermath_objectives.size()),
+        static_cast<unsigned long>(shell.aftermath.fallen.size()),
+        static_cast<unsigned long>(shell.aftermath.recruited.size()),
         static_cast<unsigned long>(shell.bell_commands),
         static_cast<unsigned long>(shell.bell_enemy_commands),
         static_cast<unsigned long>(report.events.size()),
@@ -2886,21 +3007,34 @@ void draw_battle_ui() {
     P64::Debug::printStart();
     if (battle_ui.phase == BattleUiPhase::action) {
         P64::Debug::printf(190, 140, "ACTION");
-        std::uint8_t row = 0U;
-        P64::Debug::printf(
-            190, 160, "%s ATTACK", battle_ui.row == row++ ? ">" : " "
-        );
-        if (actor_has_ability()) {
-            P64::Debug::printf(
-                190, 176, "%s ABILITY", battle_ui.row == row++ ? ">" : " "
-            );
+        const sim::UnitSnapshot* menu_actor = find_unit(battle_ui.actor);
+        const std::size_t total = action_rows();
+        const std::size_t selected = battle_ui.row;
+        const std::size_t first = selected >= 4U ? selected - 3U : 0U;
+        const std::size_t last = std::min(first + 4U, total);
+        const std::size_t abilities = actor_ability_count();
+        for (std::size_t row = first; row < last; ++row) {
+            const int y = 158 + static_cast<int>(row - first) * 17;
+            const char* marker = selected == row ? ">" : " ";
+            if (row == 0U) {
+                P64::Debug::printf(190, y, "%s ATTACK", marker);
+            } else if (row <= abilities && menu_actor != nullptr) {
+                const sim::ContentId ability = menu_actor->ability_ids[row - 1U];
+                const std::string_view name = pr::content_name(
+                    board.runtime.package(),
+                    package_format::SectionType::abilities, ability
+                );
+                P64::Debug::printf(
+                    190, y, "%s %.*s", marker,
+                    static_cast<int>(std::min<std::size_t>(name.size(), 14U)),
+                    name.data()
+                );
+            } else if (row == abilities + 1U) {
+                P64::Debug::printf(190, y, "%s WAIT", marker);
+            } else {
+                P64::Debug::printf(190, y, "%s CANCEL", marker);
+            }
         }
-        P64::Debug::printf(
-            190, 192, "%s WAIT", battle_ui.row == row++ ? ">" : " "
-        );
-        P64::Debug::printf(
-            190, 208, "%s CANCEL", battle_ui.row == row ? ">" : " "
-        );
         rdpq_mode_pop();
         return;
     }
@@ -3065,6 +3199,65 @@ void draw_shell() {
                 draw_wrapped_story(line.text);
                 P64::Debug::printf(220, 194, "A NEXT");
             }
+            break;
+        }
+        case ShellPhase::deployment: {
+            P64::Debug::printf(76, 88, "DEPLOYMENT %lu/%u",
+                static_cast<unsigned long>(shell.deployment.fielded.size()),
+                static_cast<unsigned>(shell.deployment.capacity));
+            const std::size_t first = shell.deployment_row >= 4U
+                ? shell.deployment_row - 3U : 0U;
+            const std::size_t last = std::min(
+                first + 4U, shell.deployment.roster.size()
+            );
+            for (std::size_t row = first; row < last; ++row) {
+                const client::RosterEntry& entry =
+                    shell.deployment.roster[row];
+                P64::Debug::printf(
+                    48, 116 + static_cast<int>(row - first) * 18,
+                    "%s %s %.*s",
+                    shell.deployment_row == row ? ">" : " ",
+                    deployment_contains(entry.member) ? "[X]" : "[ ]",
+                    static_cast<int>(std::min<std::size_t>(
+                        entry.name.size(), 22U
+                    )), entry.name.c_str()
+                );
+            }
+            P64::Debug::printf(65, 194, "A TOGGLE  START DEPLOY");
+            break;
+        }
+        case ShellPhase::aftermath: {
+            P64::Debug::printf(
+                91, 88, "%s",
+                shell.aftermath.outcome == sim::Outcome::first_side_won
+                    ? "VICTORY" : "DEFEAT"
+            );
+            const std::size_t count = std::min<std::size_t>(
+                shell.aftermath_objectives.size(), 3U
+            );
+            for (std::size_t row = 0; row < count; ++row) {
+                const sim::ObjectiveResult& objective =
+                    shell.aftermath_objectives[row];
+                const std::string_view name = pr::content_name(
+                    board.runtime.package(),
+                    package_format::SectionType::objectives, objective.id
+                );
+                const char* result = objective.state == sim::ObjectiveState::satisfied
+                    ? "CLEAR" : objective.state == sim::ObjectiveState::failed
+                        ? "FAILED" : "PENDING";
+                P64::Debug::printf(
+                    42, 116 + static_cast<int>(row) * 18,
+                    "%.*s  %s",
+                    static_cast<int>(std::min<std::size_t>(name.size(), 21U)),
+                    name.data(), result
+                );
+            }
+            P64::Debug::printf(
+                42, 176, "FALLEN %lu  JOINED %lu",
+                static_cast<unsigned long>(shell.aftermath.fallen.size()),
+                static_cast<unsigned long>(shell.aftermath.recruited.size())
+            );
+            P64::Debug::printf(202, 194, "A NEXT");
             break;
         }
         case ShellPhase::battle:
