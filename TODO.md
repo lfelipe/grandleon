@@ -89,6 +89,22 @@ roadmap work.
   terrain depth and variety, camera composition, movement and attack
   animation, effects, UI clarity, close-up scenes, and measured performance on
   original-style hardware.
+  - [ ] Replace the current flat top-down tactical board with a depth-bearing
+    production view on both consoles. Start from the proven isometric textured
+    terrain, elevation faces, grounded shadows, and recognizable Godot-derived
+    character cutouts; do not bring back the unrecognizable low-poly character
+    experiments or the floating castle cutaway.
+  - [ ] Judge console graphics from the ordinary release artifact, driven from
+    title screen through save, story, real campaign movement, and combat. Record
+    the reviewed ROM or disc hash and reject capture-only viewers as release
+    evidence. Compare composition, material identity, unit silhouette, terrain
+    depth, UI overlap, animation readability, and stable frame time against
+    representative tactical games on each machine.
+  - [ ] Evaluate Pyrite/Tiny3D as the N64 production runtime, including the
+    libdragon Preview toolchain, real-RSP emulator and hardware path, generated
+    scene data, ROM/RAM/frame budgets, and the cost of hosting Grandleon's
+    existing simulation inside Pyrite's application shell. Adopt it only if a
+    playable Steel and Cedar slice materially improves the real ROM.
   - [x] Establish the shared console UI kit with framed tactical action panels,
     focus rows, platform-correct button badges, owner accents, concise labels,
     and health meters on Nintendo 64 and PlayStation. It uses only bounded flat
