@@ -34,6 +34,16 @@ fi
 "$package_root/scripts/stage-inputs.sh" \
     "$package_root" "$repo_root" "$output_dir"
 
+"$host_cxx" -std=c++20 -Wall -Wextra -Werror -pedantic \
+    -I"$repo_root/engine/core/include" \
+    -I"$repo_root/engine/simulation/include" \
+    "$package_root/tests/gameplay_slice_test.cpp" \
+    "$package_root/project/src/user/GameplaySlice.cpp" \
+    "$output_dir/host-build/libgrandleon_simulation.a" \
+    "$output_dir/host-build/libgrandleon_core.a" \
+    -o "$output_dir/gameplay_slice_test"
+"$output_dir/gameplay_slice_test"
+
 n64_build="$output_dir/grandleon-n64"
 N64_INST="$n64_inst" cmake \
     -S "$repo_root" \

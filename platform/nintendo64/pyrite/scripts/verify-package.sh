@@ -8,7 +8,7 @@ fi
 package_root=$1
 
 for file in \
-    README.md THIRD_PARTY.md VALIDATION.md versions.env \
+    README.md PARITY.md THIRD_PARTY.md VALIDATION.md versions.env \
     project/project.p64proj project/Makefile.custom \
     project/asset-config/material_atlas.png.conf \
     project/asset-config/soft_shadow.png.conf \
@@ -29,9 +29,10 @@ for file in \
     project/src/user/GpkRuntimeAdapter.hpp \
     project/src/user/GpkRuntimeAdapter.cpp \
     project/src/user/SteelCedarBoard.cpp \
-    tests/board_camera_test.cpp \
+    tests/board_camera_test.cpp tests/gameplay_slice_test.cpp \
     scripts/build.sh scripts/stage-inputs.sh scripts/fetch-pyrite.sh \
     scripts/generate-soft-shadow.py \
+    scripts/generate-audio.py \
     scripts/write-asset-config.py \
     scripts/export-toolchain.sh scripts/check-pins.sh \
     toolchain/Containerfile
@@ -51,6 +52,8 @@ for script in "$package_root"/scripts/*.sh; do
 done
 python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __import__("sys").argv[1], "exec")' \
     "$package_root/scripts/generate-soft-shadow.py"
+python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __import__("sys").argv[1], "exec")' \
+    "$package_root/scripts/generate-audio.py"
 python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __import__("sys").argv[1], "exec")' \
     "$package_root/scripts/write-asset-config.py"
 grep -q 'eb8545428f1059841c844169b7b307535e0bfeb2' \

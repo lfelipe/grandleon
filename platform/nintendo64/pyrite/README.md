@@ -66,15 +66,18 @@ therefore share the same input and simulation path instead of moving
 display-only actors.
 
 On the launch screens, use the D-pad to choose and A or START to confirm; A
-also advances each authored story line. In battle, use the D-pad to move the
-cursor and A to select and move. A on the selected character opens a compact
-action panel for Attack, every equipped ability, Wait, or Cancel. Attack
+also advances each authored story line. One-player and two-player progress use
+separate SRAM slots. In battle, each local player uses their own controller,
+cursor and authored unit ownership. Use the D-pad to move the cursor and A to
+select and move. A on the selected character, or Z while one is selected,
+opens a compact action panel for Attack, every equipped ability, Wait, or Cancel. Attack
 and ability targeting show the authoritative hit, damage, counter, restoration,
 area and refusal forecast before A commits the real simulation command; the
-result panel then reports the actual hit, miss, healing or refusal. Z remains a
-quick Wait shortcut and B backs out. START toggles the optional combat
-presentation, L toggles its reduced-motion entry/exit, B skips an active
-presentation, and holding R runs it at 3x. Movement follows the authoritative
+result panel then reports the actual hit, miss, healing or refusal. B backs
+out. START opens persistent battle settings for the close view, reduced
+motion, audio, FPS display and Help. C-Up toggles FPS directly, L toggles
+reduced motion, B skips an active presentation, and holding R runs it at 3x.
+Movement follows the authoritative
 multi-cell route at ten frames per cell, with the generated walk pose and
 terrain-height interpolation rather than sliding directly to the already-landed
 simulation position.
@@ -102,8 +105,11 @@ ROM, but this is still not full player-facing parity. A packaged deployment
 screen is entered only when the encounter authors a deployment rule; Steel and
 Cedar's current fixed formations correctly skip it. Objective results,
 fallen/recruited counts and the campaign outcome are shown after every
-committed battle. In-battle conversations, full audio and complete art coverage
-for every late-campaign unit, terrain and landmark remain.
+committed battle. Packaged stage-open, character-fall and character-talk
+moments use the same dialogue loader during battle. A small original generated
+audio set provides ambience plus UI, impact and victory cues without tracking
+binary audio sources. Complete art and close-stage coverage for every exported
+unit, terrain and landmark remain.
 The bounded review driver uses the real tactics policy for both sides to finish
 each battle and presents one complete optional close handoff per encounter; it
 is test scaffolding, not a second simulation. Physical player attacks continue
@@ -130,4 +136,5 @@ with C-Up during development.
 
 The Pyrite editor is not part of the runtime workflow. The checked-in scene is
 a small declarative boot shell; the official headless CLI generates and builds
-the engine project. See `THIRD_PARTY.md` before distribution.
+the engine project. See `PARITY.md` for the fail-closed cutover checklist and
+`THIRD_PARTY.md` before distribution.

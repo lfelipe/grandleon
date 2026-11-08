@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "debug/debugDraw.h"
+#include "audio/audioManager.h"
 #include "BoardShadows.hpp"
 #include "BoardCamera.hpp"
 #include "BoardSurroundings.hpp"
@@ -56,7 +57,8 @@ constexpr std::size_t kTreeVertexCount = 12U;
 constexpr std::size_t kMaxTrees = 128U;
 constexpr std::size_t kUnitVertexCount = 4U;
 constexpr std::size_t kMaxUnits = 32U;
-constexpr std::size_t kCursorVertexCount = 16U;
+constexpr std::size_t kCursorVerticesPerPlayer = 16U;
+constexpr std::size_t kCursorVertexCount = kCursorVerticesPerPlayer * 2U;
 constexpr std::size_t kMaxLandmarkVertices = 40U;
 
 constexpr auto kSteelAndCedar =
@@ -133,11 +135,17 @@ struct BoardResources final {
     UnitArt march_sword{};
     UnitArt retainer{};
     UnitArt archer{};
+    wav64_t ambience{};
+    wav64_t ui_cue{};
+    wav64_t impact_cue{};
+    wav64_t victory_cue{};
+    P64::Audio::Handle ambience_handle{};
     std::size_t elevation_vertex_count{};
     std::size_t apron_cell_count{};
     std::size_t tree_count{};
     std::size_t landmark_vertex_count{};
     std::size_t unit_count{};
+    std::size_t cursor_vertex_count{kCursorVerticesPerPlayer};
     sim::UnitId rowan_id{};
     sim::UnitId tomas_id{};
     std::int16_t rowan_x{-1};
@@ -186,6 +194,7 @@ enum class ReplayPhase : std::uint8_t {
 
 enum class ShellPhase : std::uint8_t {
     title,
+    help,
     players,
     save,
     story,
@@ -199,6 +208,7 @@ struct ShellState final {
     ShellPhase phase{ShellPhase::title};
     std::uint8_t local_players{1U};
     std::uint8_t player_choice{};
+    std::uint8_t title_row{};
     std::uint8_t save_choice{};
     std::uint32_t next_automatic_frame{75U};
     bool save_present{};
@@ -214,6 +224,7 @@ struct ShellState final {
     bool campaign_advanced_checkpoint{};
     bool allow_one{true};
     bool allow_two{};
+    bool second_connected{};
     bool deployment_approved{};
     std::size_t deployment_row{};
     std::size_t bell_commands{};
@@ -230,6 +241,8 @@ struct ShellState final {
 
 enum class BattleUiPhase : std::uint8_t {
     board,
+    system,
+    help,
     action,
     attack_target,
     ability_target,
@@ -240,6 +253,7 @@ struct BattleUiState final {
     BattleUiPhase phase{BattleUiPhase::board};
     sim::UnitId actor{};
     sim::ContentId ability{};
+    std::uint8_t player{};
     std::uint8_t row{};
     std::uint32_t result_until{};
     sim::CommandType result_command{sim::CommandType::wait};
@@ -247,6 +261,15 @@ struct BattleUiState final {
     std::int16_t result_amount{};
     bool result_missed{};
     bool result_restored{};
+};
+
+struct BattleMomentState final {
+    std::vector<std::uint64_t> dialogue_ids;
+    std::size_t dialogue_index{};
+    std::size_t line_index{};
+    std::uint32_t next_automatic_frame{};
+    pr::Dialogue dialogue;
+    bool active{};
 };
 
 struct ReplayState final {
@@ -333,6 +356,7 @@ ReplayState replay;
 CombatPresentation combat;
 ShellState shell;
 BattleUiState battle_ui;
+BattleMomentState battle_moment;
 CameraPose current_camera{kTacticalCamera};
 std::uint32_t frame_count = 0;
 std::uint64_t sample_start = 0;
@@ -345,10 +369,65 @@ bool verdict_reported = false;
 std::uint32_t performance_frames = 0;
 std::uint8_t restore_checkpoint_delay = 0U;
 bool debug_hud = false;
+bool audio_enabled = true;
 float camera_min_x = 0.0F;
 float camera_max_x = 0.0F;
 float camera_min_z = 0.0F;
 float camera_max_z = 0.0F;
+
+constexpr std::string_view kSettingsSlot = "pyrite_settings";
+constexpr std::array<std::uint8_t, 4> kSettingsMagic{'P', 'Y', 'S', 1U};
+
+const char* campaign_slot() {
+    return shell.local_players == 2U ? "steel_cedar_2p" : "steel_cedar_1p";
+}
+
+void save_user_settings() {
+    if (!board.saves) return;
+    std::vector<std::uint8_t> bytes(kSettingsMagic.begin(), kSettingsMagic.end());
+    std::uint8_t flags = 0U;
+    if (combat.enabled) flags |= 1U << 0U;
+    if (combat.reduced_motion) flags |= 1U << 1U;
+    if (debug_hud) flags |= 1U << 2U;
+    if (audio_enabled) flags |= 1U << 3U;
+    bytes.push_back(flags);
+    assertf(
+        board.saves->write(kSettingsSlot, bytes) == storage::StorageError::none,
+        "Pyrite settings could not be saved"
+    );
+}
+
+void load_user_settings() {
+    if (!board.saves || !board.saves->contains(kSettingsSlot)) return;
+    const storage::StorageRead saved = board.saves->read(kSettingsSlot);
+    if (!saved || saved.bytes.size() != kSettingsMagic.size() + 1U ||
+        !std::equal(
+            kSettingsMagic.begin(), kSettingsMagic.end(), saved.bytes.begin()
+        )) {
+        return;
+    }
+    const std::uint8_t flags = saved.bytes.back();
+    combat.enabled = (flags & (1U << 0U)) != 0U;
+    combat.reduced_motion = (flags & (1U << 1U)) != 0U;
+    debug_hud = (flags & (1U << 2U)) != 0U;
+    audio_enabled = (flags & (1U << 3U)) != 0U;
+}
+
+void apply_audio_setting() {
+    P64::AudioManager::setMasterVolume(audio_enabled ? 0.72F : 0.0F);
+}
+
+void play_ui_cue() {
+    if (audio_enabled) (void)P64::AudioManager::play2D(&board.ui_cue);
+}
+
+void play_impact_cue() {
+    if (audio_enabled) (void)P64::AudioManager::play2D(&board.impact_cue);
+}
+
+void play_victory_cue() {
+    if (audio_enabled) (void)P64::AudioManager::play2D(&board.victory_cue);
+}
 
 constexpr std::uint32_t pack_rgba(
     std::uint8_t red,
@@ -465,7 +544,9 @@ CameraPose tactical_camera_for(sim::Position requested) {
 
 void update_tactical_camera() {
     if (combat.active) return;
-    const CameraPose wanted = tactical_camera_for(board.game.cursor());
+    const CameraPose wanted = tactical_camera_for(
+        board.game.cursor(board.game.active_player())
+    );
     constexpr float follow = 0.16F;
     const CameraPose next{
         mix(current_camera.eye_x, wanted.eye_x, follow),
@@ -1128,27 +1209,42 @@ void cursor_quad(
 }
 
 void build_cursor_vertices() {
-    const sim::Position cursor = board.game.cursor();
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
-    const std::size_t terrain_index =
-        static_cast<std::size_t>(cursor.y) * width +
-        static_cast<std::size_t>(cursor.x);
-    const std::int16_t floor = static_cast<std::int16_t>(
-        (terrain_index < board.content->terrain.size()
-             ? terrain_lift(board.content->terrain[terrain_index]) : 0) + 3
-    );
-    const std::int16_t cx = world_x(cursor.x, width);
-    const std::int16_t cz = world_z(cursor.y, height);
     constexpr std::int16_t outer = kHalfCell - 2;
     constexpr std::int16_t inner = kHalfCell - 6;
-    const std::uint32_t colour = board.game.selected() == 0
-        ? pack_rgba(246U, 190U, 58U)
-        : pack_rgba(107U, 221U, 255U);
-    cursor_quad(0U, cx - outer, cz - outer, cx + outer, cz - inner, floor, colour);
-    cursor_quad(4U, cx - outer, cz + inner, cx + outer, cz + outer, floor, colour);
-    cursor_quad(8U, cx - outer, cz - inner, cx - inner, cz + inner, floor, colour);
-    cursor_quad(12U, cx + inner, cz - inner, cx + outer, cz + inner, floor, colour);
+    board.cursor_vertex_count = static_cast<std::size_t>(
+        board.game.local_players()
+    ) * kCursorVerticesPerPlayer;
+    for (std::uint8_t player = 0U; player < board.game.local_players(); ++player) {
+        const sim::Position cursor = board.game.cursor(player);
+        const std::size_t terrain_index =
+            static_cast<std::size_t>(cursor.y) * width +
+            static_cast<std::size_t>(cursor.x);
+        const std::int16_t floor = static_cast<std::int16_t>(
+            (terrain_index < board.content->terrain.size()
+                 ? terrain_lift(board.content->terrain[terrain_index]) : 0) +
+            3 + player
+        );
+        const std::int16_t cx = world_x(cursor.x, width);
+        const std::int16_t cz = world_z(cursor.y, height);
+        const std::size_t first =
+            static_cast<std::size_t>(player) * kCursorVerticesPerPlayer;
+        const bool selected = board.game.selected(player) != 0U;
+        const std::uint32_t colour = player == 0U
+            ? (selected ? pack_rgba(107U, 221U, 255U)
+                        : pack_rgba(246U, 190U, 58U))
+            : (selected ? pack_rgba(255U, 139U, 194U)
+                        : pack_rgba(190U, 116U, 255U));
+        cursor_quad(first + 0U, cx - outer, cz - outer,
+            cx + outer, cz - inner, floor, colour);
+        cursor_quad(first + 4U, cx - outer, cz + inner,
+            cx + outer, cz + outer, floor, colour);
+        cursor_quad(first + 8U, cx - outer, cz - inner,
+            cx - inner, cz + inner, floor, colour);
+        cursor_quad(first + 12U, cx + inner, cz - inner,
+            cx + outer, cz + inner, floor, colour);
+    }
 }
 
 void load_runtime_board() {
@@ -1263,6 +1359,10 @@ void load_runtime_board() {
         sprite_load("rom:/archer_close_attack.sprite"),
         sprite_load("rom:/archer_close_hurt.sprite"),
     };
+    wav64_open(&board.ambience, "rom:/ambience.wav64");
+    wav64_open(&board.ui_cue, "rom:/ui_cue.wav64");
+    wav64_open(&board.impact_cue, "rom:/impact_cue.wav64");
+    wav64_open(&board.victory_cue, "rom:/victory_cue.wav64");
     const auto complete_art = [](const UnitArt& art) {
         return art.idle && art.moving && art.close_idle && art.attack && art.hurt;
     };
@@ -1303,6 +1403,90 @@ void load_runtime_board() {
     );
 }
 
+bool load_battle_moment_dialogue() {
+    while (battle_moment.dialogue_index <
+           battle_moment.dialogue_ids.size()) {
+        const pr::DialogueLoadResult loaded = pr::load_dialogue(
+            board.runtime.package(),
+            battle_moment.dialogue_ids[battle_moment.dialogue_index]
+        );
+        if (loaded && !loaded.dialogue.lines.empty()) {
+            battle_moment.dialogue = loaded.dialogue;
+            battle_moment.line_index = 0U;
+            battle_moment.active = true;
+            battle_moment.next_automatic_frame = frame_count + 75U;
+            debugf(
+                "CHECKPOINT PYRITE_BATTLE_MOMENT dialogue=%llu lines=%lu\n",
+                battle_moment.dialogue.id,
+                static_cast<unsigned long>(battle_moment.dialogue.lines.size())
+            );
+            return true;
+        }
+        ++battle_moment.dialogue_index;
+    }
+    battle_moment = {};
+    return false;
+}
+
+void queue_battle_moments(
+    pr::MomentTrigger trigger,
+    std::uint64_t placement_id = 0U,
+    bool reset = false
+) {
+    if (reset) battle_moment = {};
+    for (const pr::EncounterMoment& moment : board.content->moments) {
+        if (moment.trigger != trigger) continue;
+        if (moment.placement_id != 0U && moment.placement_id != placement_id) {
+            continue;
+        }
+        battle_moment.dialogue_ids.push_back(moment.dialogue_id);
+    }
+}
+
+bool advance_battle_moment() {
+    if (!battle_moment.active) return false;
+    play_ui_cue();
+    ++battle_moment.line_index;
+    if (battle_moment.line_index < battle_moment.dialogue.lines.size()) {
+        battle_moment.next_automatic_frame = frame_count + 75U;
+        return true;
+    }
+    ++battle_moment.dialogue_index;
+    return load_battle_moment_dialogue();
+}
+
+void update_battle_moment() {
+    if (!battle_moment.active && !battle_moment.dialogue_ids.empty() &&
+        !combat.active) {
+        (void)load_battle_moment_dialogue();
+    }
+    if (battle_moment.active && !replay.user_took_over &&
+        frame_count >= battle_moment.next_automatic_frame) {
+        (void)advance_battle_moment();
+    }
+}
+
+void queue_event_moments(const std::vector<sim::Event>& events) {
+    for (const sim::Event& event : events) {
+        pr::MomentTrigger trigger{};
+        if (event.type == sim::EventType::unit_defeated) {
+            trigger = pr::MomentTrigger::character_falls;
+        } else if (event.type == sim::EventType::unit_talked) {
+            trigger = pr::MomentTrigger::character_talked;
+        } else {
+            continue;
+        }
+        std::uint64_t placement = 0U;
+        for (const pr::PlacementIdentity& identity : board.content->placements) {
+            if (identity.unit_id == event.unit_id) {
+                placement = identity.source_key_id;
+                break;
+            }
+        }
+        if (placement != 0U) queue_battle_moments(trigger, placement);
+    }
+}
+
 void configure_campaign_board(const pr::EncounterLoadResult& content) {
     board.content = &content;
     board.rowan_id = 0U;
@@ -1319,7 +1503,9 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     assert(board.rowan_id != 0U && board.tomas_id != 0U);
     board.game = {};
     assertf(
-        board.game.open(content.definition, board.rowan_id),
+        board.game.open(
+            content.definition, board.rowan_id, shell.local_players
+        ),
         "Campaign encounter could not be created"
     );
     const sim::UnitSnapshot* rowan = nullptr;
@@ -1373,6 +1559,8 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     build_landmark_vertices();
     build_unit_vertices();
     build_cursor_vertices();
+    queue_battle_moments(pr::MomentTrigger::stage_opens, 0U, true);
+    (void)load_battle_moment_dialogue();
     debugf(
         "GRANDLEON_PYRITE_CAMPAIGN_BOARD encounter=%llu map=%llu size=%ux%u "
         "players=%u stage=%lu apron=%lu\n",
@@ -1534,8 +1722,8 @@ bool advance_story_beat() {
 
 bool begin_campaign(bool resume) {
     assert(board.saves.has_value());
-    if (!resume && board.saves->contains("steel_cedar")) {
-        if (board.saves->erase("steel_cedar") != storage::StorageError::none) {
+    if (!resume && board.saves->contains(campaign_slot())) {
+        if (board.saves->erase(campaign_slot()) != storage::StorageError::none) {
             return false;
         }
     }
@@ -1545,7 +1733,7 @@ bool begin_campaign(bool resume) {
         board.runtime.package(), shell.local_players
     );
     client::CampaignSessionOptions options;
-    options.slot = "steel_cedar";
+    options.slot = campaign_slot();
     options.resume = resume;
     options.player_side = sim::Side::first;
     options.local_players = shell.local_players;
@@ -1583,7 +1771,7 @@ void enter_shell_phase(ShellPhase phase) {
     shell.phase = phase;
     shell.next_automatic_frame = frame_count + 75U;
     if (phase == ShellPhase::save) {
-        shell.save_present = board.saves->contains("steel_cedar");
+        shell.save_present = board.saves->contains(campaign_slot());
         shell.save_choice = shell.save_present ? 1U : 0U;
     }
 }
@@ -1617,12 +1805,24 @@ bool toggle_deployment_member() {
 }
 
 bool confirm_shell_choice() {
+    play_ui_cue();
     switch (shell.phase) {
         case ShellPhase::title:
+            if (shell.title_row == 1U) {
+                enter_shell_phase(ShellPhase::help);
+                return true;
+            }
             enter_shell_phase(ShellPhase::players);
             debugf("CHECKPOINT PYRITE_TITLE\n");
             return true;
+        case ShellPhase::help:
+            enter_shell_phase(ShellPhase::title);
+            return true;
         case ShellPhase::players:
+            shell.second_connected = joypad_is_connected(JOYPAD_PORT_2);
+            if (shell.player_choice == 1U && !shell.second_connected) {
+                return false;
+            }
             shell.local_players = shell.player_choice == 0U ? 1U : 2U;
             enter_shell_phase(ShellPhase::save);
             debugf(
@@ -1662,12 +1862,21 @@ void update_shell_input() {
         return;
     }
     const joypad_buttons_t pressed = joypad_get_buttons_pressed(JOYPAD_PORT_1);
+    shell.second_connected = joypad_is_connected(JOYPAD_PORT_2);
     const bool physical = pressed.a || pressed.start || pressed.d_up ||
-        pressed.d_down || pressed.d_left || pressed.d_right;
+        pressed.d_down || pressed.d_left || pressed.d_right || pressed.b;
     if (physical) shell.user_took_over = true;
-    if (shell.phase == ShellPhase::players &&
+    if (shell.phase == ShellPhase::title &&
         (pressed.d_up || pressed.d_down || pressed.d_left || pressed.d_right)) {
-        if (shell.allow_one && shell.allow_two) shell.player_choice ^= 1U;
+        shell.title_row ^= 1U;
+    } else if (shell.phase == ShellPhase::help && pressed.b) {
+        enter_shell_phase(ShellPhase::title);
+        return;
+    } else if (shell.phase == ShellPhase::players &&
+        (pressed.d_up || pressed.d_down || pressed.d_left || pressed.d_right)) {
+        if (shell.allow_one && shell.allow_two && shell.second_connected) {
+            shell.player_choice ^= 1U;
+        }
     } else if (shell.phase == ShellPhase::save && shell.save_present &&
         (pressed.d_up || pressed.d_down || pressed.d_left || pressed.d_right)) {
         shell.save_choice ^= 1U;
@@ -1898,8 +2107,11 @@ void draw_cursor() {
     t3d_state_set_drawflags(
         static_cast<T3DDrawFlags>(T3D_FLAG_SHADED | T3D_FLAG_DEPTH)
     );
-    t3d_vert_load(board.cursor, 0, kCursorVertexCount);
-    for (std::uint8_t first = 0; first < kCursorVertexCount; first += 4U) {
+    t3d_vert_load(
+        board.cursor, 0, static_cast<std::uint32_t>(board.cursor_vertex_count)
+    );
+    for (std::uint8_t first = 0; first < board.cursor_vertex_count;
+         first += 4U) {
         t3d_tri_draw(first + 0U, first + 1U, first + 2U);
         t3d_tri_draw(first + 0U, first + 2U, first + 3U);
     }
@@ -2218,20 +2430,22 @@ void remember_motion() {
 void remember_transition_events() {
     const gp::GameplaySlice::Transition& transition = board.game.transition();
     if (!transition.accepted) return;
+    queue_event_moments(transition.events);
     board.battle_events.insert(
         board.battle_events.end(), transition.events.begin(),
         transition.events.end()
     );
 }
 
-bool issue(gp::GameplaySlice::Action action) {
+bool issue(gp::GameplaySlice::Action action, std::uint8_t player = 0U) {
     if (action == gp::GameplaySlice::Action::confirm &&
-        board.game.selected() != 0U) {
+        board.game.selected(player) != 0U) {
         plan_motion(
-            board.game.snapshot(), board.game.selected(), board.game.cursor()
+            board.game.snapshot(), board.game.selected(player),
+            board.game.cursor(player)
         );
     }
-    const bool handled = board.game.input(action);
+    const bool handled = board.game.input(action, player);
     remember_transition_events();
     remember_motion();
     build_cursor_vertices();
@@ -2269,12 +2483,13 @@ std::uint8_t action_rows() {
     ));
 }
 
-void open_action_menu(sim::UnitId actor) {
+void open_action_menu(sim::UnitId actor, std::uint8_t player = 0U) {
     const sim::UnitSnapshot* unit = find_unit(actor);
     if (unit == nullptr || !sim::on_board(*unit) || unit->has_acted) return;
     battle_ui = {};
     battle_ui.phase = BattleUiPhase::action;
     battle_ui.actor = actor;
+    battle_ui.player = player;
     if (!unit->ability_ids.empty()) battle_ui.ability = unit->ability_ids.front();
 }
 
@@ -2294,8 +2509,9 @@ ActionChoice action_choice() {
 }
 
 void close_action_menu() {
+    const std::uint8_t player = battle_ui.player;
     battle_ui = {};
-    (void)issue(gp::GameplaySlice::Action::cancel);
+    (void)issue(gp::GameplaySlice::Action::cancel, player);
 }
 
 bool apply_battle_command(
@@ -2309,7 +2525,7 @@ bool apply_battle_command(
         ? *actor : sim::UnitSnapshot{};
     const sim::UnitSnapshot target_before = target != nullptr
         ? *target : sim::UnitSnapshot{};
-    const bool accepted = board.game.apply(command);
+    const bool accepted = board.game.apply(command, battle_ui.player);
     battle_ui.phase = BattleUiPhase::result;
     battle_ui.result_command = command.type;
     battle_ui.result_error = board.game.transition().error;
@@ -2318,6 +2534,10 @@ bool apply_battle_command(
     battle_ui.result_restored = false;
     battle_ui.result_until = frame_count + 75U;
     if (!accepted) return false;
+    if (command.type == sim::CommandType::attack ||
+        command.type == sim::CommandType::ability) {
+        play_impact_cue();
+    }
     remember_transition_events();
     remember_motion();
     for (const sim::Event& event : board.game.transition().events) {
@@ -2395,7 +2615,9 @@ bool confirm_target() {
     const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
     if (actor == nullptr) return false;
     if (battle_ui.phase == BattleUiPhase::attack_target) {
-        const sim::UnitSnapshot* target = unit_at(board.game.cursor());
+        const sim::UnitSnapshot* target = unit_at(
+            board.game.cursor(battle_ui.player)
+        );
         if (target == nullptr) return false;
         const sim::AttackForecast forecast = sim::forecast_attack(
             board.game.snapshot(), actor->id, target->id
@@ -2407,15 +2629,19 @@ bool confirm_target() {
         });
     }
     if (battle_ui.phase == BattleUiPhase::ability_target) {
-        const sim::UnitSnapshot* target = unit_at(board.game.cursor());
+        const sim::UnitSnapshot* target = unit_at(
+            board.game.cursor(battle_ui.player)
+        );
         const sim::AbilityForecast forecast = sim::forecast_ability(
             board.game.snapshot(), actor->id, battle_ui.ability,
-            board.game.cursor(), target != nullptr ? target->id : 0U,
+            board.game.cursor(battle_ui.player),
+            target != nullptr ? target->id : 0U,
             board.game.encounter().abilities()
         );
         if (!forecast) return false;
         return apply_battle_command({
-            sim::CommandType::ability, actor->id, board.game.cursor(), 0U,
+            sim::CommandType::ability, actor->id,
+            board.game.cursor(battle_ui.player), 0U,
             battle_ui.ability, 0U, 0U,
         });
     }
@@ -2431,18 +2657,101 @@ bool nudge_toward(sim::Position destination) {
     return false;
 }
 
-bool physical_input() {
-    const joypad_buttons_t pressed = joypad_get_buttons_pressed(JOYPAD_PORT_1);
+constexpr std::uint8_t kSystemRows = 6U;
+
+void open_system_menu(std::uint8_t player) {
+    battle_ui = {};
+    battle_ui.phase = BattleUiPhase::system;
+    battle_ui.player = player;
+}
+
+bool confirm_system_choice() {
+    play_ui_cue();
+    switch (battle_ui.row) {
+        case 0U:
+            battle_ui = {};
+            return true;
+        case 1U:
+            combat.enabled = !combat.enabled;
+            save_user_settings();
+            return true;
+        case 2U:
+            combat.reduced_motion = !combat.reduced_motion;
+            save_user_settings();
+            return true;
+        case 3U:
+            audio_enabled = !audio_enabled;
+            apply_audio_setting();
+            save_user_settings();
+            return true;
+        case 4U:
+            debug_hud = !debug_hud;
+            save_user_settings();
+            return true;
+        case 5U:
+            battle_ui.phase = BattleUiPhase::help;
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool physical_input_for(
+    std::uint8_t player,
+    const joypad_buttons_t& pressed
+) {
+    if (battle_moment.active) {
+        if (pressed.a || pressed.start) {
+            replay.user_took_over = true;
+            return advance_battle_moment();
+        }
+        return false;
+    }
     if (combat.active) {
         if (pressed.b) finish_combat(true);
-        if (pressed.l) combat.reduced_motion = !combat.reduced_motion;
+        if (pressed.l) {
+            combat.reduced_motion = !combat.reduced_motion;
+            save_user_settings();
+        }
         return pressed.b || pressed.l || pressed.r;
     }
     if (battle_ui.phase == BattleUiPhase::result) {
+        if (player != battle_ui.player) return false;
         if (pressed.a || pressed.b) battle_ui = {};
         return pressed.a || pressed.b;
     }
+    if (battle_ui.phase == BattleUiPhase::help) {
+        if (player != battle_ui.player) return false;
+        if (pressed.a || pressed.b || pressed.start) {
+            battle_ui.phase = BattleUiPhase::system;
+            return true;
+        }
+        return false;
+    }
+    if (battle_ui.phase == BattleUiPhase::system) {
+        if (player != battle_ui.player) return false;
+        if (!pressed.d_up && !pressed.d_down && !pressed.a && !pressed.b &&
+            !pressed.start) {
+            return false;
+        }
+        replay.user_took_over = true;
+        if (pressed.d_up) {
+            battle_ui.row = battle_ui.row == 0U
+                ? kSystemRows - 1U
+                : static_cast<std::uint8_t>(battle_ui.row - 1U);
+        } else if (pressed.d_down) {
+            battle_ui.row = static_cast<std::uint8_t>(
+                (battle_ui.row + 1U) % kSystemRows
+            );
+        } else if (pressed.b || pressed.start) {
+            battle_ui = {};
+        } else if (pressed.a) {
+            return confirm_system_choice();
+        }
+        return true;
+    }
     if (battle_ui.phase == BattleUiPhase::action) {
+        if (player != battle_ui.player) return false;
         if (!pressed.d_up && !pressed.d_down && !pressed.a && !pressed.b) {
             return false;
         }
@@ -2464,6 +2773,7 @@ bool physical_input() {
     }
     if (battle_ui.phase == BattleUiPhase::attack_target ||
         battle_ui.phase == BattleUiPhase::ability_target) {
+        if (player != battle_ui.player) return false;
         if (!pressed.b && !pressed.a && !pressed.d_left && !pressed.d_right &&
             !pressed.d_up && !pressed.d_down) {
             return false;
@@ -2474,25 +2784,27 @@ bool physical_input() {
             return true;
         }
         if (pressed.a) return confirm_target();
-        if (pressed.d_left) return issue(gp::GameplaySlice::Action::left);
-        if (pressed.d_right) return issue(gp::GameplaySlice::Action::right);
-        if (pressed.d_up) return issue(gp::GameplaySlice::Action::up);
-        if (pressed.d_down) return issue(gp::GameplaySlice::Action::down);
+        if (pressed.d_left) return issue(gp::GameplaySlice::Action::left, player);
+        if (pressed.d_right) return issue(gp::GameplaySlice::Action::right, player);
+        if (pressed.d_up) return issue(gp::GameplaySlice::Action::up, player);
+        if (pressed.d_down) return issue(gp::GameplaySlice::Action::down, player);
         return false;
     }
     if (motion.active) return false;
     if (pressed.start) {
-        combat.enabled = !combat.enabled;
         replay.user_took_over = true;
+        open_system_menu(player);
         return true;
     }
     if (pressed.c_up) {
         debug_hud = !debug_hud;
+        save_user_settings();
         replay.user_took_over = true;
         return true;
     }
     if (pressed.l) {
         combat.reduced_motion = !combat.reduced_motion;
+        save_user_settings();
         replay.user_took_over = true;
         return true;
     }
@@ -2501,33 +2813,43 @@ bool physical_input() {
         return false;
     }
     replay.user_took_over = true;
-    if (pressed.d_left) return issue(gp::GameplaySlice::Action::left);
-    if (pressed.d_right) return issue(gp::GameplaySlice::Action::right);
-    if (pressed.d_up) return issue(gp::GameplaySlice::Action::up);
-    if (pressed.d_down) return issue(gp::GameplaySlice::Action::down);
-    if (pressed.b) return issue(gp::GameplaySlice::Action::cancel);
-    if (pressed.z && board.game.selected() != 0U) {
-        return apply_battle_command({
-            sim::CommandType::wait, board.game.selected(), {},
-            0U, 0U, 0U, 0U,
-        });
+    if (pressed.d_left) return issue(gp::GameplaySlice::Action::left, player);
+    if (pressed.d_right) return issue(gp::GameplaySlice::Action::right, player);
+    if (pressed.d_up) return issue(gp::GameplaySlice::Action::up, player);
+    if (pressed.d_down) return issue(gp::GameplaySlice::Action::down, player);
+    if (pressed.b) return issue(gp::GameplaySlice::Action::cancel, player);
+    if (pressed.z && board.game.selected(player) != 0U) {
+        open_action_menu(board.game.selected(player), player);
+        return true;
     }
     if (pressed.a) {
-        const sim::UnitId selected = board.game.selected();
-        if (selected == 0U) return issue(gp::GameplaySlice::Action::confirm);
+        const sim::UnitId selected = board.game.selected(player);
+        if (selected == 0U) {
+            return issue(gp::GameplaySlice::Action::confirm, player);
+        }
         const sim::UnitSnapshot* actor = find_unit(selected);
-        if (actor != nullptr && actor->position == board.game.cursor()) {
-            open_action_menu(selected);
+        if (actor != nullptr && actor->position == board.game.cursor(player)) {
+            open_action_menu(selected, player);
             return true;
         }
-        const bool moved = issue(gp::GameplaySlice::Action::confirm);
+        const bool moved = issue(gp::GameplaySlice::Action::confirm, player);
         if (moved && board.game.transition().accepted &&
             board.game.transition().command.type == sim::CommandType::move) {
-            open_action_menu(selected);
+            open_action_menu(selected, player);
         }
         return moved;
     }
     return false;
+}
+
+bool physical_input() {
+    constexpr joypad_port_t ports[2] = {JOYPAD_PORT_1, JOYPAD_PORT_2};
+    bool handled = false;
+    for (std::uint8_t player = 0U; player < board.game.local_players(); ++player) {
+        const joypad_buttons_t pressed = joypad_get_buttons_pressed(ports[player]);
+        handled = physical_input_for(player, pressed) || handled;
+    }
+    return handled;
 }
 
 tac::Behavior behavior_for(sim::UnitId unit) {
@@ -2615,13 +2937,17 @@ bool advance_ai() {
     return false;
 }
 
-bool finish_battle_and_advance() {
+bool finish_battle_and_advance(bool require_first_side_win = true) {
     assert(board.campaign.has_value());
     const sim::EncounterSnapshot& snapshot = board.game.snapshot();
-    assertf(
-        snapshot.outcome == sim::Outcome::first_side_won,
-        "Steel and Cedar deterministic campaign replay did not win"
-    );
+    if (require_first_side_win) {
+        assertf(
+            snapshot.outcome == sim::Outcome::first_side_won,
+            "Steel and Cedar deterministic campaign replay did not win"
+        );
+    } else if (snapshot.outcome == sim::Outcome::ongoing) {
+        return false;
+    }
     client::BattleReport report;
     report.outcome = snapshot.outcome;
     report.canonical_hash = board.game.encounter().canonical_hash();
@@ -2642,9 +2968,10 @@ bool finish_battle_and_advance() {
         shell.bell_combats = combat.exchanges;
         shell.bell_committed = true;
     }
-    assert(board.saves->contains("steel_cedar"));
+    assert(board.saves->contains(campaign_slot()));
     shell.phase = ShellPhase::aftermath;
     shell.next_automatic_frame = frame_count + 90U;
+    play_victory_cue();
     debugf(
         "CHECKPOINT PYRITE_AFTERMATH outcome=%u objectives=%lu "
         "fallen=%lu recruited=%lu stage=%lu commands=%lu enemy=%lu "
@@ -2660,6 +2987,28 @@ bool finish_battle_and_advance() {
         static_cast<unsigned long>(storage::used_bytes(*board.saves))
     );
     return true;
+}
+
+void update_manual_battle() {
+    if (!replay.user_took_over || combat.active || motion.active ||
+        battle_moment.active || !battle_moment.dialogue_ids.empty() ||
+        battle_ui.phase != BattleUiPhase::board ||
+        frame_count < replay.next_frame) {
+        return;
+    }
+    const sim::EncounterSnapshot& snapshot = board.game.snapshot();
+    if (snapshot.outcome != sim::Outcome::ongoing) {
+        (void)finish_battle_and_advance(false);
+        return;
+    }
+    // Local players always own the first side. Once all of their units have
+    // acted, the portable encounter advances to the opposing side and the
+    // authored tactics policy takes over one ordinary command at a time.
+    if (snapshot.active_side == sim::Side::second) {
+        assertf(advance_ai(), "No opposing command was available");
+        replay.next_frame = frame_count +
+            (motion.active ? motion.total_frames + 2U : 12U);
+    }
 }
 
 void begin_performance_sample() {
@@ -2693,7 +3042,7 @@ void update_performance_sample() {
     assert(shell.campaign_advanced_checkpoint);
     assert(shell.completed_battles == kCampaignMaps.size());
     assert(shell.stage_index + 1U == kCampaignMaps.size());
-    assert(board.saves->contains("steel_cedar"));
+    assert(board.saves->contains(campaign_slot()));
     assert(!combat.active);
     if (!shell.resumed) {
         assert(shell.total_commands > 0U && shell.total_enemy_commands > 0U);
@@ -3115,6 +3464,46 @@ const char* command_error_label(sim::CommandError error) {
 }
 
 void draw_battle_ui() {
+    if (battle_moment.active &&
+        battle_moment.line_index < battle_moment.dialogue.lines.size()) {
+        const pr::DialogueLine& line =
+            battle_moment.dialogue.lines[battle_moment.line_index];
+        rdpq_mode_push();
+        rdpq_mode_begin();
+            rdpq_mode_zbuf(false, false);
+            rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+            rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+            rdpq_mode_fog(0);
+        rdpq_mode_end();
+        rdpq_set_prim_color({45, 73, 92, 245});
+        rdpq_fill_rectangle(15, 157, 305, 235);
+        rdpq_set_prim_color({12, 22, 33, 248});
+        rdpq_fill_rectangle(19, 161, 301, 231);
+        P64::Debug::printStart();
+        P64::Debug::printf(
+            29, 169, "%.*s",
+            static_cast<int>(std::min<std::size_t>(line.speaker.size(), 30U)),
+            line.speaker.c_str()
+        );
+        constexpr std::size_t width = 42U;
+        std::size_t start = 0U;
+        for (int row = 0; row < 2 && start < line.text.size(); ++row) {
+            std::size_t end = std::min(start + width, line.text.size());
+            if (end < line.text.size()) {
+                const std::size_t space = line.text.rfind(' ', end);
+                if (space != std::string_view::npos && space > start) end = space;
+            }
+            P64::Debug::printf(
+                29, 189 + row * 17, "%.*s",
+                static_cast<int>(end - start), line.text.c_str() + start
+            );
+            start = end;
+            while (start < line.text.size() && line.text[start] == ' ') ++start;
+        }
+        P64::Debug::printf(254, 215, "A NEXT");
+        rdpq_mode_pop();
+        return;
+    }
     if (battle_ui.phase == BattleUiPhase::board || combat.active) return;
     if (battle_ui.phase == BattleUiPhase::action && motion.active) return;
     rdpq_mode_push();
@@ -3124,13 +3513,57 @@ void draw_battle_ui() {
         rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
         rdpq_mode_fog(0);
     rdpq_mode_end();
+    if (battle_ui.phase == BattleUiPhase::system ||
+        battle_ui.phase == BattleUiPhase::help) {
+        rdpq_set_prim_color({45, 73, 92, 245});
+        rdpq_fill_rectangle(45, 32, 275, 226);
+        rdpq_set_prim_color({12, 22, 33, 248});
+        rdpq_fill_rectangle(49, 36, 271, 222);
+        P64::Debug::printStart();
+        if (battle_ui.phase == BattleUiPhase::help) {
+            P64::Debug::printf(132, 48, "HELP");
+            P64::Debug::printf(63, 76, "D-PAD  MOVE CURSOR / ROW");
+            P64::Debug::printf(63, 98, "A      SELECT / CONFIRM");
+            P64::Debug::printf(63, 120, "Z      CHARACTER ACTIONS");
+            P64::Debug::printf(63, 142, "START  BATTLE SETTINGS");
+            P64::Debug::printf(63, 164, "B      CANCEL / SKIP");
+            P64::Debug::printf(63, 186, "L REDUCED   R FAST CLOSE");
+            P64::Debug::printf(91, 208, "A / B  SETTINGS");
+        } else {
+            constexpr int ys[kSystemRows] = {70, 92, 114, 136, 158, 180};
+            P64::Debug::printf(94, 48, "BATTLE SETTINGS P%u",
+                static_cast<unsigned>(battle_ui.player + 1U));
+            P64::Debug::printf(69, ys[0], "%s RESUME",
+                battle_ui.row == 0U ? ">" : " ");
+            P64::Debug::printf(69, ys[1], "%s CLOSE VIEW: %s",
+                battle_ui.row == 1U ? ">" : " ",
+                combat.enabled ? "ON" : "OFF");
+            P64::Debug::printf(69, ys[2], "%s REDUCED MOTION: %s",
+                battle_ui.row == 2U ? ">" : " ",
+                combat.reduced_motion ? "ON" : "OFF");
+            P64::Debug::printf(69, ys[3], "%s AUDIO: %s",
+                battle_ui.row == 3U ? ">" : " ",
+                audio_enabled ? "ON" : "OFF");
+            P64::Debug::printf(69, ys[4], "%s SHOW FPS: %s",
+                battle_ui.row == 4U ? ">" : " ",
+                debug_hud ? "ON" : "OFF");
+            P64::Debug::printf(69, ys[5], "%s HELP",
+                battle_ui.row == 5U ? ">" : " ");
+            P64::Debug::printf(76, 208, "A CHANGE   B RESUME");
+        }
+        rdpq_mode_pop();
+        return;
+    }
     rdpq_set_prim_color({45, 73, 92, 242});
     rdpq_fill_rectangle(176, 130, 315, 235);
     rdpq_set_prim_color({12, 22, 33, 246});
     rdpq_fill_rectangle(180, 134, 311, 231);
     P64::Debug::printStart();
     if (battle_ui.phase == BattleUiPhase::action) {
-        P64::Debug::printf(190, 140, "ACTION");
+        P64::Debug::printf(
+            190, 140, "ACTION P%u",
+            static_cast<unsigned>(battle_ui.player + 1U)
+        );
         const sim::UnitSnapshot* menu_actor = find_unit(battle_ui.actor);
         const std::size_t total = action_rows();
         const std::size_t selected = battle_ui.row;
@@ -3163,7 +3596,9 @@ void draw_battle_ui() {
         return;
     }
     const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
-    const sim::UnitSnapshot* target = unit_at(board.game.cursor());
+    const sim::UnitSnapshot* target = unit_at(
+        board.game.cursor(battle_ui.player)
+    );
     if (battle_ui.phase == BattleUiPhase::attack_target && actor != nullptr) {
         const sim::AttackForecast forecast = target != nullptr
             ? sim::forecast_attack(board.game.snapshot(), actor->id, target->id)
@@ -3191,7 +3626,8 @@ void draw_battle_ui() {
                actor != nullptr) {
         const sim::AbilityForecast forecast = sim::forecast_ability(
             board.game.snapshot(), actor->id, battle_ui.ability,
-            board.game.cursor(), target != nullptr ? target->id : 0U,
+            board.game.cursor(battle_ui.player),
+            target != nullptr ? target->id : 0U,
             board.game.encounter().abilities()
         );
         P64::Debug::printf(190, 140, "ABILITY TARGET");
@@ -3282,8 +3718,23 @@ void draw_shell() {
     P64::Debug::printf(74, 66, "PYRITE / TINY3D");
     switch (shell.phase) {
         case ShellPhase::title:
-            P64::Debug::printf(87, 132, "PRESS START");
-            P64::Debug::printf(61, 174, "RENDERER: PYRITE");
+            P64::Debug::printf(
+                91, 126, "%s START",
+                shell.title_row == 0U ? ">" : " "
+            );
+            P64::Debug::printf(
+                91, 150, "%s HELP",
+                shell.title_row == 1U ? ">" : " "
+            );
+            P64::Debug::printf(61, 184, "RENDERER: PYRITE");
+            break;
+        case ShellPhase::help:
+            P64::Debug::printf(119, 88, "HELP");
+            P64::Debug::printf(43, 112, "D-PAD  CURSOR / CHOOSE");
+            P64::Debug::printf(43, 132, "A      SELECT / CONFIRM");
+            P64::Debug::printf(43, 152, "Z      CHARACTER ACTIONS");
+            P64::Debug::printf(43, 172, "START  BATTLE SETTINGS");
+            P64::Debug::printf(43, 192, "B      BACK      L REDUCED");
             break;
         case ShellPhase::players:
             P64::Debug::printf(78, 100, "LOCAL PLAYERS");
@@ -3295,8 +3746,9 @@ void draw_shell() {
             }
             if (shell.allow_two) {
                 P64::Debug::printf(
-                    91, 150, "%s TWO PLAYERS",
-                    shell.player_choice == 1U ? ">" : " "
+                    76, 150, "%s TWO PLAYERS%s",
+                    shell.player_choice == 1U ? ">" : " ",
+                    shell.second_connected ? "" : " (PAD 2)"
                 );
             }
             break;
@@ -3407,6 +3859,10 @@ void onGameInit() {
     board.cartridge.emplace();
     board.saves.emplace(*board.cartridge, gp::CartridgeStorage::budget());
     assertf(board.saves->available(), "Cartridge save storage is unavailable");
+    load_user_settings();
+    apply_audio_setting();
+    board.ambience_handle = P64::AudioManager::play2D(&board.ambience);
+    board.ambience_handle.setVolume(0.34F);
     const pr::CampaignLoadResult campaign = pr::load_campaign(
         board.runtime.package(), kSteelAndCedar
     );
@@ -3415,9 +3871,13 @@ void onGameInit() {
         campaign.definition.player_mode == pr::LocalPlayerMode::choice;
     shell.allow_two = campaign.definition.player_mode == pr::LocalPlayerMode::two ||
         campaign.definition.player_mode == pr::LocalPlayerMode::choice;
+    shell.second_connected = joypad_is_connected(JOYPAD_PORT_2);
     assert(shell.allow_one || shell.allow_two);
+    // A connected second pad advertises the option; it must not silently turn
+    // a choice campaign into co-op. Keep the normal launch on 1P unless the
+    // campaign requires two local players.
     shell.player_choice = shell.allow_one ? 0U : 1U;
-    shell.save_present = board.saves->contains("steel_cedar");
+    shell.save_present = board.saves->contains(campaign_slot());
     debugf(
         "GRANDLEON_PYRITE_LAUNCH campaign=steel_and_cedar player_mode=%s "
         "save=%u renderer=pyrite-tiny3d fallback=none\n",
@@ -3447,7 +3907,11 @@ void onSceneUpdate() {
     }
     physical_input();
     update_combat();
-    update_replay();
+    update_battle_moment();
+    if (!battle_moment.active && battle_moment.dialogue_ids.empty()) {
+        if (replay.user_took_over) update_manual_battle();
+        else update_replay();
+    }
     update_tactical_camera();
     if (motion.active && frame_count - motion.started >= motion.total_frames) {
         motion.active = false;
@@ -3522,10 +3986,12 @@ void onSceneDraw2D() {
         static_cast<int>(VI::SwapChain::getFPS())
     );
     Debug::printf(
-        6, 19, "%d,%d %s  A MOVE Z WAIT  CAM %s",
-        board.game.cursor().x, board.game.cursor().y,
-        board.game.selected() == 0 ? "READY" : "SELECTED",
-        combat.enabled ? "ON" : "OFF"
+        6, 19, "P%u %d,%d %s  A MOVE Z ACTION",
+        static_cast<unsigned>(board.game.active_player() + 1U),
+        board.game.cursor(board.game.active_player()).x,
+        board.game.cursor(board.game.active_player()).y,
+        board.game.selected(board.game.active_player()) == 0
+            ? "READY" : "SELECTED"
     );
 }
 

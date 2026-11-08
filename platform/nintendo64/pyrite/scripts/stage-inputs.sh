@@ -36,6 +36,8 @@ python3 "$repo_root/platform/console_art/generate-character-art.py" \
     --output "$work_dir/generated-art"
 python3 "$package_root/scripts/generate-soft-shadow.py" \
     "$work_dir/project/assets/soft_shadow.png"
+python3 "$package_root/scripts/generate-audio.py" \
+    "$work_dir/project/assets"
 
 install -m 0644 \
     "$repo_root/platform/nintendo64/assets/terrain/material_atlas.png" \
@@ -122,6 +124,10 @@ sha256sum \
     "$work_dir/project/assets/retainer_move.png" \
     "$work_dir/project/assets/archer_move.png" \
     "$work_dir/project/assets/soft_shadow.png" \
+    "$work_dir/project/assets/ambience.wav" \
+    "$work_dir/project/assets/ui_cue.wav" \
+    "$work_dir/project/assets/impact_cue.wav" \
+    "$work_dir/project/assets/victory_cue.wav" \
     "$work_dir/project/assets/rowan_close_idle.png" \
     "$work_dir/project/assets/rowan_close_attack.png" \
     "$work_dir/project/assets/rowan_close_hurt.png" \

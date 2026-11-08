@@ -53,6 +53,15 @@ filesystem/combat_backdrop.sprite: assets/combat_backdrop.png
 	@mkdir -p $(dir $@)
 	$(N64_MKSPRITE) -f CI8 -c 0 -o $(dir $@) "$<"
 
+filesystem/ambience.wav64: assets/ambience.wav
+	@mkdir -p $(dir $@)
+	$(N64_AUDIOCONV) --wav-mono --wav-resample 22050 --wav-compress 1 \
+		--wav-loop true -o $(dir $@) "$<"
+filesystem/%_cue.wav64: assets/%_cue.wav
+	@mkdir -p $(dir $@)
+	$(N64_AUDIOCONV) --wav-mono --wav-resample 22050 --wav-compress 1 \
+		--wav-loop false -o $(dir $@) "$<"
+
 filesystem/rowan.sprite: assets/rowan.png
 	@mkdir -p $(dir $@)
 	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
@@ -98,6 +107,10 @@ GRANDLEON_DFS_INPUTS := \
 	filesystem/material_atlas.sprite \
 	filesystem/soft_shadow.sprite \
 	filesystem/combat_backdrop.sprite \
+	filesystem/ambience.wav64 \
+	filesystem/ui_cue.wav64 \
+	filesystem/impact_cue.wav64 \
+	filesystem/victory_cue.wav64 \
 	filesystem/rowan.sprite \
 	filesystem/tomas.sprite \
 	filesystem/march_sword.sprite \
