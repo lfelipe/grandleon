@@ -3,6 +3,10 @@
 Contributions are welcome: engine and tooling changes, editor work, sample
 games, and corrections to the documentation.
 
+For a menu translation, use the short [translation contribution
+guide](TRANSLATING.md). You do not need a full development setup to open a
+translation pull request.
+
 ## Licence terms
 
 **Everything contributed to this repository is accepted under the

@@ -254,6 +254,7 @@ not.
 | inspect characters, animation, and terrain | [Artwork and animation roster](docs/ARTWORK.md) |
 | tweak or regenerate a character | [Artwork generation and tweak guide](docs/ARTWORK_GENERATION.md) |
 | play or export on a console | [Nintendo 64 and PlayStation](docs/CONSOLE_RENDERER.md) |
+| submit a translation | [Translation contribution guide](TRANSLATING.md) |
 | build or contribute | [Setting up](docs/SETUP.md) and [Contributing](CONTRIBUTING.md) |
 
 ## Licence
