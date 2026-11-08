@@ -64,13 +64,6 @@ The README-sized GIF uses the same board-to-battle timeline for all three
 targets. The individual Nintendo 64 and PlayStation GIFs show the current
 console renderer moving from the full tactical board toward that battle.
 
-The remaining images come from the checks that exercise the matching runtime:
-
-```sh
-scripts/readme-screenshots.sh           # rebuild all five diagnostic captures
-scripts/readme-screenshots.sh autopilot # or one named capture
-```
-
 | File | Source |
 |---|---|
 | `godot/gameplay.gif` | close combat from a recorded run of the Godot guided demo |
@@ -81,15 +74,6 @@ scripts/readme-screenshots.sh autopilot # or one named capture
 | `renderer-comparison.gif` | the shared Godot, Nintendo 64, and PlayStation battle timeline for the README |
 | `nintendo64-console-renderer.gif` | the current Nintendo 64 tactical scene and battle focus |
 | `playstation-console-renderer.gif` | the current PlayStation tactical scene and battle focus |
-| `n64-autopilot.gif` | the console autopilot run, one frame per checkpoint |
-| `psx-turn.gif` | the PlayStation turn check, one frame per checkpoint |
-| `n64-showcase.gif` | one stretch of the Nintendo 64 run |
-| `psx-showcase.gif` | one activation of the PlayStation run |
-
-Nintendo 64 animations can differ by a few frames between regenerations
-because ares is captured from its wall-clock display. The PlayStation film is
-byte-identical because its harness drives the emulator and writes each frame
-in the same process.
 
 See [CODING.md](../../CODING.md) for the reproducible toolchains needed by the
 console captures.

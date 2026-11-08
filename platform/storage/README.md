@@ -52,9 +52,10 @@ not memory the CPU may `memcpy`; a read is a DMA and so is a write. An
 interface handing out a `std::uint8_t*` would be one no console could
 implement.
 
-What the Nintendo 64 adds is `platform/nintendo64/src/sram_window.h`: a shadow
-of the cartridge in RDRAM, one DMA in at boot and one DMA out per commit. It is
-about forty lines and it says nothing about what a slot is.
+What the Nintendo 64 adds is
+`platform/nintendo64/pyrite/project/src/user/CartridgeStorage.hpp`: a shadow of
+the cartridge in RDRAM, one DMA in at boot and one DMA out per commit. It says
+nothing about what a slot is.
 
 **Hardware the CPU can store straight into needs less than that, and that it
 needs less is what proves the seam was cut in the right place.** Such a window

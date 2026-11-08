@@ -457,7 +457,7 @@ add_dependencies(
 # **The window is checkpoint numbers, and checkpoint numbers move.** Any change
 # that adds or removes a moment renumbers everything after it, and the window
 # would then film nine unrelated frames while every sentence about it stayed
-# confidently wrong. `scripts/readme-screenshots.sh` therefore asserts the names
+# confidently wrong. The capture gate therefore asserts the names
 # of the checkpoints it filmed before it writes the animation, and fails loudly
 # instead. If that assertion fires, re-choose the window from the run's own
 # checkpoint list and rewrite the sentence above to say what it now shows.

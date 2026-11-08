@@ -17,10 +17,11 @@ between Players 1 and 2 and one additional opponent enters the board.
 ## Build the Nintendo 64 campaign
 
 ```sh
-cmake --build build --target grandleon_n64_sevenfold_roms
+platform/nintendo64/scripts/build-n64.sh \
+  --project games/sevenfold/source/project.json
 ```
 
-The playable ROM is `build-n64-sevenfold-roms/sevenfold-n64.z64`. It asks for
+The playable ROM is `build-n64/platform/nintendo64/grandleon_n64.z64`. It asks for
 one or two players on its main menu. Review builds also show live FPS and add
 **Go to another Stage** to the pause menu, so every style and map can be reached
 without recording victories for skipped stages.

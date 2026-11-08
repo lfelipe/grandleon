@@ -112,7 +112,7 @@ grandleon_playstation_campaign_demo_autopilot"
 # after the colon. Defaulted here rather than in `platform/playstation/
 # CMakeLists.txt` because the container compiles the board package itself,
 # before any CMake on that side has an opinion -- and defaulted at all because
-# `platform/nintendo64/CMakeLists.txt` defaults its own to the same file, and
+# the Nintendo 64 exporter defaults its own to the same file, and
 # two consoles that ship the same game should not disagree about whether that
 # is worth saying out loud.
 [ -n "${project}" ] || \

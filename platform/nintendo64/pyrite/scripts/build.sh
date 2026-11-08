@@ -64,7 +64,6 @@ N64_INST="$n64_inst" cmake \
     -DCMAKE_TOOLCHAIN_FILE="$repo_root/cmake/toolchains/Nintendo64.cmake" \
     -DN64_INST="$n64_inst" \
     -DGRANDLEON_BUILD_TESTS=OFF \
-    -DGRANDLEON_N64=OFF \
     -DGRANDLEON_CCACHE=OFF
 N64_INST="$n64_inst" cmake --build "$n64_build" --parallel \
     --target \

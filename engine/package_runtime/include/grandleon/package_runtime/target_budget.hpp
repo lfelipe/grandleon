@@ -16,7 +16,7 @@ namespace grandleon::package_runtime::target_budget {
 //
 // Nintendo 64: 48 characters take 34.5 ms on the console's COP0 clock under
 // the pinned ares gate. The measurement and its neighbouring points live next
-// to the load in platform/nintendo64/src/play_rom.cpp.
+// to the load in the Nintendo 64 project's GPK runtime adapter.
 inline constexpr std::uint32_t nintendo64_units_per_encounter = 48U;
 
 // PlayStation: 48 characters take 21.8 ms on the R3000A root counter under the

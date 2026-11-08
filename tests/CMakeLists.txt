@@ -348,34 +348,6 @@ add_test(
     COMMAND grandleon_tarnholt_branch_tests
 )
 
-# What the Nintendo 64 campaign ROM is allowed to believe about the Tarnholt
-# company, derived on the host from the real session and the real save layer
-# before the ROM is built. The ROM includes the same expectations header this
-# test pins, so a console assertion is evidence rather than a recording: the
-# only way to change what the console checks is to change what the host derives.
-add_executable(grandleon_n64_campaign_expectation_tests
-    nintendo64/campaign_expectations_test.cpp
-)
-target_link_libraries(
-    grandleon_n64_campaign_expectation_tests
-    PRIVATE
-        grandleon::client_campaign
-        grandleon::game_content
-        grandleon::storage
-)
-target_include_directories(
-    grandleon_n64_campaign_expectation_tests
-    PRIVATE "${PROJECT_SOURCE_DIR}/games/tarnholt/autopilot"
-)
-target_compile_definitions(
-    grandleon_n64_campaign_expectation_tests
-    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
-)
-add_test(
-    NAME grandleon.n64_campaign_expectations
-    COMMAND grandleon_n64_campaign_expectation_tests
-)
-
 # Every board the shipped campaign fights, as the compiler builds it, so every
 # authoring path can be held to the same six. The four that were never pinned
 # are the ones carrying what the engine has grown since.
@@ -466,88 +438,6 @@ target_compile_definitions(
 add_test(
     NAME grandleon.sevenfold_campaign
     COMMAND grandleon_sevenfold_campaign_tests
-)
-
-# What the Fordlight autopilot is allowed to believe about a blow, derived on
-# the host from the real engine and the real board before the ROM is built. The
-# ROM includes the same header this test pins, so a rule that moves a number
-# fails here -- in the ordinary gate, in a fraction of a second -- rather than in
-# a console run that nobody is required to make.
-add_executable(grandleon_n64_fordlight_expectation_tests
-    nintendo64/fordlight_expectations_test.cpp
-)
-target_link_libraries(
-    grandleon_n64_fordlight_expectation_tests
-    PRIVATE
-        grandleon::campaign_runtime
-        grandleon::game_content
-        grandleon::package_runtime
-        grandleon::simulation
-)
-target_include_directories(
-    grandleon_n64_fordlight_expectation_tests
-    PRIVATE "${PROJECT_SOURCE_DIR}/games/tarnholt/autopilot"
-)
-target_compile_definitions(
-    grandleon_n64_fordlight_expectation_tests
-    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
-)
-add_test(
-    NAME grandleon.n64_fordlight_expectations
-    COMMAND grandleon_n64_fordlight_expectation_tests
-)
-
-# Where the Nintendo 64's rows of text are allowed to land.
-#
-# libdragon does not clip: `graphics_draw_character` computes
-# `buffer + y * stride + x` and stores, comparing nothing against the surface.
-# A screen that walks a list of authored strings with no cap therefore writes
-# into the memory after the framebuffer, and the console cannot report it. So
-# the bands live in a header with no libdragon in it and are held to the frame
-# here, on a host, before a ROM is built.
-add_executable(grandleon_n64_screen_text_tests
-    nintendo64/screen_text_test.cpp
-)
-target_include_directories(
-    grandleon_n64_screen_text_tests
-    PRIVATE "${PROJECT_SOURCE_DIR}/platform/nintendo64/src"
-)
-target_compile_features(grandleon_n64_screen_text_tests PRIVATE cxx_std_17)
-add_test(
-    NAME grandleon.n64_screen_text
-    COMMAND grandleon_n64_screen_text_tests
-)
-
-# The words the two consoles refuse a command in, compared row by row.
-#
-# The shared client's header says its table "is the Nintendo 64's table because
-# a player who has seen one console's refusal should recognise the other's".
-# This is what makes that a checked claim rather than a hope: it compiles the
-# console's table and links the shared one, walks every refusal the engine
-# names, and fails on any disagreement that is not in its own written ledger,
-# and on any ledger row that has quietly been reconciled.
-add_executable(grandleon_n64_console_words_tests
-    nintendo64/console_words_test.cpp
-    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
-)
-target_link_libraries(
-    grandleon_n64_console_words_tests
-    PRIVATE
-        grandleon::client
-        grandleon::client_campaign
-        grandleon::package_format
-        grandleon::sheet
-        grandleon::simulation
-        grandleon::view
-)
-target_include_directories(
-    grandleon_n64_console_words_tests
-    PRIVATE "${PROJECT_SOURCE_DIR}/platform/nintendo64/src"
-)
-target_compile_features(grandleon_n64_console_words_tests PRIVATE cxx_std_17)
-add_test(
-    NAME grandleon.n64_console_words
-    COMMAND grandleon_n64_console_words_tests
 )
 
 # A company larger than the screen, walked to its last row.

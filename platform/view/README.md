@@ -114,12 +114,13 @@ context. This is the one place the two deliberately differ.
 
 ## Consumers, and the one place they legitimately differ
 
-`platform/desktop`, `platform/godot`, `platform/nintendo64`, and
+`platform/desktop`, `platform/godot`, the Nintendo 64 Pyrite player, and
 `platform/playstation` consume the C++ model directly.
 
-`list_view.hpp` and `slot_menu.hpp` have two consumers each and both are
-consoles: `platform/client/src/turn_client.cpp` and
-`platform/nintendo64/src/play_rom.cpp`, under their campaign defines.
+`list_view.hpp` and `slot_menu.hpp` are consumed by the shared console client.
+The Nintendo 64 player builds its own framed menus around the same campaign
+and encounter state rather than keeping a second copy of the retired console
+presenter.
 
 `glyphs.hpp` is the odd one here and is honest about it: sixty-four letters, one
 bit per pixel, and no arithmetic at all. It is in this library because a console

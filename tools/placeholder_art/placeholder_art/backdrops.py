@@ -56,7 +56,7 @@ MAX_BANDS = 6
 
 #: The colour a client draws a scene's words in, and the one every band is
 #: measured against. This is the Nintendo 64 body-text cream at
-#: `platform/nintendo64/src/play_rom.cpp`; every other client's ink is lighter
+#: the Nintendo 64 close-combat player; every other client's ink is lighter
 #: still, so a band legible under this is legible under all of them.
 TEXT_COLOUR = (245, 234, 210)
 
