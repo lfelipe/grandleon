@@ -1686,7 +1686,7 @@
         },
         {
           "speaker": "Rowan",
-          "text": "I stay with the signal. Watch the four approaches and never chase a wave past the next entry path."
+          "text": "I stay with the signal. Watch each marked approach and never chase a wave past the next entry path."
         }
       ]
     },
@@ -2047,7 +2047,11 @@
                 "side": "first",
                 "x": 1,
                 "y": 2,
-                "memberId": "rowan"
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 1,
+                  "y": 1
+                }
               },
               {
                 "id": "tomas_orchard",
@@ -2055,14 +2059,18 @@
                 "side": "first",
                 "x": 1,
                 "y": 3,
-                "memberId": "tomas"
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 2,
+                  "y": 1
+                }
               },
               {
                 "id": "akari_orchard",
                 "unitTypeId": "akari_mori",
                 "side": "first",
                 "x": 1,
-                "y": 1,
+                "y": 4,
                 "memberId": "akari",
                 "player": 2,
                 "minimumPlayers": 2

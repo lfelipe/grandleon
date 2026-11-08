@@ -16,7 +16,7 @@ front and when to rendezvous.
 
 | Battle | One player | Two players |
 |---|---|---|
-| **The Bell Orchard** (8×6) | A short Rowan-and-Tomas opening that teaches moving, attacking, counter-attacking, terrain, and ending the turn. | Akari and Ren answer the signal on a second orchard road, with another enemy covering the gap. |
+| **The Bell Orchard** (8×6) | A short Rowan-and-Tomas opening that teaches moving, attacking, counter-attacking, terrain, and ending the turn. | Rowan and Tomas take the upper orchard road while Akari and Ren answer the signal on the lower road, with another enemy covering the gap. |
 | **Cedar Deepwood** (14×9) | Rowan begins farther along the old track so the forest does not become a long empty walk. Ambushes guard clearings, rocks, and narrow paths. | The March starts on the northern trail and Cedar on the southern trail. Each army must win its route before meeting at the watch road. |
 | **Cedar Watch** (16×12) | Survive 20 rounds and keep Commander Rowan standing. Only two enemies begin on the board; explicit arrivals pressure the west, east, and north without asking two units to cover every edge. | Rowan holds the western command court while Akari owns the eastern steps. Additional eastern, western, and southern arrivals use all four approaches, with room to warn and reinforce one another. |
 | **Gate Village** (18×12) | Rowan pushes from a closer start through the gate, alleys, and village square to defeat Castellan Vere without losing the commander. | The March takes the north gate while Cedar takes the south lane. The companies fight separate street battles before meeting in the square and closing Vere's escape. |
@@ -81,8 +81,11 @@ recover from a real exchange rather than requiring a flawless run.
 
 Automated checks walk the real terrain to ensure both armies have routes to
 every opponent and reinforcement, make every larger conflict extend beyond a
-single console view, keep each co-op player within two moves of a consequential
-opening front, and prove that every arrival lands on a unique legal cell. The
+single console view, distribute both solo and co-op opposition across at least
+three map regions, reject opening enemy blobs, keep each co-op player within
+two moves of a consequential opening front, and prove that every arrival lands
+on a unique legal cell. Bell Orchard also checks its exact upper/lower 2P
+deployments against the route named in its co-op dialogue. The
 Watch authors each arrival separately, so every wave keeps its intended
 hold-or-advance order instead of becoming an inert recurring copy. A
 deterministic player-pursuit run against those authored orders gives all ten

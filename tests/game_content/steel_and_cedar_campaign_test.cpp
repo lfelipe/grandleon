@@ -858,7 +858,13 @@ int main() {
         if (index > 0U) {
             expect(
                 enemy_quadrants(coop).size() >= 3U,
-                std::string(stage.key) + " distributes tactical groups across the board"
+                std::string(stage.key) +
+                    " distributes co-op tactical groups across the board"
+            );
+            expect(
+                enemy_quadrants(solo).size() >= 3U,
+                std::string(stage.key) +
+                    " distributes solo tactical groups across the board"
             );
             const ConflictExtent solo_extent = conflict_extent(solo);
             const ConflictExtent coop_extent = conflict_extent(coop);
@@ -873,9 +879,10 @@ int main() {
                     " makes the co-op fronts scroll in both dimensions"
             );
             expect(
+                largest_opening_group_cell(solo) <= 2U &&
                 largest_opening_group_cell(coop) <= 2U,
                 std::string(stage.key) +
-                    " opens with readable groups instead of an enemy blob"
+                    " opens both variants with readable groups instead of an enemy blob"
             );
         }
 
@@ -1031,7 +1038,8 @@ int main() {
         );
     }
 
-    for (const char* key : {"cedar_deepwood", "cedar_watch", "gate_village", "twin_gate"}) {
+    for (const Stage& stage : stages) {
+        const char* key = stage.key;
         const std::uint64_t encounter = core::stable_content_id_v1(
             std::string("steel_and_cedar/") + key
         );
@@ -1055,6 +1063,34 @@ int main() {
         expect(
             keys.size() == coop.placements.size(),
             std::string(key) + " fields each persistent roster identity once"
+        );
+    }
+
+    const auto orchard_coop = pr::load_encounter(
+        loaded.package,
+        core::stable_content_id_v1("steel_and_cedar/bell_orchard"), {2}
+    );
+    if (orchard_coop) {
+        const sim::UnitDefinition* rowan = unit_from_source_key(
+            orchard_coop, core::stable_content_id_v1("rowan")
+        );
+        const sim::UnitDefinition* tomas = unit_from_source_key(
+            orchard_coop, core::stable_content_id_v1("tomas")
+        );
+        const sim::UnitDefinition* akari = unit_from_source_key(
+            orchard_coop, core::stable_content_id_v1("akari")
+        );
+        const sim::UnitDefinition* ren = unit_from_source_key(
+            orchard_coop, core::stable_content_id_v1("ren")
+        );
+        expect(
+            rowan != nullptr && tomas != nullptr && akari != nullptr &&
+                ren != nullptr && rowan->position == sim::Position{1, 1} &&
+                tomas->position == sim::Position{2, 1} &&
+                akari->position == sim::Position{1, 4} &&
+                ren->position == sim::Position{2, 4},
+            "Bell Orchard 2P gives Rowan the upper road and Akari the lower "
+            "road named by the co-op story"
         );
     }
 

@@ -284,7 +284,7 @@ def build_project() -> dict:
         ), cast, "open_sea"),
         dialogue("watch_orders", "Twenty Rounds", (
             ("Tomas", "The relay needs twenty rounds to reach both capitals."),
-            ("Rowan", "I stay with the signal. Watch the four approaches and never chase a wave past the next entry path."),
+            ("Rowan", "I stay with the signal. Watch each marked approach and never chase a wave past the next entry path."),
         ), cast),
         dialogue("watch_coop", "Two Fronts", (
             ("Akari", "Cedar holds the eastern steps. Rowan, keep the western court and the commander line intact."),
@@ -346,10 +346,27 @@ def build_project() -> dict:
         "id": "bell_orchard", "name": "I — The Bell Orchard", "kind": "encounter",
         "mapId": "bell_orchard", "turnOrder": "sideBlocks",
         "placements": [
-            placement("rowan_orchard", "rowan_vale", "first", 1, 2, member="rowan"),
-            placement("tomas_orchard", "tomas_reed", "first", 1, 3, member="tomas"),
-            placement("akari_orchard", "akari_mori", "first", 1, 1, member="akari", player=2, coop=True),
-            placement("ren_orchard", "ren_sato", "first", 2, 4, member="ren", player=2, coop=True),
+            # Solo still begins close to the centre road. In co-op, Rowan and
+            # Tomas move to the upper orchard road while Akari and Ren take
+            # the lower one promised by their stage-open dialogue. This keeps
+            # the tutorial compact without interleaving the two armies in one
+            # vertical deployment column.
+            placement(
+                "rowan_orchard", "rowan_vale", "first", 1, 2,
+                member="rowan", two_position=(1, 1),
+            ),
+            placement(
+                "tomas_orchard", "tomas_reed", "first", 1, 3,
+                member="tomas", two_position=(2, 1),
+            ),
+            placement(
+                "akari_orchard", "akari_mori", "first", 1, 4,
+                member="akari", player=2, coop=True,
+            ),
+            placement(
+                "ren_orchard", "ren_sato", "first", 2, 4,
+                member="ren", player=2, coop=True,
+            ),
             placement("orchard_sword", "march_sword", "second", 5, 1, behavior="pursue"),
             placement("orchard_retainer", "red_retainer", "second", 6, 4, behavior="pursue"),
             placement("orchard_archer", "cedar_archer", "second", 5, 4, behavior="hold"),
