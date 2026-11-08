@@ -96,6 +96,16 @@ func _run() -> void:
 	editor._add_language_code("pt-BR")
 	_expect("Brazilian Portuguese can be added directly", editor.selected_language, "pt-BR")
 	_expect("new catalog begins with missing work", editor.translation_status("pt-BR", "project.title"), "missing")
+	_expect("language preview chooses an explicit campaign", editor.preview_campaign_select.item_count, 1)
+	_expect("choice campaign offers both player counts", editor.preview_player_select.item_count, 2)
+	var preview_request: Dictionary = editor._language_preview_request()
+	_expect("selected language preview compiles", preview_request.ok, true)
+	_expect("selected language reaches preview handoff", preview_request.language, "pt-BR")
+	_expect("selected campaign reaches preview handoff", preview_request.campaign, "first_adventure")
+	_expect("language preview defaults choice campaigns to one player", preview_request.players, 1)
+	editor.preview_player_select.select(1)
+	preview_request = editor._language_preview_request()
+	_expect("language preview can exercise co-op", preview_request.players, 2)
 	editor.selected_message_id = "project.title"
 	editor.translation_input.text = "Palavras Portáteis"
 	editor._save_translation()

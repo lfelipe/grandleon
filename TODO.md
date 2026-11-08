@@ -278,7 +278,7 @@ than reproduce those implementation details.
 
 ### Localization
 
-- [ ] Localize Grandleon's own Godot player and editor. Use stable message
+- [x] Localize Grandleon's own Godot player and editor. Use stable message
   identifiers, an explicit source language, predictable fallback, fonts and
   layouts that survive longer translated text, and language selection that is
   available before a project is open.
@@ -336,6 +336,13 @@ than reproduce those implementation details.
   weapons, abilities, and items with current-source fallback. Finish the
   remaining console and shell surfaces. Keep the workflow fully useful offline
   and without an external service.
+  - [x] Add **Play Language** to the Translations screen with an explicit
+    campaign and valid 1P/2P choice. It compiles the current project into a
+    save-isolated preview, launches directly in the selected language, and
+    returns to the same translation workflow.
+  - [ ] Add authored-language selection and localized interface copy to the
+    Nintendo 64 and PlayStation players. Keep their compact layouts readable
+    and use the same current-source fallback as Godot.
 - [ ] Later, explore optional translation suggestions from an external AI model.
   Suggestions must be explicitly requested, remain visibly unapproved until a
   person accepts them, preserve source and manual translations, and never be a

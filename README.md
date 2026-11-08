@@ -180,7 +180,9 @@ gathered player-facing copy and character names, search the catalog, and filter
 missing or outdated work. **Export .PO** and **Import .PO** let a translator
 review the same catalog in gettext-compatible tools; stable IDs, outdated
 review state, and named placeholders survive the round trip. The portable
-project remains the version used by every runtime. Before a translated game starts, the player chooses
+project remains the version used by every runtime. **Play Language** launches
+the selected campaign and 1P/2P variant in an isolated preview so the author
+can check the translation without changing a real save. Before a translated game starts, the player chooses
 from its authored languages. Godot then applies that choice to the game title,
 campaign and stage names, dialogue, objectives, company character names, named
 battle placements, and named units, weapons, abilities, and items. Grandleon

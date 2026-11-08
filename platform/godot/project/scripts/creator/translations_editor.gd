@@ -38,6 +38,9 @@ var export_po_button: Button
 var import_po_button: Button
 var export_po_dialog: FileDialog
 var import_po_dialog: FileDialog
+var preview_campaign_select: OptionButton
+var preview_player_select: OptionButton
+var play_language_button: Button
 
 
 func _ready() -> void:
@@ -247,6 +250,7 @@ func _load_project() -> void:
 	]
 	source_language_input.text = str(project.get("sourceLanguage", "en"))
 	_refresh_languages()
+	_refresh_preview_campaigns()
 	_refresh_messages()
 	_set_status(_t("translations.ready"), false)
 
@@ -363,8 +367,24 @@ func _build_interface() -> void:
 
 	status_label = _label("", 16, Color("a9bdc9"))
 	status_label.position = Vector2(60, 960)
-	status_label.size = Vector2(1450, 55)
+	status_label.size = Vector2(980, 55)
 	add_child(status_label)
+	preview_campaign_select = OptionButton.new()
+	preview_campaign_select.position = Vector2(1060, 952)
+	preview_campaign_select.size = Vector2(210, 62)
+	preview_campaign_select.tooltip_text = _t("translations.preview.campaign")
+	preview_campaign_select.item_selected.connect(_select_preview_campaign)
+	add_child(preview_campaign_select)
+	preview_player_select = OptionButton.new()
+	preview_player_select.position = Vector2(1280, 952)
+	preview_player_select.size = Vector2(90, 62)
+	preview_player_select.tooltip_text = _t("translations.preview.players")
+	add_child(preview_player_select)
+	play_language_button = _button(_t("translations.preview.play"), 175)
+	play_language_button.position = Vector2(1380, 952)
+	play_language_button.size = Vector2(175, 62)
+	play_language_button.pressed.connect(_preview_selected_language)
+	add_child(play_language_button)
 	var back := _button(_t("common.back"), 300)
 	back.position = Vector2(1560, 952)
 	back.size = Vector2(300, 62)
@@ -397,6 +417,64 @@ func _refresh_languages() -> void:
 		export_po_button.disabled = selected_language.is_empty()
 	if import_po_button != null:
 		import_po_button.disabled = selected_language.is_empty()
+	if play_language_button != null:
+		play_language_button.disabled = selected_language.is_empty() or preview_campaign_select.item_count == 0
+
+
+func _refresh_preview_campaigns() -> void:
+	if preview_campaign_select == null:
+		return
+	preview_campaign_select.clear()
+	for campaign_value: Variant in project.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var campaign: Dictionary = campaign_value
+		var campaign_id := str(campaign.get("id", ""))
+		if campaign_id.is_empty():
+			continue
+		preview_campaign_select.add_item(str(campaign.get("name", campaign_id)))
+		preview_campaign_select.set_item_metadata(
+			preview_campaign_select.item_count - 1, campaign_id
+		)
+	preview_campaign_select.disabled = preview_campaign_select.item_count == 0
+	if preview_campaign_select.item_count > 0:
+		preview_campaign_select.select(0)
+	_refresh_preview_players()
+
+
+func _select_preview_campaign(_index: int) -> void:
+	_refresh_preview_players()
+
+
+func _refresh_preview_players() -> void:
+	if preview_player_select == null:
+		return
+	preview_player_select.clear()
+	var campaign := _selected_preview_campaign()
+	var mode := str(campaign.get("playerMode", "one"))
+	var players: Array[int] = []
+	if mode == "two":
+		players.append(2)
+	elif mode == "choice":
+		players.append_array([1, 2])
+	else:
+		players.append(1)
+	for count: int in players:
+		preview_player_select.add_item(_t("translations.preview.player_count", {"count": count}))
+		preview_player_select.set_item_metadata(preview_player_select.item_count - 1, count)
+	preview_player_select.disabled = preview_player_select.item_count <= 1
+
+
+func _selected_preview_campaign() -> Dictionary:
+	if preview_campaign_select == null or preview_campaign_select.selected < 0:
+		return {}
+	var selected_id := str(
+		preview_campaign_select.get_item_metadata(preview_campaign_select.selected)
+	)
+	for campaign_value: Variant in project.get("campaigns", []):
+		if campaign_value is Dictionary and str(campaign_value.get("id", "")) == selected_id:
+			return campaign_value
+	return {}
 
 
 func _refresh_messages() -> void:
@@ -679,6 +757,47 @@ func _import_po_from(path: String) -> bool:
 		"ignored": int(imported.get("ignored", 0)),
 	}), false)
 	return true
+
+
+func _language_preview_request() -> Dictionary:
+	if selected_language.is_empty():
+		return {"ok": false, "error": "no_language"}
+	var campaign := _selected_preview_campaign()
+	if campaign.is_empty():
+		return {"ok": false, "error": "no_campaign"}
+	if compiler == null:
+		return {"ok": false, "error": "compiler"}
+	var compiled: Dictionary = compiler.compile_source_json(source)
+	if not bool(compiled.get("ok", false)):
+		return {"ok": false, "error": "compile"}
+	var players := 1
+	if preview_player_select != null and preview_player_select.selected >= 0:
+		players = int(preview_player_select.get_item_metadata(preview_player_select.selected))
+	return {
+		"ok": true,
+		"package": compiled.get("package", PackedByteArray()),
+		"campaign": str(campaign.get("id", "")),
+		"players": players,
+		"language": selected_language,
+	}
+
+
+func _preview_selected_language() -> void:
+	var request := _language_preview_request()
+	if not bool(request.get("ok", false)):
+		var error := str(request.get("error", "compile"))
+		_set_status(_t("translations.preview.error.%s" % error), true)
+		return
+	LaunchContext.stage_package(
+		request.package,
+		str(request.campaign),
+		true,
+		int(request.players),
+		"res://translations_editor.tscn",
+		_t("translations.preview.label"),
+		str(request.language)
+	)
+	get_tree().change_scene_to_file("res://main.tscn")
 
 
 func _safe_file_stem(value: String) -> String:

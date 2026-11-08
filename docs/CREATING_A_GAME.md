@@ -103,6 +103,11 @@ message IDs in gettext context, preserves outdated entries as `fuzzy`, and
 refuses a catalog for the wrong language or a translation that drops a named
 placeholder. The project catalog remains the runtime source of truth.
 
+Choose a campaign and player count at the bottom of the Translations screen,
+then select **Play Language** to test the current catalog. This preview uses an
+isolated save and returns to the Translations screen, so checking dialogue and
+layout does not alter an ordinary campaign.
+
 A game with translated catalogs asks for its language before play. The Godot
 player applies it to the game title, campaign and stage names,
 dialogue, company character names, objectives, named battle placements, and
