@@ -102,6 +102,11 @@
 #include "ui_font.h"
 #include "ui_layout.h"
 
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+#include "twin_gate_quality.h"
+#include "twin_gate_scene.h"
+#endif
+
 #ifdef GRANDLEON_PSX_AUTOPILOT
 #include "fordlight_pad.h"
 #endif
@@ -157,6 +162,9 @@ namespace gpu = grandleon::playstation::gpu;
 namespace pad = grandleon::playstation::pad;
 namespace font = grandleon::playstation::ui_font;
 namespace layout = grandleon::playstation::ui_layout;
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+namespace gate = grandleon::console_quality::twin_gate;
+#endif
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
 namespace card = grandleon::playstation::card;
 namespace storage = grandleon::storage;
@@ -192,6 +200,79 @@ constexpr std::uint64_t castle_floor_terrain =
     core::stable_content_id_v1("paved_castle_floor");
 constexpr std::uint64_t castle_dais_terrain =
     core::stable_content_id_v1("paved_castle_dais");
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+constexpr std::uint64_t twin_gate_map_identity =
+    core::stable_content_id_v1("twin_gate");
+constexpr int twin_gate_first_page = gpu::first_texture_page + 6;
+constexpr int twin_gate_clut_x = 512;
+constexpr int twin_gate_clut_y = gpu::clut_y + gpu::clut_rows - 1;
+static_assert(
+    twin_gate_quality_width == 192 && twin_gate_quality_height == 176 &&
+        twin_gate_quality_tile_width == 64 &&
+        twin_gate_quality_tile_height == 32 &&
+        twin_gate_quality_tile_columns == 3 &&
+        twin_gate_quality_tile_count == 18,
+    "the production composition expects the reviewed 192x176 keep contract"
+);
+static_assert(
+    twin_gate_first_page + 1 <
+        gpu::first_texture_page + gpu::texture_page_count,
+    "the Twin Gate plate needs two CI8 pages"
+);
+static_assert(
+    twin_gate_clut_x + 256 <= gpu::vram_width,
+    "the Twin Gate CI8 palette must fit the shared CLUT line"
+);
+
+using TwinGateTiles = const unsigned short (*)
+    [twin_gate_quality_tile_width / 2 * twin_gate_quality_tile_height];
+
+struct TwinGateTexture final {
+    const unsigned short* clut;
+    TwinGateTiles tiles;
+};
+
+[[nodiscard]] TwinGateTexture twin_gate_texture(int state) noexcept {
+    switch (state) {
+        case 0:
+            return {twin_gate_quality_clut_exterior,
+                    twin_gate_quality_tiles_exterior};
+        case 1:
+            return {twin_gate_quality_clut_threshold_1,
+                    twin_gate_quality_tiles_threshold_1};
+        case 2:
+            return {twin_gate_quality_clut_threshold_2,
+                    twin_gate_quality_tiles_threshold_2};
+        case 3:
+            return {twin_gate_quality_clut_threshold_3,
+                    twin_gate_quality_tiles_threshold_3};
+        default:
+            return {twin_gate_quality_clut_cutaway,
+                    twin_gate_quality_tiles_cutaway};
+    }
+}
+
+void upload_twin_gate_texture(int state) {
+    const TwinGateTexture texture = twin_gate_texture(state);
+    gpu::upload(
+        twin_gate_clut_x, twin_gate_clut_y, 256, 1, texture.clut
+    );
+    for (int index = 0; index < twin_gate_quality_tile_count; ++index) {
+        const int column = index % twin_gate_quality_tile_columns;
+        const int row = index / twin_gate_quality_tile_columns;
+        const int page = twin_gate_first_page + (column >= 2 ? 1 : 0);
+        const int u = (column & 1) * twin_gate_quality_tile_width;
+        const int v = row * twin_gate_quality_tile_height;
+        gpu::upload(
+            page * gpu::page_halfwords + u / 2,
+            gpu::texture_page_y + v,
+            twin_gate_quality_tile_width / 2,
+            twin_gate_quality_tile_height,
+            texture.tiles[index]
+        );
+    }
+}
+#endif
 #ifdef GRANDLEON_PSX_DEMO_CAMPAIGN
 constexpr const std::uint8_t* campaign_package_bytes = demo_package_bytes;
 constexpr std::size_t campaign_package_size = demo_package_size;
@@ -525,8 +606,25 @@ const std::uint16_t* const resume_presses = turn::tarnholt_campaign_resume;
 const std::size_t resume_press_count = turn::tarnholt_campaign_resume_count;
 #endif
 #else
+#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
+// A pan from Rowan's approach to the gate and down the last row. The latter
+// makes the real 20x14 camera scroll; reaching the threshold makes the
+// production landmark switch to its playable cutaway. This direct capture
+// enters after the campaign's opening lines, so no confirmation presses are
+// invented here.
+inline constexpr std::uint16_t twin_gate_capture_presses[] = {
+    turn::pad_right, turn::pad_right, turn::pad_right,
+    turn::pad_right, turn::pad_right, turn::pad_right,
+    turn::pad_down, turn::pad_down, turn::pad_down, turn::pad_down,
+    turn::pad_down, turn::pad_down, turn::pad_down,
+};
+const std::uint16_t* const script_presses = twin_gate_capture_presses;
+const std::size_t script_press_count =
+    sizeof twin_gate_capture_presses / sizeof twin_gate_capture_presses[0];
+#else
 const std::uint16_t* const script_presses = turn::fordlight_presses;
 const std::size_t script_press_count = turn::fordlight_press_count;
+#endif
 #endif
 #endif
 
@@ -860,6 +958,30 @@ public:
           shown_(&shown),
           theme_(shown.theme < grandleon_theme_count ? shown.theme : 0) {}
 
+    void battle_route(
+        std::uint64_t stage_id,
+        std::uint64_t encounter_id,
+        std::uint64_t map_id
+    ) override {
+        static_cast<void>(stage_id);
+        static_cast<void>(encounter_id);
+        map_identity_ = map_id;
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+        // A close exchange owns the same two high texture pages. A new route
+        // therefore invalidates residency even when the prior board happened
+        // to be Twin Gate as well; the next board draw establishes its own
+        // authored landmark before presenting a pixel.
+        twin_gate_resident_state_ = -1;
+        twin_gate_revealed_ = false;
+#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
+        twin_gate_capture_reveal_pending_ = false;
+        twin_gate_capture_scrolled_ = false;
+        twin_gate_capture_close_pending_ = false;
+        twin_gate_capture_approach_pending_ = true;
+#endif
+#endif
+    }
+
     // ----- what the platform supplies -------------------------------------
 
     void paint(
@@ -912,6 +1034,26 @@ public:
     }
 
     turn::ControllerPress next_controller_press() override {
+#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
+        if (twin_gate_capture_approach_pending_ && held_ != nullptr) {
+            twin_gate_capture_approach_pending_ = false;
+            psx::wait_vblank();
+            draw_twin_gate_capture_approach(*held_);
+            psx::signal_host(harness_slot);
+            psx::wait_vblank();
+            draw_held(false);
+        }
+        if (twin_gate_capture_close_pending_ && held_ != nullptr) {
+            twin_gate_capture_close_pending_ = false;
+            psx::wait_vblank();
+            draw_twin_gate_capture_close(*held_);
+            psx::signal_host(harness_slot);
+            // This is a review camera, not a new gameplay camera. Restore the
+            // ordinary full-map view before accepting the next command.
+            psx::wait_vblank();
+            draw_held(false);
+        }
+#endif
         std::uint32_t frame = 0;
         bool emphasised = false;
         // Which direction is being leaned on, and for how many frames. This
@@ -1468,7 +1610,15 @@ public:
             striker != 0 ? unit_of(before, striker) : nullptr;
         int frames = 0;
         striking_ = thrower != nullptr ? thrower->id : 0;
-        if (thrower != nullptr) console::prepare_close();
+        if (thrower != nullptr) {
+            console::prepare_close();
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+            // The close background streams through the landmark's pages.
+            // Mark that ownership transfer explicitly; the next tactical
+            // frame restores the current keep state once, before drawing.
+            twin_gate_resident_state_ = -1;
+#endif
+        }
         close_terrain_ = terrain_composition_at(
             target->position.x, target->position.y
         );
@@ -1962,12 +2112,38 @@ private:
             return;
         }
         layout(snapshot);
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+        twin_gate_map_ = matches_twin_gate(snapshot);
+        if (twin_gate_map_) {
+            const int wanted = twin_gate_state_for(snapshot, overlay);
+            if (twin_gate_resident_state_ != wanted) {
+                upload_twin_gate_texture(wanted);
+                twin_gate_resident_state_ = wanted;
+            }
+        }
+#endif
         compose(snapshot);
         draw_list(snapshot, overlay);
         draw_cursor(overlay, emphasised);
         draw_bar(snapshot, overlay);
         if (overlay.menu != nullptr) draw_menu(overlay);
         draw_fps();
+#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
+        // The ordinary checkpoint stream names gameplay state. These two
+        // extra photographs name presentation-only states that do not alter a
+        // command or snapshot: first playable cutaway, then the camera's last
+        // row. They make the production quality gate prove those pictures
+        // without teaching the simulation about a renderer.
+        if (twin_gate_capture_reveal_pending_) {
+            twin_gate_capture_reveal_pending_ = false;
+            psx::signal_host(harness_slot);
+        }
+        if (twin_gate_map_ && camera().y > 0 &&
+            !twin_gate_capture_scrolled_) {
+            twin_gate_capture_scrolled_ = true;
+            psx::signal_host(harness_slot);
+        }
+#endif
     }
 
     // A live cadence over the frames actually drawn. When enabled, the input
@@ -2030,6 +2206,292 @@ private:
             reserved + (bar_top - reserved - drawn * camera().view_h) / 2;
         projection_ = view::Projection{origin_x, origin_y, drawn, step};
     }
+
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+    [[nodiscard]] bool matches_twin_gate(
+        const sim::EncounterSnapshot& snapshot
+    ) const {
+        if (map_identity_ != twin_gate_map_identity ||
+            snapshot.width != gate::map_width ||
+            snapshot.height != gate::map_height ||
+            terrain().size() !=
+                static_cast<std::size_t>(gate::map_width * gate::map_height)) {
+            return false;
+        }
+        for (std::size_t index = 0; index < terrain().size(); ++index) {
+            const int kind = kind_of(terrain()[index]);
+            // The reviewed board treatment covers Steel and Cedar's authored
+            // grass, mountain, ruins, road and paving family. An exact map id
+            // with a future terrain outside that family must fall back until
+            // its material has been reviewed rather than borrow a wrong look.
+            const bool steel_and_cedar_family =
+                kind == 1 || kind == 3 || kind == 8 || kind == 9 || kind == 12;
+            if (!steel_and_cedar_family ||
+                kind != static_cast<int>(gate::terrain[index])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    [[nodiscard]] static bool twin_gate_near(int x, int y) noexcept {
+        return x >= gate::keep_x - 1 &&
+               x <= gate::keep_x + gate::keep_size &&
+               y >= gate::keep_y - 1 &&
+               y <= gate::keep_y + gate::keep_size;
+    }
+
+    [[nodiscard]] static bool twin_gate_inside(int x, int y) noexcept {
+        return x >= gate::keep_x && x < gate::keep_x + gate::keep_size &&
+               y >= gate::keep_y && y < gate::keep_y + gate::keep_size;
+    }
+
+    [[nodiscard]] int twin_gate_state_for(
+        const sim::EncounterSnapshot& snapshot,
+        const turn::Overlay& overlay
+    ) noexcept {
+        // The exterior keeps defenders and throne-room units occluded during
+        // the approach. Reaching the threshold with the cursor, or moving a
+        // player unit there, opens the cutaway without changing a cell or a
+        // rule. Enemy placements inside the keep do not reveal themselves.
+        if (twin_gate_revealed_) return 4;
+        if (twin_gate_near(overlay.cursor_x, overlay.cursor_y)) {
+            twin_gate_revealed_ = true;
+#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
+            twin_gate_capture_reveal_pending_ = true;
+            twin_gate_capture_close_pending_ = true;
+#endif
+            return 4;
+        }
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (unit.side == sim::Side::first && sim::on_board(unit) &&
+                twin_gate_near(unit.position.x, unit.position.y)) {
+                twin_gate_revealed_ = true;
+#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
+                twin_gate_capture_reveal_pending_ = true;
+                twin_gate_capture_close_pending_ = true;
+#endif
+                return 4;
+            }
+        }
+        return 0;
+    }
+
+    static void draw_twin_gate_keep_at(
+        int left, int top, int tile_width, int tile_height
+    ) {
+        for (int index = 0; index < twin_gate_quality_tile_count; ++index) {
+            const int column = index % twin_gate_quality_tile_columns;
+            const int row = index / twin_gate_quality_tile_columns;
+            const int page = twin_gate_first_page + (column >= 2 ? 1 : 0);
+            const int u = (column & 1) * twin_gate_quality_tile_width;
+            const int v = row * twin_gate_quality_tile_height;
+            gpu::draw_texture_quad_ci8(
+                left + column * tile_width,
+                top + row * tile_height,
+                tile_width, tile_height,
+                page, u, v,
+                u + twin_gate_quality_tile_width - 1,
+                v + twin_gate_quality_tile_height - 1,
+                twin_gate_clut_x, twin_gate_clut_y
+            );
+        }
+    }
+
+    void draw_twin_gate_keep() const {
+        if (!twin_gate_map_) return;
+        const bool visible =
+            camera().x < gate::keep_x + gate::keep_size &&
+            camera().x + camera().view_w > gate::keep_x &&
+            camera().y < gate::keep_y + gate::keep_size &&
+            camera().y + camera().view_h > gate::keep_y;
+        if (!visible) return;
+
+        const int tile_width = drawn_tile() * 2;
+        const int tile_height = drawn_tile();
+        const int left = projection_.cell_left(camera(), gate::keep_x);
+        // The generated texture is 192 lines high with its final 16 lines
+        // transparent. Half a tactical cell puts the 176 visible lines flush
+        // with the authored six-row footprint instead of floating above it.
+        const int top =
+            projection_.cell_top(camera(), gate::keep_y, 0) + drawn_tile() / 2;
+        draw_twin_gate_keep_at(left, top, tile_width, tile_height);
+    }
+
+#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
+    void draw_twin_gate_capture_region(
+        const sim::EncounterSnapshot& snapshot,
+        int first_x, int first_y, int columns, int rows, int tile
+    ) {
+        gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, backdrop);
+        for (int y = first_y; y < first_y + rows; ++y) {
+            for (int x = first_x; x < first_x + columns; ++x) {
+                const int kind = kind_at(x, y);
+                if (kind < 0) continue;
+                const view::TerrainComposition composition =
+                    terrain_composition_at(x, y);
+                const int left = (x - first_x) * tile;
+                const int top = (y - first_y) * tile;
+                const int cell = terrain_cell_of[kind][composition.variation];
+                const int clut = terrain_clut_of[kind];
+                if (cell >= 0 && clut >= 0) {
+                    gpu::draw_cell_scaled(left, top, tile, cell, clut);
+                }
+                view::paint_console_terrain(
+                    composition, left, top, tile,
+                    [composition](int px, int py, int width, int height,
+                                  view::TerrainTone tone) {
+                        const view::TerrainColour colour =
+                            view::terrain_colour(composition.kind, tone);
+                        gpu::fill(
+                            px, py, width, height,
+                            gpu::rgb15(
+                                static_cast<int>(colour.red) >> 3,
+                                static_cast<int>(colour.green) >> 3,
+                                static_cast<int>(colour.blue) >> 3
+                            )
+                        );
+                    }
+                );
+                draw_landmark(left, top, tile, landmark_at(x, y));
+            }
+        }
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (!sim::on_board(unit) ||
+                unit.position.x < first_x ||
+                unit.position.x >= first_x + columns ||
+                unit.position.y < first_y ||
+                unit.position.y >= first_y + rows) {
+                continue;
+            }
+            const int drawing = drawing_index_of(unit);
+            if (drawing < 0) continue;
+            const int left = (unit.position.x - first_x) * tile;
+            const int top = (unit.position.y - first_y) * tile;
+            console::draw_character(
+                drawing, art::Pose::idle, left + tile / 2, top + tile,
+                30, unit.side != player_side(), 0
+            );
+        }
+    }
+
+    void draw_twin_gate_capture_footer(
+        int top, const char* heading, const char* note
+    ) {
+        gpu::fill(
+            0, top, gpu::screen_width,
+            gpu::screen_height - top, paper_colour
+        );
+        gpu::fill(0, top, gpu::screen_width, 2, menu_gold_colour);
+        write_at_with_clut(1, top / glyph + 1, heading, font_gold_clut);
+        write_at(1, top / glyph + 3, note);
+    }
+
+    void draw_twin_gate_capture_approach(
+        const sim::EncounterSnapshot& snapshot
+    ) {
+        // A closer look at the western, non-castle terrain family: road,
+        // grass, paving, ruins and mountain transitions. It proves the richer
+        // board is not one landmark floating over the generic renderer.
+        constexpr int first_x = 0;
+        constexpr int first_y = 3;
+        constexpr int columns = 13;
+        constexpr int rows = 8;
+        constexpr int tile = 24;
+        draw_twin_gate_capture_region(
+            snapshot, first_x, first_y, columns, rows, tile
+        );
+        draw_twin_gate_capture_footer(
+            rows * tile, "WESTERN APPROACH  TERRAIN DETAIL",
+            "ROAD  GRASS  PAVING  RUINS  HEIGHT"
+        );
+    }
+
+    void draw_twin_gate_capture_close(
+        const sim::EncounterSnapshot& snapshot
+    ) {
+        constexpr int first_x = 8;
+        constexpr int first_y = 2;
+        constexpr int columns = 12;
+        constexpr int rows = 8;
+        constexpr int tile = 24;
+        draw_twin_gate_capture_region(
+            snapshot, first_x, first_y, columns, rows, tile
+        );
+        draw_twin_gate_keep_at(
+            (gate::keep_x - first_x) * tile,
+            (gate::keep_y - first_y) * tile + tile / 2,
+            tile * 2, tile
+        );
+        // The terrain helper drew units before the landmark. Draw the keep's
+        // occupants again over the cutaway, exactly like the ordinary board.
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (!sim::on_board(unit) ||
+                !twin_gate_inside(unit.position.x, unit.position.y)) {
+                continue;
+            }
+            const int drawing = drawing_index_of(unit);
+            if (drawing < 0) continue;
+            const int left = (unit.position.x - first_x) * tile;
+            const int top = (unit.position.y - first_y) * tile;
+            console::draw_character(
+                drawing, art::Pose::idle, left + tile / 2, top + tile,
+                30, unit.side != player_side(), 0
+            );
+        }
+        draw_twin_gate_capture_footer(
+            rows * tile, "TWIN GATE  CUTAWAY DETAIL",
+            "FULL MAP RESTORES BEFORE PLAY"
+        );
+    }
+#endif
+
+    void redraw_twin_gate_interaction(
+        const sim::EncounterSnapshot& snapshot,
+        const turn::Overlay& overlay
+    ) {
+        // The plate is a landmark plane, not a screenshot pasted over the
+        // game. Reapply the engine-owned cell overlays and nearby live units
+        // over it so reachable cells, danger, damage flashes and occupants
+        // remain unambiguous at the exact positions gameplay uses.
+        for (int y = gate::keep_y; y < gate::keep_y + gate::keep_size; ++y) {
+            for (int x = gate::keep_x; x < gate::keep_x + gate::keep_size; ++x) {
+                if (!camera().visible(x, y)) continue;
+                const bool splash = turn::contains(overlay.splash, x, y);
+                const bool danger = turn::contains(overlay.danger, x, y);
+                const bool move = turn::contains(overlay.moves, x, y);
+                if (splash || danger || move) {
+                    draw_wash(
+                        cell_left(x), cell_top(x, y),
+                        splash ? cursor_colour
+                               : danger ? danger_colour : lit_colour(overlay)
+                    );
+                }
+                if (flash_lit_ && x == flash_x_ && y == flash_y_) {
+                    gpu::fill(
+                        cell_left(x), cell_top(x, y), drawn_tile(),
+                        drawn_tile(), flash_colour
+                    );
+                }
+            }
+        }
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (!sim::on_board(unit) || unit.id == moving_ ||
+                !camera().visible(unit.position.x, unit.position.y) ||
+                !twin_gate_near(unit.position.x, unit.position.y)) {
+                continue;
+            }
+            int x = cell_left(unit.position.x);
+            int y = cell_top(unit.position.x, unit.position.y);
+            if (flinching_ != 0 && unit.id == flinching_) {
+                x += flinch_dx_;
+                y += flinch_dy_;
+            }
+            draw_unit(unit, x, y);
+            if (unit.has_acted) draw_wash(x, y, spent_colour);
+        }
+    }
+#endif
 
     void compose(const sim::EncounterSnapshot& snapshot) {
         list_.clear();
@@ -2110,10 +2572,16 @@ private:
                     item.x, item.y, drawn_tile(),
                     landmark_at(item.cell_x, item.cell_y)
                 );
-                draw_castle(
-                    item.x, item.y, drawn_tile(),
-                    castle_at(item.cell_x, item.cell_y)
-                );
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+                if (!twin_gate_map_) {
+#endif
+                    draw_castle(
+                        item.x, item.y, drawn_tile(),
+                        castle_at(item.cell_x, item.cell_y)
+                    );
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+                }
+#endif
                 // The wash, drawn where the cell was so the depth order the
                 // list computed is the depth order it is painted in. A lit
                 // tile behind a raised one is washed before that cell lifts
@@ -2125,18 +2593,32 @@ private:
                     turn::contains(overlay.splash, item.cell_x, item.cell_y);
                 const bool danger = turn::contains(overlay.danger, item.cell_x, item.cell_y);
                 const bool move = turn::contains(overlay.moves, item.cell_x, item.cell_y);
-                if (danger || move || splash) {
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+                const bool keep_hides_cell =
+                    twin_gate_map_ && !twin_gate_revealed_ &&
+                    twin_gate_inside(item.cell_x, item.cell_y);
+#else
+                constexpr bool keep_hides_cell = false;
+#endif
+                if (!keep_hides_cell && (danger || move || splash)) {
                     draw_wash(
                         item.x, item.y,
                         splash ? cursor_colour
                                : danger ? danger_colour : lit_colour(overlay)
                     );
                 }
-                if (flash_lit_ && item.cell_x == flash_x_ && item.cell_y == flash_y_) {
+                if (!keep_hides_cell && flash_lit_ &&
+                    item.cell_x == flash_x_ && item.cell_y == flash_y_) {
                     gpu::fill(item.x, item.y, drawn_tile(), drawn_tile(), flash_colour);
                 }
             } else if (item.layer == view::Layer::unit) {
                 const sim::UnitSnapshot& unit = snapshot.units[item.subject];
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+                if (twin_gate_map_ && !twin_gate_revealed_ &&
+                    twin_gate_inside(unit.position.x, unit.position.y)) {
+                    continue;
+                }
+#endif
                 int x = item.x;
                 int y = item.y;
                 if (flinching_ != 0 && unit.id == flinching_) {
@@ -2154,6 +2636,14 @@ private:
                 if (unit.has_acted) draw_wash(x, y, spent_colour);
             }
         }
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+        if (twin_gate_map_) {
+            draw_twin_gate_keep();
+            if (twin_gate_revealed_) {
+                redraw_twin_gate_interaction(snapshot, overlay);
+            }
+        }
+#endif
         // The token in motion, last, and therefore in front of everything.
         //
         // That is not the depth order the list would have given it, and it is
@@ -3770,7 +4260,19 @@ private:
 
     const pr::Presentation* shown_;
     int theme_ = 0;
+    std::uint64_t map_identity_ = 0;
     int board_width_ = 0;
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+    bool twin_gate_map_ = false;
+    bool twin_gate_revealed_ = false;
+    int twin_gate_resident_state_ = -1;
+#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
+    bool twin_gate_capture_reveal_pending_ = false;
+    bool twin_gate_capture_scrolled_ = false;
+    bool twin_gate_capture_close_pending_ = false;
+    bool twin_gate_capture_approach_pending_ = false;
+#endif
+#endif
     view::Projection projection_{
         0, 0, native_tile, view::elevation_step_for(native_tile)
     };
@@ -4031,8 +4533,8 @@ int main() {
         "the interface fonts have CLUTs"
     );
 
-    Line()
-        .text("VRAM cells ")
+    Line vram_report;
+    vram_report.text("VRAM cells ")
         .decimal(static_cast<std::uint32_t>(cells_used))
         .text(" of ")
         .decimal(static_cast<std::uint32_t>(gpu::cell_capacity))
@@ -4042,8 +4544,15 @@ int main() {
         .decimal(static_cast<std::uint32_t>(gpu::clut_capacity))
         .text("; font ")
         .decimal(static_cast<std::uint32_t>(gpu::font_halfwords_across * gpu::font_lines))
-        .text(" halfwords")
-        .flush();
+        .text(" halfwords");
+#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
+    vram_report.text("; twin-gate shared ")
+        .decimal(static_cast<std::uint32_t>(
+            twin_gate_quality_width * twin_gate_quality_height + 512
+        ))
+        .text(" bytes");
+#endif
+    vram_report.flush();
 
     gpu::show();
     const std::uint32_t gpu_status = gpu::status();
@@ -4266,6 +4775,46 @@ int main() {
         .text(" bytes")
         .flush();
 #else
+#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
+#ifndef GRANDLEON_PSX_TWIN_GATE_QUALITY
+#error "the Twin Gate runtime capture requires the Steel and Cedar quality path"
+#endif
+    // Enter the authored finale directly, but play it through the same
+    // production `PlayStationClient` and `play_battle` loop as the campaign.
+    // This target exists to photograph the renderer, not to create a second
+    // set of battle rules or a hand-built scene fixture.
+    const std::uint64_t twin_gate_id =
+        core::stable_content_id_v1("steel_and_cedar/twin_gate");
+    const pr::EncounterLoadResult twin_gate = pr::load_encounter(
+        loaded.package, twin_gate_id, {local_players}
+    );
+    expect(
+        static_cast<bool>(twin_gate),
+        "the production Twin Gate encounter loads for capture"
+    );
+    if (!twin_gate) give_up();
+    game.battle_route(
+        core::stable_content_id_v1("twin_gate"), twin_gate_id,
+        twin_gate.map_id
+    );
+    client::BattleReport twin_gate_report;
+    const client::SessionError status = client::play_battle(
+        twin_gate, sim::Side::first, game, twin_gate_report
+    );
+    const std::uint32_t elapsed = psx::clock_ticks() - started;
+    expect(
+        status == client::SessionError::none,
+        "the production Twin Gate capture session ran"
+    );
+    expect(
+        twin_gate_report.quit,
+        "the bounded capture script left the battle deliberately"
+    );
+    expect(
+        game.paint_longest_microseconds() < 16667U,
+        "the production Twin Gate frame stays inside 60 Hz"
+    );
+#else
     client::SessionOptions session_options;
     session_options.local_players = local_players;
     const client::SessionError status = client::run_campaign(
@@ -4274,6 +4823,7 @@ int main() {
     const std::uint32_t elapsed = psx::clock_ticks() - started;
 
     expect(status == client::SessionError::none, "the session ran to its end");
+#endif
 #endif
 
 #ifndef GRANDLEON_TURN_CLIENT_CAMPAIGN

@@ -383,6 +383,24 @@ function(grandleon_playstation_played_executable target output)
         ${target}
         PRIVATE GRANDLEON_PSX_CONSOLE_ART_HEADER="console_character_art.h"
     )
+    # The richer Twin Gate landmark belongs to the authored Steel and Cedar
+    # map, not to every package this authoring target can be pointed at. Keep
+    # arbitrary projects and the built-in demo byte-for-byte on their generic
+    # renderer while production Steel and Cedar builds carry the exact plate.
+    file(REAL_PATH
+        "${CMAKE_SOURCE_DIR}/games/steel_and_cedar/source/project.json"
+        steel_and_cedar_project
+    )
+    file(REAL_PATH "${GRANDLEON_PLAYSTATION_PROJECT}" selected_project)
+    if(selected_project STREQUAL steel_and_cedar_project AND
+       NOT "GRANDLEON_PSX_DEMO_CAMPAIGN" IN_LIST ARGN)
+        target_compile_definitions(
+            ${target} PRIVATE GRANDLEON_PSX_TWIN_GATE_QUALITY
+        )
+        target_include_directories(
+            ${target} PRIVATE "${CMAKE_SOURCE_DIR}/platform/console_quality"
+        )
+    endif()
 endfunction()
 
 # The turn executable: the Fordlight Crossing, played, and nothing around it.
@@ -404,6 +422,17 @@ grandleon_playstation_played_executable(
 grandleon_playstation_played_executable(
     grandleon_playstation_campaign_autopilot grandleon_psx_campaign_autopilot
     GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_AUTOPILOT
+)
+
+# The production renderer over the real Twin Gate encounter, with a bounded
+# script that advances its authored opening lines, pans across the complete
+# 20x14 board, reveals the keep and quits. It is a capture surface, not a
+# second renderer: the target is the same turn_exe.cpp and PlayStationClient as
+# the interactive campaign, differing only in where the harness enters it.
+grandleon_playstation_played_executable(
+    grandleon_playstation_twin_gate_runtime_capture
+    grandleon_psx_twin_gate_runtime_capture
+    GRANDLEON_PSX_AUTOPILOT GRANDLEON_PSX_TWIN_GATE_CAPTURE
 )
 
 # The other shipped campaign, on the same executable.
@@ -431,5 +460,30 @@ grandleon_playstation_played_executable(
     grandleon_psx_campaign_demo_autopilot
     GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_PSX_DEMO_CAMPAIGN
     GRANDLEON_PSX_AUTOPILOT
+)
+
+# A presentation-only proof over Steel and Cedar's source-validated Twin Gate
+# state. It shares this platform's GPU/font/art code but owns no client or
+# simulation seam; gameplay remains the campaign executable's alone. The five
+# dithered keep states are streamed through two CI8 pages while actual authored
+# terrain and representative units prove the surrounding tactical composition.
+grandleon_playstation_executable(
+    grandleon_playstation_twin_gate_quality grandleon_psx_twin_gate_quality
+    src/twin_gate_quality_exe.cpp src/psx_gpu.cpp
+)
+target_link_libraries(
+    grandleon_playstation_twin_gate_quality PRIVATE grandleon::view
+)
+target_include_directories(
+    grandleon_playstation_twin_gate_quality PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        "${playstation_console_art_dir}"
+        "${CMAKE_SOURCE_DIR}/platform/console_quality"
+        "${CMAKE_SOURCE_DIR}/tools/placeholder_art/assets"
+)
+target_compile_definitions(
+    grandleon_playstation_twin_gate_quality PRIVATE
+        GRANDLEON_PSX_CONSOLE_ART_HEADER="console_character_art.h"
 )
 

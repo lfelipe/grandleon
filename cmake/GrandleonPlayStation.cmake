@@ -482,3 +482,41 @@ add_custom_target(grandleon_playstation_showcase
 add_dependencies(
     grandleon_playstation_showcase grandleon_playstation_turn_expectations
 )
+
+# A presentation-only check over Steel and Cedar's source-validated Twin Gate
+# map. It streams the five approved keep states through the R3000A/GPU path,
+# measures upload/draw budgets on the console, and asks the independent
+# framebuffer observer to prove that every staged reveal was actually drawn.
+add_custom_target(grandleon_playstation_twin_gate_quality
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_build_env}
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-playstation.sh"
+        --project "${CMAKE_CURRENT_SOURCE_DIR}/games/steel_and_cedar/source/project.json"
+        --targets grandleon_playstation_twin_gate_quality
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_run_env}
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/run-playstation-twin-gate-quality.sh"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Checking the PlayStation Twin Gate visual architecture proof"
+    USES_TERMINAL
+    VERBATIM
+)
+
+# The same evidence through the shipped PlayStationClient and play_battle
+# loop: authored opening state, cutaway at the threshold, and the last row of
+# the complete 20x14 board after the real camera scrolls.
+add_custom_target(grandleon_playstation_twin_gate_runtime_check
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_build_env}
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/build-playstation.sh"
+        --project "${CMAKE_CURRENT_SOURCE_DIR}/games/steel_and_cedar/source/project.json"
+        --targets grandleon_playstation_twin_gate_runtime_capture
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${grandleon_playstation_run_env}
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/playstation/scripts/run-playstation-twin-gate-quality.sh"
+        --runtime
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Checking Twin Gate in the production PlayStation battle runtime"
+    USES_TERMINAL
+    VERBATIM
+)
