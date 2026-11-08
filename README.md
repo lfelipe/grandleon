@@ -85,13 +85,20 @@ unreadable tokens.
 
 Godot can also switch from the board to an optional terrain-derived close view
 for an attack, its reported damage or miss, any legal counterattack, and a
-defeat. The session menu can disable these **Battle Close-ups** or use
+defeat. Area abilities keep the acting character in place while each target
+enters the other side of the scene; healing another character, endurance, and
+item drops use the same accepted battle results. The session menu can disable
+these **Battle Close-ups** or use
 **Reduced** cinematic motion. Hold Confirm to fast-forward a close-up or press
 Cancel to skip it; either choice returns to the authoritative board state that
 the shared engine already accepted.
 The live board remains visible as the camera focuses the two units and pushes
 into the close view, then the result dissolves back to that settled board.
 Reduced motion replaces the push with a short crossfade.
+Compatible terrain now selects a layered background that remains stable for
+the complete exchange. In-battle conversations use the same background pool,
+anchored to the speaking character, while unsupported terrain keeps a simple
+readable fallback behind the portrait and dialogue.
 The in-game Settings menu can also show a small live FPS counter on any
 renderer. It is off by default, including in console ROMs and disc images.
 
@@ -187,8 +194,10 @@ from its authored languages. Godot then applies that choice to the game title,
 campaign and stage names, dialogue, objectives, company character names, named
 battle placements, and named units, weapons, abilities, and items. Grandleon
 keeps the original source strings; missing or outdated work falls back to the
-current source rather than stale or empty text. Console interface localization
-is still being audited during the 0.5 work. Player-chosen character names remain literal
+current source rather than stale or empty text. Nintendo 64 and PlayStation
+offer the authored languages at launch and localize their compact title, story,
+stage, roster, content, board, action, help, save, and turn copy in English,
+Spanish, and Brazilian Portuguese. Player-chosen character names remain literal
 player input rather than translation material; they survive save and continue
 and can appear in
 dialogue, objectives, rosters, and exact on-board unit labels. The compact
