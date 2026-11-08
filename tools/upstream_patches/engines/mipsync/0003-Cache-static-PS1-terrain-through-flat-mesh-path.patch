@@ -1,0 +1,47 @@
+From bdf02e500379e62cc160c931bdaa198088139294 Mon Sep 17 00:00:00 2001
+From: Grandleon contributors <grandleon@example.invalid>
+Date: Sun, 8 Nov 2026 00:48:01 -0800
+Subject: [PATCH] Cache static PS1 terrain through flat-mesh path
+
+---
+ templates/ps1/starter/runtime/render.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index 459956f..4f8e7bb 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -3881,11 +3881,19 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                 /* Topology and UVs can be shared between poses; character
+                  * face normals change with deformation and invalidate lighting.
+                  * Unlit meshes still avoid unnecessary lighting invalidation. */
+-                if (lighting_dirty && !is_smooth && !is_terrain) {
++                if (lighting_dirty && !is_smooth) {
+                     uint16_t ti;
+                     for (ti = 0; ti < m->tri_count; ++ti) {
+                         const ps1_mesh_tri* source = &m->tris[ti];
+-                        if (s_shading_unlit) {
++                        if (is_terrain) {
++                            s_static_face_light_cache[static_triangle_offset + ti][0] =
++                                (uint8_t)(((uint16_t)source->shade * source->color_r) / 255u);
++                            s_static_face_light_cache[static_triangle_offset + ti][1] =
++                                (uint8_t)(((uint16_t)source->shade * source->color_g) / 255u);
++                            s_static_face_light_cache[static_triangle_offset + ti][2] =
++                                (uint8_t)(((uint16_t)source->shade * source->color_b) / 255u);
++                            continue;
++                        } else if (s_shading_unlit) {
+                             /* Preserve the existing fixed-point material and
+                              * face-colour modulation, without preparing a
+                              * normal, centre or lighting command. */
+@@ -3943,7 +3951,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+             }
+ 
+             int split_cached_flat = 0;
+-            if (static_cached && !is_terrain && !is_smooth) {
++            if (static_cached && !is_smooth) {
+                 const int fast_added = draw_cached_flat_mesh(
+                     pri, packet_end, ot, ent, m,
+                     static_vertex_offset, static_triangle_offset,
+-- 
+2.53.0
+
