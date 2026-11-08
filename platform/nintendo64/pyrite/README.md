@@ -64,13 +64,19 @@ cursor selection, movement and wait commands through its authoritative
 therefore share the same input and simulation path instead of moving
 display-only actors.
 
-On the launch screens, use the D-pad to choose and A or START to confirm. In a
-battle, the controls are D-pad to move the cursor, A to select/move, Z to wait
-and B to cancel. START toggles the optional combat presentation, L toggles its
-reduced-motion entry/exit, B skips an active presentation, and holding R runs
-it at 3x. Movement follows the authoritative multi-cell route at ten frames per
-cell, with the generated walk pose and terrain-height interpolation rather than
-sliding directly to the already-landed simulation position.
+On the launch screens, use the D-pad to choose and A or START to confirm; A
+also advances each authored story line. In battle, use the D-pad to move the
+cursor and A to select and move. A on the selected character opens a compact
+action panel for Attack, the character's first ability, Wait, or Cancel. Attack
+and ability targeting show the authoritative hit, damage, counter, restoration,
+area and refusal forecast before A commits the real simulation command; the
+result panel then reports the actual hit, miss, healing or refusal. Z remains a
+quick Wait shortcut and B backs out. START toggles the optional combat
+presentation, L toggles its reduced-motion entry/exit, B skips an active
+presentation, and holding R runs it at 3x. Movement follows the authoritative
+multi-cell route at ten frames per cell, with the generated walk pose and
+terrain-height interpolation rather than sliding directly to the already-landed
+simulation position.
 
 This phase also exercises a complete live combat handoff. The camera stores
 the current tactical pose, keeps its yaw/pitch fixed while it dollies toward
@@ -88,15 +94,19 @@ fast-forward is 3x and skip restores immediately.
 
 The tactical board has filtered CI4 terrain materials, elevation sidewalls,
 deterministic tree clusters, generated directional walk poses and I8 falloff
-contact shadows. Campaign launch, player-count selection, Bell-to-Cedar
-progression and cartridge saving now run in this ROM, but this is still not
-full campaign parity. The normal player battle controls do not yet expose
-attack/ability menus, deployment, story dialogue or the later three Steel and
-Cedar battles. The bounded review driver uses the real tactics policy for both
-sides to finish Bell Orchard, then hands the real committed campaign state to
-Cedar Deepwood; it is test scaffolding, not a second simulation. The close
-backdrop pack currently covers only this medieval forest/grass/paved proof;
-audio and the remaining terrain/style stages still need production coverage.
+contact shadows. Campaign launch, player-count selection, authored story
+dialogue, interactive attacks and abilities, Bell-to-Cedar progression and
+cartridge saving now run in this ROM, but this is still not full campaign
+parity. The action panel currently exposes the first equipped ability rather
+than a separate multi-ability picker, and deployment, in-battle conversations,
+aftermath/recruitment UI and the later three Steel and Cedar battles remain.
+The bounded review driver uses the real tactics policy for both sides to finish
+Bell Orchard, presents one complete optional close handoff, then hands the real
+committed campaign state to Cedar Deepwood; it is test scaffolding, not a
+second simulation. Physical player attacks continue to use the close setting
+for every command. The close backdrop pack currently covers only this medieval
+forest/grass/paved proof; audio and the remaining terrain/style stages still
+need production coverage.
 
 The authored tactical rectangle remains finite. The renderer consumes the
 portable packaged `surroundings` contract directly: automatic mode extends

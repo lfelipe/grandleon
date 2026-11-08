@@ -3,6 +3,7 @@
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/client/campaign_session.hpp>
 #include <grandleon/client/session.hpp>
+#include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <libdragon.h>
 #include <t3d/t3d.h>
@@ -13,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string_view>
 #include <vector>
 
 #include "debug/debugDraw.h"
@@ -172,7 +174,7 @@ enum class ShellPhase : std::uint8_t {
     title,
     players,
     save,
-    opening,
+    story,
     battle,
 };
 
@@ -186,12 +188,38 @@ struct ShellState final {
     bool resumed{};
     bool user_took_over{};
     bool cedar_loaded{};
+    bool bell_committed{};
     bool campaign_advanced_checkpoint{};
     bool allow_one{true};
     bool allow_two{};
     std::size_t bell_commands{};
     std::size_t bell_enemy_commands{};
     std::size_t bell_combats{};
+    std::vector<std::uint64_t> story_ids;
+    std::size_t story_id_index{};
+    std::size_t story_line_index{};
+    pr::Dialogue story;
+};
+
+enum class BattleUiPhase : std::uint8_t {
+    board,
+    action,
+    attack_target,
+    ability_target,
+    result,
+};
+
+struct BattleUiState final {
+    BattleUiPhase phase{BattleUiPhase::board};
+    sim::UnitId actor{};
+    sim::ContentId ability{};
+    std::uint8_t row{};
+    std::uint32_t result_until{};
+    sim::CommandType result_command{sim::CommandType::wait};
+    sim::CommandError result_error{sim::CommandError::none};
+    std::int16_t result_amount{};
+    bool result_missed{};
+    bool result_restored{};
 };
 
 struct ReplayState final {
@@ -209,6 +237,10 @@ struct ReplayState final {
     bool motion_checkpoint{};
     bool camera_x_checkpoint{};
     bool camera_y_checkpoint{};
+    bool action_menu_checkpoint{};
+    bool attack_forecast_checkpoint{};
+    bool ability_forecast_checkpoint{};
+    bool action_result_checkpoint{};
 };
 
 struct CameraPose final {
@@ -273,6 +305,7 @@ PlannedMotion planned_motion;
 ReplayState replay;
 CombatPresentation combat;
 ShellState shell;
+BattleUiState battle_ui;
 CameraPose current_camera{kTacticalCamera};
 std::uint32_t frame_count = 0;
 std::uint64_t sample_start = 0;
@@ -1292,6 +1325,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     motion = {};
     planned_motion = {};
     combat = {};
+    battle_ui = {};
     board.battle_events.clear();
     camera_configured = false;
     restore_checkpoint_delay = 0U;
@@ -1310,6 +1344,32 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
         static_cast<unsigned>(shell.local_players),
         static_cast<unsigned long>(board.apron_cell_count)
     );
+    if (!shell.cedar_loaded) debugf("CHECKPOINT PYRITE_CAMPAIGN_BELL\n");
+}
+
+bool load_story_dialogue() {
+    if (shell.story_id_index >= shell.story_ids.size()) return false;
+    const pr::DialogueLoadResult loaded = pr::load_dialogue(
+        board.runtime.package(), shell.story_ids[shell.story_id_index]
+    );
+    if (!loaded) return false;
+    shell.story = loaded.dialogue;
+    shell.story_line_index = 0U;
+    return !shell.story.lines.empty();
+}
+
+bool begin_story(const client::CampaignSession::Standing& standing) {
+    shell.story_ids = standing.dialogue_ids;
+    shell.story_id_index = 0U;
+    if (!load_story_dialogue()) return false;
+    shell.phase = ShellPhase::story;
+    shell.next_automatic_frame = frame_count + 75U;
+    debugf(
+        "CHECKPOINT PYRITE_STORY node=%llu dialogue=%llu lines=%lu\n",
+        standing.node.stable_id, shell.story.id,
+        static_cast<unsigned long>(shell.story.lines.size())
+    );
+    return true;
 }
 
 bool stand_on_campaign_encounter() {
@@ -1324,15 +1384,49 @@ bool stand_on_campaign_encounter() {
             if (prepared.error != client::CampaignSessionError::none) return false;
             board.campaign_content = std::move(prepared.encounter.encounter);
             configure_campaign_board(board.campaign_content);
+            shell.phase = ShellPhase::battle;
             return true;
         }
         if (standing.kind == pr::CampaignNodeKind::terminal) return false;
+        if (!standing.dialogue_ids.empty()) return begin_story(standing);
         std::vector<client::RosterEntry> joined;
         if (board.campaign->advance_story(joined) !=
             client::CampaignSessionError::none) return false;
         if (board.campaign->save() != storage::StorageError::none) return false;
     }
     return false;
+}
+
+bool advance_story_beat() {
+    if (shell.story_line_index + 1U < shell.story.lines.size()) {
+        ++shell.story_line_index;
+        shell.next_automatic_frame = frame_count + 75U;
+        return true;
+    }
+    if (shell.story_id_index + 1U < shell.story_ids.size()) {
+        ++shell.story_id_index;
+        if (!load_story_dialogue()) return false;
+        shell.next_automatic_frame = frame_count + 75U;
+        return true;
+    }
+    std::vector<client::RosterEntry> joined;
+    if (board.campaign->advance_story(joined) !=
+        client::CampaignSessionError::none) return false;
+    if (board.campaign->save() != storage::StorageError::none) return false;
+    shell.story_ids.clear();
+    shell.story = {};
+    if (!stand_on_campaign_encounter()) return false;
+    if (shell.bell_committed && shell.cedar_loaded) {
+        shell.campaign_advanced_checkpoint = true;
+        debugf(
+            "CHECKPOINT PYRITE_CAMPAIGN_CEDAR bell_commands=%lu enemy=%lu "
+            "slot_bytes=%lu\n",
+            static_cast<unsigned long>(shell.bell_commands),
+            static_cast<unsigned long>(shell.bell_enemy_commands),
+            static_cast<unsigned long>(storage::used_bytes(*board.saves))
+        );
+    }
+    return true;
 }
 
 bool begin_campaign(bool resume) {
@@ -1368,7 +1462,6 @@ bool begin_campaign(bool resume) {
     if (resumed && shell.cedar_loaded) {
         debugf("CHECKPOINT PYRITE_CAMPAIGN_CEDAR resumed=1\n");
     }
-    shell.phase = ShellPhase::battle;
     debugf(
         "GRANDLEON_PYRITE_CAMPAIGN_BEGIN players=%u requested_resume=%u "
         "resumed=%u refused=%u slot_bytes=%lu\n",
@@ -1376,7 +1469,6 @@ bool begin_campaign(bool resume) {
         resumed ? 1U : 0U, refused ? 1U : 0U,
         static_cast<unsigned long>(storage::used_bytes(*board.saves))
     );
-    if (!shell.cedar_loaded) debugf("CHECKPOINT PYRITE_CAMPAIGN_BELL\n");
     return true;
 }
 
@@ -1405,7 +1497,6 @@ bool confirm_shell_choice() {
             return true;
         case ShellPhase::save: {
             const bool resume = shell.save_choice == 1U && shell.save_present;
-            shell.phase = ShellPhase::opening;
             const bool opened = begin_campaign(resume);
             assertf(opened, "Steel and Cedar campaign could not begin");
             debugf(
@@ -1414,7 +1505,8 @@ bool confirm_shell_choice() {
             );
             return opened;
         }
-        case ShellPhase::opening:
+        case ShellPhase::story:
+            return advance_story_beat();
         case ShellPhase::battle:
             return false;
     }
@@ -1422,7 +1514,7 @@ bool confirm_shell_choice() {
 }
 
 void update_shell_input() {
-    if (shell.phase == ShellPhase::battle || shell.phase == ShellPhase::opening) {
+    if (shell.phase == ShellPhase::battle) {
         return;
     }
     const joypad_buttons_t pressed = joypad_get_buttons_pressed(JOYPAD_PORT_1);
@@ -1776,6 +1868,9 @@ void finish_combat(bool skipped) {
     // capture landmark. This keeps a checkpoint grab from photographing the
     // preceding return frame still held by the emulator window.
     restore_checkpoint_delay = 4U;
+    if (battle_ui.phase == BattleUiPhase::result) {
+        battle_ui.result_until = frame_count + 75U;
+    }
 }
 
 void start_combat(
@@ -1979,6 +2074,181 @@ bool issue(gp::GameplaySlice::Action action) {
     return handled;
 }
 
+const sim::UnitSnapshot* unit_at(sim::Position position) {
+    for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
+        if (sim::on_board(unit) && unit.position == position) return &unit;
+    }
+    return nullptr;
+}
+
+const sim::AbilityDefinition* ability_definition(sim::ContentId id) {
+    for (const sim::AbilityDefinition& ability :
+         board.game.encounter().abilities()) {
+        if (ability.id == id) return &ability;
+    }
+    return nullptr;
+}
+
+bool actor_has_ability() {
+    const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
+    return actor != nullptr && !actor->ability_ids.empty();
+}
+
+std::uint8_t action_rows() {
+    return actor_has_ability() ? 4U : 3U;
+}
+
+void open_action_menu(sim::UnitId actor) {
+    const sim::UnitSnapshot* unit = find_unit(actor);
+    if (unit == nullptr || !sim::on_board(*unit) || unit->has_acted) return;
+    battle_ui = {};
+    battle_ui.phase = BattleUiPhase::action;
+    battle_ui.actor = actor;
+    if (!unit->ability_ids.empty()) battle_ui.ability = unit->ability_ids.front();
+}
+
+enum class ActionChoice : std::uint8_t {
+    attack,
+    ability,
+    wait,
+    cancel,
+};
+
+ActionChoice action_choice() {
+    if (battle_ui.row == 0U) return ActionChoice::attack;
+    if (actor_has_ability()) {
+        if (battle_ui.row == 1U) return ActionChoice::ability;
+        if (battle_ui.row == 2U) return ActionChoice::wait;
+    } else if (battle_ui.row == 1U) {
+        return ActionChoice::wait;
+    }
+    return ActionChoice::cancel;
+}
+
+void close_action_menu() {
+    battle_ui = {};
+    (void)issue(gp::GameplaySlice::Action::cancel);
+}
+
+bool apply_battle_command(
+    const sim::Command& command,
+    bool present_close = true
+) {
+    const sim::UnitSnapshot* actor = find_unit(command.unit_id);
+    const sim::UnitSnapshot* target = command.target_id != 0U
+        ? find_unit(command.target_id) : unit_at(command.destination);
+    const sim::UnitSnapshot actor_before = actor != nullptr
+        ? *actor : sim::UnitSnapshot{};
+    const sim::UnitSnapshot target_before = target != nullptr
+        ? *target : sim::UnitSnapshot{};
+    const bool accepted = board.game.apply(command);
+    battle_ui.phase = BattleUiPhase::result;
+    battle_ui.result_command = command.type;
+    battle_ui.result_error = board.game.transition().error;
+    battle_ui.result_amount = 0;
+    battle_ui.result_missed = false;
+    battle_ui.result_restored = false;
+    battle_ui.result_until = frame_count + 75U;
+    if (!accepted) return false;
+    remember_transition_events();
+    remember_motion();
+    for (const sim::Event& event : board.game.transition().events) {
+        const bool primary = target_before.id == 0U ||
+            (event.unit_id == target_before.id &&
+             event.related_unit_id == actor_before.id);
+        if (!primary) continue;
+        if (event.type == sim::EventType::attack_missed) {
+            battle_ui.result_missed = true;
+        } else if (event.type == sim::EventType::unit_damaged) {
+            battle_ui.result_amount = std::max(
+                battle_ui.result_amount, event.amount
+            );
+        } else if (event.type == sim::EventType::unit_restored) {
+            battle_ui.result_amount = std::max(
+                battle_ui.result_amount, event.amount
+            );
+            battle_ui.result_restored = true;
+        }
+    }
+    bool close = command.type == sim::CommandType::attack;
+    if (command.type == sim::CommandType::ability) {
+        const sim::AbilityDefinition* ability =
+            ability_definition(command.ability_id);
+        close = ability != nullptr && ability->kind == sim::AbilityKind::damage &&
+            target != nullptr &&
+            (battle_ui.result_amount > 0 || battle_ui.result_missed);
+    }
+    if (command.type == sim::CommandType::attack &&
+        !replay.action_result_checkpoint) {
+        debugf(
+            "CHECKPOINT PYRITE_ACTION_RESULT missed=%u damage=%d\n",
+            battle_ui.result_missed ? 1U : 0U, battle_ui.result_amount
+        );
+        replay.action_result_checkpoint = true;
+    }
+    if (close && present_close && combat.enabled && actor_before.id != 0U &&
+        target_before.id != 0U) {
+        start_combat(actor_before, target_before);
+    }
+    build_cursor_vertices();
+    return true;
+}
+
+bool confirm_action_choice() {
+    const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
+    if (actor == nullptr) {
+        close_action_menu();
+        return false;
+    }
+    switch (action_choice()) {
+        case ActionChoice::attack:
+            battle_ui.phase = BattleUiPhase::attack_target;
+            return true;
+        case ActionChoice::ability:
+            battle_ui.phase = BattleUiPhase::ability_target;
+            return true;
+        case ActionChoice::wait:
+            return apply_battle_command({
+                sim::CommandType::wait, actor->id, {}, 0U, 0U, 0U, 0U,
+            });
+        case ActionChoice::cancel:
+            close_action_menu();
+            return true;
+    }
+    return false;
+}
+
+bool confirm_target() {
+    const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
+    if (actor == nullptr) return false;
+    if (battle_ui.phase == BattleUiPhase::attack_target) {
+        const sim::UnitSnapshot* target = unit_at(board.game.cursor());
+        if (target == nullptr) return false;
+        const sim::AttackForecast forecast = sim::forecast_attack(
+            board.game.snapshot(), actor->id, target->id
+        );
+        if (!forecast) return false;
+        return apply_battle_command({
+            sim::CommandType::attack, actor->id, {}, target->id,
+            0U, 0U, 0U,
+        });
+    }
+    if (battle_ui.phase == BattleUiPhase::ability_target) {
+        const sim::UnitSnapshot* target = unit_at(board.game.cursor());
+        const sim::AbilityForecast forecast = sim::forecast_ability(
+            board.game.snapshot(), actor->id, battle_ui.ability,
+            board.game.cursor(), target != nullptr ? target->id : 0U,
+            board.game.encounter().abilities()
+        );
+        if (!forecast) return false;
+        return apply_battle_command({
+            sim::CommandType::ability, actor->id, board.game.cursor(), 0U,
+            battle_ui.ability, 0U, 0U,
+        });
+    }
+    return false;
+}
+
 bool nudge_toward(sim::Position destination) {
     const sim::Position cursor = board.game.cursor();
     if (cursor.x < destination.x) return issue(gp::GameplaySlice::Action::right);
@@ -1995,6 +2265,49 @@ bool physical_input() {
         if (pressed.l) combat.reduced_motion = !combat.reduced_motion;
         return pressed.b || pressed.l || pressed.r;
     }
+    if (battle_ui.phase == BattleUiPhase::result) {
+        if (pressed.a || pressed.b) battle_ui = {};
+        return pressed.a || pressed.b;
+    }
+    if (battle_ui.phase == BattleUiPhase::action) {
+        if (!pressed.d_up && !pressed.d_down && !pressed.a && !pressed.b) {
+            return false;
+        }
+        replay.user_took_over = true;
+        if (pressed.d_up) {
+            battle_ui.row = battle_ui.row == 0U
+                ? static_cast<std::uint8_t>(action_rows() - 1U)
+                : static_cast<std::uint8_t>(battle_ui.row - 1U);
+        } else if (pressed.d_down) {
+            battle_ui.row = static_cast<std::uint8_t>(
+                (battle_ui.row + 1U) % action_rows()
+            );
+        } else if (pressed.a) {
+            return confirm_action_choice();
+        } else if (pressed.b) {
+            close_action_menu();
+        }
+        return pressed.d_up || pressed.d_down || pressed.a || pressed.b;
+    }
+    if (battle_ui.phase == BattleUiPhase::attack_target ||
+        battle_ui.phase == BattleUiPhase::ability_target) {
+        if (!pressed.b && !pressed.a && !pressed.d_left && !pressed.d_right &&
+            !pressed.d_up && !pressed.d_down) {
+            return false;
+        }
+        replay.user_took_over = true;
+        if (pressed.b) {
+            battle_ui.phase = BattleUiPhase::action;
+            return true;
+        }
+        if (pressed.a) return confirm_target();
+        if (pressed.d_left) return issue(gp::GameplaySlice::Action::left);
+        if (pressed.d_right) return issue(gp::GameplaySlice::Action::right);
+        if (pressed.d_up) return issue(gp::GameplaySlice::Action::up);
+        if (pressed.d_down) return issue(gp::GameplaySlice::Action::down);
+        return false;
+    }
+    if (motion.active) return false;
     if (pressed.start) {
         combat.enabled = !combat.enabled;
         replay.user_took_over = true;
@@ -2010,20 +2323,38 @@ bool physical_input() {
         replay.user_took_over = true;
         return true;
     }
-    gp::GameplaySlice::Action action{};
-    bool found = true;
-    if (pressed.d_left) action = gp::GameplaySlice::Action::left;
-    else if (pressed.d_right) action = gp::GameplaySlice::Action::right;
-    else if (pressed.d_up) action = gp::GameplaySlice::Action::up;
-    else if (pressed.d_down) action = gp::GameplaySlice::Action::down;
-    else if (pressed.a) action = gp::GameplaySlice::Action::confirm;
-    else if (pressed.b) action = gp::GameplaySlice::Action::cancel;
-    else if (pressed.z) action = gp::GameplaySlice::Action::wait;
-    else found = false;
-    if (!found) return false;
+    if (!pressed.d_left && !pressed.d_right && !pressed.d_up &&
+        !pressed.d_down && !pressed.a && !pressed.b && !pressed.z) {
+        return false;
+    }
     replay.user_took_over = true;
-    issue(action);
-    return true;
+    if (pressed.d_left) return issue(gp::GameplaySlice::Action::left);
+    if (pressed.d_right) return issue(gp::GameplaySlice::Action::right);
+    if (pressed.d_up) return issue(gp::GameplaySlice::Action::up);
+    if (pressed.d_down) return issue(gp::GameplaySlice::Action::down);
+    if (pressed.b) return issue(gp::GameplaySlice::Action::cancel);
+    if (pressed.z && board.game.selected() != 0U) {
+        return apply_battle_command({
+            sim::CommandType::wait, board.game.selected(), {},
+            0U, 0U, 0U, 0U,
+        });
+    }
+    if (pressed.a) {
+        const sim::UnitId selected = board.game.selected();
+        if (selected == 0U) return issue(gp::GameplaySlice::Action::confirm);
+        const sim::UnitSnapshot* actor = find_unit(selected);
+        if (actor != nullptr && actor->position == board.game.cursor()) {
+            open_action_menu(selected);
+            return true;
+        }
+        const bool moved = issue(gp::GameplaySlice::Action::confirm);
+        if (moved && board.game.transition().accepted &&
+            board.game.transition().command.type == sim::CommandType::move) {
+            open_action_menu(selected);
+        }
+        return moved;
+    }
+    return false;
 }
 
 tac::Behavior behavior_for(sim::UnitId unit) {
@@ -2059,23 +2390,43 @@ bool advance_ai() {
         sim::Command command = plan.actionable
             ? plan.command
             : sim::Command{sim::CommandType::wait, unit.id, {}, 0, 0, 0, 0};
-        const sim::UnitSnapshot actor_before = unit;
-        const sim::UnitSnapshot* target = command.type == sim::CommandType::attack
-            ? find_unit(command.target_id) : nullptr;
-        const sim::UnitSnapshot target_before = target != nullptr
-            ? *target : sim::UnitSnapshot{};
         if (command.type == sim::CommandType::move) {
             plan_motion(snapshot, command.unit_id, command.destination);
         }
-        if (!board.game.apply(command)) {
+        bool accepted = false;
+        if (command.type == sim::CommandType::attack) {
+            const sim::AttackForecast forecast = sim::forecast_attack(
+                snapshot, command.unit_id, command.target_id
+            );
+            assertf(static_cast<bool>(forecast), "Tactics emitted a refused attack");
+            if (!replay.attack_forecast_checkpoint) {
+                debugf(
+                    "CHECKPOINT PYRITE_ACTION_FORECAST hit=%d damage=%d "
+                    "counter=%d counter_damage=%d\n",
+                    forecast.hit_chance, forecast.damage,
+                    forecast.counter ? 1 : 0, forecast.counter_damage
+                );
+                replay.attack_forecast_checkpoint = true;
+            }
+            // The bounded review driver proves one complete optional handoff;
+            // physical player commands keep the default and present every
+            // attack while the setting is enabled.
+            accepted = apply_battle_command(
+                command, combat.exchanges == 0U
+            );
+        } else {
+            accepted = board.game.apply(command);
+            if (accepted) {
+                remember_transition_events();
+                remember_motion();
+            }
+        }
+        if (!accepted) {
             command = {sim::CommandType::wait, unit.id, {}, 0, 0, 0, 0};
             assertf(board.game.apply(command), "Opponent fallback was refused");
-        }
-        remember_transition_events();
-        remember_motion();
-        if (command.type == sim::CommandType::attack && combat.exchanges == 0U) {
-            assert(target != nullptr);
-            start_combat(actor_before, target_before);
+            battle_ui = {};
+            remember_transition_events();
+            remember_motion();
         }
         ++replay.opponent_commands;
         if (!friendly) ++shell.bell_enemy_commands;
@@ -2107,14 +2458,14 @@ bool finish_bell_and_advance() {
     if (board.campaign->save() != storage::StorageError::none) return false;
     shell.bell_commands = board.game.accepted_commands();
     shell.bell_combats = combat.exchanges;
+    shell.bell_committed = true;
     assert(board.saves->contains("steel_cedar"));
     if (!stand_on_campaign_encounter()) return false;
-    if (!shell.cedar_loaded || board.content->map_id != kCedarDeepwoodMap) {
+    if (shell.phase != ShellPhase::story) {
         return false;
     }
-    shell.campaign_advanced_checkpoint = true;
     debugf(
-        "CHECKPOINT PYRITE_CAMPAIGN_CEDAR bell_commands=%lu enemy=%lu "
+        "CHECKPOINT PYRITE_BELL_COMMITTED bell_commands=%lu enemy=%lu "
         "events=%lu slot_bytes=%lu\n",
         static_cast<unsigned long>(shell.bell_commands),
         static_cast<unsigned long>(shell.bell_enemy_commands),
@@ -2221,11 +2572,28 @@ void update_replay() {
             break;
         case ReplayPhase::select_rowan_again:
             assertf(issue(gp::GameplaySlice::Action::confirm), "Moved Rowan select failed");
+            open_action_menu(board.rowan_id);
+            assert(battle_ui.phase == BattleUiPhase::action);
+            if (!replay.action_menu_checkpoint) {
+                debugf(
+                    "CHECKPOINT PYRITE_ACTION_MENU rows=%u attack=1 ability=%u "
+                    "wait=1 cancel=1\n",
+                    static_cast<unsigned>(action_rows()),
+                    actor_has_ability() ? 1U : 0U
+                );
+                replay.action_menu_checkpoint = true;
+            }
             replay.phase = ReplayPhase::wait_rowan;
             replay.next_frame = frame_count + 6U;
             break;
         case ReplayPhase::wait_rowan:
-            assertf(issue(gp::GameplaySlice::Action::wait), "Rowan wait failed");
+            assertf(
+                apply_battle_command({
+                    sim::CommandType::wait, board.rowan_id, {},
+                    0U, 0U, 0U, 0U,
+                }),
+                "Rowan wait failed"
+            );
             replay.phase = ReplayPhase::aim_tomas;
             replay.next_frame = frame_count + 6U;
             break;
@@ -2243,11 +2611,53 @@ void update_replay() {
         case ReplayPhase::select_tomas:
             assertf(issue(gp::GameplaySlice::Action::confirm), "Tomas select failed");
             assert(board.game.selected() == board.tomas_id);
+            open_action_menu(board.tomas_id);
+            assert(battle_ui.phase == BattleUiPhase::action);
+            if (!replay.ability_forecast_checkpoint) {
+                const sim::UnitSnapshot* tomas = find_unit(board.tomas_id);
+                assert(tomas && !tomas->ability_ids.empty());
+                sim::AbilityForecast forecast;
+                for (const sim::Position offset : std::array<sim::Position, 4>{
+                         sim::Position{1, 0}, sim::Position{-1, 0},
+                         sim::Position{0, 1}, sim::Position{0, -1},
+                     }) {
+                    const sim::Position destination{
+                        static_cast<std::int16_t>(tomas->position.x + offset.x),
+                        static_cast<std::int16_t>(tomas->position.y + offset.y),
+                    };
+                    const sim::UnitSnapshot* target = unit_at(destination);
+                    forecast = sim::forecast_ability(
+                        board.game.snapshot(), tomas->id,
+                        tomas->ability_ids.front(), destination,
+                        target != nullptr ? target->id : 0U,
+                        board.game.encounter().abilities()
+                    );
+                    if (forecast) break;
+                }
+                assertf(
+                    static_cast<bool>(forecast),
+                    "No legal Field Mend preview was available"
+                );
+                debugf(
+                    "CHECKPOINT PYRITE_ABILITY_FORECAST rows=%u kind=%u "
+                    "covered=%u restored=%d\n",
+                    static_cast<unsigned>(action_rows()),
+                    static_cast<unsigned>(forecast.kind),
+                    forecast.covered ? 1U : 0U, forecast.restored
+                );
+                replay.ability_forecast_checkpoint = true;
+            }
             replay.phase = ReplayPhase::wait_tomas;
             replay.next_frame = frame_count + 6U;
             break;
         case ReplayPhase::wait_tomas:
-            assertf(issue(gp::GameplaySlice::Action::wait), "Tomas wait failed");
+            assertf(
+                apply_battle_command({
+                    sim::CommandType::wait, board.tomas_id, {},
+                    0U, 0U, 0U, 0U,
+                }),
+                "Tomas wait failed"
+            );
             replay.phase = ReplayPhase::opponent;
             replay.next_frame = frame_count + 12U;
             break;
@@ -2446,6 +2856,153 @@ void draw_combat_stage_2d() {
     rdpq_mode_pop();
 }
 
+const char* command_error_label(sim::CommandError error) {
+    switch (error) {
+        case sim::CommandError::none: return "READY";
+        case sim::CommandError::target_out_of_range: return "OUT OF RANGE";
+        case sim::CommandError::friendly_target: return "CHOOSE AN ENEMY";
+        case sim::CommandError::unknown_target: return "CHOOSE A TARGET";
+        case sim::CommandError::target_defeated: return "TARGET IS DOWN";
+        case sim::CommandError::unavailable_ability: return "ABILITY SPENT";
+        case sim::CommandError::activation_in_progress: return "FINISH THIS TURN";
+        default: return "ACTION REFUSED";
+    }
+}
+
+void draw_battle_ui() {
+    if (battle_ui.phase == BattleUiPhase::board || combat.active) return;
+    if (battle_ui.phase == BattleUiPhase::action && motion.active) return;
+    rdpq_mode_push();
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(false, false);
+        rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+        rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+    rdpq_set_prim_color({45, 73, 92, 242});
+    rdpq_fill_rectangle(176, 130, 315, 235);
+    rdpq_set_prim_color({12, 22, 33, 246});
+    rdpq_fill_rectangle(180, 134, 311, 231);
+    P64::Debug::printStart();
+    if (battle_ui.phase == BattleUiPhase::action) {
+        P64::Debug::printf(190, 140, "ACTION");
+        std::uint8_t row = 0U;
+        P64::Debug::printf(
+            190, 160, "%s ATTACK", battle_ui.row == row++ ? ">" : " "
+        );
+        if (actor_has_ability()) {
+            P64::Debug::printf(
+                190, 176, "%s ABILITY", battle_ui.row == row++ ? ">" : " "
+            );
+        }
+        P64::Debug::printf(
+            190, 192, "%s WAIT", battle_ui.row == row++ ? ">" : " "
+        );
+        P64::Debug::printf(
+            190, 208, "%s CANCEL", battle_ui.row == row ? ">" : " "
+        );
+        rdpq_mode_pop();
+        return;
+    }
+    const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
+    const sim::UnitSnapshot* target = unit_at(board.game.cursor());
+    if (battle_ui.phase == BattleUiPhase::attack_target && actor != nullptr) {
+        const sim::AttackForecast forecast = target != nullptr
+            ? sim::forecast_attack(board.game.snapshot(), actor->id, target->id)
+            : sim::AttackForecast{sim::CommandError::unknown_target};
+        P64::Debug::printf(190, 140, "ATTACK TARGET");
+        if (forecast) {
+            P64::Debug::printf(
+                190, 164, "%d%%  HIT %d", forecast.hit_chance,
+                forecast.damage
+            );
+            if (forecast.counter) {
+                P64::Debug::printf(
+                    190, 182, "COUNTER %d", forecast.counter_damage
+                );
+            } else {
+                P64::Debug::printf(190, 182, "NO COUNTER");
+            }
+            P64::Debug::printf(190, 208, "A GO  B BACK");
+        } else {
+            P64::Debug::printf(
+                190, 170, "%s", command_error_label(forecast.error)
+            );
+        }
+    } else if (battle_ui.phase == BattleUiPhase::ability_target &&
+               actor != nullptr) {
+        const sim::AbilityForecast forecast = sim::forecast_ability(
+            board.game.snapshot(), actor->id, battle_ui.ability,
+            board.game.cursor(), target != nullptr ? target->id : 0U,
+            board.game.encounter().abilities()
+        );
+        P64::Debug::printf(190, 140, "ABILITY TARGET");
+        if (forecast) {
+            if (!forecast.covered) {
+                P64::Debug::printf(190, 170, "CLEAR GROUND");
+            } else if (forecast.spared) {
+                P64::Debug::printf(190, 170, "TARGET SAFE");
+            } else if (forecast.kind == sim::AbilityKind::restore) {
+                P64::Debug::printf(
+                    190, 170, "MEND %d TO %d", forecast.restored,
+                    forecast.target_health_after
+                );
+            } else {
+                P64::Debug::printf(
+                    190, 170, "%d%%  CAST %d", forecast.hit_chance,
+                    forecast.damage
+                );
+            }
+            P64::Debug::printf(190, 208, "A GO  B BACK");
+        } else {
+            P64::Debug::printf(
+                190, 170, "%s", command_error_label(forecast.error)
+            );
+        }
+    } else if (battle_ui.phase == BattleUiPhase::result) {
+        P64::Debug::printf(190, 140, "RESULT");
+        if (battle_ui.result_error != sim::CommandError::none) {
+            P64::Debug::printf(
+                190, 170, "%s",
+                command_error_label(battle_ui.result_error)
+            );
+        } else if (battle_ui.result_command == sim::CommandType::wait) {
+            P64::Debug::printf(190, 170, "TURN COMPLETE");
+        } else if (battle_ui.result_missed) {
+            P64::Debug::printf(190, 170, "MISS");
+        } else if (battle_ui.result_restored) {
+            P64::Debug::printf(
+                190, 170, "MENDED %d", battle_ui.result_amount
+            );
+        } else {
+            P64::Debug::printf(
+                190, 170, "HIT %d", battle_ui.result_amount
+            );
+        }
+    }
+    rdpq_mode_pop();
+}
+
+void draw_wrapped_story(std::string_view text) {
+    constexpr std::size_t width = 37U;
+    std::size_t start = 0U;
+    int line = 0;
+    while (start < text.size() && line < 4) {
+        std::size_t end = std::min(start + width, text.size());
+        if (end < text.size()) {
+            const std::size_t space = text.rfind(' ', end);
+            if (space != std::string_view::npos && space > start) end = space;
+        }
+        P64::Debug::printf(
+            40, 126 + line * 18, "%.*s",
+            static_cast<int>(end - start), text.data() + start
+        );
+        start = end;
+        while (start < text.size() && text[start] == ' ') ++start;
+        ++line;
+    }
+}
+
 void draw_shell() {
     rdpq_mode_push();
     rdpq_mode_begin();
@@ -2500,9 +3057,16 @@ void draw_shell() {
                 P64::Debug::printf(75, 178, "NO SAVE ON CARTRIDGE");
             }
             break;
-        case ShellPhase::opening:
-            P64::Debug::printf(90, 132, "OPENING...");
+        case ShellPhase::story: {
+            if (shell.story_line_index < shell.story.lines.size()) {
+                const pr::DialogueLine& line =
+                    shell.story.lines[shell.story_line_index];
+                P64::Debug::printf(40, 96, "%s", line.speaker.c_str());
+                draw_wrapped_story(line.text);
+                P64::Debug::printf(220, 194, "A NEXT");
+            }
             break;
+        }
         case ShellPhase::battle:
             break;
     }
@@ -2550,6 +3114,10 @@ void onSceneUpdate() {
         camera_min_z = current_camera.target_z;
         camera_max_z = current_camera.target_z;
         camera_configured = true;
+    }
+    if (battle_ui.phase == BattleUiPhase::result && !combat.active &&
+        frame_count >= battle_ui.result_until) {
+        battle_ui = {};
     }
     physical_input();
     update_combat();
@@ -2644,6 +3212,7 @@ void onSceneDraw2D() {
         return;
     }
     draw_combat_stage_2d();
+    draw_battle_ui();
     if (!debug_hud) return;
     Debug::printStart();
     if (combat.active) {
