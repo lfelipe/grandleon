@@ -132,6 +132,26 @@ def placement(key: str, unit_type: str, side: str, x: int, y: int,
     return value
 
 
+def wave(prefix: str, unit_type: str, x: int, y: int,
+         rounds: tuple[int, ...], *, coop: bool = False,
+         behavior: str = "pursue") -> list[dict]:
+    """Author individually controlled arrivals instead of inert wave copies.
+
+    Recurring placement copies deliberately have no separate policy binding in
+    the portable runtime. That is useful for stationary formations, but Cedar
+    Watch needs every announced arrival to keep its own hold-or-advance order.
+    Each entry is therefore explicit, visible in the editor, and independently
+    testable.
+    """
+    return [
+        placement(
+            f"{prefix}_{round_number}", unit_type, "second", x, y,
+            behavior=behavior, coop=coop, arrival={"round": round_number},
+        )
+        for round_number in rounds
+    ]
+
+
 def dialogue(key: str, name: str, lines: tuple[tuple[str, str], ...],
              cast: dict[str, str], background: str = "") -> dict:
     speakers = {speaker for speaker, _text in lines}
@@ -364,17 +384,23 @@ def build_project() -> dict:
             placement("akari_watch", "akari_mori", "first", 11, 5, member="akari", player=2, coop=True),
             placement("ren_watch", "ren_sato", "first", 11, 6, member="ren", player=2, coop=True),
             placement("watch_open_west", "court_knife", "second", 1, 3, behavior="pursue"),
-            placement("watch_open_east", "march_archer", "second", 14, 8, behavior="hold"),
-            placement("watch_wave_west", "march_sword", "second", 0, 5, behavior="pursue", arrival={"round": 3, "every": 4, "times": 5}),
-            placement("watch_wave_east", "red_retainer", "second", 15, 6, behavior="pursue", arrival={"round": 5, "every": 4, "times": 4}),
-            placement("watch_wave_north", "cedar_archer", "second", 8, 0, behavior="hold", arrival={"round": 6, "every": 6, "times": 3}),
+            placement("watch_open_east", "march_archer", "second", 14, 8, behavior="pursue"),
+            *wave("watch_wave_west", "march_sword", 0, 5, (3, 11)),
+            *wave("watch_wave_west", "march_sword", 0, 5, (7, 15, 19), behavior="hold"),
+            *wave("watch_wave_east", "red_retainer", 15, 6, (5,)),
+            *wave("watch_wave_east", "red_retainer", 15, 6, (9, 13, 17), behavior="hold"),
+            *wave("watch_wave_north", "cedar_archer", 8, 0, (6,)),
+            *wave("watch_wave_north", "cedar_archer", 8, 0, (12, 18), behavior="hold"),
             # The southern mystics answer Cedar's second army. Keeping them
             # out of solo leaves Rowan and Tomas three readable approaches to
             # manage instead of asking two units to cover all four edges.
-            placement("watch_wave_south", "gate_mystic", "second", 7, 11, behavior="hold", coop=True, arrival={"round": 10, "every": 6, "times": 2}),
-            placement("watch_coop_east", "march_sword", "second", 15, 3, behavior="pursue", coop=True, arrival={"round": 4, "every": 5, "times": 4}),
-            placement("watch_coop_west", "red_retainer", "second", 0, 8, behavior="pursue", coop=True, arrival={"round": 8, "every": 5, "times": 3}),
-            placement("watch_coop_south", "march_archer", "second", 8, 11, behavior="hold", coop=True, arrival={"round": 12, "every": 6, "times": 2}),
+            *wave("watch_wave_south", "gate_mystic", 7, 11, (10,), coop=True),
+            *wave("watch_wave_south", "gate_mystic", 7, 11, (16,), coop=True, behavior="hold"),
+            *wave("watch_coop_east", "march_sword", 15, 3, (4,), coop=True),
+            *wave("watch_coop_east", "march_sword", 15, 3, (9, 14, 19), coop=True, behavior="hold"),
+            *wave("watch_coop_west", "red_retainer", 0, 8, (8,), coop=True),
+            *wave("watch_coop_west", "red_retainer", 0, 8, (13, 18), coop=True, behavior="hold"),
+            *wave("watch_coop_south", "march_archer", 8, 11, (12, 18), coop=True, behavior="hold"),
         ],
         "objectiveIds": ["hold_watch", "protect_rowan"],
         "moments": moments("watch_begins", "watch_orders", "watch_cedar_front", "watch_coop"),
@@ -418,10 +444,14 @@ def build_project() -> dict:
         "id": "twin_gate", "name": "V — Twin Gate Keep", "kind": "encounter",
         "mapId": "twin_gate", "turnOrder": "sideBlocks",
         "placements": [
-            placement("rowan_gate", "rowan_vale", "first", 6, 6, member="rowan", two_position=(2, 4)),
-            placement("tomas_gate", "tomas_reed", "first", 5, 6, member="tomas", two_position=(2, 5)),
-            placement("akari_gate", "akari_mori", "first", 2, 9, member="akari", player=2, coop=True),
-            placement("ren_gate", "ren_sato", "first", 2, 10, member="ren", player=2, coop=True),
+            # The two companies still own separate high and low approaches,
+            # but both start beyond the empty outer apron. This preserves the
+            # rendezvous decision without spending several turns walking into
+            # the part of the keep where choices begin.
+            placement("rowan_gate", "rowan_vale", "first", 6, 6, member="rowan", two_position=(3, 4)),
+            placement("tomas_gate", "tomas_reed", "first", 5, 6, member="tomas", two_position=(3, 5)),
+            placement("akari_gate", "akari_mori", "first", 3, 9, member="akari", player=2, coop=True),
+            placement("ren_gate", "ren_sato", "first", 3, 10, member="ren", player=2, coop=True),
             placement("lord_masatora", "lord_masatora_unit", "second", 16, 6, behavior="hold", name="Lord Masatora"),
             placement("gate_north_guard", "red_retainer", "second", 12, 3, behavior="pursue"),
             placement("gate_south_guard", "march_sword", "second", 12, 10, behavior="pursue", coop=True),
@@ -522,7 +552,10 @@ def build_project() -> dict:
     assert all(any(p.get("player") == 2 and p.get("minimumPlayers") == 2 and
                        p["side"] == "first"
                    for p in node["placements"]) for node in encounters)
-    assert all(len(node["placements"]) <= 16 for node in encounters)
+    # Cedar Watch writes each arrival separately so every wave owns a real AI
+    # policy. Its 29 total placements remain well below the 48-unit console
+    # package budget validated by the native campaign test.
+    assert all(len(node["placements"]) <= 32 for node in encounters)
     assert all(
         any(moment.get("minimumPlayers") == 2 for moment in node["moments"])
         for node in encounters

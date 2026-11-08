@@ -2402,49 +2402,154 @@
                 "side": "second",
                 "x": 14,
                 "y": 8,
-                "behavior": "hold"
+                "behavior": "pursue"
               },
               {
-                "id": "watch_wave_west",
+                "id": "watch_wave_west_3",
                 "unitTypeId": "march_sword",
                 "side": "second",
                 "x": 0,
                 "y": 5,
                 "behavior": "pursue",
                 "arrival": {
-                  "round": 3,
-                  "every": 4,
-                  "times": 5
+                  "round": 3
                 }
               },
               {
-                "id": "watch_wave_east",
+                "id": "watch_wave_west_11",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 11
+                }
+              },
+              {
+                "id": "watch_wave_west_7",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 7
+                }
+              },
+              {
+                "id": "watch_wave_west_15",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 15
+                }
+              },
+              {
+                "id": "watch_wave_west_19",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 19
+                }
+              },
+              {
+                "id": "watch_wave_east_5",
                 "unitTypeId": "red_retainer",
                 "side": "second",
                 "x": 15,
                 "y": 6,
                 "behavior": "pursue",
                 "arrival": {
-                  "round": 5,
-                  "every": 4,
-                  "times": 4
+                  "round": 5
                 }
               },
               {
-                "id": "watch_wave_north",
+                "id": "watch_wave_east_9",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 15,
+                "y": 6,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 9
+                }
+              },
+              {
+                "id": "watch_wave_east_13",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 15,
+                "y": 6,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 13
+                }
+              },
+              {
+                "id": "watch_wave_east_17",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 15,
+                "y": 6,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 17
+                }
+              },
+              {
+                "id": "watch_wave_north_6",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 8,
+                "y": 0,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 6
+                }
+              },
+              {
+                "id": "watch_wave_north_12",
                 "unitTypeId": "cedar_archer",
                 "side": "second",
                 "x": 8,
                 "y": 0,
                 "behavior": "hold",
                 "arrival": {
-                  "round": 6,
-                  "every": 6,
-                  "times": 3
+                  "round": 12
                 }
               },
               {
-                "id": "watch_wave_south",
+                "id": "watch_wave_north_18",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 8,
+                "y": 0,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 18
+                }
+              },
+              {
+                "id": "watch_wave_south_10",
+                "unitTypeId": "gate_mystic",
+                "side": "second",
+                "x": 7,
+                "y": 11,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 10
+                }
+              },
+              {
+                "id": "watch_wave_south_16",
                 "unitTypeId": "gate_mystic",
                 "side": "second",
                 "x": 7,
@@ -2452,13 +2557,11 @@
                 "behavior": "hold",
                 "minimumPlayers": 2,
                 "arrival": {
-                  "round": 10,
-                  "every": 6,
-                  "times": 2
+                  "round": 16
                 }
               },
               {
-                "id": "watch_coop_east",
+                "id": "watch_coop_east_4",
                 "unitTypeId": "march_sword",
                 "side": "second",
                 "x": 15,
@@ -2466,13 +2569,47 @@
                 "behavior": "pursue",
                 "minimumPlayers": 2,
                 "arrival": {
-                  "round": 4,
-                  "every": 5,
-                  "times": 4
+                  "round": 4
                 }
               },
               {
-                "id": "watch_coop_west",
+                "id": "watch_coop_east_9",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 15,
+                "y": 3,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 9
+                }
+              },
+              {
+                "id": "watch_coop_east_14",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 15,
+                "y": 3,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 14
+                }
+              },
+              {
+                "id": "watch_coop_east_19",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 15,
+                "y": 3,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 19
+                }
+              },
+              {
+                "id": "watch_coop_west_8",
                 "unitTypeId": "red_retainer",
                 "side": "second",
                 "x": 0,
@@ -2480,13 +2617,35 @@
                 "behavior": "pursue",
                 "minimumPlayers": 2,
                 "arrival": {
-                  "round": 8,
-                  "every": 5,
-                  "times": 3
+                  "round": 8
                 }
               },
               {
-                "id": "watch_coop_south",
+                "id": "watch_coop_west_13",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 0,
+                "y": 8,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 13
+                }
+              },
+              {
+                "id": "watch_coop_west_18",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 0,
+                "y": 8,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 18
+                }
+              },
+              {
+                "id": "watch_coop_south_12",
                 "unitTypeId": "march_archer",
                 "side": "second",
                 "x": 8,
@@ -2494,9 +2653,19 @@
                 "behavior": "hold",
                 "minimumPlayers": 2,
                 "arrival": {
-                  "round": 12,
-                  "every": 6,
-                  "times": 2
+                  "round": 12
+                }
+              },
+              {
+                "id": "watch_coop_south_18",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 8,
+                "y": 11,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 18
                 }
               }
             ],
@@ -2789,7 +2958,7 @@
                 "y": 6,
                 "memberId": "rowan",
                 "twoPlayerPosition": {
-                  "x": 2,
+                  "x": 3,
                   "y": 4
                 }
               },
@@ -2801,7 +2970,7 @@
                 "y": 6,
                 "memberId": "tomas",
                 "twoPlayerPosition": {
-                  "x": 2,
+                  "x": 3,
                   "y": 5
                 }
               },
@@ -2809,7 +2978,7 @@
                 "id": "akari_gate",
                 "unitTypeId": "akari_mori",
                 "side": "first",
-                "x": 2,
+                "x": 3,
                 "y": 9,
                 "memberId": "akari",
                 "player": 2,
@@ -2819,7 +2988,7 @@
                 "id": "ren_gate",
                 "unitTypeId": "ren_sato",
                 "side": "first",
-                "x": 2,
+                "x": 3,
                 "y": 10,
                 "memberId": "ren",
                 "player": 2,

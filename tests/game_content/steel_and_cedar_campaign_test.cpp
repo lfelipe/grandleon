@@ -54,7 +54,7 @@ struct Stage final {
 constexpr std::array<Stage, 5> stages{{
     {"bell_orchard", 8, 6, 3, 4, 2},
     {"cedar_deepwood", 14, 9, 5, 7, 2},
-    {"cedar_watch", 16, 12, 5, 9, 2},
+    {"cedar_watch", 16, 12, 14, 25, 2},
     {"gate_village", 18, 12, 6, 9, 2},
     {"twin_gate", 20, 14, 4, 7, 3},
 }};
@@ -106,6 +106,47 @@ std::set<unsigned> enemy_quadrants(const pr::EncounterLoadResult& board) {
         quadrants.insert(right + lower);
     }
     return quadrants;
+}
+
+struct ConflictExtent final {
+    unsigned width{};
+    unsigned height{};
+};
+
+ConflictExtent conflict_extent(const pr::EncounterLoadResult& board) {
+    std::int16_t minimum_x = std::numeric_limits<std::int16_t>::max();
+    std::int16_t minimum_y = std::numeric_limits<std::int16_t>::max();
+    std::int16_t maximum_x = std::numeric_limits<std::int16_t>::min();
+    std::int16_t maximum_y = std::numeric_limits<std::int16_t>::min();
+    for (const sim::UnitDefinition& unit : board.definition.units) {
+        minimum_x = std::min(minimum_x, unit.position.x);
+        minimum_y = std::min(minimum_y, unit.position.y);
+        maximum_x = std::max(maximum_x, unit.position.x);
+        maximum_y = std::max(maximum_y, unit.position.y);
+    }
+    if (board.definition.units.empty()) return {};
+    return {
+        static_cast<unsigned>(maximum_x - minimum_x + 1),
+        static_cast<unsigned>(maximum_y - minimum_y + 1),
+    };
+}
+
+std::size_t largest_opening_group_cell(
+    const pr::EncounterLoadResult& board
+) {
+    std::map<std::pair<int, int>, std::size_t> groups;
+    for (const sim::UnitDefinition& unit : board.definition.units) {
+        if (unit.side != sim::Side::second || unit.arrival_round != 0U) {
+            continue;
+        }
+        ++groups[{unit.position.x / 4, unit.position.y / 4}];
+    }
+    std::size_t largest = 0U;
+    for (const auto& [region, count] : groups) {
+        static_cast<void>(region);
+        largest = std::max(largest, count);
+    }
+    return largest;
 }
 
 std::vector<unsigned> terrain_distances(
@@ -270,12 +311,24 @@ struct AutoplayResult final {
     std::size_t second_survivors{};
     int first_health{};
     int second_health{};
+    std::uint32_t first_combat_round{};
+    std::uint32_t last_combat_round{};
+    std::size_t combat_rounds{};
+    std::size_t longest_quiet_streak{};
+    std::array<std::size_t, 2> player_combat_actions{};
+    std::array<std::size_t, 2> player_moves{};
 };
 
-AutoplayResult autoplay(const pr::EncounterLoadResult& board) {
+AutoplayResult autoplay(
+    const pr::EncounterLoadResult& board,
+    bool passive_first_side = false
+) {
     auto created = sim::create_encounter(board.definition);
     if (!created) return {};
     std::size_t commands = 0U;
+    std::set<std::uint32_t> combat_rounds;
+    std::array<std::size_t, 2> player_combat_actions{};
+    std::array<std::size_t, 2> player_moves{};
     while (created.encounter.snapshot().outcome == sim::Outcome::ongoing &&
            created.encounter.snapshot().round < 100U &&
            commands < 10'000U) {
@@ -299,10 +352,15 @@ AutoplayResult autoplay(const pr::EncounterLoadResult& board) {
                 behavior = authored == board.behaviors.end()
                     ? tac::Behavior::hold : authored->behavior;
             }
-            const tac::Plan plan = tac::decide(
-                snapshot, unit.id, behavior, {},
-                created.encounter.abilities(), created.encounter.weapons()
-            );
+            const tac::Plan plan = passive_first_side &&
+                    unit.side == sim::Side::first
+                ? tac::Plan{
+                    {sim::CommandType::wait, unit.id, {}, 0}, true,
+                }
+                : tac::decide(
+                    snapshot, unit.id, behavior, {},
+                    created.encounter.abilities(), created.encounter.weapons()
+                );
             if (!plan.actionable) continue;
             sim::CommandResult applied = created.encounter.apply(plan.command);
             if (!applied) {
@@ -311,6 +369,34 @@ AutoplayResult autoplay(const pr::EncounterLoadResult& board) {
                 );
             }
             if (!applied) return {};
+            const std::uint32_t current_round = snapshot.round + 1U;
+            if (plan.command.type == sim::CommandType::attack ||
+                plan.command.type == sim::CommandType::ability) {
+                combat_rounds.insert(current_round);
+            }
+            if (unit.side == sim::Side::first) {
+                const auto definition = std::find_if(
+                    board.definition.units.begin(),
+                    board.definition.units.end(),
+                    [&unit](const sim::UnitDefinition& candidate) {
+                        return candidate.id == unit.id;
+                    }
+                );
+                if (definition != board.definition.units.end() &&
+                    definition->local_player >= 1U &&
+                    definition->local_player <= 2U) {
+                    const std::size_t player = static_cast<std::size_t>(
+                        definition->local_player - 1U
+                    );
+                    if (plan.command.type == sim::CommandType::attack ||
+                        plan.command.type == sim::CommandType::ability) {
+                        ++player_combat_actions[player];
+                    }
+                    if (plan.command.type == sim::CommandType::move) {
+                        ++player_moves[player];
+                    }
+                }
+            }
             applied_anything = true;
             break;
         }
@@ -319,6 +405,26 @@ AutoplayResult autoplay(const pr::EncounterLoadResult& board) {
     }
     const sim::EncounterSnapshot final = created.encounter.snapshot();
     AutoplayResult result{final.outcome, final.round, commands};
+    result.player_combat_actions = player_combat_actions;
+    result.player_moves = player_moves;
+    if (!combat_rounds.empty()) {
+        result.first_combat_round = *combat_rounds.begin();
+        result.last_combat_round = *combat_rounds.rbegin();
+        result.combat_rounds = combat_rounds.size();
+        std::size_t quiet = 0U;
+        for (std::uint32_t round = 1U;
+             round <= std::max(final.round, result.last_combat_round);
+             ++round) {
+            if (combat_rounds.count(round) != 0U) {
+                quiet = 0U;
+            } else {
+                ++quiet;
+                result.longest_quiet_streak = std::max(
+                    result.longest_quiet_streak, quiet
+                );
+            }
+        }
+    }
     for (const sim::UnitSnapshot& unit : final.units) {
         if (!sim::in_the_battle(unit)) continue;
         if (unit.side == sim::Side::first) {
@@ -677,6 +783,23 @@ int main() {
                 enemy_quadrants(coop).size() >= 3U,
                 std::string(stage.key) + " distributes tactical groups across the board"
             );
+            const ConflictExtent solo_extent = conflict_extent(solo);
+            const ConflictExtent coop_extent = conflict_extent(coop);
+            expect(
+                solo_extent.width > 8U || solo_extent.height > 6U,
+                std::string(stage.key) +
+                    " makes the solo conflict extend beyond one console view"
+            );
+            expect(
+                coop_extent.width > 8U && coop_extent.height > 6U,
+                std::string(stage.key) +
+                    " makes the co-op fronts scroll in both dimensions"
+            );
+            expect(
+                largest_opening_group_cell(coop) <= 2U,
+                std::string(stage.key) +
+                    " opens with readable groups instead of an enemy blob"
+            );
         }
 
         for (const auto& [board, mode] : std::array{
@@ -697,6 +820,23 @@ int main() {
                 std::string(stage.key) + " " + mode +
                     " has a deterministic legal completion baseline"
             );
+            expect(
+                played.first_combat_round <= 2U &&
+                    played.longest_quiet_streak <= 1U,
+                std::string(stage.key) + " " + mode +
+                    " reaches contact promptly without dead walking rounds"
+            );
+            if (count_units(*board, sim::Side::first, 2U) != 0U) {
+                const std::size_t combined =
+                    played.player_combat_actions[0] +
+                    played.player_combat_actions[1];
+                expect(
+                    played.player_combat_actions[0] * 4U >= combined &&
+                        played.player_combat_actions[1] * 4U >= combined,
+                    std::string(stage.key) + " " + mode +
+                        " gives both players a material share of combat"
+                );
+            }
             if (index == 0U) {
                 expect(
                     played.first_survivors == starting_allies &&
@@ -709,6 +849,20 @@ int main() {
                     played.round >= 6U,
                     std::string(stage.key) + " " + mode +
                         " does not collapse into an immediate clear"
+                );
+            }
+            if (index == 1U) {
+                expect(
+                    played.round <= 10U,
+                    std::string(stage.key) + " " + mode +
+                        " clears its forest routes without a long tail"
+                );
+            }
+            if (index == 3U || index == 4U) {
+                expect(
+                    played.round <= 12U,
+                    std::string(stage.key) + " " + mode +
+                        " reaches its commander before the assault drags"
                 );
             }
             if (index == 2U) {
@@ -736,7 +890,15 @@ int main() {
                       << " survivors=" << played.first_survivors << '/'
                       << played.second_survivors
                       << " health=" << played.first_health << '/'
-                      << played.second_health << '\n';
+                      << played.second_health
+                      << " combat=" << played.first_combat_round << '-'
+                      << played.last_combat_round << " in "
+                      << played.combat_rounds << " rounds"
+                      << " quiet=" << played.longest_quiet_streak
+                      << " p-actions=" << played.player_combat_actions[0]
+                      << '/' << played.player_combat_actions[1]
+                      << " p-moves=" << played.player_moves[0]
+                      << '/' << played.player_moves[1] << '\n';
         }
         expect(
             every_enemy_has_a_route_from(coop, 2U),
@@ -826,20 +988,35 @@ int main() {
     std::set<std::uint32_t> first_arrival_rounds;
     std::size_t recurring_waves = 0;
     std::size_t opening_enemies = 0;
+    std::size_t explicit_arrivals = 0;
+    bool every_enemy_has_behavior = true;
     for (const sim::UnitDefinition& unit : watch.definition.units) {
         if (unit.side != sim::Side::second) continue;
+        every_enemy_has_behavior = every_enemy_has_behavior &&
+            std::any_of(
+                watch.behaviors.begin(), watch.behaviors.end(),
+                [&unit](const pr::UnitBehaviorBinding& binding) {
+                    return binding.unit_id == unit.id;
+                }
+            );
         if (unit.arrival_round == 0U) {
             ++opening_enemies;
         } else {
+            ++explicit_arrivals;
             first_arrival_rounds.insert(unit.arrival_round);
             if (unit.arrival_times > 1U) ++recurring_waves;
         }
     }
     expect(opening_enemies == 2U, "Cedar Watch opens readably instead of as an enemy blob");
     expect(
-        first_arrival_rounds == std::set<std::uint32_t>{3U, 4U, 5U, 6U, 8U, 10U, 12U} &&
-            recurring_waves == 7U,
-        "its seven staggered wave groups span both fronts and the full defense"
+        first_arrival_rounds == std::set<std::uint32_t>{
+            3U, 4U, 5U, 6U, 7U, 8U, 9U, 10U, 11U, 12U, 13U,
+            14U, 15U, 16U, 17U, 18U, 19U,
+        } &&
+            explicit_arrivals == 23U && recurring_waves == 0U &&
+            every_enemy_has_behavior,
+        "its explicit staggered arrivals span every front and each keeps an "
+        "authored hold-or-advance order"
     );
     const auto solo_watch = pr::load_encounter(
         loaded.package,
@@ -917,33 +1094,20 @@ int main() {
             core::stable_content_id_v1("steel_and_cedar/cedar_watch"),
             {players}
         );
-        auto created = sim::create_encounter(board.definition);
-        std::size_t commands = 0U;
+        const AutoplayResult passive = autoplay(board, true);
+        std::cout << "passive watch " << unsigned{players}
+                  << "P winner="
+                  << (passive.outcome == sim::Outcome::second_side_won
+                          ? "war_host" : "concord")
+                  << " round=" << passive.round
+                  << " survivors=" << passive.first_survivors << '/'
+                  << passive.second_survivors << '\n';
         expect(
-            created && wait_until_completed_round(
-                created.encounter, 20U, commands
-            ),
+            passive.outcome == sim::Outcome::second_side_won &&
+                passive.round < 20U,
             std::string("Cedar Watch ") + std::to_string(players) +
-                "P can legally hold through round twenty"
+                "P cannot win by passively waiting through the defense"
         );
-        if (created) {
-            const sim::EncounterSnapshot survived =
-                created.encounter.snapshot();
-            expect(
-                survived.outcome == sim::Outcome::first_side_won &&
-                    std::any_of(
-                        survived.objectives.begin(),
-                        survived.objectives.end(),
-                        [hold_id](const sim::ObjectiveResult& result) {
-                            return result.id == hold_id &&
-                                result.state ==
-                                    sim::ObjectiveState::satisfied;
-                        }
-                    ),
-                std::string("Cedar Watch ") + std::to_string(players) +
-                    "P makes its survival objective attainable"
-            );
-        }
     }
 
     const auto finale = pr::load_encounter(
@@ -969,6 +1133,48 @@ int main() {
         ) == 2,
         "the final map adds two readable reinforcement pressures"
     );
+    if (finale) {
+        const sim::UnitDefinition* rowan = unit_from_source_key(
+            finale, core::stable_content_id_v1("rowan")
+        );
+        const sim::UnitDefinition* akari = unit_from_source_key(
+            finale, core::stable_content_id_v1("akari")
+        );
+        const auto boss = std::find_if(
+            finale.definition.units.begin(), finale.definition.units.end(),
+            [boss_id](const sim::UnitDefinition& unit) {
+                return unit.unit_type_id == boss_id;
+            }
+        );
+        expect(
+            rowan != nullptr && akari != nullptr &&
+                rowan->position == sim::Position{3, 4} &&
+                akari->position == sim::Position{3, 9},
+            "Twin Gate starts both companies beyond the empty apron on "
+            "separate high and low approaches"
+        );
+        if (rowan != nullptr && boss != finale.definition.units.end()) {
+            sim::EncounterDefinition sealed = finale.definition;
+            for (const sim::Position door :
+                 std::array<sim::Position, 2>{{{13, 6}, {13, 7}}}) {
+                sealed.terrain[
+                    static_cast<std::size_t>(door.y) * sealed.width +
+                    static_cast<std::size_t>(door.x)
+                ] = sim::Terrain::heights;
+            }
+            const std::size_t boss_cell =
+                static_cast<std::size_t>(boss->position.y) * sealed.width +
+                static_cast<std::size_t>(boss->position.x);
+            expect(
+                terrain_distances(finale.definition, *rowan)[boss_cell] !=
+                    std::numeric_limits<unsigned>::max() &&
+                terrain_distances(sealed, *rowan)[boss_cell] ==
+                    std::numeric_limits<unsigned>::max(),
+                "Lord Masatora is fought inside the keep and both authored "
+                "doors control access to his chamber"
+            );
+        }
+    }
 
     const auto campaign = pr::load_campaign(
         loaded.package, core::stable_content_id_v1("steel_and_cedar")

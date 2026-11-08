@@ -120,12 +120,14 @@ The first playable candidate is now under `games/steel_and_cedar`: five
 purpose-built Medieval-versus-Sengoku battles and one portable source with two
 deliberate variants. Solo is Commander Rowan's complete story and army; co-op
 adds Akari's separate army, dialogue, deployment fronts, tactical duties,
-opening layouts, enemies, and waves. Later maps require scrolling, Cedar Watch
-is a 20-round protect-the-commander defense, and automated checks cover both
-variants, map dimensions and tactical regions, objective and wave timing,
-roster identity, the final boss, and console budgets. The work below remains
-open until human playtests prove its pacing and balance and it safely replaces
-the included campaigns on all three players.
+opening layouts, enemies, and waves. Later conflicts extend beyond one console
+view, Cedar Watch is a 20-round protect-the-commander defense, and automated
+checks cover both variants, tactical regions, contact cadence, objective and
+wave timing, co-op participation, roster identity, the final castle doors and
+boss, and console budgets. The defense now loses when a company merely waits,
+and Twin Gate co-op no longer spends fourteen rounds reaching its conclusion.
+The work below remains open until human playtests prove its pacing and balance
+and it safely replaces the included campaigns on all three players.
 
 - [ ] Design and build one cohesive campaign to replace the current included
   campaigns as Grandleon's main demo on Godot, Nintendo 64, and PlayStation.
@@ -172,12 +174,17 @@ the included campaigns on all three players.
   the same strategic possibilities at a manageable pace. Playtest every map
   in both modes, including loss, retry, save, and continuation paths. The
   deterministic baseline now wins all ten variants after losing all ten before
-  tuning: the tutorial ends with the full company, the Watch reaches round 20,
-  and Village/Twin Gate still finish with one survivor. Treat those numbers as
-  guardrails, not a substitute for the pending human sessions.
+  tuning: the tutorial ends with the full company, combat begins by round two,
+  no trace has more than one quiet round in a row, both co-op players perform
+  at least one quarter of their side's combat actions, the active Watch reaches
+  round 20 while passive waiting loses, and the late battles finish with one or
+  two survivors. Treat those numbers as guardrails, not a substitute for the
+  pending human sessions.
 - [x] Add a deterministic campaign balance baseline that uses authored enemy
-  behaviour, proves every 1P/2P battle reaches its objective, and pins broad
-  difficulty signals without claiming that automation proves fun.
+  behaviour, proves every 1P/2P battle reaches its objective, checks scrolling
+  conflict extents, opening-group distribution, dead-turn gaps, co-op combat
+  participation, explicit survival-wave orders, and final-castle access, and
+  pins broad difficulty signals without claiming that automation proves fun.
 - [ ] Keep the campaign within the real Nintendo 64 and PlayStation budgets
   from the beginning. Validate the same source on all three players, then add
   automated completion routes and human playtest notes for difficulty,
