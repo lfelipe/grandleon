@@ -97,6 +97,12 @@ translated text and the exact source text you reviewed. A translation never
 replaces its original string, and missing or outdated work resolves to the
 current source text.
 
+Use **Export .PO** to review the selected language in a gettext-compatible
+translation tool, then **Import .PO** to bring it back. Grandleon keeps stable
+message IDs in gettext context, preserves outdated entries as `fuzzy`, and
+refuses a catalog for the wrong language or a translation that drops a named
+placeholder. The project catalog remains the runtime source of truth.
+
 A game with translated catalogs asks for its language before play. The Godot
 player applies it to the game title, campaign and stage names,
 dialogue, company character names, objectives, named battle placements, and

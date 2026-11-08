@@ -311,11 +311,13 @@ than reproduce those implementation details.
   source copy, dialogue, stage and campaign labels, content names, and character
   names. It supports manual language codes, a first-class Brazilian Portuguese
   shortcut, source/translation preview, and missing/outdated filters.
-- [ ] Add lossless gettext `.po` export and import to the **Translations**
+- [x] Add lossless gettext `.po` export and import to the **Translations**
   screen so human translators can review a catalog in familiar tools. Keep the
   portable project catalog as the runtime source of truth for Godot, Nintendo
   64, and PlayStation; preserve stable message IDs, source text, review state,
-  language tags, and named placeholders across the round trip.
+  language tags, and named placeholders across the round trip. Stable IDs use
+  gettext context, outdated reviews remain `fuzzy` with their prior source,
+  and imports reject the wrong language or missing named placeholders.
 - [x] Complete the final **Translations** gathering audit for every
   player-facing field in the current schema: project, campaign and stage text,
   dialogue, objectives, named battle placements, content names, and character

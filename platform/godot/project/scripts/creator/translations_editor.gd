@@ -2,6 +2,7 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const TranslationPO = preload("res://scripts/creator/translation_po.gd")
 const LANGUAGE_PATTERN := "^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
 const FILTERS := ["all", "missing", "outdated"]
 const NAMED_COLLECTIONS := [
@@ -33,6 +34,10 @@ var translation_input: TextEdit
 var preview_label: Label
 var status_label: Label
 var save_translation_button: Button
+var export_po_button: Button
+var import_po_button: Button
+var export_po_dialog: FileDialog
+var import_po_dialog: FileDialog
 
 
 func _ready() -> void:
@@ -311,6 +316,12 @@ func _build_interface() -> void:
 	summary_label = _label("", 17, Color("a9bdc9"))
 	summary_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	filters.add_child(summary_label)
+	export_po_button = _button(_t("translations.po.export"), 160)
+	export_po_button.pressed.connect(_choose_po_export)
+	filters.add_child(export_po_button)
+	import_po_button = _button(_t("translations.po.import"), 160)
+	import_po_button.pressed.connect(_choose_po_import)
+	filters.add_child(import_po_button)
 
 	var left := PanelContainer.new()
 	left.position = Vector2(60, 250)
@@ -359,6 +370,7 @@ func _build_interface() -> void:
 	back.size = Vector2(300, 62)
 	back.pressed.connect(_back_to_projects)
 	add_child(back)
+	_build_po_dialogs()
 
 
 func _refresh_languages() -> void:
@@ -381,6 +393,10 @@ func _refresh_languages() -> void:
 		if keep.is_empty() or not _catalog(keep):
 			language_select.select(0)
 		selected_language = str(language_select.get_item_metadata(language_select.selected))
+	if export_po_button != null:
+		export_po_button.disabled = selected_language.is_empty()
+	if import_po_button != null:
+		import_po_button.disabled = selected_language.is_empty()
 
 
 func _refresh_messages() -> void:
@@ -554,6 +570,126 @@ func _save_translation() -> void:
 	if _save_candidate(candidate):
 		_refresh_messages()
 		_set_status(_t("translations.translation_saved"), false)
+
+
+func _build_po_dialogs() -> void:
+	export_po_dialog = FileDialog.new()
+	export_po_dialog.title = _t("translations.po.export_title")
+	export_po_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	export_po_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	export_po_dialog.filters = PackedStringArray(["*.po ; gettext PO catalog"])
+	export_po_dialog.file_selected.connect(_export_po_to)
+	add_child(export_po_dialog)
+
+	import_po_dialog = FileDialog.new()
+	import_po_dialog.title = _t("translations.po.import_title")
+	import_po_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	import_po_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	import_po_dialog.filters = PackedStringArray(["*.po ; gettext PO catalog"])
+	import_po_dialog.file_selected.connect(_import_po_from)
+	add_child(import_po_dialog)
+
+
+func _choose_po_export() -> void:
+	if selected_language.is_empty():
+		_set_status(_t("translations.po.error.no_language"), true)
+		return
+	export_po_dialog.current_file = "%s-%s.po" % [
+		_safe_file_stem(str(project.get("title", "grandleon"))), selected_language,
+	]
+	export_po_dialog.popup_centered_ratio(0.72)
+
+
+func _choose_po_import() -> void:
+	if selected_language.is_empty():
+		_set_status(_t("translations.po.error.no_language"), true)
+		return
+	import_po_dialog.popup_centered_ratio(0.72)
+
+
+func _export_po_to(path: String) -> bool:
+	if selected_language.is_empty():
+		_set_status(_t("translations.po.error.no_language"), true)
+		return false
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		_set_status(_t("translations.po.error.write"), true)
+		return false
+	file.store_string(TranslationPO.export_catalog(
+		str(project.get("title", "Grandleon")),
+		str(project.get("sourceLanguage", "en")),
+		selected_language,
+		messages,
+		_catalog(selected_language)
+	))
+	file.flush()
+	file.close()
+	_set_status(_t("translations.po.exported", {"path": path}), false)
+	return true
+
+
+func _import_po_from(path: String) -> bool:
+	if selected_language.is_empty():
+		_set_status(_t("translations.po.error.no_language"), true)
+		return false
+	if not FileAccess.file_exists(path):
+		_set_status(_t("translations.po.error.read"), true)
+		return false
+	var imported: Dictionary = TranslationPO.import_catalog(
+		FileAccess.get_file_as_string(path), selected_language, messages,
+		_catalog(selected_language)
+	)
+	if not bool(imported.get("ok", false)):
+		var error := str(imported.get("error", "invalid"))
+		if error == "language_mismatch":
+			_set_status(_t("translations.po.error.language_mismatch", {
+				"language": str(imported.get("language", "")),
+				"selected": selected_language,
+			}), true)
+		elif error == "placeholder_mismatch":
+			_set_status(_t("translations.po.error.placeholder", {
+				"id": str(imported.get("id", "")),
+			}), true)
+		else:
+			_set_status(_t("translations.po.error.invalid"), true)
+		return false
+	var candidate := project.duplicate(true)
+	var catalogs: Array = candidate.get("translations", []).duplicate(true)
+	var replaced := false
+	for catalog_index: int in catalogs.size():
+		if (
+			catalogs[catalog_index] is Dictionary
+			and str(catalogs[catalog_index].get("language", "")) == selected_language
+		):
+			var catalog: Dictionary = catalogs[catalog_index]
+			catalog["entries"] = imported.get("entries", [])
+			catalogs[catalog_index] = catalog
+			replaced = true
+			break
+	if not replaced:
+		_set_status(_t("translations.po.error.no_language"), true)
+		return false
+	candidate["translations"] = catalogs
+	if not _save_candidate(candidate):
+		return false
+	_refresh_messages()
+	_set_status(_t("translations.po.imported", {
+		"count": int(imported.get("imported", 0)),
+		"cleared": int(imported.get("cleared", 0)),
+		"ignored": int(imported.get("ignored", 0)),
+	}), false)
+	return true
+
+
+func _safe_file_stem(value: String) -> String:
+	var result := ""
+	for character: String in value.to_lower():
+		if character.to_ascii_buffer()[0] in range(97, 123) or character in "0123456789":
+			result += character
+		elif not result.ends_with("-"):
+			result += "-"
+	result = result.trim_prefix("-").trim_suffix("-")
+	return result if not result.is_empty() else "grandleon"
 
 
 func _save_candidate(candidate: Dictionary) -> bool:

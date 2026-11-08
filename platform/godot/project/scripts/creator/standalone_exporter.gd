@@ -38,6 +38,7 @@ const EXCLUDED_FILES := [
 	"project/scripts/creator/gear_editor.gd",
 	"project/scripts/creator/game_settings.gd",
 	"project/scripts/creator/translations_editor.gd",
+	"project/scripts/creator/translation_po.gd",
 	"project/scripts/creator/standalone_exporter.gd",
 ]
 

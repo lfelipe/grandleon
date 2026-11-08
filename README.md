@@ -177,7 +177,10 @@ Games now record their own source language and carry manual translations in
 the same portable project and compiled package. Open a project's
 **Translations** screen to add a language (including `pt-BR`), review all
 gathered player-facing copy and character names, search the catalog, and filter
-missing or outdated work. Before a translated game starts, the player chooses
+missing or outdated work. **Export .PO** and **Import .PO** let a translator
+review the same catalog in gettext-compatible tools; stable IDs, outdated
+review state, and named placeholders survive the round trip. The portable
+project remains the version used by every runtime. Before a translated game starts, the player chooses
 from its authored languages. Godot then applies that choice to the game title,
 campaign and stage names, dialogue, objectives, company character names, named
 battle placements, and named units, weapons, abilities, and items. Grandleon

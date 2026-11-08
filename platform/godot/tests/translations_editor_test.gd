@@ -2,6 +2,7 @@
 extends SceneTree
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const TranslationPO = preload("res://scripts/creator/translation_po.gd")
 
 var failures := 0
 
@@ -35,6 +36,8 @@ func _run() -> void:
 	_expect("source language is explicit", str(editor.project.sourceLanguage), "en")
 	_expect("source language is editable", editor.source_language_input.text, "en")
 	_expect("translation list begins empty", editor.project.get("translations", []).size(), 0)
+	_expect("gettext export is visible", editor.export_po_button.text, "EXPORT .PO")
+	_expect("gettext import is visible", editor.import_po_button.text, "IMPORT .PO")
 	_expect(
 		"character names are gathered",
 		not editor._message_by_id("campaigns.first_adventure.members.aren.name").is_empty(),
@@ -129,6 +132,50 @@ func _run() -> void:
 	editor._select_filter(2)
 	_expect("outdated filter isolates review work", editor.message_list.item_count, 1)
 	_expect("outdated filter keeps stable identity", str(editor.message_list.get_item_metadata(0)), "project.title")
+
+	var po_path := "user://portable-words-pt-BR.po"
+	_expect("gettext catalog exports", editor._export_po_to(po_path), true)
+	var po_text := FileAccess.get_file_as_string(po_path)
+	_expect("gettext header carries language", po_text.contains("Language: pt-BR\\n"), true)
+	_expect("gettext uses stable identity as context", po_text.contains('msgctxt "project.title"'), true)
+	_expect("outdated work exports as fuzzy", po_text.contains("#, fuzzy"), true)
+	_expect("outdated work preserves reviewed source", po_text.contains('#| msgid "Portable Words"'), true)
+	_expect("gettext round trip imports", editor._import_po_from(po_path), true)
+	_expect("fuzzy round trip remains outdated", editor.translation_status("pt-BR", "project.title"), "outdated")
+	var reviewed_po := po_text.replace(
+		'#, fuzzy\n#| msgid "Portable Words"\nmsgctxt "project.title"',
+		'msgctxt "project.title"'
+	)
+	var reviewed_file := FileAccess.open(po_path, FileAccess.WRITE)
+	reviewed_file.store_string(reviewed_po)
+	reviewed_file.close()
+	_expect("reviewed gettext catalog imports", editor._import_po_from(po_path), true)
+	_expect("reviewed current source becomes translated", editor.translation_status("pt-BR", "project.title"), "translated")
+
+	var placeholder_messages: Array[Dictionary] = [{
+		"id": "dialogue.greeting", "source": "Hello {name}", "context": "Dialogue",
+	}]
+	var placeholder_catalog := {
+		"language": "pt-BR",
+		"entries": [{
+			"id": "dialogue.greeting",
+			"source": "Hello {name}",
+			"text": "Olá {name}",
+		}],
+	}
+	var placeholder_po := TranslationPO.export_catalog(
+		"Portable Words", "en", "pt-BR", placeholder_messages, placeholder_catalog
+	).replace("Olá {name}", "Olá")
+	var placeholder_import := TranslationPO.import_catalog(
+		placeholder_po, "pt-BR", placeholder_messages, placeholder_catalog
+	)
+	_expect("gettext import rejects lost named placeholders", placeholder_import.error, "placeholder_mismatch")
+	var wrong_language := TranslationPO.import_catalog(
+		po_text.replace("Language: pt-BR\\n", "Language: es\\n"),
+		"pt-BR", editor.messages, editor._catalog("pt-BR")
+	)
+	_expect("gettext import rejects the wrong language", wrong_language.error, "language_mismatch")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(po_path))
 
 	editor._add_language_code("es")
 	_expect("manual language code is supported", editor.selected_language, "es")
