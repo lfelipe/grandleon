@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "status": "reviewed_asset_only",
+  "runtime_registered": false,
+  "id": "medieval_village",
+  "campaign": "steel_and_cedar",
+  "source_resolution": [1280, 720],
+  "colour_space": "sRGB",
+  "variant_count": 3,
+  "layer_roles": ["panorama", "transition", "midground", "props"],
+  "filename_patterns": {
+    "panorama": "panorama_{variant}.png",
+    "transition": "transition_road_paved_{variant}.png",
+    "midground": "midground_village_{variant}.png",
+    "props": "props_{variant}.png"
+  },
+  "floor_strip_top": 1.0,
+  "compatibility": {
+    "map_ids": ["gate_village"],
+    "terrain_features": ["village_house"],
+    "terrain_kinds": ["road", "paved", "grass"],
+    "conversation_scene_ids": [
+      "village_orders",
+      "village_coop",
+      "village_won"
+    ]
+  }
+}
