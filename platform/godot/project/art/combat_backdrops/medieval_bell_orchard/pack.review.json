@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "status": "reviewed_asset_only",
+  "runtime_registered": false,
+  "id": "medieval_bell_orchard",
+  "campaign": "steel_and_cedar",
+  "source_resolution": [1280, 720],
+  "colour_space": "sRGB",
+  "variant_count": 3,
+  "layer_roles": ["panorama", "transition", "midground", "props"],
+  "filename_patterns": {
+    "panorama": "panorama_{variant}.png",
+    "transition": "transition_farmland_road_{variant}.png",
+    "midground": "midground_orchard_{variant}.png",
+    "props": "props_{variant}.png"
+  },
+  "floor_strip_top": 1.0,
+  "compatibility": {
+    "source_stage_ids": ["bell_orchard"],
+    "stage_ids": ["935b03cf7490233c"],
+    "source_map_ids": ["bell_orchard"],
+    "map_ids": ["935b03cf7490233c"],
+    "source_encounter_ids": ["steel_and_cedar/bell_orchard"],
+    "encounter_ids": ["4c67d9e3fd41410e"],
+    "terrain_kinds": ["farmland", "road", "grass", "forest", "paved"],
+    "nearby_features_any": ["orchard_tree", "orchard_bell"],
+    "authored_feature_status": "proposed_not_yet_in_source",
+    "proposed_source_terrain_ids": [
+      "farmland_orchard_tree",
+      "paved_orchard_bell"
+    ],
+    "conversation_scene_ids": [
+      "orchard_orders",
+      "orchard_coop",
+      "orchard_won"
+    ],
+    "authored_backdrops_proposed": ["bell_orchard"]
+  }
+}

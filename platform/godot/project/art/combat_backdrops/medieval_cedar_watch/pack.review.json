@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "status": "reviewed_asset_only",
+  "runtime_registered": false,
+  "id": "medieval_cedar_watch",
+  "campaign": "steel_and_cedar",
+  "source_resolution": [1280, 720],
+  "colour_space": "sRGB",
+  "variant_count": 3,
+  "layer_roles": ["panorama", "transition", "midground", "props"],
+  "filename_patterns": {
+    "panorama": "panorama_{variant}.png",
+    "transition": "transition_paved_ruins_{variant}.png",
+    "midground": "midground_watch_{variant}.png",
+    "props": "props_{variant}.png"
+  },
+  "floor_strip_top": 1.0,
+  "compatibility": {
+    "source_stage_ids": ["cedar_watch"],
+    "stage_ids": ["0079abb4797ff5b4"],
+    "source_map_ids": ["cedar_watch"],
+    "map_ids": ["0079abb4797ff5b4"],
+    "source_encounter_ids": ["steel_and_cedar/cedar_watch"],
+    "encounter_ids": ["a91cac5b07854756"],
+    "terrain_kinds": ["paved", "ruins", "road", "grass", "bamboo", "forest", "hills"],
+    "nearby_features_any": ["watch_ruin", "signal_beacon"],
+    "authored_feature_status": "proposed_not_yet_in_source",
+    "proposed_source_terrain_ids": [
+      "ruins_watch_ruin",
+      "paved_signal_beacon"
+    ],
+    "conversation_scene_ids": [
+      "watch_orders",
+      "watch_coop",
+      "watch_won"
+    ],
+    "authored_backdrops_proposed": ["cedar_watch"]
+  }
+}
