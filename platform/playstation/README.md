@@ -61,17 +61,13 @@ page and focus treatment. Footer glyphs use Cross, Circle, Triangle, and START;
 story panels fit their actual lines so more of the authored backdrop remains
 visible.
 
-Steel and Cedar's maps all use the production textured terrain cells and their
-neighbour-aware road, grass, paving, ruins, and height transitions. Twin Gate
-Keep additionally has a reviewed layered landmark: it stays closed during the
-approach, hides the units and highlights behind its front, then opens into a
-playable cutaway when the cursor or a friendly unit reaches the threshold. The
-cutaway does not replace the board—units, movement and danger marks are drawn
-back at their real cells, the full 20×14 map still scrolls, and attacks can
-still borrow the same texture pages for their close view. Selection is strict:
-the Steel and Cedar project, authored `twin_gate` map identity, complete 20×14
-terrain layout, and reviewed terrain family must all match. Other projects and
-future changed maps keep the normal renderer until their landmark is reviewed.
+Every campaign and exported project uses the production textured diamond
+terrain, visible elevation faces, diagonal painter order, scrolling camera,
+and smaller board-scale character cutouts. Project identity may select
+reviewed content, but never a second renderer. Steel and Cedar's roads, grass,
+paving, ruins, houses, groves, and Twin Gate cells therefore share the same
+ground-level tactical composition. Castle doors and daises are cell features,
+and walls gain elevation without replacing or covering the playable map.
 
 The interface typeface is drawn for Grandleon and released under the
 repository's MIT licence; it is not converted from an external font. Its
@@ -123,16 +119,10 @@ memory cards, complete campaign routes, and BIOS disc loading. The first run
 also builds the pinned toolchain and emulator images, so it takes several
 minutes.
 
-Two focused visual checks cover the Twin Gate work. The first measures every
-layer of the five-state reveal in isolation; the second enters the real Steel
-and Cedar encounter through the production `PlayStationClient`, captures the
-ordinary full map, the revealed and scrolled map, and temporary terrain/detail
-review cameras, then restores normal play.
-
-```sh
-cmake --build build --target grandleon_playstation_twin_gate_quality
-cmake --build build --target grandleon_playstation_twin_gate_runtime_check
-```
+The playable campaign and turn checks use the same textured isometric tactical
+board as release discs and exported projects. Campaign-specific artwork can
+change what is drawn, but there is no second flat or presentation-only board
+renderer to drift away from normal play.
 
 See [Playing on Nintendo 64 and PlayStation](../../docs/CONSOLE_RENDERER.md) for
 export limits and release expectations. Contributor setup is in

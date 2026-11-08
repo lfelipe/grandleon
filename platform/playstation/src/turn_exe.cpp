@@ -102,11 +102,6 @@
 #include "ui_font.h"
 #include "ui_layout.h"
 
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-#include "twin_gate_quality.h"
-#include "twin_gate_scene.h"
-#endif
-
 #ifdef GRANDLEON_PSX_AUTOPILOT
 #include "fordlight_pad.h"
 #endif
@@ -162,9 +157,6 @@ namespace gpu = grandleon::playstation::gpu;
 namespace pad = grandleon::playstation::pad;
 namespace font = grandleon::playstation::ui_font;
 namespace layout = grandleon::playstation::ui_layout;
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-namespace gate = grandleon::console_quality::twin_gate;
-#endif
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
 namespace card = grandleon::playstation::card;
 namespace storage = grandleon::storage;
@@ -200,79 +192,6 @@ constexpr std::uint64_t castle_floor_terrain =
     core::stable_content_id_v1("paved_castle_floor");
 constexpr std::uint64_t castle_dais_terrain =
     core::stable_content_id_v1("paved_castle_dais");
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-constexpr std::uint64_t twin_gate_map_identity =
-    core::stable_content_id_v1("twin_gate");
-constexpr int twin_gate_first_page = gpu::first_texture_page + 6;
-constexpr int twin_gate_clut_x = 512;
-constexpr int twin_gate_clut_y = gpu::clut_y + gpu::clut_rows - 1;
-static_assert(
-    twin_gate_quality_width == 192 && twin_gate_quality_height == 176 &&
-        twin_gate_quality_tile_width == 64 &&
-        twin_gate_quality_tile_height == 32 &&
-        twin_gate_quality_tile_columns == 3 &&
-        twin_gate_quality_tile_count == 18,
-    "the production composition expects the reviewed 192x176 keep contract"
-);
-static_assert(
-    twin_gate_first_page + 1 <
-        gpu::first_texture_page + gpu::texture_page_count,
-    "the Twin Gate plate needs two CI8 pages"
-);
-static_assert(
-    twin_gate_clut_x + 256 <= gpu::vram_width,
-    "the Twin Gate CI8 palette must fit the shared CLUT line"
-);
-
-using TwinGateTiles = const unsigned short (*)
-    [twin_gate_quality_tile_width / 2 * twin_gate_quality_tile_height];
-
-struct TwinGateTexture final {
-    const unsigned short* clut;
-    TwinGateTiles tiles;
-};
-
-[[nodiscard]] TwinGateTexture twin_gate_texture(int state) noexcept {
-    switch (state) {
-        case 0:
-            return {twin_gate_quality_clut_exterior,
-                    twin_gate_quality_tiles_exterior};
-        case 1:
-            return {twin_gate_quality_clut_threshold_1,
-                    twin_gate_quality_tiles_threshold_1};
-        case 2:
-            return {twin_gate_quality_clut_threshold_2,
-                    twin_gate_quality_tiles_threshold_2};
-        case 3:
-            return {twin_gate_quality_clut_threshold_3,
-                    twin_gate_quality_tiles_threshold_3};
-        default:
-            return {twin_gate_quality_clut_cutaway,
-                    twin_gate_quality_tiles_cutaway};
-    }
-}
-
-void upload_twin_gate_texture(int state) {
-    const TwinGateTexture texture = twin_gate_texture(state);
-    gpu::upload(
-        twin_gate_clut_x, twin_gate_clut_y, 256, 1, texture.clut
-    );
-    for (int index = 0; index < twin_gate_quality_tile_count; ++index) {
-        const int column = index % twin_gate_quality_tile_columns;
-        const int row = index / twin_gate_quality_tile_columns;
-        const int page = twin_gate_first_page + (column >= 2 ? 1 : 0);
-        const int u = (column & 1) * twin_gate_quality_tile_width;
-        const int v = row * twin_gate_quality_tile_height;
-        gpu::upload(
-            page * gpu::page_halfwords + u / 2,
-            gpu::texture_page_y + v,
-            twin_gate_quality_tile_width / 2,
-            twin_gate_quality_tile_height,
-            texture.tiles[index]
-        );
-    }
-}
-#endif
 #ifdef GRANDLEON_PSX_DEMO_CAMPAIGN
 constexpr const std::uint8_t* campaign_package_bytes = demo_package_bytes;
 constexpr std::size_t campaign_package_size = demo_package_size;
@@ -417,26 +336,6 @@ constexpr int row_message = screen_rows - 3;
 constexpr int row_aiming = screen_rows - 2;
 constexpr int row_hint = screen_rows - 1;
 constexpr int sheet_footer_row = screen_rows - 2;
-
-// How thick the wash around a lit cell is, and why it is a frame rather than a
-// fill.
-//
-// This machine has a blender and could wash the whole cell translucently. Then
-// every probe over a lit tile would be a claim about the blender's rounding
-// rather than about the picture, which is a much weaker thing to assert and a
-// much harder thing to be exactly right about. A frame in a flat colour is
-// exact, leaves the cell's own art legible in the middle, and leaves the
-// centre-sampling framebuffer probes untouched.
-constexpr int wash_thickness = 3;
-
-// The cursor's four corner brackets: how long an arm is and how thick. The arm
-// is a quarter of whatever cell this board is drawn at, so the bracket stays
-// the same shape on a shrunk board rather than closing up into a box.
-[[nodiscard]] constexpr int bracket_arm_for(int cell) noexcept {
-    const int arm = cell / 4;
-    return arm > 0 ? arm : 1;
-}
-constexpr int bracket_thickness = 2;
 
 #ifdef GRANDLEON_PSX_AUTOPILOT
 // How many frames a scripted press waits before it is made. Twenty is two
@@ -606,25 +505,8 @@ const std::uint16_t* const resume_presses = turn::tarnholt_campaign_resume;
 const std::size_t resume_press_count = turn::tarnholt_campaign_resume_count;
 #endif
 #else
-#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
-// A pan from Rowan's approach to the gate and down the last row. The latter
-// makes the real 20x14 camera scroll; reaching the threshold makes the
-// production landmark switch to its playable cutaway. This direct capture
-// enters after the campaign's opening lines, so no confirmation presses are
-// invented here.
-inline constexpr std::uint16_t twin_gate_capture_presses[] = {
-    turn::pad_right, turn::pad_right, turn::pad_right,
-    turn::pad_right, turn::pad_right, turn::pad_right,
-    turn::pad_down, turn::pad_down, turn::pad_down, turn::pad_down,
-    turn::pad_down, turn::pad_down, turn::pad_down,
-};
-const std::uint16_t* const script_presses = twin_gate_capture_presses;
-const std::size_t script_press_count =
-    sizeof twin_gate_capture_presses / sizeof twin_gate_capture_presses[0];
-#else
 const std::uint16_t* const script_presses = turn::fordlight_presses;
 const std::size_t script_press_count = turn::fordlight_press_count;
-#endif
 #endif
 #endif
 
@@ -930,23 +812,14 @@ struct MenuBox final {
     }
 };
 
-// Storage for the draw list: one item per visible cell and one per visible
-// living unit.
-//
-// Sized from the *widest* window this executable can be asked for rather than
-// from the native cell's ten by six, because a board is fitted now and a
-// shrunk cell shows more of it. The widest window is what the smallest cell
-// buys, which is twenty by thirteen, and a window can never exceed that
-// because no board is ever drawn at a smaller cell than the rule's floor.
-//
-// The unit allowance is not scaled with it. A unit needs a cell to stand on,
-// so a window's cells already bound how many units can be in it; the sixteen
-// covers the units drawn beside their cell rather than on it, and that is a
-// property of the drawing rather than of the window's size.
-constexpr int widest_view = turn::board_fit.frame_w / turn::board_fit.smallest_tile;
-constexpr int tallest_view = turn::board_fit.frame_h / turn::board_fit.smallest_tile;
-constexpr int draw_capacity = widest_view * tallest_view + 16;
-view::DrawItem draw_storage[draw_capacity];
+// The fit rule's largest possible camera window, reported at boot so the
+// executable states the board range it can show. These no longer size a
+// rectangular draw list: the production painter walks isometric diagonals
+// directly.
+constexpr int widest_view =
+    turn::board_fit.frame_w / turn::board_fit.smallest_tile;
+constexpr int tallest_view =
+    turn::board_fit.frame_h / turn::board_fit.smallest_tile;
 
 // ---------------------------------------------------------------------------
 // The console's half of the client
@@ -965,21 +838,7 @@ public:
     ) override {
         static_cast<void>(stage_id);
         static_cast<void>(encounter_id);
-        map_identity_ = map_id;
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-        // A close exchange owns the same two high texture pages. A new route
-        // therefore invalidates residency even when the prior board happened
-        // to be Twin Gate as well; the next board draw establishes its own
-        // authored landmark before presenting a pixel.
-        twin_gate_resident_state_ = -1;
-        twin_gate_revealed_ = false;
-#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
-        twin_gate_capture_reveal_pending_ = false;
-        twin_gate_capture_scrolled_ = false;
-        twin_gate_capture_close_pending_ = false;
-        twin_gate_capture_approach_pending_ = true;
-#endif
-#endif
+        static_cast<void>(map_id);
     }
 
     // ----- what the platform supplies -------------------------------------
@@ -1034,26 +893,6 @@ public:
     }
 
     turn::ControllerPress next_controller_press() override {
-#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
-        if (twin_gate_capture_approach_pending_ && held_ != nullptr) {
-            twin_gate_capture_approach_pending_ = false;
-            psx::wait_vblank();
-            draw_twin_gate_capture_approach(*held_);
-            psx::signal_host(harness_slot);
-            psx::wait_vblank();
-            draw_held(false);
-        }
-        if (twin_gate_capture_close_pending_ && held_ != nullptr) {
-            twin_gate_capture_close_pending_ = false;
-            psx::wait_vblank();
-            draw_twin_gate_capture_close(*held_);
-            psx::signal_host(harness_slot);
-            // This is a review camera, not a new gameplay camera. Restore the
-            // ordinary full-map view before accepting the next command.
-            psx::wait_vblank();
-            draw_held(false);
-        }
-#endif
         std::uint32_t frame = 0;
         bool emphasised = false;
         // Which direction is being leaned on, and for how many frames. This
@@ -1612,12 +1451,6 @@ public:
         striking_ = thrower != nullptr ? thrower->id : 0;
         if (thrower != nullptr) {
             console::prepare_close();
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-            // The close background streams through the landmark's pages.
-            // Mark that ownership transfer explicitly; the next tactical
-            // frame restores the current keep state once, before drawing.
-            twin_gate_resident_state_ = -1;
-#endif
         }
         close_terrain_ = terrain_composition_at(
             target->position.x, target->position.y
@@ -1729,6 +1562,84 @@ public:
     // the store that signals it, so there is no frame to agree about. The
     // joiner requires the claim, the GPU's own readback and that frame to
     // agree, with no tolerance at all.
+    [[nodiscard]] bool visible_isometric_colour(
+        int cell_x, int cell_y, std::uint16_t colour,
+        int& found_x, int& found_y
+    ) const {
+        const int centre_x =
+            cell_left(cell_x, cell_y) + drawn_tile() / 2;
+        const int top = isometric_diamond_top(
+            cell_x, cell_y, elevation_at(cell_x, cell_y)
+        );
+        const int bottom = top + 2 * iso_half_height_;
+        for (int y = top; y <= bottom; ++y) {
+            if (y < 0 || y >= bar_top) continue;
+            for (int x = centre_x - iso_half_width_;
+                 x <= centre_x + iso_half_width_; ++x) {
+                if (x < 0 || x >= gpu::screen_width) continue;
+                const int dx = x >= centre_x ? x - centre_x : centre_x - x;
+                const int dy = y >= top + iso_half_height_
+                    ? y - (top + iso_half_height_)
+                    : (top + iso_half_height_) - y;
+                // Search only the two-pixel ring the painter can own, not the
+                // whole bounding box where a neighbouring cell or token may
+                // coincidentally use the same team colour.
+                const int edge =
+                    dx * iso_half_height_ + dy * iso_half_width_;
+                const int outer = iso_half_width_ * iso_half_height_;
+                const int tolerance = iso_half_width_ * 2;
+                if (edge < outer - tolerance || edge > outer + tolerance) {
+                    continue;
+                }
+                if (gpu::read_back(x, y) != colour) continue;
+                found_x = x;
+                found_y = y;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Find a texel of this exact cutout which survived the painter. A unit can
+    // stand behind a higher cell in the isometric projection, so the old flat
+    // board's fixed centre claim is not necessarily visible even though the
+    // figure is correctly drawn. Derive each candidate from the same scaled
+    // texture mapping as the GPU, then accept only an opaque asset colour the
+    // completed framebuffer actually contains. Fully occluded figures make no
+    // false claim; every visible one still proves its own art reached VRAM.
+    [[nodiscard]] bool visible_isometric_unit_pixel(
+        const art::Asset& asset, int drawn, bool mirrored,
+        int cell_x, int cell_y, const turn::Overlay& overlay,
+        const MenuBox& box, int& found_x, int& found_y,
+        std::uint16_t& found_colour
+    ) const {
+        const int left = cell_left(cell_x, cell_y) +
+            drawn_tile() / 2 - drawn / 2;
+        const int top = cell_top(cell_x, cell_y) + drawn_tile() - drawn;
+        for (int sy = 0; sy < drawn; ++sy) {
+            const int y = top + sy;
+            if (y < 0 || y >= bar_top) continue;
+            for (int sx = 0; sx < drawn; ++sx) {
+                const int x = left + sx;
+                if (x < 0 || x >= gpu::screen_width ||
+                    box.covers_pixel(x, y) ||
+                    cursor_cell_covers_pixel(overlay, x, y)) {
+                    continue;
+                }
+                const int sampled_tx = texel_under(sx, drawn, asset.side);
+                const int tx = mirrored
+                    ? asset.side - 1 - sampled_tx : sampled_tx;
+                const int ty = texel_under(sy, drawn, asset.side);
+                const std::uint16_t colour = art::colour_at(asset, tx, ty);
+                if (colour == 0 || gpu::read_back(x, y) != colour) continue;
+                found_x = x;
+                found_y = y;
+                found_colour = colour;
+                return true;
+            }
+        }
+        return false;
+    }
     void after_facts(
         const sim::EncounterSnapshot& snapshot, const turn::Overlay& overlay
     ) override {
@@ -1788,19 +1699,26 @@ public:
                 if (!danger && !move && !splash) continue;
                 if (occupied(snapshot, x, y)) continue;
                 if (x == overlay.cursor_x && y == overlay.cursor_y) continue;
-                const int left = cell_left(x);
+                const int left = cell_left(x, y);
                 const int top = cell_top(x, y);
                 if (box.covers(left, top, drawn_tile(), drawn_tile())) continue;
-                if (covered_after_terrain(snapshot, x, y, left, top)) continue;
                 Line label;
-                label.text(splash ? "s" : danger ? "d" : "m")
+                label.text(splash ? "s" : move ? "m" : "d")
                     .decimal(static_cast<std::uint32_t>(x))
                     .text("_")
                     .decimal(static_cast<std::uint32_t>(y));
-                probe(
-                    label.c_str(), left, top,
+                int probe_x = left;
+                int probe_y = top;
+                const std::uint16_t expected =
                     splash ? cursor_colour
-                           : danger ? danger_colour : lit_colour(overlay)
+                           : move ? lit_colour(overlay) : danger_colour;
+                if (!visible_isometric_colour(
+                        x, y, expected, probe_x, probe_y
+                    ) || box.covers_pixel(probe_x, probe_y)) {
+                    continue;
+                }
+                probe(
+                    label.c_str(), probe_x, probe_y, expected
                 );
             }
         }
@@ -1813,7 +1731,7 @@ public:
             const art::Asset asset = unit_asset(unit);
             int px = 0;
             int py = 0;
-            const int drawn = view::console_board_unit_size(drawn_tile());
+            const int drawn = drawn_unit_size();
             int sx = 0;
             int sy = 0;
             if (!opaque_near_centre(
@@ -1821,7 +1739,7 @@ public:
                 )) {
                 continue;
             }
-            const int cell_x = cell_left(unit.position.x);
+            const int cell_x = cell_left(unit.position.x, unit.position.y);
             const int cell_y = cell_top(unit.position.x, unit.position.y);
             const int at_x = cell_x + drawn_tile() / 2 - drawn / 2 + sx;
             const int at_y = cell_y + drawn_tile() - drawn + sy;
@@ -1829,87 +1747,42 @@ public:
             // pixel the interface is deliberately hiding. That is the reason a
             // lit tile under the box is skipped a few lines above, and the
             // reason a sheet claims nothing about the board at all.
-            if (box.covers_pixel(at_x, at_y)) continue;
-            if (covered_after_unit(snapshot, i, at_x, at_y)) continue;
-            if (cursor_cell_covers_pixel(overlay, at_x, at_y)) continue;
+            int visible_x = at_x;
+            int visible_y = at_y;
+            std::uint16_t expected =
+                unit.has_acted &&
+                        wash_covers_pixel(cell_x, cell_y, at_x, at_y)
+                    ? spent_colour
+                    : art::colour_at(asset, px, py);
+            if (!visible_isometric_unit_pixel(
+                    asset, drawn, unit.side != player_side(),
+                    unit.position.x, unit.position.y, overlay, box,
+                    visible_x, visible_y, expected
+                )) {
+                continue;
+            }
             Line label;
             label.text("u")
                 .decimal(static_cast<std::uint32_t>(unit.position.x))
                 .text("_")
                 .decimal(static_cast<std::uint32_t>(unit.position.y));
-            const std::uint16_t expected =
-                unit.has_acted && wash_covers_pixel(cell_x, cell_y, at_x, at_y)
-                    ? spent_colour
-                    : art::colour_at(asset, px, py);
-            probe(label.c_str(), at_x, at_y, expected);
+            probe(label.c_str(), visible_x, visible_y, expected);
         }
-#ifdef GRANDLEON_PSX_AUTOPILOT
-        // One exact readback pins the new composition to the real GPU path.
-        // The host recipe test proves every cue's geometry; this proves a
-        // neighbour seam survives texture drawing, depth order and the final
-        // framebuffer rather than existing only as planned rectangles.
-        static bool terrain_detail_checked = false;
-        if (!terrain_detail_checked) {
-            for (int i = 0; i < list_.size() && !terrain_detail_checked; ++i) {
-                const view::DrawItem& item = list_[i];
-                if (item.layer != view::Layer::terrain) continue;
-                if (turn::contains(
-                        overlay.splash, item.cell_x, item.cell_y
-                    ) ||
-                    turn::contains(overlay.danger, item.cell_x, item.cell_y) ||
-                    turn::contains(overlay.moves, item.cell_x, item.cell_y) ||
-                    landmark_at(item.cell_x, item.cell_y) ||
-                    castle_at(item.cell_x, item.cell_y) !=
-                        view::CastleTile::none) {
-                    continue;
-                }
-                const view::TerrainComposition terrain =
-                    terrain_composition_at(item.cell_x, item.cell_y);
-                int at_x = -1;
-                int at_y = -1;
-                view::paint_console_terrain(
-                    terrain, item.x, item.y, drawn_tile(),
-                    [&at_x, &at_y](int x, int y, int width, int height,
-                                    view::TerrainTone tone) {
-                        if (at_x >= 0 || tone != view::TerrainTone::seam) {
-                            return;
-                        }
-                        at_x = x + width / 2;
-                        at_y = y + height / 2;
-                    }
-                );
-                if (at_x < 0 || box.covers_pixel(at_x, at_y) ||
-                    cursor_cell_covers_pixel(overlay, at_x, at_y) ||
-                    covered_after_terrain(
-                        snapshot, item.cell_x, item.cell_y, at_x, at_y
-                    )) {
-                    continue;
-                }
-                const view::TerrainColour colour = view::terrain_colour(
-                    terrain.kind, view::TerrainTone::seam
-                );
-                const std::uint16_t expected = gpu::rgb15(
-                    static_cast<int>(colour.red) >> 3,
-                    static_cast<int>(colour.green) >> 3,
-                    static_cast<int>(colour.blue) >> 3
-                );
-                terrain_detail_checked = true;
-                expect(
-                    gpu::read_back(at_x, at_y) == expected,
-                    "a neighbour-aware terrain seam reaches the framebuffer"
-                );
-            }
-        }
-#endif
         if (camera().visible(overlay.cursor_x, overlay.cursor_y)) {
-            const int cursor_at_x = cell_left(overlay.cursor_x);
-            const int cursor_at_y =
+            int cursor_at_x =
+                cell_left(overlay.cursor_x, overlay.cursor_y);
+            int cursor_at_y =
                 cell_top(overlay.cursor_x, overlay.cursor_y);
+            const bool cursor_visible = visible_isometric_colour(
+                overlay.cursor_x, overlay.cursor_y, cursor_colour,
+                cursor_at_x, cursor_at_y
+            );
             // And the cursor is claimed on the same terms as the figures above.
             // A character picked up on a tile the action menu is drawn over is
             // a cursor the interface is deliberately hiding, and claiming its
             // colour there would be claiming a pixel nobody painted.
-            if (!box.covers_pixel(cursor_at_x, cursor_at_y)) {
+            if (cursor_visible &&
+                !box.covers_pixel(cursor_at_x, cursor_at_y)) {
                 probe("cursor", cursor_at_x, cursor_at_y, cursor_colour);
             }
         }
@@ -1985,82 +1858,36 @@ public:
 
 private:
     [[nodiscard]] int drawn_unit_size() const noexcept {
-        return view::console_board_unit_size(drawn_tile());
-    }
-
-    [[nodiscard]] bool item_covers_pixel(
-        const view::DrawItem& item, const sim::EncounterSnapshot& snapshot,
-        int x, int y
-    ) const {
-        if (item.layer == view::Layer::terrain) {
-            return x >= item.x && x < item.x + drawn_tile() && y >= item.y &&
-                   y < item.y + drawn_tile();
-        }
-        if (item.layer != view::Layer::unit ||
-            item.subject >= snapshot.units.size()) {
-            return false;
-        }
-        const int size = drawn_unit_size();
-        const int left = item.x + drawn_tile() / 2 - size / 2;
-        const int top = item.y + drawn_tile() - size;
-        return x >= left && x < left + size && y >= top && y < top + size;
+        const int shared = view::console_board_unit_size(drawn_tile());
+        // The 2:1 floor already gives each cell less vertical screen area than
+        // a square source tile. Keep the detailed Godot-derived silhouette,
+        // but make it a board token rather than a portrait: three quarters of
+        // the shared console size is 18 px on fitted large maps and 36 px at
+        // the native 32 px cell size.
+        const int scaled = shared * 3 / 4;
+        return scaled < 16 ? 16 : scaled;
     }
 
     [[nodiscard]] bool wash_covers_pixel(
         int left, int top, int x, int y
     ) const noexcept {
-        const int drawn = drawn_tile();
-        if (x < left || x >= left + drawn || y < top || y >= top + drawn) {
-            return false;
-        }
-        return x < left + wash_thickness ||
-               x >= left + drawn - wash_thickness ||
-               y < top + wash_thickness ||
-               y >= top + drawn - wash_thickness;
+        // The isometric wash is a narrow diamond ring on the ground plane;
+        // the opaque unit texel used by the framebuffer claim is inside it.
+        static_cast<void>(left);
+        static_cast<void>(top);
+        static_cast<void>(x);
+        static_cast<void>(y);
+        return false;
     }
 
     [[nodiscard]] bool cursor_cell_covers_pixel(
         const turn::Overlay& overlay, int x, int y
     ) const noexcept {
         if (!camera().visible(overlay.cursor_x, overlay.cursor_y)) return false;
-        const int left = cell_left(overlay.cursor_x);
+        const int left = cell_left(overlay.cursor_x, overlay.cursor_y);
         const int top = cell_top(overlay.cursor_x, overlay.cursor_y);
         return x >= left && x < left + drawn_tile() && y >= top &&
                y < top + drawn_tile();
-    }
-
-    [[nodiscard]] bool covered_after_terrain(
-        const sim::EncounterSnapshot& snapshot, int cell_x, int cell_y,
-        int x, int y
-    ) const {
-        bool found = false;
-        for (int i = 0; i < list_.size(); ++i) {
-            const view::DrawItem& item = list_[i];
-            if (!found) {
-                found = item.layer == view::Layer::terrain &&
-                        item.cell_x == cell_x && item.cell_y == cell_y;
-                continue;
-            }
-            if (item_covers_pixel(item, snapshot, x, y)) return true;
-        }
-        return false;
-    }
-
-    [[nodiscard]] bool covered_after_unit(
-        const sim::EncounterSnapshot& snapshot, std::size_t subject,
-        int x, int y
-    ) const {
-        bool found = false;
-        for (int i = 0; i < list_.size(); ++i) {
-            const view::DrawItem& item = list_[i];
-            if (!found) {
-                found = item.layer == view::Layer::unit &&
-                        item.subject == subject;
-                continue;
-            }
-            if (item_covers_pixel(item, snapshot, x, y)) return true;
-        }
-        return false;
     }
 
     void close_probes(int before) { close_probes(before, harness_slot); }
@@ -2080,12 +1907,10 @@ private:
 
     // What a frame of this board costs, measured every time it is drawn.
     //
-    // The number matters because a *three-dimensional* moving frame of the
-    // same board measures 1,862 µs, and the two-dimensional counterpart is
-    // what this draws. It is a whole repaint: the backdrop, sixty cells, the
-    // washes, the tokens, the cursor and the bar. This machine has no sprite
-    // table and no plane to leave standing, so there is no cheaper frame to
-    // report.
+    // It is a whole repaint: backdrop, textured diamond cells, elevation
+    // faces, overlays, tokens, cursor and status bar. This machine has no
+    // sprite table or retained plane, so the measured full-frame cost is the
+    // useful budget rather than a partial-update estimate.
     void draw(
         const sim::EncounterSnapshot& snapshot, const turn::Overlay& overlay,
         bool emphasised
@@ -2111,39 +1936,22 @@ private:
             draw_sheet(*overlay.sheet);
             return;
         }
+        // A quiet three-band stage gives the projected board a horizon and a
+        // grounded lower field instead of leaving a tiny diamond floating in
+        // one flat clear colour. These are native flat GPU fills, consume no
+        // VRAM, and stay behind every playable cell and interface element.
+        gpu::fill(0, 0, gpu::screen_width, 58, gpu::rgb15(3, 6, 7));
+        gpu::fill(0, 58, gpu::screen_width, 72, gpu::rgb15(4, 8, 7));
+        gpu::fill(
+            0, 130, gpu::screen_width, bar_top - 130,
+            gpu::rgb15(3, 5, 4)
+        );
         layout(snapshot);
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-        twin_gate_map_ = matches_twin_gate(snapshot);
-        if (twin_gate_map_) {
-            const int wanted = twin_gate_state_for(snapshot, overlay);
-            if (twin_gate_resident_state_ != wanted) {
-                upload_twin_gate_texture(wanted);
-                twin_gate_resident_state_ = wanted;
-            }
-        }
-#endif
-        compose(snapshot);
-        draw_list(snapshot, overlay);
+        draw_isometric_board(snapshot, overlay);
         draw_cursor(overlay, emphasised);
         draw_bar(snapshot, overlay);
         if (overlay.menu != nullptr) draw_menu(overlay);
         draw_fps();
-#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
-        // The ordinary checkpoint stream names gameplay state. These two
-        // extra photographs name presentation-only states that do not alter a
-        // command or snapshot: first playable cutaway, then the camera's last
-        // row. They make the production quality gate prove those pictures
-        // without teaching the simulation about a renderer.
-        if (twin_gate_capture_reveal_pending_) {
-            twin_gate_capture_reveal_pending_ = false;
-            psx::signal_host(harness_slot);
-        }
-        if (twin_gate_map_ && camera().y > 0 &&
-            !twin_gate_capture_scrolled_) {
-            twin_gate_capture_scrolled_ = true;
-            psx::signal_host(harness_slot);
-        }
-#endif
     }
 
     // A live cadence over the frames actually drawn. When enabled, the input
@@ -2188,470 +1996,248 @@ private:
 
     void layout(const sim::EncounterSnapshot& snapshot) {
         board_width_ = snapshot.width;
-        int highest = 0;
-        for (std::size_t i = 0; i < terrain().size(); ++i) {
-            const int elevation = elevation_of_kind(kind_of(terrain()[i]));
-            if (elevation > highest) highest = elevation;
-        }
         const int drawn = drawn_tile();
-        const int step = view::elevation_step_for(drawn);
-        int reserved = view::headroom(highest, step, drawn);
-        int slack = bar_top - drawn * camera().view_h;
-        if (slack < 0) slack = 0;
-        if (reserved > slack) reserved = slack;
-        // No rounding. A primitive here is positioned per pixel, so the
-        // projection's own origin is used, with nothing snapped to a grid.
-        const int origin_x = (gpu::screen_width - drawn * camera().view_w) / 2;
-        const int origin_y =
-            reserved + (bar_top - reserved - drawn * camera().view_h) / 2;
-        projection_ = view::Projection{origin_x, origin_y, drawn, step};
+        // A 32-pixel source cell becomes a 2:1 diamond. The fit-selected
+        // `drawn` value governs camera extent and terrain scale, while board
+        // units use their own smaller footprint. Even the widest 20x13 view
+        // occupies 264x132 pixels at the 16-pixel floor, leaving room for the
+        // HUD and raised terrain on a 320x240 display.
+        const int preferred_half_width = drawn * 3 / 4;
+        const int fitted_half_width =
+            (gpu::screen_width - 16) /
+            (camera().view_w + camera().view_h);
+        iso_half_width_ = preferred_half_width < fitted_half_width
+            ? preferred_half_width : fitted_half_width;
+        iso_half_height_ = (iso_half_width_ + 1) / 2;
+        if (iso_half_width_ < 2) iso_half_width_ = 2;
+        if (iso_half_height_ < 2) iso_half_height_ = 2;
+        iso_elevation_step_ = drawn >= native_tile ? 5 : 3;
+        const int footprint_width =
+            (camera().view_w + camera().view_h) * iso_half_width_;
+        const int footprint_height =
+            (camera().view_w + camera().view_h) * iso_half_height_;
+        iso_origin_x_ =
+            (gpu::screen_width - footprint_width) / 2 +
+            camera().view_h * iso_half_width_;
+        iso_origin_y_ = (bar_top - footprint_height) / 2;
+        if (iso_origin_y_ < drawn / 2) iso_origin_y_ = drawn / 2;
     }
 
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-    [[nodiscard]] bool matches_twin_gate(
-        const sim::EncounterSnapshot& snapshot
-    ) const {
-        if (map_identity_ != twin_gate_map_identity ||
-            snapshot.width != gate::map_width ||
-            snapshot.height != gate::map_height ||
-            terrain().size() !=
-                static_cast<std::size_t>(gate::map_width * gate::map_height)) {
-            return false;
-        }
-        for (std::size_t index = 0; index < terrain().size(); ++index) {
-            const int kind = kind_of(terrain()[index]);
-            // The reviewed board treatment covers Steel and Cedar's authored
-            // grass, mountain, ruins, road and paving family. An exact map id
-            // with a future terrain outside that family must fall back until
-            // its material has been reviewed rather than borrow a wrong look.
-            const bool steel_and_cedar_family =
-                kind == 1 || kind == 3 || kind == 8 || kind == 9 || kind == 12;
-            if (!steel_and_cedar_family ||
-                kind != static_cast<int>(gate::terrain[index])) {
-                return false;
-            }
-        }
-        return true;
+    [[nodiscard]] int isometric_lift(int elevation) const noexcept {
+        if (elevation <= 0) return 0;
+        const int raw = elevation * iso_elevation_step_;
+        const int limit = drawn_tile() / 2;
+        return raw < limit ? raw : limit;
     }
 
-    [[nodiscard]] static bool twin_gate_near(int x, int y) noexcept {
-        return x >= gate::keep_x - 1 &&
-               x <= gate::keep_x + gate::keep_size &&
-               y >= gate::keep_y - 1 &&
-               y <= gate::keep_y + gate::keep_size;
+    [[nodiscard]] int isometric_diamond_top(
+        int cell_x, int cell_y, int elevation
+    ) const noexcept {
+        const int dx = cell_x - camera().x;
+        const int dy = cell_y - camera().y;
+        return iso_origin_y_ + (dx + dy) * iso_half_height_ -
+            isometric_lift(elevation);
     }
 
-    [[nodiscard]] static bool twin_gate_inside(int x, int y) noexcept {
-        return x >= gate::keep_x && x < gate::keep_x + gate::keep_size &&
-               y >= gate::keep_y && y < gate::keep_y + gate::keep_size;
-    }
-
-    [[nodiscard]] int twin_gate_state_for(
-        const sim::EncounterSnapshot& snapshot,
-        const turn::Overlay& overlay
+    [[nodiscard]] static std::uint16_t terrain_tone_colour(
+        const view::TerrainComposition& composition, view::TerrainTone tone
     ) noexcept {
-        // The exterior keeps defenders and throne-room units occluded during
-        // the approach. Reaching the threshold with the cursor, or moving a
-        // player unit there, opens the cutaway without changing a cell or a
-        // rule. Enemy placements inside the keep do not reveal themselves.
-        if (twin_gate_revealed_) return 4;
-        if (twin_gate_near(overlay.cursor_x, overlay.cursor_y)) {
-            twin_gate_revealed_ = true;
-#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
-            twin_gate_capture_reveal_pending_ = true;
-            twin_gate_capture_close_pending_ = true;
-#endif
-            return 4;
-        }
-        for (const sim::UnitSnapshot& unit : snapshot.units) {
-            if (unit.side == sim::Side::first && sim::on_board(unit) &&
-                twin_gate_near(unit.position.x, unit.position.y)) {
-                twin_gate_revealed_ = true;
-#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
-                twin_gate_capture_reveal_pending_ = true;
-                twin_gate_capture_close_pending_ = true;
-#endif
-                return 4;
-            }
-        }
-        return 0;
+        const view::TerrainColour colour =
+            view::terrain_colour(composition.kind, tone);
+        return gpu::rgb15(
+            static_cast<int>(colour.red) >> 3,
+            static_cast<int>(colour.green) >> 3,
+            static_cast<int>(colour.blue) >> 3
+        );
     }
 
-    static void draw_twin_gate_keep_at(
-        int left, int top, int tile_width, int tile_height
-    ) {
-        for (int index = 0; index < twin_gate_quality_tile_count; ++index) {
-            const int column = index % twin_gate_quality_tile_columns;
-            const int row = index / twin_gate_quality_tile_columns;
-            const int page = twin_gate_first_page + (column >= 2 ? 1 : 0);
-            const int u = (column & 1) * twin_gate_quality_tile_width;
-            const int v = row * twin_gate_quality_tile_height;
-            gpu::draw_texture_quad_ci8(
-                left + column * tile_width,
-                top + row * tile_height,
-                tile_width, tile_height,
-                page, u, v,
-                u + twin_gate_quality_tile_width - 1,
-                v + twin_gate_quality_tile_height - 1,
-                twin_gate_clut_x, twin_gate_clut_y
+    // A flat-colour diamond ring made from four quads (two triangles each).
+    // It leaves the textured centre visible, unlike a rectangular wash over a
+    // projected cell, and gives move/danger/cursor state the same ground plane
+    // as the terrain it describes.
+    void draw_isometric_outline(
+        int left, int cell_top, std::uint16_t colour, int inset = 0
+    ) const {
+        int outer_w = iso_half_width_ - inset;
+        int outer_h = iso_half_height_ - inset / 2;
+        if (outer_w < 2) outer_w = 2;
+        if (outer_h < 2) outer_h = 2;
+        const int thickness = outer_h >= 6 ? 2 : 1;
+        const int inner_w = outer_w - thickness * 2 > 0
+            ? outer_w - thickness * 2 : 1;
+        const int inner_h = outer_h - thickness > 0
+            ? outer_h - thickness : 1;
+        const int centre_x = left + drawn_tile() / 2;
+        const int centre_y =
+            cell_top + drawn_tile() - 2 * iso_half_height_ +
+            iso_half_height_;
+        const int ox[4] = {
+            centre_x, centre_x + outer_w, centre_x, centre_x - outer_w
+        };
+        const int oy[4] = {
+            centre_y - outer_h, centre_y, centre_y + outer_h, centre_y
+        };
+        const int ix[4] = {
+            centre_x, centre_x + inner_w, centre_x, centre_x - inner_w
+        };
+        const int iy[4] = {
+            centre_y - inner_h, centre_y, centre_y + inner_h, centre_y
+        };
+        for (int edge = 0; edge < 4; ++edge) {
+            const int next = (edge + 1) & 3;
+            gpu::draw_triangle(
+                ox[edge], oy[edge], ox[next], oy[next],
+                ix[next], iy[next], colour
+            );
+            gpu::draw_triangle(
+                ox[edge], oy[edge], ix[next], iy[next],
+                ix[edge], iy[edge], colour
             );
         }
     }
 
-    void draw_twin_gate_keep() const {
-        if (!twin_gate_map_) return;
-        const bool visible =
-            camera().x < gate::keep_x + gate::keep_size &&
-            camera().x + camera().view_w > gate::keep_x &&
-            camera().y < gate::keep_y + gate::keep_size &&
-            camera().y + camera().view_h > gate::keep_y;
-        if (!visible) return;
-
-        const int tile_width = drawn_tile() * 2;
-        const int tile_height = drawn_tile();
-        const int left = projection_.cell_left(camera(), gate::keep_x);
-        // The generated texture is 192 lines high with its final 16 lines
-        // transparent. Half a tactical cell puts the 176 visible lines flush
-        // with the authored six-row footprint instead of floating above it.
-        const int top =
-            projection_.cell_top(camera(), gate::keep_y, 0) + drawn_tile() / 2;
-        draw_twin_gate_keep_at(left, top, tile_width, tile_height);
-    }
-
-#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
-    void draw_twin_gate_capture_region(
-        const sim::EncounterSnapshot& snapshot,
-        int first_x, int first_y, int columns, int rows, int tile
-    ) {
-        gpu::fill(0, 0, gpu::screen_width, gpu::screen_height, backdrop);
-        for (int y = first_y; y < first_y + rows; ++y) {
-            for (int x = first_x; x < first_x + columns; ++x) {
-                const int kind = kind_at(x, y);
-                if (kind < 0) continue;
-                const view::TerrainComposition composition =
-                    terrain_composition_at(x, y);
-                const int left = (x - first_x) * tile;
-                const int top = (y - first_y) * tile;
-                const int cell = terrain_cell_of[kind][composition.variation];
-                const int clut = terrain_clut_of[kind];
-                if (cell >= 0 && clut >= 0) {
-                    gpu::draw_cell_scaled(left, top, tile, cell, clut);
-                }
-                view::paint_console_terrain(
-                    composition, left, top, tile,
-                    [composition](int px, int py, int width, int height,
-                                  view::TerrainTone tone) {
-                        const view::TerrainColour colour =
-                            view::terrain_colour(composition.kind, tone);
-                        gpu::fill(
-                            px, py, width, height,
-                            gpu::rgb15(
-                                static_cast<int>(colour.red) >> 3,
-                                static_cast<int>(colour.green) >> 3,
-                                static_cast<int>(colour.blue) >> 3
-                            )
-                        );
-                    }
-                );
-                draw_landmark(left, top, tile, landmark_at(x, y));
-            }
+    void draw_isometric_castle(
+        int left, int cell_top, view::CastleTile tile
+    ) const {
+        if (tile == view::CastleTile::none ||
+            tile == view::CastleTile::floor ||
+            tile == view::CastleTile::wall) {
+            return;
         }
-        for (const sim::UnitSnapshot& unit : snapshot.units) {
-            if (!sim::on_board(unit) ||
-                unit.position.x < first_x ||
-                unit.position.x >= first_x + columns ||
-                unit.position.y < first_y ||
-                unit.position.y >= first_y + rows) {
-                continue;
-            }
-            const int drawing = drawing_index_of(unit);
-            if (drawing < 0) continue;
-            const int left = (unit.position.x - first_x) * tile;
-            const int top = (unit.position.y - first_y) * tile;
-            console::draw_character(
-                drawing, art::Pose::idle, left + tile / 2, top + tile,
-                30, unit.side != player_side(), 0
-            );
-        }
-    }
-
-    void draw_twin_gate_capture_footer(
-        int top, const char* heading, const char* note
-    ) {
-        gpu::fill(
-            0, top, gpu::screen_width,
-            gpu::screen_height - top, paper_colour
+        const int centre_x = left + drawn_tile() / 2;
+        const int centre_y =
+            cell_top + drawn_tile() - iso_half_height_;
+        const int half_w = iso_half_width_ / 2;
+        const int half_h = iso_half_height_ / 2;
+        const std::uint16_t colour = tile == view::CastleTile::door
+            ? gpu::rgb15(12, 6, 3) : gpu::rgb15(27, 22, 12);
+        gpu::draw_triangle(
+            centre_x, centre_y - half_h,
+            centre_x + half_w, centre_y,
+            centre_x, centre_y + half_h, colour
         );
-        gpu::fill(0, top, gpu::screen_width, 2, menu_gold_colour);
-        write_at_with_clut(1, top / glyph + 1, heading, font_gold_clut);
-        write_at(1, top / glyph + 3, note);
-    }
-
-    void draw_twin_gate_capture_approach(
-        const sim::EncounterSnapshot& snapshot
-    ) {
-        // A closer look at the western, non-castle terrain family: road,
-        // grass, paving, ruins and mountain transitions. It proves the richer
-        // board is not one landmark floating over the generic renderer.
-        constexpr int first_x = 0;
-        constexpr int first_y = 3;
-        constexpr int columns = 13;
-        constexpr int rows = 8;
-        constexpr int tile = 24;
-        draw_twin_gate_capture_region(
-            snapshot, first_x, first_y, columns, rows, tile
-        );
-        draw_twin_gate_capture_footer(
-            rows * tile, "WESTERN APPROACH  TERRAIN DETAIL",
-            "ROAD  GRASS  PAVING  RUINS  HEIGHT"
+        gpu::draw_triangle(
+            centre_x, centre_y - half_h,
+            centre_x, centre_y + half_h,
+            centre_x - half_w, centre_y, colour
         );
     }
 
-    void draw_twin_gate_capture_close(
-        const sim::EncounterSnapshot& snapshot
-    ) {
-        constexpr int first_x = 8;
-        constexpr int first_y = 2;
-        constexpr int columns = 12;
-        constexpr int rows = 8;
-        constexpr int tile = 24;
-        draw_twin_gate_capture_region(
-            snapshot, first_x, first_y, columns, rows, tile
-        );
-        draw_twin_gate_keep_at(
-            (gate::keep_x - first_x) * tile,
-            (gate::keep_y - first_y) * tile + tile / 2,
-            tile * 2, tile
-        );
-        // The terrain helper drew units before the landmark. Draw the keep's
-        // occupants again over the cutaway, exactly like the ordinary board.
-        for (const sim::UnitSnapshot& unit : snapshot.units) {
-            if (!sim::on_board(unit) ||
-                !twin_gate_inside(unit.position.x, unit.position.y)) {
-                continue;
-            }
-            const int drawing = drawing_index_of(unit);
-            if (drawing < 0) continue;
-            const int left = (unit.position.x - first_x) * tile;
-            const int top = (unit.position.y - first_y) * tile;
-            console::draw_character(
-                drawing, art::Pose::idle, left + tile / 2, top + tile,
-                30, unit.side != player_side(), 0
-            );
-        }
-        draw_twin_gate_capture_footer(
-            rows * tile, "TWIN GATE  CUTAWAY DETAIL",
-            "FULL MAP RESTORES BEFORE PLAY"
-        );
-    }
-#endif
-
-    void redraw_twin_gate_interaction(
-        const sim::EncounterSnapshot& snapshot,
+    void draw_isometric_terrain(
+        int cell_x, int cell_y, int kind, int variation,
         const turn::Overlay& overlay
     ) {
-        // The plate is a landmark plane, not a screenshot pasted over the
-        // game. Reapply the engine-owned cell overlays and nearby live units
-        // over it so reachable cells, danger, damage flashes and occupants
-        // remain unambiguous at the exact positions gameplay uses.
-        for (int y = gate::keep_y; y < gate::keep_y + gate::keep_size; ++y) {
-            for (int x = gate::keep_x; x < gate::keep_x + gate::keep_size; ++x) {
-                if (!camera().visible(x, y)) continue;
-                const bool splash = turn::contains(overlay.splash, x, y);
-                const bool danger = turn::contains(overlay.danger, x, y);
-                const bool move = turn::contains(overlay.moves, x, y);
-                if (splash || danger || move) {
-                    draw_wash(
-                        cell_left(x), cell_top(x, y),
-                        splash ? cursor_colour
-                               : danger ? danger_colour : lit_colour(overlay)
-                    );
-                }
-                if (flash_lit_ && x == flash_x_ && y == flash_y_) {
-                    gpu::fill(
-                        cell_left(x), cell_top(x, y), drawn_tile(),
-                        drawn_tile(), flash_colour
-                    );
-                }
-            }
-        }
-        for (const sim::UnitSnapshot& unit : snapshot.units) {
-            if (!sim::on_board(unit) || unit.id == moving_ ||
-                !camera().visible(unit.position.x, unit.position.y) ||
-                !twin_gate_near(unit.position.x, unit.position.y)) {
-                continue;
-            }
-            int x = cell_left(unit.position.x);
-            int y = cell_top(unit.position.x, unit.position.y);
-            if (flinching_ != 0 && unit.id == flinching_) {
-                x += flinch_dx_;
-                y += flinch_dy_;
-            }
-            draw_unit(unit, x, y);
-            if (unit.has_acted) draw_wash(x, y, spent_colour);
-        }
-    }
-#endif
-
-    void compose(const sim::EncounterSnapshot& snapshot) {
-        list_.clear();
-        for (int y = camera().y; y < camera().y + camera().view_h; ++y) {
-            for (int x = camera().x; x < camera().x + camera().view_w; ++x) {
-                const int kind = kind_at(x, y);
-                if (kind < 0) continue;
-                list_.add(
-                    view::terrain_item(
-                        camera(), projection_, x, y, elevation_of_kind(kind),
-                        kind, terrain_composition_at(x, y).variation,
-                        static_cast<std::uint32_t>(kind)
-                    ),
-                    kind
-                );
-            }
-        }
-        for (std::size_t i = 0; i < snapshot.units.size(); ++i) {
-            const sim::UnitSnapshot& unit = snapshot.units[i];
-            // Only what is standing there is drawn: somebody talked off the
-            // board or still marching towards it holds no tile to draw them on.
-            if (!sim::on_board(unit)) continue;
-            // The token in motion is drawn afterwards, at the pixel the slide
-            // has reached, so it is left out of the list rather than drawn
-            // twice.
-            if (moving_ != 0 && unit.id == moving_) continue;
-            if (!camera().visible(unit.position.x, unit.position.y)) continue;
-            list_.add(
-                view::billboard_item(
-                    camera(), projection_, view::Layer::unit, unit.position.x,
-                    unit.position.y, elevation_at(unit.position.x, unit.position.y),
-                    0, static_cast<std::uint32_t>(i)
-                )
+        const int elevation = elevation_of_kind(kind);
+        const int left = cell_left(cell_x, cell_y);
+        const int cell_top = this->cell_top(cell_x, cell_y);
+        const int top = isometric_diamond_top(cell_x, cell_y, elevation);
+        const int centre_x = left + drawn_tile() / 2;
+        const int right = centre_x + iso_half_width_;
+        const int bottom = top + 2 * iso_half_height_;
+        const int left_point = centre_x - iso_half_width_;
+        const int lift = isometric_lift(elevation);
+        const view::TerrainComposition composition =
+            terrain_composition_at(cell_x, cell_y);
+        if (lift > 0) {
+            const std::uint16_t side = terrain_tone_colour(
+                composition, view::TerrainTone::shadow
+            );
+            const std::uint16_t front = terrain_tone_colour(
+                composition, view::TerrainTone::seam
+            );
+            gpu::draw_triangle(
+                right, top + iso_half_height_, centre_x, bottom,
+                centre_x, bottom + lift, side
+            );
+            gpu::draw_triangle(
+                right, top + iso_half_height_, centre_x, bottom + lift,
+                right, top + iso_half_height_ + lift, side
+            );
+            gpu::draw_triangle(
+                left_point, top + iso_half_height_, centre_x, bottom,
+                centre_x, bottom + lift, front
+            );
+            gpu::draw_triangle(
+                left_point, top + iso_half_height_, centre_x, bottom + lift,
+                left_point, top + iso_half_height_ + lift, front
             );
         }
-        list_.sort();
+        const int cell = terrain_cell_of[kind][variation];
+        const int clut = terrain_clut_of[kind];
+        if (cell >= 0 && clut >= 0) {
+            gpu::draw_cell_triangle(
+                centre_x, top, 16, 0,
+                right, top + iso_half_height_, 31, 16,
+                centre_x, bottom, 16, 31,
+                cell, clut
+            );
+            gpu::draw_cell_triangle(
+                centre_x, top, 16, 0,
+                centre_x, bottom, 16, 31,
+                left_point, top + iso_half_height_, 0, 16,
+                cell, clut
+            );
+        }
+
+        const bool splash = turn::contains(overlay.splash, cell_x, cell_y);
+        const bool danger = turn::contains(overlay.danger, cell_x, cell_y);
+        const bool move = turn::contains(overlay.moves, cell_x, cell_y);
+        if (danger || move || splash) {
+            draw_isometric_outline(
+                left, cell_top,
+                splash ? cursor_colour
+                       : move ? lit_colour(overlay) : danger_colour
+            );
+        }
+        if (flash_lit_ && cell_x == flash_x_ && cell_y == flash_y_) {
+            draw_isometric_outline(left, cell_top, flash_colour);
+        }
+
+        // Houses and groves remain compact vertical billboards grounded at
+        // the diamond's lower point. Castle cells do not use the rejected
+        // whole-room plate: their authored wall elevation, textured top, door
+        // and dais marks are composed cell by cell on the ground plane.
+        draw_landmark(
+            left, cell_top, drawn_tile(), landmark_at(cell_x, cell_y)
+        );
+        draw_isometric_castle(left, cell_top, castle_at(cell_x, cell_y));
     }
 
-    // Walking the sorted list forwards is the whole of the occlusion rule: the
-    // GPU paints in command order and owns no depth buffer.
-    void draw_list(
+    void draw_isometric_board(
         const sim::EncounterSnapshot& snapshot, const turn::Overlay& overlay
     ) {
-        for (int i = 0; i < list_.size(); ++i) {
-            const view::DrawItem& item = list_[i];
-            if (item.layer == view::Layer::terrain) {
-                const int kind = static_cast<int>(item.subject);
-                const int cell = terrain_cell_of[kind][item.variant];
-                const int clut = terrain_clut_of[kind];
-                if (cell >= 0 && clut >= 0) {
-                    gpu::draw_cell_scaled(
-                        item.x, item.y, drawn_tile(), cell, clut
-                    );
-                }
-                const view::TerrainComposition composition =
-                    terrain_composition_at(item.cell_x, item.cell_y);
-                view::paint_console_terrain(
-                    composition, item.x, item.y, drawn_tile(),
-                    [composition](int x, int y, int width, int height,
-                                  view::TerrainTone tone) {
-                        const view::TerrainColour colour =
-                            view::terrain_colour(composition.kind, tone);
-                        gpu::fill(
-                            x, y, width, height,
-                            gpu::rgb15(
-                                static_cast<int>(colour.red) >> 3,
-                                static_cast<int>(colour.green) >> 3,
-                                static_cast<int>(colour.blue) >> 3
-                            )
-                        );
-                    }
+        const int diagonals = camera().view_w + camera().view_h - 1;
+        for (int diagonal = 0; diagonal < diagonals; ++diagonal) {
+            for (int dy = 0; dy < camera().view_h; ++dy) {
+                const int dx = diagonal - dy;
+                if (dx < 0 || dx >= camera().view_w) continue;
+                const int x = camera().x + dx;
+                const int y = camera().y + dy;
+                const int kind = kind_at(x, y);
+                if (kind < 0) continue;
+                draw_isometric_terrain(
+                    x, y, kind, terrain_composition_at(x, y).variation,
+                    overlay
                 );
-                // These exact authored identities still use mountain rules.
-                // Paint their quarter of the 2x2 landmark over that mountain
-                // base with flat primitives, which adds no texture upload or
-                // VRAM allocation to this frame.
-                draw_landmark(
-                    item.x, item.y, drawn_tile(),
-                    landmark_at(item.cell_x, item.cell_y)
-                );
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-                if (!twin_gate_map_) {
-#endif
-                    draw_castle(
-                        item.x, item.y, drawn_tile(),
-                        castle_at(item.cell_x, item.cell_y)
-                    );
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-                }
-#endif
-                // The wash, drawn where the cell was so the depth order the
-                // list computed is the depth order it is painted in. A lit
-                // tile behind a raised one is washed before that cell lifts
-                // over it.
-                // The splash wins over both, because it is not a third
-                // meaning at all: it is the cursor saying how wide it is, and
-                // an area cast lands on more than one tile.
-                const bool splash =
-                    turn::contains(overlay.splash, item.cell_x, item.cell_y);
-                const bool danger = turn::contains(overlay.danger, item.cell_x, item.cell_y);
-                const bool move = turn::contains(overlay.moves, item.cell_x, item.cell_y);
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-                const bool keep_hides_cell =
-                    twin_gate_map_ && !twin_gate_revealed_ &&
-                    twin_gate_inside(item.cell_x, item.cell_y);
-#else
-                constexpr bool keep_hides_cell = false;
-#endif
-                if (!keep_hides_cell && (danger || move || splash)) {
-                    draw_wash(
-                        item.x, item.y,
-                        splash ? cursor_colour
-                               : danger ? danger_colour : lit_colour(overlay)
-                    );
-                }
-                if (!keep_hides_cell && flash_lit_ &&
-                    item.cell_x == flash_x_ && item.cell_y == flash_y_) {
-                    gpu::fill(item.x, item.y, drawn_tile(), drawn_tile(), flash_colour);
-                }
-            } else if (item.layer == view::Layer::unit) {
-                const sim::UnitSnapshot& unit = snapshot.units[item.subject];
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-                if (twin_gate_map_ && !twin_gate_revealed_ &&
-                    twin_gate_inside(unit.position.x, unit.position.y)) {
+            }
+            for (const sim::UnitSnapshot& unit : snapshot.units) {
+                if (!sim::on_board(unit) ||
+                    !camera().visible(unit.position.x, unit.position.y) ||
+                    (unit.position.x - camera().x) +
+                            (unit.position.y - camera().y) != diagonal ||
+                    (moving_ != 0 && unit.id == moving_)) {
                     continue;
                 }
-#endif
-                int x = item.x;
-                int y = item.y;
+                int x = cell_left(unit.position.x, unit.position.y);
+                int y = cell_top(unit.position.x, unit.position.y);
                 if (flinching_ != 0 && unit.id == flinching_) {
                     x += flinch_dx_;
                     y += flinch_dy_;
                 }
                 draw_unit(unit, x, y);
-                // And the frame that says this one is finished, over the token
-                // rather than under it, so it reads on a character standing on
-                // a lit tile. Framed rather than dimmed: the token art is a
-                // fixed CLUT this machine uploads once, and there is no second,
-                // greyer copy of it to draw. A frame costs four fills and no
-                // palette at all. The character stays where it is, at full
-                // strength, with its own colours, and is simply ringed off.
                 if (unit.has_acted) draw_wash(x, y, spent_colour);
             }
         }
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-        if (twin_gate_map_) {
-            draw_twin_gate_keep();
-            if (twin_gate_revealed_) {
-                redraw_twin_gate_interaction(snapshot, overlay);
-            }
-        }
-#endif
-        // The token in motion, last, and therefore in front of everything.
-        //
-        // That is not the depth order the list would have given it, and it is
-        // the honest trade rather than an oversight: a token part way between
-        // two cells belongs to neither, so it has no `depth_key`, and a token
-        // sliding behind a raised cell is drawn over it for six frames.
-        // The board it lands on is composed normally, so nothing a checkpoint
-        // photographs is affected.
         if (moving_ != 0) {
             const sim::UnitSnapshot* unit = unit_of(snapshot, moving_);
             if (unit != nullptr) draw_unit(*unit, move_px_, move_py_);
@@ -2671,7 +2257,7 @@ private:
             pose = art::Pose::hurt;
             stream_slot = 1;
         }
-        const int size = view::console_board_unit_size(drawn_tile());
+        const int size = drawn_unit_size();
         const bool facing_left = unit.id == moving_
             ? move_facing_ < 0 : unit.side != player_side();
         console::draw_character(
@@ -2682,19 +2268,7 @@ private:
     }
 
     void draw_wash(int left, int top, std::uint16_t colour) {
-        const int drawn = drawn_tile();
-        const int side = drawn - 2 * wash_thickness;
-        gpu::fill(left, top, drawn, wash_thickness, colour);
-        gpu::fill(
-            left, top + drawn - wash_thickness, drawn, wash_thickness, colour
-        );
-        gpu::fill(
-            left, top + wash_thickness, wash_thickness, side, colour
-        );
-        gpu::fill(
-            left + drawn - wash_thickness, top + wash_thickness,
-            wash_thickness, side, colour
-        );
+        draw_isometric_outline(left, top, colour);
     }
 
     // Four corner brackets. At rest they sit on the cell's own corners; the
@@ -2707,21 +2281,10 @@ private:
     ) {
         if (!camera().visible(cell_x, cell_y)) return;
         const int drawn = drawn_tile();
-        const int arm = bracket_arm_for(drawn);
         const int inset = emphasised ? view::cursor_emphasis_inset(drawn) : 0;
-        const int left = cell_left(cell_x) + inset;
-        const int top = cell_top(cell_x, cell_y) + inset;
-        const int span = drawn - 2 * inset;
-        for (int corner = 0; corner < 4; ++corner) {
-            const bool right = (corner & 1) != 0;
-            const bool bottom = (corner & 2) != 0;
-            const int x = right ? left + span - arm : left;
-            const int y = bottom ? top + span - bracket_thickness : top;
-            gpu::fill(x, y, arm, bracket_thickness, colour);
-            const int vx = right ? left + span - bracket_thickness : left;
-            const int vy = bottom ? top + span - arm : top;
-            gpu::fill(vx, vy, bracket_thickness, arm, colour);
-        }
+        draw_isometric_outline(
+            cell_left(cell_x, cell_y), cell_top(cell_x, cell_y), colour, inset
+        );
     }
 
     void draw_cursor(const turn::Overlay& overlay, bool emphasised) {
@@ -3734,7 +3297,8 @@ private:
             for (const sim::UnitSnapshot& unit : snapshot.units) {
                 if (!sim::on_board(unit)) continue;
                 if (unit.unit_type_id != speaker) continue;
-                against_column = cell_left(unit.position.x) / glyph;
+                against_column =
+                    cell_left(unit.position.x, unit.position.y) / glyph;
                 against_row =
                     cell_top(unit.position.x, unit.position.y) / glyph;
                 break;
@@ -3833,9 +3397,9 @@ private:
         const sim::EncounterSnapshot& before, int from_x, int from_y, int to_x,
         int to_y, int frames = view::slide_frames_per_tile
     ) {
-        const int start_x = cell_left(from_x);
+        const int start_x = cell_left(from_x, from_y);
         const int start_y = cell_top(from_x, from_y);
-        const int end_x = cell_left(to_x);
+        const int end_x = cell_left(to_x, to_y);
         const int end_y = cell_top(to_x, to_y);
         // A move of no tiles is a gesture of no frames, and its token still has
         // to be somewhere: `draw_list` draws the moving token out of these two
@@ -3895,11 +3459,22 @@ private:
 
     // ----- the board's own arithmetic --------------------------------------
 
-    [[nodiscard]] int cell_left(int x) const {
-        return projection_.cell_left(camera(), x);
+    [[nodiscard]] int cell_left(int x, int y) const {
+        const int dx = x - camera().x;
+        const int dy = y - camera().y;
+        // `cell_top`/`cell_left` expose a square bounding box for unit
+        // anchoring, menus and motion; the terrain painter uses the 2:1
+        // diamond within it.
+        return iso_origin_x_ + (dx - dy) * iso_half_width_ -
+            drawn_tile() / 2;
     }
     [[nodiscard]] int cell_top(int x, int y) const {
-        return projection_.cell_top(camera(), y, elevation_at(x, y));
+        const int dx = x - camera().x;
+        const int dy = y - camera().y;
+        const int diamond_top = iso_origin_y_ +
+            (dx + dy) * iso_half_height_ -
+            isometric_lift(elevation_at(x, y));
+        return diamond_top - (drawn_tile() - 2 * iso_half_height_);
     }
     [[nodiscard]] int elevation_at(int x, int y) const {
         return elevation_of_kind(kind_at(x, y));
@@ -3981,26 +3556,6 @@ private:
                     cell.landmark == view::TacticalLandmark::village_house
                         ? house[index] : grove[index];
                 gpu::fill(x, y, width, height, colour);
-            }
-        );
-    }
-    static void draw_castle(
-        int left, int top, int size, view::CastleTile tile
-    ) {
-        if (tile == view::CastleTile::none) return;
-        static constexpr std::uint16_t colours[] = {
-            gpu::rgb15(5, 5, 5), gpu::rgb15(18, 17, 15),
-            gpu::rgb15(11, 11, 11), gpu::rgb15(12, 6, 3),
-            gpu::rgb15(27, 22, 12),
-        };
-        view::paint_castle_tile(
-            tile, left, top, size,
-            [](int x, int y, int width, int height,
-               view::LandmarkTone tone) {
-                gpu::fill(
-                    x, y, width, height,
-                    colours[static_cast<std::size_t>(tone)]
-                );
             }
         );
     }
@@ -4101,9 +3656,67 @@ private:
             if (width > widest) widest = width;
         }
         const int cursor_centre =
-            cell_left(overlay.cursor_x) + drawn_tile() / 2;
-        const layout::Menu placed = layout::menu(
-            widest, overlay.menu_rows, cursor_centre
+            cell_left(overlay.cursor_x, overlay.cursor_y) + drawn_tile() / 2;
+        const layout::Menu sized =
+            layout::menu_at(widest, overlay.menu_rows, 0, 0);
+        const int width = sized.panel.outer.width;
+        const int height = sized.panel.outer.height;
+        const int opposite_left = cursor_centre < gpu::screen_width / 2
+            ? gpu::screen_width - 16 - width : 16;
+        const int same_left = opposite_left == 16
+            ? gpu::screen_width - 16 - width : 16;
+        int low_top = bar_top - height - 6;
+        if (low_top < 6) low_top = 6;
+        const int candidate_left[4] = {
+            opposite_left, opposite_left, same_left, same_left
+        };
+        const int candidate_top[4] = {low_top, 6, 6, low_top};
+        int best = 0;
+        int best_score = 0x7fffffff;
+        for (int candidate = 0; candidate < 4; ++candidate) {
+            const view::UiRect panel{
+                candidate_left[candidate], candidate_top[candidate],
+                width, height
+            };
+            int score = 0;
+            view::UiRect cursor_rect{
+                cell_left(overlay.cursor_x, overlay.cursor_y),
+                cell_top(overlay.cursor_x, overlay.cursor_y),
+                drawn_tile(), drawn_tile()
+            };
+            cursor_rect.y = isometric_diamond_top(
+                overlay.cursor_x, overlay.cursor_y,
+                elevation_at(overlay.cursor_x, overlay.cursor_y)
+            );
+            cursor_rect.height = iso_half_height_ * 2;
+            if (layout::overlaps(panel, cursor_rect)) score += 10000;
+            if (held_ != nullptr) {
+                const int unit_size = drawn_unit_size();
+                for (const sim::UnitSnapshot& unit : held_->units) {
+                    if (!sim::on_board(unit) ||
+                        !camera().visible(unit.position.x, unit.position.y)) {
+                        continue;
+                    }
+                    const int cell_x =
+                        cell_left(unit.position.x, unit.position.y);
+                    const int cell_y =
+                        cell_top(unit.position.x, unit.position.y);
+                    const view::UiRect unit_rect{
+                        cell_x + drawn_tile() / 2 - unit_size / 2,
+                        cell_y + drawn_tile() - unit_size,
+                        unit_size, unit_size
+                    };
+                    if (layout::overlaps(panel, unit_rect)) score += 1000;
+                }
+            }
+            if (score < best_score) {
+                best = candidate;
+                best_score = score;
+            }
+        }
+        const layout::Menu placed = layout::menu_at(
+            widest, overlay.menu_rows,
+            candidate_left[best], candidate_top[best]
         );
         box.panel = placed.panel;
         box.heading_x = placed.heading_x;
@@ -4260,23 +3873,12 @@ private:
 
     const pr::Presentation* shown_;
     int theme_ = 0;
-    std::uint64_t map_identity_ = 0;
     int board_width_ = 0;
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-    bool twin_gate_map_ = false;
-    bool twin_gate_revealed_ = false;
-    int twin_gate_resident_state_ = -1;
-#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
-    bool twin_gate_capture_reveal_pending_ = false;
-    bool twin_gate_capture_scrolled_ = false;
-    bool twin_gate_capture_close_pending_ = false;
-    bool twin_gate_capture_approach_pending_ = false;
-#endif
-#endif
-    view::Projection projection_{
-        0, 0, native_tile, view::elevation_step_for(native_tile)
-    };
-    view::DrawList list_{draw_storage, draw_capacity};
+    int iso_origin_x_{gpu::screen_width / 2};
+    int iso_origin_y_{native_tile / 2};
+    int iso_half_width_{native_tile / 2};
+    int iso_half_height_{native_tile / 4};
+    int iso_elevation_step_{5};
 
     const sim::EncounterSnapshot* held_ = nullptr;
     const turn::Overlay* last_overlay_ = nullptr;
@@ -4545,13 +4147,6 @@ int main() {
         .text("; font ")
         .decimal(static_cast<std::uint32_t>(gpu::font_halfwords_across * gpu::font_lines))
         .text(" halfwords");
-#ifdef GRANDLEON_PSX_TWIN_GATE_QUALITY
-    vram_report.text("; twin-gate shared ")
-        .decimal(static_cast<std::uint32_t>(
-            twin_gate_quality_width * twin_gate_quality_height + 512
-        ))
-        .text(" bytes");
-#endif
     vram_report.flush();
 
     gpu::show();
@@ -4775,46 +4370,6 @@ int main() {
         .text(" bytes")
         .flush();
 #else
-#ifdef GRANDLEON_PSX_TWIN_GATE_CAPTURE
-#ifndef GRANDLEON_PSX_TWIN_GATE_QUALITY
-#error "the Twin Gate runtime capture requires the Steel and Cedar quality path"
-#endif
-    // Enter the authored finale directly, but play it through the same
-    // production `PlayStationClient` and `play_battle` loop as the campaign.
-    // This target exists to photograph the renderer, not to create a second
-    // set of battle rules or a hand-built scene fixture.
-    const std::uint64_t twin_gate_id =
-        core::stable_content_id_v1("steel_and_cedar/twin_gate");
-    const pr::EncounterLoadResult twin_gate = pr::load_encounter(
-        loaded.package, twin_gate_id, {local_players}
-    );
-    expect(
-        static_cast<bool>(twin_gate),
-        "the production Twin Gate encounter loads for capture"
-    );
-    if (!twin_gate) give_up();
-    game.battle_route(
-        core::stable_content_id_v1("twin_gate"), twin_gate_id,
-        twin_gate.map_id
-    );
-    client::BattleReport twin_gate_report;
-    const client::SessionError status = client::play_battle(
-        twin_gate, sim::Side::first, game, twin_gate_report
-    );
-    const std::uint32_t elapsed = psx::clock_ticks() - started;
-    expect(
-        status == client::SessionError::none,
-        "the production Twin Gate capture session ran"
-    );
-    expect(
-        twin_gate_report.quit,
-        "the bounded capture script left the battle deliberately"
-    );
-    expect(
-        game.paint_longest_microseconds() < 16667U,
-        "the production Twin Gate frame stays inside 60 Hz"
-    );
-#else
     client::SessionOptions session_options;
     session_options.local_players = local_players;
     const client::SessionError status = client::run_campaign(
@@ -4823,7 +4378,6 @@ int main() {
     const std::uint32_t elapsed = psx::clock_ticks() - started;
 
     expect(status == client::SessionError::none, "the session ran to its end");
-#endif
 #endif
 
 #ifndef GRANDLEON_TURN_CLIENT_CAMPAIGN

@@ -31,20 +31,15 @@ struct Menu final {
     int footer_text_y{};
 };
 
-[[nodiscard]] constexpr Menu menu(
-    int widest_label, int rows, int cursor_centre
+[[nodiscard]] constexpr Menu menu_at(
+    int widest_label, int rows, int left, int top
 ) noexcept {
     int width = widest_label + 36;
-    if (width < 184) width = 184;
-    if (width > 288) width = 288;
+    if (width < 144) width = 144;
+    if (width > 272) width = 272;
     constexpr int row_height = 10;
     constexpr int header_height = 16;
     constexpr int footer_height = 16;
-    const int height = 4 + header_height + rows * row_height + footer_height;
-    int top = board_bottom - height - 6;
-    if (top < 6) top = 6;
-    const int left = cursor_centre < screen_width / 2
-        ? screen_width - 16 - width : 16;
     const view::ConsolePanel panel = view::console_panel(
         left, top, width, rows, row_height, header_height, footer_height
     );
@@ -54,6 +49,17 @@ struct Menu final {
         panel.rows.x + 8, panel.rows.y + 1,
         panel.footer.x + 8, panel.footer.y + 4,
     };
+}
+
+[[nodiscard]] constexpr Menu menu(
+    int widest_label, int rows, int cursor_centre
+) noexcept {
+    const Menu sized = menu_at(widest_label, rows, 0, 0);
+    int top = board_bottom - sized.panel.outer.height - 6;
+    if (top < 6) top = 6;
+    const int left = cursor_centre < screen_width / 2
+        ? screen_width - 16 - sized.panel.outer.width : 16;
+    return menu_at(widest_label, rows, left, top);
 }
 
 struct Sheet final {
