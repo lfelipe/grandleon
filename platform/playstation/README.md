@@ -72,6 +72,12 @@ than drawing through a border or meter.
 The playable campaign executable is what release testing and disc boot testing
 exercise. It is not paired with a separate renderer demo.
 
+The generated north/south board bank is staged outside the PS-EXE and included
+on a disc as `DIRART.BIN`. The production renderer does not read it yet, so it
+does not consume main RAM or VRAM. A later bounded loader can read only the
+moving character's four frames instead of making a large campaign executable
+resident all at once.
+
 ## Build another campaign
 
 ```sh

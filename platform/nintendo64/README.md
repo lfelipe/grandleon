@@ -63,6 +63,12 @@ and footer badges use the controller's A, B, Z, and START labels.
 The campaign ROM itself is what release testing exercises. It is not paired
 with a separate renderer demo.
 
+North/south board frames are already packaged outside the executable at
+`rom:/art/directional.gdb`. They are not selected by the production renderer
+yet: keeping that switch off means this preparation adds cartridge bytes but
+does not consume RDRAM or change frame time. The renderer will enable them only
+with its bounded moving-character cache and hardware checks in place.
+
 ## Build another campaign
 
 ```sh

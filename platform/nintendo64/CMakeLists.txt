@@ -161,6 +161,46 @@ file(WRITE
     "${console_drawing_count};\n"
 )
 
+# The authored north/south frames live in DragonFS rather than in the ELF.
+# Nothing opens them yet: this phase establishes the deterministic cartridge
+# path and keeps the runtime gate false until the renderer owns a bounded
+# four-frame cache.  The ordinary side-view arrays above remain byte-for-byte
+# the production path in the meantime.
+set(console_directional_bank
+    "${GRANDLEON_N64_CONSOLE_ART_DIR}/directional_art.gdb")
+set(console_directional_index
+    "${GRANDLEON_N64_CONSOLE_ART_DIR}/directional_art.json")
+foreach(directional_file IN ITEMS
+        "${console_directional_bank}" "${console_directional_index}")
+    if(NOT EXISTS "${directional_file}")
+        message(FATAL_ERROR
+            "generated directional console art does not exist: ${directional_file}")
+    endif()
+endforeach()
+set(console_directional_romfs_root
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/directional_romfs")
+set(console_directional_romfs
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/directional_art.dfs")
+file(REMOVE_RECURSE "${console_directional_romfs_root}")
+file(MAKE_DIRECTORY "${console_directional_romfs_root}/art")
+configure_file(
+    "${console_directional_bank}"
+    "${console_directional_romfs_root}/art/directional.gdb" COPYONLY
+)
+configure_file(
+    "${console_directional_index}"
+    "${console_directional_romfs_root}/art/directional.json" COPYONLY
+)
+execute_process(
+    COMMAND "${N64_BINDIR}/mkdfs"
+        "${console_directional_romfs}" "${console_directional_romfs_root}"
+    RESULT_VARIABLE console_directional_romfs_status
+    OUTPUT_QUIET
+)
+if(NOT console_directional_romfs_status EQUAL 0)
+    message(FATAL_ERROR "mkdfs failed for the directional art bank")
+endif()
+
 # Playable ROMs use only the project-specific Godot-derived console art above.
 
 # Packages a bootable .z64 from an ELF target, reproducing the %.z64 recipe in
@@ -177,6 +217,14 @@ function(grandleon_package_rom target rom_name rom_title)
     set(save_type "${ARGV3}")
     set(rom_elf "$<TARGET_FILE:${target}>")
     set(rom_dir "$<TARGET_FILE_DIR:${target}>")
+    set(romfs_arguments "")
+    if(NOT "${target}" STREQUAL "grandleon_n64_conformance")
+        set_property(
+            TARGET ${target} APPEND PROPERTY LINK_DEPENDS
+            "${console_directional_romfs}"
+        )
+        set(romfs_arguments --align 16 "${console_directional_romfs}")
+    endif()
     add_custom_command(
         TARGET ${target}
         POST_BUILD
@@ -191,7 +239,7 @@ function(grandleon_package_rom target rom_name rom_title)
             --output "${rom_dir}/${rom_name}"
             --align 256 "${rom_elf}.stripped"
             --align 8 "${rom_elf}.sym"
-            --align 8
+            --align 8 ${romfs_arguments}
         COMMENT "Packaging ${rom_name}"
         VERBATIM
     )

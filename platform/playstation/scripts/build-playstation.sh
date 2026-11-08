@@ -241,6 +241,15 @@ python3 "${repository_root}/platform/console_art/generate-character-art.py" \
     --project "${project}" \
     --also-project "${repository_root}/games/demo/source/project.json" \
     --platform ps1 --output "${console_art_header}"
+directional_bank="${console_art_dir}/directional_art.gdb"
+directional_index="${console_art_dir}/directional_art.json"
+for artifact in "${directional_bank}" "${directional_index}"; do
+    if [ ! -f "${artifact}" ]; then
+        echo "error: directional console art was not generated: ${artifact}" >&2
+        exit 1
+    fi
+done
+echo "Directional bank staging: ${directional_bank} ($(wc -c < "${directional_bank}") bytes)"
 container_console_art="/src/${console_art_header#"${repository_root}"/}"
 
 # The container runs as the invoking user so that build artifacts are not

@@ -1631,6 +1631,18 @@ add_test(
         "${PROJECT_SOURCE_DIR}/tools/source_schema/test.mjs"
 )
 
+# The directional bank is a file format shared by two consoles but decoded
+# before either renderer is involved.  Its focused host check proves the
+# byte-level contract, including corruption refusal and exact missing-record
+# fallback, without requiring either cross compiler.
+find_program(GRANDLEON_PYTHON_EXECUTABLE python3 REQUIRED)
+add_test(
+    NAME grandleon.console_directional_bank
+    COMMAND
+        "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/console_art/check-directional-bank.py"
+)
+
 # The warning standard, applied to every test executable this file defines.
 #
 # See the note at the top. `BUILDSYSTEM_TARGETS` is read after the last

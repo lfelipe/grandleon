@@ -143,6 +143,20 @@ rm -rf "${staging}"
 mkdir -p "${staging}"
 cp "${repository_root}/platform/playstation/disc/SYSTEM.CNF" "${staging}/SYSTEM.CNF"
 cp "${executable}" "${staging}/MAIN.EXE"
+directional_bank="${build_dir}/console-art/directional_art.gdb"
+directional_index="${build_dir}/console-art/directional_art.json"
+for artifact in "${directional_bank}" "${directional_index}"; do
+    if [ ! -f "${artifact}" ]; then
+        echo "error: directional art staging is missing: ${artifact}" >&2
+        echo "Build the PlayStation executable before building its disc." >&2
+        exit 1
+    fi
+done
+# ISO 9660 level 1 gives files an eight-character name and a three-character
+# extension.  The renderer is still gated off, but the future bounded loader
+# now has one stable disc path rather than executable-resident arrays.
+cp "${directional_bank}" "${staging}/DIRART.BIN"
+cp "${directional_index}" "${staging}/DIRART.JSN"
 
 # The disc description. Generated rather than checked in because three of its
 # strings are this script's parameters, and a checked-in file with three
@@ -167,6 +181,8 @@ cat > "${disc_dir}/disc.xml" <<XML
         <directory_tree>
             <file name="SYSTEM.CNF" type="data" source="root/SYSTEM.CNF"/>
             <file name="MAIN.EXE" type="data" source="root/MAIN.EXE"/>
+            <file name="DIRART.BIN" type="data" source="root/DIRART.BIN"/>
+            <file name="DIRART.JSN" type="data" source="root/DIRART.JSN"/>
             <dummy sectors="1024" type="0"/>
         </directory_tree>
     </track>

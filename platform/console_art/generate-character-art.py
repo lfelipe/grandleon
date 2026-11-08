@@ -15,9 +15,12 @@ import json
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+import struct
 
 from PIL import Image
 import numpy as np
+
+import directional_bank as directional
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,6 +56,14 @@ POSES = (
 # generator measures it without enabling an unreviewed console runtime path.
 CI4_FRAME_BYTES = BOARD_SIDE * BOARD_SIDE // 2 + 16 * 2
 DIRECTIONAL_POSE_COUNT = 4
+DIRECTIONAL_POSES = (
+    ("north_idle", 0),
+    ("north_move", 2),
+    ("south_idle", 4),
+    ("south_move", 6),
+)
+DIRECTIONAL_BANK = "directional_art.gdb"
+DIRECTIONAL_INDEX = "directional_art.json"
 
 
 @dataclass(frozen=True, order=True)
@@ -203,6 +214,27 @@ def shared_bounds(path: str) -> tuple[int, int, int, int]:
     )
 
 
+@lru_cache(maxsize=None)
+def directional_bounds(path: str) -> tuple[int, int, int, int]:
+    with Image.open(path) as sheet:
+        if sheet.size != (CELL * 4, CELL * 2):
+            raise ValueError(
+                f"directional sheet {path} is {sheet.size}, expected "
+                f"{CELL * 4}x{CELL * 2}"
+            )
+        boxes = [
+            frame(sheet, index).convert("RGBA").getchannel("A").getbbox()
+            for _, index in DIRECTIONAL_POSES
+        ]
+    visible = [box for box in boxes if box is not None]
+    if not visible:
+        raise ValueError(f"directional sheet {path} has no visible pixels")
+    return (
+        min(box[0] for box in visible), min(box[1] for box in visible),
+        max(box[2] for box in visible), max(box[3] for box in visible),
+    )
+
+
 def fitted(source: Image.Image, bounds: tuple[int, int, int, int], side: int) -> Image.Image:
     left, top, right, bottom = bounds
     pivot_x, pivot_y = CELL * 0.5, CELL * 0.94
@@ -238,6 +270,31 @@ def painted_frame(source_name: str, mask_name: str, colour: str, pose: int) -> I
 def rendered_frame(binding: Binding, drawing: Drawing, pose: int, side: int) -> Image.Image:
     painted = painted_frame(str(binding.source), str(binding.mask), drawing.colour, pose)
     return fitted(painted, shared_bounds(str(binding.source)), side)
+
+
+def rendered_directional_frame(
+    binding: Binding, drawing: Drawing, pose: int
+) -> Image.Image:
+    if not binding.has_north_south:
+        raise ValueError(f"{drawing.stem} has no authored north/south sheet")
+    assert binding.directional_source is not None
+    assert binding.directional_mask is not None
+    with Image.open(binding.directional_mask) as mask:
+        if mask.size != (CELL * 4, CELL * 2):
+            raise ValueError(
+                f"directional mask {binding.directional_mask} is {mask.size}, "
+                f"expected {CELL * 4}x{CELL * 2}"
+            )
+    painted = painted_frame(
+        str(binding.directional_source), str(binding.directional_mask),
+        drawing.colour, pose,
+    )
+    result = fitted(
+        painted, directional_bounds(str(binding.directional_source)), BOARD_SIDE
+    )
+    if result.size != (BOARD_SIDE, BOARD_SIDE):
+        raise ValueError(f"directional frame for {drawing.stem} is not 64x64")
+    return result
 
 
 def directional_budget(
@@ -286,6 +343,83 @@ def quantize(image: Image.Image) -> tuple[list[int], list[int]]:
     return halfwords, clut
 
 
+def ci4_frame(image: Image.Image) -> bytes:
+    if image.size != (BOARD_SIDE, BOARD_SIDE):
+        raise ValueError(f"CI4 source is {image.size}, expected 64x64")
+    texels, palette = quantize(image)
+    if len(texels) != directional.TEXEL_BYTES // 2:
+        raise ValueError("CI4 source did not produce 2048 texel bytes")
+    if len(palette) != directional.PALETTE_ENTRIES or palette[0] != 0:
+        raise ValueError("CI4 source did not produce a transparent 16-colour palette")
+    return b"".join(struct.pack("<H", value) for value in texels + palette)
+
+
+def write_directional_bank(
+    directory: Path, drawings: tuple[Drawing, ...],
+    bindings: dict[tuple[str, str, str], Binding],
+) -> tuple[directional.DirectionalBank, dict[str, int]]:
+    directory.mkdir(parents=True, exist_ok=True)
+    sources: list[directional.SourceRecord] = []
+    names: dict[directional.Identity, str] = {}
+    missing: list[str] = []
+    for drawing in drawings:
+        binding = bindings[(drawing.style, drawing.figure, drawing.archetype)]
+        if not binding.has_north_south:
+            missing.append(drawing.stem)
+            continue
+        identity = directional.Identity(
+            STYLES.index(drawing.style), FIGURES.index(drawing.figure),
+            ARCHETYPES.index(drawing.archetype), COLOURS.index(drawing.colour),
+        )
+        frames = tuple(
+            ci4_frame(rendered_directional_frame(binding, drawing, pose))
+            for _name, pose in DIRECTIONAL_POSES
+        )
+        sources.append(directional.SourceRecord(identity, frames))
+        names[identity] = drawing.stem
+
+    encoded = directional.encode(sources)
+    decoded = directional.decode(encoded, maximum_records=len(drawings))
+    bank_path = directory / DIRECTIONAL_BANK
+    bank_path.write_bytes(encoded)
+    offsets = {
+        names[record.identity]: record.offset for record in decoded.records
+    }
+    metadata = {
+        "format": "Grandleon directional CI4 bank v1",
+        "runtimeEnabled": False,
+        "bankFile": DIRECTIONAL_BANK,
+        "byteOrder": "little",
+        "texelOrder": "two low-nibble-first CI4 pixels per byte",
+        "palette": "16 little-endian 0B5G5R5 entries; index 0 transparent",
+        "side": directional.SIDE,
+        "frameBytes": directional.FRAME_BYTES,
+        "frameOrder": [name for name, _pose in DIRECTIONAL_POSES],
+        "recordBytes": directional.RECORD_SIZE,
+        "recordCount": len(decoded.records),
+        "indexBytes": directional.index_bytes(len(decoded.records)),
+        "payloadBytes": directional.payload_bytes(len(decoded.records)),
+        "bankBytes": len(encoded),
+        "crc32": f"{decoded.checksum:08x}",
+        "missingDrawings": missing,
+        "records": [
+            {
+                "name": names[record.identity],
+                "style": record.identity.style,
+                "figure": record.identity.figure,
+                "archetype": record.identity.archetype,
+                "colour": record.identity.colour,
+                "offset": record.offset,
+            }
+            for record in decoded.records
+        ],
+    }
+    (directory / DIRECTIONAL_INDEX).write_text(
+        json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
+    )
+    return decoded, offsets
+
+
 def cpp_array(name: str, values: list[int]) -> str:
     rows = [",".join(str(value) for value in values[offset:offset + 16]) for offset in range(0, len(values), 16)]
     return f"inline constexpr unsigned short {name}[] = {{\n    " + ",\n    ".join(rows) + "\n};\n"
@@ -296,6 +430,7 @@ def write_n64(
     bindings: dict[tuple[str, str, str], Binding],
 ) -> None:
     output.mkdir(parents=True, exist_ok=True)
+    bank, directional_offsets = write_directional_bank(output, drawings, bindings)
     records = []
     for drawing in drawings:
         binding = bindings[(drawing.style, drawing.figure, drawing.archetype)]
@@ -311,6 +446,8 @@ def write_n64(
             "archetype": ARCHETYPES.index(drawing.archetype),
             "colour": COLOURS.index(drawing.colour),
             "name": drawing.stem,
+            "directionalAvailable": drawing.stem in directional_offsets,
+            "directionalBankOffset": directional_offsets.get(drawing.stem),
             "assets": assets,
         })
     directional_count, directional_bytes = directional_budget(drawings, bindings)
@@ -322,11 +459,17 @@ def write_n64(
         "defaultFigure": FIGURES.index(str(project.get("characterFigureId") or "first")),
         "directionalArt": {
             "eastWest": "mirrored-native-right",
-            "northSouth": "profile-authored-partial",
+            "northSouth": "profile-authored",
             "availableDrawingCount": directional_count,
             "generatedRuntimeEnabled": False,
             "projectedCi4Bytes": directional_bytes,
             "projectedFramesPerDrawing": DIRECTIONAL_POSE_COUNT,
+            "bankFile": DIRECTIONAL_BANK,
+            "indexFile": DIRECTIONAL_INDEX,
+            "bankBytes": len(bank.raw),
+            "indexBytes": directional.index_bytes(len(bank.records)),
+            "recordBytes": directional.RECORD_SIZE,
+            "crc32": f"{bank.checksum:08x}",
         },
         "poses": [name for name, _ in POSES],
         "drawings": records,
@@ -339,6 +482,7 @@ def write_ps1(
     bindings: dict[tuple[str, str, str], Binding],
 ) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
+    write_directional_bank(output.parent, drawings, bindings)
     directional_count, directional_bytes = directional_budget(drawings, bindings)
     chunks = [
         "// Generated from the curated Godot HD roster. Do not edit.\n",
