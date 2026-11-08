@@ -346,7 +346,7 @@ than reproduce those implementation details.
 - [x] Treat character names as translatable authored text rather than assuming
   every proper name is universal. An author can save the same spelling as the
   reviewed translation when a proper name is deliberately shared.
-- [ ] Let authors preview the game in a selected language and validate
+- [x] Let authors preview the game in a selected language and validate
   completeness. Authored catalogs travel through the portable project and
   compiled package, the Godot player offers the authored languages before
   launch, and it localizes the project title, campaign/stage names, dialogue,
@@ -358,7 +358,7 @@ than reproduce those implementation details.
     campaign and valid 1P/2P choice. It compiles the current project into a
     save-isolated preview, launches directly in the selected language, and
     returns to the same translation workflow.
-  - [ ] Add authored-language selection and localized interface copy to the
+  - [x] Add authored-language selection and localized interface copy to the
     Nintendo 64 and PlayStation players. Keep their compact layouts readable
     and use the same current-source fallback as Godot.
 - [ ] Later, explore optional translation suggestions from an external AI model.
@@ -405,11 +405,22 @@ portable campaign authoring, and complete combat-outcome coverage.
   retaining the local player override because the view adds meaningful time to
   every exchange. Older games default to enabled, while an explicit local or
   command-line player choice remains final.
-- [ ] Expand the close view with richer terrain detail and character animation,
-  then cover multi-target abilities, special results, and rapid queued combat.
-- [ ] Reuse the same data-driven backdrop pools for in-game conversations.
+- [ ] Continue expanding the close view with more terrain packs and richer
+  character animation. The first production layered forest pack now replaces
+  the procedural background wherever its terrain context applies, while maps
+  without a compatible pack retain the safe terrain-derived fallback.
+- [x] Cover multi-target abilities, special results, and rapid queued combat.
+  Area attacks keep their initiating character planted while targets rotate
+  through the other stage slot; restoration, defeat, endurance and item drops
+  use authoritative event results; queued exchanges use a shorter but complete
+  board handoff. The close view is localized in English, Spanish and Brazilian
+  Portuguese.
+- [x] Reuse the same data-driven backdrop pools for in-game conversations.
   A conversation on a map should derive a calm composition from the speakers'
   locations and nearby terrain; an author can choose an explicit backdrop for
   an off-map scene. Reserve clear areas for portraits, choices, and dialogue,
   keep one variant stable for the scene, and fall back cleanly when a platform
-  does not have that backdrop pack.
+  does not have that backdrop pack. Godot now plays native stage-opening, Talk
+  and character-fall moments over the board, anchors them to the exact authored
+  placement, and shares the first layered forest pool with combat. Unsupported
+  scenes retain the existing readable wash until more art pools are authored.
