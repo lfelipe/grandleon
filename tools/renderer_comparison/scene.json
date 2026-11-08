@@ -109,7 +109,8 @@
       "resolution": [1280, 720],
       "colour_space": "srgb",
       "manifest": "platform/godot/project/art/combat_backdrops/manifest.json",
-      "generator": "platform/godot/scripts/generate-combat-backdrops.sh",
+      "production_art_provenance": "platform/godot/project/art/combat_backdrops/MEDIEVAL_FOREST_GATE.md",
+      "diagnostic_generator": "platform/godot/scripts/generate-combat-backdrops.sh",
       "godot_script": "platform/godot/tests/combat_backdrop_capture.gd",
       "render_camera": {
         "projection": "perspective",

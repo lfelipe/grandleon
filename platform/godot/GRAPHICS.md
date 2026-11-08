@@ -57,10 +57,13 @@ similar-looking selectors.
 
 An in-battle conversation anchors its terrain sample on the first cast
 character currently on the board. A story scene between maps uses its authored
-backdrop instead. The first production pool supports **Deep Wood** and
-forest-dominant map neighbourhoods; unsupported terrain or authored backdrops
-retain the existing colour wash. The dialogue panel remains inside a dedicated
-dark safe region, independent of how detailed later backdrop pools become.
+backdrop instead. The **Deep Wood** pool and forest-dominant map neighbourhoods
+use three reviewed painted Cedar Deepwood panoramas with a continuous authored
+floor. The older relay capture made from cone trees and flat primitive tiles
+remains only a diagnostic output under the build directory; it cannot
+overwrite the runtime pack. Unsupported terrain or authored backdrops retain
+the existing colour wash. The dialogue panel remains inside a dedicated dark
+safe region, independent of how detailed later backdrop pools become.
 
 The editor currently offers the included world themes and character styles.
 External art-pack import is not part of the current editor; it may be revisited

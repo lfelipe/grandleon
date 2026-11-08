@@ -37,6 +37,7 @@ func _run() -> void:
 	_expect("on-map dialogue records its source", first.source, "terrain")
 	_expect("cast identity anchors the composition", first.anchor, Vector2i(2, 2))
 	_expect("terrain composition selects the forest pack", first.pack_id, "medieval_forest_gate")
+	_expect("the reviewed forest panorama owns its complete floor", float(first.floor_strip_top), 1.0)
 	_expect("the paved transition is part of local context", int(first.transition_mask) != 0, true)
 	_expect("one scene keeps one deterministic selection", repeated, first)
 	_expect("the variant follows the manifest seed rule", int(first.variant), int(first.seed) % 3)
@@ -58,6 +59,7 @@ func _run() -> void:
 	_expect("off-map composition records authored source", authored.source, "authored")
 	_expect("portable backdrop index keeps its identity", authored.authored_backdrop, "deep_wood")
 	_expect("authored composition uses every pool layer", authored.layer_paths.size(), 4)
+	_expect("authored Deep Wood keeps the reviewed source floor", float(authored.floor_strip_top), 1.0)
 	var unsupported: Dictionary = resolver.resolve_for_conversation(
 		"stars", 6, false
 	)

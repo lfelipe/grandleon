@@ -48,6 +48,7 @@
       "secondary_terrain": "grass",
       "transition_terrain": "paved",
       "variant_count": 3,
+      "floor_strip_top": 1.0,
       "root": "res://art/combat_backdrops/medieval_forest_gate",
       "conversation": {
         "authored_backdrops": ["deep_wood"]
