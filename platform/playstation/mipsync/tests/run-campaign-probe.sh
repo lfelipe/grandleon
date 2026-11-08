@@ -143,6 +143,7 @@ require() {
 }
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_READY card=1 continue=0' 'a fresh card'
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_SAVE bytes=[1-9][0-9]* status=0' 'successful card saves'
+require "$output/new.log" 'MIPSYNC_LOCAL_INPUT player=2 unit=[0-9a-f]+' 'controller-two unit ownership'
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_RESUME node=a6b11e9ea987638a players=2' 'the Deepwood hand-off'
 require "$output/new.log" 'MIPSYNC_SIM_READY width=14 height=9 units=11 .* players=2 hash=72216135b6c8e9d3' 'the real two-player Deepwood simulation'
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_CAPTURE name=bell 320x240' 'the Bell capture'

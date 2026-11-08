@@ -4,6 +4,7 @@ local mode = os.getenv('GRANDLEON_CAMPAIGN_MODE') or 'new'
 local frame = 0
 local pending_capture = nil
 local actions = {}
+local player_two_actions = {}
 local captures = {}
 
 if mode == 'new' then
@@ -12,6 +13,8 @@ if mode == 'new' then
   actions[70] = 0x4000
   actions[100] = 0x4000 -- prologue
   actions[130] = 0x4000 -- play Bell Orchard
+  player_two_actions[150] = 0x4000 -- player two selects their authored unit
+  player_two_actions[160] = 0x2000 -- and can cancel independently
   actions[200] = 0x8000 -- complete Bell from the live board
   actions[230] = 0x4000 -- story, persist and LoadExec Deepwood
   actions[290] = 0x4000 -- play Deepwood
@@ -42,9 +45,15 @@ end
 local function update()
   frame = frame + 1
   local held = actions[frame] or 0
+  local player_two = player_two_actions[frame] or 0
   PCSX.getRegisters().GPR.n.a0 = held
+  PCSX.getRegisters().GPR.n.a1 = player_two
   if held ~= 0 then
     print(string.format('MIPSYNC_CAMPAIGN_INPUT frame=%d held=%04x', frame, held))
+  end
+  if player_two ~= 0 then
+    print(string.format('MIPSYNC_CAMPAIGN_INPUT player=2 frame=%d held=%04x',
+                        frame, player_two))
   end
   if captures[frame] then pending_capture = captures[frame] end
   if frame >= (mode == 'new' and 1000 or 1350) then PCSX.quit(0) end

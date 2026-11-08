@@ -20,6 +20,7 @@ grandleon_scroll_breakpoint = PCSX.addBreakpoint(
     end
   end
   PCSX.getRegisters().GPR.n.a0 = held
+  PCSX.getRegisters().GPR.n.a1 = 0
   if runtime_frame == 900 then capture_pending = true end
   return true
 end)

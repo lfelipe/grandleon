@@ -34,6 +34,7 @@ sim::Encounter::CreateResult* s_created{};
 sim::EncounterSnapshot s_snapshot{};
 sim::UnitId s_selected{};
 sim::Position s_cursor{};
+sim::Position s_player_cursors[2]{};
 InputMode s_mode{InputMode::browse};
 unsigned s_menu_index{};
 unsigned s_ai_delay{};
@@ -404,10 +405,15 @@ void tick_camera() {
         combat_floor->position[1] = -1024;
         combat_floor->position[2] = focus_z;
     }
-    ps1_entity* cursor = grandleon_scene_mutable_entity(
-        g_grandleon_cursor_entity_index
-    );
-    if (cursor) cursor->mesh_enabled = close_combat ? 0 : 1;
+    for (unsigned player = 0; player < 2; ++player) {
+        ps1_entity* cursor = grandleon_scene_mutable_entity(
+            g_grandleon_cursor_entity_indices[player]
+        );
+        if (cursor) {
+            cursor->mesh_enabled =
+                !close_combat && player < s_local_players ? 1 : 0;
+        }
+    }
     const std::int32_t half_x = g_grandleon_camera_view_tiles_x;
     const std::int32_t half_z = g_grandleon_camera_view_tiles_y;
     for (unsigned index = 0; index < g_grandleon_tree_count; ++index) {
@@ -458,11 +464,17 @@ void sync_scene(const sim::EncounterSnapshot& snapshot) {
             *entity, unit->position, snapshot.width, snapshot.height, 3072
         );
     }
-    ps1_entity* cursor = grandleon_scene_mutable_entity(
-        g_grandleon_cursor_entity_index
-    );
-    if (cursor) {
-        place_entity(*cursor, s_cursor, snapshot.width, snapshot.height, 0);
+    for (unsigned player = 0; player < 2; ++player) {
+        ps1_entity* cursor = grandleon_scene_mutable_entity(
+            g_grandleon_cursor_entity_indices[player]
+        );
+        if (cursor) {
+            cursor->mesh_enabled = player < s_local_players ? 1 : 0;
+            place_entity(
+                *cursor, s_player_cursors[player],
+                snapshot.width, snapshot.height, 0
+            );
+        }
     }
 }
 
@@ -744,12 +756,18 @@ bool start_encounter() {
             .hex64(s_created->encounter.canonical_hash()).flush();
         return false;
     }
+    bool cursor_found[2]{};
     for (const auto& unit : snapshot.units) {
-        if (unit.side == sim::Side::first && sim::on_board(unit)) {
-            s_cursor = unit.position;
-            break;
+        if (unit.side != sim::Side::first || !sim::on_board(unit)) continue;
+        const unsigned owner = unit.local_player > 1U ? 1U : 0U;
+        if (!cursor_found[owner]) {
+            s_player_cursors[owner] = unit.position;
+            cursor_found[owner] = true;
         }
     }
+    if (!cursor_found[0]) return false;
+    if (!cursor_found[1]) s_player_cursors[1] = s_player_cursors[0];
+    s_cursor = s_player_cursors[0];
     sync_scene(snapshot);
     ps1_entity* camera = grandleon_scene_mutable_entity(
         g_grandleon_camera_entity_index
@@ -961,7 +979,8 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     if (s_last_result_restored) output->restored = s_last_result_damage;
 }
 
-int grandleon_game_update(uint16_t pressed) {
+int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
+    std::uint16_t pressed = player_one;
     if (s_campaign_mode != CampaignMode::battle) {
         if (!pressed) return 0;
         if (s_campaign_mode == CampaignMode::title) {
@@ -1088,7 +1107,19 @@ int grandleon_game_update(uint16_t pressed) {
         return 0;
     }
     if (s_ai_active) return update_ai() ? 1 : 0;
+    std::uint8_t input_player = 0;
+    if (s_selected != 0) {
+        const sim::UnitSnapshot* selected = find_unit(s_snapshot, s_selected);
+        if (selected && selected->local_player == 2U && s_local_players > 1U) {
+            input_player = 1;
+            pressed = player_two;
+        }
+    } else if (s_local_players > 1U && player_two != 0) {
+        input_player = 1;
+        pressed = player_two;
+    }
     if (pressed == 0) return 0;
+    s_cursor = s_player_cursors[input_player];
     sim::EncounterSnapshot snapshot = s_snapshot;
     if (snapshot.active_side != sim::Side::first ||
         snapshot.outcome != sim::Outcome::ongoing) return 0;
@@ -1112,11 +1143,15 @@ int grandleon_game_update(uint16_t pressed) {
     bool mutated = false;
     if ((pressed & pad_cross) && s_mode == InputMode::browse) {
         const sim::UnitSnapshot* unit = unit_at(snapshot, s_cursor);
-        if (unit && unit->side == sim::Side::first && !unit->has_acted) {
+        if (unit && unit->side == sim::Side::first && !unit->has_acted &&
+            unit->local_player == input_player + 1U) {
             s_selected = unit->id;
             s_mode = InputMode::move;
             s_menu_index = 0;
             ++s_select_count;
+            psx::Line().text("MIPSYNC_LOCAL_INPUT player=")
+                .decimal(input_player + 1U).text(" unit=")
+                .hex64(unit->id).flush();
         }
     } else if ((pressed & pad_cross) && s_mode == InputMode::move) {
         const sim::UnitSnapshot* actor = find_unit(snapshot, s_selected);
@@ -1210,11 +1245,18 @@ int grandleon_game_update(uint16_t pressed) {
             }
         }
     }
-    ps1_entity* cursor = grandleon_scene_mutable_entity(
-        g_grandleon_cursor_entity_index
-    );
-    if (cursor) {
-        place_entity(*cursor, s_cursor, snapshot.width, snapshot.height, 0);
+    s_player_cursors[input_player] = s_cursor;
+    for (unsigned player = 0; player < 2; ++player) {
+        ps1_entity* cursor = grandleon_scene_mutable_entity(
+            g_grandleon_cursor_entity_indices[player]
+        );
+        if (cursor) {
+            cursor->mesh_enabled = player < s_local_players ? 1 : 0;
+            place_entity(
+                *cursor, s_player_cursors[player],
+                snapshot.width, snapshot.height, 0
+            );
+        }
     }
     return mutated ? 1 : 0;
 }

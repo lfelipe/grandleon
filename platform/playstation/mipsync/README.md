@@ -5,7 +5,9 @@ renderer. It now boots the full five-encounter Steel and Cedar campaign, saves
 and resumes on a PlayStation memory card, and supports both one- and two-player
 campaigns. Battles use the shared simulation for movement, Attack, equipped
 abilities, Wait, reinforcements, objectives, and package-authored opposing
-turns. A compact forecast and result UI plus the optional close-combat camera
+turns. In two-player battles each physical controller keeps its own visible
+cursor and can command only its authored units; choosing two players is not
+merely a larger roster driven by controller one. A compact forecast and result UI plus the optional close-combat camera
 use the same disc and rules. It is not the shipping path yet: audio, real
 hardware validation, and the final cutover remain. It is never used as a
 fallback.

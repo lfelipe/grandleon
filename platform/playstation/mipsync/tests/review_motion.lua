@@ -25,6 +25,7 @@ grandleon_review_motion_update = PCSX.addBreakpoint(
     update_address, 'Exec', 4, 'Grandleon review motion', function()
   frame = frame + 1
   PCSX.getRegisters().GPR.n.a0 = actions[frame] or 0
+  PCSX.getRegisters().GPR.n.a1 = 0
   if frame >= 150 and frame <= 450 and frame % 2 == 0 then
     local shot = PCSX.GPU.takeScreenShot()
     local path = string.format('/out/frame-%04d.bin', capture_index)

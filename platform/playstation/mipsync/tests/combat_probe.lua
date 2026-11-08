@@ -43,6 +43,7 @@ grandleon_combat_breakpoint = PCSX.addBreakpoint(
                         held, runtime_frame))
   end
   PCSX.getRegisters().GPR.n.a0 = held
+  PCSX.getRegisters().GPR.n.a1 = 0
   if runtime_frame == 120 then forecast_capture = true end
   if runtime_frame == 170 then cinematic_capture = true end
   if runtime_frame == 1800 then final_capture = true end

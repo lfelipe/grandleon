@@ -1014,11 +1014,16 @@ def write_scene(
     cursor_index = entity_index
     cursor_mesh_index = 3 + len(terrain_chunks)
     lines.append(
-        f"    {{ .id={next_id}u, .name=\"tactical_cursor\", .parent_entity_index=-1, .position={{{fixed(cursor_world_x)},{cursor_world_y},{fixed(cursor_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=225, .color_b=48, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+        f"    {{ .id={next_id}u, .name=\"player_one_cursor\", .parent_entity_index=-1, .position={{{fixed(cursor_world_x)},{cursor_world_y},{fixed(cursor_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=225, .color_b=48, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
     )
     next_id += 1
     entity_index += 1
-    camera_index = cursor_index + 1
+    lines.append(
+        f"    {{ .id={next_id}u, .name=\"player_two_cursor\", .parent_entity_index=-1, .position={{{fixed(cursor_world_x)},{cursor_world_y},{fixed(cursor_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index}, .mesh_size=65536, .mesh_enabled=0, .color_r=72, .color_g=220, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+    )
+    next_id += 1
+    entity_index += 1
+    camera_index = cursor_index + 2
     lines.extend((
         f"    {{ .id={next_id}u, .name=\"clamped_board_camera\", .parent_entity_index=-1, .position={{{fixed(camera_focus_x)},{fixed(CAMERA_HEIGHT)},{fixed(camera_focus_z + CAMERA_TRAILING_DISTANCE)}}}, .rotation={{{fixed(-40)},0,0}}, .scale={{65536,65536,65536}}, .rigid_root_entity_index=-1, .collider_shape=-1, .has_camera=1, .camera_primary=1, .camera_fov={fixed(45)}, .camera_near={fixed(0.2)}, .camera_far={fixed(80)}, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},",
         "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index},", "};", "",
@@ -1047,7 +1052,9 @@ def write_scene(
         *(f"    {index}u," for index in tree_entity_indices),
         "};",
         "const unsigned int g_grandleon_tree_count = sizeof(g_grandleon_tree_entity_indices) / sizeof(g_grandleon_tree_entity_indices[0]);",
-        f"const unsigned int g_grandleon_cursor_entity_index = {cursor_index}u;",
+        "const unsigned int g_grandleon_cursor_entity_indices[] = {",
+        f"    {cursor_index}u, {cursor_index + 1}u,",
+        "};",
         f"const unsigned int g_grandleon_combat_floor_entity_index = {combat_floor_index}u;",
         f"const unsigned int g_grandleon_camera_entity_index = {camera_index}u;",
         f"const int32_t g_grandleon_camera_height = {fixed(CAMERA_HEIGHT)};",
@@ -1079,7 +1086,7 @@ extern const int16_t g_grandleon_terrain_page_focus[][2];
 extern const unsigned int g_grandleon_terrain_chunk_count;
 extern const unsigned int g_grandleon_tree_entity_indices[];
 extern const unsigned int g_grandleon_tree_count;
-extern const unsigned int g_grandleon_cursor_entity_index;
+extern const unsigned int g_grandleon_cursor_entity_indices[2];
 extern const unsigned int g_grandleon_combat_floor_entity_index;
 extern const unsigned int g_grandleon_camera_entity_index;
 extern const int32_t g_grandleon_camera_height;

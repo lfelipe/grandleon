@@ -28,12 +28,14 @@ static char* s_next_packet;
 static int s_buffer;
 static uint16_t s_gpu_ready_tick;
 static uint8_t s_pad_buffers[2][34];
-static uint16_t s_last_buttons = 0xffffu;
+static uint16_t s_last_buttons[2] = {0xffffu, 0xffffu};
 
 /* Stable probe seam: main.c is byte-identical in every campaign executable,
  * while the scene-specific C++ bridge may link at a different address. */
-__attribute__((noinline)) int grandleon_runtime_update(uint16_t pressed) {
-    return grandleon_game_update(pressed);
+__attribute__((noinline)) int grandleon_runtime_update(
+    uint16_t player_one, uint16_t player_two
+) {
+    return grandleon_game_update(player_one, player_two);
 }
 
 void grandleon_platform_card_begin(void) {
@@ -43,7 +45,8 @@ void grandleon_platform_card_begin(void) {
 void grandleon_platform_card_end(void) {
     StartPAD();
     ChangeClearPAD(0);
-    s_last_buttons = 0xffffu;
+    s_last_buttons[0] = 0xffffu;
+    s_last_buttons[1] = 0xffffu;
 }
 
 void grandleon_platform_load_stage(const char* disc_path) {
@@ -129,9 +132,9 @@ int main(void) {
         uint16_t render_start;
         uint16_t render_ticks;
         uint16_t ready_ticks;
-        uint16_t pressed = 0;
+        uint16_t pressed[2] = {0, 0};
         int deferred;
-        PADTYPE* pad = (PADTYPE*)s_pad_buffers[0];
+        unsigned pad_index;
         last_vblank = current_vblank;
         if (frame >= 60) {
             if (elapsed > 1) {
@@ -142,13 +145,19 @@ int main(void) {
             if (elapsed > maximum_elapsed) maximum_elapsed = elapsed;
         }
 
-        if (!pad->stat && (
-                pad->type == PAD_ID_DIGITAL || pad->type == PAD_ID_ANALOG_STICK ||
-                pad->type == PAD_ID_ANALOG)) {
-            pressed = (uint16_t)(s_last_buttons & (uint16_t)~pad->btn);
-            s_last_buttons = pad->btn;
+        for (pad_index = 0; pad_index < 2; ++pad_index) {
+            PADTYPE* pad = (PADTYPE*)s_pad_buffers[pad_index];
+            if (!pad->stat && (
+                    pad->type == PAD_ID_DIGITAL ||
+                    pad->type == PAD_ID_ANALOG_STICK ||
+                    pad->type == PAD_ID_ANALOG)) {
+                pressed[pad_index] = (uint16_t)(
+                    s_last_buttons[pad_index] & (uint16_t)~pad->btn
+                );
+                s_last_buttons[pad_index] = pad->btn;
+            }
         }
-        deferred = grandleon_runtime_update(pressed);
+        deferred = grandleon_runtime_update(pressed[0], pressed[1]);
 
         if (deferred) {
             const uint16_t mutation_ticks =

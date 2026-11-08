@@ -56,7 +56,9 @@ typedef struct grandleon_ui_state {
 
 int grandleon_game_init(void);
 /* 1 defers rendering for a rules mutation; 2 begins a fresh gameplay timing window. */
-int grandleon_game_update(uint16_t pressed_buttons);
+int grandleon_game_update(
+    uint16_t player_one_buttons, uint16_t player_two_buttons
+);
 void grandleon_game_ui_state(grandleon_ui_state* output);
 void grandleon_game_log_boot(unsigned int packet_bytes);
 void grandleon_platform_card_begin(void);
