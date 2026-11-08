@@ -182,10 +182,13 @@ and it safely replaces the included campaigns on all three players.
   Medieval set; add corresponding console variants, fences, gates, larger
   civic buildings, walls, bridges, and other multi-cell features.
 - [ ] Finish the connected castle feature introduced at Twin Gate Keep. The
-  campaign now authors blocked walls, passable double doors, a walkable throne
-  room and a boss dais as one 6×6 tactical footprint. Godot must reveal the
-  interior as the army enters, and both consoles must present the same room
-  and doorway clearly even with simpler art.
+  campaign authors blocked walls, passable double doors, a walkable throne room
+  and a boss dais as one 6×6 tactical footprint. Godot now validates that exact
+  footprint, keeps the exterior closed until the rendered unit crosses a door,
+  then reveals and retains the walkable room without moving the board, camera,
+  or units. Its five exact campaign maps also use one coherent Medieval terrain
+  family rather than the Relay demo art. Complete matched hardware review for
+  the Nintendo 64 and PlayStation room and doorway before closing this item.
 - [ ] Tune 1P and 2P separately. Co-op must give both players useful characters
   and decisions without merely doubling the battle size; solo play must retain
   the same strategic possibilities at a manageable pace. Playtest every map

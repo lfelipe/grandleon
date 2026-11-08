@@ -250,6 +250,7 @@ func _test_runtime_backdrop(
 	)
 	var selected: Dictionary = cinematic.capture_backdrop_state()
 	_expect("production combat selects the terrain pack", selected.pack_id, "medieval_forest_gate")
+	_expect("production forest combat keeps the reviewed source floor", float(selected.floor_strip_top), 1.0)
 	_expect_true("production combat loads layered terrain art", int(selected.layer_count) >= 3)
 	_expect_true("production combat selection is not a capture override", not bool(selected.forced))
 	var frozen_variant := String(selected.variant)
@@ -461,8 +462,10 @@ func _test_cluster_landmarks(board) -> void:
 func _test_castle_reveal(board) -> void:
 	var features: Array = []
 	for y in 6:
+		features.append("")
+		features.append("")
 		for x in 6:
-			if y in [0, 5] or x == 5 or (x == 0 and y not in [2, 3]):
+			if y in [0, 5] or x == 5 or (x == 0 and y in [1, 4]):
 				features.append("castle_wall")
 			elif x == 0:
 				features.append("castle_door")
@@ -474,25 +477,46 @@ func _test_castle_reveal(board) -> void:
 	for feature: String in features:
 		kinds.append(3 if feature == "castle_wall" else 12)
 	var outside := {
-		"width": 6, "height": 6,
+		"width": 8, "height": 6,
 		"units": [{
 			"id": 31, "name": "Rowan", "side": "first", "player": 1,
-			"x": 0, "y": 1, "health": 10, "maximum_health": 10,
+			"x": 1, "y": 2, "health": 10, "maximum_health": 10,
 			"on_board": true, "archetype": 5, "colour": 0,
 			"style": 0, "figure": 0,
 		}],
 	}
 	board.configure(outside, kinds, 0, {}, features)
-	_expect("the castle keeps its exact six-cell footprint", board._castle_bounds, Rect2i(0, 0, 6, 6))
-	_expect_true("the castle starts with its exterior visible", board._castle_exterior != null and board._castle_exterior.modulate.a > 0.99)
+	_expect("the castle keeps its exact six-cell footprint", board._castle_bounds, Rect2i(2, 0, 6, 6))
+	_expect_true("the castle starts with its exterior visible", board._castle_exterior != null and board.castle_presentation_state().exterior_alpha > 0.99)
 	_expect_true("the hidden room uses a matching dedicated cutaway", board._castle_cutaway != null and str(board._castle_cutaway.get_meta("landmark_asset")).contains("cutaway"))
+	_expect("the matched states use blendable alpha", board._castle_exterior.alpha_cut, SpriteBase3D.ALPHA_CUT_DISABLED)
+	_expect_true("one transition material owns both matched states", board._castle_exterior.material_override is ShaderMaterial and not board._castle_cutaway.visible)
 	var inside := outside.duplicate(true)
-	inside.units[0].x = 1
+	inside.units[0].x = 2
 	inside.units[0].y = 2
 	board.update_snapshot(inside)
-	_expect("entering the room arms its reveal", board._castle_reveal_target, 1.0)
+	_expect("an accepted destination does not reveal before locomotion", board._castle_reveal_target, 0.0)
+	var camera_transform: Transform3D = board._camera.transform
+	var terrain_position: Vector3 = board._terrain_root.position
+	var rowan: Node3D = board._unit_nodes[31]
+	rowan.position = board._cell_position(2, 2)
+	var entered_position: Vector3 = rowan.position
+	board._update_castle_reveal_target()
+	_expect("crossing the rendered doorway arms its reveal", board._castle_reveal_target, 1.0)
 	board._update_castle_reveal(0.35)
-	_expect_true("the keep dissolves smoothly instead of popping", board._castle_exterior.modulate.a < 1.0 and board._castle_exterior.modulate.a > 0.0 and board._castle_cutaway.modulate.a > 0.0)
+	var reveal_state: Dictionary = board.castle_presentation_state()
+	_expect_true("the keep dissolves smoothly instead of popping", reveal_state.exterior_alpha < 1.0 and reveal_state.exterior_alpha > 0.0 and reveal_state.cutaway_alpha > 0.0)
+	_expect("the reveal does not move the camera", board._camera.transform, camera_transform)
+	_expect("the reveal does not move the board", board._terrain_root.position, terrain_position)
+	_expect("the reveal does not move the entering unit", rowan.position, entered_position)
+	rowan.position = board._cell_position(1, 2)
+	board._update_castle_reveal_target()
+	_expect("the explored room stays visible", board._castle_reveal_target, 1.0)
+	var malformed: Array = features.duplicate()
+	malformed[2] = ""
+	board.configure(outside, kinds, 0, {}, malformed)
+	_expect("a partial keep receives no misleading cutout", board._castle_bounds, Rect2i())
+	_expect_true("a partial keep creates no exterior layer", board._castle_exterior == null)
 
 
 func _snapshot(target_health: int) -> Dictionary:

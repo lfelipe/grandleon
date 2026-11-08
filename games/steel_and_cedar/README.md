@@ -44,8 +44,19 @@ but not the final environment presentation.
 
 Twin Gate Keep adds a connected 6×6 castle footprint: blocked outer walls,
 two passable doors, a walkable chamber and a boss dais. Entering the keep
-reveals the room beneath its exterior cutout without changing any tactical
-cells or unit positions.
+reveals the room beneath its exterior cutout at the doorway without moving the
+board, camera, or units. The room stays open once explored, so the live units
+and boss remain readable during the fight. See the
+[short reveal](../../docs/screenshots/godot/twin-gate-keep-reveal.gif),
+[closed exterior](../../docs/screenshots/godot/twin-gate-keep-exterior.png),
+and [revealed room](../../docs/screenshots/godot/twin-gate-keep-interior.png).
+
+All five exact Steel and Cedar maps use the same warm Medieval terrain family
+in Godot. Muted grass, earth roads, farmland, continuous stonework, forest,
+mountain and ruins replace the unrelated cyan Relay demonstration art while
+preserving every authored terrain kind, feature and tactical cell. The binding
+requires the campaign's exact stage and map identity; unrelated projects keep
+their configured terrain presentation.
 
 Bell Orchard and Cedar Watch also carry named, walkable landmark identities
 for their orchard rows, bell, ruins, and signal beacons. These retain the exact

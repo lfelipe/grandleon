@@ -1344,7 +1344,7 @@ func _set_graphics_profile(requested: String) -> void:
 	if not snapshot.is_empty() and not battle_terrain.is_empty():
 		board.configure(
 			snapshot, battle_terrain, battle_theme, battle_surroundings,
-			battle_terrain_features
+			battle_terrain_features, battle_route_identity
 		)
 	board.set_seats(seats)
 	for seat in min(2, seats.size()):
@@ -2546,7 +2546,7 @@ func _handle_event(event: Dictionary) -> void:
 			battle_surroundings = {}
 			board.configure(
 				snapshot, battle_terrain, battle_theme, battle_surroundings,
-				battle_terrain_features
+				battle_terrain_features, battle_route_identity
 			)
 			selected_units = [0, 0]
 			action_modes = ["move", "move"]

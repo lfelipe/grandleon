@@ -110,6 +110,21 @@ glow, or distant shadow.”
   chair and torchlight.
 - Intended footprint: 6 × 6 cells. Eighteen wall cells are blocked; two door,
   fourteen chamber and two dais cells are paved and walkable.
+- Godot validates that complete footprint before adding the landmark. A live
+  allied unit crossing either door dissolves the exterior into the aligned
+  room on one shader-owned plane; the reveal latches open and never moves the
+  tactical board, camera, or unit. Units already inside are hidden by the
+  closed shell and restored over the revealed room.
+- The real Steel and Cedar route uses a muted Medieval terrain family across
+  all five maps, with continuous world-space wear and stable cell variation so
+  the detailed keep is not surrounded by unrelated Relay art or a repeated
+  debug-tile texture. The exact route identity prevents this presentation from
+  leaking into other projects.
+
+Review the production-route
+[approach and reveal](../../../../../docs/screenshots/godot/twin-gate-keep-reveal.gif),
+[closed exterior](../../../../../docs/screenshots/godot/twin-gate-keep-exterior.png),
+and [walkable interior](../../../../../docs/screenshots/godot/twin-gate-keep-interior.png).
 
 The pair was generated on 2026-11-07 with Codex's built-in OpenAI
 image-generation tool. The service did not expose a model-version identifier,

@@ -29,6 +29,13 @@ const CASTLE_EXTERIOR_TEXTURE := "res://art/map_features/medieval_castle_keep_ex
 const CASTLE_CUTAWAY_TEXTURE := "res://art/map_features/medieval_castle_keep_cutaway.png"
 const CASTLE_PIXEL_SIZE := 0.00530
 const CASTLE_CENTRE_HEIGHT := 2.38
+const STEEL_AND_CEDAR_MAP_IDS := [
+	"935b03cf7490233c", # Bell Orchard
+	"a6b11e9ea987638a", # Cedar Deepwood
+	"0079abb4797ff5b4", # Cedar Watch
+	"07cb9d097af3a9a1", # Gate Village
+	"e5c0ef3904d2b0a3", # Twin Gate Keep
+]
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a87a4f"), Color("316b45"), Color("65717a"),
 	Color("c39a60"), Color("dce7e8"), Color("496c58"), Color("78915b"),
@@ -42,6 +49,7 @@ var profile_config: Dictionary = {}
 var snapshot: Dictionary = {}
 var terrain: Array = []
 var terrain_features: Array = []
+var route_identity: Dictionary = {}
 var surroundings: Dictionary = {}
 var terrain_theme := 0
 var seats: Array = []
@@ -88,6 +96,7 @@ var _castle_exterior: Sprite3D
 var _castle_cutaway: Sprite3D
 var _castle_reveal_progress := 0.0
 var _castle_reveal_target := 0.0
+var _castle_revealed := false
 var _materials: Dictionary = {}
 var _effects: Array[Dictionary] = []
 var _impact_texture: Texture2D
@@ -203,11 +212,13 @@ func _create_environment() -> void:
 
 func configure(
 	new_snapshot: Dictionary, new_terrain: Array, new_theme: int,
-	new_surroundings: Dictionary = {}, new_terrain_features: Array = []
+	new_surroundings: Dictionary = {}, new_terrain_features: Array = [],
+	new_route_identity: Dictionary = {}
 ) -> void:
 	snapshot = new_snapshot
 	terrain = new_terrain
 	terrain_features = new_terrain_features.duplicate()
+	route_identity = new_route_identity.duplicate(true)
 	terrain_theme = new_theme
 	surroundings = new_surroundings.duplicate(true)
 	_update_surrounding_background()
@@ -528,7 +539,6 @@ func unit_at(cell: Vector2i) -> Dictionary:
 
 func _process(delta: float) -> void:
 	_pulse += delta
-	_update_castle_reveal(delta)
 	var now_msec := Time.get_ticks_msec()
 	_update_effects(now_msec)
 	_update_tactical_camera(delta)
@@ -594,6 +604,12 @@ func _process(delta: float) -> void:
 				sprite.modulate = _unit_flash_colours.get(id, Color.WHITE)
 			else:
 				sprite.modulate = Color.WHITE
+	# Follow the rendered unit, not its already-accepted destination. The keep
+	# therefore opens as the character crosses the doorway during locomotion,
+	# while the board, camera, and unit continue their existing paths unchanged.
+	_update_castle_reveal_target()
+	_update_castle_reveal(delta)
+	_update_castle_unit_presentation()
 	if _viewport and _viewport.size != Vector2i(size):
 		_viewport.size = Vector2i(size)
 
@@ -634,7 +650,9 @@ func _rebuild_terrain() -> void:
 			if outside_x >= 0 and outside_y >= 0 and outside_x < width and outside_y < height:
 				continue
 			var outside_kind := _surrounding_kind(outside_x, outside_y, ring_index)
-			if String(profile_config.get("terrainRenderer", render_profile)) == "voxel":
+			if _uses_medieval_campaign_terrain():
+				_build_medieval_campaign_tile(outside_x, outside_y, outside_kind)
+			elif String(profile_config.get("terrainRenderer", render_profile)) == "voxel":
 				_build_voxel_tile(outside_x, outside_y, outside_kind)
 			else:
 				_build_diorama_tile(outside_x, outside_y, outside_kind)
@@ -645,6 +663,9 @@ func _rebuild_terrain() -> void:
 			var kind := int(terrain[index]) if index < terrain.size() else 9
 			if kind == 255:
 				kind = 9
+			if _uses_medieval_campaign_terrain():
+				_build_medieval_campaign_tile(x, y, kind)
+				continue
 			if not _landmark_cells.has(Vector2i(x, y)) and _create_authored_tile(x, y, kind):
 				continue
 			if String(profile_config.get("terrainRenderer", render_profile)) == "voxel":
@@ -653,6 +674,21 @@ func _rebuild_terrain() -> void:
 				_build_diorama_tile(x, y, kind)
 	_build_cluster_landmarks()
 	_build_castle_landmark()
+
+
+func _uses_medieval_campaign_terrain() -> bool:
+	# Temperate is Steel and Cedar's authored theme. The old default 3D asset
+	# binding points at the Relay demonstration scenes, whose cyan circuitry and
+	# beacons are intentionally wrong in this Medieval-versus-Sengoku campaign.
+	# Exact stage/map identity keeps every unrelated/custom map on its prior path.
+	var stage_id := String(route_identity.get("stage_id", ""))
+	var map_id := String(route_identity.get("map_id", ""))
+	return (
+		terrain_theme == 0
+		and stage_id in STEEL_AND_CEDAR_MAP_IDS
+		and map_id in STEEL_AND_CEDAR_MAP_IDS
+		and stage_id == map_id
+	)
 
 
 func _detect_cluster_landmarks() -> void:
@@ -709,6 +745,7 @@ func _detect_castle_landmark() -> void:
 	_castle_cutaway = null
 	_castle_reveal_progress = 0.0
 	_castle_reveal_target = 0.0
+	_castle_revealed = false
 	var width := int(snapshot.get("width", 0))
 	var minimum := Vector2i(width, int(snapshot.get("height", 0)))
 	var maximum := Vector2i(-1, -1)
@@ -722,7 +759,33 @@ func _detect_castle_landmark() -> void:
 		maximum.y = maxi(maximum.y, cell.y)
 	if maximum.x < minimum.x or maximum.y < minimum.y:
 		return
-	_castle_bounds = Rect2i(minimum, maximum - minimum + Vector2i.ONE)
+	var candidate := Rect2i(minimum, maximum - minimum + Vector2i.ONE)
+	if _castle_footprint_matches(candidate):
+		_castle_bounds = candidate
+
+
+func _castle_footprint_matches(bounds: Rect2i) -> bool:
+	# The current art is authored for Steel and Cedar's exact connected keep:
+	# a 6x6 shell, two west-facing doors, a 4x4 chamber and a two-cell dais.
+	# A partial or differently shaped feature remains ordinary terrain instead
+	# of receiving a misleading structure that could hide playable cells.
+	if bounds.size != Vector2i(6, 6):
+		return false
+	var width := int(snapshot.get("width", 0))
+	for local_y in 6:
+		for local_x in 6:
+			var expected := "castle_floor"
+			if local_y in [0, 5] or local_x == 5 or (local_x == 0 and local_y in [1, 4]):
+				expected = "castle_wall"
+			elif local_x == 0:
+				expected = "castle_door"
+			elif local_x == 4 and local_y in [2, 3]:
+				expected = "castle_dais"
+			var cell := bounds.position + Vector2i(local_x, local_y)
+			var index := cell.y * width + cell.x
+			if index < 0 or index >= terrain_features.size() or str(terrain_features[index]) != expected:
+				return false
+	return true
 
 
 func _build_castle_landmark() -> void:
@@ -744,7 +807,13 @@ func _build_castle_landmark() -> void:
 	_castle_cutaway = _castle_sprite(
 		cutaway_resource as Texture2D, centre, CASTLE_CUTAWAY_TEXTURE, "cutaway"
 	)
-	_castle_cutaway.modulate.a = 0.0
+	# One shader-owned plane blends the reviewed, pixel-aligned states. Two
+	# transparent billboards at the same pose can z-fight on software and older
+	# drivers, producing an alternating or banded transition.
+	_castle_exterior.material_override = _castle_transition_material(
+		exterior_resource as Texture2D, cutaway_resource as Texture2D
+	)
+	_castle_cutaway.visible = false
 	_update_castle_reveal_target()
 
 
@@ -754,7 +823,9 @@ func _castle_sprite(texture: Texture2D, centre: Vector3, path: String, layer: St
 	sprite.position = centre
 	sprite.pixel_size = CASTLE_PIXEL_SIZE
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	# The paired states cross-fade in one shader-owned plane. Alpha cutout would
+	# turn the transition into disappearing bands at the discard threshold.
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
 	sprite.shaded = false
 	sprite.double_sided = true
 	sprite.set_meta("landmark_style", "medieval_castle")
@@ -764,21 +835,59 @@ func _castle_sprite(texture: Texture2D, centre: Vector3, path: String, layer: St
 	return sprite
 
 
+func _castle_transition_material(exterior: Texture2D, cutaway: Texture2D) -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_prepass_alpha;
+uniform sampler2D exterior_texture : source_color, filter_linear_mipmap;
+uniform sampler2D cutaway_texture : source_color, filter_linear_mipmap;
+uniform float reveal : hint_range(0.0, 1.0) = 0.0;
+void vertex() {
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
+		INV_VIEW_MATRIX[0],
+		INV_VIEW_MATRIX[1],
+		INV_VIEW_MATRIX[2],
+		MODEL_MATRIX[3]
+	);
+}
+void fragment() {
+	vec4 closed = texture(exterior_texture, UV);
+	vec4 open = texture(cutaway_texture, UV);
+	vec4 combined = mix(closed, open, reveal);
+	ALBEDO = combined.rgb;
+	ALPHA = combined.a;
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	material.set_shader_parameter("exterior_texture", exterior)
+	material.set_shader_parameter("cutaway_texture", cutaway)
+	material.set_shader_parameter("reveal", 0.0)
+	return material
+
+
 func _update_castle_reveal_target() -> void:
 	if _castle_bounds.size == Vector2i.ZERO:
 		_castle_reveal_target = 0.0
 		return
+	if _castle_revealed:
+		_castle_reveal_target = 1.0
+		return
 	_castle_reveal_target = 0.0
 	var width := int(snapshot.get("width", 0))
-	for unit: Dictionary in snapshot.get("units", []):
+	for id: Variant in _unit_nodes:
+		var unit := _unit_by_id(int(id))
 		if not bool(unit.get("on_board", false)) or str(unit.get("side", "")) != "first":
 			continue
-		var cell := Vector2i(int(unit.get("x", -1)), int(unit.get("y", -1)))
+		var visual := _cell_from_world((_unit_nodes[id] as Node3D).position)
+		var cell := Vector2i(roundi(visual.x), roundi(visual.y))
 		if not _castle_bounds.has_point(cell):
 			continue
 		var index := cell.y * width + cell.x
 		var feature := str(terrain_features[index]) if index >= 0 and index < terrain_features.size() else ""
 		if feature in ["castle_door", "castle_floor", "castle_dais"]:
+			_castle_revealed = true
 			_castle_reveal_target = 1.0
 			return
 
@@ -790,10 +899,59 @@ func _update_castle_reveal(delta: float) -> void:
 		_castle_reveal_progress, _castle_reveal_target, delta * 1.8
 	)
 	var eased := smoothstep(0.0, 1.0, _castle_reveal_progress)
-	_castle_exterior.modulate.a = 1.0 - eased
-	_castle_cutaway.modulate.a = eased
+	var material := _castle_exterior.material_override as ShaderMaterial
+	if material != null:
+		material.set_shader_parameter("reveal", eased)
 	_castle_exterior.set_meta("castle_reveal", _castle_reveal_progress)
 	_castle_cutaway.set_meta("castle_reveal", _castle_reveal_progress)
+
+
+func _update_castle_unit_presentation() -> void:
+	# The exterior and cutaway are a matched billboard pair. Units standing in
+	# the chamber must be hidden behind the closed shell, then drawn over the
+	# revealed floor so the live roster—not figures baked into the art—occupies
+	# the room. This changes only transparency/depth order, never simulation or
+	# any unit transform.
+	var width := int(snapshot.get("width", 0))
+	for id: Variant in _unit_nodes:
+		var alpha := 1.0
+		var foreground := false
+		if _castle_bounds.size != Vector2i.ZERO:
+			var visual := _cell_from_world((_unit_nodes[id] as Node3D).position)
+			var cell := Vector2i(roundi(visual.x), roundi(visual.y))
+			if _castle_bounds.has_point(cell):
+				var index := cell.y * width + cell.x
+				var feature := str(terrain_features[index]) if index >= 0 and index < terrain_features.size() else ""
+				if feature in ["castle_door", "castle_floor", "castle_dais"]:
+					alpha = _castle_reveal_progress
+					foreground = _castle_reveal_progress > 0.0
+		if _unit_sprites.has(id):
+			var sprite: Sprite3D = _unit_sprites[id]
+			var tint := sprite.modulate
+			tint.a = alpha
+			sprite.modulate = tint
+			sprite.no_depth_test = foreground
+			sprite.render_priority = 2 if foreground else 0
+		if _health_sprites.has(id):
+			var health: Sprite3D = _health_sprites[id]
+			var health_tint := health.modulate
+			health_tint.a = alpha
+			health.modulate = health_tint
+			health.no_depth_test = foreground
+			health.render_priority = 2 if foreground else 0
+
+
+func castle_presentation_state() -> Dictionary:
+	return {
+		"bounds": _castle_bounds,
+		"valid_footprint": _castle_bounds.size == Vector2i(6, 6),
+		"revealed": _castle_revealed,
+		"terrain_family": "medieval_temperate" if _uses_medieval_campaign_terrain() else "default",
+		"target": _castle_reveal_target,
+		"progress": _castle_reveal_progress,
+		"exterior_alpha": 1.0 - smoothstep(0.0, 1.0, _castle_reveal_progress) if _castle_exterior != null else -1.0,
+		"cutaway_alpha": smoothstep(0.0, 1.0, _castle_reveal_progress) if _castle_cutaway != null else -1.0,
+	}
 
 
 func _landmark_centre(anchor: Vector2i) -> Vector3:
@@ -1071,6 +1229,141 @@ func _build_diorama_tile(x: int, y: int, kind: int) -> void:
 		_bridge(centre, slab_height, false)
 	elif kind in [9, 10] and (x * 5 + y * 3) % 4 == 0:
 		_cone(_terrain_root, centre + Vector3(0.24, slab_height + 0.10, -0.22), 0.06, 0.0, 0.20, _material("grass_tip", _palette("grassTip", Color("80a95b")), 0.84), 4)
+
+
+func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
+	var cell := Node3D.new()
+	cell.set_meta("terrain_family", "medieval_temperate")
+	cell.set_meta("terrain_kind", kind)
+	cell.position = _cell_position(x, y)
+	_terrain_root.add_child(cell)
+	var variation: int = absi(x * 17 + y * 31 + kind * 13)
+	cell.set_meta("terrain_variant", variation % 4)
+	var edge := _material(
+		"medieval_keep_edge", Color("55564f"), 1.0
+	)
+	# The broad foundation retains a readable board silhouette, while the nearly
+	# touching top faces avoid the thick black atlas grid of the old demo tiles.
+	_box(cell, Vector3(0, -0.14, 0), Vector3(0.999, 0.26, 0.999), edge)
+	var top := 0.20 if kind == 3 else 0.10
+	_box(
+		cell, Vector3(0, top * 0.5, 0), Vector3(0.998, top, 0.998),
+		_medieval_keep_surface_material(kind, variation % 4)
+	)
+	var width := int(snapshot.get("width", 0))
+	var index := y * width + x
+	var feature := str(terrain_features[index]) if index >= 0 and index < terrain_features.size() else ""
+	if feature.begins_with("castle_"):
+		return
+	match kind:
+		2:
+			var trunk := _material("medieval_campaign_trunk", Color("59402d"), 1.0)
+			var leaves := _material("medieval_campaign_leaves", Color("496f3d"), 0.96)
+			_cylinder(cell, Vector3(0.04, top + 0.27, 0), 0.075, 0.54, trunk, 8)
+			_sphere(cell, Vector3(-0.08, top + 0.58, 0.03), Vector3(0.34, 0.27, 0.31), leaves)
+			_sphere(cell, Vector3(0.16, top + 0.55, -0.08), Vector3(0.27, 0.23, 0.26), leaves)
+		3:
+			var stone := _material("medieval_keep_stone", Color("777269"), 1.0)
+			var stone_dark := _material("medieval_keep_stone_dark", Color("55534f"), 1.0)
+			_sphere(cell, Vector3(-0.16, top + 0.13, 0.10), Vector3(0.29, 0.20, 0.24), stone)
+			_sphere(cell, Vector3(0.20, top + 0.10, -0.14), Vector3(0.23, 0.16, 0.20), stone_dark)
+			if variation % 3 == 0:
+				_sphere(cell, Vector3(0.08, top + 0.22, 0.05), Vector3(0.20, 0.24, 0.18), stone)
+		8:
+			if variation % 3 == 0:
+				var ruin := _material("medieval_keep_ruin", Color("81786a"), 1.0)
+				_box(cell, Vector3(-0.22, top + 0.15, 0.16), Vector3(0.14, 0.30, 0.16), ruin)
+				var fallen := _box(cell, Vector3(0.14, top + 0.07, -0.15), Vector3(0.38, 0.10, 0.13), ruin)
+				fallen.rotation.y = 0.35 if variation % 2 == 0 else -0.35
+		9:
+			if variation % 4 == 0:
+				var grass := _material("medieval_keep_grass", Color("587349"), 0.94)
+				for offset: Vector3 in [Vector3(-0.20, top + 0.08, 0.14), Vector3(0.18, top + 0.07, -0.18)]:
+					_cone(cell, offset, 0.035, 0.0, 0.16, grass, 5)
+		1:
+			if variation % 2 == 0:
+				var rut := _material("medieval_keep_rut", Color("72583c"), 1.0)
+				_box(cell, Vector3(-0.20, top + 0.008, 0), Vector3(0.055, 0.012, 0.70), rut)
+				_box(cell, Vector3(0.20, top + 0.008, 0), Vector3(0.055, 0.012, 0.70), rut)
+		10:
+			var furrow := _material("medieval_campaign_furrow", Color("765437"), 1.0)
+			for offset in [-0.26, 0.0, 0.26]:
+				_box(cell, Vector3(float(offset), top + 0.010, 0), Vector3(0.055, 0.015, 0.72), furrow)
+		11:
+			var bamboo := _material("medieval_campaign_bamboo", Color("557742"), 0.92)
+			for offset: Vector3 in [Vector3(-0.18, top + 0.28, 0.12), Vector3(0.14, top + 0.34, -0.12), Vector3(0.24, top + 0.24, 0.18)]:
+				_cylinder(cell, offset, 0.035, (offset.y - top) * 2.0, bamboo, 7)
+
+
+func _medieval_keep_surface_material(kind: int, variation: int) -> Material:
+	var key := "medieval_keep_surface_%d_%d_%d" % [terrain_theme, kind, variation]
+	if _materials.has(key):
+		return _materials[key]
+	var colours := [
+		Color("47798b"), Color("78644e"), Color("526c4d"), Color("68655f"),
+		Color("a58558"), Color("cbd2cf"), Color("576b59"), Color("6e795f"),
+		Color("6d685f"), Color("556a4b"), Color("806a4d"), Color("58704d"),
+		Color("777268"),
+	]
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode diffuse_burley;
+uniform vec3 base_colour;
+uniform int pattern = 0;
+uniform float variation_tint = 1.0;
+varying vec3 world_vertex;
+float random_value(vec2 value) {
+	return fract(sin(dot(value, vec2(12.9898, 78.233))) * 43758.5453);
+}
+void vertex() {
+	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	vec2 uv = world_vertex.xz;
+	vec3 colour = base_colour * variation_tint;
+	float noise = random_value(floor(uv * 8.0));
+	if (pattern == 1 || pattern == 2) {
+		// Large continuous slabs read as one authored courtyard instead of the
+		// same miniature brick texture restarting inside every tactical cell.
+		float rows = pattern == 1 ? 1.55 : 1.25;
+		float row = floor(uv.y * rows);
+		vec2 stone_uv = fract(vec2(uv.x * rows + mod(row, 2.0) * 0.5, uv.y * rows));
+		float edge = min(min(stone_uv.x, 1.0 - stone_uv.x), min(stone_uv.y, 1.0 - stone_uv.y));
+		float stone = smoothstep(0.018, 0.052, edge);
+		vec3 mortar = base_colour * variation_tint * (pattern == 1 ? 0.82 : 0.78);
+		vec3 face = base_colour * variation_tint * (0.94 + noise * 0.07);
+		colour = mix(mortar, face, stone);
+	} else if (pattern == 3) {
+		float worn = smoothstep(0.32, 0.76, random_value(floor(uv * 7.0)));
+		colour = base_colour * variation_tint * mix(0.95, 1.025, worn);
+	} else if (pattern == 4) {
+		float stripe = smoothstep(0.40, 0.54, abs(fract(uv.x * 4.0) - 0.5));
+		colour = mix(base_colour * variation_tint * 0.78, base_colour * variation_tint, stripe);
+	}
+	ALBEDO = colour;
+	ROUGHNESS = 1.0;
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	var colour: Color = colours[clampi(kind, 0, colours.size() - 1)]
+	material.set_shader_parameter("base_colour", Vector3(colour.r, colour.g, colour.b))
+	material.set_shader_parameter(
+		"variation_tint", [0.985, 0.995, 1.01, 1.0][clampi(variation, 0, 3)]
+	)
+	var pattern := 0
+	if kind == 12:
+		pattern = 1
+	elif kind == 8:
+		pattern = 2
+	elif kind in [1, 2, 3, 7, 9, 11]:
+		pattern = 3
+	elif kind == 10:
+		pattern = 4
+	material.set_shader_parameter("pattern", pattern)
+	_materials[key] = material
+	return material
 
 
 func _build_voxel_tile(x: int, y: int, kind: int) -> void:

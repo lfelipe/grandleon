@@ -105,6 +105,7 @@ godot_smokes=(
     smoke-standalone-exporter.sh
     smoke-steel-cedar-editor.sh
     smoke-story-editor.sh
+    smoke-twin-gate-keep.sh
 )
 
 for smoke in "${godot_smokes[@]}"; do

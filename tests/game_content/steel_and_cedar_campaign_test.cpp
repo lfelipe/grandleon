@@ -652,10 +652,16 @@ int main() {
         const gc::Map& map = *maps.at(core::stable_content_id_v1("twin_gate"));
         const std::uint64_t wall =
             core::stable_content_id_v1("mountain_castle_wall");
+        const std::uint64_t door =
+            core::stable_content_id_v1("paved_castle_door");
+        const std::uint64_t floor =
+            core::stable_content_id_v1("paved_castle_floor");
+        const std::uint64_t dais =
+            core::stable_content_id_v1("paved_castle_dais");
         const std::array<std::uint64_t, 3> passable{{
-            core::stable_content_id_v1("paved_castle_door"),
-            core::stable_content_id_v1("paved_castle_floor"),
-            core::stable_content_id_v1("paved_castle_dais"),
+            door,
+            floor,
+            dais,
         }};
         for (std::size_t cell = 0; cell < map.terrain.size(); ++cell) {
             if (map.terrain[cell] == wall) {
@@ -672,6 +678,45 @@ int main() {
                     map.terrain_kinds[cell] == gc::terrain_kind_index("paved"),
                     "castle doors, floor and dais keep passable paved rules"
                 );
+            }
+        }
+        constexpr std::size_t keep_x = 13U;
+        constexpr std::size_t keep_y = 4U;
+        constexpr std::size_t keep_size = 6U;
+        for (std::size_t y = 0; y < map.height; ++y) {
+            for (std::size_t x = 0; x < map.width; ++x) {
+                const bool in_keep = x >= keep_x && x < keep_x + keep_size &&
+                    y >= keep_y && y < keep_y + keep_size;
+                const std::size_t local_x = x - (in_keep ? keep_x : 0U);
+                const std::size_t local_y = y - (in_keep ? keep_y : 0U);
+                std::uint64_t expected = 0U;
+                if (in_keep) {
+                    expected = floor;
+                    if (local_y == 0U || local_y == keep_size - 1U ||
+                        local_x == keep_size - 1U ||
+                        (local_x == 0U &&
+                         (local_y == 1U || local_y == 4U))) {
+                        expected = wall;
+                    } else if (local_x == 0U) {
+                        expected = door;
+                    } else if (local_x == 4U &&
+                               (local_y == 2U || local_y == 3U)) {
+                        expected = dais;
+                    }
+                    expect(
+                        map.terrain[y * map.width + x] == expected,
+                        "Twin Gate's exact 6x6 footprint matches the Godot keep art"
+                    );
+                } else {
+                    expect(
+                        std::find(
+                            passable.begin(), passable.end(),
+                            map.terrain[y * map.width + x]
+                        ) == passable.end() &&
+                            map.terrain[y * map.width + x] != wall,
+                        "Twin Gate castle identities stay inside one connected footprint"
+                    );
+                }
             }
         }
     }
