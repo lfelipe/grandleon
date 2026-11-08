@@ -44,6 +44,25 @@ TEXTURE_HEIGHT = 256
 MAX_CACHE_VERTICES = 1024
 MAX_CACHE_TRIANGLES = 1024
 
+# Colour and proportions for the tiny low-poly forms embedded into each
+# terrain page. The same bounded topology reads as reeds, rubble, crops,
+# bamboo or rock without adding prop entities or separate draw calls.
+TERRAIN_FORM_STYLES = (
+    ((73, 130, 92), (0.28, 1.15, 0.28)),   # water reeds
+    ((143, 127, 102), (0.62, 0.42, 0.54)), # road stone
+    ((62, 121, 58), (0.72, 0.72, 0.72)),   # forest undergrowth
+    ((154, 159, 155), (0.92, 1.42, 0.82)), # mountain outcrop
+    ((213, 178, 105), (0.92, 0.48, 0.66)), # sand ridge
+    ((199, 226, 231), (0.72, 1.05, 0.64)), # snow/ice
+    ((91, 117, 62), (0.32, 1.28, 0.32)),   # swamp rushes
+    ((126, 139, 92), (0.82, 1.02, 0.74)),  # hill rock
+    ((135, 142, 139), (0.68, 0.62, 0.58)), # ruin rubble
+    ((75, 143, 63), (0.64, 0.70, 0.64)),   # grass shrub
+    ((202, 167, 69), (0.30, 1.18, 0.30)),  # crops
+    ((83, 151, 68), (0.26, 2.05, 0.26)),   # bamboo
+    ((155, 158, 153), (0.58, 0.34, 0.48)), # paved kerb
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -376,18 +395,43 @@ def write_meshes(
     output: Path,
     cell_groups: list[tuple[tuple[int, int], list[tuple[int, int, int, bool, int, int]]]],
     width: int, height: int,
+    terrain_form_cells: list[tuple[int, int, int]],
     terrain_indices: dict[int, int], tree_texture_index: int, seed: int,
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     board_groups: list[tuple[
         list[tuple[int, int, int, int]], list[tuple[int, int]],
-        list[tuple[int, int, int, int, int]], tuple[int, int, int, int],
+        list[tuple[int, int, int, int, int, int, int, int]],
+        tuple[int, int, int, int],
     ]] = []
     page_origins: list[tuple[int, int]] = []
+    page_keys = [key for key, _cells in cell_groups]
+    page_loads = {key: 0 for key in page_keys}
+    form_owners: dict[tuple[int, int], tuple[int, int]] = {}
+    for x, y, _kind in sorted(
+        terrain_form_cells,
+        key=lambda cell: hash_cell(cell[0], cell[1], seed),
+    ):
+        candidates = [
+            key for key in page_keys
+            if key[0] <= x < min(width, key[0] + CAMERA_VIEW_TILES_X)
+            and key[1] <= y < min(height, key[1] + CAMERA_VIEW_TILES_Y)
+        ]
+        owner = min(
+            candidates,
+            key=lambda key: (
+                page_loads[key],
+                abs((key[0] * 2 + CAMERA_VIEW_TILES_X) - x * 2) +
+                abs((key[1] * 2 + CAMERA_VIEW_TILES_Y) - y * 2),
+                key,
+            ),
+        )
+        form_owners[(x, y)] = owner
+        page_loads[owner] += 1
     for key, group_cells in cell_groups:
         page_origins.append(key)
         board_vertices: list[tuple[int, int, int, int]] = []
         board_uvs: list[tuple[int, int]] = []
-        board_triangles: list[tuple[int, int, int, int, int]] = []
+        board_triangles: list[tuple[int, int, int, int, int, int, int, int]] = []
         min_x = min(cell[0] for cell in group_cells)
         min_y = min(cell[1] for cell in group_cells)
         max_x = max(cell[0] + cell[4] for cell in group_cells)
@@ -413,8 +457,30 @@ def write_meshes(
             shade = 255 if authored else 210
             texture = terrain_indices[kind]
             board_triangles.extend((
-                (first, first + 1, first + 2, texture, shade),
-                (first + 2, first + 1, first + 3, texture, shade),
+                (first, first + 1, first + 2, texture, shade, 255, 255, 255),
+                (first + 2, first + 1, first + 3, texture, shade, 255, 255, 255),
+            ))
+        for x, y, kind in terrain_form_cells:
+            if form_owners[(x, y)] != key:
+                continue
+            roll = hash_cell(x, y, seed)
+            colour, scale = TERRAIN_FORM_STYLES[kind]
+            cx = (x * 2 + 1 - width) * 64 + (26 if roll & 1 else -26)
+            cz = (height - y * 2 - 1) * 64 + (22 if roll & 2 else -22)
+            half_x = max(4, round(24 * scale[0]))
+            half_z = max(4, round(24 * scale[2]))
+            form_height = max(8, round(48 * scale[1]))
+            first = len(board_vertices)
+            board_vertices.extend((
+                (cx - half_x, 1, cz + half_z, 0),
+                (cx + half_x, 1, cz + half_z, 0),
+                (cx + half_x, 1, cz - half_z, 0),
+                (cx, 1 + form_height, cz, 0),
+            ))
+            board_uvs.extend(((0, 0),) * 4)
+            board_triangles.extend((
+                (first, first + 1, first + 3, 0, 215, *colour),
+                (first + 1, first + 2, first + 3, 0, 170, *colour),
             ))
         board_groups.append((
             board_vertices, board_uvs, board_triangles,
@@ -488,8 +554,8 @@ def write_meshes(
         lines.append(f"static const ps1_uv8 {name}_uvs[] = {{")
         lines.extend(f"    {{ {u}, {v} }}," for u, v in uvs)
         lines.extend(("};", "", f"static const ps1_mesh_tri {name}_triangles[] = {{"))
-        for i0, i1, i2, texture, shade in triangles:
-            lines.append(f"    {{ .i0={i0}, .i1={i1}, .i2={i2}, .ny=4096, .shade={shade}, .color_r=255, .color_g=255, .color_b=255, .texture_index={texture} }},")
+        for i0, i1, i2, texture, shade, red, green, blue in triangles:
+            lines.append(f"    {{ .i0={i0}, .i1={i1}, .i2={i2}, .ny=4096, .shade={shade}, .color_r={red}, .color_g={green}, .color_b={blue}, .texture_index={texture} }},")
         lines.extend(("};", ""))
         centre_x = (min(vertex[0] for vertex in vertices) + max(vertex[0] for vertex in vertices)) // 2
         centre_z = (min(vertex[2] for vertex in vertices) + max(vertex[2] for vertex in vertices)) // 2
@@ -531,6 +597,38 @@ def write_meshes(
 
 def fixed(value: float) -> int:
     return round(value * 65536)
+
+
+def select_terrain_form_cells(
+    terrain: list[int], width: int, height: int, seed: int,
+) -> list[tuple[int, int, int]]:
+    """Choose a bounded, deterministic set with at least one of each terrain."""
+    candidates = [
+        (x, y, terrain[y * width + x])
+        for y in range(height) for x in range(width)
+    ]
+    budget = max(
+        len(set(terrain)),
+        max(1, (width * height + 23) // 24),
+    )
+    budget = min(20, budget)
+    selected: list[tuple[int, int, int]] = []
+    selected_coordinates: set[tuple[int, int]] = set()
+    for kind in sorted(set(terrain)):
+        member = min(
+            (cell for cell in candidates if cell[2] == kind),
+            key=lambda cell: hash_cell(cell[0], cell[1], seed),
+        )
+        selected.append(member)
+        selected_coordinates.add((member[0], member[1]))
+    for cell in sorted(candidates, key=lambda item: hash_cell(item[0], item[1], seed)):
+        if len(selected) >= budget:
+            break
+        if (cell[0], cell[1]) in selected_coordinates:
+            continue
+        selected.append(cell)
+        selected_coordinates.add((cell[0], cell[1]))
+    return selected
 
 
 CAMERA_VIEW_TILES_X = 8
@@ -760,10 +858,13 @@ def main() -> int:
     terrain_indices, unit_indices, tree_texture, ui_texture, ui_label_texture, texture_metrics = write_textures(
         output, repo, all_kinds, typed_units,
     )
+    terrain_form_cells = select_terrain_form_cells(
+        terrain, width, height, args.surroundings_seed,
+    )
     terrain_groups = page_cells(cells, width, height, depth)
     board_vertices, board_triangles, terrain_chunks = write_meshes(
-        output, terrain_groups, width, height, terrain_indices, tree_texture,
-        args.surroundings_seed,
+        output, terrain_groups, width, height, terrain_form_cells,
+        terrain_indices, tree_texture, args.surroundings_seed,
     )
     tree_cells = []
     for y in range(height):
@@ -782,8 +883,8 @@ def main() -> int:
             if neighbours > 0 and hash_cell(x, y, args.surroundings_seed) <= min(nearby_hashes):
                 tree_cells.append((x, y))
     # Keep board-scale landmarks sparse enough for 60 Hz while retaining one
-    # deterministic volume cluster per roughly sixteen tactical cells.
-    tree_budget = max(1, (width * height + 15) // 16)
+    # deterministic volume cluster per roughly twenty-four tactical cells.
+    tree_budget = max(1, (width * height + 23) // 24)
     tree_cells.sort(key=lambda cell: hash_cell(cell[0], cell[1], args.surroundings_seed))
     tree_cells = tree_cells[:tree_budget]
     entities = write_scene(
@@ -803,6 +904,7 @@ def main() -> int:
         "surroundings": {"policy": policy, "seed": args.surroundings_seed, "visible_depth": depth, "authored_depth": requested_depth},
         "entities": entities,
         "terrain_chunks": len(terrain_chunks),
+        "terrain_forms": len(terrain_form_cells),
         "cache": {"vertices": cache_vertices, "vertex_limit": MAX_CACHE_VERTICES, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TRIANGLES},
         "vram": texture_metrics,
         "camera": {

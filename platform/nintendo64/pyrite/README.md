@@ -118,8 +118,11 @@ committed battle. Packaged stage-open, character-fall and character-talk
 moments use the same dialogue loader during battle. A small original generated
 audio set provides ambience plus UI, impact and victory cues without tracking
 binary audio sources. Every exported unit receives board and close-stage art.
-Terrain and landmark detail continues to improve within the same renderer and
-hardware budgets.
+Board terrain combines its generated texture with elevation faces and bounded
+rendered forms: rocks, shrubs, reeds, crops, bamboo, rubble and kerbs are
+derived from the authored terrain family. Farmland and bamboo no longer reuse
+forest trees. Terrain and landmark detail continues to improve within the same
+renderer and hardware budgets.
 The bounded review driver uses the real tactics policy for both sides to finish
 each battle and presents one complete optional close handoff per encounter; it
 is test scaffolding, not a second simulation. Physical player attacks continue

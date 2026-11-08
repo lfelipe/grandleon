@@ -81,8 +81,12 @@ Larger maps are split into overlapping viewport-sized terrain pages. Only the
 closest page is visible, while the camera follows the cursor and clamps to the
 authored playable rectangle. Trees and units outside the viewport are culled
 only from presentation; the complete encounter remains in the shared
-simulation. The generated surroundings policy remains portable across
-renderers (`natural_blend`, `extend_edges` or `fixed_terrain`).
+simulation. Each terrain family also contributes a small deterministic
+low-poly form, such as a rock, shrub, reed, crop, bamboo stalk or rubble. These
+forms are folded into the existing terrain pages, rather than becoming extra
+draw calls, and every form belongs to exactly one overlapping page so scrolling
+keeps the zero-missed-VBlank budget. The generated surroundings policy remains
+portable across renderers (`natural_blend`, `extend_edges` or `fixed_terrain`).
 
 Cutover requires all of the following on the exact CUE/BIN:
 

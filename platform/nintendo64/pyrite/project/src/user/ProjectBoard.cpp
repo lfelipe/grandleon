@@ -57,6 +57,8 @@ constexpr std::size_t kGroundVertexCount = 4U;
 constexpr std::size_t kMaxApronCells = 800U;
 constexpr std::size_t kTreeVertexCount = 12U;
 constexpr std::size_t kMaxTrees = 128U;
+constexpr std::size_t kTerrainFormVertexCount = 8U;
+constexpr std::size_t kMaxTerrainForms = 96U;
 constexpr std::size_t kUnitVertexCount = 4U;
 constexpr std::size_t kMaxUnits = 48U;
 constexpr std::size_t kCursorVerticesPerPlayer = 16U;
@@ -95,6 +97,7 @@ struct BoardResources final {
     T3DVertPacked* ground{};
     T3DVertPacked* apron{};
     T3DVertPacked* elevation{};
+    T3DVertPacked* terrain_forms{};
     T3DVertPacked* trees{};
     T3DVertPacked* landmark{};
     T3DVertPacked* units{};
@@ -109,6 +112,8 @@ struct BoardResources final {
     wav64_t victory_cue{};
     P64::Audio::Handle ambience_handle{};
     std::size_t elevation_vertex_count{};
+    std::size_t terrain_form_count{};
+    std::array<std::uint8_t, kMaxTerrainForms> terrain_form_shapes{};
     std::size_t apron_cell_count{};
     std::size_t tree_count{};
     std::size_t landmark_vertex_count{};
@@ -835,6 +840,118 @@ void build_elevation_vertices() {
     }
 }
 
+enum class TerrainFormShape : std::uint8_t {
+    tapered,
+    crossed,
+};
+
+void append_terrain_form(
+    std::int16_t cx,
+    std::int16_t floor,
+    std::int16_t cz,
+    std::int16_t half,
+    std::int16_t height,
+    std::uint32_t colour,
+    TerrainFormShape shape
+) {
+    if (board.terrain_form_count >= kMaxTerrainForms) return;
+    const std::size_t first = board.terrain_form_count * kTerrainFormVertexCount;
+    const fm_vec3_t up = {{0.0F, 1.0F, 0.0F}};
+    const std::uint16_t normal = t3d_vert_pack_normal(&up);
+    const std::uint32_t lower = darken(colour, 165U);
+    const std::int16_t top_half = std::max<std::int16_t>(1, half / 2);
+    if (shape == TerrainFormShape::crossed) {
+        set_vertex(board.terrain_forms, first + 0U, cx - half, floor, cz, lower, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 1U, cx + half, floor, cz, lower, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 2U, cx, floor, cz - half, lower, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 3U, cx, floor, cz + half, lower, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 4U, cx + top_half, floor + height, cz, colour, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 5U, cx - top_half, floor + height, cz, colour, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 6U, cx, floor + height, cz + top_half, colour, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 7U, cx, floor + height, cz - top_half, colour, 0, 0, normal);
+    } else {
+        set_vertex(board.terrain_forms, first + 0U, cx - half, floor, cz - half, lower, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 1U, cx + half, floor, cz - half, lower, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 2U, cx + half, floor, cz + half, lower, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 3U, cx - half, floor, cz + half, lower, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 4U, cx - top_half, floor + height, cz - top_half, colour, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 5U, cx + top_half, floor + height, cz - top_half, colour, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 6U, cx + top_half, floor + height, cz + top_half, colour, 0, 0, normal);
+        set_vertex(board.terrain_forms, first + 7U, cx - top_half, floor + height, cz + top_half, colour, 0, 0, normal);
+    }
+    board.terrain_form_shapes[board.terrain_form_count] =
+        static_cast<std::uint8_t>(shape);
+    ++board.terrain_form_count;
+}
+
+void build_terrain_form_vertices() {
+    board.terrain_form_count = 0U;
+    const auto width = board.content->definition.width;
+    const auto height = board.content->definition.height;
+    for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
+        const auto id = board.content->terrain[index];
+        const std::uint8_t kind = terrain_kind(id);
+        const auto x = static_cast<std::int16_t>(index % width);
+        const auto z = static_cast<std::int16_t>(index / width);
+        const std::uint32_t roll = environment_hash(x, z);
+        const std::uint32_t divisor =
+            (kind == 3U || kind == 7U || kind == 10U || kind == 11U) ? 2U : 4U;
+        if (roll % divisor != 0U) continue;
+        const std::int16_t cx = static_cast<std::int16_t>(
+            world_x(x, width) + ((roll & 1U) ? 13 : -13)
+        );
+        const std::int16_t cz = static_cast<std::int16_t>(
+            world_z(z, height) + ((roll & 2U) ? 11 : -11)
+        );
+        const std::int16_t floor = terrain_lift(id);
+        switch (kind) {
+        case 0U: // water reeds
+            append_terrain_form(cx, floor, cz, 3, 13, pack_rgba(73U, 130U, 92U), TerrainFormShape::crossed);
+            break;
+        case 1U: // road edge stones
+            append_terrain_form(cx, floor, cz, 6, 6, pack_rgba(143U, 127U, 102U), TerrainFormShape::tapered);
+            break;
+        case 2U: // forest undergrowth
+            append_terrain_form(cx, floor, cz, 8, 11, pack_rgba(62U, 121U, 58U), TerrainFormShape::tapered);
+            break;
+        case 3U: // mountain outcrops
+            append_terrain_form(cx, floor, cz, 10, 22, pack_rgba(154U, 159U, 155U), TerrainFormShape::tapered);
+            break;
+        case 4U: // sand ridges
+            append_terrain_form(cx, floor, cz, 9, 8, pack_rgba(213U, 178U, 105U), TerrainFormShape::tapered);
+            break;
+        case 5U: // snow and ice
+            append_terrain_form(cx, floor, cz, 8, 14, pack_rgba(199U, 226U, 231U), TerrainFormShape::tapered);
+            break;
+        case 6U: // swamp rushes
+            append_terrain_form(cx, floor, cz, 4, 17, pack_rgba(91U, 117U, 62U), TerrainFormShape::crossed);
+            break;
+        case 7U: // hill rocks
+            append_terrain_form(cx, floor, cz, 9, 16, pack_rgba(126U, 139U, 92U), TerrainFormShape::tapered);
+            break;
+        case 8U: // ruin rubble around the authored landmark
+            append_terrain_form(cx, floor, cz, 7, 9, pack_rgba(135U, 142U, 139U), TerrainFormShape::tapered);
+            break;
+        case 9U: // grass shrubs
+            append_terrain_form(cx, floor, cz, 7, 10, pack_rgba(75U, 143U, 63U), TerrainFormShape::tapered);
+            break;
+        case 10U: // crop rows
+            append_terrain_form(cx, floor, cz, 4, 17, pack_rgba(202U, 167U, 69U), TerrainFormShape::crossed);
+            append_terrain_form(cx - 9, floor, cz + 5, 3, 14, pack_rgba(181U, 143U, 55U), TerrainFormShape::crossed);
+            break;
+        case 11U: // bamboo stalk clusters
+            append_terrain_form(cx, floor, cz, 4, 35, pack_rgba(83U, 151U, 68U), TerrainFormShape::tapered);
+            append_terrain_form(cx - 8, floor, cz + 6, 3, 28, pack_rgba(105U, 169U, 76U), TerrainFormShape::tapered);
+            break;
+        case 12U: // paved chips and kerbs
+            append_terrain_form(cx, floor, cz, 6, 5, pack_rgba(155U, 158U, 153U), TerrainFormShape::tapered);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 void append_box(
     std::int16_t cx,
     std::int16_t bottom,
@@ -940,7 +1057,7 @@ void build_tree_vertices() {
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const auto id = board.content->terrain[index];
         const std::uint8_t kind = terrain_kind(id);
-        if (kind != 2U && kind != 10U && kind != 11U) continue;
+        if (kind != 2U) continue;
         const auto x = static_cast<std::int16_t>(index % width);
         const auto z = static_cast<std::int16_t>(index / width);
         append_tree(
@@ -948,10 +1065,9 @@ void build_tree_vertices() {
             terrain_lift(id),
             world_z(z, height) + static_cast<std::int16_t>((index & 2U) == 0U ? -3 : 4),
             index,
-            (kind == 2U || kind == 11U)
-                ? 108 + static_cast<int>((index % 3U) * 8U) : 82
+            108 + static_cast<int>((index % 3U) * 8U)
         );
-        if ((kind == 2U || kind == 11U) && index % 3U == 0U) {
+        if (index % 3U == 0U) {
             append_tree(
                 world_x(x, width) + 15,
                 terrain_lift(id),
@@ -1269,6 +1385,9 @@ void load_runtime_board() {
         sizeof(T3DVertPacked) * (kMaxApronCells * kCellVertexCount / 2U)));
     board.elevation = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxElevationVertices / 2U)));
+    board.terrain_forms = static_cast<T3DVertPacked*>(malloc_uncached(
+        sizeof(T3DVertPacked) *
+            (kMaxTerrainForms * kTerrainFormVertexCount / 2U)));
     board.trees = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxTrees * kTreeVertexCount / 2U)));
     board.landmark = static_cast<T3DVertPacked*>(malloc_uncached(
@@ -1278,7 +1397,8 @@ void load_runtime_board() {
     board.cursor = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kCursorVertexCount / 2U)));
     assert(board.cells && board.ground && board.apron && board.elevation &&
-        board.trees && board.landmark && board.units && board.cursor);
+        board.terrain_forms && board.trees && board.landmark && board.units &&
+        board.cursor);
     board.terrain = sprite_load("rom:/material_atlas.sprite");
     board.combat_backdrop = sprite_load("rom:/combat_backdrop.sprite");
     board.combat_shadow = sprite_load("rom:/soft_shadow.sprite");
@@ -1484,6 +1604,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     build_environment_vertices();
     build_cell_vertices();
     build_elevation_vertices();
+    build_terrain_form_vertices();
     build_tree_vertices();
     build_landmark_vertices();
     build_unit_vertices();
@@ -1934,6 +2055,39 @@ void draw_box(std::uint8_t first) {
     t3d_tri_draw(first + 3U, first + 4U, first + 7U);
     t3d_tri_draw(first + 4U, first + 5U, first + 6U);
     t3d_tri_draw(first + 4U, first + 6U, first + 7U);
+}
+
+void draw_terrain_forms() {
+    if (board.terrain_form_count == 0U) return;
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(true, true);
+        rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
+        rdpq_mode_blender(0);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
+        T3D_FLAG_SHADED | T3D_FLAG_DEPTH
+    ));
+    for (std::size_t index = 0; index < board.terrain_form_count; ++index) {
+        t3d_vert_load(
+            board.terrain_forms + index * (kTerrainFormVertexCount / 2U),
+            0, kTerrainFormVertexCount
+        );
+        if (board.terrain_form_shapes[index] ==
+            static_cast<std::uint8_t>(TerrainFormShape::crossed)) {
+            t3d_tri_draw(0U, 1U, 4U);
+            t3d_tri_draw(0U, 4U, 5U);
+            t3d_tri_draw(4U, 1U, 0U);
+            t3d_tri_draw(5U, 4U, 0U);
+            t3d_tri_draw(2U, 3U, 6U);
+            t3d_tri_draw(2U, 6U, 7U);
+            t3d_tri_draw(6U, 3U, 2U);
+            t3d_tri_draw(7U, 6U, 2U);
+        } else {
+            draw_box(0U);
+        }
+        t3d_tri_sync();
+    }
 }
 
 void draw_landmark() {
@@ -3862,6 +4016,7 @@ void onScenePreDraw3D() {
     draw_environment();
     draw_elevation();
     draw_board_cells();
+    draw_terrain_forms();
     draw_landmark();
     draw_trees();
     board.shadows.draw();
