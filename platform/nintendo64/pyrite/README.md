@@ -5,7 +5,9 @@ This directory is a self-contained candidate for
 Cedar Bell Orchard encounter slice through Pyrite without replacing
 Grandleon's simulation, campaign package, or authoring pipeline.
 
-**Migration status:** this is an active, non-shipping integration path. It is
+**Migration status:** this is the intended replacement renderer, but it remains
+an active, non-shipping integration path until export, campaign and gameplay
+parity are complete. It is
 not connected to CMake, campaign export, release ROMs, or a player/creator
 renderer choice. Grandleon still has one Nintendo 64 renderer. Once this path
 has gameplay, save, input, UI, and campaign parity and proves a material visual
@@ -85,6 +87,24 @@ deterministic opposing tactics are what trigger the three reviewed combat
 exchanges. The close backdrop pack currently covers only this medieval
 forest/grass/paved proof, and effects/audio/result widgets still need their
 production presentation.
+
+The authored tactical rectangle remains finite. A temporary
+`EnvironmentPolicy` adapter supplies the renderer with the planned portable
+`surroundings` shape (`extend_edges`, `fixed_terrain`, or `natural_blend`, plus
+terrain, seed and variation). Bell Orchard currently uses deterministic
+`natural_blend`: a three-cell, non-interactive apron inherits/blends nearby
+edge terrain, omits tactical grid/highlight marks, adds sparse edge foliage,
+and fades into one coarse ground plane. Cursor, routing, selection and the
+fixed tactical camera still use only the authored 8x6 bounds; small maps stay
+centered rather than panning into decoration. Package-backed surroundings and
+viewport-relative regeneration for scrolling maps are parity work, but the
+policy seam avoids a Bell-specific renderer rewrite.
+
+The runtime prints `GRANDLEON_RENDERER identity=pyrite-tiny3d fallback=none`.
+The build also fails closed unless the ROM header identifies the Pyrite target;
+this gives release/export cutover a machine-checkable artifact boundary rather
+than relying on a filename. Proof/FPS text is off by default and can be toggled
+with C-Up during development.
 
 The Pyrite editor is not part of the runtime workflow. The checked-in scene is
 a small declarative boot shell; the official headless CLI generates and builds

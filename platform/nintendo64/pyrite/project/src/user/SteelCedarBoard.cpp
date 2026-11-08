@@ -35,8 +35,10 @@ constexpr std::size_t kCellVertexCount = 4;
 constexpr std::size_t kMaxCells = 8U * 6U;
 constexpr std::size_t kBatchCells = 15U;
 constexpr std::size_t kMaxElevationVertices = kMaxCells * 8U;
+constexpr std::size_t kGroundVertexCount = 4U;
+constexpr std::size_t kMaxApronCells = 160U;
 constexpr std::size_t kTreeVertexCount = 12U;
-constexpr std::size_t kMaxTrees = 28U;
+constexpr std::size_t kMaxTrees = 56U;
 constexpr std::size_t kUnitVertexCount = 4U;
 constexpr std::size_t kMaxUnits = 8U;
 constexpr std::size_t kCursorVertexCount = 16U;
@@ -50,6 +52,26 @@ constexpr auto kForest = core::stable_content_id_v1("forest_orchard_tree");
 constexpr auto kPaved = core::stable_content_id_v1("paved");
 constexpr auto kBell = core::stable_content_id_v1("paved_orchard_bell");
 constexpr auto kHills = core::stable_content_id_v1("hills");
+
+enum class SurroundingsMode : std::uint8_t {
+    extend_edges,
+    fixed_terrain,
+    natural_blend,
+};
+
+// Temporary presenter policy seam. It deliberately mirrors the shape of the
+// planned portable map `surroundings` setting instead of baking Bell Orchard
+// decisions into the renderer. A later package revision can populate this
+// adapter without changing the apron builder or tactical bounds.
+struct EnvironmentPolicy final {
+    SurroundingsMode mode{SurroundingsMode::natural_blend};
+    std::uint64_t fixed_terrain{kForest};
+    std::uint32_t seed{0x5ECEDA7U};
+    std::uint8_t variation{5U};
+    std::uint8_t apron_cells{3U};
+};
+
+constexpr EnvironmentPolicy kEnvironmentPolicy{};
 
 constexpr auto kRowanMember = core::stable_content_id_v1("rowan");
 constexpr auto kRowanType = core::stable_content_id_v1("rowan_vale");
@@ -80,6 +102,8 @@ struct BoardResources final {
     gp::GameplaySlice game{};
     gp::BoardShadows shadows{};
     T3DVertPacked* cells{};
+    T3DVertPacked* ground{};
+    T3DVertPacked* apron{};
     T3DVertPacked* elevation{};
     T3DVertPacked* trees{};
     T3DVertPacked* landmark{};
@@ -93,6 +117,7 @@ struct BoardResources final {
     UnitArt retainer{};
     UnitArt archer{};
     std::size_t elevation_vertex_count{};
+    std::size_t apron_cell_count{};
     std::size_t tree_count{};
     std::size_t landmark_vertex_count{};
     std::size_t unit_count{};
@@ -224,6 +249,7 @@ bool performance_sample_started = false;
 bool verdict_reported = false;
 std::uint32_t performance_frames = 0;
 std::uint8_t restore_checkpoint_delay = 0U;
+bool debug_hud = false;
 
 constexpr std::uint32_t pack_rgba(
     std::uint8_t red,
@@ -388,6 +414,113 @@ void build_cell_vertices() {
         set_vertex(board.cells, first + 1U, cx + kHalfCell, lift, cz - kHalfCell, tint, s1, t0, normal);
         set_vertex(board.cells, first + 2U, cx + kHalfCell, lift, cz + kHalfCell, tint, s1, t1, normal);
         set_vertex(board.cells, first + 3U, cx - kHalfCell, lift, cz + kHalfCell, tint, s0, t1, normal);
+    }
+}
+
+std::uint32_t environment_hash(std::int16_t x, std::int16_t z) {
+    std::uint32_t value = kEnvironmentPolicy.seed ^ static_cast<std::uint16_t>(x);
+    value = value * 0x9E3779B1U + static_cast<std::uint16_t>(z);
+    value ^= value >> 16U;
+    value *= 0x85EBCA6BU;
+    value ^= value >> 13U;
+    return value;
+}
+
+std::uint32_t environment_colour(
+    std::uint64_t edge_terrain,
+    std::int16_t x,
+    std::int16_t z,
+    int distance
+) {
+    int red = 55;
+    int green = 83;
+    int blue = 43;
+    if (edge_terrain == kForest) {
+        red = 39; green = 75; blue = 38;
+    } else if (edge_terrain == kFarmland) {
+        red = 82; green = 101; blue = 48;
+    } else if (edge_terrain == kPaved) {
+        red = 74; green = 78; blue = 65;
+    } else if (edge_terrain == kRoad) {
+        red = 83; green = 77; blue = 49;
+    } else if (edge_terrain == kHills) {
+        red = 61; green = 72; blue = 44;
+    }
+    const int spread = std::max(1, static_cast<int>(kEnvironmentPolicy.variation));
+    const int variation = static_cast<int>(environment_hash(x, z) % spread) -
+        spread / 2;
+    const int fade = std::max(0, distance - 1) * 5;
+    return pack_rgba(
+        static_cast<std::uint8_t>(std::clamp(red + variation - fade, 22, 110)),
+        static_cast<std::uint8_t>(std::clamp(green + variation - fade, 28, 125)),
+        static_cast<std::uint8_t>(std::clamp(blue + variation / 2 - fade, 20, 90))
+    );
+}
+
+void build_environment_vertices() {
+    const auto width = board.content->definition.width;
+    const auto height = board.content->definition.height;
+    const fm_vec3_t up = {{0.0F, 1.0F, 0.0F}};
+    const std::uint16_t normal = t3d_vert_pack_normal(&up);
+    constexpr std::int16_t far_cells = 18;
+    const std::int16_t ground_x0 = world_x(-far_cells, width) - kHalfCell;
+    const std::int16_t ground_x1 = world_x(width + far_cells - 1, width) + kHalfCell;
+    const std::int16_t ground_z0 = world_z(-far_cells, height) - kHalfCell;
+    const std::int16_t ground_z1 = world_z(height + far_cells - 1, height) + kHalfCell;
+    const std::uint32_t distant = pack_rgba(26U, 38U, 28U);
+    set_vertex(board.ground, 0U, ground_x0, -9, ground_z0, distant, 0, 0, normal);
+    set_vertex(board.ground, 1U, ground_x1, -9, ground_z0, distant, 0, 0, normal);
+    set_vertex(board.ground, 2U, ground_x1, -9, ground_z1, distant, 0, 0, normal);
+    set_vertex(board.ground, 3U, ground_x0, -9, ground_z1, distant, 0, 0, normal);
+
+    board.apron_cell_count = 0U;
+    const int apron = kEnvironmentPolicy.apron_cells;
+    for (int z = -apron; z < static_cast<int>(height) + apron; ++z) {
+        for (int x = -apron; x < static_cast<int>(width) + apron; ++x) {
+            if (x >= 0 && x < width && z >= 0 && z < height) continue;
+            assert(board.apron_cell_count < kMaxApronCells);
+            const int nearest_x = std::clamp(x, 0, static_cast<int>(width) - 1);
+            const int nearest_z = std::clamp(z, 0, static_cast<int>(height) - 1);
+            const std::uint64_t nearest_terrain = board.content->terrain[
+                static_cast<std::size_t>(nearest_z * width + nearest_x)
+            ];
+            const int dx = x < 0 ? -x : (x >= width ? x - width + 1 : 0);
+            const int dz = z < 0 ? -z : (z >= height ? z - height + 1 : 0);
+            const int distance = std::max(dx, dz);
+            std::uint64_t edge_terrain = nearest_terrain;
+            if (kEnvironmentPolicy.mode == SurroundingsMode::fixed_terrain) {
+                edge_terrain = kEnvironmentPolicy.fixed_terrain;
+            } else if (kEnvironmentPolicy.mode == SurroundingsMode::natural_blend &&
+                distance > 1 && nearest_terrain != kForest &&
+                nearest_terrain != kFarmland) {
+                edge_terrain = environment_hash(
+                    static_cast<std::int16_t>(x), static_cast<std::int16_t>(z)
+                ) % 3U == 0U ? kForest : kFarmland;
+            }
+            const std::int16_t cx = world_x(static_cast<std::int16_t>(x), width);
+            const std::int16_t cz = world_z(static_cast<std::int16_t>(z), height);
+            constexpr std::int16_t apron_half = kCell / 2;
+            const std::int16_t floor = -4;
+            const std::int16_t colour_x = distance > 1
+                ? static_cast<std::int16_t>(x < 0 ? (x - 1) / 2 : x / 2)
+                : static_cast<std::int16_t>(x);
+            const std::int16_t colour_z = distance > 1
+                ? static_cast<std::int16_t>(z < 0 ? (z - 1) / 2 : z / 2)
+                : static_cast<std::int16_t>(z);
+            const std::uint32_t colour = environment_colour(
+                edge_terrain, colour_x, colour_z, distance
+            );
+            const std::size_t first = board.apron_cell_count * 4U;
+            set_vertex(board.apron, first + 0U, cx - apron_half, floor,
+                cz - apron_half, colour, 0, 0, normal);
+            set_vertex(board.apron, first + 1U, cx + apron_half, floor,
+                cz - apron_half, colour, 0, 0, normal);
+            set_vertex(board.apron, first + 2U, cx + apron_half, floor,
+                cz + apron_half, colour, 0, 0, normal);
+            set_vertex(board.apron, first + 3U, cx - apron_half, floor,
+                cz + apron_half, colour, 0, 0, normal);
+            ++board.apron_cell_count;
+        }
     }
 }
 
@@ -583,6 +716,34 @@ void build_tree_vertices() {
                 world_z(z, height) - 13,
                 index + 19U,
                 64 + static_cast<int>((index & 1U) * 8U)
+            );
+        }
+    }
+    // A sparse deterministic edge forest grounds the finite tactical board in
+    // a larger world. These cells are decorative only: they never enter the
+    // encounter dimensions, route planner, cursor or highlights.
+    for (int z = -2; z < static_cast<int>(height) + 2; ++z) {
+        for (int x = -2; x < static_cast<int>(width) + 2; ++x) {
+            if (x >= 0 && x < width && z >= 0 && z < height) continue;
+            const std::uint32_t hash = environment_hash(
+                static_cast<std::int16_t>(x), static_cast<std::int16_t>(z)
+            );
+            const int nearest_x = std::clamp(x, 0, static_cast<int>(width) - 1);
+            const int nearest_z = std::clamp(z, 0, static_cast<int>(height) - 1);
+            const std::uint64_t edge_terrain = board.content->terrain[
+                static_cast<std::size_t>(nearest_z * width + nearest_x)
+            ];
+            const std::uint32_t divisor =
+                (edge_terrain == kForest || edge_terrain == kFarmland) ? 3U : 7U;
+            if (hash % divisor != 0U || board.tree_count >= kMaxTrees) continue;
+            append_tree(
+                world_x(static_cast<std::int16_t>(x), width) +
+                    static_cast<std::int16_t>((hash >> 4U) % 17U) - 8,
+                -4,
+                world_z(static_cast<std::int16_t>(z), height) +
+                    static_cast<std::int16_t>((hash >> 9U) % 17U) - 8,
+                hash,
+                60 + static_cast<int>((hash >> 14U) % 29U)
             );
         }
     }
@@ -843,6 +1004,10 @@ void load_runtime_board() {
     );
     board.cells = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxCells * kCellVertexCount / 2U)));
+    board.ground = static_cast<T3DVertPacked*>(malloc_uncached(
+        sizeof(T3DVertPacked) * (kGroundVertexCount / 2U)));
+    board.apron = static_cast<T3DVertPacked*>(malloc_uncached(
+        sizeof(T3DVertPacked) * (kMaxApronCells * kCellVertexCount / 2U)));
     board.elevation = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxElevationVertices / 2U)));
     board.trees = static_cast<T3DVertPacked*>(malloc_uncached(
@@ -853,8 +1018,8 @@ void load_runtime_board() {
         sizeof(T3DVertPacked) * (kMaxUnits * kUnitVertexCount / 2U)));
     board.cursor = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kCursorVertexCount / 2U)));
-    assert(board.cells && board.elevation && board.trees && board.landmark &&
-        board.units && board.cursor);
+    assert(board.cells && board.ground && board.apron && board.elevation &&
+        board.trees && board.landmark && board.units && board.cursor);
     board.terrain = sprite_load("rom:/material_atlas.sprite");
     board.combat_backdrop = sprite_load("rom:/combat_backdrop.sprite");
     board.rowan = {
@@ -900,6 +1065,7 @@ void load_runtime_board() {
         complete_art(board.march_sword) && complete_art(board.retainer) &&
         complete_art(board.archer));
     assertf(board.shadows.open("rom:/soft_shadow.sprite"), "Soft shadow asset failed");
+    build_environment_vertices();
     build_cell_vertices();
     build_elevation_vertices();
     build_tree_vertices();
@@ -908,17 +1074,55 @@ void load_runtime_board() {
     build_cursor_vertices();
     board.loaded = true;
     debugf(
+        "GRANDLEON_RENDERER identity=pyrite-tiny3d fallback=none "
+        "surroundings=natural_blend hud_default=off\n"
+    );
+    debugf(
         "GRANDLEON_PYRITE_RUNTIME package=%lu map=%llu size=%ux%u terrain=%lu "
-        "units=%lu rowan=%d,%d hp=%d trees=%lu elevation=%lu landmark=%lu\n",
+        "units=%lu rowan=%d,%d hp=%d apron=%lu trees=%lu elevation=%lu "
+        "landmark=%lu renderer=pyrite-tiny3d\n",
         static_cast<unsigned long>(board.runtime.package_size()), board.content->map_id,
         board.content->definition.width, board.content->definition.height,
         static_cast<unsigned long>(board.content->terrain.size()),
         static_cast<unsigned long>(board.content->definition.units.size()),
         board.rowan_x, board.rowan_y, board.rowan_health,
+        static_cast<unsigned long>(board.apron_cell_count),
         static_cast<unsigned long>(board.tree_count),
         static_cast<unsigned long>(board.elevation_vertex_count),
         static_cast<unsigned long>(board.landmark_vertex_count)
     );
+}
+
+void draw_environment() {
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(true, true);
+        rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
+        rdpq_mode_blender(0);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
+        T3D_FLAG_SHADED | T3D_FLAG_DEPTH
+    ));
+    t3d_vert_load(board.ground, 0, kGroundVertexCount);
+    t3d_tri_draw(0, 1, 2);
+    t3d_tri_draw(0, 2, 3);
+    t3d_tri_sync();
+    for (std::size_t begin = 0; begin < board.apron_cell_count;
+         begin += kBatchCells) {
+        const std::size_t count = std::min(
+            kBatchCells, board.apron_cell_count - begin
+        );
+        t3d_vert_load(
+            board.apron + begin * 2U, 0,
+            static_cast<std::uint32_t>(count * 4U)
+        );
+        for (std::size_t local = 0; local < count; ++local) {
+            const std::uint8_t first = static_cast<std::uint8_t>(local * 4U);
+            t3d_tri_draw(first + 0U, first + 1U, first + 2U);
+            t3d_tri_draw(first + 0U, first + 2U, first + 3U);
+        }
+        t3d_tri_sync();
+    }
 }
 
 void draw_board_cells() {
@@ -1434,6 +1638,11 @@ bool physical_input() {
         replay.user_took_over = true;
         return true;
     }
+    if (pressed.c_up) {
+        debug_hud = !debug_hud;
+        replay.user_took_over = true;
+        return true;
+    }
     if (pressed.l) {
         combat.reduced_motion = !combat.reduced_motion;
         replay.user_took_over = true;
@@ -1735,6 +1944,7 @@ void onSceneUpdate() {
 
 void onScenePreDraw3D() {
     if (!board.loaded) return;
+    draw_environment();
     draw_elevation();
     draw_board_cells();
     draw_landmark();
@@ -1746,6 +1956,7 @@ void onScenePreDraw3D() {
 
 void onSceneDraw2D() {
     draw_combat_stage_2d();
+    if (!debug_hud) return;
     Debug::printStart();
     if (combat.active) {
         std::int16_t left_health = combat.attacker_health_before;

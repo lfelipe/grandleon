@@ -52,6 +52,14 @@ export GRANDLEON_N64_BUILD="$n64_build"
 
 rom="$output_dir/project/grandleon_pyrite_bell_orchard.z64"
 test -s "$rom"
+# A release/export cutover must distinguish this artifact without trusting a
+# filename. The canonical big-endian ROM header is stable even though scanning
+# arbitrary N64 code strings is not (the linker may word-swap string data).
+rom_identity=$(dd if="$rom" bs=1 skip=32 count=20 status=none | tr -d '\000')
+if [ "$rom_identity" != 'Grandleon Pyrite Bel' ]; then
+    echo "unexpected renderer identity in N64 ROM header: $rom_identity" >&2
+    exit 1
+fi
 printf '%s  %s\n' "$(sha256sum "$rom" | cut -d ' ' -f 1)" "$rom" \
     > "$output_dir/rom.sha256"
 wc -c "$rom"

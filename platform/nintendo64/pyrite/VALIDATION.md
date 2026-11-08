@@ -21,8 +21,9 @@ The wrapper completed all of these from a generated output directory:
 
 The ROM then booted with `Nintendo64/ExpansionPak=false` under accurate
 real-RSP ares using paraLLEl-RDP. It decoded the real 8x6 Bell Orchard
-encounter (48 terrain cells, five units, 20 deterministic trees, 112 elevation
-vertices and a 38-vertex bell landmark), selected and moved Rowan along its
+encounter (48 terrain cells, five units, 40 deterministic map/apron trees, a
+120-cell decorative surroundings window, 112 elevation vertices and a
+38-vertex bell landmark), selected and moved Rowan along its
 real planned route,
 waited Rowan and Tomas, executed five real tactics commands for the opposing
 side, presented three real attack exchanges with fixed attacker/defender sides
@@ -30,14 +31,14 @@ and exact tactical-camera/hash restoration, returned to side one in round one,
 and reported this settled 120-frame sample:
 
 ```text
-avg_frame_us=16714 min_frame_us=16407 max_frame_us=17263 fps_x100=6000
-heap_used=1014608 heap_total=3082280 heap_free=2067672 rdram=4194304
+avg_frame_us=16715 min_frame_us=16455 max_frame_us=16991 fps_x100=6000
+heap_used=1030320 heap_total=3077080 heap_free=2046760 rdram=4194304
 commands=8 enemy_commands=5 round=1 combat=3 rowan=6,2
 RESULT PASS PYRITE_GAMEPLAY
 ```
 
 The validated ROM SHA-256 was
-`02763a67d68e84458c7082dea7b19958e23ea82460905aca0831183be2107f30`.
+`6b0833b7503a311a4ce20220e125bf1319ef33da597b557f82000c6588fb45bb`.
 The 15 compressed close sprites total 27,801 bytes in ROMFS, and the I8 shadow
 sprite is 397 bytes. The board/close/return capture was made from this exact
 ROM at native 320x240 after an exact-4-MB real-RSP run; no expansion-memory
