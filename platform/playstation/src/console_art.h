@@ -43,26 +43,22 @@ struct Asset final {
     int side;
 };
 
-[[nodiscard]] inline int terrain_material(int kind) noexcept {
-    // water, road, forest, mountain, sand, snow, swamp, hills, ruins, grass,
-    // farmland, bamboo, paved -> water/earth/forest/stone material families.
-    constexpr int materials[terrain_kind_count] = {
-        0, 0, 1, 2, 0, 0, 0, 1, 2, 1, 0, 1, 2,
-    };
-    return kind >= 0 && kind < terrain_kind_count ? materials[kind] : 1;
-}
-
 [[nodiscard]] inline Asset terrain(
     int theme, int kind, int variant
 ) noexcept {
     static_cast<void>(theme);
-    const int material = terrain_material(kind);
+    const int material = kind >= 0 && kind < terrain_kind_count ? kind : 9;
     return {
         grandleon_psx_quality_terrain_cells[material * 4 + (variant & 3)],
         grandleon_psx_quality_terrain_cluts[material],
         cell_size,
     };
 }
+
+static_assert(
+    grandleon_psx_quality_terrain_kind_count == terrain_kind_count,
+    "the generated PS1 material pack must cover every portable terrain kind"
+);
 
 [[nodiscard]] inline int character_index(
     int style, int figure, int archetype, int colour

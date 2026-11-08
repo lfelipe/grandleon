@@ -461,21 +461,12 @@ static_assert(
 [[nodiscard]] constexpr std::uint16_t terrain_clut_colour(
     std::uint16_t source, int kind
 ) noexcept {
-    if (source == 0U) return 0U;
-    const unsigned red = source & 0x1FU;
-    const unsigned green = (source >> 5U) & 0x1FU;
-    const unsigned blue = (source >> 10U) & 0x1FU;
-    const std::uint8_t luminance = static_cast<std::uint8_t>(
-        (red * 2U + green * 3U + blue) / 6U
-    );
-    const view::TerrainColour target = view::terrain_base_colour(
-        kind >= 0 ? static_cast<std::uint8_t>(kind) : 9U
-    );
-    return gpu::rgb15(
-        view::console_terrain_tint_level(luminance, target.red),
-        view::console_terrain_tint_level(luminance, target.green),
-        view::console_terrain_tint_level(luminance, target.blue)
-    );
+    static_cast<void>(kind);
+    // Every portable terrain kind now owns an authored PS1-native CLUT.  The
+    // old luminance tint collapsed thirteen materials into three similarly
+    // coloured surfaces and made water, road, sand, farmland and grass hard
+    // to distinguish at television distance.
+    return source;
 }
 
 
