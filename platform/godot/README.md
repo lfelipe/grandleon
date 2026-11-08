@@ -38,12 +38,15 @@ attack, damage or miss, counterattack, and defeat. Hold **Confirm** to speed one
 up or press **Cancel** to return to the board. Turning them off changes only the
 presentation, never the combat result.
 
-Conversations spoken during a battle reuse the same terrain backdrop pools as
-close combat. The speaking character's nearby terrain chooses a stable layered
-composition for the whole scene. Between battles, an authored **Deep Wood**
-backdrop uses that forest pool directly. Other authored backdrops keep their
-clear colour treatment until a matching art pool exists, so missing scenery
-never hides the portrait or text.
+Conversations spoken during a battle reuse the same backdrop pools as close
+combat. The speaking character's nearby terrain chooses a stable layered
+composition for the whole scene. The current pools cover forest, Gate Village,
+and walkable areas inside Twin Gate Keep. The two Medieval pools also require
+the exact authored map and landmark; a similar terrain mix elsewhere cannot
+select them. Between battles, an authored **Deep Wood** backdrop uses the
+forest pool directly. Other authored backdrops keep their clear colour
+treatment until a matching art pool exists, so missing scenery never hides the
+portrait or text.
 
 ## Create
 

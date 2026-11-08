@@ -96,9 +96,12 @@ The live board remains visible as the camera focuses the two units and pushes
 into the close view, then the result dissolves back to that settled board.
 Reduced motion replaces the push with a short crossfade.
 Compatible terrain now selects a layered background that remains stable for
-the complete exchange. In-battle conversations use the same background pool,
-anchored to the speaking character, while unsupported terrain keeps a simple
-readable fallback behind the portrait and dialogue.
+the complete exchange. The current library covers forest scenes plus the
+Medieval village and castle used by **Steel and Cedar**. Village and castle
+art requires the exact authored map and nearby landmark, so another paved map
+cannot receive it by accident. In-battle conversations use the same background
+pool, anchored to the speaking character, while unsupported terrain keeps a
+simple readable fallback behind the portrait and dialogue.
 The in-game Settings menu can also show a small live FPS counter on any
 renderer. It is off by default, including in console ROMs and disc images.
 
