@@ -35,6 +35,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 #include <vector>
 
 namespace grandleon::sheet {
@@ -112,20 +113,24 @@ struct ContentName final {
 // ASCII become a dash, the way the Nintendo 64 already folds a title.
 [[nodiscard]] ContentName unit_type_name(
     const package_format::LoadedPackage* package,
-    std::uint64_t unit_type_id
+    std::uint64_t unit_type_id,
+    std::string_view language = {}
 ) noexcept;
 
 // The same, for the three other sections a sheet names.
 [[nodiscard]] ContentName weapon_name(
-    const package_format::LoadedPackage* package, std::uint64_t weapon_id
+    const package_format::LoadedPackage* package, std::uint64_t weapon_id,
+    std::string_view language = {}
 ) noexcept;
 
 [[nodiscard]] ContentName ability_name(
-    const package_format::LoadedPackage* package, std::uint64_t ability_id
+    const package_format::LoadedPackage* package, std::uint64_t ability_id,
+    std::string_view language = {}
 ) noexcept;
 
 [[nodiscard]] ContentName item_name(
-    const package_format::LoadedPackage* package, std::uint64_t item_id
+    const package_format::LoadedPackage* package, std::uint64_t item_id,
+    std::string_view language = {}
 ) noexcept;
 
 // ---------------------------------------------------------------------------
@@ -180,7 +185,8 @@ struct ContentName final {
     const package_format::LoadedPackage* package,
     const simulation::EncounterSnapshot& snapshot,
     simulation::UnitId unit,
-    const char* member_name = nullptr
+    const char* member_name = nullptr,
+    std::string_view language = {}
 ) noexcept;
 
 // One name a client already holds, folded on the terms above and cut to the
@@ -203,7 +209,8 @@ struct ContentName final {
 // Empty when the package is null or holds no class for this unit type: a
 // caller with nothing to draw draws nothing, rather than a row reading `CLASS`.
 [[nodiscard]] ContentName class_name(
-    const package_format::LoadedPackage* package, std::uint64_t unit_type_id
+    const package_format::LoadedPackage* package, std::uint64_t unit_type_id,
+    std::string_view language = {}
 ) noexcept;
 
 // ---------------------------------------------------------------------------
@@ -335,7 +342,8 @@ struct UnitSheet final {
     const std::vector<sim::AbilityDefinition>& abilities,
     const std::vector<sim::ItemDefinition>& items,
     const CampaignContext* campaign = nullptr,
-    const package_format::LoadedPackage* package = nullptr
+    const package_format::LoadedPackage* package = nullptr,
+    std::string_view language = {}
 );
 
 }  // namespace grandleon::sheet

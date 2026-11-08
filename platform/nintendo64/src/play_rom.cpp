@@ -52,6 +52,7 @@
 #include "grandleon/view/list_view.hpp"
 
 #include <grandleon/client/attack_gesture.hpp>
+#include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/presenter.hpp>
 #include <grandleon/client/session.hpp>
 #include <grandleon/core/content_identity.hpp>
@@ -60,6 +61,7 @@
 #include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
+#include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
 #include <grandleon/package_runtime/target_budget.hpp>
@@ -155,6 +157,7 @@
 #include <vector>
 
 namespace client = grandleon::client;
+namespace console = grandleon::client::console_localization;
 namespace core = grandleon::core;
 #ifdef GRANDLEON_N64_CAMPAIGN
 namespace campaign = grandleon::campaign;
@@ -621,15 +624,35 @@ std::vector<std::string> title_rows(const std::string& title) {
 //
 // The static content is painted once per display buffer; every later frame is
 // paced and touches only the prompt, so nothing races the video interface.
-void title_screen(const std::string& title) {
+std::string title_screen(
+    const pf::LoadedPackage& package, const std::string& title
+) {
     grandleon::n64audio::play(grandleon::n64audio::Sfx::title);
+    const std::vector<std::string_view> languages =
+        pr::available_languages(package);
+    std::size_t selected = 0;
+    const std::string_view source_language = pr::source_language(package);
+    for (std::size_t index = 0; index < languages.size(); ++index) {
+        if (languages[index] == source_language) selected = index;
+    }
+    const auto language = [&]() -> std::string_view {
+        return languages.empty() ? std::string_view("en") : languages[selected];
+    };
     surface_t* painted[3] = {};
     std::size_t painted_count = 0;
     int frame = 0;
     while (true) {
         grandleon::n64audio::pump();
         const joypad_buttons_t pressed = poll_buttons();
-        if (pressed.start || pressed.a) return;
+        if (pressed.start || pressed.a) return std::string(language());
+        if (languages.size() > 1U && (pressed.d_left || pressed.d_right)) {
+            if (pressed.d_left) {
+                selected = selected == 0U ? languages.size() - 1U : selected - 1U;
+            } else {
+                selected = (selected + 1U) % languages.size();
+            }
+            painted_count = 0;
+        }
 
         surface_t* disp = display_get();
         bool fresh = true;
@@ -644,7 +667,10 @@ void title_screen(const std::string& title) {
             draw_logo(disp, 36, 2);
             graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
             int y = title_band_top;
-            for (const std::string& row : title_rows(title)) {
+            const std::string_view shown = pr::localized_project_title(
+                package, language(), title
+            );
+            for (const std::string& row : title_rows(std::string(shown))) {
                 graphics_draw_text(
                     disp,
                     (320 - static_cast<int>(row.size()) * 8) / 2,
@@ -652,6 +678,20 @@ void title_screen(const std::string& title) {
                     row.c_str()
                 );
                 y += title_band_step;
+            }
+            if (languages.size() > 1U) {
+                char language_row[24];
+                std::snprintf(
+                    language_row, sizeof language_row, "< %s  %s >",
+                    console::text(language(), console::Message::language),
+                    console::language_code(language())
+                );
+                graphics_draw_text(
+                    disp,
+                    (320 - static_cast<int>(std::strlen(language_row)) * 8) / 2,
+                    193,
+                    language_row
+                );
             }
             if (painted_count < 3) painted[painted_count++] = disp;
         }
@@ -663,7 +703,8 @@ void title_screen(const std::string& title) {
                 view::ConsolePlatform::nintendo64
             );
             draw_n64_button_badge(
-                disp, 116, 206, buttons.wait, "BEGIN"
+                disp, 116, 206, buttons.wait,
+                console::text(language(), console::Message::begin)
             );
         }
         show(disp);
@@ -681,7 +722,7 @@ void controls_screen();
 // be confirmed until port two answers, because proceeding without it creates
 // a campaign whose Player 2 characters nobody can control.
 [[nodiscard]] std::uint8_t player_count_screen(
-    bool allow_one, bool allow_two
+    bool allow_one, bool allow_two, std::string_view language
 ) {
     int caret = allow_one ? 0 : 1;
     bool dirty = true;
@@ -707,7 +748,7 @@ void controls_screen();
             draw_logo(disp, 24, 1);
             const view::ConsolePage page = draw_n64_page(
                 disp, 56, 84, 208, 148, 26, 22,
-                screen::player_count_title
+                console::text(language, console::Message::players)
             );
             for (std::size_t index = 0;
                  index < screen::player_count_row_count; ++index) {
@@ -740,7 +781,14 @@ void controls_screen();
                 );
                 graphics_draw_text(disp, 92, y, on ? ">" : " ");
                 graphics_draw_text(
-                    disp, 116, y, screen::player_count_rows[index]
+                    disp, 116, y,
+                    index == 0U
+                        ? console::text(language, console::Message::one_player)
+                        : index == 1U
+                            ? console::text(
+                                  language, console::Message::two_players
+                              )
+                            : console::text(language, console::Message::help)
                 );
             }
             const char* note = screen::player_count_solo_note;
@@ -767,12 +815,22 @@ void controls_screen();
                 screen::player_count_note_y, note
             );
             graphics_set_color(graphics_make_color(245, 234, 210, 255), 0);
-            graphics_draw_text(disp, page.footer.x + 10, 214, "D-PAD CHOOSE");
+            graphics_draw_text(
+                disp, page.footer.x + 10, 214,
+                language.size() >= 2U && language[0] == 'e' &&
+                        language[1] == 's'
+                    ? "CRUCETA ELIGE"
+                    : language.size() >= 2U && language[0] == 'p' &&
+                              language[1] == 't'
+                        ? "D-PAD ESCOLHE"
+                        : "D-PAD CHOOSE"
+            );
             const view::ButtonLegend buttons = view::button_legend(
                 view::ConsolePlatform::nintendo64
             );
             draw_n64_button_badge(
-                disp, page.footer.x + 112, 212, buttons.confirm, "CONFIRM"
+                disp, page.footer.x + 112, 212, buttons.confirm,
+                console::text(language, console::Message::confirm)
             );
             show(disp);
             dirty = false;
@@ -1131,7 +1189,8 @@ std::string slot_screen_heading(const std::string& title) {
 }
 
 [[nodiscard]] SlotDecision campaign_slot_screen(
-    const char* base, const bool* holds, const std::string& title
+    const char* base, const bool* holds, const std::string& title,
+    std::string_view language
 ) {
     const std::string heading = slot_screen_heading(title);
     view::SlotMenu menu;
@@ -1154,7 +1213,10 @@ std::string slot_screen_heading(const std::string& title) {
             );
             graphics_set_color(colour(242, 193, 78), 0);
             graphics_set_color(colour(125, 138, 133), 0);
-            graphics_draw_text(disp, 20, 112, "CHOOSE A SAVE");
+            graphics_draw_text(
+                disp, 20, 112,
+                console::text(language, console::Message::choose_save)
+            );
             for (int index = 0; index < menu.rows(); ++index) {
                 const bool on = index == menu.caret();
                 if (on) {
@@ -1178,7 +1240,10 @@ std::string slot_screen_heading(const std::string& title) {
             // depends on what is under the caret. It is drawn as the model
             // composed it, `Z` and all.
             graphics_set_color(colour(125, 138, 133), 0);
-            graphics_draw_text(disp, 92, 220, "THE GAME SAVES ITSELF");
+            graphics_draw_text(
+                disp, 92, 220,
+                console::text(language, console::Message::game_saves_itself)
+            );
             const view::ButtonLegend buttons = view::button_legend(
                 view::ConsolePlatform::nintendo64
             );
@@ -1186,25 +1251,30 @@ std::string slot_screen_heading(const std::string& title) {
             if (menu.armed()) {
                 draw_n64_button_badge(
                     disp, page.footer.x + 8, button_top,
-                    buttons.menu, "CONFIRM"
+                    buttons.menu,
+                    console::text(language, console::Message::confirm)
                 );
                 draw_n64_button_badge(
                     disp, page.footer.x + 132, button_top,
-                    buttons.back, "KEEP"
+                    buttons.back,
+                    console::text(language, console::Message::keep)
                 );
             } else if (menu.holds(menu.caret())) {
                 draw_n64_button_badge(
                     disp, page.footer.x + 8, button_top,
-                    buttons.confirm, "CONTINUE"
+                    buttons.confirm,
+                    console::text(language, console::Message::continue_game)
                 );
                 draw_n64_button_badge(
                     disp, page.footer.x + 132, button_top,
-                    buttons.menu, "NEW"
+                    buttons.menu,
+                    console::text(language, console::Message::new_game)
                 );
             } else {
                 draw_n64_button_badge(
                     disp, page.footer.x + 8, button_top,
-                    buttons.confirm, "NEW COMPANY"
+                    buttons.confirm,
+                    console::text(language, console::Message::new_company)
                 );
             }
             show(disp);
@@ -1326,11 +1396,23 @@ public:
     // answered from the presentation section, because presentation carries the
     // joins a renderer needs to *draw* content and deliberately carries no
     // words. See `character_called`.
-    N64Presenter(const pr::Presentation& shown, const pf::LoadedPackage& package)
+    N64Presenter(
+        const pr::Presentation& shown,
+        const pf::LoadedPackage& package,
+        std::string_view language,
+        std::uint64_t campaign_id
+    )
         : theme_(shown.theme < gc::theme_count ? shown.theme
                                                : gc::default_theme),
           shown_(shown),
-          package_(&package) {
+          package_(&package),
+          campaign_id_(campaign_id) {
+        std::size_t length = 0;
+        while (length + 1U < sizeof language_ && length < language.size()) {
+            language_[length] = language[length];
+            ++length;
+        }
+        language_[length] = '\0';
         expect(
             grandleon::nintendo64::console_renderer::initialize(),
             "the project-specific Godot-derived console art loads"
@@ -1338,6 +1420,10 @@ public:
         // initialize() refuses any drawing or terrain atlas the selected
         // project cannot load. There is no alternate sprite grid to validate
         // or fall back to.
+    }
+
+    [[nodiscard]] std::string_view language() const noexcept {
+        return language_;
     }
 
 #ifndef GRANDLEON_N64_PROBE
@@ -1449,15 +1535,27 @@ public:
     // The prompt says which of the two the press does. Every line the shipped
     // game authors fits on one page and reads A: NEXT exactly as it did.
     [[nodiscard]] grandleon::package_runtime::DialogueLine presented_line(
-        const grandleon::package_runtime::DialogueLine& authored
+        const grandleon::package_runtime::Dialogue& dialogue,
+        std::size_t index
     ) const {
+        const grandleon::package_runtime::DialogueLine& authored =
+            dialogue.lines[index];
         grandleon::package_runtime::DialogueLine shown = authored;
+        const std::string_view speaker = pr::localized_dialogue_line(
+            *package_, language(), dialogue.id, index, "speaker",
+            authored.speaker
+        );
+        const std::string_view text = pr::localized_dialogue_line(
+            *package_, language(), dialogue.id, index, "text", authored.text
+        );
+        shown.speaker.assign(speaker.data(), speaker.size());
+        shown.text.assign(text.data(), text.size());
 #ifdef GRANDLEON_N64_CAMPAIGN
         shown.speaker = client::substitute_campaign_member_names(
-            authored.speaker, campaign_roster_
+            shown.speaker, campaign_roster_
         );
         shown.text = client::substitute_campaign_member_names(
-            authored.text, campaign_roster_
+            shown.text, campaign_roster_
         );
 #endif
         return shown;
@@ -1466,8 +1564,8 @@ public:
     void present_dialogue(
         const grandleon::package_runtime::Dialogue& dialogue
     ) override {
-        for (const auto& authored : dialogue.lines) {
-            const auto line = presented_line(authored);
+        for (std::size_t index = 0; index < dialogue.lines.size(); ++index) {
+            const auto line = presented_line(dialogue, index);
             report_line("say  %s: %s\n", line.speaker.c_str(),
                         line.text.c_str());
 #ifndef GRANDLEON_N64_PROBE
@@ -1762,8 +1860,9 @@ public:
                 "say  scene %d lines\n",
                 static_cast<int>(scene.dialogue.lines.size())
             );
-            for (const auto& authored : scene.dialogue.lines) {
-                const auto line = presented_line(authored);
+            for (std::size_t index = 0;
+                 index < scene.dialogue.lines.size(); ++index) {
+                const auto line = presented_line(scene.dialogue, index);
                 report_line(
                     "say  %s: %s\n", line.speaker.c_str(), line.text.c_str()
                 );
@@ -2027,7 +2126,7 @@ public:
 #ifdef GRANDLEON_N64_CAMPAIGN
         if (board_ != nullptr) {
             return client::member_name_on_board(
-                board_->binding, board_->roster, unit
+                board_->binding, campaign_roster_, unit
             );
         }
 #else
@@ -2038,7 +2137,7 @@ public:
 
     [[nodiscard]] std::string character_called(sim::UnitId unit) const {
         return grandleon::sheet::character_name(
-                   package_, previous_, unit, campaign_name_of(unit)
+                   package_, previous_, unit, campaign_name_of(unit), language()
         ).c_str();
     }
 
@@ -2315,6 +2414,20 @@ public:
     // a campaign holds.
     // -----------------------------------------------------------------------
 
+    void localize_roster(std::vector<client::RosterEntry>& roster) const {
+        for (client::RosterEntry& member : roster) {
+            if (member.has_player_name) continue;
+            const std::string_view source = member.authored_name.empty()
+                ? std::string_view(member.name)
+                : std::string_view(member.authored_name);
+            const std::string_view shown = pr::localized_campaign_member_name(
+                *package_, language(), campaign_id_,
+                member.placement_source_key, source
+            );
+            member.name.assign(shown.data(), shown.size());
+        }
+    }
+
     void campaign_begun(
         const std::vector<client::RosterEntry>& roster,
         const std::vector<campaign::InventoryStack>& store,
@@ -2322,6 +2435,7 @@ public:
         bool resumed
     ) override {
         campaign_roster_ = roster;
+        localize_roster(campaign_roster_);
         pending_player_names_.clear();
         if (!resumed) queue_player_names(roster);
         // The line the persistence check keys on. Which of the two words this
@@ -2347,7 +2461,9 @@ public:
         for (const campaign::InventoryStack& stack : store) {
             report_line(
                 "  store %s x%u\n",
-                grandleon::sheet::item_name(stack.item.stable_id),
+                grandleon::sheet::item_name(
+                    package_, stack.item.stable_id, language()
+                ).c_str(),
                 static_cast<unsigned>(stack.quantity)
             );
         }
@@ -2408,6 +2524,7 @@ public:
         // window, rather than left to be overwritten by the next battle's.
         board_ = &board;
         campaign_roster_ = board.roster;
+        localize_roster(campaign_roster_);
         report_line(
             "board node=%llu encounter=%llu roster=%d excluded=%d\n",
             static_cast<unsigned long long>(board.node.stable_id),
@@ -2427,6 +2544,7 @@ public:
         // it and is the right list to read after a battle anyway.
         board_ = nullptr;
         campaign_roster_ = aftermath.roster;
+        localize_roster(campaign_roster_);
         report_line(
             "aftermath outcome=%d fallen=%d joined=%d levels=%d moved=%d\n",
             static_cast<int>(aftermath.outcome),
@@ -2438,7 +2556,8 @@ public:
         surface_t* disp = display_get();
         graphics_fill_screen(disp, colour(16, 26, 27));
         const view::ConsolePage page = draw_n64_page(
-            disp, 12, 12, 296, 216, 22, 18, "AFTER THE BATTLE"
+            disp, 12, 12, 296, 216, 22, 18,
+            console::text(language(), console::Message::after_battle)
         );
         graphics_set_color(colour(245, 234, 210), 0);
         int y = 48;
@@ -2493,7 +2612,7 @@ public:
                 }
                 std::snprintf(
                     line, sizeof line, "  %.28s",
-                    member_name(aftermath.roster, member).c_str()
+                    member_name(campaign_roster_, member).c_str()
                 );
                 graphics_draw_text(disp, 24, y, line);
                 y += 13;
@@ -2503,7 +2622,7 @@ public:
             y += 6;
             graphics_set_color(colour(245, 234, 210), 0);
         }
-        for (const client::RosterEntry& entry : aftermath.roster) {
+        for (const client::RosterEntry& entry : campaign_roster_) {
             if (!screen::aftermath_roster_band.holds(y)) break;
             std::snprintf(
                 line, sizeof line, "%-14.14s L%-2u XP%-5u %s",
@@ -2549,7 +2668,9 @@ public:
             if (!screen::aftermath_store_band.holds(y)) break;
             std::snprintf(
                 line, sizeof line, "STORE %-16.16s x%u",
-                grandleon::sheet::item_name(stack.item.stable_id),
+                grandleon::sheet::item_name(
+                    package_, stack.item.stable_id, language()
+                ).c_str(),
                 static_cast<unsigned>(stack.quantity)
             );
             graphics_draw_text(disp, 24, y, line);
@@ -2578,7 +2699,9 @@ public:
         const std::vector<client::RosterEntry>& joined
     ) override {
         if (joined.empty()) return;
-        for (const client::RosterEntry& arrival : joined) {
+        std::vector<client::RosterEntry> shown = joined;
+        localize_roster(shown);
+        for (const client::RosterEntry& arrival : shown) {
             bool replaced = false;
             for (client::RosterEntry& member : campaign_roster_) {
                 if (member.member != arrival.member) continue;
@@ -2593,7 +2716,8 @@ public:
         surface_t* disp = display_get();
         graphics_fill_screen(disp, colour(16, 26, 27));
         const view::ConsolePage page = draw_n64_page(
-            disp, 12, 44, 296, 184, 28, 22, "JOINS THE COMPANY"
+            disp, 12, 44, 296, 184, 28, 22,
+            console::text(language(), console::Message::joins_company)
         );
         graphics_set_color(colour(245, 234, 210), 0);
         char line[64];
@@ -2605,7 +2729,7 @@ public:
                 disp, screen::joined_left, screen::joined_band.y_of(index),
                 clipped(
                     grandleon::sheet::person_name(
-                        joined[static_cast<std::size_t>(index)].name.c_str()
+                        shown[static_cast<std::size_t>(index)].name.c_str()
                     ).c_str(),
                     screen::joined_columns
                 ).c_str()
@@ -2731,6 +2855,7 @@ public:
         // A rename commit returns through this callback before story can
         // continue, so later tokens see the effective company immediately.
         campaign_roster_ = company.roster;
+        localize_roster(campaign_roster_);
         while (!pending_player_names_.empty()) {
             const campaign::PersistentEntityId wanted =
                 pending_player_names_.front();
@@ -3579,7 +3704,8 @@ public:
                 const grandleon::sheet::UnitSheet wanted =
                     grandleon::sheet::build(
                         snapshot, *subject, campaign_name_of(subject->id),
-                        weapons_, abilities_, items_, nullptr, package_
+                        weapons_, abilities_, items_, nullptr, package_,
+                        language()
                     );
                 expect(
                     sheet_.count == wanted.count && wanted.count == 11,
@@ -4322,7 +4448,9 @@ private:
                 store[static_cast<std::size_t>(index)];
             std::snprintf(
                 line, sizeof line, "%-18.18s x%u",
-                grandleon::sheet::item_name(stack.item.stable_id),
+                grandleon::sheet::item_name(
+                    package_, stack.item.stable_id, language()
+                ).c_str(),
                 static_cast<unsigned>(stack.quantity)
             );
             graphics_draw_text(disp, 36, y, line);
@@ -4379,7 +4507,7 @@ private:
             );
             graphics_draw_text(disp, 20, 32, counted);
         }
-        draw_company_body(disp, company.roster, company.store, caret);
+        draw_company_body(disp, campaign_roster_, company.store, caret);
         // A board the roster refused is the company's own business and is said
         // in the roster's word for it, on the screen that can change it.
         if (company.refused != grandleon::campaign_runtime::RosterError::none) {
@@ -4484,8 +4612,11 @@ private:
             for (const campaign::InventoryStack& stack : company.store) {
                 if (count + 1 >= capacity) break;
                 std::snprintf(
-                    rows[count].text, sizeof rows[count].text, "GIVE %s x%u",
-                    grandleon::sheet::item_name(stack.item.stable_id),
+                    rows[count].text, sizeof rows[count].text,
+                    "GIVE %.12s x%u",
+                    grandleon::sheet::item_name(
+                        package_, stack.item.stable_id, language()
+                    ).c_str(),
                     static_cast<unsigned>(stack.quantity)
                 );
                 rows[count].verb = client::ManagementVerb::give;
@@ -4495,8 +4626,11 @@ private:
             for (const campaign::InventoryStack& stack : entry.carried) {
                 if (count + 1 >= capacity) break;
                 std::snprintf(
-                    rows[count].text, sizeof rows[count].text, "TAKE %s x%u",
-                    grandleon::sheet::item_name(stack.item.stable_id),
+                    rows[count].text, sizeof rows[count].text,
+                    "TAKE %.12s x%u",
+                    grandleon::sheet::item_name(
+                        package_, stack.item.stable_id, language()
+                    ).c_str(),
                     static_cast<unsigned>(stack.quantity)
                 );
                 rows[count].verb = client::ManagementVerb::take;
@@ -4846,7 +4980,7 @@ private:
                 graphics_fill_screen(disp, colour(16, 26, 27));
                 const view::ConsolePage page = draw_n64_page(
                     disp, 8, 8, 304, 224, 44, 18,
-                    "GO TO ANOTHER STAGE"
+                    console::text(language(), console::Message::another_stage)
                 );
                 char legend[view::scroll_legend_size];
                 if (view::scroll_legend(visible, legend, sizeof legend) > 0) {
@@ -4855,7 +4989,8 @@ private:
                 }
                 graphics_set_color(colour(196, 84, 74), 0);
                 graphics_draw_text(
-                    disp, 20, 36, "A STAGE YOU HAVE NOT SEEN MAY NOT OPEN"
+                    disp, 20, 36,
+                    console::text(language(), console::Message::stage_warning)
                 );
                 int y = screen::stage_band.top;
                 for (int index = visible.top; index < visible.end(); ++index) {
@@ -4879,10 +5014,27 @@ private:
                     // The author's own name for the board, and its place in the
                     // flow in front of it. A package with no name for a board
                     // leaves the number, which is not much and is never nothing.
+                    const std::string_view source = stage.name.empty()
+                        ? std::string_view("STAGE")
+                        : std::string_view(stage.name);
+                    const std::string shown = ascii_only(std::string(
+                        !stage.name.empty()
+                            ? pr::localized_campaign_node_name(
+                                  *package_, language(), campaign_id_,
+                                  stage.node_id, source
+                              )
+                            : source
+                    ));
                     std::snprintf(
                         line, sizeof line, "%-2d %-24.24s %s", index + 1,
-                        stage.name.empty() ? "STAGE" : stage.name.c_str(),
-                        stage.standing ? "HERE" : (stage.reached ? "SEEN" : "")
+                        shown.c_str(),
+                        stage.standing
+                            ? console::text(language(), console::Message::here)
+                            : stage.reached
+                                ? console::text(
+                                      language(), console::Message::seen
+                                  )
+                                : ""
                     );
                     graphics_draw_text(disp, 36, y, line);
                     y += screen::stage_band.step;
@@ -6425,7 +6577,7 @@ private:
         grandleon::n64audio::play(grandleon::n64audio::Sfx::select);
         sheet_ = grandleon::sheet::build(
             snapshot, subject, campaign_name_of(subject.id), weapons_,
-            abilities_, items_, nullptr, package_
+            abilities_, items_, nullptr, package_, language()
         );
         sheet_open_ = true;
         bool dirty = true;
@@ -6495,7 +6647,8 @@ private:
         MenuChoice rows[5]{};
         int count = 3;
         rows[0] = {
-            "BACK TO BATTLE", false, false, false, 0, 0, 0, false, false
+            console::text(language(), console::Message::back_to_battle),
+            false, false, false, 0, 0, 0, false, false
         };
         // The side, by the name the phase banner just announced it under. A
         // player who read YOUR TURN across the screen a moment ago is being
@@ -6506,17 +6659,25 @@ private:
         // This menu only ever ends the side the player holds, so the row does
         // not ask which side that is: it is theirs either way.
         rows[1] = {
-            active_local_player_ == 0 ? "END PLAYER 1 TURN"
-                                      : "END PLAYER 2 TURN",
+            console::text(
+                language(), active_local_player_ == 0
+                    ? console::Message::end_player_1_turn
+                    : console::Message::end_player_2_turn
+            ),
             false, false, false, 0, 0, 0, false, false
         };
         rows[2] = {
-            "LEAVE BATTLE", false, false, false, 0, 0, 0, false, false
+            console::text(language(), console::Message::leave_battle), false,
+            false, false, 0, 0, 0, false, false
         };
         const int fps_row = count;
         rows[count] = {
-            display_options.fps_menu_label(), false, false, false, 0, 0, 0,
-            false, false
+            console::text(
+                language(), display_options.show_fps
+                    ? console::Message::show_fps_on
+                    : console::Message::show_fps_off
+            ),
+            false, false, false, 0, 0, 0, false, false
         };
         ++count;
 #ifdef GRANDLEON_N64_CAMPAIGN
@@ -6531,8 +6692,8 @@ private:
         if (board_ != nullptr && !board_->stages.empty()) {
             stage_row = count;
             rows[count] = {
-                "GO TO ANOTHER STAGE", false, false, false, 0, 0, 0, false,
-                false
+                console::text(language(), console::Message::another_stage),
+                false, false, false, 0, 0, 0, false, false
             };
             ++count;
         }
@@ -6696,6 +6857,7 @@ private:
         // row, two spells and a draught. That is five, which fits beneath a
         // WALK row and leaves a sixth free without one.
         MenuChoice choices[9];
+        grandleon::sheet::ContentName content_labels[9];
         // The cap on everything above the tail. A character that may still walk
         // spends the first of these on WALK; one that has already walked has
         // the whole of it for its own rows, which is the menu getting shorter
@@ -6731,11 +6893,13 @@ private:
                 abilities_
             )) {
             choices[count++] =
-                {"WALK", true, false, false, 0, 0, 0, false, false};
+                {console::text(language(), console::Message::walk), true,
+                 false, false, 0, 0, 0, false, false};
         }
         if (actor.weapon_ids.size() <= 1) {
             choices[count++] =
-                {"ATTACK", false, true, false, 0, 0, 0, false, false};
+                {console::text(language(), console::Message::attack), false,
+                 true, false, 0, 0, 0, false, false};
         } else {
             // Carried order, the weapon in hand first. That first row
             // names no weapon: absence is how the engine is told to use
@@ -6743,18 +6907,27 @@ private:
             for (std::size_t i = 0; i < actor.weapon_ids.size(); ++i) {
                 if (count >= capacity) break;
                 const sim::ContentId weapon = actor.weapon_ids[i];
-                choices[count++] = {
-                    weapon_name(weapon), false, true, false, 0,
+                content_labels[count] = grandleon::sheet::weapon_name(
+                    package_, weapon, language()
+                );
+                choices[count] = {
+                    content_labels[count].c_str(), false, true, false, 0,
                     i == 0 ? sim::ContentId{0} : weapon, 0, false, false
                 };
+                ++count;
             }
         }
         for (const sim::ContentId ability : actor.ability_ids) {
             if (count < capacity) {
-                choices[count++] = {
-                    ability_name(ability), false, false, false, ability, 0, 0,
+                content_labels[count] = grandleon::sheet::ability_name(
+                    package_, ability, language()
+                );
+                choices[count] = {
+                    content_labels[count].c_str(), false, false, false,
+                    ability, 0, 0,
                     false, false
                 };
+                ++count;
             }
         }
         // The item rows, between the spells and WAIT: the position this menu
@@ -6769,8 +6942,10 @@ private:
             if (count >= capacity) break;
             const sim::ContentId item = actor.item_ids[i];
             std::snprintf(
-                item_labels_[i], menu_item_label_size, "%s x%d",
-                item_name(item),
+                item_labels_[i], menu_item_label_size, "%.16s x%d",
+                grandleon::sheet::item_name(
+                    package_, item, language()
+                ).c_str(),
                 static_cast<int>(actor.item_counts[i])
             );
             choices[count++] = {
@@ -6795,7 +6970,8 @@ private:
         // row.
         if (count < capacity && any_talkable_neighbour(snapshot, actor)) {
             choices[count++] =
-                {"TALK", false, false, false, 0, 0, 0, true, false};
+                {console::text(language(), console::Message::talk), false,
+                 false, false, 0, 0, 0, true, false};
         }
         // The tail, in the order of how much each row commits. The row that
         // ends this character's turn spends its activation and is the last row
@@ -6812,13 +6988,18 @@ private:
         // each row names the scope it ends, and the two differ on exactly the
         // word that differs.
         choices[count++] = {
-            "END CHARACTER TURN", false, false, true, 0, 0, 0, false, false
+            console::text(language(), console::Message::end_character_turn),
+            false, false, true, 0, 0, 0, false, false
         };
         const int info_row = count;
-        choices[count++] =
-            {"INFO", false, false, false, 0, 0, 0, false, true};
-        choices[count++] =
-            {"CANCEL", false, false, false, 0, 0, 0, false, false};
+        choices[count++] = {
+            console::text(language(), console::Message::info), false, false,
+            false, 0, 0, 0, false, true
+        };
+        choices[count++] = {
+            console::text(language(), console::Message::cancel), false, false,
+            false, 0, 0, 0, false, false
+        };
 
         // The sheet is read out of the menu and hands the menu straight back,
         // caret still on the row that opened it. It is the only row that
@@ -7080,7 +7261,11 @@ private:
         const std::uint32_t side_colour =
             blue ? colour(35, 117, 169) : colour(179, 72, 63);
         const char* text =
-            snapshot.active_side == player_side_ ? "YOUR TURN" : "ENEMY TURN";
+            console::text(
+                language(), snapshot.active_side == player_side_
+                    ? console::Message::your_turn
+                    : console::Message::enemy_turn
+            );
         const int left = (320 - static_cast<int>(std::strlen(text)) * 8) / 2;
         surface_t* disp = display_get();
         render(disp, snapshot, 0);
@@ -7156,11 +7341,13 @@ private:
             lines[count++], sizeof lines[0], "%s",
             grandleon::sheet::character_name(
                 package_, snapshot, hovered->id,
-                campaign_name_of(hovered->id)
+                campaign_name_of(hovered->id), language()
             ).c_str()
         );
         if (const grandleon::sheet::ContentName kind =
-                grandleon::sheet::class_name(package_, hovered->unit_type_id);
+                grandleon::sheet::class_name(
+                    package_, hovered->unit_type_id, language()
+                );
             kind.text[0] != '\0') {
             std::snprintf(lines[count++], sizeof lines[0], "%s", kind.c_str());
         }
@@ -8307,6 +8494,8 @@ private:
     // Borrowed, never owned, and outliving this presenter: the package is
     // loaded in `main` and this is built on top of it.
     const pf::LoadedPackage* package_{nullptr};
+    char language_[16]{'e', 'n', '\0'};
+    std::uint64_t campaign_id_{0};
     std::vector<std::uint64_t> terrain_;
     client::Roster roster_;
     // Whose command went out last, so a refusal about a character can name
@@ -9023,6 +9212,8 @@ int main() {
          console_units_per_board}
     );
     expect(static_cast<bool>(loaded), "package loads on target");
+    std::string selected_language(pr::source_language(loaded.package));
+    if (selected_language.empty()) selected_language = "en";
 
     // Which game this ROM is, in its own words, on every build.
     //
@@ -9223,7 +9414,7 @@ int main() {
         // source rather than baked into a generated header: the ROM already
         // holds the project it was built for, so a second statement of the
         // same string is a second thing to keep in step.
-        title_screen(parsed.source.title);
+        selected_language = title_screen(loaded.package, parsed.source.title);
 #if !defined(GRANDLEON_N64_README)
         // Launch policy belongs to the campaign rather than to this console.
         // Older packages are covered by load_campaign's ownership-based
@@ -9239,13 +9430,19 @@ int main() {
         if (launched_campaign) {
             switch (launched_campaign.definition.player_mode) {
                 case pr::LocalPlayerMode::one:
-                    local_players = player_count_screen(true, false);
+                    local_players = player_count_screen(
+                        true, false, selected_language
+                    );
                     break;
                 case pr::LocalPlayerMode::two:
-                    local_players = player_count_screen(false, true);
+                    local_players = player_count_screen(
+                        false, true, selected_language
+                    );
                     break;
                 case pr::LocalPlayerMode::choice:
-                    local_players = player_count_screen(true, true);
+                    local_players = player_count_screen(
+                        true, true, selected_language
+                    );
                     break;
             }
         }
@@ -9264,7 +9461,11 @@ int main() {
         // framebuffer checks below would fail on what was drawn rather than on
         // what was read. That is the stronger statement of the two.
         const auto shown = pr::load_presentation(loaded.package);
-        N64Presenter presenter(shown.presentation, loaded.package);
+        const std::uint64_t campaign_id =
+            core::stable_content_id_v1(project_campaign_key);
+        N64Presenter presenter(
+            shown.presentation, loaded.package, selected_language, campaign_id
+        );
 #ifdef GRANDLEON_N64_AUTOPILOT
         autopilot_presenter = &presenter;
 #endif
@@ -9283,8 +9484,12 @@ int main() {
         // source: the screen that asks which save to take says which game the
         // save is of, and it must be this cartridge's game rather than the one
         // the repository happens to ship.
+        const std::string localized_title(pr::localized_project_title(
+            loaded.package, selected_language, parsed.source.title
+        ));
         decision = campaign_slot_screen(
-            project_campaign_slot, slot_holds, parsed.source.title
+            project_campaign_slot, slot_holds, localized_title,
+            selected_language
         );
         client::CampaignSessionOptions options;
         options.slot = decision.slot;
@@ -9293,7 +9498,7 @@ int main() {
         options.local_players = local_players;
         const auto status = client::run_persistent_campaign(
             loaded.package,
-            core::stable_content_id_v1(project_campaign_key),
+            campaign_id,
             presenter,
             presenter,
             device,
@@ -9308,7 +9513,7 @@ int main() {
         options.local_players = local_players;
         const auto status = client::run_campaign(
             loaded.package,
-            core::stable_content_id_v1(project_campaign_key),
+            campaign_id,
             sim::Side::first,
             presenter,
             options

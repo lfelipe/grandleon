@@ -1078,8 +1078,18 @@ public:
     // draws is asked of it first.
     void set_package(
         const grandleon::package_format::LoadedPackage* package
-    ) noexcept {
-        package_ = package;
+    ) noexcept;
+
+    // The authored language selected at launch. It drives both the game's
+    // package-backed strings and the compact interface vocabulary around
+    // them. A package starts in its source language; launch menus may switch
+    // among the catalogs it actually carries.
+    void set_language(std::string_view language) noexcept;
+    [[nodiscard]] std::string_view language() const noexcept {
+        return language_;
+    }
+    void set_campaign_id(std::uint64_t campaign_id) noexcept {
+        campaign_id_ = campaign_id;
     }
 
     // How wide the viewport is, in cells. Set by the platform before the first
@@ -1484,6 +1494,8 @@ private:
 
     MenuChoice menu_[menu_capacity]{};
     char item_labels_[menu_item_labels][menu_item_label_size]{};
+    char content_labels_[menu_capacity]
+                        [grandleon::sheet::content_name_capacity + 1]{};
     int menu_rows_{0};
     int menu_row_{0};
     bool menu_open_{false};
@@ -1515,6 +1527,8 @@ private:
     // is true on every platform here, where the package is opened once in main
     // and the client is built beside it.
     const grandleon::package_format::LoadedPackage* package_{nullptr};
+    char language_[16]{'e', 'n', '\0'};
+    std::uint64_t campaign_id_{0};
 
     // The information sheet, composed by `grandleon::sheet` when the INFO row
     // is taken and held while it is on screen. The menu stays open underneath:

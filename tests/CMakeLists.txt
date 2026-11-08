@@ -898,6 +898,38 @@ add_test(
     COMMAND grandleon_client_story_paging_tests
 )
 
+# The language row shared by the compact console client, driven all the way
+# through a package-backed Portuguese title, story and content names. This
+# compiles the same campaign TurnClient translation unit the PlayStation uses;
+# the Nintendo 64 consumes the same interface vocabulary and portable lookups.
+add_executable(grandleon_client_console_localization_tests
+    client/console_localization_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(
+    grandleon_client_console_localization_tests
+    PRIVATE
+        grandleon::client
+        grandleon::client_campaign
+        grandleon::game_content
+        grandleon::package_format
+        grandleon::package_runtime
+        grandleon::sheet
+        grandleon::storage
+        grandleon::view
+)
+target_compile_definitions(
+    grandleon_client_console_localization_tests
+    PRIVATE GRANDLEON_TURN_CLIENT_CAMPAIGN
+)
+target_compile_features(
+    grandleon_client_console_localization_tests PRIVATE cxx_std_17
+)
+add_test(
+    NAME grandleon.client_console_localization
+    COMMAND grandleon_client_console_localization_tests
+)
+
 # Named slots of opaque bytes. One contract, run against the in-memory device,
 # the desktop directory and the cartridge directory, because a promise only one
 # adapter keeps is not a contract. The third is the one a console supplies bytes

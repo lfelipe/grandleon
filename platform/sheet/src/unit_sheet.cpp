@@ -2,6 +2,7 @@
 #include <grandleon/sheet/unit_sheet.hpp>
 
 #include <grandleon/core/content_identity.hpp>
+#include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
 
 #include <cstddef>
@@ -254,11 +255,19 @@ ContentName resolved(
     const pf::LoadedPackage* package,
     pf::SectionType section,
     std::uint64_t id,
-    const char* fallback
+    const char* fallback,
+    std::string_view language
 ) noexcept {
     ContentName out;
     std::string_view authored;
-    if (package != nullptr) authored = pr::content_name(*package, section, id);
+    if (package != nullptr) {
+        authored = pr::content_name(*package, section, id);
+        if (!authored.empty() && !language.empty()) {
+            authored = pr::localized_content_name(
+                *package, language, section, id, authored
+            );
+        }
+    }
     const std::size_t written =
         !authored.empty()
             ? fold_into(out, authored.data(), authored.size())
@@ -280,35 +289,41 @@ ContentName resolved(
 }  // namespace
 
 ContentName unit_type_name(
-    const pf::LoadedPackage* package, std::uint64_t unit_type_id
+    const pf::LoadedPackage* package, std::uint64_t unit_type_id,
+    std::string_view language
 ) noexcept {
     return resolved(
         package, pf::SectionType::unit_types, unit_type_id,
-        unit_type_name(unit_type_id)
+        unit_type_name(unit_type_id), language
     );
 }
 
 ContentName weapon_name(
-    const pf::LoadedPackage* package, std::uint64_t weapon_id
+    const pf::LoadedPackage* package, std::uint64_t weapon_id,
+    std::string_view language
 ) noexcept {
     return resolved(
-        package, pf::SectionType::weapons, weapon_id, weapon_name(weapon_id)
+        package, pf::SectionType::weapons, weapon_id, weapon_name(weapon_id),
+        language
     );
 }
 
 ContentName ability_name(
-    const pf::LoadedPackage* package, std::uint64_t ability_id
+    const pf::LoadedPackage* package, std::uint64_t ability_id,
+    std::string_view language
 ) noexcept {
     return resolved(
-        package, pf::SectionType::abilities, ability_id, ability_name(ability_id)
+        package, pf::SectionType::abilities, ability_id,
+        ability_name(ability_id), language
     );
 }
 
 ContentName item_name(
-    const pf::LoadedPackage* package, std::uint64_t item_id
+    const pf::LoadedPackage* package, std::uint64_t item_id,
+    std::string_view language
 ) noexcept {
     return resolved(
-        package, pf::SectionType::items, item_id, item_name(item_id)
+        package, pf::SectionType::items, item_id, item_name(item_id), language
     );
 }
 
@@ -339,7 +354,8 @@ ContentName character_name(
     const pf::LoadedPackage* package,
     const sim::EncounterSnapshot& snapshot,
     sim::UnitId unit,
-    const char* member_name
+    const char* member_name,
+    std::string_view language
 ) noexcept {
     // The campaign's own name, when a member stands in this unit. A person's
     // name, and it outranks everything below because everything below describes
@@ -354,9 +370,12 @@ ContentName character_name(
     // `package_format::SectionType::placement_names` for why that needs no
     // encounter alongside it.
     if (package != nullptr) {
-        const std::string_view authored = pr::content_name(
+        const std::string_view source = pr::content_name(
             *package, pf::SectionType::placement_names, unit
         );
+        const std::string_view authored = !source.empty() && !language.empty()
+            ? pr::localized_placement_name(*package, language, unit, source)
+            : source;
         if (!authored.empty()) {
             ContentName out;
             if (fold_into(out, authored.data(), authored.size()) != 0U) {
@@ -388,7 +407,9 @@ ContentName character_name(
         ++kindred;
         if (candidate.id < unit) ++ordinal;
     }
-    const ContentName kind = unit_type_name(package, standing->unit_type_id);
+    const ContentName kind = unit_type_name(
+        package, standing->unit_type_id, language
+    );
     if (kindred < 2U) return kind;
 
     // `BANDIT 2`. The kind is folded again rather than copied, because it has
@@ -413,15 +434,21 @@ ContentName character_name(
 }
 
 ContentName class_name(
-    const pf::LoadedPackage* package, std::uint64_t unit_type_id
+    const pf::LoadedPackage* package, std::uint64_t unit_type_id,
+    std::string_view language
 ) noexcept {
     ContentName out;
     if (package == nullptr) return out;
     const std::uint64_t class_id =
         pr::unit_type_class(*package, unit_type_id);
     if (class_id == 0U) return out;
-    const std::string_view authored =
+    const std::string_view source =
         pr::content_name(*package, pf::SectionType::classes, class_id);
+    const std::string_view authored = !source.empty() && !language.empty()
+        ? pr::localized_content_name(
+              *package, language, pf::SectionType::classes, class_id, source
+          )
+        : source;
     if (authored.empty()) return out;
     fold_into(out, authored.data(), authored.size());
     return out;
@@ -491,7 +518,8 @@ UnitSheet build(
     const std::vector<sim::AbilityDefinition>& abilities,
     const std::vector<sim::ItemDefinition>& items,
     const CampaignContext* campaign,
-    const pf::LoadedPackage* package
+    const pf::LoadedPackage* package,
+    std::string_view language
 ) {
     UnitSheet sheet;
     const auto next = [&sheet]() -> char* {
@@ -506,10 +534,12 @@ UnitSheet build(
     // makes the second word look like part of the first.
     if (char* row = next()) {
         Line(row).text(
-            character_name(package, snapshot, unit.id, name).c_str()
+            character_name(package, snapshot, unit.id, name, language).c_str()
         );
     }
-    if (const ContentName kind = class_name(package, unit.unit_type_id);
+    if (const ContentName kind = class_name(
+            package, unit.unit_type_id, language
+        );
         kind.text[0] != '\0') {
         if (char* row = next()) Line(row).text(kind.c_str());
     }
@@ -600,7 +630,7 @@ UnitSheet build(
         if (row == nullptr) break;
         const sim::ContentId id = unit.weapon_ids[i];
         Line line(row);
-        line.text("  ").text(weapon_name(package, id).c_str()).gap();
+        line.text("  ").text(weapon_name(package, id, language).c_str()).gap();
         const sim::WeaponDefinition* definition = weapon_definition(weapons, id);
         if (definition == nullptr) {
             // The registry the encounter was created with does not describe
@@ -646,7 +676,7 @@ UnitSheet build(
         if (row == nullptr) break;
         const sim::ContentId id = unit.ability_ids[i];
         Line line(row);
-        line.text("  ").text(ability_name(package, id).c_str()).gap();
+        line.text("  ").text(ability_name(package, id, language).c_str()).gap();
         const sim::AbilityDefinition* definition =
             ability_definition(abilities, id);
         if (definition == nullptr) {
@@ -685,7 +715,7 @@ UnitSheet build(
         const sim::ContentId id = unit.item_ids[i];
         Line line(row);
         line.text("  ")
-            .text(item_name(package, id).c_str())
+            .text(item_name(package, id, language).c_str())
             .gap()
             .text("x")
             .number(static_cast<int>(unit.item_counts[i]));
