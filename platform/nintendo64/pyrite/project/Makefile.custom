@@ -12,7 +12,8 @@ N64_CXXFLAGS += -std=gnu++20 -fno-exceptions -O3 -Isrc -Isrc/user \
 	-I$(GRANDLEON_REPO)/engine/package_format/include \
 	-I$(GRANDLEON_REPO)/engine/package_runtime/include \
 	-I$(GRANDLEON_REPO)/engine/simulation/include \
-	-I$(GRANDLEON_REPO)/engine/tactics/include
+	-I$(GRANDLEON_REPO)/engine/tactics/include \
+	-I$(GRANDLEON_REPO)/platform/view/include
 
 GRANDLEON_LIBS := \
 	$(GRANDLEON_N64_BUILD)/libgrandleon_package_runtime.a \
@@ -36,6 +37,12 @@ filesystem/steel-and-cedar.gpk: assets/steel-and-cedar.gpk
 filesystem/material_atlas.sprite: assets/material_atlas.png
 	@mkdir -p $(dir $@)
 	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/soft_shadow.sprite: assets/soft_shadow.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f I8 -c 0 -o $(dir $@) "$<"
+filesystem/combat_backdrop.sprite: assets/combat_backdrop.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI8 -c 0 -o $(dir $@) "$<"
 
 filesystem/rowan.sprite: assets/rowan.png
 	@mkdir -p $(dir $@)
@@ -52,13 +59,62 @@ filesystem/retainer.sprite: assets/retainer.png
 filesystem/archer.sprite: assets/archer.png
 	@mkdir -p $(dir $@)
 	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/rowan_move.sprite: assets/rowan_move.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/tomas_move.sprite: assets/tomas_move.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/march_sword_move.sprite: assets/march_sword_move.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/retainer_move.sprite: assets/retainer_move.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/archer_move.sprite: assets/archer_move.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/%_close_idle.sprite: assets/%_close_idle.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/%_close_attack.sprite: assets/%_close_attack.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/%_close_hurt.sprite: assets/%_close_hurt.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
 
 GRANDLEON_DFS_INPUTS := \
 	filesystem/steel-and-cedar.gpk \
 	filesystem/material_atlas.sprite \
+	filesystem/soft_shadow.sprite \
+	filesystem/combat_backdrop.sprite \
 	filesystem/rowan.sprite \
 	filesystem/tomas.sprite \
 	filesystem/march_sword.sprite \
 	filesystem/retainer.sprite \
-	filesystem/archer.sprite
+	filesystem/archer.sprite \
+	filesystem/rowan_move.sprite \
+	filesystem/tomas_move.sprite \
+	filesystem/march_sword_move.sprite \
+	filesystem/retainer_move.sprite \
+	filesystem/archer_move.sprite
+
+GRANDLEON_CLOSE_SPRITES := \
+	filesystem/rowan_close_idle.sprite \
+	filesystem/rowan_close_attack.sprite \
+	filesystem/rowan_close_hurt.sprite \
+	filesystem/tomas_close_idle.sprite \
+	filesystem/tomas_close_attack.sprite \
+	filesystem/tomas_close_hurt.sprite \
+	filesystem/march_sword_close_idle.sprite \
+	filesystem/march_sword_close_attack.sprite \
+	filesystem/march_sword_close_hurt.sprite \
+	filesystem/retainer_close_idle.sprite \
+	filesystem/retainer_close_attack.sprite \
+	filesystem/retainer_close_hurt.sprite \
+	filesystem/archer_close_idle.sprite \
+	filesystem/archer_close_attack.sprite \
+	filesystem/archer_close_hurt.sprite
+GRANDLEON_DFS_INPUTS += $(GRANDLEON_CLOSE_SPRITES)
 $(BUILD_DIR)/$(ROM_NAME).dfs: $(GRANDLEON_DFS_INPUTS)
