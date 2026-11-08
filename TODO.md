@@ -216,6 +216,21 @@ and it safely replaces the included campaigns on all three players.
   duration, clarity, dead turns, and dominant strategies before it replaces
   the existing demos.
 
+### Future visibility and exploration
+
+- [ ] Generalize Twin Gate's interior occlusion into a portable visibility
+  system instead of embedding castle-specific reveal rules in a renderer.
+  Entering a connected building should reveal nearby interior cells while
+  unexplored rooms remain covered; the authoritative map, movement and units
+  continue underneath. Keep this separate from the optional cinematic
+  cutaway used for conversations, recruits, shops or item rewards.
+- [ ] Later, let authors enable the same visibility foundation for ordinary
+  maps, including nighttime scenarios with limited sight. Treat visual fog,
+  player knowledge and gameplay rules as separate choices: define sight
+  radius and blockers, per-player or shared co-op exploration, enemy and
+  objective visibility, persistence in saves, AI knowledge, editor preview,
+  and equivalent behavior on every renderer before making it a gameplay rule.
+
 ## 0.4 player foundation and battle view
 
 - [x] Add portable per-campaign launch policy for one player, two players, or a
