@@ -2,7 +2,7 @@
 
 This directory is a self-contained candidate for
 `platform/nintendo64/pyrite/`. It builds one deterministic, playable Steel and
-Cedar Bell Orchard encounter slice through Pyrite without replacing
+Cedar Deepwood encounter slice through Pyrite without replacing
 Grandleon's simulation, campaign package, or authoring pipeline.
 
 **Migration status:** this is the intended replacement renderer, but it remains
@@ -42,7 +42,7 @@ exports that toolchain into the build cache, verifies Pyrite and toolchain
 pins, and leaves the ROM at:
 
 ```text
-/tmp/grandleon-pyrite-build/project/grandleon_pyrite_bell_orchard.z64
+/tmp/grandleon-pyrite-build/project/grandleon_pyrite_cedar_deepwood.z64
 ```
 
 Set `GRANDLEON_PYRITE_N64_INST` to a previously exported toolchain directory to
@@ -81,7 +81,7 @@ is 1.10 s in / 0.95 s out; reduced motion uses a direct 8/6-frame settle;
 fast-forward is 3x and skip restores immediately.
 
 The tactical board now has filtered CI4 terrain materials, elevation
-sidewalls, deterministic tree clusters, a modeled orchard bell, generated
+sidewalls, deterministic tree clusters, generated
 directional walk poses and I8 falloff contact shadows. This is a material
 quality and runtime-architecture proof, not campaign parity: player-issued
 attacks and abilities, objectives, deployment, menus, saves, story traversal,
@@ -91,17 +91,16 @@ exchanges. The close backdrop pack currently covers only this medieval
 forest/grass/paved proof; audio and the remaining terrain/style stages still
 need production coverage.
 
-The authored tactical rectangle remains finite. A temporary
-`EnvironmentPolicy` adapter supplies the renderer with the planned portable
-`surroundings` shape (`extend_edges`, `fixed_terrain`, or `natural_blend`, plus
-terrain, seed and variation). Bell Orchard currently uses deterministic
-`natural_blend`: a three-cell, non-interactive apron inherits/blends nearby
-edge terrain, omits tactical grid/highlight marks, adds sparse edge foliage,
-and fades into one coarse ground plane. Cursor, routing, selection and the
-fixed tactical camera still use only the authored 8x6 bounds; small maps stay
-centered rather than panning into decoration. Package-backed surroundings and
-viewport-relative regeneration for scrolling maps are parity work, but the
-policy seam avoids a Bell-specific renderer rewrite.
+The authored tactical rectangle remains finite. The renderer consumes the
+portable packaged `surroundings` contract directly: automatic mode extends
+the nearest authored edge, while manual/fill/blend use the package's fully
+materialized perimeter and solid uses its authored colour. Cedar Deepwood's
+five-cell automatic apron is decorative only, carries no tactical grid or
+highlight, adds deterministic edge foliage, and fades into one coarse ground
+plane. Cursor, routing and selection remain limited to the authored 14x9
+cells. The viewport follows those cells horizontally and vertically, centers
+small maps, and clamps its focus before the decorative apron can become a pan
+target. A host policy test pins those centering and clamp rules.
 
 The runtime prints `GRANDLEON_RENDERER identity=pyrite-tiny3d fallback=none`.
 The build also fails closed unless the ROM header identifies the Pyrite target;

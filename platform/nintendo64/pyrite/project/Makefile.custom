@@ -117,4 +117,11 @@ GRANDLEON_CLOSE_SPRITES := \
 	filesystem/archer_close_attack.sprite \
 	filesystem/archer_close_hurt.sprite
 GRANDLEON_DFS_INPUTS += $(GRANDLEON_CLOSE_SPRITES)
+# Pyrite's editor-side asset pass can leave same-named compressed placeholders
+# in `filesystem/` before GNU make evaluates these cartridge-specific rules.
+# They are not libdragon sprites (and can be as small as nine bytes), so always
+# rebuild the bounded generated input set with the pinned N64 converters.
+.PHONY: grandleon-assets-force
+grandleon-assets-force:
+$(GRANDLEON_DFS_INPUTS): grandleon-assets-force
 $(BUILD_DIR)/$(ROM_NAME).dfs: $(GRANDLEON_DFS_INPUTS)

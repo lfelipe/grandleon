@@ -12,6 +12,8 @@
 
 #include "debug/debugDraw.h"
 #include "BoardShadows.hpp"
+#include "BoardCamera.hpp"
+#include "BoardSurroundings.hpp"
 #include "GameplaySlice.hpp"
 #include "GpkRuntimeAdapter.hpp"
 #include "scene/camera.h"
@@ -32,46 +34,26 @@ namespace {
 constexpr std::int16_t kCell = 52;
 constexpr std::int16_t kHalfCell = kCell / 2 - 1;
 constexpr std::size_t kCellVertexCount = 4;
-constexpr std::size_t kMaxCells = 8U * 6U;
+constexpr std::size_t kMaxCells = 20U * 14U;
 constexpr std::size_t kBatchCells = 15U;
 constexpr std::size_t kMaxElevationVertices = kMaxCells * 8U;
 constexpr std::size_t kGroundVertexCount = 4U;
-constexpr std::size_t kMaxApronCells = 160U;
+constexpr std::size_t kMaxApronCells = 800U;
 constexpr std::size_t kTreeVertexCount = 12U;
-constexpr std::size_t kMaxTrees = 56U;
+constexpr std::size_t kMaxTrees = 128U;
 constexpr std::size_t kUnitVertexCount = 4U;
-constexpr std::size_t kMaxUnits = 8U;
+constexpr std::size_t kMaxUnits = 32U;
 constexpr std::size_t kCursorVertexCount = 16U;
 constexpr std::size_t kMaxLandmarkVertices = 40U;
 
-constexpr auto kBellOrchard =
-    core::stable_content_id_v1("steel_and_cedar/bell_orchard");
+constexpr auto kCedarDeepwood =
+    core::stable_content_id_v1("steel_and_cedar/cedar_deepwood");
 constexpr auto kRoad = core::stable_content_id_v1("road");
 constexpr auto kFarmland = core::stable_content_id_v1("farmland_orchard_tree");
 constexpr auto kForest = core::stable_content_id_v1("forest_orchard_tree");
 constexpr auto kPaved = core::stable_content_id_v1("paved");
 constexpr auto kBell = core::stable_content_id_v1("paved_orchard_bell");
 constexpr auto kHills = core::stable_content_id_v1("hills");
-
-enum class SurroundingsMode : std::uint8_t {
-    extend_edges,
-    fixed_terrain,
-    natural_blend,
-};
-
-// Temporary presenter policy seam. It deliberately mirrors the shape of the
-// planned portable map `surroundings` setting instead of baking Bell Orchard
-// decisions into the renderer. A later package revision can populate this
-// adapter without changing the apron builder or tactical bounds.
-struct EnvironmentPolicy final {
-    SurroundingsMode mode{SurroundingsMode::natural_blend};
-    std::uint64_t fixed_terrain{kForest};
-    std::uint32_t seed{0x5ECEDA7U};
-    std::uint8_t variation{5U};
-    std::uint8_t apron_cells{3U};
-};
-
-constexpr EnvironmentPolicy kEnvironmentPolicy{};
 
 constexpr auto kRowanMember = core::stable_content_id_v1("rowan");
 constexpr auto kRowanType = core::stable_content_id_v1("rowan_vale");
@@ -151,6 +133,9 @@ struct PlannedMotion final {
 };
 
 enum class ReplayPhase : std::uint8_t {
+    explore_northwest,
+    explore_southeast,
+    return_to_rowan,
     select_rowan,
     aim_rowan,
     move_rowan,
@@ -165,7 +150,8 @@ enum class ReplayPhase : std::uint8_t {
 };
 
 struct ReplayState final {
-    ReplayPhase phase{ReplayPhase::select_rowan};
+    ReplayPhase phase{ReplayPhase::explore_northwest};
+    sim::Position rowan_start{};
     sim::Position rowan_destination{};
     std::uint32_t next_frame{90U};
     std::size_t opponent_commands{};
@@ -176,6 +162,8 @@ struct ReplayState final {
     bool enemy_checkpoint{};
     bool round_checkpoint{};
     bool motion_checkpoint{};
+    bool camera_x_checkpoint{};
+    bool camera_y_checkpoint{};
 };
 
 struct CameraPose final {
@@ -251,6 +239,10 @@ bool verdict_reported = false;
 std::uint32_t performance_frames = 0;
 std::uint8_t restore_checkpoint_delay = 0U;
 bool debug_hud = false;
+float camera_min_x = 0.0F;
+float camera_max_x = 0.0F;
+float camera_min_z = 0.0F;
+float camera_max_z = 0.0F;
 
 constexpr std::uint32_t pack_rgba(
     std::uint8_t red,
@@ -342,6 +334,57 @@ void apply_camera(const CameraPose& pose) {
     current_camera = pose;
 }
 
+CameraPose tactical_camera_for(sim::Position requested) {
+    constexpr float half_visible_x = 3.5F;
+    constexpr float half_visible_y = 2.5F;
+    const int width = board.content->definition.width;
+    const int height = board.content->definition.height;
+    const gp::BoardCameraWindow window = gp::board_camera_window(
+        requested.x, requested.y, width, height,
+        half_visible_x, half_visible_y
+    );
+    assert(gp::board_camera_target_is_playable(window, width, height));
+    constexpr float render_scale = 64.0F;
+    const float centre_x = static_cast<float>(width - 1) * 0.5F;
+    const float centre_y = static_cast<float>(height - 1) * 0.5F;
+    const float offset_x = (window.focus_x - centre_x) * kCell / render_scale;
+    const float offset_z = (window.focus_y - centre_y) * kCell / render_scale;
+    CameraPose result = kTacticalCamera;
+    result.eye_x += offset_x;
+    result.target_x += offset_x;
+    result.eye_z += offset_z;
+    result.target_z += offset_z;
+    return result;
+}
+
+void update_tactical_camera() {
+    if (combat.active) return;
+    const CameraPose wanted = tactical_camera_for(board.game.cursor());
+    constexpr float follow = 0.16F;
+    const CameraPose next{
+        mix(current_camera.eye_x, wanted.eye_x, follow),
+        mix(current_camera.eye_y, wanted.eye_y, follow),
+        mix(current_camera.eye_z, wanted.eye_z, follow),
+        mix(current_camera.target_x, wanted.target_x, follow),
+        mix(current_camera.target_y, wanted.target_y, follow),
+        mix(current_camera.target_z, wanted.target_z, follow),
+        mix(current_camera.ortho, wanted.ortho, follow),
+    };
+    apply_camera(next);
+    camera_min_x = std::min(camera_min_x, next.target_x);
+    camera_max_x = std::max(camera_max_x, next.target_x);
+    camera_min_z = std::min(camera_min_z, next.target_z);
+    camera_max_z = std::max(camera_max_z, next.target_z);
+    if (!replay.camera_x_checkpoint && camera_max_x - camera_min_x > 3.5F) {
+        replay.camera_x_checkpoint = true;
+        debugf("CHECKPOINT PYRITE_CAMERA_HORIZONTAL\n");
+    }
+    if (!replay.camera_y_checkpoint && camera_max_z - camera_min_z > 1.8F) {
+        replay.camera_y_checkpoint = true;
+        debugf("CHECKPOINT PYRITE_CAMERA_VERTICAL\n");
+    }
+}
+
 std::int16_t terrain_lift(std::uint64_t id) {
     if (id == kHills) return 13;
     if (id == kPaved || id == kBell) return 4;
@@ -419,7 +462,10 @@ void build_cell_vertices() {
 }
 
 std::uint32_t environment_hash(std::int16_t x, std::int16_t z) {
-    std::uint32_t value = kEnvironmentPolicy.seed ^ static_cast<std::uint16_t>(x);
+    const std::uint32_t seed = static_cast<std::uint32_t>(
+        board.content->map_id ^ (board.content->map_id >> 32U)
+    );
+    std::uint32_t value = seed ^ static_cast<std::uint16_t>(x);
     value = value * 0x9E3779B1U + static_cast<std::uint16_t>(z);
     value ^= value >> 16U;
     value *= 0x85EBCA6BU;
@@ -447,7 +493,7 @@ std::uint32_t environment_colour(
     } else if (edge_terrain == kHills) {
         red = 61; green = 72; blue = 44;
     }
-    const int spread = std::max(1, static_cast<int>(kEnvironmentPolicy.variation));
+    constexpr int spread = 5;
     const int variation = static_cast<int>(environment_hash(x, z) % spread) -
         spread / 2;
     const int fade = std::max(0, distance - 1) * 5;
@@ -456,6 +502,26 @@ std::uint32_t environment_colour(
         static_cast<std::uint8_t>(std::clamp(green + variation - fade, 28, 125)),
         static_cast<std::uint8_t>(std::clamp(blue + variation / 2 - fade, 20, 90))
     );
+}
+
+std::uint64_t surrounding_terrain_at(int x, int z) {
+    const int width = board.content->definition.width;
+    const int height = board.content->definition.height;
+    const auto& surroundings = board.content->surroundings;
+    if (surroundings.mode == pr::MapSurroundingMode::manual ||
+        surroundings.mode == pr::MapSurroundingMode::fill ||
+        surroundings.mode == pr::MapSurroundingMode::blend) {
+        const std::size_t index = gp::surrounding_index(
+            x, z, width, height, surroundings.depth
+        );
+        assert(index < surroundings.terrain.size());
+        return surroundings.terrain[index];
+    }
+    const int nearest_x = std::clamp(x, 0, width - 1);
+    const int nearest_z = std::clamp(z, 0, height - 1);
+    return board.content->terrain[static_cast<std::size_t>(
+        nearest_z * width + nearest_x
+    )];
 }
 
 void build_environment_vertices() {
@@ -468,36 +534,49 @@ void build_environment_vertices() {
     const std::int16_t ground_x1 = world_x(width + far_cells - 1, width) + kHalfCell;
     const std::int16_t ground_z0 = world_z(-far_cells, height) - kHalfCell;
     const std::int16_t ground_z1 = world_z(height + far_cells - 1, height) + kHalfCell;
-    const std::uint32_t distant = pack_rgba(26U, 38U, 28U);
+    const auto& surroundings = board.content->surroundings;
+    const std::uint32_t distant = surroundings.mode == pr::MapSurroundingMode::solid
+        ? pack_rgba(
+            static_cast<std::uint8_t>((surroundings.colour >> 16U) & 0xFFU),
+            static_cast<std::uint8_t>((surroundings.colour >> 8U) & 0xFFU),
+            static_cast<std::uint8_t>(surroundings.colour & 0xFFU)
+        )
+        : pack_rgba(26U, 38U, 28U);
     set_vertex(board.ground, 0U, ground_x0, -9, ground_z0, distant, 0, 0, normal);
     set_vertex(board.ground, 1U, ground_x1, -9, ground_z0, distant, 0, 0, normal);
     set_vertex(board.ground, 2U, ground_x1, -9, ground_z1, distant, 0, 0, normal);
     set_vertex(board.ground, 3U, ground_x0, -9, ground_z1, distant, 0, 0, normal);
 
     board.apron_cell_count = 0U;
-    const int apron = kEnvironmentPolicy.apron_cells;
+    const int apron = std::min<int>(8, surroundings.depth);
+    if (surroundings.mode == pr::MapSurroundingMode::none ||
+        surroundings.mode == pr::MapSurroundingMode::solid) {
+        return;
+    }
+    if (surroundings.mode == pr::MapSurroundingMode::manual ||
+        surroundings.mode == pr::MapSurroundingMode::fill ||
+        surroundings.mode == pr::MapSurroundingMode::blend) {
+        assertf(
+            surroundings.terrain.size() ==
+                gp::expected_surrounding_cells(width, height, apron),
+            "Packaged surroundings perimeter is incomplete"
+        );
+    } else {
+        assertf(
+            surroundings.mode == pr::MapSurroundingMode::automatic,
+            "Unsupported packaged surroundings mode"
+        );
+        assertf(surroundings.terrain.empty(),
+            "Automatic surroundings must not materialize terrain");
+    }
     for (int z = -apron; z < static_cast<int>(height) + apron; ++z) {
         for (int x = -apron; x < static_cast<int>(width) + apron; ++x) {
             if (x >= 0 && x < width && z >= 0 && z < height) continue;
             assert(board.apron_cell_count < kMaxApronCells);
-            const int nearest_x = std::clamp(x, 0, static_cast<int>(width) - 1);
-            const int nearest_z = std::clamp(z, 0, static_cast<int>(height) - 1);
-            const std::uint64_t nearest_terrain = board.content->terrain[
-                static_cast<std::size_t>(nearest_z * width + nearest_x)
-            ];
             const int dx = x < 0 ? -x : (x >= width ? x - width + 1 : 0);
             const int dz = z < 0 ? -z : (z >= height ? z - height + 1 : 0);
             const int distance = std::max(dx, dz);
-            std::uint64_t edge_terrain = nearest_terrain;
-            if (kEnvironmentPolicy.mode == SurroundingsMode::fixed_terrain) {
-                edge_terrain = kEnvironmentPolicy.fixed_terrain;
-            } else if (kEnvironmentPolicy.mode == SurroundingsMode::natural_blend &&
-                distance > 1 && nearest_terrain != kForest &&
-                nearest_terrain != kFarmland) {
-                edge_terrain = environment_hash(
-                    static_cast<std::int16_t>(x), static_cast<std::int16_t>(z)
-                ) % 3U == 0U ? kForest : kFarmland;
-            }
+            const std::uint64_t edge_terrain = surrounding_terrain_at(x, z);
             const std::int16_t cx = world_x(static_cast<std::int16_t>(x), width);
             const std::int16_t cz = world_z(static_cast<std::int16_t>(z), height);
             constexpr std::int16_t apron_half = kCell / 2;
@@ -698,6 +777,7 @@ void append_tree(
 void build_tree_vertices() {
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
+    board.tree_count = 0U;
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const auto id = board.content->terrain[index];
         if (id != kForest && id != kFarmland) continue;
@@ -723,17 +803,14 @@ void build_tree_vertices() {
     // A sparse deterministic edge forest grounds the finite tactical board in
     // a larger world. These cells are decorative only: they never enter the
     // encounter dimensions, route planner, cursor or highlights.
-    for (int z = -2; z < static_cast<int>(height) + 2; ++z) {
-        for (int x = -2; x < static_cast<int>(width) + 2; ++x) {
+    const int apron = std::min<int>(8, board.content->surroundings.depth);
+    for (int z = -apron; z < static_cast<int>(height) + apron; ++z) {
+        for (int x = -apron; x < static_cast<int>(width) + apron; ++x) {
             if (x >= 0 && x < width && z >= 0 && z < height) continue;
             const std::uint32_t hash = environment_hash(
                 static_cast<std::int16_t>(x), static_cast<std::int16_t>(z)
             );
-            const int nearest_x = std::clamp(x, 0, static_cast<int>(width) - 1);
-            const int nearest_z = std::clamp(z, 0, static_cast<int>(height) - 1);
-            const std::uint64_t edge_terrain = board.content->terrain[
-                static_cast<std::size_t>(nearest_z * width + nearest_x)
-            ];
+            const std::uint64_t edge_terrain = surrounding_terrain_at(x, z);
             const std::uint32_t divisor =
                 (edge_terrain == kForest || edge_terrain == kFarmland) ? 3U : 7U;
             if (hash % divisor != 0U || board.tree_count >= kMaxTrees) continue;
@@ -756,7 +833,11 @@ UnitArt* art_for_type(std::uint64_t unit_type) {
     if (unit_type == kMarchSwordType) return &board.march_sword;
     if (unit_type == kRetainerType) return &board.retainer;
     if (unit_type == kArcherType) return &board.archer;
-    return nullptr;
+    // The gameplay slice stages five curated identities. A package may expose
+    // additional Steel and Cedar types before the full streaming art bank is
+    // connected; keep those real units visible with the opposing sword
+    // silhouette rather than silently omitting them from the board.
+    return &board.march_sword;
 }
 
 sprite_t* sprite_for_type(std::uint64_t unit_type, VisualPose pose = VisualPose::idle) {
@@ -967,7 +1048,7 @@ void build_cursor_vertices() {
 void load_runtime_board() {
     const bool loaded = board.runtime.load(
         "rom:/steel-and-cedar.gpk",
-        kBellOrchard,
+        kCedarDeepwood,
         1
     );
     assertf(
@@ -976,8 +1057,14 @@ void load_runtime_board() {
         static_cast<unsigned>(board.runtime.error())
     );
     board.content = &board.runtime.encounter();
-    assertf(board.content->definition.width == 8 && board.content->definition.height == 6,
-        "Unexpected Bell Orchard dimensions");
+    assertf(board.content->definition.width == 14 && board.content->definition.height == 9,
+        "Unexpected Cedar Deepwood dimensions");
+    assertf(
+        board.content->surroundings.mode == pr::MapSurroundingMode::automatic &&
+            board.content->surroundings.depth == 5U &&
+            board.content->surroundings.terrain.empty(),
+        "Cedar Deepwood packaged surroundings were not preserved"
+    );
     for (std::size_t index = 0; index < board.content->placements.size(); ++index) {
         const auto source = board.content->placements[index].source_key_id;
         const auto unit = board.content->placements[index].unit_id;
@@ -996,19 +1083,23 @@ void load_runtime_board() {
         board.game.snapshot().units.begin(), board.game.snapshot().units.end(),
         [](const sim::UnitSnapshot& unit) { return unit.id == board.rowan_id; }
     );
+    replay.rowan_start = rowan.position;
     replay.rowan_destination = rowan.position;
+    int best_score = -1;
     for (const sim::Position candidate :
          sim::reachable_tiles(board.game.snapshot(), board.rowan_id)) {
         if (candidate == rowan.position) continue;
-        if (candidate.x > replay.rowan_destination.x ||
-            (candidate.x == replay.rowan_destination.x &&
-             candidate.y < replay.rowan_destination.y)) {
+        const int dx = std::abs(candidate.x - rowan.position.x);
+        const int dy = std::abs(candidate.y - rowan.position.y);
+        const int score = (dx > 0 && dy > 0 ? 100 : 0) + dx + dy;
+        if (score > best_score) {
+            best_score = score;
             replay.rowan_destination = candidate;
         }
     }
     assertf(
         replay.rowan_destination != rowan.position,
-        "Bell Orchard must give Rowan a legal movement destination"
+        "Cedar Deepwood must give Rowan a legal movement destination"
     );
     board.cells = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxCells * kCellVertexCount / 2U)));
@@ -1084,12 +1175,13 @@ void load_runtime_board() {
     board.loaded = true;
     debugf(
         "GRANDLEON_RENDERER identity=pyrite-tiny3d fallback=none "
-        "surroundings=natural_blend hud_default=off\n"
+        "surroundings=package hud_default=off\n"
     );
     debugf(
         "GRANDLEON_PYRITE_RUNTIME package=%lu map=%llu size=%ux%u terrain=%lu "
         "units=%lu rowan=%d,%d hp=%d apron=%lu trees=%lu elevation=%lu "
-        "landmark=%lu renderer=pyrite-tiny3d\n",
+        "landmark=%lu surroundings_mode=%u surroundings_depth=%u "
+        "surroundings_cells=%lu renderer=pyrite-tiny3d\n",
         static_cast<unsigned long>(board.runtime.package_size()), board.content->map_id,
         board.content->definition.width, board.content->definition.height,
         static_cast<unsigned long>(board.content->terrain.size()),
@@ -1098,7 +1190,10 @@ void load_runtime_board() {
         static_cast<unsigned long>(board.apron_cell_count),
         static_cast<unsigned long>(board.tree_count),
         static_cast<unsigned long>(board.elevation_vertex_count),
-        static_cast<unsigned long>(board.landmark_vertex_count)
+        static_cast<unsigned long>(board.landmark_vertex_count),
+        static_cast<unsigned>(board.content->surroundings.mode),
+        static_cast<unsigned>(board.content->surroundings.depth),
+        static_cast<unsigned long>(board.content->surroundings.terrain.size())
     );
 }
 
@@ -1745,6 +1840,39 @@ void update_replay() {
         return;
     }
     switch (replay.phase) {
+        case ReplayPhase::explore_northwest:
+            if (board.game.cursor() == sim::Position{0, 0}) {
+                replay.phase = ReplayPhase::explore_southeast;
+                debugf("CHECKPOINT PYRITE_CAMERA_NORTHWEST\n");
+                replay.next_frame = frame_count + 30U;
+            } else {
+                nudge_toward({0, 0});
+                replay.next_frame = frame_count + 3U;
+            }
+            break;
+        case ReplayPhase::explore_southeast: {
+            const sim::Position edge{
+                static_cast<std::int16_t>(board.content->definition.width - 1),
+                static_cast<std::int16_t>(board.content->definition.height - 1),
+            };
+            if (board.game.cursor() == edge) {
+                replay.phase = ReplayPhase::return_to_rowan;
+                debugf("CHECKPOINT PYRITE_CAMERA_SOUTHEAST\n");
+                replay.next_frame = frame_count + 30U;
+            } else {
+                nudge_toward(edge);
+                replay.next_frame = frame_count + 3U;
+            }
+            break;
+        }
+        case ReplayPhase::return_to_rowan:
+            if (board.game.cursor() == replay.rowan_start) {
+                replay.phase = ReplayPhase::select_rowan;
+            } else {
+                nudge_toward(replay.rowan_start);
+            }
+            replay.next_frame = frame_count + 3U;
+            break;
         case ReplayPhase::select_rowan:
             assertf(issue(gp::GameplaySlice::Action::confirm), "Rowan select failed");
             assert(board.game.selected() == board.rowan_id);
@@ -2007,12 +2135,17 @@ void onGameInit() {
 
 void onSceneUpdate() {
     if (!camera_configured) {
-        apply_camera(kTacticalCamera);
+        apply_camera(tactical_camera_for(board.game.cursor()));
+        camera_min_x = current_camera.target_x;
+        camera_max_x = current_camera.target_x;
+        camera_min_z = current_camera.target_z;
+        camera_max_z = current_camera.target_z;
         camera_configured = true;
     }
     physical_input();
     update_combat();
     update_replay();
+    update_tactical_camera();
     if (motion.active && frame_count - motion.started >= motion.total_frames) {
         motion.active = false;
     }
@@ -2049,7 +2182,10 @@ void onSceneUpdate() {
         assert(board.game.accepted_commands() >= 4U);
         assert(replay.opponent_commands > 0U);
         assert(board.game.snapshot().round >= 1U);
-        assert(!combat.active && combat.exchanges > 0U);
+        assert(!combat.active);
+        assert(replay.camera_x_checkpoint && replay.camera_y_checkpoint);
+        assert(camera_max_x - camera_min_x > 3.5F);
+        assert(camera_max_z - camera_min_z > 1.8F);
         assertf(
             get_memory_size() <= 4 * 1024 * 1024,
             "Pyrite gameplay slice requires more than base N64 memory"
@@ -2058,7 +2194,7 @@ void onSceneUpdate() {
             "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=%llu min_frame_us=%llu "
             "max_frame_us=%llu fps_x100=%lu heap_used=%lu heap_total=%lu heap_free=%lu "
             "rdram=%d commands=%lu enemy_commands=%lu round=%lu combat=%lu "
-            "rowan=%d,%d hash=%llu\n",
+            "rowan=%d,%d camera_span_x_x100=%d camera_span_y_x100=%d hash=%llu\n",
             TICKS_TO_US(elapsed) / 120U, TICKS_TO_US(min_frame_ticks),
             TICKS_TO_US(max_frame_ticks),
             static_cast<unsigned long>(VI::SwapChain::getFPS() * 100.0F),
@@ -2069,6 +2205,8 @@ void onSceneUpdate() {
             static_cast<unsigned long>(board.game.snapshot().round),
             static_cast<unsigned long>(combat.exchanges),
             rowan->position.x, rowan->position.y,
+            static_cast<int>((camera_max_x - camera_min_x) * 100.0F),
+            static_cast<int>((camera_max_z - camera_min_z) * 100.0F),
             board.game.encounter().canonical_hash()
         );
         debugf("RESULT PASS PYRITE_GAMEPLAY\n");

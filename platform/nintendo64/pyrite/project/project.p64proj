@@ -34,7 +34,7 @@
       }
     ]
   },
-  "name": "Grandleon Pyrite Bell Orchard",
+  "name": "Grandleon Pyrite Cedar Deepwood",
   "pathEmu": "ares",
   "pathN64Inst": "",
   "romHeader": {
@@ -50,7 +50,7 @@
     "rtc": false,
     "saveType": 0
   },
-  "romName": "grandleon_pyrite_bell_orchard",
+  "romName": "grandleon_pyrite_cedar_deepwood",
   "sceneIdLastOpened": 1,
   "sceneIdOnBoot": 1,
   "sceneIdOnReset": 1,

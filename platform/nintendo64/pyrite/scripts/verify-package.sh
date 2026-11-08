@@ -20,12 +20,15 @@ for file in \
     project/src/user/BoardShadows.hpp \
     project/src/user/BoardShadows.cpp \
     project/src/user/BoardShadows.cpp.conf \
+    project/src/user/BoardCamera.hpp \
+    project/src/user/BoardSurroundings.hpp \
     project/src/user/GameplaySlice.hpp \
     project/src/user/GameplaySlice.cpp \
     project/src/user/GameplaySlice.cpp.conf \
     project/src/user/GpkRuntimeAdapter.hpp \
     project/src/user/GpkRuntimeAdapter.cpp \
     project/src/user/SteelCedarBoard.cpp \
+    tests/board_camera_test.cpp \
     scripts/build.sh scripts/stage-inputs.sh scripts/fetch-pyrite.sh \
     scripts/generate-soft-shadow.py \
     scripts/write-asset-config.py \

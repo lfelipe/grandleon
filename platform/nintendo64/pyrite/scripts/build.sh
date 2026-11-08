@@ -13,6 +13,12 @@ output_dir=${2:-/tmp/grandleon-pyrite-build}
 mkdir -p "$output_dir" "$output_dir/cache"
 output_dir=$(CDPATH= cd -- "$output_dir" && pwd)
 
+host_cxx=${CXX:-c++}
+"$host_cxx" -std=c++20 -Wall -Wextra -Werror -pedantic \
+    "$package_root/tests/board_camera_test.cpp" \
+    -o "$output_dir/board_camera_test"
+"$output_dir/board_camera_test"
+
 . "$package_root/versions.env"
 pyrite_cli=$($package_root/scripts/fetch-pyrite.sh \
     "$package_root" "$output_dir/cache")
@@ -50,13 +56,13 @@ export GRANDLEON_REPO="$repo_root"
 export GRANDLEON_N64_BUILD="$n64_build"
 "$pyrite_cli" --cli --cmd build "$output_dir/project/project.p64proj"
 
-rom="$output_dir/project/grandleon_pyrite_bell_orchard.z64"
+rom="$output_dir/project/grandleon_pyrite_cedar_deepwood.z64"
 test -s "$rom"
 # A release/export cutover must distinguish this artifact without trusting a
 # filename. The canonical big-endian ROM header is stable even though scanning
 # arbitrary N64 code strings is not (the linker may word-swap string data).
 rom_identity=$(dd if="$rom" bs=1 skip=32 count=20 status=none | tr -d '\000')
-if [ "$rom_identity" != 'Grandleon Pyrite Bel' ]; then
+if [ "$rom_identity" != 'Grandleon Pyrite Ced' ]; then
     echo "unexpected renderer identity in N64 ROM header: $rom_identity" >&2
     exit 1
 fi
