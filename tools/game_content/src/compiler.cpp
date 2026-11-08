@@ -57,6 +57,67 @@ void put_ids(Bytes& out, const std::vector<StableId>& ids) {
     }
 }
 
+struct ResolvedSurroundingTerrain final {
+    std::vector<StableId> ids;
+    std::vector<std::uint8_t> kinds;
+};
+
+ResolvedSurroundingTerrain resolve_surrounding_terrain(const Map& map) {
+    const MapSurroundings& outside = map.surroundings;
+    if (outside.mode == MapSurroundingMode::manual) {
+        return {outside.terrain, outside.terrain_kinds};
+    }
+    if (outside.mode != MapSurroundingMode::fill &&
+        outside.mode != MapSurroundingMode::blend) {
+        return {};
+    }
+    ResolvedSurroundingTerrain result;
+    const std::int32_t depth = outside.depth;
+    const std::int32_t width = map.width;
+    const std::int32_t height = map.height;
+    if (depth <= 0 || width <= 0 || height <= 0 ||
+        map.terrain.size() != static_cast<std::size_t>(width) * height) {
+        return {};
+    }
+    const std::size_t expected =
+        static_cast<std::size_t>(width + depth * 2) *
+            static_cast<std::size_t>(height + depth * 2) -
+        static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    result.ids.reserve(expected);
+    result.kinds.reserve(expected);
+    for (std::int32_t y = -depth; y < height + depth; ++y) {
+        for (std::int32_t x = -depth; x < width + depth; ++x) {
+            if (x >= 0 && y >= 0 && x < width && y < height) continue;
+            const std::int32_t nearest_x = std::clamp(x, 0, width - 1);
+            const std::int32_t nearest_y = std::clamp(y, 0, height - 1);
+            const std::size_t nearest =
+                static_cast<std::size_t>(nearest_y) * map.width + nearest_x;
+            const std::int32_t outside_x =
+                x < 0 ? -x : (x >= width ? x - width + 1 : 0);
+            const std::int32_t outside_y =
+                y < 0 ? -y : (y >= height ? y - height + 1 : 0);
+            const std::uint32_t distance = static_cast<std::uint32_t>(
+                std::max(outside_x, outside_y)
+            );
+            const std::uint32_t sample =
+                (static_cast<std::uint32_t>(x + depth) * 1103515245U) ^
+                (static_cast<std::uint32_t>(y + depth) * 12345U);
+            const bool use_fill = outside.mode == MapSurroundingMode::fill ||
+                distance >= outside.depth ||
+                (outside.depth > 0U && sample % outside.depth < distance);
+            result.ids.push_back(
+                use_fill ? outside.fill_terrain : map.terrain[nearest]
+            );
+            result.kinds.push_back(use_fill ? outside.fill_terrain_kind : (
+                nearest < map.terrain_kinds.size()
+                    ? map.terrain_kinds[nearest]
+                    : terrain_kind_unknown
+            ));
+        }
+    }
+    return result;
+}
+
 template <typename Definition>
 bool validate_identity(
     const std::vector<Definition>& definitions,
@@ -1067,6 +1128,8 @@ CompileResult compile(const GameSource& source) {
             2U * outside.depth;
         const std::uint64_t expected_perimeter =
             outer_width * outer_height - cell_count;
+        const ResolvedSurroundingTerrain resolved_outside =
+            resolve_surrounding_terrain(definition);
         const bool sound =
             outside.mode == MapSurroundingMode::none
                 ? (!outside.states_colour && outside.depth == 0 &&
@@ -1082,6 +1145,13 @@ CompileResult compile(const GameSource& source) {
                    outside.depth <= 8 &&
                    outside.terrain.size() == expected_perimeter &&
                    outside.terrain_kinds.size() == outside.terrain.size())
+            : outside.mode == MapSurroundingMode::fill ||
+                    outside.mode == MapSurroundingMode::blend
+                ? (!outside.states_colour && outside.depth >= 1 &&
+                   outside.depth <= 8 && outside.fill_terrain != 0 &&
+                   outside.terrain.empty() &&
+                   resolved_outside.ids.size() == expected_perimeter &&
+                   resolved_outside.kinds.size() == expected_perimeter)
                 : false;
         if (!sound) {
             result.diagnostics.push_back(
@@ -1106,6 +1176,22 @@ CompileResult compile(const GameSource& source) {
                         "maps[" + std::to_string(definition.id) +
                             "].surroundings.terrain[" +
                             std::to_string(cell) + "]",
+                        definition.id
+                    }
+                );
+            }
+        }
+        if (outside.fill_terrain != 0) {
+            const auto placed = terrain_kinds.emplace(
+                outside.fill_terrain, outside.fill_terrain_kind
+            );
+            if (!placed.second &&
+                placed.first->second != outside.fill_terrain_kind) {
+                result.diagnostics.push_back(
+                    {
+                        DiagnosticCode::invalid_map,
+                        "maps[" + std::to_string(definition.id) +
+                            "].surroundings.terrainId",
                         definition.id
                     }
                 );
@@ -2159,6 +2245,8 @@ CompileResult compile(const GameSource& source) {
             );
             for (const Map* map : ordered) {
                 const MapSurroundings& outside = map->surroundings;
+                const ResolvedSurroundingTerrain resolved =
+                    resolve_surrounding_terrain(*map);
                 Bytes bytes;
                 bytes.push_back(static_cast<std::uint8_t>(outside.mode));
                 bytes.push_back(outside.depth);
@@ -2173,9 +2261,9 @@ CompileResult compile(const GameSource& source) {
                 ));
                 put_u32(
                     bytes,
-                    static_cast<std::uint32_t>(outside.terrain.size())
+                    static_cast<std::uint32_t>(resolved.ids.size())
                 );
-                for (StableId terrain : outside.terrain) {
+                for (StableId terrain : resolved.ids) {
                     put_u64(bytes, terrain);
                 }
                 section.records.push_back({map->id, std::move(bytes)});

@@ -83,9 +83,10 @@ var discard_armed_until := 0
 var resize_width := 1
 var resize_height := 1
 var resize_preview: Dictionary = {}
-var surroundings_mode := "solid"
+var surroundings_mode := "continue"
 var surroundings_depth := SURROUNDINGS_RECOMMENDED_DEPTH
 var surroundings_colour := Color("07131d")
+var surroundings_fill_terrain := "grass"
 var preview_players := 1
 var force_candidates: Array[Dictionary] = []
 var force_candidate_index := 0
@@ -177,6 +178,8 @@ var surroundings_layer: Control
 var surroundings_mode_button: Button
 var surroundings_depth_row: HBoxContainer
 var surroundings_depth_label: Label
+var surroundings_terrain_row: HBoxContainer
+var surroundings_terrain_button: Button
 var surroundings_colour_controls: VBoxContainer
 var surroundings_colour_preview: ColorRect
 var surroundings_colour_label: Label
@@ -698,13 +701,15 @@ func _refresh_grid(focus_index := -1) -> void:
 	var terrain: Array = map.get("terrain", [])
 	var landmark_cells := _landmark_cells_by_index(width, height, terrain)
 	var visibility_cells := _visibility_cells(map)
-	var outside: Dictionary = (
+	var outside: Dictionary = _surroundings_preview_value(map)
+	if outside.is_empty():
+		outside = (
 		map.get("surroundings", {}) if map.get("surroundings", {}) is Dictionary else {}
-	)
+		)
 	var outside_mode := str(outside.get("mode", "none"))
 	var outside_depth := (
 		clampi(int(outside.get("depth", 0)), 0, 8)
-		if outside_mode in ["automatic", "manual"] else 0
+		if outside_mode in ["continue", "automatic", "fill", "blend", "manual"] else 0
 	)
 	var outer_width := width + outside_depth * 2
 	var outer_height := height + outside_depth * 2
@@ -760,9 +765,16 @@ func _refresh_grid(focus_index := -1) -> void:
 				var outside_name := _automatic_surrounding_name(map, outer_x, outer_y)
 				if outside_mode == "manual" and ring_index < manual_terrain.size():
 					outside_name = str(manual_terrain[ring_index])
+				elif outside_mode == "fill":
+					outside_name = str(outside.get("terrainId", selected_terrain))
+				elif outside_mode == "blend" and _natural_blend_uses_fill(
+					outer_x, outer_y, width, height, outside_depth
+				):
+					outside_name = str(outside.get("terrainId", selected_terrain))
 				var outside_cell := _button("", tile_size, tile_size)
 				outside_cell.icon = _terrain_icon(outside_name, 255)
 				outside_cell.expand_icon = true
+				outside_cell.modulate = Color(0.72, 0.78, 0.82, 0.92)
 				outside_cell.tooltip_text = _t("map.cell.outside_tooltip", {
 					"x": outer_x, "y": outer_y, "terrain": _terrain_label(outside_name),
 				})
@@ -787,6 +799,7 @@ func _refresh_grid(focus_index := -1) -> void:
 			})
 			if visibility_cells.has(index):
 				_add_visibility_marker(cell, tile_size)
+			_add_playable_boundary(cell, outer_x, outer_y, width, height, tile_size)
 			if not landmark.is_empty() and landmark.anchor == Vector2i(outer_x, outer_y):
 				_add_landmark_badge(cell, str(landmark.kind), tile_size)
 			if placements_by_cell.has(index):
@@ -801,6 +814,29 @@ func _refresh_grid(focus_index := -1) -> void:
 			grid.add_child(cell)
 	if focus_index >= 0:
 		call_deferred("_focus_cell", focus_index)
+
+
+func _add_playable_boundary(
+	cell: Control, x: int, y: int, width: int, height: int, tile_size: int
+) -> void:
+	var colour := Color("69d9ff")
+	colour.a = 0.92
+	var edges := []
+	if x == 0:
+		edges.append(Rect2(0, 0, 3, tile_size))
+	if x == width - 1:
+		edges.append(Rect2(tile_size - 3, 0, 3, tile_size))
+	if y == 0:
+		edges.append(Rect2(0, 0, tile_size, 3))
+	if y == height - 1:
+		edges.append(Rect2(0, tile_size - 3, tile_size, 3))
+	for edge: Rect2 in edges:
+		var line := ColorRect.new()
+		line.position = edge.position
+		line.size = edge.size
+		line.color = colour
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cell.add_child(line)
 
 
 func _cluster_landmark_for_cell(
@@ -3519,9 +3555,14 @@ func _open_surroundings() -> void:
 	var value: Dictionary = (
 		map.get("surroundings", {}) if map.get("surroundings", {}) is Dictionary else {}
 	)
-	surroundings_mode = str(value.get("mode", "solid"))
-	if surroundings_mode not in ["solid", "automatic", "manual"]:
-		surroundings_mode = "solid"
+	surroundings_mode = str(value.get("mode", "continue"))
+	if surroundings_mode == "automatic":
+		surroundings_mode = "continue"
+	if surroundings_mode not in ["continue", "fill", "blend", "solid", "manual"]:
+		surroundings_mode = "continue"
+	surroundings_fill_terrain = str(value.get("terrainId", selected_terrain))
+	if surroundings_fill_terrain not in TERRAIN_PALETTE:
+		surroundings_fill_terrain = selected_terrain
 	surroundings_depth = clampi(
 		int(value.get("depth", SURROUNDINGS_RECOMMENDED_DEPTH)), 1, 8
 	)
@@ -3538,12 +3579,20 @@ func _open_surroundings() -> void:
 
 func _close_surroundings() -> void:
 	surroundings_layer.visible = false
+	_refresh_grid()
 	setup_button.call_deferred("grab_focus")
 
 
 func _cycle_surroundings_mode() -> void:
-	var modes := ["solid", "automatic", "manual"]
-	surroundings_mode = modes[(modes.find(surroundings_mode) + 1) % modes.size()]
+	var modes := ["continue", "fill", "blend"]
+	var current := modes.find(surroundings_mode)
+	surroundings_mode = modes[(current + 1) % modes.size()] if current >= 0 else modes[0]
+	_update_surroundings_view()
+
+
+func _cycle_surroundings_terrain() -> void:
+	var current := TERRAIN_PALETTE.find(surroundings_fill_terrain)
+	surroundings_fill_terrain = TERRAIN_PALETTE[(current + 1) % TERRAIN_PALETTE.size()]
 	_update_surroundings_view()
 
 
@@ -3571,6 +3620,10 @@ func _update_surroundings_view() -> void:
 	surroundings_mode_button.text = _t("map.surroundings.mode." + surroundings_mode)
 	surroundings_colour_controls.visible = surroundings_mode == "solid"
 	surroundings_depth_row.visible = surroundings_mode != "solid"
+	surroundings_terrain_row.visible = surroundings_mode in ["fill", "blend"]
+	surroundings_terrain_button.text = _t("map.surroundings.terrain_value", {
+		"terrain": _terrain_label(surroundings_fill_terrain),
+	})
 	surroundings_depth_label.text = _t("map.surroundings.depth", {"depth": surroundings_depth})
 	surroundings_colour_preview.color = surroundings_colour
 	surroundings_colour_label.text = "#" + surroundings_colour.to_html(false).to_upper()
@@ -3584,6 +3637,8 @@ func _update_surroundings_view() -> void:
 	if surroundings_mode == "solid":
 		surroundings_guidance_label.text = _t("map.surroundings.solid_help")
 		surroundings_guidance_label.add_theme_color_override("font_color", Color("72e08f"))
+		if surroundings_layer.visible:
+			_refresh_grid()
 		return
 	var required := _surrounding_perimeter_count(width, height, surroundings_depth)
 	var recommended := _surrounding_perimeter_count(
@@ -3599,10 +3654,19 @@ func _update_surroundings_view() -> void:
 			})
 		)
 	)
-	if surroundings_mode == "automatic":
+	if surroundings_mode in ["continue", "automatic"]:
 		surroundings_guidance_label.text = _t("map.surroundings.automatic_help", {
 			"cells": required, "coverage": coverage,
 		})
+	elif surroundings_mode in ["fill", "blend"]:
+		surroundings_guidance_label.text = _t(
+			"map.surroundings.%s_help" % surroundings_mode,
+			{
+				"cells": required,
+				"terrain": _terrain_label(surroundings_fill_terrain),
+				"coverage": coverage,
+			}
+		)
 	else:
 		var value: Dictionary = (
 			map.get("surroundings", {}) if map.get("surroundings", {}) is Dictionary else {}
@@ -3617,6 +3681,37 @@ func _update_surroundings_view() -> void:
 		"font_color",
 		Color("ffca63") if surroundings_depth < SURROUNDINGS_RECOMMENDED_DEPTH else Color("72e08f")
 	)
+	if surroundings_layer.visible:
+		_refresh_grid()
+
+
+func _surroundings_preview_value(map: Dictionary) -> Dictionary:
+	if surroundings_layer == null or not surroundings_layer.visible:
+		return {}
+	var preview := {
+		"mode": surroundings_mode,
+		"depth": surroundings_depth,
+		"terrainId": surroundings_fill_terrain,
+	}
+	if surroundings_mode == "solid":
+		preview["color"] = "#" + surroundings_colour.to_html(false)
+	if surroundings_mode == "manual":
+		var current: Variant = map.get("surroundings", {})
+		if current is Dictionary:
+			preview["terrain"] = current.get("terrain", [])
+	return preview
+
+
+func _natural_blend_uses_fill(
+	x: int, y: int, width: int, height: int, depth: int
+) -> bool:
+	var outside_x := -x if x < 0 else (x - width + 1 if x >= width else 0)
+	var outside_y := -y if y < 0 else (y - height + 1 if y >= height else 0)
+	var distance := maxi(outside_x, outside_y)
+	if distance >= depth:
+		return true
+	var sample := (((x + depth) * 1103515245) ^ ((y + depth) * 12345)) & 0xffffffff
+	return depth > 0 and sample % depth < distance
 
 
 func _automatic_surrounding_terrain(map: Dictionary, depth: int) -> Array[String]:
@@ -3654,7 +3749,8 @@ func _apply_surroundings() -> void:
 		surroundings_mode,
 		"#" + surroundings_colour.to_html(false) if surroundings_mode == "solid" else "",
 		0 if surroundings_mode == "solid" else surroundings_depth,
-		terrain_ids
+		terrain_ids,
+		surroundings_fill_terrain if surroundings_mode in ["fill", "blend"] else ""
 	)
 	if not updated.ok:
 		_set_status(_t("map.error.surroundings_refused", {"detail": _diagnostic_detail(updated)}), true)
@@ -3696,7 +3792,7 @@ func _paint_surrounding_cell(ring_index: int) -> void:
 		terrain_ids.append(str(terrain_id))
 	var updated: Dictionary = compiler.set_map_surroundings(
 		source, str(map.get("id", "")), "manual", "",
-		int(value.get("depth", SURROUNDINGS_RECOMMENDED_DEPTH)), terrain_ids
+		int(value.get("depth", SURROUNDINGS_RECOMMENDED_DEPTH)), terrain_ids, ""
 	)
 	if not updated.ok:
 		_set_status(_t("map.error.outside_edit_refused", {"detail": _diagnostic_detail(updated)}), true)
@@ -4087,7 +4183,7 @@ func _map_grid_child(index: int) -> int:
 		map.get("surroundings", {}) if map.get("surroundings", {}) is Dictionary else {}
 	)
 	var mode := str(value.get("mode", "none"))
-	var depth := clampi(int(value.get("depth", 0)), 0, 8) if mode in ["automatic", "manual"] else 0
+	var depth := clampi(int(value.get("depth", 0)), 0, 8) if mode in ["continue", "automatic", "fill", "blend", "manual"] else 0
 	var outer_width := width + depth * 2
 	return (floori(float(safe) / float(width)) + depth) * outer_width + safe % width + depth
 
@@ -5948,6 +6044,17 @@ func _build_surroundings_overlay() -> void:
 	var depth_plus := _button("+", 110, 58)
 	depth_plus.pressed.connect(_change_surroundings_depth.bind(1))
 	surroundings_depth_row.add_child(depth_plus)
+
+	surroundings_terrain_row = HBoxContainer.new()
+	surroundings_terrain_row.add_theme_constant_override("separation", 16)
+	column.add_child(surroundings_terrain_row)
+	var terrain_title := _label(_t("map.surroundings.terrain"), 18, Color("718896"))
+	terrain_title.custom_minimum_size.x = 180
+	terrain_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	surroundings_terrain_row.add_child(terrain_title)
+	surroundings_terrain_button = _button("", 650, 58)
+	surroundings_terrain_button.pressed.connect(_cycle_surroundings_terrain)
+	surroundings_terrain_row.add_child(surroundings_terrain_button)
 
 	surroundings_colour_controls = VBoxContainer.new()
 	surroundings_colour_controls.add_theme_constant_override("separation", 8)

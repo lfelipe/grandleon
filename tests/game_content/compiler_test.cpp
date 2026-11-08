@@ -630,6 +630,17 @@ void writes_map_surroundings_only_when_authored() {
         "authored surroundings are a sparse presentation section keyed by map"
     );
 
+    auto filled = campaign_source();
+    auto& fill = filled.maps.front().surroundings;
+    fill.mode = gc::MapSurroundingMode::fill;
+    fill.depth = 2;
+    fill.fill_terrain = 99;
+    fill.fill_terrain_kind = gc::terrain_kind_index("forest");
+    expect(
+        static_cast<bool>(gc::compile(filled)),
+        "a portable terrain fill is materialized by the compiler"
+    );
+
     framed.maps.front().surroundings.terrain.pop_back();
     expect(
         has_diagnostic(

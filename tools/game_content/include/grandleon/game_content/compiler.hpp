@@ -323,6 +323,8 @@ enum class MapSurroundingMode : std::uint8_t {
     solid = 1,
     automatic = 2,
     manual = 3,
+    fill = 4,
+    blend = 5,
 };
 
 struct MapSurroundings final {
@@ -330,6 +332,10 @@ struct MapSurroundings final {
     std::uint32_t colour{0x07131dU};
     bool states_colour{false};
     std::uint8_t depth{};
+    // Fill/blend retain the authored choice while the compiler materializes a
+    // complete portable perimeter for every renderer.
+    StableId fill_terrain{};
+    std::uint8_t fill_terrain_kind{terrain_kind_unknown};
     // Manual perimeter cells in row-major outer-rectangle order, omitting the
     // playable rectangle. They are presentation identities, never map cells.
     std::vector<StableId> terrain;

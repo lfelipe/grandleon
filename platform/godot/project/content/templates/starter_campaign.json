@@ -131,7 +131,7 @@
         "grass", "grass", "grass", "road", "road", "grass", "grass", "grass",
         "forest", "grass", "grass", "road", "road", "grass", "grass", "forest"
       ],
-      "surroundings": { "mode": "automatic", "depth": 3 }
+      "surroundings": { "mode": "continue", "depth": 3 }
     }
   ],
   "objectives": [

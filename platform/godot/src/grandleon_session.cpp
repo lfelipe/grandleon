@@ -1780,6 +1780,12 @@ gd::Dictionary GrandleonSession::event_dictionary(
                              : event.surroundings.mode ==
                                        pr::MapSurroundingMode::manual
                                  ? "manual"
+                             : event.surroundings.mode ==
+                                       pr::MapSurroundingMode::fill
+                                 ? "fill"
+                             : event.surroundings.mode ==
+                                       pr::MapSurroundingMode::blend
+                                 ? "blend"
                                  : "none";
             result["colour"] = static_cast<std::int64_t>(
                 event.surroundings.colour

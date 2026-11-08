@@ -193,7 +193,8 @@ struct SourceMapCell final {
     std::string_view mode,
     std::string_view colour,
     std::int64_t depth,
-    const std::vector<std::string>& terrain_ids
+    const std::vector<std::string>& terrain_ids,
+    std::string_view fill_terrain = {}
 );
 
 // Replaces one map's presentation-only visibility mask. Empty `cell_indices`

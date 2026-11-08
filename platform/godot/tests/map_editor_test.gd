@@ -63,7 +63,7 @@ func _run() -> void:
 	await process_frame
 	_expect(
 		"Portuguese surroundings help is visible",
-		localized_editor.surroundings_guidance_label.text.contains("A cor escolhida"),
+		localized_editor.surroundings_guidance_label.text.contains("borda mais próxima"),
 		true
 	)
 	_expect(
@@ -803,42 +803,29 @@ func _run() -> void:
 
 	editor._open_surroundings()
 	_expect("outside-area editor opens", editor.surroundings_layer.visible, true)
-	_expect("solid colour is the initial outside mode", editor.surroundings_mode, "solid")
+	_expect("edge continuation is the initial outside mode", editor.surroundings_mode, "continue")
+	_expect("live outside preview surrounds the board before apply", editor.grid.get_child_count(), 90)
 	editor._cycle_surroundings_mode()
-	_expect("outside mode cycles to automatic terrain", editor.surroundings_mode, "automatic")
+	_expect("outside mode cycles to one-terrain fill", editor.surroundings_mode, "fill")
+	editor.surroundings_fill_terrain = "forest"
+	editor._update_surroundings_view()
 	_expect("coverage guidance names the generated cell count", editor.surroundings_guidance_label.text.contains("78"), true)
 	editor._apply_surroundings()
 	await process_frame
-	var automatic_outside: Dictionary = _parse(editor.source).maps[0].surroundings
-	_expect("automatic outside mode is authored", automatic_outside.mode, "automatic")
-	_expect("recommended outside depth is authored", int(automatic_outside.depth), 3)
-	_expect("automatic ring is visible around the board", editor.grid.get_child_count(), 90)
+	var filled_outside: Dictionary = _parse(editor.source).maps[0].surroundings
+	_expect("terrain fill policy is authored", filled_outside.mode, "fill")
+	_expect("chosen outside terrain is portable", filled_outside.terrainId, "forest")
+	_expect("recommended outside depth is authored", int(filled_outside.depth), 3)
+	_expect("filled ring is visible around the board", editor.grid.get_child_count(), 90)
 
 	editor._open_surroundings()
 	editor._cycle_surroundings_mode()
 	editor._apply_surroundings()
 	await process_frame
-	var manual_outside: Dictionary = _parse(editor.source).maps[0].surroundings
-	_expect("manual outside mode is authored", manual_outside.mode, "manual")
-	_expect("manual ring is fully populated before painting", manual_outside.terrain.size(), 78)
-	_expect("manual mode selects the outside paint tool", editor.active_tool, "surroundings")
-	editor._select_terrain("water")
-	editor._paint_surrounding_cell(0)
-	await process_frame
-	_expect("outside ring cells use the terrain palette", _parse(editor.source).maps[0].surroundings.terrain[0], "water")
+	var blended_outside: Dictionary = _parse(editor.source).maps[0].surroundings
+	_expect("natural blend policy is authored", blended_outside.mode, "blend")
+	_expect("natural blend keeps its chosen destination", blended_outside.terrainId, "forest")
 	_expect("outside tooltip states the cell is non-playable", editor.grid.get_child(0).tooltip_text.contains("can never enter"), true)
-
-	editor._open_surroundings()
-	editor._cycle_surroundings_mode()
-	editor._set_surroundings_channel(18, 0)
-	editor._set_surroundings_channel(52, 1)
-	editor._set_surroundings_channel(171, 2)
-	editor._apply_surroundings()
-	await process_frame
-	var solid_outside: Dictionary = _parse(editor.source).maps[0].surroundings
-	_expect("solid outside mode is authored", solid_outside.mode, "solid")
-	_expect("editor-selected outside colour is portable", solid_outside.color, "#1234ab")
-	_expect("solid outside colour does not add tactical cells", editor.grid.get_child_count(), 12)
 	editor._open_setup()
 	_expect("another chapter makes setup reuse available", editor.copy_setup_button.disabled, false)
 	editor._setup_copy()
@@ -978,7 +965,7 @@ func _run() -> void:
 	_expect("co-op move authors its own y", int(moved_ally.twoPlayerPosition.y), coop_cell / baseline_width)
 	_expect(
 		"co-op board explains both starting cells",
-		editor.grid.get_child(coop_cell).tooltip_text.contains("1P"),
+		editor.grid.get_child(editor._map_grid_child(coop_cell)).tooltip_text.contains("1P"),
 		true
 	)
 	editor._select_experience_preview(0)
@@ -1014,7 +1001,7 @@ func _run() -> void:
 	var wave_cell := int(authored_wave.y) * int(with_wave.maps[0].width) + int(authored_wave.x)
 	_expect(
 		"scheduled arrival remains visible on the board",
-		editor.grid.get_child(wave_cell).tooltip_text.contains("ARRIVES ROUND 5"),
+		editor.grid.get_child(editor._map_grid_child(wave_cell)).tooltip_text.contains("ARRIVES ROUND 5"),
 		true
 	)
 	# This fixture has one opponent. Restore it to the opening force so the
@@ -1036,7 +1023,7 @@ func _run() -> void:
 	editor._paint_cell(1)
 	editor._paint_cell(2)
 	_expect("patrol draft keeps waypoint order", editor.patrol_draft, [1, 2])
-	_expect("patrol waypoint is numbered on the board", editor.grid.get_child(1).tooltip_text.contains("WAYPOINT 1"), true)
+	_expect("patrol waypoint is numbered on the board", editor.grid.get_child(editor._map_grid_child(1)).tooltip_text.contains("WAYPOINT 1"), true)
 	editor._apply_patrol_edit()
 	await process_frame
 	var with_patrol := _parse(editor.source)
@@ -1104,7 +1091,8 @@ func _run() -> void:
 	_expect("saved unit removal reopens", stored.project.campaigns[0].flow.nodes[0].placements.size(), 2)
 	_expect("saved deployment reopens", stored.project.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
 	_expect("saved objective reopens", stored.project.campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
-	_expect("saved outside presentation reopens", stored.project.maps[0].surroundings.color, "#1234ab")
+	_expect("saved outside presentation reopens", stored.project.maps[0].surroundings.mode, "blend")
+	_expect("saved outside terrain reopens", stored.project.maps[0].surroundings.terrainId, "forest")
 	_expect("saved visibility mask reopens", stored.project.maps[0].visualVisibility.hiddenCells.size(), 2)
 	_expect("saved map name reopens", str(stored.project.maps[0].name), "Fordlight Crossing")
 	_expect("saved battle name reopens", str(stored.project.campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
@@ -1136,8 +1124,8 @@ func _run() -> void:
 		_expect("edited draft campaign selected", current_scene.campaign_key, "demo_campaign")
 		_expect("edited draft is marked as a preview", current_scene.draft_preview, true)
 		_expect("draft preview cannot alter installed checkpoints", current_scene.campaign_save_root, "")
-		_expect("draft publishes outside presentation", current_scene.battle_surroundings.get("mode", ""), "solid")
-		_expect("draft publishes selected outside colour", int(current_scene.battle_surroundings.get("colour", 0)), 0x1234ab)
+		_expect("draft publishes outside presentation", current_scene.battle_surroundings.get("mode", ""), "blend")
+		_expect("draft publishes every decorative perimeter cell", current_scene.battle_surroundings.get("terrain", []).size(), 78)
 		_expect("active renderer receives outside presentation", current_scene.board.get("surroundings"), current_scene.battle_surroundings)
 		_expect("draft publishes visual visibility", current_scene.battle_visual_visibility.hidden_cells.size(), 2)
 		_expect("active renderer receives visual visibility", current_scene.board.get("visual_visibility"), current_scene.battle_visual_visibility)

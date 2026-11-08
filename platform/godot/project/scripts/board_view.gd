@@ -599,13 +599,13 @@ func _draw_terrain_cell(x: int, y: int, kind: int, mask: int) -> void:
 
 func _surrounding_depth() -> int:
 	var mode := String(surroundings.get("mode", "none"))
-	if mode not in ["automatic", "manual"]:
+	if mode not in ["automatic", "continue", "manual", "fill", "blend"]:
 		return 0
 	return clampi(int(surroundings.get("depth", 0)), 0, 8)
 
 
 func _surrounding_kind(x: int, y: int, ring_index: int) -> int:
-	if String(surroundings.get("mode", "none")) == "manual":
+	if String(surroundings.get("mode", "none")) in ["manual", "fill", "blend"]:
 		var outside: Array = surroundings.get("terrain", [])
 		if ring_index < outside.size():
 			var authored := int(outside[ring_index])

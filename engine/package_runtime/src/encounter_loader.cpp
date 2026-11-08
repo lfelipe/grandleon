@@ -697,7 +697,7 @@ EncounterLoadResult load_encounter(
         if (!outside_reader.u8(mode) || !outside_reader.u8(depth) ||
             !outside_reader.u8(red) || !outside_reader.u8(green) ||
             !outside_reader.u8(blue) || !outside_reader.u32(count) ||
-            mode < 1U || mode > 3U ||
+            mode < 1U || mode > 5U ||
             static_cast<std::size_t>(count) >
                 outside_reader.remaining() / 8U) {
             return fail(EncounterLoadError::malformed_payload);
@@ -713,7 +713,9 @@ EncounterLoadResult load_encounter(
         const bool shape_is_valid =
             mode == 1U ? (depth == 0U && count == 0U)
             : mode == 2U ? (depth >= 1U && depth <= 8U && count == 0U)
-                         : (depth >= 1U && depth <= 8U && count == expected);
+            : mode == 3U || mode == 4U || mode == 5U
+                ? (depth >= 1U && depth <= 8U && count == expected)
+                : false;
         if (!shape_is_valid) {
             return fail(EncounterLoadError::malformed_payload);
         }

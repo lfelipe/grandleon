@@ -87,11 +87,14 @@ enum class MapSurroundingMode : std::uint8_t {
     solid = 1,
     automatic = 2,
     manual = 3,
+    fill = 4,
+    blend = 5,
 };
 
 // Presentation outside the tactical dimensions. These cells never enter the
 // simulation definition, so a renderer may draw them and can never make them
-// reachable. Empty is the historical/default client background.
+// reachable. Fill and blend carry a fully materialized perimeter so clients
+// never need to reproduce the authoring algorithm.
 struct MapSurroundings final {
     MapSurroundingMode mode{MapSurroundingMode::none};
     std::uint32_t colour{0x07131dU};

@@ -108,7 +108,8 @@ public:
         const ::godot::String& mode,
         const ::godot::String& colour,
         std::int64_t depth,
-        const ::godot::PackedStringArray& terrain_ids
+        const ::godot::PackedStringArray& terrain_ids,
+        const ::godot::String& fill_terrain
     ) const;
     [[nodiscard]] ::godot::Dictionary set_map_visual_visibility(
         const ::godot::String& source_json,

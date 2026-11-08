@@ -1665,17 +1665,26 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                         if (mode && *mode == "solid") {
                             result.surroundings.mode =
                                 MapSurroundingMode::solid;
-                        } else if (mode && *mode == "automatic") {
+                        } else if (mode &&
+                                   (*mode == "automatic" ||
+                                    *mode == "continue")) {
                             result.surroundings.mode =
                                 MapSurroundingMode::automatic;
                         } else if (mode && *mode == "manual") {
                             result.surroundings.mode =
                                 MapSurroundingMode::manual;
+                        } else if (mode && *mode == "fill") {
+                            result.surroundings.mode =
+                                MapSurroundingMode::fill;
+                        } else if (mode && *mode == "blend") {
+                            result.surroundings.mode =
+                                MapSurroundingMode::blend;
                         } else if (mode) {
                             mapper.error(
                                 SourceDiagnosticCode::invalid_value,
                                 surroundings_path + ".mode",
-                                "expected 'solid', 'automatic', or 'manual'"
+                                "expected 'continue', 'fill', 'blend', "
+                                "'solid', 'automatic', or 'manual'"
                             );
                         }
                         const auto depth = mapper.integer(
@@ -1714,6 +1723,20 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                             mapper.terrain_kinds(
                                 *outside, "terrain", surroundings_path
                             );
+                        if (result.surroundings.mode ==
+                                MapSurroundingMode::fill ||
+                            result.surroundings.mode ==
+                                MapSurroundingMode::blend) {
+                            const auto fill_terrain = mapper.string(
+                                *outside, "terrainId", surroundings_path
+                            );
+                            if (fill_terrain) {
+                                result.surroundings.fill_terrain =
+                                    core::stable_content_id_v1(*fill_terrain);
+                                result.surroundings.fill_terrain_kind =
+                                    terrain_kind_index(*fill_terrain);
+                            }
+                        }
                     }
                 }
                 const Json* visual_visibility = mapper.member(
@@ -4290,7 +4313,7 @@ SourceTextResult add_source_campaign_chapter_json(
         terrain.push_back(Json{std::string(fill_terrain)});
     }
     Object surroundings;
-    surroundings.emplace("mode", Json{std::string{"automatic"}});
+    surroundings.emplace("mode", Json{std::string{"continue"}});
     surroundings.emplace("depth", Json{std::int64_t{3}});
     Object added_map;
     added_map.emplace("id", Json{std::string(map_id)});
@@ -4908,7 +4931,7 @@ SourceTextResult add_source_campaign_branch_json(
         terrain.push_back(Json{std::string(fill_terrain)});
     }
     Object surroundings;
-    surroundings.emplace("mode", Json{std::string{"automatic"}});
+    surroundings.emplace("mode", Json{std::string{"continue"}});
     surroundings.emplace("depth", Json{std::int64_t{3}});
     Object added_map;
     added_map.emplace("id", Json{std::string(map_id)});
@@ -4995,7 +5018,8 @@ SourceTextResult set_source_map_surroundings_json(
     std::string_view mode,
     std::string_view colour,
     std::int64_t depth,
-    const std::vector<std::string>& terrain_ids
+    const std::vector<std::string>& terrain_ids,
+    std::string_view fill_terrain
 ) {
     SourceTextResult result;
     EditableMapDocument editable;
@@ -5007,10 +5031,12 @@ SourceTextResult set_source_map_surroundings_json(
         finish_map_edit(editable, result);
         return result;
     }
-    if (mode != "solid" && mode != "automatic" && mode != "manual") {
+    if (mode != "solid" && mode != "automatic" && mode != "continue" &&
+        mode != "fill" && mode != "blend" && mode != "manual") {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, path,
-            "surroundings mode must be solid, automatic, manual, or none"
+            "surroundings mode must be continue, fill, blend, solid, "
+            "automatic, manual, or none"
         );
         return result;
     }
@@ -5021,7 +5047,7 @@ SourceTextResult set_source_map_surroundings_json(
             [](unsigned char character) { return std::isxdigit(character); }
         );
     if ((mode == "solid" && (!colour_shaped || depth != 0 ||
-                              !terrain_ids.empty())) ||
+                              !terrain_ids.empty() || !fill_terrain.empty())) ||
         (mode != "solid" && !colour.empty())) {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, path,
@@ -5043,7 +5069,8 @@ SourceTextResult set_source_map_surroundings_json(
     const auto expected = outer_width * outer_height -
                           static_cast<std::uint64_t>(editable.width) *
                               static_cast<std::uint64_t>(editable.height);
-    if ((mode == "automatic" && !terrain_ids.empty()) ||
+    if (((mode == "automatic" || mode == "continue" || mode == "fill" ||
+          mode == "blend") && !terrain_ids.empty()) ||
         (mode == "manual" && terrain_ids.size() != expected)) {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, path + ".terrain",
@@ -5057,6 +5084,16 @@ SourceTextResult set_source_map_surroundings_json(
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, path + ".terrain",
             "surrounding terrain ids must be stable source-key strings"
+        );
+        return result;
+    }
+    const bool chooses_terrain = mode == "fill" || mode == "blend";
+    if ((chooses_terrain && !valid_source_key(fill_terrain)) ||
+        (!chooses_terrain && !fill_terrain.empty())) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            path + ".terrainId",
+            "fill and blend surroundings require one stable terrain id"
         );
         return result;
     }
@@ -5075,6 +5112,8 @@ SourceTextResult set_source_map_surroundings_json(
             terrain.push_back(Json{id});
         }
         outside.emplace("terrain", Json{std::move(terrain)});
+    } else if (chooses_terrain) {
+        outside.emplace("terrainId", Json{std::string(fill_terrain)});
     }
     (*editable.map)["surroundings"] = Json{std::move(outside)};
     finish_map_edit(editable, result);

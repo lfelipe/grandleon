@@ -440,7 +440,7 @@ void GrandleonProjectCompiler::_bind_methods() {
     gd::ClassDB::bind_method(
         gd::D_METHOD(
             "set_map_surroundings", "source_json", "map_id", "mode",
-            "colour", "depth", "terrain_ids"
+            "colour", "depth", "terrain_ids", "fill_terrain"
         ),
         &GrandleonProjectCompiler::set_map_surroundings
     );
@@ -1010,7 +1010,8 @@ gd::Dictionary GrandleonProjectCompiler::set_map_surroundings(
     const gd::String& mode,
     const gd::String& colour,
     std::int64_t depth,
-    const gd::PackedStringArray& terrain_ids
+    const gd::PackedStringArray& terrain_ids,
+    const gd::String& fill_terrain
 ) const {
     std::vector<std::string> ids;
     ids.reserve(static_cast<std::size_t>(terrain_ids.size()));
@@ -1024,7 +1025,7 @@ gd::Dictionary GrandleonProjectCompiler::set_map_surroundings(
     const gc::SourceTextResult updated =
         gc::set_source_map_surroundings_json(
             narrow(source_json), narrow(map_id), narrow(mode), narrow(colour),
-            depth, ids
+            depth, ids, narrow(fill_terrain)
         );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {

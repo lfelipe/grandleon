@@ -64,6 +64,14 @@ currently presentation only—it does not hide legal moves or enemies from the
 rules, change the AI, or alter objectives—and matching console presentation is
 still planned rather than implied.
 
+**Map Surroundings** controls the decorative ground beyond the bright playable
+boundary. **Continue Map Edges** carries the nearest edge terrain outward,
+**Fill With One Terrain** uses a terrain you choose, and **Natural Blend**
+mixes that terrain into the edge in a repeatable pattern. The map updates while
+you choose, before you apply. These cells are visual only: they never become
+movement cells, and the player camera remains centred on small maps or clamped
+to the authored playable map when a large map scrolls.
+
 The [artwork and animation roster](ARTWORK.md) shows every included style and
 unit. Grandleon currently uses its built-in art library; importing a custom art
 pack is not currently part of the creator.

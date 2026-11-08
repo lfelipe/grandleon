@@ -359,6 +359,36 @@ void updates_one_map_cell_without_retyping_the_project() {
             automatic_parsed.source.maps.front().surroundings.depth == 3,
         "a map can ask the renderer to continue its edge automatically"
     );
+    const auto continued_outside = gc::set_source_map_surroundings_json(
+        automatic_outside.json, "field", "continue", "", 2, {}
+    );
+    expect(
+        continued_outside.json.find(R"json("mode": "continue")json") !=
+            std::string::npos &&
+            gc::parse_source_project_json(continued_outside.json)
+                    .source.maps.front().surroundings.mode ==
+                gc::MapSurroundingMode::automatic,
+        "continue is the friendly spelling of the legacy automatic policy"
+    );
+    const auto blended_outside = gc::set_source_map_surroundings_json(
+        continued_outside.json, "field", "blend", "", 3, {}, "forest"
+    );
+    const auto blended_parsed = gc::parse_source_project_json(
+        blended_outside.json
+    );
+    expect(
+        blended_parsed &&
+            blended_parsed.source.maps.front().surroundings.mode ==
+                gc::MapSurroundingMode::blend &&
+            blended_parsed.source.maps.front().surroundings.fill_terrain != 0,
+        "a natural blend retains its chosen outside terrain"
+    );
+    expect(
+        !gc::set_source_map_surroundings_json(
+            source, "field", "fill", "", 2, {}, ""
+        ),
+        "a terrain fill without a terrain choice is refused"
+    );
     const std::vector<std::string> manual_cells{
         "water", "water", "mountain", "mountain", "water",
         "mountain", "water", "mountain", "mountain", "water",

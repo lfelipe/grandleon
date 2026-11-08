@@ -9,6 +9,7 @@ const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
 const VisualVisibility = preload("res://scripts/visual_visibility.gd")
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
+const DEFAULT_DECORATIVE_DEPTH := 3
 const TERRAIN_NAMES := [
 	"water", "road", "forest", "mountain", "sand", "snow", "swamp",
 	"hills", "ruins", "grass", "farmland", "bamboo", "paved"
@@ -621,6 +622,13 @@ func _process(delta: float) -> void:
 	_update_castle_unit_presentation()
 	if _viewport and _viewport.size != Vector2i(size):
 		_viewport.size = Vector2i(size)
+		# A resized gameplay area changes the orthographic footprint. Re-clamp
+		# against the authored board immediately; decorative ground never enters
+		# this calculation.
+		for seat: Dictionary in seats:
+			if seat.get("active", false):
+				_focus_tactical_camera(Vector2i(seat.get("cursor", Vector2i.ZERO)))
+				break
 
 
 func _update_tactical_camera(delta: float) -> void:
@@ -1168,13 +1176,17 @@ func _build_ancient_grove_cutout(centre: Vector3) -> bool:
 
 func _surrounding_depth() -> int:
 	var mode := String(surroundings.get("mode", "none"))
-	if mode not in ["automatic", "manual"]:
+	# Older packages did not author a surroundings policy. Continue their edge
+	# visually in 3D so a compatible map still sits in a world, not over void.
+	if mode == "none":
+		return DEFAULT_DECORATIVE_DEPTH
+	if mode not in ["automatic", "continue", "manual", "fill", "blend"]:
 		return 0
 	return clampi(int(surroundings.get("depth", 0)), 0, 8)
 
 
 func _surrounding_kind(x: int, y: int, ring_index: int) -> int:
-	if String(surroundings.get("mode", "none")) == "manual":
+	if String(surroundings.get("mode", "none")) in ["manual", "fill", "blend"]:
 		var outside: Array = surroundings.get("terrain", [])
 		if ring_index < outside.size():
 			var authored := int(outside[ring_index])

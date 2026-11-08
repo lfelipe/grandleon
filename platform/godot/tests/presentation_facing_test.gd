@@ -164,6 +164,11 @@ func _test_board_facing() -> void:
 func _test_tactical_camera() -> void:
 	var board = BoardView3D.new()
 	board.snapshot = {"width": 8, "height": 6}
+	_expect(
+		"legacy maps receive a presentation-only 3D ground apron",
+		board._surrounding_depth(),
+		3
+	)
 	var fitting := board.tactical_focus_for_cell(Vector2i(7, 5), 8.4, 16.0 / 9.0)
 	_expect("a fitting Godot board stays horizontally centred", fitting.x, 0.0)
 	_expect("a fitting Godot board stays vertically centred", fitting.z, 0.0)
@@ -171,6 +176,23 @@ func _test_tactical_camera() -> void:
 	board.snapshot = {"width": 20, "height": 14}
 	var northwest := board.tactical_focus_for_cell(Vector2i(0, 0), 8.4, 16.0 / 9.0)
 	var southeast := board.tactical_focus_for_cell(Vector2i(19, 13), 8.4, 16.0 / 9.0)
+	var portrait_southeast := board.tactical_focus_for_cell(
+		Vector2i(19, 13), 8.4, 0.75
+	)
+	_expect(
+		"a narrow viewport receives more horizontal board travel",
+		portrait_southeast.x > southeast.x,
+		true
+	)
+	board.surroundings = {"mode": "blend", "depth": 8, "terrain": []}
+	var with_decorative_ring := board.tactical_focus_for_cell(
+		Vector2i(19, 13), 8.4, 16.0 / 9.0
+	)
+	_expect(
+		"decorative surroundings never expand camera scroll bounds",
+		with_decorative_ring,
+		southeast
+	)
 	_expect("a large Godot board scrolls left and right", southeast.x > northwest.x, true)
 	_expect("a large Godot board scrolls up and down", southeast.z > northwest.z, true)
 	_expect(

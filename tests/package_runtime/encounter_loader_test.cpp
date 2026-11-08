@@ -163,12 +163,10 @@ void decodes_compiled_encounter() {
 void carries_map_surroundings_beside_the_tactical_board() {
     auto authored = source();
     auto& outside = authored.maps.front().surroundings;
-    outside.mode = gc::MapSurroundingMode::manual;
+    outside.mode = gc::MapSurroundingMode::fill;
     outside.depth = 1;
-    outside.terrain.assign(18, 700);
-    outside.terrain_kinds.assign(
-        18, gc::terrain_kind_index("mountain")
-    );
+    outside.fill_terrain = 700;
+    outside.fill_terrain_kind = gc::terrain_kind_index("mountain");
     const auto compiled = gc::compile(authored);
     expect(static_cast<bool>(compiled), "the framed runtime fixture compiles");
     const auto loaded = pf::load_mock_package(
@@ -178,16 +176,45 @@ void carries_map_surroundings_beside_the_tactical_board() {
     const auto decoded = pr::load_encounter(loaded.package, 100);
     expect(static_cast<bool>(decoded), "the framed encounter decodes");
     expect(
-        decoded.surroundings.mode == pr::MapSurroundingMode::manual &&
+        decoded.surroundings.mode == pr::MapSurroundingMode::fill &&
             decoded.surroundings.depth == 1 &&
             decoded.surroundings.terrain ==
                 std::vector<std::uint64_t>(18, 700),
-        "the outside ring reaches presentation without becoming map terrain"
+        "the compiler materializes a portable outside ring for presentation"
     );
     expect(
         decoded.definition.width == 4 && decoded.definition.height == 3 &&
             decoded.terrain.size() == 12,
         "outside presentation never changes tactical dimensions"
+    );
+
+    auto blended_authored = source();
+    auto& blended = blended_authored.maps.front().surroundings;
+    blended.mode = gc::MapSurroundingMode::blend;
+    blended.depth = 2;
+    blended.fill_terrain = 700;
+    blended.fill_terrain_kind = gc::terrain_kind_index("forest");
+    const auto blended_compiled = gc::compile(blended_authored);
+    const auto blended_loaded = pf::load_mock_package(
+        blended_compiled.package,
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    const auto blended_decoded =
+        pr::load_encounter(blended_loaded.package, 100);
+    expect(
+        blended_decoded &&
+            blended_decoded.surroundings.mode ==
+                pr::MapSurroundingMode::blend &&
+            blended_decoded.surroundings.terrain.size() == 44 &&
+            std::find(
+                blended_decoded.surroundings.terrain.begin(),
+                blended_decoded.surroundings.terrain.end(), 1
+            ) != blended_decoded.surroundings.terrain.end() &&
+            std::find(
+                blended_decoded.surroundings.terrain.begin(),
+                blended_decoded.surroundings.terrain.end(), 700
+            ) != blended_decoded.surroundings.terrain.end(),
+        "natural blend is materialized deterministically from edge and fill terrain"
     );
 }
 
