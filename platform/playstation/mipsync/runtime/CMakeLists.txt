@@ -24,8 +24,17 @@ target_include_directories(grandleon_mipsync_nugget PRIVATE "${PLAYSTATION_NUGGE
 add_executable(grandleon_mipsync
     main.c scene_adapter.c game_bridge.cpp
     "${GRANDLEON_SOURCE_ROOT}/engine/core/src/random.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/engine/core/src/version.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/engine/campaign/src/graph.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/engine/campaign/src/identity.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/engine/campaign/src/outcome.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/engine/campaign/src/save.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/engine/campaign/src/state.cpp"
     "${GRANDLEON_SOURCE_ROOT}/engine/simulation/src/encounter.cpp"
     "${GRANDLEON_SOURCE_ROOT}/engine/tactics/src/policy.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/platform/storage/src/slot_storage.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/platform/storage/src/byte_window_storage.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src/psx_card.cpp"
     "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src/psx_runtime.cpp"
     "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src/psx_arith.c"
     "${GRANDLEON_LIBSTDCXX_TREE}"
@@ -43,10 +52,24 @@ target_include_directories(grandleon_mipsync PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "$<$<COMPILE_LANGUAGE:C>:${PSN00BSDK_ROOT}/include/libpsn00b>"
     "${GRANDLEON_SOURCE_ROOT}/engine/core/include"
+    "${GRANDLEON_SOURCE_ROOT}/engine/campaign/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/simulation/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/tactics/include"
+    "${GRANDLEON_SOURCE_ROOT}/platform/storage/include"
     "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src"
 )
+if(GRANDLEON_MIPSYNC_STAGE STREQUAL "DEEPWOOD")
+    target_compile_definitions(grandleon_mipsync PRIVATE
+        GRANDLEON_MIPSYNC_STAGE_DEEPWOOD=1)
+endif()
+if(GRANDLEON_MIPSYNC_CAMPAIGN)
+    target_compile_definitions(grandleon_mipsync PRIVATE
+        GRANDLEON_MIPSYNC_CAMPAIGN=1)
+endif()
+if(GRANDLEON_MIPSYNC_CAMPAIGN_PROBE)
+    target_compile_definitions(grandleon_mipsync PRIVATE
+        GRANDLEON_MIPSYNC_CAMPAIGN_PROBE=1)
+endif()
 target_compile_definitions(grandleon_mipsync PRIVATE
     PS1_VIEWMODEL_VERTEX_CACHE_MAX=64 PS1_VIEWMODEL_TRI_CACHE_MAX=64
     PS1_RIGID_VERTEX_CACHE_MAX=64 PS1_STATIC_VERTEX_CACHE_MAX=768

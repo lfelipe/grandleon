@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <hwregs_c.h>
 #include <psxapi.h>
+#include <psxetc.h>
 #include <psxgpu.h>
 #include <psxpad.h>
 
@@ -28,6 +29,33 @@ static int s_buffer;
 static uint16_t s_gpu_ready_tick;
 static uint8_t s_pad_buffers[2][34];
 static uint16_t s_last_buttons = 0xffffu;
+
+/* Stable probe seam: main.c is byte-identical in every campaign executable,
+ * while the scene-specific C++ bridge may link at a different address. */
+__attribute__((noinline)) int grandleon_runtime_update(uint16_t pressed) {
+    return grandleon_game_update(pressed);
+}
+
+void grandleon_platform_card_begin(void) {
+    StopPAD();
+}
+
+void grandleon_platform_card_end(void) {
+    StartPAD();
+    ChangeClearPAD(0);
+    s_last_buttons = 0xffffu;
+}
+
+void grandleon_platform_load_deepwood(void) {
+    DrawSync(0);
+    StopPAD();
+    StopCallback();
+    _96_remove();
+    _96_init();
+    LoadExec("cdrom:\\DEEP.EXE;1", 0, 0);
+    RestartCallback();
+    StartPAD();
+}
 
 static void setup_display(void) {
     ResetGraph(0);
@@ -119,7 +147,7 @@ int main(void) {
             pressed = (uint16_t)(s_last_buttons & (uint16_t)~pad->btn);
             s_last_buttons = pad->btn;
         }
-        deferred = grandleon_game_update(pressed);
+        deferred = grandleon_runtime_update(pressed);
 
         if (deferred) {
             const uint16_t mutation_ticks =
@@ -129,6 +157,23 @@ int main(void) {
              * work and a full 3D redraw each fit separately; scheduling them
              * as two slices prevents either from making the other miss 60 Hz. */
             VSync(0);
+            if (deferred > 1) {
+                frame = 0;
+                measured_frames = 0;
+                rendered_frames = 0;
+                deferred_frames = 0;
+                render_total = 0;
+                ready_total = 0;
+                missed_vblanks = 0;
+                first_missed_frame = 0;
+                last_missed_frame = 0;
+                render_max = 0;
+                ready_max = 0;
+                mutation_max = 0;
+                maximum_elapsed = 1;
+                last_vblank = VSync(-1);
+                continue;
+            }
             ++frame;
             if (frame > 60) {
                 ++measured_frames;

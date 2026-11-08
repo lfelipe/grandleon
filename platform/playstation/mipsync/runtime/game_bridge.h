@@ -14,7 +14,13 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_ABILITY,
     GRANDLEON_UI_RESULT,
     GRANDLEON_UI_OPPONENT,
-    GRANDLEON_UI_COMPLETE
+    GRANDLEON_UI_COMPLETE,
+    GRANDLEON_UI_TITLE,
+    GRANDLEON_UI_PLAYERS,
+    GRANDLEON_UI_STORY,
+    GRANDLEON_UI_OBJECTIVE,
+    GRANDLEON_UI_AFTERMATH,
+    GRANDLEON_UI_SAVE_ERROR
 };
 
 typedef struct grandleon_ui_state {
@@ -41,13 +47,21 @@ typedef struct grandleon_ui_state {
     int16_t restored;
     int16_t result_damage;
     int16_t result_counter_damage;
+    const char* headline;
+    const char* body;
+    uint8_t campaign_menu_index;
+    uint8_t campaign_menu_count;
+    uint8_t continue_available;
 } grandleon_ui_state;
 
 int grandleon_game_init(void);
-/* Returns non-zero when a rules mutation consumed this frame's render slice. */
+/* 1 defers rendering for a rules mutation; 2 begins a fresh gameplay timing window. */
 int grandleon_game_update(uint16_t pressed_buttons);
 void grandleon_game_ui_state(grandleon_ui_state* output);
 void grandleon_game_log_boot(unsigned int packet_bytes);
+void grandleon_platform_card_begin(void);
+void grandleon_platform_card_end(void);
+void grandleon_platform_load_deepwood(void);
 void grandleon_game_log_metrics(
     uint32_t frames, uint32_t rendered_frames, uint32_t deferred_frames,
     uint32_t render_average, uint16_t render_maximum,

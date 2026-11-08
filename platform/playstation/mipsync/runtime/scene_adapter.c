@@ -156,6 +156,30 @@ static void draw_text(
     }
 }
 
+static void draw_wrapped_text(
+    uint32_t* ordering_table, char** next_packet, const char* packet_end,
+    int x, int y, const char* text, uint8_t red, uint8_t green, uint8_t blue
+) {
+    char line[35];
+    int row = 0;
+    while (*text && row < 3) {
+        int count = 0;
+        int last_space = -1;
+        while (text[count] && text[count] != '\n' && count < 34) {
+            line[count] = text[count];
+            if (text[count] == ' ') last_space = count;
+            ++count;
+        }
+        if (text[count] && text[count] != '\n' && last_space > 0) count = last_space;
+        line[count] = 0;
+        draw_text(ordering_table, next_packet, packet_end,
+                  x, y + row * 13, line, red, green, blue);
+        text += count;
+        while (*text == ' ' || *text == '\n') ++text;
+        ++row;
+    }
+}
+
 static void draw_number(
     uint32_t* ordering_table, char** next_packet, const char* packet_end,
     int x, int y, int value, uint8_t red, uint8_t green, uint8_t blue
@@ -208,6 +232,46 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
     grandleon_ui_state state;
     int x;
     grandleon_game_ui_state(&state);
+
+    if (state.mode >= GRANDLEON_UI_TITLE) {
+        draw_box_depth(ordering_table, next_packet, packet_end,
+                       0, 0, 320, 240, 7, 13, 24, 3);
+        draw_panel(ordering_table, next_packet, packet_end, 22, 28, 276, 174);
+        draw_text(ordering_table, next_packet, packet_end, 42, 47,
+                  state.headline ? state.headline : "GRANDLEON",
+                  255, 205, 68);
+        if (state.body) {
+            draw_wrapped_text(ordering_table, next_packet, packet_end, 42, 72,
+                              state.body, 168, 181, 196);
+        }
+        if (state.mode == GRANDLEON_UI_TITLE) {
+            draw_box(ordering_table, next_packet, packet_end,
+                     72, 111 + state.campaign_menu_index * 25, 176, 19,
+                     52, 63, 45);
+            draw_text(ordering_table, next_packet, packet_end, 91, 116,
+                      "NEW GAME", 247, 239, 209);
+            if (state.continue_available) {
+                draw_text(ordering_table, next_packet, packet_end, 91, 141,
+                          "CONTINUE", 247, 239, 209);
+            }
+        } else if (state.mode == GRANDLEON_UI_PLAYERS) {
+            draw_box(ordering_table, next_packet, packet_end,
+                     72, 111 + state.campaign_menu_index * 25, 176, 19,
+                     52, 63, 45);
+            draw_text(ordering_table, next_packet, packet_end, 91, 116,
+                      "1 PLAYER", 247, 239, 209);
+            draw_text(ordering_table, next_packet, packet_end, 91, 141,
+                      "2 PLAYERS", 247, 239, 209);
+        } else {
+            draw_box(ordering_table, next_packet, packet_end,
+                     105, 163, 110, 18, 30, 53, 66);
+            draw_text(ordering_table, next_packet, packet_end, 124, 167,
+                      state.mode == GRANDLEON_UI_SAVE_ERROR ? "BACK" : "CONTINUE",
+                      247, 239, 209);
+        }
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
 
     if (state.mode == GRANDLEON_UI_OPPONENT) {
         draw_panel(ordering_table, next_packet, packet_end, 91, 8, 138, 25);

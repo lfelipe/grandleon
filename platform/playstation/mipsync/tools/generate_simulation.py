@@ -21,6 +21,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--one-player-manifest", type=Path)
     args = parser.parse_args()
     document = json.loads(args.manifest.read_text(encoding="utf-8"))
     if document.get("schema") != "grandleon.mipsync.scene.v2":
@@ -28,11 +29,20 @@ def main() -> int:
     simulation = document.get("simulation")
     if not isinstance(simulation, dict):
         raise ValueError("manifest has no simulation definition")
+    one_player = None
+    one_player_ids: set[int] = set()
+    if args.one_player_manifest is not None:
+        one_player = json.loads(args.one_player_manifest.read_text(encoding="utf-8"))
+        if one_player.get("schema") != "grandleon.mipsync.scene.v2":
+            raise ValueError("one-player manifest is not a Mipsync scene v2 document")
+        one_player_ids = {
+            int(unit["id"]) for unit in one_player["simulation"]["units"]
+        }
     lines = [
         "/* Generated from a real Grandleon package. Do not edit. */",
         '#include "grandleon_simulation.hpp"', "",
         "namespace sim = grandleon::simulation;", "",
-        "sim::EncounterDefinition grandleon_generated_definition() {",
+        "sim::EncounterDefinition grandleon_generated_definition(unsigned local_players) {",
         "    sim::EncounterDefinition definition{};",
         f"    definition.width={int(document['width'])}; definition.height={int(document['height'])};",
         f"    definition.turn_order=static_cast<sim::TurnOrder>({int(simulation['turn_order'])});",
@@ -68,7 +78,9 @@ def main() -> int:
         lines += [
             f"      value.item_counts={nums(source['item_counts'])};",
             f"      value.drop_item_id={int(source['drop_item_id'])}ULL; value.talk_record_id={int(source['talk_record_id'])}ULL;",
-            "      definition.units.push_back(value); }",
+            ("      if (local_players > 1 || "
+             f"{str(int(source['id']) in one_player_ids).lower()}) "
+             "definition.units.push_back(value); }"),
         ]
     for source in simulation["abilities"]:
         lines += [
@@ -130,9 +142,18 @@ struct grandleon_generated_behavior final {{
     grandleon::tactics::Behavior behavior{{grandleon::tactics::Behavior::hold}};
     std::vector<grandleon::simulation::Position> patrol;
 }};
-grandleon::simulation::EncounterDefinition grandleon_generated_definition();
+grandleon::simulation::EncounterDefinition grandleon_generated_definition(unsigned local_players = 2);
 const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors();
-inline constexpr std::uint64_t grandleon_generated_canonical_hash = {int(document['canonical_hash'])}ULL;
+inline constexpr std::uint64_t grandleon_generated_canonical_hash(unsigned local_players) {{
+    return local_players > 1 ? {int(document['canonical_hash'])}ULL : {int(one_player['canonical_hash']) if one_player else int(document['canonical_hash'])}ULL;
+}}
+inline constexpr unsigned char grandleon_generated_game_id[16] = {{{','.join(str(int(document.get('game_id', '0' * 32)[i:i+2], 16)) for i in range(0, 32, 2))}}};
+inline constexpr unsigned grandleon_generated_content_revision = {int(document.get('content_revision', 0))}U;
+inline constexpr unsigned grandleon_generated_local_players = {int(document.get('local_players', 2))}U;
+inline constexpr const char* grandleon_generated_project_title = "{str(document.get('project_title', 'Grandleon')).replace('\\', '\\\\').replace('"', '\\"')}";
+inline constexpr const char* grandleon_generated_prologue = {json.dumps(str(document.get('campaign', {}).get('prologue', 'The orchard bell has sounded.')))};
+inline constexpr const char* grandleon_generated_aftermath = {json.dumps(str(document.get('campaign', {}).get('aftermath', 'The trail leads into Cedar Deepwood.')))};
+inline constexpr const char* grandleon_generated_objective = {json.dumps(str(document.get('campaign', {}).get('objective', 'Defeat the enemy company.')))};
 """
     (args.output / "grandleon_simulation.hpp").write_text(header, encoding="utf-8")
     return 0

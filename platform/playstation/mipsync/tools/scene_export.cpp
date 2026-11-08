@@ -7,6 +7,10 @@
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
+#include <grandleon/package_runtime/campaign.hpp>
+#include <grandleon/package_runtime/dialogue.hpp>
+#include <grandleon/package_runtime/manifest.hpp>
+#include <grandleon/package_runtime/names.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
 #include <grandleon/simulation/encounter.hpp>
 
@@ -29,6 +33,39 @@ void write_id(std::ostream& output, std::uint64_t id) {
     // consumers. Decimal strings can, and Python's target generator reads them
     // without a second binary format.
     output << '"' << id << '"';
+}
+
+void write_string(std::ostream& output, std::string_view value) {
+    output << '"';
+    for (const unsigned char byte : value) {
+        switch (byte) {
+            case '"': output << "\\\""; break;
+            case '\\': output << "\\\\"; break;
+            case '\n': output << "\\n"; break;
+            case '\r': output << "\\r"; break;
+            case '\t': output << "\\t"; break;
+            default:
+                if (byte >= 32U) output << static_cast<char>(byte);
+                break;
+        }
+    }
+    output << '"';
+}
+
+std::string first_dialogue_text(
+    const pf::LoadedPackage& package,
+    const pr::CampaignDefinition& campaign,
+    std::uint64_t node_id
+) {
+    for (const pr::CampaignNode& node : campaign.nodes) {
+        if (node.id != node_id || node.dialogue_ids.empty()) continue;
+        const pr::DialogueLoadResult dialogue = pr::load_dialogue(
+            package, node.dialogue_ids.front()
+        );
+        if (!dialogue || dialogue.dialogue.lines.empty()) return {};
+        return dialogue.dialogue.lines.front().text;
+    }
+    return {};
 }
 
 template <typename T>
@@ -124,6 +161,17 @@ int main(int argc, char** argv) {
         std::cerr << "presentation rejected: " << pr::error_name(shown.error) << '\n';
         return 65;
     }
+    const std::string encounter_key = argv[2];
+    const std::size_t slash = encounter_key.find('/');
+    const std::string campaign_key = encounter_key.substr(0, slash);
+    const std::uint64_t campaign_id = core::stable_content_id_v1(campaign_key);
+    const pr::CampaignLoadResult campaign = pr::load_campaign(
+        package.package, campaign_id
+    );
+    if (!campaign) {
+        std::cerr << "campaign rejected: " << pr::error_name(campaign.error) << '\n';
+        return 65;
+    }
 
     const sim::EncounterSnapshot snapshot = created.encounter.snapshot();
     std::ofstream output(argv[4], std::ios::binary | std::ios::trunc);
@@ -135,6 +183,19 @@ int main(int argc, char** argv) {
     output << "{\n"
            << "  \"schema\": \"grandleon.mipsync.scene.v2\",\n"
            << "  \"renderer\": \"mipsync\",\n"
+           << "  \"game_id\": \"";
+    static constexpr char hex[] = "0123456789abcdef";
+    for (const std::uint8_t byte : package.package.game_id) {
+        output << hex[byte >> 4U] << hex[byte & 15U];
+    }
+    output << "\",\n  \"content_revision\": "
+           << package.package.content_revision
+           << ",\n  \"project_title\": \"";
+    for (const char byte : pr::project_title(package.package)) {
+        if (byte == '\\' || byte == '"') output << '\\';
+        output << byte;
+    }
+    output << "\",\n"
            << "  \"local_players\": " << local_players << ",\n"
            << "  \"encounter_id\": ";
     write_id(output, encounter_id);
@@ -156,7 +217,28 @@ int main(int argc, char** argv) {
             shown.presentation.kind_of_terrain(loaded.surroundings.terrain[index])
         );
     }
-    output << "]},\n  \"terrain\": [";
+    output << "]},\n  \"campaign\": {\"id\": ";
+    write_id(output, campaign_id);
+    output << ", \"prologue\": ";
+    write_string(output, first_dialogue_text(
+        package.package, campaign.definition,
+        core::stable_content_id_v1("prologue")
+    ));
+    output << ", \"aftermath\": ";
+    write_string(output, first_dialogue_text(
+        package.package, campaign.definition,
+        core::stable_content_id_v1("orchard_camp")
+    ));
+    output << ", \"objective\": ";
+    if (!loaded.definition.objectives.empty()) {
+        write_string(output, pr::content_name(
+            package.package, pf::SectionType::objectives,
+            loaded.definition.objectives.front().id
+        ));
+    } else {
+        write_string(output, {});
+    }
+    output << "},\n  \"terrain\": [";
     for (std::size_t index = 0; index < loaded.terrain.size(); ++index) {
         if (index != 0) output << ',';
         output << static_cast<unsigned>(
