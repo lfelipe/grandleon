@@ -166,11 +166,52 @@ func _run() -> void:
 	cinematic.skip_exchange()
 	_expect_true("skip during full-motion exit restores the board", not cinematic.is_active())
 	_expect("every camera flight has an exact restore", board_camera.end_count, board_camera.begin_count)
+	_test_multi_target(cinematic, terrain, focus_points)
 	await _test_real_board_camera(before, terrain)
 
 	if failures == 0:
 		print("combat cinematic controller smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _test_multi_target(
+	cinematic, terrain: Array, focus_points: Array[Vector2]
+) -> void:
+	var before := _snapshot(7)
+	before.units.append({
+		"id": 30, "name": "Sentinel", "side": "second", "player": 0,
+		"x": 2, "y": 1, "health": 6, "maximum_health": 6,
+		"on_board": true, "archetype": 2, "colour": 1,
+		"style": 2, "figure": 0,
+	})
+	var after := before.duplicate(true)
+	after.units[1].health = 4
+	after.units[2].health = 3
+	var plan := CombatPresentationPlan.build(
+		before, after,
+		[
+			{"kind": "unit_damaged", "unit_id": 20, "related_unit_id": 10, "amount": 3},
+			{"kind": "unit_damaged", "unit_id": 30, "related_unit_id": 10, "amount": 3},
+		],
+		"ability"
+	)
+	cinematic.configure(
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "reduced", false
+	)
+	_expect_true(
+		"multi-target close view enqueues",
+		cinematic.enqueue(plan, terrain, 0, focus_points)
+	)
+	cinematic._process(0.35)
+	var first: Dictionary = cinematic.stage_render_state()
+	_expect("multi-target close view opens on its first target", first.right_unit_id, 20)
+	cinematic._process(1.36)
+	var second: Dictionary = cinematic.stage_render_state()
+	_expect("multi-target close view preserves its actor", second.left_unit_id, 10)
+	_expect("multi-target close view rotates only its target", second.right_unit_id, 30)
+	_expect("multi-target second actor remains on the left", second.actor_slot, "left")
+	_expect("multi-target second impact remains on the right", second.target_slot, "right")
+	cinematic.skip_exchange()
 
 
 func _test_real_board_camera(before: Dictionary, terrain: Array) -> void:

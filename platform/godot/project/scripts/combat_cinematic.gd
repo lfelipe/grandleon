@@ -246,6 +246,7 @@ func _process(delta: float) -> void:
 		if _beat_index >= _beats().size():
 			_begin_exit()
 			return
+		_set_stage_for_beat(_beat())
 		duration = _beat_duration()
 	_update_labels()
 	queue_redraw()
@@ -265,8 +266,7 @@ func _start_next() -> void:
 		if value is Vector2:
 			_focus_points.append(value)
 	var first_beat: Dictionary = _beats()[0]
-	_stage_left_unit = Dictionary(first_beat.get("actor", {})).duplicate(true)
-	_stage_right_unit = Dictionary(first_beat.get("target", {})).duplicate(true)
+	_set_stage_for_beat(first_beat)
 	_begin_board_camera_focus()
 	_beat_index = 0
 	_elapsed = 0.0
@@ -392,6 +392,17 @@ func _beat() -> Dictionary:
 	if _beat_index < 0 or _beat_index >= values.size():
 		return {}
 	return values[_beat_index]
+
+
+func _set_stage_for_beat(beat: Dictionary) -> void:
+	# Older/manual plans may not carry per-beat stage entries, so retain the
+	# actor/target fallback used before multi-target presentations were added.
+	_stage_left_unit = Dictionary(
+		beat.get("stage_left", beat.get("actor", {}))
+	).duplicate(true)
+	_stage_right_unit = Dictionary(
+		beat.get("stage_right", beat.get("target", {}))
+	).duplicate(true)
 
 
 func _stage_slot(unit_id: int) -> String:

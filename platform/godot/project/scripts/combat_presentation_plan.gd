@@ -81,16 +81,42 @@ static func build(
 			passthrough.append(event.duplicate(true))
 	if beats.is_empty():
 		return {}
-	# The first accepted strike establishes the stage geography for the whole
-	# exchange. A reversed authoritative event is a counterattack, not a cue to
-	# teleport both figures to the opposite side of the close view.
+	# The first accepted strike establishes the stage geography. A reversed
+	# authoritative event is a counterattack, not a cue to teleport both figures
+	# to the opposite side of the close view. An area attack may then name a new
+	# target: keep its initiating actor on the left and replace only the right
+	# stage slot for that beat.
 	var stage := {
 		"left_unit_id": int(beats[0].actor_id),
 		"right_unit_id": int(beats[0].target_id),
 	}
+	var primary_actor_id := int(beats[0].actor_id)
+	var stage_left_id := int(stage.left_unit_id)
+	var stage_right_id := int(stage.right_unit_id)
 	for beat: Dictionary in beats:
-		beat["actor_slot"] = _stage_slot(int(beat.actor_id), stage)
-		beat["target_slot"] = _stage_slot(int(beat.target_id), stage)
+		var actor_id := int(beat.actor_id)
+		var target_id := int(beat.target_id)
+		if not (
+			(actor_id == stage_left_id or actor_id == stage_right_id)
+			and (target_id == stage_left_id or target_id == stage_right_id)
+		):
+			if actor_id == primary_actor_id:
+				stage_left_id = actor_id
+				stage_right_id = target_id
+			elif target_id == primary_actor_id:
+				stage_left_id = target_id
+				stage_right_id = actor_id
+			else:
+				stage_left_id = actor_id
+				stage_right_id = target_id
+		var beat_stage := {
+			"left_unit_id": stage_left_id,
+			"right_unit_id": stage_right_id,
+		}
+		beat["actor_slot"] = _stage_slot(actor_id, beat_stage)
+		beat["target_slot"] = _stage_slot(target_id, beat_stage)
+		beat["stage_left"] = Dictionary(before_units[stage_left_id]).duplicate(true)
+		beat["stage_right"] = Dictionary(before_units[stage_right_id]).duplicate(true)
 	return {
 		"valid": true,
 		"action": action,
