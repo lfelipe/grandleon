@@ -31,6 +31,7 @@ DIRECTIONAL_COVERAGE = {
     "archer|*|scifi|second",
     "archer|*|sengoku|first",
     "archer|*|sengoku|second",
+    "archer|*|undead|first",
     "archer|*|undead|second",
     "beast|*|medieval|first",
     "beast|*|mythical|first",
@@ -44,6 +45,7 @@ DIRECTIONAL_COVERAGE = {
     "beast|*|sengoku|first",
     "beast|*|sengoku|second",
     "beast|*|undead|first",
+    "beast|*|undead|second",
     "beast|*|medieval|second",
     "commander|*|medieval|second",
     "commander|*|medieval|first",
@@ -57,6 +59,8 @@ DIRECTIONAL_COVERAGE = {
     "commander|*|pirates|second",
     "commander|*|sengoku|first",
     "commander|*|sengoku|second",
+    "commander|*|undead|first",
+    "commander|*|undead|second",
     "healer|*|medieval|second",
     "healer|*|medieval|first",
     "healer|*|mythical|first",
@@ -110,6 +114,8 @@ DIRECTIONAL_COVERAGE = {
     "rogue|*|pirates|first",
     "rogue|*|pirates|second",
     "rogue|*|sengoku|first",
+    "rogue|*|sengoku|second",
+    "rogue|*|undead|first",
     "rogue|*|undead|second",
     "stormcaller|*|medieval|first",
     "stormcaller|*|medieval|second",
@@ -118,7 +124,10 @@ DIRECTIONAL_COVERAGE = {
     "stormcaller|*|nature|first",
     "stormcaller|*|nature|second",
     "stormcaller|*|pirates|first",
+    "stormcaller|*|pirates|second",
     "stormcaller|*|scifi|first",
+    "stormcaller|*|scifi|second",
+    "stormcaller|*|sengoku|first",
     "stormcaller|*|sengoku|second",
     "stormcaller|*|undead|first",
     "stormcaller|*|undead|second",
@@ -150,6 +159,13 @@ def main() -> int:
         fail(
             f"expected {EXPECTED_BINDINGS} curated identities, found {len(bindings)}"
         )
+    if DIRECTIONAL_COVERAGE != set(bindings):
+        missing = sorted(set(bindings) - DIRECTIONAL_COVERAGE)
+        extra = sorted(DIRECTIONAL_COVERAGE - set(bindings))
+        fail(
+            "directional audit keys do not exactly cover the curated roster: "
+            f"missing={missing}, extra={extra}"
+        )
 
     inspected_sources: set[Path] = set()
     asymmetric_move_frames = 0
@@ -163,10 +179,8 @@ def main() -> int:
         if binding.get("sequences", {}).get("move", {}).get("frames") != EXPECTED_MOVE_FRAMES:
             fail(f"{key}: walk frames are not the curated cells 2 and 3")
         directional = binding.get("directionalSheet")
-        if key in DIRECTIONAL_COVERAGE and not isinstance(directional, dict):
-            fail(f"{key}: representative identity has no directional sheet")
-        if key not in DIRECTIONAL_COVERAGE and directional is not None:
-            fail(f"{key}: directional coverage changed without updating the audit")
+        if not isinstance(directional, dict):
+            fail(f"{key}: curated identity has no directional sheet")
         if isinstance(directional, dict):
             if directional.get("columns") != 4 or directional.get("rows") != 2:
                 fail(f"{key}: directional sheet is not a 4x2 grid")
@@ -238,8 +252,8 @@ def main() -> int:
     print(
         "directional art audit passed: "
         f"{len(inspected_sources)} bodies, {asymmetric_move_frames} asymmetric "
-        f"east/west walk cells; authored north/south {len(DIRECTIONAL_COVERAGE)}/"
-        f"{EXPECTED_BINDINGS} bodies ({EXPECTED_BINDINGS - len(DIRECTIONAL_COVERAGE)} open)"
+        f"east/west walk cells; authored north/south complete for "
+        f"{len(DIRECTIONAL_COVERAGE)}/{EXPECTED_BINDINGS} bodies"
     )
     print(
         "directional budgets: "

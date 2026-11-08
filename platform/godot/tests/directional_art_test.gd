@@ -2,7 +2,7 @@
 extends SceneTree
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
-const EXPECTED_COVERAGE := 103
+const EXPECTED_COVERAGE := 112
 const EXPECTED_SIZE := Vector2(1772, 886)
 
 var failures := 0
@@ -38,7 +38,8 @@ func _init() -> void:
 			directional.get("headings", {}).get("south", {}).get("move", {}).get("frames", []),
 			[6.0, 7.0]
 		)
-	_expect("representative directional coverage", directional_count, EXPECTED_COVERAGE)
+	_expect("complete directional coverage", directional_count, EXPECTED_COVERAGE)
+	_expect("every curated body is covered", directional_count, bindings.size())
 
 	var art = ArtLibrary.new()
 	art.configure_profile(profile)
@@ -62,30 +63,34 @@ func _init() -> void:
 		_expect("%s runtime team colour" % key, north.team_colour, "red")
 		_expect("%s front/back does not mirror" % key, north.directional_flip, false)
 
-	var uncovered_key := ""
-	for key: String in bindings:
-		if not bindings[key].has("directionalSheet"):
-			uncovered_key = key
-			break
-	_expect("fallback representative remains", uncovered_key.is_empty(), false)
-	var uncovered: Dictionary = bindings[uncovered_key]
-	var uncovered_fields := uncovered_key.split("|")
-	var uncovered_unit := {
-		"archetype": ArtLibrary.ARCHETYPE_NAMES.find(uncovered_fields[0]),
+	# Missing or invalid optional metadata remains safe even though the shipped
+	# profile now covers every curated body.
+	var missing_profile: Dictionary = profile.duplicate(true)
+	var missing_bindings: Dictionary = missing_profile.get("assets", {}).get(
+		"characterSprites", {}
+	)
+	var missing_key := "archer|*|undead|first"
+	var missing_binding: Dictionary = missing_bindings[missing_key]
+	missing_binding.erase("directionalSheet")
+	var missing_art = ArtLibrary.new()
+	missing_art.configure_profile(missing_profile)
+	var missing_fields := missing_key.split("|")
+	var missing_unit := {
+		"archetype": ArtLibrary.ARCHETYPE_NAMES.find(missing_fields[0]),
 		"colour": 1,
-		"style": ArtLibrary.STYLE_NAMES.find(uncovered_fields[2]),
-		"figure": 0 if uncovered_fields[3] == "first" else 1,
+		"style": ArtLibrary.STYLE_NAMES.find(missing_fields[2]),
+		"figure": 0 if missing_fields[3] == "first" else 1,
 	}
-	var fallback: Dictionary = art.character_frame(
-		uncovered_unit, "move", 0.15, "north"
+	var fallback: Dictionary = missing_art.character_frame(
+		missing_unit, "move", 0.15, "north"
 	)
-	_expect("uncovered north keeps base source", fallback.path, uncovered.path)
-	_expect("uncovered north keeps base walk timing", fallback.frame, 3)
+	_expect("missing metadata keeps base source", fallback.path, missing_binding.path)
+	_expect("missing metadata keeps base walk timing", fallback.frame, 3)
 	_expect(
-		"uncovered north keeps base mask",
-		fallback.team_mask_path, uncovered.teamMaskPath
+		"missing metadata keeps base mask",
+		fallback.team_mask_path, missing_binding.teamMaskPath
 	)
-	_expect("uncovered north keeps base mirroring", fallback.directional_flip, true)
+	_expect("missing metadata keeps base mirroring", fallback.directional_flip, true)
 
 	var covered_key := "commander|*|medieval|second"
 	var covered: Dictionary = bindings[covered_key]

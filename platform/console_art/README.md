@@ -11,15 +11,15 @@ right-facing view. The renderers use that view for eastward travel and mirror
 it for westward travel. This costs no additional texture memory and keeps the
 current character ROM, RDRAM/VRAM and frame budgets unchanged.
 
-One hundred three bodies now have a separate authored 4×2 directional sheet:
+All 112 curated bodies now have a separate authored 4×2 directional sheet:
 genuine north idle/walk on the top row and genuine south idle/walk on the
 bottom row. They span all seven styles. The matching team mask and explicit
 `directionalSheet` profile binding keep the same faction-colour workflow.
-Godot uses these views on vertical route legs and falls back to the side walk
-for the remaining 9 bodies. The compact-console generator reports which
-project drawings have source coverage and their projected CI4 cost; console
-runtime integration remains deliberately disabled until more roster coverage
-and a renderer-specific visual/performance gate are ready.
+Godot uses these views on vertical route legs. Missing or invalid optional
+metadata still falls back safely to the side walk. The compact-console
+generator reports which project drawings have source coverage and their
+projected CI4 cost; console runtime integration remains deliberately disabled
+until the active renderer-specific visual/performance gate is complete.
 
 Run the focused source audit with:
 
@@ -27,10 +27,9 @@ Run the focused source audit with:
 python3 platform/console_art/check-directional-art.py
 ```
 
-The current 103-body projection is 856,960 bytes per platform: four 64×64 CI4
+The complete projection is 931,840 bytes per platform: four 64×64 CI4
 frames per body, including one 32-byte palette per frame. That is source/ROM
 payload, not persistent TMEM/VRAM; a later renderer can stream into the current
-character slot. The complete 112-body projection remains 931,840 bytes, so
-project-specific selection remains important. The generator records coverage
-and projected bytes in the N64 manifest and PS1 header without changing either
-production renderer or its current executable budget.
+character slot, so project-specific selection remains important. The generator
+records coverage and projected bytes in the N64 manifest and PS1 header without
+changing either production renderer or its current executable budget.

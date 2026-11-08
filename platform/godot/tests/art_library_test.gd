@@ -455,6 +455,7 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"archer|*|scifi|first": "relay_archer",
 		"archer|*|scifi|second": "scifi_archer_female",
 		"archer|*|sengoku|first": "sengoku_archer_male",
+		"archer|*|undead|first": "undead_archer_male",
 		"archer|*|undead|second": "undead_archer_female",
 		"beast|*|medieval|first": "medieval_beast_male",
 		"beast|*|mythical|first": "mythical_beast_male",
@@ -467,6 +468,7 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"beast|*|sengoku|first": "sengoku_beast_male",
 		"beast|*|sengoku|second": "sengoku_beast_female",
 		"beast|*|undead|first": "undead_beast_male",
+		"beast|*|undead|second": "undead_beast_female",
 		"beast|*|medieval|second": "medieval_beast_female",
 		"commander|*|medieval|second": "medieval_commander_female",
 		"commander|*|medieval|first": "medieval_commander_male",
@@ -480,6 +482,8 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"commander|*|pirates|second": "pirates_commander_female",
 		"commander|*|sengoku|first": "sengoku_commander_male",
 		"commander|*|sengoku|second": "sengoku_commander_female",
+		"commander|*|undead|first": "undead_commander_male",
+		"commander|*|undead|second": "undead_commander_female",
 		"healer|*|medieval|second": "medieval_healer_female",
 		"healer|*|medieval|first": "medieval_healer_male",
 		"healer|*|mythical|first": "mythical_healer_male",
@@ -535,6 +539,8 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"rogue|*|pirates|first": "pirates_rogue_male",
 		"rogue|*|pirates|second": "pirates_rogue_female",
 		"rogue|*|sengoku|first": "sengoku_rogue_male",
+		"rogue|*|sengoku|second": "sengoku_rogue_female",
+		"rogue|*|undead|first": "undead_rogue_male",
 		"rogue|*|undead|second": "undead_rogue_female",
 		"stormcaller|*|medieval|first": "medieval_stormcaller_male",
 		"stormcaller|*|medieval|second": "medieval_stormcaller_female",
@@ -543,11 +549,16 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"stormcaller|*|nature|first": "nature_stormcaller_male",
 		"stormcaller|*|nature|second": "nature_stormcaller_female",
 		"stormcaller|*|pirates|first": "pirates_stormcaller_male",
+		"stormcaller|*|pirates|second": "pirates_stormcaller_female",
 		"stormcaller|*|scifi|first": "morrow_stormcaller",
+		"stormcaller|*|scifi|second": "scifi_stormcaller_female",
+		"stormcaller|*|sengoku|first": "sengoku_stormcaller_male",
 		"stormcaller|*|sengoku|second": "sengoku_stormcaller_female",
 		"stormcaller|*|undead|first": "undead_stormcaller_male",
 		"stormcaller|*|undead|second": "undead_stormcaller_female",
 	}
+	_expect("all curated bodies declare directional art", expected_directional.size(), 112)
+	_expect("directional coverage matches the curated roster", expected_directional.size(), expected.size())
 	for key: String in expected:
 		_expect("%s sprite is bound" % key, bindings.has(key), true)
 		if not bindings.has(key):

@@ -82,19 +82,19 @@ changing simulation behavior.
 
 The base 4×2 sprite sheets contain action phases, not compass views. Godot
 mirrors their right-facing walk against east/west route travel; both compact
-consoles do the same. One hundred three bodies now bind a separate 4×2 directional
+consoles do the same. All 112 curated bodies bind a separate 4×2 directional
 sheet with north idle/walk above south idle/walk and a matching team mask. The
 2D and 3D Godot boards select it from the current authoritative route leg,
 never from predicted simulation state. Combat poses remain on the original
-action sheet. Every uncovered identity falls back to the existing side
-silhouette, so partial coverage is safe and visible.
+action sheet. Missing or invalid directional metadata falls back to the
+existing side silhouette, preserving safe behavior for external art packs.
 
 The source/profile audit is `platform/console_art/check-directional-art.py`.
-It currently reports 103/112 bodies and an 856,960-byte CI4 projection per
-compact platform; the full 112-body projection is 931,840 bytes. The console
+It reports complete 112/112 coverage and a 931,840-byte CI4 projection per
+compact platform. The console
 generator publishes project-specific coverage and budget, but the N64 and PS1
-production renderers stay unchanged until representative gameplay captures
-establish that partial compass coverage is worth enabling there. Generation
+production renderers stay unchanged until gameplay captures and performance
+measurements pass their active hardware-review gate. Generation
 provenance and the exact cell contract are in
 `project/art/characters/DIRECTIONAL_ART.md` and its batch records.
 
