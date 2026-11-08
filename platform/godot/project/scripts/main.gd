@@ -242,11 +242,11 @@ func _ready() -> void:
 		_run_frame_timing_smoke()
 		return
 	if not controls.warning().is_empty():
-		_show_toast(controls.warning())
+		_show_toast(_localized_runtime_warning(controls.warning()))
 	if not graphics_profiles.warning().is_empty():
-		_show_toast(graphics_profiles.warning())
+		_show_toast(_localized_runtime_warning(graphics_profiles.warning()))
 	if not presentation_settings.warning().is_empty():
-		_show_toast(presentation_settings.warning())
+		_show_toast(_localized_runtime_warning(presentation_settings.warning()))
 	if not presentation_settings_smoke.is_empty():
 		_run_presentation_settings_smoke()
 		return
@@ -255,7 +255,7 @@ func _ready() -> void:
 		return
 	session = ClassDB.instantiate("GrandleonSession")
 	if session == null:
-		_show_fatal("The native Grandleon bridge did not load")
+		_show_fatal(_ui("player.error.native_bridge"))
 		return
 	var launch_package := PackedByteArray()
 	if staged.is_empty():
@@ -1451,16 +1451,16 @@ func _persist_presentation_settings() -> void:
 		show_fps_enabled,
 		battle_closeups_local_override
 	):
-		_show_toast(presentation_settings.warning())
+		_show_toast(_localized_runtime_warning(presentation_settings.warning()))
 
 
 func _graphics_profile_name() -> String:
 	return {
-		"pixel": "PIXEL 2D",
-		"diorama": "3D DIORAMA + SPRITES",
-		"voxel-sprites": "VOXEL TERRAIN + SPRITES",
-		"voxel": "FULL VOXEL",
-	}.get(graphics_profile, "PC")
+		"pixel": _ui("player.graphics.pixel"),
+		"diorama": _ui("player.graphics.diorama"),
+		"voxel-sprites": _ui("player.graphics.voxel_sprites"),
+		"voxel": _ui("player.graphics.voxel"),
+	}.get(graphics_profile, _ui("player.graphics.pc"))
 
 
 func _update_session_labels() -> void:
@@ -3537,7 +3537,7 @@ func _seed_cursors() -> void:
 func _show_unit(unit: Dictionary, seat := 0) -> void:
 	hud_seat = seat
 	unit_panel.visible = true
-	unit_name.text = String(unit.get("name", "Unit"))
+	unit_name.text = String(unit.get("name", _ui("player.unit.unnamed")))
 	var heading_colour := "#ff8a9a"
 	if String(unit.get("side", "")) == "first":
 		var player := clampi(int(unit.get("player", 1)), 1, 2)
@@ -3781,6 +3781,23 @@ func _state_text(state: String) -> String:
 
 func _action_text(action: String) -> String:
 	return _ui("player.action.%s" % action)
+
+
+func _localized_runtime_warning(message: String) -> String:
+	var message_id: String = {
+		"CONTROL PROFILE / UNAVAILABLE / DEFAULTS ACTIVE": "player.warning.controls_unavailable",
+		"CONTROL PROFILE / INVALID / DEFAULTS ACTIVE": "player.warning.controls_invalid",
+		"BUILT-IN GRAPHICS PROFILE IS INVALID": "player.warning.graphics_builtin",
+		"GRAPHICS OVERRIDE COULD NOT BE READ": "player.warning.graphics_unreadable",
+		"GRAPHICS OVERRIDE CONTRACT IS INCOMPATIBLE": "player.warning.graphics_incompatible",
+		"DISPLAY SETTINGS COULD NOT BE RECOVERED": "player.warning.display_recovery_failed",
+		"PREVIOUS DISPLAY SETTINGS RESTORED": "player.warning.display_restored",
+		"PREVIOUS DISPLAY SETTINGS IN USE": "player.warning.display_previous",
+		"DISPLAY SETTINGS WERE IGNORED": "player.warning.display_ignored",
+		"DISPLAY SETTINGS WERE NOT SAVED": "player.warning.display_not_saved",
+		"DISPLAY SETTINGS COULD NOT BE RESET": "player.warning.display_not_reset",
+	}.get(message, "")
+	return _ui(message_id) if not message_id.is_empty() else message
 
 
 func _bind_font_size(control: Control, key: String, base: int) -> void:

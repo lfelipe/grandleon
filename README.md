@@ -78,6 +78,11 @@ This is a quick sample rather than the whole catalog. See the
 [artwork and animation roster](docs/ARTWORK.md) for animated previews and exact
 coverage.
 
+Boards larger than the readable view scroll horizontally and vertically on
+Godot, Nintendo 64, and PlayStation. Small maps stay centered; on large maps,
+the camera follows the active cursor without shrinking characters into
+unreadable tokens.
+
 Godot can also switch from the board to an optional terrain-derived close view
 for an attack, its reported damage or miss, any legal counterattack, and a
 defeat. The session menu can disable these **Battle Close-ups** or use
@@ -164,7 +169,9 @@ same non-empty message IDs and formatting placeholders. The Godot player's
 session menu, display settings, save/checkpoint flow, diagnostics, and
 dialogue-continue prompt follow the same language choice. Its live battle turn
 chip, unit card, action popup, contextual controls, controller ownership, and
-common refusal messages do as well.
+common refusal messages do as well. Campaign results, deployment and controller
+notices, runtime warnings, and the optional Company screen are localized too;
+fixed formations continue directly into play without showing that screen.
 
 Games now record their own source language and carry manual translations in
 the same portable project and compiled package. Open a project's
@@ -175,9 +182,8 @@ from its authored languages. Godot then applies that choice to the game title,
 campaign and stage names, dialogue, objectives, company character names, named
 battle placements, and named units, weapons, abilities, and items. Grandleon
 keeps the original source strings; missing or outdated work falls back to the
-current source rather than stale or empty text. Remaining Godot campaign
-outcomes and uncommon errors, plus console localization, are still being
-audited during the 0.5 work. Player-chosen character names remain literal
+current source rather than stale or empty text. Console interface localization
+is still being audited during the 0.5 work. Player-chosen character names remain literal
 player input rather than translation material; they survive save and continue
 and can appear in
 dialogue, objectives, rosters, and exact on-board unit labels. The compact

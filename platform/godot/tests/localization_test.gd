@@ -154,6 +154,11 @@ func _run() -> void:
 	)
 	_expect("battle action names use Portuguese", player._action_text("attack"), "ATACAR")
 	_expect("controller ownership uses Portuguese", player._control_colour_name(0), "CIANO")
+	_expect(
+		"uncommon display warnings use Portuguese",
+		player._localized_runtime_warning("DISPLAY SETTINGS WERE NOT SAVED"),
+		"AS CONFIGURAÇÕES DE TELA NÃO FORAM SALVAS"
+	)
 	player.snapshot.active_side = "second"
 	_expect(
 		"enemy turn notice uses Portuguese",

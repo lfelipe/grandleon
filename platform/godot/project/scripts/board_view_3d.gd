@@ -95,6 +95,9 @@ var _projectile_texture: Texture2D
 var _magic_texture: Texture2D
 var _aura_texture: Texture2D
 var _camera_base_position := Vector3.ZERO
+var _camera_tactical_offset := Vector3.ZERO
+var _camera_focus_current := Vector3(0, 0.15, 0)
+var _camera_focus_target := Vector3(0, 0.15, 0)
 var _camera_shake_until := 0
 var _camera_shake_strength := 0.0
 var _combat_camera_active := false
@@ -186,8 +189,13 @@ func _create_environment() -> void:
 	_camera.size = float(camera_config.get("size", 8.4))
 	_world.add_child(_camera)
 	_camera.position = _configured_vector(camera_config.get("position", []), Vector3(7.7, 10.8, 8.8))
+	_camera_focus_current = _configured_vector(
+		camera_config.get("target", []), Vector3(0, 0.15, 0)
+	)
+	_camera_focus_target = _camera_focus_current
+	_camera_tactical_offset = _camera.position - _camera_focus_current
 	_camera_base_position = _camera.position
-	_camera.look_at(_configured_vector(camera_config.get("target", []), Vector3(0, 0.15, 0)), Vector3.UP)
+	_camera.look_at(_camera_focus_current, Vector3.UP)
 	_camera.make_current()
 
 
@@ -307,7 +315,29 @@ func present_events(events: Array, action := "", content_id := 0) -> void:
 
 
 func set_seats(value: Array) -> void:
+	var previous := seats
 	seats = value
+	var focus_seat := -1
+	for index in min(2, seats.size()):
+		var next_seat: Dictionary = seats[index]
+		if not bool(next_seat.get("active", false)):
+			continue
+		if index >= previous.size():
+			focus_seat = index
+			break
+		var prior_seat: Dictionary = previous[index]
+		if Vector2i(prior_seat.get("cursor", Vector2i(-1, -1))) != Vector2i(
+			next_seat.get("cursor", Vector2i.ZERO)
+		):
+			focus_seat = index
+			break
+	if focus_seat < 0:
+		for index in min(2, seats.size()):
+			if bool(seats[index].get("active", false)):
+				focus_seat = index
+				break
+	if focus_seat >= 0:
+		_focus_tactical_camera(Vector2i(seats[focus_seat].get("cursor", Vector2i.ZERO)))
 	_rebuild_markers()
 
 
@@ -435,6 +465,43 @@ func combat_focus_state() -> Dictionary:
 	}
 
 
+func tactical_camera_state() -> Dictionary:
+	return {
+		"current": _camera_focus_current,
+		"target": _camera_focus_target,
+	}
+
+
+func tactical_focus_for_cell(
+	cell: Vector2i, camera_size: float, aspect: float
+) -> Vector3:
+	var width := float(snapshot.get("width", 0))
+	var height := float(snapshot.get("height", 0))
+	if width <= 0.0 or height <= 0.0:
+		return Vector3(0, _camera_focus_current.y, 0)
+	# Keep small boards centred. Larger maps retain readable unit scale and pan
+	# only as far as necessary to bring their outer rows and columns on screen.
+	var visible_width := maxf(1.0, camera_size * aspect * 0.82)
+	var visible_height := maxf(1.0, camera_size * 0.90)
+	var horizontal_travel := maxf(0.0, (width - visible_width) * 0.5)
+	var vertical_travel := maxf(0.0, (height - visible_height) * 0.5)
+	var cell_position := _cell_position(cell.x, cell.y)
+	return Vector3(
+		clampf(cell_position.x, -horizontal_travel, horizontal_travel),
+		_camera_focus_current.y,
+		clampf(cell_position.z, -vertical_travel, vertical_travel)
+	)
+
+
+func _focus_tactical_camera(cell: Vector2i) -> void:
+	if _camera == null or snapshot.is_empty() or not _cell_is_valid(cell):
+		return
+	var aspect := 16.0 / 9.0
+	if _viewport != null and _viewport.size.y > 0:
+		aspect = float(_viewport.size.x) / float(_viewport.size.y)
+	_camera_focus_target = tactical_focus_for_cell(cell, _camera.size, aspect)
+
+
 func _cell_is_valid(cell: Vector2i) -> bool:
 	return (
 		cell.x >= 0 and cell.y >= 0
@@ -462,6 +529,7 @@ func _process(delta: float) -> void:
 	_update_castle_reveal(delta)
 	var now_msec := Time.get_ticks_msec()
 	_update_effects(now_msec)
+	_update_tactical_camera(delta)
 	_update_camera_shake(now_msec)
 	if _materials.has("relay_glow"):
 		var relay_material: StandardMaterial3D = _materials.relay_glow
@@ -526,6 +594,16 @@ func _process(delta: float) -> void:
 				sprite.modulate = Color.WHITE
 	if _viewport and _viewport.size != Vector2i(size):
 		_viewport.size = Vector2i(size)
+
+
+func _update_tactical_camera(delta: float) -> void:
+	if _camera == null or _combat_camera_active:
+		return
+	var blend := 1.0 - exp(-maxf(0.0, delta) * 7.5)
+	_camera_focus_current = _camera_focus_current.lerp(_camera_focus_target, blend)
+	_camera_base_position = _camera_focus_current + _camera_tactical_offset
+	_camera.position = _camera_base_position
+	_camera.look_at(_camera_focus_current, Vector3.UP)
 
 
 func _rebuild_terrain() -> void:

@@ -82,6 +82,36 @@ func _run() -> void:
 	manager._open_name_entry()
 	_expect("fixed character cannot open name entry", manager._name_layer.visible, false)
 
+	var localization := root.get_node("Localization")
+	localization.call("select_language", "pt-BR", false)
+	var portuguese_manager = CampaignManager.new()
+	root.add_child(portuguese_manager)
+	await process_frame
+	portuguese_manager.present(_company(false, "Aren", "Aren"))
+	portuguese_manager._select_member(1, true)
+	_expect(
+		"company preparation is localized in Portuguese",
+		portuguese_manager._heading.text,
+		"Prepare-se para a próxima batalha"
+	)
+	_expect(
+		"company member status is localized in Portuguese",
+		portuguese_manager._member_status.text.contains("NÍVEL 1"),
+		true
+	)
+	_expect(
+		"company name action is localized in Portuguese",
+		_has_button_text(portuguese_manager, "ESCOLHER NOME DO PERSONAGEM"),
+		true
+	)
+	_expect(
+		"company battle action is localized in Portuguese",
+		portuguese_manager._proceed_button.text.contains("INICIAR BATALHA"),
+		true
+	)
+	portuguese_manager.queue_free()
+	localization.call("select_language", "en", false)
+
 	if failures == 0:
 		print("campaign manager name entry smoke passed")
 	current_scene = null
@@ -133,6 +163,13 @@ func _company(has_override: bool, name: String, localized_default: String) -> Di
 func _has_name_action(manager: Control) -> bool:
 	for button: Button in manager._action_buttons:
 		if button.text == "CHOOSE CHARACTER NAME":
+			return true
+	return false
+
+
+func _has_button_text(manager: Control, expected: String) -> bool:
+	for button: Button in manager._action_buttons:
+		if button.text == expected:
 			return true
 	return false
 

@@ -12,6 +12,7 @@ func _init() -> void:
 	_test_direction_math()
 	_test_pixel_board_facing()
 	_test_board_facing()
+	_test_tactical_camera()
 	if failures == 0:
 		print("presentation facing smoke passed")
 	quit(1 if failures > 0 else 0)
@@ -125,6 +126,49 @@ func _test_board_facing() -> void:
 	sprite.free()
 	voxel_actor.free()
 	voxel_target.free()
+
+
+func _test_tactical_camera() -> void:
+	var board = BoardView3D.new()
+	board.snapshot = {"width": 8, "height": 6}
+	var fitting := board.tactical_focus_for_cell(Vector2i(7, 5), 8.4, 16.0 / 9.0)
+	_expect("a fitting Godot board stays horizontally centred", fitting.x, 0.0)
+	_expect("a fitting Godot board stays vertically centred", fitting.z, 0.0)
+
+	board.snapshot = {"width": 20, "height": 14}
+	var northwest := board.tactical_focus_for_cell(Vector2i(0, 0), 8.4, 16.0 / 9.0)
+	var southeast := board.tactical_focus_for_cell(Vector2i(19, 13), 8.4, 16.0 / 9.0)
+	_expect("a large Godot board scrolls left and right", southeast.x > northwest.x, true)
+	_expect("a large Godot board scrolls up and down", southeast.z > northwest.z, true)
+	_expect(
+		"horizontal camera travel remains inside the board",
+		absf(southeast.x) < 10.0,
+		true
+	)
+	_expect(
+		"vertical camera travel remains inside the board",
+		absf(southeast.z) < 7.0,
+		true
+	)
+	var camera := Camera3D.new()
+	camera.size = 8.4
+	board._camera = camera
+	board.set_seats([{"active": true, "cursor": Vector2i(0, 0)}])
+	var followed_northwest: Vector3 = board.tactical_camera_state().target
+	board.set_seats([{"active": true, "cursor": Vector2i(19, 13)}])
+	var followed_southeast: Vector3 = board.tactical_camera_state().target
+	_expect(
+		"moving the active cursor changes horizontal camera focus",
+		followed_southeast.x > followed_northwest.x,
+		true
+	)
+	_expect(
+		"moving the active cursor changes vertical camera focus",
+		followed_southeast.z > followed_northwest.z,
+		true
+	)
+	camera.free()
+	board.free()
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

@@ -82,7 +82,7 @@ func dismiss() -> void:
 func submission_refused() -> void:
 	_pending = false
 	_set_pending_state()
-	_footer.text = "COMMAND WAS NOT ACCEPTED  /  CHOOSE AGAIN"
+	_footer.text = _ui("player.company.command_choose_again")
 	if _actions_open:
 		_focus_first_action()
 	else:
@@ -175,10 +175,12 @@ func control_hints_match(
 ) -> bool:
 	return (
 		_proceed_button.text.contains("%s · %s" % [menu_label, confirm_label])
-		and _session_button.text == "SESSION MENU  /  %s" % confirm_label
-		and _footer.text.contains("%s confirms" % confirm_label)
-		and _footer.text.contains("%s returns" % cancel_label)
-		and _footer.text.contains("%s starts" % menu_label)
+		and _session_button.text == _ui("player.company.session_menu", {
+			"confirm": confirm_label,
+		})
+		and _footer.text.contains(confirm_label)
+		and _footer.text.contains(cancel_label)
+		and _footer.text.contains(menu_label)
 	)
 
 
@@ -200,8 +202,8 @@ func _build_interface() -> void:
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 14)
 	panel.add_child(root)
-	root.add_child(_label("GRANDLEON  /  COMPANY", 16, ACCENT))
-	_heading = _label("Prepare for the next battle", 38, TEXT)
+	root.add_child(_label(_ui("player.company.header"), 16, ACCENT))
+	_heading = _label(_ui("player.company.prepare"), 38, TEXT)
 	root.add_child(_heading)
 
 	var summary := HBoxContainer.new()
@@ -228,7 +230,7 @@ func _build_interface() -> void:
 	var roster_column := VBoxContainer.new()
 	roster_column.add_theme_constant_override("separation", 12)
 	roster_panel.add_child(roster_column)
-	roster_column.add_child(_label("ROSTER", 18, ACCENT))
+	roster_column.add_child(_label(_ui("player.company.roster"), 18, ACCENT))
 	var roster_scroll := ScrollContainer.new()
 	roster_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	roster_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -237,7 +239,7 @@ func _build_interface() -> void:
 	_roster_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_roster_list.add_theme_constant_override("separation", 9)
 	roster_scroll.add_child(_roster_list)
-	roster_column.add_child(_label("COMPANY STORE", 16, MUTED))
+	roster_column.add_child(_label(_ui("player.company.store"), 16, MUTED))
 	_store_label = RichTextLabel.new()
 	_store_label.bbcode_enabled = true
 	_store_label.fit_content = true
@@ -248,7 +250,7 @@ func _build_interface() -> void:
 	_proceed_button = _button("")
 	_proceed_button.pressed.connect(_request.bind("proceed", 0, 0, 0))
 	roster_column.add_child(_proceed_button)
-	_session_button = _button("SESSION MENU")
+	_session_button = _button(_ui("player.session.paused"))
 	_session_button.pressed.connect(_request_session_menu)
 	roster_column.add_child(_session_button)
 
@@ -261,7 +263,7 @@ func _build_interface() -> void:
 	var action_column := VBoxContainer.new()
 	action_column.add_theme_constant_override("separation", 12)
 	action_panel.add_child(action_column)
-	_member_name = _label("Choose a company member", 30, TEXT)
+	_member_name = _label(_ui("player.company.choose_member"), 30, TEXT)
 	action_column.add_child(_member_name)
 	_member_status = _label("", 17, MUTED)
 	action_column.add_child(_member_status)
@@ -275,7 +277,7 @@ func _build_interface() -> void:
 	var line := HSeparator.new()
 	line.modulate = Color(0.4, 0.75, 0.9, 0.32)
 	action_column.add_child(line)
-	action_column.add_child(_label("ORDERS", 16, ACCENT))
+	action_column.add_child(_label(_ui("player.company.orders"), 16, ACCENT))
 	var action_scroll := ScrollContainer.new()
 	action_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	action_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -311,9 +313,9 @@ func _update_stage_heading() -> void:
 			continue
 		var stage_name := String(stage.get("name", "")).strip_edges()
 		if not stage_name.is_empty():
-			_heading.text = "Next  /  " + stage_name
+			_heading.text = _ui("player.company.next_stage", {"stage": stage_name})
 			return
-	_heading.text = "Prepare for the next battle"
+	_heading.text = _ui("player.company.prepare")
 
 
 func _rebuild_roster() -> void:
@@ -321,8 +323,14 @@ func _rebuild_roster() -> void:
 	_roster_buttons.clear()
 	for member: Dictionary in _company.get("roster", []):
 		var member_id := int(member.get("member_id", 0))
-		var marker := "FIELD" if bool(member.get("fielded", false)) else "BENCH"
-		var button := _button("%s  /  %s" % [String(member.get("name", "Member")), marker])
+		var marker := _ui(
+			"player.company.field_marker"
+			if bool(member.get("fielded", false))
+			else "player.company.bench_marker"
+		)
+		var button := _button("%s  /  %s" % [
+			String(member.get("name", _ui("player.company.member"))), marker
+		])
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.pressed.connect(_select_member.bind(member_id, true))
 		_roster_list.add_child(button)
@@ -334,24 +342,31 @@ func _rebuild_member() -> void:
 	_action_buttons.clear()
 	var member := _member(_selected_member_id)
 	if member.is_empty():
-		_member_name.text = "Choose a company member"
+		_member_name.text = _ui("player.company.choose_member")
 		_member_status.text = ""
 		_member_kit.text = ""
 		return
-	_member_name.text = String(member.get("name", "Member"))
-	var availability := String(member.get("availability", "unknown")).to_upper()
-	var field_state := "TAKING THE FIELD" if bool(member.get("fielded", false)) else "SITTING OUT"
-	_member_status.text = "LEVEL %d  /  %s  /  %s" % [
-		int(member.get("level", 0)), availability, field_state
-	]
+	_member_name.text = String(member.get("name", _ui("player.company.member")))
+	var availability_code := String(member.get("availability", "unknown")).to_lower()
+	var availability := _availability_text(availability_code)
+	var field_state := _ui(
+		"player.company.taking_field"
+		if bool(member.get("fielded", false))
+		else "player.company.sitting_out"
+	)
+	_member_status.text = _ui("player.company.member_status", {
+		"level": int(member.get("level", 0)),
+		"availability": availability,
+		"field_state": field_state,
+	})
 	_member_kit.text = (
-		"[color=#8ba5b3]KIT[/color]\n"
-		+ _inventory_text(member.get("carried", []), "Nothing carried")
+		"[color=#8ba5b3]%s[/color]\n" % _ui("player.company.kit")
+		+ _inventory_text(member.get("carried", []), _ui("player.company.nothing_carried"))
 	)
 
-	var actionable := availability.to_lower() not in ["dead", "unrecruited"]
+	var actionable := availability_code not in ["dead", "unrecruited"]
 	if bool(member.get("player_nameable", false)):
-		var name_button := _button("CHOOSE CHARACTER NAME")
+		var name_button := _button(_ui("player.company.choose_name"))
 		name_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		name_button.pressed.connect(_open_name_entry)
 		_actions_list.add_child(name_button)
@@ -360,33 +375,35 @@ func _rebuild_member() -> void:
 		var fielded := bool(member.get("fielded", false))
 		var field_button: Button
 		if fielded:
-			field_button = _add_action("BENCH FOR NEXT BATTLE", "bench", _selected_member_id)
+			field_button = _add_action(_ui("player.company.bench_next"), "bench", _selected_member_id)
 		else:
-			field_button = _add_action("TAKE THE FIELD", "field", _selected_member_id)
+			field_button = _add_action(_ui("player.company.take_field"), "field", _selected_member_id)
 			if not bool(member.get("placeable", false)):
-				field_button.text += "  /  NOT ON THIS MAP"
+				field_button.text += "  /  " + _ui("player.company.not_on_map")
 				field_button.set_meta("blocked", true)
 				field_button.disabled = true
 			elif _capacity_full():
-				field_button.text += "  /  PARTY FULL"
+				field_button.text += "  /  " + _ui("player.company.party_full")
 				field_button.set_meta("blocked", true)
 				field_button.disabled = true
 		for item: Dictionary in _company.get("store", []):
 			_add_action(
-				"GIVE %s  ×%d" % [
-					String(item.get("name", "Item")), int(item.get("count", 0))
-				],
+				_ui("player.company.give_item", {
+					"item": String(item.get("name", _ui("player.company.item"))),
+					"count": int(item.get("count", 0)),
+				}),
 				"give", _selected_member_id, int(item.get("id", 0))
 			)
 		for item: Dictionary in member.get("carried", []):
 			_add_action(
-				"RETURN %s TO STORE  ×%d" % [
-					String(item.get("name", "Item")), int(item.get("count", 0))
-				],
+				_ui("player.company.return_item", {
+					"item": String(item.get("name", _ui("player.company.item"))),
+					"count": int(item.get("count", 0)),
+				}),
 				"take", _selected_member_id, int(item.get("id", 0))
 			)
 	if _action_buttons.is_empty():
-		var unavailable := _label("No company orders are available for this member.", 18, MUTED)
+		var unavailable := _label(_ui("player.company.no_orders"), 18, MUTED)
 		_actions_list.add_child(unavailable)
 
 
@@ -394,28 +411,34 @@ func _update_summary() -> void:
 	var fielded := int(_company.get("fielded_count", 0))
 	var capacity := int(_company.get("capacity", 0))
 	_fielded_label.text = (
-		"FIELDED  /  %d  /  NO LIMIT" % fielded
-		if capacity == 0 else "FIELDED  /  %d OF %d" % [fielded, capacity]
+		_ui("player.company.fielded_unlimited", {"fielded": fielded})
+		if capacity == 0
+		else _ui("player.company.fielded_capacity", {
+			"fielded": fielded, "capacity": capacity,
+		})
 	)
 	var refused := String(_company.get("refused", "none"))
 	_refusal_label.text = (
 		""
 		if refused in ["", "none"]
-		else "BOARD REFUSED  /  " + refused.to_upper().replace("_", " ")
+		else _ui("player.company.board_refused", {
+			"reason": refused.to_upper().replace("_", " "),
+		})
 	)
-	_store_label.text = _inventory_text(_company.get("store", []), "Nothing in storage")
+	_store_label.text = _inventory_text(
+		_company.get("store", []), _ui("player.company.nothing_stored")
+	)
 	_update_control_hints()
 
 
 func _update_control_hints() -> void:
-	_proceed_button.text = "START BATTLE  /  %s · %s" % [_menu_label, _confirm_label]
-	_session_button.text = "SESSION MENU  /  %s" % _confirm_label
-	var hint := (
-		"Stick / d-pad chooses. %s confirms. %s returns to the roster; "
-		+ "press it again for the session menu. %s starts the battle. "
-		+ "Every company change saves immediately."
-	)
-	_footer.text = hint % [_confirm_label, _cancel_label, _menu_label]
+	_proceed_button.text = _ui("player.company.start_battle", {
+		"menu": _menu_label, "confirm": _confirm_label,
+	})
+	_session_button.text = _ui("player.company.session_menu", {"confirm": _confirm_label})
+	_footer.text = _ui("player.company.controls_hint", {
+		"confirm": _confirm_label, "cancel": _cancel_label, "menu": _menu_label,
+	})
 
 
 func _select_member(member_id: int, open_actions: bool) -> void:
@@ -446,7 +469,11 @@ func _request(kind: String, member_id := 0, item_id := 0, stage_id := 0) -> void
 		return
 	_pending = true
 	_set_pending_state()
-	_footer.text = "SAVING COMPANY CHANGE…" if kind != "proceed" else "PREPARING BATTLE…"
+	_footer.text = _ui(
+		"player.company.saving_change"
+		if kind != "proceed"
+		else "player.company.preparing_battle"
+	)
 	intent_requested.emit(kind, member_id, item_id, stage_id)
 
 
@@ -471,8 +498,8 @@ func _build_name_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
 	panel.add_child(column)
-	column.add_child(_label("CHARACTER NAME", 16, ACCENT))
-	_name_heading = _label("Choose a name", 32, TEXT)
+	column.add_child(_label(_ui("player.company.name_header"), 16, ACCENT))
+	_name_heading = _label(_ui("player.company.name_choose"), 32, TEXT)
 	column.add_child(_name_heading)
 	_name_default = _label("", 18, MUTED)
 	_name_default.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -489,13 +516,13 @@ func _build_name_layer() -> void:
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 14)
 	column.add_child(buttons)
-	_name_save = _button("SAVE NAME")
+	_name_save = _button(_ui("player.company.name_save"))
 	_name_save.pressed.connect(_submit_player_name)
 	buttons.add_child(_name_save)
-	_name_use_default = _button("USE GAME DEFAULT")
+	_name_use_default = _button(_ui("player.company.name_use_default"))
 	_name_use_default.pressed.connect(_use_default_name)
 	buttons.add_child(_name_use_default)
-	var cancel := _button("CANCEL")
+	var cancel := _button(_ui("common.cancel"))
 	cancel.pressed.connect(_close_name_entry)
 	buttons.add_child(cancel)
 
@@ -508,8 +535,8 @@ func _open_name_entry() -> void:
 		return
 	var current := String(member.get("name", "")).strip_edges()
 	var default_name := String(member.get("default_name", current)).strip_edges()
-	_name_heading.text = "Name %s" % default_name
-	_name_default.text = "Game default: %s. It remains the fallback." % default_name
+	_name_heading.text = _ui("player.company.name_character", {"name": default_name})
+	_name_default.text = _ui("player.company.name_default", {"name": default_name})
 	_name_input.text = current if not current.is_empty() else default_name
 	_name_use_default.visible = bool(member.get("has_player_name", false))
 	_name_layer.visible = true
@@ -525,13 +552,13 @@ func _validate_player_name(_value: String) -> void:
 	var bytes := chosen.to_utf8_buffer().size()
 	var invalid := false
 	if chosen.is_empty():
-		_name_error.text = "Enter a visible name."
+		_name_error.text = _ui("player.company.name_visible")
 		invalid = true
 	elif bytes > 64:
-		_name_error.text = "That name is too long when saved."
+		_name_error.text = _ui("player.company.name_too_long")
 		invalid = true
 	elif _company_has_other_name(chosen):
-		_name_error.text = "Another company member already uses this name."
+		_name_error.text = _ui("player.company.name_duplicate")
 	else:
 		_name_error.text = ""
 	_name_save.disabled = invalid
@@ -583,7 +610,7 @@ func _emit_player_name(chosen: String) -> void:
 	_name_layer.visible = false
 	_pending = true
 	_set_pending_state()
-	_footer.text = "SAVING CHARACTER NAME…"
+	_footer.text = _ui("player.company.saving_name")
 	player_name_requested.emit(_selected_member_id, chosen)
 
 
@@ -662,10 +689,26 @@ func _inventory_text(inventory: Array, empty_text: String) -> String:
 	for item: Dictionary in inventory:
 		rows.append(
 			"%s  ×%d" % [
-				String(item.get("name", "Item")), int(item.get("count", 0))
+				String(item.get("name", _ui("player.company.item"))),
+				int(item.get("count", 0))
 			]
 		)
 	return "\n".join(rows)
+
+
+func _availability_text(availability: String) -> String:
+	var message_id := "player.company.availability.%s" % availability
+	var translated := _ui(message_id)
+	if translated == "[%s]" % message_id:
+		return availability.to_upper().replace("_", " ")
+	return translated
+
+
+func _ui(message_id: String, values: Dictionary = {}) -> String:
+	var service := get_node_or_null("/root/Localization")
+	if service == null:
+		return "[%s]" % message_id
+	return str(service.call("text", message_id, values))
 
 
 func _clear(container: Node) -> void:

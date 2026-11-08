@@ -299,9 +299,10 @@ than reproduce those implementation details.
   - [x] Move the Godot turn chip, unit card, action popup, contextual controls,
     controller ownership, and common command refusals into the same catalog;
     exercise the Portuguese battle HUD in the real player smoke test.
-  - [ ] Move the remaining Godot campaign outcomes, deployment notices,
-    connection changes, and uncommon error copy into the same catalog, then
-    audit longer translations and glyph coverage there.
+  - [x] Move the remaining Godot campaign outcomes, deployment notices,
+    connection changes, optional Company screen, and uncommon error copy into
+    the same catalog. Exercise the full Company workflow in Portuguese and
+    keep exact catalog and placeholder parity under the localization smoke test.
 - [x] Add portable project data for a game's source language and translations.
   Migration must preserve every authored string, and runtimes must fall back to
   the source text when a translation is missing rather than showing an empty
