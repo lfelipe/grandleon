@@ -218,7 +218,8 @@ function(grandleon_package_rom target rom_name rom_title)
     set(rom_elf "$<TARGET_FILE:${target}>")
     set(rom_dir "$<TARGET_FILE_DIR:${target}>")
     set(romfs_arguments "")
-    if(NOT "${target}" STREQUAL "grandleon_n64_conformance")
+    if(NOT "${target}" STREQUAL "grandleon_n64_conformance"
+       AND NOT "${target}" STREQUAL "grandleon_n64_twin_gate_quality")
         set_property(
             TARGET ${target} APPEND PROPERTY LINK_DEPENDS
             "${console_directional_romfs}"
@@ -338,6 +339,120 @@ file(WRITE
     "${CMAKE_CURRENT_BINARY_DIR}/generated/console_terrain_assets.h"
     "// Generated from the production console terrain atlases.\n"
     "#pragma once\n#include <cstddef>\n${console_terrain_arrays}"
+)
+
+# A visually ambitious, production-shaped renderer proof for Steel and
+# Cedar's real Twin Gate encounter.  It is deliberately a separate ROM until
+# native captures prove that the richer architecture fits both the frame and
+# memory budgets.  Every keep upload is a 64x32 CI8 tile plus one 256-colour
+# palette. CI8 can use only TMEM's lower 2 KiB while the TLUT occupies part of
+# the upper half, so 64x32 is the largest safe rectangular tile here.
+set(console_twin_gate_asset_dir
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/twin_gate_quality")
+set(console_twin_gate_sprite_dir
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/twin_gate_quality_sprites")
+file(MAKE_DIRECTORY "${console_twin_gate_sprite_dir}")
+set(console_twin_gate_states
+    exterior threshold_1 threshold_2 threshold_3 cutaway)
+set(console_twin_gate_arrays "")
+set(console_twin_gate_pointers "")
+set(console_twin_gate_sizes "")
+set(console_twin_gate_embedded_bytes 0)
+foreach(twin_gate_state IN LISTS console_twin_gate_states)
+    foreach(twin_gate_row RANGE 0 5)
+        foreach(twin_gate_column RANGE 0 2)
+            set(twin_gate_name
+                "${twin_gate_state}_r${twin_gate_row}_c${twin_gate_column}")
+            set(twin_gate_source
+                "${console_twin_gate_asset_dir}/${twin_gate_name}.png")
+            if(NOT EXISTS "${twin_gate_source}")
+                message(FATAL_ERROR
+                    "Twin Gate quality texture is missing: ${twin_gate_source}")
+            endif()
+            execute_process(
+                COMMAND "${N64_BINDIR}/mksprite" -f CI8 -c 0
+                    -o "${console_twin_gate_sprite_dir}"
+                    "${twin_gate_source}"
+                RESULT_VARIABLE twin_gate_mksprite_status
+                OUTPUT_QUIET
+            )
+            if(NOT twin_gate_mksprite_status EQUAL 0)
+                message(FATAL_ERROR
+                    "mksprite failed for Twin Gate texture ${twin_gate_name}")
+            endif()
+            file(READ
+                "${console_twin_gate_sprite_dir}/${twin_gate_name}.sprite"
+                twin_gate_hex HEX)
+            string(LENGTH "${twin_gate_hex}" twin_gate_hex_length)
+            math(EXPR twin_gate_size "${twin_gate_hex_length} / 2")
+            math(EXPR console_twin_gate_embedded_bytes
+                "${console_twin_gate_embedded_bytes} + ${twin_gate_size}")
+            string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1,"
+                twin_gate_bytes "${twin_gate_hex}")
+            set(twin_gate_array "console_twin_gate_${twin_gate_name}")
+            string(APPEND console_twin_gate_arrays
+                "inline constexpr unsigned char ${twin_gate_array}[] = {"
+                "${twin_gate_bytes}};\n"
+                "inline constexpr std::size_t ${twin_gate_array}_size = "
+                "${twin_gate_size};\n")
+            string(APPEND console_twin_gate_pointers
+                "${twin_gate_array},")
+            string(APPEND console_twin_gate_sizes
+                "${twin_gate_array}_size,")
+        endforeach()
+    endforeach()
+endforeach()
+file(WRITE
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/console_twin_gate_quality_assets.h"
+    "// Generated from the approved Twin Gate source pair. Do not edit.\n"
+    "#pragma once\n#include <cstddef>\n${console_twin_gate_arrays}"
+    "inline constexpr int console_twin_gate_quality_state_count = 5;\n"
+    "inline constexpr int console_twin_gate_quality_tile_width = 64;\n"
+    "inline constexpr int console_twin_gate_quality_tile_height = 32;\n"
+    "inline constexpr int console_twin_gate_quality_tile_columns = 3;\n"
+    "inline constexpr int console_twin_gate_quality_tile_rows = 6;\n"
+    "inline constexpr int console_twin_gate_quality_tile_count = 18;\n"
+    "inline constexpr std::size_t console_twin_gate_quality_tile_texels = 2048;\n"
+    "inline constexpr std::size_t console_twin_gate_quality_palette_bytes = 512;\n"
+    "inline constexpr std::size_t console_twin_gate_quality_peak_tmem = 2560;\n"
+    "inline constexpr std::size_t console_twin_gate_quality_embedded_bytes = "
+    "${console_twin_gate_embedded_bytes};\n"
+    "inline constexpr const unsigned char* console_twin_gate_quality_data[] = {"
+    "${console_twin_gate_pointers}};\n"
+    "inline constexpr std::size_t console_twin_gate_quality_sizes[] = {"
+    "${console_twin_gate_sizes}};\n"
+)
+
+add_executable(
+    grandleon_n64_twin_gate_quality
+    prototype/twin_gate_quality_rom.cpp
+)
+target_link_libraries(
+    grandleon_n64_twin_gate_quality PRIVATE -lc -ldragon -lm -ldragonsys
+)
+target_include_directories(
+    grandleon_n64_twin_gate_quality
+    PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/generated"
+        "${CMAKE_SOURCE_DIR}/platform/console_quality"
+)
+target_compile_features(grandleon_n64_twin_gate_quality PRIVATE cxx_std_17)
+target_compile_options(
+    grandleon_n64_twin_gate_quality
+    PRIVATE ${GRANDLEON_WARNING_FLAGS} -fno-exceptions -fno-rtti
+)
+target_link_options(
+    grandleon_n64_twin_gate_quality
+    PRIVATE
+        "-Wl,-Map=$<TARGET_FILE_DIR:grandleon_n64_twin_gate_quality>/grandleon_n64_twin_gate_quality.map"
+)
+set_target_properties(
+    grandleon_n64_twin_gate_quality
+    PROPERTIES OUTPUT_NAME grandleon_n64_twin_gate_quality SUFFIX ".elf"
+)
+grandleon_package_rom(
+    grandleon_n64_twin_gate_quality grandleon_n64_twin_gate_quality.z64
+    "Twin Gate quality"
 )
 
 # Three approved full-frame combat plates, tiled so each CI4 upload fits TMEM.

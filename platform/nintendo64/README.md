@@ -63,6 +63,32 @@ and footer badges use the controller's A, B, Z, and START labels.
 The campaign ROM itself is what release testing exercises. It is not paired
 with a separate renderer demo.
 
+### Twin Gate quality proof
+
+The opt-in Twin Gate proof tests a larger architectural step before it reaches
+the campaign renderer. It renders Steel and Cedar's real 20×14 map and exact
+connected 6×6 keep in a fixed isometric view, then shows the exterior,
+threshold opening and revealed room with the authored unit roles. A matched
+flat-board frame makes the change easy to judge on the same map rather than
+against a hand-picked unrelated scene.
+
+```sh
+cmake --build build --target grandleon_n64_twin_gate_quality_check
+```
+
+The proof uses one resident CI4 terrain atlas, bilinear-filtered shaded
+triangles, visible elevation sides, filtered character cutouts and an original
+CI8 landmark derived from the approved Godot keep plates. The keep streams in
+64×32 tiles: each tile uses the CI8 texture bank's full 2,048 bytes while its
+512-byte palette occupies the TLUT bank. The checked ares run measured a
+16,467 μs worst frame (60 fps), 242,640 embedded keep bytes and a 573,440-byte
+ROM. Captures and the full hardware log are written under
+`build-n64-twin-gate-quality/ares/`.
+
+This is a renderer candidate, not a second campaign mode. Production remains
+unchanged until the native captures are reviewed and the same architecture is
+wired to live camera, selection and visibility state.
+
 North/south board frames are already packaged outside the executable at
 `rom:/art/directional.gdb`. They are not selected by the production renderer
 yet: keeping that switch off means this preparation adds cartridge bytes but
