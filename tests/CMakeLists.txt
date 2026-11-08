@@ -1369,20 +1369,9 @@ add_test(
         -P "${CMAKE_CURRENT_BINARY_DIR}/game_demo_test.cmake"
 )
 
-# The Nintendo 64 conformance run needs a container runtime and builds a
-# libdragon toolchain and ares from source on first use, which takes
-# tens of minutes. It is therefore opt-in rather than part of the default gate;
-# `cmake --build build --target grandleon_n64_check` does the same thing without
-# reconfiguring.
-#
-# Opt-in is the right default and stays: a contributor with no container runtime
-# would otherwise get failures that say nothing about their change, and an hour
-# of emulator compilation before they got them. What was wrong was that it was
-# silent. A default `ctest -R nintendo64` printed "No tests were found!!!" and
-# exited 0, which reads exactly like a console gate that ran and passed. Two
-# things fix that: `scripts/local-ci.sh` passes `--no-tests=error`, so a filter
-# matching nothing is a failure, and the configure says out loud which lanes it
-# left out.
+# The accurate-emulator Nintendo 64 gate is opt-in because its pinned
+# toolchain and ares image are substantial. One lane builds and boots both the
+# demo and Steel and Cedar through the same generic export used by creators.
 if(GRANDLEON_N64_TESTS)
     configure_file(
         cmake/nintendo64_test.cmake.in
@@ -1396,91 +1385,11 @@ if(GRANDLEON_N64_TESTS)
             -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_test.cmake"
     )
     set_tests_properties(grandleon.nintendo64 PROPERTIES TIMEOUT 3600)
-
-    configure_file(
-        cmake/nintendo64_probe_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_probe_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_play
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_probe_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_play PROPERTIES TIMEOUT 3600
-    )
-
-    configure_file(
-        cmake/nintendo64_autopilot_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_autopilot_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_autopilot
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_autopilot_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_autopilot PROPERTIES TIMEOUT 3600
-    )
-
-    configure_file(
-        cmake/nintendo64_coop_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_coop_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_coop
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_coop_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_coop PROPERTIES TIMEOUT 3600
-    )
-
-    configure_file(
-        cmake/nintendo64_campaign_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_campaign_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_campaign
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_campaign_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_campaign PROPERTIES TIMEOUT 3600
-    )
-
-    # Boot a ROM built for a *different* game and require the
-    # machine to say which game it is running. Host checks structurally cannot
-    # make that claim: a template that patches cleanly and runs the wrong game
-    # satisfies every one of them, byte identity included, so this lane is a
-    # boot rather than a comparison.
-    configure_file(
-        cmake/nintendo64_other_game_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_other_game_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_other_game
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_other_game_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_other_game PROPERTIES TIMEOUT 3600
-    )
 else()
     message(
         STATUS
-        "ctest holds no Nintendo 64 lane: -DGRANDLEON_N64_TESTS=ON adds seven, "
-        "or scripts/local-ci.sh --n64 runs every check without reconfiguring"
+        "ctest holds no Nintendo 64 lane: -DGRANDLEON_N64_TESTS=ON adds the "
+        "generic demo + Steel Pyrite export gate"
     )
 endif()
 

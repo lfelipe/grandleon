@@ -22,6 +22,8 @@ install -m 0644 "${source}" "${work}/project.json"
 if [ "${target}" = nintendo64 ]; then
     export N64_INST=/n64_toolchain
     export PATH="${N64_INST}/bin:${PATH}"
+    export GRANDLEON_PYRITE_N64_INST="${N64_INST}"
+    export GRANDLEON_PYRITE_CLI=/opt/pyrite64/usr/bin/pyrite64
 else
     export NUGGET=/nugget
     export LIBSTDCXX_SOURCE=/libstdcxx
@@ -51,19 +53,15 @@ write_result() {
 }
 
 build_nintendo64() {
-    cmake -S /src -B "${work}/target" \
-        -DCMAKE_TOOLCHAIN_FILE=/src/cmake/toolchains/Nintendo64.cmake \
-        -DCMAKE_BUILD_TYPE= \
-        -DGRANDLEON_N64=ON \
-        -DGRANDLEON_BUILD_TESTS=OFF \
-        -DGRANDLEON_WERROR=ON \
-        -DGRANDLEON_STAGE_PICKER=OFF \
-        -DGRANDLEON_N64_PROJECT="${work}/project.json"
-    cmake --build "${work}/target" --parallel "${parallel}" \
-        --target grandleon_n64_campaign
-    install -m 0644 \
-        "${work}/target/platform/nintendo64/grandleon_n64_campaign.z64" \
-        "${output}/game.z64"
+    /src/platform/nintendo64/pyrite/scripts/build.sh \
+        /src "${work}/pyrite" "${work}/project.json"
+    source_rom="${work}/pyrite/project/grandleon_pyrite_game.z64"
+    identity="$(dd if="${source_rom}" bs=1 skip=32 count=20 status=none | tr -d '\000')"
+    [ "${identity}" = 'Grandleon Pyrite Gam' ] || {
+        echo "Nintendo 64 builder produced the wrong renderer: ${identity}" >&2
+        exit 65
+    }
+    install -m 0644 "${source_rom}" "${output}/game.z64"
     write_result "${output}/game.z64"
 }
 

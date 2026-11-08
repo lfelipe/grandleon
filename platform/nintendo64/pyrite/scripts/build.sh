@@ -25,8 +25,16 @@ host_cxx=${CXX:-c++}
 "$output_dir/board_camera_test"
 
 . "$package_root/versions.env"
-pyrite_cli=$($package_root/scripts/fetch-pyrite.sh \
-    "$package_root" "$output_dir/cache")
+if [ -n "${GRANDLEON_PYRITE_CLI:-}" ]; then
+    pyrite_cli=$(CDPATH= cd -- "$(dirname -- "$GRANDLEON_PYRITE_CLI")" && pwd)/$(basename -- "$GRANDLEON_PYRITE_CLI")
+    test -x "$pyrite_cli" || {
+        echo "Nintendo 64 export refused: pinned Pyrite CLI is unavailable: $pyrite_cli" >&2
+        exit 1
+    }
+else
+    pyrite_cli=$($package_root/scripts/fetch-pyrite.sh \
+        "$package_root" "$output_dir/cache")
+fi
 
 if [ -n "${GRANDLEON_PYRITE_N64_INST:-}" ]; then
     n64_inst=$(CDPATH= cd -- "$GRANDLEON_PYRITE_N64_INST" && pwd)
@@ -74,6 +82,7 @@ N64_INST="$n64_inst" cmake --build "$n64_build" --parallel \
 export N64_INST="$n64_inst"
 export GRANDLEON_REPO="$repo_root"
 export GRANDLEON_N64_BUILD="$n64_build"
+printf '%s\n' 'N64_RENDERER pyrite-tiny3d fallback=none'
 "$pyrite_cli" --cli --cmd build "$output_dir/project/project.p64proj"
 
 rom="$output_dir/project/grandleon_pyrite_game.z64"

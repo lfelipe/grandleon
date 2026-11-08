@@ -36,19 +36,19 @@ option(
     "Treat engine and tool compiler warnings as errors"
     OFF
 )
-# Set by platform/nintendo64/scripts/build-n64.sh together with
-# cmake/toolchains/Nintendo64.cmake. A host build never sets it.
+# Set only while Pyrite builds the engine libraries for Nintendo 64. A host
+# build never sets it.
 option(
     GRANDLEON_N64
-    "Configure the engine libraries and the conformance ROM for the Nintendo 64"
+    "Configure the engine libraries for the Nintendo 64 Pyrite export"
     OFF
 )
-# Adds the containerised Nintendo 64 conformance run to the test suite. Off by
+# Adds the containerised Nintendo 64 project-export run to the test suite. Off by
 # default because it needs a container runtime and builds a cross toolchain and
 # an emulator from source on first use.
 option(
     GRANDLEON_N64_TESTS
-    "Run the Nintendo 64 conformance ROM as part of ctest"
+    "Build and boot the Nintendo 64 Pyrite projects as part of ctest"
     OFF
 )
 # Set by platform/playstation/scripts/build-playstation.sh together with

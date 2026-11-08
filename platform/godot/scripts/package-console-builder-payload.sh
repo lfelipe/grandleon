@@ -48,12 +48,28 @@ pin() {
     }" "${file}"
 }
 if [[ "${target}" == nintendo64 ]]; then
-    revision="$(pin "${repo_root}/cmake/GrandleonNintendo64.cmake" GRANDLEON_LIBDRAGON_COMMIT)"
-    [[ "${revision}" =~ ^[0-9a-f]{40}$ ]] || {
-        echo "could not read the pinned libdragon revision" >&2
+    # shellcheck disable=SC1091 # repository-owned immutable pin file
+    source "${repo_root}/platform/nintendo64/pyrite/versions.env"
+    revision="${LIBDRAGON_REVISION}"
+    tiny3d_revision="${TINY3D_REVISION}"
+    pyrite_version="${PYRITE_VERSION}"
+    [[ "${revision}" =~ ^[0-9a-f]{40}$ ]] \
+        && [[ "${tiny3d_revision}" =~ ^[0-9a-f]{40}$ ]] \
+        && [[ "${pyrite_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+        echo "could not read the pinned Nintendo 64 renderer revisions" >&2
         exit 65
     }
-    image="grandleon/n64-toolchain:${revision}"
+    image="grandleon/n64-pyrite-builder:${revision:0:8}-t3d-${tiny3d_revision:0:8}"
+    if ! docker image inspect "${image}" >/dev/null 2>&1; then
+        docker build \
+            --file "${repo_root}/platform/nintendo64/pyrite/toolchain/Containerfile" \
+            --build-arg "LIBDRAGON_REVISION=${revision}" \
+            --build-arg "TINY3D_REVISION=${tiny3d_revision}" \
+            --tag "${image}" \
+            "${repo_root}/platform/nintendo64/pyrite/toolchain"
+    fi
+    toolchain_licenses=/GRANDLEON_PYRITE_TOOLCHAIN_LICENSES.tar.xz
+    toolchain_components=/GRANDLEON_PYRITE_TOOLCHAIN_COMPONENTS.tsv
     executable=build-rom
 else
     digest="$(pin "${repo_root}/cmake/GrandleonPlayStation.cmake" GRANDLEON_PCSX_REDUX_BUILD_DIGEST)"
@@ -66,10 +82,12 @@ else
         exit 65
     }
     image="grandleon/playstation-toolchain:${digest#sha256:}"
+    toolchain_licenses=/GRANDLEON_TOOLCHAIN_LICENSES.tar.xz
+    toolchain_components=/GRANDLEON_TOOLCHAIN_COMPONENTS.tsv
     executable=build-disc
 fi
 if ! docker run --rm "${image}" /bin/sh -c \
-    'test -s /GRANDLEON_TOOLCHAIN_LICENSES.tar.xz && test -s /GRANDLEON_TOOLCHAIN_COMPONENTS.tsv'; then
+    "test -s ${toolchain_licenses} && test -s ${toolchain_components}"; then
     echo "the cached toolchain image predates its required license bundle; rebuild it" >&2
     exit 65
 fi
@@ -78,8 +96,9 @@ image_value() {
     docker run --rm "${image}" cat "$1" | tr -d '\r\n'
 }
 if [[ "${target}" == nintendo64 ]]; then
-    [[ "$(image_value /n64_toolchain/LIBDRAGON_COMMIT)" == "${revision}" ]] || {
-        echo "the cached Nintendo 64 image does not match its pinned revision" >&2
+    [[ "$(image_value /n64_toolchain/LIBDRAGON_COMMIT)" == "${revision}" ]] \
+        && [[ "$(image_value /n64_toolchain/TINY3D_COMMIT)" == "${tiny3d_revision}" ]] || {
+        echo "the cached Nintendo 64 image does not match its pinned revisions" >&2
         exit 65
     }
 else
@@ -100,6 +119,16 @@ cleanup() {
 trap cleanup EXIT
 payload="${temp}/payload"
 mkdir -p "${payload}"
+if [[ "${target}" == nintendo64 ]]; then
+    command -v curl >/dev/null
+    command -v unzip >/dev/null
+    pyrite_cli="$(
+        "${repo_root}/platform/nintendo64/pyrite/scripts/fetch-pyrite.sh" \
+            "${repo_root}/platform/nintendo64/pyrite" "${temp}/pyrite-cache"
+    )"
+    pyrite_root="${pyrite_cli%/usr/bin/pyrite64}"
+    [[ -x "${pyrite_root}/usr/bin/pyrite64" ]] || exit 65
+fi
 git -C "${repo_root}" archive --format=tar HEAD > "${temp}/source.tar"
 source_revision="$(git -C "${repo_root}" rev-parse HEAD)"
 container="$(docker create --env "GRANDLEON_SOURCE_REVISION=${source_revision}" \
@@ -116,6 +145,9 @@ container="$(docker create --env "GRANDLEON_SOURCE_REVISION=${source_revision}" 
     : > /etc/resolv.conf
 ')"
 docker cp "${temp}/source.tar" "${container}:/tmp/grandleon-source.tar"
+if [[ "${target}" == nintendo64 ]]; then
+    docker cp "${pyrite_root}" "${container}:/opt/pyrite64"
+fi
 docker start --attach "${container}"
 
 # One archive is easier for Steam to install atomically and for the Godot host
@@ -125,13 +157,20 @@ docker export "${container}" | xz -T0 -6 > "${payload}/rootfs.tar.xz"
 docker cp "${container}:/usr/share/doc" "${temp}/usr-share-doc"
 docker cp "${container}:/usr/share/common-licenses" "${temp}/common-licenses"
 docker cp "${container}:/GRANDLEON_PACKAGES.tsv" "${temp}/packages.tsv"
-docker cp "${container}:/GRANDLEON_TOOLCHAIN_LICENSES.tar.xz" \
+docker cp "${container}:${toolchain_licenses}" \
     "${temp}/toolchain-licenses.tar.xz"
-docker cp "${container}:/GRANDLEON_TOOLCHAIN_COMPONENTS.tsv" \
+docker cp "${container}:${toolchain_components}" \
     "${temp}/toolchain-components.tsv"
 mkdir -p "${temp}/toolchain-licenses"
 tar -C "${temp}/toolchain-licenses" -xJf \
     "${temp}/toolchain-licenses.tar.xz"
+if [[ "${target}" == nintendo64 ]]; then
+    mkdir -p "${temp}/toolchain-licenses/pyrite64"
+    install -m 0644 "${repo_root}/platform/nintendo64/pyrite/THIRD_PARTY.md" \
+        "${temp}/toolchain-licenses/pyrite64/NOTICE.md"
+    printf 'Pyrite64\t%s\tMIT\n' "${pyrite_version}" \
+        >> "${temp}/toolchain-components.tsv"
+fi
 mkdir -p "${temp}/busybox-static"
 install -m 0644 "${busybox_copyright}" "${temp}/busybox-static/copyright"
 tar -C "${temp}" -cJf "${payload}/THIRD_PARTY_LICENSES.tar.xz" \
@@ -174,7 +213,11 @@ python3 "${script_dir}/write-console-builder-manifest.py" \
     --executable "${executable}" --components "${temp}/components.json"
 audit_components=()
 if [[ "${target}" == nintendo64 ]]; then
-    audit_components+=(--expected-component "libdragon=${revision}")
+    audit_components+=(
+        --expected-component "libdragon=${revision}"
+        --expected-component "Tiny3D=${tiny3d_revision}"
+        --expected-component "Pyrite64=${pyrite_version}"
+    )
 else
     audit_components+=(
         --expected-component "Nugget=${nugget}"

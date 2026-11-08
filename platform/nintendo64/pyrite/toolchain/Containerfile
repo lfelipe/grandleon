@@ -5,7 +5,7 @@ ARG TINY3D_REVISION=517156d9464aaab95bf9531336d9a57624405ca7
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
-        ca-certificates cmake xz-utils \
+        ca-certificates cmake python3-numpy python3-pil xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 ENV N64_INST=/n64_toolchain

@@ -114,6 +114,10 @@ mkdir -p "${saves}"
 #                              hard way by a persistence check whose first
 #                              run passed every assertion and produced an
 #                              empty save directory.
+#   Nintendo64/ExpansionPak false
+#                              the release budget is the base 4 MB machine;
+#                              the normal gate must not gain memory from a
+#                              local emulator preference.
 #   Paths/Saves ${saves}       divert save files from the ROM directory. For
 #                              the persistence check this is a mounted host
 #                              directory, so what one process writes the next
@@ -149,6 +153,7 @@ stdbuf -oL -eL ares \
     "${input_settings[@]}" \
     --setting "Input/Defocus=Allow" \
     --setting "General/HomebrewMode=true" \
+    --setting "Nintendo64/ExpansionPak=false" \
     --setting "General/AutoSaveMemory=true" \
     --setting "Paths/Saves=${saves}/" \
     "${rom}" > "${log}" 2>&1 &
