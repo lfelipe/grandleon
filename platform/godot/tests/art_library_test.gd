@@ -445,21 +445,28 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 	}
 	var expected_directional := {
 		"archer|*|medieval|first": "medieval_archer_male",
+		"archer|*|scifi|second": "scifi_archer_female",
 		"archer|*|sengoku|first": "sengoku_archer_male",
 		"archer|*|undead|second": "undead_archer_female",
 		"beast|*|nature|second": "nature_beast_female",
 		"beast|*|scifi|first": "relay_beast",
+		"beast|*|medieval|second": "medieval_beast_female",
 		"commander|*|medieval|second": "medieval_commander_female",
+		"commander|*|nature|first": "nature_commander_male",
+		"healer|*|medieval|second": "medieval_healer_female",
 		"healer|*|mythical|first": "mythical_healer_male",
+		"healer|*|pirates|first": "pirates_healer_male",
 		"healer|*|undead|second": "undead_healer_female",
 		"knight|*|medieval|first": "medieval_knight_male",
 		"knight|*|medieval|second": "medieval_knight_female",
+		"knight|*|mythical|second": "mythical_knight_female",
 		"knight|*|scifi|first": "relay_knight",
 		"knight|*|scifi|second": "scifi_knight_female",
 		"knight|*|sengoku|first": "sengoku_knight_male",
 		"mage|*|medieval|second": "medieval_mage_female",
 		"mage|*|mythical|first": "mythical_mage_male",
 		"mage|*|mythical|second": "mythical_mage_female",
+		"mage|*|sengoku|second": "sengoku_mage_female",
 		"beast|*|nature|first": "nature_beast_male",
 		"archer|*|sengoku|second": "sengoku_archer_female",
 		"healer|*|undead|first": "undead_healer_male",
@@ -467,6 +474,7 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"rogue|*|pirates|first": "pirates_rogue_male",
 		"rogue|*|pirates|second": "pirates_rogue_female",
 		"stormcaller|*|pirates|first": "pirates_stormcaller_male",
+		"stormcaller|*|undead|first": "undead_stormcaller_male",
 	}
 	for key: String in expected:
 		_expect("%s sprite is bound" % key, bindings.has(key), true)

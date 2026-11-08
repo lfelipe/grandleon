@@ -66,10 +66,10 @@ roadmap work.
 - [x] Establish the genuine north/south art pipeline with matching team masks,
   explicit profile metadata, Godot route-driven selection, fallback behavior,
   source audits, and measured compact-console projection. The current set
-  covers 23/112 bodies across all seven styles at 191,360 bytes of projected
+  covers 31/112 bodies across all seven styles at 257,920 bytes of projected
   CI4 source payload per platform without changing current console executables.
-- [ ] Expand genuine north/south idle/walk coverage from 23/112 to the remaining
-  89 curated bodies, reviewing identity, front/back readability, team tint,
+- [ ] Expand genuine north/south idle/walk coverage from 31/112 to the remaining
+  81 curated bodies, reviewing identity, front/back readability, team tint,
   and planted walk phases for each. Enable it on N64/PS1 only after gameplay
   captures and frame/ROM gates justify the partial-coverage transition.
 
