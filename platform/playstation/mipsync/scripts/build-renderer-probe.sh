@@ -47,16 +47,51 @@ cp -R "$upstream/templates/ps1/starter/." "$stage/"
 cp "$mipsync_dir/runtime/CMakeLists.txt" "$stage/CMakeLists.txt"
 cp "$mipsync_dir/runtime/main.c" "$stage/main.c"
 cp "$mipsync_dir/runtime/scene_adapter.c" "$stage/scene_adapter.c"
+cp "$mipsync_dir/runtime/game_bridge.cpp" "$stage/game_bridge.cpp"
+cp "$mipsync_dir/runtime/game_bridge.h" "$stage/game_bridge.h"
 cp "$mipsync_dir/runtime/iso.xml" "$stage/iso.xml"
 cp "$mipsync_dir/runtime/system.cnf" "$stage/system.cnf"
 mkdir -p "$stage/generated"
 python3 "$mipsync_dir/tools/generate_scene.py" \
     "$manifest" "$repo_root" "$stage/generated"
+python3 "$mipsync_dir/tools/generate_simulation.py" \
+    "$manifest" "$stage/generated"
+normalized=$output/dependencies/psn00b
+mkdir -p "$normalized"
+for library in psxgpu psxetc psxapi; do
+    python3 "$mipsync_dir/tools/normalize_psn00b_archive.py" \
+        --ar "$PSN00BSDK_ROOT/bin/mipsel-none-elf-ar" \
+        "$PSN00BSDK_ROOT/lib/libpsn00b/release/lib${library}_exe_nogprel.a" \
+        "$normalized/lib${library}_exe_nogprel.a"
+done
 
-PATH="$PSN00BSDK_ROOT/bin:$PATH" cmake \
-    -S "$stage" -B "$build" -G Ninja \
-    "-DCMAKE_TOOLCHAIN_FILE=$PSN00BSDK_ROOT/lib/libpsn00b/cmake/sdk.cmake"
-PATH="$PSN00BSDK_ROOT/bin:$PATH" cmake --build "$build" --target iso
+output=$(CDPATH= cd -- "$output" && pwd)
+stage=$output/source
+build=$output/build
+psn00b_root=$(CDPATH= cd -- "$PSN00BSDK_ROOT" && pwd)
+docker=${GRANDLEON_DOCKER:-docker}
+image=${GRANDLEON_PLAYSTATION_TOOLCHAIN_IMAGE:-grandleon/playstation-toolchain:e8db332e2b2d035cb0bbc5aeec2c134b9daac60c6f787e91c94cf03194eb7a5b}
+command -v "$docker" >/dev/null 2>&1 || { echo "container runtime is required: $docker" >&2; exit 1; }
+"$docker" image inspect "$image" >/dev/null 2>&1 || {
+    echo "pinned Grandleon PlayStation toolchain image is missing: $image" >&2
+    exit 1
+}
+"$docker" run --rm --user "$(id -u):$(id -g)" \
+    --env HOME=/tmp \
+    --volume "$repo_root:/src:ro" \
+    --volume "$output:/work" \
+    --volume "$psn00b_root:/psn:ro" \
+    --workdir /work \
+    "$image" /bin/bash -euo pipefail -c '
+        cmake -S /work/source -B /work/build \
+            -DCMAKE_TOOLCHAIN_FILE=/src/cmake/toolchains/PlayStation.cmake \
+            -DPLAYSTATION_NUGGET=/nugget \
+            -DGRANDLEON_SOURCE_ROOT=/src \
+            -DGRANDLEON_LIBSTDCXX_TREE=/libstdcxx/tree.cc \
+            -DPSN00BSDK_ROOT=/psn \
+            -DGRANDLEON_PSN00B_ARCHIVE_ROOT=/work/dependencies/psn00b
+        cmake --build /work/build --target iso --parallel
+    '
 
 elf=$build/grandleon_mipsync.elf
 exe=$build/grandleon_mipsync.exe

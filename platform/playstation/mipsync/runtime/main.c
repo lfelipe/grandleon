@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 #include <stdint.h>
-#include <stdio.h>
 #include <hwregs_c.h>
 #include <psxapi.h>
 #include <psxgpu.h>
+#include <psxpad.h>
 
+#include "game_bridge.h"
 #include "runtime/render.h"
 #include "runtime/scene.h"
 #include "runtime/textures.h"
@@ -25,6 +26,8 @@ static char s_packets[2][PACKET_BYTES_PER_FRAME];
 static char* s_next_packet;
 static int s_buffer;
 static uint16_t s_gpu_ready_tick;
+static uint8_t s_pad_buffers[2][34];
+static uint16_t s_last_buttons = 0xffffu;
 
 static void setup_display(void) {
     ResetGraph(0);
@@ -74,11 +77,16 @@ int main(void) {
     setup_display();
     ps1_render_init(SCREEN_WIDTH, SCREEN_HEIGHT);
     ps1_textures_init();
-    printf("%s\n", k_renderer_identity);
-    printf("MIPSYNC_GRANDLEON_SCENE_READY packet_bytes=%u\n", PACKET_BYTES_PER_FRAME);
+    InitPAD(s_pad_buffers[0], 34, s_pad_buffers[1], 34);
+    StartPAD();
+    ChangeClearPAD(0);
+    grandleon_game_log_boot(PACKET_BYTES_PER_FRAME);
     TIMER_CTRL(1) = 0x0100;
     TIMER_VALUE(1) = 0;
     last_vblank = VSync(-1);
+    if (!grandleon_game_init()) {
+        grandleon_game_log_boot(0);
+    }
 
     for (;;) {
         const uint16_t frame_start = (uint16_t)TIMER_VALUE(1);
@@ -87,11 +95,21 @@ int main(void) {
         uint16_t render_start;
         uint16_t render_ticks;
         uint16_t ready_ticks;
+        uint16_t pressed = 0;
+        PADTYPE* pad = (PADTYPE*)s_pad_buffers[0];
         last_vblank = current_vblank;
         if (frame >= 60) {
             if (elapsed > 1) missed_vblanks += (uint32_t)(elapsed - 1);
             if (elapsed > maximum_elapsed) maximum_elapsed = elapsed;
         }
+
+        if (!pad->stat && (
+                pad->type == PAD_ID_DIGITAL || pad->type == PAD_ID_ANALOG_STICK ||
+                pad->type == PAD_ID_ANALOG)) {
+            pressed = (uint16_t)(s_last_buttons & (uint16_t)~pad->btn);
+            s_last_buttons = pad->btn;
+        }
+        grandleon_game_update(pressed);
 
         render_start = (uint16_t)TIMER_VALUE(1);
         ps1_render_frame(
@@ -111,15 +129,9 @@ int main(void) {
         }
 
         if (measured_frames == 600) {
-            printf(
-                "MIPSYNC_GRANDLEON_METRICS warmup=60 frames=%lu render_hbl_avg=%lu "
-                "render_hbl_max=%u ready_hbl_avg=%lu ready_hbl_max=%u "
-                "missed_vblanks=%lu max_elapsed_vblanks=%d\n",
-                (unsigned long)measured_frames,
-                (unsigned long)(render_total / measured_frames),
-                (unsigned)render_max,
-                (unsigned long)(ready_total / measured_frames),
-                (unsigned)ready_max, (unsigned long)missed_vblanks,
+            grandleon_game_log_metrics(
+                measured_frames, render_total / measured_frames, render_max,
+                ready_total / measured_frames, ready_max, missed_vblanks,
                 maximum_elapsed
             );
             /* Serial telemetry is intentionally outside the frame budget. */

@@ -31,6 +31,37 @@ void write_id(std::ostream& output, std::uint64_t id) {
     output << '"' << id << '"';
 }
 
+template <typename T>
+void write_numbers(std::ostream& output, const std::vector<T>& values) {
+    output << '[';
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index != 0) output << ',';
+        output << static_cast<unsigned long long>(values[index]);
+    }
+    output << ']';
+}
+
+void write_ids(std::ostream& output, const std::vector<sim::ContentId>& values) {
+    output << '[';
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index != 0) output << ',';
+        write_id(output, values[index]);
+    }
+    output << ']';
+}
+
+void write_positions(
+    std::ostream& output,
+    const std::vector<sim::Position>& values
+) {
+    output << '[';
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index != 0) output << ',';
+        output << "[" << values[index].x << ',' << values[index].y << ']';
+    }
+    output << ']';
+}
+
 bool read_file(const char* path, std::vector<std::uint8_t>& bytes) {
     std::ifstream input(path, std::ios::binary);
     if (!input) return false;
@@ -102,7 +133,7 @@ int main(int argc, char** argv) {
     }
 
     output << "{\n"
-           << "  \"schema\": \"grandleon.mipsync.scene.v1\",\n"
+           << "  \"schema\": \"grandleon.mipsync.scene.v2\",\n"
            << "  \"renderer\": \"mipsync\",\n"
            << "  \"local_players\": " << local_players << ",\n"
            << "  \"encounter_id\": ";
@@ -161,7 +192,126 @@ int main(int argc, char** argv) {
         if (index + 1 != snapshot.units.size()) output << ',';
         output << '\n';
     }
-    output << "  ]\n}\n";
+    output << "  ],\n  \"simulation\": {\n"
+           << "    \"turn_order\": "
+           << static_cast<unsigned>(loaded.definition.turn_order)
+           << ",\n    \"random_seed\": ";
+    write_id(output, loaded.definition.random_seed);
+    output << ",\n    \"movement_cost\": ";
+    write_numbers(output, loaded.definition.movement_cost);
+    output << ",\n    \"deployment_tiles\": ";
+    write_positions(output, loaded.definition.deployment_tiles);
+    output << ",\n    \"units\": [\n";
+    for (std::size_t index = 0; index < loaded.definition.units.size(); ++index) {
+        const sim::UnitDefinition& unit = loaded.definition.units[index];
+        output << "      {\"id\":";
+        write_id(output, unit.id);
+        output << ",\"unit_type_id\":";
+        write_id(output, unit.unit_type_id);
+        output << ",\"side\":" << static_cast<unsigned>(unit.side)
+               << ",\"position\":[" << unit.position.x << ',' << unit.position.y << ']'
+               << ",\"health\":" << unit.health
+               << ",\"strength\":" << unit.strength
+               << ",\"power\":" << unit.power
+               << ",\"defense\":" << unit.defense
+               << ",\"resistance\":" << unit.resistance
+               << ",\"skill\":" << unit.skill
+               << ",\"luck\":" << unit.luck
+               << ",\"evasion\":" << unit.evasion
+               << ",\"magic\":" << unit.magic
+               << ",\"movement\":" << static_cast<unsigned>(unit.movement)
+               << ",\"action_points\":" << static_cast<unsigned>(unit.action_points)
+               << ",\"speed\":" << static_cast<unsigned>(unit.speed)
+               << ",\"acts_after_attacking\":" << (unit.acts_after_attacking ? 1 : 0)
+               << ",\"minimum_reach\":" << static_cast<unsigned>(unit.minimum_reach)
+               << ",\"maximum_reach\":" << static_cast<unsigned>(unit.maximum_reach)
+               << ",\"ability_ids\":";
+        write_ids(output, unit.ability_ids);
+        output << ",\"weapon_ids\":";
+        write_ids(output, unit.weapon_ids);
+        output << ",\"crossings\":" << static_cast<unsigned>(unit.crossings)
+               << ",\"accuracy\":" << static_cast<unsigned>(unit.accuracy)
+               << ",\"item_ids\":";
+        write_ids(output, unit.item_ids);
+        output << ",\"item_counts\":";
+        write_numbers(output, unit.item_counts);
+        output << ",\"drop_item_id\":";
+        write_id(output, unit.drop_item_id);
+        output << ",\"drop_chance\":" << static_cast<unsigned>(unit.drop_chance)
+               << ",\"reach_bonus\":" << static_cast<unsigned>(unit.reach_bonus)
+               << ",\"talk_record_id\":";
+        write_id(output, unit.talk_record_id);
+        output << ",\"arrival_round\":" << unit.arrival_round
+               << ",\"arrival_every\":" << unit.arrival_every
+               << ",\"arrival_times\":" << unit.arrival_times
+               << ",\"endures\":" << (unit.endures ? 1 : 0)
+               << ",\"local_player\":" << static_cast<unsigned>(unit.local_player)
+               << '}';
+        if (index + 1 != loaded.definition.units.size()) output << ',';
+        output << '\n';
+    }
+    output << "    ],\n    \"abilities\": [";
+    for (std::size_t index = 0; index < loaded.definition.abilities.size(); ++index) {
+        const sim::AbilityDefinition& ability = loaded.definition.abilities[index];
+        if (index != 0) output << ',';
+        output << "{\"id\":";
+        write_id(output, ability.id);
+        output << ",\"kind\":" << static_cast<unsigned>(ability.kind)
+               << ",\"damage_type\":" << static_cast<unsigned>(ability.damage_type)
+               << ",\"area\":" << static_cast<unsigned>(ability.area)
+               << ",\"power\":" << ability.power
+               << ",\"minimum_reach\":" << static_cast<unsigned>(ability.minimum_reach)
+               << ",\"maximum_reach\":" << static_cast<unsigned>(ability.maximum_reach)
+               << ",\"radius\":" << static_cast<unsigned>(ability.radius)
+               << ",\"accuracy\":" << static_cast<unsigned>(ability.accuracy) << '}';
+    }
+    output << "],\n    \"objectives\": [";
+    for (std::size_t index = 0; index < loaded.definition.objectives.size(); ++index) {
+        const sim::ObjectiveDefinition& objective = loaded.definition.objectives[index];
+        if (index != 0) output << ',';
+        output << "{\"id\":";
+        write_id(output, objective.id);
+        output << ",\"kind\":" << static_cast<unsigned>(objective.kind)
+               << ",\"side\":" << static_cast<unsigned>(objective.side)
+               << ",\"target_unit_id\":";
+        write_id(output, objective.target_unit_id);
+        output << ",\"round_count\":" << objective.round_count << '}';
+    }
+    output << "],\n    \"weapons\": [";
+    for (std::size_t index = 0; index < loaded.definition.weapons.size(); ++index) {
+        const sim::WeaponDefinition& weapon = loaded.definition.weapons[index];
+        if (index != 0) output << ',';
+        output << "{\"id\":";
+        write_id(output, weapon.id);
+        output << ",\"power\":" << weapon.power
+               << ",\"minimum_reach\":" << static_cast<unsigned>(weapon.minimum_reach)
+               << ",\"maximum_reach\":" << static_cast<unsigned>(weapon.maximum_reach)
+               << ",\"accuracy\":" << static_cast<unsigned>(weapon.accuracy)
+               << ",\"weapon_type\":";
+        write_id(output, weapon.weapon_type);
+        output << '}';
+    }
+    output << "],\n    \"weapon_types\": [";
+    for (std::size_t index = 0; index < loaded.definition.weapon_types.size(); ++index) {
+        const sim::WeaponTypeDefinition& type = loaded.definition.weapon_types[index];
+        if (index != 0) output << ',';
+        output << "{\"id\":";
+        write_id(output, type.id);
+        output << ",\"strong_against\":";
+        write_ids(output, type.strong_against);
+        output << ",\"damage\":" << type.damage
+               << ",\"accuracy\":" << static_cast<unsigned>(type.accuracy) << '}';
+    }
+    output << "],\n    \"items\": [";
+    for (std::size_t index = 0; index < loaded.definition.items.size(); ++index) {
+        const sim::ItemDefinition& item = loaded.definition.items[index];
+        if (index != 0) output << ',';
+        output << "{\"id\":";
+        write_id(output, item.id);
+        output << ",\"kind\":" << static_cast<unsigned>(item.kind)
+               << ",\"power\":" << item.power << '}';
+    }
+    output << "]\n  }\n}\n";
     if (!output) {
         std::cerr << "failed writing scene manifest: " << argv[4] << '\n';
         return 74;

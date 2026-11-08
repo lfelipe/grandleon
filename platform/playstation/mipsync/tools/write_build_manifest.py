@@ -61,14 +61,21 @@ def main() -> int:
     end_address = None
     for line in nm_output:
         fields = line.split()
-        if len(fields) >= 3 and fields[-1] == "_end":
+        if len(fields) >= 3 and fields[-1] in ("_end", "__heap_base"):
             end_address = int(fields[0], 16) & 0xFFFFFFFF
     if end_address is None:
-        raise ValueError("ELF has no _end symbol")
+        raise ValueError("ELF has no _end or __heap_base symbol")
 
     scene = json.loads(args.scene_metrics.read_text(encoding="utf-8"))
     audio_reserve_bytes = 65536
     renderer_probe_budget_bytes = 524288
+    stack_reserve_bytes = 32768
+    minimum_gameplay_heap_bytes = 524288
+    main_ram_bytes = 2097152
+    committed_bytes = (
+        resident_bytes + audio_reserve_bytes + stack_reserve_bytes +
+        minimum_gameplay_heap_bytes
+    )
     result = {
         "schema": "grandleon.mipsync.build.v1",
         "renderer": "mipsync",
@@ -89,17 +96,22 @@ def main() -> int:
             "end_address": f"0x{end_address:08x}",
             "renderer_probe_budget_bytes": renderer_probe_budget_bytes,
             "platform_audio_reserve_bytes": audio_reserve_bytes,
+            "stack_reserve_bytes": stack_reserve_bytes,
+            "minimum_gameplay_heap_bytes": minimum_gameplay_heap_bytes,
+            "main_ram_bytes": main_ram_bytes,
             "renderer_and_audio_reserve_bytes": resident_bytes + audio_reserve_bytes,
-            "passes_probe_budget": (
+            "passes_renderer_only_probe_budget": (
                 resident_bytes + audio_reserve_bytes <= renderer_probe_budget_bytes
             ),
+            "playable_slice_committed_bytes": committed_bytes,
+            "passes_playable_slice_budget": committed_bytes <= main_ram_bytes,
         },
         "scene": scene,
     }
-    if not result["main_ram"]["passes_probe_budget"]:
+    if not result["main_ram"]["passes_playable_slice_budget"]:
         raise ValueError(
-            "renderer plus platform-audio reserve exceeds 524288-byte gate: "
-            f"{resident_bytes} + {audio_reserve_bytes}"
+            "simulation, renderer, platform-audio, stack and minimum heap "
+            f"exceed PS1 main RAM: {committed_bytes} > {main_ram_bytes}"
         )
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(

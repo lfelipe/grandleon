@@ -14,7 +14,7 @@ import math
 from pathlib import Path
 import struct
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
 TERRAIN_NAMES = (
@@ -66,7 +66,7 @@ def load_manifest(path: Path) -> dict[str, object]:
     document = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(document, dict):
         raise ValueError("scene manifest must be a JSON object")
-    if document.get("schema") != "grandleon.mipsync.scene.v1":
+    if document.get("schema") != "grandleon.mipsync.scene.v2":
         raise ValueError("unsupported scene manifest schema")
     if document.get("renderer") != "mipsync":
         raise ValueError("scene manifest is not marked for Mipsync")
@@ -84,6 +84,8 @@ def load_manifest(path: Path) -> dict[str, object]:
         raise ValueError("units must be an array with at most 48 entries")
     if not isinstance(surroundings, dict):
         raise ValueError("surroundings must be an object")
+    if not isinstance(document.get("simulation"), dict):
+        raise ValueError("simulation must be an object")
     for index, kind in enumerate(terrain):
         require_int(kind, f"terrain[{index}]", 0, len(TERRAIN_NAMES) - 1)
     return document
@@ -238,7 +240,7 @@ def tree_image(repo: Path) -> Image.Image:
 
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
-) -> tuple[dict[int, int], dict[tuple[int, int, int, int], int], int, dict[str, int]]:
+) -> tuple[dict[int, int], dict[tuple[int, int, int, int], int], int, int, dict[str, int]]:
     profiles_path = repo / "platform/godot/project/content/graphics_profiles.json"
     profiles = json.loads(profiles_path.read_text(encoding="utf-8"))["profiles"]["voxel-sprites"]["assets"]["characterSprites"]
     packer = TexturePacker()
@@ -271,6 +273,18 @@ def write_textures(
     textures.append(("tree_canopy", canopy, True, x, y))
     tree_index = len(textures)
 
+    ui = Image.new("RGBA", (128, 32), (12, 19, 30, 255))
+    draw = ImageDraw.Draw(ui)
+    font = ImageFont.load_default()
+    draw.rounded_rectangle(
+        (0, 0, 127, 31), radius=4, outline=(94, 206, 227, 255), width=1,
+    )
+    draw.text((5, 3), "MIPSYNC", font=font, fill=(94, 206, 227, 255))
+    draw.text((5, 17), "X MOVE   [] WAIT", font=font, fill=(247, 239, 209, 255))
+    x, y = packer.place(ui.width, ui.height)
+    textures.append(("compact_ui", ui, False, x, y))
+    ui_index = len(textures)
+
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/textures.h"', ""]
     occupied_pixels = 0
     for name, image, cutout, x, y in textures:
@@ -289,7 +303,7 @@ def write_textures(
         "texture_bytes": occupied_pixels * 2,
         "vram_reserved_bytes": TEXTURE_WIDTH * TEXTURE_HEIGHT * 2 - occupied_pixels * 2,
     }
-    return terrain_indices, unit_indices, tree_index, metrics
+    return terrain_indices, unit_indices, tree_index, ui_index, metrics
 
 
 def emit_vectors(name: str, values: list[tuple[int, int, int, int]]) -> list[str]:
@@ -312,20 +326,24 @@ def write_meshes(
         top = (height - y * 2) * 64
         bottom = top - span_y * 128
         first = len(board_vertices)
-        board_vertices.extend(((left, 0, top, 0), (right, 0, top, 0), (right, 0, bottom, 0), (left, 0, bottom, 0)))
+        # Native PS1 quads use a zig-zag vertex order: top-left, top-right,
+        # bottom-left, bottom-right.
+        board_vertices.extend(((left, 0, top, 0), (right, 0, top, 0), (left, 0, bottom, 0), (right, 0, bottom, 0)))
         if authored:
-            variant = hash_cell(x, y, seed) & 3
+            variant = hash_cell(x, y, seed) % (5 - span_x)
             u0 = variant * 32
-            u1 = u0 + 31
+            u1 = u0 + span_x * 32 - 1
         else:
             # Coarse apron chunks use more of the four-variant strip instead
             # of magnifying one 32-pixel tile across the whole horizon.
             u0 = 0
             u1 = min(127, span_x * 32 - 1)
-        board_uvs.extend(((u0, 31), (u1, 31), (u1, 0), (u0, 0)))
+        board_uvs.extend(((u0, 31), (u1, 31), (u0, 0), (u1, 0)))
         shade = 255 if authored else 210
         texture = terrain_indices[kind]
-        board_triangles.extend(((first, first + 1, first + 2, texture, shade), (first, first + 2, first + 3, texture, shade)))
+        # Mipsync's static topology cache recognizes this opposing-edge order
+        # and submits the pair as one native PS1 quad.
+        board_triangles.extend(((first, first + 1, first + 2, texture, shade), (first + 2, first + 1, first + 3, texture, shade)))
 
     billboard_vertices = [(-512, 0, 0, 0), (512, 0, 0, 0), (512, 1024, 0, 0), (-512, 1024, 0, 0)]
     billboard_uvs = [(0, 63), (63, 63), (63, 0), (0, 0)]
@@ -354,6 +372,11 @@ def write_meshes(
             (first + 3, first + 2, first, tree_texture_index, (255, 255, 255)),
         ))
 
+    cursor_vertices = [
+        (-450, 24, -450, 0), (450, 24, -450, 0),
+        (450, 24, 450, 0), (-450, 24, 450, 0),
+    ]
+
     vertex_count = len(board_vertices)
     triangle_count = len(board_triangles)
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/scene.h"', ""]
@@ -375,13 +398,22 @@ def write_meshes(
     lines.extend(("};", "", "static const ps1_mesh_tri k_board_triangles[] = {"))
     for i0, i1, i2, texture, shade in board_triangles:
         lines.append(f"    {{ .i0={i0}, .i1={i1}, .i2={i2}, .ny=4096, .shade={shade}, .color_r=255, .color_g=255, .color_b=255, .texture_index={texture} }},")
-    lines.extend(("};", "", "const ps1_mesh g_ps1_meshes[] = {",
+    lines.extend(("};", ""))
+    lines += emit_vectors("k_cursor_vertices", cursor_vertices)
+    lines += emit_vectors("k_cursor_normals", [(0, 4096, 0, 0)] * 4)
+    lines.extend((
+        "static const ps1_uv8 k_cursor_uvs[] = { {0,0}, {0,0}, {0,0}, {0,0} };",
+        "static const ps1_mesh_tri k_cursor_triangles[] = {",
+        "    { .i0=0, .i1=2, .i2=1, .ny=4096, .shade=255, .color_r=255, .color_g=225, .color_b=48 },",
+        "    { .i0=0, .i1=3, .i2=2, .ny=4096, .shade=255, .color_r=255, .color_g=225, .color_b=48 },",
+        "};", "", "const ps1_mesh g_ps1_meshes[] = {",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         "    { .verts=k_tree_vertices, .norms=k_tree_normals, .vert_count=sizeof(k_tree_vertices)/sizeof(k_tree_vertices[0]), .uvs=k_tree_uvs, .tris=k_tree_triangles, .tri_count=sizeof(k_tree_triangles)/sizeof(k_tree_triangles[0]), .scale_q12=256, .bounds_center_y=660, .bounds_radius=1000 },",
         "    { .verts=k_board_vertices, .norms=k_board_normals, .vert_count=sizeof(k_board_vertices)/sizeof(k_board_vertices[0]), .uvs=k_board_uvs, .tris=k_board_triangles, .tri_count=sizeof(k_board_triangles)/sizeof(k_board_triangles[0]), .scale_q12=4096, .bounds_radius=4096, .flags=PS1_MESH_FLAG_TERRAIN },",
+        "    { .verts=k_cursor_vertices, .norms=k_cursor_normals, .vert_count=4, .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=2, .scale_q12=256, .bounds_radius=640, .flags=PS1_MESH_FLAG_TERRAIN },",
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
-    return vertex_count, triangle_count
+    return vertex_count + 4, triangle_count + 2
 
 
 def fixed(value: float) -> int:
@@ -390,13 +422,13 @@ def fixed(value: float) -> int:
 
 def write_scene(
     output: Path, document: dict[str, object], unit_indices: dict[tuple[int, int, int, int], int],
-    tree_cells: list[tuple[int, int]], seed: int,
+    tree_cells: list[tuple[int, int]], seed: int, ui_texture_index: int,
 ) -> int:
     width = int(document["width"])
     height = int(document["height"])
     units = document["units"]
     assert isinstance(units, list)
-    lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/scene.h"', "", "static const ps1_entity k_ps1_entities[] = {",
+    lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "grandleon_scene.h"', "", "static ps1_entity k_ps1_entities[] = {",
         "    { .id=1u, .name=\"terrain_and_apron\", .parent_entity_index=-1, .scale={65536,65536,65536}, .mesh=PS1_MESH_CUSTOM, .mesh_index=3, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 },"]
     next_id = 2
     for x, y in tree_cells:
@@ -408,6 +440,7 @@ def write_scene(
             f"    {{ .id={next_id}u, .name=\"forest_tree\", .parent_entity_index=-1, .position={{{fixed(world_x)},1311,{fixed(world_z)}}}, .rotation={{0,{fixed((roll >> 8) % 180)},0}}, .scale={{{fixed(scale)},{fixed(scale)},{fixed(scale)}}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=2, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_PROP, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
         )
         next_id += 1
+    unit_entity_indices: list[int] = []
     for unit in units:
         if not isinstance(unit, dict):
             raise ValueError("every unit must be an object")
@@ -415,20 +448,67 @@ def write_scene(
         y = require_int(unit.get("y"), "unit y", 0, height - 1)
         key = (int(unit["style"]), int(unit["archetype"]), int(unit["figure"]), int(unit["colour"]))
         texture = unit_indices[key]
+        unit_entity_indices.append(next_id - 1)
         world_x = (x + 0.5 - width / 2) * 2
         world_z = (height / 2 - y - 0.5) * 2
         lines.append(
             f"    {{ .id={next_id}u, .name=\"unit\", .parent_entity_index=-1, .position={{{fixed(world_x)},2621,{fixed(world_z)}}}, .scale={{{fixed(1.35)},{fixed(1.9)},65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=1, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_index={texture}, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_CHARACTER, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
         )
         next_id += 1
-    camera_index = 1 + len(tree_cells) + len(units)
+    first_unit = next(
+        (unit for unit in units if isinstance(unit, dict) and int(unit["side"]) == 0),
+        units[0],
+    )
+    assert isinstance(first_unit, dict)
+    cursor_x = int(first_unit["x"])
+    cursor_y = int(first_unit["y"])
+    cursor_world_x = (cursor_x + 0.5 - width / 2) * 2
+    cursor_world_z = (height / 2 - cursor_y - 0.5) * 2
+    cursor_index = 1 + len(tree_cells) + len(units)
+    lines.append(
+        f"    {{ .id={next_id}u, .name=\"tactical_cursor\", .parent_entity_index=-1, .position={{{fixed(cursor_world_x)},0,{fixed(cursor_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index=4, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=225, .color_b=48, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+    )
+    next_id += 1
+    camera_index = cursor_index + 1
     camera_y = max(width, height) + 3.5
     camera_z = (height + 1) * 2.0
     lines.extend((
         f"    {{ .id={next_id}u, .name=\"clamped_board_camera\", .parent_entity_index=-1, .position={{0,{fixed(camera_y)},{fixed(camera_z)}}}, .rotation={{{fixed(-40)},0,0}}, .scale={{65536,65536,65536}}, .rigid_root_entity_index=-1, .collider_shape=-1, .has_camera=1, .camera_primary=1, .camera_fov={fixed(45)}, .camera_near={fixed(0.2)}, .camera_far={fixed(80)}, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},",
-        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", "    .fog_enabled=1, .fog_r=88, .fog_g=132, .fog_b=170,", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", "    .meshes=g_ps1_meshes, .mesh_count=3,", "};", ""))
+        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", "    .fog_enabled=1, .fog_r=88, .fog_g=132, .fog_b=170,", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", "    .meshes=g_ps1_meshes, .mesh_count=4,", "};", "",
+        "const uint64_t g_grandleon_unit_ids[] = {",
+        *(f"    {int(unit['id'])}ULL," for unit in units if isinstance(unit, dict)),
+        "};",
+        "const unsigned int g_grandleon_unit_entity_indices[] = {",
+        *(f"    {index}u," for index in unit_entity_indices),
+        "};",
+        "const unsigned int g_grandleon_unit_count = sizeof(g_grandleon_unit_ids) / sizeof(g_grandleon_unit_ids[0]);",
+        f"const unsigned int g_grandleon_cursor_entity_index = {cursor_index}u;",
+        f"const unsigned int g_grandleon_ui_texture_index = {ui_texture_index}u;",
+        "ps1_entity* grandleon_scene_mutable_entity(unsigned int index) {",
+        "    return index < g_ps1_scene.entity_count ? &k_ps1_entities[index] : 0;",
+        "}", ""))
     (output / "scene_data.c").write_text("\n".join(lines), encoding="utf-8")
-    return len(tree_cells) + len(units) + 2
+    header = """/* Generated from a real Grandleon scene manifest. Do not edit. */
+#ifndef GRANDLEON_GENERATED_SCENE_H
+#define GRANDLEON_GENERATED_SCENE_H
+#include <stdint.h>
+#include "../runtime/scene.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern const uint64_t g_grandleon_unit_ids[];
+extern const unsigned int g_grandleon_unit_entity_indices[];
+extern const unsigned int g_grandleon_unit_count;
+extern const unsigned int g_grandleon_cursor_entity_index;
+extern const unsigned int g_grandleon_ui_texture_index;
+ps1_entity* grandleon_scene_mutable_entity(unsigned int index);
+#ifdef __cplusplus
+}
+#endif
+#endif
+"""
+    (output / "grandleon_scene.h").write_text(header, encoding="utf-8")
+    return len(tree_cells) + len(units) + 3
 
 
 def main() -> int:
@@ -452,44 +532,47 @@ def main() -> int:
     for index, kind in enumerate(fixed_terrain):
         require_int(kind, f"surroundings terrain[{index}]", 0, len(TERRAIN_NAMES) - 1)
 
-    # Authored cells keep one quad each. The decorative apron is deliberately
-    # coarser: two-cell chunks around the visible edge produce the same soft
-    # continuation without paying tactical-map triangle density outside play.
     cells: list[tuple[int, int, int, bool, int, int]] = []
+    # Coalesce horizontal runs of authored terrain. The PS1 can draw a strip
+    # with the same texture in two triangles, so retaining four independent
+    # vertices and two triangles per cell only burns CPU/cache without adding
+    # detail. Runs stop at four cells because each terrain strip contains four
+    # authored 32-pixel variants.
     for y in range(height):
-        for x in range(width):
-            cells.append((x, y, terrain[y * width + x], True, 1, 1))
+        x = 0
+        while x < width:
+            kind = terrain[y * width + x]
+            span = 1
+            while (
+                span < 4 and x + span < width
+                and terrain[y * width + x + span] == kind
+            ):
+                span += 1
+            cells.append((x, y, kind, True, span, 1))
+            x += span
     if depth:
         horizontal_chunk = math.ceil((width + depth * 2) / 2)
         for y in (-depth, height):
-            span_y = depth
             for x in range(-depth, width + depth, horizontal_chunk):
                 span_x = min(horizontal_chunk, width + depth - x)
-                kind = apron_kind(
-                    terrain, width, height, x, y, policy, fixed_terrain,
-                    args.surroundings_seed,
-                )
-                cells.append((x, y, kind, False, span_x, span_y))
+                kind = apron_kind(terrain, width, height, x, y, policy, fixed_terrain, args.surroundings_seed)
+                cells.append((x, y, kind, False, span_x, depth))
         vertical_chunk = math.ceil(height / 2)
         for y in range(0, height, vertical_chunk):
             span_y = min(vertical_chunk, height - y)
             for x in (-depth, width):
-                kind = apron_kind(
-                    terrain, width, height, x, y, policy, fixed_terrain,
-                    args.surroundings_seed,
-                )
+                kind = apron_kind(terrain, width, height, x, y, policy, fixed_terrain, args.surroundings_seed)
                 cells.append((x, y, kind, False, depth, span_y))
 
     units = document["units"]
     assert isinstance(units, list)
     typed_units = [unit for unit in units if isinstance(unit, dict)]
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
-    terrain_indices, unit_indices, tree_texture, texture_metrics = write_textures(
+    terrain_indices, unit_indices, tree_texture, ui_texture, texture_metrics = write_textures(
         output, repo, all_kinds, typed_units,
     )
     board_vertices, board_triangles = write_meshes(
-        output, cells, width, height, terrain_indices, tree_texture,
-        args.surroundings_seed,
+        output, cells, width, height, terrain_indices, tree_texture, args.surroundings_seed,
     )
     tree_cells = []
     for y in range(height):
@@ -505,13 +588,14 @@ def main() -> int:
                 for xx, yy in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
                 if 0 <= xx < width and 0 <= yy < height and terrain[yy * width + xx] == 2
             ]
-            # One local minimum represents each adjacent cluster. A solitary
-            # forest cell keeps the tree silhouettes painted into its terrain
-            # texture (the far LOD), while connected forest earns a volumetric
-            # prop. This avoids a wall of identical geometry and is stable.
             if neighbours > 0 and hash_cell(x, y, args.surroundings_seed) <= min(nearby_hashes):
                 tree_cells.append((x, y))
-    entities = write_scene(output, document, unit_indices, tree_cells, args.surroundings_seed)
+    # Keep board-scale landmarks sparse enough for 60 Hz while retaining one
+    # deterministic volume cluster per roughly sixteen tactical cells.
+    tree_budget = max(1, (width * height + 15) // 16)
+    tree_cells.sort(key=lambda cell: hash_cell(cell[0], cell[1], args.surroundings_seed))
+    tree_cells = tree_cells[:tree_budget]
+    entities = write_scene(output, document, unit_indices, tree_cells, args.surroundings_seed, ui_texture)
     cache_vertices = board_vertices + len(tree_cells) * 16 + len(units) * 4
     cache_triangles = board_triangles + len(tree_cells) * 12 + len(units) * 2
     if cache_vertices > MAX_CACHE_VERTICES or cache_triangles > MAX_CACHE_TRIANGLES:
@@ -520,20 +604,13 @@ def main() -> int:
             f"{cache_triangles}/{MAX_CACHE_TRIANGLES} triangles; production paging must split this view"
         )
     metadata = {
-        "schema": "grandleon.mipsync.generated.v1",
-        "renderer": "mipsync",
+        "schema": "grandleon.mipsync.generated.v2", "renderer": "mipsync",
         "map": {"width": width, "height": height},
-        "surroundings": {
-            "policy": policy, "seed": args.surroundings_seed, "visible_depth": depth,
-            "authored_depth": requested_depth,
-        },
+        "surroundings": {"policy": policy, "seed": args.surroundings_seed, "visible_depth": depth, "authored_depth": requested_depth},
         "entities": entities,
-        "cache": {
-            "vertices": cache_vertices, "vertex_limit": MAX_CACHE_VERTICES,
-            "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TRIANGLES,
-        },
+        "cache": {"vertices": cache_vertices, "vertex_limit": MAX_CACHE_VERTICES, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TRIANGLES},
         "vram": texture_metrics,
-        "camera": {"clamp": "playable_bounds", "static_probe": True},
+        "camera": {"clamp": "playable_bounds", "static_probe": False},
     }
     (output / "scene-metrics.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     print(
@@ -549,4 +626,3 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise SystemExit(f"generate_scene.py: {error}") from error
-

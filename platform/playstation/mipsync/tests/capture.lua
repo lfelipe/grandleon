@@ -11,9 +11,10 @@ listener = PCSX.Events.createEventListener('GPU::Vsync', function()
     output:writeMoveSlice(shot.data)
     output:close()
   end
-  -- The renderer emits its 600-frame budget result after roughly 1,000 GPU
-  -- VSync callbacks. Leave enough room for the serial line to flush.
-  if frame == 1200 then
+  -- BIOS/disc boot consumes a variable number of retraces before the runtime's
+  -- own 600-frame budget window begins. Leave enough room for the serial line
+  -- to flush on the pinned interpreter build.
+  if frame == 1800 then
     PCSX.quit(0)
   end
 end)
